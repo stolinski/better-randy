@@ -15,7 +15,7 @@
 		requestCanvasPaint,
 		setCanvasPaintHandler
 	} from './html-in-canvas';
-	import { Timeline } from './timeline.svelte';
+	import { Timeline, type TimelineSelection } from './timeline.svelte';
 	import type { Tool, ToolPipeline } from './tool';
 
 	interface Props {
@@ -23,13 +23,15 @@
 		sourceElement?: HTMLElement | null;
 		source: Snippet;
 		controlsPanel: Snippet;
+		trackInspector?: Snippet<[TimelineSelection]>;
 	}
 
 	let {
 		tool,
 		sourceElement = $bindable(null),
 		source,
-		controlsPanel
+		controlsPanel,
+		trackInspector
 	}: Props = $props();
 
 	let canvas = $state<HTMLCanvasElement | null>(null);
@@ -217,10 +219,14 @@
 
 	{#snippet controls()}
 		<ControlPanel id={tool.controlsId} title="Controls">
+			{#if timeline?.selection && trackInspector}
+				{@render trackInspector(timeline.selection)}
+			{/if}
 			{@render controlsPanel()}
 			<ExportPanel
 				bind:durationSeconds={tool.transport.durationSeconds}
 				bind:fps={tool.transport.fps}
+				bind:format={tool.transport.format}
 				bind:orientation={tool.transport.orientation}
 				{isExporting}
 				onexport={handleExport}

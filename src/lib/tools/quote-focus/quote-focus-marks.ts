@@ -57,14 +57,9 @@ function drawMarkerStyleMark(options: DrawQuoteMarksOptions): void {
 	};
 
 	drawAnnotationMarks({
-		colors: {
-			circle: options.color,
-			highlight: options.color,
-			strike: options.color,
-			underline: options.color
-		},
+		colorsByIndex: [options.color],
 		context: options.context,
-		intensity: options.intensity,
+		intensityByIndex: [options.intensity],
 		layouts: [annotationLayout],
 		progressByIndex: [options.progress]
 	});

@@ -2,6 +2,7 @@
 	import ToolRunner from '$lib/platform/ToolRunner.svelte';
 	import ResearchPaperCanvasSource from '$lib/tools/research-paper/ResearchPaperCanvasSource.svelte';
 	import ResearchPaperControls from '$lib/tools/research-paper/ResearchPaperControls.svelte';
+	import ResearchPaperTrackInspector from '$lib/tools/research-paper/ResearchPaperTrackInspector.svelte';
 	import { researchPaperTool } from '$lib/tools/research-paper/research-paper-tool.svelte';
 
 	let sourceElement = $state<HTMLElement | null>(null);
@@ -14,5 +15,9 @@
 
 	{#snippet controlsPanel()}
 		<ResearchPaperControls />
+	{/snippet}
+
+	{#snippet trackInspector(selection)}
+		<ResearchPaperTrackInspector {selection} />
 	{/snippet}
 </ToolRunner>

@@ -55,20 +55,15 @@
 	.video-frame {
 		align-items: center;
 		display: flex;
-		flex: 1 1 0;
 		flex-direction: column;
 		gap: var(--vs-s);
 		inline-size: 100%;
 		margin: 0;
-		min-block-size: 0;
 	}
 
 	.video-frame__fit {
-		container-type: size;
 		display: grid;
-		flex: 1 1 0;
 		inline-size: 100%;
-		min-block-size: 0;
 		place-items: center;
 	}
 
@@ -83,7 +78,11 @@
 		background-size: 1rem 1rem;
 		border: var(--border-1);
 		border-radius: var(--br-m);
-		inline-size: min(100cqw, 76rem, calc(100cqh * var(--frame-w) / var(--frame-h)));
+		inline-size: min(
+			100cqw,
+			76rem,
+			calc((100cqh - 14rem) * var(--frame-w) / var(--frame-h))
+		);
 		overflow: hidden;
 		position: relative;
 	}

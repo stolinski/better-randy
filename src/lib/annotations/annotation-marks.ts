@@ -94,9 +94,9 @@ interface MarkerEllipseOptions {
 }
 
 export interface DrawAnnotationMarksOptions {
-	colors: AnnotationMarkColors;
+	colorsByIndex: readonly string[];
 	context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
-	intensity: number;
+	intensityByIndex: readonly number[];
 	layouts: AnnotationMarkLayout[];
 	progressByIndex: readonly number[];
 	markStyles?: readonly AnnotationMarkStyle[];
@@ -267,9 +267,9 @@ export function getAnnotationMarkLayouts(
 }
 
 export function drawAnnotationMarks({
-	colors,
+	colorsByIndex,
 	context,
-	intensity,
+	intensityByIndex,
 	layouts,
 	progressByIndex,
 	markStyles
@@ -289,12 +289,19 @@ export function drawAnnotationMarks({
 			continue;
 		}
 
-		if (layout.style === 'circle') {
-			drawCircle(context, layout.bounds, markProgress, colors.circle, intensity);
+		const color = colorsByIndex[index];
+		const intensity = clampNumber(intensityByIndex[index] ?? 0, 0, 1);
+
+		if (!color) {
 			continue;
 		}
 
-		drawFragmentedMark(context, layout, markProgress, colors, intensity);
+		if (layout.style === 'circle') {
+			drawCircle(context, layout.bounds, markProgress, color, intensity);
+			continue;
+		}
+
+		drawFragmentedMark(context, layout, markProgress, color, intensity);
 	}
 }
 
@@ -318,21 +325,21 @@ function drawFragmentedMark(
 	context: AnnotationCanvasContext,
 	layout: AnnotationMarkLayout,
 	progress: number,
-	colors: AnnotationMarkColors,
+	color: string,
 	intensity: number
 ): void {
 	for (const fragment of layout.fragments) {
 		if (layout.style === 'highlight') {
-			drawHighlight(context, fragment, progress, colors.highlight, intensity);
+			drawHighlight(context, fragment, progress, color, intensity);
 			continue;
 		}
 
 		if (layout.style === 'underline') {
-			drawUnderline(context, fragment, progress, colors.underline, intensity);
+			drawUnderline(context, fragment, progress, color, intensity);
 			continue;
 		}
 
-		drawStrike(context, fragment, progress, colors.strike, intensity);
+		drawStrike(context, fragment, progress, color, intensity);
 	}
 }
 

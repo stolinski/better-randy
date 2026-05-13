@@ -42,7 +42,7 @@
 	</section>
 
 	<aside aria-label="Annotation">
-		<span>{Math.round(researchPaperState.markIntensity * 100)}%</span>
+		<span>Annotated</span>
 	</aside>
 </article>
 

@@ -8,6 +8,24 @@ export interface TransparentVideoExportOptions {
 	onProgress?: (progress: number) => void;
 }
 
+async function canvasFrameToPng(
+	canvas: HTMLCanvasElement | OffscreenCanvas
+): Promise<Blob> {
+	if (canvas instanceof OffscreenCanvas) {
+		return canvas.convertToBlob({ type: 'image/png' });
+	}
+
+	return new Promise<Blob>((resolve, reject) => {
+		canvas.toBlob((result) => {
+			if (result) {
+				resolve(result);
+			} else {
+				reject(new Error('Failed to encode canvas frame as PNG.'));
+			}
+		}, 'image/png');
+	});
+}
+
 export async function exportTransparentWebM({
 	canvas,
 	durationSeconds,
@@ -52,6 +70,49 @@ export async function exportTransparentWebM({
 	}
 
 	return new Blob([target.buffer], { type: 'video/webm' });
+}
+
+export async function exportTransparentProRes({
+	canvas,
+	durationSeconds,
+	fps,
+	renderFrame,
+	onProgress
+}: TransparentVideoExportOptions): Promise<Blob> {
+	const frameCount = Math.max(1, Math.round(durationSeconds * fps));
+	const chunks: Blob[] = [];
+
+	for (let frame = 0; frame < frameCount; frame += 1) {
+		const timestamp = frame / fps;
+
+		await renderFrame(frame, timestamp);
+		chunks.push(await canvasFrameToPng(canvas));
+		onProgress?.((frame + 1) / frameCount);
+
+		if (frame % fps === fps - 1) {
+			await new Promise<void>((resolve) => {
+				requestAnimationFrame(() => resolve());
+			});
+		}
+	}
+
+	// Chrome rejects fetch() with a ReadableStream body unless the connection is
+	// HTTP/2; Vite's dev server is HTTP/1.1. Buffer the PNGs into a Blob so the
+	// upload uses the browser's normal body handling.
+	const body = new Blob(chunks, { type: 'application/octet-stream' });
+	const response = await fetch(`/api/export/prores?fps=${fps}`, {
+		method: 'POST',
+		body,
+		headers: { 'Content-Type': 'application/octet-stream' }
+	});
+
+	if (!response.ok) {
+		const text = await response.text();
+
+		throw new Error(text || `ProRes export failed with status ${response.status}.`);
+	}
+
+	return response.blob();
 }
 
 export function downloadVideoBlob(blob: Blob, filename: string): void {

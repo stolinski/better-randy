@@ -7,12 +7,18 @@ export interface TimelineOptions {
 	tick: TimelineTick;
 }
 
+export interface TimelineSelection {
+	trackId: string;
+	transitionId: string | null;
+}
+
 export class Timeline {
 	time = $state(0);
 	isPlaying = $state(false);
 	durationSeconds = $state(0);
 	fps = $state(30);
 	loop = $state(true);
+	selection = $state<TimelineSelection | null>(null);
 
 	#tick: TimelineTick;
 	#rafId: number | null = null;
@@ -67,6 +73,18 @@ export class Timeline {
 		} else {
 			this.play();
 		}
+	}
+
+	selectTrack(trackId: string): void {
+		this.selection = { trackId, transitionId: null };
+	}
+
+	selectTransition(trackId: string, transitionId: string): void {
+		this.selection = { trackId, transitionId };
+	}
+
+	clearSelection(): void {
+		this.selection = null;
 	}
 
 	dispose(): void {

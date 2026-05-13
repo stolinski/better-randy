@@ -3,6 +3,8 @@ import type { GpuHost } from './gpu-host';
 import type { TimelineTrack } from './TimelineTrackView.svelte';
 import type { VideoOrientation } from '$lib/utils/video-frame';
 
+export type ExportFormat = 'webm' | 'prores';
+
 export interface ToolPipeline {
 	uploadDom(): void;
 	render(inputs: unknown): void;
@@ -13,6 +15,7 @@ export interface ToolTransportState {
 	orientation: VideoOrientation;
 	durationSeconds: number;
 	fps: number;
+	format: ExportFormat;
 }
 
 export interface ToolPipelineFactoryOptions {

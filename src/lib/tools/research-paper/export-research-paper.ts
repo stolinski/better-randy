@@ -1,24 +1,26 @@
 import { AnimationManager } from '$lib/platform/animation-manager';
 import {
 	downloadVideoBlob,
+	exportTransparentProRes,
 	exportTransparentWebM,
 	type TransparentVideoExportOptions
 } from '$lib/platform/export-video';
+import type { ExportFormat } from '$lib/platform/tool';
 
 import {
 	buildResearchPaperAnimationManifest,
 	researchPaperAnimState
 } from './research-paper-animation.svelte';
 import type { ResearchPaperPipeline } from './research-paper-pipeline';
-import type { ResearchPaperMarkColors } from './research-paper-state.svelte';
 
 export interface ResearchPaperExportOptions extends Pick<
 	TransparentVideoExportOptions,
 	'durationSeconds' | 'fps' | 'onProgress'
 > {
 	canvas: HTMLCanvasElement;
-	markColors: ResearchPaperMarkColors;
-	markIntensity: number;
+	format: ExportFormat;
+	markColorsByIndex: readonly string[];
+	markIntensityByIndex: readonly number[];
 	pipeline: ResearchPaperPipeline;
 }
 
@@ -27,34 +29,49 @@ export async function exportResearchPaperOverlay({
 	pipeline,
 	durationSeconds,
 	fps,
-	markColors,
-	markIntensity,
+	format,
+	markColorsByIndex,
+	markIntensityByIndex,
 	onProgress
 }: ResearchPaperExportOptions): Promise<void> {
 	const exportManager = new AnimationManager();
 
 	exportManager.rebuild(buildResearchPaperAnimationManifest());
 
-	try {
-		const blob = await exportTransparentWebM({
-			canvas,
-			durationSeconds,
-			fps,
-			onProgress,
-			renderFrame: (_frame, timestamp) => {
-				const fraction = durationSeconds > 0 ? timestamp / durationSeconds : 0;
+	const renderFrame: TransparentVideoExportOptions['renderFrame'] = (_frame, timestamp) => {
+		const fraction = durationSeconds > 0 ? timestamp / durationSeconds : 0;
 
-				exportManager.progress(fraction);
-				pipeline.render({
-					animState: researchPaperAnimState,
-					markColors,
-					markIntensity,
-					timestamp
-				});
-			}
+		exportManager.progress(fraction);
+		pipeline.render({
+			animState: researchPaperAnimState,
+			markColorsByIndex,
+			markIntensityByIndex,
+			timestamp
 		});
+	};
 
-		downloadVideoBlob(blob, 'research-paper-overlay.webm');
+	try {
+		if (format === 'prores') {
+			const blob = await exportTransparentProRes({
+				canvas,
+				durationSeconds,
+				fps,
+				onProgress,
+				renderFrame
+			});
+
+			downloadVideoBlob(blob, 'research-paper-overlay.mov');
+		} else {
+			const blob = await exportTransparentWebM({
+				canvas,
+				durationSeconds,
+				fps,
+				onProgress,
+				renderFrame
+			});
+
+			downloadVideoBlob(blob, 'research-paper-overlay.webm');
+		}
 	} finally {
 		exportManager.dispose();
 	}

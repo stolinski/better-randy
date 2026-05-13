@@ -66,31 +66,43 @@ function buildTracks(): TimelineTrack[] {
 			id: 'focus',
 			label: 'Focus',
 			color: quoteFocusState.highlightColor,
-			start: quoteFocusState.animation.focusStart,
-			duration: quoteFocusState.animation.focusDuration,
-			minStart: 0,
-			maxStart: 0.95,
-			minDuration: 0.05,
-			maxDuration: 0.9,
-			onUpdate: ({ start, duration }) => {
-				quoteFocusState.animation.focusStart = start;
-				quoteFocusState.animation.focusDuration = duration;
-			}
+			transitions: [
+				{
+					id: 'enter',
+					label: 'Focus',
+					start: quoteFocusState.animation.focusStart,
+					duration: quoteFocusState.animation.focusDuration,
+					minStart: 0,
+					maxStart: 0.95,
+					minDuration: 0.05,
+					maxDuration: 0.9,
+					onUpdate: ({ start, duration }) => {
+						quoteFocusState.animation.focusStart = start;
+						quoteFocusState.animation.focusDuration = duration;
+					}
+				}
+			]
 		},
 		{
 			id: 'mark',
 			label: 'Mark',
 			color: quoteFocusState.markColor,
-			start: quoteFocusState.animation.markStart,
-			duration: quoteFocusState.animation.markDuration,
-			minStart: 0,
-			maxStart: 0.95,
-			minDuration: 0.05,
-			maxDuration: 0.9,
-			onUpdate: ({ start, duration }) => {
-				quoteFocusState.animation.markStart = start;
-				quoteFocusState.animation.markDuration = duration;
-			}
+			transitions: [
+				{
+					id: 'enter',
+					label: 'Mark',
+					start: quoteFocusState.animation.markStart,
+					duration: quoteFocusState.animation.markDuration,
+					minStart: 0,
+					maxStart: 0.95,
+					minDuration: 0.05,
+					maxDuration: 0.9,
+					onUpdate: ({ start, duration }) => {
+						quoteFocusState.animation.markStart = start;
+						quoteFocusState.animation.markDuration = duration;
+					}
+				}
+			]
 		}
 	];
 }

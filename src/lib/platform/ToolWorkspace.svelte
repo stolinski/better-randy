@@ -71,12 +71,14 @@
 		display: grid;
 		gap: var(--vs-base);
 		grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+		grid-template-rows: minmax(0, 1fr);
 		min-block-size: 0;
 	}
 
 	.tool-workspace__stage {
 		align-items: center;
 		block-size: 100%;
+		container-type: size;
 		display: flex;
 		flex-direction: column;
 		gap: var(--vs-s);

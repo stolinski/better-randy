@@ -10,6 +10,7 @@ import type {
 	ToolPipelineFactoryOptions
 } from '$lib/platform/tool';
 import type { TimelineTrack } from '$lib/platform/TimelineTrackView.svelte';
+import { clampNumber } from '$lib/utils/math';
 import { truncateMiddle } from '$lib/utils/string';
 
 import {
@@ -23,7 +24,7 @@ import {
 	type ResearchPaperRenderInputs
 } from './research-paper-pipeline';
 import {
-	DEFAULT_MARK_ANIMATION,
+	createDefaultMarkAnimation,
 	researchPaperState
 } from './research-paper-state.svelte';
 
@@ -59,8 +60,8 @@ function createPipeline(options: ToolPipelineFactoryOptions): ToolPipeline {
 function buildRenderInputs(timestamp: number): ResearchPaperRenderInputs {
 	return {
 		animState: researchPaperAnimState,
-		markColors: researchPaperState.markColors,
-		markIntensity: researchPaperState.markIntensity,
+		markColorsByIndex: researchPaperState.animation.marks.map((mark) => mark.color),
+		markIntensityByIndex: researchPaperState.animation.marks.map((mark) => mark.intensity),
 		timestamp
 	};
 }
@@ -71,47 +72,87 @@ function buildAnimationManifest(): AnimationManifest {
 
 function buildTracks(): TimelineTrack[] {
 	const parsedMarks = readParsedMarks();
+	const paper = researchPaperState.animation.paper;
 
 	const trackList: TimelineTrack[] = [
 		{
 			id: 'paper',
 			label: 'Paper',
 			color: researchPaperState.paperColor,
-			start: 0,
-			duration: researchPaperState.animation.paperEntranceDuration,
-			minStart: 0,
-			maxStart: 0,
-			minDuration: 0.1,
-			maxDuration: 0.6,
-			onUpdate: ({ duration }) => {
-				researchPaperState.animation.paperEntranceDuration = duration;
+			transitions: [
+				{
+					id: 'enter',
+					label: 'Paper in',
+					start: paper.enter.start,
+					duration: paper.enter.duration,
+					ramp: 'in',
+					minStart: 0,
+					maxStart: 0.9,
+					minDuration: 0.05,
+					maxDuration: 0.6,
+					onUpdate: ({ start, duration }) => {
+						paper.enter.start = start;
+						paper.enter.duration = duration;
+					}
+				},
+				{
+					id: 'exit',
+					label: 'Paper out',
+					start: paper.exit.start,
+					duration: paper.exit.duration,
+					ramp: 'out',
+					minStart: 0.1,
+					maxStart: 0.95,
+					minDuration: 0.05,
+					maxDuration: 0.6,
+					onUpdate: ({ start, duration }) => {
+						paper.exit.start = start;
+						paper.exit.duration = duration;
+					}
+				}
+			],
+			onTrackMove: (delta) => {
+				const nextEnterStart = clampNumber(paper.enter.start + delta, 0, 0.9);
+				const enterDelta = nextEnterStart - paper.enter.start;
+				const nextExitStart = clampNumber(paper.exit.start + enterDelta, 0.1, 0.95);
+
+				paper.enter.start = nextEnterStart;
+				paper.exit.start = nextExitStart;
 			}
 		}
 	];
 
 	parsedMarks.forEach((mark, index) => {
-		const config = researchPaperState.animation.marks[index] ?? DEFAULT_MARK_ANIMATION;
+		const config =
+			researchPaperState.animation.marks[index] ?? createDefaultMarkAnimation(mark.style);
+		const label = truncateMiddle(mark.text, 20);
 
 		trackList.push({
 			id: `mark-${index}`,
-			label: truncateMiddle(mark.text, 20),
-			color: researchPaperState.markColors[mark.style],
-			start: config.start,
-			duration: config.duration,
-			minStart: 0,
-			maxStart: 0.95,
-			minDuration: 0.05,
-			maxDuration: 0.9,
-			onUpdate: ({ start, duration }) => {
-				const target = researchPaperState.animation.marks[index];
+			label,
+			color: config.color,
+			transitions: [
+				{
+					id: 'enter',
+					label,
+					start: config.start,
+					duration: config.duration,
+					minStart: 0,
+					maxStart: 0.95,
+					minDuration: 0.05,
+					maxDuration: 0.9,
+					onUpdate: ({ start, duration }) => {
+						const target = researchPaperState.animation.marks[index];
 
-				if (!target) {
-					return;
+						if (!target) {
+							return;
+						}
+
+						target.start = start;
+						target.duration = duration;
+					}
 				}
-
-				target.start = start;
-				target.duration = duration;
-			}
+			]
 		});
 	});
 
@@ -120,15 +161,28 @@ function buildTracks(): TimelineTrack[] {
 
 function syncDerived(): void {
 	const parsedMarks = readParsedMarks();
-	const count = parsedMarks.length;
-	const current = researchPaperState.animation.marks.length;
+	const marks = researchPaperState.animation.marks;
 
-	if (count > current) {
-		for (let index = current; index < count; index += 1) {
-			researchPaperState.animation.marks.push({ ...DEFAULT_MARK_ANIMATION });
+	for (let index = 0; index < parsedMarks.length; index += 1) {
+		const parsed = parsedMarks[index];
+		const existing = marks[index];
+
+		if (!existing) {
+			marks.push(createDefaultMarkAnimation(parsed.style));
+			continue;
 		}
-	} else if (count < current) {
-		researchPaperState.animation.marks.length = count;
+
+		if (existing.style !== parsed.style) {
+			marks[index] = {
+				...createDefaultMarkAnimation(parsed.style),
+				start: existing.start,
+				duration: existing.duration
+			};
+		}
+	}
+
+	if (marks.length > parsedMarks.length) {
+		marks.length = parsedMarks.length;
 	}
 }
 
@@ -142,11 +196,10 @@ function touchDomState(): void {
 }
 
 function touchRenderState(): void {
-	researchPaperState.markIntensity;
-	researchPaperState.markColors.highlight;
-	researchPaperState.markColors.underline;
-	researchPaperState.markColors.circle;
-	researchPaperState.markColors.strike;
+	for (const mark of researchPaperState.animation.marks) {
+		mark.color;
+		mark.intensity;
+	}
 }
 
 async function exportToFile({ canvas, pipeline, onProgress }: ToolExportOptions): Promise<void> {
@@ -155,8 +208,9 @@ async function exportToFile({ canvas, pipeline, onProgress }: ToolExportOptions)
 		pipeline: pipeline as ResearchPaperPipeline,
 		durationSeconds: researchPaperState.durationSeconds,
 		fps: researchPaperState.fps,
-		markColors: researchPaperState.markColors,
-		markIntensity: researchPaperState.markIntensity,
+		format: researchPaperState.format,
+		markColorsByIndex: researchPaperState.animation.marks.map((mark) => mark.color),
+		markIntensityByIndex: researchPaperState.animation.marks.map((mark) => mark.intensity),
 		onProgress
 	});
 }

@@ -1,3 +1,4 @@
+import type { ExportFormat } from '$lib/platform/tool';
 import type { VideoOrientation } from '$lib/utils/video-frame';
 
 export type QuoteFocusFocusStyle = 'highlight' | 'magnify' | 'isolate' | 'lift-out' | 'tear-out';
@@ -72,6 +73,7 @@ export interface QuoteFocusState {
 	orientation: VideoOrientation;
 	durationSeconds: number;
 	fps: number;
+	format: ExportFormat;
 	body: string;
 	quote: string;
 	author: string;
@@ -95,6 +97,7 @@ export const quoteFocusState = $state<QuoteFocusState>({
 	orientation: 'horizontal',
 	durationSeconds: 6,
 	fps: 30,
+	format: 'webm',
 	body: `The dominant sequence transduction models are based on complex recurrent or convolutional neural networks that include an encoder and a decoder. The best performing models also connect the encoder and decoder through an attention mechanism. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely. Experiments on two machine translation tasks show these models to be superior in quality while being more parallelizable and requiring significantly less time to train.`,
 	quote: 'a new simple network architecture, the Transformer, based solely on attention mechanisms',
 	author: 'Vaswani et al.',

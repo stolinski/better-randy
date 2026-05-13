@@ -3,8 +3,7 @@ import tgpu, { d } from 'typegpu';
 import {
 	drawAnnotationMarks,
 	getAnnotationMarkLayouts,
-	type AnnotationFrameLayout,
-	type AnnotationMarkColors
+	type AnnotationFrameLayout
 } from '$lib/annotations/annotation-marks';
 import { getHtmlInCanvasQueue } from '$lib/platform/html-in-canvas';
 import type { GpuHost } from '$lib/platform/gpu-host';
@@ -24,8 +23,8 @@ const PAPER_HEIGHT_RATIO = 0.88;
 
 export interface ResearchPaperRenderInputs {
 	animState: ResearchPaperAnimState;
-	markColors: AnnotationMarkColors;
-	markIntensity: number;
+	markColorsByIndex: readonly string[];
+	markIntensityByIndex: readonly number[];
 	timestamp: number;
 }
 
@@ -48,7 +47,7 @@ interface ComputedLayout extends AnnotationFrameLayout {
 function computeLayout(
 	canvasWidth: number,
 	canvasHeight: number,
-	paperEntrance: number
+	paperVisibility: number
 ): ComputedLayout {
 	const isPortraitFrame = canvasHeight > canvasWidth;
 	const maxWidth =
@@ -59,7 +58,7 @@ function computeLayout(
 	const x = canvasWidth * 0.5 - width / 2;
 	const startY = canvasHeight + height * 0.08;
 	const endY = canvasHeight * 0.5 - height / 2;
-	const y = startY + (endY - startY) * paperEntrance;
+	const y = startY + (endY - startY) * paperVisibility;
 
 	return { x, y, width, height, canvasWidth, canvasHeight };
 }
@@ -266,18 +265,18 @@ export function createResearchPaperPipeline({
 		sourceElement.style.transform = previousTransform;
 
 		drawAnnotationMarks({
-			colors: inputs.markColors,
+			colorsByIndex: inputs.markColorsByIndex,
 			context: highlightContext,
-			intensity: inputs.markIntensity,
+			intensityByIndex: inputs.markIntensityByIndex,
 			layouts: markLayouts,
 			progressByIndex,
 			markStyles: ['highlight']
 		});
 
 		drawAnnotationMarks({
-			colors: inputs.markColors,
+			colorsByIndex: inputs.markColorsByIndex,
 			context: strokesContext,
-			intensity: inputs.markIntensity,
+			intensityByIndex: inputs.markIntensityByIndex,
 			layouts: markLayouts,
 			progressByIndex,
 			markStyles: ['underline', 'strike', 'circle']
@@ -296,7 +295,7 @@ export function createResearchPaperPipeline({
 	}
 
 	function render(inputs: ResearchPaperRenderInputs): void {
-		const layout = computeLayout(canvasWidth, canvasHeight, inputs.animState.paperEntrance);
+		const layout = computeLayout(canvasWidth, canvasHeight, inputs.animState.paperVisibility);
 		renderMarks(layout, inputs, inputs.animState.markProgresses);
 
 		uniformBuffer.write({

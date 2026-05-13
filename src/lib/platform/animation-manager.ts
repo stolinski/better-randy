@@ -5,6 +5,8 @@ export interface AnimationTweenSpec {
 	start: number;
 	duration: number;
 	ease: string;
+	from?: number;
+	to?: number;
 	onUpdate: (value: number) => void;
 }
 
@@ -12,9 +14,20 @@ export interface AnimationManifest {
 	tweens: readonly AnimationTweenSpec[];
 }
 
+function getTweenFrom(tween: AnimationTweenSpec): number {
+	return tween.from ?? 0;
+}
+
+function getTweenTo(tween: AnimationTweenSpec): number {
+	return tween.to ?? 1;
+}
+
 function computeFingerprint(manifest: AnimationManifest): string {
 	return manifest.tweens
-		.map((tween) => `${tween.key}|${tween.start}|${tween.duration}|${tween.ease}`)
+		.map(
+			(tween) =>
+				`${tween.key}|${tween.start}|${tween.duration}|${tween.ease}|${getTweenFrom(tween)}|${getTweenTo(tween)}`
+		)
 		.join(';');
 }
 
@@ -37,21 +50,28 @@ export class AnimationManager {
 		const tl = gsap.timeline({ paused: true });
 
 		for (const tween of this.#liveTweens) {
-			tween.onUpdate(0);
-
-			const target = { value: 0 };
+			const from = getTweenFrom(tween);
+			const to = getTweenTo(tween);
+			const target = { value: from };
 			const liveTween = tween;
 
 			tl.to(
 				target,
 				{
-					value: 1,
+					value: to,
 					duration: tween.duration,
 					ease: tween.ease,
 					onUpdate: () => liveTween.onUpdate(target.value)
 				},
 				tween.start
 			);
+		}
+
+		// Initialize state by writing each tween's `from`. Reverse order so the
+		// earliest-listed tween wins for any field written by multiple tweens.
+		for (let index = this.#liveTweens.length - 1; index >= 0; index -= 1) {
+			const tween = this.#liveTweens[index];
+			tween.onUpdate(getTweenFrom(tween));
 		}
 
 		tl.set({}, {}, 1);

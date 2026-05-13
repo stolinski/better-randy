@@ -1,4 +1,5 @@
-import type { AnnotationMarkColors, AnnotationMarkStyle } from '$lib/annotations/annotation-marks';
+import type { AnnotationMarkStyle } from '$lib/annotations/annotation-marks';
+import type { ExportFormat } from '$lib/platform/tool';
 import type { VideoOrientation } from '$lib/utils/video-frame';
 
 export type ResearchPaperMarkStyle = AnnotationMarkStyle;
@@ -9,8 +10,6 @@ export interface ResearchPaperFontDefinition {
 	label: string;
 	stack: string;
 }
-
-export type ResearchPaperMarkColors = AnnotationMarkColors;
 
 export const RESEARCH_PAPER_FONT_FAMILIES: Record<
 	ResearchPaperFontFamily,
@@ -41,15 +40,63 @@ export const RESEARCH_PAPER_EASES: Record<ResearchPaperEase, { label: string; gs
 	bouncy: { label: 'Bouncy', gsap: 'elastic.out(1, 0.5)' }
 };
 
+export type ResearchPaperEaseDirection = 'enter' | 'exit';
+
+export function getResearchPaperEaseGsap(
+	ease: ResearchPaperEase,
+	direction: ResearchPaperEaseDirection
+): string {
+	const base = RESEARCH_PAPER_EASES[ease].gsap;
+
+	if (direction === 'enter') {
+		return base;
+	}
+
+	return base.replace('.out', '.in');
+}
+
+export interface ResearchPaperMarkDefault {
+	color: string;
+	intensity: number;
+	ease: ResearchPaperEase;
+}
+
+export const RESEARCH_PAPER_MARK_DEFAULTS: Record<ResearchPaperMarkStyle, ResearchPaperMarkDefault> = {
+	highlight: { color: '#ffd642', intensity: 0.62, ease: 'smooth' },
+	underline: { color: '#1f5aff', intensity: 0.62, ease: 'smooth' },
+	strike: { color: '#de263a', intensity: 0.62, ease: 'smooth' },
+	circle: { color: '#de263a', intensity: 0.62, ease: 'smooth' }
+};
+
+export const RESEARCH_PAPER_EDITOR_MARK_COLORS = {
+	highlight: RESEARCH_PAPER_MARK_DEFAULTS.highlight.color,
+	underline: RESEARCH_PAPER_MARK_DEFAULTS.underline.color,
+	strike: RESEARCH_PAPER_MARK_DEFAULTS.strike.color,
+	circle: RESEARCH_PAPER_MARK_DEFAULTS.circle.color
+} as const;
+
 export interface ResearchPaperMarkAnimation {
+	style: ResearchPaperMarkStyle;
+	start: number;
+	duration: number;
+	ease: ResearchPaperEase;
+	color: string;
+	intensity: number;
+}
+
+export interface ResearchPaperPaperTransition {
 	start: number;
 	duration: number;
 	ease: ResearchPaperEase;
 }
 
+export interface ResearchPaperPaperAnimation {
+	enter: ResearchPaperPaperTransition;
+	exit: ResearchPaperPaperTransition;
+}
+
 export interface ResearchPaperAnimation {
-	paperEntranceEase: ResearchPaperEase;
-	paperEntranceDuration: number;
+	paper: ResearchPaperPaperAnimation;
 	marks: ResearchPaperMarkAnimation[];
 }
 
@@ -57,28 +104,36 @@ export interface ResearchPaperState {
 	orientation: VideoOrientation;
 	durationSeconds: number;
 	fps: number;
+	format: ExportFormat;
 	title: string;
 	sourceUrl: string;
 	body: string;
 	fontFamily: ResearchPaperFontFamily;
 	paperColor: string;
 	inkColor: string;
-	markStyle: ResearchPaperMarkStyle;
-	markIntensity: number;
-	markColors: ResearchPaperMarkColors;
 	animation: ResearchPaperAnimation;
 }
 
-export const DEFAULT_MARK_ANIMATION: ResearchPaperMarkAnimation = {
-	start: 0.34,
-	duration: 0.24,
-	ease: 'smooth'
-};
+export function createDefaultMarkAnimation(
+	style: ResearchPaperMarkStyle
+): ResearchPaperMarkAnimation {
+	const defaults = RESEARCH_PAPER_MARK_DEFAULTS[style];
+
+	return {
+		style,
+		start: 0.34,
+		duration: 0.24,
+		ease: defaults.ease,
+		color: defaults.color,
+		intensity: defaults.intensity
+	};
+}
 
 export const researchPaperState = $state<ResearchPaperState>({
 	orientation: 'horizontal',
 	durationSeconds: 6,
 	fps: 30,
+	format: 'webm',
 	title: 'Attention Is All You Need',
 	sourceUrl: 'https://arxiv.org/abs/1706.03762',
 	body: `The dominant sequence transduction models are based on complex recurrent or convolutional neural networks that include an encoder and a decoder.
@@ -89,17 +144,11 @@ Self-attention connects all positions with a constant number of sequentially exe
 	fontFamily: 'serif',
 	paperColor: '#ffffff',
 	inkColor: '#000000',
-	markStyle: 'highlight',
-	markIntensity: 0.62,
-	markColors: {
-		circle: '#de263a',
-		highlight: '#ffd642',
-		strike: '#de263a',
-		underline: '#1f5aff'
-	},
 	animation: {
-		paperEntranceEase: 'settled',
-		paperEntranceDuration: 0.28,
-		marks: [{ ...DEFAULT_MARK_ANIMATION }]
+		paper: {
+			enter: { start: 0, duration: 0.18, ease: 'settled' },
+			exit: { start: 0.82, duration: 0.18, ease: 'smooth' }
+		},
+		marks: [createDefaultMarkAnimation('highlight')]
 	}
 });
