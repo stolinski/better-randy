@@ -165,14 +165,13 @@ The dev server is **already running** at `http://localhost:5173` — do not star
 | `mcp__chrome-devtools__take_snapshot` | A11y snapshot of the live page |
 | `mcp__chrome-devtools__evaluate_script` | Inspect DOM / run probes |
 
-**Critical constraint:** the HTML-in-Canvas API (`copyElementImageToTexture` on a `layoutsubtree` canvas) is behind `chrome://flags/#canvas-draw-element` and is not present in the agent's test browser. Pixel-level visual rendering of the canvas **cannot be verified** via browser automation. The agent verifies:
+**The chrome-devtools MCP browser has `chrome://flags/#canvas-draw-element` enabled**, so the HTML-in-Canvas API (`copyElementImageToTexture` on a `layoutsubtree` canvas) is available to automation. The agent can verify both structural correctness and pixel rendering. Verification steps:
 
 - The page mounts without throwing.
 - No `state_proxy_equality_mismatch`, no other console warnings or errors.
 - The DOM structure matches expectations (a11y snapshot).
 - The canvas element has the expected dimensions and the source DOM exists.
-
-Pixel verification is a human-with-flagged-Chromium task. The acceptance criteria distinguish "structurally testable" (must pass) from "pixel-visual" (must hold but cannot be automated).
+- **Pixel rendering** of the canvas matches expectations. Capture the canvas's pixels via `mcp__chrome-devtools__take_screenshot` (or `evaluate_script` reading from `canvas.toDataURL()` / a `<canvas>.getContext('2d').getImageData(...)` debug capture) and compare against expected output. For migration parity checks, capture the same `Timeline.time` before and after a step and diff.
 
 ## The five layers
 
@@ -681,9 +680,11 @@ The body editor toolbar exposes the full annotation style set. With ~10 styles t
 
 ## Acceptance criteria
 
-Every AC is labelled **MUST**, **MUST-VISUAL** (requires flagged-Chromium pixel verification by a human), or **SHOULD** (good to have, not blocking).
+Every AC is labelled **MUST** (agent-verifiable; required to land) or **SHOULD** (good to have, not blocking; tracked as a follow-up if it fails).
 
-**Definition of Done:** every MUST passes. Every MUST-VISUAL has been observed once by a human on flagged Chromium and matches the pre-migration visual. SHOULDs are tracked as follow-ups.
+The chrome-devtools MCP browser has the HTML-in-Canvas flag enabled, so pixel-level checks are automated alongside structural ones — both go in the MUST bucket.
+
+**Definition of Done:** every MUST passes. SHOULDs are tracked as follow-ups.
 
 ### Schema and validation
 
@@ -693,24 +694,25 @@ Every AC is labelled **MUST**, **MUST-VISUAL** (requires flagged-Chromium pixel 
 - **AC-S4 (MUST)** A preset constructed by an external agent from `docs/presets/engine.schema.json` + `docs/presets/engine.md` alone, with no source-code access, loads via the `/p/<slug>` route after being dropped into `src/lib/presets/`.
 - **AC-S5 (MUST)** `docs/presets/engine.schema.json` is the freshly generated output of `scripts/export-preset-schema.ts` against the current schema (committed; CI or pre-commit verifies it is in sync).
 
-### Rendering — structurally testable
+### Rendering — structural
 
-- **AC-R1 (MUST)** Loading `/p/research-paper-attention` (or whatever it gets renamed to post-step-5) mounts the canvas, the Timeline scrubber, and the controls panel without throwing. Console clean.
-- **AC-R2 (MUST)** Loading every preset under `/p/<slug>` mounts without throwing. Console clean for each.
-- **AC-R3 (MUST)** Loading a preset whose surface is `paper` mounts the paper canvas-source HTML inside the `<canvas layoutsubtree>`. Loading a preset whose surface is `plain` mounts the plain canvas-source HTML. Selector check via `mcp__chrome-devtools__evaluate_script`.
-- **AC-R4 (MUST)** After a preset that contains an inline focal annotation (e.g. `magnify`) loads, the canvas source DOM contains exactly one `[data-annotation-mark="magnify"]` element at the location of the focal span.
-- **AC-R5 (MUST)** Adding an `Overlay` of type `lower-third` to a preset causes the lower-third overlay's HTML to be present in the canvas source DOM after the preset loads.
-- **AC-R6 (MUST)** Adding `paper-grain` to `effects.surface` and to `effects.frame` in the same preset does not throw at preset load; the rendering completes without error.
+Agent-verifiable via `evaluate_script` + a11y snapshot + console reading.
 
-### Rendering — pixel-visual
+- **AC-R1 (MUST)** Loading any preset under `/p/<slug>` mounts the canvas, the Timeline scrubber, and the controls panel without throwing. Console clean for every built-in preset.
+- **AC-R2 (MUST)** Loading a preset whose surface is `paper` mounts the paper canvas-source HTML inside the `<canvas layoutsubtree>`. Loading a preset whose surface is `plain` mounts the plain canvas-source HTML. Selector check via `mcp__chrome-devtools__evaluate_script`.
+- **AC-R3 (MUST)** After a preset that contains an inline focal annotation (e.g. `magnify`) loads, the canvas source DOM contains exactly one `[data-annotation-mark="magnify"]` element at the location of the focal span.
+- **AC-R4 (MUST)** Adding an `Overlay` of type `lower-third` to a preset causes the lower-third overlay's HTML to be present in the canvas source DOM after the preset loads.
+- **AC-R5 (MUST)** Adding `paper-grain` to `effects.surface` and to `effects.frame` in the same preset does not throw at preset load; the rendering completes without error.
 
-These can only be verified on a flagged Chromium build (per CLAUDE.md). The agent confirms structural ACs above; a human confirms pixel parity below.
+### Rendering — pixel
 
-- **AC-RV1 (MUST-VISUAL)** Each migrated preset at `/p/<slug>` renders the same canvas frame at the same `Timeline.time = 0.5 * duration` as the equivalent pre-migration preset. Compare by eye or by frame capture.
-- **AC-RV2 (MUST-VISUAL)** Two focal marks on adjacent spans render both, with decorative-under-focal stack order. (Codified by decision #3.)
-- **AC-RV3 (MUST-VISUAL)** A `paper-grain` effect on `effects.surface` is visible inside the paper card and absent outside it. The same effect on `effects.frame` covers the entire viewport.
-- **AC-RV4 (MUST-VISUAL)** A `lower-third` overlay enter/exit animates per its `Transition`. Frame stepping at the start and end of the transition shows the lower-third moving.
-- **AC-RV5 (MUST-VISUAL)** Exporting a 6-second preset to WebM and to ProRes both complete and the resulting video, played frame-by-frame, matches the preview at the same timestamps (allowing for encoder lossiness).
+Agent-verifiable via `mcp__chrome-devtools__take_screenshot` of the canvas (the chrome-devtools MCP browser has `canvas-draw-element` enabled, so the HTML-in-Canvas pipeline runs to completion).
+
+- **AC-RP1 (MUST)** Each migrated preset at `/p/<slug>` renders the same canvas frame at `Timeline.time = 0.5 * duration` as the equivalent pre-migration preset. Capture both screenshots and image-diff; the diff is below the noise floor (allow small floating-point variance in shader output, but no structural difference).
+- **AC-RP2 (MUST)** Two focal marks on adjacent spans both render, with decorative-under-focal stack order (decision #3). Visible in a screenshot of the test preset.
+- **AC-RP3 (MUST)** A `paper-grain` effect on `effects.surface` is visible inside the paper card and absent outside it. The same effect on `effects.frame` covers the entire viewport. Screenshot diff between the two configurations.
+- **AC-RP4 (MUST)** A `lower-third` overlay enter/exit animates per its `Transition`. Screenshots at `Timeline.time` values inside and outside the transition window show the lower-third in the expected position.
+- **AC-RP5 (MUST)** Exporting a 6-second preset to WebM and to ProRes both complete and the resulting video, sampled frame-by-frame via `ffmpeg` or `mediabunny` decode, matches the preview canvas at the same timestamps within the encoder's lossy tolerance.
 
 ### State and reactivity
 
@@ -809,7 +811,7 @@ Steps 1–4 and 6–8 are additive (no preset shape change). Step 5 is the one i
 
 **Verification per step 3:**
 - `npx svelte-check` clean.
-- Each existing preset (research-paper-* and quote-focus-*) renders **the same visual output** as before this step. Verify by loading the route in the dev server with HTML-in-Canvas (human verification) or by checking that canvas dimensions and DOM structure are unchanged in automation.
+- Each existing preset (research-paper-* and quote-focus-*) renders the same visual output as before this step. Capture a canvas screenshot via `mcp__chrome-devtools__take_screenshot` at `Timeline.time = 0` and at a mid-animation timestamp, both before the step starts and after it lands; image-diff. Diff should be at noise-floor level.
 - Console clean.
 
 ### Step 4 — Single composition shader + per-layer effects scaffold
