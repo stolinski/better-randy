@@ -5,6 +5,7 @@
 <main class="home stack">
 	<h1>Hiviz</h1>
 	<a href={resolve('/tools/research-paper')}>Research Paper</a>
+	<a href={resolve('/tools/quote-focus')}>Quote Focus</a>
 </main>
 
 <style>

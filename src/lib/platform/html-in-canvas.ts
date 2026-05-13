@@ -1,44 +1,30 @@
-export type HtmlInCanvas2DContext = (
-	| CanvasRenderingContext2D
-	| OffscreenCanvasRenderingContext2D
-) & {
-	drawElementImage: (
+export type HtmlInCanvasQueue = GPUQueue & {
+	copyElementImageToTexture: (
 		element: Element,
-		dx: number,
-		dy: number,
-		dwidth: number,
-		dheight: number
-	) => DOMMatrix;
+		width: number,
+		height: number,
+		destination: { texture: GPUTexture }
+	) => void;
 };
 
-export function getHtmlInCanvasContext(
-	context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
-): HtmlInCanvas2DContext {
-	const drawElementImage = context.drawElementImage;
+export function getHtmlInCanvasQueue(queue: GPUQueue): HtmlInCanvasQueue {
+	const copyElementImageToTexture = (queue as Partial<HtmlInCanvasQueue>).copyElementImageToTexture;
 
-	if (typeof drawElementImage !== 'function') {
-		throw new Error('HTML-in-Canvas drawElementImage is unavailable in this browser.');
+	if (typeof copyElementImageToTexture !== 'function') {
+		throw new Error('HTML-in-Canvas copyElementImageToTexture is unavailable in this browser.');
 	}
 
-	return context as HtmlInCanvas2DContext;
-}
-
-export function isHtmlInCanvasContext(
-	context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null
-): context is HtmlInCanvas2DContext {
-	return typeof context?.drawElementImage === 'function';
-}
-
-export function getCanvasParent(element: Element): HTMLCanvasElement {
-	const parent = element.parentElement;
-
-	if (!(parent instanceof HTMLCanvasElement)) {
-		throw new Error('HTML-in-Canvas source elements must be direct canvas children.');
-	}
-
-	return parent;
+	return queue as HtmlInCanvasQueue;
 }
 
 export function requestCanvasPaint(canvas: HTMLCanvasElement): void {
 	canvas.requestPaint?.();
+}
+
+export function setCanvasPaintHandler(canvas: HTMLCanvasElement, handler: () => void): void {
+	(canvas as HTMLCanvasElement & { onpaint: () => void }).onpaint = handler;
+}
+
+export function clearCanvasPaintHandler(canvas: HTMLCanvasElement): void {
+	(canvas as HTMLCanvasElement & { onpaint: (() => void) | null }).onpaint = null;
 }

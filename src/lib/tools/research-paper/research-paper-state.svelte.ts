@@ -1,19 +1,16 @@
+import type { AnnotationMarkColors, AnnotationMarkStyle } from '$lib/annotations/annotation-marks';
 import type { VideoOrientation } from '$lib/utils/video-frame';
 
-export type ResearchPaperMarkStyle = 'highlight' | 'circle' | 'underline' | 'strike';
+export type ResearchPaperMarkStyle = AnnotationMarkStyle;
 export type ResearchPaperFontFamily = 'serif' | 'sans' | 'mono' | 'condensed';
+export type ResearchPaperEase = 'smooth' | 'settled' | 'sharp' | 'bouncy';
 
 export interface ResearchPaperFontDefinition {
 	label: string;
 	stack: string;
 }
 
-export interface ResearchPaperMarkColors {
-	circle: string;
-	highlight: string;
-	strike: string;
-	underline: string;
-}
+export type ResearchPaperMarkColors = AnnotationMarkColors;
 
 export const RESEARCH_PAPER_FONT_FAMILIES: Record<
 	ResearchPaperFontFamily,
@@ -37,6 +34,25 @@ export const RESEARCH_PAPER_FONT_FAMILIES: Record<
 	}
 };
 
+export const RESEARCH_PAPER_EASES: Record<ResearchPaperEase, { label: string; gsap: string }> = {
+	smooth: { label: 'Smooth', gsap: 'power3.out' },
+	settled: { label: 'Settled', gsap: 'back.out(1.2)' },
+	sharp: { label: 'Sharp', gsap: 'expo.out' },
+	bouncy: { label: 'Bouncy', gsap: 'elastic.out(1, 0.5)' }
+};
+
+export interface ResearchPaperMarkAnimation {
+	start: number;
+	duration: number;
+	ease: ResearchPaperEase;
+}
+
+export interface ResearchPaperAnimation {
+	paperEntranceEase: ResearchPaperEase;
+	paperEntranceDuration: number;
+	marks: ResearchPaperMarkAnimation[];
+}
+
 export interface ResearchPaperState {
 	orientation: VideoOrientation;
 	durationSeconds: number;
@@ -50,7 +66,14 @@ export interface ResearchPaperState {
 	markStyle: ResearchPaperMarkStyle;
 	markIntensity: number;
 	markColors: ResearchPaperMarkColors;
+	animation: ResearchPaperAnimation;
 }
+
+export const DEFAULT_MARK_ANIMATION: ResearchPaperMarkAnimation = {
+	start: 0.34,
+	duration: 0.24,
+	ease: 'smooth'
+};
 
 export const researchPaperState = $state<ResearchPaperState>({
 	orientation: 'horizontal',
@@ -73,5 +96,10 @@ Self-attention connects all positions with a constant number of sequentially exe
 		highlight: '#ffd642',
 		strike: '#de263a',
 		underline: '#1f5aff'
+	},
+	animation: {
+		paperEntranceEase: 'settled',
+		paperEntranceDuration: 0.28,
+		marks: [{ ...DEFAULT_MARK_ANIMATION }]
 	}
 });

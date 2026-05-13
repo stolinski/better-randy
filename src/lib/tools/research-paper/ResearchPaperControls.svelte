@@ -1,69 +1,25 @@
 <script lang="ts">
-	import { tick } from 'svelte';
-
+	import AnnotationTextEditor from '$lib/annotations/AnnotationTextEditor.svelte';
 	import ControlGroup from '$lib/platform/ControlGroup.svelte';
-	import { wrapTextSelection } from '$lib/utils/text-selection';
 
-	import { getResearchPaperMarkDelimiters } from './research-paper-content';
 	import {
+		RESEARCH_PAPER_EASES,
 		RESEARCH_PAPER_FONT_FAMILIES,
 		researchPaperState,
+		type ResearchPaperEase,
 		type ResearchPaperFontDefinition,
-		type ResearchPaperFontFamily,
-		type ResearchPaperMarkStyle
+		type ResearchPaperFontFamily
 	} from './research-paper-state.svelte';
 
-	let bodyInput = $state<HTMLTextAreaElement | null>(null);
 	const fontFamilyOptions = Object.entries(RESEARCH_PAPER_FONT_FAMILIES) as [
 		ResearchPaperFontFamily,
 		ResearchPaperFontDefinition
 	][];
 
-	function restoreBodySelection(selectionStart: number, selectionEnd: number): void {
-		tick()
-			.then(() => {
-				bodyInput?.focus();
-				bodyInput?.setSelectionRange(selectionStart, selectionEnd);
-			})
-			.catch((error: unknown) => {
-				console.error('Unable to restore research paper body selection.', error);
-			});
-	}
-
-	function applyBodyMark(style: ResearchPaperMarkStyle): void {
-		if (!bodyInput) {
-			return;
-		}
-
-		const delimiters = getResearchPaperMarkDelimiters(style);
-		const edit = wrapTextSelection({
-			value: researchPaperState.body,
-			selectionStart: bodyInput.selectionStart,
-			selectionEnd: bodyInput.selectionEnd,
-			opener: delimiters.opener,
-			closer: delimiters.closer
-		});
-
-		researchPaperState.body = edit.value;
-		researchPaperState.markStyle = style;
-		restoreBodySelection(edit.selectionStart, edit.selectionEnd);
-	}
-
-	function handleHighlightMark(): void {
-		applyBodyMark('highlight');
-	}
-
-	function handleUnderlineMark(): void {
-		applyBodyMark('underline');
-	}
-
-	function handleStrikeMark(): void {
-		applyBodyMark('strike');
-	}
-
-	function handleCircleMark(): void {
-		applyBodyMark('circle');
-	}
+	const easeOptions = Object.entries(RESEARCH_PAPER_EASES) as [
+		ResearchPaperEase,
+		(typeof RESEARCH_PAPER_EASES)[ResearchPaperEase]
+	][];
 </script>
 
 <ControlGroup title="Document">
@@ -77,53 +33,23 @@
 		<input bind:value={researchPaperState.sourceUrl} type="url" />
 	</label>
 
-	<label class="row">
+	<div class="row">
 		<span>Body</span>
-		<div class="body-editor stack">
-			<div class="mark-toolbar cluster" aria-label="Body marks">
-				<button
-					aria-pressed={researchPaperState.markStyle === 'highlight'}
-					onclick={handleHighlightMark}
-					title="Highlight selection"
-					type="button"
-				>
-					==
-				</button>
-				<button
-					aria-pressed={researchPaperState.markStyle === 'underline'}
-					onclick={handleUnderlineMark}
-					title="Underline selection"
-					type="button"
-				>
-					U
-				</button>
-				<button
-					aria-pressed={researchPaperState.markStyle === 'strike'}
-					onclick={handleStrikeMark}
-					title="Strike selection"
-					type="button"
-				>
-					S
-				</button>
-				<button
-					aria-pressed={researchPaperState.markStyle === 'circle'}
-					onclick={handleCircleMark}
-					title="Circle selection"
-					type="button"
-				>
-					O
-				</button>
-			</div>
-			<textarea bind:this={bodyInput} bind:value={researchPaperState.body} rows="10"></textarea>
-		</div>
-	</label>
+		<AnnotationTextEditor
+			bind:activeMark={researchPaperState.markStyle}
+			bind:value={researchPaperState.body}
+			colors={researchPaperState.markColors}
+			label="Body"
+			rows={10}
+		/>
+	</div>
 </ControlGroup>
 
 <ControlGroup title="Appearance">
 	<label class="row">
 		<span>Font</span>
 		<select bind:value={researchPaperState.fontFamily}>
-			{#each fontFamilyOptions as [value, option]}
+			{#each fontFamilyOptions as [value, option] (value)}
 				<option {value}>{option.label}</option>
 			{/each}
 		</select>
@@ -167,16 +93,24 @@
 	</label>
 </ControlGroup>
 
-<style>
-	.body-editor {
-		inline-size: 100%;
-	}
+<ControlGroup title="Animation">
+	<label class="row">
+		<span>Paper ease</span>
+		<select bind:value={researchPaperState.animation.paperEntranceEase}>
+			{#each easeOptions as [value, option] (value)}
+				<option {value}>{option.label}</option>
+			{/each}
+		</select>
+	</label>
 
-	.mark-toolbar {
-		--layout-gap: var(--space-2xs);
-	}
-
-	.mark-toolbar button {
-		min-inline-size: 2.5rem;
-	}
-</style>
+	<label class="row">
+		<span>Paper in</span>
+		<input
+			bind:value={researchPaperState.animation.paperEntranceDuration}
+			max="0.6"
+			min="0.1"
+			step="0.01"
+			type="range"
+		/>
+	</label>
+</ControlGroup>

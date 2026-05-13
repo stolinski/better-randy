@@ -75,9 +75,12 @@
 	}
 
 	.tool-workspace__stage {
-		display: grid;
+		align-items: center;
+		block-size: 100%;
+		display: flex;
+		flex-direction: column;
+		gap: var(--vs-s);
 		min-block-size: 0;
-		place-items: center;
 	}
 
 	@media (max-width: 900px) {

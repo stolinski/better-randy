@@ -1,10 +1,15 @@
+import { AnimationManager } from '$lib/platform/animation-manager';
 import {
 	downloadVideoBlob,
 	exportTransparentWebM,
 	type TransparentVideoExportOptions
 } from '$lib/platform/export-video';
 
-import { renderResearchPaperFrame } from './research-paper-renderer';
+import {
+	buildResearchPaperAnimationManifest,
+	researchPaperAnimState
+} from './research-paper-animation.svelte';
+import type { ResearchPaperPipeline } from './research-paper-pipeline';
 import type { ResearchPaperMarkColors } from './research-paper-state.svelte';
 
 export interface ResearchPaperExportOptions extends Pick<
@@ -14,35 +19,43 @@ export interface ResearchPaperExportOptions extends Pick<
 	canvas: HTMLCanvasElement;
 	markColors: ResearchPaperMarkColors;
 	markIntensity: number;
-	sourceElement: HTMLElement;
+	pipeline: ResearchPaperPipeline;
 }
 
 export async function exportResearchPaperOverlay({
 	canvas,
+	pipeline,
 	durationSeconds,
 	fps,
 	markColors,
 	markIntensity,
-	onProgress,
-	sourceElement
+	onProgress
 }: ResearchPaperExportOptions): Promise<void> {
-	const blob = await exportTransparentWebM({
-		canvas,
-		durationSeconds,
-		fps,
-		onProgress,
-		renderFrame: (_frame, timestamp, context) => {
-			renderResearchPaperFrame({
-				canvas,
-				context,
-				durationSeconds,
-				markColors,
-				markIntensity,
-				sourceElement,
-				timestamp
-			});
-		}
-	});
+	const exportManager = new AnimationManager();
 
-	downloadVideoBlob(blob, 'research-paper-overlay.webm');
+	exportManager.rebuild(buildResearchPaperAnimationManifest());
+
+	try {
+		const blob = await exportTransparentWebM({
+			canvas,
+			durationSeconds,
+			fps,
+			onProgress,
+			renderFrame: (_frame, timestamp) => {
+				const fraction = durationSeconds > 0 ? timestamp / durationSeconds : 0;
+
+				exportManager.progress(fraction);
+				pipeline.render({
+					animState: researchPaperAnimState,
+					markColors,
+					markIntensity,
+					timestamp
+				});
+			}
+		});
+
+		downloadVideoBlob(blob, 'research-paper-overlay.webm');
+	} finally {
+		exportManager.dispose();
+	}
 }

@@ -1,8 +1,7 @@
 <script lang="ts">
-	import {
-		getResearchPaperParagraphs,
-		getResearchPaperSourceLabel
-	} from './research-paper-content';
+	import { getAnnotatedTextParagraphs } from '$lib/annotations/annotation-marks';
+
+	import { getResearchPaperSourceLabel } from './research-paper-content';
 	import { RESEARCH_PAPER_FONT_FAMILIES, researchPaperState } from './research-paper-state.svelte';
 
 	interface Props {
@@ -11,7 +10,7 @@
 
 	let { element = $bindable(null) }: Props = $props();
 
-	const paragraphs = $derived(getResearchPaperParagraphs(researchPaperState.body));
+	const paragraphs = $derived(getAnnotatedTextParagraphs(researchPaperState.body));
 	const fontFamily = $derived(RESEARCH_PAPER_FONT_FAMILIES[researchPaperState.fontFamily]);
 	const sourceLabel = $derived(getResearchPaperSourceLabel(researchPaperState.sourceUrl));
 </script>
@@ -33,7 +32,7 @@
 			<p>
 				{#each paragraph.segments as segment, segmentIndex (`${paragraphIndex}:${segmentIndex}:${segment.text}`)}
 					{#if segment.markStyle}
-						<span data-research-paper-mark={segment.markStyle}>{segment.text}</span>
+						<span data-annotation-mark={segment.markStyle}>{segment.text}</span>
 					{:else}
 						{segment.text}
 					{/if}
@@ -95,7 +94,7 @@
 		line-height: 1.52;
 	}
 
-	[data-research-paper-mark] {
+	[data-annotation-mark] {
 		box-decoration-break: clone;
 		-webkit-box-decoration-break: clone;
 	}
