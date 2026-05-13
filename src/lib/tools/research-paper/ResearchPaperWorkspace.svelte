@@ -1,9 +1,10 @@
 <script lang="ts">
 	import ToolRunner from '$lib/platform/ToolRunner.svelte';
-	import ResearchPaperCanvasSource from '$lib/tools/research-paper/ResearchPaperCanvasSource.svelte';
-	import ResearchPaperControls from '$lib/tools/research-paper/ResearchPaperControls.svelte';
-	import ResearchPaperTrackInspector from '$lib/tools/research-paper/ResearchPaperTrackInspector.svelte';
-	import { researchPaperTool } from '$lib/tools/research-paper/research-paper-tool.svelte';
+
+	import ResearchPaperCanvasSource from './ResearchPaperCanvasSource.svelte';
+	import ResearchPaperControls from './ResearchPaperControls.svelte';
+	import ResearchPaperTrackInspector from './ResearchPaperTrackInspector.svelte';
+	import { researchPaperTool } from './research-paper-tool.svelte';
 
 	let sourceElement = $state<HTMLElement | null>(null);
 </script>

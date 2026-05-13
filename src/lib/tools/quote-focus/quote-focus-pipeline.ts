@@ -6,13 +6,14 @@ import { getHtmlInCanvasQueue } from '$lib/platform/html-in-canvas';
 import { getRgbColorChannels } from '$lib/utils/color';
 import { clampNumber, easeOutCubic } from '$lib/utils/math';
 
-import type { QuoteFocusAnimState } from './quote-focus-animation.svelte';
-import { drawQuoteMarks } from './quote-focus-marks';
 import type {
 	QuoteFocusCameraMotion,
 	QuoteFocusFocusStyle,
 	QuoteFocusMarkStyle
-} from './quote-focus-state.svelte';
+} from '$lib/platform/engine-schema';
+
+import type { QuoteFocusAnimState } from './quote-focus-animation.svelte';
+import { drawQuoteMarks } from './quote-focus-marks';
 
 const TEXTURE_USAGE_COPY_DST = 0x02;
 const TEXTURE_USAGE_TEXTURE_BINDING = 0x04;
@@ -194,7 +195,7 @@ function readQuoteFromDom(sourceElement: HTMLElement): QuoteDomReadout | null {
 		return null;
 	}
 
-	const target = sourceElement.querySelector<HTMLElement>('[data-quote-target]');
+	const target = sourceElement.querySelector<HTMLElement>('[data-annotation-mark]');
 
 	if (!target) {
 		return null;

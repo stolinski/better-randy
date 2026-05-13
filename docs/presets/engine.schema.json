@@ -1,0 +1,462 @@
+{
+  "$id": "hiviz@1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "hiviz@1"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "state": {
+      "type": "object",
+      "properties": {
+        "transport": {
+          "type": "object",
+          "properties": {
+            "orientation": {
+              "type": "string",
+              "enum": [
+                "horizontal",
+                "vertical"
+              ]
+            },
+            "durationSeconds": {
+              "type": "number",
+              "minimum": 0.1,
+              "maximum": 600
+            },
+            "fps": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 120
+            },
+            "format": {
+              "type": "string",
+              "enum": [
+                "webm",
+                "prores"
+              ]
+            }
+          },
+          "required": [
+            "orientation",
+            "durationSeconds",
+            "fps",
+            "format"
+          ]
+        },
+        "typography": {
+          "type": "object",
+          "properties": {
+            "fontFamily": {
+              "type": "string",
+              "enum": [
+                "serif",
+                "sans",
+                "mono",
+                "condensed"
+              ]
+            },
+            "paperColor": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "inkColor": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            }
+          },
+          "required": [
+            "fontFamily",
+            "paperColor",
+            "inkColor"
+          ]
+        },
+        "marks": {
+          "type": "object",
+          "properties": {
+            "defaults": {
+              "type": "object",
+              "properties": {
+                "highlight": {
+                  "type": "object",
+                  "properties": {
+                    "color": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "intensity": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    }
+                  },
+                  "required": [
+                    "color",
+                    "intensity"
+                  ]
+                },
+                "underline": {
+                  "type": "object",
+                  "properties": {
+                    "color": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "intensity": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    }
+                  },
+                  "required": [
+                    "color",
+                    "intensity"
+                  ]
+                },
+                "strike": {
+                  "type": "object",
+                  "properties": {
+                    "color": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "intensity": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    }
+                  },
+                  "required": [
+                    "color",
+                    "intensity"
+                  ]
+                },
+                "circle": {
+                  "type": "object",
+                  "properties": {
+                    "color": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "intensity": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    }
+                  },
+                  "required": [
+                    "color",
+                    "intensity"
+                  ]
+                }
+              },
+              "required": [
+                "highlight",
+                "underline",
+                "strike",
+                "circle"
+              ]
+            },
+            "timings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "start": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "duration": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "ease": {
+                    "type": "string",
+                    "enum": [
+                      "smooth",
+                      "settled",
+                      "sharp",
+                      "bouncy"
+                    ]
+                  },
+                  "color": {
+                    "type": "string",
+                    "pattern": "^#[0-9a-fA-F]{6}$"
+                  },
+                  "intensity": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                },
+                "required": [
+                  "start",
+                  "duration",
+                  "ease"
+                ]
+              }
+            }
+          },
+          "required": [
+            "defaults",
+            "timings"
+          ]
+        },
+        "surface": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "research-paper"
+                },
+                "content": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "sourceUrl": {
+                      "type": "string"
+                    },
+                    "body": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "sourceUrl",
+                    "body"
+                  ]
+                },
+                "enter": {
+                  "type": "object",
+                  "properties": {
+                    "start": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "duration": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "ease": {
+                      "type": "string",
+                      "enum": [
+                        "smooth",
+                        "settled",
+                        "sharp",
+                        "bouncy"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "start",
+                    "duration",
+                    "ease"
+                  ]
+                },
+                "exit": {
+                  "type": "object",
+                  "properties": {
+                    "start": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "duration": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "ease": {
+                      "type": "string",
+                      "enum": [
+                        "smooth",
+                        "settled",
+                        "sharp",
+                        "bouncy"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "start",
+                    "duration",
+                    "ease"
+                  ]
+                }
+              },
+              "required": [
+                "type",
+                "content",
+                "enter",
+                "exit"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "quote-focus"
+                },
+                "content": {
+                  "type": "object",
+                  "properties": {
+                    "body": {
+                      "type": "string"
+                    },
+                    "author": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "type": "string"
+                    },
+                    "dateLabel": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "body",
+                    "author",
+                    "source",
+                    "dateLabel"
+                  ]
+                },
+                "focus": {
+                  "type": "object",
+                  "properties": {
+                    "start": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "duration": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "ease": {
+                      "type": "string",
+                      "enum": [
+                        "smooth",
+                        "settled",
+                        "sharp",
+                        "bouncy"
+                      ]
+                    },
+                    "style": {
+                      "type": "string",
+                      "enum": [
+                        "highlight",
+                        "magnify",
+                        "isolate",
+                        "lift-out",
+                        "tear-out"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "start",
+                    "duration",
+                    "ease",
+                    "style"
+                  ]
+                },
+                "mark": {
+                  "type": "object",
+                  "properties": {
+                    "start": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "duration": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "ease": {
+                      "type": "string",
+                      "enum": [
+                        "smooth",
+                        "settled",
+                        "sharp",
+                        "bouncy"
+                      ]
+                    },
+                    "style": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "underline",
+                        "box",
+                        "circle",
+                        "side-note"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "start",
+                    "duration",
+                    "ease",
+                    "style"
+                  ]
+                },
+                "camera": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "push",
+                    "snap"
+                  ]
+                },
+                "backgroundVisibility": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "showSourceMetadata": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "type",
+                "content",
+                "focus",
+                "mark",
+                "camera",
+                "backgroundVisibility",
+                "showSourceMetadata"
+              ]
+            }
+          ]
+        }
+      },
+      "required": [
+        "transport",
+        "typography",
+        "marks",
+        "surface"
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "name",
+    "state"
+  ]
+}

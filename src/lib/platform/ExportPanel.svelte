@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ExportFormat } from '$lib/platform/tool';
+	import type { ExportFormat } from '$lib/platform/engine-schema';
 	import type { VideoOrientation } from '$lib/utils/video-frame';
 
 	import ControlGroup from './ControlGroup.svelte';
@@ -27,6 +27,7 @@
 	}: Props = $props();
 
 	const exportLabel = $derived(format === 'prores' ? 'Export MOV' : 'Export WebM');
+	const progressPercent = $derived(Math.round(progress * 100));
 
 	async function handleExport(): Promise<void> {
 		await onexport?.();
@@ -34,35 +35,37 @@
 </script>
 
 <ControlGroup title="Export">
-	<label class="row">
-		<span>Frame</span>
-		<select bind:value={orientation}>
-			<option value="horizontal">Horizontal 4K</option>
-			<option value="vertical">Vertical 4K</option>
-		</select>
-	</label>
+	<div class="export-panel__grid">
+		<label class="export-panel__field">
+			<span>Frame</span>
+			<select bind:value={orientation}>
+				<option value="horizontal">Horizontal 4K</option>
+				<option value="vertical">Vertical 4K</option>
+			</select>
+		</label>
 
-	<label class="row">
-		<span>Duration</span>
-		<input bind:value={durationSeconds} min="1" max="60" step="0.5" type="number" />
-	</label>
+		<label class="export-panel__field">
+			<span>Format</span>
+			<select bind:value={format}>
+				<option value="webm">WebM VP9</option>
+				<option value="prores">MOV ProRes</option>
+			</select>
+		</label>
 
-	<label class="row">
-		<span>FPS</span>
-		<input bind:value={fps} min="12" max="60" step="1" type="number" />
-	</label>
+		<label class="export-panel__field">
+			<span>Duration (s)</span>
+			<input bind:value={durationSeconds} min="1" max="60" step="0.5" type="number" />
+		</label>
 
-	<label class="row">
-		<span>Format</span>
-		<select bind:value={format}>
-			<option value="webm">WebM (VP9, alpha)</option>
-			<option value="prores">MOV ProRes 4444 (alpha)</option>
-		</select>
-	</label>
+		<label class="export-panel__field">
+			<span>FPS</span>
+			<input bind:value={fps} min="12" max="60" step="1" type="number" />
+		</label>
+	</div>
 
 	{#if onexport}
 		<button disabled={isExporting} onclick={handleExport} type="button">
-			{isExporting ? 'Exporting' : exportLabel}
+			{isExporting ? `Exporting ${progressPercent}%` : exportLabel}
 		</button>
 	{/if}
 
@@ -76,6 +79,29 @@
 </ControlGroup>
 
 <style>
+	.export-panel__grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--vs-s);
+	}
+
+	.export-panel__field {
+		display: grid;
+		gap: var(--vs-xs);
+		min-inline-size: 0;
+	}
+
+	.export-panel__field > span {
+		color: var(--fg-6);
+		font-size: 0.75rem;
+	}
+
+	.export-panel__field > :is(input, select) {
+		inline-size: 100%;
+		margin: 0;
+		min-inline-size: 0;
+	}
+
 	button,
 	progress {
 		inline-size: 100%;

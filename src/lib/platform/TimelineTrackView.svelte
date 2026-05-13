@@ -102,9 +102,7 @@
 
 	function applyTransitionDrag(state: TransitionDragState, event: PointerEvent): void {
 		const track = tracks.find((candidate) => candidate.id === state.trackId);
-		const transition = track?.transitions.find(
-			(candidate) => candidate.id === state.transitionId
-		);
+		const transition = track?.transitions.find((candidate) => candidate.id === state.transitionId);
 
 		if (!transition) {
 			return;
@@ -154,7 +152,11 @@
 	}
 
 	function applySeekDrag(state: SeekDragState, event: PointerEvent): void {
-		const fraction = clampFraction((event.clientX - state.containerLeft) / state.containerWidth, 0, 1);
+		const fraction = clampFraction(
+			(event.clientX - state.containerLeft) / state.containerWidth,
+			0,
+			1
+		);
 
 		timeline.seek(fraction * timeline.durationSeconds);
 	}
@@ -253,10 +255,7 @@
 
 		const target = event.target as HTMLElement | null;
 
-		if (
-			target?.closest('.track-view__transition') ||
-			target?.closest('.track-view__connector')
-		) {
+		if (target?.closest('.track-view__transition') || target?.closest('.track-view__connector')) {
 			return;
 		}
 
@@ -275,9 +274,7 @@
 	function isTransitionSelected(trackId: string, transitionId: string): boolean {
 		const selection = timeline.selection;
 		return (
-			selection !== null &&
-			selection.trackId === trackId &&
-			selection.transitionId === transitionId
+			selection !== null && selection.trackId === trackId && selection.transitionId === transitionId
 		);
 	}
 
@@ -292,12 +289,7 @@
 	});
 </script>
 
-<div
-	bind:this={container}
-	class="track-view"
-	onpointerdown={startSeekDrag}
-	role="presentation"
->
+<div bind:this={container} class="track-view" onpointerdown={startSeekDrag} role="presentation">
 	<div class="track-view__ruler" aria-hidden="true"></div>
 
 	{#each tracks as track (track.id)}
@@ -329,16 +321,14 @@
 					<button
 						aria-label="Trim {transition.label ?? track.label} start"
 						class="track-view__handle track-view__handle--left"
-						onpointerdown={(event) =>
-							startTransitionDrag(event, track, transition, 'left')}
+						onpointerdown={(event) => startTransitionDrag(event, track, transition, 'left')}
 						type="button"
 					></button>
 					<span class="track-view__label">{transition.label ?? track.label}</span>
 					<button
 						aria-label="Trim {transition.label ?? track.label} end"
 						class="track-view__handle track-view__handle--right"
-						onpointerdown={(event) =>
-							startTransitionDrag(event, track, transition, 'right')}
+						onpointerdown={(event) => startTransitionDrag(event, track, transition, 'right')}
 						type="button"
 					></button>
 				</div>
@@ -355,7 +345,6 @@
 		border-radius: var(--br-s);
 		cursor: pointer;
 		display: grid;
-		flex: 1 1 0;
 		gap: 4px;
 		grid-auto-rows: minmax(28px, 1fr);
 		grid-template-rows: auto;
@@ -368,15 +357,60 @@
 
 	.track-view__ruler {
 		background:
-			linear-gradient(to right, transparent calc(10% - 1px), var(--fg-2) 10%, transparent calc(10% + 1px)),
-			linear-gradient(to right, transparent calc(20% - 1px), var(--fg-2) 20%, transparent calc(20% + 1px)),
-			linear-gradient(to right, transparent calc(30% - 1px), var(--fg-2) 30%, transparent calc(30% + 1px)),
-			linear-gradient(to right, transparent calc(40% - 1px), var(--fg-2) 40%, transparent calc(40% + 1px)),
-			linear-gradient(to right, transparent calc(50% - 1px), var(--fg-2) 50%, transparent calc(50% + 1px)),
-			linear-gradient(to right, transparent calc(60% - 1px), var(--fg-2) 60%, transparent calc(60% + 1px)),
-			linear-gradient(to right, transparent calc(70% - 1px), var(--fg-2) 70%, transparent calc(70% + 1px)),
-			linear-gradient(to right, transparent calc(80% - 1px), var(--fg-2) 80%, transparent calc(80% + 1px)),
-			linear-gradient(to right, transparent calc(90% - 1px), var(--fg-2) 90%, transparent calc(90% + 1px));
+			linear-gradient(
+				to right,
+				transparent calc(10% - 1px),
+				var(--fg-2) 10%,
+				transparent calc(10% + 1px)
+			),
+			linear-gradient(
+				to right,
+				transparent calc(20% - 1px),
+				var(--fg-2) 20%,
+				transparent calc(20% + 1px)
+			),
+			linear-gradient(
+				to right,
+				transparent calc(30% - 1px),
+				var(--fg-2) 30%,
+				transparent calc(30% + 1px)
+			),
+			linear-gradient(
+				to right,
+				transparent calc(40% - 1px),
+				var(--fg-2) 40%,
+				transparent calc(40% + 1px)
+			),
+			linear-gradient(
+				to right,
+				transparent calc(50% - 1px),
+				var(--fg-2) 50%,
+				transparent calc(50% + 1px)
+			),
+			linear-gradient(
+				to right,
+				transparent calc(60% - 1px),
+				var(--fg-2) 60%,
+				transparent calc(60% + 1px)
+			),
+			linear-gradient(
+				to right,
+				transparent calc(70% - 1px),
+				var(--fg-2) 70%,
+				transparent calc(70% + 1px)
+			),
+			linear-gradient(
+				to right,
+				transparent calc(80% - 1px),
+				var(--fg-2) 80%,
+				transparent calc(80% + 1px)
+			),
+			linear-gradient(
+				to right,
+				transparent calc(90% - 1px),
+				var(--fg-2) 90%,
+				transparent calc(90% + 1px)
+			);
 		block-size: 14px;
 		border-block-end: var(--border-1);
 	}

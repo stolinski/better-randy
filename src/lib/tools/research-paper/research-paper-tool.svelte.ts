@@ -1,8 +1,10 @@
-import {
-	getAnnotatedTextParagraphs,
-	type AnnotationMarkStyle
-} from '$lib/annotations/annotation-marks';
 import type { AnimationManifest } from '$lib/platform/animation-manager';
+import { resolveMarkForIndex } from '$lib/platform/engine-schema';
+import {
+	engineState,
+	ensureMarkTimingAtIndex,
+	getResearchPaperSurface
+} from '$lib/platform/engine-state.svelte';
 import type {
 	Tool,
 	ToolExportOptions,
@@ -15,6 +17,7 @@ import { truncateMiddle } from '$lib/utils/string';
 
 import {
 	buildResearchPaperAnimationManifest,
+	readResearchPaperMarks,
 	researchPaperAnimState
 } from './research-paper-animation.svelte';
 import { exportResearchPaperOverlay } from './export-research-paper';
@@ -23,28 +26,21 @@ import {
 	type ResearchPaperPipeline,
 	type ResearchPaperRenderInputs
 } from './research-paper-pipeline';
-import {
-	createDefaultMarkAnimation,
-	researchPaperState
-} from './research-paper-state.svelte';
 
-interface ParsedMark {
-	style: AnnotationMarkStyle;
-	text: string;
+function getMarkColorsByIndex(): string[] {
+	const parsedMarks = readResearchPaperMarks();
+
+	return parsedMarks.map(
+		(mark, index) => resolveMarkForIndex(mark.style, index, engineState.marks).color
+	);
 }
 
-function readParsedMarks(): ParsedMark[] {
-	const result: ParsedMark[] = [];
+function getMarkIntensityByIndex(): number[] {
+	const parsedMarks = readResearchPaperMarks();
 
-	for (const paragraph of getAnnotatedTextParagraphs(researchPaperState.body)) {
-		for (const segment of paragraph.segments) {
-			if (segment.markStyle) {
-				result.push({ style: segment.markStyle, text: segment.text });
-			}
-		}
-	}
-
-	return result;
+	return parsedMarks.map(
+		(mark, index) => resolveMarkForIndex(mark.style, index, engineState.marks).intensity
+	);
 }
 
 function createPipeline(options: ToolPipelineFactoryOptions): ToolPipeline {
@@ -60,8 +56,8 @@ function createPipeline(options: ToolPipelineFactoryOptions): ToolPipeline {
 function buildRenderInputs(timestamp: number): ResearchPaperRenderInputs {
 	return {
 		animState: researchPaperAnimState,
-		markColorsByIndex: researchPaperState.animation.marks.map((mark) => mark.color),
-		markIntensityByIndex: researchPaperState.animation.marks.map((mark) => mark.intensity),
+		markColorsByIndex: getMarkColorsByIndex(),
+		markIntensityByIndex: getMarkIntensityByIndex(),
 		timestamp
 	};
 }
@@ -71,85 +67,82 @@ function buildAnimationManifest(): AnimationManifest {
 }
 
 function buildTracks(): TimelineTrack[] {
-	const parsedMarks = readParsedMarks();
-	const paper = researchPaperState.animation.paper;
+	const parsedMarks = readResearchPaperMarks();
+	const surface = getResearchPaperSurface();
+	const enter = surface.enter;
+	const exit = surface.exit;
 
 	const trackList: TimelineTrack[] = [
 		{
 			id: 'paper',
 			label: 'Paper',
-			color: researchPaperState.paperColor,
+			color: engineState.typography.paperColor,
 			transitions: [
 				{
 					id: 'enter',
 					label: 'Paper in',
-					start: paper.enter.start,
-					duration: paper.enter.duration,
+					start: enter.start,
+					duration: enter.duration,
 					ramp: 'in',
 					minStart: 0,
 					maxStart: 0.9,
 					minDuration: 0.05,
 					maxDuration: 0.6,
 					onUpdate: ({ start, duration }) => {
-						paper.enter.start = start;
-						paper.enter.duration = duration;
+						enter.start = start;
+						enter.duration = duration;
 					}
 				},
 				{
 					id: 'exit',
 					label: 'Paper out',
-					start: paper.exit.start,
-					duration: paper.exit.duration,
+					start: exit.start,
+					duration: exit.duration,
 					ramp: 'out',
 					minStart: 0.1,
 					maxStart: 0.95,
 					minDuration: 0.05,
 					maxDuration: 0.6,
 					onUpdate: ({ start, duration }) => {
-						paper.exit.start = start;
-						paper.exit.duration = duration;
+						exit.start = start;
+						exit.duration = duration;
 					}
 				}
 			],
 			onTrackMove: (delta) => {
-				const nextEnterStart = clampNumber(paper.enter.start + delta, 0, 0.9);
-				const enterDelta = nextEnterStart - paper.enter.start;
-				const nextExitStart = clampNumber(paper.exit.start + enterDelta, 0.1, 0.95);
+				const nextEnterStart = clampNumber(enter.start + delta, 0, 0.9);
+				const enterDelta = nextEnterStart - enter.start;
+				const nextExitStart = clampNumber(exit.start + enterDelta, 0.1, 0.95);
 
-				paper.enter.start = nextEnterStart;
-				paper.exit.start = nextExitStart;
+				enter.start = nextEnterStart;
+				exit.start = nextExitStart;
 			}
 		}
 	];
 
 	parsedMarks.forEach((mark, index) => {
-		const config =
-			researchPaperState.animation.marks[index] ?? createDefaultMarkAnimation(mark.style);
+		const resolved = resolveMarkForIndex(mark.style, index, engineState.marks);
 		const label = truncateMiddle(mark.text, 20);
 
 		trackList.push({
 			id: `mark-${index}`,
 			label,
-			color: config.color,
+			color: resolved.color,
 			transitions: [
 				{
 					id: 'enter',
 					label,
-					start: config.start,
-					duration: config.duration,
+					start: resolved.start,
+					duration: resolved.duration,
 					minStart: 0,
 					maxStart: 0.95,
 					minDuration: 0.05,
 					maxDuration: 0.9,
 					onUpdate: ({ start, duration }) => {
-						const target = researchPaperState.animation.marks[index];
+						const timing = ensureMarkTimingAtIndex(index);
 
-						if (!target) {
-							return;
-						}
-
-						target.start = start;
-						target.duration = duration;
+						timing.start = start;
+						timing.duration = duration;
 					}
 				}
 			]
@@ -160,67 +153,63 @@ function buildTracks(): TimelineTrack[] {
 }
 
 function syncDerived(): void {
-	const parsedMarks = readParsedMarks();
-	const marks = researchPaperState.animation.marks;
+	const parsedMarks = readResearchPaperMarks();
+	const timings = engineState.marks.timings;
 
 	for (let index = 0; index < parsedMarks.length; index += 1) {
-		const parsed = parsedMarks[index];
-		const existing = marks[index];
-
-		if (!existing) {
-			marks.push(createDefaultMarkAnimation(parsed.style));
-			continue;
-		}
-
-		if (existing.style !== parsed.style) {
-			marks[index] = {
-				...createDefaultMarkAnimation(parsed.style),
-				start: existing.start,
-				duration: existing.duration
-			};
-		}
+		ensureMarkTimingAtIndex(index);
 	}
 
-	if (marks.length > parsedMarks.length) {
-		marks.length = parsedMarks.length;
+	if (timings.length > parsedMarks.length) {
+		timings.length = parsedMarks.length;
 	}
 }
 
 function touchDomState(): void {
-	researchPaperState.title;
-	researchPaperState.sourceUrl;
-	researchPaperState.body;
-	researchPaperState.fontFamily;
-	researchPaperState.paperColor;
-	researchPaperState.inkColor;
+	const surface = getResearchPaperSurface();
+
+	void surface.content.title;
+	void surface.content.sourceUrl;
+	void surface.content.body;
+	void engineState.typography.fontFamily;
+	void engineState.typography.paperColor;
+	void engineState.typography.inkColor;
 }
 
 function touchRenderState(): void {
-	for (const mark of researchPaperState.animation.marks) {
-		mark.color;
-		mark.intensity;
+	for (const timing of engineState.marks.timings) {
+		void timing.color;
+		void timing.intensity;
 	}
+
+	void engineState.marks.defaults.highlight.color;
+	void engineState.marks.defaults.highlight.intensity;
+	void engineState.marks.defaults.underline.color;
+	void engineState.marks.defaults.underline.intensity;
+	void engineState.marks.defaults.strike.color;
+	void engineState.marks.defaults.strike.intensity;
+	void engineState.marks.defaults.circle.color;
+	void engineState.marks.defaults.circle.intensity;
 }
 
 async function exportToFile({ canvas, pipeline, onProgress }: ToolExportOptions): Promise<void> {
 	await exportResearchPaperOverlay({
 		canvas,
 		pipeline: pipeline as ResearchPaperPipeline,
-		durationSeconds: researchPaperState.durationSeconds,
-		fps: researchPaperState.fps,
-		format: researchPaperState.format,
-		markColorsByIndex: researchPaperState.animation.marks.map((mark) => mark.color),
-		markIntensityByIndex: researchPaperState.animation.marks.map((mark) => mark.intensity),
+		durationSeconds: engineState.transport.durationSeconds,
+		fps: engineState.transport.fps,
+		format: engineState.transport.format,
+		markColorsByIndex: getMarkColorsByIndex(),
+		markIntensityByIndex: getMarkIntensityByIndex(),
 		onProgress
 	});
 }
 
 export const researchPaperTool: Tool = {
 	title: 'Research Paper',
-	kicker: 'Tool',
 	controlsId: 'research-paper-controls',
 	get transport() {
-		return researchPaperState;
+		return engineState.transport;
 	},
 	createPipeline,
 	buildAnimationManifest,

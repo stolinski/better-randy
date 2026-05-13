@@ -1,9 +1,6 @@
 <script lang="ts">
-	import {
-		QUOTE_FOCUS_FONT_FAMILIES,
-		getQuoteFocusSegments,
-		quoteFocusState
-	} from './quote-focus-state.svelte';
+	import { ENGINE_FONT_FAMILIES } from '$lib/platform/engine-schema';
+	import { engineState, getQuoteFocusSurface } from '$lib/platform/engine-state.svelte';
 
 	interface Props {
 		element?: HTMLElement | null;
@@ -11,43 +8,47 @@
 
 	let { element = $bindable(null) }: Props = $props();
 
-	const fontFamily = $derived(QUOTE_FOCUS_FONT_FAMILIES[quoteFocusState.fontFamily]);
-	const segments = $derived(getQuoteFocusSegments(quoteFocusState.body, quoteFocusState.quote));
+	const surface = $derived(getQuoteFocusSurface());
+	const fontFamily = $derived(ENGINE_FONT_FAMILIES[engineState.typography.fontFamily]);
 	const showMetadata = $derived(
-		quoteFocusState.showSourceMetadata &&
-			(quoteFocusState.author.trim().length > 0 ||
-				quoteFocusState.source.trim().length > 0 ||
-				quoteFocusState.dateLabel.trim().length > 0)
+		surface.showSourceMetadata &&
+			(surface.content.author.trim().length > 0 ||
+				surface.content.source.trim().length > 0 ||
+				surface.content.dateLabel.trim().length > 0)
 	);
 </script>
 
 <article
 	bind:this={element}
 	class="quote-focus-source"
-	style:background-color={quoteFocusState.paperColor}
-	style:color={quoteFocusState.inkColor}
+	style:background-color={engineState.typography.paperColor}
+	style:color={engineState.typography.inkColor}
 	style:font-family={fontFamily.stack}
 >
 	<section class="quote-focus-source__body">
-		<p>
-			{#if segments.matched}
-				{segments.beforeQuote}<span data-quote-target>{segments.quote}</span>{segments.afterQuote}
-			{:else}
-				{quoteFocusState.body}
-			{/if}
-		</p>
+		{#each surface.content.body as paragraph, paragraphIndex (`${paragraphIndex}:${paragraph.segments.map((segment) => segment.text).join(':')}`)}
+			<p>
+				{#each paragraph.segments as segment, segmentIndex (`${paragraphIndex}:${segmentIndex}:${segment.text}`)}
+					{#if segment.markStyle}
+						<span data-annotation-mark={segment.markStyle}>{segment.text}</span>
+					{:else}
+						{segment.text}
+					{/if}
+				{/each}
+			</p>
+		{/each}
 	</section>
 
 	{#if showMetadata}
 		<footer class="quote-focus-source__attribution">
-			{#if quoteFocusState.author}
-				<span class="quote-focus-source__author">{quoteFocusState.author}</span>
+			{#if surface.content.author}
+				<span class="quote-focus-source__author">{surface.content.author}</span>
 			{/if}
-			{#if quoteFocusState.source}
-				<cite>{quoteFocusState.source}</cite>
+			{#if surface.content.source}
+				<cite>{surface.content.source}</cite>
 			{/if}
-			{#if quoteFocusState.dateLabel}
-				<span class="quote-focus-source__date">{quoteFocusState.dateLabel}</span>
+			{#if surface.content.dateLabel}
+				<span class="quote-focus-source__date">{surface.content.dateLabel}</span>
 			{/if}
 		</footer>
 	{/if}
@@ -66,13 +67,18 @@
 		transform-origin: top left;
 	}
 
+	.quote-focus-source__body {
+		display: grid;
+		gap: 1rem;
+	}
+
 	.quote-focus-source__body p {
 		font-size: 1.85rem;
 		line-height: 1.5;
 		margin: 0;
 	}
 
-	.quote-focus-source__body span[data-quote-target] {
+	[data-annotation-mark] {
 		box-decoration-break: clone;
 		-webkit-box-decoration-break: clone;
 	}

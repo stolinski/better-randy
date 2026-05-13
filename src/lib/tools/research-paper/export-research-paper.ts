@@ -1,3 +1,4 @@
+import type { ExportFormat } from '$lib/platform/engine-schema';
 import { AnimationManager } from '$lib/platform/animation-manager';
 import {
 	downloadVideoBlob,
@@ -5,7 +6,6 @@ import {
 	exportTransparentWebM,
 	type TransparentVideoExportOptions
 } from '$lib/platform/export-video';
-import type { ExportFormat } from '$lib/platform/tool';
 
 import {
 	buildResearchPaperAnimationManifest,

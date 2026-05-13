@@ -10,3 +10,4 @@ export function truncateMiddle(value: string, maxLength: number): string {
 
 	return `${value.slice(0, headLength)}${ELLIPSIS}${value.slice(value.length - tailLength)}`;
 }
+

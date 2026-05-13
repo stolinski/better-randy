@@ -1,0 +1,63 @@
+{
+	"schema": "hiviz@1",
+	"name": "Attention default",
+	"description": "Single highlight on the central claim of the Transformer paper.",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#ffffff",
+			"inkColor": "#000000"
+		},
+		"marks": {
+			"defaults": {
+				"highlight": {
+					"color": "#ffd642",
+					"intensity": 0.62
+				},
+				"underline": {
+					"color": "#1f5aff",
+					"intensity": 0.62
+				},
+				"strike": {
+					"color": "#de263a",
+					"intensity": 0.62
+				},
+				"circle": {
+					"color": "#de263a",
+					"intensity": 0.62
+				}
+			},
+			"timings": [
+				{
+					"start": 0.34,
+					"duration": 0.24,
+					"ease": "smooth"
+				}
+			]
+		},
+		"surface": {
+			"type": "research-paper",
+			"content": {
+				"title": "Attention Is All You Need",
+				"sourceUrl": "https://arxiv.org/abs/1706.03762",
+				"body": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks that include an encoder and a decoder.\n\nThe Transformer allows for significantly more parallelization and can reach [highlight]a new state of the art in translation quality after being trained for as little as twelve hours[/highlight].\n\nSelf-attention connects all positions with a constant number of sequentially executed operations, whereas recurrent layers require a number of operations proportional to sequence length."
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.18,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.82,
+				"duration": 0.18,
+				"ease": "smooth"
+			}
+		}
+	}
+}

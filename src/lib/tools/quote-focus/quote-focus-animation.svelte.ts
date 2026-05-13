@@ -1,6 +1,6 @@
 import type { AnimationManifest, AnimationTweenSpec } from '$lib/platform/animation-manager';
-
-import { QUOTE_FOCUS_EASES, quoteFocusState } from './quote-focus-state.svelte';
+import { ENGINE_EASES } from '$lib/platform/engine-schema';
+import { getQuoteFocusSurface } from '$lib/platform/engine-state.svelte';
 
 export interface QuoteFocusAnimState {
 	focusProgress: number;
@@ -13,23 +13,23 @@ export const quoteFocusAnimState = $state<QuoteFocusAnimState>({
 });
 
 export function buildQuoteFocusAnimationManifest(): AnimationManifest {
-	const animation = quoteFocusState.animation;
+	const surface = getQuoteFocusSurface();
 
 	const tweens: AnimationTweenSpec[] = [
 		{
 			key: 'focus',
-			start: animation.focusStart,
-			duration: animation.focusDuration,
-			ease: QUOTE_FOCUS_EASES[animation.focusEase].gsap,
+			start: surface.focus.start,
+			duration: surface.focus.duration,
+			ease: ENGINE_EASES[surface.focus.ease].gsap,
 			onUpdate: (value) => {
 				quoteFocusAnimState.focusProgress = value;
 			}
 		},
 		{
 			key: 'mark',
-			start: animation.markStart,
-			duration: animation.markDuration,
-			ease: QUOTE_FOCUS_EASES[animation.markEase].gsap,
+			start: surface.mark.start,
+			duration: surface.mark.duration,
+			ease: ENGINE_EASES[surface.mark.ease].gsap,
 			onUpdate: (value) => {
 				quoteFocusAnimState.markProgress = value;
 			}

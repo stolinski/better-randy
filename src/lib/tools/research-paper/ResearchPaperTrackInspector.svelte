@@ -1,22 +1,28 @@
 <script lang="ts">
+	import type { AnnotationMarkStyle } from '$lib/annotations/annotation-marks';
 	import ControlGroup from '$lib/platform/ControlGroup.svelte';
+	import {
+		ENGINE_EASES,
+		ENGINE_FONT_FAMILIES,
+		resolveMarkForIndex,
+		type Ease,
+		type FontDefinition,
+		type FontFamily
+	} from '$lib/platform/engine-schema';
+	import {
+		engineState,
+		ensureMarkTimingAtIndex,
+		getResearchPaperSurface
+	} from '$lib/platform/engine-state.svelte';
 	import type { TimelineSelection } from '$lib/platform/timeline.svelte';
 
-	import {
-		RESEARCH_PAPER_EASES,
-		RESEARCH_PAPER_FONT_FAMILIES,
-		researchPaperState,
-		type ResearchPaperEase,
-		type ResearchPaperFontDefinition,
-		type ResearchPaperFontFamily,
-		type ResearchPaperMarkStyle
-	} from './research-paper-state.svelte';
+	import { readResearchPaperMarks } from './research-paper-animation.svelte';
 
 	interface Props {
 		selection: TimelineSelection;
 	}
 
-	const MARK_STYLE_LABELS: Record<ResearchPaperMarkStyle, string> = {
+	const MARK_STYLE_LABELS: Record<AnnotationMarkStyle, string> = {
 		highlight: 'Highlight',
 		underline: 'Underline',
 		strike: 'Strike',
@@ -30,24 +36,36 @@
 
 	let { selection }: Props = $props();
 
-	const fontFamilyOptions = Object.entries(RESEARCH_PAPER_FONT_FAMILIES) as [
-		ResearchPaperFontFamily,
-		ResearchPaperFontDefinition
+	const fontFamilyOptions = Object.entries(ENGINE_FONT_FAMILIES) as [FontFamily, FontDefinition][];
+
+	const easeOptions = Object.entries(ENGINE_EASES) as [
+		Ease,
+		(typeof ENGINE_EASES)[Ease]
 	][];
 
-	const easeOptions = Object.entries(RESEARCH_PAPER_EASES) as [
-		ResearchPaperEase,
-		(typeof RESEARCH_PAPER_EASES)[ResearchPaperEase]
-	][];
+	const surface = $derived(getResearchPaperSurface());
 
 	const markIndex = $derived.by(() => {
 		const match = selection.trackId.match(/^mark-(\d+)$/);
 		return match ? Number.parseInt(match[1], 10) : null;
 	});
 
-	const mark = $derived(
-		markIndex === null ? null : researchPaperState.animation.marks[markIndex] ?? null
-	);
+	const parsedMark = $derived.by(() => {
+		if (markIndex === null) {
+			return null;
+		}
+
+		const marks = readResearchPaperMarks();
+		return marks[markIndex] ?? null;
+	});
+
+	const resolved = $derived.by(() => {
+		if (markIndex === null || !parsedMark) {
+			return null;
+		}
+
+		return resolveMarkForIndex(parsedMark.style, markIndex, engineState.marks);
+	});
 
 	const paperTransition = $derived.by(() => {
 		if (selection.trackId !== 'paper') {
@@ -55,11 +73,11 @@
 		}
 
 		if (selection.transitionId === 'enter') {
-			return researchPaperState.animation.paper.enter;
+			return surface.enter;
 		}
 
 		if (selection.transitionId === 'exit') {
-			return researchPaperState.animation.paper.exit;
+			return surface.exit;
 		}
 
 		return null;
@@ -70,13 +88,46 @@
 			? PAPER_TRANSITION_LABELS[selection.transitionId]
 			: ''
 	);
+
+	function handleColorInput(event: Event): void {
+		if (markIndex === null) {
+			return;
+		}
+
+		const target = event.currentTarget as HTMLInputElement;
+		const timing = ensureMarkTimingAtIndex(markIndex);
+
+		timing.color = target.value;
+	}
+
+	function handleIntensityInput(event: Event): void {
+		if (markIndex === null) {
+			return;
+		}
+
+		const target = event.currentTarget as HTMLInputElement;
+		const timing = ensureMarkTimingAtIndex(markIndex);
+
+		timing.intensity = Number(target.value);
+	}
+
+	function handleEaseChange(event: Event): void {
+		if (markIndex === null) {
+			return;
+		}
+
+		const target = event.currentTarget as HTMLSelectElement;
+		const timing = ensureMarkTimingAtIndex(markIndex);
+
+		timing.ease = target.value as Ease;
+	}
 </script>
 
 {#if selection.trackId === 'paper' && selection.transitionId === null}
 	<ControlGroup title="Paper">
 		<label class="row">
 			<span>Font</span>
-			<select bind:value={researchPaperState.fontFamily}>
+			<select bind:value={engineState.typography.fontFamily}>
 				{#each fontFamilyOptions as [value, option] (value)}
 					<option {value}>{option.label}</option>
 				{/each}
@@ -85,12 +136,12 @@
 
 		<label class="row">
 			<span>Paper</span>
-			<input bind:value={researchPaperState.paperColor} type="color" />
+			<input bind:value={engineState.typography.paperColor} type="color" />
 		</label>
 
 		<label class="row">
 			<span>Ink</span>
-			<input bind:value={researchPaperState.inkColor} type="color" />
+			<input bind:value={engineState.typography.inkColor} type="color" />
 		</label>
 	</ControlGroup>
 {:else if paperTransition}
@@ -104,21 +155,28 @@
 			</select>
 		</label>
 	</ControlGroup>
-{:else if mark}
-	<ControlGroup title={MARK_STYLE_LABELS[mark.style]}>
+{:else if resolved && parsedMark}
+	<ControlGroup title={MARK_STYLE_LABELS[parsedMark.style]}>
 		<label class="row">
 			<span>Color</span>
-			<input bind:value={mark.color} type="color" />
+			<input value={resolved.color} oninput={handleColorInput} type="color" />
 		</label>
 
 		<label class="row">
 			<span>Intensity</span>
-			<input bind:value={mark.intensity} max="1" min="0" step="0.01" type="range" />
+			<input
+				value={resolved.intensity}
+				max="1"
+				min="0"
+				step="0.01"
+				type="range"
+				oninput={handleIntensityInput}
+			/>
 		</label>
 
 		<label class="row">
 			<span>Ease</span>
-			<select bind:value={mark.ease}>
+			<select value={resolved.ease} onchange={handleEaseChange}>
 				{#each easeOptions as [value, option] (value)}
 					<option {value}>{option.label}</option>
 				{/each}

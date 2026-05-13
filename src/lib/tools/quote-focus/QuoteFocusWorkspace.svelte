@@ -1,8 +1,10 @@
 <script lang="ts">
 	import ToolRunner from '$lib/platform/ToolRunner.svelte';
-	import QuoteFocusCanvasSource from '$lib/tools/quote-focus/QuoteFocusCanvasSource.svelte';
-	import QuoteFocusControls from '$lib/tools/quote-focus/QuoteFocusControls.svelte';
-	import { quoteFocusTool } from '$lib/tools/quote-focus/quote-focus-tool.svelte';
+
+	import QuoteFocusCanvasSource from './QuoteFocusCanvasSource.svelte';
+	import QuoteFocusControls from './QuoteFocusControls.svelte';
+	import QuoteFocusTrackInspector from './QuoteFocusTrackInspector.svelte';
+	import { quoteFocusTool } from './quote-focus-tool.svelte';
 
 	let sourceElement = $state<HTMLElement | null>(null);
 </script>
@@ -14,5 +16,9 @@
 
 	{#snippet controlsPanel()}
 		<QuoteFocusControls />
+	{/snippet}
+
+	{#snippet trackInspector(selection)}
+		<QuoteFocusTrackInspector {selection} />
 	{/snippet}
 </ToolRunner>

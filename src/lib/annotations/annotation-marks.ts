@@ -17,11 +17,6 @@ export interface AnnotationMarkColors {
 	underline: string;
 }
 
-export interface AnnotationMarkDelimiters {
-	closer: string;
-	opener: string;
-}
-
 export interface AnnotationMarkFragmentLayout {
 	x: number;
 	y: number;
@@ -44,9 +39,14 @@ export interface AnnotatedTextParagraph {
 	segments: AnnotationTextSegment[];
 }
 
-interface AnnotationMarkSyntax extends AnnotationMarkDelimiters {
-	style: AnnotationMarkStyle;
-}
+export type AnnotationBody = AnnotatedTextParagraph[];
+
+export const ANNOTATION_MARK_STYLES: readonly AnnotationMarkStyle[] = [
+	'highlight',
+	'underline',
+	'strike',
+	'circle'
+];
 
 interface MarkerLineOptions {
 	color: string;
@@ -103,120 +103,11 @@ export interface DrawAnnotationMarksOptions {
 }
 
 export const ANNOTATION_MARK_ATTRIBUTE = 'data-annotation-mark';
-const ANNOTATION_MARK_SYNTAX: AnnotationMarkSyntax[] = [
-	{
-		style: 'highlight',
-		opener: '==',
-		closer: '=='
-	},
-	{
-		style: 'underline',
-		opener: '__',
-		closer: '__'
-	},
-	{
-		style: 'strike',
-		opener: '~~',
-		closer: '~~'
-	},
-	{
-		style: 'circle',
-		opener: '((',
-		closer: '))'
-	}
-];
 
-export function getAnnotationMarkDelimiters(style: AnnotationMarkStyle): AnnotationMarkDelimiters {
-	const syntax = ANNOTATION_MARK_SYNTAX.find((item) => item.style === style);
-
-	if (!syntax) {
-		throw new TypeError(`Unknown annotation mark style: ${style}`);
-	}
-
-	return {
-		opener: syntax.opener,
-		closer: syntax.closer
-	};
-}
-
-export function isAnnotationMarkStyle(value: string | undefined): value is AnnotationMarkStyle {
-	return ANNOTATION_MARK_SYNTAX.some((syntax) => syntax.style === value);
-}
-
-export function getAnnotationTextSegments(paragraph: string): AnnotationTextSegment[] {
-	const segments: AnnotationTextSegment[] = [];
-	let cursor = 0;
-
-	while (cursor < paragraph.length) {
-		const syntax = ANNOTATION_MARK_SYNTAX.find((item) => paragraph.startsWith(item.opener, cursor));
-
-		if (!syntax) {
-			const nextMarkIndex = ANNOTATION_MARK_SYNTAX.reduce((nearestIndex, item) => {
-				const index = paragraph.indexOf(item.opener, cursor + 1);
-
-				if (index === -1) {
-					return nearestIndex;
-				}
-
-				return nearestIndex === -1 ? index : Math.min(nearestIndex, index);
-			}, -1);
-			const end = nextMarkIndex === -1 ? paragraph.length : nextMarkIndex;
-
-			segments.push({
-				text: paragraph.slice(cursor, end),
-				markStyle: null
-			});
-			cursor = end;
-			continue;
-		}
-
-		const markStart = cursor + syntax.opener.length;
-		const markEnd = paragraph.indexOf(syntax.closer, markStart);
-
-		if (markEnd === -1) {
-			segments.push({
-				text: syntax.opener,
-				markStyle: null
-			});
-			cursor += syntax.opener.length;
-			continue;
-		}
-
-		const markedText = paragraph.slice(markStart, markEnd);
-
-		if (markedText.length > 0) {
-			segments.push({
-				text: getAnnotationDisplayText(markedText),
-				markStyle: syntax.style
-			});
-		}
-
-		cursor = markEnd + syntax.closer.length;
-	}
-
-	return segments;
-}
-
-function getAnnotationDisplayText(text: string): string {
-	const hasNestedMark = ANNOTATION_MARK_SYNTAX.some((syntax) => text.includes(syntax.opener));
-
-	if (!hasNestedMark) {
-		return text;
-	}
-
-	return getAnnotationTextSegments(text)
-		.map((segment) => segment.text)
-		.join('');
-}
-
-export function getAnnotatedTextParagraphs(body: string): AnnotatedTextParagraph[] {
-	return body
-		.split(/\n{2,}/)
-		.map((paragraph) => paragraph.trim())
-		.filter((paragraph) => paragraph.length > 0)
-		.map((paragraph) => ({
-			segments: getAnnotationTextSegments(paragraph)
-		}));
+export function isAnnotationMarkStyle(
+	value: string | null | undefined
+): value is AnnotationMarkStyle {
+	return ANNOTATION_MARK_STYLES.includes(value as AnnotationMarkStyle);
 }
 
 export function getAnnotationMarkLayouts(

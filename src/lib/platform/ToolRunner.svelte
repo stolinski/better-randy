@@ -34,10 +34,10 @@
 		trackInspector
 	}: Props = $props();
 
-	let canvas = $state<HTMLCanvasElement | null>(null);
-	let host = $state<GpuHost | null>(null);
-	let pipeline = $state<ToolPipeline | null>(null);
-	let timeline = $state<Timeline | null>(null);
+	let canvas = $state.raw<HTMLCanvasElement | null>(null);
+	let host = $state.raw<GpuHost | null>(null);
+	let pipeline = $state.raw<ToolPipeline | null>(null);
+	let timeline = $state.raw<Timeline | null>(null);
 	const animationManager = new AnimationManager();
 
 	let isExporting = $state(false);
@@ -205,7 +205,7 @@
 	}
 </script>
 
-<ToolWorkspace kicker={tool.kicker} title={tool.title}>
+<ToolWorkspace>
 	{#snippet stage()}
 		<VideoFrame bind:canvas orientation={tool.transport.orientation}>
 			{@render source()}
@@ -218,21 +218,23 @@
 	{/snippet}
 
 	{#snippet controls()}
-		<ControlPanel id={tool.controlsId} title="Controls">
+		<ControlPanel id={tool.controlsId}>
+			{@render controlsPanel()}
 			{#if timeline?.selection && trackInspector}
 				{@render trackInspector(timeline.selection)}
 			{/if}
-			{@render controlsPanel()}
-			<ExportPanel
-				bind:durationSeconds={tool.transport.durationSeconds}
-				bind:fps={tool.transport.fps}
-				bind:format={tool.transport.format}
-				bind:orientation={tool.transport.orientation}
-				{isExporting}
-				onexport={handleExport}
-				{progress}
-				{status}
-			/>
+			{#snippet footer()}
+				<ExportPanel
+					bind:durationSeconds={tool.transport.durationSeconds}
+					bind:fps={tool.transport.fps}
+					bind:format={tool.transport.format}
+					bind:orientation={tool.transport.orientation}
+					{isExporting}
+					onexport={handleExport}
+					{progress}
+					{status}
+				/>
+			{/snippet}
 		</ControlPanel>
 	{/snippet}
 </ToolWorkspace>

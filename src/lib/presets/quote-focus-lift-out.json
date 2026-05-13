@@ -1,0 +1,63 @@
+{
+	"schema": "hiviz@1",
+	"name": "Quote lift-out",
+	"description": "Default quote lift treatment with underline mark and slow push.",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#ffffff",
+			"inkColor": "#111111"
+		},
+		"marks": {
+			"defaults": {
+				"highlight": {
+					"color": "#ffd642",
+					"intensity": 0.62
+				},
+				"underline": {
+					"color": "#de263a",
+					"intensity": 0.62
+				},
+				"strike": {
+					"color": "#de263a",
+					"intensity": 0.62
+				},
+				"circle": {
+					"color": "#de263a",
+					"intensity": 0.62
+				}
+			},
+			"timings": []
+		},
+		"surface": {
+			"type": "quote-focus",
+			"content": {
+				"body": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks that include an encoder and a decoder. The best performing models also connect the encoder and decoder through an attention mechanism. We propose [highlight]a new simple network architecture, the Transformer, based solely on attention mechanisms[/highlight], dispensing with recurrence and convolutions entirely. Experiments on two machine translation tasks show these models to be superior in quality while being more parallelizable and requiring significantly less time to train.",
+				"author": "Vaswani et al.",
+				"source": "Attention Is All You Need",
+				"dateLabel": "2017"
+			},
+			"focus": {
+				"start": 0.22,
+				"duration": 0.28,
+				"ease": "smooth",
+				"style": "lift-out"
+			},
+			"mark": {
+				"start": 0.42,
+				"duration": 0.26,
+				"ease": "smooth",
+				"style": "underline"
+			},
+			"camera": "push",
+			"backgroundVisibility": 0.2,
+			"showSourceMetadata": true
+		}
+	}
+}

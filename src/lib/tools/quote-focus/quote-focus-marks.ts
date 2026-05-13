@@ -7,7 +7,7 @@ import {
 import { getCanvasRgbColor } from '$lib/utils/color';
 import { clampNumber } from '$lib/utils/math';
 
-import type { QuoteFocusMarkStyle } from './quote-focus-state.svelte';
+import type { QuoteFocusMarkStyle } from '$lib/platform/engine-schema';
 
 export interface QuoteMarkLayout {
 	bounds: AnnotationMarkFragmentLayout;

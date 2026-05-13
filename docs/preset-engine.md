@@ -1,226 +1,328 @@
 # Preset Engine
 
+> **Status: current.** Describes the engine and preset format as shipped today. The forward-looking architecture (layered rendering, primitives, post-process effects) is in [`surfaces-and-annotations.md`](./surfaces-and-annotations.md); the migration from this state to that one is sequenced there.
+
 ## Goal
 
-Hiviz is one engine with many **surfaces** and a single shared **preset format**. Every preset is the same JSON document: shared transport/typography/marks blocks plus a discriminated `surface` block carrying only the content unique to that surface. One JSON Schema, one preset gallery, one storage namespace. Surface routes are just renderers — they read the engine's state, they don't own a parallel schema.
+Hiviz is one engine with two surfaces (`research-paper` and `quote-focus`) and a single shared **preset format**. Every preset is the same JSON document: shared `transport` / `typography` / `marks` blocks plus a discriminated `surface` block carrying only the content unique to that surface. One Zod schema, one JSON Schema export, one preset catalog loaded at build time.
 
-## Verification
+Surface routes are gone. The whole app is two routes:
 
-Objective checks that prove the engine is real and not just plumbing:
-
-1. Open the app root. A single **Presets** gallery lists built-in presets across all surfaces. Clicking a preset navigates to the matching surface route with state applied; the timeline scrubs the animation correctly.
-2. Edit any state value on `/tools/research-paper`. Save preset → JSON file. Re-loading reproduces the exact same `Timeline.time` frame visually. Same test on `/tools/quote-focus`.
-3. In a separate session, hand the AI:
-   - `docs/presets/engine.schema.json` (one schema for everything), and
-   - `docs/presets/engine.md` (one brief, with per-surface addenda).
-   Provide only a one-line goal. The AI returns a valid preset that loads.
-4. Take a research-paper preset, change `surface.type` to `quote-focus` and fill its required content fields. It loads and renders without touching the shared blocks. This is the "remix across surfaces" test that proves the engine is unified, not two siloed schemas.
+- `/` — preset listing.
+- `/p/[slug]` — apply a preset and mount the workspace for its `surface.type`.
 
 ## Concepts
 
-- **Engine** — the shared substrate: transport (orientation/fps/duration/format), typography (font + ink/paper colors), annotation marks (defaults + timings), and the active surface. There is one `engineState` $state object, not one per tool.
-- **Surface** — a discriminated variant: research-paper, quote-focus, tweet, webpage, etc. Each carries only what's unique to it (content fields + surface-specific timing/behavior). Code-level: each surface has its own pipeline, DOM source, and controls under `src/lib/tools/<surface>/`. State-level: it's just a branch in the union.
-- **Annotation marks** — primitives in `src/lib/annotations/`. Already content-anchored via inline syntax (`==highlight==`, `__underline__`, `~~strike~~`, `((circle))`) embedded in the surface's body text. Styling (color/intensity) and timing (start/duration/ease) live in the shared `marks` block, indexed against the inline marks discovered in the active surface's content.
-- **Preset** — one JSON document containing the whole `engineState`. Identified by a single versioned schema id (`hiviz@1`), not per-surface ids. Cross-surface remix is just editing `surface.type`.
+- **Engine** — the shared substrate: transport (orientation / fps / duration / format), typography (font + paper/ink colors), annotation marks (defaults palette + per-mark timings), and the active surface. There is one `engineState` `$state` object in `src/lib/platform/engine-state.svelte.ts`.
+- **Surface** — a discriminated variant of `engineState.surface`. Two today: `research-paper` and `quote-focus`. Each variant carries the content fields and surface-specific timing/style it needs. Code-level: each surface owns a `Workspace.svelte` + a pipeline + a canvas-source under `src/lib/tools/<surface>/`. State-level: it is just a branch in the union.
+- **Annotation marks** — primitives in `src/lib/annotations/`. Body text is the only addressing surface: a span of text is marked by wrapping it in `[<style>]…[/<style>]` delimiters in the preset JSON. The four styles are `highlight`, `underline`, `strike`, `circle`. The wrapping is parsed into structured `AnnotationBody` segments by Zod on preset load; everywhere downstream operates on the structured form.
+- **Preset** — one JSON document containing the whole `engineState`, plus an envelope. Identified by `schema: "hiviz@1"`.
+
+## Verification
+
+Objective checks that prove the engine is real:
+
+1. Open `http://localhost:5173/`. The listing shows all six built-in presets across both surfaces. Each row is a real `<a href="/p/<slug>">` link.
+2. Click a preset. The route navigates to `/p/<slug>`. The matching surface's `Workspace` mounts. The Timeline scrubber renders and scrubs the animation correctly.
+3. Hand an AI:
+   - `docs/presets/engine.schema.json` (one schema for everything),
+   - `docs/presets/engine.md` (one human-language brief).
+   Provide only a one-line goal. The AI returns a valid preset JSON that, dropped into `src/lib/presets/`, loads at `/p/<filename-without-extension>`.
+4. Take any research-paper preset, change `surface.type` to `quote-focus`, fill in the required `surface.*` content + timing fields, and drop it back in. It loads and renders without touching the shared blocks. This is the "remix across surfaces" test that proves the engine is unified.
 
 ## Unified state shape
 
+The runtime state shape lives in `src/lib/platform/engine-schema.ts` (pure TS — types + Zod) and `src/lib/platform/engine-state.svelte.ts` (the `$state` runtime + a few state-coupled helpers).
+
 ```ts
-// src/lib/platform/engine-state.ts
+// src/lib/platform/engine-schema.ts
 export interface EngineState {
   transport: Transport;
   typography: Typography;
   marks: MarksState;
-  surface: SurfaceState;     // discriminated by .type
+  surface: SurfaceState; // discriminated by .type
 }
 
 export interface Transport {
-  orientation: VideoOrientation;   // from $lib/utils/video-frame
+  orientation: VideoOrientation; // 'horizontal' | 'vertical'
   durationSeconds: number;
   fps: number;
-  format: ExportFormat;            // from $lib/platform/tool
+  format: ExportFormat; // 'webm' | 'prores'
 }
 
 export interface Typography {
-  fontFamily: FontFamily;          // shared enum: 'serif' | 'sans' | 'mono' | 'condensed'
-  paperColor: string;
-  inkColor: string;
+  fontFamily: FontFamily; // 'serif' | 'sans' | 'mono' | 'condensed'
+  paperColor: string; // #rrggbb
+  inkColor: string; // #rrggbb
 }
 
 export interface MarksState {
-  // Style-level defaults: used when a per-mark override is absent.
+  // Palette used as the default appearance for each mark style.
+  // A per-mark override on a `MarkTiming` wins when present.
   defaults: Record<AnnotationMarkStyle, MarkAppearance>;
-  // Index-aligned with inline marks discovered in surface content (in document order).
-  // Missing entries fall back to defaults. Extra entries are ignored.
+  // Index-aligned with marked spans discovered in the active surface's body,
+  // in document order. Missing trailing entries fall back to `defaults[style]`.
+  // Extra entries are silently ignored.
   timings: MarkTiming[];
 }
 
-export interface MarkAppearance { color: string; intensity: number; }
-export interface MarkTiming {
-  start: number;          // 0..1 fraction of duration
-  duration: number;       // 0..1 fraction of duration
-  ease: Ease;             // shared label: 'smooth' | 'settled' | 'sharp' | 'bouncy'
-  color?: string;         // overrides defaults[style].color when present
-  intensity?: number;     // overrides defaults[style].intensity when present
+export interface MarkAppearance {
+  color: string; // #rrggbb
+  intensity: number; // 0..1
 }
+
+export interface MarkTiming {
+  start: number; // 0..1 fraction of duration
+  duration: number; // 0..1 fraction of duration
+  ease: Ease; // 'smooth' | 'settled' | 'sharp' | 'bouncy'
+  color?: string; // overrides defaults[style].color when present
+  intensity?: number; // overrides defaults[style].intensity when present
+}
+
+export type AnnotationMarkStyle = 'highlight' | 'underline' | 'strike' | 'circle';
 
 export type SurfaceState =
   | {
       type: 'research-paper';
-      content: { title: string; sourceUrl: string; body: string };
+      content: {
+        title: string;
+        sourceUrl: string;
+        body: AnnotationBody; // parsed from a `[style]…[/style]` string in JSON
+      };
       enter: Transition;
       exit: Transition;
     }
   | {
       type: 'quote-focus';
-      content: { body: string; quote: string; author: string; source: string; dateLabel: string };
+      content: {
+        body: AnnotationBody; // parsed from a `[style]…[/style]` string in JSON
+        author: string;
+        source: string;
+        dateLabel: string;
+      };
       focus: { start: number; duration: number; ease: Ease; style: QuoteFocusFocusStyle };
-      mark:  { start: number; duration: number; ease: Ease; style: QuoteFocusMarkStyle };
+      mark: { start: number; duration: number; ease: Ease; style: QuoteFocusMarkStyle };
       camera: 'none' | 'push' | 'snap';
-      backgroundVisibility: number;
+      backgroundVisibility: number; // 0..1
       showSourceMetadata: boolean;
     };
 
-export interface Transition { start: number; duration: number; ease: Ease; }
+export interface Transition {
+  start: number;
+  duration: number;
+  ease: Ease;
+}
+
+export type QuoteFocusFocusStyle =
+  | 'highlight'
+  | 'magnify'
+  | 'isolate'
+  | 'lift-out'
+  | 'tear-out';
+export type QuoteFocusMarkStyle = 'none' | 'underline' | 'box' | 'circle' | 'side-note';
+
+// AnnotationBody = AnnotatedTextParagraph[]
+// AnnotatedTextParagraph = { segments: { text: string; markStyle: AnnotationMarkStyle | null }[] }
 ```
 
-The Zod schema mirrors this and is the single source of truth: `type EngineState = z.infer<typeof EngineStateSchema>`. Existing surface enums (`QuoteFocusFocusStyle`, `QuoteFocusMarkStyle`, `AnnotationMarkStyle`) move into this schema or are imported into it.
+### Body shape on disk vs at runtime
+
+On disk (in preset JSON), `body` is a **string** with markdown-ish delimiters:
+
+```
+The Transformer reaches [highlight]a new state of the art[/highlight] in twelve hours.
+```
+
+Recognised delimiters: `[highlight]…[/highlight]`, `[underline]…[/underline]`, `[strike]…[/strike]`, `[circle]…[/circle]`. Paragraph boundary is a blank line (`\n\n`).
+
+At runtime, `body` is `AnnotationBody` — the structured form. Zod's `transform` parses the string into segments on preset load (`PresetSchema.parse`), and the editor + canvas source operate on the structured form directly. `serializeAnnotationBodyToText` in `src/lib/annotations/annotation-body-text.ts` reverses the transform when writing JSON.
 
 ### What lives in shared vs surface
 
-Shared blocks are the rule. A field only belongs in `surface` if it would be meaningless on at least one other surface. Concrete examples from today's code:
+The rule is: a field belongs in a shared block (`transport`, `typography`, `marks`) unless it would be meaningless on at least one other surface.
 
-| Field                              | Today's location                       | New location          |
-|------------------------------------|----------------------------------------|-----------------------|
-| `orientation`, `fps`, `duration`   | duplicated in both tool states         | `transport`           |
-| `fontFamily`, `paperColor`, `inkColor` | duplicated                          | `typography`          |
-| quote-focus `highlightColor`, `markColor` | surface-specific                | `marks.defaults`      |
-| research-paper `animation.marks[]` | surface-specific                       | `marks.timings`       |
-| research-paper `title`, `sourceUrl`, `body` | surface-specific              | `surface.content`     |
-| research-paper paper `enter`, `exit` | surface-specific                     | `surface.enter/exit`  |
-| quote-focus `focusStyle`, `cameraMotion`, `backgroundVisibility` | surface-specific | `surface.*`     |
+| Field | Location |
+|---|---|
+| `orientation`, `fps`, `durationSeconds`, `format` | `transport` (shared) |
+| `fontFamily`, `paperColor`, `inkColor` | `typography` (shared) |
+| Per-mark color/intensity defaults | `marks.defaults` (shared) |
+| Per-marked-span timing (start/duration/ease, optional color/intensity override) | `marks.timings` (shared) |
+| Paper card title, source URL, body | `surface.content` (research-paper) |
+| Paper card enter / exit transitions | `surface.enter` / `surface.exit` |
+| Quote-focus body + attribution | `surface.content` (quote-focus) |
+| Quote-focus focus style + timing | `surface.focus` |
+| Quote-focus mark style + timing | `surface.mark` |
+| Quote-focus camera + bg visibility + attribution toggle | `surface.{camera,backgroundVisibility,showSourceMetadata}` |
 
-After this refactor neither `researchPaperState` nor `quoteFocusState` exist as separate $state objects. Everything reads `engineState.transport`, `engineState.surface.content`, etc.
+Neither `researchPaperState` nor `quoteFocusState` exists as a separate `$state` object. Everything reads `engineState` directly.
 
 ## Architecture
 
-### New platform files
+### Platform files
 
-- `src/lib/platform/engine-state.ts`
-  Exports `engineState: EngineState` (module-level `$state`), the Zod schema, and the shared enums (`Ease`, `FontFamily`, font/ease label maps moved here from the per-tool state files).
-
-- `src/lib/platform/preset.ts`
-  Types and storage. Exports:
-  - `Preset` shape: `{ schema: 'hiviz@1'; name: string; description?: string; state: EngineState }`
-  - `parsePreset(json: unknown): Preset` — validates with the Zod schema; throws readable errors
-  - `applyPreset(preset: Preset): void` — mutates `engineState` in place (walks and assigns; never replaces the reference; uses `structuredClone` on nested preset objects so external references can't leak)
-  - `serializeCurrentPreset(name: string, description?: string): Preset` — snapshot
-  - `loadUserPresets()` / `saveUserPreset(preset)` / `deleteUserPreset(id)` — `localStorage` under `hiviz:presets`
-  - `importPresetFile(file)` / `exportPresetFile(preset)` — `.json` round-trip
-  - `surfaceRoute(surface: SurfaceState['type']): string` — `'research-paper' → '/tools/research-paper'`. Used by the gallery on apply.
-
-- `src/lib/platform/PresetGallery.svelte`
-  One UI component. Renders built-ins, user presets, and the save/import/export actions. Lives in the app shell (root `+layout.svelte` action slot or sidebar), not per-tool.
+- `src/lib/platform/engine-schema.ts` — pure TS. Zod schema, types, shared enums (`Ease`, `FontFamily`, `ENGINE_EASES`, `ENGINE_FONT_FAMILIES`, `*_OPTIONS`), default builders, type guards (`isResearchPaperSurface`, `isQuoteFocusSurface`), `resolveMarkForIndex`. Also exports `PresetSchema` and `PRESET_SCHEMA_ID = 'hiviz@1'`.
+- `src/lib/platform/engine-state.svelte.ts` — runtime. `engineState = $state(createDefaultEngineState())` plus state-coupled helpers: `getResearchPaperSurface()`, `getQuoteFocusSurface()`, `getQuoteFocusMarkAppearance()`, `ensureMarkTimingAtIndex(i)`, `EDITOR_MARK_COLORS`. The narrowing helpers throw if the active surface is the wrong variant (the `/p/[slug]` route's conditional mount prevents this in practice).
+- `src/lib/platform/preset.ts` — no localStorage. No save/import/export. Just:
+  - `listPresets(): readonly CataloguedPreset[]` — built-in presets keyed by slug, ordered by `preset.name`.
+  - `getPresetBySlug(slug): Preset | null` — lookup.
+  - `parsePreset(json): Preset` — validates via Zod; throws with a path-indexed error string.
+  - `applyPreset(preset): void` — walks `preset.state` and assigns primitives into `engineState` in place, preserving `engineState` identity. For `surface`, replaces the whole `engineState.surface` reference with a freshly cloned plain object (Svelte 5 deep-wraps it on assignment). Avoids `structuredClone` on proxies, which would trigger `state_proxy_equality_mismatch` warnings.
+- `src/lib/platform/ToolRunner.svelte` — mounts a surface's `Tool` (GPU host + pipeline + Timeline + workspace chrome). Receives the surface-specific `Tool` instance from the per-surface `Workspace.svelte` component.
 
 ### Surface tool modules
 
-Existing surface tool modules stay where they are (`src/lib/tools/research-paper/`, `src/lib/tools/quote-focus/`). They lose their own state file and instead **read from `engineState` directly**. Per the project rule: components own their data; if state is in a global manager, read it where it's used.
+Each surface owns a directory under `src/lib/tools/<surface>/` with:
 
-- Replace `researchPaperState` and `quoteFocusState` with helpers in each surface's module that narrow `engineState.surface` to the expected variant and throw if the active surface doesn't match. Routes only mount when the surface type matches (see Routing below).
-- Pipelines, controls, and canvas-source components import the typed-narrowed view, not a parallel state object.
+- `<surface>-tool.svelte.ts` — exports the `Tool` instance (transport getter pointing at `engineState.transport`, factory for the pipeline, render-input builder, track builder, animation manifest builder, export hook).
+- `<surface>-pipeline.ts` — WGSL/TypeGPU rendering. Reads structured inputs; never reads `engineState` directly.
+- `<surface>-animation.svelte.ts` — GSAP animation state + manifest builder.
+- `<surface>Workspace.svelte` — wraps `ToolRunner` with the surface's `CanvasSource`, `Controls`, and `TrackInspector` snippets.
+- `<surface>CanvasSource.svelte` — the HTML/CSS layout rendered inside the `<canvas layoutsubtree>`. Emits `<span data-annotation-mark="<style>">` for marked segments so the pipeline can find them via `getClientRects`.
+- `<surface>Controls.svelte` — content + appearance form fields. Reads/writes `engineState` directly (no prop drilling).
+- `<surface>TrackInspector.svelte` — per-track selection-driven controls. Mounts in `ToolRunner`'s `trackInspector` snippet.
+
+Existing surface modules: `src/lib/tools/research-paper/` and `src/lib/tools/quote-focus/`.
 
 ### Built-in presets
 
 ```
 src/lib/presets/
-  research-paper-default.json
+  research-paper-attention.json
   research-paper-critique.json
-  quote-focus-default.json
+  research-paper-vertical.json
   quote-focus-lift-out.json
-  ...
+  quote-focus-isolate.json
+  quote-focus-magnify.json
 ```
 
-One folder, one flat list. Imported via Vite glob in the gallery component. The surface a preset targets is whatever its `state.surface.type` says.
+One folder, one flat list. Loaded at build time via `import.meta.glob<'$lib/presets/*.json'>(...)` in `preset.ts`. Slug = filename without `.json`.
 
 ### Routing
 
-Surface routes survive (`/tools/research-paper`, `/tools/quote-focus`) because each surface has a distinct pipeline and controls panel. The gallery navigates to the matching route on apply via `surfaceRoute(preset.state.surface.type)`.
+```
+/                     # +page.svelte — preset listing (anchors to /p/<slug>)
+/p/[slug]             # +page.svelte — applies preset by slug, dispatches to surface workspace
++layout.svelte        # global "Hiviz" home link
+```
 
-Each surface route guards on mount: if `engineState.surface.type` doesn't match, redirect to that surface's route. This keeps the route ↔ surface invariant simple and lets the gallery live at the app root.
+`/p/[slug]/+page.svelte` reads `page.params.slug`, calls `getPresetBySlug`, calls `applyPreset` once per slug change (via a `$effect` guarded by a `lastAppliedSlug` field), then conditionally mounts `<ResearchPaperWorkspace>` or `<QuoteFocusWorkspace>` based on `engineState.surface.type`. Unknown slug renders a "Preset not found" page with a link home.
 
-A surface picker (cycle through surfaces with default content) is a separate, optional UI primitive; the gallery itself is enough to ship.
+There is no `/tools/...` route. The old surface-specific routes were deleted when the gallery / `/p/[slug]` design landed.
 
-## Preset format (single, unified)
+## Preset format
+
+Top-level envelope:
 
 ```json
 {
   "schema": "hiviz@1",
   "name": "Critique pass",
-  "description": "Two highlights and a circle, settled ease.",
+  "description": "Three marks on a methodology paragraph.",
+  "state": { /* EngineState */ }
+}
+```
+
+Concrete research-paper preset (excerpt; trimmed for brevity):
+
+```json
+{
+  "schema": "hiviz@1",
+  "name": "Critique pass",
+  "description": "…",
   "state": {
-    "transport": { "orientation": "horizontal", "durationSeconds": 6, "fps": 30, "format": "webm" },
-    "typography": { "fontFamily": "serif", "paperColor": "#ffffff", "inkColor": "#000000" },
+    "transport": { "orientation": "horizontal", "durationSeconds": 7, "fps": 30, "format": "webm" },
+    "typography": { "fontFamily": "serif", "paperColor": "#fdf9f1", "inkColor": "#111111" },
     "marks": {
       "defaults": {
-        "highlight": { "color": "#ffd642", "intensity": 0.62 },
-        "underline": { "color": "#1f5aff", "intensity": 0.62 },
+        "highlight": { "color": "#ffd642", "intensity": 0.7 },
+        "underline": { "color": "#1f5aff", "intensity": 0.68 },
         "strike":    { "color": "#de263a", "intensity": 0.62 },
         "circle":    { "color": "#de263a", "intensity": 0.62 }
       },
       "timings": [
-        { "start": 0.34, "duration": 0.24, "ease": "smooth" },
-        { "start": 0.58, "duration": 0.22, "ease": "settled", "color": "#de263a" }
+        { "start": 0.18, "duration": 0.22, "ease": "smooth" },
+        { "start": 0.4,  "duration": 0.2,  "ease": "settled" },
+        { "start": 0.62, "duration": 0.22, "ease": "sharp", "color": "#de263a" }
       ]
     },
     "surface": {
       "type": "research-paper",
       "content": {
-        "title": "Attention Is All You Need",
+        "title": "Methodology, with questions",
         "sourceUrl": "https://arxiv.org/abs/1706.03762",
-        "body": "...with ==marks== and ((circles)) inline..."
+        "body": "We trained the model on the standard WMT 2014 English-German dataset…\n\nFor each task we used the [highlight]base Transformer model[/highlight] without any task-specific tuning, relying on [underline]attention dropout[/underline] and label smoothing instead.\n\nResults on the WMT 2014 [circle]English-to-German[/circle] translation task are reported using BLEU."
       },
       "enter": { "start": 0,    "duration": 0.18, "ease": "settled" },
-      "exit":  { "start": 0.82, "duration": 0.18, "ease": "smooth" }
+      "exit":  { "start": 0.84, "duration": 0.16, "ease": "smooth" }
     }
   }
 }
 ```
 
-Remixing across surfaces is mechanical: swap `surface` for any other variant; the shared blocks carry over untouched.
+Concrete quote-focus preset (excerpt):
+
+```json
+{
+  "schema": "hiviz@1",
+  "name": "Magnify with side note",
+  "description": "…",
+  "state": {
+    "transport": { "orientation": "horizontal", "durationSeconds": 8, "fps": 30, "format": "webm" },
+    "typography": { "fontFamily": "serif", "paperColor": "#ffffff", "inkColor": "#111111" },
+    "marks": {
+      "defaults": { /* … all four styles … */ },
+      "timings": []
+    },
+    "surface": {
+      "type": "quote-focus",
+      "content": {
+        "body": "Software engineering is more like gardening than building. … [highlight]The work that lasts is the work that responds gracefully to weather you did not predict[/highlight], and the work that fails is the work that demands the weather to behave.",
+        "author": "Notebooks",
+        "source": "Talks I have not given",
+        "dateLabel": "2023"
+      },
+      "focus": { "start": 0.2,  "duration": 0.3,  "ease": "smooth", "style": "magnify" },
+      "mark":  { "start": 0.46, "duration": 0.34, "ease": "smooth", "style": "side-note" },
+      "camera": "none",
+      "backgroundVisibility": 0.3,
+      "showSourceMetadata": true
+    }
+  }
+}
+```
+
+Remixing across surfaces is mechanical: swap `surface` for the other variant; the shared blocks carry over untouched.
 
 ## AI authoring contract
 
-Exactly two files exposed to the AI:
+Exactly two files are exposed to the AI:
 
-- `docs/presets/engine.schema.json` — JSON Schema exported from the Zod schema (one file, all surfaces). Generated by `scripts/export-preset-schema.ts`; committed.
-- `docs/presets/engine.md` — one human-language brief: what the shared blocks mean, what each surface is for, and the inline mark syntax convention. Per-surface sections are ≤ ½ page each.
+- `docs/presets/engine.schema.json` — JSON Schema (Draft 2020-12) exported from the Zod schema. One file, both surfaces, body as the on-disk string with delimiter syntax. Generated by `scripts/export-preset-schema.ts`; committed.
+- `docs/presets/engine.md` — human-language brief: what the shared blocks mean, what each surface is for, the inline-mark delimiter syntax. Per-surface sections are ≤ ½ page each.
 
-The AI does not read code. Schema + brief + goal in, valid `Preset` out. Validation rejects invalid presets at load with readable errors.
+The AI does not read source code. Schema + brief + goal in, valid `Preset` out. Drop the JSON into `src/lib/presets/` (slug = filename without `.json`); it loads at `/p/<slug>`. Validation rejects invalid presets at load with a readable error string from `parsePreset`.
 
-## Migration plan
+## Scripts
 
-Sequencing matters because the refactor touches both existing tool state files.
-
-1. **Land the unified schema.** Create `engine-state.ts`, Zod schema, `preset.ts`, `PresetGallery.svelte`. No surface uses any of it yet. Verifies type compiles and the engine state shape is acceptable.
-2. **Migrate research-paper to read `engineState`.** Delete `researchPaperState`; replace internal references with narrowed reads from `engineState.surface` (typed-guarded to `{ type: 'research-paper', ... }`). Pipeline, controls, and canvas source compile and render. Visual parity check with main.
-3. **Migrate quote-focus the same way.** Delete `quoteFocusState`. Same parity check.
-4. **Built-in presets and gallery.** Drop two or three built-in presets per surface into `src/lib/presets/`. Mount `PresetGallery` in the app shell. Run the four verification checks above.
-5. **Export the schema and brief.** Write `scripts/export-preset-schema.ts`; commit generated `docs/presets/engine.schema.json` and hand-write `docs/presets/engine.md`. Run the AI-authoring verification.
-6. **New surfaces (tweet, webpage, timeline-explainer)** start by adding a variant to `SurfaceState` and a pipeline + controls module. They never define their own state file.
-
-Steps 2 and 3 are the biggest pieces of actual refactor — the rest is additive.
+- `scripts/export-preset-schema.ts` — runs `z.toJSONSchema(PresetSchema, { target: 'draft-2020-12', io: 'input' })` and writes `docs/presets/engine.schema.json`. Run via `npm run gen:schema` (`node --experimental-strip-types scripts/export-preset-schema.ts`).
+- `scripts/verify-presets.ts` — validates every preset file in `src/lib/presets/` against `PresetSchema`, plus a cross-surface remix fixture and an AI-authored fixture. Run via `node --experimental-strip-types scripts/verify-presets.ts`.
 
 ## Out of scope (explicit non-goals)
 
-- **Cross-tool "morphing" presets at runtime.** Switching `surface.type` is a content edit, not a continuous transition. No animated surface swap.
-- **Coordinate-anchored marks.** Inline syntax stays the only addressing model.
-- **Cloud sync.** `localStorage` + `.json` only.
-- **Versioned schema migration UI.** A future `hiviz@2` runs migrations internally; users never see version numbers.
+- **User-saved presets, localStorage, in-browser import/export.** Presets live in the repo as committed JSON files. Authoring is a code change (typically by an agent).
+- **Cross-surface morphing at runtime.** Switching `surface.type` is a content edit, not an animated transition.
+- **Coordinate-anchored marks.** Inline-delimiter syntax is the only addressing model for annotations.
+- **Cloud sync.** No accounts, no sync.
+- **Versioned schema migration UI.** The schema id stays `hiviz@1` for now. A future `hiviz@2` runs migrations internally; users never see version numbers.
 
 ## Risks and watch-items
 
-- **`marks.timings` length mismatch with inline marks in content.** If a preset has fewer timings than marks in the body, fall back to `marks.defaults`. If more, extras are ignored. Both are silent and intentional; surface this clearly in `engine.md` so AI doesn't try to "fix" missing timings by inventing them.
-- **Discriminated narrowing.** Surface modules must narrow `engineState.surface` with an exhaustive check; throw on mismatch rather than rendering with undefined fields. The route guard prevents this in practice but the narrowing must still be defensive.
-- **Identity-mutating apply.** `applyPreset` walks and assigns into `engineState`; replacing references would break every `$effect`. Worth a unit test that asserts the object identity is preserved through an apply.
-- **Built-in count discipline.** Three to five per surface. Beyond that, the schema is probably too narrow and variants want to be content edits, not separate presets.
-- **Removing per-tool state is a load-bearing change.** Every reference in surface tool modules to `researchPaperState.x` or `quoteFocusState.x` becomes a typed read off `engineState`. Land step 2 and step 3 as their own PRs with a visible parity comparison; don't bundle.
+- **`marks.timings` length mismatch with marked spans in the body.** If a preset has fewer timings than marks, missing entries fall back to `marks.defaults`. If more, extras are silently ignored. Both are intentional and documented in `engine.md` so AIs don't try to "fix" missing timings by inventing them.
+- **Discriminated narrowing.** `getResearchPaperSurface()` and `getQuoteFocusSurface()` throw on mismatch rather than rendering with undefined fields. The `/p/[slug]` conditional mount prevents the throw in practice, but the narrowing must stay defensive.
+- **Identity-mutating `applyPreset`.** Walks and assigns primitives into `engineState`; preserves `engineState`'s top-level identity. Sub-object identities (`engineState.surface`) are replaced wholesale because the discriminated variants have different shapes. Tests should pin `engineState === <captured-reference>` across an apply.
+- **Body-shape duality.** On disk: string with `[style]…[/style]` delimiters. At runtime: structured `AnnotationBody`. Zod transforms on parse; `serializeAnnotationBodyToText` reverses. Any code that reads `surface.content.body` must treat it as `AnnotationBody`.
+- **Built-in count discipline.** Three to five per surface. Beyond that, the schema is probably too narrow and what you actually want is content edits, not separate presets.
+
+## What comes next
+
+The forward-looking architecture spec is in [`surfaces-and-annotations.md`](./surfaces-and-annotations.md). It replaces the per-surface "Tool" abstraction with a five-layer rendering model (surface chrome / body blocks / annotations / overlays / frame post-process), a primitive registry (`SurfaceRenderer`, `BlockRenderer`, `AnnotationRenderer`, `OverlayRenderer`, `EffectRenderer`), and a single unified `Workspace` / `Controls` / `TrackInspector` UI. The migration is sequenced as eight additive steps (with one in-place schema shape change at step 5), each independently shippable and verifiable. Read that doc before extending the current engine.

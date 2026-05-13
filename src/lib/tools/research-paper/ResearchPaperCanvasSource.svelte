@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { getAnnotatedTextParagraphs } from '$lib/annotations/annotation-marks';
+	import { ENGINE_FONT_FAMILIES } from '$lib/platform/engine-schema';
+	import { engineState, getResearchPaperSurface } from '$lib/platform/engine-state.svelte';
 
 	import { getResearchPaperSourceLabel } from './research-paper-content';
-	import { RESEARCH_PAPER_FONT_FAMILIES, researchPaperState } from './research-paper-state.svelte';
 
 	interface Props {
 		element?: HTMLElement | null;
@@ -10,25 +10,25 @@
 
 	let { element = $bindable(null) }: Props = $props();
 
-	const paragraphs = $derived(getAnnotatedTextParagraphs(researchPaperState.body));
-	const fontFamily = $derived(RESEARCH_PAPER_FONT_FAMILIES[researchPaperState.fontFamily]);
-	const sourceLabel = $derived(getResearchPaperSourceLabel(researchPaperState.sourceUrl));
+	const surface = $derived(getResearchPaperSurface());
+	const fontFamily = $derived(ENGINE_FONT_FAMILIES[engineState.typography.fontFamily]);
+	const sourceLabel = $derived(getResearchPaperSourceLabel(surface.content.sourceUrl));
 </script>
 
 <article
 	bind:this={element}
 	class="research-paper-source"
-	style:background-color={researchPaperState.paperColor}
-	style:color={researchPaperState.inkColor}
+	style:background-color={engineState.typography.paperColor}
+	style:color={engineState.typography.inkColor}
 	style:font-family={fontFamily.stack}
 >
 	<header>
 		<p>{sourceLabel}</p>
-		<h2>{researchPaperState.title}</h2>
+		<h2>{surface.content.title}</h2>
 	</header>
 
 	<section>
-		{#each paragraphs as paragraph, paragraphIndex (`${paragraphIndex}:${paragraph.segments.map((segment) => segment.text).join(':')}`)}
+		{#each surface.content.body as paragraph, paragraphIndex (`${paragraphIndex}:${paragraph.segments.map((segment) => segment.text).join(':')}`)}
 			<p>
 				{#each paragraph.segments as segment, segmentIndex (`${paragraphIndex}:${segmentIndex}:${segment.text}`)}
 					{#if segment.markStyle}

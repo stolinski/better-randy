@@ -1,4 +1,10 @@
 import type { AnimationManifest } from '$lib/platform/animation-manager';
+import {
+	engineState,
+	getQuoteFocusMarkAppearance,
+	getQuoteFocusSurface
+} from '$lib/platform/engine-state.svelte';
+
 import type {
 	Tool,
 	ToolExportOptions,
@@ -17,13 +23,13 @@ import {
 	type QuoteFocusPipeline,
 	type QuoteFocusRenderInputs
 } from './quote-focus-pipeline';
-import { quoteFocusState } from './quote-focus-state.svelte';
 
 function getAttribution(): string {
+	const surface = getQuoteFocusSurface();
 	const parts = [
-		quoteFocusState.author.trim(),
-		quoteFocusState.source.trim(),
-		quoteFocusState.dateLabel.trim()
+		surface.content.author.trim(),
+		surface.content.source.trim(),
+		surface.content.dateLabel.trim()
 	].filter((part) => part.length > 0);
 
 	return parts.join(' · ');
@@ -40,18 +46,21 @@ function createPipeline(options: ToolPipelineFactoryOptions): ToolPipeline {
 }
 
 function buildRenderInputs(timestamp: number): QuoteFocusRenderInputs {
+	const surface = getQuoteFocusSurface();
+	const markAppearance = getQuoteFocusMarkAppearance();
+
 	return {
 		animState: quoteFocusAnimState,
 		attribution: getAttribution(),
-		backgroundVisibility: quoteFocusState.backgroundVisibility,
-		cameraMotion: quoteFocusState.cameraMotion,
-		durationSeconds: quoteFocusState.durationSeconds,
-		focusStart: quoteFocusState.animation.focusStart,
-		focusStyle: quoteFocusState.focusStyle,
-		highlightColor: quoteFocusState.highlightColor,
-		markColor: quoteFocusState.markColor,
-		markIntensity: quoteFocusState.markIntensity,
-		markStyle: quoteFocusState.markStyle,
+		backgroundVisibility: surface.backgroundVisibility,
+		cameraMotion: surface.camera,
+		durationSeconds: engineState.transport.durationSeconds,
+		focusStart: surface.focus.start,
+		focusStyle: surface.focus.style,
+		highlightColor: engineState.marks.defaults.highlight.color,
+		markColor: markAppearance.color,
+		markIntensity: markAppearance.intensity,
+		markStyle: surface.mark.style,
 		timestamp
 	};
 }
@@ -61,24 +70,27 @@ function buildAnimationManifest(): AnimationManifest {
 }
 
 function buildTracks(): TimelineTrack[] {
+	const surface = getQuoteFocusSurface();
+	const markAppearance = getQuoteFocusMarkAppearance();
+
 	return [
 		{
 			id: 'focus',
 			label: 'Focus',
-			color: quoteFocusState.highlightColor,
+			color: engineState.marks.defaults.highlight.color,
 			transitions: [
 				{
 					id: 'enter',
 					label: 'Focus',
-					start: quoteFocusState.animation.focusStart,
-					duration: quoteFocusState.animation.focusDuration,
+					start: surface.focus.start,
+					duration: surface.focus.duration,
 					minStart: 0,
 					maxStart: 0.95,
 					minDuration: 0.05,
 					maxDuration: 0.9,
 					onUpdate: ({ start, duration }) => {
-						quoteFocusState.animation.focusStart = start;
-						quoteFocusState.animation.focusDuration = duration;
+						surface.focus.start = start;
+						surface.focus.duration = duration;
 					}
 				}
 			]
@@ -86,20 +98,20 @@ function buildTracks(): TimelineTrack[] {
 		{
 			id: 'mark',
 			label: 'Mark',
-			color: quoteFocusState.markColor,
+			color: markAppearance.color,
 			transitions: [
 				{
 					id: 'enter',
 					label: 'Mark',
-					start: quoteFocusState.animation.markStart,
-					duration: quoteFocusState.animation.markDuration,
+					start: surface.mark.start,
+					duration: surface.mark.duration,
 					minStart: 0,
 					maxStart: 0.95,
 					minDuration: 0.05,
 					maxDuration: 0.9,
 					onUpdate: ({ start, duration }) => {
-						quoteFocusState.animation.markStart = start;
-						quoteFocusState.animation.markDuration = duration;
+						surface.mark.start = start;
+						surface.mark.duration = duration;
 					}
 				}
 			]
@@ -108,54 +120,62 @@ function buildTracks(): TimelineTrack[] {
 }
 
 function touchDomState(): void {
-	quoteFocusState.body;
-	quoteFocusState.quote;
-	quoteFocusState.author;
-	quoteFocusState.source;
-	quoteFocusState.dateLabel;
-	quoteFocusState.fontFamily;
-	quoteFocusState.paperColor;
-	quoteFocusState.inkColor;
-	quoteFocusState.showSourceMetadata;
+	const surface = getQuoteFocusSurface();
+
+	void surface.content.body;
+	void surface.content.author;
+	void surface.content.source;
+	void surface.content.dateLabel;
+	void surface.showSourceMetadata;
+	void engineState.typography.fontFamily;
+	void engineState.typography.paperColor;
+	void engineState.typography.inkColor;
 }
 
 function touchRenderState(): void {
-	quoteFocusState.focusStyle;
-	quoteFocusState.markStyle;
-	quoteFocusState.markIntensity;
-	quoteFocusState.markColor;
-	quoteFocusState.highlightColor;
-	quoteFocusState.cameraMotion;
-	quoteFocusState.backgroundVisibility;
+	const surface = getQuoteFocusSurface();
+
+	void surface.focus.style;
+	void surface.mark.style;
+	void surface.camera;
+	void surface.backgroundVisibility;
+	void engineState.marks.defaults.highlight.color;
+	void engineState.marks.defaults.highlight.intensity;
+	void engineState.marks.defaults.underline.color;
+	void engineState.marks.defaults.underline.intensity;
+	void engineState.marks.defaults.circle.color;
+	void engineState.marks.defaults.circle.intensity;
 }
 
 async function exportToFile({ canvas, pipeline, onProgress }: ToolExportOptions): Promise<void> {
+	const surface = getQuoteFocusSurface();
+	const markAppearance = getQuoteFocusMarkAppearance();
+
 	await exportQuoteFocusOverlay({
 		canvas,
 		pipeline: pipeline as QuoteFocusPipeline,
-		durationSeconds: quoteFocusState.durationSeconds,
-		fps: quoteFocusState.fps,
+		durationSeconds: engineState.transport.durationSeconds,
+		fps: engineState.transport.fps,
 		onProgress,
 		renderInputs: {
 			attribution: getAttribution(),
-			backgroundVisibility: quoteFocusState.backgroundVisibility,
-			cameraMotion: quoteFocusState.cameraMotion,
-			focusStart: quoteFocusState.animation.focusStart,
-			focusStyle: quoteFocusState.focusStyle,
-			highlightColor: quoteFocusState.highlightColor,
-			markColor: quoteFocusState.markColor,
-			markIntensity: quoteFocusState.markIntensity,
-			markStyle: quoteFocusState.markStyle
+			backgroundVisibility: surface.backgroundVisibility,
+			cameraMotion: surface.camera,
+			focusStart: surface.focus.start,
+			focusStyle: surface.focus.style,
+			highlightColor: engineState.marks.defaults.highlight.color,
+			markColor: markAppearance.color,
+			markIntensity: markAppearance.intensity,
+			markStyle: surface.mark.style
 		}
 	});
 }
 
 export const quoteFocusTool: Tool = {
 	title: 'Quote Focus',
-	kicker: 'Tool',
 	controlsId: 'quote-focus-controls',
 	get transport() {
-		return quoteFocusState;
+		return engineState.transport;
 	},
 	createPipeline,
 	buildAnimationManifest,

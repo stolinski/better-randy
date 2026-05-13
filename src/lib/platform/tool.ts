@@ -1,9 +1,8 @@
 import type { AnimationManifest } from './animation-manager';
+import type { ExportFormat } from './engine-schema';
 import type { GpuHost } from './gpu-host';
 import type { TimelineTrack } from './TimelineTrackView.svelte';
 import type { VideoOrientation } from '$lib/utils/video-frame';
-
-export type ExportFormat = 'webm' | 'prores';
 
 export interface ToolPipeline {
 	uploadDom(): void;
@@ -31,7 +30,6 @@ export interface ToolExportOptions {
 
 export interface Tool {
 	title: string;
-	kicker?: string;
 	controlsId: string;
 	transport: ToolTransportState;
 	createPipeline(options: ToolPipelineFactoryOptions): ToolPipeline;

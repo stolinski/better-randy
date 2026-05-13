@@ -1,0 +1,74 @@
+{
+	"schema": "hiviz@1",
+	"name": "Critique pass",
+	"description": "Highlight, underline and circle staggered across a methodology paragraph.",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 7,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#fdf9f1",
+			"inkColor": "#111111"
+		},
+		"marks": {
+			"defaults": {
+				"highlight": {
+					"color": "#ffd642",
+					"intensity": 0.7
+				},
+				"underline": {
+					"color": "#1f5aff",
+					"intensity": 0.68
+				},
+				"strike": {
+					"color": "#de263a",
+					"intensity": 0.62
+				},
+				"circle": {
+					"color": "#de263a",
+					"intensity": 0.62
+				}
+			},
+			"timings": [
+				{
+					"start": 0.18,
+					"duration": 0.22,
+					"ease": "smooth"
+				},
+				{
+					"start": 0.4,
+					"duration": 0.2,
+					"ease": "settled"
+				},
+				{
+					"start": 0.62,
+					"duration": 0.22,
+					"ease": "sharp",
+					"color": "#de263a"
+				}
+			]
+		},
+		"surface": {
+			"type": "research-paper",
+			"content": {
+				"title": "Methodology, with questions",
+				"sourceUrl": "https://arxiv.org/abs/1706.03762",
+				"body": "We trained the model on the standard WMT 2014 English-German dataset consisting of about 4.5 million sentence pairs.\n\nFor each task we used the [highlight]base Transformer model[/highlight] without any task-specific tuning, relying on [underline]attention dropout[/underline] and label smoothing instead.\n\nResults on the WMT 2014 [circle]English-to-German[/circle] translation task are reported using BLEU and are averaged over five training runs."
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.18,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.84,
+				"duration": 0.16,
+				"ease": "smooth"
+			}
+		}
+	}
+}
