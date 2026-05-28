@@ -1,0 +1,62 @@
+{
+	"schema": "hiviz@1",
+	"name": "Newspaper — body test fixture",
+	"description": "Test fixture for the newspaper Surface's Identity Spec dimensions 2 (halftone-at-body) and 3 (ink-bleed-at-edges). Title + body paragraph at body cap-height so the shader's mid-tone halftone has surface area to attack. Not a shippable Preset — this exists so the Critic can verify the newspaper-physics shader pass renders correctly under realistic content.",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 2.8,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#f0e8d6",
+			"inkColor": "#1a1612"
+		},
+		"marks": {
+			"defaults": {
+				"highlight": { "color": "#fabf47", "intensity": 0.7 }
+			},
+			"timings": [
+				{ "start": 0.18, "duration": 0.10, "ease": "smooth" }
+			]
+		},
+		"surface": {
+			"type": "newspaper",
+			"content": {
+				"kicker": "TECH",
+				"title": "Bun Quietly Replaced npm",
+				"author": "BY STAFF",
+				"dateLabel": "MAR 14 2026",
+				"body": "Over the past eighteen months, a [highlight]quiet displacement[/highlight] has taken place in the JavaScript package management ecosystem. Bun, once a curiosity, now ships in production at companies that until recently treated npm as immutable infrastructure.\n\nThe shift was not announced. There was no migration document, no postmortem. Engineers tried Bun on a side project, noticed the cold install was several times faster, and never went back. The cumulative effect, by early this year, is a meaningful divergence in default tooling between teams who hire from each other."
+			},
+			"enter": { "start": 0, "duration": 0.108, "ease": "settled" },
+			"exit": { "start": 0.915, "duration": 0.085, "ease": "smooth" }
+		},
+		"overlays": [
+			{
+				"type": "washi-tape",
+				"id": "card-corner",
+				"content": {
+					"color": "#fabf47",
+					"rotation": -25,
+					"length": 280
+				},
+				"position": {
+					"anchor": "top-left",
+					"offset": { "x": 0.112, "y": 0.200 }
+				},
+				"enter": { "start": 0.04, "duration": 0.108, "ease": "settled" },
+				"exit": { "start": 0.915, "duration": 0.085, "ease": "smooth" }
+			}
+		],
+		"effects": [
+			{
+				"type": "paper-grain",
+				"id": "frame-grit",
+				"params": { "warmth": 0.55, "density": 0.32 }
+			}
+		]
+	}
+}
