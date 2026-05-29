@@ -723,10 +723,14 @@
 			void entry.target;
 			void entry.enter.start;
 			void entry.enter.duration;
-			void entry.enter.ease;
 			void entry.exit?.start;
 			void entry.exit?.duration;
-			void entry.exit?.ease;
+			// `enter/exit.ease` is intentionally NOT tracked here: a text
+			// animation's easing is intrinsic to its catalog effect
+			// (spec.enter.easing), so the per-entry ease is a no-op for text
+			// anims — tracking it would force a needless rebuild on a value that
+			// can't change the output. (The field still drives surface/overlay
+			// transitions, where ease is meaningful.)
 		}
 
 		// Slot content. Each CanvasSource wraps its text-anim slots in `{#key

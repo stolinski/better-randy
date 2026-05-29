@@ -31,7 +31,12 @@ export const paper: SurfaceRenderer = {
 		typography: true,
 		paperColor: true,
 		inkColor: true,
-		camera: true,
+		// Camera motion (push/snap) is data-modeled, schema-validated, and
+		// G10-safety-checked, but not yet *rendered* (see engine-architecture
+		// "known follow-ups"). Hidden from Controls so the selector isn't an
+		// inert, misleading control. Flip back to `true` when camera motion is
+		// actually wired into the paper pipeline.
+		camera: false,
 		backgroundVisibility: true,
 		enterExit: true
 	},
