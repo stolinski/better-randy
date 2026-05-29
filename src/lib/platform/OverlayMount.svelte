@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { animState } from './anim-state.svelte';
-	import { engineState } from './engine-state.svelte';
+	import { engineState, packState } from './engine-state.svelte';
+	import { getPack } from './packs/registry';
+	import { appearanceVarsToStyle, resolveAppearanceVars } from './packs/resolve';
 	import { PIPELINE_REGISTRY } from './pipelines';
 	import type { Overlay } from './engine-schema';
 	import type { OverlayRenderer } from './pipelines/types';
@@ -52,6 +54,12 @@
 		const ty = (1 - visible) * 32;
 		return `opacity:${visible};transform:translateY(${ty}px);`;
 	}
+
+	// Resolve the overlay's appearance Roles through the active Pack into CSS
+	// vars on the mount root; the CanvasSource consumes them via `var(--…)`.
+	function appearanceStyle(overlay: Overlay): string {
+		return appearanceVarsToStyle(resolveAppearanceVars(getPack(packState.slug), overlay.type));
+	}
 </script>
 
 {#each engineState.overlays as overlay, index (overlay.id)}
@@ -62,7 +70,9 @@
 			class="overlay-mount__item"
 			data-overlay-id={overlay.id}
 			data-overlay-type={overlay.type}
-			style="{positionStyle(overlay)};{visibilityStyle(animState.overlayProgresses[index] ?? 1)}"
+			style="{positionStyle(overlay)};{visibilityStyle(
+				animState.overlayProgresses[index] ?? 1
+			)};{appearanceStyle(overlay)}"
 		>
 			<Component content={overlay.content} />
 		</div>

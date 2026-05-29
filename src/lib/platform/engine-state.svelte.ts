@@ -20,6 +20,13 @@ assertIdentityRegistryValid(getPack('syntax'));
 
 export const engineState = $state<EngineState>(createDefaultEngineState());
 
+/**
+ * Active Pack slug. Set by `applyPreset` from the Preset's `pack` field and
+ * runtime-overridable (ADR-0023). The mounts read it to resolve each Pipeline's
+ * appearance Roles into CSS vars via `resolveAppearanceVars`.
+ */
+export const packState = $state<{ slug: string }>({ slug: 'syntax' });
+
 export function ensureMarkTimingAtIndex(index: number): MarkTiming {
 	while (engineState.marks.timings.length <= index) {
 		engineState.marks.timings.push(createMarkTiming());

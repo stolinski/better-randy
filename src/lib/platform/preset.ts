@@ -7,7 +7,7 @@ import {
 	type SurfaceState,
 	type TextAnimation
 } from './engine-schema';
-import { engineState } from './engine-state.svelte';
+import { engineState, packState } from './engine-state.svelte';
 
 export interface CataloguedPreset {
 	slug: string;
@@ -147,6 +147,8 @@ function cloneTextAnimation(entry: TextAnimation): TextAnimation {
 
 export function applyPreset(preset: Preset): void {
 	const next = preset.state;
+
+	packState.slug = preset.pack;
 
 	engineState.transport.orientation = next.transport.orientation;
 	engineState.transport.durationSeconds = next.transport.durationSeconds;

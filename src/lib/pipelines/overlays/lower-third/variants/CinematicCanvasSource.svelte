@@ -63,7 +63,7 @@
 	}
 
 	.lower-third--cinematic__accent {
-		background-color: #f4a85e;
+		background-color: var(--accent, #f4a85e);
 		box-shadow: 0 0 1.4cqmin rgba(244, 168, 94, 0.45);
 		grid-column: 1;
 		grid-row: 1;
@@ -82,7 +82,7 @@
 	}
 
 	.lower-third--cinematic__kicker {
-		color: #f4a85e;
+		color: var(--accent, #f4a85e);
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-size: 1.9cqmin;
 		font-weight: 600;

@@ -109,6 +109,7 @@ export const syntaxPack: PackManifest = {
 
 		// ---------------- Overlays ----------------
 		'lower-third.fill': { kind: 'style', value: '#0e0e10' },
+		'lower-third.accent': { kind: 'style', value: '#f4a85e' },
 		'lower-third.edge': { kind: 'style', value: { rule: 'vertical-accent', color: '#fabf47' } },
 		'lower-third.depth': { kind: 'style', value: 'flat' },
 		'lower-third.light': { kind: 'style', value: { standard: 'none', cinematic: 'anamorphic-flare' } },

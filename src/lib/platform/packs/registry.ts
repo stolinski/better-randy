@@ -9,9 +9,11 @@
 
 import type { PackManifest } from './types';
 import { syntaxPack } from '$lib/packs/syntax/manifest';
+import { editorialMonoPack } from '$lib/packs/editorial-mono/manifest';
 
 export const PACK_REGISTRY: Readonly<Record<string, PackManifest>> = {
-	syntax: syntaxPack
+	syntax: syntaxPack,
+	'editorial-mono': editorialMonoPack
 };
 
 export function getPack(slug: string): PackManifest {
