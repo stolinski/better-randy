@@ -17,6 +17,15 @@ import type { PackManifest } from './types';
 
 const CORE_APPEARANCE = ['fill', 'ink', 'accent', 'edge', 'depth', 'light'] as const;
 
+/**
+ * Only color-valued style Roles become CSS vars. Many Roles are non-color
+ * tokens (`'tabular-lining'`, `'slot-machine-roll'`, `'flat'`, `'sharp'`) that
+ * are consumed in code, not CSS — emitting them as `--x` would be junk.
+ */
+function isColorValue(value: string): boolean {
+	return /^#[0-9a-f]{3,8}$/i.test(value) || /^(rgb|hsl|oklch|oklab|color|hwb)\(/i.test(value);
+}
+
 export function resolveAppearanceVars(
 	manifest: PackManifest,
 	pipelineType: string
@@ -29,7 +38,12 @@ export function resolveAppearanceVars(
 	//    color slots it needs beyond the core vocabulary; the CanvasSource just
 	//    references the matching `var(--<suffix>, <fallback>)`.
 	for (const [key, role] of Object.entries(manifest.roles)) {
-		if (key.startsWith(prefix) && role.kind === 'style' && typeof role.value === 'string') {
+		if (
+			key.startsWith(prefix) &&
+			role.kind === 'style' &&
+			typeof role.value === 'string' &&
+			isColorValue(role.value)
+		) {
 			vars[`--${key.slice(prefix.length)}`] = role.value;
 		}
 	}
@@ -41,7 +55,7 @@ export function resolveAppearanceVars(
 			continue;
 		}
 		const role = manifest.roles[`${core}-treatment`] ?? manifest.roles[core];
-		if (role && role.kind === 'style' && typeof role.value === 'string') {
+		if (role && role.kind === 'style' && typeof role.value === 'string' && isColorValue(role.value)) {
 			vars[`--${core}`] = role.value;
 		}
 	}
