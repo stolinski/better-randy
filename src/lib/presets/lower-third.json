@@ -1,0 +1,59 @@
+{
+	"schema": "hiviz@1",
+	"name": "Lower-third",
+	"description": "Single lower-third overlay on a transparent background. Uses the lower-third family's `standard` variant per ADR-0020.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 5,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#ffffff",
+			"inkColor": "#f5f5f5"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			}
+		},
+		"overlays": [
+			{
+				"type": "lower-third",
+				"id": "main",
+				"content": {
+					"variant": "standard",
+					"kicker": "CHAPTER 01",
+					"title": "Origins",
+					"subtitle": "How it began"
+				},
+				"position": {
+					"anchor": "bottom-left",
+					"offset": {
+						"x": 0.0625,
+						"y": 0.15
+					}
+				},
+				"enter": {
+					"start": 0.1,
+					"duration": 0.18,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.82,
+					"duration": 0.16,
+					"ease": "smooth"
+				}
+			}
+		],
+		"effects": []
+	}
+}

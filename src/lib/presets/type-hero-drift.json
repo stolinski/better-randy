@@ -1,0 +1,45 @@
+{
+	"schema": "hiviz@1",
+	"name": "Type hero — DRIFT",
+	"description": "Single hero word at display scale, flush-left, with mono subtitle anchored lower-right. The type-aware raked-light shader pass samples the captured text's alpha gradient (Sobel-style 4-tap central differences) and applies warm rim light to letterform edges facing the implied upper-left light + slight counter-shadow to edges facing away — type with dimension from raked theatrical light, not a uniform filter. Asymmetric composition + edge-aware shader work, neither of which the other demos have.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#040408",
+			"inkColor": "#fffaf2"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "type-hero",
+			"variant": "single",
+			"content": {
+				"title": "DRIFT",
+				"author": "Episode 47 — 2026",
+				"body": ""
+			},
+			"enter": { "start": 0, "duration": 0.10, "ease": "smooth" },
+			"exit": { "start": 0.88, "duration": 0.08, "ease": "smooth" }
+		},
+		"textAnimations": [
+			{
+				"id": "subtitle-fade",
+				"target": { "kind": "surface", "slot": "author" },
+				"effect": "fade-through",
+				"enter": { "start": 0.18, "duration": 0.08, "ease": "smooth" },
+				"exit": { "start": 0.88, "duration": 0.05, "ease": "smooth" }
+			}
+		],
+		"overlays": [],
+		"effects": []
+	}
+}

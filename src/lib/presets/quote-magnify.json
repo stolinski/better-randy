@@ -1,0 +1,73 @@
+{
+	"schema": "hiviz@1",
+	"name": "Magnify with side note",
+	"description": "Magnify treatment with a side-note arrow that calls out the attribution.",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 8,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#ffffff",
+			"inkColor": "#111111"
+		},
+		"marks": {
+			"defaults": {
+				"highlight": {
+					"color": "#ffd642",
+					"intensity": 0.66
+				},
+				"underline": {
+					"color": "#1f5aff",
+					"intensity": 0.6
+				},
+				"strike": {
+					"color": "#de263a",
+					"intensity": 0.6
+				},
+				"circle": {
+					"color": "#de263a",
+					"intensity": 0.6
+				}
+			},
+			"timings": [
+				{
+					"start": 0.16,
+					"duration": 0.12,
+					"ease": "smooth"
+				},
+				{
+					"start": 0.18,
+					"duration": 0.12,
+					"ease": "smooth"
+				}
+			]
+		},
+		"surface": {
+			"type": "paper",
+			"content": {
+				"body": "Software engineering is more like gardening than building. You plant, you tend, you prune. [magnify][side-note]The work that lasts is the work that responds gracefully to weather you did not predict[/side-note][/magnify], and the work that fails is the work that demands the weather to behave.",
+				"author": "Notebooks",
+				"source": "Talks I have not given",
+				"dateLabel": "2023"
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.06,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.92,
+				"duration": 0.07,
+				"ease": "smooth"
+			},
+			"camera": "none",
+			"backgroundVisibility": 0.3
+		},
+		"overlays": [],
+		"effects": []
+	}
+}

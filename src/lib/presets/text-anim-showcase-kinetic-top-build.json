@@ -1,0 +1,67 @@
+{
+	"schema": "hiviz@1",
+	"name": "Text animation showcase \u2014 kinetic-top-build",
+	"description": "Showcases the kinetic-top-build renderer family (ADR-0011, short-slide-down catalog effect). The title stacks vertically; each new line drops from above and pushes prior lines to their new centered y positions. Title-only \u2014 layout-aware renderer assumes single short-phrase content. Channel chrome notes: chrome-light verification preset; specific syntax-channel motion would be a follow-up Brief.",
+	"state": {
+		"transport": {
+			"orientation": "vertical",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#fafaf7",
+			"inkColor": "#1a1a1a"
+		},
+		"marks": {
+			"defaults": {
+				"highlight": {
+					"color": "#ffd642",
+					"intensity": 0.62
+				}
+			},
+			"timings": []
+		},
+		"surface": {
+			"type": "paper",
+			"content": {
+				"title": "Words drop into rhythm",
+				"sourceUrl": "https://syntax.fm/text-anim",
+				"body": "Vertical stack build \u2014 each line lands at its new center as the next word arrives from above."
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.05,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.92,
+				"duration": 0.035,
+				"ease": "smooth"
+			}
+		},
+		"textAnimations": [
+			{
+				"id": "title-kinetic-top",
+				"target": {
+					"kind": "surface",
+					"slot": "title"
+				},
+				"effect": "short-slide-down",
+				"enter": {
+					"start": 0.06,
+					"duration": 0.28,
+					"ease": "smooth"
+				},
+				"exit": {
+					"start": 0.85,
+					"duration": 0.035,
+					"ease": "smooth"
+				}
+			}
+		],
+		"overlays": [],
+		"effects": []
+	}
+}

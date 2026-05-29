@@ -14,7 +14,7 @@
 	const titleId = $derived(`${id}-title`);
 </script>
 
-<aside class="control-panel box" aria-labelledby={titleId}>
+<aside class="control-panel" aria-labelledby={titleId}>
 	{#if title}
 		<header class="control-panel__header split center">
 			<h2 id={titleId}>{title}</h2>
@@ -60,7 +60,6 @@
 	}
 
 	.control-panel__footer {
-		border-block-start: var(--border-1);
 		padding-block-start: var(--vs-s);
 	}
 

@@ -19,7 +19,7 @@ const jsonSchema = z.toJSONSchema(PresetSchema, {
 	io: 'input'
 });
 
-const outputPath = resolve(repoRoot, 'docs/presets/engine.schema.json');
+const outputPath = resolve(repoRoot, 'docs/preset-format.schema.json');
 
 await mkdir(dirname(outputPath), { recursive: true });
 await writeFile(

@@ -1,4 +1,6 @@
-import { BufferTarget, CanvasSource, Output, QUALITY_MEDIUM, WebMOutputFormat } from 'mediabunny';
+import { BufferTarget, CanvasSource, Output, QUALITY_HIGH, WebMOutputFormat } from 'mediabunny';
+
+import { fontsReady } from './fonts';
 
 export interface TransparentVideoExportOptions {
 	canvas: HTMLCanvasElement | OffscreenCanvas;
@@ -33,6 +35,10 @@ export async function exportTransparentWebM({
 	renderFrame,
 	onProgress
 }: TransparentVideoExportOptions): Promise<Blob> {
+	// Channel typefaces must be loaded before frame 0 or the export bakes in OS
+	// fallbacks; preview gates the same way.
+	await fontsReady();
+
 	const frameCount = Math.max(1, Math.round(durationSeconds * fps));
 	const frameDuration = 1 / fps;
 	const target = new BufferTarget();
@@ -42,7 +48,7 @@ export async function exportTransparentWebM({
 	});
 	const source = new CanvasSource(canvas, {
 		codec: 'vp9',
-		bitrate: QUALITY_MEDIUM,
+		bitrate: QUALITY_HIGH,
 		alpha: 'keep'
 	});
 
@@ -79,6 +85,8 @@ export async function exportTransparentProRes({
 	renderFrame,
 	onProgress
 }: TransparentVideoExportOptions): Promise<Blob> {
+	await fontsReady();
+
 	const frameCount = Math.max(1, Math.round(durationSeconds * fps));
 	const chunks: Blob[] = [];
 

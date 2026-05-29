@@ -1,0 +1,52 @@
+{
+	"schema": "hiviz@1",
+	"name": "Cursor trail — title traversal",
+	"description": "Verification preset for the cursor-trail Overlay (motion-primitives Phase 4.4). A mac-pointer traverses the title slot and the author slot with dwell, carrying a velocity-anisotropic trail oriented along the motion vector. Cursor sits at the per-Layer default z = 0.9 per ADR-0021 so it occludes everything beneath.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#0a0810",
+			"inkColor": "#fffaf2"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "type-hero",
+			"variant": "single",
+			"content": {
+				"title": "POINT",
+				"author": "AT WHAT MATTERS",
+				"body": ""
+			},
+			"enter": { "start": 0, "duration": 0.06, "ease": "smooth" },
+			"exit": { "start": 0.94, "duration": 0.04, "ease": "smooth" }
+		},
+		"overlays": [
+			{
+				"type": "cursor-trail",
+				"id": "trail",
+				"content": {
+					"pointer": "mac-pointer",
+					"path": [
+						{ "targetSlot": "title", "dwellMs": 800, "action": "hover" },
+						{ "targetSlot": "author", "dwellMs": 400, "action": "click" },
+						{ "targetSlot": "title", "dwellMs": 0, "action": "idle" }
+					]
+				},
+				"position": { "anchor": "top-left", "offset": { "x": 0, "y": 0 } },
+				"enter": { "start": 0, "duration": 0.06, "ease": "smooth" },
+				"exit": { "start": 0.94, "duration": 0.04, "ease": "smooth" }
+			}
+		],
+		"effects": []
+	}
+}

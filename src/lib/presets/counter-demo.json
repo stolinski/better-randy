@@ -1,0 +1,46 @@
+{
+	"schema": "hiviz@1",
+	"name": "Counter — slot machine roll",
+	"description": "Verification preset for the counter Overlay (motion-primitives Phase 4.4). Counts from 0 to 12,450 over the timeline with per-digit slot-machine rolls; tabular numerals keep the counter inline-size constant across every progress.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#0a0810",
+			"inkColor": "#fffaf2"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			}
+		},
+		"overlays": [
+			{
+				"type": "counter",
+				"id": "main",
+				"content": {
+					"variant": "slot-machine-roll",
+					"from": 0,
+					"to": 12450,
+					"format": "integer",
+					"ease": "cubic-bezier(0.22, 1, 0.36, 1)"
+				},
+				"position": { "anchor": "center", "offset": { "x": 0, "y": 0 } },
+				"enter": { "start": 0.05, "duration": 0.15, "ease": "smooth" },
+				"exit": { "start": 0.88, "duration": 0.08, "ease": "smooth" }
+			}
+		],
+		"effects": []
+	}
+}

@@ -1,0 +1,7 @@
+# Aesthetic-neutral rubric + separate aesthetic doc
+
+A single rubric originally tried to govern both *whether a preset is well-made* and *whether it fits the Hiviz channel*, and the two kept contaminating each other: craft rules drifted toward channel-specific examples ("yellow highlighter at 0.7 alpha"), and channel-specific rules drifted toward absolutes that broke for legitimate aesthetic experiments. We split the two: `docs/quality-rubric.md` and `docs/animation-rubric.md` define the craft floor every preset must clear regardless of look (R-rules for render quality, Q-rules for composition, G-rules for motion), and `docs/aesthetic.md` defines which well-made the channel actually wants (palette, type, surface vocabulary, collage system, motion vocabulary, anti-aesthetic). Both must pass independently — a preset can be technically immaculate and channel-wrong, or channel-perfect and technically broken.
+
+## Consequences
+
+Aesthetic-specific details (palette values, font names, registration jitter amounts, mono signature thread) belong in `aesthetic.md` and must not be reintroduced into the rubrics. A future maintainer tempted to merge them — "the rubric should know that yellow is 0.7 alpha" — is exactly the failure mode this ADR exists to prevent. The critic from [ADR-0001](0001-critic-sub-agent-verification.md) classifies findings against both lanes independently: `aesthetic-miss` is the channel-fit failure and is distinct from craft failures like `pipeline-bug` or `preset-choice`.

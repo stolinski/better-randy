@@ -1,0 +1,55 @@
+{
+	"schema": "hiviz@1",
+	"name": "Title card — newspaper",
+	"description": "Full-frame newspaper-style chapter title card. Title-only composition — kicker, byline, and dateline slots intentionally absent so the headline carries the whole card. The newspaper Surface is an intact printed paper substrate (clean printed edges), not a torn clipping — aesthetic.md § Collage System / Cut behavior is scoped to the channel's torn-collage-card layer, not the underlying substrate. Lean-out (a) brightness-reveal deliberately omitted — focal arrival is carried by halo-bloom-up + settled-place; brightness-reveal is reserved for spoken-content text. Lean-out (b) registration jitter n/a — no saturated marks. Lean-out (c) the title cap-height exceeds G4's Surface-title band (60–110 px) by design — with no other text on the card, the title takes the Display-headline role the rubric doesn't yet codify (Critic-filed rubric-gap). Halftone + ink-bleed physics are declared on the newspaper Surface via shaderPass per ADR-0008 but render only once the compose-pipeline invocation lands (same deferral as ADR-0005's overlay shader passes). Verifies the newspaper Surface and washi-tape Overlay added by ADR-0008 / ADR-0009.",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 2.8,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#f0e8d6",
+			"inkColor": "#1a1612"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "newspaper",
+			"content": {
+				"title": "Why Bun Quietly Replaced npm",
+				"body": ""
+			},
+			"enter": { "start": 0, "duration": 0.108, "ease": "settled" },
+			"exit": { "start": 0.915, "duration": 0.085, "ease": "smooth" }
+		},
+		"overlays": [
+			{
+				"type": "washi-tape",
+				"id": "card-corner",
+				"content": {
+					"color": "#fabf47",
+					"rotation": -25,
+					"length": 280
+				},
+				"position": {
+					"anchor": "top-left",
+					"offset": { "x": 0.112, "y": 0.200 }
+				},
+				"enter": { "start": 0.04, "duration": 0.108, "ease": "settled" },
+				"exit": { "start": 0.915, "duration": 0.085, "ease": "smooth" }
+			}
+		],
+		"effects": [
+			{
+				"type": "paper-grain",
+				"id": "frame-grit",
+				"params": { "warmth": 0.55, "density": 0.32 }
+			}
+		]
+	}
+}

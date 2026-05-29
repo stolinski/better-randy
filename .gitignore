@@ -21,3 +21,8 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Local rubric-verification baselines (ignored, see scripts/verify-presets.ts)
+/.tmp-baselines
+
+.test-snapshots

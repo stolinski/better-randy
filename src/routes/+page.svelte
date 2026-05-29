@@ -3,8 +3,13 @@
 	import { listPresets } from '$lib/platform/preset';
 
 	const SURFACE_LABELS: Record<SurfaceType, string> = {
-		'research-paper': 'Research paper',
-		'quote-focus': 'Quote focus'
+		paper: 'Paper',
+		plain: 'Plain',
+		newspaper: 'Newspaper',
+		'pullquote-on-photo': 'Pullquote on photo',
+		'chapter-card': 'Chapter card',
+		'title-sequence': 'Title sequence',
+		'type-hero': 'Type hero'
 	};
 
 	const presets = listPresets();

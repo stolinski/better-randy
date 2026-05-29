@@ -1,7 +1,11 @@
 import { getCanvasRgbColor } from '$lib/utils/color';
 import { clampNumber } from '$lib/utils/math';
 
-export type AnnotationMarkStyle = 'highlight' | 'circle' | 'underline' | 'strike';
+import {
+	ANNOTATION_MARK_ATTRIBUTE,
+	isAnnotationMarkStyle,
+	type AnnotationMarkStyle
+} from './annotation-mark-styles';
 
 export interface AnnotationFrameLayout {
 	x: number;
@@ -10,12 +14,7 @@ export interface AnnotationFrameLayout {
 	height: number;
 }
 
-export interface AnnotationMarkColors {
-	circle: string;
-	highlight: string;
-	strike: string;
-	underline: string;
-}
+export type AnnotationMarkColors = Record<AnnotationMarkStyle, string>;
 
 export interface AnnotationMarkFragmentLayout {
 	x: number;
@@ -31,22 +30,19 @@ export interface AnnotationMarkLayout {
 }
 
 export interface AnnotationTextSegment {
-	markStyle: AnnotationMarkStyle | null;
+	markStyles: AnnotationMarkStyle[];
 	text: string;
 }
 
-export interface AnnotatedTextParagraph {
+export interface ParagraphBlock {
+	type: 'paragraph';
 	segments: AnnotationTextSegment[];
 }
 
-export type AnnotationBody = AnnotatedTextParagraph[];
+export type Block = ParagraphBlock;
+export type BlockType = Block['type'];
 
-export const ANNOTATION_MARK_STYLES: readonly AnnotationMarkStyle[] = [
-	'highlight',
-	'underline',
-	'strike',
-	'circle'
-];
+export type AnnotationBody = Block[];
 
 interface MarkerLineOptions {
 	color: string;
@@ -100,14 +96,13 @@ export interface DrawAnnotationMarksOptions {
 	layouts: AnnotationMarkLayout[];
 	progressByIndex: readonly number[];
 	markStyles?: readonly AnnotationMarkStyle[];
-}
-
-export const ANNOTATION_MARK_ATTRIBUTE = 'data-annotation-mark';
-
-export function isAnnotationMarkStyle(
-	value: string | null | undefined
-): value is AnnotationMarkStyle {
-	return ANNOTATION_MARK_STYLES.includes(value as AnnotationMarkStyle);
+	/**
+	 * Per-mark alpha multiplier from the text-animation manager (ADR-0011).
+	 * `1` means "no attenuation"; lower values fade the mark to match the
+	 * underlying text-animation phase. Layouts without a matching entry should
+	 * receive `1` so missing data is a no-op.
+	 */
+	textAnimAlphaByIndex?: readonly number[];
 }
 
 export function getAnnotationMarkLayouts(
@@ -163,7 +158,8 @@ export function drawAnnotationMarks({
 	intensityByIndex,
 	layouts,
 	progressByIndex,
-	markStyles
+	markStyles,
+	textAnimAlphaByIndex
 }: DrawAnnotationMarksOptions): void {
 	if (layouts.length === 0) {
 		return;
@@ -187,12 +183,25 @@ export function drawAnnotationMarks({
 			continue;
 		}
 
-		if (layout.style === 'circle') {
-			drawCircle(context, layout.bounds, markProgress, color, intensity);
+		// Text-animation alpha multiplier (ADR-0011 marks coupling). When the
+		// body has a textAnimations[] entry, the per-mark drawn alpha is
+		// attenuated by the unit alpha(s) the mark overlaps. The caller takes
+		// the min over overlapped units for per-word / per-line effects, and
+		// the single-element alpha for whole-element effects. A `1` here is a
+		// no-op (no textAnimations entry on this body).
+		const textAlpha = clampNumber(textAnimAlphaByIndex?.[index] ?? 1, 0, 1);
+		if (textAlpha <= 0) {
 			continue;
 		}
 
-		drawFragmentedMark(context, layout, markProgress, color, intensity);
+		const effectiveProgress = markProgress * textAlpha;
+
+		if (layout.style === 'circle') {
+			drawCircle(context, layout.bounds, effectiveProgress, color, intensity);
+			continue;
+		}
+
+		drawFragmentedMark(context, layout, effectiveProgress, color, intensity);
 	}
 }
 

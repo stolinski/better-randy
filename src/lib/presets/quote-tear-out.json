@@ -1,0 +1,73 @@
+{
+	"schema": "hiviz@1",
+	"name": "Tear-out emphasis",
+	"description": "Tear-out treatment with a circled mark and snap zoom toward the quote.",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 7,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#fafafa",
+			"inkColor": "#0a0a0a"
+		},
+		"marks": {
+			"defaults": {
+				"highlight": {
+					"color": "#ffe066",
+					"intensity": 0.55
+				},
+				"underline": {
+					"color": "#1f5aff",
+					"intensity": 0.6
+				},
+				"strike": {
+					"color": "#de263a",
+					"intensity": 0.6
+				},
+				"circle": {
+					"color": "#de263a",
+					"intensity": 0.74
+				}
+			},
+			"timings": [
+				{
+					"start": 0.17,
+					"duration": 0.12,
+					"ease": "settled"
+				},
+				{
+					"start": 0.19,
+					"duration": 0.12,
+					"ease": "sharp"
+				}
+			]
+		},
+		"surface": {
+			"type": "paper",
+			"content": {
+				"body": "Trust the process. Most teams overweight the milestone announcement and underweight the daily standup; the announcement is performative, the standup is corrective. The teams that ship steadily over years almost always run the same boring rhythm, not because rhythm is glamorous, but because [tear-out][circle]rhythm exposes drift fast enough to be cheap[/circle][/tear-out].",
+				"author": "Internal memo",
+				"source": "Field notes",
+				"dateLabel": "2024"
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.06,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.86,
+				"duration": 0.08,
+				"ease": "smooth"
+			},
+			"camera": "snap",
+			"backgroundVisibility": 0.12
+		},
+		"overlays": [],
+		"effects": []
+	}
+}

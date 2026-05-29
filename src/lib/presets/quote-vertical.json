@@ -1,0 +1,56 @@
+{
+	"schema": "hiviz@1",
+	"name": "Quote (vertical)",
+	"description": "Vertical short-form quote pull-out \u2014 paper card with magnified highlight, sized for phone-screen output.",
+	"state": {
+		"transport": {
+			"orientation": "vertical",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#ffffff",
+			"inkColor": "#111111"
+		},
+		"marks": {
+			"defaults": {
+				"highlight": {
+					"color": "#ffd642",
+					"intensity": 0.68
+				}
+			},
+			"timings": [
+				{
+					"start": 0.34,
+					"duration": 0.28,
+					"ease": "smooth"
+				}
+			]
+		},
+		"surface": {
+			"type": "paper",
+			"content": {
+				"body": "The work that lasts is the work that responds gracefully to weather you did not predict. [highlight]Trust the process[/highlight], not the announcement.",
+				"author": "Notebooks",
+				"source": "Talks I have not given",
+				"dateLabel": "2026"
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.2,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.84,
+				"duration": 0.14,
+				"ease": "smooth"
+			},
+			"camera": "push",
+			"backgroundVisibility": 0.2
+		},
+		"overlays": [],
+		"effects": []
+	}
+}

@@ -1,8 +1,11 @@
 import {
 	PresetSchema,
+	type Effect,
 	type MarkTiming,
+	type Overlay,
 	type Preset,
-	type SurfaceState
+	type SurfaceState,
+	type TextAnimation
 } from './engine-schema';
 import { engineState } from './engine-state.svelte';
 
@@ -78,44 +81,69 @@ function cloneTiming(timing: MarkTiming): MarkTiming {
 }
 
 function cloneSurface(surface: SurfaceState): SurfaceState {
-	if (surface.type === 'research-paper') {
-		return {
-			type: 'research-paper',
-			content: {
-				title: surface.content.title,
-				sourceUrl: surface.content.sourceUrl,
-				body: surface.content.body
-			},
-			enter: { start: surface.enter.start, duration: surface.enter.duration, ease: surface.enter.ease },
-			exit: { start: surface.exit.start, duration: surface.exit.duration, ease: surface.exit.ease }
-		};
-	}
-
 	return {
-		type: 'quote-focus',
+		type: surface.type,
 		content: {
 			body: surface.content.body,
+			title: surface.content.title,
+			kicker: surface.content.kicker,
+			sourceUrl: surface.content.sourceUrl,
 			author: surface.content.author,
+			affiliation: surface.content.affiliation,
+			bodyLabel: surface.content.bodyLabel,
 			source: surface.content.source,
 			dateLabel: surface.content.dateLabel
 		},
-		focus: {
-			start: surface.focus.start,
-			duration: surface.focus.duration,
-			ease: surface.focus.ease,
-			style: surface.focus.style
-		},
-		mark: {
-			start: surface.mark.start,
-			duration: surface.mark.duration,
-			ease: surface.mark.ease,
-			style: surface.mark.style
-		},
+		enter: surface.enter
+			? { start: surface.enter.start, duration: surface.enter.duration, ease: surface.enter.ease }
+			: undefined,
+		exit: surface.exit
+			? { start: surface.exit.start, duration: surface.exit.duration, ease: surface.exit.ease }
+			: undefined,
 		camera: surface.camera,
-		backgroundVisibility: surface.backgroundVisibility,
-		showSourceMetadata: surface.showSourceMetadata
+		backgroundVisibility: surface.backgroundVisibility
 	};
 }
+
+function cloneOverlay(overlay: Overlay): Overlay {
+	return {
+		type: overlay.type,
+		id: overlay.id,
+		content: overlay.content,
+		position: {
+			anchor: overlay.position.anchor,
+			offset: overlay.position.offset ? { ...overlay.position.offset } : undefined,
+			rect: overlay.position.rect ? { ...overlay.position.rect } : undefined
+		},
+		enter: overlay.enter ? { ...overlay.enter } : undefined,
+		exit: overlay.exit ? { ...overlay.exit } : undefined
+	};
+}
+
+function cloneEffect(effect: Effect): Effect {
+	return { type: effect.type, id: effect.id, params: effect.params };
+}
+
+function cloneTextAnimation(entry: TextAnimation): TextAnimation {
+	const target =
+		entry.target.kind === 'surface'
+			? { kind: 'surface' as const, slot: entry.target.slot }
+			: {
+					kind: 'overlay' as const,
+					overlayId: entry.target.overlayId,
+					slot: entry.target.slot
+				};
+
+	return {
+		id: entry.id,
+		target,
+		effect: entry.effect,
+		enter: { ...entry.enter },
+		exit: entry.exit ? { ...entry.exit } : undefined,
+		params: entry.params ? { ...entry.params } : undefined
+	};
+}
+
 
 export function applyPreset(preset: Preset): void {
 	const next = preset.state;
@@ -129,14 +157,17 @@ export function applyPreset(preset: Preset): void {
 	engineState.typography.paperColor = next.typography.paperColor;
 	engineState.typography.inkColor = next.typography.inkColor;
 
-	engineState.marks.defaults.highlight.color = next.marks.defaults.highlight.color;
-	engineState.marks.defaults.highlight.intensity = next.marks.defaults.highlight.intensity;
-	engineState.marks.defaults.underline.color = next.marks.defaults.underline.color;
-	engineState.marks.defaults.underline.intensity = next.marks.defaults.underline.intensity;
-	engineState.marks.defaults.strike.color = next.marks.defaults.strike.color;
-	engineState.marks.defaults.strike.intensity = next.marks.defaults.strike.intensity;
-	engineState.marks.defaults.circle.color = next.marks.defaults.circle.color;
-	engineState.marks.defaults.circle.intensity = next.marks.defaults.circle.intensity;
+	for (const style of Object.keys(engineState.marks.defaults) as (keyof typeof engineState.marks.defaults)[]) {
+		if (!(style in next.marks.defaults)) {
+			delete engineState.marks.defaults[style];
+		}
+	}
+	for (const [style, appearance] of Object.entries(next.marks.defaults)) {
+		engineState.marks.defaults[style as keyof typeof engineState.marks.defaults] = {
+			color: appearance.color,
+			intensity: appearance.intensity
+		};
+	}
 
 	engineState.marks.timings.length = 0;
 	for (const timing of next.marks.timings) {
@@ -144,4 +175,7 @@ export function applyPreset(preset: Preset): void {
 	}
 
 	engineState.surface = cloneSurface(next.surface);
+	engineState.overlays = next.overlays.map(cloneOverlay);
+	engineState.effects = (next.effects ?? []).map(cloneEffect);
+	engineState.textAnimations = (next.textAnimations ?? []).map(cloneTextAnimation);
 }

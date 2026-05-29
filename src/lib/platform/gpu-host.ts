@@ -1,5 +1,14 @@
 import tgpu, { type TgpuRoot } from 'typegpu';
 
+/**
+ * Format for every off-screen intermediate — surface output texture, shader-pass
+ * and effect-chain ping-pong. 16-bit float preserves gradient and compositing
+ * precision through the whole chain; the effect chain's final present pass
+ * dithers this down to the 8-bit canvas (`GpuHost.format`), which is where
+ * banding would otherwise appear. DOM/marks source textures stay `rgba8unorm`.
+ */
+export const INTERMEDIATE_FORMAT: GPUTextureFormat = 'rgba16float';
+
 export interface GpuHost {
 	canvas: HTMLCanvasElement;
 	context: GPUCanvasContext;

@@ -1,34 +1,14 @@
 /**
  * Identity Spec for the `newspaper` Surface — per ADR-0015. Declares the
  * dimensions of realism this Pipeline owes when it claims to render aged
- * newsprint. Wave 6 wires the engine-side registration validator that refuses
- * Pipelines whose Identity Spec ships with any dimension unimplemented or
- * any dimension without a probe; until then this file is the source of truth
- * the Critic walks during verification.
- *
- * Types are declared locally for now. When a second Pipeline ships its own
- * identity.ts, lift the type vocabulary into a shared location alongside
- * `src/lib/platform/pipelines/types.ts`.
+ * newsprint. Every dimension here is intrinsic to the material claim — none
+ * of them concede to the active Pack via ADR-0019's via-pack clause, because
+ * paper grain, halftone, ink bleed, edge occlusion, optical misregistration,
+ * surface rotation, camera defocus, and lens vignette are what the substrate
+ * *is*, not aesthetic dress a Pack varies.
  */
 
-export type IdentityKind = 'material' | 'graphic' | 'tool';
-
-export type IdentityProbe =
-	| { kind: 'script'; path: string }
-	| { kind: 'named-observation'; region: string; expectation: string };
-
-export interface IdentityDimension {
-	name: string;
-	definition: string;
-	implementation: string;
-	probe: IdentityProbe;
-}
-
-export interface IdentitySpec {
-	kind: IdentityKind;
-	claim: string;
-	dimensions: readonly IdentityDimension[];
-}
+import type { IdentitySpec } from '$lib/platform/pipelines/identity';
 
 export const newspaperIdentity: IdentitySpec = {
 	kind: 'material',

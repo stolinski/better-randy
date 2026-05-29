@@ -1,0 +1,728 @@
+{
+  "$id": "hiviz@1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "hiviz@1"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "state": {
+      "type": "object",
+      "properties": {
+        "transport": {
+          "type": "object",
+          "properties": {
+            "orientation": {
+              "type": "string",
+              "enum": [
+                "horizontal",
+                "vertical"
+              ]
+            },
+            "durationSeconds": {
+              "type": "number",
+              "minimum": 0.1,
+              "maximum": 600
+            },
+            "fps": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 120
+            },
+            "format": {
+              "type": "string",
+              "enum": [
+                "webm",
+                "prores"
+              ]
+            }
+          },
+          "required": [
+            "orientation",
+            "durationSeconds",
+            "fps",
+            "format"
+          ]
+        },
+        "typography": {
+          "type": "object",
+          "properties": {
+            "fontFamily": {
+              "type": "string",
+              "enum": [
+                "serif",
+                "sans",
+                "mono",
+                "condensed"
+              ]
+            },
+            "paperColor": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "inkColor": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            }
+          },
+          "required": [
+            "fontFamily",
+            "paperColor",
+            "inkColor"
+          ]
+        },
+        "marks": {
+          "type": "object",
+          "properties": {
+            "defaults": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "enum": [
+                  "highlight",
+                  "underline",
+                  "strike",
+                  "circle",
+                  "box",
+                  "side-note",
+                  "magnify",
+                  "lift-out",
+                  "tear-out",
+                  "isolate",
+                  "callout"
+                ]
+              },
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "type": "string",
+                    "pattern": "^#[0-9a-fA-F]{6}$"
+                  },
+                  "intensity": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                },
+                "required": [
+                  "color",
+                  "intensity"
+                ]
+              }
+            },
+            "timings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "start": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "duration": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "ease": {
+                    "type": "string",
+                    "enum": [
+                      "smooth",
+                      "settled",
+                      "sharp",
+                      "bouncy"
+                    ]
+                  },
+                  "color": {
+                    "type": "string",
+                    "pattern": "^#[0-9a-fA-F]{6}$"
+                  },
+                  "intensity": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                },
+                "required": [
+                  "start",
+                  "duration",
+                  "ease"
+                ]
+              }
+            }
+          },
+          "required": [
+            "defaults",
+            "timings"
+          ]
+        },
+        "surface": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "paper",
+                "plain",
+                "newspaper"
+              ]
+            },
+            "content": {
+              "type": "object",
+              "properties": {
+                "body": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "sourceUrl": {
+                  "type": "string"
+                },
+                "author": {
+                  "type": "string"
+                },
+                "affiliation": {
+                  "type": "string"
+                },
+                "bodyLabel": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "dateLabel": {
+                  "type": "string"
+                },
+                "kicker": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "body"
+              ]
+            },
+            "enter": {
+              "type": "object",
+              "properties": {
+                "start": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "duration": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "ease": {
+                  "type": "string",
+                  "enum": [
+                    "smooth",
+                    "settled",
+                    "sharp",
+                    "bouncy"
+                  ]
+                }
+              },
+              "required": [
+                "start",
+                "duration",
+                "ease"
+              ]
+            },
+            "exit": {
+              "type": "object",
+              "properties": {
+                "start": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "duration": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "ease": {
+                  "type": "string",
+                  "enum": [
+                    "smooth",
+                    "settled",
+                    "sharp",
+                    "bouncy"
+                  ]
+                }
+              },
+              "required": [
+                "start",
+                "duration",
+                "ease"
+              ]
+            },
+            "camera": {
+              "type": "string",
+              "enum": [
+                "none",
+                "push",
+                "snap"
+              ]
+            },
+            "backgroundVisibility": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "required": [
+            "type",
+            "content"
+          ]
+        },
+        "textAnimations": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "target": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "surface"
+                      },
+                      "slot": {
+                        "type": "string",
+                        "enum": [
+                          "title",
+                          "kicker",
+                          "body",
+                          "sourceUrl",
+                          "author",
+                          "source",
+                          "dateLabel"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "slot"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "overlay"
+                      },
+                      "overlayId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "slot": {
+                        "type": "string",
+                        "enum": [
+                          "kicker",
+                          "title",
+                          "subtitle"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "overlayId",
+                      "slot"
+                    ]
+                  }
+                ]
+              },
+              "effect": {
+                "type": "string",
+                "minLength": 1
+              },
+              "enter": {
+                "type": "object",
+                "properties": {
+                  "start": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "duration": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "ease": {
+                    "type": "string",
+                    "enum": [
+                      "smooth",
+                      "settled",
+                      "sharp",
+                      "bouncy"
+                    ]
+                  }
+                },
+                "required": [
+                  "start",
+                  "duration",
+                  "ease"
+                ]
+              },
+              "exit": {
+                "type": "object",
+                "properties": {
+                  "start": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "duration": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "ease": {
+                    "type": "string",
+                    "enum": [
+                      "smooth",
+                      "settled",
+                      "sharp",
+                      "bouncy"
+                    ]
+                  }
+                },
+                "required": [
+                  "start",
+                  "duration",
+                  "ease"
+                ]
+              },
+              "params": {
+                "type": "object",
+                "properties": {
+                  "speedMultiplier": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "holdMs": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "gapMs": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "yTravelMultiplier": {
+                    "type": "number"
+                  },
+                  "initialDelayMs": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                }
+              }
+            },
+            "required": [
+              "id",
+              "target",
+              "effect",
+              "enter"
+            ]
+          }
+        },
+        "overlays": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              },
+              "content": {},
+              "position": {
+                "type": "object",
+                "properties": {
+                  "anchor": {
+                    "type": "string",
+                    "enum": [
+                      "top-left",
+                      "top-right",
+                      "top-center",
+                      "bottom-left",
+                      "bottom-right",
+                      "bottom-center",
+                      "center",
+                      "normalized-rect"
+                    ]
+                  },
+                  "offset": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "y": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y"
+                    ]
+                  },
+                  "rect": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number"
+                      },
+                      "y": {
+                        "type": "number"
+                      },
+                      "width": {
+                        "type": "number"
+                      },
+                      "height": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y",
+                      "width",
+                      "height"
+                    ]
+                  }
+                },
+                "required": [
+                  "anchor"
+                ]
+              },
+              "enter": {
+                "type": "object",
+                "properties": {
+                  "start": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "duration": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "ease": {
+                    "type": "string",
+                    "enum": [
+                      "smooth",
+                      "settled",
+                      "sharp",
+                      "bouncy"
+                    ]
+                  }
+                },
+                "required": [
+                  "start",
+                  "duration",
+                  "ease"
+                ]
+              },
+              "exit": {
+                "type": "object",
+                "properties": {
+                  "start": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "duration": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "ease": {
+                    "type": "string",
+                    "enum": [
+                      "smooth",
+                      "settled",
+                      "sharp",
+                      "bouncy"
+                    ]
+                  }
+                },
+                "required": [
+                  "start",
+                  "duration",
+                  "ease"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "id",
+              "content",
+              "position"
+            ]
+          }
+        },
+        "effects": {
+          "default": {
+            "surface": [],
+            "body": [],
+            "annotations": [],
+            "overlays": [],
+            "frame": []
+          },
+          "type": "object",
+          "properties": {
+            "surface": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "params": {}
+                },
+                "required": [
+                  "type",
+                  "id",
+                  "params"
+                ]
+              }
+            },
+            "body": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "params": {}
+                },
+                "required": [
+                  "type",
+                  "id",
+                  "params"
+                ]
+              }
+            },
+            "annotations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "params": {}
+                },
+                "required": [
+                  "type",
+                  "id",
+                  "params"
+                ]
+              }
+            },
+            "overlays": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "params": {}
+                },
+                "required": [
+                  "type",
+                  "id",
+                  "params"
+                ]
+              }
+            },
+            "frame": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "params": {}
+                },
+                "required": [
+                  "type",
+                  "id",
+                  "params"
+                ]
+              }
+            }
+          },
+          "required": [
+            "surface",
+            "body",
+            "annotations",
+            "overlays",
+            "frame"
+          ]
+        }
+      },
+      "required": [
+        "transport",
+        "typography",
+        "marks",
+        "surface"
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "name",
+    "state"
+  ]
+}

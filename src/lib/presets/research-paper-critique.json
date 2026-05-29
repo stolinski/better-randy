@@ -35,25 +35,25 @@
 			},
 			"timings": [
 				{
-					"start": 0.18,
-					"duration": 0.22,
+					"start": 0.17,
+					"duration": 0.1,
 					"ease": "smooth"
 				},
 				{
-					"start": 0.4,
-					"duration": 0.2,
+					"start": 0.41,
+					"duration": 0.1,
 					"ease": "settled"
 				},
 				{
-					"start": 0.62,
-					"duration": 0.22,
+					"start": 0.6,
+					"duration": 0.1,
 					"ease": "sharp",
 					"color": "#de263a"
 				}
 			]
 		},
 		"surface": {
-			"type": "research-paper",
+			"type": "paper",
 			"content": {
 				"title": "Methodology, with questions",
 				"sourceUrl": "https://arxiv.org/abs/1706.03762",
@@ -61,14 +61,16 @@
 			},
 			"enter": {
 				"start": 0,
-				"duration": 0.18,
+				"duration": 0.06,
 				"ease": "settled"
 			},
 			"exit": {
-				"start": 0.84,
-				"duration": 0.16,
+				"start": 0.86,
+				"duration": 0.1,
 				"ease": "smooth"
 			}
-		}
+		},
+		"overlays": [],
+		"effects": []
 	}
 }

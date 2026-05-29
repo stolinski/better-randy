@@ -1,0 +1,80 @@
+{
+	"schema": "hiviz@1",
+	"name": "Chapter card \u2014 cinematic demo",
+	"description": "Hero demo for the chapter-card Surface. Slow shader-side camera push with two-layer parallax (background drifts at the camera rate; atmospheric noise drifts at 1.7\u00d7 for closer-layer parallax) over a deep cool slate substrate; single warm key-light implied from upper-right (off-centre, not radial halo). Centred kicker over huge serif title. 8 s duration lets the camera move breathe; designed to read as a documentary chapter break.",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 8,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#080612",
+			"inkColor": "#f4ecdc"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "chapter-card",
+			"content": {
+				"kicker": "CHAPTER 03",
+				"title": "The Long Drift",
+				"body": ""
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.1,
+				"ease": "smooth"
+			},
+			"exit": {
+				"start": 0.88,
+				"duration": 0.08,
+				"ease": "smooth"
+			}
+		},
+		"textAnimations": [
+			{
+				"id": "kicker-fade",
+				"target": {
+					"kind": "surface",
+					"slot": "kicker"
+				},
+				"effect": "fade-through",
+				"enter": {
+					"start": 0.02,
+					"duration": 0.1,
+					"ease": "smooth"
+				},
+				"exit": {
+					"start": 0.9,
+					"duration": 0.05,
+					"ease": "smooth"
+				}
+			},
+			{
+				"id": "title-reveal",
+				"target": {
+					"kind": "surface",
+					"slot": "title"
+				},
+				"effect": "mask-reveal-up",
+				"enter": {
+					"start": 0.08,
+					"duration": 0.18,
+					"ease": "smooth"
+				},
+				"exit": {
+					"start": 0.86,
+					"duration": 0.08,
+					"ease": "smooth"
+				}
+			}
+		],
+		"overlays": [],
+		"effects": []
+	}
+}

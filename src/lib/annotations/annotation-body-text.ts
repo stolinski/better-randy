@@ -1,70 +1,105 @@
+import {
+	ANNOTATION_MARK_STYLES,
+	type AnnotationMarkStyle
+} from './annotation-mark-styles.ts';
 import type {
 	AnnotationBody,
-	AnnotationMarkStyle,
-	AnnotationTextSegment
-} from './annotation-marks';
-
-const ANNOTATION_MARK_STYLES: readonly AnnotationMarkStyle[] = [
-	'highlight',
-	'underline',
-	'strike',
-	'circle'
-];
+	AnnotationTextSegment,
+	ParagraphBlock
+} from './annotation-marks.ts';
 
 export function parseAnnotationBodyText(text: string): AnnotationBody {
 	return text
 		.split(/\n{2,}/)
 		.map((paragraph) => paragraph.trim())
 		.filter((paragraph) => paragraph.length > 0)
-		.map((paragraph) => ({ segments: parseParagraphSegments(paragraph) }));
+		.map<ParagraphBlock>((paragraph) => ({
+			type: 'paragraph',
+			segments: parseParagraphSegments(paragraph)
+		}));
+}
+
+/**
+ * Plain-text projection of an annotation body, with paragraphs joined by
+ * a single space. Used as a `{#key}` signature so a Svelte template re-creates
+ * a body slot whenever the rendered text changes, even though the AnnotationBody
+ * array itself is mutated in place.
+ */
+export function annotationBodyPlainText(body: AnnotationBody): string {
+	let out = '';
+	for (const block of body) {
+		if (block.type !== 'paragraph') {
+			continue;
+		}
+		if (out.length > 0) {
+			out += ' ';
+		}
+		for (const segment of block.segments) {
+			out += segment.text;
+		}
+	}
+	return out;
 }
 
 export function serializeAnnotationBodyToText(body: AnnotationBody): string {
 	return body
-		.map((paragraph) =>
-			paragraph.segments
+		.map((block) => {
+			if (block.type !== 'paragraph') {
+				return '';
+			}
+
+			return block.segments
 				.map((segment) => {
-					if (segment.markStyle === null) {
+					if (segment.markStyles.length === 0) {
 						return segment.text;
 					}
 
-					return `[${segment.markStyle}]${segment.text}[/${segment.markStyle}]`;
+					let wrapped = segment.text;
+
+					for (let i = segment.markStyles.length - 1; i >= 0; i -= 1) {
+						const style = segment.markStyles[i];
+						wrapped = `[${style}]${wrapped}[/${style}]`;
+					}
+
+					return wrapped;
 				})
-				.join('')
-		)
+				.join('');
+		})
 		.join('\n\n');
 }
 
 function parseParagraphSegments(paragraph: string): AnnotationTextSegment[] {
 	const segments: AnnotationTextSegment[] = [];
+	const styleStack: AnnotationMarkStyle[] = [];
 	let cursor = 0;
 
 	while (cursor < paragraph.length) {
 		if (paragraph[cursor] === '[') {
-			const tagMatch = matchOpenerAt(paragraph, cursor);
+			const closer = matchCloserAt(paragraph, cursor);
 
-			if (tagMatch) {
-				const closer = `[/${tagMatch.style}]`;
-				const contentStart = cursor + tagMatch.opener.length;
-				const closerIndex = paragraph.indexOf(closer, contentStart);
+			if (closer) {
+				const top = styleStack[styleStack.length - 1];
 
-				if (closerIndex !== -1) {
-					const inner = paragraph.slice(contentStart, closerIndex);
-
-					if (inner.length > 0) {
-						appendSegment(segments, inner, tagMatch.style);
-					}
-
-					cursor = closerIndex + closer.length;
+				if (top === closer.style) {
+					styleStack.pop();
+					cursor += closer.tag.length;
 					continue;
 				}
+			}
+
+			const opener = matchOpenerAt(paragraph, cursor);
+
+			if (opener) {
+				styleStack.push(opener.style);
+				cursor += opener.tag.length;
+				continue;
 			}
 		}
 
 		const nextBracket = paragraph.indexOf('[', cursor + 1);
 		const end = nextBracket === -1 ? paragraph.length : nextBracket;
 
-		appendSegment(segments, paragraph.slice(cursor, end), null);
+		appendSegment(segments, paragraph.slice(cursor, end), styleStack);
 		cursor = end;
 	}
 
@@ -74,12 +109,27 @@ function parseParagraphSegments(paragraph: string): AnnotationTextSegment[] {
 function matchOpenerAt(
 	paragraph: string,
 	cursor: number
-): { opener: string; style: AnnotationMarkStyle } | null {
+): { tag: string; style: AnnotationMarkStyle } | null {
 	for (const style of ANNOTATION_MARK_STYLES) {
-		const opener = `[${style}]`;
+		const tag = `[${style}]`;
 
-		if (paragraph.startsWith(opener, cursor)) {
-			return { opener, style };
+		if (paragraph.startsWith(tag, cursor)) {
+			return { tag, style };
+		}
+	}
+
+	return null;
+}
+
+function matchCloserAt(
+	paragraph: string,
+	cursor: number
+): { tag: string; style: AnnotationMarkStyle } | null {
+	for (const style of ANNOTATION_MARK_STYLES) {
+		const tag = `[/${style}]`;
+
+		if (paragraph.startsWith(tag, cursor)) {
+			return { tag, style };
 		}
 	}
 
@@ -89,7 +139,7 @@ function matchOpenerAt(
 function appendSegment(
 	segments: AnnotationTextSegment[],
 	text: string,
-	markStyle: AnnotationMarkStyle | null
+	markStyles: AnnotationMarkStyle[]
 ): void {
 	if (text.length === 0) {
 		return;
@@ -97,10 +147,14 @@ function appendSegment(
 
 	const last = segments[segments.length - 1];
 
-	if (last && last.markStyle === markStyle) {
+	if (
+		last &&
+		last.markStyles.length === markStyles.length &&
+		last.markStyles.every((style, index) => style === markStyles[index])
+	) {
 		last.text += text;
 		return;
 	}
 
-	segments.push({ text, markStyle });
+	segments.push({ text, markStyles: [...markStyles] });
 }

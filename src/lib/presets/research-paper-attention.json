@@ -5,19 +5,19 @@
 	"state": {
 		"transport": {
 			"orientation": "horizontal",
-			"durationSeconds": 6,
+			"durationSeconds": 8,
 			"fps": 30,
 			"format": "webm"
 		},
 		"typography": {
 			"fontFamily": "serif",
-			"paperColor": "#ffffff",
-			"inkColor": "#000000"
+			"paperColor": "#fafaf7",
+			"inkColor": "#1a1a1a"
 		},
 		"marks": {
 			"defaults": {
 				"highlight": {
-					"color": "#ffd642",
+					"color": "#fabf47",
 					"intensity": 0.62
 				},
 				"underline": {
@@ -35,29 +35,34 @@
 			},
 			"timings": [
 				{
-					"start": 0.34,
-					"duration": 0.24,
+					"start": 0.16,
+					"duration": 0.06,
 					"ease": "smooth"
 				}
 			]
 		},
 		"surface": {
-			"type": "research-paper",
+			"type": "paper",
 			"content": {
 				"title": "Attention Is All You Need",
 				"sourceUrl": "https://arxiv.org/abs/1706.03762",
-				"body": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks that include an encoder and a decoder.\n\nThe Transformer allows for significantly more parallelization and can reach [highlight]a new state of the art in translation quality after being trained for as little as twelve hours[/highlight].\n\nSelf-attention connects all positions with a constant number of sequentially executed operations, whereas recurrent layers require a number of operations proportional to sequence length."
+				"author": "Vaswani et al.",
+				"affiliation": "Google Brain",
+				"bodyLabel": "Abstract",
+				"body": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks in an encoder\u2013decoder configuration. The best-performing models also connect the encoder and decoder through an attention mechanism.\n\nWe propose a new, simpler architecture \u2014 the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely.\n\nExperiments on two machine translation tasks show these models to be superior in quality while being more parallelizable and [highlight]requiring significantly less time to train[/highlight]. On WMT 2014 English-to-German translation, our model establishes a new state of the art."
 			},
 			"enter": {
 				"start": 0,
-				"duration": 0.18,
+				"duration": 0.045,
 				"ease": "settled"
 			},
 			"exit": {
-				"start": 0.82,
-				"duration": 0.18,
+				"start": 0.93,
+				"duration": 0.034,
 				"ease": "smooth"
 			}
-		}
+		},
+		"overlays": [],
+		"effects": []
 	}
 }

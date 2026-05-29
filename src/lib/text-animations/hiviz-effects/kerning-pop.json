@@ -1,0 +1,50 @@
+{
+	"id": "kerning-pop",
+	"visibility": "visible",
+	"portable_spec": {
+		"id": "kerning-pop",
+		"display_name": "Kerning Pop",
+		"description": "Letter-spacing animation on a title-scale slot. Per-character split mode; letter-spacing tweens from wide (1.2 em) to tight (0 em) over the enter window. CSS-rasterizable per the ADR-0011 amendment two-clause rule — qualifies as a catalog entry rather than a Pipeline.",
+		"inspiration": "Editorial title cards where the headline arrives airy and tightens to its rest state as part of the enter.",
+		"target": "per-character",
+		"signature_easing": "cubic-bezier(0.22, 1, 0.36, 1)",
+		"enter": {
+			"duration_ms": 640,
+			"stagger_ms": 28,
+			"easing": "cubic-bezier(0.22, 1, 0.36, 1)",
+			"from": {
+				"opacity": 0,
+				"letter_spacing_em": 1.2
+			},
+			"to": {
+				"opacity": 1,
+				"letter_spacing_em": 0
+			}
+		},
+		"exit": {
+			"duration_ms": 320,
+			"stagger_ms": 18,
+			"easing": "cubic-bezier(0.64, 0, 0.78, 0)",
+			"from": {
+				"opacity": 1,
+				"letter_spacing_em": 0
+			},
+			"to": {
+				"opacity": 0,
+				"letter_spacing_em": 0.3
+			}
+		},
+		"usage_notes": "Title-scale only (per-character on body-scale text reads as noise). Pairs well with reduced enter motion on neighbouring slots so the tightening reads as the primary motion."
+	},
+	"showcase": {
+		"renderer": {
+			"id": "generic-stagger"
+		},
+		"runtime": {
+			"speed_multiplier": 1,
+			"hold_ms": 0,
+			"gap_ms": 0,
+			"y_travel_multiplier": 1
+		}
+	}
+}

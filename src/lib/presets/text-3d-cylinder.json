@@ -1,0 +1,45 @@
+{
+	"schema": "hiviz@1",
+	"name": "Text 3D — cylinder around Y axis",
+	"description": "Verification preset for the text-3d Overlay (motion-primitives Phase 4.3). Text wraps onto a Y-axis cylinder; back-facing glyphs occlude themselves via CSS backface-visibility; per-glyph brightness attenuates by cos(angle) so front-facing glyphs are brightest. Cylinder rotates 90° over the timeline per the cylinder-axis-y variant.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#040408",
+			"inkColor": "#fffaf2"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			}
+		},
+		"overlays": [
+			{
+				"type": "text-3d",
+				"id": "main",
+				"content": {
+					"variant": "cylinder-axis-y",
+					"text": "ROUND SPIN IT",
+					"rotationDegrees": 90,
+					"radiusCh": 4
+				},
+				"position": { "anchor": "center", "offset": { "x": 0, "y": 0 } },
+				"enter": { "start": 0, "duration": 0.2, "ease": "smooth" },
+				"exit": { "start": 0.85, "duration": 0.1, "ease": "smooth" }
+			}
+		],
+		"effects": []
+	}
+}

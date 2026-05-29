@@ -5,15 +5,34 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..');
 const schemaModulePath = resolve(repoRoot, 'src/lib/platform/engine-schema.ts');
+const rubricModulePath = resolve(repoRoot, 'src/lib/platform/preset-rubric.ts');
+
+interface ParseResult {
+	success: boolean;
+	data?: unknown;
+	error?: unknown;
+}
+
+interface RubricIssue {
+	rule: string;
+	severity: 'error' | 'warn';
+	path: string;
+	message: string;
+}
 
 const { PresetSchema } = (await import(pathToFileURL(schemaModulePath).href)) as {
-	PresetSchema: { safeParse: (value: unknown) => { success: boolean; error?: unknown } };
+	PresetSchema: { safeParse: (value: unknown) => ParseResult };
+};
+
+const { lintPreset } = (await import(pathToFileURL(rubricModulePath).href)) as {
+	lintPreset: (preset: unknown) => RubricIssue[];
 };
 
 const presetDir = resolve(repoRoot, 'src/lib/presets');
 const files = (await readdir(presetDir)).filter((file) => file.endsWith('.json'));
 
 let failed = 0;
+let warned = 0;
 
 for (const file of files) {
 	const raw = await readFile(resolve(presetDir, file), 'utf8');
@@ -21,86 +40,204 @@ for (const file of files) {
 	const result = PresetSchema.safeParse(json);
 
 	if (!result.success) {
-		console.error(`✗ ${file}`);
+		console.error(`✗ ${file} (schema)`);
+		console.error(result.error);
+		failed += 1;
+		continue;
+	}
+
+	const issues = lintPreset(result.data);
+	const errors = issues.filter((issue) => issue.severity === 'error');
+	const warnings = issues.filter((issue) => issue.severity === 'warn');
+
+	if (errors.length === 0 && warnings.length === 0) {
+		console.log(`✓ ${file}`);
+		continue;
+	}
+
+	if (errors.length > 0) {
+		failed += 1;
+		console.error(`✗ ${file} (rubric)`);
+	} else {
+		console.log(`⚠ ${file} (rubric warnings)`);
+	}
+
+	warned += warnings.length;
+
+	for (const issue of issues) {
+		const tag = issue.severity === 'error' ? 'ERR' : 'WRN';
+		console[issue.severity === 'error' ? 'error' : 'log'](
+			`    ${tag} ${issue.rule} ${issue.path} — ${issue.message}`
+		);
+	}
+}
+
+interface Fixture {
+	name: string;
+	preset: unknown;
+}
+
+const baseMarks = {
+	defaults: {
+		highlight: { color: '#ffd642', intensity: 0.62 },
+		underline: { color: '#1f5aff', intensity: 0.62 },
+		strike: { color: '#de263a', intensity: 0.62 },
+		circle: { color: '#de263a', intensity: 0.62 }
+	},
+	timings: []
+};
+const emptyEffects: never[] = [];
+
+const fixtures: Fixture[] = [
+	{
+		name: 'Cross-surface remix (paper → plain content carry-over)',
+		preset: {
+			schema: 'hiviz@1',
+			name: 'Cross-surface remix',
+			state: {
+				transport: { orientation: 'horizontal', durationSeconds: 5, fps: 30, format: 'webm' },
+				typography: { fontFamily: 'serif', paperColor: '#ffffff', inkColor: '#0a0a0a' },
+				marks: baseMarks,
+				surface: {
+					type: 'plain',
+					content: {
+						body: 'Plain background body with one [highlight]bright phrase[/highlight].'
+					}
+				},
+				overlays: [],
+				effects: emptyEffects
+			}
+		}
+	},
+	{
+		name: 'Decorative fixture (every decorative style on its own line)',
+		preset: {
+			schema: 'hiviz@1',
+			name: 'Decorative coverage',
+			state: {
+				transport: { orientation: 'horizontal', durationSeconds: 5, fps: 30, format: 'webm' },
+				typography: { fontFamily: 'serif', paperColor: '#ffffff', inkColor: '#0a0a0a' },
+				marks: baseMarks,
+				surface: {
+					type: 'paper',
+					content: {
+						title: 'Decorative coverage',
+						body: '[highlight]highlight[/highlight] [underline]underline[/underline] [strike]strike[/strike] [circle]circle[/circle] [box]box[/box] [side-note]side-note[/side-note]'
+					},
+					enter: { start: 0, duration: 0.18, ease: 'settled' },
+					exit: { start: 0.82, duration: 0.18, ease: 'smooth' }
+				},
+				overlays: [],
+				effects: emptyEffects
+			}
+		}
+	},
+	{
+		name: 'Focal fixture (every focal style on its own line)',
+		preset: {
+			schema: 'hiviz@1',
+			name: 'Focal coverage',
+			state: {
+				transport: { orientation: 'horizontal', durationSeconds: 5, fps: 30, format: 'webm' },
+				typography: { fontFamily: 'serif', paperColor: '#ffffff', inkColor: '#0a0a0a' },
+				marks: baseMarks,
+				surface: {
+					type: 'paper',
+					content: {
+						title: 'Focal coverage',
+						body: '[magnify]magnify[/magnify] [lift-out]lift-out[/lift-out] [tear-out]tear-out[/tear-out] [isolate]isolate[/isolate] [callout]callout[/callout]'
+					}
+				},
+				overlays: [],
+				effects: emptyEffects
+			}
+		}
+	},
+	{
+		name: 'Lower-third overlay fixture',
+		preset: {
+			schema: 'hiviz@1',
+			name: 'Lower-third overlay',
+			state: {
+				transport: { orientation: 'horizontal', durationSeconds: 5, fps: 30, format: 'webm' },
+				typography: { fontFamily: 'sans', paperColor: '#ffffff', inkColor: '#0a0a0a' },
+				marks: baseMarks,
+				surface: {
+					type: 'plain',
+					content: { body: 'Body text in the background.' }
+				},
+				overlays: [
+					{
+						type: 'lower-third',
+						id: 'main',
+						content: { kicker: 'CHAPTER 01', title: 'Origins', subtitle: 'How it began' },
+						position: { anchor: 'bottom-left', offset: { x: 0.0625, y: 0.0625 } },
+						enter: { start: 0.1, duration: 0.18, ease: 'settled' },
+						exit: { start: 0.82, duration: 0.16, ease: 'smooth' }
+					}
+				],
+				effects: emptyEffects
+			}
+		}
+	},
+	{
+		name: 'Two paper-grain effects stacked in the frame chain',
+		preset: {
+			schema: 'hiviz@1',
+			name: 'Paper grain stacked',
+			state: {
+				transport: { orientation: 'horizontal', durationSeconds: 5, fps: 30, format: 'webm' },
+				typography: { fontFamily: 'serif', paperColor: '#ffffff', inkColor: '#0a0a0a' },
+				marks: baseMarks,
+				surface: {
+					type: 'paper',
+					content: { title: 'Grain test', body: 'Body content.' }
+				},
+				overlays: [],
+				effects: [
+					{ type: 'paper-grain', id: 'warm', params: { warmth: 0.6, density: 0.4 } },
+					{ type: 'paper-grain', id: 'cool', params: { warmth: 0.3, density: 0.2 } }
+				]
+			}
+		}
+	},
+	{
+		name: 'AI-authored from schema + brief (no source code access)',
+		preset: {
+			schema: 'hiviz@1',
+			name: 'AI fixture',
+			description: 'Goal: a quick research-paper preset that highlights one keyword.',
+			state: {
+				transport: { orientation: 'horizontal', durationSeconds: 5, fps: 30, format: 'webm' },
+				typography: { fontFamily: 'serif', paperColor: '#ffffff', inkColor: '#0a0a0a' },
+				marks: baseMarks,
+				surface: {
+					type: 'paper',
+					content: {
+						title: 'Test paper',
+						sourceUrl: 'https://example.com/paper',
+						body: 'Plain paragraph with [highlight]one highlight[/highlight] in it.'
+					},
+					enter: { start: 0, duration: 0.18, ease: 'settled' },
+					exit: { start: 0.82, duration: 0.18, ease: 'smooth' }
+				},
+				overlays: [],
+				effects: emptyEffects
+			}
+		}
+	}
+];
+
+for (const fixture of fixtures) {
+	const result = PresetSchema.safeParse(fixture.preset);
+
+	if (!result.success) {
+		console.error(`✗ ${fixture.name}`);
 		console.error(result.error);
 		failed += 1;
 	} else {
-		console.log(`✓ ${file}`);
+		console.log(`✓ ${fixture.name}`);
 	}
-}
-
-// Cross-surface remix test: take a research-paper preset and swap its surface to quote-focus.
-const sourceRaw = await readFile(resolve(presetDir, 'research-paper-critique.json'), 'utf8');
-const sourceJson = JSON.parse(sourceRaw) as Record<string, unknown>;
-const state = sourceJson.state as { surface: unknown; marks: unknown };
-
-state.surface = {
-	type: 'quote-focus',
-	content: {
-		body: 'Filler body referencing the [highlight]canonical quote[/highlight] we want to lift.',
-		author: 'Anonymous',
-		source: 'Test fixture',
-		dateLabel: '2026'
-	},
-	focus: { start: 0.2, duration: 0.3, ease: 'smooth', style: 'lift-out' },
-	mark: { start: 0.45, duration: 0.25, ease: 'smooth', style: 'underline' },
-	camera: 'none',
-	backgroundVisibility: 0.2,
-	showSourceMetadata: true
-};
-
-const remixed = {
-	schema: 'hiviz@1',
-	name: 'Cross-surface remix',
-	state: sourceJson.state
-};
-const remixResult = PresetSchema.safeParse(remixed);
-
-if (!remixResult.success) {
-	console.error('✗ Cross-surface remix failed:');
-	console.error(remixResult.error);
-	failed += 1;
-} else {
-	console.log('✓ Cross-surface remix (research-paper → quote-focus)');
-}
-
-// AI-authoring fixture: a fresh preset constructed using only the schema/brief.
-const aiAuthored = {
-	schema: 'hiviz@1',
-	name: 'AI fixture',
-	description: 'Goal: a quick research-paper preset that highlights one keyword.',
-	state: {
-		transport: { orientation: 'horizontal', durationSeconds: 5, fps: 30, format: 'webm' },
-		typography: { fontFamily: 'serif', paperColor: '#ffffff', inkColor: '#0a0a0a' },
-		marks: {
-			defaults: {
-				highlight: { color: '#ffd642', intensity: 0.6 },
-				underline: { color: '#1f5aff', intensity: 0.6 },
-				strike: { color: '#de263a', intensity: 0.6 },
-				circle: { color: '#de263a', intensity: 0.6 }
-			},
-			timings: [{ start: 0.35, duration: 0.22, ease: 'smooth' }]
-		},
-		surface: {
-			type: 'research-paper',
-			content: {
-				title: 'Test paper',
-				sourceUrl: 'https://example.com/paper',
-				body: 'Plain paragraph with [highlight]one highlight[/highlight] in it.'
-			},
-			enter: { start: 0, duration: 0.18, ease: 'settled' },
-			exit: { start: 0.82, duration: 0.18, ease: 'smooth' }
-		}
-	}
-};
-const aiResult = PresetSchema.safeParse(aiAuthored);
-
-if (!aiResult.success) {
-	console.error('✗ AI fixture failed:');
-	console.error(aiResult.error);
-	failed += 1;
-} else {
-	console.log('✓ AI authoring fixture (schema + brief sufficient to produce valid preset)');
 }
 
 if (failed > 0) {
@@ -108,4 +245,8 @@ if (failed > 0) {
 	process.exit(1);
 }
 
-console.log('\nAll preset validation checks passed.');
+if (warned > 0) {
+	console.log(`\nAll preset validation checks passed (${warned} rubric warning(s)).`);
+} else {
+	console.log('\nAll preset validation checks passed.');
+}

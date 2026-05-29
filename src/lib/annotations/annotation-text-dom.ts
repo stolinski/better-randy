@@ -1,11 +1,13 @@
 import {
 	ANNOTATION_MARK_ATTRIBUTE,
 	isAnnotationMarkStyle,
-	type AnnotatedTextParagraph,
-	type AnnotationBody,
-	type AnnotationMarkColors,
-	type AnnotationMarkStyle,
-	type AnnotationTextSegment
+	type AnnotationMarkStyle
+} from './annotation-mark-styles';
+import type {
+	AnnotationBody,
+	AnnotationMarkColors,
+	AnnotationTextSegment,
+	ParagraphBlock
 } from './annotation-marks';
 
 export interface EditorSelection {
@@ -23,10 +25,14 @@ export function renderEditorBody(
 ): void {
 	root.replaceChildren();
 
-	const paragraphs = body.length > 0 ? body : [{ segments: [] }];
+	const paragraphs = body.length > 0 ? body : [{ type: 'paragraph' as const, segments: [] }];
 
-	for (const paragraph of paragraphs) {
-		root.appendChild(buildParagraphElement(paragraph, colors));
+	for (const block of paragraphs) {
+		if (block.type !== 'paragraph') {
+			continue;
+		}
+
+		root.appendChild(buildParagraphElement(block, colors));
 	}
 }
 
@@ -38,7 +44,7 @@ export function serializeEditorBody(root: HTMLElement): AnnotationBody {
 			continue;
 		}
 
-		result.push({ segments: serializeParagraphSegments(child) });
+		result.push({ type: 'paragraph', segments: serializeParagraphSegments(child) });
 	}
 
 	return result;
@@ -121,39 +127,36 @@ export function toggleMarkInBody(
 	selection: EditorSelection,
 	style: AnnotationMarkStyle
 ): { body: AnnotationBody; selection: EditorSelection } {
-	const paragraph = body[selection.paragraphIndex];
+	const block = body[selection.paragraphIndex];
 
-	if (!paragraph) {
+	if (!block || block.type !== 'paragraph') {
 		return { body, selection };
 	}
 
-	const segments = applyMarkToSegments(paragraph.segments, selection, style);
+	const segments = applyMarkToSegments(block.segments, selection, style);
 	const nextBody: AnnotationBody = body.map((current, index) =>
-		index === selection.paragraphIndex ? { segments } : current
+		index === selection.paragraphIndex && current.type === 'paragraph'
+			? { type: 'paragraph', segments }
+			: current
 	);
 
 	return { body: nextBody, selection };
 }
 
 function buildParagraphElement(
-	paragraph: AnnotatedTextParagraph,
+	paragraph: ParagraphBlock,
 	colors: AnnotationMarkColors
 ): HTMLDivElement {
 	const div = document.createElement('div');
 	div.className = PARAGRAPH_CLASS;
 
 	for (const segment of paragraph.segments) {
-		if (segment.markStyle === null) {
+		if (segment.markStyles.length === 0) {
 			div.appendChild(document.createTextNode(segment.text));
 			continue;
 		}
 
-		const span = document.createElement('span');
-		span.setAttribute(ANNOTATION_MARK_ATTRIBUTE, segment.markStyle);
-		span.setAttribute('class', 'annotation-band');
-		span.style.setProperty('--annotation-color', colors[segment.markStyle]);
-		span.textContent = segment.text;
-		div.appendChild(span);
+		div.appendChild(buildSegmentElement(segment, colors));
 	}
 
 	if (div.childNodes.length === 0) {
@@ -163,12 +166,49 @@ function buildParagraphElement(
 	return div;
 }
 
+function buildSegmentElement(
+	segment: AnnotationTextSegment,
+	colors: AnnotationMarkColors
+): HTMLElement {
+	// Nest one span per style so getClientRects works per-style.
+	const inner = document.createTextNode(segment.text);
+	let node: HTMLElement | null = null;
+	let textHost: Node = inner;
+
+	for (let i = 0; i < segment.markStyles.length; i += 1) {
+		const style = segment.markStyles[i];
+		const span = document.createElement('span');
+		span.setAttribute(ANNOTATION_MARK_ATTRIBUTE, style);
+		span.setAttribute('class', 'annotation-band');
+		span.style.setProperty('--annotation-color', colors[style]);
+
+		if (i === 0) {
+			span.appendChild(textHost);
+		} else {
+			span.appendChild(node as HTMLElement);
+		}
+
+		node = span;
+		textHost = span;
+	}
+
+	return node ?? document.createElement('span');
+}
+
 function serializeParagraphSegments(paragraph: HTMLElement): AnnotationTextSegment[] {
 	const segments: AnnotationTextSegment[] = [];
+	walkSegments(paragraph, [], segments);
+	return coalesce(segments);
+}
 
-	for (const child of Array.from(paragraph.childNodes)) {
+function walkSegments(
+	node: Node,
+	styleStack: AnnotationMarkStyle[],
+	output: AnnotationTextSegment[]
+): void {
+	for (const child of Array.from(node.childNodes)) {
 		if (child.nodeType === Node.TEXT_NODE) {
-			appendSegmentText(segments, child.textContent ?? '', null);
+			appendSegmentText(output, child.textContent ?? '', styleStack);
 			continue;
 		}
 
@@ -180,24 +220,19 @@ function serializeParagraphSegments(paragraph: HTMLElement): AnnotationTextSegme
 			continue;
 		}
 
-		const markStyle = child.getAttribute(ANNOTATION_MARK_ATTRIBUTE) ?? undefined;
-		const text = child.textContent ?? '';
+		const attr = child.getAttribute(ANNOTATION_MARK_ATTRIBUTE) ?? undefined;
+		const nextStack = isAnnotationMarkStyle(attr) && !styleStack.includes(attr)
+			? [...styleStack, attr]
+			: styleStack;
 
-		if (isAnnotationMarkStyle(markStyle)) {
-			appendSegmentText(segments, text, markStyle);
-			continue;
-		}
-
-		appendSegmentText(segments, text, null);
+		walkSegments(child, nextStack, output);
 	}
-
-	return segments;
 }
 
 function appendSegmentText(
 	segments: AnnotationTextSegment[],
 	text: string,
-	markStyle: AnnotationMarkStyle | null
+	markStyles: AnnotationMarkStyle[]
 ): void {
 	if (text.length === 0) {
 		return;
@@ -205,12 +240,26 @@ function appendSegmentText(
 
 	const last = segments[segments.length - 1];
 
-	if (last && last.markStyle === markStyle) {
+	if (last && stylesEqual(last.markStyles, markStyles)) {
 		last.text += text;
 		return;
 	}
 
-	segments.push({ text, markStyle });
+	segments.push({ text, markStyles: [...markStyles] });
+}
+
+function stylesEqual(a: AnnotationMarkStyle[], b: AnnotationMarkStyle[]): boolean {
+	if (a.length !== b.length) {
+		return false;
+	}
+
+	for (let i = 0; i < a.length; i += 1) {
+		if (a[i] !== b[i]) {
+			return false;
+		}
+	}
+
+	return true;
 }
 
 function applyMarkToSegments(
@@ -222,7 +271,7 @@ function applyMarkToSegments(
 
 	for (const segment of segments) {
 		for (const character of segment.text) {
-			characters.push({ text: character, markStyle: segment.markStyle });
+			characters.push({ text: character, markStyles: [...segment.markStyles] });
 		}
 	}
 
@@ -235,11 +284,17 @@ function applyMarkToSegments(
 
 	const allAlreadyStyled = characters
 		.slice(start, end)
-		.every((character) => character.markStyle === style);
-	const nextStyle: AnnotationMarkStyle | null = allAlreadyStyled ? null : style;
+		.every((character) => character.markStyles.includes(style));
 
 	for (let index = start; index < end; index += 1) {
-		characters[index] = { text: characters[index].text, markStyle: nextStyle };
+		const current = characters[index].markStyles;
+		const nextStyles = allAlreadyStyled
+			? current.filter((existing) => existing !== style)
+			: current.includes(style)
+				? current
+				: [...current, style];
+
+		characters[index] = { text: characters[index].text, markStyles: nextStyles };
 	}
 
 	return coalesce(characters);
@@ -251,12 +306,12 @@ function coalesce(characters: AnnotationTextSegment[]): AnnotationTextSegment[] 
 	for (const character of characters) {
 		const last = result[result.length - 1];
 
-		if (last && last.markStyle === character.markStyle) {
+		if (last && stylesEqual(last.markStyles, character.markStyles)) {
 			last.text += character.text;
 			continue;
 		}
 
-		result.push({ text: character.text, markStyle: character.markStyle });
+		result.push({ text: character.text, markStyles: [...character.markStyles] });
 	}
 
 	return result;
@@ -386,9 +441,9 @@ export function splitParagraphAt(
 	paragraphIndex: number,
 	offset: number
 ): AnnotationBody {
-	const paragraph = body[paragraphIndex];
+	const block = body[paragraphIndex];
 
-	if (!paragraph) {
+	if (!block || block.type !== 'paragraph') {
 		return body;
 	}
 
@@ -396,30 +451,30 @@ export function splitParagraphAt(
 	const right: AnnotationTextSegment[] = [];
 	let consumed = 0;
 
-	for (const segment of paragraph.segments) {
+	for (const segment of block.segments) {
 		const length = segment.text.length;
 
 		if (consumed + length <= offset) {
-			left.push({ ...segment });
+			left.push({ text: segment.text, markStyles: [...segment.markStyles] });
 			consumed += length;
 			continue;
 		}
 
 		if (consumed >= offset) {
-			right.push({ ...segment });
+			right.push({ text: segment.text, markStyles: [...segment.markStyles] });
 			continue;
 		}
 
 		const splitAt = offset - consumed;
-		left.push({ text: segment.text.slice(0, splitAt), markStyle: segment.markStyle });
-		right.push({ text: segment.text.slice(splitAt), markStyle: segment.markStyle });
+		left.push({ text: segment.text.slice(0, splitAt), markStyles: [...segment.markStyles] });
+		right.push({ text: segment.text.slice(splitAt), markStyles: [...segment.markStyles] });
 		consumed = offset + (length - splitAt);
 	}
 
 	const next: AnnotationBody = [
 		...body.slice(0, paragraphIndex),
-		{ segments: left },
-		{ segments: right },
+		{ type: 'paragraph', segments: left },
+		{ type: 'paragraph', segments: right },
 		...body.slice(paragraphIndex + 1)
 	];
 

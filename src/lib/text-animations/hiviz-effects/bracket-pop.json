@@ -1,0 +1,50 @@
+{
+	"id": "bracket-pop",
+	"visibility": "visible",
+	"portable_spec": {
+		"id": "bracket-pop",
+		"display_name": "Bracket Pop",
+		"description": "Small overshoot animation applied per-character. Per ADR-0011 amendment, CSS-rasterizable per-character motion qualifies as a catalog entry. The match-glyph-class filter (only [](){}<>0-9) is a future compiler extension; v1 applies the overshoot to every character of the targeted slot — Producers should aim it at slots whose content is mostly numeric or bracket-glyph (counter rest states, source-URL slots, kickers with numerals).",
+		"inspiration": "Variable-font numeric kickers in editorial work where digits read as deliberate punctuation marks rather than continuous text.",
+		"target": "per-character",
+		"signature_easing": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+		"enter": {
+			"duration_ms": 380,
+			"stagger_ms": 22,
+			"easing": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+			"from": {
+				"opacity": 0,
+				"scale": 0.7
+			},
+			"to": {
+				"opacity": 1,
+				"scale": 1
+			}
+		},
+		"exit": {
+			"duration_ms": 220,
+			"stagger_ms": 14,
+			"easing": "cubic-bezier(0.64, 0, 0.78, 0)",
+			"from": {
+				"opacity": 1,
+				"scale": 1
+			},
+			"to": {
+				"opacity": 0,
+				"scale": 0.85
+			}
+		},
+		"usage_notes": "Title-scale only. Best on kickers and source-URL slots where overshoot reads as character. Avoid on continuous body."
+	},
+	"showcase": {
+		"renderer": {
+			"id": "generic-stagger"
+		},
+		"runtime": {
+			"speed_multiplier": 1,
+			"hold_ms": 0,
+			"gap_ms": 0,
+			"y_travel_multiplier": 1
+		}
+	}
+}

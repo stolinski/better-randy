@@ -1,0 +1,43 @@
+{
+	"schema": "hiviz@1",
+	"name": "Pullquote \u2014 cinematic demo",
+	"description": "Hero demo for the pullquote-on-photo Surface. Atmospheric warm-key backdrop via the pullquote-photo-backdrop shaderPass (radial warmth gradient + multi-octave noise + warm focal halo + heavy edge vignette) with a centred serif quote and mono attribution. Pushes the engine toward film-grade compositing rather than card-with-text. Built to demonstrate what the Pipeline catalog is actually capable of when content and shader work together.",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#080612",
+			"inkColor": "#f8f0e2"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "pullquote-on-photo",
+			"content": {
+				"title": "The work that lasts is the work that responds gracefully to weather you did not predict.",
+				"author": "Wes Bos, Syntax Notebooks",
+				"body": ""
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.22,
+				"ease": "smooth"
+			},
+			"exit": {
+				"start": 0.82,
+				"duration": 0.1,
+				"ease": "smooth"
+			}
+		},
+		"textAnimations": [],
+		"overlays": [],
+		"effects": []
+	}
+}

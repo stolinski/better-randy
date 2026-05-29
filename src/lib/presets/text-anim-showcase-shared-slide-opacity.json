@@ -1,0 +1,67 @@
+{
+	"schema": "hiviz@1",
+	"name": "Text animation showcase \u2014 shared-slide-opacity-stage",
+	"description": "Showcases the shared-slide-opacity-stage renderer family (ADR-0011, short-slide-right catalog effect). The title 'Think different' slides once as a whole while individual words fade opacity in a stagger. Title-only \u2014 the title-level transform is shared by every word, so the renderer assumes single-line phrase content. Channel chrome notes: chrome-light verification preset; channel-specific text moves would be a follow-up Brief.",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#fafaf7",
+			"inkColor": "#1a1a1a"
+		},
+		"marks": {
+			"defaults": {
+				"highlight": {
+					"color": "#ffd642",
+					"intensity": 0.62
+				}
+			},
+			"timings": []
+		},
+		"surface": {
+			"type": "paper",
+			"content": {
+				"title": "Think different",
+				"sourceUrl": "https://syntax.fm/text-anim",
+				"body": "The phrase slides as one transform while each word's opacity staggers behind."
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.05,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.92,
+				"duration": 0.035,
+				"ease": "smooth"
+			}
+		},
+		"textAnimations": [
+			{
+				"id": "title-shared-slide",
+				"target": {
+					"kind": "surface",
+					"slot": "title"
+				},
+				"effect": "short-slide-right",
+				"enter": {
+					"start": 0.06,
+					"duration": 0.22,
+					"ease": "smooth"
+				},
+				"exit": {
+					"start": 0.85,
+					"duration": 0.035,
+					"ease": "smooth"
+				}
+			}
+		],
+		"overlays": [],
+		"effects": []
+	}
+}

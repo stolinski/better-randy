@@ -1,11 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/state';
 
-	import { isQuoteFocusSurface, isResearchPaperSurface } from '$lib/platform/engine-schema';
-	import { engineState } from '$lib/platform/engine-state.svelte';
+	import Workspace from '$lib/platform/Workspace.svelte';
 	import { applyPreset, getPresetBySlug } from '$lib/platform/preset';
-	import QuoteFocusWorkspace from '$lib/tools/quote-focus/QuoteFocusWorkspace.svelte';
-	import ResearchPaperWorkspace from '$lib/tools/research-paper/ResearchPaperWorkspace.svelte';
 
 	const slug = $derived(page.params.slug ?? '');
 	const preset = $derived(getPresetBySlug(slug));
@@ -26,10 +23,8 @@
 		<p>No preset named “{slug}”.</p>
 		<a href="/">All presets</a>
 	</main>
-{:else if isResearchPaperSurface(engineState.surface)}
-	<ResearchPaperWorkspace />
-{:else if isQuoteFocusSurface(engineState.surface)}
-	<QuoteFocusWorkspace />
+{:else}
+	<Workspace />
 {/if}
 
 <style>

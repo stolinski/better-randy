@@ -91,6 +91,10 @@ export class Timeline {
 		this.pause();
 	}
 
+	seekProgress(progress: number): void {
+		this.seek(Math.max(0, Math.min(progress, 1)) * this.durationSeconds);
+	}
+
 	#loop = (now: number): void => {
 		if (!this.isPlaying) {
 			return;
@@ -118,4 +122,10 @@ export class Timeline {
 
 		this.#rafId = requestAnimationFrame(this.#loop);
 	};
+}
+
+declare global {
+	interface Window {
+		__hivizTimeline?: Timeline;
+	}
 }

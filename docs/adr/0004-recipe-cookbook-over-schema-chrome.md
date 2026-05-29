@@ -1,0 +1,7 @@
+# Recipe cookbook over schema-enforced channel chrome
+
+`docs/aesthetic.md` declares that every collage card carries at least one mono signature element ("without it, the card is generic"), every composition carries grit overlay, and collage cards carry hard offset shadows — yet agents producing presets routinely omitted these and shipped generic, low-effort output. The most direct fix would be to make those fields *schema-required* in `hiviz@1` so a preset literally cannot validate without them; we chose against this and instead invest in a recipe cookbook at `docs/recipes/`, with one starter scaffold per surface variant (pullquote-on-photo, newspaper-clipping, modern-web-article, photographed-frame, collage-card) that agents pick from before authoring. Schema enforcement was rejected for being too rigid for legitimate stripped / test / experimental presets and for forcing a preset-format change that locks in the current aesthetic at the schema level; recipes deliver most of the floor-raising effect without coupling channel chrome to schema validation.
+
+## Consequences
+
+Missing channel chrome remains a critic-time check (`aesthetic-miss`, see [ADR-0001](0001-critic-sub-agent-verification.md)) rather than a schema-validation failure, which means every preset incurs a producer→critic→revise loop instead of being rejected upfront — accepted as the cost of flexibility. If the critic loop ends up too noisy, schema enforcement is the obvious next escalation and this ADR should be superseded.

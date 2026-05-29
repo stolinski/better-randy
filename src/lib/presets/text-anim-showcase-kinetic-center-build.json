@@ -1,0 +1,67 @@
+{
+	"schema": "hiviz@1",
+	"name": "Text animation showcase \u2014 kinetic-center-build",
+	"description": "Showcases the kinetic-center-build renderer family (ADR-0011). The title 'Built to flow' enters word-by-word from the right; each new word pushes prior words into their newly centered positions. Title-only by design \u2014 the layout-aware renderer reflows the line and assumes single-phrase content. Channel chrome notes: chrome-light to keep focus on the renderer verification; aesthetic-fit notes belong on a future syntax-mark-stroke-style brief.",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#fafaf7",
+			"inkColor": "#1a1a1a"
+		},
+		"marks": {
+			"defaults": {
+				"highlight": {
+					"color": "#ffd642",
+					"intensity": 0.62
+				}
+			},
+			"timings": []
+		},
+		"surface": {
+			"type": "paper",
+			"content": {
+				"title": "Built to flow",
+				"sourceUrl": "https://syntax.fm/text-anim",
+				"body": "The animation is layout-aware: each incoming word pushes the existing line so the full phrase ends balanced."
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.05,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.92,
+				"duration": 0.035,
+				"ease": "smooth"
+			}
+		},
+		"textAnimations": [
+			{
+				"id": "title-kinetic",
+				"target": {
+					"kind": "surface",
+					"slot": "title"
+				},
+				"effect": "kinetic-center-build",
+				"enter": {
+					"start": 0.06,
+					"duration": 0.24,
+					"ease": "smooth"
+				},
+				"exit": {
+					"start": 0.85,
+					"duration": 0.035,
+					"ease": "smooth"
+				}
+			}
+		],
+		"overlays": [],
+		"effects": []
+	}
+}

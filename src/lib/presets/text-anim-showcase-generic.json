@@ -1,0 +1,148 @@
+{
+	"schema": "hiviz@1",
+	"name": "Text animation showcase \u2014 generic stagger",
+	"description": "Verification preset for the text-animation orchestration domain (ADR-0011). Exercises the generic-stagger compiler against all four split modes (whole on body, per-character on title, per-word on lower-third title, per-line on body marks) and proves the marks-coupling path against a highlight inside the body. Channel chrome notes: this preset is intentionally chrome-light because its job is to verify the engine; aesthetic-miss findings should be filed against the four per-renderer-family showcases, not this one. Marks-coupling demonstration: the body fade-through window (0.10\u20130.24) deliberately extends well past the highlight mark window (0.13\u20130.18) so the marks-coupling code path is observably exercised \u2014 at progress 0.15 the mark is at ~40% internal progress while the body is at ~36% alpha, multiplying to ~14% visible highlight intensity. Without the extended overlap, the body would already be at full alpha by the time the mark draws and the coupling attenuation would be undetectable.",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 8,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#fafaf7",
+			"inkColor": "#1a1a1a"
+		},
+		"marks": {
+			"defaults": {
+				"highlight": {
+					"color": "#ffd642",
+					"intensity": 0.62
+				},
+				"underline": {
+					"color": "#1f5aff",
+					"intensity": 0.62
+				},
+				"strike": {
+					"color": "#de263a",
+					"intensity": 0.62
+				},
+				"circle": {
+					"color": "#de263a",
+					"intensity": 0.62
+				}
+			},
+			"timings": [
+				{
+					"start": 0.13,
+					"duration": 0.05,
+					"ease": "smooth"
+				}
+			]
+		},
+		"surface": {
+			"type": "paper",
+			"content": {
+				"title": "Motion with intent",
+				"sourceUrl": "https://syntax.fm/text-anim",
+				"body": "Self-attention connects all positions with a constant number of [highlight]sequentially executed operations[/highlight], whereas recurrent layers require a number of operations proportional to sequence length."
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.04,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.94,
+				"duration": 0.028,
+				"ease": "smooth"
+			}
+		},
+		"textAnimations": [
+			{
+				"id": "title-reveal",
+				"target": {
+					"kind": "surface",
+					"slot": "title"
+				},
+				"effect": "soft-blur-in",
+				"enter": {
+					"start": 0.04,
+					"duration": 0.1,
+					"ease": "smooth"
+				},
+				"exit": {
+					"start": 0.84,
+					"duration": 0.028,
+					"ease": "smooth"
+				}
+			},
+			{
+				"id": "body-fade",
+				"target": {
+					"kind": "surface",
+					"slot": "body"
+				},
+				"effect": "fade-through",
+				"enter": {
+					"start": 0.1,
+					"duration": 0.14,
+					"ease": "smooth"
+				},
+				"exit": {
+					"start": 0.85,
+					"duration": 0.028,
+					"ease": "smooth"
+				}
+			},
+			{
+				"id": "source-url",
+				"target": {
+					"kind": "surface",
+					"slot": "sourceUrl"
+				},
+				"effect": "micro-scale-fade",
+				"enter": {
+					"start": 0.14,
+					"duration": 0.04,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.86,
+					"duration": 0.028,
+					"ease": "settled"
+				}
+			}
+		],
+		"overlays": [
+			{
+				"type": "lower-third",
+				"id": "main",
+				"content": {
+					"kicker": "ATTN",
+					"title": "Lower third title",
+					"subtitle": "Lower third subtitle"
+				},
+				"position": {
+					"anchor": "bottom-left",
+					"offset": {
+						"x": 0.0625,
+						"y": 0.1
+					}
+				},
+				"enter": {
+					"start": 0.18,
+					"duration": 0.05,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.86,
+					"duration": 0.028,
+					"ease": "smooth"
+				}
+			}
+		],
+		"effects": []
+	}
+}
