@@ -71,7 +71,7 @@
 	}
 
 	.lower-third--cinematic__content {
-		color: #fff8ec;
+		color: var(--ink, #fff8ec);
 		display: grid;
 		font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
 		gap: 0.7cqmin;
@@ -102,7 +102,7 @@
 	}
 
 	.lower-third--cinematic__role {
-		color: #d8c4a0;
+		color: var(--roleInk, #d8c4a0);
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		/* Sized for a tasteful corner chip (~63px / ~45px cap at 4K), clearly
 		   secondary to the name. NOTE: below the G4 Overlay-secondary 80px floor —

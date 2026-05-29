@@ -22,13 +22,25 @@ export function resolveAppearanceVars(
 	pipelineType: string
 ): Record<string, string> {
 	const vars: Record<string, string> = {};
+	const prefix = `${pipelineType}.`;
 
+	// 1. Every per-Pipeline string `style` Role becomes a CSS var named after its
+	//    suffix — `lower-third.roleInk` → `--roleInk`. A Pipeline can declare any
+	//    color slots it needs beyond the core vocabulary; the CanvasSource just
+	//    references the matching `var(--<suffix>, <fallback>)`.
+	for (const [key, role] of Object.entries(manifest.roles)) {
+		if (key.startsWith(prefix) && role.kind === 'style' && typeof role.value === 'string') {
+			vars[`--${key.slice(prefix.length)}`] = role.value;
+		}
+	}
+
+	// 2. Core-vocabulary fallback (ADR-0024): fill any core slot a per-Pipeline
+	//    Role didn't already set, from the Pack's core `<core>-treatment` / `<core>`.
 	for (const core of CORE_APPEARANCE) {
-		const role =
-			manifest.roles[`${pipelineType}.${core}`] ??
-			manifest.roles[`${core}-treatment`] ??
-			manifest.roles[core];
-
+		if (vars[`--${core}`] !== undefined) {
+			continue;
+		}
+		const role = manifest.roles[`${core}-treatment`] ?? manifest.roles[core];
 		if (role && role.kind === 'style' && typeof role.value === 'string') {
 			vars[`--${core}`] = role.value;
 		}
