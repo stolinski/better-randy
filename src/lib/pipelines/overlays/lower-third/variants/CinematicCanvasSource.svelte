@@ -42,11 +42,11 @@
 	 */
 	.lower-third--cinematic {
 		display: grid;
-		grid-template-columns: 1cqmin 1fr;
+		grid-template-columns: 0.6cqmin 1fr;
 		gap: 0;
 		position: relative;
-		min-block-size: 18cqmin;
-		min-inline-size: 46cqmin;
+		min-block-size: 11cqmin;
+		min-inline-size: 30cqmin;
 	}
 
 	.lower-third--cinematic__scrim {
@@ -74,17 +74,17 @@
 		color: #fff8ec;
 		display: grid;
 		font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
-		gap: 1cqmin;
+		gap: 0.7cqmin;
 		grid-column: 2;
 		grid-row: 1;
-		padding: 3cqmin 4.4cqmin;
+		padding: 2cqmin 3cqmin;
 		position: relative;
 	}
 
 	.lower-third--cinematic__kicker {
 		color: #f4a85e;
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
-		font-size: 3.2cqmin;
+		font-size: 1.9cqmin;
 		font-weight: 600;
 		letter-spacing: 0.26em;
 		opacity: 0.95;
@@ -94,7 +94,7 @@
 	}
 
 	.lower-third--cinematic__name {
-		font-size: 8cqmin;
+		font-size: 4.7cqmin;
 		font-weight: 700;
 		letter-spacing: -0.008em;
 		line-height: 0.96;
@@ -104,10 +104,12 @@
 	.lower-third--cinematic__role {
 		color: #d8c4a0;
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
-		/* 5.2cqmin lands the role above the G4 Overlay-secondary cap-height floor
-		   (≥80px at 4K); 4.2 measured ~68px under the Critic. Stays clearly
-		   secondary to the 8cqmin name. */
-		font-size: 5.2cqmin;
+		/* Sized for a tasteful corner chip (~63px / ~45px cap at 4K), clearly
+		   secondary to the name. NOTE: below the G4 Overlay-secondary 80px floor —
+		   that band is calibrated for full-width broadcast lower-thirds and is too
+		   large for a corner chip; flagged for recalibration (see quality-roadmap
+		   "long tail"). User's eye is the authority here. */
+		font-size: 2.9cqmin;
 		font-weight: 500;
 		letter-spacing: 0.22em;
 		opacity: 0.92;

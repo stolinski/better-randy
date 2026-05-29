@@ -34,7 +34,7 @@
 ## Beyond the sequence (the bulk of the remaining work)
 
 - **The corpus.** One preset is ship-grade (`lower-third-cinematic`); ~21 are fixtures. Each surface/overlay family needs a real, Critic-accepted deliverable authored to that bar. Largest body of *hours*, but now **repeatable** (Critic loop + reference exist). Gated behind pack wiring (real colors) and, for on-photo/collage families, the step-6 primitives. Hygiene part: quarantine the demo presets to fixtures; fix `docs/briefs/README.md` surface-vocabulary drift (names 4 surfaces not in `SurfaceTypeSchema`).
-- **Long tail (real, not blocking):** camera motion (wire the deferred, currently-hidden feature) · block types (mermaid / code / image / chart — none built) · linear-light blending (deferred from step 2) · the torn-collage lower-third + watermark variant ([lower-third-aesthetic.md](lower-third-aesthetic.md), now reframed under step-6 edge-treatment) · `probe-timeline.ts` for the G6/L4 timing rubric-gap.
+- **Long tail (real, not blocking):** camera motion (wire the deferred, currently-hidden feature) · block types (mermaid / code / image / chart — none built) · linear-light blending (deferred from step 2) · the torn-collage lower-third + watermark variant ([lower-third-aesthetic.md](lower-third-aesthetic.md), now reframed under step-6 edge-treatment) · `probe-timeline.ts` for the G6/L4 timing rubric-gap · **G4 overlay cap-height bands miscalibrated** — Overlay-primary 96–144 / secondary 80–112px are sized for *full-width* broadcast lower-thirds and are too large for a *corner* chip (the 80px floor forced the cinematic lower-third oversized to 46%×28% of frame before correction); recalibrate the bands by overlay footprint so taste and rubric agree.
 
 ## Todo index (sub-plans — status)
 
