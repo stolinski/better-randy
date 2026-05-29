@@ -5,12 +5,18 @@ import type { LowerThirdContent } from '$lib/pipelines/overlays/lower-third';
 
 /**
  * `cinematic-lower-third-flare` — Overlay-side shader pass (ADR-0005) that
- * carries the anamorphic horizontal flare + lower-left rim glow on the
- * lower-third family. After the Phase 2.1 migration the pass is the
- * family\'s single shaderPass and gates its contributions on the active
- * variant via a `flareEnabled` uniform — the `standard` variant passes the
- * pass-through path (no flare, no rim), the `cinematic` variant runs the
- * full broadcast lighting.
+ * carries the cinematic lower-third's resting warm rim glow (an implied
+ * off-frame lower-left key light) on the lower-third family. After the Phase
+ * 2.1 migration the pass is the family's single shaderPass and gates its
+ * contribution on the active variant via a `flareEnabled` uniform — the
+ * `standard` variant passes through unchanged; the `cinematic` variant adds
+ * the rim glow.
+ *
+ * The anamorphic horizontal entrance flare this pass originally swept across
+ * the plate was removed by design: at its peak it read as a bright line
+ * straight through the name. Only the constant rim glow remains, so the pass
+ * no longer reads `progress` (the field is retained on the uniform for shape
+ * stability but unused).
  */
 
 export const CinematicLowerThirdFlareUniforms = d.struct({
@@ -48,43 +54,18 @@ const wgsl = /* wgsl */ `
 
 	let span = max(uvMax - uvMin, vec2f(0.0001));
 	let localUv = (in.uv - uvMin) / span;
-	let t = layout.$.uniforms.progress;
-
-	// ----- Anamorphic horizontal flare -----
-	let flareEnter = 0.02;
-	let flareExit = 0.16;
-	let flarePhase = clamp((t - flareEnter) / (flareExit - flareEnter), 0.0, 1.0);
-	let flareWindow = smoothstep(0.0, 0.20, flarePhase) * (1.0 - smoothstep(0.75, 1.0, flarePhase));
-	let flareCentreX = mix(-0.15, 1.15, flarePhase);
-
-	let chromaticOffset = 0.012;
-	let dxR = localUv.x - (flareCentreX + chromaticOffset);
-	let dxB = localUv.x - (flareCentreX - chromaticOffset);
-	let dy = localUv.y - 0.5;
-
-	let radiusX = 0.18;
-	let radiusY = 0.030;
-	let flareEllipseR = (dxR * dxR) / (radiusX * radiusX) + (dy * dy) / (radiusY * radiusY);
-	let flareEllipseB = (dxB * dxB) / (radiusX * radiusX) + (dy * dy) / (radiusY * radiusY);
-	let flareIntensityR = max(0.0, 1.0 - flareEllipseR);
-	let flareIntensityB = max(0.0, 1.0 - flareEllipseB);
-
-	let flareStrength = flareWindow * 0.55;
-	let flareR = flareIntensityR * flareStrength;
-	let flareG = (flareIntensityR + flareIntensityB) * 0.5 * flareStrength * 0.92;
-	let flareB = flareIntensityB * flareStrength * 0.95;
-	let flareRgb = vec3f(flareR, flareG, flareB);
 
 	// ----- Resting rim glow (lower-left) -----
+	// Constant warm glow implying an off-frame key light. The anamorphic
+	// entrance flare that used to sweep across the plate was removed — at its
+	// peak it read as a line straight through the name.
 	let rimSource = vec2f(0.0, 1.0);
 	let rimDist = length((localUv - rimSource));
 	let rimFalloff = (1.0 - smoothstep(0.0, 0.45, rimDist));
 	let rimColor = vec3f(0.95, 0.74, 0.46);
 	let rimRgb = rimColor * rimFalloff * 0.12;
 
-	let withEffects = inputSample.rgb + flareRgb + rimRgb;
-
-	return vec4f(withEffects, inputSample.a);
+	return vec4f(inputSample.rgb + rimRgb, inputSample.a);
 `;
 
 export const cinematicLowerThirdFlare: ShaderPass<LowerThirdContent> = {

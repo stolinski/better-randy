@@ -104,7 +104,10 @@
 	.lower-third--cinematic__role {
 		color: #d8c4a0;
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
-		font-size: 4.2cqmin;
+		/* 5.2cqmin lands the role above the G4 Overlay-secondary cap-height floor
+		   (≥80px at 4K); 4.2 measured ~68px under the Critic. Stays clearly
+		   secondary to the 8cqmin name. */
+		font-size: 5.2cqmin;
 		font-weight: 500;
 		letter-spacing: 0.22em;
 		opacity: 0.92;

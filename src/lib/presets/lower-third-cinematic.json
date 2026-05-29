@@ -1,7 +1,7 @@
 {
 	"schema": "hiviz@1",
 	"name": "Lower-third — cinematic with anamorphic flare",
-	"description": "Broadcast-grade lower-third using the lower-third family's `cinematic` variant per ADR-0020. The family's shaderPass gates the anamorphic horizontal flare (6:1 stretched ellipse with chromatic offset, sweeps across the overlay rect during entrance window 0.02 → 0.16) to the cinematic variant via a flareEnabled uniform; resting state carries a constant warm rim glow at the lower-left implying an off-frame key light.",
+	"description": "Broadcast-grade lower-third using the lower-third family's `cinematic` variant per ADR-0020. The family's shaderPass adds a constant warm rim glow at the lower-left (implying an off-frame key light), gated to the cinematic variant via a flareEnabled uniform. The anamorphic entrance flare was removed by design — at its peak it read as a line straight through the name.",
 	"pack": "syntax",
 	"state": {
 		"transport": {
@@ -31,9 +31,9 @@
 				"id": "main",
 				"content": {
 					"variant": "cinematic",
-					"kicker": "INTERVIEW",
-					"title": "Wes Bos",
-					"subtitle": "Co-host — Syntax"
+					"kicker": "GUEST",
+					"title": "Rich Harris",
+					"subtitle": "Creator of Svelte"
 				},
 				"position": {
 					"anchor": "bottom-left",
@@ -44,12 +44,12 @@
 				},
 				"enter": {
 					"start": 0.04,
-					"duration": 0.16,
+					"duration": 0.058,
 					"ease": "settled"
 				},
 				"exit": {
-					"start": 0.86,
-					"duration": 0.1,
+					"start": 0.88,
+					"duration": 0.04,
 					"ease": "smooth"
 				}
 			}
