@@ -25,12 +25,12 @@ These make the per-pipeline rollout a real reconcile-per-pipeline task (good can
 
 ## Sequence
 
-- [ ] **Normalize dimension names** so a core fallback exists per dimension (`inkFill`/`fragmentFill`/`boxFill` → `fill`; define core `fill-treatment`/`edge-treatment`/`depth-treatment`/`light-treatment` + font/material/asset cores).
-- [ ] **Build the plumbing**: `resolveIdentity(pipelineKey, pack)` with specific→core fallback; CSS-var injection in `SurfaceMount`/`OverlayMount`; `engineState.activePack`; `pack` field on the preset schema (required); runtime pack override.
+- [x] **Plumbing built** (2026-05-29): `packs/resolve.ts` `resolveAppearanceVars(manifest, pipelineType)` — core vocab `fill/ink/accent/edge/depth/light`, specific→core fallback (ADR-0024), string style Roles → CSS vars. `engine-state` `packState` (active slug); `applyPreset` sets it from `preset.pack` (schema already had `pack`, default `'syntax'` — still needs tightening to required, no-default later). `OverlayMount` injects the vars on the overlay mount root. `SurfaceMount` injection still TODO (surfaces not yet wired).
+- [x] **2nd pack gate PASSED** (2026-05-29): new `editorial-mono` Pack overrides `lower-third.accent`; the same `lower-third-cinematic` preset re-skins the accent (orange `#f4a85e` → cyan `#22d3ee`) — verified by computed-style readback + screenshot. Render-is-truth holds under `syntax` (bar/kicker still `rgb(244,168,94)`, zero change). **The abstraction is real.**
+- [~] **Proof slice — `lower-third`**: accent var-ified end-to-end ✅. Remaining: var-ify its other colors (scrim/fill, ink, role-ink) → extract to `syntax` Roles render-is-truth.
 - [ ] **Strip motion Roles** (`enterMotion`, `bodyEnter`, `focalMotion`, …) from manifests; re-declare them `implementation` on their Pipelines' Identity Specs.
-- [ ] **Proof slice — `lower-third`** end-to-end, render-is-truth (before==after screenshot). Extract its current colors/fonts into `syntax` Roles.
-- [ ] **Stand up `editorial-mono` Pack** (overrides ~6 core Roles). Confirm the same `lower-third` preset renders visibly different under it. **This is the acceptance gate.**
-- [ ] **Roll out pipeline-by-pipeline** (~7 surfaces + 8 overlays + paragraph + annotations). At each: reconcile the three-way disagreement (CanvasSource paints ↔ manifest claims ↔ spec probes), extract values into `syntax`, delete fictional Roles, make probe text truthful or delete it.
+- [ ] **SurfaceMount injection** + var-ify the surface CanvasSources (paper/plain/etc.) — same pattern as OverlayMount.
+- [ ] **Roll out pipeline-by-pipeline** (~7 surfaces + 8 overlays + paragraph + annotations) — **good workflow** (reconcile-per-pipeline in parallel): CanvasSource paints ↔ manifest claims ↔ spec probes; extract values into `syntax` render-is-truth; delete fictional Roles (e.g. `lower-third.light` still says `anamorphic-flare`, removed); make probe text truthful.
 - [ ] **Delete dead Roles** once nothing references them (the 4 currently-unreferenced bare cores were the *intended* model — they survive as the fallback target; the unreferenced `counter.enterMotion`/`counter.frameRelationship` go).
 - [ ] **Regenerate** `docs/preset-format.schema.json`; `verify-presets.ts` green.
 
