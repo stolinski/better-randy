@@ -112,6 +112,16 @@ export const syntaxPack: PackManifest = {
 		'lower-third.accent': { kind: 'style', value: '#f4a85e' },
 		'lower-third.ink': { kind: 'style', value: '#fff8ec' },
 		'lower-third.roleInk': { kind: 'style', value: '#d8c4a0' },
+
+		// Consumed appearance Roles wired into the overlay CanvasSources
+		// (render-is-truth — values match what each CanvasSource painted). The
+		// older fictional `*.fill` / `*.inkFill` Roles above are unconsumed and
+		// get reconciled/removed when the Identity Specs are revisited.
+		'watermark.ink': { kind: 'style', value: '#ededed' },
+		'watermark.accent': { kind: 'style', value: '#ffd642' },
+		'counter.ink': { kind: 'style', value: '#fffaf2' },
+		'instance-stack.ink': { kind: 'style', value: '#000000' },
+		'text-3d.ink': { kind: 'style', value: '#fffaf2' },
 		'lower-third.edge': { kind: 'style', value: { rule: 'vertical-accent', color: '#fabf47' } },
 		'lower-third.depth': { kind: 'style', value: 'flat' },
 		'lower-third.light': { kind: 'style', value: { standard: 'none', cinematic: 'anamorphic-flare' } },

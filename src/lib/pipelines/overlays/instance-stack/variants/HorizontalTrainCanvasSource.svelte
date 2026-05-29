@@ -31,7 +31,7 @@
 
 <style>
 	.instance-stack-overlay {
-		color: #000000;
+		color: var(--ink, #000000);
 		font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
 		font-size: 9cqmin;
 		font-weight: 800;

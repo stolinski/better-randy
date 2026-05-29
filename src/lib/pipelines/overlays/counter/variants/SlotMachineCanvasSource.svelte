@@ -72,7 +72,7 @@
 
 <style>
 	.counter-overlay {
-		color: #fffaf2;
+		color: var(--ink, #fffaf2);
 		display: inline-flex;
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-feature-settings: 'tnum' 1;

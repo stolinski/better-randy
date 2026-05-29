@@ -26,7 +26,7 @@
 		grid-template-rows: auto auto;
 		align-items: center;
 		background-color: rgba(10, 10, 10, 0.74);
-		color: #ededed; /* Q17: sub-maximum contrast against the dark plate */
+		color: var(--ink, #ededed); /* Q17: sub-maximum contrast against the dark plate */
 		padding: 2cqmin 2.5cqmin 2cqmin 2.25cqmin;
 		font-family: 'Avenir Next', Helvetica, Arial, sans-serif;
 	}
@@ -35,7 +35,7 @@
 		grid-column: 1;
 		grid-row: 1 / -1;
 		align-self: stretch;
-		background-color: #ffd642;
+		background-color: var(--accent, #ffd642);
 		border-radius: 0.1cqmin;
 	}
 

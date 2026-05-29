@@ -29,7 +29,7 @@
 
 <style>
 	.instance-stack-overlay {
-		color: #000000;
+		color: var(--ink, #000000);
 		display: flex;
 		flex-direction: column;
 		font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;

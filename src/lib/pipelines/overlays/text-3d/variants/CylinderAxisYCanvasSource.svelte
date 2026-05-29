@@ -72,7 +72,7 @@
 
 	.text-3d-overlay__glyph {
 		backface-visibility: hidden;
-		color: #fffaf2;
+		color: var(--ink, #fffaf2);
 		display: inline-block;
 		inset-block-start: 0;
 		inset-inline-start: 0;
