@@ -2,7 +2,7 @@
 
 The companion to [`docs/animation-rubric.md`](animation-rubric.md). Where the animation rubric governs how a preset *moves*, this rubric governs the *craft* of how it looks at every frame: composition, hierarchy, contrast, light coherence, effect discipline.
 
-**This rubric is aesthetic-neutral.** It is the craft floor every preset clears regardless of which visual style it executes. The channel's specific aesthetic — the collage system, palette, material vocabulary, brand references — lives in [`docs/aesthetic.md`](aesthetic.md). Rules here describe *whether a preset is well-made*; they do not describe *whether it fits a particular look*. If a guideline only makes sense for one aesthetic, it belongs in that aesthetic's doc, not in this rubric.
+**This rubric is aesthetic-neutral.** It is the craft floor every preset clears regardless of which visual style it executes. The channel's specific aesthetic — the collage system, palette, material vocabulary, brand references — lives in the active Pack's aesthetic doc ([`docs/packs/<pack>/aesthetic.md`](packs/syntax/aesthetic.md)). Rules here describe *whether a preset is well-made*; they do not describe *whether it fits a particular look*. If a guideline only makes sense for one aesthetic, it belongs in that aesthetic's doc, not in this rubric.
 
 Both rubrics must pass independently. Each rule below has a **Rule** (the measurable bar), a **Why** (the production reason), and a **How to apply** (the relevant `hiviz@1` preset fields from [`docs/preset-format.md`](preset-format.md) or the pipeline behavior to verify).
 
@@ -274,7 +274,7 @@ Only after every R-line is PASS:
 25. **Q17** — Content sits below full contrast against its surface; emphasis has room to push above body.
 26. **Q18** — ≤ 2 typeface families per composition.
 27. **Anti-patterns** — no item from "avoid because" is present without an explicit content-driven reason.
-28. **Aesthetic compliance** — separate check against [`docs/aesthetic.md`](aesthetic.md); this rubric does not enforce that lane.
+28. **Aesthetic compliance** — separate check against the active Pack's aesthetic doc ([`docs/packs/<pack>/aesthetic.md`](packs/syntax/aesthetic.md)); this rubric does not enforce that lane.
 
 If a preset passes both the R-tier and the Q-tier above, plus the animation checklist, it has cleared the craft floor. Whether it fits the channel's aesthetic is a separate, additional check.
 

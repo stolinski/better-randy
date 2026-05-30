@@ -1,11 +1,11 @@
 ---
 name: brainstorm
-description: Grill the user toward a Hiviz Brief at `docs/briefs/<slug>.md`. Propose options from aesthetic.md and the existing Registry at each decision point; never just passively capture. Use when the user wants to design a new Preset, Pipeline, or content domain — e.g. "let's brainstorm a tweet overlay," "we need a new pullquote variant," "/brainstorm <slug>". Do NOT use to author the Preset itself — hand off to `/author <slug>` once the Brief's "Open questions" is empty.
+description: Grill the user toward a Hiviz Brief at `docs/briefs/<slug>.md`. Propose options from the active Pack's aesthetic doc (`docs/packs/<pack>/aesthetic.md`) and the existing Registry at each decision point; never just passively capture. Use when the user wants to design a new Preset, Pipeline, or content domain — e.g. "let's brainstorm a tweet overlay," "we need a new pullquote variant," "/brainstorm <slug>". Do NOT use to author the Preset itself — hand off to `/author <slug>` once the Brief's "Open questions" is empty.
 ---
 
 # Hiviz Brainstorm
 
-The operational form of [ADR-0007](../../docs/adr/0007-brainstorm-brief-system.md). Drives the conversation that produces a [`Brief`](../../docs/briefs/README.md). The agent's stance is **active proposer** — surfaces 2–3 concrete options from `docs/aesthetic.md` § Motion Vocabulary, the existing Registry, and `docs/inspo/` at every decision point, rather than passively recording user input.
+The operational form of [ADR-0007](../../docs/adr/0007-brainstorm-brief-system.md). Drives the conversation that produces a [`Brief`](../../docs/briefs/README.md). The agent's stance is **active proposer** — surfaces 2–3 concrete options from `docs/packs/syntax/aesthetic.md` § Motion Vocabulary, the existing Registry, and `docs/inspo/` at every decision point, rather than passively recording user input.
 
 ## When this skill fires
 
@@ -24,7 +24,7 @@ Read in order, even if you "already know" them — the proposals you make at eac
 
 1. `docs/briefs/README.md` — the template you're filling and the lifecycle invariant.
 2. `docs/CONTEXT.md` — Brief, Producer, Critic, Brainstorm definitions.
-3. `docs/aesthetic.md` — Motion Vocabulary, Channel chrome, Surface Vocabulary, Anti-Aesthetic.
+3. `docs/packs/syntax/aesthetic.md` — Motion Vocabulary, Channel chrome, Surface Vocabulary, Anti-Aesthetic.
 4. `docs/preset-format.md` — the `hiviz@1` schema you'll eventually have to satisfy.
 5. `ls src/lib/presets/` — existing slugs (collision check) and family naming.
 6. `docs/adr/` — quick scan for relevant decisions (e.g. ADR-0006 if it's a lower-third-shaped idea).
@@ -58,7 +58,7 @@ Ask: "In one paragraph, what is this and why does it land for the channel?" Don'
 ### Step 3 — Surface choice
 
 For `kind: preset`:
-- Read `docs/aesthetic.md` § Surface Vocabulary. Propose 2–3 plausible Surfaces with their substrate + body type + channel chrome implications listed. Use AskUserQuestion with previews showing the trade-offs.
+- Read `docs/packs/syntax/aesthetic.md` § Surface Vocabulary. Propose 2–3 plausible Surfaces with their substrate + body type + channel chrome implications listed. Use AskUserQuestion with previews showing the trade-offs.
 - If the user picks a Surface that doesn't currently have a Pipeline (rare), flip the brief to `kind: pipeline` and treat this preset as its verification preset.
 
 For `kind: pipeline` / `kind: domain`:
@@ -72,7 +72,7 @@ Push back on placeholder copy ("Lorem ipsum," "Some headline here"). The Produce
 
 ### Step 5 — motion plan (the heaviest grill section)
 
-This is where the "agent proposes options" stance matters most. Don't ask "what motion?" — read `docs/aesthetic.md` § Motion Vocabulary and propose 2–3 named combinations from the **lean-in** list, each as an AskUserQuestion option with a preview showing the timeline shape.
+This is where the "agent proposes options" stance matters most. Don't ask "what motion?" — read `docs/packs/syntax/aesthetic.md` § Motion Vocabulary and propose 2–3 named combinations from the **lean-in** list, each as an AskUserQuestion option with a preview showing the timeline shape.
 
 Example proposal shape:
 
@@ -96,7 +96,7 @@ Name the **focal slot**(s) and the timeline shape (entry → reveal → exit bea
 
 ### Step 6 — channel chrome notes
 
-Walk `docs/aesthetic.md` § Collage System and check each element off explicitly:
+Walk `docs/packs/syntax/aesthetic.md` § Collage System and check each element off explicitly:
 
 - Mono signature thread — present? where (kicker / source URL / date / watermark)?
 - Hard offset shadow — present? offset px? color?
@@ -173,8 +173,8 @@ Do **not** start authoring in the same session — `/author` is a fresh Producer
 
 - **AskUserQuestion previews are the proposal mechanism.** Use them whenever there are 2–4 named options with concrete trade-offs. Show the timeline shape, the chrome composition, or the schema delta as ASCII in the preview.
 - **One question at a time** — wait for the answer before moving to the next decision.
-- **Cite the source doc** when proposing — `aesthetic.md § Motion Vocabulary line 12`, `engine-architecture.md`, `ADR-0005`. The user should be able to verify your proposal against the binding doc.
-- **Push back on Anti-Aesthetic moves** — if the user wants a pastel gradient, a gaussian shadow on the collage layer, or an axis-perfect rectangular card, name the `aesthetic.md § Anti-Aesthetic` line and ask if they're sure. Record the deviation reasoning in the Brief if they confirm.
+- **Cite the source doc** when proposing — `docs/packs/syntax/aesthetic.md § Motion Vocabulary`, `engine-architecture.md`, `ADR-0005`. The user should be able to verify your proposal against the binding doc.
+- **Push back on Anti-Aesthetic moves** — if the user wants a pastel gradient, a gaussian shadow on the collage layer, or an axis-perfect rectangular card, name the `docs/packs/syntax/aesthetic.md § Anti-Aesthetic` line and ask if they're sure. Record the deviation reasoning in the Brief if they confirm.
 - **Don't author code or JSON in this skill.** Briefs are markdown only. If you find yourself writing schema fragments, stop — that's the Producer's job.
 
 ## Anti-pattern: brainstorm becomes authoring

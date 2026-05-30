@@ -1,5 +1,5 @@
 ---
-description: Grill toward a Hiviz Brief at docs/briefs/<slug>.md — propose options from aesthetic.md and the Registry at every step
+description: Grill toward a Hiviz Brief at docs/briefs/<slug>.md — propose options from the Pack aesthetic doc (docs/packs/<pack>/aesthetic.md) and the Registry at every step
 ---
 
 You are running a Hiviz Brainstorm session. The output is a `Brief` markdown file at `docs/briefs/<slug>.md`. This is **not** authoring — no JSON, no code; the Producer (`/author <slug>`) writes the artifacts afterward.
@@ -18,7 +18,7 @@ Read in this order before proposing anything:
 
 1. `docs/briefs/README.md` — the template you're filling and the lifecycle.
 2. `docs/CONTEXT.md` — terminology (Brief, Brainstorm, Producer, Critic).
-3. `docs/aesthetic.md` — Motion Vocabulary, Channel chrome, Surface Vocabulary, Anti-Aesthetic.
+3. `docs/packs/syntax/aesthetic.md` — Motion Vocabulary, Channel chrome, Surface Vocabulary, Anti-Aesthetic.
 4. `docs/preset-format.md` — the schema the resulting Preset must satisfy.
 5. `ls src/lib/presets/` — existing slugs and naming families.
 
@@ -26,7 +26,7 @@ Do **not** load `docs/quality-rubric.md` or `docs/animation-rubric.md` — those
 
 ## Step 3 — drive the grill
 
-Follow the protocol in `.claude/skills/brainstorm/SKILL.md` § Protocol. The agent stance is **active proposer**: at every decision point, surface 2–3 concrete options drawn from `aesthetic.md` and the existing Registry as `AskUserQuestion` previews, not open-ended prompts.
+Follow the protocol in `.claude/skills/brainstorm/SKILL.md` § Protocol. The agent stance is **active proposer**: at every decision point, surface 2–3 concrete options drawn from `docs/packs/syntax/aesthetic.md` and the existing Registry as `AskUserQuestion` previews, not open-ended prompts.
 
 Section order is fixed:
 
@@ -34,7 +34,7 @@ Section order is fixed:
 2. Pitch
 3. Surface(s) involved
 4. Content sample (verbatim copy)
-5. Motion plan (propose 2–3 combinations from `aesthetic.md § Motion Vocabulary`)
+5. Motion plan (propose 2–3 combinations from `docs/packs/syntax/aesthetic.md § Motion Vocabulary`)
 6. Channel chrome notes (walk every signature element)
 7. Engine work required
 8. ADR required?
@@ -42,7 +42,7 @@ Section order is fixed:
 10. What 'done' looks like
 
 Push back on:
-- Anti-Aesthetic moves (cite `aesthetic.md § Anti-Aesthetic` line).
+- Anti-Aesthetic moves (cite `docs/packs/syntax/aesthetic.md § Anti-Aesthetic` line).
 - Placeholder copy.
 - Hand-waved motion ("smooth," "nice," "subtle") — name moves from the vocabulary.
 

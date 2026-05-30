@@ -53,7 +53,9 @@ Read these docs in order before writing anything:
 4. docs/preset-format.md — the `hiviz@1` schema you must satisfy.
 5. docs/engine-architecture.md — pipeline registry shape, only if Brief's
    `Kind:` is `pipeline` or `domain`.
-6. docs/aesthetic.md — channel chrome, palette, type, motion vocabulary.
+6. docs/packs/<pack>/aesthetic.md — channel chrome, palette, type, motion
+   vocabulary, resolved from the Brief's declared pack (the legacy
+   `docs/aesthetic.md` is a redirect stub — do not bind to it).
    You should not need to deviate; if you do, capture the reason in the
    Preset's `description`.
 

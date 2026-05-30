@@ -34,7 +34,7 @@ Read these docs in order before writing anything:
 4. docs/preset-format.md — the `hiviz@1` schema you must satisfy.
 5. docs/engine-architecture.md — only if Brief's `Kind:` is `pipeline`
    or `domain`.
-6. docs/aesthetic.md — channel chrome, palette, type, motion vocabulary.
+6. docs/packs/<pack>/aesthetic.md — channel chrome, palette, type, motion vocabulary (the Brief's declared pack; the legacy `docs/aesthetic.md` is a redirect stub).
 
 Then author the artifacts the Brief's "What 'done' looks like" section
 declares. For each:

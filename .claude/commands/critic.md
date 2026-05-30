@@ -26,7 +26,7 @@ Bind to these docs and read them in order before doing anything else:
 1. docs/critic.md — your protocol and output format.
 2. docs/quality-rubric.md — R-rules (gating) and Q-rules.
 3. docs/animation-rubric.md — G-rules and per-Overlay rules.
-4. docs/aesthetic.md — channel-fit checks.
+4. docs/packs/<preset.pack>/aesthetic.md — channel-fit checks (resolved from the Preset's top-level `pack` field; defaults to `syntax`. The legacy `docs/aesthetic.md` is a redirect stub — do not bind to it).
 5. docs/CONTEXT.md — terminology.
 
 Then execute the protocol from docs/critic.md:
@@ -45,7 +45,7 @@ Then execute the protocol from docs/critic.md:
 - If any R-rule FAILs, stop. Output the report with
   Recommendation: IMPLEMENTATION-FIX-REQUIRED. Do not edit the Preset
   to hide the defect (quality-rubric.md R8).
-- If all R-rules PASS, walk Q-rules, G-rules, and aesthetic.md.
+- If all R-rules PASS, walk Q-rules, G-rules, and docs/packs/<preset.pack>/aesthetic.md.
 - Classify every finding as exactly one of:
   pipeline-bug, default-too-permissive, preset-choice,
   aesthetic-miss, rubric-gap.
