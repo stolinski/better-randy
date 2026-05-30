@@ -259,7 +259,7 @@ function getFrameInSourceCoords(orientation: 'horizontal' | 'vertical'): {
 }
 
 function wrapStateAsPreset(state: EngineState, name: string): Preset {
-	return { schema: 'hiviz@1', name, pack: 'syntax', state };
+	return { schema: 'hiviz@1', name, pack: 'syntax', kind: 'deliverable', state };
 }
 
 export function captureMeasurement(state: EngineState, name = '(current)'): VisualMeasurement {

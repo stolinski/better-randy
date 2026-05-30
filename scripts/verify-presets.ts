@@ -33,6 +33,7 @@ const files = (await readdir(presetDir)).filter((file) => file.endsWith('.json')
 
 let failed = 0;
 let warned = 0;
+let fixtureCount = 0;
 
 for (const file of files) {
 	const raw = await readFile(resolve(presetDir, file), 'utf8');
@@ -43,6 +44,14 @@ for (const file of files) {
 		console.error(`✗ ${file} (schema)`);
 		console.error(result.error);
 		failed += 1;
+		continue;
+	}
+
+	// Fixtures (demos / showcases / tests / motion-primitive verifiers) are
+	// schema-checked but exempt from the deliverable R/Q/G rubric floors.
+	if ((result.data as { kind?: string }).kind === 'fixture') {
+		fixtureCount += 1;
+		console.log(`✓ ${file} (fixture — schema only)`);
 		continue;
 	}
 
@@ -251,8 +260,12 @@ if (failed > 0) {
 	process.exit(1);
 }
 
+const fixtureNote =
+	fixtureCount > 0
+		? ` ${fixtureCount} fixture(s) schema-checked only (rubric floors apply to deliverables).`
+		: '';
 if (warned > 0) {
-	console.log(`\nAll preset validation checks passed (${warned} rubric warning(s)).`);
+	console.log(`\nAll preset validation checks passed (${warned} rubric warning(s)).${fixtureNote}`);
 } else {
-	console.log('\nAll preset validation checks passed.');
+	console.log(`\nAll preset validation checks passed.${fixtureNote}`);
 }

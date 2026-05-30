@@ -38,10 +38,16 @@ const PRESET_CATALOG: CataloguedPreset[] = Object.entries(presetModules)
 	.filter((entry): entry is CataloguedPreset => entry !== null)
 	.sort((a, b) => a.preset.name.localeCompare(b.preset.name));
 
+// Resolves every Preset (fixtures included) so demo / test / showcase
+// fixtures stay loadable by URL during development.
 const PRESET_BY_SLUG = new Map(PRESET_CATALOG.map((entry) => [entry.slug, entry.preset]));
 
+// The catalog (app preset list) is deliverables only — fixtures are
+// schema-valid but not shippable, so they are excluded here.
+const DELIVERABLE_CATALOG = PRESET_CATALOG.filter((entry) => entry.preset.kind !== 'fixture');
+
 export function listPresets(): readonly CataloguedPreset[] {
-	return PRESET_CATALOG;
+	return DELIVERABLE_CATALOG;
 }
 
 export function getPresetBySlug(slug: string): Preset | null {

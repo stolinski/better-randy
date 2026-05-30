@@ -1,5 +1,6 @@
 {
 	"schema": "hiviz@1",
+	"kind": "fixture",
 	"name": "Counter — slot machine roll",
 	"description": "Verification preset for the counter Overlay (motion-primitives Phase 4.4). Counts from 0 to 12,450 over the timeline with per-digit slot-machine rolls; tabular numerals keep the counter inline-size constant across every progress.",
 	"pack": "syntax",

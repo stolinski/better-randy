@@ -514,6 +514,15 @@ export const PresetSchema = z.object({
 	name: z.string().min(1, 'Preset name is required'),
 	description: z.string().optional(),
 	pack: z.string().min(1, 'Preset must declare a pack'),
+	/**
+	 * Catalog classification. `deliverable` (default) is a curated, shippable
+	 * Preset — held to the R/Q/G rubric floors (`verify-presets`) and listed in
+	 * the app catalog (`listPresets`). `fixture` is a demo / showcase / test /
+	 * motion-primitive verifier: schema-checked but exempt from the deliverable
+	 * rubric floors and excluded from the catalog. Fixtures stay loadable by
+	 * slug (`getPresetBySlug`) for development.
+	 */
+	kind: z.enum(['deliverable', 'fixture']).default('deliverable'),
 	state: EngineStateSchema
 });
 

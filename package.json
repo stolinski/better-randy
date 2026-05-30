@@ -13,7 +13,8 @@
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
 		"gen": "wrangler types",
-		"gen:schema": "node --experimental-strip-types scripts/export-preset-schema.ts"
+		"gen:schema": "node --experimental-strip-types scripts/export-preset-schema.ts",
+		"verify-presets": "node --experimental-strip-types scripts/verify-presets.ts"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^2.0.4",

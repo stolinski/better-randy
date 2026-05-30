@@ -1,5 +1,6 @@
 {
 	"schema": "hiviz@1",
+	"kind": "fixture",
 	"name": "Instance stack — every line",
 	"description": "Verification preset for the instance-stack Overlay (motion-primitives Phase 4.2). N spatially-offset copies of one text slot with per-instance lag-window propagation — instance 0 enters first, instance N-1 finishes its motion after instance 0. The vertical-stack variant is the family default per ADR-0020.",
 	"pack": "syntax",
