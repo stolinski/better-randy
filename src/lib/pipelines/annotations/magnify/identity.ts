@@ -38,22 +38,24 @@ export const magnifyIdentity: IdentitySpec = {
 		},
 		{
 			name: 'edge-treatment',
-			viaPack: 'magnify.lensEdge',
-			definition: 'How the magnified slot meets the surrounding dimmed body (sharp, soft, chromatic).',
+			implementation:
+				'src/lib/pipelines/annotations/magnify/index.ts § computeFocalSlot — the lens is a fixed-size rect (anchor line-height, width capped at 4.5× line-height); the AnnotationFocalSlot carries only { rect, magnify, dim, tear } and no edge field, so the boundary is intrinsic to the renderer, not Pack-resolved.',
+			definition: 'How the magnified slot meets the surrounding dimmed body — a fixed-size rect lens with an intrinsic boundary.',
 			probe: {
 				kind: 'named-observation',
 				region: 'boundary between the magnified focal slot and the dimmed surrounding text',
-				expectation: 'edge treatment resolves through the magnify.lensEdge Role.'
+				expectation: 'the magnified slot is a fixed-size rect (≈4.5× line-height max width) with a hard boundary against the surrounding body; the boundary is stable across re-renders.'
 			}
 		},
 		{
 			name: 'depth-treatment',
-			viaPack: 'magnify.lensDepth',
-			definition: 'Any implied lens chrome (shadow, rim, glass refraction) around the focal slot.',
+			implementation:
+				'src/lib/pipelines/annotations/magnify/index.ts § computeFocalSlot — no lens chrome is painted; the AnnotationFocalSlot returns { rect, magnify, dim, tear } with no shadow/rim/refraction field, so the focal slot has no implied depth around it.',
+			definition: 'Lens chrome around the focal slot — intrinsically none; the focal slot carries no shadow/rim/refraction.',
 			probe: {
 				kind: 'named-observation',
 				region: 'area immediately around the focal slot',
-				expectation: 'lens chrome resolves through the magnify.lensDepth Role.'
+				expectation: 'there is no drop shadow, rim, or refraction chrome around the focal slot — only the magnified rect against the dimmed body.'
 			}
 		},
 		{
@@ -64,7 +66,7 @@ export const magnifyIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'first ~6% of the focal window',
-				expectation: 'enter motion resolves through the magnify.enterMotion Role.'
+				expectation: 'the lens snaps in over the first ~10% of the bar via an exponential-ease reveal envelope (easeOutExpo on enter), holds at full scale, then snaps out over the final ~10% (easeInExpo); intrinsic, not Pack-driven.'
 			}
 		}
 	]

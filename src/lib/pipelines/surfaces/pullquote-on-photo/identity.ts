@@ -59,7 +59,7 @@ export const pullquoteOnPhotoIdentity: IdentitySpec = {
 				kind: 'named-observation',
 				region: 'body text colour',
 				expectation:
-					'ink colour resolves through the active Pack manifest pullquote-on-photo.inkFill Role.'
+					'ink colour resolves through the active Pack manifest pullquote-on-photo.ink Role (the colour the CanvasSource quote paints via var(--ink)).'
 			}
 		},
 		{
@@ -71,19 +71,20 @@ export const pullquoteOnPhotoIdentity: IdentitySpec = {
 				kind: 'named-observation',
 				region: 'focal-word transitions across the timeline',
 				expectation:
-					'focal motion shape resolves through the active Pack manifest pullquote-on-photo.focalMotion Role.'
+					'word-reveal focus shape pulls from heavy disc-bokeh blur to pin-sharp over the first ~22% of progress, intrinsic to the pullquote-photo-backdrop shaderPass — no Pack Role involved.'
 			}
 		},
 		{
 			name: 'frame-relationship',
-			viaPack: 'pullquote-on-photo.attribution',
+			implementation:
+				'src/lib/pipelines/surfaces/pullquote-on-photo/CanvasSource.svelte — `.pullquote-source__attribution` is absolutely positioned bottom-centred (inset-block-end:12%; inset-inline:0; margin:0 auto; text-align:center); placement is intrinsic CSS, not Pack appearance.',
 			definition:
 				'Attribution placement (anchor + offset + scale) relative to the passage and the photo frame.',
 			probe: {
 				kind: 'named-observation',
 				region: 'attribution slot',
 				expectation:
-					'attribution placement resolves through the pullquote-on-photo.attribution Role.'
+					'attribution sits bottom-centred in the lower band of the frame, centred horizontally and offset up from the bottom edge.'
 			}
 		}
 	]

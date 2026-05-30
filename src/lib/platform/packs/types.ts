@@ -11,7 +11,7 @@
  *   - `chrome`: an effect-chain or shaderPass recipe
  *
  * The Pack manifest is a flat record keyed by Role name. A Role name has
- * the shape `<pipeline-type>.<role-id>` (e.g. `lower-third.fill`,
+ * the shape `<pipeline-type>.<role-id>` (e.g. `lower-third.ink`,
  * `highlight.fill`). Core Roles (Pack-vocabulary, not Pipeline-scoped) use
  * a bare name (e.g. `fill-treatment`, `edge-treatment`).
  */

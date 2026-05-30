@@ -47,7 +47,7 @@ export const paragraphIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'body text colour',
-				expectation: 'ink colour resolves through the paragraph.inkFill Role.'
+				expectation: 'ink colour resolves through engineState.typography.inkColor (TypographySchema.inkColor), not a Pack Role.'
 			}
 		},
 		{
@@ -68,17 +68,18 @@ export const paragraphIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'first ~10% of the timeline on the body block',
-				expectation: 'body enter motion resolves through the paragraph.bodyEnter Role.'
+				expectation: 'body enter motion resolves through the body TextAnimation strategy (compiled via compile() in src/lib/text-animations/compile.ts and driven by TextAnimationManager), not a Pack Role.'
 			}
 		},
 		{
 			name: 'frame-relationship',
-			viaPack: 'paragraph.measure',
+			implementation:
+				'src/lib/annotations/annotation-marks.ts + paragraph block layout — paragraph measure (line length) is intrinsic to the Block layout, set by the active Surface content slot; not Pack-driven (ADR-0023: frame-relationship is intrinsic to the Pipeline).',
 			definition: 'Paragraph measure (line length in em / characters) for the active Surface.',
 			probe: {
 				kind: 'named-observation',
 				region: 'paragraph line length',
-				expectation: 'measure resolves through the paragraph.measure Role.'
+				expectation: 'paragraph measure (line length) is set intrinsically by the Block layout for the active Surface content slot, not by a Pack Role.'
 			}
 		}
 	]

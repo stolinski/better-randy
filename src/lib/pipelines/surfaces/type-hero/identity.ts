@@ -22,7 +22,7 @@ export const typeHeroIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'hero word body',
-				expectation: 'fill resolves through the type-hero.inkFill Role.'
+				expectation: 'hero word body fill resolves through the type-hero.ink Role (consumed as var(--ink) in the CanvasSource).'
 			}
 		},
 		{
@@ -66,7 +66,7 @@ export const typeHeroIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'first ~10% of the timeline',
-				expectation: 'enter motion resolves through the type-hero.enterMotion Role.'
+				expectation: 'the hero word enters via the variant motionShape + mount timing (intrinsic to the Pipeline), not a Pack Role.'
 			}
 		},
 		{

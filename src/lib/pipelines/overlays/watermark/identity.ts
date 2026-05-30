@@ -43,7 +43,7 @@ export const watermarkIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'watermark glyph colour',
-				expectation: 'colour resolves through the watermark.inkFill Role.'
+				expectation: 'colour resolves through the watermark.ink Role.'
 			}
 		},
 		{
@@ -54,7 +54,7 @@ export const watermarkIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'first ~10% of the timeline on the watermark',
-				expectation: 'enter motion resolves through the watermark.enterMotion Role.'
+				expectation: 'enter motion is a fade-through driven by the overlay mount enter/exit timing; it is intrinsic to the Pipeline, not Pack-resolved.'
 			}
 		}
 	]

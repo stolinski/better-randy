@@ -22,7 +22,7 @@ export const chapterCardIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'card body behind the text rows',
-				expectation: 'fill resolves through the active Pack manifest chapter-card.fill Role.'
+				expectation: 'card body behind the text reads as transparent (no painted substrate); the cinematic backdrop is the only thing visible behind the rows.'
 			}
 		},
 		{

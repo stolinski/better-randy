@@ -23,7 +23,7 @@ export const lowerThirdIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'chip plate behind the text',
-				expectation: 'fill resolves through the lower-third.fill Role.'
+				expectation: 'plate fill is painted in the CanvasSource (standard: flat rgba(10,10,10,0.92) background; cinematic: a horizontal rgba scrim gradient); there is no Pack fill Role behind it.'
 			}
 		},
 		{

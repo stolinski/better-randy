@@ -50,12 +50,13 @@ export const counterIdentity: IdentitySpec = {
 		},
 		{
 			name: 'light-treatment',
-			viaPack: 'counter.numeralStyle',
-			definition: 'Numeral style (lining / oldstyle / tabular).',
+			implementation:
+				'src/lib/pipelines/overlays/counter/variants/SlotMachineCanvasSource.svelte — scoped CSS hardcodes the numeral style: font-feature-settings: \'tnum\' 1 and font-variant-numeric: tabular-nums on .counter-overlay. Tabular lining figures are intrinsic to the Pipeline (the no-reflow frame-relationship guarantee depends on them), not Pack-driven.',
+			definition: 'Numeral style. Tabular lining figures are fixed by the Pipeline so digit advance never reflows the counter; the Pack does not vary it.',
 			probe: {
 				kind: 'named-observation',
 				region: 'digit baseline + cap heights',
-				expectation: 'numeral style matches the counter.numeralStyle Role.'
+				expectation: 'all numerals are tabular lining figures with a common baseline and cap height; every digit cell is the same width.'
 			}
 		}
 	]

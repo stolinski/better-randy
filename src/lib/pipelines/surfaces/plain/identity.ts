@@ -1,11 +1,11 @@
 /**
  * Identity Spec for the `plain` Surface — per ADR-0015. The honest scaffold
  * Surface: a transparent runtime base that hosts another Pipeline's content
- * without claiming any intrinsic physics. Per ADR-0019, every dimension here
- * concedes to the active Pack via the via-pack clause — `plain` does not
- * claim to be a material, a tool, or a graphic with intrinsic physics; it is
- * the substrate the Pack dresses. A Pack that does not bind every plain.*
- * Role fails the manifest validator at engine boot.
+ * without claiming any intrinsic physics. Its edge / depth / light treatments
+ * concede to the active Pack via the via-pack clause (ADR-0019); its fill is
+ * intrinsically transparent per the output contract and its motion +
+ * frame-relationship are intrinsic to the Pipeline per ADR-0023, so they are
+ * declared `implementation`, not Pack Roles.
  */
 
 import type { IdentitySpec } from '$lib/platform/pipelines/identity';
@@ -16,14 +16,14 @@ export const plainIdentity: IdentitySpec = {
 	dimensions: [
 		{
 			name: 'fill-treatment',
-			definition: 'The base substrate colour or fill resolved by the Pack.',
+			definition: 'The base substrate fill — intrinsically transparent per the output contract; ink colour comes from engineState.typography, not the Pack.',
 			implementation:
-				'substrate is transparent per the output contract; ink is driven by engineState.typography.',
+				'CanvasSource.svelte paints background-color:transparent (hardcoded) and color:engineState.typography.inkColor; no Pack fill var is consumed.',
 			probe: {
 				kind: 'named-observation',
 				region: 'centre of the surface, away from any text',
 				expectation:
-					'fill matches the active Pack manifest plain.fill value; no inline hex bypassing the Role.'
+					'surface body is fully transparent (no painted fill); ink colour matches engineState.typography.inkColor.'
 			}
 		},
 		{
@@ -68,7 +68,7 @@ export const plainIdentity: IdentitySpec = {
 				kind: 'named-observation',
 				region: 'first ~10% of the timeline (enter window)',
 				expectation:
-					'enter motion shape matches the active Pack manifest plain.enterMotion resolution.'
+					'enter motion shape matches the surface mount enter/exit Transition timing (intrinsic to the Pipeline, not Pack-resolved).'
 			}
 		},
 		{
@@ -80,7 +80,7 @@ export const plainIdentity: IdentitySpec = {
 				kind: 'named-observation',
 				region: 'surface position within the frame',
 				expectation:
-					'anchor + offset behaviour matches the active Pack manifest plain.frameRelationship resolution.'
+					'anchor + offset behaviour matches the intrinsic plain layout (centred); not Pack-resolved.'
 			}
 		}
 	]

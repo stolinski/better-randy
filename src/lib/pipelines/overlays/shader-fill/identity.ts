@@ -14,22 +14,24 @@ export const shaderFillIdentity: IdentitySpec = {
 	dimensions: [
 		{
 			name: 'fill-treatment',
-			viaPack: 'shader-fill.shader',
-			definition: 'The fragment shader resolved by the Pack (which procedural fill program runs).',
+			implementation:
+				'src/lib/pipelines/overlays/shader-fill/index.ts — the `wgsl` fragment program is the intrinsic fill: a three-centre inverse-square metaball gradient. Its three colours come from the preset `content` (color0/color1/color2) packed by `shaderPass.packUniforms` via getRgbColorChannels, not from the Pack.',
+			definition: 'The intrinsic fragment-shader fill program (metaball gradient) the Pipeline paints; colours are preset content, not Pack-resolved.',
 			probe: {
 				kind: 'named-observation',
 				region: 'centre of the shader-fill region',
-				expectation: 'fill shader resolves through the shader-fill.shader Role.'
+				expectation: 'centre shows the three-colour metaball gradient from the preset content colours blended over the substrate at the content opacity.'
 			}
 		},
 		{
 			name: 'edge-treatment',
-			viaPack: 'shader-fill.edge',
-			definition: 'How the shaded region meets its boundary (clean rect, feathered, masked).',
+			implementation:
+				'src/lib/pipelines/overlays/shader-fill/index.ts — the boundary is an intrinsic hard rect: the `wgsl` program tests `inOverlay` against boundsUvMin/boundsUvMax and returns the unmodified inputSample outside it, so the fill stops at a clean (sharp) rect with no feather or mask.',
+			definition: 'How the shaded region meets its boundary: an intrinsic clean rect (the WGSL inOverlay bounds test), not Pack-driven.',
 			probe: {
 				kind: 'named-observation',
 				region: 'region boundary',
-				expectation: 'edge treatment resolves through the shader-fill.edge Role.'
+				expectation: 'the gradient stops at a clean hard-edged rect with no feather or mask; pixels outside the rect are the unmodified substrate.'
 			}
 		},
 		{
@@ -40,7 +42,7 @@ export const shaderFillIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'first ~10% of the timeline on the region',
-				expectation: 'enter motion resolves through the shader-fill.enterMotion Role.'
+				expectation: 'enter motion is the overlay mount enter timing (defaults.enter start 0, duration ~0.108, ease \'settled\'); the region eases in over the first ~10% of the timeline.'
 			}
 		},
 		{

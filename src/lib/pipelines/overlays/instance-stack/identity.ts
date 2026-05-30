@@ -36,7 +36,7 @@ export const instanceStackIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'instance body colour',
-				expectation: 'colour resolves through the instance-stack.fill Role.'
+				expectation: 'colour resolves through the instance-stack.ink Role (the CanvasSource paints color: var(--ink, #000000)).'
 			}
 		},
 		{
@@ -77,7 +77,7 @@ export const instanceStackIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'stack position within the frame',
-				expectation: 'anchor + offset behaviour resolves through the instance-stack.frameRelationship Role.'
+				expectation: 'anchor + offset behaviour is intrinsic to the instance-stack variant layout (variants/<id>.ts) plus the Overlay placement (position.anchor/offset in index.ts defaults), not a Pack Role.'
 			}
 		}
 	]

@@ -20,7 +20,7 @@ export const titleSequenceIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'frame behind the title block',
-				expectation: 'fill resolves through the title-sequence.fill Role.'
+				expectation: 'no painted fill in the DOM substrate (transparent per the output contract); the deep-black backdrop with the warm upper-left glow is the intrinsic title-sequence-drop shaderPass, not a Pack Role.'
 			}
 		},
 		{

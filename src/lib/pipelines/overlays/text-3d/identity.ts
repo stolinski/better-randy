@@ -59,7 +59,7 @@ export const text3dIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'glyph body colour',
-				expectation: 'colour resolves through the text-3d.fill Role.'
+				expectation: 'colour resolves through the text-3d.ink Role (the glyph paints with var(--ink), fallback #fffaf2).'
 			}
 		},
 		{
@@ -80,7 +80,7 @@ export const text3dIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'cylinder position within the frame',
-				expectation: 'anchor + offset behaviour resolves through the text-3d.frameRelationship Role.'
+				expectation: 'the cylinder is centred in the frame; positioning is intrinsic to the text-3d layout, not driven by a Pack Role.'
 			}
 		}
 	]

@@ -37,12 +37,13 @@ export const sideNoteIdentity: IdentitySpec = {
 		},
 		{
 			name: 'fill-treatment',
-			viaPack: 'side-note.fill',
-			definition: 'Note ink colour.',
+			implementation:
+				'src/lib/pipelines/annotations/side-note/index.ts — draw() strokes the leader arrow and fills the arrowhead with getCanvasRgbColor(color, …); the `color` is the annotation mark colour from engineState.marks.defaults (engine-state.svelte.ts readMarkColor), not a Pack CSS var.',
+			definition: 'Leader/arrowhead colour, taken from the annotation mark colour.',
 			probe: {
 				kind: 'named-observation',
 				region: 'note text colour',
-				expectation: 'colour resolves through the side-note.fill Role.'
+				expectation: 'arrow and arrowhead paint in the mark colour from engineState.marks.defaults[\'side-note\'].color (editor default #1f5aff); no separate Pack fill Role is consumed.'
 			}
 		},
 		{
@@ -53,7 +54,7 @@ export const sideNoteIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'first ~10% of the note\'s window',
-				expectation: 'enter motion resolves through the side-note.enterMotion Role.'
+				expectation: 'the leader arrow draws on progressively (arrowSegments gated by drawProgress) and the arrowhead pops in at drawProgress >= 0.65; motion is intrinsic to draw(), not Pack-resolved.'
 			}
 		}
 	]
