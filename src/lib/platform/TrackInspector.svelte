@@ -26,8 +26,7 @@
 		magnify: 'Magnify',
 		'lift-out': 'Lift out',
 		'tear-out': 'Tear out',
-		isolate: 'Isolate',
-		callout: 'Callout'
+		isolate: 'Isolate'
 	};
 
 	const SURFACE_TRANSITION_LABELS: Record<'enter' | 'exit', string> = {

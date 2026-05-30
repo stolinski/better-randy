@@ -40,8 +40,7 @@
 		magnify: '#1f5aff',
 		'lift-out': '#1f5aff',
 		'tear-out': '#1f5aff',
-		isolate: '#1f5aff',
-		callout: '#1f5aff'
+		isolate: '#1f5aff'
 	};
 
 	const MARK_TITLES: Record<AnnotationMarkStyle, string> = {
@@ -54,8 +53,7 @@
 		magnify: 'Magnify selection',
 		'lift-out': 'Lift selection out',
 		'tear-out': 'Tear selection out',
-		isolate: 'Isolate selection',
-		callout: 'Callout from selection'
+		isolate: 'Isolate selection'
 	};
 
 	const DECORATIVE_BUTTONS = DECORATIVE_ANNOTATION_STYLES;
@@ -431,14 +429,6 @@
 					<path opacity="0.4" d="M15.2501 7C14.836 7 14.5001 7.3359 14.5001 7.75V10.25C14.5001 10.6641 14.836 11 15.2501 11C15.6642 11 16.0001 10.6641 16.0001 10.25V7.75C16.0001 7.3359 15.6642 7 15.2501 7Z" />
 					<path opacity="0.4" d="M2.75012 11C3.16422 11 3.50012 10.6641 3.50012 10.25V7.75C3.50012 7.3359 3.16422 7 2.75012 7C2.33602 7 2.00012 7.3359 2.00012 7.75V10.25C2.00012 10.6641 2.33602 11 2.75012 11Z" />
 					<path d="M12.2501 5H5.75012C5.33591 5 5.00012 5.33579 5.00012 5.75V12.25C5.00012 12.6642 5.33591 13 5.75012 13H12.2501C12.6643 13 13.0001 12.6642 13.0001 12.25V5.75C13.0001 5.33579 12.6643 5 12.2501 5Z" />
-				</g>
-			</svg>
-		{:else if style === 'callout'}
-			<svg aria-hidden="true" focusable="false" height="18" viewBox="0 0 18 18" width="18" xmlns="http://www.w3.org/2000/svg">
-				<g fill="currentColor">
-					<path d="m9,1C4.5889,1,1,4.5889,1,9c0,1.3955.3711,2.7759,1.0615,3.9702.2373.4453-.0957,2.0024-.8423,2.7495-.209.2095-.2754.5225-.1694.7983.1055.2764.3643.4648.6597.481.0791.0044.1597.0063.2412.0063,1.1445,0,2.5347-.4072,3.4409-.8711.6763.3438,1.3911.5879,2.1309.7275.4839.0918.981.1382,1.4775.1382,4.4111,0,8-3.5889,8-8S13.4111,1,9,1Z" opacity=".4" stroke-width="0" />
-					<path d="m9,13.5c-.4141,0-.75-.3359-.75-.75v-3.25h-.5c-.4141,0-.75-.3359-.75-.75s.3359-.75.75-.75h.75c.6895,0,1.25.5605,1.25,1.25v3.5c0,.4141-.3359.75-.75.75Z" stroke-width="0" />
-					<path d="m9,6.75c-.552,0-1-.449-1-1s.448-1,1-1,1,.449,1,1-.448,1-1,1Z" stroke-width="0" />
 				</g>
 			</svg>
 		{/if}

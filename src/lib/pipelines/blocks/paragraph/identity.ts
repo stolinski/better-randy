@@ -41,7 +41,8 @@ export const paragraphIdentity: IdentitySpec = {
 		},
 		{
 			name: 'fill-treatment',
-			viaPack: 'paragraph.inkFill',
+			implementation:
+				'src/lib/platform/engine-schema.ts (TypographySchema.inkColor) — body ink driven by engineState.typography.inkColor.',
 			definition: 'Body ink colour.',
 			probe: {
 				kind: 'named-observation',
@@ -61,7 +62,8 @@ export const paragraphIdentity: IdentitySpec = {
 		},
 		{
 			name: 'motion-form',
-			viaPack: 'paragraph.bodyEnter',
+			implementation:
+				'src/lib/text-animations/manager.svelte.ts — body enter motion driven by the text-animation strategy (the body TextAnimation entry compiled via compile() in src/lib/text-animations/compile.ts).',
 			definition: 'Shape of the body enter motion when one is declared.',
 			probe: {
 				kind: 'named-observation',

@@ -2,6 +2,7 @@
 	"schema": "hiviz@1",
 	"name": "Quote (vertical)",
 	"description": "Vertical short-form quote pull-out \u2014 paper card with magnified highlight, sized for phone-screen output.",
+	"pack": "syntax",
 	"state": {
 		"transport": {
 			"orientation": "vertical",

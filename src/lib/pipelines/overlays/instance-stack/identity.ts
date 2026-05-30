@@ -31,7 +31,7 @@ export const instanceStackIdentity: IdentitySpec = {
 		},
 		{
 			name: 'fill-treatment',
-			viaPack: 'instance-stack.fill',
+			viaPack: 'instance-stack.ink',
 			definition: 'Instance ink colour.',
 			probe: {
 				kind: 'named-observation',
@@ -71,7 +71,8 @@ export const instanceStackIdentity: IdentitySpec = {
 		},
 		{
 			name: 'frame-relationship',
-			viaPack: 'instance-stack.frameRelationship',
+			implementation:
+				'src/lib/pipelines/overlays/instance-stack/variants/<id>.ts layout — frame relationship intrinsic to the instance-stack layout (anchored block).',
 			definition: 'How the stack is anchored within the frame.',
 			probe: {
 				kind: 'named-observation',

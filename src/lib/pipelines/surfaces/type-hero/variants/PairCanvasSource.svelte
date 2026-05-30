@@ -72,7 +72,7 @@
 	.type-hero-source {
 		background-color: transparent;
 		box-sizing: border-box;
-		color: #fff8ec;
+		color: var(--text-base, #fff8ec);
 		display: block;
 		inset-block-start: 0;
 		inset-inline-start: 0;
@@ -80,7 +80,7 @@
 	}
 
 	.type-hero-source__hero {
-		color: #fffaf2;
+		color: var(--ink, #fffaf2);
 		font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
 		font-stretch: condensed;
 		font-style: normal;
@@ -103,7 +103,7 @@
 	 * cap-height per the plan\'s mo1 reference.
 	 */
 	.type-hero-source__counterpoint {
-		color: #f4a85e;
+		color: var(--accent, #f4a85e);
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-weight: 600;
 		inset-block-start: calc(50% - 16%);
@@ -115,7 +115,7 @@
 	}
 
 	.type-hero-source__rule {
-		background-color: #f4a85e;
+		background-color: var(--accent, #f4a85e);
 		block-size: 22%;
 		inset-block-start: 50%;
 		inset-inline-end: 14%;
@@ -125,7 +125,7 @@
 	}
 
 	.type-hero-source__subtitle {
-		color: #d8c4a0;
+		color: var(--byline, #d8c4a0);
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-style: normal;
 		font-weight: 500;

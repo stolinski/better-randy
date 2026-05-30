@@ -47,7 +47,8 @@ export const sideNoteIdentity: IdentitySpec = {
 		},
 		{
 			name: 'motion-form',
-			viaPack: 'side-note.enterMotion',
+			implementation:
+				'src/lib/pipelines/annotations/side-note — enter motion driven by the annotation mark timing; the note reveals on the mark\'s progress window.',
 			definition: 'Shape of the note enter motion.',
 			probe: {
 				kind: 'named-observation',

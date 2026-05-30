@@ -34,7 +34,6 @@ import { paragraphIdentity } from '$lib/pipelines/blocks/paragraph/identity';
 
 // Annotations
 import { boxIdentity } from '$lib/pipelines/annotations/box/identity';
-import { calloutIdentity } from '$lib/pipelines/annotations/callout/identity';
 import { circleIdentity } from '$lib/pipelines/annotations/circle/identity';
 import { highlightIdentity } from '$lib/pipelines/annotations/highlight/identity';
 import { isolateIdentity } from '$lib/pipelines/annotations/isolate/identity';
@@ -70,7 +69,6 @@ export const IDENTITY_REGISTRY: Readonly<Record<string, IdentitySpec>> = {
 
 	// Annotations (keyed by style)
 	'annotation:box': boxIdentity,
-	'annotation:callout': calloutIdentity,
 	'annotation:circle': circleIdentity,
 	'annotation:highlight': highlightIdentity,
 	'annotation:isolate': isolateIdentity,

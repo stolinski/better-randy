@@ -58,7 +58,8 @@ export const magnifyIdentity: IdentitySpec = {
 		},
 		{
 			name: 'motion-form',
-			viaPack: 'magnify.enterMotion',
+			implementation:
+				'src/lib/pipelines/annotations/magnify — lens enter motion intrinsic to computeFocalSlot reveal envelope (exponential ease).',
 			definition: 'Shape of the focal entry motion (scale-in, fade, drop, none).',
 			probe: {
 				kind: 'named-observation',

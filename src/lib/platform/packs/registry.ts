@@ -16,6 +16,16 @@ export const PACK_REGISTRY: Readonly<Record<string, PackManifest>> = {
 	'editorial-mono': editorialMonoPack
 };
 
+/**
+ * The completeness-reference Pack: the one manifest that resolves *every*
+ * `viaPack` Role the Identity registry declares, used by the ADR-0019 boot
+ * gate. This is NOT a default Pack for Presets — ADR-0023 removed that (every
+ * Preset names its own Pack). It is purely the baseline the registry's viaPack
+ * contract is validated against; secondary Packs may be partial (override a
+ * subset, fall back through `resolveAppearanceVars`).
+ */
+export const REFERENCE_PACK_SLUG = 'syntax';
+
 export function getPack(slug: string): PackManifest {
 	const pack = PACK_REGISTRY[slug];
 	if (pack === undefined) {

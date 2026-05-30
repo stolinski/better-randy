@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { engineState } from './engine-state.svelte';
+	import { engineState, packState } from './engine-state.svelte';
+	import { getPack } from './packs/registry';
+	import { appearanceVarsToStyle, resolveAppearanceVars } from './packs/resolve';
 	import { getSurfaceRenderer } from './pipelines';
 
 	interface Props {
@@ -10,8 +12,21 @@
 
 	const renderer = $derived(getSurfaceRenderer(engineState.surface.type));
 	const SurfaceCanvasSource = $derived(renderer?.CanvasSource ?? null);
+
+	// Resolve the active Pack's appearance Roles for this Surface into CSS vars.
+	// Unlike OverlayMount (which owns a positioned wrapper), the surface
+	// CanvasSource's root IS the captured element, so the wrapper here is
+	// `display:contents` — it generates no box and has zero layout impact, while
+	// CSS custom properties still inherit into the captured surface element. The
+	// CanvasSource consumes them via `var(--slot, #fallback)`; under the syntax
+	// Pack the fallbacks already match, so the render is byte-identical.
+	const appearanceStyle = $derived(
+		appearanceVarsToStyle(resolveAppearanceVars(getPack(packState.slug), engineState.surface.type))
+	);
 </script>
 
 {#if SurfaceCanvasSource}
-	<SurfaceCanvasSource bind:element />
+	<div style="display:contents;{appearanceStyle}">
+		<SurfaceCanvasSource bind:element />
+	</div>
 {/if}

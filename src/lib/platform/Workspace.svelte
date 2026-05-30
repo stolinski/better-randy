@@ -677,6 +677,8 @@
 		void engineState.surface.content.source;
 		void engineState.surface.content.dateLabel;
 		void engineState.surface.content.kicker;
+		void engineState.surface.content.counterpoint;
+		void engineState.surface.variant;
 		void engineState.typography.fontFamily;
 		void engineState.typography.paperColor;
 		void engineState.typography.inkColor;
@@ -701,6 +703,8 @@
 		// positions reflect what the viewer sees at rest, not at frame 0.
 		void engineState.surface.content.body;
 		void engineState.surface.content.title;
+		void engineState.surface.content.counterpoint;
+		void engineState.surface.variant;
 		void engineState.surface.content.sourceUrl;
 		void engineState.typography.fontFamily;
 		void engineState.transport.orientation;
@@ -747,6 +751,8 @@
 		void engineState.surface.content.source;
 		void engineState.surface.content.dateLabel;
 		void engineState.surface.content.body;
+		void engineState.surface.content.counterpoint;
+		void engineState.surface.variant;
 		for (const overlay of engineState.overlays) {
 			void overlay.content;
 		}

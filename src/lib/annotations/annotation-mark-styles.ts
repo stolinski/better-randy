@@ -8,8 +8,7 @@ export type AnnotationMarkStyle =
 	| 'magnify'
 	| 'lift-out'
 	| 'tear-out'
-	| 'isolate'
-	| 'callout';
+	| 'isolate';
 
 export type AnnotationMarkKind = 'decorative' | 'focal';
 
@@ -26,8 +25,7 @@ export const FOCAL_ANNOTATION_STYLES: readonly AnnotationMarkStyle[] = [
 	'magnify',
 	'lift-out',
 	'tear-out',
-	'isolate',
-	'callout'
+	'isolate'
 ];
 
 export const ANNOTATION_MARK_STYLES: readonly AnnotationMarkStyle[] = [

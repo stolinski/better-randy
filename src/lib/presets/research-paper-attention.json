@@ -2,6 +2,7 @@
 	"schema": "hiviz@1",
 	"name": "Attention default",
 	"description": "Single highlight on the central claim of the Transformer paper.",
+	"pack": "syntax",
 	"state": {
 		"transport": {
 			"orientation": "horizontal",

@@ -15,6 +15,22 @@ export const editorialMonoPack: PackManifest = {
 	description:
 		'A cool editorial dress — proves the same composition re-skins under a different Pack.',
 	roles: {
-		'lower-third.accent': { kind: 'style', value: '#22d3ee' }
+		// Overlay (proven 2026-05-29)
+		'lower-third.accent': { kind: 'style', value: '#22d3ee' },
+		// Surface overrides — a cool editorial dress proving Surfaces re-skin
+		// under a second Pack (same Presets, different pixels). Only the Roles
+		// it wants to change; everything else falls back to the CanvasSource
+		// defaults via resolveAppearanceVars (ADR-0024).
+		'chapter-card.ink': { kind: 'style', value: '#eef3f8' },
+		'chapter-card.base': { kind: 'style', value: '#c4d0dc' },
+		'chapter-card.kicker': { kind: 'style', value: '#22d3ee' },
+		'chapter-card.rule': { kind: 'style', value: 'rgba(34, 211, 238, 0.55)' },
+		'newspaper.fill': { kind: 'style', value: '#e9eef3' },
+		'newspaper.ink': { kind: 'style', value: '#0f151c' },
+		'newspaper.accent': { kind: 'style', value: '#22d3ee' },
+		'newspaper.kicker-ink': { kind: 'style', value: '#0f151c' },
+		'type-hero.ink': { kind: 'style', value: '#eef3f8' },
+		'type-hero.accent': { kind: 'style', value: '#22d3ee' },
+		'type-hero.byline': { kind: 'style', value: '#8aa0b4' }
 	}
 };

@@ -40,12 +40,12 @@ export const counterIdentity: IdentitySpec = {
 		},
 		{
 			name: 'fill-treatment',
-			viaPack: 'counter.digitFill',
+			viaPack: 'counter.ink',
 			definition: 'Digit ink colour.',
 			probe: {
 				kind: 'named-observation',
 				region: 'counter digit colour',
-				expectation: 'colour resolves through the counter.digitFill Role.'
+				expectation: 'colour resolves through the counter.ink Role.'
 			}
 		},
 		{

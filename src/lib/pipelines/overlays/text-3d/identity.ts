@@ -54,7 +54,7 @@ export const text3dIdentity: IdentitySpec = {
 		},
 		{
 			name: 'fill-treatment',
-			viaPack: 'text-3d.fill',
+			viaPack: 'text-3d.ink',
 			definition: 'Glyph ink colour.',
 			probe: {
 				kind: 'named-observation',
@@ -74,7 +74,8 @@ export const text3dIdentity: IdentitySpec = {
 		},
 		{
 			name: 'frame-relationship',
-			viaPack: 'text-3d.frameRelationship',
+			implementation:
+				'src/lib/pipelines/overlays/text-3d/variants/cylinder-axis-y.svelte — the cylinder is centred in the frame; frame relationship is intrinsic to the text-3d layout (no anchor/offset Role).',
 			definition: 'How the cylinder is anchored within the frame.',
 			probe: {
 				kind: 'named-observation',

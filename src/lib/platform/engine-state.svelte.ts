@@ -10,22 +10,26 @@ import {
 	type TextAnimation
 } from './engine-schema';
 import { assertIdentityRegistryValid } from './pipelines/identity-registry';
-import { getPack } from './packs/registry';
+import { getPack, REFERENCE_PACK_SLUG } from './packs/registry';
 
-// ADR-0019 boot gate: refuse to start if any registered Pipeline\'s Identity
+// ADR-0019 boot gate: refuse to start if any registered Pipeline's Identity
 // Spec ships with an unimplemented + non-via-pack dimension, or if the
-// default Pack manifest does not resolve every via-pack Role referenced by
-// the registry. Throws an aggregated Error on first import of this module.
-assertIdentityRegistryValid(getPack('syntax'));
+// completeness-reference Pack does not resolve every via-pack Role referenced
+// by the registry. Validated against the reference Pack (not a preset default —
+// ADR-0023 removed that); partial Packs fall back through resolveAppearanceVars.
+// Throws an aggregated Error on first import of this module.
+assertIdentityRegistryValid(getPack(REFERENCE_PACK_SLUG));
 
 export const engineState = $state<EngineState>(createDefaultEngineState());
 
 /**
- * Active Pack slug. Set by `applyPreset` from the Preset's `pack` field and
- * runtime-overridable (ADR-0023). The mounts read it to resolve each Pipeline's
- * appearance Roles into CSS vars via `resolveAppearanceVars`.
+ * Active Pack slug. Set by `applyPreset` from the Preset's (required) `pack`
+ * field and runtime-overridable (ADR-0023). The mounts read it to resolve each
+ * Pipeline's appearance Roles into CSS vars via `resolveAppearanceVars`. The
+ * initial value is only a pre-first-Preset bootstrap (every Preset declares its
+ * own Pack and overrides this on load), so it uses the reference Pack.
  */
-export const packState = $state<{ slug: string }>({ slug: 'syntax' });
+export const packState = $state<{ slug: string }>({ slug: REFERENCE_PACK_SLUG });
 
 export function ensureMarkTimingAtIndex(index: number): MarkTiming {
 	while (engineState.marks.timings.length <= index) {
@@ -121,8 +125,5 @@ export const EDITOR_MARK_COLORS = {
 	},
 	get isolate() {
 		return readMarkColor('isolate');
-	},
-	get callout() {
-		return readMarkColor('callout');
 	}
 } satisfies Record<AnnotationMarkStyle, string>;

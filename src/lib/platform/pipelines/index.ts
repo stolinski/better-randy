@@ -5,7 +5,6 @@ import type {
 } from './types';
 
 import { box } from '$lib/pipelines/annotations/box';
-import { callout } from '$lib/pipelines/annotations/callout';
 import { circle } from '$lib/pipelines/annotations/circle';
 import { highlight } from '$lib/pipelines/annotations/highlight';
 import { isolate } from '$lib/pipelines/annotations/isolate';
@@ -50,8 +49,7 @@ export const PIPELINE_REGISTRY = {
 		magnify,
 		liftOut,
 		tearOut,
-		isolate,
-		callout
+		isolate
 	} satisfies Record<string, AnnotationRenderer>,
 	overlays: { lowerThird, washiTape, watermark, shaderFill, cursorTrail, counter, instanceStack, text3d },
 	effects: { paperGrain, chromaticAberration }

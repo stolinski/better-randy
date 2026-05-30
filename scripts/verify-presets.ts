@@ -92,7 +92,8 @@ const fixtures: Fixture[] = [
 	{
 		name: 'Cross-surface remix (paper → plain content carry-over)',
 		preset: {
-			schema: 'hiviz@1',
+			schema: "hiviz@1",
+			pack: "syntax",
 			name: 'Cross-surface remix',
 			state: {
 				transport: { orientation: 'horizontal', durationSeconds: 5, fps: 30, format: 'webm' },
@@ -112,7 +113,8 @@ const fixtures: Fixture[] = [
 	{
 		name: 'Decorative fixture (every decorative style on its own line)',
 		preset: {
-			schema: 'hiviz@1',
+			schema: "hiviz@1",
+			pack: "syntax",
 			name: 'Decorative coverage',
 			state: {
 				transport: { orientation: 'horizontal', durationSeconds: 5, fps: 30, format: 'webm' },
@@ -135,7 +137,8 @@ const fixtures: Fixture[] = [
 	{
 		name: 'Focal fixture (every focal style on its own line)',
 		preset: {
-			schema: 'hiviz@1',
+			schema: "hiviz@1",
+			pack: "syntax",
 			name: 'Focal coverage',
 			state: {
 				transport: { orientation: 'horizontal', durationSeconds: 5, fps: 30, format: 'webm' },
@@ -145,7 +148,7 @@ const fixtures: Fixture[] = [
 					type: 'paper',
 					content: {
 						title: 'Focal coverage',
-						body: '[magnify]magnify[/magnify] [lift-out]lift-out[/lift-out] [tear-out]tear-out[/tear-out] [isolate]isolate[/isolate] [callout]callout[/callout]'
+						body: '[magnify]magnify[/magnify] [lift-out]lift-out[/lift-out] [tear-out]tear-out[/tear-out] [isolate]isolate[/isolate]'
 					}
 				},
 				overlays: [],
@@ -156,7 +159,8 @@ const fixtures: Fixture[] = [
 	{
 		name: 'Lower-third overlay fixture',
 		preset: {
-			schema: 'hiviz@1',
+			schema: "hiviz@1",
+			pack: "syntax",
 			name: 'Lower-third overlay',
 			state: {
 				transport: { orientation: 'horizontal', durationSeconds: 5, fps: 30, format: 'webm' },
@@ -183,7 +187,8 @@ const fixtures: Fixture[] = [
 	{
 		name: 'Two paper-grain effects stacked in the frame chain',
 		preset: {
-			schema: 'hiviz@1',
+			schema: "hiviz@1",
+			pack: "syntax",
 			name: 'Paper grain stacked',
 			state: {
 				transport: { orientation: 'horizontal', durationSeconds: 5, fps: 30, format: 'webm' },
@@ -204,7 +209,8 @@ const fixtures: Fixture[] = [
 	{
 		name: 'AI-authored from schema + brief (no source code access)',
 		preset: {
-			schema: 'hiviz@1',
+			schema: "hiviz@1",
+			pack: "syntax",
 			name: 'AI fixture',
 			description: 'Goal: a quick research-paper preset that highlights one keyword.',
 			state: {

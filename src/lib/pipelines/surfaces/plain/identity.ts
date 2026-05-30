@@ -17,7 +17,8 @@ export const plainIdentity: IdentitySpec = {
 		{
 			name: 'fill-treatment',
 			definition: 'The base substrate colour or fill resolved by the Pack.',
-			viaPack: 'plain.fill',
+			implementation:
+				'substrate is transparent per the output contract; ink is driven by engineState.typography.',
 			probe: {
 				kind: 'named-observation',
 				region: 'centre of the surface, away from any text',
@@ -61,7 +62,8 @@ export const plainIdentity: IdentitySpec = {
 		{
 			name: 'motion-form',
 			definition: 'The shape of the surface enter/exit motion.',
-			viaPack: 'plain.enterMotion',
+			implementation:
+				'enter motion driven by the surface mount enter/exit Transition timing.',
 			probe: {
 				kind: 'named-observation',
 				region: 'first ~10% of the timeline (enter window)',
@@ -72,7 +74,8 @@ export const plainIdentity: IdentitySpec = {
 		{
 			name: 'frame-relationship',
 			definition: 'How the surface is anchored within the frame.',
-			viaPack: 'plain.frameRelationship',
+			implementation:
+				'frame relationship intrinsic to the plain layout (centred).',
 			probe: {
 				kind: 'named-observation',
 				region: 'surface position within the frame',

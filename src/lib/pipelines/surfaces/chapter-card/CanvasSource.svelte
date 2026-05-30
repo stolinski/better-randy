@@ -59,7 +59,7 @@
 	.chapter-card-source {
 		background-color: transparent;
 		box-sizing: border-box;
-		color: #f4ecdc;
+		color: var(--base, #f4ecdc);
 		display: block;
 		inset-block-start: 0;
 		inset-inline-start: 0;
@@ -67,7 +67,7 @@
 	}
 
 	.chapter-card-source__kicker {
-		color: #d8c4a0;
+		color: var(--kicker, #d8c4a0);
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-weight: 500;
 		inset-block-start: 38%;
@@ -82,7 +82,7 @@
 	}
 
 	.chapter-card-source__rule {
-		background-color: rgba(216, 196, 160, 0.62);
+		background-color: var(--rule, rgba(216, 196, 160, 0.62));
 		block-size: 3px;
 		inset-block-start: 46%;
 		inset-inline-start: 50%;
@@ -92,7 +92,7 @@
 	}
 
 	.chapter-card-source__title {
-		color: #ffffff;
+		color: var(--ink, #ffffff);
 		font-family: 'EB Garamond', 'Charter', 'Iowan Old Style', Georgia, serif;
 		font-style: normal;
 		font-weight: 700;

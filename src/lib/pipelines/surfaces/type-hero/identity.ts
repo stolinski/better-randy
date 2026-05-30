@@ -17,7 +17,7 @@ export const typeHeroIdentity: IdentitySpec = {
 	dimensions: [
 		{
 			name: 'fill-treatment',
-			viaPack: 'type-hero.inkFill',
+			viaPack: 'type-hero.ink',
 			definition: 'The base fill of the hero word and the subtitle slot.',
 			probe: {
 				kind: 'named-observation',
@@ -60,7 +60,8 @@ export const typeHeroIdentity: IdentitySpec = {
 		},
 		{
 			name: 'motion-form',
-			viaPack: 'type-hero.enterMotion',
+			implementation:
+				'enter/drift motion intrinsic to the type-hero variant motionShape + mount timing.',
 			definition: 'Shape of the hero word enter motion (drift, drop, scale, none).',
 			probe: {
 				kind: 'named-observation',

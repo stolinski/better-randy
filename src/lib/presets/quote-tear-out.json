@@ -2,6 +2,7 @@
 	"schema": "hiviz@1",
 	"name": "Tear-out emphasis",
 	"description": "Tear-out treatment with a circled mark and snap zoom toward the quote.",
+	"pack": "syntax",
 	"state": {
 		"transport": {
 			"orientation": "horizontal",
@@ -65,7 +66,7 @@
 				"ease": "smooth"
 			},
 			"camera": "snap",
-			"backgroundVisibility": 0.12
+			"backgroundVisibility": 0.4
 		},
 		"overlays": [],
 		"effects": []

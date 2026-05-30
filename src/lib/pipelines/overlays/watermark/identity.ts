@@ -38,7 +38,7 @@ export const watermarkIdentity: IdentitySpec = {
 		},
 		{
 			name: 'fill-treatment',
-			viaPack: 'watermark.inkFill',
+			viaPack: 'watermark.ink',
 			definition: 'Watermark ink colour.',
 			probe: {
 				kind: 'named-observation',
@@ -48,7 +48,8 @@ export const watermarkIdentity: IdentitySpec = {
 		},
 		{
 			name: 'motion-form',
-			viaPack: 'watermark.enterMotion',
+			implementation:
+				'src/lib/pipelines/overlays/watermark/CanvasSource.svelte — watermark fade-through enter motion driven by the overlay mount enter/exit timing.',
 			definition: 'Shape of the watermark enter motion (fade, hold, none).',
 			probe: {
 				kind: 'named-observation',

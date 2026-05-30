@@ -2,6 +2,7 @@
 	"schema": "hiviz@1",
 	"name": "Text animation showcase \u2014 kinetic-center-build",
 	"description": "Showcases the kinetic-center-build renderer family (ADR-0011). The title 'Built to flow' enters word-by-word from the right; each new word pushes prior words into their newly centered positions. Title-only by design \u2014 the layout-aware renderer reflows the line and assumes single-phrase content. Channel chrome notes: chrome-light to keep focus on the renderer verification; aesthetic-fit notes belong on a future syntax-mark-stroke-style brief.",
+	"pack": "syntax",
 	"state": {
 		"transport": {
 			"orientation": "horizontal",

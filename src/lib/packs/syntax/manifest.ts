@@ -54,6 +54,11 @@ export const syntaxPack: PackManifest = {
 		'chapter-card.edge': { kind: 'style', value: 'torn' },
 		'chapter-card.depth': { kind: 'style', value: { hardOffset: { dx: 10, dy: 10, blur: 0 } } },
 		'chapter-card.light': { kind: 'style', value: 'none' },
+		// Consumed color Roles (render-is-truth — match what CanvasSource paints).
+		'chapter-card.ink': { kind: 'style', value: '#ffffff' },
+		'chapter-card.base': { kind: 'style', value: '#f4ecdc' },
+		'chapter-card.kicker': { kind: 'style', value: '#d8c4a0' },
+		'chapter-card.rule': { kind: 'style', value: 'rgba(216, 196, 160, 0.62)' },
 
 		// ---------------- pullquote-on-photo Surface ----------------
 		'pullquote-on-photo.inkFill': { kind: 'style', value: '#fdfdfd' },
@@ -62,18 +67,37 @@ export const syntaxPack: PackManifest = {
 			kind: 'style',
 			value: { anchor: 'bottom-right', font: 'mono', scale: 0.55 }
 		},
+		// Consumed color Roles (render-is-truth — match what CanvasSource paints).
+		'pullquote-on-photo.ink': { kind: 'style', value: '#ffffff' },
+		'pullquote-on-photo.byline': { kind: 'style', value: '#f4ecdc' },
+
+		// ---------------- newspaper Surface ----------------
+		// Consumed color Roles (render-is-truth — match what CanvasSource paints).
+		'newspaper.fill': { kind: 'style', value: '#f0e8d6' },
+		'newspaper.ink': { kind: 'style', value: '#1a1612' },
+		'newspaper.accent': { kind: 'style', value: '#fabf47' },
+		'newspaper.kicker-ink': { kind: 'style', value: '#1a1612' },
+		'newspaper.edge': { kind: 'style', value: '#1a1612' },
 
 		// ---------------- title-sequence Surface ----------------
 		'title-sequence.fill': { kind: 'style', value: '#ffffff' },
 		'title-sequence.edge': { kind: 'style', value: 'none' },
 		'title-sequence.depth': { kind: 'style', value: 'none' },
 		'title-sequence.light': { kind: 'style', value: 'none' },
+		// Consumed color Roles (render-is-truth — match what CanvasSource paints).
+		'title-sequence.ink': { kind: 'style', value: '#fffaf0' },
+		'title-sequence.kicker': { kind: 'style', value: '#d8a87a' },
 
 		// ---------------- type-hero Surface ----------------
 		'type-hero.inkFill': { kind: 'style', value: '#000000' },
 		'type-hero.edge': { kind: 'style', value: 'clean-vector' },
 		'type-hero.depth': { kind: 'style', value: 'none' },
 		'type-hero.enterMotion': { kind: 'style', value: 'drift' },
+		// Consumed color Roles (render-is-truth — match what CanvasSource paints).
+		'type-hero.text-base': { kind: 'style', value: '#fff8ec' },
+		'type-hero.ink': { kind: 'style', value: '#fffaf2' },
+		'type-hero.accent': { kind: 'style', value: '#f4a85e' },
+		'type-hero.byline': { kind: 'style', value: '#d8c4a0' },
 
 		// ---------------- paragraph Block ----------------
 		'paragraph.inkFill': { kind: 'style', value: '#000000' },
@@ -103,10 +127,6 @@ export const syntaxPack: PackManifest = {
 		'side-note.fill': { kind: 'style', value: '#000000' },
 		'side-note.enterMotion': { kind: 'style', value: 'fade-through' },
 
-		'callout.boxFill': { kind: 'style', value: '#fabf47' },
-		'callout.boxEdge': { kind: 'style', value: 'sharp' },
-		'callout.enterMotion': { kind: 'style', value: 'settled-place' },
-
 		// ---------------- Overlays ----------------
 		'lower-third.fill': { kind: 'style', value: '#0e0e10' },
 		'lower-third.accent': { kind: 'style', value: '#f4a85e' },
@@ -120,7 +140,7 @@ export const syntaxPack: PackManifest = {
 		'watermark.ink': { kind: 'style', value: '#ededed' },
 		'watermark.accent': { kind: 'style', value: '#ffd642' },
 		'counter.ink': { kind: 'style', value: '#fffaf2' },
-		'instance-stack.ink': { kind: 'style', value: '#000000' },
+		'instance-stack.ink': { kind: 'style', value: '#fffaf2' },
 		'text-3d.ink': { kind: 'style', value: '#fffaf2' },
 		'lower-third.edge': { kind: 'style', value: { rule: 'vertical-accent', color: '#fabf47' } },
 		'lower-third.depth': { kind: 'style', value: 'flat' },

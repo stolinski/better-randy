@@ -23,7 +23,10 @@ const CORE_APPEARANCE = ['fill', 'ink', 'accent', 'edge', 'depth', 'light'] as c
  * are consumed in code, not CSS — emitting them as `--x` would be junk.
  */
 function isColorValue(value: string): boolean {
-	return /^#[0-9a-f]{3,8}$/i.test(value) || /^(rgb|hsl|oklch|oklab|color|hwb)\(/i.test(value);
+	return (
+		/^#[0-9a-f]{3,8}$/i.test(value) ||
+		/^(rgba?|hsla?|oklch|oklab|color|hwb)\(/i.test(value)
+	);
 }
 
 export function resolveAppearanceVars(

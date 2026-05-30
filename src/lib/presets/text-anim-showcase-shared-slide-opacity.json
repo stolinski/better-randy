@@ -2,6 +2,7 @@
 	"schema": "hiviz@1",
 	"name": "Text animation showcase \u2014 shared-slide-opacity-stage",
 	"description": "Showcases the shared-slide-opacity-stage renderer family (ADR-0011, short-slide-right catalog effect). The title 'Think different' slides once as a whole while individual words fade opacity in a stagger. Title-only \u2014 the title-level transform is shared by every word, so the renderer assumes single-line phrase content. Channel chrome notes: chrome-light verification preset; channel-specific text moves would be a follow-up Brief.",
+	"pack": "syntax",
 	"state": {
 		"transport": {
 			"orientation": "horizontal",

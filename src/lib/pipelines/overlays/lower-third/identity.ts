@@ -17,7 +17,8 @@ export const lowerThirdIdentity: IdentitySpec = {
 	dimensions: [
 		{
 			name: 'fill-treatment',
-			viaPack: 'lower-third.fill',
+			implementation:
+				'src/lib/pipelines/overlays/lower-third/variants/<id>CanvasSource.svelte — plate fill is painted in the CanvasSource (standard: flat rgba background-color; cinematic: a horizontal scrim linear-gradient), not a flat pack fill.',
 			definition: 'Chip plate fill behind the text.',
 			probe: {
 				kind: 'named-observation',

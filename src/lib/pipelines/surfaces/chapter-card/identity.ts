@@ -16,7 +16,8 @@ export const chapterCardIdentity: IdentitySpec = {
 	dimensions: [
 		{
 			name: 'fill-treatment',
-			viaPack: 'chapter-card.fill',
+			implementation:
+				'src/lib/pipelines/surfaces/chapter-card/CanvasSource.svelte — card substrate is transparent per the output contract (no painted body); chrome colors come via the chapter-card.ink/base/kicker/rule appearance Roles.',
 			definition: 'Background fill or substrate behind the chapter block.',
 			probe: {
 				kind: 'named-observation',

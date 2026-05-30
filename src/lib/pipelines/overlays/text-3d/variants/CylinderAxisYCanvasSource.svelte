@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { animState } from '$lib/platform/anim-state.svelte';
 	import type { Text3dContent } from '../index';
+	import { cylinderAxisY } from './cylinder-axis-y';
 
 	interface Props {
 		content: Text3dContent;
@@ -12,40 +13,60 @@
 	const chars = $derived(Array.from(content.text));
 	const count = $derived(chars.length);
 
-	// Each character occupies an equal angular slice of the cylinder. The
-	// cylinder rotates by `rotationDegrees * progress` over the timeline.
-	const baseRotation = $derived(progress * content.rotationDegrees);
+	// Eased spin around the vertical axis (degrees), from the variant's pure
+	// motion shape. Each character sits on an equal angular slice of the cylinder.
+	const baseRotation = $derived(cylinderAxisY.motionShape(0, count, progress));
 	const angleStep = $derived(count > 0 ? 360 / Math.max(count, 12) : 0);
 
-	function lightingForAngle(deg: number): { opacity: number; brightness: number } {
-		// Cylinder normal at angle θ: facing camera when cos(θ - viewAngle) is
-		// largest. Treat the camera as looking down +Z; visible arc is ±90° of
-		// the cylinder front. cos > 0 means front-facing.
-		const rad = (deg * Math.PI) / 180;
-		const cos = Math.cos(rad);
-		const opacity = cos > 0 ? Math.max(0.2, cos) : 0;
-		const brightness = cos > 0 ? 0.55 + cos * 0.45 : 0;
-		return { opacity, brightness };
+	// A vertical-axis cylinder projected to 2D by hand. CSS 3D (perspective,
+	// preserve-3d, rotateY/translateZ) is NOT captured by HTML-in-canvas — it
+	// rasterizes flat layout, so a 3D rig collapses to nothing. So each glyph's
+	// screen position, horizontal foreshortening, depth scale, and front/back
+	// visibility are computed from its cylinder angle and applied with capture-safe
+	// 2D transforms (translateX + scaleX + scale) and opacity only.
+	interface GlyphProjection {
+		readonly ch: string;
+		readonly xCh: number; // horizontal screen offset from center, in ch
+		readonly scaleX: number; // foreshortening as the face turns away
+		readonly scale: number; // perspective depth scale (front larger)
+		readonly opacity: number; // front-facing lighting
+		readonly zIndex: number; // front glyphs paint over back ones
+		readonly front: boolean;
 	}
+
+	function project(index: number): GlyphProjection {
+		const localAngle = (index - (count - 1) / 2) * angleStep;
+		const rad = ((localAngle + baseRotation) * Math.PI) / 180;
+		const sin = Math.sin(rad);
+		const cos = Math.cos(rad);
+		const front = cos > 0;
+		return {
+			ch: chars[index],
+			xCh: content.radiusCh * sin,
+			scaleX: front ? Math.max(0.05, cos) : 0,
+			scale: 0.82 + 0.18 * Math.max(0, cos),
+			opacity: front ? Math.max(0.18, cos) : 0,
+			zIndex: Math.round((cos + 1) * 100),
+			front
+		};
+	}
+
+	const glyphs = $derived(chars.map((_, i) => project(i)));
 </script>
 
 <aside class="text-3d-overlay" data-overlay="text-3d" data-variant="cylinder-axis-y">
-	<div class="text-3d-overlay__scene">
-		<div class="text-3d-overlay__cylinder" style:transform={`rotateY(${baseRotation}deg)`}>
-			{#each chars as ch, i (i)}
-				{@const localAngle = (i - (count - 1) / 2) * angleStep}
-				{@const compositeAngle = localAngle + baseRotation}
-				{@const light = lightingForAngle(compositeAngle)}
+	<div class="text-3d-overlay__cylinder">
+		{#each glyphs as glyph, i (i)}
+			{#if glyph.front}
 				<span
 					class="text-3d-overlay__glyph"
-					style:transform={`rotateY(${localAngle}deg) translateZ(${content.radiusCh}ch)`}
-					style:opacity={light.opacity}
-					style:filter={`brightness(${light.brightness})`}
-				>
-					{ch === ' ' ? ' ' : ch}
-				</span>
-			{/each}
-		</div>
+					data-text-anim-slot={i === 0 ? 'title' : undefined}
+					style:transform={`translate(-50%, -50%) translateX(${glyph.xCh}ch) scale(${glyph.scale}) scaleX(${glyph.scaleX})`}
+					style:opacity={glyph.opacity}
+					style:z-index={glyph.zIndex}
+				>{glyph.ch === ' ' ? ' ' : glyph.ch}</span>
+			{/if}
+		{/each}
 	</div>
 </aside>
 
@@ -56,28 +77,22 @@
 		font-weight: 800;
 		letter-spacing: -0.01em;
 		line-height: 1;
-		perspective: 80cqmin;
 		text-transform: uppercase;
 	}
 
-	.text-3d-overlay__scene {
-		position: relative;
-		transform-style: preserve-3d;
-	}
-
 	.text-3d-overlay__cylinder {
+		block-size: 1em;
+		inline-size: 1em;
 		position: relative;
-		transform-style: preserve-3d;
 	}
 
 	.text-3d-overlay__glyph {
-		backface-visibility: hidden;
 		color: var(--ink, #fffaf2);
 		display: inline-block;
-		inset-block-start: 0;
-		inset-inline-start: 0;
+		inset-block-start: 50%;
+		inset-inline-start: 50%;
 		position: absolute;
 		transform-origin: center center;
-		transform-style: preserve-3d;
+		white-space: pre;
 	}
 </style>

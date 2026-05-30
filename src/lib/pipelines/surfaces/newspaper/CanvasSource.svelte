@@ -201,10 +201,10 @@
 	 * foreground ink, not the channel-yellow accent.
 	 */
 	.newspaper-source {
-		background-color: #f0e8d6;
+		background-color: var(--fill, #f0e8d6);
 		box-shadow: var(--shadow-offset) var(--shadow-offset) 0 #1a1612;
 		box-sizing: border-box;
-		color: #1a1612;
+		color: var(--ink, #1a1612);
 		display: grid;
 		grid-template-rows: auto 1fr auto;
 		gap: 0.6em;
@@ -277,8 +277,8 @@
 	}
 
 	.newspaper-source__kicker {
-		background-color: #fabf47;
-		color: #1a1612;
+		background-color: var(--accent, #fabf47);
+		color: var(--kicker-ink, #1a1612);
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-weight: 700;
 		letter-spacing: 0.14em;
@@ -304,7 +304,7 @@
 
 	footer {
 		align-items: end;
-		border-block-start: 0.15em solid #1a1612;
+		border-block-start: 0.15em solid var(--edge, #1a1612);
 		display: flex;
 		flex-wrap: wrap;
 		font-family: 'JetBrains Mono', ui-monospace, monospace;

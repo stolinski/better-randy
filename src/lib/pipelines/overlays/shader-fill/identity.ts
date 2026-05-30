@@ -34,7 +34,8 @@ export const shaderFillIdentity: IdentitySpec = {
 		},
 		{
 			name: 'motion-form',
-			viaPack: 'shader-fill.enterMotion',
+			implementation:
+				'src/lib/pipelines/overlays/shader-fill — enter motion driven by the overlay mount enter/exit timing (defaults.enter / defaults.exit start, duration, ease).',
 			definition: 'Shape of the region\'s enter/exit motion.',
 			probe: {
 				kind: 'named-observation',

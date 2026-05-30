@@ -2,6 +2,7 @@
 	"schema": "hiviz@1",
 	"name": "Critique pass",
 	"description": "Highlight, underline and circle staggered across a methodology paragraph.",
+	"pack": "syntax",
 	"state": {
 		"transport": {
 			"orientation": "horizontal",

@@ -1,5 +1,8 @@
 # Lower-third: chrome it up or document as stripped utility? — **RESOLVED**
 
+> 🔒 **CLOSED 2026-05-29 — folded into [quality-roadmap.md](quality-roadmap.md).** The torn-collage treatment decided here conflicts with "torn is a Pack value, not engine law" ([[feedback_torn_edge_is_pack_not_engine]]); its useful ideas belong to the step-6 configurable edge-treatment primitive. Do not implement as written. Kept for history.
+
+
 **Status:** resolved 2026-05-14 via `/grill-with-docs`. Implementation pending; estimated 4–6 hours of focused build work.
 
 **Resolution:** chrome it up. The lower-third is a corner collage card on Syntax-style footage; both `lower-third` and `watermark` get the same full Collage System chrome. See [ADR-0006](../adr/0006-lower-third-corner-collage-card.md) and [ADR-0005](../adr/0005-overlay-renderer-shader-pass.md).

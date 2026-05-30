@@ -2,6 +2,7 @@
 	"schema": "hiviz@1",
 	"name": "Pullquote \u2014 cinematic demo",
 	"description": "Hero demo for the pullquote-on-photo Surface. Atmospheric warm-key backdrop via the pullquote-photo-backdrop shaderPass (radial warmth gradient + multi-octave noise + warm focal halo + heavy edge vignette) with a centred serif quote and mono attribution. Pushes the engine toward film-grade compositing rather than card-with-text. Built to demonstrate what the Pipeline catalog is actually capable of when content and shader work together.",
+	"pack": "syntax",
 	"state": {
 		"transport": {
 			"orientation": "horizontal",

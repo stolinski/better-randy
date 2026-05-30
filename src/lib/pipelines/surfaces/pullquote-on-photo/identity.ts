@@ -53,7 +53,7 @@ export const pullquoteOnPhotoIdentity: IdentitySpec = {
 		},
 		{
 			name: 'fill-treatment',
-			viaPack: 'pullquote-on-photo.inkFill',
+			viaPack: 'pullquote-on-photo.ink',
 			definition: 'Body text ink colour on the photographic substrate.',
 			probe: {
 				kind: 'named-observation',
@@ -64,7 +64,8 @@ export const pullquoteOnPhotoIdentity: IdentitySpec = {
 		},
 		{
 			name: 'motion-form',
-			viaPack: 'pullquote-on-photo.focalMotion',
+			implementation:
+				'pullquote-on-photo CanvasSource — focal/brightness word-reveal driven per frame by the focal-word index from text-animation state, sequenced by mount timing; intrinsic to the pipeline, not pack appearance.',
 			definition: 'Shape of the focal-word reveal across the passage.',
 			probe: {
 				kind: 'named-observation',

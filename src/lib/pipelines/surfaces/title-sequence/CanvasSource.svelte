@@ -57,7 +57,7 @@
 	.title-sequence-source {
 		background-color: transparent;
 		box-sizing: border-box;
-		color: #fffaf0;
+		color: var(--ink, #fffaf0);
 		display: block;
 		inset-block-start: 0;
 		inset-inline-start: 0;
@@ -65,7 +65,7 @@
 	}
 
 	.title-sequence-source__kicker {
-		color: #d8a87a;
+		color: var(--kicker, #d8a87a);
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-weight: 500;
 		inset-block-start: 30%;
@@ -80,7 +80,7 @@
 	}
 
 	.title-sequence-source__title {
-		color: #fffaf0;
+		color: var(--ink, #fffaf0);
 		font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
 		font-stretch: condensed;
 		font-style: normal;

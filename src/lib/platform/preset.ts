@@ -83,17 +83,12 @@ function cloneTiming(timing: MarkTiming): MarkTiming {
 function cloneSurface(surface: SurfaceState): SurfaceState {
 	return {
 		type: surface.type,
-		content: {
-			body: surface.content.body,
-			title: surface.content.title,
-			kicker: surface.content.kicker,
-			sourceUrl: surface.content.sourceUrl,
-			author: surface.content.author,
-			affiliation: surface.content.affiliation,
-			bodyLabel: surface.content.bodyLabel,
-			source: surface.content.source,
-			dateLabel: surface.content.dateLabel
-		},
+		// Spread every content slot — a hand-enumerated list silently drops new
+		// fields (it had already lost `counterpoint`, degrading every type-hero
+		// `pair` preset to the `single` fallback). `body` is a parsed structure
+		// shared by reference, matching the prior behavior.
+		content: { ...surface.content },
+		variant: surface.variant,
 		enter: surface.enter
 			? { start: surface.enter.start, duration: surface.enter.duration, ease: surface.enter.ease }
 			: undefined,

@@ -14,7 +14,8 @@ export const titleSequenceIdentity: IdentitySpec = {
 	dimensions: [
 		{
 			name: 'fill-treatment',
-			viaPack: 'title-sequence.fill',
+			implementation:
+				'title-sequence CanvasSource — substrate is transparent per the output contract (no painted background behind the title block); title ink arrives via the title-sequence.ink appearance Role.',
 			definition: 'Background fill behind the title block.',
 			probe: {
 				kind: 'named-observation',

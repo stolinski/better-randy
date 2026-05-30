@@ -70,8 +70,7 @@ export const AnnotationMarkStyleSchema = z.enum([
 	'magnify',
 	'lift-out',
 	'tear-out',
-	'isolate',
-	'callout'
+	'isolate'
 ]);
 
 export const BlockTypeSchema = z.enum(['paragraph']);
@@ -505,16 +504,16 @@ export const PRESET_SCHEMA_ID = 'hiviz@1' as const;
 
 /**
  * Pack the Preset is bound to (ADR-0014). The active Pack manifest resolves
- * every Identity Spec `viaPack` Role the Preset\'s contributing Pipelines
- * declare (ADR-0019). Defaults to `syntax` so existing Presets remain valid
- * during the Phase 1.2 migration; future Presets ship with an explicit
- * `pack` field.
+ * every Identity Spec `viaPack` Role the Preset's contributing Pipelines
+ * declare (ADR-0019). Required with no default — a Preset must name its Pack
+ * explicitly (ADR-0023: there is no privileged default Pack). Every built-in
+ * Preset declares `pack`; a Preset that omits it fails validation.
  */
 export const PresetSchema = z.object({
 	schema: z.literal(PRESET_SCHEMA_ID),
 	name: z.string().min(1, 'Preset name is required'),
 	description: z.string().optional(),
-	pack: z.string().min(1).default('syntax'),
+	pack: z.string().min(1, 'Preset must declare a pack'),
 	state: EngineStateSchema
 });
 

@@ -1,5 +1,8 @@
 # research-paper-attention — Critic REVISE findings (open)
 
+> 🔒 **CLOSED 2026-05-29 — folded into [quality-roadmap.md](quality-roadmap.md).** Most findings predate this session's preset retunes and are moot. One item carried forward: `research-paper-attention.json:40` still has mark `ease:"smooth"` where this note wanted `"sharp"` — fix during the Phase-3 deliverable pass. Kept for history.
+
+
 **Status:** open. Surfaced 2026-05-22 by `/critic research-paper-attention`
 run that verified paper-surface-paint-bug (ADR-0017) had no regression.
 

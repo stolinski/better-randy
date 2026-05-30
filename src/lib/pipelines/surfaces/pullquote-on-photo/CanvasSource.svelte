@@ -59,7 +59,7 @@
 	.pullquote-source {
 		background-color: transparent;
 		box-sizing: border-box;
-		color: #ffffff;
+		color: var(--ink, #ffffff);
 		display: block;
 		inset-block-start: 0;
 		inset-inline-start: 0;
@@ -102,7 +102,7 @@
 	}
 
 	.pullquote-source__attribution {
-		color: #f4ecdc;
+		color: var(--byline, #f4ecdc);
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-style: normal;
 		font-weight: 500;
