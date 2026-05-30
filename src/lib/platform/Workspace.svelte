@@ -843,6 +843,15 @@
 		const renderFrame: TransparentVideoExportOptions['renderFrame'] = (_frame, timestamp) => {
 			const fraction = durationSeconds > 0 ? timestamp / durationSeconds : 0;
 			exportManager.progress(fraction);
+			// Re-capture the DOM into domTexture for THIS frame's progress. The export
+			// loop pauses the preview paint loop, so without this the pipeline samples a
+			// stale domTexture and freezes every DOM-driven visual (split-text kinetic
+			// typography, the surface enter/exit slide) at whatever progress preview was
+			// last scrubbed to. uploadDom() is synchronous and queue-ordered ahead of
+			// render()'s sample — mirroring the preview onpaint handler (uploadDom then
+			// render, no await). Must run after progress() (DOM now at this frame) and
+			// before render(). Not requestCanvasPaint (that re-enters the preview manager).
+			activePipeline.uploadDom();
 			const parsedMarksForExport = readMarks();
 			activePipeline.render({
 				animState: {
