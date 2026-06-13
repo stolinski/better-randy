@@ -29,6 +29,12 @@ The default answer to "what's next?" — an agent self-serves this instead of as
 
 **Aligned with the goals** = engine arc done **+** ≥1 ship-grade deliverable per surface/overlay family **+** the GUI reaches agent-parity. The arcs below are the scoreboard.
 
+### Starting / finishing a session
+
+**A clean agent starts with one instruction** (the same every time): *"Read `AGENTS.md` and `docs/roadmap.md` § How this gets executed, run `dex list --ready`, and start the top task; check in with me at each epic boundary."* `AGENTS.md` (auto-loaded) carries the north star + rules; **dex + git carry all state** — so the agent resumes from where dex says, not from the operator's memory. A brand-new agent and a returning one get the identical kickoff.
+
+**At each epic boundary the agent stops and reports:** what the epic delivered, how it was verified, the commit SHA(s), anything it learned that changes the plan, and any decision it needs — then waits for a go-ahead before the next epic. Each finished task must already be `dex complete`d with a `--result` + `--commit`, code committed, and any in-progress task's description updated — so the next session is resumable by a *different* clean agent.
+
 ---
 
 ## Now — close the gap between the docs' "honest current state" and the north star
