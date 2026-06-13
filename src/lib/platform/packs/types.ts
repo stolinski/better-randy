@@ -60,32 +60,3 @@ export interface PackManifest {
 	/** Typefaces this Pack supplies; the engine awaits them before capture. */
 	fonts?: readonly PackFont[];
 }
-
-/**
- * Resolve a Role through the active Pack manifest. Returns `undefined` if
- * the Role is not resolved; the caller is responsible for surfacing the
- * missing-Role error (the registration validator catches it at boot, so
- * unresolved roles never reach this lookup at render time).
- */
-export function resolveRole(manifest: PackManifest, role: string): PackRole | undefined {
-	return manifest.roles[role];
-}
-
-/**
- * Resolve a style Role to its leaf value. Throws on missing Role or kind
- * mismatch; both indicate a Pipeline declaring a viaPack reference that the
- * registration validator should have caught at boot. The throw is a
- * developer-facing assert, not a recoverable runtime path.
- */
-export function resolveStyle<T = unknown>(manifest: PackManifest, role: string): T {
-	const entry = manifest.roles[role];
-	if (entry === undefined) {
-		throw new Error(`Pack ${manifest.slug} has no resolution for Role "${role}".`);
-	}
-	if (entry.kind !== 'style') {
-		throw new Error(
-			`Pack ${manifest.slug} Role "${role}" is kind ${entry.kind}, not style; resolveStyle is the wrong accessor.`
-		);
-	}
-	return entry.value as T;
-}
