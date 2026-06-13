@@ -22,9 +22,9 @@ Two layers, do not re-merge:
 
 ## Open
 
-- [ ] **2 demos remain failing — reclassify, don't fix:** `cursor-trail-demo` (overlay at 0,0), `newspaper-body-test`. They're pipeline smoke-tests. See preset-catalog hygiene below — this is the remaining blocker to a fully-green gate.
+- [x] **2 demos reclassified (Phase 3, 2026-05-29):** `cursor-trail-demo` + `newspaper-body-test` now carry `kind:'fixture'`; the gate schema-checks fixtures but skips rubric floors for them, so the gate is fully green.
 - [x] **`lintPresetVisual` re-chartered** — cut cap-height *ceilings*, title:body ratio, T1 card-mass (→ Critic); kept cap-height *floors*, G4-density measure, text-in-safe-zone. File now 704 lines (was 1042); `svelte-check` 0 errors.
-- [ ] **Preset-catalog hygiene** — pipeline smoke-tests (`*-demo`, etc.) aren't deliverables; separate them from the catalog the gate + `/p/<slug>` list run over (fixtures dir or `kind: 'fixture'`). Honors the "5–7 built-in presets" discipline.
+- [x] **Preset-catalog hygiene (Phase 3, 2026-05-29)** — added `kind: 'deliverable' | 'fixture'` to `PresetSchema`; 9 fixtures tagged; `listPresets()` shows 13 deliverables only; `getPresetBySlug` still resolves fixtures so `/p/<slug>` works. **This doc is now fully done.**
 
 ## Acceptance
 

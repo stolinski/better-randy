@@ -32,7 +32,7 @@ These make the per-pipeline rollout a real reconcile-per-pipeline task (good can
 - [x] **SurfaceMount injection + surface CanvasSources** (2026-05-29) — `SurfaceMount` wraps the CanvasSource in a `display:contents` div carrying the resolved vars; var-ified newspaper/chapter-card/pullquote/title-sequence/type-hero (17 roles). paper + plain stay typography-driven (no hardcoded literals). See [quality-roadmap Phase 2](quality-roadmap.md).
 - [ ] **Skipped-color pass** — the alpha/gradient/prop-bound colors the workflow left (watermark plate bg, washi-tape grain, cursor-trail trail, shader-fill GPU uniforms): richer handling (rgb-channel vars / relative color / route shader uniforms through the Pack).
 - [x] **Strip motion Roles + reconcile fictional Roles + delete dead Roles** (2026-05-29, one atomic change) — removed 32 dead syntax-Pack Roles (13 motion + 19 fictional/contradictory `.fill`/`.inkFill`/etc.); flipped the 8 still-`viaPack`-referenced ones to `implementation` and fixed stale probe text across 13 Identity Specs. **Correction to the line above:** `lower-third.light: anamorphic-flare` is **kept**, not stale — the cinematic flare shaderPass consumes it. Verified byte-identical (deterministic `viaPack` census + manifest git-diff + `var(--*)` consumer grep) and boot-gate-green. See [quality-roadmap Phase 2](quality-roadmap.md) for the full proof.
-- [ ] **Regenerate** `docs/preset-format.schema.json`; `verify-presets.ts` green.
+- [x] **Regenerate `docs/preset-format.schema.json`; `verify-presets.ts` green** (2026-05-29) — schema regenerated (carries `kind`, required `pack`, surface `variant`s, `counterpoint`); `npm run verify-presets` exits 0; `verify-presets` wired into `package.json`.
 
 ## Acceptance
 
