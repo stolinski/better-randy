@@ -70,6 +70,15 @@ export const syntaxPack: PackManifest = {
 		'newspaper.accent': { kind: 'style', value: '#fabf47' },
 		'newspaper.kicker-ink': { kind: 'style', value: '#1a1612' },
 		'newspaper.edge': { kind: 'style', value: '#1a1612' },
+		// Structural depth — the signature zine hard-offset shadow under the card
+		// (aesthetic.md § Collage System / Hard offset shadow). `dx`/`dy` are
+		// 4K-reference px; `color:'fg'` resolves to the card's ink so the shadow
+		// tracks the Pack's foreground. The newspaper Identity Spec names this the
+		// "Pack-side Syntax chrome" that coexists with the intrinsic occlusion.
+		'newspaper.depth': {
+			kind: 'style',
+			value: { hardOffset: { dx: 12, dy: 12, blur: 0, color: 'fg' } }
+		},
 
 		// ---------------- title-sequence Surface ----------------
 		'title-sequence.edge': { kind: 'style', value: 'none' },

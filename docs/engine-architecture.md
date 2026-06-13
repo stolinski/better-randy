@@ -223,7 +223,7 @@ A **Pack** is a swappable *appearance dress* resolved at render time ([ADR-0014]
 
 **The live path:** `SurfaceMount`/`OverlayMount` call `resolveAppearanceVars(getPack(slug), <type>)` and inject the result as inline CSS custom properties on the pipeline root; CanvasSources consume them via `var(--fill, <fallback>)`. Resolution is specific→core fallback like `var(--specific, var(--core))` ([ADR-0024](adr/0024-role-resolution-core-fallback.md)).
 
-> **Honest current state.** Only **color and font** Roles reach pixels. `resolveAppearanceVars` color-filters its output, so the *structural* Roles (`edge` / `depth` / `light` / `material`) are declared in manifests + Identity Specs and boot-validated, but **no render code consumes them** — they are inert. `resolveStyle`/`resolveRole` in `packs/types.ts` have **zero callers** (dead). Two Packs exist (`syntax`, `editorial-mono`); only color+font re-skin is proven end-to-end. Finishing the structural Pack→pixel contract is the top engine item in [`roadmap.md`](roadmap.md).
+> **Honest current state.** **Color, font, and the `depth` structural Role** reach pixels. `resolveAppearanceVars` color-filters *its* output (color/font only); the first structural Role is wired through a separate `resolveDepthTreatment` (`packs/resolve.ts`), which resolves a Pipeline's `<type>.depth` → core `depth-treatment` (specific→core, ADR-0024) into a hard-offset shadow rig the renderer consumes in code — proven on the `newspaper` card's signature hard-offset shadow (`syntax` 12px chrome → `editorial-mono` `'none'`, flat). The remaining structural Roles (`edge` / `light` / `material`) are still declared + boot-validated but **inert**. `resolveStyle`/`resolveRole` in `packs/types.ts` remain the **dead** generic accessors (zero callers — the structural path uses the typed `resolveDepthTreatment` instead, not these); they are pending deletion. Two Packs exist (`syntax`, `editorial-mono`). Finishing the structural Pack→pixel contract is the top engine item in [`roadmap.md`](roadmap.md).
 
 ## Output & orientation
 
@@ -253,7 +253,7 @@ text-animations/
 Pinned in ADRs or schema but **not wired into rendering**. Do not describe these as capabilities; pick them up from [`roadmap.md`](roadmap.md).
 
 - **Genuine orientation reflow** — safe-areas as layout inputs, orientation as render target (above).
-- **Structural Pack Roles** — edge/depth/light/material reaching pixels; the dead `resolveStyle`/`resolveRole` path (above).
+- **Structural Pack Roles** — `edge`/`light`/`material` reaching pixels (`depth` is now wired via `resolveDepthTreatment`); the dead `resolveStyle`/`resolveRole` path (above).
 - **Z-depth / focal-distance + depth-of-field** — [ADR-0021](adr/0021-z-plane-semantics.md) pins the semantics (single-channel f32 sidecar, focal-distance not world-space); no depth target exists in code.
 - **Multi-state transitions** — [ADR-0022](adr/0022-multi-state-composition.md) pins the `transition: { from, to, effect }` shape (dual-tree render, two color targets sampled by one mask); no multi-state machinery exists. Relevant to segments/bumpers.
 - **Camera motion** — `surface.camera` (`push`/`snap`) is in schema, UI, and the lint, but no surface pipeline reads it.

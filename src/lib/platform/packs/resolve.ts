@@ -72,3 +72,73 @@ export function appearanceVarsToStyle(vars: Record<string, string>): string {
 		.map(([name, value]) => `${name}:${value}`)
 		.join(';');
 }
+
+/**
+ * A resolved hard-offset depth shadow, in 4K-reference pixels. Consumers scale
+ * `dx`/`dy`/`blur` by their own composition-resolution factor before painting.
+ * `color` is a ready-to-use CSS colour token (a literal, `currentColor`, or a
+ * `var(--ink, …)` reference) — the `'fg'` foreground sentinel has already been
+ * substituted by `resolveDepthTreatment`.
+ */
+export interface DepthShadow {
+	dx: number;
+	dy: number;
+	blur: number;
+	color: string;
+}
+
+interface HardOffsetRig {
+	dx: number;
+	dy: number;
+	blur?: number;
+	color?: string;
+}
+
+function isHardOffsetRig(value: unknown): value is HardOffsetRig {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		typeof (value as { dx?: unknown }).dx === 'number' &&
+		typeof (value as { dy?: unknown }).dy === 'number'
+	);
+}
+
+/**
+ * Resolve a Pipeline's structural `depth` Role to a hard-offset shadow rig —
+ * the first structural (non-colour) Pack Role wired to pixels (ADR-0023 lists
+ * depth as appearance; ADR-0019 puts it on graphic-kind Identity Specs). Like
+ * the colour path, resolution is specific → core (ADR-0024):
+ *
+ *   `<pipelineType>.depth` (per-Pipeline override)
+ *     → `depth-treatment` (core depth vocabulary)
+ *       → `null` (the consumer paints no Pack shadow)
+ *
+ * A depth Role is either a hard-offset rig (`{ hardOffset | offset: { dx, dy,
+ * blur?, color? } }`) or a keyword string (`'none'`, `'flat'`, …). Keywords and
+ * any unrecognised shape resolve to `null` — only a rig produces a shadow. The
+ * `'fg'` (or absent) colour sentinel is substituted with `foreground` so a Pack
+ * can say "shadow in this Pipeline's ink" without naming the colour twice.
+ */
+export function resolveDepthTreatment(
+	manifest: PackManifest,
+	pipelineType: string,
+	foreground = 'currentColor'
+): DepthShadow | null {
+	const role = manifest.roles[`${pipelineType}.depth`] ?? manifest.roles['depth-treatment'];
+	if (!role || role.kind !== 'style') {
+		return null;
+	}
+
+	const rigSource = role.value as { hardOffset?: unknown; offset?: unknown };
+	const rig = rigSource?.hardOffset ?? rigSource?.offset;
+	if (!isHardOffsetRig(rig)) {
+		return null;
+	}
+
+	return {
+		dx: rig.dx,
+		dy: rig.dy,
+		blur: rig.blur ?? 0,
+		color: rig.color === undefined || rig.color === 'fg' ? foreground : rig.color
+	};
+}

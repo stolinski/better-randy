@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { annotationBodyPlainText } from '$lib/annotations/annotation-body-text';
 	import { animState } from '$lib/platform/anim-state.svelte';
-	import { engineState } from '$lib/platform/engine-state.svelte';
+	import { engineState, packState } from '$lib/platform/engine-state.svelte';
+	import { getPack } from '$lib/platform/packs/registry';
+	import { resolveDepthTreatment } from '$lib/platform/packs/resolve';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 	import { hashStringToUnitInterval, seededRange } from '$lib/utils/seeded';
 
@@ -17,9 +19,6 @@
 	// a vertical settle-in driven by `animState.paperVisibility` (0 → 1).
 	const CARD_WIDTH_RATIO = 0.7;
 	const CARD_HEIGHT_RATIO = 0.62;
-	// 12px hard offset shadow at 4K. Expressed as a fraction of the card's
-	// smaller dimension so it scales with composition resolution.
-	const HARD_OFFSET_SHADOW_PX = 12;
 	// Brief: 1–3° rotation seeded from the preset id.
 	const ROTATION_MIN_DEG = 1;
 	const ROTATION_MAX_DEG = 3;
@@ -53,7 +52,24 @@
 		return { x: restingX, y, width, height };
 	});
 
-	const shadowPx = $derived(HARD_OFFSET_SHADOW_PX * (frame.width / 3840));
+	// Hard-offset depth shadow under the card, resolved from the active Pack's
+	// structural `newspaper.depth` Role (→ core `depth-treatment` fallback). The
+	// Role carries 4K-reference offsets; scale them to the composition's actual
+	// width so the shadow tracks resolution. `color:'fg'` resolves through the
+	// card's mount-injected `--ink`. A Pack that drops depth (`'none'`) leaves the
+	// card flat on its intrinsic edge-occlusion shadow alone.
+	const depthShadow = $derived.by(() => {
+		const depth = resolveDepthTreatment(
+			getPack(packState.slug),
+			'newspaper',
+			'var(--ink, #1a1612)'
+		);
+		if (!depth) {
+			return 'none';
+		}
+		const scale = frame.width / 3840;
+		return `${depth.dx * scale}px ${depth.dy * scale}px ${depth.blur * scale}px ${depth.color}`;
+	});
 
 	const sourceLabel = $derived.by(() => {
 		const url = engineState.surface.content.sourceUrl?.trim() ?? '';
@@ -115,7 +131,7 @@
 	style:left={`${layout.x}px`}
 	style:top={`${layout.y}px`}
 	style:transform={`rotate(${rotationDeg}deg)`}
-	style:--shadow-offset={`${shadowPx}px`}
+	style:--depth-shadow={depthShadow}
 	style:padding-block={`${layout.width * 0.045}px`}
 	style:padding-inline={`${layout.width * 0.06}px`}
 >
@@ -195,14 +211,15 @@
 <style>
 	/*
 	 * Warm-white substrate ~#f0e8d6 per docs/aesthetic.md § Newspaper clipping.
-	 * Hard offset shadow 12 px at 4K in the card's ink/foreground color, no
-	 * blur — aesthetic.md § Collage System / Hard offset shadow references
-	 * Syntax's `--s-graphic: -4px 4px 0 var(--c-fg)`, where `--c-fg` is the
-	 * foreground ink, not the channel-yellow accent.
+	 * The hard-offset depth shadow is resolved from the active Pack's structural
+	 * `newspaper.depth` Role (see the script's `depthShadow`) — aesthetic.md
+	 * § Collage System / Hard offset shadow references Syntax's
+	 * `--s-graphic: -4px 4px 0 var(--c-fg)`, the foreground ink, not the accent.
+	 * `none` (a Pack that drops the chrome) leaves the card flat.
 	 */
 	.newspaper-source {
 		background-color: var(--fill, #f0e8d6);
-		box-shadow: var(--shadow-offset) var(--shadow-offset) 0 #1a1612;
+		box-shadow: var(--depth-shadow, none);
 		box-sizing: border-box;
 		color: var(--ink, #1a1612);
 		display: grid;

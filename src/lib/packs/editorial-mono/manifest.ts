@@ -29,6 +29,11 @@ export const editorialMonoPack: PackManifest = {
 		'newspaper.ink': { kind: 'style', value: '#0f151c' },
 		'newspaper.accent': { kind: 'style', value: '#22d3ee' },
 		'newspaper.kicker-ink': { kind: 'style', value: '#0f151c' },
+		// Structural re-skin: this cool editorial dress drops the zine hard-offset
+		// shadow entirely — the card sits flat, carried only by the newspaper
+		// substrate's intrinsic edge-occlusion. Proves a structural depth Role
+		// reaches pixels (syntax: 12px offset chrome → editorial-mono: none).
+		'newspaper.depth': { kind: 'style', value: 'none' },
 		'type-hero.ink': { kind: 'style', value: '#eef3f8' },
 		'type-hero.accent': { kind: 'style', value: '#22d3ee' },
 		'type-hero.byline': { kind: 'style', value: '#8aa0b4' }
