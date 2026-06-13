@@ -165,7 +165,7 @@ The 12 Disney principles all apply, but five carry the weight for motion graphic
   - **Subject lives in the middle 60% vertically.** Top and bottom bands belong to platform UI (G3); important focal annotations (magnify, lift-out, callout) must center inside `y ∈ [0.20, 0.80]`.
   - **Faster pacing.** Vertical content is consumed in shorter sessions; preset `transport.durationSeconds` should default to 4–7 s, vs. 6–12 s for horizontal long-form.
 - **Why** — TikTok/Reels/Shorts engagement data shows native vertical outperforms cropped-horizontal at >90%. The platform-specific staging — center-weighted, Y-motion, short — is what "native vertical" actually means. Reusing horizontal staging on 9:16 produces the cropped-look the algorithm down-ranks.
-- **How to apply** — A horizontal preset and its vertical sibling should be authored as separate JSON files (see the existing `quote-focus-*` / `research-paper-*` split). Do not toggle `orientation` and assume the same composition holds.
+- **How to apply** — Today a horizontal preset and its vertical sibling are authored as separate JSON files (e.g. `quote-magnify` ↔ `quote-vertical`); don't toggle `orientation` and assume the same composition holds. (Genuine single-Preset reflow is roadmapped — see [`roadmap.md`](roadmap.md).)
 
 ### G12. Transparent output is the contract
 
@@ -250,7 +250,7 @@ A full-frame or near-full-frame card introducing the video, a section, or a chap
   - **Why** — A title card carries more visual mass than a lower third, so its motion can take slightly longer. But hold ≥ 4 s on a 6 s short reads as a still frame.
   - **How to apply** — On a 5 s vertical preset: `enter.duration ≈ 0.07`, hold ≈ 0.55, `exit.start ≈ 0.85`, `exit.duration ≈ 0.07`.
 
-- **T4. Use `camera: 'push'` for editorial / cinematic, `'snap'` for explainer / news, `'none'` for typographic / quote-focus.**
+- **T4. Use `camera: 'push'` for editorial / cinematic, `'snap'` for explainer / news, `'none'` for typographic / pull-quote.** *(Note: `surface.camera` is not yet wired to the render path — see [`roadmap.md`](roadmap.md).)*
   - **Why** — Camera moves change the read. A slow `push` says "consider this"; `snap` says "here's the data"; `none` says "the words are the show." Pick per the content's voice.
   - **How to apply** — `surface.camera` field.
 

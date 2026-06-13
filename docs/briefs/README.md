@@ -43,9 +43,8 @@ ACCEPT                → Brief deleted in the commit that lands the ACCEPT.
 | Folder | When | Lifetime |
 |---|---|---|
 | [`docs/ideas/`](../ideas/) | Speculative product surface — a thing that *might* be built someday (CLI, transcript flow). | Indefinite. |
-| [`docs/todos/`](../todos/) | An open design *question* — not yet ADR-worthy, not yet resolved. | Until resolved (then becomes an ADR or is closed). |
+| [`docs/roadmap.md`](../roadmap.md) | The backlog — *designed or wanted, not yet built* (incl. starter templates). | Until built (then an ADR). |
 | [`docs/briefs/`](.) | A thing *about to be built*. | Until its verification Preset Critic-`ACCEPT`-s. |
-| [`docs/recipes/`](../recipes/) (pending) | Starter scaffolds for new Presets, one per Surface. | Permanent reference material. |
 
 If a Brief stalls — open questions can't resolve, or the idea no longer fits — delete the Brief manually with a one-line commit explaining why. Stalled Briefs are not allowed to linger.
 
@@ -66,8 +65,8 @@ One paragraph: what is this and why does it land for the channel?
 
 ## Surface(s) involved
 
-Which existing **Surface** (`pullquote-on-photo`, `newspaper-clipping`,
-`modern-web-article`, `photographed-frame`, `collage-card`) this lives on.
+Which existing **Surface** (`paper`, `plain`, `newspaper`, `pullquote-on-photo`,
+`chapter-card`, `title-sequence`, `type-hero`) this lives on.
 For `pipeline` / `domain` Briefs: which Surface(s) need to be added or extended.
 
 ## Content sample

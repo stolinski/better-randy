@@ -1,5 +1,7 @@
 # Recipe cookbook over schema-enforced channel chrome
 
+> **Status — SUPERSEDED (Refocus, 2026-06).** The `docs/recipes/` cookbook was never built. The idea is reframed as **starter templates** — curated Preset+Pack starting points both a human (GUI) and an agent begin from, under the parity model. Tracked in [`../roadmap.md`](../roadmap.md); see [`../CONTEXT.md`](../CONTEXT.md) *Starter template*. Kept for history.
+
 `docs/aesthetic.md` declares that every collage card carries at least one mono signature element ("without it, the card is generic"), every composition carries grit overlay, and collage cards carry hard offset shadows — yet agents producing presets routinely omitted these and shipped generic, low-effort output. The most direct fix would be to make those fields *schema-required* in `hiviz@1` so a preset literally cannot validate without them; we chose against this and instead invest in a recipe cookbook at `docs/recipes/`, with one starter scaffold per surface variant (pullquote-on-photo, newspaper-clipping, modern-web-article, photographed-frame, collage-card) that agents pick from before authoring. Schema enforcement was rejected for being too rigid for legitimate stripped / test / experimental presets and for forcing a preset-format change that locks in the current aesthetic at the schema level; recipes deliver most of the floor-raising effect without coupling channel chrome to schema validation.
 
 ## Consequences

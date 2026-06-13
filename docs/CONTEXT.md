@@ -10,17 +10,17 @@ The shared language for Hiviz's preset engine, channel aesthetic, and agent work
 A JSON document declaring a **composition recipe** — motion, content, and role references — against the `hiviz@1` schema. A Preset is *aesthetic-agnostic*: it names which surface, which marks, which timings, which text, and which **Roles** the engine should resolve. It does **not** carry hex codes, font names, edge behavior, or effect chains directly — those live in the **Pack** the Preset names. The unit of authoring.
 _Avoid_: tool, scene, template (when referring to a finished composition).
 
-**Recipe**:
-A starter scaffold preset stored under `docs/recipes/`, one per surface variant. An agent copies a recipe and varies it; it is not itself a deliverable.
-_Avoid_: template, starter, boilerplate.
+**Starter template** (formerly *Recipe*):
+A curated starting point — Preset + Pack — that a human (GUI) or an agent begins a new composition from, varying rather than authoring from scratch; not itself a deliverable. **Designed, not built** (reframed from the never-shipped recipe cookbook, ex-[ADR-0004](adr/0004-recipe-cookbook-over-schema-chrome.md)) — see [`roadmap.md`](roadmap.md).
+_Avoid_: recipe, boilerplate, scaffold.
 
 **Layer**:
 One of the five composition layers — **Surface**, **Block**, **Annotation**, **Overlay**, **Effect**. Render order and registry membership are defined by which layer a renderer belongs to.
 _Avoid_: tier, level, stage (in the composition context).
 
 **Surface**:
-The renderable material claim of a composition (`pullquote-on-photo`, `newspaper-clipping`, `modern-web-article`, `photographed-frame`, `collage-card`). The bottommost layer.
-_Avoid_: background, base, canvas (the canvas is the WebGPU target, not the surface).
+The renderable material claim of a composition. The bottommost Layer. The seven registered Surfaces are `paper`, `plain`, `newspaper`, `pullquote-on-photo`, `chapter-card`, `title-sequence`, `type-hero` (the `SurfaceTypeSchema` enum).
+_Avoid_: background, base, canvas (the canvas is the WebGPU target, not the surface); the fictional names `newspaper-clipping` / `modern-web-article` / `photographed-frame` / `collage-card` (never existed as Surfaces — `collage-card` is a Syntax-pack *appearance*, see below).
 
 **Substrate**:
 The underlying material a surface depicts — paper, photo, web document. A **Surface** is the renderer; the **Substrate** is the material it claims to be.
@@ -69,10 +69,10 @@ _Avoid_: material spec (the narrower predecessor; now the `material` kind), iden
 
 ### Pack-scoped vocabulary (Syntax pack)
 
-These terms historically lived in the core glossary; they are vocabulary **of the Syntax Pack**, not of the engine, and will move into `docs/packs/syntax/aesthetic.md` once the Pack folder lands. They are listed here only so the glossary remains usable while the migration is in flight.
+These terms are vocabulary **of the Syntax Pack**, not of the engine. They are defined in [`docs/packs/syntax/aesthetic.md`](packs/syntax/aesthetic.md) and listed here only as cross-reference; a different Pack carries different appearance vocabulary.
 
 **Channel chrome**:
-The Syntax Pack's signature elements that distinguish its output from generic motion graphics — at minimum a **Mono signature thread**, grit overlay, hard offset shadow on Collage cards. Defined in `docs/aesthetic.md` (will move to `docs/packs/syntax/aesthetic.md`).
+The Syntax Pack's signature elements that distinguish its output from generic motion graphics — at minimum a **Mono signature thread**, grit overlay, hard offset shadow on Collage cards. Defined in [`docs/packs/syntax/aesthetic.md`](packs/syntax/aesthetic.md).
 
 **Mono signature thread**:
 At least one mono-typeface element per composition (kicker, source URL, date stamp, watermark). The channel's identity stamp.
@@ -97,7 +97,7 @@ A registered renderer for one Layer type and one variant — e.g. the `pullquote
 _Avoid_: backend, driver, plugin.
 
 **Registry**:
-The catalog of available Pipelines that Presets compose from, organized by Layer (`src/lib/platform/pipelines/{surfaces,blocks,annotations,overlays,effects}/`).
+The catalog of available Pipelines that Presets compose from, organized by Layer under `src/lib/pipelines/<layer>/` (the renderers). `src/lib/platform/pipelines/` holds only registry + runner infrastructure, not renderers.
 
 **Timeline**:
 The single `Timeline` instance per Preset that owns playback state (`time`, `isPlaying`, `durationSeconds`, `fps`). Animation is scrubbed by progress, never played by wall-clock.
@@ -131,7 +131,7 @@ _Avoid_: proposal, plan, sketch, spec, draft.
 A sub-agent spawned with fresh context to author a Preset (or the engine work + Preset declared by a pipeline / domain Brief). Reads the Brief plus the binding docs; does not see the brainstorm conversation. Never the same invocation as the **Brainstorm** or **Critic** agent.
 
 **Brainstorm**:
-The agent that grills the user through a Brief and writes `docs/briefs/<slug>.md`. Actively proposes options from `docs/aesthetic.md` and the existing Registry rather than just capturing user input. Invoked via `/brainstorm <slug>`. Hands off to the **Producer** (via `/author <slug>`), not to authoring directly.
+The agent that grills the user through a Brief and writes `docs/briefs/<slug>.md`. Actively proposes options from the active Pack's aesthetic doc (`docs/packs/<pack>/aesthetic.md`) and the existing Registry rather than just capturing user input. Invoked via `/brainstorm <slug>`. Hands off to the **Producer** (via `/author <slug>`), not to authoring directly.
 
 **Critic**:
 A sub-agent spawned with fresh context to adversarially verify a Producer's output. Sees only the Preset + renders + rubrics; never the Brief, never the brainstorm conversation, never the Producer's session. See [ADR-0001](adr/0001-critic-sub-agent-verification.md) and `docs/critic.md`.
@@ -184,4 +184,4 @@ The named-observation format every R-rule check must follow — pixel coordinate
 - **"surface"** vs **"substrate"** were used interchangeably. Resolved: **Surface** is the renderer; **Substrate** is the material it claims.
 - **"chrome"** was used both for the channel's signature elements and for any layered Overlay. Resolved: **Channel chrome** is the specific channel-identity subset; **Overlay** is the general Layer.
 - **Pack scope (appearance vs motion)** was unresolved — the code put some motion (`enterMotion`, `bodyEnter`, `focalMotion`) into Pack Roles while treating motion-form as intrinsic, leaving the seam undrawn. Resolved: a **Pack is appearance-only**; all motion (form, timing, easing) is intrinsic to the **Preset**/**Pipeline**. The motion Roles are to be removed and made `implementation`-declared.
-- **Declared-but-not-consumed Pack system.** As of this writing the Pack/Role/Identity-Spec system is *declared* (manifest, ~26 `identity.ts`, boot-gate validator) but **not consumed by rendering** — `resolveStyle`/`resolveRole` are never called; CanvasSources hardcode color and Presets carry inline hex, and some manifest values contradict what their Pipeline actually paints. The committed direction is to **finish** it (wire resolution to pixels, render-is-truth refactor, a second Pack as the acceptance gate), not to cut it. Until that lands, treat the glossary's Pack/Role definitions as the *target* model, and the inline hex in code as the *current* reality.
+- **Pack system is partially wired.** **Color and font** Roles reach pixels via `resolveAppearanceVars` (CSS custom properties injected on the mounts — the live path). The **structural** Roles (`edge` / `depth` / `light` / `material`) are declared in manifests + Identity Specs and boot-validated, but color-filtered out before render — inert. `resolveStyle` / `resolveRole` in `packs/types.ts` have zero callers (dead). The committed direction is to **finish** it (wire structural resolution to pixels), not cut it — see [`engine-architecture.md`](engine-architecture.md) § Appearance and [`roadmap.md`](roadmap.md). Until then, treat the glossary's Pack/Role definitions as the *target* model for structural roles, and the live CSS-var path as current reality for color + font.
