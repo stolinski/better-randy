@@ -15,6 +15,20 @@ An idea graduates: `ideas → roadmap → (built) → adr`.
 
 Aligned to the north star (see [`../AGENTS.md`](../AGENTS.md)): an opinionated, Netflix-grade, multi-pack motion-graphics engine producing overlays + segments/bumpers, reflowing across horizontal/vertical, authored with full GUI ↔ agent parity.
 
+## How this gets executed (the loop)
+
+The default answer to "what's next?" — an agent self-serves this instead of asking the human to adjudicate every time:
+
+1. **Pick:** `dex list --ready` → take the highest-priority unblocked task in the current epic.
+2. **Do it, then close it:** `dex complete <id> --result "<what changed + how verified>" --commit <sha>`; re-run `dex list --ready` and continue.
+3. **Within an epic, work autonomously** — no check-in task to task.
+4. **At the end of each epic, STOP and check in with the human** — summarize what the epic delivered + anything learned, and get a go-ahead *before* starting the next epic. **This is the leash: epic-by-epic, not fully autonomous.**
+5. **Also stop mid-epic and ask** before: removing any pipeline/feature (the prove-or-remove epic), resolving a design fork (a 0006-style tension), starting an undesigned arc, or when a task's intent is ambiguous against the docs/code.
+6. **Critical path:** the engine arc (the dex epics) goes first — it unblocks the corpus and the rest.
+7. **Activating a roadmap arc** = break its epic into dex tasks. **GUI parity is the exception — it needs a design grill first** (undesigned; task-ifying it cold produces rot). The corpus is demand-pulled: author one ship-grade deliverable per family through the Critic loop as the engine supports it.
+
+**Aligned with the goals** = engine arc done **+** ≥1 ship-grade deliverable per surface/overlay family **+** the GUI reaches agent-parity. The arcs below are the scoreboard.
+
 ---
 
 ## Now — close the gap between the docs' "honest current state" and the north star

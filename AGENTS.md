@@ -34,7 +34,7 @@ Always read the doc named here for the task type. Skipping the dispatched doc is
 | Channel-aesthetic decisions (palette, type, collage, chrome) | [`docs/packs/syntax/aesthetic.md`](docs/packs/syntax/aesthetic.md), `docs/inspo/` |
 | Looking up a term | [`docs/CONTEXT.md`](docs/CONTEXT.md) |
 | Looking up why a past decision was made | [`docs/adr/`](docs/adr/) — start at the [ADR index](docs/adr/README.md) |
-| What's planned / designed-but-unbuilt | [`docs/roadmap.md`](docs/roadmap.md) — the single backlog |
+| What's planned, and what to work on next | [`docs/roadmap.md`](docs/roadmap.md) — strategic backlog + the execution loop (check in per epic); live tasks in **dex** (`dex list --ready`) |
 | Understanding how the engine actually works today | [`docs/engine-architecture.md`](docs/engine-architecture.md) — the current-state blueprint |
 
 ## Repo layout
