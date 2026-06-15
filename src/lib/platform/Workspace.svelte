@@ -41,6 +41,7 @@
 		type TransparentVideoExportOptions
 	} from './export-video';
 	import { clampNumber } from '$lib/utils/math';
+	import { hexToRgbaFloat } from '$lib/utils/color';
 	import { truncateMiddle } from '$lib/utils/string';
 	import { exposeVisualAudit } from './runtime-audit';
 
@@ -475,6 +476,10 @@
 
 	const tracks = $derived(buildTracks());
 
+	const backgroundFillFloat = $derived(
+		engineState.backgroundFill ? hexToRgbaFloat(engineState.backgroundFill) : undefined
+	);
+
 	function findOverlayRenderer(type: string): OverlayRenderer | null {
 		for (const renderer of Object.values(PIPELINE_REGISTRY.overlays)) {
 			if (renderer.type === type) {
@@ -550,7 +555,8 @@
 			effects: engineState.effects,
 			inputTexture: postShaderTexture,
 			outputView: host.context.getCurrentTexture().createView(),
-			...timebase
+			...timebase,
+			background: backgroundFillFloat
 		});
 	}
 
@@ -761,12 +767,13 @@
 			void appearance?.color;
 			void appearance?.intensity;
 		}
-		// Re-render when effect entries change so the chain runs with the latest state.
+		// Re-render when effect entries or background fill change.
 		void engineState.effects.length;
 		for (const entry of engineState.effects) {
 			void entry.params;
 			void entry.type;
 		}
+		void engineState.backgroundFill;
 
 		if (timeline) {
 			renderAt(timeline.time);
@@ -827,6 +834,9 @@
 		const format = engineState.transport.format;
 		const markColorsByIndex = getMarkColorsByIndex();
 		const markIntensityByIndex = getMarkIntensityByIndex();
+		const exportBackground = engineState.backgroundFill
+			? hexToRgbaFloat(engineState.backgroundFill)
+			: undefined;
 
 		const renderFrame: TransparentVideoExportOptions['renderFrame'] = (_frame, timestamp) => {
 			const fraction = durationSeconds > 0 ? timestamp / durationSeconds : 0;
@@ -866,7 +876,8 @@
 					effects: engineState.effects,
 					inputTexture: postShaderTexture,
 					outputView: host.context.getCurrentTexture().createView(),
-					...timebase
+					...timebase,
+					background: exportBackground
 				});
 			}
 		};
@@ -884,6 +895,7 @@
 				});
 				downloadVideoBlob(blob, 'hiviz-overlay.mov');
 			} else {
+				const hasBackground = exportBackground !== undefined;
 				const blob = await exportTransparentWebM({
 					canvas: activeCanvas,
 					durationSeconds,
@@ -891,9 +903,10 @@
 					onProgress: (value) => {
 						progress = value;
 					},
-					renderFrame
+					renderFrame,
+					hasBackground
 				});
-				downloadVideoBlob(blob, 'hiviz-overlay.webm');
+				downloadVideoBlob(blob, hasBackground ? 'hiviz-bumper.webm' : 'hiviz-overlay.webm');
 			}
 		} catch (error) {
 			console.error('Unable to export overlay.', error);

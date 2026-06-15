@@ -363,6 +363,27 @@
 		</ControlGroup>
 	{/if}
 
+	<!-- Background fill — composition-level, produces full-frame segment/bumper when set -->
+	<ControlGroup title="Background">
+		<label class="row">
+			<span>Fill</span>
+			<input
+				type="checkbox"
+				checked={engineState.backgroundFill !== undefined}
+				onchange={(e) => {
+					if ((e.currentTarget as HTMLInputElement).checked) {
+						engineState.backgroundFill = '#000000';
+					} else {
+						engineState.backgroundFill = undefined;
+					}
+				}}
+			/>
+			{#if engineState.backgroundFill !== undefined}
+				<input type="color" bind:value={engineState.backgroundFill} />
+			{/if}
+		</label>
+	</ControlGroup>
+
 	<!-- Overlays -->
 	<ControlGroup title="Overlays">
 		<label class="row">

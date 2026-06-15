@@ -40,9 +40,16 @@ const fullScreenVertexFn = tgpu['~unstable'].vertexFn({
 // quantization boundary so smooth gradients don't band. Also the no-effect
 // path (replaces the old plain blit) — the surface output is always presented
 // through here, so dithering happens whether or not effects are configured.
+//
+// `background` uniform: [r, g, b, a] premultiplied fill composited UNDER the
+// surface output (OVER operator). Default [0,0,0,0] = transparent — identical
+// to the old behaviour. Set to a solid colour for full-frame segment/bumpers.
+const PresentUniforms = d.struct({ background: d.vec4f });
+
 const presentBindGroupLayout = tgpu.bindGroupLayout({
 	inputTexture: { texture: d.texture2d(d.f32) },
-	samp: { sampler: 'filtering' }
+	samp: { sampler: 'filtering' },
+	uniforms: { uniform: PresentUniforms }
 });
 
 const presentFragmentFn = tgpu['~unstable']
@@ -51,13 +58,17 @@ const presentFragmentFn = tgpu['~unstable']
 		out: d.vec4f
 	})/* wgsl */ `{
 		let s = textureSample(layout.$.inputTexture, layout.$.samp, in.uv);
+		let bg = layout.$.uniforms.background;
+		// OVER operator (premultiplied): composite surface s over background bg.
+		// When bg.a == 0 this degenerates to s — transparent default unchanged.
+		let outRgb = s.rgb + (1.0 - s.a) * bg.rgb * bg.a;
+		let outA   = s.a   + (1.0 - s.a) * bg.a;
 		// Interleaved-gradient-noise ordered dither (~1 LSB) applied at the
 		// 16float→8bit write. Breaks up banding on near-black gradients the
-		// 8-bit canvas would otherwise quantize into visible steps. Premultiplied
-		// rgb is dithered; alpha is left exact so edges stay clean.
+		// 8-bit canvas would otherwise quantize into visible steps.
 		let ign = fract(52.9829189 * fract(dot(in.position.xy, vec2f(0.06711056, 0.00583715))));
 		let dither = (ign - 0.5) / 255.0;
-		return vec4f(s.rgb + vec3f(dither, dither, dither), s.a);
+		return vec4f(outRgb + vec3f(dither, dither, dither), outA);
 	}`.$uses({ layout: presentBindGroupLayout });
 
 interface CompiledEffect {
@@ -77,6 +88,7 @@ interface CompiledPresent {
 		commandEncoder: GPUCommandEncoder;
 		inputView: GPUTextureView;
 		outputView: GPUTextureView;
+		background?: [number, number, number, number];
 	}): void;
 }
 
@@ -181,11 +193,19 @@ function compilePresent(host: GpuHost): CompiledPresent {
 		addressModeV: 'clamp-to-edge'
 	});
 
+	const uniformBuffer = root
+		.createBuffer(PresentUniforms, { background: d.vec4f(0, 0, 0, 0) })
+		.$usage('uniform');
+
 	return {
-		apply({ inputView, outputView }) {
+		apply({ inputView, outputView, background }) {
+			const [r, g, b, a] = background ?? [0, 0, 0, 0];
+			uniformBuffer.write({ background: d.vec4f(r, g, b, a) });
+
 			const bindGroup = root.createBindGroup(presentBindGroupLayout, {
 				inputTexture: inputView,
-				samp: sampler
+				samp: sampler,
+				uniforms: uniformBuffer
 			});
 
 			pipeline
@@ -217,6 +237,8 @@ export interface ApplyChainOptions {
 	// paused-timeline scrub; preview and export agree at the same time.
 	progress: number;
 	timestamp: number;
+	/** Premultiplied RGBA fill composited under the surface output. Absent = transparent default. */
+	background?: [number, number, number, number];
 }
 
 export class EffectChain {
@@ -268,7 +290,8 @@ export class EffectChain {
 		inputTexture,
 		outputView,
 		progress,
-		timestamp
+		timestamp,
+		background
 	}: ApplyChainOptions): void {
 		const valid: { effect: Effect; compiled: CompiledEffect }[] = [];
 		for (const effect of effects) {
@@ -299,7 +322,8 @@ export class EffectChain {
 		this.#present.apply({
 			commandEncoder,
 			inputView: currentInputView,
-			outputView
+			outputView,
+			background
 		});
 
 		void this.#width;

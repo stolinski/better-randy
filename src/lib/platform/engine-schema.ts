@@ -327,7 +327,8 @@ export const EngineStateSchema = z.object({
 	surface: SurfaceSchema,
 	textAnimations: TextAnimationsSchema,
 	overlays: z.array(OverlaySchema).default([]),
-	effects: EffectChainSchema.default([])
+	effects: EffectChainSchema.default([]),
+	backgroundFill: HexColorSchema.optional()
 });
 
 export type Transport = z.infer<typeof TransportSchema>;

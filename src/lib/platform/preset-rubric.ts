@@ -119,6 +119,7 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 	checkOverlayPlacement(state.overlays, frame, orientation, issues);
 	checkContrast(state.surface, state.typography, issues);
 	checkHoldTime(state.surface, state.marks.timings, flattenedMarks, totalSeconds, issues);
+	checkBackgroundFill(state.backgroundFill, state.typography.paperColor, issues);
 
 	return issues;
 }
@@ -495,6 +496,31 @@ function checkHoldTime(
 	}
 }
 
+
+function checkBackgroundFill(
+	backgroundFill: string | undefined,
+	paperColor: string,
+	issues: RubricIssue[]
+): void {
+	if (!backgroundFill) {
+		return;
+	}
+
+	// Normalize both to lowercase 6-digit hex for comparison.
+	const normalize = (hex: string): string => {
+		const h = hex.replace('#', '').toLowerCase();
+		return h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+	};
+
+	if (normalize(backgroundFill) === normalize(paperColor)) {
+		issues.push({
+			rule: 'G12',
+			severity: 'warn',
+			path: 'backgroundFill',
+			message: `backgroundFill (${backgroundFill}) matches typography.paperColor — surface will be invisible against the background.`
+		});
+	}
+}
 
 function flattenBody(body: AnnotationBody): FlattenedMark[] {
 	const marks: FlattenedMark[] = [];

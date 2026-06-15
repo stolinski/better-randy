@@ -180,4 +180,5 @@ export function applyPreset(preset: Preset): void {
 	engineState.overlays = next.overlays.map(cloneOverlay);
 	engineState.effects = (next.effects ?? []).map(cloneEffect);
 	engineState.textAnimations = (next.textAnimations ?? []).map(cloneTextAnimation);
+	engineState.backgroundFill = next.backgroundFill;
 }

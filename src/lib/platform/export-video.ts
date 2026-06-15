@@ -8,6 +8,8 @@ export interface TransparentVideoExportOptions {
 	fps: number;
 	renderFrame: (frame: number, timestamp: number) => void | Promise<void>;
 	onProgress?: (progress: number) => void;
+	/** True when backgroundFill is set — output is opaque (VP9 alpha discarded). */
+	hasBackground?: boolean;
 }
 
 async function canvasFrameToPng(
@@ -33,7 +35,8 @@ export async function exportTransparentWebM({
 	durationSeconds,
 	fps,
 	renderFrame,
-	onProgress
+	onProgress,
+	hasBackground
 }: TransparentVideoExportOptions): Promise<Blob> {
 	// Channel typefaces must be loaded before frame 0 or the export bakes in OS
 	// fallbacks; preview gates the same way.
@@ -49,7 +52,7 @@ export async function exportTransparentWebM({
 	const source = new CanvasSource(canvas, {
 		codec: 'vp9',
 		bitrate: QUALITY_HIGH,
-		alpha: 'keep'
+		alpha: hasBackground ? 'discard' : 'keep'
 	});
 
 	output.addVideoTrack(source);

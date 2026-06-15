@@ -32,6 +32,11 @@ export function getRgbColorChannels(color: string): RgbColorChannels {
 	};
 }
 
+export function hexToRgbaFloat(hex: string): [number, number, number, number] {
+	const { red, green, blue } = getRgbColorChannels(hex);
+	return [red / 255, green / 255, blue / 255, 1.0];
+}
+
 export function getCanvasRgbColor(color: string, opacity: number): string {
 	const { red, green, blue } = getRgbColorChannels(color);
 	const alpha = clampNumber(opacity, 0, 1);
