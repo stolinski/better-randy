@@ -159,9 +159,10 @@ export interface SurfaceRenderer {
 	defaults(): SurfaceState;
 	/**
 	 * Optional single-pass fragment work run between DOM upload and final composite
-	 * (ADR-0008). The first consumer is `newspaper-physics` on the `newspaper`
-	 * Surface (halftone dot screen + ink bleed at glyph edges). Composition-pipeline
-	 * invocation lands in a follow-up — the field is the declarative API.
+	 * (ADR-0008, invocation wired per ADR-0010). The first consumer is
+	 * `newspaper-physics` on the `newspaper` Surface (halftone dot screen + ink
+	 * bleed at glyph edges); `Workspace` feeds declared surface passes to the
+	 * ShaderPassDispatcher ahead of the effect chain.
 	 */
 	shaderPass?: ShaderPass<SurfaceState>;
 }

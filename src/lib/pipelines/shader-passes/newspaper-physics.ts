@@ -22,10 +22,8 @@ import { hashStringToUnitInterval } from '$lib/utils/seeded';
  *
  * Declared via the `SurfaceRenderer.shaderPass` field added in ADR-0008
  * (which mirrors ADR-0005's `OverlayRenderer.shaderPass` for the surface
- * layer). The compose-pipeline invocation that wires `shaderPass` into the
- * surface render path lands in the same follow-up that wires the overlay
- * equivalent — until then the declarative shape is the contract, identical
- * to the state ADR-0005 currently sits in for overlays.
+ * layer). `Workspace` feeds this pass to the ShaderPassDispatcher between DOM
+ * upload and the effect chain (invocation wired per ADR-0010).
  */
 
 export const NewspaperPhysicsUniforms = d.struct({

@@ -38,7 +38,6 @@ const TITLE_GLANCE_MIN_SECONDS = 0.7;
 
 interface CapHeightBand {
 	min: number;
-	max: number;
 }
 
 interface OrientedCapHeightBands {
@@ -46,33 +45,36 @@ interface OrientedCapHeightBands {
 	vertical: CapHeightBand;
 }
 
+// Legibility FLOORS only (`min`). The cap-height ceiling ("reads as signage")
+// is taste, enforced by the Critic, not the static linter (ADR-0025) — so the
+// bands carry no `max`.
 const CAP_HEIGHT_BANDS: Record<TextBandKey, OrientedCapHeightBands> = {
 	'overlay-primary': {
-		horizontal: { min: 96, max: 144 },
-		vertical: { min: 120, max: 180 }
+		horizontal: { min: 96 },
+		vertical: { min: 120 }
 	},
 	'overlay-secondary': {
-		horizontal: { min: 80, max: 112 },
-		vertical: { min: 96, max: 136 }
+		horizontal: { min: 80 },
+		vertical: { min: 96 }
 	},
 	'surface-title': {
-		horizontal: { min: 60, max: 110 },
-		vertical: { min: 76, max: 138 }
+		horizontal: { min: 60 },
+		vertical: { min: 76 }
 	},
 	'surface-body': {
-		horizontal: { min: 32, max: 56 },
-		vertical: { min: 44, max: 72 }
+		horizontal: { min: 32 },
+		vertical: { min: 44 }
 	},
 	// Marked focal text inherits the body band — the highlight stroke provides
 	// emphasis, not a larger font. Kept as a distinct key so future bands can
 	// diverge if needed.
 	'surface-body-focal': {
-		horizontal: { min: 32, max: 56 },
-		vertical: { min: 44, max: 72 }
+		horizontal: { min: 32 },
+		vertical: { min: 44 }
 	},
 	'surface-label': {
-		horizontal: { min: 24, max: 48 },
-		vertical: { min: 32, max: 60 }
+		horizontal: { min: 24 },
+		vertical: { min: 32 }
 	}
 };
 
