@@ -5,7 +5,6 @@
 	import { PIPELINE_REGISTRY, getSurfaceRenderer } from './pipelines';
 	import ControlGroup from './ControlGroup.svelte';
 	import {
-		CAMERA_MOTION_OPTIONS,
 		ENGINE_EASES,
 		ENGINE_FONT_FAMILIES,
 		type Ease,
@@ -91,7 +90,6 @@
 			(controls.typography && showBody) ||
 				controls.paperColor ||
 				(controls.inkColor && showBody) ||
-				(controls.camera && engineState.surface.camera !== undefined) ||
 				(controls.backgroundVisibility && engineState.surface.backgroundVisibility !== undefined)
 		)
 	);
@@ -350,18 +348,7 @@
 				</label>
 			{/if}
 
-			{#if controls.camera && engineState.surface.camera !== undefined}
-				<label class="row">
-					<span>Camera</span>
-					<select bind:value={engineState.surface.camera}>
-						{#each CAMERA_MOTION_OPTIONS as option (option.value)}
-							<option value={option.value}>{option.label}</option>
-						{/each}
-					</select>
-				</label>
-			{/if}
-
-			{#if controls.backgroundVisibility && engineState.surface.backgroundVisibility !== undefined}
+{#if controls.backgroundVisibility && engineState.surface.backgroundVisibility !== undefined}
 				<label class="row">
 					<span>Background</span>
 					<input

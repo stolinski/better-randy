@@ -48,7 +48,6 @@
 				"duration": 0.14,
 				"ease": "smooth"
 			},
-			"camera": "push",
 			"backgroundVisibility": 0.2
 		},
 		"overlays": [],

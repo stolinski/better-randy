@@ -119,7 +119,6 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 	checkOverlayPlacement(state.overlays, frame, orientation, issues);
 	checkContrast(state.surface, state.typography, issues);
 	checkHoldTime(state.surface, state.marks.timings, flattenedMarks, totalSeconds, issues);
-	checkCameraSafety(state.surface, totalSeconds, issues);
 
 	return issues;
 }
@@ -496,30 +495,6 @@ function checkHoldTime(
 	}
 }
 
-function checkCameraSafety(
-	surface: SurfaceState,
-	totalSeconds: number,
-	issues: RubricIssue[]
-): void {
-	if (surface.camera !== 'snap') {
-		return;
-	}
-
-	const bgVisibility = surface.backgroundVisibility ?? 0;
-
-	if (bgVisibility >= 0.5 && surface.enter) {
-		const enterMs = surface.enter.duration * totalSeconds * 1000;
-
-		if (enterMs <= 200) {
-			issues.push({
-				rule: 'G10',
-				severity: 'warn',
-				path: 'surface',
-				message: `Snap camera + high backgroundVisibility (${bgVisibility}) in a ≤200ms beat stacks two simultaneous motions — vestibular risk.`
-			});
-		}
-	}
-}
 
 function flattenBody(body: AnnotationBody): FlattenedMark[] {
 	const marks: FlattenedMark[] = [];

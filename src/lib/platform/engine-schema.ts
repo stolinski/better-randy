@@ -12,7 +12,6 @@ import type { AnnotationBody } from '$lib/annotations/annotation-marks';
 export type FontFamily = 'serif' | 'sans' | 'mono' | 'condensed';
 export type Ease = 'smooth' | 'settled' | 'sharp' | 'bouncy';
 export type ExportFormat = 'webm' | 'prores';
-export type CameraMotion = 'none' | 'push' | 'snap';
 
 export interface FontDefinition {
 	label: string;
@@ -45,17 +44,11 @@ export function getEaseGsap(ease: Ease, _direction: EaseDirection): string {
 	return ENGINE_EASES[ease].gsap;
 }
 
-export const CAMERA_MOTION_OPTIONS: { value: CameraMotion; label: string }[] = [
-	{ value: 'none', label: 'None' },
-	{ value: 'push', label: 'Slow push' },
-	{ value: 'snap', label: 'Snap zoom' }
-];
 
 const FontFamilySchema = z.enum(['serif', 'sans', 'mono', 'condensed']);
 const EaseSchema = z.enum(['smooth', 'settled', 'sharp', 'bouncy']);
 const ExportFormatSchema = z.enum(['webm', 'prores']);
 const VideoOrientationSchema = z.enum(['horizontal', 'vertical']);
-const CameraMotionSchema = z.enum(['none', 'push', 'snap']);
 
 const HexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Expected a #RRGGBB hex color');
 const FractionSchema = z.number().min(0).max(1);
@@ -157,7 +150,6 @@ const SurfaceSchema = z.object({
 	variant: z.string().optional(),
 	enter: TransitionSchema.optional(),
 	exit: TransitionSchema.optional(),
-	camera: CameraMotionSchema.optional(),
 	backgroundVisibility: FractionSchema.optional()
 });
 

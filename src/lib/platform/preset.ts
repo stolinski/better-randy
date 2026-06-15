@@ -101,7 +101,6 @@ function cloneSurface(surface: SurfaceState): SurfaceState {
 		exit: surface.exit
 			? { start: surface.exit.start, duration: surface.exit.duration, ease: surface.exit.ease }
 			: undefined,
-		camera: surface.camera,
 		backgroundVisibility: surface.backgroundVisibility
 	};
 }

@@ -63,7 +63,6 @@ export const newspaper: SurfaceRenderer = {
 		typography: false,
 		paperColor: false,
 		inkColor: false,
-		camera: false,
 		backgroundVisibility: false,
 		enterExit: true
 	},

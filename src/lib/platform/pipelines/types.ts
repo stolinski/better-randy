@@ -155,7 +155,6 @@ export interface SurfaceControlsMetadata {
 	typography?: boolean;
 	paperColor?: boolean;
 	inkColor?: boolean;
-	camera?: boolean;
 	backgroundVisibility?: boolean;
 	enterExit?: boolean;
 }
