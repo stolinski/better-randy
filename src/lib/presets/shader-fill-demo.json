@@ -1,0 +1,29 @@
+{
+	"schema": "hiviz@1",
+	"kind": "fixture",
+	"name": "Shader fill — gradient panel fixture",
+	"description": "Proving fixture for the shader-fill Overlay (was dead-by-use — referenced by zero presets). A centered procedurally-shaded three-colour metaball gradient panel (WGSL OverlayRenderer.shaderPass, ADR-0005/0013) animated by timeline progress over a transparent plain surface; blends at opacity without punching out alpha (E4 transparent-export contract). Verifies the overlay shaderPass path end-to-end. Fixture — exercises the pipeline, not held to the deliverable floors.",
+	"pack": "syntax",
+	"state": {
+		"transport": { "orientation": "horizontal", "durationSeconds": 5, "fps": 30, "format": "webm" },
+		"typography": { "fontFamily": "serif", "paperColor": "#ffffff", "inkColor": "#111111" },
+		"marks": { "defaults": {}, "timings": [] },
+		"surface": {
+			"type": "plain",
+			"content": { "body": "" },
+			"enter": { "start": 0, "duration": 0.08, "ease": "settled" },
+			"exit": { "start": 0.92, "duration": 0.08, "ease": "smooth" }
+		},
+		"overlays": [
+			{
+				"type": "shader-fill",
+				"id": "panel",
+				"content": { "color0": "#ff5d8f", "color1": "#5dd6e6", "color2": "#a866f7", "flowSpeed": 1, "opacity": 0.9 },
+				"position": { "anchor": "normalized-rect", "rect": { "x": 0.3, "y": 0.35, "width": 0.4, "height": 0.3 } },
+				"enter": { "start": 0, "duration": 0.108, "ease": "settled" },
+				"exit": { "start": 0.915, "duration": 0.085, "ease": "smooth" }
+			}
+		],
+		"effects": []
+	}
+}

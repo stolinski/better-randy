@@ -173,9 +173,9 @@ Paragraph bodies are stored as a single bracket-tag string, parsed into the runt
 | overlays (8) | `lower-third` (variants `standard`/`cinematic`), `washi-tape`, `watermark`, `shader-fill`, `cursor-trail`, `counter` (`slot-machine-roll`), `instance-stack` (`vertical-stack`/`horizontal-train`), `text-3d` (`cylinder-axis-y`) |
 | effects (2) | `paper-grain`, `chromatic-aberration` |
 
-**Dead-by-use** (registered + boot-valid, but referenced by zero presets): `isolate`, `watermark`, `shader-fill`, `chromatic-aberration`. Each needs a proving fixture or removal — tracked in [`roadmap.md`](roadmap.md), not deleted here.
+**Dead-by-use — resolved.** `isolate`, `watermark`, `shader-fill`, `chromatic-aberration` were registered + boot-valid but referenced by zero presets; each now has a proving fixture (`isolate-demo`, `watermark-demo`, `shader-fill-demo`, `chromatic-aberration-demo`) that renders the pipeline, so all four are kept (not removed). Every registered pipeline is now referenced by ≥1 preset.
 
-**Presets:** 22 on disk — 13 `deliverable` + 9 `fixture`. Fixtures (`*-demo`, `text-anim-showcase-*`, `*-test`, motion-primitive verifiers) are excluded from the app catalog and skip the R/Q/G floors but still schema-validate.
+**Presets:** 27 on disk — 14 `deliverable` + 13 `fixture`. Fixtures (`*-demo`, `text-anim-showcase-*`, `*-test`, motion-primitive verifiers) are excluded from the app catalog and skip the R/Q/G floors but still schema-validate.
 
 ### Variants as data
 
@@ -259,7 +259,6 @@ Pinned in ADRs or schema but **not wired into rendering**. Do not describe these
 - **Camera motion** — `surface.camera` (`push`/`snap`) is in schema, UI, and the lint, but no surface pipeline reads it.
 - **New Block types** — `mermaid` / `code` / `image` / `chart` are unbuilt; only `paragraph` ships.
 - **Starter templates** — curated starting points both a human (GUI) and an agent begin from (reframed from the never-built recipe cookbook, ex-[ADR-0004](adr/0004-recipe-cookbook-over-schema-chrome.md)).
-- **The 4 dead-by-use pipelines** — `isolate`, `watermark`, `shader-fill`, `chromatic-aberration`: prove with a fixture or remove.
 
 ## Constraints
 

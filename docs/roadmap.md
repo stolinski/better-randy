@@ -55,7 +55,7 @@ These are the engine-truth gaps the [blueprint](engine-architecture.md) flags in
 
 ## Pipeline coverage decisions
 
-- 🧭 **Decide the 4 dead-by-use pipelines.** `isolate` (annotation), `watermark` + `shader-fill` (overlays), `chromatic-aberration` (effect) are registered + boot-valid but referenced by zero presets. Each gets a proving fixture **or** removal. (`box`/`strike` are explicitly retained as authorable vocabulary.)
+- ✅ **The 4 dead-by-use pipelines — proven, kept.** `isolate`, `watermark`, `shader-fill`, `chromatic-aberration` each got a proving fixture (`*-demo`) that renders the pipeline (vs removal); every registered pipeline is now referenced by ≥1 preset. (`box`/`strike` remain explicitly-retained authorable vocabulary.)
 - 🧭 **Resolve camera motion.** `surface.camera` (`push`/`snap`) is in schema + UI + lint but no surface pipeline reads it. Wire it (frame-deterministic) or strip the field + control + lint together.
 - 📐 **Make cursor-trail pointer Pack-resolved.** The 4 pointer SVG paths should read from a `cursor-trail.pointer` Role, not inline (ADR-0023).
 

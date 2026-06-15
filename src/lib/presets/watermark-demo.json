@@ -1,0 +1,29 @@
+{
+	"schema": "hiviz@1",
+	"kind": "fixture",
+	"name": "Watermark — channel signature fixture",
+	"description": "Proving fixture for the watermark Overlay (was dead-by-use — referenced by zero presets). A top-right mono channel signature {handle, label} over a plain surface, settling in and out. Verifies the watermark CanvasSource with Pack-resolved ink/accent. Fixture — exercises the pipeline, not held to the deliverable floors.",
+	"pack": "syntax",
+	"state": {
+		"transport": { "orientation": "horizontal", "durationSeconds": 4, "fps": 30, "format": "webm" },
+		"typography": { "fontFamily": "serif", "paperColor": "#ffffff", "inkColor": "#111111" },
+		"marks": { "defaults": {}, "timings": [] },
+		"surface": {
+			"type": "plain",
+			"content": { "body": "Segment one — the setup, with a corner signature anchored top-right." },
+			"enter": { "start": 0, "duration": 0.08, "ease": "settled" },
+			"exit": { "start": 0.9, "duration": 0.08, "ease": "smooth" }
+		},
+		"overlays": [
+			{
+				"type": "watermark",
+				"id": "sig",
+				"content": { "handle": "@syntax", "label": "Watch next" },
+				"position": { "anchor": "top-right", "offset": { "x": 0.0625, "y": 0.0625 } },
+				"enter": { "start": 0.06, "duration": 0.14, "ease": "settled" },
+				"exit": { "start": 0.86, "duration": 0.14, "ease": "smooth" }
+			}
+		],
+		"effects": []
+	}
+}
