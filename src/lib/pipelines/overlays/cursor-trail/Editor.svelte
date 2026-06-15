@@ -2,20 +2,14 @@
 	import type { OverlayEditorProps } from '$lib/platform/pipelines/types';
 	import type { CursorTrailContent } from './index';
 
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	let { overlay = $bindable() }: OverlayEditorProps<CursorTrailContent> = $props();
 </script>
 
-<label class="row">
-	<span>Pointer</span>
-	<select bind:value={overlay.content.pointer}>
-		<option value="mac-pointer">Mac pointer</option>
-		<option value="arrow">Arrow</option>
-		<option value="crosshair">Crosshair</option>
-		<option value="hand-pointer">Hand</option>
-	</select>
-</label>
-
-<p class="row hint">Path is edited in the JSON preset — each entry names a <code>data-text-anim-slot</code> target.</p>
+<p class="row hint">
+	Pointer shape is set by the active Pack (<code>cursor-trail.pointer</code>). Path is edited in the
+	JSON preset — each entry names a <code>data-text-anim-slot</code> target.
+</p>
 
 <style>
 	.hint {

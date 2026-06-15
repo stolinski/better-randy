@@ -61,10 +61,14 @@
 	const angleDeg = $derived((Math.atan2(dy, dx) * 180) / Math.PI);
 	const trailLengthPx = $derived(isMoving ? Math.min(140, Math.hypot(dx, dy) * 0.3) : 0);
 
-	// Pointer shape — resolved by the active Pack via cursor-trail.pointer.
-	// For v1 we render the syntax-Pack default (a small mac-style pointer
-	// triangle) directly here; Pack-aware resolution lands in a follow-up.
-	const pointerKind = $derived(content.pointer ?? 'mac-pointer');
+	// Pointer shape — resolved from the active Pack's cursor-trail.pointer Role
+	// (the pointer asset is appearance, the Pack's job, not overlay content, per
+	// ADR-0023). The four shapes in the template are the intrinsic vocabulary;
+	// the Pack picks which one.
+	const pointerKind = $derived.by(() => {
+		const role = getPack(packState.slug).roles['cursor-trail.pointer'];
+		return role?.kind === 'style' && typeof role.value === 'string' ? role.value : 'mac-pointer';
+	});
 
 	// Trail material — resolved from the active Pack's cursor-trail.trailMaterial
 	// Role. The trail is one colour composed at several alphas along the velocity

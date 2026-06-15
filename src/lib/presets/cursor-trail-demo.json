@@ -36,7 +36,6 @@
 				"type": "cursor-trail",
 				"id": "trail",
 				"content": {
-					"pointer": "mac-pointer",
 					"path": [
 						{ "targetSlot": "title", "dwellMs": 800, "action": "hover" },
 						{ "targetSlot": "author", "dwellMs": 400, "action": "click" },

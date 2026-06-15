@@ -14,7 +14,6 @@ const CursorPathSchema = z.object({
 export type CursorPath = z.infer<typeof CursorPathSchema>;
 
 const CursorTrailContentSchema = z.object({
-	pointer: z.enum(['mac-pointer', 'arrow', 'crosshair', 'hand-pointer']).default('mac-pointer'),
 	path: z.array(CursorPathSchema).min(1)
 });
 
@@ -23,7 +22,6 @@ export type CursorTrailContent = z.infer<typeof CursorTrailContentSchema>;
 function defaults(): OverlayDefaults<CursorTrailContent> {
 	return {
 		content: {
-			pointer: 'mac-pointer',
 			path: [
 				{ targetSlot: 'title', dwellMs: 600, action: 'hover' },
 				{ targetSlot: 'author', dwellMs: 400, action: 'idle' }
