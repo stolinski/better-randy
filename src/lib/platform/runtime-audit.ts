@@ -36,6 +36,27 @@ const PLAIN_ROLE_SELECTORS: readonly RoleSelector[] = [
 	{ role: 'body', bandKey: 'surface-body', selector: 'section > p' }
 ];
 
+const NEWSPAPER_ROLE_SELECTORS: readonly RoleSelector[] = [
+	{ role: 'source', bandKey: 'surface-label', selector: 'header > .newspaper-source__kicker' },
+	{ role: 'title', bandKey: 'surface-title', selector: 'header > h2' },
+	{ role: 'body', bandKey: 'surface-body', selector: 'section > p' },
+	{ role: 'source', bandKey: 'surface-label', selector: 'footer > .newspaper-source__byline' },
+	{ role: 'source', bandKey: 'surface-label', selector: 'footer > .newspaper-source__date' }
+];
+
+/**
+ * Per-surface audit config: which DOM root and role→selector map measures each
+ * Surface. Surfaces absent here are not yet visually audited (G2/G4/T1 skipped);
+ * adding one is a root selector + a RoleSelector list. paper/plain/newspaper are
+ * mapped; chapter-card / pullquote-on-photo / title-sequence / type-hero are not
+ * yet (tracked in roadmap.md — same shape extends to them).
+ */
+const SURFACE_AUDIT_CONFIG: Readonly<Record<string, { root: string; roles: readonly RoleSelector[] }>> = {
+	paper: { root: '.paper-source', roles: PAPER_ROLE_SELECTORS },
+	plain: { root: '.plain-source', roles: PLAIN_ROLE_SELECTORS },
+	newspaper: { root: '.newspaper-source', roles: NEWSPAPER_ROLE_SELECTORS }
+};
+
 type FontKey = 'serif' | 'sans' | 'mono' | 'condensed' | 'unknown';
 
 function classifyFont(fontFamily: string): FontKey {
@@ -264,33 +285,37 @@ function wrapStateAsPreset(state: EngineState, name: string): Preset {
 
 export function captureMeasurement(state: EngineState, name = '(current)'): VisualMeasurement {
 	const preset = wrapStateAsPreset(state, name);
-	const paperRoot = document.querySelector<HTMLElement>('.paper-source');
-	const plainRoot = document.querySelector<HTMLElement>('.plain-source');
+	const config = SURFACE_AUDIT_CONFIG[state.surface.type];
+	const root = config ? document.querySelector<HTMLElement>(config.root) : null;
 	const frameRect = getFrameInSourceCoords(state.transport.orientation);
-	const surface =
-		state.surface.type === 'paper'
-			? paperRoot
-				? measureSurfaceElement(paperRoot, PAPER_ROLE_SELECTORS, frameRect)
-				: null
-			: plainRoot
-				? measureSurfaceElement(plainRoot, PLAIN_ROLE_SELECTORS, frameRect)
-				: null;
+	const surface = config && root ? measureSurfaceElement(root, config.roles, frameRect) : null;
 
 	return { preset, surface };
+}
+
+/**
+ * The issue emitted when a Surface can't be visually measured — distinguishes
+ * "this Surface type has no audit mapping yet" from "the mapped root isn't in
+ * the DOM", so the failure is actionable instead of a misleading paper/plain
+ * message for every other Surface.
+ */
+function surfaceUnavailableIssue(state: EngineState): RubricIssue {
+	const config = SURFACE_AUDIT_CONFIG[state.surface.type];
+	return {
+		rule: 'audit',
+		severity: 'error',
+		path: 'document',
+		message: config
+			? `Surface root "${config.root}" not found in DOM for surface type "${state.surface.type}".`
+			: `Surface type "${state.surface.type}" has no visual-audit mapping yet — G2/G4/T1 are not gated for it.`
+	};
 }
 
 export function runVisualAudit(state: EngineState, name = '(current)'): RubricIssue[] {
 	const measurement = captureMeasurement(state, name);
 
 	if (!measurement.surface) {
-		return [
-			{
-				rule: 'audit',
-				severity: 'error',
-				path: 'document',
-				message: 'No surface root element found in DOM (.paper-source / .plain-source).'
-			}
-		];
+		return [surfaceUnavailableIssue(state)];
 	}
 
 	return lintPresetVisual(measurement);
@@ -310,14 +335,7 @@ export function exposeVisualAudit(state: EngineState, name = '(current)'): void 
 	const measurement = captureMeasurement(state, name);
 	const issues = measurement.surface
 		? lintPresetVisual(measurement)
-		: [
-				{
-					rule: 'audit' as const,
-					severity: 'error' as const,
-					path: 'document',
-					message: 'No surface root element found in DOM (.paper-source / .plain-source).'
-				}
-			];
+		: [surfaceUnavailableIssue(state)];
 
 	window.__hivizVisualAudit = {
 		issues,
