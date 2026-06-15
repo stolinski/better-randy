@@ -16,9 +16,11 @@ function readParam(spec: StrategyInputs['spec'], key: string, fallback: number):
 	return typeof value === 'number' ? value : fallback;
 }
 
-function materializeTitleTransform(keyframe: KeyframeShape, yTravel: number): string {
-	const x = keyframe.x_px ?? 0;
-	const y = (keyframe.y_px ?? 0) * yTravel;
+function materializeTitleTransform(keyframe: KeyframeShape, yTravel: number, isVertical: boolean): string {
+	const kx = keyframe.x_px ?? 0;
+	const ky = keyframe.y_px ?? 0;
+	const x = isVertical ? 0 : kx;
+	const y = (isVertical ? ky + kx : ky) * yTravel;
 	const scale = keyframe.scale ?? 1;
 	return `translate3d(${x}px, ${y}px, 0) scale(${scale})`;
 }
@@ -42,7 +44,8 @@ function interpolate(from: KeyframeShape, to: KeyframeShape, p: number): Keyfram
 }
 
 export function compileSharedSlideOpacityStage(inputs: StrategyInputs): CompileOutputs {
-	const { entry, spec, units, writeUnitAlpha } = inputs;
+	const { entry, spec, units, transport, writeUnitAlpha } = inputs;
+	const isVertical = transport.orientation === 'vertical';
 	const tweens: AnimationTweenSpec[] = [];
 
 	if (units.length === 0) {
@@ -94,7 +97,7 @@ export function compileSharedSlideOpacityStage(inputs: StrategyInputs): CompileO
 		to: 1,
 		onUpdate: (value) => {
 			const frame = interpolate(spec.enter.from, spec.enter.to, value);
-			title.style.transform = materializeTitleTransform(frame, yTravel);
+			title.style.transform = materializeTitleTransform(frame, yTravel, isVertical);
 			title.style.filter = materializeFilter(frame);
 			title.style.opacity = String(frame.opacity ?? 1);
 		}
@@ -131,7 +134,7 @@ export function compileSharedSlideOpacityStage(inputs: StrategyInputs): CompileO
 			to: 1,
 			onUpdate: (value) => {
 				const frame = interpolate(exitFrom, exitTo, value);
-				title.style.transform = materializeTitleTransform(frame, yTravel);
+				title.style.transform = materializeTitleTransform(frame, yTravel, isVertical);
 				title.style.filter = materializeFilter(frame);
 				title.style.opacity = String(frame.opacity ?? 1);
 				// Propagate title opacity into the per-unit alpha map so marks

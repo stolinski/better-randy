@@ -61,10 +61,16 @@ export function computeStaggerOrder(unitCount: number, mode: StaggerMode): numbe
  * Compose the per-unit transform string from a keyframe shape. The order
  * matches the catalog's generic-stagger `frame_materialization.transform_order`:
  *   translate3d(x, y * yTravel, z) rotateX(rx) rotateY(ry) rotate(rz) scale(s)
+ *
+ * On vertical orientation, any horizontal slide (x_px) becomes a vertical slide
+ * so motion stays in the thumb-scroll axis ("left-slide ↔ up-slide" per the
+ * orientation-reflow spec). y_px accumulates both the native y and the remapped x.
  */
-function materializeTransform(keyframe: KeyframeShape, yTravel: number): string {
-	const x = keyframe.x_px ?? 0;
-	const y = (keyframe.y_px ?? 0) * yTravel;
+function materializeTransform(keyframe: KeyframeShape, yTravel: number, isVertical: boolean): string {
+	const kx = keyframe.x_px ?? 0;
+	const ky = keyframe.y_px ?? 0;
+	const x = isVertical ? 0 : kx;
+	const y = (isVertical ? ky + kx : ky) * yTravel;
 	const z = keyframe.z_px ?? 0;
 	const rotateX = keyframe.rotate_x_deg ?? 0;
 	const rotateY = keyframe.rotate_y_deg ?? 0;
@@ -84,14 +90,16 @@ interface UnitStyleWriter {
 }
 
 /** Default writer applied at every tween tick: transform, filter, opacity. */
-const writeUnitFrame: UnitStyleWriter = (element, keyframe, yTravel) => {
-	element.style.transform = materializeTransform(keyframe, yTravel);
-	element.style.filter = materializeFilter(keyframe);
-	element.style.opacity = String(keyframe.opacity ?? 1);
-	if (typeof keyframe.letter_spacing_em === 'number') {
-		element.style.letterSpacing = `${keyframe.letter_spacing_em}em`;
-	}
-};
+function makeUnitFrameWriter(isVertical: boolean): UnitStyleWriter {
+	return (element, keyframe, yTravel) => {
+		element.style.transform = materializeTransform(keyframe, yTravel, isVertical);
+		element.style.filter = materializeFilter(keyframe);
+		element.style.opacity = String(keyframe.opacity ?? 1);
+		if (typeof keyframe.letter_spacing_em === 'number') {
+			element.style.letterSpacing = `${keyframe.letter_spacing_em}em`;
+		}
+	};
+}
 
 /**
  * Build the per-unit interpolated frame at eased progress `p` along the phase's
@@ -250,6 +258,8 @@ export function compileGenericStagger(inputs: StrategyInputs): CompileOutputs {
 
 	const staggerOrder = computeStaggerOrder(units.length, spec.staggerMode);
 	const yTravel = spec.runtime.y_travel_multiplier ?? 1;
+	const isVertical = transport.orientation === 'vertical';
+	const writeUnitFrame = makeUnitFrameWriter(isVertical);
 	const enterEase = gsapEaseFromCss(spec.enter.easing);
 
 	// The FROM frame is written by AnimationManager's own init loop (it calls

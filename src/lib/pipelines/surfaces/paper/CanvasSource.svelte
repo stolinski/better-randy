@@ -4,6 +4,7 @@
 	import { ENGINE_FONT_FAMILIES } from '$lib/platform/engine-schema';
 	import { engineState } from '$lib/platform/engine-state.svelte';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
+	import { getLayoutSafeArea } from '$lib/utils/safe-area';
 
 	interface Props {
 		element?: HTMLElement | null;
@@ -19,13 +20,14 @@
 	const PAPER_ASPECT_RATIO_HORIZONTAL = 1.1;
 	const PAPER_ASPECT_RATIO_VERTICAL = Math.SQRT2;
 	const HEIGHT_RATIO = 0.9; // card spans ~90% of frame height
-	const TITLE_SAFE_MARGIN = 0.05;
 
 	const fontFamily = $derived(ENGINE_FONT_FAMILIES[engineState.typography.fontFamily]);
 	const frame = $derived(getVideoFrameSize(engineState.transport.orientation));
 
 	const layout = $derived.by(() => {
 		const portrait = frame.height > frame.width;
+		const orientation = portrait ? 'vertical' as const : 'horizontal' as const;
+		const safeArea = getLayoutSafeArea(orientation);
 		const aspect = portrait ? PAPER_ASPECT_RATIO_VERTICAL : PAPER_ASPECT_RATIO_HORIZONTAL;
 		const height = frame.height * HEIGHT_RATIO;
 		const width = height / aspect;
@@ -36,7 +38,7 @@
 		// Animating `top` would promote the article into its own paint layer
 		// in Chrome, and that layer-promotion excludes the element from the
 		// WICG `copyElementImageToTexture` capture path (ADR-0017).
-		const y = frame.height * TITLE_SAFE_MARGIN;
+		const y = frame.height * safeArea.top;
 		const startTranslate = frame.height + height * 0.08 - y;
 		const endTranslate = 0;
 		const visibility = Math.max(0, Math.min(1, animState.paperVisibility));

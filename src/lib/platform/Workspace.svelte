@@ -611,21 +611,27 @@
 		pipeline = nextPipeline;
 		pipelineSurfaceType = surfaceType;
 
-		if (!effectChain) {
-			effectChain = new EffectChain({
-				host: localHost,
-				width: localCanvas.width,
-				height: localCanvas.height
-			});
+		// Always recreate EffectChain and ShaderPassDispatcher — their ping-pong
+		// textures are sized to the canvas at construction. When orientation
+		// changes (2160×3840 ↔ 3840×2160), the canvas resizes before this effect
+		// fires, so localCanvas.width/height already reflect the new dimensions.
+		if (effectChain) {
+			effectChain.dispose();
 		}
+		effectChain = new EffectChain({
+			host: localHost,
+			width: localCanvas.width,
+			height: localCanvas.height
+		});
 
-		if (!shaderPassDispatcher) {
-			shaderPassDispatcher = new ShaderPassDispatcher({
-				host: localHost,
-				width: localCanvas.width,
-				height: localCanvas.height
-			});
+		if (shaderPassDispatcher) {
+			shaderPassDispatcher.dispose();
 		}
+		shaderPassDispatcher = new ShaderPassDispatcher({
+			host: localHost,
+			width: localCanvas.width,
+			height: localCanvas.height
+		});
 
 		if (!timeline) {
 			timeline = new Timeline({

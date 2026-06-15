@@ -3,6 +3,7 @@
 	import { ENGINE_FONT_FAMILIES } from '$lib/platform/engine-schema';
 	import { engineState } from '$lib/platform/engine-state.svelte';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
+	import { getLayoutSafeArea } from '$lib/utils/safe-area';
 
 	interface Props {
 		element?: HTMLElement | null;
@@ -12,6 +13,13 @@
 
 	const fontFamily = $derived(ENGINE_FONT_FAMILIES[engineState.typography.fontFamily]);
 	const frame = $derived(getVideoFrameSize(engineState.transport.orientation));
+	const safeArea = $derived(getLayoutSafeArea(engineState.transport.orientation));
+	// Body font-size meets the per-orientation surface-body cap-height floor:
+	//   horizontal (3840w): 0.014 × 3840 = 53.8px → cap ≈ 37.6px ≥ 32px ✓
+	//   vertical (2160w):   0.030 × 2160 = 64.8px → cap ≈ 45.4px ≥ 44px ✓
+	const bodyFontSize = $derived(
+		frame.width * (engineState.transport.orientation === 'vertical' ? 0.030 : 0.014)
+	);
 	const hasBody = $derived(
 		engineState.surface.content.body.some(
 			(block) => block.type === 'paragraph' && block.segments.some((s) => s.text.length > 0)
@@ -26,11 +34,11 @@
 	style:color={engineState.typography.inkColor}
 	style:font-family={fontFamily.stack}
 	style:inline-size={`${frame.width}px`}
-	style:padding={`${frame.height * 0.05}px ${frame.width * 0.06}px`}
+	style:padding={`${frame.height * safeArea.top}px ${frame.width * safeArea.right}px ${frame.height * safeArea.bottom}px ${frame.width * safeArea.left}px`}
 >
 	{#if hasBody}
 		{#key annotationBodyPlainText(engineState.surface.content.body)}
-			<section data-text-anim-slot="body" style:font-size={`${frame.width * 0.014}px`}>
+			<section data-text-anim-slot="body" style:font-size={`${bodyFontSize}px`}>
 				{#each engineState.surface.content.body as block, blockIndex (blockIndex)}
 					{#if block.type === 'paragraph'}
 						<p>

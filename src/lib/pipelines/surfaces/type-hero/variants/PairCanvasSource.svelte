@@ -15,11 +15,16 @@
 	const hasSubtitle = $derived((content.author ?? '').trim().length > 0);
 
 	// Pair variant — primary at full type-hero scale, counterpoint at a
-	// programmatic ratio. Default ratio 0.06 (counterpoint at ~6% of primary
-	// cap-height) per the mo1 signature scale-counterpoint compositional pull
-	// described in the motion-primitives plan.
+	// programmatic ratio. Default ratio 0.06 of primary on horizontal (meets
+	// surface-label floor: 3840 × 0.16 × 0.06 × 0.7 = 25.8px ≥ 24px ✓).
+	// On vertical the ratio-of-ratio is too small (14.5px cap); use a direct
+	// frame-width ratio instead (2160 × 0.022 × 0.7 ≈ 33.3px ≥ 32px ✓).
+	const isVertical = $derived(engineState.transport.orientation === 'vertical');
 	const primaryFontSize = $derived(frame.width * 0.16);
-	const counterpointFontSize = $derived(primaryFontSize * 0.06);
+	const counterpointFontSize = $derived(
+		isVertical ? frame.width * 0.022 : primaryFontSize * 0.06
+	);
+	const subtitleFontSize = $derived(frame.width * (isVertical ? 0.022 : 0.012));
 </script>
 
 <article
@@ -60,7 +65,7 @@
 			<cite
 				class="type-hero-source__subtitle"
 				data-text-anim-slot="author"
-				style:font-size={`${frame.width * 0.012}px`}
+				style:font-size={`${subtitleFontSize}px`}
 			>
 				{content.author}
 			</cite>

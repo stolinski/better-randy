@@ -7,6 +7,7 @@ import type {
 	SurfaceState,
 	Transition
 } from './engine-schema.ts';
+import { getLayoutSafeArea } from '../utils/safe-area.ts';
 
 export type RubricSeverity = 'error' | 'warn';
 
@@ -85,11 +86,6 @@ const LINE_HEIGHT_SERIF_MAX = 1.42;
 const LINE_HEIGHT_SANS_MIN = 1.32;
 const LINE_HEIGHT_SANS_MAX = 1.5;
 const MAX_LINES_PER_PARAGRAPH = 8;
-
-const TITLE_SAFE_MARGIN_PCT = 0.05;
-const VERTICAL_TOP_BAND_PCT = 0.06;
-const VERTICAL_BOTTOM_BAND_PCT = 0.16;
-const VERTICAL_RIGHT_BAND_PCT = 0.09;
 
 const LOWER_THIRD_OFFSET_Y_MIN_PCT_HORIZONTAL = 0.1;
 const LOWER_THIRD_OFFSET_Y_MAX_PCT_HORIZONTAL = 0.28;
@@ -232,6 +228,8 @@ function checkOverlayPlacement(
 	orientation: 'horizontal' | 'vertical',
 	issues: RubricIssue[]
 ): void {
+	const sa = getLayoutSafeArea(orientation);
+
 	for (const [index, overlay] of overlays.entries()) {
 		const path = `overlays[${index}].position`;
 		const anchor = overlay.position.anchor;
@@ -240,83 +238,56 @@ function checkOverlayPlacement(
 
 		if (anchor === 'normalized-rect' && rect) {
 			if (
-				rect.x < TITLE_SAFE_MARGIN_PCT ||
-				rect.y < TITLE_SAFE_MARGIN_PCT ||
-				rect.x + rect.width > 1 - TITLE_SAFE_MARGIN_PCT ||
-				rect.y + rect.height > 1 - TITLE_SAFE_MARGIN_PCT
+				rect.x < sa.left ||
+				rect.y < sa.top ||
+				rect.x + rect.width > 1 - sa.right ||
+				rect.y + rect.height > 1 - sa.bottom
 			) {
 				issues.push({
 					rule: 'G2',
 					severity: 'error',
 					path: `${path}.rect`,
-					message: `Overlay rect extends outside title-safe (5% margin) zone.`
+					message: `Overlay rect extends outside the ${orientation} safe zone (top ${(sa.top * 100).toFixed(0)}% / right ${(sa.right * 100).toFixed(0)}% / bottom ${(sa.bottom * 100).toFixed(0)}% / left ${(sa.left * 100).toFixed(0)}%).`
 				});
 			}
 		} else if (offset) {
-			// Offsets are fractions of the composition dimensions (0..1).
-			if (anchor.includes('left') && offset.x < TITLE_SAFE_MARGIN_PCT) {
+			// Offsets are fractions of the composition dimensions (0..1). Use the
+			// orientation-specific safe-area margins from getLayoutSafeArea so the
+			// linter and CanvasSource layout agree on the same numbers.
+			if (anchor.includes('left') && offset.x < sa.left) {
 				issues.push({
 					rule: 'G2',
 					severity: 'error',
 					path: `${path}.offset.x`,
-					message: `Anchor "${anchor}" requires offset.x ≥ ${TITLE_SAFE_MARGIN_PCT} (${(TITLE_SAFE_MARGIN_PCT * 100).toFixed(0)}%) to clear title-safe; got ${offset.x}.`
+					message: `Anchor "${anchor}" requires offset.x ≥ ${sa.left} (${(sa.left * 100).toFixed(0)}% left safe-area for ${orientation}); got ${offset.x}.`
 				});
 			}
 
-			if (anchor.includes('top') && offset.y < TITLE_SAFE_MARGIN_PCT) {
-				issues.push({
-					rule: 'G2',
-					severity: 'error',
-					path: `${path}.offset.y`,
-					message: `Anchor "${anchor}" requires offset.y ≥ ${TITLE_SAFE_MARGIN_PCT} (${(TITLE_SAFE_MARGIN_PCT * 100).toFixed(0)}%) to clear title-safe; got ${offset.y}.`
-				});
-			}
-
-			if (anchor.includes('bottom') && offset.y < TITLE_SAFE_MARGIN_PCT) {
-				issues.push({
-					rule: 'G2',
-					severity: 'error',
-					path: `${path}.offset.y`,
-					message: `Anchor "${anchor}" requires offset.y ≥ ${TITLE_SAFE_MARGIN_PCT} (${(TITLE_SAFE_MARGIN_PCT * 100).toFixed(0)}%) to clear title-safe; got ${offset.y}.`
-				});
-			}
-
-			if (anchor.includes('right') && offset.x < TITLE_SAFE_MARGIN_PCT) {
+			if (anchor.includes('right') && offset.x < sa.right) {
 				issues.push({
 					rule: 'G2',
 					severity: 'error',
 					path: `${path}.offset.x`,
-					message: `Anchor "${anchor}" requires offset.x ≥ ${TITLE_SAFE_MARGIN_PCT} (${(TITLE_SAFE_MARGIN_PCT * 100).toFixed(0)}%) to clear title-safe; got ${offset.x}.`
+					message: `Anchor "${anchor}" requires offset.x ≥ ${sa.right} (${(sa.right * 100).toFixed(0)}% right safe-area for ${orientation}); got ${offset.x}.`
 				});
 			}
 
-			if (orientation === 'vertical') {
-				if (anchor.includes('top') && offset.y < VERTICAL_TOP_BAND_PCT) {
-					issues.push({
-						rule: 'G3',
-						severity: 'error',
-						path: `${path}.offset.y`,
-						message: `Vertical platform-UI: top anchors need offset.y ≥ ${VERTICAL_TOP_BAND_PCT} (${(VERTICAL_TOP_BAND_PCT * 100).toFixed(0)}%); got ${offset.y}.`
-					});
-				}
+			if (anchor.includes('top') && offset.y < sa.top) {
+				issues.push({
+					rule: 'G2',
+					severity: 'error',
+					path: `${path}.offset.y`,
+					message: `Anchor "${anchor}" requires offset.y ≥ ${sa.top} (${(sa.top * 100).toFixed(0)}% top safe-area for ${orientation}); got ${offset.y}.`
+				});
+			}
 
-				if (anchor.includes('bottom') && offset.y < VERTICAL_BOTTOM_BAND_PCT) {
-					issues.push({
-						rule: 'G3',
-						severity: 'error',
-						path: `${path}.offset.y`,
-						message: `Vertical platform-UI: bottom anchors need offset.y ≥ ${VERTICAL_BOTTOM_BAND_PCT} (${(VERTICAL_BOTTOM_BAND_PCT * 100).toFixed(0)}%); got ${offset.y}.`
-					});
-				}
-
-				if (anchor.includes('right') && offset.x < VERTICAL_RIGHT_BAND_PCT) {
-					issues.push({
-						rule: 'G3',
-						severity: 'error',
-						path: `${path}.offset.x`,
-						message: `Vertical platform-UI: right anchors need offset.x ≥ ${VERTICAL_RIGHT_BAND_PCT} (${(VERTICAL_RIGHT_BAND_PCT * 100).toFixed(0)}%); got ${offset.x}.`
-					});
-				}
+			if (anchor.includes('bottom') && offset.y < sa.bottom) {
+				issues.push({
+					rule: 'G2',
+					severity: 'error',
+					path: `${path}.offset.y`,
+					message: `Anchor "${anchor}" requires offset.y ≥ ${sa.bottom} (${(sa.bottom * 100).toFixed(0)}% bottom safe-area for ${orientation}); got ${offset.y}.`
+				});
 			}
 		}
 
@@ -628,7 +599,7 @@ export function lintPresetVisual(measurement: VisualMeasurement): RubricIssue[] 
 	// Per ADR-0025 the visual linter carries readability + safety only.
 	// Title:body hierarchy ratio and T1 card-mass are composition taste (Critic).
 	if (measurement.surface) {
-		checkSurfaceTextSafety(measurement.surface, frame, issues);
+		checkSurfaceTextSafety(measurement.surface, frame, orientation, issues);
 		checkSurfaceCapHeights(measurement.surface, orientation, issues);
 		checkSurfaceDensity(measurement.surface, issues);
 	}
@@ -639,6 +610,7 @@ export function lintPresetVisual(measurement: VisualMeasurement): RubricIssue[] 
 function checkSurfaceTextSafety(
 	surface: RenderedSurfaceMeasurement,
 	frame: FrameSize,
+	orientation: 'horizontal' | 'vertical',
 	issues: RubricIssue[]
 ): void {
 	const bounds = surface.textBounds;
@@ -648,10 +620,11 @@ function checkSurfaceTextSafety(
 		return;
 	}
 
-	const xMin = TITLE_SAFE_MARGIN_PCT * frame.width;
-	const yMin = TITLE_SAFE_MARGIN_PCT * frame.height;
-	const xMax = (1 - TITLE_SAFE_MARGIN_PCT) * frame.width;
-	const yMax = (1 - TITLE_SAFE_MARGIN_PCT) * frame.height;
+	const sa = getLayoutSafeArea(orientation);
+	const xMin = sa.left * frame.width;
+	const yMin = sa.top * frame.height;
+	const xMax = (1 - sa.right) * frame.width;
+	const yMax = (1 - sa.bottom) * frame.height;
 
 	if (bounds.x < xMin || bounds.y < yMin || bounds.x + bounds.width > xMax || bounds.y + bounds.height > yMax) {
 		issues.push({

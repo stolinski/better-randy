@@ -12,6 +12,12 @@
 	const content = $derived(engineState.surface.content);
 	const hasTitle = $derived((content.title ?? '').trim().length > 0);
 	const hasSubtitle = $derived((content.author ?? '').trim().length > 0);
+	// Subtitle meets the surface-label cap-height floor per orientation:
+	//   horizontal (3840w): 0.012 × 3840 = 46.1px → cap ≈ 32.3px ≥ 24px ✓
+	//   vertical (2160w):   0.022 × 2160 = 47.5px → cap ≈ 33.3px ≥ 32px ✓
+	const subtitleFontSize = $derived(
+		frame.width * (engineState.transport.orientation === 'vertical' ? 0.022 : 0.012)
+	);
 </script>
 
 <article
@@ -40,7 +46,7 @@
 			<cite
 				class="type-hero-source__subtitle"
 				data-text-anim-slot="author"
-				style:font-size={`${frame.width * 0.012}px`}
+				style:font-size={`${subtitleFontSize}px`}
 			>
 				{content.author}
 			</cite>
