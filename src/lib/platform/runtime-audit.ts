@@ -44,17 +44,34 @@ const NEWSPAPER_ROLE_SELECTORS: readonly RoleSelector[] = [
 	{ role: 'source', bandKey: 'surface-label', selector: 'footer > .newspaper-source__date' }
 ];
 
-/**
- * Per-surface audit config: which DOM root and role→selector map measures each
- * Surface. Surfaces absent here are not yet visually audited (G2/G4/T1 skipped);
- * adding one is a root selector + a RoleSelector list. paper/plain/newspaper are
- * mapped; chapter-card / pullquote-on-photo / title-sequence / type-hero are not
- * yet (tracked in roadmap.md — same shape extends to them).
- */
+const CHAPTER_CARD_ROLE_SELECTORS: readonly RoleSelector[] = [
+	{ role: 'source', bandKey: 'surface-label', selector: '.chapter-card-source__kicker' },
+	{ role: 'title', bandKey: 'surface-title', selector: '.chapter-card-source__title' }
+];
+
+const PULLQUOTE_ROLE_SELECTORS: readonly RoleSelector[] = [
+	{ role: 'title', bandKey: 'surface-title', selector: '.pullquote-source__quote' },
+	{ role: 'source', bandKey: 'surface-label', selector: '.pullquote-source__attribution' }
+];
+
+const TITLE_SEQUENCE_ROLE_SELECTORS: readonly RoleSelector[] = [
+	{ role: 'source', bandKey: 'surface-label', selector: '.title-sequence-source__kicker' },
+	{ role: 'title', bandKey: 'surface-title', selector: '.title-sequence-source__title' }
+];
+
+const TYPE_HERO_ROLE_SELECTORS: readonly RoleSelector[] = [
+	{ role: 'title', bandKey: 'surface-title', selector: '.type-hero-source__hero' },
+	{ role: 'source', bandKey: 'surface-label', selector: '.type-hero-source__subtitle' }
+];
+
 const SURFACE_AUDIT_CONFIG: Readonly<Record<string, { root: string; roles: readonly RoleSelector[] }>> = {
 	paper: { root: '.paper-source', roles: PAPER_ROLE_SELECTORS },
 	plain: { root: '.plain-source', roles: PLAIN_ROLE_SELECTORS },
-	newspaper: { root: '.newspaper-source', roles: NEWSPAPER_ROLE_SELECTORS }
+	newspaper: { root: '.newspaper-source', roles: NEWSPAPER_ROLE_SELECTORS },
+	'chapter-card': { root: '.chapter-card-source', roles: CHAPTER_CARD_ROLE_SELECTORS },
+	'pullquote-on-photo': { root: '.pullquote-source', roles: PULLQUOTE_ROLE_SELECTORS },
+	'title-sequence': { root: '.title-sequence-source', roles: TITLE_SEQUENCE_ROLE_SELECTORS },
+	'type-hero': { root: '.type-hero-source', roles: TYPE_HERO_ROLE_SELECTORS }
 };
 
 type FontKey = 'serif' | 'sans' | 'mono' | 'condensed' | 'unknown';
