@@ -25,7 +25,6 @@ export const plain: SurfaceRenderer = {
 	CanvasSource,
 	defaults,
 	createPipeline(opts): SurfaceRenderInstance {
-		const inner = createPlainPipeline(opts);
-		return inner as unknown as SurfaceRenderInstance;
+		return createPlainPipeline(opts);
 	}
 };

@@ -39,7 +39,6 @@ export const pullquoteOnPhoto: SurfaceRenderer = {
 	defaults,
 	shaderPass: pullquotePhotoBackdrop,
 	createPipeline(opts): SurfaceRenderInstance {
-		const inner = createPlainPipeline(opts);
-		return inner as unknown as SurfaceRenderInstance;
+		return createPlainPipeline(opts);
 	}
 };

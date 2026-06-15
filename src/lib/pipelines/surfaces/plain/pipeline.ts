@@ -7,6 +7,7 @@ import {
 } from '$lib/annotations/annotation-marks';
 import { getHtmlInCanvasQueue } from '$lib/platform/html-in-canvas';
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
+import type { SurfaceAnimState, SurfaceRenderInputs, SurfaceRenderInstance } from '$lib/platform/pipelines/types';
 
 const TEXTURE_USAGE_COPY_SRC = 0x01;
 const TEXTURE_USAGE_COPY_DST = 0x02;
@@ -17,29 +18,7 @@ const DOM_TEXTURE_USAGE =
 const OUTPUT_TEXTURE_USAGE =
 	TEXTURE_USAGE_TEXTURE_BINDING | TEXTURE_USAGE_COPY_SRC | TEXTURE_USAGE_RENDER_ATTACHMENT;
 
-export interface PlainAnimState {
-	bodyVisibility: number;
-	markProgresses: number[];
-}
-
-export interface PlainRenderInputs {
-	animState: PlainAnimState;
-	markColorsByIndex: readonly string[];
-	markIntensityByIndex: readonly number[];
-	/**
-	 * Per-mark alpha attenuation from the text-animation manager (ADR-0011).
-	 * Index-aligned with `markColorsByIndex`. `1` is a no-op.
-	 */
-	textAnimAlphaByMarkIndex?: readonly number[];
-	timestamp: number;
-}
-
-export interface PlainPipeline {
-	dispose(): void;
-	getOutputTexture(): GPUTexture;
-	render(inputs: PlainRenderInputs): void;
-	uploadDom(): void;
-}
+export type { SurfaceAnimState as PlainAnimState, SurfaceRenderInputs as PlainRenderInputs, SurfaceRenderInstance as PlainPipeline };
 
 export interface CreatePlainPipelineOptions {
 	host: GpuHost;
@@ -88,7 +67,7 @@ const composeFragmentFn = tgpu['~unstable']
 export function createPlainPipeline({
 	host,
 	sourceElement
-}: CreatePlainPipelineOptions): PlainPipeline {
+}: CreatePlainPipelineOptions): SurfaceRenderInstance {
 	const { canvas, device, root } = host;
 	const canvasWidth = canvas.width;
 	const canvasHeight = canvas.height;
@@ -148,7 +127,7 @@ export function createPlainPipeline({
 		});
 	}
 
-	function render(inputs: PlainRenderInputs): void {
+	function render(inputs: SurfaceRenderInputs): void {
 		const fullLayout: AnnotationFrameLayout = {
 			x: 0,
 			y: 0,

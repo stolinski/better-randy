@@ -39,7 +39,6 @@ export const titleSequence: SurfaceRenderer = {
 	defaults,
 	shaderPass: titleSequenceDrop,
 	createPipeline(opts): SurfaceRenderInstance {
-		const inner = createPlainPipeline(opts);
-		return inner as unknown as SurfaceRenderInstance;
+		return createPlainPipeline(opts);
 	}
 };

@@ -71,7 +71,6 @@ export const newspaper: SurfaceRenderer = {
 	defaults,
 	shaderPass: newspaperPhysics,
 	createPipeline(opts): SurfaceRenderInstance {
-		const inner = createPaperPipeline(opts);
-		return inner as unknown as SurfaceRenderInstance;
+		return createPaperPipeline(opts);
 	}
 };

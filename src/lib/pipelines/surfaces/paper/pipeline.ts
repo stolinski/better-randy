@@ -12,7 +12,7 @@ import { liftOut } from '$lib/pipelines/annotations/lift-out';
 import { magnify } from '$lib/pipelines/annotations/magnify';
 import { tearOut } from '$lib/pipelines/annotations/tear-out';
 import { getHtmlInCanvasQueue } from '$lib/platform/html-in-canvas';
-import type { AnnotationRenderer } from '$lib/platform/pipelines/types';
+import type { AnnotationRenderer, SurfaceAnimState, SurfaceRenderInputs, SurfaceRenderInstance } from '$lib/platform/pipelines/types';
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
 
 const TEXTURE_USAGE_COPY_SRC = 0x01;
@@ -41,32 +41,7 @@ const FOCAL_RENDERERS: Partial<Record<AnnotationMarkStyle, AnnotationRenderer>> 
 	isolate
 };
 
-export interface PaperAnimState {
-	markProgresses: number[];
-	paperVisibility: number;
-}
-
-export interface PaperRenderInputs {
-	animState: PaperAnimState;
-	backgroundVisibility: number;
-	markColorsByIndex: readonly string[];
-	markIntensityByIndex: readonly number[];
-	/**
-	 * Per-mark alpha attenuation from the text-animation manager (ADR-0011).
-	 * `1` means "no attenuation" — index-aligned with `markColorsByIndex`.
-	 * Optional so the surface pipeline still renders when the preset has no
-	 * textAnimations entries.
-	 */
-	textAnimAlphaByMarkIndex?: readonly number[];
-	timestamp: number;
-}
-
-export interface PaperPipeline {
-	dispose(): void;
-	getOutputTexture(): GPUTexture;
-	render(inputs: PaperRenderInputs): void;
-	uploadDom(): void;
-}
+export type { SurfaceAnimState as PaperAnimState, SurfaceRenderInputs as PaperRenderInputs, SurfaceRenderInstance as PaperPipeline };
 
 export interface CreatePaperPipelineOptions {
 	host: GpuHost;
@@ -616,7 +591,7 @@ function buildFocalSlots(
 export function createPaperPipeline({
 	host,
 	sourceElement
-}: CreatePaperPipelineOptions): PaperPipeline {
+}: CreatePaperPipelineOptions): SurfaceRenderInstance {
 	const { canvas, device, root } = host;
 	const canvasWidth = canvas.width;
 	const canvasHeight = canvas.height;
@@ -699,7 +674,7 @@ export function createPaperPipeline({
 
 	function renderMarks(
 		layouts: readonly AnnotationMarkLayout[],
-		inputs: PaperRenderInputs,
+		inputs: SurfaceRenderInputs,
 		progressByIndex: readonly number[]
 	): void {
 		highlightContext.clearRect(0, 0, canvasWidth, canvasHeight);
@@ -739,7 +714,7 @@ export function createPaperPipeline({
 		);
 	}
 
-	function render(inputs: PaperRenderInputs): void {
+	function render(inputs: SurfaceRenderInputs): void {
 		const compositionLayout: AnnotationFrameLayout = {
 			x: 0,
 			y: 0,
@@ -772,7 +747,7 @@ export function createPaperPipeline({
 
 		uniformBuffer.write({
 			focalSlotCount: focalSlots.length,
-			bgFloor: Math.max(0, Math.min(1, inputs.backgroundVisibility)),
+			bgFloor: Math.max(0, Math.min(1, inputs.backgroundVisibility ?? 0)),
 			focalSlots: paddedSlots
 		});
 

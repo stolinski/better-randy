@@ -74,12 +74,22 @@ export interface PipelineFactoryOptions {
 	sourceElement: HTMLElement;
 }
 
+export interface SurfaceAnimState {
+	markProgresses: number[];
+}
+
 export interface SurfaceRenderInputs {
+	animState: SurfaceAnimState;
+	backgroundVisibility?: number;
+	markColorsByIndex: readonly string[];
+	markIntensityByIndex: readonly number[];
+	textAnimAlphaByMarkIndex?: readonly number[];
 	timestamp: number;
 }
 
 export interface SurfaceRenderInstance {
 	dispose(): void;
+	getOutputTexture(): GPUTexture;
 	render(inputs: SurfaceRenderInputs): void;
 	uploadDom(): void;
 }

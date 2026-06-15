@@ -11,7 +11,7 @@
 		ShaderPassDispatcher,
 		type ShaderPassDispatchList
 	} from './pipelines/shader-pass-runner';
-	import type { OverlayRenderer, ShaderPass } from './pipelines/types';
+	import type { OverlayRenderer, ShaderPass, SurfaceRenderInstance, SurfaceRenderInputs } from './pipelines/types';
 	import Controls from './Controls.svelte';
 	import ControlPanel from './ControlPanel.svelte';
 	import ExportPanel from './ExportPanel.svelte';
@@ -32,16 +32,8 @@
 	import { engineState, ensureMarkTimingAtIndex } from './engine-state.svelte';
 	import { measureOverlayBoundsPx } from '$lib/utils/overlay-bounds';
 
-	import {
-		createPaperPipeline,
-		type PaperPipeline,
-		type PaperRenderInputs
-	} from '$lib/pipelines/surfaces/paper/pipeline';
-	import {
-		createPlainPipeline,
-		type PlainPipeline,
-		type PlainRenderInputs
-	} from '$lib/pipelines/surfaces/plain/pipeline';
+	import { createPaperPipeline } from '$lib/pipelines/surfaces/paper/pipeline';
+	import { createPlainPipeline } from '$lib/pipelines/surfaces/plain/pipeline';
 	import {
 		downloadVideoBlob,
 		exportTransparentProRes,
@@ -56,7 +48,7 @@
 	let surfaceElement = $state<HTMLElement | null>(null);
 	let canvas = $state.raw<HTMLCanvasElement | null>(null);
 	let host = $state.raw<GpuHost | null>(null);
-	let pipeline = $state.raw<PaperPipeline | PlainPipeline | null>(null);
+	let pipeline = $state.raw<SurfaceRenderInstance | null>(null);
 	let pipelineSurfaceType = $state.raw<SurfaceType | null>(null);
 	let effectChain = $state.raw<EffectChain | null>(null);
 	let shaderPassDispatcher = $state.raw<ShaderPassDispatcher | null>(null);
@@ -255,14 +247,10 @@
 		);
 	}
 
-	function buildRenderInputs(timestamp: number): PaperRenderInputs | PlainRenderInputs {
+	function buildRenderInputs(timestamp: number): SurfaceRenderInputs {
 		const parsedMarks = readMarks();
 		return {
-			animState: {
-				paperVisibility: animState.paperVisibility,
-				bodyVisibility: animState.paperVisibility,
-				markProgresses: animState.markProgresses
-			},
+			animState: { markProgresses: animState.markProgresses },
 			backgroundVisibility: engineState.surface.backgroundVisibility ?? 0,
 			markColorsByIndex: getMarkColorsByIndex(),
 			markIntensityByIndex: getMarkIntensityByIndex(),
@@ -544,7 +532,7 @@
 			return;
 		}
 
-		pipeline.render(buildRenderInputs(timestamp) as PaperRenderInputs & PlainRenderInputs);
+		pipeline.render(buildRenderInputs(timestamp));
 
 		const commandEncoder = host.device.createCommandEncoder();
 
@@ -610,7 +598,7 @@
 		// follow-up shipped alongside the equivalent overlay-side wiring for
 		// ADR-0005's `OverlayRenderer.shaderPass`.
 		const usesPaperPipeline = surfaceType === 'paper' || surfaceType === 'newspaper';
-		const nextPipeline: PaperPipeline | PlainPipeline = usesPaperPipeline
+		const nextPipeline: SurfaceRenderInstance = usesPaperPipeline
 			? createPaperPipeline({ host: localHost, sourceElement: localSource })
 			: createPlainPipeline({ host: localHost, sourceElement: localSource });
 
@@ -854,17 +842,13 @@
 			activePipeline.uploadDom();
 			const parsedMarksForExport = readMarks();
 			activePipeline.render({
-				animState: {
-					paperVisibility: animState.paperVisibility,
-					bodyVisibility: animState.paperVisibility,
-					markProgresses: animState.markProgresses
-				},
+				animState: { markProgresses: animState.markProgresses },
 				backgroundVisibility: engineState.surface.backgroundVisibility ?? 0,
 				markColorsByIndex,
 				markIntensityByIndex,
 				textAnimAlphaByMarkIndex: computeTextAnimAlphaByMarkIndex(parsedMarksForExport),
 				timestamp
-			} as PaperRenderInputs & PlainRenderInputs);
+			});
 
 			if (host && effectChain && shaderPassDispatcher) {
 				const commandEncoder = host.device.createCommandEncoder();

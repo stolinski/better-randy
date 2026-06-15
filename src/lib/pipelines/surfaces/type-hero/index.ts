@@ -41,8 +41,7 @@ export const typeHero: SurfaceRenderer = {
 	defaults,
 	shaderPass: typeHeroRake,
 	createPipeline(opts): SurfaceRenderInstance {
-		const inner = createPlainPipeline(opts);
-		return inner as unknown as SurfaceRenderInstance;
+		return createPlainPipeline(opts);
 	}
 };
 
