@@ -13,6 +13,7 @@
  * Only string-valued `style` Roles become CSS vars; structural Roles (edge
  * recipes, depth rigs, chrome) are consumed in code, not here.
  */
+import { getRgbColorChannels } from '$lib/utils/color';
 import type { PackManifest } from './types';
 
 const CORE_APPEARANCE = ['fill', 'ink', 'accent', 'edge', 'depth', 'light'] as const;
@@ -141,4 +142,44 @@ export function resolveDepthTreatment(
 		blur: rig.blur ?? 0,
 		color: rig.color === undefined || rig.color === 'fg' ? foreground : rig.color
 	};
+}
+
+/**
+ * Resolve a Pack colour Role to an `"R G B"` channel triplet, for composing the
+ * *same* colour at several alphas in CSS (`rgb(var(--x) / <a>)`) — the cases the
+ * whole-colour var path (`resolveAppearanceVars`) can't carry: gradient stops
+ * and alpha fades where one Pack colour drives every stop. The Role's value may
+ * be a bare hex string or an object whose `color` field holds the hex. Falls
+ * back to `fallbackHex` when the Role is absent, non-hex, or unparseable.
+ *
+ * This is the CSS form of the rgb-channel resolver. The GPU-uniform form
+ * (colour → vec3/vec4 float for a shaderPass) is deferred until a *surviving*
+ * shader pipeline needs it — `shader-fill` is dead-by-use pending prove-or-remove.
+ */
+export function resolveColorChannels(
+	manifest: PackManifest,
+	role: string,
+	fallbackHex: string
+): string {
+	const entry = manifest.roles[role];
+	let hex = fallbackHex;
+	if (entry && entry.kind === 'style') {
+		const value = entry.value;
+		if (typeof value === 'string') {
+			hex = value;
+		} else if (
+			value !== null &&
+			typeof value === 'object' &&
+			typeof (value as { color?: unknown }).color === 'string'
+		) {
+			hex = (value as { color: string }).color;
+		}
+	}
+	try {
+		const { red, green, blue } = getRgbColorChannels(hex);
+		return `${red} ${green} ${blue}`;
+	} catch {
+		const { red, green, blue } = getRgbColorChannels(fallbackHex);
+		return `${red} ${green} ${blue}`;
+	}
 }

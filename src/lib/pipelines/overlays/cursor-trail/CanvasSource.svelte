@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { animState } from '$lib/platform/anim-state.svelte';
+	import { packState } from '$lib/platform/engine-state.svelte';
+	import { getPack } from '$lib/platform/packs/registry';
+	import { resolveColorChannels } from '$lib/platform/packs/resolve';
 	import type { CursorTrailContent, CursorPath } from './index';
 
 	interface Props {
@@ -62,6 +65,25 @@
 	// For v1 we render the syntax-Pack default (a small mac-style pointer
 	// triangle) directly here; Pack-aware resolution lands in a follow-up.
 	const pointerKind = $derived(content.pointer ?? 'mac-pointer');
+
+	// Trail material — resolved from the active Pack's cursor-trail.trailMaterial
+	// Role. The trail is one colour composed at several alphas along the velocity
+	// fade, so the colour is carried as an rgb-channel var (resolveColorChannels)
+	// and `rgb(var(--trail-rgb) / <a>)` sets each stop; `softness` (0..1) drives
+	// the gradient falloff midpoint.
+	const trail = $derived.by(() => {
+		const pack = getPack(packState.slug);
+		const role = pack.roles['cursor-trail.trailMaterial'];
+		const material =
+			role?.kind === 'style' && role.value !== null && typeof role.value === 'object'
+				? (role.value as { softness?: number })
+				: null;
+		const softness = typeof material?.softness === 'number' ? material.softness : 0.35;
+		return {
+			channels: resolveColorChannels(pack, 'cursor-trail.trailMaterial', '#ffffff'),
+			softStop: `${Math.round(softness * 100)}%`
+		};
+	});
 </script>
 
 <aside
@@ -71,6 +93,8 @@
 	style:--cursor-y={`${cursorY}px`}
 	style:--trail-angle={`${angleDeg}deg`}
 	style:--trail-length={`${trailLengthPx}px`}
+	style:--trail-rgb={trail.channels}
+	style:--trail-soft={trail.softStop}
 >
 	<div class="cursor-trail-overlay__trail" aria-hidden="true"></div>
 	<div class="cursor-trail-overlay__pointer" data-pointer={pointerKind} aria-hidden="true">
@@ -118,9 +142,9 @@
 	.cursor-trail-overlay__trail {
 		background: linear-gradient(
 			to left,
-			rgba(255, 255, 255, 0.65) 0%,
-			rgba(255, 255, 255, 0.2) 40%,
-			rgba(255, 255, 255, 0) 100%
+			rgb(var(--trail-rgb, 255 255 255) / 0.65) 0%,
+			rgb(var(--trail-rgb, 255 255 255) / 0.2) var(--trail-soft, 40%),
+			rgb(var(--trail-rgb, 255 255 255) / 0) 100%
 		);
 		block-size: 6px;
 		inline-size: var(--trail-length);

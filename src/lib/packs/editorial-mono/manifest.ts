@@ -36,6 +36,11 @@ export const editorialMonoPack: PackManifest = {
 		'newspaper.depth': { kind: 'style', value: 'none' },
 		'type-hero.ink': { kind: 'style', value: '#eef3f8' },
 		'type-hero.accent': { kind: 'style', value: '#22d3ee' },
-		'type-hero.byline': { kind: 'style', value: '#8aa0b4' }
+		'type-hero.byline': { kind: 'style', value: '#8aa0b4' },
+		// Skipped-color re-skins — prove the rgb-channel + grain Roles reach
+		// pixels: a cool trail fade (vs syntax's warm) and a cool-cast tape grain.
+		'cursor-trail.trailMaterial': { kind: 'style', value: { color: '#bfe4ff', softness: 0.5 } },
+		'washi-tape.grain-dark': { kind: 'style', value: 'rgba(8, 24, 40, 0.1)' },
+		'washi-tape.grain-light': { kind: 'style', value: 'rgba(220, 240, 255, 0.07)' }
 	}
 };

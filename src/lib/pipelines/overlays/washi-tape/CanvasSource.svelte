@@ -50,17 +50,17 @@
 		background:
 			repeating-linear-gradient(
 				90deg,
-				rgba(0, 0, 0, 0) 0,
-				rgba(0, 0, 0, 0) 3px,
-				rgba(0, 0, 0, 0.08) 3px,
-				rgba(0, 0, 0, 0.08) 4px
+				transparent 0,
+				transparent 3px,
+				var(--grain-dark, rgba(0, 0, 0, 0.08)) 3px,
+				var(--grain-dark, rgba(0, 0, 0, 0.08)) 4px
 			),
 			repeating-linear-gradient(
 				0deg,
-				rgba(255, 255, 255, 0) 0,
-				rgba(255, 255, 255, 0) 6px,
-				rgba(255, 255, 255, 0.06) 6px,
-				rgba(255, 255, 255, 0.06) 7px
+				transparent 0,
+				transparent 6px,
+				var(--grain-light, rgba(255, 255, 255, 0.06)) 6px,
+				var(--grain-light, rgba(255, 255, 255, 0.06)) 7px
 			);
 		display: block;
 		inset: 0;

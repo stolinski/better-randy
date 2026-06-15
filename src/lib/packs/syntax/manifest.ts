@@ -127,15 +127,23 @@ export const syntaxPack: PackManifest = {
 		'counter.ink': { kind: 'style', value: '#fffaf2' },
 		'instance-stack.ink': { kind: 'style', value: '#fffaf2' },
 		'text-3d.ink': { kind: 'style', value: '#fffaf2' },
+		// Washi-tape procedural grain — the dark/light fibre stops in the tape's
+		// gradient stack (alpha-bound; previously inline literals, now Pack-routed).
+		'washi-tape.grain-dark': { kind: 'style', value: 'rgba(0, 0, 0, 0.08)' },
+		'washi-tape.grain-light': { kind: 'style', value: 'rgba(255, 255, 255, 0.06)' },
 		'lower-third.edge': { kind: 'style', value: { rule: 'vertical-accent', color: '#fabf47' } },
 		'lower-third.depth': { kind: 'style', value: 'flat' },
 		'lower-third.light': { kind: 'style', value: { standard: 'none', cinematic: 'anamorphic-flare' } },
 
 		// ---------------- motion-primitives v1 (Phase 4.2-4.4) ----------------
 		'cursor-trail.pointer': { kind: 'style', value: 'mac-pointer' },
+		// Trail material — the CanvasSource composes this one colour at several
+		// alphas (rgb-channel var, via resolveColorChannels) for the velocity
+		// fade; `softness` sets the gradient falloff midpoint. A warm off-white
+		// realises the channel's long-declared `linear-fade-warm` intent.
 		'cursor-trail.trailMaterial': {
 			kind: 'style',
-			value: { gradient: 'linear-fade-warm', softness: 0.35 }
+			value: { color: '#ffe9c8', softness: 0.35 }
 		},
 
 		'instance-stack.edge': { kind: 'style', value: 'clean-vector' },
