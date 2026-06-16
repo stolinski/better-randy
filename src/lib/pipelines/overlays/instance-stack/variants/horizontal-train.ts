@@ -1,9 +1,6 @@
 import type { InstanceStackVariant } from './types';
 import HorizontalTrainCanvasSource from './HorizontalTrainCanvasSource.svelte';
 
-const LAG_WINDOW = 0.5;
-const OPACITY_FLOOR = 0.18;
-
 function lerp(a: number, b: number, t: number): number {
 	return a + (b - a) * t;
 }
@@ -19,13 +16,13 @@ export const horizontalTrain: InstanceStackVariant = {
 	defaults: {
 		count: 6,
 		spacing: 1.4,
-		opacityFloor: OPACITY_FLOOR,
-		lagWindow: LAG_WINDOW
+		opacityFloor: 0.18,
+		lagWindow: 0.5
 	},
-	motionShape: (instanceIndex, instanceCount, progress) => {
-		const lag = (instanceIndex / Math.max(1, instanceCount - 1)) * LAG_WINDOW;
-		const localProgress = smoothstep(lag, lag + (1 - LAG_WINDOW), progress);
-		const opacity = lerp(OPACITY_FLOOR, 1, localProgress);
+	motionShape: (instanceIndex, instanceCount, progress, params) => {
+		const lag = (instanceIndex / Math.max(1, instanceCount - 1)) * params.lagWindow;
+		const localProgress = smoothstep(lag, lag + (1 - params.lagWindow), progress);
+		const opacity = lerp(params.opacityFloor, 1, localProgress);
 		// Trailing instances arrive from the right, settling at their slot
 		// position as the lag-window progress completes.
 		const xOffset = (1 - localProgress) * (instanceCount - instanceIndex) * 0.25;

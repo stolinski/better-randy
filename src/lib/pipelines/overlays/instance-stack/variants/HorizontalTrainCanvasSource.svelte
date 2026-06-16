@@ -16,7 +16,7 @@
 <aside class="instance-stack-overlay" data-overlay="instance-stack" data-variant="horizontal-train">
 	<div class="instance-stack-overlay__row">
 		{#each indices as i (i)}
-			{@const state = horizontalTrain.motionShape(i, content.count, progress)}
+			{@const state = horizontalTrain.motionShape(i, content.count, progress, { spacing: content.spacing, opacityFloor: content.opacityFloor, lagWindow: content.lagWindow })}
 			<span
 				class="instance-stack-overlay__instance"
 				data-text-anim-slot={i === 0 ? 'title' : undefined}

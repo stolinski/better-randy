@@ -11,6 +11,12 @@ export interface InstanceMotionState {
 	scale: number;
 }
 
+export interface InstanceStackParams {
+	spacing: number;
+	opacityFloor: number;
+	lagWindow: number;
+}
+
 export interface InstanceStackVariant {
 	id: string;
 	label: string;
@@ -21,9 +27,14 @@ export interface InstanceStackVariant {
 		lagWindow: number;
 	};
 	/**
-	 * Pure motion-shape function — (instanceIndex, instanceCount, progress).
-	 * Pure per ADR-0020: no engineState reads, no DOM access, no wall-clock.
+	 * Pure motion-shape function — pure per ADR-0020: no engineState reads,
+	 * no DOM access, no wall-clock.
 	 */
-	motionShape: (instanceIndex: number, instanceCount: number, progress: number) => InstanceMotionState;
+	motionShape: (
+		instanceIndex: number,
+		instanceCount: number,
+		progress: number,
+		params: InstanceStackParams
+	) => InstanceMotionState;
 	CanvasSource: Component<OverlayCanvasSourceProps<InstanceStackContent>>;
 }

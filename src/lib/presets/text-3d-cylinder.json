@@ -1,8 +1,7 @@
 {
 	"schema": "hiviz@1",
-	"kind": "fixture",
-	"name": "Text 3D — cylinder around Y axis",
-	"description": "Verification preset for the text-3d Overlay (motion-primitives Phase 4.3). Text wraps onto a Y-axis cylinder; back-facing glyphs occlude themselves via CSS backface-visibility; per-glyph brightness attenuates by cos(angle) so front-facing glyphs are brightest. Cylinder rotates 90° over the timeline per the cylinder-axis-y variant.",
+	"name": "Text 3D — channel spin",
+	"description": "Channel bumper using the cylinder-axis-y variant: 'SYNTAX' wraps onto a Y-axis cylinder that spins 270° across the 6-second timeline. Back-facing glyphs self-occlude; front-facing glyphs attenuate by cos(angle) producing a smooth brightness falloff toward the cylinder sides. Yellow ink on deep-black substrate. Demonstrates the text-3d pipeline's per-glyph lighting and self-occlusion — geometry impossible with CSS 3D on a flat plane.",
 	"pack": "syntax",
 	"state": {
 		"transport": {
@@ -11,10 +10,11 @@
 			"fps": 30,
 			"format": "webm"
 		},
+		"backgroundFill": "#040408",
 		"typography": {
 			"fontFamily": "sans",
-			"paperColor": "#040408",
-			"inkColor": "#fffaf2"
+			"paperColor": "#000000",
+			"inkColor": "#fabf47"
 		},
 		"marks": {
 			"defaults": {},
@@ -24,7 +24,9 @@
 			"type": "plain",
 			"content": {
 				"body": ""
-			}
+			},
+			"enter": { "start": 0, "duration": 0.06, "ease": "settled" },
+			"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" }
 		},
 		"overlays": [
 			{
@@ -32,15 +34,21 @@
 				"id": "main",
 				"content": {
 					"variant": "cylinder-axis-y",
-					"text": "ROUND SPIN IT",
-					"rotationDegrees": 90,
+					"text": "SYNTAX",
+					"rotationDegrees": 270,
 					"radiusCh": 4
 				},
 				"position": { "anchor": "center", "offset": { "x": 0, "y": 0 } },
-				"enter": { "start": 0, "duration": 0.2, "ease": "smooth" },
-				"exit": { "start": 0.85, "duration": 0.1, "ease": "smooth" }
+				"enter": { "start": 0, "duration": 0.06, "ease": "settled" },
+				"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" }
 			}
 		],
-		"effects": []
+		"effects": [
+			{
+				"type": "paper-grain",
+				"id": "frame-grit",
+				"params": { "warmth": 0.0, "density": 0.20 }
+			}
+		]
 	}
 }

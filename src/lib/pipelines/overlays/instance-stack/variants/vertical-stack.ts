@@ -1,10 +1,6 @@
 import type { InstanceStackVariant } from './types';
 import VerticalStackCanvasSource from './VerticalStackCanvasSource.svelte';
 
-const SPACING_EM = 1.05;
-const LAG_WINDOW = 0.4;
-const OPACITY_FLOOR = 0.15;
-
 function lerp(a: number, b: number, t: number): number {
 	return a + (b - a) * t;
 }
@@ -19,20 +15,17 @@ export const verticalStack: InstanceStackVariant = {
 	label: 'Vertical stack',
 	defaults: {
 		count: 9,
-		spacing: SPACING_EM,
-		opacityFloor: OPACITY_FLOOR,
-		lagWindow: LAG_WINDOW
+		spacing: 1.05,
+		opacityFloor: 0.15,
+		lagWindow: 0.4
 	},
-	motionShape: (instanceIndex, instanceCount, progress) => {
-		const lag = (instanceIndex / Math.max(1, instanceCount - 1)) * LAG_WINDOW;
-		const localProgress = smoothstep(lag, lag + (1 - LAG_WINDOW), progress);
-		// Earlier instances arrive earlier and stay fully opaque; trailing
-		// instances ramp opacity from the floor up to 1 as their lag-window
-		// progress crosses the threshold.
-		const opacity = lerp(OPACITY_FLOOR, 1, localProgress);
+	motionShape: (instanceIndex, instanceCount, progress, params) => {
+		const lag = (instanceIndex / Math.max(1, instanceCount - 1)) * params.lagWindow;
+		const localProgress = smoothstep(lag, lag + (1 - params.lagWindow), progress);
+		const opacity = lerp(params.opacityFloor, 1, localProgress);
 		return {
 			xOffset: 0,
-			yOffset: instanceIndex * SPACING_EM,
+			yOffset: instanceIndex * params.spacing,
 			opacity,
 			scale: 1
 		};
