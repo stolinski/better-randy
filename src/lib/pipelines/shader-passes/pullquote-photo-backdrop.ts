@@ -170,9 +170,10 @@ const wgsl = /* wgsl */ `
 
 	// ----- Composite text over backdrop -----
 	//
-	// Output alpha 0.94 preserves the transparent-export contract while
-	// keeping enough substrate density to read as a film frame.
-	let backdropOpacity = 0.94;
+	// Full-frame bumper (preset declares backgroundFill). Alpha = 1.0 so the
+	// engine's backgroundFill composite signals the export lane; the shader does
+	// not bake alpha into the channel. Text fades via paperVisibility on element.
+	let backdropOpacity = 1.0;
 	let finalRgb = mix(grained, textRgb, textAlpha);
 	let finalAlpha = max(textAlpha, backdropOpacity);
 	return vec4f(finalRgb, finalAlpha);

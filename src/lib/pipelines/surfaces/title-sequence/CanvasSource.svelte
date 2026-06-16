@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { animState } from '$lib/platform/anim-state.svelte';
 	import { engineState } from '$lib/platform/engine-state.svelte';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 
@@ -20,6 +21,7 @@
 	class="title-sequence-source surface"
 	style:block-size={`${frame.height}px`}
 	style:inline-size={`${frame.width}px`}
+	style:opacity={animState.paperVisibility}
 >
 	{#if hasKicker}
 		{#key content.kicker}
@@ -65,7 +67,7 @@
 	}
 
 	.title-sequence-source__kicker {
-		color: var(--kicker, #d8a87a);
+		color: var(--kicker, #fabf47);
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-weight: 500;
 		inset-block-start: 30%;

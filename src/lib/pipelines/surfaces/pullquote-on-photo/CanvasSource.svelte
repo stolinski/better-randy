@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { animState } from '$lib/platform/anim-state.svelte';
 	import { engineState } from '$lib/platform/engine-state.svelte';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 
@@ -20,6 +21,7 @@
 	class="pullquote-source surface"
 	style:block-size={`${frame.height}px`}
 	style:inline-size={`${frame.width}px`}
+	style:opacity={animState.paperVisibility}
 >
 	<div class="pullquote-source__scrim"></div>
 
@@ -92,7 +94,7 @@
 		inline-size: 65%;
 		inset-block-start: 46%;
 		inset-inline-start: 50%;
-		line-height: 1.12;
+		line-height: 1.35;
 		margin: 0;
 		position: absolute;
 		text-align: center;

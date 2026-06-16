@@ -86,18 +86,22 @@ const wgsl = /* wgsl */ `
 	let blurAmount = (1.0 - dropPhase) * 80.0;
 	let blurStepY = (blurAmount / canvasH) / 12.0;
 
+	// Taps trail ABOVE the falling text (negative Y = up in UV/screen space).
+	// The text is dropping downward, so its previous positions are above the
+	// current position — sampling with -blurStepY produces the correct
+	// velocity-direction smear behind the motion.
 	let t0  = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + textOffsetUv);
-	let t1  = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + textOffsetUv + vec2f(0.0, blurStepY * 1.0));
-	let t2  = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + textOffsetUv + vec2f(0.0, blurStepY * 2.0));
-	let t3  = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + textOffsetUv + vec2f(0.0, blurStepY * 3.0));
-	let t4  = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + textOffsetUv + vec2f(0.0, blurStepY * 4.0));
-	let t5  = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + textOffsetUv + vec2f(0.0, blurStepY * 5.0));
-	let t6  = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + textOffsetUv + vec2f(0.0, blurStepY * 6.0));
-	let t7  = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + textOffsetUv + vec2f(0.0, blurStepY * 7.0));
-	let t8  = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + textOffsetUv + vec2f(0.0, blurStepY * 8.0));
-	let t9  = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + textOffsetUv + vec2f(0.0, blurStepY * 9.0));
-	let t10 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + textOffsetUv + vec2f(0.0, blurStepY * 10.0));
-	let t11 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + textOffsetUv + vec2f(0.0, blurStepY * 11.0));
+	let t1  = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + textOffsetUv - vec2f(0.0, blurStepY * 1.0));
+	let t2  = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + textOffsetUv - vec2f(0.0, blurStepY * 2.0));
+	let t3  = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + textOffsetUv - vec2f(0.0, blurStepY * 3.0));
+	let t4  = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + textOffsetUv - vec2f(0.0, blurStepY * 4.0));
+	let t5  = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + textOffsetUv - vec2f(0.0, blurStepY * 5.0));
+	let t6  = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + textOffsetUv - vec2f(0.0, blurStepY * 6.0));
+	let t7  = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + textOffsetUv - vec2f(0.0, blurStepY * 7.0));
+	let t8  = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + textOffsetUv - vec2f(0.0, blurStepY * 8.0));
+	let t9  = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + textOffsetUv - vec2f(0.0, blurStepY * 9.0));
+	let t10 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + textOffsetUv - vec2f(0.0, blurStepY * 10.0));
+	let t11 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + textOffsetUv - vec2f(0.0, blurStepY * 11.0));
 
 	// Weights decay along the trail so the head of the motion is brightest
 	// and the tail fades — reads as a velocity smear, not a uniform blur.
@@ -142,10 +146,10 @@ const wgsl = /* wgsl */ `
 
 	// ----- Composite text over backdrop -----
 	//
-	// Output alpha 0.96 — title sequences are usually full-substrate moments,
-	// so we run substrate close to opaque while still preserving the
-	// transparent-export contract.
-	let backdropOpacity = 0.96;
+	// Full-frame bumper output (preset carries backgroundFill). Alpha = 1.0 so
+	// the engine's backgroundFill composite is the signal for the export lane,
+	// not a shader alpha floor. Text fades via paperVisibility on the element.
+	let backdropOpacity = 1.0;
 	let finalRgb = mix(backdropGrained, flashedRgb, blurredAlpha);
 	let finalAlpha = max(blurredAlpha, backdropOpacity);
 	return vec4f(finalRgb, finalAlpha);

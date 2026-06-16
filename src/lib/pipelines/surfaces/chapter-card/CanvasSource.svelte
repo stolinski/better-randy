@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { animState } from '$lib/platform/anim-state.svelte';
 	import { engineState } from '$lib/platform/engine-state.svelte';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 
@@ -20,6 +21,7 @@
 	class="chapter-card-source surface"
 	style:block-size={`${frame.height}px`}
 	style:inline-size={`${frame.width}px`}
+	style:opacity={animState.paperVisibility}
 >
 	{#if hasKicker}
 		{#key content.kicker}
@@ -38,7 +40,7 @@
 			<h2
 				class="chapter-card-source__title"
 				data-text-anim-slot="title"
-				style:font-size={`${frame.width * 0.058}px`}
+				style:font-size={`${frame.width * 0.033}px`}
 			>
 				{content.title}
 			</h2>
@@ -67,7 +69,7 @@
 	}
 
 	.chapter-card-source__kicker {
-		color: var(--kicker, #d8c4a0);
+		color: var(--kicker, #fabf47);
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-weight: 500;
 		inset-block-start: 38%;
@@ -76,7 +78,7 @@
 		opacity: 0.9;
 		padding-inline-start: 0.22em;
 		position: absolute;
-		text-shadow: 0 0.04em 0.10em rgba(0, 0, 0, 0.8);
+		text-shadow: -0.035em 0.025em 0.10em rgba(0, 0, 0, 0.8);
 		text-transform: uppercase;
 		transform: translate(-50%, -50%);
 	}
@@ -103,7 +105,7 @@
 		margin: 0;
 		position: absolute;
 		text-align: center;
-		text-shadow: 0 0.06em 0.14em rgba(0, 0, 0, 0.85);
+		text-shadow: -0.045em 0.035em 0.14em rgba(0, 0, 0, 0.85);
 		text-wrap: balance;
 		transform: translate(-50%, -50%);
 	}

@@ -10,6 +10,7 @@
 			"fps": 30,
 			"format": "webm"
 		},
+		"backgroundFill": "#040609",
 		"typography": {
 			"fontFamily": "serif",
 			"paperColor": "#080612",
@@ -28,12 +29,12 @@
 			},
 			"enter": {
 				"start": 0,
-				"duration": 0.1,
-				"ease": "smooth"
+				"duration": 0.05,
+				"ease": "settled"
 			},
 			"exit": {
 				"start": 0.88,
-				"duration": 0.08,
+				"duration": 0.03,
 				"ease": "smooth"
 			}
 		},
@@ -47,12 +48,12 @@
 				"effect": "fade-through",
 				"enter": {
 					"start": 0.02,
-					"duration": 0.1,
-					"ease": "smooth"
+					"duration": 0.05,
+					"ease": "settled"
 				},
 				"exit": {
 					"start": 0.9,
-					"duration": 0.05,
+					"duration": 0.03,
 					"ease": "smooth"
 				}
 			},
@@ -65,12 +66,12 @@
 				"effect": "mask-reveal-up",
 				"enter": {
 					"start": 0.08,
-					"duration": 0.18,
-					"ease": "smooth"
+					"duration": 0.07,
+					"ease": "settled"
 				},
 				"exit": {
 					"start": 0.86,
-					"duration": 0.08,
+					"duration": 0.03,
 					"ease": "smooth"
 				}
 			}

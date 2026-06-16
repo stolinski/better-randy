@@ -118,11 +118,10 @@ const wgsl = /* wgsl */ `
 
 	// ----- Composite text over backdrop -----
 	//
-	// inputSample carries the CanvasSource's text. Text in clear focus from
-	// frame zero — the camera motion + parallax does the cinematic work here,
-	// not a focus pull. Output alpha 0.94 preserves the transparent-export
-	// contract.
-	let backdropOpacity = 0.94;
+	// Full-frame bumper (preset declares backgroundFill). Alpha = 1.0 so the
+	// engine's backgroundFill composite signals the export lane; the shader does
+	// not bake alpha into the channel. Text fades via paperVisibility on element.
+	let backdropOpacity = 1.0;
 	let finalRgb = mix(grained, inputSample.rgb, inputSample.a);
 	let finalAlpha = max(inputSample.a, backdropOpacity);
 	return vec4f(finalRgb, finalAlpha);

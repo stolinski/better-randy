@@ -10,6 +10,7 @@
 			"fps": 30,
 			"format": "webm"
 		},
+		"backgroundFill": "#040609",
 		"typography": {
 			"fontFamily": "serif",
 			"paperColor": "#080612",
@@ -28,12 +29,12 @@
 			},
 			"enter": {
 				"start": 0,
-				"duration": 0.22,
-				"ease": "smooth"
+				"duration": 0.06,
+				"ease": "settled"
 			},
 			"exit": {
 				"start": 0.82,
-				"duration": 0.1,
+				"duration": 0.04,
 				"ease": "smooth"
 			}
 		},
