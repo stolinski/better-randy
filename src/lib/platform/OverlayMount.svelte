@@ -46,6 +46,14 @@
 			parts.push(`left:50%`);
 		}
 
+		// `center` anchor: offset the element by half its own size so the
+		// element's visual centre aligns with the (50%, 50%) origin point.
+		// Uses CSS `translate` (independent of `transform`) so it doesn't
+		// conflict with the visibilityStyle translateY animation.
+		if (anchor === 'center') {
+			parts.push(`translate:-50% -50%`);
+		}
+
 		return parts.join(';');
 	}
 
