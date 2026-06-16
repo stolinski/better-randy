@@ -420,7 +420,7 @@
 								type="number"
 								min="0"
 								max="1"
-								step="0.01"
+								step="0.001"
 								value={overlay.enter?.start ?? ''}
 								placeholder="start"
 								oninput={(e) =>
@@ -430,7 +430,7 @@
 								type="number"
 								min="0"
 								max="1"
-								step="0.01"
+								step="0.001"
 								value={overlay.enter?.duration ?? ''}
 								placeholder="dur"
 								oninput={(e) =>
@@ -456,7 +456,7 @@
 								type="number"
 								min="0"
 								max="1"
-								step="0.01"
+								step="0.001"
 								value={overlay.exit?.start ?? ''}
 								placeholder="start"
 								oninput={(e) =>
@@ -466,7 +466,7 @@
 								type="number"
 								min="0"
 								max="1"
-								step="0.01"
+								step="0.001"
 								value={overlay.exit?.duration ?? ''}
 								placeholder="dur"
 								oninput={(e) =>
@@ -593,7 +593,7 @@
 						type="number"
 						min="0"
 						max="1"
-						step="0.01"
+						step="0.001"
 						value={entry.enter.start}
 						placeholder="start"
 						oninput={(e) => textAnimationEnterStartInput(entry, (e.currentTarget as HTMLInputElement).value)}
@@ -602,7 +602,7 @@
 						type="number"
 						min="0"
 						max="1"
-						step="0.01"
+						step="0.001"
 						value={entry.enter.duration}
 						placeholder="dur"
 						oninput={(e) => textAnimationEnterDurationInput(entry, (e.currentTarget as HTMLInputElement).value)}

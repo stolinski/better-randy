@@ -8,6 +8,7 @@ import {
 	type TextAnimation
 } from './engine-schema';
 import { engineState, packState } from './engine-state.svelte';
+import { PIPELINE_REGISTRY } from './pipelines';
 
 export interface CataloguedPreset {
 	slug: string;
@@ -17,6 +18,23 @@ export interface CataloguedPreset {
 const presetModules = import.meta.glob<{ default: unknown }>('$lib/presets/*.json', {
 	eager: true
 });
+
+function validateOverlayContents(overlays: Overlay[]): string | null {
+	for (const overlay of overlays) {
+		const renderer = Object.values(PIPELINE_REGISTRY.overlays).find(
+			(r) => r.type === overlay.type
+		);
+		if (!renderer) continue;
+		const check = renderer.schema.safeParse(overlay.content);
+		if (!check.success) {
+			const issues = check.error.issues
+				.map((i) => `${i.path.join('.') || '<root>'}: ${i.message}`)
+				.join('; ');
+			return `overlay "${overlay.id}" (type "${overlay.type}") content invalid: ${issues}`;
+		}
+	}
+	return null;
+}
 
 const PRESET_CATALOG: CataloguedPreset[] = Object.entries(presetModules)
 	.map<CataloguedPreset | null>(([path, module]) => {
@@ -30,6 +48,12 @@ const PRESET_CATALOG: CataloguedPreset[] = Object.entries(presetModules)
 
 		if (!result.success) {
 			console.error(`Invalid built-in preset at ${path}.`, result.error);
+			return null;
+		}
+
+		const contentError = validateOverlayContents(result.data.state.overlays);
+		if (contentError) {
+			console.error(`Invalid built-in preset at ${path}:`, contentError);
 			return null;
 		}
 
@@ -63,6 +87,11 @@ export function parsePreset(json: unknown): Preset {
 			.join('\n');
 
 		throw new Error(`Invalid Hiviz preset:\n${issues}`);
+	}
+
+	const contentError = validateOverlayContents(result.data.state.overlays);
+	if (contentError) {
+		throw new Error(`Invalid Hiviz preset:\n${contentError}`);
 	}
 
 	return result.data;
