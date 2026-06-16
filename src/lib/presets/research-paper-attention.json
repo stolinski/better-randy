@@ -38,7 +38,7 @@
 				{
 					"start": 0.16,
 					"duration": 0.06,
-					"ease": "smooth"
+					"ease": "sharp"
 				}
 			]
 		},
