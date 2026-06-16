@@ -31,13 +31,13 @@ export const text3dIdentity: IdentitySpec = {
 		{
 			name: 'light-treatment',
 			definition:
-				'Per-fragment lighting attenuates glyph brightness by the dot product of the glyph normal and the implied light vector. Glyphs at the camera-facing centre are brightest; glyphs at the cylinder edges are darker.',
+				'Per-glyph opacity attenuates by the dot product of the glyph normal and the camera direction vector (cos of the glyph\'s cylinder angle). Glyphs at the camera-facing centre have full opacity; glyphs toward the cylinder edges fade toward transparent, producing a brightness-like falloff.',
 			implementation:
-				'src/lib/pipelines/overlays/text-3d/variants/cylinder-axis-y.svelte — per-character `opacity` and `filter: brightness(...)` computed from the cos of the glyph\'s angular position.',
+				'src/lib/pipelines/overlays/text-3d/variants/CylinderAxisYCanvasSource.svelte — per-glyph `opacity: cos(angle)` (no clamp floor) applied via CSS `style:opacity`. No CSS `filter: brightness()` is used; the falloff is purely opacity-based. Back-facing glyphs (cos ≤ 0) are excluded entirely by {#if glyph.front}.',
 			probe: {
 				kind: 'named-observation',
 				region: 'glyphs at the cylinder front vs side',
-				expectation: 'front-facing glyphs are brightest; side glyphs are visibly darker; transition is smooth across the visible arc.'
+				expectation: 'centre glyph has full opacity; glyphs toward the visible edge have progressively lower opacity; transition is smooth across the arc with no clamp floor at the limb.'
 			}
 		},
 		{
@@ -45,7 +45,7 @@ export const text3dIdentity: IdentitySpec = {
 			definition:
 				'Cylinder rotates around its axis across the timeline; rotation rate is deterministic per progress.',
 			implementation:
-				'src/lib/pipelines/overlays/text-3d/variants/cylinder-axis-y.svelte — global rotation angle = `rotationDegrees * progress`.',
+				'src/lib/pipelines/overlays/text-3d/variants/cylinder-axis-y.ts — motionShape returns `t²(3-2t) × rotationDegrees` (smoothstep ease); CylinderAxisYCanvasSource.svelte calls motionShape with content.rotationDegrees to get baseRotation and adds per-glyph slot offsets.',
 			probe: {
 				kind: 'named-observation',
 				region: 'cylinder at progress 0 vs progress 1',
@@ -75,7 +75,7 @@ export const text3dIdentity: IdentitySpec = {
 		{
 			name: 'frame-relationship',
 			implementation:
-				'src/lib/pipelines/overlays/text-3d/variants/cylinder-axis-y.svelte — the cylinder is centred in the frame; frame relationship is intrinsic to the text-3d layout (no anchor/offset Role).',
+				'src/lib/pipelines/overlays/text-3d/variants/cylinder-axis-y.ts + CylinderAxisYCanvasSource.svelte — the cylinder is centred in the frame; frame relationship is intrinsic to the text-3d layout (no anchor/offset Role).',
 			definition: 'How the cylinder is anchored within the frame.',
 			probe: {
 				kind: 'named-observation',

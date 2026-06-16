@@ -48,8 +48,8 @@
 				"type": "watermark",
 				"id": "sig",
 				"content": {
-					"text": "@syntaxfm",
-					"subtext": "syntax.fm"
+					"handle": "@syntaxfm",
+					"label": "syntax.fm"
 				},
 				"position": { "anchor": "bottom-right", "offset": { "x": 0.05, "y": 0.05 } },
 				"enter": { "start": 0.04, "duration": 0.05, "ease": "smooth" },

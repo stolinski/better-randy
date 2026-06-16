@@ -40,14 +40,14 @@
 				},
 				"position": { "anchor": "center", "offset": { "x": 0, "y": 0 } },
 				"enter": { "start": 0, "duration": 0.06, "ease": "settled" },
-				"exit": { "start": 0.88, "duration": 0.048, "ease": "smooth" }
+				"exit": { "start": 0.88, "duration": 0.046, "ease": "smooth" }
 			},
 			{
 				"type": "watermark",
 				"id": "sig",
 				"content": {
-					"text": "@syntaxfm",
-					"subtext": "syntax.fm"
+					"handle": "@syntaxfm",
+					"label": "syntax.fm"
 				},
 				"position": { "anchor": "bottom-right", "offset": { "x": 0.05, "y": 0.05 } },
 				"enter": { "start": 0.04, "duration": 0.05, "ease": "smooth" },
