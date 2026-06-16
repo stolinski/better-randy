@@ -15,7 +15,7 @@ export const cinematicLowerThird: LowerThirdVariant = {
 	defaults: {
 		paperColor: '#0a0810',
 		inkColor: '#fff8ec',
-		offsetY: 0.1
+		offsetY: 0.115
 	},
 	motionShape: (slotIndex, progress) => {
 		// Cinematic variant front-loads the title (slot 1) so it lands as the
