@@ -10,6 +10,7 @@
 			"fps": 30,
 			"format": "webm"
 		},
+		"backgroundFill": "#080612",
 		"typography": {
 			"fontFamily": "sans",
 			"paperColor": "#040408",
@@ -27,16 +28,16 @@
 				"author": "Episode 47 — 2026",
 				"body": ""
 			},
-			"enter": { "start": 0, "duration": 0.10, "ease": "smooth" },
-			"exit": { "start": 0.88, "duration": 0.08, "ease": "smooth" }
+			"enter": { "start": 0, "duration": 0.063, "ease": "settled" },
+			"exit": { "start": 0.88, "duration": 0.044, "ease": "smooth" }
 		},
 		"textAnimations": [
 			{
 				"id": "subtitle-fade",
 				"target": { "kind": "surface", "slot": "author" },
 				"effect": "fade-through",
-				"enter": { "start": 0.18, "duration": 0.08, "ease": "smooth" },
-				"exit": { "start": 0.88, "duration": 0.05, "ease": "smooth" }
+				"enter": { "start": 0.18, "duration": 0.060, "ease": "settled" },
+				"exit": { "start": 0.88, "duration": 0.040, "ease": "smooth" }
 			}
 		],
 		"overlays": [],

@@ -86,18 +86,23 @@ const wgsl = /* wgsl */ `
 	// 12 small bright specks at hash-derived starting positions, each
 	// traversing the frame horizontally at its own seeded rate. Reads as
 	// dust or motes drifting past the camera — film texture, not a pattern.
+	// Edge-fade envelope hides the fract() wrap: particles fade to 0 near
+	// the left and right frame borders so the hard wrap discontinuity is
+	// invisible.
 	var particles = 0.0;
+	let edgeFadeW = 0.08;
 	for (var pi = 0; pi < 12; pi = pi + 1) {
 		let fp = f32(pi);
 		let particleSeedY = fract(sin(fp * 17.3 + seed * 41.0) * 43758.5453);
 		let particleSpeed = 0.06 + fract(sin(fp * 23.7 + seed * 11.0) * 43758.5453) * 0.16;
 		let particlePhase = fract(sin(fp * 13.1 + seed * 29.0) * 43758.5453);
 		let particleX = fract(t * particleSpeed + particlePhase);
+		let particleFade = min(particleX / edgeFadeW, 1.0) * min((1.0 - particleX) / edgeFadeW, 1.0);
 		let particleSize = 0.0028 + fract(sin(fp * 31.5) * 43758.5453) * 0.0024;
 		let pdx = (in.uv.x - particleX) * aspectRatio;
 		let pdy = in.uv.y - particleSeedY;
 		let pd = sqrt(pdx * pdx + pdy * pdy);
-		particles = particles + max(0.0, 1.0 - pd / particleSize);
+		particles = particles + max(0.0, 1.0 - pd / particleSize) * particleFade;
 	}
 	let particleColor = vec3f(0.88, 0.80, 0.62);
 	let withParticles = withBothBands + particleColor * particles * 0.55;
@@ -161,12 +166,11 @@ const wgsl = /* wgsl */ `
 
 	// ----- Composite text-with-dimension over backdrop -----
 	//
-	// Output alpha 0.96 — type-hero compositions are full-substrate moments,
-	// so substrate runs close to opaque while preserving the transparent-
-	// export contract. The drifted text alpha drives the composite mask; the
-	// raw inputSample.alpha (at the un-drifted UV) is no longer relevant
-	// here because the text has moved.
-	let backdropOpacity = 0.96;
+	// Full-frame output: this composition always occupies the entire substrate
+	// (preset carries backgroundFill to declare it as a bumper). Alpha = 1.0
+	// keeps the transparent-export contract: the engine's backgroundFill
+	// composite is the signal for the export lane, not a shader alpha floor.
+	let backdropOpacity = 1.0;
 	let finalRgb = mix(backdropGrained, textWithDimension, textAlphaForComposite);
 	let finalAlpha = max(textAlphaForComposite, backdropOpacity);
 	return vec4f(finalRgb, finalAlpha);

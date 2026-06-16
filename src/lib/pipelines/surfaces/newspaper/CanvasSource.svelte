@@ -13,11 +13,11 @@
 
 	let { element = $bindable<HTMLElement | null>(null) }: Props = $props();
 
-	// Newspaper card occupies 70% × 62% of the frame. At 3840 × 2160 that's
-	// 2688 × 1339, centred — bbox area lands ~48% (inside T1's 45–75%
-	// horizontal-landscape band after the 1–3° seeded rotation). Enter is
-	// a vertical settle-in driven by `animState.paperVisibility` (0 → 1).
-	const CARD_WIDTH_RATIO = 0.7;
+	// Newspaper card occupies 88% × 62% of the frame. At 3840 × 2160 that's
+	// 3379 × 1339, centred — bbox area 54.6% (inside T1's 45–75% horizontal-
+	// landscape band), longer-dim occupancy 88% (≥ T1's 85% paper floor). Enter
+	// is a vertical settle-in driven by `animState.paperVisibility` (0 → 1).
+	const CARD_WIDTH_RATIO = 0.88;
 	const CARD_HEIGHT_RATIO = 0.62;
 	// Brief: 1–3° rotation seeded from the preset id.
 	const ROTATION_MIN_DEG = 1;
