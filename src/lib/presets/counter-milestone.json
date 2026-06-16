@@ -1,0 +1,55 @@
+{
+	"schema": "hiviz@1",
+	"name": "Counter — one million",
+	"description": "Slot-machine roll counter climbing from 0 to 1,000,000 over the full 6-second timeline. Per-digit columns roll independently with expo-out easing so the roll decelerates into the final value. Yellow tabular-numeral display on deep-black substrate. Demonstrates the counter pipeline's slot-machine-roll variant and large integer formatting at 3840×2160.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "#040408",
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#000000",
+			"inkColor": "#fabf47"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"enter": { "start": 0, "duration": 0.06, "ease": "settled" },
+			"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" }
+		},
+		"overlays": [
+			{
+				"type": "counter",
+				"id": "main",
+				"content": {
+					"variant": "slot-machine-roll",
+					"from": 0,
+					"to": 1000000,
+					"format": "integer",
+					"ease": "cubic-bezier(0.22, 1, 0.36, 1)"
+				},
+				"position": { "anchor": "center", "offset": { "x": 0, "y": 0 } },
+				"enter": { "start": 0, "duration": 0.06, "ease": "settled" },
+				"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" }
+			}
+		],
+		"effects": [
+			{
+				"type": "paper-grain",
+				"id": "frame-grit",
+				"params": { "warmth": 0.0, "density": 0.20 }
+			}
+		]
+	}
+}

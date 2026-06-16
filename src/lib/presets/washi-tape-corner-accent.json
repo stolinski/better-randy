@@ -1,0 +1,69 @@
+{
+	"schema": "hiviz@1",
+	"name": "Washi tape — zine corner accent",
+	"description": "Two strips of washi tape pinning a research-paper Surface to the frame, creating the torn-paper zine collage look from the Syntax aesthetic. Yellow tape (rotation +18°) crosses the top-left corner of the paper card; red tape (rotation −14°) anchors the top-right corner. Demonstrates the washi-tape overlay pipeline's rotation, length, and multi-instance placement. Light cream paper substrate; tape settles in slightly after the card.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 8,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#fafaf7",
+			"inkColor": "#1a1a1a"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "paper",
+			"content": {
+				"title": "The Web Will Outlive Us All",
+				"sourceUrl": "https://syntax.fm",
+				"author": "Scott Tolinski",
+				"affiliation": "Syntax.fm",
+				"bodyLabel": "Abstract",
+				"body": "The platforms we depend on will pivot, deprecate, and vanish. The open web keeps running.\n\nEvery tool, every framework, every build pipeline is a wager on a moving target. The bet that compounds is the one placed on fundamentals — HTML, CSS, the URL, the document.\n\nBuild on bedrock. The tide goes out; bedrock stays."
+			},
+			"enter": { "start": 0, "duration": 0.045, "ease": "settled" },
+			"exit": { "start": 0.93, "duration": 0.034, "ease": "smooth" }
+		},
+		"overlays": [
+			{
+				"type": "washi-tape",
+				"id": "tape-tl",
+				"content": {
+					"color": "#fabf47",
+					"rotation": 18,
+					"length": 310
+				},
+				"position": { "anchor": "top-left", "offset": { "x": 0.245, "y": 0.05 } },
+				"enter": { "start": 0.04, "duration": 0.05, "ease": "settled" },
+				"exit": { "start": 0.91, "duration": 0.034, "ease": "smooth" }
+			},
+			{
+				"type": "washi-tape",
+				"id": "tape-tr",
+				"content": {
+					"color": "#ff474e",
+					"rotation": -14,
+					"length": 280
+				},
+				"position": { "anchor": "top-left", "offset": { "x": 0.665, "y": 0.05 } },
+				"enter": { "start": 0.05, "duration": 0.05, "ease": "settled" },
+				"exit": { "start": 0.92, "duration": 0.034, "ease": "smooth" }
+			}
+		],
+		"effects": [
+			{
+				"type": "paper-grain",
+				"id": "frame-grit",
+				"params": { "warmth": 0.12, "density": 0.26 }
+			}
+		]
+	}
+}

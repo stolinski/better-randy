@@ -1,0 +1,58 @@
+{
+	"schema": "hiviz@1",
+	"name": "Cursor trail — title sweep",
+	"description": "Mac pointer enters at the top-left, sweeps to the 'BUILD THINGS' title slot and dwells 600ms (hover), then moves to the '@syntaxfm' author byline and clicks with a 400ms dwell before returning to idle. Velocity-anisotropic trail stretches along the motion vector. Demonstrates the cursor-trail pipeline's deterministic path replay, per-step action types, and trail physics at 3840×2160. Type-hero single variant on deep-black substrate.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "#040408",
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#000000",
+			"inkColor": "#fffaf2"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "type-hero",
+			"variant": "single",
+			"content": {
+				"title": "BUILD THINGS",
+				"author": "@syntaxfm",
+				"body": ""
+			},
+			"enter": { "start": 0, "duration": 0.06, "ease": "settled" },
+			"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" }
+		},
+		"overlays": [
+			{
+				"type": "cursor-trail",
+				"id": "trail",
+				"content": {
+					"path": [
+						{ "targetSlot": "title", "dwellMs": 600, "action": "hover" },
+						{ "targetSlot": "author", "dwellMs": 400, "action": "click" },
+						{ "targetSlot": "title", "dwellMs": 0, "action": "idle" }
+					]
+				},
+				"position": { "anchor": "top-left", "offset": { "x": 0.05, "y": 0.05 } },
+				"enter": { "start": 0, "duration": 0.06, "ease": "settled" },
+				"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" }
+			}
+		],
+		"effects": [
+			{
+				"type": "paper-grain",
+				"id": "frame-grit",
+				"params": { "warmth": 0.0, "density": 0.20 }
+			}
+		]
+	}
+}

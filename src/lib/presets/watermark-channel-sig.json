@@ -1,0 +1,49 @@
+{
+	"schema": "hiviz@1",
+	"name": "Watermark — channel signature",
+	"description": "Persistent mono watermark anchored top-right with handle '@syntaxfm' and label 'Subscribe'. Settles in with back.out overshoot 6% into the timeline; exits smoothly at 86%. Pairs with a type-hero surface so the channel signature has compositional context. Demonstrates the watermark overlay pipeline's Pack-resolved ink/accent roles at 3840×2160.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "#040408",
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#000000",
+			"inkColor": "#fffaf2"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "type-hero",
+			"variant": "single",
+			"content": {
+				"title": "NEW EPISODE",
+				"author": "Every Tuesday",
+				"body": ""
+			},
+			"enter": { "start": 0, "duration": 0.06, "ease": "settled" },
+			"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" }
+		},
+		"overlays": [
+			{
+				"type": "watermark",
+				"id": "sig",
+				"content": {
+					"handle": "@syntaxfm",
+					"label": "Subscribe"
+				},
+				"position": { "anchor": "top-right", "offset": { "x": 0.0625, "y": 0.0625 } },
+				"enter": { "start": 0.06, "duration": 0.06, "ease": "settled" },
+				"exit": { "start": 0.86, "duration": 0.04, "ease": "smooth" }
+			}
+		],
+		"effects": []
+	}
+}

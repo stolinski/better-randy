@@ -1,0 +1,48 @@
+{
+	"schema": "hiviz@1",
+	"name": "Shader fill — Syntax gradient panel",
+	"description": "Procedural three-colour metaball gradient panel in the Syntax palette: yellow (#fabf47), teal (#00fff5), green (#beff00). The WGSL shader fills a 60%×28% centred rect in canvas UV space; alpha blends at 0.88 opacity without punching through the frame (E4 contract). Flow speed 0.8 keeps motion subtle — the gradient breathes rather than churns. Transparent by default; composites over footage or a dark substrate. Demonstrates the overlay shaderPass path end-to-end.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#ffffff",
+			"inkColor": "#111111"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"enter": { "start": 0, "duration": 0.06, "ease": "settled" },
+			"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" }
+		},
+		"overlays": [
+			{
+				"type": "shader-fill",
+				"id": "panel",
+				"content": {
+					"color0": "#fabf47",
+					"color1": "#00fff5",
+					"color2": "#beff00",
+					"flowSpeed": 0.8,
+					"opacity": 0.88
+				},
+				"position": { "anchor": "normalized-rect", "rect": { "x": 0.2, "y": 0.36, "width": 0.6, "height": 0.28 } },
+				"enter": { "start": 0, "duration": 0.06, "ease": "settled" },
+				"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" }
+			}
+		],
+		"effects": []
+	}
+}
