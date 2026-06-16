@@ -208,6 +208,13 @@ export interface OverlayRenderer<TContent = unknown> {
 	CanvasSource: Component<OverlayCanvasSourceProps<TContent>>;
 	Editor: Component<OverlayEditorProps<TContent>>;
 	Inspector?: Component<OverlayEditorProps<TContent>>;
+	/**
+	 * When true, OverlayMount skips the default 32px translateY entry droop.
+	 * Set for overlay types whose CanvasSource manages its own per-element
+	 * motion (e.g. staggered opacity-only variants) where a container-level
+	 * positional offset conflicts with the intended animation.
+	 */
+	disableEntryOffset?: boolean;
 	// Optional pixel-level renderer; the unified render path captures DOM via
 	// HTML-in-canvas through the overlay's CanvasSource, so this is reserved
 	// for offscreen / worker compositing paths and is not currently invoked.

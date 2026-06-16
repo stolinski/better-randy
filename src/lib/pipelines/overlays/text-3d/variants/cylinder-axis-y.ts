@@ -8,9 +8,9 @@ export const cylinderAxisY: Text3dVariant = {
 		rotationDegrees: 90,
 		radiusCh: 4
 	},
-	motionShape: (_glyphIndex, _glyphCount, progress) => {
+	motionShape: (_glyphIndex, _glyphCount, progress, rotationDegrees) => {
 		const t = Math.max(0, Math.min(1, progress));
-		return t * t * (3 - 2 * t) * 90;
+		return t * t * (3 - 2 * t) * rotationDegrees;
 	},
 	CanvasSource: CylinderAxisYCanvasSource
 };

@@ -57,8 +57,11 @@
 		return parts.join(';');
 	}
 
-	function visibilityStyle(progress: number): string {
+	function visibilityStyle(progress: number, renderer: OverlayRenderer): string {
 		const visible = Math.max(0, Math.min(1, progress));
+		if (renderer.disableEntryOffset) {
+			return `opacity:${visible};`;
+		}
 		const ty = (1 - visible) * 32;
 		return `opacity:${visible};transform:translateY(${ty}px);`;
 	}
@@ -79,7 +82,8 @@
 			data-overlay-id={overlay.id}
 			data-overlay-type={overlay.type}
 			style="{positionStyle(overlay)};{visibilityStyle(
-				animState.overlayProgresses[index] ?? 1
+				animState.overlayProgresses[index] ?? 1,
+				renderer
 			)};{appearanceStyle(overlay)}"
 		>
 			<Component content={overlay.content} />

@@ -40,5 +40,6 @@ export const instanceStack: OverlayRenderer<InstanceStackContent> = {
 	schema: InstanceStackContentSchema,
 	defaults,
 	CanvasSource,
-	Editor
+	Editor,
+	disableEntryOffset: true
 };

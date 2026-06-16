@@ -126,7 +126,7 @@ export const syntaxPack: PackManifest = {
 		'watermark.accent': { kind: 'style', value: '#ffd642' },
 		'counter.ink': { kind: 'style', value: '#fffaf2' },
 		'instance-stack.ink': { kind: 'style', value: '#fffaf2' },
-		'text-3d.ink': { kind: 'style', value: '#fffaf2' },
+		'text-3d.ink': { kind: 'style', value: '#fabf47' },
 		// Washi-tape procedural grain — the dark/light fibre stops in the tape's
 		// gradient stack (alpha-bound; previously inline literals, now Pack-routed).
 		'washi-tape.grain-dark': { kind: 'style', value: 'rgba(0, 0, 0, 0.08)' },

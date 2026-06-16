@@ -12,10 +12,15 @@ export interface Text3dVariant {
 		radiusCh: number;
 	};
 	/**
-	 * Pure motion-shape function — receives (glyphIndex, glyphCount,
-	 * progress) and returns the per-glyph rotation angle (degrees) around
-	 * the cylinder axis. Pure per ADR-0020.
+	 * Pure motion-shape function — receives (glyphIndex, glyphCount, progress,
+	 * rotationDegrees) and returns the per-glyph rotation angle (degrees) around
+	 * the cylinder axis for the given progress. Pure per ADR-0020.
 	 */
-	motionShape: (glyphIndex: number, glyphCount: number, progress: number) => number;
+	motionShape: (
+		glyphIndex: number,
+		glyphCount: number,
+		progress: number,
+		rotationDegrees: number
+	) => number;
 	CanvasSource: Component<OverlayCanvasSourceProps<Text3dContent>>;
 }

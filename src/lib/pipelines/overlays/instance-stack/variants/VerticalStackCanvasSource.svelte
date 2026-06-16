@@ -19,6 +19,7 @@
 		<span
 			class="instance-stack-overlay__instance"
 			data-text-anim-slot={i === 0 ? 'title' : undefined}
+			style:margin-top={i > 0 ? `${content.spacing - 1}em` : null}
 			style:transform={`translate(${state.xOffset}em, ${state.yOffset}em) scale(${state.scale})`}
 			style:opacity={state.opacity}
 		>
@@ -42,7 +43,7 @@
 
 	.instance-stack-overlay__instance {
 		display: block;
-		transform-origin: 0 50%;
+		transform-origin: 0 0;
 		white-space: nowrap;
 	}
 </style>

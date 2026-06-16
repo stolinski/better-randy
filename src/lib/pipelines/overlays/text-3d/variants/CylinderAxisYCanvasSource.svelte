@@ -15,7 +15,7 @@
 
 	// Eased spin around the vertical axis (degrees), from the variant's pure
 	// motion shape. Each character sits on an equal angular slice of the cylinder.
-	const baseRotation = $derived(cylinderAxisY.motionShape(0, count, progress));
+	const baseRotation = $derived(cylinderAxisY.motionShape(0, count, progress, content.rotationDegrees));
 	const angleStep = $derived(count > 0 ? 360 / Math.max(count, 12) : 0);
 
 	// A vertical-axis cylinder projected to 2D by hand. CSS 3D (perspective,
@@ -43,9 +43,9 @@
 		return {
 			ch: chars[index],
 			xCh: content.radiusCh * sin,
-			scaleX: front ? Math.max(0.05, cos) : 0,
+			scaleX: front ? cos : 0,
 			scale: 0.82 + 0.18 * Math.max(0, cos),
-			opacity: front ? Math.max(0.18, cos) : 0,
+			opacity: front ? cos : 0,
 			zIndex: Math.round((cos + 1) * 100),
 			front
 		};

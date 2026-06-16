@@ -21,11 +21,20 @@ export const verticalStack: InstanceStackVariant = {
 	},
 	motionShape: (instanceIndex, instanceCount, progress, params) => {
 		const lag = (instanceIndex / Math.max(1, instanceCount - 1)) * params.lagWindow;
-		const localProgress = smoothstep(lag, lag + (1 - params.lagWindow), progress);
+		// Each instance rises over a fraction of the lag window so the last
+		// instance settles well before the composition's exit — the prior
+		// formula (rise = 1 - lagWindow) made the last instance settle at exactly
+		// globalProgress=1.0, leaving zero hold frames at full opacity.
+		const riseDuration = Math.max(0.04, params.lagWindow * 0.25);
+		const localProgress = smoothstep(lag, lag + riseDuration, progress);
 		const opacity = lerp(params.opacityFloor, 1, localProgress);
+		// G8c arc: instances enter from 0.3em below their parked position.
+		// CSS margin-top (set in VerticalStackCanvasSource) handles base positioning;
+		// yOffset is a pure animation delta here.
+		const yOffset = (1 - localProgress) * 0.3;
 		return {
 			xOffset: 0,
-			yOffset: instanceIndex * params.spacing,
+			yOffset,
 			opacity,
 			scale: 1
 		};

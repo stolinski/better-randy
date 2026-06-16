@@ -20,7 +20,7 @@ export const text3dIdentity: IdentitySpec = {
 			definition:
 				'Glyphs wrap onto a cylindrical surface around an axis; the back-facing portion of the cylinder occludes itself (you cannot see the back of the cylinder through the front) — a property CSS `transform: rotate3d` does not give on a 2D plane.',
 			implementation:
-				'src/lib/pipelines/overlays/text-3d/variants/cylinder-axis-y.svelte + CanvasSource — per-character CSS `transform: rotateY(angle) translateZ(radius)` per glyph; perspective wrapper carries the camera FOV; back-facing glyphs are hidden via `backface-visibility: hidden`.',
+				'src/lib/pipelines/overlays/text-3d/variants/CylinderAxisYCanvasSource.svelte — 2D projection: each glyph\'s cylinder angle is computed from its slot index plus the global spin (baseRotation = motionShape progress × rotationDegrees). cos(angle) drives horizontal foreshortening (scaleX) and opacity; sin(angle) drives the lateral screen offset (xCh). Back-facing glyphs (cos ≤ 0) are excluded via {#if glyph.front}. No CSS perspective or backface-visibility is used.',
 			probe: {
 				kind: 'named-observation',
 				region: 'cylinder during rotation',
