@@ -32,17 +32,17 @@
 		display: grid;
 		gap: calc(0.75 * var(--cqmin));
 		background-color: rgba(10, 10, 10, 0.92);
-		color: #ededed; /* Q17: sub-maximum contrast against the dark plate */
+		color: var(--ink, #fff8ec); /* Q17: sub-maximum contrast against the dark plate */
 		padding: calc(3 * var(--cqmin)) calc(4.5 * var(--cqmin));
-		font-family: 'Avenir Next', Helvetica, Arial, sans-serif;
+		font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
 	}
 
 	.lower-third__kicker {
-		font-family: ui-monospace, monospace;
+		color: var(--accent, #f4a85e);
+		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-size: calc(3 * var(--cqmin));
 		letter-spacing: 0.16em;
 		text-transform: uppercase;
-		color: #ffd642;
 	}
 
 	.lower-third__title {

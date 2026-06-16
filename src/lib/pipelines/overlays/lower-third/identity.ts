@@ -18,12 +18,12 @@ export const lowerThirdIdentity: IdentitySpec = {
 		{
 			name: 'fill-treatment',
 			implementation:
-				'src/lib/pipelines/overlays/lower-third/variants/<id>CanvasSource.svelte — plate fill is painted in the CanvasSource (standard: flat rgba background-color; cinematic: a horizontal scrim linear-gradient), not a flat pack fill.',
+				'src/lib/pipelines/overlays/lower-third/variants/<id>CanvasSource.svelte — plate fill is painted in the CanvasSource (standard: flat rgba(10,10,10,0.92) background; cinematic: a horizontal rgba scrim gradient). Ink and accent colors are Pack-routed via lower-third.ink → --ink and lower-third.accent → --accent; the dark plate fill itself is structural.',
 			definition: 'Chip plate fill behind the text.',
 			probe: {
 				kind: 'named-observation',
 				region: 'chip plate behind the text',
-				expectation: 'plate fill is painted in the CanvasSource (standard: flat rgba(10,10,10,0.92) background; cinematic: a horizontal rgba scrim gradient); there is no Pack fill Role behind it.'
+				expectation: 'plate fill is painted in the CanvasSource (standard: flat rgba(10,10,10,0.92); cinematic: horizontal scrim gradient). Text ink resolves through lower-third.ink; kicker/accent resolves through lower-third.accent.'
 			}
 		},
 		{
