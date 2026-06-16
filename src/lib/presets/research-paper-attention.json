@@ -22,7 +22,7 @@
 					"intensity": 0.62
 				},
 				"underline": {
-					"color": "#1f5aff",
+					"color": "#00fff5",
 					"intensity": 0.62
 				},
 				"strike": {
@@ -38,7 +38,7 @@
 				{
 					"start": 0.16,
 					"duration": 0.06,
-					"ease": "sharp"
+					"ease": "smooth"
 				}
 			]
 		},
@@ -64,6 +64,12 @@
 			}
 		},
 		"overlays": [],
-		"effects": []
+		"effects": [
+			{
+				"type": "paper-grain",
+				"id": "frame-grit",
+				"params": { "warmth": 0.08, "density": 0.24 }
+			}
+		]
 	}
 }

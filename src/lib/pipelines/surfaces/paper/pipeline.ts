@@ -491,7 +491,7 @@ const composeFragmentFn = tgpu['~unstable']
 		);
 		for (var ci = 0u; ci < 6u; ci = ci + 1u) {
 			let s = textureSampleLevel(layout.$.domTexture, layout.$.samp, in.uv - contactOff - contactTaps[ci], 0.0);
-			shadowMass = shadowMass + step(0.001, s.a) * 0.090;
+			shadowMass = shadowMass + s.a * 0.090;
 		}
 		let castOff = vec2f(0.0042, 0.0072);
 		let castTaps = array<vec2f, 10>(
@@ -508,7 +508,7 @@ const composeFragmentFn = tgpu['~unstable']
 		);
 		for (var di = 0u; di < 10u; di = di + 1u) {
 			let s = textureSampleLevel(layout.$.domTexture, layout.$.samp, in.uv - castOff - castTaps[di], 0.0);
-			shadowMass = shadowMass + step(0.001, s.a) * 0.046;
+			shadowMass = shadowMass + s.a * 0.046;
 		}
 		let cardShadowAlpha = clamp(shadowMass, 0.0, 1.0) * 0.55;
 		let shadowOver = cardShadowAlpha * (1.0 - current.a);

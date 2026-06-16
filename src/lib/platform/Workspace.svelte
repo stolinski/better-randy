@@ -604,9 +604,16 @@
 		// follow-up shipped alongside the equivalent overlay-side wiring for
 		// ADR-0005's `OverlayRenderer.shaderPass`.
 		const usesPaperPipeline = surfaceType === 'paper' || surfaceType === 'newspaper';
-		const nextPipeline: SurfaceRenderInstance = usesPaperPipeline
-			? createPaperPipeline({ host: localHost, sourceElement: localSource })
-			: createPlainPipeline({ host: localHost, sourceElement: localSource });
+		let nextPipeline: SurfaceRenderInstance;
+		try {
+			nextPipeline = usesPaperPipeline
+				? createPaperPipeline({ host: localHost, sourceElement: localSource })
+				: createPlainPipeline({ host: localHost, sourceElement: localSource });
+		} catch (error) {
+			console.error('Surface pipeline initialization failed.', error);
+			status = error instanceof Error ? error.message : 'Surface pipeline unavailable.';
+			return;
+		}
 
 		pipeline = nextPipeline;
 		pipelineSurfaceType = surfaceType;

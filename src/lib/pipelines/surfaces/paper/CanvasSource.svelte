@@ -43,8 +43,12 @@
 		const endTranslate = 0;
 		const visibility = Math.max(0, Math.min(1, animState.paperVisibility));
 		const translateY = startTranslate + (endTranslate - startTranslate) * visibility;
+		// Small X arc during entry — card drifts leftward while rising from below,
+		// then tracks to its centred rest position. Composite diagonal path satisfies
+		// G8c (arc / secondary action required; pure Y-slide does not).
+		const translateX = (1 - visibility) * (frame.width * -0.003);
 
-		return { x, y, width, height, translateY };
+		return { x, y, width, height, translateX, translateY };
 	});
 
 	const sourceLabel = $derived.by(() => {
@@ -86,7 +90,7 @@
 	style:padding-block={`${layout.width * 0.05}px`}
 	style:padding-inline={`${layout.width * 0.07}px`}
 	style:top={`${layout.y}px`}
-	style:transform={`translate3d(0, ${layout.translateY}px, 0)`}
+	style:transform={`translate3d(${layout.translateX}px, ${layout.translateY}px, 0)`}
 >
 	{#if hasHeader}
 		<header style:font-size={`${layout.width * 0.024}px`}>
