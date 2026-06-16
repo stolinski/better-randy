@@ -42,11 +42,11 @@
 	 */
 	.lower-third--cinematic {
 		display: grid;
-		grid-template-columns: 0.6cqmin 1fr;
+		grid-template-columns: calc(0.6 * var(--cqmin)) 1fr;
 		gap: 0;
 		position: relative;
-		min-block-size: 11cqmin;
-		min-inline-size: 30cqmin;
+		min-block-size: calc(11 * var(--cqmin));
+		min-inline-size: calc(30 * var(--cqmin));
 	}
 
 	.lower-third--cinematic__scrim {
@@ -64,7 +64,7 @@
 
 	.lower-third--cinematic__accent {
 		background-color: var(--accent, #f4a85e);
-		box-shadow: 0 0 1.4cqmin rgba(244, 168, 94, 0.45);
+		box-shadow: 0 0 calc(1.4 * var(--cqmin)) rgba(244, 168, 94, 0.45);
 		grid-column: 1;
 		grid-row: 1;
 		position: relative;
@@ -74,17 +74,17 @@
 		color: var(--ink, #fff8ec);
 		display: grid;
 		font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
-		gap: 0.7cqmin;
+		gap: calc(0.7 * var(--cqmin));
 		grid-column: 2;
 		grid-row: 1;
-		padding: 2cqmin 3cqmin;
+		padding: calc(2 * var(--cqmin)) calc(3 * var(--cqmin));
 		position: relative;
 	}
 
 	.lower-third--cinematic__kicker {
 		color: var(--accent, #f4a85e);
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
-		font-size: 1.9cqmin;
+		font-size: calc(1.9 * var(--cqmin));
 		font-weight: 600;
 		letter-spacing: 0.26em;
 		opacity: 0.95;
@@ -94,7 +94,7 @@
 	}
 
 	.lower-third--cinematic__name {
-		font-size: 4.7cqmin;
+		font-size: calc(4.7 * var(--cqmin));
 		font-weight: 700;
 		letter-spacing: -0.008em;
 		line-height: 0.96;
@@ -109,7 +109,7 @@
 		   that band is calibrated for full-width broadcast lower-thirds and is too
 		   large for a corner chip; flagged for recalibration (see quality-roadmap
 		   "long tail"). User's eye is the authority here. */
-		font-size: 2.9cqmin;
+		font-size: calc(2.9 * var(--cqmin));
 		font-weight: 500;
 		letter-spacing: 0.22em;
 		opacity: 0.92;

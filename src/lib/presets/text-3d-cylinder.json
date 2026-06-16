@@ -1,7 +1,7 @@
 {
 	"schema": "hiviz@1",
 	"name": "Text 3D — channel spin",
-	"description": "Channel bumper using the cylinder-axis-y variant: 'SYNTAX' wraps onto a Y-axis cylinder that spins 270° across the 6-second timeline. Back-facing glyphs self-occlude; front-facing glyphs attenuate by cos(angle) producing a smooth brightness falloff toward the cylinder sides. Yellow ink on deep-black substrate. Demonstrates the text-3d pipeline's per-glyph lighting and self-occlusion — geometry impossible with CSS 3D on a flat plane.",
+	"description": "Channel bumper using the cylinder-axis-y variant: 'SYNTAX' wraps onto a Y-axis cylinder that spins 120° across the 6-second timeline. Back-facing glyphs self-occlude; front-facing glyphs attenuate by cos(angle) producing a smooth brightness falloff toward the cylinder sides. Yellow ink on deep-black substrate. Demonstrates the text-3d pipeline's per-glyph lighting and self-occlusion — geometry impossible with CSS 3D on a flat plane.",
 	"pack": "syntax",
 	"state": {
 		"transport": {
@@ -35,7 +35,7 @@
 				"content": {
 					"variant": "cylinder-axis-y",
 					"text": "SYNTAX",
-					"rotationDegrees": 270,
+					"rotationDegrees": 120,
 					"radiusCh": 4
 				},
 				"position": { "anchor": "center", "offset": { "x": 0, "y": 0 } },
@@ -50,7 +50,7 @@
 					"label": "syntax.fm"
 				},
 				"position": { "anchor": "bottom-right", "offset": { "x": 0.05, "y": 0.05 } },
-				"enter": { "start": 0.04, "duration": 0.05, "ease": "smooth" },
+				"enter": { "start": 0.016, "duration": 0.05, "ease": "settled" },
 				"exit": { "start": 0.91, "duration": 0.038, "ease": "smooth" }
 			}
 		],

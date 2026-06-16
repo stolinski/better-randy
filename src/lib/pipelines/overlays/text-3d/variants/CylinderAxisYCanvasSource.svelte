@@ -73,7 +73,7 @@
 <style>
 	.text-3d-overlay {
 		font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
-		font-size: 14cqmin;
+		font-size: calc(14 * var(--cqmin));
 		font-weight: 800;
 		letter-spacing: -0.01em;
 		line-height: 1;

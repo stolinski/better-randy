@@ -33,7 +33,7 @@
 	.instance-stack-overlay {
 		color: var(--ink, #000000);
 		font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
-		font-size: 9cqmin;
+		font-size: calc(9 * var(--cqmin));
 		font-weight: 800;
 		letter-spacing: -0.02em;
 		line-height: 1;

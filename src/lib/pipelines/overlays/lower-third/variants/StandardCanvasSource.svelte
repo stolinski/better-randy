@@ -25,34 +25,34 @@
 </aside>
 
 <style>
-	/* Container-query units so the overlay scales with the Composition
-	   (3840×2160 horizontal or 2160×3840 vertical). cqmin = 1% of the
-	   smaller axis so cap-heights stay constant across orientations. */
+	/* --cqmin (inherited from Composition) = 1% of the smaller composition axis
+	   (3840×2160 horizontal or 2160×3840 vertical). cqmin CSS units are not
+	   reliable inside the canvas layoutsubtree. */
 	.lower-third--standard {
 		display: grid;
-		gap: 0.75cqmin;
+		gap: calc(0.75 * var(--cqmin));
 		background-color: rgba(10, 10, 10, 0.92);
 		color: #ededed; /* Q17: sub-maximum contrast against the dark plate */
-		padding: 3cqmin 4.5cqmin;
+		padding: calc(3 * var(--cqmin)) calc(4.5 * var(--cqmin));
 		font-family: 'Avenir Next', Helvetica, Arial, sans-serif;
 	}
 
 	.lower-third__kicker {
 		font-family: ui-monospace, monospace;
-		font-size: 3cqmin;
+		font-size: calc(3 * var(--cqmin));
 		letter-spacing: 0.16em;
 		text-transform: uppercase;
 		color: #ffd642;
 	}
 
 	.lower-third__title {
-		font-size: 7cqmin;
+		font-size: calc(7 * var(--cqmin));
 		font-weight: 600;
 		line-height: 1.05;
 	}
 
 	.lower-third__subtitle {
-		font-size: 4cqmin;
+		font-size: calc(4 * var(--cqmin));
 		opacity: 0.78;
 	}
 </style>

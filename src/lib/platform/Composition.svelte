@@ -31,6 +31,7 @@
 	.composition {
 		background-color: transparent;
 		box-sizing: border-box;
+		--cqmin: calc(min(var(--frame-w), var(--frame-h)) / 100 * 1px);
 		container-type: size;
 		display: block;
 		overflow: hidden;

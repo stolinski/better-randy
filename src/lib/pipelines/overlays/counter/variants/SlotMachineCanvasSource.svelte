@@ -95,7 +95,7 @@
 		display: inline-flex;
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-feature-settings: 'tnum' 1;
-		font-size: 12cqmin;
+		font-size: calc(12 * var(--cqmin));
 		font-variant-numeric: tabular-nums;
 		font-weight: 700;
 		gap: 0;

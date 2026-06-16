@@ -56,6 +56,7 @@ The right size for a piece of text depends on **what job it does**, not on its t
 
   | Role × surface | Horizontal band (cap-height px) | Vertical band (cap-height px) |
   | --- | --- | --- |
+  | **Overlay display** (full-frame bumper centrepiece, typographic hero) | 140–320 | 180–400 |
   | **Overlay primary** (lower-third title, caption) | 96–144 | 120–180 |
   | **Overlay secondary** (lower-third subtitle, caption-2) | 80–112 | 96–136 |
   | **Surface title** (paper / plain card title slot) | **60–110** | 76–138 |

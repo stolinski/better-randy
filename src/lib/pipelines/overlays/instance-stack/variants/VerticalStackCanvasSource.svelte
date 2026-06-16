@@ -34,7 +34,7 @@
 		display: flex;
 		flex-direction: column;
 		font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
-		font-size: 11cqmin;
+		font-size: calc(11 * var(--cqmin));
 		font-weight: 800;
 		letter-spacing: -0.02em;
 		line-height: 1;
