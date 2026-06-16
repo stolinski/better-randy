@@ -1,7 +1,7 @@
 import tgpu, { d } from 'typegpu';
 
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
-import type { EffectPackContext, ShaderPass } from './types';
+import type { EffectPackContext, ShaderPass, ShaderPassCtx } from './types';
 
 /**
  * Compose-pipeline invocation for `ShaderPass<T>` (declared by
@@ -74,7 +74,7 @@ export interface ApplyShaderPassOptions<TContent> {
 	outputView: GPUTextureView;
 	target: TContent;
 	bounds: ShaderPassBounds;
-	ctx: EffectPackContext;
+	ctx: ShaderPassCtx;
 }
 
 export interface CompiledShaderPass<TContent> {
@@ -196,9 +196,13 @@ export class ShaderPassDispatcher {
 	#pingTexture: GPUTexture;
 	#pongTexture: GPUTexture;
 	#cache: WeakMap<ShaderPass<unknown>, CompiledShaderPass<unknown>>;
+	#width: number;
+	#height: number;
 
 	constructor({ host, width, height }: ShaderPassDispatcherOptions) {
 		this.#host = host;
+		this.#width = width;
+		this.#height = height;
 		this.#cache = new WeakMap();
 
 		const descriptor: GPUTextureDescriptor = {
@@ -257,7 +261,7 @@ export class ShaderPassDispatcher {
 				outputView: outputTexture.createView(),
 				target: entry.target,
 				bounds: entry.bounds,
-				ctx
+				ctx: { ...ctx, canvasWidth: this.#width, canvasHeight: this.#height }
 			});
 
 			lastOutputTexture = outputTexture;

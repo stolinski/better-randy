@@ -108,6 +108,14 @@ export interface EffectPackContext {
 	timestamp: number;
 }
 
+/** Extended context available inside `ShaderPass.packUniforms`. Adds canvas
+ *  dimensions so passes can convert pixel-space bounds to UV coordinates
+ *  without hardcoding the composition resolution. */
+export interface ShaderPassCtx extends EffectPackContext {
+	canvasWidth: number;
+	canvasHeight: number;
+}
+
 /**
  * Declarative single-pass fragment work, used by both `OverlayRenderer.shaderPass`
  * (per ADR-0005) and `SurfaceRenderer.shaderPass` (per ADR-0008).
@@ -137,7 +145,7 @@ export interface ShaderPass<TContent = unknown> {
 	packUniforms(
 		target: TContent,
 		bounds: { x: number; y: number; width: number; height: number },
-		ctx: EffectPackContext
+		ctx: ShaderPassCtx
 	): Record<string, unknown>;
 }
 

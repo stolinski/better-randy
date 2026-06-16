@@ -33,9 +33,6 @@ export interface CinematicLowerThirdFlareParams {
 	boundsUvMax: ReturnType<typeof d.vec2f>;
 }
 
-const DEFAULT_CANVAS_WIDTH = 3840;
-const DEFAULT_CANVAS_HEIGHT = 2160;
-
 const wgsl = /* wgsl */ `
 	let uvMin = layout.$.uniforms.boundsUvMin;
 	let uvMax = layout.$.uniforms.boundsUvMax;
@@ -71,16 +68,14 @@ const wgsl = /* wgsl */ `
 export const cinematicLowerThirdFlare: ShaderPass<LowerThirdContent> = {
 	uniforms: CinematicLowerThirdFlareUniforms,
 	wgsl,
-	packUniforms(content, bounds, { progress }) {
-		const canvasW = DEFAULT_CANVAS_WIDTH;
-		const canvasH = DEFAULT_CANVAS_HEIGHT;
+	packUniforms(content, bounds, { progress, canvasWidth, canvasHeight }) {
 		return {
 			progress,
 			flareEnabled: content.variant === 'cinematic' ? 1 : 0,
-			boundsUvMin: d.vec2f(bounds.x / canvasW, bounds.y / canvasH),
+			boundsUvMin: d.vec2f(bounds.x / canvasWidth, bounds.y / canvasHeight),
 			boundsUvMax: d.vec2f(
-				(bounds.x + bounds.width) / canvasW,
-				(bounds.y + bounds.height) / canvasH
+				(bounds.x + bounds.width) / canvasWidth,
+				(bounds.y + bounds.height) / canvasHeight
 			)
 		} satisfies CinematicLowerThirdFlareParams;
 	}

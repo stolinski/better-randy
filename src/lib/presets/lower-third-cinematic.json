@@ -39,7 +39,7 @@
 					"anchor": "bottom-left",
 					"offset": {
 						"x": 0.06,
-						"y": 0.1
+						"y": 0.115
 					}
 				},
 				"enter": {
@@ -49,7 +49,7 @@
 				},
 				"exit": {
 					"start": 0.88,
-					"duration": 0.04,
+					"duration": 0.041,
 					"ease": "smooth"
 				}
 			}

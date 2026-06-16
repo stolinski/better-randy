@@ -59,6 +59,7 @@ The right size for a piece of text depends on **what job it does**, not on its t
   | **Overlay display** (full-frame bumper centrepiece, typographic hero) | 140–320 | 180–400 |
   | **Overlay primary** (lower-third title, caption) | 96–144 | 120–180 |
   | **Overlay secondary** (lower-third subtitle, caption-2) | 80–112 | 96–136 |
+  | **Overlay corner-chip** (lower-third spanning ≤25% frame width, corner-anchored) | 56–84 | 72–108 |
   | **Surface title** (paper / plain card title slot) | **60–110** | 76–138 |
   | **Surface body** (paper / plain card body, marked or unmarked) | **32–56** | 44–72 |
   | **Surface label** (source / kicker / byline / date label, footer) | **24–48** | 32–60 |
