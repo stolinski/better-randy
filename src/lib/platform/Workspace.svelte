@@ -524,7 +524,11 @@
 		};
 	}
 
-	function renderAt(timestamp: number): void {
+	// Composite the current composition (surface → shaderPass → effect chain) into
+	// `outputView`. The single render seam: `renderAt` points it at the canvas;
+	// the transition snapshot path (ADR-0026) points it at an offscreen texture so
+	// a state's finished frame can be captured and reused by the wipe.
+	function renderCompositeTo(outputView: GPUTextureView, timestamp: number): void {
 		if (!pipeline || !host || !effectChain || !shaderPassDispatcher) {
 			return;
 		}
@@ -546,10 +550,17 @@
 			commandEncoder,
 			effects: engineState.effects,
 			inputTexture: postShaderTexture,
-			outputView: host.context.getCurrentTexture().createView(),
+			outputView,
 			...timebase,
 			background: backgroundFillFloat
 		});
+	}
+
+	function renderAt(timestamp: number): void {
+		if (!host) {
+			return;
+		}
+		renderCompositeTo(host.context.getCurrentTexture().createView(), timestamp);
 	}
 
 	// The single per-frame driver. Called by the Timeline's tick (play + seek)
