@@ -32,10 +32,11 @@ Architecture Decision Records — the *why* behind Hiviz's shape. Each records a
 | [0019](0019-identity-spec-via-pack.md) | Canon (refined by 0023, 0024) | Identity dimensions declare `implementation` or `viaPack` |
 | [0020](0020-variants-as-data.md) | Canon | Pipeline variants as data — one spec per family, one file per variant |
 | [0021](0021-z-plane-semantics.md) | **Designed, not built** | Z = focal-distance sidecar (DOF); no depth target in code |
-| [0022](0022-multi-state-composition.md) | **Designed, not built** | Multi-state transitions; no dual-tree machinery in code |
+| [0022](0022-multi-state-composition.md) | Model canon (impl refined by 0026) | Multi-state transitions — `transition: {from,to,effect}` model + schema |
 | [0023](0023-pack-is-appearance-only.md) | Canon (core) | Pack is appearance-only; no privileged default |
 | [0024](0024-role-resolution-core-fallback.md) | Canon (core) | Role resolution: per-Pipeline override → core fallback |
 | [0025](0025-static-linter-checks-safety-and-readability-only.md) | Canon (refines 0003) | Static linter = video-safety + readability only; taste is Critic-judged |
+| [0026](0026-transitions-v1-snapshot-and-wipe.md) | Canon (refines 0022) | Transitions v1 = snapshot each state to a texture + mask-wipe; not live dual-tree |
 
 ## Supersession & refinement chains
 
@@ -45,6 +46,7 @@ Architecture Decision Records — the *why* behind Hiviz's shape. Each records a
 - `0014` + `0015` seam → closed by `0019` → refined by `0023` (appearance-only) + `0024` (core fallback)
 - `0015` anti-pattern collision → resolved by `0016`
 - `0006` → superseded by `0023`; `0004` → reframed as starter templates ([roadmap](../roadmap.md))
+- `0022` (multi-state model) → implementation refined by `0026` (snapshot-and-wipe for v1; live dual-tree deferred)
 
 ## Implementation reality (not ADR supersession)
 
