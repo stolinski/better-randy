@@ -193,6 +193,22 @@ const EffectSchema = z.object({
 // ADR-0005 / ADR-0008; per-layer effect chains were collapsed by ADR-0018.
 const EffectChainSchema = z.array(EffectSchema);
 
+// Multi-state composition (ADR-0022). A Preset MAY declare a top-level
+// `transition` recipe naming two other Presets by slug (`from`, `to`) and a
+// transition Effect. The engine renders `from` and `to` into separate
+// (color, depth) target pairs and hands both to the transition Effect, whose
+// mask shape selects per pixel at the wipe's local progress. `durationMs` is
+// the wipe's own duration, distinct from each state's `transport.durationSeconds`
+// (which drives that state's internal animation). Structural validation only
+// here; slug resolution + "effect is a registered transition Effect" are
+// cross-reference checks done in `preset.ts` against the catalog + registry.
+const CompositionTransitionSchema = z.object({
+	from: z.string().min(1, 'transition.from must name a Preset slug'),
+	to: z.string().min(1, 'transition.to must name a Preset slug'),
+	effect: z.string().min(1, 'transition.effect must name a transition Effect'),
+	durationMs: z.number().positive('transition.durationMs must be greater than 0')
+});
+
 // ---- Text animations (ADR-0011) ----
 // Slot enums match the surface / overlay content slots Hiviz ships today plus
 // the chrome-only kicker slot the newspaper surface added in ADR-0008. The
@@ -516,7 +532,13 @@ export const PresetSchema = z.object({
 	 * slug (`getPresetBySlug`) for development.
 	 */
 	kind: z.enum(['deliverable', 'fixture']).default('deliverable'),
-	state: EngineStateSchema
+	state: EngineStateSchema,
+	// Optional multi-state transition recipe (ADR-0022). When present, the
+	// engine renders `from`/`to` and composites them through the named transition
+	// Effect; this Preset's own `state` supplies the output transport (orientation,
+	// fps, duration) and any background fill. Absent on ordinary single-state Presets.
+	transition: CompositionTransitionSchema.optional()
 });
 
+export type CompositionTransition = z.infer<typeof CompositionTransitionSchema>;
 export type Preset = z.infer<typeof PresetSchema>;

@@ -9,6 +9,7 @@ import {
 } from './engine-schema';
 import { engineState, packState } from './engine-state.svelte';
 import { PIPELINE_REGISTRY } from './pipelines';
+import { isTransitionEffectType } from './pipelines/transition-registry';
 
 export interface CataloguedPreset {
 	slug: string;
@@ -36,7 +37,39 @@ function validateOverlayContents(overlays: Overlay[]): string | null {
 	return null;
 }
 
-const PRESET_CATALOG: CataloguedPreset[] = Object.entries(presetModules)
+/**
+ * Cross-reference checks for the multi-state transition recipe (ADR-0022) that
+ * the structural Zod schema can't do: `from`/`to` must resolve to known Presets,
+ * `effect` must be a registered transition Effect, and a transition-Effect type
+ * must never appear in the ordinary `effects[]` chain (the two lanes are
+ * disjoint). `resolveSlug` returns the referenced Preset or null. Returns an
+ * error string, or null when valid.
+ */
+function validateTransition(preset: Preset, resolveSlug: (slug: string) => Preset | null): string | null {
+	for (const effect of preset.state.effects) {
+		if (isTransitionEffectType(effect.type)) {
+			return `effect "${effect.id}" uses transition-Effect type "${effect.type}", which runs via the top-level transition block — not the effects chain`;
+		}
+	}
+
+	const transition = preset.transition;
+	if (!transition) {
+		return null;
+	}
+
+	if (!resolveSlug(transition.from)) {
+		return `transition.from "${transition.from}" does not resolve to a known Preset`;
+	}
+	if (!resolveSlug(transition.to)) {
+		return `transition.to "${transition.to}" does not resolve to a known Preset`;
+	}
+	if (!isTransitionEffectType(transition.effect)) {
+		return `transition.effect "${transition.effect}" is not a registered transition Effect`;
+	}
+	return null;
+}
+
+const SCHEMA_VALID_CATALOG: CataloguedPreset[] = Object.entries(presetModules)
 	.map<CataloguedPreset | null>(([path, module]) => {
 		const slug = path.split('/').pop()?.replace(/\.json$/, '');
 
@@ -61,6 +94,25 @@ const PRESET_CATALOG: CataloguedPreset[] = Object.entries(presetModules)
 	})
 	.filter((entry): entry is CataloguedPreset => entry !== null)
 	.sort((a, b) => a.preset.name.localeCompare(b.preset.name));
+
+// Transition recipes (ADR-0022) reference other Presets by slug, so they can
+// only be validated once every schema-valid Preset is resolvable. Second pass:
+// resolve `from`/`to` against the schema-valid set and drop any Preset whose
+// transition is invalid (unknown slug, unregistered effect, or a transition
+// type leaking into the ordinary effects chain).
+const SCHEMA_VALID_BY_SLUG = new Map(SCHEMA_VALID_CATALOG.map((entry) => [entry.slug, entry.preset]));
+
+const PRESET_CATALOG: CataloguedPreset[] = SCHEMA_VALID_CATALOG.filter((entry) => {
+	const transitionError = validateTransition(
+		entry.preset,
+		(slug) => SCHEMA_VALID_BY_SLUG.get(slug) ?? null
+	);
+	if (transitionError) {
+		console.error(`Invalid built-in preset "${entry.slug}":`, transitionError);
+		return false;
+	}
+	return true;
+});
 
 // Resolves every Preset (fixtures included) so demo / test / showcase
 // fixtures stay loadable by URL during development.
@@ -92,6 +144,11 @@ export function parsePreset(json: unknown): Preset {
 	const contentError = validateOverlayContents(result.data.state.overlays);
 	if (contentError) {
 		throw new Error(`Invalid Hiviz preset:\n${contentError}`);
+	}
+
+	const transitionError = validateTransition(result.data, getPresetBySlug);
+	if (transitionError) {
+		throw new Error(`Invalid Hiviz preset:\n${transitionError}`);
 	}
 
 	return result.data;
