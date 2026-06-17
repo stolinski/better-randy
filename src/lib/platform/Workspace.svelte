@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 
 	import { AnimationManager, type AnimationManifest, type AnimationTweenSpec } from './animation-manager';
 	import { TextAnimationManager } from '$lib/text-animations/manager.svelte';
@@ -586,6 +586,8 @@
 	});
 
 	$effect(() => {
+		// Triggers (tracked): rebuild the pipeline only when the GPU host, the
+		// composition/canvas elements, or the surface type/orientation change.
 		if (!host || !compositionElement || !canvas) {
 			return;
 		}
@@ -597,6 +599,14 @@
 		const localSource = compositionElement;
 		const localCanvas = canvas;
 
+		// Everything below is imperative engine wiring. It is wrapped in untrack()
+		// because it both READS and WRITES `effectChain` / `shaderPassDispatcher`
+		// (dispose the old instance, assign a fresh one) — without untrack the
+		// effect subscribes to the very state it reassigns and re-runs forever
+		// (effect_update_depth_exceeded). The sibling render effects likewise read
+		// those instances via renderAt(); untrack keeps this effect from coupling
+		// to them. Triggers above stay tracked; the body does not subscribe.
+		return untrack(() => {
 		// `newspaper` (ADR-0008) reuses the paper compositor — same focal-slot
 		// and marks scaffolding, same DOM-to-texture upload, same drop shadow.
 		// Newspaper-specific physics (halftone + ink bleed) is carried by the
@@ -655,9 +665,13 @@
 		}
 
 		setCanvasPaintHandler(localCanvas, () => {
+			// A paint re-uploads the current DOM and composites it. The seek/play
+			// tick already applied the GSAP state (and wrote animState) before
+			// requesting this paint, so we only composite here — renderAt(), not
+			// tickTimeline(), to avoid re-driving the animation on every paint.
 			nextPipeline.uploadDom();
 			if (timeline) {
-				tickTimeline(timeline.time);
+				renderAt(timeline.time);
 			}
 		});
 		// Gate the first capture on the active Pack's typefaces so the very first
@@ -673,6 +687,7 @@
 				pipelineSurfaceType = null;
 			}
 		};
+		});
 	});
 
 	$effect(() => {
@@ -764,11 +779,16 @@
 			void overlay.content;
 		}
 
-		animationManager.rebuild(buildAnimationManifest());
-
-		if (timeline) {
-			tickTimeline(timeline.time);
-		}
+		// Imperative rebuild + render — untracked so it does not subscribe to the
+		// animState / pipeline / effectChain / timeline.time it touches (those are
+		// reassigned by the pipeline effect; subscribing here closes the render
+		// loop). This effect re-runs only on the content triggers read above.
+		untrack(() => {
+			animationManager.rebuild(buildAnimationManifest());
+			if (timeline) {
+				tickTimeline(timeline.time);
+			}
+		});
 	});
 
 	$effect(() => {
@@ -788,9 +808,14 @@
 		}
 		void engineState.backgroundFill;
 
-		if (timeline) {
-			renderAt(timeline.time);
-		}
+		// Untracked render: renderAt() reads pipeline/effectChain/shaderPassDispatcher
+		// + animState; subscribing to those (which the pipeline effect reassigns)
+		// is what produced the infinite render loop. Re-run only on the triggers above.
+		untrack(() => {
+			if (timeline) {
+				renderAt(timeline.time);
+			}
+		});
 	});
 
 	$effect(() => {
