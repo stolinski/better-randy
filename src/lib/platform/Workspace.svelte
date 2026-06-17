@@ -260,14 +260,6 @@
 		};
 	}
 
-	function rebuildAndRender(): void {
-		animationManager.rebuild(buildAnimationManifest());
-
-		if (timeline) {
-			tickTimeline(timeline.time);
-		}
-	}
-
 	function buildTracks(): TimelineTrack[] {
 		const surface = engineState.surface;
 		const parsedMarks = readMarks();
@@ -560,12 +552,23 @@
 		});
 	}
 
+	// The single per-frame driver. Called by the Timeline's tick (play + seek)
+	// and by the composition-sync effect after an authoring change. Advances the
+	// GSAP playhead (which applies DOM transforms + writes animState), then asks
+	// the canvas to paint — the paint handler re-uploads the now-current DOM and
+	// composites it (uploadDom + renderAt). Going through requestCanvasPaint keeps
+	// capture on the browser's paint tick, after Svelte has flushed the DOM the
+	// new progress produced; a synchronous renderAt here would composite a stale
+	// DOM texture. This is imperative on purpose — rendering is a side effect of
+	// time/authoring changes, not a reactive derivation.
 	function tickTimeline(timestamp: number): void {
 		const duration = engineState.transport.durationSeconds;
 		const fraction = duration > 0 ? timestamp / duration : 0;
 		animationManager.progress(fraction);
 		animState.globalProgress = fraction;
-		renderAt(timestamp);
+		if (canvas) {
+			requestCanvasPaint(canvas);
+		}
 	}
 
 	$effect(() => {
@@ -691,36 +694,6 @@
 	});
 
 	$effect(() => {
-		// Re-upload DOM when fields that affect the source HTML change.
-		void engineState.surface.content.body;
-		void engineState.surface.content.title;
-		void engineState.surface.content.sourceUrl;
-		void engineState.surface.content.author;
-		void engineState.surface.content.source;
-		void engineState.surface.content.dateLabel;
-		void engineState.surface.content.kicker;
-		void engineState.surface.content.counterpoint;
-		void engineState.surface.variant;
-		void engineState.typography.fontFamily;
-		void engineState.typography.paperColor;
-		void engineState.typography.inkColor;
-		void engineState.overlays.length;
-		for (const overlay of engineState.overlays) {
-			void overlay.id;
-			void overlay.type;
-			void overlay.content;
-		}
-		void animState.overlayProgresses.length;
-		for (const progress of animState.overlayProgresses) {
-			void progress;
-		}
-
-		if (canvas) {
-			requestCanvasPaint(canvas);
-		}
-	});
-
-	$effect(() => {
 		// Re-run the visual audit whenever the surface has settled, so DOM
 		// positions reflect what the viewer sees at rest, not at frame 0.
 		void engineState.surface.content.body;
@@ -740,8 +713,17 @@
 		return () => cancelAnimationFrame(id);
 	});
 
+	// Composition sync — the single reactive bridge from authoring state to the
+	// imperative canvas. It tracks every input that changes WHAT the composition
+	// is (content, marks, effects, overlays, typography, background) and, when any
+	// changes, rebuilds the animation manifest and repaints the current frame. It
+	// is NOT a per-frame driver — it must not read per-frame state (animState
+	// progresses); the timeline tick owns time. The rebuild+tick is untracked so
+	// this effect never subscribes to the animState / pipeline / timeline.time it
+	// touches — that self-subscription is exactly what made the render effects
+	// loop. Rendering is a side effect of authoring changes, expressed once, here.
 	$effect(() => {
-		// Tracked so text-animation rebuilds when entries change.
+		// --- Text animations (manifest tweens) ---
 		void engineState.textAnimations.length;
 		for (const entry of engineState.textAnimations) {
 			void entry.id;
@@ -751,21 +733,16 @@
 			void entry.enter.duration;
 			void entry.exit?.start;
 			void entry.exit?.duration;
-			// `enter/exit.ease` is intentionally NOT tracked here: a text
-			// animation's easing is intrinsic to its catalog effect
-			// (spec.enter.easing), so the per-entry ease is a no-op for text
-			// anims — tracking it would force a needless rebuild on a value that
-			// can't change the output. (The field still drives surface/overlay
-			// transitions, where ease is meaningful.)
+			// `enter/exit.ease` is intentionally NOT tracked: a text animation's
+			// easing is intrinsic to its catalog effect (spec.enter.easing), so the
+			// per-entry ease can't change the output — tracking it would force a
+			// needless rebuild. (The field still drives surface/overlay transitions.)
 		}
 
-		// Slot content. Each CanvasSource wraps its text-anim slots in `{#key
-		// value}` so changing the engine-state text replaces the DOM element
-		// the manager last split. The rebuild here notices the new element
-		// (`existing.split.root !== element`) and re-splits with current text.
-		// Without this tracking, SplitText would keep its grip on the previous
-		// element and authored title / body edits would never reach the
-		// composition.
+		// --- Surface + overlay content (DOM the source HTML rasterizes) ---
+		// Each CanvasSource wraps its text-anim slots in `{#key value}` so changing
+		// the text replaces the DOM element the manager last split; the rebuild
+		// notices the new element (`existing.split.root !== element`) and re-splits.
 		void engineState.surface.content.title;
 		void engineState.surface.content.kicker;
 		void engineState.surface.content.sourceUrl;
@@ -775,23 +752,17 @@
 		void engineState.surface.content.body;
 		void engineState.surface.content.counterpoint;
 		void engineState.surface.variant;
+		void engineState.typography.fontFamily;
+		void engineState.typography.paperColor;
+		void engineState.typography.inkColor;
+		void engineState.overlays.length;
 		for (const overlay of engineState.overlays) {
+			void overlay.id;
+			void overlay.type;
 			void overlay.content;
 		}
 
-		// Imperative rebuild + render — untracked so it does not subscribe to the
-		// animState / pipeline / effectChain / timeline.time it touches (those are
-		// reassigned by the pipeline effect; subscribing here closes the render
-		// loop). This effect re-runs only on the content triggers read above.
-		untrack(() => {
-			animationManager.rebuild(buildAnimationManifest());
-			if (timeline) {
-				tickTimeline(timeline.time);
-			}
-		});
-	});
-
-	$effect(() => {
+		// --- Marks (manifest tweens) + effects / background (render inputs) ---
 		for (const timing of engineState.marks.timings) {
 			void timing.color;
 			void timing.intensity;
@@ -800,7 +771,6 @@
 			void appearance?.color;
 			void appearance?.intensity;
 		}
-		// Re-render when effect entries or background fill change.
 		void engineState.effects.length;
 		for (const entry of engineState.effects) {
 			void entry.params;
@@ -808,13 +778,12 @@
 		}
 		void engineState.backgroundFill;
 
-		// Untracked render: renderAt() reads pipeline/effectChain/shaderPassDispatcher
-		// + animState; subscribing to those (which the pipeline effect reassigns)
-		// is what produced the infinite render loop. Re-run only on the triggers above.
 		untrack(() => {
-			if (timeline) {
-				renderAt(timeline.time);
-			}
+			if (!timeline) return;
+			// Rebuild is fingerprint-guarded: a no-op when only effects/background
+			// changed (those aren't manifest tweens). The tick repaints either way.
+			animationManager.rebuild(buildAnimationManifest());
+			tickTimeline(timeline.time);
 		});
 	});
 
