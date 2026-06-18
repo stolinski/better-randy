@@ -29,8 +29,8 @@
 			},
 			"enter": {
 				"start": 0,
-				"duration": 0.05,
-				"ease": "settled"
+				"duration": 0.11,
+				"ease": "bouncy"
 			},
 			"exit": {
 				"start": 0.92,
@@ -56,9 +56,9 @@
 					}
 				},
 				"enter": {
-					"start": 0.05,
-					"duration": 0.05,
-					"ease": "settled"
+					"start": 0.08,
+					"duration": 0.09,
+					"ease": "bouncy"
 				},
 				"exit": {
 					"start": 0.91,

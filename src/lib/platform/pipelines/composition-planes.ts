@@ -130,7 +130,26 @@ const compositeFragmentFn = tgpu['~unstable'].fragmentFn({
 		// biggest "cinematic vs. static slide" cue. Gated on the backdrop (scene
 		// mode), so a plain transparent-overlay DOF preset doesn't move.
 		let mAmt = clamp(bdStrength, 0.0, 1.0);
-		let fgUv = center + (in.uv - center) * (1.0 - 0.03 * t * mAmt);
+		// Foreground framing (scene mode): crop in + push the subject off-centre to a
+		// lower-left third (the bed breathes upper-right), a subtle perspective
+		// lean-back so the card lies ON the surface in 3D rather than facing flat, and
+		// the slow parallax push. Inverse-mapped sampling, so the rectangle warps into
+		// a receding plane. Non-scene DOF presets keep fgUv == in.uv.
+		var fgUv = in.uv;
+		if (bdStrength > 0.001) {
+			var u = center + (in.uv - center) * (1.0 - 0.03 * t);
+			// Place the card smaller and off-centre (lower-left third) so the bed
+			// breathes up and to the right. scale < 1 shrinks the subject; cardCenter
+			// is where the card's centre lands on screen.
+			let cardCenter = vec2f(0.40, 0.57);
+			let scale = 0.82;
+			u = vec2f(0.5) + (u - cardCenter) / scale;
+			// Subtle perspective lean-back: the card lies on the surface in 3D.
+			let tilt = 0.1;
+			let cl = u - center;
+			let depth = max(1.0 + tilt * cl.y, 0.25);
+			fgUv = center + cl / depth;
+		}
 		let bgUv = center + (in.uv - center) * (1.0 - 0.08 * t * mAmt) + vec2f(0.020, -0.012) * t * mAmt;
 
 		// Circle of confusion per plane, in pixels.
