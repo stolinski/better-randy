@@ -582,14 +582,32 @@
 		otherEffects: typeof engineState.effects;
 	}
 
-	function resolveDof(): ResolvedDof | null {
+	function resolveDof(progress: number): ResolvedDof | null {
 		const dofEffect = engineState.effects.find((effect) => effect.type === 'depth-of-field');
 		if (!dofEffect) {
 			return null;
 		}
-		const raw = (dofEffect.params ?? {}) as { focusZ?: unknown; aperture?: unknown };
-		const focusZ = clampNumber(typeof raw.focusZ === 'number' ? raw.focusZ : 0, 0, 1);
+		const raw = (dofEffect.params ?? {}) as {
+			focusZ?: unknown;
+			aperture?: unknown;
+			focusPull?: { from?: unknown; to?: unknown; start?: unknown; duration?: unknown };
+		};
 		const aperture = Math.max(0, typeof raw.aperture === 'number' ? raw.aperture : 0);
+		let focusZ = clampNumber(typeof raw.focusZ === 'number' ? raw.focusZ : 0, 0, 1);
+		// Optional animated rack focus: the focal plane ramps `from`→`to` across
+		// [start, start+duration] in clip progress, eased smooth (smoothstep), so
+		// focus pulls between the Surface and Overlay planes over the timeline — the
+		// cinematic rack. Driven by the same paused-timeline progress as everything
+		// else, so preview and export agree frame for frame.
+		const pull = raw.focusPull;
+		if (pull && typeof pull.from === 'number' && typeof pull.to === 'number') {
+			const start = typeof pull.start === 'number' ? pull.start : 0;
+			const duration =
+				typeof pull.duration === 'number' && pull.duration > 0 ? pull.duration : 1;
+			const local = clampNumber((progress - start) / duration, 0, 1);
+			const eased = local * local * (3 - 2 * local);
+			focusZ = clampNumber(pull.from + (pull.to - pull.from) * eased, 0, 1);
+		}
 		// v1: the Surface sits at the focal default (z 0.0); all overlays collapse
 		// into one Overlay plane at the first overlay's z (schema default 0.7).
 		// Per-overlay-instance planes by z are the documented extension.
@@ -672,7 +690,7 @@
 
 		const timebase = effectChainTimebase(timestamp);
 
-		const dof = resolveDof();
+		const dof = resolveDof(timebase.progress);
 		if (
 			dof &&
 			renderDofPlanes(dof, buildRenderInputs(timestamp), timebase, outputView, backgroundFillFloat)
@@ -1136,7 +1154,7 @@
 
 			// Multiplane DOF (ADR-0027): captures the layers and composites itself,
 			// so it owns the per-frame DOM upload (Surface-layer + Overlay-layer).
-			const dof = resolveDof();
+			const dof = resolveDof(timebase.progress);
 			if (
 				dof &&
 				host &&

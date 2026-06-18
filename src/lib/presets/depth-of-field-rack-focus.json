@@ -1,0 +1,64 @@
+{
+	"schema": "hiviz@1",
+	"name": "Depth of field — rack-focus title reveal",
+	"description": "Dynamic multiplane depth-of-field (ADR-0027). Opens on the big type-hero word 'HIVIZ' sharp on the focal plane while the lower-third title card sits behind it, soft. Over the first half-second the focus RACKS (animated focusPull 0.0 → 0.7, smoothstep) from the Surface plane to the Overlay plane: the brand word melts into bright luminous bokeh and the 'Depth of Field' title card resolves into tack-sharp focus. The blur is depth-driven (the rack moves the focal plane between layers, not a screen band) and the focus animates frame-deterministically off the timeline. A title card over a bokeh background with a real, moving rack focus — the cinematic move.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 7,
+			"fps": 30,
+			"format": "prores"
+		},
+		"backgroundFill": "#06060c",
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#040408",
+			"inkColor": "#fffaf2"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "type-hero",
+			"content": {
+				"title": "HIVIZ",
+				"author": "Broadcast-grade motion graphics",
+				"body": ""
+			},
+			"enter": { "start": 0, "duration": 0.06, "ease": "settled" },
+			"exit": { "start": 0.92, "duration": 0.05, "ease": "smooth" }
+		},
+		"overlays": [
+			{
+				"type": "lower-third",
+				"id": "title-card",
+				"z": 0.7,
+				"content": {
+					"variant": "cinematic",
+					"kicker": "ENGINE",
+					"title": "Depth of Field",
+					"subtitle": "Multiplane bokeh · rack focus"
+				},
+				"position": {
+					"anchor": "bottom-left",
+					"offset": { "x": 0.06, "y": 0.115 }
+				},
+				"enter": { "start": 0.04, "duration": 0.058, "ease": "settled" },
+				"exit": { "start": 0.9, "duration": 0.041, "ease": "smooth" }
+			}
+		],
+		"effects": [
+			{
+				"type": "depth-of-field",
+				"id": "dof",
+				"params": {
+					"focusZ": 0.7,
+					"aperture": 0.8,
+					"focusPull": { "from": 0, "to": 0.7, "start": 0.12, "duration": 0.4 }
+				}
+			}
+		]
+	}
+}
