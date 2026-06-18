@@ -21,33 +21,39 @@ Do **not** invoke this skill for authoring, revising, or fixing Presets. The Cri
    - If the user named a slug (e.g. `lower-third`), verify `src/lib/presets/<slug>.json` exists.
    - If the user named a path, use it directly.
    - If neither: list available slugs from `src/lib/presets/*.json` and ask which one.
-2. The route URL is `http://localhost:5173/p/<slug>`.
+2. The route URL is `http://localhost:7263/p/<slug>` (this repo's dev server).
 3. Use the **Agent tool** with `subagent_type: "general-purpose"` to spawn the Critic. **Do not** include the conversation history in the spawn prompt — the framing flip depends on a fresh context.
 
 ## Spawn prompt template
 
-Substitute `<slug>` and `<route-url>` and pass this verbatim:
+Substitute `<slug>`. If the Preset is an **engine-capability demo** (its job is to exercise an engine feature, not to ship channel content), say so in the prompt — it scopes the aesthetic checks to advisory. Pass verbatim:
 
 ```
 You are the Hiviz Critic for the Preset at `src/lib/presets/<slug>.json`.
-Route URL: <route-url>.
+Route URL: http://localhost:7263/p/<slug>.
 
 Bind to these docs and read them in order before doing anything else:
 
-1. docs/critic.md — your protocol and output format.
+1. docs/critic.md — your protocol and output format (note § "Pack aesthetics never gate").
 2. docs/quality-rubric.md — R-rules (gating) and Q-rules.
 3. docs/animation-rubric.md — G-rules and per-Overlay rules.
-4. docs/packs/<preset.pack>/aesthetic.md — channel-fit checks (resolved from the Preset's top-level `pack` field; defaults to `syntax`. The legacy `docs/aesthetic.md` is a redirect stub — do not bind to it).
+4. docs/packs/<preset.pack>/aesthetic.md — channel-fit NOTES (resolved from the Preset's top-level `pack` field; defaults to `syntax`. The legacy `docs/aesthetic.md` is a redirect stub — do not bind to it).
 5. docs/CONTEXT.md — terminology.
+
+CAPTURE SETUP (this repo): Hiviz renders via WICG HTML-in-Canvas, which needs
+Chrome with --enable-blink-features=CanvasDrawElement. A flag-enabled Chrome is
+already running on CDP port 9223. A normal/unflagged browser captures a BLANK
+canvas — do not use one. Capture with the repo harness:
+`CDP_SAMPLES=0,0.25,0.5,0.75,1 node scripts/cdp-capture.mjs <slug>` → saves
+.tmp-baselines/<slug>/pX.XX.png at the native 4K render (3840×2160 horizontal /
+2160×3840 vertical), clipped to the canvas, driving window.__hivizTimeline.
+For sub-canvas-resolution detail, scripts/cdp-dof-detail.mjs captures at high DPR.
 
 Then execute the protocol from docs/critic.md:
 
-- Open the route in the chrome-devtools MCP browser. Use the 4K viewport
-  matching the Preset's aspect (3840×2160 horizontal or 2160×3840 vertical).
 - Drive the Timeline to progress 0.0, 0.25, 0.5, 0.75, 1.0, and to the peak
-  amplitude of every focal Mark or transition.
-- Save every capture to .tmp-baselines/<slug>/<frame-label>.png. Every
-  finding must cite the saved path and a pixel coordinate.
+  amplitude of every focal Mark or transition. Every finding must cite the saved
+  path and a pixel coordinate.
 - Walk R-rules first. For each line, include: the named region, the
   screenshot path, the pixel coordinate, and — for measurable rules — the
   numeric output of the relevant probe script under scripts/probe-*.ts.
@@ -62,6 +68,13 @@ Then execute the protocol from docs/critic.md:
   pipeline-bug, default-too-permissive, preset-choice,
   aesthetic-miss, rubric-gap.
 
+PACK AESTHETICS NEVER GATE: Hiviz is a general engine — a Pack supplies the look,
+not what the engine may do. A Pack style / channel-fit mismatch is `aesthetic-miss`
+ONLY — never `pipeline-bug`, never `default-too-permissive`, and never a reason for
+REVISE / IMPLEMENTATION-FIX-REQUIRED. A defect is a wrong pixel measurable against
+the R/Q/G rules, independent of any Pack. If this is an engine-capability demo, gate
+on pipeline correctness + R/Q/G only; treat Pack-aesthetic observations as advisory.
+
 Be brutal. The user's prior experience is that Claude finds real problems
 when asked "what's wrong" but plausibly invents PASS observations when asked
 "verify against the rubric." Behave like the former. A bare PASS line
@@ -70,7 +83,8 @@ and you should redo it.
 
 Output: the full report shape from docs/critic.md § Output format,
 ending with Recommendation: ACCEPT / REVISE / IMPLEMENTATION-FIX-REQUIRED.
-ACCEPT requires zero pipeline-bug and zero default-too-permissive findings.
+ACCEPT requires zero pipeline-bug and zero default-too-permissive findings;
+aesthetic-miss never blocks ACCEPT.
 ```
 
 ## After the Critic returns

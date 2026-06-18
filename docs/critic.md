@@ -12,6 +12,14 @@ Whenever a Producer is about to claim a Preset is complete. "Complete" is define
 
 The Critic does **not** run on every micro-edit during authoring. It runs when the Producer would otherwise say "this preset is ready." Treat it as the verification gate, not the linter.
 
+### Pack aesthetics never gate
+
+Hiviz is a **general motion-graphics engine** — "the engine is general, the look is not" (CLAUDE.md). A Pack supplies the channel's appearance; it does not define what the engine is allowed to do. Therefore:
+
+- A Pack aesthetic / channel-fit observation is **always classified `aesthetic-miss`**, which is **non-gating** by definition (`ACCEPT` only requires zero `pipeline-bug` + zero `default-too-permissive`). It is surfaced for the user to route, never used to force `REVISE` or `IMPLEMENTATION-FIX-REQUIRED` on its own.
+- **Never escalate a Pack style mismatch into a `pipeline-bug` or `default-too-permissive`.** "This composition is off-channel for the Pack" / "the Pack reserves this effect for surface X" is a *style preference*, not a render defect. A defect is a wrong pixel: a broken shader, a halo, a banded gradient, an upscaled texture — measurable against the R/Q/G rules, independent of any Pack.
+- When the target is a **general engine-capability demo** (a Preset whose job is to exercise an engine feature — a new Effect, Surface, Overlay, or transition — rather than to ship channel content), gate **only** on pipeline correctness + the R/Q/G rules. Pack-aesthetic checks are advisory notes only. If you believe a Pack rule *should* forbid what the engine demonstrates, file a `rubric-gap` for the user — do not block the demo.
+
 ---
 
 ## How the Critic is invoked
@@ -19,7 +27,7 @@ The Critic does **not** run on every micro-edit during authoring. It runs when t
 The Critic is a **sub-agent spawned with fresh context.** The Producer (or the user) launches it via the Agent tool. The sub-agent sees:
 
 - The target Preset's path under `src/lib/presets/`.
-- The route URL where the Preset renders (e.g. `http://localhost:5173/p/<slug>`).
+- The route URL where the Preset renders (`http://localhost:7263/p/<slug>` on this repo's dev server).
 - The four binding docs: this file, the quality rubric, the animation rubric, and the Preset's Pack aesthetic at `docs/packs/<preset.pack>/aesthetic.md` (resolved from the Preset's top-level `pack` field; defaults to `syntax` for unmigrated Presets).
 - The glossary at [`docs/CONTEXT.md`](CONTEXT.md).
 
@@ -30,11 +38,17 @@ The sub-agent does **not** see the conversation that produced the Preset. The fr
 ```text
 You are the Critic for the Hiviz preset at <preset-path>.
 
-Open <route-url> in Chrome via the chrome-devtools MCP. Set the viewport to
-the Preset's native target resolution (3840×2160 horizontal or 2160×3840
-vertical). Drive the Preset through its timeline; capture frames at progress
-0.0, 0.25, 0.5, 0.75, 1.0, and the peak-amplitude frame of every focal mark
-and effect. Save captures under .tmp-baselines/<preset-slug>/<frame>.png.
+CAPTURE SETUP (this repo): the dev server is at http://localhost:7263 — route
+http://localhost:7263/p/<slug>. Hiviz renders via WICG HTML-in-Canvas, which
+needs Chrome launched with --enable-blink-features=CanvasDrawElement; a
+flag-enabled Chrome is already running on CDP port 9223. A normal/unflagged
+browser (including the default chrome-devtools MCP browser unless it carries the
+flag) captures a BLANK canvas — do not use one. Capture frames with the repo
+harness: `CDP_SAMPLES=0,0.25,0.5,0.75,1 node scripts/cdp-capture.mjs <slug>`
+(saves .tmp-baselines/<slug>/pX.XX.png at the native 4K render, clipped to the
+canvas; it drives window.__hivizTimeline.seekProgress). The Preset renders at
+its native target resolution (3840×2160 horizontal or 2160×3840 vertical). Also
+capture the peak-amplitude frame of every focal mark and effect.
 
 For every captured frame, run the R-protocol from quality-rubric.md.
 Each R-line must include:
@@ -46,11 +60,18 @@ Each R-line must include:
 
 After R-rules, walk Q1–Q18, G-rules, and docs/packs/<preset.pack>/aesthetic.md. Classify every finding:
 
-  - pipeline-bug         — shader / effect / render-pass defect
+  - pipeline-bug         — shader / effect / render-pass defect (a wrong pixel)
   - default-too-permissive — pipeline works, the engine default is too lax
   - preset-choice        — this Preset picked wrong values
-  - aesthetic-miss       — rule-clean but doesn't read as the bound Pack's aesthetic
+  - aesthetic-miss       — rule-clean but doesn't read as the bound Pack's aesthetic (NON-GATING)
   - rubric-gap           — the failure isn't covered by current rules
+
+PACK AESTHETICS NEVER GATE (see § Pack aesthetics never gate): a Pack style
+mismatch is `aesthetic-miss` only — never `pipeline-bug`, never
+`default-too-permissive`, never a reason for REVISE / IMPLEMENTATION-FIX-REQUIRED.
+If this Preset is a general ENGINE-CAPABILITY demo (its job is to exercise an
+engine feature, not to ship channel content), gate on pipeline correctness + the
+R/Q/G rules only; treat Pack-aesthetic notes as advisory.
 
 Be brutal. The user's prior experience is that you find real problems when
 asked "what's wrong" but plausibly invent PASS observations when asked "verify
@@ -67,10 +88,9 @@ Adapt the path tokens to the actual Preset under review.
 
 ### Capture phase
 
-1. Open the Preset's route in the chrome-devtools MCP browser. The Chrome instance there has `chrome://flags/#canvas-draw-element` enabled and is the only browser context that should be used for verification.
-2. Resize the viewport to the Preset's native target resolution (`docs/quality-rubric.md` R6). Captures taken at any other size are invalid.
-3. Drive the **Timeline** to each progress sample: `0.0`, `0.25`, `0.5`, `0.75`, `1.0`. Also capture the peak-amplitude frame of every focal slot and every transition Mark.
-4. Save every capture to disk at `.tmp-baselines/<preset-slug>/<frame-label>.png`. The Critic's findings must cite these paths.
+1. Capture through a Chrome with `--enable-blink-features=CanvasDrawElement` (WICG HTML-in-Canvas). A flag-enabled Chrome runs on CDP port 9223; the repo harness `scripts/cdp-capture.mjs` drives it. Any browser lacking the flag captures a blank canvas and is invalid for verification.
+2. The harness renders at the Preset's native target resolution (`docs/quality-rubric.md` R6) and clips the screenshot to the canvas. `CDP_SAMPLES=0,0.25,0.5,0.75,1 node scripts/cdp-capture.mjs <slug>` drives the **Timeline** to each progress sample. Also capture the peak-amplitude frame of every focal slot and every transition Mark.
+3. Captures land at `.tmp-baselines/<preset-slug>/pX.XX.png`. The Critic's findings must cite these paths. (For sub-canvas-resolution detail — e.g. fine bokeh — `scripts/cdp-dof-detail.mjs` captures at a high device-pixel-ratio.)
 
 ### Inspection phase — R-rules (gating)
 
@@ -141,7 +161,7 @@ Findings:
 Recommendation: ACCEPT / REVISE / IMPLEMENTATION-FIX-REQUIRED
 ```
 
-`ACCEPT` is only valid if zero `pipeline-bug` and zero `default-too-permissive` findings exist. `REVISE` is for findings the Producer can address. `IMPLEMENTATION-FIX-REQUIRED` halts the Producer; a code change has to land before the Preset can be re-reviewed.
+`ACCEPT` is only valid if zero `pipeline-bug` and zero `default-too-permissive` findings exist. `REVISE` is for findings the Producer can address. `IMPLEMENTATION-FIX-REQUIRED` halts the Producer; a code change has to land before the Preset can be re-reviewed. **`aesthetic-miss` findings never drive `REVISE` or `IMPLEMENTATION-FIX-REQUIRED`** — a Pack style mismatch is surfaced for the user to route, not a blocker (see § Pack aesthetics never gate).
 
 ---
 
