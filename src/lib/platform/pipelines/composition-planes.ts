@@ -253,24 +253,40 @@ const compositeFragmentFn = tgpu['~unstable'].fragmentFn({
 			bd = vec4f(col * bdStrength, bdStrength);
 		}
 
-		// Gentle scene light on the subject (scene mode): a soft warm key from the
-		// upper-left, matching the bed's light pool, so the card shares the room light
-		// instead of being flatly self-lit. Deliberately subtle (±~10% + a slight warm
-		// shift) — the over-contrasty version read wrong.
+		// Put the subject in the scene (scene mode): a gentle shared key light, and a
+		// grounded shadow done right this time. The card's flat baked drop shadow is
+		// suppressed (alpha remapped to the card BODY) and replaced by a shadow CAST
+		// onto the bed — a multiply (so the bed's texture shows through, the tell of a
+		// real shadow), darkest at the contact and softening with distance, sampled
+		// from the card's coverage toward the SAME key (correct direction, no warp
+		// mismatch now that fgUv == in.uv).
 		var litSurfRgb = surf.rgb;
+		var cardA = surf.a;
+		var shadedBdRgb = bd.rgb;
 		if (bdStrength > 0.001) {
 			let keyPos = vec2f(0.33, 0.32);
 			let key = 1.0 - smoothstep(0.1, 1.2, length((in.uv - keyPos) * vec2f(aspect, 1.0)));
 			let warm = mix(vec3f(0.97, 0.965, 0.95), vec3f(1.05, 1.01, 0.95), key);
 			litSurfRgb = surf.rgb * warm * mix(0.9, 1.05, key);
+
+			let toLight = normalize(keyPos - in.uv);
+			var shAccum = 0.0;
+			for (var k = 1; k <= 10; k = k + 1) {
+				let dist = f32(k) / 10.0;
+				let bodyHit = smoothstep(0.6, 0.95, textureSampleLevel(layout.$.surfaceTexture, layout.$.samp, in.uv + toLight * mix(0.004, 0.06, dist), 0.0).a);
+				shAccum = max(shAccum, bodyHit * (1.0 - dist * 0.65));
+			}
+			shadedBdRgb = bd.rgb * (1.0 - shAccum * 0.45);
+
+			cardA = smoothstep(0.5, 0.92, surf.a);
+			litSurfRgb = litSurfRgb * (cardA / max(surf.a, 0.001));
 		}
 
 		// Back-to-front premultiplied composite: backdrop (back) → Surface (mid) →
 		// Overlay (front). With strength 0 the backdrop is transparent and this
-		// degenerates to the prior Overlay-over-Surface composite. The Surface keeps
-		// its own card shadow; the shared film finish below ties the planes together.
-		let surfRgb = litSurfRgb + (1.0 - surf.a) * bd.rgb;
-		let surfA = surf.a + (1.0 - surf.a) * bd.a;
+		// degenerates to the prior Overlay-over-Surface composite.
+		let surfRgb = litSurfRgb + (1.0 - cardA) * shadedBdRgb;
+		let surfA = cardA + (1.0 - cardA) * bd.a;
 		var outRgb = ovl.rgb + (1.0 - ovl.a) * surfRgb;
 		let outA = ovl.a + (1.0 - ovl.a) * surfA;
 
