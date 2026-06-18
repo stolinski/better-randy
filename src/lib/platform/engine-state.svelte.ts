@@ -7,6 +7,7 @@ import {
 	type Effect,
 	type MarkTiming,
 	type Overlay,
+	type Preset,
 	type TextAnimation
 } from './engine-schema';
 import { assertIdentityRegistryValid } from './pipelines/identity-registry';
@@ -30,6 +31,23 @@ export const engineState = $state<EngineState>(createDefaultEngineState());
  * own Pack and overrides this on load), so it uses the reference Pack.
  */
 export const packState = $state<{ slug: string }>({ slug: REFERENCE_PACK_SLUG });
+
+/**
+ * The active multi-state transition (ADR-0026), or null for an ordinary
+ * single-state Preset. Set by `applyPreset` from the Preset's `transition`
+ * recipe with `from`/`to` resolved to full Presets. The Workspace reads this to
+ * switch into transition mode: snapshot `from` and `to` into textures, then wipe
+ * between them. Distinct from `engineState` (the live composition) so the
+ * snapshot path can swap the composition state via `applyCompositionState`
+ * without clearing the transition it is servicing.
+ */
+export interface ResolvedTransition {
+	from: Preset;
+	to: Preset;
+	effect: string;
+	durationMs: number;
+}
+export const transitionState = $state<{ active: ResolvedTransition | null }>({ active: null });
 
 export function ensureMarkTimingAtIndex(index: number): MarkTiming {
 	while (engineState.marks.timings.length <= index) {

@@ -7,7 +7,7 @@ import {
 	type SurfaceState,
 	type TextAnimation
 } from './engine-schema';
-import { engineState, packState } from './engine-state.svelte';
+import { engineState, packState, transitionState } from './engine-state.svelte';
 import { PIPELINE_REGISTRY } from './pipelines';
 import { isTransitionEffectType } from './pipelines/transition-registry';
 
@@ -231,7 +231,14 @@ function cloneTextAnimation(entry: TextAnimation): TextAnimation {
 }
 
 
-export function applyPreset(preset: Preset): void {
+/**
+ * Apply a Preset's composition (its Pack + `state`) to the live engine state.
+ * Does NOT touch `transitionState` — the transition snapshot path swaps the
+ * composition to `from`/`to` through this without disturbing the transition it
+ * is servicing. Callers wanting the full "load this Preset" behaviour (including
+ * resolving a transition recipe) use `applyPreset`.
+ */
+export function applyCompositionState(preset: Preset): void {
 	const next = preset.state;
 
 	packState.slug = preset.pack;
@@ -267,4 +274,26 @@ export function applyPreset(preset: Preset): void {
 	engineState.effects = (next.effects ?? []).map(cloneEffect);
 	engineState.textAnimations = (next.textAnimations ?? []).map(cloneTextAnimation);
 	engineState.backgroundFill = next.backgroundFill;
+}
+
+/**
+ * Load a Preset: apply its composition, then resolve its transition recipe (if
+ * any) into `transitionState` for the Workspace to act on. This is what the
+ * route calls for the active Preset. `from`/`to` resolve against the built-in
+ * catalog; an unresolved ref leaves the transition inactive (the validator
+ * already rejects such Presets, so this is defence in depth).
+ */
+export function applyPreset(preset: Preset): void {
+	applyCompositionState(preset);
+
+	if (preset.transition) {
+		const from = getPresetBySlug(preset.transition.from);
+		const to = getPresetBySlug(preset.transition.to);
+		transitionState.active =
+			from && to
+				? { from, to, effect: preset.transition.effect, durationMs: preset.transition.durationMs }
+				: null;
+	} else {
+		transitionState.active = null;
+	}
 }

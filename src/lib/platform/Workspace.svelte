@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, untrack } from 'svelte';
+	import { onDestroy, tick, untrack } from 'svelte';
 
 	import { AnimationManager, type AnimationManifest, type AnimationTweenSpec } from './animation-manager';
 	import { TextAnimationManager } from '$lib/text-animations/manager.svelte';
@@ -28,12 +28,20 @@
 	} from './html-in-canvas';
 	import { Timeline } from './timeline.svelte';
 	import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
-	import { getEaseGsap, resolveMarkForIndex, type SurfaceType } from './engine-schema';
-	import { engineState, ensureMarkTimingAtIndex } from './engine-state.svelte';
+	import { getEaseGsap, resolveMarkForIndex, type Preset, type SurfaceType } from './engine-schema';
+	import {
+		engineState,
+		ensureMarkTimingAtIndex,
+		transitionState,
+		type ResolvedTransition
+	} from './engine-state.svelte';
+	import { applyCompositionState } from './preset';
 	import { measureOverlayBoundsPx } from '$lib/utils/overlay-bounds';
 
 	import { createPaperPipeline } from '$lib/pipelines/surfaces/paper/pipeline';
 	import { createPlainPipeline } from '$lib/pipelines/surfaces/plain/pipeline';
+	import { TransitionSnapshots } from './pipelines/transition-snapshots';
+	import { compileTransitionWipe, type CompiledTransitionWipe } from './pipelines/transition-pass';
 	import {
 		downloadVideoBlob,
 		exportTransparentProRes,
@@ -56,6 +64,21 @@
 	let timeline = $state.raw<Timeline | null>(null);
 	const animationManager = new AnimationManager();
 	const textAnimationManager = new TextAnimationManager();
+
+	// Multi-state transition (ADR-0026). These are read only imperatively (in
+	// renderAt / the snapshot orchestration), never in a tracked effect scope, so
+	// they are plain non-reactive `let`s — keeping the render path out of the
+	// reactive graph on purpose. `transitionReady` gates renderAt onto the wipe;
+	// `preparedFor` / `preparing` guard the async snapshot against re-entrancy
+	// (capturing a state swaps engineState, which re-fires the pipeline effect).
+	let snapshots: TransitionSnapshots | null = null;
+	let transitionWipe: CompiledTransitionWipe | null = null;
+	let transitionReady = false;
+	let preparedFor: ResolvedTransition | null = null;
+	let preparing = false;
+	// The frame of each state to snapshot: mid-timeline, settled (after enter,
+	// before exit). A later refinement may let the transition name a per-state frame.
+	const SNAPSHOT_PROGRESS = 0.5;
 
 	let isExporting = $state(false);
 	let progress = $state(0);
@@ -560,7 +583,22 @@
 		if (!host) {
 			return;
 		}
-		renderCompositeTo(host.context.getCurrentTexture().createView(), timestamp);
+		const outputView = host.context.getCurrentTexture().createView();
+		// Transition mode (ADR-0026): once both states are snapshotted, composite
+		// the wipe over them instead of the live composition. The timeline drives
+		// the wipe's local progress (0 = from, 1 = to).
+		if (transitionReady && snapshots && transitionWipe) {
+			const duration = engineState.transport.durationSeconds;
+			const progress = duration > 0 ? Math.max(0, Math.min(1, timestamp / duration)) : 0;
+			transitionWipe.apply({
+				fromView: snapshots.fromTexture().createView(),
+				toView: snapshots.toTexture().createView(),
+				outputView,
+				progress
+			});
+			return;
+		}
+		renderCompositeTo(outputView, timestamp);
 	}
 
 	// The single per-frame driver. Called by the Timeline's tick (play + seek)
@@ -581,6 +619,92 @@
 			requestCanvasPaint(canvas);
 		}
 	}
+
+	// --- Multi-state transition snapshots (ADR-0026) ---
+
+	// Capture one state's settled composite into `target`. Swap the live
+	// composition to `preset`, let content + pipeline effects flush, drive the
+	// animation to the settled frame, flush the DOM that produces, then re-upload
+	// and composite that frame into the snapshot texture. The explicit uploadDom
+	// immediately before the capture makes it deterministic regardless of the
+	// reactive paint loop running underneath.
+	function nextFrame(): Promise<void> {
+		return new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+	}
+
+	async function captureStateSnapshot(preset: Preset, target: GPUTextureView): Promise<void> {
+		applyCompositionState(preset);
+		await tick();
+		await fontsReady();
+		// Let the new composition's content + pipeline effects fully lay out before
+		// driving to the settled frame — overlays (e.g. per-glyph 3D text) mount and
+		// size against --frame-w/h over a couple of frames, and capturing too early
+		// grabs an un-laid-out (blank) DOM.
+		await nextFrame();
+		await nextFrame();
+		animationManager.rebuild(buildAnimationManifest());
+		animationManager.progress(SNAPSHOT_PROGRESS);
+		animState.globalProgress = SNAPSHOT_PROGRESS;
+		await tick();
+		await nextFrame();
+		await nextFrame();
+		if (!pipeline) {
+			return;
+		}
+		pipeline.uploadDom();
+		renderCompositeTo(target, SNAPSHOT_PROGRESS * preset.state.transport.durationSeconds);
+	}
+
+	async function prepareTransition(active: ResolvedTransition): Promise<void> {
+		if (!host || !canvas) {
+			return;
+		}
+		transitionReady = false;
+		if (!snapshots) {
+			snapshots = new TransitionSnapshots({ host, width: canvas.width, height: canvas.height });
+		}
+		if (!transitionWipe) {
+			// `mask-wipe` is the only transition Effect today; the validator already
+			// confirmed `active.effect` is registered.
+			transitionWipe = compileTransitionWipe(host);
+		}
+		// Capturing each state swaps engineState to from/to (whose transports differ
+		// from the transition's own). Preserve the transition Preset's transport —
+		// it governs the OUTPUT clip (duration = the wipe; orientation/fps/format) —
+		// and restore it after both snapshots so the timeline isn't left on `to`.
+		const outputTransport = { ...engineState.transport };
+		await captureStateSnapshot(active.from, snapshots.fromTarget());
+		await captureStateSnapshot(active.to, snapshots.toTarget());
+		engineState.transport.orientation = outputTransport.orientation;
+		engineState.transport.durationSeconds = outputTransport.durationSeconds;
+		engineState.transport.fps = outputTransport.fps;
+		engineState.transport.format = outputTransport.format;
+		transitionReady = true;
+		// Reset to the wipe's start; seek() drives tickTimeline → the wipe renders.
+		timeline?.seek(0);
+	}
+
+	$effect(() => {
+		// Trigger when a transition activates AND the GPU host + pipeline exist;
+		// reading host/canvas/pipeline here re-runs once they become available.
+		const active = transitionState.active;
+		const ready = host && canvas && pipeline;
+		if (!active) {
+			transitionReady = false;
+			preparedFor = null;
+			return;
+		}
+		if (!ready || preparedFor === active || preparing) {
+			return;
+		}
+		preparedFor = active;
+		untrack(() => {
+			preparing = true;
+			void prepareTransition(active).finally(() => {
+				preparing = false;
+			});
+		});
+	});
 
 	$effect(() => {
 		if (!canvas || host) {
@@ -826,6 +950,11 @@
 		effectChain = null;
 		shaderPassDispatcher?.dispose();
 		shaderPassDispatcher = null;
+		snapshots?.dispose();
+		snapshots = null;
+		transitionWipe = null;
+		transitionReady = false;
+		preparedFor = null;
 		host?.dispose();
 		host = null;
 	});

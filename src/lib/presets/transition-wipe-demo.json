@@ -1,0 +1,38 @@
+{
+	"schema": "hiviz@1",
+	"name": "Transition wipe — demo",
+	"description": "Multi-state transition fixture (ADR-0026 / ADR-0022 model): a left-to-right mask-wipe from the text-3d-cylinder bumper to the title-card-newspaper card. The engine snapshots each state at its settled frame into a texture, then wipes between the two static textures — proving per-pixel A/B selection (a true wipe, not a crossfade). High-contrast pair (dark+yellow → light paper) so the moving boundary is unmistakable.",
+	"pack": "syntax",
+	"kind": "fixture",
+	"transition": {
+		"from": "text-3d-cylinder",
+		"to": "title-card-newspaper",
+		"effect": "mask-wipe",
+		"durationMs": 1200
+	},
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 1.2,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#000000",
+			"inkColor": "#ffffff"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			}
+		},
+		"overlays": [],
+		"effects": []
+	}
+}

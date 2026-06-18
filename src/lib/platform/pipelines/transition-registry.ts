@@ -19,6 +19,10 @@
 
 const registry = new Set<string>();
 
+/** The first transition Effect — a left-to-right per-pixel wipe (ADR-0026).
+ *  Implemented by `compileTransitionWipe` in `transition-pass.ts`. */
+export const MASK_WIPE_EFFECT = 'mask-wipe';
+
 /** Register a transition-Effect type name. Called by each transition Effect
  *  Pipeline's module at registration time (alongside its runtime binding). */
 export function registerTransitionEffect(type: string): void {
@@ -34,3 +38,8 @@ export function isTransitionEffectType(type: string): boolean {
 export function transitionEffectTypes(): readonly string[] {
 	return [...registry];
 }
+
+// Register the shipped transition Effects. Kept here (not in transition-pass.ts)
+// so the Preset validator can check `transition.effect` without importing the
+// GPU/TypeGPU pass implementation.
+registerTransitionEffect(MASK_WIPE_EFFECT);
