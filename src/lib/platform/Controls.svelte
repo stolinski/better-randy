@@ -36,16 +36,6 @@
 	const effectRenderers = Object.values(PIPELINE_REGISTRY.effects);
 	const EFFECT_CHAIN_LIMIT = 3;
 
-	let editorBody = $state<AnnotationBody>(engineState.surface.content.body);
-
-	$effect(() => {
-		editorBody = engineState.surface.content.body;
-	});
-
-	$effect(() => {
-		engineState.surface.content.body = editorBody;
-	});
-
 	function hasAnyBodyText(body: AnnotationBody): boolean {
 		for (const block of body) {
 			if (block.type === 'paragraph') {
@@ -63,7 +53,8 @@
 	const controls = $derived(renderer?.controls ?? {});
 
 	const showBody = $derived(
-		controls.body === 'always' || (controls.body === 'optional' && hasAnyBodyText(editorBody))
+		controls.body === 'always' ||
+			(controls.body === 'optional' && hasAnyBodyText(engineState.surface.content.body))
 	);
 
 	const documentSlots = $derived({
@@ -310,7 +301,7 @@
 				<div class="row">
 					<span>Body</span>
 					<AnnotationTextEditor
-						bind:body={editorBody}
+						bind:body={engineState.surface.content.body}
 						colors={EDITOR_MARK_COLORS}
 						label="Body"
 						rows={10}
