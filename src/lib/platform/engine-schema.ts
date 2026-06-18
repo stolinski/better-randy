@@ -179,7 +179,13 @@ const OverlaySchema = z.object({
 	content: z.unknown(),
 	position: OverlayPositionSchema,
 	enter: TransitionSchema.optional(),
-	exit: TransitionSchema.optional()
+	exit: TransitionSchema.optional(),
+	// Focal-distance plane for depth-of-field (ADR-0021 semantics / ADR-0027 v1).
+	// 0 = focal plane (sharp), 1 = max defocus. Absent → the Overlay-Layer default
+	// (0.7) is applied at render; a per-instance value overrides it so one overlay
+	// can sit nearer the focal plane than another. Only consulted when a
+	// depth-of-field Effect is present; inert otherwise.
+	z: FractionSchema.optional()
 });
 
 const EffectSchema = z.object({
