@@ -253,11 +253,23 @@ const compositeFragmentFn = tgpu['~unstable'].fragmentFn({
 			bd = vec4f(col * bdStrength, bdStrength);
 		}
 
+		// Gentle scene light on the subject (scene mode): a soft warm key from the
+		// upper-left, matching the bed's light pool, so the card shares the room light
+		// instead of being flatly self-lit. Deliberately subtle (±~10% + a slight warm
+		// shift) — the over-contrasty version read wrong.
+		var litSurfRgb = surf.rgb;
+		if (bdStrength > 0.001) {
+			let keyPos = vec2f(0.33, 0.32);
+			let key = 1.0 - smoothstep(0.1, 1.2, length((in.uv - keyPos) * vec2f(aspect, 1.0)));
+			let warm = mix(vec3f(0.97, 0.965, 0.95), vec3f(1.05, 1.01, 0.95), key);
+			litSurfRgb = surf.rgb * warm * mix(0.9, 1.05, key);
+		}
+
 		// Back-to-front premultiplied composite: backdrop (back) → Surface (mid) →
 		// Overlay (front). With strength 0 the backdrop is transparent and this
 		// degenerates to the prior Overlay-over-Surface composite. The Surface keeps
 		// its own card shadow; the shared film finish below ties the planes together.
-		let surfRgb = surf.rgb + (1.0 - surf.a) * bd.rgb;
+		let surfRgb = litSurfRgb + (1.0 - surf.a) * bd.rgb;
 		let surfA = surf.a + (1.0 - surf.a) * bd.a;
 		var outRgb = ovl.rgb + (1.0 - ovl.a) * surfRgb;
 		let outA = ovl.a + (1.0 - ovl.a) * surfA;
