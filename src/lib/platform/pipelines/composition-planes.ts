@@ -36,7 +36,17 @@ const PLANE_TEXTURE_USAGE =
 // defaults to z 0.0 (focal); the Overlay to its schema z (default 0.7).
 // resolution = canvas (width, height) px, so the CoC disc is circular in pixel
 // space (not stretched by the frame's aspect) and sized in real pixels.
-const DofUniforms = d.struct({ params: d.vec4f, resolution: d.vec2f });
+// backdrop = (strength, edgeBlur, vignette, speckle): an optional procedural
+// defocused-material plane composited BEHIND the Surface, giving the
+// tabletop/macro depth look — soft material that loses detail and gains bokeh
+// specks toward the frame edges (receding depth). strength 0 = no backdrop
+// (transparent, the default). backdropColor = (rgb material tone, grain amount).
+const DofUniforms = d.struct({
+	params: d.vec4f,
+	backdrop: d.vec4f,
+	backdropColor: d.vec4f,
+	resolution: d.vec2f
+});
 
 const fullScreenVertexFn = tgpu['~unstable'].vertexFn({
 	in: { vertexIndex: d.builtin.vertexIndex },
@@ -144,9 +154,94 @@ const compositeFragmentFn = tgpu['~unstable'].fragmentFn({
 		let surf = surfAcc / max(surfW, 0.0001);
 		let ovl = ovlAcc / max(ovlW, 0.0001);
 
-		// Premultiplied OVER: overlay plane (front) over surface plane (back).
-		let outRgb = ovl.rgb + (1.0 - ovl.a) * surf.rgb;
-		let outA = ovl.a + (1.0 - ovl.a) * surf.a;
+		// ----- Procedural defocused-material backdrop (tabletop/macro depth) -----
+		// A soft material plane behind the Surface: low-frequency mottle (an
+		// out-of-focus surface), a sparse field of bright bokeh specks that grow and
+		// brighten toward the edges (defocused highlights receding into depth), and a
+		// vignette. Detail and sharpness fall off radially — the "edge blur" that
+		// reads as a real surface tilting away. Inherently soft (low frequency), so no
+		// extra gather. strength 0 → transparent (the default; no backdrop).
+		let bdStrength = layout.$.uniforms.backdrop.x;
+		var bd = vec4f(0.0);
+		if (bdStrength > 0.001) {
+			let aspect = layout.$.uniforms.resolution.x / max(layout.$.uniforms.resolution.y, 1.0);
+			let edgeBlur = layout.$.uniforms.backdrop.y;
+			let vignetteAmt = layout.$.uniforms.backdrop.z;
+			let speckle = layout.$.uniforms.backdrop.w;
+			let baseCol = layout.$.uniforms.backdropColor.rgb;
+			let grainAmt = layout.$.uniforms.backdropColor.w;
+
+			let centred = (in.uv - vec2f(0.5)) * vec2f(aspect, 1.0);
+			let radial = clamp(length(centred) / 0.72, 0.0, 1.0);
+
+			// Two-octave value-noise mottle (a cloudy, tactile out-of-focus material);
+			// contrast fades toward edges (edge blur). Coarse octave gives broad
+			// light/shade across the surface; fine octave adds material grain.
+			let mpA = in.uv * vec2f(4.0, 4.0);
+			let miA = floor(mpA);
+			let mfA = fract(mpA);
+			let msA = mfA * mfA * (vec2f(3.0) - 2.0 * mfA);
+			let a00 = fract(sin(dot(miA, vec2f(127.1, 311.7))) * 43758.5453);
+			let a10 = fract(sin(dot(miA + vec2f(1.0, 0.0), vec2f(127.1, 311.7))) * 43758.5453);
+			let a01 = fract(sin(dot(miA + vec2f(0.0, 1.0), vec2f(127.1, 311.7))) * 43758.5453);
+			let a11 = fract(sin(dot(miA + vec2f(1.0, 1.0), vec2f(127.1, 311.7))) * 43758.5453);
+			let mottleA = mix(mix(a00, a10, msA.x), mix(a01, a11, msA.x), msA.y);
+			let mpB = in.uv * vec2f(15.0, 15.0);
+			let miB = floor(mpB);
+			let mfB = fract(mpB);
+			let msB = mfB * mfB * (vec2f(3.0) - 2.0 * mfB);
+			let b00 = fract(sin(dot(miB, vec2f(269.5, 183.3))) * 43758.5453);
+			let b10 = fract(sin(dot(miB + vec2f(1.0, 0.0), vec2f(269.5, 183.3))) * 43758.5453);
+			let b01 = fract(sin(dot(miB + vec2f(0.0, 1.0), vec2f(269.5, 183.3))) * 43758.5453);
+			let b11 = fract(sin(dot(miB + vec2f(1.0, 1.0), vec2f(269.5, 183.3))) * 43758.5453);
+			let mottleB = mix(mix(b00, b10, msB.x), mix(b01, b11, msB.x), msB.y);
+			let mottle = mottleA * 0.66 + mottleB * 0.34;
+			let detail = mix(1.0, 0.35, radial * edgeBlur);
+			// Lift the material above the base tone so the texture is visible, then
+			// modulate; keeps a dark material from collapsing to a flat void.
+			var col = baseCol * (1.0 + (mottle - 0.4) * 0.85 * detail);
+			let gr = fract(sin(dot(in.uv * vec2f(640.0, 640.0), vec2f(12.99, 78.23))) * 43758.5453);
+			col = col + vec3f((gr - 0.5) * grainAmt);
+
+			// Soft directional light pool (upper-left) — implies a key light raking
+			// across the surface, the cue that sells a real lit 3D material.
+			let lightDelta = (in.uv - vec2f(0.32, 0.30)) * vec2f(aspect, 1.0);
+			let lightFalloff = 1.0 - smoothstep(0.05, 0.72, length(lightDelta));
+			col = col + col * lightFalloff * 0.55;
+
+			// Sparse warm bokeh specks on a hashed grid; disc radius + brightness grow
+			// toward the edges so the surround reads as defocused light receding.
+			let gridN = 5.0;
+			var glow = 0.0;
+			for (var gy = -1; gy <= 1; gy = gy + 1) {
+				for (var gx = -1; gx <= 1; gx = gx + 1) {
+					let cell = floor(in.uv * gridN) + vec2f(f32(gx), f32(gy));
+					let h = fract(sin(dot(cell, vec2f(41.3, 289.1))) * 43758.5453);
+					let h2 = fract(sin(dot(cell, vec2f(93.7, 17.2))) * 43758.5453);
+					let pt = (cell + vec2f(h, h2)) / gridN;
+					let dd = length((in.uv - pt) * vec2f(aspect, 1.0));
+					let discR = (0.018 + 0.07 * radial) * (0.6 + speckle);
+					let disc = smoothstep(discR, discR * 0.4, dd);
+					let bright = step(0.5, h) * h2;
+					glow = max(glow, disc * bright);
+				}
+			}
+			// Warm bokeh tint, brighter toward the edges (further = more defocus glow).
+			col = col + vec3f(1.0, 0.86, 0.62) * glow * (0.6 + speckle) * (0.5 + 0.85 * radial);
+
+			// Vignette — darker at the edges for depth.
+			col = col * (1.0 - radial * radial * vignetteAmt);
+
+			bd = vec4f(col * bdStrength, bdStrength);
+		}
+
+		// Back-to-front premultiplied composite: backdrop (back) → Surface (mid) →
+		// Overlay (front). With strength 0 the backdrop is transparent and this
+		// degenerates to the prior Overlay-over-Surface composite.
+		let surfRgb = surf.rgb + (1.0 - surf.a) * bd.rgb;
+		let surfA = surf.a + (1.0 - surf.a) * bd.a;
+		let outRgb = ovl.rgb + (1.0 - ovl.a) * surfRgb;
+		let outA = ovl.a + (1.0 - ovl.a) * surfA;
 		return vec4f(outRgb, outA);
 	}`.$uses({ layout: compositeLayout });
 
@@ -160,12 +255,23 @@ export interface CompositionPlanesOptions {
  *  pipeline's own output (`.composition`, surface-only while the split is on). z
  *  values are the resolved focal-distance scalars; the DOF params drive task 3's
  *  blur. */
+/** Optional procedural backdrop behind the Surface. `strength` 0 disables it. */
+export interface CompositeBackdrop {
+	strength: number;
+	edgeBlur: number;
+	vignette: number;
+	speckle: number;
+	color: [number, number, number];
+	grain: number;
+}
+
 export interface CompositePlanesInput {
 	surfacePlaneView: GPUTextureView;
 	focusZ: number;
 	aperture: number;
 	surfaceZ: number;
 	overlayZ: number;
+	backdrop: CompositeBackdrop;
 }
 
 export class CompositionPlanes {
@@ -224,6 +330,8 @@ export class CompositionPlanes {
 		const uniformBuffer = root
 			.createBuffer(DofUniforms, {
 				params: d.vec4f(0, 0, 0, 0),
+				backdrop: d.vec4f(0, 0, 0, 0),
+				backdropColor: d.vec4f(0, 0, 0, 0),
 				resolution: d.vec2f(width, height)
 			})
 			.$usage('uniform');
@@ -249,8 +357,11 @@ export class CompositionPlanes {
 		};
 
 		this.#composite = (input) => {
+			const b = input.backdrop;
 			uniformBuffer.write({
 				params: d.vec4f(input.focusZ, input.aperture, input.surfaceZ, input.overlayZ),
+				backdrop: d.vec4f(b.strength, b.edgeBlur, b.vignette, b.speckle),
+				backdropColor: d.vec4f(b.color[0], b.color[1], b.color[2], b.grain),
 				resolution: d.vec2f(width, height)
 			});
 			const bindGroup = root.createBindGroup(compositeLayout, {

@@ -1,0 +1,89 @@
+{
+	"schema": "hiviz@1",
+	"name": "Depth of field \u2014 tabletop title card",
+	"description": "Multiplane DOF (ADR-0027) tabletop/macro look. The newspaper title card sits tack-sharp on the focal plane (z 0.0) while a procedural defocused-material backdrop fills the frame behind it: a soft warm surface that loses detail and gains bright bokeh specks toward the edges (defocused highlights receding into depth), plus a vignette. The card's drop shadow falls onto the backdrop, so it reads as a real newspaper lying on a textured surface shot with a shallow macro lens \u2014 edge blur + depth, almost 3D. The washi-tape sits at z 0.0 too, sharp with the card.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 7,
+			"fps": 30,
+			"format": "prores"
+		},
+		"backgroundFill": "#47382a",
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#f3ead6",
+			"inkColor": "#1a1a1a"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "newspaper",
+			"content": {
+				"title": "Why Bun Quietly Replaced npm",
+				"dateLabel": "JUN 2026",
+				"body": ""
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.05,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.92,
+				"duration": 0.04,
+				"ease": "smooth"
+			}
+		},
+		"overlays": [
+			{
+				"type": "washi-tape",
+				"id": "tape-tl",
+				"z": 0,
+				"content": {
+					"color": "#fabf47",
+					"rotation": 18,
+					"length": 300
+				},
+				"position": {
+					"anchor": "top-left",
+					"offset": {
+						"x": 0.235,
+						"y": 0.07
+					}
+				},
+				"enter": {
+					"start": 0.05,
+					"duration": 0.05,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.91,
+					"duration": 0.034,
+					"ease": "smooth"
+				}
+			}
+		],
+		"effects": [
+			{
+				"type": "depth-of-field",
+				"id": "dof",
+				"params": {
+					"focusZ": 0,
+					"aperture": 0.2,
+					"backdrop": {
+						"strength": 1,
+						"edgeBlur": 0.95,
+						"vignette": 0.5,
+						"speckle": 0.8,
+						"color": "#47382a",
+						"grain": 0.035
+					}
+				}
+			}
+		]
+	}
+}

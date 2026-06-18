@@ -50,7 +50,7 @@
 	import { createPaperPipeline } from '$lib/pipelines/surfaces/paper/pipeline';
 	import { createPlainPipeline } from '$lib/pipelines/surfaces/plain/pipeline';
 	import { TransitionSnapshots } from './pipelines/transition-snapshots';
-	import { CompositionPlanes } from './pipelines/composition-planes';
+	import { CompositionPlanes, type CompositeBackdrop } from './pipelines/composition-planes';
 	import { compileTransitionWipe, type CompiledTransitionWipe } from './pipelines/transition-pass';
 	import {
 		downloadVideoBlob,
@@ -579,8 +579,18 @@
 		aperture: number;
 		surfaceZ: number;
 		overlayZ: number;
+		backdrop: CompositeBackdrop;
 		otherEffects: typeof engineState.effects;
 	}
+
+	const NO_BACKDROP: CompositeBackdrop = {
+		strength: 0,
+		edgeBlur: 0,
+		vignette: 0,
+		speckle: 0,
+		color: [0, 0, 0],
+		grain: 0
+	};
 
 	function resolveDof(progress: number): ResolvedDof | null {
 		const dofEffect = engineState.effects.find((effect) => effect.type === 'depth-of-field');
@@ -591,6 +601,14 @@
 			focusZ?: unknown;
 			aperture?: unknown;
 			focusPull?: { from?: unknown; to?: unknown; start?: unknown; duration?: unknown };
+			backdrop?: {
+				strength?: unknown;
+				edgeBlur?: unknown;
+				vignette?: unknown;
+				speckle?: unknown;
+				color?: unknown;
+				grain?: unknown;
+			};
 		};
 		const aperture = Math.max(0, typeof raw.aperture === 'number' ? raw.aperture : 0);
 		let focusZ = clampNumber(typeof raw.focusZ === 'number' ? raw.focusZ : 0, 0, 1);
@@ -602,8 +620,7 @@
 		const pull = raw.focusPull;
 		if (pull && typeof pull.from === 'number' && typeof pull.to === 'number') {
 			const start = typeof pull.start === 'number' ? pull.start : 0;
-			const duration =
-				typeof pull.duration === 'number' && pull.duration > 0 ? pull.duration : 1;
+			const duration = typeof pull.duration === 'number' && pull.duration > 0 ? pull.duration : 1;
 			const local = clampNumber((progress - start) / duration, 0, 1);
 			const eased = local * local * (3 - 2 * local);
 			focusZ = clampNumber(pull.from + (pull.to - pull.from) * eased, 0, 1);
@@ -612,11 +629,26 @@
 		// into one Overlay plane at the first overlay's z (schema default 0.7).
 		// Per-overlay-instance planes by z are the documented extension.
 		const overlayZ = clampNumber(engineState.overlays[0]?.z ?? 0.7, 0, 1);
+		// Optional procedural backdrop (tabletop/macro depth) behind the Surface.
+		const bd = raw.backdrop;
+		let backdrop: CompositeBackdrop = NO_BACKDROP;
+		if (bd && typeof bd.strength === 'number' && bd.strength > 0) {
+			const rgb = typeof bd.color === 'string' ? hexToRgbaFloat(bd.color) : [0.06, 0.06, 0.08, 1];
+			backdrop = {
+				strength: clampNumber(bd.strength, 0, 1),
+				edgeBlur: clampNumber(typeof bd.edgeBlur === 'number' ? bd.edgeBlur : 1, 0, 1),
+				vignette: clampNumber(typeof bd.vignette === 'number' ? bd.vignette : 0.5, 0, 1),
+				speckle: clampNumber(typeof bd.speckle === 'number' ? bd.speckle : 0.5, 0, 1),
+				color: [rgb[0], rgb[1], rgb[2]],
+				grain: Math.max(0, typeof bd.grain === 'number' ? bd.grain : 0.02)
+			};
+		}
 		return {
 			focusZ,
 			aperture,
 			surfaceZ: 0,
 			overlayZ,
+			backdrop,
 			otherEffects: engineState.effects.filter((effect) => effect.type !== 'depth-of-field')
 		};
 	}
@@ -665,7 +697,8 @@
 			focusZ: dof.focusZ,
 			aperture: dof.aperture,
 			surfaceZ: dof.surfaceZ,
-			overlayZ: dof.overlayZ
+			overlayZ: dof.overlayZ,
+			backdrop: dof.backdrop
 		});
 		const commandEncoder = host.device.createCommandEncoder();
 		effectChain.apply({
