@@ -130,27 +130,11 @@ const compositeFragmentFn = tgpu['~unstable'].fragmentFn({
 		// biggest "cinematic vs. static slide" cue. Gated on the backdrop (scene
 		// mode), so a plain transparent-overlay DOF preset doesn't move.
 		let mAmt = clamp(bdStrength, 0.0, 1.0);
-		// Foreground framing (scene mode): crop in + push the subject off-centre to a
-		// lower-left third (the bed breathes upper-right), a subtle perspective
-		// lean-back so the card lies ON the surface in 3D rather than facing flat, and
-		// the slow parallax push. Inverse-mapped sampling, so the rectangle warps into
-		// a receding plane. Non-scene DOF presets keep fgUv == in.uv.
-		var fgUv = in.uv;
-		if (bdStrength > 0.001) {
-			var u = center + (in.uv - center) * (1.0 - 0.03 * t);
-			// Place the card smaller and off-centre (lower-left third) so the bed
-			// breathes up and to the right. scale < 1 shrinks the subject; cardCenter
-			// is where the card's centre lands on screen.
-			let cardCenter = vec2f(0.40, 0.57);
-			let scale = 0.82;
-			u = vec2f(0.5) + (u - cardCenter) / scale;
-			// Subtle perspective lean-back: the card lies on the surface in 3D.
-			let tilt = 0.1;
-			let cl = u - center;
-			let depth = max(1.0 + tilt * cl.y, 0.25);
-			fgUv = center + cl / depth;
-		}
-		let bgUv = center + (in.uv - center) * (1.0 - 0.08 * t * mAmt) + vec2f(0.020, -0.012) * t * mAmt;
+		// Subject sampled straight (centred, sharp, undistorted). The background
+		// drifts very gently on its own so the defocused bed is alive without the
+		// foreground moving — a calm, natural motion, no parallax warp on the card.
+		let fgUv = in.uv;
+		let bgUv = center + (in.uv - center) * (1.0 - 0.03 * t * mAmt) + vec2f(0.010, -0.006) * t * mAmt;
 
 		// Circle of confusion per plane, in pixels.
 		let surfCoc = aperture * abs(surfaceZ - focusZ) * ${MAX_COC_PX};
@@ -255,7 +239,7 @@ const compositeFragmentFn = tgpu['~unstable'].fragmentFn({
 					let dd = length((bgUv - pt) * vec2f(aspect, 1.0));
 					let discR = (0.018 + 0.07 * radial) * (0.6 + speckle);
 					let disc = smoothstep(discR, discR * 0.4, dd);
-					let twinkle = 0.7 + 0.3 * sin(t * 6.2831 * (0.6 + h) + h2 * 6.2831);
+					let twinkle = 0.86 + 0.14 * sin(t * 6.2831 * (0.6 + h) + h2 * 6.2831);
 					let bright = step(0.5, h) * h2 * twinkle;
 					glow = max(glow, disc * bright);
 				}
@@ -269,38 +253,11 @@ const compositeFragmentFn = tgpu['~unstable'].fragmentFn({
 			bd = vec4f(col * bdStrength, bdStrength);
 		}
 
-		// ----- Put the subject IN the scene (scene mode) -----
-		// A pasted card reads wrong because it is self-lit and floats on a flat drop
-		// shadow. Two fixes share the bed's key light: (1) relight the card by the
-		// same upper-left key — brighter toward the light, warm-ambient on the far
-		// side — so subject and bed agree on where the light is; (2) cast a grounded
-		// shadow that MULTIPLIES the textured bed (the material stays visible inside
-		// the shadow — the tell of a real cast shadow, not an additive drop), sampled
-		// from the card's coverage toward the light with a soft penumbra + a tight
-		// contact term at the base.
-		var litSurfRgb = surf.rgb;
-		var shadedBdRgb = bd.rgb;
-		if (bdStrength > 0.001) {
-			let keyPos = vec2f(0.34, 0.30);
-			let key = 1.0 - smoothstep(0.0, 0.95, length((in.uv - keyPos) * vec2f(aspect, 1.0)));
-			let lightTint = mix(vec3f(0.84, 0.81, 0.75), vec3f(1.07, 1.02, 0.93), key);
-			litSurfRgb = surf.rgb * lightTint * mix(0.70, 1.12, key);
-
-			let toLight = normalize(keyPos - in.uv);
-			var sh = 0.0;
-			for (var k = 1; k <= 5; k = k + 1) {
-				let dd = f32(k) * 0.013;
-				sh = sh + smoothstep(0.5, 0.9, textureSampleLevel(layout.$.surfaceTexture, layout.$.samp, fgUv + toLight * dd, 0.0).a);
-			}
-			let contact = smoothstep(0.5, 0.9, textureSampleLevel(layout.$.surfaceTexture, layout.$.samp, fgUv + toLight * 0.004, 0.0).a);
-			let shadowFac = clamp(sh / 5.0 * 0.5 + contact * 0.3, 0.0, 0.8);
-			shadedBdRgb = bd.rgb * (1.0 - shadowFac);
-		}
-
 		// Back-to-front premultiplied composite: backdrop (back) → Surface (mid) →
 		// Overlay (front). With strength 0 the backdrop is transparent and this
-		// degenerates to the prior Overlay-over-Surface composite.
-		let surfRgb = litSurfRgb + (1.0 - surf.a) * shadedBdRgb;
+		// degenerates to the prior Overlay-over-Surface composite. The Surface keeps
+		// its own card shadow; the shared film finish below ties the planes together.
+		let surfRgb = surf.rgb + (1.0 - surf.a) * bd.rgb;
 		let surfA = surf.a + (1.0 - surf.a) * bd.a;
 		var outRgb = ovl.rgb + (1.0 - ovl.a) * surfRgb;
 		let outA = ovl.a + (1.0 - ovl.a) * surfA;
