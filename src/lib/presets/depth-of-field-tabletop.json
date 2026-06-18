@@ -38,35 +38,7 @@
 				"ease": "smooth"
 			}
 		},
-		"overlays": [
-			{
-				"type": "washi-tape",
-				"id": "tape-tl",
-				"z": 0,
-				"content": {
-					"color": "#fabf47",
-					"rotation": 18,
-					"length": 300
-				},
-				"position": {
-					"anchor": "top-left",
-					"offset": {
-						"x": 0.235,
-						"y": 0.07
-					}
-				},
-				"enter": {
-					"start": 0.05,
-					"duration": 0.05,
-					"ease": "settled"
-				},
-				"exit": {
-					"start": 0.91,
-					"duration": 0.034,
-					"ease": "smooth"
-				}
-			}
-		],
+		"overlays": [],
 		"effects": [
 			{
 				"type": "depth-of-field",

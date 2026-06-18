@@ -269,14 +269,26 @@ const compositeFragmentFn = tgpu['~unstable'].fragmentFn({
 			let warm = mix(vec3f(0.97, 0.965, 0.95), vec3f(1.05, 1.01, 0.95), key);
 			litSurfRgb = surf.rgb * warm * mix(0.9, 1.05, key);
 
-			let toLight = normalize(keyPos - in.uv);
-			var shAccum = 0.0;
-			for (var k = 1; k <= 10; k = k + 1) {
-				let dist = f32(k) / 10.0;
-				let bodyHit = smoothstep(0.6, 0.95, textureSampleLevel(layout.$.surfaceTexture, layout.$.samp, in.uv + toLight * mix(0.004, 0.06, dist), 0.0).a);
-				shAccum = max(shAccum, bodyHit * (1.0 - dist * 0.65));
+			// Soft cast shadow: the card's body silhouette, OFFSET down-right (the key
+			// is upper-left) and disc-blurred, multiplied onto the bed. Averaging a
+			// jittered golden-angle disc of taps gives a smooth penumbra — no banding,
+			// no patchiness — and a single fixed offset direction (not a per-fragment
+			// point light) keeps the shape consistent. Plus a tighter, darker contact
+			// term hugging the base so the card reads as touching the surface.
+			let shadowOffset = vec2f(0.016, 0.022);
+			let shadowJitter = fract(sin(dot(in.uv, vec2f(91.3, 47.1))) * 9123.47) * 6.2831853;
+			var shCast = 0.0;
+			var shContact = 0.0;
+			for (var s = 0; s < 24; s = s + 1) {
+				let st = (f32(s) + 0.5) / 24.0;
+				let rr = sqrt(st);
+				let aa = f32(s) * 2.39996 + shadowJitter;
+				let dir = vec2f(cos(aa), sin(aa)) * rr;
+				shCast = shCast + smoothstep(0.5, 0.9, textureSampleLevel(layout.$.surfaceTexture, layout.$.samp, in.uv - shadowOffset + dir * 0.03, 0.0).a);
+				shContact = shContact + smoothstep(0.5, 0.9, textureSampleLevel(layout.$.surfaceTexture, layout.$.samp, in.uv - shadowOffset * 0.35 + dir * 0.01, 0.0).a);
 			}
-			shadedBdRgb = bd.rgb * (1.0 - shAccum * 0.45);
+			let shadow = max(shCast / 24.0 * 0.4, shContact / 24.0 * 0.5);
+			shadedBdRgb = bd.rgb * (1.0 - shadow);
 
 			cardA = smoothstep(0.5, 0.92, surf.a);
 			litSurfRgb = litSurfRgb * (cardA / max(surf.a, 0.001));
