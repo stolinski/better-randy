@@ -31,12 +31,13 @@ Architecture Decision Records — the *why* behind Hiviz's shape. Each records a
 | [0018](0018-collapse-effects-to-frame-only.md) | Canon | Collapse effects to a single frame-level chain |
 | [0019](0019-identity-spec-via-pack.md) | Canon (refined by 0023, 0024) | Identity dimensions declare `implementation` or `viaPack` |
 | [0020](0020-variants-as-data.md) | Canon | Pipeline variants as data — one spec per family, one file per variant |
-| [0021](0021-z-plane-semantics.md) | **Designed, not built** | Z = focal-distance sidecar (DOF); no depth target in code |
+| [0021](0021-z-plane-semantics.md) | Semantics canon (mechanism refined by 0027) | Z = focal-distance scalar [0,1]; per-Layer defaults |
 | [0022](0022-multi-state-composition.md) | Model canon (impl refined by 0026) | Multi-state transitions — `transition: {from,to,effect}` model + schema |
 | [0023](0023-pack-is-appearance-only.md) | Canon (core) | Pack is appearance-only; no privileged default |
 | [0024](0024-role-resolution-core-fallback.md) | Canon (core) | Role resolution: per-Pipeline override → core fallback |
 | [0025](0025-static-linter-checks-safety-and-readability-only.md) | Canon (refines 0003) | Static linter = video-safety + readability only; taste is Critic-judged |
 | [0026](0026-transitions-v1-snapshot-and-wipe.md) | Canon (refines 0022) | Transitions v1 = snapshot each state to a texture + mask-wipe; not live dual-tree |
+| [0027](0027-dof-v1-multiplane-bokeh.md) | Canon (refines 0021) | DOF v1 = multiplane bokeh (depth-separated planes + CoC bokeh blur); not a per-pixel depth target |
 
 ## Supersession & refinement chains
 
@@ -47,6 +48,7 @@ Architecture Decision Records — the *why* behind Hiviz's shape. Each records a
 - `0015` anti-pattern collision → resolved by `0016`
 - `0006` → superseded by `0023`; `0004` → reframed as starter templates ([roadmap](../roadmap.md))
 - `0022` (multi-state model) → implementation refined by `0026` (snapshot-and-wipe for v1; live dual-tree deferred)
+- `0021` (Z semantics) → mechanism refined by `0027` (multiplane bokeh for v1; per-pixel depth target / z-map deferred)
 
 ## Implementation reality (not ADR supersession)
 
