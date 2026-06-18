@@ -63,7 +63,7 @@
 				"id": "dof",
 				"params": {
 					"focusZ": 0,
-					"aperture": 0.6
+					"aperture": 0.75
 				}
 			}
 		]

@@ -31,11 +31,12 @@ const PLANE_TEXTURE_USAGE =
 	TEXTURE_USAGE_COPY_SRC |
 	TEXTURE_USAGE_RENDER_ATTACHMENT;
 
-// (focusZ, aperture, surfaceZ, overlayZ). focusZ = the in-focus plane; aperture
-// = max blur strength / CoC. The Surface defaults to z 0.0 (focal); the Overlay
-// to its schema z (default 0.7). Unused by the straight composite below; the
-// disc-bokeh stage reads them to size each plane's circle of confusion.
-const DofUniforms = d.struct({ params: d.vec4f });
+// params = (focusZ, aperture, surfaceZ, overlayZ). focusZ = the in-focus plane;
+// aperture = max blur strength (scales the circle of confusion). The Surface
+// defaults to z 0.0 (focal); the Overlay to its schema z (default 0.7).
+// resolution = canvas (width, height) px, so the CoC disc is circular in pixel
+// space (not stretched by the frame's aspect) and sized in real pixels.
+const DofUniforms = d.struct({ params: d.vec4f, resolution: d.vec2f });
 
 const fullScreenVertexFn = tgpu['~unstable'].vertexFn({
 	in: { vertexIndex: d.builtin.vertexIndex },
@@ -72,10 +73,25 @@ const premultiplyFragmentFn = tgpu['~unstable'].fragmentFn({
 		return vec4f(s.rgb * s.a, s.a);
 	}`.$uses({ layout: premultiplyLayout });
 
-// Back-to-front composite of the depth planes. v1 (this task): no blur — the
-// Overlay (front) over the Surface (back) with the premultiplied OVER operator,
-// the zero-defocus base case. Task 3 replaces the body with the disc-bokeh
-// kernel (per-plane CoC blur + highlight bloom) using `layout.$.uniforms.params`.
+// Bokeh depth-of-field composite (ADR-0027). Each plane is blurred by its own
+// circle of confusion — `coc = aperture · |planeZ − focusZ|` mapped to pixels —
+// by gathering a flat DISC (not a gaussian) of taps around each fragment. Bright
+// taps are weighted up so highlights bloom into bright bokeh discs, the
+// photographic tell that separates real lens defocus from a gaussian blur. The
+// blurred planes composite premultiplied back-to-front: the focal plane stays
+// sharp; an out-of-focus foreground plane bleeds its disc over the subject.
+//
+// Disc sampling is a golden-angle spiral with `r = sqrt(t)` for uniform areal
+// density (a flat disc, hard-edged at the CoC radius — the bokeh shape), and a
+// per-fragment angular jitter so the finite tap count dissolves into dither
+// instead of a visible pinwheel. The jitter is a hash of the fragment UV, so it
+// is identical every frame at a given pixel — frame-deterministic.
+const MAX_COC_PX = 120.0; // CoC radius (px) at aperture·depth = 1
+const BOKEH_TAPS = 48;
+const GOLDEN_ANGLE = 2.399963; // 2π / φ²
+const BLOOM_THRESHOLD = 0.7; // premultiplied luma where highlight bloom starts
+const BLOOM_STRENGTH = 2.6; // extra disc weight for the brightest taps
+
 const compositeLayout = tgpu.bindGroupLayout({
 	surfaceTexture: { texture: d.texture2d(d.f32) },
 	overlayTexture: { texture: d.texture2d(d.f32) },
@@ -87,8 +103,47 @@ const compositeFragmentFn = tgpu['~unstable'].fragmentFn({
 	in: { uv: d.vec2f },
 	out: d.vec4f
 }) /* wgsl */ `{
-		let surf = textureSample(layout.$.surfaceTexture, layout.$.samp, in.uv);
-		let ovl = textureSample(layout.$.overlayTexture, layout.$.samp, in.uv);
+		let focusZ = layout.$.uniforms.params.x;
+		let aperture = layout.$.uniforms.params.y;
+		let surfaceZ = layout.$.uniforms.params.z;
+		let overlayZ = layout.$.uniforms.params.w;
+		let texel = vec2f(1.0) / max(layout.$.uniforms.resolution, vec2f(1.0));
+
+		// Circle of confusion per plane, in pixels.
+		let surfCoc = aperture * abs(surfaceZ - focusZ) * ${MAX_COC_PX};
+		let ovlCoc = aperture * abs(overlayZ - focusZ) * ${MAX_COC_PX};
+
+		// Per-fragment spiral rotation so the ${BOKEH_TAPS} taps read as dither, not
+		// a pinwheel. Deterministic in the fragment UV.
+		let jitter = fract(sin(dot(in.uv, vec2f(12.9898, 78.233))) * 43758.5453) * 6.2831853;
+
+		var surfAcc = vec4f(0.0);
+		var surfW = 0.0;
+		var ovlAcc = vec4f(0.0);
+		var ovlW = 0.0;
+
+		for (var i: u32 = 0u; i < ${BOKEH_TAPS}u; i = i + 1u) {
+			let t = (f32(i) + 0.5) / ${BOKEH_TAPS}.0;
+			let r = sqrt(t);
+			let ang = f32(i) * ${GOLDEN_ANGLE} + jitter;
+			let dir = vec2f(cos(ang), sin(ang)) * r;
+
+			let sS = textureSampleLevel(layout.$.surfaceTexture, layout.$.samp, in.uv + dir * surfCoc * texel, 0.0);
+			let sLuma = dot(sS.rgb, vec3f(0.299, 0.587, 0.114));
+			let sWgt = 1.0 + ${BLOOM_STRENGTH} * smoothstep(${BLOOM_THRESHOLD}, 1.0, sLuma);
+			surfAcc = surfAcc + sS * sWgt;
+			surfW = surfW + sWgt;
+
+			let oS = textureSampleLevel(layout.$.overlayTexture, layout.$.samp, in.uv + dir * ovlCoc * texel, 0.0);
+			let oLuma = dot(oS.rgb, vec3f(0.299, 0.587, 0.114));
+			let oWgt = 1.0 + ${BLOOM_STRENGTH} * smoothstep(${BLOOM_THRESHOLD}, 1.0, oLuma);
+			ovlAcc = ovlAcc + oS * oWgt;
+			ovlW = ovlW + oWgt;
+		}
+
+		let surf = surfAcc / max(surfW, 0.0001);
+		let ovl = ovlAcc / max(ovlW, 0.0001);
+
 		// Premultiplied OVER: overlay plane (front) over surface plane (back).
 		let outRgb = ovl.rgb + (1.0 - ovl.a) * surf.rgb;
 		let outA = ovl.a + (1.0 - ovl.a) * surf.a;
@@ -167,7 +222,10 @@ export class CompositionPlanes {
 			.createPipeline();
 
 		const uniformBuffer = root
-			.createBuffer(DofUniforms, { params: d.vec4f(0, 0, 0, 0) })
+			.createBuffer(DofUniforms, {
+				params: d.vec4f(0, 0, 0, 0),
+				resolution: d.vec2f(width, height)
+			})
 			.$usage('uniform');
 
 		const overlayDomTexture = this.#overlayDomTexture;
@@ -192,7 +250,8 @@ export class CompositionPlanes {
 
 		this.#composite = (input) => {
 			uniformBuffer.write({
-				params: d.vec4f(input.focusZ, input.aperture, input.surfaceZ, input.overlayZ)
+				params: d.vec4f(input.focusZ, input.aperture, input.surfaceZ, input.overlayZ),
+				resolution: d.vec2f(width, height)
 			});
 			const bindGroup = root.createBindGroup(compositeLayout, {
 				surfaceTexture: input.surfacePlaneView,
