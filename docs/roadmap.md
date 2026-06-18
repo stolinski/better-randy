@@ -59,7 +59,7 @@ Gating note: on-photo and collage families (`pullquote-on-photo`) are partially 
 ## Designed, not built (specs exist, no code)
 
 - 📐 **Z-depth / depth-of-field** — [ADR-0021](adr/0021-z-plane-semantics.md). Focal-distance sidecar to the color target; DOF/tilt-shift Effects read it. No depth target in code today.
-- 📐 **Multi-state transitions** — [ADR-0022](adr/0022-multi-state-composition.md). `transition: { from, to, effect }`, dual-tree render, two color targets sampled by one mask. Relevant to segments/bumpers.
+- ✅ **Multi-state transitions (v1)** — [ADR-0022](adr/0022-multi-state-composition.md) model + [ADR-0026](adr/0026-transitions-v1-snapshot-and-wipe.md) impl. Shipped: `transition: { from, to, effect, durationMs }`, snapshot each state to a texture, `mask-wipe` Effect composites a true per-pixel wipe. **Upgrade path:** live dual-tree (states animating mid-wipe) via a context-scoped engine-state refactor, when a Preset needs it.
 - 📐 **Starter templates** (ex-[ADR-0004](adr/0004-recipe-cookbook-over-schema-chrome.md)) — curated Preset+Pack starting points both a human (GUI) and an agent begin from.
 - 🧭 **Heavy primitives** — general image/video **substrate input**; a general **configurable edge-treatment** primitive (clean / soft / irregular / torn / none) driven by the pack `edge-treatment` Role (torn is one value, not a default).
 - 🧭 **Generalized animation model** — replace the 2-keyframe tween with ordered `keyframes[]` + per-channel ease; per-overlay enter descriptors; staggered follow-through.
@@ -81,6 +81,7 @@ Gating note: on-photo and collage families (`pullquote-on-photo`) are partially 
 
 ## ✅ Recently shipped (context)
 
+- **Multi-state transitions v1 (2026-06):** snapshot-and-wipe (ADR-0026). A `transition` Preset snapshots its `from`/`to` states into textures and the `mask-wipe` Effect composites a true per-pixel wipe between them; pixel-verified end-to-end. Came with a render-path hardening pass: fixed an infinite `$effect` loop that froze all rendering, then reduced Workspace render orchestration from 7 effects to a single explicit render path + one untracked authoring→canvas bridge. Also: built `scripts/cdp-capture.mjs` (drives a flag-enabled Chrome over CDP) — the first real pixel-verification harness.
 - **Engine arc complete (2026-06):** structural Pack→pixel contract (rgb-channel resolver, skipped-color pass, depth/font Roles end-to-end); genuine orientation reflow (safe-areas as layout inputs, per-orientation type/motion); output background model (emergent segment/bumper lane via `backgroundFill`); camera motion stripped; cursor-trail pointer Pack-resolved; 4 dead pipelines proven; code hygiene (double-casts converged, dead accessors removed).
 - **`server-renders-again`** — editorial-mono acceptance gate; proves multi-pack is live end-to-end.
 - **The engine substrate:** one preset engine (5 Layers + registry), WebGPU/TypeGPU compositor, WICG HTML-in-Canvas capture, transparent 4K export, frame-determinism, 16-bit-float + dither render path, a substantive safety linter, a probe-backed adversarial Critic.
