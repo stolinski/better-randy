@@ -698,7 +698,8 @@
 			aperture: dof.aperture,
 			surfaceZ: dof.surfaceZ,
 			overlayZ: dof.overlayZ,
-			backdrop: dof.backdrop
+			backdrop: dof.backdrop,
+			time: timebase.progress
 		});
 		const commandEncoder = host.device.createCommandEncoder();
 		effectChain.apply({
