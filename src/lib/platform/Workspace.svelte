@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { onDestroy, tick, untrack } from 'svelte';
 
-	import { AnimationManager, type AnimationManifest, type AnimationTweenSpec } from './animation-manager';
+	import {
+		AnimationManager,
+		type AnimationManifest,
+		type AnimationTweenSpec
+	} from './animation-manager';
 	import { TextAnimationManager } from '$lib/text-animations/manager.svelte';
 	import { animState, syncProgressArray } from './anim-state.svelte';
 	import Composition from './Composition.svelte';
@@ -11,7 +15,12 @@
 		ShaderPassDispatcher,
 		type ShaderPassDispatchList
 	} from './pipelines/shader-pass-runner';
-	import type { OverlayRenderer, ShaderPass, SurfaceRenderInstance, SurfaceRenderInputs } from './pipelines/types';
+	import type {
+		OverlayRenderer,
+		ShaderPass,
+		SurfaceRenderInstance,
+		SurfaceRenderInputs
+	} from './pipelines/types';
 	import Controls from './Controls.svelte';
 	import ControlPanel from './ControlPanel.svelte';
 	import ExportPanel from './ExportPanel.svelte';
@@ -41,6 +50,7 @@
 	import { createPaperPipeline } from '$lib/pipelines/surfaces/paper/pipeline';
 	import { createPlainPipeline } from '$lib/pipelines/surfaces/plain/pipeline';
 	import { TransitionSnapshots } from './pipelines/transition-snapshots';
+	import { CompositionPlanes } from './pipelines/composition-planes';
 	import { compileTransitionWipe, type CompiledTransitionWipe } from './pipelines/transition-pass';
 	import {
 		downloadVideoBlob,
@@ -55,12 +65,18 @@
 
 	let compositionElement = $state<HTMLElement | null>(null);
 	let surfaceElement = $state<HTMLElement | null>(null);
+	// Depth-of-field plane split (ADR-0027). When a `depth-of-field` Effect is
+	// present the Overlay layer is hoisted into this frame-sized sibling of
+	// `.composition` so it can be captured on its own as the Overlay plane; the
+	// Surface plane is then `.composition` (surface-only). Null otherwise.
+	let overlayRootElement = $state<HTMLElement | null>(null);
 	let canvas = $state.raw<HTMLCanvasElement | null>(null);
 	let host = $state.raw<GpuHost | null>(null);
 	let pipeline = $state.raw<SurfaceRenderInstance | null>(null);
 	let pipelineSurfaceType = $state.raw<SurfaceType | null>(null);
 	let effectChain = $state.raw<EffectChain | null>(null);
 	let shaderPassDispatcher = $state.raw<ShaderPassDispatcher | null>(null);
+	let compositionPlanes = $state.raw<CompositionPlanes | null>(null);
 	let timeline = $state.raw<Timeline | null>(null);
 	const animationManager = new AnimationManager();
 	const textAnimationManager = new TextAnimationManager();
@@ -83,7 +99,6 @@
 	let isExporting = $state(false);
 	let progress = $state(0);
 	let status = $state('');
-
 
 	interface ParsedMark {
 		style: AnnotationMarkStyle;
@@ -295,11 +310,7 @@
 			trackList.push({
 				id: 'surface',
 				label:
-					surface.type === 'paper'
-						? 'Paper'
-						: surface.type === 'newspaper'
-							? 'Newspaper'
-							: 'Body',
+					surface.type === 'paper' ? 'Paper' : surface.type === 'newspaper' ? 'Newspaper' : 'Body',
 				color: engineState.typography.paperColor,
 				transitions: [
 					...(enter
@@ -341,15 +352,16 @@
 							]
 						: [])
 				],
-				onTrackMove: enter && exit
-					? (delta) => {
-							const nextEnterStart = clampNumber(enter.start + delta, 0, 0.9);
-							const enterDelta = nextEnterStart - enter.start;
-							const nextExitStart = clampNumber(exit.start + enterDelta, 0.1, 0.95);
-							enter.start = nextEnterStart;
-							exit.start = nextExitStart;
-						}
-					: undefined
+				onTrackMove:
+					enter && exit
+						? (delta) => {
+								const nextEnterStart = clampNumber(enter.start + delta, 0, 0.9);
+								const enterDelta = nextEnterStart - enter.start;
+								const nextExitStart = clampNumber(exit.start + enterDelta, 0.1, 0.95);
+								enter.start = nextEnterStart;
+								exit.start = nextExitStart;
+							}
+						: undefined
 			});
 		}
 
@@ -495,6 +507,12 @@
 		engineState.backgroundFill ? hexToRgbaFloat(engineState.backgroundFill) : undefined
 	);
 
+	// Drives the Composition's plane split (ADR-0027): a `depth-of-field` Effect
+	// hoists the Overlay layer into a separately-capturable sibling element.
+	const dofActive = $derived(
+		engineState.effects.some((effect) => effect.type === 'depth-of-field')
+	);
+
 	function findOverlayRenderer(type: string): OverlayRenderer | null {
 		for (const renderer of Object.values(PIPELINE_REGISTRY.overlays)) {
 			if (renderer.type === type) {
@@ -513,7 +531,11 @@
 			height: host?.canvas.height ?? 0
 		};
 
-		const entries: Array<{ pass: ShaderPass<unknown>; target: unknown; bounds: { x: number; y: number; width: number; height: number } }> = [];
+		const entries: Array<{
+			pass: ShaderPass<unknown>;
+			target: unknown;
+			bounds: { x: number; y: number; width: number; height: number };
+		}> = [];
 
 		const surfaceRenderer = getSurfaceRenderer(engineState.surface.type);
 		if (surfaceRenderer?.shaderPass) {
@@ -547,6 +569,98 @@
 		};
 	}
 
+	// Depth-of-field (ADR-0027). A `depth-of-field` Effect switches the render
+	// from the single merged composite to the multiplane path: capture the Surface
+	// and Overlay layers as separate depth planes and composite them back-to-front.
+	// Resolve its authored params (focusZ / aperture) and the per-layer focal-
+	// distance scalars; the remaining effects run as an ordinary post-chain after.
+	interface ResolvedDof {
+		focusZ: number;
+		aperture: number;
+		surfaceZ: number;
+		overlayZ: number;
+		otherEffects: typeof engineState.effects;
+	}
+
+	function resolveDof(): ResolvedDof | null {
+		const dofEffect = engineState.effects.find((effect) => effect.type === 'depth-of-field');
+		if (!dofEffect) {
+			return null;
+		}
+		const raw = (dofEffect.params ?? {}) as { focusZ?: unknown; aperture?: unknown };
+		const focusZ = clampNumber(typeof raw.focusZ === 'number' ? raw.focusZ : 0, 0, 1);
+		const aperture = Math.max(0, typeof raw.aperture === 'number' ? raw.aperture : 0);
+		// v1: the Surface sits at the focal default (z 0.0); all overlays collapse
+		// into one Overlay plane at the first overlay's z (schema default 0.7).
+		// Per-overlay-instance planes by z are the documented extension.
+		const overlayZ = clampNumber(engineState.overlays[0]?.z ?? 0.7, 0, 1);
+		return {
+			focusZ,
+			aperture,
+			surfaceZ: 0,
+			overlayZ,
+			otherEffects: engineState.effects.filter((effect) => effect.type !== 'depth-of-field')
+		};
+	}
+
+	// Which plane texture to present. Default is the back-to-front composite; the
+	// `__hivizDofPreviewPlane` debug switch (a verification seam, like
+	// `__hivizTimeline`) lets a capture script screenshot a single plane in
+	// isolation to confirm the layers separated correctly before the bokeh stage.
+	function dofInputTexture(planes: CompositionPlanes, surfacePlane: GPUTexture): GPUTexture {
+		if (typeof window !== 'undefined') {
+			const sel = window.__hivizDofPreviewPlane;
+			if (sel === 'surface') {
+				return surfacePlane;
+			}
+			if (sel === 'overlay') {
+				return planes.overlayPlaneTexture();
+			}
+		}
+		return planes.compositeTexture();
+	}
+
+	// The multiplane DOF render, shared by preview (`renderCompositeTo`) and
+	// export (`renderFrame`). Surface plane = the pipeline output read against the
+	// Surface-layer element only; Overlay plane = the Overlay-layer DOM. Composite
+	// back-to-front, then run the remaining effects + present.
+	function renderDofPlanes(
+		dof: ResolvedDof,
+		inputs: SurfaceRenderInputs,
+		timebase: { progress: number; timestamp: number },
+		outputView: GPUTextureView,
+		background: [number, number, number, number] | undefined
+	): boolean {
+		if (!pipeline || !host || !effectChain || !compositionPlanes || !overlayRootElement) {
+			return false;
+		}
+		const planes = compositionPlanes;
+		// Surface plane: `.composition` is surface-only while the plane split is on,
+		// so the pipeline's default DOM capture is the Surface plane. Overlay plane:
+		// the hoisted Overlay-root sibling, captured on its own.
+		pipeline.uploadDom();
+		pipeline.render(inputs);
+		const surfaceOutput = pipeline.getOutputTexture();
+		planes.captureOverlay(overlayRootElement);
+		planes.composite({
+			surfacePlaneView: surfaceOutput.createView(),
+			focusZ: dof.focusZ,
+			aperture: dof.aperture,
+			surfaceZ: dof.surfaceZ,
+			overlayZ: dof.overlayZ
+		});
+		const commandEncoder = host.device.createCommandEncoder();
+		effectChain.apply({
+			commandEncoder,
+			effects: dof.otherEffects,
+			inputTexture: dofInputTexture(planes, surfaceOutput),
+			outputView,
+			...timebase,
+			background
+		});
+		return true;
+	}
+
 	// Composite the current composition (surface → shaderPass → effect chain) into
 	// `outputView`. The single render seam: `renderAt` points it at the canvas;
 	// the transition snapshot path (ADR-0026) points it at an offscreen texture so
@@ -556,11 +670,19 @@
 			return;
 		}
 
+		const timebase = effectChainTimebase(timestamp);
+
+		const dof = resolveDof();
+		if (
+			dof &&
+			renderDofPlanes(dof, buildRenderInputs(timestamp), timebase, outputView, backgroundFillFloat)
+		) {
+			return;
+		}
+
 		pipeline.render(buildRenderInputs(timestamp));
 
 		const commandEncoder = host.device.createCommandEncoder();
-
-		const timebase = effectChainTimebase(timestamp);
 
 		const postShaderTexture = shaderPassDispatcher.apply({
 			commandEncoder,
@@ -745,86 +867,97 @@
 		// those instances via renderAt(); untrack keeps this effect from coupling
 		// to them. Triggers above stay tracked; the body does not subscribe.
 		return untrack(() => {
-		// `newspaper` (ADR-0008) reuses the paper compositor — same focal-slot
-		// and marks scaffolding, same DOM-to-texture upload, same drop shadow.
-		// Newspaper-specific physics (halftone + ink bleed) is carried by the
-		// surface's declarative `shaderPass`, invoked from the compose path in a
-		// follow-up shipped alongside the equivalent overlay-side wiring for
-		// ADR-0005's `OverlayRenderer.shaderPass`.
-		const usesPaperPipeline = surfaceType === 'paper' || surfaceType === 'newspaper';
-		let nextPipeline: SurfaceRenderInstance;
-		try {
-			nextPipeline = usesPaperPipeline
-				? createPaperPipeline({ host: localHost, sourceElement: localSource })
-				: createPlainPipeline({ host: localHost, sourceElement: localSource });
-		} catch (error) {
-			console.error('Surface pipeline initialization failed.', error);
-			status = error instanceof Error ? error.message : 'Surface pipeline unavailable.';
-			return;
-		}
+			// `newspaper` (ADR-0008) reuses the paper compositor — same focal-slot
+			// and marks scaffolding, same DOM-to-texture upload, same drop shadow.
+			// Newspaper-specific physics (halftone + ink bleed) is carried by the
+			// surface's declarative `shaderPass`, invoked from the compose path in a
+			// follow-up shipped alongside the equivalent overlay-side wiring for
+			// ADR-0005's `OverlayRenderer.shaderPass`.
+			const usesPaperPipeline = surfaceType === 'paper' || surfaceType === 'newspaper';
+			let nextPipeline: SurfaceRenderInstance;
+			try {
+				nextPipeline = usesPaperPipeline
+					? createPaperPipeline({ host: localHost, sourceElement: localSource })
+					: createPlainPipeline({ host: localHost, sourceElement: localSource });
+			} catch (error) {
+				console.error('Surface pipeline initialization failed.', error);
+				status = error instanceof Error ? error.message : 'Surface pipeline unavailable.';
+				return;
+			}
 
-		pipeline = nextPipeline;
-		pipelineSurfaceType = surfaceType;
+			pipeline = nextPipeline;
+			pipelineSurfaceType = surfaceType;
 
-		// Always recreate EffectChain and ShaderPassDispatcher — their ping-pong
-		// textures are sized to the canvas at construction. When orientation
-		// changes (2160×3840 ↔ 3840×2160), the canvas resizes before this effect
-		// fires, so localCanvas.width/height already reflect the new dimensions.
-		if (effectChain) {
-			effectChain.dispose();
-		}
-		effectChain = new EffectChain({
-			host: localHost,
-			width: localCanvas.width,
-			height: localCanvas.height
-		});
-
-		if (shaderPassDispatcher) {
-			shaderPassDispatcher.dispose();
-		}
-		shaderPassDispatcher = new ShaderPassDispatcher({
-			host: localHost,
-			width: localCanvas.width,
-			height: localCanvas.height
-		});
-
-		if (!timeline) {
-			timeline = new Timeline({
-				durationSeconds: engineState.transport.durationSeconds,
-				fps: engineState.transport.fps,
-				tick: tickTimeline
+			// Always recreate EffectChain and ShaderPassDispatcher — their ping-pong
+			// textures are sized to the canvas at construction. When orientation
+			// changes (2160×3840 ↔ 3840×2160), the canvas resizes before this effect
+			// fires, so localCanvas.width/height already reflect the new dimensions.
+			if (effectChain) {
+				effectChain.dispose();
+			}
+			effectChain = new EffectChain({
+				host: localHost,
+				width: localCanvas.width,
+				height: localCanvas.height
 			});
-			if (typeof window !== 'undefined') {
-				window.__hivizTimeline = timeline;
-				window.__hivizTextAnimationManager = textAnimationManager;
-			}
-			animationManager.rebuild(buildAnimationManifest());
-			animationManager.progress(0);
-		}
 
-		setCanvasPaintHandler(localCanvas, () => {
-			// A paint re-uploads the current DOM and composites it. The seek/play
-			// tick already applied the GSAP state (and wrote animState) before
-			// requesting this paint, so we only composite here — renderAt(), not
-			// tickTimeline(), to avoid re-driving the animation on every paint.
-			nextPipeline.uploadDom();
-			if (timeline) {
-				renderAt(timeline.time);
+			if (shaderPassDispatcher) {
+				shaderPassDispatcher.dispose();
 			}
-		});
-		// Gate the first capture on the active Pack's typefaces so the very first
-		// frame rasterizes the channel fonts, not OS fallbacks. Memoized, so this
-		// resolves ~immediately once the faces are cached.
-		void fontsReady().then(() => requestCanvasPaint(localCanvas));
+			shaderPassDispatcher = new ShaderPassDispatcher({
+				host: localHost,
+				width: localCanvas.width,
+				height: localCanvas.height
+			});
 
-		return () => {
-			clearCanvasPaintHandler(localCanvas);
-			nextPipeline.dispose();
-			if (pipeline === nextPipeline) {
-				pipeline = null;
-				pipelineSurfaceType = null;
+			// Multiplane DOF capture (ADR-0027) — sized to the canvas like the chain
+			// above, so an orientation change recreates it at the new dimensions.
+			if (compositionPlanes) {
+				compositionPlanes.dispose();
 			}
-		};
+			compositionPlanes = new CompositionPlanes({
+				host: localHost,
+				width: localCanvas.width,
+				height: localCanvas.height
+			});
+
+			if (!timeline) {
+				timeline = new Timeline({
+					durationSeconds: engineState.transport.durationSeconds,
+					fps: engineState.transport.fps,
+					tick: tickTimeline
+				});
+				if (typeof window !== 'undefined') {
+					window.__hivizTimeline = timeline;
+					window.__hivizTextAnimationManager = textAnimationManager;
+				}
+				animationManager.rebuild(buildAnimationManifest());
+				animationManager.progress(0);
+			}
+
+			setCanvasPaintHandler(localCanvas, () => {
+				// A paint re-uploads the current DOM and composites it. The seek/play
+				// tick already applied the GSAP state (and wrote animState) before
+				// requesting this paint, so we only composite here — renderAt(), not
+				// tickTimeline(), to avoid re-driving the animation on every paint.
+				nextPipeline.uploadDom();
+				if (timeline) {
+					renderAt(timeline.time);
+				}
+			});
+			// Gate the first capture on the active Pack's typefaces so the very first
+			// frame rasterizes the channel fonts, not OS fallbacks. Memoized, so this
+			// resolves ~immediately once the faces are cached.
+			void fontsReady().then(() => requestCanvasPaint(localCanvas));
+
+			return () => {
+				clearCanvasPaintHandler(localCanvas);
+				nextPipeline.dispose();
+				if (pipeline === nextPipeline) {
+					pipeline = null;
+					pipelineSurfaceType = null;
+				}
+			};
 		});
 	});
 
@@ -950,6 +1083,8 @@
 		effectChain = null;
 		shaderPassDispatcher?.dispose();
 		shaderPassDispatcher = null;
+		compositionPlanes?.dispose();
+		compositionPlanes = null;
 		snapshots?.dispose();
 		snapshots = null;
 		transitionWipe = null;
@@ -988,6 +1123,34 @@
 		const renderFrame: TransparentVideoExportOptions['renderFrame'] = (_frame, timestamp) => {
 			const fraction = durationSeconds > 0 ? timestamp / durationSeconds : 0;
 			exportManager.progress(fraction);
+			const parsedMarksForExport = readMarks();
+			const inputs: SurfaceRenderInputs = {
+				animState: { markProgresses: animState.markProgresses },
+				backgroundVisibility: engineState.surface.backgroundVisibility ?? 0,
+				markColorsByIndex,
+				markIntensityByIndex,
+				textAnimAlphaByMarkIndex: computeTextAnimAlphaByMarkIndex(parsedMarksForExport),
+				timestamp
+			};
+			const timebase = { progress: fraction, timestamp };
+
+			// Multiplane DOF (ADR-0027): captures the layers and composites itself,
+			// so it owns the per-frame DOM upload (Surface-layer + Overlay-layer).
+			const dof = resolveDof();
+			if (
+				dof &&
+				host &&
+				renderDofPlanes(
+					dof,
+					inputs,
+					timebase,
+					host.context.getCurrentTexture().createView(),
+					exportBackground
+				)
+			) {
+				return;
+			}
+
 			// Re-capture the DOM into domTexture for THIS frame's progress. The export
 			// loop pauses the preview paint loop, so without this the pipeline samples a
 			// stale domTexture and freezes every DOM-driven visual (split-text kinetic
@@ -997,19 +1160,10 @@
 			// render, no await). Must run after progress() (DOM now at this frame) and
 			// before render(). Not requestCanvasPaint (that re-enters the preview manager).
 			activePipeline.uploadDom();
-			const parsedMarksForExport = readMarks();
-			activePipeline.render({
-				animState: { markProgresses: animState.markProgresses },
-				backgroundVisibility: engineState.surface.backgroundVisibility ?? 0,
-				markColorsByIndex,
-				markIntensityByIndex,
-				textAnimAlphaByMarkIndex: computeTextAnimAlphaByMarkIndex(parsedMarksForExport),
-				timestamp
-			});
+			activePipeline.render(inputs);
 
 			if (host && effectChain && shaderPassDispatcher) {
 				const commandEncoder = host.device.createCommandEncoder();
-				const timebase = { progress: fraction, timestamp };
 
 				const postShaderTexture = shaderPassDispatcher.apply({
 					commandEncoder,
@@ -1068,7 +1222,12 @@
 <main class="workspace">
 	<section class="workspace__stage" aria-label="Composition">
 		<VideoFrame bind:canvas orientation={engineState.transport.orientation}>
-			<Composition bind:element={compositionElement} bind:surfaceElement />
+			<Composition
+				bind:element={compositionElement}
+				bind:surfaceElement
+				splitPlanes={dofActive}
+				bind:overlayRootElement
+			/>
 		</VideoFrame>
 
 		{#if timeline}

@@ -1,0 +1,71 @@
+{
+	"schema": "hiviz@1",
+	"name": "DOF multiplane capture check",
+	"description": "Verification fixture for ADR-0027 depth-of-field plane capture (epic task 2). Paper Surface (focal plane, z 0.0) behind a lower-third Overlay (z 0.7), with a depth-of-field Effect present so the engine takes the multiplane path: capture each layer as a separate plane and composite back-to-front. Task 2 composites with no blur (the zero-defocus base case) — the bokeh disc kernel lands in task 3. Use window.__hivizDofPreviewPlane = 'surface' | 'overlay' | 'composite' to screenshot each plane in isolation.",
+	"kind": "fixture",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#fdf9f1",
+			"inkColor": "#111111"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "paper",
+			"content": {
+				"title": "Focal plane",
+				"body": "The paper card sits at the focal plane (z 0.0) — it stays sharp.\n\nThe lower-third overlay sits at z 0.7, the defocus plane, behind the lens of a future bokeh pass."
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.06,
+				"ease": "settled"
+			}
+		},
+		"overlays": [
+			{
+				"type": "lower-third",
+				"id": "main",
+				"z": 0.7,
+				"content": {
+					"variant": "cinematic",
+					"kicker": "DEFOCUS PLANE",
+					"title": "Lower third",
+					"subtitle": "z = 0.7"
+				},
+				"position": {
+					"anchor": "bottom-left",
+					"offset": {
+						"x": 0.06,
+						"y": 0.115
+					}
+				},
+				"enter": {
+					"start": 0.04,
+					"duration": 0.058,
+					"ease": "settled"
+				}
+			}
+		],
+		"effects": [
+			{
+				"type": "depth-of-field",
+				"id": "dof",
+				"params": {
+					"focusZ": 0,
+					"aperture": 0.6
+				}
+			}
+		]
+	}
+}

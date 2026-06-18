@@ -202,6 +202,13 @@ This is the cleanest way to keep existing 2D-canvas drawing code working while m
 - `canvas.captureElementImage(element)` returns an `ElementImage` object (sync, not a Promise, not an `ImageBitmap`). It has `width`, `height`, `close`, and is designed as a source argument to `drawElementImage`. It is not directly accepted by `drawImage` or `copyExternalImageToTexture`.
 - `drawElementImage(snapshot)` (snapshot source on a regular canvas) writes pixels to the bitmap **only when the destination canvas is at or near the snapshot's natural dimensions**. On a much-larger destination (e.g. 4K) it silently no-ops. This makes the snapshot → bridge → 4K-canvas approach unworkable.
 
+## Capturing a sub-element: only direct layoutsubtree children rasterize
+
+- `copyElementImageToTexture(el, w, h, { texture })` only produces pixels when `el` is a **direct child of the `<canvas layoutsubtree>`**. Passing a *nested* descendant (a wrapper `div` inside the captured root, even one that is frame-sized, `position: absolute; inset: 0`, fully visible, `opacity: 1`) writes an **all-transparent texture** — no error, just blank. Verified for ADR-0027 (DOF plane capture): wrapping `SurfaceMount` / `OverlayMount` in nested layers and capturing each → blank; the same content captured via the root `.composition` → full pixels.
+- `contain: paint` on the nested wrapper does **not** make it capturable — paint containment is not what the API keys on.
+- Consequence: to capture two layers separately (e.g. depth planes), each must be its **own direct child** of the canvas, not siblings nested under a shared parent. ADR-0027's split hoists the Overlay layer into a sibling `.overlay-root` (a second direct child) only while DOF is active; the non-DOF path keeps the single merged `.composition` child untouched.
+- This pairs with the layer-promotion drop ([ADR-0017](adr/0017-paper-surface-paint-bug-fix.md)): capturing the root **drops** descendants promoted to their own compositing layer (`will-change`, animated `top`, `transform: translate3d`). So a descendant is either captured-with-the-root (normal flow) or not captured at all (promoted) — and capturing the descendant *directly* doesn't work either. Plan the DOM so each independently-captured unit is a direct, non-promoted layoutsubtree child.
+
 ## Hiding the layoutsubtree canvas
 
 - `display: none` — children don't lay out; `drawElementImage` fails.
