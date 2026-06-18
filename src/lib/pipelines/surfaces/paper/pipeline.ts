@@ -399,7 +399,11 @@ const composeFragmentFn = tgpu['~unstable']
 			// visible.
 			let dimRange = 1.0 - layout.$.uniforms.bgFloor;
 			let outsideDim = 1.0 - dimAmount * (1.0 - liftedFactor) * dimRange;
-			current = vec4f(current.rgb * outsideDim, current.a * outsideDim);
+			// Scale rgb only, NOT alpha: dimming alpha fades the paper card to
+				// transparent and reveals the composite background — the card "vanishing"
+				// outside a small focal region (the tear-out blank-body bug). Darken the
+				// surround (spotlight) while the card stays present.
+				current = vec4f(current.rgb * outsideDim, current.a);
 
 			// Sample the composed stack at the backward-mapped sourceUv when
 			// magnification is active.
