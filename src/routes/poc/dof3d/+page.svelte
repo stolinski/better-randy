@@ -28,6 +28,7 @@
 	// (not the sharp full-res buffer) so sparse taps reconstruct a smooth disc.
 	const MIP_LEVELS = Math.floor(Math.log2(Math.max(WIDTH, HEIGHT))) + 1;
 	const MAX_LOD = MIP_LEVELS - 1;
+	const SHOT_FRAMES = 240; // the shot is a pure function of t = frame/SHOT_FRAMES
 
 	const TEXTURE_USAGE_COPY_DST = 0x02;
 	const TEXTURE_USAGE_TEXTURE_BINDING = 0x04;
@@ -45,6 +46,12 @@
 		const l = Math.hypot(x, y, z) || 1;
 		return [x / l, y / l, z / l];
 	}
+	// Settled easing (no overshoot) + lerp, for the camera move and focus pull.
+	const smootherstep = (t: number): number => {
+		const x = Math.min(1, Math.max(0, t));
+		return x * x * x * (x * (x * 6 - 15) + 10);
+	};
+	const mix = (a: number, b: number, t: number): number => a + (b - a) * t;
 
 	// wgpu-matrix returns a Float32Array(16); TypeGPU's mat4x4f takes 16 explicit args.
 	function toMat4(m: Float32Array) {
@@ -230,6 +237,7 @@
 		let host: GpuHost | null = null;
 		let disposed = false;
 		let manualFocus = -1;
+		let manualT = -1;
 
 		(async () => {
 			const c = canvas;
@@ -350,31 +358,36 @@
 			const aspect = WIDTH / HEIGHT;
 			const cardAspect = TEX_W / TEX_H;
 			const projection = mat4.perspective((42 * Math.PI) / 180, aspect, 0.1, 100);
-			const view = mat4.lookAt([0, 0, 3.4], [0, 0, 0], [0, 1, 0]);
 
-			// Static model matrices.
+			// Static geometry — the camera moves, not the planes.
 			const cardModel = mat4.identity();
 			mat4.rotateY(cardModel, (26 * Math.PI) / 180, cardModel);
 			mat4.scale(cardModel, [cardAspect, 1, 1], cardModel);
-			const cardMvp = mat4.multiply(projection, mat4.multiply(view, cardModel));
-
 			const wallModel = mat4.identity();
 			mat4.translate(wallModel, [0, 0, -2.0], wallModel);
 			mat4.scale(wallModel, [9, 5, 1], wallModel);
-			const wallMvp = mat4.multiply(projection, mat4.multiply(view, wallModel));
 
-			cardPlane.write({
-				mvp: toMat4(cardMvp as Float32Array),
-				model: toMat4(cardModel as Float32Array),
-				misc: d.vec4f(D_NEAR, D_FAR, 1, 0),
-				baseColor: d.vec4f(0.95, 0.93, 0.87, 1)
-			});
-			wallPlane.write({
-				mvp: toMat4(wallMvp as Float32Array),
-				model: toMat4(wallModel as Float32Array),
-				misc: d.vec4f(D_NEAR, D_FAR, 0, 0),
-				baseColor: d.vec4f(0.16, 0.14, 0.13, 1)
-			});
+			// Re-projects both planes for a camera eye/target. Called per frame as the
+			// camera dollies: the card (z≈0) and wall (z≈-2) reproject at different rates,
+			// which is real parallax — the thing the 3D stage buys over the 2D path.
+			const writeCamera = (
+				eye: [number, number, number],
+				target: [number, number, number]
+			): void => {
+				const vp = mat4.multiply(projection, mat4.lookAt(eye, target, [0, 1, 0]));
+				cardPlane.write({
+					mvp: toMat4(mat4.multiply(vp, cardModel) as Float32Array),
+					model: toMat4(cardModel as Float32Array),
+					misc: d.vec4f(D_NEAR, D_FAR, 1, 0),
+					baseColor: d.vec4f(0.95, 0.93, 0.87, 1)
+				});
+				wallPlane.write({
+					mvp: toMat4(mat4.multiply(vp, wallModel) as Float32Array),
+					model: toMat4(wallModel as Float32Array),
+					misc: d.vec4f(D_NEAR, D_FAR, 0, 0),
+					baseColor: d.vec4f(0.16, 0.14, 0.13, 1)
+				});
+			};
 
 			// Card quad in world space (centre at origin; half-extent axes + normal),
 			// for the analytic cast shadow. n.w = 1 enables shadowing on receivers.
@@ -393,7 +406,18 @@
 			let frame = 0;
 			const renderLoop = () => {
 				if (disposed || !host) return;
-				const focus = manualFocus >= 0 ? manualFocus : 0.5 + 0.5 * Math.sin(frame * 0.01);
+				// The shot is a pure function of t — this is the frame-determinism the engine
+				// requires: same t → same pixels, whether previewed or exported.
+				const t = manualT >= 0 ? manualT : (frame % SHOT_FRAMES) / SHOT_FRAMES;
+				const e = smootherstep(t);
+				// Slow dolly-in with lateral/vertical drift → parallax between card and wall.
+				writeCamera([mix(-0.16, 0.12, e), mix(0.05, -0.03, e), mix(3.7, 3.15, e)], [
+					mix(0.04, -0.03, e),
+					0,
+					0
+				]);
+				// Rack focus: pull from the back wall (depth ≈0.83) onto the title (≈0.2).
+				const focus = manualFocus >= 0 ? manualFocus : mix(0.83, 0.2, e);
 				dofUniform.write({ focus, aperture: 1, resolution: d.vec2f(WIDTH, HEIGHT) });
 
 				// Wall (far) then card (front), into the scene target. Card is always in
@@ -442,7 +466,9 @@
 
 			(window as unknown as { __poc: unknown }).__poc = {
 				setFocus: (v: number) => (manualFocus = v),
-				autoFocus: () => (manualFocus = -1)
+				autoFocus: () => (manualFocus = -1),
+				setT: (v: number) => (manualT = v),
+				play: () => (manualT = -1)
 			};
 		})().catch((err) => {
 			console.error('[poc] failed', err);
