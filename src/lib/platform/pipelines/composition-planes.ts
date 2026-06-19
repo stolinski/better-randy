@@ -253,23 +253,36 @@ const compositeFragmentFn = tgpu['~unstable'].fragmentFn({
 			bd = vec4f(col * bdStrength, bdStrength);
 		}
 
-		// Put the subject in the scene (scene mode): only a very gentle shared key
-		// light on the card so it agrees with the bed's light direction. No custom
-		// cast shadow — the card keeps its own well-built soft drop shadow, which
-		// composites multiply-style over the textured bed (the bed shows through it),
-		// staying clean instead of the banded/patchy custom shadow attempts.
+		// Put the subject in the scene (scene mode): a gentle shared key light, and a
+		// clean soft cast shadow. The shadow is sampled ONLY from the solid card body
+		// (alpha threshold 0.9, so it ignores the card's own baked drop shadow — the
+		// contamination that made earlier attempts patchy), offset down-right (key is
+		// upper-left), one smooth jittered golden-angle gather (no banding, no hard
+		// two-tier blend), multiplied onto the bed so the texture shows through.
 		var litSurfRgb = surf.rgb;
+		var shadedBdRgb = bd.rgb;
 		if (bdStrength > 0.001) {
 			let keyPos = vec2f(0.33, 0.32);
 			let key = 1.0 - smoothstep(0.1, 1.3, length((in.uv - keyPos) * vec2f(aspect, 1.0)));
 			let warm = mix(vec3f(0.99, 0.985, 0.975), vec3f(1.025, 1.0, 0.965), key);
 			litSurfRgb = surf.rgb * warm * mix(0.96, 1.025, key);
+
+			let shOff = vec2f(0.02, 0.028);
+			let shJit = fract(sin(dot(in.uv, vec2f(73.1, 31.7))) * 5331.13) * 6.2831853;
+			var shAcc = 0.0;
+			for (var sj = 0; sj < 32; sj = sj + 1) {
+				let st = (f32(sj) + 0.5) / 32.0;
+				let ang = f32(sj) * 2.39996 + shJit;
+				let dxy = vec2f(cos(ang), sin(ang)) * sqrt(st) * 0.04;
+				shAcc = shAcc + smoothstep(0.9, 0.99, textureSampleLevel(layout.$.surfaceTexture, layout.$.samp, in.uv - shOff + dxy, 0.0).a);
+			}
+			shadedBdRgb = bd.rgb * (1.0 - shAcc / 32.0 * 0.5);
 		}
 
 		// Back-to-front premultiplied composite: backdrop (back) → Surface (mid) →
 		// Overlay (front). With strength 0 the backdrop is transparent and this
 		// degenerates to the prior Overlay-over-Surface composite.
-		let surfRgb = litSurfRgb + (1.0 - surf.a) * bd.rgb;
+		let surfRgb = litSurfRgb + (1.0 - surf.a) * shadedBdRgb;
 		let surfA = surf.a + (1.0 - surf.a) * bd.a;
 		var outRgb = ovl.rgb + (1.0 - ovl.a) * surfRgb;
 		let outA = ovl.a + (1.0 - ovl.a) * surfA;
