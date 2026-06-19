@@ -14,7 +14,7 @@ Hiviz is an opinionated, high-end **motion-graphics engine** on a web stack (Typ
 - **Svelte runes discipline.** No `$effect` unless genuinely necessary. No rename-only `$derived` aliases. Components own their own data — read from managers / route directly where used; no prop-forwarding wrappers.
 - **UI restraint.** No refresh buttons, save buttons, or explanatory text. Less UI > more UI. Use the simplest, flattest semantic HTML. Graffiti tokens and patterns before custom CSS.
 - **Never run destructive git** (`git reset --hard`, `git revert`, `git restore`, `git clean -f`, force-push) without explicit user permission.
-- **Never start a new dev server.** One runs at `http://localhost:5173`.
+- **Never start a new dev server.** One runs at `http://localhost:7263`.
 - **Utilities live in `src/lib/utils/`.** No new utility folders. Extend existing helpers before adding new ones.
 - **No TODOs, placeholders, or no-op stubs.** Wire it now or the task isn't done.
 

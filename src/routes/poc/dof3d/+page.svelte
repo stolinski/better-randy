@@ -24,6 +24,10 @@
 	const D_NEAR = 2.5; // camera-space distance mapped to depth 0
 	const D_FAR = 6.0; // ...to depth 1
 	const BOKEH_TAPS = 96;
+	// Mip pyramid of the scene colour: the DOF gather samples a prefiltered level
+	// (not the sharp full-res buffer) so sparse taps reconstruct a smooth disc.
+	const MIP_LEVELS = Math.floor(Math.log2(Math.max(WIDTH, HEIGHT))) + 1;
+	const MAX_LOD = MIP_LEVELS - 1;
 
 	const TEXTURE_USAGE_COPY_DST = 0x02;
 	const TEXTURE_USAGE_TEXTURE_BINDING = 0x04;
@@ -154,6 +158,19 @@
 		return vec4f(albedo * shade, depth);
 	}`.$uses({ layout: planeLayout });
 
+	// --- Mip-downsample pass: box-filter the previous level into the next. Builds
+	// the prefiltered pyramid the DOF gather reads from. ---
+	const downLayout = tgpu.bindGroupLayout({
+		src: { texture: d.texture2d(d.f32) },
+		samp: { sampler: 'filtering' }
+	});
+	const downsampleFragmentFn = tgpu['~unstable'].fragmentFn({
+		in: { uv: d.vec2f },
+		out: d.vec4f
+	}) /* wgsl */ `{
+		return textureSampleLevel(layout.$.src, layout.$.samp, in.uv, 0.0);
+	}`.$uses({ layout: downLayout });
+
 	// --- DOF pass: scatter-as-gather; weight each tap by whether its own CoC reaches
 	// the centre pixel (no foreground bleed). ---
 	const dofLayout = tgpu.bindGroupLayout({
@@ -176,25 +193,31 @@
 		let focus = layout.$.uniforms.focus;
 		let aperture = layout.$.uniforms.aperture;
 		let texel = vec2f(1.0) / layout.$.uniforms.resolution;
-		let center = textureSample(layout.$.scene, layout.$.samp, in.uv);
+		let center = textureSampleLevel(layout.$.scene, layout.$.samp, in.uv, 0.0);
+		let cocC = aperture * abs(center.a - focus) * ${MAX_COC_PX};
+		// Read colour from a prefiltered mip whose footprint spans the gap between our
+		// sparse taps. THIS is the fix for the grain: a few taps of a sharp buffer
+		// alias into noise; the same taps of a pre-averaged level reconstruct a clean,
+		// smooth disc. LOD rises with the blur radius (log2 of the tap spacing).
+		let lod = clamp(log2(max(cocC, 1.0)) - 2.3, 0.0, ${MAX_LOD}.0);
 		var acc = center.rgb;
 		var wsum = 1.0;
-		// FIXED golden-angle spiral (no per-pixel jitter): every pixel gathers the same
-		// kernel, so neighbours agree and the defocus is smooth instead of dithered.
 		for (var i: u32 = 0u; i < ${BOKEH_TAPS}u; i = i + 1u) {
 			let st = (f32(i) + 0.5) / ${BOKEH_TAPS}.0;
 			let ang = f32(i) * 2.39996;
-			let offsetPx = vec2f(cos(ang), sin(ang)) * sqrt(st) * ${MAX_COC_PX};
-			let smp = textureSample(layout.$.scene, layout.$.samp, in.uv + offsetPx * texel);
-			let tapCoc = aperture * abs(smp.a - focus) * ${MAX_COC_PX};
-			// Soft-edged disc: a tap fades over ~4px around its CoC radius rather than a
-			// 1px hard cutoff, so the bokeh reads smooth, not hard-edged.
-			let w = 1.0 - smoothstep(-2.0, 2.0, length(offsetPx) - tapCoc);
-			acc = acc + smp.rgb * w;
+			let offsetPx = vec2f(cos(ang), sin(ang)) * sqrt(st) * cocC;
+			let tapUV = in.uv + offsetPx * texel;
+			let tapDepth = textureSampleLevel(layout.$.scene, layout.$.samp, tapUV, 0.0).a;
+			let tapCoc = aperture * abs(tapDepth - focus) * ${MAX_COC_PX};
+			// scatter-as-gather: a tap lights the centre only if the centre falls within
+			// the tap's own circle of confusion — blurry foreground spreads over sharp
+			// background, but sharp foreground never bleeds.
+			let reach = max(tapCoc, cocC);
+			let w = 1.0 - smoothstep(reach - 2.0, reach + 2.0, length(offsetPx));
+			acc = acc + textureSampleLevel(layout.$.scene, layout.$.samp, tapUV, lod).rgb * w;
 			wsum = wsum + w;
 		}
-		// Film finish: subtle warm grade + a gentle lens vignette. No added grain —
-		// it read as noise; the dense soft-edged gather is clean on its own.
+		// Film finish: subtle warm grade + a gentle lens vignette.
 		var col = acc / wsum;
 		col = col * vec3f(1.03, 1.0, 0.955);
 		let frameRad = length(in.uv - vec2f(0.5));
@@ -232,13 +255,23 @@
 			const sceneTexture = device.createTexture({
 				size: [WIDTH, HEIGHT, 1],
 				format: INTERMEDIATE_FORMAT,
+				mipLevelCount: MIP_LEVELS,
 				usage: TEXTURE_USAGE_TEXTURE_BINDING | TEXTURE_USAGE_RENDER_ATTACHMENT
 			});
-			const sceneView = sceneTexture.createView();
+			const sceneView = sceneTexture.createView(); // all mips — the DOF gather samples by LOD
+			// Single-level views: as render targets when building the pyramid, and as the
+			// source binding for the next downsample step.
+			const mipViews: GPUTextureView[] = [];
+			for (let i = 0; i < MIP_LEVELS; i++) {
+				mipViews.push(
+					sceneTexture.createView({ baseMipLevel: i, mipLevelCount: 1, dimension: '2d' })
+				);
+			}
 
 			const sampler = root['~unstable'].createSampler({
 				magFilter: 'linear',
 				minFilter: 'linear',
+				mipmapFilter: 'linear',
 				addressModeU: 'clamp-to-edge',
 				addressModeV: 'clamp-to-edge'
 			});
@@ -296,6 +329,10 @@
 				samp: sampler,
 				uniforms: dofUniform
 			});
+			// downBinds[i-1] reads level i-1 and is rendered into level i.
+			const downBinds = Array.from({ length: MIP_LEVELS - 1 }, (_, k) =>
+				root.createBindGroup(downLayout, { src: mipViews[k], samp: sampler })
+			);
 
 			const planePipeline = root['~unstable']
 				.withVertex(planeVertexFn, {})
@@ -304,6 +341,10 @@
 			const dofPipeline = root['~unstable']
 				.withVertex(fullVertexFn, {})
 				.withFragment(dofFragmentFn, { format: host.format })
+				.createPipeline();
+			const downPipeline = root['~unstable']
+				.withVertex(fullVertexFn, {})
+				.withFragment(downsampleFragmentFn, { format: INTERMEDIATE_FORMAT })
 				.createPipeline();
 
 			const aspect = WIDTH / HEIGHT;
@@ -360,7 +401,7 @@
 				planePipeline
 					.with(wallBind)
 					.withColorAttachment({
-						view: sceneView,
+						view: mipViews[0],
 						clearValue: [0, 0, 0, 1],
 						loadOp: 'clear',
 						storeOp: 'store'
@@ -368,8 +409,21 @@
 					.draw(6);
 				planePipeline
 					.with(cardBind)
-					.withColorAttachment({ view: sceneView, loadOp: 'load', storeOp: 'store' })
+					.withColorAttachment({ view: mipViews[0], loadOp: 'load', storeOp: 'store' })
 					.draw(6);
+
+				// Build the prefiltered pyramid: box-filter each level down into the next.
+				for (let i = 1; i < MIP_LEVELS; i++) {
+					downPipeline
+						.with(downBinds[i - 1])
+						.withColorAttachment({
+							view: mipViews[i],
+							clearValue: [0, 0, 0, 1],
+							loadOp: 'clear',
+							storeOp: 'store'
+						})
+						.draw(3);
+				}
 
 				dofPipeline
 					.with(dofBind)
