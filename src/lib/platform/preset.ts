@@ -275,6 +275,16 @@ export function applyCompositionState(preset: Preset): void {
 	engineState.effects = (next.effects ?? []).map(cloneEffect);
 	engineState.textAnimations = (next.textAnimations ?? []).map(cloneTextAnimation);
 	engineState.backgroundFill = next.backgroundFill;
+	engineState.stage = next.stage
+		? {
+				type: next.stage.type,
+				camera: { ...next.stage.camera },
+				focus: {
+					...next.stage.focus,
+					pull: next.stage.focus.pull ? { ...next.stage.focus.pull } : undefined
+				}
+			}
+		: undefined;
 }
 
 /**

@@ -51,6 +51,7 @@
 	import { createPlainPipeline } from '$lib/pipelines/surfaces/plain/pipeline';
 	import { TransitionSnapshots } from './pipelines/transition-snapshots';
 	import { CompositionPlanes, type CompositeBackdrop } from './pipelines/composition-planes';
+	import { DepthStage } from './pipelines/depth-stage';
 	import { compileTransitionWipe, type CompiledTransitionWipe } from './pipelines/transition-pass';
 	import {
 		downloadVideoBlob,
@@ -77,6 +78,9 @@
 	let effectChain = $state.raw<EffectChain | null>(null);
 	let shaderPassDispatcher = $state.raw<ShaderPassDispatcher | null>(null);
 	let compositionPlanes = $state.raw<CompositionPlanes | null>(null);
+	// Dimensional depth stage (ADR-0028). Built when a Preset declares state.stage;
+	// renders the composition through a real 3D compositor instead of the flat path.
+	let depthStage = $state.raw<DepthStage | null>(null);
 	let timeline = $state.raw<Timeline | null>(null);
 	const animationManager = new AnimationManager();
 	const textAnimationManager = new TextAnimationManager();
@@ -653,6 +657,47 @@
 		};
 	}
 
+	interface ResolvedStage {
+		focusZ: number;
+		aperture: number;
+		backdropColor: [number, number, number];
+		cameraMove: 'static' | 'push' | 'drift';
+		cameraAmount: number;
+		effects: typeof engineState.effects;
+	}
+
+	// Resolve the dimensional depth stage (ADR-0028) for this frame. focusZ animates
+	// the same way the multiplane DOF rack does (from→to over [start,start+duration],
+	// eased), so preview and export agree. The backdrop plane takes the composition's
+	// backgroundFill (the surface composite stays card-on-transparent; the fill is the
+	// depth backdrop, not baked into the surface plane).
+	function resolveStage(progress: number): ResolvedStage | null {
+		const stage = engineState.stage;
+		if (!stage || stage.type !== 'depth') {
+			return null;
+		}
+		let focusZ = clampNumber(stage.focus.focusZ, 0, 1);
+		const pull = stage.focus.pull;
+		if (pull) {
+			const duration = pull.duration > 0 ? pull.duration : 1;
+			const local = clampNumber((progress - pull.start) / duration, 0, 1);
+			const eased = local * local * (3 - 2 * local);
+			focusZ = clampNumber(pull.from + (pull.to - pull.from) * eased, 0, 1);
+		}
+		const bg = backgroundFillFloat;
+		const backdropColor: [number, number, number] = bg
+			? [bg[0], bg[1], bg[2]]
+			: [0.1, 0.09, 0.08];
+		return {
+			focusZ,
+			aperture: clampNumber(stage.focus.aperture, 0, 1),
+			backdropColor,
+			cameraMove: stage.camera.move,
+			cameraAmount: clampNumber(stage.camera.amount, 0, 1),
+			effects: engineState.effects
+		};
+	}
+
 	// Which plane texture to present. Default is the back-to-front composite; the
 	// `__hivizDofPreviewPlane` debug switch (a verification seam, like
 	// `__hivizTimeline`) lets a capture script screenshot a single plane in
@@ -713,6 +758,43 @@
 		return true;
 	}
 
+	// The dimensional depth stage render (ADR-0028), shared by preview and export.
+	// The Surface composite (card on transparent) is placed on a 3D plane over the
+	// backdrop plane; the stage outputs an opaque, defocused composite that the
+	// effect chain presents. No `background` fill — the backdrop plane is the
+	// background, so the stage output is already opaque to the frame edges.
+	function renderDepthStage(
+		stage: ResolvedStage,
+		inputs: SurfaceRenderInputs,
+		timebase: { progress: number; timestamp: number },
+		outputView: GPUTextureView
+	): boolean {
+		if (!pipeline || !host || !effectChain || !depthStage) {
+			return false;
+		}
+		pipeline.uploadDom();
+		pipeline.render(inputs);
+		depthStage.render({
+			surfacePlaneView: pipeline.getOutputTexture().createView(),
+			focusZ: stage.focusZ,
+			aperture: stage.aperture,
+			backdropColor: stage.backdropColor,
+			cameraMove: stage.cameraMove,
+			cameraAmount: stage.cameraAmount,
+			time: timebase.progress
+		});
+		const commandEncoder = host.device.createCommandEncoder();
+		effectChain.apply({
+			commandEncoder,
+			effects: stage.effects,
+			inputTexture: depthStage.outputTexture(),
+			outputView,
+			...timebase,
+			background: undefined
+		});
+		return true;
+	}
+
 	// Composite the current composition (surface → shaderPass → effect chain) into
 	// `outputView`. The single render seam: `renderAt` points it at the canvas;
 	// the transition snapshot path (ADR-0026) points it at an offscreen texture so
@@ -723,6 +805,13 @@
 		}
 
 		const timebase = effectChainTimebase(timestamp);
+
+		// Dimensional depth stage (ADR-0028) takes precedence when declared; else the
+		// flat multiplane DOF (ADR-0027); else the plain flat composite.
+		const stage = resolveStage(timebase.progress);
+		if (stage && renderDepthStage(stage, buildRenderInputs(timestamp), timebase, outputView)) {
+			return;
+		}
 
 		const dof = resolveDof(timebase.progress);
 		if (
@@ -973,6 +1062,17 @@
 				height: localCanvas.height
 			});
 
+			// Dimensional depth stage (ADR-0028) — sized to the canvas like the chain
+			// above, so an orientation change recreates it at the new dimensions.
+			if (depthStage) {
+				depthStage.dispose();
+			}
+			depthStage = new DepthStage({
+				host: localHost,
+				width: localCanvas.width,
+				height: localCanvas.height
+			});
+
 			if (!timeline) {
 				timeline = new Timeline({
 					durationSeconds: engineState.transport.durationSeconds,
@@ -1137,6 +1237,8 @@
 		shaderPassDispatcher = null;
 		compositionPlanes?.dispose();
 		compositionPlanes = null;
+		depthStage?.dispose();
+		depthStage = null;
 		snapshots?.dispose();
 		snapshots = null;
 		transitionWipe = null;
