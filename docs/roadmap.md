@@ -77,6 +77,7 @@ Gating note: on-photo and collage families (`pullquote-on-photo`) are partially 
 - 🧭 **Linear-light blending** — changes composite math; risky; separate pass with heavy before/after verification (deferred from the render-path work).
 - 🧭 **Fixer sub-agent** for `preset-choice`/`aesthetic-miss` Critic findings — build-harness; revisit after more Critic runs (open design question, ex-`todos/fixer-sub-agent.md`).
 - 🧭 **`probe-timeline.ts`** for the G6/L4 timing rubric gap (currently no probe).
+- 🧭 **Opaque-piece probe mode** (rubric-gap from the depth-stage Critic, 2026-06) — `probe-banding`, `probe-edge-aa`, `probe-ink-coverage` read the alpha channel, so they return null/ink_ratio=1 on opaque full-frame pieces (segments/bumpers, incl. the depth stage), where all structure is in RGB. Add an `--opaque` mode (RGB-luma scans) so R3/R4/R5/Q9 are measurable on full-frame pieces, not only alpha-keyed overlays. The depth-stage Critic substituted manual RGB-luma scans; ACCEPT was not blocked.
 - 🧭 **Recalibrate G4 overlay cap-height bands** — sized for full-width broadcast lower-thirds; too large for a corner chip.
 
 ---
