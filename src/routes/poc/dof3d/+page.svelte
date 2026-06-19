@@ -29,6 +29,19 @@
 	const TEXTURE_USAGE_TEXTURE_BINDING = 0x04;
 	const TEXTURE_USAGE_RENDER_ATTACHMENT = 0x10;
 
+	// Transform a direction by a column-major mat4's upper-3x3 (no translation).
+	function dir3(m: Float32Array, x: number, y: number, z: number): [number, number, number] {
+		return [
+			m[0] * x + m[4] * y + m[8] * z,
+			m[1] * x + m[5] * y + m[9] * z,
+			m[2] * x + m[6] * y + m[10] * z
+		];
+	}
+	function norm3([x, y, z]: [number, number, number]): [number, number, number] {
+		const l = Math.hypot(x, y, z) || 1;
+		return [x / l, y / l, z / l];
+	}
+
 	// wgpu-matrix returns a Float32Array(16); TypeGPU's mat4x4f takes 16 explicit args.
 	function toMat4(m: Float32Array) {
 		// prettier-ignore
@@ -45,8 +58,16 @@
 		misc: d.vec4f,
 		baseColor: d.vec4f
 	});
-	// lightPos.xyz; params = (ambient, diffuse, falloffK, _).
+	// lightPos.xyz; params = (ambient, diffuse, falloffK, areaRadius).
 	const LightUniforms = d.struct({ lightPos: d.vec4f, params: d.vec4f });
+	// Card quad in world space, for analytic ray-cast shadow: centre + the two
+	// in-plane half-extent axes (u, v) + the plane normal. enabled in n.w.
+	const ShadowUniforms = d.struct({
+		center: d.vec4f,
+		u: d.vec4f,
+		v: d.vec4f,
+		n: d.vec4f
+	});
 	const DofUniforms = d.struct({ focus: d.f32, aperture: d.f32, resolution: d.vec2f });
 
 	// --- Scene pass: a lit plane (card or wall), writing colour + per-pixel depth ---
@@ -54,7 +75,8 @@
 		cardTexture: { texture: d.texture2d(d.f32) },
 		samp: { sampler: 'filtering' },
 		plane: { uniform: PlaneUniforms },
-		light: { uniform: LightUniforms }
+		light: { uniform: LightUniforms },
+		shadow: { uniform: ShadowUniforms }
 	});
 
 	const planeVertexFn = tgpu['~unstable'].vertexFn({
@@ -100,7 +122,34 @@
 		let ndotl = max(dot(N, L), 0.0);
 		let p = layout.$.light.params;
 		let falloff = 1.0 / (1.0 + p.z * dot(toL, toL));
-		let shade = p.x + p.y * ndotl * falloff;
+		var shade = p.x + p.y * ndotl * falloff;
+
+		// Real cast shadow (receivers only — the wall, n.w > 0.5): for an area light,
+		// fire several rays from this point toward jittered light positions; a ray
+		// that passes through the card quad before reaching the light is occluded.
+		// The fraction occluded is the soft penumbra. Real geometry, real light.
+		let sh = layout.$.shadow;
+		if (sh.n.w > 0.5 && misc.z < 0.5) {
+			let cardN = sh.n.xyz;
+			let area = p.w;
+			var occ = 0.0;
+			for (var k: u32 = 0u; k < 12u; k = k + 1u) {
+				let a = f32(k) * 2.39996;
+				let r = sqrt((f32(k) + 0.5) / 12.0) * area;
+				let Ls = layout.$.light.lightPos.xyz + vec3f(cos(a) * r, sin(a) * r, 0.0);
+				let dir = Ls - in.worldPos;
+				let denom = dot(dir, cardN);
+				let tt = dot(sh.center.xyz - in.worldPos, cardN) / denom;
+				let hit = in.worldPos + dir * tt;
+				let rel = hit - sh.center.xyz;
+				let aU = dot(rel, sh.u.xyz) / dot(sh.u.xyz, sh.u.xyz);
+				let aV = dot(rel, sh.v.xyz) / dot(sh.v.xyz, sh.v.xyz);
+				let inside = abs(denom) > 0.0001 && tt > 0.001 && tt < 1.0 && abs(aU) < 1.0 && abs(aV) < 1.0;
+				occ = occ + select(0.0, 1.0, inside);
+			}
+			shade = shade * (1.0 - (occ / 12.0) * 0.72);
+		}
+
 		let depth = clamp((in.dist - misc.x) / (misc.y - misc.x), 0.0, 1.0);
 		return vec4f(albedo * shade, depth);
 	}`.$uses({ layout: planeLayout });
@@ -188,7 +237,15 @@
 			const lightUniform = root
 				.createBuffer(LightUniforms, {
 					lightPos: d.vec4f(-2.2, 2.0, 2.6, 0),
-					params: d.vec4f(0.5, 0.85, 0.05, 0)
+					params: d.vec4f(0.5, 0.85, 0.05, 0.45)
+				})
+				.$usage('uniform');
+			const shadowUniform = root
+				.createBuffer(ShadowUniforms, {
+					center: d.vec4f(0, 0, 0, 0),
+					u: d.vec4f(1, 0, 0, 0),
+					v: d.vec4f(0, 1, 0, 0),
+					n: d.vec4f(0, 0, 1, 0)
 				})
 				.$usage('uniform');
 			const cardPlane = root
@@ -215,13 +272,15 @@
 				cardTexture,
 				samp: sampler,
 				plane: cardPlane,
-				light: lightUniform
+				light: lightUniform,
+				shadow: shadowUniform
 			});
 			const wallBind = root.createBindGroup(planeLayout, {
 				cardTexture,
 				samp: sampler,
 				plane: wallPlane,
-				light: lightUniform
+				light: lightUniform,
+				shadow: shadowUniform
 			});
 			const dofBind = root.createBindGroup(dofLayout, {
 				scene: sceneView,
@@ -265,6 +324,19 @@
 				model: toMat4(wallModel as Float32Array),
 				misc: d.vec4f(D_NEAR, D_FAR, 0, 0),
 				baseColor: d.vec4f(0.16, 0.14, 0.13, 1)
+			});
+
+			// Card quad in world space (centre at origin; half-extent axes + normal),
+			// for the analytic cast shadow. n.w = 1 enables shadowing on receivers.
+			const cm = cardModel as Float32Array;
+			const cu = dir3(cm, 1, 0, 0);
+			const cv = dir3(cm, 0, 1, 0);
+			const cn = norm3(dir3(cm, 0, 0, 1));
+			shadowUniform.write({
+				center: d.vec4f(0, 0, 0, 0),
+				u: d.vec4f(cu[0], cu[1], cu[2], 0),
+				v: d.vec4f(cv[0], cv[1], cv[2], 0),
+				n: d.vec4f(cn[0], cn[1], cn[2], 1)
 			});
 
 			status = 'rendering';
