@@ -23,7 +23,7 @@
 	const MAX_COC_PX = 42;
 	const D_NEAR = 2.5; // camera-space distance mapped to depth 0
 	const D_FAR = 6.0; // ...to depth 1
-	const BOKEH_TAPS = 48;
+	const BOKEH_TAPS = 96;
 
 	const TEXTURE_USAGE_COPY_DST = 0x02;
 	const TEXTURE_USAGE_TEXTURE_BINDING = 0x04;
@@ -186,18 +186,18 @@
 			let offsetPx = vec2f(cos(ang), sin(ang)) * sqrt(st) * ${MAX_COC_PX};
 			let smp = textureSample(layout.$.scene, layout.$.samp, in.uv + offsetPx * texel);
 			let tapCoc = aperture * abs(smp.a - focus) * ${MAX_COC_PX};
-			let w = clamp(tapCoc - length(offsetPx) + 1.0, 0.0, 1.0);
+			// Soft-edged disc: a tap fades over ~4px around its CoC radius rather than a
+			// 1px hard cutoff, so the bokeh reads smooth, not hard-edged.
+			let w = 1.0 - smoothstep(-2.0, 2.0, length(offsetPx) - tapCoc);
 			acc = acc + smp.rgb * w;
 			wsum = wsum + w;
 		}
-		// Film finish: subtle warm grade, lens vignette, fine grain — one pass over
-		// the whole frame so it reads as a single photographed image.
+		// Film finish: subtle warm grade + a gentle lens vignette. No added grain —
+		// it read as noise; the dense soft-edged gather is clean on its own.
 		var col = acc / wsum;
 		col = col * vec3f(1.03, 1.0, 0.955);
 		let frameRad = length(in.uv - vec2f(0.5));
 		col = col * (1.0 - frameRad * frameRad * 0.38);
-		let gn = fract(sin(dot(in.uv, vec2f(91.73, 47.31))) * 43758.5453);
-		col = col + vec3f((gn - 0.5) * 0.018);
 		return vec4f(col, 1.0);
 	}`.$uses({ layout: dofLayout });
 
