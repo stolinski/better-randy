@@ -253,37 +253,38 @@ const compositeFragmentFn = tgpu['~unstable'].fragmentFn({
 			bd = vec4f(col * bdStrength, bdStrength);
 		}
 
-		// Put the subject in the scene (scene mode): a gentle shared key light, and a
-		// clean soft cast shadow. The shadow is sampled ONLY from the solid card body
-		// (alpha threshold 0.9, so it ignores the card's own baked drop shadow — the
-		// contamination that made earlier attempts patchy), offset down-right (key is
-		// upper-left), one smooth jittered golden-angle gather (no banding, no hard
-		// two-tier blend), multiplied onto the bed so the texture shows through.
+		// Put the subject in the scene (scene mode). Per the channel brief a collage
+		// card's shadow is a HARD OFFSET (screen-print / risograph: solid foreground
+		// colour, NO blur, offset ~8-15px at 4K) — never a soft drop shadow. So: (1)
+		// suppress the card's own baked soft drop shadow by remapping to a crisp body
+		// mask; (2) draw a solid, un-blurred offset copy of that body silhouette in
+		// the dark foreground behind the card; (3) a gentle shared key light. A hard
+		// offset can't band or go patchy — it is a clean solid shape.
 		var litSurfRgb = surf.rgb;
+		var cardA = surf.a;
 		var shadedBdRgb = bd.rgb;
 		if (bdStrength > 0.001) {
 			let keyPos = vec2f(0.33, 0.32);
 			let key = 1.0 - smoothstep(0.1, 1.3, length((in.uv - keyPos) * vec2f(aspect, 1.0)));
 			let warm = mix(vec3f(0.99, 0.985, 0.975), vec3f(1.025, 1.0, 0.965), key);
-			litSurfRgb = surf.rgb * warm * mix(0.96, 1.025, key);
 
-			let shOff = vec2f(0.02, 0.028);
-			let shJit = fract(sin(dot(in.uv, vec2f(73.1, 31.7))) * 5331.13) * 6.2831853;
-			var shAcc = 0.0;
-			for (var sj = 0; sj < 32; sj = sj + 1) {
-				let st = (f32(sj) + 0.5) / 32.0;
-				let ang = f32(sj) * 2.39996 + shJit;
-				let dxy = vec2f(cos(ang), sin(ang)) * sqrt(st) * 0.04;
-				shAcc = shAcc + smoothstep(0.9, 0.99, textureSampleLevel(layout.$.surfaceTexture, layout.$.samp, in.uv - shOff + dxy, 0.0).a);
-			}
-			shadedBdRgb = bd.rgb * (1.0 - shAcc / 32.0 * 0.5);
+			// Crisp card body — drops the baked soft drop shadow halo (alpha <= ~0.55).
+			cardA = smoothstep(0.6, 0.85, surf.a);
+			litSurfRgb = surf.rgb * (cardA / max(surf.a, 0.001)) * warm * mix(0.96, 1.025, key);
+
+			// Hard offset shadow: solid dark silhouette of the card body, offset to the
+			// lower-left, no blur. Sampled from the body mask so it is the card shape,
+			// not the soft baked shadow.
+			let shadowShift = vec2f(-0.0045, 0.006);
+			let hardMask = smoothstep(0.6, 0.85, textureSampleLevel(layout.$.surfaceTexture, layout.$.samp, in.uv - shadowShift, 0.0).a);
+			shadedBdRgb = mix(bd.rgb, vec3f(0.05, 0.04, 0.035), hardMask * 0.92);
 		}
 
-		// Back-to-front premultiplied composite: backdrop (back) → Surface (mid) →
-		// Overlay (front). With strength 0 the backdrop is transparent and this
+		// Back-to-front premultiplied composite: backdrop (back, now carrying the hard
+		// offset shadow) → Surface (mid) → Overlay (front). With strength 0 this
 		// degenerates to the prior Overlay-over-Surface composite.
-		let surfRgb = litSurfRgb + (1.0 - surf.a) * shadedBdRgb;
-		let surfA = surf.a + (1.0 - surf.a) * bd.a;
+		let surfRgb = litSurfRgb + (1.0 - cardA) * shadedBdRgb;
+		let surfA = cardA + (1.0 - cardA) * bd.a;
 		var outRgb = ovl.rgb + (1.0 - ovl.a) * surfRgb;
 		let outA = ovl.a + (1.0 - ovl.a) * surfA;
 
