@@ -16,18 +16,18 @@
 	let card = $state.raw<HTMLElement | null>(null);
 	let status = $state('booting…');
 
-	const WIDTH = 1920;
-	const HEIGHT = 1080;
-	const TEX_W = 1920;
-	const TEX_H = 1080;
-	const MAX_COC_PX = 42;
+	// Output resolution is resolved at runtime from ?w=&h= (defaults 1920×1080) so the
+	// same POC validates 4K (3840×2160) and vertical (2160×3840) — the engine's binding
+	// targets. Shaders bake constants at module load, so anything resolution-dependent
+	// (CoC, mip count) is a uniform or computed in onMount, never a module const here.
+	const DEFAULT_W = 1920;
+	const DEFAULT_H = 1080;
 	const D_NEAR = 2.5; // camera-space distance mapped to depth 0
 	const D_FAR = 6.0; // ...to depth 1
 	const BOKEH_TAPS = 96;
 	// Mip pyramid of the scene colour: the DOF gather samples a prefiltered level
 	// (not the sharp full-res buffer) so sparse taps reconstruct a smooth disc.
-	const MIP_LEVELS = Math.floor(Math.log2(Math.max(WIDTH, HEIGHT))) + 1;
-	const MAX_LOD = MIP_LEVELS - 1;
+	const MAX_LOD = 14; // textureSampleLevel clamps to the texture's real top mip
 	const SHOT_FRAMES = 240; // the shot is a pure function of t = frame/SHOT_FRAMES
 
 	const TEXTURE_USAGE_COPY_DST = 0x02;
@@ -79,7 +79,12 @@
 		v: d.vec4f,
 		n: d.vec4f
 	});
-	const DofUniforms = d.struct({ focus: d.f32, aperture: d.f32, resolution: d.vec2f });
+	const DofUniforms = d.struct({
+		focus: d.f32,
+		aperture: d.f32,
+		maxCoc: d.f32,
+		resolution: d.vec2f
+	});
 
 	// --- Scene pass: a lit plane (card or wall), writing colour + per-pixel depth ---
 	const planeLayout = tgpu.bindGroupLayout({
@@ -199,9 +204,10 @@
 	}) /* wgsl */ `{
 		let focus = layout.$.uniforms.focus;
 		let aperture = layout.$.uniforms.aperture;
+		let maxCoc = layout.$.uniforms.maxCoc;
 		let texel = vec2f(1.0) / layout.$.uniforms.resolution;
 		let center = textureSampleLevel(layout.$.scene, layout.$.samp, in.uv, 0.0);
-		let cocC = aperture * abs(center.a - focus) * ${MAX_COC_PX};
+		let cocC = aperture * abs(center.a - focus) * maxCoc;
 		// Read colour from a prefiltered mip whose footprint spans the gap between our
 		// sparse taps. THIS is the fix for the grain: a few taps of a sharp buffer
 		// alias into noise; the same taps of a pre-averaged level reconstruct a clean,
@@ -215,7 +221,7 @@
 			let offsetPx = vec2f(cos(ang), sin(ang)) * sqrt(st) * cocC;
 			let tapUV = in.uv + offsetPx * texel;
 			let tapDepth = textureSampleLevel(layout.$.scene, layout.$.samp, tapUV, 0.0).a;
-			let tapCoc = aperture * abs(tapDepth - focus) * ${MAX_COC_PX};
+			let tapCoc = aperture * abs(tapDepth - focus) * maxCoc;
 			// scatter-as-gather: a tap lights the centre only if the centre falls within
 			// the tap's own circle of confusion — blurry foreground spreads over sharp
 			// background, but sharp foreground never bleeds.
@@ -243,6 +249,30 @@
 			const c = canvas;
 			const cardEl = card;
 			if (!c || !cardEl) return;
+
+			// Resolve the output target from the URL (?w=&h=). Everything downstream —
+			// canvas backing, scene texture, mip count, CoC, camera framing — derives from
+			// these, so one POC renders horizontal 4K and vertical with no code change.
+			const params = new URLSearchParams(window.location.search);
+			const WIDTH = Math.round(Number(params.get('w')) || DEFAULT_W);
+			const HEIGHT = Math.round(Number(params.get('h')) || DEFAULT_H);
+			const portrait = HEIGHT > WIDTH;
+			// The 16:9 card is authored at native pixel density (2× past ~3K) so in-focus
+			// text is genuinely sharp at 4K, not an upscaled 1080p texture.
+			const CARD_SCALE = Math.max(WIDTH, HEIGHT) >= 3000 ? 2 : 1;
+			const CARD_W = 1920 * CARD_SCALE;
+			const CARD_H = 1080 * CARD_SCALE;
+			// CoC (max blur radius) is relative to the frame's short side, so the lens look
+			// is identical across resolutions instead of half-strength at 4K.
+			const MAX_COC = Math.round((42 * Math.min(WIDTH, HEIGHT)) / 1080);
+			const MIP_LEVELS = Math.floor(Math.log2(Math.max(WIDTH, HEIGHT))) + 1;
+
+			c.width = WIDTH;
+			c.height = HEIGHT;
+			c.style.aspectRatio = `${WIDTH} / ${HEIGHT}`;
+			cardEl.style.setProperty('--s', String(CARD_SCALE));
+			status = `rendering ${WIDTH}×${HEIGHT}`;
+
 			await tick();
 			await document.fonts.ready;
 			await new Promise((r) => requestAnimationFrame(() => r(null)));
@@ -253,12 +283,12 @@
 			const htmlQueue = getHtmlInCanvasQueue(device.queue);
 
 			const cardTexture = device.createTexture({
-				size: [TEX_W, TEX_H, 1],
+				size: [CARD_W, CARD_H, 1],
 				format: 'rgba8unorm',
 				usage:
 					TEXTURE_USAGE_TEXTURE_BINDING | TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_RENDER_ATTACHMENT
 			});
-			htmlQueue.copyElementImageToTexture(cardEl, TEX_W, TEX_H, { texture: cardTexture });
+			htmlQueue.copyElementImageToTexture(cardEl, CARD_W, CARD_H, { texture: cardTexture });
 
 			const sceneTexture = device.createTexture({
 				size: [WIDTH, HEIGHT, 1],
@@ -315,7 +345,12 @@
 				})
 				.$usage('uniform');
 			const dofUniform = root
-				.createBuffer(DofUniforms, { focus: 0.3, aperture: 1, resolution: d.vec2f(WIDTH, HEIGHT) })
+				.createBuffer(DofUniforms, {
+					focus: 0.3,
+					aperture: 1,
+					maxCoc: MAX_COC,
+					resolution: d.vec2f(WIDTH, HEIGHT)
+				})
 				.$usage('uniform');
 
 			const cardBind = root.createBindGroup(planeLayout, {
@@ -355,17 +390,23 @@
 				.withFragment(downsampleFragmentFn, { format: INTERMEDIATE_FORMAT })
 				.createPipeline();
 
-			const aspect = WIDTH / HEIGHT;
-			const cardAspect = TEX_W / TEX_H;
-			const projection = mat4.perspective((42 * Math.PI) / 180, aspect, 0.1, 100);
+			const cardAspect = CARD_W / CARD_H;
+			const projection = mat4.perspective((42 * Math.PI) / 180, WIDTH / HEIGHT, 0.1, 100);
+
+			// Reflow for portrait: a 16:9 card can't fill a 9:16 frame, so shrink it and lift
+			// it into the upper band (title safe-area) with the lit wall behind. Horizontal
+			// keeps the edge-bleed framing (fit 1, no shift).
+			const fit = portrait ? 0.42 : 1.0;
+			const yShift = portrait ? 0.62 : 0.0;
 
 			// Static geometry — the camera moves, not the planes.
 			const cardModel = mat4.identity();
+			mat4.translate(cardModel, [0, yShift, 0], cardModel);
 			mat4.rotateY(cardModel, (26 * Math.PI) / 180, cardModel);
-			mat4.scale(cardModel, [cardAspect, 1, 1], cardModel);
+			mat4.scale(cardModel, [cardAspect * fit, fit, 1], cardModel);
 			const wallModel = mat4.identity();
 			mat4.translate(wallModel, [0, 0, -2.0], wallModel);
-			mat4.scale(wallModel, [9, 5, 1], wallModel);
+			mat4.scale(wallModel, [10, 10, 1], wallModel);
 
 			// Re-projects both planes for a camera eye/target. Called per frame as the
 			// camera dollies: the card (z≈0) and wall (z≈-2) reproject at different rates,
@@ -396,13 +437,12 @@
 			const cv = dir3(cm, 0, 1, 0);
 			const cn = norm3(dir3(cm, 0, 0, 1));
 			shadowUniform.write({
-				center: d.vec4f(0, 0, 0, 0),
+				center: d.vec4f(cm[12], cm[13], cm[14], 0), // card's world centre (carries yShift)
 				u: d.vec4f(cu[0], cu[1], cu[2], 0),
 				v: d.vec4f(cv[0], cv[1], cv[2], 0),
 				n: d.vec4f(cn[0], cn[1], cn[2], 1)
 			});
 
-			status = 'rendering';
 			let frame = 0;
 
 			// One frame as a pure function of t — the SAME function drives preview and
@@ -418,7 +458,7 @@
 				]);
 				// Rack focus: pull from the back wall (depth ≈0.83) onto the title (≈0.2).
 				const focus = manualFocus >= 0 ? manualFocus : mix(0.83, 0.2, e);
-				dofUniform.write({ focus, aperture: 1, resolution: d.vec2f(WIDTH, HEIGHT) });
+				dofUniform.write({ focus, aperture: 1, maxCoc: MAX_COC, resolution: d.vec2f(WIDTH, HEIGHT) });
 
 				// Wall (far) then card (front), into the scene target. Card is always in
 				// front of the wall, so painter's order suffices (no depth buffer yet).
@@ -511,7 +551,7 @@
 
 <div class="poc">
 	<p class="status">DOF3D POC — {status}</p>
-	<canvas bind:this={canvas} width={WIDTH} height={HEIGHT} layoutsubtree>
+	<canvas bind:this={canvas} width={DEFAULT_W} height={DEFAULT_H} layoutsubtree>
 		<div bind:this={card} class="card">
 			<p class="kicker">SYNTAX · ISSUE 02</p>
 			<h1>Why Bun Quietly Replaced npm</h1>
@@ -532,38 +572,39 @@
 		margin: 0 0 0.5rem;
 	}
 	.poc :global(canvas) {
-		aspect-ratio: 16 / 9;
 		display: block;
 		inline-size: min(100%, 1280px);
 	}
+	/* The card is authored at a 1920×1080 design and scaled by --s for native-density
+	   capture at 4K (--s=2). Every dimension is in design px × var(--s). */
 	.card {
-		block-size: 1080px;
-		inline-size: 1920px;
+		block-size: calc(var(--s, 1) * 1080px);
+		inline-size: calc(var(--s, 1) * 1920px);
 		box-sizing: border-box;
 		background: #f4efe4;
 		color: #16140f;
 		display: flex;
 		flex-direction: column;
 		justify-content: center;
-		gap: 28px;
-		padding: 130px 150px;
+		gap: calc(var(--s, 1) * 28px);
+		padding: calc(var(--s, 1) * 130px) calc(var(--s, 1) * 150px);
 		font-family: 'Playfair Display', Georgia, serif;
 	}
 	.card .kicker {
 		font-family: 'JetBrains Mono', monospace;
-		font-size: 34px;
+		font-size: calc(var(--s, 1) * 34px);
 		letter-spacing: 0.32em;
 		color: #b25b2a;
 		margin: 0;
 	}
 	.card h1 {
-		font-size: 150px;
+		font-size: calc(var(--s, 1) * 150px);
 		line-height: 1.02;
 		font-weight: 800;
 		margin: 0;
 	}
 	.card .sub {
-		font-size: 46px;
+		font-size: calc(var(--s, 1) * 46px);
 		font-family: 'EB Garamond', Georgia, serif;
 		color: #4a4438;
 		margin: 0;
