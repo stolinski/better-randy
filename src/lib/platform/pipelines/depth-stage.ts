@@ -348,17 +348,22 @@ export class DepthStage {
 				.withColorAttachment({ view: mipViews[0], loadOp: 'load', storeOp: 'store' })
 				.draw(6);
 
-			// Prefiltered pyramid, then the depth-driven gather DOF into the output.
-			for (let i = 1; i < mipLevels; i += 1) {
-				downPipeline
-					.with(downBinds[i - 1])
-					.withColorAttachment({
-						view: mipViews[i],
-						clearValue: [0, 0, 0, 1],
-						loadOp: 'clear',
-						storeOp: 'store'
-					})
-					.draw(3);
+			// Prefiltered pyramid — only when there's defocus to gather. With aperture ~0
+			// the gather's LOD stays 0 (it never reads a mip), so skipping the build is
+			// free correctness AND the perf gate that keeps flat/degenerate-stage pieces
+			// (the unify case) from paying the pyramid cost.
+			if (input.aperture > 0.001) {
+				for (let i = 1; i < mipLevels; i += 1) {
+					downPipeline
+						.with(downBinds[i - 1])
+						.withColorAttachment({
+							view: mipViews[i],
+							clearValue: [0, 0, 0, 1],
+							loadOp: 'clear',
+							storeOp: 'store'
+						})
+						.draw(3);
+				}
 			}
 			dofPipeline
 				.with(dofBind)
