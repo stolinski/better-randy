@@ -44,8 +44,9 @@
 				"type": "depth-of-field",
 				"id": "dof",
 				"params": {
-					"focusZ": 0,
-					"aperture": 0.2,
+					"focusZ": 0.5,
+					"aperture": 0.6,
+					"focusPull": { "from": 0.2, "to": 0.85, "start": 0.12, "duration": 0.7 },
 					"backdrop": {
 						"strength": 1,
 						"edgeBlur": 0.95,

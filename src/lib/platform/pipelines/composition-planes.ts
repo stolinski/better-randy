@@ -136,9 +136,19 @@ const compositeFragmentFn = tgpu['~unstable'].fragmentFn({
 		let fgUv = in.uv;
 		let bgUv = center + (in.uv - center) * (1.0 - 0.03 * t * mAmt) + vec2f(0.010, -0.006) * t * mAmt;
 
-		// Circle of confusion per plane, in pixels.
-		let surfCoc = aperture * abs(surfaceZ - focusZ) * ${MAX_COC_PX};
+		// Circle of confusion in pixels. Plane mode (default, non-scene): one constant
+		// depth per layer. Scene mode (backdrop present): a CONTINUOUS per-pixel depth
+		// field — the surface lies on a plane receding into the frame (nearer at the
+		// bottom-left, farther toward the top-right) — so the CoC scales with TRUE
+		// distance from the focal plane. A focus pull then sweeps a sharp band through
+		// real depth: this is the actual depth-of-field, not two flat layers.
+		var surfCoc = aperture * abs(surfaceZ - focusZ) * ${MAX_COC_PX};
 		let ovlCoc = aperture * abs(overlayZ - focusZ) * ${MAX_COC_PX};
+		var sceneDepth = surfaceZ;
+		if (bdStrength > 0.001) {
+			sceneDepth = clamp(0.5 + (in.uv.y - 0.5) * 0.9 + (in.uv.x - 0.5) * 0.45, 0.0, 1.0);
+			surfCoc = aperture * abs(sceneDepth - focusZ) * ${MAX_COC_PX};
+		}
 
 		// Per-fragment spiral rotation so the ${BOKEH_TAPS} taps read as dither, not
 		// a pinwheel. Deterministic in the fragment UV.
