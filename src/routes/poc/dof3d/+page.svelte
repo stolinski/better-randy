@@ -1,17 +1,16 @@
 <script lang="ts">
 	// POC: real WebGPU-native 3D depth-of-field (isolated spike, not wired into the
-	// engine). DOM card -> texture -> real 3D plane (perspective camera) -> a scene
-	// target carrying colour + per-pixel DEPTH -> a depth-driven DOF gather. A focus
-	// pull sweeps the sharp band through TRUE distance. Proves: real 3D, sharp
-	// fronto-parallel text, and depth-of-field driven by an actual depth field
-	// (not flat layers). Flag-enabled Chrome required (HTML-in-Canvas).
+	// engine). A DOM card on a real 3D plane + a back wall, lit by a point light,
+	// rendered to a scene target carrying colour + per-pixel DEPTH, then a depth-
+	// driven scatter-as-gather DOF. A focus pull sweeps the sharp band through TRUE
+	// distance. Proves real 3D, sharp fronto-parallel text, real lighting, and real
+	// depth-of-field. Flag-enabled Chrome required (HTML-in-Canvas).
 	import { onMount, tick } from 'svelte';
 	import tgpu, { d } from 'typegpu';
 	import { mat4 } from 'wgpu-matrix';
 
-	import { createGpuHost, type GpuHost } from '$lib/platform/gpu-host';
+	import { createGpuHost, INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
 	import { getHtmlInCanvasQueue } from '$lib/platform/html-in-canvas';
-	import { INTERMEDIATE_FORMAT } from '$lib/platform/gpu-host';
 
 	let canvas = $state.raw<HTMLCanvasElement | null>(null);
 	let card = $state.raw<HTMLElement | null>(null);
@@ -21,10 +20,10 @@
 	const HEIGHT = 1080;
 	const TEX_W = 1920;
 	const TEX_H = 1080;
-	const MAX_COC_PX = 38;
-	const D_NEAR = 2.2; // camera-space distance mapped to depth 0
-	const D_FAR = 4.6; // ...to depth 1
-	const BOKEH_TAPS = 32;
+	const MAX_COC_PX = 42;
+	const D_NEAR = 2.5; // camera-space distance mapped to depth 0
+	const D_FAR = 6.0; // ...to depth 1
+	const BOKEH_TAPS = 48;
 
 	const TEXTURE_USAGE_COPY_DST = 0x02;
 	const TEXTURE_USAGE_TEXTURE_BINDING = 0x04;
@@ -39,19 +38,34 @@
 		);
 	}
 
-	const SceneUniforms = d.struct({ mvp: d.mat4x4f, depthRange: d.vec2f });
+	// misc = (depthNear, depthFar, textured, _). baseColor = plane albedo (rgb).
+	const PlaneUniforms = d.struct({
+		mvp: d.mat4x4f,
+		model: d.mat4x4f,
+		misc: d.vec4f,
+		baseColor: d.vec4f
+	});
+	// lightPos.xyz; params = (ambient, diffuse, falloffK, _).
+	const LightUniforms = d.struct({ lightPos: d.vec4f, params: d.vec4f });
 	const DofUniforms = d.struct({ focus: d.f32, aperture: d.f32, resolution: d.vec2f });
 
-	// --- Scene pass: card on a 3D plane, writing colour + per-pixel depth in alpha ---
-	const sceneLayout = tgpu.bindGroupLayout({
+	// --- Scene pass: a lit plane (card or wall), writing colour + per-pixel depth ---
+	const planeLayout = tgpu.bindGroupLayout({
 		cardTexture: { texture: d.texture2d(d.f32) },
 		samp: { sampler: 'filtering' },
-		uniforms: { uniform: SceneUniforms }
+		plane: { uniform: PlaneUniforms },
+		light: { uniform: LightUniforms }
 	});
 
-	const cardVertexFn = tgpu['~unstable'].vertexFn({
+	const planeVertexFn = tgpu['~unstable'].vertexFn({
 		in: { vertexIndex: d.builtin.vertexIndex },
-		out: { position: d.builtin.position, uv: d.vec2f, dist: d.f32 }
+		out: {
+			position: d.builtin.position,
+			uv: d.vec2f,
+			worldPos: d.vec3f,
+			normal: d.vec3f,
+			dist: d.f32
+		}
 	}) /* wgsl */ `{
 		var pos = array<vec3f, 6>(
 			vec3f(-1.0, -1.0, 0.0), vec3f(1.0, -1.0, 0.0), vec3f(1.0, 1.0, 0.0),
@@ -61,25 +75,43 @@
 			vec2f(0.0, 1.0), vec2f(1.0, 1.0), vec2f(1.0, 0.0),
 			vec2f(0.0, 1.0), vec2f(1.0, 0.0), vec2f(0.0, 0.0)
 		);
-		let clip = layout.$.uniforms.mvp * vec4f(pos[in.vertexIndex], 1.0);
-		// clip.w == camera-space distance for a standard perspective projection.
-		return Out(clip, uv[in.vertexIndex], clip.w);
-	}`.$uses({ layout: sceneLayout });
+		let lp = pos[in.vertexIndex];
+		let world = layout.$.plane.model * vec4f(lp, 1.0);
+		let clip = layout.$.plane.mvp * vec4f(lp, 1.0);
+		let n = (layout.$.plane.model * vec4f(0.0, 0.0, 1.0, 0.0)).xyz;
+		return Out(clip, uv[in.vertexIndex], world.xyz, n, clip.w);
+	}`.$uses({ layout: planeLayout });
 
-	const cardFragmentFn = tgpu['~unstable'].fragmentFn({
-		in: { uv: d.vec2f, dist: d.f32 },
+	const planeFragmentFn = tgpu['~unstable'].fragmentFn({
+		in: { uv: d.vec2f, worldPos: d.vec3f, normal: d.vec3f, dist: d.f32 },
 		out: d.vec4f
 	}) /* wgsl */ `{
-		let s = textureSample(layout.$.cardTexture, layout.$.samp, in.uv);
-		let bg = vec3f(0.07, 0.07, 0.09);
-		let rgb = s.rgb * s.a + bg * (1.0 - s.a);
-		let dr = layout.$.uniforms.depthRange;
-		let depth = clamp((in.dist - dr.x) / (dr.y - dr.x), 0.0, 1.0);
-		return vec4f(rgb, depth);
-	}`.$uses({ layout: sceneLayout });
+		let misc = layout.$.plane.misc;
+		var albedo = layout.$.plane.baseColor.rgb;
+		if (misc.z > 0.5) {
+			let s = textureSample(layout.$.cardTexture, layout.$.samp, in.uv);
+			albedo = s.rgb * s.a + albedo * (1.0 - s.a);
+		}
+		// Point-light shading: distance falloff across the tilted plane gives real
+		// form (the side toward the light is brighter), and the far wall sits darker.
+		let toL = layout.$.light.lightPos.xyz - in.worldPos;
+		let L = normalize(toL);
+		let N = normalize(in.normal);
+		let ndotl = max(dot(N, L), 0.0);
+		let p = layout.$.light.params;
+		let falloff = 1.0 / (1.0 + p.z * dot(toL, toL));
+		let shade = p.x + p.y * ndotl * falloff;
+		let depth = clamp((in.dist - misc.x) / (misc.y - misc.x), 0.0, 1.0);
+		return vec4f(albedo * shade, depth);
+	}`.$uses({ layout: planeLayout });
 
-	// --- Backdrop pass: fills the scene target at far depth (alpha = 1) ---
-	const bgLayout = tgpu.bindGroupLayout({});
+	// --- DOF pass: scatter-as-gather; weight each tap by whether its own CoC reaches
+	// the centre pixel (no foreground bleed). ---
+	const dofLayout = tgpu.bindGroupLayout({
+		scene: { texture: d.texture2d(d.f32) },
+		samp: { sampler: 'filtering' },
+		uniforms: { uniform: DofUniforms }
+	});
 	const fullVertexFn = tgpu['~unstable'].vertexFn({
 		in: { vertexIndex: d.builtin.vertexIndex },
 		out: { position: d.builtin.position, uv: d.vec2f }
@@ -88,21 +120,6 @@
 		var u = array<vec2f, 3>(vec2f(0.0, 1.0), vec2f(2.0, 1.0), vec2f(0.0, -1.0));
 		return Out(vec4f(p[in.vertexIndex], 0.0, 1.0), u[in.vertexIndex]);
 	}`;
-	const bgFragmentFn = tgpu['~unstable'].fragmentFn({
-		in: { uv: d.vec2f },
-		out: d.vec4f
-	}) /* wgsl */ `{
-		let r = length(in.uv - vec2f(0.5));
-		let c = mix(vec3f(0.09, 0.09, 0.12), vec3f(0.03, 0.03, 0.05), r);
-		return vec4f(c, 1.0);
-	}`;
-
-	// --- DOF pass: gather a disc whose radius = CoC from the per-pixel depth ---
-	const dofLayout = tgpu.bindGroupLayout({
-		scene: { texture: d.texture2d(d.f32) },
-		samp: { sampler: 'filtering' },
-		uniforms: { uniform: DofUniforms }
-	});
 	const dofFragmentFn = tgpu['~unstable'].fragmentFn({
 		in: { uv: d.vec2f },
 		out: d.vec4f
@@ -110,32 +127,28 @@
 		let focus = layout.$.uniforms.focus;
 		let aperture = layout.$.uniforms.aperture;
 		let texel = vec2f(1.0) / layout.$.uniforms.resolution;
-		let centerDepth = textureSample(layout.$.scene, layout.$.samp, in.uv).a;
-		let coc = aperture * abs(centerDepth - focus) * ${MAX_COC_PX};
 		let jitter = fract(sin(dot(in.uv, vec2f(12.9898, 78.233))) * 43758.5453) * 6.2831853;
-		var acc = vec3f(0.0);
-		var wsum = 0.0;
+		let center = textureSample(layout.$.scene, layout.$.samp, in.uv);
+		var acc = center.rgb;
+		var wsum = 1.0;
 		for (var i: u32 = 0u; i < ${BOKEH_TAPS}u; i = i + 1u) {
 			let st = (f32(i) + 0.5) / ${BOKEH_TAPS}.0;
 			let ang = f32(i) * 2.39996 + jitter;
-			let dir = vec2f(cos(ang), sin(ang)) * sqrt(st);
-			let sUv = in.uv + dir * coc * texel;
-			let smp = textureSample(layout.$.scene, layout.$.samp, sUv);
-			// Don't let sharp foreground bleed onto blurry background: weight a tap
-			// only if its own depth is at/behind the gathered depth.
-			let w = select(0.0, 1.0, smp.a >= centerDepth - 0.08);
+			let offsetPx = vec2f(cos(ang), sin(ang)) * sqrt(st) * ${MAX_COC_PX};
+			let smp = textureSample(layout.$.scene, layout.$.samp, in.uv + offsetPx * texel);
+			let tapCoc = aperture * abs(smp.a - focus) * ${MAX_COC_PX};
+			let w = clamp(tapCoc - length(offsetPx) + 1.0, 0.0, 1.0);
 			acc = acc + smp.rgb * w;
 			wsum = wsum + w;
 		}
-		let outRgb = select(textureSample(layout.$.scene, layout.$.samp, in.uv).rgb, acc / wsum, wsum > 0.0);
-		return vec4f(outRgb, 1.0);
+		return vec4f(acc / wsum, 1.0);
 	}`.$uses({ layout: dofLayout });
 
 	onMount(() => {
 		let raf = 0;
 		let host: GpuHost | null = null;
 		let disposed = false;
-		let manualFocus = -1; // -1 = auto sweep
+		let manualFocus = -1;
 
 		(async () => {
 			const c = canvas;
@@ -171,32 +184,54 @@
 				addressModeU: 'clamp-to-edge',
 				addressModeV: 'clamp-to-edge'
 			});
-			const sceneUniform = root
-				.createBuffer(SceneUniforms, { mvp: d.mat4x4f(), depthRange: d.vec2f(D_NEAR, D_FAR) })
+
+			const lightUniform = root
+				.createBuffer(LightUniforms, {
+					lightPos: d.vec4f(-2.2, 2.0, 2.6, 0),
+					params: d.vec4f(0.5, 0.85, 0.05, 0)
+				})
+				.$usage('uniform');
+			const cardPlane = root
+				.createBuffer(PlaneUniforms, {
+					mvp: d.mat4x4f(),
+					model: d.mat4x4f(),
+					misc: d.vec4f(D_NEAR, D_FAR, 1, 0),
+					baseColor: d.vec4f(0.95, 0.93, 0.87, 1)
+				})
+				.$usage('uniform');
+			const wallPlane = root
+				.createBuffer(PlaneUniforms, {
+					mvp: d.mat4x4f(),
+					model: d.mat4x4f(),
+					misc: d.vec4f(D_NEAR, D_FAR, 0, 0),
+					baseColor: d.vec4f(0.16, 0.14, 0.13, 1)
+				})
 				.$usage('uniform');
 			const dofUniform = root
-				.createBuffer(DofUniforms, { focus: 0.5, aperture: 1, resolution: d.vec2f(WIDTH, HEIGHT) })
+				.createBuffer(DofUniforms, { focus: 0.3, aperture: 1, resolution: d.vec2f(WIDTH, HEIGHT) })
 				.$usage('uniform');
 
-			const sceneBind = root.createBindGroup(sceneLayout, {
+			const cardBind = root.createBindGroup(planeLayout, {
 				cardTexture,
 				samp: sampler,
-				uniforms: sceneUniform
+				plane: cardPlane,
+				light: lightUniform
 			});
-			const bgBind = root.createBindGroup(bgLayout, {});
+			const wallBind = root.createBindGroup(planeLayout, {
+				cardTexture,
+				samp: sampler,
+				plane: wallPlane,
+				light: lightUniform
+			});
 			const dofBind = root.createBindGroup(dofLayout, {
 				scene: sceneView,
 				samp: sampler,
 				uniforms: dofUniform
 			});
 
-			const cardPipeline = root['~unstable']
-				.withVertex(cardVertexFn, {})
-				.withFragment(cardFragmentFn, { format: INTERMEDIATE_FORMAT })
-				.createPipeline();
-			const bgPipeline = root['~unstable']
-				.withVertex(fullVertexFn, {})
-				.withFragment(bgFragmentFn, { format: INTERMEDIATE_FORMAT })
+			const planePipeline = root['~unstable']
+				.withVertex(planeVertexFn, {})
+				.withFragment(planeFragmentFn, { format: INTERMEDIATE_FORMAT })
 				.createPipeline();
 			const dofPipeline = root['~unstable']
 				.withVertex(fullVertexFn, {})
@@ -208,40 +243,53 @@
 			const projection = mat4.perspective((42 * Math.PI) / 180, aspect, 0.1, 100);
 			const view = mat4.lookAt([0, 0, 3.4], [0, 0, 0], [0, 1, 0]);
 
+			// Static model matrices.
+			const cardModel = mat4.identity();
+			mat4.rotateY(cardModel, (26 * Math.PI) / 180, cardModel);
+			mat4.scale(cardModel, [cardAspect, 1, 1], cardModel);
+			const cardMvp = mat4.multiply(projection, mat4.multiply(view, cardModel));
+
+			const wallModel = mat4.identity();
+			mat4.translate(wallModel, [0, 0, -2.0], wallModel);
+			mat4.scale(wallModel, [9, 5, 1], wallModel);
+			const wallMvp = mat4.multiply(projection, mat4.multiply(view, wallModel));
+
+			cardPlane.write({
+				mvp: toMat4(cardMvp as Float32Array),
+				model: toMat4(cardModel as Float32Array),
+				misc: d.vec4f(D_NEAR, D_FAR, 1, 0),
+				baseColor: d.vec4f(0.95, 0.93, 0.87, 1)
+			});
+			wallPlane.write({
+				mvp: toMat4(wallMvp as Float32Array),
+				model: toMat4(wallModel as Float32Array),
+				misc: d.vec4f(D_NEAR, D_FAR, 0, 0),
+				baseColor: d.vec4f(0.16, 0.14, 0.13, 1)
+			});
+
 			status = 'rendering';
 			let frame = 0;
 			const renderLoop = () => {
 				if (disposed || !host) return;
-
-				// Card tilted about Y so it recedes left->right (continuous depth).
-				const model = mat4.identity();
-				mat4.rotateY(model, (26 * Math.PI) / 180, model);
-				mat4.scale(model, [cardAspect, 1, 1], model);
-				const mvp = mat4.multiply(projection, mat4.multiply(view, model));
-				sceneUniform.write({
-					mvp: toMat4(mvp as Float32Array),
-					depthRange: d.vec2f(D_NEAR, D_FAR)
-				});
-
 				const focus = manualFocus >= 0 ? manualFocus : 0.5 + 0.5 * Math.sin(frame * 0.01);
 				dofUniform.write({ focus, aperture: 1, resolution: d.vec2f(WIDTH, HEIGHT) });
 
-				// Scene: backdrop (far) then the card, into the scene target.
-				bgPipeline
-					.with(bgBind)
+				// Wall (far) then card (front), into the scene target. Card is always in
+				// front of the wall, so painter's order suffices (no depth buffer yet).
+				planePipeline
+					.with(wallBind)
 					.withColorAttachment({
 						view: sceneView,
 						clearValue: [0, 0, 0, 1],
 						loadOp: 'clear',
 						storeOp: 'store'
 					})
-					.draw(3);
-				cardPipeline
-					.with(sceneBind)
+					.draw(6);
+				planePipeline
+					.with(cardBind)
 					.withColorAttachment({ view: sceneView, loadOp: 'load', storeOp: 'store' })
 					.draw(6);
 
-				// DOF -> canvas.
 				dofPipeline
 					.with(dofBind)
 					.withColorAttachment({
