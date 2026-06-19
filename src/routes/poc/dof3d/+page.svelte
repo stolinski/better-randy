@@ -190,7 +190,15 @@
 			acc = acc + smp.rgb * w;
 			wsum = wsum + w;
 		}
-		return vec4f(acc / wsum, 1.0);
+		// Film finish: subtle warm grade, lens vignette, fine grain — one pass over
+		// the whole frame so it reads as a single photographed image.
+		var col = acc / wsum;
+		col = col * vec3f(1.03, 1.0, 0.955);
+		let frameRad = length(in.uv - vec2f(0.5));
+		col = col * (1.0 - frameRad * frameRad * 0.38);
+		let gn = fract(sin(dot(in.uv, vec2f(91.73, 47.31))) * 43758.5453);
+		col = col + vec3f((gn - 0.5) * 0.018);
+		return vec4f(col, 1.0);
 	}`.$uses({ layout: dofLayout });
 
 	onMount(() => {
