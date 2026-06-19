@@ -1288,6 +1288,17 @@
 			};
 			const timebase = { progress: fraction, timestamp };
 
+			// Dimensional depth stage (ADR-0028): owns its per-frame DOM upload + render,
+			// same as the preview path, so export == preview.
+			const stage = resolveStage(timebase.progress);
+			if (
+				stage &&
+				host &&
+				renderDepthStage(stage, inputs, timebase, host.context.getCurrentTexture().createView())
+			) {
+				return;
+			}
+
 			// Multiplane DOF (ADR-0027): captures the layers and composites itself,
 			// so it owns the per-frame DOM upload (Surface-layer + Overlay-layer).
 			const dof = resolveDof(timebase.progress);
