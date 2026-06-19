@@ -222,8 +222,8 @@ const compositeFragmentFn = tgpu['~unstable'].fragmentFn({
 			// Soft directional light pool (upper-left) — implies a key light raking
 			// across the surface, the cue that sells a real lit 3D material.
 			let lightDelta = (bgUv - vec2f(0.32, 0.30)) * vec2f(aspect, 1.0);
-			let lightFalloff = 1.0 - smoothstep(0.05, 0.72, length(lightDelta));
-			col = col + col * lightFalloff * 0.55;
+			let lightFalloff = 1.0 - smoothstep(0.05, 0.78, length(lightDelta));
+			col = col + col * lightFalloff * 0.32;
 
 			// Sparse warm bokeh specks on a hashed grid; disc radius + brightness grow
 			// toward the edges (defocused light receding). Each speck twinkles slowly
@@ -253,52 +253,24 @@ const compositeFragmentFn = tgpu['~unstable'].fragmentFn({
 			bd = vec4f(col * bdStrength, bdStrength);
 		}
 
-		// Put the subject in the scene (scene mode): a gentle shared key light, and a
-		// grounded shadow done right this time. The card's flat baked drop shadow is
-		// suppressed (alpha remapped to the card BODY) and replaced by a shadow CAST
-		// onto the bed — a multiply (so the bed's texture shows through, the tell of a
-		// real shadow), darkest at the contact and softening with distance, sampled
-		// from the card's coverage toward the SAME key (correct direction, no warp
-		// mismatch now that fgUv == in.uv).
+		// Put the subject in the scene (scene mode): only a very gentle shared key
+		// light on the card so it agrees with the bed's light direction. No custom
+		// cast shadow — the card keeps its own well-built soft drop shadow, which
+		// composites multiply-style over the textured bed (the bed shows through it),
+		// staying clean instead of the banded/patchy custom shadow attempts.
 		var litSurfRgb = surf.rgb;
-		var cardA = surf.a;
-		var shadedBdRgb = bd.rgb;
 		if (bdStrength > 0.001) {
 			let keyPos = vec2f(0.33, 0.32);
-			let key = 1.0 - smoothstep(0.1, 1.2, length((in.uv - keyPos) * vec2f(aspect, 1.0)));
-			let warm = mix(vec3f(0.97, 0.965, 0.95), vec3f(1.05, 1.01, 0.95), key);
-			litSurfRgb = surf.rgb * warm * mix(0.9, 1.05, key);
-
-			// Soft cast shadow: the card's body silhouette, OFFSET down-right (the key
-			// is upper-left) and disc-blurred, multiplied onto the bed. Averaging a
-			// jittered golden-angle disc of taps gives a smooth penumbra — no banding,
-			// no patchiness — and a single fixed offset direction (not a per-fragment
-			// point light) keeps the shape consistent. Plus a tighter, darker contact
-			// term hugging the base so the card reads as touching the surface.
-			let shadowOffset = vec2f(0.016, 0.022);
-			let shadowJitter = fract(sin(dot(in.uv, vec2f(91.3, 47.1))) * 9123.47) * 6.2831853;
-			var shCast = 0.0;
-			var shContact = 0.0;
-			for (var s = 0; s < 24; s = s + 1) {
-				let st = (f32(s) + 0.5) / 24.0;
-				let rr = sqrt(st);
-				let aa = f32(s) * 2.39996 + shadowJitter;
-				let dir = vec2f(cos(aa), sin(aa)) * rr;
-				shCast = shCast + smoothstep(0.5, 0.9, textureSampleLevel(layout.$.surfaceTexture, layout.$.samp, in.uv - shadowOffset + dir * 0.03, 0.0).a);
-				shContact = shContact + smoothstep(0.5, 0.9, textureSampleLevel(layout.$.surfaceTexture, layout.$.samp, in.uv - shadowOffset * 0.35 + dir * 0.01, 0.0).a);
-			}
-			let shadow = max(shCast / 24.0 * 0.4, shContact / 24.0 * 0.5);
-			shadedBdRgb = bd.rgb * (1.0 - shadow);
-
-			cardA = smoothstep(0.5, 0.92, surf.a);
-			litSurfRgb = litSurfRgb * (cardA / max(surf.a, 0.001));
+			let key = 1.0 - smoothstep(0.1, 1.3, length((in.uv - keyPos) * vec2f(aspect, 1.0)));
+			let warm = mix(vec3f(0.99, 0.985, 0.975), vec3f(1.025, 1.0, 0.965), key);
+			litSurfRgb = surf.rgb * warm * mix(0.96, 1.025, key);
 		}
 
 		// Back-to-front premultiplied composite: backdrop (back) → Surface (mid) →
 		// Overlay (front). With strength 0 the backdrop is transparent and this
 		// degenerates to the prior Overlay-over-Surface composite.
-		let surfRgb = litSurfRgb + (1.0 - cardA) * shadedBdRgb;
-		let surfA = cardA + (1.0 - cardA) * bd.a;
+		let surfRgb = litSurfRgb + (1.0 - surf.a) * bd.rgb;
+		let surfA = surf.a + (1.0 - surf.a) * bd.a;
 		var outRgb = ovl.rgb + (1.0 - ovl.a) * surfRgb;
 		let outA = ovl.a + (1.0 - ovl.a) * surfA;
 
@@ -311,11 +283,11 @@ const compositeFragmentFn = tgpu['~unstable'].fragmentFn({
 		if (bdStrength > 0.001) {
 			let frameRad = clamp(length((in.uv - center) * vec2f(aspect, 1.0)) / 0.80, 0.0, 1.0);
 			var g = max(outRgb, vec3f(0.0));
-			g = g * vec3f(1.05, 1.0, 0.93);
-			g = pow(g, vec3f(0.94));
+			g = g * vec3f(1.03, 1.0, 0.95);
+			g = pow(g, vec3f(0.96));
 			let lu = dot(g, vec3f(0.299, 0.587, 0.114));
-			g = g + vec3f(1.0, 0.66, 0.36) * smoothstep(0.70, 1.05, lu) * 0.16;
-			g = g * (1.0 - frameRad * frameRad * 0.34);
+			g = g + vec3f(1.0, 0.66, 0.36) * smoothstep(0.78, 1.1, lu) * 0.08;
+			g = g * (1.0 - frameRad * frameRad * 0.32);
 			let gn = fract(sin(dot(in.uv * vec2f(1280.0, 720.0) + vec2f(t * 91.7, t * 47.3), vec2f(12.9898, 78.233))) * 43758.5453);
 			g = g + vec3f((gn - 0.5) * 0.022);
 			outRgb = g;
