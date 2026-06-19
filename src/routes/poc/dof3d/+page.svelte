@@ -404,11 +404,11 @@
 
 			status = 'rendering';
 			let frame = 0;
-			const renderLoop = () => {
-				if (disposed || !host) return;
-				// The shot is a pure function of t — this is the frame-determinism the engine
-				// requires: same t → same pixels, whether previewed or exported.
-				const t = manualT >= 0 ? manualT : (frame % SHOT_FRAMES) / SHOT_FRAMES;
+
+			// One frame as a pure function of t — the SAME function drives preview and
+			// export, so what you scrub is exactly what encodes (frame-determinism).
+			const renderAt = (t: number): void => {
+				if (!host) return;
 				const e = smootherstep(t);
 				// Slow dolly-in with lateral/vertical drift → parallax between card and wall.
 				writeCamera([mix(-0.16, 0.12, e), mix(0.05, -0.03, e), mix(3.7, 3.15, e)], [
@@ -458,7 +458,12 @@
 						storeOp: 'store'
 					})
 					.draw(3);
+			};
 
+			const renderLoop = () => {
+				if (disposed || !host) return;
+				const t = manualT >= 0 ? manualT : (frame % SHOT_FRAMES) / SHOT_FRAMES;
+				renderAt(t);
 				frame += 1;
 				raf = requestAnimationFrame(renderLoop);
 			};
@@ -468,7 +473,28 @@
 				setFocus: (v: number) => (manualFocus = v),
 				autoFocus: () => (manualFocus = -1),
 				setT: (v: number) => (manualT = v),
-				play: () => (manualT = -1)
+				play: () => (manualT = -1),
+				// Export the shot through the engine's REAL Mediabunny path. renderFrame
+				// drives the same renderAt(t) as preview, so the encoded video == preview.
+				exportWebM: async (durationSeconds = 4, fps = 30) => {
+					cancelAnimationFrame(raf);
+					const { exportTransparentWebM } = await import('$lib/platform/export-video');
+					const blob = await exportTransparentWebM({
+						canvas: c,
+						durationSeconds,
+						fps,
+						hasBackground: true, // opaque scene → keep alpha discarded, like a bumper
+						renderFrame: (_f: number, timestamp: number) => renderAt(timestamp / durationSeconds)
+					});
+					frame = 0;
+					renderLoop();
+					const bytes = new Uint8Array(await blob.arrayBuffer());
+					let bin = '';
+					for (let i = 0; i < bytes.length; i += 0x8000) {
+						bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+					}
+					return { bytes: blob.size, frames: Math.round(durationSeconds * fps), b64: btoa(bin) };
+				}
 			};
 		})().catch((err) => {
 			console.error('[poc] failed', err);
