@@ -47,7 +47,11 @@ Gating note: on-photo and collage families (`pullquote-on-photo`) are partially 
 
 ## The corpus
 
-- 🔨 **One Critic-accepted deliverable per surface/overlay family.** Shipped: `lower-third-cinematic` + `server-renders-again`. Remaining surfaces: `chapter-card`, `newspaper`, `paper`, `pullquote-on-photo`, `title-sequence`, `type-hero`. Remaining overlays: `counter`, `cursor-trail`, `instance-stack`, `shader-fill`, `text-3d`, `washi-tape`, `watermark`.
+- 🔨 **One Critic-accepted deliverable per surface/overlay family.** Shipped: `lower-third-cinematic` + `server-renders-again`. **Activated in dex (2026-06)** — epic `ri2qchcm`, 13 family tasks tiered by render path + value:
+  - **T1 — full-frame title surfaces** (showcase; ADR-0028 depth-stage candidates): `chapter-card`, `title-sequence`, `type-hero`.
+  - **T2 — document surfaces** (flat path, A+ text): `newspaper`, `paper`.
+  - **T3 — overlays** (flat, transparent, over footage): `washi-tape`, `watermark`, `counter`, `cursor-trail`, `instance-stack`, `shader-fill`, `text-3d`.
+  - **Blocked:** `pullquote-on-photo` — needs the configurable edge-treatment primitive (Heavy primitives, below).
 - 📐 **Make lower-third appearance-neutral.** Move "collage card" chrome out of the overlay into the Syntax pack (ADR-0006 → 0023). Overlay content is `kicker` + `title` + `subtitle`.
 
 ## Pipeline coverage decisions
