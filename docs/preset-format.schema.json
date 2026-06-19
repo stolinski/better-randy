@@ -291,14 +291,6 @@
                 "ease"
               ]
             },
-            "camera": {
-              "type": "string",
-              "enum": [
-                "none",
-                "push",
-                "snap"
-              ]
-            },
             "backgroundVisibility": {
               "type": "number",
               "minimum": 0,
@@ -603,6 +595,11 @@
                   "duration",
                   "ease"
                 ]
+              },
+              "z": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
               }
             },
             "required": [
@@ -633,6 +630,102 @@
               "params"
             ]
           }
+        },
+        "backgroundFill": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "stage": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "minLength": 1
+            },
+            "camera": {
+              "default": {},
+              "type": "object",
+              "properties": {
+                "move": {
+                  "default": "static",
+                  "type": "string",
+                  "enum": [
+                    "static",
+                    "push",
+                    "drift"
+                  ]
+                },
+                "amount": {
+                  "default": 0.5,
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "ease": {
+                  "default": "smooth",
+                  "type": "string",
+                  "enum": [
+                    "smooth",
+                    "settled",
+                    "sharp",
+                    "bouncy"
+                  ]
+                }
+              }
+            },
+            "focus": {
+              "default": {},
+              "type": "object",
+              "properties": {
+                "focusZ": {
+                  "default": 0,
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "aperture": {
+                  "default": 0.6,
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "pull": {
+                  "type": "object",
+                  "properties": {
+                    "from": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "to": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "start": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "duration": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    }
+                  },
+                  "required": [
+                    "from",
+                    "to",
+                    "start",
+                    "duration"
+                  ]
+                }
+              }
+            }
+          },
+          "required": [
+            "type"
+          ]
         }
       },
       "required": [
@@ -640,6 +733,33 @@
         "typography",
         "marks",
         "surface"
+      ]
+    },
+    "transition": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string",
+          "minLength": 1
+        },
+        "to": {
+          "type": "string",
+          "minLength": 1
+        },
+        "effect": {
+          "type": "string",
+          "minLength": 1
+        },
+        "durationMs": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "effect",
+        "durationMs"
       ]
     }
   },

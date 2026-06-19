@@ -141,6 +141,26 @@ When a body has both `marks.timings[]` and a `textAnimations[]` entry targeting 
 
 Each effect entry is `{ type, id, params }`. The `params` schema is declared by the effect's `EffectRenderer.schema` (`src/lib/pipelines/effects/<name>/index.ts`).
 
+### `stage` (optional — dimensional depth stage)
+
+Opt-in composition-wide 3D compositor ([ADR-0028](adr/0028-dimensional-depth-stage.md)). **Omit it and rendering is the flat path, unchanged.** When present, the engine places the composition's Layer textures on real 3D planes at their [ADR-0021](adr/0021-z-plane-semantics.md) z, through a perspective camera with a real lens depth-of-field. Camera and focus drive frame-deterministically off the timeline.
+
+```jsonc
+"stage": {
+  "type": "depth",                  // open string, registry-validated at load time
+  "camera": {                       // optional; defaults shown
+    "move": "static" | "push" | "drift",   // default "static"
+    "amount": 0..1,                 // dolly / lateral parallax strength (default 0.5)
+    "ease": "smooth" | "settled" | "sharp" | "bouncy"   // default "smooth"
+  },
+  "focus": {                        // optional; defaults shown
+    "focusZ": 0..1,                 // in-focus depth (0 near … 1 far; default 0)
+    "aperture": 0..1,               // max blur / circle-of-confusion (default 0.6)
+    "pull": { "from": 0..1, "to": 0..1, "start": 0..1, "duration": 0..1 }  // optional rack focus
+  }
+}
+```
+
 ## Surface variants
 
 - **`paper`** — card chrome with paper-grain shader and fly-in/out animation. Slots: `title`, `sourceUrl`, `author`, `source`, `dateLabel`. Supports `enter`, `exit`, `backgroundVisibility`.

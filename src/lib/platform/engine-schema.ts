@@ -342,6 +342,39 @@ const TextAnimationsSchema = z
 		}
 	});
 
+// ---- Dimensional depth stage (ADR-0028) ----
+// OPTIONAL composition-wide selector. Absent ⇒ the flat multiplane path (ADR-0027),
+// unchanged. When present, the engine composites the Layer textures on real 3D planes
+// at their ADR-0021 z through a perspective camera with a real lens DOF. `type` is an
+// open string validated against the stage registry at load time (like Effect/Overlay
+// types, in preset.ts). Camera + focus drive frame-deterministically off the timeline.
+const StageCameraSchema = z.object({
+	move: z.enum(['static', 'push', 'drift']).default('static'),
+	amount: FractionSchema.default(0.5), // dolly / lateral parallax strength
+	ease: EaseSchema.default('smooth')
+});
+
+// Rack-focus pull: focusZ travels from→to over [start, start+duration] (timeline
+// fractions), mirroring the Transition window shape. Absent ⇒ fixed focus.
+const StageFocusPullSchema = z.object({
+	from: FractionSchema,
+	to: FractionSchema,
+	start: FractionSchema,
+	duration: FractionSchema
+});
+
+const StageFocusSchema = z.object({
+	focusZ: FractionSchema.default(0), // in-focus depth (ADR-0021 scalar; 0 near … 1 far)
+	aperture: FractionSchema.default(0.6), // max circle-of-confusion / blur strength
+	pull: StageFocusPullSchema.optional()
+});
+
+const StageSchema = z.object({
+	type: z.string().min(1),
+	camera: StageCameraSchema.default({}),
+	focus: StageFocusSchema.default({})
+});
+
 export const EngineStateSchema = z.object({
 	transport: TransportSchema,
 	typography: TypographySchema,
@@ -350,7 +383,8 @@ export const EngineStateSchema = z.object({
 	textAnimations: TextAnimationsSchema,
 	overlays: z.array(OverlaySchema).default([]),
 	effects: EffectChainSchema.default([]),
-	backgroundFill: HexColorSchema.optional()
+	backgroundFill: HexColorSchema.optional(),
+	stage: StageSchema.optional()
 });
 
 export type Transport = z.infer<typeof TransportSchema>;
@@ -366,6 +400,9 @@ export type Overlay = z.infer<typeof OverlaySchema>;
 export type OverlayPosition = z.infer<typeof OverlayPositionSchema>;
 export type Effect = z.infer<typeof EffectSchema>;
 export type EffectChain = z.infer<typeof EffectChainSchema>;
+export type StageCamera = z.infer<typeof StageCameraSchema>;
+export type StageFocus = z.infer<typeof StageFocusSchema>;
+export type Stage = z.infer<typeof StageSchema>;
 export type EngineState = z.infer<typeof EngineStateSchema>;
 
 const DEFAULT_BODY: AnnotationBody = [
