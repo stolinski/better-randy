@@ -183,6 +183,19 @@
 		return textureSampleLevel(layout.$.src, layout.$.samp, in.uv, 0.0);
 	}`.$uses({ layout: downLayout });
 
+	// --- Blit pass: card texture straight to the canvas at 1:1 (the unify A/B's crispness
+	// ceiling — one resample, no camera, no DOF). ---
+	const blitLayout = tgpu.bindGroupLayout({
+		tex: { texture: d.texture2d(d.f32) },
+		samp: { sampler: 'filtering' }
+	});
+	const blitFragmentFn = tgpu['~unstable'].fragmentFn({
+		in: { uv: d.vec2f },
+		out: d.vec4f
+	}) /* wgsl */ `{
+		return vec4f(textureSampleLevel(layout.$.tex, layout.$.samp, in.uv, 0.0).rgb, 1.0);
+	}`.$uses({ layout: blitLayout });
+
 	// --- DOF pass: scatter-as-gather; weight each tap by whether its own CoC reaches
 	// the centre pixel (no foreground bleed). ---
 	const dofLayout = tgpu.bindGroupLayout({
@@ -257,6 +270,11 @@
 			const WIDTH = Math.round(Number(params.get('w')) || DEFAULT_W);
 			const HEIGHT = Math.round(Number(params.get('h')) || DEFAULT_H);
 			const portrait = HEIGHT > WIDTH;
+			// mode: 'depth' = the cinematic stage; 'flat' = card fronto-parallel filling the
+			// frame, no DOF (the unify candidate — flat as a degenerate 3D stage); 'ref' = the
+			// card texture blitted 1:1 (the crispness ceiling for the A/B).
+			const mode = params.get('mode') ?? 'depth';
+			const flat = mode === 'flat' || mode === 'ref';
 			// The 16:9 card is authored at native pixel density (2× past ~3K) so in-focus
 			// text is genuinely sharp at 4K, not an upscaled 1080p texture.
 			const CARD_SCALE = Math.max(WIDTH, HEIGHT) >= 3000 ? 2 : 1;
@@ -271,7 +289,7 @@
 			c.height = HEIGHT;
 			c.style.aspectRatio = `${WIDTH} / ${HEIGHT}`;
 			cardEl.style.setProperty('--s', String(CARD_SCALE));
-			status = `rendering ${WIDTH}×${HEIGHT}`;
+			status = `rendering ${WIDTH}×${HEIGHT} [${mode}]`;
 
 			await tick();
 			await document.fonts.ready;
@@ -317,7 +335,9 @@
 			const lightUniform = root
 				.createBuffer(LightUniforms, {
 					lightPos: d.vec4f(-2.2, 2.0, 2.6, 0),
-					params: d.vec4f(0.5, 0.85, 0.05, 0.45)
+					// flat A/B uses ambient-only (full-bright) so the comparison isolates
+					// crispness, not scene lighting.
+					params: flat ? d.vec4f(1, 0, 0, 0) : d.vec4f(0.5, 0.85, 0.05, 0.45)
 				})
 				.$usage('uniform');
 			const shadowUniform = root
@@ -389,20 +409,29 @@
 				.withVertex(fullVertexFn, {})
 				.withFragment(downsampleFragmentFn, { format: INTERMEDIATE_FORMAT })
 				.createPipeline();
+			const blitPipeline = root['~unstable']
+				.withVertex(fullVertexFn, {})
+				.withFragment(blitFragmentFn, { format: host.format })
+				.createPipeline();
+			const blitBind = root.createBindGroup(blitLayout, { tex: cardTexture, samp: sampler });
 
 			const cardAspect = CARD_W / CARD_H;
-			const projection = mat4.perspective((42 * Math.PI) / 180, WIDTH / HEIGHT, 0.1, 100);
+			const FOV = (42 * Math.PI) / 180;
+			const FLAT_CAM_Z = 3.4;
+			const projection = mat4.perspective(FOV, WIDTH / HEIGHT, 0.1, 100);
 
-			// Reflow for portrait: a 16:9 card can't fill a 9:16 frame, so shrink it and lift
-			// it into the upper band (title safe-area) with the lit wall behind. Horizontal
-			// keeps the edge-bleed framing (fit 1, no shift).
-			const fit = portrait ? 0.42 : 1.0;
-			const yShift = portrait ? 0.62 : 0.0;
+			// Flat mode fills the frame fronto-parallel: card half-height = the frustum
+			// half-height at z=0, so a 16:9 card exactly fills a 16:9 frame at ~1:1 texel
+			// density. Depth mode reflows for portrait (shrink + lift into the title band).
+			const fillFit = Math.tan(FOV / 2) * FLAT_CAM_Z;
+			const fit = flat ? fillFit : portrait ? 0.42 : 1.0;
+			const yShift = portrait && !flat ? 0.62 : 0.0;
+			const rotY = flat ? 0 : (26 * Math.PI) / 180;
 
 			// Static geometry — the camera moves, not the planes.
 			const cardModel = mat4.identity();
 			mat4.translate(cardModel, [0, yShift, 0], cardModel);
-			mat4.rotateY(cardModel, (26 * Math.PI) / 180, cardModel);
+			mat4.rotateY(cardModel, rotY, cardModel);
 			mat4.scale(cardModel, [cardAspect * fit, fit, 1], cardModel);
 			const wallModel = mat4.identity();
 			mat4.translate(wallModel, [0, 0, -2.0], wallModel);
@@ -449,16 +478,39 @@
 			// export, so what you scrub is exactly what encodes (frame-determinism).
 			const renderAt = (t: number): void => {
 				if (!host) return;
-				const e = smootherstep(t);
-				// Slow dolly-in with lateral/vertical drift → parallax between card and wall.
-				writeCamera([mix(-0.16, 0.12, e), mix(0.05, -0.03, e), mix(3.7, 3.15, e)], [
-					mix(0.04, -0.03, e),
-					0,
-					0
-				]);
-				// Rack focus: pull from the back wall (depth ≈0.83) onto the title (≈0.2).
-				const focus = manualFocus >= 0 ? manualFocus : mix(0.83, 0.2, e);
-				dofUniform.write({ focus, aperture: 1, maxCoc: MAX_COC, resolution: d.vec2f(WIDTH, HEIGHT) });
+				const outputView = host.context.getCurrentTexture().createView();
+
+				// 'ref' — card texture straight to canvas at 1:1 (the A/B crispness ceiling).
+				if (mode === 'ref') {
+					blitPipeline
+						.with(blitBind)
+						.withColorAttachment({
+							view: outputView,
+							clearValue: [0, 0, 0, 1],
+							loadOp: 'clear',
+							storeOp: 'store'
+						})
+						.draw(3);
+					return;
+				}
+
+				if (flat) {
+					// Unify candidate: card fronto-parallel filling the frame, static camera,
+					// aperture 0 ⇒ DOF collapses to identity. Same pipeline as the depth stage.
+					writeCamera([0, 0, FLAT_CAM_Z], [0, 0, 0]);
+					dofUniform.write({ focus: 0.5, aperture: 0, maxCoc: MAX_COC, resolution: d.vec2f(WIDTH, HEIGHT) });
+				} else {
+					const e = smootherstep(t);
+					// Slow dolly-in with lateral/vertical drift → parallax between card and wall.
+					writeCamera([mix(-0.16, 0.12, e), mix(0.05, -0.03, e), mix(3.7, 3.15, e)], [
+						mix(0.04, -0.03, e),
+						0,
+						0
+					]);
+					// Rack focus: pull from the back wall (depth ≈0.83) onto the title (≈0.2).
+					const focus = manualFocus >= 0 ? manualFocus : mix(0.83, 0.2, e);
+					dofUniform.write({ focus, aperture: 1, maxCoc: MAX_COC, resolution: d.vec2f(WIDTH, HEIGHT) });
+				}
 
 				// Wall (far) then card (front), into the scene target. Card is always in
 				// front of the wall, so painter's order suffices (no depth buffer yet).
@@ -492,7 +544,7 @@
 				dofPipeline
 					.with(dofBind)
 					.withColorAttachment({
-						view: host.context.getCurrentTexture().createView(),
+						view: outputView,
 						clearValue: [0, 0, 0, 1],
 						loadOp: 'clear',
 						storeOp: 'store'
