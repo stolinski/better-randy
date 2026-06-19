@@ -176,13 +176,14 @@
 		let focus = layout.$.uniforms.focus;
 		let aperture = layout.$.uniforms.aperture;
 		let texel = vec2f(1.0) / layout.$.uniforms.resolution;
-		let jitter = fract(sin(dot(in.uv, vec2f(12.9898, 78.233))) * 43758.5453) * 6.2831853;
 		let center = textureSample(layout.$.scene, layout.$.samp, in.uv);
 		var acc = center.rgb;
 		var wsum = 1.0;
+		// FIXED golden-angle spiral (no per-pixel jitter): every pixel gathers the same
+		// kernel, so neighbours agree and the defocus is smooth instead of dithered.
 		for (var i: u32 = 0u; i < ${BOKEH_TAPS}u; i = i + 1u) {
 			let st = (f32(i) + 0.5) / ${BOKEH_TAPS}.0;
-			let ang = f32(i) * 2.39996 + jitter;
+			let ang = f32(i) * 2.39996;
 			let offsetPx = vec2f(cos(ang), sin(ang)) * sqrt(st) * ${MAX_COC_PX};
 			let smp = textureSample(layout.$.scene, layout.$.samp, in.uv + offsetPx * texel);
 			let tapCoc = aperture * abs(smp.a - focus) * ${MAX_COC_PX};
