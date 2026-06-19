@@ -69,7 +69,6 @@ A preset is a single JSON document validated by `PresetSchema` (`src/lib/platfor
   },
   "enter": { "start": 0..1, "duration": 0..1, "ease": Ease },  // optional
   "exit":  { "start": 0..1, "duration": 0..1, "ease": Ease },  // optional
-  "camera": "none" | "push" | "snap",                           // optional
   "backgroundVisibility": 0..1                                  // optional
 }
 ```
@@ -144,7 +143,7 @@ Each effect entry is `{ type, id, params }`. The `params` schema is declared by 
 
 ## Surface variants
 
-- **`paper`** — card chrome with paper-grain shader and fly-in/out animation. Slots: `title`, `sourceUrl`, `author`, `source`, `dateLabel`. Supports `enter`, `exit`, `camera`, `backgroundVisibility`.
+- **`paper`** — card chrome with paper-grain shader and fly-in/out animation. Slots: `title`, `sourceUrl`, `author`, `source`, `dateLabel`. Supports `enter`, `exit`, `backgroundVisibility`.
 - **`plain`** — transparent background that hosts a body without chrome. Slots: `author`, `source`, `dateLabel` (decorative metadata only).
 
 ## Block variants (v1)

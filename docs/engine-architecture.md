@@ -142,7 +142,6 @@ interface SurfaceState {
   variant?: string;                 // validated per-pipeline against that family's VARIANT_IDS
   content: SurfaceContent;
   enter?: Transition; exit?: Transition;
-  camera?: 'none' | 'push' | 'snap';  // ⚠ data + lint only; no render effect yet (→ roadmap)
   backgroundVisibility?: number;    // wired: floors focal-dim aggressiveness in the paper pipeline
 }
 
@@ -254,9 +253,10 @@ Pinned in ADRs or schema but **not wired into rendering**. Do not describe these
 
 - **Genuine orientation reflow** — safe-areas as layout inputs, orientation as render target (above).
 - **Structural Pack Roles** — `edge`/`light`/`material` reaching pixels (`depth` is wired via `resolveDepthTreatment`; the unused `resolveStyle`/`resolveRole` accessors are now removed).
-- **Z-depth / focal-distance + depth-of-field** — [ADR-0021](adr/0021-z-plane-semantics.md) pins the semantics (single-channel f32 sidecar, focal-distance not world-space); no depth target exists in code.
+- **Z-depth / focal-distance + depth-of-field** — [ADR-0021](adr/0021-z-plane-semantics.md) pins the semantics (single-channel f32 sidecar, focal-distance not world-space); no depth target exists in code. DOF v1 ships as multiplane bokeh ([ADR-0027](adr/0027-dof-v1-multiplane-bokeh.md)).
+- **Dimensional depth stage** — [ADR-0028](adr/0028-dimensional-depth-stage.md): an opt-in WebGPU 3D compositor (Layer textures on perspective planes, per-pixel depth from geometry, mip-gather DOF, real camera/light) for continuous-depth pieces; reintroduces camera as stage-scoped data (`stage.camera` — camera-as-data was stripped as inert) and realizes ADR-0021's per-pixel depth target. Validated in the `src/routes/poc/dof3d/` POC; not wired into `renderAt`. Flat multiplane (0027) stays the default.
 - **Multi-state transitions** — [ADR-0022](adr/0022-multi-state-composition.md) pins the `transition: { from, to, effect }` shape (dual-tree render, two color targets sampled by one mask); no multi-state machinery exists. Relevant to segments/bumpers.
-- **Camera motion** — `surface.camera` (`push`/`snap`) is in schema, UI, and the lint, but no surface pipeline reads it.
+- **Camera motion** — `surface.camera` (`push`/`snap`) was **stripped** as inert (no pipeline read it; field/UI/lint removed). Camera returns as stage-scoped data only when a real consumer exists — the dimensional depth stage ([ADR-0028](adr/0028-dimensional-depth-stage.md), `stage.camera`).
 - **New Block types** — `mermaid` / `code` / `image` / `chart` are unbuilt; only `paragraph` ships.
 - **Starter templates** — curated starting points both a human (GUI) and an agent begin from (reframed from the never-built recipe cookbook, ex-[ADR-0004](adr/0004-recipe-cookbook-over-schema-chrome.md)).
 
