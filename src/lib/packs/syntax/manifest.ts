@@ -53,7 +53,9 @@ export const syntaxPack: PackManifest = {
 		'chapter-card.depth': { kind: 'style', value: { hardOffset: { dx: 10, dy: 10, blur: 0 } } },
 		'chapter-card.light': { kind: 'style', value: 'none' },
 		// Consumed color Roles (render-is-truth — match what CanvasSource paints).
-		'chapter-card.ink': { kind: 'style', value: '#ffffff' },
+		// Warm off-white (not pure #fff): agrees with the upper-right warm key and
+		// keeps Q17 emphasis headroom — matches the preset's declared inkColor.
+		'chapter-card.ink': { kind: 'style', value: '#f4ecdc' },
 		'chapter-card.base': { kind: 'style', value: '#f4ecdc' },
 		'chapter-card.kicker': { kind: 'style', value: '#d8c4a0' },
 		'chapter-card.rule': { kind: 'style', value: 'rgba(216, 196, 160, 0.62)' },
