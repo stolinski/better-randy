@@ -158,20 +158,27 @@ const wgsl = /* wgsl */ `
 	let lightAlignment = dot(edgeNormal, lightDir);
 
 	// On near-white display type a warm rim barely reads (white + warm clips
-	// back to white), so the dimension is carried mostly by a multiplicative
-	// CARVE on the away-facing edges — a visibly shadowed side of each stroke —
-	// with a warm amber tint on the lit edges for the theatrical key colour.
-	// Turned up from the original (rim 1.6 / shadow 0.55 of a 0.02 constant)
-	// which rendered to nothing — the rake is this Surface's signature feature.
-	let rimStrength = clamp(max(0.0, lightAlignment) * edgeMagnitude * 1.15, 0.0, 0.8);
-	let carveStrength = clamp(max(0.0, -lightAlignment) * edgeMagnitude * 1.05, 0.0, 0.40);
-	let rimTint = vec3f(0.16, 0.05, -0.11); // warm amber shift on the lit edge
+	// back to white), so the dimension is carried by a WARM rim on the lit edges
+	// + a COOL multiplicative CARVE on the away edges — the warm-key / cool-
+	// counter split that reads as theatrical raked light rather than a flat
+	// neutral letterpress bevel. The pow() on the facing terms CONCENTRATES rim
+	// and carve on the edges most squarely facing / away from the key (diagonal
+	// strokes catch more than the obliquely-lit horizontals), so the band isn't
+	// a uniform-width emboss outline. Turned up from the original (rim 1.6 /
+	// shadow 0.55 of a 0.02 constant) which rendered to nothing — the rake is
+	// this Surface's signature feature.
+	let litFacing = max(0.0, lightAlignment);
+	let awayFacing = max(0.0, -lightAlignment);
+	let rimStrength = clamp(pow(litFacing, 1.3) * edgeMagnitude * 1.5, 0.0, 0.85);
+	let carveStrength = clamp(pow(awayFacing, 1.45) * edgeMagnitude * 1.25, 0.0, 0.42);
+	let rimTint = vec3f(0.17, 0.05, -0.12);    // warm amber on the lit edge
+	let coolShadow = vec3f(-0.05, -0.02, 0.09); // cool counter-tone on the away edge
 
 	// For fully-interior pixels (alpha = 1, gradient = 0) neither rim nor carve
 	// fires — the fill stays clean; the dimension lives at the letterform edges.
 	let textCore = centreSample.rgb;
 	let textWithRim = textCore + rimTint * rimStrength;
-	let textWithDimension = textWithRim * (1.0 - carveStrength);
+	let textWithDimension = textWithRim * (1.0 - carveStrength) + coolShadow * carveStrength;
 	// Surface fade on the GPU (DOM stays opaque; copyElementImageToTexture can't
 	// rasterize CSS opacity<1 — see text-fade-bug-investigation.md F1). This also
 	// makes the declared surface.exit actually fade the hero (was inert before).
