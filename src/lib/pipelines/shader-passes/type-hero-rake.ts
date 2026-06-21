@@ -1,5 +1,6 @@
 import { d } from 'typegpu';
 
+import { animState } from '$lib/platform/anim-state.svelte';
 import type { ShaderPass } from '$lib/platform/pipelines/types';
 import type { SurfaceState } from '$lib/platform/engine-schema';
 import { hashStringToUnitInterval } from '$lib/utils/seeded';
@@ -21,15 +22,19 @@ import { hashStringToUnitInterval } from '$lib/utils/seeded';
  * samples without considering letterform geometry. This pass uses the
  * inputSample.alpha gradient as a letterform-edge proxy and lights it.
  *
- * Backdrop is intentionally minimal: near-black with subtle vertical
- * gradient + film grain. Type is the work; backdrop stays out of its way.
+ * Backdrop is restrained but graded: near-black vertical lean + drifting
+ * warm/cool atmosphere bands + a particle field, finished with a corner
+ * vignette and a filmic toe so the field reads as depth, not a flat void.
+ * Type is the work; the graded backdrop stays behind it (the type composites
+ * over the graded field at full strength, so grading never dims the hero).
  */
 
 export const TypeHeroRakeUniforms = d.struct({
 	seed: d.f32,
 	progress: d.f32,
 	canvasWidth: d.f32,
-	canvasHeight: d.f32
+	canvasHeight: d.f32,
+	paperVisibility: d.f32
 });
 
 export interface TypeHeroRakeParams {
@@ -37,6 +42,7 @@ export interface TypeHeroRakeParams {
 	progress: number;
 	canvasWidth: number;
 	canvasHeight: number;
+	paperVisibility: number;
 }
 
 const FALLBACK_CANVAS_WIDTH = 3840;
@@ -71,7 +77,7 @@ const wgsl = /* wgsl */ `
 	let warmBandDist = sqrt(warmBandDx * warmBandDx + warmBandDy * warmBandDy) / 0.28;
 	let warmBandStrength = max(0.0, 1.0 - warmBandDist);
 	let warmBandColor = vec3f(0.72, 0.46, 0.24);
-	let withWarmBand = baseColor + warmBandColor * warmBandStrength * 0.10;
+	let withWarmBand = baseColor + warmBandColor * warmBandStrength * 0.13;
 
 	let coolBandX = fract(t * 0.22 + 0.5) * 1.3 - 0.15;
 	let coolBandDx = (in.uv.x - coolBandX);
@@ -79,7 +85,7 @@ const wgsl = /* wgsl */ `
 	let coolBandDist = sqrt(coolBandDx * coolBandDx + coolBandDy * coolBandDy) / 0.32;
 	let coolBandStrength = max(0.0, 1.0 - coolBandDist);
 	let coolBandColor = vec3f(0.30, 0.42, 0.58);
-	let withBothBands = withWarmBand + coolBandColor * coolBandStrength * 0.07;
+	let withBothBands = withWarmBand + coolBandColor * coolBandStrength * 0.09;
 
 	// ----- Drifting particle field -----
 	//
@@ -123,7 +129,7 @@ const wgsl = /* wgsl */ `
 	// gradient captures the letterform's anti-aliased edge transition
 	// (typically 1–2 px wide on rasterized text). Magnitude tells us we're
 	// on an edge; direction tells us which way the edge faces.
-	let edgeOffsetPx = 3.0;
+	let edgeOffsetPx = 6.0;
 	let edgeUv = edgeOffsetPx * pxUv;
 	let aL = textureSample(layout.$.inputTexture, layout.$.samp, in.uv - vec2f(edgeUv.x, 0.0)).a;
 	let aR = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(edgeUv.x, 0.0)).a;
@@ -146,23 +152,39 @@ const wgsl = /* wgsl */ `
 	let edgeNormal = select(vec2f(0.0), alphaGradient / max(edgeMagnitude, 0.0001), edgeMagnitude > 0.0);
 	let lightAlignment = dot(edgeNormal, lightDir);
 
-	let rimStrength = max(0.0, lightAlignment) * edgeMagnitude * 1.6;
-	let shadowStrength = max(0.0, -lightAlignment) * edgeMagnitude * 0.55;
-	let rimColor = vec3f(1.00, 0.84, 0.58);
-	let shadowDarken = vec3f(0.02, 0.02, 0.04);
+	// On near-white display type a warm rim barely reads (white + warm clips
+	// back to white), so the dimension is carried mostly by a multiplicative
+	// CARVE on the away-facing edges — a visibly shadowed side of each stroke —
+	// with a warm amber tint on the lit edges for the theatrical key colour.
+	// Turned up from the original (rim 1.6 / shadow 0.55 of a 0.02 constant)
+	// which rendered to nothing — the rake is this Surface's signature feature.
+	let rimStrength = clamp(max(0.0, lightAlignment) * edgeMagnitude * 1.15, 0.0, 0.8);
+	let carveStrength = clamp(max(0.0, -lightAlignment) * edgeMagnitude * 1.05, 0.0, 0.40);
+	let rimTint = vec3f(0.16, 0.05, -0.11); // warm amber shift on the lit edge
 
-	// Apply rim + shadow to the drifted text sample. For fully-interior
-	// pixels (alpha = 1, gradient = 0), neither rim nor shadow fires — the
-	// text fill stays clean. The dimension lives at the edges.
+	// For fully-interior pixels (alpha = 1, gradient = 0) neither rim nor carve
+	// fires — the fill stays clean; the dimension lives at the letterform edges.
 	let textCore = centreSample.rgb;
-	let textWithRim = textCore + rimColor * rimStrength;
-	let textWithDimension = textWithRim - shadowDarken * shadowStrength;
-	let textAlphaForComposite = centreSample.a;
+	let textWithRim = textCore + rimTint * rimStrength;
+	let textWithDimension = textWithRim * (1.0 - carveStrength);
+	// Surface fade on the GPU (DOM stays opaque; copyElementImageToTexture can't
+	// rasterize CSS opacity<1 — see text-fade-bug-investigation.md F1). This also
+	// makes the declared surface.exit actually fade the hero (was inert before).
+	let textAlphaForComposite = centreSample.a * layout.$.uniforms.paperVisibility;
 
-	// ----- Fine film grain -----
+	// ----- Vignette + grain + filmic toe (backdrop grade; type composites on top) -----
+	//
+	// Vignette + toe apply to the backdrop only — the type is composited over
+	// backdropGrained at full strength, so grading the field doesn't dim the hero.
+	let centred = (in.uv - vec2f(0.5)) * vec2f(aspectRatio, 1.0);
+	let vignette = smoothstep(0.42, 1.20, length(centred)) * 0.32;
+	let vignetted = driftedBackdrop * (1.0 - vignette);
 	let grainSeed = floor(in.uv * vec2f(canvasW, canvasH)) + vec2f(seed * 19.0 + t * 7.0, seed * 23.0 + t * 11.0);
 	let grain = fract(sin(dot(grainSeed, vec2f(127.1, 311.7))) * 43758.5453) - 0.5;
-	let backdropGrained = driftedBackdrop + vec3f(grain) * 0.022;
+	let grained = vignetted + vec3f(grain) * 0.022;
+	// Filmic toe (black-lift): lift crushed shadows so the field reads as graded
+	// depth rather than a flat void.
+	let backdropGrained = pow(max(grained, vec3f(0.0)), vec3f(0.94));
 
 	// ----- Composite text-with-dimension over backdrop -----
 	//
@@ -187,7 +209,10 @@ export function createTypeHeroRakePass(): ShaderPass<SurfaceState> {
 				seed,
 				progress: ctx.progress,
 				canvasWidth: bounds.width > 0 ? bounds.width : FALLBACK_CANVAS_WIDTH,
-				canvasHeight: bounds.height > 0 ? bounds.height : FALLBACK_CANVAS_HEIGHT
+				canvasHeight: bounds.height > 0 ? bounds.height : FALLBACK_CANVAS_HEIGHT,
+				// Surface fade applied on the GPU (capture can't rasterize element
+				// opacity<1). Read imperatively during render.
+				paperVisibility: animState.paperVisibility
 			} satisfies TypeHeroRakeParams;
 		}
 	};
