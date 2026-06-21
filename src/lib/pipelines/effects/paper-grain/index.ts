@@ -20,7 +20,12 @@ const PaperGrainEffectSchema = z.object({
 
 const PaperGrainUniforms = d.struct({
 	warmth: d.f32,
-	density: d.f32
+	density: d.f32,
+	// Clip timestamp in seconds. Drives the fine-octave grain shimmer at a film
+	// cadence (24 updates/s) so a held frame is alive (no byte-identical hold)
+	// rather than a frozen grain pattern. Frame-deterministic (derived from the
+	// frame's time, not wall-clock), so preview and export match.
+	grainTime: d.f32
 });
 
 // Two-octave value-noise grain multiplied into the input texture. Multi-scale
@@ -39,13 +44,18 @@ const fragmentBody = /* wgsl */ `
 	let coarseN = mix(mix(c00, c10, coarseS.x), mix(c01, c11, coarseS.x), coarseS.y);
 
 	let finePos = in.uv * vec2f(680.0, 680.0);
+		// Fine octave = film grain: re-seeded each grain-frame (24/s) via a phase
+		// added inside the hash so the field shimmers IN PLACE (no directional
+		// drift) and a held frame is never byte-identical. Coarse octave above
+		// stays static — paper fibre structure doesn't move.
+		let gphase = floor(layout.$.uniforms.grainTime * 24.0) * 11.13;
 	let fineI = floor(finePos);
 	let fineF = fract(finePos);
 	let fineS = fineF * fineF * (vec2f(3.0) - 2.0 * fineF);
-	let f00 = fract(sin(dot(fineI, vec2f(269.5, 183.3))) * 43758.5453);
-	let f10 = fract(sin(dot(fineI + vec2f(1.0, 0.0), vec2f(269.5, 183.3))) * 43758.5453);
-	let f01 = fract(sin(dot(fineI + vec2f(0.0, 1.0), vec2f(269.5, 183.3))) * 43758.5453);
-	let f11 = fract(sin(dot(fineI + vec2f(1.0, 1.0), vec2f(269.5, 183.3))) * 43758.5453);
+	let f00 = fract(sin(dot(fineI, vec2f(269.5, 183.3)) + gphase) * 43758.5453);
+	let f10 = fract(sin(dot(fineI + vec2f(1.0, 0.0), vec2f(269.5, 183.3)) + gphase) * 43758.5453);
+	let f01 = fract(sin(dot(fineI + vec2f(0.0, 1.0), vec2f(269.5, 183.3)) + gphase) * 43758.5453);
+	let f11 = fract(sin(dot(fineI + vec2f(1.0, 1.0), vec2f(269.5, 183.3)) + gphase) * 43758.5453);
 	let fineN = mix(mix(f00, f10, fineS.x), mix(f01, f11, fineS.x), fineS.y);
 
 	let warmth = layout.$.uniforms.warmth;
@@ -75,7 +85,11 @@ export const paperGrain: EffectRenderer<PaperGrainParams> = {
 	pass: {
 		paramsStruct: PaperGrainUniforms,
 		fragmentBody,
-		pack: (params, _ctx) => ({ warmth: params.warmth, density: params.density })
+		pack: (params, ctx) => ({
+			warmth: params.warmth,
+			density: params.density,
+			grainTime: ctx.timestamp
+		})
 	},
 	Editor
 };
