@@ -149,7 +149,12 @@ const wgsl = /* wgsl */ `
 	let lightAngleSwing = 0.25; // ~15° each side, ~30° total
 	let lightAngle = lightAngleBase + sin(t * 6.28318 * 0.35) * lightAngleSwing;
 	let lightDir = vec2f(cos(lightAngle), sin(lightAngle));
-	let edgeNormal = select(vec2f(0.0), alphaGradient / max(edgeMagnitude, 0.0001), edgeMagnitude > 0.0);
+	// The alpha gradient points INTO the glyph (low alpha outside -> high inside),
+	// i.e. it is the INWARD edge normal. The outward letterform-edge normal is its
+	// negation; using it here puts the warm rim on the edges facing the key
+	// (upper-left) and the carve on the away (lower-right) edges — a true raked
+	// key, not the inverted emboss the un-negated gradient produced.
+	let edgeNormal = select(vec2f(0.0), -alphaGradient / max(edgeMagnitude, 0.0001), edgeMagnitude > 0.0);
 	let lightAlignment = dot(edgeNormal, lightDir);
 
 	// On near-white display type a warm rim barely reads (white + warm clips
