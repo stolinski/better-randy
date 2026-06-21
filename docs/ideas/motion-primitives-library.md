@@ -1,5 +1,7 @@
 # Motion primitives library
 
+> **Status — ✅ SHIPPED (2026-06). Historical reference.** This original pitch was grilled into [`motion-primitives-library-plan.md`](motion-primitives-library-plan.md) and fully delivered (4 pipelines + variants + catalog entries + [ADR-0019](../adr/0019-identity-spec-via-pack.md)/[0020](../adr/0020-variants-as-data.md)). Canonical record: those ADRs + the pipeline registry. Kept for the design rationale.
+
 ## Pitch
 
 Ship a small library of TypeGPU-backed motion primitives that lift Hiviz's typographic vocabulary to the level of editor-quality motion-graphics apps (the immediate reference is [mo1.app](https://mo1.app/), particularly its echo-stacks, 3D text geometry, scale-counterpoint compositions, and cursor-driven scene work). The thesis is that Hiviz's presets read as taste-poor not because the Critic is too lenient or the Producer is undisciplined, but because the *primitive vocabulary* is too thin. Every Preset rediscovers good motion from scratch, and the structural pull of a thin library is toward novelty over restraint. A tight, opinionated primitive set with tasteful defaults at `progress=1` (so the unanimated frame is already a finished composition) fixes the substrate, and the existing Brief → Producer → Critic loop starts producing tasteful Presets by construction.

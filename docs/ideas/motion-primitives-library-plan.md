@@ -1,5 +1,7 @@
 # Motion primitives library — implementation plan
 
+> **Status — ✅ SHIPPED (2026-06). Historical.** v1 scope fully delivered: `instance-stack`, `text-3d`, `counter`, `cursor-trail` Pipelines + the `type-hero` `pair` variant + the `kerning-pop` / `bracket-pop` catalog entries; [ADR-0019](../adr/0019-identity-spec-via-pack.md) (identity-spec via-pack) + [ADR-0020](../adr/0020-variants-as-data.md) (variants-as-data) written; `lower-third` collapsed to variants. Canonical record is those ADRs + the pipeline registry (`src/lib/platform/pipelines/index.ts`); this doc is kept for the design/grilling rationale only. (Note: those families exist but are *not yet at the cinematic bar* — that's the separate corpus arc in `roadmap.md`.)
+
 Post-grilling resolution of [`motion-primitives-library.md`](motion-primitives-library.md). The original idea doc remains as historical reference; this plan is the executable sequence.
 
 ## Reframe (load-bearing)

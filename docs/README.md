@@ -11,7 +11,7 @@ Entry point is [`../AGENTS.md`](../AGENTS.md) (auto-loaded; `CLAUDE.md` symlinks
 | [`quality-rubric.md`](quality-rubric.md) · [`animation-rubric.md`](animation-rubric.md) | The craft floor: R/Q-rules (render + composition) and G-rules (motion). Aesthetic-neutral. | Verifying a Preset; spawning the Critic. |
 | [`critic.md`](critic.md) | The adversarial verification protocol *(build-harness — see [ADR-0001](adr/0001-critic-sub-agent-verification.md))*. | Running the Critic / acting on its findings. |
 | [`html-in-canvas-typegpu.md`](html-in-canvas-typegpu.md) | The WebGPU + WICG HTML-in-Canvas pattern, TypeGPU shape, WGSL pitfalls. | Building or fixing a Pipeline that mixes HTML-in-Canvas with shaders. |
-| [`adr/`](adr/) | Architecture Decision Records — the *why*. Start at the [**ADR index**](adr/README.md) (status + supersession chains for all 25). | Wondering why something is the way it is. |
+| [`adr/`](adr/) | Architecture Decision Records — the *why*. Start at the [**ADR index**](adr/README.md) (status + supersession chains for all 28). | Wondering why something is the way it is. |
 | [`roadmap.md`](roadmap.md) | **The single backlog** — designed/wanted/building, one entry per item with status. Absorbed the old `todos/` + `quality-roadmap`. | Looking for what's planned, or what's designed-but-unbuilt. |
 | [`ideas/`](ideas/) | Pre-design speculation — a thing that *might* be built someday. | Considering a new feature area not yet designed. |
 | [`briefs/`](briefs/) | The in-flight build queue *(build-harness)* — one Brief per about-to-be-built Preset/Pipeline. | Starting/continuing the build of a specific thing. |
