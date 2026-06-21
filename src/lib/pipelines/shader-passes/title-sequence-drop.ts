@@ -1,5 +1,6 @@
 import { d } from 'typegpu';
 
+import { animState } from '$lib/platform/anim-state.svelte';
 import type { ShaderPass } from '$lib/platform/pipelines/types';
 import type { SurfaceState } from '$lib/platform/engine-schema';
 import { hashStringToUnitInterval } from '$lib/utils/seeded';
@@ -35,7 +36,8 @@ export const TitleSequenceDropUniforms = d.struct({
 	seed: d.f32,
 	progress: d.f32,
 	canvasWidth: d.f32,
-	canvasHeight: d.f32
+	canvasHeight: d.f32,
+	paperVisibility: d.f32
 });
 
 export interface TitleSequenceDropParams {
@@ -43,6 +45,7 @@ export interface TitleSequenceDropParams {
 	progress: number;
 	canvasWidth: number;
 	canvasHeight: number;
+	paperVisibility: number;
 }
 
 const FALLBACK_CANVAS_WIDTH = 3840;
@@ -148,10 +151,17 @@ const wgsl = /* wgsl */ `
 	//
 	// Full-frame bumper output (preset carries backgroundFill). Alpha = 1.0 so
 	// the engine's backgroundFill composite is the signal for the export lane,
-	// not a shader alpha floor. Text fades via paperVisibility on the element.
+	// not a shader alpha floor.
+	//
+	// Surface fade on the GPU: copyElementImageToTexture can't rasterize a DOM
+	// element's CSS opacity<1 (it captures transparent — see F1 in
+	// docs/critic-captures/text-fade-bug-investigation.md), so the article stays
+	// opaque and we fade the captured text here by paperVisibility. Gradual
+	// enter/exit instead of the binary snap CSS opacity produced.
+	let fadedAlpha = blurredAlpha * layout.$.uniforms.paperVisibility;
 	let backdropOpacity = 1.0;
-	let finalRgb = mix(backdropGrained, flashedRgb, blurredAlpha);
-	let finalAlpha = max(blurredAlpha, backdropOpacity);
+	let finalRgb = mix(backdropGrained, flashedRgb, fadedAlpha);
+	let finalAlpha = max(fadedAlpha, backdropOpacity);
 	return vec4f(finalRgb, finalAlpha);
 `;
 
@@ -166,7 +176,10 @@ export function createTitleSequenceDropPass(): ShaderPass<SurfaceState> {
 				seed,
 				progress: ctx.progress,
 				canvasWidth: bounds.width > 0 ? bounds.width : FALLBACK_CANVAS_WIDTH,
-				canvasHeight: bounds.height > 0 ? bounds.height : FALLBACK_CANVAS_HEIGHT
+				canvasHeight: bounds.height > 0 ? bounds.height : FALLBACK_CANVAS_HEIGHT,
+				// Surface fade is applied here (GPU), not via DOM opacity — the
+				// capture can't rasterize element opacity<1. Read imperatively.
+				paperVisibility: animState.paperVisibility
 			} satisfies TitleSequenceDropParams;
 		}
 	};

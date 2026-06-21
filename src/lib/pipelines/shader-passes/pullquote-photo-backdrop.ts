@@ -1,5 +1,6 @@
 import { d } from 'typegpu';
 
+import { animState } from '$lib/platform/anim-state.svelte';
 import type { ShaderPass } from '$lib/platform/pipelines/types';
 import type { SurfaceState } from '$lib/platform/engine-schema';
 import { hashStringToUnitInterval } from '$lib/utils/seeded';
@@ -32,7 +33,8 @@ export const PullquotePhotoBackdropUniforms = d.struct({
 	seed: d.f32,
 	progress: d.f32,
 	canvasWidth: d.f32,
-	canvasHeight: d.f32
+	canvasHeight: d.f32,
+	paperVisibility: d.f32
 });
 
 export interface PullquotePhotoBackdropParams {
@@ -40,6 +42,7 @@ export interface PullquotePhotoBackdropParams {
 	progress: number;
 	canvasWidth: number;
 	canvasHeight: number;
+	paperVisibility: number;
 }
 
 const FALLBACK_CANVAS_WIDTH = 3840;
@@ -166,13 +169,18 @@ const wgsl = /* wgsl */ `
 	// During the focus pull the entire text layer dims slightly (lower opacity
 	// of the captured DOM); on lock it returns to full strength.
 	let textRgb = blurredRgb * focusOpacity;
-	let textAlpha = blurredAlpha * focusOpacity;
+	// Surface fade on the GPU: copyElementImageToTexture can't rasterize a DOM
+	// element's CSS opacity<1 (it captures transparent — see F1 in
+	// docs/critic-captures/text-fade-bug-investigation.md), so the article stays
+	// opaque and the captured text fades here by paperVisibility — gradual
+	// enter/exit instead of the binary snap CSS opacity produced.
+	let textAlpha = blurredAlpha * focusOpacity * layout.$.uniforms.paperVisibility;
 
 	// ----- Composite text over backdrop -----
 	//
 	// Full-frame bumper (preset declares backgroundFill). Alpha = 1.0 so the
 	// engine's backgroundFill composite signals the export lane; the shader does
-	// not bake alpha into the channel. Text fades via paperVisibility on element.
+	// not bake alpha into the channel.
 	let backdropOpacity = 1.0;
 	let finalRgb = mix(grained, textRgb, textAlpha);
 	let finalAlpha = max(textAlpha, backdropOpacity);
@@ -190,7 +198,10 @@ export function createPullquotePhotoBackdropPass(): ShaderPass<SurfaceState> {
 				seed,
 				progress: ctx.progress,
 				canvasWidth: bounds.width > 0 ? bounds.width : FALLBACK_CANVAS_WIDTH,
-				canvasHeight: bounds.height > 0 ? bounds.height : FALLBACK_CANVAS_HEIGHT
+				canvasHeight: bounds.height > 0 ? bounds.height : FALLBACK_CANVAS_HEIGHT,
+				// Surface fade is applied here (GPU), not via DOM opacity — the
+				// capture can't rasterize element opacity<1. Read imperatively.
+				paperVisibility: animState.paperVisibility
 			} satisfies PullquotePhotoBackdropParams;
 		}
 	};

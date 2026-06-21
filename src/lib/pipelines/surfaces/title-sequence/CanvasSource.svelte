@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { animState } from '$lib/platform/anim-state.svelte';
 	import { engineState } from '$lib/platform/engine-state.svelte';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 
@@ -16,12 +15,17 @@
 	const hasKicker = $derived((content.kicker ?? '').trim().length > 0);
 </script>
 
+<!--
+	No style:opacity here. copyElementImageToTexture cannot capture a DOM element's
+	CSS opacity<1 (captures transparent — see docs/critic-captures/text-fade-bug-investigation.md);
+	the article stays opaque and the title-sequence-drop shaderPass fades the captured
+	surface by paperVisibility on the GPU.
+-->
 <article
 	bind:this={element}
 	class="title-sequence-source surface"
 	style:block-size={`${frame.height}px`}
 	style:inline-size={`${frame.width}px`}
-	style:opacity={animState.paperVisibility}
 >
 	{#if hasKicker}
 		{#key content.kicker}

@@ -51,3 +51,18 @@ A true fade following the `power2.inOut` paperVisibility curve. Enter works too 
 
 **General fix (follow-up):** this pattern (DOM opaque + GPU alpha-multiply by paperVisibility) should replace `style:opacity={paperVisibility}` in every Surface CanvasSource + give each surface pipeline / composite an alpha-multiply, so all surface fades are gradual — not just chapter-card. Filed as a corpus-wide task.
 
+### F3 — Generalized across all opacity-faded surfaces ✓ VERIFIED (dex jy2m2g7r)
+
+Audited every Surface for the binary-fade path. Only two besides chapter-card faded via `style:opacity={animState.paperVisibility}`: **title-sequence** and **pullquote-on-photo** (both already carry their own backdrop shaderPass). The rest don't have the bug: `newspaper` and `paper` fade via a `translateY` settle (a `transform` — captured fine, already gradual); `type-hero` and `plain` have no opacity fade at all. There is no generic surface-present composite to patch — each faded surface fades inside its own backdrop pass.
+
+Applied the chapter-card treatment to both: dropped `style:opacity` (DOM stays opaque → fully captured), added a `paperVisibility` uniform to `title-sequence-drop` (`fadedAlpha = blurredAlpha * paperVisibility`) and `pullquote-photo-backdrop` (`textAlpha = blurredAlpha * focusOpacity * paperVisibility`).
+
+Verified — text-band max-luma across each exit declines through a true intermediate (binary would jump full→backdrop with nothing between):
+
+| surface | full | mid-exit | backdrop |
+|---|---|---|---|
+| title-sequence (0.90→0.94) | 249 @p0.90 | **119 @p0.92** | 15 @p0.94 |
+| pullquote (0.82→0.86) | 255 @p0.82 | **131 @p0.84** | 29 @p0.86 |
+
+Enter also confirmed visible throughout (drop motion / focus-pull both render the now-opaque captured text). svelte-check: zero new errors/warnings from these four files. All opacity-faded surfaces now fade on the GPU.
+
