@@ -44,7 +44,7 @@
 			<h2
 				class="title-sequence-source__title"
 				data-text-anim-slot="title"
-				style:font-size={`${frame.width * 0.092}px`}
+				style:font-size={`${frame.width * 0.088}px`}
 			>
 				{content.title}
 			</h2>
