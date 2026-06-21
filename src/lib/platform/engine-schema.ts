@@ -33,14 +33,35 @@ export const ENGINE_EASES: Record<Ease, { label: string; gsap: string }> = {
 };
 
 export type EaseDirection = 'enter' | 'exit';
+export type EaseProperty = 'transform' | 'opacity';
 
-export function getEaseGsap(ease: Ease, _direction: EaseDirection): string {
-	// Same curve in both directions. Tween direction is encoded in the
-	// from/to values (enters tween 0→1, exits tween 1→0); a `.out` curve on
-	// an exit produces the head-loaded fade that G7 prescribes. The earlier
-	// blanket `.out → .in` swap inverted that and caused perceptual snap-off
-	// on exits — see Critic finding "Exit ease produces a perceptual snap-off",
-	// docs/animation-rubric.md G7.
+// Opacity fade-OUT curves (see getEaseGsap for why opacity exits differ).
+const OPACITY_EXIT_EASES: Record<Ease, string> = {
+	smooth: 'power2.inOut',
+	settled: 'power2.inOut',
+	sharp: 'power3.inOut',
+	bouncy: 'power2.inOut'
+};
+
+export function getEaseGsap(
+	ease: Ease,
+	direction: EaseDirection,
+	property: EaseProperty = 'transform'
+): string {
+	// TRANSFORM tweens keep the named curve in both directions: direction is encoded
+	// in the from/to values (enter 0→1, exit 1→0), and a `.out` curve decelerates a
+	// slide into its rest/off position — what G7/L5 mean by "decelerate out".
+	//
+	// OPACITY EXITS are the exception. A `.out` curve on a 1→0 alpha tween HEAD-LOADS
+	// the fade (alpha drops fast then tails), so the subject vanishes early and the
+	// frame holds on empty — the "subjectless tail". A `.in` curve instead snaps off
+	// in the final frame. So opacity fade-outs use a symmetric `.inOut`: it holds,
+	// fades, and lands at the window end with neither head-load nor snap. Resolves the
+	// long-standing exit-ease tension (Critic "head-loaded fade" vs the earlier
+	// reverted blanket `.out→.in` "snap-off"); transform exits are untouched.
+	if (direction === 'exit' && property === 'opacity') {
+		return OPACITY_EXIT_EASES[ease];
+	}
 	return ENGINE_EASES[ease].gsap;
 }
 

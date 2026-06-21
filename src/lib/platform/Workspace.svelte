@@ -200,7 +200,9 @@
 				key: 'paper-exit',
 				start: surface.exit.start,
 				duration: surface.exit.duration,
-				ease: getEaseGsap(surface.exit.ease, 'exit'),
+				// Surface fade is element opacity → use the opacity-exit curve so it
+				// holds then lands at clip end instead of head-loading (subjectless tail).
+				ease: getEaseGsap(surface.exit.ease, 'exit', 'opacity'),
 				from: 1,
 				to: 0,
 				onUpdate: (value) => {
