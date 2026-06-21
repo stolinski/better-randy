@@ -38,7 +38,7 @@ Architecture Decision Records — the *why* behind Hiviz's shape. Each records a
 | [0025](0025-static-linter-checks-safety-and-readability-only.md) | Canon (refines 0003) | Static linter = video-safety + readability only; taste is Critic-judged |
 | [0026](0026-transitions-v1-snapshot-and-wipe.md) | Canon (refines 0022) | Transitions v1 = snapshot each state to a texture + mask-wipe; not live dual-tree |
 | [0027](0027-dof-v1-multiplane-bokeh.md) | Canon (refines 0021) | DOF v1 = multiplane bokeh (depth-separated planes + CoC bokeh blur); not a per-pixel depth target |
-| [0028](0028-dimensional-depth-stage.md) | **Designed, not built** (refines 0027, 0021) | Dimensional depth stage — opt-in WebGPU 3D compositor (Layer textures on perspective planes + per-pixel depth + mip-gather DOF) for continuous-depth pieces; flat multiplane stays default |
+| [0028](0028-dimensional-depth-stage.md) | **Canon (v1 built)** (refines 0027, 0021) | Dimensional depth stage — opt-in WebGPU 3D compositor (`state.stage`: surface plane over a backdrop at depth + per-pixel depth + mip-gather DOF + camera) for continuous-depth pieces; integrated + Critic-accepted; flat multiplane stays default |
 
 ## Supersession & refinement chains
 

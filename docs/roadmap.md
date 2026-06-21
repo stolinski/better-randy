@@ -39,9 +39,15 @@ The default answer to "what's next?" — an agent self-serves this instead of as
 
 ## Now — the corpus arc
 
-The engine gap is closed. The current arc is producing one Critic-accepted, ship-grade deliverable per surface/overlay family. Two families are done (`lower-third-cinematic` as the reference bar; `server-renders-again` as the editorial-mono acceptance gate). Thirteen families remain.
+The engine gap is closed. The current arc is producing one **Critic-accepted, genuinely cinematic** deliverable per surface/overlay family.
 
-Gating note: on-photo and collage families (`pullquote-on-photo`) are partially blocked on edge-treatment primitives (still in "Designed, not built"). All other families are unblocked — pack wiring is live.
+**Cinematic-bar recalibration (2026-06).** A 12-agent cinematic audit (`docs/critic-captures/corpus-cinematic-audit.md`) scored every family **2–5/10** against a Netflix bar — *competent but not cinematic*. So the corpus is far less done than "2 shipped" implied: every family already has a deliverable *candidate*, but none yet clears the true bar. The work is **make-cinematic + Critic-accept**, not author-from-scratch. Systemic deficits across the corpus: dead static holds (motion), flat "CSS-on-black" (grade), dead-centered (composition), flat layers (depth).
+
+**The recipe** (proven on chapter-card, reusable): off-center staging · filmic grade + toe · eased felt camera · two-octave fBm parallax · GPU-fade outro · reading-order entrances.
+
+**Reference deliverables:** `lower-third-cinematic` (overlay reference) + `server-renders-again` (editorial-mono gate) are the prior bar; `chapter-card-cinematic` is the **surface reference** being driven to the *new* cinematic bar now (blocker fixed, ready for re-Critic).
+
+Gating note: `pullquote-on-photo` is blocked on the image-substrate + edge-treatment primitives. All other families are unblocked.
 
 **dex is the source of truth for per-family task state** (run `dex list --ready`).
 
@@ -88,6 +94,9 @@ Gating note: on-photo and collage families (`pullquote-on-photo`) are partially 
 
 ## ✅ Recently shipped (context)
 
+- **Dimensional depth stage — ADR-0028 (2026-06):** a real WebGPU 3D compositor (`state.stage`). POC-validated → integrated → Critic-accepted: `DepthStage` renderer (surface plane over a backdrop at depth, perspective camera push/drift, per-pixel-depth mip-prefiltered gather DOF), `renderAt` branch (preview + export, export==preview, deterministic to ~0.002%), orientation reflow, `depth-stage-demo` fixture. Flat multiplane (ADR-0027) stays the default. Remaining (tracked): overlay-at-depth, scene lighting/shadow, half-res 4K perf.
+- **Two engine bugs fixed (2026-06, surfaced driving chapter-card cinematic):** (1) opacity-exit ease head-loaded fades — `getEaseGsap` now direction+property-aware (opacity exits use `.inOut`, transform exits keep `.out`). (2) `copyElementImageToTexture` can't capture CSS `opacity<1` (it's a compositing-layer promoter → captures transparent), so `style:opacity` surface fades were BINARY; fix is a GPU alpha-multiply (done for chapter-card; generalization tracked). See `docs/critic-captures/text-fade-bug-investigation.md`.
+- **Corpus cinematic audit (2026-06):** 12-agent parallel critique set the honest Netflix bar (every family 2–5/10) + the reusable recipe; `chapter-card-cinematic` driven toward the surface-reference bar. See `docs/critic-captures/corpus-cinematic-audit.md`.
 - **Multi-state transitions v1 (2026-06):** snapshot-and-wipe (ADR-0026). A `transition` Preset snapshots its `from`/`to` states into textures and the `mask-wipe` Effect composites a true per-pixel wipe between them; pixel-verified end-to-end. Came with a render-path hardening pass: fixed an infinite `$effect` loop that froze all rendering, then reduced Workspace render orchestration from 7 effects to a single explicit render path + one untracked authoring→canvas bridge. Also: built `scripts/cdp-capture.mjs` (drives a flag-enabled Chrome over CDP) — the first real pixel-verification harness.
 - **Engine arc complete (2026-06):** structural Pack→pixel contract (rgb-channel resolver, skipped-color pass, depth/font Roles end-to-end); genuine orientation reflow (safe-areas as layout inputs, per-orientation type/motion); output background model (emergent segment/bumper lane via `backgroundFill`); camera motion stripped; cursor-trail pointer Pack-resolved; 4 dead pipelines proven; code hygiene (double-casts converged, dead accessors removed).
 - **`server-renders-again`** — editorial-mono acceptance gate; proves multi-pack is live end-to-end.

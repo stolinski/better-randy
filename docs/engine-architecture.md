@@ -118,6 +118,7 @@ interface EngineState {
   textAnimations: TextAnimation[];  // default []; orchestration, not a Layer (ADR-0011)
   overlays: Overlay[];              // default []
   effects: Effect[];                // default []; ONE flat chain (ADR-0018)
+  stage?: Stage;                    // optional; absent = flat path. Dimensional depth stage (ADR-0028)
 }
 
 // Surface is a CLOSED enum (1:1 with registered surfaces).
@@ -203,6 +204,10 @@ One folder under `src/lib/pipelines/<layer>/<name>/` (`index.ts` + `CanvasSource
 
 **Contract specifics (all current):** off-screen intermediates are `rgba16float` (`INTERMEDIATE_FORMAT`); the **present pass** applies interleaved-gradient-noise dither (±0.5/255 on RGB, alpha exact) on the single 16f→8bit write — this is the banding fix, and it runs whether or not effects exist; canvas context is `alphaMode: 'premultiplied'`; every color attachment uses `loadOp: 'clear'`, `clearValue: [0,0,0,0]`. Time-driven shaders read `ctx = { progress, timestamp }`, plumbed identically through both the effect chain ([ADR-0012](adr/0012-effect-pack-context-progress-timestamp.md)) and shaderPasses ([ADR-0013](adr/0013-shaderpass-pack-context.md)) so preview and export agree.
 
+**Two render paths (composition-wide switch).** `renderAt` selects per composition: `state.stage` present → the **dimensional depth stage** ([ADR-0028](adr/0028-dimensional-depth-stage.md), `DepthStage`) — the surface composite on a 3D plane over a backdrop plane at depth, perspective camera, per-pixel-depth mip-prefiltered gather DOF; else `depth-of-field` Effect present → 2.5D multiplane bokeh (ADR-0027); else the flat composite above. All three share the same capture seam, effect chain, present, and export — preview == export holds for each.
+
+**Surface fades are GPU, not CSS opacity.** `copyElementImageToTexture` cannot rasterize a DOM element's CSS `opacity < 1` (it captures transparent — see [`html-in-canvas-typegpu.md`](html-in-canvas-typegpu.md)). So a surface's `paperVisibility` fade must be applied as an alpha-multiply on the captured texture (GPU), not via `style:opacity` on the element, or the fade is binary (full→gone). Done for the depth stage; generalizing to every surface is a tracked follow-up ([`roadmap.md`](roadmap.md)).
+
 ### shaderPass vs Effect
 
 - **Effect** — pure post-process in the frame chain. Reads a source texture, writes a destination. Needs no scene knowledge beyond its uniforms. Adding one is a shader file + a registry entry.
@@ -254,7 +259,7 @@ Pinned in ADRs or schema but **not wired into rendering**. Do not describe these
 - **Genuine orientation reflow** — safe-areas as layout inputs, orientation as render target (above).
 - **Structural Pack Roles** — `edge`/`light`/`material` reaching pixels (`depth` is wired via `resolveDepthTreatment`; the unused `resolveStyle`/`resolveRole` accessors are now removed).
 - **Z-depth / focal-distance + depth-of-field** — [ADR-0021](adr/0021-z-plane-semantics.md) pins the semantics (single-channel f32 sidecar, focal-distance not world-space); no depth target exists in code. DOF v1 ships as multiplane bokeh ([ADR-0027](adr/0027-dof-v1-multiplane-bokeh.md)).
-- **Dimensional depth stage** — [ADR-0028](adr/0028-dimensional-depth-stage.md): an opt-in WebGPU 3D compositor (Layer textures on perspective planes, per-pixel depth from geometry, mip-gather DOF, real camera/light) for continuous-depth pieces; reintroduces camera as stage-scoped data (`stage.camera` — camera-as-data was stripped as inert) and realizes ADR-0021's per-pixel depth target. Validated in the `src/routes/poc/dof3d/` POC; not wired into `renderAt`. Flat multiplane (0027) stays the default.
+- **Dimensional depth stage — BUILT (v1), see § Rendering pipeline above.** [ADR-0028](adr/0028-dimensional-depth-stage.md) is integrated + Critic-accepted (`state.stage`, `DepthStage`, renderAt branch, export). Remaining (not built): overlay-at-depth, real scene lighting/shadow (the `light`/`material` Roles), half-res DOF for 4K perf — tracked in `roadmap.md`.
 - **Multi-state transitions** — [ADR-0022](adr/0022-multi-state-composition.md) pins the `transition: { from, to, effect }` shape (dual-tree render, two color targets sampled by one mask); no multi-state machinery exists. Relevant to segments/bumpers.
 - **Camera motion** — `surface.camera` (`push`/`snap`) was **stripped** as inert (no pipeline read it; field/UI/lint removed). Camera returns as stage-scoped data only when a real consumer exists — the dimensional depth stage ([ADR-0028](adr/0028-dimensional-depth-stage.md), `stage.camera`).
 - **New Block types** — `mermaid` / `code` / `image` / `chart` are unbuilt; only `paragraph` ships.
