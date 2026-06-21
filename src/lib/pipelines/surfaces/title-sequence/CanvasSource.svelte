@@ -70,19 +70,26 @@
 		position: relative;
 	}
 
+	/*
+	 * Off-centre staging: the title block anchors to the lower-left as a
+	 * left-aligned L (kicker → title share one left edge at 8%), leaving the
+	 * upper-right — where the warm key glow sits (glowOrigin 0.82, 0.16) — as
+	 * shaped negative space. Shadows fall down-left, agreeing with the key.
+	 * The shader drops the captured text into this resting position.
+	 */
 	.title-sequence-source__kicker {
 		color: var(--kicker, #fabf47);
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-weight: 500;
-		inset-block-start: 30%;
-		inset-inline-start: 50%;
-		letter-spacing: 0.24em;
+		inset-block-start: 51%;
+		inset-inline-start: 8%;
+		letter-spacing: 0.30em;
 		opacity: 0.88;
-		padding-inline-start: 0.24em;
+		padding-inline-start: 0.30em;
 		position: absolute;
-		text-shadow: 0 0.04em 0.10em rgba(0, 0, 0, 0.85);
+		text-shadow: -0.02em 0.04em 0.10em rgba(0, 0, 0, 0.85);
 		text-transform: uppercase;
-		transform: translate(-50%, -50%);
+		transform: translateY(-50%);
 	}
 
 	.title-sequence-source__title {
@@ -91,17 +98,17 @@
 		font-stretch: condensed;
 		font-style: normal;
 		font-weight: 900;
-		inline-size: 88%;
-		inset-block-start: 50%;
-		inset-inline-start: 50%;
+		inline-size: 84%;
+		inset-block-start: 63%;
+		inset-inline-start: 8%;
 		letter-spacing: -0.02em;
 		line-height: 0.92;
 		margin: 0;
 		position: absolute;
-		text-align: center;
-		text-shadow: 0 0.08em 0.18em rgba(0, 0, 0, 0.9);
+		text-align: left;
+		text-shadow: -0.03em 0.08em 0.18em rgba(0, 0, 0, 0.9);
 		text-transform: uppercase;
 		text-wrap: balance;
-		transform: translate(-50%, -50%);
+		transform: translateY(-50%);
 	}
 </style>

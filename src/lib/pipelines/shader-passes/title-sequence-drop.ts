@@ -14,8 +14,13 @@ import { hashStringToUnitInterval } from '$lib/utils/seeded';
  * frame with a brief brightness flash, and then settle.
  *
  * What the shader carries:
- *   - **Deep black backdrop** with subtle off-frame warm glow (upper-left).
- *     Cinema-grade dark zone behind the text.
+ *   - **Graded cinema backdrop.** Deep black with a vertical cool->warm lean,
+ *     an off-frame warm key glow (upper-right, balancing the lower-left title),
+ *     two-octave atmospheric parallax noise, a corner vignette, and a filmic
+ *     toe (black-lift) — a graded dark zone with depth, not a flat #000 void.
+ *   - **Slow camera push.** The backdrop dollies + drifts over the full clip
+ *     while the foreground title holds, so the long hold breathes (parallax)
+ *     instead of sitting dead-static after the drop.
  *   - **Shader-driven drop motion.** During progress 0.00 → 0.20 the sampled
  *     text texture is offset downward (text "enters" from above the frame).
  *     The offset uses ease-out, so the drop decelerates into the impact.
@@ -58,14 +63,54 @@ const wgsl = /* wgsl */ `
 	let t = layout.$.uniforms.progress;
 	let aspectRatio = canvasW / canvasH;
 
-	// ----- Deep black backdrop with subtle off-frame warm glow -----
-	let baseColor = vec3f(0.012, 0.014, 0.020);
-	let glowOrigin = vec2f(0.15, 0.10);
-	let glowDelta = (in.uv - glowOrigin) * vec2f(aspectRatio, 1.0);
+	// ----- Graded cinema backdrop with slow camera push (parallax depth) -----
+	//
+	// The title drop is animated on in.uv (foreground); the backdrop samples
+	// through a slow dolly + horizontal drift so the frame breathes for the full
+	// clip — no dead static hold — and reads as a deeper plane behind the title.
+	let camT = t * t * (3.0 - 2.0 * t);
+	let cameraDriftX = -0.045 * camT;
+	let dollyScale = 1.0 + 0.05 * camT;
+	let dollyCentre = vec2f(0.5);
+	let bgUv = (in.uv - dollyCentre) / dollyScale + dollyCentre + vec2f(cameraDriftX, 0.0);
+
+	// Deep cinema black with a vertical cool->warm lean (filmic split, not a
+	// flat #000 void): cooler at the top, a touch warmer toward the floor.
+	let topColor = vec3f(0.014, 0.018, 0.030);
+	let bottomColor = vec3f(0.026, 0.020, 0.016);
+	let baseColor = mix(topColor, bottomColor, clamp(bgUv.y, 0.0, 1.0));
+
+	// Warm key glow implied off-frame upper-right, balancing the lower-left
+	// title block. Elliptical, aspect-corrected, tracked by the camera push.
+	let glowOrigin = vec2f(0.82, 0.16);
+	let glowDelta = (bgUv - glowOrigin) * vec2f(aspectRatio, 1.0);
 	let glowDist = length(glowDelta);
-	let glowFalloff = 1.0 - smoothstep(0.05, 0.60, glowDist);
-	let glowColor = vec3f(0.86, 0.52, 0.30);
-	let lit = baseColor + glowColor * glowFalloff * 0.10;
+	let glowFalloff = 1.0 - smoothstep(0.05, 0.64, glowDist);
+	let glowColor = vec3f(0.92, 0.58, 0.34);
+	let lit = baseColor + glowColor * glowFalloff * 0.13;
+
+	// Two-layer atmospheric parallax: far + near value-noise octaves drifting at
+	// different rates so the dark field reads as depth, not one flat haze.
+	let farUv = vec2f(bgUv.x + cameraDriftX * 1.0, bgUv.y) * 10.0 + vec2f(seed * 13.0, seed * 19.0);
+	let farCell = floor(farUv);
+	let farF = fract(farUv);
+	let farL = farF * farF * (3.0 - 2.0 * farF);
+	let f00 = fract(sin(dot(farCell, vec2f(127.1, 311.7))) * 43758.5453);
+	let f10 = fract(sin(dot(farCell + vec2f(1.0, 0.0), vec2f(127.1, 311.7))) * 43758.5453);
+	let f01 = fract(sin(dot(farCell + vec2f(0.0, 1.0), vec2f(127.1, 311.7))) * 43758.5453);
+	let f11 = fract(sin(dot(farCell + vec2f(1.0, 1.0), vec2f(127.1, 311.7))) * 43758.5453);
+	let farNoise = mix(mix(f00, f10, farL.x), mix(f01, f11, farL.x), farL.y);
+	let nearUv = vec2f(bgUv.x + cameraDriftX * 2.6, bgUv.y) * 3.5 + vec2f(seed * 7.0, seed * 29.0);
+	let nearCell = floor(nearUv);
+	let nearF = fract(nearUv);
+	let nearL = nearF * nearF * (3.0 - 2.0 * nearF);
+	let g00 = fract(sin(dot(nearCell, vec2f(127.1, 311.7))) * 43758.5453);
+	let g10 = fract(sin(dot(nearCell + vec2f(1.0, 0.0), vec2f(127.1, 311.7))) * 43758.5453);
+	let g01 = fract(sin(dot(nearCell + vec2f(0.0, 1.0), vec2f(127.1, 311.7))) * 43758.5453);
+	let g11 = fract(sin(dot(nearCell + vec2f(1.0, 1.0), vec2f(127.1, 311.7))) * 43758.5453);
+	let nearNoise = mix(mix(g00, g10, nearL.x), mix(g01, g11, nearL.x), nearL.y);
+	let atmosphericNoise = farNoise * 0.45 + nearNoise * 0.55;
+	let atmospheric = lit * (1.0 + (atmosphericNoise - 0.5) * 0.10);
 
 	// ----- Drop motion (shader-driven text offset + motion blur) -----
 	//
@@ -142,10 +187,23 @@ const wgsl = /* wgsl */ `
 	let flashLift = flashEnvelope * 0.45;
 	let flashedRgb = blurredRgb + vec3f(flashLift);
 
+	// ----- Vignette (pull attention inward, off the dark corners) -----
+	let centred = (in.uv - vec2f(0.5)) * vec2f(aspectRatio, 1.0);
+	let centreDist = length(centred);
+	let vignette = smoothstep(0.40, 1.20, centreDist) * 0.34;
+	let vignetted = atmospheric * (1.0 - vignette);
+
 	// ----- Fine film grain -----
 	let grainSeed = floor(in.uv * vec2f(canvasW, canvasH)) + vec2f(seed * 19.0 + t * 7.0, seed * 23.0 + t * 11.0);
 	let grain = fract(sin(dot(grainSeed, vec2f(127.1, 311.7))) * 43758.5453) - 0.5;
-	let backdropGrained = lit + vec3f(grain) * 0.020;
+	let grained = vignetted + vec3f(grain) * 0.022;
+
+	// ----- Filmic toe (black-lift) -----
+	//
+	// Lift crushed shadows (gamma 0.94) so the dark field reads as graded depth
+	// rather than a flat void — keeps the parallax + gradient visible in the
+	// lower stops instead of clipping them to pure black.
+	let backdropGrained = pow(max(grained, vec3f(0.0)), vec3f(0.94));
 
 	// ----- Composite text over backdrop -----
 	//
