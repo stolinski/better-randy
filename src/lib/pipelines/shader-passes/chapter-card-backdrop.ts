@@ -1,5 +1,6 @@
 import { d } from 'typegpu';
 
+import { animState } from '$lib/platform/anim-state.svelte';
 import type { ShaderPass } from '$lib/platform/pipelines/types';
 import type { SurfaceState } from '$lib/platform/engine-schema';
 import { hashStringToUnitInterval } from '$lib/utils/seeded';
@@ -28,7 +29,8 @@ export const ChapterCardBackdropUniforms = d.struct({
 	seed: d.f32,
 	progress: d.f32,
 	canvasWidth: d.f32,
-	canvasHeight: d.f32
+	canvasHeight: d.f32,
+	paperVisibility: d.f32
 });
 
 export interface ChapterCardBackdropParams {
@@ -36,6 +38,7 @@ export interface ChapterCardBackdropParams {
 	progress: number;
 	canvasWidth: number;
 	canvasHeight: number;
+	paperVisibility: number;
 }
 
 const FALLBACK_CANVAS_WIDTH = 3840;
@@ -141,9 +144,15 @@ const wgsl = /* wgsl */ `
 	// Full-frame bumper (preset declares backgroundFill). Alpha = 1.0 so the
 	// engine's backgroundFill composite signals the export lane; the shader does
 	// not bake alpha into the channel. Text fades via paperVisibility on element.
+	// Surface fade on the GPU. copyElementImageToTexture cannot capture a DOM
+	// element's CSS opacity<1 (it captures transparent — see F1 in
+	// docs/critic-captures/text-fade-bug-investigation.md), so the article stays
+	// opaque and we fade the captured surface here by paperVisibility. This gives
+	// a true gradual enter/exit instead of the binary snap CSS opacity produced.
+	let surfaceAlpha = inputSample.a * layout.$.uniforms.paperVisibility;
 	let backdropOpacity = 1.0;
-	let finalRgb = mix(toned, inputSample.rgb, inputSample.a);
-	let finalAlpha = max(inputSample.a, backdropOpacity);
+	let finalRgb = mix(toned, inputSample.rgb, surfaceAlpha);
+	let finalAlpha = max(surfaceAlpha, backdropOpacity);
 	return vec4f(finalRgb, finalAlpha);
 `;
 
@@ -158,7 +167,10 @@ export function createChapterCardBackdropPass(): ShaderPass<SurfaceState> {
 				seed,
 				progress: ctx.progress,
 				canvasWidth: bounds.width > 0 ? bounds.width : FALLBACK_CANVAS_WIDTH,
-				canvasHeight: bounds.height > 0 ? bounds.height : FALLBACK_CANVAS_HEIGHT
+				canvasHeight: bounds.height > 0 ? bounds.height : FALLBACK_CANVAS_HEIGHT,
+				// Surface fade is applied here (GPU), not via DOM opacity — the capture
+				// can't rasterize element opacity<1. Read imperatively during render.
+				paperVisibility: animState.paperVisibility
 			} satisfies ChapterCardBackdropParams;
 		}
 	};
