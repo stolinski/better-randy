@@ -33,30 +33,12 @@
 				"ease": "settled"
 			},
 			"exit": {
-				"start": 0.88,
-				"duration": 0.03,
+				"start": 0.93,
+				"duration": 0.05,
 				"ease": "smooth"
 			}
 		},
 		"textAnimations": [
-			{
-				"id": "kicker-fade",
-				"target": {
-					"kind": "surface",
-					"slot": "kicker"
-				},
-				"effect": "fade-through",
-				"enter": {
-					"start": 0.02,
-					"duration": 0.05,
-					"ease": "settled"
-				},
-				"exit": {
-					"start": 0.9,
-					"duration": 0.03,
-					"ease": "smooth"
-				}
-			},
 			{
 				"id": "title-reveal",
 				"target": {
@@ -70,8 +52,26 @@
 					"ease": "settled"
 				},
 				"exit": {
-					"start": 0.86,
-					"duration": 0.03,
+					"start": 0.92,
+					"duration": 0.05,
+					"ease": "smooth"
+				}
+			},
+			{
+				"id": "kicker-fade",
+				"target": {
+					"kind": "surface",
+					"slot": "kicker"
+				},
+				"effect": "fade-through",
+				"enter": {
+					"start": 0.14,
+					"duration": 0.05,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.94,
+					"duration": 0.05,
 					"ease": "smooth"
 				}
 			}

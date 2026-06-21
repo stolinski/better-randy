@@ -68,29 +68,35 @@
 		position: relative;
 	}
 
+	/*
+	 * Off-centre staging: the text block anchors to the lower-left third as a
+	 * left-aligned L (kicker → rule → title share one left edge at 30%), leaving
+	 * the upper-right quadrant — where the warm key glow sits (lightOrigin
+	 * 0.82, 0.18) — as intentional negative space. Directional shadows fall
+	 * down-left, agreeing with the upper-right key.
+	 */
 	.chapter-card-source__kicker {
 		color: var(--kicker, #fabf47);
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-weight: 500;
-		inset-block-start: 38%;
-		inset-inline-start: 50%;
-		letter-spacing: 0.22em;
-		opacity: 0.9;
-		padding-inline-start: 0.22em;
+		inset-block-start: 50.5%;
+		inset-inline-start: 30%;
+		letter-spacing: 0.18em;
+		opacity: 0.92;
 		position: absolute;
-		text-shadow: -0.035em 0.025em 0.10em rgba(0, 0, 0, 0.8);
+		text-shadow: -0.02em 0.03em 0.06em rgba(0, 0, 0, 0.6);
 		text-transform: uppercase;
-		transform: translate(-50%, -50%);
+		transform: translateY(-50%);
 	}
 
 	.chapter-card-source__rule {
-		background-color: var(--rule, rgba(216, 196, 160, 0.62));
-		block-size: 3px;
-		inset-block-start: 46%;
-		inset-inline-start: 50%;
-		inline-size: 3.6%;
+		background-color: var(--rule, rgba(250, 191, 71, 0.55));
+		block-size: 5px;
+		inset-block-start: 54.5%;
+		inset-inline-start: 30%;
+		inline-size: 8%;
 		position: absolute;
-		transform: translate(-50%, -50%);
+		transform: translateY(-50%);
 	}
 
 	.chapter-card-source__title {
@@ -98,15 +104,15 @@
 		font-family: 'EB Garamond', 'Charter', 'Iowan Old Style', Georgia, serif;
 		font-style: normal;
 		font-weight: 700;
-		inline-size: 60%;
-		inset-block-start: 56%;
-		inset-inline-start: 50%;
+		inline-size: 50%;
+		inset-block-start: 62%;
+		inset-inline-start: 30%;
 		line-height: 1.05;
 		margin: 0;
 		position: absolute;
-		text-align: center;
-		text-shadow: -0.045em 0.035em 0.14em rgba(0, 0, 0, 0.85);
+		text-align: left;
+		text-shadow: -0.02em 0.03em 0.06em rgba(0, 0, 0, 0.6);
 		text-wrap: balance;
-		transform: translate(-50%, -50%);
+		transform: translateY(-50%);
 	}
 </style>

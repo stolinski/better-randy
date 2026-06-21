@@ -56,8 +56,9 @@ const wgsl = /* wgsl */ `
 	// gets a subtle scale-in (1.0 → 1.06), reinforcing the camera-push read.
 	// Each layer samples through its own UV transform — the text on top is
 	// untouched, so only the backdrop appears to move.
-	let cameraDriftX = -0.10 * t;
-	let dollyScale = 1.0 + 0.06 * t;
+	let camT = t * t * (3.0 - 2.0 * t);
+	let cameraDriftX = -0.16 * camT;
+	let dollyScale = 1.0 + 0.12 * camT;
 	let dollyCentre = vec2f(0.5);
 	let dolliedUv = (in.uv - dollyCentre) / dollyScale + dollyCentre;
 	let backgroundUv = vec2f(dolliedUv.x + cameraDriftX, dolliedUv.y);
@@ -67,8 +68,8 @@ const wgsl = /* wgsl */ `
 	//
 	// Slate at the top, slightly warmer charcoal at the bottom. Cool palette
 	// avoids the orange-and-teal cliché while still grading the frame.
-	let topColor = vec3f(0.040, 0.052, 0.072);
-	let bottomColor = vec3f(0.064, 0.054, 0.046);
+	let topColor = vec3f(0.055, 0.070, 0.098);
+	let bottomColor = vec3f(0.090, 0.076, 0.062);
 	let baseColor = mix(topColor, bottomColor, backgroundUv.y);
 
 	// ----- Off-centre warm corner glow -----
@@ -81,7 +82,7 @@ const wgsl = /* wgsl */ `
 	let lightDist = length(lightDelta);
 	let lightFalloff = 1.0 - smoothstep(0.08, 0.65, lightDist);
 	let lightColor = vec3f(0.94, 0.72, 0.46);
-	let lit = baseColor + lightColor * lightFalloff * 0.14;
+	let lit = baseColor + lightColor * lightFalloff * 0.20;
 
 	// ----- Atmospheric noise layer (parallax) -----
 	//
@@ -106,7 +107,7 @@ const wgsl = /* wgsl */ `
 	// peripheral fade.
 	let centred = (in.uv - vec2f(0.5)) * vec2f(aspectRatio, 1.0);
 	let centreDist = length(centred);
-	let vignette = smoothstep(0.30, 1.05, centreDist) * 0.38;
+	let vignette = smoothstep(0.35, 1.15, centreDist) * 0.30;
 	let vignetted = atmospheric * (1.0 - vignette);
 
 	// ----- Fine film grain -----
@@ -116,13 +117,20 @@ const wgsl = /* wgsl */ `
 	let grain = fract(sin(dot(grainSeed, vec2f(127.1, 311.7))) * 43758.5453) - 0.5;
 	let grained = vignetted + vec3f(grain) * 0.025;
 
+	// ----- Filmic toe -----
+	//
+	// Gentle lift (gamma 0.92) so the graded frame keeps readable midtones in the
+	// shadows instead of crushing the field to pure black — gives the scene depth
+	// to read rather than "black + a warm smudge."
+	let toned = pow(max(grained, vec3f(0.0)), vec3f(0.92));
+
 	// ----- Composite text over backdrop -----
 	//
 	// Full-frame bumper (preset declares backgroundFill). Alpha = 1.0 so the
 	// engine's backgroundFill composite signals the export lane; the shader does
 	// not bake alpha into the channel. Text fades via paperVisibility on element.
 	let backdropOpacity = 1.0;
-	let finalRgb = mix(grained, inputSample.rgb, inputSample.a);
+	let finalRgb = mix(toned, inputSample.rgb, inputSample.a);
 	let finalAlpha = max(inputSample.a, backdropOpacity);
 	return vec4f(finalRgb, finalAlpha);
 `;
