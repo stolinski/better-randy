@@ -127,19 +127,16 @@ Parse-time validation:
 
 When a body has both `marks.timings[]` and a `textAnimations[]` entry targeting it, the marks renderer multiplies its drawn alpha by the body's animated unit alpha so marks ride along with their text.
 
-### `effects` (per-layer post-process chain)
+### `effects` (one composition-wide post-process chain)
 
 ```jsonc
-"effects": {
-  "surface":     [{ "type": "paper-grain", "id": "s1", "params": { ... } }],
-  "body":        [],
-  "annotations": [],
-  "overlays":    [],
-  "frame":       [{ "type": "paper-grain", "id": "f1", "params": { ... } }]
-}
+"effects": [
+  { "type": "paper-grain", "id": "f1", "params": { ... } },
+  { "type": "chromatic-aberration", "id": "f2", "params": { ... } }
+]
 ```
 
-Each effect entry is `{ type, id, params }`. The `params` schema is declared by the effect's `EffectRenderer.schema` (`src/lib/pipelines/effects/<name>/index.ts`).
+A single flat chain, run after the final composite — [ADR-0018](adr/0018-collapse-effects-to-frame-only.md) collapsed the old per-layer `{ surface, body, annotations, overlays, frame }` object (only `frame` was ever consumed). Each entry is `{ type, id, params }`; `params` is declared by the effect's `EffectRenderer.schema` (`src/lib/pipelines/effects/<name>/index.ts`). Per-target shader work that needs layer-local knowledge is a `shaderPass` on the Surface/Overlay renderer, not an Effect ([ADR-0005](adr/0005-overlay-renderer-shader-pass.md)).
 
 ### `stage` (optional — dimensional depth stage)
 
