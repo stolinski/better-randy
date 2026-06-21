@@ -88,17 +88,29 @@ const wgsl = /* wgsl */ `
 	//
 	// Single octave of value noise drifting at the closer parallax rate.
 	// Adds depth that the backdrop gradient alone can't.
-	let noiseScale = 12.0;
-	let nUv = noiseUv * noiseScale + vec2f(seed * 13.0, seed * 19.0);
-	let nCell = floor(nUv);
-	let nF = fract(nUv);
-	let nL = nF * nF * (3.0 - 2.0 * nF);
-	let h00 = fract(sin(dot(nCell, vec2f(127.1, 311.7))) * 43758.5453);
-	let h10 = fract(sin(dot(nCell + vec2f(1.0, 0.0), vec2f(127.1, 311.7))) * 43758.5453);
-	let h01 = fract(sin(dot(nCell + vec2f(0.0, 1.0), vec2f(127.1, 311.7))) * 43758.5453);
-	let h11 = fract(sin(dot(nCell + vec2f(1.0, 1.0), vec2f(127.1, 311.7))) * 43758.5453);
-	let atmosphericNoise = mix(mix(h00, h10, nL.x), mix(h01, h11, nL.x), nL.y);
-	let atmospheric = lit * (1.0 + (atmosphericNoise - 0.5) * 0.10);
+	// Far octave: fine value noise drifting at the 2.4x noise rate.
+	let farUv = noiseUv * 12.0 + vec2f(seed * 13.0, seed * 19.0);
+	let farCell = floor(farUv);
+	let farF = fract(farUv);
+	let farL = farF * farF * (3.0 - 2.0 * farF);
+	let f00 = fract(sin(dot(farCell, vec2f(127.1, 311.7))) * 43758.5453);
+	let f10 = fract(sin(dot(farCell + vec2f(1.0, 0.0), vec2f(127.1, 311.7))) * 43758.5453);
+	let f01 = fract(sin(dot(farCell + vec2f(0.0, 1.0), vec2f(127.1, 311.7))) * 43758.5453);
+	let f11 = fract(sin(dot(farCell + vec2f(1.0, 1.0), vec2f(127.1, 311.7))) * 43758.5453);
+	let farNoise = mix(mix(f00, f10, farL.x), mix(f01, f11, farL.x), farL.y);
+	// Near octave: larger-scale, drifting FASTER (3.6x) — a distinct closer plane
+	// the eye can track passing the far plane (real parallax, not one flat haze).
+	let nearUv = vec2f(dolliedUv.x + cameraDriftX * 3.6, dolliedUv.y) * 4.0 + vec2f(seed * 7.0, seed * 29.0);
+	let nearCell = floor(nearUv);
+	let nearF = fract(nearUv);
+	let nearL = nearF * nearF * (3.0 - 2.0 * nearF);
+	let g00 = fract(sin(dot(nearCell, vec2f(127.1, 311.7))) * 43758.5453);
+	let g10 = fract(sin(dot(nearCell + vec2f(1.0, 0.0), vec2f(127.1, 311.7))) * 43758.5453);
+	let g01 = fract(sin(dot(nearCell + vec2f(0.0, 1.0), vec2f(127.1, 311.7))) * 43758.5453);
+	let g11 = fract(sin(dot(nearCell + vec2f(1.0, 1.0), vec2f(127.1, 311.7))) * 43758.5453);
+	let nearNoise = mix(mix(g00, g10, nearL.x), mix(g01, g11, nearL.x), nearL.y);
+	let atmosphericNoise = farNoise * 0.45 + nearNoise * 0.55;
+	let atmospheric = lit * (1.0 + (atmosphericNoise - 0.5) * 0.16);
 
 	// ----- Heavy vignette -----
 	//
