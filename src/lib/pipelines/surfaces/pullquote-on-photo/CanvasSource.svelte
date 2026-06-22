@@ -87,9 +87,9 @@
 		 */
 		background: radial-gradient(
 			ellipse 68% 46% at 50% 48%,
-			rgba(4, 4, 8, 0.66) 0%,
-			rgba(4, 4, 8, 0.46) 42%,
-			rgba(4, 4, 8, 0) 78%
+			rgba(4, 4, 8, 0.44) 0%,
+			rgba(4, 4, 8, 0.3) 50%,
+			rgba(4, 4, 8, 0) 82%
 		);
 		inset: 0;
 		position: absolute;
@@ -117,11 +117,10 @@
 		font-style: normal;
 		font-weight: 500;
 		inset-block-end: 12%;
-		inset-inline: 0;
+		inset-inline-end: 7%;
 		letter-spacing: 0.24em;
-		margin: 0 auto;
 		position: absolute;
-		text-align: center;
+		text-align: end;
 		text-shadow: 0 0.04em 0.10em rgba(0, 0, 0, 0.8);
 		text-transform: uppercase;
 	}
