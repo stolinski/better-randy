@@ -292,6 +292,9 @@ export function applyCompositionState(preset: Preset): void {
 				focus: {
 					...next.stage.focus,
 					pull: next.stage.focus.pull ? { ...next.stage.focus.pull } : undefined
+				},
+				backdrop: {
+					image: next.stage.backdrop.image ? { ...next.stage.backdrop.image } : undefined
 				}
 			}
 		: undefined;

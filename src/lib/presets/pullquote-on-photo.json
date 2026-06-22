@@ -1,0 +1,46 @@
+{
+	"schema": "hiviz@1",
+	"name": "Pullquote on photo — depth stage",
+	"description": "A pullquote floating over a real photographic substrate on the dimensional depth stage (ADR-0028, dex p20 image-substrate). The atmospheric photo sits on the backdrop plane; the quote + contrast scrim float on the near plane; a slow camera push reprojects them at different rates (real parallax, not a flat overlay), and a rack focus opens defocused on the photo then pulls to the pin-sharp quote. The substrate is a bundled, deterministic in-repo image (atmosphere-warm) resolved to a GPU texture on the backdrop plane's textured branch. backgroundFill is the opaque-lane backstop behind the full-bleed photo.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 7,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "#0a0807",
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#2a2018",
+			"inkColor": "#fdf6ec"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "pullquote-on-photo",
+			"content": {
+				"title": "Build on bedrock. The tide goes out; bedrock stays.",
+				"author": "Scott Tolinski",
+				"body": ""
+			},
+			"enter": { "start": 0, "duration": 0.06, "ease": "settled" },
+			"exit": { "start": 0.9, "duration": 0.045, "ease": "smooth" }
+		},
+		"stage": {
+			"type": "depth",
+			"camera": { "move": "push", "amount": 0.6, "ease": "smooth" },
+			"focus": {
+				"focusZ": 0,
+				"aperture": 0.5,
+				"pull": { "from": 0.8, "to": 0.06, "start": 0.08, "duration": 0.6 }
+			},
+			"backdrop": { "image": { "asset": "atmosphere-warm" } }
+		},
+		"overlays": [],
+		"effects": []
+	}
+}

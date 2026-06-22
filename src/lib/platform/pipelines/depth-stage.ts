@@ -176,8 +176,13 @@ export interface DepthStageInput {
 	focusZ: number;
 	/** Max circle-of-confusion / blur strength, 0..1. */
 	aperture: number;
-	/** Backdrop plane colour (rgb 0..1). */
+	/** Backdrop plane colour (rgb 0..1) — used when no backdrop image is given. */
 	backdropColor: [number, number, number];
+	/** Optional image substrate (dex p20) for the backdrop plane: a resident GPU
+	 *  texture sampled instead of `backdropColor` (the plane's `textured` branch),
+	 *  so a real photo sits on the far plane and reprojects under the camera push
+	 *  for parallax. Opaque — not transparency-discarded like the Surface plane. */
+	backdropTextureView?: GPUTextureView;
 	cameraMove: 'static' | 'push' | 'drift';
 	/** Camera move strength, 0..1. */
 	cameraAmount: number;
@@ -300,9 +305,13 @@ export class DepthStage {
 				eyeX = mix(-0.18, 0.14, e) * amt; // lateral parallax sweep
 			}
 			const vp = mat4.multiply(projection, mat4.lookAt([eyeX, 0, eyeZ], [0, 0, 0], [0, 1, 0]));
+			// A backdrop image textures the far plane (misc.z = textured); it's opaque,
+			// so misc.w = 0 (never discard, unlike the Surface plane's transparent
+			// surround). With no image the plane stays a solid colour (misc.z = 0).
+			const backdropTextured = input.backdropTextureView ? 1 : 0;
 			backdropPlane.write({
 				mvp: toMat4(mat4.multiply(vp, backdropModel) as Float32Array),
-				misc: d.vec4f(D_NEAR, D_FAR, 0, 0),
+				misc: d.vec4f(D_NEAR, D_FAR, backdropTextured, 0),
 				baseColor: d.vec4f(
 					input.backdropColor[0],
 					input.backdropColor[1],
@@ -321,9 +330,12 @@ export class DepthStage {
 				resolution: d.vec2f(width, height)
 			});
 
-			// Bind groups that reference the per-call Surface plane view.
+			// Bind groups that reference the per-call Surface plane view. The backdrop
+			// binds its image substrate when present (sampled via the `textured`
+			// branch); otherwise it binds the Surface view as an unused placeholder
+			// (the layout requires a texture, but misc.z = 0 ignores it).
 			const backdropBind = root.createBindGroup(planeLayout, {
-				surfaceTexture: input.surfacePlaneView,
+				surfaceTexture: input.backdropTextureView ?? input.surfacePlaneView,
 				samp: sampler,
 				plane: backdropPlane
 			});

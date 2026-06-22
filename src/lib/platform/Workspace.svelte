@@ -30,6 +30,7 @@
 	import VideoFrame from './VideoFrame.svelte';
 	import { fontsReady } from './fonts';
 	import { createGpuHost, type GpuHost } from './gpu-host';
+	import { disposeSubstrateTextures, getSubstrateTexture } from './substrate-textures';
 	import {
 		clearCanvasPaintHandler,
 		requestCanvasPaint,
@@ -81,6 +82,11 @@
 	// Dimensional depth stage (ADR-0028). Built when a Preset declares state.stage;
 	// renders the composition through a real 3D compositor instead of the flat path.
 	let depthStage = $state.raw<DepthStage | null>(null);
+	// Resident GPU texture for the depth stage's backdrop image substrate (dex
+	// p20), or null when the active stage declares no backdrop image. Loaded in
+	// the pipeline-build effect (gated into first paint alongside fonts) and
+	// sampled per frame by renderDepthStage — never decoded/uploaded per frame.
+	let substrateTexture = $state.raw<GPUTexture | null>(null);
 	let timeline = $state.raw<Timeline | null>(null);
 	const animationManager = new AnimationManager();
 	const textAnimationManager = new TextAnimationManager();
@@ -673,6 +679,7 @@
 		focusZ: number;
 		aperture: number;
 		backdropColor: [number, number, number];
+		backdropAsset: string | null;
 		cameraMove: 'static' | 'push' | 'drift';
 		cameraAmount: number;
 		effects: typeof engineState.effects;
@@ -704,6 +711,7 @@
 			focusZ,
 			aperture: clampNumber(stage.focus.aperture, 0, 1),
 			backdropColor,
+			backdropAsset: stage.backdrop.image?.asset ?? null,
 			cameraMove: stage.camera.move,
 			cameraAmount: clampNumber(stage.camera.amount, 0, 1),
 			effects: engineState.effects
@@ -791,6 +799,8 @@
 			focusZ: stage.focusZ,
 			aperture: stage.aperture,
 			backdropColor: stage.backdropColor,
+			backdropTextureView:
+				stage.backdropAsset && substrateTexture ? substrateTexture.createView() : undefined,
 			cameraMove: stage.cameraMove,
 			cameraAmount: stage.cameraAmount,
 			time: timebase.progress
@@ -1109,10 +1119,26 @@
 					renderAt(timeline.time);
 				}
 			});
-			// Gate the first capture on the active Pack's typefaces so the very first
-			// frame rasterizes the channel fonts, not OS fallbacks. Memoized, so this
-			// resolves ~immediately once the faces are cached.
-			void fontsReady().then(() => requestCanvasPaint(localCanvas));
+			// Load the depth-stage backdrop image substrate (dex p20), if the active
+			// stage declares one — decode + GPU upload once here, resident thereafter.
+			// Gated into first paint with fonts so the very first frame (and export)
+			// has the photo, not a blank/solid backdrop.
+			const stageAsset =
+				engineState.stage?.type === 'depth'
+					? (engineState.stage.backdrop.image?.asset ?? null)
+					: null;
+			const substrateReady: Promise<unknown> = stageAsset
+				? getSubstrateTexture(localHost, stageAsset).then((texture) => {
+						substrateTexture = texture;
+					})
+				: Promise.resolve((substrateTexture = null));
+
+			// Gate the first capture on the active Pack's typefaces (so the very first
+			// frame rasterizes the channel fonts, not OS fallbacks) and on the substrate
+			// texture. Both memoized, so this resolves ~immediately once cached.
+			void Promise.all([fontsReady(), substrateReady]).then(() =>
+				requestCanvasPaint(localCanvas)
+			);
 
 			return () => {
 				clearCanvasPaintHandler(localCanvas);
@@ -1251,6 +1277,8 @@
 		compositionPlanes = null;
 		depthStage?.dispose();
 		depthStage = null;
+		disposeSubstrateTextures();
+		substrateTexture = null;
 		snapshots?.dispose();
 		snapshots = null;
 		transitionWipe = null;

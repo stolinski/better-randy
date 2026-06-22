@@ -390,10 +390,22 @@ const StageFocusSchema = z.object({
 	pull: StageFocusPullSchema.optional()
 });
 
+// Optional image on the depth stage's backdrop plane (the far plane). `asset`
+// is a slug into the registered substrate asset map (src/lib/platform/
+// substrate-textures.ts) — a bundled, deterministic in-repo image, resolved to
+// a GPU texture and sampled by the backdrop plane's `textured` branch. Absent →
+// the backdrop stays a solid colour (backgroundFill). This is the image-
+// substrate input (dex p20) realised as a depth-stage backdrop: a real photo on
+// the far plane, the Surface (e.g. a pullquote) floating on the near plane, the
+// camera push reprojecting them at different rates for true parallax.
+const StageBackdropSchema = z.object({
+	image: z.object({ asset: z.string().min(1) }).optional()
+});
 const StageSchema = z.object({
 	type: z.string().min(1),
 	camera: StageCameraSchema.default({}),
-	focus: StageFocusSchema.default({})
+	focus: StageFocusSchema.default({}),
+	backdrop: StageBackdropSchema.default({})
 });
 
 export const EngineStateSchema = z.object({
