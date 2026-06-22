@@ -236,7 +236,14 @@ function checkOverlayPlacement(
 		const offset = overlay.position.offset;
 		const rect = overlay.position.rect;
 
-		if (anchor === 'normalized-rect' && rect) {
+		// cursor-trail uses a full-frame normalized-rect purely as its COORDINATE
+		// REFERENCE: it resolves named slot positions into this space and drives a
+		// pointer to them. The rect is not safe-area content — the visible pointer
+		// only ever lands on slots, which carry their own safe placement — so the
+		// safe-zone bound doesn't apply to its coordinate frame.
+		const isFullFrameCoordinateOverlay = overlay.type === 'cursor-trail';
+
+		if (anchor === 'normalized-rect' && rect && !isFullFrameCoordinateOverlay) {
 			if (
 				rect.x < sa.left ||
 				rect.y < sa.top ||

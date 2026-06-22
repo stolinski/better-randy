@@ -51,7 +51,7 @@
 					"handle": "@syntaxfm",
 					"label": "syntax.fm"
 				},
-				"position": { "anchor": "bottom-right", "offset": { "x": 0.05, "y": 0.05 } },
+				"position": { "anchor": "bottom-right", "offset": { "x": 0.1, "y": 0.17 } },
 				"enter": { "start": 0.04, "duration": 0.05, "ease": "settled" },
 				"exit": { "start": 0.91, "duration": 0.038, "ease": "smooth" }
 			}
