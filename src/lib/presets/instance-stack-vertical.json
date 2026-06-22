@@ -5,7 +5,7 @@
 	"pack": "syntax",
 	"state": {
 		"transport": {
-			"orientation": "horizontal",
+			"orientation": "vertical",
 			"durationSeconds": 6,
 			"fps": 30,
 			"format": "webm"

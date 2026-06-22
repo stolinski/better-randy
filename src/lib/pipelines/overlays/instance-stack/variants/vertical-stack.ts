@@ -27,7 +27,15 @@ export const verticalStack: InstanceStackVariant = {
 		// globalProgress=1.0, leaving zero hold frames at full opacity.
 		const riseDuration = Math.max(0.04, params.lagWindow * 0.25);
 		const localProgress = smoothstep(lag, lag + riseDuration, progress);
-		const opacity = lerp(params.opacityFloor, 1, localProgress);
+		// Persistent depth recession so the SETTLED stack reads as echoes
+		// receding into the frame, not flat coplanar copies: each lower instance
+		// is progressively smaller and a touch fainter even after it has risen.
+		// (Without this every instance reaches opacity 1 / scale 1 at rest and
+		// the stack is six identical stamps — the audit's "flat coplanar" note.)
+		const normalized = instanceIndex / Math.max(1, instanceCount - 1);
+		const depthScale = 1 - normalized * 0.14;
+		const depthDim = 1 - normalized * 0.16;
+		const opacity = lerp(params.opacityFloor, 1, localProgress) * depthDim;
 		// G8c arc: instances enter from 0.3em below their parked position.
 		// CSS margin-top (set in VerticalStackCanvasSource) handles base positioning;
 		// yOffset is a pure animation delta here.
@@ -36,7 +44,7 @@ export const verticalStack: InstanceStackVariant = {
 			xOffset: 0,
 			yOffset,
 			opacity,
-			scale: 1
+			scale: depthScale
 		};
 	},
 	CanvasSource: VerticalStackCanvasSource
