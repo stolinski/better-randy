@@ -58,6 +58,14 @@
 	}
 
 	function visibilityStyle(progress: number, renderer: OverlayRenderer): string {
+		// Clamp to [0,1] INTENTIONALLY: the generic overlay enter is a fade-through
+		// (opacity + a short slide-up), which is the motion-form every overlay
+		// Pipeline declares in its identity spec (e.g. watermark "fade-through").
+		// A `settled`/`back.out` ease can drive progress past 1; clamping discards
+		// that overshoot so the slide settles cleanly without a bounce that would
+		// contradict the declared fade-through. Do NOT un-clamp to "add overshoot"
+		// — overshoot is a different motion-form that would need per-overlay opt-in
+		// (and overshooting opacity is meaningless). See dex 9z8tm4na.
 		const visible = Math.max(0, Math.min(1, progress));
 		if (renderer.disableEntryOffset) {
 			return `opacity:${visible};`;
