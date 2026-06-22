@@ -76,12 +76,28 @@
 	const hasFooter = $derived(
 		Boolean(engineState.surface.content.source || engineState.surface.content.dateLabel)
 	);
+
+	// Soft photographic drop shadow lifting the sheet off the frame — the
+	// "paper on a desk" read, not a flat Figma artboard. A research paper is an
+	// underlying surface, so it carries the photographic multi-zone shadow
+	// (contact + mid + soft ambient), not the hard-offset collage shadow the
+	// Pack reserves for torn cards. Warm-dark tint (matches a paper cast shadow)
+	// and scaled to frame width so the lift holds on 4K horizontal and vertical.
+	const cardShadow = $derived.by(() => {
+		const s = frame.width / 3840;
+		return [
+			`0 ${2 * s}px ${5 * s}px rgba(20, 18, 14, 0.18)`,
+			`0 ${9 * s}px ${22 * s}px rgba(20, 18, 14, 0.2)`,
+			`0 ${26 * s}px ${52 * s}px rgba(20, 18, 14, 0.18)`
+		].join(', ');
+	});
 </script>
 
 <article
 	bind:this={element}
 	class="paper-source surface"
 	style:background-color={engineState.typography.paperColor}
+		style:box-shadow={cardShadow}
 	style:block-size={`${layout.height}px`}
 	style:color={engineState.typography.inkColor}
 	style:font-family={fontFamily.stack}
