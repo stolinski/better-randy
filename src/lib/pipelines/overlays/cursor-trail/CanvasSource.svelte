@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { animState } from '$lib/platform/anim-state.svelte';
-	import { packState } from '$lib/platform/engine-state.svelte';
+	import { engineState, packState } from '$lib/platform/engine-state.svelte';
 	import { getPack } from '$lib/platform/packs/registry';
 	import { resolveColorChannels } from '$lib/platform/packs/resolve';
+	import { getVideoFrameSize } from '$lib/utils/video-frame';
 	import type { CursorTrailContent, CursorPath } from './index';
 
 	interface Props {
@@ -11,6 +12,13 @@
 
 	let { content }: Props = $props();
 
+	// The overlay root fills the composition (preset positions it normalized-rect
+	// 0,0,1,1). Its getBoundingClientRect is the composition's rendered rect in
+	// viewport px; slot rects (from getBoundingClientRect, also viewport px) are
+	// converted into the composition's local CSS space (0..frame.width) through it.
+	let overlayEl = $state<HTMLElement | null>(null);
+
+	const frame = $derived(getVideoFrameSize(engineState.transport.orientation));
 	const progress = $derived(animState.globalProgress);
 
 	// Resolve current path segment. Path is an array of { targetSlot, dwellMs,
@@ -24,13 +32,20 @@
 	const local = $derived(segmentProgress - fromIndex);
 
 	function findSlotPosition(slot: string): { x: number; y: number } | null {
-		if (typeof window === 'undefined') return null;
+		if (typeof window === 'undefined' || !overlayEl) return null;
 		const el = document.querySelector(`[data-text-anim-slot="${slot}"]`);
 		if (!el) return null;
 		const rect = el.getBoundingClientRect();
+		const origin = overlayEl.getBoundingClientRect();
+		if (origin.width <= 0) return null;
+		// Convert the slot's viewport-space centre into the composition's local
+		// CSS coordinate space: subtract the overlay (composition) origin, then
+		// undo the display scale (composition is laid out at frame.width CSS px but
+		// shown scaled). Without this the cursor lands off the captured canvas.
+		const scale = frame.width / origin.width;
 		return {
-			x: rect.left + rect.width * 0.5,
-			y: rect.top + rect.height * 0.5
+			x: (rect.left + rect.width * 0.5 - origin.left) * scale,
+			y: (rect.top + rect.height * 0.5 - origin.top) * scale
 		};
 	}
 
@@ -59,7 +74,15 @@
 	const dx = $derived(toPos && fromPos ? toPos.x - fromPos.x : 0);
 	const dy = $derived(toPos && fromPos ? toPos.y - fromPos.y : 0);
 	const angleDeg = $derived((Math.atan2(dy, dx) * 180) / Math.PI);
-	const trailLengthPx = $derived(isMoving ? Math.min(140, Math.hypot(dx, dy) * 0.3) : 0);
+	// Sizes are in composition CSS px (0..frame.width). A fixed 32 px pointer is
+	// ~0.8% of a 4K frame — far too small to read as the hero. Scale the pointer
+	// and trail to the frame so the cursor is a substantial focal element and
+	// reflows H↔V. Trail length tracks velocity, capped to a frame fraction.
+	const pointerSize = $derived(frame.width * 0.024);
+	const trailWidth = $derived(frame.width * 0.005);
+	const trailLengthPx = $derived(
+		isMoving ? Math.min(frame.width * 0.14, Math.hypot(dx, dy) * 0.32) : 0
+	);
 
 	// Pointer shape — resolved from the active Pack's cursor-trail.pointer Role
 	// (the pointer asset is appearance, the Pack's job, not overlay content, per
@@ -91,12 +114,15 @@
 </script>
 
 <aside
+	bind:this={overlayEl}
 	class="cursor-trail-overlay"
 	data-overlay="cursor-trail"
 	style:--cursor-x={`${cursorX}px`}
 	style:--cursor-y={`${cursorY}px`}
 	style:--trail-angle={`${angleDeg}deg`}
 	style:--trail-length={`${trailLengthPx}px`}
+	style:--trail-width={`${trailWidth}px`}
+	style:--pointer-size={`${pointerSize}px`}
 	style:--trail-rgb={trail.channels}
 	style:--trail-soft={trail.softStop}
 >
@@ -132,10 +158,18 @@
 	}
 
 	.cursor-trail-overlay__pointer {
+		block-size: var(--pointer-size, 32px);
+		filter: drop-shadow(0 0.18em 0.28em rgba(0, 0, 0, 0.55));
+		inline-size: var(--pointer-size, 32px);
 		inset-block-start: var(--cursor-y);
 		inset-inline-start: var(--cursor-x);
 		position: absolute;
-		transform: translate(-2px, -2px);
+	}
+
+	.cursor-trail-overlay__pointer :global(svg) {
+		block-size: 100%;
+		display: block;
+		inline-size: 100%;
 	}
 
 	/*
@@ -150,13 +184,13 @@
 			rgb(var(--trail-rgb, 255 255 255) / 0.2) var(--trail-soft, 40%),
 			rgb(var(--trail-rgb, 255 255 255) / 0) 100%
 		);
-		block-size: 6px;
+		block-size: var(--trail-width, 6px);
 		inline-size: var(--trail-length);
 		inset-block-start: var(--cursor-y);
 		inset-inline-start: var(--cursor-x);
 		position: absolute;
 		transform-origin: 0 50%;
-		transform: rotate(calc(var(--trail-angle) + 180deg)) translateY(-3px);
+		transform: rotate(calc(var(--trail-angle) + 180deg)) translateY(-50%);
 		opacity: 0.85;
 	}
 </style>

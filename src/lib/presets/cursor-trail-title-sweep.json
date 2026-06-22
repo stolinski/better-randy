@@ -42,7 +42,7 @@
 						{ "targetSlot": "title", "dwellMs": 0, "action": "idle" }
 					]
 				},
-				"position": { "anchor": "top-left", "offset": { "x": 0.05, "y": 0.05 } },
+				"position": { "anchor": "normalized-rect", "rect": { "x": 0, "y": 0, "width": 1, "height": 1 } },
 				"enter": { "start": 0, "duration": 0.06, "ease": "settled" },
 				"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" }
 			}
