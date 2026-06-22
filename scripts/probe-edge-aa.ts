@@ -3,6 +3,8 @@ import { resolve } from 'node:path';
 
 import { PNG } from 'pngjs';
 
+import { parseChannelFlag, resolveChannel } from './_probe-channel.ts';
+
 // Reports anti-aliasing metrics on diagonal / curved alpha edges. Used by
 // the Critic for R4 (no aliasing on non-axis-aligned edges).
 //   hard_stairsteps   — count of columns where the alpha transition is a
@@ -40,6 +42,15 @@ const y0 = Math.max(0, region.y);
 const x1 = Math.min(png.width, region.x + region.w);
 const y1 = Math.min(png.height, region.y + region.h);
 
+// Measure edges on alpha (transparent overlays) or luma (opaque pieces, where
+// the edge is a bright glyph/shape on a darker field); auto-detected unless
+// `--channel` forces it. LOW/HIGH are coverage thresholds on the chosen channel.
+const { channel, sample } = resolveChannel(
+	png,
+	{ x0, y0, x1, y1 },
+	parseChannelFlag(process.argv)
+);
+
 const LOW = 32;
 const HIGH = 224;
 
@@ -51,7 +62,7 @@ for (let x = x0; x < x1; x++) {
 	let firstFull = -1;
 	let firstEmpty = -1;
 	for (let y = y0; y < y1; y++) {
-		const a = png.data[(y * png.width + x) * 4 + 3];
+		const a = sample(x, y);
 		if (a < LOW && firstEmpty < 0) firstEmpty = y;
 		if (a > LOW && a < HIGH && firstFractional < 0) firstFractional = y;
 		if (a >= HIGH && firstFull < 0) firstFull = y;
@@ -72,6 +83,7 @@ const ratio = total === 0 ? null : smoothPixels / total;
 
 console.log(
 	JSON.stringify({
+		channel,
 		hard_stairsteps: hardSteps,
 		smooth_pixels: smoothPixels,
 		coverage_ratio: ratio === null ? null : Number(ratio.toFixed(3))

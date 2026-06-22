@@ -3,6 +3,8 @@ import { resolve } from 'node:path';
 
 import { PNG } from 'pngjs';
 
+import { parseChannelFlag, resolveChannel } from './_probe-channel.ts';
+
 // Reports banding metrics for a region of a PNG. Used by the Critic for
 // R3 (shadow falloff) and R5 (tonal banding).
 //   max_step          — largest alpha delta between horizontally-adjacent
@@ -41,6 +43,14 @@ const y0 = Math.max(0, region.y);
 const x1 = Math.min(png.width, region.x + region.w);
 const y1 = Math.min(png.height, region.y + region.h);
 
+// Measure on alpha (transparent overlays) or luma (opaque pieces / flattened
+// captures); auto-detected unless `--channel` forces it. See _probe-channel.ts.
+const { channel, sample } = resolveChannel(
+	png,
+	{ x0, y0, x1, y1 },
+	parseChannelFlag(process.argv)
+);
+
 let maxStep = 0;
 let totalPlateaus = 0;
 const transitionSpans: number[] = [];
@@ -53,18 +63,17 @@ for (let y = y0; y < y1; y++) {
 	let plateausInRow = 0;
 	let highX = -1;
 	let lowX = -1;
-	let lastAlpha = -1;
+	let lastValue = -1;
 
 	for (let x = x0; x < x1; x++) {
-		const idx = (y * png.width + x) * 4 + 3;
-		const alpha = png.data[idx];
-		const b = bucket(alpha);
+		const value = sample(x, y);
+		const b = bucket(value);
 
-		if (lastAlpha >= 0) {
-			const step = Math.abs(alpha - lastAlpha) / 255;
+		if (lastValue >= 0) {
+			const step = Math.abs(value - lastValue) / 255;
 			if (step > maxStep) maxStep = step;
 		}
-		lastAlpha = alpha;
+		lastValue = value;
 
 		if (b === runBucket) {
 			runLength++;
@@ -74,9 +83,9 @@ for (let y = y0; y < y1; y++) {
 			runLength = 1;
 		}
 
-		const alphaNorm = alpha / 255;
-		if (highX < 0 && alphaNorm <= 0.9) highX = x;
-		if (highX >= 0 && lowX < 0 && alphaNorm <= 0.1) lowX = x;
+		const valueNorm = value / 255;
+		if (highX < 0 && valueNorm <= 0.9) highX = x;
+		if (highX >= 0 && lowX < 0 && valueNorm <= 0.1) lowX = x;
 	}
 	if (runLength >= 3) plateausInRow++;
 	totalPlateaus += plateausInRow;
@@ -93,6 +102,7 @@ const avgSpan =
 
 console.log(
 	JSON.stringify({
+		channel,
 		max_step: Number(maxStep.toFixed(4)),
 		band_count: Number(avgPlateaus.toFixed(2)),
 		transition_span_px: avgSpan === null ? null : Number(avgSpan.toFixed(1))
