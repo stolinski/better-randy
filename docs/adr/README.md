@@ -39,6 +39,7 @@ Architecture Decision Records — the *why* behind Hiviz's shape. Each records a
 | [0026](0026-transitions-v1-snapshot-and-wipe.md) | Canon (refines 0022) | Transitions v1 = snapshot each state to a texture + mask-wipe; not live dual-tree |
 | [0027](0027-dof-v1-multiplane-bokeh.md) | Canon (refines 0021) | DOF v1 = multiplane bokeh (depth-separated planes + CoC bokeh blur); not a per-pixel depth target |
 | [0028](0028-dimensional-depth-stage.md) | **Canon (v1 built)** (refines 0027, 0021) | Dimensional depth stage — opt-in WebGPU 3D compositor (`state.stage`: surface plane over a backdrop at depth + per-pixel depth + mip-gather DOF + camera) for continuous-depth pieces; integrated + Critic-accepted; flat multiplane stays default |
+| [0029](0029-image-substrate-on-depth-stage.md) | **Canon (v1 built)** (builds on 0028) | Image substrate — a real bundled photo on the depth stage's backdrop plane (`state.stage.backdrop.image.asset` → resident GPU texture via the plane's `textured` branch); deterministic Vite-imported assets; shipped via pullquote-on-photo. Edge-treatment primitive (the other p20 half) still pending for the flat collage family |
 
 ## Supersession & refinement chains
 
