@@ -137,7 +137,12 @@ const dofFragmentFn = tgpu['~unstable'].fragmentFn({
 	let maxCoc = layout.$.uniforms.params.z;
 	let texel = vec2f(1.0) / layout.$.uniforms.resolution;
 	let center = textureSampleLevel(layout.$.scene, layout.$.samp, in.uv, 0.0);
-	let cocC = aperture * abs(center.a - focus) * maxCoc;
+	let band = layout.$.uniforms.params.w;
+		// Focus band: depths within the band of focus stay sharp (CoC 0), so a plane
+		// with real foreshortening depth-spread (fronto-parallel text) is crisp
+		// edge-to-edge while content outside the band still defocuses. Without it,
+		// off-centre near-plane pixels drift out of focus and bright text blooms.
+		let cocC = aperture * max(0.0, abs(center.a - focus) - band) * maxCoc;
 	let lod = clamp(log2(max(cocC, 1.0)) - 2.3, 0.0, ${MAX_LOD}.0);
 	var acc = center.rgb;
 	var wsum = 1.0;
@@ -147,7 +152,7 @@ const dofFragmentFn = tgpu['~unstable'].fragmentFn({
 		let offsetPx = vec2f(cos(ang), sin(ang)) * sqrt(st) * cocC;
 		let tapUV = in.uv + offsetPx * texel;
 		let tapDepth = textureSampleLevel(layout.$.scene, layout.$.samp, tapUV, 0.0).a;
-		let tapCoc = aperture * abs(tapDepth - focus) * maxCoc;
+		let tapCoc = aperture * max(0.0, abs(tapDepth - focus) - band) * maxCoc;
 		let reach = max(tapCoc, cocC);
 		let w = 1.0 - smoothstep(reach - 2.0, reach + 2.0, length(offsetPx));
 		acc = acc + textureSampleLevel(layout.$.scene, layout.$.samp, tapUV, lod).rgb * w;
@@ -189,6 +194,10 @@ export interface DepthStageInput {
 	focusZ: number;
 	/** Max circle-of-confusion / blur strength, 0..1. */
 	aperture: number;
+	/** Hyperfocal half-width in depth01: content within this depth distance of the
+	 *  focal plane stays fully sharp, so a foreshortened plane (e.g. text) is crisp
+	 *  edge-to-edge while the backdrop still defocuses into bokeh. 0 = pinpoint. */
+	focusBand?: number;
 	/** Backdrop plane colour (rgb 0..1) — used when no backdrop image is given. */
 	backdropColor: [number, number, number];
 	/** Optional image substrate (dex p20) for the backdrop plane: a resident GPU
@@ -360,7 +369,7 @@ export class DepthStage {
 			const backdropDist = Math.hypot(eyeX, eyeZ + BACKDROP_DEPTH);
 			const focus = mix(focusDepth01(surfaceDist), focusDepth01(backdropDist), input.focusZ);
 			dofUniform.write({
-				params: d.vec4f(focus, input.aperture, maxCoc, 0),
+				params: d.vec4f(focus, input.aperture, maxCoc, input.focusBand ?? 0),
 				resolution: d.vec2f(width, height)
 			});
 

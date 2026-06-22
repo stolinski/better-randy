@@ -1,7 +1,7 @@
 {
 	"schema": "hiviz@1",
 	"name": "Pullquote on photo — depth stage",
-	"description": "A pullquote floating over a real photographic substrate on the dimensional depth stage (ADR-0028, dex p20 image-substrate). The atmospheric photo is the full-bleed backdrop plane (oversized to stay full-bleed across the camera move); the quote floats pin-sharp on the near plane over a soft central contrast-darken pool (depth-stage near plane can't carry a soft scrim, so legibility comes from darkening the opaque backdrop — 12:1+). A subtle camera push gives a gentle parallax breath. Aperture is 0 by design: a DOF focus-pull blooms bright near-plane text (the highlight-bloom catches the white quote), so the photo's softness comes from the baked image, not the DOF gather, keeping the quote crisp. The substrate is a bundled, deterministic in-repo image (atmosphere-warm) on the backdrop plane's textured branch. backgroundFill is the opaque-lane backstop.",
+	"description": "A pullquote on a moody photographic substrate, on the dimensional depth stage (ADR-0028, dex p20 image-substrate). The atmospheric photo (warm key + bokeh along the top, deep dark through the middle — composed FOR a centred quote) is the full-bleed backdrop plane, oversized to stay full-bleed across the camera move; the quote floats pin-sharp on the near plane in the dark zone (legibility 15:1, helped by a gentle contrast-darken pool). A slow camera push reprojects the planes at different rates for real parallax. The photographic softness/bokeh is BAKED into the substrate, and the runtime DOF aperture is 0 on purpose: the depth-stage gather makes the defocused background bleed into (bloom around) the bright crisp text, so the look comes from the image, the depth stage from the parallax. The substrate is a bundled, deterministic in-repo image (atmosphere-warm) on the backdrop plane's textured branch; backgroundFill is the opaque-lane backstop.",
 	"pack": "syntax",
 	"state": {
 		"transport": {
@@ -32,9 +32,9 @@
 		},
 		"stage": {
 			"type": "depth",
-			"camera": { "move": "push", "amount": 0.25, "ease": "smooth" },
+			"camera": { "move": "push", "amount": 0.4, "ease": "smooth" },
 			"focus": { "focusZ": 0, "aperture": 0 },
-			"backdrop": { "image": { "asset": "atmosphere-warm" }, "contrast": 0.8 }
+			"backdrop": { "image": { "asset": "atmosphere-warm" }, "contrast": 0.35 }
 		},
 		"overlays": [],
 		"effects": []

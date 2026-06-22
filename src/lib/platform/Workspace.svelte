@@ -678,6 +678,7 @@
 	interface ResolvedStage {
 		focusZ: number;
 		aperture: number;
+		focusBand: number;
 		backdropColor: [number, number, number];
 		backdropAsset: string | null;
 		backdropContrast: number;
@@ -711,6 +712,7 @@
 		return {
 			focusZ,
 			aperture: clampNumber(stage.focus.aperture, 0, 1),
+			focusBand: clampNumber(stage.focus.band, 0, 1),
 			backdropColor,
 			backdropAsset: stage.backdrop?.image?.asset ?? null,
 			backdropContrast: clampNumber(stage.backdrop?.contrast ?? 0, 0, 1),
@@ -800,6 +802,7 @@
 			surfacePlaneView: pipeline.getOutputTexture().createView(),
 			focusZ: stage.focusZ,
 			aperture: stage.aperture,
+			focusBand: stage.focusBand,
 			backdropColor: stage.backdropColor,
 			backdropTextureView:
 				stage.backdropAsset && substrateTexture ? substrateTexture.createView() : undefined,

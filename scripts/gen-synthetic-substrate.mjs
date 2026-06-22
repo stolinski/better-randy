@@ -21,29 +21,37 @@ const discs = Array.from({ length: 9 }, (_, i) => ({
   cx: hash(i * 3.1, 1.2) * W, cy: hash(i * 1.7, 5.3) * H * 0.7,
   r: (0.05 + hash(i, 9) * 0.10) * W, b: 0.10 + hash(i, 4) * 0.18
 }));
-const sunX = W * 0.72, sunY = H * 0.30;
+// Composed FOR a centred pullquote: a moody low-key frame whose CENTRE (where the
+// two text lines sit) stays dark for legibility, with the warm light + bokeh kept
+// to the TOP and edges so the photographic interest reads around the quote, not
+// behind it.
+const sunX = W * 0.5, sunY = H * 0.05;
 for (let y = 0; y < H; y++) {
   for (let x = 0; x < W; x++) {
     const ny = y / H, nx = x / W;
-    // vertical grade: warm-dark ground -> soft hazy warm-grey sky
-    let r = 0.10 + (1 - ny) * 0.42, g = 0.08 + (1 - ny) * 0.40, b = 0.07 + (1 - ny) * 0.36;
-    // atmospheric haze (low-freq)
-    const haze = smooth(nx * 3, ny * 3) * 0.12;
+    // vertical grade: warm light up top -> deep moody warm-black through the middle
+    const topLight = Math.max(0, 1 - ny * 1.7);
+    let r = 0.05 + topLight * 0.40, g = 0.04 + topLight * 0.34, b = 0.035 + topLight * 0.26;
+    // atmospheric haze (low-freq), gentle, only near the lit top
+    const haze = smooth(nx * 3, ny * 3) * 0.10 * topLight;
     r += haze; g += haze; b += haze * 0.9;
-    // warm sun bloom (off-centre, upper-right)
-    const sd = Math.hypot(x - sunX, y - sunY) / (W * 0.55);
+    // warm key bloom along the TOP (off the text centre)
+    const sd = Math.hypot(x - sunX, y - sunY) / (W * 0.6);
     const sun = Math.max(0, 1 - sd) ** 2;
-    r += sun * 0.45; g += sun * 0.33; b += sun * 0.16;
-    // soft bokeh discs (each a smooth radial pop)
+    r += sun * 0.5; g += sun * 0.37; b += sun * 0.18;
+    // soft bokeh discs (seeded in the upper ~70%, so they sit around/above the quote)
     for (const d of discs) {
       const dd = Math.hypot(x - d.cx, y - d.cy) / d.r;
       if (dd < 1) { const k = (1 - dd) ** 2 * d.b; r += k; g += k * 0.95; b += k * 0.8; }
     }
+    // central darkening trough: keep the middle band (text zone) deep for legibility
+    const trough = Math.max(0, 1 - (Math.abs(ny - 0.52) / 0.3) ** 2) * 0.5;
+    r *= 1 - trough; g *= 1 - trough; b *= 1 - trough;
     // fine grain
-    const grain = (hash(x * 1.3, y * 1.7) - 0.5) * 0.04;
+    const grain = (hash(x * 1.3, y * 1.7) - 0.5) * 0.035;
     r += grain; g += grain; b += grain;
-    // vignette
-    const vig = 1 - 0.42 * (Math.hypot(nx - 0.5, ny - 0.5) / 0.7) ** 2;
+    // vignette (corners down)
+    const vig = 1 - 0.4 * (Math.hypot(nx - 0.5, ny - 0.5) / 0.7) ** 2;
     r *= vig; g *= vig; b *= vig;
     // filmic toe + clamp
     const toe = (c) => Math.max(0, Math.min(1, c)) ** 0.92;

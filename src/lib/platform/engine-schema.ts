@@ -387,6 +387,10 @@ const StageFocusPullSchema = z.object({
 const StageFocusSchema = z.object({
 	focusZ: FractionSchema.default(0), // in-focus depth (ADR-0021 scalar; 0 near … 1 far)
 	aperture: FractionSchema.default(0.6), // max circle-of-confusion / blur strength
+	// Hyperfocal half-width (depth01): content within this depth distance of the
+	// focal plane stays fully sharp. Lets a foreshortened plane (e.g. text) hold
+	// crisp edge-to-edge while the backdrop still melts to bokeh. 0 = pinpoint.
+	band: FractionSchema.default(0),
 	pull: StageFocusPullSchema.optional()
 });
 
