@@ -1,7 +1,7 @@
 {
 	"schema": "hiviz@1",
 	"name": "Pullquote on photo — depth stage",
-	"description": "A pullquote floating over a real photographic substrate on the dimensional depth stage (ADR-0028, dex p20 image-substrate). The atmospheric photo sits on the backdrop plane; the quote + contrast scrim float on the near plane; a slow camera push reprojects them at different rates (real parallax, not a flat overlay), and a rack focus opens defocused on the photo then pulls to the pin-sharp quote. The substrate is a bundled, deterministic in-repo image (atmosphere-warm) resolved to a GPU texture on the backdrop plane's textured branch. backgroundFill is the opaque-lane backstop behind the full-bleed photo.",
+	"description": "A pullquote floating over a real photographic substrate on the dimensional depth stage (ADR-0028, dex p20 image-substrate). The atmospheric photo is the full-bleed backdrop plane (oversized to stay full-bleed across the camera move); the quote floats pin-sharp on the near plane over a soft central contrast-darken pool (depth-stage near plane can't carry a soft scrim, so legibility comes from darkening the opaque backdrop — 12:1+). A subtle camera push gives a gentle parallax breath. Aperture is 0 by design: a DOF focus-pull blooms bright near-plane text (the highlight-bloom catches the white quote), so the photo's softness comes from the baked image, not the DOF gather, keeping the quote crisp. The substrate is a bundled, deterministic in-repo image (atmosphere-warm) on the backdrop plane's textured branch. backgroundFill is the opaque-lane backstop.",
 	"pack": "syntax",
 	"state": {
 		"transport": {
@@ -32,7 +32,7 @@
 		},
 		"stage": {
 			"type": "depth",
-			"camera": { "move": "push", "amount": 0.6, "ease": "smooth" },
+			"camera": { "move": "push", "amount": 0.25, "ease": "smooth" },
 			"focus": { "focusZ": 0, "aperture": 0 },
 			"backdrop": { "image": { "asset": "atmosphere-warm" }, "contrast": 0.8 }
 		},

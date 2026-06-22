@@ -87,8 +87,8 @@ const planeFragmentFn = tgpu['~unstable'].fragmentFn({
 			// (covers the centred text block, so glyphs never sit on the brighter
 			// falloff zone), then fades 0.34→0.9. Keeps text contrast uniform across
 			// the whole quote while the photo still breathes past the pool.
-			let dv = (in.uv - vec2f(0.5)) * vec2f(1.0, 1.9);
-			let darken = (1.0 - smoothstep(0.34, 0.9, length(dv))) * layout.$.plane.baseColor.a;
+			let dv = (in.uv - vec2f(0.5)) * vec2f(1.0, 1.7);
+			let darken = (1.0 - smoothstep(0.3, 1.15, length(dv))) * layout.$.plane.baseColor.a;
 			color = color * (1.0 - darken);
 		}
 	}
@@ -303,10 +303,17 @@ export class DepthStage {
 			return [halfH * aspect, halfH, 1];
 		};
 		const surfaceModel = mat4.scale(mat4.identity(), fillScale(CAM_Z));
-		const backdropModel = mat4.scale(
-			mat4.translate(mat4.identity(), [0, 0, -BACKDROP_DEPTH]),
-			fillScale(CAM_Z + BACKDROP_DEPTH)
-		);
+		// Oversize the backdrop (cover): a camera move changes each plane's framing,
+		// and a backdrop sized to EXACTLY fill at the construction distance reveals
+		// black edges when the camera pulls back. 1.2× keeps the photo full-bleed
+		// across the move (we just see slightly less of its edges — background-cover).
+		const BACKDROP_COVER = 1.2;
+		const backdropFill = fillScale(CAM_Z + BACKDROP_DEPTH);
+		const backdropModel = mat4.scale(mat4.translate(mat4.identity(), [0, 0, -BACKDROP_DEPTH]), [
+			backdropFill[0] * BACKDROP_COVER,
+			backdropFill[1] * BACKDROP_COVER,
+			1
+		]);
 		// Plane depths used for the focus target. They MUST be computed per frame
 		// from the live eye position: the camera move changes each plane's
 		// camera-space distance, so a focus pinned to the construction-time
