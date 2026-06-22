@@ -78,16 +78,20 @@
 	 * shader-painted backdrop without boxing the frame.
 	 */
 	.pullquote-source__scrim {
-		background: linear-gradient(
-			180deg,
-			rgba(4, 4, 8, 0) 0%,
-			rgba(4, 4, 8, 0.72) 30%,
-			rgba(4, 4, 8, 0.72) 70%,
-			rgba(4, 4, 8, 0) 100%
+		/*
+		 * Soft radial darkening centred behind the quote — gives text contrast
+		 * over a photographic substrate WITHOUT a heavy full-width band that hides
+		 * the photo (the point of "pullquote on photo" is to see the photo). The
+		 * ellipse peaks behind the text and fades to transparent toward the edges,
+		 * so the substrate breathes around it.
+		 */
+		background: radial-gradient(
+			ellipse 68% 46% at 50% 48%,
+			rgba(4, 4, 8, 0.66) 0%,
+			rgba(4, 4, 8, 0.46) 42%,
+			rgba(4, 4, 8, 0) 78%
 		);
-		block-size: 64%;
-		inset-block-start: 18%;
-		inset-inline: 0;
+		inset: 0;
 		position: absolute;
 	}
 
