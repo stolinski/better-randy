@@ -680,6 +680,7 @@
 		aperture: number;
 		backdropColor: [number, number, number];
 		backdropAsset: string | null;
+		backdropContrast: number;
 		cameraMove: 'static' | 'push' | 'drift';
 		cameraAmount: number;
 		effects: typeof engineState.effects;
@@ -711,7 +712,8 @@
 			focusZ,
 			aperture: clampNumber(stage.focus.aperture, 0, 1),
 			backdropColor,
-			backdropAsset: stage.backdrop.image?.asset ?? null,
+			backdropAsset: stage.backdrop?.image?.asset ?? null,
+			backdropContrast: clampNumber(stage.backdrop?.contrast ?? 0, 0, 1),
 			cameraMove: stage.camera.move,
 			cameraAmount: clampNumber(stage.camera.amount, 0, 1),
 			effects: engineState.effects
@@ -801,6 +803,7 @@
 			backdropColor: stage.backdropColor,
 			backdropTextureView:
 				stage.backdropAsset && substrateTexture ? substrateTexture.createView() : undefined,
+			backdropContrast: stage.backdropContrast,
 			cameraMove: stage.cameraMove,
 			cameraAmount: stage.cameraAmount,
 			time: timebase.progress
@@ -1125,7 +1128,7 @@
 			// has the photo, not a blank/solid backdrop.
 			const stageAsset =
 				engineState.stage?.type === 'depth'
-					? (engineState.stage.backdrop.image?.asset ?? null)
+					? (engineState.stage.backdrop?.image?.asset ?? null)
 					: null;
 			const substrateReady: Promise<unknown> = stageAsset
 				? getSubstrateTexture(localHost, stageAsset).then((texture) => {

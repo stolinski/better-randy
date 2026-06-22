@@ -38,7 +38,7 @@
 				"aperture": 0.5,
 				"pull": { "from": 0.8, "to": 0.06, "start": 0.08, "duration": 0.6 }
 			},
-			"backdrop": { "image": { "asset": "atmosphere-warm" } }
+			"backdrop": { "image": { "asset": "atmosphere-warm" }, "contrast": 0.8 }
 		},
 		"overlays": [],
 		"effects": []

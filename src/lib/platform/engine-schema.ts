@@ -399,13 +399,18 @@ const StageFocusSchema = z.object({
 // the far plane, the Surface (e.g. a pullquote) floating on the near plane, the
 // camera push reprojecting them at different rates for true parallax.
 const StageBackdropSchema = z.object({
-	image: z.object({ asset: z.string().min(1) }).optional()
+	image: z.object({ asset: z.string().min(1) }).optional(),
+	// Center darkening of the backdrop image (0..1) for near-plane text legibility:
+	// the backdrop plane is opaque, so a soft central darken composites cleanly
+	// (no alpha-discard artifacts) and gives floating text contrast without a
+	// scrim — which can't ride the depth stage's near plane. 0 = no darken.
+	contrast: z.number().min(0).max(1).default(0)
 });
 const StageSchema = z.object({
 	type: z.string().min(1),
 	camera: StageCameraSchema.default({}),
 	focus: StageFocusSchema.default({}),
-	backdrop: StageBackdropSchema.default({})
+	backdrop: StageBackdropSchema.optional()
 });
 
 export const EngineStateSchema = z.object({

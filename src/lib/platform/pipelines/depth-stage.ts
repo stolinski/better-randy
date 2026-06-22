@@ -78,6 +78,19 @@ const planeFragmentFn = tgpu['~unstable'].fragmentFn({
 		let s = textureSample(layout.$.surfaceTexture, layout.$.samp, in.uv); // premultiplied
 		if (misc.w > 0.5 && s.a < 0.5) { discard; }
 		color = s.rgb / max(s.a, 0.001); // un-premultiply: planes overwrite, never blend
+		// Backdrop-only (misc.w < 0.5 = not discard-transparent): a soft central
+		// darken of the photo for near-plane text legibility. baseColor.a carries
+		// the strength. Opaque, so it composites cleanly (no alpha discard) and
+		// keeps the floating-text look — a scrim can't ride the near plane.
+		if (misc.w < 0.5) {
+			// Wide elliptical pool with an INNER PLATEAU: full strength out to ~0.34
+			// (covers the centred text block, so glyphs never sit on the brighter
+			// falloff zone), then fades 0.34→0.9. Keeps text contrast uniform across
+			// the whole quote while the photo still breathes past the pool.
+			let dv = (in.uv - vec2f(0.5)) * vec2f(1.0, 1.9);
+			let darken = (1.0 - smoothstep(0.34, 0.9, length(dv))) * layout.$.plane.baseColor.a;
+			color = color * (1.0 - darken);
+		}
 	}
 	let depth01 = clamp((in.dist - misc.x) / (misc.y - misc.x), 0.0, 1.0);
 	return vec4f(color, depth01);
@@ -183,6 +196,9 @@ export interface DepthStageInput {
 	 *  so a real photo sits on the far plane and reprojects under the camera push
 	 *  for parallax. Opaque — not transparency-discarded like the Surface plane. */
 	backdropTextureView?: GPUTextureView;
+	/** Center darkening of the backdrop image (0..1) for near-plane text contrast
+	 *  — a soft opaque pool behind the (centered) Surface text. 0 = none. */
+	backdropContrast?: number;
 	cameraMove: 'static' | 'push' | 'drift';
 	/** Camera move strength, 0..1. */
 	cameraAmount: number;
@@ -309,6 +325,8 @@ export class DepthStage {
 			// so misc.w = 0 (never discard, unlike the Surface plane's transparent
 			// surround). With no image the plane stays a solid colour (misc.z = 0).
 			const backdropTextured = input.backdropTextureView ? 1 : 0;
+			// baseColor.a carries the center-darken strength for the textured
+			// backdrop (text contrast); rgb is the solid colour when untextured.
 			backdropPlane.write({
 				mvp: toMat4(mat4.multiply(vp, backdropModel) as Float32Array),
 				misc: d.vec4f(D_NEAR, D_FAR, backdropTextured, 0),
@@ -316,7 +334,7 @@ export class DepthStage {
 					input.backdropColor[0],
 					input.backdropColor[1],
 					input.backdropColor[2],
-					1
+					backdropTextured > 0 ? (input.backdropContrast ?? 0) : 1
 				)
 			});
 			surfacePlane.write({
