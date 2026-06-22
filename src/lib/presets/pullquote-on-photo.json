@@ -1,7 +1,7 @@
 {
 	"schema": "hiviz@1",
 	"name": "Pullquote on photo — depth stage",
-	"description": "A pullquote on a moody photographic substrate, on the dimensional depth stage (ADR-0028, dex p20 image-substrate). The atmospheric photo (warm key + bokeh along the top, deep dark through the middle — composed FOR a centred quote) is the full-bleed backdrop plane, oversized to stay full-bleed across the camera move; the quote floats pin-sharp on the near plane in the dark zone (legibility 15:1, helped by a gentle contrast-darken pool). A slow camera push reprojects the planes at different rates for real parallax. The photographic softness/bokeh is BAKED into the substrate, and the runtime DOF aperture is 0 on purpose: the depth-stage gather makes the defocused background bleed into (bloom around) the bright crisp text, so the look comes from the image, the depth stage from the parallax. The substrate is a bundled, deterministic in-repo image (atmosphere-warm) on the backdrop plane's textured branch; backgroundFill is the opaque-lane backstop.",
+	"description": "A pullquote that BUILDS IN line by line over a moody photo, then holds for reading. The quote reveals reading-order (line-by-line-slide on the title slot: line 1, then line 2 fades up after) — that's the moment; then it holds while a slow camera push parallaxes the near-plane quote against the far-plane photo (dimensional depth, ADR-0028 depth stage). The photo (warm key + bokeh along the top, deep dark through the middle — composed FOR a centred quote) is the full-bleed backdrop, oversized to stay full-bleed across the move; the quote sits pin-sharp in the dark zone (legibility 15:1+, helped by a gentle backdrop contrast-darken). DOF aperture is 0 on purpose — the depth-stage gather bleeds the defocused background into the bright crisp text (a halo), so the bokeh look is BAKED into the substrate and the depth stage earns its keep via the parallax + the text riding the near plane. Substrate is a bundled deterministic in-repo image (atmosphere-warm); backgroundFill is the opaque-lane backstop.",
 	"pack": "syntax",
 	"state": {
 		"transport": {
@@ -30,6 +30,15 @@
 			"enter": { "start": 0, "duration": 0.06, "ease": "settled" },
 			"exit": { "start": 0.9, "duration": 0.045, "ease": "smooth" }
 		},
+		"textAnimations": [
+			{
+				"id": "quote-reveal",
+				"target": { "kind": "surface", "slot": "title" },
+				"effect": "line-by-line-slide",
+				"enter": { "start": 0.02, "duration": 0.18, "ease": "smooth" },
+				"exit": { "start": 0.9, "duration": 0.04, "ease": "smooth" }
+			}
+		],
 		"stage": {
 			"type": "depth",
 			"camera": { "move": "push", "amount": 0.4, "ease": "smooth" },
