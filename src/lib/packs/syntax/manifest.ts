@@ -126,7 +126,7 @@ export const syntaxPack: PackManifest = {
 		// (render-is-truth — values match what each CanvasSource paints).
 		'watermark.ink': { kind: 'style', value: '#ededed' },
 		'watermark.accent': { kind: 'style', value: '#ffd642' },
-		'counter.ink': { kind: 'style', value: '#fffaf2' },
+		'counter.ink': { kind: 'style', value: '#fabf47' },
 		'instance-stack.ink': { kind: 'style', value: '#fabf47' },
 		'text-3d.ink': { kind: 'style', value: '#fabf47' },
 		// Washi-tape procedural grain — the dark/light fibre stops in the tape's

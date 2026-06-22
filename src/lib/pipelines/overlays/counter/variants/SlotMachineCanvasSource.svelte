@@ -9,8 +9,16 @@
 
 	let { content }: Props = $props();
 
-	const progress = $derived(animState.globalProgress);
-	const eased = $derived(slotMachineRollCounter.motionShape(0, progress));
+	// The roll lands on its target by ROLL_END of the timeline and then HOLDS
+	// the milestone, instead of rolling right up to the final frame (which never
+	// shows the landed value — the whole point of a milestone counter is the
+	// payoff hold). Compressing globalProgress into [0, ROLL_END] makes the count
+	// reach `to` at ROLL_END and stay there through the overlay's exit, so the
+	// settled number is on screen for a beat. motionShape's ease-out still
+	// decelerates the roll into the landing.
+	const ROLL_END = 0.78;
+	const rollProgress = $derived(Math.min(1, animState.globalProgress / ROLL_END));
+	const eased = $derived(slotMachineRollCounter.motionShape(0, rollProgress));
 	const currentValue = $derived(content.from + (content.to - content.from) * eased);
 
 	function formatTokens(value: number): string[] {
@@ -91,7 +99,7 @@
 
 <style>
 	.counter-overlay {
-		color: var(--ink, #fffaf2);
+		color: var(--ink, #fabf47);
 		display: inline-flex;
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-feature-settings: 'tnum' 1;
