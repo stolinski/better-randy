@@ -122,8 +122,18 @@ const PRESET_BY_SLUG = new Map(PRESET_CATALOG.map((entry) => [entry.slug, entry.
 // schema-valid but not shippable, so they are excluded here.
 const DELIVERABLE_CATALOG = PRESET_CATALOG.filter((entry) => entry.preset.kind !== 'fixture');
 
+// Fixtures (engine demos / verification / showcase) — schema-valid and loadable
+// by URL, but not shippable deliverables. Listed separately so demos like the
+// dimensional depth stage stay discoverable from the index without mixing into
+// the deliverables list.
+const FIXTURE_CATALOG = PRESET_CATALOG.filter((entry) => entry.preset.kind === 'fixture');
+
 export function listPresets(): readonly CataloguedPreset[] {
 	return DELIVERABLE_CATALOG;
+}
+
+export function listFixtures(): readonly CataloguedPreset[] {
+	return FIXTURE_CATALOG;
 }
 
 export function getPresetBySlug(slug: string): Preset | null {
