@@ -307,8 +307,13 @@ export class DepthStage {
 			mat4.translate(mat4.identity(), [0, 0, -BACKDROP_DEPTH]),
 			fillScale(CAM_Z + BACKDROP_DEPTH)
 		);
-		const surfaceDepth01 = (CAM_Z - D_NEAR) / (D_FAR - D_NEAR);
-		const backdropDepth01 = (CAM_Z + BACKDROP_DEPTH - D_NEAR) / (D_FAR - D_NEAR);
+		// Plane depths used for the focus target. They MUST be computed per frame
+		// from the live eye position: the camera move changes each plane's
+		// camera-space distance, so a focus pinned to the construction-time
+		// distance drifts off the plane during a push — defocusing (and blooming)
+		// content that should stay sharp. `focusDepth01(dist)` reuses the same
+		// dist→depth01 mapping the plane fragment encodes.
+		const focusDepth01 = (dist: number): number => (dist - D_NEAR) / (D_FAR - D_NEAR);
 
 		this.#render = (input) => {
 			const e = smootherstep(input.time);
@@ -342,7 +347,11 @@ export class DepthStage {
 				misc: d.vec4f(D_NEAR, D_FAR, 1, 1),
 				baseColor: d.vec4f(0, 0, 0, 1)
 			});
-			const focus = mix(surfaceDepth01, backdropDepth01, input.focusZ);
+			// Live plane distances along the view (camera at [eyeX,0,eyeZ] → origin),
+			// so focusZ=0 keeps the Surface plane sharp through the whole camera move.
+			const surfaceDist = Math.hypot(eyeX, eyeZ);
+			const backdropDist = Math.hypot(eyeX, eyeZ + BACKDROP_DEPTH);
+			const focus = mix(focusDepth01(surfaceDist), focusDepth01(backdropDist), input.focusZ);
 			dofUniform.write({
 				params: d.vec4f(focus, input.aperture, maxCoc, 0),
 				resolution: d.vec2f(width, height)
