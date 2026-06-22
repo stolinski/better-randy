@@ -106,7 +106,6 @@
 		margin: 0;
 		position: absolute;
 		text-align: center;
-		text-shadow: 0 0.04em 0.10em rgba(0, 0, 0, 0.7);
 		text-wrap: balance;
 		transform: translate(-50%, -50%);
 	}
