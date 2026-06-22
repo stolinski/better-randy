@@ -18,6 +18,27 @@
 	const subtitleFontSize = $derived(
 		frame.width * (engineState.transport.orientation === 'vertical' ? 0.022 : 0.012)
 	);
+
+	// Fit the hero to the title-safe width so a longer title never clips
+	// off-frame (e.g. "NEW EPISODE" vs the single-word "DRIFT"). Target the big
+	// display size (0.16 W) but clamp it down so the word fits within ~84% of
+	// the frame (7% left inset + safety right margin). Condensed Inter 900
+	// uppercase advances ~0.6 em/char (conservative, accounting for the negative
+	// tracking), so the estimate errs toward fitting. The min() keeps short
+	// titles at full display scale (DRIFT is unchanged); the CSS max-inline-size
+	// + wrap below is the graceful fail-safe if the estimate is ever slightly
+	// short — the hero wraps to two balanced lines instead of clipping.
+	const HERO_DISPLAY_RATIO = 0.16;
+	const HERO_SAFE_WIDTH_RATIO = 0.84;
+	const HERO_AVG_ADVANCE_EM = 0.6;
+	const heroLen = $derived(Math.max((content.title ?? '').trim().length, 1));
+	const heroFontSize = $derived(
+		Math.min(
+			frame.width * HERO_DISPLAY_RATIO,
+			(frame.width * HERO_SAFE_WIDTH_RATIO) / (heroLen * HERO_AVG_ADVANCE_EM)
+		)
+	);
+	const heroMaxWidth = $derived(frame.width * HERO_SAFE_WIDTH_RATIO);
 </script>
 
 <article
@@ -32,7 +53,8 @@
 			<h2
 				class="type-hero-source__hero"
 				data-text-anim-slot="title"
-				style:font-size={`${frame.width * 0.16}px`}
+				style:font-size={`${heroFontSize}px`}
+				style:max-inline-size={`${heroMaxWidth}px`}
 			>
 				{content.title}
 			</h2>
@@ -78,8 +100,8 @@
 		margin: 0;
 		position: absolute;
 		text-transform: uppercase;
+		text-wrap: balance;
 		transform: translateY(-50%);
-		white-space: nowrap;
 	}
 
 	.type-hero-source__rule {
