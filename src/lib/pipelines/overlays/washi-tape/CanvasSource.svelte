@@ -44,6 +44,17 @@
 		opacity: 0.6;
 		position: relative;
 		transform-origin: top left;
+		/*
+		 * Directional cast shadow (identity-spec `directional-shadow`): a soft
+		 * offset shadow along an implied upper-left light so the strip reads as
+		 * a physical tape with thickness lifting off the substrate, not a flat
+		 * translucent rectangle laid flush. Under multiply blend a dark shadow
+		 * darkens the substrate beneath it — exactly a cast shadow. drop-shadow
+		 * follows the rotated rectangle's alpha shape (HTML-in-canvas captures
+		 * the filter; no layer-promotion opacity<1 trap — the element stays
+		 * fully painted, only its blend/opacity composite the result).
+		 */
+		filter: drop-shadow(0.04em 0.06em 0.05em rgba(20, 16, 8, 0.5));
 	}
 
 	.washi-tape__grain {

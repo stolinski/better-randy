@@ -39,7 +39,7 @@
 				"content": {
 					"color": "#fabf47",
 					"rotation": 18,
-					"length": 470
+					"length": 400
 				},
 				"position": { "anchor": "top-left", "offset": { "x": 0.245, "y": 0.05 } },
 				"enter": { "start": 0.04, "duration": 0.05, "ease": "settled" },
@@ -51,7 +51,7 @@
 				"content": {
 					"color": "#ff474e",
 					"rotation": -14,
-					"length": 430
+					"length": 360
 				},
 				"position": { "anchor": "top-left", "offset": { "x": 0.665, "y": 0.05 } },
 				"enter": { "start": 0.05, "duration": 0.05, "ease": "settled" },
