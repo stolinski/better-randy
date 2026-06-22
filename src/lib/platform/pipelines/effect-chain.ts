@@ -176,6 +176,57 @@ function compileEffect(host: GpuHost, renderer: EffectRenderer): CompiledEffect 
 	};
 }
 
+// Background-composite pass: the SAME OVER operator as the present pass, but
+// targeting an rgba16float intermediate instead of the 8-bit canvas. Used to
+// bake a full-frame `backgroundFill` UNDER the content BEFORE the effect chain,
+// so content-masked effects (e.g. paper-grain, whose mask is `step(0.001, a)`)
+// animate the whole opaque frame and the hold breathes — instead of the fill
+// being added only at the final present pass, leaving the background static.
+// Only used when a fill is declared AND effects exist; transparent pieces and
+// effectless full-frame pieces never hit this path.
+function compileBackgroundComposite(host: GpuHost): CompiledPresent {
+	const { root } = host;
+
+	const pipeline = root['~unstable']
+		.withVertex(fullScreenVertexFn, {})
+		.withFragment(presentFragmentFn, { format: INTERMEDIATE_FORMAT })
+		.createPipeline();
+
+	const sampler = root['~unstable'].createSampler({
+		magFilter: 'linear',
+		minFilter: 'linear',
+		addressModeU: 'clamp-to-edge',
+		addressModeV: 'clamp-to-edge'
+	});
+
+	const uniformBuffer = root
+		.createBuffer(PresentUniforms, { background: d.vec4f(0, 0, 0, 0) })
+		.$usage('uniform');
+
+	return {
+		apply({ inputView, outputView, background }) {
+			const [r, g, b, a] = background ?? [0, 0, 0, 0];
+			uniformBuffer.write({ background: d.vec4f(r, g, b, a) });
+
+			const bindGroup = root.createBindGroup(presentBindGroupLayout, {
+				inputTexture: inputView,
+				samp: sampler,
+				uniforms: uniformBuffer
+			});
+
+			pipeline
+				.with(bindGroup)
+				.withColorAttachment({
+					view: outputView,
+					clearValue: [0, 0, 0, 0],
+					loadOp: 'clear',
+					storeOp: 'store'
+				})
+				.draw(3);
+		}
+	};
+}
+
 function compilePresent(host: GpuHost): CompiledPresent {
 	// Targets the canvas format (8-bit) — this is the only pass that writes the
 	// final 8-bit output; everything upstream is rgba16float.
@@ -248,6 +299,7 @@ export class EffectChain {
 	#pingTexture: GPUTexture;
 	#pongTexture: GPUTexture;
 	#present: CompiledPresent;
+	#backgroundComposite: CompiledPresent;
 	#cache: Map<string, CompiledEffect>;
 
 	constructor({ host, width, height }: EffectChainOptions) {
@@ -255,6 +307,7 @@ export class EffectChain {
 		this.#width = width;
 		this.#height = height;
 		this.#present = compilePresent(host);
+		this.#backgroundComposite = compileBackgroundComposite(host);
 		this.#cache = new Map();
 
 		const descriptor: GPUTextureDescriptor = {
@@ -301,13 +354,33 @@ export class EffectChain {
 			}
 		}
 
+		// Full-frame fill baked BEFORE the effects: when a `backgroundFill` is
+		// declared (background.a > 0) AND effects run, composite the content over
+		// the fill into the first intermediate so the effects operate on the whole
+		// opaque frame (content-masked effects like paper-grain then animate the
+		// background too — the hold breathes). The present pass below then skips
+		// the fill (already baked). Transparent pieces (a == 0) and effectless
+		// full-frame pieces never take this branch — their path is unchanged.
+		const preCompositeFill = (background?.[3] ?? 0) > 0 && valid.length > 0;
+		let currentInputView = inputTexture.createView();
+		let parity = 0;
+		if (preCompositeFill) {
+			this.#backgroundComposite.apply({
+				commandEncoder,
+				inputView: inputTexture.createView(),
+				outputView: this.#pingTexture.createView(),
+				background
+			});
+			currentInputView = this.#pingTexture.createView();
+			parity = 1; // first effect must write pong (ping now holds the baked frame)
+		}
+
 		// Run every effect into the rgba16float intermediates, then present the
 		// final result to the 8-bit canvas with dither. The no-effect path skips
 		// the loop and presents the surface output directly — dithering (and the
 		// 16float→8bit conversion) happens either way.
-		let currentInputView = inputTexture.createView();
 		for (let i = 0; i < valid.length; i += 1) {
-			const outputTexture = i % 2 === 0 ? this.#pingTexture : this.#pongTexture;
+			const outputTexture = (i + parity) % 2 === 0 ? this.#pingTexture : this.#pongTexture;
 			valid[i].compiled.apply({
 				commandEncoder,
 				inputView: currentInputView,
@@ -323,7 +396,8 @@ export class EffectChain {
 			commandEncoder,
 			inputView: currentInputView,
 			outputView,
-			background
+			// Fill already baked in pre-composite — don't add it twice.
+			background: preCompositeFill ? [0, 0, 0, 0] : background
 		});
 
 		void this.#width;

@@ -20,7 +20,20 @@ export const cylinderAxisY: Text3dVariant = {
 		const SETTLE_END = 0.42;
 		const u = Math.min(1, t / SETTLE_END);
 		const eased = 1 - Math.pow(1 - u, 3);
-		return (1 - eased) * rotationDegrees;
+		const settled = (1 - eased) * rotationDegrees;
+		if (t <= SETTLE_END) {
+			return settled;
+		}
+		// Living lock: after the word settles to face the camera, a gentle ±2.2°
+		// breath keeps the lit cylinder faces subtly shifting (the hero reads as a
+		// living logo-lock, not a frozen still) without breaking readability. The
+		// breath starts at 0 at SETTLE_END (continuous with `settled`) and is
+		// progress-derived, so it stays frame-deterministic. (Pairs with the
+		// now-grained backgroundFill; on a near-black field this foreground breath
+		// carries most of the hold's life.)
+		const holdT = t - SETTLE_END;
+		const BREATH_DEG = 2.2;
+		return Math.sin(holdT * Math.PI * 2 * 0.5) * BREATH_DEG;
 	},
 	CanvasSource: CylinderAxisYCanvasSource
 };
