@@ -45,7 +45,13 @@
 			xCh: content.radiusCh * sin,
 			scaleX: front ? cos : 0,
 			scale: 0.82 + 0.18 * Math.max(0, cos),
-			opacity: front ? cos : 0,
+			// Ambient + diffuse lighting (not a bare cos opacity fade): a lit
+			// cylinder keeps its turned-away faces dimmer but still PRESENT, the
+			// way a real surface under fill+key light reads — instead of edge
+			// glyphs fading to nothing ("opacity-faded letters, not a lit 3D
+			// surface"). Foreshortening (scaleX→0 at the edge) still vanishes a
+			// glyph cleanly as it crosses to back, so no pop from the floor.
+			opacity: front ? 0.5 + 0.5 * cos : 0,
 			zIndex: Math.round((cos + 1) * 100),
 			front
 		};
