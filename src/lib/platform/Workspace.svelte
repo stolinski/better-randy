@@ -222,7 +222,17 @@
 				key: `mark-${index}`,
 				start: resolved.start,
 				duration: resolved.duration,
-				ease: getEaseGsap(resolved.ease, 'enter'),
+				// Marks are STROKE-DRAWS: markProgress drives the ink advancing along
+				// the stroke path (highlight width, underline/strike length, circle
+				// arc). The named enter eases (`smooth`=power3.out etc.) front-load
+				// progress so the stroke snaps to ~full in the first few frames then
+				// only fills density — reads as a fade-in stamp, not a pen drag
+				// (aesthetic.md § Mark layer: "ink saturates along the stroke path
+				// over time, never a faded-in stamp"). Drive the draw on a steady
+				// power1.inOut instead: soft start, constant-speed middle, soft
+				// landing — a hand laying ink across the phrase. Intrinsic to the
+				// stroke-draw motion-form, independent of the preset's `ease`.
+				ease: 'power1.inOut',
 				onUpdate: (value) => {
 					animState.markProgresses[index] = value;
 				}
