@@ -35,9 +35,10 @@ import { plain } from '$lib/pipelines/surfaces/plain';
 import { pullquoteOnPhoto } from '$lib/pipelines/surfaces/pullquote-on-photo';
 import { titleSequence } from '$lib/pipelines/surfaces/title-sequence';
 import { typeHero } from '$lib/pipelines/surfaces/type-hero';
+import { webDocument } from '$lib/pipelines/surfaces/web-document';
 
 export const PIPELINE_REGISTRY = {
-	surfaces: { paper, plain, newspaper, pullquoteOnPhoto, chapterCard, titleSequence, typeHero } satisfies Record<string, SurfaceRenderer>,
+	surfaces: { paper, plain, newspaper, pullquoteOnPhoto, chapterCard, titleSequence, typeHero, webDocument } satisfies Record<string, SurfaceRenderer>,
 	blocks: { paragraph } satisfies Record<string, BlockRenderer>,
 	annotations: {
 		highlight,

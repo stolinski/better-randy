@@ -46,6 +46,10 @@ export type { SurfaceAnimState as PaperAnimState, SurfaceRenderInputs as PaperRe
 export interface CreatePaperPipelineOptions {
 	host: GpuHost;
 	sourceElement: HTMLElement;
+	// `light` (default) = paper/newspaper: amber multiply, dark ink shows through.
+	// `dark` = web-document: dark surface with light text — paint the amber band and
+	// invert the light text to dark ink so the highlight stays readable.
+	highlightSurface?: 'light' | 'dark';
 }
 
 const FocalSlotStruct = d.struct({
@@ -56,6 +60,7 @@ const FocalSlotStruct = d.struct({
 const PaperUniforms = d.struct({
 	focalSlotCount: d.u32,
 	bgFloor: d.f32,
+	highlightDarkSurface: d.u32,
 	focalSlots: d.arrayOf(FocalSlotStruct, MAX_FOCAL_SLOTS)
 });
 
@@ -152,8 +157,26 @@ const composeFragmentFn = tgpu['~unstable']
 		let streakN = mix(mix(sk00, sk10, streakS.x), mix(sk01, sk11, streakS.x), streakS.y);
 		let inkDensity = mix(0.86, 1.04, streakN);
 		let hEffectiveAlpha = clamp(h.a * inkDensity, 0.0, 1.0);
-		let hMultiplier = mix(vec3f(1.0), h.rgb, hEffectiveAlpha);
-		let tinted = vec4f(dom.rgb * hMultiplier, dom.a);
+		// Light-surface highlight (paper / newspaper): a translucent amber multiply.
+		// Dark text shows through the band naturally — amber over light paper, ink stays dark.
+		let hMul = mix(vec3f(1.0), h.rgb, hEffectiveAlpha);
+		let tinted_light = vec4f(dom.rgb * hMul, dom.a);
+		// Dark-surface highlight (web-document): dark bg + LIGHT text. Reusing the paper
+		// marker's translucent textured alpha here reads as MUD — the dark bg bleeds
+		// through the dry-break/streak alpha (filthy band) and the light text bleeds
+		// through the partial coverage (gray, noisy glyphs). So: lay a CLEAN, near-opaque
+		// amber band — saturate the coverage so the bg never shows through, and carry the
+		// marker texture as a subtle brightness sheen (not alpha) — then punch the light
+		// text fully down to near-black ink via DOM luminance. Crisp black-on-amber, the
+		// readable paper-highlighter look, on any dark background colour.
+		let bandCoverage = smoothstep(0.06, 0.34, h.a);
+		let amberBand = h.rgb * mix(0.90, 1.0, streakN);
+		let domLum = dot(dom.rgb, vec3f(0.2126, 0.7152, 0.0722));
+		let textMask = smoothstep(0.42, 0.70, domLum);
+		let darkInk = vec3f(0.05, 0.045, 0.035);
+		let bandFill = mix(amberBand, darkInk, textMask);
+		let tinted_dark = vec4f(mix(dom.rgb, bandFill, bandCoverage), dom.a);
+		let tinted = select(tinted_light, tinted_dark, layout.$.uniforms.highlightDarkSurface != 0u);
 
 		let blurRadius = 0.0004;
 		let s0 = textureSample(layout.$.strokesTexture, layout.$.samp, in.uv);
@@ -440,8 +463,18 @@ const composeFragmentFn = tgpu['~unstable']
 
 				let liftedH = textureSampleLevel(layout.$.highlightTexture, layout.$.samp, sourceUv, 0.0);
 				let lhEffectiveAlpha = clamp(liftedH.a * inkDensity, 0.0, 1.0);
-				let lhMultiplier = mix(vec3f(1.0), liftedH.rgb, lhEffectiveAlpha);
-				let liftedTinted = vec4f(liftedDom.rgb * lhMultiplier, liftedDom.a);
+				let lhMul = mix(vec3f(1.0), liftedH.rgb, lhEffectiveAlpha);
+				let liftedTinted_light = vec4f(liftedDom.rgb * lhMul, liftedDom.a);
+				// Dark-surface: clean near-opaque amber band + light text punched to ink
+				// (mirrors the main pass — see that block's rationale).
+				let lBandCoverage = smoothstep(0.06, 0.34, liftedH.a);
+				let lAmberBand = liftedH.rgb * mix(0.90, 1.0, streakN);
+				let lDomLum = dot(liftedDom.rgb, vec3f(0.2126, 0.7152, 0.0722));
+				let lTextMask = smoothstep(0.42, 0.70, lDomLum);
+				let lDarkInk = vec3f(0.05, 0.045, 0.035);
+				let lBandFill = mix(lAmberBand, lDarkInk, lTextMask);
+				let liftedTinted_dark = vec4f(mix(liftedDom.rgb, lBandFill, lBandCoverage), liftedDom.a);
+				let liftedTinted = select(liftedTinted_light, liftedTinted_dark, layout.$.uniforms.highlightDarkSurface != 0u);
 
 				let ls0 = textureSampleLevel(layout.$.strokesTexture, layout.$.samp, sourceUv, 0.0);
 				let ls1 = textureSampleLevel(layout.$.strokesTexture, layout.$.samp, sourceUv + vec2f(blurRadius, blurRadius), 0.0);
@@ -594,7 +627,8 @@ function buildFocalSlots(
 
 export function createPaperPipeline({
 	host,
-	sourceElement
+	sourceElement,
+	highlightSurface = 'light'
 }: CreatePaperPipelineOptions): SurfaceRenderInstance {
 	const { canvas, device, root } = host;
 	const canvasWidth = canvas.width;
@@ -652,7 +686,7 @@ export function createPaperPipeline({
 	const initialSlots = Array.from({ length: MAX_FOCAL_SLOTS }, () => EMPTY_FOCAL_SLOT);
 
 	const uniformBuffer = root
-		.createBuffer(PaperUniforms, { focalSlotCount: 0, bgFloor: 0, focalSlots: initialSlots })
+		.createBuffer(PaperUniforms, { focalSlotCount: 0, bgFloor: 0, highlightDarkSurface: 0, focalSlots: initialSlots })
 		.$usage('uniform');
 
 	const bindGroup = root.createBindGroup(composeLayout, {
@@ -752,6 +786,7 @@ export function createPaperPipeline({
 		uniformBuffer.write({
 			focalSlotCount: focalSlots.length,
 			bgFloor: Math.max(0, Math.min(1, inputs.backgroundVisibility ?? 0)),
+			highlightDarkSurface: highlightSurface === 'dark' ? 1 : 0,
 			focalSlots: paddedSlots
 		});
 

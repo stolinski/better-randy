@@ -137,8 +137,16 @@ const SurfaceTypeSchema = z.enum([
 	'pullquote-on-photo',
 	'chapter-card',
 	'title-sequence',
-	'type-hero'
+	'type-hero',
+	'web-document'
 ]);
+
+// Which site the `web-document` Surface mocks. One Surface, per-site layout =
+// content (a captured Svelte mock selected by this field), not per-site
+// Surfaces and not a Pack — see docs/briefs/web-document-demo.md. The enum
+// carries the phase-3 sites (reddit/wikipedia) up front so adding them needs no
+// schema change; only `twitter` ships a mock in v1.
+const WebDocumentSiteSchema = z.enum(['twitter', 'reddit', 'wikipedia']);
 
 const SurfaceContentSchema = z.object({
 	body: AnnotationBodySchema,
@@ -158,12 +166,24 @@ const SurfaceContentSchema = z.object({
 	// primary word with a smaller counterpoint (type-hero `pair` variant per
 	// ADR-0020 / motion-primitives Phase 4.1). Optional everywhere; ignored
 	// by Surfaces / variants that don\'t declare a counterpoint slot.
-	counterpoint: z.string().optional()
+	counterpoint: z.string().optional(),
+	// Avatar image URL for the `web-document` Surface (the tweet author's profile
+	// photo). Must be a CORS-accessible URL (X's CDN is; use crossOrigin
+	// "anonymous" on the <img> so the HTML-in-Canvas capture isn't tainted).
+	// When absent the Surface falls back to the default silhouette SVG.
+	avatarUrl: z.string().optional()
 });
 
 const SurfaceSchema = z.object({
 	type: SurfaceTypeSchema,
 	content: SurfaceContentSchema,
+	// Which site the `web-document` Surface renders (twitter | reddit |
+	// wikipedia). Ignored by every other Surface. The per-site mock reuses the
+	// shared content slots: `author` = display name, `source` = handle /
+	// subreddit / article kicker, `dateLabel` = timestamp, `sourceUrl` = the URL
+	// shown in the browser address bar, `body` = the post text carrying the hero
+	// `[highlight]` span.
+	site: WebDocumentSiteSchema.optional(),
 	// Optional per-Surface variant id, picked up by Surface families that use
 	// the variants-as-data convention per ADR-0020. Unused by single-shape
 	// Surfaces. The Surface\'s Pipeline validates the value against its
@@ -438,6 +458,7 @@ export type Transition = z.infer<typeof TransitionSchema>;
 export type SurfaceContent = z.infer<typeof SurfaceContentSchema>;
 export type SurfaceState = z.infer<typeof SurfaceSchema>;
 export type SurfaceType = z.infer<typeof SurfaceTypeSchema>;
+export type WebDocumentSite = z.infer<typeof WebDocumentSiteSchema>;
 export type Overlay = z.infer<typeof OverlaySchema>;
 export type OverlayPosition = z.infer<typeof OverlayPositionSchema>;
 export type Effect = z.infer<typeof EffectSchema>;

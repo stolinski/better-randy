@@ -9,7 +9,8 @@
 		'pullquote-on-photo': 'Pullquote on photo',
 		'chapter-card': 'Chapter card',
 		'title-sequence': 'Title sequence',
-		'type-hero': 'Type hero'
+		'type-hero': 'Type hero',
+		'web-document': 'Web document'
 	};
 
 	// Which compositor a Preset drives, resolved the same way Workspace does:

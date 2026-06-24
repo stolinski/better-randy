@@ -48,8 +48,6 @@
 	import { applyCompositionState } from './preset';
 	import { measureOverlayBoundsPx } from '$lib/utils/overlay-bounds';
 
-	import { createPaperPipeline } from '$lib/pipelines/surfaces/paper/pipeline';
-	import { createPlainPipeline } from '$lib/pipelines/surfaces/plain/pipeline';
 	import { TransitionSnapshots } from './pipelines/transition-snapshots';
 	import { CompositionPlanes, type CompositeBackdrop } from './pipelines/composition-planes';
 	import { DepthStage } from './pipelines/depth-stage';
@@ -1036,18 +1034,23 @@
 		// those instances via renderAt(); untrack keeps this effect from coupling
 		// to them. Triggers above stay tracked; the body does not subscribe.
 		return untrack(() => {
-			// `newspaper` (ADR-0008) reuses the paper compositor — same focal-slot
-			// and marks scaffolding, same DOM-to-texture upload, same drop shadow.
-			// Newspaper-specific physics (halftone + ink bleed) is carried by the
-			// surface's declarative `shaderPass`, invoked from the compose path in a
-			// follow-up shipped alongside the equivalent overlay-side wiring for
-			// ADR-0005's `OverlayRenderer.shaderPass`.
-			const usesPaperPipeline = surfaceType === 'paper' || surfaceType === 'newspaper';
+			// Each Surface declares its own Pipeline factory + options in the registry:
+			// `newspaper` (ADR-0008) and `web-document` reuse the paper compositor (the
+			// latter with the dark-surface highlight), the rest use the plain compositor.
+			// Route through the registry's `createPipeline` rather than hardcoding surface
+			// types here, so a Surface's declared pipeline + options are honored without
+			// editing this wiring. (Surface-specific physics rides the declarative
+			// `shaderPass`, dispatched separately ahead of the effect chain.)
+			const surfaceRenderer = getSurfaceRenderer(surfaceType);
 			let nextPipeline: SurfaceRenderInstance;
 			try {
-				nextPipeline = usesPaperPipeline
-					? createPaperPipeline({ host: localHost, sourceElement: localSource })
-					: createPlainPipeline({ host: localHost, sourceElement: localSource });
+				if (!surfaceRenderer) {
+					throw new Error(`No Surface renderer registered for "${surfaceType}".`);
+				}
+				nextPipeline = surfaceRenderer.createPipeline({
+					host: localHost,
+					sourceElement: localSource
+				});
 			} catch (error) {
 				console.error('Surface pipeline initialization failed.', error);
 				status = error instanceof Error ? error.message : 'Surface pipeline unavailable.';
