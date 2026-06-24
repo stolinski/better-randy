@@ -11,17 +11,15 @@ import CanvasSource from './CanvasSource.svelte';
  * overlay frame (the first **emissive** Surface). One Surface, per-site layout
  * = content (a Svelte mock captured via HTML-in-Canvas, selected by
  * `surface.site`); v1 ships the `twitter` layout. See
- * docs/briefs/web-document-demo.md.
+ * docs/adr/0030-web-document-emissive-surface.md.
  *
  * Reuses the `paper` Pipeline's runtime scaffolding (HTML-in-canvas DOM upload
- * + marks textures + composite) so the existing `highlight` Annotation lands on
- * the post body's `[highlight]` hero span exactly as it does on other Surfaces.
- *
- * Skeleton state (dex 4sge20km): the card look is carried entirely by the
- * CanvasSource CSS. No `shaderPass` yet — the per-pixel emissive optical pass
- * (subpixel emission, backlight bloom, viewport edge defocus) lands in T3 (dex
- * f0j654gu), at which point it attaches here as `shaderPass` and the Identity
- * Spec (`./identity.ts`) gains those dimensions.
+ * + marks textures + composite) with the `dark`-surface highlight mode, so the
+ * existing `highlight` Annotation lands readably (clean amber band + light text
+ * punched to ink) on the post body's `[highlight]` hero span. The emissive
+ * "backlit display" optics (subpixel emission, backlight bloom, escaping-bezel
+ * halo, viewport-edge defocus) are the `shaderPass` below; the Identity Spec
+ * (`./identity.ts`) declares + probes each dimension.
  */
 
 function defaults(): SurfaceState {

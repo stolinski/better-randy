@@ -5,7 +5,7 @@
  * display, not a photographed reflective material like `paper` / `newspaper`.
  * One Surface, per-site layout = content (a Svelte mock captured via
  * HTML-in-Canvas, selected by `surface.site`). See
- * docs/briefs/web-document-demo.md.
+ * docs/adr/0030-web-document-emissive-surface.md.
  *
  * The window-chrome frame is carried by the CanvasSource CSS; the emissive
  * optical dimensions (subpixel emission, backlight bloom + edge halo, backlight

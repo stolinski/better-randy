@@ -143,8 +143,8 @@ const SurfaceTypeSchema = z.enum([
 
 // Which site the `web-document` Surface mocks. One Surface, per-site layout =
 // content (a captured Svelte mock selected by this field), not per-site
-// Surfaces and not a Pack — see docs/briefs/web-document-demo.md. The enum
-// carries the phase-3 sites (reddit/wikipedia) up front so adding them needs no
+// Surfaces and not a Pack — see docs/adr/0030-web-document-emissive-surface.md.
+// The enum carries the phase-3 sites (reddit/wikipedia) up front so adding them needs no
 // schema change; only `twitter` ships a mock in v1.
 const WebDocumentSiteSchema = z.enum(['twitter', 'reddit', 'wikipedia']);
 
