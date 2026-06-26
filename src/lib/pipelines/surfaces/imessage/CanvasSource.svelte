@@ -21,12 +21,13 @@
 	// nothing reflows as messages arrive — the highlight mark stays pinned to its
 	// phrase. NO CSS filter/glow (it pixelates the HTML-in-Canvas capture). See
 	// docs/adr/0031-imessage-interactive-surface.md.
-	// A fixed iPhone-shaped frame (≈19.5:9) sized off the frame HEIGHT, so the
-	// window never grows with new messages — the conversation fills from the
-	// bottom inside it, like a real phone screen.
-	const IPHONE_ASPECT = 2.16; // height / width
-	const CARD_HEIGHT_RATIO_H = 0.88;
-	const CARD_HEIGHT_RATIO_V = 0.92;
+	// A fixed-size phone-ish window sized off the frame HEIGHT, so it never grows
+	// with new messages — the conversation fills from the bottom inside it. The
+	// aspect is looser than a real phone (chunkier/wider) on purpose: width drives
+	// the type size, so a wider window = larger, more legible text at 4K.
+	const WINDOW_ASPECT = 1.5; // height / width (a true iPhone is ~2.16)
+	const CARD_HEIGHT_RATIO_H = 0.93;
+	const CARD_HEIGHT_RATIO_V = 0.94;
 	const ENTER_TRAVEL_RATIO = 0.05;
 
 	// Choreography schedule (fractions of the clip). Each message i fully arrives
@@ -49,12 +50,12 @@
 	const layout = $derived.by(() => {
 		const heightRatio = isVertical ? CARD_HEIGHT_RATIO_V : CARD_HEIGHT_RATIO_H;
 		let height = frame.height * heightRatio;
-		let width = height / IPHONE_ASPECT;
-		// Don't let the phone get wider than the frame's safe width.
-		const maxWidth = frame.width * (isVertical ? 0.92 : 0.5);
+		let width = height / WINDOW_ASPECT;
+		// Don't let the window get wider than the frame's safe width.
+		const maxWidth = frame.width * (isVertical ? 0.92 : 0.56);
 		if (width > maxWidth) {
 			width = maxWidth;
-			height = width * IPHONE_ASPECT;
+			height = width * WINDOW_ASPECT;
 		}
 		const x = Math.round((frame.width - width) / 2);
 		const visibility = Math.max(0, Math.min(1, animState.paperVisibility));
