@@ -98,14 +98,12 @@ Distinct from GUI parity above. **[ADR-0032](adr/0032-gui-agent-parity-authoring
 
 - 🧭 **The authoring UI**, co-equal in capability with agents. Today's `ControlPanel` is a dev-grade tuner, not a designed editor. The parity **spine** (persistence port + serializer — dex `f78d0itp` / `n4mhpl6m`) is interface-independent and safe to build first; the **coverage + interaction** tasks (fork/revert UX, per-field editors — dex `hok1jtur`+) carry a design dimension a GUI-design grill should inform **before** they're built. **Needs a design grill first** (task-ifying cold produces rot — same rule as parity).
 
-## Sound design (new domain — undesigned, contested)
+## Sound design (new domain — designed, [ADR-0033](adr/0033-sound-design-motion-emitted-cues.md))
 
-A north-star Scott wants but the composition model has nothing for: the 5 Layers are all visual, the schema carries no audio, export is video-only. Two prior signals frame the grill:
+Grilled into a spec (2026-06). Overturns the old `ideas/` "audio stays out — Resolve's job" lean **for the cues case**; in-app mixing stays out.
 
-- **A documented lean against it** (not binding) — `docs/ideas/motion-primitives-library.md`: *"audio is an editor concern (DaVinci Resolve), not Hiviz's. Stays out."* The grill must answer head-on: what does sound *in* Hiviz buy over cueing it in the NLE?
-- **An anticipated hook** — [ADR-0011](adr/0011-text-animation-orchestration.md) names *"audio cues"* as a future **timed-motion domain** that would land like `textAnimations[]` / `marks.timings[]` (a flat per-target timed list on `EngineState`), frame-deterministic off `globalProgress`.
-
-- 🧭 **Sound design / motion-synced cues** — likely sound *cues* (whoosh on enter, impact on a title drop) locked frame-deterministically to the motion, an optional bed, and audio-in-export. Open: a 6th timed-motion domain (not a 6th Layer) vs. something larger; whether export gains an audio track; how preview plays audio without breaking frame-determinism (preview == export). **Needs a design grill first.**
+- 🔨 **Sound design — motion-emitted cues + swappable Sound kit** ([ADR-0033](adr/0033-sound-design-motion-emitted-cues.md)). The sound **rides the animation**: a motion primitive emits a semantic **sound event** (`whoosh-in`, `impact`, `tick`) at its own frame, intrinsic to the motion — so it's automatic (no hand-placing whooshes) and stays welded through re-time/reflow. A **Sound kit** (sibling to the appearance Pack; ADR-0024 resolution) resolves events → samples — "choosing a sound style." Automatic cues are *derived* from motion (not stored); `audioCues[]` holds only manual cues + the optional **bed** (segments/bumpers only). **Determinism:** export is a deterministic offline mix muxed via Mediabunny `addAudioTrack`; preview is real-time playback-only, scrub silent. **Not a 6th Layer** (peer to `textAnimations[]` / `marks.timings[]`). Glossary: **Sound event**, **Sound kit**, **Audio cue**, **Bed** in [`CONTEXT.md`](CONTEXT.md). Task-ified in dex epic `1frpmv40`; gated on a go-ahead.
+- **Deferred (own arcs):** an in-app mixer, scrubbable preview audio, automated sound verification (by-ear for now).
 
 ## Deferred / low-priority
 

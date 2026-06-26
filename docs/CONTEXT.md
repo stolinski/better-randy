@@ -75,6 +75,24 @@ Three `kind`s exist:
 
 _Avoid_: material spec (the narrower predecessor; now the `material` kind), identity rubric (the Spec is per-Pipeline data, not a global rubric), realism checklist.
 
+### Sound model
+
+**Sound event**:
+A semantic sound a **motion primitive emits** at a frame-deterministic moment — `whoosh-in` at an overlay slide's start, `impact` at a card-drop's settle, `tick` per character of a kinetic build. The *trigger time* and *which event* are **intrinsic to the motion** (owned by the Pipeline, like motion-form — never conceded to a kit or Pack); only the *sample* is resolved by the active **Sound kit**. The sonic peer of a **Role**.
+_Avoid_: cue (the cue is the scheduled realization), sfx, sound effect.
+
+**Sound kit** (a.k.a. *sound style*):
+A swappable **sonic dress** — a sibling to the appearance **Pack** — that resolves **sound-event** Roles to concrete audio samples, two-level with core fallback (the [ADR-0024](adr/0024-role-resolution-core-fallback.md) machinery). "Choosing a sound style" = selecting a kit; swapping it re-sounds the whole piece. A Preset names one default kit; the runtime may override it. Carries **sound only** — no appearance (that is the Pack), no motion-timing (that is intrinsic to the motion).
+_Avoid_: sound pack (it is not the appearance Pack), soundtrack, theme, score.
+
+**Audio cue**:
+A scheduled sound on the timeline. **Automatic cues** are *derived* (not stored) from a motion's **sound event**, resolved through the active **Sound kit** at the motion's own frame — so they stay welded to the motion through every re-time/reflow. **Manual cues** are author-placed at an absolute timeline fraction (an outro sting, the **bed** start) and live in `audioCues[]` on `EngineState` (peer to `textAnimations[]` / `marks.timings[]`). Either way a cue does **not** render pixels — sound is **not a Layer**.
+_Avoid_: sound event (the semantic trigger vs. its scheduled realization).
+
+**Bed**:
+An optional single music/ambient track for a self-contained **segment / bumper** (a full-frame piece). Transparent **Overlays** carry no bed — the footage they composite over owns the audio.
+_Avoid_: soundtrack, score, music track (when naming the slot).
+
 ### Pack-scoped vocabulary (Syntax pack)
 
 These terms are vocabulary **of the Syntax Pack**, not of the engine. They are defined in [`docs/packs/syntax/aesthetic.md`](packs/syntax/aesthetic.md) and listed here only as cross-reference; a different Pack carries different appearance vocabulary.

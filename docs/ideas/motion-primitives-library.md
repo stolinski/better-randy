@@ -253,7 +253,7 @@ For family-Pipelines additionally:
 The library deliberately does NOT include:
 
 - **A new timeline UI.** mo1's polished timeline (named clips, audio waveform, nested groups) is real and worth chasing, but it is UI work, not engine work. A separate proposal.
-- **Audio support.** Hiviz is a transparent-overlay tool; audio is an editor concern (DaVinci Resolve), not Hiviz's. Stays out.
+- **Audio support.** ~~Hiviz is a transparent-overlay tool; audio is an editor concern (DaVinci Resolve), not Hiviz's. Stays out.~~ **Reconsidered (2026-06, [ADR-0033](../adr/0033-sound-design-motion-emitted-cues.md)):** sound *cues* enter Hiviz as **motion-emitted sound events** resolved by a swappable **Sound kit** (automatic, frame-deterministic, baked into export). In-app **mixing** still stays out — that remains the NLE's job.
 - **More Surfaces in the typography-led-composition family.** `type-hero`, `title-sequence`, and `chapter-card` already exist; we are not adding `mega-numeric`, `quote-card`, etc. The library expands motion vocabulary, not chrome vocabulary.
 - **Variant proliferation in seed sets.** Each family ships with 2–4 seed variants. New variants come from real Preset needs (a Brief that names one), not from completionism.
 - **Generic morphing between primitives.** `instance-stack` does not animate into `text-3d`. Switching primitive type is a content edit; see `engine-architecture.md` non-goals.
