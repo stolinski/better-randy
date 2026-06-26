@@ -18,8 +18,8 @@
 	// space from frame 0, so nothing reflows as messages arrive — the highlight
 	// mark stays pinned to its phrase. NO CSS filter/glow (it pixelates the
 	// HTML-in-Canvas capture). See docs/adr/0031-imessage-interactive-surface.md.
-	const CARD_WIDTH_RATIO_H = 0.4;
-	const CARD_WIDTH_RATIO_V = 0.82;
+	const CARD_WIDTH_RATIO_H = 0.52;
+	const CARD_WIDTH_RATIO_V = 0.9;
 	const ENTER_TRAVEL_RATIO = 0.05;
 
 	// Choreography schedule (fractions of the clip). Each message i fully arrives
