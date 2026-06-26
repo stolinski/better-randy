@@ -783,10 +783,16 @@ export function createPaperPipeline({
 			};
 		});
 
+		// The highlight blend mode follows the surface's actual background: the
+		// per-frame `highlightDarkSurface` (from paperColor luminance) wins, so a
+		// single Surface can host both dark and light pages (e.g. web-document
+		// twitter/reddit dark vs wikipedia light). Falls back to the creation-time
+		// `highlightSurface` default when the caller doesn't supply it.
+		const darkHighlight = inputs.highlightDarkSurface ?? highlightSurface === 'dark';
 		uniformBuffer.write({
 			focalSlotCount: focalSlots.length,
 			bgFloor: Math.max(0, Math.min(1, inputs.backgroundVisibility ?? 0)),
-			highlightDarkSurface: highlightSurface === 'dark' ? 1 : 0,
+			highlightDarkSurface: darkHighlight ? 1 : 0,
 			focalSlots: paddedSlots
 		});
 

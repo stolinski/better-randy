@@ -190,6 +190,11 @@ function cloneSurface(surface: SurfaceState): SurfaceState {
 		// `pair` preset to the `single` fallback). `body` is a parsed structure
 		// shared by reference, matching the prior behavior.
 		content: { ...surface.content },
+		// Which site the `web-document` Surface mocks (twitter | reddit |
+		// wikipedia). A top-level surface field like `variant` — must be carried
+		// here or applyPreset silently drops it and every site falls back to the
+		// `twitter` mock (the same hand-enumeration trap that lost `counterpoint`).
+		site: surface.site,
 		variant: surface.variant,
 		enter: surface.enter
 			? { start: surface.enter.start, duration: surface.enter.duration, ease: surface.enter.ease }

@@ -117,7 +117,7 @@ for (const p of SAMPLES) {
 	const shot = await send('Page.captureScreenshot', {
 		format: 'png',
 		fromSurface: true,
-		clip: { x: rect.x, y: rect.y, width: rect.w, height: rect.h, scale: 1 }
+		clip: { x: rect.x, y: rect.y, width: rect.w, height: rect.h, scale: rect.w > 0 ? rect.bw / rect.w : 1 }
 	});
 	const file = `${OUTDIR}/p${p.toFixed(2)}.png`;
 	writeFileSync(file, Buffer.from(shot.data, 'base64'));

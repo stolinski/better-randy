@@ -59,7 +59,7 @@
 		type TransparentVideoExportOptions
 	} from './export-video';
 	import { clampNumber } from '$lib/utils/math';
-	import { hexToRgbaFloat } from '$lib/utils/color';
+	import { hexToRgbaFloat, isDarkSurfaceColor } from '$lib/utils/color';
 	import { truncateMiddle } from '$lib/utils/string';
 	import { exposeVisualAudit } from './runtime-audit';
 
@@ -311,11 +311,19 @@
 		return {
 			animState: { markProgresses: animState.markProgresses },
 			backgroundVisibility: engineState.surface.backgroundVisibility ?? 0,
+			highlightDarkSurface: surfaceHighlightIsDark(),
 			markColorsByIndex: getMarkColorsByIndex(),
 			markIntensityByIndex: getMarkIntensityByIndex(),
 			textAnimAlphaByMarkIndex: computeTextAnimAlphaByMarkIndex(parsedMarks),
 			timestamp
 		};
+	}
+
+	// Whether the surface background reads as dark, from its declared paperColor.
+	// `undefined` (no/invalid paperColor) lets the pipeline keep its own default.
+	function surfaceHighlightIsDark(): boolean | undefined {
+		const paperColor = engineState.typography?.paperColor;
+		return paperColor ? isDarkSurfaceColor(paperColor) : undefined;
 	}
 
 	function buildTracks(): TimelineTrack[] {
@@ -1330,6 +1338,7 @@
 			const inputs: SurfaceRenderInputs = {
 				animState: { markProgresses: animState.markProgresses },
 				backgroundVisibility: engineState.surface.backgroundVisibility ?? 0,
+				highlightDarkSurface: surfaceHighlightIsDark(),
 				markColorsByIndex,
 				markIntensityByIndex,
 				textAnimAlphaByMarkIndex: computeTextAnimAlphaByMarkIndex(parsedMarksForExport),

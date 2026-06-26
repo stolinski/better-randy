@@ -37,6 +37,27 @@ export function hexToRgbaFloat(hex: string): [number, number, number, number] {
 	return [red / 255, green / 255, blue / 255, 1.0];
 }
 
+/** Rec. 709 relative luminance of a hex color, 0 (black) … 1 (white). */
+export function relativeLuminance(hex: string): number {
+	const [red, green, blue] = hexToRgbaFloat(hex);
+	return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+/**
+ * True when a surface background reads as dark (light text / UI sits on it).
+ * Drives the highlight mode: dark surfaces punch light text to ink under the
+ * amber mark, light surfaces multiply (paper). Threshold at mid-luminance.
+ * Returns `false` (treat as light) for any non-hex value rather than throwing.
+ */
+export function isDarkSurfaceColor(hex: string): boolean {
+	try {
+		return relativeLuminance(hex) < 0.5;
+	} catch {
+		// Not a parseable hex (e.g. a named/transparent value) — default to light.
+		return false;
+	}
+}
+
 export function getCanvasRgbColor(color: string, opacity: number): string {
 	const { red, green, blue } = getRgbColorChannels(color);
 	const alpha = clampNumber(opacity, 0, 1);

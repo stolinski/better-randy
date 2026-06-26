@@ -1,0 +1,38 @@
+{
+	"schema": "hiviz@1",
+	"name": "Web document — Wikipedia (vertical)",
+	"description": "Vertical (TikTok/Reels) reflow of the Wikipedia article overlay — the card widens to the vertical safe-area while the look holds. Faithful site look BY DESIGN: Wikipedia Vector light skin (white #ffffff bg, dark #202122 ink, serif article title + section heading each with the signature thin underline rule, italic 'From Wikipedia, the free encyclopedia' subtitle, sans body), inside a browser window whose address bar shows the URL — NO Syntax collage chrome (no torn edge / grit / hard offset shadow), and NO CSS glow on the captured card. Because the page is light, the highlight runs in the light (multiply) blend mode — dark body ink stays readable under the amber band, exactly as on paper. The emissive 'web page on a backlit display' look is a TypeGPU shaderPass (subpixel emission, backlight bloom, escaping-bezel halo, viewport-edge defocus), not Pack chrome. ~6s: card settles in, the highlighter draws on over the hero line (~1.2→2.4s), then a long static hold a creator can freeze/extend. Transparent WebM overlay, composited over footage.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "vertical",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#ffffff",
+			"inkColor": "#202122"
+		},
+		"marks": {
+			"defaults": {
+				"highlight": { "color": "#fabf47", "intensity": 0.62 }
+			},
+			"timings": [{ "start": 0.2, "duration": 0.2, "ease": "smooth" }]
+		},
+		"surface": {
+			"type": "web-document",
+			"site": "wikipedia",
+			"content": {
+				"title": "Program optimization",
+				"kicker": "Bottlenecks",
+				"sourceUrl": "en.wikipedia.org/wiki/Program_optimization",
+				"body": "In computer science, program optimization is the process of modifying a software system to make some aspect of it work more efficiently or use fewer resources. A guiding principle is that optimization should follow measurement: [highlight]a performance bottleneck is usually a small section of code executed very frequently[/highlight], rather than the component a developer first suspects.\n\nProfilers locate these sections by sampling or instrumenting a running program. Once a hot path is identified, a single change — removing redundant work from an inner loop, caching a result, or avoiding I/O on each iteration — can yield disproportionate gains, while effort spent elsewhere has negligible effect."
+			},
+			"enter": { "start": 0, "duration": 0.07, "ease": "settled" }
+		},
+		"overlays": [],
+		"effects": []
+	}
+}

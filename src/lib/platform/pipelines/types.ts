@@ -81,6 +81,12 @@ export interface SurfaceAnimState {
 export interface SurfaceRenderInputs {
 	animState: SurfaceAnimState;
 	backgroundVisibility?: number;
+	// Whether the surface background reads as dark (light text on it), derived
+	// per-frame from the surface's `paperColor` luminance. Selects the highlight
+	// blend mode: dark → punch light text to ink under the amber band; light →
+	// multiply (paper). When omitted the pipeline falls back to its creation-time
+	// `highlightSurface` default.
+	highlightDarkSurface?: boolean;
 	markColorsByIndex: readonly string[];
 	markIntensityByIndex: readonly number[];
 	textAnimAlphaByMarkIndex?: readonly number[];
