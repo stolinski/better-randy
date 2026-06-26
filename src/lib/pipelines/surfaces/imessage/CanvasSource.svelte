@@ -68,7 +68,10 @@
 
 	function bubbleStyle(i: number): { opacity: number; scale: number } {
 		const local = clamp01((p - appearAt(i)) / POP);
-		return { opacity: clamp01(local * 1.6), scale: 0.6 + 0.4 * easeOutBack(local) };
+		// Opacity is binary at appearAt (the bubble pops in opaque, scale-only) so
+		// there is no blank gap at the typing→bubble handoff; the spring carries
+		// the motion.
+		return { opacity: p >= appearAt(i) ? 1 : 0, scale: 0.6 + 0.4 * easeOutBack(local) };
 	}
 	function isTyping(i: number, from: 'me' | 'them'): boolean {
 		if (from !== 'them' || i === 0) {
@@ -154,7 +157,13 @@
 				style:margin-block-start={`${startsGroup(i) ? layout.width * 0.018 : layout.width * 0.005}px`}
 			>
 				{#if typing}
-					<div class="im-typing" style:padding={`${bodyFontPx * 0.6}px ${bodyFontPx * 0.72}px`} style:gap={`${bodyFontPx * 0.26}px`}>
+					<div
+						class="im-bubble im-bubble--tail im-typing"
+						data-from="them"
+						style:font-size={`${bodyFontPx}px`}
+						style:padding={`${bodyFontPx * 0.62}px ${bodyFontPx * 0.7}px`}
+						style:gap={`${bodyFontPx * 0.26}px`}
+					>
 						{#each [0, 1, 2] as k (k)}
 							<span
 								class="im-dot"
@@ -298,6 +307,7 @@
 	.im-row {
 		display: grid;
 		justify-items: start;
+		position: relative;
 	}
 	.im-row[data-from='me'] {
 		justify-items: end;
@@ -376,12 +386,19 @@
 		inset-inline-start: -0.55em;
 	}
 
+	/*
+	 * Typing indicator — the same received bubble shell (gray + tail, via the
+	 * .im-bubble classes), positioned as an absolute overlay in the row so it does
+	 * NOT add height: the real bubble keeps its reserved slot, so removing the
+	 * indicator never shifts the (centered) card.
+	 */
 	.im-typing {
 		align-items: center;
-		background-color: var(--im-received);
-		border-radius: 1.25em;
 		display: inline-flex;
-		inline-size: fit-content;
+		inset-block-start: 0;
+		inset-inline-start: 0;
+		position: absolute;
+		z-index: 1;
 	}
 	.im-dot {
 		background-color: #8e8e93;
