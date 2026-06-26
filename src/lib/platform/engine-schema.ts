@@ -93,6 +93,19 @@ const AnnotationBodySchema = z
 	.string()
 	.transform((text): AnnotationBody => parseAnnotationBodyText(text));
 
+// One chat bubble for the `imessage` Surface. `from` picks the side/colour
+// (received gray, left · sent blue, right); `text` is a body string that may
+// carry the hero `[highlight]`; `tapback` is an optional iMessage reaction and
+// `status` the delivered/read receipt under a sent bubble. See
+// docs/adr/0031-imessage-interactive-surface.md.
+const ChatMessageSchema = z.object({
+	from: z.enum(['me', 'them']),
+	text: AnnotationBodySchema,
+	tapback: z.enum(['heart', 'like', 'dislike', 'haha', 'emphasize', 'question']).optional(),
+	status: z.enum(['delivered', 'read']).optional()
+});
+export type ChatMessage = z.infer<typeof ChatMessageSchema>;
+
 const TransportSchema = z.object({
 	orientation: VideoOrientationSchema,
 	durationSeconds: z.number().min(0.1).max(600),
@@ -138,7 +151,8 @@ const SurfaceTypeSchema = z.enum([
 	'chapter-card',
 	'title-sequence',
 	'type-hero',
-	'web-document'
+	'web-document',
+	'imessage'
 ]);
 
 // Which site the `web-document` Surface mocks. One Surface, per-site layout =
@@ -180,7 +194,11 @@ const SurfaceContentSchema = z.object({
 	// photo). Must be a CORS-accessible URL (X's CDN is; use crossOrigin
 	// "anonymous" on the <img> so the HTML-in-Canvas capture isn't tainted).
 	// When absent the Surface falls back to the default silhouette SVG.
-	avatarUrl: z.string().optional()
+	avatarUrl: z.string().optional(),
+	// Ordered conversation for the `imessage` Surface (ignored by every other
+	// surface). The thread-level contact name reuses `author`; each message
+	// carries its own side/text/tapback/receipt. Per ADR-0031.
+	messages: z.array(ChatMessageSchema).optional()
 });
 
 const SurfaceSchema = z.object({

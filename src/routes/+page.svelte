@@ -10,7 +10,8 @@
 		'chapter-card': 'Chapter card',
 		'title-sequence': 'Title sequence',
 		'type-hero': 'Type hero',
-		'web-document': 'Web document'
+		'web-document': 'Web document',
+		imessage: 'iMessage'
 	};
 
 	// Which compositor a Preset drives, resolved the same way Workspace does:

@@ -1,0 +1,44 @@
+{
+	"schema": "hiviz@1",
+	"name": "iMessage — the bug (horizontal)",
+	"description": "A live iOS Messages conversation on a transparent overlay. The thread plays out over ~6s: a gray received bubble pops in, a three-dot typing indicator appears and resolves into the next bubble, the channel's highlighter draws over the hero line inside that gray bubble (multiply, so the dark text stays readable), a heart tapback pops onto it, then a blue sent reply arrives with a Delivered → Read receipt, and it holds. Faithful iOS Messages look BY DESIGN: white page, gray (left) / blue (right) bubbles with tail curls, an iOS header (back chevron, contact avatar + name, FaceTime icon) — NOT a web page (no browser chrome), and NO CSS glow on the captured card. Transparent WebM overlay, composited over footage.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#ffffff",
+			"inkColor": "#000000"
+		},
+		"marks": {
+			"defaults": {
+				"highlight": { "color": "#fabf47", "intensity": 0.62 }
+			},
+			"timings": [{ "start": 0.32, "duration": 0.16, "ease": "smooth" }]
+		},
+		"surface": {
+			"type": "imessage",
+			"content": {
+				"author": "Wes",
+				"body": "",
+				"messages": [
+					{ "from": "them", "text": "ok i finally found it" },
+					{
+						"from": "them",
+						"text": "the bottleneck was a [highlight]console.log inside a hot loop[/highlight]",
+						"tapback": "heart"
+					},
+					{ "from": "me", "text": "wait, that's it??", "status": "read" }
+				]
+			},
+			"enter": { "start": 0, "duration": 0.05, "ease": "settled" }
+		},
+		"overlays": [],
+		"effects": []
+	}
+}

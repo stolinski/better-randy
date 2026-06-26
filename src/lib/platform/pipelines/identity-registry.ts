@@ -29,6 +29,7 @@ import { pullquoteOnPhotoIdentity } from '$lib/pipelines/surfaces/pullquote-on-p
 import { titleSequenceIdentity } from '$lib/pipelines/surfaces/title-sequence/identity';
 import { typeHeroIdentity } from '$lib/pipelines/surfaces/type-hero/identity';
 import { webDocumentIdentity } from '$lib/pipelines/surfaces/web-document/identity';
+import { imessageIdentity } from '$lib/pipelines/surfaces/imessage/identity';
 
 // Blocks
 import { paragraphIdentity } from '$lib/pipelines/blocks/paragraph/identity';
@@ -65,6 +66,7 @@ export const IDENTITY_REGISTRY: Readonly<Record<string, IdentitySpec>> = {
 	'surface:title-sequence': titleSequenceIdentity,
 	'surface:type-hero': typeHeroIdentity,
 	'surface:web-document': webDocumentIdentity,
+	'surface:imessage': imessageIdentity,
 
 	// Blocks
 	'block:paragraph': paragraphIdentity,

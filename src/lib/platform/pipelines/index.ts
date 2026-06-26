@@ -29,6 +29,7 @@ import { washiTape } from '$lib/pipelines/overlays/washi-tape';
 import { watermark } from '$lib/pipelines/overlays/watermark';
 
 import { chapterCard } from '$lib/pipelines/surfaces/chapter-card';
+import { imessage } from '$lib/pipelines/surfaces/imessage';
 import { newspaper } from '$lib/pipelines/surfaces/newspaper';
 import { paper } from '$lib/pipelines/surfaces/paper';
 import { plain } from '$lib/pipelines/surfaces/plain';
@@ -38,7 +39,7 @@ import { typeHero } from '$lib/pipelines/surfaces/type-hero';
 import { webDocument } from '$lib/pipelines/surfaces/web-document';
 
 export const PIPELINE_REGISTRY = {
-	surfaces: { paper, plain, newspaper, pullquoteOnPhoto, chapterCard, titleSequence, typeHero, webDocument } satisfies Record<string, SurfaceRenderer>,
+	surfaces: { paper, plain, newspaper, pullquoteOnPhoto, chapterCard, titleSequence, typeHero, webDocument, imessage } satisfies Record<string, SurfaceRenderer>,
 	blocks: { paragraph } satisfies Record<string, BlockRenderer>,
 	annotations: {
 		highlight,

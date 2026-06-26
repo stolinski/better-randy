@@ -50,6 +50,10 @@ export interface CreatePaperPipelineOptions {
 	// `dark` = web-document: dark surface with light text — paint the amber band and
 	// invert the light text to dark ink so the highlight stays readable.
 	highlightSurface?: 'light' | 'dark';
+	// `paper` (default) bakes the warm fiber/grain substrate into the DOM (the
+	// paper/newspaper look). `flat` leaves the captured DOM untinted — for screen
+	// surfaces (iMessage) that are not photographed paper.
+	substrate?: 'paper' | 'flat';
 }
 
 const FocalSlotStruct = d.struct({
@@ -61,6 +65,7 @@ const PaperUniforms = d.struct({
 	focalSlotCount: d.u32,
 	bgFloor: d.f32,
 	highlightDarkSurface: d.u32,
+	flatSubstrate: d.u32,
 	focalSlots: d.arrayOf(FocalSlotStruct, MAX_FOCAL_SLOTS)
 });
 
@@ -142,7 +147,10 @@ const composeFragmentFn = tgpu['~unstable']
 
 		let grain = (coarseN * 0.38 + fineN * 0.32 + fiberN * 0.30 - 0.5) * 0.040;
 		let warmth = vec3f(1.0, 0.990, 0.968);
-		let substrate = mix(vec3f(1.0), warmth + vec3f(grain), mask);
+		let paperSubstrate = mix(vec3f(1.0), warmth + vec3f(grain), mask);
+		// Screen surfaces (iMessage) opt out of the paper substrate — leave the
+		// captured DOM untinted.
+		let substrate = select(paperSubstrate, vec3f(1.0), layout.$.uniforms.flatSubstrate != 0u);
 		dom = vec4f(dom.rgb * substrate, dom.a);
 
 		let h = textureSample(layout.$.highlightTexture, layout.$.samp, in.uv);
@@ -628,7 +636,8 @@ function buildFocalSlots(
 export function createPaperPipeline({
 	host,
 	sourceElement,
-	highlightSurface = 'light'
+	highlightSurface = 'light',
+	substrate = 'paper'
 }: CreatePaperPipelineOptions): SurfaceRenderInstance {
 	const { canvas, device, root } = host;
 	const canvasWidth = canvas.width;
@@ -686,7 +695,7 @@ export function createPaperPipeline({
 	const initialSlots = Array.from({ length: MAX_FOCAL_SLOTS }, () => EMPTY_FOCAL_SLOT);
 
 	const uniformBuffer = root
-		.createBuffer(PaperUniforms, { focalSlotCount: 0, bgFloor: 0, highlightDarkSurface: 0, focalSlots: initialSlots })
+		.createBuffer(PaperUniforms, { focalSlotCount: 0, bgFloor: 0, highlightDarkSurface: 0, flatSubstrate: 0, focalSlots: initialSlots })
 		.$usage('uniform');
 
 	const bindGroup = root.createBindGroup(composeLayout, {
@@ -793,6 +802,7 @@ export function createPaperPipeline({
 			focalSlotCount: focalSlots.length,
 			bgFloor: Math.max(0, Math.min(1, inputs.backgroundVisibility ?? 0)),
 			highlightDarkSurface: darkHighlight ? 1 : 0,
+			flatSubstrate: substrate === 'flat' ? 1 : 0,
 			focalSlots: paddedSlots
 		});
 

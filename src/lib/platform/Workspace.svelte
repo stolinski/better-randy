@@ -121,25 +121,36 @@
 		const result: ParsedMark[] = [];
 		let cursor = 0;
 
-		for (const block of engineState.surface.content.body) {
-			if (block.type !== 'paragraph') {
-				continue;
-			}
+		// The body slot, then any per-message bodies (the `imessage` Surface carries
+		// its highlight inside `content.messages[].text`, not `content.body`). The
+		// order matches DOM order — body renders first, then the message bubbles
+		// top-to-bottom — so these indices align with getAnnotationMarkLayouts.
+		const bodies = [engineState.surface.content.body];
+		for (const message of engineState.surface.content.messages ?? []) {
+			bodies.push(message.text);
+		}
 
-			for (const segment of block.segments) {
-				const start = cursor;
-				const end = cursor + segment.text.length;
-				for (const style of segment.markStyles) {
-					result.push({ style, text: segment.text, startChar: start, endChar: end });
+		for (const body of bodies) {
+			for (const block of body) {
+				if (block.type !== 'paragraph') {
+					continue;
 				}
-				cursor = end;
+
+				for (const segment of block.segments) {
+					const start = cursor;
+					const end = cursor + segment.text.length;
+					for (const style of segment.markStyles) {
+						result.push({ style, text: segment.text, startChar: start, endChar: end });
+					}
+					cursor = end;
+				}
+				// Paragraph break — accounts for "\n\n" between paragraphs in the
+				// editor's serialized form. The text-animation manager splits the
+				// rendered DOM which may collapse whitespace differently; the
+				// marks-coupling min-over-overlapped-units is robust to a one-char
+				// drift.
+				cursor += 2;
 			}
-			// Paragraph break — accounts for "\n\n" between paragraphs in the
-			// editor's serialized form. The text-animation manager splits the
-			// rendered DOM which may collapse whitespace differently; the
-			// marks-coupling min-over-overlapped-units is robust to a one-char
-			// drift.
-			cursor += 2;
 		}
 
 		return result;
