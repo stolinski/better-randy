@@ -27,13 +27,14 @@
 				"author": "Wes",
 				"body": "",
 				"messages": [
-					{ "from": "them", "text": "ok i finally found it" },
+					{ "from": "them", "text": "ok i finally found it", "enter": { "start": 0.07, "duration": 0.06 } },
 					{
 						"from": "them",
 						"text": "the bottleneck was a console.log inside a hot loop",
-						"tapback": "heart"
+						"tapback": "heart",
+						"enter": { "start": 0.25, "duration": 0.06 }
 					},
-					{ "from": "me", "text": "wait, that's it??", "status": "read" }
+					{ "from": "me", "text": "wait, that's it??", "status": "read", "enter": { "start": 0.43, "duration": 0.06 } }
 				]
 			},
 			"enter": { "start": 0, "duration": 0.05, "ease": "settled" }
