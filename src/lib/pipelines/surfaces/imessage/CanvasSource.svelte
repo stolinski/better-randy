@@ -8,7 +8,7 @@
 	import DocumentBody from '../web-document/DocumentBody.svelte';
 	import {
 		messageEnter,
-		TYPING_LEAD,
+		messageTyping,
 		TAPBACK_DELAY,
 		RECEIPT_DELIVERED_DELAY,
 		RECEIPT_READ_DELAY
@@ -82,11 +82,9 @@
 		// the motion.
 		return { opacity: p >= appearAt(i) ? 1 : 0, scale: 0.6 + 0.4 * easeOutBack(local) };
 	}
-	function isTyping(i: number, from: 'me' | 'them'): boolean {
-		if (from !== 'them' || i === 0) {
-			return false;
-		}
-		return p >= appearAt(i) - TYPING_LEAD && p < appearAt(i);
+	function isTyping(i: number): boolean {
+		const win = messageTyping(messages[i], i);
+		return win !== null && p >= win.start && p < win.start + win.duration;
 	}
 	function dotOpacity(k: number): number {
 		return 0.3 + 0.5 * (0.5 + 0.5 * Math.sin(2 * Math.PI * (p * 26 + k * 0.16)));
@@ -160,7 +158,7 @@
 
 		{#each messages as message, i (i)}
 			{@const style = bubbleStyle(i)}
-			{@const typing = isTyping(i, message.from)}
+			{@const typing = isTyping(i)}
 			<div
 				class="im-row"
 				data-from={message.from}

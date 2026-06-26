@@ -32,7 +32,8 @@
 						"from": "them",
 						"text": "the bottleneck was a console.log inside a hot loop",
 						"tapback": "heart",
-						"enter": { "start": 0.25, "duration": 0.06 }
+						"enter": { "start": 0.25, "duration": 0.06 },
+						"typing": { "duration": 0.1 }
 					},
 					{ "from": "me", "text": "wait, that's it??", "status": "read", "enter": { "start": 0.43, "duration": 0.06 } }
 				]

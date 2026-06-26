@@ -27,15 +27,26 @@ function defaults(): SurfaceState {
 			author: 'Wes',
 			body: parseAnnotationBodyText(''),
 			messages: [
-				{ from: 'them', text: parseAnnotationBodyText('ok i finally found it') },
+				{
+					from: 'them',
+					text: parseAnnotationBodyText('ok i finally found it'),
+					enter: { start: 0.07, duration: 0.06 }
+				},
 				{
 					from: 'them',
 					text: parseAnnotationBodyText(
 						'the bottleneck was a [highlight]console.log inside a hot loop[/highlight]'
 					),
-					tapback: 'heart'
+					tapback: 'heart',
+					enter: { start: 0.25, duration: 0.06 },
+					typing: { duration: 0.1 }
 				},
-				{ from: 'me', text: parseAnnotationBodyText("wait that's it??"), status: 'read' }
+				{
+					from: 'me',
+					text: parseAnnotationBodyText("wait that's it??"),
+					status: 'read',
+					enter: { start: 0.43, duration: 0.06 }
+				}
 			]
 		},
 		enter: { start: 0, duration: 0.05, ease: 'settled' }

@@ -62,7 +62,7 @@
 	import { clampNumber } from '$lib/utils/math';
 	import { hexToRgbaFloat, isDarkSurfaceColor } from '$lib/utils/color';
 	import { truncateMiddle } from '$lib/utils/string';
-	import { messageEnter } from '$lib/pipelines/surfaces/imessage/schedule';
+	import { messageEnter, messageTyping } from '$lib/pipelines/surfaces/imessage/schedule';
 	import { exposeVisualAudit } from './runtime-audit';
 
 	let compositionElement = $state<HTMLElement | null>(null);
@@ -545,12 +545,38 @@
 		if (surface.type === 'imessage') {
 			(surface.content.messages ?? []).forEach((message, index) => {
 				const timing = messageEnter(message, index);
+				const typing = messageTyping(message, index);
 				const label = truncateMiddle(annotationBodyPlainText(message.text), 18) || '…';
 				trackList.push({
 					id: `imessage-${index}`,
 					label,
 					color: message.from === 'me' ? '#0a84ff' : '#8e8e93',
 					transitions: [
+						// Typing indicator (its own clip): the right edge is when the
+						// bubble lands; the width is how long they type.
+						...(typing
+							? [
+									{
+										id: 'typing',
+										label: '•••',
+										start: typing.start,
+										duration: typing.duration,
+										ramp: 'in' as const,
+										minStart: 0,
+										maxStart: 0.95,
+										minDuration: 0.02,
+										maxDuration: 0.6,
+										onUpdate: ({ start, duration }: { start: number; duration: number }) => {
+											message.typing = { duration };
+											message.enter = {
+												start: start + duration,
+												duration: message.enter?.duration ?? timing.duration,
+												ease: message.enter?.ease
+											};
+										}
+									}
+								]
+							: []),
 						{
 							id: 'enter',
 							label,

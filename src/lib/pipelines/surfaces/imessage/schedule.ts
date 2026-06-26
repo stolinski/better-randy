@@ -31,8 +31,16 @@ export function messageEnter(message: ChatMessage, index: number): MessageEnter 
 	};
 }
 
+/** The typing indicator's window for a message (its own schema descriptor), or null. */
+export function messageTyping(message: ChatMessage, index: number): MessageEnter | null {
+	if (!message.typing) {
+		return null;
+	}
+	const bubbleStart = messageEnter(message, index).start;
+	return { start: bubbleStart - message.typing.duration, duration: message.typing.duration };
+}
+
 // Secondary beats, expressed relative to a message's `enter.start`.
-export const TYPING_LEAD = 0.1; // a `them` reply's typing indicator shows this far before it arrives
 export const TAPBACK_DELAY = 0.05; // a tapback pops this far after its bubble
 export const RECEIPT_DELIVERED_DELAY = 0.05;
 export const RECEIPT_READ_DELAY = 0.14;
