@@ -1,0 +1,39 @@
+{
+	"schema": "hiviz@1",
+	"name": "Web document — YouTube (vertical)",
+	"description": "Vertical (TikTok/Reels) reflow of the YouTube comment overlay — the card widens to the vertical safe-area while the look holds. Faithful site look BY DESIGN: YouTube dark theme (bg #0f0f0f), the video headline as a context line, then a comment with a round avatar, @handle · age meta, and the thumbs-up count + Reply row, inside a browser window whose address bar shows the URL — NO Syntax collage chrome (no torn edge / grit / hard offset shadow), and NO CSS glow on the captured card. Because the page is dark, the highlight runs in the dark-surface mode — the light comment text is punched to dark ink under the amber band so it stays readable. The emissive 'web page on a backlit display' look is a TypeGPU shaderPass (subpixel emission, backlight bloom, escaping-bezel halo, viewport-edge defocus), not Pack chrome. ~6s: card settles in, the highlighter draws over the hero line (~1.2→2.4s), then a long static hold a creator can freeze/extend. Transparent WebM overlay, composited over footage.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "vertical",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#0f0f0f",
+			"inkColor": "#f1f1f1"
+		},
+		"marks": {
+			"defaults": {
+				"highlight": { "color": "#fabf47", "intensity": 0.62 }
+			},
+			"timings": [{ "start": 0.2, "duration": 0.2, "ease": "smooth" }]
+		},
+		"surface": {
+			"type": "web-document",
+			"site": "youtube",
+			"content": {
+				"title": "Why your build is slow — and the one-line fix",
+				"author": "@dev_tips",
+				"dateLabel": "2 days ago",
+				"sourceUrl": "youtube.com/watch?v=dQw4w9WgXcQ",
+				"body": "Came here after fighting the bundler all week. [highlight]Turns out a console.log in a hot loop was the entire bottleneck[/highlight] — deleted it and my build went from 40s to 9s. Wild how one line can do that."
+			},
+			"enter": { "start": 0, "duration": 0.07, "ease": "settled" }
+		},
+		"overlays": [],
+		"effects": []
+	}
+}

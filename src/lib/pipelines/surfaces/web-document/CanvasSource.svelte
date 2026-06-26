@@ -5,9 +5,11 @@
 
 	import GitHubMock from './GitHubMock.svelte';
 	import HackerNewsMock from './HackerNewsMock.svelte';
+	import NewsArticleMock from './NewsArticleMock.svelte';
 	import RedditMock from './RedditMock.svelte';
 	import TwitterMock from './TwitterMock.svelte';
 	import WikipediaMock from './WikipediaMock.svelte';
+	import YouTubeMock from './YouTubeMock.svelte';
 
 	interface Props {
 		element?: HTMLElement | null;
@@ -83,6 +85,10 @@
 		<HackerNewsMock {content} width={layout.width} />
 	{:else if site === 'github'}
 		<GitHubMock {content} width={layout.width} />
+	{:else if site === 'youtube'}
+		<YouTubeMock {content} width={layout.width} />
+	{:else if site === 'news'}
+		<NewsArticleMock {content} width={layout.width} />
 	{:else}
 		<TwitterMock {content} width={layout.width} />
 	{/if}

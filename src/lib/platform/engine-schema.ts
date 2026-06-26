@@ -152,7 +152,9 @@ const WebDocumentSiteSchema = z.enum([
 	'reddit',
 	'wikipedia',
 	'hackernews',
-	'github'
+	'github',
+	'youtube',
+	'news'
 ]);
 
 const SurfaceContentSchema = z.object({

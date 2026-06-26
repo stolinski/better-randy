@@ -37,7 +37,9 @@ const SITE_LABEL = {
 	reddit: 'Reddit',
 	wikipedia: 'Wikipedia',
 	hackernews: 'Hacker News',
-	github: 'GitHub'
+	github: 'GitHub',
+	youtube: 'YouTube',
+	news: 'News article'
 };
 
 // Per-site page palette — matches the canonical web-document presets so the
@@ -48,8 +50,23 @@ const SITE_TYPOGRAPHY = {
 	reddit: { paperColor: '#1a1a1b', inkColor: '#d7dadc' },
 	wikipedia: { paperColor: '#ffffff', inkColor: '#202122' },
 	hackernews: { paperColor: '#f6f6ef', inkColor: '#1a1a1a' },
-	github: { paperColor: '#0d1117', inkColor: '#e6edf3' }
+	github: { paperColor: '#0d1117', inkColor: '#e6edf3' },
+	youtube: { paperColor: '#0f0f0f', inkColor: '#f1f1f1' },
+	news: { paperColor: '#ffffff', inkColor: '#121212' }
 };
+
+// Known news/editorial outlets → the `news` mock. Any other article URL can be
+// forced with `--site=news`.
+const NEWS_HOSTS = [
+	'theverge.com',
+	'nytimes.com',
+	'arstechnica.com',
+	'wired.com',
+	'techcrunch.com',
+	'theguardian.com',
+	'bbc.com',
+	'bbc.co.uk'
+];
 
 function fail(message) {
 	console.error(`✗ ${message}`);
@@ -72,6 +89,12 @@ function detectSite(url) {
 	}
 	if (host === 'github.com' || host.endsWith('.github.com')) {
 		return 'github';
+	}
+	if (host === 'youtube.com' || host.endsWith('.youtube.com') || host === 'youtu.be') {
+		return 'youtube';
+	}
+	if (NEWS_HOSTS.some((newsHost) => host === newsHost || host.endsWith(`.${newsHost}`))) {
+		return 'news';
 	}
 	return null;
 }
@@ -104,14 +127,59 @@ function stripMarkdown(md) {
 		.trim();
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 /** ISO timestamp → "Jun 22". */
 function formatShortDate(iso) {
 	const date = new Date(iso);
 	if (Number.isNaN(date.getTime())) {
 		return '';
 	}
-	const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-	return `${months[date.getMonth()]} ${date.getDate()}`;
+	return `${MONTHS[date.getMonth()]} ${date.getDate()}`;
+}
+
+/** ISO timestamp → "Jun 22, 2026". */
+function formatLongDate(iso) {
+	const date = new Date(iso);
+	if (Number.isNaN(date.getTime())) {
+		return '';
+	}
+	return `${MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+}
+
+function decodeEntities(value) {
+	return (value ?? '')
+		.replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+		.replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)))
+		.replace(/&quot;/g, '"')
+		.replace(/&#39;|&apos;/g, "'")
+		.replace(/&lt;/g, '<')
+		.replace(/&gt;/g, '>')
+		.replace(/&amp;/g, '&')
+		.trim();
+}
+
+async function fetchText(url) {
+	const res = await fetch(url, { headers: { 'User-Agent': UA } });
+	if (!res.ok) {
+		throw new Error(`HTTP ${res.status} from ${stripUrl(url)}`);
+	}
+	return res.text();
+}
+
+/** Read a <meta property|name="key" content="…"> value (either attribute order). */
+function readMeta(html, key) {
+	const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	const forward = new RegExp(
+		`<meta[^>]+(?:property|name)=["']${escaped}["'][^>]*content=["']([^"']*)["']`,
+		'i'
+	);
+	const reverse = new RegExp(
+		`<meta[^>]+content=["']([^"']*)["'][^>]*(?:property|name)=["']${escaped}["']`,
+		'i'
+	);
+	const match = html.match(forward) ?? html.match(reverse);
+	return match ? decodeEntities(match[1]) : '';
 }
 
 function stripUrl(value) {
@@ -293,6 +361,51 @@ async function scrapeGitHub(url) {
 	};
 }
 
+async function scrapeYouTube(url) {
+	// oEmbed gives the video title + channel (no comment data without the Data
+	// API + key), so the comment author + body are left for the author to fill.
+	const oembed = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+	const data = await fetchJson(oembed);
+	const videoTitle = data.title ?? '';
+	return {
+		slug: slugify(videoTitle || 'youtube'),
+		titleForName: videoTitle || data.author_name || 'video',
+		needsManualBody: true,
+		content: {
+			title: videoTitle,
+			author: '@your_handle',
+			dateLabel: '2 days ago',
+			sourceUrl: stripUrl(url),
+			body: 'Paste the YouTube comment here, then wrap your hero line in [highlight]…[/highlight].'
+		}
+	};
+}
+
+async function scrapeNews(url) {
+	const html = await fetchText(url);
+	const title = readMeta(html, 'og:title') || readMeta(html, 'twitter:title');
+	const publication = readMeta(html, 'og:site_name') || new URL(url).hostname.replace(/^www\./, '');
+	const author = readMeta(html, 'article:author') || readMeta(html, 'author');
+	const published = readMeta(html, 'article:published_time') || readMeta(html, 'date');
+	const description = readMeta(html, 'og:description') || readMeta(html, 'description');
+	if (!title) {
+		throw new Error('no og:title meta tag found');
+	}
+	return {
+		slug: slugify(title),
+		titleForName: title,
+		content: {
+			source: publication,
+			title,
+			// article:author is sometimes a URL; only keep a plain name.
+			author: /^https?:/i.test(author) ? '' : author,
+			dateLabel: formatLongDate(published),
+			sourceUrl: stripUrl(url),
+			body: clampText(description) || 'Paste the article excerpt here, then mark the hero [highlight] span.'
+		}
+	};
+}
+
 /** Drop empty-string slots so the emitted content carries only what it uses. */
 function pruneContent(content) {
 	return Object.fromEntries(Object.entries(content).filter(([, value]) => value !== ''));
@@ -331,14 +444,18 @@ async function main() {
 		fail('usage: node scripts/url-to-preset.mjs <url> [--vertical] [--force] [--dry-run]');
 	}
 
+	// `--site=<name>` forces a site (e.g. a news outlet not in NEWS_HOSTS).
+	const siteOverride = (argv.find((a) => a.startsWith('--site=')) ?? '').split('=')[1];
 	let site;
 	try {
-		site = detectSite(url);
+		site = siteOverride || detectSite(url);
 	} catch {
 		fail(`not a valid URL: ${url}`);
 	}
-	if (!site) {
-		fail(`unsupported site — URL must be twitter/x, reddit, or wikipedia: ${url}`);
+	if (!site || !SITE_TYPOGRAPHY[site]) {
+		fail(
+			`unsupported site — use a URL from a known host, or pass --site=<${Object.keys(SITE_TYPOGRAPHY).join('|')}>: ${url}`
+		);
 	}
 
 	const orientation = flags.has('--vertical') ? 'vertical' : 'horizontal';
@@ -356,6 +473,11 @@ async function main() {
 			scraped = await scrapeHackerNews(url, nowMs);
 		} else if (site === 'github') {
 			scraped = await scrapeGitHub(url);
+		} else if (site === 'youtube') {
+			scraped = await scrapeYouTube(url);
+			note = 'YouTube comments need the Data API — the comment author + body are placeholders; paste the real text.';
+		} else if (site === 'news') {
+			scraped = await scrapeNews(url);
 		} else {
 			scraped = scrapeTwitterFromUrl(url);
 			note = 'X/Twitter is auth-walled — the tweet body is a placeholder; paste the real text.';

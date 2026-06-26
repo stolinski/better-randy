@@ -1,0 +1,40 @@
+{
+	"schema": "hiviz@1",
+	"name": "Web document — News article (vertical)",
+	"description": "Vertical (TikTok/Reels) reflow of the news article overlay — the card widens to the vertical safe-area while the look holds. Faithful site look BY DESIGN: a publication-neutral light editorial page (white #ffffff) with a colored uppercase publication/section kicker, a large serif headline, a 'By Author · date' byline, a rule, and serif body paragraphs, inside a browser window whose address bar shows the URL — NO Syntax collage chrome (no torn edge / grit / hard offset shadow), and NO CSS glow on the captured card. Because the page is light, the highlight runs in the light (multiply) blend mode — the dark body type stays readable under the amber band, like on paper. The emissive 'web page on a backlit display' look is a TypeGPU shaderPass (subpixel emission, backlight bloom, escaping-bezel halo, viewport-edge defocus), not Pack chrome. ~6s: card settles in, the highlighter draws over the hero line (~1.2→2.4s), then a long static hold a creator can freeze/extend. Transparent WebM overlay, composited over footage.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "vertical",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#ffffff",
+			"inkColor": "#121212"
+		},
+		"marks": {
+			"defaults": {
+				"highlight": { "color": "#fabf47", "intensity": 0.62 }
+			},
+			"timings": [{ "start": 0.2, "duration": 0.2, "ease": "smooth" }]
+		},
+		"surface": {
+			"type": "web-document",
+			"site": "news",
+			"content": {
+				"source": "The Verge",
+				"title": "The real reason your build got slow — and the one-line fix",
+				"author": "Jordan Lee",
+				"dateLabel": "Jun 22, 2026",
+				"sourceUrl": "theverge.com/2026/6/22/build-times-console-log",
+				"body": "For months, teams across the industry blamed their bundlers for ballooning build times. A closer look at one widely-shared case suggests a humbler culprit. [highlight]The entire slowdown traced back to a single console.log running inside a hot loop[/highlight], firing once for every file in the project. Removing the line cut the build from forty seconds to nine."
+			},
+			"enter": { "start": 0, "duration": 0.07, "ease": "settled" }
+		},
+		"overlays": [],
+		"effects": []
+	}
+}
