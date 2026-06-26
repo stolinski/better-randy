@@ -82,8 +82,8 @@ A semantic sound a **motion primitive emits** at a frame-deterministic moment �
 _Avoid_: cue (the cue is the scheduled realization), sfx, sound effect.
 
 **Sound kit** (a.k.a. *sound style*):
-A swappable **sonic dress** — a sibling to the appearance **Pack** — that resolves **sound-event** Roles to concrete audio samples, two-level with core fallback (the [ADR-0024](adr/0024-role-resolution-core-fallback.md) machinery). "Choosing a sound style" = selecting a kit; swapping it re-sounds the whole piece. A Preset names one default kit; the runtime may override it. Carries **sound only** — no appearance (that is the Pack), no motion-timing (that is intrinsic to the motion).
-_Avoid_: sound pack (it is not the appearance Pack), soundtrack, theme, score.
+A swappable **sonic dress** that resolves **sound-event** Roles to concrete audio samples, two-level with core fallback (the [ADR-0024](adr/0024-role-resolution-core-fallback.md) machinery). Assigned **per Layer** (in the Layer's inspector), **not** per composition — there is no whole-piece sound pack; a Layer with no kit is silent. "Choosing a sound style" re-sounds *that Layer*. Carries **sound only** — no appearance (that is the Pack), no motion-timing (that is intrinsic to the motion). Cascade: **Layer** (which kit) → **motion / event** (override one sample). Unlike the appearance **Pack** (one global dress, [ADR-0023](adr/0023-pack-is-appearance-only.md)), the kit lives on the Layer because sound is event-driven and granular.
+_Avoid_: sound pack (it is not the appearance Pack), soundtrack, theme, score; "composition sound kit" (kits are per-Layer).
 
 **Audio cue**:
 A scheduled sound on the timeline. **Automatic cues** are *derived* (not stored) from a motion's **sound event**, resolved through the active **Sound kit** at the motion's own frame — so they stay welded to the motion through every re-time/reflow. **Manual cues** are author-placed at an absolute timeline fraction (an outro sting, the **bed** start) and live in `audioCues[]` on `EngineState` (peer to `textAnimations[]` / `marks.timings[]`). Either way a cue does **not** render pixels — sound is **not a Layer**.

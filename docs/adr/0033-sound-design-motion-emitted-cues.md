@@ -24,7 +24,11 @@ A motion primitive **emits** a semantic **sound event** at a frame-deterministic
 
 ### 3. Sound kit — a swappable resource, sibling to the appearance Pack
 
-A **Sound kit** resolves **sound-event** Roles → concrete audio samples, two-level with core fallback (the [ADR-0024](0024-role-resolution-core-fallback.md) machinery, reused). "Choosing a sound style" = selecting a kit; swapping it re-sounds the whole piece. A kit carries **sound only** — no appearance (that is the Pack), no motion-timing (that is intrinsic to the motion). A Preset names one default kit; the runtime may override it. This keeps [ADR-0023](0023-pack-is-appearance-only.md)'s "Pack = appearance-only" intact while giving sound the same proven resolution machinery on its own axis.
+A **Sound kit** resolves **sound-event** Roles → concrete audio samples, two-level with core fallback (the [ADR-0024](0024-role-resolution-core-fallback.md) machinery, reused). A kit carries **sound only** — no appearance (that is the Pack), no motion-timing (that is intrinsic to the motion).
+
+The kit is assigned **per Layer**, not per composition: the slide-on overlay wears a `whoosh` kit, the title wears a `cinematic-impact` kit — there is **no whole-piece "sound pack,"** because different Layers want different sound families. A Layer with **no kit is silent** (sound is opt-in per Layer). "Choosing a sound style" happens in a **Layer's inspector** and re-sounds *that Layer*. This diverges deliberately from the appearance **Pack** (one global dress, [ADR-0023](0023-pack-is-appearance-only.md)): sound is event-driven and granular, so it lives on the Layer.
+
+The cascade is two levels — **Layer** (which kit) → **motion / event** (override one sample: mute / swap / lock) — each falling back to the level above.
 
 ### 4. Automatic cues are derived, not stored
 
@@ -57,7 +61,7 @@ Sound is authored the way text animations were ([ADR-0011](0011-text-animation-o
 - **Timeline — audio-cue rail.** A rail showing the **bed** and cues (derived-from-motion *and* manual) alongside the existing mark / text-anim tracks, so you see where sound fires against the motion. Selecting a cue focuses it in the sidebar.
 - **Sidebar — Sound section.** The **Sound kit** picker ("choose a sound style" — re-sounds the whole piece), per-motion sound overrides (mute / swap event / lock sample), and authoring for manual cues + the bed.
 
-This surface persists through GUI parity's lossless round-trip ([ADR-0032](0032-gui-agent-parity-authoring.md)) like any other Preset state — `audioCues[]`, the `soundKit` choice, and per-motion overrides are part of the GUI-owned subtree. It does **not** depend on the GUI-design grill; it extends today's functional UI exactly as the Text Motion section did.
+This surface persists through GUI parity's lossless round-trip ([ADR-0032](0032-gui-agent-parity-authoring.md)) like any other Preset state — `audioCues[]`, the per-Layer `soundKit`, and per-motion overrides are part of the GUI-owned subtree. It does **not** depend on the GUI-design grill; it extends today's functional UI exactly as the Text Motion section did.
 
 ## Alternatives rejected
 
