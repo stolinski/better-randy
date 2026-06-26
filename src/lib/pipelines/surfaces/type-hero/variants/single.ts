@@ -12,12 +12,7 @@ export const singleTypeHero: TypeHeroVariant = {
 	label: 'Single',
 	defaults: {
 		scaleRatio: 1,
-		counterpointAnchor: 'shoulder',
-		enterStagger: 0
-	},
-	motionShape: (_slotIndex, progress) => {
-		const t = Math.max(0, Math.min(1, progress));
-		return t * t * (3 - 2 * t);
+		counterpointAnchor: 'shoulder'
 	},
 	CanvasSource: SingleCanvasSource
 };

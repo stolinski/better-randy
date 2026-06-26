@@ -13,13 +13,7 @@ export const pairTypeHero: TypeHeroVariant = {
 	label: 'Pair',
 	defaults: {
 		scaleRatio: 0.06,
-		counterpointAnchor: 'shoulder',
-		enterStagger: 0.35
-	},
-	motionShape: (slotIndex, progress) => {
-		const stagger = slotIndex === 0 ? 0 : 0.35;
-		const local = Math.max(0, Math.min(1, (progress - stagger) / (1 - stagger)));
-		return local * local * (3 - 2 * local);
+		counterpointAnchor: 'shoulder'
 	},
 	CanvasSource: PairCanvasSource
 };

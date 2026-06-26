@@ -19,17 +19,6 @@ export interface TypeHeroVariant {
 		scaleRatio: number;
 		/** Where the counterpoint sits relative to the primary letterform. */
 		counterpointAnchor: CounterpointAnchor;
-		/**
-		 * Lag between primary and counterpoint enter motions, expressed as a
-		 * fraction of the surface enter window.
-		 */
-		enterStagger: number;
 	};
-	/**
-	 * Pure motion-shape function. Receives slot index (0 = primary, 1 =
-	 * counterpoint) and global progress; returns per-slot enter alpha. Pure
-	 * per ADR-0020 — no engineState reads, no DOM access, no wall-clock.
-	 */
-	motionShape: (slotIndex: number, progress: number) => number;
 	CanvasSource: Component<{ element?: HTMLElement | null }>;
 }

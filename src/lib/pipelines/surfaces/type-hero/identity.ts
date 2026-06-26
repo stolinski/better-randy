@@ -61,12 +61,12 @@ export const typeHeroIdentity: IdentitySpec = {
 		{
 			name: 'motion-form',
 			implementation:
-				'enter/drift motion intrinsic to the type-hero variant motionShape + mount timing.',
+				'enter/drift motion via the text-animation entrance on the hero word slot + mount timing (schema-driven; the raked-light pass adds continuous drift).',
 			definition: 'Shape of the hero word enter motion (drift, drop, scale, none).',
 			probe: {
 				kind: 'named-observation',
 				region: 'first ~10% of the timeline',
-				expectation: 'the hero word enters via the variant motionShape + mount timing (intrinsic to the Pipeline), not a Pack Role.'
+				expectation: 'the hero word enters via its text-animation + mount timing (intrinsic to the Pipeline, schema-driven), not a Pack Role.'
 			}
 		},
 		{
