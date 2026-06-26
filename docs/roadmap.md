@@ -24,8 +24,8 @@ The default answer to "what's next?" — an agent self-serves this instead of as
 3. **Within an epic, work autonomously** — no check-in task to task.
 4. **At the end of each epic, STOP and check in with the human** — summarize what the epic delivered + anything learned, and get a go-ahead *before* starting the next epic. **This is the leash: epic-by-epic, not fully autonomous.**
 5. **Also stop mid-epic and ask** before: removing any pipeline/feature (the prove-or-remove epic), resolving a design fork (a 0006-style tension), starting an undesigned arc, or when a task's intent is ambiguous against the docs/code.
-6. **Critical path:** the engine arc is done — the corpus is now the critical path.
-7. **Activating a roadmap arc** = break its epic into dex tasks. **GUI parity is the exception — it needs a design grill first** (undesigned; task-ifying it cold produces rot). The corpus is demand-pulled: author one ship-grade deliverable per family through the Critic loop as the engine supports it.
+6. **Critical path:** the engine arc is done and the corpus is delivered (one Critic-ACCEPTed deliverable per family). The remaining critical path is **GUI ↔ agent parity** — now grilled into a spec ([ADR-0032](adr/0032-gui-agent-parity-authoring.md)) and task-ified in dex (epic `3pkmqyns`); gated on a go-ahead at the corpus epic boundary.
+7. **Activating a roadmap arc** = break its epic into dex tasks. **GUI parity needed a design grill first** — done (2026-06, [ADR-0032](adr/0032-gui-agent-parity-authoring.md)); the epic now exists in dex. The corpus is demand-pulled: author one ship-grade deliverable per family through the Critic loop as the engine supports it.
 
 **Aligned with the goals** = engine arc done ✅ **+** ≥1 ship-grade deliverable per surface/overlay family **+** the GUI reaches agent-parity. The arcs below are the scoreboard.
 
@@ -37,28 +37,36 @@ The default answer to "what's next?" — an agent self-serves this instead of as
 
 ---
 
-## Now — the corpus arc
+## Now — the corpus tail; GUI parity designed
 
-The engine gap is closed. The current arc is producing one **Critic-accepted, genuinely cinematic** deliverable per surface/overlay family.
+The engine gap is closed, the make-cinematic push is **done across every surface/overlay family**, and the web-document arc (incl. iMessage) has shipped. What remains: a small **corpus refinement tail**, and — the largest open pillar — **GUI ↔ agent parity**, now designed ([ADR-0032](adr/0032-gui-agent-parity-authoring.md)) and task-ified (dex epic `3pkmqyns`), gated on a go-ahead at the corpus epic boundary.
 
-**Cinematic-bar recalibration (2026-06).** A 12-agent cinematic audit (`docs/critic-captures/corpus-cinematic-audit.md`) scored every family **2–5/10** against a Netflix bar — *competent but not cinematic*. So the corpus is far less done than "2 shipped" implied: every family already has a deliverable *candidate*, but none yet clears the true bar. The work is **make-cinematic + Critic-accept**, not author-from-scratch. Systemic deficits across the corpus: dead static holds (motion), flat "CSS-on-black" (grade), dead-centered (composition), flat layers (depth).
+**Cinematic-bar recalibration → resolved (2026-06).** A 12-agent cinematic audit (`docs/critic-captures/corpus-cinematic-audit.md`) scored every family **2–5/10** against a Netflix bar — *competent but not cinematic* — and set the honest bar plus the reusable recipe. That diagnostic drove a family-by-family make-cinematic pass: **all 13 families are now Critic-ACCEPTed** (zero pipeline-bug / default-too-permissive) at the cinematic bar, each with a graded backdrop, felt camera, parallax, and reading-order motion. `pullquote-on-photo` shipped on the ADR-0028 depth stage (real photographic substrate), so it is **no longer blocked**.
 
-**The recipe** (proven on chapter-card, reusable): off-center staging · filmic grade + toe · eased felt camera · two-octave fBm parallax · GPU-fade outro · reading-order entrances.
+**The recipe** (proven on chapter-card, applied corpus-wide): off-center staging · filmic grade + toe · eased felt camera · two-octave fBm parallax · GPU-fade outro · reading-order entrances.
 
-**Reference deliverables:** `lower-third-cinematic` (overlay reference) + `server-renders-again` (editorial-mono gate) are the prior bar; `chapter-card-cinematic` is the **surface reference** being driven to the *new* cinematic bar now (blocker fixed, ready for re-Critic).
+**Reference deliverables:** `lower-third-cinematic` (overlay reference), `server-renders-again` (editorial-mono gate), and `chapter-card-cinematic` (surface reference) are the bar the rest were driven to.
 
-Gating note: `pullquote-on-photo` is blocked on the image-substrate + edge-treatment primitives. All other families are unblocked.
+**The remaining corpus tail** (dex epic `ri2qchcm`): opaque-piece Critic probe (`9w7kdptf`), washi-tape fibrous tear-edge (`ukc5ip66`), paper-grain on near-black fields (`3ohrvtc4`), and the heavy image-substrate + edge-treatment primitive (`jhxe2k5w`, in progress — its substrate half already shipped `pullquote-on-photo`; the edge-treatment half is open).
 
 **dex is the source of truth for per-family task state** (run `dex list --ready`).
 
 ## The corpus
 
-- 🔨 **One Critic-accepted deliverable per surface/overlay family.** Shipped: `lower-third-cinematic` + `server-renders-again`. **Activated in dex (2026-06)** — epic `ri2qchcm`, 13 family tasks tiered by render path + value:
-  - **T1 — full-frame title surfaces** (showcase; ADR-0028 depth-stage candidates): `chapter-card`, `title-sequence`, `type-hero`.
+- ✅ **One Critic-accepted deliverable per surface/overlay family — delivered (2026-06).** Every family passes the Critic (zero pipeline-bug / default-too-permissive) at the cinematic bar, via dex epic `ri2qchcm`:
+  - **T1 — full-frame title surfaces** (depth-stage candidates): `chapter-card`, `title-sequence`, `type-hero`.
   - **T2 — document surfaces** (flat path, A+ text): `newspaper`, `paper`.
   - **T3 — overlays** (flat, transparent, over footage): `washi-tape`, `watermark`, `counter`, `cursor-trail`, `instance-stack`, `shader-fill`, `text-3d`.
-  - **Blocked:** `pullquote-on-photo` — needs the configurable edge-treatment primitive (Heavy primitives, below).
+  - **`pullquote-on-photo`** — shipped on the ADR-0028 depth stage (photographic substrate); not blocked.
+  - Open: a refinement tail only (opaque probe + washi tear-edge + paper-grain + edge-treatment primitive — see **Now**).
 - 📐 **Make lower-third appearance-neutral.** Move "collage card" chrome out of the overlay into the Syntax pack (ADR-0006 → 0023). Overlay content is `kicker` + `title` + `subtitle`.
+
+## The web-document arc
+
+A **web-document Surface** — pixel-faithful mocks of real sites used as transparent-overlay substrate, with highlight Annotations drawn over real-looking site UI (the "as seen on X" reference shot). Authoring-time `scripts/url-to-preset.mjs` turns a URL into a preset.
+
+- ✅ **v1 shipped (2026-06).** Surface skeleton + schema + emissive-screen Identity Spec (shaderPass); 5 site mocks — Twitter/Reddit/Wikipedia/Hacker News/GitHub — H + vertical presets, highlight Annotation over a hero span, URL→preset scraper. (dex epic `dj3nyv17`, [ADR-0030](adr/0030-web-document-emissive-surface.md).)
+- ✅ **Expansion shipped (2026-06)** (dex epic `peo8i346`). YouTube + news-article mocks behind `surface.site`, plus **iMessage** — the first **interactive / choreographed Surface** ([ADR-0031](adr/0031-imessage-interactive-surface.md)): its own `type`, an ordered `content.messages[]`, and a frame-deterministic show (bubbles pop in, typing indicator → reply, tapback, Delivered→Read) where the *motion* is the deliverable, not a screenshot.
 
 ## Pipeline coverage decisions
 
@@ -71,14 +79,18 @@ Gating note: `pullquote-on-photo` is blocked on the image-substrate + edge-treat
 - 📐 **Z-depth / depth-of-field** — [ADR-0021](adr/0021-z-plane-semantics.md). Focal-distance sidecar to the color target; DOF/tilt-shift Effects read it. DOF v1 ships flat (multiplane bokeh, [ADR-0027](adr/0027-dof-v1-multiplane-bokeh.md)); no per-pixel depth target in code today.
 - 📐 **Dimensional depth stage** — [ADR-0028](adr/0028-dimensional-depth-stage.md). Opt-in WebGPU 3D compositor for continuous-depth pieces: Layer textures on perspective planes at their ADR-0021 z, per-pixel depth from geometry, mip-prefiltered gather DOF, real camera (`stage.camera`) + light. **Validated end-to-end in a POC** (`src/routes/poc/dof3d/`): determinism, parallax + rack-focus motion, export==preview through Mediabunny, clean at 4K + vertical. Engine work (stage selector + schema, scene renderer on the 0026/0027 capture seam, depth+DOF passes, orientation framing, Critic checks, demo Preset) not yet broken into dex tasks. Flat multiplane (0027) stays default + backbone for text-critical pieces.
 - ✅ **Multi-state transitions (v1)** — [ADR-0022](adr/0022-multi-state-composition.md) model + [ADR-0026](adr/0026-transitions-v1-snapshot-and-wipe.md) impl. Shipped: `transition: { from, to, effect, durationMs }`, snapshot each state to a texture, `mask-wipe` Effect composites a true per-pixel wipe. **Upgrade path:** live dual-tree (states animating mid-wipe) via a context-scoped engine-state refactor, when a Preset needs it.
-- 📐 **Starter templates** (ex-[ADR-0004](adr/0004-recipe-cookbook-over-schema-chrome.md)) — curated Preset+Pack starting points both a human (GUI) and an agent begin from.
+- 📐 **Starter templates** (ex-[ADR-0004](adr/0004-recipe-cookbook-over-schema-chrome.md)) — curated Preset+Pack starting points both a human (GUI) and an agent begin from. Mechanism now specified by GUI parity ([ADR-0032](adr/0032-gui-agent-parity-authoring.md)): a corpus preset opened read-only as a fork-base.
 - 🧭 **Heavy primitives** — general image/video **substrate input**; a general **configurable edge-treatment** primitive (clean / soft / irregular / torn / none) driven by the pack `edge-treatment` Role (torn is one value, not a default).
 - 🧭 **Generalized animation model** — replace the 2-keyframe tween with ordered `keyframes[]` + per-channel ease; per-overlay enter descriptors; staggered follow-through.
 - 🧭 **New Block types** — `mermaid` / `code` / `image` / `chart` (only `paragraph` ships).
 
-## GUI ↔ agent parity (north-star surface, mostly unbuilt)
+## GUI ↔ agent parity (north-star surface — designed, [ADR-0032](adr/0032-gui-agent-parity-authoring.md))
 
-- 🧭 **GUI as a full from-scratch authoring tool**, co-equal with agents over one composition model — either creates a piece end-to-end alone, or they collaborate in either direction. Today the GUI is preview/tune; the parity build is the largest product surface and is net-new.
+The remaining critical path. **Designed (2026-06, [ADR-0032](adr/0032-gui-agent-parity-authoring.md)); task-ified in dex epic `3pkmqyns`.** Not yet started — gated on a go-ahead at the corpus epic boundary.
+
+- 🔨 **GUI as a full authoring tool**, co-equal with agents over one composition model. Reframed by the grill: the GUI already two-way-binds a full editable `engineState`, so the missing pieces are **persistence** (a transport-agnostic save port, Electron-ready) and **coverage** (transport / stage / pack / structure) — *not* a net-new app.
+- **Model:** corpus presets are **read-only Starter templates**; the first param change **forks** a **User composition** to a user-writable store and autosaves; **revert** discards the fork. **Lossless round-trip** (preserve loaded Preset, patch only the GUI-owned subtree, gated by a byte-identical round-trip test) makes save safe with partial coverage and widens incrementally. Scope is single-user/local, architected to ship as an Electron app later. Glossary: **User composition**, **Corpus vs user store** in [`CONTEXT.md`](CONTEXT.md).
+- **Deferred (own arcs):** verification parity (linter/Critic over GUI-authored comps), create-from-blank (fast-follow), the multi-user / product-document model.
 
 ## Deferred / low-priority
 
@@ -94,6 +106,8 @@ Gating note: `pullquote-on-photo` is blocked on the image-substrate + edge-treat
 
 ## ✅ Recently shipped (context)
 
+- **Corpus made cinematic — every family Critic-ACCEPTed (2026-06):** the audit-driven make-cinematic pass closed. All 13 surface/overlay families (plus `pullquote-on-photo` on the depth stage) clear the Critic at the cinematic bar — graded backdrops, felt camera, parallax, reading-order motion. The recipe was proven on `chapter-card-cinematic` and applied corpus-wide. Open: a refinement tail only (see Now).
+- **web-document Surface — v1 + expansion (2026-06):** faithful site-mock transparent overlays — Twitter/Reddit/Wikipedia/Hacker News/GitHub, then YouTube + news article ([ADR-0030](adr/0030-web-document-emissive-surface.md)) — highlight Annotation over a hero span + URL→preset scraper. Plus **iMessage** ([ADR-0031](adr/0031-imessage-interactive-surface.md)), the first **interactive** Surface: a frame-deterministic chat show (bubbles, typing indicator, tapback, read receipt) where the motion is the deliverable.
 - **Dimensional depth stage — ADR-0028 (2026-06):** a real WebGPU 3D compositor (`state.stage`). POC-validated → integrated → Critic-accepted: `DepthStage` renderer (surface plane over a backdrop at depth, perspective camera push/drift, per-pixel-depth mip-prefiltered gather DOF), `renderAt` branch (preview + export, export==preview, deterministic to ~0.002%), orientation reflow, `depth-stage-demo` fixture. Flat multiplane (ADR-0027) stays the default. Remaining (tracked): overlay-at-depth, scene lighting/shadow, half-res 4K perf.
 - **Two engine bugs fixed (2026-06, surfaced driving chapter-card cinematic):** (1) opacity-exit ease head-loaded fades — `getEaseGsap` now direction+property-aware (opacity exits use `.inOut`, transform exits keep `.out`). (2) `copyElementImageToTexture` can't capture CSS `opacity<1` (it's a compositing-layer promoter → captures transparent), so `style:opacity` surface fades were BINARY; fix is a GPU alpha-multiply (done for chapter-card; generalization tracked). See `docs/critic-captures/text-fade-bug-investigation.md`.
 - **Corpus cinematic audit (2026-06):** 12-agent parallel critique set the honest Netflix bar (every family 2–5/10) + the reusable recipe; `chapter-card-cinematic` driven toward the surface-reference bar. See `docs/critic-captures/corpus-cinematic-audit.md`.

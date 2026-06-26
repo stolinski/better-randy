@@ -42,6 +42,7 @@ Architecture Decision Records — the *why* behind Hiviz's shape. Each records a
 | [0029](0029-image-substrate-on-depth-stage.md) | **Canon (v1 built)** (builds on 0028) | Image substrate — a real bundled photo on the depth stage's backdrop plane (`state.stage.backdrop.image.asset` → resident GPU texture via the plane's `textured` branch); deterministic Vite-imported assets; shipped via pullquote-on-photo. Edge-treatment primitive (the other p20 half) still pending for the flat collage family |
 | [0030](0030-web-document-emissive-surface.md) | **Canon (v1 built)** | Web-document — the first **emissive** Surface (a website on a backlit display). One Surface, per-site layout = content (`surface.site`); v1 Twitter/X "Dim" mock as a transparent overlay card. Emissive optics are a `shaderPass` (subpixel emission, backlight bloom, escaping-bezel halo, edge defocus), not CSS; paper compositor gains a `dark`-surface highlight (clean amber band + light text punched to ink). `Workspace` now routes surface compositor selection through the registry. Phase 3 (Reddit/Wikipedia, scraper) deferred |
 | [0031](0031-imessage-interactive-surface.md) | **Canon (v1 built)** (builds on 0030) | iMessage — the first **interactive/choreographed** Surface (the value is the motion, not a screenshot). Its own `type` (not a web-document site): ordered `content.messages[]` shape; bubbles pop in, a typing indicator resolves into a reply, tapback + Delivered→Read receipt, all driven off `animState.globalProgress` (frame-deterministic). Two general engine changes: `readMarks` enumerates `messages[].text` (the highlight can live in a bubble), and `createPaperPipeline` gains `substrate: 'flat'` (a screen, not photographed paper) |
+| [0032](0032-gui-agent-parity-authoring.md) | **Designed, not built** | GUI ↔ agent parity — local round-trip authoring on the shared Preset. The GUI becomes a co-equal author: corpus presets are read-only **Starter templates**, the first edit **forks** a **User composition** to a user store + autosaves, **revert** discards; **lossless round-trip** (preserve loaded Preset, patch only the GUI-owned subtree, byte-identical round-trip test) makes save safe with partial coverage; single-user/local, Electron-ready persistence port. Tracked in dex epic `3pkmqyns` |
 
 ## Supersession & refinement chains
 
@@ -50,7 +51,7 @@ Architecture Decision Records — the *why* behind Hiviz's shape. Each records a
 - `0012` (effect-chain time) ↔ `0013` (shaderPass time)
 - `0014` + `0015` seam → closed by `0019` → refined by `0023` (appearance-only) + `0024` (core fallback)
 - `0015` anti-pattern collision → resolved by `0016`
-- `0006` → superseded by `0023`; `0004` → reframed as starter templates ([roadmap](../roadmap.md))
+- `0006` → superseded by `0023`; `0004` → reframed as starter templates → mechanism specified by `0032` (GUI parity: corpus preset as read-only fork-base)
 - `0022` (multi-state model) → implementation refined by `0026` (snapshot-and-wipe for v1; live dual-tree deferred)
 - `0021` (Z semantics) → mechanism refined by `0027` (multiplane bokeh for v1; per-pixel depth target / z-map deferred) → continuous-depth path realized by `0028` (real 3D stage; per-pixel depth from geometry; flat multiplane stays default)
 

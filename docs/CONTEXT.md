@@ -11,8 +11,16 @@ A JSON document declaring a **composition recipe** — motion, content, and role
 _Avoid_: tool, scene, template (when referring to a finished composition).
 
 **Starter template** (formerly *Recipe*):
-A curated starting point — Preset + Pack — that a human (GUI) or an agent begins a new composition from, varying rather than authoring from scratch; not itself a deliverable. **Designed, not built** (reframed from the never-shipped recipe cookbook, ex-[ADR-0004](adr/0004-recipe-cookbook-over-schema-chrome.md)) — see [`roadmap.md`](roadmap.md).
+A curated starting point — Preset + Pack — that a human (GUI) or an agent begins a new composition from, varying rather than authoring from scratch; not itself a deliverable. In the GUI this is concretely a **corpus Preset opened read-only as a fork-base**: the first edit forks a new **User composition**, never mutating the original. **Designed, not built** (reframed from the never-shipped recipe cookbook, ex-[ADR-0004](adr/0004-recipe-cookbook-over-schema-chrome.md)); the fork-on-save mechanism is specified by the GUI-parity work — see [`roadmap.md`](roadmap.md).
 _Avoid_: recipe, boilerplate, scaffold.
+
+**User composition**:
+A **Preset** authored and saved through the GUI to the **user store** — created by forking a **Starter template** (or, later, from a blank composition). Identical artifact format to a corpus Preset (the engine loads either identically); distinguished only by **provenance and store**, never by schema. The product-side unit of authoring, peer to the agent-authored corpus Preset.
+_Avoid_: document, override, patch, project (all imply a non-Preset or base-bound artifact — a User composition is a standalone Preset).
+
+**Corpus** vs **user store**:
+The two places a **Preset** lives. The **corpus** is the git-tracked set under `src/lib/presets/` — Critic-accepted, build-harness reference artifacts, **read-only from the GUI** (they serve as Starter templates). The **user store** is a separate user-writable location holding **User compositions**. Both hold the same Preset format. Pre-parity, everything lived in the corpus; the store split is what lets GUI authoring coexist with the proof corpus without polluting it.
+_Avoid_: conflating the two; calling the user store a "database" or "project" (it is a Preset store).
 
 **Layer**:
 One of the five composition layers — **Surface**, **Block**, **Annotation**, **Overlay**, **Effect**. Render order and registry membership are defined by which layer a renderer belongs to.
