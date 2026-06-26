@@ -84,7 +84,7 @@
 	}
 	function tapbackScale(i: number): number {
 		const local = clamp01((p - (appearAt(i) + 0.05)) / 0.05);
-		return local <= 0 ? 0 : 0.4 + 0.6 * easeOutBack(local);
+		return local <= 0 ? 0 : Math.max(0, easeOutBack(local));
 	}
 	function receiptLabel(i: number, status: 'delivered' | 'read'): string {
 		if (status === 'read' && p >= appearAt(i) + 0.14) {
@@ -174,18 +174,26 @@
 						{/each}
 					</div>
 				{/if}
-				<div
-					class="im-bubble"
-					class:im-bubble--tail={showTail(i)}
-					data-from={message.from}
-					style:font-size={`${bodyFontPx}px`}
-					style:padding={`${bodyFontPx * 0.44}px ${bodyFontPx * 0.66}px`}
-					style:opacity={typing ? 0 : style.opacity}
-					style:transform={`scale(${typing ? 0.6 : style.scale})`}
-				>
-					{#key annotationBodyPlainText(message.text)}
-						<DocumentBody body={message.text} fontSize={bodyFontPx} />
-					{/key}
+				<!--
+					The bubble and its tapback are siblings inside a wrap: the tapback
+					(which animates every frame) is NOT a child of the mark-bearing
+					bubble, so the bubble's DOM stays static while the highlight draws —
+					no per-frame texture/geometry desync flash.
+				-->
+				<div class="im-bubblewrap">
+					<div
+						class="im-bubble"
+						class:im-bubble--tail={showTail(i)}
+						data-from={message.from}
+						style:font-size={`${bodyFontPx}px`}
+						style:padding={`${bodyFontPx * 0.44}px ${bodyFontPx * 0.66}px`}
+						style:opacity={typing ? 0 : style.opacity}
+						style:transform={`scale(${typing ? 0.6 : style.scale})`}
+					>
+						{#key annotationBodyPlainText(message.text)}
+							<DocumentBody body={message.text} fontSize={bodyFontPx} />
+						{/key}
+					</div>
 					{#if message.tapback}
 						<span
 							class="im-tapback"
@@ -313,10 +321,15 @@
 		justify-items: end;
 	}
 
+	/* Wrap = the tapback's positioning context, sized to the bubble's natural box. */
+	.im-bubblewrap {
+		inline-size: fit-content;
+		max-inline-size: 76%;
+		position: relative;
+	}
 	.im-bubble {
 		border-radius: 1.25em;
 		line-height: 1.32;
-		max-inline-size: 76%;
 		position: relative;
 		transform-origin: bottom left;
 		inline-size: fit-content;
