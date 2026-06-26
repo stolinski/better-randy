@@ -21,13 +21,12 @@
 	// nothing reflows as messages arrive — the highlight mark stays pinned to its
 	// phrase. NO CSS filter/glow (it pixelates the HTML-in-Canvas capture). See
 	// docs/adr/0031-imessage-interactive-surface.md.
-	// A fixed-size phone-ish window sized off the frame HEIGHT, so it never grows
-	// with new messages — the conversation fills from the bottom inside it. The
-	// aspect is looser than a real phone (chunkier/wider) on purpose: width drives
-	// the type size, so a wider window = larger, more legible text at 4K.
-	const WINDOW_ASPECT = 1.5; // height / width (a true iPhone is ~2.16)
-	const CARD_HEIGHT_RATIO_H = 0.93;
-	const CARD_HEIGHT_RATIO_V = 0.94;
+	// Width drives the type size; the height is content-driven so the conversation
+	// FILLS the window (no empty screen). Every bubble + the receipt reserve their
+	// space from frame 0, so the window is sized to the full conversation from the
+	// start and does NOT grow as messages pop in.
+	const CARD_WIDTH_RATIO_H = 0.34;
+	const CARD_WIDTH_RATIO_V = 0.8;
 	const ENTER_TRAVEL_RATIO = 0.05;
 
 	// Choreography schedule (fractions of the clip). Each message i fully arrives
@@ -48,27 +47,20 @@
 	const p = $derived(Math.max(0, Math.min(1, animState.globalProgress)));
 
 	const layout = $derived.by(() => {
-		const heightRatio = isVertical ? CARD_HEIGHT_RATIO_V : CARD_HEIGHT_RATIO_H;
-		let height = frame.height * heightRatio;
-		let width = height / WINDOW_ASPECT;
-		// Don't let the window get wider than the frame's safe width.
-		const maxWidth = frame.width * (isVertical ? 0.92 : 0.56);
-		if (width > maxWidth) {
-			width = maxWidth;
-			height = width * WINDOW_ASPECT;
-		}
+		const widthRatio = isVertical ? CARD_WIDTH_RATIO_V : CARD_WIDTH_RATIO_H;
+		const width = frame.width * widthRatio;
 		const x = Math.round((frame.width - width) / 2);
 		const visibility = Math.max(0, Math.min(1, animState.paperVisibility));
 		const enterOffsetPx = Math.round((1 - visibility) * frame.height * ENTER_TRAVEL_RATIO);
-		return { x, width, height, enterOffsetPx, visibility };
+		return { x, width, enterOffsetPx, visibility };
 	});
 
-	const bodyFontPx = $derived(layout.width * 0.046);
-	const nameFontPx = $derived(layout.width * 0.034);
-	const metaFontPx = $derived(layout.width * 0.03);
-	const avatarPx = $derived(layout.width * 0.088);
-	const iconPx = $derived(layout.width * 0.058);
-	const inputFontPx = $derived(layout.width * 0.042);
+	const bodyFontPx = $derived(layout.width * 0.054);
+	const nameFontPx = $derived(layout.width * 0.04);
+	const metaFontPx = $derived(layout.width * 0.034);
+	const avatarPx = $derived(layout.width * 0.096);
+	const iconPx = $derived(layout.width * 0.064);
+	const inputFontPx = $derived(layout.width * 0.048);
 
 	const clamp01 = (x: number): number => Math.max(0, Math.min(1, x));
 	function easeOutBack(t: number): number {
@@ -124,7 +116,6 @@
 	class="imessage surface"
 	data-theme={theme}
 	style:inline-size={`${layout.width}px`}
-	style:block-size={`${layout.height}px`}
 	style:left={`${layout.x}px`}
 	style:transform={`translateY(calc(-50% + ${layout.enterOffsetPx}px))`}
 	style:opacity={layout.visibility}
@@ -218,9 +209,11 @@
 						>
 					{/if}
 				</div>
-				{#if message.from === 'me' && message.status && receiptLabel(i, message.status)}
+				{#if message.from === 'me' && message.status}
+					<!-- Always rendered (nbsp fallback) so the Delivered→Read receipt
+					     reserves its line and the window height stays stable. -->
 					<div class="im-receipt" style:font-size={`${metaFontPx}px`}>
-						{receiptLabel(i, message.status)}
+						{receiptLabel(i, message.status) || ' '}
 					</div>
 				{/if}
 			</div>
