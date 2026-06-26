@@ -21,12 +21,13 @@
 	// nothing reflows as messages arrive — the highlight mark stays pinned to its
 	// phrase. NO CSS filter/glow (it pixelates the HTML-in-Canvas capture). See
 	// docs/adr/0031-imessage-interactive-surface.md.
-	// Width drives the type size; the height is content-driven so the conversation
-	// FILLS the window (no empty screen). Every bubble + the receipt reserve their
-	// space from frame 0, so the window is sized to the full conversation from the
-	// start and does NOT grow as messages pop in.
-	const CARD_WIDTH_RATIO_H = 0.34;
-	const CARD_WIDTH_RATIO_V = 0.8;
+	// The window fills ~90% of the canvas HEIGHT (minimal top/bottom margin); width
+	// is a separate prominence knob. Fixed size — every bubble + the receipt
+	// reserve their space, so it never grows as messages pop in; the conversation
+	// is anchored to the bottom of the screen.
+	const CARD_WIDTH_RATIO_H = 0.42;
+	const CARD_WIDTH_RATIO_V = 0.86;
+	const CARD_HEIGHT_RATIO = 0.9;
 	const ENTER_TRAVEL_RATIO = 0.05;
 
 	// Choreography schedule (fractions of the clip). Each message i fully arrives
@@ -49,18 +50,19 @@
 	const layout = $derived.by(() => {
 		const widthRatio = isVertical ? CARD_WIDTH_RATIO_V : CARD_WIDTH_RATIO_H;
 		const width = frame.width * widthRatio;
+		const height = frame.height * CARD_HEIGHT_RATIO;
 		const x = Math.round((frame.width - width) / 2);
 		const visibility = Math.max(0, Math.min(1, animState.paperVisibility));
 		const enterOffsetPx = Math.round((1 - visibility) * frame.height * ENTER_TRAVEL_RATIO);
-		return { x, width, enterOffsetPx, visibility };
+		return { x, width, height, enterOffsetPx, visibility };
 	});
 
-	const bodyFontPx = $derived(layout.width * 0.054);
-	const nameFontPx = $derived(layout.width * 0.04);
-	const metaFontPx = $derived(layout.width * 0.034);
-	const avatarPx = $derived(layout.width * 0.096);
-	const iconPx = $derived(layout.width * 0.064);
-	const inputFontPx = $derived(layout.width * 0.048);
+	const bodyFontPx = $derived(layout.width * 0.044);
+	const nameFontPx = $derived(layout.width * 0.032);
+	const metaFontPx = $derived(layout.width * 0.028);
+	const avatarPx = $derived(layout.width * 0.08);
+	const iconPx = $derived(layout.width * 0.052);
+	const inputFontPx = $derived(layout.width * 0.04);
 
 	const clamp01 = (x: number): number => Math.max(0, Math.min(1, x));
 	function easeOutBack(t: number): number {
@@ -116,6 +118,7 @@
 	class="imessage surface"
 	data-theme={theme}
 	style:inline-size={`${layout.width}px`}
+	style:block-size={`${layout.height}px`}
 	style:left={`${layout.x}px`}
 	style:transform={`translateY(calc(-50% + ${layout.enterOffsetPx}px))`}
 	style:opacity={layout.visibility}
