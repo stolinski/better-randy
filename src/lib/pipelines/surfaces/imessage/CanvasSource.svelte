@@ -21,8 +21,12 @@
 	// nothing reflows as messages arrive — the highlight mark stays pinned to its
 	// phrase. NO CSS filter/glow (it pixelates the HTML-in-Canvas capture). See
 	// docs/adr/0031-imessage-interactive-surface.md.
-	const CARD_WIDTH_RATIO_H = 0.52;
-	const CARD_WIDTH_RATIO_V = 0.9;
+	// A fixed iPhone-shaped frame (≈19.5:9) sized off the frame HEIGHT, so the
+	// window never grows with new messages — the conversation fills from the
+	// bottom inside it, like a real phone screen.
+	const IPHONE_ASPECT = 2.16; // height / width
+	const CARD_HEIGHT_RATIO_H = 0.88;
+	const CARD_HEIGHT_RATIO_V = 0.92;
 	const ENTER_TRAVEL_RATIO = 0.05;
 
 	// Choreography schedule (fractions of the clip). Each message i fully arrives
@@ -43,20 +47,27 @@
 	const p = $derived(Math.max(0, Math.min(1, animState.globalProgress)));
 
 	const layout = $derived.by(() => {
-		const widthRatio = isVertical ? CARD_WIDTH_RATIO_V : CARD_WIDTH_RATIO_H;
-		const width = frame.width * widthRatio;
+		const heightRatio = isVertical ? CARD_HEIGHT_RATIO_V : CARD_HEIGHT_RATIO_H;
+		let height = frame.height * heightRatio;
+		let width = height / IPHONE_ASPECT;
+		// Don't let the phone get wider than the frame's safe width.
+		const maxWidth = frame.width * (isVertical ? 0.92 : 0.5);
+		if (width > maxWidth) {
+			width = maxWidth;
+			height = width * IPHONE_ASPECT;
+		}
 		const x = Math.round((frame.width - width) / 2);
 		const visibility = Math.max(0, Math.min(1, animState.paperVisibility));
 		const enterOffsetPx = Math.round((1 - visibility) * frame.height * ENTER_TRAVEL_RATIO);
-		return { x, width, enterOffsetPx, visibility };
+		return { x, width, height, enterOffsetPx, visibility };
 	});
 
-	const bodyFontPx = $derived(layout.width * 0.034);
-	const nameFontPx = $derived(layout.width * 0.02);
-	const metaFontPx = $derived(layout.width * 0.018);
-	const avatarPx = $derived(layout.width * 0.06);
-	const iconPx = $derived(layout.width * 0.036);
-	const inputFontPx = $derived(layout.width * 0.026);
+	const bodyFontPx = $derived(layout.width * 0.046);
+	const nameFontPx = $derived(layout.width * 0.034);
+	const metaFontPx = $derived(layout.width * 0.03);
+	const avatarPx = $derived(layout.width * 0.088);
+	const iconPx = $derived(layout.width * 0.058);
+	const inputFontPx = $derived(layout.width * 0.042);
 
 	const clamp01 = (x: number): number => Math.max(0, Math.min(1, x));
 	function easeOutBack(t: number): number {
@@ -112,6 +123,7 @@
 	class="imessage surface"
 	data-theme={theme}
 	style:inline-size={`${layout.width}px`}
+	style:block-size={`${layout.height}px`}
 	style:left={`${layout.x}px`}
 	style:transform={`translateY(calc(-50% + ${layout.enterOffsetPx}px))`}
 	style:opacity={layout.visibility}
@@ -300,8 +312,11 @@
 	}
 
 	.im-thread {
-		align-content: start;
+		/* Anchor the conversation to the bottom of the fixed-height screen, so it
+		   fills upward as messages arrive (and overflow clips at the top). */
+		align-content: end;
 		display: grid;
+		overflow: hidden;
 	}
 	.im-timestamp {
 		color: var(--im-meta);
