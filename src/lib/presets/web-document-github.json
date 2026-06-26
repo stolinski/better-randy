@@ -1,0 +1,40 @@
+{
+	"schema": "hiviz@1",
+	"name": "Web document — GitHub (horizontal)",
+	"description": "A recognizable GitHub issue on a transparent overlay, as a clean backdrop for the channel's hand-pulled highlight. Faithful site look BY DESIGN: GitHub dark mode (canvas #0d1117, the owner/repo breadcrumb, the issue title, a green Open badge, and a bordered comment with the author's avatar + 'username commented on …' header), inside a browser window whose address bar shows the URL — NO Syntax collage chrome (no torn edge / grit / hard offset shadow), and NO CSS glow on the captured card. Because the page is dark, the highlight runs in the dark-surface mode — the light comment text is punched to dark ink under the amber band so it stays readable. The emissive 'web page on a backlit display' look is a TypeGPU shaderPass (subpixel emission, backlight bloom, escaping-bezel halo, viewport-edge defocus), not Pack chrome. ~6s: card settles in, the highlighter draws over the hero line (~1.2→2.4s), then a long static hold a creator can freeze/extend. Transparent WebM overlay, composited over footage.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#0d1117",
+			"inkColor": "#e6edf3"
+		},
+		"marks": {
+			"defaults": {
+				"highlight": { "color": "#fabf47", "intensity": 0.62 }
+			},
+			"timings": [{ "start": 0.2, "duration": 0.2, "ease": "smooth" }]
+		},
+		"surface": {
+			"type": "web-document",
+			"site": "github",
+			"content": {
+				"source": "syntaxfm/website",
+				"title": "Build time regressed ~4x after the v2 bundler swap",
+				"author": "wesbos",
+				"dateLabel": "commented on Jun 22",
+				"sourceUrl": "github.com/syntaxfm/website/issues/142",
+				"body": "Spent the afternoon bisecting this. It's not the bundler — [highlight]a stray console.log inside a hot loop was firing on every file[/highlight]. Removing it drops the build from 40s back to ~9s. PR incoming."
+			},
+			"enter": { "start": 0, "duration": 0.07, "ease": "settled" }
+		},
+		"overlays": [],
+		"effects": []
+	}
+}

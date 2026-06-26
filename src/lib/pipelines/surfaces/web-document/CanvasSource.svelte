@@ -3,6 +3,8 @@
 	import { engineState } from '$lib/platform/engine-state.svelte';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 
+	import GitHubMock from './GitHubMock.svelte';
+	import HackerNewsMock from './HackerNewsMock.svelte';
 	import RedditMock from './RedditMock.svelte';
 	import TwitterMock from './TwitterMock.svelte';
 	import WikipediaMock from './WikipediaMock.svelte';
@@ -77,6 +79,10 @@
 		<RedditMock {content} width={layout.width} />
 	{:else if site === 'wikipedia'}
 		<WikipediaMock {content} width={layout.width} />
+	{:else if site === 'hackernews'}
+		<HackerNewsMock {content} width={layout.width} />
+	{:else if site === 'github'}
+		<GitHubMock {content} width={layout.width} />
 	{:else}
 		<TwitterMock {content} width={layout.width} />
 	{/if}

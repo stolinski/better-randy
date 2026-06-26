@@ -10,10 +10,13 @@ import CanvasSource from './CanvasSource.svelte';
  * web-document Surface — a clean, recognizable site card on a transparent
  * overlay frame (the first **emissive** Surface). One Surface, per-site layout
  * = content: an inner Svelte mock captured via HTML-in-Canvas, selected by
- * `surface.site` (`twitter` / `reddit` / `wikipedia`), all dark-mode screens so
- * the one `dark`-surface highlight mode reads on every site. CanvasSource owns
- * the shared browser chrome + address bar + enter motion; each site mock owns
- * its panel. See docs/adr/0030-web-document-emissive-surface.md.
+ * `surface.site` (`twitter` / `reddit` / `wikipedia` / `hackernews` / `github`).
+ * A mix of dark pages (twitter/reddit/github) and light pages
+ * (wikipedia/hackernews); the highlight blend mode follows each page's
+ * paperColor luminance, so dark pages punch text to ink and light pages
+ * multiply. CanvasSource owns the shared browser chrome + address bar + enter
+ * motion; each site mock owns its panel. See
+ * docs/adr/0030-web-document-emissive-surface.md.
  *
  * Reuses the `paper` Pipeline's runtime scaffolding (HTML-in-canvas DOM upload
  * + marks textures + composite) with the `dark`-surface highlight mode, so the

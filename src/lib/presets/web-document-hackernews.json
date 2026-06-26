@@ -1,0 +1,39 @@
+{
+	"schema": "hiviz@1",
+	"name": "Web document — Hacker News (horizontal)",
+	"description": "A recognizable Hacker News thread on a transparent overlay, as a clean backdrop for the channel's hand-pulled highlight. Faithful site look BY DESIGN: HN's light beige page (#f6f6ef) under the orange masthead, the Y logo + nav, a comment with its vote arrow + 'username Nh ago' meta in small Verdana, inside a browser window whose address bar shows the URL — NO Syntax collage chrome (no torn edge / grit / hard offset shadow), and NO CSS glow on the captured card. Because the page is light, the highlight runs in the light (multiply) blend mode — the dark comment text stays readable under the amber band, like on paper. The emissive 'web page on a backlit display' look is a TypeGPU shaderPass (subpixel emission, backlight bloom, escaping-bezel halo, viewport-edge defocus), not Pack chrome. ~6s: card settles in, the highlighter draws over the hero line (~1.2→2.4s), then a long static hold a creator can freeze/extend. Transparent WebM overlay, composited over footage.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#f6f6ef",
+			"inkColor": "#1a1a1a"
+		},
+		"marks": {
+			"defaults": {
+				"highlight": { "color": "#fabf47", "intensity": 0.62 }
+			},
+			"timings": [{ "start": 0.2, "duration": 0.2, "ease": "smooth" }]
+		},
+		"surface": {
+			"type": "web-document",
+			"site": "hackernews",
+			"content": {
+				"title": "Show HN: I shaved 40s off our build by deleting one line",
+				"source": "tobinator",
+				"dateLabel": "5 hours ago",
+				"sourceUrl": "news.ycombinator.com/item?id=40000000",
+				"body": "We'd been blaming the bundler for months. Profiled it properly and [highlight]the entire slowdown was a console.log inside a hot loop[/highlight] that ran for every module. Deleted one line and the build went from 41s to 9s. Measure before you optimize, every time."
+			},
+			"enter": { "start": 0, "duration": 0.07, "ease": "settled" }
+		},
+		"overlays": [],
+		"effects": []
+	}
+}

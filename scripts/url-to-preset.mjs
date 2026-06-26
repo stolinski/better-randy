@@ -32,15 +32,23 @@ const PRESETS_DIR = join(HERE, '..', 'src', 'lib', 'presets');
 // A descriptive UA (some sites gate on it); Accept json where the API offers it.
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) hiviz-url-to-preset/1.0';
 
-const SITE_LABEL = { twitter: 'Twitter', reddit: 'Reddit', wikipedia: 'Wikipedia' };
+const SITE_LABEL = {
+	twitter: 'Twitter',
+	reddit: 'Reddit',
+	wikipedia: 'Wikipedia',
+	hackernews: 'Hacker News',
+	github: 'GitHub'
+};
 
 // Per-site page palette — matches the canonical web-document presets so the
-// luminance-driven highlight mode picks dark-ink-punch (twitter/reddit) vs
-// multiply (wikipedia, a light page) automatically.
+// luminance-driven highlight mode picks dark-ink-punch (dark pages) vs multiply
+// (light pages) automatically.
 const SITE_TYPOGRAPHY = {
 	twitter: { paperColor: '#15202b', inkColor: '#f7f9f9' },
 	reddit: { paperColor: '#1a1a1b', inkColor: '#d7dadc' },
-	wikipedia: { paperColor: '#ffffff', inkColor: '#202122' }
+	wikipedia: { paperColor: '#ffffff', inkColor: '#202122' },
+	hackernews: { paperColor: '#f6f6ef', inkColor: '#1a1a1a' },
+	github: { paperColor: '#0d1117', inkColor: '#e6edf3' }
 };
 
 function fail(message) {
@@ -59,7 +67,51 @@ function detectSite(url) {
 	if (host.endsWith('wikipedia.org')) {
 		return 'wikipedia';
 	}
+	if (host === 'news.ycombinator.com') {
+		return 'hackernews';
+	}
+	if (host === 'github.com' || host.endsWith('.github.com')) {
+		return 'github';
+	}
 	return null;
+}
+
+/** Strip HTML to plain text (HN comment bodies arrive as HTML). */
+function htmlToText(html) {
+	return (html ?? '')
+		.replace(/<\s*p\s*>/gi, '\n\n')
+		.replace(/<[^>]+>/g, '')
+		.replace(/&gt;/g, '>')
+		.replace(/&lt;/g, '<')
+		.replace(/&quot;/g, '"')
+		.replace(/&#x27;|&#39;/g, "'")
+		.replace(/&amp;/g, '&')
+		.replace(/&nbsp;/g, ' ')
+		.trim();
+}
+
+/** Lightly de-markdown GitHub bodies into plain prose for the card. */
+function stripMarkdown(md) {
+	return (md ?? '')
+		.replace(/```[\s\S]*?```/g, '') // drop fenced code blocks
+		.replace(/`([^`]+)`/g, '$1') // inline code
+		.replace(/^#{1,6}\s+/gm, '') // headings
+		.replace(/!\[[^\]]*\]\([^)]*\)/g, '') // images
+		.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1') // links → text
+		.replace(/[*_]{1,3}([^*_]+)[*_]{1,3}/g, '$1') // emphasis
+		.replace(/^>\s?/gm, '') // blockquotes
+		.replace(/\r/g, '')
+		.trim();
+}
+
+/** ISO timestamp → "Jun 22". */
+function formatShortDate(iso) {
+	const date = new Date(iso);
+	if (Number.isNaN(date.getTime())) {
+		return '';
+	}
+	const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+	return `${months[date.getMonth()]} ${date.getDate()}`;
 }
 
 function stripUrl(value) {
@@ -76,7 +128,11 @@ function slugify(value) {
 
 /** Trim body copy to a few sentences, cutting on a sentence boundary when possible. */
 function clampText(raw, max = 460) {
-	const text = (raw ?? '').replace(/\r/g, '').replace(/[ \t]+\n/g, '\n').trim();
+	const text = (raw ?? '')
+		.replace(/\r/g, '')
+		.replace(/[ \t]+\n/g, '\n')
+		.replace(/\n{3,}/g, '\n\n')
+		.trim();
 	if (text.length <= max) {
 		return text;
 	}
@@ -186,6 +242,57 @@ function scrapeTwitterFromUrl(url) {
 	};
 }
 
+async function scrapeHackerNews(url, nowMs) {
+	const id = new URL(url).searchParams.get('id');
+	if (!id) {
+		throw new Error('no item id in the Hacker News URL (?id=…)');
+	}
+	const item = await fetchJson(`https://hacker-news.firebaseio.com/v0/item/${id}.json`);
+	if (!item) {
+		throw new Error(`Hacker News item ${id} not found`);
+	}
+	const isStory = item.type === 'story';
+	const bodyText = isStory ? item.text ?? item.title ?? '' : htmlToText(item.text);
+	return {
+		slug: slugify(item.title ? item.title : `hn-${id}`),
+		titleForName: item.title ?? item.by ?? `item ${id}`,
+		content: {
+			// Story headline as the context line for a comment; the story's own
+			// title for a story post.
+			title: isStory ? item.title ?? '' : '',
+			source: item.by ?? '',
+			dateLabel: timeAgo(item.time, nowMs),
+			sourceUrl: stripUrl(`news.ycombinator.com/item?id=${id}`),
+			body: clampText(htmlToText(bodyText)) || '(No text on this item — add a caption and mark the hero span.)'
+		}
+	};
+}
+
+async function scrapeGitHub(url) {
+	const parsed = new URL(url);
+	const parts = parsed.pathname.split('/').filter(Boolean);
+	const [owner, repo, kind, number] = parts;
+	if (!owner || !repo || !number || !(kind === 'issues' || kind === 'pull')) {
+		throw new Error('expected a github.com/<owner>/<repo>/issues|pull/<number> URL');
+	}
+	// The issues endpoint serves both issues and PRs.
+	const api = `https://api.github.com/repos/${owner}/${repo}/issues/${number}`;
+	const data = await fetchJson(api);
+	const stateLabel = data.pull_request ? 'opened a pull request' : 'opened this issue';
+	return {
+		slug: slugify(`${repo}-${data.title ?? number}`),
+		titleForName: data.title ?? `${repo}#${number}`,
+		content: {
+			source: `${owner}/${repo}`,
+			title: data.title ?? '',
+			author: data.user?.login ?? '',
+			dateLabel: data.created_at ? `${stateLabel} · ${formatShortDate(data.created_at)}` : '',
+			sourceUrl: stripUrl(data.html_url ?? url),
+			body: clampText(stripMarkdown(data.body)) || '(No description — add a caption and mark the hero span.)'
+		}
+	};
+}
+
 /** Drop empty-string slots so the emitted content carries only what it uses. */
 function pruneContent(content) {
 	return Object.fromEntries(Object.entries(content).filter(([, value]) => value !== ''));
@@ -245,6 +352,10 @@ async function main() {
 			scraped = await scrapeWikipedia(url);
 		} else if (site === 'reddit') {
 			scraped = await scrapeReddit(url, nowMs);
+		} else if (site === 'hackernews') {
+			scraped = await scrapeHackerNews(url, nowMs);
+		} else if (site === 'github') {
+			scraped = await scrapeGitHub(url);
 		} else {
 			scraped = scrapeTwitterFromUrl(url);
 			note = 'X/Twitter is auth-walled — the tweet body is a placeholder; paste the real text.';
