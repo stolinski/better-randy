@@ -92,6 +92,21 @@ The remaining critical path. **Designed (2026-06, [ADR-0032](adr/0032-gui-agent-
 - **Model:** corpus presets are **read-only Starter templates**; the first param change **forks** a **User composition** to a user-writable store and autosaves; **revert** discards the fork. **Lossless round-trip** (preserve loaded Preset, patch only the GUI-owned subtree, gated by a byte-identical round-trip test) makes save safe with partial coverage and widens incrementally. Scope is single-user/local, architected to ship as an Electron app later. Glossary: **User composition**, **Corpus vs user store** in [`CONTEXT.md`](CONTEXT.md).
 - **Deferred (own arcs):** verification parity (linter/Critic over GUI-authored comps), create-from-blank (fast-follow), the multi-user / product-document model.
 
+## GUI design — the authoring interface (undesigned)
+
+Distinct from GUI parity above. **[ADR-0032](adr/0032-gui-agent-parity-authoring.md) specifies the *data model* — what can be authored, how it forks and persists. It says nothing about the *interface*:** the canvas / inspector / timeline layout, how you place and manipulate Layers, the editing affordances, the look and feel of the tool itself. A large, entirely undesigned surface.
+
+- 🧭 **The authoring UI**, co-equal in capability with agents. Today's `ControlPanel` is a dev-grade tuner, not a designed editor. The parity **spine** (persistence port + serializer — dex `f78d0itp` / `n4mhpl6m`) is interface-independent and safe to build first; the **coverage + interaction** tasks (fork/revert UX, per-field editors — dex `hok1jtur`+) carry a design dimension a GUI-design grill should inform **before** they're built. **Needs a design grill first** (task-ifying cold produces rot — same rule as parity).
+
+## Sound design (new domain — undesigned, contested)
+
+A north-star Scott wants but the composition model has nothing for: the 5 Layers are all visual, the schema carries no audio, export is video-only. Two prior signals frame the grill:
+
+- **A documented lean against it** (not binding) — `docs/ideas/motion-primitives-library.md`: *"audio is an editor concern (DaVinci Resolve), not Hiviz's. Stays out."* The grill must answer head-on: what does sound *in* Hiviz buy over cueing it in the NLE?
+- **An anticipated hook** — [ADR-0011](adr/0011-text-animation-orchestration.md) names *"audio cues"* as a future **timed-motion domain** that would land like `textAnimations[]` / `marks.timings[]` (a flat per-target timed list on `EngineState`), frame-deterministic off `globalProgress`.
+
+- 🧭 **Sound design / motion-synced cues** — likely sound *cues* (whoosh on enter, impact on a title drop) locked frame-deterministically to the motion, an optional bed, and audio-in-export. Open: a 6th timed-motion domain (not a 6th Layer) vs. something larger; whether export gains an audio track; how preview plays audio without breaking frame-determinism (preview == export). **Needs a design grill first.**
+
 ## Deferred / low-priority
 
 - 🧭 **Export-output verification (real decode).** `scripts/probe-frame-diff.ts` asserts a frame sequence animates + carries alpha, but is only self-tested on captured frames (WebGPU canvas readback returns blank). Open: a frame-dump path from the actual WebM/ProRes encoder output so the probe consumes real exported frames.
