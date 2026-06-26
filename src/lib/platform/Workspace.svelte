@@ -58,9 +58,11 @@
 		exportTransparentWebM,
 		type TransparentVideoExportOptions
 	} from './export-video';
+	import { annotationBodyPlainText } from '$lib/annotations/annotation-body-text';
 	import { clampNumber } from '$lib/utils/math';
 	import { hexToRgbaFloat, isDarkSurfaceColor } from '$lib/utils/color';
 	import { truncateMiddle } from '$lib/utils/string';
+	import { messageEnter } from '$lib/pipelines/surfaces/imessage/schedule';
 	import { exposeVisualAudit } from './runtime-audit';
 
 	let compositionElement = $state<HTMLElement | null>(null);
@@ -536,6 +538,37 @@
 				]
 			});
 		});
+
+		// iMessage conversation tracks — one draggable clip per bubble, so the
+		// per-message choreography lives in the composition (message.enter), not in
+		// the renderer. Typing / tapback / receipt derive from the bubble's start.
+		if (surface.type === 'imessage') {
+			(surface.content.messages ?? []).forEach((message, index) => {
+				const timing = messageEnter(message, index);
+				const label = truncateMiddle(annotationBodyPlainText(message.text), 18) || '…';
+				trackList.push({
+					id: `imessage-${index}`,
+					label,
+					color: message.from === 'me' ? '#0a84ff' : '#8e8e93',
+					transitions: [
+						{
+							id: 'enter',
+							label,
+							start: timing.start,
+							duration: timing.duration,
+							ramp: 'in' as const,
+							minStart: 0,
+							maxStart: 0.95,
+							minDuration: 0.02,
+							maxDuration: 0.6,
+							onUpdate: ({ start, duration }: { start: number; duration: number }) => {
+								message.enter = { start, duration, ease: message.enter?.ease };
+							}
+						}
+					]
+				});
+			});
+		}
 
 		return trackList;
 	}

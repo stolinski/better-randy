@@ -102,7 +102,12 @@ const ChatMessageSchema = z.object({
 	from: z.enum(['me', 'them']),
 	text: AnnotationBodySchema,
 	tapback: z.enum(['heart', 'like', 'dislike', 'haha', 'emphasize', 'question']).optional(),
-	status: z.enum(['delivered', 'read']).optional()
+	status: z.enum(['delivered', 'read']).optional(),
+	// When this bubble pops in (and how long the spring takes), as a fraction of
+	// the clip — the same start/duration shape the timeline draws + edits for
+	// every other animation. The bubble's typing indicator, tapback, and receipt
+	// derive from `enter.start`. Optional: a default staggered cadence applies.
+	enter: z.object({ start: FractionSchema, duration: FractionSchema, ease: EaseSchema.optional() }).optional()
 });
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 

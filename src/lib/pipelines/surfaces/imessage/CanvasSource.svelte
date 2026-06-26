@@ -6,6 +6,13 @@
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 
 	import DocumentBody from '../web-document/DocumentBody.svelte';
+	import {
+		messageEnter,
+		TYPING_LEAD,
+		TAPBACK_DELAY,
+		RECEIPT_DELIVERED_DELAY,
+		RECEIPT_READ_DELAY
+	} from './schedule';
 
 	interface Props {
 		element?: HTMLElement | null;
@@ -30,13 +37,6 @@
 	const CARD_HEIGHT_RATIO = 0.9;
 	const ENTER_TRAVEL_RATIO = 0.05;
 
-	// Choreography schedule (fractions of the clip). Each message i fully arrives
-	// at appearAt(i); a `them` reply (after the first) is preceded by a typing
-	// indicator in the TYPING_LEAD window before it.
-	const START = 0.07;
-	const STEP = 0.18;
-	const POP = 0.06;
-	const TYPING_LEAD = 0.1;
 
 	const frame = $derived(getVideoFrameSize(engineState.transport.orientation));
 	const isVertical = $derived(frame.height > frame.width);
@@ -70,10 +70,13 @@
 		const c3 = c1 + 1;
 		return 1 + c3 * (t - 1) ** 3 + c1 * (t - 1) ** 2;
 	}
-	const appearAt = (i: number): number => START + i * STEP;
+	// Per-message timing comes from the composition (message.enter, with a default
+	// staggered cadence) — the same descriptors the timeline draws + edits.
+	const appearAt = (i: number): number => messageEnter(messages[i], i).start;
+	const popDuration = (i: number): number => messageEnter(messages[i], i).duration;
 
 	function bubbleStyle(i: number): { opacity: number; scale: number } {
-		const local = clamp01((p - appearAt(i)) / POP);
+		const local = clamp01((p - appearAt(i)) / popDuration(i));
 		// Opacity is binary at appearAt (the bubble pops in opaque, scale-only) so
 		// there is no blank gap at the typing→bubble handoff; the spring carries
 		// the motion.
@@ -89,14 +92,14 @@
 		return 0.3 + 0.5 * (0.5 + 0.5 * Math.sin(2 * Math.PI * (p * 26 + k * 0.16)));
 	}
 	function tapbackScale(i: number): number {
-		const local = clamp01((p - (appearAt(i) + 0.05)) / 0.05);
+		const local = clamp01((p - (appearAt(i) + TAPBACK_DELAY)) / 0.05);
 		return local <= 0 ? 0 : Math.max(0, easeOutBack(local));
 	}
 	function receiptLabel(i: number, status: 'delivered' | 'read'): string {
-		if (status === 'read' && p >= appearAt(i) + 0.14) {
+		if (status === 'read' && p >= appearAt(i) + RECEIPT_READ_DELAY) {
 			return 'Read';
 		}
-		return p >= appearAt(i) + 0.05 ? 'Delivered' : '';
+		return p >= appearAt(i) + RECEIPT_DELIVERED_DELAY ? 'Delivered' : '';
 	}
 	// A bubble shows its tail only when it's the last in a consecutive same-sender
 	// run (iMessage grouping); group starts get extra spacing above.
