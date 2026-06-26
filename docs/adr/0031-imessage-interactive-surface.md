@@ -21,7 +21,7 @@ A new **`imessage` Surface** (its own `type`, not a `web-document` site).
 - **Choreography is frame-deterministic.** The CanvasSource reads `animState.globalProgress` (0→1 over the transport) and schedules each bubble's pop-in (`easeOutBack` scale-from-the-tail), the three-dot typing indicator that precedes a reply, the tapback pop, and the Delivered → Read receipt — all as pure functions of progress. Preview == export; no wall-clock.
 - **Stable layout.** Every bubble reserves its final space from frame 0 (visibility is scheduled via opacity/scale), so the thread never reflows as messages "arrive" and the highlight mark stays pinned to its phrase.
 - **Reuses the paper compositor.** `createPaperPipeline` supplies DOM upload + the marks system, so the channel's `highlight` Annotation lands on a phrase **inside a received (gray, dark-ink) bubble**; the white page luminance selects the light/multiply blend (ADR-0030), so the dark bubble text reads through the amber.
-- **Faithful iOS Messages look.** White page; gray (left) / blue (right) bubbles with tail curls; an iOS header (back chevron, contact avatar + name, FaceTime icon). No browser chrome, no CSS glow.
+- **Faithful, theme-able Messages look.** Light **or** dark theme, chosen from the preset's `paperColor` luminance (the same signal that picks the highlight blend) — so one Surface covers both, like real Messages. Gray (left) / blue (right) bubbles with grouped tail curls (tail only on the last of a same-sender run), a header (contact avatar + name, FaceTime icon), a heart-badge tapback on the bubble corner, and the bottom composer bar. No browser chrome, no CSS glow.
 
 ### Two engine changes this surfaced (both general, both kept)
 
@@ -33,4 +33,5 @@ A new **`imessage` Surface** (its own `type`, not a `web-document` site).
 - iMessage is a real interactive Surface, not a screenshot — the bar is the motion, and it's measurable (the Identity Spec probes the arrival/typing/receipt/tapback dimensions across progress).
 - The `messages` content shape is iMessage-only today; a future chat-style surface (SMS, Discord, Slack) can reuse it.
 - v1 ships one authored conversation (`imessage-the-bug`, H+V). There is no GUI editor for `messages[]` yet (authored as preset data); a future GUI parity task adds one.
-- Open follow-ups: per-message **height-slide** on arrival (v1 pops in place), additional tapback glyphs beyond the heart, and a dark-mode iMessage theme (would flip the highlight to the dark-surface ink-punch mode automatically via paperColor luminance).
+- **Theme follows `paperColor`.** Light page → multiply highlight (dark bubble text reads through); dark page → ink-punch (light bubble text punched to ink). The dark theme matches the modern macOS Messages look (`docs/inspo/imessage/`). v1 ships both light and dark presets (H+V each).
+- Open follow-ups: per-message **height-slide** on arrival (v1 pops in place), additional tapback glyphs beyond the heart, image-attachment bubbles, and a GUI editor for `messages[]`.

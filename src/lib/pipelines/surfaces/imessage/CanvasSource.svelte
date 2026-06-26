@@ -2,6 +2,7 @@
 	import { annotationBodyPlainText } from '$lib/annotations/annotation-body-text';
 	import { animState } from '$lib/platform/anim-state.svelte';
 	import { engineState } from '$lib/platform/engine-state.svelte';
+	import { isDarkSurfaceColor } from '$lib/utils/color';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 
 	import DocumentBody from '../web-document/DocumentBody.svelte';
@@ -12,12 +13,14 @@
 
 	let { element = $bindable<HTMLElement | null>(null) }: Props = $props();
 
-	// A transparent-overlay iMessage thread: white card, centred. The whole
-	// conversation is choreographed off the global timeline progress so it is
-	// frame-deterministic (preview == export). Every bubble reserves its final
-	// space from frame 0, so nothing reflows as messages arrive — the highlight
-	// mark stays pinned to its phrase. NO CSS filter/glow (it pixelates the
-	// HTML-in-Canvas capture). See docs/adr/0031-imessage-interactive-surface.md.
+	// A transparent-overlay Messages thread: works in LIGHT or DARK theme, chosen
+	// from the preset's `paperColor` luminance (which also flips the highlight —
+	// light multiplies, dark punches to ink). The whole conversation is
+	// choreographed off the global timeline progress so it is frame-deterministic
+	// (preview == export). Every bubble reserves its final space from frame 0, so
+	// nothing reflows as messages arrive — the highlight mark stays pinned to its
+	// phrase. NO CSS filter/glow (it pixelates the HTML-in-Canvas capture). See
+	// docs/adr/0031-imessage-interactive-surface.md.
 	const CARD_WIDTH_RATIO_H = 0.52;
 	const CARD_WIDTH_RATIO_V = 0.9;
 	const ENTER_TRAVEL_RATIO = 0.05;
@@ -36,6 +39,7 @@
 	const messages = $derived(content.messages ?? []);
 	const contact = $derived((content.author ?? '').trim());
 	const contactInitial = $derived(contact.charAt(0).toUpperCase() || '?');
+	const theme = $derived(isDarkSurfaceColor(engineState.typography?.paperColor ?? '#ffffff') ? 'dark' : 'light');
 	const p = $derived(Math.max(0, Math.min(1, animState.globalProgress)));
 
 	const layout = $derived.by(() => {
@@ -47,12 +51,12 @@
 		return { x, width, enterOffsetPx, visibility };
 	});
 
-	const bodyFontPx = $derived(layout.width * 0.038);
-	const nameFontPx = $derived(layout.width * 0.022);
-	const metaFontPx = $derived(layout.width * 0.02);
-	const avatarPx = $derived(layout.width * 0.07);
-	const chevronPx = $derived(layout.width * 0.05);
-	const iconPx = $derived(layout.width * 0.04);
+	const bodyFontPx = $derived(layout.width * 0.034);
+	const nameFontPx = $derived(layout.width * 0.02);
+	const metaFontPx = $derived(layout.width * 0.018);
+	const avatarPx = $derived(layout.width * 0.06);
+	const iconPx = $derived(layout.width * 0.036);
+	const inputFontPx = $derived(layout.width * 0.026);
 
 	const clamp01 = (x: number): number => Math.max(0, Math.min(1, x));
 	function easeOutBack(t: number): number {
@@ -62,7 +66,6 @@
 	}
 	const appearAt = (i: number): number => START + i * STEP;
 
-	// Per-message visual state at the current progress.
 	function bubbleStyle(i: number): { opacity: number; scale: number } {
 		const local = clamp01((p - appearAt(i)) / POP);
 		return { opacity: clamp01(local * 1.6), scale: 0.6 + 0.4 * easeOutBack(local) };
@@ -73,7 +76,6 @@
 		}
 		return p >= appearAt(i) - TYPING_LEAD && p < appearAt(i);
 	}
-	// Three-dot wave for the typing indicator, phased per dot off progress.
 	function dotOpacity(k: number): number {
 		return 0.3 + 0.5 * (0.5 + 0.5 * Math.sin(2 * Math.PI * (p * 26 + k * 0.16)));
 	}
@@ -87,6 +89,10 @@
 		}
 		return p >= appearAt(i) + 0.05 ? 'Delivered' : '';
 	}
+	// A bubble shows its tail only when it's the last in a consecutive same-sender
+	// run (iMessage grouping); group starts get extra spacing above.
+	const showTail = (i: number): boolean => i === messages.length - 1 || messages[i + 1]?.from !== messages[i].from;
+	const startsGroup = (i: number): boolean => i === 0 || messages[i - 1]?.from !== messages[i].from;
 
 	const TAPBACK_GLYPH: Record<string, string> = {
 		heart: '♥',
@@ -101,14 +107,15 @@
 <article
 	bind:this={element}
 	class="imessage surface"
+	data-theme={theme}
 	style:inline-size={`${layout.width}px`}
 	style:left={`${layout.x}px`}
 	style:transform={`translateY(calc(-50% + ${layout.enterOffsetPx}px))`}
 	style:opacity={layout.visibility}
 >
-	<!-- iOS Messages conversation header. -->
-	<header class="im-header" style:padding={`${layout.width * 0.022}px ${layout.width * 0.03}px`}>
-		<span class="im-back" style:font-size={`${chevronPx}px`} aria-hidden="true">‹</span>
+	<!-- Messages conversation header. -->
+	<header class="im-header" style:padding={`${layout.width * 0.02}px ${layout.width * 0.028}px`}>
+		<span class="im-header-side" aria-hidden="true"></span>
 		<span class="im-contact" style:gap={`${layout.width * 0.004}px`}>
 			<span
 				class="im-avatar"
@@ -133,7 +140,7 @@
 	</header>
 
 	<!-- Thread: every bubble reserves space; visibility is scheduled. -->
-	<div class="im-thread" style:padding={`${layout.width * 0.03}px`} style:gap={`${layout.width * 0.016}px`}>
+	<div class="im-thread" style:padding={`${layout.width * 0.028}px ${layout.width * 0.03}px`}>
 		<div class="im-timestamp" style:font-size={`${metaFontPx}px`}>
 			<span>Today</span> 2:14 PM
 		</div>
@@ -141,9 +148,13 @@
 		{#each messages as message, i (i)}
 			{@const style = bubbleStyle(i)}
 			{@const typing = isTyping(i, message.from)}
-			<div class="im-row" data-from={message.from}>
+			<div
+				class="im-row"
+				data-from={message.from}
+				style:margin-block-start={`${startsGroup(i) ? layout.width * 0.018 : layout.width * 0.005}px`}
+			>
 				{#if typing}
-					<div class="im-typing" style:padding={`${bodyFontPx * 0.55}px ${bodyFontPx * 0.7}px`}>
+					<div class="im-typing" style:padding={`${bodyFontPx * 0.6}px ${bodyFontPx * 0.72}px`} style:gap={`${bodyFontPx * 0.26}px`}>
 						{#each [0, 1, 2] as k (k)}
 							<span
 								class="im-dot"
@@ -156,9 +167,10 @@
 				{/if}
 				<div
 					class="im-bubble"
+					class:im-bubble--tail={showTail(i)}
 					data-from={message.from}
 					style:font-size={`${bodyFontPx}px`}
-					style:padding={`${bodyFontPx * 0.42}px ${bodyFontPx * 0.62}px`}
+					style:padding={`${bodyFontPx * 0.44}px ${bodyFontPx * 0.66}px`}
 					style:opacity={typing ? 0 : style.opacity}
 					style:transform={`scale(${typing ? 0.6 : style.scale})`}
 				>
@@ -169,9 +181,9 @@
 						<span
 							class="im-tapback"
 							data-from={message.from}
-							style:inline-size={`${bodyFontPx * 1.5}px`}
-							style:block-size={`${bodyFontPx * 1.5}px`}
-							style:font-size={`${bodyFontPx * 0.8}px`}
+							style:inline-size={`${bodyFontPx * 1.6}px`}
+							style:block-size={`${bodyFontPx * 1.6}px`}
+							style:font-size={`${bodyFontPx * 0.78}px`}
 							style:transform={`scale(${tapbackScale(i)})`}>{TAPBACK_GLYPH[message.tapback]}</span
 						>
 					{/if}
@@ -184,47 +196,68 @@
 			</div>
 		{/each}
 	</div>
+
+	<!-- Composer bar — the modern Messages tell. -->
+	<div class="im-inputbar" style:padding={`${layout.width * 0.018}px ${layout.width * 0.026}px`} style:gap={`${layout.width * 0.016}px`}>
+		<span class="im-plus" style:inline-size={`${iconPx}px`} style:block-size={`${iconPx}px`} style:font-size={`${iconPx * 0.8}px`} aria-hidden="true">+</span>
+		<span class="im-field" style:font-size={`${inputFontPx}px`} style:padding={`${inputFontPx * 0.5}px ${inputFontPx * 0.8}px`}>iMessage</span>
+	</div>
 </article>
 
 <style>
 	/*
-	 * iMessage thread — iOS Messages (light). The card is the only opaque element;
-	 * the frame around it stays transparent. Palette: page #ffffff · received
-	 * #e9e9eb (black text) · sent #0b93f6 (white text) · header rule #d1d1d6 ·
-	 * meta #8e8e93 · accent #0a84ff. The hero highlight lands on a received
-	 * (gray, dark-ink) bubble so the multiply blend stays readable.
+	 * Messages thread — theme-able (light or dark, chosen from paperColor in the
+	 * component). The card is the only opaque element; the frame around it stays
+	 * transparent. The hero highlight lands on a received bubble; the page
+	 * luminance picks multiply (light) vs ink-punch (dark) so it stays readable
+	 * either way.
 	 */
 	.imessage {
-		--im-page: #ffffff;
-		--im-received: #e9e9eb;
-		--im-sent: #0b93f6;
-		--im-rule: #d1d1d6;
-		--im-meta: #8e8e93;
-		background-color: var(--im-page);
-		border-radius: 1.4em;
 		box-sizing: border-box;
-		color: #000000;
+		border-radius: 1.4em;
 		display: grid;
 		font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
-		grid-template-rows: auto 1fr;
+		grid-template-rows: auto 1fr auto;
 		overflow: hidden;
 		position: absolute;
 		top: 50%;
 		transform-origin: center;
 	}
+	.imessage[data-theme='light'] {
+		--im-page: #ffffff;
+		--im-received: #e9e9eb;
+		--im-received-text: #000000;
+		--im-meta: #8e8e93;
+		--im-rule: #d1d1d6;
+		--im-header-bg: #f7f7f7;
+		--im-tapback-bg: #e9e9eb;
+		--im-field-bg: #ffffff;
+		--im-field-border: #d1d1d6;
+	}
+	.imessage[data-theme='dark'] {
+		--im-page: #1c1c1e;
+		--im-received: #3b3b3d;
+		--im-received-text: #ffffff;
+		--im-meta: #8e8e93;
+		--im-rule: #3a3a3c;
+		--im-header-bg: #2c2c2e;
+		--im-tapback-bg: #3b3b3d;
+		--im-field-bg: #1c1c1e;
+		--im-field-border: #48484a;
+	}
+	.imessage {
+		--im-sent: #0a84ff;
+		--im-sent-text: #ffffff;
+		background-color: var(--im-page);
+		color: var(--im-received-text);
+	}
 
 	.im-header {
 		align-items: center;
-		background-color: #f7f7f7cc;
+		background-color: var(--im-header-bg);
 		border-block-end: 1px solid var(--im-rule);
 		display: grid;
 		grid-template-columns: 1fr auto 1fr;
-	}
-	.im-back {
-		color: #0a84ff;
-		font-weight: 500;
-		justify-self: start;
-		line-height: 0.6;
 	}
 	.im-contact {
 		align-items: center;
@@ -241,7 +274,7 @@
 		justify-content: center;
 	}
 	.im-name {
-		color: #000000;
+		color: var(--im-received-text);
 		font-weight: 500;
 	}
 	.im-facetime {
@@ -271,87 +304,83 @@
 	}
 
 	.im-bubble {
-		border-radius: 1.1em;
-		line-height: 1.3;
-		max-inline-size: 74%;
+		border-radius: 1.25em;
+		line-height: 1.32;
+		max-inline-size: 76%;
 		position: relative;
 		transform-origin: bottom left;
 		inline-size: fit-content;
 	}
 	.im-bubble[data-from='them'] {
 		background-color: var(--im-received);
-		border-end-start-radius: 0.3em;
-		color: #000000;
+		color: var(--im-received-text);
 	}
 	.im-bubble[data-from='me'] {
 		background-color: var(--im-sent);
-		border-end-end-radius: 0.3em;
-		color: #ffffff;
+		color: var(--im-sent-text);
 		transform-origin: bottom right;
 	}
-	/* Tail curls (classic two-pseudo technique), scaled in em. */
-	.im-bubble::before {
+	/* Tail curls (classic two-pseudo technique), only on the last bubble of a run. */
+	.im-bubble--tail::before,
+	.im-bubble--tail::after {
 		block-size: 0.85em;
 		content: '';
-		inline-size: 0.7em;
 		position: absolute;
 		inset-block-end: 0;
 		z-index: -1;
 	}
-	.im-bubble::after {
+	.im-bubble--tail::after {
 		background-color: var(--im-page);
-		block-size: 0.85em;
-		content: '';
 		inline-size: 0.9em;
-		position: absolute;
-		inset-block-end: 0;
-		z-index: -1;
 	}
-	.im-bubble[data-from='them']::before {
+	.im-bubble--tail::before {
+		inline-size: 0.7em;
+	}
+	.im-bubble--tail[data-from='them']::before {
 		background-color: var(--im-received);
 		border-end-end-radius: 0.8em;
 		inset-inline-start: -0.24em;
 	}
-	.im-bubble[data-from='them']::after {
+	.im-bubble--tail[data-from='them']::after {
 		border-end-end-radius: 0.5em;
 		inset-inline-start: -0.9em;
 	}
-	.im-bubble[data-from='me']::before {
+	.im-bubble--tail[data-from='me']::before {
 		background-color: var(--im-sent);
 		border-end-start-radius: 0.8em;
 		inset-inline-end: -0.24em;
 	}
-	.im-bubble[data-from='me']::after {
+	.im-bubble--tail[data-from='me']::after {
 		border-end-start-radius: 0.5em;
 		inset-inline-end: -0.9em;
 	}
 
+	/* Tapback badge — pink heart on a theme circle, at the bubble's inner-top corner. */
 	.im-tapback {
 		align-items: center;
-		background-color: var(--im-received);
-		border: 0.12em solid var(--im-page);
+		background-color: var(--im-tapback-bg);
+		border: 0.14em solid var(--im-page);
 		border-radius: 50%;
-		color: #ff3b30;
+		color: #ff375f;
 		display: flex;
-		inset-block-start: -0.7em;
-		inset-inline-start: -0.5em;
+		inset-block-start: -0.85em;
 		justify-content: center;
 		position: absolute;
 		transform-origin: bottom right;
 	}
-	.im-tapback[data-from='me'] {
-		inset-inline-end: -0.5em;
-		inset-inline-start: auto;
+	.im-tapback[data-from='them'] {
+		inset-inline-end: -0.55em;
 		transform-origin: bottom left;
+	}
+	.im-tapback[data-from='me'] {
+		inset-inline-start: -0.55em;
 	}
 
 	.im-typing {
 		align-items: center;
 		background-color: var(--im-received);
-		border-end-start-radius: 0.3em;
-		border-radius: 1.1em;
+		border-radius: 1.25em;
 		display: inline-flex;
-		gap: 0.28em;
 		inline-size: fit-content;
 	}
 	.im-dot {
@@ -367,7 +396,27 @@
 		text-align: end;
 	}
 
-	/* The bubble body inherits the bubble's font + colour (white on sent). */
+	.im-inputbar {
+		align-items: center;
+		border-block-start: 1px solid var(--im-rule);
+		display: flex;
+	}
+	.im-plus {
+		align-items: center;
+		color: var(--im-meta);
+		display: flex;
+		flex: 0 0 auto;
+		justify-content: center;
+		line-height: 1;
+	}
+	.im-field {
+		border: 1px solid var(--im-field-border);
+		border-radius: 2em;
+		color: var(--im-meta);
+		flex: 1 1 auto;
+	}
+
+	/* The bubble body inherits the bubble's colour (white on sent, theme on received). */
 	.im-bubble :global(.document-body) {
 		color: inherit;
 	}

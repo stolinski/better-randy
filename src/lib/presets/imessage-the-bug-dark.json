@@ -1,0 +1,44 @@
+{
+	"schema": "hiviz@1",
+	"name": "iMessage — the bug · dark (horizontal)",
+	"description": "Dark-mode variant of the live Messages conversation overlay (same Surface, theme chosen from paperColor). Over ~6s: a gray received bubble pops in, a three-dot typing indicator resolves into the next bubble, the channel's highlighter draws over the hero line inside that gray bubble (dark-surface ink-punch, so the light bubble text is punched to dark ink under the amber band), a heart tapback pops on, then a blue sent reply arrives with a Delivered → Read receipt, and it holds. Faithful modern Messages look BY DESIGN: near-black page, dark-gray (left) / blue (right) bubbles with grouped tail curls, an iOS/macOS header (contact avatar + name, FaceTime icon) and a bottom composer bar — flat screen, NO browser chrome, NO CSS glow. Transparent WebM overlay, composited over footage.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#1c1c1e",
+			"inkColor": "#ffffff"
+		},
+		"marks": {
+			"defaults": {
+				"highlight": { "color": "#fabf47", "intensity": 0.62 }
+			},
+			"timings": [{ "start": 0.32, "duration": 0.16, "ease": "smooth" }]
+		},
+		"surface": {
+			"type": "imessage",
+			"content": {
+				"author": "Wes",
+				"body": "",
+				"messages": [
+					{ "from": "them", "text": "ok i finally found it" },
+					{
+						"from": "them",
+						"text": "the bottleneck was a [highlight]console.log inside a hot loop[/highlight]",
+						"tapback": "heart"
+					},
+					{ "from": "me", "text": "wait, that's it??", "status": "read" }
+				]
+			},
+			"enter": { "start": 0, "duration": 0.05, "ease": "settled" }
+		},
+		"overlays": [],
+		"effects": []
+	}
+}
