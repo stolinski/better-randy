@@ -50,6 +50,15 @@ Sound samples load via the audio analog of `substrate-textures.ts` ([ADR-0029](0
 
 The engine pins a core set; kits supply samples; core-fallback covers gaps. Starter: `whoosh-in`, `whoosh-out`, `impact`, `tick`, `pop`, `sub-drop`, `sting`. Motions declare which they emit via a **default per-primitive mapping** plus a per-entry override.
 
+### 9. The sound authoring surface (GUI)
+
+Sound is authored the way text animations were ([ADR-0011](0011-text-animation-orchestration.md)): by **extending the existing ControlPanel + timeline**, not a new app.
+
+- **Timeline — audio-cue rail.** A rail showing the **bed** and cues (derived-from-motion *and* manual) alongside the existing mark / text-anim tracks, so you see where sound fires against the motion. Selecting a cue focuses it in the sidebar.
+- **Sidebar — Sound section.** The **Sound kit** picker ("choose a sound style" — re-sounds the whole piece), per-motion sound overrides (mute / swap event / lock sample), and authoring for manual cues + the bed.
+
+This surface persists through GUI parity's lossless round-trip ([ADR-0032](0032-gui-agent-parity-authoring.md)) like any other Preset state — `audioCues[]`, the `soundKit` choice, and per-motion overrides are part of the GUI-owned subtree. It does **not** depend on the GUI-design grill; it extends today's functional UI exactly as the Text Motion section did.
+
 ## Alternatives rejected
 
 - **A sixth "Audio" Layer** — sound renders no pixels; it is an orchestration domain peer to `textAnimations[]` / `marks.timings[]` ([ADR-0011](0011-text-animation-orchestration.md)).

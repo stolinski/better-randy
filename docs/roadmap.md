@@ -39,7 +39,14 @@ The default answer to "what's next?" — an agent self-serves this instead of as
 
 ## Now — the corpus tail; GUI parity designed
 
-The engine gap is closed, the make-cinematic push is **done across every surface/overlay family**, and the web-document arc (incl. iMessage) has shipped. What remains: a small **corpus refinement tail**, and — the largest open pillar — **GUI ↔ agent parity**, now designed ([ADR-0032](adr/0032-gui-agent-parity-authoring.md)) and task-ified (dex epic `3pkmqyns`), gated on a go-ahead at the corpus epic boundary.
+The engine gap is closed, the make-cinematic push is **done across every surface/overlay family**, and the web-document arc (incl. iMessage) has shipped. What remains:
+
+- a small **corpus refinement tail** — active, epic `ri2qchcm`;
+- **GUI ↔ agent parity** — designed ([ADR-0032](adr/0032-gui-agent-parity-authoring.md)), task-ified (epic `3pkmqyns`), **gated**;
+- **Sound design** — designed ([ADR-0033](adr/0033-sound-design-motion-emitted-cues.md)), task-ified (epic `1frpmv40`), **gated**;
+- **GUI design** (the authoring *interface*) — still **undesigned**; the last north-star needing a grill.
+
+The designed arcs are gated on a go-ahead at the corpus epic boundary.
 
 **Cinematic-bar recalibration → resolved (2026-06).** A 12-agent cinematic audit (`docs/critic-captures/corpus-cinematic-audit.md`) scored every family **2–5/10** against a Netflix bar — *competent but not cinematic* — and set the honest bar plus the reusable recipe. That diagnostic drove a family-by-family make-cinematic pass: **all 13 families are now Critic-ACCEPTed** (zero pipeline-bug / default-too-permissive) at the cinematic bar, each with a graded backdrop, felt camera, parallax, and reading-order motion. `pullquote-on-photo` shipped on the ADR-0028 depth stage (real photographic substrate), so it is **no longer blocked**.
 
@@ -102,7 +109,7 @@ Distinct from GUI parity above. **[ADR-0032](adr/0032-gui-agent-parity-authoring
 
 Grilled into a spec (2026-06). Overturns the old `ideas/` "audio stays out — Resolve's job" lean **for the cues case**; in-app mixing stays out.
 
-- 🔨 **Sound design — motion-emitted cues + swappable Sound kit** ([ADR-0033](adr/0033-sound-design-motion-emitted-cues.md)). The sound **rides the animation**: a motion primitive emits a semantic **sound event** (`whoosh-in`, `impact`, `tick`) at its own frame, intrinsic to the motion — so it's automatic (no hand-placing whooshes) and stays welded through re-time/reflow. A **Sound kit** (sibling to the appearance Pack; ADR-0024 resolution) resolves events → samples — "choosing a sound style." Automatic cues are *derived* from motion (not stored); `audioCues[]` holds only manual cues + the optional **bed** (segments/bumpers only). **Determinism:** export is a deterministic offline mix muxed via Mediabunny `addAudioTrack`; preview is real-time playback-only, scrub silent. **Not a 6th Layer** (peer to `textAnimations[]` / `marks.timings[]`). Glossary: **Sound event**, **Sound kit**, **Audio cue**, **Bed** in [`CONTEXT.md`](CONTEXT.md). Task-ified in dex epic `1frpmv40`; gated on a go-ahead.
+- 🔨 **Sound design — motion-emitted cues + swappable Sound kit** ([ADR-0033](adr/0033-sound-design-motion-emitted-cues.md)). The sound **rides the animation**: a motion primitive emits a semantic **sound event** (`whoosh-in`, `impact`, `tick`) at its own frame, intrinsic to the motion — so it's automatic (no hand-placing whooshes) and stays welded through re-time/reflow. A **Sound kit** (sibling to the appearance Pack; ADR-0024 resolution) resolves events → samples — "choosing a sound style." Automatic cues are *derived* from motion (not stored); `audioCues[]` holds only manual cues + the optional **bed** (segments/bumpers only). **Determinism:** export is a deterministic offline mix muxed via Mediabunny `addAudioTrack`; preview is real-time playback-only, scrub silent. **Not a 6th Layer** (peer to `textAnimations[]` / `marks.timings[]`). **Includes its GUI surface** — a timeline audio-cue rail + a sidebar Sound section (kit picker / per-motion overrides / manual cue + bed authoring), extending the existing ControlPanel + timeline like ADR-0011's Text Motion section (no dependency on the GUI-design grill). Glossary: **Sound event**, **Sound kit**, **Audio cue**, **Bed** in [`CONTEXT.md`](CONTEXT.md). Task-ified in dex epic `1frpmv40` (10 tasks: engine spine + GUI); gated on a go-ahead.
 - **Deferred (own arcs):** an in-app mixer, scrubbable preview audio, automated sound verification (by-ear for now).
 
 ## Deferred / low-priority
