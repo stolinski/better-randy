@@ -1,6 +1,6 @@
 # ADR-0034 — GUI design: the authoring interface (three zones, timeline-as-outline, hybrid manipulation)
 
-Status: **Designed, not built** — *interaction model only; the visual design is a separate pass (see Out of scope).*
+Status: **Designed, not built** — interaction model **+ visual design** (§7); construction is dex epic `jz2yykvi`.
 Date: 2026-06-26
 Relates to: [ADR-0032](0032-gui-agent-parity-authoring.md) (GUI parity — the data model this interface sits over), [ADR-0011](0011-text-animation-orchestration.md) (timeline tracks + ControlPanel sections precedent), [ADR-0033](0033-sound-design-motion-emitted-cues.md) (the per-Layer Sound-kit picker lives in the Layer inspector)
 
@@ -45,9 +45,16 @@ Canvas (preview + position/scale manipulation) · timeline-outline · inspector.
 
 Selection / inspector edit the same `engineState` that [ADR-0032](0032-gui-agent-parity-authoring.md) persists; on-canvas transforms write the same schema fields. One composition model — the GUI is a structured, designed editor over the same Preset the agent writes.
 
+### 7. Visual design — dark, recessive, canvas-first
+
+A color-grading-suite logic: the instrument is monochrome and quiet so the picture is the only thing you see.
+
+- **Layout** (chosen from skeletons): three zones in the motion-tool arrangement — **inspector on the right** (persistent rail), the **timeline-outline full-width at the bottom**, the **canvas filling the center**. The layer-list-is-timeline merge (§2) means there is no left panel.
+- **Chrome**: **dark, neutral, recessive** — near-black / charcoal on Graffiti tokens; the canvas content carries the only light and color. No channel aesthetic in the tool itself (it would compete with the work being judged).
+- **Canvas framing**: transparent overlays render over a **dark checkerboard** by default, with an optional **reference still / clip backdrop** so an overlay is judged over real footage as it'll be used; full-frame segments/bumpers fill the frame. An **H ↔ V orientation toggle** on the canvas (pieces reflow and safe-areas differ — load-bearing, not a nicety). Fit-to-window with zoom.
+
 ## Out of scope (deliberately)
 
-- **The visual design** — exact layout proportions, visual hierarchy, panel chrome, component styling, the actual look and organization. A follow-up design pass (mockups), **not** this structural ADR. *This is the gating next step before construction tasks can be styled.*
 - Direct manipulation beyond position + scale (rotation, path editing).
 - Create-from-blank, multi-select, the product-document model — see [ADR-0032](0032-gui-agent-parity-authoring.md)'s deferred list.
 
@@ -64,5 +71,5 @@ Selection / inspector edit the same `engineState` that [ADR-0032](0032-gui-agent
 - The timeline gains an **outline gutter** with structural editing (add / remove / reorder) — the home for [ADR-0032](0032-gui-agent-parity-authoring.md)'s structural coverage.
 - A **DOM editing-overlay** over the scaled canvas (handles) + screen→4K→schema coordinate mapping, for position/scale.
 - An **inspector shell** that dispatches per-type editors, including the root inspector (transport / Pack / Effects) and the per-Layer Sound-kit picker ([ADR-0033](0033-sound-design-motion-emitted-cues.md)).
-- The **visual design pass** is the gating next step; the styling task waits on it.
+- The **visual design** is specified (§7); the styling task (`uno1jth1`) builds it — no longer gated on a design pass.
 - Tracked in dex; see [`roadmap.md`](../roadmap.md) § GUI design.

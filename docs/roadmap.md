@@ -101,10 +101,10 @@ The remaining critical path. **Designed (2026-06, [ADR-0032](adr/0032-gui-agent-
 
 ## GUI design — the authoring interface ([ADR-0034](adr/0034-gui-design-authoring-interface.md))
 
-The *interface* over the GUI-parity data model. **Interaction model designed (2026-06, [ADR-0034](adr/0034-gui-design-authoring-interface.md)); task-ified in dex epic `jz2yykvi`. The visual design (look / organization) is still open — a separate pass.**
+The *interface* over the GUI-parity data model. **Designed (2026-06, [ADR-0034](adr/0034-gui-design-authoring-interface.md)) — interaction model + visual design; task-ified in dex epic `jz2yykvi`.**
 
-- 🔨 **Interaction model** ([ADR-0034](adr/0034-gui-design-authoring-interface.md)): **hybrid** manipulation (the inspector is the complete surface; the canvas does position + scale, two-way-bound); **the timeline IS the layer outline** (outline gutter + track area, every Layer a row); selection = click a row → Layer inspector, click off → root inspector (transport / Pack / Effects); per-type inspectors + progressive disclosure; the per-Layer **Sound-kit** picker lives in the Layer inspector. Three zones — canvas + timeline-outline + inspector — on Graffiti tokens, autosave, no buttons.
-- 🧭 **Visual design** — layout proportions, hierarchy, chrome, component styling, the actual look. **Not yet grilled**; gates the styling task (`uno1jth1`).
+- 🔨 **Interaction model** ([ADR-0034](adr/0034-gui-design-authoring-interface.md)): **hybrid** manipulation (the inspector is the complete surface; the canvas does position + scale, two-way-bound); **the timeline IS the layer outline** (outline gutter + track area, every Layer a row); selection = click a row → Layer inspector, click off → root inspector (transport / Pack / Effects); per-type inspectors + progressive disclosure; the per-Layer **Sound-kit** picker lives in the Layer inspector.
+- 🔨 **Visual design** ([ADR-0034](adr/0034-gui-design-authoring-interface.md) §7): three zones — **inspector right · timeline-outline full-width bottom · canvas center**; **dark, neutral, recessive** chrome on Graffiti tokens (the canvas is the only light); transparent overlays on a **checkerboard + optional reference-footage backdrop**; an **H↔V orientation toggle**; fit + zoom. Built by the styling task (`uno1jth1`).
 
 ## Sound design (new domain — designed, [ADR-0033](adr/0033-sound-design-motion-emitted-cues.md))
 
