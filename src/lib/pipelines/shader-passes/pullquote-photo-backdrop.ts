@@ -34,7 +34,9 @@ export const PullquotePhotoBackdropUniforms = d.struct({
 	progress: d.f32,
 	canvasWidth: d.f32,
 	canvasHeight: d.f32,
-	paperVisibility: d.f32
+	paperVisibility: d.f32,
+	enterStart: d.f32,
+	enterDuration: d.f32
 });
 
 export interface PullquotePhotoBackdropParams {
@@ -43,6 +45,8 @@ export interface PullquotePhotoBackdropParams {
 	canvasWidth: number;
 	canvasHeight: number;
 	paperVisibility: number;
+	enterStart: number;
+	enterDuration: number;
 }
 
 const FALLBACK_CANVAS_WIDTH = 3840;
@@ -54,6 +58,11 @@ const wgsl = /* wgsl */ `
 	let canvasH = max(layout.$.uniforms.canvasHeight, 1.0);
 	let t = layout.$.uniforms.progress;
 	let aspectRatio = canvasW / canvasH;
+	// Entrance window = the surface ENTER descriptor (a draggable timeline clip);
+	// the rack-focus + light sweep run over it instead of hardcoded constants.
+	let enterStart = layout.$.uniforms.enterStart;
+	let enterDuration = max(layout.$.uniforms.enterDuration, 0.0001);
+	let enterProg = clamp((t - enterStart) / enterDuration, 0.0, 1.0);
 
 	// ----- Vertical depth gradient -----
 	//
@@ -92,8 +101,8 @@ const wgsl = /* wgsl */ `
 	// it crosses. Adds time-driven life to an otherwise static backdrop.
 	// Window: progress 0.00–0.30. Band centre x sweeps from -0.15 to 1.15
 	// (slightly off-frame on each side so the sweep enters and exits cleanly).
-	let sweepWindow = smoothstep(0.0, 0.10, t) * (1.0 - smoothstep(0.22, 0.32, t));
-	let sweepCentreX = mix(-0.15, 1.15, smoothstep(0.0, 0.30, t));
+	let sweepWindow = smoothstep(0.0, 0.3, enterProg) * (1.0 - smoothstep(0.85, 1.05, enterProg));
+	let sweepCentreX = mix(-0.15, 1.15, enterProg);
 	let sweepDist = abs(in.uv.x - sweepCentreX);
 	let sweepFalloff = 1.0 - smoothstep(0.0, 0.18, sweepDist);
 	let sweepColor = vec3f(0.92, 0.86, 0.74);
@@ -120,8 +129,7 @@ const wgsl = /* wgsl */ `
 	// Same envelope drives an opacity / brightness lift so the focused
 	// state reads slightly brighter than the unfocused state — matches the
 	// way a real focal plane "pops" into clarity.
-	let enterDuration = 0.22;
-	let sharpProgress = pow(smoothstep(0.0, enterDuration, t), 0.6);
+	let sharpProgress = pow(smoothstep(0.0, 1.0, enterProg), 0.6);
 	let focusBlurPx = (1.0 - sharpProgress) * 22.0;
 	let focusOpacity = 0.38 + sharpProgress * 0.62;
 	let blurUvX = focusBlurPx / canvasW;
@@ -201,7 +209,11 @@ export function createPullquotePhotoBackdropPass(): ShaderPass<SurfaceState> {
 				canvasHeight: bounds.height > 0 ? bounds.height : FALLBACK_CANVAS_HEIGHT,
 				// Surface fade is applied here (GPU), not via DOM opacity — the
 				// capture can't rasterize element opacity<1. Read imperatively.
-				paperVisibility: animState.paperVisibility
+				paperVisibility: animState.paperVisibility,
+				// Rack-focus + light sweep run over the surface ENTER window (a
+				// draggable timeline clip), not hardcoded progress constants.
+				enterStart: target.enter?.start ?? 0,
+				enterDuration: target.enter?.duration ?? 0.22
 			} satisfies PullquotePhotoBackdropParams;
 		}
 	};
