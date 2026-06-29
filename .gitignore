@@ -26,3 +26,6 @@ vite.config.ts.timestamp-*
 /.tmp-baselines
 
 .test-snapshots
+
+# User compositions — local-only, never committed (ADR-0032)
+/user-compositions
