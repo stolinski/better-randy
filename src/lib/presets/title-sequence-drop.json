@@ -29,7 +29,7 @@
 			},
 			"enter": {
 				"start": 0,
-				"duration": 0.05,
+				"duration": 0.2,
 				"ease": "smooth"
 			},
 			"exit": {

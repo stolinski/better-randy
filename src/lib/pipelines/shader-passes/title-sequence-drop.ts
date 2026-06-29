@@ -42,7 +42,9 @@ export const TitleSequenceDropUniforms = d.struct({
 	progress: d.f32,
 	canvasWidth: d.f32,
 	canvasHeight: d.f32,
-	paperVisibility: d.f32
+	paperVisibility: d.f32,
+	enterStart: d.f32,
+	enterDuration: d.f32
 });
 
 export interface TitleSequenceDropParams {
@@ -51,6 +53,8 @@ export interface TitleSequenceDropParams {
 	canvasWidth: number;
 	canvasHeight: number;
 	paperVisibility: number;
+	enterStart: number;
+	enterDuration: number;
 }
 
 const FALLBACK_CANVAS_WIDTH = 3840;
@@ -116,13 +120,15 @@ const wgsl = /* wgsl */ `
 	//
 	// Drop window: progress 0.00 → 0.20. Ease: cubic ease-out (1 − (1−x)³)
 	// so the drop decelerates into the impact frame.
-	let dropDuration = 0.20;
-	let dropPhase = clamp(t / dropDuration, 0.0, 1.0);
+	let enterStart = layout.$.uniforms.enterStart;
+	let enterDuration = max(layout.$.uniforms.enterDuration, 0.0001);
+	let enterEnd = enterStart + enterDuration;
+	let dropPhase = clamp((t - enterStart) / enterDuration, 0.0, 1.0);
 	let dropEase = 1.0 - pow(1.0 - dropPhase, 3.0);
 	let dropOffsetY = (1.0 - dropEase) * 0.55; // text starts 55% above resting
 
 	// Settle shake: 5 cycles of decaying sine in the brief window after impact.
-	let settlePhase = clamp((t - 0.20) / 0.06, 0.0, 1.0);
+	let settlePhase = clamp((t - enterEnd) / 0.06, 0.0, 1.0);
 	let settleAmplitude = (1.0 - settlePhase) * 0.005;
 	let settleOffsetY = sin(settlePhase * 6.28318 * 5.0) * settleAmplitude;
 
@@ -181,7 +187,7 @@ const wgsl = /* wgsl */ `
 	//
 	// Short brightness lift centred on progress 0.21, lasting 0.18 → 0.24.
 	// Triangle envelope so the peak is single-frame-feeling.
-	let flashCentre = 0.21;
+	let flashCentre = enterEnd;
 	let flashHalfWidth = 0.03;
 	let flashEnvelope = max(0.0, 1.0 - abs(t - flashCentre) / flashHalfWidth);
 	let flashLift = flashEnvelope * 0.45;
@@ -237,7 +243,11 @@ export function createTitleSequenceDropPass(): ShaderPass<SurfaceState> {
 				canvasHeight: bounds.height > 0 ? bounds.height : FALLBACK_CANVAS_HEIGHT,
 				// Surface fade is applied here (GPU), not via DOM opacity — the
 				// capture can't rasterize element opacity<1. Read imperatively.
-				paperVisibility: animState.paperVisibility
+				paperVisibility: animState.paperVisibility,
+				// The drop / impact / settle run over the surface ENTER window — a
+				// draggable timeline clip — instead of hardcoded progress constants.
+				enterStart: target.enter?.start ?? 0,
+				enterDuration: target.enter?.duration ?? 0.2
 			} satisfies TitleSequenceDropParams;
 		}
 	};
