@@ -485,6 +485,38 @@
 			});
 		});
 
+		// instance-stack: the staggered assembly as a draggable clip (start =
+		// staggerStart, width = lagWindow), so its entrance timing is composition
+		// data, not keyed to the raw clip start.
+		engineState.overlays.forEach((overlay) => {
+			if (overlay.type !== 'instance-stack') {
+				return;
+			}
+			const stack = overlay.content as { staggerStart?: number; lagWindow?: number };
+			trackList.push({
+				id: `overlay-${overlay.id}-stack`,
+				label: 'stack stagger',
+				color: '#f6c945',
+				transitions: [
+					{
+						id: 'stagger',
+						label: 'stack',
+						start: stack.staggerStart ?? 0,
+						duration: stack.lagWindow ?? 0.4,
+						ramp: 'in' as const,
+						minStart: 0,
+						maxStart: 0.95,
+						minDuration: 0.02,
+						maxDuration: 0.9,
+						onUpdate: ({ start, duration }: { start: number; duration: number }) => {
+							stack.staggerStart = start;
+							stack.lagWindow = Math.min(1, duration);
+						}
+					}
+				]
+			});
+		});
+
 		// Text-animation tracks (ADR-0011). One track per entry; enter (and
 		// optional exit) appear as draggable transitions on the rail so the
 		// author can retune timing without editing JSON.

@@ -9,7 +9,11 @@
 
 	let { content }: Props = $props();
 
-	const progress = $derived(animState.globalProgress);
+	// Anchor the staggered assembly to the schema `staggerStart` (a timeline clip),
+	// not the raw clip start.
+	const progress = $derived(
+		Math.max(0, Math.min(1, animState.globalProgress - content.staggerStart))
+	);
 	const indices = $derived(Array.from({ length: content.count }, (_, i) => i));
 </script>
 
