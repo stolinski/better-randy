@@ -10,7 +10,12 @@ const Text3dContentSchema = z.object({
 	variant: z.enum(VARIANT_IDS).default('cylinder-axis-y'),
 	text: z.string().min(1),
 	rotationDegrees: z.number().default(90),
-	radiusCh: z.number().positive().default(4)
+	radiusCh: z.number().positive().default(4),
+	// The spin-in to the hero frame runs over [spinStart, spinStart + spinWindow]
+	// (fractions of the clip) and then HOLDS + breathes — a draggable timeline
+	// clip, so the settle timing is composition data, not a hardcoded constant.
+	spinStart: z.number().min(0).max(1).default(0),
+	spinWindow: z.number().min(0).max(1).default(0.42)
 });
 
 export type Text3dContent = z.infer<typeof Text3dContentSchema>;
@@ -22,7 +27,9 @@ function defaults(): OverlayDefaults<Text3dContent> {
 			variant: 'cylinder-axis-y',
 			text: 'ROUND SPIN IT',
 			rotationDegrees: 90,
-			radiusCh: 4
+			radiusCh: 4,
+			spinStart: 0,
+			spinWindow: 0.42
 		},
 		position: { anchor: 'center', offset: { x: 0, y: 0 } },
 		enter: { start: 0, duration: 0.2, ease: 'smooth' },

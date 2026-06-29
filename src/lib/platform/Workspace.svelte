@@ -548,6 +548,37 @@
 			});
 		});
 
+		// text-3d: the spin-in to the hero frame as a draggable clip (start =
+		// spinStart, width = spinWindow); the word holds + breathes after.
+		engineState.overlays.forEach((overlay) => {
+			if (overlay.type !== 'text-3d') {
+				return;
+			}
+			const spin = overlay.content as { spinStart?: number; spinWindow?: number };
+			trackList.push({
+				id: `overlay-${overlay.id}-spin`,
+				label: 'spin in',
+				color: '#1f5aff',
+				transitions: [
+					{
+						id: 'spin',
+						label: 'spin',
+						start: spin.spinStart ?? 0,
+						duration: spin.spinWindow ?? 0.42,
+						ramp: 'in' as const,
+						minStart: 0,
+						maxStart: 0.95,
+						minDuration: 0.05,
+						maxDuration: 1,
+						onUpdate: ({ start, duration }: { start: number; duration: number }) => {
+							spin.spinStart = start;
+							spin.spinWindow = Math.min(1, duration);
+						}
+					}
+				]
+			});
+		});
+
 		// Text-animation tracks (ADR-0011). One track per entry; enter (and
 		// optional exit) appear as draggable transitions on the rail so the
 		// author can retune timing without editing JSON.

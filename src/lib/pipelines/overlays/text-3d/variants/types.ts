@@ -20,7 +20,9 @@ export interface Text3dVariant {
 		glyphIndex: number,
 		glyphCount: number,
 		progress: number,
-		rotationDegrees: number
+		rotationDegrees: number,
+		spinStart: number,
+		spinWindow: number
 	) => number;
 	CanvasSource: Component<OverlayCanvasSourceProps<Text3dContent>>;
 }
