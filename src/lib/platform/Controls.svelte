@@ -22,12 +22,16 @@
 		addOverlay,
 		addTextAnimation,
 		engineState,
+		packState,
 		removeEffect,
 		removeOverlay,
 		removeTextAnimation
 	} from './engine-state.svelte';
 	import type { OverlayRenderer, EffectRenderer } from './pipelines/types';
 	import { EFFECT_CATALOG, EFFECT_IDS, SPLIT_MODES, type SplitMode } from '$lib/text-animations/catalog';
+	import { PACK_REGISTRY } from './packs/registry';
+	import { listSubstrateAssets } from './substrate-textures';
+	import type { OverlayPosition, Stage, TextAnimationParams } from './engine-schema';
 
 	const fontFamilyOptions = Object.entries(ENGINE_FONT_FAMILIES) as [FontFamily, FontDefinition][];
 	const easeOptions = Object.entries(ENGINE_EASES) as [Ease, (typeof ENGINE_EASES)[Ease]][];
@@ -35,6 +39,87 @@
 	const overlayRenderers = Object.values(PIPELINE_REGISTRY.overlays);
 	const effectRenderers = Object.values(PIPELINE_REGISTRY.effects);
 	const EFFECT_CHAIN_LIMIT = 3;
+	const packOptions = Object.entries(PACK_REGISTRY) as [string, (typeof PACK_REGISTRY)[string]][];
+	const substrateAssets = listSubstrateAssets();
+
+	const OVERLAY_ANCHORS = [
+		'top-left', 'top-center', 'top-right',
+		'bottom-left', 'bottom-center', 'bottom-right',
+		'center', 'normalized-rect'
+	] as const;
+
+	function toggleStage(): void {
+		if (engineState.stage) {
+			engineState.stage = undefined;
+		} else {
+			engineState.stage = {
+				type: 'depth',
+				camera: { move: 'static', amount: 0.5, ease: 'smooth' },
+				focus: { focusZ: 0, aperture: 0.6, band: 0 }
+			};
+		}
+	}
+
+	function ensureStage(): Stage {
+		if (!engineState.stage) {
+			engineState.stage = {
+				type: 'depth',
+				camera: { move: 'static', amount: 0.5, ease: 'smooth' },
+				focus: { focusZ: 0, aperture: 0.6, band: 0 }
+			};
+		}
+		return engineState.stage;
+	}
+
+	function toggleRackFocus(): void {
+		const stage = ensureStage();
+		if (stage.focus.pull) {
+			stage.focus.pull = undefined;
+		} else {
+			stage.focus.pull = { from: 0, to: 1, start: 0.1, duration: 0.3 };
+		}
+	}
+
+	function toggleBackdropImage(): void {
+		const stage = ensureStage();
+		if (!stage.backdrop) {
+			stage.backdrop = { contrast: 0 };
+		}
+		if (stage.backdrop.image) {
+			stage.backdrop.image = undefined;
+		} else {
+			stage.backdrop.image = { asset: substrateAssets[0] ?? 'atmosphere-warm' };
+		}
+	}
+
+	function setOverlayAnchor(overlay: Overlay, value: string): void {
+		(overlay.position as OverlayPosition).anchor = value as OverlayPosition['anchor'];
+	}
+
+	function setOverlayOffsetX(overlay: Overlay, value: string): void {
+		const n = Number(value);
+		if (!Number.isFinite(n)) return;
+		if (!overlay.position.offset) overlay.position.offset = { x: 0, y: 0 };
+		overlay.position.offset.x = Math.max(0, Math.min(1, n));
+	}
+
+	function setOverlayOffsetY(overlay: Overlay, value: string): void {
+		const n = Number(value);
+		if (!Number.isFinite(n)) return;
+		if (!overlay.position.offset) overlay.position.offset = { x: 0, y: 0 };
+		overlay.position.offset.y = Math.max(0, Math.min(1, n));
+	}
+
+	function setTextAnimParam(entry: TextAnimation, key: keyof TextAnimationParams, value: string): void {
+		const n = Number(value);
+		if (!Number.isFinite(n) || n < 0) return;
+		if (!entry.params) entry.params = {};
+		entry.params[key] = n;
+	}
+
+	function clearTextAnimParam(entry: TextAnimation, key: keyof TextAnimationParams): void {
+		if (entry.params) delete entry.params[key];
+	}
 
 	function hasAnyBodyText(body: AnnotationBody): boolean {
 		for (const block of body) {
@@ -240,6 +325,18 @@
 </script>
 
 <div class="controls-stack">
+	<!-- Pack -->
+	<ControlGroup title="Pack">
+		<label class="row">
+			<span>Pack</span>
+			<select bind:value={packState.slug}>
+				{#each packOptions as [slug, pack] (slug)}
+					<option value={slug}>{pack.label}</option>
+				{/each}
+			</select>
+		</label>
+	</ControlGroup>
+
 	<!-- Surface -->
 	<ControlGroup title="Surface">
 		<label class="row">
@@ -404,6 +501,34 @@
 						</button>
 					</div>
 					<OverlayEditor overlay={overlay as never} />
+					<div class="position-row">
+						<span class="position-row__label">Anchor</span>
+						<select
+							value={overlay.position.anchor}
+							onchange={(e) => setOverlayAnchor(overlay, (e.currentTarget as HTMLSelectElement).value)}
+						>
+							{#each OVERLAY_ANCHORS as anchor (anchor)}
+								<option value={anchor}>{anchor}</option>
+							{/each}
+						</select>
+					</div>
+					{#if overlay.position.anchor !== 'normalized-rect'}
+						<div class="position-row">
+							<span class="position-row__label">Offset</span>
+							<input
+								type="number" min="0" max="1" step="0.01"
+								value={overlay.position.offset?.x ?? 0}
+								placeholder="x"
+								oninput={(e) => setOverlayOffsetX(overlay, (e.currentTarget as HTMLInputElement).value)}
+							/>
+							<input
+								type="number" min="0" max="1" step="0.01"
+								value={overlay.position.offset?.y ?? 0}
+								placeholder="y"
+								oninput={(e) => setOverlayOffsetY(overlay, (e.currentTarget as HTMLInputElement).value)}
+							/>
+						</div>
+					{/if}
 					<div class="transition-rows">
 						<div class="transition-row">
 							<span class="transition-row__label">Enter</span>
@@ -607,6 +732,36 @@
 						{/each}
 					</select>
 				</div>
+				<div class="transition-row">
+					<span class="transition-row__label">Speed ×</span>
+					<input
+						type="number" min="0.1" max="10" step="0.1"
+						value={entry.params?.speedMultiplier ?? ''}
+						placeholder="1"
+						oninput={(e) => setTextAnimParam(entry, 'speedMultiplier', (e.currentTarget as HTMLInputElement).value)}
+					/>
+					<button type="button" onclick={() => clearTextAnimParam(entry, 'speedMultiplier')}>×</button>
+				</div>
+				<div class="transition-row">
+					<span class="transition-row__label">Hold ms</span>
+					<input
+						type="number" min="0" step="10"
+						value={entry.params?.holdMs ?? ''}
+						placeholder="default"
+						oninput={(e) => setTextAnimParam(entry, 'holdMs', (e.currentTarget as HTMLInputElement).value)}
+					/>
+					<button type="button" onclick={() => clearTextAnimParam(entry, 'holdMs')}>×</button>
+				</div>
+				<div class="transition-row">
+					<span class="transition-row__label">Gap ms</span>
+					<input
+						type="number" min="0" step="10"
+						value={entry.params?.gapMs ?? ''}
+						placeholder="default"
+						oninput={(e) => setTextAnimParam(entry, 'gapMs', (e.currentTarget as HTMLInputElement).value)}
+					/>
+					<button type="button" onclick={() => clearTextAnimParam(entry, 'gapMs')}>×</button>
+				</div>
 			</div>
 		{/each}
 	</ControlGroup>
@@ -649,6 +804,72 @@
 				</div>
 			{/if}
 		{/each}
+	</ControlGroup>
+
+	<!-- Depth Stage -->
+	<ControlGroup title="Depth Stage">
+		<label class="row">
+			<span>Enable</span>
+			<input type="checkbox" checked={!!engineState.stage} onchange={toggleStage} />
+		</label>
+		{#if engineState.stage}
+			{@const stage = engineState.stage}
+			<label class="row">
+				<span>Camera move</span>
+				<select
+					value={stage.camera.move}
+					onchange={(e) => {
+						ensureStage().camera.move = (e.currentTarget as HTMLSelectElement).value as 'static' | 'push' | 'drift';
+					}}
+				>
+					<option value="static">Static</option>
+					<option value="push">Push</option>
+					<option value="drift">Drift</option>
+				</select>
+			</label>
+			{#if stage.camera.move !== 'static'}
+				<div class="transition-row">
+					<span class="transition-row__label">Amount</span>
+					<input
+						type="number" min="0" max="1" step="0.01"
+						value={stage.camera.amount ?? 0.15}
+						oninput={(e) => { ensureStage().camera.amount = parseFloat((e.currentTarget as HTMLInputElement).value) || 0.15; }}
+					/>
+				</div>
+			{/if}
+			<div class="transition-row">
+				<span class="transition-row__label">Focus Z</span>
+				<input
+					type="number" min="0" max="1" step="0.01"
+					value={stage.focus.focusZ}
+					oninput={(e) => { ensureStage().focus.focusZ = parseFloat((e.currentTarget as HTMLInputElement).value) || 0; }}
+				/>
+			</div>
+			<div class="transition-row">
+				<span class="transition-row__label">Aperture</span>
+				<input
+					type="number" min="0" max="1" step="0.01"
+					value={stage.focus.aperture}
+					oninput={(e) => { ensureStage().focus.aperture = parseFloat((e.currentTarget as HTMLInputElement).value) || 0; }}
+				/>
+			</div>
+			<div class="transition-row">
+				<span class="transition-row__label">Band</span>
+				<input
+					type="number" min="0" max="1" step="0.01"
+					value={stage.focus.band}
+					oninput={(e) => { ensureStage().focus.band = parseFloat((e.currentTarget as HTMLInputElement).value) || 0; }}
+				/>
+			</div>
+			<label class="row">
+				<span>Rack focus pull</span>
+				<input type="checkbox" checked={!!stage.focus.pull} onchange={toggleRackFocus} />
+			</label>
+			<label class="row">
+				<span>Backdrop image</span>
+				<input type="checkbox" checked={!!stage.backdrop?.image} onchange={toggleBackdropImage} />
+			</label>
+		{/if}
 	</ControlGroup>
 </div>
 
@@ -724,6 +945,25 @@
 		min-inline-size: 0;
 	}
 
+
+	.position-row {
+		align-items: center;
+		display: grid;
+		gap: var(--pad-xs);
+		grid-template-columns: 4rem 1fr 1fr;
+	}
+
+	.position-row__label {
+		color: var(--fg-6);
+		font-size: 0.75rem;
+		text-transform: uppercase;
+	}
+
+	.position-row input,
+	.position-row select {
+		font-size: 0.85rem;
+		min-inline-size: 0;
+	}
 
 	.text-motion-add {
 		display: grid;
