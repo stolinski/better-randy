@@ -46,6 +46,7 @@
 		type ResolvedTransition
 	} from './engine-state.svelte';
 	import { applyCompositionState } from './preset';
+	import { compositionMeta } from './composition-meta.svelte';
 	import { measureOverlayBoundsPx } from '$lib/utils/overlay-bounds';
 
 	import { TransitionSnapshots } from './pipelines/transition-snapshots';
@@ -1673,6 +1674,9 @@
 	</section>
 
 	<ControlPanel id="workspace-controls">
+		{#if compositionMeta.isUserComp}
+			<div class="fork-indicator">forked</div>
+		{/if}
 		<Controls />
 		{#if timeline?.selection}
 			<TrackInspector selection={timeline.selection} />
@@ -1721,5 +1725,18 @@
 			min-block-size: 100dvh;
 			overflow: visible;
 		}
+	}
+
+	.fork-indicator {
+		background: var(--surface-3);
+		border-radius: var(--radius-s);
+		color: var(--fg-5);
+		font-size: 0.72rem;
+		font-weight: var(--fw-semibold);
+		letter-spacing: 0.06em;
+		padding-block: 0.2em;
+		padding-inline: var(--vs-xs);
+		text-align: center;
+		text-transform: uppercase;
 	}
 </style>
