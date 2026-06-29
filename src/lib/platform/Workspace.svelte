@@ -21,12 +21,10 @@
 		SurfaceRenderInstance,
 		SurfaceRenderInputs
 	} from './pipelines/types';
-	import Controls from './Controls.svelte';
-	import ControlPanel from './ControlPanel.svelte';
-	import ExportPanel from './ExportPanel.svelte';
-	import TimelineScrubber from './TimelineScrubber.svelte';
-	import TimelineTrackView, { type TimelineTrack } from './TimelineTrackView.svelte';
-	import TrackInspector from './TrackInspector.svelte';
+	import CanvasControlsBar from './CanvasControlsBar.svelte';
+	import Inspector from './Inspector.svelte';
+	import TimelineOutline from './TimelineOutline.svelte';
+	import type { TimelineTrack } from './TimelineTrackView.svelte';
 	import VideoFrame from './VideoFrame.svelte';
 	import { fontsReady } from './fonts';
 	import { createGpuHost, type GpuHost } from './gpu-host';
@@ -112,6 +110,7 @@
 	let isExporting = $state(false);
 	let progress = $state(0);
 	let status = $state('');
+	let showCheckerboard = $state(true);
 
 	interface ParsedMark {
 		style: AnnotationMarkStyle;
@@ -1657,8 +1656,8 @@
 </script>
 
 <main class="workspace">
-	<section class="workspace__stage" aria-label="Composition">
-		<VideoFrame bind:canvas orientation={engineState.transport.orientation}>
+	<section class="workspace__canvas" aria-label="Composition">
+		<VideoFrame bind:canvas orientation={engineState.transport.orientation} {showCheckerboard}>
 			<Composition
 				bind:element={compositionElement}
 				bind:surfaceElement
@@ -1666,107 +1665,66 @@
 				bind:overlayRootElement
 			/>
 		</VideoFrame>
-
-		{#if timeline}
-			<TimelineScrubber {timeline} />
-			<TimelineTrackView {timeline} {tracks} />
-		{/if}
 	</section>
 
-	<ControlPanel id="workspace-controls">
-		{#if compositionMeta.isUserComp}
-			<div class="fork-indicator">
-				<span>forked</span>
-				{#if compositionMeta.revert}
-					<button
-						type="button"
-						class="fork-indicator__revert"
-						onclick={compositionMeta.revert}
-					>Revert</button>
-				{/if}
-			</div>
+	<div class="workspace__controls">
+		<CanvasControlsBar {timeline} {showCheckerboard} onToggleCheckerboard={() => { showCheckerboard = !showCheckerboard; }} />
+	</div>
+
+	<div class="workspace__timeline">
+		{#if timeline}
+			<TimelineOutline {timeline} {tracks} />
 		{/if}
-		<Controls />
-		{#if timeline?.selection}
-			<TrackInspector selection={timeline.selection} />
-		{/if}
-		{#snippet footer()}
-			<ExportPanel
-				bind:durationSeconds={engineState.transport.durationSeconds}
-				bind:fps={engineState.transport.fps}
-				bind:format={engineState.transport.format}
-				bind:orientation={engineState.transport.orientation}
-				{isExporting}
-				onexport={handleExport}
-				{progress}
-				{status}
-			/>
-		{/snippet}
-	</ControlPanel>
+	</div>
+
+	<div class="workspace__inspector">
+		<Inspector {handleExport} {isExporting} {progress} {status} />
+	</div>
 </main>
 
 <style>
 	.workspace {
 		block-size: 100dvh;
 		display: grid;
-		gap: var(--vs-base);
-		grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
-		grid-template-rows: minmax(0, 1fr);
+		grid-template-areas:
+			"canvas    inspector"
+			"controls  inspector"
+			"timeline  timeline";
+		grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
+		grid-template-rows: minmax(0, 1fr) auto 220px;
 		min-block-size: 0;
 		overflow: hidden;
-		padding: var(--pad-l);
 	}
 
-	.workspace__stage {
+	.workspace__canvas {
 		align-items: center;
-		block-size: 100%;
 		container-type: size;
 		display: flex;
-		flex-direction: column;
-		gap: var(--vs-s);
+		grid-area: canvas;
+		justify-content: center;
 		min-block-size: 0;
+		overflow: hidden;
+		padding: var(--pad-l) var(--pad-l) 0;
 	}
 
-	@media (max-width: 900px) {
-		.workspace {
-			block-size: auto;
-			grid-template-columns: 1fr;
-			min-block-size: 100dvh;
-			overflow: visible;
-		}
+	.workspace__controls {
+		border-block-end: var(--border-1);
+		grid-area: controls;
+		padding-inline: var(--pad-l);
 	}
 
-	.fork-indicator {
-		align-items: center;
-		background: var(--surface-3);
-		border-radius: var(--radius-s);
-		color: var(--fg-5);
+	.workspace__timeline {
+		border-block-start: var(--border-1);
+		grid-area: timeline;
+		min-block-size: 0;
+		overflow: hidden;
+	}
+
+	.workspace__inspector {
 		display: flex;
-		font-size: 0.72rem;
-		font-weight: var(--fw-semibold);
-		gap: var(--vs-s);
-		justify-content: space-between;
-		letter-spacing: 0.06em;
-		padding-block: 0.2em;
-		padding-inline: var(--vs-xs);
-		text-transform: uppercase;
-	}
-
-	.fork-indicator__revert {
-		background: transparent;
-		border: var(--border-1);
-		border-radius: var(--radius-xs);
-		color: var(--fg-6);
-		cursor: pointer;
-		font-size: 0.7rem;
-		font-weight: var(--fw-normal);
-		letter-spacing: 0;
-		padding-block: 0.1em;
-		padding-inline: 0.4em;
-		text-transform: none;
-	}
-
-	.fork-indicator__revert:hover {
-		color: var(--fg);
+		flex-direction: column;
+		grid-area: inspector;
+		min-block-size: 0;
+		overflow: hidden;
 	}
 </style>

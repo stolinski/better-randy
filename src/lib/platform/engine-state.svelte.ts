@@ -113,6 +113,24 @@ export function removeTextAnimation(id: string): void {
 	}
 }
 
+export function reorderOverlay(id: string, direction: 'up' | 'down'): void {
+	const index = engineState.overlays.findIndex((o) => o.id === id);
+	if (index < 0) return;
+	const targetIndex = direction === 'up' ? index - 1 : index + 1;
+	if (targetIndex < 0 || targetIndex >= engineState.overlays.length) return;
+	const [item] = engineState.overlays.splice(index, 1);
+	engineState.overlays.splice(targetIndex, 0, item);
+}
+
+export function reorderTextAnimation(id: string, direction: 'up' | 'down'): void {
+	const index = engineState.textAnimations.findIndex((e) => e.id === id);
+	if (index < 0) return;
+	const targetIndex = direction === 'up' ? index - 1 : index + 1;
+	if (targetIndex < 0 || targetIndex >= engineState.textAnimations.length) return;
+	const [item] = engineState.textAnimations.splice(index, 1);
+	engineState.textAnimations.splice(targetIndex, 0, item);
+}
+
 export const EDITOR_MARK_COLORS = {
 	get highlight() {
 		return readMarkColor('highlight');

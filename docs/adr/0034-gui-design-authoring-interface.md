@@ -68,11 +68,33 @@ Selection / inspector edit the same `engineState` that [ADR-0032](0032-gui-agent
 
 ### 7. Visual design — dark, recessive, canvas-first
 
-A color-grading-suite logic: the instrument is monochrome and quiet so the picture is the only thing you see.
+A color-grading-suite logic: the instrument is monochrome and quiet so the picture is the only thing you see. DaVinci Resolve is the tonal reference but the target is more intentionally designed — cleaner, more modern, more minimal.
 
-- **Layout** (chosen from skeletons): three zones in the motion-tool arrangement — **inspector on the right** (persistent rail), the **timeline-outline full-width at the bottom**, the **canvas filling the center**. The layer-list-is-timeline merge (§2) means there is no left panel.
-- **Chrome**: **dark, neutral, recessive** — near-black / charcoal on Graffiti tokens; the canvas content carries the only light and color. No channel aesthetic in the tool itself (it would compete with the work being judged).
-- **Canvas framing**: transparent overlays render over a **dark checkerboard** by default, with an optional **reference still / clip backdrop** so an overlay is judged over real footage as it'll be used; full-frame segments/bumpers fill the frame. An **H ↔ V orientation toggle** on the canvas (pieces reflow and safe-areas differ — load-bearing, not a nicety). Fit-to-window with zoom.
+- **Layout**: three zones — **inspector on the right** (persistent rail), **timeline-outline full-width at the bottom**, **canvas filling the center**. No left panel (layer-list-is-timeline merge, §2). No top menu bar — composition name sits as a quiet label in the outline gutter header; a minimal nav affordance (back chevron or equivalent) returns to the **Preset picker** (§8). **Timeline height**: fixed `220px` in portrait; resizable (drag handle) in landscape where it shares vertical space with the canvas.
+- **Chrome**: dark, neutral, recessive — near-black panel backgrounds, subtle borders, monochrome labels. **No Syntax brand colors in the tool chrome.** No decorative gradients. No boxes within boxes — inspector sections use spacing and dividers, not nested bordered cards.
+- **Tool accent palette** (three colors, used sparingly for interactive state only):
+  - **Yellow `#FFD608`** — primary selection: selected clip bar outline ring, active row highlight in the outline gutter, focused input border.
+  - **Cyan `#2DE8EE`** — playhead line across the timeline.
+  - **Red `#E6322A`** — destructive actions only: remove / delete buttons, error states.
+- **Canvas framing**: transparent overlays render over a **dark checkerboard** by default, with an optional **reference still / clip backdrop** so an overlay is judged over real footage as it'll be used; full-frame segments/bumpers fill the frame. Fit-to-window with zoom.
+- **Canvas controls bar**: a thin toolbar strip between the canvas and the timeline-outline. Three clusters:
+  - **Left** — transport: play/pause (and any future transport controls).
+  - **Center** — current time / frame display.
+  - **Right** — canvas-framing controls: **orientation toggle** (single icon-only button; icon shows the current state — horizontal or vertical composition rectangle; click to switch; no accent color needed, the icon geometry is the indicator), fit-to-window, zoom level readout, checkerboard / backdrop toggle.
+  - The **scrubber drag line** stays in the timeline track area — it is a timing-edit interaction, not a playback control. Export stays in the inspector root (composition-level action, not canvas-framing). Canvas controls bar is kept lean; additional tools added here as the tool grows.
+
+### 8. Preset picker — the home screen
+
+A dedicated screen shown before the editor (and navigable back to from the editor). Shows two sections:
+
+- **Starter templates** — corpus presets, read-only; clicking one opens the editor and fork-on-first-edit applies.
+- **Your compositions** — user forks from the user store; clicking one opens the editor directly. Each fork shows a delete affordance (fork management). Rename may follow.
+
+The back affordance in the editor lives in the **outline gutter header** — a slim row above the layer rows containing a back chevron and the composition name (`← [name]`). The inspector rail is purely a properties surface; nothing navigational lives there. No standalone top bar.
+
+### 9. Inspector visual structure — sections not cards
+
+Inspector sections are separated by **spacing + a single 1px divider with an inline all-caps label** (e.g. `TRANSPORT`, `PACK`, `ENTER`, `EXIT`) flush left — not bordered cards. Fields hang below with consistent left-edge alignment. Progressive disclosure via a plain chevron toggle on the section label. No expand/collapse animation, no nested borders.
 
 ## Out of scope (deliberately)
 

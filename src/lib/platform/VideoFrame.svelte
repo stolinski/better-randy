@@ -11,6 +11,7 @@
 		canvas?: HTMLCanvasElement | null;
 		orientation?: VideoOrientation;
 		label?: string;
+		showCheckerboard?: boolean;
 		children: Snippet;
 	}
 
@@ -18,6 +19,7 @@
 		canvas = $bindable(null),
 		orientation = 'horizontal',
 		label = 'Composition',
+		showCheckerboard = true,
 		children
 	}: Props = $props();
 
@@ -32,7 +34,7 @@
 	style:--frame-h={frameSize.height}
 >
 	<div class="video-frame__fit">
-		<div class="video-frame__viewport">
+		<div class="video-frame__viewport" class:video-frame__viewport--no-checker={!showCheckerboard}>
 			<canvas
 				aria-label={label}
 				bind:this={canvas}
@@ -85,6 +87,10 @@
 		);
 		overflow: hidden;
 		position: relative;
+	}
+
+	.video-frame__viewport--no-checker {
+		background: var(--surface-1, #111);
 	}
 
 	.video-frame__canvas {
