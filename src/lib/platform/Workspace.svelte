@@ -22,6 +22,7 @@
 		SurfaceRenderInputs
 	} from './pipelines/types';
 	import CanvasControlsBar from './CanvasControlsBar.svelte';
+	import CanvasEditingOverlay from './CanvasEditingOverlay.svelte';
 	import Inspector from './Inspector.svelte';
 	import TimelineOutline from './TimelineOutline.svelte';
 	import type { TimelineTrack } from './TimelineTrackView.svelte';
@@ -1679,6 +1680,11 @@
 				bind:overlayRootElement
 			/>
 		</VideoFrame>
+		<CanvasEditingOverlay
+			{compositionElement}
+			{canvas}
+			compositionSize={{ width: canvas?.width ?? 3840, height: canvas?.height ?? 2160 }}
+		/>
 	</section>
 
 	<div class="workspace__controls">
@@ -1719,6 +1725,7 @@
 		min-block-size: 0;
 		overflow: hidden;
 		padding: var(--vs-l) var(--vs-l) 0;
+		position: relative;
 	}
 
 	.workspace__controls {
