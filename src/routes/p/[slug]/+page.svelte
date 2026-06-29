@@ -93,6 +93,27 @@
 		return JSON.stringify(engineState) + packState.slug;
 	}
 
+	async function handleRevert(): Promise<void> {
+		const currentSlug = slug;
+		await userStore.del(currentSlug);
+		const corpus = getPresetBySlug(currentSlug);
+		if (!corpus) return;
+		applyPreset(corpus);
+		base = corpus;
+		activeIsUserComp = false;
+		loadedSlug = currentSlug;
+		loadSnapshot = snapshotState();
+		compositionMeta.isUserComp = false;
+		compositionMeta.forkedFrom = null;
+	}
+
+	$effect(() => {
+		compositionMeta.revert = handleRevert;
+		return () => {
+			compositionMeta.revert = null;
+		};
+	});
+
 	const isKnown = $derived(!!getPresetBySlug(slug) || compositionMeta.userSlug === slug);
 </script>
 

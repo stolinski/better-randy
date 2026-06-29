@@ -1,5 +1,9 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
+
 	import type { Preset, SurfaceType } from '$lib/platform/engine-schema';
+	import type { UserCompositionMeta } from '$lib/platform/persistence';
+	import { userStore } from '$lib/platform/persistence';
 	import { listFixtures, listPresets } from '$lib/platform/preset';
 
 	const SURFACE_LABELS: Record<SurfaceType, string> = {
@@ -29,6 +33,16 @@
 
 	const presets = listPresets();
 	const fixtures = listFixtures();
+
+	let userComps = $state<UserCompositionMeta[]>([]);
+
+	onMount(() => {
+		userStore.list().then((list) => {
+			userComps = list;
+		}).catch(() => {
+			userComps = [];
+		});
+	});
 </script>
 
 {#snippet presetRow(slug: string, preset: Preset)}
@@ -46,8 +60,33 @@
 	</li>
 {/snippet}
 
+{#snippet userRow(comp: UserCompositionMeta)}
+	<li>
+		<a class="home__row" href="/p/{comp.slug}">
+			<span class="home__name">{comp.name}</span>
+			<span class="home__meta">
+				{#if comp.forkedFrom}
+					<span class="home__compositor">from {comp.forkedFrom}</span>
+				{/if}
+				<span class="home__surface">your composition</span>
+			</span>
+		</a>
+	</li>
+{/snippet}
+
 <main class="home stack">
 	<h1>Better Randy</h1>
+
+	{#if userComps.length > 0}
+		<h2 class="home__heading">Your compositions</h2>
+		<ul class="home__list">
+			{#each userComps as comp (comp.slug)}
+				{@render userRow(comp)}
+			{/each}
+		</ul>
+	{/if}
+
+	<h2 class="home__heading">Starter templates</h2>
 	<ul class="home__list">
 		{#each presets as entry (entry.slug)}
 			{@render presetRow(entry.slug, entry.preset)}

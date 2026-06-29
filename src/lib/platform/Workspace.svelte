@@ -1675,7 +1675,16 @@
 
 	<ControlPanel id="workspace-controls">
 		{#if compositionMeta.isUserComp}
-			<div class="fork-indicator">forked</div>
+			<div class="fork-indicator">
+				<span>forked</span>
+				{#if compositionMeta.revert}
+					<button
+						type="button"
+						class="fork-indicator__revert"
+						onclick={compositionMeta.revert}
+					>Revert</button>
+				{/if}
+			</div>
 		{/if}
 		<Controls />
 		{#if timeline?.selection}
@@ -1728,15 +1737,36 @@
 	}
 
 	.fork-indicator {
+		align-items: center;
 		background: var(--surface-3);
 		border-radius: var(--radius-s);
 		color: var(--fg-5);
+		display: flex;
 		font-size: 0.72rem;
 		font-weight: var(--fw-semibold);
+		gap: var(--vs-s);
+		justify-content: space-between;
 		letter-spacing: 0.06em;
 		padding-block: 0.2em;
 		padding-inline: var(--vs-xs);
-		text-align: center;
 		text-transform: uppercase;
+	}
+
+	.fork-indicator__revert {
+		background: transparent;
+		border: var(--border-1);
+		border-radius: var(--radius-xs);
+		color: var(--fg-6);
+		cursor: pointer;
+		font-size: 0.7rem;
+		font-weight: var(--fw-normal);
+		letter-spacing: 0;
+		padding-block: 0.1em;
+		padding-inline: 0.4em;
+		text-transform: none;
+	}
+
+	.fork-indicator__revert:hover {
+		color: var(--fg);
 	}
 </style>
