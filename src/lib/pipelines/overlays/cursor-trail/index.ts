@@ -7,7 +7,13 @@ import Editor from './Editor.svelte';
 
 const CursorPathSchema = z.object({
 	targetSlot: z.string().min(1),
+	// Hold on this waypoint (the cursor parks here). Drives the clock: a longer
+	// dwell is a proportionally longer pause, not an equal slice — surfaced as a
+	// draggable dwell clip per waypoint. See schedule.ts.
 	dwellMs: z.number().nonnegative().default(400),
+	// Glide INTO this waypoint from the previous one. Ignored for the first
+	// waypoint (the cursor starts there). Also a draggable clip (its start).
+	travelMs: z.number().nonnegative().default(700),
 	action: z.enum(['hover', 'click', 'idle']).default('hover')
 });
 
@@ -23,8 +29,8 @@ function defaults(): OverlayDefaults<CursorTrailContent> {
 	return {
 		content: {
 			path: [
-				{ targetSlot: 'title', dwellMs: 600, action: 'hover' },
-				{ targetSlot: 'author', dwellMs: 400, action: 'idle' }
+				{ targetSlot: 'title', dwellMs: 600, travelMs: 700, action: 'hover' },
+				{ targetSlot: 'author', dwellMs: 400, travelMs: 700, action: 'idle' }
 			]
 		},
 		position: { anchor: 'top-left', offset: { x: 0, y: 0 } },

@@ -63,6 +63,8 @@
 	import { hexToRgbaFloat, isDarkSurfaceColor } from '$lib/utils/color';
 	import { truncateMiddle } from '$lib/utils/string';
 	import { messageEnter, messageTyping } from '$lib/pipelines/surfaces/imessage/schedule';
+	import { buildCursorSchedule } from '$lib/pipelines/overlays/cursor-trail/schedule';
+	import type { CursorPath } from '$lib/pipelines/overlays/cursor-trail/index';
 	import { exposeVisualAudit } from './runtime-audit';
 
 	let compositionElement = $state<HTMLElement | null>(null);
@@ -576,6 +578,53 @@
 						}
 					}
 				]
+			});
+		});
+
+		// cursor-trail: one clip per waypoint, sized by its authored dwellMs and
+		// positioned by the glide schedule (NOT uniform spacing). The clip's start
+		// is the arrival time (drag → travelMs into this waypoint); its width is the
+		// hold (drag → dwellMs). totalMs is snapshotted per build so the ms↔fraction
+		// conversion is stable within a drag.
+		engineState.overlays.forEach((overlay) => {
+			if (overlay.type !== 'cursor-trail') {
+				return;
+			}
+			const path = (overlay.content as { path?: CursorPath[] }).path ?? [];
+			const schedule = buildCursorSchedule(path);
+			const totalMs = schedule.totalMs;
+			schedule.dwells.forEach((dwell) => {
+				const step = path[dwell.index];
+				if (!step) {
+					return;
+				}
+				trackList.push({
+					id: `overlay-${overlay.id}-cursor-${dwell.index}`,
+					label: `↳ ${dwell.targetSlot}`,
+					color: '#16b8a6',
+					transitions: [
+						{
+							id: 'dwell',
+							label: 'dwell',
+							start: dwell.arrivalFraction,
+							duration: Math.max(dwell.durationFraction, 0.015),
+							ramp: 'in' as const,
+							minStart: dwell.hasGlide ? 0 : 0,
+							maxStart: dwell.hasGlide ? 0.98 : 0,
+							minDuration: 0,
+							maxDuration: 1,
+							onUpdate: ({ start, duration }: { start: number; duration: number }) => {
+								// Width → this waypoint's hold.
+								step.dwellMs = Math.max(0, duration * totalMs);
+								// Start → the glide INTO this waypoint (time from when the
+								// previous hold ended to arrival). First waypoint has no glide.
+								if (dwell.hasGlide) {
+									step.travelMs = Math.max(0, start * totalMs - dwell.glideStartMs);
+								}
+							}
+						}
+					]
+				});
 			});
 		});
 

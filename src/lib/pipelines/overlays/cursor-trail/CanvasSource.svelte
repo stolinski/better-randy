@@ -5,6 +5,7 @@
 	import { resolveColorChannels } from '$lib/platform/packs/resolve';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 	import type { CursorTrailContent, CursorPath } from './index';
+	import { buildCursorSchedule, cursorAt } from './schedule';
 
 	interface Props {
 		content: CursorTrailContent;
@@ -21,27 +22,37 @@
 	const frame = $derived(getVideoFrameSize(engineState.transport.orientation));
 	const progress = $derived(animState.globalProgress);
 
-	// Resolve current path segment. Path is an array of { targetSlot, dwellMs,
-	// action }; we treat them as equally spaced waypoints across the timeline
-	// for v1 — the dwellMs is used only as a duration hint for the visual
-	// hold.
+	// Resolve current path segment from the authored phase schedule (glide + dwell
+	// per waypoint), so the cursor's clock honors the per-waypoint dwellMs/travelMs
+	// instead of treating waypoints as equally spaced. During a dwell the cursor is
+	// parked (from === to → velocity and trail collapse to zero). See schedule.ts.
+	const schedule = $derived(buildCursorSchedule(content.path));
+	const at = $derived(cursorAt(schedule, progress));
 	const totalSteps = $derived(content.path.length);
-	const segmentProgress = $derived(progress * Math.max(1, totalSteps - 1));
-	const fromIndex = $derived(Math.floor(segmentProgress));
-	const toIndex = $derived(Math.min(totalSteps - 1, fromIndex + 1));
-	const local = $derived(segmentProgress - fromIndex);
+	const fromIndex = $derived(at.fromIndex);
+	const toIndex = $derived(at.toIndex);
+	const local = $derived(at.localT);
 
 	function findSlotPosition(slot: string): { x: number; y: number } | null {
 		if (typeof window === 'undefined' || !overlayEl) return null;
 		const el = document.querySelector(`[data-text-anim-slot="${slot}"]`);
 		if (!el) return null;
+		// Measure against the frame-sized `.composition` ancestor, NOT the overlay's
+		// own root: the overlay mounts in an auto-sized (top-left anchored) wrapper,
+		// so its `inset:0` root collapses to 0×0 and can't supply an origin/scale.
+		// `.composition` is laid out at exactly frame.width CSS px (then display-
+		// scaled), giving the stable origin the slot coords are projected through.
+		// The absolutely-positioned pointer/trail still resolve against this same
+		// origin, so the cursor lands on the slot.
+		const root = overlayEl.closest('.composition');
+		if (!root) return null;
 		const rect = el.getBoundingClientRect();
-		const origin = overlayEl.getBoundingClientRect();
+		const origin = root.getBoundingClientRect();
 		if (origin.width <= 0) return null;
 		// Convert the slot's viewport-space centre into the composition's local
-		// CSS coordinate space: subtract the overlay (composition) origin, then
-		// undo the display scale (composition is laid out at frame.width CSS px but
-		// shown scaled). Without this the cursor lands off the captured canvas.
+		// CSS coordinate space: subtract the composition origin, then undo the
+		// display scale (composition is laid out at frame.width CSS px but shown
+		// scaled). Without this the cursor lands off the captured canvas.
 		const scale = frame.width / origin.width;
 		return {
 			x: (rect.left + rect.width * 0.5 - origin.left) * scale,
@@ -67,10 +78,12 @@
 	const cursorY = $derived(fromPos && toPos ? fromPos.y + (toPos.y - fromPos.y) * tEased : 0);
 
 	// Velocity (Δposition per progress unit) — drives trail orientation +
-	// length. While dwelling (local < dwellThreshold near 0 or 1), velocity
-	// collapses to zero.
-	const dwellThreshold = 0.12;
-	const isMoving = $derived(local > dwellThreshold && local < 1 - dwellThreshold);
+	// length. The trail only exists during a glide phase (at.moving); a dwell
+	// parks the cursor (from === to → zero displacement). A sin envelope over the
+	// glide grows the trail out of the launch waypoint and reels it back into the
+	// landing, so it eases in/out instead of popping to full length.
+	const isMoving = $derived(at.moving);
+	const glideEnvelope = $derived(isMoving ? Math.sin(Math.max(0, Math.min(1, local)) * Math.PI) : 0);
 	const dx = $derived(toPos && fromPos ? toPos.x - fromPos.x : 0);
 	const dy = $derived(toPos && fromPos ? toPos.y - fromPos.y : 0);
 	const angleDeg = $derived((Math.atan2(dy, dx) * 180) / Math.PI);
@@ -81,7 +94,7 @@
 	const pointerSize = $derived(frame.width * 0.024);
 	const trailWidth = $derived(frame.width * 0.005);
 	const trailLengthPx = $derived(
-		isMoving ? Math.min(frame.width * 0.14, Math.hypot(dx, dy) * 0.32) : 0
+		isMoving ? Math.min(frame.width * 0.14, Math.hypot(dx, dy) * 0.32) * glideEnvelope : 0
 	);
 
 	// Pointer shape — resolved from the active Pack's cursor-trail.pointer Role
