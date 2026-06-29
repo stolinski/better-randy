@@ -1,10 +1,11 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 
 	import type { Preset, SurfaceType } from '$lib/platform/engine-schema';
 	import type { UserCompositionMeta } from '$lib/platform/persistence';
 	import { userStore } from '$lib/platform/persistence';
-	import { listFixtures, listPresets } from '$lib/platform/preset';
+	import { getPresetBySlug, listFixtures, listPresets } from '$lib/platform/preset';
 
 	const SURFACE_LABELS: Record<SurfaceType, string> = {
 		paper: 'Paper',
@@ -43,6 +44,15 @@
 			userComps = [];
 		});
 	});
+
+	async function createBlank(): Promise<void> {
+		const blank = getPresetBySlug('blank');
+		if (!blank) return;
+		const slug = `comp-${Date.now()}`;
+		const named: Preset = { ...blank, name: 'Untitled' };
+		await userStore.fork(slug, named, null);
+		await goto(`/p/${slug}`);
+	}
 </script>
 
 {#snippet presetRow(slug: string, preset: Preset)}
@@ -75,7 +85,10 @@
 {/snippet}
 
 <main class="home stack">
-	<h1>Better Randy</h1>
+	<div class="home__header">
+		<h1>Better Randy</h1>
+		<button type="button" onclick={createBlank}>New composition</button>
+	</div>
 
 	{#if userComps.length > 0}
 		<h2 class="home__heading">Your compositions</h2>
@@ -107,6 +120,13 @@
 	.home {
 		padding: var(--pad-l);
 		max-inline-size: 40rem;
+	}
+
+	.home__header {
+		align-items: baseline;
+		display: flex;
+		gap: var(--vs-s);
+		justify-content: space-between;
 	}
 
 	h1 {
