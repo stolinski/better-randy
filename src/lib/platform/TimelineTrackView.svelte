@@ -13,6 +13,14 @@
 		minDuration?: number;
 		maxDuration?: number;
 		onUpdate: (next: { start: number; duration: number }) => void;
+		/** Unified overlay bar: 0-1 fraction of bar width for the enter fade zone. */
+		enterZone?: number;
+		/** Unified overlay bar: 0-1 fraction of bar width for the exit fade zone. */
+		exitZone?: number;
+		/** Called when the enter/solid inner boundary is dragged. arg = new enterZone fraction. */
+		onUpdateEnterZone?: (zone: number) => void;
+		/** Called when the solid/exit inner boundary is dragged. arg = new exitZone fraction. */
+		onUpdateExitZone?: (zone: number) => void;
 	}
 
 	export interface TimelineTrack {

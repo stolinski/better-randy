@@ -440,49 +440,63 @@
 			const enter = overlay.enter;
 			const exit = overlay.exit;
 
+			if (!enter && !exit) {
+				trackList.push({
+					id: `overlay-${overlay.id}`,
+					label: overlay.type,
+					color: '#1f5aff',
+					transitions: []
+				});
+				return;
+			}
+
+			// Unified clip bar: one bar spanning enter.start → exit.start+exit.duration
+			const barStart = enter ? enter.start : (exit?.start ?? 0);
+			const barEnd = exit ? exit.start + exit.duration : (enter ? enter.start + enter.duration : 1);
+			const barDuration = Math.max(0.02, barEnd - barStart);
+			const enterZone = enter ? enter.duration / barDuration : 0;
+			const exitZone = exit ? exit.duration / barDuration : 0;
+
 			trackList.push({
 				id: `overlay-${overlay.id}`,
 				label: overlay.type,
 				color: '#1f5aff',
 				transitions: [
-					...(enter
-						? [
-								{
-									id: 'enter',
-									label: 'In',
-									start: enter.start,
-									duration: enter.duration,
-									ramp: 'in' as const,
-									minStart: 0,
-									maxStart: 0.95,
-									minDuration: 0.05,
-									maxDuration: 0.6,
-									onUpdate: ({ start, duration }: { start: number; duration: number }) => {
-										enter.start = start;
-										enter.duration = duration;
-									}
-								}
-							]
-						: []),
-					...(exit
-						? [
-								{
-									id: 'exit',
-									label: 'Out',
-									start: exit.start,
-									duration: exit.duration,
-									ramp: 'out' as const,
-									minStart: 0.1,
-									maxStart: 0.95,
-									minDuration: 0.05,
-									maxDuration: 0.6,
-									onUpdate: ({ start, duration }: { start: number; duration: number }) => {
-										exit.start = start;
-										exit.duration = duration;
-									}
-								}
-							]
-						: [])
+					{
+						id: 'clip',
+						label: overlay.type,
+						start: barStart,
+						duration: barDuration,
+						enterZone,
+						exitZone,
+						minStart: 0,
+						maxStart: 0.95,
+						minDuration: 0.04,
+						maxDuration: 1,
+						onUpdate: ({ start, duration }: { start: number; duration: number }) => {
+							// Move whole clip: shift enter.start and exit.start together
+							const delta = start - barStart;
+							if (enter) {
+								enter.start = clampNumber(enter.start + delta, 0, 0.95);
+							}
+							if (exit) {
+								exit.start = clampNumber(exit.start + delta, 0.01, 0.99);
+								exit.duration = duration * exitZone;
+							}
+							if (enter) {
+								enter.duration = duration * enterZone;
+							}
+						},
+						onUpdateEnterZone: (zone: number) => {
+							if (!enter) return;
+							enter.duration = clampNumber(zone * barDuration, 0.01, barDuration * 0.9);
+						},
+						onUpdateExitZone: (zone: number) => {
+							if (!exit) return;
+							exit.duration = clampNumber(zone * barDuration, 0.01, barDuration * 0.9);
+							exit.start = clampNumber(barEnd - exit.duration, 0.01, 0.99);
+						}
+					}
 				]
 			});
 		});
@@ -1704,17 +1718,16 @@
 		justify-content: center;
 		min-block-size: 0;
 		overflow: hidden;
-		padding: var(--pad-l) var(--pad-l) 0;
+		padding: var(--vs-l) var(--vs-l) 0;
 	}
 
 	.workspace__controls {
 		border-block-end: var(--border-1);
 		grid-area: controls;
-		padding-inline: var(--pad-l);
+		padding-inline: var(--vs-s);
 	}
 
 	.workspace__timeline {
-		border-block-start: var(--border-1);
 		grid-area: timeline;
 		min-block-size: 0;
 		overflow: hidden;

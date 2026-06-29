@@ -24,14 +24,14 @@
 
 	// ─── Track area drag state (same shapes as TimelineTrackView) ───────────────
 
-	type TransitionDragMode = 'move' | 'left' | 'right';
+	type TransitionDragMode = 'move' | 'left' | 'right' | 'enter-zone' | 'exit-zone';
 
 	interface TransitionDragState {
 		kind: 'transition';
 		trackId: string;
 		transitionId: string;
 		mode: TransitionDragMode;
-		origin: { start: number; duration: number };
+		origin: { start: number; duration: number; enterZone: number; exitZone: number };
 		pointerStartX: number;
 		containerWidth: number;
 	}
@@ -171,6 +171,21 @@
 		const maxStart = transition.maxStart ?? 1;
 		const minDuration = transition.minDuration ?? 0.02;
 		const maxDuration = transition.maxDuration ?? 1;
+
+		if (state.mode === 'enter-zone') {
+			// Move the left inner handle: adjust enter fade zone width
+			const newZone = clampFraction(origin.enterZone + delta / origin.duration, 0.02, 0.95 - origin.exitZone);
+			transition.onUpdateEnterZone?.(newZone);
+			return;
+		}
+
+		if (state.mode === 'exit-zone') {
+			// Move the right inner handle: adjust exit fade zone width
+			const newZone = clampFraction(origin.exitZone - delta / origin.duration, 0.02, 0.95 - origin.enterZone);
+			transition.onUpdateExitZone?.(newZone);
+			return;
+		}
+
 		let nextStart = origin.start;
 		let nextDuration = origin.duration;
 
@@ -248,7 +263,12 @@
 			trackId: track.id,
 			transitionId: transition.id,
 			mode,
-			origin: { start: transition.start, duration: transition.duration },
+			origin: {
+				start: transition.start,
+				duration: transition.duration,
+				enterZone: transition.enterZone ?? 0,
+				exitZone: transition.exitZone ?? 0
+			},
 			pointerStartX: event.clientX,
 			containerWidth: rect.width
 		};
@@ -393,14 +413,19 @@
 				{/if}
 
 				{#each track.transitions as transition (transition.id)}
+					{@const isUnified = transition.enterZone !== undefined || transition.exitZone !== undefined}
+					{@const enterPct = (transition.enterZone ?? 0) * 100}
+					{@const exitPct = (transition.exitZone ?? 0) * 100}
 					<div
 						class="track-transition"
 						class:track-transition--selected={isTransitionSelected(track.id, transition.id)}
-						class:track-transition--ramp-in={transition.ramp === 'in'}
-						class:track-transition--ramp-out={transition.ramp === 'out'}
+						class:track-transition--ramp-in={!isUnified && transition.ramp === 'in'}
+						class:track-transition--ramp-out={!isUnified && transition.ramp === 'out'}
 						onpointerdown={(event) => startTransitionDrag(event, track, transition, 'move')}
 						role="presentation"
 						style:--track-color={transition.color ?? track.color ?? 'var(--fg-2)'}
+						style:--enter-pct="{enterPct}%"
+						style:--exit-pct="{exitPct}%"
 						style:left="{transition.start * 100}%"
 						style:width="{transition.duration * 100}%"
 					>
@@ -410,7 +435,25 @@
 							onpointerdown={(event) => startTransitionDrag(event, track, transition, 'left')}
 							type="button"
 						></button>
+						{#if isUnified && enterPct > 0}
+							<button
+								aria-label="Adjust enter fade"
+								class="track-handle track-handle--enter-zone"
+								style:left="{enterPct}%"
+								onpointerdown={(event) => startTransitionDrag(event, track, transition, 'enter-zone')}
+								type="button"
+							></button>
+						{/if}
 						<span class="track-label">{transition.label ?? track.label}</span>
+						{#if isUnified && exitPct > 0}
+							<button
+								aria-label="Adjust exit fade"
+								class="track-handle track-handle--exit-zone"
+								style:right="{exitPct}%"
+								onpointerdown={(event) => startTransitionDrag(event, track, transition, 'exit-zone')}
+								type="button"
+							></button>
+						{/if}
 						<button
 							aria-label="Trim {transition.label ?? track.label} end"
 							class="track-handle track-handle--right"
@@ -650,6 +693,17 @@
 		touch-action: none;
 	}
 
+	/* Unified bar: ramp-in on left, solid in middle, ramp-out on right */
+	:global(.track-transition:has(.track-handle--enter-zone)) {
+		background: linear-gradient(
+			to right,
+			color-mix(in srgb, var(--track-color) 15%, transparent) 0%,
+			var(--track-color) var(--enter-pct, 0%),
+			var(--track-color) calc(100% - var(--exit-pct, 0%)),
+			color-mix(in srgb, var(--track-color) 15%, transparent) 100%
+		);
+	}
+
 	.track-transition:active {
 		cursor: grabbing;
 	}
@@ -689,6 +743,38 @@
 
 	.track-handle:hover {
 		background: rgba(0, 0, 0, 0.2);
+	}
+
+	/* Inner handles sit at absolute positions within the bar */
+	.track-handle--enter-zone,
+	.track-handle--exit-zone {
+		background: transparent;
+		block-size: 100%;
+		border: 0;
+		cursor: ew-resize;
+		flex: none;
+		padding: 0;
+		position: absolute;
+		touch-action: none;
+		inline-size: 6px;
+		transform: translateX(-50%);
+	}
+
+	.track-handle--enter-zone::after,
+	.track-handle--exit-zone::after {
+		background: rgba(0, 0, 0, 0.35);
+		block-size: 60%;
+		content: '';
+		display: block;
+		inline-size: 2px;
+		margin: auto;
+		position: absolute;
+		inset: 0;
+	}
+
+	.track-handle--enter-zone:hover::after,
+	.track-handle--exit-zone:hover::after {
+		background: rgba(0, 0, 0, 0.7);
 	}
 
 	.track-label {

@@ -168,17 +168,17 @@
 
 	.home__grid {
 		display: grid;
-		gap: var(--vs-xs);
-		grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+		gap: 2px;
+		grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr));
 		list-style: none;
 		margin: 0;
 		padding: 0;
 	}
 
 	.home__user-item {
+		align-items: stretch;
 		display: grid;
 		grid-template-columns: minmax(0, 1fr) auto;
-		align-items: stretch;
 	}
 
 	.home__card {
@@ -187,19 +187,18 @@
 		gap: var(--vs-xs);
 		padding: var(--vs-s) var(--vs-base);
 		text-decoration: none;
-		transition: background 100ms ease;
+		transition: background 80ms ease;
 	}
 
 	.home__card:hover {
-		background: var(--surface-2, #1a1a1a);
+		background: var(--fg-1, rgba(255,255,255,0.06));
 	}
 
 	.home__card-name {
 		color: var(--fg);
+		font-size: 1.05rem;
 		font-weight: var(--fw-semibold);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+		line-height: 1.3;
 	}
 
 	.home__card-meta {
