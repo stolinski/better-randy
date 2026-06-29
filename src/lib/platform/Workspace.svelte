@@ -517,6 +517,37 @@
 			});
 		});
 
+		// counter: the roll-to-landing as a draggable clip (start = rollStart,
+		// width = rollWindow); the landed value holds after.
+		engineState.overlays.forEach((overlay) => {
+			if (overlay.type !== 'counter') {
+				return;
+			}
+			const roll = overlay.content as { rollStart?: number; rollWindow?: number };
+			trackList.push({
+				id: `overlay-${overlay.id}-roll`,
+				label: 'count roll',
+				color: '#1f5aff',
+				transitions: [
+					{
+						id: 'roll',
+						label: 'count',
+						start: roll.rollStart ?? 0,
+						duration: roll.rollWindow ?? 0.78,
+						ramp: 'in' as const,
+						minStart: 0,
+						maxStart: 0.95,
+						minDuration: 0.05,
+						maxDuration: 1,
+						onUpdate: ({ start, duration }: { start: number; duration: number }) => {
+							roll.rollStart = start;
+							roll.rollWindow = Math.min(1, duration);
+						}
+					}
+				]
+			});
+		});
+
 		// Text-animation tracks (ADR-0011). One track per entry; enter (and
 		// optional exit) appear as draggable transitions on the rail so the
 		// author can retune timing without editing JSON.

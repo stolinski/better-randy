@@ -9,15 +9,21 @@
 
 	let { content }: Props = $props();
 
-	// The roll lands on its target by ROLL_END of the timeline and then HOLDS
-	// the milestone, instead of rolling right up to the final frame (which never
-	// shows the landed value — the whole point of a milestone counter is the
-	// payoff hold). Compressing globalProgress into [0, ROLL_END] makes the count
-	// reach `to` at ROLL_END and stay there through the overlay's exit, so the
-	// settled number is on screen for a beat. motionShape's ease-out still
-	// decelerates the roll into the landing.
-	const ROLL_END = 0.78;
-	const rollProgress = $derived(Math.min(1, animState.globalProgress / ROLL_END));
+	// The roll runs over the composition's [rollStart, rollStart + rollWindow]
+	// window (a draggable timeline clip) and then HOLDS the landed value through
+	// the overlay's exit, so the settled number is on screen for a beat —
+	// motionShape's ease-out still decelerates the roll into the landing. The
+	// window is composition data, not a hardcoded constant.
+	const rollProgress = $derived(
+		Math.max(
+			0,
+			Math.min(
+				1,
+				(animState.globalProgress - (content.rollStart ?? 0)) /
+					Math.max(content.rollWindow ?? 0.78, 0.0001)
+			)
+		)
+	);
 	const eased = $derived(slotMachineRollCounter.motionShape(0, rollProgress));
 	const currentValue = $derived(content.from + (content.to - content.from) * eased);
 
