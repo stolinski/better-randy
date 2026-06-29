@@ -27,6 +27,27 @@ Every Layer is temporal, so the layer list and the timeline are **one panel with
 
 This collapses "layer list + timeline" into one surface (the restraint win) and matches the After Effects / Premiere model.
 
+### 2a. Timeline clip model — unified bar with integrated fade handles
+
+Each overlay row renders as **one continuous clip bar** spanning from `enter.start` to `exit.start + exit.duration`. The bar has three visual zones:
+
+```
+[≈≈≈ enter ramp |════════ solid ════════| exit ramp ≈≈≈]
+ ^    ^                                  ^              ^
+ left outer      left inner fade         right inner    right outer
+ (enter.start)   (enter.duration)        (exit.dur)     (clip end)
+```
+
+- **Left outer edge** — trim clip start; drags `enter.start`.
+- **Left inner fade handle** — drags the enter/solid boundary; adjusts `enter.duration`.
+- **Body** — moves the whole clip; shifts `enter.start` and `exit.start` together.
+- **Right inner fade handle** — drags the solid/exit boundary; adjusts `exit.duration`.
+- **Right outer edge** — trim clip end; drags `exit.start + exit.duration`.
+
+No `enter` → bar starts solid with only a right ramp (if `exit` exists). No `exit` → bar ends solid. Text-animation rows follow the same shape using their `enter` only (no exit in schema today). Audio-cue rows are point markers, not bars.
+
+This replaces the current two-block model (enter clip + connector + exit clip) which makes overlays look like disconnected fragments instead of one thing with bookend transitions. The ramp-in / ramp-out gradient styling already in `TimelineTrackView` maps directly onto the zone fill — only the structural model changes. Built in the task `p8b3mn5q` (blocked on `itjli1g9`).
+
 ### 3. Selection model
 
 - Click a timeline row → the inspector shows that Layer (a per-type inspector).
@@ -69,6 +90,7 @@ A color-grading-suite logic: the instrument is monochrome and quiet so the pictu
 
 - A **selection store** + a hit-test / geometry layer for canvas selection of spatial Layers.
 - The timeline gains an **outline gutter** with structural editing (add / remove / reorder) — the home for [ADR-0032](0032-gui-agent-parity-authoring.md)'s structural coverage.
+- `TimelineTrackView` is redesigned from the current two-block enter/exit model to the **unified clip bar** (§2a): one bar per overlay layer, five drag handles, ramp zones integrated into the bar ends.
 - A **DOM editing-overlay** over the scaled canvas (handles) + screen→4K→schema coordinate mapping, for position/scale.
 - An **inspector shell** that dispatches per-type editors, including the root inspector (transport / Pack / Effects) and the per-Layer Sound-kit picker ([ADR-0033](0033-sound-design-motion-emitted-cues.md)).
 - The **visual design** is specified (§7); the styling task (`uno1jth1`) builds it — no longer gated on a design pass.
