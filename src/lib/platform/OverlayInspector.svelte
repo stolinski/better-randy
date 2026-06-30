@@ -81,6 +81,12 @@
 		ov.position.offset.y = Math.max(0, Math.min(1, n));
 	}
 
+	function setOverlayScale(ov: Overlay, value: string): void {
+		const n = Number(value);
+		if (!Number.isFinite(n)) return;
+		ov.position.scale = Math.max(0.1, Math.min(8, n));
+	}
+
 	function ensureTransition(ov: Overlay, field: 'enter' | 'exit'): Transition {
 		const existing = ov[field];
 		if (existing) return existing;
@@ -213,6 +219,17 @@
 				/>
 			</div>
 		{/if}
+		<div class="field-row">
+			<span class="field-label">Scale</span>
+			<input
+				type="number"
+				min="0.1"
+				max="8"
+				step="0.05"
+				value={ov.position.scale ?? 1}
+				oninput={(e) => setOverlayScale(ov, (e.currentTarget as HTMLInputElement).value)}
+			/>
+		</div>
 	</div>
 
 	<!-- ENTER -->

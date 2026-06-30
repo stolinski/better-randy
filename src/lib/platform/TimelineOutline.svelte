@@ -2,7 +2,6 @@
 	import { onDestroy } from 'svelte';
 
 	import { EFFECT_IDS } from '$lib/text-animations/catalog';
-	import { compositionMeta } from './composition-meta.svelte';
 	import {
 		engineState,
 		addOverlay,
@@ -53,16 +52,17 @@
 
 	type DragState = TransitionDragState | SeekDragState;
 
-	// gutterBodyEl = the scrollable rows section (excludes the fixed header above)
+	// gutterBodyEl = the scrollable rows section (excludes the fixed header above).
+	// trackAreaEl = the scrollable lanes; trackColEl wraps ruler + lanes + playhead
+	// (the seek surface + the playhead's positioning context, full panel height).
 	let gutterBodyEl = $state<HTMLDivElement | null>(null);
 	let trackAreaEl = $state<HTMLDivElement | null>(null);
+	let trackColEl = $state<HTMLDivElement | null>(null);
 	let dragState: DragState | null = null;
 
 	const playheadFraction = $derived(
 		timeline.durationSeconds > 0 ? timeline.time / timeline.durationSeconds : 0
 	);
-
-	const compositionName = $derived(compositionMeta.userSlug ?? 'Untitled');
 
 	// ─── Gutter classification helpers ──────────────────────────────────────────
 
@@ -93,14 +93,31 @@
 	}
 
 	// ─── Add controls ────────────────────────────────────────────────────────────
+	// A single "Add layer" control in the gutter footer opens a top-layer popover
+	// menu of the addable layer types — the real add affordance, not a stray
+	// <select>. The popover escapes the panel's overflow:hidden and opens upward.
 
 	const overlayRenderers = Object.values(PIPELINE_REGISTRY.overlays);
 
-	function handleAddOverlay(event: Event): void {
-		const select = event.currentTarget as HTMLSelectElement;
-		const type = select.value;
-		select.value = '';
-		if (!type) return;
+	let addMenuEl = $state<HTMLDivElement | null>(null);
+	let addTriggerEl = $state<HTMLButtonElement | null>(null);
+
+	// The footer sits at the bottom of a clipped, fixed-height panel, so the menu
+	// renders in the top layer (popover) and is anchored on open: fixed, left-edge
+	// aligned to the trigger, bottom resting just above it (opens upward).
+	function positionAddMenu(): void {
+		if (!addMenuEl || !addTriggerEl) return;
+		const rect = addTriggerEl.getBoundingClientRect();
+		addMenuEl.style.left = `${rect.left}px`;
+		addMenuEl.style.bottom = `${window.innerHeight - rect.top + 6}px`;
+		addMenuEl.style.minInlineSize = `${rect.width}px`;
+	}
+
+	function onAddMenuToggle(event: ToggleEvent): void {
+		if (event.newState === 'open') positionAddMenu();
+	}
+
+	function pickOverlay(type: string): void {
 		const renderer = overlayRenderers.find((r) => r.type === type);
 		if (!renderer) return;
 		const def = renderer.defaults();
@@ -112,9 +129,10 @@
 			exit: def.exit
 		});
 		selectLayer(`overlay-${id}`);
+		addMenuEl?.hidePopover();
 	}
 
-	function handleAddTextAnimation(): void {
+	function pickTextAnimation(): void {
 		const firstEffect = EFFECT_IDS[0];
 		if (!firstEffect) return;
 		addTextAnimation({
@@ -122,6 +140,7 @@
 			effect: firstEffect,
 			enter: { start: 0.04, duration: 0.1, ease: 'smooth' }
 		});
+		addMenuEl?.hidePopover();
 	}
 
 	// ─── Scroll sync ─────────────────────────────────────────────────────────────
@@ -298,45 +317,27 @@
 </script>
 
 <div class="outline">
-	<!-- LEFT: gutter column — fixed header + scrollable rows body -->
+	<!-- LEFT: gutter column — header strip / scrollable rows / add footer -->
 	<div class="outline__gutter-col">
-		<div class="gutter__header">
-			<a class="gutter__back" href="/" aria-label="Back to presets">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="14"
-					height="14"
-					viewBox="0 0 16 16"
-					aria-hidden="true"
-				>
-					<path
-						d="M10 3L5 8l5 5"
-						stroke="currentColor"
-						stroke-width="1.5"
-						fill="none"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					/>
-				</svg>
-			</a>
-			<span class="gutter__name">{compositionName}</span>
-		</div>
+		<!-- Empty corner: holds the gutter's share of the top strip so layer rows
+		     align with the track lanes (the back/name breadcrumb lives above the
+		     canvas, not in the layers panel). -->
+		<div class="gutter__corner" aria-hidden="true"></div>
 
-		<!-- Scrollable body — synced with track area -->
+		<!-- Scrollable rows — scroll-synced with the track lanes; row N aligns
+		     with lane N because both bodies start below the shared top strip. -->
 		<div
 			class="outline__gutter"
 			bind:this={gutterBodyEl}
 			onscroll={onGutterScroll}
 			role="presentation"
 		>
-			<!-- Ruler-height spacer: aligns with the track ruler so rows stay in sync -->
-			<div class="gutter__ruler-spacer" aria-hidden="true"></div>
-
 			{#each tracks as track (track.id)}
 				<div
 					class="gutter__row"
 					class:gutter__row--selected={layerSelection.id === track.id}
 					style:--indent={gutterIndent(track.id)}
+					style:--row-color={track.color ?? 'var(--fg-4)'}
 					role="button"
 					tabindex="0"
 					onclick={() => selectLayer(track.id)}
@@ -344,6 +345,7 @@
 						if (e.key === 'Enter' || e.key === ' ') selectLayer(track.id);
 					}}
 				>
+					<span class="gutter__dot" aria-hidden="true"></span>
 					<span class="gutter__label">{track.label}</span>
 					{#if canRemoveTrack(track.id)}
 						<button
@@ -358,38 +360,66 @@
 					{/if}
 				</div>
 			{/each}
-
-			<div class="gutter__add">
-				<select
-					class="gutter__add-select"
-					value=""
-					onchange={handleAddOverlay}
-					aria-label="Add overlay"
-				>
-					<option value="" disabled>+ Overlay</option>
-					{#each overlayRenderers as renderer (renderer.type)}
-						<option value={renderer.type}>{renderer.label}</option>
-					{/each}
-				</select>
-				<button class="gutter__add-textanim" type="button" onclick={handleAddTextAnimation}>
-					+ Text anim
-				</button>
-			</div>
 		</div>
+
+		<footer class="gutter__add">
+			<button
+				class="gutter__add-trigger"
+				type="button"
+				bind:this={addTriggerEl}
+				popovertarget="timeline-add-menu"
+				aria-label="Add layer"
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="13"
+					height="13"
+					viewBox="0 0 16 16"
+					aria-hidden="true"
+				>
+					<path
+						d="M8 3v10M3 8h10"
+						stroke="currentColor"
+						stroke-width="1.5"
+						stroke-linecap="round"
+					/>
+				</svg>
+				<span>Add layer</span>
+			</button>
+			<div
+				class="add-menu"
+				id="timeline-add-menu"
+				popover
+				bind:this={addMenuEl}
+				ontoggle={onAddMenuToggle}
+			>
+				{#each overlayRenderers as renderer (renderer.type)}
+					<button
+						class="add-menu__item"
+						type="button"
+						onclick={() => pickOverlay(renderer.type)}>{renderer.label}</button
+					>
+				{/each}
+				<div class="add-menu__divider" role="presentation"></div>
+				<button class="add-menu__item" type="button" onclick={pickTextAnimation}
+					>Text animation</button
+				>
+			</div>
+		</footer>
 	</div>
 
-	<!-- RIGHT: track area — ruler + lanes + playhead -->
+	<!-- RIGHT: track column — ruler strip / scrollable lanes / playhead -->
 	<div
-		class="outline__tracks"
-		bind:this={trackAreaEl}
+		class="outline__track-col"
+		bind:this={trackColEl}
 		onpointerdown={startSeekDrag}
-		onscroll={onTrackScroll}
 		role="presentation"
 	>
 		<div class="track-ruler" aria-hidden="true"></div>
 
-		{#each tracks as track (track.id)}
-			<div class="track-lane">
+		<div class="outline__tracks" bind:this={trackAreaEl} onscroll={onTrackScroll} role="presentation">
+			{#each tracks as track (track.id)}
+				<div class="track-lane">
 				{#each track.transitions as transition (transition.id)}
 					{@const isUnified = transition.unified !== undefined}
 					{@const hasEnter = transition.unified?.enterStart !== undefined}
@@ -457,6 +487,7 @@
 				{/each}
 			</div>
 		{/each}
+		</div>
 
 		<div class="track-playhead" style:left="{playheadFraction * 100}%"></div>
 	</div>
@@ -466,78 +497,56 @@
 	/* ── Shell ── */
 
 	.outline {
+		/* Shared top-strip height: the gutter header and the track ruler are both
+		   --strip-h tall, so the rows body and lanes body start at the same Y and
+		   row N aligns with lane N. --lane-h / --lane-gap keep both grids identical. */
+		--strip-h: 30px;
+		--lane-h: 28px;
+		--lane-gap: 4px;
 		block-size: 100%;
 		display: grid;
 		grid-template-columns: 200px minmax(0, 1fr);
 		overflow: hidden;
 	}
 
-	/* ── Gutter column: fixed header + scrollable body ── */
+	/* ── Gutter column: header strip / scrollable rows / add footer ── */
 
 	.outline__gutter-col {
 		border-inline-end: var(--border-1);
 		display: grid;
-		grid-template-rows: auto 1fr;
+		grid-template-rows: var(--strip-h) minmax(0, 1fr) auto;
+		min-block-size: 0;
 		overflow: hidden;
 	}
 
-	.gutter__header {
-		align-items: center;
-		display: flex;
-		gap: var(--vs-xs);
-		min-block-size: 36px;
-		padding-inline: var(--vs-xs);
-	}
-
-	.gutter__back {
-		align-items: center;
-		border-radius: var(--br-xs);
-		color: var(--fg-6);
-		display: inline-flex;
-		flex-shrink: 0;
-		padding: 2px;
-		text-decoration: none;
-		transition: color 100ms ease;
-	}
-
-	.gutter__back:hover {
-		color: var(--fg);
-	}
-
-	.gutter__name {
-		color: var(--fg-6);
-		font-size: 0.75rem;
-		font-weight: var(--fw-semibold);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	/* Scrollable gutter body: mirrors track area structure exactly so scrollTop
-	   sync keeps rows and lanes aligned frame-perfectly. gap + grid-auto-rows must
-	   match .outline__tracks. */
-	.outline__gutter {
-		display: grid;
-		gap: 4px;
-		grid-auto-rows: 28px;
-		grid-template-rows: auto;
-		overflow-y: auto;
-	}
-
-	/* Same height + border as .track-ruler so row 1 starts at the same Y. */
-	.gutter__ruler-spacer {
-		block-size: 14px;
+	/* Empty top-strip corner — its only job is to offset the rows by --strip-h so
+	   they line up with the lanes; the hairline continues the ruler's strip band. */
+	.gutter__corner {
 		border-block-end: var(--border-1);
+	}
+
+	/* Scrollable rows: identical grid metrics to .outline__tracks (same lane height,
+	   gap, top padding, align-content) so scrollTop sync keeps each row pinned to
+	   its lane. */
+	.outline__gutter {
+		align-content: start;
+		display: grid;
+		gap: var(--lane-gap);
+		grid-auto-rows: var(--lane-h);
+		min-block-size: 0;
+		overflow-y: auto;
+		padding-block: var(--lane-gap);
 	}
 
 	.gutter__row {
 		align-items: center;
-		background: transparent;
+		background: var(--fg-05);
+		border-radius: var(--br-xs);
 		border-inline-start: 3px solid transparent;
 		cursor: pointer;
 		display: flex;
 		gap: var(--vs-xs);
-		justify-content: space-between;
+		margin-inline: var(--lane-gap);
 		padding-inline-end: var(--vs-xs);
 		padding-inline-start: calc(var(--vs-xs) + calc(var(--indent, 0) * 12px));
 		transition:
@@ -547,17 +556,30 @@
 	}
 
 	.gutter__row:hover {
-		background: var(--fg-05);
+		background: var(--fg-1);
 	}
 
 	.gutter__row--selected {
-		background: color-mix(in srgb, #ffd608 8%, transparent);
+		background: color-mix(in srgb, #ffd608 10%, var(--fg-05));
 		border-inline-start-color: #ffd608;
+	}
+
+	/* Color dot keyed to the layer's clip color — ties each gutter row to its lane
+	   bar and color-codes the layer type at a glance. */
+	.gutter__dot {
+		background: var(--row-color, var(--fg-4));
+		block-size: 6px;
+		border-radius: 50%;
+		flex-shrink: 0;
+		inline-size: 6px;
+		opacity: 0.9;
 	}
 
 	.gutter__label {
 		color: var(--fg-7);
+		flex: 1 1 auto;
 		font-size: 0.75rem;
+		min-inline-size: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
@@ -575,60 +597,150 @@
 		flex-shrink: 0;
 		font-size: 0.9rem;
 		line-height: 1;
+		margin-inline-start: auto;
+		opacity: 0;
 		padding: 0 2px;
-		transition: color 100ms ease;
+		transition:
+			color 100ms ease,
+			opacity 100ms ease;
+	}
+
+	.gutter__row:hover .gutter__remove,
+	.gutter__row--selected .gutter__remove {
+		opacity: 1;
 	}
 
 	.gutter__remove:hover {
 		color: #e6322a;
 	}
 
+	/* Add footer — a real add control with breathing room, not a stray select. */
 	.gutter__add {
+		border-block-start: var(--border-1);
+		padding: var(--vs-s);
+	}
+
+	.gutter__add-trigger {
 		align-items: center;
-		display: flex;
-		flex-direction: column;
-		gap: var(--vs-xs);
-		padding: var(--vs-xs);
-	}
-
-	.gutter__add-select {
-		font-size: 0.75rem;
-		inline-size: 100%;
-	}
-
-	.gutter__add-textanim {
 		background: transparent;
 		border: var(--border-1);
-		border-radius: var(--br-xs);
+		border-radius: var(--br-s);
 		color: var(--fg-6);
 		cursor: pointer;
+		display: flex;
 		font-size: 0.75rem;
+		font-weight: var(--fw-medium);
+		gap: var(--vs-xs);
 		inline-size: 100%;
-		padding: 3px var(--vs-xs);
-		text-align: left;
+		justify-content: center;
+		padding-block: 6px;
 		transition:
-			color 100ms ease,
-			border-color 100ms ease;
+			background 100ms ease,
+			border-color 100ms ease,
+			color 100ms ease;
 	}
 
-	.gutter__add-textanim:hover {
+	.gutter__add-trigger:hover {
+		background: var(--fg-05);
 		border-color: var(--fg-4);
 		color: var(--fg);
 	}
 
-	/* ── Track area ── */
+	/* Top-layer add menu — escapes the panel clip, opens upward from the trigger. */
+	.add-menu {
+		background: var(--bg);
+		border: var(--border-1);
+		border-radius: var(--br-s);
+		box-shadow: 0 8px 24px rgb(0 0 0 / 0.5);
+		display: flex;
+		flex-direction: column;
+		gap: 1px;
+		inset: auto;
+		margin: 0;
+		max-block-size: 60vh;
+		opacity: 1;
+		overflow-y: auto;
+		padding: var(--vs-xs);
+		position: fixed;
+		transform: translateY(0) scale(1);
+		transform-origin: bottom left;
+		transition:
+			opacity 120ms ease,
+			transform 160ms var(--ease-smooth),
+			overlay 160ms allow-discrete,
+			display 160ms allow-discrete;
+	}
 
-	.outline__tracks {
+	.add-menu:not(:popover-open) {
+		opacity: 0;
+		transform: translateY(6px) scale(0.97);
+	}
+
+	@starting-style {
+		.add-menu:popover-open {
+			opacity: 0;
+			transform: translateY(6px) scale(0.97);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.add-menu {
+			transition-duration: 1ms;
+		}
+	}
+
+	.add-menu__item {
+		background: transparent;
+		border: 0;
+		border-radius: var(--br-xs);
+		color: var(--fg-7);
+		cursor: pointer;
+		font-size: 0.75rem;
+		inline-size: 100%;
+		padding: 6px var(--vs-s);
+		text-align: left;
+		text-transform: capitalize;
+		transition:
+			background 100ms ease,
+			color 100ms ease;
+		white-space: nowrap;
+	}
+
+	.add-menu__item:hover {
+		background: var(--fg-05);
+		color: var(--fg);
+	}
+
+	.add-menu__divider {
+		background: var(--fg-2);
+		block-size: 1px;
+		margin-block: var(--vs-xs);
+	}
+
+	/* ── Track column: ruler strip / scrollable lanes / playhead ── */
+
+	.outline__track-col {
 		cursor: pointer;
 		display: grid;
-		gap: 4px;
-		grid-auto-rows: 28px;
-		grid-template-rows: auto;
+		grid-template-rows: var(--strip-h) minmax(0, 1fr);
+		min-block-size: 0;
+		overflow: hidden;
+		position: relative;
+		touch-action: none;
+	}
+
+	/* Lanes mirror .outline__gutter exactly (lane height, gap, top padding,
+	   align-content) so scrollTop sync keeps each lane pinned to its gutter row. */
+	.outline__tracks {
+		align-content: start;
+		display: grid;
+		gap: var(--lane-gap);
+		grid-auto-rows: var(--lane-h);
 		min-block-size: 0;
 		overflow-x: hidden;
 		overflow-y: auto;
+		padding-block: var(--lane-gap);
 		position: relative;
-		touch-action: none;
 	}
 
 	.track-ruler {
@@ -687,20 +799,22 @@
 				var(--fg-2) 90%,
 				transparent calc(90% + 1px)
 			);
-		block-size: 14px;
+		/* Short 10px ticks at the bottom edge of the strip — a ruler, not full-height
+		   hairlines. One size value applies to all nine gradient layers. */
+		background-position: bottom;
+		background-repeat: no-repeat;
+		background-size: 100% 10px;
+		block-size: 100%;
 		border-block-end: var(--border-1);
 	}
 
 	.track-lane {
 		background: var(--fg-05);
 		border-radius: var(--br-xs);
-		margin-inline: 4px;
+		margin-inline: var(--lane-gap);
 		position: relative;
 	}
 
-	.track-lane:last-of-type {
-		margin-block-end: 4px;
-	}
 
 	.track-transition {
 		align-items: center;

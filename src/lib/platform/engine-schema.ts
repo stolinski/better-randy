@@ -247,7 +247,12 @@ const OverlayPositionSchema = z.object({
 	offset: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).optional(),
 	rect: z
 		.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() })
-		.optional()
+		.optional(),
+	// Uniform scale multiplier applied to the overlay's natural size, about the
+	// anchor point (so the anchored edge/corner stays pinned as it grows). 1 =
+	// natural size. Driven by the canvas scale handles + the inspector Scale field.
+	// Aspect-preserving on purpose — overlays keep their designed proportions.
+	scale: z.number().min(0.1).max(8).optional()
 });
 
 const OverlaySchema = z.object({

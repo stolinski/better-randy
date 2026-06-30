@@ -17,41 +17,62 @@
 		return null;
 	}
 
+	// transform-origin matching an anchor's pinned point, so a scale grows from the
+	// anchored edge/corner instead of the element's default centre.
+	function anchorOrigin(anchor: string): string {
+		if (anchor === 'normalized-rect') return 'top left';
+		const v = anchor.startsWith('top') ? 'top' : anchor.startsWith('bottom') ? 'bottom' : 'center';
+		const h = anchor.endsWith('left') ? 'left' : anchor.endsWith('right') ? 'right' : 'center';
+		return `${v} ${h}`;
+	}
+
 	function positionStyle(overlay: Overlay): string {
-		const { anchor, offset, rect } = overlay.position;
+		const { anchor, offset, rect, scale } = overlay.position;
 		// Offsets are fractions of the composition (0..1 of inline-size / block-size).
 		// 0.05 = 5% margin from the anchor edge.
 		const ox = (offset?.x ?? 0) * 100;
 		const oy = (offset?.y ?? 0) * 100;
 
-		if (anchor === 'normalized-rect' && rect) {
-			return `left:${rect.x * 100}%;top:${rect.y * 100}%;inline-size:${rect.width * 100}%;block-size:${rect.height * 100}%;`;
-		}
-
 		const parts: string[] = [];
 
-		if (anchor.startsWith('top')) {
-			parts.push(`top:${oy}%`);
-		} else if (anchor.startsWith('bottom')) {
-			parts.push(`bottom:${oy}%`);
+		if (anchor === 'normalized-rect' && rect) {
+			parts.push(
+				`left:${rect.x * 100}%`,
+				`top:${rect.y * 100}%`,
+				`inline-size:${rect.width * 100}%`,
+				`block-size:${rect.height * 100}%`
+			);
 		} else {
-			parts.push(`top:50%`);
+			if (anchor.startsWith('top')) {
+				parts.push(`top:${oy}%`);
+			} else if (anchor.startsWith('bottom')) {
+				parts.push(`bottom:${oy}%`);
+			} else {
+				parts.push(`top:50%`);
+			}
+
+			if (anchor.endsWith('left')) {
+				parts.push(`left:${ox}%`);
+			} else if (anchor.endsWith('right')) {
+				parts.push(`right:${ox}%`);
+			} else {
+				parts.push(`left:50%`);
+			}
+
+			// `center` anchor: offset the element by half its own size so the
+			// element's visual centre aligns with the (50%, 50%) origin point.
+			// Uses CSS `translate` (independent of `transform`) so it doesn't
+			// conflict with the visibilityStyle translateY animation.
+			if (anchor === 'center') {
+				parts.push(`translate:-50% -50%`);
+			}
 		}
 
-		if (anchor.endsWith('left')) {
-			parts.push(`left:${ox}%`);
-		} else if (anchor.endsWith('right')) {
-			parts.push(`right:${ox}%`);
-		} else {
-			parts.push(`left:50%`);
-		}
-
-		// `center` anchor: offset the element by half its own size so the
-		// element's visual centre aligns with the (50%, 50%) origin point.
-		// Uses CSS `translate` (independent of `transform`) so it doesn't
-		// conflict with the visibilityStyle translateY animation.
-		if (anchor === 'center') {
-			parts.push(`translate:-50% -50%`);
+		// Uniform scale about the anchor point. CSS `scale` longhand composes with
+		// the `translate` (center anchor) and the visibilityStyle `transform`
+		// translateY entry slide without clobbering either.
+		if (scale !== undefined && scale !== 1) {
+			parts.push(`scale:${scale}`, `transform-origin:${anchorOrigin(anchor)}`);
 		}
 
 		return parts.join(';');

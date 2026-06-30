@@ -111,6 +111,12 @@
 	// before exit). A later refinement may let the transition name a per-state frame.
 	const SNAPSHOT_PROGRESS = 0.5;
 
+	// Where the editor parks the playhead on first load: a settled frame past every
+	// enter and before any exit, so the composition + its overlays are visible
+	// immediately instead of an empty t=0 canvas (overlays haven't entered yet).
+	// Preview-only — export still renders from frame 0.
+	const SETTLED_PREVIEW_FRACTION = 0.5;
+
 	let isExporting = $state(false);
 	let progress = $state(0);
 	let status = $state('');
@@ -1346,7 +1352,9 @@
 					window.__hivizTextAnimationManager = textAnimationManager;
 				}
 				animationManager.rebuild(buildAnimationManifest());
-				animationManager.progress(0);
+				// Park on a settled frame so the composition is visible on open (the
+				// seek drives the manifest to that frame and requests the first paint).
+				timeline.seek(engineState.transport.durationSeconds * SETTLED_PREVIEW_FRACTION);
 			}
 
 			setCanvasPaintHandler(localCanvas, () => {
@@ -1466,6 +1474,16 @@
 			void overlay.id;
 			void overlay.type;
 			void overlay.content;
+			// Spatial position (canvas drag + scale, and the inspector's anchor/offset
+			// fields) — a change here must repaint so the overlay moves live.
+			void overlay.position.anchor;
+			void overlay.position.offset?.x;
+			void overlay.position.offset?.y;
+			void overlay.position.rect?.x;
+			void overlay.position.rect?.y;
+			void overlay.position.rect?.width;
+			void overlay.position.rect?.height;
+			void overlay.position.scale;
 			// Overlay enter/exit timing + ease (the unified clip bar drags).
 			void overlay.enter?.start;
 			void overlay.enter?.duration;
@@ -1686,6 +1704,28 @@
 </script>
 
 <main class="workspace">
+	<header class="workspace__topbar">
+		<a class="topbar__back" href="/" aria-label="Back to presets">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="14"
+				height="14"
+				viewBox="0 0 16 16"
+				aria-hidden="true"
+			>
+				<path
+					d="M10 3L5 8l5 5"
+					stroke="currentColor"
+					stroke-width="1.5"
+					fill="none"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				/>
+			</svg>
+		</a>
+		<span class="topbar__name">{compositionMeta.userSlug ?? 'Untitled'}</span>
+	</header>
+
 	<section class="workspace__canvas" aria-label="Composition">
 		<VideoFrame bind:canvas orientation={engineState.transport.orientation} {showCheckerboard}>
 			<Composition
@@ -1728,13 +1768,54 @@
 		block-size: 100dvh;
 		display: grid;
 		grid-template-areas:
+			'topbar    inspector'
 			'canvas    inspector'
 			'controls  inspector'
 			'timeline  timeline';
 		grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
-		grid-template-rows: minmax(0, 1fr) auto 220px;
+		grid-template-rows: auto minmax(0, 1fr) auto 220px;
 		min-block-size: 0;
 		overflow: hidden;
+	}
+
+	/* Breadcrumb strip above the canvas — back to the picker + the composition
+	   name. A navigation affordance belongs here, over the stage, not in the
+	   layers panel. Recessive; left-aligned with the canvas content padding. */
+	.workspace__topbar {
+		align-items: center;
+		border-block-end: var(--border-1);
+		display: flex;
+		gap: var(--vs-xs);
+		grid-area: topbar;
+		min-block-size: 38px;
+		padding-inline: var(--vs-l);
+	}
+
+	.topbar__back {
+		align-items: center;
+		border-radius: var(--br-xs);
+		color: var(--fg-5);
+		display: inline-flex;
+		flex-shrink: 0;
+		padding: 3px;
+		text-decoration: none;
+		transition:
+			background 100ms ease,
+			color 100ms ease;
+	}
+
+	.topbar__back:hover {
+		background: var(--fg-05);
+		color: var(--fg);
+	}
+
+	.topbar__name {
+		color: var(--fg-6);
+		font-size: 0.75rem;
+		font-weight: var(--fw-semibold);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.workspace__canvas {

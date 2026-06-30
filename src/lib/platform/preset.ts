@@ -214,7 +214,8 @@ function cloneOverlay(overlay: Overlay): Overlay {
 		position: {
 			anchor: overlay.position.anchor,
 			offset: overlay.position.offset ? { ...overlay.position.offset } : undefined,
-			rect: overlay.position.rect ? { ...overlay.position.rect } : undefined
+			rect: overlay.position.rect ? { ...overlay.position.rect } : undefined,
+			scale: overlay.position.scale
 		},
 		enter: overlay.enter ? { ...overlay.enter } : undefined,
 		exit: overlay.exit ? { ...overlay.exit } : undefined,
