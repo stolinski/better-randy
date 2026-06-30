@@ -13,7 +13,12 @@
 	import { PIPELINE_REGISTRY } from './pipelines';
 	import { layerSelection, selectLayer, deselectLayer } from './selection.svelte';
 	import type { Timeline } from './timeline.svelte';
-	import type { TimelineTrack, TimelineTransition } from './TimelineTrackView.svelte';
+	import type { TimelineTrack, TimelineTransition } from './timeline-track';
+	import {
+		resolveUnifiedDrag,
+		type UnifiedDragMode,
+		type UnifiedDragOrigin
+	} from '$lib/utils/timeline-clip';
 
 	interface Props {
 		timeline: Timeline;
@@ -22,23 +27,20 @@
 
 	let { timeline, tracks }: Props = $props();
 
-	// ─── Track area drag state (same shapes as TimelineTrackView) ───────────────
+	// ─── Track area drag state ──────────────────────────────────────────────────
+	// Simple window clips use `left`/`right`/`move`; unified bars use the five
+	// `trim-start`/`enter-zone`/`move`/`exit-zone`/`trim-end` handles (ADR-0034 §2a).
 
-	type TransitionDragMode = 'move' | 'left' | 'right' | 'enter-zone' | 'exit-zone';
+	type TransitionDragMode = 'move' | 'left' | 'right' | UnifiedDragMode;
 
 	interface TransitionDragState {
 		kind: 'transition';
 		trackId: string;
 		transitionId: string;
 		mode: TransitionDragMode;
-		origin: { start: number; duration: number; enterZone: number; exitZone: number };
-		pointerStartX: number;
-		containerWidth: number;
-	}
-
-	interface TrackDragState {
-		kind: 'track';
-		trackId: string;
+		origin: { start: number; duration: number };
+		/** Captured at drag start for unified bars; absent for simple window clips. */
+		unifiedOrigin?: UnifiedDragOrigin;
 		pointerStartX: number;
 		containerWidth: number;
 	}
@@ -49,7 +51,7 @@
 		containerLeft: number;
 	}
 
-	type DragState = TransitionDragState | TrackDragState | SeekDragState;
+	type DragState = TransitionDragState | SeekDragState;
 
 	// gutterBodyEl = the scrollable rows section (excludes the fixed header above)
 	let gutterBodyEl = $state<HTMLDivElement | null>(null);
@@ -102,7 +104,13 @@
 		const renderer = overlayRenderers.find((r) => r.type === type);
 		if (!renderer) return;
 		const def = renderer.defaults();
-		const id = addOverlay({ type, content: def.content, position: def.position, enter: def.enter, exit: def.exit });
+		const id = addOverlay({
+			type,
+			content: def.content,
+			position: def.position,
+			enter: def.enter,
+			exit: def.exit
+		});
 		selectLayer(`overlay-${id}`);
 	}
 
@@ -137,7 +145,7 @@
 		suppressGutterScroll = false;
 	}
 
-	// ─── Track area drag (exact copy from TimelineTrackView) ────────────────────
+	// ─── Track area drag ────────────────────────────────────────────────────────
 
 	function clampFraction(value: number, min: number, max: number): number {
 		return Math.max(min, Math.min(max, value));
@@ -149,43 +157,29 @@
 		return { width: rect.width, left: rect.left };
 	}
 
-	function getTrackBounds(track: TimelineTrack): { start: number; end: number } | null {
-		if (track.transitions.length === 0) return null;
-		let start = Number.POSITIVE_INFINITY;
-		let end = Number.NEGATIVE_INFINITY;
-		for (const t of track.transitions) {
-			start = Math.min(start, t.start);
-			end = Math.max(end, t.start + t.duration);
-		}
-		return { start, end };
-	}
-
 	function applyTransitionDrag(state: TransitionDragState, event: PointerEvent): void {
 		const track = tracks.find((c) => c.id === state.trackId);
 		const transition = track?.transitions.find((c) => c.id === state.transitionId);
 		if (!transition) return;
 
 		const delta = (event.clientX - state.pointerStartX) / state.containerWidth;
+
+		// Unified clip bar: resolve the dragged handle into new enter/exit ramps and
+		// persist each through its writer (ADR-0034 §2a).
+		if (state.unifiedOrigin && transition.unified) {
+			const result = resolveUnifiedDrag(state.mode as UnifiedDragMode, delta, state.unifiedOrigin);
+			if (result.enter) transition.unified.setEnter?.(result.enter.start, result.enter.duration);
+			if (result.exit) transition.unified.setExit?.(result.exit.start, result.exit.duration);
+			return;
+		}
+
+		// Simple window clip (stagger / roll / dwell …): move + trim left/right.
+		if (!transition.onUpdate) return;
 		const origin = state.origin;
 		const minStart = transition.minStart ?? 0;
 		const maxStart = transition.maxStart ?? 1;
 		const minDuration = transition.minDuration ?? 0.02;
 		const maxDuration = transition.maxDuration ?? 1;
-
-		if (state.mode === 'enter-zone') {
-			// Move the left inner handle: adjust enter fade zone width
-			const newZone = clampFraction(origin.enterZone + delta / origin.duration, 0.02, 0.95 - origin.exitZone);
-			transition.onUpdateEnterZone?.(newZone);
-			return;
-		}
-
-		if (state.mode === 'exit-zone') {
-			// Move the right inner handle: adjust exit fade zone width
-			const newZone = clampFraction(origin.exitZone - delta / origin.duration, 0.02, 0.95 - origin.enterZone);
-			transition.onUpdateExitZone?.(newZone);
-			return;
-		}
-
 		let nextStart = origin.start;
 		let nextDuration = origin.duration;
 
@@ -212,13 +206,6 @@
 		transition.onUpdate({ start: nextStart, duration: nextDuration });
 	}
 
-	function applyTrackDrag(state: TrackDragState, event: PointerEvent): void {
-		const track = tracks.find((c) => c.id === state.trackId);
-		if (!track?.onTrackMove) return;
-		const delta = (event.clientX - state.pointerStartX) / state.containerWidth;
-		track.onTrackMove(delta);
-	}
-
 	function applySeekDrag(state: SeekDragState, event: PointerEvent): void {
 		const fraction = clampFraction(
 			(event.clientX - state.containerLeft) / state.containerWidth,
@@ -232,8 +219,6 @@
 		if (!dragState) return;
 		if (dragState.kind === 'transition') {
 			applyTransitionDrag(dragState, event);
-		} else if (dragState.kind === 'track') {
-			applyTrackDrag(dragState, event);
 		} else {
 			applySeekDrag(dragState, event);
 		}
@@ -258,36 +243,23 @@
 		event.stopPropagation();
 		selectLayer(track.id);
 		timeline.selectTransition(track.id, transition.id);
+		const u = transition.unified;
 		dragState = {
 			kind: 'transition',
 			trackId: track.id,
 			transitionId: transition.id,
 			mode,
-			origin: {
-				start: transition.start,
-				duration: transition.duration,
-				enterZone: transition.enterZone ?? 0,
-				exitZone: transition.exitZone ?? 0
-			},
-			pointerStartX: event.clientX,
-			containerWidth: rect.width
-		};
-		window.addEventListener('pointermove', handlePointerMove);
-		window.addEventListener('pointerup', handlePointerUp);
-	}
-
-	function startTrackDrag(event: PointerEvent, track: TimelineTrack): void {
-		if (event.button !== 0) return;
-		const rect = getTrackAreaRect();
-		if (!rect) return;
-		event.preventDefault();
-		event.stopPropagation();
-		selectLayer(track.id);
-		timeline.selectTrack(track.id);
-		if (!track.onTrackMove) return;
-		dragState = {
-			kind: 'track',
-			trackId: track.id,
+			origin: { start: transition.start, duration: transition.duration },
+			unifiedOrigin: u
+				? {
+						enterStart: u.enterStart,
+						enterDuration: u.enterDuration,
+						exitStart: u.exitStart,
+						exitDuration: u.exitDuration,
+						enterLandFrac: u.enterLandFrac,
+						exitLandFrac: u.exitLandFrac
+					}
+				: undefined,
 			pointerStartX: event.clientX,
 			containerWidth: rect.width
 		};
@@ -300,7 +272,7 @@
 		const rect = getTrackAreaRect();
 		if (!rect) return;
 		const target = event.target as HTMLElement | null;
-		if (target?.closest('.track-transition') || target?.closest('.track-connector')) return;
+		if (target?.closest('.track-transition')) return;
 		event.preventDefault();
 		deselectLayer();
 		timeline.clearSelection();
@@ -319,11 +291,6 @@
 		return sel !== null && sel.trackId === trackId && sel.transitionId === transitionId;
 	}
 
-	function isTrackBodySelected(trackId: string): boolean {
-		const sel = timeline.selection;
-		return sel !== null && sel.trackId === trackId && sel.transitionId === null;
-	}
-
 	onDestroy(() => {
 		window.removeEventListener('pointermove', handlePointerMove);
 		window.removeEventListener('pointerup', handlePointerUp);
@@ -335,8 +302,21 @@
 	<div class="outline__gutter-col">
 		<div class="gutter__header">
 			<a class="gutter__back" href="/" aria-label="Back to presets">
-				<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
-					<path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="14"
+					height="14"
+					viewBox="0 0 16 16"
+					aria-hidden="true"
+				>
+					<path
+						d="M10 3L5 8l5 5"
+						stroke="currentColor"
+						stroke-width="1.5"
+						fill="none"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
 				</svg>
 			</a>
 			<span class="gutter__name">{compositionName}</span>
@@ -360,7 +340,9 @@
 					role="button"
 					tabindex="0"
 					onclick={() => selectLayer(track.id)}
-					onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') selectLayer(track.id); }}
+					onkeydown={(e) => {
+						if (e.key === 'Enter' || e.key === ' ') selectLayer(track.id);
+					}}
 				>
 					<span class="gutter__label">{track.label}</span>
 					{#if canRemoveTrack(track.id)}
@@ -368,14 +350,22 @@
 							class="gutter__remove"
 							type="button"
 							aria-label="Remove {track.label}"
-							onclick={(e) => { e.stopPropagation(); handleRemoveTrack(track.id); }}
-						>×</button>
+							onclick={(e) => {
+								e.stopPropagation();
+								handleRemoveTrack(track.id);
+							}}>×</button
+						>
 					{/if}
 				</div>
 			{/each}
 
 			<div class="gutter__add">
-				<select class="gutter__add-select" value="" onchange={handleAddOverlay} aria-label="Add overlay">
+				<select
+					class="gutter__add-select"
+					value=""
+					onchange={handleAddOverlay}
+					aria-label="Add overlay"
+				>
 					<option value="" disabled>+ Overlay</option>
 					{#each overlayRenderers as renderer (renderer.type)}
 						<option value={renderer.type}>{renderer.label}</option>
@@ -399,25 +389,20 @@
 		<div class="track-ruler" aria-hidden="true"></div>
 
 		{#each tracks as track (track.id)}
-			{@const bounds = getTrackBounds(track)}
 			<div class="track-lane">
-				{#if bounds && track.transitions.length > 1}
-					<div
-						class="track-connector"
-						class:track-connector--selected={isTrackBodySelected(track.id)}
-						onpointerdown={(event) => startTrackDrag(event, track)}
-						role="presentation"
-						style:left="{bounds.start * 100}%"
-						style:width="{(bounds.end - bounds.start) * 100}%"
-					></div>
-				{/if}
-
 				{#each track.transitions as transition (transition.id)}
-					{@const isUnified = transition.enterZone !== undefined || transition.exitZone !== undefined}
+					{@const isUnified = transition.unified !== undefined}
+					{@const hasEnter = transition.unified?.enterStart !== undefined}
+					{@const hasExit = transition.unified?.exitStart !== undefined}
+					<!-- enterZone / exitZone are the PERCEIVED ramp widths (ADR-0034 §2a):
+					     computeUnifiedBar has already collapsed each ease's invisible tail,
+					     so the standard ramp gradient + handles land on real motion edges. -->
 					{@const enterPct = (transition.enterZone ?? 0) * 100}
 					{@const exitPct = (transition.exitZone ?? 0) * 100}
+					{@const label = transition.label ?? track.label}
 					<div
 						class="track-transition"
+						class:track-transition--unified={isUnified}
 						class:track-transition--selected={isTransitionSelected(track.id, transition.id)}
 						class:track-transition--ramp-in={!isUnified && transition.ramp === 'in'}
 						class:track-transition--ramp-out={!isUnified && transition.ramp === 'out'}
@@ -429,37 +414,45 @@
 						style:left="{transition.start * 100}%"
 						style:width="{transition.duration * 100}%"
 					>
-						<button
-							aria-label="Trim {transition.label ?? track.label} start"
-							class="track-handle track-handle--left"
-							onpointerdown={(event) => startTransitionDrag(event, track, transition, 'left')}
-							type="button"
-						></button>
-						{#if isUnified && enterPct > 0}
+						{#if !isUnified || hasEnter}
 							<button
-								aria-label="Adjust enter fade"
+								aria-label="Trim {label} start"
+								class="track-handle track-handle--left"
+								onpointerdown={(event) =>
+									startTransitionDrag(event, track, transition, isUnified ? 'trim-start' : 'left')}
+								type="button"
+							></button>
+						{/if}
+						{#if isUnified && hasEnter && enterPct > 0}
+							<button
+								aria-label="Adjust {label} enter fade"
 								class="track-handle track-handle--enter-zone"
 								style:left="{enterPct}%"
-								onpointerdown={(event) => startTransitionDrag(event, track, transition, 'enter-zone')}
+								onpointerdown={(event) =>
+									startTransitionDrag(event, track, transition, 'enter-zone')}
 								type="button"
 							></button>
 						{/if}
-						<span class="track-label">{transition.label ?? track.label}</span>
-						{#if isUnified && exitPct > 0}
+						<span class="track-label">{label}</span>
+						{#if isUnified && hasExit && exitPct > 0}
 							<button
-								aria-label="Adjust exit fade"
+								aria-label="Adjust {label} exit fade"
 								class="track-handle track-handle--exit-zone"
 								style:right="{exitPct}%"
-								onpointerdown={(event) => startTransitionDrag(event, track, transition, 'exit-zone')}
+								onpointerdown={(event) =>
+									startTransitionDrag(event, track, transition, 'exit-zone')}
 								type="button"
 							></button>
 						{/if}
-						<button
-							aria-label="Trim {transition.label ?? track.label} end"
-							class="track-handle track-handle--right"
-							onpointerdown={(event) => startTransitionDrag(event, track, transition, 'right')}
-							type="button"
-						></button>
+						{#if !isUnified || hasExit}
+							<button
+								aria-label="Trim {label} end"
+								class="track-handle track-handle--right"
+								onpointerdown={(event) =>
+									startTransitionDrag(event, track, transition, isUnified ? 'trim-end' : 'right')}
+								type="button"
+							></button>
+						{/if}
 					</div>
 				{/each}
 			</div>
@@ -547,7 +540,9 @@
 		justify-content: space-between;
 		padding-inline-end: var(--vs-xs);
 		padding-inline-start: calc(var(--vs-xs) + calc(var(--indent, 0) * 12px));
-		transition: background 100ms ease, border-color 100ms ease;
+		transition:
+			background 100ms ease,
+			border-color 100ms ease;
 		user-select: none;
 	}
 
@@ -611,7 +606,9 @@
 		inline-size: 100%;
 		padding: 3px var(--vs-xs);
 		text-align: left;
-		transition: color 100ms ease, border-color 100ms ease;
+		transition:
+			color 100ms ease,
+			border-color 100ms ease;
 	}
 
 	.gutter__add-textanim:hover {
@@ -636,15 +633,60 @@
 
 	.track-ruler {
 		background:
-			linear-gradient(to right, transparent calc(10% - 1px), var(--fg-2) 10%, transparent calc(10% + 1px)),
-			linear-gradient(to right, transparent calc(20% - 1px), var(--fg-2) 20%, transparent calc(20% + 1px)),
-			linear-gradient(to right, transparent calc(30% - 1px), var(--fg-2) 30%, transparent calc(30% + 1px)),
-			linear-gradient(to right, transparent calc(40% - 1px), var(--fg-2) 40%, transparent calc(40% + 1px)),
-			linear-gradient(to right, transparent calc(50% - 1px), var(--fg-2) 50%, transparent calc(50% + 1px)),
-			linear-gradient(to right, transparent calc(60% - 1px), var(--fg-2) 60%, transparent calc(60% + 1px)),
-			linear-gradient(to right, transparent calc(70% - 1px), var(--fg-2) 70%, transparent calc(70% + 1px)),
-			linear-gradient(to right, transparent calc(80% - 1px), var(--fg-2) 80%, transparent calc(80% + 1px)),
-			linear-gradient(to right, transparent calc(90% - 1px), var(--fg-2) 90%, transparent calc(90% + 1px));
+			linear-gradient(
+				to right,
+				transparent calc(10% - 1px),
+				var(--fg-2) 10%,
+				transparent calc(10% + 1px)
+			),
+			linear-gradient(
+				to right,
+				transparent calc(20% - 1px),
+				var(--fg-2) 20%,
+				transparent calc(20% + 1px)
+			),
+			linear-gradient(
+				to right,
+				transparent calc(30% - 1px),
+				var(--fg-2) 30%,
+				transparent calc(30% + 1px)
+			),
+			linear-gradient(
+				to right,
+				transparent calc(40% - 1px),
+				var(--fg-2) 40%,
+				transparent calc(40% + 1px)
+			),
+			linear-gradient(
+				to right,
+				transparent calc(50% - 1px),
+				var(--fg-2) 50%,
+				transparent calc(50% + 1px)
+			),
+			linear-gradient(
+				to right,
+				transparent calc(60% - 1px),
+				var(--fg-2) 60%,
+				transparent calc(60% + 1px)
+			),
+			linear-gradient(
+				to right,
+				transparent calc(70% - 1px),
+				var(--fg-2) 70%,
+				transparent calc(70% + 1px)
+			),
+			linear-gradient(
+				to right,
+				transparent calc(80% - 1px),
+				var(--fg-2) 80%,
+				transparent calc(80% + 1px)
+			),
+			linear-gradient(
+				to right,
+				transparent calc(90% - 1px),
+				var(--fg-2) 90%,
+				transparent calc(90% + 1px)
+			);
 		block-size: 14px;
 		border-block-end: var(--border-1);
 	}
@@ -660,24 +702,6 @@
 		margin-block-end: 4px;
 	}
 
-	.track-connector {
-		background: color-mix(in srgb, var(--fg-9) 18%, transparent);
-		block-size: 4px;
-		border-radius: 2px;
-		cursor: grab;
-		inset-block-start: 50%;
-		position: absolute;
-		transform: translateY(-50%);
-	}
-
-	.track-connector:active {
-		cursor: grabbing;
-	}
-
-	.track-connector--selected {
-		background: var(--fg-9);
-	}
-
 	.track-transition {
 		align-items: center;
 		background: var(--track-color);
@@ -687,14 +711,18 @@
 		cursor: grab;
 		display: flex;
 		inset-block: 0;
-		justify-content: space-between;
-		padding-inline: 2px;
+		/* Label centers over the solid middle (best contrast vs. the faded ramp
+		   ends) regardless of which trim handles the clip has. */
+		justify-content: center;
+		padding-inline: 10px;
 		position: absolute;
 		touch-action: none;
 	}
 
-	/* Unified bar: ramp-in on left, solid in middle, ramp-out on right */
-	:global(.track-transition:has(.track-handle--enter-zone)) {
+	/* Unified bar: ramp-in on left, solid in middle, ramp-out on right. The zones
+	   are the PERCEIVED motion widths (the bar already excludes each ease's tail),
+	   so the ramp ends land where the eye sees the motion start/finish. */
+	.track-transition--unified {
 		background: linear-gradient(
 			to right,
 			color-mix(in srgb, var(--track-color) 15%, transparent) 0%,
@@ -736,12 +764,28 @@
 		border: 0;
 		border-radius: 0;
 		cursor: ew-resize;
-		flex: 0 0 8px;
 		padding: 0;
 		touch-action: none;
 	}
 
-	.track-handle:hover {
+	/* Outer trim handles pinned to the bar edges, out of the label's flow. */
+	.track-handle--left,
+	.track-handle--right {
+		inline-size: 8px;
+		position: absolute;
+		inset-block: 0;
+	}
+
+	.track-handle--left {
+		inset-inline-start: 0;
+	}
+
+	.track-handle--right {
+		inset-inline-end: 0;
+	}
+
+	.track-handle--left:hover,
+	.track-handle--right:hover {
 		background: rgba(0, 0, 0, 0.2);
 	}
 

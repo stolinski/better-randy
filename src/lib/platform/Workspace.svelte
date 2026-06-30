@@ -25,7 +25,7 @@
 	import CanvasEditingOverlay from './CanvasEditingOverlay.svelte';
 	import Inspector from './Inspector.svelte';
 	import TimelineOutline from './TimelineOutline.svelte';
-	import type { TimelineTrack } from './TimelineTrackView.svelte';
+	import type { TimelineTrack, TimelineTransition } from './timeline-track';
 	import VideoFrame from './VideoFrame.svelte';
 	import { fontsReady } from './fonts';
 	import { createGpuHost, type GpuHost } from './gpu-host';
@@ -62,6 +62,9 @@
 	import { clampNumber } from '$lib/utils/math';
 	import { hexToRgbaFloat, isDarkSurfaceColor } from '$lib/utils/color';
 	import { truncateMiddle } from '$lib/utils/string';
+	import { computeUnifiedBar, type RampTiming } from '$lib/utils/timeline-clip';
+	import { easeLandingFraction } from './ease-landing';
+	import { EFFECT_CATALOG, type Phase } from '$lib/text-animations/catalog';
 	import { messageEnter, messageTyping } from '$lib/pipelines/surfaces/imessage/schedule';
 	import { buildCursorSchedule } from '$lib/pipelines/overlays/cursor-trail/schedule';
 	import type { CursorPath } from '$lib/pipelines/overlays/cursor-trail/index';
@@ -342,70 +345,120 @@
 		return paperColor ? isDarkSurfaceColor(paperColor) : undefined;
 	}
 
+	// One unified clip bar (ADR-0034 §2a) from a Layer's enter/exit ramps. The
+	// geometry is pure (computeUnifiedBar); the writers persist a dragged ramp.
+	// Default writers mutate the live enter/exit refs; pass overrides when a Layer
+	// stores its timing elsewhere (iMessage typing, mark timing).
+	function buildUnifiedBar(opts: {
+		id: string;
+		label: string;
+		color?: string;
+		enter?: RampTiming;
+		exit?: RampTiming;
+		setEnter?: (start: number, duration: number) => void;
+		setExit?: (start: number, duration: number) => void;
+		/** Resolved ease (gsap or CSS cubic-bezier) the layer's enter/exit motion
+		 *  uses; drives the ease-aware ramp fill so it ends where the motion visibly
+		 *  lands. */
+		enterEase?: string;
+		exitEase?: string;
+		/** Landing fraction override for composite motion (iMessage pop, staggered
+		 *  text-animations) where the landing isn't a single ease. Wins over *Ease. */
+		enterLandFrac?: number;
+		exitLandFrac?: number;
+	}): TimelineTransition {
+		const { enter, exit } = opts;
+		const resolveLand = (frac: number | undefined, ease: string | undefined): number =>
+			frac ?? (ease ? easeLandingFraction(ease) : 1);
+		const enterLandFrac = resolveLand(opts.enterLandFrac, opts.enterEase);
+		const exitLandFrac = resolveLand(opts.exitLandFrac, opts.exitEase);
+		const { barStart, barDuration, enterZone, exitZone } = computeUnifiedBar(
+			enter,
+			exit,
+			enterLandFrac,
+			exitLandFrac
+		);
+		return {
+			id: opts.id,
+			label: opts.label,
+			color: opts.color,
+			start: barStart,
+			duration: barDuration,
+			enterZone,
+			exitZone,
+			enterLandFrac,
+			exitLandFrac,
+			unified: {
+				enterStart: enter?.start,
+				enterDuration: enter?.duration,
+				exitStart: exit?.start,
+				exitDuration: exit?.duration,
+				enterLandFrac,
+				exitLandFrac,
+				setEnter:
+					opts.setEnter ??
+					(enter
+						? (start, duration) => {
+								enter.start = start;
+								enter.duration = duration;
+							}
+						: undefined),
+				setExit:
+					opts.setExit ??
+					(exit
+						? (start, duration) => {
+								exit.start = start;
+								exit.duration = duration;
+							}
+						: undefined)
+			}
+		};
+	}
+
+	// A staggered text-animation's units fill its enter/exit window, so the whole
+	// row lands close to the window end — but a `whole`-target effect is a single
+	// front-loaded unit that lands early. The DOM split isn't known at build time;
+	// these representative unit counts estimate where the last unit lands (a few
+	// units off only shifts the ramp a couple of pixels).
+	const TEXT_ANIM_REP_UNITS: Record<string, number> = {
+		whole: 1,
+		'per-line': 3,
+		'per-word': 7,
+		'per-character': 16
+	};
+
+	function textAnimLandFrac(target: string, phase: Phase): number {
+		const n = TEXT_ANIM_REP_UNITS[target] ?? 8;
+		const stagger = phase.stagger_ms ?? 0;
+		const total = phase.duration_ms + (n - 1) * stagger;
+		if (total <= 0) return 1;
+		// Last unit starts at (n-1)·stagger and lands `easeLand` into its duration.
+		return ((n - 1) * stagger + phase.duration_ms * easeLandingFraction(phase.easing)) / total;
+	}
+
 	function buildTracks(): TimelineTrack[] {
 		const surface = engineState.surface;
 		const parsedMarks = readMarks();
 		const trackList: TimelineTrack[] = [];
 
 		if (surface.enter || surface.exit) {
-			const enter = surface.enter;
-			const exit = surface.exit;
-
+			const label =
+				surface.type === 'paper' ? 'Paper' : surface.type === 'newspaper' ? 'Newspaper' : 'Body';
 			trackList.push({
 				id: 'surface',
-				label:
-					surface.type === 'paper' ? 'Paper' : surface.type === 'newspaper' ? 'Newspaper' : 'Body',
+				label,
 				color: engineState.typography.paperColor,
 				transitions: [
-					...(enter
-						? [
-								{
-									id: 'enter',
-									label: 'In',
-									start: enter.start,
-									duration: enter.duration,
-									ramp: 'in' as const,
-									minStart: 0,
-									maxStart: 0.9,
-									minDuration: 0.05,
-									maxDuration: 0.6,
-									onUpdate: ({ start, duration }: { start: number; duration: number }) => {
-										enter.start = start;
-										enter.duration = duration;
-									}
-								}
-							]
-						: []),
-					...(exit
-						? [
-								{
-									id: 'exit',
-									label: 'Out',
-									start: exit.start,
-									duration: exit.duration,
-									ramp: 'out' as const,
-									minStart: 0.1,
-									maxStart: 0.95,
-									minDuration: 0.05,
-									maxDuration: 0.6,
-									onUpdate: ({ start, duration }: { start: number; duration: number }) => {
-										exit.start = start;
-										exit.duration = duration;
-									}
-								}
-							]
-						: [])
-				],
-				onTrackMove:
-					enter && exit
-						? (delta) => {
-								const nextEnterStart = clampNumber(enter.start + delta, 0, 0.9);
-								const enterDelta = nextEnterStart - enter.start;
-								const nextExitStart = clampNumber(exit.start + enterDelta, 0.1, 0.95);
-								enter.start = nextEnterStart;
-								exit.start = nextExitStart;
-							}
-						: undefined
+					buildUnifiedBar({
+						id: 'clip',
+						label,
+						color: engineState.typography.paperColor,
+						enter: surface.enter,
+						exit: surface.exit,
+						enterEase: surface.enter ? getEaseGsap(surface.enter.ease, 'enter') : undefined,
+						exitEase: surface.exit ? getEaseGsap(surface.exit.ease, 'exit', 'opacity') : undefined
+					})
+				]
 			});
 		}
 
@@ -413,26 +466,27 @@
 			const resolved = resolveMarkForIndex(mark.style, index, engineState.marks);
 			const label = truncateMiddle(mark.text, 20);
 
+			// A mark draws on then holds — enter-only: the bar's left ramp is the
+			// draw-on, solid through the rest. Timing is stored per-index.
 			trackList.push({
 				id: `mark-${index}`,
 				label,
 				color: resolved.color,
 				transitions: [
-					{
-						id: 'enter',
+					buildUnifiedBar({
+						id: 'clip',
 						label,
-						start: resolved.start,
-						duration: resolved.duration,
-						minStart: 0,
-						maxStart: 0.95,
-						minDuration: 0.05,
-						maxDuration: 0.9,
-						onUpdate: ({ start, duration }) => {
+						color: resolved.color,
+						enter: { start: resolved.start, duration: resolved.duration },
+						// The draw-on always runs on power1.inOut (see buildAnimationManifest),
+						// independent of the mark's declared ease.
+						enterEase: 'power1.inOut',
+						setEnter: (start, duration) => {
 							const timing = ensureMarkTimingAtIndex(index);
 							timing.start = start;
 							timing.duration = duration;
 						}
-					}
+					})
 				]
 			});
 		});
@@ -451,53 +505,20 @@
 				return;
 			}
 
-			// Unified clip bar: one bar spanning enter.start → exit.start+exit.duration
-			const barStart = enter ? enter.start : (exit?.start ?? 0);
-			const barEnd = exit ? exit.start + exit.duration : (enter ? enter.start + enter.duration : 1);
-			const barDuration = Math.max(0.02, barEnd - barStart);
-			const enterZone = enter ? enter.duration / barDuration : 0;
-			const exitZone = exit ? exit.duration / barDuration : 0;
-
 			trackList.push({
 				id: `overlay-${overlay.id}`,
 				label: overlay.type,
 				color: '#1f5aff',
 				transitions: [
-					{
+					buildUnifiedBar({
 						id: 'clip',
 						label: overlay.type,
-						start: barStart,
-						duration: barDuration,
-						enterZone,
-						exitZone,
-						minStart: 0,
-						maxStart: 0.95,
-						minDuration: 0.04,
-						maxDuration: 1,
-						onUpdate: ({ start, duration }: { start: number; duration: number }) => {
-							// Move whole clip: shift enter.start and exit.start together
-							const delta = start - barStart;
-							if (enter) {
-								enter.start = clampNumber(enter.start + delta, 0, 0.95);
-							}
-							if (exit) {
-								exit.start = clampNumber(exit.start + delta, 0.01, 0.99);
-								exit.duration = duration * exitZone;
-							}
-							if (enter) {
-								enter.duration = duration * enterZone;
-							}
-						},
-						onUpdateEnterZone: (zone: number) => {
-							if (!enter) return;
-							enter.duration = clampNumber(zone * barDuration, 0.01, barDuration * 0.9);
-						},
-						onUpdateExitZone: (zone: number) => {
-							if (!exit) return;
-							exit.duration = clampNumber(zone * barDuration, 0.01, barDuration * 0.9);
-							exit.start = clampNumber(barEnd - exit.duration, 0.01, 0.99);
-						}
-					}
+						color: '#1f5aff',
+						enter,
+						exit,
+						enterEase: enter ? getEaseGsap(enter.ease, 'enter') : undefined,
+						exitEase: exit ? getEaseGsap(exit.ease, 'exit') : undefined
+					})
 				]
 			});
 		});
@@ -647,52 +668,30 @@
 		// optional exit) appear as draggable transitions on the rail so the
 		// author can retune timing without editing JSON.
 		engineState.textAnimations.forEach((entry) => {
-			const enter = entry.enter;
-			const exit = entry.exit;
 			const targetLabel =
 				entry.target.kind === 'surface'
 					? `T · ${entry.target.slot}`
 					: `T · ${entry.target.overlayId}.${entry.target.slot}`;
+			const label = `${targetLabel} · ${entry.effect}`;
+
+			// Landing comes from the catalog effect's own scheduling (its easing is
+			// intrinsic, per spec.enter/exit), not the per-entry ease.
+			const spec = EFFECT_CATALOG.get(entry.effect);
 
 			trackList.push({
 				id: `textanim-${entry.id}`,
-				label: `${targetLabel} · ${entry.effect}`,
+				label,
 				color: '#7e3aff',
 				transitions: [
-					{
-						id: 'enter',
-						label: 'In',
-						start: enter.start,
-						duration: enter.duration,
-						ramp: 'in' as const,
-						minStart: 0,
-						maxStart: 0.95,
-						minDuration: 0.02,
-						maxDuration: 0.9,
-						onUpdate: ({ start, duration }: { start: number; duration: number }) => {
-							enter.start = start;
-							enter.duration = duration;
-						}
-					},
-					...(exit
-						? [
-								{
-									id: 'exit',
-									label: 'Out',
-									start: exit.start,
-									duration: exit.duration,
-									ramp: 'out' as const,
-									minStart: 0.05,
-									maxStart: 0.98,
-									minDuration: 0.02,
-									maxDuration: 0.9,
-									onUpdate: ({ start, duration }: { start: number; duration: number }) => {
-										exit.start = start;
-										exit.duration = duration;
-									}
-								}
-							]
-						: [])
+					buildUnifiedBar({
+						id: 'clip',
+						label,
+						color: '#7e3aff',
+						enter: entry.enter,
+						exit: entry.exit,
+						enterLandFrac: spec ? textAnimLandFrac(spec.target, spec.enter) : 1,
+						exitLandFrac: spec?.exit ? textAnimLandFrac(spec.target, spec.exit) : 1
+					})
 				]
 			});
 		});
@@ -705,50 +704,48 @@
 				const timing = messageEnter(message, index);
 				const typing = messageTyping(message, index);
 				const label = truncateMiddle(annotationBodyPlainText(message.text), 18) || '…';
+
+				// One merged bar per bubble: the typing indicator is the lead-in ramp,
+				// the landed bubble is the solid body (holds to the end). The lead-in
+				// spans typing.start → bubble landed; setEnter splits it back into the
+				// typing window + the bubble slide-in (slide-in length preserved).
+				const leadInStart = typing ? typing.start : timing.start;
+				const bubbleLanded = timing.start + timing.duration;
+				// The bubble pops with a back.out spring over its pop window; within the
+				// merged lead-in bar it lands once that spring settles (typing is a
+				// static hold before it, so it carries no motion of its own).
+				const leadInSpan = bubbleLanded - leadInStart;
+				const enterLandFrac =
+					leadInSpan > 0
+						? (timing.start - leadInStart + timing.duration * easeLandingFraction('back.out')) /
+							leadInSpan
+						: 1;
 				trackList.push({
 					id: `imessage-${index}`,
 					label,
 					color: message.from === 'me' ? '#0a84ff' : '#8e8e93',
 					transitions: [
-						// Typing indicator (its own clip): the right edge is when the
-						// bubble lands; the width is how long they type.
-						...(typing
-							? [
-									{
-										id: 'typing',
-										label: '•••',
-										start: typing.start,
-										duration: typing.duration,
-										ramp: 'in' as const,
-										minStart: 0,
-										maxStart: 0.95,
-										minDuration: 0.02,
-										maxDuration: 0.6,
-										onUpdate: ({ start, duration }: { start: number; duration: number }) => {
-											message.typing = { duration };
-											message.enter = {
-												start: start + duration,
-												duration: message.enter?.duration ?? timing.duration,
-												ease: message.enter?.ease
-											};
-										}
-									}
-								]
-							: []),
-						{
-							id: 'enter',
+						buildUnifiedBar({
+							id: 'clip',
 							label,
-							start: timing.start,
-							duration: timing.duration,
-							ramp: 'in' as const,
-							minStart: 0,
-							maxStart: 0.95,
-							minDuration: 0.02,
-							maxDuration: 0.6,
-							onUpdate: ({ start, duration }: { start: number; duration: number }) => {
-								message.enter = { start, duration, ease: message.enter?.ease };
+							color: message.from === 'me' ? '#0a84ff' : '#8e8e93',
+							enter: { start: leadInStart, duration: Math.max(0.02, bubbleLanded - leadInStart) },
+							enterLandFrac,
+							setEnter: (start, duration) => {
+								const slideIn = message.enter?.duration ?? timing.duration;
+								if (typing) {
+									const typingDuration = Math.max(0.01, duration - slideIn);
+									message.typing = { duration: typingDuration };
+									message.enter = {
+										start: start + typingDuration,
+										duration: slideIn,
+										ease: message.enter?.ease
+									};
+								} else {
+									message.enter = { start, duration, ease: message.enter?.ease };
+								}
 							}
-						}
+						})
 					]
 				});
 			});
@@ -940,9 +937,7 @@
 			focusZ = clampNumber(pull.from + (pull.to - pull.from) * eased, 0, 1);
 		}
 		const bg = backgroundFillFloat;
-		const backdropColor: [number, number, number] = bg
-			? [bg[0], bg[1], bg[2]]
-			: [0.1, 0.09, 0.08];
+		const backdropColor: [number, number, number] = bg ? [bg[0], bg[1], bg[2]] : [0.1, 0.09, 0.08];
 		return {
 			focusZ,
 			aperture: clampNumber(stage.focus.aperture, 0, 1),
@@ -1381,9 +1376,7 @@
 			// Gate the first capture on the active Pack's typefaces (so the very first
 			// frame rasterizes the channel fonts, not OS fallbacks) and on the substrate
 			// texture. Both memoized, so this resolves ~immediately once cached.
-			void Promise.all([fontsReady(), substrateReady]).then(() =>
-				requestCanvasPaint(localCanvas)
-			);
+			void Promise.all([fontsReady(), substrateReady]).then(() => requestCanvasPaint(localCanvas));
 
 			return () => {
 				clearCanvasPaintHandler(localCanvas);
@@ -1442,6 +1435,16 @@
 			// needless rebuild. (The field still drives surface/overlay transitions.)
 		}
 
+		// --- Surface enter/exit (manifest tweens — the unified clip bar drags) ---
+		// Unlike text animations, the surface transition's ease DOES drive the
+		// rendered curve (getEaseGsap), so timing AND ease are tracked here.
+		void engineState.surface.enter?.start;
+		void engineState.surface.enter?.duration;
+		void engineState.surface.enter?.ease;
+		void engineState.surface.exit?.start;
+		void engineState.surface.exit?.duration;
+		void engineState.surface.exit?.ease;
+
 		// --- Surface + overlay content (DOM the source HTML rasterizes) ---
 		// Each CanvasSource wraps its text-anim slots in `{#key value}` so changing
 		// the text replaces the DOM element the manager last split; the rebuild
@@ -1463,10 +1466,22 @@
 			void overlay.id;
 			void overlay.type;
 			void overlay.content;
+			// Overlay enter/exit timing + ease (the unified clip bar drags).
+			void overlay.enter?.start;
+			void overlay.enter?.duration;
+			void overlay.enter?.ease;
+			void overlay.exit?.start;
+			void overlay.exit?.duration;
+			void overlay.exit?.ease;
 		}
 
 		// --- Marks (manifest tweens) + effects / background (render inputs) ---
+		// Iterating subscribes to the array, so a drag that lazily pushes a timing
+		// (ensureMarkTimingAtIndex) re-fires this. start/duration drive the draw-on.
+		void engineState.marks.timings.length;
 		for (const timing of engineState.marks.timings) {
+			void timing.start;
+			void timing.duration;
 			void timing.color;
 			void timing.intensity;
 		}
@@ -1688,7 +1703,13 @@
 	</section>
 
 	<div class="workspace__controls">
-		<CanvasControlsBar {timeline} {showCheckerboard} onToggleCheckerboard={() => { showCheckerboard = !showCheckerboard; }} />
+		<CanvasControlsBar
+			{timeline}
+			{showCheckerboard}
+			onToggleCheckerboard={() => {
+				showCheckerboard = !showCheckerboard;
+			}}
+		/>
 	</div>
 
 	<div class="workspace__timeline">
@@ -1707,9 +1728,9 @@
 		block-size: 100dvh;
 		display: grid;
 		grid-template-areas:
-			"canvas    inspector"
-			"controls  inspector"
-			"timeline  timeline";
+			'canvas    inspector'
+			'controls  inspector'
+			'timeline  timeline';
 		grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
 		grid-template-rows: minmax(0, 1fr) auto 220px;
 		min-block-size: 0;

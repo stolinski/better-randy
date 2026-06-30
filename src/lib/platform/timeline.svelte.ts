@@ -75,10 +75,6 @@ export class Timeline {
 		}
 	}
 
-	selectTrack(trackId: string): void {
-		this.selection = { trackId, transitionId: null };
-	}
-
 	selectTransition(trackId: string, transitionId: string): void {
 		this.selection = { trackId, transitionId };
 	}
