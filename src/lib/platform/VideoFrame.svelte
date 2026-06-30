@@ -12,6 +12,15 @@
 		orientation?: VideoOrientation;
 		label?: string;
 		showCheckerboard?: boolean;
+		/** Display zoom multiplier on the fit size (1 = fit). CSS transform only —
+		 *  the native canvas resolution is unchanged. */
+		zoom?: number;
+		/** Pan offset in display px, applied with the zoom (only used when zoomed in). */
+		panX?: number;
+		panY?: number;
+		/** True during an active pan drag — disables the transform transition so the
+		 *  canvas tracks the cursor 1:1 instead of floating behind it. */
+		isPanning?: boolean;
 		children: Snippet;
 	}
 
@@ -20,6 +29,10 @@
 		orientation = 'horizontal',
 		label = 'Composition',
 		showCheckerboard = true,
+		zoom = 1,
+		panX = 0,
+		panY = 0,
+		isPanning = false,
 		children
 	}: Props = $props();
 
@@ -34,7 +47,14 @@
 	style:--frame-h={frameSize.height}
 >
 	<div class="video-frame__fit">
-		<div class="video-frame__viewport" class:video-frame__viewport--no-checker={!showCheckerboard}>
+		<div
+			class="video-frame__viewport"
+			class:video-frame__viewport--no-checker={!showCheckerboard}
+			class:video-frame__viewport--panning={isPanning}
+			style:--zoom={zoom}
+			style:--pan-x="{panX}px"
+			style:--pan-y="{panY}px"
+		>
 			<canvas
 				aria-label={label}
 				bind:this={canvas}
@@ -87,6 +107,18 @@
 		);
 		overflow: hidden;
 		position: relative;
+		/* Display zoom + pan — translate then scale the framed canvas about its
+		   centre. Pure transform, so the native render resolution is untouched and
+		   getBoundingClientRect (used by the canvas drag/scale/click/pan geometry)
+		   reflects it for free. */
+		transform: translate(var(--pan-x, 0px), var(--pan-y, 0px)) scale(var(--zoom, 1));
+		transition: transform 140ms var(--ease-smooth, ease);
+	}
+
+	/* During an active pan drag the canvas must track the cursor exactly — the
+	   easing that smooths button zoom would make the drag float. */
+	.video-frame__viewport--panning {
+		transition: none;
 	}
 
 	.video-frame__viewport--no-checker {

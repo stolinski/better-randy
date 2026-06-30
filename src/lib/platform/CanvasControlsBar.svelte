@@ -6,9 +6,25 @@
 		timeline: Timeline | null;
 		showCheckerboard?: boolean;
 		onToggleCheckerboard?: () => void;
+		zoom?: number;
+		onZoomIn?: () => void;
+		onZoomOut?: () => void;
+		onZoomFit?: () => void;
 	}
 
-	let { timeline, showCheckerboard = true, onToggleCheckerboard }: Props = $props();
+	let {
+		timeline,
+		showCheckerboard = true,
+		onToggleCheckerboard,
+		zoom = 1,
+		onZoomIn,
+		onZoomOut,
+		onZoomFit
+	}: Props = $props();
+
+	const canZoomIn = $derived(zoom < 4 - 1e-6);
+	const canZoomOut = $derived(zoom > 0.5 + 1e-6);
+	const zoomLabel = $derived(`${Math.round(zoom * 100)}%`);
 
 	const isPlaying = $derived(timeline?.isPlaying ?? false);
 	const currentFrame = $derived(
@@ -74,6 +90,41 @@
 
 	<!-- Right: canvas framing controls -->
 	<div class="controls-bar__cluster controls-bar__cluster--right">
+		<button
+			class="controls-bar__btn"
+			type="button"
+			aria-label="Zoom out"
+			disabled={!canZoomOut}
+			onclick={onZoomOut}
+		>
+			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+				<path d="M4 8h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+			</svg>
+		</button>
+
+		<button
+			class="controls-bar__zoom"
+			type="button"
+			aria-label="Reset zoom to fit"
+			onclick={onZoomFit}
+		>
+			{zoomLabel}
+		</button>
+
+		<button
+			class="controls-bar__btn"
+			type="button"
+			aria-label="Zoom in"
+			disabled={!canZoomIn}
+			onclick={onZoomIn}
+		>
+			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+				<path d="M8 4v8M4 8h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+			</svg>
+		</button>
+
+		<span class="controls-bar__divider" aria-hidden="true"></span>
+
 		<button
 			class="controls-bar__btn"
 			class:controls-bar__btn--active={showCheckerboard}
@@ -156,8 +207,49 @@
 		color: var(--fg);
 	}
 
+	.controls-bar__btn:disabled {
+		color: var(--fg-3);
+		cursor: default;
+	}
+
+	.controls-bar__btn:disabled:hover {
+		background: transparent;
+		color: var(--fg-3);
+	}
+
 	.controls-bar__btn--active {
 		color: var(--fg);
+	}
+
+	/* Zoom readout doubles as the fit/reset control (click → 100%). */
+	.controls-bar__zoom {
+		background: transparent;
+		border: 0;
+		border-radius: var(--br-xs);
+		color: var(--fg-6);
+		cursor: pointer;
+		font-family: ui-monospace, monospace;
+		font-size: 0.72rem;
+		min-inline-size: 3.1rem;
+		padding-block: 4px;
+		padding-inline: 2px;
+		text-align: center;
+		transition:
+			background-color 100ms ease,
+			color 100ms ease;
+	}
+
+	.controls-bar__zoom:hover {
+		background: var(--fg-1);
+		color: var(--fg);
+	}
+
+	.controls-bar__divider {
+		align-self: center;
+		background: var(--fg-2);
+		block-size: 16px;
+		inline-size: 1px;
+		margin-inline: 4px;
 	}
 
 	.controls-bar__btn--orientation {

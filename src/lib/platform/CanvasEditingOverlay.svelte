@@ -10,9 +10,26 @@
 		compositionElement: HTMLElement | null;
 		canvas: HTMLCanvasElement | null;
 		compositionSize: { width: number; height: number };
+		/** Display zoom; pan is only active when zoomed in (> 1). */
+		zoom?: number;
+		panX?: number;
+		panY?: number;
+		onPan?: (x: number, y: number) => void;
+		onPanStart?: () => void;
+		onPanEnd?: () => void;
 	}
 
-	let { compositionElement, canvas, compositionSize }: Props = $props();
+	let {
+		compositionElement,
+		canvas,
+		compositionSize,
+		zoom = 1,
+		panX = 0,
+		panY = 0,
+		onPan,
+		onPanStart,
+		onPanEnd
+	}: Props = $props();
 
 	let rootEl = $state<HTMLDivElement | null>(null);
 
@@ -264,6 +281,69 @@
 		return pinned[anchor] !== corner;
 	}
 
+	// ─── Backdrop: pan (when zoomed in) or deselect (on a plain click) ──────────────
+	// A press on the empty canvas starts a gesture: drag while zoomed in pans the
+	// view; release without a real drag deselects (→ root inspector).
+
+	interface PanGesture {
+		startX: number;
+		startY: number;
+		originPanX: number;
+		originPanY: number;
+		moved: boolean;
+	}
+
+	let panGesture: PanGesture | null = null;
+
+	function onBackdropDown(event: PointerEvent): void {
+		if (event.button !== 0) return;
+		panGesture = {
+			startX: event.clientX,
+			startY: event.clientY,
+			originPanX: panX,
+			originPanY: panY,
+			moved: false
+		};
+		if (typeof window !== 'undefined') {
+			window.addEventListener('pointermove', onBackdropMove);
+			window.addEventListener('pointerup', onBackdropUp);
+		}
+	}
+
+	function onBackdropMove(event: PointerEvent): void {
+		if (!panGesture) return;
+		const dx = event.clientX - panGesture.startX;
+		const dy = event.clientY - panGesture.startY;
+		if (!panGesture.moved && Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
+		if (!panGesture.moved && zoom > 1) onPanStart?.(); // drop the transition before panning
+		panGesture.moved = true;
+		if (zoom <= 1 || !onPan) return; // nothing to pan at fit
+		// Clamp so the canvas can't be dragged entirely out of view: allow panning
+		// up to the zoom overflow on each side (plus a little slack).
+		const rootRect = rootEl?.getBoundingClientRect();
+		const canvasRect = canvas?.getBoundingClientRect();
+		let nextX = panGesture.originPanX + dx;
+		let nextY = panGesture.originPanY + dy;
+		if (rootRect && canvasRect) {
+			const maxX = Math.max(0, (canvasRect.width - rootRect.width) / 2 + 48);
+			const maxY = Math.max(0, (canvasRect.height - rootRect.height) / 2 + 48);
+			nextX = clampNumber(nextX, -maxX, maxX);
+			nextY = clampNumber(nextY, -maxY, maxY);
+		}
+		onPan(nextX, nextY);
+	}
+
+	function onBackdropUp(): void {
+		const wasPan = panGesture?.moved === true && zoom > 1;
+		panGesture = null;
+		if (typeof window !== 'undefined') {
+			window.removeEventListener('pointermove', onBackdropMove);
+			window.removeEventListener('pointerup', onBackdropUp);
+		}
+		if (wasPan) onPanEnd?.();
+		else deselectLayer();
+	}
+
 
 	onDestroy(() => {
 		if (typeof window === 'undefined') return;
@@ -271,6 +351,8 @@
 		window.removeEventListener('pointerup', onPointerUp);
 		window.removeEventListener('pointermove', onScaleMove);
 		window.removeEventListener('pointerup', onScaleEnd);
+		window.removeEventListener('pointermove', onBackdropMove);
+		window.removeEventListener('pointerup', onBackdropUp);
 	});
 </script>
 
@@ -280,10 +362,11 @@
 	class="canvas-editing-overlay"
 	role="presentation"
 >
-	<!-- Full-area backdrop: pointer-events catch clicks on blank canvas → deselect -->
+	<!-- Full-area backdrop: drag to pan when zoomed in, plain click to deselect -->
 	<div
 		class="canvas-editing-overlay__backdrop"
-		onpointerdown={deselectLayer}
+		class:canvas-editing-overlay__backdrop--pannable={zoom > 1}
+		onpointerdown={onBackdropDown}
 		role="presentation"
 		aria-hidden="true"
 	></div>
@@ -353,6 +436,15 @@
 		inset: 0;
 		pointer-events: all;
 		position: absolute;
+	}
+
+	/* Zoomed in → the empty canvas can be dragged to pan. */
+	.canvas-editing-overlay__backdrop--pannable {
+		cursor: grab;
+	}
+
+	.canvas-editing-overlay__backdrop--pannable:active {
+		cursor: grabbing;
 	}
 
 	/* Draggable affordance: overlays are liftable objects, so they show a `grab`

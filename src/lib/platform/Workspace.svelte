@@ -122,6 +122,43 @@
 	let status = $state('');
 	let showCheckerboard = $state(true);
 
+	// Display zoom — a multiplier on the fit-to-window size (1 = fit = 100%). It
+	// is a CSS transform on the displayed canvas only; the native render
+	// resolution is untouched (3840×2160). The drag/scale/click geometry reads
+	// getBoundingClientRect, which already reflects the transform, so coordinates
+	// stay correct at any zoom without threading the factor through.
+	let zoom = $state(1);
+	// Pan offset (display px) applied with the zoom transform. Only meaningful when
+	// zoomed in (zoom > 1); reset to centre whenever we return to fit.
+	let panX = $state(0);
+	let panY = $state(0);
+	// True while a pan drag is in flight, so the canvas tracks the cursor without
+	// the zoom transition's float.
+	let isPanning = $state(false);
+	const ZOOM_LEVELS = [0.5, 0.75, 1, 1.5, 2, 3, 4];
+
+	function zoomIn(): void {
+		const next = ZOOM_LEVELS.find((level) => level > zoom + 1e-6);
+		if (next !== undefined) zoom = next;
+	}
+
+	function zoomOut(): void {
+		const lower = [...ZOOM_LEVELS].reverse().find((level) => level < zoom - 1e-6);
+		if (lower !== undefined) {
+			zoom = lower;
+			if (zoom <= 1) {
+				panX = 0;
+				panY = 0;
+			}
+		}
+	}
+
+	function zoomFit(): void {
+		zoom = 1;
+		panX = 0;
+		panY = 0;
+	}
+
 	interface ParsedMark {
 		style: AnnotationMarkStyle;
 		text: string;
@@ -1727,7 +1764,15 @@
 	</header>
 
 	<section class="workspace__canvas" aria-label="Composition">
-		<VideoFrame bind:canvas orientation={engineState.transport.orientation} {showCheckerboard}>
+		<VideoFrame
+			bind:canvas
+			orientation={engineState.transport.orientation}
+			{showCheckerboard}
+			{zoom}
+			{panX}
+			{panY}
+			{isPanning}
+		>
 			<Composition
 				bind:element={compositionElement}
 				bind:surfaceElement
@@ -1739,6 +1784,19 @@
 			{compositionElement}
 			{canvas}
 			compositionSize={{ width: canvas?.width ?? 3840, height: canvas?.height ?? 2160 }}
+			{zoom}
+			{panX}
+			{panY}
+			onPan={(x, y) => {
+				panX = x;
+				panY = y;
+			}}
+			onPanStart={() => {
+				isPanning = true;
+			}}
+			onPanEnd={() => {
+				isPanning = false;
+			}}
 		/>
 	</section>
 
@@ -1749,6 +1807,10 @@
 			onToggleCheckerboard={() => {
 				showCheckerboard = !showCheckerboard;
 			}}
+			{zoom}
+			onZoomIn={zoomIn}
+			onZoomOut={zoomOut}
+			onZoomFit={zoomFit}
 		/>
 	</div>
 
