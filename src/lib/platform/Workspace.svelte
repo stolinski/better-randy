@@ -159,6 +159,25 @@
 		panY = 0;
 	}
 
+	// Spacebar toggles play/pause — unless the focus is in a field, a button, or
+	// editable content (where Space has its own meaning).
+	function handleKeydown(event: KeyboardEvent): void {
+		if (event.code !== 'Space' || event.repeat) return;
+		const target = event.target as HTMLElement | null;
+		const tag = target?.tagName;
+		if (
+			tag === 'INPUT' ||
+			tag === 'TEXTAREA' ||
+			tag === 'SELECT' ||
+			tag === 'BUTTON' ||
+			target?.isContentEditable
+		) {
+			return;
+		}
+		event.preventDefault();
+		timeline?.toggle();
+	}
+
 	interface ParsedMark {
 		style: AnnotationMarkStyle;
 		text: string;
@@ -1739,6 +1758,8 @@
 		}
 	}
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 <main class="workspace">
 	<header class="workspace__topbar">

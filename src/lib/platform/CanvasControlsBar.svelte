@@ -42,6 +42,14 @@
 		timeline?.toggle();
 	}
 
+	function jumpToStart(): void {
+		timeline?.seek(0);
+	}
+
+	function jumpToEnd(): void {
+		if (timeline) timeline.seek(timeline.durationSeconds);
+	}
+
 	function toggleOrientation(): void {
 		engineState.transport.orientation =
 			engineState.transport.orientation === 'horizontal' ? 'vertical' : 'horizontal';
@@ -59,6 +67,27 @@
 <div class="controls-bar">
 	<!-- Left: transport -->
 	<div class="controls-bar__cluster">
+		<button class="controls-bar__btn" type="button" aria-label="Jump to start" onclick={jumpToStart}>
+			<svg
+				class="controls-bar__flip"
+				xmlns="http://www.w3.org/2000/svg"
+				width="16"
+				height="16"
+				viewBox="0 0 18 18"
+				aria-hidden="true"
+			>
+				<path
+					d="M16.25 3C15.836 3 15.5 3.336 15.5 3.75V14.25C15.5 14.664 15.836 15 16.25 15C16.664 15 17 14.664 17 14.25V3.75C17 3.336 16.664 3 16.25 3Z"
+					fill="currentColor"
+				/>
+				<path
+					d="M13.539 7.988L7.983 3.967C7.602 3.691 7.102 3.652 6.681 3.866C6.261 4.08 5.99899 4.507 5.99899 4.979V6.5H2.75C1.785 6.5 1 7.285 1 8.25V9.75C1 10.715 1.785 11.5 2.75 11.5H6V13.021C6 13.493 6.261 13.919 6.681 14.134C6.862 14.226 7.056 14.271 7.25 14.271C7.508 14.271 7.76399 14.191 7.98199 14.033L13.538 10.012C13.862 9.778 14.055 9.399 14.055 8.999C14.055 8.599 13.861 8.221 13.538 7.987L13.539 7.988Z"
+					fill="currentColor"
+					fill-opacity="0.4"
+				/>
+			</svg>
+		</button>
+
 		<button
 			class="controls-bar__btn"
 			type="button"
@@ -78,6 +107,20 @@
 					/>
 				</svg>
 			{/if}
+		</button>
+
+		<button class="controls-bar__btn" type="button" aria-label="Jump to end" onclick={jumpToEnd}>
+			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 18 18" aria-hidden="true">
+				<path
+					d="M16.25 3C15.836 3 15.5 3.336 15.5 3.75V14.25C15.5 14.664 15.836 15 16.25 15C16.664 15 17 14.664 17 14.25V3.75C17 3.336 16.664 3 16.25 3Z"
+					fill="currentColor"
+				/>
+				<path
+					d="M13.539 7.988L7.983 3.967C7.602 3.691 7.102 3.652 6.681 3.866C6.261 4.08 5.99899 4.507 5.99899 4.979V6.5H2.75C1.785 6.5 1 7.285 1 8.25V9.75C1 10.715 1.785 11.5 2.75 11.5H6V13.021C6 13.493 6.261 13.919 6.681 14.134C6.862 14.226 7.056 14.271 7.25 14.271C7.508 14.271 7.76399 14.191 7.98199 14.033L13.538 10.012C13.862 9.778 14.055 9.399 14.055 8.999C14.055 8.599 13.861 8.221 13.538 7.987L13.539 7.988Z"
+					fill="currentColor"
+					fill-opacity="0.4"
+				/>
+			</svg>
 		</button>
 	</div>
 
@@ -219,6 +262,11 @@
 
 	.controls-bar__btn--active {
 		color: var(--fg);
+	}
+
+	/* Jump-to-start reuses the jump-to-end glyph, mirrored. */
+	.controls-bar__flip {
+		transform: scaleX(-1);
 	}
 
 	/* Zoom readout doubles as the fit/reset control (click → 100%). */
