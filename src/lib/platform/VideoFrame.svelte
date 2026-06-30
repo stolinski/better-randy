@@ -100,10 +100,14 @@
 		background-size: 1rem 1rem;
 		border: var(--border-1);
 		border-radius: var(--br-m);
+		/* Fit the frame to the smaller of: container width, a hard max, or the
+		   available height. The height term only needs to reserve the caption + a
+		   little breathing room (~4rem) — over-reserving leaves the canvas squished
+		   with dead space above it, especially once the timeline panel grows. */
 		inline-size: min(
 			100cqw,
 			76rem,
-			calc((100cqh - 14rem) * var(--frame-w) / var(--frame-h))
+			calc((100cqh - 4rem) * var(--frame-w) / var(--frame-h))
 		);
 		overflow: hidden;
 		position: relative;

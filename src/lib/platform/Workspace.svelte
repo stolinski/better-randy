@@ -159,6 +159,40 @@
 		panY = 0;
 	}
 
+	// Timeline panel height. Fixed 220px in portrait; drag-resizable in landscape
+	// (ADR-0034 §7), where it shares vertical space with the canvas. The chosen
+	// landscape height persists in state across orientation flips.
+	const DEFAULT_TIMELINE_H = 220;
+	let timelineHeight = $state(DEFAULT_TIMELINE_H);
+	let viewportWidth = $state(0);
+	let viewportHeight = $state(0);
+	const isLandscape = $derived(viewportWidth > viewportHeight);
+	const effectiveTimelineHeight = $derived(isLandscape ? timelineHeight : DEFAULT_TIMELINE_H);
+
+	let timelineResizeStart: { startY: number; startHeight: number } | null = null;
+
+	function onTimelineResizeStart(event: PointerEvent): void {
+		if (event.button !== 0 || !isLandscape) return;
+		event.preventDefault();
+		timelineResizeStart = { startY: event.clientY, startHeight: timelineHeight };
+		window.addEventListener('pointermove', onTimelineResizeMove);
+		window.addEventListener('pointerup', onTimelineResizeEnd);
+	}
+
+	function onTimelineResizeMove(event: PointerEvent): void {
+		if (!timelineResizeStart) return;
+		// Drag up grows the timeline (and shrinks the canvas), down shrinks it.
+		const delta = timelineResizeStart.startY - event.clientY;
+		const max = Math.max(DEFAULT_TIMELINE_H, viewportHeight - 220);
+		timelineHeight = clampNumber(timelineResizeStart.startHeight + delta, 140, max);
+	}
+
+	function onTimelineResizeEnd(): void {
+		timelineResizeStart = null;
+		window.removeEventListener('pointermove', onTimelineResizeMove);
+		window.removeEventListener('pointerup', onTimelineResizeEnd);
+	}
+
 	// Spacebar toggles play/pause — unless the focus is in a field, a button, or
 	// editable content (where Space has its own meaning).
 	function handleKeydown(event: KeyboardEvent): void {
@@ -1597,6 +1631,8 @@
 		textAnimationManager.dispose();
 		if (typeof window !== 'undefined') {
 			window.__hivizTextAnimationManager = undefined;
+			window.removeEventListener('pointermove', onTimelineResizeMove);
+			window.removeEventListener('pointerup', onTimelineResizeEnd);
 		}
 		timeline?.dispose();
 		timeline = null;
@@ -1759,9 +1795,9 @@
 	}
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} bind:innerWidth={viewportWidth} bind:innerHeight={viewportHeight} />
 
-<main class="workspace">
+<main class="workspace" style:--timeline-h="{effectiveTimelineHeight}px">
 	<header class="workspace__topbar">
 		<a class="topbar__back" href="/" aria-label="Back to presets">
 			<svg
@@ -1836,6 +1872,15 @@
 	</div>
 
 	<div class="workspace__timeline">
+		{#if isLandscape}
+			<div
+				class="timeline-resize"
+				role="separator"
+				aria-label="Resize timeline"
+				aria-orientation="horizontal"
+				onpointerdown={onTimelineResizeStart}
+			></div>
+		{/if}
 		{#if timeline}
 			<TimelineOutline {timeline} {tracks} />
 		{/if}
@@ -1856,7 +1901,7 @@
 			'controls  inspector'
 			'timeline  timeline';
 		grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
-		grid-template-rows: auto minmax(0, 1fr) auto 220px;
+		grid-template-rows: auto minmax(0, 1fr) auto var(--timeline-h, 220px);
 		min-block-size: 0;
 		overflow: hidden;
 	}
@@ -1923,6 +1968,35 @@
 		grid-area: timeline;
 		min-block-size: 0;
 		overflow: hidden;
+		position: relative;
+	}
+
+	/* Landscape-only drag handle to resize the timeline against the canvas. */
+	.timeline-resize {
+		cursor: ns-resize;
+		inset-block-start: 0;
+		inset-inline: 0;
+		block-size: 7px;
+		position: absolute;
+		touch-action: none;
+		z-index: 2;
+	}
+
+	.timeline-resize::after {
+		background: var(--fg-2);
+		content: '';
+		inset-block-start: 0;
+		inset-inline: 0;
+		block-size: 1px;
+		position: absolute;
+		transition:
+			background-color 100ms ease,
+			block-size 100ms ease;
+	}
+
+	.timeline-resize:hover::after {
+		background: var(--fg-4);
+		block-size: 2px;
 	}
 
 	.workspace__inspector {
