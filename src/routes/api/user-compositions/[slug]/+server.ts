@@ -3,14 +3,21 @@ import { join } from 'node:path';
 
 import { json, error, type RequestHandler } from '@sveltejs/kit';
 
-import { PresetSchema, type Preset } from '$lib/platform/engine-schema';
+import { PresetSchema } from '$lib/platform/engine-schema';
+import { presetToWireFormat } from '$lib/platform/preset-pure';
 
 const STORE_DIR = join(process.cwd(), 'user-compositions');
 
-/** Disk format wrapping the Preset so metadata stays out of the Preset JSON. */
+/**
+ * Disk format wrapping the serialized preset so metadata stays out of the
+ * Preset JSON. `preset` holds the WIRE format (e.g. `surface.content.body` as a
+ * text string), not the parsed runtime Preset — `PresetSchema` is a transform
+ * schema (string → AnnotationBody), so the disk must store its INPUT shape for
+ * GET to re-parse it. Hence `unknown`, written via `presetToWireFormat`.
+ */
 interface StoredComposition {
 	meta: { forkedFrom: string | null; savedAt: string };
-	preset: Preset;
+	preset: unknown;
 }
 
 function isStoredComposition(value: unknown): value is StoredComposition {
@@ -74,7 +81,9 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 
 	const stored: StoredComposition = {
 		meta: { ...existingMeta, savedAt: new Date().toISOString() },
-		preset: result.data
+		// Store the wire format (body as text), not the transformed parse output,
+		// so GET can re-parse it through PresetSchema without a type mismatch.
+		preset: presetToWireFormat(result.data)
 	};
 
 	await writeFile(slugPath(slug), JSON.stringify(stored, null, '\t'), 'utf-8');

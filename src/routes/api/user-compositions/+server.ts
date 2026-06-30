@@ -5,6 +5,7 @@ import { json, error, type RequestHandler } from '@sveltejs/kit';
 
 import { PresetSchema } from '$lib/platform/engine-schema';
 import type { UserCompositionMeta } from '$lib/platform/persistence';
+import { presetToWireFormat } from '$lib/platform/preset-pure';
 
 const STORE_DIR = join(process.cwd(), 'user-compositions');
 
@@ -95,7 +96,9 @@ export const POST: RequestHandler = async ({ request }) => {
 			forkedFrom: typeof forkedFrom === 'string' ? forkedFrom : null,
 			savedAt: new Date().toISOString()
 		},
-		preset: result.data
+		// Store the wire format (body as text), not the transformed parse output,
+		// so GET can re-parse it through PresetSchema without a type mismatch.
+		preset: presetToWireFormat(result.data)
 	};
 
 	await writeFile(join(STORE_DIR, `${slug}.json`), JSON.stringify(stored, null, '\t'), 'utf-8');
