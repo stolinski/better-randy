@@ -15,6 +15,7 @@
 		type Ease,
 		type FontDefinition,
 		type FontFamily,
+		type SoundOverride,
 		type SurfaceType,
 		type TextAnimation,
 		type TextAnimationParams
@@ -28,6 +29,7 @@
 	import { PIPELINE_REGISTRY, getSurfaceRenderer } from './pipelines';
 	import InspectorSection from './InspectorSection.svelte';
 	import Field from './Field.svelte';
+	import SoundSection from './SoundSection.svelte';
 
 	const surfaceRenderers = Object.values(PIPELINE_REGISTRY.surfaces);
 	const fontFamilyOptions = Object.entries(ENGINE_FONT_FAMILIES) as [FontFamily, FontDefinition][];
@@ -75,9 +77,7 @@
 
 	const appearanceVisible = $derived(
 		Boolean(
-			(controls.typography && showBody) ||
-				controls.paperColor ||
-				(controls.inkColor && showBody)
+			(controls.typography && showBody) || controls.paperColor || (controls.inkColor && showBody)
 		)
 	);
 
@@ -117,7 +117,14 @@
 	// Active document slots that can receive a text animation, in display order.
 	// Per-character effects are restricted to title-scale slots only (TITLE_SCALE_SLOTS).
 	const activeSlots = $derived.by(() => {
-		type SurfaceSlot = 'title' | 'kicker' | 'body' | 'sourceUrl' | 'author' | 'source' | 'dateLabel';
+		type SurfaceSlot =
+			| 'title'
+			| 'kicker'
+			| 'body'
+			| 'sourceUrl'
+			| 'author'
+			| 'source'
+			| 'dateLabel';
 		const slots: { slot: SurfaceSlot; label: string }[] = [];
 		if (documentSlots.kicker) slots.push({ slot: 'kicker', label: 'Kicker' });
 		if (documentSlots.title) slots.push({ slot: 'title', label: 'Title' });
@@ -179,6 +186,14 @@
 	function clearTextAnimParam(entry: TextAnimation, key: keyof TextAnimationParams): void {
 		if (entry.params) delete entry.params[key];
 	}
+
+	// This Layer's motion windows for the Sound section (ADR-0033 §5).
+	const soundMotions = $derived.by(() => {
+		const rows: { label: string; window: { sound?: SoundOverride } }[] = [];
+		if (engineState.surface.enter) rows.push({ label: 'Enter', window: engineState.surface.enter });
+		if (engineState.surface.exit) rows.push({ label: 'Exit', window: engineState.surface.exit });
+		return rows;
+	});
 </script>
 
 <div class="surface-inspector">
@@ -315,7 +330,8 @@
 				<Field label="Effect">
 					<select
 						value={entry.effect}
-						onchange={(e) => textAnimEffectChange(entry, (e.currentTarget as HTMLSelectElement).value)}
+						onchange={(e) =>
+							textAnimEffectChange(entry, (e.currentTarget as HTMLSelectElement).value)}
 					>
 						{#each SPLIT_MODES as mode (mode)}
 							<optgroup label={mode}>
@@ -354,7 +370,8 @@
 					/>
 					<select
 						value={entry.enter.ease}
-						onchange={(e) => textAnimEaseChange(entry, (e.currentTarget as HTMLSelectElement).value)}
+						onchange={(e) =>
+							textAnimEaseChange(entry, (e.currentTarget as HTMLSelectElement).value)}
 					>
 						{#each easeOptions as [value, option] (value)}
 							<option {value}>{option.label}</option>
@@ -371,7 +388,11 @@
 						value={entry.params?.speedMultiplier ?? ''}
 						placeholder="1"
 						oninput={(e) =>
-							setTextAnimParam(entry, 'speedMultiplier', (e.currentTarget as HTMLInputElement).value)}
+							setTextAnimParam(
+								entry,
+								'speedMultiplier',
+								(e.currentTarget as HTMLInputElement).value
+							)}
 					/>
 					<button
 						type="button"
@@ -390,8 +411,10 @@
 						oninput={(e) =>
 							setTextAnimParam(entry, 'holdMs', (e.currentTarget as HTMLInputElement).value)}
 					/>
-					<button type="button" class="clear-btn" onclick={() => clearTextAnimParam(entry, 'holdMs')}
-						>×</button
+					<button
+						type="button"
+						class="clear-btn"
+						onclick={() => clearTextAnimParam(entry, 'holdMs')}>×</button
 					>
 				</Field>
 
@@ -412,6 +435,8 @@
 			</div>
 		{/each}
 	</InspectorSection>
+
+	<SoundSection host={engineState.surface} motions={soundMotions} />
 </div>
 
 <style>

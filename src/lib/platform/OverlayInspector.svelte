@@ -1,9 +1,5 @@
 <script lang="ts">
-	import {
-		engineState,
-		addTextAnimation,
-		removeTextAnimation
-	} from './engine-state.svelte';
+	import { engineState, addTextAnimation, removeTextAnimation } from './engine-state.svelte';
 	import {
 		ENGINE_EASES,
 		type Ease,
@@ -15,9 +11,15 @@
 	} from './engine-schema';
 	import { PIPELINE_REGISTRY } from './pipelines';
 	import type { OverlayRenderer } from './pipelines/types';
-	import { EFFECT_CATALOG, EFFECT_IDS, SPLIT_MODES, type SplitMode } from '$lib/text-animations/catalog';
+	import {
+		EFFECT_CATALOG,
+		EFFECT_IDS,
+		SPLIT_MODES,
+		type SplitMode
+	} from '$lib/text-animations/catalog';
 	import InspectorSection from './InspectorSection.svelte';
 	import Field from './Field.svelte';
+	import SoundSection from './SoundSection.svelte';
 
 	interface Props {
 		overlayId: string;
@@ -26,9 +28,14 @@
 	let { overlayId }: Props = $props();
 
 	const OVERLAY_ANCHORS = [
-		'top-left', 'top-center', 'top-right',
-		'bottom-left', 'bottom-center', 'bottom-right',
-		'center', 'normalized-rect'
+		'top-left',
+		'top-center',
+		'top-right',
+		'bottom-left',
+		'bottom-center',
+		'bottom-right',
+		'center',
+		'normalized-rect'
 	] as const;
 
 	const overlayRenderers = Object.values(PIPELINE_REGISTRY.overlays);
@@ -151,7 +158,11 @@
 		entry.effect = value;
 	}
 
-	function setTextAnimParam(entry: TextAnimation, key: keyof TextAnimationParams, value: string): void {
+	function setTextAnimParam(
+		entry: TextAnimation,
+		key: keyof TextAnimationParams,
+		value: string
+	): void {
 		const n = Number(value);
 		if (!Number.isFinite(n) || n < 0) return;
 		if (!entry.params) entry.params = {};
@@ -244,7 +255,8 @@
 					max="1"
 					step="0.001"
 					value={ov.enter.start}
-					oninput={(e) => transitionStartInput(ov, 'enter', (e.currentTarget as HTMLInputElement).value)}
+					oninput={(e) =>
+						transitionStartInput(ov, 'enter', (e.currentTarget as HTMLInputElement).value)}
 				/>
 			</Field>
 			<Field label="Duration">
@@ -294,7 +306,8 @@
 					max="1"
 					step="0.001"
 					value={ov.exit.start}
-					oninput={(e) => transitionStartInput(ov, 'exit', (e.currentTarget as HTMLInputElement).value)}
+					oninput={(e) =>
+						transitionStartInput(ov, 'exit', (e.currentTarget as HTMLInputElement).value)}
 				/>
 			</Field>
 			<Field label="Duration">
@@ -321,6 +334,14 @@
 			</Field>
 		{/if}
 	</InspectorSection>
+
+	<SoundSection
+		host={ov}
+		motions={[
+			...(ov.enter ? [{ label: 'Enter', window: ov.enter }] : []),
+			...(ov.exit ? [{ label: 'Exit', window: ov.exit }] : [])
+		]}
+	/>
 
 	<InspectorSection label="Text Motion">
 		{#each ['kicker', 'title', 'subtitle'] as const as slot (slot)}
@@ -413,7 +434,11 @@
 						value={entry.params?.speedMultiplier ?? ''}
 						placeholder="1"
 						oninput={(e) =>
-							setTextAnimParam(entry, 'speedMultiplier', (e.currentTarget as HTMLInputElement).value)}
+							setTextAnimParam(
+								entry,
+								'speedMultiplier',
+								(e.currentTarget as HTMLInputElement).value
+							)}
 					/>
 					<button
 						type="button"
@@ -431,8 +456,10 @@
 						oninput={(e) =>
 							setTextAnimParam(entry, 'holdMs', (e.currentTarget as HTMLInputElement).value)}
 					/>
-					<button type="button" class="clear-btn" onclick={() => clearTextAnimParam(entry, 'holdMs')}
-						>×</button
+					<button
+						type="button"
+						class="clear-btn"
+						onclick={() => clearTextAnimParam(entry, 'holdMs')}>×</button
 					>
 				</Field>
 				<Field label="Gap ms">

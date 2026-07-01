@@ -5,6 +5,7 @@
 	import { engineState, ensureMarkTimingAtIndex } from './engine-state.svelte';
 	import InspectorSection from './InspectorSection.svelte';
 	import Field from './Field.svelte';
+	import SoundSection from './SoundSection.svelte';
 
 	interface Props {
 		markIndex: number;
@@ -103,6 +104,16 @@
 			</select>
 		</Field>
 	</InspectorSection>
+
+	<!-- The marks Layer's kit + this mark's draw-on override (ADR-0033 §3/§5).
+	     The override row needs a stored timing; editing any timing field above
+	     creates it, so until then only the kit picker shows. -->
+	<SoundSection
+		host={engineState.marks}
+		motions={engineState.marks.timings[markIndex]
+			? [{ label: 'Draw-on', window: engineState.marks.timings[markIndex] }]
+			: []}
+	/>
 {/if}
 
 <style>

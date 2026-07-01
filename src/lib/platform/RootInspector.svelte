@@ -1,16 +1,7 @@
 <script lang="ts">
-	import {
-		engineState,
-		packState,
-		addEffect,
-		removeEffect
-	} from './engine-state.svelte';
-	import {
-		ENGINE_EASES,
-		type Ease,
-		type Effect,
-		type Stage
-	} from './engine-schema';
+	import { engineState, packState, addEffect, removeEffect } from './engine-state.svelte';
+	import { ENGINE_EASES, type Ease, type Effect, type Stage } from './engine-schema';
+	import { listSoundAssets } from './audio-assets';
 	import { PACK_REGISTRY } from './packs/registry';
 	import { PIPELINE_REGISTRY } from './pipelines';
 	import { listSubstrateAssets } from './substrate-textures';
@@ -93,6 +84,45 @@
 
 	const progressPercent = $derived(Math.round(progress * 100));
 	const chainFull = $derived(engineState.effects.length >= EFFECT_CHAIN_LIMIT);
+
+	// ---- Manual audio cues + the bed (ADR-0033 §5) ----
+	// Automatic cues are derived from motion and never appear here — this
+	// authors only the free-standing cues and the single bed (full-frame
+	// pieces only, so "+ Bed" shows only while a background fill is set).
+	const soundAssets = listSoundAssets();
+	const hasBed = $derived(engineState.audioCues.some((cue) => cue.kind === 'bed'));
+
+	function addAudioCue(kind: 'cue' | 'bed'): void {
+		const used = new Set(engineState.audioCues.map((cue) => cue.id));
+		let counter = 1;
+		let id = kind === 'bed' ? 'bed' : `cue-${counter}`;
+		while (used.has(id)) {
+			counter += 1;
+			id = `${kind === 'bed' ? 'bed' : 'cue'}-${counter}`;
+		}
+		engineState.audioCues.push(
+			kind === 'bed'
+				? {
+						id,
+						kind,
+						assetSlug: soundAssets[0] ?? 'core-sub-drop',
+						start: 0,
+						duration: 1,
+						volume: 0.4
+					}
+				: { id, kind, assetSlug: soundAssets[0] ?? 'core-impact', start: 0.5, duration: 0.05 }
+		);
+	}
+
+	function setCueFraction(
+		cue: { start: number; duration: number },
+		key: 'start' | 'duration',
+		value: string
+	): void {
+		const n = Number(value);
+		if (!Number.isFinite(n)) return;
+		cue[key] = Math.max(0, Math.min(1, n));
+	}
 </script>
 
 <div class="root-inspector">
@@ -100,11 +130,9 @@
 		<div class="fork-indicator">
 			<span class="fork-indicator__label">forked</span>
 			{#if compositionMeta.revert}
-				<button
-					type="button"
-					class="fork-indicator__revert"
-					onclick={compositionMeta.revert}
-				>Revert</button>
+				<button type="button" class="fork-indicator__revert" onclick={compositionMeta.revert}
+					>Revert</button
+				>
 			{/if}
 		</div>
 	{/if}
@@ -277,8 +305,7 @@
 					step="0.01"
 					value={stage.focus.band}
 					oninput={(e) => {
-						ensureStage().focus.band =
-							parseFloat((e.currentTarget as HTMLInputElement).value) || 0;
+						ensureStage().focus.band = parseFloat((e.currentTarget as HTMLInputElement).value) || 0;
 					}}
 				/>
 			</Field>
@@ -306,6 +333,67 @@
 				</Field>
 			{/if}
 		{/if}
+	</InspectorSection>
+
+	<InspectorSection label="Audio Cues">
+		{#snippet action()}
+			<button type="button" class="add-cue" onclick={() => addAudioCue('cue')}>+ Cue</button>
+			{#if engineState.backgroundFill !== undefined && !hasBed}
+				<button type="button" class="add-cue" onclick={() => addAudioCue('bed')}>+ Bed</button>
+			{/if}
+		{/snippet}
+		{#each engineState.audioCues as cue, index (cue.id)}
+			<div class="cue-entry">
+				<div class="cue-entry__header">
+					<span class="cue-entry__label">{cue.kind === 'bed' ? 'bed' : cue.id}</span>
+					<button
+						type="button"
+						class="remove-btn"
+						aria-label="Remove audio cue"
+						onclick={() => engineState.audioCues.splice(index, 1)}>×</button
+					>
+				</div>
+				<Field label="Sample">
+					<select bind:value={cue.assetSlug}>
+						{#each soundAssets as slug (slug)}
+							<option value={slug}>{slug}</option>
+						{/each}
+					</select>
+				</Field>
+				<Field label="Window">
+					<input
+						type="number"
+						min="0"
+						max="1"
+						step="0.001"
+						value={cue.start}
+						oninput={(e) =>
+							setCueFraction(cue, 'start', (e.currentTarget as HTMLInputElement).value)}
+					/>
+					<input
+						type="number"
+						min="0"
+						max="1"
+						step="0.001"
+						value={cue.duration}
+						oninput={(e) =>
+							setCueFraction(cue, 'duration', (e.currentTarget as HTMLInputElement).value)}
+					/>
+				</Field>
+				<Field label="Volume">
+					<input
+						type="range"
+						min="0"
+						max="1"
+						step="0.01"
+						value={cue.volume ?? 1}
+						oninput={(e) => {
+							cue.volume = Number((e.currentTarget as HTMLInputElement).value);
+						}}
+					/>
+				</Field>
+			</div>
+		{/each}
 	</InspectorSection>
 
 	<InspectorSection label="Export">
@@ -363,6 +451,39 @@
 	.add-select {
 		font-size: 0.75rem;
 		max-inline-size: 6rem;
+	}
+
+	.add-cue {
+		background: transparent;
+		border: 0;
+		color: var(--fg-5);
+		cursor: pointer;
+		font-size: 0.72rem;
+		padding: 0;
+	}
+
+	.add-cue:hover {
+		color: var(--fg);
+	}
+
+	/* A manual cue / bed entry: hairline-separated sub-group, like effect rows. */
+	.cue-entry {
+		border-block-start: var(--border-1);
+		display: grid;
+		gap: var(--vs-xs);
+		padding-block-start: var(--vs-xs);
+	}
+
+	.cue-entry__header {
+		align-items: center;
+		display: flex;
+		justify-content: space-between;
+	}
+
+	.cue-entry__label {
+		color: var(--fg-7);
+		font-family: ui-monospace, monospace;
+		font-size: 0.72rem;
 	}
 
 	/* ---- Export ---- */
