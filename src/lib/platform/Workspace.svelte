@@ -65,6 +65,7 @@
 		type TransparentVideoExportOptions
 	} from './export-video';
 	import { annotationBodyPlainText } from '$lib/annotations/annotation-body-text';
+	import { renderAudioMix } from './audio-mix';
 	import { clampNumber } from '$lib/utils/math';
 	import { hexToRgbaFloat, isDarkSurfaceColor } from '$lib/utils/color';
 	import { truncateMiddle } from '$lib/utils/string';
@@ -1767,6 +1768,11 @@
 		};
 
 		try {
+			// The composition's baked audio track (ADR-0033 §6): a deterministic
+			// offline mix of motion-derived cues + manual cues + bed. null when the
+			// piece schedules no sound — the export then stays video-only.
+			const audio = await renderAudioMix(engineState);
+
 			if (format === 'prores') {
 				const blob = await exportTransparentProRes({
 					canvas: activeCanvas,
@@ -1775,7 +1781,8 @@
 					onProgress: (value) => {
 						progress = value;
 					},
-					renderFrame
+					renderFrame,
+					audio
 				});
 				downloadVideoBlob(blob, 'hiviz-overlay.mov');
 			} else {
@@ -1788,7 +1795,8 @@
 						progress = value;
 					},
 					renderFrame,
-					hasBackground
+					hasBackground,
+					audio
 				});
 				downloadVideoBlob(blob, hasBackground ? 'hiviz-bumper.webm' : 'hiviz-overlay.webm');
 			}

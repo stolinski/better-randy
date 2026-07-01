@@ -1,4 +1,13 @@
-import { BufferTarget, CanvasSource, Output, QUALITY_HIGH, WebMOutputFormat } from 'mediabunny';
+import {
+	AudioBufferSource,
+	BufferTarget,
+	CanvasSource,
+	Output,
+	QUALITY_HIGH,
+	WebMOutputFormat
+} from 'mediabunny';
+
+import { audioBufferToWavBytes } from '$lib/utils/audio-wav';
 
 import { fontsReady } from './fonts';
 
@@ -10,11 +19,15 @@ export interface TransparentVideoExportOptions {
 	onProgress?: (progress: number) => void;
 	/** True when backgroundFill is set — output is opaque (VP9 alpha discarded). */
 	hasBackground?: boolean;
+	/**
+	 * The composition's deterministic offline audio mix (ADR-0033 §6), baked
+	 * into the deliverable as its audio track. null/absent = no audio track —
+	 * a soundless piece must not carry a silent stream.
+	 */
+	audio?: AudioBuffer | null;
 }
 
-async function canvasFrameToPng(
-	canvas: HTMLCanvasElement | OffscreenCanvas
-): Promise<Blob> {
+async function canvasFrameToPng(canvas: HTMLCanvasElement | OffscreenCanvas): Promise<Blob> {
 	if (canvas instanceof OffscreenCanvas) {
 		return canvas.convertToBlob({ type: 'image/png' });
 	}
@@ -36,7 +49,8 @@ export async function exportTransparentWebM({
 	fps,
 	renderFrame,
 	onProgress,
-	hasBackground
+	hasBackground,
+	audio
 }: TransparentVideoExportOptions): Promise<Blob> {
 	// Channel typefaces must be loaded before frame 0 or the export bakes in OS
 	// fallbacks; preview gates the same way.
@@ -56,7 +70,21 @@ export async function exportTransparentWebM({
 	});
 
 	output.addVideoTrack(source);
+
+	// The baked audio track (ADR-0033 §6): the offline mix is one AudioBuffer
+	// spanning the whole piece, added once at timestamp 0.
+	const audioSource = audio
+		? new AudioBufferSource({ codec: 'opus', bitrate: QUALITY_HIGH })
+		: null;
+	if (audioSource) {
+		output.addAudioTrack(audioSource);
+	}
+
 	await output.start();
+
+	if (audioSource && audio) {
+		await audioSource.add(audio);
+	}
 
 	for (let frame = 0; frame < frameCount; frame += 1) {
 		const timestamp = frame * frameDuration;
@@ -86,7 +114,8 @@ export async function exportTransparentProRes({
 	durationSeconds,
 	fps,
 	renderFrame,
-	onProgress
+	onProgress,
+	audio
 }: TransparentVideoExportOptions): Promise<Blob> {
 	await fontsReady();
 
@@ -107,14 +136,24 @@ export async function exportTransparentProRes({
 		}
 	}
 
+	// The offline mix rides ahead of the PNG stream as a WAV prefix; the
+	// endpoint splits on the declared byte length and hands ffmpeg the WAV as
+	// its second input (ADR-0033 §6).
+	const wavBytes = audio ? audioBufferToWavBytes(audio) : null;
+
 	// Chrome rejects fetch() with a ReadableStream body unless the connection is
 	// HTTP/2; Vite's dev server is HTTP/1.1. Buffer the PNGs into a Blob so the
 	// upload uses the browser's normal body handling.
-	const body = new Blob(chunks, { type: 'application/octet-stream' });
+	const body = new Blob(wavBytes ? [wavBytes, ...chunks] : chunks, {
+		type: 'application/octet-stream'
+	});
 	const response = await fetch(`/api/export/prores?fps=${fps}`, {
 		method: 'POST',
 		body,
-		headers: { 'Content-Type': 'application/octet-stream' }
+		headers: {
+			'Content-Type': 'application/octet-stream',
+			...(wavBytes ? { 'x-hiviz-audio-bytes': String(wavBytes.byteLength) } : {})
+		}
 	});
 
 	if (!response.ok) {
