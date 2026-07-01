@@ -36,8 +36,14 @@
 		setCanvasPaintHandler
 	} from './html-in-canvas';
 	import { Timeline } from './timeline.svelte';
-	import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
-	import { getEaseGsap, resolveMarkForIndex, type Preset, type SurfaceType } from './engine-schema';
+	import {
+		getEaseGsap,
+		listMarkInstances,
+		resolveMarkForIndex,
+		type MarkInstance,
+		type Preset,
+		type SurfaceType
+	} from './engine-schema';
 	import {
 		engineState,
 		ensureMarkTimingAtIndex,
@@ -253,55 +259,11 @@
 		timeline?.toggle();
 	}
 
-	interface ParsedMark {
-		style: AnnotationMarkStyle;
-		text: string;
-		/** Character offset of the marked run inside the body's plain-text projection. */
-		startChar: number;
-		/** End char index (exclusive). */
-		endChar: number;
+	function readMarks(): MarkInstance[] {
+		return listMarkInstances(engineState.surface.content);
 	}
 
-	function readMarks(): ParsedMark[] {
-		const result: ParsedMark[] = [];
-		let cursor = 0;
-
-		// The body slot, then any per-message bodies (the `imessage` Surface carries
-		// its highlight inside `content.messages[].text`, not `content.body`). The
-		// order matches DOM order — body renders first, then the message bubbles
-		// top-to-bottom — so these indices align with getAnnotationMarkLayouts.
-		const bodies = [engineState.surface.content.body];
-		for (const message of engineState.surface.content.messages ?? []) {
-			bodies.push(message.text);
-		}
-
-		for (const body of bodies) {
-			for (const block of body) {
-				if (block.type !== 'paragraph') {
-					continue;
-				}
-
-				for (const segment of block.segments) {
-					const start = cursor;
-					const end = cursor + segment.text.length;
-					for (const style of segment.markStyles) {
-						result.push({ style, text: segment.text, startChar: start, endChar: end });
-					}
-					cursor = end;
-				}
-				// Paragraph break — accounts for "\n\n" between paragraphs in the
-				// editor's serialized form. The text-animation manager splits the
-				// rendered DOM which may collapse whitespace differently; the
-				// marks-coupling min-over-overlapped-units is robust to a one-char
-				// drift.
-				cursor += 2;
-			}
-		}
-
-		return result;
-	}
-
-	function computeTextAnimAlphaByMarkIndex(marks: readonly ParsedMark[]): number[] | undefined {
+	function computeTextAnimAlphaByMarkIndex(marks: readonly MarkInstance[]): number[] | undefined {
 		if (typeof window === 'undefined') {
 			return undefined;
 		}

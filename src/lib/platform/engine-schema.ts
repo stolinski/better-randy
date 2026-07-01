@@ -782,6 +782,55 @@ export function createMarkTiming(): MarkTiming {
 	};
 }
 
+export interface MarkInstance {
+	style: AnnotationMarkStyle;
+	text: string;
+	/** Character offset of the marked run inside the body's plain-text projection. */
+	startChar: number;
+	/** End char index (exclusive). */
+	endChar: number;
+}
+
+/**
+ * Every mark instance a Surface's content produces, in document order — one
+ * per (segment, style) pair, matching how `marks.timings[]` is indexed. The
+ * body slot first, then any per-message bodies (the `imessage` Surface carries
+ * its highlight inside `content.messages[].text`, not `content.body`); that
+ * order matches DOM order — body renders first, then the message bubbles
+ * top-to-bottom — so these indices align with `getAnnotationMarkLayouts`.
+ * Character offsets count a "\n\n" paragraph break, mirroring the editor's
+ * serialized form.
+ */
+export function listMarkInstances(content: SurfaceContent): MarkInstance[] {
+	const result: MarkInstance[] = [];
+	let cursor = 0;
+
+	const bodies = [content.body];
+	for (const message of content.messages ?? []) {
+		bodies.push(message.text);
+	}
+
+	for (const body of bodies) {
+		for (const block of body) {
+			if (block.type !== 'paragraph') {
+				continue;
+			}
+
+			for (const segment of block.segments) {
+				const start = cursor;
+				const end = cursor + segment.text.length;
+				for (const style of segment.markStyles) {
+					result.push({ style, text: segment.text, startChar: start, endChar: end });
+				}
+				cursor = end;
+			}
+			cursor += 2;
+		}
+	}
+
+	return result;
+}
+
 export const PRESET_SCHEMA_ID = 'hiviz@1' as const;
 
 /**
