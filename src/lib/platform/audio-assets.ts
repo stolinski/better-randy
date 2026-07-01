@@ -13,6 +13,9 @@ import coreSubDropUrl from '$lib/assets/sounds/core-sub-drop.wav';
 import coreTickUrl from '$lib/assets/sounds/core-tick.wav';
 import coreWhooshInUrl from '$lib/assets/sounds/core-whoosh-in.wav';
 import coreWhooshOutUrl from '$lib/assets/sounds/core-whoosh-out.wav';
+import syntaxBedTextureUrl from '$lib/assets/sounds/syntax-bed-texture.wav';
+import syntaxWhooshInUrl from '$lib/assets/sounds/syntax-whoosh-in.wav';
+import syntaxWhooshOutUrl from '$lib/assets/sounds/syntax-whoosh-out.wav';
 
 import { CORE_SOUND_SAMPLES } from './sound-kits/resolve.ts';
 import { listSoundKits } from './sound-kits/registry.ts';
@@ -24,7 +27,12 @@ const SOUND_ASSETS: Record<string, string> = {
 	'core-tick': coreTickUrl,
 	'core-pop': corePopUrl,
 	'core-sub-drop': coreSubDropUrl,
-	'core-sting': coreStingUrl
+	'core-sting': coreStingUrl,
+	// Syntax kit samples (CC0-sourced; provenance in sound-kits/syntax/manifest.ts)
+	'syntax-whoosh-in': syntaxWhooshInUrl,
+	'syntax-whoosh-out': syntaxWhooshOutUrl,
+	// Ambient bed texture for full-frame pieces — referenced by audioCues, not a kit.
+	'syntax-bed-texture': syntaxBedTextureUrl
 };
 
 export function isSoundAsset(slug: string): boolean {

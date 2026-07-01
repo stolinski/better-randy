@@ -99,15 +99,13 @@ export async function renderAudioMix(state: EngineState): Promise<AudioBuffer | 
 		return null;
 	}
 
-	const context = new OfflineAudioContext(
-		AUDIO_MIX_CHANNELS,
-		Math.ceil(duration * AUDIO_MIX_SAMPLE_RATE),
-		AUDIO_MIX_SAMPLE_RATE
-	);
-	const master = context.createGain();
-	master.gain.value = MASTER_GAIN;
-	master.connect(context.destination);
-
+	// Web Audio is used ONLY to decode (resampled to the mix rate). The
+	// summing itself is plain JS in fixed plan order — an OfflineAudioContext
+	// graph sums overlapping sources in unspecified order, and float addition
+	// is non-associative, so three-plus overlapping cues broke byte-identity
+	// by ±1 ULP. Hand-mixing keeps the §6 contract literal: same inputs →
+	// same bytes.
+	const context = new OfflineAudioContext(AUDIO_MIX_CHANNELS, 1, AUDIO_MIX_SAMPLE_RATE);
 	const slugs = [...new Set(playable.map((entry) => entry.slug))];
 	const buffers = new Map<string, AudioBuffer>();
 	await Promise.all(
@@ -121,47 +119,63 @@ export async function renderAudioMix(state: EngineState): Promise<AudioBuffer | 
 		})
 	);
 
+	const frameCount = Math.ceil(duration * AUDIO_MIX_SAMPLE_RATE);
+	const channels = [new Float32Array(frameCount), new Float32Array(frameCount)];
+	const releaseFrames = Math.round(RELEASE_SECONDS * AUDIO_MIX_SAMPLE_RATE);
+
 	for (const entry of playable) {
 		const buffer = buffers.get(entry.slug);
 		if (!buffer) {
 			continue;
 		}
 
-		const source = context.createBufferSource();
-		source.buffer = buffer;
-		const gainNode = context.createGain();
-		gainNode.gain.value = entry.gain;
-		source.connect(gainNode);
-		gainNode.connect(master);
+		const startFrame = Math.round(Math.max(0, entry.when) * AUDIO_MIX_SAMPLE_RATE);
+		const windowFrames =
+			entry.windowSeconds !== null
+				? Math.round(entry.windowSeconds * AUDIO_MIX_SAMPLE_RATE)
+				: buffer.length;
+		const playFrames = Math.min(buffer.length, windowFrames, frameCount - startFrame);
+		if (playFrames <= 0) {
+			continue;
+		}
+		// Release ramp only when the window cuts the sample early — a hard stop
+		// mid-waveform clicks; a sample playing out (or hitting the piece's own
+		// end) keeps its natural tail.
+		const cutEarly = entry.windowSeconds !== null && buffer.length > windowFrames;
+		const rampStart = cutEarly ? Math.max(0, playFrames - releaseFrames) : playFrames;
 
-		const when = Math.max(0, entry.when);
-		if (entry.windowSeconds !== null && buffer.duration > entry.windowSeconds) {
-			const cutAt = when + entry.windowSeconds;
-			gainNode.gain.setValueAtTime(entry.gain, Math.max(when, cutAt - RELEASE_SECONDS));
-			gainNode.gain.linearRampToValueAtTime(0, cutAt);
-			source.start(when, 0, entry.windowSeconds);
-		} else {
-			source.start(when);
+		for (let channel = 0; channel < AUDIO_MIX_CHANNELS; channel += 1) {
+			const out = channels[channel];
+			// Mono samples feed both output channels; stereo maps per channel.
+			const src = buffer.getChannelData(Math.min(channel, buffer.numberOfChannels - 1));
+			for (let i = 0; i < playFrames; i += 1) {
+				const release = i >= rampStart ? 1 - (i - rampStart) / (playFrames - rampStart) : 1;
+				out[startFrame + i] += src[i] * entry.gain * MASTER_GAIN * release;
+			}
 		}
 	}
 
-	const rendered = await context.startRendering();
-
 	let peak = 0;
-	for (let channel = 0; channel < rendered.numberOfChannels; channel += 1) {
-		for (const sample of rendered.getChannelData(channel)) {
+	for (const data of channels) {
+		for (const sample of data) {
 			peak = Math.max(peak, Math.abs(sample));
 		}
 	}
 	if (peak > PEAK_CEILING) {
 		const scale = PEAK_CEILING / peak;
-		for (let channel = 0; channel < rendered.numberOfChannels; channel += 1) {
-			const data = rendered.getChannelData(channel);
+		for (const data of channels) {
 			for (let i = 0; i < data.length; i += 1) {
 				data[i] *= scale;
 			}
 		}
 	}
 
+	const rendered = new AudioBuffer({
+		length: frameCount,
+		numberOfChannels: AUDIO_MIX_CHANNELS,
+		sampleRate: AUDIO_MIX_SAMPLE_RATE
+	});
+	rendered.copyToChannel(channels[0], 0);
+	rendered.copyToChannel(channels[1], 1);
 	return rendered;
 }

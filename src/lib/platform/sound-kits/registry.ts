@@ -7,11 +7,13 @@
  * sample slug that is not a bundled asset.
  */
 import { coreKit } from '../../sound-kits/core/manifest.ts';
+import { syntaxKit } from '../../sound-kits/syntax/manifest.ts';
 
 import type { SoundKitManifest } from './types';
 
 export const SOUND_KIT_REGISTRY: Readonly<Record<string, SoundKitManifest>> = {
-	core: coreKit
+	core: coreKit,
+	syntax: syntaxKit
 };
 
 export function isSoundKit(slug: string): boolean {
