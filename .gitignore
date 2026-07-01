@@ -29,3 +29,6 @@ vite.config.ts.timestamp-*
 
 # User compositions — local-only, never committed (ADR-0032)
 /user-compositions
+
+# Composition posters — rendered picker previews, regenerable, never committed
+/.posters

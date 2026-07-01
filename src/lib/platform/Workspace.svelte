@@ -69,6 +69,14 @@
 	import { buildCursorSchedule } from '$lib/pipelines/overlays/cursor-trail/schedule';
 	import type { CursorPath } from '$lib/pipelines/overlays/cursor-trail/index';
 	import { exposeVisualAudit } from './runtime-audit';
+	import { captureCanvasWebp } from '$lib/utils/canvas-capture';
+	import { posterExists, putPoster } from './posters';
+
+	// Content key for this composition's poster, supplied by the route (which owns
+	// the loaded Preset). When set, the settled frame is captured once and cached
+	// server-side so the picker can show a real, always-in-sync preview.
+	let { posterKey = null }: { posterKey?: string | null } = $props();
+	const capturedPosterKeys = new Set<string>();
 
 	let compositionElement = $state<HTMLElement | null>(null);
 	let surfaceElement = $state<HTMLElement | null>(null);
@@ -95,6 +103,39 @@
 	let timeline = $state.raw<Timeline | null>(null);
 	const animationManager = new AnimationManager();
 	const textAnimationManager = new TextAnimationManager();
+
+	// Poster capture (see ./posters). Once the composition has mounted its GPU
+	// host and the route has resolved a content key, force one settled paint and
+	// snapshot the canvas to a content-keyed WebP. Runs identically for the live
+	// editor and the picker's hidden generator iframe; guarded to once per key.
+	$effect(() => {
+		const key = posterKey;
+		const localCanvas = canvas;
+		if (!key || !localCanvas || !host) return;
+		if (typeof window !== 'undefined') window.__hivizPosterKey = key;
+		if (capturedPosterKeys.has(key)) return;
+		capturedPosterKeys.add(key);
+		void capturePoster(localCanvas, key);
+	});
+
+	async function capturePoster(targetCanvas: HTMLCanvasElement, key: string): Promise<void> {
+		// The composition already parks at the settled frame on load. Wait for fonts
+		// and give the animated DOM (counter values, typeset text) time to land, then
+		// composite the current settled DOM once more and capture it — without
+		// re-seeking, so the parked state isn't disturbed.
+		await fontsReady();
+		await new Promise((resolve) => setTimeout(resolve, 900));
+		requestCanvasPaint(targetCanvas);
+		await nextFrame();
+		await nextFrame();
+		if (await posterExists(key)) return; // another client already generated it
+		try {
+			const blob = await captureCanvasWebp(targetCanvas);
+			if (blob) await putPoster(key, blob);
+		} catch (err) {
+			console.error('Poster capture failed', err);
+		}
+	}
 
 	// Multi-state transition (ADR-0026). These are read only imperatively (in
 	// renderAt / the snapshot orchestration), never in a tracked effect scope, so

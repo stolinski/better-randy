@@ -5,11 +5,16 @@
 	import type { Preset } from '$lib/platform/engine-schema';
 	import { engineState, packState } from '$lib/platform/engine-state.svelte';
 	import { userStore } from '$lib/platform/persistence';
+	import { posterKeyForPreset } from '$lib/platform/posters';
 	import { applyPreset, getPresetBySlug } from '$lib/platform/preset';
 	import { serializeCompositionState } from '$lib/platform/preset-pure';
 	import Workspace from '$lib/platform/Workspace.svelte';
 
 	const slug = $derived(page.params.slug ?? '');
+
+	// Content key for the poster of whatever composition is loaded — handed to the
+	// Workspace, which captures the settled frame under it once (see ./posters).
+	let posterKey = $state<string | null>(null);
 
 	// The base Preset: the template from which edits are derived.
 	// Set once per slug load; read by performSave.
@@ -34,6 +39,7 @@
 				if (currentSlug !== slug) return;
 				applyPreset(preset);
 				base = preset;
+				posterKey = posterKeyForPreset(preset);
 				activeIsUserComp = true;
 				loadedSlug = currentSlug;
 				loadSnapshot = snapshotState();
@@ -46,6 +52,7 @@
 				if (!corpus || currentSlug !== slug) return;
 				applyPreset(corpus);
 				base = corpus;
+				posterKey = posterKeyForPreset(corpus);
 				activeIsUserComp = false;
 				loadedSlug = currentSlug;
 				loadSnapshot = snapshotState();
@@ -81,6 +88,7 @@
 						compositionMeta.forkedFrom = capturedSlug;
 						// Update base to the serialized fork so subsequent saves are autosaves.
 						base = serialized;
+						posterKey = posterKeyForPreset(serialized);
 					})
 					.catch((err) => console.error('Fork failed', err));
 			}
@@ -100,6 +108,7 @@
 		if (!corpus) return;
 		applyPreset(corpus);
 		base = corpus;
+		posterKey = posterKeyForPreset(corpus);
 		activeIsUserComp = false;
 		loadedSlug = currentSlug;
 		loadSnapshot = snapshotState();
@@ -124,7 +133,7 @@
 		<a href="/">All presets</a>
 	</main>
 {:else}
-	<Workspace />
+	<Workspace {posterKey} />
 {/if}
 
 <style>
