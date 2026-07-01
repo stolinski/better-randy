@@ -2,35 +2,32 @@
 	import type { OverlayEditorProps } from '$lib/platform/pipelines/types';
 	import type { CounterContent } from './index';
 	import { VARIANT_IDS, VARIANTS } from './variants';
+	import Field from '$lib/platform/Field.svelte';
 
 	let { overlay = $bindable() }: OverlayEditorProps<CounterContent> = $props();
 </script>
 
-<label class="row">
-	<span>Variant</span>
+<Field label="Variant">
 	<select bind:value={overlay.content.variant}>
 		{#each VARIANT_IDS as id}
 			<option value={id}>{VARIANTS[id].label}</option>
 		{/each}
 	</select>
-</label>
+</Field>
 
-<label class="row">
-	<span>From</span>
+<Field label="From">
 	<input bind:value={overlay.content.from} type="number" step="1" />
-</label>
+</Field>
 
-<label class="row">
-	<span>To</span>
+<Field label="To">
 	<input bind:value={overlay.content.to} type="number" step="1" />
-</label>
+</Field>
 
-<label class="row">
-	<span>Format</span>
+<Field label="Format">
 	<select bind:value={overlay.content.format}>
 		<option value="integer">Integer</option>
 		<option value="currency">Currency</option>
 		<option value="percent">Percent</option>
 		<option value="timecode">Timecode</option>
 	</select>
-</label>
+</Field>

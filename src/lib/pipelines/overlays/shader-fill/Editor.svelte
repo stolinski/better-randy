@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { OverlayEditorProps } from '$lib/platform/pipelines/types';
 	import { SHADER_FILL_DEFAULTS, type ShaderFillContent } from './index';
+	import Field from '$lib/platform/Field.svelte';
 
 	let { overlay = $bindable() }: OverlayEditorProps<ShaderFillContent> = $props();
 
@@ -11,55 +12,48 @@
 	const opacity = $derived(overlay.content.opacity ?? SHADER_FILL_DEFAULTS.opacity);
 </script>
 
-<label class="row">
-	<span>Color 1</span>
+<Field label="Color 1">
 	<input
 		type="color"
 		value={color0}
 		oninput={(e) => (overlay.content.color0 = (e.currentTarget as HTMLInputElement).value)}
 	/>
-</label>
+</Field>
 
-<label class="row">
-	<span>Color 2</span>
+<Field label="Color 2">
 	<input
 		type="color"
 		value={color1}
 		oninput={(e) => (overlay.content.color1 = (e.currentTarget as HTMLInputElement).value)}
 	/>
-</label>
+</Field>
 
-<label class="row">
-	<span>Color 3</span>
+<Field label="Color 3">
 	<input
 		type="color"
 		value={color2}
 		oninput={(e) => (overlay.content.color2 = (e.currentTarget as HTMLInputElement).value)}
 	/>
-</label>
+</Field>
 
-<label class="row">
-	<span>Flow speed</span>
+<Field label="Flow speed">
 	<input
 		type="range"
 		min="0"
 		max="4"
 		step="0.05"
 		value={flowSpeed}
-		oninput={(e) =>
-			(overlay.content.flowSpeed = Number((e.currentTarget as HTMLInputElement).value))}
+		oninput={(e) => (overlay.content.flowSpeed = Number((e.currentTarget as HTMLInputElement).value))}
 	/>
-</label>
+</Field>
 
-<label class="row">
-	<span>Opacity</span>
+<Field label="Opacity">
 	<input
 		type="range"
 		min="0"
 		max="1"
 		step="0.01"
 		value={opacity}
-		oninput={(e) =>
-			(overlay.content.opacity = Number((e.currentTarget as HTMLInputElement).value))}
+		oninput={(e) => (overlay.content.opacity = Number((e.currentTarget as HTMLInputElement).value))}
 	/>
-</label>
+</Field>
