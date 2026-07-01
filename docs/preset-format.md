@@ -168,7 +168,7 @@ Opt-in composition-wide 3D compositor ([ADR-0028](adr/0028-dimensional-depth-sta
 
 Sound is a timed-cue orchestration domain, not a sixth Layer. Motion primitives emit semantic **sound events** at their own frame; automatic cues are **derived from motion at render time and never stored**. The schema carries three things:
 
-**`soundKit` — per Layer.** A Sound-kit slug on `surface`, an `overlays[]` entry, or `marks`. The kit resolves that Layer's emitted events → samples ([ADR-0024](adr/0024-role-resolution-core-fallback.md) core fallback). There is no whole-piece kit; **a Layer with no kit is silent** (sound is opt-in per Layer).
+**`soundKit` — per Layer.** A Sound-kit slug on `surface`, an `overlays[]` entry, or `marks`, validated against the kit registry (`src/lib/platform/sound-kits/registry.ts`) at parse time. The kit resolves that Layer's emitted events → samples, falling back per event to the engine-pinned core sample ([ADR-0024](adr/0024-role-resolution-core-fallback.md) hybrid; core samples are deterministic WAVs from `scripts/gen-core-sounds.mjs`). Kits ship in `src/lib/sound-kits/<slug>/manifest.ts` — v1 registers `core`. There is no whole-piece kit; **a Layer with no kit is silent** (sound is opt-in per Layer).
 
 **`sound` — per motion.** Any motion window (a `Transition` — surface/overlay/text-animation `enter`/`exit` — a `marks.timings[]` entry, or a chat message's `enter`) may carry an override beneath the Layer's kit:
 

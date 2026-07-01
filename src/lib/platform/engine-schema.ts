@@ -6,6 +6,7 @@ import {
 	LAYOUT_AWARE_RENDERERS,
 	TITLE_SCALE_SLOTS
 } from '../text-animations/catalog.ts';
+import { SOUND_KIT_REGISTRY } from './sound-kits/registry.ts';
 import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
 import type { AnnotationBody } from '$lib/annotations/annotation-marks';
 
@@ -111,8 +112,14 @@ export type SoundOverride = z.infer<typeof SoundOverrideSchema>;
 // Sound-kit slug, assigned PER LAYER (ADR-0033 §3) — the kit lives on the
 // Layer (`surface.soundKit`, `overlays[].soundKit`, `marks.soundKit`), never
 // the composition root: there is no whole-piece sound pack. A Layer with no
-// kit is silent — sound is opt-in per Layer.
-const SoundKitSchema = z.string().min(1);
+// kit is silent — sound is opt-in per Layer. Validated against the kit
+// registry at parse time, like textAnimations[].effect against the catalog.
+const SoundKitSchema = z
+	.string()
+	.min(1)
+	.refine((slug) => slug in SOUND_KIT_REGISTRY, {
+		message: `Unknown Sound kit. Registered kits: ${Object.keys(SOUND_KIT_REGISTRY).join(', ')}.`
+	});
 
 export const AnnotationMarkStyleSchema = z.enum([
 	'highlight',

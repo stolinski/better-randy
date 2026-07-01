@@ -10,6 +10,7 @@ import {
 	type Preset,
 	type TextAnimation
 } from './engine-schema';
+import { assertSoundRegistryValid } from './audio-assets';
 import { assertIdentityRegistryValid } from './pipelines/identity-registry';
 import { getPack, REFERENCE_PACK_SLUG } from './packs/registry';
 
@@ -20,6 +21,10 @@ import { getPack, REFERENCE_PACK_SLUG } from './packs/registry';
 // ADR-0023 removed that); partial Packs fall back through resolveAppearanceVars.
 // Throws an aggregated Error on first import of this module.
 assertIdentityRegistryValid(getPack(REFERENCE_PACK_SLUG));
+
+// ADR-0033 §7 boot gate, same posture: every core sample and every sample a
+// registered Sound kit names must resolve to a bundled audio asset.
+assertSoundRegistryValid();
 
 export const engineState = $state<EngineState>(createDefaultEngineState());
 
