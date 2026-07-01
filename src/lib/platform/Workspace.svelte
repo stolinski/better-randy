@@ -47,6 +47,7 @@
 	import {
 		engineState,
 		ensureMarkTimingAtIndex,
+		packState,
 		transitionState,
 		type ResolvedTransition
 	} from './engine-state.svelte';
@@ -66,6 +67,7 @@
 	} from './export-video';
 	import { annotationBodyPlainText } from '$lib/annotations/annotation-body-text';
 	import { renderAudioMix } from './audio-mix';
+	import { AudioPreview } from './audio-preview';
 	import { clampNumber } from '$lib/utils/math';
 	import { hexToRgbaFloat, isDarkSurfaceColor } from '$lib/utils/color';
 	import { truncateMiddle } from '$lib/utils/string';
@@ -109,6 +111,7 @@
 	let substrateTexture = $state.raw<GPUTexture | null>(null);
 	let timeline = $state.raw<Timeline | null>(null);
 	const animationManager = new AnimationManager();
+	const audioPreview = new AudioPreview();
 	const textAnimationManager = new TextAnimationManager();
 
 	// Poster capture (see ./posters). Once the composition has mounted its GPU
@@ -1443,7 +1446,21 @@
 				timeline = new Timeline({
 					durationSeconds: engineState.transport.durationSeconds,
 					fps: engineState.transport.fps,
-					tick: tickTimeline
+					tick: tickTimeline,
+					// Preview audio rides the transport (ADR-0033 §6): cues schedule on
+					// play from the playhead, reschedule on loop wrap, cancel on pause.
+					// Scrub stays silent — seek has no hook by design.
+					onPlay: () => {
+						audioPreview
+							.start(engineState, () => timeline?.time ?? 0)
+							.catch((error) => console.error('Preview audio failed to start.', error));
+					},
+					onPause: () => audioPreview.stop(),
+					onLoop: () => {
+						audioPreview
+							.start(engineState, () => timeline?.time ?? 0)
+							.catch((error) => console.error('Preview audio failed to restart.', error));
+					}
 				});
 				if (typeof window !== 'undefined') {
 					window.__hivizTimeline = timeline;
@@ -1612,6 +1629,13 @@
 		}
 		void engineState.backgroundFill;
 
+		// --- Pack (appearance) ---
+		// Every CanvasSource resolves its pack Roles from packState reactively, so
+		// the DOM restyles on its own — but the GPU composites a captured texture,
+		// not the live DOM. Tracking the slug here repaints (uploadDom re-capture)
+		// so a pack switch reaches pixels.
+		void packState.slug;
+
 		untrack(() => {
 			if (!timeline) return;
 			// Rebuild is fingerprint-guarded: a no-op when only effects/background
@@ -1644,6 +1668,7 @@
 		}
 		timeline?.dispose();
 		timeline = null;
+		audioPreview.dispose();
 		if (typeof window !== 'undefined' && window.__hivizTimeline) {
 			window.__hivizTimeline = undefined;
 		}

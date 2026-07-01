@@ -5,6 +5,11 @@ export interface TimelineOptions {
 	fps: number;
 	loop?: boolean;
 	tick: TimelineTick;
+	/** Transport hooks — playback-only side channels (e.g. preview audio,
+	 *  ADR-0033 §6). Scrub/seek intentionally has no hook: scrub is silent. */
+	onPlay?: (atSeconds: number) => void;
+	onPause?: () => void;
+	onLoop?: () => void;
 }
 
 export interface TimelineSelection {
@@ -24,12 +29,18 @@ export class Timeline {
 	#rafId: number | null = null;
 	#playStartedAt = 0;
 	#playStartedFrom = 0;
+	#onPlay: TimelineOptions['onPlay'];
+	#onPause: TimelineOptions['onPause'];
+	#onLoop: TimelineOptions['onLoop'];
 
 	constructor(options: TimelineOptions) {
 		this.durationSeconds = options.durationSeconds;
 		this.fps = options.fps;
 		this.loop = options.loop ?? true;
 		this.#tick = options.tick;
+		this.#onPlay = options.onPlay;
+		this.#onPause = options.onPause;
+		this.#onLoop = options.onLoop;
 	}
 
 	seek(timestamp: number): void {
@@ -56,14 +67,20 @@ export class Timeline {
 		this.#playStartedAt = performance.now();
 		this.#playStartedFrom = this.time;
 		this.#rafId = requestAnimationFrame(this.#loop);
+		this.#onPlay?.(this.time);
 	}
 
 	pause(): void {
+		const wasPlaying = this.isPlaying;
 		this.isPlaying = false;
 
 		if (this.#rafId !== null) {
 			cancelAnimationFrame(this.#rafId);
 			this.#rafId = null;
+		}
+
+		if (wasPlaying) {
+			this.#onPause?.();
 		}
 	}
 
@@ -109,6 +126,7 @@ export class Timeline {
 				this.time = 0;
 				this.#tick(0);
 				this.#rafId = requestAnimationFrame(this.#loop);
+				this.#onLoop?.();
 				return;
 			}
 
