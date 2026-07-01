@@ -1,6 +1,6 @@
 # ADR-0033 — Sound design: motion-emitted cues resolved by a swappable Sound kit
 
-Status: **Designed, not built**
+Status: **Built** (engine spine §2–§7, escape hatches §5, GUI surface §9 all shipped 2026-07-01; the first *designed* kit — §8 beyond the synthesized core samples — awaits by-ear verification)
 Date: 2026-06-26
 Relates to: [ADR-0011](0011-text-animation-orchestration.md) (timed-motion domain; named "audio cues" as a future one), [ADR-0023](0023-pack-is-appearance-only.md) (Pack is appearance-only), [ADR-0024](0024-role-resolution-core-fallback.md) (Role resolution, core fallback), [ADR-0015](0015-identity-spec-per-pipeline.md) (motion is intrinsic, never conceded), [ADR-0029](0029-image-substrate-on-depth-stage.md) (deterministic bundled assets)
 
