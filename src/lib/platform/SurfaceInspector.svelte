@@ -26,6 +26,8 @@
 		removeTextAnimation
 	} from './engine-state.svelte';
 	import { PIPELINE_REGISTRY, getSurfaceRenderer } from './pipelines';
+	import InspectorSection from './InspectorSection.svelte';
+	import Field from './Field.svelte';
 
 	const surfaceRenderers = Object.values(PIPELINE_REGISTRY.surfaces);
 	const fontFamilyOptions = Object.entries(ENGINE_FONT_FAMILIES) as [FontFamily, FontDefinition][];
@@ -180,67 +182,49 @@
 </script>
 
 <div class="surface-inspector">
-	<!-- SURFACE: type picker + document content fields + backgroundVisibility -->
-	<div class="section">
-		<div class="section__header">
-			<span class="section__label">Surface</span>
-		</div>
-
-		<label class="row">
-			<span>Type</span>
+	<InspectorSection label="Surface">
+		<Field label="Type">
 			<select value={engineState.surface.type} onchange={handleSurfaceTypeChange}>
 				{#each surfaceRenderers as surface (surface.type)}
 					<option value={surface.type}>{surface.label}</option>
 				{/each}
 			</select>
-		</label>
+		</Field>
 
 		{#if documentVisible}
 			{#if documentSlots.kicker}
-				<label class="row">
-					<span>Kicker</span>
+				<Field label="Kicker">
 					<input bind:value={engineState.surface.content.kicker} type="text" />
-				</label>
+				</Field>
 			{/if}
-
 			{#if documentSlots.title}
-				<label class="row">
-					<span>Title</span>
+				<Field label="Title">
 					<input bind:value={engineState.surface.content.title} type="text" />
-				</label>
+				</Field>
 			{/if}
-
 			{#if documentSlots.sourceUrl}
-				<label class="row">
-					<span>Source</span>
+				<Field label="Source">
 					<input bind:value={engineState.surface.content.sourceUrl} type="url" />
-				</label>
+				</Field>
 			{/if}
-
 			{#if documentSlots.author}
-				<label class="row">
-					<span>Author</span>
+				<Field label="Author">
 					<input bind:value={engineState.surface.content.author} type="text" />
-				</label>
+				</Field>
 			{/if}
-
 			{#if documentSlots.source}
-				<label class="row">
-					<span>Citation</span>
+				<Field label="Citation">
 					<input bind:value={engineState.surface.content.source} type="text" />
-				</label>
+				</Field>
 			{/if}
-
 			{#if documentSlots.dateLabel}
-				<label class="row">
-					<span>Date</span>
+				<Field label="Date">
 					<input bind:value={engineState.surface.content.dateLabel} type="text" />
-				</label>
+				</Field>
 			{/if}
-
 			{#if showBody}
-				<div class="row">
-					<span>Body</span>
+				<div class="body-field">
+					<span class="body-field__label">Body</span>
 					<AnnotationTextEditor
 						bind:body={engineState.surface.content.body}
 						colors={EDITOR_MARK_COLORS}
@@ -252,8 +236,7 @@
 		{/if}
 
 		{#if controls.backgroundVisibility && engineState.surface.backgroundVisibility !== undefined}
-			<label class="row">
-				<span>Background</span>
+			<Field label="Background">
 				<input
 					bind:value={engineState.surface.backgroundVisibility}
 					max="1"
@@ -261,79 +244,59 @@
 					step="0.01"
 					type="range"
 				/>
-			</label>
+			</Field>
 		{/if}
-	</div>
+	</InspectorSection>
 
-	<!-- APPEARANCE: font, paper color, ink color -->
 	{#if appearanceVisible}
-		<div class="section">
-			<div class="section__header">
-				<span class="section__label">Appearance</span>
-			</div>
-
+		<InspectorSection label="Appearance">
 			{#if controls.typography && showBody}
-				<label class="row">
-					<span>Font</span>
+				<Field label="Font">
 					<select bind:value={engineState.typography.fontFamily}>
 						{#each fontFamilyOptions as [value, option] (value)}
 							<option {value}>{option.label}</option>
 						{/each}
 					</select>
-				</label>
+				</Field>
 			{/if}
-
 			{#if controls.paperColor}
-				<label class="row">
-					<span>Paper</span>
+				<Field label="Paper">
 					<input bind:value={engineState.typography.paperColor} type="color" />
-				</label>
+				</Field>
 			{/if}
-
 			{#if controls.inkColor && showBody}
-				<label class="row">
-					<span>Ink</span>
+				<Field label="Ink">
 					<input bind:value={engineState.typography.inkColor} type="color" />
-				</label>
+				</Field>
 			{/if}
-		</div>
+		</InspectorSection>
 	{/if}
 
-	<!-- TEXT MOTION: per-slot add pickers + active animation editors -->
-	<div class="section">
-		<div class="section__header">
-			<span class="section__label">Text Motion</span>
-		</div>
-
-		{#if activeSlots.length > 0}
-			<div class="slot-pickers">
-				{#each activeSlots as { slot, label } (slot)}
-					{@const slotEffects = effectsForSlot(slot)}
-					<label class="row">
-						<span>{label}</span>
-						<select
-							value=""
-							onchange={(e) => {
-								const v = (e.currentTarget as HTMLSelectElement).value;
-								(e.currentTarget as HTMLSelectElement).value = '';
-								if (v) handleAddTextAnimation(slot, v);
-							}}
-						>
-							<option value="" disabled>+ Effect…</option>
-							{#each SPLIT_MODES as mode (mode)}
-								{#if slotEffects[mode].length > 0}
-									<optgroup label={mode}>
-										{#each slotEffects[mode] as opt (opt.id)}
-											<option value={opt.id}>{opt.label}</option>
-										{/each}
-									</optgroup>
-								{/if}
-							{/each}
-						</select>
-					</label>
-				{/each}
-			</div>
-		{/if}
+	<InspectorSection label="Text Motion">
+		{#each activeSlots as { slot, label } (slot)}
+			{@const slotEffects = effectsForSlot(slot)}
+			<Field {label}>
+				<select
+					value=""
+					onchange={(e) => {
+						const v = (e.currentTarget as HTMLSelectElement).value;
+						(e.currentTarget as HTMLSelectElement).value = '';
+						if (v) handleAddTextAnimation(slot, v);
+					}}
+				>
+					<option value="" disabled>+ Effect…</option>
+					{#each SPLIT_MODES as mode (mode)}
+						{#if slotEffects[mode].length > 0}
+							<optgroup label={mode}>
+								{#each slotEffects[mode] as opt (opt.id)}
+									<option value={opt.id}>{opt.label}</option>
+								{/each}
+							</optgroup>
+						{/if}
+					{/each}
+				</select>
+			</Field>
+		{/each}
 
 		{#each surfaceTextAnims as entry (entry.id)}
 			<div class="anim-entry">
@@ -345,12 +308,11 @@
 						type="button"
 						class="remove-btn"
 						aria-label="Remove text animation"
-						onclick={() => removeTextAnimation(entry.id)}
-					>Remove</button>
+						onclick={() => removeTextAnimation(entry.id)}>×</button
+					>
 				</div>
 
-				<label class="row">
-					<span>Effect</span>
+				<Field label="Effect">
 					<select
 						value={entry.effect}
 						onchange={(e) => textAnimEffectChange(entry, (e.currentTarget as HTMLSelectElement).value)}
@@ -363,10 +325,9 @@
 							</optgroup>
 						{/each}
 					</select>
-				</label>
+				</Field>
 
-				<div class="timing-row">
-					<span class="timing-row__label">Enter</span>
+				<Field label="Enter">
 					<input
 						type="number"
 						min="0"
@@ -399,10 +360,9 @@
 							<option {value}>{option.label}</option>
 						{/each}
 					</select>
-				</div>
+				</Field>
 
-				<div class="timing-row">
-					<span class="timing-row__label">Speed ×</span>
+				<Field label="Speed ×">
 					<input
 						type="number"
 						min="0.1"
@@ -410,76 +370,74 @@
 						step="0.1"
 						value={entry.params?.speedMultiplier ?? ''}
 						placeholder="1"
-						oninput={(e) => setTextAnimParam(entry, 'speedMultiplier', (e.currentTarget as HTMLInputElement).value)}
+						oninput={(e) =>
+							setTextAnimParam(entry, 'speedMultiplier', (e.currentTarget as HTMLInputElement).value)}
 					/>
-					<button type="button" class="clear-btn" onclick={() => clearTextAnimParam(entry, 'speedMultiplier')}>×</button>
-				</div>
+					<button
+						type="button"
+						class="clear-btn"
+						onclick={() => clearTextAnimParam(entry, 'speedMultiplier')}>×</button
+					>
+				</Field>
 
-				<div class="timing-row">
-					<span class="timing-row__label">Hold ms</span>
+				<Field label="Hold ms">
 					<input
 						type="number"
 						min="0"
 						step="10"
 						value={entry.params?.holdMs ?? ''}
 						placeholder="default"
-						oninput={(e) => setTextAnimParam(entry, 'holdMs', (e.currentTarget as HTMLInputElement).value)}
+						oninput={(e) =>
+							setTextAnimParam(entry, 'holdMs', (e.currentTarget as HTMLInputElement).value)}
 					/>
-					<button type="button" class="clear-btn" onclick={() => clearTextAnimParam(entry, 'holdMs')}>×</button>
-				</div>
+					<button type="button" class="clear-btn" onclick={() => clearTextAnimParam(entry, 'holdMs')}
+						>×</button
+					>
+				</Field>
 
-				<div class="timing-row">
-					<span class="timing-row__label">Gap ms</span>
+				<Field label="Gap ms">
 					<input
 						type="number"
 						min="0"
 						step="10"
 						value={entry.params?.gapMs ?? ''}
 						placeholder="default"
-						oninput={(e) => setTextAnimParam(entry, 'gapMs', (e.currentTarget as HTMLInputElement).value)}
+						oninput={(e) =>
+							setTextAnimParam(entry, 'gapMs', (e.currentTarget as HTMLInputElement).value)}
 					/>
-					<button type="button" class="clear-btn" onclick={() => clearTextAnimParam(entry, 'gapMs')}>×</button>
-				</div>
+					<button type="button" class="clear-btn" onclick={() => clearTextAnimParam(entry, 'gapMs')}
+						>×</button
+					>
+				</Field>
 			</div>
 		{/each}
-	</div>
+	</InspectorSection>
 </div>
 
 <style>
 	.surface-inspector {
 		display: grid;
-		gap: var(--vs-base);
+		gap: 0;
 	}
 
-	.section {
+	/* Body is a tall rich-text editor — stack its label above and let it run
+	   full width rather than forcing it into the label-left field grid. */
+	.body-field {
+		display: grid;
+		gap: var(--vs-xs);
+	}
+
+	.body-field__label {
+		color: var(--fg-6);
+		font-size: 0.8rem;
+	}
+
+	/* A text-animation entry: a sub-group separated by a hairline (not a card). */
+	.anim-entry {
+		border-block-start: var(--border-1);
 		display: grid;
 		gap: var(--vs-s);
-	}
-
-	.section__header {
-		border-block-end: var(--border-1);
-		padding-block-end: var(--vs-xs);
-	}
-
-	.section__label {
-		color: var(--fg-5);
-		font-size: 0.65rem;
-		font-weight: var(--fw-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-
-	.slot-pickers {
-		display: grid;
-		gap: var(--vs-xs);
-	}
-
-	.anim-entry {
-		border: var(--border-1);
-		border-radius: var(--br-s);
-		display: grid;
-		gap: var(--vs-xs);
-		padding: var(--pad-s);
+		padding-block-start: var(--vs-s);
 	}
 
 	.anim-entry__header {
@@ -493,52 +451,23 @@
 		font-size: 0.75rem;
 		font-weight: var(--fw-semibold);
 		letter-spacing: 0.04em;
-		text-transform: uppercase;
+		text-transform: capitalize;
 	}
 
-	.remove-btn {
-		background: transparent;
-		border: var(--border-1);
-		border-radius: var(--br-xs);
-		color: var(--fg-6);
-		cursor: pointer;
-		font-size: 0.75rem;
-		padding: 2px 8px;
-	}
-
-	.remove-btn:hover {
-		color: var(--fg);
-	}
-
-	.timing-row {
-		align-items: center;
-		display: grid;
-		gap: var(--pad-xs);
-		grid-template-columns: 4rem 1fr 1fr 1fr;
-	}
-
-	.timing-row__label {
-		color: var(--fg-6);
-		font-size: 0.75rem;
-		text-transform: uppercase;
-	}
-
-	.timing-row input,
-	.timing-row select {
-		font-size: 0.85rem;
-		min-inline-size: 0;
-	}
-
+	.remove-btn,
 	.clear-btn {
 		background: transparent;
 		border: 0;
 		color: var(--fg-4);
 		cursor: pointer;
-		font-size: 0.85rem;
-		padding: 0;
+		flex: none;
+		font-size: 1rem;
+		line-height: 1;
+		padding: 0 var(--vs-xs);
 	}
 
+	.remove-btn:hover,
 	.clear-btn:hover {
-		color: var(--fg);
+		color: #e6322a;
 	}
 </style>
