@@ -68,6 +68,7 @@
 	import { annotationBodyPlainText } from '$lib/annotations/annotation-body-text';
 	import { renderAudioMix } from './audio-mix';
 	import { AudioPreview } from './audio-preview';
+	import { deriveSoundCues, isAudibleSoundCue } from './sound-cues';
 	import { clampNumber } from '$lib/utils/math';
 	import { hexToRgbaFloat, isDarkSurfaceColor } from '$lib/utils/color';
 	import { truncateMiddle } from '$lib/utils/string';
@@ -855,6 +856,51 @@
 						})
 					]
 				});
+			});
+		}
+
+		// Sound rail (ADR-0033 §9): the bed + every cue — derived from motion AND
+		// manual — on one row, so you see where sound fires against the motion.
+		// Derived cues are locked to their motion (no drag: re-time the motion and
+		// the cue follows for free); manual cues and the bed drag like any clip.
+		// Silent cues (muted, or a Layer wearing no kit) render dimmed. No sound
+		// anywhere → no rail.
+		const soundTransitions: TimelineTransition[] = [];
+		for (const cue of deriveSoundCues(engineState)) {
+			soundTransitions.push({
+				id: `derived-${cue.id}`,
+				label: cue.event,
+				start: cue.start,
+				duration: 0.012,
+				ramp: 'in' as const,
+				color: isAudibleSoundCue(cue) ? '#2de8ee' : '#4a5560'
+			});
+		}
+		engineState.audioCues.forEach((cue, index) => {
+			soundTransitions.push({
+				id: `manual-${cue.id}`,
+				label: cue.kind === 'bed' ? `bed · ${cue.assetSlug}` : cue.assetSlug,
+				start: cue.start,
+				duration: Math.max(0.015, cue.duration),
+				ramp: 'in' as const,
+				color: cue.kind === 'bed' ? '#17727d' : '#2de8ee',
+				minStart: 0,
+				maxStart: 0.98,
+				minDuration: 0.01,
+				maxDuration: 1,
+				onUpdate: ({ start, duration }: { start: number; duration: number }) => {
+					const target = engineState.audioCues[index];
+					target.start = start;
+					target.duration = Math.min(1, duration);
+				}
+			});
+		});
+		if (soundTransitions.length > 0) {
+			trackList.push({
+				id: 'sound',
+				label: 'Sound',
+				color: '#2de8ee',
+				transitions: soundTransitions
 			});
 		}
 
