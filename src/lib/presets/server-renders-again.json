@@ -17,10 +17,17 @@
 		},
 		"marks": {
 			"defaults": {
-				"underline": { "color": "#22d3ee", "intensity": 0.7 }
+				"underline": {
+					"color": "#22d3ee",
+					"intensity": 0.7
+				}
 			},
 			"timings": [
-				{ "start": 0.35, "duration": 0.1, "ease": "sharp" }
+				{
+					"start": 0.35,
+					"duration": 0.1,
+					"ease": "sharp"
+				}
 			]
 		},
 		"surface": {
@@ -32,8 +39,17 @@
 				"dateLabel": "JUN 15 2026",
 				"body": "For a decade the browser was the computer, and every serious application shipped a megabyte of JavaScript to prove it. That consensus is [underline]quietly unwinding[/underline].\n\nThe newest frameworks render on the server, stream HTML to the page, and treat client-side state as the exception. Nobody declared the single-page app dead — teams noticed their pages loaded faster, and stopped arguing."
 			},
-			"enter": { "start": 0, "duration": 0.108, "ease": "settled" },
-			"exit": { "start": 0.915, "duration": 0.085, "ease": "smooth" }
+			"enter": {
+				"start": 0,
+				"duration": 0.108,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.915,
+				"duration": 0.085,
+				"ease": "smooth"
+			},
+			"soundKit": "syntax"
 		},
 		"overlays": [
 			{
@@ -46,17 +62,35 @@
 				},
 				"position": {
 					"anchor": "top-left",
-					"offset": { "x": 0.112, "y": 0.2 }
+					"offset": {
+						"x": 0.112,
+						"y": 0.2
+					}
 				},
-				"enter": { "start": 0.04, "duration": 0.108, "ease": "settled" },
-				"exit": { "start": 0.915, "duration": 0.085, "ease": "smooth" }
+				"enter": {
+					"start": 0.04,
+					"duration": 0.108,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.915,
+					"duration": 0.085,
+					"ease": "smooth",
+					"sound": {
+						"mute": true
+					}
+				},
+				"soundKit": "syntax"
 			}
 		],
 		"effects": [
 			{
 				"type": "paper-grain",
 				"id": "frame-grit",
-				"params": { "warmth": 0.1, "density": 0.32 }
+				"params": {
+					"warmth": 0.1,
+					"density": 0.32
+				}
 			}
 		]
 	}

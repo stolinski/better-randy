@@ -26,8 +26,17 @@
 				"dateLabel": "JUN 2026",
 				"body": ""
 			},
-			"enter": { "start": 0, "duration": 0.108, "ease": "settled" },
-			"exit": { "start": 0.915, "duration": 0.090, "ease": "smooth" }
+			"enter": {
+				"start": 0,
+				"duration": 0.108,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.915,
+				"duration": 0.09,
+				"ease": "smooth"
+			},
+			"soundKit": "syntax"
 		},
 		"overlays": [
 			{
@@ -40,17 +49,35 @@
 				},
 				"position": {
 					"anchor": "top-left",
-					"offset": { "x": 0.065, "y": 0.195 }
+					"offset": {
+						"x": 0.065,
+						"y": 0.195
+					}
 				},
-				"enter": { "start": 0.04, "duration": 0.108, "ease": "settled" },
-				"exit": { "start": 0.915, "duration": 0.090, "ease": "smooth" }
+				"enter": {
+					"start": 0.04,
+					"duration": 0.108,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.915,
+					"duration": 0.09,
+					"ease": "smooth",
+					"sound": {
+						"mute": true
+					}
+				},
+				"soundKit": "syntax"
 			}
 		],
 		"effects": [
 			{
 				"type": "paper-grain",
 				"id": "frame-grit",
-				"params": { "warmth": 0.55, "density": 0.32 }
+				"params": {
+					"warmth": 0.55,
+					"density": 0.32
+				}
 			}
 		]
 	}
