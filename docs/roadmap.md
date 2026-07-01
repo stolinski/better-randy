@@ -39,14 +39,11 @@ The default answer to "what's next?" — an agent self-serves this instead of as
 
 ## Now — the corpus tail; GUI parity designed
 
-The engine gap is closed, the make-cinematic push is **done across every surface/overlay family**, and the web-document arc (incl. iMessage) has shipped. What remains:
+The engine gap is closed, the make-cinematic push is **done across every surface/overlay family**, and the web-document arc (incl. iMessage) has shipped. The north-star scoreboard is met: **GUI ↔ agent parity shipped** ([ADR-0032](adr/0032-gui-agent-parity-authoring.md), epic `3pkmqyns`) and the **GUI authoring interface shipped** ([ADR-0034](adr/0034-gui-design-authoring-interface.md), epics `jz2yykvi` + `wfonjyb3`, 2026-07-01). What remains:
 
 - a small **corpus refinement tail** — active, epic `ri2qchcm`;
-- **GUI ↔ agent parity** — designed ([ADR-0032](adr/0032-gui-agent-parity-authoring.md)), task-ified (epic `3pkmqyns`), **gated**;
 - **Sound design** — **built** ([ADR-0033](adr/0033-sound-design-motion-emitted-cues.md), epic `1frpmv40` 9/10 shipped 2026-07-01: schema → emission → kit/resolver → offline mix → export muxing → preview → escape hatches → cue rail → sidebar); remaining: the first *designed* kit + reference piece (`r9tbnnkh`, by-ear with Scott);
-- **GUI design** (the authoring *interface*) — still **undesigned**; the last north-star needing a grill.
-
-The designed arcs are gated on a go-ahead at the corpus epic boundary.
+- **the capability arc** — the post-north-star direction, grilled 2026-07-01 (§ below).
 
 **Cinematic-bar recalibration → resolved (2026-06).** A 12-agent cinematic audit (`docs/critic-captures/corpus-cinematic-audit.md`) scored every family **2–5/10** against a Netflix bar — *competent but not cinematic* — and set the honest bar plus the reusable recipe. That diagnostic drove a family-by-family make-cinematic pass: **all 13 families are now Critic-ACCEPTed** (zero pipeline-bug / default-too-permissive) at the cinematic bar, each with a graded backdrop, felt camera, parallax, and reading-order motion. `pullquote-on-photo` shipped on the ADR-0028 depth stage (real photographic substrate), so it is **no longer blocked**.
 
@@ -57,6 +54,26 @@ The designed arcs are gated on a go-ahead at the corpus epic boundary.
 **The remaining corpus tail** (dex epic `ri2qchcm`): opaque-piece Critic probe (`9w7kdptf`), washi-tape fibrous tear-edge (`ukc5ip66`), paper-grain on near-black fields (`3ohrvtc4`), and the heavy image-substrate + edge-treatment primitive (`jhxe2k5w`, in progress — its substrate half already shipped `pullquote-on-photo`; the edge-treatment half is open).
 
 **dex is the source of truth for per-family task state** (run `dex list --ready`).
+
+## The capability arc (grilled 2026-07-01)
+
+With the north star met, the next arc is **capability expansion** — chosen over production dogfooding and content-scale tooling (those pull later). Epic order:
+
+1. **Generalized keyframes** — epic #1, **designed** ([ADR-0035](adr/0035-generalized-keyframes-and-cascade.md), grilled + written 2026-07-01); task-ified in dex epic `4i8gx2i7`.
+2. **Depth-stage expansion** — epic #2: overlay-at-depth, scene lighting/shadow, half-res 4K perf (the ADR-0028 residuals), demand-pulled by the depth-showcase set below.
+3. **Diagram primitives** — after keyframes + Cascade land (choreographed reveals are the whole point — see *Designed, not built*).
+
+**Packs — finish [ADR-0024](adr/0024-role-resolution-core-fallback.md)** runs as a parallel, largely agent-grindable arc (not an epic slot): purge every literal hex fallback from component CSS (`var(--x, #hex)` — specific → core is the only legal fallback; this is the washi-tape-stays-yellow class of bug), make the Pack validator refuse a manifest missing the mandatory core vocabulary, and give `editorial-mono` real core values. Then author the **CRT terminal pack** — the third Pack, chosen to stress the roles a color-swap never touched: glow-not-shadow depth, scanline grain material, hard pixel edges, block-cursor pointer. (Grill note 2026-07-01: "complete per-Pipeline manifests" was considered and rejected again — 0024's hybrid stands; the failure was unfinished wiring, not the design.) Pack switching only reaches pixels at all as of 2026-07-01 — the composition-sync effect never tracked `packState.slug`, so the captured texture went stale; fixed in `Workspace.svelte`.
+
+**Integration demos (corpus v2)** — the corpus proved families in isolation; these prove them together. Each gates on its epic:
+
+- **Show-open bumper** (flagship): a full-frame segment — depth stage + transitions + sound bed + Cascade choreography, 5–10 s.
+- **Episode graphics suite**: one topic as a coordinated set (title card + lower third + pullquote + counter + outro), one pack, consistent choreography.
+- **Depth-stage showcase set**: the 3D stage driven into 3–4 more families (`chapter-card` / `title-sequence` / `type-hero` are the flagged candidates).
+- **CRT-pack corpus rerender**: the corpus under the CRT pack — the "same recipe, two publications" money shot and the acceptance test for the finished pack contract.
+- **Docu-diagram demos**: high-end YouTube-documentary diagram pieces (animated map, flowchart, timeline, stat build) on the Diagram primitives.
+
+Riding along, small and approved: **export decode verification** (~1 day) — decode the actual exported file (ffmpeg is already server-side in the ProRes route) and feed the frames to `probe-frame-diff`; use ProRes for byte-determinism.
 
 ## The corpus
 
@@ -88,8 +105,8 @@ A **web-document Surface** — pixel-faithful mocks of real sites used as transp
 - ✅ **Multi-state transitions (v1)** — [ADR-0022](adr/0022-multi-state-composition.md) model + [ADR-0026](adr/0026-transitions-v1-snapshot-and-wipe.md) impl. Shipped: `transition: { from, to, effect, durationMs }`, snapshot each state to a texture, `mask-wipe` Effect composites a true per-pixel wipe. **Upgrade path:** live dual-tree (states animating mid-wipe) via a context-scoped engine-state refactor, when a Preset needs it.
 - 📐 **Starter templates** (ex-[ADR-0004](adr/0004-recipe-cookbook-over-schema-chrome.md)) — curated Preset+Pack starting points both a human (GUI) and an agent begin from. Mechanism now specified by GUI parity ([ADR-0032](adr/0032-gui-agent-parity-authoring.md)): a corpus preset opened read-only as a fork-base.
 - 🧭 **Heavy primitives** — general image/video **substrate input**; a general **configurable edge-treatment** primitive (clean / soft / irregular / torn / none) driven by the pack `edge-treatment` Role (torn is one value, not a default).
-- 🧭 **Generalized animation model** — replace the 2-keyframe tween with ordered `keyframes[]`. Shape resolved by grill (2026-07): **per-property ease** from the constrained enum (opacity/position/scale/rotation each pick their own; kills the hardcoded opacity-exit special case, no curve editor); **cascade relationships** (an element's enter anchors to another element's enter + offset, so reading-order choreography re-times as one unit — same welded philosophy as sound cues); existing `enter`/`exit` stays as load-time sugar (no preset migration). Runtime already supports multi-tween manifests (text strategies prove it) — the work is schema + manifest builder + GUI keyframe/cascade UI + sound-cue re-grounding. **Slated as the first capability epic after the sound spine lands.** Needs an ADR grill to finish the spec before task-ifying.
-- 🧭 **New Block types** — `mermaid` / `code` / `image` / `chart` (only `paragraph` ships).
+- 📐 **Generalized animation model** — **designed: [ADR-0035](adr/0035-generalized-keyframes-and-cascade.md)** (2026-07-01). Ordered per-channel `keyframes[]` + per-property ease (constrained enum) + **Cascade** (ms-offset enter anchoring, topo-sorted at manifest build); keyframes **replace** the pipeline's intrinsic motion-form (composition takes the pen); `enter`/`exit` survives as lossless sugar; rubric lints the derived enter envelope. Dex epic `4i8gx2i7`; absorbs overlay-rotation task `5vcak6og`.
+- 🧭 **Diagram primitives** (ex-*New Block types*, resharpened by the 2026-07 grill) — an art-directed, documentary-style diagram Block vocabulary: node / edge-arrow / label / stat-callout / timeline-segment, positioned explicitly (schema + GUI drag), revealed with stroke-draw + **Cascade** choreography. Mermaid rejected as the model (auto-layout reads as documentation, not documentary); at most a later compile-into-primitives authoring shortcut. `code` / `image` Blocks remain wanted separately (only `paragraph` ships).
 
 ## GUI ↔ agent parity (north-star surface — designed, [ADR-0032](adr/0032-gui-agent-parity-authoring.md))
 
@@ -115,7 +132,7 @@ Grilled into a spec (2026-06). Overturns the old `ideas/` "audio stays out — R
 
 ## Deferred / low-priority
 
-- 🧭 **Export-output verification (real decode).** `scripts/probe-frame-diff.ts` asserts a frame sequence animates + carries alpha, but is only self-tested on captured frames (WebGPU canvas readback returns blank). Open: a frame-dump path from the actual WebM/ProRes encoder output so the probe consumes real exported frames.
+- 📐 **Export-output verification (real decode)** — **promoted into the capability arc (2026-07-01, ~1 day)**. `scripts/probe-frame-diff.ts` asserts a frame sequence animates + carries alpha, but is only self-tested on captured frames (WebGPU canvas readback returns blank). The path: decode the actual exported file with ffmpeg (already server-side in the ProRes route) to PNGs and feed them to the probe; ProRes for byte-determinism.
 - 🧭 **Depth-stage bit-determinism residual** — the ADR-0028 depth stage renders deterministically to ~0.002% (ProRes ×2: ~200 of 8.3M px/frame differ; the flat path is byte-identical). Scattered-pixel signature ⇒ a GPU barrier race in the scene→mip-pyramid→DOF chain (a tap reading a mip level a hair before the prior pass finished). Visually invisible; spirit of frame-determinism holds (preview==export, no wall-clock). Strict bit-determinism would need the mip chain as separate half/quarter-res textures (explicit read-after-write) rather than mip levels of one texture. NOTE: vp9/WebM export adds its own (invisible) encoder non-determinism — that's the WebCodecs hardware encoder, not the render; use ProRes for byte-exact masters.
 - 🧭 **Linear-light blending** — changes composite math; risky; separate pass with heavy before/after verification (deferred from the render-path work).
 - 🧭 **Fixer sub-agent** for `preset-choice`/`aesthetic-miss` Critic findings — build-harness; revisit after more Critic runs (open design question, ex-`todos/fixer-sub-agent.md`).

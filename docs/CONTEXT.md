@@ -54,6 +54,14 @@ _Avoid_: chrome (broader; see Channel chrome).
 A composition-wide post-process pass run after the final composite into the canvas — grit overlay, chromatic aberration, color grade, film grain. Effects compose into one chain on the composed frame. Per-target shader work (substrate physics, per-overlay edge treatment) is not an Effect — it is a `shaderPass` on the SurfaceRenderer or OverlayRenderer per ADR-0005 / ADR-0008. See [ADR-0018](adr/0018-collapse-effects-to-frame-only.md).
 _Avoid_: filter, shader (a shader is the WebGPU implementation; an Effect is the registry entry), per-layer effect (the engine no longer supports per-layer chains — see ADR-0018).
 
+**Cascade**:
+A declarative timing relationship between elements: an element's enter anchors to another element's enter plus an offset (kicker → title +120 ms → subtitle), so reading-order choreography re-times as one unit instead of drifting apart across hand-set absolute starts. The timing peer of an automatic **audio cue** — welded, never hand-synced. Designed (2026-07 keyframes grill), not built — see [`roadmap.md`](roadmap.md).
+_Avoid_: stagger (the narrower per-glyph text-animation mechanism), sequence, chain, follow-through (the animation-craft effect a Cascade is used to achieve, not the mechanism).
+
+**Diagram primitive**:
+Planned **Block** vocabulary for art-directed, documentary-style diagrams — node, edge-arrow, label, stat-callout, timeline-segment — positioned explicitly (schema + GUI), revealed with stroke-draw + **Cascade** choreography. Explicitly *not* auto-layout: mermaid was rejected as the model (auto-layout reads as documentation, not documentary); at most a future compile-into-primitives authoring shortcut. Designed direction (2026-07 grill), not built — see [`roadmap.md`](roadmap.md).
+_Avoid_: chart Block (underspecified), mermaid Block (auto-layout is not the model), infographic.
+
 ### Pack model
 
 **Pack**:
