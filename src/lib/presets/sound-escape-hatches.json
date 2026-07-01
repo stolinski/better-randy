@@ -1,0 +1,92 @@
+{
+	"schema": "hiviz@1",
+	"name": "Sound — escape hatches (fixture)",
+	"description": "Engine fixture exercising every ADR-0033 §5 sound escape hatch on one full-frame piece: the surface enter emits its default whoosh-in through the core kit; the surface exit is MUTED per-motion; the mark draw-on SWAPS its event from tick to pop; the lower-third enter LOCKS a specific sample (core-sting), bypassing kit resolution; audioCues[] carries a manual free-standing outro cue at an absolute fraction and the single ambient BED (segments/bumpers only — this piece declares backgroundFill). Export bakes all of it via the deterministic offline mix; preview schedules the same plan on play.",
+	"pack": "syntax",
+	"kind": "fixture",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "#0a0a0f",
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#ffffff",
+			"inkColor": "#111111"
+		},
+		"marks": {
+			"defaults": {
+				"highlight": { "color": "#ffd642", "intensity": 0.62 }
+			},
+			"timings": [
+				{
+					"start": 0.38,
+					"duration": 0.2,
+					"ease": "smooth",
+					"sound": { "event": "pop" }
+				}
+			],
+			"soundKit": "core"
+		},
+		"surface": {
+			"type": "paper",
+			"content": {
+				"title": "Every sound escape hatch",
+				"sourceUrl": "https://hiviz.dev/fixtures/sound",
+				"body": "The motion emits its own cues automatically.\n\nOne mark [highlight]swaps its event to a pop[/highlight] while the exit below is muted entirely."
+			},
+			"soundKit": "core",
+			"enter": { "start": 0, "duration": 0.05, "ease": "settled" },
+			"exit": {
+				"start": 0.88,
+				"duration": 0.04,
+				"ease": "smooth",
+				"sound": { "mute": true }
+			}
+		},
+		"textAnimations": [],
+		"overlays": [
+			{
+				"type": "lower-third",
+				"id": "signature",
+				"content": {
+					"kicker": "FIXTURE",
+					"title": "Locked-specific sample",
+					"subtitle": "This enter plays core-sting, not the kit's whoosh"
+				},
+				"position": {
+					"anchor": "bottom-left",
+					"offset": { "x": 0.0625, "y": 0.0625 }
+				},
+				"soundKit": "core",
+				"enter": {
+					"start": 0.18,
+					"duration": 0.06,
+					"ease": "sharp",
+					"sound": { "sample": "core-sting" }
+				},
+				"exit": { "start": 0.8, "duration": 0.05, "ease": "smooth" }
+			}
+		],
+		"effects": [],
+		"audioCues": [
+			{
+				"id": "bed",
+				"kind": "bed",
+				"assetSlug": "core-sub-drop",
+				"start": 0,
+				"duration": 1,
+				"volume": 0.35
+			},
+			{
+				"id": "outro-accent",
+				"assetSlug": "core-impact",
+				"start": 0.92,
+				"duration": 0.07
+			}
+		]
+	}
+}
