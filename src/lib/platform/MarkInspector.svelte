@@ -3,6 +3,8 @@
 
 	import { ENGINE_EASES, resolveMarkForIndex, type Ease } from './engine-schema';
 	import { engineState, ensureMarkTimingAtIndex } from './engine-state.svelte';
+	import InspectorSection from './InspectorSection.svelte';
+	import Field from './Field.svelte';
 
 	interface Props {
 		markIndex: number;
@@ -73,32 +75,17 @@
 </script>
 
 {#if resolved && parsedMark}
-	<div class="section">
-		<div class="section__header">
-			<span class="section__label">{MARK_STYLE_LABELS[parsedMark.style]}</span>
-		</div>
-		<div class="field-row">
-			<span class="field-label">Text</span>
+	<InspectorSection label={MARK_STYLE_LABELS[parsedMark.style]}>
+		<Field label="Text">
 			<span class="field-text">{parsedMark.text}</span>
-		</div>
-	</div>
+		</Field>
+	</InspectorSection>
 
-	<div class="section">
-		<div class="section__header">
-			<span class="section__label">Color</span>
-		</div>
-		<div class="field-row">
-			<span class="field-label">Color</span>
+	<InspectorSection label="Appearance">
+		<Field label="Color">
 			<input value={resolved.color} oninput={handleColorInput} type="color" />
-		</div>
-	</div>
-
-	<div class="section">
-		<div class="section__header">
-			<span class="section__label">Intensity</span>
-		</div>
-		<div class="field-row">
-			<span class="field-label">Intensity</span>
+		</Field>
+		<Field label="Intensity">
 			<input
 				value={resolved.intensity}
 				max="1"
@@ -107,60 +94,18 @@
 				type="range"
 				oninput={handleIntensityInput}
 			/>
-		</div>
-	</div>
-
-	<div class="section">
-		<div class="section__header">
-			<span class="section__label">Ease</span>
-		</div>
-		<div class="field-row">
-			<span class="field-label">Ease</span>
+		</Field>
+		<Field label="Ease">
 			<select value={resolved.ease} onchange={handleEaseChange}>
 				{#each easeOptions as [value, option] (value)}
 					<option {value}>{option.label}</option>
 				{/each}
 			</select>
-		</div>
-	</div>
+		</Field>
+	</InspectorSection>
 {/if}
 
 <style>
-	.section {
-		border-block-end: var(--border-1);
-		display: grid;
-		gap: var(--vs-xs);
-		padding: var(--vs-s) var(--vs-base);
-	}
-
-	.section__header {
-		align-items: center;
-		display: flex;
-		gap: var(--vs-s);
-		justify-content: space-between;
-		padding-block-end: var(--vs-xs);
-	}
-
-	.section__label {
-		color: var(--fg-5);
-		font-size: 0.7rem;
-		font-weight: var(--fw-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-
-	.field-row {
-		align-items: center;
-		display: grid;
-		gap: var(--vs-xs);
-		grid-template-columns: 5rem 1fr;
-	}
-
-	.field-label {
-		color: var(--fg-6);
-		font-size: 0.8rem;
-	}
-
 	.field-text {
 		color: var(--fg-3);
 		font-size: 0.85rem;

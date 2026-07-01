@@ -16,6 +16,8 @@
 	import { PIPELINE_REGISTRY } from './pipelines';
 	import type { OverlayRenderer } from './pipelines/types';
 	import { EFFECT_CATALOG, EFFECT_IDS, SPLIT_MODES, type SplitMode } from '$lib/text-animations/catalog';
+	import InspectorSection from './InspectorSection.svelte';
+	import Field from './Field.svelte';
 
 	interface Props {
 		overlayId: string;
@@ -165,11 +167,7 @@
 	{@const ov = overlay}
 	{@const renderer = overlayRenderer}
 
-	<!-- OVERLAY -->
-	<div class="section">
-		<div class="section__header">
-			<span class="section__label">{renderer.label}</span>
-		</div>
+	<InspectorSection label={renderer.label}>
 		{#if renderer.Inspector}
 			{@const OverlayInspectorComponent = renderer.Inspector}
 			<OverlayInspectorComponent overlay={ov as never} />
@@ -177,15 +175,10 @@
 			{@const OverlayEditor = renderer.Editor}
 			<OverlayEditor overlay={ov as never} />
 		{/if}
-	</div>
+	</InspectorSection>
 
-	<!-- POSITION -->
-	<div class="section">
-		<div class="section__header">
-			<span class="section__label">Position</span>
-		</div>
-		<div class="field-row">
-			<span class="field-label">Anchor</span>
+	<InspectorSection label="Position">
+		<Field label="Anchor">
 			<select
 				value={ov.position.anchor}
 				onchange={(e) => setOverlayAnchor(ov, (e.currentTarget as HTMLSelectElement).value)}
@@ -194,10 +187,9 @@
 					<option value={anchor}>{anchor}</option>
 				{/each}
 			</select>
-		</div>
+		</Field>
 		{#if ov.position.anchor !== 'normalized-rect'}
-			<div class="field-row">
-				<span class="field-label">Offset X</span>
+			<Field label="Offset X">
 				<input
 					type="number"
 					min="0"
@@ -206,9 +198,8 @@
 					value={ov.position.offset?.x ?? 0}
 					oninput={(e) => setOverlayOffsetX(ov, (e.currentTarget as HTMLInputElement).value)}
 				/>
-			</div>
-			<div class="field-row">
-				<span class="field-label">Offset Y</span>
+			</Field>
+			<Field label="Offset Y">
 				<input
 					type="number"
 					min="0"
@@ -217,10 +208,9 @@
 					value={ov.position.offset?.y ?? 0}
 					oninput={(e) => setOverlayOffsetY(ov, (e.currentTarget as HTMLInputElement).value)}
 				/>
-			</div>
+			</Field>
 		{/if}
-		<div class="field-row">
-			<span class="field-label">Scale</span>
+		<Field label="Scale">
 			<input
 				type="number"
 				min="0.1"
@@ -229,13 +219,11 @@
 				value={ov.position.scale ?? 1}
 				oninput={(e) => setOverlayScale(ov, (e.currentTarget as HTMLInputElement).value)}
 			/>
-		</div>
-	</div>
+		</Field>
+	</InspectorSection>
 
-	<!-- ENTER -->
-	<div class="section">
-		<div class="section__header">
-			<span class="section__label">Enter</span>
+	<InspectorSection label="Enter">
+		{#snippet action()}
 			<input
 				type="checkbox"
 				checked={ov.enter !== undefined}
@@ -247,10 +235,9 @@
 					}
 				}}
 			/>
-		</div>
+		{/snippet}
 		{#if ov.enter}
-			<div class="field-row">
-				<span class="field-label">Start</span>
+			<Field label="Start">
 				<input
 					type="number"
 					min="0"
@@ -259,36 +246,34 @@
 					value={ov.enter.start}
 					oninput={(e) => transitionStartInput(ov, 'enter', (e.currentTarget as HTMLInputElement).value)}
 				/>
-			</div>
-			<div class="field-row">
-				<span class="field-label">Duration</span>
+			</Field>
+			<Field label="Duration">
 				<input
 					type="number"
 					min="0"
 					max="1"
 					step="0.001"
 					value={ov.enter.duration}
-					oninput={(e) => transitionDurationInput(ov, 'enter', (e.currentTarget as HTMLInputElement).value)}
+					oninput={(e) =>
+						transitionDurationInput(ov, 'enter', (e.currentTarget as HTMLInputElement).value)}
 				/>
-			</div>
-			<div class="field-row">
-				<span class="field-label">Ease</span>
+			</Field>
+			<Field label="Ease">
 				<select
 					value={ov.enter.ease}
-					onchange={(e) => transitionEaseChange(ov, 'enter', (e.currentTarget as HTMLSelectElement).value)}
+					onchange={(e) =>
+						transitionEaseChange(ov, 'enter', (e.currentTarget as HTMLSelectElement).value)}
 				>
 					{#each easeOptions as [value, option] (value)}
 						<option {value}>{option.label}</option>
 					{/each}
 				</select>
-			</div>
+			</Field>
 		{/if}
-	</div>
+	</InspectorSection>
 
-	<!-- EXIT -->
-	<div class="section">
-		<div class="section__header">
-			<span class="section__label">Exit</span>
+	<InspectorSection label="Exit">
+		{#snippet action()}
 			<input
 				type="checkbox"
 				checked={ov.exit !== undefined}
@@ -300,10 +285,9 @@
 					}
 				}}
 			/>
-		</div>
+		{/snippet}
 		{#if ov.exit}
-			<div class="field-row">
-				<span class="field-label">Start</span>
+			<Field label="Start">
 				<input
 					type="number"
 					min="0"
@@ -312,63 +296,56 @@
 					value={ov.exit.start}
 					oninput={(e) => transitionStartInput(ov, 'exit', (e.currentTarget as HTMLInputElement).value)}
 				/>
-			</div>
-			<div class="field-row">
-				<span class="field-label">Duration</span>
+			</Field>
+			<Field label="Duration">
 				<input
 					type="number"
 					min="0"
 					max="1"
 					step="0.001"
 					value={ov.exit.duration}
-					oninput={(e) => transitionDurationInput(ov, 'exit', (e.currentTarget as HTMLInputElement).value)}
+					oninput={(e) =>
+						transitionDurationInput(ov, 'exit', (e.currentTarget as HTMLInputElement).value)}
 				/>
-			</div>
-			<div class="field-row">
-				<span class="field-label">Ease</span>
+			</Field>
+			<Field label="Ease">
 				<select
 					value={ov.exit.ease}
-					onchange={(e) => transitionEaseChange(ov, 'exit', (e.currentTarget as HTMLSelectElement).value)}
+					onchange={(e) =>
+						transitionEaseChange(ov, 'exit', (e.currentTarget as HTMLSelectElement).value)}
 				>
 					{#each easeOptions as [value, option] (value)}
 						<option {value}>{option.label}</option>
 					{/each}
 				</select>
-			</div>
+			</Field>
 		{/if}
-	</div>
+	</InspectorSection>
 
-	<!-- TEXT MOTION -->
-	<div class="section">
-		<div class="section__header">
-			<span class="section__label">Text Motion</span>
-		</div>
-		<div class="slot-pickers">
-			{#each (['kicker', 'title', 'subtitle'] as const) as slot (slot)}
-				<div class="field-row">
-					<span class="field-label slot-label">{slot}</span>
-					<select
-						value=""
-						onchange={(e) => {
-							const v = (e.currentTarget as HTMLSelectElement).value;
-							(e.currentTarget as HTMLSelectElement).value = '';
-							if (v) handleAddTextAnimation(slot, v);
-						}}
-					>
-						<option value="" disabled>+ Effect…</option>
-						{#each SPLIT_MODES as mode (mode)}
-							{#if effectsBySplit[mode].length > 0}
-								<optgroup label={mode}>
-									{#each effectsBySplit[mode] as opt (opt.id)}
-										<option value={opt.id}>{opt.label}</option>
-									{/each}
-								</optgroup>
-							{/if}
-						{/each}
-					</select>
-				</div>
-			{/each}
-		</div>
+	<InspectorSection label="Text Motion">
+		{#each ['kicker', 'title', 'subtitle'] as const as slot (slot)}
+			<Field label={slot}>
+				<select
+					value=""
+					onchange={(e) => {
+						const v = (e.currentTarget as HTMLSelectElement).value;
+						(e.currentTarget as HTMLSelectElement).value = '';
+						if (v) handleAddTextAnimation(slot, v);
+					}}
+				>
+					<option value="" disabled>+ Effect…</option>
+					{#each SPLIT_MODES as mode (mode)}
+						{#if effectsBySplit[mode].length > 0}
+							<optgroup label={mode}>
+								{#each effectsBySplit[mode] as opt (opt.id)}
+									<option value={opt.id}>{opt.label}</option>
+								{/each}
+							</optgroup>
+						{/if}
+					{/each}
+				</select>
+			</Field>
+		{/each}
 
 		{#each overlayTextAnimations as entry (entry.id)}
 			<div class="anim-entry">
@@ -378,14 +355,14 @@
 						type="button"
 						class="remove-btn"
 						aria-label={`Remove text animation ${entry.id}`}
-						onclick={() => removeTextAnimation(entry.id)}
-					>×</button>
+						onclick={() => removeTextAnimation(entry.id)}>×</button
+					>
 				</div>
-				<div class="field-row">
-					<span class="field-label">Effect</span>
+				<Field label="Effect">
 					<select
 						value={entry.effect}
-						onchange={(e) => textAnimationEffectChange(entry, (e.currentTarget as HTMLSelectElement).value)}
+						onchange={(e) =>
+							textAnimationEffectChange(entry, (e.currentTarget as HTMLSelectElement).value)}
 					>
 						{#each SPLIT_MODES as mode (mode)}
 							<optgroup label={mode}>
@@ -395,9 +372,8 @@
 							</optgroup>
 						{/each}
 					</select>
-				</div>
-				<div class="timing-row">
-					<span class="field-label">Enter</span>
+				</Field>
+				<Field label="Enter">
 					<input
 						type="number"
 						min="0"
@@ -405,7 +381,8 @@
 						step="0.001"
 						value={entry.enter.start}
 						placeholder="start"
-						oninput={(e) => textAnimationEnterStartInput(entry, (e.currentTarget as HTMLInputElement).value)}
+						oninput={(e) =>
+							textAnimationEnterStartInput(entry, (e.currentTarget as HTMLInputElement).value)}
 					/>
 					<input
 						type="number"
@@ -414,19 +391,20 @@
 						step="0.001"
 						value={entry.enter.duration}
 						placeholder="dur"
-						oninput={(e) => textAnimationEnterDurationInput(entry, (e.currentTarget as HTMLInputElement).value)}
+						oninput={(e) =>
+							textAnimationEnterDurationInput(entry, (e.currentTarget as HTMLInputElement).value)}
 					/>
 					<select
 						value={entry.enter.ease}
-						onchange={(e) => textAnimationEnterEaseChange(entry, (e.currentTarget as HTMLSelectElement).value)}
+						onchange={(e) =>
+							textAnimationEnterEaseChange(entry, (e.currentTarget as HTMLSelectElement).value)}
 					>
 						{#each easeOptions as [value, option] (value)}
 							<option {value}>{option.label}</option>
 						{/each}
 					</select>
-				</div>
-				<div class="timing-row">
-					<span class="field-label">Speed ×</span>
+				</Field>
+				<Field label="Speed ×">
 					<input
 						type="number"
 						min="0.1"
@@ -434,89 +412,55 @@
 						step="0.1"
 						value={entry.params?.speedMultiplier ?? ''}
 						placeholder="1"
-						oninput={(e) => setTextAnimParam(entry, 'speedMultiplier', (e.currentTarget as HTMLInputElement).value)}
+						oninput={(e) =>
+							setTextAnimParam(entry, 'speedMultiplier', (e.currentTarget as HTMLInputElement).value)}
 					/>
-					<button type="button" class="clear-btn" onclick={() => clearTextAnimParam(entry, 'speedMultiplier')}>×</button>
-				</div>
-				<div class="timing-row">
-					<span class="field-label">Hold ms</span>
+					<button
+						type="button"
+						class="clear-btn"
+						onclick={() => clearTextAnimParam(entry, 'speedMultiplier')}>×</button
+					>
+				</Field>
+				<Field label="Hold ms">
 					<input
 						type="number"
 						min="0"
 						step="10"
 						value={entry.params?.holdMs ?? ''}
 						placeholder="default"
-						oninput={(e) => setTextAnimParam(entry, 'holdMs', (e.currentTarget as HTMLInputElement).value)}
+						oninput={(e) =>
+							setTextAnimParam(entry, 'holdMs', (e.currentTarget as HTMLInputElement).value)}
 					/>
-					<button type="button" class="clear-btn" onclick={() => clearTextAnimParam(entry, 'holdMs')}>×</button>
-				</div>
-				<div class="timing-row">
-					<span class="field-label">Gap ms</span>
+					<button type="button" class="clear-btn" onclick={() => clearTextAnimParam(entry, 'holdMs')}
+						>×</button
+					>
+				</Field>
+				<Field label="Gap ms">
 					<input
 						type="number"
 						min="0"
 						step="10"
 						value={entry.params?.gapMs ?? ''}
 						placeholder="default"
-						oninput={(e) => setTextAnimParam(entry, 'gapMs', (e.currentTarget as HTMLInputElement).value)}
+						oninput={(e) =>
+							setTextAnimParam(entry, 'gapMs', (e.currentTarget as HTMLInputElement).value)}
 					/>
-					<button type="button" class="clear-btn" onclick={() => clearTextAnimParam(entry, 'gapMs')}>×</button>
-				</div>
+					<button type="button" class="clear-btn" onclick={() => clearTextAnimParam(entry, 'gapMs')}
+						>×</button
+					>
+				</Field>
 			</div>
 		{/each}
-	</div>
+	</InspectorSection>
 {/if}
 
 <style>
-	.section {
-		border-block-end: var(--border-1);
-		display: grid;
-		gap: var(--vs-xs);
-		padding: var(--vs-s) var(--vs-base);
-	}
-
-	.section__header {
-		align-items: center;
-		display: flex;
-		gap: var(--vs-s);
-		justify-content: space-between;
-		padding-block-end: var(--vs-xs);
-	}
-
-	.section__label {
-		color: var(--fg-5);
-		font-size: 0.7rem;
-		font-weight: var(--fw-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-
-	.field-row {
-		align-items: center;
-		display: grid;
-		gap: var(--vs-xs);
-		grid-template-columns: 5rem 1fr;
-	}
-
-	.field-label {
-		color: var(--fg-6);
-		font-size: 0.8rem;
-	}
-
-	.slot-label {
-		text-transform: capitalize;
-	}
-
-	.slot-pickers {
-		display: grid;
-		gap: var(--vs-xs);
-	}
-
+	/* A text-animation entry: a sub-group separated by a hairline (not a card). */
 	.anim-entry {
 		border-block-start: var(--border-1);
 		display: grid;
-		gap: var(--vs-xs);
-		padding-block-start: var(--vs-xs);
+		gap: var(--vs-s);
+		padding-block-start: var(--vs-s);
 	}
 
 	.anim-entry__header {
@@ -533,26 +477,15 @@
 		text-transform: capitalize;
 	}
 
-	.timing-row {
-		align-items: center;
-		display: grid;
-		gap: var(--pad-xs);
-		grid-template-columns: 5rem 1fr 1fr 1fr;
-	}
-
-	.timing-row input,
-	.timing-row select {
-		font-size: 0.85rem;
-		min-inline-size: 0;
-	}
-
 	.remove-btn,
 	.clear-btn {
 		background: transparent;
 		border: 0;
 		color: var(--fg-4);
 		cursor: pointer;
+		flex: none;
 		font-size: 1rem;
+		line-height: 1;
 		padding: 0 var(--vs-xs);
 	}
 

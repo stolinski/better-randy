@@ -16,6 +16,8 @@
 	import { listSubstrateAssets } from './substrate-textures';
 	import type { EffectRenderer } from './pipelines/types';
 	import { compositionMeta } from './composition-meta.svelte';
+	import InspectorSection from './InspectorSection.svelte';
+	import Field from './Field.svelte';
 
 	interface Props {
 		handleExport: () => Promise<void>;
@@ -107,11 +109,8 @@
 		</div>
 	{/if}
 
-	<!-- TRANSPORT -->
-	<div class="section">
-		<div class="section__header"><span class="section__label">Transport</span></div>
-		<div class="field-row">
-			<span class="field-label">Duration</span>
+	<InspectorSection label="Transport">
+		<Field label="Duration">
 			<input
 				type="number"
 				min="1"
@@ -119,44 +118,31 @@
 				step="0.5"
 				bind:value={engineState.transport.durationSeconds}
 			/>
-			<span class="field-unit">s</span>
-		</div>
-		<div class="field-row">
-			<span class="field-label">FPS</span>
-			<input
-				type="number"
-				min="12"
-				max="60"
-				step="1"
-				bind:value={engineState.transport.fps}
-			/>
-		</div>
-		<div class="field-row">
-			<span class="field-label">Format</span>
+			<span class="unit">s</span>
+		</Field>
+		<Field label="FPS">
+			<input type="number" min="12" max="60" step="1" bind:value={engineState.transport.fps} />
+		</Field>
+		<Field label="Format">
 			<select bind:value={engineState.transport.format}>
 				<option value="webm">WebM VP9</option>
 				<option value="prores">MOV ProRes</option>
 			</select>
-		</div>
-	</div>
+		</Field>
+	</InspectorSection>
 
-	<!-- PACK -->
-	<div class="section">
-		<div class="section__header"><span class="section__label">Pack</span></div>
-		<div class="field-row">
-			<span class="field-label">Pack</span>
+	<InspectorSection label="Pack">
+		<Field label="Pack">
 			<select bind:value={packState.slug}>
 				{#each packOptions as [slug, pack] (slug)}
 					<option value={slug}>{pack.label}</option>
 				{/each}
 			</select>
-		</div>
-	</div>
+		</Field>
+	</InspectorSection>
 
-	<!-- EFFECTS -->
-	<div class="section">
-		<div class="section__header">
-			<span class="section__label">Effects</span>
+	<InspectorSection label="Effects">
+		{#snippet action()}
 			<select
 				value=""
 				onchange={handleAddEffect}
@@ -169,7 +155,7 @@
 					<option value={renderer.type}>{renderer.label}</option>
 				{/each}
 			</select>
-		</div>
+		{/snippet}
 		{#each engineState.effects as effect (effect.id)}
 			{@const renderer = findEffectRenderer(effect.type)}
 			{#if renderer}
@@ -179,8 +165,8 @@
 						type="button"
 						class="remove-btn"
 						aria-label={`Remove ${renderer.label}`}
-						onclick={() => removeEffect(effect.id)}
-					>×</button>
+						onclick={() => removeEffect(effect.id)}>×</button
+					>
 				</div>
 				{#if renderer.Editor}
 					{@const EffectEditor = renderer.Editor}
@@ -188,13 +174,10 @@
 				{/if}
 			{/if}
 		{/each}
-	</div>
+	</InspectorSection>
 
-	<!-- BACKGROUND -->
-	<div class="section">
-		<div class="section__header"><span class="section__label">Background</span></div>
-		<div class="field-row">
-			<span class="field-label">Fill</span>
+	<InspectorSection label="Background">
+		<Field label="Fill">
 			<input
 				type="checkbox"
 				checked={engineState.backgroundFill !== undefined}
@@ -209,19 +192,16 @@
 			{#if engineState.backgroundFill !== undefined}
 				<input type="color" bind:value={engineState.backgroundFill} />
 			{/if}
-		</div>
-	</div>
+		</Field>
+	</InspectorSection>
 
-	<!-- DEPTH STAGE -->
-	<div class="section">
-		<div class="section__header">
-			<span class="section__label">Depth Stage</span>
+	<InspectorSection label="Depth Stage">
+		{#snippet action()}
 			<input type="checkbox" checked={!!engineState.stage} onchange={toggleStage} />
-		</div>
+		{/snippet}
 		{#if engineState.stage}
 			{@const stage = engineState.stage}
-			<div class="field-row">
-				<span class="field-label">Camera</span>
+			<Field label="Camera">
 				<select
 					value={stage.camera.move}
 					onchange={(e) => {
@@ -235,10 +215,9 @@
 					<option value="push">Push</option>
 					<option value="drift">Drift</option>
 				</select>
-			</div>
+			</Field>
 			{#if stage.camera.move !== 'static'}
-				<div class="field-row">
-					<span class="field-label">Amount</span>
+				<Field label="Amount">
 					<input
 						type="number"
 						min="0"
@@ -250,9 +229,8 @@
 								parseFloat((e.currentTarget as HTMLInputElement).value) || 0.15;
 						}}
 					/>
-				</div>
-				<div class="field-row">
-					<span class="field-label">Ease</span>
+				</Field>
+				<Field label="Ease">
 					<select
 						value={stage.camera.ease}
 						onchange={(e) => {
@@ -263,10 +241,9 @@
 							<option {value}>{opt.label}</option>
 						{/each}
 					</select>
-				</div>
+				</Field>
 			{/if}
-			<div class="field-row">
-				<span class="field-label">Focus Z</span>
+			<Field label="Focus Z">
 				<input
 					type="number"
 					min="0"
@@ -278,9 +255,8 @@
 							parseFloat((e.currentTarget as HTMLInputElement).value) || 0;
 					}}
 				/>
-			</div>
-			<div class="field-row">
-				<span class="field-label">Aperture</span>
+			</Field>
+			<Field label="Aperture">
 				<input
 					type="number"
 					min="0"
@@ -292,9 +268,8 @@
 							parseFloat((e.currentTarget as HTMLInputElement).value) || 0;
 					}}
 				/>
-			</div>
-			<div class="field-row">
-				<span class="field-label">Band</span>
+			</Field>
+			<Field label="Band">
 				<input
 					type="number"
 					min="0"
@@ -306,22 +281,15 @@
 							parseFloat((e.currentTarget as HTMLInputElement).value) || 0;
 					}}
 				/>
-			</div>
-			<div class="field-row">
-				<span class="field-label">Rack focus</span>
+			</Field>
+			<Field label="Rack focus">
 				<input type="checkbox" checked={!!stage.focus.pull} onchange={toggleRackFocus} />
-			</div>
-			<div class="field-row">
-				<span class="field-label">Backdrop img</span>
-				<input
-					type="checkbox"
-					checked={!!stage.backdrop?.image}
-					onchange={toggleBackdropImage}
-				/>
-			</div>
+			</Field>
+			<Field label="Backdrop">
+				<input type="checkbox" checked={!!stage.backdrop?.image} onchange={toggleBackdropImage} />
+			</Field>
 			{#if stage.backdrop?.image}
-				<div class="field-row">
-					<span class="field-label">Asset</span>
+				<Field label="Asset">
 					<select
 						value={stage.backdrop.image.asset}
 						onchange={(e) => {
@@ -335,20 +303,13 @@
 							<option value={asset}>{asset}</option>
 						{/each}
 					</select>
-				</div>
+				</Field>
 			{/if}
 		{/if}
-	</div>
+	</InspectorSection>
 
-	<!-- EXPORT -->
-	<div class="section">
-		<div class="section__header"><span class="section__label">Export</span></div>
-		<button
-			class="export-btn"
-			type="button"
-			disabled={isExporting}
-			onclick={handleExport}
-		>
+	<InspectorSection label="Export">
+		<button class="export-btn" type="button" disabled={isExporting} onclick={handleExport}>
 			{isExporting ? `Exporting ${progressPercent}%…` : 'Export'}
 		</button>
 		{#if isExporting}
@@ -357,7 +318,7 @@
 		{#if status}
 			<p class="export-status">{status}</p>
 		{/if}
-	</div>
+	</InspectorSection>
 </div>
 
 <style>
@@ -366,51 +327,13 @@
 		gap: 0;
 	}
 
-	/* ---- Section (ADR-0034 §9): 1px divider + inline all-caps label ---- */
-
-	.section {
-		border-block-end: var(--border-1);
-		display: grid;
-		gap: var(--vs-xs);
-		padding: var(--vs-s) var(--vs-base);
-	}
-
-	.section__header {
-		align-items: center;
-		display: flex;
-		gap: var(--vs-s);
-		justify-content: space-between;
-		padding-block-end: var(--vs-xs);
-	}
-
-	.section__label {
+	.unit {
 		color: var(--fg-5);
-		font-size: 0.7rem;
-		font-weight: var(--fw-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-
-	/* ---- Field rows ---- */
-
-	.field-row {
-		align-items: center;
-		display: grid;
-		gap: var(--vs-xs);
-		grid-template-columns: 5rem 1fr auto;
-	}
-
-	.field-label {
-		color: var(--fg-6);
-		font-size: 0.8rem;
-	}
-
-	.field-unit {
-		color: var(--fg-5);
+		flex: none;
 		font-size: 0.75rem;
 	}
 
-	/* ---- Effect entries ---- */
+	/* ---- Effect entries (no card: just a row + the effect's own editor) ---- */
 
 	.layer-row {
 		align-items: center;

@@ -8,6 +8,8 @@
 		type TextAnimation,
 		type TextAnimationParams
 	} from './engine-schema';
+	import InspectorSection from './InspectorSection.svelte';
+	import Field from './Field.svelte';
 
 	interface Props {
 		animId: string;
@@ -47,19 +49,14 @@
 
 {#if entry}
 	<div class="textanim-inspector">
-		<!-- EFFECT -->
-		<div class="section">
-			<div class="section__header">
-				<span class="section__label">Text Motion</span>
-				<button
-					type="button"
-					class="remove-btn"
-					onclick={() => removeTextAnimation(entry.id)}
-				>Remove</button>
-			</div>
-			<div class="target-label">{describeTarget(entry)}</div>
-			<div class="field-row">
-				<span class="field-label">Effect</span>
+		<InspectorSection label="Text Motion">
+			{#snippet action()}
+				<button type="button" class="remove-btn" onclick={() => removeTextAnimation(entry.id)}>
+					Remove
+				</button>
+			{/snippet}
+			<p class="target-label">{describeTarget(entry)}</p>
+			<Field label="Effect">
 				<select
 					value={entry.effect}
 					onchange={(e) => {
@@ -75,36 +72,37 @@
 						</optgroup>
 					{/each}
 				</select>
-			</div>
-		</div>
+			</Field>
+		</InspectorSection>
 
-		<!-- ENTER -->
-		<div class="section">
-			<div class="section__header"><span class="section__label">Enter</span></div>
-			<div class="field-row">
-				<span class="field-label">Start</span>
+		<InspectorSection label="Enter">
+			<Field label="Start">
 				<input
-					type="number" min="0" max="1" step="0.001"
+					type="number"
+					min="0"
+					max="1"
+					step="0.001"
 					value={entry.enter.start}
 					oninput={(e) => {
 						const n = Number((e.currentTarget as HTMLInputElement).value);
 						if (Number.isFinite(n)) entry.enter.start = Math.max(0, Math.min(1, n));
 					}}
 				/>
-			</div>
-			<div class="field-row">
-				<span class="field-label">Duration</span>
+			</Field>
+			<Field label="Duration">
 				<input
-					type="number" min="0" max="1" step="0.001"
+					type="number"
+					min="0"
+					max="1"
+					step="0.001"
 					value={entry.enter.duration}
 					oninput={(e) => {
 						const n = Number((e.currentTarget as HTMLInputElement).value);
 						if (Number.isFinite(n)) entry.enter.duration = Math.max(0, Math.min(1, n));
 					}}
 				/>
-			</div>
-			<div class="field-row">
-				<span class="field-label">Ease</span>
+			</Field>
+			<Field label="Ease">
 				<select
 					value={entry.enter.ease}
 					onchange={(e) => {
@@ -115,43 +113,50 @@
 						<option {value}>{option.label}</option>
 					{/each}
 				</select>
-			</div>
-		</div>
+			</Field>
+		</InspectorSection>
 
-		<!-- PARAMS -->
-		<div class="section">
-			<div class="section__header"><span class="section__label">Parameters</span></div>
-			<div class="param-row">
-				<span class="field-label">Speed ×</span>
+		<InspectorSection label="Parameters">
+			<Field label="Speed ×">
 				<input
-					type="number" min="0.1" max="10" step="0.1"
+					type="number"
+					min="0.1"
+					max="10"
+					step="0.1"
 					value={entry.params?.speedMultiplier ?? ''}
 					placeholder="1"
-					oninput={(e) => setParam(entry, 'speedMultiplier', (e.currentTarget as HTMLInputElement).value)}
+					oninput={(e) =>
+						setParam(entry, 'speedMultiplier', (e.currentTarget as HTMLInputElement).value)}
 				/>
-				<button type="button" class="clear-btn" onclick={() => clearParam(entry, 'speedMultiplier')}>×</button>
-			</div>
-			<div class="param-row">
-				<span class="field-label">Hold ms</span>
+				<button
+					type="button"
+					class="clear-btn"
+					onclick={() => clearParam(entry, 'speedMultiplier')}>×</button
+				>
+			</Field>
+			<Field label="Hold ms">
 				<input
-					type="number" min="0" step="10"
+					type="number"
+					min="0"
+					step="10"
 					value={entry.params?.holdMs ?? ''}
 					placeholder="default"
 					oninput={(e) => setParam(entry, 'holdMs', (e.currentTarget as HTMLInputElement).value)}
 				/>
 				<button type="button" class="clear-btn" onclick={() => clearParam(entry, 'holdMs')}>×</button>
-			</div>
-			<div class="param-row">
-				<span class="field-label">Gap ms</span>
+			</Field>
+			<Field label="Gap ms">
 				<input
-					type="number" min="0" step="10"
+					type="number"
+					min="0"
+					step="10"
 					value={entry.params?.gapMs ?? ''}
 					placeholder="default"
 					oninput={(e) => setParam(entry, 'gapMs', (e.currentTarget as HTMLInputElement).value)}
 				/>
 				<button type="button" class="clear-btn" onclick={() => clearParam(entry, 'gapMs')}>×</button>
-			</div>
-		</div>
+			</Field>
+		</InspectorSection>
 	</div>
 {/if}
 
@@ -161,58 +166,18 @@
 		gap: 0;
 	}
 
-	.section {
-		border-block-end: var(--border-1);
-		display: grid;
-		gap: var(--vs-xs);
-		padding: var(--vs-s) var(--vs-base);
-	}
-
-	.section__header {
-		align-items: center;
-		display: flex;
-		justify-content: space-between;
-		padding-block-end: var(--vs-xs);
-	}
-
-	.section__label {
-		color: var(--fg-5);
-		font-size: 0.7rem;
-		font-weight: var(--fw-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-
 	.target-label {
 		color: var(--fg-6);
 		font-size: 0.75rem;
-	}
-
-	.field-row {
-		align-items: center;
-		display: grid;
-		gap: var(--vs-xs);
-		grid-template-columns: 5rem 1fr;
-	}
-
-	.param-row {
-		align-items: center;
-		display: grid;
-		gap: var(--vs-xs);
-		grid-template-columns: 5rem 1fr auto;
-	}
-
-	.field-label {
-		color: var(--fg-6);
-		font-size: 0.8rem;
+		margin: 0;
 	}
 
 	.remove-btn {
 		background: transparent;
 		border: 0;
-		color: #E6322A;
+		color: #e6322a;
 		cursor: pointer;
-		font-size: 0.75rem;
+		font-size: 0.72rem;
 		padding: 0;
 	}
 
@@ -221,8 +186,10 @@
 		border: 0;
 		color: var(--fg-4);
 		cursor: pointer;
+		flex: none;
 		font-size: 0.85rem;
-		padding: 0;
+		line-height: 1;
+		padding: 0 var(--vs-xs);
 	}
 
 	.clear-btn:hover {

@@ -92,6 +92,62 @@
 		overflow-y: auto;
 	}
 
+	/* Tool-grade controls: the default Graffiti form inputs are comfortable web
+	   inputs (38px tall, 18px text) which read as a bloated form in an inspector.
+	   Compact them to a dense, DaVinci-style scale across every inspector. */
+	.inspector :global(input:not([type='checkbox']):not([type='range']):not([type='color'])),
+	.inspector :global(select),
+	.inspector :global(textarea) {
+		block-size: auto;
+		border-radius: var(--br-xs);
+		font-size: 0.78rem;
+		line-height: 1.2;
+		min-block-size: 0;
+		padding-block: 0.28rem;
+		padding-inline: 0.5rem;
+	}
+
+	.inspector :global(input[type='color']) {
+		block-size: 1.6rem;
+		inline-size: 2.4rem;
+		padding: 2px;
+	}
+
+	.inspector :global(input[type='range']) {
+		inline-size: 100%;
+	}
+
+	/* Checkboxes + sliders take the tool accent (§7) instead of browser blue. */
+	.inspector :global(input[type='checkbox']),
+	.inspector :global(input[type='range']) {
+		accent-color: #ffd608;
+	}
+
+	/* Focused control gets the yellow selection accent (§7). */
+	.inspector :global(input:focus-visible),
+	.inspector :global(select:focus-visible),
+	.inspector :global(textarea:focus-visible) {
+		border-color: #ffd608;
+		outline: none;
+	}
+
+	/* Graffiti's `.row` (used by the per-type content editors) defaults to a
+	   stacked, roomy form layout. Pull it onto the same label-left, dense grid as
+	   the shared Field so content editors read as one system. (Field-level curation
+	   of those editors is a separate pass.) */
+	.inspector :global(.row) {
+		align-items: center;
+		column-gap: var(--vs-s);
+		display: grid;
+		grid-template-columns: var(--ins-label-w, 5.5rem) minmax(0, 1fr);
+		margin: 0;
+	}
+
+	.inspector :global(.row > span) {
+		color: var(--fg-6);
+		font-size: 0.8rem;
+	}
+
 	.generic-label {
 		align-items: flex-start;
 		display: flex;
