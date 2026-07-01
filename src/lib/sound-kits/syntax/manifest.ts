@@ -9,12 +9,11 @@ import type { SoundKitManifest } from '../../platform/sound-kits/types';
  *
  * Sample provenance (all CC0 / public domain, sourced from freesound.org,
  * processed to 48 kHz stereo WAV + peak-normalized via ffmpeg):
- * - syntax-whoosh-in  — "SFX_WOOSH_002" by henrikcederblad,
- *   freesound.org/people/henrikcederblad/sounds/620192/ (crescendo air,
- *   energy builds into the landing — matches the enter's settle).
- * - syntax-whoosh-out — "Whoosh stereo light (transition)" by xkeril,
- *   freesound.org/people/xkeril/sounds/701104/ (peak-early decay — the
- *   energy departs with the exit).
+ * - syntax-whoosh-in / syntax-whoosh-out — "quick woosh" by florianreichelt,
+ *   freesound.org/people/florianreichelt/sounds/683101/ — one ~180 ms
+ *   YouTube-style fwip, trimmed tight; the OUT is the forward swish (energy
+ *   departs), the IN is the same swish REVERSED (rises into the landing), so
+ *   both directions read as one family.
  * - syntax-bed-texture (asset, not kit-resolved) — "Ambient Cinematic
  *   Texture [90bpm] [F# Minor]" by deadrobotmusic,
  *   freesound.org/people/deadrobotmusic/sounds/664150/ (trimmed to 12 s,

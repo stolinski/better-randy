@@ -361,12 +361,14 @@
 					</select>
 				</Field>
 				<Field label="Window">
+					<!-- Display rounded to the drag grain — a rail drag writes raw floats
+					     (0.0498735…) that would otherwise spill into the input. -->
 					<input
 						type="number"
 						min="0"
 						max="1"
 						step="0.001"
-						value={cue.start}
+						value={Math.round(cue.start * 1000) / 1000}
 						oninput={(e) =>
 							setCueFraction(cue, 'start', (e.currentTarget as HTMLInputElement).value)}
 					/>
@@ -375,7 +377,7 @@
 						min="0"
 						max="1"
 						step="0.001"
-						value={cue.duration}
+						value={Math.round(cue.duration * 1000) / 1000}
 						oninput={(e) =>
 							setCueFraction(cue, 'duration', (e.currentTarget as HTMLInputElement).value)}
 					/>

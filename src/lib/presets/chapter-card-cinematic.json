@@ -41,22 +41,6 @@
 		},
 		"textAnimations": [
 			{
-				"id": "kicker-fade",
-				"target": {
-					"kind": "surface",
-					"slot": "kicker"
-				},
-				"effect": "fade-through",
-				"enter": {
-					"start": 0.06,
-					"duration": 0.05,
-					"ease": "settled",
-					"sound": {
-						"mute": true
-					}
-				}
-			},
-			{
 				"id": "title-reveal",
 				"target": {
 					"kind": "surface",

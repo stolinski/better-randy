@@ -394,10 +394,8 @@
 				ontoggle={onAddMenuToggle}
 			>
 				{#each overlayRenderers as renderer (renderer.type)}
-					<button
-						class="add-menu__item"
-						type="button"
-						onclick={() => pickOverlay(renderer.type)}>{renderer.label}</button
+					<button class="add-menu__item" type="button" onclick={() => pickOverlay(renderer.type)}
+						>{renderer.label}</button
 					>
 				{/each}
 				<div class="add-menu__divider" role="presentation"></div>
@@ -417,76 +415,86 @@
 	>
 		<div class="track-ruler" aria-hidden="true"></div>
 
-		<div class="outline__tracks" bind:this={trackAreaEl} onscroll={onTrackScroll} role="presentation">
+		<div
+			class="outline__tracks"
+			bind:this={trackAreaEl}
+			onscroll={onTrackScroll}
+			role="presentation"
+		>
 			{#each tracks as track (track.id)}
 				<div class="track-lane">
-				{#each track.transitions as transition (transition.id)}
-					{@const isUnified = transition.unified !== undefined}
-					{@const hasEnter = transition.unified?.enterStart !== undefined}
-					{@const hasExit = transition.unified?.exitStart !== undefined}
-					<!-- enterZone / exitZone are the PERCEIVED ramp widths (ADR-0034 §2a):
+					{#each track.transitions as transition (transition.id)}
+						{@const isUnified = transition.unified !== undefined}
+						{@const hasEnter = transition.unified?.enterStart !== undefined}
+						{@const hasExit = transition.unified?.exitStart !== undefined}
+						<!-- enterZone / exitZone are the PERCEIVED ramp widths (ADR-0034 §2a):
 					     computeUnifiedBar has already collapsed each ease's invisible tail,
 					     so the standard ramp gradient + handles land on real motion edges. -->
-					{@const enterPct = (transition.enterZone ?? 0) * 100}
-					{@const exitPct = (transition.exitZone ?? 0) * 100}
-					{@const label = transition.label ?? track.label}
-					<div
-						class="track-transition"
-						class:track-transition--unified={isUnified}
-						class:track-transition--selected={isTransitionSelected(track.id, transition.id)}
-						class:track-transition--ramp-in={!isUnified && transition.ramp === 'in'}
-						class:track-transition--ramp-out={!isUnified && transition.ramp === 'out'}
-						onpointerdown={(event) => startTransitionDrag(event, track, transition, 'move')}
-						role="presentation"
-						style:--track-color={transition.color ?? track.color ?? 'var(--fg-2)'}
-						style:--enter-pct="{enterPct}%"
-						style:--exit-pct="{exitPct}%"
-						style:left="{transition.start * 100}%"
-						style:width="{transition.duration * 100}%"
-					>
-						{#if !isUnified || hasEnter}
-							<button
-								aria-label="Trim {label} start"
-								class="track-handle track-handle--left"
-								onpointerdown={(event) =>
-									startTransitionDrag(event, track, transition, isUnified ? 'trim-start' : 'left')}
-								type="button"
-							></button>
-						{/if}
-						{#if isUnified && hasEnter && enterPct > 0}
-							<button
-								aria-label="Adjust {label} enter fade"
-								class="track-handle track-handle--enter-zone"
-								style:left="{enterPct}%"
-								onpointerdown={(event) =>
-									startTransitionDrag(event, track, transition, 'enter-zone')}
-								type="button"
-							></button>
-						{/if}
-						<span class="track-label">{label}</span>
-						{#if isUnified && hasExit && exitPct > 0}
-							<button
-								aria-label="Adjust {label} exit fade"
-								class="track-handle track-handle--exit-zone"
-								style:right="{exitPct}%"
-								onpointerdown={(event) =>
-									startTransitionDrag(event, track, transition, 'exit-zone')}
-								type="button"
-							></button>
-						{/if}
-						{#if !isUnified || hasExit}
-							<button
-								aria-label="Trim {label} end"
-								class="track-handle track-handle--right"
-								onpointerdown={(event) =>
-									startTransitionDrag(event, track, transition, isUnified ? 'trim-end' : 'right')}
-								type="button"
-							></button>
-						{/if}
-					</div>
-				{/each}
-			</div>
-		{/each}
+						{@const enterPct = (transition.enterZone ?? 0) * 100}
+						{@const exitPct = (transition.exitZone ?? 0) * 100}
+						{@const label = transition.label ?? track.label}
+						<div
+							class="track-transition"
+							class:track-transition--unified={isUnified}
+							class:track-transition--selected={isTransitionSelected(track.id, transition.id)}
+							class:track-transition--ramp-in={!isUnified && transition.ramp === 'in'}
+							class:track-transition--ramp-out={!isUnified && transition.ramp === 'out'}
+							onpointerdown={(event) => startTransitionDrag(event, track, transition, 'move')}
+							role="presentation"
+							style:--track-color={transition.color ?? track.color ?? 'var(--fg-2)'}
+							style:--enter-pct="{enterPct}%"
+							style:--exit-pct="{exitPct}%"
+							style:left="{transition.start * 100}%"
+							style:width="{transition.duration * 100}%"
+						>
+							{#if isUnified ? hasEnter : transition.onUpdate !== undefined}
+								<button
+									aria-label="Trim {label} start"
+									class="track-handle track-handle--left"
+									onpointerdown={(event) =>
+										startTransitionDrag(
+											event,
+											track,
+											transition,
+											isUnified ? 'trim-start' : 'left'
+										)}
+									type="button"
+								></button>
+							{/if}
+							{#if isUnified && hasEnter && enterPct > 0}
+								<button
+									aria-label="Adjust {label} enter fade"
+									class="track-handle track-handle--enter-zone"
+									style:left="{enterPct}%"
+									onpointerdown={(event) =>
+										startTransitionDrag(event, track, transition, 'enter-zone')}
+									type="button"
+								></button>
+							{/if}
+							<span class="track-label">{label}</span>
+							{#if isUnified && hasExit && exitPct > 0}
+								<button
+									aria-label="Adjust {label} exit fade"
+									class="track-handle track-handle--exit-zone"
+									style:right="{exitPct}%"
+									onpointerdown={(event) =>
+										startTransitionDrag(event, track, transition, 'exit-zone')}
+									type="button"
+								></button>
+							{/if}
+							{#if isUnified ? hasExit : transition.onUpdate !== undefined}
+								<button
+									aria-label="Trim {label} end"
+									class="track-handle track-handle--right"
+									onpointerdown={(event) =>
+										startTransitionDrag(event, track, transition, isUnified ? 'trim-end' : 'right')}
+									type="button"
+								></button>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{/each}
 		</div>
 
 		<div class="track-playhead" style:left="{playheadFraction * 100}%"></div>
@@ -814,7 +822,6 @@
 		margin-inline: var(--lane-gap);
 		position: relative;
 	}
-
 
 	.track-transition {
 		align-items: center;
