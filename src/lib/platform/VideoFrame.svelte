@@ -12,6 +12,10 @@
 		orientation?: VideoOrientation;
 		label?: string;
 		showCheckerboard?: boolean;
+		/** Preview-only reference still rendered under the transparent canvas so an
+		 *  overlay is judged over real footage. Never part of the composition or
+		 *  the export — the export path renders the composition alone. */
+		backdropUrl?: string | null;
 		/** Display zoom multiplier on the fit size (1 = fit). CSS transform only —
 		 *  the native canvas resolution is unchanged. */
 		zoom?: number;
@@ -29,6 +33,7 @@
 		orientation = 'horizontal',
 		label = 'Composition',
 		showCheckerboard = true,
+		backdropUrl = null,
 		zoom = 1,
 		panX = 0,
 		panY = 0,
@@ -49,12 +54,15 @@
 	<div class="video-frame__fit">
 		<div
 			class="video-frame__viewport"
-			class:video-frame__viewport--no-checker={!showCheckerboard}
+			class:video-frame__viewport--no-checker={!showCheckerboard || backdropUrl !== null}
 			class:video-frame__viewport--panning={isPanning}
 			style:--zoom={zoom}
 			style:--pan-x="{panX}px"
 			style:--pan-y="{panY}px"
 		>
+			{#if backdropUrl}
+				<img class="video-frame__backdrop" src={backdropUrl} alt="" />
+			{/if}
 			<canvas
 				aria-label={label}
 				bind:this={canvas}
@@ -127,6 +135,16 @@
 
 	.video-frame__viewport--no-checker {
 		background: var(--surface-1, #111);
+	}
+
+	/* Sits under the premultiplied-alpha transparent canvas, so the overlay
+	   composites over it visually. Cover-cropped to the frame like footage. */
+	.video-frame__backdrop {
+		block-size: 100%;
+		inline-size: 100%;
+		inset: 0;
+		object-fit: cover;
+		position: absolute;
 	}
 
 	.video-frame__canvas {

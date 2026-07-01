@@ -2,10 +2,17 @@
 	import type { Timeline } from './timeline.svelte';
 	import { engineState } from './engine-state.svelte';
 
+	interface BackdropEntry {
+		name: string;
+		url: string;
+	}
+
 	interface Props {
 		timeline: Timeline | null;
 		showCheckerboard?: boolean;
 		onToggleCheckerboard?: () => void;
+		backdropUrl?: string | null;
+		onSelectBackdrop?: (url: string | null) => void;
 		zoom?: number;
 		onZoomIn?: () => void;
 		onZoomOut?: () => void;
@@ -16,11 +23,61 @@
 		timeline,
 		showCheckerboard = true,
 		onToggleCheckerboard,
+		backdropUrl = null,
+		onSelectBackdrop,
 		zoom = 1,
 		onZoomIn,
 		onZoomOut,
 		onZoomFit
 	}: Props = $props();
+
+	// ─── Backdrop picker ─────────────────────────────────────────────────────────
+	// Reference stills for judging an overlay over real footage (ADR-0034 §7). The
+	// list is re-fetched every open so a still dropped into static/backdrops/
+	// appears without a reload. Renders in the top layer (popover), anchored above
+	// the trigger on open.
+
+	let backdrops = $state<BackdropEntry[]>([]);
+	let backdropMenuEl = $state<HTMLDivElement | null>(null);
+	let backdropTriggerEl = $state<HTMLButtonElement | null>(null);
+
+	function isBackdropEntry(value: unknown): value is BackdropEntry {
+		return (
+			typeof value === 'object' &&
+			value !== null &&
+			typeof (value as Record<string, unknown>)['name'] === 'string' &&
+			typeof (value as Record<string, unknown>)['url'] === 'string'
+		);
+	}
+
+	async function loadBackdrops(): Promise<void> {
+		try {
+			const response = await fetch('/api/backdrops');
+			const data: unknown = await response.json();
+			backdrops = Array.isArray(data) ? data.filter(isBackdropEntry) : [];
+		} catch (error) {
+			console.error('Failed to load backdrops', error);
+			backdrops = [];
+		}
+	}
+
+	function positionBackdropMenu(): void {
+		if (!backdropMenuEl || !backdropTriggerEl) return;
+		const rect = backdropTriggerEl.getBoundingClientRect();
+		backdropMenuEl.style.right = `${window.innerWidth - rect.right}px`;
+		backdropMenuEl.style.bottom = `${window.innerHeight - rect.top + 6}px`;
+	}
+
+	function onBackdropMenuToggle(event: ToggleEvent): void {
+		if (event.newState !== 'open') return;
+		positionBackdropMenu();
+		void loadBackdrops();
+	}
+
+	function pickBackdrop(url: string): void {
+		onSelectBackdrop?.(url === backdropUrl ? null : url);
+		backdropMenuEl?.hidePopover();
+	}
 
 	const canZoomIn = $derived(zoom < 4 - 1e-6);
 	const canZoomOut = $derived(zoom > 0.5 + 1e-6);
@@ -170,7 +227,7 @@
 
 		<button
 			class="controls-bar__btn"
-			class:controls-bar__btn--active={showCheckerboard}
+			class:controls-bar__btn--active={showCheckerboard && !backdropUrl}
 			type="button"
 			aria-label="Toggle checkerboard"
 			onclick={onToggleCheckerboard}
@@ -184,6 +241,33 @@
 				<rect x="4" y="12" width="4" height="4" fill="currentColor" fill-opacity="0.7" />
 				<rect x="8" y="8" width="4" height="4" fill="currentColor" fill-opacity="0.7" />
 				<rect x="12" y="12" width="4" height="4" fill="currentColor" fill-opacity="0.7" />
+			</svg>
+		</button>
+
+		<button
+			class="controls-bar__btn"
+			class:controls-bar__btn--active={backdropUrl !== null}
+			type="button"
+			aria-label="Pick reference backdrop"
+			popovertarget="backdrop-menu"
+			bind:this={backdropTriggerEl}
+		>
+			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 18 18" aria-hidden="true">
+				<path
+					fill-rule="evenodd"
+					clip-rule="evenodd"
+					d="M2.00098 4.75C2.00098 3.23119 3.23217 2 4.75098 2H13.251C14.7698 2 16.001 3.23119 16.001 4.75V13.25C16.001 14.7688 14.7698 16 13.251 16H4.75098C3.23217 16 2.00098 14.7688 2.00098 13.25V4.75Z"
+					fill="currentColor"
+					fill-opacity="0.4"
+				/>
+				<path
+					d="M16.001 13.25V12.1893L13.1953 9.38367C12.1214 8.30977 10.3806 8.30977 9.30667 9.38367L3.18172 15.5086C3.62674 15.8184 4.16765 16 4.75098 16H13.251C14.7698 16 16.001 14.7688 16.001 13.25Z"
+					fill="currentColor"
+				/>
+				<path
+					d="M6.25098 8.5C6.94138 8.5 7.50098 7.9404 7.50098 7.25C7.50098 6.5596 6.94138 6 6.25098 6C5.56058 6 5.00098 6.5596 5.00098 7.25C5.00098 7.9404 5.56058 8.5 6.25098 8.5Z"
+					fill="currentColor"
+				/>
 			</svg>
 		</button>
 
@@ -204,6 +288,32 @@
 			{/if}
 		</button>
 	</div>
+</div>
+
+<!-- Top-layer backdrop picker — opens upward from the trigger, thumbnails are
+     the labels. Picking the active still again returns to the checkerboard. -->
+<div
+	class="backdrop-menu"
+	id="backdrop-menu"
+	popover
+	bind:this={backdropMenuEl}
+	ontoggle={onBackdropMenuToggle}
+>
+	{#if backdrops.length === 0}
+		<span class="backdrop-menu__empty">No stills in static/backdrops/</span>
+	{:else}
+		{#each backdrops as backdrop (backdrop.url)}
+			<button
+				class="backdrop-menu__item"
+				class:backdrop-menu__item--active={backdrop.url === backdropUrl}
+				type="button"
+				onclick={() => pickBackdrop(backdrop.url)}
+			>
+				<img class="backdrop-menu__thumb" src={backdrop.url} alt="" loading="lazy" />
+				<span class="backdrop-menu__name">{backdrop.name}</span>
+			</button>
+		{/each}
+	{/if}
 </div>
 
 <style>
@@ -302,6 +412,96 @@
 
 	.controls-bar__btn--orientation {
 		inline-size: 28px;
+	}
+
+	/* Top-layer backdrop picker — same popover treatment as the timeline add
+	   menu: escapes clipping, opens upward, right-edge anchored to the trigger. */
+	.backdrop-menu {
+		background: var(--bg);
+		border: var(--border-1);
+		border-radius: var(--br-s);
+		box-shadow: 0 8px 24px rgb(0 0 0 / 0.5);
+		display: flex;
+		flex-direction: column;
+		gap: var(--vs-xs);
+		inset: auto;
+		margin: 0;
+		max-block-size: 60vh;
+		opacity: 1;
+		overflow-y: auto;
+		padding: var(--vs-xs);
+		position: fixed;
+		transform: translateY(0) scale(1);
+		transform-origin: bottom right;
+		transition:
+			opacity 120ms ease,
+			transform 160ms var(--ease-smooth),
+			overlay 160ms allow-discrete,
+			display 160ms allow-discrete;
+	}
+
+	.backdrop-menu:not(:popover-open) {
+		opacity: 0;
+		transform: translateY(6px) scale(0.97);
+	}
+
+	@starting-style {
+		.backdrop-menu:popover-open {
+			opacity: 0;
+			transform: translateY(6px) scale(0.97);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.backdrop-menu {
+			transition-duration: 1ms;
+		}
+	}
+
+	.backdrop-menu__empty {
+		color: var(--fg-5);
+		font-size: 0.72rem;
+		padding: var(--vs-xs) var(--vs-s);
+		white-space: nowrap;
+	}
+
+	.backdrop-menu__item {
+		background: transparent;
+		border: 0;
+		border-radius: var(--br-xs);
+		cursor: pointer;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		padding: 4px;
+		text-align: start;
+		transition: background-color 100ms ease;
+	}
+
+	.backdrop-menu__item:hover {
+		background: var(--fg-1);
+	}
+
+	.backdrop-menu__thumb {
+		aspect-ratio: 16 / 9;
+		border-radius: var(--br-xs);
+		display: block;
+		inline-size: 11rem;
+		object-fit: cover;
+	}
+
+	.backdrop-menu__item--active .backdrop-menu__thumb {
+		box-shadow: 0 0 0 2px #ffd608;
+	}
+
+	.backdrop-menu__name {
+		color: var(--fg-6);
+		font-size: 0.72rem;
+		padding-inline: 2px;
+	}
+
+	.backdrop-menu__item--active .backdrop-menu__name {
+		color: var(--fg);
 	}
 
 	.controls-bar__time {

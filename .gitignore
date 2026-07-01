@@ -32,3 +32,7 @@ vite.config.ts.timestamp-*
 
 # Composition posters — rendered picker previews, regenerable, never committed
 /.posters
+
+# Reference backdrop stills — local preview aids for judging overlays over
+# footage (ADR-0034 §7); personal footage frames, never committed
+/static/backdrops

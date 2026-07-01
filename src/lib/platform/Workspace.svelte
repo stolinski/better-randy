@@ -168,6 +168,10 @@
 	let progress = $state(0);
 	let status = $state('');
 	let showCheckerboard = $state(true);
+	// Preview-only reference still behind the transparent canvas (ADR-0034 §7) —
+	// judges an overlay over real footage. Never part of the composition or the
+	// export. Overrides the checkerboard while set.
+	let backdropUrl = $state<string | null>(null);
 
 	// Display zoom — a multiplier on the fit-to-window size (1 = fit = 100%). It
 	// is a CSS transform on the displayed canvas only; the native render
@@ -1798,7 +1802,11 @@
 	}
 </script>
 
-<svelte:window onkeydown={handleKeydown} bind:innerWidth={viewportWidth} bind:innerHeight={viewportHeight} />
+<svelte:window
+	onkeydown={handleKeydown}
+	bind:innerWidth={viewportWidth}
+	bind:innerHeight={viewportHeight}
+/>
 
 <main class="workspace" style:--timeline-h="{effectiveTimelineHeight}px">
 	<header class="workspace__topbar">
@@ -1828,6 +1836,7 @@
 			bind:canvas
 			orientation={engineState.transport.orientation}
 			{showCheckerboard}
+			{backdropUrl}
 			{zoom}
 			{panX}
 			{panY}
@@ -1865,7 +1874,18 @@
 			{timeline}
 			{showCheckerboard}
 			onToggleCheckerboard={() => {
-				showCheckerboard = !showCheckerboard;
+				if (backdropUrl !== null) {
+					// The backdrop overrides the checkerboard — toggling the checker
+					// back on means "return to checkerboard", so clear the backdrop.
+					backdropUrl = null;
+					showCheckerboard = true;
+				} else {
+					showCheckerboard = !showCheckerboard;
+				}
+			}}
+			{backdropUrl}
+			onSelectBackdrop={(url) => {
+				backdropUrl = url;
 			}}
 			{zoom}
 			onZoomIn={zoomIn}
