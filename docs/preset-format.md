@@ -4,10 +4,12 @@ A preset is a single JSON document validated by `PresetSchema` (`src/lib/platfor
 
 ```jsonc
 {
-  "schema": "hiviz@1",
-  "name": "Human-readable preset name",
-  "description": "Optional one-line summary.",
-  "state": { /* EngineState — see below */ }
+	"schema": "hiviz@1",
+	"name": "Human-readable preset name",
+	"description": "Optional one-line summary.",
+	"state": {
+		/* EngineState — see below */
+	}
 }
 ```
 
@@ -46,9 +48,11 @@ A preset is a single JSON document validated by `PresetSchema` (`src/lib/platfor
   "timings": [
     { "start": 0..1, "duration": 0..1, "ease": "smooth" | "settled" | "sharp" | "bouncy",
       "color": "#rrggbb",   // optional per-mark override
-      "intensity": 0..1     // optional per-mark override
+      "intensity": 0..1,    // optional per-mark override
+      "sound": { ... }      // optional per-motion sound override (see Sound)
     }
-  ]
+  ],
+  "soundKit": "kit-slug"    // optional per-Layer Sound kit (see Sound)
 }
 ```
 
@@ -69,7 +73,8 @@ A preset is a single JSON document validated by `PresetSchema` (`src/lib/platfor
   },
   "enter": { "start": 0..1, "duration": 0..1, "ease": Ease },  // optional
   "exit":  { "start": 0..1, "duration": 0..1, "ease": Ease },  // optional
-  "backgroundVisibility": 0..1                                  // optional
+  "backgroundVisibility": 0..1,                                 // optional
+  "soundKit": "kit-slug"                                        // optional (see Sound)
 }
 ```
 
@@ -87,7 +92,8 @@ A preset is a single JSON document validated by `PresetSchema` (`src/lib/platfor
       "rect":   { "x": 0..1, "y": 0..1, "width": 0..1, "height": 0..1 }  // optional, anchor === 'normalized-rect'
     },
     "enter": { "start": 0..1, "duration": 0..1, "ease": Ease },     // optional
-    "exit":  { "start": 0..1, "duration": 0..1, "ease": Ease }      // optional
+    "exit":  { "start": 0..1, "duration": 0..1, "ease": Ease },     // optional
+    "soundKit": "kit-slug"                                          // optional (see Sound)
   }
 ]
 ```
@@ -157,6 +163,33 @@ Opt-in composition-wide 3D compositor ([ADR-0028](adr/0028-dimensional-depth-sta
   }
 }
 ```
+
+### Sound ([ADR-0033](adr/0033-sound-design-motion-emitted-cues.md))
+
+Sound is a timed-cue orchestration domain, not a sixth Layer. Motion primitives emit semantic **sound events** at their own frame; automatic cues are **derived from motion at render time and never stored**. The schema carries three things:
+
+**`soundKit` — per Layer.** A Sound-kit slug on `surface`, an `overlays[]` entry, or `marks`. The kit resolves that Layer's emitted events → samples ([ADR-0024](adr/0024-role-resolution-core-fallback.md) core fallback). There is no whole-piece kit; **a Layer with no kit is silent** (sound is opt-in per Layer).
+
+**`sound` — per motion.** Any motion window (a `Transition` — surface/overlay/text-animation `enter`/`exit` — a `marks.timings[]` entry, or a chat message's `enter`) may carry an override beneath the Layer's kit:
+
+```jsonc
+"sound": {
+  "mute": true,             // silence this one motion
+  "event": "impact",        // swap which event it emits (whoosh-in | whoosh-out | impact | tick | pop | sub-drop | sting)
+  "sample": "asset-slug"    // lock a specific audio asset, bypassing kit resolution
+}
+```
+
+**`audioCues` — manual cues + the bed.** Top-level on `state`, peer to `textAnimations`. Holds only what has no motion to ride:
+
+```jsonc
+"audioCues": [
+  { "id": "outro-sting", "assetSlug": "sting-brass-01", "start": 0.9, "duration": 0.08 },
+  { "id": "bed", "kind": "bed", "assetSlug": "bed-warm-keys", "start": 0, "duration": 1, "volume": 0.6 }
+]
+```
+
+`kind` defaults to `"cue"`. `assetSlug` names a bundled audio asset directly (manual cues are not kit-resolved). Parse-time rules: ids unique; at most one `bed`; a `bed` requires `backgroundFill` (full-frame segments/bumpers only — a transparent Overlay keeps the footage's own audio).
 
 ## Surface variants
 

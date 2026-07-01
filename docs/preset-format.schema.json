@@ -162,6 +162,30 @@
                     "type": "number",
                     "minimum": 0,
                     "maximum": 1
+                  },
+                  "sound": {
+                    "type": "object",
+                    "properties": {
+                      "mute": {
+                        "type": "boolean"
+                      },
+                      "event": {
+                        "type": "string",
+                        "enum": [
+                          "whoosh-in",
+                          "whoosh-out",
+                          "impact",
+                          "tick",
+                          "pop",
+                          "sub-drop",
+                          "sting"
+                        ]
+                      },
+                      "sample": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
                   }
                 },
                 "required": [
@@ -170,6 +194,10 @@
                   "ease"
                 ]
               }
+            },
+            "soundKit": {
+              "type": "string",
+              "minLength": 1
             }
           },
           "required": [
@@ -189,7 +217,9 @@
                 "pullquote-on-photo",
                 "chapter-card",
                 "title-sequence",
-                "type-hero"
+                "type-hero",
+                "web-document",
+                "imessage"
               ]
             },
             "content": {
@@ -224,10 +254,130 @@
                 },
                 "counterpoint": {
                   "type": "string"
+                },
+                "avatarUrl": {
+                  "type": "string"
+                },
+                "messages": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "from": {
+                        "type": "string",
+                        "enum": [
+                          "me",
+                          "them"
+                        ]
+                      },
+                      "text": {
+                        "type": "string"
+                      },
+                      "tapback": {
+                        "type": "string",
+                        "enum": [
+                          "heart",
+                          "like",
+                          "dislike",
+                          "haha",
+                          "emphasize",
+                          "question"
+                        ]
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "delivered",
+                          "read"
+                        ]
+                      },
+                      "enter": {
+                        "type": "object",
+                        "properties": {
+                          "start": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "duration": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "ease": {
+                            "type": "string",
+                            "enum": [
+                              "smooth",
+                              "settled",
+                              "sharp",
+                              "bouncy"
+                            ]
+                          },
+                          "sound": {
+                            "type": "object",
+                            "properties": {
+                              "mute": {
+                                "type": "boolean"
+                              },
+                              "event": {
+                                "type": "string",
+                                "enum": [
+                                  "whoosh-in",
+                                  "whoosh-out",
+                                  "impact",
+                                  "tick",
+                                  "pop",
+                                  "sub-drop",
+                                  "sting"
+                                ]
+                              },
+                              "sample": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            }
+                          }
+                        },
+                        "required": [
+                          "start",
+                          "duration"
+                        ]
+                      },
+                      "typing": {
+                        "type": "object",
+                        "properties": {
+                          "duration": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          }
+                        },
+                        "required": [
+                          "duration"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "from",
+                      "text"
+                    ]
+                  }
                 }
               },
               "required": [
                 "body"
+              ]
+            },
+            "site": {
+              "type": "string",
+              "enum": [
+                "twitter",
+                "reddit",
+                "wikipedia",
+                "hackernews",
+                "github",
+                "youtube",
+                "news"
               ]
             },
             "variant": {
@@ -254,6 +404,30 @@
                     "sharp",
                     "bouncy"
                   ]
+                },
+                "sound": {
+                  "type": "object",
+                  "properties": {
+                    "mute": {
+                      "type": "boolean"
+                    },
+                    "event": {
+                      "type": "string",
+                      "enum": [
+                        "whoosh-in",
+                        "whoosh-out",
+                        "impact",
+                        "tick",
+                        "pop",
+                        "sub-drop",
+                        "sting"
+                      ]
+                    },
+                    "sample": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
                 }
               },
               "required": [
@@ -283,6 +457,30 @@
                     "sharp",
                     "bouncy"
                   ]
+                },
+                "sound": {
+                  "type": "object",
+                  "properties": {
+                    "mute": {
+                      "type": "boolean"
+                    },
+                    "event": {
+                      "type": "string",
+                      "enum": [
+                        "whoosh-in",
+                        "whoosh-out",
+                        "impact",
+                        "tick",
+                        "pop",
+                        "sub-drop",
+                        "sting"
+                      ]
+                    },
+                    "sample": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
                 }
               },
               "required": [
@@ -295,6 +493,10 @@
               "type": "number",
               "minimum": 0,
               "maximum": 1
+            },
+            "soundKit": {
+              "type": "string",
+              "minLength": 1
             }
           },
           "required": [
@@ -392,6 +594,30 @@
                       "sharp",
                       "bouncy"
                     ]
+                  },
+                  "sound": {
+                    "type": "object",
+                    "properties": {
+                      "mute": {
+                        "type": "boolean"
+                      },
+                      "event": {
+                        "type": "string",
+                        "enum": [
+                          "whoosh-in",
+                          "whoosh-out",
+                          "impact",
+                          "tick",
+                          "pop",
+                          "sub-drop",
+                          "sting"
+                        ]
+                      },
+                      "sample": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
                   }
                 },
                 "required": [
@@ -421,6 +647,30 @@
                       "sharp",
                       "bouncy"
                     ]
+                  },
+                  "sound": {
+                    "type": "object",
+                    "properties": {
+                      "mute": {
+                        "type": "boolean"
+                      },
+                      "event": {
+                        "type": "string",
+                        "enum": [
+                          "whoosh-in",
+                          "whoosh-out",
+                          "impact",
+                          "tick",
+                          "pop",
+                          "sub-drop",
+                          "sting"
+                        ]
+                      },
+                      "sample": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
                   }
                 },
                 "required": [
@@ -532,6 +782,11 @@
                       "width",
                       "height"
                     ]
+                  },
+                  "scale": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 8
                   }
                 },
                 "required": [
@@ -559,6 +814,30 @@
                       "sharp",
                       "bouncy"
                     ]
+                  },
+                  "sound": {
+                    "type": "object",
+                    "properties": {
+                      "mute": {
+                        "type": "boolean"
+                      },
+                      "event": {
+                        "type": "string",
+                        "enum": [
+                          "whoosh-in",
+                          "whoosh-out",
+                          "impact",
+                          "tick",
+                          "pop",
+                          "sub-drop",
+                          "sting"
+                        ]
+                      },
+                      "sample": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
                   }
                 },
                 "required": [
@@ -588,6 +867,30 @@
                       "sharp",
                       "bouncy"
                     ]
+                  },
+                  "sound": {
+                    "type": "object",
+                    "properties": {
+                      "mute": {
+                        "type": "boolean"
+                      },
+                      "event": {
+                        "type": "string",
+                        "enum": [
+                          "whoosh-in",
+                          "whoosh-out",
+                          "impact",
+                          "tick",
+                          "pop",
+                          "sub-drop",
+                          "sting"
+                        ]
+                      },
+                      "sample": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
                   }
                 },
                 "required": [
@@ -600,6 +903,10 @@
                 "type": "number",
                 "minimum": 0,
                 "maximum": 1
+              },
+              "soundKit": {
+                "type": "string",
+                "minLength": 1
               }
             },
             "required": [
@@ -628,6 +935,52 @@
               "type",
               "id",
               "params"
+            ]
+          }
+        },
+        "audioCues": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "kind": {
+                "default": "cue",
+                "type": "string",
+                "enum": [
+                  "cue",
+                  "bed"
+                ]
+              },
+              "assetSlug": {
+                "type": "string",
+                "minLength": 1
+              },
+              "start": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "duration": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "volume": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            },
+            "required": [
+              "id",
+              "assetSlug",
+              "start",
+              "duration"
             ]
           }
         },
@@ -689,6 +1042,12 @@
                   "minimum": 0,
                   "maximum": 1
                 },
+                "band": {
+                  "default": 0,
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
                 "pull": {
                   "type": "object",
                   "properties": {
@@ -719,6 +1078,29 @@
                     "start",
                     "duration"
                   ]
+                }
+              }
+            },
+            "backdrop": {
+              "type": "object",
+              "properties": {
+                "image": {
+                  "type": "object",
+                  "properties": {
+                    "asset": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "asset"
+                  ]
+                },
+                "contrast": {
+                  "default": 0,
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
                 }
               }
             }

@@ -65,7 +65,6 @@ export function getEaseGsap(
 	return ENGINE_EASES[ease].gsap;
 }
 
-
 const FontFamilySchema = z.enum(['serif', 'sans', 'mono', 'condensed']);
 const EaseSchema = z.enum(['smooth', 'settled', 'sharp', 'bouncy']);
 const ExportFormatSchema = z.enum(['webm', 'prores']);
@@ -73,6 +72,47 @@ const VideoOrientationSchema = z.enum(['horizontal', 'vertical']);
 
 const HexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Expected a #RRGGBB hex color');
 const FractionSchema = z.number().min(0).max(1);
+
+// ---- Sound design (ADR-0033) ----
+// Sound is a timed-cue orchestration domain, peer to `textAnimations[]` /
+// `marks.timings[]` — not a sixth Layer (it renders no pixels). Motion
+// primitives emit semantic sound events at their own frame; a per-Layer Sound
+// kit resolves events → samples with ADR-0024 core fallback.
+
+// Core sound-event vocabulary the engine pins (ADR-0033 §8). Kits supply
+// samples per event; motions declare which event they emit via the default
+// per-primitive mapping, swappable per motion through `sound.event` below.
+export const SOUND_EVENTS = [
+	'whoosh-in',
+	'whoosh-out',
+	'impact',
+	'tick',
+	'pop',
+	'sub-drop',
+	'sting'
+] as const;
+export const SoundEventSchema = z.enum(SOUND_EVENTS);
+export type SoundEvent = z.infer<typeof SoundEventSchema>;
+
+// Per-motion sound override (ADR-0033 §5) — the second cascade level beneath
+// the Layer's kit, carried as optional `sound` on a motion window (surface /
+// overlay / text-animation Transition, mark timing, chat-message enter).
+// `mute` silences this one motion; `event` swaps which sound event it emits;
+// `sample` locks a specific audio-asset slug, bypassing kit resolution (for
+// signature animations). Absent → the motion's default event resolves through
+// the Layer's kit.
+const SoundOverrideSchema = z.object({
+	mute: z.boolean().optional(),
+	event: SoundEventSchema.optional(),
+	sample: z.string().min(1).optional()
+});
+export type SoundOverride = z.infer<typeof SoundOverrideSchema>;
+
+// Sound-kit slug, assigned PER LAYER (ADR-0033 §3) — the kit lives on the
+// Layer (`surface.soundKit`, `overlays[].soundKit`, `marks.soundKit`), never
+// the composition root: there is no whole-piece sound pack. A Layer with no
+// kit is silent — sound is opt-in per Layer.
+const SoundKitSchema = z.string().min(1);
 
 export const AnnotationMarkStyleSchema = z.enum([
 	'highlight',
@@ -107,7 +147,14 @@ const ChatMessageSchema = z.object({
 	// the clip — the same start/duration shape the timeline draws + edits for
 	// every other animation. The bubble's tapback and receipt derive from
 	// `enter.start`. Optional: a default staggered cadence applies.
-	enter: z.object({ start: FractionSchema, duration: FractionSchema, ease: EaseSchema.optional() }).optional(),
+	enter: z
+		.object({
+			start: FractionSchema,
+			duration: FractionSchema,
+			ease: EaseSchema.optional(),
+			sound: SoundOverrideSchema.optional()
+		})
+		.optional(),
 	// A typing indicator that plays for `duration` (fraction of the clip) right
 	// before this bubble's `enter.start`, then resolves into it. Its own draggable
 	// timeline clip on the message's rail. Omit for no typing indicator.
@@ -138,18 +185,21 @@ const MarkTimingSchema = z.object({
 	duration: FractionSchema,
 	ease: EaseSchema,
 	color: HexColorSchema.optional(),
-	intensity: FractionSchema.optional()
+	intensity: FractionSchema.optional(),
+	sound: SoundOverrideSchema.optional()
 });
 
 const MarksStateSchema = z.object({
 	defaults: z.partialRecord(AnnotationMarkStyleSchema, MarkAppearanceSchema),
-	timings: z.array(MarkTimingSchema)
+	timings: z.array(MarkTimingSchema),
+	soundKit: SoundKitSchema.optional()
 });
 
 const TransitionSchema = z.object({
 	start: FractionSchema,
 	duration: FractionSchema,
-	ease: EaseSchema
+	ease: EaseSchema,
+	sound: SoundOverrideSchema.optional()
 });
 
 const SurfaceTypeSchema = z.enum([
@@ -227,7 +277,8 @@ const SurfaceSchema = z.object({
 	variant: z.string().optional(),
 	enter: TransitionSchema.optional(),
 	exit: TransitionSchema.optional(),
-	backgroundVisibility: FractionSchema.optional()
+	backgroundVisibility: FractionSchema.optional(),
+	soundKit: SoundKitSchema.optional()
 });
 
 const OverlayPositionSchema = z.object({
@@ -267,7 +318,8 @@ const OverlaySchema = z.object({
 	// (0.7) is applied at render; a per-instance value overrides it so one overlay
 	// can sit nearer the focal plane than another. Only consulted when a
 	// depth-of-field Effect is present; inert otherwise.
-	z: FractionSchema.optional()
+	z: FractionSchema.optional(),
+	soundKit: SoundKitSchema.optional()
 });
 
 const EffectSchema = z.object({
@@ -473,22 +525,95 @@ const StageBackdropSchema = z.object({
 });
 const StageSchema = z.object({
 	type: z.string().min(1),
-	camera: StageCameraSchema.default({}),
-	focus: StageFocusSchema.default({}),
+	// prefault (not default): zod v4 `.default()` short-circuits without parsing,
+	// so an absent camera/focus would land as a bare `{}` with none of the inner
+	// field defaults applied. `.prefault({})` parses `{}` through the object,
+	// filling move/amount/ease and focusZ/aperture/band.
+	camera: StageCameraSchema.prefault({}),
+	focus: StageFocusSchema.prefault({}),
 	backdrop: StageBackdropSchema.optional()
 });
 
-export const EngineStateSchema = z.object({
-	transport: TransportSchema,
-	typography: TypographySchema,
-	marks: MarksStateSchema,
-	surface: SurfaceSchema,
-	textAnimations: TextAnimationsSchema,
-	overlays: z.array(OverlaySchema).default([]),
-	effects: EffectChainSchema.default([]),
-	backgroundFill: HexColorSchema.optional(),
-	stage: StageSchema.optional()
+// ---- Audio cues (ADR-0033 §4, §5) ----
+// Automatic cues are DERIVED from motion at render time — never stored here
+// (storing them would duplicate the motion's source of truth and desync on
+// re-time). `audioCues[]` holds only what has no motion to ride: manual
+// free-standing cues (an outro sting) and the optional single music/ambient
+// bed. `start` / `duration` are timeline fractions like every other timed
+// window; `volume` absent → full scale at mix time. `assetSlug` names a
+// bundled audio asset directly — manual cues are not kit-resolved.
+const AudioCueSchema = z.object({
+	id: z.string().min(1),
+	kind: z.enum(['cue', 'bed']).default('cue'),
+	assetSlug: z.string().min(1),
+	start: FractionSchema,
+	duration: FractionSchema,
+	volume: FractionSchema.optional()
 });
+export type AudioCue = z.infer<typeof AudioCueSchema>;
+
+const AudioCuesSchema = z
+	.array(AudioCueSchema)
+	.default([])
+	.superRefine((cues, ctx) => {
+		const ids = new Set<string>();
+		let hasBed = false;
+
+		for (let i = 0; i < cues.length; i += 1) {
+			const cue = cues[i];
+
+			if (ids.has(cue.id)) {
+				ctx.addIssue({
+					code: 'custom',
+					path: [i, 'id'],
+					message: `Duplicate audioCues[].id "${cue.id}"; ids must be unique within a preset.`
+				});
+			}
+			ids.add(cue.id);
+
+			if (cue.kind === 'bed') {
+				if (hasBed) {
+					ctx.addIssue({
+						code: 'custom',
+						path: [i, 'kind'],
+						message: 'A composition carries at most one bed (ADR-0033 §1).'
+					});
+				}
+				hasBed = true;
+			}
+		}
+	});
+
+export const EngineStateSchema = z
+	.object({
+		transport: TransportSchema,
+		typography: TypographySchema,
+		marks: MarksStateSchema,
+		surface: SurfaceSchema,
+		textAnimations: TextAnimationsSchema,
+		overlays: z.array(OverlaySchema).default([]),
+		effects: EffectChainSchema.default([]),
+		audioCues: AudioCuesSchema,
+		backgroundFill: HexColorSchema.optional(),
+		stage: StageSchema.optional()
+	})
+	.superRefine((state, ctx) => {
+		// A bed is for self-contained segments / bumpers only — a transparent
+		// Overlay keeps the footage's own audio (ADR-0033 §1). `backgroundFill`
+		// is the schema-level signal that the piece renders full-frame.
+		if (state.backgroundFill) {
+			return;
+		}
+		const bedIndex = state.audioCues.findIndex((cue) => cue.kind === 'bed');
+		if (bedIndex >= 0) {
+			ctx.addIssue({
+				code: 'custom',
+				path: ['audioCues', bedIndex, 'kind'],
+				message:
+					"A bed requires a full-frame piece (backgroundFill); transparent overlays keep the footage's own audio (ADR-0033 §1)."
+			});
+		}
+	});
 
 export type Transport = z.infer<typeof TransportSchema>;
 export type Typography = z.infer<typeof TypographySchema>;
@@ -585,7 +710,8 @@ export function createDefaultEngineState(): EngineState {
 		},
 		textAnimations: [],
 		overlays: [],
-		effects: createDefaultEffectChain()
+		effects: createDefaultEffectChain(),
+		audioCues: []
 	};
 }
 

@@ -5,7 +5,8 @@ import {
 	type Overlay,
 	type Preset,
 	type SurfaceState,
-	type TextAnimation
+	type TextAnimation,
+	type Transition
 } from './engine-schema';
 import { engineState, packState, transitionState } from './engine-state.svelte';
 import { PIPELINE_REGISTRY } from './pipelines';
@@ -22,9 +23,7 @@ const presetModules = import.meta.glob<{ default: unknown }>('$lib/presets/*.jso
 
 function validateOverlayContents(overlays: Overlay[]): string | null {
 	for (const overlay of overlays) {
-		const renderer = Object.values(PIPELINE_REGISTRY.overlays).find(
-			(r) => r.type === overlay.type
-		);
+		const renderer = Object.values(PIPELINE_REGISTRY.overlays).find((r) => r.type === overlay.type);
 		if (!renderer) continue;
 		const check = renderer.schema.safeParse(overlay.content);
 		if (!check.success) {
@@ -45,7 +44,10 @@ function validateOverlayContents(overlays: Overlay[]): string | null {
  * disjoint). `resolveSlug` returns the referenced Preset or null. Returns an
  * error string, or null when valid.
  */
-function validateTransition(preset: Preset, resolveSlug: (slug: string) => Preset | null): string | null {
+function validateTransition(
+	preset: Preset,
+	resolveSlug: (slug: string) => Preset | null
+): string | null {
 	for (const effect of preset.state.effects) {
 		if (isTransitionEffectType(effect.type)) {
 			return `effect "${effect.id}" uses transition-Effect type "${effect.type}", which runs via the top-level transition block — not the effects chain`;
@@ -71,7 +73,10 @@ function validateTransition(preset: Preset, resolveSlug: (slug: string) => Prese
 
 const SCHEMA_VALID_CATALOG: CataloguedPreset[] = Object.entries(presetModules)
 	.map<CataloguedPreset | null>(([path, module]) => {
-		const slug = path.split('/').pop()?.replace(/\.json$/, '');
+		const slug = path
+			.split('/')
+			.pop()
+			?.replace(/\.json$/, '');
 
 		if (!slug) {
 			return null;
@@ -100,7 +105,9 @@ const SCHEMA_VALID_CATALOG: CataloguedPreset[] = Object.entries(presetModules)
 // resolve `from`/`to` against the schema-valid set and drop any Preset whose
 // transition is invalid (unknown slug, unregistered effect, or a transition
 // type leaking into the ordinary effects chain).
-const SCHEMA_VALID_BY_SLUG = new Map(SCHEMA_VALID_CATALOG.map((entry) => [entry.slug, entry.preset]));
+const SCHEMA_VALID_BY_SLUG = new Map(
+	SCHEMA_VALID_CATALOG.map((entry) => [entry.slug, entry.preset])
+);
 
 const PRESET_CATALOG: CataloguedPreset[] = SCHEMA_VALID_CATALOG.filter((entry) => {
 	const transitionError = validateTransition(
@@ -179,7 +186,20 @@ function cloneTiming(timing: MarkTiming): MarkTiming {
 		next.intensity = timing.intensity;
 	}
 
+	if (timing.sound !== undefined) {
+		next.sound = { ...timing.sound };
+	}
+
 	return next;
+}
+
+// Clones the nested per-motion sound override too — sharing it by reference
+// would let GUI edits on the live engine state mutate the catalogued Preset.
+function cloneTransition(transition: Transition): Transition {
+	return {
+		...transition,
+		sound: transition.sound ? { ...transition.sound } : undefined
+	};
 }
 
 function cloneSurface(surface: SurfaceState): SurfaceState {
@@ -196,13 +216,10 @@ function cloneSurface(surface: SurfaceState): SurfaceState {
 		// `twitter` mock (the same hand-enumeration trap that lost `counterpoint`).
 		site: surface.site,
 		variant: surface.variant,
-		enter: surface.enter
-			? { start: surface.enter.start, duration: surface.enter.duration, ease: surface.enter.ease }
-			: undefined,
-		exit: surface.exit
-			? { start: surface.exit.start, duration: surface.exit.duration, ease: surface.exit.ease }
-			: undefined,
-		backgroundVisibility: surface.backgroundVisibility
+		enter: surface.enter ? cloneTransition(surface.enter) : undefined,
+		exit: surface.exit ? cloneTransition(surface.exit) : undefined,
+		backgroundVisibility: surface.backgroundVisibility,
+		soundKit: surface.soundKit
 	};
 }
 
@@ -217,9 +234,10 @@ function cloneOverlay(overlay: Overlay): Overlay {
 			rect: overlay.position.rect ? { ...overlay.position.rect } : undefined,
 			scale: overlay.position.scale
 		},
-		enter: overlay.enter ? { ...overlay.enter } : undefined,
-		exit: overlay.exit ? { ...overlay.exit } : undefined,
-		z: overlay.z
+		enter: overlay.enter ? cloneTransition(overlay.enter) : undefined,
+		exit: overlay.exit ? cloneTransition(overlay.exit) : undefined,
+		z: overlay.z,
+		soundKit: overlay.soundKit
 	};
 }
 
@@ -241,12 +259,11 @@ function cloneTextAnimation(entry: TextAnimation): TextAnimation {
 		id: entry.id,
 		target,
 		effect: entry.effect,
-		enter: { ...entry.enter },
-		exit: entry.exit ? { ...entry.exit } : undefined,
+		enter: cloneTransition(entry.enter),
+		exit: entry.exit ? cloneTransition(entry.exit) : undefined,
 		params: entry.params ? { ...entry.params } : undefined
 	};
 }
-
 
 /**
  * Apply a Preset's composition (its Pack + `state`) to the live engine state.
@@ -269,7 +286,9 @@ export function applyCompositionState(preset: Preset): void {
 	engineState.typography.paperColor = next.typography.paperColor;
 	engineState.typography.inkColor = next.typography.inkColor;
 
-	for (const style of Object.keys(engineState.marks.defaults) as (keyof typeof engineState.marks.defaults)[]) {
+	for (const style of Object.keys(
+		engineState.marks.defaults
+	) as (keyof typeof engineState.marks.defaults)[]) {
 		if (!(style in next.marks.defaults)) {
 			delete engineState.marks.defaults[style];
 		}
@@ -285,11 +304,13 @@ export function applyCompositionState(preset: Preset): void {
 	for (const timing of next.marks.timings) {
 		engineState.marks.timings.push(cloneTiming(timing));
 	}
+	engineState.marks.soundKit = next.marks.soundKit;
 
 	engineState.surface = cloneSurface(next.surface);
 	engineState.overlays = next.overlays.map(cloneOverlay);
 	engineState.effects = (next.effects ?? []).map(cloneEffect);
 	engineState.textAnimations = (next.textAnimations ?? []).map(cloneTextAnimation);
+	engineState.audioCues = next.audioCues.map((cue) => ({ ...cue }));
 	engineState.backgroundFill = next.backgroundFill;
 	engineState.stage = next.stage
 		? {
