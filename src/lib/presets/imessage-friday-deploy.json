@@ -1,0 +1,89 @@
+{
+	"schema": "hiviz@1",
+	"name": "iMessage — friday deploy (horizontal)",
+	"description": "The film-insert (movie) treatment of a text conversation — chrome: 'none' renders NOTHING but the bubbles, floating directly over footage: no Messages window, no iOS header, no timestamp, no composer bar. Over ~6s: 'did you just push to prod' pops in, the 'it was one line' reply lands with a Delivered → Read receipt, a typing indicator resolves into the punchline 'it's 4:55 on a friday' and a ‼ tapback pops onto it, then 'see you monday 🫡', and the thread eases out. The only added element is a localized substrate-darken radial vignette (≤30% of frame, a sanctioned lean-in move — not collage chrome) that rises with the surface enter and eases out with the exit, for bubble legibility over any footage grade. Fully bare BY DESIGN, matching the iMessage family's faithful-OS-artifact stance: mono signature thread omitted (speaker identity reads from bubble side + color, as in film), hard offset shadow omitted, torn edge omitted, registration jitter omitted, grit overlay omitted (effects: []). Tail curls and the tapback ring cut to genuine transparency (no page-colored blocks), NO CSS filter in the captured DOM. Transparent WebM overlay, composited over footage.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#ffffff",
+			"inkColor": "#000000"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "imessage",
+			"chrome": "none",
+			"content": {
+				"author": "Wes",
+				"body": "",
+				"messages": [
+					{
+						"from": "them",
+						"text": "did you just push to prod",
+						"enter": {
+							"start": 0.07,
+							"duration": 0.06
+						}
+					},
+					{
+						"from": "me",
+						"text": "it was one line",
+						"status": "read",
+						"enter": {
+							"start": 0.22,
+							"duration": 0.06,
+							"sound": {
+								"sample": "message-send"
+							}
+						}
+					},
+					{
+						"from": "them",
+						"text": "it's 4:55 on a friday",
+						"tapback": "emphasize",
+						"enter": {
+							"start": 0.5,
+							"duration": 0.06
+						},
+						"typing": {
+							"duration": 0.12
+						}
+					},
+					{
+						"from": "me",
+						"text": "see you monday 🫡",
+						"enter": {
+							"start": 0.7,
+							"duration": 0.06,
+							"sound": {
+								"sample": "message-send"
+							}
+						}
+					}
+				]
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.05,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.9,
+				"duration": 0.08,
+				"ease": "smooth"
+			},
+			"soundKit": "message-pop"
+		},
+		"overlays": [],
+		"effects": []
+	}
+}

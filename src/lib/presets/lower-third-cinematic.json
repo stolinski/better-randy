@@ -23,7 +23,8 @@
 			"type": "plain",
 			"content": {
 				"body": ""
-			}
+			},
+			"soundKit": "quick-whoosh"
 		},
 		"overlays": [
 			{

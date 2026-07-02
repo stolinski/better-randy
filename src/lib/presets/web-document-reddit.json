@@ -17,9 +17,19 @@
 		},
 		"marks": {
 			"defaults": {
-				"highlight": { "color": "#fabf47", "intensity": 0.62 }
+				"highlight": {
+					"color": "#fabf47",
+					"intensity": 0.62
+				}
 			},
-			"timings": [{ "start": 0.2, "duration": 0.2, "ease": "smooth" }]
+			"timings": [
+				{
+					"start": 0.2,
+					"duration": 0.2,
+					"ease": "smooth"
+				}
+			],
+			"soundKit": "quick-whoosh"
 		},
 		"surface": {
 			"type": "web-document",
@@ -32,7 +42,12 @@
 				"sourceUrl": "reddit.com/r/webdev/comments/1a2b3c/til_the_slowest_part_of_my_build",
 				"body": "I spent two days convinced the bundler was the problem — profiling configs, swapping loaders, the works. [highlight]The real culprit was a single console.log sitting inside a hot loop[/highlight] that ran on every file. Pulled one line and the build dropped from 40s to 9s. Profile before you optimize."
 			},
-			"enter": { "start": 0, "duration": 0.07, "ease": "settled" }
+			"enter": {
+				"start": 0,
+				"duration": 0.07,
+				"ease": "settled"
+			},
+			"soundKit": "quick-whoosh"
 		},
 		"overlays": [],
 		"effects": []

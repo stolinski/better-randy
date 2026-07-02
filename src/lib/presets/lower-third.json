@@ -23,7 +23,8 @@
 			"type": "plain",
 			"content": {
 				"body": ""
-			}
+			},
+			"soundKit": "quick-whoosh"
 		},
 		"overlays": [
 			{
@@ -51,7 +52,8 @@
 					"start": 0.82,
 					"duration": 0.16,
 					"ease": "smooth"
-				}
+				},
+				"soundKit": "quick-whoosh"
 			}
 		],
 		"effects": []

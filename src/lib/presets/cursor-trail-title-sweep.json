@@ -28,8 +28,17 @@
 				"author": "@syntaxfm",
 				"body": ""
 			},
-			"enter": { "start": 0, "duration": 0.06, "ease": "settled" },
-			"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" }
+			"enter": {
+				"start": 0,
+				"duration": 0.06,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.88,
+				"duration": 0.04,
+				"ease": "smooth"
+			},
+			"soundKit": "quick-whoosh"
 		},
 		"overlays": [
 			{
@@ -37,21 +46,55 @@
 				"id": "trail",
 				"content": {
 					"path": [
-						{ "targetSlot": "title", "dwellMs": 600, "travelMs": 700, "action": "hover" },
-						{ "targetSlot": "author", "dwellMs": 400, "travelMs": 800, "action": "click" },
-						{ "targetSlot": "title", "dwellMs": 0, "travelMs": 800, "action": "idle" }
+						{
+							"targetSlot": "title",
+							"dwellMs": 600,
+							"travelMs": 700,
+							"action": "hover"
+						},
+						{
+							"targetSlot": "author",
+							"dwellMs": 400,
+							"travelMs": 800,
+							"action": "click"
+						},
+						{
+							"targetSlot": "title",
+							"dwellMs": 0,
+							"travelMs": 800,
+							"action": "idle"
+						}
 					]
 				},
-				"position": { "anchor": "normalized-rect", "rect": { "x": 0, "y": 0, "width": 1, "height": 1 } },
-				"enter": { "start": 0, "duration": 0.06, "ease": "settled" },
-				"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" }
+				"position": {
+					"anchor": "normalized-rect",
+					"rect": {
+						"x": 0,
+						"y": 0,
+						"width": 1,
+						"height": 1
+					}
+				},
+				"enter": {
+					"start": 0,
+					"duration": 0.06,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.88,
+					"duration": 0.04,
+					"ease": "smooth"
+				}
 			}
 		],
 		"effects": [
 			{
 				"type": "paper-grain",
 				"id": "frame-grit",
-				"params": { "warmth": 0.0, "density": 0.20 }
+				"params": {
+					"warmth": 0.0,
+					"density": 0.2
+				}
 			}
 		]
 	}

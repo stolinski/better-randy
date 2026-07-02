@@ -17,9 +17,19 @@
 		},
 		"marks": {
 			"defaults": {
-				"highlight": { "color": "#fabf47", "intensity": 0.62 }
+				"highlight": {
+					"color": "#fabf47",
+					"intensity": 0.62
+				}
 			},
-			"timings": [{ "start": 0.2, "duration": 0.2, "ease": "smooth" }]
+			"timings": [
+				{
+					"start": 0.2,
+					"duration": 0.2,
+					"ease": "smooth"
+				}
+			],
+			"soundKit": "quick-whoosh"
 		},
 		"surface": {
 			"type": "web-document",
@@ -32,7 +42,12 @@
 				"sourceUrl": "github.com/syntaxfm/website/issues/142",
 				"body": "Spent the afternoon bisecting this. It's not the bundler — [highlight]a stray console.log inside a hot loop was firing on every file[/highlight]. Removing it drops the build from 40s back to ~9s. PR incoming."
 			},
-			"enter": { "start": 0, "duration": 0.07, "ease": "settled" }
+			"enter": {
+				"start": 0,
+				"duration": 0.07,
+				"ease": "settled"
+			},
+			"soundKit": "quick-whoosh"
 		},
 		"overlays": [],
 		"effects": []

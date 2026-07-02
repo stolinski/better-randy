@@ -27,8 +27,17 @@
 				"author": "Multiplane depth of field",
 				"body": ""
 			},
-			"enter": { "start": 0, "duration": 0.06, "ease": "settled" },
-			"exit": { "start": 0.9, "duration": 0.05, "ease": "smooth" }
+			"enter": {
+				"start": 0,
+				"duration": 0.06,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.9,
+				"duration": 0.05,
+				"ease": "smooth"
+			},
+			"soundKit": "quick-whoosh"
 		},
 		"overlays": [
 			{
@@ -43,10 +52,22 @@
 				},
 				"position": {
 					"anchor": "bottom-left",
-					"offset": { "x": 0.06, "y": 0.115 }
+					"offset": {
+						"x": 0.06,
+						"y": 0.115
+					}
 				},
-				"enter": { "start": 0.04, "duration": 0.058, "ease": "settled" },
-				"exit": { "start": 0.88, "duration": 0.041, "ease": "smooth" }
+				"enter": {
+					"start": 0.04,
+					"duration": 0.058,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.88,
+					"duration": 0.041,
+					"ease": "smooth"
+				},
+				"soundKit": "quick-whoosh"
 			}
 		],
 		"effects": [

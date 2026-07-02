@@ -24,8 +24,17 @@
 			"content": {
 				"body": ""
 			},
-			"enter": { "start": 0, "duration": 0.06, "ease": "settled" },
-			"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" }
+			"enter": {
+				"start": 0,
+				"duration": 0.06,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.88,
+				"duration": 0.04,
+				"ease": "smooth"
+			},
+			"soundKit": "quick-whoosh"
 		},
 		"overlays": [
 			{
@@ -38,9 +47,26 @@
 					"flowSpeed": 0.8,
 					"opacity": 0.92
 				},
-				"position": { "anchor": "normalized-rect", "rect": { "x": 0.2, "y": 0.36, "width": 0.6, "height": 0.28 } },
-				"enter": { "start": 0, "duration": 0.06, "ease": "settled" },
-				"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" }
+				"position": {
+					"anchor": "normalized-rect",
+					"rect": {
+						"x": 0.2,
+						"y": 0.36,
+						"width": 0.6,
+						"height": 0.28
+					}
+				},
+				"enter": {
+					"start": 0,
+					"duration": 0.06,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.88,
+					"duration": 0.04,
+					"ease": "smooth"
+				},
+				"soundKit": "quick-whoosh"
 			}
 		],
 		"effects": []

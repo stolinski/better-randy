@@ -1,7 +1,7 @@
 {
 	"schema": "hiviz@1",
 	"name": "Quote (vertical)",
-	"description": "Vertical short-form quote pull-out \u2014 paper card with magnified highlight, sized for phone-screen output.",
+	"description": "Vertical short-form quote pull-out — paper card with magnified highlight, sized for phone-screen output.",
 	"pack": "syntax",
 	"state": {
 		"transport": {
@@ -28,7 +28,8 @@
 					"duration": 0.28,
 					"ease": "smooth"
 				}
-			]
+			],
+			"soundKit": "quick-whoosh"
 		},
 		"surface": {
 			"type": "paper",
@@ -48,7 +49,8 @@
 				"duration": 0.14,
 				"ease": "smooth"
 			},
-			"backgroundVisibility": 0.2
+			"backgroundVisibility": 0.2,
+			"soundKit": "quick-whoosh"
 		},
 		"overlays": [],
 		"effects": []

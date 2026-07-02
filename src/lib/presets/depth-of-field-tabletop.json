@@ -1,7 +1,7 @@
 {
 	"schema": "hiviz@1",
-	"name": "Depth of field \u2014 tabletop title card",
-	"description": "Multiplane DOF (ADR-0027) tabletop/macro look. The newspaper title card sits tack-sharp on the focal plane (z 0.0) while a procedural defocused-material backdrop fills the frame behind it: a soft warm surface that loses detail and gains bright bokeh specks toward the edges (defocused highlights receding into depth), plus a vignette. The card's drop shadow falls onto the backdrop, so it reads as a real newspaper lying on a textured surface shot with a shallow macro lens \u2014 edge blur + depth, almost 3D. The washi-tape sits at z 0.0 too, sharp with the card.",
+	"name": "Depth of field — tabletop title card",
+	"description": "Multiplane DOF (ADR-0027) tabletop/macro look. The newspaper title card sits tack-sharp on the focal plane (z 0.0) while a procedural defocused-material backdrop fills the frame behind it: a soft warm surface that loses detail and gains bright bokeh specks toward the edges (defocused highlights receding into depth), plus a vignette. The card's drop shadow falls onto the backdrop, so it reads as a real newspaper lying on a textured surface shot with a shallow macro lens — edge blur + depth, almost 3D. The washi-tape sits at z 0.0 too, sharp with the card.",
 	"pack": "syntax",
 	"state": {
 		"transport": {
@@ -36,7 +36,8 @@
 				"start": 0.92,
 				"duration": 0.04,
 				"ease": "smooth"
-			}
+			},
+			"soundKit": "quick-whoosh"
 		},
 		"overlays": [],
 		"effects": [
@@ -46,7 +47,12 @@
 				"params": {
 					"focusZ": 0.5,
 					"aperture": 0.6,
-					"focusPull": { "from": 0.2, "to": 0.85, "start": 0.12, "duration": 0.7 },
+					"focusPull": {
+						"from": 0.2,
+						"to": 0.85,
+						"start": 0.12,
+						"duration": 0.7
+					},
 					"backdrop": {
 						"strength": 1,
 						"edgeBlur": 0.95,

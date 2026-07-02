@@ -51,7 +51,8 @@
 					"ease": "sharp",
 					"color": "#de263a"
 				}
-			]
+			],
+			"soundKit": "quick-whoosh"
 		},
 		"surface": {
 			"type": "paper",
@@ -69,7 +70,8 @@
 				"start": 0.86,
 				"duration": 0.1,
 				"ease": "smooth"
-			}
+			},
+			"soundKit": "quick-whoosh"
 		},
 		"overlays": [],
 		"effects": []

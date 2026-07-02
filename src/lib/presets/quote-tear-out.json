@@ -45,7 +45,8 @@
 					"duration": 0.12,
 					"ease": "sharp"
 				}
-			]
+			],
+			"soundKit": "quick-whoosh"
 		},
 		"surface": {
 			"type": "paper",
@@ -65,7 +66,8 @@
 				"duration": 0.08,
 				"ease": "smooth"
 			},
-			"backgroundVisibility": 0.4
+			"backgroundVisibility": 0.4,
+			"soundKit": "quick-whoosh"
 		},
 		"overlays": [],
 		"effects": []

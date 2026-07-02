@@ -28,16 +28,36 @@
 				"author": "Episode 47 — 2026",
 				"body": ""
 			},
-			"enter": { "start": 0, "duration": 0.063, "ease": "settled" },
-			"exit": { "start": 0.88, "duration": 0.044, "ease": "smooth" }
+			"enter": {
+				"start": 0,
+				"duration": 0.063,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.88,
+				"duration": 0.044,
+				"ease": "smooth"
+			},
+			"soundKit": "quick-whoosh"
 		},
 		"textAnimations": [
 			{
 				"id": "subtitle-fade",
-				"target": { "kind": "surface", "slot": "author" },
+				"target": {
+					"kind": "surface",
+					"slot": "author"
+				},
 				"effect": "fade-through",
-				"enter": { "start": 0.18, "duration": 0.060, "ease": "settled" },
-				"exit": { "start": 0.88, "duration": 0.040, "ease": "smooth" }
+				"enter": {
+					"start": 0.18,
+					"duration": 0.06,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.88,
+					"duration": 0.04,
+					"ease": "smooth"
+				}
 			}
 		],
 		"overlays": [],

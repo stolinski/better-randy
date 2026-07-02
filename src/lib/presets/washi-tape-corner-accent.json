@@ -29,8 +29,17 @@
 				"bodyLabel": "Abstract",
 				"body": "The platforms we depend on will pivot, deprecate, and vanish. The open web keeps running.\n\nEvery tool, every framework, every build pipeline is a wager on a moving target. The bet that compounds is the one placed on fundamentals — HTML, CSS, the URL, the document.\n\nBuild on bedrock. The tide goes out; bedrock stays."
 			},
-			"enter": { "start": 0, "duration": 0.045, "ease": "settled" },
-			"exit": { "start": 0.93, "duration": 0.034, "ease": "smooth" }
+			"enter": {
+				"start": 0,
+				"duration": 0.045,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.93,
+				"duration": 0.034,
+				"ease": "smooth"
+			},
+			"soundKit": "quick-whoosh"
 		},
 		"overlays": [
 			{
@@ -41,9 +50,23 @@
 					"rotation": 18,
 					"length": 400
 				},
-				"position": { "anchor": "top-left", "offset": { "x": 0.245, "y": 0.05 } },
-				"enter": { "start": 0.04, "duration": 0.05, "ease": "settled" },
-				"exit": { "start": 0.91, "duration": 0.034, "ease": "smooth" }
+				"position": {
+					"anchor": "top-left",
+					"offset": {
+						"x": 0.245,
+						"y": 0.05
+					}
+				},
+				"enter": {
+					"start": 0.04,
+					"duration": 0.05,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.91,
+					"duration": 0.034,
+					"ease": "smooth"
+				}
 			},
 			{
 				"type": "washi-tape",
@@ -53,16 +76,33 @@
 					"rotation": -14,
 					"length": 360
 				},
-				"position": { "anchor": "top-left", "offset": { "x": 0.665, "y": 0.05 } },
-				"enter": { "start": 0.05, "duration": 0.05, "ease": "settled" },
-				"exit": { "start": 0.92, "duration": 0.034, "ease": "smooth" }
+				"position": {
+					"anchor": "top-left",
+					"offset": {
+						"x": 0.665,
+						"y": 0.05
+					}
+				},
+				"enter": {
+					"start": 0.05,
+					"duration": 0.05,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.92,
+					"duration": 0.034,
+					"ease": "smooth"
+				}
 			}
 		],
 		"effects": [
 			{
 				"type": "paper-grain",
 				"id": "frame-grit",
-				"params": { "warmth": 0.12, "density": 0.26 }
+				"params": {
+					"warmth": 0.12,
+					"density": 0.26
+				}
 			}
 		]
 	}

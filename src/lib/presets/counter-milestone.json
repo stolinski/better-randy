@@ -25,8 +25,17 @@
 			"content": {
 				"body": ""
 			},
-			"enter": { "start": 0, "duration": 0.06, "ease": "settled" },
-			"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" }
+			"enter": {
+				"start": 0,
+				"duration": 0.06,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.88,
+				"duration": 0.04,
+				"ease": "smooth"
+			},
+			"soundKit": "quick-whoosh"
 		},
 		"overlays": [
 			{
@@ -39,16 +48,34 @@
 					"format": "integer",
 					"ease": "cubic-bezier(0.22, 1, 0.36, 1)"
 				},
-				"position": { "anchor": "center", "offset": { "x": 0, "y": 0 } },
-				"enter": { "start": 0, "duration": 0.06, "ease": "settled" },
-				"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" }
+				"position": {
+					"anchor": "center",
+					"offset": {
+						"x": 0,
+						"y": 0
+					}
+				},
+				"enter": {
+					"start": 0,
+					"duration": 0.06,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.88,
+					"duration": 0.04,
+					"ease": "smooth"
+				},
+				"soundKit": "quick-whoosh"
 			}
 		],
 		"effects": [
 			{
 				"type": "paper-grain",
 				"id": "frame-grit",
-				"params": { "warmth": 0.0, "density": 0.20 }
+				"params": {
+					"warmth": 0.0,
+					"density": 0.2
+				}
 			}
 		]
 	}

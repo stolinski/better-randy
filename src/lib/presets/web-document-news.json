@@ -17,9 +17,19 @@
 		},
 		"marks": {
 			"defaults": {
-				"highlight": { "color": "#fabf47", "intensity": 0.62 }
+				"highlight": {
+					"color": "#fabf47",
+					"intensity": 0.62
+				}
 			},
-			"timings": [{ "start": 0.2, "duration": 0.2, "ease": "smooth" }]
+			"timings": [
+				{
+					"start": 0.2,
+					"duration": 0.2,
+					"ease": "smooth"
+				}
+			],
+			"soundKit": "quick-whoosh"
 		},
 		"surface": {
 			"type": "web-document",
@@ -32,7 +42,12 @@
 				"sourceUrl": "theverge.com/2026/6/22/build-times-console-log",
 				"body": "For months, teams across the industry blamed their bundlers for ballooning build times. A closer look at one widely-shared case suggests a humbler culprit. [highlight]The entire slowdown traced back to a single console.log running inside a hot loop[/highlight], firing once for every file in the project. Removing the line cut the build from forty seconds to nine."
 			},
-			"enter": { "start": 0, "duration": 0.07, "ease": "settled" }
+			"enter": {
+				"start": 0,
+				"duration": 0.07,
+				"ease": "settled"
+			},
+			"soundKit": "quick-whoosh"
 		},
 		"overlays": [],
 		"effects": []

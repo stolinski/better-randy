@@ -25,8 +25,17 @@
 			"content": {
 				"body": ""
 			},
-			"enter": { "start": 0, "duration": 0.06, "ease": "settled" },
-			"exit": { "start": 0.88, "duration": 0.045, "ease": "smooth" }
+			"enter": {
+				"start": 0,
+				"duration": 0.06,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.88,
+				"duration": 0.045,
+				"ease": "smooth"
+			},
+			"soundKit": "quick-whoosh"
 		},
 		"overlays": [
 			{
@@ -40,9 +49,24 @@
 					"opacityFloor": 0.0,
 					"lagWindow": 0.42
 				},
-				"position": { "anchor": "center", "offset": { "x": 0, "y": 0 } },
-				"enter": { "start": 0, "duration": 0.06, "ease": "settled" },
-				"exit": { "start": 0.88, "duration": 0.045, "ease": "smooth" }
+				"position": {
+					"anchor": "center",
+					"offset": {
+						"x": 0,
+						"y": 0
+					}
+				},
+				"enter": {
+					"start": 0,
+					"duration": 0.06,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.88,
+					"duration": 0.045,
+					"ease": "smooth"
+				},
+				"soundKit": "quick-whoosh"
 			},
 			{
 				"type": "watermark",
@@ -51,16 +75,33 @@
 					"handle": "@syntaxfm",
 					"label": "syntax.fm"
 				},
-				"position": { "anchor": "bottom-right", "offset": { "x": 0.1, "y": 0.17 } },
-				"enter": { "start": 0.04, "duration": 0.05, "ease": "settled" },
-				"exit": { "start": 0.91, "duration": 0.038, "ease": "smooth" }
+				"position": {
+					"anchor": "bottom-right",
+					"offset": {
+						"x": 0.1,
+						"y": 0.17
+					}
+				},
+				"enter": {
+					"start": 0.04,
+					"duration": 0.05,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.91,
+					"duration": 0.038,
+					"ease": "smooth"
+				}
 			}
 		],
 		"effects": [
 			{
 				"type": "paper-grain",
 				"id": "frame-grit",
-				"params": { "warmth": 0.0, "density": 0.20 }
+				"params": {
+					"warmth": 0.0,
+					"density": 0.2
+				}
 			}
 		]
 	}

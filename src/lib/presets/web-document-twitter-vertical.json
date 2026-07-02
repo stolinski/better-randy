@@ -17,9 +17,19 @@
 		},
 		"marks": {
 			"defaults": {
-				"highlight": { "color": "#fabf47", "intensity": 0.62 }
+				"highlight": {
+					"color": "#fabf47",
+					"intensity": 0.62
+				}
 			},
-			"timings": [{ "start": 0.2, "duration": 0.2, "ease": "smooth" }]
+			"timings": [
+				{
+					"start": 0.2,
+					"duration": 0.2,
+					"ease": "smooth"
+				}
+			],
+			"soundKit": "quick-whoosh"
 		},
 		"surface": {
 			"type": "web-document",
@@ -31,7 +41,12 @@
 				"sourceUrl": "x.com/devnotes/status/1934000000000000000",
 				"body": "Spent all weekend chasing a slow build. Turns out [highlight]the bottleneck was a console.log inside a hot loop[/highlight] — pulled it and the bundle step dropped 4x."
 			},
-			"enter": { "start": 0, "duration": 0.07, "ease": "settled" }
+			"enter": {
+				"start": 0,
+				"duration": 0.07,
+				"ease": "settled"
+			},
+			"soundKit": "quick-whoosh"
 		},
 		"overlays": [],
 		"effects": []

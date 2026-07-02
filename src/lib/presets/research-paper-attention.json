@@ -40,7 +40,8 @@
 					"duration": 0.06,
 					"ease": "smooth"
 				}
-			]
+			],
+			"soundKit": "quick-whoosh"
 		},
 		"surface": {
 			"type": "paper",
@@ -50,7 +51,7 @@
 				"author": "Vaswani et al.",
 				"affiliation": "Google Brain",
 				"bodyLabel": "Abstract",
-				"body": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks in an encoder\u2013decoder configuration. The best-performing models also connect the encoder and decoder through an attention mechanism.\n\nWe propose a new, simpler architecture \u2014 the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely.\n\nExperiments on two machine translation tasks show these models to be superior in quality while being more parallelizable and [highlight]requiring significantly less time to train[/highlight]. On WMT 2014 English-to-German translation, our model establishes a new state of the art."
+				"body": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks in an encoder–decoder configuration. The best-performing models also connect the encoder and decoder through an attention mechanism.\n\nWe propose a new, simpler architecture — the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely.\n\nExperiments on two machine translation tasks show these models to be superior in quality while being more parallelizable and [highlight]requiring significantly less time to train[/highlight]. On WMT 2014 English-to-German translation, our model establishes a new state of the art."
 			},
 			"enter": {
 				"start": 0,
@@ -61,14 +62,18 @@
 				"start": 0.93,
 				"duration": 0.034,
 				"ease": "smooth"
-			}
+			},
+			"soundKit": "quick-whoosh"
 		},
 		"overlays": [],
 		"effects": [
 			{
 				"type": "paper-grain",
 				"id": "frame-grit",
-				"params": { "warmth": 0.08, "density": 0.24 }
+				"params": {
+					"warmth": 0.08,
+					"density": 0.24
+				}
 			}
 		]
 	}

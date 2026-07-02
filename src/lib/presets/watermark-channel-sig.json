@@ -28,8 +28,17 @@
 				"author": "Every Tuesday",
 				"body": ""
 			},
-			"enter": { "start": 0, "duration": 0.06, "ease": "settled" },
-			"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" }
+			"enter": {
+				"start": 0,
+				"duration": 0.06,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.88,
+				"duration": 0.04,
+				"ease": "smooth"
+			},
+			"soundKit": "quick-whoosh"
 		},
 		"overlays": [
 			{
@@ -39,9 +48,23 @@
 					"handle": "@syntaxfm",
 					"label": "Subscribe"
 				},
-				"position": { "anchor": "top-right", "offset": { "x": 0.0625, "y": 0.0625 } },
-				"enter": { "start": 0.06, "duration": 0.06, "ease": "settled" },
-				"exit": { "start": 0.86, "duration": 0.04, "ease": "smooth" }
+				"position": {
+					"anchor": "top-right",
+					"offset": {
+						"x": 0.0625,
+						"y": 0.0625
+					}
+				},
+				"enter": {
+					"start": 0.06,
+					"duration": 0.06,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.86,
+					"duration": 0.04,
+					"ease": "smooth"
+				}
 			}
 		],
 		"effects": []

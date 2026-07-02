@@ -27,23 +27,55 @@
 				"author": "Scott Tolinski",
 				"body": ""
 			},
-			"enter": { "start": 0, "duration": 0.22, "ease": "settled" },
-			"exit": { "start": 0.9, "duration": 0.045, "ease": "smooth" }
+			"enter": {
+				"start": 0,
+				"duration": 0.22,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.9,
+				"duration": 0.045,
+				"ease": "smooth"
+			},
+			"soundKit": "quick-whoosh"
 		},
 		"textAnimations": [
 			{
 				"id": "quote-reveal",
-				"target": { "kind": "surface", "slot": "title" },
+				"target": {
+					"kind": "surface",
+					"slot": "title"
+				},
 				"effect": "line-by-line-slide",
-				"enter": { "start": 0.02, "duration": 0.18, "ease": "smooth" },
-				"exit": { "start": 0.9, "duration": 0.04, "ease": "smooth" }
+				"enter": {
+					"start": 0.02,
+					"duration": 0.18,
+					"ease": "smooth"
+				},
+				"exit": {
+					"start": 0.9,
+					"duration": 0.04,
+					"ease": "smooth"
+				}
 			}
 		],
 		"stage": {
 			"type": "depth",
-			"camera": { "move": "push", "amount": 0.4, "ease": "smooth" },
-			"focus": { "focusZ": 0, "aperture": 0 },
-			"backdrop": { "image": { "asset": "atmosphere-warm" }, "contrast": 0.35 }
+			"camera": {
+				"move": "push",
+				"amount": 0.4,
+				"ease": "smooth"
+			},
+			"focus": {
+				"focusZ": 0,
+				"aperture": 0
+			},
+			"backdrop": {
+				"image": {
+					"asset": "atmosphere-warm"
+				},
+				"contrast": 0.35
+			}
 		},
 		"overlays": [],
 		"effects": []
