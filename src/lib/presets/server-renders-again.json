@@ -75,12 +75,8 @@
 				"exit": {
 					"start": 0.915,
 					"duration": 0.085,
-					"ease": "smooth",
-					"sound": {
-						"mute": true
-					}
-				},
-				"soundKit": "syntax"
+					"ease": "smooth"
+				}
 			}
 		],
 		"effects": [

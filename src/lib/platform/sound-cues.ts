@@ -65,6 +65,24 @@ export const MOTION_SOUND_DEFAULTS = {
 // ADR-0033 §2. Everything else leads the motion from its window start.
 const ARRIVAL_EVENTS: ReadonlySet<SoundEvent> = new Set(['impact', 'sub-drop']);
 
+// Motion-character defaults per Overlay type (ADR-0033 §2: WHICH event is
+// intrinsic to the motion, owned by the Pipeline). A whoosh means something
+// crossing space — types whose motion doesn't displace air (a press-on, a
+// fade, a glide) emit NOTHING by default; their sound is opt-in per motion
+// through the `sound.event` / `sound.sample` override. Unlisted types keep
+// the generic slide semantics (whoosh with the window).
+const OVERLAY_EVENT_DEFAULTS: Record<
+	string,
+	{ enter: SoundEvent | null; exit: SoundEvent | null }
+> = {
+	// Tape is pressed on / peeled off — nothing flies.
+	'washi-tape': { enter: null, exit: null },
+	// A watermark fades — silent.
+	watermark: { enter: null, exit: null },
+	// The cursor glides; its dwells are the story, not air displacement.
+	'cursor-trail': { enter: null, exit: null }
+};
+
 interface MotionWindow {
 	start: number;
 	duration: number;
@@ -156,27 +174,30 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 	for (const overlay of state.overlays) {
 		const layer: SoundCueLayer = { kind: 'overlay', overlayId: overlay.id };
 		const kit = overlay.soundKit ?? null;
-		if (overlay.enter) {
+		const typeDefaults = OVERLAY_EVENT_DEFAULTS[overlay.type];
+
+		for (const phase of ['enter', 'exit'] as const) {
+			const motionWindow = overlay[phase];
+			if (!motionWindow) {
+				continue;
+			}
+			const genericDefault =
+				phase === 'enter' ? MOTION_SOUND_DEFAULTS.overlayEnter : MOTION_SOUND_DEFAULTS.overlayExit;
+			const typeDefault = typeDefaults === undefined ? genericDefault : typeDefaults[phase];
+			// A silent-by-default motion emits only when the author opts in with
+			// an explicit event swap or a locked sample.
+			const override = motionWindow.sound;
+			if (typeDefault === null && !override?.event && override?.sample === undefined) {
+				continue;
+			}
 			cues.push(
 				cueFrom(
-					`overlay:${overlay.id}:enter`,
+					`overlay:${overlay.id}:${phase}`,
 					layer,
-					MOTION_SOUND_DEFAULTS.overlayEnter,
-					overlay.enter,
+					typeDefault ?? genericDefault,
+					motionWindow,
 					kit,
-					overlay.enter.sound
-				)
-			);
-		}
-		if (overlay.exit) {
-			cues.push(
-				cueFrom(
-					`overlay:${overlay.id}:exit`,
-					layer,
-					MOTION_SOUND_DEFAULTS.overlayExit,
-					overlay.exit,
-					kit,
-					overlay.exit.sound
+					override
 				)
 			);
 		}

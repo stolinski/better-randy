@@ -170,6 +170,8 @@ Sound is a timed-cue orchestration domain, not a sixth Layer. Motion primitives 
 
 **`soundKit` — per Layer.** A Sound-kit slug on `surface`, an `overlays[]` entry, or `marks`, validated against the kit registry (`src/lib/platform/sound-kits/registry.ts`) at parse time. The kit resolves that Layer's emitted events → samples, falling back per event to the engine-pinned core sample ([ADR-0024](adr/0024-role-resolution-core-fallback.md) hybrid; core samples are deterministic WAVs from `scripts/gen-core-sounds.mjs`). Kits ship in `src/lib/sound-kits/<slug>/manifest.ts` — v1 registers `core`. There is no whole-piece kit; **a Layer with no kit is silent** (sound is opt-in per Layer).
 
+Defaults follow the motion's *character*, not just its window: sliding elements whoosh with their enter/exit, but Overlay types whose motion doesn't displace air (`washi-tape` press-on, `watermark` fade, `cursor-trail` glide) emit **nothing** by default — their sound is opt-in via the per-motion override below (see `OVERLAY_EVENT_DEFAULTS` in `sound-cues.ts`).
+
 **`sound` — per motion.** Any motion window (a `Transition` — surface/overlay/text-animation `enter`/`exit` — a `marks.timings[]` entry, or a chat message's `enter`) may carry an override beneath the Layer's kit:
 
 ```jsonc
