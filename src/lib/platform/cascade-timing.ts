@@ -78,11 +78,22 @@ export function resolveCascadeTimings(state: EngineState): Map<string, CascadeWi
 	const pending = new Map<string, PendingWindow>();
 
 	const surfaceEnter = state.surface.enter;
-	pending.set('surface', {
-		baseStartFraction: surfaceEnter?.start ?? 0,
-		durationFraction: surfaceEnter?.duration ?? 0,
-		cascade: undefined
-	});
+	const surfaceChannels = state.surface.animation?.channels;
+	if (surfaceChannels && hasAnyTrack(surfaceChannels)) {
+		// Channel-owned surface: dependants anchoring to its `end` weld to the
+		// authored envelope's landing, not the (bypassed) sugar window.
+		pending.set('surface', {
+			baseStartFraction: surfaceEnter?.start ?? 0,
+			durationFraction: channelEnvelopeSpanMs(surfaceChannels) / durationMs,
+			cascade: undefined
+		});
+	} else {
+		pending.set('surface', {
+			baseStartFraction: surfaceEnter?.start ?? 0,
+			durationFraction: surfaceEnter?.duration ?? 0,
+			cascade: undefined
+		});
+	}
 
 	for (const overlay of state.overlays) {
 		const channels = overlay.animation?.channels;

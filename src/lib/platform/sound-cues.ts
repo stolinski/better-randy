@@ -10,11 +10,13 @@
 import { messageEnter, TAPBACK_DELAY } from '../pipelines/surfaces/imessage/schedule.ts';
 import { EFFECT_CATALOG } from '../text-animations/catalog.ts';
 
+import { resolveCascadeTimings, type CascadeWindow } from './cascade-timing.ts';
 import {
 	listMarkInstances,
 	resolveMarkForIndex,
 	type ChatMessage,
 	type EngineState,
+	type OverlayChannelKeyframes,
 	type SoundEvent,
 	type SoundOverride
 } from './engine-schema.ts';
@@ -127,6 +129,25 @@ interface MotionWindow {
 	duration: number;
 }
 
+// Whether an authored channel set moves the element through space (x/y travel,
+// scale, rotation) or only fades it (opacity alone). Extends the ADR-0033 §2
+// motion-character rule to the keyframe model: travel whooshes, a pure fade is
+// silent by default.
+function channelsTravel(channels: OverlayChannelKeyframes): boolean {
+	return Boolean(
+		channels.x?.length || channels.y?.length || channels.scale?.length || channels.rotation?.length
+	);
+}
+
+function hasChannelMotion(
+	channels: Partial<Record<string, readonly { atMs: number }[] | undefined>> | undefined
+): boolean {
+	if (!channels) {
+		return false;
+	}
+	return Object.values(channels).some((track) => track !== undefined && track.length > 0);
+}
+
 function cueFrom(
 	id: string,
 	layer: SoundCueLayer,
@@ -167,31 +188,64 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 	const surfaceKit = surface.soundKit ?? null;
 	const surfaceLayer: SoundCueLayer = { kind: 'surface' };
 
-	const surfaceTypeDefaults = SURFACE_EVENT_DEFAULTS[surface.type];
-	for (const phase of ['enter', 'exit'] as const) {
-		const motionWindow = surface[phase];
-		if (!motionWindow) {
-			continue;
+	// Cues resolve AFTER cascade resolution (ADR-0035 §4 + ADR-0033): automatic
+	// cues ride a re-timed cascade welded — same philosophy, one mechanism. The
+	// resolved windows also carry the keyframe envelope for channel-owned
+	// elements (first keyframe → landing).
+	const cascadeWindows = resolveCascadeTimings(state);
+	const enterWindow = (key: string, authored: MotionWindow): MotionWindow => {
+		const resolved: CascadeWindow | undefined = cascadeWindows.get(key);
+		return resolved ? { start: resolved.startFraction, duration: authored.duration } : authored;
+	};
+
+	if (hasChannelMotion(surface.animation?.channels)) {
+		// Channel-owned surface (opacity is its only channel — a fade): silent by
+		// default per the motion-character rule; the sugar `enter.sound` override
+		// stays the opt-in home. The window is the authored envelope.
+		const override = surface.enter?.sound;
+		if (override?.event || override?.sample !== undefined) {
+			const resolved = cascadeWindows.get('surface');
+			cues.push(
+				cueFrom(
+					'surface:enter',
+					surfaceLayer,
+					MOTION_SOUND_DEFAULTS.surfaceEnter,
+					{
+						start: resolved?.startFraction ?? surface.enter?.start ?? 0,
+						duration: resolved?.durationFraction ?? 0
+					},
+					surfaceKit,
+					override
+				)
+			);
 		}
-		const genericDefault =
-			phase === 'enter' ? MOTION_SOUND_DEFAULTS.surfaceEnter : MOTION_SOUND_DEFAULTS.surfaceExit;
-		const typeDefault =
-			surfaceTypeDefaults === undefined ? genericDefault : surfaceTypeDefaults[phase];
-		const override = motionWindow.sound;
-		// A fade-type surface emits only when the author opts in explicitly.
-		if (typeDefault === null && !override?.event && override?.sample === undefined) {
-			continue;
+	} else {
+		const surfaceTypeDefaults = SURFACE_EVENT_DEFAULTS[surface.type];
+		for (const phase of ['enter', 'exit'] as const) {
+			const motionWindow = surface[phase];
+			if (!motionWindow) {
+				continue;
+			}
+			const genericDefault =
+				phase === 'enter' ? MOTION_SOUND_DEFAULTS.surfaceEnter : MOTION_SOUND_DEFAULTS.surfaceExit;
+			const typeDefault =
+				surfaceTypeDefaults === undefined ? genericDefault : surfaceTypeDefaults[phase];
+			const override = motionWindow.sound;
+			// A fade-type surface emits only when the author opts in explicitly.
+			if (typeDefault === null && !override?.event && override?.sample === undefined) {
+				continue;
+			}
+			cues.push(
+				cueFrom(
+					`surface:${phase}`,
+					surfaceLayer,
+					typeDefault ?? genericDefault,
+					motionWindow,
+					surfaceKit,
+					override
+				)
+			);
 		}
-		cues.push(
-			cueFrom(
-				`surface:${phase}`,
-				surfaceLayer,
-				typeDefault ?? genericDefault,
-				motionWindow,
-				surfaceKit,
-				override
-			)
-		);
 	}
 
 	// One cue per mark instance, indexed like `marks.timings[]` (document
@@ -205,7 +259,7 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 				`mark:${index}`,
 				{ kind: 'marks' },
 				MOTION_SOUND_DEFAULTS.mark,
-				resolved,
+				enterWindow(`mark:${index}`, resolved),
 				marksKit,
 				state.marks.timings[index]?.sound
 			)
@@ -216,6 +270,42 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 		const layer: SoundCueLayer = { kind: 'overlay', overlayId: overlay.id };
 		const kit = overlay.soundKit ?? null;
 		const typeDefaults = OVERLAY_EVENT_DEFAULTS[overlay.type];
+		const channels = overlay.animation?.channels;
+
+		if (channels && hasChannelMotion(channels)) {
+			// Channel-owned overlay (ADR-0035): ONE motion beat — the enter
+			// envelope. Enter-family events fire at the resolved clip start;
+			// arrival events (via cueFrom) at the envelope's landing keyframe.
+			// There is no discrete exit window — an authored fade-out is part of
+			// the envelope, not a second launch. Character rule: travel channels
+			// whoosh, an opacity-only fade is silent by default; a silent-by-type
+			// Pipeline stays silent. The sugar `enter.sound` is the override home.
+			const characterDefault =
+				typeDefaults !== undefined
+					? typeDefaults.enter
+					: channelsTravel(channels)
+						? MOTION_SOUND_DEFAULTS.overlayEnter
+						: null;
+			const override = overlay.enter?.sound;
+			if (characterDefault === null && !override?.event && override?.sample === undefined) {
+				continue;
+			}
+			const resolved = cascadeWindows.get(`overlay:${overlay.id}`);
+			cues.push(
+				cueFrom(
+					`overlay:${overlay.id}:enter`,
+					layer,
+					characterDefault ?? MOTION_SOUND_DEFAULTS.overlayEnter,
+					{
+						start: resolved?.startFraction ?? overlay.enter?.start ?? 0,
+						duration: resolved?.durationFraction ?? 0
+					},
+					kit,
+					override
+				)
+			);
+			continue;
+		}
 
 		for (const phase of ['enter', 'exit'] as const) {
 			const motionWindow = overlay[phase];
@@ -236,7 +326,8 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 					`overlay:${overlay.id}:${phase}`,
 					layer,
 					typeDefault ?? genericDefault,
-					motionWindow,
+					// Cascade welds anchor the ENTER start; exits keep authored timing.
+					phase === 'enter' ? enterWindow(`overlay:${overlay.id}`, motionWindow) : motionWindow,
 					kit,
 					override
 				)
@@ -282,7 +373,8 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 					layer,
 					typeDefault ??
 						(phase === 'enter' ? MOTION_SOUND_DEFAULTS.textEnter : MOTION_SOUND_DEFAULTS.textExit),
-					motionWindow,
+					// Cascade welds anchor the ENTER start; exits keep authored timing.
+					phase === 'enter' ? enterWindow(`textAnimation:${entry.id}`, motionWindow) : motionWindow,
 					kit,
 					override
 				)
