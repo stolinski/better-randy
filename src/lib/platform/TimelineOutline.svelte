@@ -11,6 +11,7 @@
 	} from './engine-state.svelte';
 	import { PIPELINE_REGISTRY } from './pipelines';
 	import {
+		clearKeyframeSelection,
 		keyframeSelection,
 		layerSelection,
 		selectKeyframe,
@@ -424,6 +425,34 @@
 		window.addEventListener('pointerup', handlePointerUp);
 	}
 
+	// Delete/Backspace removes the selected keyframe diamond — unless the user
+	// is typing in a field. The writer lives on the transition (buildTracks).
+	function handleWindowKeydown(event: KeyboardEvent): void {
+		if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+		const key = keyframeSelection.key;
+		if (!key) return;
+		const target = event.target as HTMLElement | null;
+		if (
+			target &&
+			(target.tagName === 'INPUT' ||
+				target.tagName === 'SELECT' ||
+				target.tagName === 'TEXTAREA' ||
+				target.isContentEditable)
+		) {
+			return;
+		}
+		const parts = key.split(':');
+		const index = Number(parts.pop());
+		const channel = parts.pop() ?? '';
+		const trackId = parts.join(':');
+		const track = tracks.find((t) => t.id === trackId);
+		const transition = track?.transitions.find((t) => t.onKeyframeDelete !== undefined);
+		if (!transition?.onKeyframeDelete || !Number.isFinite(index)) return;
+		event.preventDefault();
+		transition.onKeyframeDelete(channel, index);
+		clearKeyframeSelection();
+	}
+
 	function isTransitionSelected(trackId: string, transitionId: string): boolean {
 		const sel = timeline.selection;
 		return sel !== null && sel.trackId === trackId && sel.transitionId === transitionId;
@@ -434,6 +463,8 @@
 		window.removeEventListener('pointerup', handlePointerUp);
 	});
 </script>
+
+<svelte:window onkeydown={handleWindowKeydown} />
 
 <div class="outline">
 	<!-- LEFT: gutter column — header strip / scrollable rows / add footer -->

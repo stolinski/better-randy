@@ -178,8 +178,16 @@ const compositeFragmentFn = tgpu['~unstable'].fragmentFn({
 			ovlW = ovlW + oWgt;
 		}
 
-		let surf = surfAcc / max(surfW, 0.0001);
+		var surf = surfAcc / max(surfW, 0.0001);
 		let ovl = ovlAcc / max(ovlW, 0.0001);
+
+		// Composition-owned surface fade (ADR-0035): the authored opacity channel
+		// multiplies the Surface plane HERE, on the GPU — copyElementImageToTexture
+		// cannot rasterize CSS opacity < 1, so a DOM fade would be binary. The
+		// planes are premultiplied, so all four components scale together. 1.0 =
+		// no fade (the DOF-only path).
+		let surfaceAlpha = layout.$.uniforms.lens.y;
+		surf = surf * surfaceAlpha;
 
 		// ----- Procedural defocused-material backdrop (tabletop/macro depth) -----
 		// A soft material plane behind the Surface: low-frequency mottle (an
@@ -287,7 +295,9 @@ const compositeFragmentFn = tgpu['~unstable'].fragmentFn({
 			// not the soft baked shadow.
 			let shadowShift = vec2f(-0.0045, 0.006);
 			let hardMask = smoothstep(0.6, 0.85, textureSampleLevel(layout.$.surfaceTexture, layout.$.samp, in.uv - shadowShift, 0.0).a);
-			shadedBdRgb = mix(bd.rgb, vec3f(0.05, 0.04, 0.035), hardMask * 0.92);
+			// The hard shadow rides the card's composition-owned fade too — a
+			// lingering silhouette under a faded card reads as a ghost.
+			shadedBdRgb = mix(bd.rgb, vec3f(0.05, 0.04, 0.035), hardMask * 0.92 * surfaceAlpha);
 		}
 
 		// Back-to-front premultiplied composite: backdrop (back, now carrying the hard
@@ -350,6 +360,9 @@ export interface CompositePlanesInput {
 	/** Clip progress 0..1 — drives the cinematic camera push, parallax, bokeh
 	 *  twinkle, and animated grain. Frame-deterministic. */
 	time: number;
+	/** Composition-owned surface opacity (ADR-0035) applied as a GPU
+	 *  alpha-multiply on the Surface plane. 1 = no fade. */
+	surfaceAlpha: number;
 }
 
 export class CompositionPlanes {
@@ -441,7 +454,7 @@ export class CompositionPlanes {
 				params: d.vec4f(input.focusZ, input.aperture, input.surfaceZ, input.overlayZ),
 				backdrop: d.vec4f(b.strength, b.edgeBlur, b.vignette, b.speckle),
 				backdropColor: d.vec4f(b.color[0], b.color[1], b.color[2], b.grain),
-				lens: d.vec4f(input.time, 0, 0, 0),
+				lens: d.vec4f(input.time, input.surfaceAlpha, 0, 0),
 				resolution: d.vec2f(width, height)
 			});
 			const bindGroup = root.createBindGroup(compositeLayout, {

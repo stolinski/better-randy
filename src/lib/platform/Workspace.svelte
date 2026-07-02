@@ -772,6 +772,26 @@
 		return markers.sort((a, b) => a.fraction - b.fraction);
 	}
 
+	// Delete one keyframe (timeline Delete/Backspace). A drained track is
+	// removed so the element returns to its intrinsic motion-form; a new first
+	// keyframe drops its ease (nothing precedes it).
+	function makeKeyframeDeleter(
+		channels: ChannelTrackMap
+	): (channel: string, index: number) => void {
+		return (channel, index) => {
+			const track = channels[channel];
+			if (!track || !track[index]) {
+				return;
+			}
+			track.splice(index, 1);
+			if (track.length > 0) {
+				delete track[0].ease;
+			} else {
+				delete channels[channel];
+			}
+		};
+	}
+
 	// Marker drag → retime atMs, clamped between neighbours so tracks stay
 	// strictly ascending through any drag. Write-through to engineState (the
 	// fork/autosave machinery rides every mutation).
@@ -822,7 +842,8 @@
 						start: clipStart,
 						duration: Math.max(cascadeWindows.get('surface')?.durationFraction ?? 0, 0.02),
 						keyframes: clipKeyframes(surfaceChannels, clipStart),
-						onKeyframeRetime: makeKeyframeRetimer(surfaceChannels, clipStart)
+						onKeyframeRetime: makeKeyframeRetimer(surfaceChannels, clipStart),
+						onKeyframeDelete: makeKeyframeDeleter(surfaceChannels)
 					}
 				]
 			});
@@ -900,6 +921,7 @@
 					duration: Math.max(window?.durationFraction ?? 0, 0.02),
 					keyframes: clipKeyframes(channels, clipStart),
 					onKeyframeRetime: makeKeyframeRetimer(channels, clipStart),
+					onKeyframeDelete: makeKeyframeDeleter(channels),
 					cascade: link
 				};
 				if (cascade) {
@@ -1250,6 +1272,25 @@
 		engineState.effects.some((effect) => effect.type === 'depth-of-field')
 	);
 
+	// Surfaces whose own pipeline already applies paperVisibility as a GPU alpha
+	// fade — the plane composite must not multiply a second time (α² fades).
+	const SELF_FADING_SURFACE_TYPES = new Set(['chapter-card', 'title-sequence', 'pullquote-on-photo']);
+
+	// A composition-owned surface opacity channel (ADR-0035) needs the SURFACE
+	// alone on its plane so the authored fade can multiply it on the GPU
+	// (copyElementImageToTexture can't rasterize CSS opacity — a DOM fade is
+	// binary). Overlays hoist to their own plane exactly like the DOF split.
+	const surfaceOpacityOwned = $derived(
+		Boolean(engineState.surface.animation?.channels?.opacity?.length) &&
+			!SELF_FADING_SURFACE_TYPES.has(engineState.surface.type)
+	);
+	const planeSplitActive = $derived(dofActive || surfaceOpacityOwned);
+
+	// The composition-owned surface fade for this frame; 1 = no fade.
+	function surfaceFadeAlpha(): number {
+		return surfaceOpacityOwned ? clampNumber(animState.paperVisibility, 0, 1) : 1;
+	}
+
 	function findOverlayRenderer(type: string): OverlayRenderer | null {
 		for (const renderer of Object.values(PIPELINE_REGISTRY.overlays)) {
 			if (renderer.type === type) {
@@ -1375,6 +1416,19 @@
 	function resolveDof(progress: number): ResolvedDof | null {
 		const dofEffect = engineState.effects.find((effect) => effect.type === 'depth-of-field');
 		if (!dofEffect) {
+			// No DOF, but a composition-owned surface fade still needs the plane
+			// composite (surface alone on its plane → GPU alpha-multiply). Zero
+			// aperture degenerates the bokeh gather to a passthrough OVER.
+			if (surfaceOpacityOwned) {
+				return {
+					focusZ: 0,
+					aperture: 0,
+					surfaceZ: 0,
+					overlayZ: clampNumber(engineState.overlays[0]?.z ?? 0.7, 0, 1),
+					backdrop: NO_BACKDROP,
+					otherEffects: engineState.effects
+				};
+			}
 			return null;
 		}
 		const raw = (dofEffect.params ?? {}) as {
@@ -1524,7 +1578,8 @@
 			surfaceZ: dof.surfaceZ,
 			overlayZ: dof.overlayZ,
 			backdrop: dof.backdrop,
-			time: timebase.progress
+			time: timebase.progress,
+			surfaceAlpha: surfaceFadeAlpha()
 		});
 		const commandEncoder = host.device.createCommandEncoder();
 		effectChain.apply({
@@ -2352,7 +2407,7 @@
 			<Composition
 				bind:element={compositionElement}
 				bind:surfaceElement
-				splitPlanes={dofActive}
+				splitPlanes={planeSplitActive}
 				bind:overlayRootElement
 			/>
 		</VideoFrame>

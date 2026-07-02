@@ -86,6 +86,9 @@ export interface TimelineTransition {
 	 * neighbours (strictly ascending stays true through any drag).
 	 */
 	onKeyframeRetime?: (channel: string, index: number, fraction: number) => void;
+	/** Delete one keyframe (Delete/Backspace on the selected diamond). Empties
+	 *  clean up: a drained track is removed, a new first keyframe drops its ease. */
+	onKeyframeDelete?: (channel: string, index: number) => void;
 	/** Present when this clip's enter is cascade-welded to another row. */
 	cascade?: ClipCascadeLink;
 }
