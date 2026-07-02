@@ -17,8 +17,10 @@ import coreWhooshInUrl from '$lib/assets/sounds/core-whoosh-in.wav';
 import coreWhooshOutUrl from '$lib/assets/sounds/core-whoosh-out.wav';
 import bedAmbientTextureUrl from '$lib/assets/sounds/bed-ambient-texture.wav';
 import impactBookUrl from '$lib/assets/sounds/impact-book.wav';
+import markerSwipeUrl from '$lib/assets/sounds/marker-swipe.wav';
 import messagePopUrl from '$lib/assets/sounds/message-pop.wav';
 import messageSendUrl from '$lib/assets/sounds/message-send.wav';
+import pencilStrokeUrl from '$lib/assets/sounds/pencil-stroke.wav';
 import quickWhooshInUrl from '$lib/assets/sounds/quick-whoosh-in.wav';
 import quickWhooshOutUrl from '$lib/assets/sounds/quick-whoosh-out.wav';
 import tapbackDislikeUrl from '$lib/assets/sounds/tapback-dislike.wav';
@@ -47,6 +49,8 @@ const SOUND_ASSETS: Record<string, string> = {
 	'quick-whoosh-out': quickWhooshOutUrl,
 	'impact-book': impactBookUrl,
 	'tick-pencil': tickPencilUrl,
+	'marker-swipe': markerSwipeUrl,
+	'pencil-stroke': pencilStrokeUrl,
 	// Message Pop kit samples (provenance + ⚠ redistribution note in
 	// sound-kits/message-pop/manifest.ts — Apple recordings at Scott's direction)
 	'message-pop': messagePopUrl,
