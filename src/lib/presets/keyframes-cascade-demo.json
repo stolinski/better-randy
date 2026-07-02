@@ -13,8 +13,8 @@
 		},
 		"typography": {
 			"fontFamily": "sans",
-			"paperColor": "#ffffff",
-			"inkColor": "#111111"
+			"paperColor": "#14121a",
+			"inkColor": "#f2ede3"
 		},
 		"marks": {
 			"defaults": {
