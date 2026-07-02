@@ -83,6 +83,20 @@ const OVERLAY_EVENT_DEFAULTS: Record<
 	'cursor-trail': { enter: null, exit: null }
 };
 
+// Same principle for Surface types: a surface whose enter/exit is a FADE
+// (opacity, not travel) emits nothing by default — only surfaces that fly or
+// slide whoosh. Unlisted types keep the fly-in card semantics.
+const SURFACE_EVENT_DEFAULTS: Record<
+	string,
+	{ enter: SoundEvent | null; exit: SoundEvent | null }
+> = {
+	// The chat card fades in; its bubbles carry the sound (pop per message).
+	imessage: { enter: null, exit: null },
+	// The chapter card fades on the GPU (paperVisibility); the camera push is
+	// ambience, not displacement — the bed and the title reveal carry it.
+	'chapter-card': { enter: null, exit: null }
+};
+
 interface MotionWindow {
 	start: number;
 	duration: number;
@@ -128,27 +142,29 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 	const surfaceKit = surface.soundKit ?? null;
 	const surfaceLayer: SoundCueLayer = { kind: 'surface' };
 
-	if (surface.enter) {
+	const surfaceTypeDefaults = SURFACE_EVENT_DEFAULTS[surface.type];
+	for (const phase of ['enter', 'exit'] as const) {
+		const motionWindow = surface[phase];
+		if (!motionWindow) {
+			continue;
+		}
+		const genericDefault =
+			phase === 'enter' ? MOTION_SOUND_DEFAULTS.surfaceEnter : MOTION_SOUND_DEFAULTS.surfaceExit;
+		const typeDefault =
+			surfaceTypeDefaults === undefined ? genericDefault : surfaceTypeDefaults[phase];
+		const override = motionWindow.sound;
+		// A fade-type surface emits only when the author opts in explicitly.
+		if (typeDefault === null && !override?.event && override?.sample === undefined) {
+			continue;
+		}
 		cues.push(
 			cueFrom(
-				'surface:enter',
+				`surface:${phase}`,
 				surfaceLayer,
-				MOTION_SOUND_DEFAULTS.surfaceEnter,
-				surface.enter,
+				typeDefault ?? genericDefault,
+				motionWindow,
 				surfaceKit,
-				surface.enter.sound
-			)
-		);
-	}
-	if (surface.exit) {
-		cues.push(
-			cueFrom(
-				'surface:exit',
-				surfaceLayer,
-				MOTION_SOUND_DEFAULTS.surfaceExit,
-				surface.exit,
-				surfaceKit,
-				surface.exit.sound
+				override
 			)
 		);
 	}
