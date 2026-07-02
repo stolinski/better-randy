@@ -59,7 +59,7 @@ The engine gap is closed, the make-cinematic push is **done across every surface
 
 With the north star met, the next arc is **capability expansion** — chosen over production dogfooding and content-scale tooling (those pull later). Epic order:
 
-1. **Generalized keyframes** — epic #1, **designed** ([ADR-0035](adr/0035-generalized-keyframes-and-cascade.md), grilled + written 2026-07-01); task-ified in dex epic `4i8gx2i7`.
+1. **Generalized keyframes** — ✅ **shipped** ([ADR-0035](adr/0035-generalized-keyframes-and-cascade.md); dex epic `4i8gx2i7` complete 2026-07-02): schema (`keyframes[]` + per-property ease + Cascade + static rotation), cascade-resolving manifest builder + channel-owned OverlayMount path, welded sound cues, timeline diamonds + tethers, DaVinci-style inspector keyframe rows (playhead value + prev/◆/next), envelope-aware linter, and the Critic-ACCEPTed reference deliverable `lower-third-cascade-reveal`. Absorbed `5vcak6og` (overlay rotation).
 2. **Depth-stage expansion** — epic #2: overlay-at-depth, scene lighting/shadow, half-res 4K perf (the ADR-0028 residuals), demand-pulled by the depth-showcase set below.
 3. **Diagram primitives** — **designed** ([ADR-0036](adr/0036-diagram-primitives.md), grilled 2026-07); implementation after keyframes + Cascade land (Cascade is the reveal grammar). Dex epic `phd3zd26`.
 
