@@ -6,16 +6,18 @@
  * gate in `audio-assets.ts` refuses to start if a registered kit names a
  * sample slug that is not a bundled asset.
  */
+import { chatKit } from '../../sound-kits/chat/manifest.ts';
 import { coreKit } from '../../sound-kits/core/manifest.ts';
-import { messagePopKit } from '../../sound-kits/message-pop/manifest.ts';
-import { quickWhooshKit } from '../../sound-kits/quick-whoosh/manifest.ts';
+import { deskKit } from '../../sound-kits/desk/manifest.ts';
 
 import type { SoundKitManifest } from './types';
 
+// Kits are PALETTES — named for their sound-world (Desk, Chat), presented as
+// "Palette" in the GUI. One sample's name never names a kit.
 export const SOUND_KIT_REGISTRY: Readonly<Record<string, SoundKitManifest>> = {
 	core: coreKit,
-	'message-pop': messagePopKit,
-	'quick-whoosh': quickWhooshKit
+	desk: deskKit,
+	chat: chatKit
 };
 
 export function isSoundKit(slug: string): boolean {

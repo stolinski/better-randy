@@ -20,11 +20,10 @@ import type { SoundKitManifest } from '../../platform/sound-kits/types';
  * freesound 760369/760370) remains in git history (commit 634d0d6) as the
  * redistributable fallback.
  */
-export const messagePopKit: SoundKitManifest = {
-	slug: 'message-pop',
-	label: 'Message Pop',
-	description:
-		'Chat-bubble pops — soft receive pop; pair with the message-send sample on sent bubbles.',
+export const chatKit: SoundKitManifest = {
+	slug: 'chat',
+	label: 'Chat',
+	description: 'Message pops and sends — the conversation palette.',
 	samples: {
 		pop: 'message-pop',
 		// The chat card itself slides in/out — cover its whooshes with the

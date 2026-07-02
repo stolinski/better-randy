@@ -29,7 +29,7 @@
 					"ease": "smooth"
 				}
 			],
-			"soundKit": "quick-whoosh"
+			"soundKit": "desk"
 		},
 		"surface": {
 			"type": "web-document",
@@ -47,7 +47,7 @@
 				"duration": 0.07,
 				"ease": "settled"
 			},
-			"soundKit": "quick-whoosh"
+			"soundKit": "desk"
 		},
 		"overlays": [],
 		"effects": []

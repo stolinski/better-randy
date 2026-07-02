@@ -29,7 +29,7 @@
 					"ease": "sharp"
 				}
 			],
-			"soundKit": "quick-whoosh"
+			"soundKit": "desk"
 		},
 		"surface": {
 			"type": "newspaper",
@@ -50,7 +50,7 @@
 				"duration": 0.085,
 				"ease": "smooth"
 			},
-			"soundKit": "quick-whoosh"
+			"soundKit": "desk"
 		},
 		"overlays": [
 			{

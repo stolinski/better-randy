@@ -1,7 +1,7 @@
 {
 	"schema": "hiviz@1",
 	"name": "iMessage — the bug · dark (vertical)",
-	"description": "Vertical (TikTok/Reels) dark-mode variant of the live Messages conversation overlay (same Surface, theme chosen from paperColor). Over ~6s: a gray received bubble pops in, a three-dot typing indicator resolves into the next bubble, a heart tapback pops on, then a blue sent reply arrives with a Delivered → Read receipt, and it holds. Faithful modern Messages look BY DESIGN: near-black page, dark-gray (left) / blue (right) bubbles with grouped tail curls, an iOS/macOS header (contact avatar + name, FaceTime icon) and a bottom composer bar — flat screen, NO browser chrome, NO CSS glow. Transparent WebM overlay, composited over footage.",
+	"description": "Vertical (TikTok/Reels) dark-mode variant of the live Messages conversation overlay (same Surface, theme chosen from paperColor). Over ~6s: a gray received bubble pops in, a three-dot typing indicator resolves into the next bubble, a heart tapback pops on, then a blue sent reply arrives with a Delivered → Read receipt, and it holds. Chromeless (chrome: 'none', ADR-0037): just the dark-gray (left) / blue (right) bubbles with grouped tail curls floating over footage — no page, no header, no composer bar, film-insert style. Fully bare BY DESIGN (faithful-OS-artifact stance): no mono thread, no collage chrome; tail curls cut to genuine transparency; NO CSS glow. Transparent WebM overlay, composited over footage.",
 	"pack": "syntax",
 	"state": {
 		"transport": {
@@ -26,6 +26,7 @@
 		},
 		"surface": {
 			"type": "imessage",
+			"chrome": "none",
 			"content": {
 				"author": "Wes",
 				"body": "",
@@ -69,7 +70,7 @@
 				"duration": 0.05,
 				"ease": "settled"
 			},
-			"soundKit": "message-pop"
+			"soundKit": "chat"
 		},
 		"overlays": [],
 		"effects": []

@@ -1,0 +1,50 @@
+{
+	"schema": "hiviz@1",
+	"kind": "fixture",
+	"name": "Halftone CMYK — effect fixture",
+	"description": "Proving fixture for the halftone-cmyk Effect (ported to WGSL from @paper-design/shaders halftone-cmyk, Apache-2.0). Four rotated ink screens at the classic press angles (C 15° / M 75° / Y 0° / K 45°) separate the pullquote-on-photo substrate — the warm bokeh ramps pull magenta+yellow rosettes while the dark zones lay black — and the bright quote knocks out to paper. Full-frame piece (backgroundFill); the alpha contract (E4) is masked to the content silhouette by construction. Fixture — exercises the pipeline, not held to the deliverable floors.",
+	"pack": "syntax",
+	"state": {
+		"transport": { "orientation": "horizontal", "durationSeconds": 4, "fps": 30, "format": "webm" },
+		"backgroundFill": "#0a0807",
+		"typography": { "fontFamily": "serif", "paperColor": "#2a2018", "inkColor": "#fdf6ec" },
+		"marks": { "defaults": {}, "timings": [] },
+		"surface": {
+			"type": "pullquote-on-photo",
+			"content": {
+				"title": "Four screens, four angles — cyan at fifteen, magenta at seventy-five, yellow flat, black on the diagonal.",
+				"author": "CMYK SEPARATION — DOTS · ROSETTE",
+				"body": ""
+			},
+			"enter": { "start": 0, "duration": 0.08, "ease": "settled" },
+			"exit": { "start": 0.92, "duration": 0.06, "ease": "smooth" }
+		},
+		"overlays": [],
+		"effects": [
+			{
+				"type": "halftone-cmyk",
+				"id": "press",
+				"params": {
+					"cmykType": "dots",
+					"size": 0.55,
+					"contrast": 1,
+					"softness": 0.3,
+					"gridNoise": 0,
+					"colorBack": "#fdf6ec",
+					"colorC": "#00a1e4",
+					"colorM": "#e6007e",
+					"colorY": "#ffed00",
+					"colorK": "#1a1a1a",
+					"floodC": 0,
+					"floodM": 0,
+					"floodY": 0,
+					"floodK": 0,
+					"gainC": 0,
+					"gainM": 0,
+					"gainY": 0,
+					"gainK": 0
+				}
+			}
+		]
+	}
+}

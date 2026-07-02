@@ -1,0 +1,85 @@
+{
+	"schema": "hiviz@1",
+	"name": "Lower-third — cascade reveal",
+	"description": "The ADR-0035 reference deliverable — a broadcast lower-third that NEEDS the keyframe model. The card is composition-owned: a 3-keyframe scale settle (0.965 → 1.012 → 1, the dip-then-land a single Transition window cannot express) rides with an authored fade and rise; the title and subtitle reveals are ms-welded in reading order (card start +340 ms → title; title end +120 ms → subtitle), so re-timing the card moves the whole chain — and its whoosh — in lockstep. Built on the lower-third-cinematic reference bones (cinematic variant, warm rim flare).",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#0a0810",
+			"inkColor": "#fff8ec"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"soundKit": "desk"
+		},
+		"textAnimations": [
+			{
+				"id": "title-reveal",
+				"target": { "kind": "overlay", "overlayId": "main", "slot": "title" },
+				"effect": "soft-blur-in",
+				"enter": { "start": 0.1, "duration": 0.07, "ease": "smooth" },
+				"cascade": { "anchor": { "overlay": "main" }, "event": "start", "offsetMs": 340 }
+			},
+			{
+				"id": "subtitle-reveal",
+				"target": { "kind": "overlay", "overlayId": "main", "slot": "subtitle" },
+				"effect": "fade-through",
+				"enter": { "start": 0.2, "duration": 0.06, "ease": "smooth" },
+				"cascade": { "anchor": { "textAnimation": "title-reveal" }, "event": "end", "offsetMs": 120 }
+			}
+		],
+		"overlays": [
+			{
+				"type": "lower-third",
+				"id": "main",
+				"content": {
+					"variant": "cinematic",
+					"kicker": "GUEST",
+					"title": "Cassidy Williams",
+					"subtitle": "Developer advocate"
+				},
+				"position": {
+					"anchor": "bottom-left",
+					"offset": { "x": 0.06, "y": 0.115 }
+				},
+				"enter": { "start": 0.04, "duration": 0.058, "ease": "settled" },
+				"animation": {
+					"channels": {
+						"opacity": [
+							{ "atMs": 0, "value": 0 },
+							{ "atMs": 300, "value": 1, "ease": "smooth" },
+							{ "atMs": 5040, "value": 1, "ease": "smooth" },
+							{ "atMs": 5280, "value": 0, "ease": "smooth" }
+						],
+						"y": [
+							{ "atMs": 0, "value": 0.015 },
+							{ "atMs": 360, "value": 0, "ease": "settled" }
+						],
+						"scale": [
+							{ "atMs": 0, "value": 0.965 },
+							{ "atMs": 280, "value": 1.012, "ease": "smooth" },
+							{ "atMs": 400, "value": 1, "ease": "settled" }
+						]
+					}
+				},
+				"soundKit": "desk"
+			}
+		],
+		"effects": [],
+		"audioCues": []
+	}
+}

@@ -45,7 +45,7 @@
 		</Field>
 	{/each}
 
-	<Field label="Kit">
+	<Field label="Palette">
 		<select value={host.soundKit ?? ''} onchange={setKit}>
 			<option value="">Silent</option>
 			{#each kits as kit (kit.slug)}

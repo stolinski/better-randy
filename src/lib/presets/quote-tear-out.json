@@ -46,7 +46,7 @@
 					"ease": "sharp"
 				}
 			],
-			"soundKit": "quick-whoosh"
+			"soundKit": "desk"
 		},
 		"surface": {
 			"type": "paper",
@@ -67,7 +67,7 @@
 				"ease": "smooth"
 			},
 			"backgroundVisibility": 0.4,
-			"soundKit": "quick-whoosh"
+			"soundKit": "desk"
 		},
 		"overlays": [],
 		"effects": []

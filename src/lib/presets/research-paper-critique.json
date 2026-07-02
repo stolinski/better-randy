@@ -52,7 +52,7 @@
 					"color": "#de263a"
 				}
 			],
-			"soundKit": "quick-whoosh"
+			"soundKit": "desk"
 		},
 		"surface": {
 			"type": "paper",
@@ -71,7 +71,7 @@
 				"duration": 0.1,
 				"ease": "smooth"
 			},
-			"soundKit": "quick-whoosh"
+			"soundKit": "desk"
 		},
 		"overlays": [],
 		"effects": []

@@ -1,13 +1,14 @@
 import type { SoundKitManifest } from '../../platform/sound-kits/types';
 
 /**
- * Quick Whoosh — the first designed Sound kit (ADR-0033 §8): short
- * YouTube-style fwips on the enter/exit whooshes. Kits are named for their
- * SONIC personality, never for a Pack or channel — appearance (Pack) and
- * sound (Kit) are independent axes (ADR-0023 / ADR-0033 §3), so any Pack can
- * wear any kit. Events this kit doesn't cover fall through to the core
- * samples per ADR-0024. Swapping in different samples is a two-line change
- * here + the asset registration in `audio-assets.ts`.
+ * Desk — the paper/desk-object palette (ADR-0033 §8): quick paper air on the
+ * slides, a book slap on arrivals, pencil and marker on the marks. Kits are
+ * PALETTES named for their sound-world — never for one sample (a kit named
+ * "Quick Whoosh" read as nonsense next to a marker swipe), and never for a
+ * Pack or channel (appearance and sound are independent axes, ADR-0023 /
+ * ADR-0033 §3). Events this palette doesn't cover fall through to the core
+ * samples per ADR-0024. Swapping a sample is a one-line change here + the
+ * asset registration in `audio-assets.ts`.
  *
  * Sample provenance (all CC0 / public domain, sourced from freesound.org,
  * processed to 48 kHz stereo WAV + peak-normalized via ffmpeg):
@@ -22,15 +23,19 @@ import type { SoundKitManifest } from '../../platform/sound-kits/types';
  * - tick-pencil — one tap sliced from "Penciltap.aif" by kbnevel,
  *   freesound.org/people/kbnevel/sounds/119848/ (near-subliminal pencil
  *   tap for mark draw-ons and kinetic-text beats; normalized low, 0.7).
+ * - marker-swipe — one felt-tip drag sliced from "fast and slow marker
+ *   strokes" by MBPiM, freesound.org/people/MBPiM/sounds/351145/.
+ * - pencil-stroke — one stroke sliced from "writing-short-9" by newagesoup,
+ *   freesound.org/people/newagesoup/sounds/335519/.
  * - bed-ambient-texture (asset, not kit-resolved) — "Ambient Cinematic
  *   Texture [90bpm] [F# Minor]" by deadrobotmusic,
  *   freesound.org/people/deadrobotmusic/sounds/664150/ (trimmed to 12 s,
  *   faded, low level for bumper beds).
  */
-export const quickWhooshKit: SoundKitManifest = {
-	slug: 'quick-whoosh',
-	label: 'Quick Whoosh',
-	description: 'Short recorded fwips on enters/exits — the fast YouTube transition sound.',
+export const deskKit: SoundKitManifest = {
+	slug: 'desk',
+	label: 'Desk',
+	description: 'Paper air, book slap, pencil & marker — the desk-object palette.',
 	samples: {
 		'whoosh-in': 'quick-whoosh-in',
 		'whoosh-out': 'quick-whoosh-out',

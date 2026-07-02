@@ -37,7 +37,7 @@
 				"duration": 0.05,
 				"ease": "smooth"
 			},
-			"soundKit": "quick-whoosh"
+			"soundKit": "desk"
 		},
 		"overlays": [
 			{
@@ -67,7 +67,7 @@
 					"duration": 0.041,
 					"ease": "smooth"
 				},
-				"soundKit": "quick-whoosh"
+				"soundKit": "desk"
 			}
 		],
 		"effects": [

@@ -89,7 +89,7 @@ _Avoid_: material spec (the narrower predecessor; now the `material` kind), iden
 A semantic sound a **motion primitive emits** at a frame-deterministic moment — `whoosh-in` at an overlay slide's start, `impact` at a card-drop's settle, `tick` per character of a kinetic build. The *trigger time* and *which event* are **intrinsic to the motion** (owned by the Pipeline, like motion-form — never conceded to a kit or Pack); only the *sample* is resolved by the active **Sound kit**. The sonic peer of a **Role**.
 _Avoid_: cue (the cue is the scheduled realization), sfx, sound effect.
 
-**Sound kit** (a.k.a. *sound style*):
+**Sound kit** (a.k.a. *sound style*; presented as **Palette** in the GUI, named for its sound-world — Desk, Chat — never for one sample):
 A swappable **sonic dress** that resolves **sound-event** Roles to concrete audio samples, two-level with core fallback (the [ADR-0024](adr/0024-role-resolution-core-fallback.md) machinery). Assigned **per Layer** (in the Layer's inspector), **not** per composition — there is no whole-piece sound pack; a Layer with no kit is silent. "Choosing a sound style" re-sounds *that Layer*. Carries **sound only** — no appearance (that is the Pack), no motion-timing (that is intrinsic to the motion). Cascade: **Layer** (which kit) → **motion / event** (override one sample). Unlike the appearance **Pack** (one global dress, [ADR-0023](adr/0023-pack-is-appearance-only.md)), the kit lives on the Layer because sound is event-driven and granular.
 _Avoid_: sound pack (it is not the appearance Pack), soundtrack, theme, score; "composition sound kit" (kits are per-Layer).
 

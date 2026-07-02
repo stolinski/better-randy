@@ -27,9 +27,9 @@
 				"params": {
 					"dotType": "classic",
 					"grid": "square",
-					"size": 0.45,
+					"size": 0.6,
 					"radius": 1,
-					"contrast": 0.5,
+					"contrast": 0.55,
 					"originalColors": false,
 					"inverted": false,
 					"colorFront": "#111111",
