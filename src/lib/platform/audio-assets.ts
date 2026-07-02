@@ -31,7 +31,7 @@ import tapbackLikeUrl from '$lib/assets/sounds/tapback-like.wav';
 import tapbackQuestionUrl from '$lib/assets/sounds/tapback-question.wav';
 import tickPencilUrl from '$lib/assets/sounds/tick-pencil.wav';
 
-import { listSoundKits } from './sound-kits/registry.ts';
+import { DEFAULT_EVENT_SAMPLES, TAPBACK_SAMPLES } from './sound-cues.ts';
 
 const SOUND_ASSETS: Record<string, string> = {
 	'core-whoosh-in': coreWhooshInUrl,
@@ -43,7 +43,7 @@ const SOUND_ASSETS: Record<string, string> = {
 	'core-scratch': coreScratchUrl,
 	'core-sub-drop': coreSubDropUrl,
 	'core-sting': coreStingUrl,
-	// Quick Whoosh kit samples (CC0; provenance in sound-kits/quick-whoosh/manifest.ts)
+	// Desk-object samples (CC0; provenance in the git history of the retired kit manifests)
 	'quick-whoosh-in': quickWhooshInUrl,
 	'quick-whoosh-out': quickWhooshOutUrl,
 	'impact-book': impactBookUrl,
@@ -51,7 +51,7 @@ const SOUND_ASSETS: Record<string, string> = {
 	'marker-swipe': markerSwipeUrl,
 	'pencil-stroke': pencilStrokeUrl,
 	// Message Pop kit samples (provenance + ⚠ redistribution note in
-	// sound-kits/message-pop/manifest.ts — Apple recordings at Scott's direction)
+	// Apple Messages recordings at Scott's direction — see 634d0d6/e222fad)
 	'message-pop': messagePopUrl,
 	'message-send': messageSendUrl,
 	// Tapback acknowledgements, one per reaction type — Apple ToneLibrary
@@ -100,19 +100,21 @@ export function loadSoundBuffer(
 }
 
 /**
- * Boot gate (the ADR-0019 pattern): every sample a registered palette names
- * must be a bundled asset (the `core` palette covers the whole event
- * vocabulary, so its completeness is checked by the same loop). Throws an
- * aggregated Error so a missing WAV fails at startup, not mid-export.
+ * Boot gate (the ADR-0019 pattern): every engine-default sample — per event
+ * and per tapback type — must be a bundled asset. Throws an aggregated Error
+ * so a missing WAV fails at startup, not mid-export.
  */
 export function assertSoundRegistryValid(): void {
 	const problems: string[] = [];
 
-	for (const kit of listSoundKits()) {
-		for (const [event, slug] of Object.entries(kit.samples)) {
-			if (slug !== undefined && !isSoundAsset(slug)) {
-				problems.push(`kit "${kit.slug}" sample for "${event}" names unknown asset "${slug}"`);
-			}
+	for (const [event, slug] of Object.entries(DEFAULT_EVENT_SAMPLES)) {
+		if (!isSoundAsset(slug)) {
+			problems.push(`default sample for event "${event}" names unknown asset "${slug}"`);
+		}
+	}
+	for (const [tapback, slug] of Object.entries(TAPBACK_SAMPLES)) {
+		if (!isSoundAsset(slug)) {
+			problems.push(`tapback "${tapback}" names unknown asset "${slug}"`);
 		}
 	}
 

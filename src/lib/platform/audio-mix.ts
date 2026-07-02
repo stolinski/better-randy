@@ -9,8 +9,7 @@
  */
 import { loadSoundBuffer } from './audio-assets';
 import type { EngineState } from './engine-schema';
-import { deriveSoundCues, isAudibleSoundCue } from './sound-cues.ts';
-import { resolveCueSample } from './sound-kits/resolve.ts';
+import { deriveSoundCues, isAudibleSoundCue, resolveCueSample } from './sound-cues.ts';
 
 /** Fixed mix rate — matches the bundled core WAVs; the muxer resamples if it must. */
 export const AUDIO_MIX_SAMPLE_RATE = 48000;

@@ -37,8 +37,7 @@
 				"start": 0.88,
 				"duration": 0.044,
 				"ease": "smooth"
-			},
-			"soundKit": "desk"
+			}
 		},
 		"textAnimations": [
 			{

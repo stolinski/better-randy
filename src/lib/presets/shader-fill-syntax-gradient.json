@@ -33,8 +33,7 @@
 				"start": 0.88,
 				"duration": 0.04,
 				"ease": "smooth"
-			},
-			"soundKit": "desk"
+			}
 		},
 		"overlays": [
 			{
@@ -65,8 +64,7 @@
 					"start": 0.88,
 					"duration": 0.04,
 					"ease": "smooth"
-				},
-				"soundKit": "desk"
+				}
 			}
 		],
 		"effects": []

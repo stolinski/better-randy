@@ -273,11 +273,13 @@ function cloneSurface(surface: SurfaceState): SurfaceState {
 		// `twitter` mock (the same hand-enumeration trap that lost `counterpoint`).
 		site: surface.site,
 		variant: surface.variant,
+		// Chrome mode (ADR-0037): another top-level surface field that must be
+		// carried explicitly, or chromeless presets silently render the window.
+		chrome: surface.chrome,
 		enter: surface.enter ? cloneTransition(surface.enter) : undefined,
 		exit: surface.exit ? cloneTransition(surface.exit) : undefined,
 		animation: surface.animation ? cloneSurfaceAnimation(surface.animation) : undefined,
-		backgroundVisibility: surface.backgroundVisibility,
-		soundKit: surface.soundKit
+		backgroundVisibility: surface.backgroundVisibility
 	};
 }
 
@@ -296,8 +298,7 @@ function cloneOverlay(overlay: Overlay): Overlay {
 		enter: overlay.enter ? cloneTransition(overlay.enter) : undefined,
 		exit: overlay.exit ? cloneTransition(overlay.exit) : undefined,
 		animation: overlay.animation ? cloneOverlayAnimation(overlay.animation) : undefined,
-		z: overlay.z,
-		soundKit: overlay.soundKit
+		z: overlay.z
 	};
 }
 
@@ -365,7 +366,6 @@ export function applyCompositionState(preset: Preset): void {
 	for (const timing of next.marks.timings) {
 		engineState.marks.timings.push(cloneTiming(timing));
 	}
-	engineState.marks.soundKit = next.marks.soundKit;
 
 	engineState.surface = cloneSurface(next.surface);
 	engineState.overlays = next.overlays.map(cloneOverlay);

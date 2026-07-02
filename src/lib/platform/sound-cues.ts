@@ -22,11 +22,7 @@ import {
 	type SoundOverride
 } from './engine-schema.ts';
 
-/**
- * The Layer that emitted a cue — the cue resolves through THIS Layer's Sound
- * kit (ADR-0033 §3). Text animations resolve through their target Layer;
- * chat-bubble pops through the `imessage` Surface.
- */
+/** The Layer that emitted a cue — provenance for the rail and cue inspector. */
 export type SoundCueLayer =
 	| { kind: 'surface' }
 	| { kind: 'marks' }
@@ -39,9 +35,7 @@ export interface DerivedSoundCue {
 	event: SoundEvent;
 	/** Timeline fraction — the motion's own frame. */
 	start: number;
-	/** The emitting Layer's Sound kit; null = the Layer wears no kit (silent). */
-	kit: string | null;
-	/** Locked audio-asset slug from the per-motion override — bypasses kit resolution. */
+	/** Locked audio-asset slug from the per-motion override — replaces the event's default sample. */
 	sample?: string;
 	muted: boolean;
 }
@@ -49,8 +43,9 @@ export interface DerivedSoundCue {
 /**
  * Default primitive → event mapping (ADR-0033 §2, §8). The per-motion
  * `sound.event` override swaps an individual motion away from these.
- * Per-character text effects tick (the kinetic-build sound); everything else
- * whooshes in/out with its window, and chat bubbles pop.
+ * Per-character text effects tick (the kinetic-build sound); received chat
+ * bubbles pop and sent ones swish away; everything else whooshes in/out with
+ * its window.
  */
 export const MOTION_SOUND_DEFAULTS = {
 	surfaceEnter: 'whoosh-in',
@@ -61,8 +56,42 @@ export const MOTION_SOUND_DEFAULTS = {
 	textEnterPerCharacter: 'tick',
 	textExit: 'whoosh-out',
 	mark: 'tick',
-	message: 'pop'
+	message: 'pop',
+	messageReply: 'send'
 } as const satisfies Record<string, SoundEvent>;
+
+/**
+ * The engine's default sample per sound event — THE sound model (kit/palette
+ * concept removed 2026-07-02 after GUI testing: a per-Layer bundle indirection
+ * made "what does this play" illegible; see ADR-0033 amendments). Every
+ * motion resolves motion → event → this table, and any individual cue is
+ * overridden per motion (`sound.sample` / `sound.mute`) from the timeline or
+ * inspector. Slugs into `audio-assets.ts`.
+ */
+export const DEFAULT_EVENT_SAMPLES: Record<SoundEvent, string> = {
+	'whoosh-in': 'quick-whoosh-in',
+	'whoosh-out': 'quick-whoosh-out',
+	impact: 'impact-book',
+	tick: 'tick-pencil',
+	pop: 'message-pop',
+	send: 'message-send',
+	swipe: 'marker-swipe',
+	scratch: 'pencil-stroke',
+	'sub-drop': 'core-sub-drop',
+	sting: 'core-sting'
+};
+
+/**
+ * Resolve a derived cue to the audio-asset slug it plays, or null for
+ * silence: per-motion override first (`sample` lock / `mute`), else the
+ * event's engine default.
+ */
+export function resolveCueSample(cue: DerivedSoundCue): string | null {
+	if (cue.muted) {
+		return null;
+	}
+	return cue.sample ?? DEFAULT_EVENT_SAMPLES[cue.event];
+}
 
 // Arrival-flavoured events mark a landing, not a launch — they fire at the
 // window's settle (start + duration), the "impact at a card-drop's settle" of
@@ -88,9 +117,9 @@ const OVERLAY_EVENT_DEFAULTS: Record<
 };
 
 // The iMessage tapback acknowledgements — locked-specific signature sounds
-// per reaction type (ADR-0033 §5), resolved directly to bundled assets, not
-// through the kit (a kit maps one sample per EVENT; tapbacks are per type).
-const TAPBACK_SAMPLES: Record<NonNullable<ChatMessage['tapback']>, string> = {
+// per reaction type (ADR-0033 §5), resolved directly to bundled assets
+// (events carry one default sample; tapbacks are per type).
+export const TAPBACK_SAMPLES: Record<NonNullable<ChatMessage['tapback']>, string> = {
 	heart: 'tapback-heart',
 	like: 'tapback-like',
 	dislike: 'tapback-dislike',
@@ -102,7 +131,7 @@ const TAPBACK_SAMPLES: Record<NonNullable<ChatMessage['tapback']>, string> = {
 // Per-style mark draw-on events (the motion-character rule for the
 // annotation Layer): a highlight is a marker DRAG (swipe), the stroked marks
 // are pen/pencil strokes (scratch), and the focal transforms keep the small
-// percussive tick. Kits map each event to their own instrument.
+// percussive tick.
 const MARK_EVENT_DEFAULTS: Record<MarkInstance['style'], SoundEvent> = {
 	highlight: 'swipe',
 	underline: 'scratch',
@@ -171,7 +200,6 @@ function cueFrom(
 	layer: SoundCueLayer,
 	defaultEvent: SoundEvent,
 	window: MotionWindow,
-	kit: string | null,
 	override: SoundOverride | undefined
 ): DerivedSoundCue {
 	const event = override?.event ?? defaultEvent;
@@ -184,7 +212,6 @@ function cueFrom(
 		layer,
 		event,
 		start,
-		kit,
 		muted: override?.mute === true
 	};
 	if (override?.sample !== undefined) {
@@ -203,7 +230,6 @@ function cueFrom(
 export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 	const cues: DerivedSoundCue[] = [];
 	const surface = state.surface;
-	const surfaceKit = surface.soundKit ?? null;
 	const surfaceLayer: SoundCueLayer = { kind: 'surface' };
 
 	// Cues resolve AFTER cascade resolution (ADR-0035 §4 + ADR-0033): automatic
@@ -232,7 +258,6 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 						start: resolved?.startFraction ?? surface.enter?.start ?? 0,
 						duration: resolved?.durationFraction ?? 0
 					},
-					surfaceKit,
 					override
 				)
 			);
@@ -259,7 +284,6 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 					surfaceLayer,
 					typeDefault ?? genericDefault,
 					motionWindow,
-					surfaceKit,
 					override
 				)
 			);
@@ -269,7 +293,6 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 	// One cue per mark instance, indexed like `marks.timings[]` (document
 	// order); `resolveMarkForIndex` supplies the draw-on window even when the
 	// timing entry is absent (shared fallback timing).
-	const marksKit = state.marks.soundKit ?? null;
 	listMarkInstances(surface.content).forEach((instance, index) => {
 		const resolved = resolveMarkForIndex(instance.style, index, state.marks);
 		cues.push(
@@ -278,7 +301,6 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 				{ kind: 'marks' },
 				MARK_EVENT_DEFAULTS[instance.style] ?? MOTION_SOUND_DEFAULTS.mark,
 				enterWindow(`mark:${index}`, resolved),
-				marksKit,
 				state.marks.timings[index]?.sound
 			)
 		);
@@ -286,7 +308,6 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 
 	for (const overlay of state.overlays) {
 		const layer: SoundCueLayer = { kind: 'overlay', overlayId: overlay.id };
-		const kit = overlay.soundKit ?? null;
 		const typeDefaults = OVERLAY_EVENT_DEFAULTS[overlay.type];
 		const channels = overlay.animation?.channels;
 
@@ -318,7 +339,6 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 						start: resolved?.startFraction ?? overlay.enter?.start ?? 0,
 						duration: resolved?.durationFraction ?? 0
 					},
-					kit,
 					override
 				)
 			);
@@ -346,25 +366,21 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 					typeDefault ?? genericDefault,
 					// Cascade welds anchor the ENTER start; exits keep authored timing.
 					phase === 'enter' ? enterWindow(`overlay:${overlay.id}`, motionWindow) : motionWindow,
-					kit,
 					override
 				)
 			);
 		}
 	}
 
-	// Text animations resolve through their TARGET Layer's kit — they are not
-	// a Layer themselves. Per-character effects tick; whole/word/line travel
-	// effects whoosh with their window; fade-family effects are silent (the
-	// same motion-character rule as the overlay/surface tables above).
+	// Text animations attribute to their TARGET Layer. Per-character effects
+	// tick; whole/word/line travel effects whoosh with their window;
+	// fade-family effects are silent (the same motion-character rule as the
+	// overlay/surface tables above).
 	for (const entry of state.textAnimations) {
-		let layer: SoundCueLayer = surfaceLayer;
-		let kit = surfaceKit;
-		if (entry.target.kind === 'overlay') {
-			const overlayId = entry.target.overlayId;
-			layer = { kind: 'overlay', overlayId };
-			kit = state.overlays.find((overlay) => overlay.id === overlayId)?.soundKit ?? null;
-		}
+		const layer: SoundCueLayer =
+			entry.target.kind === 'overlay'
+				? { kind: 'overlay', overlayId: entry.target.overlayId }
+				: surfaceLayer;
 
 		const spec = EFFECT_CATALOG.get(entry.effect);
 		const isFade = FADE_TEXT_EFFECTS.has(entry.effect);
@@ -393,16 +409,17 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 						(phase === 'enter' ? MOTION_SOUND_DEFAULTS.textEnter : MOTION_SOUND_DEFAULTS.textExit),
 					// Cascade welds anchor the ENTER start; exits keep authored timing.
 					phase === 'enter' ? enterWindow(`textAnimation:${entry.id}`, motionWindow) : motionWindow,
-					kit,
 					override
 				)
 			);
 		}
 	}
 
-	// Chat bubbles pop on the `imessage` Surface (every other Surface ignores
-	// `content.messages`). Bubbles without an explicit `enter` still pop — the
-	// default staggered cadence is composition timing too.
+	// Chat bubbles sound on the `imessage` Surface (every other Surface ignores
+	// `content.messages`): received bubbles pop, sent bubbles play the send
+	// swish — the side IS the motion character. Bubbles without an explicit
+	// `enter` still sound — the default staggered cadence is composition
+	// timing too.
 	if (surface.type === 'imessage') {
 		(surface.content.messages ?? []).forEach((message, index) => {
 			const enter = messageEnter(message, index);
@@ -410,25 +427,23 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 				cueFrom(
 					`message:${index}`,
 					surfaceLayer,
-					MOTION_SOUND_DEFAULTS.message,
+					message.from === 'me'
+						? MOTION_SOUND_DEFAULTS.messageReply
+						: MOTION_SOUND_DEFAULTS.message,
 					enter,
-					surfaceKit,
 					message.enter?.sound
 				)
 			);
 
 			// A tapback lands TAPBACK_DELAY after its bubble with its per-type
-			// acknowledgement — a locked-specific signature sound (ADR-0033 §5),
-			// not kit-resolved. Gated on the Layer wearing a kit so a kit-less
-			// (silent) chat stays fully silent.
-			if (message.tapback && surfaceKit !== null) {
+			// acknowledgement — a locked-specific signature sound (ADR-0033 §5).
+			if (message.tapback) {
 				cues.push(
 					cueFrom(
 						`message:${index}:tapback`,
 						surfaceLayer,
 						MOTION_SOUND_DEFAULTS.message,
 						{ start: enter.start + TAPBACK_DELAY, duration: 0 },
-						surfaceKit,
 						{ sample: TAPBACK_SAMPLES[message.tapback] }
 					)
 				);
@@ -440,10 +455,10 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 }
 
 /**
- * Whether a derived cue produces sound: not muted, and either carrying a
- * locked sample or emitted by a Layer that wears a kit. A Layer with no kit is
- * silent (ADR-0033 §3).
+ * Whether a derived cue produces sound. Every derived cue carries an engine
+ * default; only a per-motion mute silences it (silent-by-character motions
+ * never emit a cue at all).
  */
 export function isAudibleSoundCue(cue: DerivedSoundCue): boolean {
-	return !cue.muted && (cue.sample !== undefined || cue.kit !== null);
+	return !cue.muted;
 }

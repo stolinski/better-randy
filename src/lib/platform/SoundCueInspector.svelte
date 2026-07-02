@@ -3,8 +3,7 @@
 	import type { SoundOverride } from './engine-schema';
 	import { engineState, ensureMarkTimingAtIndex } from './engine-state.svelte';
 	import { deselectLayer } from './selection.svelte';
-	import { deriveSoundCues } from './sound-cues';
-	import { resolveCueSample } from './sound-kits/resolve';
+	import { deriveSoundCues, resolveCueSample } from './sound-cues';
 	import Field from './Field.svelte';
 	import InspectorSection from './InspectorSection.svelte';
 	import SoundPicker from './SoundPicker.svelte';

@@ -28,8 +28,7 @@
 					"duration": 0.2,
 					"ease": "smooth"
 				}
-			],
-			"soundKit": "desk"
+			]
 		},
 		"surface": {
 			"type": "web-document",
@@ -45,8 +44,7 @@
 				"start": 0,
 				"duration": 0.07,
 				"ease": "settled"
-			},
-			"soundKit": "desk"
+			}
 		},
 		"overlays": [],
 		"effects": []

@@ -117,10 +117,9 @@
 		}}
 	/>
 
-	<!-- The marks Layer's kit + this mark's draw-on sound (ADR-0033 §3/§5).
-	     The timing entry is created on first write, so the row always shows. -->
+	<!-- This mark's draw-on sound (ADR-0033 §5). The timing entry is created
+	     on first write, so the row always shows. -->
 	<SoundSection
-		host={engineState.marks}
 		motions={[
 			{
 				label: 'Draw-on',

@@ -40,10 +40,7 @@
 						"status": "read",
 						"enter": {
 							"start": 0.22,
-							"duration": 0.06,
-							"sound": {
-								"sample": "message-send"
-							}
+							"duration": 0.06
 						}
 					},
 					{
@@ -63,10 +60,7 @@
 						"text": "see you monday 🫡",
 						"enter": {
 							"start": 0.7,
-							"duration": 0.06,
-							"sound": {
-								"sample": "message-send"
-							}
+							"duration": 0.06
 						}
 					}
 				]
@@ -80,8 +74,7 @@
 				"start": 0.9,
 				"duration": 0.08,
 				"ease": "smooth"
-			},
-			"soundKit": "chat"
+			}
 		},
 		"overlays": [],
 		"effects": []

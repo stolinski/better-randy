@@ -177,6 +177,7 @@
                           "impact",
                           "tick",
                           "pop",
+                          "send",
                           "swipe",
                           "scratch",
                           "sub-drop",
@@ -265,10 +266,6 @@
                   "ease"
                 ]
               }
-            },
-            "soundKit": {
-              "type": "string",
-              "minLength": 1
             }
           },
           "required": [
@@ -398,6 +395,7 @@
                                   "impact",
                                   "tick",
                                   "pop",
+                                  "send",
                                   "swipe",
                                   "scratch",
                                   "sub-drop",
@@ -499,6 +497,7 @@
                         "impact",
                         "tick",
                         "pop",
+                        "send",
                         "swipe",
                         "scratch",
                         "sub-drop",
@@ -554,6 +553,7 @@
                         "impact",
                         "tick",
                         "pop",
+                        "send",
                         "swipe",
                         "scratch",
                         "sub-drop",
@@ -621,10 +621,6 @@
               "type": "number",
               "minimum": 0,
               "maximum": 1
-            },
-            "soundKit": {
-              "type": "string",
-              "minLength": 1
             }
           },
           "required": [
@@ -737,6 +733,7 @@
                           "impact",
                           "tick",
                           "pop",
+                          "send",
                           "swipe",
                           "scratch",
                           "sub-drop",
@@ -792,6 +789,7 @@
                           "impact",
                           "tick",
                           "pop",
+                          "send",
                           "swipe",
                           "scratch",
                           "sub-drop",
@@ -1035,6 +1033,7 @@
                           "impact",
                           "tick",
                           "pop",
+                          "send",
                           "swipe",
                           "scratch",
                           "sub-drop",
@@ -1090,6 +1089,7 @@
                           "impact",
                           "tick",
                           "pop",
+                          "send",
                           "swipe",
                           "scratch",
                           "sub-drop",
@@ -1348,10 +1348,6 @@
                 "type": "number",
                 "minimum": 0,
                 "maximum": 1
-              },
-              "soundKit": {
-                "type": "string",
-                "minLength": 1
               }
             },
             "required": [

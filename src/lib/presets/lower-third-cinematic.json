@@ -23,8 +23,7 @@
 			"type": "plain",
 			"content": {
 				"body": ""
-			},
-			"soundKit": "desk"
+			}
 		},
 		"overlays": [
 			{
@@ -52,8 +51,7 @@
 					"start": 0.88,
 					"duration": 0.041,
 					"ease": "smooth"
-				},
-				"soundKit": "desk"
+				}
 			}
 		],
 		"effects": []

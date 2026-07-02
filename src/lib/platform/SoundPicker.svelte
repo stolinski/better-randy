@@ -2,15 +2,13 @@
 	import { listSoundAssets } from './audio-assets';
 	import type { SoundOverride } from './engine-schema';
 	import { engineState } from './engine-state.svelte';
-	import { deriveSoundCues } from './sound-cues';
-	import { resolveCueSample } from './sound-kits/resolve';
+	import { deriveSoundCues, resolveCueSample } from './sound-cues';
 
 	/**
-	 * The one per-motion sound control (ADR-0033 §5, GUI-rethink round): a
-	 * single select that leads with the OUTCOME — "Auto — Marker swipe" is what
-	 * the motion actually plays through its Layer's kit — plus "None" (mute)
-	 * and a direct sample lock. Event swaps stay a JSON hatch; the GUI picks
-	 * real sounds.
+	 * The one per-motion sound control (ADR-0033 §5): a single select that
+	 * leads with the OUTCOME — "Auto — Marker swipe" is the motion's
+	 * engine-default sound — plus "None" (mute) and a direct sample lock.
+	 * Event swaps stay a JSON hatch; the GUI picks real sounds.
 	 */
 	interface MotionWindow {
 		sound?: SoundOverride;

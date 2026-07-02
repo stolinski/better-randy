@@ -34,8 +34,7 @@
 				"start": 0.88,
 				"duration": 0.045,
 				"ease": "smooth"
-			},
-			"soundKit": "desk"
+			}
 		},
 		"overlays": [
 			{
@@ -65,8 +64,7 @@
 					"start": 0.88,
 					"duration": 0.045,
 					"ease": "smooth"
-				},
-				"soundKit": "desk"
+				}
 			},
 			{
 				"type": "watermark",

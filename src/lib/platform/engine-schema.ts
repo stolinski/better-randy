@@ -6,7 +6,6 @@ import {
 	LAYOUT_AWARE_RENDERERS,
 	TITLE_SCALE_SLOTS
 } from '../text-animations/catalog.ts';
-import { SOUND_KIT_REGISTRY } from './sound-kits/registry.ts';
 import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
 import type { AnnotationBody } from '$lib/annotations/annotation-marks';
 
@@ -67,21 +66,23 @@ const FractionSchema = z.number().min(0).max(1);
 // ---- Sound design (ADR-0033) ----
 // Sound is a timed-cue orchestration domain, peer to `textAnimations[]` /
 // `marks.timings[]` — not a sixth Layer (it renders no pixels). Motion
-// primitives emit semantic sound events at their own frame; a per-Layer Sound
-// kit resolves events → samples with ADR-0024 core fallback.
+// primitives emit semantic sound events at their own frame; each event plays
+// its engine-default sample unless the motion overrides it.
 
-// Core sound-event vocabulary the engine pins (ADR-0033 §8 — a starter set,
-// grown deliberately). Kits supply samples per event; motions declare which
-// event they emit via the default per-primitive mapping, swappable per motion
-// through `sound.event` below. `swipe` (a drawn drag — the highlighter) and
-// `scratch` (a short pen/pencil stroke) joined for the annotation Layer's
-// per-style draw-ons.
+// Sound-event vocabulary the engine pins (ADR-0033 §8 — a starter set, grown
+// deliberately). Each event names a motion kind and carries ONE engine
+// default sample (`DEFAULT_EVENT_SAMPLES` in sound-cues.ts); motions declare
+// which event they emit via the default per-primitive mapping, swappable per
+// motion through `sound.event` below. There is no kit/palette bundle — that
+// indirection was removed 2026-07-02 after GUI testing (see ADR-0033
+// amendments): sound is engine defaults + per-motion overrides.
 export const SOUND_EVENTS = [
 	'whoosh-in',
 	'whoosh-out',
 	'impact',
 	'tick',
 	'pop',
+	'send',
 	'swipe',
 	'scratch',
 	'sub-drop',
@@ -90,31 +91,17 @@ export const SOUND_EVENTS = [
 export const SoundEventSchema = z.enum(SOUND_EVENTS);
 export type SoundEvent = z.infer<typeof SoundEventSchema>;
 
-// Per-motion sound override (ADR-0033 §5) — the second cascade level beneath
-// the Layer's kit, carried as optional `sound` on a motion window (surface /
-// overlay / text-animation Transition, mark timing, chat-message enter).
-// `mute` silences this one motion; `event` swaps which sound event it emits;
-// `sample` locks a specific audio-asset slug, bypassing kit resolution (for
-// signature animations). Absent → the motion's default event resolves through
-// the Layer's kit.
+// Per-motion sound override (ADR-0033 §5) — carried as optional `sound` on a
+// motion window (surface / overlay / text-animation Transition, mark timing,
+// chat-message enter). `mute` silences this one motion; `event` swaps which
+// sound event it emits; `sample` locks a specific audio-asset slug directly.
+// Absent → the motion's default event plays its engine-default sample.
 const SoundOverrideSchema = z.object({
 	mute: z.boolean().optional(),
 	event: SoundEventSchema.optional(),
 	sample: z.string().min(1).optional()
 });
 export type SoundOverride = z.infer<typeof SoundOverrideSchema>;
-
-// Sound-kit slug, assigned PER LAYER (ADR-0033 §3) — the kit lives on the
-// Layer (`surface.soundKit`, `overlays[].soundKit`, `marks.soundKit`), never
-// the composition root: there is no whole-piece sound pack. A Layer with no
-// kit is silent — sound is opt-in per Layer. Validated against the kit
-// registry at parse time, like textAnimations[].effect against the catalog.
-const SoundKitSchema = z
-	.string()
-	.min(1)
-	.refine((slug) => slug in SOUND_KIT_REGISTRY, {
-		message: `Unknown Sound kit. Registered kits: ${Object.keys(SOUND_KIT_REGISTRY).join(', ')}.`
-	});
 
 // ---- Generalized keyframes + Cascade (ADR-0035) ----
 // Ordered per-channel keyframes replace the 2-keyframe Transition as the
@@ -304,8 +291,7 @@ const MarkTimingSchema = z.object({
 
 const MarksStateSchema = z.object({
 	defaults: z.partialRecord(AnnotationMarkStyleSchema, MarkAppearanceSchema),
-	timings: z.array(MarkTimingSchema),
-	soundKit: SoundKitSchema.optional()
+	timings: z.array(MarkTimingSchema)
 });
 
 const TransitionSchema = z.object({
@@ -402,8 +388,7 @@ const SurfaceSchema = z.object({
 	// Composition-owned motion channels (ADR-0035). When `animation.channels`
 	// is present the surface's intrinsic enter/exit motion-form does not run.
 	animation: SurfaceAnimationSchema.optional(),
-	backgroundVisibility: FractionSchema.optional(),
-	soundKit: SoundKitSchema.optional()
+	backgroundVisibility: FractionSchema.optional()
 });
 
 const OverlayPositionSchema = z.object({
@@ -451,8 +436,7 @@ const OverlaySchema = z.object({
 	// (0.7) is applied at render; a per-instance value overrides it so one overlay
 	// can sit nearer the focal plane than another. Only consulted when a
 	// depth-of-field Effect is present; inert otherwise.
-	z: FractionSchema.optional(),
-	soundKit: SoundKitSchema.optional()
+	z: FractionSchema.optional()
 });
 
 const EffectSchema = z.object({

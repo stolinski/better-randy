@@ -51,8 +51,7 @@
 					"ease": "sharp",
 					"color": "#de263a"
 				}
-			],
-			"soundKit": "desk"
+			]
 		},
 		"surface": {
 			"type": "paper",
@@ -70,8 +69,7 @@
 				"start": 0.86,
 				"duration": 0.1,
 				"ease": "smooth"
-			},
-			"soundKit": "desk"
+			}
 		},
 		"overlays": [],
 		"effects": []

@@ -28,8 +28,7 @@
 					"duration": 0.1,
 					"ease": "sharp"
 				}
-			],
-			"soundKit": "desk"
+			]
 		},
 		"surface": {
 			"type": "newspaper",
@@ -49,8 +48,7 @@
 				"start": 0.915,
 				"duration": 0.085,
 				"ease": "smooth"
-			},
-			"soundKit": "desk"
+			}
 		},
 		"overlays": [
 			{

@@ -23,23 +23,50 @@
 			"type": "plain",
 			"content": {
 				"body": ""
-			},
-			"soundKit": "desk"
+			}
 		},
 		"textAnimations": [
 			{
 				"id": "title-reveal",
-				"target": { "kind": "overlay", "overlayId": "main", "slot": "title" },
+				"target": {
+					"kind": "overlay",
+					"overlayId": "main",
+					"slot": "title"
+				},
 				"effect": "soft-blur-in",
-				"enter": { "start": 0.1, "duration": 0.07, "ease": "smooth" },
-				"cascade": { "anchor": { "overlay": "main" }, "event": "start", "offsetMs": 340 }
+				"enter": {
+					"start": 0.1,
+					"duration": 0.07,
+					"ease": "smooth"
+				},
+				"cascade": {
+					"anchor": {
+						"overlay": "main"
+					},
+					"event": "start",
+					"offsetMs": 340
+				}
 			},
 			{
 				"id": "subtitle-reveal",
-				"target": { "kind": "overlay", "overlayId": "main", "slot": "subtitle" },
+				"target": {
+					"kind": "overlay",
+					"overlayId": "main",
+					"slot": "subtitle"
+				},
 				"effect": "fade-through",
-				"enter": { "start": 0.2, "duration": 0.06, "ease": "smooth" },
-				"cascade": { "anchor": { "textAnimation": "title-reveal" }, "event": "end", "offsetMs": 120 }
+				"enter": {
+					"start": 0.2,
+					"duration": 0.06,
+					"ease": "smooth"
+				},
+				"cascade": {
+					"anchor": {
+						"textAnimation": "title-reveal"
+					},
+					"event": "end",
+					"offsetMs": 120
+				}
 			}
 		],
 		"overlays": [
@@ -54,29 +81,68 @@
 				},
 				"position": {
 					"anchor": "bottom-left",
-					"offset": { "x": 0.06, "y": 0.115 }
+					"offset": {
+						"x": 0.06,
+						"y": 0.115
+					}
 				},
-				"enter": { "start": 0.04, "duration": 0.058, "ease": "settled" },
+				"enter": {
+					"start": 0.04,
+					"duration": 0.058,
+					"ease": "settled"
+				},
 				"animation": {
 					"channels": {
 						"opacity": [
-							{ "atMs": 0, "value": 0 },
-							{ "atMs": 300, "value": 1, "ease": "smooth" },
-							{ "atMs": 5040, "value": 1, "ease": "smooth" },
-							{ "atMs": 5280, "value": 0, "ease": "smooth" }
+							{
+								"atMs": 0,
+								"value": 0
+							},
+							{
+								"atMs": 300,
+								"value": 1,
+								"ease": "smooth"
+							},
+							{
+								"atMs": 5040,
+								"value": 1,
+								"ease": "smooth"
+							},
+							{
+								"atMs": 5280,
+								"value": 0,
+								"ease": "smooth"
+							}
 						],
 						"y": [
-							{ "atMs": 0, "value": 0.015 },
-							{ "atMs": 360, "value": 0, "ease": "settled" }
+							{
+								"atMs": 0,
+								"value": 0.015
+							},
+							{
+								"atMs": 360,
+								"value": 0,
+								"ease": "settled"
+							}
 						],
 						"scale": [
-							{ "atMs": 0, "value": 0.965 },
-							{ "atMs": 280, "value": 1.012, "ease": "smooth" },
-							{ "atMs": 400, "value": 1, "ease": "settled" }
+							{
+								"atMs": 0,
+								"value": 0.965
+							},
+							{
+								"atMs": 280,
+								"value": 1.012,
+								"ease": "smooth"
+							},
+							{
+								"atMs": 400,
+								"value": 1,
+								"ease": "settled"
+							}
 						]
 					}
-				},
-				"soundKit": "desk"
+				}
 			}
 		],
 		"effects": [],

@@ -444,7 +444,7 @@
 	     from the enter/exit sugar. -->
 	<KeyframesSection selfKey="surface" channelNames={['opacity']} />
 
-	<SoundSection host={engineState.surface} motions={soundMotions} />
+	<SoundSection motions={soundMotions} />
 </div>
 
 <style>

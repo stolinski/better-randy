@@ -45,8 +45,7 @@
 					"duration": 0.12,
 					"ease": "smooth"
 				}
-			],
-			"soundKit": "desk"
+			]
 		},
 		"surface": {
 			"type": "paper",
@@ -66,8 +65,7 @@
 				"duration": 0.07,
 				"ease": "smooth"
 			},
-			"backgroundVisibility": 0.3,
-			"soundKit": "desk"
+			"backgroundVisibility": 0.3
 		},
 		"overlays": [],
 		"effects": []

@@ -19,17 +19,21 @@
 		},
 		"marks": {
 			"defaults": {
-				"highlight": { "color": "#ffd642", "intensity": 0.62 }
+				"highlight": {
+					"color": "#ffd642",
+					"intensity": 0.62
+				}
 			},
 			"timings": [
 				{
 					"start": 0.38,
 					"duration": 0.2,
 					"ease": "smooth",
-					"sound": { "event": "pop" }
+					"sound": {
+						"event": "pop"
+					}
 				}
-			],
-			"soundKit": "core"
+			]
 		},
 		"surface": {
 			"type": "paper",
@@ -38,13 +42,18 @@
 				"sourceUrl": "https://hiviz.dev/fixtures/sound",
 				"body": "The motion emits its own cues automatically.\n\nOne mark [highlight]swaps its event to a pop[/highlight] while the exit below is muted entirely."
 			},
-			"soundKit": "core",
-			"enter": { "start": 0, "duration": 0.05, "ease": "settled" },
+			"enter": {
+				"start": 0,
+				"duration": 0.05,
+				"ease": "settled"
+			},
 			"exit": {
 				"start": 0.88,
 				"duration": 0.04,
 				"ease": "smooth",
-				"sound": { "mute": true }
+				"sound": {
+					"mute": true
+				}
 			}
 		},
 		"textAnimations": [],
@@ -59,16 +68,24 @@
 				},
 				"position": {
 					"anchor": "bottom-left",
-					"offset": { "x": 0.0625, "y": 0.0625 }
+					"offset": {
+						"x": 0.0625,
+						"y": 0.0625
+					}
 				},
-				"soundKit": "core",
 				"enter": {
 					"start": 0.18,
 					"duration": 0.06,
 					"ease": "sharp",
-					"sound": { "sample": "core-sting" }
+					"sound": {
+						"sample": "core-sting"
+					}
 				},
-				"exit": { "start": 0.8, "duration": 0.05, "ease": "smooth" }
+				"exit": {
+					"start": 0.8,
+					"duration": 0.05,
+					"ease": "smooth"
+				}
 			}
 		],
 		"effects": [],

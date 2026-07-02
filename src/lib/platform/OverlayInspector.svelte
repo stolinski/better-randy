@@ -381,7 +381,6 @@
 	/>
 
 	<SoundSection
-		host={ov}
 		motions={[
 			...(ov.enter ? [{ label: 'Enter', cueId: `overlay:${ov.id}:enter`, window: ov.enter }] : []),
 			...(ov.exit ? [{ label: 'Exit', cueId: `overlay:${ov.id}:exit`, window: ov.exit }] : [])

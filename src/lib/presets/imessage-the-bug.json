@@ -57,10 +57,7 @@
 						"status": "read",
 						"enter": {
 							"start": 0.43,
-							"duration": 0.06,
-							"sound": {
-								"sample": "message-send"
-							}
+							"duration": 0.06
 						}
 					}
 				]
@@ -69,8 +66,7 @@
 				"start": 0,
 				"duration": 0.05,
 				"ease": "settled"
-			},
-			"soundKit": "chat"
+			}
 		},
 		"overlays": [],
 		"effects": []
