@@ -823,6 +823,14 @@
 		// so dragging a leader moves them live (they re-derive, nothing is stored).
 		const cascadeWindows = resolveCascadeTimings(engineState);
 
+		// The surface row's chip follows the composition's paper — but a dark
+		// paper vanishes against the dark timeline chrome, so fall back to the
+		// ink, which is legible on dark paper by construction (and keeps the
+		// bar's dark label text readable).
+		const surfaceTrackColor = isDarkSurfaceColor(engineState.typography.paperColor)
+			? engineState.typography.inkColor
+			: engineState.typography.paperColor;
+
 		const surfaceChannels = surface.animation?.channels;
 		if (surfaceChannels?.opacity?.length) {
 			// Channel-owned surface: the clip is the authored envelope with diamond
@@ -833,12 +841,12 @@
 			trackList.push({
 				id: 'surface',
 				label,
-				color: engineState.typography.paperColor,
+				color: surfaceTrackColor,
 				transitions: [
 					{
 						id: 'clip',
 						label,
-						color: engineState.typography.paperColor,
+						color: surfaceTrackColor,
 						start: clipStart,
 						duration: Math.max(cascadeWindows.get('surface')?.durationFraction ?? 0, 0.02),
 						keyframes: clipKeyframes(surfaceChannels, clipStart),
@@ -853,12 +861,12 @@
 			trackList.push({
 				id: 'surface',
 				label,
-				color: engineState.typography.paperColor,
+				color: surfaceTrackColor,
 				transitions: [
 					buildUnifiedBar({
 						id: 'clip',
 						label,
-						color: engineState.typography.paperColor,
+						color: surfaceTrackColor,
 						enter: surface.enter,
 						exit: surface.exit,
 						enterEase: surface.enter ? getEaseGsap(surface.enter.ease) : undefined,
