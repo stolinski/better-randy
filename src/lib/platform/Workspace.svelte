@@ -8,7 +8,12 @@
 	} from './animation-manager';
 	import { TextAnimationManager } from '$lib/text-animations/manager.svelte';
 	import { animState, syncProgressArray } from './anim-state.svelte';
-	import { DEFAULT_OVERLAY_ENTER, resolveCascadeTimings } from './cascade-timing';
+	import {
+		cascadeNodeKey,
+		DEFAULT_OVERLAY_ENTER,
+		resolveCascadeTimings,
+		type CascadeWindow
+	} from './cascade-timing';
 	import Composition from './Composition.svelte';
 	import { EffectChain } from './pipelines/effect-chain';
 	import { getSurfaceRenderer, PIPELINE_REGISTRY } from './pipelines';
@@ -26,7 +31,12 @@
 	import CanvasEditingOverlay from './CanvasEditingOverlay.svelte';
 	import Inspector from './Inspector.svelte';
 	import TimelineOutline from './TimelineOutline.svelte';
-	import type { TimelineTrack, TimelineTransition } from './timeline-track';
+	import type {
+		ClipCascadeLink,
+		ClipKeyframe,
+		TimelineTrack,
+		TimelineTransition
+	} from './timeline-track';
 	import VideoFrame from './VideoFrame.svelte';
 	import { fontsReady } from './fonts';
 	import { createGpuHost, type GpuHost } from './gpu-host';
@@ -699,12 +709,123 @@
 		return ((n - 1) * stagger + phase.duration_ms * easeLandingFraction(phase.easing)) / total;
 	}
 
+	// ── Cascade + keyframe timeline adapters (ADR-0035 §7) ──
+
+	// Anchor ref → the timeline row that renders it (same identities buildTracks uses).
+	function cascadeAnchorTrackId(anchor: Cascade['anchor']): string {
+		if (anchor === 'surface') {
+			return 'surface';
+		}
+		if ('overlay' in anchor) {
+			return `overlay-${anchor.overlay}`;
+		}
+		if ('mark' in anchor) {
+			return `mark-${anchor.mark}`;
+		}
+		return `textanim-${anchor.textAnimation}`;
+	}
+
+	// The resolved anchor event (leader start or end) as a timeline fraction.
+	function cascadeAnchorFraction(cascade: Cascade, windows: Map<string, CascadeWindow>): number {
+		const anchor = windows.get(cascadeNodeKey(cascade.anchor));
+		if (!anchor) {
+			return 0;
+		}
+		return cascade.event === 'end'
+			? anchor.startFraction + anchor.durationFraction
+			: anchor.startFraction;
+	}
+
+	function cascadeLinkFor(
+		cascade: Cascade | undefined,
+		windows: Map<string, CascadeWindow>
+	): ClipCascadeLink | undefined {
+		if (!cascade) {
+			return undefined;
+		}
+		return {
+			anchorTrackId: cascadeAnchorTrackId(cascade.anchor),
+			anchorFraction: cascadeAnchorFraction(cascade, windows)
+		};
+	}
+
+	// Dragging a FOLLOWER edits offsetMs — the weld is never silently broken.
+	// The anchor event recomputes fresh per write so a moved leader doesn't
+	// leave a stale offset behind.
+	function writeCascadeStart(cascade: Cascade, startFraction: number): void {
+		const durationMs = engineState.transport.durationSeconds * 1000;
+		const anchorFraction = cascadeAnchorFraction(cascade, resolveCascadeTimings(engineState));
+		cascade.offsetMs = (startFraction - anchorFraction) * durationMs;
+	}
+
+	type ChannelTrackMap = Partial<Record<string, Keyframe[] | undefined>>;
+
+	function clipKeyframes(channels: ChannelTrackMap, clipStartFraction: number): ClipKeyframe[] {
+		const durationMs = engineState.transport.durationSeconds * 1000;
+		const markers: ClipKeyframe[] = [];
+		for (const [channel, frames] of Object.entries(channels)) {
+			frames?.forEach((frame, index) => {
+				markers.push({ channel, index, fraction: clipStartFraction + frame.atMs / durationMs });
+			});
+		}
+		return markers.sort((a, b) => a.fraction - b.fraction);
+	}
+
+	// Marker drag → retime atMs, clamped between neighbours so tracks stay
+	// strictly ascending through any drag. Write-through to engineState (the
+	// fork/autosave machinery rides every mutation).
+	function makeKeyframeRetimer(
+		channels: ChannelTrackMap,
+		clipStartFraction: number
+	): (channel: string, index: number, fraction: number) => void {
+		return (channel, index, fraction) => {
+			const frames = channels[channel];
+			const frame = frames?.[index];
+			if (!frames || !frame) {
+				return;
+			}
+			const durationMs = engineState.transport.durationSeconds * 1000;
+			const min = index > 0 ? frames[index - 1].atMs + 1 : 0;
+			const max =
+				index < frames.length - 1
+					? frames[index + 1].atMs - 1
+					: (1 - clipStartFraction) * durationMs;
+			frame.atMs = clampNumber((fraction - clipStartFraction) * durationMs, min, Math.max(min, max));
+		};
+	}
+
 	function buildTracks(): TimelineTrack[] {
 		const surface = engineState.surface;
 		const parsedMarks = readMarks();
 		const trackList: TimelineTrack[] = [];
+		// Cascade-resolved windows: follower clips render at their WELDED starts,
+		// so dragging a leader moves them live (they re-derive, nothing is stored).
+		const cascadeWindows = resolveCascadeTimings(engineState);
 
-		if (surface.enter || surface.exit) {
+		const surfaceChannels = surface.animation?.channels;
+		if (surfaceChannels?.opacity?.length) {
+			// Channel-owned surface: the clip is the authored envelope with diamond
+			// markers; no enter/exit ramps (the composition holds the pen).
+			const label =
+				surface.type === 'paper' ? 'Paper' : surface.type === 'newspaper' ? 'Newspaper' : 'Body';
+			const clipStart = cascadeWindows.get('surface')?.startFraction ?? 0;
+			trackList.push({
+				id: 'surface',
+				label,
+				color: engineState.typography.paperColor,
+				transitions: [
+					{
+						id: 'clip',
+						label,
+						color: engineState.typography.paperColor,
+						start: clipStart,
+						duration: Math.max(cascadeWindows.get('surface')?.durationFraction ?? 0, 0.02),
+						keyframes: clipKeyframes(surfaceChannels, clipStart),
+						onKeyframeRetime: makeKeyframeRetimer(surfaceChannels, clipStart)
+					}
+				]
+			});
+		} else if (surface.enter || surface.exit) {
 			const label =
 				surface.type === 'paper' ? 'Paper' : surface.type === 'newspaper' ? 'Newspaper' : 'Body';
 			trackList.push({
@@ -729,62 +850,104 @@
 		parsedMarks.forEach((mark, index) => {
 			const resolved = resolveMarkForIndex(mark.style, index, engineState.marks);
 			const label = truncateMiddle(mark.text, 20);
+			const timing = engineState.marks.timings[index];
+			const welded = timing?.cascade
+				? (cascadeWindows.get(`mark:${index}`)?.startFraction ?? resolved.start)
+				: resolved.start;
 
 			// A mark draws on then holds — enter-only: the bar's left ramp is the
 			// draw-on, solid through the rest. Timing is stored per-index.
-			trackList.push({
-				id: `mark-${index}`,
+			const bar = buildUnifiedBar({
+				id: 'clip',
 				label,
 				color: resolved.color,
-				transitions: [
-					buildUnifiedBar({
-						id: 'clip',
-						label,
-						color: resolved.color,
-						enter: { start: resolved.start, duration: resolved.duration },
-						// The draw-on always runs on power1.inOut (see buildAnimationManifest),
-						// independent of the mark's declared ease.
-						enterEase: 'power1.inOut',
-						setEnter: (start, duration) => {
-							const timing = ensureMarkTimingAtIndex(index);
-							timing.start = start;
-							timing.duration = duration;
-						}
-					})
-				]
+				enter: { start: welded, duration: resolved.duration },
+				// The draw-on always runs on power1.inOut (see buildAnimationManifest),
+				// independent of the mark's declared ease.
+				enterEase: 'power1.inOut',
+				setEnter: (start, duration) => {
+					const target = ensureMarkTimingAtIndex(index);
+					target.duration = duration;
+					if (target.cascade) {
+						writeCascadeStart(target.cascade, start);
+					} else {
+						target.start = start;
+					}
+				}
 			});
+			bar.cascade = cascadeLinkFor(timing?.cascade, cascadeWindows);
+			trackList.push({ id: `mark-${index}`, label, color: resolved.color, transitions: [bar] });
 		});
 
 		engineState.overlays.forEach((overlay) => {
+			const trackId = `overlay-${overlay.id}`;
+			const channels = overlay.animation?.channels;
+			const cascade = overlay.animation?.cascade;
+			const window = cascadeWindows.get(`overlay:${overlay.id}`);
+			const link = cascadeLinkFor(cascade, cascadeWindows);
+
+			if (channels && clipKeyframes(channels, 0).length > 0) {
+				// Channel-owned overlay: the clip is the authored envelope; diamonds
+				// are the keyframes. Moving the clip retimes the weld (offsetMs) when
+				// cascaded, or the sugar clip anchor when one exists.
+				const clipStart = window?.startFraction ?? 0;
+				const transition: TimelineTransition = {
+					id: 'clip',
+					label: overlay.type,
+					color: '#1f5aff',
+					start: clipStart,
+					duration: Math.max(window?.durationFraction ?? 0, 0.02),
+					keyframes: clipKeyframes(channels, clipStart),
+					onKeyframeRetime: makeKeyframeRetimer(channels, clipStart),
+					cascade: link
+				};
+				if (cascade) {
+					transition.minStart = 0;
+					transition.maxStart = 0.98;
+					transition.onUpdate = ({ start }) => {
+						writeCascadeStart(cascade, start);
+					};
+				} else if (overlay.enter) {
+					const enter = overlay.enter;
+					transition.minStart = 0;
+					transition.maxStart = 0.98;
+					transition.onUpdate = ({ start }) => {
+						enter.start = start;
+					};
+				}
+				trackList.push({ id: trackId, label: overlay.type, color: '#1f5aff', transitions: [transition] });
+				return;
+			}
+
 			const enter = overlay.enter;
 			const exit = overlay.exit;
 
 			if (!enter && !exit) {
-				trackList.push({
-					id: `overlay-${overlay.id}`,
-					label: overlay.type,
-					color: '#1f5aff',
-					transitions: []
-				});
+				trackList.push({ id: trackId, label: overlay.type, color: '#1f5aff', transitions: [] });
 				return;
 			}
 
-			trackList.push({
-				id: `overlay-${overlay.id}`,
+			const bar = buildUnifiedBar({
+				id: 'clip',
 				label: overlay.type,
 				color: '#1f5aff',
-				transitions: [
-					buildUnifiedBar({
-						id: 'clip',
-						label: overlay.type,
-						color: '#1f5aff',
-						enter,
-						exit,
-						enterEase: enter ? getEaseGsap(enter.ease) : undefined,
-						exitEase: exit ? getEaseGsap(exit.ease) : undefined
-					})
-				]
+				// Cascaded enters render at the WELDED start; the writer below keeps
+				// the weld and edits offsetMs instead of the (ignored) sugar start.
+				enter:
+					enter && cascade && window ? { start: window.startFraction, duration: enter.duration } : enter,
+				exit,
+				enterEase: enter ? getEaseGsap(enter.ease) : undefined,
+				exitEase: exit ? getEaseGsap(exit.ease) : undefined,
+				setEnter:
+					enter && cascade
+						? (start, duration) => {
+								enter.duration = duration;
+								writeCascadeStart(cascade, start);
+							}
+						: undefined
 			});
+			bar.cascade = link;
+			trackList.push({ id: trackId, label: overlay.type, color: '#1f5aff', transitions: [bar] });
 		});
 
 		// instance-stack: the staggered assembly as a draggable clip (start =
@@ -941,22 +1104,33 @@
 			// Landing comes from the catalog effect's own scheduling (its easing is
 			// intrinsic, per spec.enter/exit), not the per-entry ease.
 			const spec = EFFECT_CATALOG.get(entry.effect);
+			const cascade = entry.cascade;
+			const welded = cascade
+				? cascadeWindows.get(`textAnimation:${entry.id}`)?.startFraction
+				: undefined;
 
+			const bar = buildUnifiedBar({
+				id: 'clip',
+				label,
+				color: '#7e3aff',
+				enter:
+					welded !== undefined ? { start: welded, duration: entry.enter.duration } : entry.enter,
+				exit: entry.exit,
+				enterLandFrac: spec ? textAnimLandFrac(spec.target, spec.enter) : 1,
+				exitLandFrac: spec?.exit ? textAnimLandFrac(spec.target, spec.exit) : 1,
+				setEnter: cascade
+					? (start, duration) => {
+							entry.enter.duration = duration;
+							writeCascadeStart(cascade, start);
+						}
+					: undefined
+			});
+			bar.cascade = cascadeLinkFor(cascade, cascadeWindows);
 			trackList.push({
 				id: `textanim-${entry.id}`,
 				label,
 				color: '#7e3aff',
-				transitions: [
-					buildUnifiedBar({
-						id: 'clip',
-						label,
-						color: '#7e3aff',
-						enter: entry.enter,
-						exit: entry.exit,
-						enterLandFrac: spec ? textAnimLandFrac(spec.target, spec.enter) : 1,
-						exitLandFrac: spec?.exit ? textAnimLandFrac(spec.target, spec.exit) : 1
-					})
-				]
+				transitions: [bar]
 			});
 		});
 

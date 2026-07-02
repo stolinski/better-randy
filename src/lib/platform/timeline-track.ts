@@ -29,6 +29,27 @@ export interface UnifiedClip {
 	setExit?: (start: number, duration: number) => void;
 }
 
+/**
+ * One authored keyframe rendered as a diamond marker on a channel-owned clip
+ * (ADR-0035 §7). `fraction` is the keyframe's ABSOLUTE timeline position —
+ * the view converts to bar-relative placement.
+ */
+export interface ClipKeyframe {
+	channel: string;
+	index: number;
+	fraction: number;
+}
+
+/**
+ * Cascade weld rendered as a tether from this clip's head to its anchor point
+ * (ADR-0035 §4). `anchorTrackId` names the leader's row; `anchorFraction` is
+ * the resolved anchor event (leader start or end) on the timeline.
+ */
+export interface ClipCascadeLink {
+	anchorTrackId: string;
+	anchorFraction: number;
+}
+
 export interface TimelineTransition {
 	id: string;
 	label?: string;
@@ -57,6 +78,16 @@ export interface TimelineTransition {
 	exitLandFrac?: number;
 	/** Present when the row is a unified clip bar; drives the 5-handle drag. */
 	unified?: UnifiedClip;
+	/** Diamond markers for a channel-owned clip (ADR-0035). */
+	keyframes?: ClipKeyframe[];
+	/**
+	 * Retime one keyframe: the view hands back the marker's dragged ABSOLUTE
+	 * timeline fraction; the writer converts to atMs and clamps between its
+	 * neighbours (strictly ascending stays true through any drag).
+	 */
+	onKeyframeRetime?: (channel: string, index: number, fraction: number) => void;
+	/** Present when this clip's enter is cascade-welded to another row. */
+	cascade?: ClipCascadeLink;
 }
 
 export interface TimelineTrack {

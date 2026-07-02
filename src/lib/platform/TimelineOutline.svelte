@@ -50,7 +50,20 @@
 		containerLeft: number;
 	}
 
-	type DragState = TransitionDragState | SeekDragState;
+	// A keyframe diamond drag (ADR-0035 §7): retimes ONE keyframe's atMs through
+	// the transition's write-through retimer.
+	interface KeyframeDragState {
+		kind: 'keyframe';
+		trackId: string;
+		transitionId: string;
+		channel: string;
+		index: number;
+		originFraction: number;
+		pointerStartX: number;
+		containerWidth: number;
+	}
+
+	type DragState = TransitionDragState | SeekDragState | KeyframeDragState;
 
 	// gutterBodyEl = the scrollable rows section (excludes the fixed header above).
 	// trackAreaEl = the scrollable lanes; trackColEl wraps ruler + lanes + playhead
@@ -63,6 +76,48 @@
 	const playheadFraction = $derived(
 		timeline.durationSeconds > 0 ? timeline.time / timeline.durationSeconds : 0
 	);
+
+	// ─── Cascade tethers (ADR-0035 §4) ──────────────────────────────────────────
+	// A welded clip draws a dashed elbow from its head back to the anchor event
+	// on the leader's row. Geometry mirrors the lane grid (--lane-h + --lane-gap);
+	// x coordinates are lane-width percentages, y coordinates row-centre pixels.
+
+	const LANE_STRIDE = 32; // --lane-h (28) + --lane-gap (4)
+	const LANE_PAD = 4; // padding-block of the lanes body
+
+	interface CascadeTether {
+		key: string;
+		anchorX: number;
+		anchorY: number;
+		followerX: number;
+		followerY: number;
+	}
+
+	const cascadeTethers = $derived.by(() => {
+		const tethers: CascadeTether[] = [];
+		tracks.forEach((track, rowIndex) => {
+			for (const transition of track.transitions) {
+				const link = transition.cascade;
+				if (!link) {
+					continue;
+				}
+				const anchorRow = tracks.findIndex((t) => t.id === link.anchorTrackId);
+				if (anchorRow < 0) {
+					continue;
+				}
+				tethers.push({
+					key: `${track.id}:${transition.id}`,
+					anchorX: link.anchorFraction * 100,
+					anchorY: LANE_PAD + anchorRow * LANE_STRIDE + 14,
+					followerX: transition.start * 100,
+					followerY: LANE_PAD + rowIndex * LANE_STRIDE + 14
+				});
+			}
+		});
+		return tethers;
+	});
+
+	const lanesContentHeight = $derived(LANE_PAD * 2 + tracks.length * LANE_STRIDE);
 
 	// ─── Gutter classification helpers ──────────────────────────────────────────
 
@@ -234,10 +289,20 @@
 		timeline.seek(fraction * timeline.durationSeconds);
 	}
 
+	function applyKeyframeDrag(state: KeyframeDragState, event: PointerEvent): void {
+		const track = tracks.find((c) => c.id === state.trackId);
+		const transition = track?.transitions.find((c) => c.id === state.transitionId);
+		if (!transition?.onKeyframeRetime) return;
+		const delta = (event.clientX - state.pointerStartX) / state.containerWidth;
+		transition.onKeyframeRetime(state.channel, state.index, state.originFraction + delta);
+	}
+
 	function handlePointerMove(event: PointerEvent): void {
 		if (!dragState) return;
 		if (dragState.kind === 'transition') {
 			applyTransitionDrag(dragState, event);
+		} else if (dragState.kind === 'keyframe') {
+			applyKeyframeDrag(dragState, event);
 		} else {
 			applySeekDrag(dragState, event);
 		}
@@ -279,6 +344,32 @@
 						exitLandFrac: u.exitLandFrac
 					}
 				: undefined,
+			pointerStartX: event.clientX,
+			containerWidth: rect.width
+		};
+		window.addEventListener('pointermove', handlePointerMove);
+		window.addEventListener('pointerup', handlePointerUp);
+	}
+
+	function startKeyframeDrag(
+		event: PointerEvent,
+		track: TimelineTrack,
+		transition: TimelineTransition,
+		keyframe: { channel: string; index: number; fraction: number }
+	): void {
+		if (event.button !== 0) return;
+		const rect = getTrackAreaRect();
+		if (!rect) return;
+		event.preventDefault();
+		event.stopPropagation();
+		selectLayer(track.id);
+		dragState = {
+			kind: 'keyframe',
+			trackId: track.id,
+			transitionId: transition.id,
+			channel: keyframe.channel,
+			index: keyframe.index,
+			originFraction: keyframe.fraction,
 			pointerStartX: event.clientX,
 			containerWidth: rect.width
 		};
@@ -421,6 +512,28 @@
 			onscroll={onTrackScroll}
 			role="presentation"
 		>
+			{#if cascadeTethers.length > 0}
+				<!-- Cascade tethers: dashed elbow from each welded clip's head back to
+				     its anchor event (dot) on the leader's row. Scrolls with the lanes;
+				     x is a lane-width percentage, y a row-centre pixel. -->
+				<svg class="track-tethers" style:block-size="{lanesContentHeight}px" aria-hidden="true">
+					{#each cascadeTethers as tether (tether.key)}
+						<line
+							x1="{tether.anchorX}%"
+							y1={tether.anchorY}
+							x2="{tether.anchorX}%"
+							y2={tether.followerY}
+						/>
+						<line
+							x1="{tether.anchorX}%"
+							y1={tether.followerY}
+							x2="{tether.followerX}%"
+							y2={tether.followerY}
+						/>
+						<circle cx="{tether.anchorX}%" cy={tether.anchorY} r="2.5" />
+					{/each}
+				</svg>
+			{/if}
 			{#each tracks as track (track.id)}
 				<div class="track-lane">
 					{#each track.transitions as transition (transition.id)}
@@ -472,6 +585,17 @@
 								></button>
 							{/if}
 							<span class="track-label">{label}</span>
+							{#each transition.keyframes ?? [] as keyframe (`${keyframe.channel}:${keyframe.index}`)}
+								<button
+									aria-label="Retime {keyframe.channel} keyframe {keyframe.index + 1}"
+									class="track-keyframe"
+									style:left="{transition.duration > 0
+										? ((keyframe.fraction - transition.start) / transition.duration) * 100
+										: 0}%"
+									onpointerdown={(event) => startKeyframeDrag(event, track, transition, keyframe)}
+									type="button"
+								></button>
+							{/each}
 							{#if isUnified && hasExit && exitPct > 0}
 								<button
 									aria-label="Adjust {label} exit fade"
@@ -959,5 +1083,49 @@
 		pointer-events: none;
 		position: absolute;
 		transform: translateX(-50%);
+	}
+
+	/* ── Keyframe diamonds (ADR-0035) ── */
+
+	.track-keyframe {
+		background: rgba(0, 0, 0, 0.55);
+		block-size: 7px;
+		border: 0;
+		border-radius: 1px;
+		cursor: ew-resize;
+		inline-size: 7px;
+		padding: 0;
+		position: absolute;
+		top: 50%;
+		touch-action: none;
+		transform: translate(-50%, -50%) rotate(45deg);
+		transition: background 100ms ease;
+	}
+
+	.track-keyframe:hover {
+		background: rgba(0, 0, 0, 0.9);
+	}
+
+	/* ── Cascade tethers (ADR-0035 §4) ── */
+
+	/* Spans the lane content (inset by the lanes' inline margin so x-percentages
+	   match clip fractions); scrolls with the rows; never intercepts drags. */
+	.track-tethers {
+		inset-block-start: 0;
+		inset-inline: var(--lane-gap);
+		inline-size: calc(100% - (2 * var(--lane-gap)));
+		overflow: visible;
+		pointer-events: none;
+		position: absolute;
+	}
+
+	.track-tethers line {
+		stroke: var(--fg-4);
+		stroke-dasharray: 3 3;
+		stroke-width: 1;
+	}
+
+	.track-tethers circle {
+		fill: #2de8ee;
 	}
 </style>
