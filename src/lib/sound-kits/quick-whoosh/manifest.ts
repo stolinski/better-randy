@@ -35,6 +35,8 @@ export const quickWhooshKit: SoundKitManifest = {
 		'whoosh-in': 'quick-whoosh-in',
 		'whoosh-out': 'quick-whoosh-out',
 		impact: 'impact-book',
-		tick: 'tick-pencil'
+		tick: 'tick-pencil',
+		swipe: 'marker-swipe',
+		scratch: 'pencil-stroke'
 	}
 };

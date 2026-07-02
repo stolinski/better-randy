@@ -70,15 +70,20 @@ const FractionSchema = z.number().min(0).max(1);
 // primitives emit semantic sound events at their own frame; a per-Layer Sound
 // kit resolves events → samples with ADR-0024 core fallback.
 
-// Core sound-event vocabulary the engine pins (ADR-0033 §8). Kits supply
-// samples per event; motions declare which event they emit via the default
-// per-primitive mapping, swappable per motion through `sound.event` below.
+// Core sound-event vocabulary the engine pins (ADR-0033 §8 — a starter set,
+// grown deliberately). Kits supply samples per event; motions declare which
+// event they emit via the default per-primitive mapping, swappable per motion
+// through `sound.event` below. `swipe` (a drawn drag — the highlighter) and
+// `scratch` (a short pen/pencil stroke) joined for the annotation Layer's
+// per-style draw-ons.
 export const SOUND_EVENTS = [
 	'whoosh-in',
 	'whoosh-out',
 	'impact',
 	'tick',
 	'pop',
+	'swipe',
+	'scratch',
 	'sub-drop',
 	'sting'
 ] as const;

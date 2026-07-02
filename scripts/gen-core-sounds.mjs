@@ -143,6 +143,31 @@ function subDrop() {
 	});
 }
 
+// swipe: a felt-tip drag across paper — bandpassed noise with a gentle
+// rise-fall arc, the highlight draw-on sound.
+function swipe() {
+	const noise = makeNoise(0x5a19e);
+	const svf = makeSvf(0.9);
+	return render(0.34, (t) => {
+		const cutoff = 900 + 500 * Math.sin(Math.PI * t);
+		const { band } = svf(noise(), cutoff);
+		return band * adEnvelope(t, 0.45, 1.3, 1.3);
+	});
+}
+
+// scratch: a short grainy pencil stroke — highpassed noise with amplitude
+// grain, decaying quickly.
+function scratch() {
+	const noise = makeNoise(0x5c4a7);
+	const grain = makeNoise(0x94a1);
+	const svf = makeSvf(1.3);
+	return render(0.16, (t) => {
+		const { high } = svf(noise(), 1800);
+		const texture = 0.7 + 0.3 * Math.abs(grain());
+		return high * texture * adEnvelope(t, 0.2, 1, 1.6);
+	});
+}
+
 // sting: a short three-partial chord with air — an accent, not a jingle.
 function sting() {
 	const noise = makeNoise(0x5717);
@@ -205,6 +230,8 @@ const CORE_SOUNDS = {
 	'core-impact': impact,
 	'core-tick': tick,
 	'core-pop': pop,
+	'core-swipe': swipe,
+	'core-scratch': scratch,
 	'core-sub-drop': subDrop,
 	'core-sting': sting
 };

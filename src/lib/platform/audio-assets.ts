@@ -8,6 +8,8 @@
  */
 import coreImpactUrl from '$lib/assets/sounds/core-impact.wav';
 import corePopUrl from '$lib/assets/sounds/core-pop.wav';
+import coreScratchUrl from '$lib/assets/sounds/core-scratch.wav';
+import coreSwipeUrl from '$lib/assets/sounds/core-swipe.wav';
 import coreStingUrl from '$lib/assets/sounds/core-sting.wav';
 import coreSubDropUrl from '$lib/assets/sounds/core-sub-drop.wav';
 import coreTickUrl from '$lib/assets/sounds/core-tick.wav';
@@ -36,6 +38,8 @@ const SOUND_ASSETS: Record<string, string> = {
 	'core-impact': coreImpactUrl,
 	'core-tick': coreTickUrl,
 	'core-pop': corePopUrl,
+	'core-swipe': coreSwipeUrl,
+	'core-scratch': coreScratchUrl,
 	'core-sub-drop': coreSubDropUrl,
 	'core-sting': coreStingUrl,
 	// Quick Whoosh kit samples (CC0; provenance in sound-kits/quick-whoosh/manifest.ts)

@@ -16,6 +16,7 @@ import {
 	resolveMarkForIndex,
 	type ChatMessage,
 	type EngineState,
+	type MarkInstance,
 	type OverlayChannelKeyframes,
 	type SoundEvent,
 	type SoundOverride
@@ -96,6 +97,23 @@ const TAPBACK_SAMPLES: Record<NonNullable<ChatMessage['tapback']>, string> = {
 	haha: 'tapback-haha',
 	emphasize: 'tapback-emphasize',
 	question: 'tapback-question'
+};
+
+// Per-style mark draw-on events (the motion-character rule for the
+// annotation Layer): a highlight is a marker DRAG (swipe), the stroked marks
+// are pen/pencil strokes (scratch), and the focal transforms keep the small
+// percussive tick. Kits map each event to their own instrument.
+const MARK_EVENT_DEFAULTS: Record<MarkInstance['style'], SoundEvent> = {
+	highlight: 'swipe',
+	underline: 'scratch',
+	strike: 'scratch',
+	circle: 'scratch',
+	box: 'scratch',
+	'side-note': 'scratch',
+	magnify: 'tick',
+	'lift-out': 'tick',
+	'tear-out': 'tick',
+	isolate: 'tick'
 };
 
 // Text-animation effects whose motion is a FADE (opacity/blur in place, no
@@ -258,7 +276,7 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 			cueFrom(
 				`mark:${index}`,
 				{ kind: 'marks' },
-				MOTION_SOUND_DEFAULTS.mark,
+				MARK_EVENT_DEFAULTS[instance.style] ?? MOTION_SOUND_DEFAULTS.mark,
 				enterWindow(`mark:${index}`, resolved),
 				marksKit,
 				state.marks.timings[index]?.sound

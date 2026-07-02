@@ -25,6 +25,8 @@ export const CORE_SOUND_SAMPLES: Record<SoundEvent, string> = {
 	impact: 'core-impact',
 	tick: 'core-tick',
 	pop: 'core-pop',
+	swipe: 'core-swipe',
+	scratch: 'core-scratch',
 	'sub-drop': 'core-sub-drop',
 	sting: 'core-sting'
 };

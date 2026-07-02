@@ -213,14 +213,14 @@ Sound is a timed-cue orchestration domain, not a sixth Layer. Motion primitives 
 
 **`soundKit` — per Layer.** A Sound-kit slug on `surface`, an `overlays[]` entry, or `marks`, validated against the kit registry (`src/lib/platform/sound-kits/registry.ts`) at parse time. The kit resolves that Layer's emitted events → samples, falling back per event to the engine-pinned core sample ([ADR-0024](adr/0024-role-resolution-core-fallback.md) hybrid; core samples are deterministic WAVs from `scripts/gen-core-sounds.mjs`). Kits ship in `src/lib/sound-kits/<slug>/manifest.ts`, named for their sonic personality (never for a Pack — look and sound are independent axes); registered: `core`, `quick-whoosh`. There is no whole-piece kit; **a Layer with no kit is silent** (sound is opt-in per Layer).
 
-Defaults follow the motion's *character*, not just its window: sliding elements whoosh with their enter/exit, but types whose motion doesn't displace air emit **nothing** by default — Overlays like `washi-tape` (press-on), `watermark` (fade), `cursor-trail` (glide), and fade-entrance Surfaces like `imessage` and `chapter-card`. Their sound is opt-in via the per-motion override below (see `OVERLAY_EVENT_DEFAULTS` / `SURFACE_EVENT_DEFAULTS` in `sound-cues.ts`).
+Defaults follow the motion's _character_, not just its window: sliding elements whoosh with their enter/exit, but types whose motion doesn't displace air emit **nothing** by default — Overlays like `washi-tape` (press-on), `watermark` (fade), `cursor-trail` (glide), and fade-entrance Surfaces like `imessage` and `chapter-card`. Their sound is opt-in via the per-motion override below (see `OVERLAY_EVENT_DEFAULTS` / `SURFACE_EVENT_DEFAULTS` in `sound-cues.ts`).
 
 **`sound` — per motion.** Any motion window (a `Transition` — surface/overlay/text-animation `enter`/`exit` — a `marks.timings[]` entry, or a chat message's `enter`) may carry an override beneath the Layer's kit:
 
 ```jsonc
 "sound": {
   "mute": true,             // silence this one motion
-  "event": "impact",        // swap which event it emits (whoosh-in | whoosh-out | impact | tick | pop | sub-drop | sting)
+  "event": "impact",        // swap which event it emits (whoosh-in | whoosh-out | impact | tick | pop | swipe | scratch | sub-drop | sting)
   "sample": "asset-slug"    // lock a specific audio asset, bypassing kit resolution
 }
 ```
@@ -260,6 +260,9 @@ The bracket-tag body format expresses marks inline. Stacked styles nest tags aro
 ## Effect types (v1)
 
 - **`paper-grain`** — params `{ warmth: 0..1, density: 0..1 }`; multiplies a 2-octave value-noise grain into the bound layer texture.
+- **`chromatic-aberration`** — params `{ strength: 0..1, radial: 0..1 }`; R/B channel split, uniform-horizontal (0) to lens-style radial (1).
+- **`dithering`** — params `{ mode: 'random'|'2x2'|'4x4'|'8x8', pxSize: 1..64, colorSteps: 1..7, originalColors: bool, inverted: bool, colorFront/colorBack/colorHighlight: '#rrggbb' }`; pixelizes the frame into a dither-cell grid and posterizes luminance against a hash or Bayer threshold — the frame's own colors, or a front/back/highlight palette masked to the content silhouette. Ported from `@paper-design/shaders` image-dithering (Apache-2.0).
+- **`halftone-dots`** — params `{ dotType: 'classic'|'gooey'|'holes'|'soft', grid: 'square'|'hex', size: 0..1, radius: 0..2, contrast: 0..1, originalColors: bool, inverted: bool, colorFront/colorBack: '#rrggbb' }`; print-style dot screen — each cell's dot radius tracks sampled luminance (dark → big ink dot), in the frame's own colors or ink-on-paper palette, masked to the content silhouette. Ported from `@paper-design/shaders` halftone-dots (Apache-2.0); its grain sub-features are omitted (compose `paper-grain` in the chain instead).
 
 ## Body text format
 
