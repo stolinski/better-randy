@@ -6,9 +6,9 @@ import type { SoundKitManifest } from '../../platform/sound-kits/types';
  * PALETTES named for their sound-world — never for one sample (a kit named
  * "Quick Whoosh" read as nonsense next to a marker swipe), and never for a
  * Pack or channel (appearance and sound are independent axes, ADR-0023 /
- * ADR-0033 §3). Events this palette doesn't cover fall through to the core
- * samples per ADR-0024. Swapping a sample is a one-line change here + the
- * asset registration in `audio-assets.ts`.
+ * ADR-0033 §3). A palette is exactly its sounds — events it doesn't carry
+ * are SILENT (no hidden fallback). Swapping a sample is a one-line change
+ * here + the asset registration in `audio-assets.ts`.
  *
  * Sample provenance (all CC0 / public domain, sourced from freesound.org,
  * processed to 48 kHz stereo WAV + peak-normalized via ffmpeg):

@@ -1,47 +1,37 @@
 /**
- * Sound-event → sample resolution (ADR-0033 §3, ADR-0024 hybrid fallback).
- * The cascade, top to bottom:
+ * Sound-event → sample resolution (ADR-0033 §3, amended 2026-07-02). The
+ * cascade, top to bottom:
  *
  *   per-motion override (`sound.mute` / `sound.sample` on the motion window)
- *     → the emitting Layer's kit (`kit.samples[event]`)
- *       → the engine-pinned core sample (`CORE_SOUND_SAMPLES[event]`)
+ *     → the emitting Layer's palette (`kit.samples[event]`)
+ *       → SILENCE
  *
- * A Layer with no kit resolves to silence — sound is opt-in per Layer.
+ * A palette is EXACTLY its sounds — there is no hidden fallback. The original
+ * ADR-0024-style core fallback was removed after by-ear testing: it made
+ * palette swaps inaudible (picking Chat on a mark fell through to a
+ * synthesized swipe that sounded like the marker it was supposed to replace),
+ * which reads as the control doing nothing. Silence is an honest resolution
+ * for sound the way a blank fill is not for appearance; `core` is an ordinary
+ * pickable palette that happens to cover every event. A Layer with no palette
+ * resolves to silence — sound is opt-in per Layer.
  */
 import type { SoundEvent } from '../engine-schema';
 import type { DerivedSoundCue } from '../sound-cues';
 import { SOUND_KIT_REGISTRY } from './registry.ts';
 import type { SoundKitManifest } from './types';
 
-/**
- * The engine-pinned core sample per sound event (ADR-0033 §8) — the fallback
- * every kit resolves through for events it doesn't cover. Slugs into the
- * bundled asset map in `audio-assets.ts`; the WAVs are synthesized
- * deterministically by `scripts/gen-core-sounds.mjs`.
- */
-export const CORE_SOUND_SAMPLES: Record<SoundEvent, string> = {
-	'whoosh-in': 'core-whoosh-in',
-	'whoosh-out': 'core-whoosh-out',
-	impact: 'core-impact',
-	tick: 'core-tick',
-	pop: 'core-pop',
-	swipe: 'core-swipe',
-	scratch: 'core-scratch',
-	'sub-drop': 'core-sub-drop',
-	sting: 'core-sting'
-};
-
-/** A kit's sample for an event, falling back to the core sample (ADR-0024). */
-export function resolveSoundSample(kit: SoundKitManifest, event: SoundEvent): string {
-	return kit.samples[event] ?? CORE_SOUND_SAMPLES[event];
+/** A palette's sample for an event, or null — the palette doesn't carry it. */
+export function resolveSoundSample(kit: SoundKitManifest, event: SoundEvent): string | null {
+	return kit.samples[event] ?? null;
 }
 
 /**
  * Resolve a derived cue to the audio-asset slug it plays, or null for
- * silence (muted, or emitted by a Layer wearing no kit). A locked per-motion
- * `sample` bypasses kit resolution entirely (ADR-0033 §5). The schema rejects
- * unknown kit slugs at parse time; the registry miss here is defence in depth
- * for the render path, resolving to silence rather than crashing a frame.
+ * silence (muted, palette-less Layer, or an event the palette doesn't
+ * carry). A locked per-motion `sample` bypasses palette resolution entirely
+ * (ADR-0033 §5). The schema rejects unknown palette slugs at parse time; the
+ * registry miss here is defence in depth for the render path, resolving to
+ * silence rather than crashing a frame.
  */
 export function resolveCueSample(cue: DerivedSoundCue): string | null {
 	if (cue.muted) {

@@ -31,7 +31,6 @@ import tapbackLikeUrl from '$lib/assets/sounds/tapback-like.wav';
 import tapbackQuestionUrl from '$lib/assets/sounds/tapback-question.wav';
 import tickPencilUrl from '$lib/assets/sounds/tick-pencil.wav';
 
-import { CORE_SOUND_SAMPLES } from './sound-kits/resolve.ts';
 import { listSoundKits } from './sound-kits/registry.ts';
 
 const SOUND_ASSETS: Record<string, string> = {
@@ -101,18 +100,13 @@ export function loadSoundBuffer(
 }
 
 /**
- * Boot gate (the ADR-0019 pattern): every engine-pinned core sample and every
- * sample a registered Sound kit names must be a bundled asset. Throws an
+ * Boot gate (the ADR-0019 pattern): every sample a registered palette names
+ * must be a bundled asset (the `core` palette covers the whole event
+ * vocabulary, so its completeness is checked by the same loop). Throws an
  * aggregated Error so a missing WAV fails at startup, not mid-export.
  */
 export function assertSoundRegistryValid(): void {
 	const problems: string[] = [];
-
-	for (const [event, slug] of Object.entries(CORE_SOUND_SAMPLES)) {
-		if (!isSoundAsset(slug)) {
-			problems.push(`core sample for "${event}" names unknown asset "${slug}"`);
-		}
-	}
 
 	for (const kit of listSoundKits()) {
 		for (const [event, slug] of Object.entries(kit.samples)) {

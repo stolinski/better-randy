@@ -1,9 +1,9 @@
 import type { SoundKitManifest } from '../../platform/sound-kits/types';
 
 /**
- * Message Pop — chat-bubble sounds (ADR-0033 §8). Covers the `pop` event the
- * iMessage Surface's bubbles emit; everything else falls through to the core
- * samples per ADR-0024. Sent bubbles conventionally lock the companion
+ * Chat — the conversation palette (ADR-0033 §8): message pops on the bubbles
+ * plus the chat card's slide whooshes. Everything else is silent — a palette
+ * is exactly its sounds. Sent bubbles conventionally lock the companion
  * `message-send` asset per message (`enter.sound.sample`) — send/receive
  * side-awareness stays an authoring convention until by-ear use proves it
  * belongs in the emission defaults.
