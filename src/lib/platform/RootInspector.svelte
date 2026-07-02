@@ -85,32 +85,40 @@
 	const progressPercent = $derived(Math.round(progress * 100));
 	const chainFull = $derived(engineState.effects.length >= EFFECT_CHAIN_LIMIT);
 
-	// ---- Manual audio cues + the bed (ADR-0033 §5) ----
-	// Automatic cues are derived from motion and never appear here — this
-	// authors only the free-standing cues and the single bed (full-frame
-	// pieces only, so "+ Bed" shows only while a background fill is set).
+	// ---- Composition-level sound: free-standing cues + the bed (ADR-0033 §5) ----
+	// Motion sounds are derived and live on each item's Sound section — this
+	// authors only what has no motion to ride: free-standing sounds (placed at
+	// the playhead) and the single bed (full-frame pieces only, so "+ Bed"
+	// shows only while a background fill is set).
 	const soundAssets = listSoundAssets();
 	const hasBed = $derived(engineState.audioCues.some((cue) => cue.kind === 'bed'));
 
 	function addAudioCue(kind: 'cue' | 'bed'): void {
 		const used = new Set(engineState.audioCues.map((cue) => cue.id));
 		let counter = 1;
-		let id = kind === 'bed' ? 'bed' : `cue-${counter}`;
+		let id = kind === 'bed' ? 'bed' : `sound-${counter}`;
 		while (used.has(id)) {
 			counter += 1;
-			id = `${kind === 'bed' ? 'bed' : 'cue'}-${counter}`;
+			id = `${kind === 'bed' ? 'bed' : 'sound'}-${counter}`;
 		}
+		// A free-standing sound drops at the playhead (the DaVinci gesture); the
+		// timeline seam is the same one verification drives.
+		const timeline = typeof window !== 'undefined' ? window.__hivizTimeline : undefined;
+		const playhead =
+			timeline && timeline.durationSeconds > 0
+				? Math.min(0.98, timeline.time / timeline.durationSeconds)
+				: 0.5;
 		engineState.audioCues.push(
 			kind === 'bed'
 				? {
 						id,
 						kind,
-						assetSlug: soundAssets[0] ?? 'core-sub-drop',
+						assetSlug: 'bed-ambient-texture',
 						start: 0,
 						duration: 1,
 						volume: 0.4
 					}
-				: { id, kind, assetSlug: soundAssets[0] ?? 'core-impact', start: 0.5, duration: 0.05 }
+				: { id, kind, assetSlug: soundAssets[0] ?? 'core-impact', start: playhead, duration: 0.05 }
 		);
 	}
 
@@ -335,9 +343,9 @@
 		{/if}
 	</InspectorSection>
 
-	<InspectorSection label="Audio Cues">
+	<InspectorSection label="Sound">
 		{#snippet action()}
-			<button type="button" class="add-cue" onclick={() => addAudioCue('cue')}>+ Cue</button>
+			<button type="button" class="add-cue" onclick={() => addAudioCue('cue')}>+ Sound</button>
 			{#if engineState.backgroundFill !== undefined && !hasBed}
 				<button type="button" class="add-cue" onclick={() => addAudioCue('bed')}>+ Bed</button>
 			{/if}
