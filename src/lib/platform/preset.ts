@@ -1,9 +1,14 @@
 import {
 	PresetSchema,
+	type Cascade,
+	type CascadeAnchor,
 	type Effect,
+	type Keyframe,
 	type MarkTiming,
 	type Overlay,
+	type OverlayAnimation,
 	type Preset,
+	type SurfaceAnimation,
 	type SurfaceState,
 	type TextAnimation,
 	type Transition
@@ -171,6 +176,54 @@ export function parsePreset(json: unknown): Preset {
 	return result.data;
 }
 
+function cloneCascadeAnchor(anchor: CascadeAnchor): CascadeAnchor {
+	if (anchor === 'surface') {
+		return anchor;
+	}
+	if ('overlay' in anchor) {
+		return { overlay: anchor.overlay };
+	}
+	if ('mark' in anchor) {
+		return { mark: anchor.mark };
+	}
+	return { textAnimation: anchor.textAnimation };
+}
+
+function cloneCascade(cascade: Cascade): Cascade {
+	return {
+		anchor: cloneCascadeAnchor(cascade.anchor),
+		event: cascade.event,
+		offsetMs: cascade.offsetMs
+	};
+}
+
+// Clones every declared channel track without hand-enumerating channel names —
+// a fixed list here would silently drop any channel the schema grows later
+// (the same trap that lost `counterpoint` in cloneSurface).
+function cloneChannelKeyframes<T extends Record<string, Keyframe[] | undefined>>(channels: T): T {
+	const next = { ...channels };
+	for (const key of Object.keys(next) as (keyof T)[]) {
+		const track = next[key];
+		if (track) {
+			next[key] = track.map((frame) => ({ ...frame })) as T[keyof T];
+		}
+	}
+	return next;
+}
+
+function cloneOverlayAnimation(animation: OverlayAnimation): OverlayAnimation {
+	return {
+		channels: animation.channels ? cloneChannelKeyframes(animation.channels) : undefined,
+		cascade: animation.cascade ? cloneCascade(animation.cascade) : undefined
+	};
+}
+
+function cloneSurfaceAnimation(animation: SurfaceAnimation): SurfaceAnimation {
+	return {
+		channels: animation.channels ? cloneChannelKeyframes(animation.channels) : undefined
+	};
+}
+
 function cloneTiming(timing: MarkTiming): MarkTiming {
 	const next: MarkTiming = {
 		start: timing.start,
@@ -188,6 +241,10 @@ function cloneTiming(timing: MarkTiming): MarkTiming {
 
 	if (timing.sound !== undefined) {
 		next.sound = { ...timing.sound };
+	}
+
+	if (timing.cascade !== undefined) {
+		next.cascade = cloneCascade(timing.cascade);
 	}
 
 	return next;
@@ -218,6 +275,7 @@ function cloneSurface(surface: SurfaceState): SurfaceState {
 		variant: surface.variant,
 		enter: surface.enter ? cloneTransition(surface.enter) : undefined,
 		exit: surface.exit ? cloneTransition(surface.exit) : undefined,
+		animation: surface.animation ? cloneSurfaceAnimation(surface.animation) : undefined,
 		backgroundVisibility: surface.backgroundVisibility,
 		soundKit: surface.soundKit
 	};
@@ -232,10 +290,12 @@ function cloneOverlay(overlay: Overlay): Overlay {
 			anchor: overlay.position.anchor,
 			offset: overlay.position.offset ? { ...overlay.position.offset } : undefined,
 			rect: overlay.position.rect ? { ...overlay.position.rect } : undefined,
-			scale: overlay.position.scale
+			scale: overlay.position.scale,
+			rotation: overlay.position.rotation
 		},
 		enter: overlay.enter ? cloneTransition(overlay.enter) : undefined,
 		exit: overlay.exit ? cloneTransition(overlay.exit) : undefined,
+		animation: overlay.animation ? cloneOverlayAnimation(overlay.animation) : undefined,
 		z: overlay.z,
 		soundKit: overlay.soundKit
 	};
@@ -261,6 +321,7 @@ function cloneTextAnimation(entry: TextAnimation): TextAnimation {
 		effect: entry.effect,
 		enter: cloneTransition(entry.enter),
 		exit: entry.exit ? cloneTransition(entry.exit) : undefined,
+		cascade: entry.cascade ? cloneCascade(entry.cascade) : undefined,
 		params: entry.params ? { ...entry.params } : undefined
 	};
 }

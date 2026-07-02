@@ -121,6 +121,113 @@ const SoundKitSchema = z
 		message: `Unknown Sound kit. Registered kits: ${Object.keys(SOUND_KIT_REGISTRY).join(', ')}.`
 	});
 
+// ---- Generalized keyframes + Cascade (ADR-0035) ----
+// Ordered per-channel keyframes replace the 2-keyframe Transition as the
+// GENERAL motion form. Declaring `animation.channels` on an element means the
+// composition takes full ownership of that element's motion — the pipeline's
+// intrinsic enter/exit form does not run (ADR-0035 §2). An element with no
+// keyframes renders exactly as today; `enter`/`exit` stays valid as lossless
+// sugar. Keyframe positions are ms from the element's RESOLVED clip start —
+// the same welded-absolute reasoning as cascade offsets, so authored motion
+// survives re-time without drift.
+
+// `ease` is the curve INTO this keyframe (from the previous one); the first
+// keyframe of a track carries none. Stays the constrained enum — no bezier
+// values, no curve editor (the taste guardrail survives, ADR-0035 §5).
+// The per-channel track schemas below all parse to this one shape; only their
+// `value` bounds differ.
+export interface Keyframe {
+	atMs: number;
+	value: number;
+	ease?: Ease;
+}
+
+// One channel's track. Per-channel value bounds ride in via `value` (opacity
+// is a 0..1 fraction; x/y are signed composition-fraction deltas; scale
+// mirrors the static field's 0.1..8; rotation is unbounded degrees so authored
+// spins stay expressible).
+function createKeyframeTrackSchema(value: z.ZodType<number>) {
+	return z
+		.array(z.strictObject({ atMs: z.number().min(0), value, ease: EaseSchema.optional() }))
+		.min(1, 'A declared channel needs at least one keyframe.')
+		.superRefine((frames, ctx) => {
+			if (frames.length > 0 && frames[0].ease !== undefined) {
+				ctx.addIssue({
+					code: 'custom',
+					path: [0, 'ease'],
+					message:
+						'The first keyframe carries no ease — ease is the curve INTO a keyframe, and nothing precedes the first.'
+				});
+			}
+			for (let i = 1; i < frames.length; i += 1) {
+				if (frames[i].atMs <= frames[i - 1].atMs) {
+					ctx.addIssue({
+						code: 'custom',
+						path: [i, 'atMs'],
+						message: `Keyframes must be ordered by strictly ascending atMs (${frames[i].atMs} follows ${frames[i - 1].atMs}).`
+					});
+				}
+			}
+		});
+}
+
+// Overlay channels (ADR-0035 §3). `x`/`y` are composition-fraction DELTAS from
+// the element's `position` anchor/offset (layout keeps its home; motion is
+// relative), so they may be negative. `scale`/`rotation` are absolute channel
+// values seeded from the static `position.scale` / `position.rotation` fields.
+const OverlayChannelKeyframesSchema = z.strictObject({
+	opacity: createKeyframeTrackSchema(FractionSchema).optional(),
+	x: createKeyframeTrackSchema(z.number()).optional(),
+	y: createKeyframeTrackSchema(z.number()).optional(),
+	scale: createKeyframeTrackSchema(z.number().min(0.1).max(8)).optional(),
+	rotation: createKeyframeTrackSchema(z.number()).optional()
+});
+
+// Surface gets `opacity` only — surface transforms are camera territory
+// (`stage.camera`, the depth stage); two systems must not fight over the same
+// pixels (ADR-0035 §3). Strict so a transform channel fails loudly instead of
+// being silently stripped.
+const SurfaceChannelKeyframesSchema = z.strictObject({
+	opacity: createKeyframeTrackSchema(FractionSchema).optional()
+});
+
+// Cascade (ADR-0035 §4): welds this element's ENTER START to another element's
+// enter start/end plus a millisecond offset — ms, not fractions, so a 120 ms
+// stagger stays 120 ms when the piece re-times. Anchor refs use the same
+// identities the timeline rows use. Cycles are a parse-time error (see
+// validateCascadeGraph); offsets may be negative (lead an anchor slightly).
+const CascadeAnchorSchema = z.union([
+	z.literal('surface'),
+	z.strictObject({ overlay: z.string().min(1) }),
+	z.strictObject({ mark: z.number().int().min(0) }),
+	z.strictObject({ textAnimation: z.string().min(1) })
+]);
+export type CascadeAnchor = z.infer<typeof CascadeAnchorSchema>;
+
+const CascadeSchema = z.strictObject({
+	anchor: CascadeAnchorSchema,
+	event: z.enum(['start', 'end']),
+	offsetMs: z.number()
+});
+export type Cascade = z.infer<typeof CascadeSchema>;
+
+const OverlayAnimationSchema = z.strictObject({
+	channels: OverlayChannelKeyframesSchema.optional(),
+	cascade: CascadeSchema.optional()
+});
+
+// No cascade on the surface — it is the piece's timing root (marks and text
+// animations anchor TO it), and a root that cascades to its own dependents is
+// exactly the cycle class the validator rejects.
+const SurfaceAnimationSchema = z.strictObject({
+	channels: SurfaceChannelKeyframesSchema.optional()
+});
+
+export type OverlayChannelKeyframes = z.infer<typeof OverlayChannelKeyframesSchema>;
+export type SurfaceChannelKeyframes = z.infer<typeof SurfaceChannelKeyframesSchema>;
+export type OverlayAnimation = z.infer<typeof OverlayAnimationSchema>;
+export type SurfaceAnimation = z.infer<typeof SurfaceAnimationSchema>;
+
 export const AnnotationMarkStyleSchema = z.enum([
 	'highlight',
 	'underline',
@@ -193,7 +300,11 @@ const MarkTimingSchema = z.object({
 	ease: EaseSchema,
 	color: HexColorSchema.optional(),
 	intensity: FractionSchema.optional(),
-	sound: SoundOverrideSchema.optional()
+	sound: SoundOverrideSchema.optional(),
+	// Welds this mark's enter start to another element (ADR-0035 §4) — the
+	// declarative form of the A1/A2 choreography rules. `start` remains the
+	// fallback when absent.
+	cascade: CascadeSchema.optional()
 });
 
 const MarksStateSchema = z.object({
@@ -284,6 +395,9 @@ const SurfaceSchema = z.object({
 	variant: z.string().optional(),
 	enter: TransitionSchema.optional(),
 	exit: TransitionSchema.optional(),
+	// Composition-owned motion channels (ADR-0035). When `animation.channels`
+	// is present the surface's intrinsic enter/exit motion-form does not run.
+	animation: SurfaceAnimationSchema.optional(),
 	backgroundVisibility: FractionSchema.optional(),
 	soundKit: SoundKitSchema.optional()
 });
@@ -310,7 +424,11 @@ const OverlayPositionSchema = z.object({
 	// anchor point (so the anchored edge/corner stays pinned as it grows). 1 =
 	// natural size. Driven by the canvas scale handles + the inspector Scale field.
 	// Aspect-preserving on purpose — overlays keep their designed proportions.
-	scale: z.number().min(0.1).max(8).optional()
+	scale: z.number().min(0.1).max(8).optional(),
+	// Static rotation in degrees about the anchor point (ADR-0035; absorbs task
+	// 5vcak6og). The base value the `rotation` keyframe channel seeds from —
+	// authored spins beyond a full turn live in the channel, not here.
+	rotation: z.number().min(-360).max(360).optional()
 });
 
 const OverlaySchema = z.object({
@@ -320,6 +438,10 @@ const OverlaySchema = z.object({
 	position: OverlayPositionSchema,
 	enter: TransitionSchema.optional(),
 	exit: TransitionSchema.optional(),
+	// Composition-owned motion channels + cascade timing weld (ADR-0035). When
+	// `animation.channels` is present the composition takes the pen: the
+	// overlay's intrinsic motion-form (Identity Spec `motion-form`) does not run.
+	animation: OverlayAnimationSchema.optional(),
 	// Focal-distance plane for depth-of-field (ADR-0021 semantics / ADR-0027 v1).
 	// 0 = focal plane (sharp), 1 = max defocus. Absent → the Overlay-Layer default
 	// (0.7) is applied at render; a per-instance value overrides it so one overlay
@@ -403,6 +525,9 @@ const TextAnimationSchema = z.object({
 	effect: z.string().min(1),
 	enter: TransitionSchema,
 	exit: TransitionSchema.optional(),
+	// Welds this text animation's enter start to another element (ADR-0035 §4).
+	// `enter.start` remains the fallback when absent.
+	cascade: CascadeSchema.optional(),
 	params: TextAnimationParamsSchema
 });
 
@@ -591,6 +716,21 @@ const AudioCuesSchema = z
 		}
 	});
 
+// The timeline-row identity a cascade anchor resolves to — shared by the
+// existence check, the cycle walk, and the human-readable cycle message.
+function cascadeAnchorKey(anchor: CascadeAnchor): string {
+	if (anchor === 'surface') {
+		return 'surface';
+	}
+	if ('overlay' in anchor) {
+		return `overlay:${anchor.overlay}`;
+	}
+	if ('mark' in anchor) {
+		return `mark:${anchor.mark}`;
+	}
+	return `textAnimation:${anchor.textAnimation}`;
+}
+
 export const EngineStateSchema = z
 	.object({
 		transport: TransportSchema,
@@ -603,6 +743,110 @@ export const EngineStateSchema = z
 		audioCues: AudioCuesSchema,
 		backgroundFill: HexColorSchema.optional(),
 		stage: StageSchema.optional()
+	})
+	.superRefine((state, ctx) => {
+		// Cascade graph validation (ADR-0035 §4): every anchor ref must resolve
+		// to a real element, and anchor chains must be acyclic. Fail fast at
+		// parse time — never a runtime guess.
+		const edges = new Map<string, { anchor: Cascade['anchor']; path: (string | number)[] }>();
+
+		for (let i = 0; i < state.overlays.length; i += 1) {
+			const cascade = state.overlays[i].animation?.cascade;
+			if (cascade) {
+				edges.set(`overlay:${state.overlays[i].id}`, {
+					anchor: cascade.anchor,
+					path: ['overlays', i, 'animation', 'cascade']
+				});
+			}
+		}
+		for (let i = 0; i < state.marks.timings.length; i += 1) {
+			const cascade = state.marks.timings[i].cascade;
+			if (cascade) {
+				edges.set(`mark:${i}`, {
+					anchor: cascade.anchor,
+					path: ['marks', 'timings', i, 'cascade']
+				});
+			}
+		}
+		for (let i = 0; i < state.textAnimations.length; i += 1) {
+			const cascade = state.textAnimations[i].cascade;
+			if (cascade) {
+				edges.set(`textAnimation:${state.textAnimations[i].id}`, {
+					anchor: cascade.anchor,
+					path: ['textAnimations', i, 'cascade']
+				});
+			}
+		}
+
+		const overlayIds = new Set(state.overlays.map((overlay) => overlay.id));
+		const textAnimationIds = new Set(state.textAnimations.map((entry) => entry.id));
+
+		for (const edge of edges.values()) {
+			const anchor = edge.anchor;
+			if (anchor === 'surface') {
+				continue;
+			}
+			if ('overlay' in anchor && !overlayIds.has(anchor.overlay)) {
+				ctx.addIssue({
+					code: 'custom',
+					path: [...edge.path, 'anchor'],
+					message: `cascade.anchor overlay "${anchor.overlay}" does not match any overlays[].id.`
+				});
+			} else if ('mark' in anchor && anchor.mark >= state.marks.timings.length) {
+				ctx.addIssue({
+					code: 'custom',
+					path: [...edge.path, 'anchor'],
+					message: `cascade.anchor mark ${anchor.mark} is out of range — marks.timings has ${state.marks.timings.length} entries.`
+				});
+			} else if ('textAnimation' in anchor && !textAnimationIds.has(anchor.textAnimation)) {
+				ctx.addIssue({
+					code: 'custom',
+					path: [...edge.path, 'anchor'],
+					message: `cascade.anchor textAnimation "${anchor.textAnimation}" does not match any textAnimations[].id.`
+				});
+			}
+		}
+
+		// Cycle walk. Each cascading element has exactly one outgoing edge (its
+		// anchor), so a cycle is a chain that revisits itself. Report each cycle
+		// once, naming the loop.
+		const acyclic = new Set<string>();
+		const inReportedCycle = new Set<string>();
+		for (const start of edges.keys()) {
+			if (acyclic.has(start) || inReportedCycle.has(start)) {
+				continue;
+			}
+			const chain: string[] = [];
+			const chainSet = new Set<string>();
+			let node = start;
+			let cycled = false;
+			while (edges.has(node) && !acyclic.has(node) && !inReportedCycle.has(node)) {
+				if (chainSet.has(node)) {
+					const cycle = chain.slice(chain.indexOf(node));
+					const edge = edges.get(node);
+					if (edge) {
+						ctx.addIssue({
+							code: 'custom',
+							path: edge.path,
+							message: `Cascade cycle: ${[...cycle, node].join(' → ')}. Anchor chains must end at an element without a cascade.`
+						});
+					}
+					for (const key of cycle) {
+						inReportedCycle.add(key);
+					}
+					cycled = true;
+					break;
+				}
+				chain.push(node);
+				chainSet.add(node);
+				node = cascadeAnchorKey(edges.get(node)!.anchor);
+			}
+			if (!cycled) {
+				for (const key of chain) {
+					acyclic.add(key);
+				}
+			}
+		}
 	})
 	.superRefine((state, ctx) => {
 		// A bed is for self-contained segments / bumpers only — a transparent

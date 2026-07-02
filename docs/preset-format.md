@@ -49,7 +49,8 @@ A preset is a single JSON document validated by `PresetSchema` (`src/lib/platfor
     { "start": 0..1, "duration": 0..1, "ease": "smooth" | "settled" | "sharp" | "bouncy",
       "color": "#rrggbb",   // optional per-mark override
       "intensity": 0..1,    // optional per-mark override
-      "sound": { ... }      // optional per-motion sound override (see Sound)
+      "sound": { ... },     // optional per-motion sound override (see Sound)
+      "cascade": { ... }    // optional timing weld (see Animation)
     }
   ],
   "soundKit": "kit-slug"    // optional per-Layer Sound kit (see Sound)
@@ -73,6 +74,7 @@ A preset is a single JSON document validated by `PresetSchema` (`src/lib/platfor
   },
   "enter": { "start": 0..1, "duration": 0..1, "ease": Ease },  // optional
   "exit":  { "start": 0..1, "duration": 0..1, "ease": Ease },  // optional
+  "animation": { "channels": { "opacity": [ ... ] } },          // optional (see Animation; opacity only)
   "backgroundVisibility": 0..1,                                 // optional
   "soundKit": "kit-slug"                                        // optional (see Sound)
 }
@@ -89,14 +91,53 @@ A preset is a single JSON document validated by `PresetSchema` (`src/lib/platfor
     "position": {
       "anchor": "bottom-left" | "top-right" | "..." | "normalized-rect",
       "offset": { "x": 0..1, "y": 0..1 },                           // optional; fractions of composition (5% = 0.05)
-      "rect":   { "x": 0..1, "y": 0..1, "width": 0..1, "height": 0..1 }  // optional, anchor === 'normalized-rect'
+      "rect":   { "x": 0..1, "y": 0..1, "width": 0..1, "height": 0..1 },  // optional, anchor === 'normalized-rect'
+      "scale": 0.1..8,                                              // optional uniform scale about the anchor
+      "rotation": -360..360                                         // optional static rotation in degrees about the anchor
     },
     "enter": { "start": 0..1, "duration": 0..1, "ease": Ease },     // optional
     "exit":  { "start": 0..1, "duration": 0..1, "ease": Ease },     // optional
+    "animation": { "channels": { ... }, "cascade": { ... } },       // optional (see Animation)
     "soundKit": "kit-slug"                                          // optional (see Sound)
   }
 ]
 ```
+
+### `animation` — generalized keyframes + Cascade ([ADR-0035](adr/0035-generalized-keyframes-and-cascade.md))
+
+Ordered per-channel `keyframes[]` are the general motion form; the `enter`/`exit` `Transition` shape stays valid as lossless sugar. **Declaring `animation.channels` means the composition takes full ownership of that element's motion** — the pipeline's intrinsic enter/exit motion-form does not run. An element with no keyframes renders exactly as today.
+
+```jsonc
+"animation": {
+  "channels": {                       // overlay: opacity | x | y | scale | rotation; surface: opacity only
+    "opacity": [
+      { "atMs": 0,   "value": 0 },                       // first keyframe carries no ease
+      { "atMs": 300, "value": 1, "ease": "smooth" }      // ease = the curve INTO this keyframe
+    ],
+    "scale": [
+      { "atMs": 0,   "value": 1 },
+      { "atMs": 180, "value": 0.96, "ease": "sharp" },
+      { "atMs": 420, "value": 1,    "ease": "settled" }
+    ]
+  },
+  "cascade": { "anchor": { "overlay": "title" }, "event": "end", "offsetMs": 120 }
+}
+```
+
+Keyframes:
+
+- `atMs` — milliseconds from the element's **resolved clip start** (welded-absolute: authored motion survives re-time without drift). Strictly ascending within a track; a declared track needs ≥ 1 keyframe.
+- `value` — per channel: `opacity` 0..1 · `x`/`y` signed composition-fraction **deltas** from the element's `position` anchor/offset · `scale` absolute 0.1..8, seeded from `position.scale` · `rotation` absolute degrees (unbounded — spins are legal), seeded from `position.rotation`.
+- `ease` — the constrained enum only (`smooth` | `settled` | `sharp` | `bouncy`), per segment. No bezier values. The first keyframe of a track carries none.
+- Surface channels are `opacity` only — surface transforms are camera territory (`stage.camera`).
+
+Cascade welds an element's **enter start** to another element's timing (milliseconds, not fractions — a 120 ms stagger stays 120 ms when the piece re-times):
+
+- `anchor` — `"surface"` | `{ "overlay": id }` | `{ "mark": index }` | `{ "textAnimation": id }` (the same identities the timeline rows use).
+- `event` — `"start"` | `"end"` of the anchor's enter.
+- `offsetMs` — signed milliseconds after (or before) the anchor event.
+- Allowed on `overlays[].animation`, `marks.timings[]` entries, and `textAnimations[]` entries. The surface is the timing root and carries no cascade.
+- Parse-time rules: every anchor ref must resolve, and anchor chains must be acyclic — a cycle is rejected with an error naming the loop.
 
 ### `textAnimations` (per-slot text choreography)
 
@@ -108,6 +149,7 @@ A preset is a single JSON document validated by `PresetSchema` (`src/lib/platfor
     "effect": "soft-blur-in",
     "enter": { "start": 0.04, "duration": 0.10, "ease": "smooth" },
     "exit":  { "start": 0.86, "duration": 0.05, "ease": "smooth" },  // optional
+    "cascade": { "anchor": "surface", "event": "end", "offsetMs": 80 },  // optional timing weld (see Animation)
     "params": { "speedMultiplier": 0.72 }                            // optional, merged over effect runtime
   }
 ]
@@ -122,6 +164,7 @@ Fields:
 - `effect` — one of 24 catalog ids (`soft-blur-in`, `per-character-rise`, `typewriter`, `bottom-up-letters`, `top-down-letters`, `stagger-from-center`, `stagger-from-edges`, `mask-reveal-up`, `line-by-line-slide`, `per-word-crossfade`, `spring-scale-in`, `depth-parallax-words`, `blur-out-up`, `shared-axis-y`, `kinetic-center-build`, `short-slide-right`, `short-slide-down`, `micro-scale-fade`, `fade-through`, `scale-down-fade`, `focus-blur-resolve`, `shimmer-sweep`, `shared-axis-x`, `shared-axis-z`).
 - `enter` — required `Transition`. The compiler scales the effect's per-unit `duration_ms` / `stagger_ms` / `from` → `to` keyframes to fit this window.
 - `exit` — optional `Transition`. Without it the text stays visible until preset end.
+- `cascade` — optional [ADR-0035](adr/0035-generalized-keyframes-and-cascade.md) timing weld; when present it anchors this animation's enter start (see Animation). `enter.start` remains the fallback.
 - `params` — optional shallow overrides for the effect's `showcase.runtime` block (`speedMultiplier`, `holdMs`, `gapMs`, `yTravelMultiplier`, `initialDelayMs`).
 
 Parse-time validation:
