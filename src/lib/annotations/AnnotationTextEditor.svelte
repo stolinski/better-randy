@@ -28,6 +28,8 @@
 		colors?: AnnotationMarkColors;
 		label?: string;
 		rows?: number;
+		/** Mark styles offered in the toolbar; defaults to the full vocabulary. */
+		styles?: readonly AnnotationMarkStyle[];
 	}
 
 	const DEFAULT_ANNOTATION_MARK_COLORS: AnnotationMarkColors = {
@@ -56,15 +58,18 @@
 		isolate: 'Isolate selection'
 	};
 
-	const DECORATIVE_BUTTONS = DECORATIVE_ANNOTATION_STYLES;
-	const FOCAL_BUTTONS = FOCAL_ANNOTATION_STYLES;
-
 	let {
 		body = $bindable<AnnotationBody>([]),
 		colors = DEFAULT_ANNOTATION_MARK_COLORS,
 		label = 'Annotation text',
-		rows = 10
+		rows = 10,
+		styles = ANNOTATION_MARK_STYLES
 	}: Props = $props();
+
+	const decorativeButtons = $derived(
+		DECORATIVE_ANNOTATION_STYLES.filter((style) => styles.includes(style))
+	);
+	const focalButtons = $derived(FOCAL_ANNOTATION_STYLES.filter((style) => styles.includes(style)));
 
 	let editor = $state<HTMLDivElement | null>(null);
 	let activeMarkStyle = $state<AnnotationMarkStyle | null>(null);
@@ -439,16 +444,20 @@
 
 <div class="annotation-editor stack">
 	<div class="annotation-toolbar stack" aria-label={`${label} marks`}>
-		<div class="annotation-toolbar-row cluster" aria-label="Decorative marks">
-			{#each DECORATIVE_BUTTONS as style (style)}
-				{@render markButton(style)}
-			{/each}
-		</div>
-		<div class="annotation-toolbar-row cluster" aria-label="Focal marks">
-			{#each FOCAL_BUTTONS as style (style)}
-				{@render markButton(style)}
-			{/each}
-		</div>
+		{#if decorativeButtons.length > 0}
+			<div class="annotation-toolbar-row cluster" aria-label="Decorative marks">
+				{#each decorativeButtons as style (style)}
+					{@render markButton(style)}
+				{/each}
+			</div>
+		{/if}
+		{#if focalButtons.length > 0}
+			<div class="annotation-toolbar-row cluster" aria-label="Focal marks">
+				{#each focalButtons as style (style)}
+					{@render markButton(style)}
+				{/each}
+			</div>
+		{/if}
 	</div>
 
 	<div

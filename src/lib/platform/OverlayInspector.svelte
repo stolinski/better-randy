@@ -93,6 +93,15 @@
 		ov.position.offset.y = Math.max(0, Math.min(1, n));
 	}
 
+	// Normalized-rect placement (fractions of the composition; unclamped on
+	// purpose — offscreen rects are how shader overlays park outside the frame).
+	function setOverlayRect(ov: Overlay, key: 'x' | 'y' | 'width' | 'height', value: string): void {
+		const n = Number(value);
+		if (!Number.isFinite(n)) return;
+		if (!ov.position.rect) ov.position.rect = { x: 0, y: 0, width: 1, height: 1 };
+		ov.position.rect[key] = n;
+	}
+
 	function setOverlayScale(ov: Overlay, value: string): void {
 		const n = Number(value);
 		if (!Number.isFinite(n)) return;
@@ -245,6 +254,39 @@
 					step="0.01"
 					value={ov.position.offset?.y ?? 0}
 					oninput={(e) => setOverlayOffsetY(ov, (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</Field>
+		{:else}
+			<Field label="Rect X">
+				<input
+					type="number"
+					step="0.01"
+					value={ov.position.rect?.x ?? 0}
+					oninput={(e) => setOverlayRect(ov, 'x', (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</Field>
+			<Field label="Rect Y">
+				<input
+					type="number"
+					step="0.01"
+					value={ov.position.rect?.y ?? 0}
+					oninput={(e) => setOverlayRect(ov, 'y', (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</Field>
+			<Field label="Width">
+				<input
+					type="number"
+					step="0.01"
+					value={ov.position.rect?.width ?? 1}
+					oninput={(e) => setOverlayRect(ov, 'width', (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</Field>
+			<Field label="Height">
+				<input
+					type="number"
+					step="0.01"
+					value={ov.position.rect?.height ?? 1}
+					oninput={(e) => setOverlayRect(ov, 'height', (e.currentTarget as HTMLInputElement).value)}
 				/>
 			</Field>
 		{/if}

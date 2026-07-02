@@ -57,10 +57,13 @@ export const imessage: SurfaceRenderer = {
 	type: 'imessage',
 	label: 'iMessage',
 	controls: {
-		// The conversation is authored as `content.messages[]` (no GUI editor yet);
-		// only the contact name reuses a standard slot.
+		// The conversation is authored as `content.messages[]`, edited per bubble
+		// in the inspector's Messages section; only the contact name reuses a
+		// standard slot.
 		author: true,
 		body: 'never',
+		messages: true,
+		chrome: true,
 		typography: false,
 		paperColor: false,
 		inkColor: false,

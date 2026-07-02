@@ -1,6 +1,9 @@
 <script lang="ts">
 	import AnnotationTextEditor from '$lib/annotations/AnnotationTextEditor.svelte';
+	import { parseAnnotationBodyText } from '$lib/annotations/annotation-body-text';
+	import { DECORATIVE_ANNOTATION_STYLES } from '$lib/annotations/annotation-mark-styles';
 	import type { AnnotationBody } from '$lib/annotations/annotation-marks';
+	import { defaultMessageEnter } from '$lib/pipelines/surfaces/imessage/schedule';
 	import {
 		EFFECT_CATALOG,
 		EFFECT_IDS,
@@ -12,10 +15,13 @@
 	import {
 		ENGINE_EASES,
 		ENGINE_FONT_FAMILIES,
+		WEB_DOCUMENT_SITES,
+		type ChatMessage,
 		type Ease,
 		type FontDefinition,
 		type FontFamily,
 		type SoundOverride,
+		type SurfaceState,
 		type SurfaceType,
 		type TextAnimation,
 		type TextAnimationParams
@@ -35,6 +41,16 @@
 	const surfaceRenderers = Object.values(PIPELINE_REGISTRY.surfaces);
 	const fontFamilyOptions = Object.entries(ENGINE_FONT_FAMILIES) as [FontFamily, FontDefinition][];
 	const easeOptions = Object.entries(ENGINE_EASES) as [Ease, (typeof ENGINE_EASES)[Ease]][];
+
+	const SITE_LABELS: Record<(typeof WEB_DOCUMENT_SITES)[number], string> = {
+		twitter: 'Twitter / X',
+		reddit: 'Reddit',
+		wikipedia: 'Wikipedia',
+		hackernews: 'Hacker News',
+		github: 'GitHub',
+		youtube: 'YouTube',
+		news: 'News article'
+	};
 
 	// ---- Surface controls derived from the active renderer ----
 
@@ -61,18 +77,23 @@
 		title: controls.title === true && engineState.surface.content.title !== undefined,
 		sourceUrl: controls.sourceUrl === true && engineState.surface.content.sourceUrl !== undefined,
 		author: controls.author === true && engineState.surface.content.author !== undefined,
+		affiliation:
+			controls.affiliation === true && engineState.surface.content.affiliation !== undefined,
 		source: controls.source === true && engineState.surface.content.source !== undefined,
 		dateLabel: controls.dateLabel === true && engineState.surface.content.dateLabel !== undefined,
-		kicker: controls.kicker === true && engineState.surface.content.kicker !== undefined
+		kicker: controls.kicker === true && engineState.surface.content.kicker !== undefined,
+		bodyLabel: controls.bodyLabel === true && engineState.surface.content.bodyLabel !== undefined
 	});
 
 	const documentVisible = $derived(
 		documentSlots.title ||
 			documentSlots.sourceUrl ||
 			documentSlots.author ||
+			documentSlots.affiliation ||
 			documentSlots.source ||
 			documentSlots.dateLabel ||
 			documentSlots.kicker ||
+			documentSlots.bodyLabel ||
 			showBody
 	);
 
@@ -91,11 +112,100 @@
 		if (!nextRenderer) return;
 		const nextDefaults = nextRenderer.defaults();
 		nextDefaults.content.body = engineState.surface.content.body;
-		for (const slot of ['title', 'sourceUrl', 'author', 'source', 'dateLabel', 'kicker'] as const) {
+		for (const slot of [
+			'title',
+			'sourceUrl',
+			'author',
+			'affiliation',
+			'source',
+			'dateLabel',
+			'kicker',
+			'bodyLabel'
+		] as const) {
 			const value = engineState.surface.content[slot];
 			if (typeof value === 'string' && value.length > 0) nextDefaults.content[slot] = value;
 		}
 		engineState.surface = nextDefaults;
+	}
+
+	// ---- Chrome mode (ADR-0037) ----
+
+	// Absent means 'window' (canonical) — writing `undefined` back for 'window'
+	// keeps saved compositions free of a redundant field.
+	function handleChromeChange(event: Event): void {
+		const value = (event.currentTarget as HTMLSelectElement).value;
+		engineState.surface.chrome = value === 'none' ? 'none' : undefined;
+	}
+
+	// ---- Enter / Exit (the surface's transition sugar; ADR-0035 §3 keyframes
+	// take the pen when an opacity channel is declared) ----
+
+	const TRANSITION_FIELDS = ['enter', 'exit'] as const;
+
+	function ensureSurfaceTransition(field: 'enter' | 'exit'): NonNullable<SurfaceState['enter']> {
+		const existing = engineState.surface[field];
+		if (existing) return existing;
+		const next =
+			field === 'enter'
+				? { start: 0, duration: 0.13, ease: 'settled' as Ease }
+				: { start: 0.82, duration: 0.16, ease: 'smooth' as Ease };
+		engineState.surface[field] = next;
+		return next;
+	}
+
+	function surfaceTransitionInput(
+		field: 'enter' | 'exit',
+		key: 'start' | 'duration',
+		value: string
+	): void {
+		const n = Number(value);
+		if (!Number.isFinite(n)) return;
+		ensureSurfaceTransition(field)[key] = Math.max(0, Math.min(1, n));
+	}
+
+	function surfaceTransitionEaseChange(field: 'enter' | 'exit', value: string): void {
+		ensureSurfaceTransition(field).ease = value as Ease;
+	}
+
+	// ---- iMessage conversation (ADR-0031) ----
+	// Text / side / tapback / receipt / typing edit here; per-bubble timing
+	// stays on the timeline's message tracks (one draggable clip per bubble).
+
+	const TAPBACK_OPTIONS: { value: NonNullable<ChatMessage['tapback']>; label: string }[] = [
+		{ value: 'heart', label: 'Heart' },
+		{ value: 'like', label: 'Like' },
+		{ value: 'dislike', label: 'Dislike' },
+		{ value: 'haha', label: 'Haha' },
+		{ value: 'emphasize', label: 'Emphasize' },
+		{ value: 'question', label: 'Question' }
+	];
+
+	const messages = $derived(engineState.surface.content.messages ?? []);
+
+	function addMessage(): void {
+		const list = (engineState.surface.content.messages ??= []);
+		const last = list.at(-1);
+		list.push({ from: last?.from === 'them' ? 'me' : 'them', text: parseAnnotationBodyText('') });
+	}
+
+	function removeMessage(index: number): void {
+		engineState.surface.content.messages?.splice(index, 1);
+	}
+
+	function messageFromChange(message: ChatMessage, value: string): void {
+		message.from = value === 'me' ? 'me' : 'them';
+	}
+
+	function messageTapbackChange(message: ChatMessage, value: string): void {
+		message.tapback = value === '' ? undefined : (value as NonNullable<ChatMessage['tapback']>);
+	}
+
+	function messageStatusChange(message: ChatMessage, value: string): void {
+		message.status = value === '' ? undefined : (value as NonNullable<ChatMessage['status']>);
+	}
+
+	function messageTypingToggle(message: ChatMessage, hasTyping: boolean): void {
+		message.typing = hasTyping ? { duration: 0.1 } : undefined;
 	}
 
 	// ---- Text Motion (ADR-0011) ----
@@ -190,11 +300,31 @@
 
 	// This Layer's motion windows for the Sound section (ADR-0033 §5).
 	const soundMotions = $derived.by(() => {
-		const rows: { label: string; cueId: string; window: { sound?: SoundOverride } }[] = [];
+		const rows: {
+			label: string;
+			cueId: string;
+			window?: { sound?: SoundOverride };
+			ensure?: () => { sound?: SoundOverride };
+		}[] = [];
 		if (engineState.surface.enter)
 			rows.push({ label: 'Enter', cueId: 'surface:enter', window: engineState.surface.enter });
 		if (engineState.surface.exit)
 			rows.push({ label: 'Exit', cueId: 'surface:exit', window: engineState.surface.exit });
+		// Chat bubbles sound too (`message:${index}` cues); a bubble on the default
+		// cadence gets its `enter` window materialized on first sound write.
+		if (controls.messages) {
+			messages.forEach((message, index) => {
+				rows.push({
+					label: `Message ${index + 1}`,
+					cueId: `message:${index}`,
+					window: message.enter,
+					ensure: () => {
+						message.enter ??= defaultMessageEnter(index);
+						return message.enter;
+					}
+				});
+			});
+		}
 		return rows;
 	});
 </script>
@@ -208,6 +338,22 @@
 				{/each}
 			</select>
 		</Field>
+
+		{#if controls.site}
+			<Field label="Site">
+				<select
+					value={engineState.surface.site ?? 'twitter'}
+					onchange={(e) => {
+						engineState.surface.site = (e.currentTarget as HTMLSelectElement)
+							.value as (typeof WEB_DOCUMENT_SITES)[number];
+					}}
+				>
+					{#each WEB_DOCUMENT_SITES as site (site)}
+						<option value={site}>{SITE_LABELS[site]}</option>
+					{/each}
+				</select>
+			</Field>
+		{/if}
 
 		{#if documentVisible}
 			{#if documentSlots.kicker}
@@ -230,6 +376,11 @@
 					<input bind:value={engineState.surface.content.author} type="text" />
 				</Field>
 			{/if}
+			{#if documentSlots.affiliation}
+				<Field label="Affiliation">
+					<input bind:value={engineState.surface.content.affiliation} type="text" />
+				</Field>
+			{/if}
 			{#if documentSlots.source}
 				<Field label="Citation">
 					<input bind:value={engineState.surface.content.source} type="text" />
@@ -238,6 +389,11 @@
 			{#if documentSlots.dateLabel}
 				<Field label="Date">
 					<input bind:value={engineState.surface.content.dateLabel} type="text" />
+				</Field>
+			{/if}
+			{#if documentSlots.bodyLabel}
+				<Field label="Body label">
+					<input bind:value={engineState.surface.content.bodyLabel} type="text" />
 				</Field>
 			{/if}
 			{#if showBody}
@@ -253,6 +409,15 @@
 			{/if}
 		{/if}
 
+		{#if controls.chrome}
+			<Field label="Chrome">
+				<select value={engineState.surface.chrome ?? 'window'} onchange={handleChromeChange}>
+					<option value="window">Window</option>
+					<option value="none">None</option>
+				</select>
+			</Field>
+		{/if}
+
 		{#if controls.backgroundVisibility && engineState.surface.backgroundVisibility !== undefined}
 			<Field label="Background">
 				<input
@@ -265,6 +430,77 @@
 			</Field>
 		{/if}
 	</InspectorSection>
+
+	{#if controls.messages}
+		<InspectorSection label="Messages">
+			{#snippet action()}
+				<button type="button" class="add-btn" onclick={addMessage}>+ Add</button>
+			{/snippet}
+			{#each messages as message, index (index)}
+				<div class="message-entry">
+					<div class="message-entry__header">
+						<select
+							class="message-entry__from"
+							aria-label={`Message ${index + 1} sender`}
+							value={message.from}
+							onchange={(e) =>
+								messageFromChange(message, (e.currentTarget as HTMLSelectElement).value)}
+						>
+							<option value="them">Received</option>
+							<option value="me">Sent</option>
+						</select>
+						<button
+							type="button"
+							class="remove-btn"
+							aria-label={`Remove message ${index + 1}`}
+							onclick={() => removeMessage(index)}>×</button
+						>
+					</div>
+					<AnnotationTextEditor
+						bind:body={message.text}
+						colors={EDITOR_MARK_COLORS}
+						label={`Message ${index + 1}`}
+						rows={1}
+						styles={DECORATIVE_ANNOTATION_STYLES}
+					/>
+					<Field label="Tapback">
+						<select
+							value={message.tapback ?? ''}
+							onchange={(e) =>
+								messageTapbackChange(message, (e.currentTarget as HTMLSelectElement).value)}
+						>
+							<option value="">None</option>
+							{#each TAPBACK_OPTIONS as opt (opt.value)}
+								<option value={opt.value}>{opt.label}</option>
+							{/each}
+						</select>
+					</Field>
+					{#if message.from === 'me'}
+						<Field label="Receipt">
+							<select
+								value={message.status ?? ''}
+								onchange={(e) =>
+									messageStatusChange(message, (e.currentTarget as HTMLSelectElement).value)}
+							>
+								<option value="">None</option>
+								<option value="delivered">Delivered</option>
+								<option value="read">Read</option>
+							</select>
+						</Field>
+					{:else}
+						<Field label="Typing">
+							<input
+								type="checkbox"
+								checked={message.typing !== undefined}
+								onchange={(e) =>
+									messageTypingToggle(message, (e.currentTarget as HTMLInputElement).checked)}
+							/>
+						</Field>
+					{/if}
+				</div>
+			{/each}
+		</InspectorSection>
+	{/if}
 
 	{#if appearanceVisible}
 		<InspectorSection label="Appearance">
@@ -288,6 +524,66 @@
 				</Field>
 			{/if}
 		</InspectorSection>
+	{/if}
+
+	{#if controls.enterExit}
+		{#each TRANSITION_FIELDS as field (field)}
+			<InspectorSection label={field === 'enter' ? 'Enter' : 'Exit'}>
+				{#snippet action()}
+					<input
+						type="checkbox"
+						checked={engineState.surface[field] !== undefined}
+						onchange={(e) => {
+							if ((e.currentTarget as HTMLInputElement).checked) {
+								ensureSurfaceTransition(field);
+							} else {
+								engineState.surface[field] = undefined;
+							}
+						}}
+					/>
+				{/snippet}
+				{#if engineState.surface[field]}
+					{@const transition = engineState.surface[field]}
+					<Field label="Start">
+						<input
+							type="number"
+							min="0"
+							max="1"
+							step="0.001"
+							value={transition.start}
+							oninput={(e) =>
+								surfaceTransitionInput(field, 'start', (e.currentTarget as HTMLInputElement).value)}
+						/>
+					</Field>
+					<Field label="Duration">
+						<input
+							type="number"
+							min="0"
+							max="1"
+							step="0.001"
+							value={transition.duration}
+							oninput={(e) =>
+								surfaceTransitionInput(
+									field,
+									'duration',
+									(e.currentTarget as HTMLInputElement).value
+								)}
+						/>
+					</Field>
+					<Field label="Ease">
+						<select
+							value={transition.ease}
+							onchange={(e) =>
+								surfaceTransitionEaseChange(field, (e.currentTarget as HTMLSelectElement).value)}
+						>
+							{#each easeOptions as [value, option] (value)}
+								<option {value}>{option.label}</option>
+							{/each}
+						</select>
+					</Field>
+				{/if}
+			</InspectorSection>
+		{/each}
 	{/if}
 
 	<InspectorSection label="Text Motion">
@@ -463,6 +759,40 @@
 	.body-field__label {
 		color: var(--fg-6);
 		font-size: 0.8rem;
+	}
+
+	/* A message entry: a sub-group separated by a hairline (not a card), same
+	   vocabulary as .anim-entry. */
+	.message-entry {
+		border-block-start: var(--border-1);
+		display: grid;
+		gap: var(--vs-xs);
+		padding-block-start: var(--vs-s);
+	}
+
+	.message-entry__header {
+		align-items: center;
+		display: flex;
+		gap: var(--vs-xs);
+		justify-content: space-between;
+	}
+
+	.message-entry__from {
+		flex: 0 1 auto;
+		font-size: 0.8rem;
+	}
+
+	.add-btn {
+		background: transparent;
+		border: 0;
+		color: var(--fg-5);
+		cursor: pointer;
+		font-size: 0.72rem;
+		padding: 0;
+	}
+
+	.add-btn:hover {
+		color: var(--fg-8);
 	}
 
 	/* A text-animation entry: a sub-group separated by a hairline (not a card). */

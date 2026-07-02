@@ -328,6 +328,7 @@ const WebDocumentSiteSchema = z.enum([
 	'youtube',
 	'news'
 ]);
+export const WEB_DOCUMENT_SITES = WebDocumentSiteSchema.options;
 
 const SurfaceContentSchema = z.object({
 	body: AnnotationBodySchema,

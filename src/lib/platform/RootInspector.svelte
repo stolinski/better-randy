@@ -320,6 +320,63 @@
 			<Field label="Rack focus">
 				<input type="checkbox" checked={!!stage.focus.pull} onchange={toggleRackFocus} />
 			</Field>
+			{#if stage.focus.pull}
+				{@const pull = stage.focus.pull}
+				<Field label="From → To">
+					<input
+						type="number"
+						min="0"
+						max="1"
+						step="0.01"
+						value={pull.from}
+						aria-label="Rack focus from depth"
+						oninput={(e) => {
+							const n = Number((e.currentTarget as HTMLInputElement).value);
+							if (Number.isFinite(n)) pull.from = Math.max(0, Math.min(1, n));
+						}}
+					/>
+					<input
+						type="number"
+						min="0"
+						max="1"
+						step="0.01"
+						value={pull.to}
+						aria-label="Rack focus to depth"
+						oninput={(e) => {
+							const n = Number((e.currentTarget as HTMLInputElement).value);
+							if (Number.isFinite(n)) pull.to = Math.max(0, Math.min(1, n));
+						}}
+					/>
+				</Field>
+				<Field label="Window">
+					<input
+						type="number"
+						min="0"
+						max="1"
+						step="0.01"
+						value={pull.start}
+						aria-label="Rack focus start"
+						placeholder="start"
+						oninput={(e) => {
+							const n = Number((e.currentTarget as HTMLInputElement).value);
+							if (Number.isFinite(n)) pull.start = Math.max(0, Math.min(1, n));
+						}}
+					/>
+					<input
+						type="number"
+						min="0"
+						max="1"
+						step="0.01"
+						value={pull.duration}
+						aria-label="Rack focus duration"
+						placeholder="dur"
+						oninput={(e) => {
+							const n = Number((e.currentTarget as HTMLInputElement).value);
+							if (Number.isFinite(n)) pull.duration = Math.max(0, Math.min(1, n));
+						}}
+					/>
+				</Field>
+			{/if}
 			<Field label="Backdrop">
 				<input type="checkbox" checked={!!stage.backdrop?.image} onchange={toggleBackdropImage} />
 			</Field>
@@ -338,6 +395,20 @@
 							<option value={asset}>{asset}</option>
 						{/each}
 					</select>
+				</Field>
+				<Field label="Contrast">
+					<input
+						type="range"
+						min="0"
+						max="1"
+						step="0.01"
+						value={stage.backdrop.contrast}
+						oninput={(e) => {
+							const s = ensureStage();
+							if (!s.backdrop) s.backdrop = { contrast: 0 };
+							s.backdrop.contrast = Number((e.currentTarget as HTMLInputElement).value);
+						}}
+					/>
 				</Field>
 			{/if}
 		{/if}

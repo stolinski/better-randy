@@ -23,12 +23,12 @@
 	//   'overlay-{id}-stack/roll/spin/cursor-n' → sub-track, no dedicated inspector
 	//   'textanim-{id}'               → TextAnimInspector
 	//   'mark-{n}'                    → MarkInspector
-	//   'imessage-{n}'                → no dedicated inspector (show generic label)
+	//   'imessage-{n}'                → SurfaceInspector (bubbles edit in its Messages section)
 	const resolved = $derived.by(() => {
 		const id = layerSelection.id;
 		if (!id) return { kind: 'root' as const };
 
-		if (id === 'surface') return { kind: 'surface' as const };
+		if (id === 'surface' || /^imessage-\d+$/.test(id)) return { kind: 'surface' as const };
 
 		// A cue selected on the timeline's Sound rail (ADR-0033 §9):
 		// 'sound:derived-<cueId>' or 'sound:manual-<cueId>'.

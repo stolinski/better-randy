@@ -161,10 +161,31 @@ export interface SurfaceControlsMetadata {
 	title?: boolean;
 	sourceUrl?: boolean;
 	author?: boolean;
+	/** Author affiliation chip (e.g. "Google Brain"), rendered beside the author. */
+	affiliation?: boolean;
 	source?: boolean;
 	dateLabel?: boolean;
 	kicker?: boolean;
+	/** Small label above the body (e.g. "Abstract"). */
+	bodyLabel?: boolean;
 	body?: 'always' | 'optional' | 'never';
+	/**
+	 * Surface renders a per-site mock selected by `surface.site` (ADR-0030) —
+	 * the inspector shows a Site select.
+	 */
+	site?: boolean;
+	/**
+	 * Surface content is an ordered `content.messages[]` conversation
+	 * (ADR-0031) — the inspector shows the Messages editor (per-bubble text /
+	 * side / tapback / receipt / typing). Per-bubble timing stays on the
+	 * timeline's message tracks.
+	 */
+	messages?: boolean;
+	/**
+	 * Surface supports the `chrome: 'window' | 'none'` mode (ADR-0037) — the
+	 * inspector shows a Window / None select bound to `surface.chrome`.
+	 */
+	chrome?: boolean;
 	typography?: boolean;
 	paperColor?: boolean;
 	inkColor?: boolean;

@@ -121,6 +121,61 @@
 			</Field>
 		</InspectorSection>
 
+		<InspectorSection label="Exit">
+			{#snippet action()}
+				<input
+					type="checkbox"
+					checked={entry.exit !== undefined}
+					onchange={(e) => {
+						entry.exit = (e.currentTarget as HTMLInputElement).checked
+							? { start: 0.82, duration: 0.16, ease: 'smooth' }
+							: undefined;
+					}}
+				/>
+			{/snippet}
+			{#if entry.exit}
+				{@const exit = entry.exit}
+				<Field label="Start">
+					<input
+						type="number"
+						min="0"
+						max="1"
+						step="0.001"
+						value={exit.start}
+						oninput={(e) => {
+							const n = Number((e.currentTarget as HTMLInputElement).value);
+							if (Number.isFinite(n)) exit.start = Math.max(0, Math.min(1, n));
+						}}
+					/>
+				</Field>
+				<Field label="Duration">
+					<input
+						type="number"
+						min="0"
+						max="1"
+						step="0.001"
+						value={exit.duration}
+						oninput={(e) => {
+							const n = Number((e.currentTarget as HTMLInputElement).value);
+							if (Number.isFinite(n)) exit.duration = Math.max(0, Math.min(1, n));
+						}}
+					/>
+				</Field>
+				<Field label="Ease">
+					<select
+						value={exit.ease}
+						onchange={(e) => {
+							exit.ease = (e.currentTarget as HTMLSelectElement).value as Ease;
+						}}
+					>
+						{#each easeOptions as [value, option] (value)}
+							<option {value}>{option.label}</option>
+						{/each}
+					</select>
+				</Field>
+			{/if}
+		</InspectorSection>
+
 		<InspectorSection label="Parameters">
 			<Field label="Speed ×">
 				<input

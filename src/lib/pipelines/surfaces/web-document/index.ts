@@ -59,6 +59,10 @@ export const webDocument: SurfaceRenderer = {
 		source: true,
 		dateLabel: true,
 		sourceUrl: true,
+		site: true,
+		// bodyLabel = the wikipedia mock's section label; hidden unless the
+		// composition carries the slot (same rule as title/kicker).
+		bodyLabel: true,
 		body: 'always',
 		typography: false,
 		paperColor: false,
