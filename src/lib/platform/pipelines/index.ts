@@ -18,7 +18,12 @@ import { underline } from '$lib/pipelines/annotations/underline';
 import { paragraph } from '$lib/pipelines/blocks/paragraph';
 
 import { chromaticAberration } from '$lib/pipelines/effects/chromatic-aberration';
+import { dithering } from '$lib/pipelines/effects/dithering';
+import { flutedGlass } from '$lib/pipelines/effects/fluted-glass';
+import { halftoneCmyk } from '$lib/pipelines/effects/halftone-cmyk';
+import { halftoneDots } from '$lib/pipelines/effects/halftone-dots';
 import { paperGrain } from '$lib/pipelines/effects/paper-grain';
+import { water } from '$lib/pipelines/effects/water';
 import { counter } from '$lib/pipelines/overlays/counter';
 import { cursorTrail } from '$lib/pipelines/overlays/cursor-trail';
 import { instanceStack } from '$lib/pipelines/overlays/instance-stack';
@@ -54,7 +59,7 @@ export const PIPELINE_REGISTRY = {
 		isolate
 	} satisfies Record<string, AnnotationRenderer>,
 	overlays: { lowerThird, washiTape, watermark, shaderFill, cursorTrail, counter, instanceStack, text3d },
-	effects: { paperGrain, chromaticAberration }
+	effects: { paperGrain, chromaticAberration, dithering, halftoneDots, halftoneCmyk, water, flutedGlass }
 };
 
 export const REGISTERED_SURFACE_TYPES = Object.values(PIPELINE_REGISTRY.surfaces).map(

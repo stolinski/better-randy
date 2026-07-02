@@ -2160,8 +2160,15 @@
 		}
 		void engineState.effects.length;
 		for (const entry of engineState.effects) {
-			void entry.params;
 			void entry.type;
+			// Effect Editors mutate params fields in place (bind on nested values),
+			// so subscribe to every field — a read of the object reference alone
+			// leaves the canvas stale until the next timeline tick.
+			if (entry.params && typeof entry.params === 'object') {
+				for (const value of Object.values(entry.params)) {
+					void value;
+				}
+			}
 		}
 		void engineState.backgroundFill;
 

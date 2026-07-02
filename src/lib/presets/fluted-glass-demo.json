@@ -1,0 +1,49 @@
+{
+	"schema": "hiviz@1",
+	"kind": "fixture",
+	"name": "Fluted glass — effect fixture",
+	"description": "Proving fixture for the fluted-glass Effect (ported to WGSL from @paper-design/shaders fluted-glass, Apache-2.0). Vertical prism flutes refract the pullquote-on-photo substrate — the quote streaks and re-focuses across the ribbed pane, shadow gradients and thin boundary highlights sell the glass material. Full-frame piece (backgroundFill); the alpha contract (E4) masks the pane to the content silhouette by construction. Fixture — exercises the pipeline, not held to the deliverable floors.",
+	"pack": "syntax",
+	"state": {
+		"transport": { "orientation": "horizontal", "durationSeconds": 4, "fps": 30, "format": "webm" },
+		"backgroundFill": "#0a0807",
+		"typography": { "fontFamily": "serif", "paperColor": "#2a2018", "inkColor": "#fdf6ec" },
+		"marks": { "defaults": {}, "timings": [] },
+		"surface": {
+			"type": "pullquote-on-photo",
+			"content": {
+				"title": "Behind ribbed glass everything is a rumor — shapes survive, edges are negotiable.",
+				"author": "FLUTED GLASS — PRISM · LINES",
+				"body": ""
+			},
+			"enter": { "start": 0, "duration": 0.08, "ease": "settled" },
+			"exit": { "start": 0.92, "duration": 0.06, "ease": "smooth" }
+		},
+		"overlays": [],
+		"effects": [
+			{
+				"type": "fluted-glass",
+				"id": "pane",
+				"params": {
+					"shape": "lines",
+					"distortionShape": "prism",
+					"size": 0.3,
+					"angle": 0,
+					"distortion": 0.35,
+					"shift": 0,
+					"stretch": 0,
+					"blur": 0.06,
+					"edges": 0.3,
+					"shadows": 0.3,
+					"highlights": 0.3,
+					"marginLeft": 0,
+					"marginRight": 0,
+					"marginTop": 0,
+					"marginBottom": 0,
+					"colorShadow": "#1a1a1a",
+					"colorHighlight": "#ffffff"
+				}
+			}
+		]
+	}
+}

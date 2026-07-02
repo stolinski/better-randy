@@ -95,7 +95,7 @@ A frame composes bottom-to-top:
 | Block | `BlockRenderer` | one content unit inside the Surface | 1 (`paragraph`) |
 | Annotation | `AnnotationRenderer` | one mark on a Block (decorative or focal) | 10 |
 | Overlay | `OverlayRenderer` | a positioned element not bound to a Block | 8 |
-| Effect | `EffectRenderer` | one WGSL post-process pass in the frame chain | 2 |
+| Effect | `EffectRenderer` | one WGSL post-process pass in the frame chain | 7 |
 
 ## Data model
 
@@ -171,7 +171,7 @@ Paragraph bodies are stored as a single bracket-tag string, parsed into the runt
 | blocks (1) | `paragraph` |
 | annotations (10) | `highlight`, `underline`, `strike`, `circle`, `box`, `side-note`, `magnify`, `lift-out`, `tear-out`, `isolate` |
 | overlays (8) | `lower-third` (variants `standard`/`cinematic`), `washi-tape`, `watermark`, `shader-fill`, `cursor-trail`, `counter` (`slot-machine-roll`), `instance-stack` (`vertical-stack`/`horizontal-train`), `text-3d` (`cylinder-axis-y`) |
-| effects (2) | `paper-grain`, `chromatic-aberration` |
+| effects (7) | `paper-grain`, `chromatic-aberration`, `dithering`, `halftone-dots`, `halftone-cmyk`, `water`, `fluted-glass` |
 
 **Dead-by-use — resolved.** `isolate`, `watermark`, `shader-fill`, `chromatic-aberration` were registered + boot-valid but referenced by zero presets; each now has a proving fixture (`isolate-demo`, `watermark-demo`, `shader-fill-demo`, `chromatic-aberration-demo`) that renders the pipeline, so all four are kept (not removed). Every registered pipeline is now referenced by ≥1 preset.
 
@@ -202,7 +202,7 @@ One folder under `src/lib/pipelines/<layer>/<name>/` (`index.ts` + `CanvasSource
                           ends with the dithered present pass (the only 16f→8bit canvas write)
 ```
 
-**Contract specifics (all current):** off-screen intermediates are `rgba16float` (`INTERMEDIATE_FORMAT`); the **present pass** applies interleaved-gradient-noise dither (±0.5/255 on RGB, alpha exact) on the single 16f→8bit write — this is the banding fix, and it runs whether or not effects exist; canvas context is `alphaMode: 'premultiplied'`; every color attachment uses `loadOp: 'clear'`, `clearValue: [0,0,0,0]`. Time-driven shaders read `ctx = { progress, timestamp }`, plumbed identically through both the effect chain ([ADR-0012](adr/0012-effect-pack-context-progress-timestamp.md)) and shaderPasses ([ADR-0013](adr/0013-shaderpass-pack-context.md)) so preview and export agree.
+**Contract specifics (all current):** off-screen intermediates are `rgba16float` (`INTERMEDIATE_FORMAT`); the **present pass** applies interleaved-gradient-noise dither (±0.5/255 on RGB, alpha exact) on the single 16f→8bit write — this is the banding fix, and it runs whether or not effects exist; canvas context is `alphaMode: 'premultiplied'`; every color attachment uses `loadOp: 'clear'`, `clearValue: [0,0,0,0]`. Time-driven shaders read `ctx = { progress, timestamp, canvasWidth, canvasHeight }`, plumbed identically through both the effect chain ([ADR-0012](adr/0012-effect-pack-context-progress-timestamp.md), amended to carry the canvas dimensions for resolution-dependent shaders) and shaderPasses ([ADR-0013](adr/0013-shaderpass-pack-context.md)) so preview and export agree.
 
 **Two render paths (composition-wide switch).** `renderAt` selects per composition: `state.stage` present → the **dimensional depth stage** ([ADR-0028](adr/0028-dimensional-depth-stage.md), `DepthStage`) — the surface composite on a 3D plane over a backdrop plane at depth, perspective camera, per-pixel-depth mip-prefiltered gather DOF; else `depth-of-field` Effect present → 2.5D multiplane bokeh (ADR-0027); else the flat composite above. All three share the same capture seam, effect chain, present, and export — preview == export holds for each.
 

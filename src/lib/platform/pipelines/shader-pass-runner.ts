@@ -1,7 +1,7 @@
 import tgpu, { d } from 'typegpu';
 
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
-import type { EffectPackContext, ShaderPass, ShaderPassCtx } from './types';
+import type { EffectPackContext, ShaderPass } from './types';
 
 /**
  * Compose-pipeline invocation for `ShaderPass<T>` (declared by
@@ -74,7 +74,7 @@ export interface ApplyShaderPassOptions<TContent> {
 	outputView: GPUTextureView;
 	target: TContent;
 	bounds: ShaderPassBounds;
-	ctx: ShaderPassCtx;
+	ctx: EffectPackContext;
 }
 
 export interface CompiledShaderPass<TContent> {
@@ -239,7 +239,9 @@ export class ShaderPassDispatcher {
 		commandEncoder: GPUCommandEncoder;
 		passes: ShaderPassDispatchList;
 		inputTexture: GPUTexture;
-		ctx: EffectPackContext;
+		// Timebase only — the dispatcher owns the canvas dimensions and fills in
+		// the `EffectPackContext` canvas fields itself.
+		ctx: Omit<EffectPackContext, 'canvasWidth' | 'canvasHeight'>;
 	}): GPUTexture {
 		const { commandEncoder, passes, inputTexture, ctx } = opts;
 

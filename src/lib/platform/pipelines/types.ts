@@ -101,23 +101,21 @@ export interface SurfaceRenderInstance {
 }
 
 /**
- * Time-driven uniforms forwarded into every per-frame pack function. Used by
+ * Per-frame context forwarded into every pack function. Used by
  * `EffectPassDefinition.pack` (effect-chain layer) and `ShaderPass.packUniforms`
- * (surface + overlay layer). Both values derive from the same paused-timeline
- * scrub so preview and export agree at every frame.
+ * (surface + overlay layer). The time values derive from the same
+ * paused-timeline scrub so preview and export agree at every frame.
  *
  *   - `progress`  — 0..1 across the clip
  *   - `timestamp` — seconds elapsed
+ *   - `canvasWidth` / `canvasHeight` — composition dimensions in pixels, for
+ *     resolution-dependent shaders (pixel grids, px-sized kernels) and for
+ *     converting pixel-space bounds to UV without hardcoding the resolution
+ *     (ADR-0012 amendment)
  */
 export interface EffectPackContext {
 	progress: number;
 	timestamp: number;
-}
-
-/** Extended context available inside `ShaderPass.packUniforms`. Adds canvas
- *  dimensions so passes can convert pixel-space bounds to UV coordinates
- *  without hardcoding the composition resolution. */
-export interface ShaderPassCtx extends EffectPackContext {
 	canvasWidth: number;
 	canvasHeight: number;
 }
@@ -146,12 +144,13 @@ export interface ShaderPass<TContent = unknown> {
 	 * `ctx` carries the timeline-driven `progress` (0..1 across the clip) and
 	 * `timestamp` (seconds elapsed), forwarded from the same paused-timeline
 	 * scrub the surface render reads, so preview and export agree at every
-	 * frame. Mirrors `EffectPackContext` on the effect-chain side.
+	 * frame — plus the composition's canvas dimensions. Same
+	 * `EffectPackContext` shape as the effect-chain side.
 	 */
 	packUniforms(
 		target: TContent,
 		bounds: { x: number; y: number; width: number; height: number },
-		ctx: ShaderPassCtx
+		ctx: EffectPackContext
 	): Record<string, unknown>;
 }
 

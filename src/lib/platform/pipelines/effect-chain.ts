@@ -80,6 +80,8 @@ interface CompiledEffect {
 		params: unknown;
 		progress: number;
 		timestamp: number;
+		canvasWidth: number;
+		canvasHeight: number;
 	}): void;
 }
 
@@ -151,8 +153,10 @@ function compileEffect(host: GpuHost, renderer: EffectRenderer): CompiledEffect 
 
 	return {
 		type: renderer.type,
-		apply({ inputView, outputView, params, progress, timestamp }) {
-			uniformBuffer.write(renderer.pass.pack(params, { progress, timestamp }) as never);
+		apply({ inputView, outputView, params, progress, timestamp, canvasWidth, canvasHeight }) {
+			uniformBuffer.write(
+				renderer.pass.pack(params, { progress, timestamp, canvasWidth, canvasHeight }) as never
+			);
 
 			const bindGroup = root.createBindGroup(bindGroupLayout, {
 				inputTexture: inputView,
@@ -387,7 +391,9 @@ export class EffectChain {
 				outputView: outputTexture.createView(),
 				params: valid[i].effect.params,
 				progress,
-				timestamp
+				timestamp,
+				canvasWidth: this.#width,
+				canvasHeight: this.#height
 			});
 			currentInputView = outputTexture.createView();
 		}
@@ -396,12 +402,15 @@ export class EffectChain {
 			commandEncoder,
 			inputView: currentInputView,
 			outputView,
-			// Fill already baked in pre-composite — don't add it twice.
-			background: preCompositeFill ? [0, 0, 0, 0] : background
+			// The fill is pre-composited under the content BEFORE the chain (so
+			// content-masked effects animate the whole opaque frame) and passed
+			// again here as the present backstop. The OVER operator makes the second
+			// application a no-op wherever the chain output is already opaque; where
+			// an effect carved alpha out (e.g. a pane-edge fade window), the fill
+			// shows through — a declared-backgroundFill piece stays opaque to its
+			// edges. Transparent pieces (background absent / a=0) are unaffected.
+			background
 		});
-
-		void this.#width;
-		void this.#height;
 	}
 
 	dispose(): void {

@@ -29,7 +29,7 @@
 					"highlights": 0.15,
 					"layering": 0.4,
 					"edges": 0.3,
-					"caustic": 0.15,
+					"caustic": 0.1,
 					"waves": 0.12,
 					"speed": 1,
 					"colorHighlight": "#fff6e0"
