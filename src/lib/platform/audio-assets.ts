@@ -18,6 +18,12 @@ import messagePopUrl from '$lib/assets/sounds/message-pop.wav';
 import messageSendUrl from '$lib/assets/sounds/message-send.wav';
 import quickWhooshInUrl from '$lib/assets/sounds/quick-whoosh-in.wav';
 import quickWhooshOutUrl from '$lib/assets/sounds/quick-whoosh-out.wav';
+import tapbackDislikeUrl from '$lib/assets/sounds/tapback-dislike.wav';
+import tapbackEmphasizeUrl from '$lib/assets/sounds/tapback-emphasize.wav';
+import tapbackHahaUrl from '$lib/assets/sounds/tapback-haha.wav';
+import tapbackHeartUrl from '$lib/assets/sounds/tapback-heart.wav';
+import tapbackLikeUrl from '$lib/assets/sounds/tapback-like.wav';
+import tapbackQuestionUrl from '$lib/assets/sounds/tapback-question.wav';
 
 import { CORE_SOUND_SAMPLES } from './sound-kits/resolve.ts';
 import { listSoundKits } from './sound-kits/registry.ts';
@@ -33,9 +39,19 @@ const SOUND_ASSETS: Record<string, string> = {
 	// Quick Whoosh kit samples (CC0; provenance in sound-kits/quick-whoosh/manifest.ts)
 	'quick-whoosh-in': quickWhooshInUrl,
 	'quick-whoosh-out': quickWhooshOutUrl,
-	// Message Pop kit samples (CC0; provenance in sound-kits/message-pop/manifest.ts)
+	// Message Pop kit samples (provenance + ⚠ redistribution note in
+	// sound-kits/message-pop/manifest.ts — Apple recordings at Scott's direction)
 	'message-pop': messagePopUrl,
 	'message-send': messageSendUrl,
+	// Tapback acknowledgements, one per reaction type — Apple ToneLibrary
+	// recordings, same ⚠ NOT-redistributable provenance as the pair above.
+	// Locked-specific by the iMessage derivation (ADR-0033 §5 signature sound).
+	'tapback-heart': tapbackHeartUrl,
+	'tapback-like': tapbackLikeUrl,
+	'tapback-dislike': tapbackDislikeUrl,
+	'tapback-haha': tapbackHahaUrl,
+	'tapback-emphasize': tapbackEmphasizeUrl,
+	'tapback-question': tapbackQuestionUrl,
 	// Ambient bed texture for full-frame pieces — referenced by audioCues, not a kit.
 	'bed-ambient-texture': bedAmbientTextureUrl
 };

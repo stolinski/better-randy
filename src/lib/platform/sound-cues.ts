@@ -7,12 +7,13 @@
  * scheduler, and the timeline's audio-cue rail. Pure / deterministic — no
  * Svelte, no DOM.
  */
-import { messageEnter } from '../pipelines/surfaces/imessage/schedule.ts';
+import { messageEnter, TAPBACK_DELAY } from '../pipelines/surfaces/imessage/schedule.ts';
 import { EFFECT_CATALOG } from '../text-animations/catalog.ts';
 
 import {
 	listMarkInstances,
 	resolveMarkForIndex,
+	type ChatMessage,
 	type EngineState,
 	type SoundEvent,
 	type SoundOverride
@@ -81,6 +82,18 @@ const OVERLAY_EVENT_DEFAULTS: Record<
 	watermark: { enter: null, exit: null },
 	// The cursor glides; its dwells are the story, not air displacement.
 	'cursor-trail': { enter: null, exit: null }
+};
+
+// The iMessage tapback acknowledgements — locked-specific signature sounds
+// per reaction type (ADR-0033 §5), resolved directly to bundled assets, not
+// through the kit (a kit maps one sample per EVENT; tapbacks are per type).
+const TAPBACK_SAMPLES: Record<NonNullable<ChatMessage['tapback']>, string> = {
+	heart: 'tapback-heart',
+	like: 'tapback-like',
+	dislike: 'tapback-dislike',
+	haha: 'tapback-haha',
+	emphasize: 'tapback-emphasize',
+	question: 'tapback-question'
 };
 
 // Same principle for Surface types: a surface whose enter/exit is a FADE
@@ -259,16 +272,34 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 	// default staggered cadence is composition timing too.
 	if (surface.type === 'imessage') {
 		(surface.content.messages ?? []).forEach((message, index) => {
+			const enter = messageEnter(message, index);
 			cues.push(
 				cueFrom(
 					`message:${index}`,
 					surfaceLayer,
 					MOTION_SOUND_DEFAULTS.message,
-					messageEnter(message, index),
+					enter,
 					surfaceKit,
 					message.enter?.sound
 				)
 			);
+
+			// A tapback lands TAPBACK_DELAY after its bubble with its per-type
+			// acknowledgement — a locked-specific signature sound (ADR-0033 §5),
+			// not kit-resolved. Gated on the Layer wearing a kit so a kit-less
+			// (silent) chat stays fully silent.
+			if (message.tapback && surfaceKit !== null) {
+				cues.push(
+					cueFrom(
+						`message:${index}:tapback`,
+						surfaceLayer,
+						MOTION_SOUND_DEFAULTS.message,
+						{ start: enter.start + TAPBACK_DELAY, duration: 0 },
+						surfaceKit,
+						{ sample: TAPBACK_SAMPLES[message.tapback] }
+					)
+				);
+			}
 		});
 	}
 
