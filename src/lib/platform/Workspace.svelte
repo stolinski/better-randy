@@ -8,6 +8,7 @@
 	} from './animation-manager';
 	import { TextAnimationManager } from '$lib/text-animations/manager.svelte';
 	import { animState, syncProgressArray } from './anim-state.svelte';
+	import { DEFAULT_OVERLAY_ENTER, resolveCascadeTimings } from './cascade-timing';
 	import Composition from './Composition.svelte';
 	import { EffectChain } from './pipelines/effect-chain';
 	import { getSurfaceRenderer, PIPELINE_REGISTRY } from './pipelines';
@@ -40,6 +41,9 @@
 		getEaseGsap,
 		listMarkInstances,
 		resolveMarkForIndex,
+		SUGAR_OPACITY_EXIT_EASES,
+		type Cascade,
+		type Keyframe,
 		type MarkInstance,
 		type Preset,
 		type SurfaceType
@@ -303,47 +307,124 @@
 		return result;
 	}
 
+	// Keep a tween inside the [0, 1] timeline: a start past `1 - duration` would
+	// grow the GSAP timeline beyond 1 and desync the progress↔transport mapping
+	// for every other tween.
+	function clampTweenStart(start: number, duration: number): number {
+		return clampNumber(start, 0, Math.max(0, 1 - duration));
+	}
+
+	const OVERLAY_CHANNEL_KEYS = ['opacity', 'x', 'y', 'scale', 'rotation'] as const;
+
+	// Emit one tween per keyframe segment per channel (ADR-0035 §5). Each
+	// segment runs the ease declared ON its destination keyframe (the curve
+	// INTO it); a single-keyframe track pins a constant value. Keyframe atMs
+	// are ms from the element's cascade-resolved clip start.
+	function pushKeyframeTweens(opts: {
+		tweens: AnimationTweenSpec[];
+		keyPrefix: string;
+		frames: readonly Keyframe[];
+		clipStartFraction: number;
+		durationMs: number;
+		write: (value: number) => void;
+	}): void {
+		const { tweens, keyPrefix, frames, clipStartFraction, durationMs, write } = opts;
+		const toFraction = (ms: number) => ms / durationMs;
+
+		if (frames.length === 1) {
+			const only = frames[0];
+			tweens.push({
+				key: `${keyPrefix}-0`,
+				start: clampTweenStart(clipStartFraction + toFraction(only.atMs), 0),
+				duration: 0,
+				ease: 'none',
+				from: only.value,
+				to: only.value,
+				onUpdate: write
+			});
+			return;
+		}
+
+		for (let i = 1; i < frames.length; i += 1) {
+			const prev = frames[i - 1];
+			const next = frames[i];
+			const duration = Math.min(toFraction(next.atMs - prev.atMs), 1);
+			tweens.push({
+				key: `${keyPrefix}-${i}`,
+				start: clampTweenStart(clipStartFraction + toFraction(prev.atMs), duration),
+				duration,
+				ease: getEaseGsap(next.ease ?? 'smooth'),
+				from: prev.value,
+				to: next.value,
+				onUpdate: write
+			});
+		}
+	}
+
 	function buildAnimationManifest(): AnimationManifest {
 		const surface = engineState.surface;
 		const parsedMarks = readMarks();
+		const durationMs = engineState.transport.durationSeconds * 1000;
 
 		syncProgressArray('markProgresses', parsedMarks.length);
 		syncProgressArray('overlayProgresses', engineState.overlays.length);
 
+		// Cascade welds resolve to absolute starts BEFORE any tween is emitted
+		// (ADR-0035 §4); sound cues derive after this same resolution (ADR-0033).
+		const cascadeWindows = resolveCascadeTimings(engineState);
+
 		const tweens: AnimationTweenSpec[] = [];
 
-		if (surface.enter) {
-			tweens.push({
-				key: 'paper-enter',
-				start: surface.enter.start,
-				duration: surface.enter.duration,
-				ease: getEaseGsap(surface.enter.ease, 'enter'),
-				from: 0,
-				to: 1,
-				onUpdate: (value) => {
+		const surfaceOpacityTrack = surface.animation?.channels?.opacity;
+		if (surfaceOpacityTrack && surfaceOpacityTrack.length > 0) {
+			// Composition-owned surface opacity (ADR-0035 §2): the authored channel
+			// feeds the same paperVisibility uniform the sugar drove; the sugar
+			// tweens do not run — ownership replaces, never layers.
+			pushKeyframeTweens({
+				tweens,
+				keyPrefix: 'paper-opacity',
+				frames: surfaceOpacityTrack,
+				clipStartFraction: surface.enter?.start ?? 0,
+				durationMs,
+				write: (value) => {
 					animState.paperVisibility = value;
 				}
 			});
-		}
+		} else {
+			if (surface.enter) {
+				tweens.push({
+					key: 'paper-enter',
+					start: surface.enter.start,
+					duration: surface.enter.duration,
+					ease: getEaseGsap(surface.enter.ease),
+					from: 0,
+					to: 1,
+					onUpdate: (value) => {
+						animState.paperVisibility = value;
+					}
+				});
+			}
 
-		if (surface.exit) {
-			tweens.push({
-				key: 'paper-exit',
-				start: surface.exit.start,
-				duration: surface.exit.duration,
-				// Surface fade is element opacity → use the opacity-exit curve so it
-				// holds then lands at clip end instead of head-loading (subjectless tail).
-				ease: getEaseGsap(surface.exit.ease, 'exit', 'opacity'),
-				from: 1,
-				to: 0,
-				onUpdate: (value) => {
-					animState.paperVisibility = value;
-				}
-			});
-		}
+			if (surface.exit) {
+				tweens.push({
+					key: 'paper-exit',
+					start: surface.exit.start,
+					duration: surface.exit.duration,
+					// Surface fade is element opacity → the sugar expansion applies the
+					// per-property opacity-exit default so it holds then lands at clip
+					// end instead of head-loading (subjectless tail). ADR-0035 §5.
+					ease: SUGAR_OPACITY_EXIT_EASES[surface.exit.ease],
+					from: 1,
+					to: 0,
+					onUpdate: (value) => {
+						animState.paperVisibility = value;
+					}
+				});
+			}
 
-		if (!surface.enter && !surface.exit) {
-			animState.paperVisibility = 1;
+			if (!surface.enter && !surface.exit) {
+				animState.paperVisibility = 1;
+			}
 		}
 
 		parsedMarks.forEach((mark, index) => {
@@ -351,7 +432,9 @@
 
 			tweens.push({
 				key: `mark-${index}`,
-				start: resolved.start,
+				// Cascade-resolved start (welded ms offset from the anchor) when the
+				// timing entry declares one; the stored fraction otherwise.
+				start: cascadeWindows.get(`mark:${index}`)?.startFraction ?? resolved.start,
 				duration: resolved.duration,
 				// Marks are STROKE-DRAWS: markProgress drives the ink advancing along
 				// the stroke path (highlight width, underline/strike length, circle
@@ -372,28 +455,90 @@
 
 		// Text animations: hand the DOM-target slots to the text-anim manager,
 		// which splits each slot, compiles its catalog spec, and returns the
-		// resulting AnimationTweenSpec[] for the main timeline.
+		// resulting AnimationTweenSpec[] for the main timeline. Entries with a
+		// cascade get their enter start swapped for the resolved one (cloned —
+		// the authored state never mutates).
+		const textAnimationsResolved = engineState.textAnimations.map((entry) => {
+			const resolvedStart = cascadeWindows.get(`textAnimation:${entry.id}`)?.startFraction;
+			if (resolvedStart === undefined || resolvedStart === entry.enter.start) {
+				return entry;
+			}
+			return { ...entry, enter: { ...entry.enter, start: resolvedStart } };
+		});
 		const textAnimTweens = textAnimationManager.rebuild(
 			compositionElement,
-			engineState.textAnimations,
+			textAnimationsResolved,
 			engineState.transport
 		);
 		for (const tween of textAnimTweens) {
 			tweens.push(tween);
 		}
 
+		// Channel-owned overlays get live value slots (seeded so the mount is
+		// sane even before the first tick); sugar overlays get null and ride
+		// overlayProgresses + the intrinsic motion-form, unchanged.
+		animState.overlayChannels = engineState.overlays.map((overlay) => {
+			const channels = overlay.animation?.channels;
+			if (!channels || !OVERLAY_CHANNEL_KEYS.some((key) => (channels[key]?.length ?? 0) > 0)) {
+				return null;
+			}
+			return {
+				opacity: channels.opacity?.[0]?.value ?? 1,
+				x: channels.x?.[0]?.value ?? 0,
+				y: channels.y?.[0]?.value ?? 0,
+				scale: channels.scale?.[0]?.value ?? overlay.position.scale ?? 1,
+				rotation: channels.rotation?.[0]?.value ?? overlay.position.rotation ?? 0
+			};
+		});
+
 		engineState.overlays.forEach((overlay, index) => {
+			const channelValues = animState.overlayChannels[index];
+			const window = cascadeWindows.get(`overlay:${overlay.id}`);
+
+			if (channelValues) {
+				// Composition-owned motion (ADR-0035 §2): per-segment channel tweens
+				// replace the intrinsic enter/exit fade-through outright — no
+				// layering, no hidden motion beneath the authored channels.
+				const channels = overlay.animation?.channels;
+				const clipStart = window?.startFraction ?? overlay.enter?.start ?? 0;
+				for (const channel of OVERLAY_CHANNEL_KEYS) {
+					const frames = channels?.[channel];
+					if (!frames || frames.length === 0) {
+						continue;
+					}
+					pushKeyframeTweens({
+						tweens,
+						keyPrefix: `overlay-${overlay.id}-${channel}`,
+						frames,
+						clipStartFraction: clipStart,
+						durationMs,
+						write: (value) => {
+							const slot = animState.overlayChannels[index];
+							if (slot) {
+								slot[channel] = value;
+							}
+						}
+					});
+				}
+				// Park the progress slot fully visible — the mount styles from the
+				// channel values, but whole-timeline-aware overlay sources must not
+				// see a phantom 0-progress gate.
+				animState.overlayProgresses[index] = 1;
+				return;
+			}
+
 			// Fallback overlay enter — durations sit inside G6, ease defaults to
 			// `settled` (the G7 convention for overlay landings). `start` lands the
 			// visible portion past the 200 ms floor at any reasonable transport.
-			const enter = overlay.enter ?? { start: 0.04, duration: 0.05, ease: 'settled' as const };
+			const enter = overlay.enter ?? DEFAULT_OVERLAY_ENTER;
 			const exit = overlay.exit;
 
 			tweens.push({
 				key: `overlay-${overlay.id}-enter`,
-				start: enter.start,
+				// Cascade-resolved start when declared; the sugar/fallback otherwise.
+				start: window?.startFraction ?? enter.start,
 				duration: enter.duration,
-				ease: getEaseGsap(enter.ease, 'enter'),
+				ease: getEaseGsap(enter.ease),
 				from: 0,
 				to: 1,
 				onUpdate: (value) => {
@@ -406,7 +551,7 @@
 					key: `overlay-${overlay.id}-exit`,
 					start: exit.start,
 					duration: exit.duration,
-					ease: getEaseGsap(exit.ease, 'exit'),
+					ease: getEaseGsap(exit.ease),
 					from: 1,
 					to: 0,
 					onUpdate: (value) => {
@@ -563,8 +708,9 @@
 						color: engineState.typography.paperColor,
 						enter: surface.enter,
 						exit: surface.exit,
-						enterEase: surface.enter ? getEaseGsap(surface.enter.ease, 'enter') : undefined,
-						exitEase: surface.exit ? getEaseGsap(surface.exit.ease, 'exit', 'opacity') : undefined
+						enterEase: surface.enter ? getEaseGsap(surface.enter.ease) : undefined,
+						// Surface exit is an opacity fade → the sugar per-property default.
+						exitEase: surface.exit ? SUGAR_OPACITY_EXIT_EASES[surface.exit.ease] : undefined
 					})
 				]
 			});
@@ -624,8 +770,8 @@
 						color: '#1f5aff',
 						enter,
 						exit,
-						enterEase: enter ? getEaseGsap(enter.ease, 'enter') : undefined,
-						exitEase: exit ? getEaseGsap(exit.ease, 'exit') : undefined
+						enterEase: enter ? getEaseGsap(enter.ease) : undefined,
+						exitEase: exit ? getEaseGsap(exit.ease) : undefined
 					})
 				]
 			});
@@ -1578,6 +1724,48 @@
 		return () => cancelAnimationFrame(id);
 	});
 
+	// Void-reads every field of an ADR-0035 keyframe channel set so the
+	// composition sync re-fires on any keyframe edit (same void-pattern as
+	// enter/exit — NO new $effect).
+	function trackKeyframeChannels(
+		channels: Partial<Record<string, readonly Keyframe[] | undefined>> | undefined
+	): void {
+		if (!channels) {
+			return;
+		}
+		for (const track of Object.values(channels)) {
+			if (!track) {
+				continue;
+			}
+			void track.length;
+			for (const frame of track) {
+				void frame.atMs;
+				void frame.value;
+				void frame.ease;
+			}
+		}
+	}
+
+	// Void-reads a cascade weld (anchor ref, event edge, ms offset) — each
+	// drives resolved starts in the manifest.
+	function trackCascade(cascade: Cascade | undefined): void {
+		if (!cascade) {
+			return;
+		}
+		void cascade.event;
+		void cascade.offsetMs;
+		const anchor = cascade.anchor;
+		if (typeof anchor !== 'string') {
+			if ('overlay' in anchor) {
+				void anchor.overlay;
+			} else if ('mark' in anchor) {
+				void anchor.mark;
+			} else {
+				void anchor.textAnimation;
+			}
+		}
+	}
+
 	// Composition sync — the single reactive bridge from authoring state to the
 	// imperative canvas. It tracks every input that changes WHAT the composition
 	// is (content, marks, effects, overlays, typography, background) and, when any
@@ -1598,6 +1786,7 @@
 			void entry.enter.duration;
 			void entry.exit?.start;
 			void entry.exit?.duration;
+			trackCascade(entry.cascade);
 			// `enter/exit.ease` is intentionally NOT tracked: a text animation's
 			// easing is intrinsic to its catalog effect (spec.enter.easing), so the
 			// per-entry ease can't change the output — tracking it would force a
@@ -1613,6 +1802,8 @@
 		void engineState.surface.exit?.start;
 		void engineState.surface.exit?.duration;
 		void engineState.surface.exit?.ease;
+		// Composition-owned surface opacity channel (ADR-0035).
+		trackKeyframeChannels(engineState.surface.animation?.channels);
 
 		// --- Surface + overlay content (DOM the source HTML rasterizes) ---
 		// Each CanvasSource wraps its text-anim slots in `{#key value}` so changing
@@ -1645,6 +1836,7 @@
 			void overlay.position.rect?.width;
 			void overlay.position.rect?.height;
 			void overlay.position.scale;
+			void overlay.position.rotation;
 			// Overlay enter/exit timing + ease (the unified clip bar drags).
 			void overlay.enter?.start;
 			void overlay.enter?.duration;
@@ -1652,6 +1844,9 @@
 			void overlay.exit?.start;
 			void overlay.exit?.duration;
 			void overlay.exit?.ease;
+			// Composition-owned channels + cascade weld (ADR-0035).
+			trackKeyframeChannels(overlay.animation?.channels);
+			trackCascade(overlay.animation?.cascade);
 		}
 
 		// --- Marks (manifest tweens) + effects / background (render inputs) ---
@@ -1663,6 +1858,7 @@
 			void timing.duration;
 			void timing.color;
 			void timing.intensity;
+			trackCascade(timing.cascade);
 		}
 		for (const appearance of Object.values(engineState.marks.defaults)) {
 			void appearance?.color;

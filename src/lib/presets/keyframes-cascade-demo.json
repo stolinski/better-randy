@@ -1,0 +1,106 @@
+{
+	"schema": "hiviz@1",
+	"name": "Keyframes + Cascade — engine fixture",
+	"description": "ADR-0035 verification fixture. The `main` lower-third is composition-owned: multi-step channels (opacity fade in/hold/out, a 3-keyframe scale dip-then-land the single-window Transition could not express, a settled y rise) replace its intrinsic motion-form. The `tag` lower-third keeps its intrinsic sugar motion but cascades off `main` (+700 ms), and the body highlight cascades off `tag`'s enter end (+300 ms) — a welded reading-order chain that survives re-time. The surface fade rides an authored opacity channel into paperVisibility.",
+	"pack": "syntax",
+	"kind": "fixture",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#ffffff",
+			"inkColor": "#111111"
+		},
+		"marks": {
+			"defaults": {
+				"highlight": { "color": "#fabf47", "intensity": 0.62 }
+			},
+			"timings": [
+				{
+					"start": 0.5,
+					"duration": 0.2,
+					"ease": "smooth",
+					"cascade": { "anchor": { "overlay": "tag" }, "event": "end", "offsetMs": 300 }
+				}
+			]
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": "Keyframes take the pen: [highlight]the composition owns this motion[/highlight], and the cascade keeps every stagger welded in milliseconds."
+			},
+			"animation": {
+				"channels": {
+					"opacity": [
+						{ "atMs": 0, "value": 0 },
+						{ "atMs": 400, "value": 1, "ease": "smooth" },
+						{ "atMs": 5300, "value": 1, "ease": "smooth" },
+						{ "atMs": 5700, "value": 0, "ease": "smooth" }
+					]
+				}
+			}
+		},
+		"textAnimations": [],
+		"overlays": [
+			{
+				"type": "lower-third",
+				"id": "main",
+				"content": {
+					"variant": "standard",
+					"kicker": "ADR-0035",
+					"title": "Composition-owned motion",
+					"subtitle": "opacity · y · scale channels"
+				},
+				"position": {
+					"anchor": "bottom-left",
+					"offset": { "x": 0.06, "y": 0.115 }
+				},
+				"animation": {
+					"channels": {
+						"opacity": [
+							{ "atMs": 0, "value": 0 },
+							{ "atMs": 300, "value": 1, "ease": "smooth" },
+							{ "atMs": 5100, "value": 1, "ease": "smooth" },
+							{ "atMs": 5460, "value": 0, "ease": "smooth" }
+						],
+						"y": [
+							{ "atMs": 0, "value": 0.03 },
+							{ "atMs": 380, "value": 0, "ease": "settled" }
+						],
+						"scale": [
+							{ "atMs": 0, "value": 0.96 },
+							{ "atMs": 260, "value": 1.012, "ease": "smooth" },
+							{ "atMs": 420, "value": 1, "ease": "settled" }
+						]
+					}
+				}
+			},
+			{
+				"type": "lower-third",
+				"id": "tag",
+				"content": {
+					"variant": "standard",
+					"kicker": "CASCADE",
+					"title": "Welded +700 ms",
+					"subtitle": "rides the main clip"
+				},
+				"position": {
+					"anchor": "top-right",
+					"offset": { "x": 0.06, "y": 0.12 }
+				},
+				"enter": { "start": 0.5, "duration": 0.05, "ease": "settled" },
+				"exit": { "start": 0.85, "duration": 0.04, "ease": "smooth" },
+				"animation": {
+					"cascade": { "anchor": { "overlay": "main" }, "event": "start", "offsetMs": 700 }
+				}
+			}
+		],
+		"effects": [],
+		"audioCues": []
+	}
+}

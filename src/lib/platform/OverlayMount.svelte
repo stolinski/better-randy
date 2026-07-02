@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { animState } from './anim-state.svelte';
+	import { animState, type OverlayChannelValues } from './anim-state.svelte';
 	import { engineState, packState } from './engine-state.svelte';
 	import { getPack } from './packs/registry';
 	import { appearanceVarsToStyle, resolveAppearanceVars } from './packs/resolve';
@@ -26,37 +26,47 @@
 		return `${v} ${h}`;
 	}
 
-	function positionStyle(overlay: Overlay): string {
-		const { anchor, offset, rect, scale } = overlay.position;
+	function positionStyle(overlay: Overlay, channels: OverlayChannelValues | null): string {
+		const { anchor, offset, rect } = overlay.position;
 		// Offsets are fractions of the composition (0..1 of inline-size / block-size).
 		// 0.05 = 5% margin from the anchor edge.
 		const ox = (offset?.x ?? 0) * 100;
 		const oy = (offset?.y ?? 0) * 100;
+		// Channel x/y are composition-fraction DELTAS from the anchored spot
+		// (ADR-0035 §3), folded into the inset percentages (which resolve against
+		// the composition box). Right/bottom insets grow the opposite way, so the
+		// delta flips sign there to keep +x → right, +y → down.
+		const dx = (channels?.x ?? 0) * 100;
+		const dy = (channels?.y ?? 0) * 100;
+		// Scale / rotation: absolute channel values when the composition owns the
+		// motion; the static position fields (their seeds) otherwise.
+		const scale = channels ? channels.scale : (overlay.position.scale ?? 1);
+		const rotation = channels ? channels.rotation : (overlay.position.rotation ?? 0);
 
 		const parts: string[] = [];
 
 		if (anchor === 'normalized-rect' && rect) {
 			parts.push(
-				`left:${rect.x * 100}%`,
-				`top:${rect.y * 100}%`,
+				`left:${(rect.x + (channels?.x ?? 0)) * 100}%`,
+				`top:${(rect.y + (channels?.y ?? 0)) * 100}%`,
 				`inline-size:${rect.width * 100}%`,
 				`block-size:${rect.height * 100}%`
 			);
 		} else {
 			if (anchor.startsWith('top')) {
-				parts.push(`top:${oy}%`);
+				parts.push(`top:${oy + dy}%`);
 			} else if (anchor.startsWith('bottom')) {
-				parts.push(`bottom:${oy}%`);
+				parts.push(`bottom:${oy - dy}%`);
 			} else {
-				parts.push(`top:50%`);
+				parts.push(`top:${50 + dy}%`);
 			}
 
 			if (anchor.endsWith('left')) {
-				parts.push(`left:${ox}%`);
+				parts.push(`left:${ox + dx}%`);
 			} else if (anchor.endsWith('right')) {
-				parts.push(`right:${ox}%`);
+				parts.push(`right:${ox - dx}%`);
 			} else {
-				parts.push(`left:50%`);
+				parts.push(`left:${50 + dx}%`);
 			}
 
 			// `center` anchor: offset the element by half its own size so the
@@ -68,14 +78,28 @@
 			}
 		}
 
-		// Uniform scale about the anchor point. CSS `scale` longhand composes with
-		// the `translate` (center anchor) and the visibilityStyle `transform`
-		// translateY entry slide without clobbering either.
-		if (scale !== undefined && scale !== 1) {
-			parts.push(`scale:${scale}`, `transform-origin:${anchorOrigin(anchor)}`);
+		// Uniform scale + static/channel rotation about the anchor point. CSS
+		// longhands (`scale`, `rotate`) compose with the `translate` (center
+		// anchor) and the visibilityStyle `transform` translateY entry slide
+		// without clobbering either.
+		if (scale !== 1 || rotation !== 0) {
+			parts.push(`transform-origin:${anchorOrigin(anchor)}`);
+		}
+		if (scale !== 1) {
+			parts.push(`scale:${scale}`);
+		}
+		if (rotation !== 0) {
+			parts.push(`rotate:${rotation}deg`);
 		}
 
 		return parts.join(';');
+	}
+
+	// Composition-owned visibility (ADR-0035 §2): the authored opacity channel
+	// replaces the intrinsic fade-through + slide outright. Clamped like the
+	// intrinsic path — overshooting opacity is meaningless.
+	function channelVisibilityStyle(channels: OverlayChannelValues): string {
+		return `opacity:${Math.max(0, Math.min(1, channels.opacity))};`;
 	}
 
 	function visibilityStyle(progress: number, renderer: OverlayRenderer): string {
@@ -106,14 +130,16 @@
 	{@const renderer = findRenderer(overlay.type)}
 	{#if renderer}
 		{@const Component = renderer.CanvasSource}
+		{@const channels = animState.overlayChannels[index] ?? null}
 		<div
 			class="overlay-mount__item"
 			data-overlay-id={overlay.id}
 			data-overlay-type={overlay.type}
-			style="{positionStyle(overlay)};{visibilityStyle(
-				animState.overlayProgresses[index] ?? 1,
-				renderer
-			)};{appearanceStyle(overlay)}"
+			style="{positionStyle(overlay, channels)};{channels
+				? channelVisibilityStyle(channels)
+				: visibilityStyle(animState.overlayProgresses[index] ?? 1, renderer)};{appearanceStyle(
+				overlay
+			)}"
 		>
 			<Component content={overlay.content} />
 		</div>

@@ -33,36 +33,26 @@ export const ENGINE_EASES: Record<Ease, { label: string; gsap: string }> = {
 	bouncy: { label: 'Bouncy', gsap: 'elastic.out(1, 0.5)' }
 };
 
-export type EaseDirection = 'enter' | 'exit';
-export type EaseProperty = 'transform' | 'opacity';
-
-// Opacity fade-OUT curves (see getEaseGsap for why opacity exits differ).
-const OPACITY_EXIT_EASES: Record<Ease, string> = {
+// Per-property default the enter/exit SUGAR expansion applies to opacity
+// fade-outs (ADR-0035 §5 — the old getEaseGsap opacity-exit special case,
+// made explicit at the expansion site). A `.out` curve on a 1→0 alpha tween
+// HEAD-LOADS the fade (alpha drops fast then tails), so the subject vanishes
+// early and the frame holds on empty — the "subjectless tail". A `.in` curve
+// instead snaps off in the final frame. So sugar opacity fade-outs take a
+// symmetric `.inOut`: hold, fade, land at the window end with neither
+// head-load nor snap. Transform exits keep the named curve — direction is
+// encoded in from/to values, and a `.out` curve decelerating into rest is
+// what G7/L5 mean by "decelerate out". Authored keyframe channels are NOT
+// subject to this default: the composition holds the pen, segments run the
+// ease they declare.
+export const SUGAR_OPACITY_EXIT_EASES: Record<Ease, string> = {
 	smooth: 'power2.inOut',
 	settled: 'power2.inOut',
 	sharp: 'power3.inOut',
 	bouncy: 'power2.inOut'
 };
 
-export function getEaseGsap(
-	ease: Ease,
-	direction: EaseDirection,
-	property: EaseProperty = 'transform'
-): string {
-	// TRANSFORM tweens keep the named curve in both directions: direction is encoded
-	// in the from/to values (enter 0→1, exit 1→0), and a `.out` curve decelerates a
-	// slide into its rest/off position — what G7/L5 mean by "decelerate out".
-	//
-	// OPACITY EXITS are the exception. A `.out` curve on a 1→0 alpha tween HEAD-LOADS
-	// the fade (alpha drops fast then tails), so the subject vanishes early and the
-	// frame holds on empty — the "subjectless tail". A `.in` curve instead snaps off
-	// in the final frame. So opacity fade-outs use a symmetric `.inOut`: it holds,
-	// fades, and lands at the window end with neither head-load nor snap. Resolves the
-	// long-standing exit-ease tension (Critic "head-loaded fade" vs the earlier
-	// reverted blanket `.out→.in` "snap-off"); transform exits are untouched.
-	if (direction === 'exit' && property === 'opacity') {
-		return OPACITY_EXIT_EASES[ease];
-	}
+export function getEaseGsap(ease: Ease): string {
 	return ENGINE_EASES[ease].gsap;
 }
 
@@ -388,6 +378,15 @@ const SurfaceSchema = z.object({
 	// shown in the browser address bar, `body` = the post text carrying the hero
 	// `[highlight]` span.
 	site: WebDocumentSiteSchema.optional(),
+	// Chrome mode for the `imessage` Surface (ignored by every other Surface).
+	// 'window' (the default) is the faithful Messages window — header, timestamp,
+	// composer bar, page background. 'none' is the film-insert chromeless thread:
+	// bare bubbles floating directly over footage, with a substrate-darken
+	// vignette for legibility. Absent means 'window'; renderers MUST read
+	// `chrome ?? 'window'` — a Zod `.default()` is not reliably applied to
+	// pre-existing runtime state (the `validateOverlayContents` precedent). See
+	// docs/adr/0037-imessage-chrome-mode.md.
+	chrome: z.enum(['window', 'none']).optional(),
 	// Optional per-Surface variant id, picked up by Surface families that use
 	// the variants-as-data convention per ADR-0020. Unused by single-shape
 	// Surfaces. The Surface\'s Pipeline validates the value against its
