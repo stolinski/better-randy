@@ -14,6 +14,7 @@ import coreTickUrl from '$lib/assets/sounds/core-tick.wav';
 import coreWhooshInUrl from '$lib/assets/sounds/core-whoosh-in.wav';
 import coreWhooshOutUrl from '$lib/assets/sounds/core-whoosh-out.wav';
 import bedAmbientTextureUrl from '$lib/assets/sounds/bed-ambient-texture.wav';
+import impactBookUrl from '$lib/assets/sounds/impact-book.wav';
 import messagePopUrl from '$lib/assets/sounds/message-pop.wav';
 import messageSendUrl from '$lib/assets/sounds/message-send.wav';
 import quickWhooshInUrl from '$lib/assets/sounds/quick-whoosh-in.wav';
@@ -24,6 +25,7 @@ import tapbackHahaUrl from '$lib/assets/sounds/tapback-haha.wav';
 import tapbackHeartUrl from '$lib/assets/sounds/tapback-heart.wav';
 import tapbackLikeUrl from '$lib/assets/sounds/tapback-like.wav';
 import tapbackQuestionUrl from '$lib/assets/sounds/tapback-question.wav';
+import tickPencilUrl from '$lib/assets/sounds/tick-pencil.wav';
 
 import { CORE_SOUND_SAMPLES } from './sound-kits/resolve.ts';
 import { listSoundKits } from './sound-kits/registry.ts';
@@ -39,6 +41,8 @@ const SOUND_ASSETS: Record<string, string> = {
 	// Quick Whoosh kit samples (CC0; provenance in sound-kits/quick-whoosh/manifest.ts)
 	'quick-whoosh-in': quickWhooshInUrl,
 	'quick-whoosh-out': quickWhooshOutUrl,
+	'impact-book': impactBookUrl,
+	'tick-pencil': tickPencilUrl,
 	// Message Pop kit samples (provenance + ⚠ redistribution note in
 	// sound-kits/message-pop/manifest.ts — Apple recordings at Scott's direction)
 	'message-pop': messagePopUrl,

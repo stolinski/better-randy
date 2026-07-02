@@ -16,6 +16,12 @@ import type { SoundKitManifest } from '../../platform/sound-kits/types';
  *   fwip, trimmed tight; the OUT is the forward swish (energy departs), the
  *   IN is the same swish REVERSED (rises into the landing), so both
  *   directions read as one family.
+ * - impact-book — sliced from "book-hit" by Kneeling,
+ *   freesound.org/people/Kneeling/sounds/448005/ (a real book slap — the
+ *   papery thump that fits the print aesthetic; fires at arrival settles).
+ * - tick-pencil — one tap sliced from "Penciltap.aif" by kbnevel,
+ *   freesound.org/people/kbnevel/sounds/119848/ (near-subliminal pencil
+ *   tap for mark draw-ons and kinetic-text beats; normalized low, 0.7).
  * - bed-ambient-texture (asset, not kit-resolved) — "Ambient Cinematic
  *   Texture [90bpm] [F# Minor]" by deadrobotmusic,
  *   freesound.org/people/deadrobotmusic/sounds/664150/ (trimmed to 12 s,
@@ -27,6 +33,8 @@ export const quickWhooshKit: SoundKitManifest = {
 	description: 'Short recorded fwips on enters/exits — the fast YouTube transition sound.',
 	samples: {
 		'whoosh-in': 'quick-whoosh-in',
-		'whoosh-out': 'quick-whoosh-out'
+		'whoosh-out': 'quick-whoosh-out',
+		impact: 'impact-book',
+		tick: 'tick-pencil'
 	}
 };

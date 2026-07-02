@@ -1,6 +1,6 @@
 {
 	"schema": "hiviz@1",
-	"name": "Title sequence \u2014 drop in with impact",
+	"name": "Title sequence — drop in with impact",
 	"description": "Hero title moment. Heavy condensed sans title drops in from above the frame with a 12-tap directional motion blur trail that fades as velocity drops to zero, hits a brief brightness flash at the impact frame (progress 0.21), and settles with a faint decaying shake. All motion is shader-driven via UV offset on the captured text texture; the DOM renders the title statically at its resting position. Atmospheric deep-black backdrop with subtle off-frame warm glow (upper-left key) and fine film grain. Tests shader-driven text motion + directional motion blur, a technique not exercised by any existing preset.",
 	"pack": "syntax",
 	"state": {
@@ -30,13 +30,17 @@
 			"enter": {
 				"start": 0,
 				"duration": 0.2,
-				"ease": "smooth"
+				"ease": "smooth",
+				"sound": {
+					"event": "impact"
+				}
 			},
 			"exit": {
 				"start": 0.9,
 				"duration": 0.04,
 				"ease": "smooth"
-			}
+			},
+			"soundKit": "quick-whoosh"
 		},
 		"textAnimations": [
 			{
@@ -48,12 +52,12 @@
 				"effect": "fade-through",
 				"enter": {
 					"start": 0.24,
-					"duration": 0.060,
+					"duration": 0.06,
 					"ease": "settled"
 				},
 				"exit": {
 					"start": 0.88,
-					"duration": 0.040,
+					"duration": 0.04,
 					"ease": "smooth"
 				}
 			}

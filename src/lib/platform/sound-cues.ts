@@ -96,6 +96,18 @@ const TAPBACK_SAMPLES: Record<NonNullable<ChatMessage['tapback']>, string> = {
 	question: 'tapback-question'
 };
 
+// Text-animation effects whose motion is a FADE (opacity/blur in place, no
+// travel) — silent by default, same rule as the tables below. Travel and
+// per-character effects keep their whoosh/tick defaults.
+const FADE_TEXT_EFFECTS: ReadonlySet<string> = new Set([
+	'fade-through',
+	'per-word-crossfade',
+	'micro-scale-fade',
+	'scale-down-fade',
+	'focus-blur-resolve',
+	'soft-blur-in'
+]);
+
 // Same principle for Surface types: a surface whose enter/exit is a FADE
 // (opacity, not travel) emits nothing by default — only surfaces that fly or
 // slide whoosh. Unlisted types keep the fly-in card semantics.
@@ -233,8 +245,9 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 	}
 
 	// Text animations resolve through their TARGET Layer's kit — they are not
-	// a Layer themselves. Per-character effects tick; whole/word/line effects
-	// whoosh with their window.
+	// a Layer themselves. Per-character effects tick; whole/word/line travel
+	// effects whoosh with their window; fade-family effects are silent (the
+	// same motion-character rule as the overlay/surface tables above).
 	for (const entry of state.textAnimations) {
 		let layer: SoundCueLayer = surfaceLayer;
 		let kit = surfaceKit;
@@ -245,23 +258,33 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 		}
 
 		const spec = EFFECT_CATALOG.get(entry.effect);
-		const enterDefault =
-			spec?.target === 'per-character'
+		const isFade = FADE_TEXT_EFFECTS.has(entry.effect);
+		const enterDefault = isFade
+			? null
+			: spec?.target === 'per-character'
 				? MOTION_SOUND_DEFAULTS.textEnterPerCharacter
 				: MOTION_SOUND_DEFAULTS.textEnter;
 
-		cues.push(
-			cueFrom(`text:${entry.id}:enter`, layer, enterDefault, entry.enter, kit, entry.enter.sound)
-		);
-		if (entry.exit) {
+		for (const phase of ['enter', 'exit'] as const) {
+			const motionWindow = entry[phase];
+			if (!motionWindow) {
+				continue;
+			}
+			const typeDefault =
+				phase === 'enter' ? enterDefault : isFade ? null : MOTION_SOUND_DEFAULTS.textExit;
+			const override = motionWindow.sound;
+			if (typeDefault === null && !override?.event && override?.sample === undefined) {
+				continue;
+			}
 			cues.push(
 				cueFrom(
-					`text:${entry.id}:exit`,
+					`text:${entry.id}:${phase}`,
 					layer,
-					MOTION_SOUND_DEFAULTS.textExit,
-					entry.exit,
+					typeDefault ??
+						(phase === 'enter' ? MOTION_SOUND_DEFAULTS.textEnter : MOTION_SOUND_DEFAULTS.textExit),
+					motionWindow,
 					kit,
-					entry.exit.sound
+					override
 				)
 			);
 		}
