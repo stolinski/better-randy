@@ -14,6 +14,8 @@ import coreTickUrl from '$lib/assets/sounds/core-tick.wav';
 import coreWhooshInUrl from '$lib/assets/sounds/core-whoosh-in.wav';
 import coreWhooshOutUrl from '$lib/assets/sounds/core-whoosh-out.wav';
 import bedAmbientTextureUrl from '$lib/assets/sounds/bed-ambient-texture.wav';
+import messagePopUrl from '$lib/assets/sounds/message-pop.wav';
+import messageSendUrl from '$lib/assets/sounds/message-send.wav';
 import quickWhooshInUrl from '$lib/assets/sounds/quick-whoosh-in.wav';
 import quickWhooshOutUrl from '$lib/assets/sounds/quick-whoosh-out.wav';
 
@@ -31,6 +33,9 @@ const SOUND_ASSETS: Record<string, string> = {
 	// Quick Whoosh kit samples (CC0; provenance in sound-kits/quick-whoosh/manifest.ts)
 	'quick-whoosh-in': quickWhooshInUrl,
 	'quick-whoosh-out': quickWhooshOutUrl,
+	// Message Pop kit samples (CC0; provenance in sound-kits/message-pop/manifest.ts)
+	'message-pop': messagePopUrl,
+	'message-send': messageSendUrl,
 	// Ambient bed texture for full-frame pieces — referenced by audioCues, not a kit.
 	'bed-ambient-texture': bedAmbientTextureUrl
 };
