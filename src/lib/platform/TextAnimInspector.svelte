@@ -1,6 +1,12 @@
 <script lang="ts">
-	import { EFFECT_CATALOG, EFFECT_IDS, SPLIT_MODES, type SplitMode } from '$lib/text-animations/catalog';
+	import {
+		EFFECT_CATALOG,
+		EFFECT_IDS,
+		SPLIT_MODES,
+		type SplitMode
+	} from '$lib/text-animations/catalog';
 
+	import CascadeSection from './CascadeSection.svelte';
 	import { engineState, removeTextAnimation } from './engine-state.svelte';
 	import {
 		ENGINE_EASES,
@@ -24,8 +30,7 @@
 	const effectsByGroup: { mode: SplitMode; items: { id: string; label: string }[] }[] =
 		SPLIT_MODES.map((mode) => ({
 			mode,
-			items: EFFECT_IDS
-				.map((id) => ({ id, spec: EFFECT_CATALOG.get(id) }))
+			items: EFFECT_IDS.map((id) => ({ id, spec: EFFECT_CATALOG.get(id) }))
 				.filter(({ spec }) => spec?.target === mode)
 				.map(({ id, spec }) => ({ id, label: spec!.displayName }))
 		})).filter((g) => g.items.length > 0);
@@ -128,10 +133,8 @@
 					oninput={(e) =>
 						setParam(entry, 'speedMultiplier', (e.currentTarget as HTMLInputElement).value)}
 				/>
-				<button
-					type="button"
-					class="clear-btn"
-					onclick={() => clearParam(entry, 'speedMultiplier')}>×</button
+				<button type="button" class="clear-btn" onclick={() => clearParam(entry, 'speedMultiplier')}
+					>×</button
 				>
 			</Field>
 			<Field label="Hold ms">
@@ -143,7 +146,9 @@
 					placeholder="default"
 					oninput={(e) => setParam(entry, 'holdMs', (e.currentTarget as HTMLInputElement).value)}
 				/>
-				<button type="button" class="clear-btn" onclick={() => clearParam(entry, 'holdMs')}>×</button>
+				<button type="button" class="clear-btn" onclick={() => clearParam(entry, 'holdMs')}
+					>×</button
+				>
 			</Field>
 			<Field label="Gap ms">
 				<input
@@ -154,9 +159,19 @@
 					placeholder="default"
 					oninput={(e) => setParam(entry, 'gapMs', (e.currentTarget as HTMLInputElement).value)}
 				/>
-				<button type="button" class="clear-btn" onclick={() => clearParam(entry, 'gapMs')}>×</button>
+				<button type="button" class="clear-btn" onclick={() => clearParam(entry, 'gapMs')}>×</button
+				>
 			</Field>
 		</InspectorSection>
+
+		<!-- Weld this animation's enter start to another element (ADR-0035 §4). -->
+		<CascadeSection
+			selfKey={`textAnimation:${entry.id}`}
+			getCascade={() => entry.cascade}
+			setCascade={(next) => {
+				entry.cascade = next;
+			}}
+		/>
 	</div>
 {/if}
 

@@ -2,6 +2,7 @@
 	import { engineState, addTextAnimation, removeTextAnimation } from './engine-state.svelte';
 	import {
 		ENGINE_EASES,
+		type Cascade,
 		type Ease,
 		type Overlay,
 		type OverlayPosition,
@@ -17,8 +18,10 @@
 		SPLIT_MODES,
 		type SplitMode
 	} from '$lib/text-animations/catalog';
+	import CascadeSection from './CascadeSection.svelte';
 	import InspectorSection from './InspectorSection.svelte';
 	import Field from './Field.svelte';
+	import KeyframesSection from './KeyframesSection.svelte';
 	import SoundSection from './SoundSection.svelte';
 
 	interface Props {
@@ -94,6 +97,30 @@
 		const n = Number(value);
 		if (!Number.isFinite(n)) return;
 		ov.position.scale = Math.max(0.1, Math.min(8, n));
+	}
+
+	function setOverlayRotation(ov: Overlay, value: string): void {
+		const n = Number(value);
+		if (!Number.isFinite(n)) return;
+		ov.position.rotation = Math.max(-360, Math.min(360, n));
+	}
+
+	// Keyframeable overlay channels (ADR-0035 §3), in inspector order.
+	const OVERLAY_CHANNELS = ['opacity', 'x', 'y', 'scale', 'rotation'] as const;
+
+	function setOverlayCascade(ov: Overlay, next: Cascade | undefined): void {
+		if (next === undefined) {
+			if (!ov.animation) return;
+			ov.animation.cascade = undefined;
+			// Keep the serialized form clean: an animation block with nothing in
+			// it disappears entirely.
+			if (!ov.animation.channels || Object.keys(ov.animation.channels).length === 0) {
+				ov.animation = undefined;
+			}
+			return;
+		}
+		if (!ov.animation) ov.animation = {};
+		ov.animation.cascade = next;
 	}
 
 	function ensureTransition(ov: Overlay, field: 'enter' | 'exit'): Transition {
@@ -231,6 +258,16 @@
 				oninput={(e) => setOverlayScale(ov, (e.currentTarget as HTMLInputElement).value)}
 			/>
 		</Field>
+		<Field label="Rotation°">
+			<input
+				type="number"
+				min="-360"
+				max="360"
+				step="0.5"
+				value={ov.position.rotation ?? 0}
+				oninput={(e) => setOverlayRotation(ov, (e.currentTarget as HTMLInputElement).value)}
+			/>
+		</Field>
 	</InspectorSection>
 
 	<InspectorSection label="Enter">
@@ -335,11 +372,19 @@
 		{/if}
 	</InspectorSection>
 
+	<KeyframesSection owner={ov} channelNames={OVERLAY_CHANNELS} />
+
+	<CascadeSection
+		selfKey={`overlay:${ov.id}`}
+		getCascade={() => ov.animation?.cascade}
+		setCascade={(next) => setOverlayCascade(ov, next)}
+	/>
+
 	<SoundSection
 		host={ov}
 		motions={[
-			...(ov.enter ? [{ label: 'Enter', window: ov.enter }] : []),
-			...(ov.exit ? [{ label: 'Exit', window: ov.exit }] : [])
+			...(ov.enter ? [{ label: 'Enter', cueId: `overlay:${ov.id}:enter`, window: ov.enter }] : []),
+			...(ov.exit ? [{ label: 'Exit', cueId: `overlay:${ov.id}:exit`, window: ov.exit }] : [])
 		]}
 	/>
 

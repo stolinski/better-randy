@@ -29,6 +29,7 @@
 	import { PIPELINE_REGISTRY, getSurfaceRenderer } from './pipelines';
 	import InspectorSection from './InspectorSection.svelte';
 	import Field from './Field.svelte';
+	import KeyframesSection from './KeyframesSection.svelte';
 	import SoundSection from './SoundSection.svelte';
 
 	const surfaceRenderers = Object.values(PIPELINE_REGISTRY.surfaces);
@@ -435,6 +436,11 @@
 			</div>
 		{/each}
 	</InspectorSection>
+
+	<!-- Composition-owned surface opacity (ADR-0035 §3) — the only surface
+	     channel; transforms are camera territory. Declaring it takes the pen
+	     from the enter/exit sugar. -->
+	<KeyframesSection owner={engineState.surface} channelNames={['opacity']} />
 
 	<SoundSection host={engineState.surface} motions={soundMotions} />
 </div>

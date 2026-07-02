@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
 
+	import CascadeSection from './CascadeSection.svelte';
 	import { ENGINE_EASES, resolveMarkForIndex, type Ease } from './engine-schema';
 	import { engineState, ensureMarkTimingAtIndex } from './engine-state.svelte';
 	import InspectorSection from './InspectorSection.svelte';
@@ -105,14 +106,29 @@
 		</Field>
 	</InspectorSection>
 
-	<!-- The marks Layer's kit + this mark's draw-on override (ADR-0033 §3/§5).
-	     The override row needs a stored timing; editing any timing field above
-	     creates it, so until then only the kit picker shows. -->
+	<!-- Weld this mark's draw-on start to another element (ADR-0035 §4) — the
+	     declarative form of the A1/A2 reading-order rules. -->
+	<CascadeSection
+		selfKey={`mark:${markIndex}`}
+		getCascade={() => engineState.marks.timings[markIndex]?.cascade}
+		setCascade={(next) => {
+			const timing = ensureMarkTimingAtIndex(markIndex);
+			timing.cascade = next;
+		}}
+	/>
+
+	<!-- The marks Layer's kit + this mark's draw-on sound (ADR-0033 §3/§5).
+	     The timing entry is created on first write, so the row always shows. -->
 	<SoundSection
 		host={engineState.marks}
-		motions={engineState.marks.timings[markIndex]
-			? [{ label: 'Draw-on', window: engineState.marks.timings[markIndex] }]
-			: []}
+		motions={[
+			{
+				label: 'Draw-on',
+				cueId: `mark:${markIndex}`,
+				window: engineState.marks.timings[markIndex],
+				ensure: () => ensureMarkTimingAtIndex(markIndex)
+			}
+		]}
 	/>
 {/if}
 

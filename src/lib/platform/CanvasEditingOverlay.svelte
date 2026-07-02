@@ -36,7 +36,9 @@
 	// ─── Coordinate helpers ──────────────────────────────────────────────────────
 
 	function getOverlayEl(overlay: Overlay): HTMLElement | null {
-		return compositionElement?.querySelector<HTMLElement>(`[data-overlay-id="${overlay.id}"]`) ?? null;
+		return (
+			compositionElement?.querySelector<HTMLElement>(`[data-overlay-id="${overlay.id}"]`) ?? null
+		);
 	}
 
 	// The composition DOM is full 4K CSS size (3840×2160). The WebGPU canvas is
@@ -49,7 +51,9 @@
 	//   2. Compute its offset from the composition element's top-left.
 	//   3. Scale that offset by (canvasDisplay / comp4K) to get canvas-space coords.
 	//   4. Add the canvas element's position within the editing overlay root.
-	function overlayRelRect(overlay: Overlay): { left: number; top: number; width: number; height: number } | null {
+	function overlayRelRect(
+		overlay: Overlay
+	): { left: number; top: number; width: number; height: number } | null {
 		// Subscribe to the overlay's position so the hit box re-measures after a drag
 		// or inspector edit moves it — getBoundingClientRect itself isn't reactive, so
 		// without these reads the box would stick to the overlay's original spot.
@@ -59,10 +63,12 @@
 		void overlay.position.rect?.x;
 		void overlay.position.rect?.y;
 		void overlay.position.scale;
+		void overlay.position.rotation;
 		const rootRect = rootEl?.getBoundingClientRect();
 		const canvasRect = canvas?.getBoundingClientRect();
 		const compRect = compositionElement?.getBoundingClientRect();
-		if (!rootRect || !canvasRect || !compRect || canvasRect.width === 0 || compRect.width === 0) return null;
+		if (!rootRect || !canvasRect || !compRect || canvasRect.width === 0 || compRect.width === 0)
+			return null;
 		const el = getOverlayEl(overlay);
 		if (!el) return null;
 		const r = el.getBoundingClientRect();
@@ -76,7 +82,6 @@
 			height: r.height * scale
 		};
 	}
-
 
 	// The overlay's current top-left, as a 0..1 fraction of the composition. Used
 	// to seed a `center` overlay's conversion to free placement on drag (so it
@@ -268,6 +273,68 @@
 		}
 	}
 
+	// ─── Rotate state (ADR-0035; absorbs 5vcak6og) ───────────────────────────────
+	// Static rotation about the anchor point, mirroring the scale handles: the
+	// handle's angle around the transform-origin is a direct read of rotation.
+
+	interface RotateState {
+		overlayId: string;
+		anchorX: number;
+		anchorY: number;
+		/** Pointer angle (deg) around the anchor at drag start. */
+		angle0: number;
+		rotationOrigin: number;
+	}
+
+	let rotateState: RotateState | null = null;
+
+	function pointerAngle(event: PointerEvent, anchorX: number, anchorY: number): number {
+		return (Math.atan2(event.clientY - anchorY, event.clientX - anchorX) * 180) / Math.PI;
+	}
+
+	function onRotateStart(event: PointerEvent, overlay: Overlay): void {
+		if (event.button !== 0) return;
+		event.preventDefault();
+		event.stopPropagation();
+		selectLayer(`overlay-${overlay.id}`);
+		const hitEl = (event.currentTarget as HTMLElement).closest<HTMLElement>('.overlay-hit');
+		if (!hitEl) return;
+		const { x: anchorX, y: anchorY } = anchorPoint(
+			overlay.position.anchor,
+			hitEl.getBoundingClientRect()
+		);
+		rotateState = {
+			overlayId: overlay.id,
+			anchorX,
+			anchorY,
+			angle0: pointerAngle(event, anchorX, anchorY),
+			rotationOrigin: overlay.position.rotation ?? 0
+		};
+		if (typeof window !== 'undefined') {
+			window.addEventListener('pointermove', onRotateMove);
+			window.addEventListener('pointerup', onRotateEnd);
+		}
+	}
+
+	function onRotateMove(event: PointerEvent): void {
+		if (!rotateState) return;
+		const overlay = engineState.overlays.find((o) => o.id === rotateState!.overlayId);
+		if (!overlay) return;
+		let delta = pointerAngle(event, rotateState.anchorX, rotateState.anchorY) - rotateState.angle0;
+		// Take the short way around so crossing the ±180° seam doesn't jump.
+		if (delta > 180) delta -= 360;
+		if (delta < -180) delta += 360;
+		overlay.position.rotation = clampNumber(rotateState.rotationOrigin + delta, -360, 360);
+	}
+
+	function onRotateEnd(): void {
+		rotateState = null;
+		if (typeof window !== 'undefined') {
+			window.removeEventListener('pointermove', onRotateMove);
+			window.removeEventListener('pointerup', onRotateEnd);
+		}
+	}
+
 	// A corner handle is shown only when it isn't pinned by the anchor — the anchor
 	// corner can't scale (it's the fixed point), so we hide that one and keep every
 	// visible handle functional. Center / edge / normalized-rect pin no corner.
@@ -344,24 +411,21 @@
 		else deselectLayer();
 	}
 
-
 	onDestroy(() => {
 		if (typeof window === 'undefined') return;
 		window.removeEventListener('pointermove', onPointerMove);
 		window.removeEventListener('pointerup', onPointerUp);
 		window.removeEventListener('pointermove', onScaleMove);
 		window.removeEventListener('pointerup', onScaleEnd);
+		window.removeEventListener('pointermove', onRotateMove);
+		window.removeEventListener('pointerup', onRotateEnd);
 		window.removeEventListener('pointermove', onBackdropMove);
 		window.removeEventListener('pointerup', onBackdropUp);
 	});
 </script>
 
 <!-- Positioned over the canvas by Workspace; pointer-events only where overlays are -->
-<div
-	bind:this={rootEl}
-	class="canvas-editing-overlay"
-	role="presentation"
->
+<div bind:this={rootEl} class="canvas-editing-overlay" role="presentation">
 	<!-- Full-area backdrop: drag to pan when zoomed in, plain click to deselect -->
 	<div
 		class="canvas-editing-overlay__backdrop"
@@ -380,13 +444,21 @@
 				onpointerdown={(e) => onPointerDown(e, overlay)}
 				role="button"
 				tabindex="0"
-				onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') selectLayer(`overlay-${overlay.id}`); }}
+				onkeydown={(e) => {
+					if (e.key === 'Enter' || e.key === ' ') selectLayer(`overlay-${overlay.id}`);
+				}}
 				style:left="{rect.left}px"
 				style:top="{rect.top}px"
 				style:width="{rect.width}px"
 				style:height="{rect.height}px"
 			>
 				{#if isSelected}
+					<button
+						class="overlay-hit__rotate"
+						type="button"
+						aria-label="Rotate {overlay.type}"
+						onpointerdown={(e) => onRotateStart(e, overlay)}
+					></button>
 					{#if showHandle('nw', overlay.position.anchor)}
 						<button
 							class="overlay-hit__handle overlay-hit__handle--nw"
@@ -511,5 +583,37 @@
 		cursor: nwse-resize;
 		inset-block-end: -5px;
 		inset-inline-end: -5px;
+	}
+
+	/* Rotate lollipop — floats above the box's top-center; drag orbits the
+	   overlay about its anchor origin. */
+	.overlay-hit__rotate {
+		background: #ffd608;
+		block-size: 9px;
+		border: 1px solid rgba(0, 0, 0, 0.5);
+		border-radius: 50%;
+		box-sizing: border-box;
+		cursor: grab;
+		inline-size: 9px;
+		inset-block-start: -18px;
+		inset-inline-start: calc(50% - 4.5px);
+		padding: 0;
+		pointer-events: all;
+		position: absolute;
+		touch-action: none;
+	}
+
+	.overlay-hit__rotate::after {
+		background: rgba(255, 214, 8, 0.7);
+		block-size: 10px;
+		content: '';
+		inline-size: 1.5px;
+		inset-block-start: 8px;
+		inset-inline-start: calc(50% - 0.75px);
+		position: absolute;
+	}
+
+	.overlay-hit__rotate:active {
+		cursor: grabbing;
 	}
 </style>
