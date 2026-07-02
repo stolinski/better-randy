@@ -69,6 +69,12 @@ export const newspaper: SurfaceRenderer = {
 	CanvasSource,
 	defaults,
 	shaderPass: newspaperPhysics,
+	// The clipping's outer silhouette accepts the Pack's edge Role
+	// (`newspaper.edge` → core `edge-treatment`): syntax tears it (collage law,
+	// aesthetic.md § Cut behavior), editorial-mono die-cuts it clean. The shared
+	// edge pass runs BEFORE newspaperPhysics so the edge-occlusion shadow and
+	// defocus operate on the treated silhouette.
+	edgeTreatment: true,
 	createPipeline(opts): SurfaceRenderInstance {
 		return createPaperPipeline(opts);
 	}

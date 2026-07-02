@@ -3,7 +3,7 @@
 	import { animState } from '$lib/platform/anim-state.svelte';
 	import { engineState, packState } from '$lib/platform/engine-state.svelte';
 	import { getPack } from '$lib/platform/packs/registry';
-	import { resolveDepthTreatment } from '$lib/platform/packs/resolve';
+	import { resolveDepthTreatment, resolveEdgeTreatment } from '$lib/platform/packs/resolve';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 	import { hashStringToUnitInterval, seededRange } from '$lib/utils/seeded';
 
@@ -59,11 +59,17 @@
 	// card's mount-injected `--ink`. A Pack that drops depth (`'none'`) leaves the
 	// card flat on its intrinsic edge-occlusion shadow alone.
 	const depthShadow = $derived.by(() => {
-		const depth = resolveDepthTreatment(
-			getPack(packState.slug),
-			'newspaper',
-			'var(--ink, #1a1612)'
-		);
+		const pack = getPack(packState.slug);
+		// Displaced edge modes (torn/irregular) hand the hard-offset shadow to
+		// the shared edge-treatment ShaderPass, which synthesizes it as an
+		// offset duplicate of the TORN silhouette. A CSS box-shadow here would
+		// bake a straight card/shadow seam into the flat HTML-in-Canvas capture
+		// that no alpha treatment can cross.
+		const edge = resolveEdgeTreatment(pack, 'newspaper');
+		if (edge && (edge.mode === 'torn' || edge.mode === 'irregular')) {
+			return 'none';
+		}
+		const depth = resolveDepthTreatment(pack, 'newspaper', 'var(--ink, #1a1612)');
 		if (!depth) {
 			return 'none';
 		}

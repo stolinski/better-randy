@@ -1,11 +1,14 @@
 /**
  * Identity Spec for the `newspaper` Surface — per ADR-0015. Declares the
  * dimensions of realism this Pipeline owes when it claims to render aged
- * newsprint. Every dimension here is intrinsic to the material claim — none
- * of them concede to the active Pack via ADR-0019's via-pack clause, because
- * paper grain, halftone, ink bleed, edge occlusion, optical misregistration,
- * surface rotation, camera defocus, and lens vignette are what the substrate
- * *is*, not aesthetic dress a Pack varies.
+ * newsprint. The material dimensions are intrinsic — paper grain, halftone,
+ * ink bleed, edge occlusion, optical misregistration, surface rotation,
+ * camera defocus, and lens vignette are what the substrate *is*, not
+ * aesthetic dress a Pack varies. One dimension concedes via ADR-0019's
+ * via-pack clause: `edge-treatment` — how the clipping was CUT from its
+ * source (torn zine collage vs die-cut editorial) is the active Pack's
+ * appearance claim, resolved through `resolveEdgeTreatment` (ADR-0024) into
+ * the shared edge-treatment ShaderPass.
  */
 
 import type { IdentitySpec } from '$lib/platform/pipelines/identity';
@@ -77,6 +80,18 @@ export const newspaperIdentity: IdentitySpec = {
 				region: 'edge of a yellow highlight rectangle at 400% zoom',
 				expectation:
 					'visible chromatic fringe — warm shift on one side of the highlight, cool shift on the other; dark glyphs inside the highlight show channel separation along their strokes.'
+			}
+		},
+		{
+			name: 'edge-treatment',
+			definition:
+				'The cut behavior of the clipping’s outer silhouette — how the sheet was separated from its source (torn, soft-worn, hand-cut irregular, die-cut clean, or unclaimed). The silhouette itself is the Pipeline’s; the character of the cut is the active Pack’s.',
+			viaPack: 'newspaper.edge',
+			probe: {
+				kind: 'named-observation',
+				region: 'card silhouette against transparency at 200% zoom',
+				expectation:
+					'under syntax: an irregular displaced tear path (~1–3% of the card’s smaller dimension) with a lighter interior fiber rim at the torn boundary, never an axis-perfect rectangular cut; under a clean-cut Pack (editorial-mono): a straight, anti-aliased edge. The tear path is deterministic per preset — same seed, same tear across re-renders.'
 			}
 		},
 		{

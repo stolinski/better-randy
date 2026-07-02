@@ -34,6 +34,10 @@ export const editorialMonoPack: PackManifest = {
 		// substrate's intrinsic edge-occlusion. Proves a structural depth Role
 		// reaches pixels (syntax: 12px offset chrome → editorial-mono: none).
 		'newspaper.depth': { kind: 'style', value: 'none' },
+		// Structural edge re-skin: a clean die-cut clipping (server-renders-again
+		// claims "clean printed clipping") where syntax tears — the same Preset's
+		// silhouette changes character with the Pack (resolveEdgeTreatment).
+		'newspaper.edge': { kind: 'style', value: 'clean' },
 		'type-hero.ink': { kind: 'style', value: '#eef3f8' },
 		'type-hero.accent': { kind: 'style', value: '#22d3ee' },
 		'type-hero.byline': { kind: 'style', value: '#8aa0b4' },

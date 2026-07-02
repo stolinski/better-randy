@@ -188,6 +188,16 @@ export interface SurfaceRenderer {
 	 * ShaderPassDispatcher ahead of the effect chain.
 	 */
 	shaderPass?: ShaderPass<SurfaceState>;
+	/**
+	 * When true, this surface renders an alpha-silhouetted card/clipping whose
+	 * outer edge accepts the active Pack's structural edge Role
+	 * (`<type>.edge` → core `edge-treatment`, ADR-0024). `Workspace` resolves
+	 * the Role via `resolveEdgeTreatment` and, for any value other than
+	 * `none`, dispatches the shared edge-treatment ShaderPass ahead of the
+	 * surface's own `shaderPass`. Full-frame surfaces and surfaces whose alpha
+	 * boundaries are glyphs (not a card silhouette) must not opt in.
+	 */
+	edgeTreatment?: boolean;
 }
 
 // ---------------- Overlays ----------------

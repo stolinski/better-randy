@@ -145,6 +145,108 @@ export function resolveDepthTreatment(
 }
 
 /**
+ * The five-value edge-treatment vocabulary — how a card/clipping silhouette
+ * was separated from its source material. `none` means the Pack makes no edge
+ * claim (the silhouette renders exactly as captured); the other four are
+ * applied by the shared edge-treatment ShaderPass
+ * (`src/lib/pipelines/shader-passes/edge-treatment.ts`) as a shader-side alpha
+ * mask. Never CSS — CSS masks/filters promote compositing layers, and promoted
+ * layers drop out of the WICG HTML-in-Canvas capture (see
+ * docs/html-in-canvas-typegpu.md).
+ */
+export type EdgeTreatmentMode = 'clean' | 'soft' | 'irregular' | 'torn' | 'none';
+
+/**
+ * A resolved edge treatment. Pixel fields are 4K-reference px (like
+ * `DepthShadow`); the shader scales them by the composition's actual
+ * resolution.
+ */
+export interface EdgeTreatment {
+	mode: EdgeTreatmentMode;
+	/** Silhouette displacement (torn/irregular) or feather radius (soft), 4K-reference px. */
+	amplitudePx: number;
+	/** Tear-path noise wavelength along the silhouette, 4K-reference px. */
+	wavelengthPx: number;
+	/** Interior fiber-rim strength at a torn boundary, 0..1 (aesthetic: 1–2 px white fiber). */
+	fiber: number;
+}
+
+const EDGE_TREATMENT_MODES: readonly EdgeTreatmentMode[] = [
+	'clean',
+	'soft',
+	'irregular',
+	'torn',
+	'none'
+];
+
+function isEdgeTreatmentMode(value: unknown): value is EdgeTreatmentMode {
+	return typeof value === 'string' && (EDGE_TREATMENT_MODES as readonly string[]).includes(value);
+}
+
+const EDGE_MODE_DEFAULTS: Record<EdgeTreatmentMode, Omit<EdgeTreatment, 'mode'>> = {
+	none: { amplitudePx: 0, wavelengthPx: 1, fiber: 0 },
+	clean: { amplitudePx: 0, wavelengthPx: 1, fiber: 0 },
+	soft: { amplitudePx: 7, wavelengthPx: 1, fiber: 0 },
+	irregular: { amplitudePx: 12, wavelengthPx: 260, fiber: 0 },
+	torn: { amplitudePx: 24, wavelengthPx: 140, fiber: 1 }
+};
+
+function readFiniteNumber(value: unknown): number | undefined {
+	return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+/**
+ * Resolve a Pipeline's structural `edge` Role to one of the five edge
+ * treatments — the second structural Pack Role wired to pixels (after
+ * `depth`). Resolution is specific → core (ADR-0024):
+ *
+ *   `<pipelineType>.edge` (per-Pipeline override)
+ *     → `edge-treatment` (core edge vocabulary)
+ *       → `null` (no Pack edge claim; no pass runs)
+ *
+ * An edge Role is either a bare keyword (`'torn'`, `'clean'`, …) or an object
+ * `{ mode, amplitudePx?, wavelengthPx?, fiber? }` overriding the per-mode
+ * defaults. Legacy / unrecognised shapes (colour strings, `'sharp'`,
+ * `'clean-vector'`, rule recipes) resolve to `null` by design — only the
+ * five-value vocabulary produces a treatment, so Packs opt in explicitly and
+ * pre-vocabulary Roles stay inert instead of guessing.
+ */
+export function resolveEdgeTreatment(
+	manifest: PackManifest,
+	pipelineType: string
+): EdgeTreatment | null {
+	const role = manifest.roles[`${pipelineType}.edge`] ?? manifest.roles['edge-treatment'];
+	if (!role || role.kind !== 'style') {
+		return null;
+	}
+
+	const value = role.value;
+	if (isEdgeTreatmentMode(value)) {
+		return { mode: value, ...EDGE_MODE_DEFAULTS[value] };
+	}
+
+	if (value !== null && typeof value === 'object') {
+		const shaped = value as {
+			mode?: unknown;
+			amplitudePx?: unknown;
+			wavelengthPx?: unknown;
+			fiber?: unknown;
+		};
+		if (isEdgeTreatmentMode(shaped.mode)) {
+			const defaults = EDGE_MODE_DEFAULTS[shaped.mode];
+			return {
+				mode: shaped.mode,
+				amplitudePx: readFiniteNumber(shaped.amplitudePx) ?? defaults.amplitudePx,
+				wavelengthPx: readFiniteNumber(shaped.wavelengthPx) ?? defaults.wavelengthPx,
+				fiber: readFiniteNumber(shaped.fiber) ?? defaults.fiber
+			};
+		}
+	}
+
+	return null;
+}
+
+/**
  * Resolve a Pack colour Role to an `"R G B"` channel triplet, for composing the
  * *same* colour at several alphas in CSS (`rgb(var(--x) / <a>)`) — the cases the
  * whole-colour var path (`resolveAppearanceVars`) can't carry: gradient stops

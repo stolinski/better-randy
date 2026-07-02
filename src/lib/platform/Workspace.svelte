@@ -57,6 +57,16 @@
 	} from './engine-state.svelte';
 	import { applyCompositionState } from './preset';
 	import { compositionMeta } from './composition-meta.svelte';
+	import { getPack } from './packs/registry';
+	import {
+		resolveAppearanceVars,
+		resolveDepthTreatment,
+		resolveEdgeTreatment
+	} from './packs/resolve';
+	import {
+		edgeTreatmentPass,
+		type EdgeTreatmentTarget
+	} from '$lib/pipelines/shader-passes/edge-treatment';
 	import { measureOverlayBoundsPx } from '$lib/utils/overlay-bounds';
 
 	import { TransitionSnapshots } from './pipelines/transition-snapshots';
@@ -1074,9 +1084,10 @@
 		return null;
 	}
 
-	// Build the per-frame ShaderPass dispatch list. Surface pass first (ADR-0008),
-	// then any declared overlay passes (ADR-0005) in the same document order as
-	// `engineState.overlays`. Resolved by ADR-0010.
+	// Build the per-frame ShaderPass dispatch list. Pack edge treatment first
+	// (the surface's own physics then operate on the treated silhouette), then
+	// the surface pass (ADR-0008), then any declared overlay passes (ADR-0005)
+	// in the same document order as `engineState.overlays`. Resolved by ADR-0010.
 	function buildShaderPassDispatchList(): ShaderPassDispatchList {
 		const compositionSize = {
 			width: host?.canvas.width ?? 0,
@@ -1090,6 +1101,48 @@
 		}> = [];
 
 		const surfaceRenderer = getSurfaceRenderer(engineState.surface.type);
+
+		// Structural edge Role → pixels: a card-silhouette surface (opt-in via
+		// `edgeTreatment`) has its outer cut resolved by the active Pack
+		// (`<type>.edge` → core `edge-treatment`, ADR-0024). `none` — and any
+		// Pack that makes no edge claim — dispatches nothing.
+		if (surfaceRenderer?.edgeTreatment) {
+			const pack = getPack(packState.slug);
+			const treatment = resolveEdgeTreatment(pack, engineState.surface.type);
+			if (treatment && treatment.mode !== 'none') {
+				// Displaced modes (torn/irregular) take over the Pack's hard-offset
+				// depth shadow: the CanvasSource drops its CSS box-shadow (it would
+				// bake a straight card/shadow seam into the flat capture) and the
+				// edge pass synthesizes the shadow as an offset duplicate of the
+				// torn silhouette. Resolve the rig + its ink to shader floats here.
+				let shadow: EdgeTreatmentTarget['shadow'] = null;
+				if (treatment.mode === 'torn' || treatment.mode === 'irregular') {
+					const inkHex =
+						resolveAppearanceVars(pack, engineState.surface.type)['--ink'] ?? '#000000';
+					const rig = resolveDepthTreatment(pack, engineState.surface.type, inkHex);
+					if (rig) {
+						let rgba: [number, number, number, number];
+						try {
+							rgba = hexToRgbaFloat(rig.color);
+						} catch {
+							rgba = [0, 0, 0, 1];
+						}
+						shadow = { dx: rig.dx, dy: rig.dy, rgb: [rgba[0], rgba[1], rgba[2]] };
+					}
+				}
+				const target: EdgeTreatmentTarget = {
+					treatment,
+					seedSource: engineState.surface.content.title ?? engineState.surface.type,
+					shadow
+				};
+				entries.push({
+					pass: edgeTreatmentPass as ShaderPass<unknown>,
+					target,
+					bounds: { x: 0, y: 0, width: compositionSize.width, height: compositionSize.height }
+				});
+			}
+		}
+
 		if (surfaceRenderer?.shaderPass) {
 			entries.push({
 				pass: surfaceRenderer.shaderPass as ShaderPass<unknown>,
