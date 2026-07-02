@@ -47,6 +47,7 @@
 		setCanvasPaintHandler
 	} from './html-in-canvas';
 	import { Timeline } from './timeline.svelte';
+	import { timelineHandle } from './timeline-handle.svelte';
 	import {
 		getEaseGsap,
 		listMarkInstances,
@@ -1885,6 +1886,9 @@
 					window.__hivizTimeline = timeline;
 					window.__hivizTextAnimationManager = textAnimationManager;
 				}
+				// The inspector's keyframe rows navigate the playhead through this
+				// handle (prev/next jumps + add-at-playhead).
+				timelineHandle.current = timeline;
 				animationManager.rebuild(buildAnimationManifest());
 				// Park on a settled frame so the composition is visible on open (the
 				// seek drives the manifest to that frame and requests the first paint).
@@ -2137,6 +2141,7 @@
 		}
 		timeline?.dispose();
 		timeline = null;
+		timelineHandle.current = null;
 		audioPreview.dispose();
 		if (typeof window !== 'undefined' && window.__hivizTimeline) {
 			window.__hivizTimeline = undefined;

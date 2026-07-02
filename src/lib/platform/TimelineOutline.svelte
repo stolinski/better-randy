@@ -10,7 +10,13 @@
 		removeTextAnimation
 	} from './engine-state.svelte';
 	import { PIPELINE_REGISTRY } from './pipelines';
-	import { layerSelection, selectLayer, deselectLayer } from './selection.svelte';
+	import {
+		keyframeSelection,
+		layerSelection,
+		selectKeyframe,
+		selectLayer,
+		deselectLayer
+	} from './selection.svelte';
 	import type { Timeline } from './timeline.svelte';
 	import type { TimelineTrack, TimelineTransition } from './timeline-track';
 	import {
@@ -51,7 +57,8 @@
 	}
 
 	// A keyframe diamond drag (ADR-0035 §7): retimes ONE keyframe's atMs through
-	// the transition's write-through retimer.
+	// the transition's write-through retimer. A press without a real move is a
+	// SELECT: the playhead seeks to the keyframe (DaVinci behaviour).
 	interface KeyframeDragState {
 		kind: 'keyframe';
 		trackId: string;
@@ -61,6 +68,7 @@
 		originFraction: number;
 		pointerStartX: number;
 		containerWidth: number;
+		moved: boolean;
 	}
 
 	type DragState = TransitionDragState | SeekDragState | KeyframeDragState;
@@ -118,6 +126,14 @@
 	});
 
 	const lanesContentHeight = $derived(LANE_PAD * 2 + tracks.length * LANE_STRIDE);
+
+	// A diamond is "at the playhead" within half a frame — same tolerance the
+	// inspector's ◆ toggle uses, so both light together.
+	const halfFrameFraction = $derived(
+		timeline.durationSeconds > 0 && timeline.fps > 0
+			? 0.5 / (timeline.fps * timeline.durationSeconds)
+			: 0
+	);
 
 	// ─── Gutter classification helpers ──────────────────────────────────────────
 
@@ -294,6 +310,9 @@
 		const transition = track?.transitions.find((c) => c.id === state.transitionId);
 		if (!transition?.onKeyframeRetime) return;
 		const delta = (event.clientX - state.pointerStartX) / state.containerWidth;
+		// Sub-pixel jitter is a click, not a retime.
+		if (!state.moved && Math.abs(delta) < 0.0005) return;
+		state.moved = true;
 		transition.onKeyframeRetime(state.channel, state.index, state.originFraction + delta);
 	}
 
@@ -309,6 +328,11 @@
 	}
 
 	function handlePointerUp(): void {
+		// A keyframe press that never became a drag SEEKS to the keyframe — the
+		// diamond is a navigation target as much as a handle.
+		if (dragState?.kind === 'keyframe' && !dragState.moved) {
+			timeline.seek(dragState.originFraction * timeline.durationSeconds);
+		}
 		dragState = null;
 		window.removeEventListener('pointermove', handlePointerMove);
 		window.removeEventListener('pointerup', handlePointerUp);
@@ -365,6 +389,7 @@
 		event.preventDefault();
 		event.stopPropagation();
 		selectLayer(track.id);
+		selectKeyframe(track.id, keyframe.channel, keyframe.index);
 		dragState = {
 			kind: 'keyframe',
 			trackId: track.id,
@@ -373,7 +398,8 @@
 			index: keyframe.index,
 			originFraction: keyframe.fraction,
 			pointerStartX: event.clientX,
-			containerWidth: rect.width
+			containerWidth: rect.width,
+			moved: false
 		};
 		window.addEventListener('pointermove', handlePointerMove);
 		window.addEventListener('pointerup', handlePointerUp);
@@ -591,6 +617,10 @@
 								<button
 									aria-label="Retime {keyframe.channel} keyframe {keyframe.index + 1}"
 									class="track-keyframe"
+									class:track-keyframe--selected={keyframeSelection.key ===
+										`${track.id}:${keyframe.channel}:${keyframe.index}`}
+									class:track-keyframe--playhead={Math.abs(keyframe.fraction - playheadFraction) <=
+										halfFrameFraction}
 									style:left="{transition.duration > 0
 										? ((keyframe.fraction - transition.start) / transition.duration) * 100
 										: 0}%"
@@ -1106,6 +1136,18 @@
 
 	.track-keyframe:hover {
 		background: rgba(0, 0, 0, 0.9);
+	}
+
+	/* Playhead parked on it → lit; selected → lit with a ring. Matches the
+	   inspector row's ◆ so the two surfaces read as one system. */
+	.track-keyframe--playhead {
+		background: #ffd608;
+	}
+
+	.track-keyframe--selected {
+		background: #ffd608;
+		box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.65);
+		transform: translate(-50%, -50%) rotate(45deg) scale(1.25);
 	}
 
 	/* ── Cascade tethers (ADR-0035 §4) ── */

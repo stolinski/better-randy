@@ -1,238 +1,351 @@
 <script lang="ts">
+	import { animState } from './anim-state.svelte';
+	import { resolveCascadeTimings } from './cascade-timing';
 	import { ENGINE_EASES, type Ease, type Keyframe } from './engine-schema';
 	import { engineState } from './engine-state.svelte';
+	import { keyframeSelection, selectKeyframe } from './selection.svelte';
+	import { timelineHandle } from './timeline-handle.svelte';
 	import InspectorSection from './InspectorSection.svelte';
 
-	// Per-channel keyframe editor (ADR-0035 §5/§7, ADR-0034 progressive
-	// disclosure). Rendered for overlays (five channels) and the surface
-	// (opacity only) — the generic boundary is the `owner` object carrying
-	// `animation.channels`, mutated in place like every other inspector write.
-	// Ease stays the constrained enum: the curve INTO a keyframe, none on the
-	// first. Declaring any track means the composition takes the pen — the
-	// element's intrinsic enter/exit motion-form stops running.
+	// DaVinci-style keyframe rows (ADR-0035 §7): one row per property showing
+	// the value AT THE PLAYHEAD, with ◀ (jump to previous keyframe) · ◆ (add or
+	// remove a keyframe at the playhead — filled when the playhead sits on one)
+	// · ▶ (jump to next). Never a raw keyframe list. Editing the value upserts
+	// a keyframe at the playhead; the ◆ on an empty property starts its track.
+	// Ease-into (constrained enum) appears only while parked on a keyframe.
 
 	interface ChannelOwner {
 		animation?: { channels?: Partial<Record<string, Keyframe[] | undefined>> };
 	}
 
 	interface Props {
-		owner: ChannelOwner;
+		/** Cascade node key: 'surface' or `overlay:<id>` — resolves the owner,
+		 *  the clip start, and the timeline row this section mirrors. */
+		selfKey: string;
 		channelNames: readonly string[];
 	}
 
-	let { owner, channelNames }: Props = $props();
+	let { selfKey, channelNames }: Props = $props();
 
 	const easeOptions = Object.entries(ENGINE_EASES) as [Ease, (typeof ENGINE_EASES)[Ease]][];
 
-	// Value semantics per channel (ADR-0035 §3): opacity is a 0..1 fraction,
-	// x/y signed composition-fraction deltas, scale mirrors the static bounds,
-	// rotation absolute degrees. `seed` starts a new track at its rest value.
-	const CHANNEL_INPUT: Record<string, { min?: number; max?: number; step: number; seed: number }> =
-		{
-			opacity: { min: 0, max: 1, step: 0.05, seed: 1 },
-			x: { step: 0.005, seed: 0 },
-			y: { step: 0.005, seed: 0 },
-			scale: { min: 0.1, max: 8, step: 0.01, seed: 1 },
-			rotation: { step: 1, seed: 0 }
-		};
+	const CHANNEL_INPUT: Record<string, { min?: number; max?: number; step: number }> = {
+		opacity: { min: 0, max: 1, step: 0.05 },
+		x: { step: 0.005 },
+		y: { step: 0.005 },
+		scale: { min: 0.1, max: 8, step: 0.01 },
+		rotation: { step: 1 }
+	};
+
+	const overlayIndex = $derived(
+		selfKey === 'surface'
+			? -1
+			: engineState.overlays.findIndex((overlay) => selfKey === `overlay:${overlay.id}`)
+	);
+	const overlay = $derived(overlayIndex >= 0 ? engineState.overlays[overlayIndex] : null);
+	const owner = $derived<ChannelOwner | null>(
+		selfKey === 'surface' ? engineState.surface : (overlay ?? null)
+	);
+	const trackRowId = $derived(
+		selfKey === 'surface' ? 'surface' : `overlay-${selfKey.slice('overlay:'.length)}`
+	);
 
 	const durationMs = $derived(engineState.transport.durationSeconds * 1000);
+	// Half a frame of tolerance: the playhead "sits on" a keyframe when within it.
+	const halfFrameMs = $derived(500 / engineState.transport.fps);
+
+	const clipStartMs = $derived.by(() => {
+		try {
+			return (resolveCascadeTimings(engineState).get(selfKey)?.startFraction ?? 0) * durationMs;
+		} catch {
+			return 0;
+		}
+	});
+
+	const playheadMs = $derived((timelineHandle.current?.time ?? 0) * 1000);
+	/** Playhead in clip-local keyframe time. */
+	const localMs = $derived(playheadMs - clipStartMs);
 
 	function trackFor(channel: string): Keyframe[] | undefined {
-		const track = owner.animation?.channels?.[channel];
+		const track = owner?.animation?.channels?.[channel];
 		return track && track.length > 0 ? track : undefined;
 	}
 
-	function addKeyframe(channel: string): void {
-		const input = CHANNEL_INPUT[channel] ?? { step: 0.01, seed: 0 };
+	function keyframeIndexAtPlayhead(channel: string): number {
+		const track = trackFor(channel);
+		if (!track) return -1;
+		return track.findIndex((frame) => Math.abs(frame.atMs - localMs) <= halfFrameMs);
+	}
+
+	// The value shown is the LIVE evaluated value at the playhead — the same
+	// number the render used this frame (animState) — falling back to the
+	// static seed for properties with no track.
+	function liveValue(channel: string): number {
+		if (selfKey === 'surface') {
+			return round(trackFor(channel) ? animState.paperVisibility : 1);
+		}
+		const slot = overlayIndex >= 0 ? animState.overlayChannels[overlayIndex] : null;
+		if (slot) {
+			return round(slot[channel as keyof typeof slot] ?? 0);
+		}
+		if (channel === 'scale') return overlay?.position.scale ?? 1;
+		if (channel === 'rotation') return overlay?.position.rotation ?? 0;
+		return channel === 'opacity' ? 1 : 0;
+	}
+
+	function round(value: number): number {
+		return Math.round(value * 1000) / 1000;
+	}
+
+	function ensureChannels(): Partial<Record<string, Keyframe[] | undefined>> {
+		if (!owner) throw new Error(`KeyframesSection: no element for "${selfKey}"`);
 		if (!owner.animation) owner.animation = {};
 		if (!owner.animation.channels) owner.animation.channels = {};
-		const track = owner.animation.channels[channel];
-		if (!track || track.length === 0) {
-			owner.animation.channels[channel] = [{ atMs: 0, value: input.seed }];
+		return owner.animation.channels;
+	}
+
+	// Insert sorted by atMs; the first keyframe of a track never carries an
+	// ease (nothing precedes it), every later one defaults to `smooth`.
+	function upsertKeyframe(channel: string, value: number): void {
+		const channels = ensureChannels();
+		const atMs = Math.max(0, Math.min(localMs, durationMs - clipStartMs));
+		const track = channels[channel] ?? [];
+		const existing = keyframeIndexAtPlayhead(channel);
+		if (existing >= 0 && track[existing]) {
+			track[existing].value = value;
+			channels[channel] = track;
 			return;
 		}
-		const last = track[track.length - 1];
-		track.push({
-			atMs: Math.min(last.atMs + 200, durationMs),
-			value: last.value,
-			ease: 'smooth'
+		track.push({ atMs, value });
+		track.sort((a, b) => a.atMs - b.atMs);
+		normalizeEases(track);
+		channels[channel] = track;
+	}
+
+	function normalizeEases(track: Keyframe[]): void {
+		track.forEach((frame, index) => {
+			if (index === 0) {
+				delete frame.ease;
+			} else if (frame.ease === undefined) {
+				frame.ease = 'smooth';
+			}
 		});
 	}
 
-	function removeKeyframe(channel: string, index: number): void {
-		const channels = owner.animation?.channels;
-		const track = channels?.[channel];
-		if (!channels || !track) return;
-		track.splice(index, 1);
-		if (index === 0 && track.length > 0) {
-			// The new first keyframe carries no ease — nothing precedes it.
-			delete track[0].ease;
-		}
-		if (track.length === 0) {
-			delete channels[channel];
-		}
-	}
-
-	// atMs writes clamp between neighbours so tracks stay strictly ascending
-	// through any edit — same rule as the timeline diamond drag.
-	function setAtMs(channel: string, index: number, value: string): void {
+	function toggleKeyframe(channel: string): void {
 		const track = trackFor(channel);
-		const frame = track?.[index];
-		if (!track || !frame) return;
-		const n = Number(value);
-		if (!Number.isFinite(n)) return;
-		const min = index > 0 ? track[index - 1].atMs + 1 : 0;
-		const max = index < track.length - 1 ? track[index + 1].atMs - 1 : durationMs;
-		frame.atMs = Math.max(min, Math.min(Math.max(min, max), n));
+		const at = keyframeIndexAtPlayhead(channel);
+		if (track && at >= 0) {
+			track.splice(at, 1);
+			normalizeEases(track);
+			if (track.length === 0) {
+				const channels = owner?.animation?.channels;
+				if (channels) delete channels[channel];
+			}
+			return;
+		}
+		upsertKeyframe(channel, liveValue(channel));
+		const index = keyframeIndexAtPlayhead(channel);
+		if (index >= 0) selectKeyframe(trackRowId, channel, index);
 	}
 
-	function setValue(channel: string, index: number, value: string): void {
-		const frame = trackFor(channel)?.[index];
-		if (!frame) return;
-		const n = Number(value);
+	function jump(channel: string, direction: -1 | 1): void {
+		const track = trackFor(channel);
+		const transport = timelineHandle.current;
+		if (!track || !transport) return;
+		const candidates =
+			direction === -1
+				? track.filter((frame) => frame.atMs < localMs - halfFrameMs)
+				: track.filter((frame) => frame.atMs > localMs + halfFrameMs);
+		if (candidates.length === 0) return;
+		const target = direction === -1 ? candidates[candidates.length - 1] : candidates[0];
+		transport.seek((clipStartMs + target.atMs) / 1000);
+		selectKeyframe(trackRowId, channel, track.indexOf(target));
+	}
+
+	function hasPrev(channel: string): boolean {
+		return (trackFor(channel) ?? []).some((frame) => frame.atMs < localMs - halfFrameMs);
+	}
+
+	function hasNext(channel: string): boolean {
+		return (trackFor(channel) ?? []).some((frame) => frame.atMs > localMs + halfFrameMs);
+	}
+
+	function setValue(channel: string, raw: string): void {
+		const n = Number(raw);
 		if (!Number.isFinite(n)) return;
 		const input = CHANNEL_INPUT[channel];
-		frame.value = Math.max(input?.min ?? -Infinity, Math.min(input?.max ?? Infinity, n));
+		upsertKeyframe(channel, Math.max(input?.min ?? -Infinity, Math.min(input?.max ?? Infinity, n)));
 	}
 
-	function setEase(channel: string, index: number, value: string): void {
-		const frame = trackFor(channel)?.[index];
-		if (!frame || index === 0) return;
-		frame.ease = value as Ease;
+	function setEase(channel: string, value: string): void {
+		const track = trackFor(channel);
+		const at = keyframeIndexAtPlayhead(channel);
+		if (!track || at <= 0) return;
+		track[at].ease = value as Ease;
 	}
 </script>
 
 <InspectorSection label="Keyframes">
 	{#each channelNames as channel (channel)}
 		{@const track = trackFor(channel)}
-		<div class="channel">
-			<div class="channel__header">
-				<span class="channel__name">{channel}</span>
+		{@const atIndex = keyframeIndexAtPlayhead(channel)}
+		{@const onKeyframe = atIndex >= 0}
+		<div class="kf-row" class:kf-row--keyed={track !== undefined}>
+			<span class="kf-row__name">{channel}</span>
+			<input
+				class="kf-row__value"
+				aria-label="{channel} value at playhead"
+				type="number"
+				min={CHANNEL_INPUT[channel]?.min}
+				max={CHANNEL_INPUT[channel]?.max}
+				step={CHANNEL_INPUT[channel]?.step ?? 0.01}
+				value={liveValue(channel)}
+				onchange={(e) => setValue(channel, (e.currentTarget as HTMLInputElement).value)}
+			/>
+			<div class="kf-row__nav">
 				<button
 					type="button"
-					class="channel__add"
-					aria-label="Add {channel} keyframe"
-					onclick={() => addKeyframe(channel)}>+</button
+					class="kf-row__jump"
+					aria-label="Previous {channel} keyframe"
+					disabled={!hasPrev(channel)}
+					onclick={() => jump(channel, -1)}
 				>
+					<svg width="7" height="9" viewBox="0 0 7 9" aria-hidden="true">
+						<path d="M6 .8v7.4L.8 4.5z" fill="currentColor" />
+					</svg>
+				</button>
+				<button
+					type="button"
+					class="kf-row__toggle"
+					class:kf-row__toggle--on={onKeyframe}
+					aria-label={onKeyframe
+						? `Remove ${channel} keyframe at playhead`
+						: `Add ${channel} keyframe at playhead`}
+					aria-pressed={onKeyframe}
+					onclick={() => toggleKeyframe(channel)}
+				>
+					<svg width="9" height="9" viewBox="0 0 10 10" aria-hidden="true">
+						<rect
+							x="2.4"
+							y="2.4"
+							width="5.2"
+							height="5.2"
+							transform="rotate(45 5 5)"
+							fill={onKeyframe ? 'currentColor' : 'none'}
+							stroke="currentColor"
+							stroke-width="1.2"
+						/>
+					</svg>
+				</button>
+				<button
+					type="button"
+					class="kf-row__jump"
+					aria-label="Next {channel} keyframe"
+					disabled={!hasNext(channel)}
+					onclick={() => jump(channel, 1)}
+				>
+					<svg width="7" height="9" viewBox="0 0 7 9" aria-hidden="true">
+						<path d="M1 .8v7.4l5.2-3.7z" fill="currentColor" />
+					</svg>
+				</button>
 			</div>
-			{#if track}
-				<div class="channel__rows">
-					{#each track as frame, index (index)}
-						<div class="keyframe-row">
-							<input
-								aria-label="{channel} keyframe {index + 1} time (ms)"
-								type="number"
-								min="0"
-								step="10"
-								value={Math.round(frame.atMs)}
-								oninput={(e) =>
-									setAtMs(channel, index, (e.currentTarget as HTMLInputElement).value)}
-							/>
-							<input
-								aria-label="{channel} keyframe {index + 1} value"
-								type="number"
-								min={CHANNEL_INPUT[channel]?.min}
-								max={CHANNEL_INPUT[channel]?.max}
-								step={CHANNEL_INPUT[channel]?.step ?? 0.01}
-								value={frame.value}
-								oninput={(e) =>
-									setValue(channel, index, (e.currentTarget as HTMLInputElement).value)}
-							/>
-							{#if index === 0}
-								<span class="keyframe-row__no-ease" title="The first keyframe carries no ease"
-									>—</span
-								>
-							{:else}
-								<select
-									aria-label="{channel} keyframe {index + 1} ease"
-									value={frame.ease ?? 'smooth'}
-									onchange={(e) =>
-										setEase(channel, index, (e.currentTarget as HTMLSelectElement).value)}
-								>
-									{#each easeOptions as [value, option] (value)}
-										<option {value}>{option.label}</option>
-									{/each}
-								</select>
-							{/if}
-							<button
-								type="button"
-								class="keyframe-row__remove"
-								aria-label="Remove {channel} keyframe {index + 1}"
-								onclick={() => removeKeyframe(channel, index)}>×</button
-							>
-						</div>
-					{/each}
-				</div>
-			{/if}
 		</div>
+		{#if onKeyframe && atIndex > 0}
+			<div
+				class="kf-ease"
+				data-selected={keyframeSelection.key === `${trackRowId}:${channel}:${atIndex}` || undefined}
+			>
+				<span class="kf-ease__label">ease into</span>
+				<select
+					aria-label="{channel} keyframe ease"
+					value={track?.[atIndex]?.ease ?? 'smooth'}
+					onchange={(e) => setEase(channel, (e.currentTarget as HTMLSelectElement).value)}
+				>
+					{#each easeOptions as [value, option] (value)}
+						<option {value}>{option.label}</option>
+					{/each}
+				</select>
+			</div>
+		{/if}
 	{/each}
 </InspectorSection>
 
 <style>
-	.channel {
+	/* name · value-at-playhead · ◀ ◆ ▶ — the DaVinci row. */
+	.kf-row {
+		align-items: center;
 		display: grid;
 		gap: var(--vs-xs);
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
 	}
 
-	.channel__header {
+	.kf-row__name {
+		color: var(--fg-6);
+		font-size: 0.72rem;
+		text-transform: capitalize;
+	}
+
+	/* A property that carries keyframes reads as "authored". */
+	.kf-row--keyed .kf-row__name {
+		color: #ffd608;
+	}
+
+	.kf-row__value {
+		min-inline-size: 0;
+	}
+
+	.kf-row__nav {
 		align-items: center;
 		display: flex;
-		justify-content: space-between;
-	}
-
-	.channel__name {
-		color: var(--fg-6);
-		font-size: 0.7rem;
-		font-weight: var(--fw-semibold);
-		letter-spacing: 0.05em;
-		text-transform: uppercase;
-	}
-
-	.channel__add {
-		background: transparent;
-		border: 0;
-		color: var(--fg-4);
-		cursor: pointer;
-		font-size: 0.9rem;
-		line-height: 1;
-		padding: 0 var(--vs-xs);
-	}
-
-	.channel__add:hover {
-		color: var(--fg);
-	}
-
-	.channel__rows {
-		display: grid;
 		gap: 2px;
 	}
 
-	/* ms · value · ease · remove — one compact row per keyframe. */
-	.keyframe-row {
+	.kf-row__jump,
+	.kf-row__toggle {
 		align-items: center;
-		display: grid;
-		gap: var(--vs-xs);
-		grid-template-columns: 1fr 1fr 1fr auto;
-	}
-
-	.keyframe-row__no-ease {
-		color: var(--fg-3);
-		font-size: 0.75rem;
-		text-align: center;
-	}
-
-	.keyframe-row__remove {
 		background: transparent;
 		border: 0;
-		color: var(--fg-4);
+		border-radius: var(--br-xs);
+		color: var(--fg-5);
 		cursor: pointer;
-		font-size: 0.9rem;
-		line-height: 1;
-		padding: 0 2px;
+		display: flex;
+		justify-content: center;
+		padding: 3px 4px;
+		transition:
+			color 100ms ease,
+			background 100ms ease;
 	}
 
-	.keyframe-row__remove:hover {
-		color: #e6322a;
+	.kf-row__jump:hover:not(:disabled),
+	.kf-row__toggle:hover {
+		background: var(--fg-1);
+		color: var(--fg);
+	}
+
+	.kf-row__jump:disabled {
+		color: var(--fg-2);
+		cursor: default;
+	}
+
+	/* Playhead parked on a keyframe → the diamond lights. */
+	.kf-row__toggle--on {
+		color: #ffd608;
+	}
+
+	/* Ease-into for the keyframe under the playhead — only visible parked. */
+	.kf-ease {
+		align-items: center;
+		display: flex;
+		gap: var(--vs-s);
+		padding-inline-start: 2px;
+	}
+
+	.kf-ease__label {
+		color: var(--fg-4);
+		font-size: 0.68rem;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		white-space: nowrap;
 	}
 </style>

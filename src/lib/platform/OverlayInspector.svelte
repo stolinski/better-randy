@@ -372,7 +372,7 @@
 		{/if}
 	</InspectorSection>
 
-	<KeyframesSection owner={ov} channelNames={OVERLAY_CHANNELS} />
+	<KeyframesSection selfKey={`overlay:${ov.id}`} channelNames={OVERLAY_CHANNELS} />
 
 	<CascadeSection
 		selfKey={`overlay:${ov.id}`}
