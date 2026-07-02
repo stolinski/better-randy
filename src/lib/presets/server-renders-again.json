@@ -49,7 +49,7 @@
 				"duration": 0.085,
 				"ease": "smooth"
 			},
-			"soundKit": "syntax"
+			"soundKit": "quick-whoosh"
 		},
 		"overlays": [
 			{

@@ -37,7 +37,7 @@
 				"duration": 0.05,
 				"ease": "smooth"
 			},
-			"soundKit": "syntax"
+			"soundKit": "quick-whoosh"
 		},
 		"textAnimations": [
 			{
@@ -60,7 +60,7 @@
 			{
 				"id": "bed",
 				"kind": "bed",
-				"assetSlug": "syntax-bed-texture",
+				"assetSlug": "bed-ambient-texture",
 				"start": 0,
 				"duration": 1,
 				"volume": 0.4
