@@ -190,9 +190,11 @@
 
 	// This Layer's motion windows for the Sound section (ADR-0033 §5).
 	const soundMotions = $derived.by(() => {
-		const rows: { label: string; window: { sound?: SoundOverride } }[] = [];
-		if (engineState.surface.enter) rows.push({ label: 'Enter', window: engineState.surface.enter });
-		if (engineState.surface.exit) rows.push({ label: 'Exit', window: engineState.surface.exit });
+		const rows: { label: string; cueId: string; window: { sound?: SoundOverride } }[] = [];
+		if (engineState.surface.enter)
+			rows.push({ label: 'Enter', cueId: 'surface:enter', window: engineState.surface.enter });
+		if (engineState.surface.exit)
+			rows.push({ label: 'Exit', cueId: 'surface:exit', window: engineState.surface.exit });
 		return rows;
 	});
 </script>

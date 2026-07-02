@@ -325,7 +325,9 @@
 		if (!rect) return;
 		event.preventDefault();
 		event.stopPropagation();
-		selectLayer(track.id);
+		// Sound-rail cues focus individually in the sidebar (ADR-0033 §9); every
+		// other lane selects its Layer.
+		selectLayer(track.id === 'sound' ? `sound:${transition.id}` : track.id);
 		timeline.selectTransition(track.id, transition.id);
 		const u = transition.unified;
 		dragState = {

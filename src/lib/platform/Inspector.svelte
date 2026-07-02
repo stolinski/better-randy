@@ -5,6 +5,7 @@
 	import OverlayInspector from './OverlayInspector.svelte';
 	import TextAnimInspector from './TextAnimInspector.svelte';
 	import MarkInspector from './MarkInspector.svelte';
+	import SoundCueInspector from './SoundCueInspector.svelte';
 
 	interface Props {
 		handleExport: () => Promise<void>;
@@ -29,6 +30,10 @@
 
 		if (id === 'surface') return { kind: 'surface' as const };
 
+		// A cue selected on the timeline's Sound rail (ADR-0033 §9):
+		// 'sound:derived-<cueId>' or 'sound:manual-<cueId>'.
+		if (id.startsWith('sound:')) return { kind: 'soundCue' as const, cueRef: id.slice(6) };
+
 		const markMatch = id.match(/^mark-(\d+)$/);
 		if (markMatch) return { kind: 'mark' as const, index: parseInt(markMatch[1], 10) };
 
@@ -42,8 +47,8 @@
 			// Confirm it's not a known sub-track suffix
 			const overlayId = overlayMatch[1];
 			const knownSuffixes = ['-stack', '-roll', '-spin'];
-			const isSub = knownSuffixes.some((s) => overlayId.endsWith(s)) ||
-				/^.+-cursor-\d+$/.test(overlayId);
+			const isSub =
+				knownSuffixes.some((s) => overlayId.endsWith(s)) || /^.+-cursor-\d+$/.test(overlayId);
 			if (!isSub) return { kind: 'overlay' as const, overlayId };
 		}
 
@@ -64,6 +69,8 @@
 			<TextAnimInspector animId={resolved.animId} />
 		{:else if resolved.kind === 'mark'}
 			<MarkInspector markIndex={resolved.index} />
+		{:else if resolved.kind === 'soundCue'}
+			<SoundCueInspector cueRef={resolved.cueRef} />
 		{:else}
 			<div class="generic-label">
 				<span class="generic-label__id">{resolved.id}</span>
