@@ -836,7 +836,7 @@
 			// Channel-owned surface: the clip is the authored envelope with diamond
 			// markers; no enter/exit ramps (the composition holds the pen).
 			const label =
-				surface.type === 'paper' ? 'Paper' : surface.type === 'newspaper' ? 'Newspaper' : 'Body';
+				surface.type === 'paper' ? 'Paper' : surface.type === 'newspaper' ? 'Newspaper' : 'Surface';
 			const clipStart = cascadeWindows.get('surface')?.startFraction ?? 0;
 			trackList.push({
 				id: 'surface',
@@ -857,7 +857,7 @@
 			});
 		} else if (surface.enter || surface.exit) {
 			const label =
-				surface.type === 'paper' ? 'Paper' : surface.type === 'newspaper' ? 'Newspaper' : 'Body';
+				surface.type === 'paper' ? 'Paper' : surface.type === 'newspaper' ? 'Newspaper' : 'Surface';
 			trackList.push({
 				id: 'surface',
 				label,
