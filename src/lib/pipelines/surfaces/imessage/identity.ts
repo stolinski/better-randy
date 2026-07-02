@@ -17,14 +17,28 @@ export const imessageIdentity: IdentitySpec = {
 		{
 			name: 'conversation-bubbles',
 			definition:
-				'Received messages are gray bubbles on the left, sent messages are blue bubbles on the right, each with the iMessage tail curl at its bottom corner, under an iOS conversation header (back chevron, centered contact avatar + name, FaceTime icon). It reads as Messages, not a generic chat.',
+				'Received messages are gray bubbles on the left, sent messages are blue bubbles on the right, each with the iMessage tail curl at its bottom corner. In the default `chrome: "window"` mode they sit under an iOS conversation header (back chevron, centered contact avatar + name, FaceTime icon) with a timestamp and composer bar; in `chrome: "none"` there is no window at all (see chromeless-film-insert). Either way it reads as Messages, not a generic chat.',
 			implementation:
-				'src/lib/pipelines/surfaces/imessage/CanvasSource.svelte — `.im-bubble[data-from]` sets side/colour + the two-pseudo tail; `.im-header` renders the chevron / avatar / name / FaceTime icon.',
+				'src/lib/pipelines/surfaces/imessage/CanvasSource.svelte — `.im-bubble[data-from]` sets side/colour + the tail (two-pseudo page-cutout in window mode; single radial-gradient-to-transparent pseudo in chromeless); `.im-header` / timestamp / composer render only when `chrome ?? "window"` is `window`.',
 			probe: {
 				kind: 'named-observation',
-				region: 'the message column and the top header',
+				region: 'the message column (and, in window mode, the top header)',
 				expectation:
-					'gray left-aligned received bubbles and blue right-aligned sent bubbles, each with a tail at the inner-bottom corner, beneath an iOS header showing the contact name.'
+					'gray left-aligned received bubbles and blue right-aligned sent bubbles, each with a tail at the inner-bottom corner; in window mode an iOS header with the contact name sits above the thread, in chromeless mode no header exists.'
+			}
+		},
+		{
+			name: 'chromeless-film-insert',
+			definition:
+				'With `chrome: "none"` the surface is the movie treatment of a text conversation: NOTHING but the bubbles floats over the footage — no Messages window, page background, header, timestamp, or composer bar. Every painted edge cuts to genuine transparency (the tail curls and the tapback ring never paint a page-colored block), and a localized substrate-darken radial vignette (≤ 30% of the frame) rises under the thread with the surface visibility ramp so the bubbles stay legible over any footage grade.',
+			implementation:
+				'src/lib/pipelines/surfaces/imessage/CanvasSource.svelte — `chrome ?? "window"` gates `.imessage--chromeless` (transparent page, no radius, header/timestamp/composer dropped from the DOM); the tail repaints as a radial-gradient-to-transparent pseudo and the tapback ring goes `border-color: transparent`; `.im-vignette` (plain radial-gradient, frame-pixel-sized, z-index below the tails) multiplies its opacity by `layout.visibility`. No CSS filter anywhere in the captured DOM.',
+			probe: {
+				kind: 'named-observation',
+				region:
+					'the frame around and between the bubbles, the tail corner of the last bubble in a run, and the tapbacked bubble corner, in a `chrome: "none"` preset',
+				expectation:
+					'no window, header, timestamp, or composer anywhere in the frame; the area between/around bubbles is transparent (footage or checkerboard shows through) except a soft localized radial darkening behind the thread column covering ≤ 30% of the frame; the tail curls and the tapback badge edge show no opaque page-colored blocks.'
 			}
 		},
 		{
