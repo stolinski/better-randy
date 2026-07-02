@@ -59,8 +59,8 @@ A declarative timing relationship between elements: an element's enter anchors t
 _Avoid_: stagger (the narrower per-glyph text-animation mechanism), sequence, chain, follow-through (the animation-craft effect a Cascade is used to achieve, not the mechanism).
 
 **Diagram primitive**:
-Planned **Block** vocabulary for art-directed, documentary-style diagrams — node, edge-arrow, label, stat-callout, timeline-segment — positioned explicitly (schema + GUI), revealed with stroke-draw + **Cascade** choreography. Explicitly *not* auto-layout: mermaid was rejected as the model (auto-layout reads as documentation, not documentary); at most a future compile-into-primitives authoring shortcut. Designed direction (2026-07 grill), not built — see [`roadmap.md`](roadmap.md).
-_Avoid_: chart Block (underspecified), mermaid Block (auto-layout is not the model), infographic.
+The five-**Block** vocabulary for art-directed, documentary-style diagrams — `node`, `edge-arrow`, `label`, `stat-callout`, `timeline-segment` — living on any Surface, positioned explicitly (schema + GUI drag), revealed with stroke-draw + **Cascade** choreography. Edge *route* is content (straight/elbow/arc, authored); edge *stroke* is appearance (Pack-resolved Role). A map is a **composition** (primitives over an image substrate), not a primitive. Explicitly *not* auto-layout: mermaid was rejected as the model (auto-layout reads as documentation, not documentary); at most a future compile-into-primitives authoring shortcut. Designed ([ADR-0036](adr/0036-diagram-primitives.md)), not built.
+_Avoid_: chart Block (underspecified), mermaid Block (auto-layout is not the model), infographic, map primitive (a map is a composition, not a type).
 
 ### Pack model
 
