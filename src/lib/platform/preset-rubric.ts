@@ -1,12 +1,7 @@
 import type { AnnotationMarkStyle } from '../annotations/annotation-mark-styles.ts';
 import type { AnnotationBody } from '../annotations/annotation-marks.ts';
-import type {
-	MarkTiming,
-	Overlay,
-	Preset,
-	SurfaceState,
-	Transition
-} from './engine-schema.ts';
+import { opacityEnvelope, resolveCascadeTimings, type CascadeWindow } from './cascade-timing.ts';
+import type { MarkTiming, Overlay, Preset, SurfaceState, Transition } from './engine-schema.ts';
 import { getLayoutSafeArea } from '../utils/safe-area.ts';
 
 export type RubricSeverity = 'error' | 'warn';
@@ -109,9 +104,26 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 	const frame = orientation === 'vertical' ? FRAME_VERTICAL : FRAME_HORIZONTAL;
 	const flattenedMarks = flattenBody(state.surface.content.body);
 
+	// Cascade-resolved windows (ADR-0035 §6): the window rules below run against
+	// RESOLVED starts and derived enter envelopes, so a welded chain is linted
+	// where it actually lands. The resolver asserts on cycles the schema already
+	// rejects — surface it as an issue rather than crashing a lint pass.
+	let cascadeWindows: Map<string, CascadeWindow>;
+	try {
+		cascadeWindows = resolveCascadeTimings(state);
+	} catch (error) {
+		cascadeWindows = new Map();
+		issues.push({
+			rule: 'A4',
+			severity: 'error',
+			path: 'state',
+			message: `Cascade graph failed to resolve: ${error instanceof Error ? error.message : String(error)}`
+		});
+	}
+
 	checkMarkTimings(flattenedMarks, state.marks.timings, issues);
-	checkMarkOrdering(state.surface, state.marks.timings, totalSeconds, issues);
-	checkOverlayTimings(state.overlays, totalSeconds, issues);
+	checkMarkOrdering(state.surface, state.marks.timings, totalSeconds, cascadeWindows, issues);
+	checkOverlayTimings(state.overlays, totalSeconds, cascadeWindows, issues);
 	checkOverlayPlacement(state.overlays, frame, orientation, issues);
 	checkContrast(state.surface, state.typography, issues);
 	checkHoldTime(state.surface, state.marks.timings, flattenedMarks, totalSeconds, issues);
@@ -122,13 +134,16 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 
 export function formatIssues(issues: readonly RubricIssue[]): string {
 	return issues
-		.map((issue) => `[${issue.severity.toUpperCase()}] ${issue.rule} ${issue.path} — ${issue.message}`)
+		.map(
+			(issue) => `[${issue.severity.toUpperCase()}] ${issue.rule} ${issue.path} — ${issue.message}`
+		)
 		.join('\n');
 }
 
 function checkOverlayTimings(
 	overlays: readonly Overlay[],
 	totalSeconds: number,
+	cascadeWindows: Map<string, CascadeWindow>,
 	issues: RubricIssue[]
 ): void {
 	for (const [index, overlay] of overlays.entries()) {
@@ -137,9 +152,41 @@ function checkOverlayTimings(
 		// Lower-third must stay on screen long enough to read (readability
 		// floor). The hold ceiling and all enter/exit duration shaping are
 		// taste — the Critic owns them.
-		if (overlay.type === 'lower-third' && overlay.enter && overlay.exit) {
+		if (overlay.type !== 'lower-third') {
+			continue;
+		}
+
+		const opacityTrack = overlay.animation?.channels?.opacity;
+		if (opacityTrack && opacityTrack.length > 0) {
+			// Channel-owned (ADR-0035 §6): the hold is the opacity plateau — the
+			// authored envelope between the fade-in's landing and the departure
+			// keyframe. atMs are milliseconds, so no fraction conversion.
+			const envelope = opacityEnvelope(opacityTrack);
+			if (envelope) {
+				const holdSeconds = (envelope.departMs - envelope.settleMs) / 1000;
+				if (holdSeconds < LOWER_THIRD_HOLD_MIN_SECONDS) {
+					issues.push({
+						rule: 'L4',
+						severity: 'error',
+						path: `${path}.animation.channels.opacity`,
+						message: `Lower-third on-screen hold is ${holdSeconds.toFixed(2)}s (opacity envelope) — needs ≥ ${LOWER_THIRD_HOLD_MIN_SECONDS}s to read.`
+					});
+				}
+			}
+			continue;
+		}
+
+		if (overlay.enter && overlay.exit) {
+			// Cascade-welded enters hold from where they actually land.
+			const resolvedStart =
+				cascadeWindows.get(`overlay:${overlay.id}`)?.startFraction ?? overlay.enter.start;
 			issues.push(
-				...checkLowerThirdHoldWindow(overlay.enter, overlay.exit, totalSeconds, path)
+				...checkLowerThirdHoldWindow(
+					{ ...overlay.enter, start: resolvedStart },
+					overlay.exit,
+					totalSeconds,
+					path
+				)
 			);
 		}
 	}
@@ -198,20 +245,31 @@ function checkMarkOrdering(
 	surface: SurfaceState,
 	timings: readonly MarkTiming[],
 	totalSeconds: number,
+	cascadeWindows: Map<string, CascadeWindow>,
 	issues: RubricIssue[]
 ): void {
 	if (timings.length === 0) {
 		return;
 	}
 
-	const enter = surface.enter;
-	const surfaceEnd = enter ? enter.start + enter.duration : 0;
+	// The surface's settle point: the enter sugar's end, or — when the
+	// composition owns the surface's opacity (ADR-0035 §6) — the authored
+	// envelope's fade-in landing, offset by the resolved clip start.
+	const surfaceOpacity = opacityEnvelope(surface.animation?.channels?.opacity);
+	const surfaceEnd = surfaceOpacity
+		? (cascadeWindows.get('surface')?.startFraction ?? 0) +
+			surfaceOpacity.settleMs / (totalSeconds * 1000)
+		: surface.enter
+			? surface.enter.start + surface.enter.duration
+			: 0;
 
 	// A1 only — a mark firing before the surface settles annotates content
 	// that isn't on screen yet. Inter-mark stagger (A2) is taste (Critic).
+	// Welded marks are judged at their RESOLVED starts.
 	for (const [index, timing] of timings.entries()) {
-		if (timing.start <= surfaceEnd + A1_BUFFER_NORMALIZED) {
-			const msLate = (surfaceEnd + A1_BUFFER_NORMALIZED - timing.start) * totalSeconds * 1000;
+		const start = cascadeWindows.get(`mark:${index}`)?.startFraction ?? timing.start;
+		if (start <= surfaceEnd + A1_BUFFER_NORMALIZED) {
+			const msLate = (surfaceEnd + A1_BUFFER_NORMALIZED - start) * totalSeconds * 1000;
 			issues.push({
 				rule: 'A1',
 				severity: 'error',
@@ -351,7 +409,6 @@ function checkLowerThirdPlacement(
 			message: `Lower-third sits too high — offset.y must be ≤ ${maxPct} (${(maxPct * 100).toFixed(0)}% of frame height) so the block stays inside the lower-third band; got ${offset.y}.`
 		});
 	}
-
 }
 
 function checkContrast(
@@ -474,7 +531,6 @@ function checkHoldTime(
 	}
 }
 
-
 function checkBackgroundFill(
 	backgroundFill: string | undefined,
 	paperColor: string,
@@ -487,7 +543,12 @@ function checkBackgroundFill(
 	// Normalize both to lowercase 6-digit hex for comparison.
 	const normalize = (hex: string): string => {
 		const h = hex.replace('#', '').toLowerCase();
-		return h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+		return h.length === 3
+			? h
+					.split('')
+					.map((c) => c + c)
+					.join('')
+			: h;
 	};
 
 	if (normalize(backgroundFill) === normalize(paperColor)) {
@@ -633,7 +694,12 @@ function checkSurfaceTextSafety(
 	const xMax = (1 - sa.right) * frame.width;
 	const yMax = (1 - sa.bottom) * frame.height;
 
-	if (bounds.x < xMin || bounds.y < yMin || bounds.x + bounds.width > xMax || bounds.y + bounds.height > yMax) {
+	if (
+		bounds.x < xMin ||
+		bounds.y < yMin ||
+		bounds.x + bounds.width > xMax ||
+		bounds.y + bounds.height > yMax
+	) {
 		issues.push({
 			rule: 'G2',
 			severity: 'error',
@@ -670,9 +736,10 @@ function checkSurfaceCapHeights(
 	}
 }
 
-function getBodyLineHeightBand(
-	fontFamily: RenderedTextMeasurement['fontFamily']
-): { min: number; max: number } {
+function getBodyLineHeightBand(fontFamily: RenderedTextMeasurement['fontFamily']): {
+	min: number;
+	max: number;
+} {
 	if (fontFamily === 'serif') {
 		return { min: LINE_HEIGHT_SERIF_MIN, max: LINE_HEIGHT_SERIF_MAX };
 	}
@@ -680,10 +747,7 @@ function getBodyLineHeightBand(
 	return { min: LINE_HEIGHT_SANS_MIN, max: LINE_HEIGHT_SANS_MAX };
 }
 
-function checkSurfaceDensity(
-	surface: RenderedSurfaceMeasurement,
-	issues: RubricIssue[]
-): void {
+function checkSurfaceDensity(surface: RenderedSurfaceMeasurement, issues: RubricIssue[]): void {
 	for (const text of surface.texts) {
 		if (text.bandKey !== 'surface-body' && text.bandKey !== 'surface-body-focal') {
 			continue;
@@ -725,4 +789,3 @@ function checkSurfaceDensity(
 		}
 	}
 }
-

@@ -12,10 +12,10 @@ Field paths refer to the `hiviz@1` preset schema in [`docs/preset-format.md`](pr
 
 ### Who enforces what (per [ADR-0025](adr/0025-static-linter-checks-safety-and-readability-only.md))
 
-Two layers — do not re-merge them. See [`CONTEXT.md`](CONTEXT.md) → *Preset linter*.
+Two layers — do not re-merge them. See [`CONTEXT.md`](CONTEXT.md) → _Preset linter_.
 
-- **Static linter (`lintPreset`, the build gate)** — objective, JSON-computable **video-safety + readability** only, hard errors: G2 / G3 (safe zones), G5 (contrast), G6 pre-mark *floor* and post-mark read-window, A1 (mark before surface settles), A3 (timing with no segment), L1 (lower-third Y-band), L4 *floor* (min hold to read), G10 (vestibular, warn). `lintPresetVisual` adds the render-measured readability checks (G4 cap-height floors, G4-density measure).
-- **Critic (this doc, judged by eye)** — all motion *taste*: G6 enter/exit duration bands + exit:enter ratio, G7 ease semantics, A2 stagger, the G6 pre-mark *ceiling*, A3 mark-duration bands, L3 (centered reads as title card), L4 hold *ceiling*, G4 cap-height *ceilings* (signage), title:body ratio, T1 card mass. These are **not** gated — a preset is not rejected at build for them; the Critic flags them against the render.
+- **Static linter (`lintPreset`, the build gate)** — objective, JSON-computable **video-safety + readability** only, hard errors: G2 / G3 (safe zones), G5 (contrast), G6 pre-mark _floor_ and post-mark read-window, A1 (mark before surface settles), A3 (timing with no segment), L1 (lower-third Y-band), L4 _floor_ (min hold to read), G10 (vestibular, warn). `lintPresetVisual` adds the render-measured readability checks (G4 cap-height floors, G4-density measure).
+- **Critic (this doc, judged by eye)** — all motion _taste_: G6 enter/exit duration bands + exit:enter ratio, G7 ease semantics, A2 stagger, the G6 pre-mark _ceiling_, A3 mark-duration bands, L3 (centered reads as title card), L4 hold _ceiling_, G4 cap-height _ceilings_ (signage), title:body ratio, T1 card mass. These are **not** gated — a preset is not rejected at build for them; the Critic flags them against the render.
 
 ---
 
@@ -54,22 +54,23 @@ The right size for a piece of text depends on **what job it does**, not on its t
 
 - **Rule** — At 4K, every rendered text element must hit its cap-height **band** for its role × surface combination. A band has both a minimum and a maximum — text far above the floor is also wrong (oversized body reads as signage, not paper).
 
-  | Role × surface | Horizontal band (cap-height px) | Vertical band (cap-height px) |
-  | --- | --- | --- |
-  | **Overlay display** (full-frame bumper centrepiece, typographic hero) | 140–320 | 180–400 |
-  | **Overlay primary** (lower-third title, caption) | 96–144 | 120–180 |
-  | **Overlay secondary** (lower-third subtitle, caption-2) | 80–112 | 96–136 |
-  | **Overlay corner-chip** (lower-third spanning ≤25% frame width, corner-anchored; primary/title) | 56–84 | 72–108 |
-  | **Overlay corner-chip secondary** (role/subtitle on a corner chip) | 32–52 | 44–68 |
-  | **Surface title** (paper / plain card title slot) | **60–110** | 76–138 |
-  | **Surface body** (paper / plain card body, marked or unmarked) | **32–56** | 44–72 |
-  | **Surface label** (source / kicker / byline / date label, footer) | **24–48** | 32–60 |
+  | Role × surface                                                                                  | Horizontal band (cap-height px) | Vertical band (cap-height px) |
+  | ----------------------------------------------------------------------------------------------- | ------------------------------- | ----------------------------- |
+  | **Overlay display** (full-frame bumper centrepiece, typographic hero)                           | 140–320                         | 180–400                       |
+  | **Overlay primary** (lower-third title, caption)                                                | 96–144                          | 120–180                       |
+  | **Overlay secondary** (lower-third subtitle, caption-2)                                         | 80–112                          | 96–136                        |
+  | **Overlay corner-chip** (lower-third spanning ≤25% frame width, corner-anchored; primary/title) | 56–84                           | 72–108                        |
+  | **Overlay corner-chip secondary** (role/subtitle on a corner chip)                              | 32–52                           | 44–68                         |
+  | **Surface title** (paper / plain card title slot)                                               | **60–110**                      | 76–138                        |
+  | **Surface body** (paper / plain card body, marked or unmarked)                                  | **32–56**                       | 44–72                         |
+  | **Surface label** (source / kicker / byline / date label, footer)                               | **24–48**                       | 32–60                         |
 
-Note on band sources: the **binding source** for surface titles and bodies is empirical — real research-paper / document footage on YouTube renders body at roughly **40–55 px cap-height at 4K** and title at roughly **80–110 px**. The published bands (32–56 body, 60–110 title) bracket those observations with a small headroom margin so presets aren't forced to hit the exact center. A second-pass sanity-check derivation from print typography (title ~14–17 pt, body ~9–11 pt × ~4 for 4K × ~0.7 viewing-distance scale) lands at ~25–31 px body / ~40–48 px title — close enough to confirm the empirical floor isn't arbitrary, but slightly *below* the empirical observation. When the two sources disagree the empirical observation wins because it matches the visual target the rule actually exists to enforce: cards that read as photographic documents, not as signage. Overlay text uses broadcast lower-third standards which are larger because the overlay IS the message. The earlier rubric mistake was applying broadcast-overlay floors to surface body — that produced cards that looked like signage, not paper.
+Note on band sources: the **binding source** for surface titles and bodies is empirical — real research-paper / document footage on YouTube renders body at roughly **40–55 px cap-height at 4K** and title at roughly **80–110 px**. The published bands (32–56 body, 60–110 title) bracket those observations with a small headroom margin so presets aren't forced to hit the exact center. A second-pass sanity-check derivation from print typography (title ~14–17 pt, body ~9–11 pt × ~4 for 4K × ~0.7 viewing-distance scale) lands at ~25–31 px body / ~40–48 px title — close enough to confirm the empirical floor isn't arbitrary, but slightly _below_ the empirical observation. When the two sources disagree the empirical observation wins because it matches the visual target the rule actually exists to enforce: cards that read as photographic documents, not as signage. Overlay text uses broadcast lower-third standards which are larger because the overlay IS the message. The earlier rubric mistake was applying broadcast-overlay floors to surface body — that produced cards that looked like signage, not paper.
 
-Note on marked focal text: a highlighted/underlined/circled phrase inside surface body uses the *same* cap-height as surrounding body. Visual emphasis comes from the mark stroke, not larger type — a research paper does not enlarge the highlighted phrase, it draws a highlight stroke over it.
+Note on marked focal text: a highlighted/underlined/circled phrase inside surface body uses the _same_ cap-height as surrounding body. Visual emphasis comes from the mark stroke, not larger type — a research paper does not enlarge the highlighted phrase, it draws a highlight stroke over it.
 
-  Cap-height is computed at runtime as `fontSize × capHeightRatio(font)`, where `capHeightRatio` is the font's measured cap-height ratio (default 0.70 for sans/serif, 0.68 for condensed, 0.72 for mono). The linter reads cap-height directly off the rendered DOM via the visual audit harness — do not approximate from font-size alone.
+Cap-height is computed at runtime as `fontSize × capHeightRatio(font)`, where `capHeightRatio` is the font's measured cap-height ratio (default 0.70 for sans/serif, 0.68 for condensed, 0.72 for mono). The linter reads cap-height directly off the rendered DOM via the visual audit harness — do not approximate from font-size alone.
+
 - **Why** — Overlay text and surface body text are different jobs. An overlay caption IS the message; it must be large enough that the viewer can read it without effort. Surface body inside a paper card is **atmospheric context** — the viewer skims it, the highlighted phrase is what they actually read. Forcing 64 px body cap-height on a paper card produces ~3-word lines that sprawl four lines for a single sentence; the card stops looking like paper and starts looking like a typographic slide. Real research-paper/document footage on YouTube renders body at roughly 40–55 px cap-height at 4K, which gives 7–10 words per line — the typographic measure where dense bodies feel like documents. The upper bounds in each band exist for the same reason: a 100 px paper body would look like signage.
 - **How to apply** — The surface pipeline sets font sizes proportional to the card's render width. The linter's runtime check measures the actual rendered cap-height at 4K and fails the preset if any text role falls outside its band. If a preset's content is too dense to fit at the required size, **shorten the content** before shrinking type below the band floor; if the body looks oversized inside the card, **tighten the body ratio** before reducing content.
 
@@ -79,15 +80,15 @@ Cap-height is one dimension of legibility. The other two are **measure** (how ma
 
 - **Rule** — For every paragraph block of body text (surface body and overlay body):
 
-  | Property | Band |
-  | --- | --- |
-  | Characters per line (measure) | **45–80** |
-  | Line-height — serif body | **1.28–1.42** |
-  | Line-height — sans / condensed / mono body | **1.32–1.50** |
-  | Lines per paragraph (rendered) | **1–8** (≥ 9 lines means the paragraph is doing too much) |
-  | Title : body cap-height ratio (per surface) | **1.5–2.5** |
+  | Property                                    | Band                                                      |
+  | ------------------------------------------- | --------------------------------------------------------- |
+  | Characters per line (measure)               | **45–80**                                                 |
+  | Line-height — serif body                    | **1.28–1.42**                                             |
+  | Line-height — sans / condensed / mono body  | **1.32–1.50**                                             |
+  | Lines per paragraph (rendered)              | **1–8** (≥ 9 lines means the paragraph is doing too much) |
+  | Title : body cap-height ratio (per surface) | **1.5–2.5**                                               |
 
-- **Why** — Bringhurst's *Elements of Typographic Style* lands the "ideal measure" at 45–75 characters; broadcast practice extends to ~80 before the eye loses its place. Serif body at line-height < 1.28 collides ascenders/descenders; > 1.42 disconnects lines into floating slabs. Sans needs slightly more leading for clarity. A body paragraph that wraps to nine or more rendered lines stops reading as a paragraph and reads as a list of fragments. Title-to-body ratio below 1.8 flattens the hierarchy (you can't tell what's primary); above 3.0 makes the title dominate so heavily it overshadows the focal content.
+- **Why** — Bringhurst's _Elements of Typographic Style_ lands the "ideal measure" at 45–75 characters; broadcast practice extends to ~80 before the eye loses its place. Serif body at line-height < 1.28 collides ascenders/descenders; > 1.42 disconnects lines into floating slabs. Sans needs slightly more leading for clarity. A body paragraph that wraps to nine or more rendered lines stops reading as a paragraph and reads as a list of fragments. Title-to-body ratio below 1.8 flattens the hierarchy (you can't tell what's primary); above 3.0 makes the title dominate so heavily it overshadows the focal content.
 - **How to apply** — The visual audit harness measures, per paragraph: rendered `getBoundingClientRect()` dimensions, count of line-boxes (via `Range.getClientRects()` or computed `lineHeight`), computed `line-height`, and character count to derive characters-per-line. The title : body ratio is computed from the per-role cap-heights. Out-of-band values fail the preset.
 
 ### G5. Maintain 4.5:1 contrast against every frame the text covers
@@ -104,34 +105,37 @@ Cap-height is one dimension of legibility. The other two are **measure** (how ma
   - **Mark / emphasis — scales with the marked content.** A marker stroke is a physical gesture: a 1-word highlight is fast; an 18-word highlight is a long pull. The band is `[max(250, words × 60), max(500, words × 90)]` ms for **decorative** marks (highlight, underline, strike, circle, box, side-note) and `[max(450, words × 60), max(800, words × 110)]` ms for **focal** marks (magnify, lift-out, tear-out, isolate, callout). Words is the marked segment's word count. Both bands cap at 1500 ms.
 
     | Marked words | Decorative band (ms) | Focal band (ms) |
-    | --- | --- | --- |
-    | 1 | 250–500 | 450–800 |
-    | 5 | 300–500 | 450–800 |
-    | 10 | 600–900 | 600–1100 |
-    | 18 | 1080–1500 | 1080–1500 |
-    | 25 | 1500–1500 | 1500–1500 |
+    | ------------ | -------------------- | --------------- |
+    | 1            | 250–500              | 450–800         |
+    | 5            | 300–500              | 450–800         |
+    | 10           | 600–900              | 600–1100        |
+    | 18           | 1080–1500            | 1080–1500       |
+    | 25           | 1500–1500            | 1500–1500       |
 
   - **Hold-on-screen — split into pre-mark and post-mark windows, per mark.**
-    - **Pre-mark window (establishment) — title is a glance, not a read.** Between `surface.enter.end` and the **first** mark's `start`, the viewer needs ~**0.7–1.2 s** flat to register the title and locate the focal area. Titles, kickers, and bylines are *glanceable* — they take in as visual shapes, not as words read sub-vocally at 200 wpm. The 200 wpm reading model applies to **body content the viewer is expected to read line-by-line**, not to short top-of-card identifiers. If the surface also has body text the viewer is expected to scan before the mark, add that body's read time on top.
+    - **Pre-mark window (establishment) — title is a glance, not a read.** Between `surface.enter.end` and the **first** mark's `start`, the viewer needs ~**0.7–1.2 s** flat to register the title and locate the focal area. Titles, kickers, and bylines are _glanceable_ — they take in as visual shapes, not as words read sub-vocally at 200 wpm. The 200 wpm reading model applies to **body content the viewer is expected to read line-by-line**, not to short top-of-card identifiers. If the surface also has body text the viewer is expected to scan before the mark, add that body's read time on top.
     - **Post-mark window (absorption), per mark** — between the mark's `end` and the next event that disrupts it (next mark start, or `surface.exit.start`), the viewer must be able to read the marked segment **1.5×** at 200 wpm. Required seconds = `markedWords × 60 / 200 × 1.5`. This is the editorial moment: the viewer needs time to absorb the focal phrase with its emphasis.
     - For overlay-only content (captions, lower-thirds with no marks), the overlay's screen-time must satisfy 2× reading of the overlay's content. The 2× rule is preserved for caption/lower-third hierarchy only.
+
 - **Why** — UI animation research (NN/g, Material Design, Val Head) converges on 250–500 ms as the band where small UI motion feels intentional but not sluggish. Marker strokes are a different category — they're a continuous physical gesture across measurable distance, and their natural duration scales with stroke length. 60–110 ms per word maps to ~3–4 words per second of stroke, which is roughly how a person physically marks paper. The asymmetric enter/exit (longer in, shorter out) reflects that the brain accepts arrival but resents lingering. The 1.5× post-mark rule replaces the broadcast 2× rule because the marked phrase has already been seen during the establish phase — the post-mark window is for re-reading with the emphasis, not first-pass comprehension. Captions still get 2× because each new caption is unfamiliar content.
 - **How to apply** — All `start`/`duration` fields in `surface.enter`/`exit`, `overlays[].enter`/`exit`, and `marks.timings[i]` are normalized 0..1 of `transport.durationSeconds`. Convert: `durationSecondsForTween = normalizedDuration × transport.durationSeconds`. Pick the normalized values so the absolute milliseconds land in the bands above. When a preset can't satisfy the post-mark window, **shorten the marked phrase** — don't shrink the type and don't shorten the mark stroke.
 - **Relationship to [Q15](quality-rubric.md#q15-effects-animate-in-and-out--never-pop)** — G6's absolute ms bands are the no-pop perceptual floor Q15 references. On presets long enough that 10% of an element's on-screen time exceeds G6's ms ceiling, G6 binds (a 7 s on-screen surface still gets a 180–280 ms exit, not a 700 ms one). On short presets where 10% of element lifetime lands inside G6's band, both rules agree by construction.
+- **Keyframe channels — lint the envelope, judge the inside ([ADR-0035](adr/0035-generalized-keyframes-and-cascade.md) §6).** When an element declares `animation.channels`, the composition owns its motion and there is no single enter/exit window. The window rules read the derived **enter envelope** instead: for opacity, the fade-in's landing is the _first keyframe attaining the track's peak_ and the departure is the _last keyframe still at the peak_ — A1's settle buffer measures from the landing, L4's read hold spans the plateau between them. What happens **inside** the envelope — a scale dip-then-land, a double-take, an overshoot ridden through several keyframes — is exactly the craft the model exists for; it is Critic-taste territory, never machine-linted. Cascade-welded elements are linted at their **resolved** starts (`resolveCascadeTimings`), so a chain that re-times still gets judged where it actually lands.
 
 ### G7. Ease semantics — pick the curve for the job
 
 - **Rule** — Use the hiviz `Ease` vocabulary deliberately. The mapping is fixed in `engine-schema.ts`:
 
-  | Ease | GSAP curve | Use for |
-  | --- | --- | --- |
-  | `smooth` | `power3.out` | Default. Most exits. Marks that should settle without theatrics. |
-  | `settled` | `back.out(1.2)` | Surface/overlay entries. A small overshoot reads as "placed with intent." Do not use on exits. |
-  | `sharp` | `expo.out` | Snap-in callouts, beat-synced emphasis marks, anything that needs to feel cut, not slid. |
-  | `bouncy` | `elastic.out(1, 0.5)` | Playful flourishes only. Strikes, circles where a wobble adds personality. Never on body text or lower-third typography. |
+  | Ease      | GSAP curve            | Use for                                                                                                                  |
+  | --------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+  | `smooth`  | `power3.out`          | Default. Most exits. Marks that should settle without theatrics.                                                         |
+  | `settled` | `back.out(1.2)`       | Surface/overlay entries. A small overshoot reads as "placed with intent." Do not use on exits.                           |
+  | `sharp`   | `expo.out`            | Snap-in callouts, beat-synced emphasis marks, anything that needs to feel cut, not slid.                                 |
+  | `bouncy`  | `elastic.out(1, 0.5)` | Playful flourishes only. Strikes, circles where a wobble adds personality. Never on body text or lower-third typography. |
 
 - **Why** — Ease is the largest single carrier of "personality" in motion. `power3.out` is the broadcast-safe default because it decelerates without flair. `back.out` is the YouTube/explainer house style for cards landing — the overshoot is what makes a lower-third look "designed" rather than "faded in." `expo.out` is what makes emphasis feel like a beat hit. `elastic` is loud and earns its place only when the content is itself playful.
 - **How to apply** — Set `ease` on every timing block. Do not leave it to the engine default unless the default is the right choice. When in doubt: `enter: 'settled'`, `exit: 'smooth'`, `mark: 'smooth'` for editorial content, `mark: 'sharp'` for explainer/news content.
+- **Per-property, on keyframe channels ([ADR-0035](adr/0035-generalized-keyframes-and-cascade.md) §5)** — each keyframe's `ease` is the curve INTO it, per segment, per channel, so the same jobs apply per property: a transform segment landing into rest wants `settled`/`smooth` (decelerate in); an opacity fade-out authored in channels should land AT its final keyframe, not head-load — author the fade with `smooth` over a short final segment rather than a long one (the sugar's automatic `.inOut` opacity-exit default applies only to `enter`/`exit` sugar; authored channels run exactly the curve they declare). A dip-then-land (`scale 0.96 → 1.02 smooth → 1 settled`) is the canonical multi-segment use: the overshoot lives in the VALUES, the eases stay in the constrained vocabulary.
 
 ### G8. Apply the relevant principles of animation
 
@@ -219,31 +223,30 @@ A full-frame or near-full-frame card introducing the video, a section, or a chap
 - **T1. Card visual mass — presence first, area second, with bleed allowed.**
 
   A card must feel like a real document on a desk, not a postage stamp floating in space. Two presence checks, then an area sanity check.
-
-  - **Presence: longer-dim occupancy.** The card's *longer dimension* (height for portrait, width for landscape, either for near-square) must occupy at least:
+  - **Presence: longer-dim occupancy.** The card's _longer dimension_ (height for portrait, width for landscape, either for near-square) must occupy at least:
     - **Horizontal frame (paper surface): ≥ 0.85** of the matching frame dimension.
     - **Horizontal frame (other surface types): ≥ 0.70**.
     - **Vertical frame: ≥ 0.85**.
 
-  - **Bleed permitted.** A portrait card on a horizontal frame *may extend past the bottom of the frame* — the bleed is the visual rhyme that says "this is a real sheet of paper, you're looking at the top of it." The constraints when bleeding:
+  - **Bleed permitted.** A portrait card on a horizontal frame _may extend past the bottom of the frame_ — the bleed is the visual rhyme that says "this is a real sheet of paper, you're looking at the top of it." The constraints when bleeding:
     - The card's top edge must sit at `y ≤ frameHeight × 0.05` (top of frame, with a small breathing margin).
-    - All *readable text* must remain inside the title-safe rectangle (G2). The bleed area must contain no readable text — only paper chrome.
+    - All _readable text_ must remain inside the title-safe rectangle (G2). The bleed area must contain no readable text — only paper chrome.
     - The bleed length must be **≤ 30%** of the card's height. Beyond that the card stops feeling like a document and starts feeling like a backdrop.
     - The longer-dim occupancy check is computed against the **visible** card rect (clipped to frame), not the laid-out rect — so bleed counts as 100% occupancy on that axis.
 
   - **Area band by orientation × card aspect (sanity check, applied after presence):**
 
-    | Orientation | Card aspect (W:H) | Visible-area band (% of frame) |
-    | --- | --- | --- |
-    | Horizontal 16:9 | Near-square (0.8–1.2) | 40–70 |
-    | Horizontal 16:9 | Portrait (≤ 0.8, e.g. A4 = 0.707) | 38–60 |
-    | Horizontal 16:9 | Landscape (≥ 1.2) | 45–75 |
-    | Vertical 9:16 | Portrait (≤ 0.8) | 50–80 |
-    | Vertical 9:16 | Near-square / landscape | 35–60 |
+    | Orientation     | Card aspect (W:H)                 | Visible-area band (% of frame) |
+    | --------------- | --------------------------------- | ------------------------------ |
+    | Horizontal 16:9 | Near-square (0.8–1.2)             | 40–70                          |
+    | Horizontal 16:9 | Portrait (≤ 0.8, e.g. A4 = 0.707) | 38–60                          |
+    | Horizontal 16:9 | Landscape (≥ 1.2)                 | 45–75                          |
+    | Vertical 9:16   | Portrait (≤ 0.8)                  | 50–80                          |
+    | Vertical 9:16   | Near-square / landscape           | 35–60                          |
 
   - **Why** — The earlier version (0.70 occupancy, A4 portrait at 26–45%) was a mathematical compromise that produced renders looking like notes pinned in space. Real document-on-camera footage either (a) fills the frame substantially (the wider end of the area band, often via bleed) or (b) is centered between focal elements where its full presence reads. The bleed allowance lets A4 papers feel anchored to the bottom of frame — a recognizable "paper on desk" composition — while preserving title-safe for the readable content. 0.85 horizontal occupancy on paper translates to a card that fills the frame vertically with the bleed convention, which is what 4K research-paper/document overlay footage looks like in published video work.
 
-  - **How to apply** — In the pipeline: compute the laid-out card rect, then the *visible* rect by intersecting with the frame. Visible width × visible height drives area; visible longer-dim drives occupancy. If `cardRect.bottom > frame.height`, the bleed length is `cardRect.bottom - frame.height` and the card layout must guarantee no readable text in `y ∈ [frame.height, cardRect.bottom]`. The pipeline's existing card-layout code (`src/lib/pipelines/surfaces/paper/CanvasSource.svelte`) is the place to introduce the bleed mode.
+  - **How to apply** — In the pipeline: compute the laid-out card rect, then the _visible_ rect by intersecting with the frame. Visible width × visible height drives area; visible longer-dim drives occupancy. If `cardRect.bottom > frame.height`, the bleed length is `cardRect.bottom - frame.height` and the card layout must guarantee no readable text in `y ∈ [frame.height, cardRect.bottom]`. The pipeline's existing card-layout code (`src/lib/pipelines/surfaces/paper/CanvasSource.svelte`) is the place to introduce the bleed mode.
 
 - **T2. Headline: 5–9 words; subheadline (if present): 8–14 words.**
   - **Why** — Cap-height of a title card is large enough that >9 words wrap awkwardly, and the viewer's eye treats a card as a single read, not a paragraph.
@@ -253,7 +256,7 @@ A full-frame or near-full-frame card introducing the video, a section, or a chap
   - **Why** — A title card carries more visual mass than a lower third, so its motion can take slightly longer. But hold ≥ 4 s on a 6 s short reads as a still frame.
   - **How to apply** — On a 5 s vertical preset: `enter.duration ≈ 0.07`, hold ≈ 0.55, `exit.start ≈ 0.85`, `exit.duration ≈ 0.07`.
 
-- **T4. Use `camera: 'push'` for editorial / cinematic, `'snap'` for explainer / news, `'none'` for typographic / pull-quote.** *(Note: `surface.camera` is not yet wired to the render path — see [`roadmap.md`](roadmap.md).)*
+- **T4. Use `camera: 'push'` for editorial / cinematic, `'snap'` for explainer / news, `'none'` for typographic / pull-quote.** _(Note: `surface.camera` is not yet wired to the render path — see [`roadmap.md`](roadmap.md).)_
   - **Why** — Camera moves change the read. A slow `push` says "consider this"; `snap` says "here's the data"; `none` says "the words are the show." Pick per the content's voice.
   - **How to apply** — `surface.camera` field.
 

@@ -182,3 +182,27 @@ export function resolveCascadeTimings(state: EngineState): Map<string, CascadeWi
 function hasAnyTrack(channels: Partial<Record<string, Keyframe[] | undefined>>): boolean {
 	return Object.values(channels).some((track) => track !== undefined && track.length > 0);
 }
+
+/**
+ * The visibility plateau of an authored opacity track (ADR-0035 §6): when the
+ * fade-in LANDS (first keyframe attaining the track's peak value) and when the
+ * element DEPARTS it (last keyframe still at the peak). The linter runs the
+ * existing window rules (A1 settle buffer, L4 read hold) against this
+ * envelope; what happens inside it — dips, double-takes — is Critic taste.
+ * Null when the track is empty.
+ */
+export interface OpacityEnvelope {
+	/** ms from clip start at which the fade-in lands (first peak keyframe). */
+	settleMs: number;
+	/** ms from clip start at which the element leaves its peak (last peak keyframe). */
+	departMs: number;
+}
+
+export function opacityEnvelope(track: readonly Keyframe[] | undefined): OpacityEnvelope | null {
+	if (!track || track.length === 0) {
+		return null;
+	}
+	const peak = Math.max(...track.map((frame) => frame.value));
+	const atPeak = track.filter((frame) => frame.value === peak);
+	return { settleMs: atPeak[0].atMs, departMs: atPeak[atPeak.length - 1].atMs };
+}
