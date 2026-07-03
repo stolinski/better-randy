@@ -19,6 +19,13 @@ import type { Cascade, EngineState, Keyframe, Transition } from './engine-schema
  */
 export const DEFAULT_OVERLAY_ENTER: Transition = { start: 0.04, duration: 0.05, ease: 'settled' };
 
+/**
+ * Fallback diagram-element enter (ADR-0036). Starts after the default surface
+ * enter lands (0.05) plus the A1 settle buffer, inside the G6 duration band at
+ * the default 6 s transport. Shared with the manifest builder and renderers.
+ */
+export const DEFAULT_BLOCK_ENTER: Transition = { start: 0.08, duration: 0.05, ease: 'settled' };
+
 export interface CascadeWindow {
 	/** Cascade-resolved enter start, as a fraction of the transport. */
 	startFraction: number;
@@ -40,6 +47,9 @@ export function cascadeNodeKey(anchor: Cascade['anchor']): string {
 	}
 	if ('mark' in anchor) {
 		return `mark:${anchor.mark}`;
+	}
+	if ('block' in anchor) {
+		return `block:${anchor.block}`;
 	}
 	return `textAnimation:${anchor.textAnimation}`;
 }
@@ -131,6 +141,28 @@ export function resolveCascadeTimings(state: EngineState): Map<string, CascadeWi
 			durationFraction: entry.enter.duration,
 			cascade: entry.cascade
 		});
+	}
+
+	// Diagram Block elements (ADR-0036) — timed elements exactly like overlays:
+	// channel-owned elements weld dependants to their authored envelope, sugar
+	// elements to their enter window.
+	for (const element of state.surface.diagram ?? []) {
+		const channels = element.animation?.channels;
+
+		if (channels && hasAnyTrack(channels)) {
+			pending.set(`block:${element.id}`, {
+				baseStartFraction: element.enter?.start ?? 0,
+				durationFraction: channelEnvelopeSpanMs(channels) / durationMs,
+				cascade: element.animation?.cascade
+			});
+		} else {
+			const enter = element.enter ?? DEFAULT_BLOCK_ENTER;
+			pending.set(`block:${element.id}`, {
+				baseStartFraction: enter.start,
+				durationFraction: enter.duration,
+				cascade: element.animation?.cascade
+			});
+		}
 	}
 
 	const resolved = new Map<string, CascadeWindow>();

@@ -182,7 +182,11 @@ const CascadeAnchorSchema = z.union([
 	z.literal('surface'),
 	z.strictObject({ overlay: z.string().min(1) }),
 	z.strictObject({ mark: z.number().int().min(0) }),
-	z.strictObject({ textAnimation: z.string().min(1) })
+	z.strictObject({ textAnimation: z.string().min(1) }),
+	// A diagram Block element (ADR-0036) — the id of a `surface.diagram[]`
+	// entry. Diagram reveals are cascade chains (node → edge draws to → next
+	// node), so elements are anchorable exactly like overlays.
+	z.strictObject({ block: z.string().min(1) })
 ]);
 export type CascadeAnchor = z.infer<typeof CascadeAnchorSchema>;
 
@@ -223,7 +227,14 @@ export const AnnotationMarkStyleSchema = z.enum([
 	'isolate'
 ]);
 
-export const BlockTypeSchema = z.enum(['paragraph']);
+export const BlockTypeSchema = z.enum([
+	'paragraph',
+	'node',
+	'edge-arrow',
+	'label',
+	'stat-callout',
+	'timeline-segment'
+]);
 
 const AnnotationBodySchema = z
 	.string()
@@ -300,6 +311,194 @@ const TransitionSchema = z.object({
 	ease: EaseSchema,
 	sound: SoundOverrideSchema.optional()
 });
+
+// ---- Diagram primitives (ADR-0036) ----
+// Five Block types for art-directed docu diagrams — node / edge-arrow / label /
+// stat-callout / timeline-segment — living in `surface.diagram[]` (the "diagram
+// group on the Surface" placement ADR-0036 §3 left to this schema): elements
+// share the Surface's coordinate space, and the group is pure JSON so it rides
+// `presetToWireFormat`'s surface spread losslessly (the byte-identical
+// round-trip gate). Positions are explicit composition-space fractions —
+// auto-layout is rejected by the ADR; placement is authored (GUI drag / agent).
+// Route is content; STROKE IS NOT — edge/node/arrowhead appearance resolves
+// through Pack Roles (ADR-0036 §4).
+
+const DiagramPointSchema = z.strictObject({ x: FractionSchema, y: FractionSchema });
+
+// An edge endpoint: a node ref (`{ node: id }`, validated against the diagram's
+// node elements) or an explicit composition-space point (`{ x, y }` — for edges
+// that leave the graph, e.g. an arc to a map pin drawn as a raw point).
+const DiagramEndpointSchema = z.union([
+	z.strictObject({ node: z.string().min(1) }),
+	DiagramPointSchema
+]);
+
+// DOM-rendered elements (node / label / stat-callout) take the full ADR-0035
+// channel set — they are positioned mounts like overlays. `x`/`y` are
+// composition-fraction deltas from the element's `position`; `scale` is
+// absolute, seeded from the element's static `scale`.
+const DiagramChannelKeyframesSchema = z.strictObject({
+	opacity: createKeyframeTrackSchema(FractionSchema).optional(),
+	x: createKeyframeTrackSchema(z.number()).optional(),
+	y: createKeyframeTrackSchema(z.number()).optional(),
+	scale: createKeyframeTrackSchema(z.number().min(0.1).max(8)).optional(),
+	rotation: createKeyframeTrackSchema(z.number()).optional()
+});
+
+// Stroke-drawn elements (edge-arrow / timeline-segment) expose `opacity` only —
+// their reveal is the annotation stroke-draw scalar riding the enter window
+// (ADR-0036 §4); a transform channel fighting the drawn path is exactly the
+// double-motion mystery ADR-0035 §2 bans.
+const DiagramStrokeChannelKeyframesSchema = z.strictObject({
+	opacity: createKeyframeTrackSchema(FractionSchema).optional()
+});
+
+const DiagramAnimationSchema = z.strictObject({
+	channels: DiagramChannelKeyframesSchema.optional(),
+	cascade: CascadeSchema.optional()
+});
+
+const DiagramStrokeAnimationSchema = z.strictObject({
+	channels: DiagramStrokeChannelKeyframesSchema.optional(),
+	cascade: CascadeSchema.optional()
+});
+
+// Shared timed-element fields. `enter`/`exit` are the standard Transition sugar
+// (start/duration/ease/sound) and draw as the element's unified timeline clip.
+const diagramElementBase = {
+	id: z.string().min(1),
+	enter: TransitionSchema.optional(),
+	exit: TransitionSchema.optional()
+};
+
+// A labeled point in the diagram. `form` is content (a map wants pins, a
+// flowchart wants boxes — the author picks); HOW a pin/box/dot looks is the
+// Pack's `node.form`-dimension Role, never schema.
+const DiagramNodeSchema = z.strictObject({
+	...diagramElementBase,
+	type: z.literal('node'),
+	position: DiagramPointSchema,
+	form: z.enum(['pin', 'box', 'dot']),
+	text: z.string().optional(),
+	scale: z.number().min(0.25).max(4).optional(),
+	animation: DiagramAnimationSchema.optional()
+});
+
+// A directed connection. Route is authored, never auto-routed (ADR-0036 §4):
+// endpoints plus ONE optional control point select straight / elbow / quadratic
+// arc. `control` absent → the renderer's deterministic default (elbow bends at
+// (to.x, from.y); arc bows perpendicular from the midpoint). `direction` places
+// the arrowhead: forward = at `to` (the default when absent), both, or none
+// (a bare connector).
+const DiagramEdgeArrowSchema = z.strictObject({
+	...diagramElementBase,
+	type: z.literal('edge-arrow'),
+	from: DiagramEndpointSchema,
+	to: DiagramEndpointSchema,
+	route: z.enum(['straight', 'elbow', 'arc']),
+	control: DiagramPointSchema.optional(),
+	direction: z.enum(['forward', 'both', 'none']).optional(),
+	animation: DiagramStrokeAnimationSchema.optional()
+});
+
+// Free text annotating a position — the diagram's caption voice.
+const DiagramLabelSchema = z.strictObject({
+	...diagramElementBase,
+	type: z.literal('label'),
+	position: DiagramPointSchema,
+	text: z.string().min(1),
+	scale: z.number().min(0.25).max(4).optional(),
+	animation: DiagramAnimationSchema.optional()
+});
+
+// A number that builds — reuses the counter overlay's roll behaviour. The roll
+// runs over [rollStart, rollStart + rollWindow] (fractions of the clip) then
+// HOLDS the landed value; absent, renderers read rollStart ?? enter window's
+// end and rollWindow ?? 0.5 (never a Zod .default() — the
+// validateOverlayContents precedent: defaults don't reliably reach runtime).
+const DiagramStatCalloutSchema = z.strictObject({
+	...diagramElementBase,
+	type: z.literal('stat-callout'),
+	position: DiagramPointSchema,
+	from: z.number(),
+	to: z.number(),
+	format: z.enum(['integer', 'currency', 'percent', 'timecode']).optional(),
+	label: z.string().optional(),
+	scale: z.number().min(0.25).max(4).optional(),
+	rollStart: FractionSchema.optional(),
+	rollWindow: FractionSchema.optional(),
+	animation: DiagramAnimationSchema.optional()
+});
+
+// A spanned interval with endpoints — the H↔V reflow stress case, so both ends
+// are explicit points (a horizontal band reflows to a vertical rail by
+// repositioning, not by schema change).
+const DiagramTimelineSegmentSchema = z.strictObject({
+	...diagramElementBase,
+	type: z.literal('timeline-segment'),
+	from: DiagramPointSchema,
+	to: DiagramPointSchema,
+	label: z.string().optional(),
+	animation: DiagramStrokeAnimationSchema.optional()
+});
+
+const DiagramElementSchema = z.discriminatedUnion('type', [
+	DiagramNodeSchema,
+	DiagramEdgeArrowSchema,
+	DiagramLabelSchema,
+	DiagramStatCalloutSchema,
+	DiagramTimelineSegmentSchema
+]);
+
+// The diagram group: ids must be unique (they are timeline-row / cascade
+// identities), and every edge endpoint node ref must resolve to a `node`
+// element in the same group — fail fast at parse time, never a runtime guess.
+const DiagramSchema = z.array(DiagramElementSchema).superRefine((elements, ctx) => {
+	const ids = new Set<string>();
+	for (let i = 0; i < elements.length; i += 1) {
+		if (ids.has(elements[i].id)) {
+			ctx.addIssue({
+				code: 'custom',
+				path: [i, 'id'],
+				message: `Duplicate diagram[].id "${elements[i].id}"; ids must be unique within a surface.`
+			});
+		}
+		ids.add(elements[i].id);
+	}
+
+	const nodeIds = new Set(
+		elements.filter((element) => element.type === 'node').map((element) => element.id)
+	);
+	for (let i = 0; i < elements.length; i += 1) {
+		const element = elements[i];
+		if (element.type !== 'edge-arrow') {
+			continue;
+		}
+		for (const end of ['from', 'to'] as const) {
+			const endpoint = element[end];
+			if ('node' in endpoint && !nodeIds.has(endpoint.node)) {
+				ctx.addIssue({
+					code: 'custom',
+					path: [i, end, 'node'],
+					message: `edge-arrow "${element.id}" ${end} references node "${endpoint.node}", which is not a node element in this diagram.`
+				});
+			}
+		}
+	}
+});
+
+export type DiagramPoint = z.infer<typeof DiagramPointSchema>;
+export type DiagramEndpoint = z.infer<typeof DiagramEndpointSchema>;
+export type DiagramChannelKeyframes = z.infer<typeof DiagramChannelKeyframesSchema>;
+export type DiagramStrokeChannelKeyframes = z.infer<typeof DiagramStrokeChannelKeyframesSchema>;
+export type DiagramAnimation = z.infer<typeof DiagramAnimationSchema>;
+export type DiagramStrokeAnimation = z.infer<typeof DiagramStrokeAnimationSchema>;
+export type DiagramNode = z.infer<typeof DiagramNodeSchema>;
+export type DiagramEdgeArrow = z.infer<typeof DiagramEdgeArrowSchema>;
+export type DiagramLabel = z.infer<typeof DiagramLabelSchema>;
+export type DiagramStatCallout = z.infer<typeof DiagramStatCalloutSchema>;
+export type DiagramTimelineSegment = z.infer<typeof DiagramTimelineSegmentSchema>;
+export type DiagramElement = z.infer<typeof DiagramElementSchema>;
 
 const SurfaceTypeSchema = z.enum([
 	'paper',
@@ -389,7 +588,12 @@ const SurfaceSchema = z.object({
 	// Composition-owned motion channels (ADR-0035). When `animation.channels`
 	// is present the surface's intrinsic enter/exit motion-form does not run.
 	animation: SurfaceAnimationSchema.optional(),
-	backgroundVisibility: FractionSchema.optional()
+	backgroundVisibility: FractionSchema.optional(),
+	// Diagram Block elements on this Surface (ADR-0036) — explicit
+	// composition-space placement, revealed with stroke-draw + Cascade. Works
+	// full-frame (paper / chapter-card) and over footage (a transparent surface
+	// carrying only diagram Blocks). Every Surface may carry a diagram group.
+	diagram: DiagramSchema.optional()
 });
 
 const OverlayPositionSchema = z.object({
@@ -717,6 +921,9 @@ function cascadeAnchorKey(anchor: CascadeAnchor): string {
 	if ('mark' in anchor) {
 		return `mark:${anchor.mark}`;
 	}
+	if ('block' in anchor) {
+		return `block:${anchor.block}`;
+	}
 	return `textAnimation:${anchor.textAnimation}`;
 }
 
@@ -766,9 +973,20 @@ export const EngineStateSchema = z
 				});
 			}
 		}
+		const diagram = state.surface.diagram ?? [];
+		for (let i = 0; i < diagram.length; i += 1) {
+			const cascade = diagram[i].animation?.cascade;
+			if (cascade) {
+				edges.set(`block:${diagram[i].id}`, {
+					anchor: cascade.anchor,
+					path: ['surface', 'diagram', i, 'animation', 'cascade']
+				});
+			}
+		}
 
 		const overlayIds = new Set(state.overlays.map((overlay) => overlay.id));
 		const textAnimationIds = new Set(state.textAnimations.map((entry) => entry.id));
+		const blockIds = new Set(diagram.map((element) => element.id));
 
 		for (const edge of edges.values()) {
 			const anchor = edge.anchor;
@@ -792,6 +1010,12 @@ export const EngineStateSchema = z
 					code: 'custom',
 					path: [...edge.path, 'anchor'],
 					message: `cascade.anchor textAnimation "${anchor.textAnimation}" does not match any textAnimations[].id.`
+				});
+			} else if ('block' in anchor && !blockIds.has(anchor.block)) {
+				ctx.addIssue({
+					code: 'custom',
+					path: [...edge.path, 'anchor'],
+					message: `cascade.anchor block "${anchor.block}" does not match any surface.diagram[].id.`
 				});
 			}
 		}

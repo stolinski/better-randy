@@ -76,9 +76,51 @@ A preset is a single JSON document validated by `PresetSchema` (`src/lib/platfor
   "exit":  { "start": 0..1, "duration": 0..1, "ease": Ease },  // optional
   "animation": { "channels": { "opacity": [ ... ] } },          // optional (see Animation; opacity only)
   "backgroundVisibility": 0..1,                                 // optional
+  "diagram": [ ... ],                                           // optional diagram Block elements (see Diagram primitives)
   "soundKit": "kit-slug"                                        // optional (see Sound)
 }
 ```
+
+### `surface.diagram` — diagram primitives ([ADR-0036](adr/0036-diagram-primitives.md))
+
+Five Block types for art-directed, documentary-style diagrams, living on any Surface — full-frame (paper / chapter-card) or over footage (a transparent `plain` surface carrying only diagram Blocks). Every element is positioned **explicitly** in composition-space fractions (auto-layout is rejected by the ADR); ids are timeline-row and cascade identities (`block-{id}` rows, `{ "block": id }` anchors). Route is content; **stroke is appearance** — edge/node/arrowhead looks resolve through Pack Roles, never the schema.
+
+```jsonc
+"diagram": [
+  { "type": "node", "id": "n1", "position": { "x": 0..1, "y": 0..1 },
+    "form": "pin" | "box" | "dot",       // which form — content, the author picks; HOW it looks is the Pack's Role
+    "text": "...",                        // optional in-node text
+    "scale": 0.25..4,                     // optional
+    "enter": { ... }, "exit": { ... },    // optional Transition sugar (start/duration/ease/sound)
+    "animation": { "channels": { ... }, "cascade": { ... } } },  // full channel set: opacity | x | y | scale | rotation
+
+  { "type": "edge-arrow", "id": "e1",
+    "from": { "node": "n1" } | { "x": 0..1, "y": 0..1 },   // node ref (validated) or explicit point
+    "to":   { "node": "n2" } | { "x": 0..1, "y": 0..1 },
+    "route": "straight" | "elbow" | "arc",                  // authored, never auto-routed
+    "control": { "x": 0..1, "y": 0..1 },                    // optional single control point (elbow corner / arc bow)
+    "direction": "forward" | "both" | "none",               // arrowhead placement; absent → "forward"
+    "animation": { "channels": { "opacity": [ ... ] }, "cascade": { ... } } },  // stroke elements: opacity only
+
+  { "type": "label", "id": "l1", "position": { "x": 0..1, "y": 0..1 },
+    "text": "required", "scale": 0.25..4,
+    "animation": { ... } },                                 // full channel set
+
+  { "type": "stat-callout", "id": "s1", "position": { "x": 0..1, "y": 0..1 },
+    "from": number, "to": number,                           // the count
+    "format": "integer" | "currency" | "percent" | "timecode",  // absent → integer
+    "label": "caption under the number",                    // optional
+    "rollStart": 0..1, "rollWindow": 0..1,                  // optional count window (counter-roll semantics); holds the landed value
+    "animation": { ... } },                                 // full channel set
+
+  { "type": "timeline-segment", "id": "t1",
+    "from": { "x": 0..1, "y": 0..1 }, "to": { "x": 0..1, "y": 0..1 },  // explicit endpoints — H↔V reflow repositions, never reshapes
+    "label": "2019 – 2024",                                 // optional
+    "animation": { "channels": { "opacity": [ ... ] }, "cascade": { ... } } }   // stroke: opacity only
+]
+```
+
+Parse-time rules: element ids unique within the surface; every edge endpoint `{ node }` ref must resolve to a `node` element in the same diagram. Stroke-drawn elements (`edge-arrow`, `timeline-segment`) reveal by stroke-draw over their enter window and expose only the `opacity` channel; DOM elements (`node`, `label`, `stat-callout`) take the full ADR-0035 channel set. Reveal choreography is Cascade chains (node → edge draws to → next node) — see Animation below.
 
 ### `overlays`
 
@@ -133,10 +175,10 @@ Keyframes:
 
 Cascade welds an element's **enter start** to another element's timing (milliseconds, not fractions — a 120 ms stagger stays 120 ms when the piece re-times):
 
-- `anchor` — `"surface"` | `{ "overlay": id }` | `{ "mark": index }` | `{ "textAnimation": id }` (the same identities the timeline rows use).
+- `anchor` — `"surface"` | `{ "overlay": id }` | `{ "mark": index }` | `{ "textAnimation": id }` | `{ "block": id }` (the same identities the timeline rows use; `block` names a `surface.diagram[]` element).
 - `event` — `"start"` | `"end"` of the anchor's enter.
 - `offsetMs` — signed milliseconds after (or before) the anchor event.
-- Allowed on `overlays[].animation`, `marks.timings[]` entries, and `textAnimations[]` entries. The surface is the timing root and carries no cascade.
+- Allowed on `overlays[].animation`, `marks.timings[]` entries, `textAnimations[]` entries, and `surface.diagram[].animation`. The surface is the timing root and carries no cascade.
 - Parse-time rules: every anchor ref must resolve, and anchor chains must be acyclic — a cycle is rejected with an error naming the loop.
 
 ### `textAnimations` (per-slot text choreography)
@@ -241,9 +283,10 @@ Defaults follow the motion's _character_, not just its window: sliding elements 
 - **`paper`** — card chrome with paper-grain shader and fly-in/out animation. Slots: `title`, `sourceUrl`, `author`, `source`, `dateLabel`. Supports `enter`, `exit`, `backgroundVisibility`.
 - **`plain`** — transparent background that hosts a body without chrome. Slots: `author`, `source`, `dateLabel` (decorative metadata only).
 
-## Block variants (v1)
+## Block variants
 
-- **`paragraph`** — text run; the only block type shipped in v1. Future additive variants: `mermaid-diagram`, `image`, `code`, `chart`.
+- **`paragraph`** — text run inside `content.body` (the bracket-tag string).
+- **`node`**, **`edge-arrow`**, **`label`**, **`stat-callout`**, **`timeline-segment`** — the diagram primitives ([ADR-0036](adr/0036-diagram-primitives.md)), carried in `surface.diagram[]` (see the Diagram primitives section above). A mermaid-style auto-layout Block is explicitly rejected; future additive variants: `image`, `code`.
 
 ## Annotation styles
 

@@ -238,6 +238,19 @@
                               "textAnimation"
                             ],
                             "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "block": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "block"
+                            ],
+                            "additionalProperties": false
                           }
                         ]
                       },
@@ -621,6 +634,1942 @@
               "type": "number",
               "minimum": 0,
               "maximum": 1
+            },
+            "diagram": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "enter": {
+                        "type": "object",
+                        "properties": {
+                          "start": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "duration": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "ease": {
+                            "type": "string",
+                            "enum": [
+                              "smooth",
+                              "settled",
+                              "sharp",
+                              "bouncy"
+                            ]
+                          },
+                          "sound": {
+                            "type": "object",
+                            "properties": {
+                              "mute": {
+                                "type": "boolean"
+                              },
+                              "event": {
+                                "type": "string",
+                                "enum": [
+                                  "whoosh-in",
+                                  "whoosh-out",
+                                  "impact",
+                                  "tick",
+                                  "pop",
+                                  "send",
+                                  "swipe",
+                                  "scratch",
+                                  "sub-drop",
+                                  "sting"
+                                ]
+                              },
+                              "sample": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            }
+                          }
+                        },
+                        "required": [
+                          "start",
+                          "duration",
+                          "ease"
+                        ]
+                      },
+                      "exit": {
+                        "type": "object",
+                        "properties": {
+                          "start": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "duration": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "ease": {
+                            "type": "string",
+                            "enum": [
+                              "smooth",
+                              "settled",
+                              "sharp",
+                              "bouncy"
+                            ]
+                          },
+                          "sound": {
+                            "type": "object",
+                            "properties": {
+                              "mute": {
+                                "type": "boolean"
+                              },
+                              "event": {
+                                "type": "string",
+                                "enum": [
+                                  "whoosh-in",
+                                  "whoosh-out",
+                                  "impact",
+                                  "tick",
+                                  "pop",
+                                  "send",
+                                  "swipe",
+                                  "scratch",
+                                  "sub-drop",
+                                  "sting"
+                                ]
+                              },
+                              "sample": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            }
+                          }
+                        },
+                        "required": [
+                          "start",
+                          "duration",
+                          "ease"
+                        ]
+                      },
+                      "type": {
+                        "type": "string",
+                        "const": "node"
+                      },
+                      "position": {
+                        "type": "object",
+                        "properties": {
+                          "x": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "y": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          }
+                        },
+                        "required": [
+                          "x",
+                          "y"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "form": {
+                        "type": "string",
+                        "enum": [
+                          "pin",
+                          "box",
+                          "dot"
+                        ]
+                      },
+                      "text": {
+                        "type": "string"
+                      },
+                      "scale": {
+                        "type": "number",
+                        "minimum": 0.25,
+                        "maximum": 4
+                      },
+                      "animation": {
+                        "type": "object",
+                        "properties": {
+                          "channels": {
+                            "type": "object",
+                            "properties": {
+                              "opacity": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "atMs": {
+                                      "type": "number",
+                                      "minimum": 0
+                                    },
+                                    "value": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "ease": {
+                                      "type": "string",
+                                      "enum": [
+                                        "smooth",
+                                        "settled",
+                                        "sharp",
+                                        "bouncy"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "atMs",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "x": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "atMs": {
+                                      "type": "number",
+                                      "minimum": 0
+                                    },
+                                    "value": {
+                                      "type": "number"
+                                    },
+                                    "ease": {
+                                      "type": "string",
+                                      "enum": [
+                                        "smooth",
+                                        "settled",
+                                        "sharp",
+                                        "bouncy"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "atMs",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "y": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "atMs": {
+                                      "type": "number",
+                                      "minimum": 0
+                                    },
+                                    "value": {
+                                      "type": "number"
+                                    },
+                                    "ease": {
+                                      "type": "string",
+                                      "enum": [
+                                        "smooth",
+                                        "settled",
+                                        "sharp",
+                                        "bouncy"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "atMs",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "scale": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "atMs": {
+                                      "type": "number",
+                                      "minimum": 0
+                                    },
+                                    "value": {
+                                      "type": "number",
+                                      "minimum": 0.1,
+                                      "maximum": 8
+                                    },
+                                    "ease": {
+                                      "type": "string",
+                                      "enum": [
+                                        "smooth",
+                                        "settled",
+                                        "sharp",
+                                        "bouncy"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "atMs",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "rotation": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "atMs": {
+                                      "type": "number",
+                                      "minimum": 0
+                                    },
+                                    "value": {
+                                      "type": "number"
+                                    },
+                                    "ease": {
+                                      "type": "string",
+                                      "enum": [
+                                        "smooth",
+                                        "settled",
+                                        "sharp",
+                                        "bouncy"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "atMs",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "cascade": {
+                            "type": "object",
+                            "properties": {
+                              "anchor": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "const": "surface"
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "overlay": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "overlay"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "mark": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      }
+                                    },
+                                    "required": [
+                                      "mark"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "textAnimation": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "textAnimation"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "block": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "block"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              },
+                              "event": {
+                                "type": "string",
+                                "enum": [
+                                  "start",
+                                  "end"
+                                ]
+                              },
+                              "offsetMs": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "anchor",
+                              "event",
+                              "offsetMs"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "type",
+                      "position",
+                      "form"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "enter": {
+                        "type": "object",
+                        "properties": {
+                          "start": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "duration": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "ease": {
+                            "type": "string",
+                            "enum": [
+                              "smooth",
+                              "settled",
+                              "sharp",
+                              "bouncy"
+                            ]
+                          },
+                          "sound": {
+                            "type": "object",
+                            "properties": {
+                              "mute": {
+                                "type": "boolean"
+                              },
+                              "event": {
+                                "type": "string",
+                                "enum": [
+                                  "whoosh-in",
+                                  "whoosh-out",
+                                  "impact",
+                                  "tick",
+                                  "pop",
+                                  "send",
+                                  "swipe",
+                                  "scratch",
+                                  "sub-drop",
+                                  "sting"
+                                ]
+                              },
+                              "sample": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            }
+                          }
+                        },
+                        "required": [
+                          "start",
+                          "duration",
+                          "ease"
+                        ]
+                      },
+                      "exit": {
+                        "type": "object",
+                        "properties": {
+                          "start": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "duration": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "ease": {
+                            "type": "string",
+                            "enum": [
+                              "smooth",
+                              "settled",
+                              "sharp",
+                              "bouncy"
+                            ]
+                          },
+                          "sound": {
+                            "type": "object",
+                            "properties": {
+                              "mute": {
+                                "type": "boolean"
+                              },
+                              "event": {
+                                "type": "string",
+                                "enum": [
+                                  "whoosh-in",
+                                  "whoosh-out",
+                                  "impact",
+                                  "tick",
+                                  "pop",
+                                  "send",
+                                  "swipe",
+                                  "scratch",
+                                  "sub-drop",
+                                  "sting"
+                                ]
+                              },
+                              "sample": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            }
+                          }
+                        },
+                        "required": [
+                          "start",
+                          "duration",
+                          "ease"
+                        ]
+                      },
+                      "type": {
+                        "type": "string",
+                        "const": "edge-arrow"
+                      },
+                      "from": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "node": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "node"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "x": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "y": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              }
+                            },
+                            "required": [
+                              "x",
+                              "y"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "to": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "node": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "node"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "x": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "y": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              }
+                            },
+                            "required": [
+                              "x",
+                              "y"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "route": {
+                        "type": "string",
+                        "enum": [
+                          "straight",
+                          "elbow",
+                          "arc"
+                        ]
+                      },
+                      "control": {
+                        "type": "object",
+                        "properties": {
+                          "x": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "y": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          }
+                        },
+                        "required": [
+                          "x",
+                          "y"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "direction": {
+                        "type": "string",
+                        "enum": [
+                          "forward",
+                          "both",
+                          "none"
+                        ]
+                      },
+                      "animation": {
+                        "type": "object",
+                        "properties": {
+                          "channels": {
+                            "type": "object",
+                            "properties": {
+                              "opacity": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "atMs": {
+                                      "type": "number",
+                                      "minimum": 0
+                                    },
+                                    "value": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "ease": {
+                                      "type": "string",
+                                      "enum": [
+                                        "smooth",
+                                        "settled",
+                                        "sharp",
+                                        "bouncy"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "atMs",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "cascade": {
+                            "type": "object",
+                            "properties": {
+                              "anchor": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "const": "surface"
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "overlay": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "overlay"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "mark": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      }
+                                    },
+                                    "required": [
+                                      "mark"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "textAnimation": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "textAnimation"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "block": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "block"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              },
+                              "event": {
+                                "type": "string",
+                                "enum": [
+                                  "start",
+                                  "end"
+                                ]
+                              },
+                              "offsetMs": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "anchor",
+                              "event",
+                              "offsetMs"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "type",
+                      "from",
+                      "to",
+                      "route"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "enter": {
+                        "type": "object",
+                        "properties": {
+                          "start": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "duration": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "ease": {
+                            "type": "string",
+                            "enum": [
+                              "smooth",
+                              "settled",
+                              "sharp",
+                              "bouncy"
+                            ]
+                          },
+                          "sound": {
+                            "type": "object",
+                            "properties": {
+                              "mute": {
+                                "type": "boolean"
+                              },
+                              "event": {
+                                "type": "string",
+                                "enum": [
+                                  "whoosh-in",
+                                  "whoosh-out",
+                                  "impact",
+                                  "tick",
+                                  "pop",
+                                  "send",
+                                  "swipe",
+                                  "scratch",
+                                  "sub-drop",
+                                  "sting"
+                                ]
+                              },
+                              "sample": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            }
+                          }
+                        },
+                        "required": [
+                          "start",
+                          "duration",
+                          "ease"
+                        ]
+                      },
+                      "exit": {
+                        "type": "object",
+                        "properties": {
+                          "start": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "duration": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "ease": {
+                            "type": "string",
+                            "enum": [
+                              "smooth",
+                              "settled",
+                              "sharp",
+                              "bouncy"
+                            ]
+                          },
+                          "sound": {
+                            "type": "object",
+                            "properties": {
+                              "mute": {
+                                "type": "boolean"
+                              },
+                              "event": {
+                                "type": "string",
+                                "enum": [
+                                  "whoosh-in",
+                                  "whoosh-out",
+                                  "impact",
+                                  "tick",
+                                  "pop",
+                                  "send",
+                                  "swipe",
+                                  "scratch",
+                                  "sub-drop",
+                                  "sting"
+                                ]
+                              },
+                              "sample": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            }
+                          }
+                        },
+                        "required": [
+                          "start",
+                          "duration",
+                          "ease"
+                        ]
+                      },
+                      "type": {
+                        "type": "string",
+                        "const": "label"
+                      },
+                      "position": {
+                        "type": "object",
+                        "properties": {
+                          "x": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "y": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          }
+                        },
+                        "required": [
+                          "x",
+                          "y"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "text": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "scale": {
+                        "type": "number",
+                        "minimum": 0.25,
+                        "maximum": 4
+                      },
+                      "animation": {
+                        "type": "object",
+                        "properties": {
+                          "channels": {
+                            "type": "object",
+                            "properties": {
+                              "opacity": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "atMs": {
+                                      "type": "number",
+                                      "minimum": 0
+                                    },
+                                    "value": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "ease": {
+                                      "type": "string",
+                                      "enum": [
+                                        "smooth",
+                                        "settled",
+                                        "sharp",
+                                        "bouncy"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "atMs",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "x": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "atMs": {
+                                      "type": "number",
+                                      "minimum": 0
+                                    },
+                                    "value": {
+                                      "type": "number"
+                                    },
+                                    "ease": {
+                                      "type": "string",
+                                      "enum": [
+                                        "smooth",
+                                        "settled",
+                                        "sharp",
+                                        "bouncy"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "atMs",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "y": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "atMs": {
+                                      "type": "number",
+                                      "minimum": 0
+                                    },
+                                    "value": {
+                                      "type": "number"
+                                    },
+                                    "ease": {
+                                      "type": "string",
+                                      "enum": [
+                                        "smooth",
+                                        "settled",
+                                        "sharp",
+                                        "bouncy"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "atMs",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "scale": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "atMs": {
+                                      "type": "number",
+                                      "minimum": 0
+                                    },
+                                    "value": {
+                                      "type": "number",
+                                      "minimum": 0.1,
+                                      "maximum": 8
+                                    },
+                                    "ease": {
+                                      "type": "string",
+                                      "enum": [
+                                        "smooth",
+                                        "settled",
+                                        "sharp",
+                                        "bouncy"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "atMs",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "rotation": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "atMs": {
+                                      "type": "number",
+                                      "minimum": 0
+                                    },
+                                    "value": {
+                                      "type": "number"
+                                    },
+                                    "ease": {
+                                      "type": "string",
+                                      "enum": [
+                                        "smooth",
+                                        "settled",
+                                        "sharp",
+                                        "bouncy"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "atMs",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "cascade": {
+                            "type": "object",
+                            "properties": {
+                              "anchor": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "const": "surface"
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "overlay": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "overlay"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "mark": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      }
+                                    },
+                                    "required": [
+                                      "mark"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "textAnimation": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "textAnimation"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "block": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "block"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              },
+                              "event": {
+                                "type": "string",
+                                "enum": [
+                                  "start",
+                                  "end"
+                                ]
+                              },
+                              "offsetMs": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "anchor",
+                              "event",
+                              "offsetMs"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "type",
+                      "position",
+                      "text"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "enter": {
+                        "type": "object",
+                        "properties": {
+                          "start": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "duration": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "ease": {
+                            "type": "string",
+                            "enum": [
+                              "smooth",
+                              "settled",
+                              "sharp",
+                              "bouncy"
+                            ]
+                          },
+                          "sound": {
+                            "type": "object",
+                            "properties": {
+                              "mute": {
+                                "type": "boolean"
+                              },
+                              "event": {
+                                "type": "string",
+                                "enum": [
+                                  "whoosh-in",
+                                  "whoosh-out",
+                                  "impact",
+                                  "tick",
+                                  "pop",
+                                  "send",
+                                  "swipe",
+                                  "scratch",
+                                  "sub-drop",
+                                  "sting"
+                                ]
+                              },
+                              "sample": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            }
+                          }
+                        },
+                        "required": [
+                          "start",
+                          "duration",
+                          "ease"
+                        ]
+                      },
+                      "exit": {
+                        "type": "object",
+                        "properties": {
+                          "start": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "duration": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "ease": {
+                            "type": "string",
+                            "enum": [
+                              "smooth",
+                              "settled",
+                              "sharp",
+                              "bouncy"
+                            ]
+                          },
+                          "sound": {
+                            "type": "object",
+                            "properties": {
+                              "mute": {
+                                "type": "boolean"
+                              },
+                              "event": {
+                                "type": "string",
+                                "enum": [
+                                  "whoosh-in",
+                                  "whoosh-out",
+                                  "impact",
+                                  "tick",
+                                  "pop",
+                                  "send",
+                                  "swipe",
+                                  "scratch",
+                                  "sub-drop",
+                                  "sting"
+                                ]
+                              },
+                              "sample": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            }
+                          }
+                        },
+                        "required": [
+                          "start",
+                          "duration",
+                          "ease"
+                        ]
+                      },
+                      "type": {
+                        "type": "string",
+                        "const": "stat-callout"
+                      },
+                      "position": {
+                        "type": "object",
+                        "properties": {
+                          "x": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "y": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          }
+                        },
+                        "required": [
+                          "x",
+                          "y"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "from": {
+                        "type": "number"
+                      },
+                      "to": {
+                        "type": "number"
+                      },
+                      "format": {
+                        "type": "string",
+                        "enum": [
+                          "integer",
+                          "currency",
+                          "percent",
+                          "timecode"
+                        ]
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "scale": {
+                        "type": "number",
+                        "minimum": 0.25,
+                        "maximum": 4
+                      },
+                      "rollStart": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "rollWindow": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "animation": {
+                        "type": "object",
+                        "properties": {
+                          "channels": {
+                            "type": "object",
+                            "properties": {
+                              "opacity": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "atMs": {
+                                      "type": "number",
+                                      "minimum": 0
+                                    },
+                                    "value": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "ease": {
+                                      "type": "string",
+                                      "enum": [
+                                        "smooth",
+                                        "settled",
+                                        "sharp",
+                                        "bouncy"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "atMs",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "x": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "atMs": {
+                                      "type": "number",
+                                      "minimum": 0
+                                    },
+                                    "value": {
+                                      "type": "number"
+                                    },
+                                    "ease": {
+                                      "type": "string",
+                                      "enum": [
+                                        "smooth",
+                                        "settled",
+                                        "sharp",
+                                        "bouncy"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "atMs",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "y": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "atMs": {
+                                      "type": "number",
+                                      "minimum": 0
+                                    },
+                                    "value": {
+                                      "type": "number"
+                                    },
+                                    "ease": {
+                                      "type": "string",
+                                      "enum": [
+                                        "smooth",
+                                        "settled",
+                                        "sharp",
+                                        "bouncy"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "atMs",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "scale": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "atMs": {
+                                      "type": "number",
+                                      "minimum": 0
+                                    },
+                                    "value": {
+                                      "type": "number",
+                                      "minimum": 0.1,
+                                      "maximum": 8
+                                    },
+                                    "ease": {
+                                      "type": "string",
+                                      "enum": [
+                                        "smooth",
+                                        "settled",
+                                        "sharp",
+                                        "bouncy"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "atMs",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "rotation": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "atMs": {
+                                      "type": "number",
+                                      "minimum": 0
+                                    },
+                                    "value": {
+                                      "type": "number"
+                                    },
+                                    "ease": {
+                                      "type": "string",
+                                      "enum": [
+                                        "smooth",
+                                        "settled",
+                                        "sharp",
+                                        "bouncy"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "atMs",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "cascade": {
+                            "type": "object",
+                            "properties": {
+                              "anchor": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "const": "surface"
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "overlay": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "overlay"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "mark": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      }
+                                    },
+                                    "required": [
+                                      "mark"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "textAnimation": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "textAnimation"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "block": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "block"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              },
+                              "event": {
+                                "type": "string",
+                                "enum": [
+                                  "start",
+                                  "end"
+                                ]
+                              },
+                              "offsetMs": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "anchor",
+                              "event",
+                              "offsetMs"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "type",
+                      "position",
+                      "from",
+                      "to"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "enter": {
+                        "type": "object",
+                        "properties": {
+                          "start": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "duration": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "ease": {
+                            "type": "string",
+                            "enum": [
+                              "smooth",
+                              "settled",
+                              "sharp",
+                              "bouncy"
+                            ]
+                          },
+                          "sound": {
+                            "type": "object",
+                            "properties": {
+                              "mute": {
+                                "type": "boolean"
+                              },
+                              "event": {
+                                "type": "string",
+                                "enum": [
+                                  "whoosh-in",
+                                  "whoosh-out",
+                                  "impact",
+                                  "tick",
+                                  "pop",
+                                  "send",
+                                  "swipe",
+                                  "scratch",
+                                  "sub-drop",
+                                  "sting"
+                                ]
+                              },
+                              "sample": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            }
+                          }
+                        },
+                        "required": [
+                          "start",
+                          "duration",
+                          "ease"
+                        ]
+                      },
+                      "exit": {
+                        "type": "object",
+                        "properties": {
+                          "start": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "duration": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "ease": {
+                            "type": "string",
+                            "enum": [
+                              "smooth",
+                              "settled",
+                              "sharp",
+                              "bouncy"
+                            ]
+                          },
+                          "sound": {
+                            "type": "object",
+                            "properties": {
+                              "mute": {
+                                "type": "boolean"
+                              },
+                              "event": {
+                                "type": "string",
+                                "enum": [
+                                  "whoosh-in",
+                                  "whoosh-out",
+                                  "impact",
+                                  "tick",
+                                  "pop",
+                                  "send",
+                                  "swipe",
+                                  "scratch",
+                                  "sub-drop",
+                                  "sting"
+                                ]
+                              },
+                              "sample": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            }
+                          }
+                        },
+                        "required": [
+                          "start",
+                          "duration",
+                          "ease"
+                        ]
+                      },
+                      "type": {
+                        "type": "string",
+                        "const": "timeline-segment"
+                      },
+                      "from": {
+                        "type": "object",
+                        "properties": {
+                          "x": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "y": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          }
+                        },
+                        "required": [
+                          "x",
+                          "y"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "to": {
+                        "type": "object",
+                        "properties": {
+                          "x": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "y": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          }
+                        },
+                        "required": [
+                          "x",
+                          "y"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "animation": {
+                        "type": "object",
+                        "properties": {
+                          "channels": {
+                            "type": "object",
+                            "properties": {
+                              "opacity": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "atMs": {
+                                      "type": "number",
+                                      "minimum": 0
+                                    },
+                                    "value": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "ease": {
+                                      "type": "string",
+                                      "enum": [
+                                        "smooth",
+                                        "settled",
+                                        "sharp",
+                                        "bouncy"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "atMs",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "cascade": {
+                            "type": "object",
+                            "properties": {
+                              "anchor": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "const": "surface"
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "overlay": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "overlay"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "mark": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      }
+                                    },
+                                    "required": [
+                                      "mark"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "textAnimation": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "textAnimation"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "block": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "block"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              },
+                              "event": {
+                                "type": "string",
+                                "enum": [
+                                  "start",
+                                  "end"
+                                ]
+                              },
+                              "offsetMs": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "anchor",
+                              "event",
+                              "offsetMs"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "type",
+                      "from",
+                      "to"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
             }
           },
           "required": [
@@ -855,6 +2804,19 @@
                         },
                         "required": [
                           "textAnimation"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "block": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "block"
                         ],
                         "additionalProperties": false
                       }
@@ -1318,6 +3280,19 @@
                             },
                             "required": [
                               "textAnimation"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "block": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "block"
                             ],
                             "additionalProperties": false
                           }

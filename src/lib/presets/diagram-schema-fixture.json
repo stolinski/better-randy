@@ -1,0 +1,128 @@
+{
+	"schema": "hiviz@1",
+	"name": "Diagram schema fixture",
+	"description": "ADR-0036 round-trip fixture — all five diagram Block primitives, every edge route, node refs + explicit points, cascade welds (block→block, block→surface), keyframe channels, and the stat roll window.",
+	"pack": "syntax",
+	"kind": "fixture",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#ffffff",
+			"inkColor": "#000000"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"enter": { "start": 0, "duration": 0.05, "ease": "settled" },
+			"exit": { "start": 0.9, "duration": 0.04, "ease": "smooth" },
+			"diagram": [
+				{
+					"type": "node",
+					"id": "n-origin",
+					"position": { "x": 0.22, "y": 0.42 },
+					"form": "box",
+					"text": "Request",
+					"enter": { "start": 0.08, "duration": 0.05, "ease": "settled" }
+				},
+				{
+					"type": "node",
+					"id": "n-server",
+					"position": { "x": 0.62, "y": 0.42 },
+					"form": "pin",
+					"text": "Server",
+					"scale": 1.2,
+					"animation": {
+						"cascade": { "anchor": { "block": "e-flow" }, "event": "end", "offsetMs": 120 }
+					}
+				},
+				{
+					"type": "edge-arrow",
+					"id": "e-flow",
+					"from": { "node": "n-origin" },
+					"to": { "node": "n-server" },
+					"route": "elbow",
+					"direction": "forward",
+					"animation": {
+						"cascade": { "anchor": { "block": "n-origin" }, "event": "end", "offsetMs": 120 }
+					}
+				},
+				{
+					"type": "edge-arrow",
+					"id": "e-arc",
+					"from": { "node": "n-server" },
+					"to": { "x": 0.85, "y": 0.64 },
+					"route": "arc",
+					"control": { "x": 0.79, "y": 0.36 },
+					"direction": "none",
+					"enter": { "start": 0.5, "duration": 0.08, "ease": "smooth" },
+					"animation": {
+						"channels": {
+							"opacity": [
+								{ "atMs": 0, "value": 0 },
+								{ "atMs": 240, "value": 1, "ease": "smooth" }
+							]
+						}
+					}
+				},
+				{
+					"type": "label",
+					"id": "l-caption",
+					"position": { "x": 0.42, "y": 0.28 },
+					"text": "How a request travels",
+					"scale": 1.25,
+					"animation": {
+						"channels": {
+							"opacity": [
+								{ "atMs": 0, "value": 0 },
+								{ "atMs": 280, "value": 1, "ease": "smooth" }
+							],
+							"y": [
+								{ "atMs": 0, "value": 0.02 },
+								{ "atMs": 280, "value": 0, "ease": "settled" }
+							]
+						},
+						"cascade": { "anchor": "surface", "event": "end", "offsetMs": 80 }
+					}
+				},
+				{
+					"type": "stat-callout",
+					"id": "s-count",
+					"position": { "x": 0.5, "y": 0.7 },
+					"from": 0,
+					"to": 4200,
+					"format": "integer",
+					"label": "requests/sec",
+					"rollStart": 0.3,
+					"rollWindow": 0.4,
+					"animation": {
+						"cascade": { "anchor": { "block": "n-server" }, "event": "end", "offsetMs": 160 }
+					}
+				},
+				{
+					"type": "timeline-segment",
+					"id": "t-span",
+					"from": { "x": 0.2, "y": 0.86 },
+					"to": { "x": 0.8, "y": 0.86 },
+					"label": "2019 – 2024",
+					"enter": { "start": 0.55, "duration": 0.1, "ease": "smooth" }
+				}
+			]
+		},
+		"textAnimations": [],
+		"overlays": [],
+		"effects": [],
+		"audioCues": []
+	}
+}

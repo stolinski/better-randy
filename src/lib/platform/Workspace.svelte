@@ -723,6 +723,9 @@
 		if ('mark' in anchor) {
 			return `mark-${anchor.mark}`;
 		}
+		if ('block' in anchor) {
+			return `block-${anchor.block}`;
+		}
 		return `textanim-${anchor.textAnimation}`;
 	}
 
@@ -2054,6 +2057,8 @@
 				void anchor.overlay;
 			} else if ('mark' in anchor) {
 				void anchor.mark;
+			} else if ('block' in anchor) {
+				void anchor.block;
 			} else {
 				void anchor.textAnimation;
 			}

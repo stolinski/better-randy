@@ -186,6 +186,9 @@ function cloneCascadeAnchor(anchor: CascadeAnchor): CascadeAnchor {
 	if ('mark' in anchor) {
 		return { mark: anchor.mark };
 	}
+	if ('block' in anchor) {
+		return { block: anchor.block };
+	}
 	return { textAnimation: anchor.textAnimation };
 }
 
@@ -279,7 +282,11 @@ function cloneSurface(surface: SurfaceState): SurfaceState {
 		enter: surface.enter ? cloneTransition(surface.enter) : undefined,
 		exit: surface.exit ? cloneTransition(surface.exit) : undefined,
 		animation: surface.animation ? cloneSurfaceAnimation(surface.animation) : undefined,
-		backgroundVisibility: surface.backgroundVisibility
+		backgroundVisibility: surface.backgroundVisibility,
+		// Diagram Block elements (ADR-0036). Pure JSON (points, strings, numbers,
+		// transitions, channel tracks), so structuredClone deep-copies every field
+		// without the hand-enumeration trap that lost `counterpoint` and `chrome`.
+		diagram: surface.diagram ? structuredClone(surface.diagram) : undefined
 	};
 }
 
