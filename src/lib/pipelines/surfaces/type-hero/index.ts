@@ -35,8 +35,11 @@ export const typeHero: SurfaceRenderer = {
 	controls: {
 		title: true,
 		author: true,
+		// Secondary word beside the primary; only the `pair` variant renders it.
+		counterpoint: true,
 		body: 'never'
 	},
+	variantIds: VARIANT_IDS,
 	CanvasSource,
 	defaults,
 	shaderPass: typeHeroRake,

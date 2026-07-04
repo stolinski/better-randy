@@ -29,7 +29,7 @@ export const paragraphIdentity: IdentitySpec = {
 		{
 			name: 'mark-integration',
 			definition:
-				'Inline marks composite under the glyph foreground (highlights paint behind ink; strikes paint over ink; underlines paint at baseline) and respect each unit\'s per-frame alpha when text animations are active.',
+				"Inline marks composite under the glyph foreground (highlights paint behind ink; strikes paint over ink; underlines paint at baseline) and respect each unit's per-frame alpha when text animations are active.",
 			implementation:
 				'src/lib/annotations/annotation-marks.ts — z-order per mark style; marks renderer reads per-unit alpha from TextAnimationManager.unitAlphaAt and multiplies into mark alpha (per ADR-0011).',
 			probe: {
@@ -47,7 +47,8 @@ export const paragraphIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'body text colour',
-				expectation: 'ink colour resolves through engineState.typography.inkColor (TypographySchema.inkColor), not a Pack Role.'
+				expectation:
+					'ink colour resolves through engineState.typography.inkColor (TypographySchema.inkColor), not a Pack Role.'
 			}
 		},
 		{
@@ -68,7 +69,8 @@ export const paragraphIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'first ~10% of the timeline on the body block',
-				expectation: 'body enter motion resolves through the body TextAnimation strategy (compiled via compile() in src/lib/text-animations/compile.ts and driven by TextAnimationManager), not a Pack Role.'
+				expectation:
+					'body enter motion resolves through the body TextAnimation strategy (compiled via compile() in src/lib/text-animations/compile.ts and driven by TextAnimationManager), not a Pack Role.'
 			}
 		},
 		{
@@ -79,7 +81,8 @@ export const paragraphIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'paragraph line length',
-				expectation: 'paragraph measure (line length) is set intrinsically by the Block layout for the active Surface content slot, not by a Pack Role.'
+				expectation:
+					'paragraph measure (line length) is set intrinsically by the Block layout for the active Surface content slot, not by a Pack Role.'
 			}
 		}
 	]

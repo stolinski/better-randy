@@ -1,36 +1,51 @@
 /**
  * Pure (non-Svelte) serialization helpers. Imported by both the Svelte
- * GUI layer (via preset.ts re-exports) and the Node.js test script
- * (scripts/test-round-trip.ts). No Svelte, no browser APIs, no pipelines.
+ * GUI layer and the Node.js test script (scripts/test-round-trip.ts).
+ * No Svelte, no browser APIs, no pipelines.
  */
+import { PRESET_SCHEMA_ID } from './engine-schema.ts';
 import { serializeAnnotationBodyToText } from '../annotations/annotation-body-text.ts';
 
-import type { EngineState, Preset, SurfaceContent } from './engine-schema';
+import type { CompositionTransition, EngineState, Preset, SurfaceContent } from './engine-schema';
+
+/**
+ * The Preset-level metadata fields that live beside `state` — the shape the
+ * GUI's reactive `presetBase` (preset-base.svelte.ts) mirrors. Kept here (not
+ * in the .svelte.ts module) so the Node test script can type against it.
+ */
+export interface PresetBaseFields {
+	name: string;
+	description?: string | undefined;
+	kind: Preset['kind'];
+	transition?: CompositionTransition | undefined;
+}
 
 /**
  * Produce a Preset from the base (top-level metadata) and the live engine
- * state. The base supplies `name`, `description`, `kind`, `schema`, and
- * `transition` (none of which the GUI currently edits); the state and packSlug
- * supply the composition. Fields the GUI has no control for (transport, stage,
- * etc.) pass through untouched from `state` — the same data
- * `applyCompositionState` loaded from the original preset — ensuring a
- * lossless round-trip even when only a subset of the state is covered by GUI
- * controls.
+ * state. The base supplies `name`, `description`, `kind`, and `transition` —
+ * all GUI-editable via the RootInspector's Composition / Transition sections,
+ * fed from the reactive `presetBase`; the state and packSlug supply the
+ * composition. Fields the GUI has no control for pass through untouched from
+ * `state` — the same data `applyCompositionState` loaded from the original
+ * preset — ensuring a lossless round-trip even when only a subset of the
+ * state is covered by GUI controls.
  */
 export function serializeCompositionState(
-	base: Preset,
+	base: PresetBaseFields,
 	state: EngineState,
 	packSlug: string
 ): Preset {
 	const result: Preset = {
-		schema: base.schema,
+		schema: PRESET_SCHEMA_ID,
 		name: base.name,
 		pack: packSlug,
 		kind: base.kind,
 		state
 	};
 	if (base.description !== undefined) result.description = base.description;
-	if (base.transition !== undefined) result.transition = base.transition;
+	// Cloned so the serialized Preset never shares the live (mutable) recipe
+	// object with the GUI state it came from.
+	if (base.transition !== undefined) result.transition = { ...base.transition };
 	return result;
 }
 

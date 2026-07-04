@@ -198,6 +198,9 @@ const wgsl = /* wgsl */ `
 export function createPullquotePhotoBackdropPass(): ShaderPass<SurfaceState> {
 	return {
 		uniforms: PullquotePhotoBackdropUniforms,
+		// Paints the full-frame radial-warmth environment behind the quote — the
+		// depth stage's real backdrop plane at depth supersedes it (ADR-0028).
+		environment: true,
 		wgsl,
 		packUniforms(target, bounds, ctx) {
 			const seedSource = target.content.title ?? target.type;

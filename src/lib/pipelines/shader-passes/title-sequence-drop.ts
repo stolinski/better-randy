@@ -232,6 +232,10 @@ const wgsl = /* wgsl */ `
 export function createTitleSequenceDropPass(): ShaderPass<SurfaceState> {
 	return {
 		uniforms: TitleSequenceDropUniforms,
+		// Paints an opaque full-frame environment (graded backdrop) under the
+		// type — the depth stage's real backdrop plane at depth supersedes it
+		// (ADR-0028); stage pieces choreograph the type via textAnimations.
+		environment: true,
 		wgsl,
 		packUniforms(target, bounds, ctx) {
 			const seedSource = target.content.title ?? target.type;

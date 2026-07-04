@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { tick } from 'svelte';
+
 	import AnnotationTextEditor from '$lib/annotations/AnnotationTextEditor.svelte';
 	import { parseAnnotationBodyText } from '$lib/annotations/annotation-body-text';
 	import { DECORATIVE_ANNOTATION_STYLES } from '$lib/annotations/annotation-mark-styles';
@@ -57,6 +59,17 @@
 	const renderer = $derived(getSurfaceRenderer(engineState.surface.type));
 	const controls = $derived(renderer?.controls ?? {});
 
+	// ---- Variant (variants-as-data families, ADR-0020) ----
+	// Absent `variant` means the family's first id (how type-hero's CanvasSource
+	// resolves it), so the select reflects the effective value.
+
+	const variantIds = $derived(renderer?.variantIds ?? []);
+	const activeVariant = $derived(engineState.surface.variant ?? variantIds[0]);
+
+	function handleVariantChange(event: Event): void {
+		engineState.surface.variant = (event.currentTarget as HTMLSelectElement).value;
+	}
+
 	function hasAnyBodyText(body: AnnotationBody): boolean {
 		for (const block of body) {
 			if (block.type === 'paragraph') {
@@ -73,29 +86,98 @@
 			(controls.body === 'optional' && hasAnyBodyText(engineState.surface.content.body))
 	);
 
+	// Every string slot a Surface can declare, in display order. `body` stays
+	// outside this mechanism — it has its own always/optional semantics.
+	const DOCUMENT_SLOTS = [
+		'kicker',
+		'title',
+		'counterpoint',
+		'sourceUrl',
+		'author',
+		'affiliation',
+		'avatarUrl',
+		'source',
+		'dateLabel',
+		'bodyLabel'
+	] as const;
+	type DocumentSlot = (typeof DOCUMENT_SLOTS)[number];
+
+	const DOCUMENT_SLOT_LABELS: Record<DocumentSlot, string> = {
+		kicker: 'Kicker',
+		title: 'Title',
+		counterpoint: 'Counterpoint',
+		sourceUrl: 'Source',
+		author: 'Author',
+		affiliation: 'Affiliation',
+		avatarUrl: 'Avatar',
+		source: 'Citation',
+		dateLabel: 'Date',
+		bodyLabel: 'Body label'
+	};
+
+	// A slot is declared when the renderer's controls claim it AND the current
+	// state renders it: counterpoint only exists on the `pair` variant;
+	// avatarUrl only on the twitter mock.
+	function isSlotDeclared(slot: DocumentSlot): boolean {
+		if (slot === 'counterpoint') return controls.counterpoint === true && activeVariant === 'pair';
+		if (slot === 'avatarUrl')
+			return controls.avatarUrl === true && (engineState.surface.site ?? 'twitter') === 'twitter';
+		return controls[slot] === true;
+	}
+
 	const documentSlots = $derived({
-		title: controls.title === true && engineState.surface.content.title !== undefined,
-		sourceUrl: controls.sourceUrl === true && engineState.surface.content.sourceUrl !== undefined,
-		author: controls.author === true && engineState.surface.content.author !== undefined,
+		title: isSlotDeclared('title') && engineState.surface.content.title !== undefined,
+		counterpoint:
+			isSlotDeclared('counterpoint') && engineState.surface.content.counterpoint !== undefined,
+		sourceUrl: isSlotDeclared('sourceUrl') && engineState.surface.content.sourceUrl !== undefined,
+		author: isSlotDeclared('author') && engineState.surface.content.author !== undefined,
 		affiliation:
-			controls.affiliation === true && engineState.surface.content.affiliation !== undefined,
-		source: controls.source === true && engineState.surface.content.source !== undefined,
-		dateLabel: controls.dateLabel === true && engineState.surface.content.dateLabel !== undefined,
-		kicker: controls.kicker === true && engineState.surface.content.kicker !== undefined,
-		bodyLabel: controls.bodyLabel === true && engineState.surface.content.bodyLabel !== undefined
+			isSlotDeclared('affiliation') && engineState.surface.content.affiliation !== undefined,
+		avatarUrl: isSlotDeclared('avatarUrl') && engineState.surface.content.avatarUrl !== undefined,
+		source: isSlotDeclared('source') && engineState.surface.content.source !== undefined,
+		dateLabel: isSlotDeclared('dateLabel') && engineState.surface.content.dateLabel !== undefined,
+		kicker: isSlotDeclared('kicker') && engineState.surface.content.kicker !== undefined,
+		bodyLabel: isSlotDeclared('bodyLabel') && engineState.surface.content.bodyLabel !== undefined
 	});
 
 	const documentVisible = $derived(
 		documentSlots.title ||
+			documentSlots.counterpoint ||
 			documentSlots.sourceUrl ||
 			documentSlots.author ||
 			documentSlots.affiliation ||
+			documentSlots.avatarUrl ||
 			documentSlots.source ||
 			documentSlots.dateLabel ||
 			documentSlots.kicker ||
 			documentSlots.bodyLabel ||
 			showBody
 	);
+
+	// Declared-but-absent slots — what the "+ Slot…" select offers so a GUI user
+	// can add e.g. an author to a composition that lacks it (parity with agents).
+	const absentSlots = $derived(
+		DOCUMENT_SLOTS.filter(
+			(slot) => isSlotDeclared(slot) && engineState.surface.content[slot] === undefined
+		)
+	);
+
+	let inspectorEl = $state<HTMLDivElement>();
+
+	function addSlot(slot: DocumentSlot): void {
+		engineState.surface.content[slot] = '';
+		tick()
+			.then(() => {
+				inspectorEl?.querySelector<HTMLInputElement>(`input[data-slot="${slot}"]`)?.focus();
+			})
+			.catch((error: unknown) => {
+				console.error('addSlot focus failed', error);
+			});
+	}
+
+	function removeSlot(slot: DocumentSlot): void {
+		engineState.surface.content[slot] = undefined;
+	}
 
 	const appearanceVisible = $derived(
 		Boolean(
@@ -112,16 +194,7 @@
 		if (!nextRenderer) return;
 		const nextDefaults = nextRenderer.defaults();
 		nextDefaults.content.body = engineState.surface.content.body;
-		for (const slot of [
-			'title',
-			'sourceUrl',
-			'author',
-			'affiliation',
-			'source',
-			'dateLabel',
-			'kicker',
-			'bodyLabel'
-		] as const) {
+		for (const slot of DOCUMENT_SLOTS) {
 			const value = engineState.surface.content[slot];
 			if (typeof value === 'string' && value.length > 0) nextDefaults.content[slot] = value;
 		}
@@ -329,7 +402,7 @@
 	});
 </script>
 
-<div class="surface-inspector">
+<div class="surface-inspector" bind:this={inspectorEl}>
 	<InspectorSection label="Surface">
 		<Field label="Type">
 			<select value={engineState.surface.type} onchange={handleSurfaceTypeChange}>
@@ -338,6 +411,16 @@
 				{/each}
 			</select>
 		</Field>
+
+		{#if variantIds.length > 0}
+			<Field label="Variant">
+				<select value={activeVariant} onchange={handleVariantChange}>
+					{#each variantIds as id (id)}
+						<option value={id}>{id}</option>
+					{/each}
+				</select>
+			</Field>
+		{/if}
 
 		{#if controls.site}
 			<Field label="Site">
@@ -358,42 +441,136 @@
 		{#if documentVisible}
 			{#if documentSlots.kicker}
 				<Field label="Kicker">
-					<input bind:value={engineState.surface.content.kicker} type="text" />
+					<input bind:value={engineState.surface.content.kicker} data-slot="kicker" type="text" />
+					<button
+						type="button"
+						class="clear-btn"
+						aria-label="Remove kicker"
+						onclick={() => removeSlot('kicker')}>×</button
+					>
 				</Field>
 			{/if}
 			{#if documentSlots.title}
 				<Field label="Title">
-					<input bind:value={engineState.surface.content.title} type="text" />
+					<input bind:value={engineState.surface.content.title} data-slot="title" type="text" />
+					<button
+						type="button"
+						class="clear-btn"
+						aria-label="Remove title"
+						onclick={() => removeSlot('title')}>×</button
+					>
+				</Field>
+			{/if}
+			{#if documentSlots.counterpoint}
+				<Field label="Counterpoint">
+					<input
+						bind:value={engineState.surface.content.counterpoint}
+						data-slot="counterpoint"
+						type="text"
+					/>
+					<button
+						type="button"
+						class="clear-btn"
+						aria-label="Remove counterpoint"
+						onclick={() => removeSlot('counterpoint')}>×</button
+					>
 				</Field>
 			{/if}
 			{#if documentSlots.sourceUrl}
 				<Field label="Source">
-					<input bind:value={engineState.surface.content.sourceUrl} type="url" />
+					<input
+						bind:value={engineState.surface.content.sourceUrl}
+						data-slot="sourceUrl"
+						type="url"
+					/>
+					<button
+						type="button"
+						class="clear-btn"
+						aria-label="Remove source"
+						onclick={() => removeSlot('sourceUrl')}>×</button
+					>
 				</Field>
 			{/if}
 			{#if documentSlots.author}
 				<Field label="Author">
-					<input bind:value={engineState.surface.content.author} type="text" />
+					<input bind:value={engineState.surface.content.author} data-slot="author" type="text" />
+					<button
+						type="button"
+						class="clear-btn"
+						aria-label="Remove author"
+						onclick={() => removeSlot('author')}>×</button
+					>
 				</Field>
 			{/if}
 			{#if documentSlots.affiliation}
 				<Field label="Affiliation">
-					<input bind:value={engineState.surface.content.affiliation} type="text" />
+					<input
+						bind:value={engineState.surface.content.affiliation}
+						data-slot="affiliation"
+						type="text"
+					/>
+					<button
+						type="button"
+						class="clear-btn"
+						aria-label="Remove affiliation"
+						onclick={() => removeSlot('affiliation')}>×</button
+					>
+				</Field>
+			{/if}
+			{#if documentSlots.avatarUrl}
+				<Field label="Avatar">
+					<input
+						bind:value={engineState.surface.content.avatarUrl}
+						data-slot="avatarUrl"
+						type="url"
+					/>
+					<button
+						type="button"
+						class="clear-btn"
+						aria-label="Remove avatar"
+						onclick={() => removeSlot('avatarUrl')}>×</button
+					>
 				</Field>
 			{/if}
 			{#if documentSlots.source}
 				<Field label="Citation">
-					<input bind:value={engineState.surface.content.source} type="text" />
+					<input bind:value={engineState.surface.content.source} data-slot="source" type="text" />
+					<button
+						type="button"
+						class="clear-btn"
+						aria-label="Remove citation"
+						onclick={() => removeSlot('source')}>×</button
+					>
 				</Field>
 			{/if}
 			{#if documentSlots.dateLabel}
 				<Field label="Date">
-					<input bind:value={engineState.surface.content.dateLabel} type="text" />
+					<input
+						bind:value={engineState.surface.content.dateLabel}
+						data-slot="dateLabel"
+						type="text"
+					/>
+					<button
+						type="button"
+						class="clear-btn"
+						aria-label="Remove date"
+						onclick={() => removeSlot('dateLabel')}>×</button
+					>
 				</Field>
 			{/if}
 			{#if documentSlots.bodyLabel}
 				<Field label="Body label">
-					<input bind:value={engineState.surface.content.bodyLabel} type="text" />
+					<input
+						bind:value={engineState.surface.content.bodyLabel}
+						data-slot="bodyLabel"
+						type="text"
+					/>
+					<button
+						type="button"
+						class="clear-btn"
+						aria-label="Remove body label"
+						onclick={() => removeSlot('bodyLabel')}>×</button
+					>
 				</Field>
 			{/if}
 			{#if showBody}
@@ -407,6 +584,24 @@
 					/>
 				</div>
 			{/if}
+		{/if}
+
+		{#if absentSlots.length > 0}
+			<Field label="Add">
+				<select
+					value=""
+					onchange={(e) => {
+						const v = (e.currentTarget as HTMLSelectElement).value;
+						(e.currentTarget as HTMLSelectElement).value = '';
+						if (v) addSlot(v as DocumentSlot);
+					}}
+				>
+					<option value="" disabled>+ Slot…</option>
+					{#each absentSlots as slot (slot)}
+						<option value={slot}>{DOCUMENT_SLOT_LABELS[slot]}</option>
+					{/each}
+				</select>
+			</Field>
 		{/if}
 
 		{#if controls.chrome}
@@ -729,6 +924,49 @@
 					/>
 					<button type="button" class="clear-btn" onclick={() => clearTextAnimParam(entry, 'gapMs')}
 						>×</button
+					>
+				</Field>
+
+				<Field label="Y travel ×">
+					<input
+						type="number"
+						min="0"
+						max="3"
+						step="0.1"
+						value={entry.params?.yTravelMultiplier ?? ''}
+						placeholder="1"
+						oninput={(e) =>
+							setTextAnimParam(
+								entry,
+								'yTravelMultiplier',
+								(e.currentTarget as HTMLInputElement).value
+							)}
+					/>
+					<button
+						type="button"
+						class="clear-btn"
+						onclick={() => clearTextAnimParam(entry, 'yTravelMultiplier')}>×</button
+					>
+				</Field>
+
+				<Field label="Delay ms">
+					<input
+						type="number"
+						min="0"
+						step="10"
+						value={entry.params?.initialDelayMs ?? ''}
+						placeholder="default"
+						oninput={(e) =>
+							setTextAnimParam(
+								entry,
+								'initialDelayMs',
+								(e.currentTarget as HTMLInputElement).value
+							)}
+					/>
+					<button
+						type="button"
+						class="clear-btn"
+						onclick={() => clearTextAnimParam(entry, 'initialDelayMs')}>×</button
 					>
 				</Field>
 			</div>

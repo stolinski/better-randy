@@ -117,6 +117,25 @@
 	// Keyframeable overlay channels (ADR-0035 §3), in inspector order.
 	const OVERLAY_CHANNELS = ['opacity', 'x', 'y', 'scale', 'rotation'] as const;
 
+	// Focal-plane z (ADR-0021 semantics / ADR-0027 v1): 0 = focal plane (sharp),
+	// 1 = max defocus; absent → the Overlay-Layer default 0.7 at render. Only
+	// consulted by the depth stage (ADR-0028) and the depth-of-field Effect
+	// (rack focus rides its focusPull params), so the row only shows then.
+	const depthActive = $derived(
+		engineState.stage !== undefined ||
+			engineState.effects.some((effect) => effect.type === 'depth-of-field')
+	);
+
+	function setOverlayZ(ov: Overlay, value: string): void {
+		const n = Number(value);
+		if (!Number.isFinite(n)) return;
+		ov.z = Math.max(0, Math.min(1, n));
+	}
+
+	function clearOverlayZ(ov: Overlay): void {
+		ov.z = undefined;
+	}
+
 	function setOverlayCascade(ov: Overlay, next: Cascade | undefined): void {
 		if (next === undefined) {
 			if (!ov.animation) return;
@@ -310,6 +329,20 @@
 				oninput={(e) => setOverlayRotation(ov, (e.currentTarget as HTMLInputElement).value)}
 			/>
 		</Field>
+		{#if depthActive}
+			<Field label="Z">
+				<input
+					type="number"
+					min="0"
+					max="1"
+					step="0.05"
+					value={ov.z ?? ''}
+					placeholder="0.7"
+					oninput={(e) => setOverlayZ(ov, (e.currentTarget as HTMLInputElement).value)}
+				/>
+				<button type="button" class="clear-btn" onclick={() => clearOverlayZ(ov)}>×</button>
+			</Field>
+		{/if}
 	</InspectorSection>
 
 	<InspectorSection label="Enter">
@@ -560,6 +593,47 @@
 					/>
 					<button type="button" class="clear-btn" onclick={() => clearTextAnimParam(entry, 'gapMs')}
 						>×</button
+					>
+				</Field>
+				<Field label="Y travel ×">
+					<input
+						type="number"
+						min="0"
+						max="3"
+						step="0.1"
+						value={entry.params?.yTravelMultiplier ?? ''}
+						placeholder="1"
+						oninput={(e) =>
+							setTextAnimParam(
+								entry,
+								'yTravelMultiplier',
+								(e.currentTarget as HTMLInputElement).value
+							)}
+					/>
+					<button
+						type="button"
+						class="clear-btn"
+						onclick={() => clearTextAnimParam(entry, 'yTravelMultiplier')}>×</button
+					>
+				</Field>
+				<Field label="Delay ms">
+					<input
+						type="number"
+						min="0"
+						step="10"
+						value={entry.params?.initialDelayMs ?? ''}
+						placeholder="default"
+						oninput={(e) =>
+							setTextAnimParam(
+								entry,
+								'initialDelayMs',
+								(e.currentTarget as HTMLInputElement).value
+							)}
+					/>
+					<button
+						type="button"
+						class="clear-btn"
+						onclick={() => clearTextAnimParam(entry, 'initialDelayMs')}>×</button
 					>
 				</Field>
 			</div>

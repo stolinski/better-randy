@@ -29,18 +29,64 @@
 				"dateLabel": "JUN 2026",
 				"body": ""
 			},
-			"enter": { "start": 0, "duration": 0.05, "ease": "settled" },
-			"exit": { "start": 0.92, "duration": 0.04, "ease": "smooth" }
+			"enter": {
+				"start": 0,
+				"duration": 0.05,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.92,
+				"duration": 0.04,
+				"ease": "smooth"
+			}
 		},
-		"overlays": [],
+		"overlays": [
+			{
+				"type": "lower-third",
+				"id": "stage-credit",
+				"z": 0.45,
+				"content": {
+					"variant": "cinematic",
+					"kicker": "ENGINE",
+					"title": "Dimensional Depth Stage",
+					"subtitle": "Overlay-at-depth · ADR-0028"
+				},
+				"position": {
+					"anchor": "bottom-left",
+					"offset": {
+						"x": 0.06,
+						"y": 0.115
+					}
+				},
+				"enter": {
+					"start": 0.06,
+					"duration": 0.058,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.9,
+					"duration": 0.041,
+					"ease": "smooth"
+				}
+			}
+		],
 		"effects": [],
 		"stage": {
 			"type": "depth",
-			"camera": { "move": "push", "amount": 0.6, "ease": "smooth" },
+			"camera": {
+				"move": "push",
+				"amount": 0.6,
+				"ease": "smooth"
+			},
 			"focus": {
 				"focusZ": 0.0,
 				"aperture": 0.55,
-				"pull": { "from": 0.85, "to": 0.08, "start": 0.1, "duration": 0.7 }
+				"pull": {
+					"from": 0.85,
+					"to": 0.08,
+					"start": 0.1,
+					"duration": 0.7
+				}
 			}
 		}
 	}

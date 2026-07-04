@@ -95,7 +95,7 @@ A frame composes bottom-to-top:
 | Block | `BlockRenderer` | one content unit inside the Surface | 1 (`paragraph`) |
 | Annotation | `AnnotationRenderer` | one mark on a Block (decorative or focal) | 10 |
 | Overlay | `OverlayRenderer` | a positioned element not bound to a Block | 8 |
-| Effect | `EffectRenderer` | one WGSL post-process pass in the frame chain | 7 |
+| Effect | `EffectRenderer` | one WGSL post-process pass in the frame chain | 8 |
 
 ## Data model
 
@@ -171,7 +171,7 @@ Paragraph bodies are stored as a single bracket-tag string, parsed into the runt
 | blocks (1) | `paragraph` |
 | annotations (10) | `highlight`, `underline`, `strike`, `circle`, `box`, `side-note`, `magnify`, `lift-out`, `tear-out`, `isolate` |
 | overlays (8) | `lower-third` (variants `standard`/`cinematic`), `washi-tape`, `watermark`, `shader-fill`, `cursor-trail`, `counter` (`slot-machine-roll`), `instance-stack` (`vertical-stack`/`horizontal-train`), `text-3d` (`cylinder-axis-y`) |
-| effects (7) | `paper-grain`, `chromatic-aberration`, `dithering`, `halftone-dots`, `halftone-cmyk`, `water`, `fluted-glass` |
+| effects (8) | `paper-grain`, `chromatic-aberration`, `dithering`, `halftone-dots`, `halftone-cmyk`, `water`, `fluted-glass`, `heatmap` |
 
 **Dead-by-use — resolved.** `isolate`, `watermark`, `shader-fill`, `chromatic-aberration` were registered + boot-valid but referenced by zero presets; each now has a proving fixture (`isolate-demo`, `watermark-demo`, `shader-fill-demo`, `chromatic-aberration-demo`) that renders the pipeline, so all four are kept (not removed). Every registered pipeline is now referenced by ≥1 preset.
 
@@ -204,7 +204,7 @@ One folder under `src/lib/pipelines/<layer>/<name>/` (`index.ts` + `CanvasSource
 
 **Contract specifics (all current):** off-screen intermediates are `rgba16float` (`INTERMEDIATE_FORMAT`); the **present pass** applies interleaved-gradient-noise dither (±0.5/255 on RGB, alpha exact) on the single 16f→8bit write — this is the banding fix, and it runs whether or not effects exist; canvas context is `alphaMode: 'premultiplied'`; every color attachment uses `loadOp: 'clear'`, `clearValue: [0,0,0,0]`. Time-driven shaders read `ctx = { progress, timestamp, canvasWidth, canvasHeight }`, plumbed identically through both the effect chain ([ADR-0012](adr/0012-effect-pack-context-progress-timestamp.md), amended to carry the canvas dimensions for resolution-dependent shaders) and shaderPasses ([ADR-0013](adr/0013-shaderpass-pack-context.md)) so preview and export agree.
 
-**Two render paths (composition-wide switch).** `renderAt` selects per composition: `state.stage` present → the **dimensional depth stage** ([ADR-0028](adr/0028-dimensional-depth-stage.md), `DepthStage`) — the surface composite on a 3D plane over a backdrop plane at depth, perspective camera, per-pixel-depth mip-prefiltered gather DOF; else `depth-of-field` Effect present → 2.5D multiplane bokeh (ADR-0027); else the flat composite above. All three share the same capture seam, effect chain, present, and export — preview == export holds for each.
+**Two render paths (composition-wide switch).** `renderAt` selects per composition: `state.stage` present → the **dimensional depth stage** ([ADR-0028](adr/0028-dimensional-depth-stage.md), `DepthStage`) — the surface composite on a 3D plane over a backdrop plane at depth, the Overlay layer (when present) on its own plane at its ADR-0021 z (overlay-at-depth), perspective camera, per-pixel-depth mip-prefiltered gather DOF; else `depth-of-field` Effect present → 2.5D multiplane bokeh (ADR-0027); else the flat composite above. All three share the same capture seam, effect chain, present, and export — preview == export holds for each.
 
 **Surface fades are GPU, not CSS opacity.** `copyElementImageToTexture` cannot rasterize a DOM element's CSS `opacity < 1` (it captures transparent — see [`html-in-canvas-typegpu.md`](html-in-canvas-typegpu.md)). So a surface's `paperVisibility` fade must be applied as an alpha-multiply on the captured texture (GPU), not via `style:opacity` on the element, or the fade is binary (full→gone). Done for the depth stage; generalizing to every surface is a tracked follow-up ([`roadmap.md`](roadmap.md)).
 
@@ -257,9 +257,9 @@ text-animations/
 Pinned in ADRs or schema but **not wired into rendering**. Do not describe these as capabilities; pick them up from [`roadmap.md`](roadmap.md).
 
 - **Genuine orientation reflow** — safe-areas as layout inputs, orientation as render target (above).
-- **Structural Pack Roles** — `light`/`material` reaching pixels (`depth` is wired via `resolveDepthTreatment`, `edge` via `resolveEdgeTreatment` + the shared edge-treatment ShaderPass; the unused `resolveStyle`/`resolveRole` accessors are now removed).
+- **Structural Pack Roles** — `material` reaching pixels (`depth` is wired via `resolveDepthTreatment`, `edge` via `resolveEdgeTreatment` + the shared edge-treatment ShaderPass, and `light` via `resolveLightTreatment` → the depth stage's scene key light; the unused `resolveStyle`/`resolveRole` accessors are now removed).
 - **Z-depth / focal-distance + depth-of-field** — [ADR-0021](adr/0021-z-plane-semantics.md) pins the semantics (single-channel f32 sidecar, focal-distance not world-space); no depth target exists in code. DOF v1 ships as multiplane bokeh ([ADR-0027](adr/0027-dof-v1-multiplane-bokeh.md)).
-- **Dimensional depth stage — BUILT (v1), see § Rendering pipeline above.** [ADR-0028](adr/0028-dimensional-depth-stage.md) is integrated + Critic-accepted (`state.stage`, `DepthStage`, renderAt branch, export). Remaining (not built): overlay-at-depth, real scene lighting/shadow (the `light`/`material` Roles), half-res DOF for 4K perf — tracked in `roadmap.md`.
+- **Dimensional depth stage — BUILT (v1), see § Rendering pipeline above.** [ADR-0028](adr/0028-dimensional-depth-stage.md) is integrated + Critic-accepted (`state.stage`, `DepthStage`, renderAt branch, export). Overlay-at-depth is built (2026-07): with `state.stage` declared and overlays present, the Overlay layer hoists to its own capture plane (the ADR-0027 split) and rides a 3D plane at its ADR-0021 z — parallax, per-depth defocus, painter's-order occlusion. Scene lighting/shadow is built (2026-07): the Pack's `light-treatment` Role becomes a real key light — received rake per plane + plane-to-plane cast shadow; no Role ⇒ unlit. Half-res DOF is built (2026-07): the gather runs at half res with a full-res sharp compose (4K preview 32→47 fps). Remaining (not built): the `material` Role — tracked in `roadmap.md`.
 - **Multi-state transitions** — [ADR-0022](adr/0022-multi-state-composition.md) pins the `transition: { from, to, effect }` shape (dual-tree render, two color targets sampled by one mask); no multi-state machinery exists. Relevant to segments/bumpers.
 - **Camera motion** — `surface.camera` (`push`/`snap`) was **stripped** as inert (no pipeline read it; field/UI/lint removed). Camera returns as stage-scoped data only when a real consumer exists — the dimensional depth stage ([ADR-0028](adr/0028-dimensional-depth-stage.md), `stage.camera`).
 - **New Block types** — `mermaid` / `code` / `image` / `chart` are unbuilt; only `paragraph` ships.

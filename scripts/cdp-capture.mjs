@@ -114,10 +114,14 @@ for (const p of SAMPLES) {
 	await sleep(350);
 	// On-surface capture (NO captureBeyondViewport — that re-rasters without the
 	// accelerated WebGPU layer and yields a blank canvas). Clip to the canvas.
+	// Clip height derives from the BACKING aspect, not the CSS rect — the CSS
+	// height × width-scale rounds short (3840×2157 instead of ×2160), which
+	// breaks probe-dimensions as an R6 authority.
+	const clipScale = rect.w > 0 ? rect.bw / rect.w : 1;
 	const shot = await send('Page.captureScreenshot', {
 		format: 'png',
 		fromSurface: true,
-		clip: { x: rect.x, y: rect.y, width: rect.w, height: rect.h, scale: rect.w > 0 ? rect.bw / rect.w : 1 }
+		clip: { x: rect.x, y: rect.y, width: rect.w, height: rect.bh / clipScale, scale: clipScale }
 	});
 	const file = `${OUTDIR}/p${p.toFixed(2)}.png`;
 	writeFileSync(file, Buffer.from(shot.data, 'base64'));

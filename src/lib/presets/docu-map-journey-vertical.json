@@ -1,0 +1,171 @@
+{
+	"schema": "hiviz@1",
+	"name": "Docu map journey — where your deploy goes (vertical)",
+	"description": "Vertical re-staging of the ADR-0036 animated-map signature: the deploy's journey re-authored DOWN the frame (LOCAL top → CI middle → EDGE bottom, Y-led per G11), same pin/arc/label primitives and Cascade chain over the atmosphere-warm depth-stage backdrop (ADR-0029). Captions trimmed ~30% for vertical; all readable content clears the platform bands (top 6% / bottom 16% / right 9%). Intentional omissions: no torn-edge collage card, tape, or mono kicker chip — a full-frame docu-map shot, not a collage card; pin/edge/arrowhead appearance resolves through the Syntax pack's Roles.",
+	"pack": "syntax",
+	"kind": "deliverable",
+	"state": {
+		"transport": {
+			"orientation": "vertical",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "#1c130c",
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#241a12",
+			"inkColor": "#f4ecdc"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"enter": { "start": 0, "duration": 0.05, "ease": "settled" },
+			"exit": { "start": 0.88, "duration": 0.05, "ease": "smooth" },
+			"diagram": [
+				{
+					"type": "label",
+					"id": "l-headline",
+					"position": { "x": 0.5, "y": 0.12 },
+					"text": "WHERE YOUR DEPLOY GOES",
+					"scale": 2.2,
+					"enter": { "start": 0.073, "duration": 0.06, "ease": "smooth" },
+					"exit": { "start": 0.905, "duration": 0.043, "ease": "smooth" },
+					"animation": {
+						"cascade": { "anchor": "surface", "event": "end", "offsetMs": 140 }
+					}
+				},
+				{
+					"type": "node",
+					"id": "n-local",
+					"position": { "x": 0.3, "y": 0.24 },
+					"form": "pin",
+					"text": "LOCAL",
+					"scale": 1.3,
+					"enter": { "start": 0.1, "duration": 0.05, "ease": "settled" },
+					"exit": { "start": 0.86, "duration": 0.038, "ease": "smooth" },
+					"animation": {
+						"cascade": { "anchor": { "block": "l-headline" }, "event": "start", "offsetMs": 160 }
+					}
+				},
+				{
+					"type": "label",
+					"id": "l-local",
+					"position": { "x": 0.3, "y": 0.3 },
+					"text": "git push",
+					"scale": 1,
+					"enter": { "start": 0.163, "duration": 0.045, "ease": "smooth" },
+					"exit": { "start": 0.862, "duration": 0.033, "ease": "smooth" },
+					"animation": {
+						"cascade": { "anchor": { "block": "n-local" }, "event": "end", "offsetMs": 80 }
+					}
+				},
+				{
+					"type": "edge-arrow",
+					"id": "e-local-ci",
+					"from": { "node": "n-local" },
+					"to": { "node": "n-ci" },
+					"route": "arc",
+					"control": { "x": 0.6, "y": 0.3 },
+					"direction": "forward",
+					"enter": { "start": 0.167, "duration": 0.08, "ease": "smooth" },
+					"exit": { "start": 0.866, "duration": 0.043, "ease": "smooth" },
+					"animation": {
+						"cascade": { "anchor": { "block": "n-local" }, "event": "end", "offsetMs": 100 }
+					}
+				},
+				{
+					"type": "node",
+					"id": "n-ci",
+					"position": { "x": 0.64, "y": 0.47 },
+					"form": "pin",
+					"text": "CI",
+					"scale": 1.3,
+					"enter": { "start": 0.26, "duration": 0.05, "ease": "settled" },
+					"exit": { "start": 0.872, "duration": 0.038, "ease": "smooth" },
+					"animation": {
+						"cascade": { "anchor": { "block": "e-local-ci" }, "event": "end", "offsetMs": 80 }
+					}
+				},
+				{
+					"type": "label",
+					"id": "l-ci",
+					"position": { "x": 0.79, "y": 0.475 },
+					"text": "build + tests",
+					"scale": 1,
+					"enter": { "start": 0.323, "duration": 0.045, "ease": "smooth" },
+					"exit": { "start": 0.874, "duration": 0.033, "ease": "smooth" },
+					"animation": {
+						"cascade": { "anchor": { "block": "n-ci" }, "event": "end", "offsetMs": 80 }
+					}
+				},
+				{
+					"type": "edge-arrow",
+					"id": "e-ci-edge",
+					"from": { "node": "n-ci" },
+					"to": { "node": "n-edge" },
+					"route": "arc",
+					"control": { "x": 0.58, "y": 0.68 },
+					"direction": "forward",
+					"enter": { "start": 0.327, "duration": 0.08, "ease": "smooth" },
+					"exit": { "start": 0.878, "duration": 0.043, "ease": "smooth" },
+					"animation": {
+						"cascade": { "anchor": { "block": "n-ci" }, "event": "end", "offsetMs": 100 }
+					}
+				},
+				{
+					"type": "node",
+					"id": "n-edge",
+					"position": { "x": 0.36, "y": 0.72 },
+					"form": "pin",
+					"text": "EDGE",
+					"scale": 1.3,
+					"enter": { "start": 0.42, "duration": 0.05, "ease": "settled" },
+					"exit": { "start": 0.884, "duration": 0.038, "ease": "smooth" },
+					"animation": {
+						"cascade": { "anchor": { "block": "e-ci-edge" }, "event": "end", "offsetMs": 80 }
+					}
+				},
+				{
+					"type": "label",
+					"id": "l-edge",
+					"position": { "x": 0.36, "y": 0.78 },
+					"text": "live worldwide",
+					"scale": 1,
+					"enter": { "start": 0.483, "duration": 0.045, "ease": "smooth" },
+					"exit": { "start": 0.886, "duration": 0.033, "ease": "smooth" },
+					"animation": {
+						"cascade": { "anchor": { "block": "n-edge" }, "event": "end", "offsetMs": 80 }
+					}
+				}
+			]
+		},
+		"textAnimations": [],
+		"overlays": [],
+		"effects": [],
+		"audioCues": [],
+		"stage": {
+			"type": "depth",
+			"camera": {
+				"move": "push",
+				"amount": 0.35,
+				"ease": "smooth"
+			},
+			"focus": {
+				"focusZ": 0,
+				"aperture": 0.4,
+				"band": 0.15
+			},
+			"backdrop": {
+				"image": { "asset": "atmosphere-warm" },
+				"contrast": 0.35
+			}
+		}
+	}
+}

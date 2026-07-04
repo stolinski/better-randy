@@ -3,6 +3,7 @@ import type { AnimationTweenSpec } from '$lib/platform/animation-manager';
 import type { KeyframeShape, Phase, StaggerMode } from '../catalog';
 import type { CompileOutputs, StrategyInputs } from '../compile';
 import { gsapEaseFromCss } from '../gsap-ease';
+import { applyUnitFade, materializeUnitFilter } from '../unit-style';
 
 /**
  * Order the animated units by `staggerMode`. Returns the *visual rank* — index
@@ -81,8 +82,7 @@ function materializeTransform(keyframe: KeyframeShape, yTravel: number, isVertic
 }
 
 function materializeFilter(keyframe: KeyframeShape): string {
-	const blur = keyframe.blur_px ?? 0;
-	return blur > 0 ? `blur(${blur}px)` : 'none';
+	return materializeUnitFilter(keyframe.blur_px ?? 0);
 }
 
 interface UnitStyleWriter {
@@ -94,7 +94,7 @@ function makeUnitFrameWriter(isVertical: boolean): UnitStyleWriter {
 	return (element, keyframe, yTravel) => {
 		element.style.transform = materializeTransform(keyframe, yTravel, isVertical);
 		element.style.filter = materializeFilter(keyframe);
-		element.style.opacity = String(keyframe.opacity ?? 1);
+		applyUnitFade(element, keyframe.opacity ?? 1);
 		if (typeof keyframe.letter_spacing_em === 'number') {
 			element.style.letterSpacing = `${keyframe.letter_spacing_em}em`;
 		}

@@ -2,6 +2,7 @@ import type { AnimationTweenSpec } from '$lib/platform/animation-manager';
 
 import type { CompileOutputs, StrategyInputs } from '../compile';
 import { gsapEaseFromCss } from '../gsap-ease';
+import { applyUnitFade, materializeUnitFilter } from '../unit-style';
 
 /**
  * Read a numeric param from the catalog's `showcase.renderer.params` block,
@@ -141,9 +142,9 @@ export function compileKineticCenterBuild(inputs: StrategyInputs): CompileOutput
 			const y = mix(firstWordYpx, 0, value);
 			const scale = mix(entryScale, 1, value);
 			const blur = mix(entryBlurPx, 0, value);
-			unit.element.style.opacity = String(opacity);
 			unit.element.style.transform = `translate(-50%, -50%) translate3d(0px, ${y}px, 0) scale(${scale})`;
-			unit.element.style.filter = `blur(${blur}px)`;
+			unit.element.style.filter = materializeUnitFilter(blur);
+			applyUnitFade(unit.element, opacity);
 			writeUnitAlpha(unit.index, opacity);
 		}
 	});
@@ -171,9 +172,9 @@ export function compileKineticCenterBuild(inputs: StrategyInputs): CompileOutput
 				onUpdate: (value) => {
 					const x = mix(currentX, nextX, value);
 					const blur = value < 0.5 ? mix(0, reflowBlurPx, value * 2) : mix(reflowBlurPx, 0, (value - 0.5) * 2);
-					reflowedUnit.element.style.opacity = '1';
 					reflowedUnit.element.style.transform = `translate(-50%, -50%) translate3d(${x}px, 0px, 0) scale(1)`;
-					reflowedUnit.element.style.filter = `blur(${blur}px)`;
+					reflowedUnit.element.style.filter = materializeUnitFilter(blur);
+					applyUnitFade(reflowedUnit.element, 1);
 					writeUnitAlpha(reflowedUnit.index, 1);
 				}
 			});
@@ -196,9 +197,9 @@ export function compileKineticCenterBuild(inputs: StrategyInputs): CompileOutput
 				const opacity = value;
 				const scale = mix(entryScale, 1, value);
 				const blur = mix(entryBlurPx, 0, value);
-				incomingUnit.element.style.opacity = String(opacity);
 				incomingUnit.element.style.transform = `translate(-50%, -50%) translate3d(${x}px, 0px, 0) scale(${scale})`;
-				incomingUnit.element.style.filter = `blur(${blur}px)`;
+				incomingUnit.element.style.filter = materializeUnitFilter(blur);
+				applyUnitFade(incomingUnit.element, opacity);
 				writeUnitAlpha(incomingUnit.index, opacity);
 			}
 		});
@@ -221,9 +222,9 @@ export function compileKineticCenterBuild(inputs: StrategyInputs): CompileOutput
 					const y = mix(0, exitYpx, value);
 					const blur = mix(0, exitBlurPx, value);
 					const opacity = 1 - value;
-					exitUnit.element.style.opacity = String(opacity);
 					exitUnit.element.style.transform = `translate(-50%, -50%) translate3d(${finalX}px, ${y}px, 0) scale(1)`;
-					exitUnit.element.style.filter = `blur(${blur}px)`;
+					exitUnit.element.style.filter = materializeUnitFilter(blur);
+					applyUnitFade(exitUnit.element, opacity);
 					writeUnitAlpha(exitUnit.index, opacity);
 				}
 			});

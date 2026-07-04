@@ -2,11 +2,11 @@
 	import { page } from '$app/state';
 
 	import { compositionMeta } from '$lib/platform/composition-meta.svelte';
-	import type { Preset } from '$lib/platform/engine-schema';
-	import { engineState, packState } from '$lib/platform/engine-state.svelte';
+	import { engineState, packState, transitionState } from '$lib/platform/engine-state.svelte';
 	import { userStore } from '$lib/platform/persistence';
 	import { posterKeyForPreset } from '$lib/platform/posters';
 	import { applyPreset, getPresetBySlug } from '$lib/platform/preset';
+	import { presetBase } from '$lib/platform/preset-base.svelte';
 	import { serializeCompositionState } from '$lib/platform/preset-pure';
 	import Workspace from '$lib/platform/Workspace.svelte';
 
@@ -16,11 +16,10 @@
 	// Workspace, which captures the settled frame under it once (see ./posters).
 	let posterKey = $state<string | null>(null);
 
-	// The base Preset: the template from which edits are derived.
-	// Set once per slug load; read by performSave.
-	let base: Preset | null = null;
 	// Snapshot taken immediately after applyPreset — used to detect the first
 	// real edit (anything different from a fresh load must be user input).
+	// `applyPreset` seeds both `engineState` and `presetBase`, so the snapshot
+	// covers composition and metadata edits alike.
 	let loadSnapshot = '';
 	let loadedSlug = '';
 
@@ -38,7 +37,6 @@
 			.then((preset) => {
 				if (currentSlug !== slug) return;
 				applyPreset(preset);
-				base = preset;
 				posterKey = posterKeyForPreset(preset);
 				activeIsUserComp = true;
 				loadedSlug = currentSlug;
@@ -51,7 +49,6 @@
 				const corpus = getPresetBySlug(currentSlug);
 				if (!corpus || currentSlug !== slug) return;
 				applyPreset(corpus);
-				base = corpus;
 				posterKey = posterKeyForPreset(corpus);
 				activeIsUserComp = false;
 				loadedSlug = currentSlug;
@@ -62,23 +59,28 @@
 			});
 	});
 
-	// Autosave: run on any change to engineState or pack.
-	// Skips when the state matches the post-load snapshot (no edit yet).
+	// Autosave: run on any change to engineState, presetBase, or pack.
+	// Skips when the state matches the post-load snapshot (no edit yet), and
+	// while the transition snapshot path is mid-capture — engineState is a
+	// scratch buffer holding a swapped-in from/to state during that window.
 	$effect(() => {
+		if (transitionState.capturing) return;
+
 		const currentSnap = snapshotState();
 
-		if (!base || !loadedSlug || currentSnap === loadSnapshot) return;
+		if (!loadedSlug || currentSnap === loadSnapshot) return;
 
-		const capturedBase = base;
 		const capturedSlug = loadedSlug;
 		const capturedIsUser = activeIsUserComp;
 
 		const timer = setTimeout(() => {
-			const serialized = serializeCompositionState(capturedBase, engineState, packState.slug);
+			// presetBase mirrors the top-level metadata (name / description / kind /
+			// transition) the RootInspector edits; it is reseeded on every load.
+			const serialized = serializeCompositionState(presetBase, engineState, packState.slug);
 			if (capturedIsUser) {
-				userStore.save(capturedSlug, serialized).catch((err) =>
-					console.error('Autosave failed', err)
-				);
+				userStore
+					.save(capturedSlug, serialized)
+					.catch((err) => console.error('Autosave failed', err));
 			} else {
 				userStore
 					.fork(capturedSlug, serialized, capturedSlug)
@@ -86,8 +88,6 @@
 						activeIsUserComp = true;
 						compositionMeta.isUserComp = true;
 						compositionMeta.forkedFrom = capturedSlug;
-						// Update base to the serialized fork so subsequent saves are autosaves.
-						base = serialized;
 						posterKey = posterKeyForPreset(serialized);
 					})
 					.catch((err) => console.error('Fork failed', err));
@@ -98,7 +98,7 @@
 	});
 
 	function snapshotState(): string {
-		return JSON.stringify(engineState) + packState.slug;
+		return JSON.stringify(engineState) + JSON.stringify(presetBase) + packState.slug;
 	}
 
 	async function handleRevert(): Promise<void> {
@@ -107,7 +107,6 @@
 		const corpus = getPresetBySlug(currentSlug);
 		if (!corpus) return;
 		applyPreset(corpus);
-		base = corpus;
 		posterKey = posterKeyForPreset(corpus);
 		activeIsUserComp = false;
 		loadedSlug = currentSlug;

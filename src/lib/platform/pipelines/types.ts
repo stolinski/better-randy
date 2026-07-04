@@ -165,6 +165,14 @@ export interface EffectPackContext {
 export interface ShaderPass<TContent = unknown> {
 	/** TypeGPU `d.struct(...)` describing the WGSL uniform layout. */
 	uniforms: unknown;
+	/**
+	 * True when the pass paints the composition's ENVIRONMENT (a full-frame
+	 * backdrop behind the content) rather than surface-local physics. The depth
+	 * stage (ADR-0028) supersedes environment passes with its real scene — a
+	 * backdrop plane at depth — so the stage render path skips them; the flat
+	 * path runs them unchanged.
+	 */
+	environment?: boolean;
 	/** WGSL fragment body. Same calling convention as `EffectPassDefinition.fragmentBody`. */
 	wgsl: string;
 	/**
@@ -197,6 +205,18 @@ export interface SurfaceControlsMetadata {
 	kicker?: boolean;
 	/** Small label above the body (e.g. "Abstract"). */
 	bodyLabel?: boolean;
+	/**
+	 * Secondary text slot paired with the title by family variants (type-hero
+	 * `pair` per ADR-0020). The inspector shows the row only while the active
+	 * variant actually renders the slot.
+	 */
+	counterpoint?: boolean;
+	/**
+	 * Author avatar image URL (the `web-document` twitter mock's profile photo).
+	 * Only the twitter site consumes it, so the inspector gates the row on
+	 * `surface.site`.
+	 */
+	avatarUrl?: boolean;
 	body?: 'always' | 'optional' | 'never';
 	/**
 	 * Surface renders a per-site mock selected by `surface.site` (ADR-0030) —
@@ -226,6 +246,14 @@ export interface SurfaceRenderer {
 	type: string;
 	label: string;
 	controls: SurfaceControlsMetadata;
+	/**
+	 * Variant ids for Surface families using the variants-as-data convention
+	 * (ADR-0020) — data only, never components. When declared, the inspector
+	 * renders a Variant select bound to `surface.variant`; the first id is the
+	 * family's effective value when `variant` is absent. Omitted by
+	 * single-shape Surfaces.
+	 */
+	variantIds?: readonly string[];
 	CanvasSource: Component<{ element?: HTMLElement | null }>;
 	createPipeline(opts: PipelineFactoryOptions): SurfaceRenderInstance;
 	defaults(): SurfaceState;

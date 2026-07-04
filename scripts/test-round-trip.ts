@@ -31,6 +31,7 @@ const files = (await readdir(PRESETS_DIR)).filter((f) => f.endsWith('.json'));
 
 let passed = 0;
 let failed = 0;
+let firstValid: Record<string, unknown> | null = null;
 
 for (const file of files) {
 	const raw = await readFile(resolve(PRESETS_DIR, file), 'utf-8');
@@ -43,6 +44,7 @@ for (const file of files) {
 	}
 
 	const original = result.data as Record<string, unknown>;
+	firstValid ??= original;
 
 	// Serialize without edits: base = original, state = original.state, pack = original.pack
 	const serialized = serializeCompositionState(
@@ -66,6 +68,57 @@ for (const file of files) {
 	} else {
 		console.log(`PASS: ${file}`);
 		passed += 1;
+	}
+}
+
+// Edited-metadata round-trip: the GUI edits name / description / kind /
+// transition through presetBase, so serialization must carry a base whose
+// metadata DIFFERS from the loaded preset. Structural check only — PresetSchema
+// does not resolve transition slugs (preset.ts does), so placeholder refs are
+// fine here.
+if (firstValid) {
+	const editedBase = {
+		name: 'Edited name',
+		description: 'Edited description',
+		kind: 'fixture',
+		transition: { from: 'slug-a', to: 'slug-b', effect: 'mask-wipe', durationMs: 900 }
+	};
+	const wire = presetToWireFormat(
+		serializeCompositionState(editedBase, firstValid['state'], firstValid['pack'] as string)
+	);
+	const reparsed = (PresetSchema as z.ZodTypeAny).safeParse(wire);
+	const fields = reparsed.success
+		? (reparsed.data as { name: string; description?: string; kind: string; transition?: unknown })
+		: null;
+	if (
+		fields &&
+		fields.name === editedBase.name &&
+		fields.description === editedBase.description &&
+		fields.kind === editedBase.kind &&
+		deepEqual(fields.transition, editedBase.transition)
+	) {
+		console.log('PASS: edited metadata (name/description/kind/transition)');
+		passed += 1;
+	} else {
+		console.error('FAIL: edited metadata did not round-trip', fields);
+		failed += 1;
+	}
+
+	// Cleared description: an undefined description must serialize as an ABSENT
+	// key (the GUI clears the field to undefined, not to '').
+	const clearedWire = presetToWireFormat(
+		serializeCompositionState(
+			{ name: 'No description', kind: 'deliverable' },
+			firstValid['state'],
+			firstValid['pack'] as string
+		)
+	) as Record<string, unknown>;
+	if (!('description' in clearedWire) && !('transition' in clearedWire)) {
+		console.log('PASS: cleared description/transition serialize as absent keys');
+		passed += 1;
+	} else {
+		console.error('FAIL: cleared optional metadata leaked into the wire format');
+		failed += 1;
 	}
 }
 

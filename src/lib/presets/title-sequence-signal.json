@@ -1,0 +1,126 @@
+{
+	"schema": "hiviz@1",
+	"name": "Title sequence — signal",
+	"description": "Depth-stage deliverable for the title-sequence family (ADR-0028). The heavy condensed title rides the near plane over a real photographic backdrop (atmosphere-warm substrate) at depth; a bold dolly-in drives true parallax between type and photo while the rack focus starts fully on the backdrop and lands on the title as its per-character rise completes — the title arrives INTO focus. The photo takes a centre darken for type contrast, the Pack key light rakes the scene, and the glyphs throw soft real shadows onto the photo. The flat title-sequence-drop keeps the shader motion-blur drop; this piece is the same family restaged with a real camera.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "#1b1410",
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#000000",
+			"inkColor": "#fffaf0"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "title-sequence",
+			"content": {
+				"kicker": "EPISODE 52",
+				"title": "Signal & Noise",
+				"body": ""
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.05,
+				"ease": "smooth"
+			},
+			"exit": {
+				"start": 0.92,
+				"duration": 0.045,
+				"ease": "smooth"
+			}
+		},
+		"textAnimations": [
+			{
+				"id": "kicker-fade",
+				"target": {
+					"kind": "surface",
+					"slot": "kicker"
+				},
+				"effect": "fade-through",
+				"enter": {
+					"start": 0.06,
+					"duration": 0.05,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.84,
+					"duration": 0.038,
+					"ease": "smooth"
+				}
+			},
+			{
+				"id": "title-rise",
+				"target": {
+					"kind": "surface",
+					"slot": "title"
+				},
+				"effect": "per-character-rise",
+				"enter": {
+					"start": 0.11,
+					"duration": 0.09,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.86,
+					"duration": 0.05,
+					"ease": "smooth"
+				}
+			}
+		],
+		"overlays": [],
+		"effects": [
+			{
+				"type": "paper-grain",
+				"id": "grain",
+				"params": {
+					"warmth": 0.5,
+					"density": 0.3
+				}
+			}
+		],
+		"audioCues": [
+			{
+				"id": "bed",
+				"kind": "bed",
+				"assetSlug": "bed-ambient-texture",
+				"start": 0,
+				"duration": 1,
+				"volume": 0.35
+			}
+		],
+		"stage": {
+			"type": "depth",
+			"camera": {
+				"move": "push",
+				"amount": 0.7,
+				"ease": "smooth"
+			},
+			"focus": {
+				"focusZ": 0,
+				"aperture": 0.62,
+				"band": 0.04,
+				"pull": {
+					"from": 1,
+					"to": 0.05,
+					"start": 0.06,
+					"duration": 0.5
+				}
+			},
+			"backdrop": {
+				"image": {
+					"asset": "atmosphere-warm"
+				},
+				"contrast": 0.5
+			}
+		}
+	}
+}

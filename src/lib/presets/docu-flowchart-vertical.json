@@ -1,0 +1,147 @@
+{
+	"schema": "hiviz@1",
+	"name": "Docu flowchart — how your code ships (vertical)",
+	"description": "Vertical re-staging of docu-flowchart (2160×3840) — same Commit → Build → Test → Deploy chain and Cascade choreography, re-authored per G11 as a top-to-bottom descent: nodes zigzag down the readable column (x 0.36 / 0.64, y 0.28 → 0.73, inside the G3 platform-UI safe bands) and the edges become elbow routes that drop first, then turn — the motion reads vertically, never a squeezed horizontal band. Full-frame piece: backgroundFill is the dark field, ink is warm off-white so the pack's marker strokes read. Chrome intent: mono is the signature thread (fontFamily mono carries headline + node labels); low-density paper-grain grit bonds ink to substrate; torn-edge collage card and tape are intentionally omitted — a stroke-drawn diagram on a dark field is not a collage card; the node plates keep the pack's small hard-offset depth Role.",
+	"pack": "syntax",
+	"kind": "deliverable",
+	"state": {
+		"transport": {
+			"orientation": "vertical",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "#101014",
+		"typography": {
+			"fontFamily": "mono",
+			"paperColor": "#14141a",
+			"inkColor": "#f4ecdc"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"enter": { "start": 0, "duration": 0.05, "ease": "settled" },
+			"exit": { "start": 0.9, "duration": 0.04, "ease": "smooth" },
+			"diagram": [
+				{
+					"type": "label",
+					"id": "l-headline",
+					"position": { "x": 0.5, "y": 0.14 },
+					"text": "HOW YOUR CODE SHIPS",
+					"scale": 2,
+					"enter": { "start": 0.077, "duration": 0.055, "ease": "settled" },
+					"exit": { "start": 0.885, "duration": 0.04, "ease": "smooth" },
+					"animation": {
+						"cascade": { "anchor": "surface", "event": "end", "offsetMs": 160 }
+					}
+				},
+				{
+					"type": "node",
+					"id": "n-commit",
+					"position": { "x": 0.36, "y": 0.28 },
+					"form": "box",
+					"text": "Commit",
+					"scale": 1,
+					"enter": { "start": 0.152, "duration": 0.05, "ease": "settled" },
+					"exit": { "start": 0.895, "duration": 0.038, "ease": "smooth" },
+					"animation": {
+						"cascade": { "anchor": { "block": "l-headline" }, "event": "end", "offsetMs": 120 }
+					}
+				},
+				{
+					"type": "edge-arrow",
+					"id": "e-commit-build",
+					"from": { "node": "n-commit" },
+					"to": { "node": "n-build" },
+					"route": "elbow",
+					"control": { "x": 0.36, "y": 0.43 },
+					"direction": "forward",
+					"enter": { "start": 0.222, "duration": 0.06, "ease": "smooth" },
+					"exit": { "start": 0.895, "duration": 0.042, "ease": "smooth" },
+					"animation": {
+						"cascade": { "anchor": { "block": "n-commit" }, "event": "end", "offsetMs": 120 }
+					}
+				},
+				{
+					"type": "node",
+					"id": "n-build",
+					"position": { "x": 0.64, "y": 0.43 },
+					"form": "box",
+					"text": "Build",
+					"scale": 1,
+					"enter": { "start": 0.295, "duration": 0.05, "ease": "settled" },
+					"exit": { "start": 0.895, "duration": 0.038, "ease": "smooth" },
+					"animation": {
+						"cascade": { "anchor": { "block": "e-commit-build" }, "event": "end", "offsetMs": 80 }
+					}
+				},
+				{
+					"type": "edge-arrow",
+					"id": "e-build-test",
+					"from": { "node": "n-build" },
+					"to": { "node": "n-test" },
+					"route": "elbow",
+					"control": { "x": 0.64, "y": 0.58 },
+					"direction": "forward",
+					"enter": { "start": 0.365, "duration": 0.06, "ease": "smooth" },
+					"exit": { "start": 0.895, "duration": 0.042, "ease": "smooth" },
+					"animation": {
+						"cascade": { "anchor": { "block": "n-build" }, "event": "end", "offsetMs": 120 }
+					}
+				},
+				{
+					"type": "node",
+					"id": "n-test",
+					"position": { "x": 0.36, "y": 0.58 },
+					"form": "box",
+					"text": "Test",
+					"scale": 1,
+					"enter": { "start": 0.438, "duration": 0.05, "ease": "settled" },
+					"exit": { "start": 0.895, "duration": 0.038, "ease": "smooth" },
+					"animation": {
+						"cascade": { "anchor": { "block": "e-build-test" }, "event": "end", "offsetMs": 80 }
+					}
+				},
+				{
+					"type": "edge-arrow",
+					"id": "e-test-deploy",
+					"from": { "node": "n-test" },
+					"to": { "node": "n-deploy" },
+					"route": "elbow",
+					"control": { "x": 0.36, "y": 0.73 },
+					"direction": "forward",
+					"enter": { "start": 0.508, "duration": 0.06, "ease": "smooth" },
+					"exit": { "start": 0.895, "duration": 0.042, "ease": "smooth" },
+					"animation": {
+						"cascade": { "anchor": { "block": "n-test" }, "event": "end", "offsetMs": 120 }
+					}
+				},
+				{
+					"type": "node",
+					"id": "n-deploy",
+					"position": { "x": 0.64, "y": 0.73 },
+					"form": "box",
+					"text": "Deploy",
+					"scale": 1,
+					"enter": { "start": 0.582, "duration": 0.05, "ease": "settled" },
+					"exit": { "start": 0.895, "duration": 0.038, "ease": "smooth" },
+					"animation": {
+						"cascade": { "anchor": { "block": "e-test-deploy" }, "event": "end", "offsetMs": 80 }
+					}
+				}
+			]
+		},
+		"textAnimations": [],
+		"overlays": [],
+		"effects": [
+			{ "type": "paper-grain", "id": "grit", "params": { "warmth": 0.35, "density": 0.22 } }
+		],
+		"audioCues": []
+	}
+}

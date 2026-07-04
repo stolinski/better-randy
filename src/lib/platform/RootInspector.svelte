@@ -1,11 +1,30 @@
 <script lang="ts">
-	import { engineState, packState, addEffect, removeEffect } from './engine-state.svelte';
-	import { ENGINE_EASES, type Ease, type Effect, type Stage } from './engine-schema';
+	import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
+
+	import {
+		engineState,
+		packState,
+		transitionState,
+		addEffect,
+		removeEffect
+	} from './engine-state.svelte';
+	import {
+		ENGINE_EASES,
+		listMarkInstances,
+		resolveMarkForIndex,
+		type Ease,
+		type Effect,
+		type MarkAppearance,
+		type Stage
+	} from './engine-schema';
 	import { listSoundAssets } from './audio-assets';
 	import { PACK_REGISTRY } from './packs/registry';
 	import { PIPELINE_REGISTRY } from './pipelines';
+	import { listFixtures, listPresets, resolveTransition } from './preset';
+	import { presetBase } from './preset-base.svelte';
 	import { listSubstrateAssets } from './substrate-textures';
 	import type { EffectRenderer } from './pipelines/types';
+	import { transitionEffectTypes } from './pipelines/transition-registry';
 	import { compositionMeta } from './composition-meta.svelte';
 	import InspectorSection from './InspectorSection.svelte';
 	import Field from './Field.svelte';
@@ -131,6 +150,98 @@
 		if (!Number.isFinite(n)) return;
 		cue[key] = Math.max(0, Math.min(1, n));
 	}
+
+	// ---- Composition metadata (presetBase) ----
+
+	function setDescription(event: Event): void {
+		const value = (event.currentTarget as HTMLInputElement).value;
+		// An empty description clears the optional field entirely — it round-trips
+		// as an absent key, not an empty string.
+		presetBase.description = value === '' ? undefined : value;
+	}
+
+	// ---- Transition recipe (ADR-0022) ----
+	// `from`/`to` offer every catalogued Preset — deliverables and fixtures alike,
+	// since fixtures are valid transition endpoints (transition-wipe-demo proves it).
+	const transitionTargets = [...listPresets(), ...listFixtures()];
+	const transitionEffects = transitionEffectTypes();
+
+	// Every recipe edit re-resolves through the same path `applyPreset` uses, so
+	// the preview switches into/out of transition mode immediately; an
+	// unresolvable ref deactivates the transition rather than throwing.
+	function syncTransition(): void {
+		transitionState.active = resolveTransition(presetBase.transition);
+	}
+
+	function toggleTransition(): void {
+		if (presetBase.transition) {
+			presetBase.transition = undefined;
+		} else {
+			presetBase.transition = {
+				from: transitionTargets[0]?.slug ?? '',
+				to: transitionTargets[1]?.slug ?? transitionTargets[0]?.slug ?? '',
+				effect: transitionEffects[0] ?? '',
+				durationMs: 1200
+			};
+		}
+		syncTransition();
+	}
+
+	function setTransitionField(key: 'from' | 'to' | 'effect', event: Event): void {
+		if (!presetBase.transition) return;
+		presetBase.transition[key] = (event.currentTarget as HTMLSelectElement).value;
+		syncTransition();
+	}
+
+	function setTransitionDuration(event: Event): void {
+		if (!presetBase.transition) return;
+		const n = Number((event.currentTarget as HTMLInputElement).value);
+		if (!Number.isFinite(n) || n <= 0) return;
+		presetBase.transition.durationMs = n;
+		syncTransition();
+	}
+
+	// ---- Mark default appearance (marks.defaults) ----
+
+	const MARK_STYLE_LABELS: Record<AnnotationMarkStyle, string> = {
+		highlight: 'Highlight',
+		underline: 'Underline',
+		strike: 'Strike',
+		circle: 'Circle',
+		box: 'Box',
+		'side-note': 'Side note',
+		magnify: 'Magnify',
+		'lift-out': 'Lift out',
+		'tear-out': 'Tear out',
+		isolate: 'Isolate'
+	};
+
+	// Styles present in the composition's body / message texts, in first-use
+	// order — the marks.defaults entries worth editing. Empty → no section.
+	const markStylesInUse = $derived.by(() => {
+		const styles: AnnotationMarkStyle[] = [];
+		for (const instance of listMarkInstances(engineState.surface.content)) {
+			if (!styles.includes(instance.style)) styles.push(instance.style);
+		}
+		return styles;
+	});
+
+	// The style's effective default appearance. An out-of-range timing index
+	// makes resolveMarkForIndex skip per-timing overrides and fall back to
+	// marks.defaults[style] (or the engine fallback) — exactly what an
+	// unoverridden mark renders with.
+	function markDefaultAppearance(style: AnnotationMarkStyle): MarkAppearance {
+		const resolved = resolveMarkForIndex(
+			style,
+			engineState.marks.timings.length,
+			engineState.marks
+		);
+		return { color: resolved.color, intensity: resolved.intensity };
+	}
+
+	function setMarkDefault(style: AnnotationMarkStyle, patch: Partial<MarkAppearance>): void {
+		engineState.marks.defaults[style] = { ...markDefaultAppearance(style), ...patch };
+	}
 </script>
 
 <div class="root-inspector">
@@ -144,6 +255,21 @@
 			{/if}
 		</div>
 	{/if}
+
+	<InspectorSection label="Composition">
+		<Field label="Name">
+			<input type="text" bind:value={presetBase.name} />
+		</Field>
+		<Field label="Description">
+			<input type="text" value={presetBase.description ?? ''} oninput={setDescription} />
+		</Field>
+		<Field label="Kind">
+			<select bind:value={presetBase.kind}>
+				<option value="deliverable">Deliverable</option>
+				<option value="fixture">Fixture</option>
+			</select>
+		</Field>
+	</InspectorSection>
 
 	<InspectorSection label="Transport">
 		<Field label="Duration">
@@ -229,6 +355,46 @@
 				<input type="color" bind:value={engineState.backgroundFill} />
 			{/if}
 		</Field>
+	</InspectorSection>
+
+	<InspectorSection label="Transition">
+		{#snippet action()}
+			<input type="checkbox" checked={!!presetBase.transition} onchange={toggleTransition} />
+		{/snippet}
+		{#if presetBase.transition}
+			{@const transition = presetBase.transition}
+			<Field label="From">
+				<select value={transition.from} onchange={(e) => setTransitionField('from', e)}>
+					{#each transitionTargets as entry (entry.slug)}
+						<option value={entry.slug}>{entry.preset.name}</option>
+					{/each}
+				</select>
+			</Field>
+			<Field label="To">
+				<select value={transition.to} onchange={(e) => setTransitionField('to', e)}>
+					{#each transitionTargets as entry (entry.slug)}
+						<option value={entry.slug}>{entry.preset.name}</option>
+					{/each}
+				</select>
+			</Field>
+			<Field label="Effect">
+				<select value={transition.effect} onchange={(e) => setTransitionField('effect', e)}>
+					{#each transitionEffects as type (type)}
+						<option value={type}>{type}</option>
+					{/each}
+				</select>
+			</Field>
+			<Field label="Duration">
+				<input
+					type="number"
+					min="100"
+					step="100"
+					value={transition.durationMs}
+					oninput={setTransitionDuration}
+				/>
+				<span class="unit">ms</span>
+			</Field>
+		{/if}
 	</InspectorSection>
 
 	<InspectorSection label="Depth Stage">
@@ -413,6 +579,35 @@
 			{/if}
 		{/if}
 	</InspectorSection>
+
+	{#if markStylesInUse.length > 0}
+		<InspectorSection label="Marks">
+			{#each markStylesInUse as style (style)}
+				{@const appearance = markDefaultAppearance(style)}
+				<Field label={MARK_STYLE_LABELS[style]}>
+					<input
+						type="color"
+						value={appearance.color}
+						aria-label={`${MARK_STYLE_LABELS[style]} color`}
+						oninput={(e) =>
+							setMarkDefault(style, { color: (e.currentTarget as HTMLInputElement).value })}
+					/>
+					<input
+						type="range"
+						min="0"
+						max="1"
+						step="0.01"
+						value={appearance.intensity}
+						aria-label={`${MARK_STYLE_LABELS[style]} intensity`}
+						oninput={(e) =>
+							setMarkDefault(style, {
+								intensity: Number((e.currentTarget as HTMLInputElement).value)
+							})}
+					/>
+				</Field>
+			{/each}
+		</InspectorSection>
+	{/if}
 
 	<InspectorSection label="Sound">
 		{#snippet action()}

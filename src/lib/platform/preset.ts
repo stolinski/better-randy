@@ -2,6 +2,7 @@ import {
 	PresetSchema,
 	type Cascade,
 	type CascadeAnchor,
+	type CompositionTransition,
 	type Effect,
 	type Keyframe,
 	type MarkTiming,
@@ -13,7 +14,13 @@ import {
 	type TextAnimation,
 	type Transition
 } from './engine-schema';
-import { engineState, packState, transitionState } from './engine-state.svelte';
+import {
+	engineState,
+	packState,
+	transitionState,
+	type ResolvedTransition
+} from './engine-state.svelte';
+import { applyPresetBase } from './preset-base.svelte';
 import { PIPELINE_REGISTRY } from './pipelines';
 import { isTransitionEffectType } from './pipelines/transition-registry';
 
@@ -399,23 +406,33 @@ export function applyCompositionState(preset: Preset): void {
 }
 
 /**
- * Load a Preset: apply its composition, then resolve its transition recipe (if
- * any) into `transitionState` for the Workspace to act on. This is what the
- * route calls for the active Preset. `from`/`to` resolve against the built-in
- * catalog; an unresolved ref leaves the transition inactive (the validator
- * already rejects such Presets, so this is defence in depth).
+ * Resolve a transition recipe into the form `transitionState.active` carries:
+ * `from`/`to` slugs resolved against the built-in catalog, `effect` checked
+ * against the transition registry. Returns null when the recipe is absent or
+ * any reference fails to resolve — the "no active transition" state, never a
+ * throw. Shared by `applyPreset` (load) and the RootInspector's Transition
+ * section (live edits), so both paths resolve identically.
+ */
+export function resolveTransition(
+	recipe: CompositionTransition | undefined
+): ResolvedTransition | null {
+	if (!recipe) return null;
+	const from = getPresetBySlug(recipe.from);
+	const to = getPresetBySlug(recipe.to);
+	if (!from || !to || !isTransitionEffectType(recipe.effect)) return null;
+	return { from, to, effect: recipe.effect, durationMs: recipe.durationMs };
+}
+
+/**
+ * Load a Preset: apply its composition, seed the GUI-editable `presetBase`
+ * metadata (name / description / kind / transition), then resolve its
+ * transition recipe (if any) into `transitionState` for the Workspace to act
+ * on. This is what the route calls for the active Preset. An unresolved
+ * transition ref leaves the transition inactive (the validator already
+ * rejects such Presets, so this is defence in depth).
  */
 export function applyPreset(preset: Preset): void {
 	applyCompositionState(preset);
-
-	if (preset.transition) {
-		const from = getPresetBySlug(preset.transition.from);
-		const to = getPresetBySlug(preset.transition.to);
-		transitionState.active =
-			from && to
-				? { from, to, effect: preset.transition.effect, durationMs: preset.transition.durationMs }
-				: null;
-	} else {
-		transitionState.active = null;
-	}
+	applyPresetBase(preset);
+	transitionState.active = resolveTransition(preset.transition);
 }

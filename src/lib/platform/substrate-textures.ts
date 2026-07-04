@@ -1,3 +1,5 @@
+import atmosphereSlateUrl from '$lib/assets/substrates/atmosphere-slate.png';
+import atmosphereVioletUrl from '$lib/assets/substrates/atmosphere-violet.png';
 import atmosphereWarmUrl from '$lib/assets/substrates/atmosphere-warm.png';
 
 import type { GpuHost } from './gpu-host';
@@ -13,7 +15,9 @@ import type { GpuHost } from './gpu-host';
 // change the photo with zero code change.
 
 const SUBSTRATE_ASSETS: Record<string, string> = {
-	'atmosphere-warm': atmosphereWarmUrl
+	'atmosphere-warm': atmosphereWarmUrl,
+	'atmosphere-slate': atmosphereSlateUrl,
+	'atmosphere-violet': atmosphereVioletUrl
 };
 
 export function isSubstrateAsset(slug: string): boolean {

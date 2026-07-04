@@ -244,10 +244,17 @@ Opt-in composition-wide 3D compositor ([ADR-0028](adr/0028-dimensional-depth-sta
   "focus": {                        // optional; defaults shown
     "focusZ": 0..1,                 // in-focus depth (0 near … 1 far; default 0)
     "aperture": 0..1,               // max blur / circle-of-confusion (default 0.6)
+    "band": 0..1,                   // hyperfocal half-width: depths within it stay sharp (default 0)
     "pull": { "from": 0..1, "to": 0..1, "start": 0..1, "duration": 0..1 }  // optional rack focus
+  },
+  "backdrop": {                     // optional image on the far (backdrop) plane
+    "image": { "asset": "substrate-slug" },  // registered substrate (substrate-textures.ts); absent → backgroundFill colour
+    "contrast": 0..1                // centre darken of the image for near-plane text legibility (default 0)
   }
 }
 ```
+
+With `stage` present: overlays ride their own 3D plane at their ADR-0021 `z` (overlay-at-depth — parallax, per-depth defocus, painter's-order occlusion); the active Pack's `light-treatment` Role becomes a real scene key light (received rake + cast plane-to-plane shadow; no Role → unlit); surface-local shader passes still run on the surface plane, but environment-painting passes (`environment: true` — the chapter-card / title-sequence / type-hero / pullquote painted backdrops) are superseded by the real backdrop plane. Surfaces whose enter/exit fade lives in such a pass don't fade on the stage — carry enter/exit in `textAnimations` instead.
 
 ### Sound ([ADR-0033](adr/0033-sound-design-motion-emitted-cues.md))
 
@@ -309,6 +316,7 @@ The bracket-tag body format expresses marks inline. Stacked styles nest tags aro
 - **`halftone-cmyk`** — params `{ cmykType: 'dots'|'ink'|'sharp', size: 0..1, contrast: 0..2, softness: 0..1, gridNoise: 0..1, colorBack/colorC/colorM/colorY/colorK: '#rrggbb', floodC/M/Y/K: -1..1, gainC/M/Y/K: -1..1 }`; CMYK press separation — four rotated ink screens at the classic angles (C 15° / M 75° / Y 0° / K 45°) multiply over the paper color, masked to the content silhouette. Ported from `@paper-design/shaders` halftone-cmyk (Apache-2.0); grain sub-features omitted (compose `paper-grain`), noise texture replaced with a procedural hash.
 - **`water`** — params `{ size: 0.01..7, highlights: 0..1, layering: 0..1, edges: 0..1, caustic: 0..1, waves: 0..1, speed: 0..3, colorHighlight: '#rrggbb' }`; time-driven water-surface refraction — layered caustic octave fields + simplex waves displace the sampling UV, with caustic glints masked to the content silhouette. Animates off `ctx.timestamp × speed` (frame-deterministic, ADR-0012). Ported from `@paper-design/shaders` water (Apache-2.0); its standalone `colorBack` fill is dropped (use the composition's `backgroundFill`), and the displacement field is soft-knee bounded so default params keep glyphs coherent.
 - **`fluted-glass`** — params `{ shape: 'lines'|'linesIrregular'|'wave'|'zigzag'|'pattern', distortionShape: 'prism'|'lens'|'contour'|'cascade'|'flat', size: 0..1, angle: 0..180, distortion: 0..1, shift: -1..1, stretch: 0..1, blur: 0..1, edges: 0..1, shadows: 0..1, highlights: 0..1, marginLeft/Right/Top/Bottom: 0..1, colorShadow/colorHighlight: '#rrggbb' }`; ribbed architectural glass — rotated flutes each apply a refraction profile with shadow gradients, boundary highlights, optional directional blur, and margins scoping the pane; masked to the content silhouette. Ported from `@paper-design/shaders` fluted-glass (Apache-2.0); grain sub-features omitted (compose `paper-grain`), `colorBack` dropped (use `backgroundFill`).
+- **`heatmap`** — params `{ colors: ['#rrggbb' × 2..10], contour: 0..1, wave: 0..1, angle: 0..360, noise: 0..1, speed: 0..3 }`; thermal read of the frame — luminance indexes an N-stop cold→hot gradient cascade, content edges add contour heat, and a heat band travels along `angle`, time-driven off `ctx.timestamp × speed` (frame-deterministic, ADR-0012). Adapted from `@paper-design/shaders` heatmap (Apache-2.0): the gradient cascade, traveling band, and grain hashes are the source's; its CPU-preprocessed glow pipeline and logo choreography are replaced by direct frame-luminance heat (single-pass effect contract).
 
 ## Body text format
 

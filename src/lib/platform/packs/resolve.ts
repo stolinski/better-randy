@@ -247,6 +247,58 @@ export function resolveEdgeTreatment(
 }
 
 /**
+ * The named key-light directions a Pack can claim. Scene consumers (the
+ * ADR-0028 depth stage) map these to real light vectors; the vocabulary stays
+ * appearance ("Syntax is lit from the upper-left"), the geometry stays the
+ * consumer's.
+ */
+export type LightDirection = 'upper-left' | 'upper-right' | 'top' | 'left' | 'right';
+
+/** A resolved scene-light treatment: where the key comes from and how hard. */
+export interface LightTreatment {
+	direction: LightDirection;
+	/** Key strength 0..1 — drives both the received rake and cast-shadow depth. */
+	intensity: number;
+}
+
+const LIGHT_DIRECTIONS: readonly LightDirection[] = [
+	'upper-left',
+	'upper-right',
+	'top',
+	'left',
+	'right'
+];
+
+function isLightDirection(value: unknown): value is LightDirection {
+	return typeof value === 'string' && (LIGHT_DIRECTIONS as readonly string[]).includes(value);
+}
+
+/**
+ * Resolve the Pack's composition-wide scene light — the third structural Role
+ * wired to pixels (after `depth` and `edge`), consumed by the ADR-0028 depth
+ * stage as a real key light (received rake + cast plane-to-plane shadow).
+ *
+ * Unlike the other structural resolvers this reads ONLY the core
+ * `light-treatment` Role: the scene light is a property of the whole staged
+ * scene, not of one Pipeline — the per-Pipeline `<type>.light` Roles carry
+ * per-element treatments (e.g. the lower-third's anamorphic flare) for their
+ * own consumers. A Role that is absent, keyword-valued (`'none'`), or missing
+ * a recognised direction resolves to `null` — no scene light.
+ */
+export function resolveLightTreatment(manifest: PackManifest): LightTreatment | null {
+	const role = manifest.roles['light-treatment'];
+	if (!role || role.kind !== 'style' || role.value === null || typeof role.value !== 'object') {
+		return null;
+	}
+	const shaped = role.value as { direction?: unknown; intensity?: unknown };
+	if (!isLightDirection(shaped.direction)) {
+		return null;
+	}
+	const intensity = readFiniteNumber(shaped.intensity) ?? 0.45;
+	return { direction: shaped.direction, intensity: Math.min(1, Math.max(0, intensity)) };
+}
+
+/**
  * Resolve a Pack colour Role to an `"R G B"` channel triplet, for composing the
  * *same* colour at several alphas in CSS (`rgb(var(--x) / <a>)`) — the cases the
  * whole-colour var path (`resolveAppearanceVars`) can't carry: gradient stops

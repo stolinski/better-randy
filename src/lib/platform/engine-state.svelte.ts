@@ -53,7 +53,16 @@ export interface ResolvedTransition {
 	effect: string;
 	durationMs: number;
 }
-export const transitionState = $state<{ active: ResolvedTransition | null }>({ active: null });
+/**
+ * `capturing` is true while the Workspace is snapshotting `from`/`to` — the
+ * window where `engineState` is a scratch buffer holding a swapped-in state
+ * rather than the composition's own. Persistence must not observe engineState
+ * during this window (it would autosave the scratch state as a user edit).
+ */
+export const transitionState = $state<{ active: ResolvedTransition | null; capturing: boolean }>({
+	active: null,
+	capturing: false
+});
 
 export function ensureMarkTimingAtIndex(index: number): MarkTiming {
 	while (engineState.marks.timings.length <= index) {

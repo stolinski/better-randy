@@ -495,6 +495,13 @@ export class CompositionPlanes {
 		this.#composite(input);
 	}
 
+	/** Premultiply the captured overlay DOM into the overlay plane texture
+	 *  WITHOUT the flat composite — the depth stage (ADR-0028) consumes the
+	 *  plane directly as a 3D quad texture (overlay-at-depth). */
+	premultiplyOverlay(): void {
+		this.#premultiply();
+	}
+
 	/** The premultiplied overlay plane (transparent where no overlay). Exposed for
 	 *  plane-level verification before the bokeh stage exists. */
 	overlayPlaneTexture(): GPUTexture {

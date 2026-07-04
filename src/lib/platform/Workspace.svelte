@@ -70,13 +70,17 @@
 		type ResolvedTransition
 	} from './engine-state.svelte';
 	import { applyCompositionState } from './preset';
+	import { presetBase } from './preset-base.svelte';
+	import { serializeCompositionState } from './preset-pure';
 	import { compositionMeta } from './composition-meta.svelte';
 	import { getPack } from './packs/registry';
 	import {
 		resolveAppearanceVars,
 		resolveDepthTreatment,
 		resolveDiagramStroke,
-		resolveEdgeTreatment
+		resolveEdgeTreatment,
+		resolveLightTreatment,
+		type LightTreatment
 	} from './packs/resolve';
 	import {
 		edgeTreatmentPass,
@@ -1561,11 +1565,34 @@
 		Boolean(engineState.surface.animation?.channels?.opacity?.length) &&
 			!SELF_FADING_SURFACE_TYPES.has(engineState.surface.type)
 	);
-	const planeSplitActive = $derived(dofActive || surfaceOpacityOwned);
+	// The depth stage (ADR-0028) places the Overlay layer on its own 3D plane
+	// (overlay-at-depth), so it needs the same split: Surface alone in
+	// `.composition`, Overlays hoisted to their separately-captured sibling.
+	const stageSplitActive = $derived(
+		engineState.stage?.type === 'depth' && engineState.overlays.length > 0
+	);
+	const planeSplitActive = $derived(dofActive || surfaceOpacityOwned || stageSplitActive);
 
 	// The composition-owned surface fade for this frame; 1 = no fade.
 	function surfaceFadeAlpha(): number {
 		return surfaceOpacityOwned ? clampNumber(animState.paperVisibility, 0, 1) : 1;
+	}
+
+	// The STAGE path's surface fade (ADR-0028). A surface whose fade carrier is
+	// an ENVIRONMENT shaderPass loses it there (environment passes are skipped
+	// on the stage — every one of them consumes paperVisibility), and
+	// composition-owned opacity has no plane composite to ride — the stage's
+	// surface plane applies the fade itself (backdrop-reconstruction mix).
+	// DOM-driven surfaces (newspaper/paper slide by position) carry their own
+	// envelope through the capture and must NOT be faded twice.
+	function stageSurfaceFadeAlpha(): number {
+		const renderer = getSurfaceRenderer(engineState.surface.type);
+		const fadeCarrierSkipped = Boolean(
+			(renderer?.shaderPass as ShaderPass<unknown> | undefined)?.environment
+		);
+		return fadeCarrierSkipped || surfaceOpacityOwned
+			? clampNumber(animState.paperVisibility, 0, 1)
+			: 1;
 	}
 
 	function findOverlayRenderer(type: string): OverlayRenderer | null {
@@ -1581,7 +1608,12 @@
 	// (the surface's own physics then operate on the treated silhouette), then
 	// the surface pass (ADR-0008), then any declared overlay passes (ADR-0005)
 	// in the same document order as `engineState.overlays`. Resolved by ADR-0010.
-	function buildShaderPassDispatchList(): ShaderPassDispatchList {
+	//
+	// scope 'stage' (ADR-0028): the depth stage runs surface-LOCAL physics on
+	// the surface plane texture before staging it, but skips environment passes
+	// (the stage's real backdrop plane supersedes a painted backdrop) and
+	// overlay passes (overlays live on their own plane, not in this texture).
+	function buildShaderPassDispatchList(scope: 'flat' | 'stage' = 'flat'): ShaderPassDispatchList {
 		const compositionSize = {
 			width: host?.canvas.width ?? 0,
 			height: host?.canvas.height ?? 0
@@ -1636,7 +1668,10 @@
 			}
 		}
 
-		if (surfaceRenderer?.shaderPass) {
+		if (
+			surfaceRenderer?.shaderPass &&
+			!(scope === 'stage' && (surfaceRenderer.shaderPass as ShaderPass<unknown>).environment)
+		) {
 			entries.push({
 				pass: surfaceRenderer.shaderPass as ShaderPass<unknown>,
 				target: engineState.surface,
@@ -1644,16 +1679,18 @@
 			});
 		}
 
-		for (const overlay of engineState.overlays) {
-			const renderer = findOverlayRenderer(overlay.type);
-			if (!renderer?.shaderPass) {
-				continue;
+		if (scope === 'flat') {
+			for (const overlay of engineState.overlays) {
+				const renderer = findOverlayRenderer(overlay.type);
+				if (!renderer?.shaderPass) {
+					continue;
+				}
+				entries.push({
+					pass: renderer.shaderPass as ShaderPass<unknown>,
+					target: overlay.content,
+					bounds: measureOverlayBoundsPx(overlay, compositionElement, compositionSize)
+				});
 			}
-			entries.push({
-				pass: renderer.shaderPass as ShaderPass<unknown>,
-				target: overlay.content,
-				bounds: measureOverlayBoundsPx(overlay, compositionElement, compositionSize)
-			});
 		}
 
 		return entries;
@@ -1773,6 +1810,13 @@
 		backdropContrast: number;
 		cameraMove: 'static' | 'push' | 'drift';
 		cameraAmount: number;
+		/** Overlay-at-depth: true when the Overlay layer is hoisted to its own
+		 *  plane for the stage (any overlays present). */
+		hasOverlayPlane: boolean;
+		/** The Overlay plane's ADR-0021 z (0 = Surface distance, 1 = backdrop). */
+		overlayZ: number;
+		/** The active Pack's scene light (light-treatment Role); null = unlit. */
+		light: LightTreatment | null;
 		effects: typeof engineState.effects;
 	}
 
@@ -1805,6 +1849,12 @@
 			backdropContrast: clampNumber(stage.backdrop?.contrast ?? 0, 0, 1),
 			cameraMove: stage.camera.move,
 			cameraAmount: clampNumber(stage.camera.amount, 0, 1),
+			hasOverlayPlane: engineState.overlays.length > 0,
+			overlayZ: clampNumber(engineState.overlays[0]?.z ?? 0.7, 0, 1),
+			// The scene light is the Pack's appearance claim (ADR-0028: the inert
+			// light Role reaching pixels); geometry/motion stays the Preset's via
+			// the camera + plane z's. No light-treatment Role ⇒ an unlit stage.
+			light: resolveLightTreatment(getPack(packState.slug)),
 			effects: engineState.effects
 		};
 	}
@@ -1881,13 +1931,34 @@
 		timebase: { progress: number; timestamp: number },
 		outputView: GPUTextureView
 	): boolean {
-		if (!pipeline || !host || !effectChain || !depthStage) {
+		if (!pipeline || !host || !effectChain || !depthStage || !shaderPassDispatcher) {
 			return false;
 		}
 		pipeline.uploadDom();
 		pipeline.render(inputs);
+		// Surface-local shader physics (edge treatment, the surface pass) run on
+		// the surface plane texture BEFORE staging — a surface keeps its declared
+		// physics on the stage. Environment + overlay passes are scoped out (see
+		// buildShaderPassDispatchList).
+		const stagedSurfaceTexture = shaderPassDispatcher.apply({
+			commandEncoder: host.device.createCommandEncoder(),
+			passes: buildShaderPassDispatchList('stage'),
+			inputTexture: pipeline.getOutputTexture(),
+			ctx: timebase
+		});
+		// Overlay-at-depth: capture the hoisted Overlay layer into its own
+		// premultiplied plane texture (the ADR-0027 capture seam), handed to the
+		// stage as a 3D plane at its ADR-0021 z.
+		let overlayPlaneView: GPUTextureView | undefined;
+		if (stage.hasOverlayPlane && compositionPlanes && overlayRootElement) {
+			compositionPlanes.captureOverlay(overlayRootElement);
+			compositionPlanes.premultiplyOverlay();
+			overlayPlaneView = compositionPlanes.overlayPlaneTexture().createView();
+		}
 		depthStage.render({
-			surfacePlaneView: pipeline.getOutputTexture().createView(),
+			surfacePlaneView: stagedSurfaceTexture.createView(),
+			overlayPlaneView,
+			overlayZ: stage.overlayZ,
 			focusZ: stage.focusZ,
 			aperture: stage.aperture,
 			focusBand: stage.focusBand,
@@ -1897,6 +1968,8 @@
 			backdropContrast: stage.backdropContrast,
 			cameraMove: stage.cameraMove,
 			cameraAmount: stage.cameraAmount,
+			light: stage.light,
+			surfaceFadeAlpha: stageSurfaceFadeAlpha(),
 			time: timebase.progress
 		});
 		const commandEncoder = host.device.createCommandEncoder();
@@ -2047,17 +2120,30 @@
 			// confirmed `active.effect` is registered.
 			transitionWipe = compileTransitionWipe(host);
 		}
-		// Capturing each state swaps engineState to from/to (whose transports differ
-		// from the transition's own). Preserve the transition Preset's transport —
-		// it governs the OUTPUT clip (duration = the wipe; orientation/fps/format) —
-		// and restore it after both snapshots so the timeline isn't left on `to`.
-		const outputTransport = { ...engineState.transport };
-		await captureStateSnapshot(active.from, snapshots.fromTarget());
-		await captureStateSnapshot(active.to, snapshots.toTarget());
-		engineState.transport.orientation = outputTransport.orientation;
-		engineState.transport.durationSeconds = outputTransport.durationSeconds;
-		engineState.transport.fps = outputTransport.fps;
-		engineState.transport.format = outputTransport.format;
+		// Capturing each state swaps engineState/packState to from/to. Freeze the
+		// transition Preset's own composition first and restore ALL of it after
+		// both snapshots — engineState must never be left holding a snapshot
+		// scratch state (persistence would autosave it as a user edit), and
+		// `transitionState.capturing` marks the swap window so the autosave path
+		// ignores the scratch states in flight.
+		const sourceComposition = serializeCompositionState(
+			presetBase,
+			$state.snapshot(engineState),
+			packState.slug
+		);
+		transitionState.capturing = true;
+		try {
+			await captureStateSnapshot(active.from, snapshots.fromTarget());
+			await captureStateSnapshot(active.to, snapshots.toTarget());
+		} finally {
+			applyCompositionState(sourceComposition);
+			transitionState.capturing = false;
+		}
+		// The recipe may have been cleared or replaced while the captures were in
+		// flight — only arm the wipe if this run still services the active one.
+		if (transitionState.active !== active) {
+			return;
+		}
 		transitionReady = true;
 		// Reset to the wipe's start; seek() drives tickTimeline → the wipe renders.
 		timeline?.seek(0);

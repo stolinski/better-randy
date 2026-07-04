@@ -3,6 +3,7 @@ import type { AnimationTweenSpec } from '$lib/platform/animation-manager';
 import type { KeyframeShape } from '../catalog';
 import type { CompileOutputs, StrategyInputs } from '../compile';
 import { gsapEaseFromCss } from '../gsap-ease';
+import { applyUnitFade, materializeUnitFilter } from '../unit-style';
 
 /**
  * Shared Slide Opacity Stage. Used by `short-slide-right`. The whole phrase
@@ -26,8 +27,7 @@ function materializeTitleTransform(keyframe: KeyframeShape, yTravel: number, isV
 }
 
 function materializeFilter(keyframe: KeyframeShape): string {
-	const blur = keyframe.blur_px ?? 0;
-	return blur > 0 ? `blur(${blur}px)` : 'none';
+	return materializeUnitFilter(keyframe.blur_px ?? 0);
 }
 
 function interpolate(from: KeyframeShape, to: KeyframeShape, p: number): KeyframeShape {
@@ -99,7 +99,10 @@ export function compileSharedSlideOpacityStage(inputs: StrategyInputs): CompileO
 			const frame = interpolate(spec.enter.from, spec.enter.to, value);
 			title.style.transform = materializeTitleTransform(frame, yTravel, isVertical);
 			title.style.filter = materializeFilter(frame);
-			title.style.opacity = String(frame.opacity ?? 1);
+			// The slot root is transformed, so its property-opacity is capture-
+			// quantized exactly like a unit span — fade via colour alpha instead
+			// (units clear their own colour at full alpha, so this cascades).
+			applyUnitFade(title, frame.opacity ?? 1);
 		}
 	});
 
@@ -115,7 +118,7 @@ export function compileSharedSlideOpacityStage(inputs: StrategyInputs): CompileO
 			to: 1,
 			onUpdate: (value) => {
 				const opacity = wordOpacityFrom + (wordOpacityTo - wordOpacityFrom) * value;
-				unit.element.style.opacity = String(opacity);
+				applyUnitFade(unit.element, opacity);
 				writeUnitAlpha(unit.index, opacity);
 			}
 		});
@@ -136,7 +139,9 @@ export function compileSharedSlideOpacityStage(inputs: StrategyInputs): CompileO
 				const frame = interpolate(exitFrom, exitTo, value);
 				title.style.transform = materializeTitleTransform(frame, yTravel, isVertical);
 				title.style.filter = materializeFilter(frame);
-				title.style.opacity = String(frame.opacity ?? 1);
+				// Colour-alpha fade for the same capture-quantization reason as
+				// the enter (transformed root).
+				applyUnitFade(title, frame.opacity ?? 1);
 				// Propagate title opacity into the per-unit alpha map so marks
 				// coupling fades alongside the exit, even though word spans
 				// themselves stay at wordOpacityTo.

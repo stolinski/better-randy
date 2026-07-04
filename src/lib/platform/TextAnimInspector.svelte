@@ -217,6 +217,37 @@
 				<button type="button" class="clear-btn" onclick={() => clearParam(entry, 'gapMs')}>×</button
 				>
 			</Field>
+			<Field label="Y travel ×">
+				<input
+					type="number"
+					min="0"
+					max="3"
+					step="0.1"
+					value={entry.params?.yTravelMultiplier ?? ''}
+					placeholder="1"
+					oninput={(e) =>
+						setParam(entry, 'yTravelMultiplier', (e.currentTarget as HTMLInputElement).value)}
+				/>
+				<button
+					type="button"
+					class="clear-btn"
+					onclick={() => clearParam(entry, 'yTravelMultiplier')}>×</button
+				>
+			</Field>
+			<Field label="Delay ms">
+				<input
+					type="number"
+					min="0"
+					step="10"
+					value={entry.params?.initialDelayMs ?? ''}
+					placeholder="default"
+					oninput={(e) =>
+						setParam(entry, 'initialDelayMs', (e.currentTarget as HTMLInputElement).value)}
+				/>
+				<button type="button" class="clear-btn" onclick={() => clearParam(entry, 'initialDelayMs')}
+					>×</button
+				>
+			</Field>
 		</InspectorSection>
 
 		<!-- Weld this animation's enter start to another element (ADR-0035 §4). -->

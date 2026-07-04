@@ -56,6 +56,9 @@ export const webDocument: SurfaceRenderer = {
 		title: true,
 		kicker: true,
 		author: true,
+		// avatarUrl = the tweet author's profile photo; only the twitter mock
+		// consumes it, so the inspector gates the row on `surface.site`.
+		avatarUrl: true,
 		source: true,
 		dateLabel: true,
 		sourceUrl: true,

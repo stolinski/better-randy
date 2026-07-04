@@ -68,7 +68,7 @@ export const PIPELINE_REGISTRY = {
 		isolate
 	} satisfies Record<string, AnnotationRenderer>,
 	overlays: { lowerThird, washiTape, watermark, shaderFill, cursorTrail, counter, instanceStack, text3d },
-	effects: { paperGrain, chromaticAberration, dithering, halftoneDots, halftoneCmyk, water, flutedGlass }
+	effects: { paperGrain, chromaticAberration, dithering, halftoneDots, halftoneCmyk, water, flutedGlass, heatmap }
 };
 
 export const REGISTERED_SURFACE_TYPES = Object.values(PIPELINE_REGISTRY.surfaces).map(

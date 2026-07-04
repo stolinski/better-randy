@@ -159,6 +159,9 @@ const wgsl = /* wgsl */ `
 export function createChapterCardBackdropPass(): ShaderPass<SurfaceState> {
 	return {
 		uniforms: ChapterCardBackdropUniforms,
+		// Paints the full-frame slate environment behind the type — the depth
+		// stage's real backdrop plane at depth supersedes it (ADR-0028).
+		environment: true,
 		wgsl,
 		packUniforms(target, bounds, ctx) {
 			const seedSource = target.content.title ?? target.type;
