@@ -37,12 +37,12 @@
 		background-color: var(--plate, rgb(10 10 10 / 0.92));
 		color: var(--ink); /* Q17: sub-maximum contrast against the dark plate (mount-guaranteed, ADR-0024) */
 		padding: calc(3 * var(--cqmin)) calc(4.5 * var(--cqmin));
-		font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
+		font-family: var(--font, 'Inter', 'Helvetica Neue', system-ui, sans-serif);
 	}
 
 	.lower-third__kicker {
 		color: var(--accent);
-		font-family: 'JetBrains Mono', ui-monospace, monospace;
+		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
 		font-size: calc(3 * var(--cqmin));
 		letter-spacing: 0.16em;
 		text-transform: uppercase;

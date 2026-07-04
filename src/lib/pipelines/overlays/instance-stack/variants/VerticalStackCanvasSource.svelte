@@ -37,7 +37,7 @@
 		color: var(--ink);
 		display: flex;
 		flex-direction: column;
-		font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
+		font-family: var(--font, 'Inter', 'Helvetica Neue', system-ui, sans-serif);
 		/* 12.5·cqmin → ~270px on a 2160-wide vertical frame → cap-height ~189px,
 		   clearing the G4 Overlay-display vertical floor (180px) for the frontmost
 		   instance; the depth recession then steps the lower echoes down from there. */

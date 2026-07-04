@@ -29,7 +29,8 @@
 	} from './engine-state.svelte';
 	import type { OverlayRenderer, EffectRenderer } from './pipelines/types';
 	import { EFFECT_CATALOG, EFFECT_IDS, SPLIT_MODES, type SplitMode } from '$lib/text-animations/catalog';
-	import { PACK_REGISTRY } from './packs/registry';
+	import { PACK_REGISTRY, getPack } from './packs/registry';
+	import { resolveFontTreatment } from './packs/resolve';
 	import { listSubstrateAssets } from './substrate-textures';
 	import TypographyColorInput from './TypographyColorInput.svelte';
 	import type { OverlayPosition, Stage, TextAnimationParams } from './engine-schema';
@@ -42,6 +43,9 @@
 	const EFFECT_CHAIN_LIMIT = 3;
 	const packOptions = Object.entries(PACK_REGISTRY) as [string, (typeof PACK_REGISTRY)[string]][];
 	const substrateAssets = listSubstrateAssets();
+	// A Pack `font-treatment` claim overrides the preset's typography voice
+	// everywhere pixels render, so the select must not pretend to edit it.
+	const packFontClaim = $derived(resolveFontTreatment(getPack(packState.slug)));
 
 	const OVERLAY_ANCHORS = [
 		'top-left', 'top-center', 'top-right',
@@ -415,7 +419,13 @@
 			{#if controls.typography && showBody}
 				<label class="row">
 					<span>Font</span>
-					<select bind:value={engineState.typography.fontFamily}>
+					<select
+						bind:value={engineState.typography.fontFamily}
+						disabled={packFontClaim !== null}
+						title={packFontClaim !== null
+							? `Type voice set by the ${getPack(packState.slug).label} Pack`
+							: undefined}
+					>
 						{#each fontFamilyOptions as [value, option] (value)}
 							<option {value}>{option.label}</option>
 						{/each}

@@ -90,7 +90,7 @@
 
 	.type-hero-source__hero {
 		color: var(--ink);
-		font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
+		font-family: var(--font, 'Inter', 'Helvetica Neue', system-ui, sans-serif);
 		font-stretch: condensed;
 		font-style: normal;
 		font-weight: 900;
@@ -118,7 +118,7 @@
 	.type-hero-source__subtitle {
 		/* Extra slot → chains to the ink core (byline is a muted ink voice), never a literal (ADR-0024). */
 		color: var(--byline, var(--ink));
-		font-family: 'JetBrains Mono', ui-monospace, monospace;
+		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
 		font-style: normal;
 		font-weight: 500;
 		inset-block-end: 9%;

@@ -28,7 +28,7 @@
 		background-color: rgba(10, 10, 10, 0.74);
 		color: var(--ink); /* Q17: sub-maximum contrast against the dark plate (mount-guaranteed, ADR-0024) */
 		padding: calc(2 * var(--cqmin)) calc(2.5 * var(--cqmin)) calc(2 * var(--cqmin)) calc(2.25 * var(--cqmin));
-		font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
+		font-family: var(--font, 'Inter', 'Helvetica Neue', system-ui, sans-serif);
 	}
 
 	.watermark__accent {
@@ -41,7 +41,7 @@
 
 	.watermark__handle {
 		grid-column: 2;
-		font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+		font-family: var(--font, 'SFMono-Regular', Consolas, 'Liberation Mono', monospace);
 		font-size: calc(3 * var(--cqmin));
 		font-weight: 600;
 		line-height: 1;

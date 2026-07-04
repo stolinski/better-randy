@@ -106,7 +106,7 @@
 	.stat-callout__value {
 		color: var(--accent);
 		display: inline-flex;
-		font-family: 'JetBrains Mono', ui-monospace, monospace;
+		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
 		font-feature-settings: 'tnum' 1;
 		font-size: calc(9 * var(--cqmin));
 		font-variant-numeric: tabular-nums;
@@ -129,7 +129,7 @@
 	/* Caption under the number — the label voice, composition ink. */
 	.stat-callout__label {
 		color: var(--ink, currentColor);
-		font-family: 'JetBrains Mono', ui-monospace, monospace;
+		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
 		font-size: calc(2.2 * var(--cqmin));
 		font-weight: 600;
 		letter-spacing: 0.14em;

@@ -17,7 +17,7 @@
 	.diagram-label {
 		color: var(--ink, currentColor);
 		display: inline-block;
-		font-family: 'JetBrains Mono', ui-monospace, monospace;
+		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
 		font-size: calc(2.4 * var(--cqmin));
 		font-weight: 600;
 		letter-spacing: 0.05em;

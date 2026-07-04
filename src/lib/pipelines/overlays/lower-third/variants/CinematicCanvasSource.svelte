@@ -103,7 +103,7 @@
 	.lower-third--cinematic__content {
 		color: var(--ink);
 		display: grid;
-		font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
+		font-family: var(--font, 'Inter', 'Helvetica Neue', system-ui, sans-serif);
 		gap: calc(0.7 * var(--cqmin));
 		grid-column: 2;
 		grid-row: 1;
@@ -113,7 +113,7 @@
 
 	.lower-third--cinematic__kicker {
 		color: var(--accent);
-		font-family: 'JetBrains Mono', ui-monospace, monospace;
+		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
 		font-size: calc(1.9 * var(--cqmin));
 		font-weight: 600;
 		letter-spacing: 0.26em;
@@ -135,7 +135,7 @@
 		/* Extra per-Pipeline slot → chains to the semantically-right core
 		   (a muted label voice is ink-family) — never a literal (ADR-0024). */
 		color: var(--roleInk, var(--ink));
-		font-family: 'JetBrains Mono', ui-monospace, monospace;
+		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
 		/* Sized for a tasteful corner chip (~63px / ~45px cap at 4K), clearly
 		   secondary to the name. NOTE: below the G4 Overlay-secondary 80px floor —
 		   that band is calibrated for full-width broadcast lower-thirds and is too

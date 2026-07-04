@@ -44,7 +44,16 @@ export type PackRoleKind = 'style' | 'pipeline' | 'chrome';
  *   - `material-treatment` — a grain/material claim (how ink sits on the
  *     substrate; e.g. the paragraph Block's `paragraph.material: 'ink-bleed'`
  *     rides this dimension).
- *   - `font-treatment` — a typeface claim beyond the `fonts` preload list.
+ *   - `font-treatment` — the Pack's universal type voice: a single CSS
+ *     font-family stack STRING (e.g. `'"JetBrains Mono", "SFMono-Regular",
+ *     Consolas, monospace'`). When present, `resolveAppearanceVars` emits it
+ *     as `--font` on every mount and pipelines consume it via
+ *     `font-family: var(--font, <intrinsic stack>)` — one family everywhere.
+ *     Per-Pipeline `<type>.font` string Roles beat the core (specific → core,
+ *     `resolveFontTreatment`). Any other or absent value is no claim —
+ *     pipelines keep their intrinsic stacks. Pack-immune pipelines (imessage,
+ *     web-document) never receive it. The family named first must appear in
+ *     `fonts` so capture gates on it loading.
  */
 export const MANDATORY_CORE_ROLES = [
 	'fill-treatment',

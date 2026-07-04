@@ -39,7 +39,7 @@
 	class="plain-source surface"
 	style:block-size={`${frame.height}px`}
 	style:color={typographyColors.inkColor}
-	style:font-family={fontFamily.stack}
+	style:font-family={`var(--font, ${fontFamily.stack})`}
 	style:inline-size={`${frame.width}px`}
 	style:padding={`${frame.height * safeArea.top}px ${frame.width * safeArea.right}px ${frame.height * safeArea.bottom}px ${frame.width * safeArea.left}px`}
 >

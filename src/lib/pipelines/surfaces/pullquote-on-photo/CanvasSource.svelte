@@ -96,7 +96,7 @@
 	}
 
 	.pullquote-source__quote {
-		font-family: 'EB Garamond', 'Charter', 'Iowan Old Style', Georgia, serif;
+		font-family: var(--font, 'EB Garamond', 'Charter', 'Iowan Old Style', Georgia, serif);
 		font-style: normal;
 		font-weight: 600;
 		inline-size: 65%;
@@ -113,7 +113,7 @@
 	.pullquote-source__attribution {
 		/* Extra slot → chains to the ink core (byline is a muted ink voice), never a literal (ADR-0024). */
 		color: var(--byline, var(--ink));
-		font-family: 'JetBrains Mono', ui-monospace, monospace;
+		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
 		font-style: normal;
 		font-weight: 500;
 		inset-block-end: 12%;

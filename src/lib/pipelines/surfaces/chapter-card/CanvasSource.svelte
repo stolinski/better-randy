@@ -83,7 +83,7 @@
 	.chapter-card-source__kicker {
 		/* Extra slot → chains to the accent core (kicker is accent-family), never a literal (ADR-0024). */
 		color: var(--kicker, var(--accent));
-		font-family: 'JetBrains Mono', ui-monospace, monospace;
+		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
 		font-weight: 500;
 		inset-block-start: 50.5%;
 		inset-inline-start: 30%;
@@ -108,7 +108,7 @@
 
 	.chapter-card-source__title {
 		color: var(--ink);
-		font-family: 'EB Garamond', 'Charter', 'Iowan Old Style', Georgia, serif;
+		font-family: var(--font, 'EB Garamond', 'Charter', 'Iowan Old Style', Georgia, serif);
 		font-style: normal;
 		font-weight: 700;
 		inline-size: 50%;

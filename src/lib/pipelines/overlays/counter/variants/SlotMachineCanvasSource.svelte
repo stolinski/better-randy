@@ -114,7 +114,7 @@
 		   claims an accent-coloured ink here) wins over the core ink fallback. */
 		color: var(--ink);
 		display: inline-flex;
-		font-family: 'JetBrains Mono', ui-monospace, monospace;
+		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
 		font-feature-settings: 'tnum' 1;
 		font-size: calc(12 * var(--cqmin));
 		font-variant-numeric: tabular-nums;

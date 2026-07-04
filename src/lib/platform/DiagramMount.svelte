@@ -6,6 +6,7 @@
 		appearanceVarsToStyle,
 		resolveAppearanceVars,
 		resolveDepthTreatment,
+		resolveFontTreatment,
 		resolveTypographyColors
 	} from './packs/resolve';
 	import { ENGINE_FONT_FAMILIES, type DiagramElement } from './engine-schema';
@@ -30,8 +31,12 @@
 	// override → Pack core ink-treatment (ADR-0038), matching body text.
 	const diagramInk = $derived(resolveTypographyColors(pack, engineState.typography).inkColor);
 
+	// The mount root's voice: a Pack `font-treatment` claim beats the preset's
+	// typography voice key (the same specific-beats-general rule as colours);
+	// no claim, the composition's ENGINE_FONT_FAMILIES voice decides.
 	const fontStack = $derived(
-		ENGINE_FONT_FAMILIES[engineState.typography.fontFamily]?.stack ??
+		resolveFontTreatment(pack) ??
+			ENGINE_FONT_FAMILIES[engineState.typography.fontFamily]?.stack ??
 			ENGINE_FONT_FAMILIES.sans.stack
 	);
 

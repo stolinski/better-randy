@@ -84,7 +84,7 @@
 
 	.node__pin-text,
 	.node__dot-text {
-		font-family: 'JetBrains Mono', ui-monospace, monospace;
+		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
 		font-size: calc(2 * var(--cqmin));
 		font-weight: 700;
 		letter-spacing: 0.06em;

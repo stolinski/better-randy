@@ -13,10 +13,18 @@
  */
 import '@fontsource/jetbrains-mono/400.css';
 import '@fontsource/jetbrains-mono/500.css';
+import '@fontsource/jetbrains-mono/600.css';
 import '@fontsource/jetbrains-mono/700.css';
+import '@fontsource/jetbrains-mono/800.css';
 
 import type { PackFont } from '$lib/platform/packs/types';
 
+// The `font-treatment` sweep routes EVERY pipeline through this family, so the
+// preload list must cover every weight the swept CanvasSources actually set:
+// 500 (kickers/bylines), 600 (labels), 700 (titles/stats), 800 (instance-stack,
+// text-3d). Pipelines that ask for 900 (title-sequence, type-hero, newspaper
+// masthead) render at 800 — JetBrains Mono's heaviest cut — via CSS weight
+// matching, so 800 is the one that must be resident before capture.
 export const crtTerminalFonts: readonly PackFont[] = [
-	{ family: 'JetBrains Mono', weights: [400, 500, 700] }
+	{ family: 'JetBrains Mono', weights: [400, 500, 600, 700, 800] }
 ];

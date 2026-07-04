@@ -108,7 +108,7 @@
 		style:box-shadow={cardShadow}
 	style:block-size={`${layout.height}px`}
 	style:color={typographyColors.inkColor}
-	style:font-family={fontFamily.stack}
+	style:font-family={`var(--font, ${fontFamily.stack})`}
 	style:inline-size={`${layout.width}px`}
 	style:left={`${layout.x}px`}
 	style:padding-block={`${layout.width * 0.05}px`}
@@ -229,7 +229,7 @@
 	}
 
 	.paper-source__kicker {
-		font-family: ui-monospace, monospace;
+		font-family: var(--font, ui-monospace, monospace);
 		text-transform: uppercase;
 		letter-spacing: 0.08em;
 		opacity: 0.7;
@@ -247,7 +247,7 @@
 
 	.paper-source__affiliation {
 		font-style: normal;
-		font-family: ui-monospace, monospace;
+		font-family: var(--font, ui-monospace, monospace);
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
 		font-size: 0.85em;
@@ -255,7 +255,7 @@
 	}
 
 	.paper-source__body-label {
-		font-family: ui-monospace, monospace;
+		font-family: var(--font, ui-monospace, monospace);
 		text-transform: uppercase;
 		letter-spacing: 0.12em;
 		font-weight: 700;
@@ -284,7 +284,7 @@
 		border-block-start: 0.12em solid currentColor;
 		display: flex;
 		flex-wrap: wrap;
-		font-family: ui-monospace, monospace;
+		font-family: var(--font, ui-monospace, monospace);
 		gap: 1.2em;
 		padding-block-start: 0.7em;
 		text-transform: uppercase;

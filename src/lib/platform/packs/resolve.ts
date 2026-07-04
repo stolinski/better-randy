@@ -43,6 +43,38 @@ function isEmittableColorClaim(value: string): boolean {
 	return value === 'currentColor' || isColorValue(value);
 }
 
+/**
+ * Resolve the Pack's universal type voice — the optional `font-treatment`
+ * core: a single CSS font-family stack STRING (the whole Pack speaks one
+ * family, e.g. crt-terminal's JetBrains Mono stack). Resolution is
+ * specific → core like every other Role (ADR-0024):
+ *
+ *   `<pipelineType>.font` (per-Pipeline override)
+ *     → `font-treatment` (core type voice)
+ *       → `null` (no Pack font claim; intrinsic pipeline stacks decide)
+ *
+ * Only a non-empty, non-colour string is a claim — any other shape resolves
+ * to `null` so pre-vocabulary Roles stay inert. Pack-immune pipelines
+ * (imessage, web-document) never see this: their mounts skip appearance-var
+ * injection entirely, so their artifact fonts stay faithful under every Pack.
+ */
+export function resolveFontTreatment(
+	manifest: PackManifest,
+	pipelineType?: string
+): string | null {
+	const role =
+		(pipelineType !== undefined ? manifest.roles[`${pipelineType}.font`] : undefined) ??
+		manifest.roles['font-treatment'];
+	if (!role || role.kind !== 'style' || typeof role.value !== 'string') {
+		return null;
+	}
+	const stack = role.value.trim();
+	if (stack.length === 0 || isColorValue(stack)) {
+		return null;
+	}
+	return stack;
+}
+
 export function resolveAppearanceVars(
 	manifest: PackManifest,
 	pipelineType: string
@@ -79,6 +111,16 @@ export function resolveAppearanceVars(
 		if (role && role.kind === 'style' && typeof role.value === 'string' && isColorValue(role.value)) {
 			vars[`--${core}`] = role.value;
 		}
+	}
+
+	// 3. The Pack's type voice (`font-treatment` / per-Pipeline `<type>.font`).
+	//    A font stack is a non-colour string, so the colour filter above never
+	//    carries it — emit it explicitly as `--font`. CanvasSources consume it
+	//    via `font-family: var(--font, <intrinsic stack>)`; a Pack with no font
+	//    claim emits nothing and every pipeline keeps its intrinsic stack.
+	const fontStack = resolveFontTreatment(manifest, pipelineType);
+	if (fontStack !== null) {
+		vars['--font'] = fontStack;
 	}
 
 	return vars;

@@ -32,8 +32,11 @@
 		EDITOR_MARK_COLORS,
 		addTextAnimation,
 		engineState,
+		packState,
 		removeTextAnimation
 	} from './engine-state.svelte';
+	import { getPack } from './packs/registry';
+	import { resolveFontTreatment } from './packs/resolve';
 	import { PIPELINE_REGISTRY, getSurfaceRenderer } from './pipelines';
 	import { inspectorFocus, layerSelection } from './selection.svelte';
 	import InspectorSection from './InspectorSection.svelte';
@@ -44,6 +47,9 @@
 
 	const surfaceRenderers = Object.values(PIPELINE_REGISTRY.surfaces);
 	const fontFamilyOptions = Object.entries(ENGINE_FONT_FAMILIES) as [FontFamily, FontDefinition][];
+	// A Pack `font-treatment` claim overrides the preset's typography voice
+	// everywhere pixels render, so the select must not pretend to edit it.
+	const packFontClaim = $derived(resolveFontTreatment(getPack(packState.slug)));
 	const easeOptions = Object.entries(ENGINE_EASES) as [Ease, (typeof ENGINE_EASES)[Ease]][];
 
 	const SITE_LABELS: Record<(typeof WEB_DOCUMENT_SITES)[number], string> = {
@@ -744,7 +750,13 @@
 		<InspectorSection label="Appearance">
 			{#if controls.typography && showBody}
 				<Field label="Font">
-					<select bind:value={engineState.typography.fontFamily}>
+					<select
+						bind:value={engineState.typography.fontFamily}
+						disabled={packFontClaim !== null}
+						title={packFontClaim !== null
+							? `Type voice set by the ${getPack(packState.slug).label} Pack`
+							: undefined}
+					>
 						{#each fontFamilyOptions as [value, option] (value)}
 							<option {value}>{option.label}</option>
 						{/each}
