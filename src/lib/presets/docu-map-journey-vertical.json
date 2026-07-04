@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "Docu map journey — where your deploy goes (vertical)",
 	"description": "Vertical re-staging of the ADR-0036 animated-map signature: the deploy's journey re-authored DOWN the frame (LOCAL top → CI middle → EDGE bottom, Y-led per G11), same pin/arc/label primitives and Cascade chain over the atmosphere-warm depth-stage backdrop (ADR-0029). Captions trimmed ~30% for vertical; all readable content clears the platform bands (top 6% / bottom 16% / right 9%). Intentional omissions: no torn-edge collage card, tape, or mono kicker chip — a full-frame docu-map shot, not a collage card; pin/edge/arrowhead appearance resolves through the Syntax pack's Roles.",
 	"pack": "syntax",

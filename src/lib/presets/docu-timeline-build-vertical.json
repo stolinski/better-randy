@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "Docu timeline build — the road to ES modules (vertical)",
 	"description": "Vertical sibling of docu-timeline-build — the ADR-0036 H↔V reflow stress case proven: the SAME five-primitive composition re-authored down a vertical rail (x 0.5, era spans stacked top→bottom) purely by repositioning timeline-segment endpoints, never reshaping. The chronological stroke-draw now runs top-to-bottom (Y-motion per G11), year-marker labels sit beside the era joints left of the rail inside the platform-UI safe zones, and type scales up for the 9:16 read. Full-frame dark graphic register (backgroundFill #0f1116, strokes ride warm off-white inkColor); mono signature thread on every label. Intentional omissions per the docu-diagram register: no collage chrome (torn edges, tape, hard offset shadow, registration jitter) and no grit effect — stroke/node/label appearance resolves through the Syntax pack's Roles.",
 	"kind": "deliverable",
@@ -34,7 +34,7 @@
 					"id": "title-road",
 					"position": { "x": 0.5, "y": 0.1 },
 					"text": "THE ROAD TO ES MODULES",
-					"scale": 1.8,
+					"scale": 2,
 					"enter": { "start": 0.07, "duration": 0.055, "ease": "settled" },
 					"exit": { "start": 0.87, "duration": 0.04, "ease": "smooth" },
 					"animation": {
@@ -48,7 +48,7 @@
 					"to": { "x": 0.5, "y": 0.38 },
 					"label": "SCRIPT TAGS",
 					"enter": { "start": 0.145, "duration": 0.08, "ease": "smooth" },
-					"exit": { "start": 0.8, "duration": 0.06, "ease": "smooth" },
+					"exit": { "start": 0.8, "duration": 0.045, "ease": "smooth" },
 					"animation": {
 						"cascade": { "anchor": { "block": "title-road" }, "event": "end", "offsetMs": 120 }
 					}
@@ -84,7 +84,7 @@
 					"to": { "x": 0.5, "y": 0.58 },
 					"label": "BUNDLER ERA",
 					"enter": { "start": 0.252, "duration": 0.08, "ease": "smooth" },
-					"exit": { "start": 0.82, "duration": 0.06, "ease": "smooth" },
+					"exit": { "start": 0.82, "duration": 0.045, "ease": "smooth" },
 					"animation": {
 						"cascade": { "anchor": { "block": "era-script-tags" }, "event": "end", "offsetMs": 160 }
 					}
@@ -108,7 +108,7 @@
 					"to": { "x": 0.5, "y": 0.76 },
 					"label": "ESM ERA",
 					"enter": { "start": 0.358, "duration": 0.08, "ease": "smooth" },
-					"exit": { "start": 0.84, "duration": 0.06, "ease": "smooth" },
+					"exit": { "start": 0.84, "duration": 0.045, "ease": "smooth" },
 					"animation": {
 						"cascade": { "anchor": { "block": "era-bundlers" }, "event": "end", "offsetMs": 160 }
 					}
@@ -128,7 +128,7 @@
 				{
 					"type": "node",
 					"id": "node-now",
-					"position": { "x": 0.5, "y": 0.76 },
+					"position": { "x": 0.5, "y": 0.778 },
 					"form": "dot",
 					"enter": { "start": 0.472, "duration": 0.05, "ease": "settled" },
 					"exit": { "start": 0.86, "duration": 0.04, "ease": "smooth" },

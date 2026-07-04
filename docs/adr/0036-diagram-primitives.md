@@ -1,8 +1,8 @@
 # Diagram primitives — art-directed docu diagrams as Blocks
 
-> **Status: Designed, not built** — grilled 2026-07-01/02; tracked in dex epic `phd3zd26`, sequenced after generalized keyframes ([ADR-0035](0035-generalized-keyframes-and-cascade.md)) because Cascade is the reveal grammar. Glossary: **Diagram primitive** in [`CONTEXT.md`](../CONTEXT.md).
+> **Status: Shipped** — grilled 2026-07-01/02, built 2026-07-03/04 (dex epic `phd3zd26`): schema (`surface.diagram[]`), five Block pipelines + Identity Specs, GUI parity (rows / canvas drag / per-type inspector / cascade picker), and the four-piece demo set (`docu-map-journey`, `docu-flowchart`, `docu-stat-build`, `docu-timeline-build`, each H+V) through Critic ACCEPT. The Critic loop drove three engine corrections (odometer carry, capture-safe digit rolls, transparent-ink legibility halo) plus orientation-aware segment-caption placement. Glossary: **Diagram primitive** in [`CONTEXT.md`](../CONTEXT.md).
 
-Hiviz gets a **five-primitive diagram vocabulary** — `node`, `edge-arrow`, `label`, `stat-callout`, `timeline-segment` — living as **Blocks on any Surface**, positioned **explicitly** in composition space and revealed with **stroke-draw + Cascade**. The register is high-end YouTube documentary (Johnny Harris / Vox): every element placed deliberately, revealed in choreographed order. **Auto-layout is rejected** — mermaid-style layout reads as documentation, not documentary; at most a future compile-*into*-primitives authoring shortcut.
+Supers gets a **five-primitive diagram vocabulary** — `node`, `edge-arrow`, `label`, `stat-callout`, `timeline-segment` — living as **Blocks on any Surface**, positioned **explicitly** in composition space and revealed with **stroke-draw + Cascade**. The register is high-end YouTube documentary (Johnny Harris / Vox): every element placed deliberately, revealed in choreographed order. **Auto-layout is rejected** — mermaid-style layout reads as documentation, not documentary; at most a future compile-*into*-primitives authoring shortcut.
 
 ## §1 Context
 

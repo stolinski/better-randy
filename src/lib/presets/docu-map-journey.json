@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "Docu map journey — where your deploy goes",
 	"description": "ADR-0036 §6 signature: the animated map. Pin nodes + arced edges + labels art-directed over the atmosphere-warm image substrate on the depth stage (ADR-0029) — no map primitive, just the travel-map build: pin drops in, arc draws to the next pin, welded as one Cascade chain. Slow camera push gives real parallax; focus holds the diagram plane sharp while the backdrop melts. Intentional omissions: no torn-edge collage card, tape, or mono kicker chip — a full-frame docu-map shot, not a collage card; pin/edge/arrowhead appearance resolves through the Syntax pack's Roles.",
 	"pack": "syntax",

@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "Docu stat build",
 	"description": "Three stat-callouts build in reading order over footage — a transparent ADR-0036 stat beat: JAVASCRIPT BY THE NUMBERS, then 2,100,000,000 npm downloads/week, 97% of sites, 11,000,000 devs roll up slot-machine style, land, and hold together before a staggered fade out. Intentional omissions: no collage card, no hard offset shadow, no grit, no backgroundFill — this is a keyed overlay; the footage is the substrate and the mono signature thread is carried by the JetBrains Mono stat values and captions, with values in pack accent #fabf47.",
 	"pack": "syntax",
@@ -35,7 +35,7 @@
 					"text": "JAVASCRIPT BY THE NUMBERS",
 					"scale": 2,
 					"enter": { "start": 0.07, "duration": 0.05, "ease": "settled" },
-					"exit": { "start": 0.87, "duration": 0.04, "ease": "smooth" },
+					"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" },
 					"animation": {
 						"cascade": { "anchor": "surface", "event": "end", "offsetMs": 120 }
 					}
@@ -52,7 +52,7 @@
 					"rollStart": 0.15,
 					"rollWindow": 0.25,
 					"enter": { "start": 0.15, "duration": 0.05, "ease": "settled" },
-					"exit": { "start": 0.85, "duration": 0.04, "ease": "smooth" },
+					"exit": { "start": 0.82, "duration": 0.04, "ease": "smooth" },
 					"animation": {
 						"cascade": { "anchor": { "block": "l-headline" }, "event": "end", "offsetMs": 180 }
 					}
@@ -69,7 +69,7 @@
 					"rollStart": 0.225,
 					"rollWindow": 0.23,
 					"enter": { "start": 0.225, "duration": 0.05, "ease": "settled" },
-					"exit": { "start": 0.86, "duration": 0.04, "ease": "smooth" },
+					"exit": { "start": 0.84, "duration": 0.04, "ease": "smooth" },
 					"animation": {
 						"cascade": { "anchor": { "block": "s-npm" }, "event": "end", "offsetMs": 150 }
 					}
@@ -86,7 +86,7 @@
 					"rollStart": 0.3,
 					"rollWindow": 0.25,
 					"enter": { "start": 0.3, "duration": 0.05, "ease": "settled" },
-					"exit": { "start": 0.87, "duration": 0.04, "ease": "smooth" },
+					"exit": { "start": 0.86, "duration": 0.04, "ease": "smooth" },
 					"animation": {
 						"cascade": { "anchor": { "block": "s-sites" }, "event": "end", "offsetMs": 150 }
 					}

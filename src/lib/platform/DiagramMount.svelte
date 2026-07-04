@@ -5,7 +5,8 @@
 	import {
 		appearanceVarsToStyle,
 		resolveAppearanceVars,
-		resolveDepthTreatment
+		resolveDepthTreatment,
+		resolveTypographyColors
 	} from './packs/resolve';
 	import { ENGINE_FONT_FAMILIES, type DiagramElement } from './engine-schema';
 	import LabelSource from '$lib/pipelines/blocks/label/CanvasSource.svelte';
@@ -24,6 +25,10 @@
 
 	const elements = $derived(engineState.surface.diagram ?? []);
 	const pack = $derived(getPack(packState.slug));
+
+	// The diagram's inherited ink (each element's currentColor floor) resolves
+	// override → Pack core ink-treatment (ADR-0038), matching body text.
+	const diagramInk = $derived(resolveTypographyColors(pack, engineState.typography).inkColor);
 
 	const fontStack = $derived(
 		ENGINE_FONT_FAMILIES[engineState.typography.fontFamily]?.stack ??
@@ -44,17 +49,30 @@
 		isTransparentPiece ? '0 2px 18px rgb(0 0 0 / 0.55), 0 1px 5px rgb(0 0 0 / 0.5)' : undefined
 	);
 
+	// A segment's caption clears the rule PERPENDICULAR to the span direction —
+	// a horizontal span captions above its midpoint; a vertical rail captions
+	// beside it (left-edge anchored so the centred text can't reach back across
+	// the stroke). An orientation-blind fixed offset put vertical captions ON
+	// the rail (Critic finding, docu-timeline-build-vertical).
+	function isVerticalSpan(element: DiagramElement & { type: 'timeline-segment' }): boolean {
+		return (
+			Math.abs(element.to.y - element.from.y) > Math.abs(element.to.x - element.from.x)
+		);
+	}
+
 	function centerFor(element: DiagramElement): { x: number; y: number } {
 		if (element.type === 'edge-arrow') {
 			return { x: 0, y: 0 };
 		}
 		if (element.type === 'timeline-segment') {
-			// The segment's caption sits above the span's midpoint; the rule
-			// itself is stroke-drawn in the pipeline.
-			return {
+			const mid = {
 				x: (element.from.x + element.to.x) / 2,
-				y: (element.from.y + element.to.y) / 2 - 0.045
+				y: (element.from.y + element.to.y) / 2
 			};
+			// The rule itself is stroke-drawn in the pipeline.
+			return isVerticalSpan(element)
+				? { x: mid.x + 0.033, y: mid.y }
+				: { x: mid.x, y: mid.y - 0.045 };
 		}
 		return element.position;
 	}
@@ -69,7 +87,11 @@
 		// (ADR-0035 §3), folded straight into the percentage placement.
 		const x = (center.x + (channels?.x ?? 0)) * 100;
 		const y = (center.y + (channels?.y ?? 0)) * 100;
-		return `left:${x}%;top:${y}%`;
+		// Beside a vertical rail the caption anchors its LEFT edge (not its
+		// centre) so the text grows away from the stroke, never back across it.
+		const anchor =
+			element.type === 'timeline-segment' && isVerticalSpan(element) ? ';translate:0 -50%' : '';
+		return `left:${x}%;top:${y}%${anchor}`;
 	}
 
 	// Intrinsic entrance forms per type — the pipeline-owned motion-form
@@ -130,7 +152,7 @@
 	<div
 		class="diagram-mount"
 		style:font-family={fontStack}
-		style:color={engineState.typography.inkColor}
+		style:color={diagramInk}
 		style:text-shadow={textGuard}
 	>
 		{#each elements as element (element.id)}
