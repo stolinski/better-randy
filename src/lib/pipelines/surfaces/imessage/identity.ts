@@ -6,6 +6,11 @@
  * (driven by `animState.globalProgress`, so it is frame-deterministic) and the
  * highlight rides the reused `paper` Pipeline marks. See
  * docs/adr/0031-imessage-interactive-surface.md.
+ *
+ * The artifact is Pack-IMMUNE by declaration (ADR-0038): the iOS bubble
+ * palette and Messages chrome are the claim itself, so the Surface skips
+ * appearance-var injection. Treatments layered on top (the highlight mark,
+ * edge/depth, Effects) still resolve from the active Pack.
  */
 
 import type { IdentitySpec } from '$lib/platform/pipelines/identity';
@@ -13,6 +18,10 @@ import type { IdentitySpec } from '$lib/platform/pipelines/identity';
 export const imessageIdentity: IdentitySpec = {
 	kind: 'material',
 	claim: 'a live iOS Messages conversation',
+	packImmunity: {
+		rationale:
+			'The artifact IS iOS Messages: the gray-received / blue-sent bubble palette, tail curls, and conversation chrome must stay Apple-faithful under every Pack, or the claim collapses. Only treatments layered on top (highlight marks, edge/depth, Effects) take the Pack.'
+	},
 	dimensions: [
 		{
 			name: 'conversation-bubbles',

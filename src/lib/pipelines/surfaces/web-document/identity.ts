@@ -13,6 +13,12 @@
  * (`shader-passes/web-document-screen.ts`, dex `f0j654gu`). Every declared
  * dimension is implemented and probed against the registration validator
  * (`identity-registry.ts`) — nothing here is a stub.
+ *
+ * The artifact is Pack-IMMUNE by declaration (ADR-0038): each site mock is
+ * pixel-faithful to the real site (Twitter dark mode, GitHub, Reddit …), so
+ * the Surface skips appearance-var injection. Treatments layered on top
+ * (highlight marks, the emissive shader pass, edge/depth, Effects) still
+ * resolve from the active Pack.
  */
 
 import type { IdentitySpec } from '$lib/platform/pipelines/identity';
@@ -20,6 +26,10 @@ import type { IdentitySpec } from '$lib/platform/pipelines/identity';
 export const webDocumentIdentity: IdentitySpec = {
 	kind: 'material',
 	claim: 'a web page on a backlit display, in a browser window',
+	packImmunity: {
+		rationale:
+			'The artifact IS the real site: every mock must look EXACTLY like the site it claims to be (Twitter dark mode et al.), pixel-faithful by requirement, under every Pack. Only treatments layered on top (highlight marks, the screen shader pass, edge/depth, Effects) take the Pack.'
+	},
 	dimensions: [
 		{
 			name: 'window-chrome-frame',

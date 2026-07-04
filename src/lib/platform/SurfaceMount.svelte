@@ -3,6 +3,7 @@
 	import { getPack } from './packs/registry';
 	import { appearanceVarsToStyle, resolveAppearanceVars } from './packs/resolve';
 	import { getSurfaceRenderer } from './pipelines';
+	import { isPackImmune } from './pipelines/identity-registry';
 
 	interface Props {
 		element?: HTMLElement | null;
@@ -20,8 +21,18 @@
 	// CSS custom properties still inherit into the captured surface element. The
 	// CanvasSource consumes them via `var(--slot, #fallback)`; under the syntax
 	// Pack the fallbacks already match, so the render is byte-identical.
+	//
+	// A Surface whose Identity Spec declares Pack-immunity (ADR-0038 —
+	// `surface:imessage`, `surface:web-document`) skips the injection entirely:
+	// the artifact stays faithful under every Pack, while treatments layered on
+	// it (annotation marks, edge/depth passes, Effects) still resolve from the
+	// Pack elsewhere.
 	const appearanceStyle = $derived(
-		appearanceVarsToStyle(resolveAppearanceVars(getPack(packState.slug), engineState.surface.type))
+		isPackImmune(`surface:${engineState.surface.type}`)
+			? ''
+			: appearanceVarsToStyle(
+					resolveAppearanceVars(getPack(packState.slug), engineState.surface.type)
+				)
 	);
 </script>
 

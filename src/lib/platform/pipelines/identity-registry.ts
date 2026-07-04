@@ -120,6 +120,26 @@ export const IDENTITY_REGISTRY: Readonly<Record<string, IdentitySpec>> = {
 	'overlay:watermark': watermarkIdentity
 };
 
+/**
+ * Every pipeline key whose Identity Spec declares Pack-immunity (ADR-0038).
+ * The Critic's two-Pack pixel-diff regression check enumerates the NON-immune
+ * pipelines from this list's complement over `IDENTITY_REGISTRY` — a pipeline
+ * that ignores the Pack without appearing here is a bug, not an exemption.
+ */
+export const PACK_IMMUNE_PIPELINE_KEYS: readonly string[] = Object.entries(IDENTITY_REGISTRY)
+	.filter(([, spec]) => spec.packImmunity !== undefined)
+	.map(([pipelineKey]) => pipelineKey);
+
+/**
+ * Registry-visible immunity query (ADR-0038): does this pipeline's Identity
+ * Spec declare its artifact Pack-immune? Keys use the registry shape
+ * (`surface:imessage`, `annotation:highlight`, …). Unregistered keys are not
+ * immune.
+ */
+export function isPackImmune(pipelineKey: string): boolean {
+	return IDENTITY_REGISTRY[pipelineKey]?.packImmunity !== undefined;
+}
+
 export interface IdentityValidationError {
 	pipeline: string;
 	kind: 'unimplemented-dimension' | 'both-impl-and-via-pack' | 'missing-pack-role';
