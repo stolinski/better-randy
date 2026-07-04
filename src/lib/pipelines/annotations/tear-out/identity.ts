@@ -49,12 +49,12 @@ export const tearOutIdentity: IdentitySpec = {
 		},
 		{
 			name: 'fill-treatment',
-			viaPack: 'tear-out.fragmentFill',
+			viaPack: 'tear-out.fill',
 			definition: 'Substrate of the torn fragment (paper colour or claim).',
 			probe: {
 				kind: 'named-observation',
 				region: 'fragment substrate',
-				expectation: 'substrate resolves through the tear-out.fragmentFill Role.'
+				expectation: 'substrate resolves through the tear-out.fill Role.'
 			}
 		}
 	]

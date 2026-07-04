@@ -39,12 +39,12 @@ export const isolateIdentity: IdentitySpec = {
 		},
 		{
 			name: 'depth-treatment',
-			viaPack: 'isolate.dimDepth',
+			viaPack: 'isolate.depth',
 			definition: 'Whether the dimmed background gains any additional treatment (blur, tint, none).',
 			probe: {
 				kind: 'named-observation',
 				region: 'dimmed body during the focal window',
-				expectation: 'dim depth resolves through the isolate.dimDepth Role.'
+				expectation: 'dim depth resolves through the isolate.depth Role.'
 			}
 		}
 	]

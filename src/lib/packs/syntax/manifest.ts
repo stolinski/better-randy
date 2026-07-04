@@ -24,12 +24,19 @@ export const syntaxPack: PackManifest = {
 	fonts: syntaxFonts,
 	roles: {
 		// ---------------------------------------------------------------
-		// Core / channel-level Roles (Pack vocabulary, not Pipeline-scoped)
+		// Core / channel-level Roles (Pack vocabulary, not Pipeline-scoped).
+		// The six mandatory cores (fill/ink/accent/edge/depth/light) are the
+		// ADR-0024 fallback floor every Pack must supply; the boot validator
+		// (`validatePackCoreVocabulary`) refuses a Pack missing any of them.
 		// ---------------------------------------------------------------
-		'fill-treatment': {
-			kind: 'style',
-			value: { dominant: '#fabf47', neutral: { paper: '#ffffff', ink: '#000000' } }
-		},
+		// Colour cores ground in what syntax actually renders: the newspaper
+		// clipping is the channel's dominant paper/ink read (render-is-truth —
+		// `newspaper.fill` / `newspaper.ink` below carry the same values), and
+		// the accent is the canonical channel yellow (aesthetic.md § Palette,
+		// the highlighter/kicker yellow).
+		'fill-treatment': { kind: 'style', value: '#f0e8d6' },
+		'ink-treatment': { kind: 'style', value: '#1a1612' },
+		'accent-treatment': { kind: 'style', value: '#fabf47' },
 		// Core structural edge vocabulary (five values: clean/soft/irregular/
 		// torn/none, resolved by resolveEdgeTreatment → the shared edge-treatment
 		// ShaderPass). Syntax is the torn-collage channel — any opted-in card
@@ -114,7 +121,10 @@ export const syntaxPack: PackManifest = {
 		'type-hero.byline': { kind: 'style', value: '#d8c4a0' },
 
 		// ---------------- paragraph Block ----------------
-		'paragraph.glyphEdge': { kind: 'style', value: 'ink-bleed' },
+		// Glyph material claim (rides the optional `material-treatment` core
+		// dimension — 'ink-bleed' is how the ink sits on the paper, not a
+		// silhouette edge).
+		'paragraph.material': { kind: 'style', value: 'ink-bleed' },
 
 		// ---------------- Diagram Blocks (ADR-0036) ----------------
 		// One pen for the whole diagram: the hand-drawn marker feel (Q6
@@ -127,6 +137,10 @@ export const syntaxPack: PackManifest = {
 		// and dots; the box shadow rides the core hard-offset depth rig.
 		'node.fill': { kind: 'style', value: '#ffffff' },
 		'node.accent': { kind: 'style', value: '#fabf47' },
+		// The node's border/stroke/glyphs ride the inherited composition colour
+		// (render-is-truth: the CanvasSource paints `var(--ink, currentColor)`);
+		// claimed explicitly so the core `ink-treatment` fallback can't repaint it.
+		'node.ink': { kind: 'style', value: 'currentColor' },
 		'node.depth': { kind: 'style', value: { hardOffset: { dx: 8, dy: 8, blur: 0, color: 'rgba(0, 0, 0, 0.85)' } } },
 		// Caption + stat voices ride the composition ink / channel accent.
 		'label.ink': { kind: 'style', value: 'currentColor' },
@@ -144,9 +158,9 @@ export const syntaxPack: PackManifest = {
 		'lift-out.depth': { kind: 'style', value: { hardOffset: { dx: 8, dy: 8 } } },
 		'lift-out.edge': { kind: 'style', value: 'sharp' },
 
-		'tear-out.fragmentFill': { kind: 'style', value: '#ffffff' },
+		'tear-out.fill': { kind: 'style', value: '#ffffff' },
 
-		'isolate.dimDepth': { kind: 'style', value: 'flat' },
+		'isolate.depth': { kind: 'style', value: 'flat' },
 
 		// ---------------- Overlays ----------------
 		'lower-third.accent': { kind: 'style', value: '#f4a85e' },

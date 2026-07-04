@@ -12,8 +12,11 @@ import {
 	type TextAnimation
 } from './engine-schema';
 import { assertSoundRegistryValid } from './audio-assets';
-import { assertIdentityRegistryValid } from './pipelines/identity-registry';
-import { getPack, REFERENCE_PACK_SLUG } from './packs/registry';
+import {
+	assertIdentityRegistryValid,
+	assertPackCoreVocabularyValid
+} from './pipelines/identity-registry';
+import { getPack, PACK_REGISTRY, REFERENCE_PACK_SLUG } from './packs/registry';
 
 // ADR-0019 boot gate: refuse to start if any registered Pipeline's Identity
 // Spec ships with an unimplemented + non-via-pack dimension, or if the
@@ -22,6 +25,14 @@ import { getPack, REFERENCE_PACK_SLUG } from './packs/registry';
 // ADR-0023 removed that); partial Packs fall back through resolveAppearanceVars.
 // Throws an aggregated Error on first import of this module.
 assertIdentityRegistryValid(getPack(REFERENCE_PACK_SLUG));
+
+// ADR-0024 boot gate: EVERY registered Pack — not just the reference one —
+// must supply the mandatory core vocabulary (fill/ink/accent/edge/depth/light
+// treatments) with resolver-recognised values, so the specific → core fallback
+// always lands on a real value under any Pack a Preset names.
+for (const pack of Object.values(PACK_REGISTRY)) {
+	assertPackCoreVocabularyValid(pack);
+}
 
 // ADR-0033 §7 boot gate, same posture: every core sample and every sample a
 // registered Sound kit names must resolve to a bundled audio asset.

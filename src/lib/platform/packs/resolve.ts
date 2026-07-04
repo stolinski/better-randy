@@ -22,12 +22,25 @@ const CORE_APPEARANCE = ['fill', 'ink', 'accent', 'edge', 'depth', 'light'] as c
  * Only color-valued style Roles become CSS vars. Many Roles are non-color
  * tokens (`'tabular-lining'`, `'slot-machine-roll'`, `'flat'`, `'sharp'`) that
  * are consumed in code, not CSS — emitting them as `--x` would be junk.
+ * Exported for `validatePackCoreVocabulary` — the three colour cores
+ * (`fill-treatment` / `ink-treatment` / `accent-treatment`) must pass this.
  */
-function isColorValue(value: string): boolean {
+export function isColorValue(value: string): boolean {
 	return (
 		/^#[0-9a-f]{3,8}$/i.test(value) ||
 		/^(rgba?|hsla?|oklch|oklab|color|hwb)\(/i.test(value)
 	);
+}
+
+/**
+ * A per-Pipeline Role may also claim a slot rides the *inherited* composition
+ * colour (`'currentColor'` — e.g. `label.ink`, `node.ink`). Emitting it keeps
+ * the specific claim winning over the core fallback, pixel-identical to the
+ * CanvasSource's own `var(--x, currentColor)` default. Core Roles never carry
+ * it (the validator requires real colours there).
+ */
+function isEmittableColorClaim(value: string): boolean {
+	return value === 'currentColor' || isColorValue(value);
 }
 
 export function resolveAppearanceVars(
@@ -46,7 +59,7 @@ export function resolveAppearanceVars(
 			key.startsWith(prefix) &&
 			role.kind === 'style' &&
 			typeof role.value === 'string' &&
-			isColorValue(role.value)
+			isEmittableColorClaim(role.value)
 		) {
 			vars[`--${key.slice(prefix.length)}`] = role.value;
 		}
@@ -54,6 +67,10 @@ export function resolveAppearanceVars(
 
 	// 2. Core-vocabulary fallback (ADR-0024): fill any core slot a per-Pipeline
 	//    Role didn't already set, from the Pack's core `<core>-treatment` / `<core>`.
+	//    For a Pack that passes `validatePackCoreVocabulary` the three colour
+	//    cores are real colours, so `--fill` / `--ink` / `--accent` are always
+	//    emitted — no CanvasSource literal fallback decides a validated Pack's
+	//    pixels.
 	for (const core of CORE_APPEARANCE) {
 		if (vars[`--${core}`] !== undefined) {
 			continue;
@@ -102,6 +119,30 @@ function isHardOffsetRig(value: unknown): value is HardOffsetRig {
 		typeof (value as { dx?: unknown }).dx === 'number' &&
 		typeof (value as { dy?: unknown }).dy === 'number'
 	);
+}
+
+/**
+ * Depth keywords the core `depth-treatment` Role may carry. Today only
+ * `'none'`; the set is deliberately a list so future variants (e.g. `'glow'`
+ * for a CRT pack) extend it here without touching the validator.
+ */
+const DEPTH_TREATMENT_KEYWORDS: readonly string[] = ['none'];
+
+/**
+ * Shape check for the core `depth-treatment` value, used by
+ * `validatePackCoreVocabulary`: a recognised keyword, or a hard-offset rig
+ * object (`{ hardOffset | offset: { dx, dy, blur?, color? } }`) —
+ * exactly the shapes `resolveDepthTreatment` understands.
+ */
+export function isDepthTreatmentValue(value: unknown): boolean {
+	if (typeof value === 'string') {
+		return DEPTH_TREATMENT_KEYWORDS.includes(value);
+	}
+	if (value !== null && typeof value === 'object') {
+		const rigSource = value as { hardOffset?: unknown; offset?: unknown };
+		return isHardOffsetRig(rigSource.hardOffset ?? rigSource.offset);
+	}
+	return false;
 }
 
 /**
@@ -181,6 +222,23 @@ const EDGE_TREATMENT_MODES: readonly EdgeTreatmentMode[] = [
 
 function isEdgeTreatmentMode(value: unknown): value is EdgeTreatmentMode {
 	return typeof value === 'string' && (EDGE_TREATMENT_MODES as readonly string[]).includes(value);
+}
+
+/**
+ * Shape check for the core `edge-treatment` value, used by
+ * `validatePackCoreVocabulary`: a bare five-vocabulary keyword, or the
+ * `{ mode, amplitudePx?, wavelengthPx?, fiber? }` object form — exactly the
+ * shapes `resolveEdgeTreatment` understands.
+ */
+export function isEdgeTreatmentValue(value: unknown): boolean {
+	if (isEdgeTreatmentMode(value)) {
+		return true;
+	}
+	return (
+		value !== null &&
+		typeof value === 'object' &&
+		isEdgeTreatmentMode((value as { mode?: unknown }).mode)
+	);
 }
 
 const EDGE_MODE_DEFAULTS: Record<EdgeTreatmentMode, Omit<EdgeTreatment, 'mode'>> = {
@@ -271,6 +329,26 @@ const LIGHT_DIRECTIONS: readonly LightDirection[] = [
 
 function isLightDirection(value: unknown): value is LightDirection {
 	return typeof value === 'string' && (LIGHT_DIRECTIONS as readonly string[]).includes(value);
+}
+
+/**
+ * Shape check for the core `light-treatment` value, used by
+ * `validatePackCoreVocabulary`: `'none'` (no scene light — a real claim, not
+ * an omission), or `{ direction, intensity? }` with a recognised direction —
+ * exactly the shapes `resolveLightTreatment` understands.
+ */
+export function isLightTreatmentValue(value: unknown): boolean {
+	if (value === 'none') {
+		return true;
+	}
+	if (value !== null && typeof value === 'object') {
+		const shaped = value as { direction?: unknown; intensity?: unknown };
+		return (
+			isLightDirection(shaped.direction) &&
+			(shaped.intensity === undefined || readFiniteNumber(shaped.intensity) !== undefined)
+		);
+	}
+	return false;
 }
 
 /**

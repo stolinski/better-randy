@@ -18,6 +18,45 @@
 
 export type PackRoleKind = 'style' | 'pipeline' | 'chrome';
 
+/**
+ * The mandatory core vocabulary (ADR-0024): the six bare core Roles every
+ * registered Pack MUST supply, so the specific → core fallback chain always
+ * lands on a real value and no CanvasSource literal fallback ever decides a
+ * Pack's pixels. Enforced for every Pack in the registry by
+ * `validatePackCoreVocabulary` (engine boot + `scripts/verify-presets.ts`).
+ *
+ * Value contracts (checked by the validator):
+ *   - `fill-treatment` / `ink-treatment` / `accent-treatment` — a colour
+ *     string (hex / rgb() / oklch() / … — see `isColorValue` in `resolve.ts`).
+ *   - `edge-treatment` — the five-value edge vocabulary
+ *     (`'clean' | 'soft' | 'irregular' | 'torn' | 'none'`), bare or as the
+ *     `{ mode, amplitudePx?, wavelengthPx?, fiber? }` object form
+ *     (see `resolveEdgeTreatment`).
+ *   - `depth-treatment` — `'none'`, or a hard-offset rig
+ *     (`{ hardOffset | offset: { dx, dy, blur?, color? } }`) per
+ *     `resolveDepthTreatment`. The recognised-value set is intentionally
+ *     extensible (a `'glow'` variant is planned for a CRT pack).
+ *   - `light-treatment` — `'none'`, or `{ direction, intensity }` per
+ *     `resolveLightTreatment`.
+ *
+ * OPTIONAL cores — recognised dimension vocabulary a Pack MAY supply, never
+ * required by the validator:
+ *   - `material-treatment` — a grain/material claim (how ink sits on the
+ *     substrate; e.g. the paragraph Block's `paragraph.material: 'ink-bleed'`
+ *     rides this dimension).
+ *   - `font-treatment` — a typeface claim beyond the `fonts` preload list.
+ */
+export const MANDATORY_CORE_ROLES = [
+	'fill-treatment',
+	'ink-treatment',
+	'accent-treatment',
+	'edge-treatment',
+	'depth-treatment',
+	'light-treatment'
+] as const;
+
+export type MandatoryCoreRole = (typeof MANDATORY_CORE_ROLES)[number];
+
 export interface PackStyleRole {
 	kind: 'style';
 	value: unknown;

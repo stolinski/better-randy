@@ -9,6 +9,11 @@
  *   - the active Pack manifest does not resolve a `viaPack` Role any
  *     registered Pipeline references
  *
+ * `validatePackCoreVocabulary` below is the companion Pack-side gate
+ * (ADR-0024): EVERY registered Pack must supply the six mandatory core Roles
+ * with resolver-recognised values — run at boot for the whole PACK_REGISTRY
+ * and in `scripts/verify-presets.ts`.
+ *
  * The registry pairs Pipeline `type` strings (or annotation `style` strings)
  * with their Identity Spec. Keeping the pairing here, separate from the
  * Pipeline renderer modules themselves, avoids touching 23 `index.ts` files
@@ -18,7 +23,18 @@
 
 import type { IdentitySpec } from './identity';
 import { collectViaPackRoles } from './identity';
-import type { PackManifest } from '$lib/platform/packs/types';
+import {
+	isColorValue,
+	isDepthTreatmentValue,
+	isEdgeTreatmentValue,
+	isLightTreatmentValue
+} from '$lib/platform/packs/resolve';
+import {
+	MANDATORY_CORE_ROLES,
+	type MandatoryCoreRole,
+	type PackManifest,
+	type PackRole
+} from '$lib/platform/packs/types';
 
 // Surfaces
 import { newspaperIdentity } from '$lib/pipelines/surfaces/newspaper/identity';
@@ -166,6 +182,106 @@ export function validateIdentityRegistry(
 	}
 
 	return errors;
+}
+
+export interface PackCoreVocabularyError {
+	pack: string;
+	role: MandatoryCoreRole;
+	kind: 'missing-core-role' | 'invalid-core-value';
+	message: string;
+}
+
+/**
+ * Per-core value contracts (see `MANDATORY_CORE_ROLES` in `packs/types.ts`):
+ * the three colour cores must be colour strings; the three structural cores
+ * must carry a shape their resolver (`resolveEdgeTreatment` /
+ * `resolveDepthTreatment` / `resolveLightTreatment`) recognises — a Pack that
+ * "supplies" a core the resolver would silently drop is refused, not
+ * tolerated.
+ */
+const CORE_VALUE_CHECKS: Record<
+	MandatoryCoreRole,
+	{ describe: string; isValid: (value: unknown) => boolean }
+> = {
+	'fill-treatment': {
+		describe: 'a colour string (hex / rgb() / oklch() / …)',
+		isValid: (value) => typeof value === 'string' && isColorValue(value)
+	},
+	'ink-treatment': {
+		describe: 'a colour string (hex / rgb() / oklch() / …)',
+		isValid: (value) => typeof value === 'string' && isColorValue(value)
+	},
+	'accent-treatment': {
+		describe: 'a colour string (hex / rgb() / oklch() / …)',
+		isValid: (value) => typeof value === 'string' && isColorValue(value)
+	},
+	'edge-treatment': {
+		describe: "'clean' | 'soft' | 'irregular' | 'torn' | 'none', or { mode, … }",
+		isValid: isEdgeTreatmentValue
+	},
+	'depth-treatment': {
+		describe: "'none', or a { hardOffset | offset: { dx, dy, … } } rig",
+		isValid: isDepthTreatmentValue
+	},
+	'light-treatment': {
+		describe: "'none', or { direction, intensity }",
+		isValid: isLightTreatmentValue
+	}
+};
+
+/**
+ * Validate a Pack's mandatory core vocabulary (ADR-0024): every registered
+ * Pack — not just the completeness-reference one — must supply all six core
+ * Roles (`fill` / `ink` / `accent` / `edge` / `depth` / `light`-treatment)
+ * with values their resolvers recognise, so the specific → core fallback
+ * chain always lands on a real value and no CanvasSource literal fallback
+ * decides a Pack's pixels. Returns the list of errors; empty means valid.
+ */
+export function validatePackCoreVocabulary(
+	manifest: PackManifest
+): readonly PackCoreVocabularyError[] {
+	const errors: PackCoreVocabularyError[] = [];
+
+	for (const core of MANDATORY_CORE_ROLES) {
+		const role: PackRole | undefined = manifest.roles[core];
+		if (role === undefined) {
+			errors.push({
+				pack: manifest.slug,
+				role: core,
+				kind: 'missing-core-role',
+				message: `Pack "${manifest.slug}" is missing the mandatory core Role "${core}".`
+			});
+			continue;
+		}
+
+		const check = CORE_VALUE_CHECKS[core];
+		if (role.kind !== 'style' || !check.isValid(role.value)) {
+			errors.push({
+				pack: manifest.slug,
+				role: core,
+				kind: 'invalid-core-value',
+				message: `Pack "${manifest.slug}" core Role "${core}" has an unrecognised value (expected ${check.describe}).`
+			});
+		}
+	}
+
+	return errors;
+}
+
+/**
+ * Assert a Pack's mandatory core vocabulary is complete and well-shaped.
+ * Throws a single aggregated error if not. Called at engine boot for every
+ * Pack in the registry.
+ */
+export function assertPackCoreVocabularyValid(manifest: PackManifest): void {
+	const errors = validatePackCoreVocabulary(manifest);
+	if (errors.length === 0) {
+		return;
+	}
+	const summary = errors.map((e) => `  - ${e.message}`).join('\n');
+	throw new Error(
+		`Pack core-vocabulary validation failed for "${manifest.slug}" (${errors.length} error${errors.length === 1 ? '' : 's'}):\n${summary}`
+	);
 }
 
 /**

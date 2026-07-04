@@ -16,4 +16,4 @@ The original manifest went all-in on per-Pipeline Roles (~60 of them, e.g. `chap
 
 - A new Pack's floor cost drops from ~60 values to the core vocabulary.
 - The existing ~60 per-Pipeline Roles become optional; unreferenced/contradictory ones are deleted during the render-is-truth migration.
-- Dimension naming must be normalized so a core fallback exists per dimension (today "fill" appears as `fill`, `inkFill`, `fragmentFill`, `boxFill`).
+- Dimension naming must be normalized so a core fallback exists per dimension (at decision time "fill" appeared as `fill`, `inkFill`, `fragmentFill`, `boxFill`). *Done 2026-07-04:* `tear-out.fragmentFill` → `tear-out.fill`, `isolate.dimDepth` → `isolate.depth`, `paragraph.glyphEdge` → `paragraph.material` (a glyph *material* claim — the optional `material-treatment` dimension); `inkFill`/`boxFill` were already gone. The mandatory core vocabulary is pinned in `packs/types.ts` (`MANDATORY_CORE_ROLES`) and enforced for every registered Pack by `validatePackCoreVocabulary`.

@@ -3,11 +3,14 @@ import type { PackManifest } from '$lib/platform/packs/types';
 /**
  * Minimal second Pack — its job is to *prove the appearance abstraction*: the
  * same Preset, rendered under a different Pack, re-skins (ADR-0023). It
- * overrides only what it needs; unresolved Roles fall back gracefully through
- * `resolveAppearanceVars` to the CanvasSource's `var(--x, <default>)` (ADR-0024),
- * so it doesn't need to enumerate every Role. It grows as pipelines are wired
- * during the pack-wiring rollout. (Not the engine-boot Pack, so it isn't held
- * to the full viaPack-resolution validator — that gates the boot Pack only.)
+ * supplies the six mandatory core Roles (fill/ink/accent/edge/depth/light —
+ * the ADR-0024 fallback floor, enforced for EVERY registered Pack by
+ * `validatePackCoreVocabulary` at engine boot) and overrides per-Pipeline
+ * Roles only where it wants divergence; everything else falls back
+ * specific → core through `resolveAppearanceVars`. It grows as pipelines are
+ * wired during the pack-wiring rollout. (It is still not the
+ * completeness-reference Pack — the full viaPack-resolution gate remains
+ * reference-pack-only — but the core vocabulary is mandatory here too.)
  */
 export const editorialMonoPack: PackManifest = {
 	slug: 'editorial-mono',
@@ -15,6 +18,21 @@ export const editorialMonoPack: PackManifest = {
 	description:
 		'A cool editorial dress — proves the same composition re-skins under a different Pack.',
 	roles: {
+		// ---------------------------------------------------------------
+		// Mandatory core vocabulary (ADR-0024 fallback floor).
+		// Cool-neutral taste decisions per docs/packs/editorial-mono/aesthetic.md:
+		// the press-review paper and near-black cool ink the newspaper re-skin
+		// already renders, cyan as the single punctuation accent, clean printed
+		// edges, and the defining structural inversion — no collage shadow, no
+		// staged key light. The flat card is the point.
+		// ---------------------------------------------------------------
+		'fill-treatment': { kind: 'style', value: '#e9eef3' },
+		'ink-treatment': { kind: 'style', value: '#0f151c' },
+		'accent-treatment': { kind: 'style', value: '#22d3ee' },
+		'edge-treatment': { kind: 'style', value: 'clean' },
+		'depth-treatment': { kind: 'style', value: 'none' },
+		'light-treatment': { kind: 'style', value: 'none' },
+
 		// Overlay (proven 2026-05-29)
 		'lower-third.accent': { kind: 'style', value: '#22d3ee' },
 		// Surface overrides — a cool editorial dress proving Surfaces re-skin

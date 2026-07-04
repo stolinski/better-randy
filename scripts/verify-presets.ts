@@ -1,11 +1,29 @@
 import { readFile, readdir } from 'node:fs/promises';
+import { registerHooks } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+
+// The Pack manifests transitively import @fontsource side-effect stylesheets
+// (`packs/syntax/fonts.ts`), which Node/tsx cannot load — stub `.css` modules
+// so the registry is importable outside Vite.
+registerHooks({
+	load(url, context, nextLoad) {
+		if (url.endsWith('.css')) {
+			return { format: 'module', source: '', shortCircuit: true };
+		}
+		return nextLoad(url, context);
+	}
+});
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..');
 const schemaModulePath = resolve(repoRoot, 'src/lib/platform/engine-schema.ts');
 const rubricModulePath = resolve(repoRoot, 'src/lib/platform/preset-rubric.ts');
+const packRegistryModulePath = resolve(repoRoot, 'src/lib/platform/packs/registry.ts');
+const identityRegistryModulePath = resolve(
+	repoRoot,
+	'src/lib/platform/pipelines/identity-registry.ts'
+);
 
 interface ParseResult {
 	success: boolean;
@@ -255,8 +273,42 @@ for (const fixture of fixtures) {
 	}
 }
 
+// Pack core vocabulary (ADR-0024): every registered Pack must supply the six
+// mandatory core Roles (fill/ink/accent/edge/depth/light treatments) with
+// resolver-recognised values — the same gate the engine enforces at boot.
+interface PackCoreVocabularyError {
+	pack: string;
+	role: string;
+	kind: string;
+	message: string;
+}
+
+const { PACK_REGISTRY } = (await import(pathToFileURL(packRegistryModulePath).href)) as {
+	PACK_REGISTRY: Readonly<Record<string, { slug: string }>>;
+};
+const { validatePackCoreVocabulary } = (await import(
+	pathToFileURL(identityRegistryModulePath).href
+)) as {
+	validatePackCoreVocabulary: (manifest: unknown) => readonly PackCoreVocabularyError[];
+};
+
+for (const [slug, manifest] of Object.entries(PACK_REGISTRY)) {
+	const errors = validatePackCoreVocabulary(manifest);
+
+	if (errors.length === 0) {
+		console.log(`✓ pack:${slug} (core vocabulary)`);
+		continue;
+	}
+
+	failed += 1;
+	console.error(`✗ pack:${slug} (core vocabulary)`);
+	for (const error of errors) {
+		console.error(`    ERR ${error.kind} ${error.role} — ${error.message}`);
+	}
+}
+
 if (failed > 0) {
-	console.error(`\n${failed} preset(s) failed validation.`);
+	console.error(`\n${failed} validation check(s) failed.`);
 	process.exit(1);
 }
 

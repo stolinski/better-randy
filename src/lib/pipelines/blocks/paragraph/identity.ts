@@ -3,8 +3,8 @@
  * Block: paragraphs of inline-marked annotation segments laid into the
  * Surface's content slot. The Block claims a typographic reading texture
  * (line-height rhythm, paragraph break behaviour, marked-segment integration)
- * intrinsically, and concedes fill/edge/depth/light/frame-relationship to
- * the Pack per ADR-0019.
+ * intrinsically, and concedes the glyph material to the Pack per ADR-0019
+ * (`paragraph.material` → the optional `material-treatment` core).
  */
 
 import type { IdentitySpec } from '$lib/platform/pipelines/identity';
@@ -52,13 +52,14 @@ export const paragraphIdentity: IdentitySpec = {
 			}
 		},
 		{
-			name: 'edge-treatment',
-			viaPack: 'paragraph.glyphEdge',
-			definition: 'Glyph edge behaviour (clean vector, ink bleed, dilation).',
+			name: 'material-treatment',
+			viaPack: 'paragraph.material',
+			definition:
+				'Glyph material claim — how the ink sits on the substrate (clean vector, ink bleed, dilation).',
 			probe: {
 				kind: 'named-observation',
 				region: 'body glyph edge at 400% zoom',
-				expectation: 'glyph edge behaviour resolves through the paragraph.glyphEdge Role.'
+				expectation: 'glyph material behaviour resolves through the paragraph.material Role.'
 			}
 		},
 		{
