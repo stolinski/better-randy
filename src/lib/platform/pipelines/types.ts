@@ -9,6 +9,7 @@ import type {
 } from '$lib/annotations/annotation-marks';
 import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
 import type {
+	DiagramElement,
 	Effect,
 	Overlay,
 	OverlayPosition,
@@ -16,6 +17,7 @@ import type {
 	Transition
 } from '$lib/platform/engine-schema';
 import type { GpuHost } from '$lib/platform/gpu-host';
+import type { ResolvedDiagramStroke } from '$lib/platform/packs/resolve';
 
 // ---------------- Annotations ----------------
 
@@ -52,19 +54,43 @@ export interface AnnotationRenderer {
 
 // ---------------- Blocks ----------------
 
-export interface BlockRenderContext<TBlock extends Block = Block> {
+/**
+ * The Block layer's full vocabulary: the body-text `paragraph` (living in
+ * `content.body`) plus the five diagram primitives (ADR-0036, living in
+ * `surface.diagram[]`). `AnnotationBody` stays paragraph-only — diagram
+ * elements are positioned Blocks, not text flow.
+ */
+export type EngineBlock = Block | DiagramElement;
+
+export interface BlockRenderContext<TBlock extends EngineBlock = EngineBlock> {
 	block: TBlock;
 	host: GpuHost;
 	timestamp: number;
 }
 
-export interface BlockRenderer<TBlock extends Block = Block> {
+export interface BlockRenderer<TBlock extends EngineBlock = EngineBlock> {
 	type: TBlock['type'];
 	schema?: z.ZodType<TBlock>;
 	CanvasSource?: Component<{ block: TBlock }>;
 	Editor?: Component<{ block: TBlock }>;
 	Inspector?: Component<{ block: TBlock }>;
 	render?(ctx: BlockRenderContext<TBlock>): void;
+}
+
+/**
+ * Diagram stroke inputs (ADR-0036 §4), carried in `SurfaceRenderInputs` when
+ * the surface declares a diagram. The pipelines draw edge-arrow /
+ * timeline-segment into their marks canvas via `drawDiagramStrokes`;
+ * `drawProgressById` is the draw-on scalar (1 for channel-owned elements),
+ * `alphaById` the visibility fade (exit sugar or authored opacity channel).
+ * `stroke.color` arrives resolved — the `'ink'` sentinel is substituted with
+ * the composition's `typography.inkColor` before render.
+ */
+export interface DiagramStrokeInputs {
+	elements: readonly DiagramElement[];
+	drawProgressById: Readonly<Record<string, number>>;
+	alphaById: Readonly<Record<string, number>>;
+	stroke: ResolvedDiagramStroke;
 }
 
 // ---------------- Surfaces ----------------
@@ -91,6 +117,9 @@ export interface SurfaceRenderInputs {
 	markIntensityByIndex: readonly number[];
 	textAnimAlphaByMarkIndex?: readonly number[];
 	timestamp: number;
+	// Diagram stroke elements to draw into the marks canvas (ADR-0036); absent
+	// when the surface carries no diagram.
+	diagram?: DiagramStrokeInputs;
 }
 
 export interface SurfaceRenderInstance {

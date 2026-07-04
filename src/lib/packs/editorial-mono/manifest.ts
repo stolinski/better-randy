@@ -45,6 +45,15 @@ export const editorialMonoPack: PackManifest = {
 		// pixels: a cool trail fade (vs syntax's warm) and a cool-cast tape grain.
 		'cursor-trail.trailMaterial': { kind: 'style', value: { color: '#bfe4ff', softness: 0.5 } },
 		'washi-tape.grain-dark': { kind: 'style', value: 'rgba(8, 24, 40, 0.1)' },
-		'washi-tape.grain-light': { kind: 'style', value: 'rgba(220, 240, 255, 0.07)' }
+		'washi-tape.grain-light': { kind: 'style', value: 'rgba(220, 240, 255, 0.07)' },
+		// Diagram Blocks (ADR-0036): the clean printed rule where syntax hand-
+		// wobbles — same authored route, a different pen (the stroke re-skin the
+		// ADR names as the reason stroke can't live in the primitive).
+		'diagram.stroke': { kind: 'style', value: { color: 'ink', widthPx: 6, wobble: 0 } },
+		'diagram.arrowhead': { kind: 'style', value: 'open-chevron' },
+		'node.fill': { kind: 'style', value: '#e9eef3' },
+		'node.accent': { kind: 'style', value: '#22d3ee' },
+		'node.depth': { kind: 'style', value: 'none' },
+		'stat-callout.accent': { kind: 'style', value: '#22d3ee' }
 	}
 };

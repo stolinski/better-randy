@@ -6,6 +6,7 @@ import {
 	type AnnotationFrameLayout,
 	type AnnotationMarkLayout
 } from '$lib/annotations/annotation-marks';
+import { drawDiagramStrokes, getDiagramNodeLayouts } from '$lib/annotations/diagram-strokes';
 import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
 import { isolate } from '$lib/pipelines/annotations/isolate';
 import { liftOut } from '$lib/pipelines/annotations/lift-out';
@@ -748,6 +749,26 @@ export function createPaperPipeline({
 			markStyles: ['underline', 'strike', 'circle', 'box', 'side-note'],
 			textAnimAlphaByIndex: inputs.textAnimAlphaByMarkIndex
 		});
+
+		if (inputs.diagram) {
+			// Diagram strokes (ADR-0036) ride the over-ink strokes layer — same
+			// z-home as underline/strike, above glyphs, below overlays.
+			const frameLayout: AnnotationFrameLayout = {
+				x: 0,
+				y: 0,
+				width: canvasWidth,
+				height: canvasHeight
+			};
+			drawDiagramStrokes({
+				context: strokesContext,
+				elements: inputs.diagram.elements,
+				frame: frameLayout,
+				nodeLayouts: getDiagramNodeLayouts(sourceElement, frameLayout),
+				drawProgressById: inputs.diagram.drawProgressById,
+				alphaById: inputs.diagram.alphaById,
+				stroke: inputs.diagram.stroke
+			});
+		}
 
 		device.queue.copyExternalImageToTexture(
 			{ source: highlightCanvas },

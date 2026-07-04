@@ -1,4 +1,5 @@
 <script lang="ts">
+	import DiagramMount from './DiagramMount.svelte';
 	import { engineState } from './engine-state.svelte';
 	import OverlayMount from './OverlayMount.svelte';
 	import SurfaceMount from './SurfaceMount.svelte';
@@ -37,6 +38,10 @@
 	style:inline-size={`${frame.width}px`}
 >
 	<SurfaceMount bind:element={surfaceElement} />
+	<!-- Diagram Blocks (ADR-0036) live on the SURFACE plane in every render
+	     path — inside .composition even when the Overlay plane is hoisted, so
+	     a diagram parallaxes with the surface it annotates. -->
+	<DiagramMount />
 	{#if !splitPlanes}
 		<OverlayMount />
 	{/if}

@@ -5,6 +5,7 @@ import {
 	getAnnotationMarkLayouts,
 	type AnnotationFrameLayout
 } from '$lib/annotations/annotation-marks';
+import { drawDiagramStrokes, getDiagramNodeLayouts } from '$lib/annotations/diagram-strokes';
 import { getHtmlInCanvasQueue } from '$lib/platform/html-in-canvas';
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
 import type { SurfaceAnimState, SurfaceRenderInputs, SurfaceRenderInstance } from '$lib/platform/pipelines/types';
@@ -146,6 +147,18 @@ export function createPlainPipeline({
 			progressByIndex: inputs.animState.markProgresses,
 			textAnimAlphaByIndex: inputs.textAnimAlphaByMarkIndex
 		});
+
+		if (inputs.diagram) {
+			drawDiagramStrokes({
+				context: marksContext,
+				elements: inputs.diagram.elements,
+				frame: fullLayout,
+				nodeLayouts: getDiagramNodeLayouts(sourceElement, fullLayout),
+				drawProgressById: inputs.diagram.drawProgressById,
+				alphaById: inputs.diagram.alphaById,
+				stroke: inputs.diagram.stroke
+			});
+		}
 
 		device.queue.copyExternalImageToTexture(
 			{ source: marksCanvas },

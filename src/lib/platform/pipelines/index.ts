@@ -1,6 +1,5 @@
 import type {
 	AnnotationRenderer,
-	BlockRenderer,
 	SurfaceRenderer
 } from './types';
 
@@ -15,13 +14,19 @@ import { strike } from '$lib/pipelines/annotations/strike';
 import { tearOut } from '$lib/pipelines/annotations/tear-out';
 import { underline } from '$lib/pipelines/annotations/underline';
 
+import { edgeArrow } from '$lib/pipelines/blocks/edge-arrow';
+import { label } from '$lib/pipelines/blocks/label';
+import { node } from '$lib/pipelines/blocks/node';
 import { paragraph } from '$lib/pipelines/blocks/paragraph';
+import { statCallout } from '$lib/pipelines/blocks/stat-callout';
+import { timelineSegment } from '$lib/pipelines/blocks/timeline-segment';
 
 import { chromaticAberration } from '$lib/pipelines/effects/chromatic-aberration';
 import { dithering } from '$lib/pipelines/effects/dithering';
 import { flutedGlass } from '$lib/pipelines/effects/fluted-glass';
 import { halftoneCmyk } from '$lib/pipelines/effects/halftone-cmyk';
 import { halftoneDots } from '$lib/pipelines/effects/halftone-dots';
+import { heatmap } from '$lib/pipelines/effects/heatmap';
 import { paperGrain } from '$lib/pipelines/effects/paper-grain';
 import { water } from '$lib/pipelines/effects/water';
 import { counter } from '$lib/pipelines/overlays/counter';
@@ -45,7 +50,11 @@ import { webDocument } from '$lib/pipelines/surfaces/web-document';
 
 export const PIPELINE_REGISTRY = {
 	surfaces: { paper, plain, newspaper, pullquoteOnPhoto, chapterCard, titleSequence, typeHero, webDocument, imessage } satisfies Record<string, SurfaceRenderer>,
-	blocks: { paragraph } satisfies Record<string, BlockRenderer>,
+	// Like `overlays`, no `satisfies Record<string, BlockRenderer>` — each
+	// renderer is generic over its own Block type, and Component props are
+	// contravariant, so the specific renderers don't widen. Consumers narrow
+	// by `type`.
+	blocks: { paragraph, node, edgeArrow, label, statCallout, timelineSegment },
 	annotations: {
 		highlight,
 		underline,

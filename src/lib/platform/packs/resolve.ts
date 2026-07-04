@@ -258,6 +258,76 @@ export function resolveEdgeTreatment(
  * (colour → vec3/vec4 float for a shaderPass) is deferred until a *surviving*
  * shader pipeline needs it — `shader-fill` is dead-by-use pending prove-or-remove.
  */
+/**
+ * The Pack-resolved diagram stroke (ADR-0036 §4): how edge-arrows and
+ * timeline-segments are drawn under the active Pack — hand-drawn marker feel,
+ * clean printed rule, or phosphor plotter line. `color` may be a hex or the
+ * `'ink'` sentinel (resolved by the consumer to the composition's
+ * `typography.inkColor`, the same channel body text rides — so a stroke stays
+ * legible over footage where the preset already flipped its ink light).
+ * `wobble` scales the Marks' deterministic-imperfection formula (0 = dead
+ * straight); `widthPx` is 4K-reference like every other structural Role.
+ */
+export interface ResolvedDiagramStroke {
+	color: string;
+	widthPx: number;
+	wobble: number;
+	arrowhead: 'solid-triangle' | 'open-chevron' | 'none';
+}
+
+const DIAGRAM_STROKE_DEFAULT: ResolvedDiagramStroke = {
+	color: 'ink',
+	widthPx: 8,
+	wobble: 0,
+	arrowhead: 'solid-triangle'
+};
+
+const ARROWHEAD_FORMS: readonly ResolvedDiagramStroke['arrowhead'][] = [
+	'solid-triangle',
+	'open-chevron',
+	'none'
+];
+
+function isArrowheadForm(value: unknown): value is ResolvedDiagramStroke['arrowhead'] {
+	return typeof value === 'string' && (ARROWHEAD_FORMS as readonly string[]).includes(value);
+}
+
+/**
+ * Resolve the diagram stroke + arrowhead Roles (`diagram.stroke`,
+ * `diagram.arrowhead`). Structural like `depth`/`edge`: a Pack opts into
+ * character explicitly; an absent or unrecognised Role resolves to the neutral
+ * clean-rule default rather than guessing — the CRT phosphor line and the
+ * syntax marker are Pack claims, not engine defaults.
+ */
+export function resolveDiagramStroke(manifest: PackManifest): ResolvedDiagramStroke {
+	const resolved: ResolvedDiagramStroke = { ...DIAGRAM_STROKE_DEFAULT };
+
+	const strokeRole = manifest.roles['diagram.stroke'];
+	if (strokeRole && strokeRole.kind === 'style' && strokeRole.value !== null) {
+		const value = strokeRole.value as { color?: unknown; widthPx?: unknown; wobble?: unknown };
+		if (typeof value === 'object') {
+			if (typeof value.color === 'string') {
+				resolved.color = value.color;
+			}
+			const widthPx = readFiniteNumber(value.widthPx);
+			if (widthPx !== undefined && widthPx > 0) {
+				resolved.widthPx = widthPx;
+			}
+			const wobble = readFiniteNumber(value.wobble);
+			if (wobble !== undefined) {
+				resolved.wobble = Math.min(1, Math.max(0, wobble));
+			}
+		}
+	}
+
+	const arrowheadRole = manifest.roles['diagram.arrowhead'];
+	if (arrowheadRole && arrowheadRole.kind === 'style' && isArrowheadForm(arrowheadRole.value)) {
+		resolved.arrowhead = arrowheadRole.value;
+	}
+
+	return resolved;
+}
+
 export function resolveColorChannels(
 	manifest: PackManifest,
 	role: string,

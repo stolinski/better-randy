@@ -26,7 +26,8 @@ import {
 export type SoundCueLayer =
 	| { kind: 'surface' }
 	| { kind: 'marks' }
-	| { kind: 'overlay'; overlayId: string };
+	| { kind: 'overlay'; overlayId: string }
+	| { kind: 'block'; blockId: string };
 
 export interface DerivedSoundCue {
 	/** Stable per-motion-beat id, e.g. `surface:enter`, `overlay:badge:exit`, `mark:2`. */
@@ -370,6 +371,66 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 				)
 			);
 		}
+	}
+
+	// Diagram Block elements (ADR-0036 + the ADR-0033 motion-character rule):
+	// the stroke draw-ons are pen strokes (scratch, like underline/strike); a
+	// node PLANTS with its scale-settle (pop); label rises and the stat roll
+	// are silent by default — their sound is opt-in via the enter override.
+	// Exits are fades everywhere (silent). Channel-owned elements get the one
+	// enter beat, silent unless the channels travel.
+	for (const element of surface.diagram ?? []) {
+		const layer: SoundCueLayer = { kind: 'block', blockId: element.id };
+		const enterDefault: SoundEvent | null =
+			element.type === 'edge-arrow' || element.type === 'timeline-segment'
+				? 'scratch'
+				: element.type === 'node'
+					? 'pop'
+					: null;
+
+		const channels = element.animation?.channels;
+		if (channels && hasChannelMotion(channels)) {
+			const characterDefault = channelsTravel(channels as OverlayChannelKeyframes)
+				? (enterDefault ?? MOTION_SOUND_DEFAULTS.overlayEnter)
+				: null;
+			const override = element.enter?.sound;
+			if (characterDefault === null && !override?.event && override?.sample === undefined) {
+				continue;
+			}
+			const resolved = cascadeWindows.get(`block:${element.id}`);
+			cues.push(
+				cueFrom(
+					`block:${element.id}:enter`,
+					layer,
+					characterDefault ?? MOTION_SOUND_DEFAULTS.overlayEnter,
+					{
+						start: resolved?.startFraction ?? element.enter?.start ?? 0,
+						duration: resolved?.durationFraction ?? 0
+					},
+					override
+				)
+			);
+			continue;
+		}
+
+		const enter = element.enter;
+		const override = enter?.sound;
+		if (enterDefault === null && !override?.event && override?.sample === undefined) {
+			continue;
+		}
+		const resolved = cascadeWindows.get(`block:${element.id}`);
+		cues.push(
+			cueFrom(
+				`block:${element.id}:enter`,
+				layer,
+				enterDefault ?? MOTION_SOUND_DEFAULTS.overlayEnter,
+				{
+					start: resolved?.startFraction ?? enter?.start ?? 0,
+					duration: resolved?.durationFraction ?? enter?.duration ?? 0
+				},
+				override
+			)
+		);
 	}
 
 	// Text animations attribute to their TARGET Layer. Per-character effects

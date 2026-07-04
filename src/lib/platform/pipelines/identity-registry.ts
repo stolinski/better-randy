@@ -32,7 +32,12 @@ import { webDocumentIdentity } from '$lib/pipelines/surfaces/web-document/identi
 import { imessageIdentity } from '$lib/pipelines/surfaces/imessage/identity';
 
 // Blocks
+import { edgeArrowIdentity } from '$lib/pipelines/blocks/edge-arrow/identity';
+import { labelIdentity } from '$lib/pipelines/blocks/label/identity';
+import { nodeIdentity } from '$lib/pipelines/blocks/node/identity';
 import { paragraphIdentity } from '$lib/pipelines/blocks/paragraph/identity';
+import { statCalloutIdentity } from '$lib/pipelines/blocks/stat-callout/identity';
+import { timelineSegmentIdentity } from '$lib/pipelines/blocks/timeline-segment/identity';
 
 // Annotations
 import { boxIdentity } from '$lib/pipelines/annotations/box/identity';
@@ -70,6 +75,11 @@ export const IDENTITY_REGISTRY: Readonly<Record<string, IdentitySpec>> = {
 
 	// Blocks
 	'block:paragraph': paragraphIdentity,
+	'block:node': nodeIdentity,
+	'block:edge-arrow': edgeArrowIdentity,
+	'block:label': labelIdentity,
+	'block:stat-callout': statCalloutIdentity,
+	'block:timeline-segment': timelineSegmentIdentity,
 
 	// Annotations (keyed by style)
 	'annotation:box': boxIdentity,

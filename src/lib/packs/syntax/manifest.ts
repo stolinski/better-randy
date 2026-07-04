@@ -116,6 +116,23 @@ export const syntaxPack: PackManifest = {
 		// ---------------- paragraph Block ----------------
 		'paragraph.glyphEdge': { kind: 'style', value: 'ink-bleed' },
 
+		// ---------------- Diagram Blocks (ADR-0036) ----------------
+		// One pen for the whole diagram: the hand-drawn marker feel (Q6
+		// deterministic imperfection — wobble 1) in the composition's ink (the
+		// 'ink' sentinel resolves to typography.inkColor, so strokes flip with
+		// the preset over footage). Arrowheads are solid marker triangles.
+		'diagram.stroke': { kind: 'style', value: { color: 'ink', widthPx: 12, wobble: 1 } },
+		'diagram.arrowhead': { kind: 'style', value: 'solid-triangle' },
+		// Node forms: white collage-card boxes (the zine cut-out), accent pins
+		// and dots; the box shadow rides the core hard-offset depth rig.
+		'node.fill': { kind: 'style', value: '#ffffff' },
+		'node.accent': { kind: 'style', value: '#fabf47' },
+		'node.depth': { kind: 'style', value: { hardOffset: { dx: 8, dy: 8, blur: 0, color: 'rgba(0, 0, 0, 0.85)' } } },
+		// Caption + stat voices ride the composition ink / channel accent.
+		'label.ink': { kind: 'style', value: 'currentColor' },
+		'stat-callout.accent': { kind: 'style', value: '#fabf47' },
+		'stat-callout.ink': { kind: 'style', value: 'currentColor' },
+
 		// ---------------- Annotation tool inks ----------------
 		'highlight.fill': { kind: 'style', value: '#fabf47' },
 		'underline.fill': { kind: 'style', value: '#00fff5' },

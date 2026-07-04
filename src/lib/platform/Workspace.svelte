@@ -7,9 +7,10 @@
 		type AnimationTweenSpec
 	} from './animation-manager';
 	import { TextAnimationManager } from '$lib/text-animations/manager.svelte';
-	import { animState, syncProgressArray } from './anim-state.svelte';
+	import { animState, syncBlockRecords, syncProgressArray } from './anim-state.svelte';
 	import {
 		cascadeNodeKey,
+		DEFAULT_BLOCK_ENTER,
 		DEFAULT_OVERLAY_ENTER,
 		resolveCascadeTimings,
 		type CascadeWindow
@@ -72,6 +73,7 @@
 	import {
 		resolveAppearanceVars,
 		resolveDepthTreatment,
+		resolveDiagramStroke,
 		resolveEdgeTreatment
 	} from './packs/resolve';
 	import {
@@ -582,6 +584,96 @@
 			}
 		});
 
+		// Diagram Block elements (ADR-0036): enter drives `blockProgresses` (the
+		// stroke draw-on scalar / DOM entrance form), exit drives `blockAlphas`
+		// (a fade — an exit never un-draws a stroke). Channel-owned elements
+		// mirror the overlay path: authored channels replace the intrinsic form.
+		const diagramElements = surface.diagram ?? [];
+		syncBlockRecords(diagramElements.map((element) => element.id));
+
+		for (const element of diagramElements) {
+			const channels = element.animation?.channels as
+				| Partial<Record<(typeof OVERLAY_CHANNEL_KEYS)[number], Keyframe[]>>
+				| undefined;
+			const window = cascadeWindows.get(`block:${element.id}`);
+			const hasChannels =
+				channels !== undefined &&
+				OVERLAY_CHANNEL_KEYS.some((key) => (channels[key]?.length ?? 0) > 0);
+
+			if (hasChannels && channels) {
+				const staticScale = 'scale' in element ? (element.scale ?? 1) : 1;
+				animState.blockChannels[element.id] = {
+					opacity: channels.opacity?.[0]?.value ?? 1,
+					x: channels.x?.[0]?.value ?? 0,
+					y: channels.y?.[0]?.value ?? 0,
+					scale: channels.scale?.[0]?.value ?? staticScale,
+					rotation: channels.rotation?.[0]?.value ?? 0
+				};
+				const clipStart = window?.startFraction ?? element.enter?.start ?? 0;
+				for (const channel of OVERLAY_CHANNEL_KEYS) {
+					const frames = channels[channel];
+					if (!frames || frames.length === 0) {
+						continue;
+					}
+					pushKeyframeTweens({
+						tweens,
+						keyPrefix: `block-${element.id}-${channel}`,
+						frames,
+						clipStartFraction: clipStart,
+						durationMs,
+						write: (value) => {
+							const slot = animState.blockChannels[element.id];
+							if (slot) {
+								slot[channel] = value;
+							}
+						}
+					});
+				}
+				// Park the sugar slots fully visible — the mount/pipeline read the
+				// channel values; a phantom 0-progress gate must not hide them.
+				animState.blockProgresses[element.id] = 1;
+				animState.blockAlphas[element.id] = 1;
+				continue;
+			}
+
+			animState.blockChannels[element.id] = null;
+			animState.blockAlphas[element.id] = 1;
+			const enter = element.enter ?? DEFAULT_BLOCK_ENTER;
+			const isStrokeElement =
+				element.type === 'edge-arrow' || element.type === 'timeline-segment';
+
+			tweens.push({
+				key: `block-${element.id}-enter`,
+				start: window?.startFraction ?? enter.start,
+				duration: enter.duration,
+				// Stroke elements are draw-ons: the same steady power1.inOut craft
+				// rule as the Marks (a pen drag, never a fading stamp). DOM elements
+				// keep their authored enter ease.
+				ease: isStrokeElement ? 'power1.inOut' : getEaseGsap(enter.ease),
+				from: 0,
+				to: 1,
+				onUpdate: (value) => {
+					animState.blockProgresses[element.id] = value;
+				}
+			});
+
+			if (element.exit) {
+				tweens.push({
+					key: `block-${element.id}-exit`,
+					start: element.exit.start,
+					duration: element.exit.duration,
+					// The exit is an opacity fade — the sugar expansion applies the
+					// per-property opacity default (hold, fade, land; ADR-0035 §5).
+					ease: SUGAR_OPACITY_EXIT_EASES[element.exit.ease],
+					from: 1,
+					to: 0,
+					onUpdate: (value) => {
+						animState.blockAlphas[element.id] = value;
+					}
+				});
+			}
+		}
+
 		return { tweens };
 	}
 
@@ -608,7 +700,42 @@
 			markColorsByIndex: getMarkColorsByIndex(),
 			markIntensityByIndex: getMarkIntensityByIndex(),
 			textAnimAlphaByMarkIndex: computeTextAnimAlphaByMarkIndex(parsedMarks),
-			timestamp
+			timestamp,
+			diagram: buildDiagramInputs()
+		};
+	}
+
+	// Diagram stroke inputs (ADR-0036): per-element draw scalar + fade alpha,
+	// with the Pack stroke resolved once per frame — the `'ink'` sentinel
+	// substitutes the composition's typography ink so strokes flip with the
+	// preset's declared ink over footage. Channel-owned elements render fully
+	// drawn at their authored opacity (ownership replaces the draw-on form).
+	function buildDiagramInputs(): SurfaceRenderInputs['diagram'] {
+		const elements = engineState.surface.diagram;
+		if (!elements || elements.length === 0) {
+			return undefined;
+		}
+		const drawProgressById: Record<string, number> = {};
+		const alphaById: Record<string, number> = {};
+		for (const element of elements) {
+			const channels = animState.blockChannels[element.id];
+			if (channels) {
+				drawProgressById[element.id] = 1;
+				alphaById[element.id] = channels.opacity;
+			} else {
+				drawProgressById[element.id] = animState.blockProgresses[element.id] ?? 0;
+				alphaById[element.id] = animState.blockAlphas[element.id] ?? 1;
+			}
+		}
+		const stroke = resolveDiagramStroke(getPack(packState.slug));
+		return {
+			elements,
+			drawProgressById,
+			alphaById,
+			stroke:
+				stroke.color === 'ink'
+					? { ...stroke, color: engineState.typography.inkColor }
+					: stroke
 		};
 	}
 
@@ -2146,6 +2273,17 @@
 			// Composition-owned channels + cascade weld (ADR-0035).
 			trackKeyframeChannels(overlay.animation?.channels);
 			trackCascade(overlay.animation?.cascade);
+		}
+
+		// --- Diagram Blocks (ADR-0036: manifest tweens + DOM + stroke geometry) ---
+		// A deep read of every element — positions, routes, timing, channels,
+		// cascades — via stringify, so any authored field change (including ones
+		// the schema grows later) rebuilds + repaints. The hand-enumeration trap
+		// (lost `counterpoint`) is exactly what this avoids; the cost is a few
+		// hundred bytes per authoring change, not per frame.
+		void engineState.surface.diagram?.length;
+		for (const element of engineState.surface.diagram ?? []) {
+			void JSON.stringify(element);
 		}
 
 		// --- Marks (manifest tweens) + effects / background (render inputs) ---
