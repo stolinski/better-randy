@@ -4,7 +4,7 @@
 	import { engineState } from './engine-state.svelte';
 	import { layerSelection, selectLayer, deselectLayer } from './selection.svelte';
 	import { clampNumber } from '$lib/utils/math';
-	import type { Overlay } from './engine-schema';
+	import type { DiagramElement, Overlay } from './engine-schema';
 
 	interface Props {
 		compositionElement: HTMLElement | null;
@@ -348,6 +348,108 @@
 		return pinned[anchor] !== corner;
 	}
 
+	// ─── Diagram Block elements (ADR-0036): click-select + drag placement ────────
+	// Explicit placement IS the authoring model — the canvas drag writes the
+	// element's composition-fraction position directly (a segment translates
+	// both endpoints as one span). Edges have no DOM box; they re-route live as
+	// their nodes move and are selected/edited from the timeline + inspector.
+
+	const diagramDraggables = $derived(
+		(engineState.surface.diagram ?? []).filter((element) => element.type !== 'edge-arrow')
+	);
+
+	function blockRelRect(
+		element: DiagramElement
+	): { left: number; top: number; width: number; height: number } | null {
+		// Subscribe to the authored geometry so the hit box re-measures after a
+		// drag or inspector edit (getBoundingClientRect isn't reactive).
+		if ('position' in element) {
+			void element.position.x;
+			void element.position.y;
+		}
+		if ('from' in element && typeof element.from === 'object') {
+			void JSON.stringify(element.from);
+			void JSON.stringify(element.to);
+		}
+		if ('scale' in element) {
+			void element.scale;
+		}
+		const rootRect = rootEl?.getBoundingClientRect();
+		const canvasRect = canvas?.getBoundingClientRect();
+		const compRect = compositionElement?.getBoundingClientRect();
+		if (!rootRect || !canvasRect || !compRect || canvasRect.width === 0 || compRect.width === 0)
+			return null;
+		const el = compositionElement?.querySelector<HTMLElement>(
+			`[data-diagram-element="${element.id}"]`
+		);
+		if (!el) return null;
+		const r = el.getBoundingClientRect();
+		const scale = canvasRect.width / compRect.width;
+		return {
+			left: canvasRect.left - rootRect.left + (r.left - compRect.left) * scale,
+			top: canvasRect.top - rootRect.top + (r.top - compRect.top) * scale,
+			width: r.width * scale,
+			height: r.height * scale
+		};
+	}
+
+	interface BlockDragState {
+		blockId: string;
+		startX: number;
+		startY: number;
+		/** Every authored point the drag translates (position, or from+to). */
+		points: { point: { x: number; y: number }; originX: number; originY: number }[];
+	}
+
+	let blockDrag: BlockDragState | null = null;
+
+	function onBlockPointerDown(event: PointerEvent, element: DiagramElement): void {
+		if (event.button !== 0) return;
+		event.preventDefault();
+		event.stopPropagation();
+		selectLayer(`block-${element.id}`);
+		const points: BlockDragState['points'] = [];
+		if ('position' in element) {
+			points.push({
+				point: element.position,
+				originX: element.position.x,
+				originY: element.position.y
+			});
+		} else if (element.type === 'timeline-segment') {
+			points.push({ point: element.from, originX: element.from.x, originY: element.from.y });
+			points.push({ point: element.to, originX: element.to.x, originY: element.to.y });
+		}
+		if (points.length === 0) return;
+		blockDrag = { blockId: element.id, startX: event.clientX, startY: event.clientY, points };
+		if (typeof window !== 'undefined') {
+			window.addEventListener('pointermove', onBlockPointerMove);
+			window.addEventListener('pointerup', onBlockPointerUp);
+		}
+	}
+
+	function onBlockPointerMove(event: PointerEvent): void {
+		if (!blockDrag) return;
+		const canvasRect = canvas?.getBoundingClientRect();
+		if (!canvasRect || canvasRect.width === 0 || canvasRect.height === 0) return;
+		const dx = (event.clientX - blockDrag.startX) / canvasRect.width;
+		const dy = (event.clientY - blockDrag.startY) / canvasRect.height;
+		if (Math.abs(dx) < 0.0005 && Math.abs(dy) < 0.0005) return;
+		for (const entry of blockDrag.points) {
+			// Rounded to 4 dp — sub-pixel-at-4K precision that keeps the inspector
+			// and the serialized preset readable.
+			entry.point.x = Math.round(clampNumber(entry.originX + dx, 0, 1) * 10000) / 10000;
+			entry.point.y = Math.round(clampNumber(entry.originY + dy, 0, 1) * 10000) / 10000;
+		}
+	}
+
+	function onBlockPointerUp(): void {
+		blockDrag = null;
+		if (typeof window !== 'undefined') {
+			window.removeEventListener('pointermove', onBlockPointerMove);
+			window.removeEventListener('pointerup', onBlockPointerUp);
+		}
+	}
+
 	// ─── Backdrop: pan (when zoomed in) or deselect (on a plain click) ──────────────
 	// A press on the empty canvas starts a gesture: drag while zoomed in pans the
 	// view; release without a real drag deselects (→ root inspector).
@@ -415,6 +517,8 @@
 		if (typeof window === 'undefined') return;
 		window.removeEventListener('pointermove', onPointerMove);
 		window.removeEventListener('pointerup', onPointerUp);
+		window.removeEventListener('pointermove', onBlockPointerMove);
+		window.removeEventListener('pointerup', onBlockPointerUp);
 		window.removeEventListener('pointermove', onScaleMove);
 		window.removeEventListener('pointerup', onScaleEnd);
 		window.removeEventListener('pointermove', onRotateMove);
@@ -434,6 +538,26 @@
 		role="presentation"
 		aria-hidden="true"
 	></div>
+	{#each diagramDraggables as element (element.id)}
+		{@const rect = blockRelRect(element)}
+		{#if rect && rect.width > 0}
+			{@const isSelected = layerSelection.id === `block-${element.id}`}
+			<div
+				class="overlay-hit block-hit"
+				class:overlay-hit--selected={isSelected}
+				onpointerdown={(e) => onBlockPointerDown(e, element)}
+				role="button"
+				tabindex="0"
+				onkeydown={(e) => {
+					if (e.key === 'Enter' || e.key === ' ') selectLayer(`block-${element.id}`);
+				}}
+				style:left="{rect.left}px"
+				style:top="{rect.top}px"
+				style:width="{rect.width}px"
+				style:height="{rect.height}px"
+			></div>
+		{/if}
+	{/each}
 	{#each engineState.overlays as overlay (overlay.id)}
 		{@const rect = overlayRelRect(overlay)}
 		{#if rect && rect.width > 0}

@@ -4,8 +4,10 @@
 	import { EFFECT_IDS } from '$lib/text-animations/catalog';
 	import {
 		engineState,
+		addDiagramElement,
 		addOverlay,
 		addTextAnimation,
+		removeDiagramElement,
 		removeOverlay,
 		removeTextAnimation
 	} from './engine-state.svelte';
@@ -144,20 +146,33 @@
 		return engineState.overlays.some((o) => o.id === overlayId);
 	}
 
+	// A diagram Block element's main row: `block-{id}` where the id resolves —
+	// the roll sub-track (`block-{id}-roll`) fails the lookup and indents under it.
+	function isMainBlockTrack(trackId: string): boolean {
+		if (!trackId.startsWith('block-')) return false;
+		const blockId = trackId.slice('block-'.length);
+		return (engineState.surface.diagram ?? []).some((element) => element.id === blockId);
+	}
+
 	function canRemoveTrack(trackId: string): boolean {
-		return isMainOverlayTrack(trackId) || trackId.startsWith('textanim-');
+		return (
+			isMainOverlayTrack(trackId) || isMainBlockTrack(trackId) || trackId.startsWith('textanim-')
+		);
 	}
 
 	function gutterIndent(trackId: string): number {
 		if (trackId === 'surface') return 0;
 		// Sub-tracks (stack, roll, spin, cursor waypoints) sit under a main overlay
 		if (trackId.startsWith('overlay-') && !isMainOverlayTrack(trackId)) return 2;
+		if (trackId.startsWith('block-') && !isMainBlockTrack(trackId)) return 2;
 		return 1;
 	}
 
 	function handleRemoveTrack(trackId: string): void {
 		if (isMainOverlayTrack(trackId)) {
 			removeOverlay(trackId.slice('overlay-'.length));
+		} else if (isMainBlockTrack(trackId)) {
+			removeDiagramElement(trackId.slice('block-'.length));
 		} else if (trackId.startsWith('textanim-')) {
 			removeTextAnimation(trackId.slice('textanim-'.length));
 		}
@@ -212,6 +227,23 @@
 			effect: firstEffect,
 			enter: { start: 0.04, duration: 0.1, ease: 'smooth' }
 		});
+		addMenuEl?.hidePopover();
+	}
+
+	// Diagram Block elements (ADR-0036) — explicit placement is the authoring
+	// model, so a new element lands at a sensible spot and is immediately
+	// selected for canvas drag + inspector editing.
+	const DIAGRAM_TYPES = [
+		{ type: 'node', label: 'Diagram node' },
+		{ type: 'edge-arrow', label: 'Diagram edge' },
+		{ type: 'label', label: 'Diagram label' },
+		{ type: 'stat-callout', label: 'Stat callout' },
+		{ type: 'timeline-segment', label: 'Timeline segment' }
+	] as const;
+
+	function pickDiagramElement(type: (typeof DIAGRAM_TYPES)[number]['type']): void {
+		const id = addDiagramElement(type);
+		selectLayer(`block-${id}`);
 		addMenuEl?.hidePopover();
 	}
 
@@ -546,6 +578,14 @@
 				{#each overlayRenderers as renderer (renderer.type)}
 					<button class="add-menu__item" type="button" onclick={() => pickOverlay(renderer.type)}
 						>{renderer.label}</button
+					>
+				{/each}
+				<div class="add-menu__divider" role="presentation"></div>
+				{#each DIAGRAM_TYPES as entry (entry.type)}
+					<button
+						class="add-menu__item"
+						type="button"
+						onclick={() => pickDiagramElement(entry.type)}>{entry.label}</button
 					>
 				{/each}
 				<div class="add-menu__divider" role="presentation"></div>

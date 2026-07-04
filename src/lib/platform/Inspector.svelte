@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { engineState } from './engine-state.svelte';
 	import { layerSelection, deselectLayer } from './selection.svelte';
+	import BlockInspector from './BlockInspector.svelte';
 	import RootInspector from './RootInspector.svelte';
 	import SurfaceInspector from './SurfaceInspector.svelte';
 	import OverlayInspector from './OverlayInspector.svelte';
@@ -40,6 +42,19 @@
 		const textAnimMatch = id.match(/^textanim-(.+)$/);
 		if (textAnimMatch) return { kind: 'textanim' as const, animId: textAnimMatch[1] };
 
+		// Diagram Block row: 'block-{id}' resolves against the live diagram so
+		// the roll sub-track ('block-{id}-roll') routes to its parent element.
+		if (id.startsWith('block-')) {
+			const raw = id.slice('block-'.length);
+			const diagram = engineState.surface.diagram ?? [];
+			const exact = diagram.find((element) => element.id === raw);
+			if (exact) return { kind: 'block' as const, blockId: raw };
+			const parent = raw.endsWith('-roll') ? raw.slice(0, -'-roll'.length) : null;
+			if (parent && diagram.some((element) => element.id === parent)) {
+				return { kind: 'block' as const, blockId: parent };
+			}
+		}
+
 		// Exact overlay row: 'overlay-{id}' but NOT 'overlay-{id}-{suffix}'
 		// Suffix sub-tracks: stack, roll, spin, cursor-N
 		const overlayMatch = id.match(/^overlay-([^-]+(?:-[^-]+)*)$/);
@@ -65,6 +80,8 @@
 			<SurfaceInspector />
 		{:else if resolved.kind === 'overlay'}
 			<OverlayInspector overlayId={resolved.overlayId} />
+		{:else if resolved.kind === 'block'}
+			<BlockInspector blockId={resolved.blockId} />
 		{:else if resolved.kind === 'textanim'}
 			<TextAnimInspector animId={resolved.animId} />
 		{:else if resolved.kind === 'mark'}

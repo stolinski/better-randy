@@ -43,11 +43,22 @@
 			: engineState.overlays.findIndex((overlay) => selfKey === `overlay:${overlay.id}`)
 	);
 	const overlay = $derived(overlayIndex >= 0 ? engineState.overlays[overlayIndex] : null);
+	// Diagram Block elements (ADR-0036) are channel owners too — `block:{id}`.
+	const blockId = $derived(selfKey.startsWith('block:') ? selfKey.slice('block:'.length) : null);
+	const blockElement = $derived(
+		blockId
+			? ((engineState.surface.diagram ?? []).find((element) => element.id === blockId) ?? null)
+			: null
+	);
 	const owner = $derived<ChannelOwner | null>(
-		selfKey === 'surface' ? engineState.surface : (overlay ?? null)
+		selfKey === 'surface' ? engineState.surface : (blockElement ?? overlay ?? null)
 	);
 	const trackRowId = $derived(
-		selfKey === 'surface' ? 'surface' : `overlay-${selfKey.slice('overlay:'.length)}`
+		selfKey === 'surface'
+			? 'surface'
+			: blockId
+				? `block-${blockId}`
+				: `overlay-${selfKey.slice('overlay:'.length)}`
 	);
 
 	const durationMs = $derived(engineState.transport.durationSeconds * 1000);
@@ -83,6 +94,16 @@
 	function liveValue(channel: string): number {
 		if (selfKey === 'surface') {
 			return round(trackFor(channel) ? animState.paperVisibility : 1);
+		}
+		if (blockId) {
+			const slot = animState.blockChannels[blockId];
+			if (slot) {
+				return round(slot[channel as keyof typeof slot] ?? 0);
+			}
+			if (channel === 'scale') {
+				return blockElement && 'scale' in blockElement ? (blockElement.scale ?? 1) : 1;
+			}
+			return channel === 'opacity' ? 1 : channel === 'rotation' ? 0 : 0;
 		}
 		const slot = overlayIndex >= 0 ? animState.overlayChannels[overlayIndex] : null;
 		if (slot) {

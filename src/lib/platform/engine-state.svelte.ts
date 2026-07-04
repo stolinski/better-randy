@@ -3,6 +3,7 @@ import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-style
 import {
 	createDefaultEngineState,
 	createMarkTiming,
+	type DiagramElement,
 	type EngineState,
 	type Effect,
 	type MarkTiming,
@@ -115,6 +116,90 @@ export function removeTextAnimation(id: string): void {
 	const index = engineState.textAnimations.findIndex((entry) => entry.id === id);
 	if (index >= 0) {
 		engineState.textAnimations.splice(index, 1);
+	}
+}
+
+/**
+ * Add a diagram Block element (ADR-0036) with type-appropriate defaults. A new
+ * edge-arrow connects the two most recently added nodes when they exist —
+ * building a flowchart in the GUI is node, node, edge — and falls back to
+ * explicit points otherwise. Positions are explicit composition fractions
+ * (art-directed placement; there is no auto-layout to fall back to).
+ */
+export function addDiagramElement(type: DiagramElement['type']): string {
+	const diagram = (engineState.surface.diagram ??= []);
+	const id = nextId(type, diagram);
+	const enter = { start: 0.08, duration: 0.05, ease: 'settled' as const };
+
+	let element: DiagramElement;
+	if (type === 'node') {
+		element = { type, id, position: { x: 0.5, y: 0.45 }, form: 'box', text: 'Node', enter };
+	} else if (type === 'edge-arrow') {
+		const nodes = diagram.filter((entry) => entry.type === 'node');
+		const from = nodes.length >= 2 ? { node: nodes[nodes.length - 2].id } : { x: 0.35, y: 0.5 };
+		const to = nodes.length >= 2 ? { node: nodes[nodes.length - 1].id } : { x: 0.65, y: 0.5 };
+		element = { type, id, from, to, route: 'straight', enter };
+	} else if (type === 'label') {
+		element = { type, id, position: { x: 0.5, y: 0.3 }, text: 'Label', enter };
+	} else if (type === 'stat-callout') {
+		element = { type, id, position: { x: 0.5, y: 0.6 }, from: 0, to: 100, enter };
+	} else {
+		element = { type, id, from: { x: 0.3, y: 0.7 }, to: { x: 0.7, y: 0.7 }, enter };
+	}
+
+	diagram.push(element);
+	return id;
+}
+
+/**
+ * Remove a diagram element and every weld that would dangle: cascades (on any
+ * layer) anchored to it lose their cascade, and edges referencing a removed
+ * node swap that endpoint for the node's last explicit position — the
+ * resolver and schema both fail fast on dangling refs, so removal must leave
+ * the composition valid.
+ */
+export function removeDiagramElement(id: string): void {
+	const diagram = engineState.surface.diagram;
+	if (!diagram) return;
+	const index = diagram.findIndex((element) => element.id === id);
+	if (index < 0) return;
+	const removed = diagram[index];
+	diagram.splice(index, 1);
+
+	const dropAnchoredCascade = (owner: { cascade?: { anchor: unknown } }): void => {
+		const anchor = owner.cascade?.anchor;
+		if (anchor && typeof anchor === 'object' && 'block' in anchor && anchor.block === id) {
+			owner.cascade = undefined;
+		}
+	};
+	for (const element of diagram) {
+		if (element.animation) dropAnchoredCascade(element.animation);
+	}
+	for (const overlay of engineState.overlays) {
+		if (overlay.animation) dropAnchoredCascade(overlay.animation);
+	}
+	for (const timing of engineState.marks.timings) {
+		dropAnchoredCascade(timing);
+	}
+	for (const entry of engineState.textAnimations) {
+		dropAnchoredCascade(entry);
+	}
+
+	if (removed.type === 'node') {
+		const fallback = removed.position;
+		for (const element of diagram) {
+			if (element.type !== 'edge-arrow') continue;
+			if ('node' in element.from && element.from.node === id) {
+				element.from = { ...fallback };
+			}
+			if ('node' in element.to && element.to.node === id) {
+				element.to = { ...fallback };
+			}
+		}
+	}
+
+	if (diagram.length === 0) {
+		engineState.surface.diagram = undefined;
 	}
 }
 

@@ -55,6 +55,8 @@
 		resolveMarkForIndex,
 		SUGAR_OPACITY_EXIT_EASES,
 		type Cascade,
+		type DiagramElement,
+		type DiagramEndpoint,
 		type Keyframe,
 		type MarkInstance,
 		type Preset,
@@ -945,6 +947,26 @@
 		};
 	}
 
+	// Row label per diagram element: the type voice plus its content hook.
+	function diagramEndpointName(endpoint: DiagramEndpoint): string {
+		return 'node' in endpoint ? endpoint.node : '•';
+	}
+
+	function diagramTrackLabel(element: DiagramElement): string {
+		switch (element.type) {
+			case 'node':
+				return `node · ${truncateMiddle(element.text ?? element.form, 14)}`;
+			case 'edge-arrow':
+				return `edge · ${diagramEndpointName(element.from)} → ${diagramEndpointName(element.to)}`;
+			case 'label':
+				return `label · ${truncateMiddle(element.text, 14)}`;
+			case 'stat-callout':
+				return `stat · ${element.to.toLocaleString('en-US')}`;
+			case 'timeline-segment':
+				return element.label ? `span · ${truncateMiddle(element.label, 14)}` : 'span';
+		}
+	}
+
 	function buildTracks(): TimelineTrack[] {
 		const surface = engineState.surface;
 		const parsedMarks = readMarks();
@@ -1038,6 +1060,123 @@
 			bar.cascade = cascadeLinkFor(timing?.cascade, cascadeWindows);
 			trackList.push({ id: `mark-${index}`, label, color: resolved.color, transitions: [bar] });
 		});
+
+		// Diagram Block elements (ADR-0036): one row per element, id `block-{id}`
+		// — the same identity the cascade anchors and manifest tweens use. Rows
+		// mirror overlays: channel-owned elements show the authored envelope with
+		// keyframe diamonds; sugar elements the unified clip bar. An element with
+		// no authored enter shows the engine default and materialises it on drag
+		// (the ensureMarkTimingAtIndex pattern).
+		for (const element of engineState.surface.diagram ?? []) {
+			const trackId = `block-${element.id}`;
+			const label = diagramTrackLabel(element);
+			const channels = element.animation?.channels as ChannelTrackMap | undefined;
+			const cascade = element.animation?.cascade;
+			const window = cascadeWindows.get(`block:${element.id}`);
+			const link = cascadeLinkFor(cascade, cascadeWindows);
+			const color = '#fabf47';
+
+			if (channels && clipKeyframes(channels, 0).length > 0) {
+				const clipStart = window?.startFraction ?? 0;
+				const transition: TimelineTransition = {
+					id: 'clip',
+					label,
+					color,
+					start: clipStart,
+					duration: Math.max(window?.durationFraction ?? 0, 0.02),
+					keyframes: clipKeyframes(channels, clipStart),
+					onKeyframeRetime: makeKeyframeRetimer(channels, clipStart),
+					onKeyframeDelete: makeKeyframeDeleter(channels),
+					cascade: link
+				};
+				if (cascade) {
+					transition.minStart = 0;
+					transition.maxStart = 0.98;
+					transition.onUpdate = ({ start }) => {
+						writeCascadeStart(cascade, start);
+					};
+				} else if (element.enter) {
+					const enter = element.enter;
+					transition.minStart = 0;
+					transition.maxStart = 0.98;
+					transition.onUpdate = ({ start }) => {
+						enter.start = start;
+					};
+				}
+				trackList.push({ id: trackId, label, color, transitions: [transition] });
+				continue;
+			}
+
+			const isStrokeElement = element.type === 'edge-arrow' || element.type === 'timeline-segment';
+			const enter = element.enter;
+			const displayEnter =
+				enter && cascade && window
+					? { start: window.startFraction, duration: enter.duration }
+					: (enter ?? {
+							start: window?.startFraction ?? DEFAULT_BLOCK_ENTER.start,
+							duration: DEFAULT_BLOCK_ENTER.duration
+						});
+
+			const bar = buildUnifiedBar({
+				id: 'clip',
+				label,
+				color,
+				enter: displayEnter,
+				exit: element.exit,
+				// Stroke draw-ons run the Marks' steady power1.inOut; DOM elements
+				// their authored (or default) enter ease. Exits are opacity fades.
+				enterEase: isStrokeElement
+					? 'power1.inOut'
+					: getEaseGsap(enter?.ease ?? DEFAULT_BLOCK_ENTER.ease),
+				exitEase: element.exit ? SUGAR_OPACITY_EXIT_EASES[element.exit.ease] : undefined,
+				setEnter: (start, duration) => {
+					const target = (element.enter ??= {
+						start: DEFAULT_BLOCK_ENTER.start,
+						duration: DEFAULT_BLOCK_ENTER.duration,
+						ease: DEFAULT_BLOCK_ENTER.ease
+					});
+					target.duration = duration;
+					if (cascade) {
+						writeCascadeStart(cascade, start);
+					} else {
+						target.start = start;
+					}
+				}
+			});
+			bar.cascade = link;
+			trackList.push({ id: trackId, label, color, transitions: [bar] });
+		}
+
+		// stat-callout: the count roll as a draggable clip (start = rollStart,
+		// width = rollWindow), same semantics as the counter overlay's sub-track.
+		for (const element of engineState.surface.diagram ?? []) {
+			if (element.type !== 'stat-callout') {
+				continue;
+			}
+			const stat = element;
+			trackList.push({
+				id: `block-${element.id}-roll`,
+				label: 'count roll',
+				color: '#fabf47',
+				transitions: [
+					{
+						id: 'roll',
+						label: 'count',
+						start: stat.rollStart ?? stat.enter?.start ?? DEFAULT_BLOCK_ENTER.start,
+						duration: stat.rollWindow ?? 0.5,
+						ramp: 'in' as const,
+						minStart: 0,
+						maxStart: 0.95,
+						minDuration: 0.05,
+						maxDuration: 1,
+						onUpdate: ({ start, duration }: { start: number; duration: number }) => {
+							stat.rollStart = start;
+							stat.rollWindow = Math.min(1, duration);
+						}
+					}
+				]
+			});
+		}
 
 		engineState.overlays.forEach((overlay) => {
 			const trackId = `overlay-${overlay.id}`;

@@ -45,6 +45,13 @@
 				anchor: { textAnimation: entry.id }
 			});
 		}
+		for (const element of engineState.surface.diagram ?? []) {
+			options.push({
+				key: `block:${element.id}`,
+				label: `${element.type} · ${element.id}`,
+				anchor: { block: element.id }
+			});
+		}
 		return options.filter((option) => option.key !== selfKey);
 	});
 
@@ -63,6 +70,10 @@
 		for (const entry of engineState.textAnimations) {
 			if (entry.cascade)
 				outgoing[`textAnimation:${entry.id}`] = cascadeNodeKey(entry.cascade.anchor);
+		}
+		for (const element of engineState.surface.diagram ?? []) {
+			const c = element.animation?.cascade;
+			if (c) outgoing[`block:${element.id}`] = cascadeNodeKey(c.anchor);
 		}
 		let node: string | undefined = anchorKey;
 		const seen: string[] = [];
