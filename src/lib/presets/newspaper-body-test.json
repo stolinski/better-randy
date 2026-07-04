@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"kind": "fixture",
 	"name": "Newspaper — body test fixture",
 	"description": "Test fixture for the newspaper Surface's Identity Spec dimensions 2 (halftone-at-body) and 3 (ink-bleed-at-edges). Title + body paragraph at body cap-height so the shader's mid-tone halftone has surface area to attack. Not a shippable Preset — this exists so the Critic can verify the newspaper-physics shader pass renders correctly under realistic content.",
@@ -12,9 +12,7 @@
 			"format": "webm"
 		},
 		"typography": {
-			"fontFamily": "serif",
-			"paperColor": "#f0e8d6",
-			"inkColor": "#1a1612"
+			"fontFamily": "serif"
 		},
 		"marks": {
 			"defaults": {

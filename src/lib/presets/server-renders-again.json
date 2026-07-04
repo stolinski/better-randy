@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "The Server Renders Again",
 	"description": "Acceptance-gate deliverable for the editorial-mono Pack — a cool, modern newspaper clipping authored FOR the editorial-mono dress, not a Syntax pack-flip. Doubles as the structural re-skin proof for the Pack→pixel epic: the card carries NO hard-offset shadow (editorial-mono newspaper.depth:'none'), where the same newspaper Surface under syntax carries the 12px zine shadow — a Pack changing STRUCTURE, not just colour, in pixels. INTENTIONAL deviations from Syntax aesthetic.md (which is Syntax-specific; editorial-mono has no aesthetic doc — it is defined by its manifest), carried here so the Critic does not re-flag them as aesthetic-miss: (a) hard-offset shadow intentionally absent — the flat structural re-skin; (b) cool palette (substrate #e9eef3, ink #0f151c, cyan accent #22d3ee) vs Syntax warm cream/yellow, all Pack-resolved; (c) the washi tape is a cool slate #aab9c9 carrying the Pack's cool-cast grain (editorial-mono washi-tape.grain-* override), not Syntax's yellow collage tape; (d) paper-grain warmth lowered to 0.1 for neutral/cool grit; (e) the mono signature thread is satisfied editorially by the mono kicker + byline + dateline, not a watermark; (f) registration jitter / torn edge n/a — clean printed clipping. Motion is restrained by design (settled-place + tape-down + a single underline stroke-draw; no halo-bloom or brightness-reveal — the latter is reserved for spoken-content text) — editorial-mono is the calm counterpart to Syntax's collage energy. Critic-ACCEPTed (no pipeline-bug / default-too-permissive). Acknowledged non-gating findings: the title:body cap-height ratio (~2.7) runs just over G4-density's 2.5 ceiling — emergent from the shared newspaper title-size default with the title already at its 4-slot minimum (same pipeline as the accepted title-card-newspaper), not preset-tunable; the underline ease is 'sharp' per G7's news-content assignment (a decisive, non-bouncy editorial mark), not the pack's default settled curve.",
 	"pack": "editorial-mono",
@@ -11,9 +11,7 @@
 			"format": "webm"
 		},
 		"typography": {
-			"fontFamily": "serif",
-			"paperColor": "#e9eef3",
-			"inkColor": "#0f151c"
+			"fontFamily": "serif"
 		},
 		"marks": {
 			"defaults": {
