@@ -110,7 +110,9 @@
 
 <style>
 	.counter-overlay {
-		color: var(--ink, #fabf47);
+		/* Mount-guaranteed (ADR-0024): the specific `counter.ink` Role (syntax
+		   claims an accent-coloured ink here) wins over the core ink fallback. */
+		color: var(--ink);
 		display: inline-flex;
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-feature-settings: 'tnum' 1;

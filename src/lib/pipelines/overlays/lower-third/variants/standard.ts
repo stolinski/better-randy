@@ -11,8 +11,6 @@ export const standardLowerThird: LowerThirdVariant = {
 	id: 'standard',
 	label: 'Standard',
 	defaults: {
-		paperColor: '#0a0a0a',
-		inkColor: '#ededed',
 		offsetY: 0.15
 	},
 	motionShape: (slotIndex, progress) => {

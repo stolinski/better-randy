@@ -1,4 +1,8 @@
 <script lang="ts">
+	import { packState } from '$lib/platform/engine-state.svelte';
+	import { getPack } from '$lib/platform/packs/registry';
+	import { requireCoreColor, resolveColorChannels } from '$lib/platform/packs/resolve';
+
 	import type { LowerThirdContent } from '../index';
 
 	interface Props {
@@ -6,9 +10,33 @@
 	}
 
 	let { content }: Props = $props();
+
+	const pack = $derived(getPack(packState.slug));
+
+	// Scrim plate — one Pack colour (`lower-third.scrim`) composed at several
+	// alphas along the gradient, so it rides an rgb-channel var
+	// (resolveColorChannels). The inner fallback is a documented NEUTRAL
+	// achromatic near-black (legibility plate, never another Pack's colour) —
+	// it only runs for a Pack that makes no scrim claim.
+	const scrimRgb = $derived(resolveColorChannels(pack, 'lower-third.scrim', '#0a0a0a'));
+
+	// Accent glow — the accent rule's soft bloom is the same Pack colour at
+	// 0.45 alpha, so it needs channels too. Resolution chains specific → core
+	// with no literal at the end (ADR-0024): `lower-third.accent` → the Pack's
+	// mandatory `accent-treatment`. Keeps the DOM glow consistent with the
+	// pass-side flare rim, which is already Pack-routed.
+	const accentRgb = $derived(
+		resolveColorChannels(pack, 'lower-third.accent', requireCoreColor(pack, 'accent-treatment'))
+	);
 </script>
 
-<aside class="lower-third lower-third--cinematic" data-overlay="lower-third" data-variant="cinematic">
+<aside
+	class="lower-third lower-third--cinematic"
+	data-overlay="lower-third"
+	data-variant="cinematic"
+	style:--scrim-rgb={scrimRgb}
+	style:--accent-rgb={accentRgb}
+>
 	<div class="lower-third--cinematic__scrim"></div>
 	<div class="lower-third--cinematic__accent"></div>
 	<div class="lower-third--cinematic__content">
@@ -49,12 +77,14 @@
 		min-inline-size: calc(30 * var(--cqmin));
 	}
 
+	/* Pack scrim colour at three alphas — --scrim-rgb is always set inline by
+	   the script's channel resolution above. */
 	.lower-third--cinematic__scrim {
 		background: linear-gradient(
 			90deg,
-			rgba(8, 6, 10, 0.94) 0%,
-			rgba(8, 6, 10, 0.9) 70%,
-			rgba(8, 6, 10, 0) 100%
+			rgb(var(--scrim-rgb) / 0.94) 0%,
+			rgb(var(--scrim-rgb) / 0.9) 70%,
+			rgb(var(--scrim-rgb) / 0) 100%
 		);
 		grid-column: 1 / -1;
 		grid-row: 1;
@@ -63,15 +93,15 @@
 	}
 
 	.lower-third--cinematic__accent {
-		background-color: var(--accent, #f4a85e);
-		box-shadow: 0 0 calc(1.4 * var(--cqmin)) rgba(244, 168, 94, 0.45);
+		background-color: var(--accent);
+		box-shadow: 0 0 calc(1.4 * var(--cqmin)) rgb(var(--accent-rgb) / 0.45);
 		grid-column: 1;
 		grid-row: 1;
 		position: relative;
 	}
 
 	.lower-third--cinematic__content {
-		color: var(--ink, #fff8ec);
+		color: var(--ink);
 		display: grid;
 		font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
 		gap: calc(0.7 * var(--cqmin));
@@ -82,7 +112,7 @@
 	}
 
 	.lower-third--cinematic__kicker {
-		color: var(--accent, #f4a85e);
+		color: var(--accent);
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-size: calc(1.9 * var(--cqmin));
 		font-weight: 600;
@@ -102,7 +132,9 @@
 	}
 
 	.lower-third--cinematic__role {
-		color: var(--roleInk, #d8c4a0);
+		/* Extra per-Pipeline slot → chains to the semantically-right core
+		   (a muted label voice is ink-family) — never a literal (ADR-0024). */
+		color: var(--roleInk, var(--ink));
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		/* Sized for a tasteful corner chip (~63px / ~45px cap at 4K), clearly
 		   secondary to the name. NOTE: below the G4 Overlay-secondary 80px floor —

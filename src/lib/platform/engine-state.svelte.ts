@@ -17,6 +17,7 @@ import {
 	assertPackCoreVocabularyValid
 } from './pipelines/identity-registry';
 import { getPack, PACK_REGISTRY, REFERENCE_PACK_SLUG } from './packs/registry';
+import { isColorValue, requireCoreColor } from './packs/resolve';
 
 // ADR-0019 boot gate: refuse to start if any registered Pipeline's Identity
 // Spec ships with an unimplemented + non-via-pack dimension, or if the
@@ -83,10 +84,23 @@ export function ensureMarkTimingAtIndex(index: number): MarkTiming {
 	return engineState.marks.timings[index];
 }
 
-const FALLBACK_MARK_COLOR = '#1f5aff';
-
+/**
+ * Mark colour for the editor's annotation swatches: the Preset's authored
+ * `marks.defaults` entry wins; absent that, the active Pack's `<style>.fill`
+ * Role → the Pack's mandatory core accent (ADR-0024) — never a baked literal
+ * that would make one Pack a de facto base.
+ */
 function readMarkColor(style: AnnotationMarkStyle): string {
-	return engineState.marks.defaults[style]?.color ?? FALLBACK_MARK_COLOR;
+	const authored = engineState.marks.defaults[style]?.color;
+	if (authored) {
+		return authored;
+	}
+	const pack = getPack(packState.slug);
+	const role = pack.roles[`${style}.fill`];
+	if (role?.kind === 'style' && typeof role.value === 'string' && isColorValue(role.value)) {
+		return role.value;
+	}
+	return requireCoreColor(pack, 'accent-treatment');
 }
 
 function nextId(prefix: string, existing: readonly { id: string }[]): string {

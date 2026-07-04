@@ -65,7 +65,7 @@
 	.pullquote-source {
 		background-color: transparent;
 		box-sizing: border-box;
-		color: var(--ink, #ffffff);
+		color: var(--ink);
 		display: block;
 		inset-block-start: 0;
 		inset-inline-start: 0;
@@ -111,7 +111,8 @@
 	}
 
 	.pullquote-source__attribution {
-		color: var(--byline, #f4ecdc);
+		/* Extra slot → chains to the ink core (byline is a muted ink voice), never a literal (ADR-0024). */
+		color: var(--byline, var(--ink));
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-style: normal;
 		font-weight: 500;

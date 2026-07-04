@@ -377,12 +377,18 @@ export function resolveLightTreatment(manifest: PackManifest): LightTreatment | 
 }
 
 /**
- * Read a mandatory colour core (`fill-treatment` / `ink-treatment`) off a
- * registered Pack. `validatePackCoreVocabulary` guarantees these exist as
- * colour strings on every registered Pack at boot, so a miss here is engine
- * corruption, not a content gap — fail fast, never guess a hex.
+ * Read a mandatory colour core (`fill-treatment` / `ink-treatment` /
+ * `accent-treatment`) off a registered Pack. `validatePackCoreVocabulary`
+ * guarantees these exist as colour strings on every registered Pack at boot,
+ * so a miss here is engine corruption, not a content gap — fail fast, never
+ * guess a hex. Exported for consumers that need a core colour as the inner
+ * fallback of a channel resolution (`resolveColorChannels`) — the ADR-0024
+ * chain with no literal at the end.
  */
-function requireCoreColor(manifest: PackManifest, core: 'fill-treatment' | 'ink-treatment'): string {
+export function requireCoreColor(
+	manifest: PackManifest,
+	core: 'fill-treatment' | 'ink-treatment' | 'accent-treatment'
+): string {
 	const role = manifest.roles[core];
 	if (!role || role.kind !== 'style' || typeof role.value !== 'string') {
 		throw new Error(

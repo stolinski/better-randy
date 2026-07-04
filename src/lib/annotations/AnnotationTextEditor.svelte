@@ -25,25 +25,17 @@
 
 	interface Props {
 		body?: AnnotationBody;
-		colors?: AnnotationMarkColors;
+		/**
+		 * Mark swatch colours — required, no baked default map: colours come
+		 * from the Preset's authored `marks.defaults` → the active Pack's Roles
+		 * (callers pass `EDITOR_MARK_COLORS`), never a literal palette here.
+		 */
+		colors: AnnotationMarkColors;
 		label?: string;
 		rows?: number;
 		/** Mark styles offered in the toolbar; defaults to the full vocabulary. */
 		styles?: readonly AnnotationMarkStyle[];
 	}
-
-	const DEFAULT_ANNOTATION_MARK_COLORS: AnnotationMarkColors = {
-		circle: '#de263a',
-		highlight: '#ffd642',
-		strike: '#de263a',
-		underline: '#1f5aff',
-		box: '#1f5aff',
-		'side-note': '#1f5aff',
-		magnify: '#1f5aff',
-		'lift-out': '#1f5aff',
-		'tear-out': '#1f5aff',
-		isolate: '#1f5aff'
-	};
 
 	const MARK_TITLES: Record<AnnotationMarkStyle, string> = {
 		highlight: 'Highlight selection',
@@ -60,7 +52,7 @@
 
 	let {
 		body = $bindable<AnnotationBody>([]),
-		colors = DEFAULT_ANNOTATION_MARK_COLORS,
+		colors,
 		label = 'Annotation text',
 		rows = 10,
 		styles = ANNOTATION_MARK_STYLES

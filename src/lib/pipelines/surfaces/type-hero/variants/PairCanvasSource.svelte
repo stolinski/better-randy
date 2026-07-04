@@ -77,7 +77,8 @@
 	.type-hero-source {
 		background-color: transparent;
 		box-sizing: border-box;
-		color: var(--text-base, #fff8ec);
+		/* Extra slot → chains to the ink core, never a literal (ADR-0024). */
+		color: var(--text-base, var(--ink));
 		display: block;
 		inset-block-start: 0;
 		inset-inline-start: 0;
@@ -85,7 +86,7 @@
 	}
 
 	.type-hero-source__hero {
-		color: var(--ink, #fffaf2);
+		color: var(--ink);
 		font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
 		font-stretch: condensed;
 		font-style: normal;
@@ -108,7 +109,7 @@
 	 * cap-height per the plan\'s mo1 reference.
 	 */
 	.type-hero-source__counterpoint {
-		color: var(--accent, #f4a85e);
+		color: var(--accent);
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-weight: 600;
 		inset-block-start: calc(50% - 16%);
@@ -120,7 +121,7 @@
 	}
 
 	.type-hero-source__rule {
-		background-color: var(--accent, #f4a85e);
+		background-color: var(--accent);
 		block-size: 22%;
 		inset-block-start: 50%;
 		inset-inline-end: 14%;
@@ -130,7 +131,8 @@
 	}
 
 	.type-hero-source__subtitle {
-		color: var(--byline, #d8c4a0);
+		/* Extra slot → chains to the ink core (byline is a muted ink voice), never a literal (ADR-0024). */
+		color: var(--byline, var(--ink));
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-style: normal;
 		font-weight: 500;

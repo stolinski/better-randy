@@ -39,6 +39,16 @@ export const editorialMonoPack: PackManifest = {
 		// off-white name, muted mono-label role ink.
 		'lower-third.ink': { kind: 'style', value: '#eef3f8' },
 		'lower-third.roleInk': { kind: 'style', value: '#8aa0b4' },
+		// Plate chrome goes cool with the rest of the dress: a graphite-slate
+		// standard plate (vs syntax's neutral near-black) and a cool near-black
+		// scrim base for the cinematic gradient (matches the Pack's dark-piece
+		// backdrops, e.g. pullquote's #080b10 top stop).
+		'lower-third.plate': { kind: 'style', value: 'rgba(13, 18, 24, 0.92)' },
+		'lower-third.scrim': { kind: 'style', value: { color: '#080b10' } },
+		// The watermark sits on its dark plate, so its handle can't ride the
+		// Pack's near-black core ink — cool off-white, matching the Pack's other
+		// dark-piece inks.
+		'watermark.ink': { kind: 'style', value: '#eef3f8' },
 		// Surface overrides — a cool editorial dress proving Surfaces re-skin
 		// under a second Pack (same Presets, different pixels). Only the Roles
 		// it wants to change; everything else falls back to the CanvasSource

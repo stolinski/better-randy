@@ -63,7 +63,7 @@
 	.title-sequence-source {
 		background-color: transparent;
 		box-sizing: border-box;
-		color: var(--ink, #fffaf0);
+		color: var(--ink);
 		display: block;
 		inset-block-start: 0;
 		inset-inline-start: 0;
@@ -78,7 +78,8 @@
 	 * The shader drops the captured text into this resting position.
 	 */
 	.title-sequence-source__kicker {
-		color: var(--kicker, #fabf47);
+		/* Extra slot → chains to the accent core (kicker is accent-family), never a literal (ADR-0024). */
+		color: var(--kicker, var(--accent));
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-weight: 500;
 		inset-block-start: 51%;
@@ -93,7 +94,7 @@
 	}
 
 	.title-sequence-source__title {
-		color: var(--ink, #fffaf0);
+		color: var(--ink);
 		font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
 		font-stretch: condensed;
 		font-style: normal;

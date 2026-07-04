@@ -26,7 +26,7 @@
 		grid-template-rows: auto auto;
 		align-items: center;
 		background-color: rgba(10, 10, 10, 0.74);
-		color: var(--ink, #ededed); /* Q17: sub-maximum contrast against the dark plate */
+		color: var(--ink); /* Q17: sub-maximum contrast against the dark plate (mount-guaranteed, ADR-0024) */
 		padding: calc(2 * var(--cqmin)) calc(2.5 * var(--cqmin)) calc(2 * var(--cqmin)) calc(2.25 * var(--cqmin));
 		font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
 	}
@@ -35,7 +35,7 @@
 		grid-column: 1;
 		grid-row: 1 / -1;
 		align-self: stretch;
-		background-color: var(--accent, #ffd642);
+		background-color: var(--accent);
 		border-radius: calc(0.1 * var(--cqmin));
 	}
 

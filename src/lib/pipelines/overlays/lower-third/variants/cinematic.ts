@@ -13,8 +13,6 @@ export const cinematicLowerThird: LowerThirdVariant = {
 	id: 'cinematic',
 	label: 'Cinematic',
 	defaults: {
-		paperColor: '#0a0810',
-		inkColor: '#fff8ec',
 		offsetY: 0.115
 	},
 	motionShape: (slotIndex, progress) => {

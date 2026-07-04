@@ -2,7 +2,7 @@
 	import { animState } from '$lib/platform/anim-state.svelte';
 	import { engineState, packState } from '$lib/platform/engine-state.svelte';
 	import { getPack } from '$lib/platform/packs/registry';
-	import { resolveColorChannels } from '$lib/platform/packs/resolve';
+	import { requireCoreColor, resolveColorChannels } from '$lib/platform/packs/resolve';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 	import type { CursorTrailContent, CursorPath } from './index';
 	import { buildCursorSchedule, cursorAt } from './schedule';
@@ -119,8 +119,15 @@
 				? (role.value as { softness?: number })
 				: null;
 		const softness = typeof material?.softness === 'number' ? material.softness : 0.35;
+		// The inner fallback chains to the Pack's mandatory core ink (ADR-0024)
+		// instead of a literal — a Pack with no trailMaterial claim trails in
+		// its own ink, never another Pack's colour.
 		return {
-			channels: resolveColorChannels(pack, 'cursor-trail.trailMaterial', '#ffffff'),
+			channels: resolveColorChannels(
+				pack,
+				'cursor-trail.trailMaterial',
+				requireCoreColor(pack, 'ink-treatment')
+			),
 			softStop: `${Math.round(softness * 100)}%`
 		};
 	});
@@ -191,11 +198,13 @@
 	 * "behind" the cursor along the motion direction.
 	 */
 	.cursor-trail-overlay__trail {
+		/* --trail-rgb is always set inline by the script's Pack channel
+		   resolution above — no literal channel fallback. */
 		background: linear-gradient(
 			to left,
-			rgb(var(--trail-rgb, 255 255 255) / 0.65) 0%,
-			rgb(var(--trail-rgb, 255 255 255) / 0.2) var(--trail-soft, 40%),
-			rgb(var(--trail-rgb, 255 255 255) / 0) 100%
+			rgb(var(--trail-rgb) / 0.65) 0%,
+			rgb(var(--trail-rgb) / 0.2) var(--trail-soft, 40%),
+			rgb(var(--trail-rgb) / 0) 100%
 		);
 		block-size: var(--trail-width, 6px);
 		inline-size: var(--trail-length);

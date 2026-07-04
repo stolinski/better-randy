@@ -42,13 +42,15 @@
 		white-space: nowrap;
 	}
 
-	/* Box — the flowchart card: Pack fill, hard Pack depth, ink that follows
-	   the fill's luminance (set by the mount). */
+	/* Box — the flowchart card: Pack fill (mount-guaranteed, ADR-0024), hard
+	   Pack depth, ink that follows the fill's luminance (--node-box-ink is
+	   computed + injected by DiagramMount whenever --fill resolves — always,
+	   for a validated Pack). */
 	.node--box {
-		background: var(--fill, #ffffff);
-		border: calc(0.32 * var(--cqmin)) solid var(--node-box-ink, #0c0c0c);
+		background: var(--fill);
+		border: calc(0.32 * var(--cqmin)) solid var(--node-box-ink);
 		box-shadow: var(--node-shadow, none);
-		color: var(--node-box-ink, #0c0c0c);
+		color: var(--node-box-ink);
 		font-size: calc(2.9 * var(--cqmin));
 		font-weight: 700;
 		letter-spacing: 0.01em;
@@ -71,7 +73,7 @@
 	}
 
 	.node__pin-body {
-		fill: var(--accent, #fabf47);
+		fill: var(--accent);
 		stroke: var(--ink, currentColor);
 		stroke-width: 3;
 	}
@@ -94,7 +96,7 @@
 	}
 
 	.node__dot-mark {
-		background: var(--accent, #fabf47);
+		background: var(--accent);
 		border: calc(0.24 * var(--cqmin)) solid var(--ink, currentColor);
 		border-radius: 50%;
 		block-size: calc(1.9 * var(--cqmin));

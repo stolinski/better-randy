@@ -65,7 +65,8 @@
 	.chapter-card-source {
 		background-color: transparent;
 		box-sizing: border-box;
-		color: var(--base, #f4ecdc);
+		/* Extra slot → chains to the ink core (base is the card's resting text ink), never a literal (ADR-0024). */
+		color: var(--base, var(--ink));
 		display: block;
 		inset-block-start: 0;
 		inset-inline-start: 0;
@@ -80,7 +81,8 @@
 	 * down-left, agreeing with the upper-right key.
 	 */
 	.chapter-card-source__kicker {
-		color: var(--kicker, #fabf47);
+		/* Extra slot → chains to the accent core (kicker is accent-family), never a literal (ADR-0024). */
+		color: var(--kicker, var(--accent));
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-weight: 500;
 		inset-block-start: 50.5%;
@@ -94,7 +96,8 @@
 	}
 
 	.chapter-card-source__rule {
-		background-color: var(--rule, rgba(250, 191, 71, 0.55));
+		/* Extra slot → chains to the accent core (the rule underlines the kicker's accent voice), never a literal (ADR-0024). */
+		background-color: var(--rule, var(--accent));
 		block-size: 5px;
 		inset-block-start: 54.5%;
 		inset-inline-start: 30%;
@@ -104,7 +107,7 @@
 	}
 
 	.chapter-card-source__title {
-		color: var(--ink, #ffffff);
+		color: var(--ink);
 		font-family: 'EB Garamond', 'Charter', 'Iowan Old Style', Georgia, serif;
 		font-style: normal;
 		font-weight: 700;

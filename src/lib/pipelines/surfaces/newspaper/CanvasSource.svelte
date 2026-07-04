@@ -69,7 +69,7 @@
 		if (edge && (edge.mode === 'torn' || edge.mode === 'irregular')) {
 			return 'none';
 		}
-		const depth = resolveDepthTreatment(pack, 'newspaper', 'var(--ink, #1a1612)');
+		const depth = resolveDepthTreatment(pack, 'newspaper', 'var(--ink)');
 		if (!depth) {
 			return 'none';
 		}
@@ -224,10 +224,10 @@
 	 * `none` (a Pack that drops the chrome) leaves the card flat.
 	 */
 	.newspaper-source {
-		background-color: var(--fill, #f0e8d6);
+		background-color: var(--fill);
 		box-shadow: var(--depth-shadow, none);
 		box-sizing: border-box;
-		color: var(--ink, #1a1612);
+		color: var(--ink);
 		display: grid;
 		grid-template-rows: auto 1fr auto;
 		gap: 0.6em;
@@ -300,8 +300,9 @@
 	}
 
 	.newspaper-source__kicker {
-		background-color: var(--accent, #fabf47);
-		color: var(--kicker-ink, #1a1612);
+		background-color: var(--accent);
+		/* Extra slot → chains to the ink core (the kicker chip prints in the paper's ink), never a literal (ADR-0024). */
+		color: var(--kicker-ink, var(--ink));
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-weight: 700;
 		letter-spacing: 0.14em;
@@ -327,7 +328,10 @@
 
 	footer {
 		align-items: end;
-		border-block-start: 0.15em solid var(--edge, #1a1612);
+		/* The footer rule prints in the card's ink. `--edge` is only emitted for a
+		   (legacy) colour-valued edge Role — the structural edge vocabulary never
+		   sets it, so this chains to the ink core, never a literal (ADR-0024). */
+		border-block-start: 0.15em solid var(--edge, var(--ink));
 		display: flex;
 		flex-wrap: wrap;
 		font-family: 'JetBrains Mono', ui-monospace, monospace;

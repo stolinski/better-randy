@@ -102,9 +102,9 @@
 		gap: calc(0.8 * var(--cqmin));
 	}
 
-	/* The number that builds — Pack accent, tabular mono, big. */
+	/* The number that builds — Pack accent (mount-guaranteed, ADR-0024), tabular mono, big. */
 	.stat-callout__value {
-		color: var(--accent, #fabf47);
+		color: var(--accent);
 		display: inline-flex;
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-feature-settings: 'tnum' 1;

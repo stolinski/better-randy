@@ -101,8 +101,8 @@ export const syntaxPack: PackManifest = {
 		// (aesthetic.md § Cut behavior: tear path ~3–8% of the card's smaller
 		// dimension; 4K card height ≈ 1339 px → 40 px sits at the band floor,
 		// ~4.3% at the fine octave's peak). The footer rule keeps its ink via the
-		// CanvasSource fallback `var(--edge, #1a1612)` — same value this Role
-		// carried when it was a bare colour.
+		// CanvasSource chain `var(--edge, var(--ink))` → `newspaper.ink` — same
+		// value this Role carried when it was a bare colour.
 		'newspaper.edge': {
 			kind: 'style',
 			value: { mode: 'torn', amplitudePx: 40, wavelengthPx: 150, fiber: 1 }
@@ -206,6 +206,13 @@ export const syntaxPack: PackManifest = {
 		'lower-third.accent': { kind: 'style', value: '#f4a85e' },
 		'lower-third.ink': { kind: 'style', value: '#fff8ec' },
 		'lower-third.roleInk': { kind: 'style', value: '#d8c4a0' },
+		// Plate chrome (render-is-truth — restates the values the variant
+		// CanvasSources shipped with): the standard variant's flat dark plate
+		// (whole colour, alpha included) and the cinematic scrim's gradient base
+		// (one colour composed at several alphas → channel-resolved via
+		// resolveColorChannels, so only the hex lives here).
+		'lower-third.plate': { kind: 'style', value: 'rgba(10, 10, 10, 0.92)' },
+		'lower-third.scrim': { kind: 'style', value: { color: '#08060a' } },
 
 		// Consumed appearance Roles wired into the overlay CanvasSources
 		// (render-is-truth — values match what each CanvasSource paints).

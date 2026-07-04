@@ -26,9 +26,13 @@ export interface LowerThirdMotionState {
 export interface LowerThirdVariant {
 	id: string;
 	label: string;
+	/**
+	 * Variant-intrinsic layout defaults. Appearance (plate, scrim, ink,
+	 * accent) is NOT declared here — it resolves through the active Pack's
+	 * `lower-third.*` Roles (ADR-0024); baked colours would bypass the Role
+	 * system and make one Pack a de facto base.
+	 */
 	defaults: {
-		paperColor: string;
-		inkColor: string;
 		offsetY: number;
 	};
 	/**

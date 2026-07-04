@@ -135,12 +135,20 @@
 		const vars = resolveAppearanceVars(pack, element.type);
 		let style = appearanceVarsToStyle(vars);
 		if (element.type === 'node') {
-			const depth = resolveDepthTreatment(pack, 'node', 'rgb(0 0 0 / 0.85)');
+			// The 'fg' shadow-colour sentinel resolves through the node's own
+			// mount-injected `--ink` (ADR-0024) — never a baked colour; a Pack
+			// that wants a specific shadow colour names it in the rig.
+			const depth = resolveDepthTreatment(pack, 'node', 'var(--ink)');
 			if (depth) {
 				style += `;--node-shadow:${depth.dx}px ${depth.dy}px ${depth.blur}px ${depth.color}`;
 			}
 			const fill = vars['--fill'];
 			if (fill) {
+				// Computed CONTRAST decision, not a brand claim: the box's text/border
+				// ink is picked light-or-dark against the resolved Pack fill's
+				// luminance so a white card keeps dark text even when the
+				// composition's ink is footage-white. The pair is intentionally
+				// near-black/near-white — legibility poles, not palette colours.
 				style += `;--node-box-ink:${isDarkSurfaceColor(fill) ? '#ffffff' : '#0c0c0c'}`;
 			}
 		}

@@ -102,7 +102,7 @@
 	}
 
 	.text-3d-overlay__glyph {
-		color: var(--ink, #fffaf2);
+		color: var(--ink);
 		display: inline-block;
 		inset-block-start: 50%;
 		inset-inline-start: 50%;

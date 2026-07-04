@@ -31,14 +31,17 @@
 	.lower-third--standard {
 		display: grid;
 		gap: calc(0.75 * var(--cqmin));
-		background-color: rgba(10, 10, 10, 0.92);
-		color: var(--ink, #fff8ec); /* Q17: sub-maximum contrast against the dark plate */
+		/* Pack plate chrome (`lower-third.plate`). The fallback is a documented
+		   NEUTRAL achromatic legibility plate (a Pack that makes no plate claim
+		   gets a near-black scrim, never another Pack's colour). */
+		background-color: var(--plate, rgb(10 10 10 / 0.92));
+		color: var(--ink); /* Q17: sub-maximum contrast against the dark plate (mount-guaranteed, ADR-0024) */
 		padding: calc(3 * var(--cqmin)) calc(4.5 * var(--cqmin));
 		font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
 	}
 
 	.lower-third__kicker {
-		color: var(--accent, #f4a85e);
+		color: var(--accent);
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-size: calc(3 * var(--cqmin));
 		letter-spacing: 0.16em;
