@@ -30,6 +30,20 @@
 			ENGINE_FONT_FAMILIES.sans.stack
 	);
 
+	// Transparent piece (no backgroundFill, no stage backdrop): the diagram ink
+	// composites over unknown footage, so DOM elements carry a two-zone
+	// legibility halo by default — G5's worst-case floor must hold over bright
+	// footage, and naked single-colour text over transparent is rejected.
+	// text-shadow inherits and paints without compositing-layer promotion (a
+	// CSS filter would drop out of the HTML-in-canvas capture). Full-frame
+	// pieces skip it: their contrast is authored against a known field.
+	const isTransparentPiece = $derived(
+		engineState.backgroundFill === undefined && engineState.stage === undefined
+	);
+	const textGuard = $derived(
+		isTransparentPiece ? '0 2px 18px rgb(0 0 0 / 0.55), 0 1px 5px rgb(0 0 0 / 0.5)' : undefined
+	);
+
 	function centerFor(element: DiagramElement): { x: number; y: number } {
 		if (element.type === 'edge-arrow') {
 			return { x: 0, y: 0 };
@@ -117,6 +131,7 @@
 		class="diagram-mount"
 		style:font-family={fontStack}
 		style:color={engineState.typography.inkColor}
+		style:text-shadow={textGuard}
 	>
 		{#each elements as element (element.id)}
 			{#if element.type !== 'edge-arrow'}

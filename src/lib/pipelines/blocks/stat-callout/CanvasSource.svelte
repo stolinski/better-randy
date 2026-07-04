@@ -67,7 +67,10 @@
 		if (rightIndex < 0 || block.format === 'timecode') return 0;
 		const place = currentValue / 10 ** rightIndex;
 		const frac = place - Math.floor(place);
-		return -frac * 0.14;
+		// Damp by the remaining roll so every digit settles to EXACTLY 0 at the
+		// landing — otherwise a landed value like 97 holds its "9" displaced by
+		// frac(9.7) forever (the odometer never closing its carry).
+		return -frac * 0.14 * (1 - eased);
 	}
 </script>
 
@@ -75,10 +78,10 @@
 	<span class="stat-callout__value">
 		{#each digitTokens as token, i (i)}
 			{#if token.isDigit}
-				<span
-					class="stat-callout__digit"
-					style:transform={`translateY(${rollOffsetEm(token.rightIndex)}em)`}
-				>
+				<!-- Roll offset rides `top`, not transform: a transformed descendant
+				     span quantizes the ITEM's exit-fade opacity in the HTML-in-canvas
+				     capture (the documented capture-opacity defect family). -->
+				<span class="stat-callout__digit" style:top={`${rollOffsetEm(token.rightIndex)}em`}>
 					{token.char}
 				</span>
 			{:else}
@@ -114,6 +117,7 @@
 	.stat-callout__digit {
 		display: inline-block;
 		inline-size: 0.62em;
+		position: relative;
 		text-align: center;
 	}
 

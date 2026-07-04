@@ -83,17 +83,22 @@
 		if (rightIndex < 0 || content.format === 'timecode') return 0;
 		const place = currentValue / 10 ** rightIndex;
 		const frac = place - Math.floor(place);
-		return -frac * 0.14;
+		// Damp by the remaining roll so every digit rests at EXACTLY 0 at the
+		// landing — a landed 12,450 must not hold its "1" displaced by frac(1.245)
+		// (the odometer closing its carry; same fix as the stat-callout Block).
+		return -frac * 0.14 * (1 - eased);
 	}
 </script>
 
 <aside class="counter-overlay" data-overlay="counter" data-variant="slot-machine-roll">
 	{#each digitTokens as token, i (i)}
 		{#if token.isDigit}
+			<!-- Roll offset rides `top`, not transform: a transformed descendant span
+			     quantizes the mount's fade opacity in the HTML-in-canvas capture. -->
 			<span
 				class="counter-overlay__digit"
 				data-text-anim-slot={i === 0 ? 'title' : undefined}
-				style:transform={`translateY(${rollOffsetEm(token.rightIndex)}em)`}
+				style:top={`${rollOffsetEm(token.rightIndex)}em`}
 			>
 				{token.char}
 			</span>
@@ -119,6 +124,7 @@
 	.counter-overlay__digit {
 		display: inline-block;
 		inline-size: 0.62em;
+		position: relative;
 		text-align: center;
 	}
 
