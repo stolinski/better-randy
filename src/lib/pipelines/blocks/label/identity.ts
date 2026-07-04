@@ -17,7 +17,7 @@ export const labelIdentity: IdentitySpec = {
 				kind: 'named-observation',
 				region: 'a diagram label',
 				expectation:
-					'ink resolves label.ink → core ink → the composition’s typography.inkColor (the mount’s currentColor), so over-footage presets that flipped their ink stay legible.'
+					'ink resolves label.ink → core ink → the composition’s resolved ink (typography.inkColor override → Pack core ink-treatment, ADR-0038 — the mount’s currentColor), so over-footage presets that flipped their ink stay legible.'
 			}
 		},
 		{

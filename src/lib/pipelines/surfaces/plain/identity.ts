@@ -16,14 +16,14 @@ export const plainIdentity: IdentitySpec = {
 	dimensions: [
 		{
 			name: 'fill-treatment',
-			definition: 'The base substrate fill — intrinsically transparent per the output contract; ink colour comes from engineState.typography, not the Pack.',
+			definition: 'The base substrate fill — intrinsically transparent per the output contract; ink colour resolves override → Pack core (ADR-0038).',
 			implementation:
-				'CanvasSource.svelte paints background-color:transparent (hardcoded) and color:engineState.typography.inkColor; no Pack fill var is consumed.',
+				'CanvasSource.svelte paints background-color:transparent (hardcoded); ink is resolveTypographyColors — the optional engineState.typography.inkColor override wins, else the active Pack’s core ink-treatment. No Pack fill var is consumed (the body stays transparent).',
 			probe: {
 				kind: 'named-observation',
 				region: 'centre of the surface, away from any text',
 				expectation:
-					'surface body is fully transparent (no painted fill); ink colour matches engineState.typography.inkColor.'
+					'surface body is fully transparent (no painted fill); ink colour matches the resolved ink — the typography.inkColor override when authored, else the active Pack’s core ink-treatment.'
 			}
 		},
 		{

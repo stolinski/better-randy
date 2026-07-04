@@ -2,7 +2,9 @@
 	import { annotationBodyPlainText } from '$lib/annotations/annotation-body-text';
 	import { animState } from '$lib/platform/anim-state.svelte';
 	import { ENGINE_FONT_FAMILIES } from '$lib/platform/engine-schema';
-	import { engineState } from '$lib/platform/engine-state.svelte';
+	import { engineState, packState } from '$lib/platform/engine-state.svelte';
+	import { getPack } from '$lib/platform/packs/registry';
+	import { resolveTypographyColors } from '$lib/platform/packs/resolve';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 	import { getLayoutSafeArea } from '$lib/utils/safe-area';
 
@@ -22,6 +24,12 @@
 	const HEIGHT_RATIO = 0.9; // card spans ~90% of frame height
 
 	const fontFamily = $derived(ENGINE_FONT_FAMILIES[engineState.typography.fontFamily]);
+	// Paper/ink resolve override → Pack core (ADR-0038): an authored
+	// typography colour wins; absent, the active Pack's fill/ink-treatment
+	// paints the sheet — so a pack switch re-dresses the paper live.
+	const typographyColors = $derived(
+		resolveTypographyColors(getPack(packState.slug), engineState.typography)
+	);
 	const frame = $derived(getVideoFrameSize(engineState.transport.orientation));
 
 	const layout = $derived.by(() => {
@@ -96,10 +104,10 @@
 <article
 	bind:this={element}
 	class="paper-source surface"
-	style:background-color={engineState.typography.paperColor}
+	style:background-color={typographyColors.paperColor}
 		style:box-shadow={cardShadow}
 	style:block-size={`${layout.height}px`}
-	style:color={engineState.typography.inkColor}
+	style:color={typographyColors.inkColor}
 	style:font-family={fontFamily.stack}
 	style:inline-size={`${layout.width}px`}
 	style:left={`${layout.x}px`}

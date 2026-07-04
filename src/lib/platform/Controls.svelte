@@ -31,6 +31,7 @@
 	import { EFFECT_CATALOG, EFFECT_IDS, SPLIT_MODES, type SplitMode } from '$lib/text-animations/catalog';
 	import { PACK_REGISTRY } from './packs/registry';
 	import { listSubstrateAssets } from './substrate-textures';
+	import TypographyColorInput from './TypographyColorInput.svelte';
 	import type { OverlayPosition, Stage, TextAnimationParams } from './engine-schema';
 
 	const fontFamilyOptions = Object.entries(ENGINE_FONT_FAMILIES) as [FontFamily, FontDefinition][];
@@ -422,18 +423,20 @@
 				</label>
 			{/if}
 
+			<!-- div, not label: a label would forward the reset button's click to
+			     the colour input and pop the picker while clearing the override. -->
 			{#if controls.paperColor}
-				<label class="row">
+				<div class="row">
 					<span>Paper</span>
-					<input bind:value={engineState.typography.paperColor} type="color" />
-				</label>
+					<TypographyColorInput field="paperColor" />
+				</div>
 			{/if}
 
 			{#if controls.inkColor && showBody}
-				<label class="row">
+				<div class="row">
 					<span>Ink</span>
-					<input bind:value={engineState.typography.inkColor} type="color" />
-				</label>
+					<TypographyColorInput field="inkColor" />
+				</div>
 			{/if}
 
 {#if controls.backgroundVisibility && engineState.surface.backgroundVisibility !== undefined}

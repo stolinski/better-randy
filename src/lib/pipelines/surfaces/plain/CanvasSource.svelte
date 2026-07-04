@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { annotationBodyPlainText } from '$lib/annotations/annotation-body-text';
 	import { ENGINE_FONT_FAMILIES } from '$lib/platform/engine-schema';
-	import { engineState } from '$lib/platform/engine-state.svelte';
+	import { engineState, packState } from '$lib/platform/engine-state.svelte';
+	import { getPack } from '$lib/platform/packs/registry';
+	import { resolveTypographyColors } from '$lib/platform/packs/resolve';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 	import { getLayoutSafeArea } from '$lib/utils/safe-area';
 
@@ -12,6 +14,11 @@
 	let { element = $bindable<HTMLElement | null>(null) }: Props = $props();
 
 	const fontFamily = $derived(ENGINE_FONT_FAMILIES[engineState.typography.fontFamily]);
+	// Ink resolves override → Pack core ink-treatment (ADR-0038); the fill
+	// stays intrinsically transparent per the output contract.
+	const typographyColors = $derived(
+		resolveTypographyColors(getPack(packState.slug), engineState.typography)
+	);
 	const frame = $derived(getVideoFrameSize(engineState.transport.orientation));
 	const safeArea = $derived(getLayoutSafeArea(engineState.transport.orientation));
 	// Body font-size meets the per-orientation surface-body cap-height floor:
@@ -31,7 +38,7 @@
 	bind:this={element}
 	class="plain-source surface"
 	style:block-size={`${frame.height}px`}
-	style:color={engineState.typography.inkColor}
+	style:color={typographyColors.inkColor}
 	style:font-family={fontFamily.stack}
 	style:inline-size={`${frame.width}px`}
 	style:padding={`${frame.height * safeArea.top}px ${frame.width * safeArea.right}px ${frame.height * safeArea.bottom}px ${frame.width * safeArea.left}px`}

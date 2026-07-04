@@ -35,10 +35,12 @@
 		removeTextAnimation
 	} from './engine-state.svelte';
 	import { PIPELINE_REGISTRY, getSurfaceRenderer } from './pipelines';
+	import { inspectorFocus, layerSelection } from './selection.svelte';
 	import InspectorSection from './InspectorSection.svelte';
 	import Field from './Field.svelte';
 	import KeyframesSection from './KeyframesSection.svelte';
 	import SoundSection from './SoundSection.svelte';
+	import TypographyColorInput from './TypographyColorInput.svelte';
 
 	const surfaceRenderers = Object.values(PIPELINE_REGISTRY.surfaces);
 	const fontFamilyOptions = Object.entries(ENGINE_FONT_FAMILIES) as [FontFamily, FontDefinition][];
@@ -254,6 +256,43 @@
 	];
 
 	const messages = $derived(engineState.surface.content.messages ?? []);
+
+	// ---- On-canvas direct selection (epic 0pkzts2c) ----
+	// A selected `imessage-N` timeline row (set by a canvas bubble click or the
+	// timeline gutter) highlights its message entry; the reveal effect below
+	// scrolls to it and places the caret so "click a bubble → edit its text".
+
+	const selectedMessageIndex = $derived.by(() => {
+		const match = layerSelection.id?.match(/^imessage-(\d+)$/);
+		return match ? parseInt(match[1], 10) : null;
+	});
+
+	function revealTarget(target: string): void {
+		if (!inspectorEl) return;
+		const [kind, key] = target.split(':');
+		if (kind === 'message') {
+			const row = inspectorEl.querySelector<HTMLElement>(`[data-message-row="${key}"]`);
+			row?.querySelector<HTMLElement>('[contenteditable]')?.focus({ preventScroll: true });
+			row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+		} else if (kind === 'slot') {
+			const input =
+				key === 'body'
+					? inspectorEl.querySelector<HTMLElement>('.body-field [contenteditable]')
+					: inspectorEl.querySelector<HTMLElement>(`input[data-slot="${key}"]`);
+			input?.focus({ preventScroll: true });
+			input?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+		}
+	}
+
+	// Scroll + caret placement is a true DOM side effect — the legitimate $effect
+	// case. Runs post-render, so the target row/input already exists.
+	$effect(() => {
+		void inspectorFocus.seq;
+		const target =
+			inspectorFocus.target ??
+			(selectedMessageIndex !== null ? `message:${selectedMessageIndex}` : null);
+		if (target) revealTarget(target);
+	});
 
 	function addMessage(): void {
 		const list = (engineState.surface.content.messages ??= []);
@@ -632,7 +671,11 @@
 				<button type="button" class="add-btn" onclick={addMessage}>+ Add</button>
 			{/snippet}
 			{#each messages as message, index (index)}
-				<div class="message-entry">
+				<div
+					class="message-entry"
+					class:message-entry--selected={selectedMessageIndex === index}
+					data-message-row={index}
+				>
 					<div class="message-entry__header">
 						<select
 							class="message-entry__from"
@@ -710,12 +753,12 @@
 			{/if}
 			{#if controls.paperColor}
 				<Field label="Paper">
-					<input bind:value={engineState.typography.paperColor} type="color" />
+					<TypographyColorInput field="paperColor" />
 				</Field>
 			{/if}
 			{#if controls.inkColor && showBody}
 				<Field label="Ink">
-					<input bind:value={engineState.typography.inkColor} type="color" />
+					<TypographyColorInput field="inkColor" />
 				</Field>
 			{/if}
 		</InspectorSection>
@@ -1003,9 +1046,17 @@
 	   vocabulary as .anim-entry. */
 	.message-entry {
 		border-block-start: var(--border-1);
+		/* Constant transparent selection rail — coloring it on select (canvas
+		   bubble click / timeline row) can't shift the layout. */
+		border-inline-start: 2px solid transparent;
 		display: grid;
 		gap: var(--vs-xs);
 		padding-block-start: var(--vs-s);
+		padding-inline-start: var(--vs-xs);
+	}
+
+	.message-entry--selected {
+		border-inline-start-color: #ffd608;
 	}
 
 	.message-entry__header {

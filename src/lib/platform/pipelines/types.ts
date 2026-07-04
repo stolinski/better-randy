@@ -84,7 +84,8 @@ export interface BlockRenderer<TBlock extends EngineBlock = EngineBlock> {
  * `drawProgressById` is the draw-on scalar (1 for channel-owned elements),
  * `alphaById` the visibility fade (exit sugar or authored opacity channel).
  * `stroke.color` arrives resolved — the `'ink'` sentinel is substituted with
- * the composition's `typography.inkColor` before render.
+ * the composition's resolved ink (the `typography.inkColor` override when
+ * authored, else the Pack's core `ink-treatment` — ADR-0038) before render.
  */
 export interface DiagramStrokeInputs {
 	elements: readonly DiagramElement[];

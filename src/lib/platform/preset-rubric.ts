@@ -2,6 +2,8 @@ import type { AnnotationMarkStyle } from '../annotations/annotation-mark-styles.
 import type { AnnotationBody } from '../annotations/annotation-marks.ts';
 import { opacityEnvelope, resolveCascadeTimings, type CascadeWindow } from './cascade-timing.ts';
 import type { MarkTiming, Overlay, Preset, SurfaceState, Transition } from './engine-schema.ts';
+import { getPack } from './packs/registry.ts';
+import { resolveTypographyColors } from './packs/resolve.ts';
 import { getLayoutSafeArea } from '../utils/safe-area.ts';
 
 export type RubricSeverity = 'error' | 'warn';
@@ -121,13 +123,31 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 		});
 	}
 
+	// Typography colours are optional overrides (ADR-0038): resolve absent
+	// fields through the preset's own Pack so the contrast + background-fill
+	// lints judge the colours that actually render. An unregistered pack slug
+	// surfaces as a lint error rather than crashing the pass.
+	let resolvedTypography: { paperColor: string; inkColor: string } | null = null;
+	try {
+		resolvedTypography = resolveTypographyColors(getPack(preset.pack), state.typography);
+	} catch (error) {
+		issues.push({
+			rule: 'G5',
+			severity: 'error',
+			path: 'pack',
+			message: `Typography colours could not be resolved through pack "${preset.pack}": ${error instanceof Error ? error.message : String(error)}`
+		});
+	}
+
 	checkMarkTimings(flattenedMarks, state.marks.timings, issues);
 	checkMarkOrdering(state.surface, state.marks.timings, totalSeconds, cascadeWindows, issues);
 	checkOverlayTimings(state.overlays, totalSeconds, cascadeWindows, issues);
 	checkOverlayPlacement(state.overlays, frame, orientation, issues);
-	checkContrast(state.surface, state.typography, issues);
+	if (resolvedTypography) {
+		checkContrast(state.surface, resolvedTypography, issues);
+		checkBackgroundFill(state.backgroundFill, resolvedTypography.paperColor, issues);
+	}
 	checkHoldTime(state.surface, state.marks.timings, flattenedMarks, totalSeconds, issues);
-	checkBackgroundFill(state.backgroundFill, state.typography.paperColor, issues);
 
 	return issues;
 }

@@ -58,6 +58,9 @@
 	const messages = $derived(content.messages ?? []);
 	const contact = $derived((content.author ?? '').trim());
 	const contactInitial = $derived(contact.charAt(0).toUpperCase() || '?');
+	// Pack-immune (ADR-0038): the iMessage artifact must stay pixel-faithful, so
+	// no Pack colour is routed in. The optional paperColor override only selects
+	// the dark/light theme; absent → light, identical to pre-ADR-0038 behaviour.
 	const theme = $derived(isDarkSurfaceColor(engineState.typography?.paperColor ?? '#ffffff') ? 'dark' : 'light');
 	// Read with `?? 'window'` — a schema `.default()` is NOT reliably applied at
 	// runtime for pre-existing presets/state, so absence must mean window here.
@@ -209,6 +212,7 @@
 					<div
 						class="im-bubble im-bubble--tail im-typing"
 						data-from="them"
+						data-message-index={i}
 						style:font-size={`${bodyFontPx}px`}
 						style:padding={`${bodyFontPx * 0.62}px ${bodyFontPx * 0.7}px`}
 						style:gap={`${bodyFontPx * 0.26}px`}
@@ -234,6 +238,7 @@
 						class="im-bubble"
 						class:im-bubble--tail={showTail(i)}
 						data-from={message.from}
+						data-message-index={i}
 						style:font-size={`${bodyFontPx}px`}
 						style:padding={`${bodyFontPx * 0.44}px ${bodyFontPx * 0.66}px`}
 						style:opacity={typing ? 0 : style.opacity}

@@ -276,10 +276,15 @@ const TransportSchema = z.object({
 	format: ExportFormatSchema
 });
 
+// paperColor / inkColor are OPTIONAL overrides (ADR-0038): absent, surfaces
+// resolve the active Pack's core `fill-treatment` / `ink-treatment` through
+// the ADR-0024 chain (see resolveTypographyColors in packs/resolve.ts);
+// present, the explicit hex is an intentional departure that wins over the
+// Pack. Every pre-ADR-0038 preset carries both hexes and parses unchanged.
 const TypographySchema = z.object({
 	fontFamily: FontFamilySchema,
-	paperColor: HexColorSchema,
-	inkColor: HexColorSchema
+	paperColor: HexColorSchema.optional(),
+	inkColor: HexColorSchema.optional()
 });
 
 const MarkAppearanceSchema = z.object({
@@ -672,7 +677,7 @@ const CompositionTransitionSchema = z.object({
 });
 
 // ---- Text animations (ADR-0011) ----
-// Slot enums match the surface / overlay content slots Hiviz ships today plus
+// Slot enums match the surface / overlay content slots Supers ships today plus
 // the chrome-only kicker slot the newspaper surface added in ADR-0008. The
 // `target` discriminated union is parsed at load time; the rules below
 // (per-character → title-scale; layout-aware renderer → title-scale) are
@@ -1145,10 +1150,10 @@ export function createDefaultEngineState(): EngineState {
 			fps: 30,
 			format: 'webm'
 		},
+		// No paperColor / inkColor: a fresh composition carries no typography
+		// colour overrides and rides the active Pack's core fill/ink (ADR-0038).
 		typography: {
-			fontFamily: 'serif',
-			paperColor: '#ffffff',
-			inkColor: '#000000'
+			fontFamily: 'serif'
 		},
 		marks: {
 			defaults: {
@@ -1295,7 +1300,7 @@ export function listMarkInstances(content: SurfaceContent): MarkInstance[] {
 	return result;
 }
 
-export const PRESET_SCHEMA_ID = 'hiviz@1' as const;
+export const PRESET_SCHEMA_ID = 'supers@1' as const;
 
 /**
  * Pack the Preset is bound to (ADR-0014). The active Pack manifest resolves

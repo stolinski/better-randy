@@ -80,6 +80,7 @@
 		resolveDiagramStroke,
 		resolveEdgeTreatment,
 		resolveLightTreatment,
+		resolveTypographyColors,
 		type LightTreatment
 	} from './packs/resolve';
 	import {
@@ -156,7 +157,7 @@
 		const key = posterKey;
 		const localCanvas = canvas;
 		if (!key || !localCanvas || !host) return;
-		if (typeof window !== 'undefined') window.__hivizPosterKey = key;
+		if (typeof window !== 'undefined') window.__supersPosterKey = key;
 		if (capturedPosterKeys.has(key)) return;
 		capturedPosterKeys.add(key);
 		void capturePoster(localCanvas, key);
@@ -309,7 +310,7 @@
 		if (typeof window === 'undefined') {
 			return undefined;
 		}
-		const mgr = window.__hivizTextAnimationManager;
+		const mgr = window.__supersTextAnimationManager;
 		if (!mgr) {
 			return undefined;
 		}
@@ -711,11 +712,20 @@
 		};
 	}
 
+	// The composition's resolved paper/ink (ADR-0038): explicit typography
+	// override → active Pack's core fill/ink-treatment. Derived from
+	// engineState.typography + packState.slug, so a pack switch restyles
+	// every consumer before the re-capture.
+	const resolvedTypographyColors = $derived(
+		resolveTypographyColors(getPack(packState.slug), engineState.typography)
+	);
+
 	// Diagram stroke inputs (ADR-0036): per-element draw scalar + fade alpha,
 	// with the Pack stroke resolved once per frame — the `'ink'` sentinel
-	// substitutes the composition's typography ink so strokes flip with the
-	// preset's declared ink over footage. Channel-owned elements render fully
-	// drawn at their authored opacity (ownership replaces the draw-on form).
+	// substitutes the composition's resolved ink (override → Pack core,
+	// ADR-0038) so strokes flip with the preset's declared ink over footage.
+	// Channel-owned elements render fully drawn at their authored opacity
+	// (ownership replaces the draw-on form).
 	function buildDiagramInputs(): SurfaceRenderInputs['diagram'] {
 		const elements = engineState.surface.diagram;
 		if (!elements || elements.length === 0) {
@@ -740,16 +750,15 @@
 			alphaById,
 			stroke:
 				stroke.color === 'ink'
-					? { ...stroke, color: engineState.typography.inkColor }
+					? { ...stroke, color: resolvedTypographyColors.inkColor }
 					: stroke
 		};
 	}
 
-	// Whether the surface background reads as dark, from its declared paperColor.
-	// `undefined` (no/invalid paperColor) lets the pipeline keep its own default.
+	// Whether the surface background reads as dark, from its resolved paper
+	// (override → Pack core fill, ADR-0038 — always a real colour).
 	function surfaceHighlightIsDark(): boolean | undefined {
-		const paperColor = engineState.typography?.paperColor;
-		return paperColor ? isDarkSurfaceColor(paperColor) : undefined;
+		return isDarkSurfaceColor(resolvedTypographyColors.paperColor);
 	}
 
 	// One unified clip bar (ADR-0034 §2a) from a Layer's enter/exit ramps. The
@@ -983,9 +992,9 @@
 		// paper vanishes against the dark timeline chrome, so fall back to the
 		// ink, which is legible on dark paper by construction (and keeps the
 		// bar's dark label text readable).
-		const surfaceTrackColor = isDarkSurfaceColor(engineState.typography.paperColor)
-			? engineState.typography.inkColor
-			: engineState.typography.paperColor;
+		const surfaceTrackColor = isDarkSurfaceColor(resolvedTypographyColors.paperColor)
+			? resolvedTypographyColors.inkColor
+			: resolvedTypographyColors.paperColor;
 
 		const surfaceChannels = surface.animation?.channels;
 		if (surfaceChannels?.opacity?.length) {
@@ -1860,12 +1869,12 @@
 	}
 
 	// Which plane texture to present. Default is the back-to-front composite; the
-	// `__hivizDofPreviewPlane` debug switch (a verification seam, like
-	// `__hivizTimeline`) lets a capture script screenshot a single plane in
+	// `__supersDofPreviewPlane` debug switch (a verification seam, like
+	// `__supersTimeline`) lets a capture script screenshot a single plane in
 	// isolation to confirm the layers separated correctly before the bokeh stage.
 	function dofInputTexture(planes: CompositionPlanes, surfacePlane: GPUTexture): GPUTexture {
 		if (typeof window !== 'undefined') {
-			const sel = window.__hivizDofPreviewPlane;
+			const sel = window.__supersDofPreviewPlane;
 			if (sel === 'surface') {
 				return surfacePlane;
 			}
@@ -2301,8 +2310,8 @@
 					}
 				});
 				if (typeof window !== 'undefined') {
-					window.__hivizTimeline = timeline;
-					window.__hivizTextAnimationManager = textAnimationManager;
+					window.__supersTimeline = timeline;
+					window.__supersTextAnimationManager = textAnimationManager;
 				}
 				// The inspector's keyframe rows navigate the playhead through this
 				// handle (prev/next jumps + add-at-playhead).
@@ -2573,7 +2582,7 @@
 		animationManager.dispose();
 		textAnimationManager.dispose();
 		if (typeof window !== 'undefined') {
-			window.__hivizTextAnimationManager = undefined;
+			window.__supersTextAnimationManager = undefined;
 			window.removeEventListener('pointermove', onTimelineResizeMove);
 			window.removeEventListener('pointerup', onTimelineResizeEnd);
 		}
@@ -2581,8 +2590,8 @@
 		timeline = null;
 		timelineHandle.current = null;
 		audioPreview.dispose();
-		if (typeof window !== 'undefined' && window.__hivizTimeline) {
-			window.__hivizTimeline = undefined;
+		if (typeof window !== 'undefined' && window.__supersTimeline) {
+			window.__supersTimeline = undefined;
 		}
 		effectChain?.dispose();
 		effectChain = null;
@@ -2721,7 +2730,7 @@
 					renderFrame,
 					audio
 				});
-				downloadVideoBlob(blob, 'hiviz-overlay.mov');
+				downloadVideoBlob(blob, 'supers-overlay.mov');
 			} else {
 				const hasBackground = exportBackground !== undefined;
 				const blob = await exportTransparentWebM({
@@ -2735,7 +2744,7 @@
 					hasBackground,
 					audio
 				});
-				downloadVideoBlob(blob, hasBackground ? 'hiviz-bumper.webm' : 'hiviz-overlay.webm');
+				downloadVideoBlob(blob, hasBackground ? 'supers-bumper.webm' : 'supers-overlay.webm');
 			}
 		} catch (error) {
 			console.error('Unable to export overlay.', error);

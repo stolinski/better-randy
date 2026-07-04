@@ -377,6 +377,39 @@ export function resolveLightTreatment(manifest: PackManifest): LightTreatment | 
 }
 
 /**
+ * Read a mandatory colour core (`fill-treatment` / `ink-treatment`) off a
+ * registered Pack. `validatePackCoreVocabulary` guarantees these exist as
+ * colour strings on every registered Pack at boot, so a miss here is engine
+ * corruption, not a content gap — fail fast, never guess a hex.
+ */
+function requireCoreColor(manifest: PackManifest, core: 'fill-treatment' | 'ink-treatment'): string {
+	const role = manifest.roles[core];
+	if (!role || role.kind !== 'style' || typeof role.value !== 'string') {
+		throw new Error(
+			`Pack "${manifest.slug}" has no string-valued core "${core}" — the boot validator should have rejected this manifest.`
+		);
+	}
+	return role.value;
+}
+
+/**
+ * Resolve the composition's paper/ink colours (ADR-0038): the Preset's
+ * `typography.paperColor` / `inkColor` are optional explicit overrides that
+ * win over the Pack; absent, the active Pack's core `fill-treatment` /
+ * `ink-treatment` supply the values (the ADR-0024 core floor — guaranteed
+ * present on every registered Pack by the boot validator).
+ */
+export function resolveTypographyColors(
+	manifest: PackManifest,
+	typography: { paperColor?: string; inkColor?: string }
+): { paperColor: string; inkColor: string } {
+	return {
+		paperColor: typography.paperColor ?? requireCoreColor(manifest, 'fill-treatment'),
+		inkColor: typography.inkColor ?? requireCoreColor(manifest, 'ink-treatment')
+	};
+}
+
+/**
  * Resolve a Pack colour Role to an `"R G B"` channel triplet, for composing the
  * *same* colour at several alphas in CSS (`rgb(var(--x) / <a>)`) — the cases the
  * whole-colour var path (`resolveAppearanceVars`) can't carry: gradient stops
@@ -392,9 +425,11 @@ export function resolveLightTreatment(manifest: PackManifest): LightTreatment | 
  * The Pack-resolved diagram stroke (ADR-0036 §4): how edge-arrows and
  * timeline-segments are drawn under the active Pack — hand-drawn marker feel,
  * clean printed rule, or phosphor plotter line. `color` may be a hex or the
- * `'ink'` sentinel (resolved by the consumer to the composition's
- * `typography.inkColor`, the same channel body text rides — so a stroke stays
- * legible over footage where the preset already flipped its ink light).
+ * `'ink'` sentinel (resolved by the consumer to the composition's resolved ink
+ * — the `typography.inkColor` override when authored, else the Pack's core
+ * `ink-treatment` via `resolveTypographyColors` (ADR-0038) — the same channel
+ * body text rides, so a stroke stays legible over footage where the preset
+ * already flipped its ink light).
  * `wobble` scales the Marks' deterministic-imperfection formula (0 = dead
  * straight); `widthPx` is 4K-reference like every other structural Role.
  */

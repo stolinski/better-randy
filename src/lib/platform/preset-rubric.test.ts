@@ -8,9 +8,26 @@
  */
 
 import assert from 'node:assert/strict';
+import { registerHooks } from 'node:module';
 
-import { lintPreset, type RubricIssue } from './preset-rubric.ts';
-import type { Preset } from './engine-schema.ts';
+// The rubric resolves absent typography colours through the Pack registry
+// (ADR-0038), whose manifests transitively import @fontsource side-effect
+// stylesheets — stub `.css` modules so the chain loads outside Vite (same
+// hook as scripts/verify-presets.ts).
+registerHooks({
+	load(url, context, nextLoad) {
+		if (url.endsWith('.css')) {
+			return { format: 'module', source: '', shortCircuit: true };
+		}
+		return nextLoad(url, context);
+	}
+});
+
+// Dynamic import: a static one is hoisted above `registerHooks`, so the css
+// chain would load before the stub exists.
+const { lintPreset } = await import('./preset-rubric.ts');
+type RubricIssue = import('./preset-rubric.ts').RubricIssue;
+type Preset = import('./engine-schema.ts').Preset;
 
 const MARKED_BODY = [
 	{
@@ -25,7 +42,7 @@ function makePreset(partial: {
 	timings?: unknown[];
 }): Preset {
 	return {
-		schema: 'hiviz@1',
+		schema: 'supers@1',
 		name: 'rubric fixture',
 		pack: 'syntax',
 		kind: 'fixture',

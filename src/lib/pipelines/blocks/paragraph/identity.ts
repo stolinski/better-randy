@@ -42,13 +42,13 @@ export const paragraphIdentity: IdentitySpec = {
 		{
 			name: 'fill-treatment',
 			implementation:
-				'src/lib/platform/engine-schema.ts (TypographySchema.inkColor) — body ink driven by engineState.typography.inkColor.',
+				'src/lib/platform/packs/resolve.ts (resolveTypographyColors, ADR-0038) — body ink resolves the optional engineState.typography.inkColor override → the active Pack’s core ink-treatment.',
 			definition: 'Body ink colour.',
 			probe: {
 				kind: 'named-observation',
 				region: 'body text colour',
 				expectation:
-					'ink colour resolves through engineState.typography.inkColor (TypographySchema.inkColor), not a Pack Role.'
+					'ink colour resolves override → Pack core (ADR-0038): an authored typography.inkColor wins; absent, the active Pack’s core ink-treatment paints the body.'
 			}
 		},
 		{
