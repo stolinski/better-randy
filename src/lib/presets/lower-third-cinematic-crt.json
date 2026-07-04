@@ -1,0 +1,57 @@
+{
+	"schema": "supers@1",
+	"name": "Lower-third \u2014 cinematic with anamorphic flare \u2014 CRT Terminal",
+	"description": "Broadcast-grade lower-third using the lower-third family's `cinematic` variant per ADR-0020. The family's shaderPass adds a constant warm rim glow at the lower-left (implying an off-frame key light), gated to the cinematic variant via a flareEnabled uniform. The anamorphic entrance flare was removed by design \u2014 at its peak it read as a line straight through the name. Same recipe as lower-third-cinematic, published under the crt-terminal Pack \u2014 the ADR-0038 multi-pack integration demo.",
+	"pack": "crt-terminal",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			}
+		},
+		"overlays": [
+			{
+				"type": "lower-third",
+				"id": "main",
+				"content": {
+					"variant": "cinematic",
+					"kicker": "GUEST",
+					"title": "Rich Harris",
+					"subtitle": "Creator of Svelte"
+				},
+				"position": {
+					"anchor": "bottom-left",
+					"offset": {
+						"x": 0.06,
+						"y": 0.115
+					}
+				},
+				"enter": {
+					"start": 0.04,
+					"duration": 0.058,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.88,
+					"duration": 0.041,
+					"ease": "smooth"
+				}
+			}
+		],
+		"effects": []
+	}
+}

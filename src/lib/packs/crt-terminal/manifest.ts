@@ -103,7 +103,7 @@ export const crtTerminalPack: PackManifest = {
 		// dim-phosphor hairline at persistence alpha.
 		'chapter-card.ink': { kind: 'style', value: '#45ff6e' },
 		'chapter-card.base': { kind: 'style', value: '#d9ffe0' },
-		'chapter-card.kicker': { kind: 'style', value: '#1e8f3d' },
+		'chapter-card.kicker': { kind: 'style', value: '#2fb352' },
 		'chapter-card.rule': { kind: 'style', value: 'rgba(30, 143, 61, 0.62)' },
 		// WGSL backdrop: near-black glass with a green cast top and floor (one
 		// hue — no warm charcoal), and the "key light" tint is phosphor emission
@@ -118,7 +118,7 @@ export const crtTerminalPack: PackManifest = {
 		// dim status voice. Backdrop gradient stays glass-black-green; the
 		// directional light and entrance sweep are brighter phosphor, never warm.
 		'pullquote-on-photo.ink': { kind: 'style', value: '#d9ffe0' },
-		'pullquote-on-photo.byline': { kind: 'style', value: '#1e8f3d' },
+		'pullquote-on-photo.byline': { kind: 'style', value: '#2fb352' },
 		'pullquote-on-photo.backdrop': {
 			kind: 'style',
 			value: { top: '#030704', bottom: '#050b07', light: '#67f58b', sweep: '#a9ffbe' }
@@ -132,7 +132,7 @@ export const crtTerminalPack: PackManifest = {
 		'newspaper.fill': { kind: 'style', value: '#070b08' },
 		'newspaper.ink': { kind: 'style', value: '#45ff6e' },
 		'newspaper.accent': { kind: 'style', value: '#d9ffe0' },
-		'newspaper.kicker-ink': { kind: 'style', value: '#1e8f3d' },
+		'newspaper.kicker-ink': { kind: 'style', value: '#2fb352' },
 		'newspaper.edge': { kind: 'style', value: 'none' },
 		// WGSL print physics tinted ghost-green-black: halftone "ink" and the
 		// edge-occlusion tone both sit between ghost and glass — no warm
@@ -144,7 +144,12 @@ export const crtTerminalPack: PackManifest = {
 		// glass. The off-frame glow is pure phosphor — the tube lighting its own
 		// room.
 		'title-sequence.ink': { kind: 'style', value: '#d9ffe0' },
-		'title-sequence.kicker': { kind: 'style', value: '#1e8f3d' },
+		// Driven phosphor, not mid-excitation: the kicker sits in the vignette's
+		// bite under the 0.88 pipeline opacity + scanline stack (~0.68 combined),
+		// so #2fb352 lands ~3.7:1 (measured) — full phosphor clears G5 with the
+		// ladder intact (title stays hot-core above it; the status-line voice is
+		// carried by size/caps/tracking, not dimness).
+		'title-sequence.kicker': { kind: 'style', value: '#45ff6e' },
 		'title-sequence.backdrop': {
 			kind: 'style',
 			value: { top: '#020503', bottom: '#040a06', glow: '#45ff6e' }
@@ -159,7 +164,7 @@ export const crtTerminalPack: PackManifest = {
 		'type-hero.text-base': { kind: 'style', value: '#45ff6e' },
 		'type-hero.ink': { kind: 'style', value: '#d9ffe0' },
 		'type-hero.accent': { kind: 'style', value: '#d9ffe0' },
-		'type-hero.byline': { kind: 'style', value: '#1e8f3d' },
+		'type-hero.byline': { kind: 'style', value: '#2fb352' },
 		'type-hero.backdrop': {
 			kind: 'style',
 			value: {
@@ -204,7 +209,11 @@ export const crtTerminalPack: PackManifest = {
 		// the role line is the dim status voice. One hue, three excitations.
 		'lower-third.accent': { kind: 'style', value: '#45ff6e' },
 		'lower-third.ink': { kind: 'style', value: '#d9ffe0' },
-		'lower-third.roleInk': { kind: 'style', value: '#1e8f3d' },
+		// Role line: a mid excitation between dim and driven phosphor — dim
+		// (#1e8f3d) fails the G5 4.5:1 floor at subtitle size against the
+		// glass plate (Critic 2026-07-04); #2fb352 clears it (~7:1) while
+		// staying visibly below the driven-phosphor kicker in the ladder.
+		'lower-third.roleInk': { kind: 'style', value: '#2fb352' },
 		// Plate chrome: the plate is a small powered-off screen (near-opaque
 		// glass with the green cast), the cinematic scrim composes the same glass
 		// at several alphas.

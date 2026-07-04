@@ -1,0 +1,250 @@
+{
+	"generatedAt": "2026-07-04T23:55:40.594Z",
+	"packs": {
+		"a": "syntax",
+		"b": "crt-terminal"
+	},
+	"thresholds": {
+		"changedPctMin": 0.25,
+		"perChannelDelta": 8,
+		"captureScale": 0.25
+	},
+	"coverage": [
+		{
+			"pipeline": "surface:newspaper",
+			"preset": "server-renders-again",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "surface:paper",
+			"preset": "research-paper-critique",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "surface:plain",
+			"preset": "docu-flowchart",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "surface:chapter-card",
+			"preset": "chapter-card-cinematic",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "surface:pullquote-on-photo",
+			"preset": "pullquote-cinematic",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "surface:title-sequence",
+			"preset": "title-sequence-drop",
+			"diffPct": "26.42%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "surface:type-hero",
+			"preset": "cursor-trail-title-sweep",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "surface:web-document",
+			"preset": "—",
+			"diffPct": "—",
+			"status": "immune (exempt)"
+		},
+		{
+			"pipeline": "surface:imessage",
+			"preset": "—",
+			"diffPct": "—",
+			"status": "immune (exempt)"
+		},
+		{
+			"pipeline": "block:paragraph",
+			"preset": "research-paper-critique",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "block:node",
+			"preset": "docu-flowchart",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "block:edge-arrow",
+			"preset": "docu-flowchart",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "block:label",
+			"preset": "docu-flowchart",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "block:stat-callout",
+			"preset": "docu-stat-build",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "block:timeline-segment",
+			"preset": "docu-timeline-build",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "annotation:box",
+			"preset": "—",
+			"diffPct": "—",
+			"status": "GAP (no covering preset)"
+		},
+		{
+			"pipeline": "annotation:circle",
+			"preset": "research-paper-critique",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "annotation:highlight",
+			"preset": "research-paper-critique",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "annotation:isolate",
+			"preset": "isolate-demo",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "annotation:lift-out",
+			"preset": "quote-lift-out",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "annotation:magnify",
+			"preset": "quote-magnify",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "annotation:side-note",
+			"preset": "quote-magnify",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "annotation:strike",
+			"preset": "—",
+			"diffPct": "—",
+			"status": "GAP (no covering preset)"
+		},
+		{
+			"pipeline": "annotation:tear-out",
+			"preset": "quote-tear-out",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "annotation:underline",
+			"preset": "research-paper-critique",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "overlay:counter",
+			"preset": "counter-milestone",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "overlay:cursor-trail",
+			"preset": "cursor-trail-title-sweep",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "overlay:instance-stack",
+			"preset": "instance-stack-vertical",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "overlay:lower-third",
+			"preset": "lower-third-cinematic",
+			"diffPct": "1.01%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "overlay:text-3d",
+			"preset": "text-3d-cylinder",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "overlay:shader-fill",
+			"preset": "—",
+			"diffPct": "—",
+			"status": "immune (exempt)"
+		},
+		{
+			"pipeline": "overlay:washi-tape",
+			"preset": "server-renders-again",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		},
+		{
+			"pipeline": "overlay:watermark",
+			"preset": "text-3d-cylinder",
+			"diffPct": "—",
+			"status": "skipped (--only)"
+		}
+	],
+	"presets": [
+		{
+			"slug": "lower-third-cinematic",
+			"packA": "syntax",
+			"packB": "crt-terminal",
+			"progress": 0.5,
+			"timelineTime": 3,
+			"captures": [
+				"docs/critic-captures/crt-rerender/lower-third-cinematic--syntax.png",
+				"docs/critic-captures/crt-rerender/lower-third-cinematic--crt-terminal.png"
+			],
+			"stats": {
+				"width": 960,
+				"height": 539,
+				"meanAbsDiff": 0.0036,
+				"changedPct": 1.01
+			},
+			"error": null
+		},
+		{
+			"slug": "title-sequence-drop",
+			"packA": "syntax",
+			"packB": "crt-terminal",
+			"progress": 0.5,
+			"timelineTime": 3,
+			"captures": [
+				"docs/critic-captures/crt-rerender/title-sequence-drop--syntax.png",
+				"docs/critic-captures/crt-rerender/title-sequence-drop--crt-terminal.png"
+			],
+			"stats": {
+				"width": 960,
+				"height": 539,
+				"meanAbsDiff": 0.05013,
+				"changedPct": 26.42
+			},
+			"error": null
+		}
+	]
+}

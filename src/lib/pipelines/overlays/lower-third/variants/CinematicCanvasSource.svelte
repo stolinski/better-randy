@@ -78,12 +78,15 @@
 	}
 
 	/* Pack scrim colour at three alphas — --scrim-rgb is always set inline by
-	   the script's channel resolution above. */
+	   the script's channel resolution above. The plate holds ≥0.9 alpha through
+	   88% — past the tracked subtitle's text extent — before fading, so no
+	   glyph ever sits in the fade-to-zero zone over worst-case footage (G5;
+	   the 70%-stop geometry let the subtitle tail run into scrim α≈0.4). */
 	.lower-third--cinematic__scrim {
 		background: linear-gradient(
 			90deg,
 			rgb(var(--scrim-rgb) / 0.94) 0%,
-			rgb(var(--scrim-rgb) / 0.9) 70%,
+			rgb(var(--scrim-rgb) / 0.9) 88%,
 			rgb(var(--scrim-rgb) / 0) 100%
 		);
 		grid-column: 1 / -1;
