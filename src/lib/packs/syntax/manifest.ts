@@ -71,11 +71,25 @@ export const syntaxPack: PackManifest = {
 		'chapter-card.base': { kind: 'style', value: '#f4ecdc' },
 		'chapter-card.kicker': { kind: 'style', value: '#d8c4a0' },
 		'chapter-card.rule': { kind: 'style', value: 'rgba(216, 196, 160, 0.62)' },
+		// WGSL backdrop tints (render-is-truth — exact byte conversions of the
+		// vec3f constants the chapter-card-backdrop pass shipped with): slate top,
+		// warmer charcoal floor, warm upper-right key light.
+		'chapter-card.backdrop': {
+			kind: 'style',
+			value: { top: '#0e1219', bottom: '#171310', light: '#f0b875' }
+		},
 
 		// ---------------- pullquote-on-photo Surface ----------------
 		// Consumed color Roles (render-is-truth — match what CanvasSource paints).
 		'pullquote-on-photo.ink': { kind: 'style', value: '#ffffff' },
 		'pullquote-on-photo.byline': { kind: 'style', value: '#f4ecdc' },
+		// WGSL backdrop tints (render-is-truth — exact byte conversions of the
+		// pullquote-photo-backdrop pass's vec3f constants): near-black gradient,
+		// warm-neutral upper-left light, warm entrance sweep band.
+		'pullquote-on-photo.backdrop': {
+			kind: 'style',
+			value: { top: '#08090d', bottom: '#0d0b0a', light: '#c7bd9e', sweep: '#ebdbbd' }
+		},
 
 		// ---------------- newspaper Surface ----------------
 		// Consumed color Roles (render-is-truth — match what CanvasSource paints).
@@ -102,6 +116,10 @@ export const syntaxPack: PackManifest = {
 			kind: 'style',
 			value: { hardOffset: { dx: 12, dy: 12, blur: 0, color: 'fg' } }
 		},
+		// WGSL print tints (render-is-truth — exact byte conversions of the
+		// newspaper-physics pass's vec3f constants): cool near-black halftone
+		// ink, faintly warm edge-occlusion shadow.
+		'newspaper.print': { kind: 'style', value: { ink: '#0a0a0d', shadow: '#0d0a0a' } },
 
 		// ---------------- title-sequence Surface ----------------
 		'title-sequence.edge': { kind: 'style', value: 'none' },
@@ -110,6 +128,13 @@ export const syntaxPack: PackManifest = {
 		// Consumed color Roles (render-is-truth — match what CanvasSource paints).
 		'title-sequence.ink': { kind: 'style', value: '#fffaf0' },
 		'title-sequence.kicker': { kind: 'style', value: '#d8a87a' },
+		// WGSL backdrop tints (render-is-truth — exact byte conversions of the
+		// title-sequence-drop pass's vec3f constants): deep cinema black with a
+		// cool-top / warm-floor lean, warm upper-right key glow.
+		'title-sequence.backdrop': {
+			kind: 'style',
+			value: { top: '#040508', bottom: '#070504', glow: '#eb9457' }
+		},
 
 		// ---------------- type-hero Surface ----------------
 		'type-hero.edge': { kind: 'style', value: 'clean-vector' },
@@ -119,6 +144,20 @@ export const syntaxPack: PackManifest = {
 		'type-hero.ink': { kind: 'style', value: '#fffaf2' },
 		'type-hero.accent': { kind: 'style', value: '#f4a85e' },
 		'type-hero.byline': { kind: 'style', value: '#d8c4a0' },
+		// WGSL backdrop tints (render-is-truth — exact byte conversions of the
+		// type-hero-rake pass's vec3f constants): near-black gradient, warm/cool
+		// drifting atmosphere bands, warm-white particle motes. The letterform
+		// rim/carve grade vectors stay intrinsic to the pass (signed channels).
+		'type-hero.backdrop': {
+			kind: 'style',
+			value: {
+				top: '#050507',
+				bottom: '#070605',
+				warmBand: '#b8753d',
+				coolBand: '#4d6b94',
+				particle: '#e0cc9e'
+			}
+		},
 
 		// ---------------- paragraph Block ----------------
 		// Glyph material claim (rides the optional `material-treatment` core
@@ -129,8 +168,9 @@ export const syntaxPack: PackManifest = {
 		// ---------------- Diagram Blocks (ADR-0036) ----------------
 		// One pen for the whole diagram: the hand-drawn marker feel (Q6
 		// deterministic imperfection — wobble 1) in the composition's ink (the
-		// 'ink' sentinel resolves to typography.inkColor, so strokes flip with
-		// the preset over footage). Arrowheads are solid marker triangles.
+		// 'ink' sentinel resolves to the typography.inkColor override → core
+		// ink-treatment, ADR-0038 — so strokes flip with the preset over
+		// footage). Arrowheads are solid marker triangles.
 		'diagram.stroke': { kind: 'style', value: { color: 'ink', widthPx: 12, wobble: 1 } },
 		'diagram.arrowhead': { kind: 'style', value: 'solid-triangle' },
 		// Node forms: white collage-card boxes (the zine cut-out), accent pins
@@ -181,6 +221,10 @@ export const syntaxPack: PackManifest = {
 		'lower-third.edge': { kind: 'style', value: { rule: 'vertical-accent', color: '#fabf47' } },
 		'lower-third.depth': { kind: 'style', value: 'flat' },
 		'lower-third.light': { kind: 'style', value: { standard: 'none', cinematic: 'anamorphic-flare' } },
+		// WGSL rim tint for the cinematic variant's resting glow (render-is-truth
+		// — exact byte conversion of the flare pass's vec3f constant): warm
+		// off-frame key from the lower-left.
+		'lower-third.flare': { kind: 'style', value: { rim: '#f2bd75' } },
 
 		// ---------------- motion-primitives v1 (Phase 4.2-4.4) ----------------
 		'cursor-trail.pointer': { kind: 'style', value: 'mac-pointer' },

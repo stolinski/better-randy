@@ -1,8 +1,11 @@
 import { d } from 'typegpu';
 
 import { animState } from '$lib/platform/anim-state.svelte';
+import { packState } from '$lib/platform/engine-state.svelte';
+import { getPack } from '$lib/platform/packs/registry';
 import type { ShaderPass } from '$lib/platform/pipelines/types';
 import type { SurfaceState } from '$lib/platform/engine-schema';
+import { resolveRoleColorFloat } from '$lib/utils/color';
 import { hashStringToUnitInterval } from '$lib/utils/seeded';
 
 /**
@@ -34,7 +37,14 @@ export const TypeHeroRakeUniforms = d.struct({
 	progress: d.f32,
 	canvasWidth: d.f32,
 	canvasHeight: d.f32,
-	paperVisibility: d.f32
+	paperVisibility: d.f32,
+	// Pack-routed backdrop tints (the `type-hero.backdrop` Role): gradient
+	// top/bottom, the two drifting atmosphere bands, and the particle motes.
+	topColor: d.vec3f,
+	bottomColor: d.vec3f,
+	warmBandColor: d.vec3f,
+	coolBandColor: d.vec3f,
+	particleColor: d.vec3f
 });
 
 export interface TypeHeroRakeParams {
@@ -43,10 +53,27 @@ export interface TypeHeroRakeParams {
 	canvasWidth: number;
 	canvasHeight: number;
 	paperVisibility: number;
+	topColor: ReturnType<typeof d.vec3f>;
+	bottomColor: ReturnType<typeof d.vec3f>;
+	warmBandColor: ReturnType<typeof d.vec3f>;
+	coolBandColor: ReturnType<typeof d.vec3f>;
+	particleColor: ReturnType<typeof d.vec3f>;
 }
 
 const FALLBACK_CANVAS_WIDTH = 3840;
 const FALLBACK_CANVAS_HEIGHT = 2160;
+
+// Neutral achromatic fallbacks when the active Pack doesn't claim the
+// `type-hero.backdrop` Role (ADR-0024 structural posture: a Pack opts INTO a
+// backdrop character; absence never falls back to Syntax warmth). Each is the
+// Rec.709 luminance of the original constant with zero chroma — the two
+// atmosphere bands keep their value split (band A brighter than band B) so
+// the parallax drift still reads, just without hue.
+const NEUTRAL_TOP_COLOR: readonly [number, number, number] = [0.0202, 0.0202, 0.0202];
+const NEUTRAL_BOTTOM_COLOR: readonly [number, number, number] = [0.023, 0.023, 0.023];
+const NEUTRAL_WARM_BAND_COLOR: readonly [number, number, number] = [0.4994, 0.4994, 0.4994];
+const NEUTRAL_COOL_BAND_COLOR: readonly [number, number, number] = [0.406, 0.406, 0.406];
+const NEUTRAL_PARTICLE_COLOR: readonly [number, number, number] = [0.804, 0.804, 0.804];
 
 const wgsl = /* wgsl */ `
 	let seed = layout.$.uniforms.seed;
@@ -59,24 +86,26 @@ const wgsl = /* wgsl */ `
 
 	// ----- Backdrop -----
 	//
-	// Near-black base with a small vertical depth lean (top slightly cooler,
-	// bottom slightly warmer). Backdrop stays out of the type's way; the
+	// Near-black base with a small vertical depth lean. Tints are Pack-routed
+	// (the type-hero.backdrop Role) — Syntax reads top slightly cooler,
+	// bottom slightly warmer. Backdrop stays out of the type's way; the
 	// drift motion goes ON TOP of this base in the next stages.
-	let topColor = vec3f(0.018, 0.020, 0.028);
-	let bottomColor = vec3f(0.028, 0.022, 0.018);
+	let topColor = layout.$.uniforms.topColor;
+	let bottomColor = layout.$.uniforms.bottomColor;
 	let baseColor = mix(topColor, bottomColor, in.uv.y);
 
 	// ----- Drifting atmospheric bands -----
 	//
-	// Two soft elliptical glows (one warm, one cool) traverse the frame at
-	// different rates. Creates the sense of light moving through atmospheric
-	// haze BEHIND the type. The type stays anchored; the atmosphere drifts.
+	// Two soft elliptical glows traverse the frame at different rates. Creates
+	// the sense of light moving through atmospheric haze BEHIND the type. The
+	// type stays anchored; the atmosphere drifts. Band colours are Pack-routed
+	// (the type-hero.backdrop Role) — Syntax splits them warm / cool.
 	let warmBandX = fract(t * 0.35) * 1.3 - 0.15;
 	let warmBandDx = (in.uv.x - warmBandX);
 	let warmBandDy = (in.uv.y - 0.55) * 0.6;
 	let warmBandDist = sqrt(warmBandDx * warmBandDx + warmBandDy * warmBandDy) / 0.28;
 	let warmBandStrength = max(0.0, 1.0 - warmBandDist);
-	let warmBandColor = vec3f(0.72, 0.46, 0.24);
+	let warmBandColor = layout.$.uniforms.warmBandColor;
 	let withWarmBand = baseColor + warmBandColor * warmBandStrength * 0.13;
 
 	let coolBandX = fract(t * 0.22 + 0.5) * 1.3 - 0.15;
@@ -84,7 +113,7 @@ const wgsl = /* wgsl */ `
 	let coolBandDy = (in.uv.y - 0.40) * 0.6;
 	let coolBandDist = sqrt(coolBandDx * coolBandDx + coolBandDy * coolBandDy) / 0.32;
 	let coolBandStrength = max(0.0, 1.0 - coolBandDist);
-	let coolBandColor = vec3f(0.30, 0.42, 0.58);
+	let coolBandColor = layout.$.uniforms.coolBandColor;
 	let withBothBands = withWarmBand + coolBandColor * coolBandStrength * 0.09;
 
 	// ----- Drifting particle field -----
@@ -110,7 +139,7 @@ const wgsl = /* wgsl */ `
 		let pd = sqrt(pdx * pdx + pdy * pdy);
 		particles = particles + max(0.0, 1.0 - pd / particleSize) * particleFade;
 	}
-	let particleColor = vec3f(0.88, 0.80, 0.62);
+	let particleColor = layout.$.uniforms.particleColor;
 	let withParticles = withBothBands + particleColor * particles * 0.55;
 
 	let driftedBackdrop = withParticles;
@@ -171,6 +200,9 @@ const wgsl = /* wgsl */ `
 	let awayFacing = max(0.0, -lightAlignment);
 	let rimStrength = clamp(pow(litFacing, 1.3) * edgeMagnitude * 1.5, 0.0, 0.85);
 	let carveStrength = clamp(pow(awayFacing, 1.45) * edgeMagnitude * 1.25, 0.0, 0.42);
+	// rimTint / coolShadow are signed grade VECTORS (negative channels), not
+	// colours — they carry the rake's warm-key / cool-counter split and stay
+	// intrinsic to the pass, NOT Pack Roles (a hex Role can't express them).
 	let rimTint = vec3f(0.17, 0.05, -0.12);    // warm amber on the lit edge
 	let coolShadow = vec3f(-0.05, -0.02, 0.09); // cool counter-tone on the away edge
 
@@ -221,6 +253,9 @@ export function createTypeHeroRakePass(): ShaderPass<SurfaceState> {
 		packUniforms(target, bounds, ctx) {
 			const seedSource = target.content.title ?? target.type;
 			const seed = hashStringToUnitInterval(seedSource);
+			// Uniforms pack per frame, so a Pack switch takes effect without extra
+			// reactivity — read the active Pack imperatively here.
+			const backdropRole = getPack(packState.slug).roles['type-hero.backdrop'];
 			return {
 				seed,
 				progress: ctx.progress,
@@ -228,7 +263,20 @@ export function createTypeHeroRakePass(): ShaderPass<SurfaceState> {
 				canvasHeight: bounds.height > 0 ? bounds.height : FALLBACK_CANVAS_HEIGHT,
 				// Surface fade applied on the GPU (capture can't rasterize element
 				// opacity<1). Read imperatively during render.
-				paperVisibility: animState.paperVisibility
+				paperVisibility: animState.paperVisibility,
+				topColor: d.vec3f(...resolveRoleColorFloat(backdropRole, 'top', NEUTRAL_TOP_COLOR)),
+				bottomColor: d.vec3f(
+					...resolveRoleColorFloat(backdropRole, 'bottom', NEUTRAL_BOTTOM_COLOR)
+				),
+				warmBandColor: d.vec3f(
+					...resolveRoleColorFloat(backdropRole, 'warmBand', NEUTRAL_WARM_BAND_COLOR)
+				),
+				coolBandColor: d.vec3f(
+					...resolveRoleColorFloat(backdropRole, 'coolBand', NEUTRAL_COOL_BAND_COLOR)
+				),
+				particleColor: d.vec3f(
+					...resolveRoleColorFloat(backdropRole, 'particle', NEUTRAL_PARTICLE_COLOR)
+				)
 			} satisfies TypeHeroRakeParams;
 		}
 	};

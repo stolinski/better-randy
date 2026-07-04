@@ -1,7 +1,10 @@
 import { d } from 'typegpu';
 
+import { packState } from '$lib/platform/engine-state.svelte';
+import { getPack } from '$lib/platform/packs/registry';
 import type { ShaderPass } from '$lib/platform/pipelines/types';
 import type { LowerThirdContent } from '$lib/pipelines/overlays/lower-third';
+import { resolveRoleColorFloat } from '$lib/utils/color';
 
 /**
  * `cinematic-lower-third-flare` — Overlay-side shader pass (ADR-0005) that
@@ -23,7 +26,10 @@ export const CinematicLowerThirdFlareUniforms = d.struct({
 	progress: d.f32,
 	flareEnabled: d.u32,
 	boundsUvMin: d.vec2f,
-	boundsUvMax: d.vec2f
+	boundsUvMax: d.vec2f,
+	// Pack-routed rim tint (the `lower-third.flare` Role): the implied
+	// off-frame key light's colour.
+	rimColor: d.vec3f
 });
 
 export interface CinematicLowerThirdFlareParams {
@@ -31,7 +37,14 @@ export interface CinematicLowerThirdFlareParams {
 	flareEnabled: number;
 	boundsUvMin: ReturnType<typeof d.vec2f>;
 	boundsUvMax: ReturnType<typeof d.vec2f>;
+	rimColor: ReturnType<typeof d.vec3f>;
 }
+
+// Neutral achromatic fallback when the active Pack doesn't claim the
+// `lower-third.flare` Role (ADR-0024 structural posture: a Pack opts INTO a
+// light character; absence never falls back to Syntax warmth). Rec.709
+// luminance of the original constant with zero chroma.
+const NEUTRAL_RIM_COLOR: readonly [number, number, number] = [0.7644, 0.7644, 0.7644];
 
 const wgsl = /* wgsl */ `
 	let uvMin = layout.$.uniforms.boundsUvMin;
@@ -53,13 +66,14 @@ const wgsl = /* wgsl */ `
 	let localUv = (in.uv - uvMin) / span;
 
 	// ----- Resting rim glow (lower-left) -----
-	// Constant warm glow implying an off-frame key light. The anamorphic
-	// entrance flare that used to sweep across the plate was removed — at its
-	// peak it read as a line straight through the name.
+	// Constant glow implying an off-frame key light, colour Pack-routed (the
+	// lower-third.flare Role). The anamorphic entrance flare that used to
+	// sweep across the plate was removed — at its peak it read as a line
+	// straight through the name.
 	let rimSource = vec2f(0.0, 1.0);
 	let rimDist = length((localUv - rimSource));
 	let rimFalloff = (1.0 - smoothstep(0.0, 0.45, rimDist));
-	let rimColor = vec3f(0.95, 0.74, 0.46);
+	let rimColor = layout.$.uniforms.rimColor;
 	let rimRgb = rimColor * rimFalloff * 0.12;
 
 	return vec4f(inputSample.rgb + rimRgb, inputSample.a);
@@ -69,6 +83,9 @@ export const cinematicLowerThirdFlare: ShaderPass<LowerThirdContent> = {
 	uniforms: CinematicLowerThirdFlareUniforms,
 	wgsl,
 	packUniforms(content, bounds, { progress, canvasWidth, canvasHeight }) {
+		// Uniforms pack per frame, so a Pack switch takes effect without extra
+		// reactivity — read the active Pack imperatively here.
+		const flareRole = getPack(packState.slug).roles['lower-third.flare'];
 		return {
 			progress,
 			flareEnabled: content.variant === 'cinematic' ? 1 : 0,
@@ -76,7 +93,8 @@ export const cinematicLowerThirdFlare: ShaderPass<LowerThirdContent> = {
 			boundsUvMax: d.vec2f(
 				(bounds.x + bounds.width) / canvasWidth,
 				(bounds.y + bounds.height) / canvasHeight
-			)
+			),
+			rimColor: d.vec3f(...resolveRoleColorFloat(flareRole, 'rim', NEUTRAL_RIM_COLOR))
 		} satisfies CinematicLowerThirdFlareParams;
 	}
 };

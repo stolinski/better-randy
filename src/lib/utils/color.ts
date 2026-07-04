@@ -58,6 +58,38 @@ export function isDarkSurfaceColor(hex: string): boolean {
 	}
 }
 
+/**
+ * Read a named hex tint out of a Pack style Role whose value is an object of
+ * named colours (e.g. `'chapter-card.backdrop': { kind: 'style', value:
+ * { top: '#0e1219', … } }`) and convert it to `[r, g, b]` floats for a WGSL
+ * uniform. Structural-Role posture (same philosophy as
+ * `resolveDepthTreatment`): a Pack OPTS INTO a shader-tint character
+ * explicitly; when the Role is absent, malformed, or the named entry isn't a
+ * parseable hex, the caller's neutral achromatic `fallback` applies — never
+ * another Pack's character.
+ */
+export function resolveRoleColorFloat(
+	role: unknown,
+	key: string,
+	fallback: readonly [number, number, number]
+): [number, number, number] {
+	if (role !== null && typeof role === 'object' && (role as { kind?: unknown }).kind === 'style') {
+		const value = (role as { value?: unknown }).value;
+		if (value !== null && typeof value === 'object') {
+			const entry = (value as Record<string, unknown>)[key];
+			if (typeof entry === 'string') {
+				try {
+					const [red, green, blue] = hexToRgbaFloat(entry);
+					return [red, green, blue];
+				} catch {
+					// Not a parseable hex — fall through to the neutral fallback.
+				}
+			}
+		}
+	}
+	return [fallback[0], fallback[1], fallback[2]];
+}
+
 export function getCanvasRgbColor(color: string, opacity: number): string {
 	const { red, green, blue } = getRgbColorChannels(color);
 	const alpha = clampNumber(opacity, 0, 1);

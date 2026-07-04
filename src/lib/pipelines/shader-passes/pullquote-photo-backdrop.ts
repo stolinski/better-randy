@@ -1,8 +1,11 @@
 import { d } from 'typegpu';
 
 import { animState } from '$lib/platform/anim-state.svelte';
+import { packState } from '$lib/platform/engine-state.svelte';
+import { getPack } from '$lib/platform/packs/registry';
 import type { ShaderPass } from '$lib/platform/pipelines/types';
 import type { SurfaceState } from '$lib/platform/engine-schema';
+import { resolveRoleColorFloat } from '$lib/utils/color';
 import { hashStringToUnitInterval } from '$lib/utils/seeded';
 
 /**
@@ -36,7 +39,13 @@ export const PullquotePhotoBackdropUniforms = d.struct({
 	canvasHeight: d.f32,
 	paperVisibility: d.f32,
 	enterStart: d.f32,
-	enterDuration: d.f32
+	enterDuration: d.f32,
+	// Pack-routed backdrop tints (the `pullquote-on-photo.backdrop` Role):
+	// gradient top/bottom, the directional light, and the entrance sweep band.
+	topColor: d.vec3f,
+	bottomColor: d.vec3f,
+	lightColor: d.vec3f,
+	sweepColor: d.vec3f
 });
 
 export interface PullquotePhotoBackdropParams {
@@ -47,10 +56,23 @@ export interface PullquotePhotoBackdropParams {
 	paperVisibility: number;
 	enterStart: number;
 	enterDuration: number;
+	topColor: ReturnType<typeof d.vec3f>;
+	bottomColor: ReturnType<typeof d.vec3f>;
+	lightColor: ReturnType<typeof d.vec3f>;
+	sweepColor: ReturnType<typeof d.vec3f>;
 }
 
 const FALLBACK_CANVAS_WIDTH = 3840;
 const FALLBACK_CANVAS_HEIGHT = 2160;
+
+// Neutral achromatic fallbacks when the active Pack doesn't claim the
+// `pullquote-on-photo.backdrop` Role (ADR-0024 structural posture: a Pack opts
+// INTO a backdrop character; absence never falls back to Syntax warmth).
+// Each is the Rec.709 luminance of the original constant with zero chroma.
+const NEUTRAL_TOP_COLOR: readonly [number, number, number] = [0.0344, 0.0344, 0.0344];
+const NEUTRAL_BOTTOM_COLOR: readonly [number, number, number] = [0.0453, 0.0453, 0.0453];
+const NEUTRAL_LIGHT_COLOR: readonly [number, number, number] = [0.7398, 0.7398, 0.7398];
+const NEUTRAL_SWEEP_COLOR: readonly [number, number, number] = [0.8641, 0.8641, 0.8641];
 
 const wgsl = /* wgsl */ `
 	let seed = layout.$.uniforms.seed;
@@ -66,10 +88,12 @@ const wgsl = /* wgsl */ `
 
 	// ----- Vertical depth gradient -----
 	//
-	// Near-black base with a small vertical lean: top reads slightly cooler,
-	// bottom slightly warmer. Implies a horizon without drawing one.
-	let topColor = vec3f(0.030, 0.034, 0.052);
-	let bottomColor = vec3f(0.052, 0.044, 0.038);
+	// Near-black base with a small vertical lean. Tints are Pack-routed (the
+	// pullquote-on-photo.backdrop Role) — Syntax reads slightly cooler at
+	// the top, slightly warmer at the bottom. Implies a horizon without
+	// drawing one.
+	let topColor = layout.$.uniforms.topColor;
+	let bottomColor = layout.$.uniforms.bottomColor;
 	let baseColor = mix(topColor, bottomColor, in.uv.y);
 
 	// ----- Directional implied light (upper-left) -----
@@ -81,7 +105,7 @@ const wgsl = /* wgsl */ `
 	let lightDelta = (in.uv - lightOrigin) * vec2f(aspectRatio, 1.0);
 	let lightDist = length(lightDelta);
 	let lightFalloff = 1.0 - smoothstep(0.05, 0.55, lightDist);
-	let lightColor = vec3f(0.78, 0.74, 0.62);
+	let lightColor = layout.$.uniforms.lightColor;
 	let lit = baseColor + lightColor * lightFalloff * 0.14;
 
 	// ----- Gentle corner vignette -----
@@ -105,7 +129,7 @@ const wgsl = /* wgsl */ `
 	let sweepCentreX = mix(-0.15, 1.15, enterProg);
 	let sweepDist = abs(in.uv.x - sweepCentreX);
 	let sweepFalloff = 1.0 - smoothstep(0.0, 0.18, sweepDist);
-	let sweepColor = vec3f(0.92, 0.86, 0.74);
+	let sweepColor = layout.$.uniforms.sweepColor;
 	let swept = vignetted + sweepColor * sweepFalloff * sweepWindow * 0.18;
 
 	// ----- Fine film grain -----
@@ -205,6 +229,9 @@ export function createPullquotePhotoBackdropPass(): ShaderPass<SurfaceState> {
 		packUniforms(target, bounds, ctx) {
 			const seedSource = target.content.title ?? target.type;
 			const seed = hashStringToUnitInterval(seedSource);
+			// Uniforms pack per frame, so a Pack switch takes effect without extra
+			// reactivity — read the active Pack imperatively here.
+			const backdropRole = getPack(packState.slug).roles['pullquote-on-photo.backdrop'];
 			return {
 				seed,
 				progress: ctx.progress,
@@ -216,7 +243,13 @@ export function createPullquotePhotoBackdropPass(): ShaderPass<SurfaceState> {
 				// Rack-focus + light sweep run over the surface ENTER window (a
 				// draggable timeline clip), not hardcoded progress constants.
 				enterStart: target.enter?.start ?? 0,
-				enterDuration: target.enter?.duration ?? 0.22
+				enterDuration: target.enter?.duration ?? 0.22,
+				topColor: d.vec3f(...resolveRoleColorFloat(backdropRole, 'top', NEUTRAL_TOP_COLOR)),
+				bottomColor: d.vec3f(
+					...resolveRoleColorFloat(backdropRole, 'bottom', NEUTRAL_BOTTOM_COLOR)
+				),
+				lightColor: d.vec3f(...resolveRoleColorFloat(backdropRole, 'light', NEUTRAL_LIGHT_COLOR)),
+				sweepColor: d.vec3f(...resolveRoleColorFloat(backdropRole, 'sweep', NEUTRAL_SWEEP_COLOR))
 			} satisfies PullquotePhotoBackdropParams;
 		}
 	};

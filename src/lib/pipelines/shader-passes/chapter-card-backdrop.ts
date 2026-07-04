@@ -1,8 +1,11 @@
 import { d } from 'typegpu';
 
 import { animState } from '$lib/platform/anim-state.svelte';
+import { packState } from '$lib/platform/engine-state.svelte';
+import { getPack } from '$lib/platform/packs/registry';
 import type { ShaderPass } from '$lib/platform/pipelines/types';
 import type { SurfaceState } from '$lib/platform/engine-schema';
+import { resolveRoleColorFloat } from '$lib/utils/color';
 import { hashStringToUnitInterval } from '$lib/utils/seeded';
 
 /**
@@ -30,7 +33,12 @@ export const ChapterCardBackdropUniforms = d.struct({
 	progress: d.f32,
 	canvasWidth: d.f32,
 	canvasHeight: d.f32,
-	paperVisibility: d.f32
+	paperVisibility: d.f32,
+	// Pack-routed backdrop tints (the `chapter-card.backdrop` Role): gradient
+	// top/bottom and the off-frame key-light colour.
+	topColor: d.vec3f,
+	bottomColor: d.vec3f,
+	lightColor: d.vec3f
 });
 
 export interface ChapterCardBackdropParams {
@@ -39,10 +47,22 @@ export interface ChapterCardBackdropParams {
 	canvasWidth: number;
 	canvasHeight: number;
 	paperVisibility: number;
+	topColor: ReturnType<typeof d.vec3f>;
+	bottomColor: ReturnType<typeof d.vec3f>;
+	lightColor: ReturnType<typeof d.vec3f>;
 }
 
 const FALLBACK_CANVAS_WIDTH = 3840;
 const FALLBACK_CANVAS_HEIGHT = 2160;
+
+// Neutral achromatic fallbacks when the active Pack doesn't claim the
+// `chapter-card.backdrop` Role (ADR-0024 structural posture: a Pack opts INTO
+// a backdrop character; absence never falls back to Syntax warmth). Each is
+// the Rec.709 luminance of the original constant with zero chroma, so an
+// unclaimed backdrop keeps its depth grading but goes desaturated-neutral.
+const NEUTRAL_TOP_COLOR: readonly [number, number, number] = [0.0688, 0.0688, 0.0688];
+const NEUTRAL_BOTTOM_COLOR: readonly [number, number, number] = [0.078, 0.078, 0.078];
+const NEUTRAL_LIGHT_COLOR: readonly [number, number, number] = [0.748, 0.748, 0.748];
 
 const wgsl = /* wgsl */ `
 	let seed = layout.$.uniforms.seed;
@@ -67,24 +87,25 @@ const wgsl = /* wgsl */ `
 	let backgroundUv = vec2f(dolliedUv.x + cameraDriftX, dolliedUv.y);
 	let noiseUv = vec2f(dolliedUv.x + cameraDriftX * 2.4, dolliedUv.y);
 
-	// ----- Deep cool base with vertical depth gradient -----
+	// ----- Deep base with vertical depth gradient -----
 	//
-	// Slate at the top, slightly warmer charcoal at the bottom. Cool palette
-	// avoids the orange-and-teal cliché while still grading the frame.
-	let topColor = vec3f(0.055, 0.070, 0.098);
-	let bottomColor = vec3f(0.090, 0.076, 0.062);
+	// Gradient tints are Pack-routed (the chapter-card.backdrop Role) —
+	// Syntax claims slate-to-charcoal; another Pack claims its own character
+	// or gets the neutral achromatic fallback.
+	let topColor = layout.$.uniforms.topColor;
+	let bottomColor = layout.$.uniforms.bottomColor;
 	let baseColor = mix(topColor, bottomColor, backgroundUv.y);
 
-	// ----- Off-centre warm corner glow -----
+	// ----- Off-centre corner glow -----
 	//
-	// Single warm key light implied from upper-right. Elliptical falloff,
-	// aspect-corrected. Subtle (~14% lift max). The asymmetric placement
-	// avoids any reading as a centred halo / Canva sunburst.
+	// Single key light implied from upper-right, colour Pack-routed. Elliptical
+	// falloff, aspect-corrected. Subtle (~14% lift max). The asymmetric
+	// placement avoids any reading as a centred halo / Canva sunburst.
 	let lightOrigin = vec2f(0.82, 0.18);
 	let lightDelta = (backgroundUv - lightOrigin) * vec2f(aspectRatio, 1.0);
 	let lightDist = length(lightDelta);
 	let lightFalloff = 1.0 - smoothstep(0.08, 0.65, lightDist);
-	let lightColor = vec3f(0.94, 0.72, 0.46);
+	let lightColor = layout.$.uniforms.lightColor;
 	let lit = baseColor + lightColor * lightFalloff * 0.20;
 
 	// ----- Atmospheric noise layer (parallax) -----
@@ -166,6 +187,9 @@ export function createChapterCardBackdropPass(): ShaderPass<SurfaceState> {
 		packUniforms(target, bounds, ctx) {
 			const seedSource = target.content.title ?? target.type;
 			const seed = hashStringToUnitInterval(seedSource);
+			// Uniforms pack per frame, so a Pack switch takes effect without extra
+			// reactivity — read the active Pack imperatively here.
+			const backdropRole = getPack(packState.slug).roles['chapter-card.backdrop'];
 			return {
 				seed,
 				progress: ctx.progress,
@@ -173,7 +197,12 @@ export function createChapterCardBackdropPass(): ShaderPass<SurfaceState> {
 				canvasHeight: bounds.height > 0 ? bounds.height : FALLBACK_CANVAS_HEIGHT,
 				// Surface fade is applied here (GPU), not via DOM opacity — the capture
 				// can't rasterize element opacity<1. Read imperatively during render.
-				paperVisibility: animState.paperVisibility
+				paperVisibility: animState.paperVisibility,
+				topColor: d.vec3f(...resolveRoleColorFloat(backdropRole, 'top', NEUTRAL_TOP_COLOR)),
+				bottomColor: d.vec3f(
+					...resolveRoleColorFloat(backdropRole, 'bottom', NEUTRAL_BOTTOM_COLOR)
+				),
+				lightColor: d.vec3f(...resolveRoleColorFloat(backdropRole, 'light', NEUTRAL_LIGHT_COLOR))
 			} satisfies ChapterCardBackdropParams;
 		}
 	};

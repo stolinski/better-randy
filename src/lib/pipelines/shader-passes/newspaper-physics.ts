@@ -1,7 +1,10 @@
 import { d } from 'typegpu';
 
+import { packState } from '$lib/platform/engine-state.svelte';
+import { getPack } from '$lib/platform/packs/registry';
 import type { ShaderPass } from '$lib/platform/pipelines/types';
 import type { SurfaceState } from '$lib/platform/engine-schema';
+import { resolveRoleColorFloat } from '$lib/utils/color';
 import { hashStringToUnitInterval } from '$lib/utils/seeded';
 
 /**
@@ -47,7 +50,11 @@ export const NewspaperPhysicsUniforms = d.struct({
 	bleedRadiusPx: d.f32,
 	/** Composition canvas width / height in pixels, used to map UV to px. */
 	canvasWidth: d.f32,
-	canvasHeight: d.f32
+	canvasHeight: d.f32,
+	// Pack-routed print tints (the `newspaper.print` Role): the halftone
+	// screen's ink and the edge-occlusion shadow.
+	inkColor: d.vec3f,
+	shadowColor: d.vec3f
 });
 
 export interface NewspaperPhysicsParams {
@@ -56,6 +63,8 @@ export interface NewspaperPhysicsParams {
 	bleedRadiusPx: number;
 	canvasWidth: number;
 	canvasHeight: number;
+	inkColor: ReturnType<typeof d.vec3f>;
+	shadowColor: ReturnType<typeof d.vec3f>;
 }
 
 const HALFTONE_PITCH_PX = 10;
@@ -74,6 +83,13 @@ const BLEED_RADIUS_PX = 3;
  */
 const FALLBACK_CANVAS_WIDTH = 3840;
 const FALLBACK_CANVAS_HEIGHT = 2160;
+
+// Neutral achromatic fallbacks when the active Pack doesn't claim the
+// `newspaper.print` Role (ADR-0024 structural posture: a Pack opts INTO a
+// print character; absence never falls back to Syntax warmth). Each is the
+// Rec.709 luminance of the original constant with zero chroma.
+const NEUTRAL_INK_COLOR: readonly [number, number, number] = [0.0407, 0.0407, 0.0407];
+const NEUTRAL_SHADOW_COLOR: readonly [number, number, number] = [0.0421, 0.0421, 0.0421];
 
 const wgsl = /* wgsl */ `
 	let seed = layout.$.uniforms.seed;
@@ -152,8 +168,9 @@ const wgsl = /* wgsl */ `
 	// Mid-tone substitution: where the screen fires, replace the pixel
 	// with a binary ink-or-paper choice based on the dot mask. Outside
 	// mid-tones, keep the bled sample. Mix in by inMidtone so the screen
-	// blends gracefully into the surrounding tone ramp.
-	let inkColor = vec3f(0.04, 0.04, 0.05);
+	// blends gracefully into the surrounding tone ramp. The halftone ink is
+	// Pack-routed (the newspaper.print Role) — Syntax prints a cool near-black.
+	let inkColor = layout.$.uniforms.inkColor;
 	let paperColor = bled.rgb;
 	let screened = mix(paperColor, inkColor, dotCoverage);
 	let halftonedRgb = mix(bled.rgb, screened, inMidtone * bled.a);
@@ -242,7 +259,9 @@ const wgsl = /* wgsl */ `
 			shadowMask = max(shadowMask, strength);
 		}
 	}
-	let shadowColor = vec3f(0.05, 0.04, 0.04);
+	// Occlusion-shadow tint is Pack-routed (the newspaper.print Role) —
+	// Syntax leans it faintly warm, the way newsprint shadow picks up stock.
+	let shadowColor = layout.$.uniforms.shadowColor;
 	let isOutsidePaper = inputSample.a < 0.5;
 	let inShadow = isOutsidePaper && shadowMask > 0.0;
 	let shadowedAlpha = shadowMask * shadowStrength;
@@ -293,13 +312,18 @@ export function createNewspaperPhysicsPass(): ShaderPass<SurfaceState> {
 			// per-preset per Q6 / G9.
 			const seedSource = target.content.title ?? target.type;
 			const seed = hashStringToUnitInterval(seedSource);
+			// Uniforms pack per frame, so a Pack switch takes effect without extra
+			// reactivity — read the active Pack imperatively here.
+			const printRole = getPack(packState.slug).roles['newspaper.print'];
 
 			return {
 				seed,
 				halftonePitchPx: HALFTONE_PITCH_PX,
 				bleedRadiusPx: BLEED_RADIUS_PX,
 				canvasWidth: bounds.width > 0 ? bounds.width : FALLBACK_CANVAS_WIDTH,
-				canvasHeight: bounds.height > 0 ? bounds.height : FALLBACK_CANVAS_HEIGHT
+				canvasHeight: bounds.height > 0 ? bounds.height : FALLBACK_CANVAS_HEIGHT,
+				inkColor: d.vec3f(...resolveRoleColorFloat(printRole, 'ink', NEUTRAL_INK_COLOR)),
+				shadowColor: d.vec3f(...resolveRoleColorFloat(printRole, 'shadow', NEUTRAL_SHADOW_COLOR))
 			} satisfies NewspaperPhysicsParams;
 		}
 	};

@@ -1,8 +1,11 @@
 import { d } from 'typegpu';
 
 import { animState } from '$lib/platform/anim-state.svelte';
+import { packState } from '$lib/platform/engine-state.svelte';
+import { getPack } from '$lib/platform/packs/registry';
 import type { ShaderPass } from '$lib/platform/pipelines/types';
 import type { SurfaceState } from '$lib/platform/engine-schema';
+import { resolveRoleColorFloat } from '$lib/utils/color';
 import { hashStringToUnitInterval } from '$lib/utils/seeded';
 
 /**
@@ -44,7 +47,12 @@ export const TitleSequenceDropUniforms = d.struct({
 	canvasHeight: d.f32,
 	paperVisibility: d.f32,
 	enterStart: d.f32,
-	enterDuration: d.f32
+	enterDuration: d.f32,
+	// Pack-routed backdrop tints (the `title-sequence.backdrop` Role): gradient
+	// top/bottom and the off-frame key-glow colour.
+	topColor: d.vec3f,
+	bottomColor: d.vec3f,
+	glowColor: d.vec3f
 });
 
 export interface TitleSequenceDropParams {
@@ -55,10 +63,21 @@ export interface TitleSequenceDropParams {
 	paperVisibility: number;
 	enterStart: number;
 	enterDuration: number;
+	topColor: ReturnType<typeof d.vec3f>;
+	bottomColor: ReturnType<typeof d.vec3f>;
+	glowColor: ReturnType<typeof d.vec3f>;
 }
 
 const FALLBACK_CANVAS_WIDTH = 3840;
 const FALLBACK_CANVAS_HEIGHT = 2160;
+
+// Neutral achromatic fallbacks when the active Pack doesn't claim the
+// `title-sequence.backdrop` Role (ADR-0024 structural posture: a Pack opts
+// INTO a backdrop character; absence never falls back to Syntax warmth).
+// Each is the Rec.709 luminance of the original constant with zero chroma.
+const NEUTRAL_TOP_COLOR: readonly [number, number, number] = [0.018, 0.018, 0.018];
+const NEUTRAL_BOTTOM_COLOR: readonly [number, number, number] = [0.021, 0.021, 0.021];
+const NEUTRAL_GLOW_COLOR: readonly [number, number, number] = [0.635, 0.635, 0.635];
 
 const wgsl = /* wgsl */ `
 	let seed = layout.$.uniforms.seed;
@@ -78,19 +97,21 @@ const wgsl = /* wgsl */ `
 	let dollyCentre = vec2f(0.5);
 	let bgUv = (in.uv - dollyCentre) / dollyScale + dollyCentre + vec2f(cameraDriftX, 0.0);
 
-	// Deep cinema black with a vertical cool->warm lean (filmic split, not a
-	// flat #000 void): cooler at the top, a touch warmer toward the floor.
-	let topColor = vec3f(0.014, 0.018, 0.030);
-	let bottomColor = vec3f(0.026, 0.020, 0.016);
+	// Deep cinema black with a vertical lean (filmic split, not a flat #000
+	// void). Tints are Pack-routed (the title-sequence.backdrop Role) —
+	// Syntax leans cool-top / warm-floor.
+	let topColor = layout.$.uniforms.topColor;
+	let bottomColor = layout.$.uniforms.bottomColor;
 	let baseColor = mix(topColor, bottomColor, clamp(bgUv.y, 0.0, 1.0));
 
-	// Warm key glow implied off-frame upper-right, balancing the lower-left
-	// title block. Elliptical, aspect-corrected, tracked by the camera push.
+	// Key glow implied off-frame upper-right (colour Pack-routed), balancing
+	// the lower-left title block. Elliptical, aspect-corrected, tracked by the
+	// camera push.
 	let glowOrigin = vec2f(0.82, 0.16);
 	let glowDelta = (bgUv - glowOrigin) * vec2f(aspectRatio, 1.0);
 	let glowDist = length(glowDelta);
 	let glowFalloff = 1.0 - smoothstep(0.05, 0.64, glowDist);
-	let glowColor = vec3f(0.92, 0.58, 0.34);
+	let glowColor = layout.$.uniforms.glowColor;
 	let lit = baseColor + glowColor * glowFalloff * 0.13;
 
 	// Two-layer atmospheric parallax: far + near value-noise octaves drifting at
@@ -240,6 +261,9 @@ export function createTitleSequenceDropPass(): ShaderPass<SurfaceState> {
 		packUniforms(target, bounds, ctx) {
 			const seedSource = target.content.title ?? target.type;
 			const seed = hashStringToUnitInterval(seedSource);
+			// Uniforms pack per frame, so a Pack switch takes effect without extra
+			// reactivity — read the active Pack imperatively here.
+			const backdropRole = getPack(packState.slug).roles['title-sequence.backdrop'];
 			return {
 				seed,
 				progress: ctx.progress,
@@ -251,7 +275,12 @@ export function createTitleSequenceDropPass(): ShaderPass<SurfaceState> {
 				// The drop / impact / settle run over the surface ENTER window — a
 				// draggable timeline clip — instead of hardcoded progress constants.
 				enterStart: target.enter?.start ?? 0,
-				enterDuration: target.enter?.duration ?? 0.2
+				enterDuration: target.enter?.duration ?? 0.2,
+				topColor: d.vec3f(...resolveRoleColorFloat(backdropRole, 'top', NEUTRAL_TOP_COLOR)),
+				bottomColor: d.vec3f(
+					...resolveRoleColorFloat(backdropRole, 'bottom', NEUTRAL_BOTTOM_COLOR)
+				),
+				glowColor: d.vec3f(...resolveRoleColorFloat(backdropRole, 'glow', NEUTRAL_GLOW_COLOR))
 			} satisfies TitleSequenceDropParams;
 		}
 	};
