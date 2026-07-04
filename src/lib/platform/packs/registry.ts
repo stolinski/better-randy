@@ -10,10 +10,12 @@
 import type { PackManifest } from './types';
 import { syntaxPack } from '$lib/packs/syntax/manifest';
 import { editorialMonoPack } from '$lib/packs/editorial-mono/manifest';
+import { crtTerminalPack } from '$lib/packs/crt-terminal/manifest';
 
 export const PACK_REGISTRY: Readonly<Record<string, PackManifest>> = {
 	syntax: syntaxPack,
-	'editorial-mono': editorialMonoPack
+	'editorial-mono': editorialMonoPack,
+	'crt-terminal': crtTerminalPack
 };
 
 /**

@@ -105,6 +105,30 @@ export interface DepthShadow {
 	color: string;
 }
 
+/**
+ * A resolved phosphor bloom halo (the emissive-pack depth form): a centered
+ * blur, never an offset — a screen has no object floating above paper.
+ * `radius` is 4K-reference px like `DepthShadow`; consumers compose their own
+ * wider, naturally dimmer skirt from it (a two-layer halo reads more phosphor
+ * than one fat blur). `intensity` (0..1) scales the halo alpha with the
+ * element's excitation — hot cores bloom widest/brightest.
+ */
+export interface DepthGlow {
+	radius: number;
+	color: string;
+	intensity: number;
+}
+
+/**
+ * The typed depth-treatment result the three depth consumers branch on
+ * (newspaper card box-shadow, DiagramMount `--node-shadow`, the edge-treatment
+ * ShaderPass's synthesized shadow). `hardOffset` is byte-identical to the old
+ * `DepthShadow` return; `glow` is the CRT bloom form.
+ */
+export type ResolvedDepthTreatment =
+	| ({ kind: 'hardOffset' } & DepthShadow)
+	| ({ kind: 'glow' } & DepthGlow);
+
 interface HardOffsetRig {
 	dx: number;
 	dy: number;
@@ -121,63 +145,95 @@ function isHardOffsetRig(value: unknown): value is HardOffsetRig {
 	);
 }
 
+interface GlowRig {
+	radius: number;
+	color?: string;
+	intensity?: number;
+}
+
+function isGlowRig(value: unknown): value is GlowRig {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		typeof (value as { radius?: unknown }).radius === 'number'
+	);
+}
+
 /**
  * Depth keywords the core `depth-treatment` Role may carry. Today only
- * `'none'`; the set is deliberately a list so future variants (e.g. `'glow'`
- * for a CRT pack) extend it here without touching the validator.
+ * `'none'`; the set is deliberately a list so future variants extend it here
+ * without touching the validator.
  */
 const DEPTH_TREATMENT_KEYWORDS: readonly string[] = ['none'];
 
 /**
  * Shape check for the core `depth-treatment` value, used by
- * `validatePackCoreVocabulary`: a recognised keyword, or a hard-offset rig
- * object (`{ hardOffset | offset: { dx, dy, blur?, color? } }`) —
- * exactly the shapes `resolveDepthTreatment` understands.
+ * `validatePackCoreVocabulary`: a recognised keyword, a hard-offset rig
+ * object (`{ hardOffset | offset: { dx, dy, blur?, color? } }`), or a glow rig
+ * (`{ glow: { radius, color?, intensity? } }`) — exactly the shapes
+ * `resolveDepthTreatment` understands.
  */
 export function isDepthTreatmentValue(value: unknown): boolean {
 	if (typeof value === 'string') {
 		return DEPTH_TREATMENT_KEYWORDS.includes(value);
 	}
 	if (value !== null && typeof value === 'object') {
-		const rigSource = value as { hardOffset?: unknown; offset?: unknown };
+		const rigSource = value as { hardOffset?: unknown; offset?: unknown; glow?: unknown };
+		if (rigSource.glow !== undefined) {
+			return isGlowRig(rigSource.glow);
+		}
 		return isHardOffsetRig(rigSource.hardOffset ?? rigSource.offset);
 	}
 	return false;
 }
 
 /**
- * Resolve a Pipeline's structural `depth` Role to a hard-offset shadow rig —
- * the first structural (non-colour) Pack Role wired to pixels (ADR-0023 lists
- * depth as appearance; ADR-0019 puts it on graphic-kind Identity Specs). Like
- * the colour path, resolution is specific → core (ADR-0024):
+ * Resolve a Pipeline's structural `depth` Role — the first structural
+ * (non-colour) Pack Role wired to pixels (ADR-0023 lists depth as appearance;
+ * ADR-0019 puts it on graphic-kind Identity Specs). Like the colour path,
+ * resolution is specific → core (ADR-0024):
  *
  *   `<pipelineType>.depth` (per-Pipeline override)
  *     → `depth-treatment` (core depth vocabulary)
- *       → `null` (the consumer paints no Pack shadow)
+ *       → `null` (the consumer paints no Pack depth)
  *
- * A depth Role is either a hard-offset rig (`{ hardOffset | offset: { dx, dy,
- * blur?, color? } }`) or a keyword string (`'none'`, `'flat'`, …). Keywords and
- * any unrecognised shape resolve to `null` — only a rig produces a shadow. The
- * `'fg'` (or absent) colour sentinel is substituted with `foreground` so a Pack
- * can say "shadow in this Pipeline's ink" without naming the colour twice.
+ * A depth Role is a hard-offset rig (`{ hardOffset | offset: { dx, dy, blur?,
+ * color? } }` — the reflective-pack shadow), a glow rig (`{ glow: { radius,
+ * color?, intensity? } }` — the emissive-pack bloom halo, e.g. `crt-terminal`),
+ * or a keyword string (`'none'`, `'flat'`, …). Keywords and any unrecognised
+ * shape resolve to `null` — only a rig produces depth. The `'fg'` (or absent)
+ * colour sentinel is substituted with `foreground` so a Pack can say "depth in
+ * this Pipeline's ink" without naming the colour twice.
  */
 export function resolveDepthTreatment(
 	manifest: PackManifest,
 	pipelineType: string,
 	foreground = 'currentColor'
-): DepthShadow | null {
+): ResolvedDepthTreatment | null {
 	const role = manifest.roles[`${pipelineType}.depth`] ?? manifest.roles['depth-treatment'];
 	if (!role || role.kind !== 'style') {
 		return null;
 	}
 
-	const rigSource = role.value as { hardOffset?: unknown; offset?: unknown };
+	const rigSource = role.value as { hardOffset?: unknown; offset?: unknown; glow?: unknown };
+
+	if (isGlowRig(rigSource?.glow)) {
+		const glow = rigSource.glow;
+		return {
+			kind: 'glow',
+			radius: glow.radius,
+			color: glow.color === undefined || glow.color === 'fg' ? foreground : glow.color,
+			intensity: Math.min(1, Math.max(0, readFiniteNumber(glow.intensity) ?? 0.85))
+		};
+	}
+
 	const rig = rigSource?.hardOffset ?? rigSource?.offset;
 	if (!isHardOffsetRig(rig)) {
 		return null;
 	}
 
 	return {
+		kind: 'hardOffset',
 		dx: rig.dx,
 		dy: rig.dy,
 		blur: rig.blur ?? 0,
@@ -374,6 +430,56 @@ export function resolveLightTreatment(manifest: PackManifest): LightTreatment | 
 	}
 	const intensity = readFiniteNumber(shaped.intensity) ?? 0.45;
 	return { direction: shaped.direction, intensity: Math.min(1, Math.max(0, intensity)) };
+}
+
+/**
+ * A resolved scanline material claim (the emissive-pack form of the optional
+ * `material-treatment` core): a horizontal raster + faint phosphor shimmer
+ * INSIDE element pixels — screen texture, not paper tooth. Applied by the
+ * shared crt-scanline ShaderPass (alpha-masked, so transparent-overlay footage
+ * is never treated). All pixel fields are 4K-reference px.
+ */
+export interface ScanlineMaterial {
+	kind: 'scanline';
+	/** Raster line pitch in 4K-reference px. */
+	pitchPx: number;
+	/** Line-gap darkening 0..1 — low contrast: visible at pause, invisible in motion. */
+	strength: number;
+	/** Phosphor shimmer amplitude 0..1 — deterministic, timeline-clock-driven. */
+	shimmer: number;
+}
+
+export type ResolvedMaterialTreatment = ScanlineMaterial;
+
+/**
+ * Resolve the Pack's composition-wide material claim (the optional
+ * `material-treatment` core — ADR-0024 recognises it, never requires it).
+ * Structural-resolver house style: Packs opt in with a recognised recipe
+ * shape (`{ scanline: { pitchPx?, strength?, shimmer? } }`); an absent Role or
+ * an unrecognised value (e.g. the per-Pipeline `paragraph.material:
+ * 'ink-bleed'` glyph claim, which rides its own consumer) resolves to `null`
+ * — no pass runs.
+ *
+ * Like the scene light this reads ONLY the core Role: the material is a
+ * property of the Pack's substrate physics, applied per element pixel by the
+ * dispatcher, not per Pipeline.
+ */
+export function resolveMaterialTreatment(manifest: PackManifest): ResolvedMaterialTreatment | null {
+	const role = manifest.roles['material-treatment'];
+	if (!role || role.kind !== 'style' || role.value === null || typeof role.value !== 'object') {
+		return null;
+	}
+	const recipe = (role.value as { scanline?: unknown }).scanline;
+	if (recipe === null || typeof recipe !== 'object') {
+		return null;
+	}
+	const shaped = recipe as { pitchPx?: unknown; strength?: unknown; shimmer?: unknown };
+	return {
+		kind: 'scanline',
+		pitchPx: Math.max(2, readFiniteNumber(shaped.pitchPx) ?? 6),
+		strength: Math.min(1, Math.max(0, readFiniteNumber(shaped.strength) ?? 0.18)),
+		shimmer: Math.min(1, Math.max(0, readFiniteNumber(shaped.shimmer) ?? 0.04))
+	};
 }
 
 /**

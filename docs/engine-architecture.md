@@ -1,6 +1,6 @@
-# Hiviz Engine Architecture
+# Supers Engine Architecture
 
-The data model, rendering layers, pipeline registry, appearance (Pack) system, and render path that drive every Hiviz **Preset**. Companion to [`preset-format.md`](preset-format.md) (the preset JSON format reference).
+The data model, rendering layers, pipeline registry, appearance (Pack) system, and render path that drive every Supers **Preset**. Companion to [`preset-format.md`](preset-format.md) (the preset JSON format reference).
 
 **This doc states current truth.** Where it describes a mechanism, the code does that today. Designed-but-unbuilt work is collected under [§ Designed, not built](#designed-not-built) and tracked in [`../docs/roadmap.md`](roadmap.md), not described here as if it exists. The *why* behind each decision lives in [`adr/`](adr/); this is the *what*.
 
@@ -8,7 +8,7 @@ Glossary: [`CONTEXT.md`](CONTEXT.md). Why one engine instead of per-tool routes:
 
 ## The model in one read
 
-A **Preset** is one JSON document (`hiviz@1`) that composes five **Layers** (Surface / Block / Annotation / Overlay / Effect) from a **Pipeline registry**, dressed by a swappable **Pack** (appearance only), rendered frame-deterministically through a TypeGPU compositor to a 3840×2160 (or 2160×3840) canvas, and exported transparent or opaque via Mediabunny. Two anchors hold everything else up:
+A **Preset** is one JSON document (`supers@1`) that composes five **Layers** (Surface / Block / Annotation / Overlay / Effect) from a **Pipeline registry**, dressed by a swappable **Pack** (appearance only), rendered frame-deterministically through a TypeGPU compositor to a 3840×2160 (or 2160×3840) canvas, and exported transparent or opaque via Mediabunny. Two anchors hold everything else up:
 
 1. **The data model is the contract.** Everything renderable is described in `engineState`. Pipelines own no state.
 2. **One uniform render path.** Surface, blocks, annotations, overlays, and post-process effects share the same WebGPU/TypeGPU compositor. Preview and export call the *same* `renderAt(timestamp)` — identical pixels.
@@ -102,7 +102,7 @@ A frame composes bottom-to-top:
 ```ts
 // PresetSchema (engine-schema.ts) — the on-disk envelope.
 interface Preset {
-  schema: 'hiviz@1';
+  schema: 'supers@1';
   name: string;
   description?: string;
   pack: string;                     // REQUIRED, no default — names the appearance Pack (ADR-0023)
@@ -225,9 +225,13 @@ Every render is computed from a `timestamp`; the shared `Timeline` is the only c
 
 A **Pack** is a swappable *appearance dress* resolved at render time ([ADR-0014](adr/0014-pack-preset-split.md)). It carries **appearance only — never motion** ([ADR-0023](adr/0023-pack-is-appearance-only.md)); form/timing/easing are intrinsic to the Preset+Pipeline. A Preset names exactly one Pack (`pack`, required), overridable at render time so the same Preset renders under any Pack. There is **no privileged default** — `syntax` is the `REFERENCE_PACK_SLUG` the boot gate validates against, not a fallback. **Every registered Pack must supply the mandatory core vocabulary** — the six bare core Roles `fill-treatment` / `ink-treatment` / `accent-treatment` / `edge-treatment` / `depth-treatment` / `light-treatment` (`MANDATORY_CORE_ROLES` in `packs/types.ts`), colour cores as real colour strings and structural cores in resolver-recognised shapes. `validatePackCoreVocabulary` refuses a Pack missing one (or supplying a shape its resolver would silently drop) at engine boot for the whole `PACK_REGISTRY` and in `scripts/verify-presets.ts`; the viaPack-completeness gate stays reference-pack-only. `material-treatment` and `font-treatment` are recognised *optional* cores.
 
+**Declared Pack-immunity** ([ADR-0038](adr/0038-full-pack-buy-in.md)): a Pipeline whose entire value is fidelity to a real artifact declares `packImmunity` (with a mandatory rationale) in its Identity Spec — today `surface:imessage` and `surface:web-document`. Immunity is registry-visible (`isPackImmune(key)` / `PACK_IMMUNE_PIPELINE_KEYS` in `identity-registry.ts`), never an unwired accident: `SurfaceMount` skips appearance-var injection for an immune Surface's artifact, while every treatment layered ON it — annotation marks, edge treatment, depth shadow, Effects — still resolves from the active Pack. The Critic's two-Pack pixel-diff check enumerates non-immune pipelines from this list's complement.
+
 **The live path:** `SurfaceMount`/`OverlayMount` call `resolveAppearanceVars(getPack(slug), <type>)` and inject the result as inline CSS custom properties on the pipeline root; CanvasSources consume them via `var(--fill, <fallback>)`. Resolution is specific→core fallback like `var(--specific, var(--core))` ([ADR-0024](adr/0024-role-resolution-core-fallback.md)). Dimension names are normalized so every core-dimension slot uses the core suffix and the fallback chain can land (`tear-out.fill`, `isolate.depth`, `paragraph.material` — the historic `fragmentFill` / `dimDepth` / `glyphEdge` off-core names are gone); a Pack that passes the core gate therefore always emits `--fill` / `--ink` / `--accent`, and a per-Pipeline Role may explicitly claim `'currentColor'` (e.g. `node.ink`) to ride the inherited composition colour instead of the core.
 
-> **Honest current state.** **Color, font, and the `depth` + `edge` structural Roles** reach pixels. `resolveAppearanceVars` color-filters *its* output (color/font only); structural resolution goes through two typed resolvers in `packs/resolve.ts` (the old generic `resolveStyle`/`resolveRole` accessors were removed). `resolveDepthTreatment` resolves `<type>.depth` → core `depth-treatment` (specific→core, ADR-0024) into a hard-offset shadow rig — proven on the `newspaper` card (`syntax` 12px chrome → `editorial-mono` `'none'`, flat). `resolveEdgeTreatment` resolves `<type>.edge` → core `edge-treatment` into the five-value edge vocabulary (`clean / soft / irregular / torn / none`), applied as a **shader-side alpha mask** by the shared edge-treatment ShaderPass (`src/lib/pipelines/shader-passes/edge-treatment.ts`) — shader-side because CSS masks/filters promote compositing layers, which drop out of the HTML-in-Canvas capture. A card-silhouette surface opts in via `SurfaceRenderer.edgeTreatment` (today: `newspaper`); for displaced modes (torn/irregular) the pass also synthesizes the depth rig's hard-offset shadow as an offset duplicate of the *torn* silhouette while the CanvasSource drops its CSS box-shadow (a baked box-shadow puts a straight card/shadow seam inside the flat capture that no alpha treatment can cross) — proven on the `newspaper` clipping (`syntax` torn + fiber rim → `editorial-mono` clean die-cut). The remaining structural Roles (`light` / `material`) are still declared + boot-validated but **inert**. Two Packs exist (`syntax`, `editorial-mono`). Finishing the structural Pack→pixel contract is the top engine item in [`roadmap.md`](roadmap.md).
+> **Honest current state.** **Color, font, and the `depth` + `edge` structural Roles** reach pixels. `resolveAppearanceVars` color-filters *its* output (color/font only); structural resolution goes through two typed resolvers in `packs/resolve.ts` (the old generic `resolveStyle`/`resolveRole` accessors were removed). `resolveDepthTreatment` resolves `<type>.depth` → core `depth-treatment` (specific→core, ADR-0024) into a hard-offset shadow rig — proven on the `newspaper` card (`syntax` 12px chrome → `editorial-mono` `'none'`, flat). `resolveEdgeTreatment` resolves `<type>.edge` → core `edge-treatment` into the five-value edge vocabulary (`clean / soft / irregular / torn / none`), applied as a **shader-side alpha mask** by the shared edge-treatment ShaderPass (`src/lib/pipelines/shader-passes/edge-treatment.ts`) — shader-side because CSS masks/filters promote compositing layers, which drop out of the HTML-in-Canvas capture. A card-silhouette surface opts in via `SurfaceRenderer.edgeTreatment` (today: `newspaper`); for displaced modes (torn/irregular) the pass also synthesizes the depth rig's hard-offset shadow as an offset duplicate of the *torn* silhouette while the CanvasSource drops its CSS box-shadow (a baked box-shadow puts a straight card/shadow seam inside the flat capture that no alpha treatment can cross) — proven on the `newspaper` clipping (`syntax` torn + fiber rim → `editorial-mono` clean die-cut). `resolveDepthTreatment` returns a typed union its three consumers branch on — `kind:'hardOffset'` (the reflective-pack shadow) or `kind:'glow'` (`{ glow: { radius, color?, intensity? } }` — the emissive bloom halo, painted as a centered two-layer box-shadow; never a CSS filter, which drops out of capture). `resolveMaterialTreatment` resolves the optional core `material-treatment` to the scanline recipe (`{ scanline: { pitchPx?, strength?, shimmer? } }`), dispatched as the shared alpha-masked crt-scanline ShaderPass (`src/lib/pipelines/shader-passes/crt-scanline.ts`) LAST in the dispatch list — per element pixel, so transparent-overlay footage is never treated; unrecognised material values (e.g. `paragraph.material: 'ink-bleed'`, which rides its own consumer) resolve to `null`. The `light` structural Role is consumed by the ADR-0028 depth stage. Three Packs exist (`syntax`, `editorial-mono`, `crt-terminal`).
+
+**Pack chrome (opaque pieces).** A Pack MAY supply a `chrome` Role (`kind:'chrome'`): an effect recipe the Workspace appends **after** the preset's own `effects[]` whenever the composition declares a `backgroundFill` (the frame is a full-frame segment/bumper). The chrome is the Pack's *dress*, not composition content — it deliberately never appears in the preset JSON (swap the Pack and the chrome goes with it), and transparent overlays never receive frame chrome (the footage isn't ours to treat). First consumer: `crt-terminal`'s `crt-screen` scanline + bloom + vignette (`src/lib/pipelines/effects/crt-screen/`).
 
 ## Output & orientation
 
@@ -267,7 +271,7 @@ Pinned in ADRs or schema but **not wired into rendering**. Do not describe these
 
 ## Constraints
 
-- **`hiviz@1` schema id.** Shape changes happen in place; built-in presets are hand-migrated. Stale external presets fail validation cleanly.
+- **`supers@1` schema id.** Shape changes happen in place; built-in presets are hand-migrated. Stale external presets fail validation cleanly.
 - **Annotation stack order:** decorative under focal, then document order; codified in the composition shader. Two focal marks on one body are permitted but soft-warned.
 - **Overlay positioning is anchor + fractional offset** (0..1 of composition dims); `normalized-rect` for precise/offscreen placement.
 - **`marks.timings` length mismatch is intentional** — fewer than marked spans → fall back to `defaults[style]`; more → extras ignored. Don't "fix" by inventing timings.
@@ -277,7 +281,7 @@ Pinned in ADRs or schema but **not wired into rendering**. Do not describe these
 
 ## Non-goals
 
-- A general node/keyframe compositor. Hiviz is an opinionated, constrained vocabulary with smart defaults — After Effects is the *quality ceiling*, not the architecture.
+- A general node/keyframe compositor. Supers is an opinionated, constrained vocabulary with smart defaults — After Effects is the *quality ceiling*, not the architecture.
 - Cross-pipeline morphing at runtime (switching surface/overlay type is a content edit, not an animated transition — transitions between *Presets* are the ADR-0022 path).
 - Coordinate-anchored text marks (inline bracket marks are the only text-addressing model).
 - Cloud sync, accounts, multi-user editing.

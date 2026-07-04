@@ -161,6 +161,13 @@
 				<circle cx="12" cy="12" r="8" stroke="white" stroke-width="2" fill="none" />
 				<path d="M12 4 L12 20 M4 12 L20 12" stroke="white" stroke-width="2" />
 			</svg>
+		{:else if pointerKind === 'block-cursor'}
+			<!-- Terminal block cursor (▮): a hard-edged phosphor rect. Rides the
+			     Pack's trail-material channels so pointer and persistence trail
+			     share one phosphor; crispEdges keeps the pixel-hard boundary. -->
+			<svg viewBox="0 0 24 24" width="32" height="32" shape-rendering="crispEdges">
+				<rect x="5" y="3" width="14" height="18" fill="rgb(var(--trail-rgb))" />
+			</svg>
 		{:else}
 			<svg viewBox="0 0 24 24" width="32" height="32">
 				<path d="M12 22 L12 8 M8 12 L12 8 L16 12 M8 18 L8 12 L16 12 L16 18" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
@@ -190,6 +197,13 @@
 		block-size: 100%;
 		display: block;
 		inline-size: 100%;
+	}
+
+	/* An emissive pack's block cursor casts no shadow — depth is glow, and a
+	   drop shadow under a screen element is a pack bug by definition (CSS
+	   filters also drop out of the HTML-in-Canvas capture). */
+	.cursor-trail-overlay__pointer[data-pointer='block-cursor'] {
+		filter: none;
 	}
 
 	/*

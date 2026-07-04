@@ -74,6 +74,16 @@
 			return 'none';
 		}
 		const scale = frame.width / 3840;
+		if (depth.kind === 'glow') {
+			// Emissive depth (glow-not-shadow): a centered bloom halo — a hot inner
+			// blur plus a wider skirt whose larger radius reads naturally dimmer, so
+			// bloom scales with excitation. box-shadow captures in HTML-in-Canvas;
+			// CSS filters do not (they promote compositing layers) — never a filter.
+			const hot = depth.radius * scale;
+			const hotColor = `color-mix(in srgb, ${depth.color} ${Math.round(depth.intensity * 100)}%, transparent)`;
+			const skirtColor = `color-mix(in srgb, ${depth.color} ${Math.round(depth.intensity * 45)}%, transparent)`;
+			return `0 0 ${hot}px ${hotColor}, 0 0 ${hot * 2.25}px ${skirtColor}`;
+		}
 		return `${depth.dx * scale}px ${depth.dy * scale}px ${depth.blur * scale}px ${depth.color}`;
 	});
 

@@ -140,7 +140,15 @@
 			// that wants a specific shadow colour names it in the rig.
 			const depth = resolveDepthTreatment(pack, 'node', 'var(--ink)');
 			if (depth) {
-				style += `;--node-shadow:${depth.dx}px ${depth.dy}px ${depth.blur}px ${depth.color}`;
+				// Branch on the resolved depth kind: reflective packs cast a
+				// hard-offset shadow; emissive packs bloom — a centered two-layer
+				// phosphor halo (hot core + naturally-dimmer wide skirt), never an
+				// offset. box-shadow captures in HTML-in-Canvas; CSS filters do not.
+				const shadow =
+					depth.kind === 'glow'
+						? `0 0 ${depth.radius}px color-mix(in srgb, ${depth.color} ${Math.round(depth.intensity * 100)}%, transparent), 0 0 ${depth.radius * 2.25}px color-mix(in srgb, ${depth.color} ${Math.round(depth.intensity * 45)}%, transparent)`
+						: `${depth.dx}px ${depth.dy}px ${depth.blur}px ${depth.color}`;
+				style += `;--node-shadow:${shadow}`;
 			}
 			const fill = vars['--fill'];
 			if (fill) {

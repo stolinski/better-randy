@@ -57,6 +57,7 @@
 		type Cascade,
 		type DiagramElement,
 		type DiagramEndpoint,
+		type Effect,
 		type Keyframe,
 		type MarkInstance,
 		type Preset,
@@ -80,6 +81,7 @@
 		resolveDiagramStroke,
 		resolveEdgeTreatment,
 		resolveLightTreatment,
+		resolveMaterialTreatment,
 		resolveTypographyColors,
 		type LightTreatment
 	} from './packs/resolve';
@@ -87,6 +89,7 @@
 		edgeTreatmentPass,
 		type EdgeTreatmentTarget
 	} from '$lib/pipelines/shader-passes/edge-treatment';
+	import { crtScanlinePass } from '$lib/pipelines/shader-passes/crt-scanline';
 	import { measureOverlayBoundsPx } from '$lib/utils/overlay-bounds';
 
 	import { TransitionSnapshots } from './pipelines/transition-snapshots';
@@ -1654,7 +1657,10 @@
 					const inkHex =
 						resolveAppearanceVars(pack, engineState.surface.type)['--ink'] ?? '#000000';
 					const rig = resolveDepthTreatment(pack, engineState.surface.type, inkHex);
-					if (rig) {
+					// Only a hard-offset rig synthesizes the offset shadow — a glow rig
+					// (emissive packs) claims hard edges by aesthetic, so a displaced
+					// edge + glow pairing has no shader-side depth to carry.
+					if (rig && rig.kind === 'hardOffset') {
 						let rgba: [number, number, number, number];
 						try {
 							rgba = hexToRgbaFloat(rig.color);
@@ -1702,7 +1708,51 @@
 			}
 		}
 
+		// Pack material claim (the optional `material-treatment` core): a scanline
+		// recipe dispatches the shared crt-scanline pass LAST, over the composited
+		// element pixels. The pass is alpha-masked — per-element on transparent
+		// overlays; the footage underneath is never treated — so this single
+		// full-frame dispatch covers the surface target and every overlay target
+		// in the flat capture (they share this texture; a per-overlay re-dispatch
+		// would double-raster the same pixels). On the stage path the surface
+		// plane keeps its material before staging; overlays at depth ride their
+		// own plane, outside the dispatcher (same scope-out as overlay passes).
+		const material = resolveMaterialTreatment(getPack(packState.slug));
+		if (material) {
+			entries.push({
+				pass: crtScanlinePass as ShaderPass<unknown>,
+				target: material,
+				bounds: { x: 0, y: 0, width: compositionSize.width, height: compositionSize.height }
+			});
+		}
+
 		return entries;
+	}
+
+	// Pack chrome (opaque pieces only). When the composition declares a
+	// `backgroundFill` — the frame is a full-frame segment/bumper — the active
+	// Pack's `chrome` Role (kind:'chrome') appends its effect recipe AFTER the
+	// preset's own effects. The chrome is the Pack's dress, not composition
+	// content: it never appears in the preset's `effects[]`, and transparent
+	// overlays never receive it (the footage is not ours to treat). Chrome
+	// entries carry stable synthetic ids so the effect chain's compiled cache
+	// keys stay deterministic.
+	function withPackChrome(effects: readonly Effect[]): readonly Effect[] {
+		if (!engineState.backgroundFill) {
+			return effects;
+		}
+		const role = getPack(packState.slug).roles['chrome'];
+		if (!role || role.kind !== 'chrome' || role.effects.length === 0) {
+			return effects;
+		}
+		return [
+			...effects,
+			...role.effects.map((entry, index) => ({
+				type: entry.type,
+				id: `pack-chrome-${index}`,
+				params: entry.params ?? {}
+			}))
+		];
 	}
 
 	function effectChainTimebase(timestamp: number): { progress: number; timestamp: number } {
@@ -1920,7 +1970,7 @@
 		const commandEncoder = host.device.createCommandEncoder();
 		effectChain.apply({
 			commandEncoder,
-			effects: dof.otherEffects,
+			effects: withPackChrome(dof.otherEffects),
 			inputTexture: dofInputTexture(planes, surfaceOutput),
 			outputView,
 			...timebase,
@@ -1984,7 +2034,7 @@
 		const commandEncoder = host.device.createCommandEncoder();
 		effectChain.apply({
 			commandEncoder,
-			effects: stage.effects,
+			effects: withPackChrome(stage.effects),
 			inputTexture: depthStage.outputTexture(),
 			outputView,
 			...timebase,
@@ -2032,7 +2082,7 @@
 
 		effectChain.apply({
 			commandEncoder,
-			effects: engineState.effects,
+			effects: withPackChrome(engineState.effects),
 			inputTexture: postShaderTexture,
 			outputView,
 			...timebase,
@@ -2704,7 +2754,7 @@
 
 				effectChain.apply({
 					commandEncoder,
-					effects: engineState.effects,
+					effects: withPackChrome(engineState.effects),
 					inputTexture: postShaderTexture,
 					outputView: host.context.getCurrentTexture().createView(),
 					...timebase,

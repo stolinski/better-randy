@@ -22,6 +22,7 @@ import { statCallout } from '$lib/pipelines/blocks/stat-callout';
 import { timelineSegment } from '$lib/pipelines/blocks/timeline-segment';
 
 import { chromaticAberration } from '$lib/pipelines/effects/chromatic-aberration';
+import { crtScreen } from '$lib/pipelines/effects/crt-screen';
 import { dithering } from '$lib/pipelines/effects/dithering';
 import { flutedGlass } from '$lib/pipelines/effects/fluted-glass';
 import { halftoneCmyk } from '$lib/pipelines/effects/halftone-cmyk';
@@ -68,7 +69,7 @@ export const PIPELINE_REGISTRY = {
 		isolate
 	} satisfies Record<string, AnnotationRenderer>,
 	overlays: { lowerThird, washiTape, watermark, shaderFill, cursorTrail, counter, instanceStack, text3d },
-	effects: { paperGrain, chromaticAberration, dithering, halftoneDots, halftoneCmyk, water, flutedGlass, heatmap }
+	effects: { paperGrain, chromaticAberration, crtScreen, dithering, halftoneDots, halftoneCmyk, water, flutedGlass, heatmap }
 };
 
 export const REGISTERED_SURFACE_TYPES = Object.values(PIPELINE_REGISTRY.surfaces).map(
