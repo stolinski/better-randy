@@ -1,0 +1,520 @@
+{
+	"generatedAt": "2026-07-04T18:35:37.528Z",
+	"packs": {
+		"a": "each preset's own pack",
+		"b": "editorial-mono"
+	},
+	"thresholds": {
+		"changedPctMin": 0.25,
+		"perChannelDelta": 8,
+		"captureScale": 0.25
+	},
+	"coverage": [
+		{
+			"pipeline": "surface:newspaper",
+			"preset": "server-renders-again",
+			"diffPct": "54.76%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "surface:paper",
+			"preset": "research-paper-critique",
+			"diffPct": "40.23%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "surface:plain",
+			"preset": "docu-flowchart",
+			"diffPct": "1.81%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "surface:chapter-card",
+			"preset": "chapter-card-cinematic",
+			"diffPct": "56.68%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "surface:pullquote-on-photo",
+			"preset": "pullquote-cinematic",
+			"diffPct": "2.63%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "surface:title-sequence",
+			"preset": "title-sequence-drop",
+			"diffPct": "34.43%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "surface:type-hero",
+			"preset": "cursor-trail-title-sweep",
+			"diffPct": "10.23%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "surface:web-document",
+			"preset": "—",
+			"diffPct": "—",
+			"status": "immune (exempt)"
+		},
+		{
+			"pipeline": "surface:imessage",
+			"preset": "—",
+			"diffPct": "—",
+			"status": "immune (exempt)"
+		},
+		{
+			"pipeline": "block:paragraph",
+			"preset": "research-paper-critique",
+			"diffPct": "40.23%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "block:node",
+			"preset": "docu-flowchart",
+			"diffPct": "1.81%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "block:edge-arrow",
+			"preset": "docu-flowchart",
+			"diffPct": "1.81%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "block:label",
+			"preset": "docu-flowchart",
+			"diffPct": "1.81%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "block:stat-callout",
+			"preset": "docu-stat-build",
+			"diffPct": "1.54%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "block:timeline-segment",
+			"preset": "docu-timeline-build",
+			"diffPct": "0.84%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "annotation:box",
+			"preset": "—",
+			"diffPct": "—",
+			"status": "GAP (no covering preset)"
+		},
+		{
+			"pipeline": "annotation:circle",
+			"preset": "research-paper-critique",
+			"diffPct": "40.23%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "annotation:highlight",
+			"preset": "research-paper-critique",
+			"diffPct": "40.23%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "annotation:isolate",
+			"preset": "isolate-demo",
+			"diffPct": "2.07%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "annotation:lift-out",
+			"preset": "quote-lift-out",
+			"diffPct": "39.79%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "annotation:magnify",
+			"preset": "quote-magnify",
+			"diffPct": "40.93%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "annotation:side-note",
+			"preset": "quote-magnify",
+			"diffPct": "40.93%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "annotation:strike",
+			"preset": "—",
+			"diffPct": "—",
+			"status": "GAP (no covering preset)"
+		},
+		{
+			"pipeline": "annotation:tear-out",
+			"preset": "quote-tear-out",
+			"diffPct": "40.08%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "annotation:underline",
+			"preset": "research-paper-critique",
+			"diffPct": "40.23%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "overlay:counter",
+			"preset": "counter-milestone",
+			"diffPct": "0.96%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "overlay:cursor-trail",
+			"preset": "cursor-trail-title-sweep",
+			"diffPct": "10.23%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "overlay:instance-stack",
+			"preset": "instance-stack-vertical",
+			"diffPct": "6.71%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "overlay:lower-third",
+			"preset": "lower-third-cinematic",
+			"diffPct": "0.78%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "overlay:text-3d",
+			"preset": "text-3d-cylinder",
+			"diffPct": "1.04%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "overlay:shader-fill",
+			"preset": "—",
+			"diffPct": "—",
+			"status": "immune (exempt)"
+		},
+		{
+			"pipeline": "overlay:washi-tape",
+			"preset": "server-renders-again",
+			"diffPct": "54.76%",
+			"status": "PASS"
+		},
+		{
+			"pipeline": "overlay:watermark",
+			"preset": "text-3d-cylinder",
+			"diffPct": "1.04%",
+			"status": "PASS"
+		}
+	],
+	"presets": [
+		{
+			"slug": "chapter-card-cinematic",
+			"packA": "syntax",
+			"packB": "editorial-mono",
+			"progress": 0.5,
+			"timelineTime": 4,
+			"captures": [
+				"docs/critic-captures/pack-diff/chapter-card-cinematic--syntax.png",
+				"docs/critic-captures/pack-diff/chapter-card-cinematic--editorial-mono.png"
+			],
+			"stats": {
+				"width": 960,
+				"height": 539,
+				"meanAbsDiff": 0.02032,
+				"changedPct": 56.68
+			},
+			"error": null
+		},
+		{
+			"slug": "counter-milestone",
+			"packA": "syntax",
+			"packB": "editorial-mono",
+			"progress": 0.5,
+			"timelineTime": 3,
+			"captures": [
+				"docs/critic-captures/pack-diff/counter-milestone--syntax.png",
+				"docs/critic-captures/pack-diff/counter-milestone--editorial-mono.png"
+			],
+			"stats": {
+				"width": 960,
+				"height": 539,
+				"meanAbsDiff": 0.00505,
+				"changedPct": 0.96
+			},
+			"error": null
+		},
+		{
+			"slug": "cursor-trail-title-sweep",
+			"packA": "syntax",
+			"packB": "editorial-mono",
+			"progress": 0.5,
+			"timelineTime": 3,
+			"captures": [
+				"docs/critic-captures/pack-diff/cursor-trail-title-sweep--syntax.png",
+				"docs/critic-captures/pack-diff/cursor-trail-title-sweep--editorial-mono.png"
+			],
+			"stats": {
+				"width": 960,
+				"height": 539,
+				"meanAbsDiff": 0.01089,
+				"changedPct": 10.23
+			},
+			"error": null
+		},
+		{
+			"slug": "docu-flowchart",
+			"packA": "syntax",
+			"packB": "editorial-mono",
+			"progress": 0.5,
+			"timelineTime": 3,
+			"captures": [
+				"docs/critic-captures/pack-diff/docu-flowchart--syntax.png",
+				"docs/critic-captures/pack-diff/docu-flowchart--editorial-mono.png"
+			],
+			"stats": {
+				"width": 960,
+				"height": 539,
+				"meanAbsDiff": 0.00405,
+				"changedPct": 1.81
+			},
+			"error": null
+		},
+		{
+			"slug": "docu-stat-build",
+			"packA": "syntax",
+			"packB": "editorial-mono",
+			"progress": 0.5,
+			"timelineTime": 3,
+			"captures": [
+				"docs/critic-captures/pack-diff/docu-stat-build--syntax.png",
+				"docs/critic-captures/pack-diff/docu-stat-build--editorial-mono.png"
+			],
+			"stats": {
+				"width": 960,
+				"height": 539,
+				"meanAbsDiff": 0.00778,
+				"changedPct": 1.54
+			},
+			"error": null
+		},
+		{
+			"slug": "docu-timeline-build",
+			"packA": "syntax",
+			"packB": "editorial-mono",
+			"progress": 0.5,
+			"timelineTime": 3,
+			"captures": [
+				"docs/critic-captures/pack-diff/docu-timeline-build--syntax.png",
+				"docs/critic-captures/pack-diff/docu-timeline-build--editorial-mono.png"
+			],
+			"stats": {
+				"width": 960,
+				"height": 539,
+				"meanAbsDiff": 0.00591,
+				"changedPct": 0.84
+			},
+			"error": null
+		},
+		{
+			"slug": "instance-stack-vertical",
+			"packA": "syntax",
+			"packB": "editorial-mono",
+			"progress": 0.5,
+			"timelineTime": 3,
+			"captures": [
+				"docs/critic-captures/pack-diff/instance-stack-vertical--syntax.png",
+				"docs/critic-captures/pack-diff/instance-stack-vertical--editorial-mono.png"
+			],
+			"stats": {
+				"width": 539,
+				"height": 959,
+				"meanAbsDiff": 0.03147,
+				"changedPct": 6.71
+			},
+			"error": null
+		},
+		{
+			"slug": "isolate-demo",
+			"packA": "syntax",
+			"packB": "editorial-mono",
+			"progress": 0.5,
+			"timelineTime": 2.5,
+			"captures": [
+				"docs/critic-captures/pack-diff/isolate-demo--syntax.png",
+				"docs/critic-captures/pack-diff/isolate-demo--editorial-mono.png"
+			],
+			"stats": {
+				"width": 960,
+				"height": 539,
+				"meanAbsDiff": 0.00585,
+				"changedPct": 2.07
+			},
+			"error": null
+		},
+		{
+			"slug": "lower-third-cinematic",
+			"packA": "syntax",
+			"packB": "editorial-mono",
+			"progress": 0.5,
+			"timelineTime": 3,
+			"captures": [
+				"docs/critic-captures/pack-diff/lower-third-cinematic--syntax.png",
+				"docs/critic-captures/pack-diff/lower-third-cinematic--editorial-mono.png"
+			],
+			"stats": {
+				"width": 960,
+				"height": 539,
+				"meanAbsDiff": 0.00119,
+				"changedPct": 0.78
+			},
+			"error": null
+		},
+		{
+			"slug": "pullquote-cinematic",
+			"packA": "syntax",
+			"packB": "editorial-mono",
+			"progress": 0.5,
+			"timelineTime": 3,
+			"captures": [
+				"docs/critic-captures/pack-diff/pullquote-cinematic--syntax.png",
+				"docs/critic-captures/pack-diff/pullquote-cinematic--editorial-mono.png"
+			],
+			"stats": {
+				"width": 960,
+				"height": 539,
+				"meanAbsDiff": 0.00996,
+				"changedPct": 2.63
+			},
+			"error": null
+		},
+		{
+			"slug": "quote-lift-out",
+			"packA": "syntax",
+			"packB": "editorial-mono",
+			"progress": 0.5,
+			"timelineTime": 3.5,
+			"captures": [
+				"docs/critic-captures/pack-diff/quote-lift-out--syntax.png",
+				"docs/critic-captures/pack-diff/quote-lift-out--editorial-mono.png"
+			],
+			"stats": {
+				"width": 960,
+				"height": 539,
+				"meanAbsDiff": 0.01205,
+				"changedPct": 39.79
+			},
+			"error": null
+		},
+		{
+			"slug": "quote-magnify",
+			"packA": "syntax",
+			"packB": "editorial-mono",
+			"progress": 0.5,
+			"timelineTime": 4,
+			"captures": [
+				"docs/critic-captures/pack-diff/quote-magnify--syntax.png",
+				"docs/critic-captures/pack-diff/quote-magnify--editorial-mono.png"
+			],
+			"stats": {
+				"width": 960,
+				"height": 539,
+				"meanAbsDiff": 0.02506,
+				"changedPct": 40.93
+			},
+			"error": null
+		},
+		{
+			"slug": "quote-tear-out",
+			"packA": "syntax",
+			"packB": "editorial-mono",
+			"progress": 0.5,
+			"timelineTime": 3.5,
+			"captures": [
+				"docs/critic-captures/pack-diff/quote-tear-out--syntax.png",
+				"docs/critic-captures/pack-diff/quote-tear-out--editorial-mono.png"
+			],
+			"stats": {
+				"width": 960,
+				"height": 539,
+				"meanAbsDiff": 0.00933,
+				"changedPct": 40.08
+			},
+			"error": null
+		},
+		{
+			"slug": "research-paper-critique",
+			"packA": "syntax",
+			"packB": "editorial-mono",
+			"progress": 0.75,
+			"timelineTime": 5.25,
+			"captures": [
+				"docs/critic-captures/pack-diff/research-paper-critique--syntax.png",
+				"docs/critic-captures/pack-diff/research-paper-critique--editorial-mono.png"
+			],
+			"stats": {
+				"width": 960,
+				"height": 539,
+				"meanAbsDiff": 0.02429,
+				"changedPct": 40.23
+			},
+			"error": null
+		},
+		{
+			"slug": "server-renders-again",
+			"packA": "editorial-mono",
+			"packB": "syntax",
+			"progress": 0.5,
+			"timelineTime": 1.75,
+			"captures": [
+				"docs/critic-captures/pack-diff/server-renders-again--editorial-mono.png",
+				"docs/critic-captures/pack-diff/server-renders-again--syntax.png"
+			],
+			"stats": {
+				"width": 960,
+				"height": 539,
+				"meanAbsDiff": 0.04489,
+				"changedPct": 54.76
+			},
+			"error": null
+		},
+		{
+			"slug": "text-3d-cylinder",
+			"packA": "syntax",
+			"packB": "editorial-mono",
+			"progress": 0.5,
+			"timelineTime": 3,
+			"captures": [
+				"docs/critic-captures/pack-diff/text-3d-cylinder--syntax.png",
+				"docs/critic-captures/pack-diff/text-3d-cylinder--editorial-mono.png"
+			],
+			"stats": {
+				"width": 960,
+				"height": 539,
+				"meanAbsDiff": 0.0044,
+				"changedPct": 1.04
+			},
+			"error": null
+		},
+		{
+			"slug": "title-sequence-drop",
+			"packA": "syntax",
+			"packB": "editorial-mono",
+			"progress": 0.5,
+			"timelineTime": 3,
+			"captures": [
+				"docs/critic-captures/pack-diff/title-sequence-drop--syntax.png",
+				"docs/critic-captures/pack-diff/title-sequence-drop--editorial-mono.png"
+			],
+			"stats": {
+				"width": 960,
+				"height": 539,
+				"meanAbsDiff": 0.01662,
+				"changedPct": 34.43
+			},
+			"error": null
+		}
+	]
+}

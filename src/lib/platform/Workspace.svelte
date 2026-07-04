@@ -67,6 +67,7 @@
 		engineState,
 		ensureMarkTimingAtIndex,
 		packState,
+		readMarkColor,
 		transitionState,
 		type ResolvedTransition
 	} from './engine-state.svelte';
@@ -461,7 +462,7 @@
 		}
 
 		parsedMarks.forEach((mark, index) => {
-			const resolved = resolveMarkForIndex(mark.style, index, engineState.marks);
+			const resolved = resolveMarkForIndex(mark.style, index, engineState.marks, readMarkColor(mark.style));
 
 			tweens.push({
 				key: `mark-${index}`,
@@ -690,14 +691,14 @@
 	function getMarkColorsByIndex(): string[] {
 		const parsedMarks = readMarks();
 		return parsedMarks.map(
-			(mark, index) => resolveMarkForIndex(mark.style, index, engineState.marks).color
+			(mark, index) => resolveMarkForIndex(mark.style, index, engineState.marks, readMarkColor(mark.style)).color
 		);
 	}
 
 	function getMarkIntensityByIndex(): number[] {
 		const parsedMarks = readMarks();
 		return parsedMarks.map(
-			(mark, index) => resolveMarkForIndex(mark.style, index, engineState.marks).intensity
+			(mark, index) => resolveMarkForIndex(mark.style, index, engineState.marks, readMarkColor(mark.style)).intensity
 		);
 	}
 
@@ -1046,7 +1047,7 @@
 		}
 
 		parsedMarks.forEach((mark, index) => {
-			const resolved = resolveMarkForIndex(mark.style, index, engineState.marks);
+			const resolved = resolveMarkForIndex(mark.style, index, engineState.marks, readMarkColor(mark.style));
 			const label = truncateMiddle(mark.text, 20);
 			const timing = engineState.marks.timings[index];
 			const welded = timing?.cascade

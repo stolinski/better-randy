@@ -4,6 +4,7 @@
 	import {
 		engineState,
 		packState,
+		readMarkColor,
 		transitionState,
 		addEffect,
 		removeEffect
@@ -122,7 +123,7 @@
 		}
 		// A free-standing sound drops at the playhead (the DaVinci gesture); the
 		// timeline seam is the same one verification drives.
-		const timeline = typeof window !== 'undefined' ? window.__hivizTimeline : undefined;
+		const timeline = typeof window !== 'undefined' ? window.__supersTimeline : undefined;
 		const playhead =
 			timeline && timeline.durationSeconds > 0
 				? Math.min(0.98, timeline.time / timeline.durationSeconds)
@@ -234,7 +235,8 @@
 		const resolved = resolveMarkForIndex(
 			style,
 			engineState.marks.timings.length,
-			engineState.marks
+			engineState.marks,
+			readMarkColor(style)
 		);
 		return { color: resolved.color, intensity: resolved.intensity };
 	}

@@ -7,7 +7,7 @@
 		resolveMarkForIndex,
 		type Ease
 	} from './engine-schema';
-	import { engineState, ensureMarkTimingAtIndex } from './engine-state.svelte';
+	import { engineState, ensureMarkTimingAtIndex, readMarkColor } from './engine-state.svelte';
 	import type { TimelineSelection } from './timeline.svelte';
 
 	interface Props {
@@ -72,7 +72,7 @@
 			return null;
 		}
 
-		return resolveMarkForIndex(parsedMark.style, markIndex, engineState.marks);
+		return resolveMarkForIndex(parsedMark.style, markIndex, engineState.marks, readMarkColor(parsedMark.style));
 	});
 
 	const surfaceTransition = $derived.by(() => {

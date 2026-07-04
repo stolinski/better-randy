@@ -3,7 +3,7 @@
 
 	import CascadeSection from './CascadeSection.svelte';
 	import { ENGINE_EASES, resolveMarkForIndex, type Ease } from './engine-schema';
-	import { engineState, ensureMarkTimingAtIndex } from './engine-state.svelte';
+	import { engineState, ensureMarkTimingAtIndex, readMarkColor } from './engine-state.svelte';
 	import InspectorSection from './InspectorSection.svelte';
 	import Field from './Field.svelte';
 	import SoundSection from './SoundSection.svelte';
@@ -54,7 +54,7 @@
 			return null;
 		}
 
-		return resolveMarkForIndex(parsedMark.style, markIndex, engineState.marks);
+		return resolveMarkForIndex(parsedMark.style, markIndex, engineState.marks, readMarkColor(parsedMark.style));
 	});
 
 	function handleColorInput(event: Event): void {

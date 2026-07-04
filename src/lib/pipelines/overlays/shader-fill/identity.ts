@@ -1,9 +1,11 @@
 /**
  * Identity Spec for the `shader-fill` Overlay — per ADR-0015. A graphic
  * Overlay whose claim is a procedural fragment-shader fill applied to a
- * rect region. Motion-form and frame-relationship are intrinsic; the
- * specific shader, fill colour, and edge behaviour all concede to the
- * active Pack per ADR-0019.
+ * rect region. Every dimension is intrinsic or preset-content-owned: the
+ * gradient colours are authored `content` (color0/1/2), the edge is the
+ * intrinsic hard rect, and no dimension resolves via the Pack — declared
+ * below as Pack-immunity so the ADR-0038 pixel-diff lock reads this as a
+ * deliberate exemption, not a wiring bug.
  */
 
 import type { IdentitySpec } from '$lib/platform/pipelines/identity';
@@ -11,6 +13,10 @@ import type { IdentitySpec } from '$lib/platform/pipelines/identity';
 export const shaderFillIdentity: IdentitySpec = {
 	kind: 'graphic',
 	claim: 'a procedurally shaded fill region anchored within the frame',
+	packImmunity: {
+		rationale:
+			'The three authored gradient colours ARE the content (preset color0/1/2), not a Pack dress; the pipeline is dead-by-use pending prove-or-remove (see packs/resolve.ts), so it deliberately consumes no Pack Roles rather than half-wearing one.'
+	},
 	dimensions: [
 		{
 			name: 'fill-treatment',

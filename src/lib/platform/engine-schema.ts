@@ -1210,16 +1210,34 @@ export interface ResolvedMark {
 const FALLBACK_TIMING = { start: 0.34, duration: 0.24, ease: 'smooth' as Ease };
 const FALLBACK_APPEARANCE: MarkAppearance = { color: '#1f5aff', intensity: 0.62 };
 
-function getMarkDefaults(marks: MarksState, style: AnnotationMarkStyle): MarkAppearance {
-	return marks.defaults[style] ?? FALLBACK_APPEARANCE;
+function getMarkDefaults(
+	marks: MarksState,
+	style: AnnotationMarkStyle,
+	fallbackColor?: string
+): MarkAppearance {
+	const authored = marks.defaults[style];
+	if (authored) {
+		return authored;
+	}
+	return fallbackColor === undefined
+		? FALLBACK_APPEARANCE
+		: { ...FALLBACK_APPEARANCE, color: fallbackColor };
 }
 
+/**
+ * `fallbackColor` is used when neither the timing nor the preset's authored
+ * `marks.defaults` carries a colour. Render and inspector call sites pass the
+ * active Pack's `<style>.fill` → core-accent chain (`readMarkColor` in
+ * engine-state) so an unauthored mark wears the Pack, not a baked literal
+ * (ADR-0024/0038). Colour-blind callers (sound cues) may omit it.
+ */
 export function resolveMarkForIndex(
 	style: AnnotationMarkStyle,
 	index: number,
-	marks: MarksState
+	marks: MarksState,
+	fallbackColor?: string
 ): ResolvedMark {
-	const defaults = getMarkDefaults(marks, style);
+	const defaults = getMarkDefaults(marks, style, fallbackColor);
 	const timing = marks.timings[index];
 
 	if (!timing) {

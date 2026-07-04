@@ -85,12 +85,13 @@ export function ensureMarkTimingAtIndex(index: number): MarkTiming {
 }
 
 /**
- * Mark colour for the editor's annotation swatches: the Preset's authored
+ * Mark colour for editor swatches AND the render path's unauthored-mark
+ * fallback (threaded into `resolveMarkForIndex`): the Preset's authored
  * `marks.defaults` entry wins; absent that, the active Pack's `<style>.fill`
  * Role → the Pack's mandatory core accent (ADR-0024) — never a baked literal
  * that would make one Pack a de facto base.
  */
-function readMarkColor(style: AnnotationMarkStyle): string {
+export function readMarkColor(style: AnnotationMarkStyle): string {
 	const authored = engineState.marks.defaults[style]?.color;
 	if (authored) {
 		return authored;

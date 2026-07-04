@@ -1,4 +1,4 @@
-# Hiviz Critic — Adversarial Verification
+# Supers Critic — Adversarial Verification
 
 The protocol for verifying that a **Preset** is actually done. The companion to [`docs/quality-rubric.md`](quality-rubric.md), [`docs/animation-rubric.md`](animation-rubric.md), and the **active Pack's aesthetic** (`docs/packs/<preset.pack>/aesthetic.md` per [ADR-0014](adr/0014-pack-preset-split.md); the legacy single `docs/aesthetic.md` is now a redirect). Background: [ADR-0001](adr/0001-critic-sub-agent-verification.md).
 
@@ -14,7 +14,7 @@ The Critic does **not** run on every micro-edit during authoring. It runs when t
 
 ### Pack aesthetics never gate
 
-Hiviz is a **general motion-graphics engine** — "the engine is general, the look is not" (CLAUDE.md). A Pack supplies the channel's appearance; it does not define what the engine is allowed to do. Therefore:
+Supers is a **general motion-graphics engine** — "the engine is general, the look is not" (CLAUDE.md). A Pack supplies the channel's appearance; it does not define what the engine is allowed to do. Therefore:
 
 - A Pack aesthetic / channel-fit observation is **always classified `aesthetic-miss`**, which is **non-gating** by definition (`ACCEPT` only requires zero `pipeline-bug` + zero `default-too-permissive`). It is surfaced for the user to route, never used to force `REVISE` or `IMPLEMENTATION-FIX-REQUIRED` on its own.
 - **Never escalate a Pack style mismatch into a `pipeline-bug` or `default-too-permissive`.** "This composition is off-channel for the Pack" / "the Pack reserves this effect for surface X" is a *style preference*, not a render defect. A defect is a wrong pixel: a broken shader, a halo, a banded gradient, an upscaled texture — measurable against the R/Q/G rules, independent of any Pack.
@@ -36,17 +36,17 @@ The sub-agent does **not** see the conversation that produced the Preset. The fr
 ### Spawn prompt template
 
 ```text
-You are the Critic for the Hiviz preset at <preset-path>.
+You are the Critic for the Supers preset at <preset-path>.
 
 CAPTURE SETUP (this repo): the dev server is at http://localhost:7263 — route
-http://localhost:7263/p/<slug>. Hiviz renders via WICG HTML-in-Canvas, which
+http://localhost:7263/p/<slug>. Supers renders via WICG HTML-in-Canvas, which
 needs Chrome launched with --enable-blink-features=CanvasDrawElement; a
 flag-enabled Chrome is already running on CDP port 9223. A normal/unflagged
 browser (including the default chrome-devtools MCP browser unless it carries the
 flag) captures a BLANK canvas — do not use one. Capture frames with the repo
 harness: `CDP_SAMPLES=0,0.25,0.5,0.75,1 node scripts/cdp-capture.mjs <slug>`
 (saves .tmp-baselines/<slug>/pX.XX.png at the native 4K render, clipped to the
-canvas; it drives window.__hivizTimeline.seekProgress). The Preset renders at
+canvas; it drives window.__supersTimeline.seekProgress). The Preset renders at
 its native target resolution (3840×2160 horizontal or 2160×3840 vertical). Also
 capture the peak-amplitude frame of every focal mark and effect.
 
@@ -186,6 +186,8 @@ Follow-on probes when failure patterns demand them:
 | `probe-edge-aa.ts <png> --region <x,y,w,h>` | `{ stairstep-px }` | R4 (edge AA) |
 
 Each probe is ~30 lines of canvas / `image-data` inspection. Implementations don't live in this doc; the contract above is the binding contract.
+
+**Two-Pack pixel-diff lock (ADR-0038).** `npx tsx scripts/probe-pack-diff.ts` is the regression lock for full Pack buy-in: for every non-immune Pipeline in `IDENTITY_REGISTRY` it renders a representative corpus Preset at one deterministically pinned frame under two Packs (default: the Preset's own vs `editorial-mono`; `--packs a,b` to override, e.g. `--packs syntax,crt-terminal`) and requires the two canvas captures to visibly differ — ≥ 0.25% changed pixels, calibrated ~8× above the re-capture noise floor (≤ 0.03%) and ~3× below the smallest real re-skin measured (0.78%). Preset-authored `typography.paperColor`/`inkColor` are lifted during both captures so the `override ?? packRole` seam resolves on the Pack side. A **FAIL means partial Pack buy-in regressed**: a Pipeline's pixels no longer respond to the active Pack (a baked literal or unwired Role) — an `IMPLEMENTATION-FIX-REQUIRED`-class defect, never fixable by editing the Preset. Pipelines whose Identity Spec declares Pack-immunity (`PACK_IMMUNE_PIPELINE_KEYS`: `surface:imessage`, `surface:web-document`) are exempt — their artifact is verisimilar by contract — and Pipelines with no covering Preset are reported as coverage-gap warnings. Paired captures + `pack-diff-results.json` land in `docs/critic-captures/pack-diff/`.
 
 ---
 
