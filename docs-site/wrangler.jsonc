@@ -1,0 +1,16 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "supers-docs",
+	"compatibility_date": "2026-05-11",
+	// docs.js reads the repo's markdown via node:fs/node:path; the prerender-only
+	// code still lands in the worker bundle, so the runtime needs Node compat.
+	// nodejs_compat supersets nodejs_als at this compatibility_date.
+	"compatibility_flags": ["nodejs_compat"],
+	"main": ".svelte-kit/cloudflare/_worker.js",
+	"assets": {
+		"binding": "ASSETS",
+		"directory": ".svelte-kit/cloudflare"
+	},
+	"workers_dev": true,
+	"preview_urls": true
+}

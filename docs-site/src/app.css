@@ -1,0 +1,284 @@
+:root {
+	--ink: #0f0f13;
+	--panel: #16161c;
+	--raise: #1c1c23;
+	--line: #26262e;
+	--line-soft: #1e1e26;
+	--text: #e9e9ee;
+	--muted: #94949f;
+	--faint: #62626e;
+	--signal-y: #ffd608;
+	--signal-r: #e6322a;
+	--signal-c: #2de8ee;
+	--display: 'Archivo Variable', system-ui, sans-serif;
+	--body: 'Inter Variable', system-ui, sans-serif;
+	--mono: 'JetBrains Mono', ui-monospace, monospace;
+	--header-h: 3.5rem;
+	color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html {
+	scroll-padding-top: calc(var(--header-h) + 1.5rem);
+}
+
+/* The Supers logotype: Archivo 900 italic caps with the checkered-flag
+   chip skewed to the same rake. Black/white by construction — it rides
+   currentColor wherever it lands. */
+.supers-mark {
+	font-family: var(--display);
+	font-style: italic;
+	font-weight: 900;
+	letter-spacing: -0.015em;
+	text-transform: uppercase;
+}
+
+.supers-mark::after {
+	background: conic-gradient(
+		transparent 0 25%,
+		currentColor 0 50%,
+		transparent 0 75%,
+		currentColor 0
+	);
+	background-size: 0.44em 0.44em;
+	block-size: 0.44em;
+	content: '';
+	display: inline-block;
+	inline-size: 0.66em;
+	margin-inline-start: 0.32em;
+	transform: skewX(-10deg);
+}
+
+body {
+	margin: 0;
+	background: var(--ink);
+	color: var(--text);
+	font-family: var(--body);
+	font-size: 0.9375rem;
+	line-height: 1.65;
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+}
+
+a {
+	color: inherit;
+}
+
+button {
+	font: inherit;
+	color: inherit;
+	background: none;
+	border: 0;
+	padding: 0;
+	cursor: pointer;
+}
+
+:focus-visible {
+	outline: 2px solid var(--signal-y);
+	outline-offset: 2px;
+	border-radius: 2px;
+}
+
+::selection {
+	background: color-mix(in srgb, var(--signal-y) 30%, transparent);
+}
+
+/* ————— rendered markdown ————— */
+
+.prose {
+	font-size: 0.9375rem;
+}
+
+.prose > :first-child {
+	margin-top: 0;
+}
+
+.prose h1 {
+	font-family: var(--display);
+	font-size: 2.125rem;
+	font-weight: 640;
+	letter-spacing: -0.015em;
+	line-height: 1.15;
+	margin: 0 0 1rem;
+}
+
+.prose h2 {
+	font-family: var(--display);
+	font-size: 1.375rem;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	line-height: 1.25;
+	margin: 2.75rem 0 0.875rem;
+	padding-top: 1.75rem;
+	border-top: 1px solid var(--line-soft);
+}
+
+.prose h3 {
+	font-family: var(--display);
+	font-size: 1.0625rem;
+	font-weight: 600;
+	margin: 2rem 0 0.625rem;
+}
+
+.prose h4 {
+	font-size: 0.9375rem;
+	font-weight: 600;
+	margin: 1.5rem 0 0.5rem;
+}
+
+.prose .h-anchor {
+	margin-left: 0.4em;
+	color: var(--faint);
+	text-decoration: none;
+	opacity: 0;
+	font-weight: 400;
+}
+
+.prose h2:hover .h-anchor,
+.prose h3:hover .h-anchor,
+.prose h4:hover .h-anchor {
+	opacity: 1;
+}
+
+.prose p {
+	margin: 0 0 1rem;
+}
+
+.prose a {
+	color: var(--text);
+	text-decoration: underline;
+	text-decoration-color: color-mix(in srgb, var(--signal-y) 55%, transparent);
+	text-underline-offset: 3px;
+	transition: text-decoration-color 120ms;
+}
+
+.prose a:hover {
+	text-decoration-color: var(--signal-y);
+}
+
+.prose strong {
+	font-weight: 620;
+	color: #fff;
+}
+
+.prose ul,
+.prose ol {
+	margin: 0 0 1rem;
+	padding-left: 1.375rem;
+}
+
+.prose li {
+	margin: 0.3rem 0;
+}
+
+.prose li::marker {
+	color: var(--faint);
+}
+
+.prose code {
+	font-family: var(--mono);
+	font-size: 0.8125em;
+	background: var(--raise);
+	border: 1px solid var(--line-soft);
+	border-radius: 4px;
+	padding: 0.1em 0.35em;
+	white-space: nowrap;
+}
+
+.prose a code {
+	white-space: normal;
+}
+
+.prose pre.shiki {
+	background: var(--panel) !important;
+	border: 1px solid var(--line-soft);
+	border-radius: 8px;
+	padding: 1rem 1.125rem;
+	margin: 1.25rem 0;
+	overflow-x: auto;
+	font-size: 0.8125rem;
+	line-height: 1.6;
+	tab-size: 2;
+}
+
+.prose pre.shiki code {
+	background: none;
+	border: 0;
+	padding: 0;
+	font-size: inherit;
+	white-space: pre;
+}
+
+.prose blockquote {
+	margin: 1.25rem 0;
+	padding: 0.75rem 1.125rem;
+	border-left: 2px solid var(--signal-y);
+	background: var(--panel);
+	border-radius: 0 8px 8px 0;
+	color: var(--muted);
+}
+
+.prose blockquote p {
+	margin: 0;
+}
+
+.prose blockquote p + p {
+	margin-top: 0.75rem;
+}
+
+.prose hr {
+	border: 0;
+	border-top: 1px solid var(--line-soft);
+	margin: 2.5rem 0;
+}
+
+.prose .table-wrap {
+	overflow-x: auto;
+	margin: 1.25rem 0;
+	border: 1px solid var(--line-soft);
+	border-radius: 8px;
+}
+
+.prose table {
+	border-collapse: collapse;
+	width: 100%;
+	font-size: 0.875rem;
+}
+
+.prose th {
+	font-family: var(--mono);
+	font-size: 0.6875rem;
+	font-weight: 500;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: var(--muted);
+	text-align: left;
+	padding: 0.625rem 0.875rem;
+	background: var(--panel);
+	border-bottom: 1px solid var(--line);
+}
+
+.prose td {
+	padding: 0.625rem 0.875rem;
+	border-bottom: 1px solid var(--line-soft);
+	vertical-align: top;
+}
+
+.prose tr:last-child td {
+	border-bottom: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
+}
