@@ -42,7 +42,11 @@
 		   clearing the G4 Overlay-display vertical floor (180px) for the frontmost
 		   instance; the depth recession then steps the lower echoes down from there. */
 		font-size: calc(12.5 * var(--cqmin));
-		font-weight: 800;
+		/* Pack FORM dress (ADR-0023): the numeral/display weight (`instance-stack.weight`).
+		   Border/pad/radius don't apply (no plate — this is depth-recessed display
+		   type, not a card); tracking stays the intrinsic optical value (a name-type
+		   lever, not exposed, matching the cinematic lower-third name). Silent → 800. */
+		font-weight: var(--weight, 800);
 		letter-spacing: -0.02em;
 		line-height: 1;
 		text-transform: uppercase;

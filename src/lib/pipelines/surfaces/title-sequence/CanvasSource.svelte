@@ -84,12 +84,14 @@
 		font-weight: 500;
 		inset-block-start: 51%;
 		inset-inline-start: 8%;
-		letter-spacing: 0.30em;
+		/* Pack label dress (`title-sequence.tracking` / `.case`); the optical
+		   indent equals the tracking so both ride `--tracking`; silent → today's. */
+		letter-spacing: var(--tracking, 0.30em);
 		opacity: 0.88;
-		padding-inline-start: 0.30em;
+		padding-inline-start: var(--tracking, 0.30em);
 		position: absolute;
 		text-shadow: -0.02em 0.04em 0.10em rgba(0, 0, 0, 0.85);
-		text-transform: uppercase;
+		text-transform: var(--case, uppercase);
 		transform: translateY(-50%);
 	}
 
@@ -98,7 +100,8 @@
 		font-family: var(--font, 'Inter', 'Helvetica Neue', system-ui, sans-serif);
 		font-stretch: condensed;
 		font-style: normal;
-		font-weight: 900;
+		/* Pack title weight (`title-sequence.weight`); silent → today's 900. */
+		font-weight: var(--weight, 900);
 		inline-size: 84%;
 		inset-block-start: 63%;
 		inset-inline-start: 8%;

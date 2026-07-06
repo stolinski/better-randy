@@ -61,7 +61,9 @@ const CSS_FORM_SUFFIXES = new Set([
 	'pad',
 	'gap',
 	'tracking',
-	'weight'
+	'weight',
+	'case',
+	'leading'
 ]);
 
 /**

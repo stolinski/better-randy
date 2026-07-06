@@ -30,32 +30,40 @@
 	   reliable inside the canvas layoutsubtree. */
 	.lower-third--standard {
 		display: grid;
-		gap: calc(0.75 * var(--cqmin));
+		gap: var(--gap, calc(0.75 * var(--cqmin)));
 		/* Pack plate chrome (`lower-third.plate`). The fallback is a documented
 		   NEUTRAL achromatic legibility plate (a Pack that makes no plate claim
 		   gets a near-black scrim, never another Pack's colour). */
 		background-color: var(--plate, rgb(10 10 10 / 0.92));
 		color: var(--ink); /* Q17: sub-maximum contrast against the dark plate (mount-guaranteed, ADR-0024) */
-		padding: calc(3 * var(--cqmin)) calc(4.5 * var(--cqmin));
+		padding: var(--pad, calc(3 * var(--cqmin)) calc(4.5 * var(--cqmin)));
 		font-family: var(--font, 'Inter', 'Helvetica Neue', system-ui, sans-serif);
+		/* Pack FORM dress (ADR-0023 appearance): border + corner radius the Pack
+		   may claim via `lower-third.border` / `.radius` — the same roles that bezel
+		   the cinematic plate now also frame the standard plate. A Pack silent on
+		   them keeps today's borderless square plate (syntax renders unchanged). */
+		border: var(--border, none);
+		border-radius: var(--radius, 0);
 	}
 
 	.lower-third__kicker {
 		color: var(--accent);
 		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
 		font-size: calc(3 * var(--cqmin));
-		letter-spacing: 0.16em;
-		text-transform: uppercase;
+		letter-spacing: var(--tracking, 0.16em);
+		text-transform: var(--case, uppercase);
 	}
 
 	.lower-third__title {
 		font-size: calc(7 * var(--cqmin));
-		font-weight: 600;
-		line-height: 1.05;
+		font-weight: var(--weight, 600);
+		line-height: var(--leading, 1.05);
 	}
 
 	.lower-third__subtitle {
 		font-size: calc(4 * var(--cqmin));
+		letter-spacing: var(--tracking, normal);
+		text-transform: var(--case, none);
 		opacity: 0.78;
 	}
 </style>

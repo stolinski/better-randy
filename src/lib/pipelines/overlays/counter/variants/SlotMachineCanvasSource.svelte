@@ -118,7 +118,14 @@
 		font-feature-settings: 'tnum' 1;
 		font-size: calc(12 * var(--cqmin));
 		font-variant-numeric: tabular-nums;
-		font-weight: 700;
+		/* Pack FORM dress (ADR-0023 appearance): a Pack may frame the readout as a
+		   bezelled terminal window (`counter.border` / `.radius` / `.pad`) and set
+		   the numeral weight (`counter.weight`). Silent → today's frameless bold
+		   number (border none, radius 0, pad 0 → byte-identical; syntax unchanged). */
+		border: var(--border, none);
+		border-radius: var(--radius, 0);
+		padding: var(--pad, 0);
+		font-weight: var(--weight, 700);
 		gap: 0;
 		line-height: 1;
 	}

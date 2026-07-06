@@ -258,6 +258,64 @@ export const crtTerminalPack: PackManifest = {
 		'instance-stack.edge': { kind: 'style', value: 'clean-vector' },
 		'instance-stack.depth': { kind: 'style', value: 'opacity-recession' },
 		'instance-stack.light': { kind: 'style', value: 'none' },
-		'text-3d.edge': { kind: 'style', value: 'clean-vector' }
+		'text-3d.edge': { kind: 'style', value: 'clean-vector' },
+
+		// ---------------------------------------------------------------
+		// FORM dress (ADR-0023 appearance) — the machine-console vocabulary
+		// applied across the corpus so every piece reads as the SAME terminal,
+		// not one green pipeline. Cards/panels get a hard dim-phosphor bezel
+		// (radius 0, tight console padding); labels run wide status-line
+		// tracking, uppercased; type holds one uniform weight (uniformity IS
+		// the terminal personality — no weight hierarchy). Border widths ride
+		// `--cqmin` so they scale with the 4K frame. (`lower-third.*` form roles
+		// live in the Overlays block above.)
+		// ---------------------------------------------------------------
+		'chapter-card.border': { kind: 'style', value: 'calc(0.14 * var(--cqmin)) solid #1e8f3d' },
+		'chapter-card.radius': { kind: 'style', value: '0' },
+		'chapter-card.tracking': { kind: 'style', value: '0.34em' },
+		'chapter-card.case': { kind: 'style', value: 'uppercase' },
+		'chapter-card.weight': { kind: 'style', value: '600' },
+
+		'newspaper.border': { kind: 'style', value: 'calc(0.14 * var(--cqmin)) solid #1e8f3d' },
+		'newspaper.radius': { kind: 'style', value: '0' },
+		'newspaper.tracking': { kind: 'style', value: '0.34em' },
+		'newspaper.case': { kind: 'style', value: 'uppercase' },
+		'newspaper.weight': { kind: 'style', value: '600' },
+
+		'title-sequence.tracking': { kind: 'style', value: '0.34em' },
+		'title-sequence.case': { kind: 'style', value: 'uppercase' },
+		'title-sequence.weight': { kind: 'style', value: '600' },
+
+		'type-hero.tracking': { kind: 'style', value: '0.34em' },
+		'type-hero.case': { kind: 'style', value: 'uppercase' },
+		'type-hero.weight': { kind: 'style', value: '600' },
+
+		'pullquote-on-photo.tracking': { kind: 'style', value: '0.34em' },
+		'pullquote-on-photo.case': { kind: 'style', value: 'uppercase' },
+		'pullquote-on-photo.weight': { kind: 'style', value: '600' },
+
+		// Standard lower-third subtitle is mixed-case intrinsically; the terminal
+		// uppercases it to the status-line voice (cinematic labels are already caps).
+		'lower-third.case': { kind: 'style', value: 'uppercase' },
+
+		// The odometer becomes a bezelled phosphor readout window.
+		'counter.border': { kind: 'style', value: 'calc(0.14 * var(--cqmin)) solid #1e8f3d' },
+		'counter.radius': { kind: 'style', value: '0' },
+		'counter.pad': { kind: 'style', value: 'calc(1.2 * var(--cqmin)) calc(1.6 * var(--cqmin))' },
+		'counter.weight': { kind: 'style', value: '600' },
+
+		// The corner watermark becomes a bezelled terminal status tag.
+		'watermark.border': { kind: 'style', value: 'calc(0.14 * var(--cqmin)) solid #1e8f3d' },
+		'watermark.radius': { kind: 'style', value: '0' },
+		'watermark.pad': {
+			kind: 'style',
+			value: 'calc(1.5 * var(--cqmin)) calc(1.9 * var(--cqmin)) calc(1.5 * var(--cqmin)) calc(1.7 * var(--cqmin))'
+		},
+		'watermark.tracking': { kind: 'style', value: '0.34em' },
+		'watermark.case': { kind: 'style', value: 'uppercase' },
+
+		// Plate-less display echoes — the only fitting lever is the uniform weight.
+		'instance-stack.weight': { kind: 'style', value: '600' },
+		'text-3d.weight': { kind: 'style', value: '600' }
 	}
 };

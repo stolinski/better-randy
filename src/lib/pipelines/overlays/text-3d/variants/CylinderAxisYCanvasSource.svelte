@@ -89,7 +89,12 @@
 	.text-3d-overlay {
 		font-family: var(--font, 'Inter', 'Helvetica Neue', system-ui, sans-serif);
 		font-size: calc(14 * var(--cqmin));
-		font-weight: 800;
+		/* Pack FORM dress (ADR-0023): the display weight (`text-3d.weight`) — the one
+		   form lever that fits. No plate → no border/pad/radius; letter-spacing is
+		   NOT exposed because each glyph is JS-positioned (translateX in ch) and
+		   centre-translated, so tracking would only miscentre the glyphs, not track
+		   them; casing is already uppercase. Silent → 800. */
+		font-weight: var(--weight, 800);
 		letter-spacing: -0.01em;
 		line-height: 1;
 		text-transform: uppercase;

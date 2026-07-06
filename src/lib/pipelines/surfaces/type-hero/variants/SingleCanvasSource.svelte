@@ -93,7 +93,8 @@
 		font-family: var(--font, 'Inter', 'Helvetica Neue', system-ui, sans-serif);
 		font-stretch: condensed;
 		font-style: normal;
-		font-weight: 900;
+		/* Pack title weight (`type-hero.weight`); silent → today's 900. */
+		font-weight: var(--weight, 900);
 		inset-block-start: 50%;
 		inset-inline-start: 7%;
 		letter-spacing: -0.038em;
@@ -123,9 +124,10 @@
 		font-weight: 500;
 		inset-block-end: 9%;
 		inset-inline-end: 7%;
-		letter-spacing: 0.32em;
+		/* Pack label dress (`type-hero.tracking` / `.case`); silent → today's caps. */
+		letter-spacing: var(--tracking, 0.32em);
 		position: absolute;
 		text-shadow: 0 0.04em 0.1em rgba(0, 0, 0, 0.85);
-		text-transform: uppercase;
+		text-transform: var(--case, uppercase);
 	}
 </style>

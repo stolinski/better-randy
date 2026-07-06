@@ -64,6 +64,12 @@
 	 */
 	.chapter-card-source {
 		background-color: transparent;
+		/* Pack FORM dress (ADR-0023 appearance): a bezel + corner radius the Pack
+		   may claim via `chapter-card.border` / `.radius` (e.g. a CRT screen
+		   frame around the whole surface). Silent Packs fall back to the
+		   borderless square frame — syntax renders byte-identical. */
+		border: var(--border, none);
+		border-radius: var(--radius, 0);
 		box-sizing: border-box;
 		/* Extra slot → chains to the ink core (base is the card's resting text ink), never a literal (ADR-0024). */
 		color: var(--base, var(--ink));
@@ -87,11 +93,12 @@
 		font-weight: 500;
 		inset-block-start: 50.5%;
 		inset-inline-start: 30%;
-		letter-spacing: 0.18em;
+		/* Pack label dress (`chapter-card.tracking` / `.case`); silent → today's caps. */
+		letter-spacing: var(--tracking, 0.18em);
 		opacity: 0.92;
 		position: absolute;
 		text-shadow: -0.02em 0.03em 0.06em rgba(0, 0, 0, 0.6);
-		text-transform: uppercase;
+		text-transform: var(--case, uppercase);
 		transform: translateY(-50%);
 	}
 
@@ -110,7 +117,8 @@
 		color: var(--ink);
 		font-family: var(--font, 'EB Garamond', 'Charter', 'Iowan Old Style', Georgia, serif);
 		font-style: normal;
-		font-weight: 700;
+		/* Pack title weight (`chapter-card.weight`); silent → today's 700. */
+		font-weight: var(--weight, 700);
 		inline-size: 50%;
 		inset-block-start: 62%;
 		inset-inline-start: 30%;

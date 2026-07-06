@@ -148,8 +148,7 @@
 	style:top={`${layout.y}px`}
 	style:transform={`rotate(${rotationDeg}deg)`}
 	style:--depth-shadow={depthShadow}
-	style:padding-block={`${layout.width * 0.045}px`}
-	style:padding-inline={`${layout.width * 0.06}px`}
+	style:padding={`var(--pad, ${layout.width * 0.045}px ${layout.width * 0.06}px)`}
 >
 	<header>
 		{#if hasKicker}
@@ -235,6 +234,12 @@
 	 */
 	.newspaper-source {
 		background-color: var(--fill);
+		/* Pack FORM dress (ADR-0023 appearance): a bezel + corner radius the Pack
+		   may claim via `newspaper.border` / `.radius` (e.g. a CRT phosphor frame
+		   around the clipping). Silent Packs fall back to the borderless square
+		   clipping — syntax renders byte-identical. */
+		border: var(--border, none);
+		border-radius: var(--radius, 0);
 		box-shadow: var(--depth-shadow, none);
 		box-sizing: border-box;
 		color: var(--ink);
@@ -315,10 +320,11 @@
 		color: var(--kicker-ink, var(--ink));
 		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
 		font-weight: 700;
-		letter-spacing: 0.14em;
+		/* Pack label dress (`newspaper.tracking` / `.case`); silent → today's caps. */
+		letter-spacing: var(--tracking, 0.14em);
 		line-height: 1;
 		padding: 0.5em 0.75em;
-		text-transform: uppercase;
+		text-transform: var(--case, uppercase);
 	}
 
 	/*
@@ -330,7 +336,8 @@
 	 */
 	h2 {
 		font-family: var(--font, 'Playfair Display', 'Old Standard TT', 'Roboto Slab', serif);
-		font-weight: 900;
+		/* Pack title weight (`newspaper.weight`); silent → today's 900. */
+		font-weight: var(--weight, 900);
 		line-height: 1.02;
 		margin: 0;
 		text-wrap: balance;
@@ -347,9 +354,11 @@
 		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
 		gap: 1.5em;
 		justify-content: space-between;
-		letter-spacing: 0.10em;
+		/* Footer credit line is a label group — shares the card's label dress
+		   (`newspaper.tracking` / `.case`); silent → today's caps. */
+		letter-spacing: var(--tracking, 0.10em);
 		padding-block-start: 0.7em;
-		text-transform: uppercase;
+		text-transform: var(--case, uppercase);
 	}
 
 	.newspaper-source__byline {

@@ -149,6 +149,26 @@ export const editorialMonoPack: PackManifest = {
 		'node.fill': { kind: 'style', value: '#e9eef3' },
 		'node.accent': { kind: 'style', value: '#22d3ee' },
 		'node.depth': { kind: 'style', value: 'none' },
-		'stat-callout.accent': { kind: 'style', value: '#22d3ee' }
+		'stat-callout.accent': { kind: 'style', value: '#22d3ee' },
+
+		// ---------------------------------------------------------------
+		// FORM dress (ADR-0023 appearance) — editorial restraint reads through
+		// SPACE and tight typography, never a box: no borders anywhere, tight
+		// label tracking (vs the terminal's wide status tracking), and generous
+		// padding on the card/chip surfaces. Type WEIGHT is deliberately left
+		// intrinsic — de-weighting the big display heroes to book weight reads
+		// anemic; restraint here is the tight tracking, not a lighter cut.
+		// (`lower-third.*` form roles live in the Overlays block above.)
+		// ---------------------------------------------------------------
+		'chapter-card.tracking': { kind: 'style', value: '0.12em' },
+		'newspaper.tracking': { kind: 'style', value: '0.12em' },
+		'title-sequence.tracking': { kind: 'style', value: '0.12em' },
+		'type-hero.tracking': { kind: 'style', value: '0.12em' },
+		'pullquote-on-photo.tracking': { kind: 'style', value: '0.12em' },
+		'watermark.pad': {
+			kind: 'style',
+			value: 'calc(2.4 * var(--cqmin)) calc(3 * var(--cqmin)) calc(2.4 * var(--cqmin)) calc(2.7 * var(--cqmin))'
+		},
+		'watermark.tracking': { kind: 'style', value: '0.12em' }
 	}
 };
