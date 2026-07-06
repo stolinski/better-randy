@@ -45,6 +45,13 @@ export const editorialMonoPack: PackManifest = {
 		// backdrops, e.g. pullquote's #080b10 top stop).
 		'lower-third.plate': { kind: 'style', value: 'rgba(13, 18, 24, 0.92)' },
 		'lower-third.scrim': { kind: 'style', value: { color: '#080b10' } },
+		// FORM dress (ADR-0023 appearance): editorial restraint reads through
+		// SPACE, not a box — no border, generous padding, and tight typographic
+		// tracking (vs the CRT terminal's wide status-line tracking). Same
+		// layout, a distinctly quieter, more art-directed object.
+		'lower-third.pad': { kind: 'style', value: 'calc(2.6 * var(--cqmin)) calc(3.6 * var(--cqmin))' },
+		'lower-third.tracking': { kind: 'style', value: '0.12em' },
+		'lower-third.weight': { kind: 'style', value: '600' },
 		// The watermark sits on its dark plate, so its handle can't ride the
 		// Pack's near-black core ink — cool off-white, matching the Pack's other
 		// dark-piece inks.

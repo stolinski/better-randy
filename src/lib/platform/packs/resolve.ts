@@ -44,6 +44,27 @@ function isEmittableColorClaim(value: string): boolean {
 }
 
 /**
+ * Appearance is more than colour. These per-Pipeline Role suffixes carry the
+ * Pack's *form* dress — border, corner radius, padding, label tracking, name
+ * weight — as raw CSS strings, so a manifest can say "this Pack frames the
+ * plate in a hard 1px bezel with tight tracked labels" without a new Pipeline
+ * variant (that stays the Preset's structure; this is still appearance, per
+ * ADR-0023). A value may reference other in-scope custom properties — most
+ * usefully `var(--cqmin)` — so widths and spacing scale with the 4K frame.
+ * Emitted verbatim as `--<suffix>`; a Pipeline whose CanvasSource reads
+ * `var(--border, <intrinsic>)` falls back to its own look for any Pack silent
+ * on the slot, so this never disturbs a Pack that only dresses in colour.
+ */
+const CSS_FORM_SUFFIXES = new Set([
+	'border',
+	'radius',
+	'pad',
+	'gap',
+	'tracking',
+	'weight'
+]);
+
+/**
  * Resolve the Pack's universal type voice — the optional `font-treatment`
  * core: a single CSS font-family stack STRING (the whole Pack speaks one
  * family, e.g. crt-terminal's JetBrains Mono stack). Resolution is
@@ -87,13 +108,15 @@ export function resolveAppearanceVars(
 	//    color slots it needs beyond the core vocabulary; the CanvasSource just
 	//    references the matching `var(--<suffix>, <fallback>)`.
 	for (const [key, role] of Object.entries(manifest.roles)) {
-		if (
-			key.startsWith(prefix) &&
-			role.kind === 'style' &&
-			typeof role.value === 'string' &&
-			isEmittableColorClaim(role.value)
-		) {
-			vars[`--${key.slice(prefix.length)}`] = role.value;
+		if (!key.startsWith(prefix) || role.kind !== 'style' || typeof role.value !== 'string') {
+			continue;
+		}
+		const suffix = key.slice(prefix.length);
+		// A slot is emitted when it's a colour claim OR a declared CSS-form slot
+		// (border/pad/tracking/…). Other non-colour strings stay code-consumed
+		// keywords (`'flat'`, `'opacity-recession'`) and are NOT emitted as junk.
+		if (isEmittableColorClaim(role.value) || CSS_FORM_SUFFIXES.has(suffix)) {
+			vars[`--${suffix}`] = role.value;
 		}
 	}
 

@@ -219,6 +219,17 @@ export const crtTerminalPack: PackManifest = {
 		// at several alphas.
 		'lower-third.plate': { kind: 'style', value: 'rgba(4, 9, 6, 0.92)' },
 		'lower-third.scrim': { kind: 'style', value: { color: '#030704' } },
+		// FORM dress (ADR-0023 appearance): the terminal reads as a bezelled
+		// readout panel, not a floating title — a hard dim-phosphor screen
+		// border (hard pixels, radius 0), tight console padding, and wide
+		// status-line tracking on the mono labels. Widths ride `--cqmin` so
+		// they scale with the 4K frame. This is what makes the CRT lower-third
+		// a different OBJECT from the syntax one, not a recolour.
+		'lower-third.border': { kind: 'style', value: 'calc(0.16 * var(--cqmin)) solid #1e8f3d' },
+		'lower-third.radius': { kind: 'style', value: '0' },
+		'lower-third.pad': { kind: 'style', value: 'calc(1.5 * var(--cqmin)) calc(2.2 * var(--cqmin))' },
+		'lower-third.tracking': { kind: 'style', value: '0.34em' },
+		'lower-third.weight': { kind: 'style', value: '600' },
 		'lower-third.edge': { kind: 'style', value: { rule: 'vertical-accent', color: '#45ff6e' } },
 		// WGSL rim tint on the cinematic variant: the implied off-frame source is
 		// the terminal's own phosphor spill — one hue, not a tungsten key.

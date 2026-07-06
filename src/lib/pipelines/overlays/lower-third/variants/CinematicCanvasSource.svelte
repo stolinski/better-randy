@@ -75,6 +75,11 @@
 		position: relative;
 		min-block-size: calc(11 * var(--cqmin));
 		min-inline-size: calc(30 * var(--cqmin));
+		/* Pack FORM dress (ADR-0023 appearance): border + corner radius the Pack
+		   may claim via `lower-third.border` / `.radius`. A Pack silent on them
+		   falls back to the borderless square plate — syntax renders unchanged. */
+		border: var(--border, none);
+		border-radius: var(--radius, 0);
 	}
 
 	/* Pack scrim colour at three alphas — --scrim-rgb is always set inline by
@@ -107,10 +112,11 @@
 		color: var(--ink);
 		display: grid;
 		font-family: var(--font, 'Inter', 'Helvetica Neue', system-ui, sans-serif);
-		gap: calc(0.7 * var(--cqmin));
+		gap: var(--gap, calc(0.7 * var(--cqmin)));
 		grid-column: 2;
 		grid-row: 1;
-		padding: calc(2 * var(--cqmin)) calc(3 * var(--cqmin));
+		/* Pack padding dress (`lower-third.pad`); silent → today's 2×3 plate. */
+		padding: var(--pad, calc(2 * var(--cqmin)) calc(3 * var(--cqmin)));
 		position: relative;
 	}
 
@@ -119,16 +125,17 @@
 		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
 		font-size: calc(1.9 * var(--cqmin));
 		font-weight: 600;
-		letter-spacing: 0.26em;
+		letter-spacing: var(--tracking, 0.26em);
 		opacity: 0.95;
-		padding-inline-start: 0.26em;
+		padding-inline-start: var(--tracking, 0.26em);
 		text-shadow: 0 0.04em 0.1em rgba(0, 0, 0, 0.85);
 		text-transform: uppercase;
 	}
 
 	.lower-third--cinematic__name {
 		font-size: calc(4.7 * var(--cqmin));
-		font-weight: 700;
+		/* Pack name weight (`lower-third.weight`); silent → today's 700. */
+		font-weight: var(--weight, 700);
 		letter-spacing: -0.008em;
 		line-height: 0.96;
 		text-shadow: 0 0.04em 0.1em rgba(0, 0, 0, 0.9);
@@ -146,7 +153,7 @@
 		   "long tail"). User's eye is the authority here. */
 		font-size: calc(2.9 * var(--cqmin));
 		font-weight: 500;
-		letter-spacing: 0.22em;
+		letter-spacing: var(--tracking, 0.22em);
 		opacity: 0.92;
 		text-shadow: 0 0.04em 0.1em rgba(0, 0, 0, 0.85);
 		text-transform: uppercase;
