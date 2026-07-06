@@ -56,6 +56,13 @@ export const editorialMonoPack: PackManifest = {
 		// Pack's near-black core ink — cool off-white, matching the Pack's other
 		// dark-piece inks.
 		'watermark.ink': { kind: 'style', value: '#eef3f8' },
+		// These overlays ride the Pack accent for their headline read (syntax
+		// runs them at #fabf47). Without an override they fall to the near-black
+		// core ink and vanish on a dark composition — so the cool cyan accent,
+		// matching the rest of the editorial dress.
+		'counter.ink': { kind: 'style', value: '#22d3ee' },
+		'instance-stack.ink': { kind: 'style', value: '#22d3ee' },
+		'text-3d.ink': { kind: 'style', value: '#22d3ee' },
 		// Surface overrides — a cool editorial dress proving Surfaces re-skin
 		// under a second Pack (same Presets, different pixels). Only the Roles
 		// it wants to change; everything else falls back to the CanvasSource
