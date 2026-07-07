@@ -56,6 +56,8 @@ const HIGH = 224;
 
 let hardSteps = 0;
 let smoothPixels = 0;
+let emptyTopColumns = 0;
+let fullTopColumns = 0;
 
 for (let x = x0; x < x1; x++) {
 	let firstFractional = -1;
@@ -71,9 +73,19 @@ for (let x = x0; x < x1; x++) {
 	const sawEdge = firstFull >= 0 && firstEmpty >= 0;
 	if (!sawEdge) continue;
 
-	if (firstFractional >= 0 && firstFull > firstFractional) {
+	// Polarity-agnostic: the column is smoothly anti-aliased if a fractional
+	// pixel sits BETWEEN the full block and the empty block, whichever is on top.
+	// The old test assumed empty→full only (`firstFull > firstFractional`), so a
+	// column whose edge runs full→empty — region placed inside the glyph — misread
+	// as a hard stairstep. The same ampersand scored 0.564 or 1.0 by region alone.
+	if (firstEmpty < firstFull) emptyTopColumns++;
+	else fullTopColumns++;
+
+	const boundaryLo = Math.min(firstFull, firstEmpty);
+	const boundaryHi = Math.max(firstFull, firstEmpty);
+	if (firstFractional > boundaryLo && firstFractional < boundaryHi) {
 		smoothPixels++;
-	} else if (firstFull >= 0) {
+	} else {
 		hardSteps++;
 	}
 }
@@ -86,6 +98,7 @@ console.log(
 		channel,
 		hard_stairsteps: hardSteps,
 		smooth_pixels: smoothPixels,
-		coverage_ratio: ratio === null ? null : Number(ratio.toFixed(3))
+		coverage_ratio: ratio === null ? null : Number(ratio.toFixed(3)),
+		polarity: { empty_top: emptyTopColumns, full_top: fullTopColumns }
 	})
 );
