@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"kind": "fixture",
 	"name": "Shader fill — gradient panel fixture",
 	"description": "Proving fixture for the shader-fill Overlay (was dead-by-use — referenced by zero presets). A centered procedurally-shaded three-colour metaball gradient panel (WGSL OverlayRenderer.shaderPass, ADR-0005/0013) animated by timeline progress over a transparent plain surface; blends at opacity without punching out alpha (E4 transparent-export contract). Verifies the overlay shaderPass path end-to-end. Fixture — exercises the pipeline, not held to the deliverable floors.",

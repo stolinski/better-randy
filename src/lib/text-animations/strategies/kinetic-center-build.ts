@@ -47,7 +47,7 @@ function measureNaturalSpaceWidth(referenceUnit: HTMLElement): number {
  * subsequent word enters from the right and pushes every prior word to its new
  * centered position so the line stays balanced.
  *
- * Hiviz v1 ships a single-pass enter (one phrase, no loop). All N words enter
+ * Supers v1 ships a single-pass enter (one phrase, no loop). All N words enter
  * back-to-back within the user-declared `enter` window; per-word slices share
  * the window evenly, with each later word's entry triggering reflow tweens on
  * the words already placed.

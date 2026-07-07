@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "Attention default",
 	"description": "Single highlight on the central claim of the Transformer paper.",
 	"pack": "syntax",

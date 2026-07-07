@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "Type hero — vantage",
 	"description": "Depth-stage deliverable for the type-hero family (ADR-0028). A single display word on the near plane over a violet-dusk photographic backdrop (atmosphere-violet substrate); a lateral drift sweeps the camera across the scene so the word and the photo's light pools reproject at different rates — parallax as the whole story. An early rack focus resolves the word from soft to sharp (the lens finds its vantage), then the drift carries the settled frame. The Pack's upper-left key rakes both planes (the substrate's bloom sits upper-left to agree with it) and the letterforms drop a soft real shadow onto the photo; the mono episode stamp keeps the channel thread. The flat type-hero-drift keeps the shader rim light; here the dimension comes from the real scene light.",
 	"pack": "syntax",

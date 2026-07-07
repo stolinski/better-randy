@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "Web document — GitHub (horizontal)",
 	"description": "A recognizable GitHub issue on a transparent overlay, as a clean backdrop for the channel's hand-pulled highlight. Faithful site look BY DESIGN: GitHub dark mode (canvas #0d1117, the owner/repo breadcrumb, the issue title, a green Open badge, and a bordered comment with the author's avatar + 'username commented on …' header), inside a browser window whose address bar shows the URL — NO Syntax collage chrome (no torn edge / grit / hard offset shadow), and NO CSS glow on the captured card. Because the page is dark, the highlight runs in the dark-surface mode — the light comment text is punched to dark ink under the amber band so it stays readable. The emissive 'web page on a backlit display' look is a TypeGPU shaderPass (subpixel emission, backlight bloom, escaping-bezel halo, viewport-edge defocus), not Pack chrome. ~6s: card settles in, the highlighter draws over the hero line (~1.2→2.4s), then a long static hold a creator can freeze/extend. Transparent WebM overlay, composited over footage.",
 	"pack": "syntax",

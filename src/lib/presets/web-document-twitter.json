@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "Web document — Twitter (horizontal)",
 	"description": "A recognizable X/Twitter status on a transparent overlay, as a clean backdrop for the channel's hand-pulled highlight. Faithful site look BY DESIGN: exact X 'Dim' dark mode (bg #15202b, real action + verified-badge icons, X font stack), inside a browser window whose address bar shows the URL — NO Syntax collage chrome (no torn edge / grit / hard offset shadow), and NO CSS glow on the captured card. The emissive 'web page on a backlit display' look is a TypeGPU shaderPass (subpixel emission, backlight bloom, escaping-bezel halo, viewport-edge defocus), not Pack chrome. ~6s: card settles in, the highlighter draws on over the hero line (~1.2→2.4s), then a long static hold a creator can freeze/extend. Transparent WebM overlay, composited over footage.",
 	"pack": "syntax",

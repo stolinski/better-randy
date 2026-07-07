@@ -67,7 +67,7 @@
 			if (!isSub) return { kind: 'overlay' as const, overlayId };
 		}
 
-		// For overlay sub-tracks and imessage rows — generic label
+		// For overlay sub-tracks — generic label
 		return { kind: 'generic' as const, id };
 	});
 </script>

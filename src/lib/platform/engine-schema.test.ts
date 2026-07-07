@@ -1,7 +1,7 @@
 /**
  * Unit tests for the ADR-0035 schema additions: per-channel keyframes[],
  * per-property ease, Cascade anchoring (incl. ref resolution + cycle
- * detection), and the static position rotation field. The Hiviz repo ships no
+ * detection), and the static position rotation field. The Supers repo ships no
  * Jest/Vitest harness, so this is a self-running node script (matching
  * `src/lib/utils/timeline-clip.test.ts`):
  *

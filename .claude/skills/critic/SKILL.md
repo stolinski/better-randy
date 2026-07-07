@@ -1,9 +1,9 @@
 ---
 name: critic
-description: Verify a Hiviz Preset against the R/Q/G rubrics + channel aesthetic by spawning an isolated Critic sub-agent. Use when the user asks to verify, review, critique, audit, or check a Preset is "done" — e.g. "is this preset ready?", "critic the lower-third", "verify quote-magnify against the rubric". Also reachable as the `/critic <slug>` slash command. Do NOT use for authoring or fixing Presets.
+description: Verify a Supers Preset against the R/Q/G rubrics + channel aesthetic by spawning an isolated Critic sub-agent. Use when the user asks to verify, review, critique, audit, or check a Preset is "done" — e.g. "is this preset ready?", "critic the lower-third", "verify quote-magnify against the rubric". Also reachable as the `/critic <slug>` slash command. Do NOT use for authoring or fixing Presets.
 ---
 
-# Hiviz Critic
+# Supers Critic
 
 The operational form of [ADR-0001](../../docs/adr/0001-critic-sub-agent-verification.md). Spawns a sub-agent with **fresh context** that captures its own frames, runs the named-observation protocol from [`docs/quality-rubric.md`](../../docs/quality-rubric.md), invokes probe scripts for measurable rules, and returns classified findings.
 
@@ -29,7 +29,7 @@ Do **not** invoke this skill for authoring, revising, or fixing Presets. The Cri
 Substitute `<slug>`. If the Preset is an **engine-capability demo** (its job is to exercise an engine feature, not to ship channel content), say so in the prompt — it scopes the aesthetic checks to advisory. Pass verbatim:
 
 ```
-You are the Hiviz Critic for the Preset at `src/lib/presets/<slug>.json`.
+You are the Supers Critic for the Preset at `src/lib/presets/<slug>.json`.
 Route URL: http://localhost:7263/p/<slug>.
 
 Bind to these docs and read them in order before doing anything else:
@@ -40,13 +40,13 @@ Bind to these docs and read them in order before doing anything else:
 4. docs/packs/<preset.pack>/aesthetic.md — channel-fit NOTES (resolved from the Preset's top-level `pack` field; defaults to `syntax`. The legacy `docs/aesthetic.md` is a redirect stub — do not bind to it).
 5. docs/CONTEXT.md — terminology.
 
-CAPTURE SETUP (this repo): Hiviz renders via WICG HTML-in-Canvas, which needs
+CAPTURE SETUP (this repo): Supers renders via WICG HTML-in-Canvas, which needs
 Chrome with --enable-blink-features=CanvasDrawElement. A flag-enabled Chrome is
 already running on CDP port 9223. A normal/unflagged browser captures a BLANK
 canvas — do not use one. Capture with the repo harness:
 `CDP_SAMPLES=0,0.25,0.5,0.75,1 node scripts/cdp-capture.mjs <slug>` → saves
 .tmp-baselines/<slug>/pX.XX.png at the native 4K render (3840×2160 horizontal /
-2160×3840 vertical), clipped to the canvas, driving window.__hivizTimeline.
+2160×3840 vertical), clipped to the canvas, driving window.__supersTimeline.
 For sub-canvas-resolution detail, scripts/cdp-dof-detail.mjs captures at high DPR.
 
 Then execute the protocol from docs/critic.md:
@@ -68,7 +68,7 @@ Then execute the protocol from docs/critic.md:
   pipeline-bug, default-too-permissive, preset-choice,
   aesthetic-miss, rubric-gap.
 
-PACK AESTHETICS NEVER GATE: Hiviz is a general engine — a Pack supplies the look,
+PACK AESTHETICS NEVER GATE: Supers is a general engine — a Pack supplies the look,
 not what the engine may do. A Pack style / channel-fit mismatch is `aesthetic-miss`
 ONLY — never `pipeline-bug`, never `default-too-permissive`, and never a reason for
 REVISE / IMPLEMENTATION-FIX-REQUIRED. A defect is a wrong pixel measurable against

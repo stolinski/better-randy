@@ -1,6 +1,6 @@
 # ADR index
 
-Architecture Decision Records — the *why* behind Hiviz's shape. Each records a decision and the alternatives rejected. The *what* (current engine truth) lives in [`../engine-architecture.md`](../engine-architecture.md); designed-but-unbuilt work in [`../roadmap.md`](../roadmap.md).
+Architecture Decision Records — the *why* behind Supers's shape. Each records a decision and the alternatives rejected. The *what* (current engine truth) lives in [`../engine-architecture.md`](../engine-architecture.md); designed-but-unbuilt work in [`../roadmap.md`](../roadmap.md).
 
 **Near-zero deletion.** Superseded and unbuilt ADRs are kept for history with a status stamp at the top of the file. Status legend:
 

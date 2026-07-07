@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "Dimensional depth stage — vertical title card",
 	"description": "Vertical (2160×3840) reflow check for the ADR-0028 dimensional depth stage. Same depth-stage render path as the horizontal fixture; the DepthStage frames each plane by the canvas aspect, so the composition reflows to portrait. Verifies the stage holds at the engine's vertical binding target.",
 	"kind": "fixture",

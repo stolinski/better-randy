@@ -1,11 +1,11 @@
 {
-  "$id": "hiviz@1",
+  "$id": "supers@1",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
     "schema": {
       "type": "string",
-      "const": "hiviz@1"
+      "const": "supers@1"
     },
     "name": {
       "type": "string",

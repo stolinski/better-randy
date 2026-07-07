@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "Title sequence — signal",
 	"description": "Depth-stage deliverable for the title-sequence family (ADR-0028). The heavy condensed title rides the near plane over a real photographic backdrop (atmosphere-warm substrate) at depth; a bold dolly-in drives true parallax between type and photo while the rack focus starts fully on the backdrop and lands on the title as its per-character rise completes — the title arrives INTO focus. The photo takes a centre darken for type contrast, the Pack key light rakes the scene, and the glyphs throw soft real shadows onto the photo. The flat title-sequence-drop keeps the shader motion-blur drop; this piece is the same family restaged with a real camera.",
 	"pack": "syntax",

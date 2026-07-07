@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "Lower-third — cinematic with anamorphic flare",
 	"description": "Broadcast-grade lower-third using the lower-third family's `cinematic` variant per ADR-0020. The family's shaderPass adds a constant warm rim glow at the lower-left (implying an off-frame key light), gated to the cinematic variant via a flareEnabled uniform. The anamorphic entrance flare was removed by design — at its peak it read as a line straight through the name.",
 	"pack": "syntax",

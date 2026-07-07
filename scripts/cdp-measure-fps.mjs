@@ -1,5 +1,5 @@
 // Preview frame-rate probe over CDP — drives the flag-enabled Chrome (see
-// cdp-capture.mjs), plays the Hiviz timeline from 0 and counts rAF-driven
+// cdp-capture.mjs), plays the Supers timeline from 0 and counts rAF-driven
 // render ticks for a fixed window, reporting effective preview fps. Built for
 // the ADR-0028 depth-stage perf work (half-res DOF): run before/after at
 // 3840×2160 and 2160×3840. Node 22+ (built-in fetch/WebSocket).
@@ -61,7 +61,7 @@ let ready = false;
 for (let i = 0; i < 60; i++) {
 	try {
 		const s = await evaluate(
-			`(() => ({ canvas: !!document.querySelector('canvas'), timeline: !!window.__hivizTimeline }))()`
+			`(() => ({ canvas: !!document.querySelector('canvas'), timeline: !!window.__supersTimeline }))()`
 		);
 		if (s.canvas && s.timeline) {
 			ready = true;
@@ -80,7 +80,7 @@ const backing = await evaluate(
 	`(() => { const c = document.querySelector('canvas'); return c.width + 'x' + c.height; })()`
 );
 const fps = await evaluate(`(async () => {
-	const t = window.__hivizTimeline;
+	const t = window.__supersTimeline;
 	t.seek(0);
 	t.play();
 	await new Promise((r) => setTimeout(r, 400)); // skip the spin-up frames

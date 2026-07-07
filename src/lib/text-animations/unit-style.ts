@@ -40,11 +40,11 @@ export function applyUnitFade(element: HTMLElement, opacity: number): void {
 		return;
 	}
 
-	let base = element.dataset.hivizBaseColor;
+	let base = element.dataset.supersBaseColor;
 	if (!base) {
 		element.style.color = '';
 		base = getComputedStyle(element).color;
-		element.dataset.hivizBaseColor = base;
+		element.dataset.supersBaseColor = base;
 	}
 	const channels = base.match(/-?\d+(?:\.\d+)?/g);
 	if (!channels || channels.length < 3) {

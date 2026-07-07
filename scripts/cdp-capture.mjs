@@ -1,6 +1,6 @@
 // Real-canvas capture over CDP — drives a flag-enabled Chrome (launched with
-// --enable-blink-features=CanvasDrawElement) on a debug port, seeks the Hiviz
-// timeline via window.__hivizTimeline.seekProgress, and saves clipped canvas
+// --enable-blink-features=CanvasDrawElement) on a debug port, seeks the Supers
+// timeline via window.__supersTimeline.seekProgress, and saves clipped canvas
 // screenshots. This is the documented workaround for the chrome-devtools MCP
 // browser lacking the html-in-canvas flag. Node 22+ (built-in fetch/WebSocket).
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -73,7 +73,7 @@ for (let i = 0; i < 60; i++) {
 	try {
 		const s = await evaluate(`(() => ({
 			canvas: !!document.querySelector('canvas'),
-			timeline: !!(window.__hivizTimeline),
+			timeline: !!(window.__supersTimeline),
 			flag: (typeof GPUQueue !== 'undefined') && ('copyElementImageToTexture' in GPUQueue.prototype)
 		}))()`);
 		flag = s.flag;
@@ -104,10 +104,10 @@ for (const p of SAMPLES) {
 	// seekProgress sometimes races the first render after navigate.
 	let landedTime = -1;
 	for (let i = 0; i < 20; i++) {
-		await evaluate(`window.__hivizTimeline.seekProgress(${p})`);
+		await evaluate(`window.__supersTimeline.seekProgress(${p})`);
 		await sleep(120);
-		landedTime = await evaluate(`window.__hivizTimeline.time`);
-		const expected = p * (await evaluate(`window.__hivizTimeline.durationSeconds`));
+		landedTime = await evaluate(`window.__supersTimeline.time`);
+		const expected = p * (await evaluate(`window.__supersTimeline.durationSeconds`));
 		if (Math.abs(landedTime - expected) < 0.05) break;
 	}
 	// Settle one more paint at the landed frame.

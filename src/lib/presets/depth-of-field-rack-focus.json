@@ -1,7 +1,7 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "Depth of field — rack-focus title reveal",
-	"description": "Dynamic multiplane depth-of-field (ADR-0027). Opens on the big type-hero word 'HIVIZ' sharp on the focal plane while the lower-third title card sits behind it, soft. Over the first half-second the focus RACKS (animated focusPull 0.0 → 0.7, smoothstep) from the Surface plane to the Overlay plane: the brand word melts into bright luminous bokeh and the 'Depth of Field' title card resolves into tack-sharp focus. The blur is depth-driven (the rack moves the focal plane between layers, not a screen band) and the focus animates frame-deterministically off the timeline. A title card over a bokeh background with a real, moving rack focus — the cinematic move.",
+	"description": "Dynamic multiplane depth-of-field (ADR-0027). Opens on the big type-hero word 'SUPERS' sharp on the focal plane while the lower-third title card sits behind it, soft. Over the first half-second the focus RACKS (animated focusPull 0.0 → 0.7, smoothstep) from the Surface plane to the Overlay plane: the brand word melts into bright luminous bokeh and the 'Depth of Field' title card resolves into tack-sharp focus. The blur is depth-driven (the rack moves the focal plane between layers, not a screen band) and the focus animates frame-deterministically off the timeline. A title card over a bokeh background with a real, moving rack focus — the cinematic move.",
 	"pack": "syntax",
 	"state": {
 		"transport": {
@@ -23,7 +23,7 @@
 		"surface": {
 			"type": "type-hero",
 			"content": {
-				"title": "HIVIZ",
+				"title": "SUPERS",
 				"author": "Broadcast-grade motion graphics",
 				"body": ""
 			},

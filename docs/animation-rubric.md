@@ -1,6 +1,6 @@
-# Hiviz Animation Rubric
+# Supers Animation Rubric
 
-This document is the rubric agents use when designing or reviewing a hiviz preset. Every preset shipped from `src/lib/presets/` must satisfy the **General Rules** unless the rule explicitly carves out an exception. Each **Overlay Rule** applies to the specific overlay type named in its heading.
+This document is the rubric agents use when designing or reviewing a supers preset. Every preset shipped from `src/lib/presets/` must satisfy the **General Rules** unless the rule explicitly carves out an exception. Each **Overlay Rule** applies to the specific overlay type named in its heading.
 
 Every rule has three parts:
 
@@ -8,7 +8,7 @@ Every rule has three parts:
 - **Why** — the production reason for the rule (legibility, broadcast safety, platform constraint, perceptual cue).
 - **How to apply** — the preset-engine field(s) to set, or the pipeline behavior to verify.
 
-Field paths refer to the `hiviz@1` preset schema in [`docs/preset-format.md`](preset-format.md). When a rule says "the engine clamps this," it means schema validation already enforces it and the agent does not need additional logic.
+Field paths refer to the `supers@1` preset schema in [`docs/preset-format.md`](preset-format.md). When a rule says "the engine clamps this," it means schema validation already enforces it and the agent does not need additional logic.
 
 ### Who enforces what (per [ADR-0025](adr/0025-static-linter-checks-safety-and-readability-only.md))
 
@@ -94,7 +94,7 @@ Cap-height is one dimension of legibility. The other two are **measure** (how ma
 ### G5. Maintain 4.5:1 contrast against every frame the text covers
 
 - **Rule** — The contrast ratio between text color and the local background (paper, surface, or transparent-over-footage) must be ≥ 4.5:1 for body text and ≥ 3:1 for large text (≥ 96 px / ≥ 60 px bold). For overlays sitting on transparent output (delivered as a key over footage), assume a worst-case mid-gray (#7f7f7f) background and verify against that.
-- **Why** — WCAG 2.2 AA contrast thresholds (4.5:1 / 3:1) are the floor for legibility under normal viewing. Hiviz exports are transparent and will be composited over unknown footage, so we cannot rely on the surface color the agent picks. Verifying against a mid-gray neutral is the standard "worst case" check.
+- **Why** — WCAG 2.2 AA contrast thresholds (4.5:1 / 3:1) are the floor for legibility under normal viewing. Supers exports are transparent and will be composited over unknown footage, so we cannot rely on the surface color the agent picks. Verifying against a mid-gray neutral is the standard "worst case" check.
 - **How to apply** — When choosing `typography.inkColor` against `typography.paperColor`, hit 4.5:1. For overlay text drawn directly on transparent (e.g. a future overlay variant with no chrome), require an additional legibility treatment (semi-transparent plate, drop shadow ≥ 4 px blur at 60% opacity, or a stroke ≥ 2 px) — single-color text on transparent is rejected.
 
 ### G6. Animation duration baseline
@@ -124,7 +124,7 @@ Cap-height is one dimension of legibility. The other two are **measure** (how ma
 
 ### G7. Ease semantics — pick the curve for the job
 
-- **Rule** — Use the hiviz `Ease` vocabulary deliberately. The mapping is fixed in `engine-schema.ts`:
+- **Rule** — Use the supers `Ease` vocabulary deliberately. The mapping is fixed in `engine-schema.ts`:
 
   | Ease      | GSAP curve            | Use for                                                                                                                  |
   | --------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------ |
@@ -152,15 +152,15 @@ The 12 Disney principles all apply, but five carry the weight for motion graphic
 ### G9. Frame-addressable and deterministic
 
 - **Rule** — Every animated value must be derivable from the timeline `progress` (`0..1`) alone. No `Math.random()` at render time, no `Date.now()`, no `performance.now()` reads inside `pipeline.render({...})`. Randomness for paper grain, jitter, hand-drawn wobble, etc. is allowed only if seeded from `progress` (or a stable per-mark index).
-- **Why** — Hiviz preview and export call the same `renderAt(timestamp)`. If a preset's appearance depends on wall-clock state, the exported video drifts from preview and exports re-run on the same input produce different files. The whole timeline architecture in `src/lib/platform/timeline.svelte.ts` exists to guarantee this.
+- **Why** — Supers preview and export call the same `renderAt(timestamp)`. If a preset's appearance depends on wall-clock state, the exported video drifts from preview and exports re-run on the same input produce different files. The whole timeline architecture in `src/lib/platform/timeline.svelte.ts` exists to guarantee this.
 - **How to apply** — Pipelines must read all randomness from a seeded source. Presets must not contain fields that imply non-deterministic motion. If a preset asks for "natural variation," it gets it via per-mark seed + frame index, not real randomness.
 
 ### G10. Respect reduced motion when delivered to the browser; honor motion safety at all times
 
-- **Rule** — Even though hiviz output is a baked video and the viewer's browser cannot apply `prefers-reduced-motion` to it, two motion-safety constraints still apply at authoring time:
+- **Rule** — Even though supers output is a baked video and the viewer's browser cannot apply `prefers-reduced-motion` to it, two motion-safety constraints still apply at authoring time:
   - **No full-frame zoom/pan exceeding 25%** in less than 600 ms. Large fast translations of the whole composition are the dominant vestibular trigger.
   - **No flashing.** Avoid alternating fills/strokes faster than 3 Hz on regions ≥ 25% of the frame. WCAG 2.3.1 (three-flash threshold) is the broadcast floor.
-- **Why** — Over a third of adults have experienced vestibular symptoms. The same gestures (whip pans, fast zooms, strobing color shifts) that trigger discomfort on the web trigger it on video as well. A preset shipped from hiviz will end up on a 50" TV or a phone in someone's hand — design for both.
+- **Why** — Over a third of adults have experienced vestibular symptoms. The same gestures (whip pans, fast zooms, strobing color shifts) that trigger discomfort on the web trigger it on video as well. A preset shipped from supers will end up on a 50" TV or a phone in someone's hand — design for both.
 - **How to apply** — When a tool exposes camera moves (`surface.camera`: `'push' | 'snap' | 'none'`), `push` is allowed within these limits; `snap` must be ≤ 200 ms. Reject preset choices that combine `snap` with a high `backgroundVisibility` change in the same beat — the brain reads that as two simultaneous large motions.
 
 ### G11. Vertical vs horizontal — change the staging, not just the aspect
@@ -177,7 +177,7 @@ The 12 Disney principles all apply, but five carry the weight for motion graphic
 ### G12. Transparent output is the contract
 
 - **Rule** — No preset may paint an opaque full-frame background unless the surface explicitly requires it (`surface.type === 'paper'` renders its own card chrome; everything else stays clear). Decorative full-frame tints, vignettes, or gradient washes are rejected unless the preset's stated purpose is a "fill" overlay.
-- **Why** — Hiviz exists to produce keyable overlays for Resolve/Premiere/Final Cut. An opaque background defeats the entire delivery format. Preserving alpha is the project's hardest constraint.
+- **Why** — Supers exists to produce keyable overlays for Resolve/Premiere/Final Cut. An opaque background defeats the entire delivery format. Preserving alpha is the project's hardest constraint.
 - **How to apply** — Frame-level `effects.frame` entries must not stack to alpha = 1 across the full frame. WebGPU render passes use `clearValue: [0, 0, 0, 0]` and the canvas context uses `alphaMode: 'premultiplied'` — keep it that way.
 
 ---
@@ -218,7 +218,7 @@ A lower third is a name/source/identity tag pinned to the lower portion of the f
 
 ### Title Cards & Chapter Markers
 
-A full-frame or near-full-frame card introducing the video, a section, or a chapter. Hiviz currently models this via `surface.type: 'paper'` with a `title` slot; future overlay variants may add a dedicated `title-card` type.
+A full-frame or near-full-frame card introducing the video, a section, or a chapter. Supers currently models this via `surface.type: 'paper'` with a `title` slot; future overlay variants may add a dedicated `title-card` type.
 
 - **T1. Card visual mass — presence first, area second, with bleed allowed.**
 
@@ -286,7 +286,7 @@ These are the mark layer: highlight, underline, strike, circle, box, side-note (
 
 ### Pop-ups & B-roll Overlays
 
-Image-with-caption pop-ins, source citations, stat reveals, side-of-frame info cards. Hiviz does not yet have a dedicated `pop-up` overlay type — these rules govern future variants and any current preset that approximates them with `lower-third` + `surface`.
+Image-with-caption pop-ins, source citations, stat reveals, side-of-frame info cards. Supers does not yet have a dedicated `pop-up` overlay type — these rules govern future variants and any current preset that approximates them with `lower-third` + `surface`.
 
 - **P1. Anchor to an edge or corner, never centered.**
   - **Why** — A centered pop-up blocks the underlying footage. Edge-anchored leaves a usable 60%+ of the frame for the host's footage.

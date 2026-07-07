@@ -1,4 +1,4 @@
-# Hiviz Aesthetic
+# Supers Aesthetic
 
 The channel-specific look that the rubrics (`animation-rubric.md`, `quality-rubric.md`) deliberately don't carry. The rubrics judge whether a preset is *well-made*; this doc says **which well-made the channel wants**.
 
@@ -15,7 +15,7 @@ Where each question lives:
 
 ## Channel Voice
 
-Hiviz overlays exist for a coding-focused YouTube channel (Syntax) running a **torn-paper zine collage aesthetic on photographic substrate**. The voice is:
+Supers overlays exist for a coding-focused YouTube channel (Syntax) running a **torn-paper zine collage aesthetic on photographic substrate**. The voice is:
 
 - **Opinionated and direct.** No hedged copy, no "in this video we'll explore" — the overlay states the point.
 - **Bright, saturated, graphic.** Not muted, not pastel, not minimalist white-space-heavy.

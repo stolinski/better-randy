@@ -237,6 +237,6 @@ export { gsap as gsapInstance };
 
 declare global {
 	interface Window {
-		__hivizTextAnimationManager?: TextAnimationManager;
+		__supersTextAnimationManager?: TextAnimationManager;
 	}
 }

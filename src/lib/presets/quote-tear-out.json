@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "Tear-out emphasis",
 	"description": "Tear-out treatment with a circled mark and snap zoom toward the quote.",
 	"pack": "syntax",

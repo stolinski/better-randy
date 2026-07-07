@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"kind": "fixture",
 	"name": "Fluted glass — effect fixture",
 	"description": "Proving fixture for the fluted-glass Effect (ported to WGSL from @paper-design/shaders fluted-glass, Apache-2.0). Vertical prism flutes refract the pullquote-on-photo substrate — the quote streaks and re-focuses across the ribbed pane, shadow gradients and thin boundary highlights sell the glass material. Full-frame piece (backgroundFill); the alpha contract (E4) masks the pane to the content silhouette by construction. Fixture — exercises the pipeline, not held to the deliverable floors.",

@@ -1,4 +1,4 @@
-# Hiviz docs index
+# Supers docs index
 
 Entry point is [`../AGENTS.md`](../AGENTS.md) (auto-loaded; `CLAUDE.md` symlinks to it) — north star, binding rules, dispatcher. Each doc below has one purpose; don't load docs that don't apply to the task.
 
@@ -6,7 +6,7 @@ Entry point is [`../AGENTS.md`](../AGENTS.md) (auto-loaded; `CLAUDE.md` symlinks
 |---|---|---|
 | [`engine-architecture.md`](engine-architecture.md) | **The current-state blueprint** — data model, pipeline registry (live contents), render path, the Pack appearance system, output/orientation, and an honest "designed, not built" section. | Building or understanding how the engine works today; adding a Layer/Pipeline type. |
 | [`CONTEXT.md`](CONTEXT.md) | Glossary of project terms (Preset, Layer, Surface, Pack, Role, Pipeline, Critic, …). | A term is ambiguous, or you're about to use one yourself. |
-| [`preset-format.md`](preset-format.md) | The `hiviz@1` Preset JSON format. Companion: [`preset-format.schema.json`](preset-format.schema.json) (machine-readable). | Authoring or validating a Preset. |
+| [`preset-format.md`](preset-format.md) | The `supers@1` Preset JSON format. Companion: [`preset-format.schema.json`](preset-format.schema.json) (machine-readable). | Authoring or validating a Preset. |
 | [`packs/syntax/aesthetic.md`](packs/syntax/aesthetic.md) | The **Syntax** channel aesthetic: palette, type, surface vocabulary, collage system, motion vocabulary, anti-aesthetic. *(A different Pack carries different appearance.)* | Authoring for channel-fit; picking palette/type/chrome. |
 | [`quality-rubric.md`](quality-rubric.md) · [`animation-rubric.md`](animation-rubric.md) | The craft floor: R/Q-rules (render + composition) and G-rules (motion). Aesthetic-neutral. | Verifying a Preset; spawning the Critic. |
 | [`critic.md`](critic.md) | The adversarial verification protocol *(build-harness — see [ADR-0001](adr/0001-critic-sub-agent-verification.md))*. | Running the Critic / acting on its findings. |

@@ -119,7 +119,7 @@ const fixtures: Fixture[] = [
 	{
 		name: 'Cross-surface remix (paper → plain content carry-over)',
 		preset: {
-			schema: "hiviz@1",
+			schema: "supers@1",
 			pack: "syntax",
 			name: 'Cross-surface remix',
 			state: {
@@ -140,7 +140,7 @@ const fixtures: Fixture[] = [
 	{
 		name: 'Decorative fixture (every decorative style on its own line)',
 		preset: {
-			schema: "hiviz@1",
+			schema: "supers@1",
 			pack: "syntax",
 			name: 'Decorative coverage',
 			state: {
@@ -164,7 +164,7 @@ const fixtures: Fixture[] = [
 	{
 		name: 'Focal fixture (every focal style on its own line)',
 		preset: {
-			schema: "hiviz@1",
+			schema: "supers@1",
 			pack: "syntax",
 			name: 'Focal coverage',
 			state: {
@@ -186,7 +186,7 @@ const fixtures: Fixture[] = [
 	{
 		name: 'Lower-third overlay fixture',
 		preset: {
-			schema: "hiviz@1",
+			schema: "supers@1",
 			pack: "syntax",
 			name: 'Lower-third overlay',
 			state: {
@@ -214,7 +214,7 @@ const fixtures: Fixture[] = [
 	{
 		name: 'Two paper-grain effects stacked in the frame chain',
 		preset: {
-			schema: "hiviz@1",
+			schema: "supers@1",
 			pack: "syntax",
 			name: 'Paper grain stacked',
 			state: {
@@ -236,7 +236,7 @@ const fixtures: Fixture[] = [
 	{
 		name: 'AI-authored from schema + brief (no source code access)',
 		preset: {
-			schema: "hiviz@1",
+			schema: "supers@1",
 			pack: "syntax",
 			name: 'AI fixture',
 			description: 'Goal: a quick research-paper preset that highlights one keyword.',

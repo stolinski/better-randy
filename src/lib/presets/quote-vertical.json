@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "Quote (vertical)",
 	"description": "Vertical short-form quote pull-out — paper card with magnified highlight, sized for phone-screen output.",
 	"pack": "syntax",

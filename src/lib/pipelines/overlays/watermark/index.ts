@@ -14,7 +14,7 @@ export type WatermarkContent = z.infer<typeof WatermarkContentSchema>;
 
 function defaults(): OverlayDefaults<WatermarkContent> {
 	return {
-		content: { handle: '@hiviz', label: 'Watch next' },
+		content: { handle: '@supers', label: 'Watch next' },
 		position: { anchor: 'top-right', offset: { x: 0.0625, y: 0.0625 } },
 		enter: { start: 0.06, duration: 0.14, ease: 'settled' },
 		exit: { start: 0.86, duration: 0.14, ease: 'smooth' }

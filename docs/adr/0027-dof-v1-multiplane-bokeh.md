@@ -6,7 +6,7 @@ ADR-0021 pinned a depth **target** written per-pixel by every contributing Pipel
 
 We implement DOF the way motion-graphics DOF is actually done — **multiplane**. The composition is captured as a small set of depth planes: the Surface plane, and each Overlay at its z (ADR-0021's per-Layer default, optionally overridden per-instance). Each plane is blurred by its **circle of confusion** — `coc = aperture × |planeZ − focusZ|` — using a **disc-shaped bokeh kernel** (sample a disc of radius `coc`, not a gaussian) with **highlight bloom** (bright samples weighted up so highlights bloom into bokeh discs, the signature photographic tell). Planes composite **back-to-front**, focal plane sharp, foreground planes bleeding slightly over the subject. The photorealism is carried by the bokeh kernel — CoC scaling, disc/aperture shape, highlight bloom — not by depth granularity.
 
-This reaches the realizable photoreal ceiling for Hiviz because its elements are **flat**: a card, a word, an overlay each sit at one uniform depth, so per-element depth is identical to per-plane depth. A per-pixel depth target would only add fidelity for elements with *continuous internal depth* — a perspective-tilted card, `text-3d`'s self-occluding cylinder — which are rare and out of v1 scope.
+This reaches the realizable photoreal ceiling for Supers because its elements are **flat**: a card, a word, an overlay each sit at one uniform depth, so per-element depth is identical to per-plane depth. A per-pixel depth target would only add fidelity for elements with *continuous internal depth* — a perspective-tilted card, `text-3d`'s self-occluding cylinder — which are rare and out of v1 scope.
 
 ## Considered options
 

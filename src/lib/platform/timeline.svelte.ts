@@ -140,10 +140,10 @@ export class Timeline {
 
 declare global {
 	interface Window {
-		__hivizTimeline?: Timeline;
+		__supersTimeline?: Timeline;
 		// DOF verification seam (ADR-0027): present a single depth plane in
 		// isolation instead of the back-to-front composite. Only consulted while a
 		// `depth-of-field` Effect is active.
-		__hivizDofPreviewPlane?: 'surface' | 'overlay' | 'composite';
+		__supersDofPreviewPlane?: 'surface' | 'overlay' | 'composite';
 	}
 }

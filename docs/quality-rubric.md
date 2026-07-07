@@ -1,10 +1,10 @@
-# Hiviz Quality Rubric
+# Supers Quality Rubric
 
 The companion to [`docs/animation-rubric.md`](animation-rubric.md). Where the animation rubric governs how a preset *moves*, this rubric governs the *craft* of how it looks at every frame: composition, hierarchy, contrast, light coherence, effect discipline.
 
 **This rubric is aesthetic-neutral.** It is the craft floor every preset clears regardless of which visual style it executes. The channel's specific aesthetic — the collage system, palette, material vocabulary, brand references — lives in the active Pack's aesthetic doc ([`docs/packs/<pack>/aesthetic.md`](packs/syntax/aesthetic.md)). Rules here describe *whether a preset is well-made*; they do not describe *whether it fits a particular look*. If a guideline only makes sense for one aesthetic, it belongs in that aesthetic's doc, not in this rubric.
 
-Both rubrics must pass independently. Each rule below has a **Rule** (the measurable bar), a **Why** (the production reason), and a **How to apply** (the relevant `hiviz@1` preset fields from [`docs/preset-format.md`](preset-format.md) or the pipeline behavior to verify).
+Both rubrics must pass independently. Each rule below has a **Rule** (the measurable bar), a **Why** (the production reason), and a **How to apply** (the relevant `supers@1` preset fields from [`docs/preset-format.md`](preset-format.md) or the pipeline behavior to verify).
 
 > **Read this before you start.** The rules below are evaluated in a strict order. **Render Quality (R-rules) comes first and is non-negotiable** — no amount of good composition, hierarchy, or palette discipline saves a render that is blurry, banded, pixelated, or aliased. If any R-rule fails, the preset is **rejected outright** and the root cause is fixed *in the pipeline / shader code*, not by tweaking preset values. Only after R-rules pass do the craft rules (Q-rules) apply.
 >
@@ -57,7 +57,7 @@ If a preset fails any R-rule, **do not adjust preset values to hide the defect.*
 ### R7. Export has no compression or codec artifacts visible to the eye
 
 - **Rule** — The exported video (or frame) has no visible 8×8 block patterns, no color bleed around high-contrast edges, no smear on motion, no chroma subsampling artifacts on saturated regions. Verified at **400% zoom** near high-contrast edges and saturated regions.
-- **Why** — Hiviz output is composited over other footage in an NLE. Lossy artifacts compound through the editor's render pipeline. A WebM/VP9 export with `alpha: 'keep'` and a high enough bitrate / quality setting is the floor; if the export shows visible compression, the encoder settings or codec choice is wrong.
+- **Why** — Supers output is composited over other footage in an NLE. Lossy artifacts compound through the editor's render pipeline. A WebM/VP9 export with `alpha: 'keep'` and a high enough bitrate / quality setting is the floor; if the export shows visible compression, the encoder settings or codec choice is wrong.
 - **How to verify (evidence required)** — Zoom to 400% near any high-contrast edge in the exported frame. Then zoom to 400% on a saturated-color region. Report: *"At 400% zoom near `<edge>`, the edge shows [clean transition / 8×8 block boundaries / mosquito noise]. At 400% on `<saturated region>`, the color shows [clean fill / chroma bleed beyond the geometry / chroma blocks]."* Any blocking / bleed / mosquito noise **FAILS**. Fix: raise encoder quality, switch codec, or render the test as a sequence of PNG/EXR frames to isolate whether the defect is pre- or post-encode.
 
 ### R8. R-rule failures are pipeline bugs — do not hide them in the preset

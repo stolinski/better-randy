@@ -4,7 +4,7 @@
 
 ## Pitch
 
-Ship a small library of TypeGPU-backed motion primitives that lift Hiviz's typographic vocabulary to the level of editor-quality motion-graphics apps (the immediate reference is [mo1.app](https://mo1.app/), particularly its echo-stacks, 3D text geometry, scale-counterpoint compositions, and cursor-driven scene work). The thesis is that Hiviz's presets read as taste-poor not because the Critic is too lenient or the Producer is undisciplined, but because the *primitive vocabulary* is too thin. Every Preset rediscovers good motion from scratch, and the structural pull of a thin library is toward novelty over restraint. A tight, opinionated primitive set with tasteful defaults at `progress=1` (so the unanimated frame is already a finished composition) fixes the substrate, and the existing Brief → Producer → Critic loop starts producing tasteful Presets by construction.
+Ship a small library of TypeGPU-backed motion primitives that lift Supers's typographic vocabulary to the level of editor-quality motion-graphics apps (the immediate reference is [mo1.app](https://mo1.app/), particularly its echo-stacks, 3D text geometry, scale-counterpoint compositions, and cursor-driven scene work). The thesis is that Supers's presets read as taste-poor not because the Critic is too lenient or the Producer is undisciplined, but because the *primitive vocabulary* is too thin. Every Preset rediscovers good motion from scratch, and the structural pull of a thin library is toward novelty over restraint. A tight, opinionated primitive set with tasteful defaults at `progress=1` (so the unanimated frame is already a finished composition) fixes the substrate, and the existing Brief → Producer → Critic loop starts producing tasteful Presets by construction.
 
 Seven new Pipelines + two TextAnimation catalog additions, sized to expand the *vocabulary* without expanding the *surface area* of the engine. Each Pipeline declares its Identity Spec (per [ADR-0015](../adr/0015-identity-spec-per-pipeline.md)) and externalizes aesthetic choices as Pack Roles (per [ADR-0014](../adr/0014-pack-preset-split.md)). The architectural addition is a **variants-as-data** convention inside any family-Pipeline so the *next* primitive in a family lands as a single file, not a new BlockType / OverlayType.
 
@@ -75,7 +75,7 @@ A diegetic cursor moving between content elements is the "screen recording but b
 **`depth-of-field`** — frame-only effect (no Identity Spec — effects are post-process per [ADR-0015](../adr/0015-identity-spec-per-pipeline.md)). Multi-tap shader pass that defocuses the composition with a focal-distance + bokeh-size + bokeh-shape, sampled against the engine's z-plane assignments.
 
 - Params: `focalSlotId` (the slot that should be in focus; everything else defocuses by its z-distance), `bokehShape` (`circle` | `hex` | `anamorphic`), `bokehSize`, `intensity`.
-- TypeGPU edge: the thing CSS / SVG / `filter: blur()` fundamentally cannot do — real lens DoF requires multi-tap sampling against a depth source. Hiviz has one because Surface, Body, Annotation, Overlay each declare a z-plane.
+- TypeGPU edge: the thing CSS / SVG / `filter: blur()` fundamentally cannot do — real lens DoF requires multi-tap sampling against a depth source. Supers has one because Surface, Body, Annotation, Overlay each declare a z-plane.
 - Honors transparency per the engine's transparency contract.
 - Pack Roles: `dof.bokehShape`, `dof.bokehSize`, `dof.focalCurve`.
 
@@ -253,7 +253,7 @@ For family-Pipelines additionally:
 The library deliberately does NOT include:
 
 - **A new timeline UI.** mo1's polished timeline (named clips, audio waveform, nested groups) is real and worth chasing, but it is UI work, not engine work. A separate proposal.
-- **Audio support.** ~~Hiviz is a transparent-overlay tool; audio is an editor concern (DaVinci Resolve), not Hiviz's. Stays out.~~ **Reconsidered (2026-06, [ADR-0033](../adr/0033-sound-design-motion-emitted-cues.md)):** sound *cues* enter Hiviz as **motion-emitted sound events** resolved by a swappable **Sound kit** (automatic, frame-deterministic, baked into export). In-app **mixing** still stays out — that remains the NLE's job.
+- **Audio support.** ~~Supers is a transparent-overlay tool; audio is an editor concern (DaVinci Resolve), not Supers's. Stays out.~~ **Reconsidered (2026-06, [ADR-0033](../adr/0033-sound-design-motion-emitted-cues.md)):** sound *cues* enter Supers as **motion-emitted sound events** resolved by a swappable **Sound kit** (automatic, frame-deterministic, baked into export). In-app **mixing** still stays out — that remains the NLE's job.
 - **More Surfaces in the typography-led-composition family.** `type-hero`, `title-sequence`, and `chapter-card` already exist; we are not adding `mega-numeric`, `quote-card`, etc. The library expands motion vocabulary, not chrome vocabulary.
 - **Variant proliferation in seed sets.** Each family ships with 2–4 seed variants. New variants come from real Preset needs (a Brief that names one), not from completionism.
 - **Generic morphing between primitives.** `instance-stack` does not animate into `text-3d`. Switching primitive type is a content edit; see `engine-architecture.md` non-goals.
@@ -272,11 +272,11 @@ For grilling. Each becomes either a resolution in the ADR or a follow-up Brief.
 7. **`text-3d` and the focal-shader composition.** The paper Surface's composition fragment shader handles up to 8 focal slots. `text-3d` renders to its own texture and would need to composite into the same focal stack — does that work in the current architecture, or does `text-3d` bypass focal annotations entirely?
 8. **Catalog vs Pipeline taste rule, made concrete.** "Catalog if expressible as per-unit motion, Pipeline otherwise" is a guideline; the boundary cases will fight us. Is `kerning-pop` really catalog-only, or does it need a shader pass for sub-pixel-accurate kerning at 4K? Worth probing before locking.
 
-## Why this fits Hiviz
+## Why this fits Supers
 
 The engine already supports adding Pipelines at low cost (one folder + one registry line). The library doesn't change that — it commits to *which* Pipelines and *to what taste contract* each new one ships with. The TextAnimation catalog already proves the data-only extension lane works. The Pack/Preset split is decided. The Identity Spec gate is decided. The library plugs into all of these and adds one structural piece (variants as data) that the engine has not yet committed to but obviously needs once families like `instance-stack` exist.
 
-The mo1.app reference is useful as a vocabulary forcing function (echo stacks, 3D text, scale-counterpoint, cursor-driven scenes) but the library is not a clone. mo1's stack is CSS / SVG / DOM; Hiviz's edge is TypeGPU + HTML-in-Canvas at 4K with real materials and real lensing. Every primitive in the library exists because there is a TypeGPU strength that justifies it, not because mo1 has the same verb.
+The mo1.app reference is useful as a vocabulary forcing function (echo stacks, 3D text, scale-counterpoint, cursor-driven scenes) but the library is not a clone. mo1's stack is CSS / SVG / DOM; Supers's edge is TypeGPU + HTML-in-Canvas at 4K with real materials and real lensing. Every primitive in the library exists because there is a TypeGPU strength that justifies it, not because mo1 has the same verb.
 
 ## Adjacency
 

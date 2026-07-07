@@ -167,17 +167,17 @@ export function parsePreset(json: unknown): Preset {
 			.map((issue) => `${issue.path.join('.') || '<root>'}: ${issue.message}`)
 			.join('\n');
 
-		throw new Error(`Invalid Hiviz preset:\n${issues}`);
+		throw new Error(`Invalid Supers preset:\n${issues}`);
 	}
 
 	const contentError = validateOverlayContents(result.data.state.overlays);
 	if (contentError) {
-		throw new Error(`Invalid Hiviz preset:\n${contentError}`);
+		throw new Error(`Invalid Supers preset:\n${contentError}`);
 	}
 
 	const transitionError = validateTransition(result.data, getPresetBySlug);
 	if (transitionError) {
-		throw new Error(`Invalid Hiviz preset:\n${transitionError}`);
+		throw new Error(`Invalid Supers preset:\n${transitionError}`);
 	}
 
 	return result.data;

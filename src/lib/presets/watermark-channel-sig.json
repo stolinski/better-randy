@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "Watermark — channel signature",
 	"description": "Persistent mono watermark anchored top-right with handle '@syntaxfm' and label 'Subscribe'. Fades in at 6% into the timeline (the watermark Pipeline declares a fade-through motion-form; overlay enter progress is clamped to [0,1], so it does not overshoot); exits smoothly at 86%. Pairs with a type-hero surface so the channel signature has compositional context. Demonstrates the watermark overlay pipeline's Pack-resolved ink/accent roles at 3840×2160.",
 	"pack": "syntax",

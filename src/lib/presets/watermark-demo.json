@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"kind": "fixture",
 	"name": "Watermark — channel signature fixture",
 	"description": "Proving fixture for the watermark Overlay (was dead-by-use — referenced by zero presets). A top-right mono channel signature {handle, label} over a plain surface, settling in and out. Verifies the watermark CanvasSource with Pack-resolved ink/accent. Fixture — exercises the pipeline, not held to the deliverable floors.",

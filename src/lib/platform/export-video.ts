@@ -152,7 +152,7 @@ export async function exportTransparentProRes({
 		body,
 		headers: {
 			'Content-Type': 'application/octet-stream',
-			...(wavBytes ? { 'x-hiviz-audio-bytes': String(wavBytes.byteLength) } : {})
+			...(wavBytes ? { 'x-supers-audio-bytes': String(wavBytes.byteLength) } : {})
 		}
 	});
 

@@ -15,10 +15,10 @@ export const POST: RequestHandler = async ({ request, url }) => {
 	const fps = clampNumber(Number(url.searchParams.get('fps')) || 30, 1, 120);
 	// The composition's baked audio mix (ADR-0033 §6) rides ahead of the PNG
 	// stream as a WAV prefix of this many bytes; 0/absent = video-only.
-	const audioBytes = Math.max(0, Number(request.headers.get('x-hiviz-audio-bytes')) || 0);
+	const audioBytes = Math.max(0, Number(request.headers.get('x-supers-audio-bytes')) || 0);
 	const ffmpegBin = process.env.FFMPEG_PATH ?? 'ffmpeg';
 
-	const workDir = await mkdtemp(join(tmpdir(), 'hiviz-prores-'));
+	const workDir = await mkdtemp(join(tmpdir(), 'supers-prores-'));
 	const outPath = join(workDir, 'overlay.mov');
 	const audioPath = join(workDir, 'mix.wav');
 

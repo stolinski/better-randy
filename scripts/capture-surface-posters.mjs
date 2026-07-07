@@ -85,7 +85,7 @@ for (const [type, slug] of Object.entries(REPS)) {
 		let key = null;
 		for (let i = 0; i < 60; i++) {
 			await sleep(400);
-			key = await evaluate('window.__hivizPosterKey ?? null');
+			key = await evaluate('window.__supersPosterKey ?? null');
 			if (key) break;
 		}
 		if (!key) {

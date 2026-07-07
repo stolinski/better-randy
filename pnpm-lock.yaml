@@ -11,6 +11,9 @@ importers:
       '@drop-in/graffiti':
         specifier: ^4.28.0
         version: 4.28.0(svelte@5.55.9(@typescript-eslint/types@8.59.4))
+      '@fontsource/archivo':
+        specifier: ^5.2.8
+        version: 5.2.8
       '@fontsource/eb-garamond':
         specifier: ^5.2.7
         version: 5.2.7
@@ -371,6 +374,9 @@ packages:
   '@eslint/plugin-kit@0.7.1':
     resolution: {integrity: sha512-rZAP3aVgB9ds9KOeUSL+zZ21hPmo8dh6fnIFwRQj5EAZl9gzR7wxYbYXYysAM8CTqGmUGyp2S4kUdV17MnGuWQ==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=24}
+
+  '@fontsource/archivo@5.2.8':
+    resolution: {integrity: sha512-Fc4yuMt85MmcYooUVpYHAJRJTymPv2+J9HsMP2f5mxR/0pIWgE2V5XfgNTavPpklX2rJFprdT36iE6Rr8ds9MA==}
 
   '@fontsource/eb-garamond@5.2.7':
     resolution: {integrity: sha512-V42tTlHDbnDo0+lENnXKWMx63Llq6Gfl2l7ozkoeRQN60S0jm6hEgCLlOT/5YyKAN9QZ0e2ofpy0rGKlz9jBrw==}
@@ -1804,6 +1810,8 @@ snapshots:
     dependencies:
       '@eslint/core': 1.2.1
       levn: 0.4.1
+
+  '@fontsource/archivo@5.2.8': {}
 
   '@fontsource/eb-garamond@5.2.7': {}
 

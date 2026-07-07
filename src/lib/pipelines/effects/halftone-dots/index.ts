@@ -12,7 +12,7 @@ import Editor from './Editor.svelte';
 //   - The image-fit/sizing system collapses to identity (the effect-chain input
 //     is the already-composited frame).
 //   - The source's grainMixer / grainOverlay / grainSize features are omitted —
-//     grain is a separate composable link in the Hiviz effect chain
+//     grain is a separate composable link in the Supers effect chain
 //     (`paper-grain`), not a per-effect bolt-on.
 //   - `fwidth()` edge AA is replaced with an analytic per-cell half-width
 //     (derivative ops are illegal in the shader's non-uniform loop under WGSL

@@ -1,13 +1,13 @@
-# Hiviz Context
+# Supers Context
 
-The shared language for Hiviz's preset engine, channel aesthetic, and agent workflow. Every doc and agent in this repo should use these terms with these meanings.
+The shared language for Supers's preset engine, channel aesthetic, and agent workflow. Every doc and agent in this repo should use these terms with these meanings.
 
 ## Language
 
 ### Composition model
 
 **Preset**:
-A JSON document declaring a **composition recipe** — motion, content, and role references — against the `hiviz@1` schema. A Preset is *aesthetic-agnostic*: it names which surface, which marks, which timings, which text, and which **Roles** the engine should resolve. It does **not** carry hex codes, font names, edge behavior, or effect chains directly — those live in the **Pack** the Preset names. The unit of authoring.
+A JSON document declaring a **composition recipe** — motion, content, and role references — against the `supers@1` schema. A Preset is *aesthetic-agnostic*: it names which surface, which marks, which timings, which text, and which **Roles** the engine should resolve. It does **not** carry hex codes, font names, edge behavior, or effect chains directly — those live in the **Pack** the Preset names. The unit of authoring.
 _Avoid_: tool, scene, template (when referring to a finished composition).
 
 **Starter template** (formerly *Recipe*):

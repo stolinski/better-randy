@@ -1,4 +1,4 @@
-# Hiviz roadmap
+# Supers roadmap
 
 The **single backlog**. One entry per thing we want but don't yet have, with a status. This is where "designed but not built" lives — so it stops scattering across `todos/`, `ideas/`, and ADRs.
 

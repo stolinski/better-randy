@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"kind": "fixture",
 	"name": "Halftone dots — effect fixture",
 	"description": "Proving fixture for the halftone-dots Effect (ported to WGSL from @paper-design/shaders halftone-dots, Apache-2.0). Classic square-grid dot screen over the pullquote-on-photo surface: the substrate's tonal ramps size the ink dots (dark → big, bright → paper shows through), so the moody photo becomes a printed halftone and the bright quote knocks out to paper — the print convention. Palette mode: near-black ink on warm paper. Full-frame piece (backgroundFill); the effect's transparent-alpha contract (E4) is masked to the content silhouette by construction. Fixture — exercises the pipeline, not held to the deliverable floors.",

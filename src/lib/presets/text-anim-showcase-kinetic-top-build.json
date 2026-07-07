@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"kind": "fixture",
 	"name": "Text animation showcase \u2014 kinetic-top-build",
 	"description": "Showcases the kinetic-top-build renderer family (ADR-0011, short-slide-down catalog effect). The title stacks vertically; each new line drops from above and pushes prior lines to their new centered y positions. Title-only \u2014 layout-aware renderer assumes single short-phrase content. Channel chrome notes: chrome-light verification preset; specific syntax-channel motion would be a follow-up Brief.",

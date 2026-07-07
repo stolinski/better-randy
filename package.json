@@ -1,5 +1,5 @@
 {
-	"name": "better-randy",
+	"name": "supers",
 	"private": true,
 	"version": "0.0.1",
 	"type": "module",
@@ -40,6 +40,7 @@
 	},
 	"dependencies": {
 		"@drop-in/graffiti": "^4.28.0",
+		"@fontsource/archivo": "^5.2.8",
 		"@fontsource/eb-garamond": "^5.2.7",
 		"@fontsource/inter": "^5.2.8",
 		"@fontsource/jetbrains-mono": "^5.2.8",

@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"kind": "fixture",
 	"name": "Text animation showcase \u2014 generic stagger",
 	"description": "Verification preset for the text-animation orchestration domain (ADR-0011). Exercises the generic-stagger compiler against all four split modes (whole on body, per-character on title, per-word on lower-third title, per-line on body marks) and proves the marks-coupling path against a highlight inside the body. Channel chrome notes: this preset is intentionally chrome-light because its job is to verify the engine; aesthetic-miss findings should be filed against the four per-renderer-family showcases, not this one. Marks-coupling demonstration: the body fade-through window (0.10\u20130.24) deliberately extends well past the highlight mark window (0.13\u20130.18) so the marks-coupling code path is observably exercised \u2014 at progress 0.15 the mark is at ~40% internal progress while the body is at ~36% alpha, multiplying to ~14% visible highlight intensity. Without the extended overlap, the body would already be at full alpha by the time the mark draws and the coupling attenuation would be undetectable.",

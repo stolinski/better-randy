@@ -13,7 +13,7 @@ import { compileSharedSlideOpacityStage } from './strategies/shared-slide-opacit
 import type { ResolvedUnit, UnitAlphaWriter } from './unit-types';
 
 /**
- * The keys live on a per-slot/per-unit basis. Hiviz timestamp-driven playback
+ * The keys live on a per-slot/per-unit basis. Supers timestamp-driven playback
  * means we don't multiplex DOM mutation across phrases — the renderer always
  * sees one stable list of units, sized from the SplitText output. Each unit
  * gets one tween for the "enter" phase and (optionally) one for the "exit"

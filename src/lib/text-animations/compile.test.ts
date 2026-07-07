@@ -1,7 +1,7 @@
 /**
  * Compile-shape snapshot tests for the text-animation engine (ADR-0011).
  *
- * The Hiviz repo doesn't yet ship a Jest/Vitest harness, so this file is a
+ * The Supers repo doesn't yet ship a Jest/Vitest harness, so this file is a
  * self-running node script: `node --experimental-strip-types
  * src/lib/text-animations/compile.test.ts`. It exercises every effect in the
  * vendored catalog (24 effects × 5 progress points = 120 assertions) and

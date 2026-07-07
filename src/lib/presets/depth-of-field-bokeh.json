@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "Depth of field — bokeh title",
 	"description": "Multiplane depth-of-field done-criteria demo (ADR-0027). A full-frame dark title segment: the huge type-hero word 'BOKEH' sits on the defocus plane (surface z 0.0) and the focus is racked to the Overlay (focusZ 0.7), so the bright type melts into luminous circular bokeh — the white strokes blow past the highlight-bloom threshold and spread into bright discs (the photographic tell, not a gaussian smear). The lower-third name chip sits at z 0.7, the focal plane, and stays razor-sharp. Sharp chip and blurred title share the same screen region, which a screen-space tilt-shift could never do — the blur is depth-driven. DoF is a general engine capability here, demonstrated on a title segment rather than a photographed frame.",
 	"pack": "syntax",
@@ -45,7 +45,7 @@
 				"z": 0.7,
 				"content": {
 					"variant": "cinematic",
-					"kicker": "HIVIZ",
+					"kicker": "SUPERS",
 					"title": "Depth of Field",
 					"subtitle": "Multiplane bokeh — ADR-0027"
 				},

@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
  * The runtime audit lives in `src/lib/platform/runtime-audit.ts` and runs
  * inside the SvelteKit dev server. When the workspace renders a preset, it
  * measures the rendered DOM at 4K-equivalent dimensions and writes the
- * result to `window.__hivizVisualAudit` once the surface has settled
+ * result to `window.__supersVisualAudit` once the surface has settled
  * (paperVisibility ≥ 0.99). This script prints, for every preset in
  * `src/lib/presets/`, the URL to open plus the DevTools snippet to read the
  * audit result.
@@ -21,13 +21,13 @@ import { fileURLToPath } from 'node:url';
  *      `canvas-draw-element` flag enabled (see CLAUDE.md).
  *   4. Scrub the timeline past the surface enter (e.g. progress 0.5) so the
  *      audit fires at the settled position, then paste the snippet into
- *      DevTools console to read `window.__hivizVisualAudit.issues`.
+ *      DevTools console to read `window.__supersVisualAudit.issues`.
  *
  * An agent running the chrome-devtools MCP can automate steps 3–4 by
  * navigating to each URL, dispatching a synthetic pointerdown on
  * `.track-view` at the desired fraction (see how the workspace's
  * TimelineTrackView handles seek pointerdowns) and then evaluating
- * `JSON.stringify(window.__hivizVisualAudit.issues)`.
+ * `JSON.stringify(window.__supersVisualAudit.issues)`.
  *
  * A preset is shippable only when BOTH `scripts/verify-presets.ts`
  * (static lint) and this audit report zero rubric errors. Static checks
@@ -39,8 +39,8 @@ const repoRoot = resolve(here, '..');
 const presetDir = resolve(repoRoot, 'src/lib/presets');
 const files = (await readdir(presetDir)).filter((file) => file.endsWith('.json'));
 
-const baseUrl = process.env.HIVIZ_DEV_URL ?? 'http://localhost:5173';
-const seekFraction = process.env.HIVIZ_AUDIT_SEEK ?? '0.5';
+const baseUrl = process.env.SUPERS_DEV_URL ?? 'http://localhost:5173';
+const seekFraction = process.env.SUPERS_AUDIT_SEEK ?? '0.5';
 
 const snippet = `(async () => {
   const fraction = ${seekFraction};
@@ -53,7 +53,7 @@ const snippet = `(async () => {
     window.dispatchEvent(new PointerEvent('pointerup', { button: 0, clientX, clientY, bubbles: true, cancelable: true, pointerType: 'mouse' }));
     await new Promise((r) => setTimeout(r, 400));
   }
-  return JSON.stringify(window.__hivizVisualAudit?.issues ?? 'audit not ready', null, 2);
+  return JSON.stringify(window.__supersVisualAudit?.issues ?? 'audit not ready', null, 2);
 })()`;
 
 console.log('Visual rubric audit — open each URL, run the snippet in DevTools.\n');

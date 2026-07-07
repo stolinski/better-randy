@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"kind": "fixture",
 	"name": "Dithering — effect fixture",
 	"description": "Proving fixture for the dithering Effect (ported to WGSL from @paper-design/shaders image-dithering, Apache-2.0). Runs the ordered dither over the pullquote-on-photo surface — the synthesized photographic substrate's tonal ramps and bokeh give the posterizer real gradients to quantize (Bayer 4×4, 3 steps, original colors), so the effect reads unmistakably: smooth falloff becomes woven cell bands while the quote's serif edges stay cell-crisp. Full-frame piece (backgroundFill); the effect's transparent-alpha contract (E4) is proven separately by the effect-chain tests. Fixture — exercises the pipeline, not held to the deliverable floors.",

@@ -1,4 +1,4 @@
-# Hiviz Briefs
+# Supers Briefs
 
 A **Brief** is the markdown directive for one not-yet-shipped **Preset**, **Pipeline**, or content domain. One file per in-flight idea. Authored by the **Brainstorm** agent (`/brainstorm <slug>`), read by the **Producer** sub-agent (`/author <slug>`), never seen by the **Critic**. Deleted when the target (or declared verification) Preset returns `ACCEPT` from `/critic`.
 

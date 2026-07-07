@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "Magnify with side note",
 	"description": "Magnify treatment with a side-note arrow that calls out the attribution.",
 	"pack": "syntax",

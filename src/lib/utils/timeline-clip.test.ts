@@ -1,6 +1,6 @@
 /**
  * Unit tests for the unified timeline-clip geometry + drag resolution (ADR-0034
- * §2a). The Hiviz repo ships no Jest/Vitest harness, so this is a self-running
+ * §2a). The Supers repo ships no Jest/Vitest harness, so this is a self-running
  * node script (matching `text-animations/compile.test.ts`):
  *
  *   node --experimental-strip-types src/lib/utils/timeline-clip.test.ts

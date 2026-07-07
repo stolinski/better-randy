@@ -1,9 +1,9 @@
 ---
 name: author
-description: Spawn a fresh Producer sub-agent that reads a Hiviz Brief and writes the Preset (plus any Pipeline / ADR the Brief declares). Use when the user has a `docs/briefs/<slug>.md` with no open questions and says "author it," "write the preset," or types `/author <slug>`. Do NOT use to brainstorm a Brief (use `/brainstorm`) or to verify the result (use `/critic`).
+description: Spawn a fresh Producer sub-agent that reads a Supers Brief and writes the Preset (plus any Pipeline / ADR the Brief declares). Use when the user has a `docs/briefs/<slug>.md` with no open questions and says "author it," "write the preset," or types `/author <slug>`. Do NOT use to brainstorm a Brief (use `/brainstorm`) or to verify the result (use `/critic`).
 ---
 
-# Hiviz Author
+# Supers Author
 
 The operational form of [ADR-0007](../../docs/adr/0007-brainstorm-brief-system.md)'s Producer hand-off. Spawns a sub-agent with **fresh context** that reads `docs/briefs/<slug>.md` and authors the artifacts the Brief declares. The Brief stays in `docs/briefs/` after authoring — only `/critic` returning `ACCEPT` triggers its deletion.
 
@@ -40,7 +40,7 @@ Use the **Agent tool** with `subagent_type: "general-purpose"`. **Do not** pass 
 Substitute `<slug>`, `<kind>`, and (when applicable) `<verification-slug>`:
 
 ```
-You are the Hiviz Producer for the Brief at `docs/briefs/<slug>.md`.
+You are the Supers Producer for the Brief at `docs/briefs/<slug>.md`.
 
 Read these docs in order before writing anything:
 
@@ -50,7 +50,7 @@ Read these docs in order before writing anything:
    field so the Critic doesn't re-flag them.
 2. docs/briefs/README.md — the lifecycle and invariant you sit inside.
 3. docs/CONTEXT.md — terminology. Use these terms precisely.
-4. docs/preset-format.md — the `hiviz@1` schema you must satisfy.
+4. docs/preset-format.md — the `supers@1` schema you must satisfy.
 5. docs/engine-architecture.md — pipeline registry shape, only if Brief's
    `Kind:` is `pipeline` or `domain`.
 6. docs/packs/<pack>/aesthetic.md — channel chrome, palette, type, motion

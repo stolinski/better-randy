@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"kind": "fixture",
 	"name": "Chromatic aberration — effect fixture",
 	"description": "Proving fixture for the chromatic-aberration Effect (was dead-by-use — referenced by zero presets). A frame-wide RGB channel-split fringe over high-contrast paper body text; the radial offset grows toward the frame corners (lens-style). Verifies the post-process effect chain renders the aberration while preserving the centre-sample alpha (E4 transparent contract). Fixture — exercises the pipeline, not held to the deliverable floors.",

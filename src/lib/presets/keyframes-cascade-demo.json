@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "Keyframes + Cascade — engine fixture",
 	"description": "ADR-0035 verification fixture. The `main` lower-third is composition-owned: multi-step channels (opacity fade in/hold/out, a 3-keyframe scale dip-then-land the single-window Transition could not express, a settled y rise) replace its intrinsic motion-form. The `tag` lower-third keeps its intrinsic sugar motion but cascades off `main` (+700 ms), and the body highlight cascades off `tag`'s enter end (+300 ms) — a welded reading-order chain that survives re-time. The surface fade rides an authored opacity channel into paperVisibility.",
 	"pack": "syntax",

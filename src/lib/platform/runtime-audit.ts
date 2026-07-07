@@ -297,7 +297,7 @@ function getFrameInSourceCoords(orientation: 'horizontal' | 'vertical'): {
 }
 
 function wrapStateAsPreset(state: EngineState, name: string): Preset {
-	return { schema: 'hiviz@1', name, pack: 'syntax', kind: 'deliverable', state };
+	return { schema: 'supers@1', name, pack: 'syntax', kind: 'deliverable', state };
 }
 
 export function captureMeasurement(state: EngineState, name = '(current)'): VisualMeasurement {
@@ -340,7 +340,7 @@ export function runVisualAudit(state: EngineState, name = '(current)'): RubricIs
 
 declare global {
 	interface Window {
-		__hivizVisualAudit?: {
+		__supersVisualAudit?: {
 			issues: RubricIssue[];
 			measurement: VisualMeasurement;
 			timestamp: number;
@@ -354,7 +354,7 @@ export function exposeVisualAudit(state: EngineState, name = '(current)'): void 
 		? lintPresetVisual(measurement)
 		: [surfaceUnavailableIssue(state)];
 
-	window.__hivizVisualAudit = {
+	window.__supersVisualAudit = {
 		issues,
 		measurement,
 		timestamp: Date.now()

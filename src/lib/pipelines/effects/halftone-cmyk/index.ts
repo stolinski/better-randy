@@ -12,7 +12,7 @@ import Editor from './Editor.svelte';
 //   - The image-fit/sizing system collapses to identity (the effect-chain input
 //     is the already-composited frame).
 //   - The source's grainSize / grainMixer / grainOverlay features are omitted —
-//     grain is a separate composable link in the Hiviz effect chain
+//     grain is a separate composable link in the Supers effect chain
 //     (`paper-grain`).
 //   - The source's `u_noiseTexture` cell randomizer is replaced with a
 //     procedural hash (the effect bind layout is single-texture); statistically

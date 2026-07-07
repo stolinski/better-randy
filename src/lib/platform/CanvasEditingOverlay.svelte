@@ -1,10 +1,16 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 
+	import { animState } from './anim-state.svelte';
 	import { engineState } from './engine-state.svelte';
-	import { layerSelection, selectLayer, deselectLayer } from './selection.svelte';
+	import {
+		layerSelection,
+		selectLayer,
+		deselectLayer,
+		requestInspectorFocus
+	} from './selection.svelte';
 	import { clampNumber } from '$lib/utils/math';
-	import type { DiagramElement, Overlay } from './engine-schema';
+	import type { ChatMessage, DiagramElement, Overlay } from './engine-schema';
 
 	interface Props {
 		compositionElement: HTMLElement | null;
@@ -450,6 +456,119 @@
 		}
 	}
 
+	// ─── Surface-interior direct selection (epic 0pkzts2c) ──────────────────────
+	// Rendered surface content (iMessage bubbles, text slots) is live DOM inside
+	// the canvas layoutsubtree, so its boxes project into display space with the
+	// same math as overlays. A click selects the entity's existing address —
+	// bubbles use their timeline row id (`imessage-N`), slots select the surface
+	// and request an inspector reveal — no dragging, these are content, not
+	// spatially placed objects.
+
+	const surfaceMessages = $derived(engineState.surface.content.messages ?? []);
+
+	// Text-animation strategies rebuild slot DOM asynchronously (GSAP span
+	// splits) — no engine state captures that, so boxes measured at mount can be
+	// stale. Bumping this on backdrop pointerenter re-measures every interior box
+	// before the cursor can reach one (regions are islands inside the backdrop).
+	let measureEpoch = $state(0);
+
+	// Every slot value stamped as `data-text-anim-slot` by surface CanvasSources.
+	const SURFACE_TEXT_SLOTS = [
+		'kicker',
+		'title',
+		'counterpoint',
+		'body',
+		'sourceUrl',
+		'author',
+		'source',
+		'dateLabel'
+	] as const;
+
+	function projectRect(
+		el: HTMLElement
+	): { left: number; top: number; width: number; height: number } | null {
+		const rootRect = rootEl?.getBoundingClientRect();
+		const canvasRect = canvas?.getBoundingClientRect();
+		const compRect = compositionElement?.getBoundingClientRect();
+		if (!rootRect || !canvasRect || !compRect || canvasRect.width === 0 || compRect.width === 0)
+			return null;
+		const r = el.getBoundingClientRect();
+		const scale = canvasRect.width / compRect.width;
+		return {
+			left: canvasRect.left - rootRect.left + (r.left - compRect.left) * scale,
+			top: canvasRect.top - rootRect.top + (r.top - compRect.top) * scale,
+			width: r.width * scale,
+			height: r.height * scale
+		};
+	}
+
+	function messageRelRect(
+		message: ChatMessage,
+		index: number
+	): { left: number; top: number; width: number; height: number } | null {
+		// Bubble DOM moves with the playhead (enter pops, thread slide, window
+		// visibility ramp) and reflows on content edits — subscribe so the hit box
+		// tracks it (getBoundingClientRect isn't reactive).
+		void animState.globalProgress;
+		void animState.paperVisibility;
+		void measureEpoch;
+		void JSON.stringify(message);
+		// When the typing indicator is up it renders before the (invisible) bubble,
+		// so the first `data-message-index` match is always the visible box.
+		const el = compositionElement?.querySelector<HTMLElement>(`[data-message-index="${index}"]`);
+		if (!el) return null;
+		return projectRect(el);
+	}
+
+	function slotRelRect(
+		slot: (typeof SURFACE_TEXT_SLOTS)[number]
+	): { left: number; top: number; width: number; height: number } | null {
+		// Slot elements come and go with surface type/variant/content and ride the
+		// surface's enter/exit — subscribe so the box re-measures.
+		void engineState.surface.type;
+		void engineState.surface.variant;
+		void engineState.surface.content[slot];
+		void animState.globalProgress;
+		void animState.paperVisibility;
+		void measureEpoch;
+		const candidates = compositionElement?.querySelectorAll<HTMLElement>(
+			`[data-text-anim-slot="${slot}"]`
+		);
+		if (!candidates) return null;
+		// Overlays stamp the same attribute for their own text motion, and message
+		// bubbles render their text through DocumentBody (slot "body") — both boxes
+		// belong to their own hit regions, not a surface slot.
+		for (const el of candidates) {
+			if (el.closest('[data-overlay-id]') === null && el.closest('[data-message-index]') === null)
+				return projectRect(el);
+		}
+		return null;
+	}
+
+	function onMessageDown(event: PointerEvent, index: number): void {
+		if (event.button !== 0) return;
+		event.preventDefault();
+		event.stopPropagation();
+		selectMessage(index);
+	}
+
+	function selectMessage(index: number): void {
+		selectLayer(`imessage-${index}`);
+		requestInspectorFocus(`message:${index}`);
+	}
+
+	function onSlotDown(event: PointerEvent, slot: string): void {
+		if (event.button !== 0) return;
+		event.preventDefault();
+		event.stopPropagation();
+		selectSlot(slot);
+	}
+
+	function selectSlot(slot: string): void {
+		selectLayer('surface');
+		requestInspectorFocus(`slot:${slot}`);
+	}
+
 	// ─── Backdrop: pan (when zoomed in) or deselect (on a plain click) ──────────────
 	// A press on the empty canvas starts a gesture: drag while zoomed in pans the
 	// view; release without a real drag deselects (→ root inspector).
@@ -535,9 +654,51 @@
 		class="canvas-editing-overlay__backdrop"
 		class:canvas-editing-overlay__backdrop--pannable={zoom > 1}
 		onpointerdown={onBackdropDown}
+		onpointerenter={() => {
+			measureEpoch += 1;
+		}}
 		role="presentation"
 		aria-hidden="true"
 	></div>
+	{#each surfaceMessages as message, index (index)}
+		{@const rect = messageRelRect(message, index)}
+		{#if rect && rect.width > 0}
+			<div
+				class="interior-hit"
+				class:interior-hit--selected={layerSelection.id === `imessage-${index}`}
+				onpointerdown={(e) => onMessageDown(e, index)}
+				role="button"
+				tabindex="0"
+				aria-label={`Edit message ${index + 1}`}
+				onkeydown={(e) => {
+					if (e.key === 'Enter' || e.key === ' ') selectMessage(index);
+				}}
+				style:left="{rect.left}px"
+				style:top="{rect.top}px"
+				style:width="{rect.width}px"
+				style:height="{rect.height}px"
+			></div>
+		{/if}
+	{/each}
+	{#each SURFACE_TEXT_SLOTS as slot (slot)}
+		{@const rect = slotRelRect(slot)}
+		{#if rect && rect.width > 0}
+			<div
+				class="interior-hit"
+				onpointerdown={(e) => onSlotDown(e, slot)}
+				role="button"
+				tabindex="0"
+				aria-label={`Edit ${slot}`}
+				onkeydown={(e) => {
+					if (e.key === 'Enter' || e.key === ' ') selectSlot(slot);
+				}}
+				style:left="{rect.left}px"
+				style:top="{rect.top}px"
+				style:width="{rect.width}px"
+				style:height="{rect.height}px"
+			></div>
+		{/if}
+	{/each}
 	{#each diagramDraggables as element (element.id)}
 		{@const rect = blockRelRect(element)}
 		{#if rect && rect.width > 0}
@@ -668,6 +829,27 @@
 
 	.overlay-hit--selected,
 	.overlay-hit--selected:hover {
+		outline: 2px solid #ffd608;
+	}
+
+	/* Surface-interior content (bubbles, text slots): clickable to edit, not
+	   draggable — pointer cursor + dashed hover ring distinguish "content that
+	   opens its editor" from the solid ring of liftable overlay objects. */
+	.interior-hit {
+		box-sizing: border-box;
+		cursor: pointer;
+		outline: none;
+		outline-offset: -1px;
+		pointer-events: all;
+		position: absolute;
+	}
+
+	.interior-hit:hover {
+		outline: 1.5px dashed rgba(255, 214, 8, 0.7);
+	}
+
+	.interior-hit--selected,
+	.interior-hit--selected:hover {
 		outline: 2px solid #ffd608;
 	}
 

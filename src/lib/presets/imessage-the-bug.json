@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "iMessage — the bug (horizontal)",
 	"description": "A live iOS Messages conversation on a transparent overlay, chromeless (chrome: 'none', ADR-0037): just the bubbles floating over footage — no page, no iOS header, no composer bar, film-insert style. The thread plays out over ~6s: a gray received bubble pops in, a three-dot typing indicator appears and resolves into the next bubble, a heart tapback pops onto it, then a blue sent reply arrives with a Delivered → Read receipt, and it holds. Fully bare BY DESIGN (faithful-OS-artifact stance): no mono thread, no collage chrome; speaker identity reads from bubble side + color. Tail curls cut to genuine transparency; NO CSS glow on the captured DOM. Transparent WebM overlay, composited over footage.",
 	"pack": "syntax",

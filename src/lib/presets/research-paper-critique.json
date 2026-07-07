@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "Critique pass",
 	"description": "Highlight, underline and circle staggered across a methodology paragraph.",
 	"pack": "syntax",

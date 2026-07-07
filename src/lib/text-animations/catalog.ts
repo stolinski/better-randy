@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { rawCatalog } from './raw-catalog-bundle.ts';
-import { HIVIZ_EFFECT_MODULES } from './hiviz-effects/index.ts';
+import { SUPERS_EFFECT_MODULES } from './supers-effects/index.ts';
 
 // Vendored upstream JSON, eager-bundled by `raw-catalog-bundle.ts` so the
 // catalog is available both inside Vite (the production build via the
@@ -10,27 +10,27 @@ import { HIVIZ_EFFECT_MODULES } from './hiviz-effects/index.ts';
 // `raw-catalog-bundle.ts` for the loader rationale; see
 // `raw-catalog/CATALOG_SOURCE.md` for upstream provenance.
 //
-// Hiviz-original effects (motion-primitives plan Phase 4.1: `kerning-pop`,
+// Supers-original effects (motion-primitives plan Phase 4.1: `kerning-pop`,
 // `bracket-pop`) merge in alongside the vendored set so the catalog lane
 // stays a single registry from the consumer\'s perspective.
 const { specModules } = rawCatalog;
 const effectModules: Record<string, unknown> = {
 	...rawCatalog.effectModules,
-	...HIVIZ_EFFECT_MODULES
+	...SUPERS_EFFECT_MODULES
 };
 
 /**
  * The four split modes the catalog defines. Each effect names exactly one as
- * its `portable_spec.target`. Hiviz mirrors this term in `docs/CONTEXT.md` as
+ * its `portable_spec.target`. Supers mirrors this term in `docs/CONTEXT.md` as
  * **Split mode**.
  */
 export const SPLIT_MODES = ['whole', 'per-character', 'per-word', 'per-line'] as const;
 export type SplitMode = (typeof SPLIT_MODES)[number];
 
 /**
- * The four renderer families Hiviz ships. The 20 `visibility: visible` upstream
+ * The four renderer families Supers ships. The 20 `visibility: visible` upstream
  * effects choose one explicitly via `showcase.renderer.id`; the four hidden
- * effects (no showcase block) fall through to `generic-stagger`. Hiviz mirrors
+ * effects (no showcase block) fall through to `generic-stagger`. Supers mirrors
  * this term in `docs/CONTEXT.md` as **Renderer family**.
  */
 export const RENDERER_FAMILIES = [

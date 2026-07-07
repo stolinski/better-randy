@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "Web document — News article (horizontal)",
 	"description": "A recognizable news article on a transparent overlay, as a clean backdrop for the channel's hand-pulled highlight. Faithful site look BY DESIGN: a publication-neutral light editorial page (white #ffffff) with a colored uppercase publication/section kicker, a large serif headline, a 'By Author · date' byline, a rule, and serif body paragraphs, inside a browser window whose address bar shows the URL — NO Syntax collage chrome (no torn edge / grit / hard offset shadow), and NO CSS glow on the captured card. Because the page is light, the highlight runs in the light (multiply) blend mode — the dark body type stays readable under the amber band, like on paper. The emissive 'web page on a backlit display' look is a TypeGPU shaderPass (subpixel emission, backlight bloom, escaping-bezel halo, viewport-edge defocus), not Pack chrome. ~6s: card settles in, the highlighter draws over the hero line (~1.2→2.4s), then a long static hold a creator can freeze/extend. Transparent WebM overlay, composited over footage.",
 	"pack": "syntax",

@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"kind": "fixture",
 	"name": "Isolate — focal dim fixture",
 	"description": "Proving fixture for the isolate Annotation (was dead-by-use — referenced by zero presets). One [isolate] focal passage in a paper body; as the mark progresses the surrounding text dims toward the backgroundVisibility floor, isolating the focal sentence. Verifies the composition focal shader's isolate styleCode (4) path renders. Fixture — exercises the pipeline, not held to the R/Q/G deliverable floors.",

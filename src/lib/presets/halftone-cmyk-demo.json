@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"kind": "fixture",
 	"name": "Halftone CMYK — effect fixture",
 	"description": "Proving fixture for the halftone-cmyk Effect (ported to WGSL from @paper-design/shaders halftone-cmyk, Apache-2.0). Four rotated ink screens at the classic press angles (C 15° / M 75° / Y 0° / K 45°) separate the pullquote-on-photo substrate — the warm bokeh ramps pull magenta+yellow rosettes while the dark zones lay black — and the bright quote knocks out to paper. Full-frame piece (backgroundFill); the alpha contract (E4) is masked to the content silhouette by construction. Fixture — exercises the pipeline, not held to the deliverable floors.",

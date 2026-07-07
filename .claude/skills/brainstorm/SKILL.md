@@ -1,9 +1,9 @@
 ---
 name: brainstorm
-description: Grill the user toward a Hiviz Brief at `docs/briefs/<slug>.md`. Propose options from the active Pack's aesthetic doc (`docs/packs/<pack>/aesthetic.md`) and the existing Registry at each decision point; never just passively capture. Use when the user wants to design a new Preset, Pipeline, or content domain — e.g. "let's brainstorm a tweet overlay," "we need a new pullquote variant," "/brainstorm <slug>". Do NOT use to author the Preset itself — hand off to `/author <slug>` once the Brief's "Open questions" is empty.
+description: Grill the user toward a Supers Brief at `docs/briefs/<slug>.md`. Propose options from the active Pack's aesthetic doc (`docs/packs/<pack>/aesthetic.md`) and the existing Registry at each decision point; never just passively capture. Use when the user wants to design a new Preset, Pipeline, or content domain — e.g. "let's brainstorm a tweet overlay," "we need a new pullquote variant," "/brainstorm <slug>". Do NOT use to author the Preset itself — hand off to `/author <slug>` once the Brief's "Open questions" is empty.
 ---
 
-# Hiviz Brainstorm
+# Supers Brainstorm
 
 The operational form of [ADR-0007](../../docs/adr/0007-brainstorm-brief-system.md). Drives the conversation that produces a [`Brief`](../../docs/briefs/README.md). The agent's stance is **active proposer** — surfaces 2–3 concrete options from `docs/packs/syntax/aesthetic.md` § Motion Vocabulary, the existing Registry, and `docs/inspo/` at every decision point, rather than passively recording user input.
 
@@ -25,7 +25,7 @@ Read in order, even if you "already know" them — the proposals you make at eac
 1. `docs/briefs/README.md` — the template you're filling and the lifecycle invariant.
 2. `docs/CONTEXT.md` — Brief, Producer, Critic, Brainstorm definitions.
 3. `docs/packs/syntax/aesthetic.md` — Motion Vocabulary, Channel chrome, Surface Vocabulary, Anti-Aesthetic.
-4. `docs/preset-format.md` — the `hiviz@1` schema you'll eventually have to satisfy.
+4. `docs/preset-format.md` — the `supers@1` schema you'll eventually have to satisfy.
 5. `ls src/lib/presets/` — existing slugs (collision check) and family naming.
 6. `docs/adr/` — quick scan for relevant decisions (e.g. ADR-0006 if it's a lower-third-shaped idea).
 

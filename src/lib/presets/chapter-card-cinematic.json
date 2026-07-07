@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "Chapter card — cinematic demo",
 	"description": "Hero demo for the chapter-card Surface. Slow shader-side camera push with two-layer parallax (background drifts at the camera rate; atmospheric noise drifts at 1.7× for closer-layer parallax) over a deep cool slate substrate; single warm key-light implied from upper-right (off-centre, not radial halo). Centred kicker over huge serif title. 8 s duration lets the camera move breathe; designed to read as a documentary chapter break.",
 	"pack": "syntax",

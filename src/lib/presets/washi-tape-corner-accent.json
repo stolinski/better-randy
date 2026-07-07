@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "Washi tape — zine corner accent",
 	"description": "Two strips of washi tape pinning a research-paper Surface to the frame, creating the torn-paper zine collage look from the Syntax aesthetic. Yellow tape (rotation +18°) crosses the top-left corner of the paper card; red tape (rotation −14°) anchors the top-right corner. Demonstrates the washi-tape overlay pipeline's rotation, length, and multi-instance placement. Light cream paper substrate; tape settles in slightly after the card.",
 	"pack": "syntax",

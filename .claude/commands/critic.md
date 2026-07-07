@@ -1,8 +1,8 @@
 ---
-description: Spawn a Critic sub-agent to verify a Hiviz Preset against the rubrics
+description: Spawn a Critic sub-agent to verify a Supers Preset against the rubrics
 ---
 
-You are coordinating a Hiviz Critic run.
+You are coordinating a Supers Critic run.
 
 ## Step 1 — resolve the target
 
@@ -18,7 +18,7 @@ If `$ARGUMENTS` is empty, list the available slugs and stop.
 Use the Agent tool with `subagent_type: "general-purpose"` and the prompt below verbatim, substituting `<slug>` and `<route-url>`. **Do not** include any of the current conversation as context — the Critic must run with a fresh framing.
 
 ```
-You are the Hiviz Critic for the Preset at `src/lib/presets/<slug>.json`.
+You are the Supers Critic for the Preset at `src/lib/presets/<slug>.json`.
 Route URL: <route-url>.
 
 Bind to these docs and read them in order before doing anything else:

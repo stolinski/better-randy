@@ -2,7 +2,7 @@
 
 These JSON files are vendored verbatim from the upstream
 [`pixel-point/animate-text`](https://github.com/pixel-point/animate-text)
-project so the Hiviz text-animation engine can ship offline-deterministic
+project so the Supers text-animation engine can ship offline-deterministic
 output without a runtime fetch or git submodule.
 
 ## Pinned upstream
@@ -24,7 +24,7 @@ output without a runtime fetch or git submodule.
 20 of the 24 are `visibility: 'visible'` upstream and carry a full
 `showcase` block. The four `visibility: 'hidden'` effects
 (`stagger-from-center`, `stagger-from-edges`, `shared-axis-x`,
-`depth-parallax-words`) keep `showcase: null`; Hiviz dispatches those
+`depth-parallax-words`) keep `showcase: null`; Supers dispatches those
 through the `generic-stagger` renderer using their `portable_spec`
 `enter` / `exit` keyframes directly.
 
@@ -32,7 +32,7 @@ through the `generic-stagger` renderer using their `portable_spec`
 
 The upstream project's
 [`LICENSE`](https://github.com/pixel-point/animate-text/blob/main/LICENSE)
-governs reuse of these files. The Hiviz repository ships the vendored
+governs reuse of these files. The Supers repository ships the vendored
 JSON unchanged; any modification belongs in the wrapping engine modules
 under `src/lib/text-animations/`, not in `raw-catalog/`.
 

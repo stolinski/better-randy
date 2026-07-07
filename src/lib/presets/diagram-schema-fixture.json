@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"name": "Diagram schema fixture",
 	"description": "ADR-0036 round-trip fixture — all five diagram Block primitives, every edge route, node refs + explicit points, cascade welds (block→block, block→surface), keyframe channels, and the stat roll window.",
 	"pack": "syntax",

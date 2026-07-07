@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"kind": "fixture",
 	"name": "Water — effect fixture",
 	"description": "Proving fixture for the water Effect (ported to WGSL from @paper-design/shaders water, Apache-2.0) — the first time-driven Paper port: the caustic field runs off ctx.timestamp (ADR-0012), so the water animates frame-deterministically through the hold while preview and export agree at every frame. Two layered caustic octave fields refract the pullquote-on-photo substrate, simplex waves ripple the quote's serif edges, and warm glints ride the caustic peaks masked to the content silhouette (E4). Full-frame piece (backgroundFill). Fixture — exercises the pipeline, not held to the deliverable floors.",

@@ -1,5 +1,5 @@
 {
-	"schema": "hiviz@1",
+	"schema": "supers@1",
 	"kind": "fixture",
 	"name": "Heatmap — effect fixture",
 	"description": "Proving fixture for the heatmap Effect (adapted to WGSL from @paper-design/shaders heatmap, Apache-2.0). Thermal read of the pullquote-on-photo substrate: frame luminance indexes the 7-stop cold→hot gradient cascade, the bright quote reads white-hot against the deep-blue floor, content edges pull contour heat, and a heat band travels up the frame time-driven (ctx.timestamp, ADR-0012). Full-frame piece (backgroundFill); the grade recolors coverage only (E4). Fixture — exercises the pipeline, not held to the deliverable floors.",
