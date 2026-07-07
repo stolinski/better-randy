@@ -29,6 +29,7 @@ If a preset fails any R-rule, **do not adjust preset values to hide the defect.*
 - **Rule** — Any region of the frame produced by sampling, scaling, or transforming a source texture is as sharp at its final on-screen scale as content rendered natively at that scale. If part of the frame looks softer than the rest, that part fails.
 - **Why** — The dominant failure mode is sampling a lower-resolution source with bilinear filtering at a larger scale, which produces visible blur. Acceptable fixes (in the pipeline, not the preset) include re-rasterizing the source at a resolution sufficient for the maximum on-screen scale, sampling with at least bicubic, or issuing a fresh DOM paint at the target scale.
 - **How to verify (evidence required)** — For any region where on-screen scale differs from source scale, zoom the viewer to 200%. Compare that region against same-screen-size content from elsewhere in the frame. Report: *"At 200% zoom, content in `<region>` is [equally sharp / softer / blocky / pixel-doubled] compared to same-screen-size content outside it."* Any answer other than "equally sharp" **FAILS**, and the failure lives in the shader / sampling code, not the preset. N/A if no part of the frame is resampled.
+- **Substrate asset resolution** — a photographic backdrop / image substrate asset (`atmosphere-*`, pullquote-on-photo substrates) must be authored at **≥ the target long-edge (3840 px) at the asset's maximum on-screen magnification**: a 2048×1152 plate pushed past 4K under a camera move is an R2 failure the instant it carries any in-focus detail. The sole exemption is a **permanently-defocused** asset — held out of focus for the entire piece (e.g. atmosphere haze) — where the softness is authored, not a sampling artifact and invisible by construction. When a substrate is ever meant to be read sharp, regenerate it at ≥ 4K.
 
 ### R3. Shadows have gaussian-quality falloff — no banding, no stairstep, no hard rim
 
@@ -53,6 +54,7 @@ If a preset fails any R-rule, **do not adjust preset values to hide the defect.*
 - **Rule** — Horizontal presets export at 3840×2160. Vertical presets export at 2160×3840. The pipeline must not produce a smaller intermediate (e.g. 1920×1080) and upscale it to the target. A 1080p source upscaled to 4K is not a 4K render — it carries the softness of 1080p plus the artifacts of the upscaler.
 - **Why** — Upscaled output is universally soft and is one of the most common silent failure modes. It often comes from a hardcoded canvas backing-store size, a wrong `devicePixelRatio`, or an export pipeline that snapshots the preview canvas (which is sized for the screen) instead of rendering at target dimensions.
 - **How to verify (evidence required)** — Check the exported file's pixel dimensions match the target exactly. Then: zoom the exported frame to 200% and compare against text rendered at the same physical size in the browser at 4K viewport. Report: *"Export dimensions: `<WxH>`. Target: `<WxH>`. At 200% zoom, exported text sharpness vs native 4K browser text is [equal / noticeably softer]."* Dimension mismatch or softer-than-native **FAILS**.
+- **The backing-store report is authoritative.** Verify dimensions against the capture harness's **backing store**, not the CSS rect: `scripts/cdp-capture.mjs` clips from `canvas.width/height` and its banner prints `backing=<WxH>`. The CSS `getBoundingClientRect()` height × device-scale rounds short (3840×2157 for a true 3840×2160 backing) — a rounding artifact of the capture path, not an upscale. A capture whose backing report reads the target exactly passes; do not fail R6 on the CSS-rect rounding.
 
 ### R7. Export has no compression or codec artifacts visible to the eye
 
@@ -89,6 +91,8 @@ Each line must name the specific region inspected. *"R3 PASS"* on its own is **n
 If any line is FAIL, the agent stops. Per R8, they identify the responsible code path and propose an implementation fix before continuing. They do **not** edit the preset to make the rendered output appear to pass.
 
 Only after every R-line is PASS does the agent proceed to evaluate Q-rules and per-layer rules.
+
+**Temporal coherence of optical transitions.** The stills protocol above samples frames independently, so it cannot catch a focal feature that **blinks out** at one instant and pops back the next — an authored optical transition (rack focus, a feature resolving into focus, a lift settling) must resolve *continuously*. When a preset authors such a transition, additionally sample the transition window (≥ 3 frames, timeline order) and run `probe-temporal-energy.ts <frames…> --region <x,y,w,h>` over the focal feature. It tracks the region's alpha-weighted luminance and **FAILS a non-monotonic dip deeper than 25% of the settled value**; a smooth resolve in either direction passes. This catches what every still-frame samples as fine — e.g. the type-hero accent-rule that blinked out mid-rack-focus.
 
 ---
 
