@@ -36,3 +36,6 @@ vite.config.ts.timestamp-*
 # Reference backdrop stills — local preview aids for judging overlays over
 # footage (ADR-0034 §7); personal footage frames, never committed
 /static/backdrops
+
+# Argent design-variant / baseline captures — throwaway UI exploration, regenerable
+/.argent-*.png
