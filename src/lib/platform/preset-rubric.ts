@@ -145,6 +145,13 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 	checkOverlayPlacement(state.overlays, frame, orientation, issues);
 	if (resolvedTypography) {
 		checkContrast(state.surface, resolvedTypography, issues);
+		checkDiagramContrast(
+			state.surface,
+			state.backgroundFill,
+			state.stage !== undefined,
+			resolvedTypography,
+			issues
+		);
 		checkBackgroundFill(state.backgroundFill, resolvedTypography.paperColor, issues);
 	}
 	checkHoldTime(state.surface, state.marks.timings, flattenedMarks, totalSeconds, issues);
@@ -448,6 +455,41 @@ function checkContrast(
 			severity: 'error',
 			path: 'typography',
 			message: `Ink/paper contrast is ${ratio.toFixed(2)}:1 — body text needs ≥ 4.5:1.`
+		});
+	}
+}
+
+// G5 diagram lane. Diagram DOM ink resolves to the surface body ink
+// (DiagramMount: resolveTypographyColors(...).inkColor), so it is not covered by
+// checkContrast's paper-surface branch. On a TRANSPARENT piece the engine paints
+// a two-zone legibility halo by default (bd7e5e7) — G5's worst-case-footage
+// floor holds, nothing to check statically. On a full-frame OPAQUE piece the
+// halo is skipped (contrast is authored against a known field), so the diagram
+// ink must clear 4.5:1 against backgroundFill here. A stage-backed piece also
+// skips the halo, but its backdrop is not a single static colour — that case is
+// visual-audit / Critic territory, not this lane.
+function checkDiagramContrast(
+	surface: SurfaceState,
+	backgroundFill: string | undefined,
+	hasStage: boolean,
+	typography: { paperColor: string; inkColor: string },
+	issues: RubricIssue[]
+): void {
+	if ((surface.diagram ?? []).length === 0) {
+		return;
+	}
+	if (backgroundFill === undefined || hasStage) {
+		return;
+	}
+
+	const ratio = contrastRatio(backgroundFill, typography.inkColor);
+
+	if (ratio < 4.5) {
+		issues.push({
+			rule: 'G5',
+			severity: 'error',
+			path: 'surface.diagram',
+			message: `Diagram ink contrast is ${ratio.toFixed(2)}:1 against the opaque backgroundFill — diagram labels need ≥ 4.5:1 (the transparent-piece legibility halo is skipped on full-frame pieces).`
 		});
 	}
 }
