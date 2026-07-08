@@ -47,7 +47,7 @@
 					"ease": "settled",
 					"sound": { "event": "impact" }
 				},
-				"exit": { "start": 0.87, "duration": 0.045, "ease": "smooth" },
+				"exit": { "start": 0.87, "duration": 0.03, "ease": "smooth" },
 				"cascade": { "anchor": { "textAnimation": "kicker-fade" }, "event": "end", "offsetMs": 150 }
 			}
 		],
@@ -64,7 +64,7 @@
 				"position": { "anchor": "bottom-left", "offset": { "x": 0.0625, "y": 0.11 } },
 				"z": 0.08,
 				"enter": { "start": 0.282, "duration": 0.05, "ease": "settled" },
-				"exit": { "start": 0.85, "duration": 0.05, "ease": "smooth" },
+				"exit": { "start": 0.85, "duration": 0.03, "ease": "smooth" },
 				"animation": {
 					"cascade": {
 						"anchor": { "textAnimation": "title-rise" },
