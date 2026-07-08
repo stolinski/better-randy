@@ -75,6 +75,19 @@ With the north star met, the next arc is **capability expansion** — chosen ove
 
 Riding along, small and approved: **export decode verification** (~1 day) — decode the actual exported file (ffmpeg is already server-side in the ProRes route) and feed the frames to `probe-frame-diff`; use ProRes for byte-determinism.
 
+## The quality arc (grilled 2026-07-08)
+
+Revisiting "what pulls after the capability arc" (`ku0gh0mc`), the answer was **none of the three deferred pulls yet** — production dogfooding, content-scale tooling, and Electron all wait, because **the output isn't good enough**. A 7-piece visual audit (2026-07-08) confirmed it: quality is **uneven** — `web-document-twitter` and the depth-heroes (`type-hero-vantage`) land, but the references read as a generic house look, the **diagram pieces look like unfinished wireframes** (`docu-timeline-build`: a thin rule floating in an empty frame), the "real photo" substrate is blurred to an invisible gradient (`pullquote-on-photo`), washi edges are flat, and demo bodies are greeked placeholder. Variety today comes from **switching packs/registers, not from range inside a pack** — every Syntax piece is the same dark-minimal-amber look.
+
+**Verification model.** The automated Critic gates *technical* defects (R-rules: sharpness, contrast, banding) but **cannot judge aesthetic finish** — it ACCEPTed the wireframe-y diagram and the invisible-photo pullquote as Deliverables. So: **the human (Scott, in the GUI) is the aesthetic critic now**, and a **finish-judging Critic** (vision-model / reference-image comparison) runs as a **separate, non-gating research track**. Both in sequence — quality work is not blocked on the AI-judgment research.
+
+**Three workstreams** (dex epic `vgi2krdc`):
+1. **Calibrate the bar — with Scott.** Take ~3 representative pieces (a diagram, a Syntax hero, the lower-third) from *competent* to *genuinely great*; they become the new reference deliverables and define "good" for the human-critic model. **First move.** (The 2026-06 make-cinematic pass worked prove-then-propagate but plateaued at *competent* — this pushes the ceiling higher.)
+2. **Propagate + fix systemically.** Kill within-pack sameness (range/variety inside a pack, or more packs), rebuild the weak registers (diagrams), and fix the wasted features: invisible photo-substrate, flat washi edge (`ukc5ip66`), and greeked placeholder → **real content** throughout.
+3. **Finish-Critic research** (parallel, non-gating) — prototype the aesthetic judge (vision-model / reference-image comparison).
+
+**Running principle:** *real content over synthetic filler.* Half of what makes the demos read as demos is lorem bodies and fake data — real tweets, real Syntax topics, real quotes (also chips at "not enough real-world demos").
+
 ## The corpus
 
 - ✅ **One Critic-accepted deliverable per surface/overlay family — delivered (2026-06).** Every family passes the Critic (zero pipeline-bug / default-too-permissive) at the cinematic bar, via dex epic `ri2qchcm`:
