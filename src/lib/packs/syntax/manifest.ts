@@ -36,7 +36,10 @@ export const syntaxPack: PackManifest = {
 		// the highlighter/kicker yellow).
 		'fill-treatment': { kind: 'style', value: '#f0e8d6' },
 		'ink-treatment': { kind: 'style', value: '#1a1612' },
-		'accent-treatment': { kind: 'style', value: '#fabf47' },
+		// Brand yellow per the real overlay system (github.com/randyrektor/
+		// syntax-overlay, calibration 2026-07-09) — was #fabf47, which belongs to
+		// the physical-highlighter mark defaults, not the chrome accent.
+		'accent-treatment': { kind: 'style', value: '#ffd54a' },
 		// Core structural edge vocabulary (five values: clean/soft/irregular/
 		// torn/none, resolved by resolveEdgeTreatment → the shared edge-treatment
 		// ShaderPass). Syntax is the torn-collage channel — any opted-in card

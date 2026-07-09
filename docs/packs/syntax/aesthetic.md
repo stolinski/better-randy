@@ -1,256 +1,135 @@
-# Supers Aesthetic
+# Syntax Pack — Channel Aesthetic
 
-The channel-specific look that the rubrics (`animation-rubric.md`, `quality-rubric.md`) deliberately don't carry. The rubrics judge whether a preset is *well-made*; this doc says **which well-made the channel wants**.
+**The brand source of truth is the live overlay system: [`github.com/randyrektor/syntax-overlay`](https://github.com/randyrektor/syntax-overlay)** (ratified 2026-07-09). Everything the channel draws on screen follows that system. The previous version of this doc described a "torn-paper zine collage" voice — that was a **misrepresentation of the brand** and drove the corpus toward glossy/collage template looks; it is retired. Where this doc and the repo disagree, the repo wins.
 
-Where each question lives:
-
-- *Is this preset well-rendered?* → `quality-rubric.md` (R-rules).
-- *Is this preset well-composed?* → `quality-rubric.md` (Q-rules).
-- *Is this preset well-paced?* → `animation-rubric.md`.
-- *Does this preset look like the channel?* → this doc.
-
-**Source vs. binding.** The palette and type system are seeded from the Syntax.fm website brand vars (`syntaxfm/website` → `src/styles/variables.css`). They are **suggestions, not hard rules** — surfaces are allowed to deviate when the content needs it. The channel's binding constraints live in the **Collage System** section; that's the layer that distinguishes the look.
+This doc governs the **Syntax Pack** — one Pack of many. Nothing here is an engine rule; the engine stays general (quality/animation rubrics are aesthetic-neutral).
 
 ---
 
 ## Channel Voice
 
-Supers overlays exist for a coding-focused YouTube channel (Syntax) running a **torn-paper zine collage aesthetic on photographic substrate**. The voice is:
-
-- **Opinionated and direct.** No hedged copy, no "in this video we'll explore" — the overlay states the point.
-- **Bright, saturated, graphic.** Not muted, not pastel, not minimalist white-space-heavy.
-- **Hand-assembled.** Torn edges, tape, marker, registration off-set. The overlay reads as something somebody made on a desk, not something a template generated.
-- **Mono signature thread.** Every composition carries at least one element set in mono (kicker, source URL, date stamp, watermark). Mono is the channel's identity stamp.
-- **High contrast between substrate and collage.** The substrate (photo, newspaper, web doc) reads as a found document; the collage layer reads as the channel's interpretation of it.
+- **Flat, physical, decisive.** Cards are flat surfaces with visible borders and a chunky stepped shadow — like matte cardstock laid on a desk under hard light. Never glossy: no gradients-as-atmosphere, no lens flares, no glow, no gaussian ambience.
+- **Opinionated and direct.** The overlay states the point. No hedged copy, no "in this video we'll explore."
+- **Warm dark, one loud yellow.** Warm near-blacks carry the frame; `#ffd54a` yellow is the single loud voice, used decisively (a chip, a separator, an active cue) — not sprayed.
+- **Mono chrome voice.** Space Mono is the channel's interface voice — tags, labels, kickers, tickers, stamps. Space Grotesk is the display voice — names, titles.
+- **Substrate ≠ chrome.** A found document (newspaper, tweet, research paper, photo) keeps its own physics — that's verisimilitude. Everything the *channel* adds on top (cards, chips, tickers, lower-thirds, diagram strokes) is this flat-card system.
 
 ---
 
 ## Palette
 
-Seeded from Syntax brand vars. Five saturated brand hues plus neutrals. The channel uses **yellow as the dominant primary**; the second and third hues are picked from {teal, green, red, purple} per content.
+The repo's tokens, verbatim. These are the channel colors — deviate only inside a found-document substrate that carries its own ink.
 
-| Role | Suggested value | Use for |
+| Token | Value | Use |
 | --- | --- | --- |
-| Yellow primary | `#fabf47` | Highlighter, focal accent, atmospheric halo (low alpha), kicker chips |
-| Teal | `#00fff5` | Underline marks, accent borders, "now/active" cue |
-| Green | `#beff00` | Positive marks (check, agreed, included), success accents |
-| Red | `#ff474e` | Strike marks, negative emphasis, error / disagreement |
-| Purple | `#362d59` | Deep accent, dark substrate plate, atmospheric tint |
-| Black | `#000` | Ink (body on light substrate) |
-| White | `#fff` | Paper (light substrate) |
-| Gray | `oklch(50% 0.02 270deg)` | Dimmed body ink (dim-rest reveal, faded tails) |
+| Background | `#0e0e0d` | Full-frame fields, dark substrates |
+| Card | `#141413` | Card/plate surfaces |
+| Border | `#454441` | Card borders (2px at 1080 / 4px at 4K) |
+| Shadow | `#050504` | The stepped shadow stack |
+| Accent | `#ffd54a` | THE yellow: chips, separators, active cues, focus |
+| Success | `#3dd816` | Positive marks, live/on-air cues |
+| Danger | `#c43d3c` | Negative marks, alerts, the pulse dot |
+| Text | `#f7f6f2` | Primary ink on dark |
+| Byline | `#c9c6bc` | Secondary text on cards |
+| Muted | `#8a8883` | Tertiary/chrome labels |
+| Ink-on-yellow | `#0a0a09` | Text on accent plates |
 
-**Per-role usage**:
+**Saturated-hue cap (Q4)** still binds: ≤ 3 saturated hues visible at once — yellow is the default single slot; green/red enter only with a semantic job.
 
-- **Substrate fill** (photo / paper / web): the substrate's own texture; no flat color fills.
-- **Body ink**: black on light substrate, white on dark substrate, sub-maximum contrast per Q17.
-- **Focal ink** (active word / focal phrase): full-strength foreground.
-- **Dimmed ink** (surrounding context during focal-dim-others; faded unread / past tails): 35–40% ink against substrate.
-- **Highlighter band over text**: `#fabf47` ~0.7 alpha multiply.
-- **Underline / circle mark**: `#00fff5`.
-- **Strike / negative mark**: `#ff474e`.
-- **Atmospheric halo behind focal text on dim substrate**: `#fabf47` ~0.15 alpha, soft gaussian falloff.
-- **Channel chip / kicker plate**: `#fabf47` or `#ff474e` background, white ink, mono caps.
+**Never:** pastels, purple-tinted substrates, pure RGB primaries, Apple-keynote gradient washes, amber-warm "cinematic" tints (`#f4a85e`-family reads as generic template, not Syntax).
 
-**Saturated-hue cap**: Q4 still binds — ≤ 3 saturated hues visible at once. Yellow is one slot; the others come from the remaining palette based on content.
-
-**Never used in this channel**:
-
-- Pastel desaturated versions of the brand colors (mutes identity).
-- Pure RGB primaries (`#ff0000`, `#0000ff`, `#ffff00`) — also a Q5 anti-pattern.
-- Apple-keynote-style muted blue/gray gradients.
-
-**Deviation rule**: a preset may reach outside this palette when the underlying surface needs it (a found newspaper clipping carries its own ink color; a real photographic substrate carries its own ambient). The collage layer chrome stays in palette regardless.
+**Marks are the one exception:** the physical highlighter/pen marks drawn over document substrates keep their measured-from-footage colors (highlighter `#fabf47` ~0.62 alpha — see the web-document canon). A highlighter is a pen on the document, not channel chrome.
 
 ---
 
 ## Type System
 
-Seeded from Syntax brand: **mono is the channel's signature thread**, present as labels in every composition. Surface body and display text are *surface-specific*.
+Two faces, fixed jobs (Q18's 2-family cap holds; a found-document substrate carrying its own face is the only third):
 
-**Channel mono** (signature thread):
+- **Space Grotesk** — display: names, titles, headlines on cards. 700 for primary (tight, `-0.02em`), 500 for supporting.
+- **Space Mono** — chrome: kickers, tags, tickers, stamps, diagram labels, code. 700 uppercase `.08em` on chips; 400 for quiet labels.
 
-- Suggested: Operator Mono. Fallback chain: JetBrains Mono Variable, IBM Plex Mono.
-- Weight range 400–700; italic available.
-- Used for: kicker chips, source URLs, date stamps, channel watermark, file-path labels, code annotations, newspaper dateline.
-
-**Surface display & body**: chosen per surface to fit the substrate's claim — newspaper headline gets a heavy slab/serif, pullquote-on-photo gets a serif, modern web article gets a sans, etc. See each surface entry below.
-
-**Annotation handwriting** (for hand-written-claiming marks — margin notes, scribbles): a variable hand-script font (Caveat, Patrick Hand) or a custom hand path with Q6 deterministic imperfection.
-
-Q18 caps families at 2 per composition: that's the channel mono plus the surface's body/display. A third family belongs only when the composition explicitly mixes two surfaces (e.g. a newspaper clipping torn onto a pullquote-on-photo, each carrying its own type).
+Both self-hosted via `@fontsource` in `src/lib/packs/syntax/fonts.ts`. (Operator Mono is retired from this doc — the repo uses Space Mono.)
 
 ---
 
-## Surface Vocabulary
+## The Card System
 
-The materials the channel claims. Each surface has a substrate, a physics list it must produce, and the channel chrome layered on it. Cross-reference with the **Material Physics Reference** appendix (to be added to `quality-rubric.md`).
+The signature construction, from the repo (values ×2 for the 4K frame):
 
-### Pullquote-on-photo
+- **Plate:** `#141413`, fully opaque. Never a scrim gradient.
+- **Border:** `4px solid #454441` (4K). Always visible — the border is part of the look.
+- **Radius:** `16px` (4K). Corners round; they do not tear.
+- **The stepped shadow:** ten stacked hard offsets, `2px 2px 0 0 #050504` through `20px 20px 0 0 #050504` (4K). This is THE depth treatment — flat, physical, unmistakable. No gaussian shadows on chrome, ever.
+- **Type on the card:** Grotesk 700 title in `#f7f6f2`, byline in `#c9c6bc`, optional Space Mono kicker in `#ffd54a` above.
+- **Avatar treatment** (when a piece carries one): the portrait bleeds outside the card boundary, hard drop-shadowed (`3px 4px 0` dark + a 1px light lip) — same flat physics.
 
-Reference: `docs/inspo/pullquote/quote.png`, `letter-by-letter.png`.
+## Chrome Vocabulary
 
-- **Substrate**: photographic image, vignetted 40–60% at edges for text contrast.
-- **Body type**: serif (Charter, EB Garamond, Times). White or off-white, sub-maximum contrast.
-- **Focal reveal**: brightness reveal over pre-laid-out passage. Past tail at full ink, active word at full + warm halo, future tail at 35–40% ink.
-- **Atmospheric halo**: yellow at ~0.15 alpha, soft gaussian, centered on active focal word.
-- **Attribution**: bottom-right, mono small caps, ≤ 4 words.
+- **Chip / tag:** `#ffd54a` plate, `#0a0a09` ink, Space Mono 700 uppercase `.08em`, square-ish with the system radius, `2px #0a0a09` divider when butted against content. (The ticker tag is the canonical chip.)
+- **Pulse dot:** `#c43d3c` circle with an opacity/box-shadow pulse — the "live" cue.
+- **Separator:** the yellow diamond `◆` between ticker items.
+- **Bars/tickers:** full-width flex bars on the card construction (border + stepped shadow), content scrolling linear.
 
-### Newspaper clipping
+## Diagram strokes
 
-Reference: `docs/inspo/newspaper/body.png`, `heading.png`.
-
-- **Substrate**: aged off-white paper (warm white, ~`#f0e8d6`), with paper grain (multi-scale noise), halftone dot at body sizes, ink bleed at glyph edges.
-- **Slight camera angle**: 1–3° rotation; slight perspective skew acceptable.
-- **Registration jitter**: ink offset 1–3px on saturated marks (yellow highlighter, red strike).
-- **Body type**: condensed serif (Old Standard, Times), justified, narrow columns (~28–36 chars per column).
-- **Display type**: heavy slab or bold serif (Playfair Display, Roboto Slab, Old Standard Black).
-- **Mark**: yellow highlighter with hand-tool physics — wobbly long edges, streak texture along stroke, occasional overshoot past word boundary.
-- **Chrome** (mono): section name in caps, dateline, byline.
-
-### Modern web article
-
-Reference: `docs/inspo/website/headline.png`.
-
-- **Substrate**: clean off-white card (`#fdfdfd`) with subtle multi-zone shadow per Q16.
-- **Body type**: sans (Inter, system-sans).
-- **Display type**: heavy sans (Inter 800, system-bold).
-- **Required chrome** (without these, the surface reads as Figma mock):
-  - Red section chip (e.g. `POLITICS`).
-  - "EXCLUSIVE" or category label.
-  - Byline with author name.
-  - Published timestamp.
-  - Comments-count chip (rounded pill with icon).
-  - Embedded video block beneath headline when applicable.
-- **Channel layer**: torn from this surface into a collage card with hard offset shadow.
-
-### Photographed frame
-
-Reference: `docs/inspo/website/perspective.png`.
-
-- **Substrate**: photo of a screen / page / surface, perspective-warped.
-- **Real lens DoF**: focal element sharp, surrounding elements blurred by real depth-of-field. This is the *only* surface context where DoF is allowed — flat compositions still reject it per the quality-rubric anti-pattern.
-- **Grain layer**: low-density camera grain over the whole frame.
-- **Camera angle**: 5–15° off-axis rotation.
-
-### Collage card (the channel layer)
-
-The distinguishing layer. Cards torn from any of the above surfaces are layered into the composition with channel chrome. See **Collage System** below.
+Clean printed rules — `wobble: 0`. Scribbly/hand-jitter strokes are **not** the channel's line quality (distinct from the torn-paper question; both retired 2026-07-09). Stroke color rides the composition ink; accent-inked elements (`ink: 'accent'`) go `#ffd54a`.
 
 ---
 
-## Collage System
+## Substrate Vocabulary
 
-This is the channel's distinguishing layer and the rubrics deliberately can't carry it. **Torn paper, layered on photographic substrate, with hard offset shadows and mono labels.**
+The found documents the channel quotes. Substrates are **verisimilar artifacts** — they keep their own physics and typography (a tweet looks exactly like Twitter; a newspaper looks like newsprint). The channel layer over them is the card system above.
 
-### Cut behavior
-
-- **Tear, don't crop.** Cards always have torn edges, never axis-perfect rectangular cuts.
-- **Tear path**: irregular jitter ~3–8% of the card's smaller dimension. Deterministic per Q6 / G9 (seeded, not random at render time).
-- **Fiber edge**: torn edge carries a 1–2px white interior fiber visible against the substrate.
-- **No rounded corners on torn cards.** Rounded corners belong to a different material claim (a manufactured chip, a button).
-
-### Layering
-
-- **Substrate behind**: the substrate (photo, paper, web doc) is visible *behind* the torn edge — the tear reveals the substrate, not a uniform dark fill.
-- **Z-order** (bottom → top): substrate → photographic shadow (Q16 multi-zone) → card body → card-layer hard offset shadow → marks → chrome labels → tape → grit overlay.
-
-### Shadow — two kinds, never on the same element
-
-- **Hard offset shadow** on collage cards. Reference: Syntax `--s-graphic: -4px 4px 0 var(--c-fg)`. Offset 8–15 px at 4K, **no blur**, in foreground color. Reads as risograph / screen-print offset.
-- **Photographic shadow** (multi-zone Q16) on underlying surfaces (the photo behind the card, the paper clipping itself). Different layer, different physics.
-
-### Tape
-
-- Optional washi-tape strips anchor card corners.
-- Semi-transparent (~0.6 alpha multiply), slight rotation (5–25°), grain texture.
-- Tape color: palette pulls at low saturation (yellow, teal, red).
-
-### Registration jitter
-
-- Saturated marks (yellow highlighter, red strike) offset 1–3 px from the underlying ink. Simulates risograph misalignment.
-- Deterministic per Q6 / G9.
-
-### Mark layer
-
-- Highlighter / marker strokes draw **over** the card, in the channel layer.
-- Highlight color: `#fabf47` ~0.7 alpha multiply.
-- Stroke draws across the segment per `stroke-draw` motion (ink saturates along path over time, never a faded-in stamp).
-- Q5/Q6 physics: wobble along the stroke, streak texture, occasional overshoot past the word boundary.
-
-### Mono labels
-
-Every collage card carries **at least one** mono label. Without it, the card is generic.
-
-- **Kicker** (above title): mono caps, brand-yellow or brand-red plate behind, 32–48 px cap-height at 4K.
-- **Source URL** (below body): mono lowercase, 32–40 px cap-height at 4K.
-- **Date stamp**: mono caps, bottom-right or top-right corner.
-- **File-path / code annotation**: mono, low-contrast, for code-themed overlays.
-
-### Grit overlay
-
-- ~10–15% opacity grit (multi-scale paper noise) over the entire composition.
-- Bonds the collage layer to the substrate; prevents brand-bright accents from reading as web/UI.
-- Reference: Syntax `--c-bg-grit-light` / `--c-bg-grit-dark`.
+- **Web documents** (Twitter/Reddit/GitHub/YouTube/news/iMessage): pixel-faithful mocks (see ADR-0030/0031 and the web-document canon).
+- **Paper documents** (research paper, newspaper, letter): real print physics — their own serif/slab faces, their own ink. Torn edges are *plausible on a physical document being quoted*; they are **not** channel chrome and never appear on cards/chips/lower-thirds.
+- **Photographs:** real photographic substrates, vignetted for legibility where text rides them; the photo must remain readable AS a photo (R2 substrate-resolution rule).
+- **Marks on substrates:** highlighter/underline/circle are physical pens on the document — hand energy lives HERE (stroke-draw, slight wobble, overshoot), and only here.
 
 ---
 
-## Motion Vocabulary Preferences
+## Motion Vocabulary
 
-Once `G13 Motion Vocabulary` lands in the animation rubric, this section says which moves the channel leans in vs. out. Until then, treat the list below as the channel's preferences.
+The repo's motion is fast, decisive, flat — enter ~420ms strong decelerate, exit ~350ms accelerate (G6-compatible). Preferences:
 
-**Lean in (required when the move applies)**:
+**Lean in:**
+- **settled-place** for cards (small overshoot = "placed with intent").
+- **stroke-draw** for marks and diagram rules (ink saturates along the path).
+- **brightness-reveal** for spoken-content text over substrates.
+- **counter/ticker rolls** for numbers (the odometer is on-brand chrome).
+- **Chip pop** — a chip lands slightly late after its card, `sharp`.
 
-- **brightness-reveal** for spoken-content text — pre-laid-out passage, words brighten as spoken, faded tails on both sides.
-- **focal-dim-others** whenever a focal mark activates — surrounding context drops to 35–40% ink for the focal's duration.
-- **halo-bloom-up** on focal text over dim or photographic substrate — warm yellow halo at ~0.15 alpha rises with the focal.
-- **substrate-darken** on text overlaid on photographic substrate — localized vignette under the text, ≤ 30% of frame.
-- **stroke-draw** for highlighter / marker marks — ink saturates along the stroke path over time.
-- **tear-on** for torn-paper card entry — paper enters with a torn-edge wipe, not a slide.
-- **tape-down** when tape anchors a card corner — small scale overshoot per `settled` ease.
-- **settled-place** for collage-card body entry.
-
-**Lean out (avoid unless content explicitly justifies)**:
-
-- Typewriter pop-in per-word reveal (replaced by brightness-reveal).
-- Faded-in stamp marks (replaced by stroke-draw).
-- Generic slide-from-edge cards (replaced by tear-on for collage cards).
-- Bouncy ease on body text or factual content.
-- Full-frame camera moves (push / snap) on collage compositions — those belong to news/explainer surfaces, not collage.
-
----
-
-## Reference Reel
-
-The canon. The inspo files in `docs/inspo/` are the starting reference; channel additions live below.
-
-| File / link | Take from it |
-| --- | --- |
-| `docs/inspo/pullquote/quote.png` | Substrate vignette + warm focal halo + serif body + faded tail |
-| `docs/inspo/pullquote/letter-by-letter.png` | Brightening reveal over pre-laid-out passage |
-| `docs/inspo/pullquote/sansserif.png` | Dim-the-rest tonal masking on continuous body |
-| `docs/inspo/pullquote/serif.png` | Same masking move with serif body |
-| `docs/inspo/pullquote/headlinetitle.png` | Card-over-darkened-footage; modern news headline card |
-| `docs/inspo/newspaper/body.png` | Newsprint physics + highlighter as hand tool |
-| `docs/inspo/newspaper/heading.png` | Newspaper masthead chrome + headline-on-paper claim |
-| `docs/inspo/website/headline.png` | Modern web-article chrome (section chip, byline, comment count, embedded video) |
-| `docs/inspo/website/perspective.png` | Photographed frame with real lens DoF |
-| *Channel additions* | *TBD — Scott adds.* |
+**Lean out (wrong for this channel):**
+- Anamorphic flares, glows, light sweeps — all gloss.
+- Gaussian-blur atmosphere; soft photographic shadows on chrome.
+- Full-frame camera moves on chrome compositions (substrate/depth pieces may camera; a ticker never does).
+- Bouncy ease on factual content; typewriter pop-in per word.
 
 ---
 
 ## Anti-Aesthetic
 
-Looks that read wrong for **this channel specifically**, distinct from craft anti-patterns in the quality rubric.
+Reads wrong for **this channel specifically**:
 
-- **Pastel / muted palettes.** Pulls brand identity.
-- **Soft Apple-keynote gradient washes.** The channel is bright/saturated/graphic, not calm-tech.
-- **Compositions with no mono.** Missing the signature thread reads off-brand.
-- **Soft photographic (gaussian) shadows on the collage layer.** Collage gets hard offset; gaussian belongs only on underlying surfaces.
-- **Axis-perfect rectangular cards** as the collage layer. Cards tear; they don't crop.
-- **Pure brand-bright colors without grit grounding.** Reads as web/UI; grit pulls it back to physical media.
-- **Helvetica / Arial / Inter as the only typeface family.** Fine as a surface body, never the sole identity.
-- **Gaussian blur applied as decorative atmosphere.** Blur is reserved for photographed-frame DoF; collage gets grit + tear + hard shadow instead.
-- **Generic stock motion-template "swooshes."** Already in the quality-rubric anti-patterns; also wrong for this channel.
+- **Gloss of any kind** — scrim gradients, flares, rim glows, glassy plates. The channel is matte.
+- **Torn-paper / zine-collage chrome** — retired misrepresentation. Tears may exist only inside a quoted physical document.
+- **Scribbly/wobbly line work on chrome or diagrams** — hand energy belongs to marks on documents only.
+- **Pastel or amber-warm "cinematic" palettes** — the warm blacks + one loud yellow are the identity.
+- **Purple-tinted substrates** — not in the brand system.
+- **Compositions with no mono** — Space Mono chrome is the signature thread.
+- **Gaussian shadows on cards** — the stepped stack IS the depth treatment.
+- **Generic stock motion-template moves** — swooshes, glassy wipes, light leaks.
 
-When in doubt: *would this composition pass on Syntax's feed without looking like someone else's channel?*
+When in doubt: *would this pass as a native element of the syntax-overlay live system?*
+
+---
+
+## Reference Reel
+
+| Source | Take from it |
+| --- | --- |
+| [`syntax-overlay`](https://github.com/randyrektor/syntax-overlay) `lower-thirds.html` | The card: plate, border, radius, stepped shadow, Grotesk/byline hierarchy, avatar bleed |
+| [`syntax-overlay`](https://github.com/randyrektor/syntax-overlay) `ticker.html` | The chip/tag, pulse dot, diamond separators, bar construction, motion curves |
+| [`syntax-overlay`](https://github.com/randyrektor/syntax-overlay) `featured-comment.html` | Quoting external content inside the card system |
+| `docs/inspo/newspaper/*.png` | Substrate physics for quoted print documents (substrate, not chrome) |
+| `docs/inspo/pullquote/*.png` | Text-over-photo reveals (substrate register) |
