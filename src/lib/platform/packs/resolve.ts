@@ -69,7 +69,11 @@ const CSS_FORM_SUFFIXES = new Set([
 	// (calibration 2026-07-09).
 	'shadow',
 	'font',
-	'fontLabel'
+	'fontLabel',
+	// font-stretch claim — a variant defaulting to condensed must not
+	// synthetically squeeze a Pack face that has no condensed cut (Space
+	// Grotesk rendered at 75% synthetic width read as off-brand).
+	'stretch'
 ]);
 
 /**

@@ -88,7 +88,7 @@
 	.type-hero-source__hero {
 		color: var(--ink);
 		font-family: var(--font, 'Inter', 'Helvetica Neue', system-ui, sans-serif);
-		font-stretch: condensed;
+		font-stretch: var(--stretch, condensed);
 		font-style: normal;
 		/* Pack title weight (`type-hero.weight`); silent → today's 900. */
 		font-weight: var(--weight, 900);

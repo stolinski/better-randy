@@ -150,8 +150,13 @@ export const syntaxPack: PackManifest = {
 		'type-hero.accent': { kind: 'style', value: '#ffd54a' },
 		'type-hero.byline': { kind: 'style', value: '#c9c6bc' },
 		// Brand faces: Space Grotesk display, Space Mono for the episode stamp.
+		// Weight 700 + normal stretch — Space Grotesk has no 900 and no condensed
+		// cut; the variant's defaults synthesized a 75%-squeezed faux-black that
+		// read as off-brand (calibration 2026-07-09).
 		'type-hero.font': { kind: 'style', value: "'Space Grotesk', 'Inter', sans-serif" },
 		'type-hero.fontLabel': { kind: 'style', value: "'Space Mono', ui-monospace, monospace" },
+		'type-hero.weight': { kind: 'style', value: '700' },
+		'type-hero.stretch': { kind: 'style', value: 'normal' },
 		// WGSL backdrop tints. The brand field is FLAT warm black (calibration
 		// 2026-07-09: drifting atmosphere bands + particle motes read as another
 		// channel's cinematic grammar, not Syntax) — bands/motes are additive in
