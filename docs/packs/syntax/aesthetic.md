@@ -85,6 +85,7 @@ The found documents the channel quotes. Substrates are **verisimilar artifacts**
 - **Paper documents** (research paper, newspaper, letter): real print physics — their own serif/slab faces, their own ink. Torn edges are *plausible on a physical document being quoted*; they are **not** channel chrome and never appear on cards/chips/lower-thirds.
 - **Photographs:** real photographic substrates, vignetted for legibility where text rides them; the photo must remain readable AS a photo (R2 substrate-resolution rule).
 - **Marks on substrates:** highlighter/underline/circle are physical pens on the document — hand energy lives HERE (stroke-draw, slight wobble, overshoot), and only here.
+- **Tape is a dressing, not chrome** (Scott, 2026-07-09): the washi-tape capability stays in the engine as a feature, but under Syntax it may only appear as dressing on a quoted physical document (a taped-down clipping). A standalone tape chip is not the brand.
 
 ---
 
