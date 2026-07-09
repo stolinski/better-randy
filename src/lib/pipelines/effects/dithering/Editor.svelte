@@ -2,6 +2,8 @@
 	import type { EffectEditorProps } from '$lib/platform/pipelines/types';
 	import type { DitheringParams } from './index';
 
+	import InspectorToggle from '$lib/platform/InspectorToggle.svelte';
+
 	let { effect = $bindable() }: EffectEditorProps<DitheringParams> = $props();
 </script>
 
@@ -17,35 +19,31 @@
 
 <label class="row">
 	<span>Cell size</span>
-	<input
-		bind:value={effect.params.pxSize}
-		max="64"
-		min="1"
-		step="1"
-		type="range"
-	/>
+	<input bind:value={effect.params.pxSize} max="64" min="1" step="1" type="range" />
 </label>
 
 <label class="row">
 	<span>Steps</span>
-	<input
-		bind:value={effect.params.colorSteps}
-		max="7"
-		min="1"
-		step="1"
-		type="range"
-	/>
+	<input bind:value={effect.params.colorSteps} max="7" min="1" step="1" type="range" />
 </label>
 
-<label class="row">
+<div class="row">
 	<span>Original colors</span>
-	<input bind:checked={effect.params.originalColors} type="checkbox" />
-</label>
+	<InspectorToggle
+		checked={effect.params.originalColors}
+		label="Original colors"
+		onchange={(checked) => (effect.params.originalColors = checked)}
+	/>
+</div>
 
-<label class="row">
+<div class="row">
 	<span>Inverted</span>
-	<input bind:checked={effect.params.inverted} type="checkbox" />
-</label>
+	<InspectorToggle
+		checked={effect.params.inverted}
+		label="Inverted"
+		onchange={(checked) => (effect.params.inverted = checked)}
+	/>
+</div>
 
 {#if !effect.params.originalColors}
 	<label class="row">

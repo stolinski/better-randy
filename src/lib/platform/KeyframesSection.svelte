@@ -29,12 +29,12 @@
 
 	const easeOptions = Object.entries(ENGINE_EASES) as [Ease, (typeof ENGINE_EASES)[Ease]][];
 
-	const CHANNEL_INPUT: Record<string, { min?: number; max?: number; step: number }> = {
-		opacity: { min: 0, max: 1, step: 0.05 },
-		x: { step: 0.005 },
-		y: { step: 0.005 },
-		scale: { min: 0.1, max: 8, step: 0.01 },
-		rotation: { step: 1 }
+	// Clamps only — steps are `any` because the schema's floats carry arbitrary
+	// precision; a coarser step would flag stored values :invalid and quantize
+	// agent-authored numbers on nudge.
+	const CHANNEL_INPUT: Record<string, { min?: number; max?: number }> = {
+		opacity: { min: 0, max: 1 },
+		scale: { min: 0.1, max: 8 }
 	};
 
 	const overlayIndex = $derived(
@@ -207,20 +207,20 @@
 	}
 </script>
 
-<InspectorSection label="Keyframes">
+<InspectorSection label="Keyframes" defaultOpen={false}>
 	{#each channelNames as channel (channel)}
 		{@const track = trackFor(channel)}
 		{@const atIndex = keyframeIndexAtPlayhead(channel)}
 		{@const onKeyframe = atIndex >= 0}
 		<div class="kf-row" class:kf-row--keyed={track !== undefined}>
-			<span class="kf-row__name">{channel}</span>
+			<span class="kf-row__name">{channel === 'rotation' ? 'rotation°' : channel}</span>
 			<input
 				class="kf-row__value"
 				aria-label="{channel} value at playhead"
 				type="number"
 				min={CHANNEL_INPUT[channel]?.min}
 				max={CHANNEL_INPUT[channel]?.max}
-				step={CHANNEL_INPUT[channel]?.step ?? 0.01}
+				step="any"
 				value={liveValue(channel)}
 				onchange={(e) => setValue(channel, (e.currentTarget as HTMLInputElement).value)}
 			/>
@@ -293,23 +293,29 @@
 </InspectorSection>
 
 <style>
-	/* name · value-at-playhead · ◀ ◆ ▶ — the DaVinci row. */
+	/* name · value-at-playhead · ◀ ◆ ▶ — the DaVinci row, on the shared
+	   field grid (§9): label column, control edge, nav flush right. */
 	.kf-row {
 		align-items: center;
+		column-gap: var(--vs-s);
 		display: grid;
-		gap: var(--vs-xs);
-		grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+		grid-template-columns: var(--ins-label-w, 5.5rem) minmax(0, 1fr) auto;
 	}
 
 	.kf-row__name {
-		color: var(--fg-6);
+		color: var(--chrome-muted);
 		font-size: 0.72rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
 		text-transform: capitalize;
+		white-space: nowrap;
 	}
 
-	/* A property that carries keyframes reads as "authored". */
+	/* A property that carries keyframes reads as "authored" — primary text,
+	   never yellow (yellow means selection, and the ◆ already lights when
+	   the playhead parks on a keyframe). */
 	.kf-row--keyed .kf-row__name {
-		color: #ffd608;
+		color: var(--chrome-text);
 	}
 
 	.kf-row__value {
@@ -326,27 +332,31 @@
 	.kf-row__toggle {
 		align-items: center;
 		background: transparent;
+		block-size: 20px;
 		border: 0;
 		border-radius: var(--br-xs);
-		color: var(--fg-5);
+		color: var(--chrome-muted);
 		cursor: pointer;
 		display: flex;
+		inline-size: 20px;
 		justify-content: center;
-		padding: 3px 4px;
+		padding: 0;
 		transition:
-			color 100ms ease,
-			background 100ms ease;
+			color 120ms ease,
+			background-color 120ms ease;
 	}
 
 	.kf-row__jump:hover:not(:disabled),
 	.kf-row__toggle:hover {
-		background: var(--fg-1);
-		color: var(--fg);
+		background: var(--chrome-raised);
+		color: var(--chrome-text);
 	}
 
+	/* Disabled stays visibly present — a rest state, not a hole in the row. */
 	.kf-row__jump:disabled {
-		color: var(--fg-2);
+		color: var(--chrome-muted);
 		cursor: default;
+		opacity: 0.4;
 	}
 
 	/* Playhead parked on a keyframe → the diamond lights. */
@@ -354,18 +364,21 @@
 		color: #ffd608;
 	}
 
-	/* Ease-into for the keyframe under the playhead — only visible parked. */
+	/* Ease-into for the keyframe under the playhead — only visible parked;
+	   sits on the same grid so the select shares the control edges. */
 	.kf-ease {
 		align-items: center;
-		display: flex;
-		gap: var(--vs-s);
-		padding-inline-start: 2px;
+		column-gap: var(--vs-s);
+		display: grid;
+		grid-template-columns: var(--ins-label-w, 5.5rem) minmax(0, 1fr);
 	}
 
 	.kf-ease__label {
-		color: var(--fg-4);
-		font-size: 0.68rem;
+		color: var(--chrome-muted);
+		font-size: 0.72rem;
 		letter-spacing: 0.04em;
+		overflow: hidden;
+		text-overflow: ellipsis;
 		text-transform: uppercase;
 		white-space: nowrap;
 	}

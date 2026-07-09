@@ -463,7 +463,12 @@
 		}
 
 		parsedMarks.forEach((mark, index) => {
-			const resolved = resolveMarkForIndex(mark.style, index, engineState.marks, readMarkColor(mark.style));
+			const resolved = resolveMarkForIndex(
+				mark.style,
+				index,
+				engineState.marks,
+				readMarkColor(mark.style)
+			);
 
 			tweens.push({
 				key: `mark-${index}`,
@@ -651,8 +656,7 @@
 			animState.blockChannels[element.id] = null;
 			animState.blockAlphas[element.id] = 1;
 			const enter = element.enter ?? DEFAULT_BLOCK_ENTER;
-			const isStrokeElement =
-				element.type === 'edge-arrow' || element.type === 'timeline-segment';
+			const isStrokeElement = element.type === 'edge-arrow' || element.type === 'timeline-segment';
 
 			tweens.push({
 				key: `block-${element.id}-enter`,
@@ -692,14 +696,17 @@
 	function getMarkColorsByIndex(): string[] {
 		const parsedMarks = readMarks();
 		return parsedMarks.map(
-			(mark, index) => resolveMarkForIndex(mark.style, index, engineState.marks, readMarkColor(mark.style)).color
+			(mark, index) =>
+				resolveMarkForIndex(mark.style, index, engineState.marks, readMarkColor(mark.style)).color
 		);
 	}
 
 	function getMarkIntensityByIndex(): number[] {
 		const parsedMarks = readMarks();
 		return parsedMarks.map(
-			(mark, index) => resolveMarkForIndex(mark.style, index, engineState.marks, readMarkColor(mark.style)).intensity
+			(mark, index) =>
+				resolveMarkForIndex(mark.style, index, engineState.marks, readMarkColor(mark.style))
+					.intensity
 		);
 	}
 
@@ -755,9 +762,7 @@
 			drawProgressById,
 			alphaById,
 			stroke:
-				stroke.color === 'ink'
-					? { ...stroke, color: resolvedTypographyColors.inkColor }
-					: stroke,
+				stroke.color === 'ink' ? { ...stroke, color: resolvedTypographyColors.inkColor } : stroke,
 			// Elements declaring `ink: 'accent'` stroke in the Pack's core accent.
 			accentColor: requireCoreColor(pack, 'accent-treatment')
 		};
@@ -964,7 +969,11 @@
 				index < frames.length - 1
 					? frames[index + 1].atMs - 1
 					: (1 - clipStartFraction) * durationMs;
-			frame.atMs = clampNumber((fraction - clipStartFraction) * durationMs, min, Math.max(min, max));
+			frame.atMs = clampNumber(
+				(fraction - clipStartFraction) * durationMs,
+				min,
+				Math.max(min, max)
+			);
 		};
 	}
 
@@ -1051,7 +1060,12 @@
 		}
 
 		parsedMarks.forEach((mark, index) => {
-			const resolved = resolveMarkForIndex(mark.style, index, engineState.marks, readMarkColor(mark.style));
+			const resolved = resolveMarkForIndex(
+				mark.style,
+				index,
+				engineState.marks,
+				readMarkColor(mark.style)
+			);
 			const label = truncateMiddle(mark.text, 20);
 			const timing = engineState.marks.timings[index];
 			const welded = timing?.cascade
@@ -1236,7 +1250,12 @@
 						enter.start = start;
 					};
 				}
-				trackList.push({ id: trackId, label: overlay.type, color: '#1f5aff', transitions: [transition] });
+				trackList.push({
+					id: trackId,
+					label: overlay.type,
+					color: '#1f5aff',
+					transitions: [transition]
+				});
 				return;
 			}
 
@@ -1255,7 +1274,9 @@
 				// Cascaded enters render at the WELDED start; the writer below keeps
 				// the weld and edits offsetMs instead of the (ignored) sugar start.
 				enter:
-					enter && cascade && window ? { start: window.startFraction, duration: enter.duration } : enter,
+					enter && cascade && window
+						? { start: window.startFraction, duration: enter.duration }
+						: enter,
 				exit,
 				enterEase: enter ? getEaseGsap(enter.ease) : undefined,
 				exitEase: exit ? getEaseGsap(exit.ease) : undefined,
@@ -1635,7 +1656,11 @@
 
 	// Surfaces whose own pipeline already applies paperVisibility as a GPU alpha
 	// fade — the plane composite must not multiply a second time (α² fades).
-	const SELF_FADING_SURFACE_TYPES = new Set(['chapter-card', 'title-sequence', 'pullquote-on-photo']);
+	const SELF_FADING_SURFACE_TYPES = new Set([
+		'chapter-card',
+		'title-sequence',
+		'pullquote-on-photo'
+	]);
 
 	// A composition-owned surface opacity channel (ADR-0035) needs the SURFACE
 	// alone on its plane so the authored fade can multiply it on the GPU
@@ -2995,6 +3020,17 @@
 
 <style>
 	.workspace {
+		/* DESIGN.md neutral ladder — defined once here; every editor-chrome
+		   surface below reads these instead of Graffiti white-alpha neutrals. */
+		--chrome-text: #e8e8ea;
+		--chrome-muted: #8a8a90;
+		--chrome-deck: #131315;
+		--chrome-well: #0c0c0e;
+		--chrome-raised: #1a1a1d;
+		--chrome-hairline: #26262a;
+		/* The canvas surround is a recessed well — the rail and timeline panels
+		   step up from it, making the three-zone architecture legible. */
+		background: var(--chrome-well);
 		block-size: 100dvh;
 		display: grid;
 		grid-template-areas:

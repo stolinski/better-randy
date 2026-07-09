@@ -25,9 +25,12 @@
 		grid-template-columns: var(--ins-label-w, 5.5rem) minmax(0, 1fr);
 	}
 
+	/* The label is engraved in sans (DESIGN.md type voices) — values answer
+	   in mono from the shared control styling on the rail root. */
 	.ins-field__label {
-		color: var(--fg-6);
-		font-size: 0.8rem;
+		color: var(--chrome-muted);
+		font-family: Archivo, sans-serif;
+		font-size: 0.8125rem;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;

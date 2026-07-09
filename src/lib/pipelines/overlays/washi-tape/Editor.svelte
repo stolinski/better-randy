@@ -11,16 +11,18 @@
 	<input bind:value={overlay.content.color} type="color" />
 </Field>
 
-<Field label="Rotation">
+<!-- The aesthetic's 5–25° is a magnitude — tape lies on either diagonal, so
+     the schema bound (and this input) is ±rotationMax, not rotationMin+. -->
+<Field label="Rotation°">
 	<input
 		bind:value={overlay.content.rotation}
 		type="number"
-		min={WASHI_TAPE_DEFAULTS.rotationMin}
+		min={-WASHI_TAPE_DEFAULTS.rotationMax}
 		max={WASHI_TAPE_DEFAULTS.rotationMax}
-		step="1"
+		step="any"
 	/>
 </Field>
 
 <Field label="Length">
-	<input bind:value={overlay.content.length} type="number" min="60" max="800" step="10" />
+	<input bind:value={overlay.content.length} type="number" min="60" max="800" step="any" />
 </Field>

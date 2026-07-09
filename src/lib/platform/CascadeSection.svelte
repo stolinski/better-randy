@@ -3,6 +3,7 @@
 	import type { Cascade, CascadeAnchor } from './engine-schema';
 	import { engineState } from './engine-state.svelte';
 	import InspectorSection from './InspectorSection.svelte';
+	import InspectorToggle from './InspectorToggle.svelte';
 	import Field from './Field.svelte';
 
 	// Cascade weld editor (ADR-0035 §4): anchor picker (the same identities the
@@ -115,13 +116,9 @@
 	}
 </script>
 
-<InspectorSection label="Cascade">
+<InspectorSection label="Cascade" defaultOpen={false}>
 	{#snippet action()}
-		<input
-			type="checkbox"
-			checked={cascade !== undefined}
-			onchange={(e) => toggle((e.currentTarget as HTMLInputElement).checked)}
-		/>
+		<InspectorToggle checked={cascade !== undefined} label="Cascade" onchange={toggle} />
 	{/snippet}
 	{#if cascade}
 		<Field label="Anchor">
@@ -164,7 +161,7 @@
 
 <style>
 	.cascade-error {
-		color: #e6322a;
+		color: #f0453d;
 		font-size: 0.72rem;
 		line-height: 1.4;
 		margin: 0;

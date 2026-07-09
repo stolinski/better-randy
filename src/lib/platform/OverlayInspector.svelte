@@ -18,8 +18,11 @@
 		SPLIT_MODES,
 		type SplitMode
 	} from '$lib/text-animations/catalog';
+	import { formatFractionAsSeconds } from '$lib/utils/string';
+	import AddMenu from './AddMenu.svelte';
 	import CascadeSection from './CascadeSection.svelte';
 	import InspectorSection from './InspectorSection.svelte';
+	import InspectorToggle from './InspectorToggle.svelte';
 	import Field from './Field.svelte';
 	import KeyframesSection from './KeyframesSection.svelte';
 	import SoundSection from './SoundSection.svelte';
@@ -74,6 +77,14 @@
 		}
 		return out;
 	});
+
+	// The add-menu's grouped items — one group per split mode with effects.
+	const effectMenuGroups = $derived(
+		SPLIT_MODES.filter((mode) => effectsBySplit[mode].length > 0).map((mode) => ({
+			label: mode,
+			items: effectsBySplit[mode].map((opt) => ({ value: opt.id, label: opt.label }))
+		}))
+	);
 
 	function setOverlayAnchor(ov: Overlay, value: string): void {
 		(ov.position as OverlayPosition).anchor = value as OverlayPosition['anchor'];
@@ -260,7 +271,7 @@
 					type="number"
 					min="0"
 					max="1"
-					step="0.01"
+					step="any"
 					value={ov.position.offset?.x ?? 0}
 					oninput={(e) => setOverlayOffsetX(ov, (e.currentTarget as HTMLInputElement).value)}
 				/>
@@ -270,7 +281,7 @@
 					type="number"
 					min="0"
 					max="1"
-					step="0.01"
+					step="any"
 					value={ov.position.offset?.y ?? 0}
 					oninput={(e) => setOverlayOffsetY(ov, (e.currentTarget as HTMLInputElement).value)}
 				/>
@@ -279,7 +290,7 @@
 			<Field label="Rect X">
 				<input
 					type="number"
-					step="0.01"
+					step="any"
 					value={ov.position.rect?.x ?? 0}
 					oninput={(e) => setOverlayRect(ov, 'x', (e.currentTarget as HTMLInputElement).value)}
 				/>
@@ -287,7 +298,7 @@
 			<Field label="Rect Y">
 				<input
 					type="number"
-					step="0.01"
+					step="any"
 					value={ov.position.rect?.y ?? 0}
 					oninput={(e) => setOverlayRect(ov, 'y', (e.currentTarget as HTMLInputElement).value)}
 				/>
@@ -295,7 +306,7 @@
 			<Field label="Width">
 				<input
 					type="number"
-					step="0.01"
+					step="any"
 					value={ov.position.rect?.width ?? 1}
 					oninput={(e) => setOverlayRect(ov, 'width', (e.currentTarget as HTMLInputElement).value)}
 				/>
@@ -303,7 +314,7 @@
 			<Field label="Height">
 				<input
 					type="number"
-					step="0.01"
+					step="any"
 					value={ov.position.rect?.height ?? 1}
 					oninput={(e) => setOverlayRect(ov, 'height', (e.currentTarget as HTMLInputElement).value)}
 				/>
@@ -314,7 +325,7 @@
 				type="number"
 				min="0.1"
 				max="8"
-				step="0.05"
+				step="any"
 				value={ov.position.scale ?? 1}
 				oninput={(e) => setOverlayScale(ov, (e.currentTarget as HTMLInputElement).value)}
 			/>
@@ -324,7 +335,7 @@
 				type="number"
 				min="-360"
 				max="360"
-				step="0.5"
+				step="any"
 				value={ov.position.rotation ?? 0}
 				oninput={(e) => setOverlayRotation(ov, (e.currentTarget as HTMLInputElement).value)}
 			/>
@@ -335,7 +346,7 @@
 					type="number"
 					min="0"
 					max="1"
-					step="0.05"
+					step="any"
 					value={ov.z ?? ''}
 					placeholder="0.7"
 					oninput={(e) => setOverlayZ(ov, (e.currentTarget as HTMLInputElement).value)}
@@ -347,11 +358,11 @@
 
 	<InspectorSection label="Enter">
 		{#snippet action()}
-			<input
-				type="checkbox"
+			<InspectorToggle
 				checked={ov.enter !== undefined}
-				onchange={(e) => {
-					if ((e.currentTarget as HTMLInputElement).checked) {
+				label="Enter transition"
+				onchange={(checked) => {
+					if (checked) {
 						ensureTransition(ov, 'enter');
 					} else {
 						ov.enter = undefined;
@@ -365,22 +376,28 @@
 					type="number"
 					min="0"
 					max="1"
-					step="0.001"
+					step="any"
 					value={ov.enter.start}
 					oninput={(e) =>
 						transitionStartInput(ov, 'enter', (e.currentTarget as HTMLInputElement).value)}
 				/>
+				<span class="ins-unit"
+					>{formatFractionAsSeconds(ov.enter.start, engineState.transport.durationSeconds)}</span
+				>
 			</Field>
 			<Field label="Duration">
 				<input
 					type="number"
 					min="0"
 					max="1"
-					step="0.001"
+					step="any"
 					value={ov.enter.duration}
 					oninput={(e) =>
 						transitionDurationInput(ov, 'enter', (e.currentTarget as HTMLInputElement).value)}
 				/>
+				<span class="ins-unit"
+					>{formatFractionAsSeconds(ov.enter.duration, engineState.transport.durationSeconds)}</span
+				>
 			</Field>
 			<Field label="Ease">
 				<select
@@ -398,11 +415,11 @@
 
 	<InspectorSection label="Exit">
 		{#snippet action()}
-			<input
-				type="checkbox"
+			<InspectorToggle
 				checked={ov.exit !== undefined}
-				onchange={(e) => {
-					if ((e.currentTarget as HTMLInputElement).checked) {
+				label="Exit transition"
+				onchange={(checked) => {
+					if (checked) {
 						ensureTransition(ov, 'exit');
 					} else {
 						ov.exit = undefined;
@@ -416,22 +433,28 @@
 					type="number"
 					min="0"
 					max="1"
-					step="0.001"
+					step="any"
 					value={ov.exit.start}
 					oninput={(e) =>
 						transitionStartInput(ov, 'exit', (e.currentTarget as HTMLInputElement).value)}
 				/>
+				<span class="ins-unit"
+					>{formatFractionAsSeconds(ov.exit.start, engineState.transport.durationSeconds)}</span
+				>
 			</Field>
 			<Field label="Duration">
 				<input
 					type="number"
 					min="0"
 					max="1"
-					step="0.001"
+					step="any"
 					value={ov.exit.duration}
 					oninput={(e) =>
 						transitionDurationInput(ov, 'exit', (e.currentTarget as HTMLInputElement).value)}
 				/>
+				<span class="ins-unit"
+					>{formatFractionAsSeconds(ov.exit.duration, engineState.transport.durationSeconds)}</span
+				>
 			</Field>
 			<Field label="Ease">
 				<select
@@ -462,28 +485,14 @@
 		]}
 	/>
 
-	<InspectorSection label="Text Motion">
+	<InspectorSection label="Text Motion" defaultOpen={false}>
 		{#each ['kicker', 'title', 'subtitle'] as const as slot (slot)}
-			<Field label={slot}>
-				<select
-					value=""
-					onchange={(e) => {
-						const v = (e.currentTarget as HTMLSelectElement).value;
-						(e.currentTarget as HTMLSelectElement).value = '';
-						if (v) handleAddTextAnimation(slot, v);
-					}}
-				>
-					<option value="" disabled>+ Effect…</option>
-					{#each SPLIT_MODES as mode (mode)}
-						{#if effectsBySplit[mode].length > 0}
-							<optgroup label={mode}>
-								{#each effectsBySplit[mode] as opt (opt.id)}
-									<option value={opt.id}>{opt.label}</option>
-								{/each}
-							</optgroup>
-						{/if}
-					{/each}
-				</select>
+			<Field label={slot.charAt(0).toUpperCase() + slot.slice(1)}>
+				<AddMenu
+					label="+ Effect"
+					groups={effectMenuGroups}
+					onselect={(id) => handleAddTextAnimation(slot, id)}
+				/>
 			</Field>
 		{/each}
 
@@ -518,7 +527,7 @@
 						type="number"
 						min="0"
 						max="1"
-						step="0.001"
+						step="any"
 						value={entry.enter.start}
 						placeholder="start"
 						oninput={(e) =>
@@ -528,7 +537,7 @@
 						type="number"
 						min="0"
 						max="1"
-						step="0.001"
+						step="any"
 						value={entry.enter.duration}
 						placeholder="dur"
 						oninput={(e) =>
@@ -549,7 +558,7 @@
 						type="number"
 						min="0.1"
 						max="10"
-						step="0.1"
+						step="any"
 						value={entry.params?.speedMultiplier ?? ''}
 						placeholder="1"
 						oninput={(e) =>
@@ -600,7 +609,7 @@
 						type="number"
 						min="0"
 						max="3"
-						step="0.1"
+						step="any"
 						value={entry.params?.yTravelMultiplier ?? ''}
 						placeholder="1"
 						oninput={(e) =>
@@ -644,7 +653,7 @@
 <style>
 	/* A text-animation entry: a sub-group separated by a hairline (not a card). */
 	.anim-entry {
-		border-block-start: var(--border-1);
+		border-block-start: 1px solid var(--chrome-hairline);
 		display: grid;
 		gap: var(--vs-s);
 		padding-block-start: var(--vs-s);
@@ -657,7 +666,7 @@
 	}
 
 	.anim-entry__label {
-		color: var(--fg-7);
+		color: var(--chrome-text);
 		font-size: 0.75rem;
 		font-weight: var(--fw-semibold);
 		letter-spacing: 0.04em;
@@ -668,7 +677,7 @@
 	.clear-btn {
 		background: transparent;
 		border: 0;
-		color: var(--fg-4);
+		color: var(--chrome-muted);
 		cursor: pointer;
 		flex: none;
 		font-size: 1rem;
@@ -678,6 +687,6 @@
 
 	.remove-btn:hover,
 	.clear-btn:hover {
-		color: #e6322a;
+		color: #f0453d;
 	}
 </style>

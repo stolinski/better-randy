@@ -39,7 +39,10 @@
 	import { resolveFontTreatment } from './packs/resolve';
 	import { PIPELINE_REGISTRY, getSurfaceRenderer } from './pipelines';
 	import { inspectorFocus, layerSelection } from './selection.svelte';
+	import { formatFractionAsSeconds } from '$lib/utils/string';
+	import AddMenu from './AddMenu.svelte';
 	import InspectorSection from './InspectorSection.svelte';
+	import InspectorToggle from './InspectorToggle.svelte';
 	import Field from './Field.svelte';
 	import KeyframesSection from './KeyframesSection.svelte';
 	import SoundSection from './SoundSection.svelte';
@@ -365,6 +368,17 @@
 		return slots;
 	});
 
+	// The add-menu's grouped items for a slot — one group per split mode with effects.
+	function effectMenuGroupsForSlot(
+		slot: string
+	): { label: string; items: { value: string; label: string }[] }[] {
+		const bySplit = effectsForSlot(slot);
+		return SPLIT_MODES.filter((mode) => bySplit[mode].length > 0).map((mode) => ({
+			label: mode,
+			items: bySplit[mode].map((opt) => ({ value: opt.id, label: opt.label }))
+		}));
+	}
+
 	function effectsForSlot(slot: string): Record<SplitMode, { id: string; label: string }[]> {
 		const isTitleScale = TITLE_SCALE_SLOTS.has(slot);
 		return {
@@ -526,7 +540,7 @@
 					<input
 						bind:value={engineState.surface.content.sourceUrl}
 						data-slot="sourceUrl"
-						type="url"
+						type="text"
 					/>
 					<button
 						type="button"
@@ -567,7 +581,7 @@
 					<input
 						bind:value={engineState.surface.content.avatarUrl}
 						data-slot="avatarUrl"
-						type="url"
+						type="text"
 					/>
 					<button
 						type="button"
@@ -633,19 +647,15 @@
 
 		{#if absentSlots.length > 0}
 			<Field label="Add">
-				<select
-					value=""
-					onchange={(e) => {
-						const v = (e.currentTarget as HTMLSelectElement).value;
-						(e.currentTarget as HTMLSelectElement).value = '';
-						if (v) addSlot(v as DocumentSlot);
-					}}
-				>
-					<option value="" disabled>+ Slot…</option>
-					{#each absentSlots as slot (slot)}
-						<option value={slot}>{DOCUMENT_SLOT_LABELS[slot]}</option>
-					{/each}
-				</select>
+				<AddMenu
+					label="+ Slot"
+					groups={[
+						{
+							items: absentSlots.map((slot) => ({ value: slot, label: DOCUMENT_SLOT_LABELS[slot] }))
+						}
+					]}
+					onselect={(slot) => addSlot(slot as DocumentSlot)}
+				/>
 			</Field>
 		{/if}
 
@@ -674,7 +684,7 @@
 	{#if controls.messages}
 		<InspectorSection label="Messages">
 			{#snippet action()}
-				<button type="button" class="add-btn" onclick={addMessage}>+ Add</button>
+				<button type="button" class="ins-add" onclick={addMessage}>+ Add</button>
 			{/snippet}
 			{#each messages as message, index (index)}
 				<div
@@ -733,11 +743,10 @@
 						</Field>
 					{:else}
 						<Field label="Typing">
-							<input
-								type="checkbox"
+							<InspectorToggle
 								checked={message.typing !== undefined}
-								onchange={(e) =>
-									messageTypingToggle(message, (e.currentTarget as HTMLInputElement).checked)}
+								label={`Message ${index + 1} typing indicator`}
+								onchange={(checked) => messageTypingToggle(message, checked)}
 							/>
 						</Field>
 					{/if}
@@ -780,11 +789,11 @@
 		{#each TRANSITION_FIELDS as field (field)}
 			<InspectorSection label={field === 'enter' ? 'Enter' : 'Exit'}>
 				{#snippet action()}
-					<input
-						type="checkbox"
+					<InspectorToggle
 						checked={engineState.surface[field] !== undefined}
-						onchange={(e) => {
-							if ((e.currentTarget as HTMLInputElement).checked) {
+						label={field === 'enter' ? 'Enter transition' : 'Exit transition'}
+						onchange={(checked) => {
+							if (checked) {
 								ensureSurfaceTransition(field);
 							} else {
 								engineState.surface[field] = undefined;
@@ -799,18 +808,24 @@
 							type="number"
 							min="0"
 							max="1"
-							step="0.001"
+							step="any"
 							value={transition.start}
 							oninput={(e) =>
 								surfaceTransitionInput(field, 'start', (e.currentTarget as HTMLInputElement).value)}
 						/>
+						<span class="ins-unit"
+							>{formatFractionAsSeconds(
+								transition.start,
+								engineState.transport.durationSeconds
+							)}</span
+						>
 					</Field>
 					<Field label="Duration">
 						<input
 							type="number"
 							min="0"
 							max="1"
-							step="0.001"
+							step="any"
 							value={transition.duration}
 							oninput={(e) =>
 								surfaceTransitionInput(
@@ -819,6 +834,12 @@
 									(e.currentTarget as HTMLInputElement).value
 								)}
 						/>
+						<span class="ins-unit"
+							>{formatFractionAsSeconds(
+								transition.duration,
+								engineState.transport.durationSeconds
+							)}</span
+						>
 					</Field>
 					<Field label="Ease">
 						<select
@@ -836,29 +857,14 @@
 		{/each}
 	{/if}
 
-	<InspectorSection label="Text Motion">
+	<InspectorSection label="Text Motion" defaultOpen={false}>
 		{#each activeSlots as { slot, label } (slot)}
-			{@const slotEffects = effectsForSlot(slot)}
 			<Field {label}>
-				<select
-					value=""
-					onchange={(e) => {
-						const v = (e.currentTarget as HTMLSelectElement).value;
-						(e.currentTarget as HTMLSelectElement).value = '';
-						if (v) handleAddTextAnimation(slot, v);
-					}}
-				>
-					<option value="" disabled>+ Effect…</option>
-					{#each SPLIT_MODES as mode (mode)}
-						{#if slotEffects[mode].length > 0}
-							<optgroup label={mode}>
-								{#each slotEffects[mode] as opt (opt.id)}
-									<option value={opt.id}>{opt.label}</option>
-								{/each}
-							</optgroup>
-						{/if}
-					{/each}
-				</select>
+				<AddMenu
+					label="+ Effect"
+					groups={effectMenuGroupsForSlot(slot)}
+					onselect={(id) => handleAddTextAnimation(slot, id)}
+				/>
 			</Field>
 		{/each}
 
@@ -897,7 +903,7 @@
 						type="number"
 						min="0"
 						max="1"
-						step="0.001"
+						step="any"
 						value={entry.enter.start}
 						placeholder="start"
 						oninput={(e) => {
@@ -909,7 +915,7 @@
 						type="number"
 						min="0"
 						max="1"
-						step="0.001"
+						step="any"
 						value={entry.enter.duration}
 						placeholder="dur"
 						oninput={(e) => {
@@ -933,7 +939,7 @@
 						type="number"
 						min="0.1"
 						max="10"
-						step="0.1"
+						step="any"
 						value={entry.params?.speedMultiplier ?? ''}
 						placeholder="1"
 						oninput={(e) =>
@@ -987,7 +993,7 @@
 						type="number"
 						min="0"
 						max="3"
-						step="0.1"
+						step="any"
 						value={entry.params?.yTravelMultiplier ?? ''}
 						placeholder="1"
 						oninput={(e) =>
@@ -1050,14 +1056,14 @@
 	}
 
 	.body-field__label {
-		color: var(--fg-6);
-		font-size: 0.8rem;
+		color: var(--chrome-muted);
+		font-size: 0.8125rem;
 	}
 
 	/* A message entry: a sub-group separated by a hairline (not a card), same
 	   vocabulary as .anim-entry. */
 	.message-entry {
-		border-block-start: var(--border-1);
+		border-block-start: 1px solid var(--chrome-hairline);
 		/* Constant transparent selection rail — coloring it on select (canvas
 		   bubble click / timeline row) can't shift the layout. */
 		border-inline-start: 2px solid transparent;
@@ -1083,22 +1089,9 @@
 		font-size: 0.8rem;
 	}
 
-	.add-btn {
-		background: transparent;
-		border: 0;
-		color: var(--fg-5);
-		cursor: pointer;
-		font-size: 0.72rem;
-		padding: 0;
-	}
-
-	.add-btn:hover {
-		color: var(--fg-8);
-	}
-
 	/* A text-animation entry: a sub-group separated by a hairline (not a card). */
 	.anim-entry {
-		border-block-start: var(--border-1);
+		border-block-start: 1px solid var(--chrome-hairline);
 		display: grid;
 		gap: var(--vs-s);
 		padding-block-start: var(--vs-s);
@@ -1111,7 +1104,7 @@
 	}
 
 	.anim-entry__label {
-		color: var(--fg-7);
+		color: var(--chrome-text);
 		font-size: 0.75rem;
 		font-weight: var(--fw-semibold);
 		letter-spacing: 0.04em;
@@ -1122,7 +1115,7 @@
 	.clear-btn {
 		background: transparent;
 		border: 0;
-		color: var(--fg-4);
+		color: var(--chrome-muted);
 		cursor: pointer;
 		flex: none;
 		font-size: 1rem;
@@ -1132,6 +1125,6 @@
 
 	.remove-btn:hover,
 	.clear-btn:hover {
-		color: #e6322a;
+		color: #f0453d;
 	}
 </style>

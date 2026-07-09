@@ -112,11 +112,7 @@
 		   available height. The height term only needs to reserve the caption + a
 		   little breathing room (~4rem) — over-reserving leaves the canvas squished
 		   with dead space above it, especially once the timeline panel grows. */
-		inline-size: min(
-			100cqw,
-			76rem,
-			calc((100cqh - 4rem) * var(--frame-w) / var(--frame-h))
-		);
+		inline-size: min(100cqw, 76rem, calc((100cqh - 4rem) * var(--frame-w) / var(--frame-h)));
 		overflow: hidden;
 		position: relative;
 		/* Display zoom + pan — translate then scale the framed canvas about its
@@ -134,7 +130,7 @@
 	}
 
 	.video-frame__viewport--no-checker {
-		background: var(--surface-1, #111);
+		background: var(--chrome-well, #111);
 	}
 
 	/* Sits under the premultiplied-alpha transparent canvas, so the overlay

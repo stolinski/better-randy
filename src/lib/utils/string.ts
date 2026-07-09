@@ -11,3 +11,10 @@ export function truncateMiddle(value: string, maxLength: number): string {
 	return `${value.slice(0, headLength)}${ELLIPSIS}${value.slice(value.length - tailLength)}`;
 }
 
+/**
+ * Render a normalized timeline fraction as absolute seconds — the human unit
+ * beside a stored 0–1 value (e.g. 0.04 of a 5s piece → "0.2s").
+ */
+export function formatFractionAsSeconds(fraction: number, durationSeconds: number): string {
+	return `${Math.round(fraction * durationSeconds * 100) / 100}s`;
+}

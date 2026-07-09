@@ -54,7 +54,12 @@
 			return null;
 		}
 
-		return resolveMarkForIndex(parsedMark.style, markIndex, engineState.marks, readMarkColor(parsedMark.style));
+		return resolveMarkForIndex(
+			parsedMark.style,
+			markIndex,
+			engineState.marks,
+			readMarkColor(parsedMark.style)
+		);
 	});
 
 	function handleColorInput(event: Event): void {
@@ -133,8 +138,8 @@
 
 <style>
 	.field-text {
-		color: var(--fg-3);
-		font-size: 0.85rem;
+		color: var(--chrome-muted);
+		font-size: 0.8125rem;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;

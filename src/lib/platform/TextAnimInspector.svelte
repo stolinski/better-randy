@@ -14,7 +14,9 @@
 		type TextAnimation,
 		type TextAnimationParams
 	} from './engine-schema';
+	import { formatFractionAsSeconds } from '$lib/utils/string';
 	import InspectorSection from './InspectorSection.svelte';
+	import InspectorToggle from './InspectorToggle.svelte';
 	import Field from './Field.svelte';
 
 	interface Props {
@@ -86,26 +88,35 @@
 					type="number"
 					min="0"
 					max="1"
-					step="0.001"
+					step="any"
 					value={entry.enter.start}
 					oninput={(e) => {
 						const n = Number((e.currentTarget as HTMLInputElement).value);
 						if (Number.isFinite(n)) entry.enter.start = Math.max(0, Math.min(1, n));
 					}}
 				/>
+				<span class="ins-unit"
+					>{formatFractionAsSeconds(entry.enter.start, engineState.transport.durationSeconds)}</span
+				>
 			</Field>
 			<Field label="Duration">
 				<input
 					type="number"
 					min="0"
 					max="1"
-					step="0.001"
+					step="any"
 					value={entry.enter.duration}
 					oninput={(e) => {
 						const n = Number((e.currentTarget as HTMLInputElement).value);
 						if (Number.isFinite(n)) entry.enter.duration = Math.max(0, Math.min(1, n));
 					}}
 				/>
+				<span class="ins-unit"
+					>{formatFractionAsSeconds(
+						entry.enter.duration,
+						engineState.transport.durationSeconds
+					)}</span
+				>
 			</Field>
 			<Field label="Ease">
 				<select
@@ -123,13 +134,11 @@
 
 		<InspectorSection label="Exit">
 			{#snippet action()}
-				<input
-					type="checkbox"
+				<InspectorToggle
 					checked={entry.exit !== undefined}
-					onchange={(e) => {
-						entry.exit = (e.currentTarget as HTMLInputElement).checked
-							? { start: 0.82, duration: 0.16, ease: 'smooth' }
-							: undefined;
+					label="Exit transition"
+					onchange={(checked) => {
+						entry.exit = checked ? { start: 0.82, duration: 0.16, ease: 'smooth' } : undefined;
 					}}
 				/>
 			{/snippet}
@@ -140,26 +149,32 @@
 						type="number"
 						min="0"
 						max="1"
-						step="0.001"
+						step="any"
 						value={exit.start}
 						oninput={(e) => {
 							const n = Number((e.currentTarget as HTMLInputElement).value);
 							if (Number.isFinite(n)) exit.start = Math.max(0, Math.min(1, n));
 						}}
 					/>
+					<span class="ins-unit"
+						>{formatFractionAsSeconds(exit.start, engineState.transport.durationSeconds)}</span
+					>
 				</Field>
 				<Field label="Duration">
 					<input
 						type="number"
 						min="0"
 						max="1"
-						step="0.001"
+						step="any"
 						value={exit.duration}
 						oninput={(e) => {
 							const n = Number((e.currentTarget as HTMLInputElement).value);
 							if (Number.isFinite(n)) exit.duration = Math.max(0, Math.min(1, n));
 						}}
 					/>
+					<span class="ins-unit"
+						>{formatFractionAsSeconds(exit.duration, engineState.transport.durationSeconds)}</span
+					>
 				</Field>
 				<Field label="Ease">
 					<select
@@ -182,7 +197,7 @@
 					type="number"
 					min="0.1"
 					max="10"
-					step="0.1"
+					step="any"
 					value={entry.params?.speedMultiplier ?? ''}
 					placeholder="1"
 					oninput={(e) =>
@@ -222,7 +237,7 @@
 					type="number"
 					min="0"
 					max="3"
-					step="0.1"
+					step="any"
 					value={entry.params?.yTravelMultiplier ?? ''}
 					placeholder="1"
 					oninput={(e) =>
@@ -268,7 +283,7 @@
 	}
 
 	.target-label {
-		color: var(--fg-6);
+		color: var(--chrome-muted);
 		font-size: 0.75rem;
 		margin: 0;
 	}
@@ -276,7 +291,7 @@
 	.remove-btn {
 		background: transparent;
 		border: 0;
-		color: #e6322a;
+		color: #f0453d;
 		cursor: pointer;
 		font-size: 0.72rem;
 		padding: 0;
@@ -285,7 +300,7 @@
 	.clear-btn {
 		background: transparent;
 		border: 0;
-		color: var(--fg-4);
+		color: var(--chrome-muted);
 		cursor: pointer;
 		flex: none;
 		font-size: 0.85rem;
@@ -294,6 +309,6 @@
 	}
 
 	.clear-btn:hover {
-		color: var(--fg);
+		color: var(--chrome-text);
 	}
 </style>

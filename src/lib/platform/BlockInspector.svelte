@@ -10,7 +10,9 @@
 		type Transition
 	} from './engine-schema';
 	import { engineState } from './engine-state.svelte';
+	import { formatFractionAsSeconds } from '$lib/utils/string';
 	import Field from './Field.svelte';
+	import InspectorToggle from './InspectorToggle.svelte';
 	import InspectorSection from './InspectorSection.svelte';
 	import KeyframesSection from './KeyframesSection.svelte';
 	import SoundSection from './SoundSection.svelte';
@@ -173,6 +175,7 @@
 			<Field label="From">
 				<input
 					type="number"
+					step="any"
 					value={el.from}
 					oninput={(e) => setStatNumber(el, 'from', (e.currentTarget as HTMLInputElement).value)}
 				/>
@@ -180,6 +183,7 @@
 			<Field label="To">
 				<input
 					type="number"
+					step="any"
 					value={el.to}
 					oninput={(e) => setStatNumber(el, 'to', (e.currentTarget as HTMLInputElement).value)}
 				/>
@@ -212,7 +216,7 @@
 					type="number"
 					min="0"
 					max="1"
-					step="0.01"
+					step="any"
 					value={el.rollStart ?? ''}
 					placeholder="enter start"
 					oninput={(e) => {
@@ -226,7 +230,7 @@
 					type="number"
 					min="0"
 					max="1"
-					step="0.01"
+					step="any"
 					value={el.rollWindow ?? ''}
 					placeholder="0.5"
 					oninput={(e) => {
@@ -261,7 +265,7 @@
 							type="number"
 							min="0"
 							max="1"
-							step="0.005"
+							step="any"
 							value={endpoint.x}
 							aria-label="{end} x"
 							oninput={(e) => setPoint(endpoint, 'x', (e.currentTarget as HTMLInputElement).value)}
@@ -270,7 +274,7 @@
 							type="number"
 							min="0"
 							max="1"
-							step="0.005"
+							step="any"
 							value={endpoint.y}
 							aria-label="{end} y"
 							oninput={(e) => setPoint(endpoint, 'y', (e.currentTarget as HTMLInputElement).value)}
@@ -291,10 +295,10 @@
 				</select>
 			</Field>
 			<Field label="Control">
-				<input
-					type="checkbox"
+				<InspectorToggle
 					checked={el.control !== undefined}
-					onchange={(e) => toggleControl(el, (e.currentTarget as HTMLInputElement).checked)}
+					label="Curve control point"
+					onchange={(checked) => toggleControl(el, checked)}
 				/>
 				{#if el.control}
 					{@const control = el.control}
@@ -302,7 +306,7 @@
 						type="number"
 						min="0"
 						max="1"
-						step="0.005"
+						step="any"
 						value={control.x}
 						aria-label="control x"
 						oninput={(e) => setPoint(control, 'x', (e.currentTarget as HTMLInputElement).value)}
@@ -311,7 +315,7 @@
 						type="number"
 						min="0"
 						max="1"
-						step="0.005"
+						step="any"
 						value={control.y}
 						aria-label="control y"
 						oninput={(e) => setPoint(control, 'y', (e.currentTarget as HTMLInputElement).value)}
@@ -370,7 +374,7 @@
 						type="number"
 						min="0"
 						max="1"
-						step="0.005"
+						step="any"
 						value={point.x}
 						aria-label="{end} x"
 						oninput={(e) => setPoint(point, 'x', (e.currentTarget as HTMLInputElement).value)}
@@ -379,7 +383,7 @@
 						type="number"
 						min="0"
 						max="1"
-						step="0.005"
+						step="any"
 						value={point.y}
 						aria-label="{end} y"
 						oninput={(e) => setPoint(point, 'y', (e.currentTarget as HTMLInputElement).value)}
@@ -392,7 +396,7 @@
 					type="number"
 					min="0"
 					max="1"
-					step="0.005"
+					step="any"
 					value={el.position.x}
 					oninput={(e) => setPoint(el.position, 'x', (e.currentTarget as HTMLInputElement).value)}
 				/>
@@ -402,7 +406,7 @@
 					type="number"
 					min="0"
 					max="1"
-					step="0.005"
+					step="any"
 					value={el.position.y}
 					oninput={(e) => setPoint(el.position, 'y', (e.currentTarget as HTMLInputElement).value)}
 				/>
@@ -412,7 +416,7 @@
 					type="number"
 					min="0.25"
 					max="4"
-					step="0.05"
+					step="any"
 					value={el.scale ?? 1}
 					oninput={(e) => setScale(el, (e.currentTarget as HTMLInputElement).value)}
 				/>
@@ -422,11 +426,11 @@
 
 	<InspectorSection label="Enter">
 		{#snippet action()}
-			<input
-				type="checkbox"
+			<InspectorToggle
 				checked={el.enter !== undefined}
-				onchange={(e) => {
-					if ((e.currentTarget as HTMLInputElement).checked) {
+				label="Enter transition"
+				onchange={(checked) => {
+					if (checked) {
 						ensureTransition(el, 'enter');
 					} else {
 						el.enter = undefined;
@@ -440,22 +444,28 @@
 					type="number"
 					min="0"
 					max="1"
-					step="0.001"
+					step="any"
 					value={el.enter.start}
 					oninput={(e) =>
 						transitionInput(el, 'enter', 'start', (e.currentTarget as HTMLInputElement).value)}
 				/>
+				<span class="ins-unit"
+					>{formatFractionAsSeconds(el.enter.start, engineState.transport.durationSeconds)}</span
+				>
 			</Field>
 			<Field label="Duration">
 				<input
 					type="number"
 					min="0"
 					max="1"
-					step="0.001"
+					step="any"
 					value={el.enter.duration}
 					oninput={(e) =>
 						transitionInput(el, 'enter', 'duration', (e.currentTarget as HTMLInputElement).value)}
 				/>
+				<span class="ins-unit"
+					>{formatFractionAsSeconds(el.enter.duration, engineState.transport.durationSeconds)}</span
+				>
 			</Field>
 			<Field label="Ease">
 				<select
@@ -475,11 +485,11 @@
 
 	<InspectorSection label="Exit">
 		{#snippet action()}
-			<input
-				type="checkbox"
+			<InspectorToggle
 				checked={el.exit !== undefined}
-				onchange={(e) => {
-					if ((e.currentTarget as HTMLInputElement).checked) {
+				label="Exit transition"
+				onchange={(checked) => {
+					if (checked) {
 						ensureTransition(el, 'exit');
 					} else {
 						el.exit = undefined;
@@ -493,22 +503,28 @@
 					type="number"
 					min="0"
 					max="1"
-					step="0.001"
+					step="any"
 					value={el.exit.start}
 					oninput={(e) =>
 						transitionInput(el, 'exit', 'start', (e.currentTarget as HTMLInputElement).value)}
 				/>
+				<span class="ins-unit"
+					>{formatFractionAsSeconds(el.exit.start, engineState.transport.durationSeconds)}</span
+				>
 			</Field>
 			<Field label="Duration">
 				<input
 					type="number"
 					min="0"
 					max="1"
-					step="0.001"
+					step="any"
 					value={el.exit.duration}
 					oninput={(e) =>
 						transitionInput(el, 'exit', 'duration', (e.currentTarget as HTMLInputElement).value)}
 				/>
+				<span class="ins-unit"
+					>{formatFractionAsSeconds(el.exit.duration, engineState.transport.durationSeconds)}</span
+				>
 			</Field>
 			<Field label="Ease">
 				<select
@@ -543,7 +559,7 @@
 
 <style>
 	.position-note {
-		color: var(--fg-4);
+		color: var(--chrome-muted);
 		font-size: 0.72rem;
 		line-height: 1.4;
 		margin: 0;

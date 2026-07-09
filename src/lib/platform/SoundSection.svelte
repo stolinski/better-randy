@@ -29,7 +29,7 @@
 </script>
 
 {#if motions.length > 0}
-	<InspectorSection label="Sound">
+	<InspectorSection label="Sound" defaultOpen={false}>
 		{#each motions as motion (motion.cueId)}
 			<Field label={motion.label}>
 				<SoundPicker cueId={motion.cueId} window={motion.window} ensure={motion.ensure} />

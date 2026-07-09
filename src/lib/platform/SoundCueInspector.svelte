@@ -134,7 +134,7 @@
 				type="number"
 				min="0"
 				max="1"
-				step="0.001"
+				step="any"
 				value={Math.round(manualCue.start * 1000) / 1000}
 				oninput={(e) => setCueFraction('start', (e.currentTarget as HTMLInputElement).value)}
 			/>
@@ -142,7 +142,7 @@
 				type="number"
 				min="0"
 				max="1"
-				step="0.001"
+				step="any"
 				value={Math.round(manualCue.duration * 1000) / 1000}
 				oninput={(e) => setCueFraction('duration', (e.currentTarget as HTMLInputElement).value)}
 			/>
@@ -169,15 +169,15 @@
 
 <style>
 	.cue-info {
-		color: var(--fg-6);
-		font-size: 0.8rem;
+		color: var(--chrome-muted);
+		font-size: 0.8125rem;
 	}
 
 	.remove-cue {
-		background: transparent;
-		border: var(--border-1);
+		background: var(--chrome-well);
+		border: 1px solid var(--chrome-hairline);
 		border-radius: var(--br-xs);
-		color: var(--fg-5);
+		color: #f0453d;
 		cursor: pointer;
 		font-size: 0.75rem;
 		justify-self: start;
@@ -185,7 +185,6 @@
 	}
 
 	.remove-cue:hover {
-		border-color: #e6322a;
-		color: #e6322a;
+		border-color: #f0453d;
 	}
 </style>

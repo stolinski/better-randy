@@ -2,6 +2,8 @@
 	import type { EffectEditorProps } from '$lib/platform/pipelines/types';
 	import type { HalftoneDotsParams } from './index';
 
+	import InspectorToggle from '$lib/platform/InspectorToggle.svelte';
+
 	let { effect = $bindable() }: EffectEditorProps<HalftoneDotsParams> = $props();
 </script>
 
@@ -25,46 +27,36 @@
 
 <label class="row">
 	<span>Size</span>
-	<input
-		bind:value={effect.params.size}
-		max="1"
-		min="0"
-		step="0.01"
-		type="range"
-	/>
+	<input bind:value={effect.params.size} max="1" min="0" step="0.01" type="range" />
 </label>
 
 <label class="row">
 	<span>Radius</span>
-	<input
-		bind:value={effect.params.radius}
-		max="2"
-		min="0"
-		step="0.01"
-		type="range"
-	/>
+	<input bind:value={effect.params.radius} max="2" min="0" step="0.01" type="range" />
 </label>
 
 <label class="row">
 	<span>Contrast</span>
-	<input
-		bind:value={effect.params.contrast}
-		max="1"
-		min="0"
-		step="0.01"
-		type="range"
-	/>
+	<input bind:value={effect.params.contrast} max="1" min="0" step="0.01" type="range" />
 </label>
 
-<label class="row">
+<div class="row">
 	<span>Original colors</span>
-	<input bind:checked={effect.params.originalColors} type="checkbox" />
-</label>
+	<InspectorToggle
+		checked={effect.params.originalColors}
+		label="Original colors"
+		onchange={(checked) => (effect.params.originalColors = checked)}
+	/>
+</div>
 
-<label class="row">
+<div class="row">
 	<span>Inverted</span>
-	<input bind:checked={effect.params.inverted} type="checkbox" />
-</label>
+	<InspectorToggle
+		checked={effect.params.inverted}
+		label="Inverted"
+		onchange={(checked) => (effect.params.inverted = checked)}
+	/>
+</div>
 
 {#if !effect.params.originalColors}
 	<label class="row">

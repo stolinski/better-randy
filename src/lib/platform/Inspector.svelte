@@ -105,35 +105,58 @@
 </aside>
 
 <style>
+	/* The rail is a deck panel (DESIGN.md elevation): labels engraved in
+	   Archivo, values on the LCD in mono, wells recessed below the deck. */
 	.inspector {
-		background: var(--surface-1);
+		background: var(--chrome-deck);
 		block-size: 100%;
-		border-inline-start: var(--border-1);
+		border-inline-start: 1px solid var(--chrome-hairline);
+		color: var(--chrome-text);
 		display: flex;
 		flex-direction: column;
+		font-family: Archivo, sans-serif;
 		min-block-size: 0;
 		overflow: hidden;
 	}
 
+	/* A stable gutter so selecting a layer never reflows the controls, and a
+	   thin ladder-colored scrollbar instead of OS chrome. */
 	.inspector__scroll {
 		flex: 1 1 auto;
 		min-block-size: 0;
 		overflow-y: auto;
+		scrollbar-color: var(--chrome-hairline) transparent;
+		scrollbar-gutter: stable;
+		scrollbar-width: thin;
 	}
 
 	/* Tool-grade controls: the default Graffiti form inputs are comfortable web
 	   inputs (38px tall, 18px text) which read as a bloated form in an inspector.
-	   Compact them to a dense, DaVinci-style scale across every inspector. */
+	   Compact them to a dense, DaVinci-style scale across every inspector, as
+	   recessed mono wells per the DESIGN.md input contract. */
 	.inspector :global(input:not([type='checkbox']):not([type='range']):not([type='color'])),
 	.inspector :global(select),
 	.inspector :global(textarea) {
+		background: var(--chrome-well);
 		block-size: auto;
+		border: 1px solid var(--chrome-hairline);
 		border-radius: var(--br-xs);
-		font-size: 0.78rem;
+		box-shadow: none;
+		color: var(--chrome-text);
+		font-family: 'JetBrains Mono', monospace;
+		font-size: 0.8125rem;
+		font-weight: var(--fw-semibold);
 		line-height: 1.2;
 		min-block-size: 0;
-		padding-block: 0.28rem;
-		padding-inline: 0.5rem;
+		padding-block: 4px;
+		padding-inline: var(--vs-s);
+		transition:
+			border-color 120ms ease,
+			background-color 120ms ease;
+	}
+
+	.inspector :global(button) {
+		font-family: inherit;
 	}
 
 	.inspector :global(input[type='color']) {
@@ -142,14 +165,10 @@
 		padding: 2px;
 	}
 
-	.inspector :global(input[type='range']) {
-		inline-size: 100%;
-	}
-
-	/* Checkboxes + sliders take the tool accent (§7) instead of browser blue. */
-	.inspector :global(input[type='checkbox']),
+	/* Sliders fill the row and take the tool accent (§7) instead of browser blue. */
 	.inspector :global(input[type='range']) {
 		accent-color: #ffd608;
+		inline-size: 100%;
 	}
 
 	/* Focused control gets the yellow selection accent (§7). */
@@ -158,6 +177,52 @@
 	.inspector :global(textarea:focus-visible) {
 		border-color: #ffd608;
 		outline: none;
+	}
+
+	/* The one add-action grammar (shared by AddMenu and direct add buttons):
+	   a compact raised step with a sans label. */
+	.inspector :global(.ins-add) {
+		align-items: center;
+		background: var(--chrome-raised);
+		border: 1px solid var(--chrome-hairline);
+		border-radius: var(--br-xs);
+		color: var(--chrome-text);
+		cursor: pointer;
+		display: inline-flex;
+		font-family: Archivo, sans-serif;
+		font-size: 0.72rem;
+		font-weight: var(--fw-semibold);
+		line-height: 1;
+		min-block-size: 24px;
+		padding-block: 0;
+		padding-inline: var(--vs-s);
+		transition:
+			border-color 120ms ease,
+			background-color 120ms ease;
+	}
+
+	.inspector :global(.ins-add:hover:not(:disabled)) {
+		background: var(--chrome-hairline);
+	}
+
+	.inspector :global(.ins-add:focus-visible) {
+		border-color: #ffd608;
+		outline: none;
+	}
+
+	.inspector :global(.ins-add:disabled) {
+		color: var(--chrome-muted);
+		cursor: default;
+		opacity: 0.6;
+	}
+
+	/* Unit suffix beside a value input (s / ms / derived seconds). */
+	.inspector :global(.ins-unit) {
+		color: var(--chrome-muted);
+		flex: none;
+		font-family: 'JetBrains Mono', monospace;
+		font-size: 0.72rem;
+		white-space: nowrap;
 	}
 
 	/* Graffiti's `.row` (used by the per-type content editors) defaults to a
@@ -173,8 +238,9 @@
 	}
 
 	.inspector :global(.row > span) {
-		color: var(--fg-6);
-		font-size: 0.8rem;
+		color: var(--chrome-muted);
+		font-family: Archivo, sans-serif;
+		font-size: 0.8125rem;
 	}
 
 	.generic-label {
@@ -186,21 +252,21 @@
 	}
 
 	.generic-label__id {
-		color: var(--fg-6);
-		font-family: ui-monospace, monospace;
+		color: var(--chrome-muted);
+		font-family: 'JetBrains Mono', monospace;
 		font-size: 0.75rem;
 	}
 
 	.generic-label__back {
 		background: transparent;
 		border: 0;
-		color: var(--fg-5);
+		color: var(--chrome-muted);
 		cursor: pointer;
 		font-size: 0.8rem;
 		padding: 0;
 	}
 
 	.generic-label__back:hover {
-		color: var(--fg);
+		color: var(--chrome-text);
 	}
 </style>

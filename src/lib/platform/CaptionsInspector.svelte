@@ -66,7 +66,7 @@
 				type="number"
 				min="0"
 				max="1"
-				step="0.01"
+				step="any"
 				value={captions.y ?? 0.8}
 				oninput={(e) => setFraction('y', (e.currentTarget as HTMLInputElement).value, 0, 1)}
 			/>
@@ -76,7 +76,7 @@
 				type="number"
 				min="0.25"
 				max="4"
-				step="0.05"
+				step="any"
 				value={captions.scale ?? 1}
 				oninput={(e) => setFraction('scale', (e.currentTarget as HTMLInputElement).value, 0.25, 4)}
 			/>
@@ -99,7 +99,7 @@
 
 <style>
 	.captions-srt {
-		font-family: ui-monospace, monospace;
+		font-family: 'JetBrains Mono', monospace;
 		font-size: 0.72rem;
 		inline-size: 100%;
 		line-height: 1.45;
@@ -107,7 +107,7 @@
 	}
 
 	.captions-srt__error {
-		color: #e6322a;
+		color: #f0453d;
 		font-size: 0.72rem;
 		line-height: 1.4;
 		margin: 0;

@@ -27,7 +27,9 @@
 	import type { EffectRenderer } from './pipelines/types';
 	import { transitionEffectTypes } from './pipelines/transition-registry';
 	import { compositionMeta } from './composition-meta.svelte';
+	import AddMenu from './AddMenu.svelte';
 	import InspectorSection from './InspectorSection.svelte';
+	import InspectorToggle from './InspectorToggle.svelte';
 	import Field from './Field.svelte';
 
 	interface Props {
@@ -49,11 +51,7 @@
 		return effectRenderers.find((r) => r.type === type) ?? null;
 	}
 
-	function handleAddEffect(event: Event): void {
-		const select = event.currentTarget as HTMLSelectElement;
-		const type = select.value;
-		select.value = '';
-		if (!type) return;
+	function handleAddEffect(type: string): void {
 		const renderer = findEffectRenderer(type);
 		if (!renderer) return;
 		const def = renderer.defaults();
@@ -279,10 +277,10 @@
 				type="number"
 				min="1"
 				max="60"
-				step="0.5"
+				step="0.1"
 				bind:value={engineState.transport.durationSeconds}
 			/>
-			<span class="unit">s</span>
+			<span class="ins-unit">s</span>
 		</Field>
 		<Field label="FPS">
 			<input type="number" min="12" max="60" step="1" bind:value={engineState.transport.fps} />
@@ -307,18 +305,20 @@
 
 	<InspectorSection label="Effects">
 		{#snippet action()}
-			<select
-				value=""
-				onchange={handleAddEffect}
+			<AddMenu
+				label={chainFull ? 'Full' : '+ Add'}
 				disabled={chainFull}
-				title={chainFull ? `Chain is full (max ${EFFECT_CHAIN_LIMIT})` : ''}
-				class="add-select"
-			>
-				<option value="" disabled>{chainFull ? 'Full' : '+ Add'}</option>
-				{#each effectRenderers as renderer (renderer.type)}
-					<option value={renderer.type}>{renderer.label}</option>
-				{/each}
-			</select>
+				title={chainFull ? `Chain is full (max ${EFFECT_CHAIN_LIMIT})` : undefined}
+				groups={[
+					{
+						items: effectRenderers.map((renderer) => ({
+							value: renderer.type,
+							label: renderer.label
+						}))
+					}
+				]}
+				onselect={handleAddEffect}
+			/>
 		{/snippet}
 		{#each engineState.effects as effect (effect.id)}
 			{@const renderer = findEffectRenderer(effect.type)}
@@ -341,27 +341,29 @@
 	</InspectorSection>
 
 	<InspectorSection label="Background">
-		<Field label="Fill">
-			<input
-				type="checkbox"
+		{#snippet action()}
+			<InspectorToggle
 				checked={engineState.backgroundFill !== undefined}
-				onchange={(e) => {
-					if ((e.currentTarget as HTMLInputElement).checked) {
-						engineState.backgroundFill = '#000000';
-					} else {
-						engineState.backgroundFill = undefined;
-					}
+				label="Background fill"
+				onchange={(checked) => {
+					engineState.backgroundFill = checked ? '#000000' : undefined;
 				}}
 			/>
-			{#if engineState.backgroundFill !== undefined}
+		{/snippet}
+		{#if engineState.backgroundFill !== undefined}
+			<Field label="Fill">
 				<input type="color" bind:value={engineState.backgroundFill} />
-			{/if}
-		</Field>
+			</Field>
+		{/if}
 	</InspectorSection>
 
 	<InspectorSection label="Transition">
 		{#snippet action()}
-			<input type="checkbox" checked={!!presetBase.transition} onchange={toggleTransition} />
+			<InspectorToggle
+				checked={!!presetBase.transition}
+				label="Transition"
+				onchange={toggleTransition}
+			/>
 		{/snippet}
 		{#if presetBase.transition}
 			{@const transition = presetBase.transition}
@@ -390,18 +392,18 @@
 				<input
 					type="number"
 					min="100"
-					step="100"
+					step="10"
 					value={transition.durationMs}
 					oninput={setTransitionDuration}
 				/>
-				<span class="unit">ms</span>
+				<span class="ins-unit">ms</span>
 			</Field>
 		{/if}
 	</InspectorSection>
 
 	<InspectorSection label="Depth Stage">
 		{#snippet action()}
-			<input type="checkbox" checked={!!engineState.stage} onchange={toggleStage} />
+			<InspectorToggle checked={!!engineState.stage} label="Depth stage" onchange={toggleStage} />
 		{/snippet}
 		{#if engineState.stage}
 			{@const stage = engineState.stage}
@@ -426,7 +428,7 @@
 						type="number"
 						min="0"
 						max="1"
-						step="0.01"
+						step="any"
 						value={stage.camera.amount ?? 0.15}
 						oninput={(e) => {
 							ensureStage().camera.amount =
@@ -452,7 +454,7 @@
 					type="number"
 					min="0"
 					max="1"
-					step="0.01"
+					step="any"
 					value={stage.focus.focusZ}
 					oninput={(e) => {
 						ensureStage().focus.focusZ =
@@ -465,7 +467,7 @@
 					type="number"
 					min="0"
 					max="1"
-					step="0.01"
+					step="any"
 					value={stage.focus.aperture}
 					oninput={(e) => {
 						ensureStage().focus.aperture =
@@ -478,7 +480,7 @@
 					type="number"
 					min="0"
 					max="1"
-					step="0.01"
+					step="any"
 					value={stage.focus.band}
 					oninput={(e) => {
 						ensureStage().focus.band = parseFloat((e.currentTarget as HTMLInputElement).value) || 0;
@@ -486,7 +488,11 @@
 				/>
 			</Field>
 			<Field label="Rack focus">
-				<input type="checkbox" checked={!!stage.focus.pull} onchange={toggleRackFocus} />
+				<InspectorToggle
+					checked={!!stage.focus.pull}
+					label="Rack focus"
+					onchange={toggleRackFocus}
+				/>
 			</Field>
 			{#if stage.focus.pull}
 				{@const pull = stage.focus.pull}
@@ -495,7 +501,7 @@
 						type="number"
 						min="0"
 						max="1"
-						step="0.01"
+						step="any"
 						value={pull.from}
 						aria-label="Rack focus from depth"
 						oninput={(e) => {
@@ -507,7 +513,7 @@
 						type="number"
 						min="0"
 						max="1"
-						step="0.01"
+						step="any"
 						value={pull.to}
 						aria-label="Rack focus to depth"
 						oninput={(e) => {
@@ -521,7 +527,7 @@
 						type="number"
 						min="0"
 						max="1"
-						step="0.01"
+						step="any"
 						value={pull.start}
 						aria-label="Rack focus start"
 						placeholder="start"
@@ -534,7 +540,7 @@
 						type="number"
 						min="0"
 						max="1"
-						step="0.01"
+						step="any"
 						value={pull.duration}
 						aria-label="Rack focus duration"
 						placeholder="dur"
@@ -546,7 +552,11 @@
 				</Field>
 			{/if}
 			<Field label="Backdrop">
-				<input type="checkbox" checked={!!stage.backdrop?.image} onchange={toggleBackdropImage} />
+				<InspectorToggle
+					checked={!!stage.backdrop?.image}
+					label="Backdrop image"
+					onchange={toggleBackdropImage}
+				/>
 			</Field>
 			{#if stage.backdrop?.image}
 				<Field label="Asset">
@@ -613,9 +623,9 @@
 
 	<InspectorSection label="Sound">
 		{#snippet action()}
-			<button type="button" class="add-cue" onclick={() => addAudioCue('cue')}>+ Sound</button>
+			<button type="button" class="ins-add" onclick={() => addAudioCue('cue')}>+ Sound</button>
 			{#if engineState.backgroundFill !== undefined && !hasBed}
-				<button type="button" class="add-cue" onclick={() => addAudioCue('bed')}>+ Bed</button>
+				<button type="button" class="ins-add" onclick={() => addAudioCue('bed')}>+ Bed</button>
 			{/if}
 		{/snippet}
 		{#each engineState.audioCues as cue, index (cue.id)}
@@ -643,7 +653,7 @@
 						type="number"
 						min="0"
 						max="1"
-						step="0.001"
+						step="any"
 						value={Math.round(cue.start * 1000) / 1000}
 						oninput={(e) =>
 							setCueFraction(cue, 'start', (e.currentTarget as HTMLInputElement).value)}
@@ -652,7 +662,7 @@
 						type="number"
 						min="0"
 						max="1"
-						step="0.001"
+						step="any"
 						value={Math.round(cue.duration * 1000) / 1000}
 						oninput={(e) =>
 							setCueFraction(cue, 'duration', (e.currentTarget as HTMLInputElement).value)}
@@ -693,12 +703,6 @@
 		gap: 0;
 	}
 
-	.unit {
-		color: var(--fg-5);
-		flex: none;
-		font-size: 0.75rem;
-	}
-
 	/* ---- Effect entries (no card: just a row + the effect's own editor) ---- */
 
 	.layer-row {
@@ -709,44 +713,26 @@
 	}
 
 	.layer-row__label {
-		color: var(--fg-7);
-		font-size: 0.8rem;
+		color: var(--chrome-text);
+		font-size: 0.8125rem;
 	}
 
 	.remove-btn {
 		background: transparent;
 		border: 0;
-		color: var(--fg-4);
+		color: var(--chrome-muted);
 		cursor: pointer;
 		font-size: 1rem;
 		padding: 0 var(--vs-xs);
 	}
 
 	.remove-btn:hover {
-		color: #e6322a;
-	}
-
-	.add-select {
-		font-size: 0.75rem;
-		max-inline-size: 6rem;
-	}
-
-	.add-cue {
-		background: transparent;
-		border: 0;
-		color: var(--fg-5);
-		cursor: pointer;
-		font-size: 0.72rem;
-		padding: 0;
-	}
-
-	.add-cue:hover {
-		color: var(--fg);
+		color: #f0453d;
 	}
 
 	/* A manual cue / bed entry: hairline-separated sub-group, like effect rows. */
 	.cue-entry {
-		border-block-start: var(--border-1);
+		border-block-start: 1px solid var(--chrome-hairline);
 		display: grid;
 		gap: var(--vs-xs);
 		padding-block-start: var(--vs-xs);
@@ -759,26 +745,34 @@
 	}
 
 	.cue-entry__label {
-		color: var(--fg-7);
-		font-family: ui-monospace, monospace;
+		color: var(--chrome-muted);
+		font-family: 'JetBrains Mono', monospace;
 		font-size: 0.72rem;
 	}
 
 	/* ---- Export ---- */
 
 	.export-btn {
-		background: var(--fg-1);
-		border: var(--border-1);
-		border-radius: var(--br-s);
-		color: var(--fg);
+		background: var(--chrome-raised);
+		border: 1px solid var(--chrome-hairline);
+		border-radius: var(--br-xs);
+		color: var(--chrome-text);
 		cursor: pointer;
-		font-size: 0.85rem;
-		padding-block: var(--vs-xs);
+		font-size: 0.8125rem;
+		padding-block: 6px;
+		transition:
+			border-color 120ms ease,
+			background-color 120ms ease;
 		width: 100%;
 	}
 
 	.export-btn:hover:not(:disabled) {
-		background: var(--fg-2);
+		background: var(--chrome-hairline);
+	}
+
+	.export-btn:focus-visible {
+		border-color: #ffd608;
+		outline: none;
 	}
 
 	.export-btn:disabled {
@@ -787,7 +781,7 @@
 	}
 
 	.export-status {
-		color: var(--fg-5);
+		color: var(--chrome-muted);
 		font-size: 0.75rem;
 		margin: 0;
 	}
@@ -796,14 +790,14 @@
 
 	.fork-indicator {
 		align-items: center;
-		border-block-end: var(--border-1);
+		border-block-end: 1px solid var(--chrome-hairline);
 		display: flex;
 		justify-content: space-between;
 		padding: var(--vs-xs) var(--vs-base);
 	}
 
 	.fork-indicator__label {
-		color: var(--fg-5);
+		color: var(--chrome-muted);
 		font-size: 0.72rem;
 		font-weight: var(--fw-semibold);
 		letter-spacing: 0.06em;
@@ -812,9 +806,9 @@
 
 	.fork-indicator__revert {
 		background: transparent;
-		border: var(--border-1);
+		border: 1px solid var(--chrome-hairline);
 		border-radius: var(--br-xs);
-		color: var(--fg-6);
+		color: var(--chrome-muted);
 		cursor: pointer;
 		font-size: 0.7rem;
 		padding-block: 0.1em;
@@ -822,6 +816,6 @@
 	}
 
 	.fork-indicator__revert:hover {
-		color: var(--fg);
+		color: var(--chrome-text);
 	}
 </style>
