@@ -46,12 +46,18 @@
 				"enter": {
 					"start": 0.08,
 					"duration": 0.05,
-					"ease": "settled"
+					"ease": "settled",
+					"sound": {
+						"event": "impact"
+					}
 				},
 				"exit": {
 					"start": 0.88,
 					"duration": 0.04,
-					"ease": "smooth"
+					"ease": "smooth",
+					"sound": {
+						"mute": true
+					}
 				}
 			}
 		],

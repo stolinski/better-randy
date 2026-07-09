@@ -30,12 +30,18 @@
 			"enter": {
 				"start": 0,
 				"duration": 0.22,
-				"ease": "settled"
+				"ease": "settled",
+				"sound": {
+					"mute": true
+				}
 			},
 			"exit": {
 				"start": 0.9,
 				"duration": 0.045,
-				"ease": "smooth"
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
 			}
 		},
 		"textAnimations": [
@@ -49,12 +55,18 @@
 				"enter": {
 					"start": 0.02,
 					"duration": 0.18,
-					"ease": "smooth"
+					"ease": "smooth",
+					"sound": {
+						"event": "impact"
+					}
 				},
 				"exit": {
 					"start": 0.9,
 					"duration": 0.04,
-					"ease": "smooth"
+					"ease": "smooth",
+					"sound": {
+						"mute": true
+					}
 				}
 			}
 		],

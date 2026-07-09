@@ -26,114 +26,288 @@
 			"content": {
 				"body": ""
 			},
-			"enter": { "start": 0, "duration": 0.05, "ease": "settled" },
-			"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" },
+			"enter": {
+				"start": 0,
+				"duration": 0.05,
+				"ease": "settled",
+				"sound": {
+					"mute": true
+				}
+			},
+			"exit": {
+				"start": 0.88,
+				"duration": 0.04,
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
+			},
 			"diagram": [
 				{
 					"type": "label",
 					"id": "title-road",
-					"position": { "x": 0.5, "y": 0.1 },
+					"position": {
+						"x": 0.5,
+						"y": 0.1
+					},
 					"text": "THE ROAD TO ES MODULES",
 					"scale": 2,
-					"enter": { "start": 0.07, "duration": 0.055, "ease": "settled" },
-					"exit": { "start": 0.87, "duration": 0.04, "ease": "smooth" },
+					"enter": {
+						"start": 0.07,
+						"duration": 0.055,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.87,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
 					"animation": {
-						"cascade": { "anchor": "surface", "event": "end", "offsetMs": 120 }
+						"cascade": {
+							"anchor": "surface",
+							"event": "end",
+							"offsetMs": 120
+						}
 					}
 				},
 				{
 					"type": "timeline-segment",
 					"id": "era-script-tags",
-					"from": { "x": 0.5, "y": 0.18 },
-					"to": { "x": 0.5, "y": 0.38 },
+					"from": {
+						"x": 0.5,
+						"y": 0.18
+					},
+					"to": {
+						"x": 0.5,
+						"y": 0.38
+					},
 					"label": "SCRIPT TAGS",
-					"enter": { "start": 0.145, "duration": 0.08, "ease": "smooth" },
-					"exit": { "start": 0.8, "duration": 0.045, "ease": "smooth" },
+					"enter": {
+						"start": 0.145,
+						"duration": 0.08,
+						"ease": "smooth"
+					},
+					"exit": {
+						"start": 0.8,
+						"duration": 0.045,
+						"ease": "smooth"
+					},
 					"animation": {
-						"cascade": { "anchor": { "block": "title-road" }, "event": "end", "offsetMs": 120 }
+						"cascade": {
+							"anchor": {
+								"block": "title-road"
+							},
+							"event": "end",
+							"offsetMs": 120
+						}
 					}
 				},
 				{
 					"type": "label",
 					"id": "year-1995",
-					"position": { "x": 0.3, "y": 0.18 },
+					"position": {
+						"x": 0.3,
+						"y": 0.18
+					},
 					"text": "1995",
 					"scale": 1.2,
-					"enter": { "start": 0.165, "duration": 0.05, "ease": "settled" },
-					"exit": { "start": 0.8, "duration": 0.04, "ease": "smooth" },
+					"enter": {
+						"start": 0.165,
+						"duration": 0.05,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.8,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
 					"animation": {
-						"cascade": { "anchor": { "block": "era-script-tags" }, "event": "start", "offsetMs": 120 }
+						"cascade": {
+							"anchor": {
+								"block": "era-script-tags"
+							},
+							"event": "start",
+							"offsetMs": 120
+						}
 					}
 				},
 				{
 					"type": "label",
 					"id": "year-2009",
-					"position": { "x": 0.3, "y": 0.38 },
+					"position": {
+						"x": 0.3,
+						"y": 0.38
+					},
 					"text": "2009",
 					"scale": 1.2,
-					"enter": { "start": 0.238, "duration": 0.05, "ease": "settled" },
-					"exit": { "start": 0.82, "duration": 0.04, "ease": "smooth" },
+					"enter": {
+						"start": 0.238,
+						"duration": 0.05,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.82,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
 					"animation": {
-						"cascade": { "anchor": { "block": "era-script-tags" }, "event": "end", "offsetMs": 80 }
+						"cascade": {
+							"anchor": {
+								"block": "era-script-tags"
+							},
+							"event": "end",
+							"offsetMs": 80
+						}
 					}
 				},
 				{
 					"type": "timeline-segment",
 					"id": "era-bundlers",
-					"from": { "x": 0.5, "y": 0.38 },
-					"to": { "x": 0.5, "y": 0.58 },
+					"from": {
+						"x": 0.5,
+						"y": 0.38
+					},
+					"to": {
+						"x": 0.5,
+						"y": 0.58
+					},
 					"label": "BUNDLER ERA",
-					"enter": { "start": 0.252, "duration": 0.08, "ease": "smooth" },
-					"exit": { "start": 0.82, "duration": 0.045, "ease": "smooth" },
+					"enter": {
+						"start": 0.252,
+						"duration": 0.08,
+						"ease": "smooth"
+					},
+					"exit": {
+						"start": 0.82,
+						"duration": 0.045,
+						"ease": "smooth"
+					},
 					"animation": {
-						"cascade": { "anchor": { "block": "era-script-tags" }, "event": "end", "offsetMs": 160 }
+						"cascade": {
+							"anchor": {
+								"block": "era-script-tags"
+							},
+							"event": "end",
+							"offsetMs": 160
+						}
 					}
 				},
 				{
 					"type": "label",
 					"id": "year-2015",
-					"position": { "x": 0.3, "y": 0.58 },
+					"position": {
+						"x": 0.3,
+						"y": 0.58
+					},
 					"text": "2015",
 					"scale": 1.2,
-					"enter": { "start": 0.345, "duration": 0.05, "ease": "settled" },
-					"exit": { "start": 0.84, "duration": 0.04, "ease": "smooth" },
+					"enter": {
+						"start": 0.345,
+						"duration": 0.05,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.84,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
 					"animation": {
-						"cascade": { "anchor": { "block": "era-bundlers" }, "event": "end", "offsetMs": 80 }
+						"cascade": {
+							"anchor": {
+								"block": "era-bundlers"
+							},
+							"event": "end",
+							"offsetMs": 80
+						}
 					}
 				},
 				{
 					"type": "timeline-segment",
 					"id": "era-esm",
-					"from": { "x": 0.5, "y": 0.58 },
-					"to": { "x": 0.5, "y": 0.76 },
+					"from": {
+						"x": 0.5,
+						"y": 0.58
+					},
+					"to": {
+						"x": 0.5,
+						"y": 0.76
+					},
 					"label": "ESM ERA",
-					"enter": { "start": 0.358, "duration": 0.08, "ease": "smooth" },
-					"exit": { "start": 0.84, "duration": 0.045, "ease": "smooth" },
+					"enter": {
+						"start": 0.358,
+						"duration": 0.08,
+						"ease": "smooth"
+					},
+					"exit": {
+						"start": 0.84,
+						"duration": 0.045,
+						"ease": "smooth"
+					},
 					"animation": {
-						"cascade": { "anchor": { "block": "era-bundlers" }, "event": "end", "offsetMs": 160 }
+						"cascade": {
+							"anchor": {
+								"block": "era-bundlers"
+							},
+							"event": "end",
+							"offsetMs": 160
+						}
 					}
 				},
 				{
 					"type": "label",
 					"id": "year-now",
-					"position": { "x": 0.3, "y": 0.76 },
+					"position": {
+						"x": 0.3,
+						"y": 0.76
+					},
 					"text": "NOW",
 					"scale": 1.2,
-					"enter": { "start": 0.452, "duration": 0.05, "ease": "settled" },
-					"exit": { "start": 0.86, "duration": 0.04, "ease": "smooth" },
+					"enter": {
+						"start": 0.452,
+						"duration": 0.05,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.86,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
 					"animation": {
-						"cascade": { "anchor": { "block": "era-esm" }, "event": "end", "offsetMs": 80 }
+						"cascade": {
+							"anchor": {
+								"block": "era-esm"
+							},
+							"event": "end",
+							"offsetMs": 80
+						}
 					}
 				},
 				{
 					"type": "node",
 					"id": "node-now",
-					"position": { "x": 0.5, "y": 0.778 },
+					"position": {
+						"x": 0.5,
+						"y": 0.778
+					},
 					"form": "dot",
-					"enter": { "start": 0.472, "duration": 0.05, "ease": "settled" },
-					"exit": { "start": 0.86, "duration": 0.04, "ease": "smooth" },
+					"enter": {
+						"start": 0.472,
+						"duration": 0.05,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.86,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
 					"animation": {
-						"cascade": { "anchor": { "block": "era-esm" }, "event": "end", "offsetMs": 200 }
+						"cascade": {
+							"anchor": {
+								"block": "era-esm"
+							},
+							"event": "end",
+							"offsetMs": 200
+						}
 					}
 				}
 			]

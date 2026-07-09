@@ -37,9 +37,29 @@
 					"format": "integer",
 					"ease": "cubic-bezier(0.22, 1, 0.36, 1)"
 				},
-				"position": { "anchor": "center", "offset": { "x": 0, "y": 0 } },
-				"enter": { "start": 0.05, "duration": 0.15, "ease": "smooth" },
-				"exit": { "start": 0.88, "duration": 0.08, "ease": "smooth" }
+				"position": {
+					"anchor": "center",
+					"offset": {
+						"x": 0,
+						"y": 0
+					}
+				},
+				"enter": {
+					"start": 0.05,
+					"duration": 0.15,
+					"ease": "smooth",
+					"sound": {
+						"event": "impact"
+					}
+				},
+				"exit": {
+					"start": 0.88,
+					"duration": 0.08,
+					"ease": "smooth",
+					"sound": {
+						"mute": true
+					}
+				}
 			}
 		],
 		"effects": []

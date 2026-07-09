@@ -5,10 +5,22 @@
 	"description": "Proving fixture for the dithering Effect (ported to WGSL from @paper-design/shaders image-dithering, Apache-2.0). Runs the ordered dither over the pullquote-on-photo surface — the synthesized photographic substrate's tonal ramps and bokeh give the posterizer real gradients to quantize (Bayer 4×4, 3 steps, original colors), so the effect reads unmistakably: smooth falloff becomes woven cell bands while the quote's serif edges stay cell-crisp. Full-frame piece (backgroundFill); the effect's transparent-alpha contract (E4) is proven separately by the effect-chain tests. Fixture — exercises the pipeline, not held to the deliverable floors.",
 	"pack": "syntax",
 	"state": {
-		"transport": { "orientation": "horizontal", "durationSeconds": 4, "fps": 30, "format": "webm" },
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 4,
+			"fps": 30,
+			"format": "webm"
+		},
 		"backgroundFill": "#0a0807",
-		"typography": { "fontFamily": "serif", "paperColor": "#2a2018", "inkColor": "#fdf6ec" },
-		"marks": { "defaults": {}, "timings": [] },
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#2a2018",
+			"inkColor": "#fdf6ec"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
 		"surface": {
 			"type": "pullquote-on-photo",
 			"content": {
@@ -16,8 +28,22 @@
 				"author": "ORDERED DITHERING — BAYER 4×4",
 				"body": ""
 			},
-			"enter": { "start": 0, "duration": 0.08, "ease": "settled" },
-			"exit": { "start": 0.92, "duration": 0.06, "ease": "smooth" }
+			"enter": {
+				"start": 0,
+				"duration": 0.08,
+				"ease": "settled",
+				"sound": {
+					"mute": true
+				}
+			},
+			"exit": {
+				"start": 0.92,
+				"duration": 0.06,
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
+			}
 		},
 		"overlays": [],
 		"effects": [

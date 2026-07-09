@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Chapter card — descent",
-	"description": "Depth-stage deliverable for the chapter-card family (ADR-0028). The serif chapter title floats on the near plane over a cool slate photographic backdrop (atmosphere-slate substrate) 2.2 world units behind it; a slow dolly-in reprojects the two planes at different rates — the backdrop's light pools and bokeh give the parallax real features to track — while a rack focus pulls from the defocused backdrop onto the title as it mask-reveals: the card literally emerges into focus. The Pack's upper-left key light rakes both planes (the substrate's bloom sits upper-left to agree with it) and the type casts a soft real shadow onto the photo. Unlike chapter-card-cinematic (flat path, shader-implied camera), every depth cue here is geometric: real camera, real planes, real light.",
+	"description": "Depth-stage deliverable for the chapter-card family (ADR-0028). The serif chapter title floats on the near plane over a cool slate photographic backdrop (atmosphere-slate substrate) 2.2 world units behind it; a slow dolly-in reprojects the two planes at different rates — the backdrop's light pools and bokeh give the parallax real features to track — while a rack focus pulls from the defocused backdrop onto the title as it mask-reveals: the card literally emerges into focus. The Pack's upper-left key light rakes both planes (the substrate's bloom sits upper-left to agree with it) and the type casts a soft real shadow onto the photo. Unlike chapter-card-cinematic (flat path, shader-implied camera), every depth cue here is geometric: real camera, real planes, real light. [Re-grounded 2026-07-09: depth stage + photographic atmosphere removed — the lens grammar is not the Syntax brand (same ruling as type-hero-vantage); flat warm-black field.]",
 	"pack": "syntax",
 	"state": {
 		"transport": {
@@ -10,7 +10,7 @@
 			"fps": 30,
 			"format": "webm"
 		},
-		"backgroundFill": "#131926",
+		"backgroundFill": "#0e0e0d",
 		"typography": {
 			"fontFamily": "serif",
 			"paperColor": "#080612",
@@ -30,12 +30,18 @@
 			"enter": {
 				"start": 0,
 				"duration": 0.04,
-				"ease": "smooth"
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
 			},
 			"exit": {
 				"start": 0.9,
 				"duration": 0.035,
-				"ease": "smooth"
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
 			}
 		},
 		"textAnimations": [
@@ -49,12 +55,18 @@
 				"enter": {
 					"start": 0.05,
 					"duration": 0.05,
-					"ease": "settled"
+					"ease": "settled",
+					"sound": {
+						"event": "tick"
+					}
 				},
 				"exit": {
 					"start": 0.84,
 					"duration": 0.04,
-					"ease": "smooth"
+					"ease": "smooth",
+					"sound": {
+						"mute": true
+					}
 				}
 			},
 			{
@@ -67,12 +79,18 @@
 				"enter": {
 					"start": 0.14,
 					"duration": 0.06,
-					"ease": "settled"
+					"ease": "settled",
+					"sound": {
+						"event": "impact"
+					}
 				},
 				"exit": {
 					"start": 0.86,
 					"duration": 0.04,
-					"ease": "smooth"
+					"ease": "smooth",
+					"sound": {
+						"mute": true
+					}
 				}
 			}
 		],
@@ -87,40 +105,6 @@
 				}
 			}
 		],
-		"audioCues": [
-			{
-				"id": "bed",
-				"kind": "bed",
-				"assetSlug": "bed-ambient-texture",
-				"start": 0,
-				"duration": 1,
-				"volume": 0.35
-			}
-		],
-		"stage": {
-			"type": "depth",
-			"camera": {
-				"move": "push",
-				"amount": 0.55,
-				"ease": "smooth"
-			},
-			"focus": {
-				"focusZ": 0,
-				"aperture": 0.5,
-				"band": 0.05,
-				"pull": {
-					"from": 0.85,
-					"to": 0.03,
-					"start": 0.1,
-					"duration": 0.55
-				}
-			},
-			"backdrop": {
-				"image": {
-					"asset": "atmosphere-slate"
-				},
-				"contrast": 0.4
-			}
-		}
+		"audioCues": []
 	}
 }

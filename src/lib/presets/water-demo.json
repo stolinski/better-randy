@@ -5,10 +5,22 @@
 	"description": "Proving fixture for the water Effect (ported to WGSL from @paper-design/shaders water, Apache-2.0) — the first time-driven Paper port: the caustic field runs off ctx.timestamp (ADR-0012), so the water animates frame-deterministically through the hold while preview and export agree at every frame. Two layered caustic octave fields refract the pullquote-on-photo substrate, simplex waves ripple the quote's serif edges, and warm glints ride the caustic peaks masked to the content silhouette (E4). Full-frame piece (backgroundFill). Fixture — exercises the pipeline, not held to the deliverable floors.",
 	"pack": "syntax",
 	"state": {
-		"transport": { "orientation": "horizontal", "durationSeconds": 6, "fps": 30, "format": "webm" },
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
 		"backgroundFill": "#0a0807",
-		"typography": { "fontFamily": "serif", "paperColor": "#2a2018", "inkColor": "#fdf6ec" },
-		"marks": { "defaults": {}, "timings": [] },
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#2a2018",
+			"inkColor": "#fdf6ec"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
 		"surface": {
 			"type": "pullquote-on-photo",
 			"content": {
@@ -16,8 +28,22 @@
 				"author": "WATER — CAUSTIC REFRACTION · TIME-DRIVEN",
 				"body": ""
 			},
-			"enter": { "start": 0, "duration": 0.055, "ease": "settled" },
-			"exit": { "start": 0.94, "duration": 0.04, "ease": "smooth" }
+			"enter": {
+				"start": 0,
+				"duration": 0.055,
+				"ease": "settled",
+				"sound": {
+					"mute": true
+				}
+			},
+			"exit": {
+				"start": 0.94,
+				"duration": 0.04,
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
+			}
 		},
 		"overlays": [],
 		"effects": [

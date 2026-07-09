@@ -29,7 +29,10 @@
 			"enter": {
 				"start": 0,
 				"duration": 0.06,
-				"ease": "settled"
+				"ease": "settled",
+				"sound": {
+					"mute": true
+				}
 			}
 		},
 		"overlays": [
@@ -53,7 +56,10 @@
 				"enter": {
 					"start": 0.04,
 					"duration": 0.058,
-					"ease": "settled"
+					"ease": "settled",
+					"sound": {
+						"event": "impact"
+					}
 				}
 			}
 		],

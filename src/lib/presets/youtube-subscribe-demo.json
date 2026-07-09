@@ -36,9 +36,29 @@
 					"theme": "light",
 					"beat": 0.42
 				},
-				"position": { "anchor": "bottom-left", "offset": { "x": 0.0625, "y": 0.0833 } },
-				"enter": { "start": 0.08, "duration": 0.05, "ease": "settled" },
-				"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" }
+				"position": {
+					"anchor": "bottom-left",
+					"offset": {
+						"x": 0.0625,
+						"y": 0.0833
+					}
+				},
+				"enter": {
+					"start": 0.08,
+					"duration": 0.05,
+					"ease": "settled",
+					"sound": {
+						"event": "impact"
+					}
+				},
+				"exit": {
+					"start": 0.88,
+					"duration": 0.04,
+					"ease": "smooth",
+					"sound": {
+						"mute": true
+					}
+				}
 			}
 		],
 		"effects": [],

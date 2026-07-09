@@ -5,10 +5,22 @@
 	"description": "Proving fixture for the heatmap Effect (adapted to WGSL from @paper-design/shaders heatmap, Apache-2.0). Thermal read of the pullquote-on-photo substrate: frame luminance indexes the 7-stop cold→hot gradient cascade, the bright quote reads white-hot against the deep-blue floor, content edges pull contour heat, and a heat band travels up the frame time-driven (ctx.timestamp, ADR-0012). Full-frame piece (backgroundFill); the grade recolors coverage only (E4). Fixture — exercises the pipeline, not held to the deliverable floors.",
 	"pack": "syntax",
 	"state": {
-		"transport": { "orientation": "horizontal", "durationSeconds": 6, "fps": 30, "format": "webm" },
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
 		"backgroundFill": "#050533",
-		"typography": { "fontFamily": "serif", "paperColor": "#2a2018", "inkColor": "#fdf6ec" },
-		"marks": { "defaults": {}, "timings": [] },
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#2a2018",
+			"inkColor": "#fdf6ec"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
 		"surface": {
 			"type": "pullquote-on-photo",
 			"content": {
@@ -16,8 +28,22 @@
 				"author": "HEATMAP — THERMAL READ · 7 STOPS",
 				"body": ""
 			},
-			"enter": { "start": 0, "duration": 0.055, "ease": "settled" },
-			"exit": { "start": 0.94, "duration": 0.04, "ease": "smooth" }
+			"enter": {
+				"start": 0,
+				"duration": 0.055,
+				"ease": "settled",
+				"sound": {
+					"mute": true
+				}
+			},
+			"exit": {
+				"start": 0.94,
+				"duration": 0.04,
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
+			}
 		},
 		"overlays": [],
 		"effects": [
@@ -25,7 +51,15 @@
 				"type": "heatmap",
 				"id": "thermal",
 				"params": {
-					"colors": ["#050533", "#2c0da0", "#0066ff", "#00d09a", "#ffe83d", "#ff7a00", "#ffffff"],
+					"colors": [
+						"#050533",
+						"#2c0da0",
+						"#0066ff",
+						"#00d09a",
+						"#ffe83d",
+						"#ff7a00",
+						"#ffffff"
+					],
 					"contour": 0.3,
 					"wave": 0.35,
 					"angle": 90,

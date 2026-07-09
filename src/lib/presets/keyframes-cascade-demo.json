@@ -18,14 +18,23 @@
 		},
 		"marks": {
 			"defaults": {
-				"highlight": { "color": "#fabf47", "intensity": 0.62 }
+				"highlight": {
+					"color": "#fabf47",
+					"intensity": 0.62
+				}
 			},
 			"timings": [
 				{
 					"start": 0.5,
 					"duration": 0.2,
 					"ease": "smooth",
-					"cascade": { "anchor": { "overlay": "tag" }, "event": "end", "offsetMs": 300 }
+					"cascade": {
+						"anchor": {
+							"overlay": "tag"
+						},
+						"event": "end",
+						"offsetMs": 300
+					}
 				}
 			]
 		},
@@ -37,10 +46,25 @@
 			"animation": {
 				"channels": {
 					"opacity": [
-						{ "atMs": 0, "value": 0 },
-						{ "atMs": 400, "value": 1, "ease": "smooth" },
-						{ "atMs": 5300, "value": 1, "ease": "smooth" },
-						{ "atMs": 5700, "value": 0, "ease": "smooth" }
+						{
+							"atMs": 0,
+							"value": 0
+						},
+						{
+							"atMs": 400,
+							"value": 1,
+							"ease": "smooth"
+						},
+						{
+							"atMs": 5300,
+							"value": 1,
+							"ease": "smooth"
+						},
+						{
+							"atMs": 5700,
+							"value": 0,
+							"ease": "smooth"
+						}
 					]
 				}
 			}
@@ -58,24 +82,60 @@
 				},
 				"position": {
 					"anchor": "bottom-left",
-					"offset": { "x": 0.06, "y": 0.115 }
+					"offset": {
+						"x": 0.06,
+						"y": 0.115
+					}
 				},
 				"animation": {
 					"channels": {
 						"opacity": [
-							{ "atMs": 0, "value": 0 },
-							{ "atMs": 300, "value": 1, "ease": "smooth" },
-							{ "atMs": 5100, "value": 1, "ease": "smooth" },
-							{ "atMs": 5460, "value": 0, "ease": "smooth" }
+							{
+								"atMs": 0,
+								"value": 0
+							},
+							{
+								"atMs": 300,
+								"value": 1,
+								"ease": "smooth"
+							},
+							{
+								"atMs": 5100,
+								"value": 1,
+								"ease": "smooth"
+							},
+							{
+								"atMs": 5460,
+								"value": 0,
+								"ease": "smooth"
+							}
 						],
 						"y": [
-							{ "atMs": 0, "value": 0.03 },
-							{ "atMs": 380, "value": 0, "ease": "settled" }
+							{
+								"atMs": 0,
+								"value": 0.03
+							},
+							{
+								"atMs": 380,
+								"value": 0,
+								"ease": "settled"
+							}
 						],
 						"scale": [
-							{ "atMs": 0, "value": 0.96 },
-							{ "atMs": 260, "value": 1.012, "ease": "smooth" },
-							{ "atMs": 420, "value": 1, "ease": "settled" }
+							{
+								"atMs": 0,
+								"value": 0.96
+							},
+							{
+								"atMs": 260,
+								"value": 1.012,
+								"ease": "smooth"
+							},
+							{
+								"atMs": 420,
+								"value": 1,
+								"ease": "settled"
+							}
 						]
 					}
 				}
@@ -91,12 +151,35 @@
 				},
 				"position": {
 					"anchor": "top-right",
-					"offset": { "x": 0.06, "y": 0.12 }
+					"offset": {
+						"x": 0.06,
+						"y": 0.12
+					}
 				},
-				"enter": { "start": 0.5, "duration": 0.05, "ease": "settled" },
-				"exit": { "start": 0.85, "duration": 0.04, "ease": "smooth" },
+				"enter": {
+					"start": 0.5,
+					"duration": 0.05,
+					"ease": "settled",
+					"sound": {
+						"event": "impact"
+					}
+				},
+				"exit": {
+					"start": 0.85,
+					"duration": 0.04,
+					"ease": "smooth",
+					"sound": {
+						"mute": true
+					}
+				},
 				"animation": {
-					"cascade": { "anchor": { "overlay": "main" }, "event": "start", "offsetMs": 700 }
+					"cascade": {
+						"anchor": {
+							"overlay": "main"
+						},
+						"event": "start",
+						"offsetMs": 700
+					}
 				}
 			}
 		],

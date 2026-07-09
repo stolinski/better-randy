@@ -45,7 +45,10 @@
 			"enter": {
 				"start": 0,
 				"duration": 0.05,
-				"ease": "settled"
+				"ease": "settled",
+				"sound": {
+					"mute": true
+				}
 			},
 			"exit": {
 				"start": 0.88,
@@ -84,7 +87,10 @@
 				"exit": {
 					"start": 0.8,
 					"duration": 0.05,
-					"ease": "smooth"
+					"ease": "smooth",
+					"sound": {
+						"mute": true
+					}
 				}
 			}
 		],

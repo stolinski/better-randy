@@ -31,12 +31,18 @@
 			"enter": {
 				"start": 0,
 				"duration": 0.06,
-				"ease": "settled"
+				"ease": "settled",
+				"sound": {
+					"mute": true
+				}
 			},
 			"exit": {
 				"start": 0.88,
 				"duration": 0.04,
-				"ease": "smooth"
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
 			}
 		},
 		"overlays": [
@@ -77,12 +83,18 @@
 				"enter": {
 					"start": 0,
 					"duration": 0.06,
-					"ease": "settled"
+					"ease": "settled",
+					"sound": {
+						"event": "impact"
+					}
 				},
 				"exit": {
 					"start": 0.88,
 					"duration": 0.04,
-					"ease": "smooth"
+					"ease": "smooth",
+					"sound": {
+						"mute": true
+					}
 				}
 			}
 		],
@@ -91,7 +103,7 @@
 				"type": "paper-grain",
 				"id": "frame-grit",
 				"params": {
-					"warmth": 0.0,
+					"warmth": 0,
 					"density": 0.2
 				}
 			}

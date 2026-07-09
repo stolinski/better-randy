@@ -25,25 +25,57 @@
 			"content": {
 				"body": ""
 			},
-			"enter": { "start": 0, "duration": 0.05, "ease": "settled" },
-			"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" },
+			"enter": {
+				"start": 0,
+				"duration": 0.05,
+				"ease": "settled",
+				"sound": {
+					"mute": true
+				}
+			},
+			"exit": {
+				"start": 0.88,
+				"duration": 0.04,
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
+			},
 			"diagram": [
 				{
 					"type": "label",
 					"id": "l-headline",
-					"position": { "x": 0.5, "y": 0.3 },
+					"position": {
+						"x": 0.5,
+						"y": 0.3
+					},
 					"text": "JAVASCRIPT BY THE NUMBERS",
 					"scale": 2,
-					"enter": { "start": 0.07, "duration": 0.05, "ease": "settled" },
-					"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" },
+					"enter": {
+						"start": 0.07,
+						"duration": 0.05,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.88,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
 					"animation": {
-						"cascade": { "anchor": "surface", "event": "end", "offsetMs": 120 }
+						"cascade": {
+							"anchor": "surface",
+							"event": "end",
+							"offsetMs": 120
+						}
 					}
 				},
 				{
 					"type": "stat-callout",
 					"id": "s-npm",
-					"position": { "x": 0.235, "y": 0.52 },
+					"position": {
+						"x": 0.235,
+						"y": 0.52
+					},
 					"from": 0,
 					"to": 2100000000,
 					"format": "integer",
@@ -51,16 +83,33 @@
 					"scale": 0.85,
 					"rollStart": 0.15,
 					"rollWindow": 0.25,
-					"enter": { "start": 0.15, "duration": 0.05, "ease": "settled" },
-					"exit": { "start": 0.82, "duration": 0.04, "ease": "smooth" },
+					"enter": {
+						"start": 0.15,
+						"duration": 0.05,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.82,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
 					"animation": {
-						"cascade": { "anchor": { "block": "l-headline" }, "event": "end", "offsetMs": 180 }
+						"cascade": {
+							"anchor": {
+								"block": "l-headline"
+							},
+							"event": "end",
+							"offsetMs": 180
+						}
 					}
 				},
 				{
 					"type": "stat-callout",
 					"id": "s-sites",
-					"position": { "x": 0.5, "y": 0.52 },
+					"position": {
+						"x": 0.5,
+						"y": 0.52
+					},
 					"from": 0,
 					"to": 97,
 					"format": "percent",
@@ -68,16 +117,33 @@
 					"scale": 0.85,
 					"rollStart": 0.225,
 					"rollWindow": 0.23,
-					"enter": { "start": 0.225, "duration": 0.05, "ease": "settled" },
-					"exit": { "start": 0.84, "duration": 0.04, "ease": "smooth" },
+					"enter": {
+						"start": 0.225,
+						"duration": 0.05,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.84,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
 					"animation": {
-						"cascade": { "anchor": { "block": "s-npm" }, "event": "end", "offsetMs": 150 }
+						"cascade": {
+							"anchor": {
+								"block": "s-npm"
+							},
+							"event": "end",
+							"offsetMs": 150
+						}
 					}
 				},
 				{
 					"type": "stat-callout",
 					"id": "s-devs",
-					"position": { "x": 0.765, "y": 0.52 },
+					"position": {
+						"x": 0.765,
+						"y": 0.52
+					},
 					"from": 0,
 					"to": 11000000,
 					"format": "integer",
@@ -85,10 +151,24 @@
 					"scale": 0.85,
 					"rollStart": 0.3,
 					"rollWindow": 0.25,
-					"enter": { "start": 0.3, "duration": 0.05, "ease": "settled" },
-					"exit": { "start": 0.86, "duration": 0.04, "ease": "smooth" },
+					"enter": {
+						"start": 0.3,
+						"duration": 0.05,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.86,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
 					"animation": {
-						"cascade": { "anchor": { "block": "s-sites" }, "event": "end", "offsetMs": 150 }
+						"cascade": {
+							"anchor": {
+								"block": "s-sites"
+							},
+							"event": "end",
+							"offsetMs": 150
+						}
 					}
 				}
 			]

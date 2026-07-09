@@ -30,12 +30,18 @@
 			"enter": {
 				"start": 0,
 				"duration": 0.05,
-				"ease": "settled"
+				"ease": "settled",
+				"sound": {
+					"mute": true
+				}
 			},
 			"exit": {
 				"start": 0.95,
 				"duration": 0.05,
-				"ease": "smooth"
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
 			}
 		},
 		"textAnimations": [
@@ -49,21 +55,15 @@
 				"enter": {
 					"start": 0.1,
 					"duration": 0.05,
-					"ease": "settled"
+					"ease": "settled",
+					"sound": {
+						"event": "impact"
+					}
 				}
 			}
 		],
 		"overlays": [],
 		"effects": [],
-		"audioCues": [
-			{
-				"id": "bed",
-				"kind": "bed",
-				"assetSlug": "bed-ambient-texture",
-				"start": 0,
-				"duration": 1,
-				"volume": 0.4
-			}
-		]
+		"audioCues": []
 	}
 }

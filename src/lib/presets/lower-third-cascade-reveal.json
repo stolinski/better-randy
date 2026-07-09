@@ -37,7 +37,10 @@
 				"enter": {
 					"start": 0.1,
 					"duration": 0.07,
-					"ease": "smooth"
+					"ease": "smooth",
+					"sound": {
+						"event": "impact"
+					}
 				},
 				"cascade": {
 					"anchor": {
@@ -58,7 +61,10 @@
 				"enter": {
 					"start": 0.2,
 					"duration": 0.06,
-					"ease": "smooth"
+					"ease": "smooth",
+					"sound": {
+						"event": "tick"
+					}
 				},
 				"cascade": {
 					"anchor": {
@@ -89,7 +95,10 @@
 				"enter": {
 					"start": 0.04,
 					"duration": 0.058,
-					"ease": "settled"
+					"ease": "settled",
+					"sound": {
+						"event": "impact"
+					}
 				},
 				"animation": {
 					"channels": {

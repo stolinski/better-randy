@@ -1,8 +1,8 @@
 {
 	"schema": "supers@1",
 	"kind": "fixture",
-	"name": "Text animation showcase \u2014 kinetic-center-build",
-	"description": "Showcases the kinetic-center-build renderer family (ADR-0011). The title 'Built to flow' enters word-by-word from the right; each new word pushes prior words into their newly centered positions. Title-only by design \u2014 the layout-aware renderer reflows the line and assumes single-phrase content. Channel chrome notes: chrome-light to keep focus on the renderer verification; aesthetic-fit notes belong on a future syntax-mark-stroke-style brief.",
+	"name": "Text animation showcase — kinetic-center-build",
+	"description": "Showcases the kinetic-center-build renderer family (ADR-0011). The title 'Built to flow' enters word-by-word from the right; each new word pushes prior words into their newly centered positions. Title-only by design — the layout-aware renderer reflows the line and assumes single-phrase content. Channel chrome notes: chrome-light to keep focus on the renderer verification; aesthetic-fit notes belong on a future syntax-mark-stroke-style brief.",
 	"pack": "syntax",
 	"state": {
 		"transport": {
@@ -35,12 +35,18 @@
 			"enter": {
 				"start": 0,
 				"duration": 0.05,
-				"ease": "settled"
+				"ease": "settled",
+				"sound": {
+					"mute": true
+				}
 			},
 			"exit": {
 				"start": 0.92,
 				"duration": 0.035,
-				"ease": "smooth"
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
 			}
 		},
 		"textAnimations": [
@@ -54,12 +60,18 @@
 				"enter": {
 					"start": 0.06,
 					"duration": 0.24,
-					"ease": "smooth"
+					"ease": "smooth",
+					"sound": {
+						"event": "impact"
+					}
 				},
 				"exit": {
 					"start": 0.85,
 					"duration": 0.035,
-					"ease": "smooth"
+					"ease": "smooth",
+					"sound": {
+						"mute": true
+					}
 				}
 			}
 		],

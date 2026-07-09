@@ -27,12 +27,18 @@
 			"enter": {
 				"start": 0,
 				"duration": 0.108,
-				"ease": "settled"
+				"ease": "settled",
+				"sound": {
+					"mute": true
+				}
 			},
 			"exit": {
 				"start": 0.915,
 				"duration": 0.09,
-				"ease": "smooth"
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
 			}
 		},
 		"overlays": [
@@ -54,12 +60,18 @@
 				"enter": {
 					"start": 0.04,
 					"duration": 0.108,
-					"ease": "settled"
+					"ease": "settled",
+					"sound": {
+						"event": "impact"
+					}
 				},
 				"exit": {
 					"start": 0.915,
 					"duration": 0.09,
-					"ease": "smooth"
+					"ease": "smooth",
+					"sound": {
+						"mute": true
+					}
 				}
 			}
 		],

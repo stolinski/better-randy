@@ -16,10 +16,17 @@
 		},
 		"marks": {
 			"defaults": {
-				"highlight": { "color": "#fabf47", "intensity": 0.7 }
+				"highlight": {
+					"color": "#fabf47",
+					"intensity": 0.7
+				}
 			},
 			"timings": [
-				{ "start": 0.18, "duration": 0.10, "ease": "smooth" }
+				{
+					"start": 0.18,
+					"duration": 0.1,
+					"ease": "smooth"
+				}
 			]
 		},
 		"surface": {
@@ -31,8 +38,22 @@
 				"dateLabel": "MAR 14 2026",
 				"body": "Over the past eighteen months, a [highlight]quiet displacement[/highlight] has taken place in the JavaScript package management ecosystem. Bun, once a curiosity, now ships in production at companies that until recently treated npm as immutable infrastructure.\n\nThe shift was not announced. There was no migration document, no postmortem. Engineers tried Bun on a side project, noticed the cold install was several times faster, and never went back. The cumulative effect, by early this year, is a meaningful divergence in default tooling between teams who hire from each other."
 			},
-			"enter": { "start": 0, "duration": 0.108, "ease": "settled" },
-			"exit": { "start": 0.915, "duration": 0.085, "ease": "smooth" }
+			"enter": {
+				"start": 0,
+				"duration": 0.108,
+				"ease": "settled",
+				"sound": {
+					"mute": true
+				}
+			},
+			"exit": {
+				"start": 0.915,
+				"duration": 0.085,
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
+			}
 		},
 		"overlays": [
 			{
@@ -45,17 +66,37 @@
 				},
 				"position": {
 					"anchor": "top-left",
-					"offset": { "x": 0.112, "y": 0.200 }
+					"offset": {
+						"x": 0.112,
+						"y": 0.2
+					}
 				},
-				"enter": { "start": 0.04, "duration": 0.108, "ease": "settled" },
-				"exit": { "start": 0.915, "duration": 0.085, "ease": "smooth" }
+				"enter": {
+					"start": 0.04,
+					"duration": 0.108,
+					"ease": "settled",
+					"sound": {
+						"event": "impact"
+					}
+				},
+				"exit": {
+					"start": 0.915,
+					"duration": 0.085,
+					"ease": "smooth",
+					"sound": {
+						"mute": true
+					}
+				}
 			}
 		],
 		"effects": [
 			{
 				"type": "paper-grain",
 				"id": "frame-grit",
-				"params": { "warmth": 0.55, "density": 0.32 }
+				"params": {
+					"warmth": 0.55,
+					"density": 0.32
+				}
 			}
 		]
 	}
