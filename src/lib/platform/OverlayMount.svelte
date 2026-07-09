@@ -69,12 +69,17 @@
 				parts.push(`left:${50 + dx}%`);
 			}
 
-			// `center` anchor: offset the element by half its own size so the
-			// element's visual centre aligns with the (50%, 50%) origin point.
-			// Uses CSS `translate` (independent of `transform`) so it doesn't
-			// conflict with the visibilityStyle translateY animation.
+			// Centre anchors: offset the element by half its own size so its
+			// visual centre aligns with the 50% origin — full `center` on both
+			// axes, `top-center`/`bottom-center` on x only (without this the
+			// element's LEFT edge pinned at 50% and rendered off-centre right —
+			// the youtube-subscribe vertical Critic finding). Uses CSS `translate`
+			// (independent of `transform`) so it doesn't conflict with the
+			// visibilityStyle translateY animation.
 			if (anchor === 'center') {
 				parts.push(`translate:-50% -50%`);
+			} else if (anchor === 'top-center' || anchor === 'bottom-center') {
+				parts.push(`translate:-50% 0`);
 			}
 		}
 

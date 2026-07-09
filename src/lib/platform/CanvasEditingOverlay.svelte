@@ -131,7 +131,15 @@
 		const pos = overlay.position;
 		const isRect = pos.anchor === 'normalized-rect';
 		const measured = measureTopLeftFrac(overlay);
-		const convertCenter = pos.anchor === 'center' && measured !== null;
+		// Centre-family anchors ignore `offset` on their centred axis, so a drag
+		// converts them to free `top-left` placement (seeded from the measured
+		// position so nothing jumps) — full `center` and the x-centred
+		// `top-center`/`bottom-center` alike.
+		const convertCenter =
+			(pos.anchor === 'center' ||
+				pos.anchor === 'top-center' ||
+				pos.anchor === 'bottom-center') &&
+			measured !== null;
 		dragState = {
 			overlayId: overlay.id,
 			startX: event.clientX,
