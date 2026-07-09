@@ -153,9 +153,29 @@ export function resolveAppearanceVars(
 	//    carries it — emit it explicitly as `--font`. CanvasSources consume it
 	//    via `font-family: var(--font, <intrinsic stack>)`; a Pack with no font
 	//    claim emits nothing and every pipeline keeps its intrinsic stack.
+	//    IMPORTANT: document-substrate slots must NOT consume `--font` — their
+	//    faces are substrate physics (a newspaper's newsprint serif), hardcoded
+	//    in the CanvasSource, so a pack-wide voice claim can't repaint them.
 	const fontStack = resolveFontTreatment(manifest, pipelineType);
 	if (fontStack !== null) {
 		vars['--font'] = fontStack;
+	}
+
+	// 4. The label/chrome voice — same chain one tier down: a per-Pipeline
+	//    `<type>.fontLabel` (already emitted by step 1) beats the pack-wide
+	//    `font-label-treatment` core, so a pack can pair a display voice with a
+	//    mono chrome voice everywhere without per-family duplication.
+	if (vars['--fontLabel'] === undefined) {
+		const labelRole = manifest.roles['font-label-treatment'];
+		if (
+			labelRole &&
+			labelRole.kind === 'style' &&
+			typeof labelRole.value === 'string' &&
+			labelRole.value.trim().length > 0 &&
+			!isColorValue(labelRole.value)
+		) {
+			vars['--fontLabel'] = labelRole.value;
+		}
 	}
 
 	return vars;

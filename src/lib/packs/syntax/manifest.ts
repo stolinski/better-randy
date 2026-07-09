@@ -40,6 +40,12 @@ export const syntaxPack: PackManifest = {
 		// syntax-overlay, calibration 2026-07-09) — was #fabf47, which belongs to
 		// the physical-highlighter mark defaults, not the chrome accent.
 		'accent-treatment': { kind: 'style', value: '#ffd54a' },
+		// The pack-wide type voice (2026-07-09): every chrome family inherits
+		// Grotesk display + Space Mono labels automatically (a pack switch IS the
+		// font switch); document substrates hardcode their faces in the
+		// CanvasSource and never consume the voice vars.
+		'font-treatment': { kind: 'style', value: "'Space Grotesk', 'Inter', sans-serif" },
+		'font-label-treatment': { kind: 'style', value: "'Space Mono', ui-monospace, monospace" },
 		// Core structural edge vocabulary (five values: clean/soft/irregular/
 		// torn/none, resolved by resolveEdgeTreatment → the shared edge-treatment
 		// ShaderPass). Brand ruling 2026-07-09: chrome never tears — clean is the
@@ -73,9 +79,6 @@ export const syntaxPack: PackManifest = {
 		'chapter-card.base': { kind: 'style', value: '#f7f6f2' },
 		'chapter-card.kicker': { kind: 'style', value: '#ffd54a' },
 		'chapter-card.rule': { kind: 'style', value: '#454441' },
-		// Brand faces: Grotesk display, Space Mono kicker (2026-07-09).
-		'chapter-card.font': { kind: 'style', value: "'Space Grotesk', 'Inter', sans-serif" },
-		'chapter-card.fontLabel': { kind: 'style', value: "'Space Mono', ui-monospace, monospace" },
 		// WGSL backdrop tints — FLAT brand field (2026-07-09): the light is
 		// additive so #000000 zeroes it; top == bottom kills the gradient (and
 		// makes the baked camera dolly a no-op on the flat field).
@@ -93,7 +96,7 @@ export const syntaxPack: PackManifest = {
 		// warm-neutral upper-left light, warm entrance sweep band.
 		'pullquote-on-photo.backdrop': {
 			kind: 'style',
-			value: { top: '#08090d', bottom: '#0d0b0a', light: '#c7bd9e', sweep: '#ebdbbd' }
+			value: { top: '#0e0e0d', bottom: '#0e0e0d', light: '#000000', sweep: '#000000' }
 		},
 
 		// ---------------- newspaper Surface ----------------
@@ -133,8 +136,6 @@ export const syntaxPack: PackManifest = {
 		// Consumed color Roles (render-is-truth — match what CanvasSource paints).
 		'title-sequence.ink': { kind: 'style', value: '#f7f6f2' },
 		'title-sequence.kicker': { kind: 'style', value: '#ffd54a' },
-		'title-sequence.font': { kind: 'style', value: "'Space Grotesk', 'Inter', sans-serif" },
-		'title-sequence.fontLabel': { kind: 'style', value: "'Space Mono', ui-monospace, monospace" },
 		// WGSL backdrop tints — FLAT brand field (2026-07-09): additive glow
 		// zeroed, gradient flattened; the atmosphere grammar is not the brand.
 		'title-sequence.backdrop': {
@@ -152,12 +153,6 @@ export const syntaxPack: PackManifest = {
 		'type-hero.ink': { kind: 'style', value: '#f7f6f2' },
 		'type-hero.accent': { kind: 'style', value: '#ffd54a' },
 		'type-hero.byline': { kind: 'style', value: '#c9c6bc' },
-		// Brand faces: Space Grotesk display, Space Mono for the episode stamp.
-		// Weight 700 + normal stretch — Space Grotesk has no 900 and no condensed
-		// cut; the variant's defaults synthesized a 75%-squeezed faux-black that
-		// read as off-brand (calibration 2026-07-09).
-		'type-hero.font': { kind: 'style', value: "'Space Grotesk', 'Inter', sans-serif" },
-		'type-hero.fontLabel': { kind: 'style', value: "'Space Mono', ui-monospace, monospace" },
 		'type-hero.weight': { kind: 'style', value: '700' },
 		'type-hero.stretch': { kind: 'style', value: 'normal' },
 		// WGSL backdrop tints. The brand field is FLAT warm black (calibration
@@ -251,9 +246,6 @@ export const syntaxPack: PackManifest = {
 		'lower-third.gap': { kind: 'style', value: '20px' },
 		'lower-third.weight': { kind: 'style', value: '700' },
 		'lower-third.tracking': { kind: 'style', value: '0.08em' },
-		// Brand faces: Space Grotesk display, Space Mono labels/chrome.
-		'lower-third.font': { kind: 'style', value: "'Space Grotesk', 'Inter', sans-serif" },
-		'lower-third.fontLabel': { kind: 'style', value: "'Space Mono', ui-monospace, monospace" },
 		// The cinematic scrim base stays claimed for the variant that uses it.
 		'lower-third.scrim': { kind: 'style', value: { color: '#08060a' } },
 
@@ -261,14 +253,9 @@ export const syntaxPack: PackManifest = {
 		// (render-is-truth — values match what each CanvasSource paints).
 		'watermark.ink': { kind: 'style', value: '#f7f6f2' },
 		'watermark.accent': { kind: 'style', value: '#ffd54a' },
-		'watermark.font': { kind: 'style', value: "'Space Grotesk', 'Inter', sans-serif" },
-		'watermark.fontLabel': { kind: 'style', value: "'Space Mono', ui-monospace, monospace" },
 		'counter.ink': { kind: 'style', value: '#ffd54a' },
-		'counter.fontLabel': { kind: 'style', value: "'Space Mono', ui-monospace, monospace" },
 		'instance-stack.ink': { kind: 'style', value: '#ffd54a' },
-		'instance-stack.font': { kind: 'style', value: "'Space Grotesk', 'Inter', sans-serif" },
 		'text-3d.ink': { kind: 'style', value: '#ffd54a' },
-		'text-3d.font': { kind: 'style', value: "'Space Grotesk', 'Inter', sans-serif" },
 		// Washi-tape procedural grain — the dark/light fibre stops in the tape's
 		// gradient stack (alpha-bound; previously inline literals, now Pack-routed).
 		'washi-tape.grain-dark': { kind: 'style', value: 'rgba(0, 0, 0, 0.08)' },

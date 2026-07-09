@@ -246,7 +246,7 @@
 		display: grid;
 		grid-template-rows: auto 1fr auto;
 		gap: 0.6em;
-		font-family: var(--font, 'Old Standard TT', 'Times New Roman', Times, serif);
+		font-family: 'Old Standard TT', 'Times New Roman', Times, serif;
 		overflow: hidden;
 		position: relative;
 		transform-origin: center;
@@ -318,7 +318,7 @@
 		background-color: var(--accent);
 		/* Extra slot → chains to the ink core (the kicker chip prints in the paper's ink), never a literal (ADR-0024). */
 		color: var(--kicker-ink, var(--ink));
-		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
+		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-weight: 700;
 		/* Pack label dress (`newspaper.tracking` / `.case`); silent → today's caps. */
 		letter-spacing: var(--tracking, 0.14em);
@@ -335,7 +335,7 @@
 	 * newspaper Surface's TypeGPU shaderPass, not CSS / SVG.
 	 */
 	h2 {
-		font-family: var(--font, 'Playfair Display', 'Old Standard TT', 'Roboto Slab', serif);
+		font-family: 'Playfair Display', 'Old Standard TT', 'Roboto Slab', serif;
 		/* Pack title weight (`newspaper.weight`); silent → today's 900. */
 		font-weight: var(--weight, 900);
 		line-height: 1.02;
@@ -351,7 +351,7 @@
 		border-block-start: 0.15em solid var(--edge, var(--ink));
 		display: flex;
 		flex-wrap: wrap;
-		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
+		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		gap: 1.5em;
 		justify-content: space-between;
 		/* Footer credit line is a label group — shares the card's label dress
