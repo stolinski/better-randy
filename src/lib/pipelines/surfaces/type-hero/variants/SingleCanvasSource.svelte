@@ -106,14 +106,16 @@
 		transform: translateY(-50%);
 	}
 
+	/* The accent gesture: a chunky horizontal bar under the word, left-aligned
+	   with it — a confident graphic mark (the brand's marker stub), not the old
+	   floating vertical hairline (which read as generic-template chrome). */
 	.type-hero-source__rule {
 		background-color: var(--accent);
-		block-size: 22%;
-		inset-block-start: 50%;
-		inset-inline-end: 14%;
-		inline-size: 2px;
+		block-size: 1.6%;
+		inset-block-start: 65%;
+		inset-inline-start: 7.2%;
+		inline-size: 14%;
 		position: absolute;
-		transform: translateY(-50%);
 	}
 
 	.type-hero-source__subtitle {

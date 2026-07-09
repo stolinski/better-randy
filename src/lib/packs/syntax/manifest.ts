@@ -152,18 +152,19 @@ export const syntaxPack: PackManifest = {
 		// Brand faces: Space Grotesk display, Space Mono for the episode stamp.
 		'type-hero.font': { kind: 'style', value: "'Space Grotesk', 'Inter', sans-serif" },
 		'type-hero.fontLabel': { kind: 'style', value: "'Space Mono', ui-monospace, monospace" },
-		// WGSL backdrop tints (render-is-truth — exact byte conversions of the
-		// type-hero-rake pass's vec3f constants): near-black gradient, warm/cool
-		// drifting atmosphere bands, warm-white particle motes. The letterform
-		// rim/carve grade vectors stay intrinsic to the pass (signed channels).
+		// WGSL backdrop tints. The brand field is FLAT warm black (calibration
+		// 2026-07-09: drifting atmosphere bands + particle motes read as another
+		// channel's cinematic grammar, not Syntax) — bands/motes are additive in
+		// the pass, so pure black zeroes them; top == bottom kills the gradient.
+		// The letterform rim/carve grade stays intrinsic to the pass.
 		'type-hero.backdrop': {
 			kind: 'style',
 			value: {
-				top: '#050507',
-				bottom: '#070605',
-				warmBand: '#b8753d',
-				coolBand: '#4d6b94',
-				particle: '#e0cc9e'
+				top: '#0e0e0d',
+				bottom: '#0e0e0d',
+				warmBand: '#000000',
+				coolBand: '#000000',
+				particle: '#000000'
 			}
 		},
 
