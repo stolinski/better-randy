@@ -31,14 +31,14 @@ export const instagramFollowIdentity: IdentitySpec = {
 		{
 			name: 'motion-form',
 			definition:
-				'The press beat: button dips (140 ms, zero at both ends), state swaps to Following, the card takes a soft one-shot settle (420 ms, resting at exactly 1) — keyed in real ms off the authored `beat` fraction.',
+				'The press is ONE continuous gesture (same grammar as youtube-subscribe): the button squashes down (110 ms eased, to 0.92), the state swap hides inside the squash bottom, the release overshoots and settles (210 ms, resting at exactly 1) while the fill morphs Instagram blue → chip grey per frame (220 ms); the card takes a soft one-shot settle (420 ms, resting at exactly 1) — keyed in real ms off the authored `beat` fraction.',
 			implementation:
-				'src/lib/pipelines/overlays/instagram-follow/CanvasSource.svelte — pressT/settleT derived purely from animState.globalProgress vs content.beat (frame-deterministic; no CSS transitions; scales emitted only while non-identity so the mount’s exit fade stays capture-safe).',
+				'src/lib/pipelines/overlays/instagram-follow/CanvasSource.svelte — pressScale/morphT/settleT derived purely from animState.globalProgress vs content.beat (frame-deterministic; no CSS transitions; color morph computed via mixHexColors per frame; scales and morph styles emitted only while non-identity so the mount’s exit fade stays capture-safe).',
 			probe: {
 				kind: 'named-observation',
 				region: 'frames straddling the beat (beat −0.02 … +0.1)',
 				expectation:
-					'blue Follow before; a visible pressed dip at the beat; Following after with a soft card settle; the card’s footprint never changes (both states reserve one grid cell); re-renders are pixel-identical.'
+					'blue Follow before; a visible squash at the beat; the label swap lands inside the squash bottom and the fill passes through intermediate blue-to-grey mixes; Following after with a soft card settle; the card’s footprint never changes (both states reserve one grid cell); re-renders are pixel-identical.'
 			}
 		},
 		{

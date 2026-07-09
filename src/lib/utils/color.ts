@@ -90,6 +90,21 @@ export function resolveRoleColorFloat(
 	return [fallback[0], fallback[1], fallback[2]];
 }
 
+/**
+ * Linear per-channel mix of two hex colors, `t` 0 (from) … 1 (to), returned
+ * as a `rgb()` token. Frame-deterministic color morphs (a button press
+ * interpolating platform-red to settled-grey) compute this per frame — the
+ * engine has no CSS transitions.
+ */
+export function mixHexColors(from: string, to: string, t: number): string {
+	const a = getRgbColorChannels(from);
+	const b = getRgbColorChannels(to);
+	const mix = clampNumber(t, 0, 1);
+	const channel = (x: number, y: number): number => Math.round(x + (y - x) * mix);
+
+	return `rgb(${channel(a.red, b.red)} ${channel(a.green, b.green)} ${channel(a.blue, b.blue)})`;
+}
+
 export function getCanvasRgbColor(color: string, opacity: number): string {
 	const { red, green, blue } = getRgbColorChannels(color);
 	const alpha = clampNumber(opacity, 0, 1);

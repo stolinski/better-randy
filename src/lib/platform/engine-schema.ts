@@ -81,6 +81,7 @@ export const SOUND_EVENTS = [
 	'whoosh-out',
 	'impact',
 	'tick',
+	'click',
 	'pop',
 	'send',
 	'swipe',

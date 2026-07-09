@@ -133,6 +133,32 @@ function pop() {
 	});
 }
 
+// click: a UI button press — two micro-transients ~28 ms apart (the down and
+// the up of a mouse click): a bright high snap into a lower, rounder knock.
+// Distinct from tick (single high ping) and pop (pitch blip); this is the
+// creator-CTA press sound (subscribe / follow beats).
+function click() {
+	const noise = makeNoise(0xc11c);
+	const svf = makeSvf(1.8);
+	let downPhase = 0;
+	let upPhase = 0;
+	return render(0.075, (t) => {
+		// Down-transient at t=0: high filtered snap, very fast decay.
+		const { high } = svf(noise(), 3200);
+		const snap = high * Math.pow(Math.max(0, 1 - t / 0.02), 4) * 1.1;
+		downPhase += 1450 / SAMPLE_RATE;
+		const knockDown = Math.sin(TAU * downPhase) * Math.pow(Math.max(0, 1 - t / 0.03), 3) * 0.8;
+		// Up-transient at t=28ms: lower, softer answer.
+		const tu = (t * 1000 - 28) / 1000;
+		let up = 0;
+		if (tu > 0) {
+			upPhase += 950 / SAMPLE_RATE;
+			up = Math.sin(TAU * upPhase) * Math.pow(Math.max(0, 1 - tu / 0.035), 3) * 0.55;
+		}
+		return snap + knockDown + up;
+	});
+}
+
 // sub-drop: a long low glide with a slow fade — weight under a big landing.
 function subDrop() {
 	let phase = 0;
@@ -229,6 +255,7 @@ const CORE_SOUNDS = {
 	'core-whoosh-out': whooshOut,
 	'core-impact': impact,
 	'core-tick': tick,
+	'core-click': click,
 	'core-pop': pop,
 	'core-swipe': swipe,
 	'core-scratch': scratch,

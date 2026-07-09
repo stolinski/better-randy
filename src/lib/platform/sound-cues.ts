@@ -74,6 +74,7 @@ export const DEFAULT_EVENT_SAMPLES: Record<SoundEvent, string> = {
 	'whoosh-out': 'quick-whoosh-out',
 	impact: 'impact-book',
 	tick: 'tick-pencil',
+	click: 'core-click',
 	pop: 'message-pop',
 	send: 'message-send',
 	swipe: 'marker-swipe',
@@ -434,10 +435,11 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 	}
 
 	// Platform-CTA press beats (creator blocks): the youtube-subscribe and
-	// instagram-follow presses emit a pop at their authored `beat` — a discrete
-	// UI impact, the same character class as a received bubble. The beat has no
-	// Transition window (it is content, like the counter's roll), so the cue
-	// carries the default sample; the rail shows it like every derived cue.
+	// instagram-follow presses emit a CLICK at their authored `beat` — a
+	// button press, not a bubble arrival (its own event so the character is
+	// honest and per-motion overrides read right). The beat has no Transition
+	// window (it is content, like the counter's roll), so the cue carries the
+	// default sample; the rail shows it like every derived cue.
 	for (const overlay of state.overlays) {
 		if (overlay.type !== 'youtube-subscribe' && overlay.type !== 'instagram-follow') {
 			continue;
@@ -447,7 +449,7 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 			cueFrom(
 				`overlay:${overlay.id}:beat`,
 				{ kind: 'overlay', overlayId: overlay.id },
-				'pop',
+				'click',
 				{ start: content?.beat ?? 0.42, duration: 0 },
 				undefined
 			)

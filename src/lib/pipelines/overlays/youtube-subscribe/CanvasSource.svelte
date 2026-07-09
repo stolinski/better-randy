@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { animState } from '$lib/platform/anim-state.svelte';
 	import { engineState } from '$lib/platform/engine-state.svelte';
+	import { mixHexColors } from '$lib/utils/color';
 	import type { YoutubeSubscribeContent } from './index';
 
 	interface Props {
@@ -21,20 +22,54 @@
 	// authored beat fraction so it reads identically at any transport length —
 	// and derived purely from globalProgress (no CSS transitions, no wall
 	// clock): preview and export resolve identical pixels at the same frame.
-	const PRESS_MS = 140; // pill dips while "pressed"
+	// A press is one continuous gesture, not a jump-cut: the pill squashes
+	// down, the state swaps hidden inside the squash bottom, the release
+	// overshoots and settles while the color morphs red → settled grey and the
+	// check draws on.
+	const DOWN_MS = 110; // squash to the press bottom
+	const RELEASE_MS = 210; // overshoot-and-settle back to rest
+	const MORPH_MS = 220; // red → grey color morph, from the bottom
+	const CHECK_MS = 240; // check draw-on, slightly trailing the morph
 	const RING_MS = 650; // bell ring-in wiggle after the swap
 	const durationMs = $derived(engineState.transport.durationSeconds * 1000);
 	const sinceBeatMs = $derived((animState.globalProgress - beat) * durationMs);
 
-	const pressT = $derived(Math.max(0, Math.min(1, sinceBeatMs / PRESS_MS)));
-	const subscribed = $derived(sinceBeatMs >= PRESS_MS);
-	const ringT = $derived(Math.max(0, Math.min(1, (sinceBeatMs - PRESS_MS) / RING_MS)));
+	// The swap hides inside the squash bottom — the least-visible frame.
+	const subscribed = $derived(sinceBeatMs >= DOWN_MS);
 
-	// Press dip: down-and-back scale, zero at both ends. Emitted only while it
-	// is non-identity — a lingering descendant transform would quantize the
-	// mount's exit-fade opacity in the HTML-in-canvas capture (the documented
-	// defect family).
-	const pressScale = $derived(1 - 0.06 * Math.sin(Math.min(1, pressT) * Math.PI));
+	// Press scale, one continuous curve across both states: 1 → 0.92 (eased
+	// squash), then 0.92 → 1.035 → 1 (release overshoot resting at exactly 1).
+	// Emitted only while non-identity — a lingering descendant transform would
+	// quantize the mount's exit-fade opacity in the HTML-in-canvas capture
+	// (the documented defect family).
+	const pressScale = $derived.by(() => {
+		if (sinceBeatMs <= 0 || sinceBeatMs >= DOWN_MS + RELEASE_MS) return 1;
+		if (sinceBeatMs < DOWN_MS) {
+			const t = sinceBeatMs / DOWN_MS;
+			const eased = 1 - (1 - t) * (1 - t);
+			return 1 - 0.08 * eased;
+		}
+		const t = (sinceBeatMs - DOWN_MS) / RELEASE_MS;
+		// Damped half-wave: rises through 1, peaks +0.035, lands exactly at 1.
+		return 1 - 0.08 * (1 - t) + 0.035 * Math.sin(t * Math.PI) * (1 - t);
+	});
+
+	// Color morph on the landed pill: YouTube red → the muted Subscribed chip,
+	// computed per frame (no CSS transitions). Emitted only during the morph —
+	// afterwards the class endpoint colors take over, pixel-identical.
+	const morphT = $derived(Math.max(0, Math.min(1, (sinceBeatMs - DOWN_MS) / MORPH_MS)));
+	const chipBg = $derived(theme === 'dark' ? '#3f3f3f' : '#f2f2f2');
+	const chipInk = $derived(theme === 'dark' ? '#f1f1f1' : '#0f0f0f');
+	const morphBg = $derived(morphT < 1 ? mixHexColors('#ff0000', chipBg, morphT) : undefined);
+	const morphInk = $derived(morphT < 1 ? mixHexColors('#ffffff', chipInk, morphT) : undefined);
+
+	// Check draw-on: stroke walks the path (pathLength-normalized dashoffset),
+	// trailing the morph so the mark lands on the settled chip.
+	const checkT = $derived(
+		Math.max(0, Math.min(1, (sinceBeatMs - DOWN_MS - 60) / CHECK_MS))
+	);
+
+	const ringT = $derived(Math.max(0, Math.min(1, (sinceBeatMs - DOWN_MS) / RING_MS)));
 
 	// Bell ring: decaying wiggle that rests at exactly 0 by RING_MS end.
 	const bellDeg = $derived(
@@ -85,13 +120,18 @@
 		<span class="yt-sub__state" style:visibility={subscribed ? 'hidden' : undefined}>
 			<span
 				class="yt-sub__pill"
-				style:scale={pressT > 0 && pressT < 1 ? String(pressScale) : undefined}
+				style:scale={pressScale !== 1 && !subscribed ? String(pressScale) : undefined}
 			>
 				<span>Subscribe</span>
 			</span>
 		</span>
 		<span class="yt-sub__state" style:visibility={subscribed ? undefined : 'hidden'}>
-			<span class="yt-sub__pill yt-sub__pill--subscribed">
+			<span
+				class="yt-sub__pill yt-sub__pill--subscribed"
+				style:scale={pressScale !== 1 && subscribed ? String(pressScale) : undefined}
+				style:background={morphBg}
+				style:color={morphInk}
+			>
 				<svg class="yt-sub__check" viewBox="0 0 24 24" aria-hidden="true">
 					<path
 						d="M4.5 12.5l5 5 10-11"
@@ -100,6 +140,9 @@
 						stroke-width="2.6"
 						stroke-linecap="round"
 						stroke-linejoin="round"
+						pathLength="1"
+						stroke-dasharray="1"
+						stroke-dashoffset={checkT < 1 ? String(1 - checkT) : undefined}
 					/>
 				</svg>
 				<span>Subscribed</span>

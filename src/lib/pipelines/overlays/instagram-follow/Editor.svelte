@@ -2,6 +2,7 @@
 	import type { OverlayEditorProps } from '$lib/platform/pipelines/types';
 	import type { InstagramFollowContent } from './index';
 	import Field from '$lib/platform/Field.svelte';
+	import InspectorToggle from '$lib/platform/InspectorToggle.svelte';
 
 	let { overlay = $bindable() }: OverlayEditorProps<InstagramFollowContent> = $props();
 </script>
@@ -19,7 +20,11 @@
 </Field>
 
 <Field label="Verified">
-	<input bind:checked={overlay.content.verified} type="checkbox" />
+	<InspectorToggle
+		checked={overlay.content.verified ?? false}
+		label="Verified badge"
+		onchange={(checked) => (overlay.content.verified = checked)}
+	/>
 </Field>
 
 <Field label="Avatar URL">
@@ -34,5 +39,5 @@
 </Field>
 
 <Field label="Press beat">
-	<input bind:value={overlay.content.beat} type="number" min="0" max="1" step="0.01" />
+	<input bind:value={overlay.content.beat} type="number" min="0" max="1" step="any" />
 </Field>

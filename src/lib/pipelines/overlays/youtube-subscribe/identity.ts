@@ -31,14 +31,14 @@ export const youtubeSubscribeIdentity: IdentitySpec = {
 		{
 			name: 'motion-form',
 			definition:
-				'The press beat: pill dips (140 ms, zero at both ends), state swaps to Subscribed + check, the bell rings in with a decaying wiggle (650 ms, resting at exactly 0), a ripple leaves the pill — all keyed in real ms off the authored `beat` fraction.',
+				'The press is ONE continuous gesture, never a jump-cut: the pill squashes down (110 ms eased, to 0.92), the state swap hides inside the squash bottom, the release overshoots and settles (210 ms, resting at exactly 1) while the fill morphs red → chip grey per frame (220 ms) and the check draws on along its path (240 ms, trailing 60 ms); the bell rings in with a decaying wiggle (650 ms, resting at exactly 0) and a ripple leaves the pill — all keyed in real ms off the authored `beat` fraction.',
 			implementation:
-				'src/lib/pipelines/overlays/youtube-subscribe/CanvasSource.svelte — pressT/ringT/rippleT derived purely from animState.globalProgress vs content.beat (frame-deterministic; no CSS transitions; transforms emitted only while non-identity so the mount’s exit fade stays capture-safe).',
+				'src/lib/pipelines/overlays/youtube-subscribe/CanvasSource.svelte — pressScale/morphT/checkT/ringT/rippleT derived purely from animState.globalProgress vs content.beat (frame-deterministic; no CSS transitions; color morph computed via mixHexColors per frame; transforms and morph styles emitted only while non-identity so the mount’s exit fade stays capture-safe).',
 			probe: {
 				kind: 'named-observation',
 				region: 'frames straddling the beat (beat −0.02 … +0.12)',
 				expectation:
-					'red pill before; a visible pressed dip at the beat; Subscribed + check after with the bell ringing in and settling to rest; nothing pops binary; the same frames re-render pixel-identically.'
+					'red pill before; a visible squash at the beat; the label swap lands inside the squash bottom; the fill passes through intermediate red-to-grey mixes (a mid-morph frame is visibly pink) while the check stroke lengthens; bell rings in and settles to rest; nothing pops binary; the same frames re-render pixel-identically.'
 			}
 		},
 		{

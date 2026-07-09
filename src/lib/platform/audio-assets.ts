@@ -6,6 +6,7 @@
  * core set is synthesized by `scripts/gen-core-sounds.mjs`; kit-specific
  * samples register here as they land.
  */
+import coreClickUrl from '$lib/assets/sounds/core-click.wav';
 import coreImpactUrl from '$lib/assets/sounds/core-impact.wav';
 import corePopUrl from '$lib/assets/sounds/core-pop.wav';
 import coreScratchUrl from '$lib/assets/sounds/core-scratch.wav';
@@ -38,6 +39,7 @@ const SOUND_ASSETS: Record<string, string> = {
 	'core-whoosh-out': coreWhooshOutUrl,
 	'core-impact': coreImpactUrl,
 	'core-tick': coreTickUrl,
+	'core-click': coreClickUrl,
 	'core-pop': corePopUrl,
 	'core-swipe': coreSwipeUrl,
 	'core-scratch': coreScratchUrl,

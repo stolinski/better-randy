@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { animState } from '$lib/platform/anim-state.svelte';
 	import { engineState } from '$lib/platform/engine-state.svelte';
+	import { mixHexColors } from '$lib/utils/color';
 	import type { InstagramFollowContent } from './index';
 
 	interface Props {
@@ -18,22 +19,45 @@
 
 	// Press choreography keyed in REAL ms off the beat, derived purely from
 	// globalProgress — frame-deterministic (no CSS transitions, no wall clock).
-	const PRESS_MS = 140;
+	// One continuous gesture, same grammar as youtube-subscribe: the button
+	// squashes down, the state swaps hidden inside the squash bottom, the
+	// release overshoots and settles while the blue morphs to the muted chip.
+	const DOWN_MS = 110;
+	const RELEASE_MS = 210;
+	const MORPH_MS = 220;
 	const SETTLE_MS = 420; // card settle after the swap
 	const durationMs = $derived(engineState.transport.durationSeconds * 1000);
 	const sinceBeatMs = $derived((animState.globalProgress - beat) * durationMs);
 
-	const pressT = $derived(Math.max(0, Math.min(1, sinceBeatMs / PRESS_MS)));
-	const following = $derived(sinceBeatMs >= PRESS_MS);
-	const settleT = $derived(Math.max(0, Math.min(1, (sinceBeatMs - PRESS_MS) / SETTLE_MS)));
+	const following = $derived(sinceBeatMs >= DOWN_MS);
 
-	// Press dip on the button — zero at both ends; emitted only while
-	// non-identity (a lingering descendant transform would quantize the mount's
-	// exit-fade opacity in the HTML-in-canvas capture).
-	const pressScale = $derived(1 - 0.06 * Math.sin(Math.min(1, pressT) * Math.PI));
+	// Press scale, continuous across both states: eased squash to 0.92, then
+	// an overshoot release resting at exactly 1. Emitted only while
+	// non-identity (a lingering descendant transform would quantize the
+	// mount's exit-fade opacity in the HTML-in-canvas capture).
+	const pressScale = $derived.by(() => {
+		if (sinceBeatMs <= 0 || sinceBeatMs >= DOWN_MS + RELEASE_MS) return 1;
+		if (sinceBeatMs < DOWN_MS) {
+			const t = sinceBeatMs / DOWN_MS;
+			const eased = 1 - (1 - t) * (1 - t);
+			return 1 - 0.08 * eased;
+		}
+		const t = (sinceBeatMs - DOWN_MS) / RELEASE_MS;
+		return 1 - 0.08 * (1 - t) + 0.035 * Math.sin(t * Math.PI) * (1 - t);
+	});
+
+	// Color morph on the landed button: Instagram blue → the muted Following
+	// chip, computed per frame; emitted only during the morph, after which the
+	// class endpoint colors take over pixel-identically.
+	const morphT = $derived(Math.max(0, Math.min(1, (sinceBeatMs - DOWN_MS) / MORPH_MS)));
+	const chipBg = $derived(theme === 'dark' ? '#363636' : '#efefef');
+	const chipInk = $derived(theme === 'dark' ? '#f5f5f5' : '#262626');
+	const morphBg = $derived(morphT < 1 ? mixHexColors('#0095f6', chipBg, morphT) : undefined);
+	const morphInk = $derived(morphT < 1 ? mixHexColors('#ffffff', chipInk, morphT) : undefined);
 
 	// A one-shot settle nudge on the whole card as the follow lands — a soft
 	// dip-and-return, resting at exactly 1 by SETTLE_MS end.
+	const settleT = $derived(Math.max(0, Math.min(1, (sinceBeatMs - DOWN_MS) / SETTLE_MS)));
 	const cardScale = $derived(
 		settleT > 0 && settleT < 1 ? 1 + 0.012 * Math.sin(settleT * Math.PI) : 1
 	);
@@ -93,13 +117,20 @@
 		<span class="ig-follow__state" style:visibility={following ? 'hidden' : undefined}>
 			<span
 				class="ig-follow__button"
-				style:scale={pressT > 0 && pressT < 1 ? String(pressScale) : undefined}
+				style:scale={pressScale !== 1 && !following ? String(pressScale) : undefined}
 			>
 				Follow
 			</span>
 		</span>
 		<span class="ig-follow__state" style:visibility={following ? undefined : 'hidden'}>
-			<span class="ig-follow__button ig-follow__button--following">Following</span>
+			<span
+				class="ig-follow__button ig-follow__button--following"
+				style:scale={pressScale !== 1 && following ? String(pressScale) : undefined}
+				style:background={morphBg}
+				style:color={morphInk}
+			>
+				Following
+			</span>
 		</span>
 	</span>
 </aside>
