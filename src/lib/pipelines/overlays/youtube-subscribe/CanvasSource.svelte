@@ -54,7 +54,7 @@
 				<circle cx="20" cy="20" r="20" fill={theme === 'dark' ? '#3d3d3d' : '#c6c6c6'} />
 				<circle cx="20" cy="15.5" r="7" fill={theme === 'dark' ? '#8a8a8a' : '#f5f5f5'} />
 				<path
-					d="M6.5 36.5c1.8-7.4 7.3-11 13.5-11s11.7 3.6 13.5 11"
+					d="M6.5 44V36.5c1.8-7.4 7.3-11 13.5-11s11.7 3.6 13.5 11V44Z"
 					fill={theme === 'dark' ? '#8a8a8a' : '#f5f5f5'}
 				/>
 			</svg>
