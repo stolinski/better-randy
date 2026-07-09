@@ -26,6 +26,13 @@ import '@fontsource/jetbrains-mono/700.css';
 import '@fontsource/inter/400.css';
 import '@fontsource/inter/600.css';
 import '@fontsource/inter/700.css';
+// The live-overlay brand faces (github.com/randyrektor/syntax-overlay — the
+// real Syntax house style, calibration 2026-07-09): Space Grotesk display,
+// Space Mono labels/chrome.
+import '@fontsource/space-grotesk/500.css';
+import '@fontsource/space-grotesk/700.css';
+import '@fontsource/space-mono/400.css';
+import '@fontsource/space-mono/700.css';
 
 import type { PackFont } from '$lib/platform/packs/types';
 
@@ -34,5 +41,7 @@ export const syntaxFonts: readonly PackFont[] = [
 	{ family: 'Playfair Display', weights: [600, 700, 800] },
 	{ family: 'Old Standard TT', weights: [400, 700] },
 	{ family: 'JetBrains Mono', weights: [400, 500, 700] },
-	{ family: 'Inter', weights: [400, 600, 700] }
+	{ family: 'Inter', weights: [400, 600, 700] },
+	{ family: 'Space Grotesk', weights: [500, 700] },
+	{ family: 'Space Mono', weights: [400, 700] }
 ];

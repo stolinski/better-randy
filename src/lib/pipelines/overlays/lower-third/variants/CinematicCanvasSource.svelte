@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { packState } from '$lib/platform/engine-state.svelte';
 	import { getPack } from '$lib/platform/packs/registry';
-	import { requireCoreColor, resolveColorChannels } from '$lib/platform/packs/resolve';
+	import {
+		requireCoreColor,
+		resolveColorChannels,
+		resolveLowerThirdKicker
+	} from '$lib/platform/packs/resolve';
 
 	import type { LowerThirdContent } from '../index';
 
@@ -28,6 +32,19 @@
 	const accentRgb = $derived(
 		resolveColorChannels(pack, 'lower-third.accent', requireCoreColor(pack, 'accent-treatment'))
 	);
+
+	// Kicker dress (`lower-third.kicker`, ADR-0023): plain tracked text unless
+	// the Pack claims a chip — a small plate behind the kicker (the zine kicker
+	// chip). The 'accent' plate sentinel rides the accent channel above so chip
+	// and rule stay one colour family.
+	const kicker = $derived(resolveLowerThirdKicker(pack));
+	const kickerPlate = $derived(
+		kicker.form === 'chip'
+			? kicker.plate === 'accent'
+				? `rgb(${accentRgb})`
+				: kicker.plate
+			: undefined
+	);
 </script>
 
 <aside
@@ -42,7 +59,13 @@
 	<div class="lower-third--cinematic__content">
 		{#if content.kicker}
 			{#key content.kicker}
-				<span class="lower-third--cinematic__kicker" data-text-anim-slot="kicker">
+				<span
+					class="lower-third--cinematic__kicker"
+					class:lower-third--cinematic__kicker--chip={kicker.form === 'chip'}
+					style:--kicker-plate={kickerPlate}
+					style:--kicker-ink={kicker.form === 'chip' ? kicker.ink : undefined}
+					data-text-anim-slot="kicker"
+				>
 					{content.kicker}
 				</span>
 			{/key}
@@ -130,6 +153,21 @@
 		padding-inline-start: var(--tracking, 0.26em);
 		text-shadow: 0 0.04em 0.1em rgba(0, 0, 0, 0.85);
 		text-transform: uppercase;
+	}
+
+	/* Pack-claimed kicker chip (`lower-third.kicker` form 'chip'): the zine
+	   kicker — mono caps on a brand plate. Square corners (zine cuts, never
+	   rounds), fit-content so the plate hugs the word, tighter tracking than
+	   the floating-text form (the plate does the separating work). */
+	.lower-third--cinematic__kicker--chip {
+		background: var(--kicker-plate);
+		color: var(--kicker-ink);
+		justify-self: start;
+		letter-spacing: 0.14em;
+		opacity: 1;
+		padding: calc(0.45 * var(--cqmin)) calc(0.9 * var(--cqmin)) calc(0.38 * var(--cqmin))
+			calc(1 * var(--cqmin));
+		text-shadow: none;
 	}
 
 	.lower-third--cinematic__name {

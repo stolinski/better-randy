@@ -41,14 +41,20 @@
 		/* Pack FORM dress (ADR-0023 appearance): border + corner radius the Pack
 		   may claim via `lower-third.border` / `.radius` — the same roles that bezel
 		   the cinematic plate now also frame the standard plate. A Pack silent on
-		   them keeps today's borderless square plate (syntax renders unchanged). */
+		   them keeps today's borderless square plate (syntax renders unchanged).
+		   `lower-third.shadow` carries a claimed depth stack (e.g. the Syntax
+		   stepped hard-offset — box-shadow captures in HTML-in-Canvas; CSS filters
+		   do not); silent Packs stay flat. */
 		border: var(--border, none);
 		border-radius: var(--radius, 0);
+		box-shadow: var(--shadow, none);
 	}
 
 	.lower-third__kicker {
 		color: var(--accent);
-		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
+		/* Label/chrome face (`lower-third.fontLabel`) — distinct from the display
+		   face so a Pack can pair a grotesk display with a mono label voice. */
+		font-family: var(--fontLabel, var(--font, 'JetBrains Mono', ui-monospace, monospace));
 		font-size: calc(3 * var(--cqmin));
 		letter-spacing: var(--tracking, 0.16em);
 		text-transform: var(--case, uppercase);
@@ -57,13 +63,18 @@
 	.lower-third__title {
 		font-size: calc(7 * var(--cqmin));
 		font-weight: var(--weight, 600);
+		letter-spacing: -0.02em;
 		line-height: var(--leading, 1.05);
 	}
 
 	.lower-third__subtitle {
+		/* Muted byline ink (`lower-third.roleInk`) — a claimed quiet voice beats
+		   the translucent-ink fallback so the Pack controls the exact byline
+		   colour (the old opacity: 0.78 dim, expressed as a colour so a claim
+		   replaces it wholesale). */
+		color: var(--roleInk, color-mix(in srgb, currentColor 78%, transparent));
 		font-size: calc(4 * var(--cqmin));
 		letter-spacing: var(--tracking, normal);
 		text-transform: var(--case, none);
-		opacity: 0.78;
 	}
 </style>

@@ -85,10 +85,19 @@ export const cinematicLowerThirdFlare: ShaderPass<LowerThirdContent> = {
 	packUniforms(content, bounds, { progress, canvasWidth, canvasHeight }) {
 		// Uniforms pack per frame, so a Pack switch takes effect without extra
 		// reactivity — read the active Pack imperatively here.
-		const flareRole = getPack(packState.slug).roles['lower-third.flare'];
+		const pack = getPack(packState.slug);
+		const flareRole = pack.roles['lower-third.flare'];
+		// The light character is the Pack's claim (`lower-third.light` — a Pack
+		// opts INTO glow; the old gate hardcoded variant === 'cinematic', firing
+		// the flare on packs whose house style is flat).
+		const lightRole = pack.roles['lower-third.light'];
+		const lightClaim =
+			lightRole?.kind === 'style' && lightRole.value !== null && typeof lightRole.value === 'object'
+				? (lightRole.value as Record<string, unknown>)[content.variant ?? 'standard']
+				: undefined;
 		return {
 			progress,
-			flareEnabled: content.variant === 'cinematic' ? 1 : 0,
+			flareEnabled: lightClaim === 'anamorphic-flare' ? 1 : 0,
 			boundsUvMin: d.vec2f(bounds.x / canvasWidth, bounds.y / canvasHeight),
 			boundsUvMax: d.vec2f(
 				(bounds.x + bounds.width) / canvasWidth,

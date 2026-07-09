@@ -204,15 +204,30 @@ export const syntaxPack: PackManifest = {
 		'isolate.depth': { kind: 'style', value: 'flat' },
 
 		// ---------------- Overlays ----------------
-		'lower-third.accent': { kind: 'style', value: '#f4a85e' },
-		'lower-third.ink': { kind: 'style', value: '#fff8ec' },
-		'lower-third.roleInk': { kind: 'style', value: '#d8c4a0' },
-		// Plate chrome (render-is-truth — restates the values the variant
-		// CanvasSources shipped with): the standard variant's flat dark plate
-		// (whole colour, alpha included) and the cinematic scrim's gradient base
-		// (one colour composed at several alphas → channel-resolved via
-		// resolveColorChannels, so only the hex lives here).
-		'lower-third.plate': { kind: 'style', value: 'rgba(10, 10, 10, 0.92)' },
+		// The Syntax house card (calibration 2026-07-09, matched to the real
+		// live-stream overlays — github.com/randyrektor/syntax-overlay): a FLAT
+		// warm-dark card with a visible border, rounded corners, and the signature
+		// chunky stepped hard-offset shadow. No gloss, no gradients, no glow —
+		// the earlier "cinematic" scrim/flare dress read as generic template.
+		// Values are the repo's, scaled ×2 for the 4K frame (repo authored ~1080p).
+		'lower-third.accent': { kind: 'style', value: '#ffd54a' },
+		'lower-third.ink': { kind: 'style', value: '#f7f6f2' },
+		'lower-third.roleInk': { kind: 'style', value: '#c9c6bc' },
+		'lower-third.plate': { kind: 'style', value: '#141413' },
+		'lower-third.border': { kind: 'style', value: '4px solid #454441' },
+		'lower-third.radius': { kind: 'style', value: '16px' },
+		'lower-third.shadow': {
+			kind: 'style',
+			value:
+				'2px 2px 0 0 #050504, 4px 4px 0 0 #050504, 6px 6px 0 0 #050504, 8px 8px 0 0 #050504, 10px 10px 0 0 #050504, 12px 12px 0 0 #050504, 14px 14px 0 0 #050504, 16px 16px 0 0 #050504, 18px 18px 0 0 #050504, 20px 20px 0 0 #050504'
+		},
+		'lower-third.pad': { kind: 'style', value: '28px 44px 30px 40px' },
+		'lower-third.gap': { kind: 'style', value: '8px' },
+		'lower-third.weight': { kind: 'style', value: '700' },
+		// Brand faces: Space Grotesk display, Space Mono labels/chrome.
+		'lower-third.font': { kind: 'style', value: "'Space Grotesk', 'Inter', sans-serif" },
+		'lower-third.fontLabel': { kind: 'style', value: "'Space Mono', ui-monospace, monospace" },
+		// The cinematic scrim base stays claimed for the variant that uses it.
 		'lower-third.scrim': { kind: 'style', value: { color: '#08060a' } },
 
 		// Consumed appearance Roles wired into the overlay CanvasSources
@@ -226,13 +241,11 @@ export const syntaxPack: PackManifest = {
 		// gradient stack (alpha-bound; previously inline literals, now Pack-routed).
 		'washi-tape.grain-dark': { kind: 'style', value: 'rgba(0, 0, 0, 0.08)' },
 		'washi-tape.grain-light': { kind: 'style', value: 'rgba(255, 255, 255, 0.06)' },
-		'lower-third.edge': { kind: 'style', value: { rule: 'vertical-accent', color: '#fabf47' } },
+		'lower-third.edge': { kind: 'style', value: { rule: 'vertical-accent', color: '#ffd54a' } },
 		'lower-third.depth': { kind: 'style', value: 'flat' },
-		'lower-third.light': { kind: 'style', value: { standard: 'none', cinematic: 'anamorphic-flare' } },
-		// WGSL rim tint for the cinematic variant's resting glow (render-is-truth
-		// — exact byte conversion of the flare pass's vec3f constant): warm
-		// off-frame key from the lower-left.
-		'lower-third.flare': { kind: 'style', value: { rim: '#f2bd75' } },
+		// No light pass on either variant (calibration 2026-07-09): the anamorphic
+		// flare read as glossy motion-template chrome — the house style is flat.
+		'lower-third.light': { kind: 'style', value: { standard: 'none', cinematic: 'none' } },
 
 		// ---------------- motion-primitives v1 (Phase 4.2-4.4) ----------------
 		'cursor-trail.pointer': { kind: 'style', value: 'mac-pointer' },

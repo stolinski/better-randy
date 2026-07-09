@@ -63,7 +63,13 @@ const CSS_FORM_SUFFIXES = new Set([
 	'tracking',
 	'weight',
 	'case',
-	'leading'
+	'leading',
+	// The stepped hard-offset stack and the per-Pipeline typeface split
+	// (display face vs label/chrome face) the Syntax house card claims
+	// (calibration 2026-07-09).
+	'shadow',
+	'font',
+	'fontLabel'
 ]);
 
 /**
@@ -600,6 +606,47 @@ export function resolveTypographyColors(
  * (colour → vec3/vec4 float for a shaderPass) is deferred until a *surviving*
  * shader pipeline needs it — `shader-fill` is dead-by-use pending prove-or-remove.
  */
+/**
+ * The Pack-resolved lower-third kicker treatment (`lower-third.kicker`,
+ * ADR-0023 appearance): how the kicker slot dresses under the active Pack —
+ * plain tracked text (the neutral default every silent Pack keeps) or a
+ * `chip`: a small plate behind the kicker (the zine "kicker chip" — mono caps
+ * on a brand plate). `plate` may be a hex or the `'accent'` sentinel (resolved
+ * by the consumer to the variant's accent chain); `ink` is the text colour on
+ * the plate.
+ */
+export interface LowerThirdKickerTreatment {
+	form: 'text' | 'chip';
+	plate: string;
+	ink: string;
+}
+
+const LOWER_THIRD_KICKER_DEFAULT: LowerThirdKickerTreatment = {
+	form: 'text',
+	plate: 'accent',
+	ink: '#0b0b0b'
+};
+
+export function resolveLowerThirdKicker(manifest: PackManifest): LowerThirdKickerTreatment {
+	const resolved: LowerThirdKickerTreatment = { ...LOWER_THIRD_KICKER_DEFAULT };
+
+	const role = manifest.roles['lower-third.kicker'];
+	if (role && role.kind === 'style' && role.value !== null && typeof role.value === 'object') {
+		const value = role.value as { form?: unknown; plate?: unknown; ink?: unknown };
+		if (value.form === 'chip' || value.form === 'text') {
+			resolved.form = value.form;
+		}
+		if (typeof value.plate === 'string') {
+			resolved.plate = value.plate;
+		}
+		if (typeof value.ink === 'string') {
+			resolved.ink = value.ink;
+		}
+	}
+
+	return resolved;
+}
+
 /**
  * The Pack-resolved diagram stroke (ADR-0036 §4): how edge-arrows and
  * timeline-segments are drawn under the active Pack — hand-drawn marker feel,

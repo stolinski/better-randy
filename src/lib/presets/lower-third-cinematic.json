@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
-	"name": "Lower-third — cinematic with anamorphic flare",
-	"description": "Broadcast-grade lower-third using the lower-third family's `cinematic` variant per ADR-0020. The family's shaderPass adds a constant warm rim glow at the lower-left (implying an off-frame key light), gated to the cinematic variant via a flareEnabled uniform. The anamorphic entrance flare was removed by design — at its peak it read as a line straight through the name.",
+	"name": "Lower-third — Syntax house card",
+	"description": "Reference lower-third on the standard (flat card) variant, recomposed 2026-07-09 for the quality arc calibrate-the-bar pass against the REAL Syntax house style (github.com/randyrektor/syntax-overlay): flat #141413 card, visible #454441 border, rounded corners, the signature chunky stepped hard-offset shadow, Space Grotesk display + Space Mono label, muted #c9c6bc byline. The earlier cinematic dress (scrim gradient + WGSL anamorphic flare) read as glossy generic-template chrome and was retired for this pack — the flare pass now gates on the lower-third.light Pack claim.",
 	"pack": "syntax",
 	"state": {
 		"transport": {
@@ -12,8 +12,8 @@
 		},
 		"typography": {
 			"fontFamily": "sans",
-			"paperColor": "#0a0810",
-			"inkColor": "#fff8ec"
+			"paperColor": "#0e0e0d",
+			"inkColor": "#f7f6f2"
 		},
 		"marks": {
 			"defaults": {},
@@ -30,7 +30,7 @@
 				"type": "lower-third",
 				"id": "main",
 				"content": {
-					"variant": "cinematic",
+					"variant": "standard",
 					"kicker": "GUEST",
 					"title": "Rich Harris",
 					"subtitle": "Creator of Svelte"
