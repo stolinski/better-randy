@@ -74,7 +74,7 @@
 				{#each words as word, index (index)}<span
 						class="captions__word"
 						class:captions__word--active={index === activeWordIndex}>{word.text}</span
-					>{#if index < words.length - 1}<span class="captions__space"> </span>{/if}{/each}
+					>{/each}
 			</p>
 		{:else if captions.style === 'word-pop'}
 			{#if activeWordIndex >= 0}
@@ -137,13 +137,25 @@
 				calc(0.9 * var(--cqmin) * var(--caption-scale, 1)) rgb(0 0 0 / 0.55);
 	}
 
+	/* Social karaoke is a statement, not a subtitle — CapCut/TikTok-register
+	   type (~95px caps at 4K, G4 caption band), wrapping to two lines when the
+	   cue needs it (C1 allows two). */
 	.captions__line--karaoke {
-		font-size: calc(2.6 * var(--cqmin) * var(--caption-scale, 1));
+		font-size: calc(6 * var(--cqmin) * var(--caption-scale, 1));
 	}
 
+	/* Words are inline-block — that's both the wrap opportunity (there is no
+	   literal space between the spans; Svelte trims whitespace-only nodes) and
+	   the em-based word gap, so spacing rides font-size and --caption-scale
+	   for free. */
 	.captions__word {
-		border-radius: calc(0.35 * var(--cqmin) * var(--caption-scale, 1));
-		padding-inline: calc(0.18 * var(--cqmin) * var(--caption-scale, 1));
+		border-radius: 0.14em;
+		display: inline-block;
+		padding-inline: 0.08em;
+	}
+
+	.captions__word:not(:last-child) {
+		margin-inline-end: 0.26em;
 	}
 
 	/* The spoken word rides the accent pill — the karaoke highlight. */
@@ -154,7 +166,7 @@
 	}
 
 	.captions__line--word-pop {
-		font-size: calc(4.6 * var(--cqmin) * var(--caption-scale, 1));
+		font-size: calc(8.5 * var(--cqmin) * var(--caption-scale, 1));
 		text-transform: uppercase;
 	}
 
@@ -162,7 +174,7 @@
 	   line — same composition, different publication. */
 	.captions__line--pack {
 		font-family: var(--font, var(--caption-pack-font));
-		font-size: calc(2.6 * var(--cqmin) * var(--caption-scale, 1));
+		font-size: calc(4 * var(--cqmin) * var(--caption-scale, 1));
 		font-weight: 600;
 		line-height: 1.3;
 	}
