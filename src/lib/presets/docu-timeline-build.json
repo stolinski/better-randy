@@ -1,20 +1,20 @@
 {
 	"schema": "supers@1",
 	"name": "Docu timeline build — the road to ES modules",
-	"description": "ADR-0036 timeline build (H↔V reflow stress case): three eras of JS module loading drawn as timeline-segments back-to-back along one horizontal axis, era captions riding each segment's label, year-marker labels at the era boundaries below the axis, and one dot node as the present marker. Segments stroke-draw left-to-right in chronological sequence via Cascade — the chronological draw IS the piece. Full-frame dark graphic register (backgroundFill #0f1116, strokes ride warm off-white inkColor); mono signature thread carried by typography.fontFamily mono on every label. Intentional omissions per the docu-diagram register: no collage chrome (torn edges, tape, hard offset shadow, registration jitter) and no grit effect — stroke/node/label appearance resolves through the Syntax pack's Roles.",
+	"description": "ADR-0036 timeline build (H↔V reflow stress case), recomposed 2026-07-09 for the quality arc's calibrate-the-bar pass: three eras of JS module loading drawn as timeline-segments back-to-back along one horizontal axis — era spans PROPORTIONAL to their real years (1995–2009–2015–now), boundary dot nodes anchoring year markers below the axis, standalone era labels above each span (standalone because segment riding captions can't scale — dex lxowmkkj), and a supporting caption line of real dev content under each era. Segments stroke-draw left-to-right in chronological sequence via Cascade — the chronological draw IS the piece. Full-frame dark graphic register on a purple-tinted substrate (Syntax deep-accent family) with paper-grain grit bonding the frame; the syntax.fm stamp carries the mono signature thread; type spans the G4 bands (headline ~94px cap, years ~41px, captions ~29px). Stroke/node/label appearance resolves through the Syntax pack's Roles. No collage chrome (torn edges, tape, hard offset shadow) per the docu-diagram register.",
 	"kind": "deliverable",
 	"pack": "syntax",
 	"state": {
 		"transport": {
 			"orientation": "horizontal",
-			"durationSeconds": 6,
+			"durationSeconds": 8,
 			"fps": 30,
 			"format": "webm"
 		},
-		"backgroundFill": "#0f1116",
+		"backgroundFill": "#171129",
 		"typography": {
 			"fontFamily": "mono",
-			"paperColor": "#161a22",
+			"paperColor": "#1d1633",
 			"inkColor": "#f4ecdc"
 		},
 		"marks": {
@@ -26,121 +26,585 @@
 			"content": {
 				"body": ""
 			},
-			"enter": { "start": 0, "duration": 0.05, "ease": "settled" },
-			"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" },
+			"enter": {
+				"start": 0,
+				"duration": 0.04,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.9,
+				"duration": 0.04,
+				"ease": "smooth"
+			},
 			"diagram": [
 				{
 					"type": "label",
 					"id": "title-road",
-					"position": { "x": 0.5, "y": 0.3 },
+					"position": {
+						"x": 0.5,
+						"y": 0.2
+					},
 					"text": "THE ROAD TO ES MODULES",
-					"scale": 1.6,
-					"enter": { "start": 0.07, "duration": 0.055, "ease": "settled" },
-					"exit": { "start": 0.87, "duration": 0.04, "ease": "smooth" },
+					"scale": 2.6,
+					"enter": {
+						"start": 0.06,
+						"duration": 0.05,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.885,
+						"duration": 0.035,
+						"ease": "smooth"
+					},
 					"animation": {
-						"cascade": { "anchor": "surface", "event": "end", "offsetMs": 120 }
+						"cascade": {
+							"anchor": "surface",
+							"event": "end",
+							"offsetMs": 150
+						}
+					}
+				},
+				{
+					"type": "node",
+					"id": "node-1995",
+					"position": {
+						"x": 0.08,
+						"y": 0.52
+					},
+					"form": "dot",
+					"enter": {
+						"start": 0.13,
+						"duration": 0.04,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.82,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "title-road"
+							},
+							"event": "end",
+							"offsetMs": 200
+						}
 					}
 				},
 				{
 					"type": "timeline-segment",
 					"id": "era-script-tags",
-					"from": { "x": 0.12, "y": 0.55 },
-					"to": { "x": 0.38, "y": 0.55 },
-					"label": "SCRIPT TAGS",
-					"enter": { "start": 0.145, "duration": 0.08, "ease": "smooth" },
-					"exit": { "start": 0.8, "duration": 0.045, "ease": "smooth" },
+					"from": {
+						"x": 0.08,
+						"y": 0.52
+					},
+					"to": {
+						"x": 0.46,
+						"y": 0.52
+					},
+					"enter": {
+						"start": 0.145,
+						"duration": 0.075,
+						"ease": "smooth"
+					},
+					"exit": {
+						"start": 0.82,
+						"duration": 0.045,
+						"ease": "smooth"
+					},
 					"animation": {
-						"cascade": { "anchor": { "block": "title-road" }, "event": "end", "offsetMs": 120 }
+						"cascade": {
+							"anchor": {
+								"block": "title-road"
+							},
+							"event": "end",
+							"offsetMs": 350
+						}
 					}
 				},
 				{
 					"type": "label",
 					"id": "year-1995",
-					"position": { "x": 0.12, "y": 0.62 },
+					"position": {
+						"x": 0.08,
+						"y": 0.6
+					},
 					"text": "1995",
-					"scale": 1,
-					"enter": { "start": 0.165, "duration": 0.05, "ease": "settled" },
-					"exit": { "start": 0.8, "duration": 0.04, "ease": "smooth" },
+					"scale": 1.15,
+					"enter": {
+						"start": 0.16,
+						"duration": 0.04,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.82,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
 					"animation": {
-						"cascade": { "anchor": { "block": "era-script-tags" }, "event": "start", "offsetMs": 120 }
+						"cascade": {
+							"anchor": {
+								"block": "era-script-tags"
+							},
+							"event": "start",
+							"offsetMs": 80
+						}
+					}
+				},
+				{
+					"type": "label",
+					"id": "era-label-script",
+					"position": {
+						"x": 0.27,
+						"y": 0.445
+					},
+					"text": "SCRIPT TAGS",
+					"scale": 1.35,
+					"enter": {
+						"start": 0.19,
+						"duration": 0.045,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.825,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "era-script-tags"
+							},
+							"event": "start",
+							"offsetMs": 250
+						}
+					},
+					"ink": "accent"
+				},
+				{
+					"type": "label",
+					"id": "cap-script",
+					"position": {
+						"x": 0.27,
+						"y": 0.675
+					},
+					"text": "<script src> — globals in the page",
+					"scale": 0.8,
+					"enter": {
+						"start": 0.235,
+						"duration": 0.04,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.825,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "era-script-tags"
+							},
+							"event": "end",
+							"offsetMs": 150
+						}
+					}
+				},
+				{
+					"type": "node",
+					"id": "node-2009",
+					"position": {
+						"x": 0.46,
+						"y": 0.52
+					},
+					"form": "dot",
+					"enter": {
+						"start": 0.225,
+						"duration": 0.04,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.83,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "era-script-tags"
+							},
+							"event": "end",
+							"offsetMs": 0
+						}
 					}
 				},
 				{
 					"type": "label",
 					"id": "year-2009",
-					"position": { "x": 0.38, "y": 0.62 },
+					"position": {
+						"x": 0.46,
+						"y": 0.6
+					},
 					"text": "2009",
-					"scale": 1,
-					"enter": { "start": 0.238, "duration": 0.05, "ease": "settled" },
-					"exit": { "start": 0.82, "duration": 0.04, "ease": "smooth" },
+					"scale": 1.15,
+					"enter": {
+						"start": 0.245,
+						"duration": 0.04,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.83,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
 					"animation": {
-						"cascade": { "anchor": { "block": "era-script-tags" }, "event": "end", "offsetMs": 80 }
+						"cascade": {
+							"anchor": {
+								"block": "era-script-tags"
+							},
+							"event": "end",
+							"offsetMs": 80
+						}
 					}
 				},
 				{
 					"type": "timeline-segment",
 					"id": "era-bundlers",
-					"from": { "x": 0.38, "y": 0.55 },
-					"to": { "x": 0.64, "y": 0.55 },
-					"label": "BUNDLER ERA",
-					"enter": { "start": 0.252, "duration": 0.08, "ease": "smooth" },
-					"exit": { "start": 0.82, "duration": 0.045, "ease": "smooth" },
+					"from": {
+						"x": 0.46,
+						"y": 0.52
+					},
+					"to": {
+						"x": 0.62,
+						"y": 0.52
+					},
+					"enter": {
+						"start": 0.26,
+						"duration": 0.06,
+						"ease": "smooth"
+					},
+					"exit": {
+						"start": 0.83,
+						"duration": 0.045,
+						"ease": "smooth"
+					},
 					"animation": {
-						"cascade": { "anchor": { "block": "era-script-tags" }, "event": "end", "offsetMs": 160 }
+						"cascade": {
+							"anchor": {
+								"block": "era-script-tags"
+							},
+							"event": "end",
+							"offsetMs": 160
+						}
+					}
+				},
+				{
+					"type": "label",
+					"id": "era-label-bundlers",
+					"position": {
+						"x": 0.54,
+						"y": 0.445
+					},
+					"text": "BUNDLER ERA",
+					"scale": 1.35,
+					"enter": {
+						"start": 0.29,
+						"duration": 0.045,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.835,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "era-bundlers"
+							},
+							"event": "start",
+							"offsetMs": 250
+						}
+					},
+					"ink": "accent"
+				},
+				{
+					"type": "label",
+					"id": "cap-bundlers",
+					"position": {
+						"x": 0.54,
+						"y": 0.675
+					},
+					"text": "browserify · webpack · rollup",
+					"scale": 0.8,
+					"enter": {
+						"start": 0.325,
+						"duration": 0.04,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.835,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "era-bundlers"
+							},
+							"event": "end",
+							"offsetMs": 150
+						}
+					}
+				},
+				{
+					"type": "node",
+					"id": "node-2015",
+					"position": {
+						"x": 0.62,
+						"y": 0.52
+					},
+					"form": "dot",
+					"enter": {
+						"start": 0.32,
+						"duration": 0.04,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.84,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "era-bundlers"
+							},
+							"event": "end",
+							"offsetMs": 0
+						}
 					}
 				},
 				{
 					"type": "label",
 					"id": "year-2015",
-					"position": { "x": 0.64, "y": 0.62 },
+					"position": {
+						"x": 0.62,
+						"y": 0.6
+					},
 					"text": "2015",
-					"scale": 1,
-					"enter": { "start": 0.345, "duration": 0.05, "ease": "settled" },
-					"exit": { "start": 0.84, "duration": 0.04, "ease": "smooth" },
+					"scale": 1.15,
+					"enter": {
+						"start": 0.34,
+						"duration": 0.04,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.84,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
 					"animation": {
-						"cascade": { "anchor": { "block": "era-bundlers" }, "event": "end", "offsetMs": 80 }
+						"cascade": {
+							"anchor": {
+								"block": "era-bundlers"
+							},
+							"event": "end",
+							"offsetMs": 80
+						}
 					}
 				},
 				{
 					"type": "timeline-segment",
 					"id": "era-esm",
-					"from": { "x": 0.64, "y": 0.55 },
-					"to": { "x": 0.88, "y": 0.55 },
-					"label": "ESM ERA",
-					"enter": { "start": 0.358, "duration": 0.08, "ease": "smooth" },
-					"exit": { "start": 0.84, "duration": 0.045, "ease": "smooth" },
+					"from": {
+						"x": 0.62,
+						"y": 0.52
+					},
+					"to": {
+						"x": 0.92,
+						"y": 0.52
+					},
+					"enter": {
+						"start": 0.355,
+						"duration": 0.075,
+						"ease": "smooth"
+					},
+					"exit": {
+						"start": 0.84,
+						"duration": 0.045,
+						"ease": "smooth"
+					},
 					"animation": {
-						"cascade": { "anchor": { "block": "era-bundlers" }, "event": "end", "offsetMs": 160 }
+						"cascade": {
+							"anchor": {
+								"block": "era-bundlers"
+							},
+							"event": "end",
+							"offsetMs": 160
+						}
 					}
 				},
 				{
 					"type": "label",
-					"id": "year-now",
-					"position": { "x": 0.88, "y": 0.62 },
-					"text": "NOW",
-					"scale": 1,
-					"enter": { "start": 0.452, "duration": 0.05, "ease": "settled" },
-					"exit": { "start": 0.86, "duration": 0.04, "ease": "smooth" },
+					"id": "era-label-esm",
+					"position": {
+						"x": 0.77,
+						"y": 0.445
+					},
+					"text": "ESM ERA",
+					"scale": 1.35,
+					"enter": {
+						"start": 0.4,
+						"duration": 0.045,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.845,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
 					"animation": {
-						"cascade": { "anchor": { "block": "era-esm" }, "event": "end", "offsetMs": 80 }
+						"cascade": {
+							"anchor": {
+								"block": "era-esm"
+							},
+							"event": "start",
+							"offsetMs": 250
+						}
+					},
+					"ink": "accent"
+				},
+				{
+					"type": "label",
+					"id": "cap-esm",
+					"position": {
+						"x": 0.77,
+						"y": 0.675
+					},
+					"text": "import & export, native",
+					"scale": 0.8,
+					"enter": {
+						"start": 0.44,
+						"duration": 0.04,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.845,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "era-esm"
+							},
+							"event": "end",
+							"offsetMs": 150
+						}
 					}
 				},
 				{
 					"type": "node",
 					"id": "node-now",
-					"position": { "x": 0.905, "y": 0.55 },
+					"position": {
+						"x": 0.92,
+						"y": 0.52
+					},
 					"form": "dot",
-					"enter": { "start": 0.472, "duration": 0.05, "ease": "settled" },
-					"exit": { "start": 0.86, "duration": 0.04, "ease": "smooth" },
+					"enter": {
+						"start": 0.435,
+						"duration": 0.04,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.85,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
 					"animation": {
-						"cascade": { "anchor": { "block": "era-esm" }, "event": "end", "offsetMs": 200 }
+						"cascade": {
+							"anchor": {
+								"block": "era-esm"
+							},
+							"event": "end",
+							"offsetMs": 200
+						}
+					}
+				},
+				{
+					"type": "label",
+					"id": "year-now",
+					"position": {
+						"x": 0.92,
+						"y": 0.6
+					},
+					"text": "NOW",
+					"scale": 1.15,
+					"enter": {
+						"start": 0.455,
+						"duration": 0.04,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.85,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "era-esm"
+							},
+							"event": "end",
+							"offsetMs": 80
+						}
+					}
+				},
+				{
+					"type": "label",
+					"id": "stamp",
+					"position": {
+						"x": 0.885,
+						"y": 0.905
+					},
+					"text": "syntax.fm",
+					"scale": 0.65,
+					"enter": {
+						"start": 0.52,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
+					"exit": {
+						"start": 0.87,
+						"duration": 0.035,
+						"ease": "smooth"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "era-esm"
+							},
+							"event": "end",
+							"offsetMs": 450
+						}
 					}
 				}
 			]
 		},
 		"textAnimations": [],
 		"overlays": [],
-		"effects": [],
+		"effects": [
+			{
+				"type": "paper-grain",
+				"id": "grain",
+				"params": {
+					"warmth": 0.45,
+					"density": 0.32
+				}
+			}
+		],
 		"audioCues": []
 	}
 }
