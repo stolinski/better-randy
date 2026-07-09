@@ -1,0 +1,61 @@
+{
+	"schema": "supers@1",
+	"name": "YouTube subscribe — the checked beat (vertical)",
+	"description": "Vertical (Shorts/Reels) sibling of youtube-subscribe-demo — the same pack-immune faithful card restaged for 2160×3840: bottom-center anchor in the vertical action band, clear of the G3 platform rails. Same press beat at 0.42 (dip → Subscribed + check → bell ring), same derived pop cue, same intentional no-chrome (faithful artifact, ADR-0038).",
+	"pack": "syntax",
+	"kind": "deliverable",
+	"state": {
+		"transport": {
+			"orientation": "vertical",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			}
+		},
+		"textAnimations": [],
+		"overlays": [
+			{
+				"type": "youtube-subscribe",
+				"id": "sub-card",
+				"content": {
+					"channel": "Studio Atlas",
+					"handle": "@studioatlas",
+					"subscribers": "1.2M subscribers",
+					"theme": "light",
+					"beat": 0.42
+				},
+				"position": {
+					"anchor": "bottom-center",
+					"offset": {
+						"x": 0,
+						"y": 0.2
+					}
+				},
+				"enter": {
+					"start": 0.08,
+					"duration": 0.05,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.88,
+					"duration": 0.04,
+					"ease": "smooth"
+				}
+			}
+		],
+		"effects": [],
+		"audioCues": []
+	}
+}

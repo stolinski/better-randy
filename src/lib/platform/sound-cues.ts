@@ -433,6 +433,27 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 		);
 	}
 
+	// Platform-CTA press beats (creator blocks): the youtube-subscribe pill
+	// press emits a pop at its authored `beat` — a discrete UI impact, the same
+	// character class as a received bubble. The beat has no Transition window
+	// (it is content, like the counter's roll), so the cue carries the default
+	// sample; the rail shows it like every derived cue.
+	for (const overlay of state.overlays) {
+		if (overlay.type !== 'youtube-subscribe') {
+			continue;
+		}
+		const content = overlay.content as { beat?: number } | null;
+		cues.push(
+			cueFrom(
+				`overlay:${overlay.id}:beat`,
+				{ kind: 'overlay', overlayId: overlay.id },
+				'pop',
+				{ start: content?.beat ?? 0.42, duration: 0 },
+				undefined
+			)
+		);
+	}
+
 	// Text animations attribute to their TARGET Layer. Per-character effects
 	// tick; whole/word/line travel effects whoosh with their window;
 	// fade-family effects are silent (the same motion-character rule as the

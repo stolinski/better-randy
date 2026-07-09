@@ -1,0 +1,47 @@
+{
+	"schema": "supers@1",
+	"name": "YouTube subscribe — the checked beat",
+	"description": "Creator platform block (brief: youtube-subscribe): a pack-immune, platform-faithful YouTube channel card over transparent footage — avatar silhouette, channel identity, the red Subscribe pill. The story is the press beat at 0.42: the pill dips, flips to Subscribed with a check, and the bell rings in with a decaying wiggle (intrinsic motion-form, keyed in real ms off the beat; a derived pop cue fires at the press). Faithful artifact per ADR-0038: the YouTube palette/type consume no Pack roles and render pixel-identical under every Pack — intentionally no collage/grit chrome (a real platform control carries no pack dress). Transparent overlay lane: footage keeps its own audio beyond the derived cues.",
+	"pack": "syntax",
+	"kind": "deliverable",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			}
+		},
+		"textAnimations": [],
+		"overlays": [
+			{
+				"type": "youtube-subscribe",
+				"id": "sub-card",
+				"content": {
+					"channel": "Studio Atlas",
+					"handle": "@studioatlas",
+					"subscribers": "1.2M subscribers",
+					"theme": "light",
+					"beat": 0.42
+				},
+				"position": { "anchor": "bottom-left", "offset": { "x": 0.0625, "y": 0.0833 } },
+				"enter": { "start": 0.08, "duration": 0.05, "ease": "settled" },
+				"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" }
+			}
+		],
+		"effects": [],
+		"audioCues": []
+	}
+}

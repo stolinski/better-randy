@@ -1,0 +1,256 @@
+<script lang="ts">
+	import { animState } from '$lib/platform/anim-state.svelte';
+	import { engineState } from '$lib/platform/engine-state.svelte';
+	import type { YoutubeSubscribeContent } from './index';
+
+	interface Props {
+		content: YoutubeSubscribeContent;
+	}
+
+	let { content }: Props = $props();
+
+	// PACK-IMMUNE faithful artifact (ADR-0038, declared in ./identity.ts): the
+	// palette and type below are YouTube's, deliberately literal — they must
+	// not respond to the active Pack. Only treatments layered on top (Effects,
+	// the mount's enter/exit) take the Pack/composition.
+
+	const theme = $derived(content.theme ?? 'light');
+	const beat = $derived(content.beat ?? 0.42);
+
+	// The press choreography is intrinsic motion-form, keyed in REAL ms off the
+	// authored beat fraction so it reads identically at any transport length —
+	// and derived purely from globalProgress (no CSS transitions, no wall
+	// clock): preview and export resolve identical pixels at the same frame.
+	const PRESS_MS = 140; // pill dips while "pressed"
+	const RING_MS = 650; // bell ring-in wiggle after the swap
+	const durationMs = $derived(engineState.transport.durationSeconds * 1000);
+	const sinceBeatMs = $derived((animState.globalProgress - beat) * durationMs);
+
+	const pressT = $derived(Math.max(0, Math.min(1, sinceBeatMs / PRESS_MS)));
+	const subscribed = $derived(sinceBeatMs >= PRESS_MS);
+	const ringT = $derived(Math.max(0, Math.min(1, (sinceBeatMs - PRESS_MS) / RING_MS)));
+
+	// Press dip: down-and-back scale, zero at both ends. Emitted only while it
+	// is non-identity — a lingering descendant transform would quantize the
+	// mount's exit-fade opacity in the HTML-in-canvas capture (the documented
+	// defect family).
+	const pressScale = $derived(1 - 0.06 * Math.sin(Math.min(1, pressT) * Math.PI));
+
+	// Bell ring: decaying wiggle that rests at exactly 0 by RING_MS end.
+	const bellDeg = $derived(
+		ringT > 0 && ringT < 1 ? Math.sin(ringT * Math.PI * 4) * 16 * (1 - ringT) : 0
+	);
+
+	// Press ripple: a ring expanding off the pill, gone by the ring's end.
+	const rippleT = $derived(Math.max(0, Math.min(1, sinceBeatMs / 450)));
+</script>
+
+<aside class="yt-sub yt-sub--{theme}" data-overlay="youtube-subscribe">
+	<span class="yt-sub__avatar">
+		{#if content.avatarUrl}
+			<img src={content.avatarUrl} crossorigin="anonymous" alt="" />
+		{:else}
+			<svg viewBox="0 0 40 40" aria-hidden="true">
+				<circle cx="20" cy="20" r="20" fill={theme === 'dark' ? '#3d3d3d' : '#c6c6c6'} />
+				<circle cx="20" cy="15.5" r="7" fill={theme === 'dark' ? '#8a8a8a' : '#f5f5f5'} />
+				<path
+					d="M6.5 36.5c1.8-7.4 7.3-11 13.5-11s11.7 3.6 13.5 11"
+					fill={theme === 'dark' ? '#8a8a8a' : '#f5f5f5'}
+				/>
+			</svg>
+		{/if}
+	</span>
+
+	<span class="yt-sub__identity">
+		<span class="yt-sub__channel">{content.channel}</span>
+		{#if content.handle || content.subscribers}
+			<span class="yt-sub__meta">
+				{[content.handle, content.subscribers].filter(Boolean).join(' · ')}
+			</span>
+		{/if}
+	</span>
+
+	<!-- Both CTA states stack in one grid cell so the card reserves the wider
+	     (Subscribed + bell) footprint from frame one — the swap changes pixels,
+	     never layout (Q15: nothing pops). The inactive state is
+	     visibility:hidden (capture-safe; no opacity/transform tricks). -->
+	<span class="yt-sub__cta">
+		{#if rippleT > 0 && rippleT < 1}
+			<span
+				class="yt-sub__ripple"
+				style:scale={String(0.6 + rippleT * 1.5)}
+				style:opacity={String(0.35 * (1 - rippleT))}
+			></span>
+		{/if}
+		<span class="yt-sub__state" style:visibility={subscribed ? 'hidden' : undefined}>
+			<span
+				class="yt-sub__pill"
+				style:scale={pressT > 0 && pressT < 1 ? String(pressScale) : undefined}
+			>
+				<span>Subscribe</span>
+			</span>
+		</span>
+		<span class="yt-sub__state" style:visibility={subscribed ? undefined : 'hidden'}>
+			<span class="yt-sub__pill yt-sub__pill--subscribed">
+				<svg class="yt-sub__check" viewBox="0 0 24 24" aria-hidden="true">
+					<path
+						d="M4.5 12.5l5 5 10-11"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2.6"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
+				</svg>
+				<span>Subscribed</span>
+			</span>
+			<span
+				class="yt-sub__bell"
+				style:opacity={subscribed ? String(Math.min(1, ringT * 2.5)) : undefined}
+				style:rotate={bellDeg !== 0 ? `${bellDeg}deg` : undefined}
+			>
+				<svg viewBox="0 0 24 24" aria-hidden="true">
+					<path
+						d="M12 3.2c-3.3 0-5.6 2.5-5.6 5.8v3.9l-1.9 2.9v1h15v-1l-1.9-2.9V9c0-3.3-2.3-5.8-5.6-5.8Z"
+						fill="currentColor"
+					/>
+					<path d="M10 18.6a2 2 0 0 0 4 0Z" fill="currentColor" />
+				</svg>
+			</span>
+		</span>
+	</span>
+</aside>
+
+<style>
+	/* Faithful YouTube card — literal platform palette + type on purpose
+	   (pack-immune; see ./identity.ts). Roboto is YouTube's face; the stack
+	   falls through the closest metric neighbours. */
+	.yt-sub {
+		align-items: center;
+		border-radius: calc(0.6 * var(--cqmin));
+		box-shadow: 0 calc(0.18 * var(--cqmin)) calc(0.9 * var(--cqmin)) rgb(0 0 0 / 0.28);
+		display: inline-flex;
+		font-family: Roboto, 'Segoe UI', Helvetica, Arial, sans-serif;
+		gap: calc(1 * var(--cqmin));
+		padding: calc(0.9 * var(--cqmin)) calc(1.2 * var(--cqmin));
+	}
+
+	.yt-sub--light {
+		background: #ffffff;
+		color: #0f0f0f;
+	}
+
+	.yt-sub--dark {
+		background: #212121;
+		color: #f1f1f1;
+	}
+
+	.yt-sub__avatar {
+		block-size: calc(2.9 * var(--cqmin));
+		border-radius: 50%;
+		display: inline-block;
+		flex: none;
+		inline-size: calc(2.9 * var(--cqmin));
+		overflow: hidden;
+	}
+
+	.yt-sub__avatar img,
+	.yt-sub__avatar svg {
+		block-size: 100%;
+		display: block;
+		inline-size: 100%;
+		object-fit: cover;
+	}
+
+	.yt-sub__identity {
+		display: inline-flex;
+		flex-direction: column;
+		gap: calc(0.15 * var(--cqmin));
+		white-space: nowrap;
+	}
+
+	.yt-sub__channel {
+		font-size: calc(1.35 * var(--cqmin));
+		font-weight: 600;
+		line-height: 1.2;
+	}
+
+	.yt-sub__meta {
+		color: #606060;
+		font-size: calc(0.95 * var(--cqmin));
+		line-height: 1.2;
+	}
+
+	.yt-sub--dark .yt-sub__meta {
+		color: #aaaaaa;
+	}
+
+	.yt-sub__cta {
+		display: inline-grid;
+		margin-inline-start: calc(0.8 * var(--cqmin));
+		position: relative;
+	}
+
+	/* Both states share the single grid cell; the cell sizes to the wider one
+	   so the swap never reflows the card. */
+	.yt-sub__state {
+		align-items: center;
+		display: inline-flex;
+		gap: calc(0.7 * var(--cqmin));
+		grid-area: 1 / 1;
+		justify-self: start;
+	}
+
+	/* The Subscribe pill — YouTube red, flipping to the muted Subscribed chip. */
+	.yt-sub__pill {
+		align-items: center;
+		background: #ff0033;
+		border-radius: calc(1.4 * var(--cqmin));
+		color: #ffffff;
+		display: inline-flex;
+		font-size: calc(1.05 * var(--cqmin));
+		font-weight: 600;
+		gap: calc(0.4 * var(--cqmin));
+		letter-spacing: 0.01em;
+		line-height: 1;
+		padding: calc(0.72 * var(--cqmin)) calc(1.25 * var(--cqmin));
+		white-space: nowrap;
+	}
+
+	.yt-sub--light .yt-sub__pill--subscribed {
+		background: #f2f2f2;
+		color: #0f0f0f;
+	}
+
+	.yt-sub--dark .yt-sub__pill--subscribed {
+		background: #3f3f3f;
+		color: #f1f1f1;
+	}
+
+	.yt-sub__check {
+		block-size: calc(1 * var(--cqmin));
+		inline-size: calc(1 * var(--cqmin));
+	}
+
+	.yt-sub__ripple {
+		background: #ff0033;
+		border-radius: 50%;
+		block-size: calc(2.4 * var(--cqmin));
+		inline-size: calc(2.4 * var(--cqmin));
+		inset-block-start: calc(50% - 1.2 * var(--cqmin));
+		inset-inline-start: calc(50% - 1.2 * var(--cqmin));
+		position: absolute;
+	}
+
+	.yt-sub__bell {
+		block-size: calc(1.5 * var(--cqmin));
+		display: inline-block;
+		inline-size: calc(1.5 * var(--cqmin));
+	}
+
+	.yt-sub__bell svg {
+		block-size: 100%;
+		display: block;
+		inline-size: 100%;
+	}
+</style>

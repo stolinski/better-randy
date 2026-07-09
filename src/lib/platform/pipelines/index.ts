@@ -38,6 +38,7 @@ import { text3d } from '$lib/pipelines/overlays/text-3d';
 import { shaderFill } from '$lib/pipelines/overlays/shader-fill';
 import { washiTape } from '$lib/pipelines/overlays/washi-tape';
 import { watermark } from '$lib/pipelines/overlays/watermark';
+import { youtubeSubscribe } from '$lib/pipelines/overlays/youtube-subscribe';
 
 import { chapterCard } from '$lib/pipelines/surfaces/chapter-card';
 import { imessage } from '$lib/pipelines/surfaces/imessage';
@@ -68,7 +69,7 @@ export const PIPELINE_REGISTRY = {
 		tearOut,
 		isolate
 	} satisfies Record<string, AnnotationRenderer>,
-	overlays: { lowerThird, washiTape, watermark, shaderFill, cursorTrail, counter, instanceStack, text3d },
+	overlays: { lowerThird, washiTape, watermark, shaderFill, cursorTrail, counter, instanceStack, text3d, youtubeSubscribe },
 	effects: { paperGrain, chromaticAberration, crtScreen, dithering, halftoneDots, halftoneCmyk, water, flutedGlass, heatmap }
 };
 

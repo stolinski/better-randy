@@ -76,6 +76,7 @@ import { shaderFillIdentity } from '$lib/pipelines/overlays/shader-fill/identity
 import { text3dIdentity } from '$lib/pipelines/overlays/text-3d/identity';
 import { washiTapeIdentity } from '$lib/pipelines/overlays/washi-tape/identity';
 import { watermarkIdentity } from '$lib/pipelines/overlays/watermark/identity';
+import { youtubeSubscribeIdentity } from '$lib/pipelines/overlays/youtube-subscribe/identity';
 
 export const IDENTITY_REGISTRY: Readonly<Record<string, IdentitySpec>> = {
 	// Surfaces
@@ -117,7 +118,8 @@ export const IDENTITY_REGISTRY: Readonly<Record<string, IdentitySpec>> = {
 	'overlay:text-3d': text3dIdentity,
 	'overlay:shader-fill': shaderFillIdentity,
 	'overlay:washi-tape': washiTapeIdentity,
-	'overlay:watermark': watermarkIdentity
+	'overlay:watermark': watermarkIdentity,
+	'overlay:youtube-subscribe': youtubeSubscribeIdentity
 };
 
 /**

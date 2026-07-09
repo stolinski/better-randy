@@ -61,7 +61,7 @@
 		if (overlayMatch) {
 			// Confirm it's not a known sub-track suffix
 			const overlayId = overlayMatch[1];
-			const knownSuffixes = ['-stack', '-roll', '-spin'];
+			const knownSuffixes = ['-stack', '-roll', '-spin', '-beat'];
 			const isSub =
 				knownSuffixes.some((s) => overlayId.endsWith(s)) || /^.+-cursor-\d+$/.test(overlayId);
 			if (!isSub) return { kind: 'overlay' as const, overlayId };

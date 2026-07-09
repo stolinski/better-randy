@@ -1330,6 +1330,40 @@
 			});
 		});
 
+		// youtube-subscribe: the press beat as a draggable point clip (start =
+		// beat; width is the intrinsic press+ring choreography, display-only —
+		// min = max so trims are no-ops and only the moment moves).
+		engineState.overlays.forEach((overlay) => {
+			if (overlay.type !== 'youtube-subscribe') {
+				return;
+			}
+			const content = overlay.content as { beat?: number };
+			// PRESS_MS + RING_MS ≈ 790 ms of intrinsic choreography — shown as the
+			// clip's fixed width so the rail reads the beat's real footprint.
+			const beatWidth = Math.min(0.2, 0.79 / engineState.transport.durationSeconds);
+			trackList.push({
+				id: `overlay-${overlay.id}-beat`,
+				label: 'press beat',
+				color: '#ff0033',
+				transitions: [
+					{
+						id: 'beat',
+						label: 'press',
+						start: content.beat ?? 0.42,
+						duration: beatWidth,
+						ramp: 'in' as const,
+						minStart: 0,
+						maxStart: 0.95,
+						minDuration: beatWidth,
+						maxDuration: beatWidth,
+						onUpdate: ({ start }: { start: number; duration: number }) => {
+							content.beat = Math.round(Math.max(0, Math.min(1, start)) * 10000) / 10000;
+						}
+					}
+				]
+			});
+		});
+
 		// text-3d: the spin-in to the hero frame as a draggable clip (start =
 		// spinStart, width = spinWindow); the word holds + breathes after.
 		engineState.overlays.forEach((overlay) => {
