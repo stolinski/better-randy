@@ -119,7 +119,9 @@
 	.type-hero-source__subtitle {
 		/* Extra slot → chains to the ink core (byline is a muted ink voice), never a literal (ADR-0024). */
 		color: var(--byline, var(--ink));
-		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
+		/* Label/chrome face (`type-hero.fontLabel`) — distinct from the display
+		   face so a Pack pairs a grotesk hero with a mono stamp. */
+		font-family: var(--fontLabel, var(--font, 'JetBrains Mono', ui-monospace, monospace));
 		font-style: normal;
 		font-weight: 500;
 		inset-block-end: 9%;

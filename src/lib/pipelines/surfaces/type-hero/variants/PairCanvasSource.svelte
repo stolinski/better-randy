@@ -111,7 +111,7 @@
 	 */
 	.type-hero-source__counterpoint {
 		color: var(--accent);
-		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
+		font-family: var(--fontLabel, var(--font, 'JetBrains Mono', ui-monospace, monospace));
 		font-weight: 600;
 		inset-block-start: calc(50% - 16%);
 		inset-inline-start: calc(7% + 38%);
@@ -135,7 +135,7 @@
 	.type-hero-source__subtitle {
 		/* Extra slot → chains to the ink core (byline is a muted ink voice), never a literal (ADR-0024). */
 		color: var(--byline, var(--ink));
-		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
+		font-family: var(--fontLabel, var(--font, 'JetBrains Mono', ui-monospace, monospace));
 		font-style: normal;
 		font-weight: 500;
 		inset-block-end: 9%;

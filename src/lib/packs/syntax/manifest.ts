@@ -142,11 +142,16 @@ export const syntaxPack: PackManifest = {
 		// ---------------- type-hero Surface ----------------
 		'type-hero.edge': { kind: 'style', value: 'clean-vector' },
 		'type-hero.depth': { kind: 'style', value: 'none' },
-		// Consumed color Roles (render-is-truth — match what CanvasSource paints).
-		'type-hero.text-base': { kind: 'style', value: '#fff8ec' },
-		'type-hero.ink': { kind: 'style', value: '#fffaf2' },
-		'type-hero.accent': { kind: 'style', value: '#f4a85e' },
-		'type-hero.byline': { kind: 'style', value: '#d8c4a0' },
+		// Consumed color Roles — brand tokens (syntax-overlay repo, 2026-07-09):
+		// #f7f6f2 text, #ffd54a accent, #c9c6bc byline; the amber/sand warms
+		// read as generic template, not Syntax.
+		'type-hero.text-base': { kind: 'style', value: '#f7f6f2' },
+		'type-hero.ink': { kind: 'style', value: '#f7f6f2' },
+		'type-hero.accent': { kind: 'style', value: '#ffd54a' },
+		'type-hero.byline': { kind: 'style', value: '#c9c6bc' },
+		// Brand faces: Space Grotesk display, Space Mono for the episode stamp.
+		'type-hero.font': { kind: 'style', value: "'Space Grotesk', 'Inter', sans-serif" },
+		'type-hero.fontLabel': { kind: 'style', value: "'Space Mono', ui-monospace, monospace" },
 		// WGSL backdrop tints (render-is-truth — exact byte conversions of the
 		// type-hero-rake pass's vec3f constants): near-black gradient, warm/cool
 		// drifting atmosphere bands, warm-white particle motes. The letterform

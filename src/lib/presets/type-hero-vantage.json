@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Type hero — vantage",
-	"description": "Depth-stage deliverable for the type-hero family (ADR-0028). A single display word on the near plane over a violet-dusk photographic backdrop (atmosphere-violet substrate); a lateral drift sweeps the camera across the scene so the word and the photo's light pools reproject at different rates — parallax as the whole story. An early rack focus resolves the word from soft to sharp (the lens finds its vantage), then the drift carries the settled frame. The Pack's upper-left key rakes both planes (the substrate's bloom sits upper-left to agree with it) and the letterforms drop a soft real shadow onto the photo; the mono episode stamp keeps the channel thread. The flat type-hero-drift keeps the shader rim light; here the dimension comes from the real scene light.",
+	"description": "Depth-stage deliverable for the type-hero family (ADR-0028). A single display word on the near plane over a warm-dusk photographic backdrop (atmosphere-warm substrate — re-grounded 2026-07-09: violet/purple left the brand palette); a lateral drift sweeps the camera across the scene so the word and the photo's light pools reproject at different rates — parallax as the whole story. An early rack focus resolves the word from soft to sharp (the lens finds its vantage), then the drift carries the settled frame. The Pack's upper-left key rakes both planes (the substrate's bloom sits upper-left to agree with it) and the letterforms drop a soft real shadow onto the photo; the mono episode stamp keeps the channel thread. The flat type-hero-drift keeps the shader rim light; here the dimension comes from the real scene light.",
 	"pack": "syntax",
 	"state": {
 		"transport": {
@@ -10,11 +10,11 @@
 			"fps": 30,
 			"format": "webm"
 		},
-		"backgroundFill": "#221a33",
+		"backgroundFill": "#0e0e0d",
 		"typography": {
 			"fontFamily": "sans",
-			"paperColor": "#040408",
-			"inkColor": "#fffaf2"
+			"paperColor": "#0a0a09",
+			"inkColor": "#f7f6f2"
 		},
 		"marks": {
 			"defaults": {},
@@ -118,7 +118,7 @@
 			},
 			"backdrop": {
 				"image": {
-					"asset": "atmosphere-violet"
+					"asset": "atmosphere-warm"
 				},
 				"contrast": 0.4
 			}

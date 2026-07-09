@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Docu timeline build — the road to ES modules",
-	"description": "ADR-0036 timeline build (H↔V reflow stress case), recomposed 2026-07-09 for the quality arc's calibrate-the-bar pass: three eras of JS module loading drawn as timeline-segments back-to-back along one horizontal axis — era spans PROPORTIONAL to their real years (1995–2009–2015–now), segment end-cap ticks anchoring year markers below the axis (dot nodes doubled the ticks and were cut — calibration verdict), standalone era labels above each span (standalone because segment riding captions can't scale — dex lxowmkkj), and a supporting caption line of real dev content under each era. Segments stroke-draw left-to-right in chronological sequence via Cascade — the chronological draw IS the piece. Full-frame dark graphic register on a purple-tinted substrate (Syntax deep-accent family) with paper-grain grit bonding the frame (a syntax.fm corner stamp was cut as unnecessary — the all-mono type already carries the signature thread); type spans the G4 bands (headline ~94px cap, years ~41px, captions ~29px). Stroke/node/label appearance resolves through the Syntax pack's Roles. No collage chrome (torn edges, tape, hard offset shadow) per the docu-diagram register.",
+	"description": "ADR-0036 timeline build (H↔V reflow stress case), recomposed 2026-07-09 for the quality arc's calibrate-the-bar pass: three eras of JS module loading drawn as timeline-segments back-to-back along one horizontal axis — era spans PROPORTIONAL to their real years (1995–2009–2015–now), segment end-cap ticks anchoring year markers below the axis (dot nodes doubled the ticks and were cut — calibration verdict), standalone era labels above each span (standalone because segment riding captions can't scale — dex lxowmkkj), and a supporting caption line of real dev content under each era. Segments stroke-draw left-to-right in chronological sequence via Cascade — the chronological draw IS the piece. Full-frame dark graphic register on a brand warm-black field (#0e0e0d — re-grounded 2026-07-09 after the purple family left the palette) with paper-grain grit bonding the frame (a syntax.fm corner stamp was cut as unnecessary — the all-mono type already carries the signature thread); type spans the G4 bands (headline ~94px cap, years ~41px, captions ~29px). Stroke/node/label appearance resolves through the Syntax pack's Roles. No collage chrome (torn edges, tape, hard offset shadow) per the docu-diagram register.",
 	"kind": "deliverable",
 	"pack": "syntax",
 	"state": {
@@ -11,11 +11,11 @@
 			"fps": 30,
 			"format": "webm"
 		},
-		"backgroundFill": "#171129",
+		"backgroundFill": "#0e0e0d",
 		"typography": {
 			"fontFamily": "mono",
-			"paperColor": "#1d1633",
-			"inkColor": "#f4ecdc"
+			"paperColor": "#141413",
+			"inkColor": "#f7f6f2"
 		},
 		"marks": {
 			"defaults": {},
