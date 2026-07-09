@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Docu timeline build — the road to ES modules",
-	"description": "ADR-0036 timeline build (H↔V reflow stress case), recomposed 2026-07-09 for the quality arc's calibrate-the-bar pass: three eras of JS module loading drawn as timeline-segments back-to-back along one horizontal axis — era spans PROPORTIONAL to their real years (1995–2009–2015–now), boundary dot nodes anchoring year markers below the axis, standalone era labels above each span (standalone because segment riding captions can't scale — dex lxowmkkj), and a supporting caption line of real dev content under each era. Segments stroke-draw left-to-right in chronological sequence via Cascade — the chronological draw IS the piece. Full-frame dark graphic register on a purple-tinted substrate (Syntax deep-accent family) with paper-grain grit bonding the frame; the syntax.fm stamp carries the mono signature thread; type spans the G4 bands (headline ~94px cap, years ~41px, captions ~29px). Stroke/node/label appearance resolves through the Syntax pack's Roles. No collage chrome (torn edges, tape, hard offset shadow) per the docu-diagram register.",
+	"description": "ADR-0036 timeline build (H↔V reflow stress case), recomposed 2026-07-09 for the quality arc's calibrate-the-bar pass: three eras of JS module loading drawn as timeline-segments back-to-back along one horizontal axis — era spans PROPORTIONAL to their real years (1995–2009–2015–now), segment end-cap ticks anchoring year markers below the axis (dot nodes doubled the ticks and were cut — calibration verdict), standalone era labels above each span (standalone because segment riding captions can't scale — dex lxowmkkj), and a supporting caption line of real dev content under each era. Segments stroke-draw left-to-right in chronological sequence via Cascade — the chronological draw IS the piece. Full-frame dark graphic register on a purple-tinted substrate (Syntax deep-accent family) with paper-grain grit bonding the frame (a syntax.fm corner stamp was cut as unnecessary — the all-mono type already carries the signature thread); type spans the G4 bands (headline ~94px cap, years ~41px, captions ~29px). Stroke/node/label appearance resolves through the Syntax pack's Roles. No collage chrome (torn edges, tape, hard offset shadow) per the docu-diagram register.",
 	"kind": "deliverable",
 	"pack": "syntax",
 	"state": {
@@ -61,34 +61,6 @@
 							"anchor": "surface",
 							"event": "end",
 							"offsetMs": 150
-						}
-					}
-				},
-				{
-					"type": "node",
-					"id": "node-1995",
-					"position": {
-						"x": 0.08,
-						"y": 0.52
-					},
-					"form": "dot",
-					"enter": {
-						"start": 0.13,
-						"duration": 0.04,
-						"ease": "settled"
-					},
-					"exit": {
-						"start": 0.82,
-						"duration": 0.04,
-						"ease": "smooth"
-					},
-					"animation": {
-						"cascade": {
-							"anchor": {
-								"block": "title-road"
-							},
-							"event": "end",
-							"offsetMs": 200
 						}
 					}
 				},
@@ -212,34 +184,6 @@
 					}
 				},
 				{
-					"type": "node",
-					"id": "node-2009",
-					"position": {
-						"x": 0.46,
-						"y": 0.52
-					},
-					"form": "dot",
-					"enter": {
-						"start": 0.225,
-						"duration": 0.04,
-						"ease": "settled"
-					},
-					"exit": {
-						"start": 0.83,
-						"duration": 0.04,
-						"ease": "smooth"
-					},
-					"animation": {
-						"cascade": {
-							"anchor": {
-								"block": "era-script-tags"
-							},
-							"event": "end",
-							"offsetMs": 0
-						}
-					}
-				},
-				{
 					"type": "label",
 					"id": "year-2009",
 					"position": {
@@ -355,34 +299,6 @@
 							},
 							"event": "end",
 							"offsetMs": 150
-						}
-					}
-				},
-				{
-					"type": "node",
-					"id": "node-2015",
-					"position": {
-						"x": 0.62,
-						"y": 0.52
-					},
-					"form": "dot",
-					"enter": {
-						"start": 0.32,
-						"duration": 0.04,
-						"ease": "settled"
-					},
-					"exit": {
-						"start": 0.84,
-						"duration": 0.04,
-						"ease": "smooth"
-					},
-					"animation": {
-						"cascade": {
-							"anchor": {
-								"block": "era-bundlers"
-							},
-							"event": "end",
-							"offsetMs": 0
 						}
 					}
 				},
@@ -506,34 +422,6 @@
 					}
 				},
 				{
-					"type": "node",
-					"id": "node-now",
-					"position": {
-						"x": 0.92,
-						"y": 0.52
-					},
-					"form": "dot",
-					"enter": {
-						"start": 0.435,
-						"duration": 0.04,
-						"ease": "settled"
-					},
-					"exit": {
-						"start": 0.85,
-						"duration": 0.04,
-						"ease": "smooth"
-					},
-					"animation": {
-						"cascade": {
-							"anchor": {
-								"block": "era-esm"
-							},
-							"event": "end",
-							"offsetMs": 200
-						}
-					}
-				},
-				{
 					"type": "label",
 					"id": "year-now",
 					"position": {
@@ -559,35 +447,6 @@
 							},
 							"event": "end",
 							"offsetMs": 80
-						}
-					}
-				},
-				{
-					"type": "label",
-					"id": "stamp",
-					"position": {
-						"x": 0.885,
-						"y": 0.905
-					},
-					"text": "syntax.fm",
-					"scale": 0.65,
-					"enter": {
-						"start": 0.52,
-						"duration": 0.04,
-						"ease": "smooth"
-					},
-					"exit": {
-						"start": 0.87,
-						"duration": 0.035,
-						"ease": "smooth"
-					},
-					"animation": {
-						"cascade": {
-							"anchor": {
-								"block": "era-esm"
-							},
-							"event": "end",
-							"offsetMs": 450
 						}
 					}
 				}
