@@ -124,15 +124,17 @@
 <style>
 	/* Faithful YouTube card — literal platform palette + type on purpose
 	   (pack-immune; see ./identity.ts). Roboto is YouTube's face; the stack
-	   falls through the closest metric neighbours. */
+	   falls through the closest metric neighbours. Statement scale: a HeyGen-
+	   register lower-third (~half the frame width), not a UI chip — the red
+	   Subscribe pill is the read. */
 	.yt-sub {
 		align-items: center;
-		border-radius: calc(0.6 * var(--cqmin));
-		box-shadow: 0 calc(0.18 * var(--cqmin)) calc(0.9 * var(--cqmin)) rgb(0 0 0 / 0.28);
+		border-radius: calc(1.7 * var(--cqmin));
+		box-shadow: 0 calc(0.5 * var(--cqmin)) calc(2.4 * var(--cqmin)) rgb(0 0 0 / 0.3);
 		display: inline-flex;
 		font-family: Roboto, 'Segoe UI', Helvetica, Arial, sans-serif;
-		gap: calc(1 * var(--cqmin));
-		padding: calc(0.9 * var(--cqmin)) calc(1.2 * var(--cqmin));
+		gap: calc(2.6 * var(--cqmin));
+		padding: calc(2.4 * var(--cqmin)) calc(3.2 * var(--cqmin));
 	}
 
 	.yt-sub--light {
@@ -146,11 +148,11 @@
 	}
 
 	.yt-sub__avatar {
-		block-size: calc(2.9 * var(--cqmin));
+		block-size: calc(8 * var(--cqmin));
 		border-radius: 50%;
 		display: inline-block;
 		flex: none;
-		inline-size: calc(2.9 * var(--cqmin));
+		inline-size: calc(8 * var(--cqmin));
 		overflow: hidden;
 	}
 
@@ -165,19 +167,19 @@
 	.yt-sub__identity {
 		display: inline-flex;
 		flex-direction: column;
-		gap: calc(0.15 * var(--cqmin));
+		gap: calc(0.5 * var(--cqmin));
 		white-space: nowrap;
 	}
 
 	.yt-sub__channel {
-		font-size: calc(1.35 * var(--cqmin));
+		font-size: calc(3.7 * var(--cqmin));
 		font-weight: 600;
 		line-height: 1.2;
 	}
 
 	.yt-sub__meta {
 		color: #606060;
-		font-size: calc(0.95 * var(--cqmin));
+		font-size: calc(2.5 * var(--cqmin));
 		line-height: 1.2;
 	}
 
@@ -187,7 +189,7 @@
 
 	.yt-sub__cta {
 		display: inline-grid;
-		margin-inline-start: calc(0.8 * var(--cqmin));
+		margin-inline-start: calc(2 * var(--cqmin));
 		position: relative;
 	}
 
@@ -196,24 +198,25 @@
 	.yt-sub__state {
 		align-items: center;
 		display: inline-flex;
-		gap: calc(0.7 * var(--cqmin));
+		gap: calc(1.8 * var(--cqmin));
 		grid-area: 1 / 1;
 		justify-self: start;
 	}
 
-	/* The Subscribe pill — YouTube red, flipping to the muted Subscribed chip. */
+	/* The Subscribe pill — YouTube red (#ff0000, the brand red), flipping to
+	   the muted Subscribed chip. */
 	.yt-sub__pill {
 		align-items: center;
-		background: #ff0033;
-		border-radius: calc(1.4 * var(--cqmin));
+		background: #ff0000;
+		border-radius: calc(4 * var(--cqmin));
 		color: #ffffff;
 		display: inline-flex;
-		font-size: calc(1.05 * var(--cqmin));
+		font-size: calc(3 * var(--cqmin));
 		font-weight: 600;
-		gap: calc(0.4 * var(--cqmin));
+		gap: calc(1 * var(--cqmin));
 		letter-spacing: 0.01em;
 		line-height: 1;
-		padding: calc(0.72 * var(--cqmin)) calc(1.25 * var(--cqmin));
+		padding: calc(1.9 * var(--cqmin)) calc(3.4 * var(--cqmin));
 		white-space: nowrap;
 	}
 
@@ -228,24 +231,24 @@
 	}
 
 	.yt-sub__check {
-		block-size: calc(1 * var(--cqmin));
-		inline-size: calc(1 * var(--cqmin));
+		block-size: calc(2.8 * var(--cqmin));
+		inline-size: calc(2.8 * var(--cqmin));
 	}
 
 	.yt-sub__ripple {
-		background: #ff0033;
+		background: #ff0000;
 		border-radius: 50%;
-		block-size: calc(2.4 * var(--cqmin));
-		inline-size: calc(2.4 * var(--cqmin));
-		inset-block-start: calc(50% - 1.2 * var(--cqmin));
-		inset-inline-start: calc(50% - 1.2 * var(--cqmin));
+		block-size: calc(6.5 * var(--cqmin));
+		inline-size: calc(6.5 * var(--cqmin));
+		inset-block-start: calc(50% - 3.25 * var(--cqmin));
+		inset-inline-start: calc(50% - 3.25 * var(--cqmin));
 		position: absolute;
 	}
 
 	.yt-sub__bell {
-		block-size: calc(1.5 * var(--cqmin));
+		block-size: calc(4.2 * var(--cqmin));
 		display: inline-block;
-		inline-size: calc(1.5 * var(--cqmin));
+		inline-size: calc(4.2 * var(--cqmin));
 	}
 
 	.yt-sub__bell svg {

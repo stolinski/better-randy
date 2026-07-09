@@ -24,6 +24,11 @@ const InstagramFollowContentSchema = z.object({
 	/** Free-text meta line, e.g. "482K followers". Optional. */
 	meta: z.string().optional(),
 	/**
+	 * Instagram's blue verified seal beside the username — the platform's most
+	 * recognizable trust mark. Renderers read `?? false`.
+	 */
+	verified: z.boolean().default(false),
+	/**
 	 * CORS-accessible avatar URL (crossOrigin "anonymous" so the
 	 * HTML-in-Canvas capture isn't tainted). Absent → the silhouette fallback.
 	 */
@@ -45,6 +50,7 @@ function defaults(): OverlayDefaults<InstagramFollowContent> {
 			username: 'studioatlas',
 			name: 'Studio Atlas',
 			meta: '482K followers',
+			verified: true,
 			theme: 'light',
 			beat: 0.42
 		},

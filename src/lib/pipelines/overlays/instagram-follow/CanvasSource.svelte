@@ -61,7 +61,26 @@
 		</span>
 	</span>
 
-	<span class="ig-follow__username">{content.username}</span>
+	<span class="ig-follow__username">
+		{content.username}{#if content.verified ?? false}<svg
+				class="ig-follow__verified"
+				viewBox="0 0 24 24"
+				aria-hidden="true"
+			>
+				<path
+					d="M12 1.5l2.6 2 3.2-.5 1.2 3 3 1.2-.5 3.2 2 2.6-2 2.6.5 3.2-3 1.2-1.2 3-3.2-.5-2.6 2-2.6-2-3.2.5-1.2-3-3-1.2.5-3.2-2-2.6 2-2.6-.5-3.2 3-1.2 1.2-3 3.2.5Z"
+					fill="#0095f6"
+				/>
+				<path
+					d="M8.2 12.3l2.7 2.7 5-5.4"
+					fill="none"
+					stroke="#ffffff"
+					stroke-width="2.2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				/>
+			</svg>{/if}
+	</span>
 	{#if content.name || content.meta}
 		<span class="ig-follow__meta">
 			{[content.name, content.meta].filter(Boolean).join(' · ')}
@@ -87,16 +106,19 @@
 
 <style>
 	/* Faithful Instagram card — literal platform palette + type on purpose
-	   (pack-immune; see ./identity.ts). */
+	   (pack-immune; see ./identity.ts). Statement scale: this is a HeyGen-
+	   register creator block (~half the vertical frame width), not a UI chip —
+	   the story ring, the blue Follow, and the verified seal must read
+	   instantly at viewing distance. */
 	.ig-follow {
 		align-items: center;
-		border-radius: calc(0.9 * var(--cqmin));
-		box-shadow: 0 calc(0.18 * var(--cqmin)) calc(0.9 * var(--cqmin)) rgb(0 0 0 / 0.28);
+		border-radius: calc(2.4 * var(--cqmin));
+		box-shadow: 0 calc(0.5 * var(--cqmin)) calc(2.4 * var(--cqmin)) rgb(0 0 0 / 0.3);
 		display: inline-flex;
 		flex-direction: column;
 		font-family: -apple-system, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-		gap: calc(0.55 * var(--cqmin));
-		padding: calc(1.6 * var(--cqmin)) calc(2.2 * var(--cqmin)) calc(1.5 * var(--cqmin));
+		gap: calc(1.5 * var(--cqmin));
+		padding: calc(4.2 * var(--cqmin)) calc(5.8 * var(--cqmin)) calc(4 * var(--cqmin));
 	}
 
 	.ig-follow--light {
@@ -115,16 +137,16 @@
 		background: linear-gradient(45deg, #f9ce34, #ee2a7b 52%, #6228d7);
 		border-radius: 50%;
 		display: inline-grid;
-		padding: calc(0.22 * var(--cqmin));
+		padding: calc(0.62 * var(--cqmin));
 		place-items: center;
 	}
 
 	.ig-follow__avatar {
-		block-size: calc(4.6 * var(--cqmin));
-		border: calc(0.18 * var(--cqmin)) solid var(--ig-card, #ffffff);
+		block-size: calc(12.4 * var(--cqmin));
+		border: calc(0.5 * var(--cqmin)) solid var(--ig-card, #ffffff);
 		border-radius: 50%;
 		display: inline-block;
-		inline-size: calc(4.6 * var(--cqmin));
+		inline-size: calc(12.4 * var(--cqmin));
 		overflow: hidden;
 	}
 
@@ -145,17 +167,25 @@
 	}
 
 	.ig-follow__username {
-		font-size: calc(1.35 * var(--cqmin));
+		align-items: center;
+		display: inline-flex;
+		font-size: calc(3.6 * var(--cqmin));
 		font-weight: 700;
+		gap: calc(0.7 * var(--cqmin));
 		letter-spacing: 0.01em;
 		line-height: 1.2;
-		margin-block-start: calc(0.3 * var(--cqmin));
+		margin-block-start: calc(0.8 * var(--cqmin));
 		white-space: nowrap;
+	}
+
+	.ig-follow__verified {
+		block-size: calc(3.1 * var(--cqmin));
+		inline-size: calc(3.1 * var(--cqmin));
 	}
 
 	.ig-follow__meta {
 		color: #8e8e8e;
-		font-size: calc(0.95 * var(--cqmin));
+		font-size: calc(2.5 * var(--cqmin));
 		line-height: 1.2;
 		white-space: nowrap;
 	}
@@ -166,25 +196,30 @@
 
 	.ig-follow__cta {
 		display: inline-grid;
-		margin-block-start: calc(0.5 * var(--cqmin));
+		justify-items: stretch;
+		margin-block-start: calc(1.4 * var(--cqmin));
+		min-inline-size: calc(28 * var(--cqmin));
 	}
 
 	.ig-follow__state {
 		display: inline-flex;
 		grid-area: 1 / 1;
-		justify-self: center;
+		justify-self: stretch;
 	}
 
-	/* Follow — Instagram blue; Following — the muted chip. */
+	/* Follow — Instagram blue, the full-width rectangular button (IG's ~8px
+	   radius at UI scale, NOT a pill); Following — the muted chip. */
 	.ig-follow__button {
 		background: #0095f6;
-		border-radius: calc(0.55 * var(--cqmin));
+		border-radius: calc(1.5 * var(--cqmin));
 		color: #ffffff;
 		display: inline-flex;
-		font-size: calc(1.05 * var(--cqmin));
+		flex: 1;
+		font-size: calc(3 * var(--cqmin));
 		font-weight: 600;
+		justify-content: center;
 		line-height: 1;
-		padding: calc(0.68 * var(--cqmin)) calc(2.2 * var(--cqmin));
+		padding: calc(1.9 * var(--cqmin)) calc(6 * var(--cqmin));
 		white-space: nowrap;
 	}
 

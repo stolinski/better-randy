@@ -18,6 +18,10 @@
 	<input bind:value={overlay.content.meta} type="text" placeholder="482K followers" />
 </Field>
 
+<Field label="Verified">
+	<input bind:checked={overlay.content.verified} type="checkbox" />
+</Field>
+
 <Field label="Avatar URL">
 	<input bind:value={overlay.content.avatarUrl} type="text" placeholder="silhouette" />
 </Field>
