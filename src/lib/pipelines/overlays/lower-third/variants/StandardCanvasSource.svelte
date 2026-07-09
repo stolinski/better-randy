@@ -71,10 +71,11 @@
 		/* Muted byline ink (`lower-third.roleInk`) — a claimed quiet voice beats
 		   the translucent-ink fallback so the Pack controls the exact byline
 		   colour (the old opacity: 0.78 dim, expressed as a colour so a claim
-		   replaces it wholesale). */
+		   replaces it wholesale). Tracking is NOT the kicker's — a byline reads
+		   at body tightness while `--tracking` carries the label/chip spacing. */
 		color: var(--roleInk, color-mix(in srgb, currentColor 78%, transparent));
-		font-size: calc(4 * var(--cqmin));
-		letter-spacing: var(--tracking, normal);
+		font-size: calc(4.3 * var(--cqmin));
+		letter-spacing: -0.01em;
 		text-transform: var(--case, none);
 	}
 </style>

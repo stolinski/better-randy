@@ -217,16 +217,22 @@ export const syntaxPack: PackManifest = {
 		'lower-third.ink': { kind: 'style', value: '#f7f6f2' },
 		'lower-third.roleInk': { kind: 'style', value: '#c9c6bc' },
 		'lower-third.plate': { kind: 'style', value: '#141413' },
-		'lower-third.border': { kind: 'style', value: '4px solid #454441' },
-		'lower-third.radius': { kind: 'style', value: '16px' },
+		// Chrome scales with the CARD's proportions, not the frame's resolution
+		// (first pass converted the repo's 1080p values ×2 and rendered hairline).
+		// Repo card ≈ 95px tall: border 2px ≈ 2.1% of card height, radius 8px ≈
+		// 8.4%, shadow 10 × 1px steps ≈ 10.5% total, pad 14/20 ≈ 15%/21%. Our
+		// card ≈ 480px @4K → the same ratios below.
+		'lower-third.border': { kind: 'style', value: '10px solid #454441' },
+		'lower-third.radius': { kind: 'style', value: '40px' },
 		'lower-third.shadow': {
 			kind: 'style',
 			value:
-				'2px 2px 0 0 #050504, 4px 4px 0 0 #050504, 6px 6px 0 0 #050504, 8px 8px 0 0 #050504, 10px 10px 0 0 #050504, 12px 12px 0 0 #050504, 14px 14px 0 0 #050504, 16px 16px 0 0 #050504, 18px 18px 0 0 #050504, 20px 20px 0 0 #050504'
+				'5px 5px 0 0 #050504, 10px 10px 0 0 #050504, 15px 15px 0 0 #050504, 20px 20px 0 0 #050504, 25px 25px 0 0 #050504, 30px 30px 0 0 #050504, 35px 35px 0 0 #050504, 40px 40px 0 0 #050504, 45px 45px 0 0 #050504, 50px 50px 0 0 #050504'
 		},
-		'lower-third.pad': { kind: 'style', value: '28px 44px 30px 40px' },
-		'lower-third.gap': { kind: 'style', value: '8px' },
+		'lower-third.pad': { kind: 'style', value: '68px 100px 72px 96px' },
+		'lower-third.gap': { kind: 'style', value: '20px' },
 		'lower-third.weight': { kind: 'style', value: '700' },
+		'lower-third.tracking': { kind: 'style', value: '0.08em' },
 		// Brand faces: Space Grotesk display, Space Mono labels/chrome.
 		'lower-third.font': { kind: 'style', value: "'Space Grotesk', 'Inter', sans-serif" },
 		'lower-third.fontLabel': { kind: 'style', value: "'Space Mono', ui-monospace, monospace" },
