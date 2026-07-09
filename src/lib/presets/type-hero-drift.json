@@ -10,7 +10,7 @@
 			"fps": 30,
 			"format": "webm"
 		},
-		"backgroundFill": "#080612",
+		"backgroundFill": "#0e0e0d",
 		"typography": {
 			"fontFamily": "sans",
 			"paperColor": "#040408",
