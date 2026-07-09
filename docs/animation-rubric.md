@@ -316,7 +316,9 @@ Image-with-caption pop-ins, source citations, stat reveals, side-of-frame info c
 
 ### Captions & Subtitles
 
-Spoken-word captions for the host audio. Not yet a first-class overlay type — these rules govern the open-captions case that future tools will produce.
+Spoken-word captions for the host audio. First-class as the `state.captions` track (SRT-welded cues, karaoke / word-pop / pack styles) — these rules govern that track and any open-captions case.
+
+**Speech-welded carve-out.** Cues in `state.captions` carry absolute milliseconds welded to the speech — the spoken duration IS the screen time. For this track, **C3 supersedes G6's 2× reading rule** (a 6-word cue spoken in 1.4 s is 257 wpm by construction; a 2× read hold would detach the caption from the voice it transcribes). Likewise cue enters/exits are **hard cuts by identity declaration** — broadcast-faithful, exempt from [Q15](quality-rubric.md#q15-effects-animate-in-and-out--never-pop)'s fade envelope. G6's 2× rule remains binding for non-welded caption/lower-third overlays (no timing source in the audio).
 
 - **C1. Single line preferred; two lines maximum.**
   - **Why** — Broadcast caption standards (BBC, Netflix) cap at two lines. Three-line captions block too much of the frame and exceed reading-speed bandwidth.

@@ -34,7 +34,13 @@
 	);
 
 	const accent = $derived(captions?.accent ?? '#ffd608');
-	const bandY = $derived(captions?.y ?? 0.8);
+	// Orientation-aware band default: vertical platforms occlude the bottom
+	// ~21% (expanded-description state), so the C5 vertical position band is
+	// 22–34% from the bottom — 0.8 would sit under it. Horizontal keeps 0.8
+	// (inside C5's horizontal 15–25% band).
+	const bandY = $derived(
+		captions?.y ?? (engineState.transport.orientation === 'vertical' ? 0.75 : 0.8)
+	);
 	const scale = $derived(captions?.scale ?? 1);
 
 	// Word-pop entrance: the word lands with a fast eased pop over its first
@@ -111,7 +117,10 @@
 
 	/* The faithful social register (pack-independent by design): heavy white
 	   type with a hard multi-directional outline + drop — the caption look
-	   creators expect over footage. Plain text-shadow: capture-safe. */
+	   creators expect over footage. Plain text-shadow: capture-safe. The whole
+	   treatment rides --caption-scale with the type: an outline that stayed at
+	   its base width would vanish proportionally at scale 4 (0.9% of a 396px
+	   cap) and swamp the glyph at 0.25. */
 	.captions__line--karaoke,
 	.captions__line--word-pop {
 		color: #ffffff;
@@ -120,11 +129,12 @@
 		letter-spacing: 0.01em;
 		line-height: 1.25;
 		text-shadow:
-			calc(0.16 * var(--cqmin)) 0 0 rgb(0 0 0 / 0.9),
-			calc(-0.16 * var(--cqmin)) 0 0 rgb(0 0 0 / 0.9),
-			0 calc(0.16 * var(--cqmin)) 0 rgb(0 0 0 / 0.9),
-			0 calc(-0.16 * var(--cqmin)) 0 rgb(0 0 0 / 0.9),
-			0 calc(0.3 * var(--cqmin)) calc(0.9 * var(--cqmin)) rgb(0 0 0 / 0.55);
+			calc(0.19 * var(--cqmin) * var(--caption-scale, 1)) 0 0 rgb(0 0 0 / 0.9),
+			calc(-0.19 * var(--cqmin) * var(--caption-scale, 1)) 0 0 rgb(0 0 0 / 0.9),
+			0 calc(0.19 * var(--cqmin) * var(--caption-scale, 1)) 0 rgb(0 0 0 / 0.9),
+			0 calc(-0.19 * var(--cqmin) * var(--caption-scale, 1)) 0 rgb(0 0 0 / 0.9),
+			0 calc(0.3 * var(--cqmin) * var(--caption-scale, 1))
+				calc(0.9 * var(--cqmin) * var(--caption-scale, 1)) rgb(0 0 0 / 0.55);
 	}
 
 	.captions__line--karaoke {
@@ -132,8 +142,8 @@
 	}
 
 	.captions__word {
-		border-radius: calc(0.35 * var(--cqmin));
-		padding-inline: calc(0.18 * var(--cqmin));
+		border-radius: calc(0.35 * var(--cqmin) * var(--caption-scale, 1));
+		padding-inline: calc(0.18 * var(--cqmin) * var(--caption-scale, 1));
 	}
 
 	/* The spoken word rides the accent pill — the karaoke highlight. */

@@ -962,7 +962,9 @@ const CaptionsSchema = z.strictObject({
 	// Active-word accent (karaoke pill / word-pop ink). Absent → the style's
 	// default, read `?? '#ffd608'` at the consumer (never a Zod .default()).
 	accent: HexColorSchema.optional(),
-	// Caption band centre as a fraction of frame height. Absent → 0.8.
+	// Caption band centre as a fraction of frame height. Absent → orientation-
+	// aware: 0.8 horizontal, 0.75 vertical (vertical platform UI occludes the
+	// bottom ~21% in the expanded-description state — C5's vertical band).
 	y: FractionSchema.optional(),
 	// Size multiplier on the style's natural scale. Absent → 1.
 	scale: z.number().min(0.25).max(4).optional(),

@@ -272,7 +272,9 @@ A time-coded caption track (creator blocks, 2026-07-09). Cues carry **absolute m
   //  word-pop — only the current word, popping in big (120ms eased pop).
   //  pack     — the line dressed by the active Pack (core ink + font-treatment).
   "accent": "#rrggbb",   // optional active-word accent; absent → #ffd608
-  "y": 0..1,             // optional band centre (fraction of height); absent → 0.8
+  "y": 0..1,             // optional band centre (fraction of height); absent →
+                         // 0.8 horizontal, 0.75 vertical (C5's vertical band —
+                         // clear of the platform expanded-description occlusion)
   "scale": 0.25..4,      // optional size multiplier; absent → 1
   "cues": [
     { "id": "cue-1", "startMs": 400, "endMs": 1900, "text": "Here's the thing" }
