@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { SurfaceType } from '$lib/platform/engine-schema';
 	import { posterUrl } from '$lib/platform/posters';
+	import { SURFACE_LABELS } from './surface-labels';
 	import SurfaceIcon from './SurfaceIcon.svelte';
 
 	interface Props {
@@ -16,18 +17,6 @@
 	}
 
 	let { slug, thumbKey, name, type, orientation, badge }: Props = $props();
-
-	const SURFACE_LABELS: Record<SurfaceType, string> = {
-		paper: 'Paper',
-		plain: 'Plain',
-		newspaper: 'Newspaper',
-		'pullquote-on-photo': 'Pullquote on photo',
-		'chapter-card': 'Chapter card',
-		'title-sequence': 'Title sequence',
-		'type-hero': 'Type hero',
-		'web-document': 'Web document',
-		imessage: 'iMessage'
-	};
 
 	// Fallback chain: this composition's own poster (capture-on-view) → the
 	// committed surface-type default → the surface glyph.
@@ -92,34 +81,31 @@
 </a>
 
 <style>
+	/* Palette rides the page-level spec-ladder custom properties (DESIGN.md);
+	   fallbacks keep the card correct if rendered outside .home. */
 	.poster-card {
-		background: var(--fg-05);
-		border: var(--border-1);
-		border-radius: var(--br-m);
-		box-shadow: 0 1px 2px rgb(0 0 0 / 0.22);
+		background: var(--panel, #131315);
+		border: 1px solid var(--line, #26262a);
+		border-radius: 4px;
+		color: var(--text, #e8e8ea);
 		display: grid;
 		grid-template-rows: auto 1fr;
 		overflow: hidden;
 		text-decoration: none;
 		transition:
-			border-color 160ms ease,
-			box-shadow 220ms var(--ease-smooth, ease),
-			transform 220ms var(--ease-smooth, ease);
+			background 120ms ease,
+			border-color 120ms ease;
 	}
 
 	.poster-card:hover {
-		border-color: var(--fg-3);
-		box-shadow: 0 16px 34px -12px rgb(0 0 0 / 0.6);
-		transform: translateY(-4px);
+		background: var(--raised, #1a1a1d);
+		border-color: #3a3a3e;
 	}
 
-	@media (prefers-reduced-motion: reduce) {
-		.poster-card {
-			transition-property: border-color, box-shadow;
-		}
-		.poster-card:hover {
-			transform: none;
-		}
+	.poster-card:focus-visible {
+		border-color: var(--selection, #ffd608);
+		outline: 2px solid var(--selection, #ffd608);
+		outline-offset: 3px;
 	}
 
 	/* Preview stage — 16:9, edge-to-edge. The poster is shown whole (object-fit
@@ -128,7 +114,7 @@
 	   piece just covers it. */
 	.poster-card__preview {
 		aspect-ratio: 16 / 9;
-		background: var(--bg);
+		background: var(--ink, #0c0c0e);
 		overflow: hidden;
 		position: relative;
 	}
@@ -164,7 +150,7 @@
 
 	.poster-card__glyph {
 		block-size: 34%;
-		color: var(--fg-4);
+		color: var(--muted, #8a8a90);
 		inset-block-start: 50%;
 		inset-inline-start: 50%;
 		position: absolute;
@@ -175,7 +161,7 @@
 		background: linear-gradient(
 			100deg,
 			transparent 30%,
-			color-mix(in oklab, var(--fg-2) 70%, transparent) 50%,
+			color-mix(in oklab, var(--line, #26262a) 70%, transparent) 50%,
 			transparent 70%
 		);
 		background-size: 220% 100%;
@@ -201,25 +187,36 @@
 
 	.poster-card__body {
 		align-content: start;
+		border-block-start: 1px solid var(--line, #26262a);
 		display: grid;
 		gap: 0.35rem;
 		min-inline-size: 0;
-		padding: 0.75rem 0.85rem 0.85rem;
+		padding: 0.75rem;
 	}
 
 	.poster-card__name {
 		-webkit-box-orient: vertical;
 		-webkit-line-clamp: 2;
 		line-clamp: 2;
-		color: var(--fg);
+		color: var(--text, #e8e8ea);
 		display: -webkit-box;
+		font-family: Archivo, sans-serif;
 		font-size: 0.9rem;
-		font-weight: var(--fw-semibold);
+		font-weight: 600;
 		letter-spacing: -0.006em;
 		line-height: 1.28;
 		/* Reserve two lines so every card body is the same height. */
 		min-block-size: 2lh;
 		overflow: hidden;
+	}
+
+	/* Single-column grids have no cross-card rows to equalize, so the reserved
+	   second line would just read as a hole. The grid is an inline-size
+	   container; below two 13rem tracks + gap it is single column. */
+	@container (width < 26.9rem) {
+		.poster-card__name {
+			min-block-size: auto;
+		}
 	}
 
 	.poster-card__meta {
@@ -231,24 +228,29 @@
 	}
 
 	.poster-card__surface {
-		color: var(--fg-5);
+		color: var(--muted, #8a8a90);
+		font-family: Archivo, sans-serif;
 		font-size: 0.72rem;
-		letter-spacing: 0.01em;
+		font-weight: 600;
+		letter-spacing: 0.08em;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		text-transform: uppercase;
 		white-space: nowrap;
 	}
 
 	.poster-card__badge {
-		background: var(--fg-1);
-		border-radius: 999px;
-		color: var(--fg-6);
+		background: var(--ink, #0c0c0e);
+		border: 1px solid var(--line, #26262a);
+		border-radius: 2px;
+		color: var(--text, #e8e8ea);
 		flex-shrink: 0;
-		font-size: 0.63rem;
-		font-weight: var(--fw-medium);
+		font-family: 'JetBrains Mono', monospace;
+		font-size: 0.6875rem;
+		font-weight: 600;
 		letter-spacing: 0.02em;
-		padding-block: 0.2em;
-		padding-inline: 0.55em;
+		padding-block: 0.1em;
+		padding-inline: 0.45em;
 		white-space: nowrap;
 	}
 </style>

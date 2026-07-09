@@ -6,8 +6,10 @@
 	import type { UserCompositionMeta } from '$lib/platform/persistence';
 	import { userStore } from '$lib/platform/persistence';
 	import { posterKeyForPreset } from '$lib/platform/posters';
+	import type { CataloguedPreset } from '$lib/platform/preset';
 	import { getPresetBySlug, listFixtures, listPresets } from '$lib/platform/preset';
 	import PosterCard from './PosterCard.svelte';
+	import { SURFACE_LABELS } from './surface-labels';
 
 	// Which compositor a Preset drives, resolved the same way Workspace does:
 	// `state.stage` → the dimensional depth stage (real WebGPU 3D, ADR-0028);
@@ -25,10 +27,41 @@
 	const presets = listPresets();
 	const fixtures = listFixtures();
 
+	// Content families that cut across the generic `plain` surface — grouping by
+	// surface type alone would leave a 25-card run under one heading. Matched by
+	// slug prefix; anything unmatched falls back to its surface-type label.
+	const TEMPLATE_FAMILIES: readonly { label: string; prefixes: readonly string[] }[] = [
+		{ label: 'Captions', prefixes: ['captions-'] },
+		{ label: 'Docu', prefixes: ['docu-'] },
+		{ label: 'Lower thirds', prefixes: ['lower-third'] },
+		{ label: 'Social beats', prefixes: ['youtube-', 'instagram-'] }
+	];
+
+	function templateGroupLabel(entry: CataloguedPreset): string {
+		const family = TEMPLATE_FAMILIES.find((candidate) =>
+			candidate.prefixes.some((prefix) => entry.slug.startsWith(prefix))
+		);
+		return family ? family.label : SURFACE_LABELS[entry.preset.state.surface.type];
+	}
+
+	const templateGroups: readonly { label: string; entries: CataloguedPreset[] }[] = (() => {
+		const byLabel: Record<string, CataloguedPreset[]> = {};
+		for (const entry of presets) {
+			const label = templateGroupLabel(entry);
+			(byLabel[label] ??= []).push(entry);
+		}
+		return Object.entries(byLabel)
+			.map(([label, entries]) => ({ label, entries }))
+			.sort((a, b) => a.label.localeCompare(b.label));
+	})();
+
 	let userComps = $state<UserCompositionMeta[]>([]);
 	// A user comp's poster key needs its full stored preset (not just the meta),
 	// so resolve them once the list loads; null once resolved-but-unavailable.
 	let compKeys = $state<Record<string, string | null>>({});
+	// Two-step in-place delete: first press arms this slug ("Delete?"), second
+	// press commits; pointer-down elsewhere or Escape disarms.
+	let confirmingSlug = $state<string | null>(null);
 
 	onMount(() => {
 		userStore
@@ -61,11 +94,31 @@
 	}
 
 	async function deleteUserComp(slug: string): Promise<void> {
-		if (!confirm('Delete this composition?')) return;
-		await userStore.del(slug);
-		userComps = userComps.filter((c) => c.slug !== slug);
+		if (confirmingSlug !== slug) {
+			confirmingSlug = slug;
+			return;
+		}
+		confirmingSlug = null;
+		try {
+			await userStore.del(slug);
+			userComps = userComps.filter((c) => c.slug !== slug);
+		} catch (error) {
+			console.error(`Failed to delete composition "${slug}".`, error);
+		}
+	}
+
+	function disarmDeleteOnPointerDown(event: PointerEvent): void {
+		if (confirmingSlug === null) return;
+		if (event.target instanceof Element && event.target.closest('.card__delete')) return;
+		confirmingSlug = null;
+	}
+
+	function disarmDeleteOnEscape(event: KeyboardEvent): void {
+		if (confirmingSlug !== null && event.key === 'Escape') confirmingSlug = null;
 	}
 </script>
+
+<svelte:window onpointerdown={disarmDeleteOnPointerDown} onkeydown={disarmDeleteOnEscape} />
 
 {#snippet presetCard(slug: string, preset: Preset)}
 	<li>
@@ -93,26 +146,33 @@
 		/>
 		<button
 			class="card__delete"
+			class:is-confirming={confirmingSlug === comp.slug}
 			type="button"
-			aria-label="Delete {comp.name}"
+			aria-label={confirmingSlug === comp.slug
+				? `Confirm delete ${comp.name}`
+				: `Delete ${comp.name}`}
 			onclick={() => deleteUserComp(comp.slug)}
 		>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				width="14"
-				height="14"
-				viewBox="0 0 16 16"
-				aria-hidden="true"
-			>
-				<path
-					d="M2 4h12M6 4V2h4v2M5 4v9a1 1 0 001 1h4a1 1 0 001-1V4"
-					stroke="currentColor"
-					stroke-width="1.5"
-					fill="none"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-				/>
-			</svg>
+			{#if confirmingSlug === comp.slug}
+				Delete?
+			{:else}
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="14"
+					height="14"
+					viewBox="0 0 16 16"
+					aria-hidden="true"
+				>
+					<path
+						d="M2 4h12M6 4V2h4v2M5 4v9a1 1 0 001 1h4a1 1 0 001-1V4"
+						stroke="currentColor"
+						stroke-width="1.5"
+						fill="none"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
+				</svg>
+			{/if}
 		</button>
 	</li>
 {/snippet}
@@ -154,109 +214,74 @@
 
 	<section class="home__section home__section--templates">
 		<h2 class="home__heading">Starter templates</h2>
-		<ul class="home__grid">
-			{#each presets as entry (entry.slug)}
-				{@render presetCard(entry.slug, entry.preset)}
-			{/each}
-		</ul>
+		{#each templateGroups as group (group.label)}
+			<h3 class="home__subheading">{group.label}</h3>
+			<ul class="home__grid">
+				{#each group.entries as entry (entry.slug)}
+					{@render presetCard(entry.slug, entry.preset)}
+				{/each}
+			</ul>
+		{/each}
 	</section>
 
 	{#if fixtures.length > 0}
-		<section class="home__section home__section--fixtures">
-			<h2 class="home__heading">Demos &amp; fixtures</h2>
+		<details class="home__fixtures">
+			<summary class="home__heading home__heading--summary">Demos &amp; fixtures</summary>
 			<ul class="home__grid">
 				{#each fixtures as entry (entry.slug)}
 					{@render presetCard(entry.slug, entry.preset)}
 				{/each}
 			</ul>
-		</section>
+		</details>
 	{/if}
 </main>
 
 <style>
+	/* The DESIGN.md neutral ladder + signal lights, scoped to the home deck.
+	   PosterCard reads these same properties by inheritance. */
 	.home {
-		--race-ink: #07070a;
-		--race-panel: #111119;
-		--race-panel-2: #181822;
-		--race-line: #2b2b36;
-		--race-text: #f4f4f7;
-		--race-muted: #8d8d99;
-		--signal-yellow: #ffd608;
-		--signal-red: #e6322a;
-		--signal-cyan: #2de8ee;
+		--ink: #0c0c0e;
+		--panel: #131315;
+		--raised: #1a1a1d;
+		--line: #26262a;
+		--text: #e8e8ea;
+		--muted: #8a8a90;
+		--selection: #ffd608;
+		--danger-text: #f0453d;
+		background: var(--ink);
 		display: grid;
 		gap: clamp(1.45rem, 2.6vw, 2.75rem);
-		isolation: isolate;
 		margin-inline: auto;
 		max-inline-size: 90rem;
 		min-block-size: 100svh;
 		padding: clamp(1rem, 2.4vw, 2.4rem);
-		position: relative;
-	}
-
-	.home::before,
-	.home::after {
-		content: '';
-		inset: 0;
-		pointer-events: none;
-		position: absolute;
-		z-index: -1;
-	}
-
-	.home::before {
-		background: var(--race-ink);
-	}
-
-	.home::after {
-		background: linear-gradient(90deg, rgb(230 50 42 / 0.18), rgb(255 214 8 / 0.2), transparent 52%);
-		block-size: 1px;
-		inset-block-end: auto;
-		opacity: 1;
-		width: 100%;
 	}
 
 	.home__header {
 		align-items: end;
-		background: transparent;
-		border-block-end: 1px solid var(--race-line);
-		border-radius: 0;
-		color: var(--race-text);
+		border-block-end: 1px solid var(--line);
+		color: var(--text);
 		display: flex;
 		gap: var(--vs-l, 1.5rem);
 		justify-content: space-between;
 		padding-block: clamp(1rem, 3.2vw, 3.2rem);
-		position: relative;
-	}
-
-	.home__header::before {
-		background: var(--signal-yellow);
-		block-size: 0.34rem;
-		content: '';
-		inline-size: min(18rem, 50vw);
-		inset-block-end: -1px;
-		inset-inline-start: 0;
-		position: absolute;
 	}
 
 	.home__brand {
 		display: grid;
 		gap: 0.35rem;
-		position: relative;
-		z-index: 1;
-	}
-
-	.home__stamp,
-	.home__heading {
-		font-family: 'JetBrains Mono', monospace;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
 	}
 
 	.home__stamp {
-		color: var(--signal-cyan);
+		/* Sanctioned spec-plate exception (DESIGN.md Typography): a data readout,
+		   so it keeps the instrument mono voice. */
+		color: var(--muted);
+		font-family: 'JetBrains Mono', monospace;
 		font-size: clamp(0.68rem, 0.9vw, 0.8rem);
-		font-weight: var(--fw-semibold);
+		font-weight: 600;
+		letter-spacing: 0.12em;
 		margin: 0;
+		text-transform: uppercase;
 	}
 
 	.home__wordmark {
@@ -267,6 +292,8 @@
 		letter-spacing: -0.055em;
 		line-height: 0.82;
 		margin: 0;
+		/* The one sanctioned display accent (DESIGN.md Typography): a single
+		   hard-offset signal-hue shadow on the brand shout. */
 		text-shadow: 0.04em 0.03em 0 rgb(230 50 42 / 0.55);
 		text-transform: uppercase;
 	}
@@ -288,79 +315,109 @@
 
 	.home__new {
 		align-items: center;
-		background: var(--signal-yellow);
-		border: 1px solid var(--race-line);
-		border-radius: 0.35rem;
-		color: #09090c;
+		background: var(--raised);
+		border: 1px solid var(--line);
+		border-radius: 2px;
+		color: var(--text);
 		cursor: pointer;
 		display: inline-flex;
-		font-family: 'JetBrains Mono', monospace;
-		font-size: 0.76rem;
-		font-weight: var(--fw-semibold);
+		font-family: Archivo, sans-serif;
+		font-size: 0.72rem;
+		font-weight: 600;
 		gap: var(--vs-xs, 0.45rem);
+		letter-spacing: 0.08em;
 		padding: 0.72rem 0.92rem;
-		position: relative;
 		text-transform: uppercase;
 		transition:
 			background 120ms ease,
-			translate 120ms ease;
-		z-index: 1;
+			border-color 120ms ease;
 	}
 
 	.home__new:hover {
-		background: var(--signal-cyan);
-		border-color: #000;
-		translate: 0 -0.12rem;
+		background: #202024;
+		border-color: #3a3a3e;
 	}
 
 	.home__new:focus-visible {
-		border-color: var(--signal-yellow);
-		outline: 2px solid var(--signal-yellow);
+		border-color: var(--selection);
+		outline: 2px solid var(--selection);
 		outline-offset: 3px;
 	}
 
 	.home__section {
-		background: transparent;
-		border: 0;
-		border-radius: 0;
-		color: var(--race-text);
+		color: var(--text);
 		display: grid;
 		gap: var(--vs-m, 1rem);
-		padding: 0;
-		position: relative;
+	}
+
+	.home__heading,
+	.home__subheading {
+		align-items: center;
+		display: flex;
+		font-family: Archivo, sans-serif;
+		font-size: 0.72rem;
+		font-weight: 600;
+		gap: 0.7rem;
+		letter-spacing: 0.08em;
+		margin: 0;
+		text-transform: uppercase;
 	}
 
 	.home__heading {
-		align-items: center;
-		color: var(--race-text);
-		display: flex;
-		font-size: 0.76rem;
-		font-weight: var(--fw-semibold);
-		gap: 0.7rem;
-		margin: 0;
+		color: var(--text);
 	}
 
-	.home__heading::after {
-		background: linear-gradient(90deg, currentColor, transparent);
+	.home__subheading {
+		color: var(--muted);
+	}
+
+	.home__heading::after,
+	.home__subheading::after {
+		background: var(--line);
 		block-size: 1px;
 		content: '';
 		flex: 1;
-		opacity: 0.24;
 	}
 
-	.home__section--user .home__heading {
-		color: var(--signal-cyan);
+	/* Group seams inside the template wall: a touch more air above each family
+	   than between its label and its cards. */
+	.home__grid + .home__subheading {
+		margin-block-start: 0.5rem;
 	}
 
-	.home__section--templates .home__heading {
-		color: var(--signal-yellow);
+	.home__fixtures {
+		color: var(--text);
 	}
 
-	.home__section--fixtures .home__heading {
-		color: var(--signal-red);
+	.home__fixtures .home__grid {
+		margin-block-start: var(--vs-m, 1rem);
+	}
+
+	.home__heading--summary {
+		cursor: pointer;
+		list-style: none;
+	}
+
+	.home__heading--summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.home__heading--summary::before {
+		color: var(--muted);
+		content: '▸';
+	}
+
+	.home__fixtures[open] .home__heading--summary::before {
+		content: '▾';
+	}
+
+	.home__heading--summary:focus-visible {
+		outline: 2px solid var(--selection);
+		outline-offset: 3px;
 	}
 
 	.home__grid {
+		container-type: inline-size;
 		display: grid;
 		gap: clamp(0.9rem, 1.8vw, 1.35rem);
 		grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
@@ -374,65 +431,20 @@
 		position: relative;
 	}
 
-	.home :global(.poster-card) {
-		background: color-mix(in oklab, var(--race-panel) 82%, white);
-		border-color: var(--race-line);
-		border-radius: 0.4rem;
-		box-shadow: none;
-	}
-
-	.home :global(.poster-card:hover) {
-		border-color: var(--signal-cyan);
-		box-shadow:
-			0 0 0 1px color-mix(in oklab, var(--signal-cyan) 70%, transparent),
-			0 0.75rem 1.5rem rgb(0 0 0 / 0.16);
-		transform: translateY(-0.1rem);
-	}
-
-	.home :global(.poster-card:focus-visible) {
-		border-color: var(--signal-yellow);
-		outline: 2px solid var(--signal-yellow);
-		outline-offset: 3px;
-	}
-
-	.home :global(.poster-card__body) {
-		background: color-mix(in oklab, var(--race-panel) 82%, white);
-		border-block-start: 1px solid var(--race-line);
-	}
-
-	.home :global(.poster-card__name) {
-		color: var(--race-text);
-	}
-
-	.home :global(.poster-card__meta) {
-		font-family: 'JetBrains Mono', monospace;
-		text-transform: lowercase;
-	}
-
-	.home :global(.poster-card__surface) {
-		color: var(--race-muted);
-	}
-
-	.home :global(.poster-card__badge) {
-		background: #9f1d1a;
-		border-radius: 999px;
-		color: #fff;
-	}
-
 	.card-cell {
 		position: relative;
 	}
 
 	.card__delete {
 		align-items: center;
-		background: var(--race-panel);
-		border: 1px solid var(--race-line);
-		border-radius: 0.35rem;
-		color: #fff;
+		background: var(--panel);
+		block-size: 1.85rem;
+		border: 1px solid var(--line);
+		border-radius: 2px;
+		color: var(--text);
 		cursor: pointer;
 		display: flex;
 		inline-size: 1.85rem;
-		block-size: 1.85rem;
 		inset-block-start: var(--vs-s);
 		inset-inline-end: var(--vs-s);
 		justify-content: center;
@@ -440,28 +452,50 @@
 		padding: 0;
 		position: absolute;
 		transition:
-			background 100ms ease,
+			border-color 100ms ease,
+			color 100ms ease,
 			opacity 100ms ease;
 		z-index: 3;
 	}
 
 	.card-cell:hover .card__delete,
-	.card__delete:focus-visible {
+	.card__delete:focus-visible,
+	.card__delete.is-confirming {
 		opacity: 1;
 	}
 
 	.card__delete:hover {
-		background: var(--signal-red);
+		border-color: #3a3a3e;
+		color: var(--danger-text);
+	}
+
+	.card__delete.is-confirming {
+		background: var(--ink);
+		color: var(--danger-text);
+		font-family: Archivo, sans-serif;
+		font-size: 0.72rem;
+		font-weight: 600;
+		inline-size: auto;
+		letter-spacing: 0.08em;
+		padding-inline: 0.55rem;
+		text-transform: uppercase;
 	}
 
 	.card__delete:focus-visible {
-		outline: 2px solid var(--signal-yellow);
+		outline: 2px solid var(--selection);
 		outline-offset: 2px;
 	}
 
 	@media (hover: none), (pointer: coarse) {
 		.card__delete {
 			opacity: 1;
+		}
+
+		/* Keep the 1.85rem visual; extend the effective touch target past 44px. */
+		.card__delete::after {
+			content: '';
+			inset: -0.5rem;
+			position: absolute;
 		}
 	}
 
