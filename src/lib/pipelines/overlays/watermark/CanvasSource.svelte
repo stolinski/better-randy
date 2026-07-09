@@ -47,7 +47,7 @@
 
 	.watermark__handle {
 		grid-column: 2;
-		font-family: var(--font, 'SFMono-Regular', Consolas, 'Liberation Mono', monospace);
+		font-family: var(--fontLabel, var(--font, 'SFMono-Regular', Consolas, 'Liberation Mono', monospace));
 		font-size: calc(3 * var(--cqmin));
 		font-weight: var(--weight, 600);
 		letter-spacing: var(--tracking, normal);

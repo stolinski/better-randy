@@ -37,11 +37,17 @@
 	// still owns what accent looks like (guaranteed present by the boot validator).
 	const accentInk = $derived(requireCoreColor(pack, 'accent-treatment'));
 
-	// The mount root's voice: a Pack `font-treatment` claim beats the preset's
-	// typography voice key (the same specific-beats-general rule as colours);
-	// no claim, the composition's ENGINE_FONT_FAMILIES voice decides.
+	// The mount root's voice, specific → general (ADR-0024): a Pack
+	// `diagram.font` claim (the diagram chrome's own face — e.g. the brand
+	// mono) beats a pack-wide `font-treatment` claim beats the preset's
+	// ENGINE_FONT_FAMILIES typography voice.
+	const diagramFontClaim = $derived.by(() => {
+		const role = pack.roles['diagram.font'];
+		return role && role.kind === 'style' && typeof role.value === 'string' ? role.value : null;
+	});
 	const fontStack = $derived(
-		resolveFontTreatment(pack) ??
+		diagramFontClaim ??
+			resolveFontTreatment(pack) ??
 			ENGINE_FONT_FAMILIES[engineState.typography.fontFamily]?.stack ??
 			ENGINE_FONT_FAMILIES.sans.stack
 	);

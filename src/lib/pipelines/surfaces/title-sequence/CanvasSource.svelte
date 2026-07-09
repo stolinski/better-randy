@@ -80,7 +80,7 @@
 	.title-sequence-source__kicker {
 		/* Extra slot → chains to the accent core (kicker is accent-family), never a literal (ADR-0024). */
 		color: var(--kicker, var(--accent));
-		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
+		font-family: var(--fontLabel, var(--font, 'JetBrains Mono', ui-monospace, monospace));
 		font-weight: 500;
 		inset-block-start: 51%;
 		inset-inline-start: 8%;

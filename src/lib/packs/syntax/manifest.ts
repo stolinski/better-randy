@@ -20,7 +20,7 @@ export const syntaxPack: PackManifest = {
 	slug: 'syntax',
 	label: 'Syntax',
 	description:
-		'Channel-specific aesthetic for the Syntax.fm coding podcast — torn-paper zine collage on photographic substrate, yellow-dominant palette, mono signature thread.',
+		'The Syntax.fm house style (github.com/randyrektor/syntax-overlay): flat warm-black fields, bordered cards with chunky stepped shadows, Space Grotesk display + Space Mono chrome, one loud #ffd54a yellow. Substrate ≠ chrome: quoted documents keep their own physics.',
 	fonts: syntaxFonts,
 	roles: {
 		// ---------------------------------------------------------------
@@ -42,12 +42,11 @@ export const syntaxPack: PackManifest = {
 		'accent-treatment': { kind: 'style', value: '#ffd54a' },
 		// Core structural edge vocabulary (five values: clean/soft/irregular/
 		// torn/none, resolved by resolveEdgeTreatment → the shared edge-treatment
-		// ShaderPass). Syntax is the torn-collage channel — any opted-in card
-		// silhouette that doesn't override tears by default (aesthetic.md
-		// § Collage System / Cut behavior).
+		// ShaderPass). Brand ruling 2026-07-09: chrome never tears — clean is the
+		// default; a quoted-document substrate (newspaper) claims its own torn edge.
 		'edge-treatment': {
 			kind: 'style',
-			value: { mode: 'torn', amplitudePx: 24, wavelengthPx: 140, fiber: 1 }
+			value: 'clean'
 		},
 		'depth-treatment': {
 			kind: 'style',
@@ -64,22 +63,25 @@ export const syntaxPack: PackManifest = {
 		'plain.light': { kind: 'style', value: 'none' },
 
 		// ---------------- chapter-card Surface ----------------
-		'chapter-card.edge': { kind: 'style', value: 'torn' },
+		'chapter-card.edge': { kind: 'style', value: 'clean' },
 		'chapter-card.depth': { kind: 'style', value: { hardOffset: { dx: 10, dy: 10, blur: 0 } } },
 		'chapter-card.light': { kind: 'style', value: 'none' },
 		// Consumed color Roles (render-is-truth — match what CanvasSource paints).
 		// Warm off-white (not pure #fff): agrees with the upper-right warm key and
 		// keeps Q17 emphasis headroom — matches the preset's declared inkColor.
-		'chapter-card.ink': { kind: 'style', value: '#f4ecdc' },
-		'chapter-card.base': { kind: 'style', value: '#f4ecdc' },
-		'chapter-card.kicker': { kind: 'style', value: '#d8c4a0' },
-		'chapter-card.rule': { kind: 'style', value: 'rgba(216, 196, 160, 0.62)' },
-		// WGSL backdrop tints (render-is-truth — exact byte conversions of the
-		// vec3f constants the chapter-card-backdrop pass shipped with): slate top,
-		// warmer charcoal floor, warm upper-right key light.
+		'chapter-card.ink': { kind: 'style', value: '#f7f6f2' },
+		'chapter-card.base': { kind: 'style', value: '#f7f6f2' },
+		'chapter-card.kicker': { kind: 'style', value: '#ffd54a' },
+		'chapter-card.rule': { kind: 'style', value: '#454441' },
+		// Brand faces: Grotesk display, Space Mono kicker (2026-07-09).
+		'chapter-card.font': { kind: 'style', value: "'Space Grotesk', 'Inter', sans-serif" },
+		'chapter-card.fontLabel': { kind: 'style', value: "'Space Mono', ui-monospace, monospace" },
+		// WGSL backdrop tints — FLAT brand field (2026-07-09): the light is
+		// additive so #000000 zeroes it; top == bottom kills the gradient (and
+		// makes the baked camera dolly a no-op on the flat field).
 		'chapter-card.backdrop': {
 			kind: 'style',
-			value: { top: '#0e1219', bottom: '#171310', light: '#f0b875' }
+			value: { top: '#0e0e0d', bottom: '#0e0e0d', light: '#000000' }
 		},
 
 		// ---------------- pullquote-on-photo Surface ----------------
@@ -129,14 +131,15 @@ export const syntaxPack: PackManifest = {
 		'title-sequence.depth': { kind: 'style', value: 'none' },
 		'title-sequence.light': { kind: 'style', value: 'none' },
 		// Consumed color Roles (render-is-truth — match what CanvasSource paints).
-		'title-sequence.ink': { kind: 'style', value: '#fffaf0' },
-		'title-sequence.kicker': { kind: 'style', value: '#d8a87a' },
-		// WGSL backdrop tints (render-is-truth — exact byte conversions of the
-		// title-sequence-drop pass's vec3f constants): deep cinema black with a
-		// cool-top / warm-floor lean, warm upper-right key glow.
+		'title-sequence.ink': { kind: 'style', value: '#f7f6f2' },
+		'title-sequence.kicker': { kind: 'style', value: '#ffd54a' },
+		'title-sequence.font': { kind: 'style', value: "'Space Grotesk', 'Inter', sans-serif" },
+		'title-sequence.fontLabel': { kind: 'style', value: "'Space Mono', ui-monospace, monospace" },
+		// WGSL backdrop tints — FLAT brand field (2026-07-09): additive glow
+		// zeroed, gradient flattened; the atmosphere grammar is not the brand.
 		'title-sequence.backdrop': {
 			kind: 'style',
-			value: { top: '#040508', bottom: '#070504', glow: '#eb9457' }
+			value: { top: '#0e0e0d', bottom: '#0e0e0d', glow: '#000000' }
 		},
 
 		// ---------------- type-hero Surface ----------------
@@ -188,10 +191,14 @@ export const syntaxPack: PackManifest = {
 		// jank on the timeline axis, not charm (calibration verdict 2026-07-09).
 		'diagram.stroke': { kind: 'style', value: { color: 'ink', widthPx: 12, wobble: 0 } },
 		'diagram.arrowhead': { kind: 'style', value: 'solid-triangle' },
+		// Diagram DOM chrome voice — Space Mono (read by DiagramMount ahead of the
+		// engine typography voice; NOT a core font-treatment claim, which would
+		// override document substrates' own faces).
+		'diagram.font': { kind: 'style', value: "'Space Mono', ui-monospace, monospace" },
 		// Node forms: white collage-card boxes (the zine cut-out), accent pins
 		// and dots; the box shadow rides the core hard-offset depth rig.
 		'node.fill': { kind: 'style', value: '#ffffff' },
-		'node.accent': { kind: 'style', value: '#fabf47' },
+		'node.accent': { kind: 'style', value: '#ffd54a' },
 		// The node's border/stroke/glyphs ride the inherited composition colour
 		// (render-is-truth: the CanvasSource paints `var(--ink, currentColor)`);
 		// claimed explicitly so the core `ink-treatment` fallback can't repaint it.
@@ -199,7 +206,7 @@ export const syntaxPack: PackManifest = {
 		'node.depth': { kind: 'style', value: { hardOffset: { dx: 8, dy: 8, blur: 0, color: 'rgba(0, 0, 0, 0.85)' } } },
 		// Caption + stat voices ride the composition ink / channel accent.
 		'label.ink': { kind: 'style', value: 'currentColor' },
-		'stat-callout.accent': { kind: 'style', value: '#fabf47' },
+		'stat-callout.accent': { kind: 'style', value: '#ffd54a' },
 		'stat-callout.ink': { kind: 'style', value: 'currentColor' },
 
 		// ---------------- Annotation tool inks ----------------
@@ -252,11 +259,16 @@ export const syntaxPack: PackManifest = {
 
 		// Consumed appearance Roles wired into the overlay CanvasSources
 		// (render-is-truth — values match what each CanvasSource paints).
-		'watermark.ink': { kind: 'style', value: '#ededed' },
-		'watermark.accent': { kind: 'style', value: '#ffd642' },
-		'counter.ink': { kind: 'style', value: '#fabf47' },
-		'instance-stack.ink': { kind: 'style', value: '#fabf47' },
-		'text-3d.ink': { kind: 'style', value: '#fabf47' },
+		'watermark.ink': { kind: 'style', value: '#f7f6f2' },
+		'watermark.accent': { kind: 'style', value: '#ffd54a' },
+		'watermark.font': { kind: 'style', value: "'Space Grotesk', 'Inter', sans-serif" },
+		'watermark.fontLabel': { kind: 'style', value: "'Space Mono', ui-monospace, monospace" },
+		'counter.ink': { kind: 'style', value: '#ffd54a' },
+		'counter.fontLabel': { kind: 'style', value: "'Space Mono', ui-monospace, monospace" },
+		'instance-stack.ink': { kind: 'style', value: '#ffd54a' },
+		'instance-stack.font': { kind: 'style', value: "'Space Grotesk', 'Inter', sans-serif" },
+		'text-3d.ink': { kind: 'style', value: '#ffd54a' },
+		'text-3d.font': { kind: 'style', value: "'Space Grotesk', 'Inter', sans-serif" },
 		// Washi-tape procedural grain — the dark/light fibre stops in the tape's
 		// gradient stack (alpha-bound; previously inline literals, now Pack-routed).
 		'washi-tape.grain-dark': { kind: 'style', value: 'rgba(0, 0, 0, 0.08)' },
