@@ -1,6 +1,6 @@
 ---
 name: Supers
-description: A dead-neutral instrument deck — achromatic chrome where the only color on screen is a state light, so the canvas is the only picture.
+description: A dead-neutral instrument deck — achromatic chrome where the only color on screen is a state light or a clip on the track, so the canvas is the only picture.
 colors:
   primary: "#E8E8EA" # instrument text — labels, values, icons
   muted: "#8A8A90" # secondary text — section labels, metadata, disabled
@@ -13,6 +13,7 @@ colors:
   danger: "#E6322A" # red light — destructive fills and icons, error states
   danger-text: "#F0453D" # AA-passing red for danger text on dark surfaces
   success: "#3DBF6E" # green light — completion only (export done, valid state)
+  clip: "#1F5AFF" # clip blue — timeline clip bars only: media on the track, never a message
 typography:
   display:
     fontFamily: Archivo
@@ -82,7 +83,7 @@ components:
     rounded: "{rounded.sm}"
     padding: 6px
   clip-bar:
-    backgroundColor: "{colors.neutral-raised}"
+    backgroundColor: "{colors.clip}"
     rounded: "{rounded.sm}"
   section-label:
     textColor: "{colors.muted}"
@@ -109,8 +110,9 @@ designed — never a clone of its bevels and gray-on-gray button soup.
 
 The distinctive angle: **color is never decoration; every hue on screen is a
 state with exactly one meaning.** Yellow is selection. Cyan is time. Red is
-danger. Green is completion. A screenshot of Supers is identifiable by its four
-lights on an otherwise silent monochrome deck — like channel lights on
+danger. Green is completion. Blue is a clip on the track — media, not a
+message. A screenshot of Supers is identifiable by its four lights and blue
+clip bars on an otherwise silent monochrome deck — like channel lights on
 broadcast hardware.
 
 **Scope:** this file governs the tool chrome (the GUI) only. The look of
@@ -125,14 +127,15 @@ there are no "designer's discretion" gaps to guess at.
 
 ## Colors
 
-Achromatic neutrals plus four signal lights. The neutral ladder carries all
-structure; the lights carry all state.
+Achromatic neutrals, four signal lights, and the clip blue. The neutral ladder
+carries all structure; the lights carry all state; the clip blue carries media
+on the timeline.
 
 - **Primary `#E8E8EA`** — instrument text: labels, values, icons.
 - **Muted `#8A8A90`** — secondary text: section labels, metadata, disabled states.
 - **Neutral `#131315`** — the deck: default panel background.
 - **Neutral-recessed `#0C0C0E`** — wells: inputs, the timeline track area, canvas surround.
-- **Neutral-raised `#1A1A1D`** — lifted steps: clip bars, hovered rows, buttons.
+- **Neutral-raised `#1A1A1D`** — lifted steps: hovered rows, buttons.
 - **Border `#26262A`** — hairlines: panel seams, section dividers, input edges.
 - **Selection `#FFD608`** — the yellow light: selected clip bar outline ring,
   active row highlight in the outline gutter, focused input border. Never a fill
@@ -145,9 +148,14 @@ structure; the lights carry all state.
 - **Success `#3DBF6E`** — the green light: completion only. An export that
   finished, a state that validated. It reads as a status LED, not a
   celebration. Ordinary "working correctly" is silent — no green for defaults.
+- **Clip `#1F5AFF`** — the clip blue: timeline clip bars, and nothing else. It
+  is a surface, not a message — it marks media on the track the way tape marks
+  a reel. It never colors text, icons, buttons, or state, and never appears
+  outside the timeline.
 
 Each light has exactly one meaning and appears only in its role. There is no
-info blue, no warning orange. Anything needing attention is red or plain text.
+info blue, no warning orange — the clip blue is media, not messaging. Anything
+needing attention is red or plain text.
 
 ## Typography
 
@@ -203,7 +211,7 @@ geometry is the meaning (playhead grab handle, keyframe diamonds).
 - **Buttons** are quiet raised steps with sans labels; destructive actions are
   the same shape with `danger-text` text — red never shouts as a fill unless
   the action is confirmed-destructive.
-- **Clip bars** are raised steps on the recessed track; the selected clip
+- **Clip bars** are `clip`-blue bars on the recessed track; the selected clip
   carries a 1px `selection` outline ring. Enter/exit ramps render as integrated
   gradient zones within the bar (the one sanctioned gradient — it encodes data,
   not decoration).
