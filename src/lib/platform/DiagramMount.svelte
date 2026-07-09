@@ -4,6 +4,7 @@
 	import { getPack } from './packs/registry';
 	import {
 		appearanceVarsToStyle,
+		requireCoreColor,
 		resolveAppearanceVars,
 		resolveDepthTreatment,
 		resolveFontTreatment,
@@ -30,6 +31,11 @@
 	// The diagram's inherited ink (each element's currentColor floor) resolves
 	// override → Pack core ink-treatment (ADR-0038), matching body text.
 	const diagramInk = $derived(resolveTypographyColors(pack, engineState.typography).inkColor);
+
+	// An element declaring `ink: 'accent'` rides the Pack's core accent-treatment
+	// instead — the composition picks WHICH elements carry emphasis, the Pack
+	// still owns what accent looks like (guaranteed present by the boot validator).
+	const accentInk = $derived(requireCoreColor(pack, 'accent-treatment'));
 
 	// The mount root's voice: a Pack `font-treatment` claim beats the preset's
 	// typography voice key (the same specific-beats-general rule as colours);
@@ -139,6 +145,9 @@
 	function appearanceStyle(element: DiagramElement): string {
 		const vars = resolveAppearanceVars(pack, element.type);
 		let style = appearanceVarsToStyle(vars);
+		if ((element.ink ?? 'ink') === 'accent') {
+			style += `;color:${accentInk}`;
+		}
 		if (element.type === 'node') {
 			// The 'fg' shadow-colour sentinel resolves through the node's own
 			// mount-injected `--ink` (ADR-0024) — never a baked colour; a Pack

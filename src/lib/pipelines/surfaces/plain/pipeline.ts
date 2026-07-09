@@ -156,7 +156,8 @@ export function createPlainPipeline({
 				nodeLayouts: getDiagramNodeLayouts(sourceElement, fullLayout),
 				drawProgressById: inputs.diagram.drawProgressById,
 				alphaById: inputs.diagram.alphaById,
-				stroke: inputs.diagram.stroke
+				stroke: inputs.diagram.stroke,
+				accentColor: inputs.diagram.accentColor
 			});
 		}
 

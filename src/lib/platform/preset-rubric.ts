@@ -3,7 +3,7 @@ import type { AnnotationBody } from '../annotations/annotation-marks.ts';
 import { opacityEnvelope, resolveCascadeTimings, type CascadeWindow } from './cascade-timing.ts';
 import type { MarkTiming, Overlay, Preset, SurfaceState, Transition } from './engine-schema.ts';
 import { getPack } from './packs/registry.ts';
-import { resolveTypographyColors } from './packs/resolve.ts';
+import { requireCoreColor, resolveTypographyColors } from './packs/resolve.ts';
 import { getLayoutSafeArea } from '../utils/safe-area.ts';
 
 export type RubricSeverity = 'error' | 'warn';
@@ -128,8 +128,11 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 	// lints judge the colours that actually render. An unregistered pack slug
 	// surfaces as a lint error rather than crashing the pass.
 	let resolvedTypography: { paperColor: string; inkColor: string } | null = null;
+	let resolvedAccent: string | null = null;
 	try {
-		resolvedTypography = resolveTypographyColors(getPack(preset.pack), state.typography);
+		const pack = getPack(preset.pack);
+		resolvedTypography = resolveTypographyColors(pack, state.typography);
+		resolvedAccent = requireCoreColor(pack, 'accent-treatment');
 	} catch (error) {
 		issues.push({
 			rule: 'G5',
@@ -150,6 +153,7 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 			state.backgroundFill,
 			state.stage !== undefined,
 			resolvedTypography,
+			resolvedAccent,
 			issues
 		);
 		checkBackgroundFill(state.backgroundFill, resolvedTypography.paperColor, issues);
@@ -473,9 +477,11 @@ function checkDiagramContrast(
 	backgroundFill: string | undefined,
 	hasStage: boolean,
 	typography: { paperColor: string; inkColor: string },
+	accentColor: string | null,
 	issues: RubricIssue[]
 ): void {
-	if ((surface.diagram ?? []).length === 0) {
+	const diagram = surface.diagram ?? [];
+	if (diagram.length === 0) {
 		return;
 	}
 	if (backgroundFill === undefined || hasStage) {
@@ -491,6 +497,21 @@ function checkDiagramContrast(
 			path: 'surface.diagram',
 			message: `Diagram ink contrast is ${ratio.toFixed(2)}:1 against the opaque backgroundFill — diagram labels need ≥ 4.5:1 (the transparent-piece legibility halo is skipped on full-frame pieces).`
 		});
+	}
+
+	// Accent-inked elements ride the Pack's core accent instead of the
+	// composition ink. Accent is emphasis-scale (large type / strokes), so the
+	// G5 large-text floor (3:1) binds against the same opaque field.
+	if (accentColor !== null && diagram.some((element) => element.ink === 'accent')) {
+		const accentRatio = contrastRatio(backgroundFill, accentColor);
+		if (accentRatio < 3) {
+			issues.push({
+				rule: 'G5',
+				severity: 'error',
+				path: 'surface.diagram',
+				message: `Diagram accent contrast is ${accentRatio.toFixed(2)}:1 against the opaque backgroundFill — accent-inked elements need ≥ 3:1 (large-text floor).`
+			});
+		}
 	}
 }
 

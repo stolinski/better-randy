@@ -766,7 +766,8 @@ export function createPaperPipeline({
 				nodeLayouts: getDiagramNodeLayouts(sourceElement, frameLayout),
 				drawProgressById: inputs.diagram.drawProgressById,
 				alphaById: inputs.diagram.alphaById,
-				stroke: inputs.diagram.stroke
+				stroke: inputs.diagram.stroke,
+				accentColor: inputs.diagram.accentColor
 			});
 		}
 

@@ -92,6 +92,8 @@ export interface DiagramStrokeInputs {
 	drawProgressById: Readonly<Record<string, number>>;
 	alphaById: Readonly<Record<string, number>>;
 	stroke: ResolvedDiagramStroke;
+	/** The Pack's core accent colour — elements declaring `ink: 'accent'` stroke in this. */
+	accentColor: string;
 }
 
 // ---------------- Surfaces ----------------

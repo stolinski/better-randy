@@ -87,6 +87,21 @@ export interface DrawDiagramStrokesOptions {
 	/** Visibility alpha per element id (exit fade / authored opacity channel). */
 	alphaById: Readonly<Record<string, number>>;
 	stroke: ResolvedDiagramStroke;
+	/**
+	 * The Pack's core accent colour — an element declaring `ink: 'accent'`
+	 * strokes in this instead of `stroke.color` (composition picks which
+	 * elements carry emphasis; the Pack owns the colour).
+	 */
+	accentColor: string;
+}
+
+// Per-element stroke colour: the schema `ink` selection routes between the
+// Pack's stroke ink and its core accent (read `?? 'ink'` — never a Zod default).
+function strokeColorFor(
+	element: { ink?: 'ink' | 'accent' },
+	options: DrawDiagramStrokesOptions
+): string {
+	return (element.ink ?? 'ink') === 'accent' ? options.accentColor : options.stroke.color;
 }
 
 interface Point {
@@ -389,7 +404,8 @@ function drawEdgeArrow(
 		return;
 	}
 
-	const { widthPx, wobble, color, arrowhead } = options.stroke;
+	const { widthPx, wobble, arrowhead } = options.stroke;
+	const color = strokeColorFor(edge, options);
 	const gap = widthPx * 1.6;
 
 	// Inset node endpoints to the node's rendered boundary, aiming at the first
@@ -463,7 +479,8 @@ function drawTimelineSegment(
 ): void {
 	const from = toFramePoint(segment.from, options.frame);
 	const to = toFramePoint(segment.to, options.frame);
-	const { widthPx, wobble, color } = options.stroke;
+	const { widthPx, wobble } = options.stroke;
+	const color = strokeColorFor(segment, options);
 	const phase = phaseForId(segment.id);
 
 	const path = applyWobble(resamplePath([from, to], 18), phase, widthPx * 0.45 * wobble);

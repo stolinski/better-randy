@@ -342,6 +342,21 @@
 				/>
 			</Field>
 		{/if}
+		<!-- Ink is a Role SELECTION (which pen), not appearance (what the pen looks
+		     like — still the Pack's): 'accent' routes the element to the Pack's
+		     core accent-treatment for emphasis hierarchy. -->
+		<Field label="Ink">
+			<select
+				value={el.ink ?? 'ink'}
+				onchange={(e) => {
+					const v = (e.currentTarget as HTMLSelectElement).value;
+					el.ink = v === 'accent' ? 'accent' : undefined;
+				}}
+			>
+				<option value="ink">ink</option>
+				<option value="accent">accent</option>
+			</select>
+		</Field>
 	</InspectorSection>
 
 	<InspectorSection label="Position">
