@@ -70,6 +70,7 @@ import { underlineIdentity } from '$lib/pipelines/annotations/underline/identity
 // Overlays
 import { counterIdentity } from '$lib/pipelines/overlays/counter/identity';
 import { cursorTrailIdentity } from '$lib/pipelines/overlays/cursor-trail/identity';
+import { instagramFollowIdentity } from '$lib/pipelines/overlays/instagram-follow/identity';
 import { instanceStackIdentity } from '$lib/pipelines/overlays/instance-stack/identity';
 import { lowerThirdIdentity } from '$lib/pipelines/overlays/lower-third/identity';
 import { shaderFillIdentity } from '$lib/pipelines/overlays/shader-fill/identity';
@@ -119,7 +120,8 @@ export const IDENTITY_REGISTRY: Readonly<Record<string, IdentitySpec>> = {
 	'overlay:shader-fill': shaderFillIdentity,
 	'overlay:washi-tape': washiTapeIdentity,
 	'overlay:watermark': watermarkIdentity,
-	'overlay:youtube-subscribe': youtubeSubscribeIdentity
+	'overlay:youtube-subscribe': youtubeSubscribeIdentity,
+	'overlay:instagram-follow': instagramFollowIdentity
 };
 
 /**

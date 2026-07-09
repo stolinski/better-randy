@@ -1,0 +1,47 @@
+{
+	"schema": "supers@1",
+	"name": "Instagram follow — the press beat",
+	"description": "Creator platform block (brief: instagram-follow), vertical-first for Reels: a pack-immune, platform-faithful Instagram profile card over transparent footage — story-ring gradient avatar, username, meta — whose blue Follow button presses to Following at the 0.42 beat (140ms dip, swap, 420ms one-shot card settle; both button states share one grid cell so the card never reflows). Faithful artifact per ADR-0038: the Instagram gradient/blue consume no Pack roles and render pixel-identical under every Pack — intentionally no collage/grit chrome. A derived pop cue fires at the press; the footage keeps its own audio otherwise.",
+	"pack": "syntax",
+	"kind": "deliverable",
+	"state": {
+		"transport": {
+			"orientation": "vertical",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			}
+		},
+		"textAnimations": [],
+		"overlays": [
+			{
+				"type": "instagram-follow",
+				"id": "follow-card",
+				"content": {
+					"username": "studioatlas",
+					"name": "Studio Atlas",
+					"meta": "482K followers",
+					"theme": "light",
+					"beat": 0.42
+				},
+				"position": { "anchor": "bottom-center", "offset": { "x": 0, "y": 0.2 } },
+				"enter": { "start": 0.08, "duration": 0.05, "ease": "settled" },
+				"exit": { "start": 0.88, "duration": 0.04, "ease": "smooth" }
+			}
+		],
+		"effects": [],
+		"audioCues": []
+	}
+}

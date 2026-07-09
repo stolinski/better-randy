@@ -433,13 +433,13 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 		);
 	}
 
-	// Platform-CTA press beats (creator blocks): the youtube-subscribe pill
-	// press emits a pop at its authored `beat` — a discrete UI impact, the same
-	// character class as a received bubble. The beat has no Transition window
-	// (it is content, like the counter's roll), so the cue carries the default
-	// sample; the rail shows it like every derived cue.
+	// Platform-CTA press beats (creator blocks): the youtube-subscribe and
+	// instagram-follow presses emit a pop at their authored `beat` — a discrete
+	// UI impact, the same character class as a received bubble. The beat has no
+	// Transition window (it is content, like the counter's roll), so the cue
+	// carries the default sample; the rail shows it like every derived cue.
 	for (const overlay of state.overlays) {
-		if (overlay.type !== 'youtube-subscribe') {
+		if (overlay.type !== 'youtube-subscribe' && overlay.type !== 'instagram-follow') {
 			continue;
 		}
 		const content = overlay.content as { beat?: number } | null;

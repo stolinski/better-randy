@@ -32,6 +32,7 @@ import { paperGrain } from '$lib/pipelines/effects/paper-grain';
 import { water } from '$lib/pipelines/effects/water';
 import { counter } from '$lib/pipelines/overlays/counter';
 import { cursorTrail } from '$lib/pipelines/overlays/cursor-trail';
+import { instagramFollow } from '$lib/pipelines/overlays/instagram-follow';
 import { instanceStack } from '$lib/pipelines/overlays/instance-stack';
 import { lowerThird } from '$lib/pipelines/overlays/lower-third';
 import { text3d } from '$lib/pipelines/overlays/text-3d';
@@ -69,7 +70,7 @@ export const PIPELINE_REGISTRY = {
 		tearOut,
 		isolate
 	} satisfies Record<string, AnnotationRenderer>,
-	overlays: { lowerThird, washiTape, watermark, shaderFill, cursorTrail, counter, instanceStack, text3d, youtubeSubscribe },
+	overlays: { lowerThird, washiTape, watermark, shaderFill, cursorTrail, counter, instanceStack, text3d, youtubeSubscribe, instagramFollow },
 	effects: { paperGrain, chromaticAberration, crtScreen, dithering, halftoneDots, halftoneCmyk, water, flutedGlass, heatmap }
 };
 

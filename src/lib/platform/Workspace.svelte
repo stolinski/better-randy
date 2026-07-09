@@ -1330,11 +1330,12 @@
 			});
 		});
 
-		// youtube-subscribe: the press beat as a draggable point clip (start =
-		// beat; width is the intrinsic press+ring choreography, display-only —
-		// min = max so trims are no-ops and only the moment moves).
+		// Platform-CTA press beats (youtube-subscribe, instagram-follow): the
+		// beat as a draggable point clip (start = beat; width is the intrinsic
+		// press choreography, display-only — min = max so trims are no-ops and
+		// only the moment moves).
 		engineState.overlays.forEach((overlay) => {
-			if (overlay.type !== 'youtube-subscribe') {
+			if (overlay.type !== 'youtube-subscribe' && overlay.type !== 'instagram-follow') {
 				return;
 			}
 			const content = overlay.content as { beat?: number };
