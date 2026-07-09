@@ -86,9 +86,7 @@
             }
           },
           "required": [
-            "fontFamily",
-            "paperColor",
-            "inkColor"
+            "fontFamily"
           ]
         },
         "marks": {
@@ -646,6 +644,13 @@
                         "type": "string",
                         "minLength": 1
                       },
+                      "ink": {
+                        "type": "string",
+                        "enum": [
+                          "ink",
+                          "accent"
+                        ]
+                      },
                       "enter": {
                         "type": "object",
                         "properties": {
@@ -1062,6 +1067,13 @@
                         "type": "string",
                         "minLength": 1
                       },
+                      "ink": {
+                        "type": "string",
+                        "enum": [
+                          "ink",
+                          "accent"
+                        ]
+                      },
                       "enter": {
                         "type": "object",
                         "properties": {
@@ -1430,6 +1442,13 @@
                       "id": {
                         "type": "string",
                         "minLength": 1
+                      },
+                      "ink": {
+                        "type": "string",
+                        "enum": [
+                          "ink",
+                          "accent"
+                        ]
                       },
                       "enter": {
                         "type": "object",
@@ -1839,6 +1858,13 @@
                       "id": {
                         "type": "string",
                         "minLength": 1
+                      },
+                      "ink": {
+                        "type": "string",
+                        "enum": [
+                          "ink",
+                          "accent"
+                        ]
                       },
                       "enter": {
                         "type": "object",
@@ -2273,6 +2299,13 @@
                       "id": {
                         "type": "string",
                         "minLength": 1
+                      },
+                      "ink": {
+                        "type": "string",
+                        "enum": [
+                          "ink",
+                          "accent"
+                        ]
                       },
                       "enter": {
                         "type": "object",
@@ -3524,6 +3557,69 @@
           "required": [
             "type"
           ]
+        },
+        "captions": {
+          "type": "object",
+          "properties": {
+            "style": {
+              "type": "string",
+              "enum": [
+                "karaoke",
+                "word-pop",
+                "pack"
+              ]
+            },
+            "accent": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "y": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "scale": {
+              "type": "number",
+              "minimum": 0.25,
+              "maximum": 4
+            },
+            "cues": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "startMs": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "endMs": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "id",
+                  "startMs",
+                  "endMs",
+                  "text"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "style",
+            "cues"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [

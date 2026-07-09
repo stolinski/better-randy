@@ -77,6 +77,7 @@
 	import { compositionMeta } from './composition-meta.svelte';
 	import { getPack } from './packs/registry';
 	import {
+		requireCoreColor,
 		resolveAppearanceVars,
 		resolveDepthTreatment,
 		resolveDiagramStroke,
@@ -747,7 +748,8 @@
 				alphaById[element.id] = animState.blockAlphas[element.id] ?? 1;
 			}
 		}
-		const stroke = resolveDiagramStroke(getPack(packState.slug));
+		const pack = getPack(packState.slug);
+		const stroke = resolveDiagramStroke(pack);
 		return {
 			elements,
 			drawProgressById,
@@ -755,7 +757,9 @@
 			stroke:
 				stroke.color === 'ink'
 					? { ...stroke, color: resolvedTypographyColors.inkColor }
-					: stroke
+					: stroke,
+			// Elements declaring `ink: 'accent'` stroke in the Pack's core accent.
+			accentColor: requireCoreColor(pack, 'accent-treatment')
 		};
 	}
 
@@ -1364,6 +1368,34 @@
 				]
 			});
 		});
+
+		// Captions rail (creator blocks): every cue is a draggable clip on ONE
+		// row — move retimes, trim adjusts start/end. Cues store ABSOLUTE ms
+		// (welded to speech), so writes convert through the live transport.
+		const captionsState = engineState.captions;
+		if (captionsState && captionsState.cues.length > 0) {
+			const captionsDurationMs = engineState.transport.durationSeconds * 1000;
+			trackList.push({
+				id: 'captions',
+				label: 'Captions',
+				color: captionsState.accent ?? '#ffd608',
+				transitions: captionsState.cues.map((cue) => ({
+					id: cue.id,
+					label: truncateMiddle(cue.text, 16),
+					start: cue.startMs / captionsDurationMs,
+					duration: Math.max((cue.endMs - cue.startMs) / captionsDurationMs, 0.004),
+					ramp: 'in' as const,
+					minStart: 0,
+					maxStart: 0.995,
+					minDuration: 0.004,
+					maxDuration: 1,
+					onUpdate: ({ start, duration }: { start: number; duration: number }) => {
+						cue.startMs = Math.round(start * captionsDurationMs);
+						cue.endMs = Math.round((start + duration) * captionsDurationMs);
+					}
+				}))
+			});
+		}
 
 		// text-3d: the spin-in to the hero frame as a draggable clip (start =
 		// spinStart, width = spinWindow); the word holds + breathes after.
@@ -2634,6 +2666,13 @@
 			}
 		}
 		void engineState.backgroundFill;
+
+		// --- Captions (render inputs + rail) --- deep read via stringify so any
+		// cue/style edit repaints — the same anti-hand-enumeration posture as
+		// the diagram block above.
+		if (engineState.captions) {
+			void JSON.stringify(engineState.captions);
+		}
 
 		// --- Pack (appearance) ---
 		// Every CanvasSource resolves its pack Roles from packState reactively, so

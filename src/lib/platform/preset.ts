@@ -403,6 +403,9 @@ export function applyCompositionState(preset: Preset): void {
 					: undefined
 			}
 		: undefined;
+	// Captions track (creator blocks): pure JSON (style knobs + ms cues), so
+	// structuredClone deep-copies every field without the hand-enumeration trap.
+	engineState.captions = next.captions ? structuredClone(next.captions) : undefined;
 }
 
 /**

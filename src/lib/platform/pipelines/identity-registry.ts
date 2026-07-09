@@ -47,6 +47,9 @@ import { typeHeroIdentity } from '$lib/pipelines/surfaces/type-hero/identity';
 import { webDocumentIdentity } from '$lib/pipelines/surfaces/web-document/identity';
 import { imessageIdentity } from '$lib/pipelines/surfaces/imessage/identity';
 
+// Captions track
+import { captionsIdentity } from '$lib/pipelines/captions/identity';
+
 // Blocks
 import { edgeArrowIdentity } from '$lib/pipelines/blocks/edge-arrow/identity';
 import { labelIdentity } from '$lib/pipelines/blocks/label/identity';
@@ -90,6 +93,9 @@ export const IDENTITY_REGISTRY: Readonly<Record<string, IdentitySpec>> = {
 	'surface:type-hero': typeHeroIdentity,
 	'surface:web-document': webDocumentIdentity,
 	'surface:imessage': imessageIdentity,
+
+	// Captions track
+	'captions:track': captionsIdentity,
 
 	// Blocks
 	'block:paragraph': paragraphIdentity,

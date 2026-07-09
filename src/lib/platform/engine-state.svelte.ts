@@ -238,6 +238,37 @@ export function removeDiagramElement(id: string): void {
 	}
 }
 
+/**
+ * Add the captions track (one per composition) with two starter cues placed
+ * inside the current transport — GUI lane of the captions domain; the CLI
+ * importer and agent-authored JSON write the same `state.captions` shape.
+ */
+export function addCaptions(): void {
+	if (engineState.captions) return;
+	const durationMs = engineState.transport.durationSeconds * 1000;
+	engineState.captions = {
+		style: 'karaoke',
+		cues: [
+			{
+				id: 'cue-1',
+				startMs: Math.round(durationMs * 0.1),
+				endMs: Math.round(durationMs * 0.45),
+				text: 'Write your first caption here'
+			},
+			{
+				id: 'cue-2',
+				startMs: Math.round(durationMs * 0.5),
+				endMs: Math.round(durationMs * 0.85),
+				text: 'and the next one lands here'
+			}
+		]
+	};
+}
+
+export function removeCaptions(): void {
+	engineState.captions = undefined;
+}
+
 export function reorderOverlay(id: string, direction: 'up' | 'down'): void {
 	const index = engineState.overlays.findIndex((o) => o.id === id);
 	if (index < 0) return;

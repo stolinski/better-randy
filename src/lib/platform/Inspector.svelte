@@ -2,6 +2,7 @@
 	import { engineState } from './engine-state.svelte';
 	import { layerSelection, deselectLayer } from './selection.svelte';
 	import BlockInspector from './BlockInspector.svelte';
+	import CaptionsInspector from './CaptionsInspector.svelte';
 	import RootInspector from './RootInspector.svelte';
 	import SurfaceInspector from './SurfaceInspector.svelte';
 	import OverlayInspector from './OverlayInspector.svelte';
@@ -31,6 +32,8 @@
 		if (!id) return { kind: 'root' as const };
 
 		if (id === 'surface' || /^imessage-\d+$/.test(id)) return { kind: 'surface' as const };
+
+		if (id === 'captions') return { kind: 'captions' as const };
 
 		// A cue selected on the timeline's Sound rail (ADR-0033 §9):
 		// 'sound:derived-<cueId>' or 'sound:manual-<cueId>'.
@@ -82,6 +85,8 @@
 			<OverlayInspector overlayId={resolved.overlayId} />
 		{:else if resolved.kind === 'block'}
 			<BlockInspector blockId={resolved.blockId} />
+		{:else if resolved.kind === 'captions'}
+			<CaptionsInspector />
 		{:else if resolved.kind === 'textanim'}
 			<TextAnimInspector animId={resolved.animId} />
 		{:else if resolved.kind === 'mark'}

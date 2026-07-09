@@ -4,9 +4,11 @@
 	import { EFFECT_IDS } from '$lib/text-animations/catalog';
 	import {
 		engineState,
+		addCaptions,
 		addDiagramElement,
 		addOverlay,
 		addTextAnimation,
+		removeCaptions,
 		removeDiagramElement,
 		removeOverlay,
 		removeTextAnimation
@@ -156,7 +158,10 @@
 
 	function canRemoveTrack(trackId: string): boolean {
 		return (
-			isMainOverlayTrack(trackId) || isMainBlockTrack(trackId) || trackId.startsWith('textanim-')
+			isMainOverlayTrack(trackId) ||
+			isMainBlockTrack(trackId) ||
+			trackId === 'captions' ||
+			trackId.startsWith('textanim-')
 		);
 	}
 
@@ -173,6 +178,8 @@
 			removeOverlay(trackId.slice('overlay-'.length));
 		} else if (isMainBlockTrack(trackId)) {
 			removeDiagramElement(trackId.slice('block-'.length));
+		} else if (trackId === 'captions') {
+			removeCaptions();
 		} else if (trackId.startsWith('textanim-')) {
 			removeTextAnimation(trackId.slice('textanim-'.length));
 		}
@@ -244,6 +251,12 @@
 	function pickDiagramElement(type: (typeof DIAGRAM_TYPES)[number]['type']): void {
 		const id = addDiagramElement(type);
 		selectLayer(`block-${id}`);
+		addMenuEl?.hidePopover();
+	}
+
+	function pickCaptions(): void {
+		addCaptions();
+		selectLayer('captions');
 		addMenuEl?.hidePopover();
 	}
 
@@ -592,6 +605,9 @@
 				<button class="add-menu__item" type="button" onclick={pickTextAnimation}
 					>Text animation</button
 				>
+				{#if !engineState.captions}
+					<button class="add-menu__item" type="button" onclick={pickCaptions}>Captions</button>
+				{/if}
 			</div>
 		</footer>
 	</div>

@@ -1,0 +1,61 @@
+{
+	"schema": "supers@1",
+	"name": "Captions — word pop (horizontal)",
+	"description": "The captions track in word-pop style (creator blocks): only the currently-spoken word shows, popping in big (120ms eased pop resting at exactly 1) — the high-energy cut style. Same four-cue SRT as the karaoke demo, same absolute-ms weld, same pure-clock determinism. Horizontal sibling (3840×2160), transparent over footage.",
+	"pack": "syntax",
+	"kind": "deliverable",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			}
+		},
+		"textAnimations": [],
+		"overlays": [],
+		"effects": [],
+		"audioCues": [],
+		"captions": {
+			"style": "word-pop",
+			"cues": [
+				{
+					"id": "cue-1",
+					"startMs": 400,
+					"endMs": 1900,
+					"text": "Here's the thing about shipping fast"
+				},
+				{
+					"id": "cue-2",
+					"startMs": 2000,
+					"endMs": 3400,
+					"text": "most teams get it completely backwards"
+				},
+				{
+					"id": "cue-3",
+					"startMs": 3500,
+					"endMs": 4600,
+					"text": "speed isn't cutting corners"
+				},
+				{
+					"id": "cue-4",
+					"startMs": 4700,
+					"endMs": 5700,
+					"text": "it's cutting scope"
+				}
+			]
+		}
+	}
+}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CaptionsMount from './CaptionsMount.svelte';
 	import DiagramMount from './DiagramMount.svelte';
 	import { engineState } from './engine-state.svelte';
 	import OverlayMount from './OverlayMount.svelte';
@@ -44,6 +45,9 @@
 	<DiagramMount />
 	{#if !splitPlanes}
 		<OverlayMount />
+		<!-- Captions ride TOPMOST wherever the overlays live — broadcast
+		     captions sit above everything. -->
+		<CaptionsMount />
 	{/if}
 </div>
 {#if splitPlanes}
@@ -57,6 +61,7 @@
 		style:inline-size={`${frame.width}px`}
 	>
 		<OverlayMount />
+		<CaptionsMount />
 	</div>
 {/if}
 

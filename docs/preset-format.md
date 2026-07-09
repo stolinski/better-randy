@@ -85,6 +85,8 @@ A preset is a single JSON document validated by `PresetSchema` (`src/lib/platfor
 
 Five Block types for art-directed, documentary-style diagrams, living on any Surface — full-frame (paper / chapter-card) or over footage (a transparent `plain` surface carrying only diagram Blocks). Every element is positioned **explicitly** in composition-space fractions (auto-layout is rejected by the ADR); ids are timeline-row and cascade identities (`block-{id}` rows, `{ "block": id }` anchors). Route is content; **stroke is appearance** — edge/node/arrowhead looks resolve through Pack Roles, never the schema.
 
+Every element also takes an optional `"ink": "ink" | "accent"` — a Role **selection**, not a colour: `"accent"` routes that element (label ink, node glyphs, stroke) to the active Pack's core `accent-treatment` so a diagram carries emphasis hierarchy; absent rides the composition ink. The Pack still owns what accent looks like.
+
 ```jsonc
 "diagram": [
   { "type": "node", "id": "n1", "position": { "x": 0..1, "y": 0..1 },
@@ -255,6 +257,30 @@ Opt-in composition-wide 3D compositor ([ADR-0028](adr/0028-dimensional-depth-sta
 ```
 
 With `stage` present: overlays ride their own 3D plane at their ADR-0021 `z` (overlay-at-depth — parallax, per-depth defocus, painter's-order occlusion); the active Pack's `light-treatment` Role becomes a real scene key light (received rake + cast plane-to-plane shadow; no Role → unlit); surface-local shader passes still run on the surface plane, but environment-painting passes (`environment: true` — the chapter-card / title-sequence / type-hero / pullquote painted backdrops) are superseded by the real backdrop plane. Surfaces whose enter/exit fade lives in such a pass don't fade on the stage — carry enter/exit in `textAnimations` instead.
+
+### `captions` (optional — the SRT caption track)
+
+A time-coded caption track (creator blocks, 2026-07-09). Cues carry **absolute milliseconds** (SRT's own clock) — captions are welded to speech and do not stretch when the transport re-times. Rendered topmost (above overlays) in every render path; the active cue/word is a pure function of the timeline clock (no tweens — export == preview). Three equal import lanes write the same shape: agents author `cues[]` directly, `scripts/srt-to-captions.mjs <file.srt> [--preset <path>] [--style …]` converts SRT/VTT, and the GUI's Captions inspector carries an SRT editor that round-trips this data as subtitle text.
+
+```jsonc
+"captions": {
+  "style": "karaoke" | "word-pop" | "pack",
+  //  karaoke  — full spoken line in the social register (heavy white type, hard
+  //             outline; pack-independent by intent) with the currently-spoken
+  //             word on an accent pill. Per-word timing derives proportionally
+  //             by word length within each cue (the schema stays pure SRT data).
+  //  word-pop — only the current word, popping in big (120ms eased pop).
+  //  pack     — the line dressed by the active Pack (core ink + font-treatment).
+  "accent": "#rrggbb",   // optional active-word accent; absent → #ffd608
+  "y": 0..1,             // optional band centre (fraction of height); absent → 0.8
+  "scale": 0.25..4,      // optional size multiplier; absent → 1
+  "cues": [
+    { "id": "cue-1", "startMs": 400, "endMs": 1900, "text": "Here's the thing" }
+  ]
+}
+```
+
+Parse-time rules: cue ids unique; every cue must end after it starts. Cue enter/exit are hard cuts (broadcast-faithful); there are no per-cue transitions. The timeline shows one **Captions rail** — each cue is a draggable clip (move retimes, trim adjusts start/end in ms).
 
 ### Sound ([ADR-0033](adr/0033-sound-design-motion-emitted-cues.md))
 

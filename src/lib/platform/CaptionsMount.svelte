@@ -1,0 +1,159 @@
+<script lang="ts">
+	import { animState } from './anim-state.svelte';
+	import { engineState, packState } from './engine-state.svelte';
+	import { getPack } from './packs/registry';
+	import {
+		appearanceVarsToStyle,
+		resolveAppearanceVars,
+		resolveTypographyColors
+	} from './packs/resolve';
+	import { ENGINE_FONT_FAMILIES } from './engine-schema';
+	import { cueWordWindows } from '$lib/utils/srt';
+
+	// The captions track (creator blocks, grilled 2026-07-09): time-coded cues
+	// rendered TOPMOST (above overlays — broadcast captions sit over
+	// everything). Two appearance lanes: the faithful social styles (karaoke /
+	// word-pop — heavy white type with a hard outline and an accent on the
+	// active word, deliberately pack-independent) and the `pack` style, which
+	// dresses the line from the active Pack (core ink + font-treatment).
+	// Everything is a pure function of the timeline clock — cues carry absolute
+	// ms, per-word timing derives proportionally (cueWordWindows) — so preview
+	// and export resolve identical pixels with no tweens and no CSS transitions.
+
+	const captions = $derived(engineState.captions);
+	const currentMs = $derived(
+		animState.globalProgress * engineState.transport.durationSeconds * 1000
+	);
+
+	const activeCue = $derived(
+		captions?.cues.find((cue) => currentMs >= cue.startMs && currentMs < cue.endMs) ?? null
+	);
+	const words = $derived(activeCue ? cueWordWindows(activeCue) : []);
+	const activeWordIndex = $derived(
+		words.findIndex((word) => currentMs >= word.startMs && currentMs < word.endMs)
+	);
+
+	const accent = $derived(captions?.accent ?? '#ffd608');
+	const bandY = $derived(captions?.y ?? 0.8);
+	const scale = $derived(captions?.scale ?? 1);
+
+	// Word-pop entrance: the word lands with a fast eased pop over its first
+	// 120 ms — derived from the clock, resting at exactly 1 (capture-safe: the
+	// mount never fades, and the scale is identity outside the pop window).
+	const POP_MS = 120;
+	const popScale = $derived.by(() => {
+		if (activeWordIndex < 0) return 1;
+		const word = words[activeWordIndex];
+		const t = Math.max(0, Math.min(1, (currentMs - word.startMs) / POP_MS));
+		if (t >= 1) return 1;
+		const eased = 1 - (1 - t) * (1 - t);
+		return 0.78 + 0.22 * eased;
+	});
+
+	// Pack lane (ADR-0038): line ink resolves typography override → Pack core;
+	// the Pack's font-treatment voice rides the appearance vars (--font).
+	const pack = $derived(getPack(packState.slug));
+	const packVars = $derived(appearanceVarsToStyle(resolveAppearanceVars(pack, 'captions')));
+	const packInk = $derived(resolveTypographyColors(pack, engineState.typography).inkColor);
+	const packFontFallback = $derived(
+		ENGINE_FONT_FAMILIES[engineState.typography.fontFamily]?.stack ??
+			ENGINE_FONT_FAMILIES.sans.stack
+	);
+</script>
+
+{#if captions && activeCue}
+	<div class="captions" style:top="{bandY * 100}%" style:--caption-scale={scale}>
+		{#if captions.style === 'karaoke'}
+			<p class="captions__line captions__line--karaoke" style:--caption-accent={accent}>
+				{#each words as word, index (index)}<span
+						class="captions__word"
+						class:captions__word--active={index === activeWordIndex}>{word.text}</span
+					>{#if index < words.length - 1}<span class="captions__space"> </span>{/if}{/each}
+			</p>
+		{:else if captions.style === 'word-pop'}
+			{#if activeWordIndex >= 0}
+				<p
+					class="captions__line captions__line--word-pop"
+					style:--caption-accent={accent}
+					style:scale={popScale !== 1 ? String(popScale) : undefined}
+				>
+					{words[activeWordIndex].text}
+				</p>
+			{/if}
+		{:else}
+			<p
+				class="captions__line captions__line--pack"
+				style="{packVars};color:{packInk};--caption-pack-font:{packFontFallback}"
+			>
+				{activeCue.text}
+			</p>
+		{/if}
+	</div>
+{/if}
+
+<style>
+	/* Topmost layer: broadcast captions sit above overlays (their z-index 1). */
+	.captions {
+		display: flex;
+		inset-inline: 0;
+		justify-content: center;
+		pointer-events: none;
+		position: absolute;
+		z-index: 2;
+	}
+
+	.captions__line {
+		margin: 0;
+		max-inline-size: 78%;
+		text-align: center;
+		translate: 0 -50%;
+	}
+
+	/* The faithful social register (pack-independent by design): heavy white
+	   type with a hard multi-directional outline + drop — the caption look
+	   creators expect over footage. Plain text-shadow: capture-safe. */
+	.captions__line--karaoke,
+	.captions__line--word-pop {
+		color: #ffffff;
+		font-family: 'Inter Variable', Inter, 'Segoe UI', Arial, sans-serif;
+		font-weight: 800;
+		letter-spacing: 0.01em;
+		line-height: 1.25;
+		text-shadow:
+			calc(0.16 * var(--cqmin)) 0 0 rgb(0 0 0 / 0.9),
+			calc(-0.16 * var(--cqmin)) 0 0 rgb(0 0 0 / 0.9),
+			0 calc(0.16 * var(--cqmin)) 0 rgb(0 0 0 / 0.9),
+			0 calc(-0.16 * var(--cqmin)) 0 rgb(0 0 0 / 0.9),
+			0 calc(0.3 * var(--cqmin)) calc(0.9 * var(--cqmin)) rgb(0 0 0 / 0.55);
+	}
+
+	.captions__line--karaoke {
+		font-size: calc(2.6 * var(--cqmin) * var(--caption-scale, 1));
+	}
+
+	.captions__word {
+		border-radius: calc(0.35 * var(--cqmin));
+		padding-inline: calc(0.18 * var(--cqmin));
+	}
+
+	/* The spoken word rides the accent pill — the karaoke highlight. */
+	.captions__word--active {
+		background: var(--caption-accent, #ffd608);
+		color: #111111;
+		text-shadow: none;
+	}
+
+	.captions__line--word-pop {
+		font-size: calc(4.6 * var(--cqmin) * var(--caption-scale, 1));
+		text-transform: uppercase;
+	}
+
+	/* The Pack lane (ADR-0038): the active Pack's ink + type voice dress the
+	   line — same composition, different publication. */
+	.captions__line--pack {
+		font-family: var(--font, var(--caption-pack-font));
+		font-size: calc(2.6 * var(--cqmin) * var(--caption-scale, 1));
+		font-weight: 600;
+		line-height: 1.3;
+	}
+</style>

@@ -370,8 +370,15 @@ const DiagramStrokeAnimationSchema = z.strictObject({
 
 // Shared timed-element fields. `enter`/`exit` are the standard Transition sugar
 // (start/duration/ease/sound) and draw as the element's unified timeline clip.
+// `ink` is a Role SELECTION, not a colour: 'accent' routes the element (label
+// ink, node glyphs, stroke) to the active Pack's core accent-treatment so a
+// diagram can carry emphasis hierarchy; absent/'ink' rides the composition ink.
+// Packs keep owning what accent looks like (ADR-0036 §4 — appearance is never
+// schema); consumers read `?? 'ink'` (never a Zod .default — the
+// validateOverlayContents precedent: defaults don't reliably reach runtime).
 const diagramElementBase = {
 	id: z.string().min(1),
+	ink: z.enum(['ink', 'accent']).optional(),
 	enter: TransitionSchema.optional(),
 	exit: TransitionSchema.optional()
 };
@@ -932,6 +939,57 @@ function cascadeAnchorKey(anchor: CascadeAnchor): string {
 	return `textAnimation:${anchor.textAnimation}`;
 }
 
+// ---- Captions (creator blocks, grilled 2026-07-09) ----
+// A time-coded caption track — the SRT domain. Cues carry ABSOLUTE
+// milliseconds (SRT's own clock, not clip fractions): captions are welded to
+// speech, and re-timing the transport must not stretch them. Per-word timing
+// for the karaoke/word-pop styles is DERIVED at render time (proportional to
+// word length within each cue) so the schema stays pure SRT data — an
+// agent, the CLI importer, and the GUI SRT editor all read/write the same
+// shape. Appearance is two-lane: the faithful social styles (karaoke /
+// word-pop — the register creators expect, pack-independent) and the `pack`
+// style, which dresses the line from the active Pack.
+const CaptionCueSchema = z.strictObject({
+	id: z.string().min(1),
+	startMs: z.number().min(0),
+	endMs: z.number().min(0),
+	text: z.string().min(1)
+});
+export type CaptionCue = z.infer<typeof CaptionCueSchema>;
+
+const CaptionsSchema = z.strictObject({
+	style: z.enum(['karaoke', 'word-pop', 'pack']),
+	// Active-word accent (karaoke pill / word-pop ink). Absent → the style's
+	// default, read `?? '#ffd608'` at the consumer (never a Zod .default()).
+	accent: HexColorSchema.optional(),
+	// Caption band centre as a fraction of frame height. Absent → 0.8.
+	y: FractionSchema.optional(),
+	// Size multiplier on the style's natural scale. Absent → 1.
+	scale: z.number().min(0.25).max(4).optional(),
+	cues: z.array(CaptionCueSchema).superRefine((cues, ctx) => {
+		const ids = new Set<string>();
+		for (let i = 0; i < cues.length; i += 1) {
+			if (ids.has(cues[i].id)) {
+				ctx.addIssue({
+					code: 'custom',
+					path: [i, 'id'],
+					message: `Duplicate captions.cues[].id "${cues[i].id}"; ids must be unique.`
+				});
+			}
+			ids.add(cues[i].id);
+			if (cues[i].endMs <= cues[i].startMs) {
+				ctx.addIssue({
+					code: 'custom',
+					path: [i, 'endMs'],
+					message: `Caption cue "${cues[i].id}" must end after it starts (${cues[i].startMs} → ${cues[i].endMs}).`
+				});
+			}
+		}
+	})
+});
+export type Captions = z.infer<typeof CaptionsSchema>;
+export type CaptionStyle = Captions['style'];
+
 export const EngineStateSchema = z
 	.object({
 		transport: TransportSchema,
@@ -943,7 +1001,8 @@ export const EngineStateSchema = z
 		effects: EffectChainSchema.default([]),
 		audioCues: AudioCuesSchema,
 		backgroundFill: HexColorSchema.optional(),
-		stage: StageSchema.optional()
+		stage: StageSchema.optional(),
+		captions: CaptionsSchema.optional()
 	})
 	.superRefine((state, ctx) => {
 		// Cascade graph validation (ADR-0035 §4): every anchor ref must resolve
