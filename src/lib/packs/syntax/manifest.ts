@@ -166,12 +166,13 @@ export const syntaxPack: PackManifest = {
 		'paragraph.material': { kind: 'style', value: 'ink-bleed' },
 
 		// ---------------- Diagram Blocks (ADR-0036) ----------------
-		// One pen for the whole diagram: the hand-drawn marker feel (Q6
-		// deterministic imperfection — wobble 1) in the composition's ink (the
-		// 'ink' sentinel resolves to the typography.inkColor override → core
+		// One pen for the whole diagram, in the composition's ink (the 'ink'
+		// sentinel resolves to the typography.inkColor override → core
 		// ink-treatment, ADR-0038 — so strokes flip with the preset over
-		// footage). Arrowheads are solid marker triangles.
-		'diagram.stroke': { kind: 'style', value: { color: 'ink', widthPx: 12, wobble: 1 } },
+		// footage). Arrowheads are solid marker triangles. wobble 0: the docu
+		// register wants clean documentary rules — the hand-drawn jitter read as
+		// jank on the timeline axis, not charm (calibration verdict 2026-07-09).
+		'diagram.stroke': { kind: 'style', value: { color: 'ink', widthPx: 12, wobble: 0 } },
 		'diagram.arrowhead': { kind: 'style', value: 'solid-triangle' },
 		// Node forms: white collage-card boxes (the zine cut-out), accent pins
 		// and dots; the box shadow rides the core hard-offset depth rig.
