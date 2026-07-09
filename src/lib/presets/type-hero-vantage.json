@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Type hero — vantage",
-	"description": "Type-hero reference on the REAL Syntax brand (github.com/randyrektor/syntax-overlay; rebuilt 2026-07-09 after the brand-tokens-on-cinematic-grammar round still read as another channel): a flat warm-black field (#0e0e0d), the single display word in Space Grotesk, a chunky #ffd54a accent bar under the word, and the Space Mono episode stamp — flat, graphic, decisive. No depth stage, no photographic atmosphere, no lens language, no ambient bed: the word lands with a quick pop, the stamp with a tick (sound epic ruling: ~180ms decisive hits, never cinematic whooshes). Paper-grain grit bonds the field.",
+	"description": "Type-hero reference on the REAL Syntax brand (github.com/randyrektor/syntax-overlay; rebuilt 2026-07-09 after the brand-tokens-on-cinematic-grammar round still read as another channel): a flat warm-black field (#0e0e0d), the single display word in Space Grotesk, a chunky #ffd54a accent bar under the word, and the Space Mono episode stamp — flat, graphic, decisive. No depth stage, no photographic atmosphere, no lens language, no ambient bed: the word lands with a physical impact (impact-book — the pop event turned out to be the iMessage bubble bloop, wrong voice for a hero), the stamp with a pencil tick (sound epic ruling: ~180ms decisive hits, never cinematic whooshes). Paper-grain grit bonds the field.",
 	"pack": "syntax",
 	"state": {
 		"transport": {
@@ -55,7 +55,7 @@
 					"duration": 0.06,
 					"ease": "settled",
 					"sound": {
-						"event": "pop"
+						"event": "impact"
 					}
 				},
 				"exit": {
