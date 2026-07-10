@@ -81,16 +81,21 @@
 		/* Extra slot → chains to the accent core (kicker is accent-family), never a literal (ADR-0024). */
 		color: var(--kicker, var(--accent));
 		font-family: var(--fontLabel, var(--font, 'JetBrains Mono', ui-monospace, monospace));
-		font-weight: 500;
+		/* Pack status-voice drive (`title-sequence.kickerWeight` / `.kickerDim`):
+		   an emissive Pack whose chrome eats small-text luminance must run its
+		   kicker at full drive and weight to hold the G5 floor; silent → today's. */
+		font-weight: var(--kickerWeight, 500);
 		inset-block-start: 51%;
 		inset-inline-start: 8%;
 		/* Pack label dress (`title-sequence.tracking` / `.case`); the optical
 		   indent equals the tracking so both ride `--tracking`; silent → today's. */
 		letter-spacing: var(--tracking, 0.30em);
-		opacity: 0.88;
+		opacity: var(--kickerDim, 0.88);
 		padding-inline-start: var(--tracking, 0.30em);
 		position: absolute;
-		text-shadow: -0.02em 0.04em 0.10em rgba(0, 0, 0, 0.85);
+		/* Pack shadow claim (`title-sequence.textShadow`); an emissive Pack
+		   claims 'none' (depth is bloom); silent → today's. */
+		text-shadow: var(--textShadow, -0.02em 0.04em 0.10em rgba(0, 0, 0, 0.85));
 		text-transform: var(--case, uppercase);
 		transform: translateY(-50%);
 	}
@@ -110,7 +115,7 @@
 		margin: 0;
 		position: absolute;
 		text-align: left;
-		text-shadow: -0.03em 0.08em 0.18em rgba(0, 0, 0, 0.9);
+		text-shadow: var(--textShadow, -0.03em 0.08em 0.18em rgba(0, 0, 0, 0.9));
 		text-transform: uppercase;
 		text-wrap: balance;
 		transform: translateY(-50%);

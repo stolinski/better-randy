@@ -85,10 +85,16 @@ The defining structural inversions, and the roles they exercise:
   glow, scanlines, persistence live **inside the element's pixels** (the
   ADR-0030 emissive-screen shaderPass pattern). The footage underneath is never
   treated: it isn't ours.
-- **Opaque segments/bumpers:** the pack's chrome effect chain may add restrained
-  full-frame scanline + bloom + vignette — the whole frame *is* the terminal.
+- **Opaque segments/bumpers:** the pack's chrome appends the physical
+  `crt-tube` effect — a flat-glass beam raster (gaussian scanlines that swell
+  on bright strokes), subtle shadow-mask texture, rounded-glass bezel with
+  inner shadow, and bright-pass halation — the whole frame *is* the terminal.
+  The chrome dial must keep small dim-phosphor text above the G5 floor and
+  hairline form dress must span ≥1 raster pitch or the beam nulls it.
 - **No curvature, ever.** Barrel distortion fights composition geometry,
-  safe-areas, and reflow; the flat-glass late-period CRT is the claim.
+  safe-areas, and reflow; the flat-glass late-period CRT is the claim — the
+  chrome runs `curvature: 0` even though the general `crt-tube` effect
+  supports it.
 
 ## Motion Vocabulary Preferences
 

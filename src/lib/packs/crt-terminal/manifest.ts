@@ -64,7 +64,11 @@ export const crtTerminalPack: PackManifest = {
 		// invisible in motion; deterministic). Font: one modern mono voice —
 		// JetBrains Mono ahead of the engine mono stack; the period feel is the
 		// phosphor material, never a bitmap face.
-		'material-treatment': { kind: 'style', value: { scanline: { pitchPx: 6, strength: 0.2, shimmer: 0.05 } } },
+		// Strength 0.12: the element raster is texture, and it stacks with the
+		// crt-tube chrome's beam raster on opaque pieces — 0.2 pushed the
+		// combined small-stroke luminance cost past the G5 ceiling
+		// (Critic 2026-07-10).
+		'material-treatment': { kind: 'style', value: { scanline: { pitchPx: 6, strength: 0.12, shimmer: 0.05 } } },
 		'font-treatment': {
 			kind: 'style',
 			value: '"JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace'
@@ -72,26 +76,49 @@ export const crtTerminalPack: PackManifest = {
 
 		// ---------------------------------------------------------------
 		// Chrome (kind:'chrome') — opaque segments/bumpers only: the whole
-		// frame IS the terminal. Restrained full-frame scanline + bloom +
-		// vignette; appended by the Workspace after the preset's own effects
-		// when `backgroundFill` is declared. Transparent overlays never get it.
+		// frame IS the terminal. The physical tube (`crt-tube`): gaussian-beam
+		// raster, subtle shadow-mask texture, flat glass with a rounded bezel,
+		// phosphor halation. Appended by the Workspace after the preset's own
+		// effects when `backgroundFill` is declared. Transparent overlays
+		// never get it.
+		//
+		// Deliberately NO `ntsc-signal` stage: a terminal is direct-drive —
+		// composite artifacts (rainbow cross-color, chroma bleed) would shred
+		// mono text, and text legibility is this Pack's core value. Curvature
+		// is 0: the aesthetic doc's flat-glass law binds the dial even though
+		// the general effect supports it. The dial is G5-bounded — mask
+		// strength / beam focus / vignette are set so small dim-phosphor text
+		// keeps its measured contrast floor (Critic re-review 2026-07-10);
+		// retune against the show-open-in-focus-crt dim voices before
+		// darkening any of them.
 		// ---------------------------------------------------------------
 		chrome: {
 			kind: 'chrome',
 			effects: [
 				{
-					type: 'crt-screen',
+					type: 'crt-tube',
 					params: {
-						// The per-element material pass (strength 0.2) already rasters
-						// element pixels and shares this pitch/phase (both are pure
-						// functions of canvas y), so the two superpose coherently — the
-						// chrome runs lighter to keep the combined raster low-contrast
-						// while still texturing the backdrop between elements.
-						scanlinePitchPx: 6,
-						scanlineStrength: 0.12,
-						bloomThreshold: 0.5,
-						bloomStrength: 0.34,
-						vignette: 0.3
+						mask: 'shadow',
+						maskPitchPx: 7,
+						// 0.14 (with focus 0.85 below): the mask is mean-neutral, but
+						// on ~4px strokes the stroke-to-lattice PHASE modulates the
+						// local average under the camera push — the dial needs
+						// headroom so the phase-worst frame still clears G5
+						// (Critic 2026-07-10 round 4).
+						maskStrength: 0.14,
+						// 2160 / 360 = 6px line pitch @4K — the same pitch as the
+						// per-element material scanline (pitchPx 6), so the element
+						// raster and the tube raster superpose coherently.
+						lines: 360,
+						// Soft beam: shallow gaps preserve the average luminance of
+						// 3px mono strokes (avg-ink G5); the raster texture on
+						// elements is carried by the material-treatment scanline.
+						focus: 0.85,
+						curvature: 0,
+						bezel: 0.3,
+						halation: 0.4,
+						vignette: 0.08,
+						interlace: false
 					}
 				}
 			]
@@ -144,12 +171,23 @@ export const crtTerminalPack: PackManifest = {
 		// glass. The off-frame glow is pure phosphor — the tube lighting its own
 		// room.
 		'title-sequence.ink': { kind: 'style', value: '#d9ffe0' },
-		// Driven phosphor, not mid-excitation: the kicker sits in the vignette's
-		// bite under the 0.88 pipeline opacity + scanline stack (~0.68 combined),
-		// so #2fb352 lands ~3.7:1 (measured) — full phosphor clears G5 with the
-		// ladder intact (title stays hot-core above it; the status-line voice is
-		// carried by size/caps/tracking, not dimness).
-		'title-sequence.kicker': { kind: 'style', value: '#45ff6e' },
+		// Hot core: under the crt-tube chrome (beam gaps + element scanline +
+		// the pipeline's kicker dim), even full driven phosphor measures
+		// ~3.8:1 avg-ink at 32px caps (Critic 2026-07-10) — below the 4.5:1
+		// floor, with no dial slack left. The 32px-vs-268px size gap carries
+		// the kicker/title hierarchy; the status-line voice is
+		// size/caps/tracking, never dimness. The status voice also runs at
+		// FULL DRIVE (kickerDim 1, kickerWeight 600): the tube chrome +
+		// element scanline already cost ~25% of small-stroke avg luminance,
+		// and G5's black-ground ceiling proves a dimmed 32px voice can never
+		// clear the floor under them.
+		'title-sequence.kicker': { kind: 'style', value: '#d9ffe0' },
+		'title-sequence.kickerDim': { kind: 'style', value: '1' },
+		'title-sequence.kickerWeight': { kind: 'style', value: '600' },
+		// No shadows of any kind — the pipelines' baked glyph-legibility
+		// text-shadows are reflective-pack dress; this Pack claims them off
+		// (also stops the black rim eating small-text avg-ink, G5).
+		'title-sequence.textShadow': { kind: 'style', value: 'none' },
 		'title-sequence.backdrop': {
 			kind: 'style',
 			value: { top: '#020503', bottom: '#040a06', glow: '#45ff6e' }
@@ -209,11 +247,23 @@ export const crtTerminalPack: PackManifest = {
 		// the role line is the dim status voice. One hue, three excitations.
 		'lower-third.accent': { kind: 'style', value: '#45ff6e' },
 		'lower-third.ink': { kind: 'style', value: '#d9ffe0' },
-		// Role line: a mid excitation between dim and driven phosphor — dim
-		// (#1e8f3d) fails the G5 4.5:1 floor at subtitle size against the
-		// glass plate (Critic 2026-07-04); #2fb352 clears it (~7:1) while
-		// staying visibly below the driven-phosphor kicker in the ladder.
-		'lower-third.roleInk': { kind: 'style', value: '#2fb352' },
+		// Role line: driven phosphor. The mid excitation (#2fb352) cleared G5
+		// under the flat crt-screen chrome (~7:1 raw, Critic 2026-07-04), but
+		// the crt-tube chrome's mask lattice + beam gaps drag small-mono
+		// avg-ink below the floor (2.11:1 measured, Critic 2026-07-10) — so
+		// the secondary voice lifts one excitation step (the h02eht8j lane).
+		// The status-line voice is carried by size/caps/tracking, not dimness.
+		'lower-third.roleInk': { kind: 'style', value: '#45ff6e' },
+		// Full drive on the LT status voices (same G5 reasoning as the
+		// title-sequence kicker above — the pipelines' baked dims are var()
+		// defaults this Pack overrides). The kicker also lifts to hot core:
+		// its ink is otherwise welded to the accent Role, and driven phosphor
+		// at 27px caps under the tube chrome measures 4.1–4.4:1 (Critic
+		// 2026-07-10) — below the G5 floor with every dim lane already maxed.
+		'lower-third.kickerInk': { kind: 'style', value: '#d9ffe0' },
+		'lower-third.kickerDim': { kind: 'style', value: '1' },
+		'lower-third.subtitleDim': { kind: 'style', value: '1' },
+		'lower-third.textShadow': { kind: 'style', value: 'none' },
 		// Plate chrome: the plate is a small powered-off screen (near-opaque
 		// glass with the green cast), the cinematic scrim composes the same glass
 		// at several alphas.
@@ -225,7 +275,11 @@ export const crtTerminalPack: PackManifest = {
 		// status-line tracking on the mono labels. Widths ride `--cqmin` so
 		// they scale with the 4K frame. This is what makes the CRT lower-third
 		// a different OBJECT from the syntax one, not a recolour.
-		'lower-third.border': { kind: 'style', value: 'calc(0.16 * var(--cqmin)) solid #1e8f3d' },
+		// Border weight spans ≥1 tube raster pitch (0.3cqmin ≈ 6.5px @4K vs the
+		// chrome's 6px lines) — a sub-pitch hairline crawls in and out of beam
+		// phase and reads as broken dashes (Critic 2026-07-10). Same weight on
+		// every bezelled panel below.
+		'lower-third.border': { kind: 'style', value: 'calc(0.3 * var(--cqmin)) solid #1e8f3d' },
 		'lower-third.radius': { kind: 'style', value: '0' },
 		'lower-third.pad': { kind: 'style', value: 'calc(1.5 * var(--cqmin)) calc(2.2 * var(--cqmin))' },
 		'lower-third.tracking': { kind: 'style', value: '0.34em' },
@@ -270,13 +324,13 @@ export const crtTerminalPack: PackManifest = {
 		// `--cqmin` so they scale with the 4K frame. (`lower-third.*` form roles
 		// live in the Overlays block above.)
 		// ---------------------------------------------------------------
-		'chapter-card.border': { kind: 'style', value: 'calc(0.14 * var(--cqmin)) solid #1e8f3d' },
+		'chapter-card.border': { kind: 'style', value: 'calc(0.3 * var(--cqmin)) solid #1e8f3d' },
 		'chapter-card.radius': { kind: 'style', value: '0' },
 		'chapter-card.tracking': { kind: 'style', value: '0.34em' },
 		'chapter-card.case': { kind: 'style', value: 'uppercase' },
 		'chapter-card.weight': { kind: 'style', value: '600' },
 
-		'newspaper.border': { kind: 'style', value: 'calc(0.14 * var(--cqmin)) solid #1e8f3d' },
+		'newspaper.border': { kind: 'style', value: 'calc(0.3 * var(--cqmin)) solid #1e8f3d' },
 		'newspaper.radius': { kind: 'style', value: '0' },
 		'newspaper.tracking': { kind: 'style', value: '0.34em' },
 		'newspaper.case': { kind: 'style', value: 'uppercase' },
@@ -299,13 +353,13 @@ export const crtTerminalPack: PackManifest = {
 		'lower-third.case': { kind: 'style', value: 'uppercase' },
 
 		// The odometer becomes a bezelled phosphor readout window.
-		'counter.border': { kind: 'style', value: 'calc(0.14 * var(--cqmin)) solid #1e8f3d' },
+		'counter.border': { kind: 'style', value: 'calc(0.3 * var(--cqmin)) solid #1e8f3d' },
 		'counter.radius': { kind: 'style', value: '0' },
 		'counter.pad': { kind: 'style', value: 'calc(1.2 * var(--cqmin)) calc(1.6 * var(--cqmin))' },
 		'counter.weight': { kind: 'style', value: '600' },
 
 		// The corner watermark becomes a bezelled terminal status tag.
-		'watermark.border': { kind: 'style', value: 'calc(0.14 * var(--cqmin)) solid #1e8f3d' },
+		'watermark.border': { kind: 'style', value: 'calc(0.3 * var(--cqmin)) solid #1e8f3d' },
 		'watermark.radius': { kind: 'style', value: '0' },
 		'watermark.pad': {
 			kind: 'style',

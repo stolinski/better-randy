@@ -1,0 +1,83 @@
+{
+	"schema": "supers@1",
+	"kind": "fixture",
+	"name": "CRT Tube — effect fixture",
+	"description": "Proving fixture for the crt-tube Effect and the full two-stage TV chain: ntsc-signal (the cable/decoder — bandwidth limits, imperfect separation, hue jitter, ghost, snow) feeds crt-tube (the display — gaussian-beam scanlines that swell on bright lines, slot-mask phosphor structure, barrel curvature, rounded-glass bezel with inner shadow, content-tinted halation). Dialed to the blurry '80s consumer slot-mask register; the sharp late-era register is the same param surface (grille mask, tight focus, near-flat curvature, high luma bandwidth). Big display type on dark makes the mask, beam profile, and halation read at a glance. Field parity and signal temporal terms ride a deterministic ~30 Hz frame clock (ADR-0012) — scrub and export agree. Full-frame piece; the near-black backgroundFill backstops the carved bezel surround. Fixture — exercises the pipeline, not held to the deliverable floors.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "#050505",
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "type-hero",
+			"variant": "single",
+			"content": {
+				"title": "UHF 62",
+				"author": "SLOT MASK · COMPOSITE IN · NO SIGNAL AFTER MIDNIGHT",
+				"body": ""
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.063,
+				"ease": "settled",
+				"sound": {
+					"mute": true
+				}
+			},
+			"exit": {
+				"start": 0.88,
+				"duration": 0.044,
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
+			}
+		},
+		"overlays": [],
+		"effects": [
+			{
+				"type": "ntsc-signal",
+				"id": "signal",
+				"params": {
+					"lines": 480,
+					"lumaBandwidthMhz": 2.6,
+					"chromaBandwidthMhz": 0.5,
+					"separation": 0.25,
+					"chromaDelayUs": 0.3,
+					"phaseJitter": 0.2,
+					"ghost": 0.14,
+					"ghostDelayUs": 1,
+					"noise": 0.1,
+					"interlace": false
+				}
+			},
+			{
+				"type": "crt-tube",
+				"id": "tube",
+				"params": {
+					"mask": "slot",
+					"maskPitchPx": 8,
+					"maskStrength": 0.5,
+					"lines": 480,
+					"focus": 0.6,
+					"curvature": 0.22,
+					"bezel": 0.35,
+					"halation": 0.35,
+					"vignette": 0.3,
+					"interlace": false
+				}
+			}
+		]
+	}
+}

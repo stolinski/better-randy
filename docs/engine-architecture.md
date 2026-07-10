@@ -95,7 +95,7 @@ A frame composes bottom-to-top:
 | Block | `BlockRenderer` | one content unit inside the Surface | 1 (`paragraph`) |
 | Annotation | `AnnotationRenderer` | one mark on a Block (decorative or focal) | 10 |
 | Overlay | `OverlayRenderer` | a positioned element not bound to a Block | 8 |
-| Effect | `EffectRenderer` | one WGSL post-process pass in the frame chain | 8 |
+| Effect | `EffectRenderer` | one WGSL post-process pass in the frame chain | 11 |
 
 ## Data model
 
@@ -171,7 +171,7 @@ Paragraph bodies are stored as a single bracket-tag string, parsed into the runt
 | blocks (1) | `paragraph` |
 | annotations (10) | `highlight`, `underline`, `strike`, `circle`, `box`, `side-note`, `magnify`, `lift-out`, `tear-out`, `isolate` |
 | overlays (8) | `lower-third` (variants `standard`/`cinematic`), `washi-tape`, `watermark`, `shader-fill`, `cursor-trail`, `counter` (`slot-machine-roll`), `instance-stack` (`vertical-stack`/`horizontal-train`), `text-3d` (`cylinder-axis-y`) |
-| effects (8) | `paper-grain`, `chromatic-aberration`, `dithering`, `halftone-dots`, `halftone-cmyk`, `water`, `fluted-glass`, `heatmap` |
+| effects (11) | `paper-grain`, `chromatic-aberration`, `crt-screen`, `crt-tube`, `ntsc-signal`, `dithering`, `halftone-dots`, `halftone-cmyk`, `water`, `fluted-glass`, `heatmap` |
 
 **Dead-by-use — resolved.** `isolate`, `watermark`, `shader-fill`, `chromatic-aberration` were registered + boot-valid but referenced by zero presets; each now has a proving fixture (`isolate-demo`, `watermark-demo`, `shader-fill-demo`, `chromatic-aberration-demo`) that renders the pipeline, so all four are kept (not removed). Every registered pipeline is now referenced by ≥1 preset.
 

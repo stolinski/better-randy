@@ -23,11 +23,13 @@ import { timelineSegment } from '$lib/pipelines/blocks/timeline-segment';
 
 import { chromaticAberration } from '$lib/pipelines/effects/chromatic-aberration';
 import { crtScreen } from '$lib/pipelines/effects/crt-screen';
+import { crtTube } from '$lib/pipelines/effects/crt-tube';
 import { dithering } from '$lib/pipelines/effects/dithering';
 import { flutedGlass } from '$lib/pipelines/effects/fluted-glass';
 import { halftoneCmyk } from '$lib/pipelines/effects/halftone-cmyk';
 import { halftoneDots } from '$lib/pipelines/effects/halftone-dots';
 import { heatmap } from '$lib/pipelines/effects/heatmap';
+import { ntscSignal } from '$lib/pipelines/effects/ntsc-signal';
 import { paperGrain } from '$lib/pipelines/effects/paper-grain';
 import { water } from '$lib/pipelines/effects/water';
 import { counter } from '$lib/pipelines/overlays/counter';
@@ -71,7 +73,7 @@ export const PIPELINE_REGISTRY = {
 		isolate
 	} satisfies Record<string, AnnotationRenderer>,
 	overlays: { lowerThird, washiTape, watermark, shaderFill, cursorTrail, counter, instanceStack, text3d, youtubeSubscribe, instagramFollow },
-	effects: { paperGrain, chromaticAberration, crtScreen, dithering, halftoneDots, halftoneCmyk, water, flutedGlass, heatmap }
+	effects: { paperGrain, chromaticAberration, crtScreen, crtTube, ntscSignal, dithering, halftoneDots, halftoneCmyk, water, flutedGlass, heatmap }
 };
 
 export const REGISTERED_SURFACE_TYPES = Object.values(PIPELINE_REGISTRY.surfaces).map(

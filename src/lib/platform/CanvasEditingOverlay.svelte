@@ -3,6 +3,7 @@
 
 	import { animState } from './anim-state.svelte';
 	import { engineState } from './engine-state.svelte';
+	import { createStageProjector, type StagePlane } from './pipelines/depth-stage-camera';
 	import {
 		layerSelection,
 		selectLayer,
@@ -14,6 +15,10 @@
 
 	interface Props {
 		compositionElement: HTMLElement | null;
+		/** The hoisted Overlay-root sibling while the plane split is on (DOF /
+		 *  depth stage / owned surface opacity) — overlays live there, not in
+		 *  `compositionElement`. Null on the flat path (overlays inline). */
+		overlayRootElement?: HTMLElement | null;
 		canvas: HTMLCanvasElement | null;
 		compositionSize: { width: number; height: number };
 		/** Display zoom; pan is only active when zoomed in (> 1). */
@@ -27,6 +32,7 @@
 
 	let {
 		compositionElement,
+		overlayRootElement = null,
 		canvas,
 		compositionSize,
 		zoom = 1,
@@ -42,10 +48,35 @@
 	// ─── Coordinate helpers ──────────────────────────────────────────────────────
 
 	function getOverlayEl(overlay: Overlay): HTMLElement | null {
+		const selector = `[data-overlay-id="${overlay.id}"]`;
 		return (
-			compositionElement?.querySelector<HTMLElement>(`[data-overlay-id="${overlay.id}"]`) ?? null
+			overlayRootElement?.querySelector<HTMLElement>(selector) ??
+			compositionElement?.querySelector<HTMLElement>(selector) ??
+			null
 		);
 	}
+
+	// Depth-stage projection (m182h9gp): when the composition declares a depth
+	// stage, the rendered pixels are the captured planes reprojected through the
+	// stage's perspective camera — a flat DOM box no longer lands where its
+	// pixels are. The projector rebuilds the renderer's exact camera (shared
+	// math in depth-stage-camera.ts) from the same state resolveStage feeds it,
+	// so hit boxes project forward and pointer drags ray-cast back onto the
+	// element's plane. Surface content rides the surface plane; overlays ride
+	// the hoisted overlay plane at their ADR-0021 z. Reading globalProgress
+	// keeps every projected box tracking the camera move with the playhead.
+	const stageProjector = $derived.by(() => {
+		const stage = engineState.stage;
+		if (!stage || stage.type !== 'depth') return null;
+		if (compositionSize.width === 0 || compositionSize.height === 0) return null;
+		return createStageProjector({
+			aspect: compositionSize.width / compositionSize.height,
+			cameraMove: stage.camera.move,
+			cameraAmount: clampNumber(stage.camera.amount, 0, 1),
+			overlayZ: clampNumber(engineState.overlays[0]?.z ?? 0.7, 0, 1),
+			time: clampNumber(animState.globalProgress, 0, 1)
+		});
+	});
 
 	// The composition DOM is full 4K CSS size (3840×2160). The WebGPU canvas is
 	// displayed at a much smaller size. To position hit regions in the editing
@@ -53,10 +84,67 @@
 	// coordinate space into the canvas display coordinate space.
 	//
 	// Steps:
-	//   1. Get the overlay element's rect in 4K DOM space (viewport-relative).
-	//   2. Compute its offset from the composition element's top-left.
-	//   3. Scale that offset by (canvasDisplay / comp4K) to get canvas-space coords.
-	//   4. Add the canvas element's position within the editing overlay root.
+	//   1. Get the element's rect in 4K DOM space (viewport-relative).
+	//   2. Convert to composition fractions (capture UV space) off the
+	//      composition element's box.
+	//   3. Flat path: the canvas maps 1:1 to the composition, so the fractions
+	//      are the display fractions. Staged: project the four corners through
+	//      the stage camera and take their bounding box (the plane keystones
+	//      slightly under a drift; an axis-aligned box over the projected quad
+	//      is the right hit affordance).
+	//   4. Scale into the canvas display box within the editing overlay root.
+	function projectRect(
+		el: HTMLElement,
+		plane: StagePlane = 'surface'
+	): { left: number; top: number; width: number; height: number } | null {
+		const rootRect = rootEl?.getBoundingClientRect();
+		const canvasRect = canvas?.getBoundingClientRect();
+		const compRect = compositionElement?.getBoundingClientRect();
+		if (!rootRect || !canvasRect || !compRect || canvasRect.width === 0 || compRect.width === 0)
+			return null;
+		const r = el.getBoundingClientRect();
+		let x0 = (r.left - compRect.left) / compRect.width;
+		let y0 = (r.top - compRect.top) / compRect.height;
+		let x1 = (r.right - compRect.left) / compRect.width;
+		let y1 = (r.bottom - compRect.top) / compRect.height;
+		if (stageProjector) {
+			const corners = [
+				stageProjector.projectPoint(plane, x0, y0),
+				stageProjector.projectPoint(plane, x1, y0),
+				stageProjector.projectPoint(plane, x0, y1),
+				stageProjector.projectPoint(plane, x1, y1)
+			];
+			x0 = Math.min(corners[0].x, corners[1].x, corners[2].x, corners[3].x);
+			x1 = Math.max(corners[0].x, corners[1].x, corners[2].x, corners[3].x);
+			y0 = Math.min(corners[0].y, corners[1].y, corners[2].y, corners[3].y);
+			y1 = Math.max(corners[0].y, corners[1].y, corners[2].y, corners[3].y);
+		}
+		return {
+			left: canvasRect.left - rootRect.left + x0 * canvasRect.width,
+			top: canvasRect.top - rootRect.top + y0 * canvasRect.height,
+			width: (x1 - x0) * canvasRect.width,
+			height: (y1 - y0) * canvasRect.height
+		};
+	}
+
+	// Pointer → composition fraction on an element's plane. Flat path: the
+	// canvas display maps 1:1 to the composition, so the fraction is linear.
+	// Staged: ray-cast the pointer through the camera onto the plane, so drag
+	// deltas land where the reprojected pixels are (a linear delta under a
+	// pulled-back camera over- or under-shoots the plane).
+	function pointerToComp(
+		clientX: number,
+		clientY: number,
+		plane: StagePlane
+	): { x: number; y: number } | null {
+		const canvasRect = canvas?.getBoundingClientRect();
+		if (!canvasRect || canvasRect.width === 0 || canvasRect.height === 0) return null;
+		const fx = (clientX - canvasRect.left) / canvasRect.width;
+		const fy = (clientY - canvasRect.top) / canvasRect.height;
+		if (!stageProjector) return { x: fx, y: fy };
+		return stageProjector.raycastPoint(plane, fx, fy);
+	}
+
 	function overlayRelRect(
 		overlay: Overlay
 	): { left: number; top: number; width: number; height: number } | null {
@@ -70,23 +158,9 @@
 		void overlay.position.rect?.y;
 		void overlay.position.scale;
 		void overlay.position.rotation;
-		const rootRect = rootEl?.getBoundingClientRect();
-		const canvasRect = canvas?.getBoundingClientRect();
-		const compRect = compositionElement?.getBoundingClientRect();
-		if (!rootRect || !canvasRect || !compRect || canvasRect.width === 0 || compRect.width === 0)
-			return null;
 		const el = getOverlayEl(overlay);
 		if (!el) return null;
-		const r = el.getBoundingClientRect();
-		const scale = canvasRect.width / compRect.width;
-		const dx = (r.left - compRect.left) * scale;
-		const dy = (r.top - compRect.top) * scale;
-		return {
-			left: canvasRect.left - rootRect.left + dx,
-			top: canvasRect.top - rootRect.top + dy,
-			width: r.width * scale,
-			height: r.height * scale
-		};
+		return projectRect(el, 'overlay');
 	}
 
 	// The overlay's current top-left, as a 0..1 fraction of the composition. Used
@@ -107,8 +181,9 @@
 
 	interface DragState {
 		overlayId: string;
-		startX: number;
-		startY: number;
+		/** Drag origin in composition fractions (ray-cast onto the overlay plane). */
+		startCompX: number;
+		startCompY: number;
 		/** Which representation the drag writes: `offset` (edge-anchored) or `rect`
 		 *  (normalized-rect). */
 		mode: 'offset' | 'rect';
@@ -136,14 +211,14 @@
 		// position so nothing jumps) — full `center` and the x-centred
 		// `top-center`/`bottom-center` alike.
 		const convertCenter =
-			(pos.anchor === 'center' ||
-				pos.anchor === 'top-center' ||
-				pos.anchor === 'bottom-center') &&
+			(pos.anchor === 'center' || pos.anchor === 'top-center' || pos.anchor === 'bottom-center') &&
 			measured !== null;
+		const startComp = pointerToComp(event.clientX, event.clientY, 'overlay');
+		if (!startComp) return;
 		dragState = {
 			overlayId: overlay.id,
-			startX: event.clientX,
-			startY: event.clientY,
+			startCompX: startComp.x,
+			startCompY: startComp.y,
 			mode: isRect ? 'rect' : 'offset',
 			// For a center overlay we seed from the measured top-left so the post-
 			// conversion top-left anchor keeps the same on-screen position.
@@ -162,13 +237,13 @@
 		if (!dragState) return;
 		const overlay = engineState.overlays.find((o) => o.id === dragState!.overlayId);
 		if (!overlay) return;
-		const canvasRect = canvas?.getBoundingClientRect();
-		if (!canvasRect || canvasRect.width === 0 || canvasRect.height === 0) return;
-		// Screen-pixel delta → fraction of the composition (offset.x is a fraction of
-		// inline-size, offset.y of block-size). The canvas display size maps 1:1 to
-		// the composition, so the displayed delta IS the fraction.
-		const dx = (event.clientX - dragState.startX) / canvasRect.width;
-		const dy = (event.clientY - dragState.startY) / canvasRect.height;
+		// Pointer → composition-fraction delta (offset.x is a fraction of
+		// inline-size, offset.y of block-size), ray-cast onto the overlay's plane
+		// so the drag tracks the reprojected pixels when the stage is on.
+		const comp = pointerToComp(event.clientX, event.clientY, 'overlay');
+		if (!comp) return;
+		const dx = comp.x - dragState.startCompX;
+		const dy = comp.y - dragState.startCompY;
 
 		// Ignore sub-pixel jitter so a plain click doesn't count as a drag (and so a
 		// center overlay isn't reanchored just by selecting it).
@@ -388,29 +463,18 @@
 		if ('scale' in element) {
 			void element.scale;
 		}
-		const rootRect = rootEl?.getBoundingClientRect();
-		const canvasRect = canvas?.getBoundingClientRect();
-		const compRect = compositionElement?.getBoundingClientRect();
-		if (!rootRect || !canvasRect || !compRect || canvasRect.width === 0 || compRect.width === 0)
-			return null;
 		const el = compositionElement?.querySelector<HTMLElement>(
 			`[data-diagram-element="${element.id}"]`
 		);
 		if (!el) return null;
-		const r = el.getBoundingClientRect();
-		const scale = canvasRect.width / compRect.width;
-		return {
-			left: canvasRect.left - rootRect.left + (r.left - compRect.left) * scale,
-			top: canvasRect.top - rootRect.top + (r.top - compRect.top) * scale,
-			width: r.width * scale,
-			height: r.height * scale
-		};
+		return projectRect(el);
 	}
 
 	interface BlockDragState {
 		blockId: string;
-		startX: number;
-		startY: number;
+		/** Drag origin in composition fractions (ray-cast onto the surface plane). */
+		startCompX: number;
+		startCompY: number;
 		/** Every authored point the drag translates (position, or from+to). */
 		points: { point: { x: number; y: number }; originX: number; originY: number }[];
 	}
@@ -434,7 +498,14 @@
 			points.push({ point: element.to, originX: element.to.x, originY: element.to.y });
 		}
 		if (points.length === 0) return;
-		blockDrag = { blockId: element.id, startX: event.clientX, startY: event.clientY, points };
+		const startComp = pointerToComp(event.clientX, event.clientY, 'surface');
+		if (!startComp) return;
+		blockDrag = {
+			blockId: element.id,
+			startCompX: startComp.x,
+			startCompY: startComp.y,
+			points
+		};
 		if (typeof window !== 'undefined') {
 			window.addEventListener('pointermove', onBlockPointerMove);
 			window.addEventListener('pointerup', onBlockPointerUp);
@@ -443,10 +514,10 @@
 
 	function onBlockPointerMove(event: PointerEvent): void {
 		if (!blockDrag) return;
-		const canvasRect = canvas?.getBoundingClientRect();
-		if (!canvasRect || canvasRect.width === 0 || canvasRect.height === 0) return;
-		const dx = (event.clientX - blockDrag.startX) / canvasRect.width;
-		const dy = (event.clientY - blockDrag.startY) / canvasRect.height;
+		const comp = pointerToComp(event.clientX, event.clientY, 'surface');
+		if (!comp) return;
+		const dx = comp.x - blockDrag.startCompX;
+		const dy = comp.y - blockDrag.startCompY;
 		if (Math.abs(dx) < 0.0005 && Math.abs(dy) < 0.0005) return;
 		for (const entry of blockDrag.points) {
 			// Rounded to 4 dp — sub-pixel-at-4K precision that keeps the inspector
@@ -491,24 +562,6 @@
 		'source',
 		'dateLabel'
 	] as const;
-
-	function projectRect(
-		el: HTMLElement
-	): { left: number; top: number; width: number; height: number } | null {
-		const rootRect = rootEl?.getBoundingClientRect();
-		const canvasRect = canvas?.getBoundingClientRect();
-		const compRect = compositionElement?.getBoundingClientRect();
-		if (!rootRect || !canvasRect || !compRect || canvasRect.width === 0 || compRect.width === 0)
-			return null;
-		const r = el.getBoundingClientRect();
-		const scale = canvasRect.width / compRect.width;
-		return {
-			left: canvasRect.left - rootRect.left + (r.left - compRect.left) * scale,
-			top: canvasRect.top - rootRect.top + (r.top - compRect.top) * scale,
-			width: r.width * scale,
-			height: r.height * scale
-		};
-	}
 
 	function messageRelRect(
 		message: ChatMessage,

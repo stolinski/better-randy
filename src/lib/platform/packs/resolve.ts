@@ -73,7 +73,18 @@ const CSS_FORM_SUFFIXES = new Set([
 	// font-stretch claim — a variant defaulting to condensed must not
 	// synthetically squeeze a Pack face that has no condensed cut (Space
 	// Grotesk rendered at 75% synthetic width read as off-brand).
-	'stretch'
+	'stretch',
+	// Status-voice drive levels: the small kicker/subtitle voices' opacity and
+	// the kicker's weight. Pipelines bake tasteful dims as var() defaults; an
+	// emissive Pack whose chrome eats small-text luminance (crt-terminal's
+	// tube) claims full drive to hold the G5 floor (Critic 2026-07-10).
+	'kickerDim',
+	'kickerWeight',
+	'subtitleDim',
+	// Baked glyph legibility shadows are reflective-pack dress: an emissive
+	// Pack claims 'none' (no shadows of any kind — depth is bloom), which
+	// also stops the black rim eating small-text avg-ink under its chrome.
+	'textShadow'
 ]);
 
 /**

@@ -1,6 +1,7 @@
 import atmosphereSlateUrl from '$lib/assets/substrates/atmosphere-slate.png';
 import atmosphereVioletUrl from '$lib/assets/substrates/atmosphere-violet.png';
 import atmosphereWarmUrl from '$lib/assets/substrates/atmosphere-warm.png';
+import coastBedrockUrl from '$lib/assets/substrates/coast-bedrock.jpg';
 
 import type { GpuHost } from './gpu-host';
 
@@ -17,7 +18,13 @@ import type { GpuHost } from './gpu-host';
 const SUBSTRATE_ASSETS: Record<string, string> = {
 	'atmosphere-warm': atmosphereWarmUrl,
 	'atmosphere-slate': atmosphereSlateUrl,
-	'atmosphere-violet': atmosphereVioletUrl
+	'atmosphere-violet': atmosphereVioletUrl,
+	// Real photograph (the atmosphere-* trio are synthetic stand-ins): golden-hour
+	// rocky coast, sharp at source — the depth stage supplies the defocus, so the
+	// photo survives it as recognizable rock/foam/horizon instead of pre-baked
+	// bokeh mush. CC0 via Wikimedia Commons, "Waves on a rocky coast (Unsplash)",
+	// cropped 16:9 at 3840×2160.
+	'coast-bedrock': coastBedrockUrl
 };
 
 export function isSubstrateAsset(slug: string): boolean {
@@ -62,14 +69,12 @@ function uploadSubstrateTexture(host: GpuHost, bitmap: ImageBitmap): GPUTexture 
 	const texture = host.device.createTexture({
 		size: [bitmap.width, bitmap.height, 1],
 		format: 'rgba8unorm',
-		usage:
-			TEXTURE_USAGE_TEXTURE_BINDING | TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_RENDER_ATTACHMENT
+		usage: TEXTURE_USAGE_TEXTURE_BINDING | TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_RENDER_ATTACHMENT
 	});
-	host.device.queue.copyExternalImageToTexture(
-		{ source: bitmap },
-		{ texture },
-		[bitmap.width, bitmap.height]
-	);
+	host.device.queue.copyExternalImageToTexture({ source: bitmap }, { texture }, [
+		bitmap.width,
+		bitmap.height
+	]);
 	return texture;
 }
 
@@ -77,10 +82,7 @@ function uploadSubstrateTexture(host: GpuHost, bitmap: ImageBitmap): GPUTexture 
 // first use. Returns null for an unknown slug or before the bitmap has decoded
 // (the caller — a `substrateReady` await before first paint — ensures the
 // bitmap is ready, mirroring how fonts are awaited before first capture).
-export async function getSubstrateTexture(
-	host: GpuHost,
-	slug: string
-): Promise<GPUTexture | null> {
+export async function getSubstrateTexture(host: GpuHost, slug: string): Promise<GPUTexture | null> {
 	const cached = textureCache.get(slug);
 	if (cached && cached.host === host) {
 		return cached.texture;

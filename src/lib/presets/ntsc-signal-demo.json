@@ -1,0 +1,86 @@
+{
+	"schema": "supers@1",
+	"kind": "fixture",
+	"name": "NTSC Signal — effect fixture",
+	"description": "Proving fixture for the ntsc-signal Effect: the cable/decoder half of the two-stage CRT pipeline, run alone so the signal-path artifacts stay legible. The depth stage puts the real coast-bedrock photo on the backdrop plane (sharp, low aperture) and the effect re-encodes the composited frame per scanline into an NTSC composite signal (YIQ on the 3.579545 MHz subcarrier, 180° phase flip per line and frame), then decodes it back through imperfect FIR filters — so the color bleed in the rock detail, the rainbow crawl on fine texture, the right-lagging chroma, the cable ghost, and the decoder-shaped snow are emergent from the signal model, not painted on. Temporal terms (line phase, hue jitter, snow) advance on a deterministic ~30 Hz frame clock from ctx.timestamp — scrub and export agree at every frame (ADR-0012). Full-frame piece (backgroundFill). Fixture — exercises the pipeline, not held to the deliverable floors.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "#0a0807",
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#2a2018",
+			"inkColor": "#fdf6ec"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "pullquote-on-photo",
+			"content": {
+				"title": "Every color on this screen rode a single wire — the rainbows at the edges are where the wire gave up.",
+				"author": "NTSC COMPOSITE · 3.579545 MHZ · CH 3",
+				"body": ""
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.055,
+				"ease": "settled",
+				"sound": {
+					"mute": true
+				}
+			},
+			"exit": {
+				"start": 0.94,
+				"duration": 0.04,
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
+			}
+		},
+		"overlays": [],
+		"stage": {
+			"type": "depth",
+			"camera": {
+				"move": "push",
+				"amount": 0.4,
+				"ease": "smooth"
+			},
+			"focus": {
+				"focusZ": 0,
+				"aperture": 0.15
+			},
+			"backdrop": {
+				"image": {
+					"asset": "coast-bedrock"
+				},
+				"contrast": 0.3
+			}
+		},
+		"effects": [
+			{
+				"type": "ntsc-signal",
+				"id": "signal",
+				"params": {
+					"lines": 480,
+					"lumaBandwidthMhz": 2.8,
+					"chromaBandwidthMhz": 0.55,
+					"separation": 0.3,
+					"chromaDelayUs": 0.3,
+					"phaseJitter": 0.2,
+					"ghost": 0.15,
+					"ghostDelayUs": 1.1,
+					"noise": 0.12,
+					"interlace": false
+				}
+			}
+		]
+	}
+}

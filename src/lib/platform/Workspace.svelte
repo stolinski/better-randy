@@ -2955,6 +2955,7 @@
 		</VideoFrame>
 		<CanvasEditingOverlay
 			{compositionElement}
+			{overlayRootElement}
 			{canvas}
 			compositionSize={{ width: canvas?.width ?? 3840, height: canvas?.height ?? 2160 }}
 			{zoom}

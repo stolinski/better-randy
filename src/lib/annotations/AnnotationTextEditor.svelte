@@ -170,7 +170,12 @@
 			return;
 		}
 
-		if (incoming === lastRenderedBody && editor.childNodes.length > 0) {
+		if (
+			editor.childNodes.length > 0 &&
+			(incoming === lastRenderedBody ||
+				JSON.stringify(incoming) === JSON.stringify(serializeEditorBody(editor)))
+		) {
+			lastRenderedBody = incoming;
 			refreshExistingBandColors();
 			return;
 		}

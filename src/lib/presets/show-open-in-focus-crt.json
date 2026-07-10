@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Show-open — In Focus — CRT Terminal",
-	"description": "Same recipe as show-open-in-focus, published under the crt-terminal Pack — the ADR-0038 multi-pack integration proof on the flagship. Byte-identical composition (same camera push, rack focus, cascade choreography, lower-third at depth, sound bed + impact); only name / description / pack differ. The engine renders it as a wholly different publication: emissive green phosphor instead of warm reflective ink, bloom instead of cast shadow, and the crt-screen chrome (full-frame scanline + bloom + vignette) auto-appended because the piece is opaque. Proves the show-open is the engine, not a look.",
+	"description": "Same recipe as show-open-in-focus, published under the crt-terminal Pack — the ADR-0038 multi-pack integration proof on the flagship. Byte-identical composition (same camera push, rack focus, cascade choreography, lower-third at depth, sound bed + impact); only name / description / pack differ. The engine renders it as a wholly different publication: emissive green phosphor instead of warm reflective ink, bloom instead of cast shadow, and the crt-tube chrome (flat-glass beam raster + shadow-mask texture + bezel + halation) auto-appended because the piece is opaque. Proves the show-open is the engine, not a look.",
 	"pack": "crt-terminal",
 	"state": {
 		"transport": {
@@ -25,30 +25,68 @@
 				"title": "In Focus",
 				"body": ""
 			},
-			"enter": { "start": 0, "duration": 0.04, "ease": "settled" },
-			"exit": { "start": 0.91, "duration": 0.035, "ease": "smooth" }
+			"enter": {
+				"start": 0,
+				"duration": 0.04,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.91,
+				"duration": 0.035,
+				"ease": "smooth"
+			}
 		},
 		"textAnimations": [
 			{
 				"id": "kicker-fade",
-				"target": { "kind": "surface", "slot": "kicker" },
+				"target": {
+					"kind": "surface",
+					"slot": "kicker"
+				},
 				"effect": "fade-through",
-				"enter": { "start": 0.055, "duration": 0.045, "ease": "settled" },
-				"exit": { "start": 0.86, "duration": 0.03, "ease": "smooth" },
-				"cascade": { "anchor": "surface", "event": "end", "offsetMs": 120 }
+				"enter": {
+					"start": 0.055,
+					"duration": 0.045,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.86,
+					"duration": 0.03,
+					"ease": "smooth"
+				},
+				"cascade": {
+					"anchor": "surface",
+					"event": "end",
+					"offsetMs": 120
+				}
 			},
 			{
 				"id": "title-rise",
-				"target": { "kind": "surface", "slot": "title" },
+				"target": {
+					"kind": "surface",
+					"slot": "title"
+				},
 				"effect": "per-character-rise",
 				"enter": {
 					"start": 0.119,
 					"duration": 0.05,
 					"ease": "settled",
-					"sound": { "event": "impact" }
+					"sound": {
+						"event": "impact"
+					}
 				},
-				"exit": { "start": 0.87, "duration": 0.03, "ease": "smooth" },
-				"cascade": { "anchor": { "textAnimation": "kicker-fade" }, "event": "end", "offsetMs": 150 }
+				"exit": {
+					"start": 0.87,
+					"duration": 0.03,
+					"ease": "smooth"
+				},
+				"cascade": {
+					"anchor": {
+						"textAnimation": "kicker-fade"
+					},
+					"event": "end",
+					"offsetMs": 150
+				}
 			}
 		],
 		"overlays": [
@@ -61,13 +99,29 @@
 					"title": "The Long Way Around",
 					"subtitle": "premieres friday"
 				},
-				"position": { "anchor": "bottom-left", "offset": { "x": 0.0625, "y": 0.11 } },
+				"position": {
+					"anchor": "bottom-left",
+					"offset": {
+						"x": 0.0625,
+						"y": 0.11
+					}
+				},
 				"z": 0.08,
-				"enter": { "start": 0.282, "duration": 0.05, "ease": "settled" },
-				"exit": { "start": 0.85, "duration": 0.03, "ease": "smooth" },
+				"enter": {
+					"start": 0.282,
+					"duration": 0.05,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.85,
+					"duration": 0.03,
+					"ease": "smooth"
+				},
 				"animation": {
 					"cascade": {
-						"anchor": { "textAnimation": "title-rise" },
+						"anchor": {
+							"textAnimation": "title-rise"
+						},
 						"event": "end",
 						"offsetMs": 900
 					}

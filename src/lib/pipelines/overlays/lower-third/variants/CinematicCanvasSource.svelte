@@ -144,14 +144,20 @@
 	}
 
 	.lower-third--cinematic__kicker {
-		color: var(--accent);
+		/* Extra slot → chains to the accent core, never a literal (ADR-0024):
+		   a Pack whose chrome eats small-text luminance lifts the kicker's
+		   excitation without repainting the accent bar. */
+		color: var(--kickerInk, var(--accent));
 		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
 		font-size: calc(1.9 * var(--cqmin));
 		font-weight: 600;
 		letter-spacing: var(--tracking, 0.26em);
-		opacity: 0.95;
+		/* Pack status-voice drive (`lower-third.kickerDim`): an emissive Pack
+		   whose chrome eats small-text luminance runs the kicker at full drive
+		   to hold the G5 floor; silent → today's. */
+		opacity: var(--kickerDim, 0.95);
 		padding-inline-start: var(--tracking, 0.26em);
-		text-shadow: 0 0.04em 0.1em rgba(0, 0, 0, 0.85);
+		text-shadow: var(--textShadow, 0 0.04em 0.1em rgba(0, 0, 0, 0.85));
 		text-transform: uppercase;
 	}
 
@@ -176,7 +182,7 @@
 		font-weight: var(--weight, 700);
 		letter-spacing: -0.008em;
 		line-height: 0.96;
-		text-shadow: 0 0.04em 0.1em rgba(0, 0, 0, 0.9);
+		text-shadow: var(--textShadow, 0 0.04em 0.1em rgba(0, 0, 0, 0.9));
 	}
 
 	.lower-third--cinematic__role {
@@ -192,8 +198,9 @@
 		font-size: calc(2.9 * var(--cqmin));
 		font-weight: 500;
 		letter-spacing: var(--tracking, 0.22em);
-		opacity: 0.92;
-		text-shadow: 0 0.04em 0.1em rgba(0, 0, 0, 0.85);
+		/* Pack status-voice drive (`lower-third.subtitleDim`); silent → today's. */
+		opacity: var(--subtitleDim, 0.92);
+		text-shadow: var(--textShadow, 0 0.04em 0.1em rgba(0, 0, 0, 0.85));
 		text-transform: uppercase;
 	}
 </style>

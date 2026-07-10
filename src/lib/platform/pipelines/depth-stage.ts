@@ -3,6 +3,13 @@ import { mat4 } from 'wgpu-matrix';
 
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
 import type { LightDirection } from '$lib/platform/packs/resolve';
+import {
+	STAGE_BACKDROP_DEPTH,
+	STAGE_CAM_Z,
+	STAGE_FOV,
+	stageCameraPose,
+	stagePlaneHalfExtents
+} from './depth-stage-camera';
 
 // Dimensional depth stage (ADR-0028). The validated WebGPU 3D depth-of-field POC
 // (src/routes/poc/dof3d) as a reusable engine renderer: the Surface composite is
@@ -25,9 +32,11 @@ const TEXTURE_USAGE_TEXTURE_BINDING = 0x04;
 const TEXTURE_USAGE_RENDER_ATTACHMENT = 0x10;
 const SCENE_TEXTURE_USAGE = TEXTURE_USAGE_TEXTURE_BINDING | TEXTURE_USAGE_RENDER_ATTACHMENT;
 
-const FOV = (42 * Math.PI) / 180;
-const CAM_Z = 3.4; // camera distance; the Surface plane sits at the framing distance
-const BACKDROP_DEPTH = 2.2; // world units the backdrop sits behind the Surface plane
+// Camera geometry (FOV / rest distance / backdrop depth / eye-from-time) lives
+// in depth-stage-camera.ts, shared with canvas hit-testing — see that module.
+const FOV = STAGE_FOV;
+const CAM_Z = STAGE_CAM_Z;
+const BACKDROP_DEPTH = STAGE_BACKDROP_DEPTH;
 const D_NEAR = 2.5; // camera-space distance encoded as depth 0
 const D_FAR = 6.0; // …as depth 1
 const BOKEH_TAPS = 96;
@@ -70,7 +79,13 @@ const PlaneUniforms = d.struct({
 	casterA: d.vec4f,
 	casterB: d.vec4f,
 	eye: d.vec4f,
-	bgPlane: d.vec4f
+	bgPlane: d.vec4f,
+	// midPlane = (halfW, halfH, worldZ, present): a plane BETWEEN this one and
+	// the backdrop (the Overlay plane, for the Surface). The partial-presence
+	// reconstruction tests it before falling back to the backdrop — without
+	// it, a low-alpha skirt (glyph bloom) synthesizes backdrop over overlay
+	// content that is actually behind it, erasing it (Critic 2026-07-10).
+	midPlane: d.vec4f
 });
 // params = (focus depth01, aperture, maxCoc px, band). resolution = scene px.
 // depths = (nearest plane depth01, _, _, _): the frontmost plane this frame —
@@ -83,6 +98,7 @@ const planeLayout = tgpu.bindGroupLayout({
 	casterTexA: { texture: d.texture2d(d.f32) },
 	casterTexB: { texture: d.texture2d(d.f32) },
 	bgTex: { texture: d.texture2d(d.f32) },
+	midTex: { texture: d.texture2d(d.f32) },
 	samp: { sampler: 'filtering' },
 	plane: { uniform: PlaneUniforms }
 });
@@ -234,7 +250,32 @@ const planeFragmentFn = tgpu['~unstable'].fragmentFn({
 			let rakeF = dot(hit.xy / max(max(bg.x, bg.y), 1e-4), towardsF);
 			bgColor = bgColor * (1.0 + rakeF * lightF.w * 0.22);
 		}
-		let bgDepth01 = clamp((length(hit - eyePos) - misc.x) / (misc.y - misc.x), 0.0, 1.0);
+		var bgDepth01 = clamp((length(hit - eyePos) - misc.x) / (misc.y - misc.x), 0.0, 1.0);
+		// What is ACTUALLY behind this pixel may be the mid (Overlay) plane,
+		// not the backdrop — test the nearer hit and reconstruct THAT, or a
+		// soft low-alpha skirt erases overlay content behind it into
+		// synthesized backdrop (glyph-shaped bezel erasure, Critic 2026-07-10).
+		// The reveal carries the mid plane's rake but not the shadow cast onto
+		// it (a lit-pack approximation confined to sub-0.999-presence skirts).
+		let mid = layout.$.plane.midPlane;
+		if (mid.w > 0.5) {
+			let tM = (mid.z - eyePos.z) / min(dir.z, -1e-4);
+			let hitM = eyePos + dir * tM;
+			let mUv = vec2f((hitM.x / mid.x + 1.0) * 0.5, 1.0 - (hitM.y / mid.y + 1.0) * 0.5);
+			if (all(mUv >= vec2f(0.0)) && all(mUv <= vec2f(1.0))) {
+				let sM = textureSampleLevel(layout.$.midTex, layout.$.samp, mUv, 0.0);
+				if (sM.a > 0.5) {
+					var midColor = sM.rgb / max(sM.a, 0.001);
+					if (lightF.w > 0.001) {
+						let towardsM = normalize(vec2f(-lightF.x, -lightF.y + 1e-4));
+						let rakeM = dot(hitM.xy / max(max(mid.x, mid.y), 1e-4), towardsM);
+						midColor = midColor * (1.0 + rakeM * lightF.w * 0.22);
+					}
+					bgColor = midColor;
+					bgDepth01 = clamp((length(hitM - eyePos) - misc.x) / (misc.y - misc.x), 0.0, 1.0);
+				}
+			}
+		}
 		color = mix(bgColor, color, presence);
 		// Depth takes the DOMINANT contributor, not the colour mix: a
 		// presence-interpolated depth lands fictitious values between the
@@ -481,10 +522,6 @@ function toMat4(m: Float32Array) {
 	);
 }
 
-const smootherstep = (t: number): number => {
-	const x = Math.min(1, Math.max(0, t));
-	return x * x * x * (x * (x * 6 - 15) + 10);
-};
 const mix = (a: number, b: number, t: number): number => a + (b - a) * t;
 
 export interface DepthStageOptions {
@@ -598,7 +635,8 @@ export class DepthStage {
 			casterA: d.vec4f(1, 1, 0, 0),
 			casterB: d.vec4f(1, 1, 0, 0),
 			eye: d.vec4f(0, 0, CAM_Z, 1),
-			bgPlane: d.vec4f(1, 1, 0, 0)
+			bgPlane: d.vec4f(1, 1, 0, 0),
+			midPlane: d.vec4f(1, 1, 0, 0)
 		};
 		const backdropPlane = root
 			.createBuffer(PlaneUniforms, {
@@ -674,8 +712,8 @@ export class DepthStage {
 		// half-height there, half-width = that × aspect. Authored content lands at its
 		// composed size; the camera move shifts near/far planes at different rates.
 		const fillScale = (dist: number): [number, number, number] => {
-			const halfH = Math.tan(FOV / 2) * dist;
-			return [halfH * aspect, halfH, 1];
+			const { halfW, halfH } = stagePlaneHalfExtents(dist, aspect);
+			return [halfW, halfH, 1];
 		};
 		const surfaceFill = fillScale(CAM_Z);
 		const surfaceModel = mat4.scale(mat4.identity(), surfaceFill);
@@ -699,23 +737,13 @@ export class DepthStage {
 		const focusDepth01 = (dist: number): number => (dist - D_NEAR) / (D_FAR - D_NEAR);
 
 		this.#render = (input) => {
-			const e = smootherstep(input.time);
-			const amt = input.cameraAmount;
-			let eyeX = 0;
-			let eyeZ = CAM_Z;
-			if (input.cameraMove === 'push') {
-				eyeZ = CAM_Z + 0.55 * amt * (1 - e); // start pulled back, dolly in
-			} else if (input.cameraMove === 'drift') {
-				eyeX = mix(-0.18, 0.14, e) * amt; // lateral parallax sweep
-			}
+			const { eyeX, eyeZ } = stageCameraPose(input.cameraMove, input.cameraAmount, input.time);
 			const vp = mat4.multiply(projection, mat4.lookAt([eyeX, 0, eyeZ], [0, 0, 0], [0, 1, 0]));
 			// The scene key light (Pack light-treatment Role): a unit travel vector +
 			// intensity, shared by every plane. No light ⇒ intensity 0, and the plane
 			// shader skips both the rake and the shadow march entirely.
 			const lightDir = input.light ? LIGHT_VECTORS[input.light.direction] : null;
-			const lightIntensity = lightDir
-				? Math.min(1, Math.max(0, input.light?.intensity ?? 0))
-				: 0;
+			const lightIntensity = lightDir ? Math.min(1, Math.max(0, input.light?.intensity ?? 0)) : 0;
 			const lightVec = d.vec4f(
 				lightDir?.[0] ?? 0,
 				lightDir?.[1] ?? 0,
@@ -767,7 +795,8 @@ export class DepthStage {
 				casterA: surfaceCaster,
 				casterB: overlayCaster,
 				eye: d.vec4f(eyeX, 0, eyeZ, 1),
-				bgPlane: bgPlaneVec
+				bgPlane: bgPlaneVec,
+				midPlane: noCaster
 			});
 			surfacePlane.write({
 				mvp: toMat4(mat4.multiply(vp, surfaceModel) as Float32Array),
@@ -778,7 +807,14 @@ export class DepthStage {
 				casterA: noCaster,
 				casterB: noCaster,
 				eye: d.vec4f(eyeX, 0, eyeZ, fade),
-				bgPlane: bgPlaneVec
+				bgPlane: bgPlaneVec,
+				// The Overlay plane sits between the Surface and the backdrop —
+				// the Surface's partial-presence reconstruction must consult it
+				// before synthesizing backdrop.
+				midPlane:
+					input.overlayPlaneView && overlayDepth > 0
+						? d.vec4f(overlayFill[0], overlayFill[1], -overlayDepth, 1)
+						: noCaster
 			});
 			if (input.overlayPlaneView) {
 				const overlayModel = mat4.scale(
@@ -796,7 +832,8 @@ export class DepthStage {
 					casterA: overlayDepth > 0 ? surfaceCaster : noCaster,
 					casterB: noCaster,
 					eye: d.vec4f(eyeX, 0, eyeZ, 1),
-					bgPlane: bgPlaneVec
+					bgPlane: bgPlaneVec,
+					midPlane: noCaster
 				});
 			}
 			// Live plane distances along the view (camera at [eyeX,0,eyeZ] → origin),
@@ -821,6 +858,7 @@ export class DepthStage {
 				casterTexA: input.surfacePlaneView,
 				casterTexB: input.overlayPlaneView ?? input.surfacePlaneView,
 				bgTex: bgTexView,
+				midTex: input.surfacePlaneView,
 				samp: sampler,
 				plane: backdropPlane
 			});
@@ -829,6 +867,10 @@ export class DepthStage {
 				casterTexA: input.surfacePlaneView,
 				casterTexB: input.surfacePlaneView,
 				bgTex: bgTexView,
+				// The Overlay plane's capture — the mid-plane the partial-presence
+				// reconstruction consults (placeholder when no overlay rides a plane;
+				// midPlane.w = 0 ignores it).
+				midTex: input.overlayPlaneView ?? input.surfacePlaneView,
 				samp: sampler,
 				plane: surfacePlane
 			});
@@ -838,6 +880,7 @@ export class DepthStage {
 						casterTexA: input.surfacePlaneView,
 						casterTexB: input.surfacePlaneView,
 						bgTex: bgTexView,
+						midTex: input.surfacePlaneView,
 						samp: sampler,
 						plane: overlayPlane
 					})

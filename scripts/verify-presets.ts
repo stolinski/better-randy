@@ -1,12 +1,44 @@
+import { existsSync } from 'node:fs';
 import { readFile, readdir } from 'node:fs/promises';
 import { registerHooks } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-// The Pack manifests transitively import @fontsource side-effect stylesheets
-// (`packs/syntax/fonts.ts`), which Node/tsx cannot load — stub `.css` modules
-// so the registry is importable outside Vite.
+const here = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(here, '..');
+
+// The engine modules use SvelteKit's `$lib` alias, which plain Node cannot
+// resolve — map it to `src/lib` (probing `.ts` / `/index.ts` for the
+// extensionless import convention). The Pack manifests also transitively
+// import @fontsource side-effect stylesheets (`packs/syntax/fonts.ts`), which
+// Node/tsx cannot load — stub `.css` modules so the registry is importable
+// outside Vite.
 registerHooks({
+	resolve(specifier, context, nextResolve) {
+		if (specifier.startsWith('$lib/')) {
+			const base = resolve(repoRoot, 'src/lib', specifier.slice('$lib/'.length));
+			for (const candidate of [`${base}.ts`, resolve(base, 'index.ts'), base]) {
+				if (existsSync(candidate)) {
+					return { url: pathToFileURL(candidate).href, shortCircuit: true };
+				}
+			}
+		}
+		try {
+			return nextResolve(specifier, context);
+		} catch (error) {
+			// The codebase's relative imports are extensionless (Vite convention);
+			// plain-Node ESM requires extensions — probe .ts / /index.ts.
+			if ((specifier.startsWith('./') || specifier.startsWith('../')) && context.parentURL) {
+				const base = resolve(dirname(fileURLToPath(context.parentURL)), specifier);
+				for (const candidate of [`${base}.ts`, resolve(base, 'index.ts')]) {
+					if (existsSync(candidate)) {
+						return { url: pathToFileURL(candidate).href, shortCircuit: true };
+					}
+				}
+			}
+			throw error;
+		}
+	},
 	load(url, context, nextLoad) {
 		if (url.endsWith('.css')) {
 			return { format: 'module', source: '', shortCircuit: true };
@@ -14,9 +46,6 @@ registerHooks({
 		return nextLoad(url, context);
 	}
 });
-
-const here = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(here, '..');
 const schemaModulePath = resolve(repoRoot, 'src/lib/platform/engine-schema.ts');
 const rubricModulePath = resolve(repoRoot, 'src/lib/platform/preset-rubric.ts');
 const packRegistryModulePath = resolve(repoRoot, 'src/lib/platform/packs/registry.ts');

@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Pullquote on photo — depth stage",
-	"description": "A pullquote that BUILDS IN line by line over a moody photo, then holds for reading. The quote reveals reading-order (line-by-line-slide on the title slot: line 1, then line 2 fades up after) — that's the moment; then it holds while a slow camera push parallaxes the near-plane quote against the far-plane photo (dimensional depth, ADR-0028 depth stage). The photo (warm key + bokeh along the top, deep dark through the middle — composed FOR a centred quote) is the full-bleed backdrop, oversized to stay full-bleed across the move; the quote sits pin-sharp in the dark zone (legibility 15:1+, helped by a gentle backdrop contrast-darken). DOF aperture is 0 on purpose — the depth-stage gather bleeds the defocused background into the bright crisp text (a halo), so the bokeh look is BAKED into the substrate and the depth stage earns its keep via the parallax + the text riding the near plane. Substrate is a bundled deterministic in-repo image (atmosphere-warm); backgroundFill is the opaque-lane backstop.",
+	"description": "A pullquote that BUILDS IN line by line over a REAL photograph — golden-hour bedrock coast (the quote's own image: the tide runs out over the rocks), then holds for reading. The quote reveals reading-order (line-by-line-slide on the title slot); a slow camera push parallaxes the near-plane quote against the far-plane photo (ADR-0028 depth stage), and the parallax finally READS because the backdrop has trackable features — rock ridge, foam field, horizon. The photo is sharp at source; the stage's real DOF supplies a controlled defocus (aperture 0.32, focus pinned to the text plane) so the coast stays recognizable as a place instead of pre-baked bokeh mush (the old aperture-0 + synthetic-substrate combo — the halo that forced aperture 0 was fixed by the depth-ordered gather). Quote legibility rides the backdrop contrast-darken pool over the dark rock band. Substrate is a bundled deterministic in-repo image (coast-bedrock, CC0); backgroundFill is the opaque-lane backstop.",
 	"pack": "syntax",
 	"state": {
 		"transport": {
@@ -57,7 +57,7 @@
 					"duration": 0.18,
 					"ease": "smooth",
 					"sound": {
-						"event": "impact"
+						"mute": true
 					}
 				},
 				"exit": {
@@ -74,18 +74,18 @@
 			"type": "depth",
 			"camera": {
 				"move": "push",
-				"amount": 0.4,
+				"amount": 0.5,
 				"ease": "smooth"
 			},
 			"focus": {
 				"focusZ": 0,
-				"aperture": 0
+				"aperture": 0.32
 			},
 			"backdrop": {
 				"image": {
-					"asset": "atmosphere-warm"
+					"asset": "coast-bedrock"
 				},
-				"contrast": 0.35
+				"contrast": 0.4
 			}
 		},
 		"overlays": [],
