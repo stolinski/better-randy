@@ -124,6 +124,16 @@ Deterministic 1–3 px offset between layers (typically saturated marks vs. unde
 **Focal slot**:
 A content slot in the composition designed for emphasis — the active word in a brightness-reveal, the magnified phrase in a quote-magnify. Only one Focal slot is the hero per beat (Q10).
 
+### Pack catalog (product)
+
+**Pack Catalog**:
+The set of house-authored **Packs** bundled in the one shared app — the product's primary offer (grilled 2026-07-10). Creators pick the pack closest to their look; variety spans distinct design systems (grammar, not colorways). Custom packs are concierge-authored on request from whatever brand material exists (a brand doc, CSS, or a website) and ship in the same shared bundle. There is no runtime pack loading and no per-customer build.
+_Avoid_: marketplace, theme store, skin.
+
+**Calibration Trio**:
+The three reference compositions re-dressed under a candidate **Pack** and iterated live with Scott until ratified — the quality gate for catalog entry (alongside the boot core-vocabulary validator and the two-Pack pixel-diff lock). One pack at a time; no pack enters the catalog without its ratified trio. Doubles as the pack's pack-switch demo.
+_Avoid_: smoke test, sample renders.
+
 ### Engine internals
 
 **Pipeline**:
@@ -206,7 +216,7 @@ The named-observation format every R-rule check must follow — pixel coordinate
 ## Example dialogue
 
 > **Scott:** "The new pullquote preset looks generic — what's missing?"
-> **Critic agent:** "Three findings, all `aesthetic-miss`. (1) No **Mono signature thread** — the kicker uses Inter, not Operator Mono. (2) The **Collage card** has rounded corners; channel rule is torn edges, not crops. (3) **Hard offset shadow** is missing — the shadow on the card is gaussian, which belongs on the **Substrate**, not the card."
+> **Critic agent:** "Three findings, all `aesthetic-miss`. (1) No **Mono signature thread** — the kicker uses Inter, not Space Mono. (2) The card paints a scrim gradient; the house style is a flat plate with a visible border. (3) The **stepped hard-offset shadow** is missing — the card carries a gaussian shadow, which never appears on chrome."
 > **Scott:** "Why didn't the schema catch (1) and (3)?"
 > **Critic agent:** "Per [ADR-0004](adr/0004-recipe-cookbook-over-schema-chrome.md), **Channel chrome** is enforced at critic time, not schema-validation time — the trade is flexibility for stripped / test presets at the cost of one revise loop per preset."
 

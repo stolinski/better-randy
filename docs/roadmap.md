@@ -75,6 +75,12 @@ With the north star met, the next arc is **capability expansion** — chosen ove
 
 Riding along, small and approved: **export decode verification** (~1 day) — decode the actual exported file (ffmpeg is already server-side in the ProRes route) and feed the frames to `probe-frame-diff`; use ProRes for byte-determinism.
 
+## The pack catalog (grilled 2026-07-10 — the product frame)
+
+**Supers is a product shipped to creators.** Visual Packs are how a creator gets their brand over one engine; **the catalog is the offer** — enough genuinely-distinct house packs that most creators pick one off the shelf. Custom packs are concierge-authored on request from whatever brand material exists (a brand doc, CSS, or a website) and ship in the one shared app bundle — every pack visible to every user. **V1 decisions (no v2 promises): no runtime pack loading, no per-customer builds, no licensing gates.** The old "production dogfooding = a whole Syntax episode" framing is retired — Supers is used *in* Syntax videos (first-party pack) but the audience is creators broadly.
+
+**Catalog quality gate (the half-assing firewall):** a pack enters the catalog only with a Scott-ratified **Calibration Trio** (the same three reference compositions re-dressed under the pack, iterated live), on top of the boot core-vocabulary validator and the two-Pack pixel-diff lock. **One pack at a time** — the next starts only after the last is ratified. Direction, not deadline: candidate archetypes beyond the current three (Syntax / Editorial Mono / CRT Terminal) — clean-light minimal, bold condensed hype, soft pastel friendly, brutalist mono, elegant serif editorial. Dex epic: `pack-catalog-v1`.
+
 ## The quality arc (grilled 2026-07-08)
 
 Revisiting "what pulls after the capability arc" (`ku0gh0mc`), the answer was **none of the three deferred pulls yet** — production dogfooding, content-scale tooling, and Electron all wait, because **the output isn't good enough**. A 7-piece visual audit (2026-07-08) confirmed it: quality is **uneven** — `web-document-twitter` and the depth-heroes (`type-hero-vantage`) land, but the references read as a generic house look, the **diagram pieces look like unfinished wireframes** (`docu-timeline-build`: a thin rule floating in an empty frame), the "real photo" substrate is blurred to an invisible gradient (`pullquote-on-photo`), washi edges are flat, and demo bodies are greeked placeholder. Variety today comes from **switching packs/registers, not from range inside a pack** — every Syntax piece is the same dark-minimal-amber look.
