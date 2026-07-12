@@ -1,4 +1,4 @@
-import tgpu, { d } from 'typegpu';
+import tgpu, { common, d } from 'typegpu';
 
 import {
 	drawAnnotationMarks,
@@ -78,24 +78,15 @@ const composeLayout = tgpu.bindGroupLayout({
 	uniforms: { uniform: PaperUniforms }
 });
 
-const composeVertexFn = tgpu['~unstable'].vertexFn({
-	in: { vertexIndex: d.builtin.vertexIndex },
-	out: { position: d.builtin.position, uv: d.vec2f }
-})/* wgsl */ `{
-	var positions = array<vec2f, 3>(
-		vec2f(-1.0, -1.0),
-		vec2f(3.0, -1.0),
-		vec2f(-1.0, 3.0)
-	);
-	var uvs = array<vec2f, 3>(
-		vec2f(0.0, 1.0),
-		vec2f(2.0, 1.0),
-		vec2f(0.0, -1.0)
-	);
-	return Out(
-		vec4f(positions[in.vertexIndex], 0.0, 1.0),
-		uvs[in.vertexIndex]
-	);
+const noiseLayer = tgpu.fn([d.vec2f, d.vec3f], d.f32)`(pos, freq) {
+	let posi = floor(pos);
+	let posf = fract(pos);
+	let poss = posf * posf * (vec2f(3.0) - 2.0 * posf);
+	let c00 = fract(sin(dot(posi, freq.xy)) * freq.z);
+	let c10 = fract(sin(dot(posi + vec2f(1.0, 0.0), freq.xy)) * freq.z);
+	let c01 = fract(sin(dot(posi + vec2f(0.0, 1.0), freq.xy)) * freq.z);
+	let c11 = fract(sin(dot(posi + vec2f(1.0, 1.0), freq.xy)) * freq.z);
+	return mix(mix(c00, c10, poss.x), mix(c01, c11, poss.x), poss.y);
 }`;
 
 // Single fragment with inline composition + focal-warp loop. The same
@@ -103,7 +94,7 @@ const composeVertexFn = tgpu['~unstable'].vertexFn({
 // (sampling the same texture stack at a backward-mapped uv to produce the
 // lifted appearance). Inlining is intentional — TypeGPU's fragmentFn template
 // is a single function body and the duplication keeps the shader self-contained.
-const composeFragmentFn = tgpu['~unstable']
+const composeFragmentFn = tgpu
 	.fragmentFn({
 		in: { uv: d.vec2f },
 		out: d.vec4f
@@ -112,39 +103,13 @@ const composeFragmentFn = tgpu['~unstable']
 		var dom = textureSample(layout.$.domTexture, layout.$.samp, in.uv);
 		let mask = step(0.001, dom.a);
 
-		let coarsePos = in.uv * vec2f(220.0, 220.0);
-		let coarseI = floor(coarsePos);
-		let coarseF = fract(coarsePos);
-		let coarseS = coarseF * coarseF * (vec2f(3.0) - 2.0 * coarseF);
-		let c00 = fract(sin(dot(coarseI, vec2f(127.1, 311.7))) * 43758.5453);
-		let c10 = fract(sin(dot(coarseI + vec2f(1.0, 0.0), vec2f(127.1, 311.7))) * 43758.5453);
-		let c01 = fract(sin(dot(coarseI + vec2f(0.0, 1.0), vec2f(127.1, 311.7))) * 43758.5453);
-		let c11 = fract(sin(dot(coarseI + vec2f(1.0, 1.0), vec2f(127.1, 311.7))) * 43758.5453);
-		let coarseN = mix(mix(c00, c10, coarseS.x), mix(c01, c11, coarseS.x), coarseS.y);
-
-		let finePos = in.uv * vec2f(680.0, 680.0);
-		let fineI = floor(finePos);
-		let fineF = fract(finePos);
-		let fineS = fineF * fineF * (vec2f(3.0) - 2.0 * fineF);
-		let f00 = fract(sin(dot(fineI, vec2f(269.5, 183.3))) * 43758.5453);
-		let f10 = fract(sin(dot(fineI + vec2f(1.0, 0.0), vec2f(269.5, 183.3))) * 43758.5453);
-		let f01 = fract(sin(dot(fineI + vec2f(0.0, 1.0), vec2f(269.5, 183.3))) * 43758.5453);
-		let f11 = fract(sin(dot(fineI + vec2f(1.0, 1.0), vec2f(269.5, 183.3))) * 43758.5453);
-		let fineN = mix(mix(f00, f10, fineS.x), mix(f01, f11, fineS.x), fineS.y);
-
+		let coarseN = noiseLayer(in.uv * vec2f(220.0, 220.0), /* freq */ vec3f(127.1, 311.7, 43758.5453));
+		let fineN = noiseLayer(in.uv * vec2f(680.0, 680.0), /* freq */ vec3f(269.5, 183.3, 43758.5453));
 		// Anisotropic fiber band — long horizontal grain at low frequency,
 		// imitating laid-paper / smooth bond fiber. Combined with the
 		// isotropic coarse + fine layers, this gives the substrate a
 		// visible texture at 4K viewing distance instead of reading flat.
-		let fiberPos = in.uv * vec2f(78.0, 22.0);
-		let fiberI = floor(fiberPos);
-		let fiberF = fract(fiberPos);
-		let fiberS = fiberF * fiberF * (vec2f(3.0) - 2.0 * fiberF);
-		let fb00 = fract(sin(dot(fiberI, vec2f(41.7, 89.3))) * 43758.5453);
-		let fb10 = fract(sin(dot(fiberI + vec2f(1.0, 0.0), vec2f(41.7, 89.3))) * 43758.5453);
-		let fb01 = fract(sin(dot(fiberI + vec2f(0.0, 1.0), vec2f(41.7, 89.3))) * 43758.5453);
-		let fb11 = fract(sin(dot(fiberI + vec2f(1.0, 1.0), vec2f(41.7, 89.3))) * 43758.5453);
-		let fiberN = mix(mix(fb00, fb10, fiberS.x), mix(fb01, fb11, fiberS.x), fiberS.y);
+		let fiberN = noiseLayer(in.uv * vec2f(78.0, 22.0), /* freq */ vec3f(41.7, 89.3, 43758.5453));
 
 		let grain = (coarseN * 0.38 + fineN * 0.32 + fiberN * 0.30 - 0.5) * 0.040;
 		let warmth = vec3f(1.0, 0.990, 0.968);
@@ -155,15 +120,8 @@ const composeFragmentFn = tgpu['~unstable']
 		dom = vec4f(dom.rgb * substrate, dom.a);
 
 		let h = textureSample(layout.$.highlightTexture, layout.$.samp, in.uv);
-		let streakPos = in.uv * vec2f(180.0, 9.0);
-		let streakI = floor(streakPos);
-		let streakF = fract(streakPos);
-		let streakS = streakF * streakF * (vec2f(3.0) - 2.0 * streakF);
-		let sk00 = fract(sin(dot(streakI, vec2f(72.3, 91.7))) * 26482.13);
-		let sk10 = fract(sin(dot(streakI + vec2f(1.0, 0.0), vec2f(72.3, 91.7))) * 26482.13);
-		let sk01 = fract(sin(dot(streakI + vec2f(0.0, 1.0), vec2f(72.3, 91.7))) * 26482.13);
-		let sk11 = fract(sin(dot(streakI + vec2f(1.0, 1.0), vec2f(72.3, 91.7))) * 26482.13);
-		let streakN = mix(mix(sk00, sk10, streakS.x), mix(sk01, sk11, streakS.x), streakS.y);
+		let streakN = noiseLayer(in.uv * vec2f(180.0, 9.0), /* freq */ vec3f(72.3, 91.7, 26482.13));
+
 		let inkDensity = mix(0.86, 1.04, streakN);
 		let hEffectiveAlpha = clamp(h.a * inkDensity, 0.0, 1.0);
 		// Light-surface highlight (paper / newspaper): a translucent amber multiply.
@@ -296,24 +254,8 @@ const composeFragmentFn = tgpu['~unstable']
 
 				// Paper substrate resampled at sourceUv so lens content
 				// carries the same grain as the page underneath.
-				let lCoarsePos2 = sourceUv * vec2f(220.0, 220.0);
-				let lcI2 = floor(lCoarsePos2);
-				let lcF2 = fract(lCoarsePos2);
-				let lcS2 = lcF2 * lcF2 * (vec2f(3.0) - 2.0 * lcF2);
-				let lcc00 = fract(sin(dot(lcI2, vec2f(127.1, 311.7))) * 43758.5453);
-				let lcc10 = fract(sin(dot(lcI2 + vec2f(1.0, 0.0), vec2f(127.1, 311.7))) * 43758.5453);
-				let lcc01 = fract(sin(dot(lcI2 + vec2f(0.0, 1.0), vec2f(127.1, 311.7))) * 43758.5453);
-				let lcc11 = fract(sin(dot(lcI2 + vec2f(1.0, 1.0), vec2f(127.1, 311.7))) * 43758.5453);
-				let lcN2 = mix(mix(lcc00, lcc10, lcS2.x), mix(lcc01, lcc11, lcS2.x), lcS2.y);
-				let lFinePos2 = sourceUv * vec2f(680.0, 680.0);
-				let lfI2 = floor(lFinePos2);
-				let lfF2 = fract(lFinePos2);
-				let lfS2 = lfF2 * lfF2 * (vec2f(3.0) - 2.0 * lfF2);
-				let lff00 = fract(sin(dot(lfI2, vec2f(269.5, 183.3))) * 43758.5453);
-				let lff10 = fract(sin(dot(lfI2 + vec2f(1.0, 0.0), vec2f(269.5, 183.3))) * 43758.5453);
-				let lff01 = fract(sin(dot(lfI2 + vec2f(0.0, 1.0), vec2f(269.5, 183.3))) * 43758.5453);
-				let lff11 = fract(sin(dot(lfI2 + vec2f(1.0, 1.0), vec2f(269.5, 183.3))) * 43758.5453);
-				let lfN2 = mix(mix(lff00, lff10, lfS2.x), mix(lff01, lff11, lfS2.x), lfS2.y);
+				let lcN2 = noiseLayer(sourceUv * vec2f(220.0, 220.0), vec3f(127.1, 311.7, 43758.5453));
+				let lfN2 = noiseLayer(sourceUv * vec2f(680.0, 680.0), vec3f(269.5, 183.3, 43758.5453));
 				let lensGrain = (lcN2 * 0.55 + lfN2 * 0.45 - 0.5) * 0.012;
 				let lensSubstrate = mix(vec3f(1.0), warmth + vec3f(lensGrain), lensDomMask);
 				lensDom = vec4f(lensDom.rgb * lensSubstrate, lensDom.a);
@@ -432,10 +374,10 @@ const composeFragmentFn = tgpu['~unstable']
 			let dimRange = 1.0 - layout.$.uniforms.bgFloor;
 			let outsideDim = 1.0 - dimAmount * (1.0 - liftedFactor) * dimRange;
 			// Scale rgb only, NOT alpha: dimming alpha fades the paper card to
-				// transparent and reveals the composite background — the card "vanishing"
-				// outside a small focal region (the tear-out blank-body bug). Darken the
-				// surround (spotlight) while the card stays present.
-				current = vec4f(current.rgb * outsideDim, current.a);
+			// transparent and reveals the composite background — the card "vanishing"
+			// outside a small focal region (the tear-out blank-body bug). Darken the
+			// surround (spotlight) while the card stays present.
+			current = vec4f(current.rgb * outsideDim, current.a);
 
 			// Sample the composed stack at the backward-mapped sourceUv when
 			// magnification is active.
@@ -446,26 +388,8 @@ const composeFragmentFn = tgpu['~unstable']
 				var liftedDom = textureSampleLevel(layout.$.domTexture, layout.$.samp, sourceUv, 0.0);
 				let liftedMask = step(0.001, liftedDom.a);
 
-				let lCoarsePos = sourceUv * vec2f(220.0, 220.0);
-				let lCoarseI = floor(lCoarsePos);
-				let lCoarseF = fract(lCoarsePos);
-				let lCoarseS = lCoarseF * lCoarseF * (vec2f(3.0) - 2.0 * lCoarseF);
-				let lc00 = fract(sin(dot(lCoarseI, vec2f(127.1, 311.7))) * 43758.5453);
-				let lc10 = fract(sin(dot(lCoarseI + vec2f(1.0, 0.0), vec2f(127.1, 311.7))) * 43758.5453);
-				let lc01 = fract(sin(dot(lCoarseI + vec2f(0.0, 1.0), vec2f(127.1, 311.7))) * 43758.5453);
-				let lc11 = fract(sin(dot(lCoarseI + vec2f(1.0, 1.0), vec2f(127.1, 311.7))) * 43758.5453);
-				let lCoarseN = mix(mix(lc00, lc10, lCoarseS.x), mix(lc01, lc11, lCoarseS.x), lCoarseS.y);
-
-				let lFinePos = sourceUv * vec2f(680.0, 680.0);
-				let lFineI = floor(lFinePos);
-				let lFineF = fract(lFinePos);
-				let lFineS = lFineF * lFineF * (vec2f(3.0) - 2.0 * lFineF);
-				let lf00 = fract(sin(dot(lFineI, vec2f(269.5, 183.3))) * 43758.5453);
-				let lf10 = fract(sin(dot(lFineI + vec2f(1.0, 0.0), vec2f(269.5, 183.3))) * 43758.5453);
-				let lf01 = fract(sin(dot(lFineI + vec2f(0.0, 1.0), vec2f(269.5, 183.3))) * 43758.5453);
-				let lf11 = fract(sin(dot(lFineI + vec2f(1.0, 1.0), vec2f(269.5, 183.3))) * 43758.5453);
-				let lFineN = mix(mix(lf00, lf10, lFineS.x), mix(lf01, lf11, lFineS.x), lFineS.y);
-
+				let lCoarseN = noiseLayer(sourceUv * vec2f(220.0, 220.0), /* freq */ vec3f(127.1, 311.7, 43758.5453));
+				let lFineN = noiseLayer(sourceUv * vec2f(680.0, 680.0), /* freq */ vec3f(269.5, 183.3, 43758.5453));
 				let lGrain = (lCoarseN * 0.55 + lFineN * 0.45 - 0.5) * 0.012;
 				let lSubstrate = mix(vec3f(1.0), warmth + vec3f(lGrain), liftedMask);
 				liftedDom = vec4f(liftedDom.rgb * lSubstrate, liftedDom.a);
@@ -500,14 +424,7 @@ const composeFragmentFn = tgpu['~unstable']
 				if (tearAmount > 0.001) {
 					let edgeDist = min(min(liftedLocalUv.x, 1.0 - liftedLocalUv.x), min(liftedLocalUv.y, 1.0 - liftedLocalUv.y));
 					let tnPos = liftedLocalUv * vec2f(420.0, 60.0);
-					let tnI = floor(tnPos);
-					let tnF = fract(tnPos);
-					let tnS = tnF * tnF * (vec2f(3.0) - 2.0 * tnF);
-					let tn00 = fract(sin(dot(tnI, vec2f(127.1, 311.7))) * 43758.5453);
-					let tn10 = fract(sin(dot(tnI + vec2f(1.0, 0.0), vec2f(127.1, 311.7))) * 43758.5453);
-					let tn01 = fract(sin(dot(tnI + vec2f(0.0, 1.0), vec2f(127.1, 311.7))) * 43758.5453);
-					let tn11 = fract(sin(dot(tnI + vec2f(1.0, 1.0), vec2f(127.1, 311.7))) * 43758.5453);
-					let tearNoise = mix(mix(tn00, tn10, tnS.x), mix(tn01, tn11, tnS.x), tnS.y);
+					let tearNoise = noiseLayer(liftedLocalUv * vec2f(420.0, 60.0), /* freq */ vec3f(127.1, 311.7, 43758.5453));
 					let threshold = max(tearAmount * 0.07, 0.0005);
 					tearMask = smoothstep(threshold * (0.2 + tearNoise * 1.4), threshold * 1.4 + 0.001, edgeDist);
 				}
@@ -563,7 +480,8 @@ const composeFragmentFn = tgpu['~unstable']
 		current = vec4f(finalRgb, finalA);
 
 		return current;
-	}`.$uses({ layout: composeLayout });
+		// return vec4f(pow(current.rgb, vec3f(10)), current.a);
+	}`.$uses({ layout: composeLayout, noiseLayer });
 
 interface FocalSlotData {
 	rect: { x: number; y: number; width: number; height: number };
@@ -686,7 +604,7 @@ export function createPaperPipeline({
 	const highlightContext: OffscreenCanvasRenderingContext2D = rawHighlightContext;
 	const strokesContext: OffscreenCanvasRenderingContext2D = rawStrokesContext;
 
-	const sampler = root['~unstable'].createSampler({
+	const sampler = root.createSampler({
 		magFilter: 'linear',
 		minFilter: 'linear',
 		addressModeU: 'clamp-to-edge',
@@ -707,10 +625,11 @@ export function createPaperPipeline({
 		uniforms: uniformBuffer
 	});
 
-	const pipeline = root['~unstable']
-		.withVertex(composeVertexFn, {})
-		.withFragment(composeFragmentFn, { format: INTERMEDIATE_FORMAT })
-		.createPipeline();
+  const pipeline = root.createRenderPipeline({
+    vertex: common.fullScreenTriangle,
+    fragment: composeFragmentFn,
+    targets: { format: INTERMEDIATE_FORMAT },
+	});
 
 	const htmlQueue = getHtmlInCanvasQueue(device.queue);
 
@@ -830,12 +749,7 @@ export function createPaperPipeline({
 
 		pipeline
 			.with(bindGroup)
-			.withColorAttachment({
-				view: outputTexture.createView(),
-				clearValue: [0, 0, 0, 0],
-				loadOp: 'clear',
-				storeOp: 'store'
-			})
+			.withColorAttachment({ view: outputTexture.createView() })
 			.draw(3);
 	}
 

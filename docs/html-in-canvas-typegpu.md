@@ -67,7 +67,7 @@ const composeLayout = tgpu.bindGroupLayout({
 Use the template-literal form for vertex and fragment functions. Fullscreen triangle vertex with passed-through UVs:
 
 ```ts
-const vsTriangle = tgpu['~unstable'].vertexFn({
+const vsTriangle = tgpu.vertexFn({
 	in: { vertexIndex: d.builtin.vertexIndex },
 	out: { position: d.builtin.position, uv: d.vec2f }
 }) /* wgsl */ `{
@@ -77,10 +77,13 @@ const vsTriangle = tgpu['~unstable'].vertexFn({
 }`;
 ```
 
+This particular vertex entry function is exported as part of the `typegpu` package, accessible through `import { common } from 'typegpu'; common.fullScreenTriangle` or
+`import { fullScreenTriangle } from 'typegpu/common';`.
+
 Fragment with bind-group access. **The whole layout is passed via `.$uses({ layout: composeLayout })`**, then referenced in WGSL as `layout.$.fieldName`. TypeGPU resolves this during codegen.
 
 ```ts
-const composeFs = tgpu['~unstable'].fragmentFn({
+const composeFs = tgpu.fragmentFn({
 	in: { uv: d.vec2f },
 	out: d.vec4f
 }) /* wgsl */ `{
@@ -101,7 +104,7 @@ const composeFs = tgpu['~unstable'].fragmentFn({
 ### 5. Bind group + uniform buffer
 
 ```ts
-const sampler = root['~unstable'].createSampler({
+const sampler = root.createSampler({
 	magFilter: 'linear',
 	minFilter: 'linear',
 	addressModeU: 'clamp-to-edge',
@@ -123,10 +126,11 @@ const bindGroup = root.createBindGroup(composeLayout, {
 ### 6. Pipeline + draw
 
 ```ts
-const pipeline = root['~unstable']
-	.withVertex(vsTriangle, {})
-	.withFragment(composeFs, { format })
-	.createPipeline();
+const pipeline = root.createRenderPipeline({
+  vertex: vsTriangle,
+  fragment: composeFs,
+  targets: { format },
+});
 
 // Per frame:
 uniformBuffer.write({ paperRect: d.vec4f(x, y, w, h) });
@@ -185,7 +189,7 @@ This is the cleanest way to keep existing 2D-canvas drawing code working while m
 ## TypeGPU pitfalls
 
 - **`layout.$.field` is codegen-mode-only.** Reading it at JS level (e.g. `.$uses({ srcTex: layout.$.src })`) throws "Accessed view 'src' outside of codegen mode." Pass the whole layout (`.$uses({ layout: composeLayout })`) and reference `layout.$.field` inside the WGSL template.
-- **The `~unstable` API surface is real, not optional.** `tgpu['~unstable'].vertexFn / fragmentFn / createTexture / createSampler` are the entry points for shader work in 0.11.x. `tgpu.bindGroupLayout`, `root.createBuffer`, `root.createBindGroup` are stable.
+- **Many of the `~unstable` APIs have been stabilized in 0.11, and live on the tgpu. object instead**, including: `tgpu.vertexFn / fragmentFn, root.createTexture / createSampler`.
 - **Bind groups attach at draw time** via `pipeline.with(bindGroup)`. Recreate the bind group if any underlying resource (texture, buffer) is recreated (e.g. on resize).
 - **TypeGPU's `createTexture` may not expose `COPY_DST + RENDER_ATTACHMENT` together cleanly for the html-in-canvas upload use case.** Drop to raw `device.createTexture` for the DOM-receiving texture. The output remains usable by TypeGPU's bind group system because TypeGPU's texture schemas (`d.texture2d(d.f32)`) accept raw `GPUTexture` resources.
 - **WebGPU global types like `GPUTextureUsage` aren't declared in `lib.dom.d.ts` as values.** Define the numeric usage flags locally rather than fighting the type system.

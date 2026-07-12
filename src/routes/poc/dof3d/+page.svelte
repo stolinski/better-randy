@@ -95,7 +95,7 @@
 		shadow: { uniform: ShadowUniforms }
 	});
 
-	const planeVertexFn = tgpu['~unstable'].vertexFn({
+	const planeVertexFn = tgpu.vertexFn({
 		in: { vertexIndex: d.builtin.vertexIndex },
 		out: {
 			position: d.builtin.position,
@@ -120,7 +120,7 @@
 		return Out(clip, uv[in.vertexIndex], world.xyz, n, clip.w);
 	}`.$uses({ layout: planeLayout });
 
-	const planeFragmentFn = tgpu['~unstable'].fragmentFn({
+	const planeFragmentFn = tgpu.fragmentFn({
 		in: { uv: d.vec2f, worldPos: d.vec3f, normal: d.vec3f, dist: d.f32 },
 		out: d.vec4f
 	}) /* wgsl */ `{
@@ -176,7 +176,7 @@
 		src: { texture: d.texture2d(d.f32) },
 		samp: { sampler: 'filtering' }
 	});
-	const downsampleFragmentFn = tgpu['~unstable'].fragmentFn({
+	const downsampleFragmentFn = tgpu.fragmentFn({
 		in: { uv: d.vec2f },
 		out: d.vec4f
 	}) /* wgsl */ `{
@@ -189,7 +189,7 @@
 		tex: { texture: d.texture2d(d.f32) },
 		samp: { sampler: 'filtering' }
 	});
-	const blitFragmentFn = tgpu['~unstable'].fragmentFn({
+	const blitFragmentFn = tgpu.fragmentFn({
 		in: { uv: d.vec2f },
 		out: d.vec4f
 	}) /* wgsl */ `{
@@ -203,7 +203,7 @@
 		samp: { sampler: 'filtering' },
 		uniforms: { uniform: DofUniforms }
 	});
-	const fullVertexFn = tgpu['~unstable'].vertexFn({
+	const fullVertexFn = tgpu.vertexFn({
 		in: { vertexIndex: d.builtin.vertexIndex },
 		out: { position: d.builtin.position, uv: d.vec2f }
 	}) /* wgsl */ `{
@@ -211,7 +211,7 @@
 		var u = array<vec2f, 3>(vec2f(0.0, 1.0), vec2f(2.0, 1.0), vec2f(0.0, -1.0));
 		return Out(vec4f(p[in.vertexIndex], 0.0, 1.0), u[in.vertexIndex]);
 	}`;
-	const dofFragmentFn = tgpu['~unstable'].fragmentFn({
+	const dofFragmentFn = tgpu.fragmentFn({
 		in: { uv: d.vec2f },
 		out: d.vec4f
 	}) /* wgsl */ `{
@@ -324,7 +324,7 @@
 				);
 			}
 
-			const sampler = root['~unstable'].createSampler({
+			const sampler = root.createSampler({
 				magFilter: 'linear',
 				minFilter: 'linear',
 				mipmapFilter: 'linear',
@@ -397,22 +397,26 @@
 				root.createBindGroup(downLayout, { src: mipViews[k], samp: sampler })
 			);
 
-			const planePipeline = root['~unstable']
-				.withVertex(planeVertexFn, {})
-				.withFragment(planeFragmentFn, { format: INTERMEDIATE_FORMAT })
-				.createPipeline();
-			const dofPipeline = root['~unstable']
-				.withVertex(fullVertexFn, {})
-				.withFragment(dofFragmentFn, { format: host.format })
-				.createPipeline();
-			const downPipeline = root['~unstable']
-				.withVertex(fullVertexFn, {})
-				.withFragment(downsampleFragmentFn, { format: INTERMEDIATE_FORMAT })
-				.createPipeline();
-			const blitPipeline = root['~unstable']
-				.withVertex(fullVertexFn, {})
-				.withFragment(blitFragmentFn, { format: host.format })
-				.createPipeline();
+			const planePipeline = root.createRenderPipeline({
+			    vertex: planeVertexFn,
+				fragment: planeFragmentFn,
+				targets: { format: INTERMEDIATE_FORMAT },
+			});
+			const dofPipeline = root.createRenderPipeline({
+			    vertex: fullVertexFn,
+				fragment: dofFragmentFn,
+				targets: { format: host.format },
+			});
+			const downPipeline = root.createRenderPipeline({
+			    vertex: fullVertexFn,
+				fragment: downsampleFragmentFn,
+				targets: { format: INTERMEDIATE_FORMAT },
+			});
+			const blitPipeline = root.createRenderPipeline({
+			    vertex: fullVertexFn,
+				fragment: blitFragmentFn,
+				targets: { format: host.format },
+			});
 			const blitBind = root.createBindGroup(blitLayout, { tex: cardTexture, samp: sampler });
 
 			const cardAspect = CARD_W / CARD_H;

@@ -1,4 +1,4 @@
-import tgpu, { d } from 'typegpu';
+import tgpu, { common, d } from 'typegpu';
 
 import {
 	drawAnnotationMarks,
@@ -32,27 +32,7 @@ const composeLayout = tgpu.bindGroupLayout({
 	samp: { sampler: 'filtering' }
 });
 
-const composeVertexFn = tgpu['~unstable'].vertexFn({
-	in: { vertexIndex: d.builtin.vertexIndex },
-	out: { position: d.builtin.position, uv: d.vec2f }
-})/* wgsl */ `{
-	var positions = array<vec2f, 3>(
-		vec2f(-1.0, -1.0),
-		vec2f(3.0, -1.0),
-		vec2f(-1.0, 3.0)
-	);
-	var uvs = array<vec2f, 3>(
-		vec2f(0.0, 1.0),
-		vec2f(2.0, 1.0),
-		vec2f(0.0, -1.0)
-	);
-	return Out(
-		vec4f(positions[in.vertexIndex], 0.0, 1.0),
-		uvs[in.vertexIndex]
-	);
-}`;
-
-const composeFragmentFn = tgpu['~unstable']
+const composeFragmentFn = tgpu
 	.fragmentFn({
 		in: { uv: d.vec2f },
 		out: d.vec4f
@@ -102,7 +82,7 @@ export function createPlainPipeline({
 
 	const marksContext: OffscreenCanvasRenderingContext2D = rawMarksContext;
 
-	const sampler = root['~unstable'].createSampler({
+	const sampler = root.createSampler({
 		magFilter: 'linear',
 		minFilter: 'linear',
 		addressModeU: 'clamp-to-edge',
@@ -115,10 +95,11 @@ export function createPlainPipeline({
 		samp: sampler
 	});
 
-	const pipeline = root['~unstable']
-		.withVertex(composeVertexFn, {})
-		.withFragment(composeFragmentFn, { format: INTERMEDIATE_FORMAT })
-		.createPipeline();
+  const pipeline = root.createRenderPipeline({
+    vertex: common.fullScreenTriangle,
+    fragment: composeFragmentFn,
+    targets: { format: INTERMEDIATE_FORMAT },
+	});
 
 	const htmlQueue = getHtmlInCanvasQueue(device.queue);
 
@@ -169,12 +150,7 @@ export function createPlainPipeline({
 
 		pipeline
 			.with(bindGroup)
-			.withColorAttachment({
-				view: outputTexture.createView(),
-				clearValue: [0, 0, 0, 0],
-				loadOp: 'clear',
-				storeOp: 'store'
-			})
+			.withColorAttachment({ view: outputTexture.createView() })
 			.draw(3);
 	}
 

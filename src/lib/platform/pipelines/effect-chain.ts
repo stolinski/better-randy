@@ -1,4 +1,4 @@
-import tgpu, { d } from 'typegpu';
+import tgpu, { common, d } from 'typegpu';
 
 import type { Effect } from '$lib/platform/engine-schema';
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
@@ -14,26 +14,6 @@ const INTERMEDIATE_TEXTURE_USAGE =
 	TEXTURE_USAGE_COPY_DST |
 	TEXTURE_USAGE_COPY_SRC |
 	TEXTURE_USAGE_RENDER_ATTACHMENT;
-
-const fullScreenVertexFn = tgpu['~unstable'].vertexFn({
-	in: { vertexIndex: d.builtin.vertexIndex },
-	out: { position: d.builtin.position, uv: d.vec2f }
-})/* wgsl */ `{
-	var positions = array<vec2f, 3>(
-		vec2f(-1.0, -1.0),
-		vec2f(3.0, -1.0),
-		vec2f(-1.0, 3.0)
-	);
-	var uvs = array<vec2f, 3>(
-		vec2f(0.0, 1.0),
-		vec2f(2.0, 1.0),
-		vec2f(0.0, -1.0)
-	);
-	return Out(
-		vec4f(positions[in.vertexIndex], 0.0, 1.0),
-		uvs[in.vertexIndex]
-	);
-}`;
 
 // Present pipeline: the final pass of every frame. Reads the last rgba16float
 // intermediate and writes to the 8-bit canvas, applying ordered dither at the
@@ -52,11 +32,10 @@ const presentBindGroupLayout = tgpu.bindGroupLayout({
 	uniforms: { uniform: PresentUniforms }
 });
 
-const presentFragmentFn = tgpu['~unstable']
-	.fragmentFn({
-		in: { uv: d.vec2f, position: d.builtin.position },
-		out: d.vec4f
-	})/* wgsl */ `{
+const presentFragmentFn = tgpu.fragmentFn({
+	in: { uv: d.vec2f, position: d.builtin.position },
+	out: d.vec4f
+}) /* wgsl */ `{
 		let s = textureSample(layout.$.inputTexture, layout.$.samp, in.uv);
 		let bg = layout.$.uniforms.background;
 		// OVER operator (premultiplied): composite surface s over background bg.
@@ -109,29 +88,27 @@ function compileEffect(host: GpuHost, renderer: EffectRenderer): CompiledEffect 
 	// The effect declares its uniform layout via paramsStruct (a TgpuStruct).
 	// TypeScript can't carry the dynamic schema through the registry boundary,
 	// so we cast through unknown into TypeGPU's bind-group layout factory.
-	type LayoutDef = Parameters<typeof tgpu.bindGroupLayout>[0];
-	const layoutDef: LayoutDef = {
+	const bindGroupLayout = tgpu.bindGroupLayout({
 		inputTexture: { texture: d.texture2d(d.f32) },
 		samp: { sampler: 'filtering' },
-		uniforms: { uniform: renderer.pass.paramsStruct as never }
-	} as unknown as LayoutDef;
-	const bindGroupLayout = tgpu.bindGroupLayout(layoutDef);
+		uniforms: { uniform: renderer.pass.paramsStruct }
+	});
 
-	const fragmentFn = tgpu['~unstable']
-		.fragmentFn({
-			in: { uv: d.vec2f },
-			out: d.vec4f
-		})/* wgsl */ `{
+	const fragmentFn = tgpu.fragmentFn({
+		in: { uv: d.vec2f },
+		out: d.vec4f
+	}) /* wgsl */ `{
 			let inputSample = textureSample(layout.$.inputTexture, layout.$.samp, in.uv);
 			${renderer.pass.fragmentBody}
 		}`.$uses({ layout: bindGroupLayout });
 
-	const pipeline = root['~unstable']
-		.withVertex(fullScreenVertexFn, {})
-		.withFragment(fragmentFn, { format: INTERMEDIATE_FORMAT })
-		.createPipeline();
+	const pipeline = root.createRenderPipeline({
+		vertex: common.fullScreenTriangle,
+		fragment: fragmentFn,
+		targets: { format: INTERMEDIATE_FORMAT }
+	});
 
-	const sampler = root['~unstable'].createSampler({
+	const sampler = root.createSampler({
 		magFilter: 'linear',
 		minFilter: 'linear',
 		addressModeU: 'clamp-to-edge',
@@ -164,15 +141,7 @@ function compileEffect(host: GpuHost, renderer: EffectRenderer): CompiledEffect 
 				uniforms: uniformBuffer
 			} as never);
 
-			pipeline
-				.with(bindGroup)
-				.withColorAttachment({
-					view: outputView,
-					clearValue: [0, 0, 0, 0],
-					loadOp: 'clear',
-					storeOp: 'store'
-				})
-				.draw(3);
+			pipeline.with(bindGroup).withColorAttachment({ view: outputView }).draw(3);
 
 			// device used implicitly by pipeline; nothing else to do per apply.
 			void device;
@@ -191,12 +160,13 @@ function compileEffect(host: GpuHost, renderer: EffectRenderer): CompiledEffect 
 function compileBackgroundComposite(host: GpuHost): CompiledPresent {
 	const { root } = host;
 
-	const pipeline = root['~unstable']
-		.withVertex(fullScreenVertexFn, {})
-		.withFragment(presentFragmentFn, { format: INTERMEDIATE_FORMAT })
-		.createPipeline();
+	const pipeline = root.createRenderPipeline({
+		vertex: common.fullScreenTriangle,
+		fragment: presentFragmentFn,
+		targets: { format: INTERMEDIATE_FORMAT }
+	});
 
-	const sampler = root['~unstable'].createSampler({
+	const sampler = root.createSampler({
 		magFilter: 'linear',
 		minFilter: 'linear',
 		addressModeU: 'clamp-to-edge',
@@ -236,12 +206,13 @@ function compilePresent(host: GpuHost): CompiledPresent {
 	// final 8-bit output; everything upstream is rgba16float.
 	const { format, root } = host;
 
-	const pipeline = root['~unstable']
-		.withVertex(fullScreenVertexFn, {})
-		.withFragment(presentFragmentFn, { format })
-		.createPipeline();
+	const pipeline = root.createRenderPipeline({
+		vertex: common.fullScreenTriangle,
+		fragment: presentFragmentFn,
+		targets: { format }
+	});
 
-	const sampler = root['~unstable'].createSampler({
+	const sampler = root.createSampler({
 		magFilter: 'linear',
 		minFilter: 'linear',
 		addressModeU: 'clamp-to-edge',
@@ -263,15 +234,7 @@ function compilePresent(host: GpuHost): CompiledPresent {
 				uniforms: uniformBuffer
 			});
 
-			pipeline
-				.with(bindGroup)
-				.withColorAttachment({
-					view: outputView,
-					clearValue: [0, 0, 0, 0],
-					loadOp: 'clear',
-					storeOp: 'store'
-				})
-				.draw(3);
+			pipeline.with(bindGroup).withColorAttachment({ view: outputView }).draw(3);
 		}
 	};
 }

@@ -1,4 +1,4 @@
-import tgpu, { d } from 'typegpu';
+import tgpu, { common, d } from 'typegpu';
 
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
 import type { EffectPackContext, ShaderPass } from './types';
@@ -41,26 +41,6 @@ const INTERMEDIATE_TEXTURE_USAGE =
 	TEXTURE_USAGE_COPY_SRC |
 	TEXTURE_USAGE_RENDER_ATTACHMENT;
 
-const fullScreenVertexFn = tgpu['~unstable'].vertexFn({
-	in: { vertexIndex: d.builtin.vertexIndex },
-	out: { position: d.builtin.position, uv: d.vec2f }
-})/* wgsl */ `{
-	var positions = array<vec2f, 3>(
-		vec2f(-1.0, -1.0),
-		vec2f(3.0, -1.0),
-		vec2f(-1.0, 3.0)
-	);
-	var uvs = array<vec2f, 3>(
-		vec2f(0.0, 1.0),
-		vec2f(2.0, 1.0),
-		vec2f(0.0, -1.0)
-	);
-	return Out(
-		vec4f(positions[in.vertexIndex], 0.0, 1.0),
-		uvs[in.vertexIndex]
-	);
-}`;
-
 export interface ShaderPassBounds {
 	x: number;
 	y: number;
@@ -96,32 +76,27 @@ export function compileShaderPass<TContent>(
 ): CompiledShaderPass<TContent> {
 	const { root } = host;
 
-	// Same shape as effect-chain's compileEffect — TypeScript can't carry the
-	// dynamic struct shape through the registry boundary; cast through unknown
-	// into TypeGPU's bindGroupLayout factory.
-	type LayoutDef = Parameters<typeof tgpu.bindGroupLayout>[0];
-	const layoutDef: LayoutDef = {
+	const bindGroupLayout = tgpu.bindGroupLayout({
 		inputTexture: { texture: d.texture2d(d.f32) },
 		samp: { sampler: 'filtering' },
-		uniforms: { uniform: pass.uniforms as never }
-	} as unknown as LayoutDef;
-	const bindGroupLayout = tgpu.bindGroupLayout(layoutDef);
+		uniforms: { uniform: pass.uniforms }
+	});
 
-	const fragmentFn = tgpu['~unstable']
-		.fragmentFn({
-			in: { uv: d.vec2f },
-			out: d.vec4f
-		})/* wgsl */ `{
+	const fragmentFn = tgpu.fragmentFn({
+		in: { uv: d.vec2f },
+		out: d.vec4f
+	}) /* wgsl */ `{
 			let inputSample = textureSample(layout.$.inputTexture, layout.$.samp, in.uv);
 			${pass.wgsl}
 		}`.$uses({ layout: bindGroupLayout });
 
-	const pipeline = root['~unstable']
-		.withVertex(fullScreenVertexFn, {})
-		.withFragment(fragmentFn, { format: INTERMEDIATE_FORMAT })
-		.createPipeline();
+  const pipeline = root.createRenderPipeline({
+    vertex: common.fullScreenTriangle,
+    fragment: fragmentFn,
+    targets: { format: INTERMEDIATE_FORMAT },
+	});
 
-	const sampler = root['~unstable'].createSampler({
+	const sampler = root.createSampler({
 		magFilter: 'linear',
 		minFilter: 'linear',
 		addressModeU: 'clamp-to-edge',
@@ -147,12 +122,7 @@ export function compileShaderPass<TContent>(
 
 			pipeline
 				.with(bindGroup)
-				.withColorAttachment({
-					view: outputView,
-					clearValue: [0, 0, 0, 0],
-					loadOp: 'clear',
-					storeOp: 'store'
-				})
+				.withColorAttachment({ view: outputView })
 				.draw(3);
 		}
 	};

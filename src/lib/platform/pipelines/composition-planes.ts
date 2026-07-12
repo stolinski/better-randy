@@ -1,4 +1,4 @@
-import tgpu, { d } from 'typegpu';
+import tgpu, { common, d } from 'typegpu';
 
 import { getHtmlInCanvasQueue } from '$lib/platform/html-in-canvas';
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
@@ -49,26 +49,6 @@ const DofUniforms = d.struct({
 	resolution: d.vec2f
 });
 
-const fullScreenVertexFn = tgpu['~unstable'].vertexFn({
-	in: { vertexIndex: d.builtin.vertexIndex },
-	out: { position: d.builtin.position, uv: d.vec2f }
-}) /* wgsl */ `{
-	var positions = array<vec2f, 3>(
-		vec2f(-1.0, -1.0),
-		vec2f(3.0, -1.0),
-		vec2f(-1.0, 3.0)
-	);
-	var uvs = array<vec2f, 3>(
-		vec2f(0.0, 1.0),
-		vec2f(2.0, 1.0),
-		vec2f(0.0, -1.0)
-	);
-	return Out(
-		vec4f(positions[in.vertexIndex], 0.0, 1.0),
-		uvs[in.vertexIndex]
-	);
-}`;
-
 // Premultiply pass: the DOM rasterization (`copyElementImageToTexture`) is
 // straight-alpha rgba8; the planes composite premultiplied, so convert here.
 const premultiplyLayout = tgpu.bindGroupLayout({
@@ -76,13 +56,13 @@ const premultiplyLayout = tgpu.bindGroupLayout({
 	samp: { sampler: 'filtering' }
 });
 
-const premultiplyFragmentFn = tgpu['~unstable'].fragmentFn({
+const premultiplyFragmentFn = tgpu.fragmentFn({
 	in: { uv: d.vec2f },
 	out: d.vec4f
 }) /* wgsl */ `{
-		let s = textureSample(layout.$.domTexture, layout.$.samp, in.uv);
-		return vec4f(s.rgb * s.a, s.a);
-	}`.$uses({ layout: premultiplyLayout });
+  	let s = textureSample(layout.$.domTexture, layout.$.samp, in.uv);
+  	return vec4f(s.rgb * s.a, s.a);
+  }`.$uses({ layout: premultiplyLayout });
 
 // Bokeh depth-of-field composite (ADR-0027). Each plane is blurred by its own
 // circle of confusion — `coc = aperture · |planeZ − focusZ|` mapped to pixels —
@@ -110,7 +90,7 @@ const compositeLayout = tgpu.bindGroupLayout({
 	uniforms: { uniform: DofUniforms }
 });
 
-const compositeFragmentFn = tgpu['~unstable'].fragmentFn({
+const compositeFragmentFn = tgpu.fragmentFn({
 	in: { uv: d.vec2f },
 	out: d.vec4f
 }) /* wgsl */ `{
@@ -400,30 +380,31 @@ export class CompositionPlanes {
 			usage: PLANE_TEXTURE_USAGE
 		});
 
-		const unstable = root['~unstable'];
-		const sampler = unstable.createSampler({
+		const sampler = root.createSampler({
 			magFilter: 'linear',
 			minFilter: 'linear',
 			addressModeU: 'clamp-to-edge',
 			addressModeV: 'clamp-to-edge'
 		});
 
-		const premultiplyPipeline = unstable
-			.withVertex(fullScreenVertexFn, {})
-			.withFragment(premultiplyFragmentFn, { format: INTERMEDIATE_FORMAT })
-			.createPipeline();
+		const premultiplyPipeline = root.createRenderPipeline({
+			vertex: common.fullScreenTriangle,
+			fragment: premultiplyFragmentFn,
+			targets: { format: INTERMEDIATE_FORMAT }
+		});
 
-		const compositePipeline = unstable
-			.withVertex(fullScreenVertexFn, {})
-			.withFragment(compositeFragmentFn, { format: INTERMEDIATE_FORMAT })
-			.createPipeline();
+		const compositePipeline = root.createRenderPipeline({
+			vertex: common.fullScreenTriangle,
+			fragment: compositeFragmentFn,
+			targets: { format: INTERMEDIATE_FORMAT }
+		});
 
 		const uniformBuffer = root
 			.createBuffer(DofUniforms, {
-				params: d.vec4f(0, 0, 0, 0),
-				backdrop: d.vec4f(0, 0, 0, 0),
-				backdropColor: d.vec4f(0, 0, 0, 0),
-				lens: d.vec4f(0, 0, 0, 0),
+				params: d.vec4f(),
+				backdrop: d.vec4f(),
+				backdropColor: d.vec4f(),
+				lens: d.vec4f(),
 				resolution: d.vec2f(width, height)
 			})
 			.$usage('uniform');
@@ -439,12 +420,7 @@ export class CompositionPlanes {
 			});
 			premultiplyPipeline
 				.with(bindGroup)
-				.withColorAttachment({
-					view: overlayPlaneTexture.createView(),
-					clearValue: [0, 0, 0, 0],
-					loadOp: 'clear',
-					storeOp: 'store'
-				})
+				.withColorAttachment({ view: overlayPlaneTexture.createView() })
 				.draw(3);
 		};
 

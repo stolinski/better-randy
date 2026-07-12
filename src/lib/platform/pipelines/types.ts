@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import type { Component } from 'svelte';
+import type { d } from 'typegpu';
 
 import type {
 	AnnotationFrameLayout,
@@ -167,7 +168,7 @@ export interface EffectPackContext {
  */
 export interface ShaderPass<TContent = unknown> {
 	/** TypeGPU `d.struct(...)` describing the WGSL uniform layout. */
-	uniforms: unknown;
+	uniforms: d.WgslStruct;
 	/**
 	 * True when the pass paints the composition's ENVIRONMENT (a full-frame
 	 * backdrop behind the content) rather than surface-local physics. The depth
@@ -360,7 +361,7 @@ export interface EffectEditorProps<TParams = unknown> {
 // a uniform field declared in `paramsStruct`. See `EffectPackContext` above
 // for the shared shape with `ShaderPass.packUniforms`.
 export interface EffectPassDefinition<TParams> {
-	paramsStruct: unknown; // TgpuStruct describing the WGSL uniform layout
+	paramsStruct: d.WgslStruct; // A TypeGPU describing the WGSL uniform layout
 	fragmentBody: string;
 	pack(params: TParams, ctx: EffectPackContext): Record<string, unknown>;
 }

@@ -1,4 +1,4 @@
-import tgpu, { d } from 'typegpu';
+import tgpu, { common, d } from 'typegpu';
 import { mat4 } from 'wgpu-matrix';
 
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
@@ -106,7 +106,7 @@ const planeLayout = tgpu.bindGroupLayout({
 // A plane quad transformed by its MVP; carries uv, camera-space distance
 // (clip.w), and the fragment's world-space xy (planes are axis-aligned scaled
 // quads, so world xy = corner xy × the plane's half-extents) for the light.
-const planeVertexFn = tgpu['~unstable'].vertexFn({
+const planeVertexFn = tgpu.vertexFn({
 	in: { vertexIndex: d.builtin.vertexIndex },
 	out: { position: d.builtin.position, uv: d.vec2f, dist: d.f32, world: d.vec2f }
 }) /* wgsl */ `{
@@ -126,7 +126,7 @@ const planeVertexFn = tgpu['~unstable'].vertexFn({
 // Opaque planes in painter's order: the scene target stores STRAIGHT colour + the
 // camera-space depth in alpha. The Surface composite is premultiplied; transparent
 // surround is discarded so the backdrop (drawn first) shows around the card.
-const planeFragmentFn = tgpu['~unstable'].fragmentFn({
+const planeFragmentFn = tgpu.fragmentFn({
 	in: { uv: d.vec2f, dist: d.f32, world: d.vec2f },
 	out: d.vec4f
 }) /* wgsl */ `{
@@ -290,15 +290,6 @@ const planeFragmentFn = tgpu['~unstable'].fragmentFn({
 	return vec4f(color, depth01);
 }`.$uses({ layout: planeLayout });
 
-const fullVertexFn = tgpu['~unstable'].vertexFn({
-	in: { vertexIndex: d.builtin.vertexIndex },
-	out: { position: d.builtin.position, uv: d.vec2f }
-}) /* wgsl */ `{
-	var p = array<vec2f, 3>(vec2f(-1.0, -1.0), vec2f(3.0, -1.0), vec2f(-1.0, 3.0));
-	var u = array<vec2f, 3>(vec2f(0.0, 1.0), vec2f(2.0, 1.0), vec2f(0.0, -1.0));
-	return Out(vec4f(p[in.vertexIndex], 0.0, 1.0), u[in.vertexIndex]);
-}`;
-
 // Mip-downsample, building the prefiltered pyramid the DOF gather reads from.
 // The FIRST reduction (mip 0 → 1) is CoC-WEIGHTED: each texel enters the
 // pyramid premultiplied by how defocused it is (weight in alpha), so sharp
@@ -311,7 +302,7 @@ const downLayout = tgpu.bindGroupLayout({
 	samp: { sampler: 'filtering' },
 	uniforms: { uniform: DofUniforms }
 });
-const downWeightFragmentFn = tgpu['~unstable'].fragmentFn({
+const downWeightFragmentFn = tgpu.fragmentFn({
 	in: { uv: d.vec2f },
 	out: d.vec4f
 }) /* wgsl */ `{
@@ -343,7 +334,7 @@ const downWeightFragmentFn = tgpu['~unstable'].fragmentFn({
 	}
 	return vec4f(accRgb * 0.25, accW * 0.25);
 }`.$uses({ layout: downLayout });
-const downsampleFragmentFn = tgpu['~unstable'].fragmentFn({
+const downsampleFragmentFn = tgpu.fragmentFn({
 	in: { uv: d.vec2f },
 	out: d.vec4f
 }) /* wgsl */ `{
@@ -368,7 +359,7 @@ const dofLayout = tgpu.bindGroupLayout({
 	samp: { sampler: 'filtering' },
 	uniforms: { uniform: DofUniforms }
 });
-const dofFragmentFn = tgpu['~unstable'].fragmentFn({
+const dofFragmentFn = tgpu.fragmentFn({
 	in: { uv: d.vec2f },
 	out: d.vec4f
 }) /* wgsl */ `{
@@ -477,7 +468,7 @@ const composeLayout = tgpu.bindGroupLayout({
 	samp: { sampler: 'filtering' },
 	uniforms: { uniform: DofUniforms }
 });
-const composeFragmentFn = tgpu['~unstable'].fragmentFn({
+const composeFragmentFn = tgpu.fragmentFn({
 	in: { uv: d.vec2f },
 	out: d.vec4f
 }) /* wgsl */ `{
@@ -587,7 +578,6 @@ export class DepthStage {
 		this.#width = width;
 		this.#height = height;
 		const { device, root } = host;
-		const unstable = root['~unstable'];
 
 		const mipLevels = Math.floor(Math.log2(Math.max(width, height))) + 1;
 		const maxCoc = Math.round((REF_COC * Math.min(width, height)) / 1080);
@@ -621,7 +611,7 @@ export class DepthStage {
 		}
 		const outputView = this.#outputTexture.createView();
 
-		const sampler = unstable.createSampler({
+		const sampler = root.createSampler({
 			magFilter: 'linear',
 			minFilter: 'linear',
 			mipmapFilter: 'linear',
@@ -670,26 +660,31 @@ export class DepthStage {
 			})
 			.$usage('uniform');
 
-		const planePipeline = unstable
-			.withVertex(planeVertexFn, {})
-			.withFragment(planeFragmentFn, { format: INTERMEDIATE_FORMAT })
-			.createPipeline();
-		const downWeightPipeline = unstable
-			.withVertex(fullVertexFn, {})
-			.withFragment(downWeightFragmentFn, { format: INTERMEDIATE_FORMAT })
-			.createPipeline();
-		const downPipeline = unstable
-			.withVertex(fullVertexFn, {})
-			.withFragment(downsampleFragmentFn, { format: INTERMEDIATE_FORMAT })
-			.createPipeline();
-		const dofPipeline = unstable
-			.withVertex(fullVertexFn, {})
-			.withFragment(dofFragmentFn, { format: INTERMEDIATE_FORMAT })
-			.createPipeline();
-		const composePipeline = unstable
-			.withVertex(fullVertexFn, {})
-			.withFragment(composeFragmentFn, { format: INTERMEDIATE_FORMAT })
-			.createPipeline();
+		const planePipeline = root.createRenderPipeline({
+			vertex: planeVertexFn,
+			fragment: planeFragmentFn,
+			targets: { format: INTERMEDIATE_FORMAT }
+		});
+		const downWeightPipeline = root.createRenderPipeline({
+			vertex: common.fullScreenTriangle,
+			fragment: downWeightFragmentFn,
+			targets: { format: INTERMEDIATE_FORMAT }
+		});
+		const downPipeline = root.createRenderPipeline({
+			vertex: common.fullScreenTriangle,
+			fragment: downsampleFragmentFn,
+			targets: { format: INTERMEDIATE_FORMAT }
+		});
+		const dofPipeline = root.createRenderPipeline({
+			vertex: common.fullScreenTriangle,
+			fragment: dofFragmentFn,
+			targets: { format: INTERMEDIATE_FORMAT }
+		});
+		const composePipeline = root.createRenderPipeline({
+			vertex: common.fullScreenTriangle,
+			fragment: composeFragmentFn,
+			targets: { format: INTERMEDIATE_FORMAT }
+		});
 
 		const downBinds = Array.from({ length: mipLevels - 1 }, (_, k) =>
 			root.createBindGroup(downLayout, { src: mipViews[k], samp: sampler, uniforms: dofUniform })
@@ -930,29 +925,17 @@ export class DepthStage {
 						.with(downBinds[i - 1])
 						.withColorAttachment({
 							view: mipViews[i],
-							clearValue: [0, 0, 0, 1],
-							loadOp: 'clear',
-							storeOp: 'store'
+							clearValue: [0, 0, 0, 1]
 						})
 						.draw(3);
 				}
-				dofPipeline
-					.with(dofBind)
-					.withColorAttachment({
-						view: dofHalfView,
-						clearValue: [0, 0, 0, 0],
-						loadOp: 'clear',
-						storeOp: 'store'
-					})
-					.draw(3);
+				dofPipeline.with(dofBind).withColorAttachment({ view: dofHalfView }).draw(3);
 			}
 			composePipeline
 				.with(composeBind)
 				.withColorAttachment({
 					view: outputView,
-					clearValue: [0, 0, 0, 1],
-					loadOp: 'clear',
-					storeOp: 'store'
+					clearValue: [0, 0, 0, 1]
 				})
 				.draw(3);
 		};

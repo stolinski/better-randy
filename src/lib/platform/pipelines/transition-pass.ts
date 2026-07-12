@@ -1,4 +1,4 @@
-import tgpu, { d } from 'typegpu';
+import tgpu, { common, d } from 'typegpu';
 
 import type { GpuHost } from '$lib/platform/gpu-host';
 
@@ -18,26 +18,6 @@ import type { GpuHost } from '$lib/platform/gpu-host';
 
 const WipeUniforms = d.struct({ progress: d.f32 });
 
-const fullScreenVertexFn = tgpu['~unstable'].vertexFn({
-	in: { vertexIndex: d.builtin.vertexIndex },
-	out: { position: d.builtin.position, uv: d.vec2f }
-})/* wgsl */ `{
-	var positions = array<vec2f, 3>(
-		vec2f(-1.0, -1.0),
-		vec2f(3.0, -1.0),
-		vec2f(-1.0, 3.0)
-	);
-	var uvs = array<vec2f, 3>(
-		vec2f(0.0, 1.0),
-		vec2f(2.0, 1.0),
-		vec2f(0.0, -1.0)
-	);
-	return Out(
-		vec4f(positions[in.vertexIndex], 0.0, 1.0),
-		uvs[in.vertexIndex]
-	);
-}`;
-
 export interface TransitionWipeApplyOptions {
 	fromView: GPUTextureView;
 	toView: GPUTextureView;
@@ -47,10 +27,6 @@ export interface TransitionWipeApplyOptions {
 
 export interface CompiledTransitionWipe {
 	apply(opts: TransitionWipeApplyOptions): void;
-}
-
-interface UniformBufferShape {
-	write(value: unknown): void;
 }
 
 /** Compile the `mask-wipe` transition pass against the host. One-time; the
@@ -65,11 +41,10 @@ export function compileTransitionWipe(host: GpuHost): CompiledTransitionWipe {
 		uniforms: { uniform: WipeUniforms }
 	});
 
-	const fragmentFn = tgpu['~unstable']
-		.fragmentFn({
-			in: { uv: d.vec2f },
-			out: d.vec4f
-		})/* wgsl */ `{
+	const fragmentFn = tgpu.fragmentFn({
+		in: { uv: d.vec2f },
+		out: d.vec4f
+	}) /* wgsl */ `{
 			let fromSample = textureSample(layout.$.fromTexture, layout.$.samp, in.uv);
 			let toSample = textureSample(layout.$.toTexture, layout.$.samp, in.uv);
 			let p = layout.$.uniforms.progress;
@@ -79,23 +54,20 @@ export function compileTransitionWipe(host: GpuHost): CompiledTransitionWipe {
 			return mix(toSample, fromSample, edge);
 		}`.$uses({ layout: bindGroupLayout });
 
-	const pipeline = root['~unstable']
-		.withVertex(fullScreenVertexFn, {})
-		.withFragment(fragmentFn, { format })
-		.createPipeline();
+  const pipeline = root.createRenderPipeline({
+    vertex: common.fullScreenTriangle,
+    fragment: fragmentFn,
+    targets: { format },
+	});
 
-	const sampler = root['~unstable'].createSampler({
+	const sampler = root.createSampler({
 		magFilter: 'linear',
 		minFilter: 'linear',
 		addressModeU: 'clamp-to-edge',
 		addressModeV: 'clamp-to-edge'
 	});
 
-	const uniformBuffer = (
-		root.createBuffer(WipeUniforms) as unknown as {
-			$usage: (kind: 'uniform') => UniformBufferShape;
-		}
-	).$usage('uniform');
+	const uniformBuffer = root.createBuffer(WipeUniforms).$usage('uniform');
 
 	return {
 		apply({ fromView, toView, outputView, progress }) {
@@ -106,16 +78,11 @@ export function compileTransitionWipe(host: GpuHost): CompiledTransitionWipe {
 				toTexture: toView,
 				samp: sampler,
 				uniforms: uniformBuffer
-			} as never);
+			});
 
 			pipeline
 				.with(bindGroup)
-				.withColorAttachment({
-					view: outputView,
-					clearValue: [0, 0, 0, 0],
-					loadOp: 'clear',
-					storeOp: 'store'
-				})
+				.withColorAttachment({ view: outputView })
 				.draw(3);
 		}
 	};
