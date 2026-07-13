@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
-	"name": "Cursor trail — title sweep",
-	"description": "Mac pointer enters at the top-left, sweeps to the 'BUILD THINGS' title slot and dwells 600ms (hover), then moves to the '@syntaxfm' author byline and clicks with a 400ms dwell before returning to idle. Velocity-anisotropic trail stretches along the motion vector. Demonstrates the cursor-trail pipeline's deterministic path replay, per-step action types, and trail physics at 3840×2160. Type-hero single variant on deep-black substrate.",
+	"name": "Cursor trail \u2014 title sweep",
+	"description": "Mac pointer enters at the top-left, sweeps to the 'BUILD THINGS' title slot and dwells 600ms (hover), then moves to the '@syntaxfm' author byline and clicks with a 400ms dwell before returning to idle. Velocity-anisotropic trail stretches along the motion vector. Demonstrates the cursor-trail pipeline's deterministic path replay, per-step action types, and trail physics at 3840\u00d72160. Type-hero single variant on deep-black substrate.",
 	"pack": "syntax",
 	"state": {
 		"transport": {
@@ -104,7 +104,8 @@
 				"id": "frame-grit",
 				"params": {
 					"warmth": 0,
-					"density": 0.2
+					"density": 0.2,
+					"lift": 0.3
 				}
 			}
 		]

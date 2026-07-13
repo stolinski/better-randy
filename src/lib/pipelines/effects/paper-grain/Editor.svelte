@@ -26,3 +26,14 @@
 		type="range"
 	/>
 </label>
+
+<label class="row">
+	<span>Lift</span>
+	<input
+		bind:value={effect.params.lift}
+		max="1"
+		min="0"
+		step="0.01"
+		type="range"
+	/>
+</label>

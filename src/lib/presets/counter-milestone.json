@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
-	"name": "Counter — one million",
-	"description": "Slot-machine roll counter climbing from 0 to 1,000,000 over the full 6-second timeline. Per-digit columns roll independently with expo-out easing so the roll decelerates into the final value. Yellow tabular-numeral display on deep-black substrate. Demonstrates the counter pipeline's slot-machine-roll variant and large integer formatting at 3840×2160.",
+	"name": "Counter \u2014 one million",
+	"description": "Slot-machine roll counter climbing from 0 to 1,000,000 over the full 6-second timeline. Per-digit columns roll independently with expo-out easing so the roll decelerates into the final value. Yellow tabular-numeral display on deep-black substrate. Demonstrates the counter pipeline's slot-machine-roll variant and large integer formatting at 3840\u00d72160.",
 	"pack": "syntax",
 	"state": {
 		"transport": {
@@ -84,7 +84,8 @@
 				"id": "frame-grit",
 				"params": {
 					"warmth": 0,
-					"density": 0.2
+					"density": 0.2,
+					"lift": 0.3
 				}
 			}
 		]

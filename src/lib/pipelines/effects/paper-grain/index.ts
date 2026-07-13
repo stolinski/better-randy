@@ -7,7 +7,13 @@ import Editor from './Editor.svelte';
 
 const PaperGrainParamsSchema = z.object({
 	warmth: z.number().min(0).max(1).default(0.5),
-	density: z.number().min(0).max(1).default(0.3)
+	density: z.number().min(0).max(1).default(0.3),
+	// Additive shadow grain. Multiplicative grain scales with the pixel it
+	// lands on, so a near-black field (luma ~0.02) carries ~0.0002 luma of
+	// shimmer — below visibility. lift adds the same grain field directly,
+	// weighted toward shadows (alpha − luma), so dark bumper fields get a
+	// living grain layer. 0 = exactly the pre-lift output.
+	lift: z.number().min(0).max(1).default(0)
 });
 
 export type PaperGrainParams = z.infer<typeof PaperGrainParamsSchema>;
@@ -21,6 +27,7 @@ const PaperGrainEffectSchema = z.object({
 const PaperGrainUniforms = d.struct({
 	warmth: d.f32,
 	density: d.f32,
+	lift: d.f32,
 	// Clip timestamp in seconds. Drives the fine-octave grain shimmer at a film
 	// cadence (24 updates/s) so a held frame is alive (no byte-identical hold)
 	// rather than a frozen grain pattern. Frame-deterministic (derived from the
@@ -60,20 +67,30 @@ const fragmentBody = /* wgsl */ `
 
 	let warmth = layout.$.uniforms.warmth;
 	let density = layout.$.uniforms.density;
+	let lift = layout.$.uniforms.lift;
 
 	// Grain peak is ±(0.06 * density); at density=0.3 that's ±0.018 (subtle,
 	// reads as paper fibre). At density=1 it's ±0.06 (visible but never a
 	// dominant layer — Q12).
-	let grain = (coarseN * 0.55 + fineN * 0.45 - 0.5) * (0.06 * density);
+	let grainN = coarseN * 0.55 + fineN * 0.45 - 0.5;
+	let grain = grainN * (0.06 * density);
 	// Warmth biases the tint towards a warm-paper cream at full strength
 	// without crushing channels; range matches what a paper substrate carries.
 	let warmthTint = vec3f(1.0, 1.0 - warmth * 0.04, 1.0 - warmth * 0.08);
 	let tint = warmthTint + vec3f(grain);
 
+	// Additive shadow grain (lift): the same grain field coupled directly
+	// instead of through the pixel value, weighted by (alpha − luma) — full
+	// strength on an opaque near-black field, fading to nothing on bright
+	// content (the multiplicative term owns that register) and to zero with
+	// alpha (premultiplied-correct; transparent overlays stay untreated, E4).
+	let luma = dot(inputSample.rgb, vec3f(0.2126, 0.7152, 0.0722));
+	let liftGrain = grainN * (0.06 * lift) * max(inputSample.a - luma, 0.0);
+
 	// Only tint pixels that have content (alpha > 0) so transparent regions
 	// stay transparent. Multiplicative blend preserves the substrate.
 	let mask = step(0.001, inputSample.a);
-	let outRgb = mix(inputSample.rgb, inputSample.rgb * tint, mask);
+	let outRgb = mix(inputSample.rgb, inputSample.rgb * tint + vec3f(liftGrain), mask);
 	return vec4f(outRgb, inputSample.a);
 `;
 
@@ -81,13 +98,16 @@ export const paperGrain: EffectRenderer<PaperGrainParams> = {
 	type: 'paper-grain',
 	label: 'Paper grain',
 	schema: PaperGrainEffectSchema,
-	defaults: () => ({ params: { warmth: 0.5, density: 0.3 } }),
+	defaults: () => ({ params: { warmth: 0.5, density: 0.3, lift: 0 } }),
 	pass: {
 		paramsStruct: PaperGrainUniforms,
 		fragmentBody,
 		pack: (params, ctx) => ({
 			warmth: params.warmth,
 			density: params.density,
+			// Pack-chrome recipes bypass the zod parse (withPackChrome passes raw
+			// manifest params), so a missing lift must not feed NaN to the GPU.
+			lift: params.lift ?? 0,
 			grainTime: ctx.timestamp
 		})
 	},
