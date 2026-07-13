@@ -6,6 +6,7 @@
  * core set is synthesized by `scripts/gen-core-sounds.mjs`; kit-specific
  * samples register here as they land.
  */
+import clickThockUrl from '$lib/assets/sounds/click-thock.wav';
 import coreClickUrl from '$lib/assets/sounds/core-click.wav';
 import coreImpactUrl from '$lib/assets/sounds/core-impact.wav';
 import corePopUrl from '$lib/assets/sounds/core-pop.wav';
@@ -17,20 +18,33 @@ import coreTickUrl from '$lib/assets/sounds/core-tick.wav';
 import coreWhooshInUrl from '$lib/assets/sounds/core-whoosh-in.wav';
 import coreWhooshOutUrl from '$lib/assets/sounds/core-whoosh-out.wav';
 import bedAmbientTextureUrl from '$lib/assets/sounds/bed-ambient-texture.wav';
+import drawSlideUrl from '$lib/assets/sounds/draw-slide.wav';
+import fwipInUrl from '$lib/assets/sounds/fwip-in.wav';
+import fwipOutUrl from '$lib/assets/sounds/fwip-out.wav';
+import fwipSoftInUrl from '$lib/assets/sounds/fwip-soft-in.wav';
+import fwipSoftOutUrl from '$lib/assets/sounds/fwip-soft-out.wav';
 import impactBookUrl from '$lib/assets/sounds/impact-book.wav';
 import markerSwipeUrl from '$lib/assets/sounds/marker-swipe.wav';
 import messagePopUrl from '$lib/assets/sounds/message-pop.wav';
 import messageSendUrl from '$lib/assets/sounds/message-send.wav';
 import pencilStrokeUrl from '$lib/assets/sounds/pencil-stroke.wav';
+import popChipUrl from '$lib/assets/sounds/pop-chip.wav';
+import popRoundUrl from '$lib/assets/sounds/pop-round.wav';
 import quickWhooshInUrl from '$lib/assets/sounds/quick-whoosh-in.wav';
 import quickWhooshOutUrl from '$lib/assets/sounds/quick-whoosh-out.wav';
+import swishSendUrl from '$lib/assets/sounds/swish-send.wav';
 import tapbackDislikeUrl from '$lib/assets/sounds/tapback-dislike.wav';
 import tapbackEmphasizeUrl from '$lib/assets/sounds/tapback-emphasize.wav';
 import tapbackHahaUrl from '$lib/assets/sounds/tapback-haha.wav';
 import tapbackHeartUrl from '$lib/assets/sounds/tapback-heart.wav';
 import tapbackLikeUrl from '$lib/assets/sounds/tapback-like.wav';
 import tapbackQuestionUrl from '$lib/assets/sounds/tapback-question.wav';
+import thudDeepUrl from '$lib/assets/sounds/thud-deep.wav';
+import thudFeltUrl from '$lib/assets/sounds/thud-felt.wav';
+import thudSolidUrl from '$lib/assets/sounds/thud-solid.wav';
 import tickPencilUrl from '$lib/assets/sounds/tick-pencil.wav';
+import tickSnapUrl from '$lib/assets/sounds/tick-snap.wav';
+import tickSoftUrl from '$lib/assets/sounds/tick-soft.wav';
 
 import { DEFAULT_EVENT_SAMPLES, TAPBACK_SAMPLES } from './sound-cues.ts';
 
@@ -45,6 +59,23 @@ const SOUND_ASSETS: Record<string, string> = {
 	'core-scratch': coreScratchUrl,
 	'core-sub-drop': coreSubDropUrl,
 	'core-sting': coreStingUrl,
+	// The designed default kit (gen-designed-sounds.mjs, dex gmrkycs6) — quick
+	// decisive hits that read flat/physical; the engine-default voice behind
+	// DEFAULT_EVENT_SAMPLES.
+	'thud-solid': thudSolidUrl,
+	'thud-felt': thudFeltUrl,
+	'thud-deep': thudDeepUrl,
+	'fwip-in': fwipInUrl,
+	'fwip-out': fwipOutUrl,
+	'fwip-soft-in': fwipSoftInUrl,
+	'fwip-soft-out': fwipSoftOutUrl,
+	'pop-chip': popChipUrl,
+	'pop-round': popRoundUrl,
+	'tick-soft': tickSoftUrl,
+	'tick-snap': tickSnapUrl,
+	'click-thock': clickThockUrl,
+	'draw-slide': drawSlideUrl,
+	'swish-send': swishSendUrl,
 	// Desk-object samples (CC0; provenance in the git history of the retired kit manifests)
 	'quick-whoosh-in': quickWhooshInUrl,
 	'quick-whoosh-out': quickWhooshOutUrl,

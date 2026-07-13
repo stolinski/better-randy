@@ -70,15 +70,16 @@ export const MOTION_SOUND_DEFAULTS = {
  * inspector. Slugs into `audio-assets.ts`.
  */
 export const DEFAULT_EVENT_SAMPLES: Record<SoundEvent, string> = {
-	'whoosh-in': 'quick-whoosh-in',
-	'whoosh-out': 'quick-whoosh-out',
-	impact: 'impact-book',
-	tick: 'tick-pencil',
-	click: 'core-click',
-	pop: 'message-pop',
-	send: 'message-send',
+	'whoosh-in': 'fwip-in',
+	'whoosh-out': 'fwip-out',
+	impact: 'thud-solid',
+	tick: 'tick-soft',
+	click: 'click-thock',
+	pop: 'pop-chip',
+	send: 'swish-send',
 	swipe: 'marker-swipe',
 	scratch: 'pencil-stroke',
+	draw: 'draw-slide',
 	'sub-drop': 'core-sub-drop',
 	sting: 'core-sting'
 };
@@ -117,6 +118,16 @@ const OVERLAY_EVENT_DEFAULTS: Record<
 	// The cursor glides; its dwells are the story, not air displacement.
 	'cursor-trail': { enter: null, exit: null }
 };
+
+// The iMessage bubble arrivals — locked-specific signature sounds (ADR-0033
+// §5), like the tapbacks below. The real Apple recordings belong to the chat
+// surface ONLY; the general `pop` / `send` events resolve to the designed kit
+// (dex gmrkycs6 — the Messages bloop had leaked onto every pop in the
+// vocabulary, diagram nodes included).
+export const MESSAGE_SAMPLES = {
+	received: 'message-pop',
+	sent: 'message-send'
+} as const;
 
 // The iMessage tapback acknowledgements — locked-specific signature sounds
 // per reaction type (ADR-0033 §5), resolved directly to bundled assets
@@ -375,16 +386,17 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 	}
 
 	// Diagram Block elements (ADR-0036 + the ADR-0033 motion-character rule):
-	// the stroke draw-ons are pen strokes (scratch, like underline/strike); a
-	// node PLANTS with its scale-settle (pop); label rises and the stat roll
-	// are silent by default — their sound is opt-in via the enter override.
-	// Exits are fades everywhere (silent). Channel-owned elements get the one
-	// enter beat, silent unless the channels travel.
+	// the stroke draw-ons are clean line draws (`draw` — a technical canvas,
+	// not the annotation Layer's hand pencil); a node PLANTS with its
+	// scale-settle (pop); label rises and the stat roll are silent by default —
+	// their sound is opt-in via the enter override. Exits are fades everywhere
+	// (silent). Channel-owned elements get the one enter beat, silent unless
+	// the channels travel.
 	for (const element of surface.diagram ?? []) {
 		const layer: SoundCueLayer = { kind: 'block', blockId: element.id };
 		const enterDefault: SoundEvent | null =
 			element.type === 'edge-arrow' || element.type === 'timeline-segment'
-				? 'scratch'
+				? 'draw'
 				: element.type === 'node'
 					? 'pop'
 					: null;
@@ -501,12 +513,16 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 
 	// Chat bubbles sound on the `imessage` Surface (every other Surface ignores
 	// `content.messages`): received bubbles pop, sent bubbles play the send
-	// swish — the side IS the motion character. Bubbles without an explicit
+	// swish — the side IS the motion character, and each side locks its Apple
+	// signature sample (MESSAGE_SAMPLES) unless the author re-voices the bubble
+	// with an explicit event swap or sample lock. Bubbles without an explicit
 	// `enter` still sound — the default staggered cadence is composition
 	// timing too.
 	if (surface.type === 'imessage') {
 		(surface.content.messages ?? []).forEach((message, index) => {
 			const enter = messageEnter(message, index);
+			const override = message.enter?.sound;
+			const signature = message.from === 'me' ? MESSAGE_SAMPLES.sent : MESSAGE_SAMPLES.received;
 			cues.push(
 				cueFrom(
 					`message:${index}`,
@@ -515,7 +531,9 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 						? MOTION_SOUND_DEFAULTS.messageReply
 						: MOTION_SOUND_DEFAULTS.message,
 					enter,
-					message.enter?.sound
+					override?.event || override?.sample !== undefined
+						? override
+						: { ...override, sample: signature }
 				)
 			);
 

@@ -86,6 +86,7 @@ export const SOUND_EVENTS = [
 	'send',
 	'swipe',
 	'scratch',
+	'draw',
 	'sub-drop',
 	'sting'
 ] as const;

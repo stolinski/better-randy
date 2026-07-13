@@ -7,9 +7,7 @@ A preset is a single JSON document validated by `PresetSchema` (`src/lib/platfor
 	"schema": "supers@1",
 	"name": "Human-readable preset name",
 	"description": "Optional one-line summary.",
-	"state": {
-		/* EngineState — see below */
-	}
+	"state": {/* EngineState — see below */}
 }
 ```
 
@@ -52,8 +50,7 @@ A preset is a single JSON document validated by `PresetSchema` (`src/lib/platfor
       "sound": { ... },     // optional per-motion sound override (see Sound)
       "cascade": { ... }    // optional timing weld (see Animation)
     }
-  ],
-  "soundKit": "kit-slug"    // optional per-Layer Sound kit (see Sound)
+  ]
 }
 ```
 
@@ -76,8 +73,7 @@ A preset is a single JSON document validated by `PresetSchema` (`src/lib/platfor
   "exit":  { "start": 0..1, "duration": 0..1, "ease": Ease },  // optional
   "animation": { "channels": { "opacity": [ ... ] } },          // optional (see Animation; opacity only)
   "backgroundVisibility": 0..1,                                 // optional
-  "diagram": [ ... ],                                           // optional diagram Block elements (see Diagram primitives)
-  "soundKit": "kit-slug"                                        // optional (see Sound)
+  "diagram": [ ... ]                                            // optional diagram Block elements (see Diagram primitives)
 }
 ```
 
@@ -141,8 +137,7 @@ Parse-time rules: element ids unique within the surface; every edge endpoint `{ 
     },
     "enter": { "start": 0..1, "duration": 0..1, "ease": Ease },     // optional
     "exit":  { "start": 0..1, "duration": 0..1, "ease": Ease },     // optional
-    "animation": { "channels": { ... }, "cascade": { ... } },       // optional (see Animation)
-    "soundKit": "kit-slug"                                          // optional (see Sound)
+    "animation": { "channels": { ... }, "cascade": { ... } }        // optional (see Animation)
   }
 ]
 ```
@@ -288,7 +283,7 @@ Parse-time rules: cue ids unique; every cue must end after it starts. Cue enter/
 
 Sound is a timed-cue orchestration domain, not a sixth Layer. Motion primitives emit semantic **sound events** at their own frame; automatic cues are **derived from motion at render time and never stored**. The schema carries three things:
 
-**Defaults are engine-level.** Every sound event carries one default sample (`DEFAULT_EVENT_SAMPLES` in `sound-cues.ts`): fly-ins fwip, arrivals thump, highlights swipe, received bubbles pop, sent bubbles swish. There is no kit/palette field — that per-Layer bundle was removed 2026-07-02 after GUI testing (an invisible partition of sounds by Layer made "what does this play" illegible; see ADR-0033 amendments). Personalisation is per motion, via the override below or by selecting any cue on the timeline's Sound rail.
+**Defaults are engine-level.** Every sound event carries one default sample (`DEFAULT_EVENT_SAMPLES` in `sound-cues.ts`, voiced by the designed kit from `scripts/gen-designed-sounds.mjs`): fly-ins fwip, arrivals thud, highlights swipe, diagram strokes draw. The iMessage bubbles and tapbacks lock their Apple signature samples at derivation (`MESSAGE_SAMPLES` / `TAPBACK_SAMPLES`) — chat-surface sounds never leak into the general vocabulary. There is no kit/palette field — that per-Layer bundle was removed 2026-07-02 after GUI testing (an invisible partition of sounds by Layer made "what does this play" illegible; see ADR-0033 amendments). Personalisation is per motion, via the override below or by selecting any cue on the timeline's Sound rail.
 
 Defaults follow the motion's _character_, not just its window: sliding elements whoosh with their enter/exit, but types whose motion doesn't displace air emit **nothing** by default — Overlays like `washi-tape` (press-on), `watermark` (fade), `cursor-trail` (glide), and fade-entrance Surfaces like `imessage` and `chapter-card`. Their sound is opt-in via the per-motion override below (see `OVERLAY_EVENT_DEFAULTS` / `SURFACE_EVENT_DEFAULTS` in `sound-cues.ts`).
 
@@ -297,7 +292,7 @@ Defaults follow the motion's _character_, not just its window: sliding elements 
 ```jsonc
 "sound": {
   "mute": true,             // silence this one motion
-  "event": "impact",        // swap which event it emits (whoosh-in | whoosh-out | impact | tick | pop | swipe | scratch | sub-drop | sting)
+  "event": "impact",        // swap which event it emits (whoosh-in | whoosh-out | impact | tick | click | pop | send | swipe | scratch | draw | sub-drop | sting)
   "sample": "asset-slug"    // lock a specific audio asset, bypassing kit resolution
 }
 ```
