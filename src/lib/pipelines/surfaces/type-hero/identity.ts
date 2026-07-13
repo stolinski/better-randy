@@ -13,7 +13,8 @@ import type { IdentitySpec } from '$lib/platform/pipelines/identity';
 
 export const typeHeroIdentity: IdentitySpec = {
 	kind: 'graphic',
-	claim: 'a single display word at composition scale with raked directional light on its letterforms',
+	claim:
+		'a single display word at composition scale with raked directional light on its letterforms',
 	dimensions: [
 		{
 			name: 'fill-treatment',
@@ -22,7 +23,8 @@ export const typeHeroIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'hero word body',
-				expectation: 'hero word body fill resolves through the type-hero.ink Role (consumed as var(--ink) in the CanvasSource).'
+				expectation:
+					'hero word body fill resolves through the type-hero.ink Role (consumed as var(--ink) in the CanvasSource).'
 			}
 		},
 		{
@@ -47,10 +49,9 @@ export const typeHeroIdentity: IdentitySpec = {
 		},
 		{
 			name: 'light-treatment',
+			viaPack: 'type-hero.light',
 			definition:
-				'Edge-detected directional rim light on the letterforms with counter-shadow on the opposing edge, implying an upper-left light source.',
-			implementation:
-				'src/lib/pipelines/shader-passes/type-hero-rake.ts — edge-detection + dot-product against the implied light vector for the rim; opposing tap for the counter-shadow.',
+				"Edge-detected directional rim light on the letterforms with counter-shadow on the opposing edge, implying an upper-left light source (src/lib/pipelines/shader-passes/type-hero-rake.ts). The rake's warm/cool grade vectors stay intrinsic to the pass; the Pack dials its STRENGTH through this Role ('none' → flat ink, `{ intensity: N }` → scaled; silence keeps the full rake — a light-field Pack must be able to decline theatrical lighting, clean-light calibration 2026-07-13).",
 			probe: {
 				kind: 'named-observation',
 				region: 'hero word strokes — upper-left vs lower-right edges',
@@ -66,7 +67,8 @@ export const typeHeroIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'first ~10% of the timeline',
-				expectation: 'the hero word enters via its text-animation + mount timing (intrinsic to the Pipeline, schema-driven), not a Pack Role.'
+				expectation:
+					'the hero word enters via its text-animation + mount timing (intrinsic to the Pipeline, schema-driven), not a Pack Role.'
 			}
 		},
 		{

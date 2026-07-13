@@ -143,7 +143,10 @@
 		/* Pack label dress (`type-hero.tracking` / `.case`); silent → today's caps. */
 		letter-spacing: var(--tracking, 0.32em);
 		position: absolute;
-		text-shadow: 0 0.04em 0.1em rgba(0, 0, 0, 0.85);
+		/* Pack glyph armor (`type-hero.textShadow`); silent → today's dark-field
+		   legibility shadow. A light-field Pack claims 'none' (a dark halo on
+		   white reads as a bug). */
+		text-shadow: var(--textShadow, 0 0.04em 0.1em rgba(0, 0, 0, 0.85));
 		text-transform: var(--case, uppercase);
 	}
 </style>

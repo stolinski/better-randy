@@ -146,6 +146,10 @@ export const syntaxPack: PackManifest = {
 		// ---------------- type-hero Surface ----------------
 		'type-hero.edge': { kind: 'style', value: 'clean-vector' },
 		'type-hero.depth': { kind: 'style', value: 'none' },
+		// The raked-light dimension at full strength (render-is-truth — the
+		// identity spec's viaPack seam resolves here; intensity 1 packs the
+		// pass's original constants, bit-identical to the pre-routing render).
+		'type-hero.light': { kind: 'style', value: { intensity: 1 } },
 		// Consumed color Roles — brand tokens (syntax-overlay repo, 2026-07-09):
 		// #f7f6f2 text, #ffd54a accent, #c9c6bc byline; the amber/sand warms
 		// read as generic template, not Syntax.

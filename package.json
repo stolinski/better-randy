@@ -42,6 +42,8 @@
 		"@drop-in/graffiti": "^4.28.0",
 		"@fontsource/archivo": "^5.2.8",
 		"@fontsource/eb-garamond": "^5.2.7",
+		"@fontsource/geist": "^5.2.9",
+		"@fontsource/geist-mono": "^5.2.8",
 		"@fontsource/inter": "^5.2.8",
 		"@fontsource/jetbrains-mono": "^5.2.8",
 		"@fontsource/old-standard-tt": "^5.2.8",

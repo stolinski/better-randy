@@ -1,0 +1,91 @@
+{
+	"schema": "supers@1",
+	"name": "Type hero — vantage (Clean Light re-dress)",
+	"description": "Calibration Trio piece 3/3 for the clean-light pack: the ratified type-hero flat-graphic reference re-dressed under Clean Light (playbook § 5). Same composition and impact choreography — the field flips to the white studio, the word lands in Geist 600 cool near-black, the accent bar goes product blue, the stamp rides Geist Mono. Paper-grain dropped (grit reads as dirt on white — aesthetic.md anti-list); typography overrides lifted so the pack cores decide (ADR-0038).",
+	"pack": "clean-light",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "#f6f7f8",
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "type-hero",
+			"variant": "single",
+			"content": {
+				"title": "VANTAGE",
+				"author": "EPISODE 52 — SYNTAX.FM",
+				"body": ""
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.05,
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
+			},
+			"exit": {
+				"start": 0.92,
+				"duration": 0.04,
+				"ease": "smooth"
+			}
+		},
+		"textAnimations": [
+			{
+				"id": "hero-resolve",
+				"target": {
+					"kind": "surface",
+					"slot": "title"
+				},
+				"effect": "micro-scale-fade",
+				"enter": {
+					"start": 0.04,
+					"duration": 0.06,
+					"ease": "settled",
+					"sound": {
+						"event": "impact"
+					}
+				},
+				"exit": {
+					"start": 0.9,
+					"duration": 0.04,
+					"ease": "smooth"
+				}
+			},
+			{
+				"id": "stamp-fade",
+				"target": {
+					"kind": "surface",
+					"slot": "author"
+				},
+				"effect": "fade-through",
+				"enter": {
+					"start": 0.22,
+					"duration": 0.06,
+					"ease": "settled",
+					"sound": {
+						"event": "tick"
+					}
+				},
+				"exit": {
+					"start": 0.88,
+					"duration": 0.04,
+					"ease": "smooth"
+				}
+			}
+		],
+		"overlays": [],
+		"effects": [],
+		"audioCues": []
+	}
+}

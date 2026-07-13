@@ -32,6 +32,7 @@ Always read the doc named here for the task type. Skipping the dispatched doc is
 | Adding a new Surface / Block / Annotation / Overlay / Effect type | [`docs/engine-architecture.md`](docs/engine-architecture.md) (pipeline registry), [`docs/preset-format.md`](docs/preset-format.md) (variant declarations) |
 | Animation timing or motion design | [`docs/animation-rubric.md`](docs/animation-rubric.md), [`docs/packs/syntax/aesthetic.md`](docs/packs/syntax/aesthetic.md) (motion vocabulary) |
 | Channel-aesthetic decisions (palette, type, collage, chrome) | [`docs/packs/syntax/aesthetic.md`](docs/packs/syntax/aesthetic.md), `docs/inspo/` |
+| Authoring a new Pack (house archetype or customer brand) | [`docs/packs/authoring-playbook.md`](docs/packs/authoring-playbook.md) — intake → contract → manifest/fonts/aesthetic doc → machine gates → Calibration Trio |
 | Looking up a term | [`docs/CONTEXT.md`](docs/CONTEXT.md) |
 | Looking up why a past decision was made | [`docs/adr/`](docs/adr/) — start at the [ADR index](docs/adr/README.md) |
 | What's planned, and what to work on next | [`docs/roadmap.md`](docs/roadmap.md) — strategic backlog + the execution loop (check in per epic); live tasks in **dex** (`dex list --ready`) |

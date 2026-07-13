@@ -11,11 +11,13 @@ import type { PackManifest } from './types';
 import { syntaxPack } from '$lib/packs/syntax/manifest';
 import { editorialMonoPack } from '$lib/packs/editorial-mono/manifest';
 import { crtTerminalPack } from '$lib/packs/crt-terminal/manifest';
+import { cleanLightPack } from '$lib/packs/clean-light/manifest';
 
 export const PACK_REGISTRY: Readonly<Record<string, PackManifest>> = {
 	syntax: syntaxPack,
 	'editorial-mono': editorialMonoPack,
-	'crt-terminal': crtTerminalPack
+	'crt-terminal': crtTerminalPack,
+	'clean-light': cleanLightPack
 };
 
 /**

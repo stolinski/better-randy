@@ -91,6 +91,27 @@ export function resolveRoleColorFloat(
 }
 
 /**
+ * Read a named finite number out of a Pack style Role whose value is an
+ * object (e.g. a `vignette` strength riding the `type-hero.backdrop` Role).
+ * Same structural-Role posture as `resolveRoleColorFloat`: a Pack OPTS INTO
+ * a grade explicitly; when the Role is absent, malformed, or the named entry
+ * isn't a finite number, the caller's `fallback` (today's baked constant)
+ * applies — a silent Pack renders bit-identical.
+ */
+export function resolveRoleNumberField(role: unknown, key: string, fallback: number): number {
+	if (role !== null && typeof role === 'object' && (role as { kind?: unknown }).kind === 'style') {
+		const value = (role as { value?: unknown }).value;
+		if (value !== null && typeof value === 'object') {
+			const entry = (value as Record<string, unknown>)[key];
+			if (typeof entry === 'number' && Number.isFinite(entry)) {
+				return entry;
+			}
+		}
+	}
+	return fallback;
+}
+
+/**
  * Linear per-channel mix of two hex colors, `t` 0 (from) … 1 (to), returned
  * as a `rgb()` token. Frame-deterministic color morphs (a button press
  * interpolating platform-red to settled-grey) compute this per frame — the

@@ -5,7 +5,7 @@ import { packState } from '$lib/platform/engine-state.svelte';
 import { getPack } from '$lib/platform/packs/registry';
 import type { ShaderPass } from '$lib/platform/pipelines/types';
 import type { SurfaceState } from '$lib/platform/engine-schema';
-import { resolveRoleColorFloat } from '$lib/utils/color';
+import { resolveRoleColorFloat, resolveRoleNumberField } from '$lib/utils/color';
 import { hashStringToUnitInterval } from '$lib/utils/seeded';
 
 /**
@@ -44,7 +44,18 @@ export const TypeHeroRakeUniforms = d.struct({
 	bottomColor: d.vec3f,
 	warmBandColor: d.vec3f,
 	coolBandColor: d.vec3f,
-	particleColor: d.vec3f
+	particleColor: d.vec3f,
+	// Pack-routed grade strengths. The rake rim/carve VECTORS stay intrinsic
+	// (signed grade split a hex Role can't express) but their STRENGTH routes
+	// through the `type-hero.light` Role ('none' → 0, `{ intensity: N }` → N);
+	// the field grade (vignette / grain / filmic toe) rides optional numeric
+	// fields on the `type-hero.backdrop` Role. Silent Packs pack today's exact
+	// constants — bit-identical (a dark-field grade reads as gray wash and
+	// dirt on a light-field Pack, clean-light calibration 2026-07-13).
+	rakeStrength: d.f32,
+	vignetteStrength: d.f32,
+	grainStrength: d.f32,
+	toeGamma: d.f32
 });
 
 export interface TypeHeroRakeParams {
@@ -58,6 +69,10 @@ export interface TypeHeroRakeParams {
 	warmBandColor: ReturnType<typeof d.vec3f>;
 	coolBandColor: ReturnType<typeof d.vec3f>;
 	particleColor: ReturnType<typeof d.vec3f>;
+	rakeStrength: number;
+	vignetteStrength: number;
+	grainStrength: number;
+	toeGamma: number;
 }
 
 const FALLBACK_CANVAS_WIDTH = 3840;
@@ -74,6 +89,13 @@ const NEUTRAL_BOTTOM_COLOR: readonly [number, number, number] = [0.023, 0.023, 0
 const NEUTRAL_WARM_BAND_COLOR: readonly [number, number, number] = [0.4994, 0.4994, 0.4994];
 const NEUTRAL_COOL_BAND_COLOR: readonly [number, number, number] = [0.406, 0.406, 0.406];
 const NEUTRAL_PARTICLE_COLOR: readonly [number, number, number] = [0.804, 0.804, 0.804];
+
+// Baked field-grade constants — the silent-Pack defaults for the routed
+// strengths (a Pack that claims nothing renders bit-identical to the
+// pre-routing pass).
+const DEFAULT_VIGNETTE_STRENGTH = 0.32;
+const DEFAULT_GRAIN_STRENGTH = 0.022;
+const DEFAULT_TOE_GAMMA = 0.94;
 
 const wgsl = /* wgsl */ `
 	let seed = layout.$.uniforms.seed;
@@ -198,8 +220,11 @@ const wgsl = /* wgsl */ `
 	// this Surface's signature feature.
 	let litFacing = max(0.0, lightAlignment);
 	let awayFacing = max(0.0, -lightAlignment);
-	let rimStrength = clamp(pow(litFacing, 1.3) * edgeMagnitude * 1.5, 0.0, 0.85);
-	let carveStrength = clamp(pow(awayFacing, 1.45) * edgeMagnitude * 1.25, 0.0, 0.42);
+	// rakeStrength routes the type-hero.light Role: the Pack dials the whole
+	// raked-light dimension (1 = today's full rake, 0 = flat ink).
+	let rake = layout.$.uniforms.rakeStrength;
+	let rimStrength = clamp(pow(litFacing, 1.3) * edgeMagnitude * 1.5, 0.0, 0.85) * rake;
+	let carveStrength = clamp(pow(awayFacing, 1.45) * edgeMagnitude * 1.25, 0.0, 0.42) * rake;
 	// rimTint / coolShadow are signed grade VECTORS (negative channels), not
 	// colours — they carry the rake's warm-key / cool-counter split and stay
 	// intrinsic to the pass, NOT Pack Roles (a hex Role can't express them).
@@ -221,14 +246,14 @@ const wgsl = /* wgsl */ `
 	// Vignette + toe apply to the backdrop only — the type is composited over
 	// backdropGrained at full strength, so grading the field doesn't dim the hero.
 	let centred = (in.uv - vec2f(0.5)) * vec2f(aspectRatio, 1.0);
-	let vignette = smoothstep(0.42, 1.20, length(centred)) * 0.32;
+	let vignette = smoothstep(0.42, 1.20, length(centred)) * layout.$.uniforms.vignetteStrength;
 	let vignetted = driftedBackdrop * (1.0 - vignette);
 	let grainSeed = floor(in.uv * vec2f(canvasW, canvasH)) + vec2f(seed * 19.0 + t * 7.0, seed * 23.0 + t * 11.0);
 	let grain = fract(sin(dot(grainSeed, vec2f(127.1, 311.7))) * 43758.5453) - 0.5;
-	let grained = vignetted + vec3f(grain) * 0.022;
+	let grained = vignetted + vec3f(grain) * layout.$.uniforms.grainStrength;
 	// Filmic toe (black-lift): lift crushed shadows so the field reads as graded
-	// depth rather than a flat void.
-	let backdropGrained = pow(max(grained, vec3f(0.0)), vec3f(0.94));
+	// depth rather than a flat void. toeGamma 1.0 = linear (no toe).
+	let backdropGrained = pow(max(grained, vec3f(0.0)), vec3f(layout.$.uniforms.toeGamma));
 
 	// ----- Composite text-with-dimension over backdrop -----
 	//
@@ -255,7 +280,16 @@ export function createTypeHeroRakePass(): ShaderPass<SurfaceState> {
 			const seed = hashStringToUnitInterval(seedSource);
 			// Uniforms pack per frame, so a Pack switch takes effect without extra
 			// reactivity — read the active Pack imperatively here.
-			const backdropRole = getPack(packState.slug).roles['type-hero.backdrop'];
+			const activeRoles = getPack(packState.slug).roles;
+			const backdropRole = activeRoles['type-hero.backdrop'];
+			// The raked-light dimension routes through `type-hero.light` (identity
+			// spec viaPack): 'none' kills the rake, `{ intensity: N }` scales it,
+			// silence keeps today's full rake.
+			const lightRole = activeRoles['type-hero.light'];
+			const rakeStrength =
+				lightRole?.kind === 'style' && lightRole.value === 'none'
+					? 0
+					: resolveRoleNumberField(lightRole, 'intensity', 1);
 			return {
 				seed,
 				progress: ctx.progress,
@@ -276,7 +310,15 @@ export function createTypeHeroRakePass(): ShaderPass<SurfaceState> {
 				),
 				particleColor: d.vec3f(
 					...resolveRoleColorFloat(backdropRole, 'particle', NEUTRAL_PARTICLE_COLOR)
-				)
+				),
+				rakeStrength,
+				vignetteStrength: resolveRoleNumberField(
+					backdropRole,
+					'vignette',
+					DEFAULT_VIGNETTE_STRENGTH
+				),
+				grainStrength: resolveRoleNumberField(backdropRole, 'grain', DEFAULT_GRAIN_STRENGTH),
+				toeGamma: resolveRoleNumberField(backdropRole, 'toe', DEFAULT_TOE_GAMMA)
 			} satisfies TypeHeroRakeParams;
 		}
 	};
