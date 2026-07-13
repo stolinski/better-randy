@@ -175,7 +175,7 @@ The first three probes to implement (highest leverage):
 |---|---|---|
 | `probe-dimensions.ts <png>` | `{ width, height }` | R6 (resolution) |
 | `probe-banding.ts <png> --region <x,y,w,h>` | `{ max-step, band-count, peak-falloff-px }` | R3 (shadow), R5 (banding) |
-| `probe-hue-count.ts <png>` | `{ saturated-hues: [hsl,...], count }` | Q4 (palette restraint) |
+| `probe-hue-count.ts <png> [--downsample n]` | `{ saturated-hues: [hsl,...], count }` | Q4 (palette restraint). Pass `--downsample 4` whenever a mask/subpixel-structure Effect is in the chain (`crt-tube`, `crt-scanline` material, `ntsc-signal`): Q4 governs the perceptual palette at viewing distance, and per-pixel counting reads phosphor triads / chroma fringing as a dozen fake hues. `--region` stays in full-res pixels. |
 
 Follow-on probes when failure patterns demand them:
 

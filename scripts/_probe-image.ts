@@ -19,12 +19,18 @@ export interface ProbeBounds {
 
 interface ParseProbeArgsOptions {
 	region: 'optional' | 'required';
+	downsample?: boolean;
 	usage: string;
 }
 
-export function parseProbeArgs({ region: regionRequirement, usage }: ParseProbeArgsOptions): {
+export function parseProbeArgs({
+	region: regionRequirement,
+	downsample: allowDownsample,
+	usage
+}: ParseProbeArgsOptions): {
 	pngPath: string;
 	region: ProbeRegion | null;
+	downsample: number | null;
 } {
 	const [, , inputPath, ...rest] = process.argv;
 	if (!inputPath) {
@@ -54,11 +60,67 @@ export function parseProbeArgs({ region: regionRequirement, usage }: ParseProbeA
 		process.exit(2);
 	}
 
-	return { pngPath: resolve(process.cwd(), inputPath), region };
+	let downsampleFactor: number | null = null;
+	const downsampleIndex = rest.indexOf('--downsample');
+	if (downsampleIndex >= 0) {
+		if (!allowDownsample) {
+			console.error(usage);
+			process.exit(2);
+		}
+		const value = Number(rest[downsampleIndex + 1]);
+		if (!Number.isInteger(value) || value < 2 || value > 16) {
+			console.error('--downsample requires an integer factor in [2, 16]');
+			process.exit(2);
+		}
+		downsampleFactor = value;
+	}
+
+	return { pngPath: resolve(process.cwd(), inputPath), region, downsample: downsampleFactor };
 }
 
 export async function loadProbePng(pngPath: string): Promise<PNG> {
 	return PNG.sync.read(await readFile(pngPath));
+}
+
+/**
+ * Box-average the image down by an integer factor (RGBA mean per block).
+ * Simulates viewing distance: subpixel structure painted by mask-class
+ * Effects (CRT triads, scanlines, NTSC chroma fringing) blends into the
+ * perceptual colour it reads as, instead of being measured per-pixel.
+ */
+export function downsampleProbePng(png: PNG, factor: number): PNG {
+	const width = Math.max(1, Math.floor(png.width / factor));
+	const height = Math.max(1, Math.floor(png.height / factor));
+	const out = new PNG({ width, height });
+
+	for (let y = 0; y < height; y++) {
+		for (let x = 0; x < width; x++) {
+			let r = 0;
+			let g = 0;
+			let b = 0;
+			let a = 0;
+			let count = 0;
+			const sourceYEnd = Math.min(png.height, (y + 1) * factor);
+			const sourceXEnd = Math.min(png.width, (x + 1) * factor);
+			for (let sourceY = y * factor; sourceY < sourceYEnd; sourceY++) {
+				for (let sourceX = x * factor; sourceX < sourceXEnd; sourceX++) {
+					const i = (sourceY * png.width + sourceX) * 4;
+					r += png.data[i];
+					g += png.data[i + 1];
+					b += png.data[i + 2];
+					a += png.data[i + 3];
+					count++;
+				}
+			}
+			const o = (y * width + x) * 4;
+			out.data[o] = Math.round(r / count);
+			out.data[o + 1] = Math.round(g / count);
+			out.data[o + 2] = Math.round(b / count);
+			out.data[o + 3] = Math.round(a / count);
+		}
+	}
+
+	return out;
 }
 
 export function getProbeBounds(png: PNG, region: ProbeRegion | null): ProbeBounds {

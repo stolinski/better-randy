@@ -1,4 +1,4 @@
-import { getProbeBounds, loadProbePng, parseProbeArgs } from './_probe-image.ts';
+import { downsampleProbePng, getProbeBounds, loadProbePng, parseProbeArgs } from './_probe-image.ts';
 
 // Reports the number of distinct saturated hues in a frame. Used by the
 // Critic for Q4 (palette restraint — ≤ 3 saturated hues at once).
@@ -11,12 +11,28 @@ import { getProbeBounds, loadProbePng, parseProbeArgs } from './_probe-image.ts'
 // (excludes near-black and near-white from the hue count).
 // Pass `--region x,y,w,h` to restrict to a sub-rect (e.g. the canvas
 // area within a viewport screenshot that includes workspace UI chrome).
+// Pass `--downsample n` (box-average by n, e.g. 4) whenever a
+// mask/subpixel-structure Effect is in the chain (crt-tube, crt-scanline
+// material, ntsc-signal): Q4 governs the perceptual palette at viewing
+// distance, and per-pixel counting reads phosphor triads / chroma fringing
+// as a dozen fake hues. Region coordinates stay in FULL-RES pixels.
 
-const { pngPath, region } = parseProbeArgs({
+const { pngPath, region, downsample } = parseProbeArgs({
 	region: 'optional',
-	usage: 'usage: probe-hue-count.ts <png> [--region x,y,w,h]'
+	downsample: true,
+	usage: 'usage: probe-hue-count.ts <png> [--region x,y,w,h] [--downsample n]'
 });
-const png = await loadProbePng(pngPath);
+const sourcePng = await loadProbePng(pngPath);
+const png = downsample ? downsampleProbePng(sourcePng, downsample) : sourcePng;
+const probeRegion =
+	region && downsample
+		? {
+				x: Math.floor(region.x / downsample),
+				y: Math.floor(region.y / downsample),
+				w: Math.max(1, Math.round(region.w / downsample)),
+				h: Math.max(1, Math.round(region.h / downsample))
+			}
+		: region;
 
 function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
 	const rn = r / 255;
@@ -39,7 +55,7 @@ const BIN_COUNT = 12; // 30° per bin
 const bins = new Array<number>(BIN_COUNT).fill(0);
 let saturatedTotal = 0;
 
-const { x0, y0, x1, y1 } = getProbeBounds(png, region);
+const { x0, y0, x1, y1 } = getProbeBounds(png, probeRegion);
 
 for (let y = y0; y < y1; y++) {
 	for (let x = x0; x < x1; x++) {
