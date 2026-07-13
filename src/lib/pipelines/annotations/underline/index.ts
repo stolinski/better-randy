@@ -1,17 +1,4 @@
-import { drawAnnotationMarks } from '$lib/annotations/annotation-marks';
+import { createDecorativeAnnotationRenderer } from '$lib/annotations/decorative-renderer';
 import type { AnnotationRenderer } from '$lib/platform/pipelines/types';
 
-export const underline: AnnotationRenderer = {
-	style: 'underline',
-	kind: 'decorative',
-	appliesTo: ['paragraph'],
-	draw({ color, context, intensity, layout, progress }) {
-		drawAnnotationMarks({
-			colorsByIndex: [color],
-			context,
-			intensityByIndex: [intensity],
-			layouts: [layout],
-			progressByIndex: [progress]
-		});
-	}
-};
+export const underline: AnnotationRenderer = createDecorativeAnnotationRenderer('underline');
