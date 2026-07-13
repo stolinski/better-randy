@@ -50,7 +50,7 @@ The engine gap is closed, the make-cinematic push is **done across every surface
 
 **The recipe** (proven on chapter-card, applied corpus-wide): off-center staging · filmic grade + toe · eased felt camera · two-octave fBm parallax · GPU-fade outro · reading-order entrances.
 
-**Reference deliverables:** `lower-third-cinematic` (overlay reference), `server-renders-again` (editorial-mono gate), and `chapter-card-cinematic` (surface reference) are the bar the rest were driven to.
+**Reference deliverables:** the Scott-ratified Calibration Trio — `docu-timeline-build`, the `lower-third` house card, `type-hero-vantage` — is the bar (calibrated 2026-07-09). The 2026-06 cinematic-era references (`lower-third-cinematic`, `chapter-card-cinematic`) were retired 2026-07-13 under [ADR-0039](adr/0039-pack-neutral-compositions-and-listing-hygiene.md) — superseded by the recomposed house style and the depth-stage deliverables; `server-renders-again` awaits retirement/re-authoring under the pack-neutral bar.
 
 **The remaining corpus tail** (dex epic `ri2qchcm`): opaque-piece Critic probe (`9w7kdptf`), washi-tape fibrous tear-edge (`ukc5ip66`), paper-grain on near-black fields (`3ohrvtc4`), and the heavy image-substrate + edge-treatment primitive (`jhxe2k5w`, in progress — its substrate half already shipped `pullquote-on-photo`; the edge-treatment half is open).
 

@@ -2,6 +2,7 @@
 	"schema": "supers@1",
 	"name": "Show-open — In Focus — CRT Terminal",
 	"description": "Same recipe as show-open-in-focus, published under the crt-terminal Pack — the ADR-0038 multi-pack integration proof on the flagship. Byte-identical composition (same camera push, rack focus, cascade choreography, lower-third at depth, sound bed + impact); only name / description / pack differ. The engine renders it as a wholly different publication: emissive green phosphor instead of warm reflective ink, bloom instead of cast shadow, and the crt-tube chrome (flat-glass beam raster + shadow-mask texture + bezel + halation) auto-appended because the piece is opaque. Proves the show-open is the engine, not a look.",
+	"kind": "fixture",
 	"pack": "crt-terminal",
 	"state": {
 		"transport": {

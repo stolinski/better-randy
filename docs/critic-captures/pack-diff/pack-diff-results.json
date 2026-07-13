@@ -1,5 +1,5 @@
 {
-	"generatedAt": "2026-07-13T16:58:32.965Z",
+	"generatedAt": "2026-07-13T20:59:36.760Z",
 	"packs": {
 		"a": "syntax",
 		"b": "clean-light"
@@ -30,8 +30,8 @@
 		},
 		{
 			"pipeline": "surface:chapter-card",
-			"preset": "chapter-card-cinematic",
-			"diffPct": "99.96%",
+			"preset": "chapter-card-descent",
+			"diffPct": "99.98%",
 			"status": "PASS"
 		},
 		{
@@ -42,8 +42,8 @@
 		},
 		{
 			"pipeline": "surface:title-sequence",
-			"preset": "show-open-in-focus",
-			"diffPct": "9.15%",
+			"preset": "title-sequence-signal",
+			"diffPct": "99.11%",
 			"status": "PASS"
 		},
 		{
@@ -186,8 +186,8 @@
 		},
 		{
 			"pipeline": "overlay:lower-third",
-			"preset": "lower-third-cinematic",
-			"diffPct": "6.92%",
+			"preset": "lower-third",
+			"diffPct": "5.6%",
 			"status": "PASS"
 		},
 		{
@@ -229,20 +229,20 @@
 	],
 	"presets": [
 		{
-			"slug": "chapter-card-cinematic",
+			"slug": "chapter-card-descent",
 			"packA": "syntax",
 			"packB": "clean-light",
 			"progress": 0.5,
-			"timelineTime": 4,
+			"timelineTime": 3.5,
 			"captures": [
-				"docs/critic-captures/pack-diff/chapter-card-cinematic--syntax.png",
-				"docs/critic-captures/pack-diff/chapter-card-cinematic--clean-light.png"
+				"docs/critic-captures/pack-diff/chapter-card-descent--syntax.png",
+				"docs/critic-captures/pack-diff/chapter-card-descent--clean-light.png"
 			],
 			"stats": {
 				"width": 960,
 				"height": 539,
-				"meanAbsDiff": 0.81126,
-				"changedPct": 99.96
+				"meanAbsDiff": 0.81391,
+				"changedPct": 99.98
 			},
 			"error": null
 		},
@@ -277,7 +277,7 @@
 			"stats": {
 				"width": 960,
 				"height": 539,
-				"meanAbsDiff": 0.83668,
+				"meanAbsDiff": 0.83665,
 				"changedPct": 98.14
 			},
 			"error": null
@@ -295,7 +295,7 @@
 			"stats": {
 				"width": 960,
 				"height": 539,
-				"meanAbsDiff": 0.00408,
+				"meanAbsDiff": 0.00413,
 				"changedPct": 0.87
 			},
 			"error": null
@@ -373,20 +373,20 @@
 			"error": null
 		},
 		{
-			"slug": "lower-third-cinematic",
+			"slug": "lower-third",
 			"packA": "syntax",
 			"packB": "clean-light",
 			"progress": 0.5,
-			"timelineTime": 3,
+			"timelineTime": 2.5,
 			"captures": [
-				"docs/critic-captures/pack-diff/lower-third-cinematic--syntax.png",
-				"docs/critic-captures/pack-diff/lower-third-cinematic--clean-light.png"
+				"docs/critic-captures/pack-diff/lower-third--syntax.png",
+				"docs/critic-captures/pack-diff/lower-third--clean-light.png"
 			],
 			"stats": {
 				"width": 960,
 				"height": 539,
-				"meanAbsDiff": 0.05296,
-				"changedPct": 6.92
+				"meanAbsDiff": 0.0414,
+				"changedPct": 5.6
 			},
 			"error": null
 		},
@@ -499,24 +499,6 @@
 			"error": null
 		},
 		{
-			"slug": "show-open-in-focus",
-			"packA": "syntax",
-			"packB": "clean-light",
-			"progress": 0.5,
-			"timelineTime": 4,
-			"captures": [
-				"docs/critic-captures/pack-diff/show-open-in-focus--syntax.png",
-				"docs/critic-captures/pack-diff/show-open-in-focus--clean-light.png"
-			],
-			"stats": {
-				"width": 960,
-				"height": 539,
-				"meanAbsDiff": 0.05346,
-				"changedPct": 9.15
-			},
-			"error": null
-		},
-		{
 			"slug": "text-3d-cylinder",
 			"packA": "syntax",
 			"packB": "clean-light",
@@ -531,6 +513,24 @@
 				"height": 539,
 				"meanAbsDiff": 0.00725,
 				"changedPct": 1.44
+			},
+			"error": null
+		},
+		{
+			"slug": "title-sequence-signal",
+			"packA": "syntax",
+			"packB": "clean-light",
+			"progress": 0.5,
+			"timelineTime": 3,
+			"captures": [
+				"docs/critic-captures/pack-diff/title-sequence-signal--syntax.png",
+				"docs/critic-captures/pack-diff/title-sequence-signal--clean-light.png"
+			],
+			"stats": {
+				"width": 960,
+				"height": 539,
+				"meanAbsDiff": 0.77219,
+				"changedPct": 99.11
 			},
 			"error": null
 		}

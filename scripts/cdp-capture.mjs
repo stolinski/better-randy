@@ -6,7 +6,7 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 
 const PORT = Number(process.env.CDP_PORT ?? 9223);
-const SLUG = process.argv[2] ?? 'lower-third-cinematic';
+const SLUG = process.argv[2] ?? 'lower-third';
 const URL = process.env.CDP_URL ?? `http://localhost:7263/p/${SLUG}`;
 const OUTDIR = `.tmp-baselines/${SLUG}`;
 const SAMPLES = (process.env.CDP_SAMPLES ?? '0,0.25,0.5,0.75,1').split(',').map(Number);

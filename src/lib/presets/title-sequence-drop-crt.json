@@ -2,6 +2,7 @@
 	"schema": "supers@1",
 	"name": "Title sequence — drop in with impact — CRT Terminal",
 	"description": "Hero title moment. The Pack-resolved mono display title drops in from above the frame with a 12-tap directional motion blur trail that fades as velocity drops to zero, hits a brief brightness flash at the impact frame (progress 0.20 (enter-end)), and settles with a faint decaying shake. All motion is shader-driven via UV offset on the captured text texture; the DOM renders the title statically at its resting position. Atmospheric deep-black backdrop with subtle off-frame phosphor-green glow (upper-right key, Pack-routed) and fine film grain. Tests shader-driven text motion + directional motion blur, a technique not exercised by any existing preset. Same recipe as title-sequence-drop, published under the crt-terminal Pack — the ADR-0038 multi-pack integration demo.",
+	"kind": "fixture",
 	"pack": "crt-terminal",
 	"state": {
 		"transport": {

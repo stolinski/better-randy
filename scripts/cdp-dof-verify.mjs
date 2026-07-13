@@ -129,9 +129,9 @@ for (const plane of ['composite', 'surface', 'overlay']) {
 await evaluate(`window.__supersDofPreviewPlane = undefined;`);
 
 // --- Regression: existing overlay preset under the layer-wrapper split ---
-rect = await load('lower-third-cinematic');
+rect = await load('lower-third');
 await seek(0.5);
-await shot(rect, `${OUTDIR}/regression-lower-third-cinematic.png`);
+await shot(rect, `${OUTDIR}/regression-lower-third.png`);
 
 ws.close();
 console.log('DONE');

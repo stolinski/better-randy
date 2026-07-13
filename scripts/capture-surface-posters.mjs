@@ -19,7 +19,7 @@ const REPS = {
 	plain: 'counter-milestone',
 	newspaper: 'title-card-newspaper',
 	'pullquote-on-photo': 'pullquote-cinematic',
-	'chapter-card': 'chapter-card-cinematic',
+	'chapter-card': 'chapter-card-descent',
 	'title-sequence': 'title-sequence-drop',
 	'type-hero': 'type-hero-drift',
 	'web-document': 'web-document-wikipedia',

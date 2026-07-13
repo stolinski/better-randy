@@ -2,6 +2,7 @@
 	"schema": "supers@1",
 	"name": "Lower-third — cascade reveal",
 	"description": "The ADR-0035 reference deliverable — a broadcast lower-third that NEEDS the keyframe model. The card is composition-owned: a 3-keyframe scale settle (0.965 → 1.012 → 1, the dip-then-land a single Transition window cannot express) rides with an authored fade and rise; the title and subtitle reveals are ms-welded in reading order (card start +340 ms → title; title end +120 ms → subtitle), so re-timing the card moves the whole chain — and its whoosh — in lockstep. Built on the lower-third-cinematic reference bones (cinematic variant, warm rim flare).",
+	"kind": "fixture",
 	"pack": "syntax",
 	"state": {
 		"transport": {

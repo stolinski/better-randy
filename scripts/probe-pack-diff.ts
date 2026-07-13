@@ -274,7 +274,7 @@ for (const file of readdirSync(presetDir).filter((name) => name.endsWith('.json'
  * merely carry a lower-third in the background).
  */
 const REPRESENTATIVE_OVERRIDES: Readonly<Record<string, string>> = {
-	'overlay:lower-third': 'lower-third-cinematic'
+	'overlay:lower-third': 'lower-third'
 };
 
 /**
