@@ -144,12 +144,19 @@ export interface SurfaceRenderInstance {
  *     resolution-dependent shaders (pixel grids, px-sized kernels) and for
  *     converting pixel-space bounds to UV without hardcoding the resolution
  *     (ADR-0012 amendment)
+ *   - `stageContentScale` — screen magnification of the depth stage's Surface
+ *     plane at this frame (ADR-0028 camera; 1 at the framing rest pose).
+ *     Supplied only on the post-stage effect chain — pre-stage passes ride
+ *     their plane and never need it. Raster-structured effects multiply their
+ *     screen-space pitches by it so raster-to-stroke phase holds through a
+ *     camera push (G5 scanline scale-compensation); consumers default to 1.
  */
 export interface EffectPackContext {
 	progress: number;
 	timestamp: number;
 	canvasWidth: number;
 	canvasHeight: number;
+	stageContentScale?: number;
 }
 
 /**

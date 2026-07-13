@@ -78,7 +78,14 @@ const CrtTubeUniforms = d.struct({
 	halation: d.f32,
 	vignette: d.f32,
 	interlace: d.f32,
-	frame: d.f32
+	frame: d.f32,
+	// Depth-stage Surface-plane magnification (1 = rest pose / no stage). The
+	// beam raster and phosphor mask pitches scale by it so raster-to-stroke
+	// phase holds while a stage camera pushes: sub-pitch strokes sliding across
+	// fixed screen-space rasters decay their sampled average (G5 scanline
+	// scale-compensation, dex h02eht8j). Glass geometry — bezel, curvature,
+	// vignette, halation radius — is the physical monitor and stays fixed.
+	contentScale: d.f32
 });
 
 const fragmentBody = /* wgsl */ `
@@ -105,15 +112,28 @@ const fragmentBody = /* wgsl */ `
 	let innerShade = 1.0 - 0.45 * bez * smoothstep(-0.06, -0.005, dTube);
 
 	// ----- Scanlines: gaussian beam over the two nearest raster lines -----
+	// Raster lattices evaluate in STAGED-CONTENT space: a stage camera push
+	// scales content about the projection centre, so the lattices scale about
+	// the same anchor — pitch AND phase hold to the strokes through the move
+	// (origin-anchored pitch scaling alone redistributes the lattice per frame
+	// and the stroke phase sweeps instead). At the rest pose the select()
+	// short-circuits to screen space bit-exactly.
+	let cs = clamp(layout.$.uniforms.contentScale, 0.25, 4.0);
+	let atRest = layout.$.uniforms.contentScale == 1.0;
+	let contentUv = select((uvW - vec2f(0.5)) / cs + vec2f(0.5), uvW, atRest);
 	let linesN = max(layout.$.uniforms.lines, 8.0);
 	let interlaced = layout.$.uniforms.interlace > 0.5;
 	let parity = select(0.0, layout.$.uniforms.frame % 2.0, interlaced);
 	let rasterLines = select(linesN, linesN * 0.5, interlaced);
-	let lfp = uvW.y * rasterLines - 0.5 * parity;
+	let lfp = contentUv.y * rasterLines - 0.5 * parity;
 	let kA = floor(lfp - 0.5) + 0.5;
 	let kB = kA + 1.0;
-	let vA = (kA + 0.5 * parity) / rasterLines;
-	let vB = (kB + 0.5 * parity) / rasterLines;
+	// Line centres are lattice (content-space) positions; map back to screen
+	// uv to sample the staged frame where those lines actually landed.
+	let vAc = (kA + 0.5 * parity) / rasterLines;
+	let vBc = (kB + 0.5 * parity) / rasterLines;
+	let vA = select((vAc - 0.5) * cs + 0.5, vAc, atRest);
+	let vB = select((vBc - 0.5) * cs + 0.5, vBc, atRest);
 	let cA = textureSampleLevel(layout.$.inputTexture, layout.$.samp, vec2f(uvW.x, vA), 0.0);
 	let cB = textureSampleLevel(layout.$.inputTexture, layout.$.samp, vec2f(uvW.x, vB), 0.0);
 
@@ -134,8 +154,10 @@ const fragmentBody = /* wgsl */ `
 	var aBeam = (cA.a * wA + cB.a * wB) / beamDenom;
 
 	// ----- Phosphor mask in warped tube pixels -----
+	// Same compensation as the beam raster: the triad lattice is evaluated in
+	// content space, so it keeps pitch AND phase to the staged strokes.
 	let pitch = max(layout.$.uniforms.maskPitchPx * refScale, 3.0);
-	let pxW = uvW * res;
+	let pxW = contentUv * res;
 	let mode = layout.$.uniforms.maskMode;
 	var maskRGB = vec3f(1.0);
 	// Analytic mean transmission of each mask pattern — the mask is
@@ -246,7 +268,8 @@ export const crtTube: EffectRenderer<CrtTubeParams> = {
 			vignette: params.vignette ?? 0.28,
 			interlace: (params.interlace ?? false) ? 1 : 0,
 			// Same deterministic ~30 Hz NTSC frame clock as `ntsc-signal`.
-			frame: Math.floor(ctx.timestamp * 30 + 0.5)
+			frame: Math.floor(ctx.timestamp * 30 + 0.5),
+			contentScale: ctx.stageContentScale ?? 1
 		})
 	},
 	Editor

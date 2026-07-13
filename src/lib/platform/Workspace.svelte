@@ -97,6 +97,7 @@
 	import { TransitionSnapshots } from './pipelines/transition-snapshots';
 	import { CompositionPlanes, type CompositeBackdrop } from './pipelines/composition-planes';
 	import { DepthStage } from './pipelines/depth-stage';
+	import { STAGE_CAM_Z, stageCameraPose } from './pipelines/depth-stage-camera';
 	import { compileTransitionWipe, type CompiledTransitionWipe } from './pipelines/transition-pass';
 	import {
 		downloadBlob,
@@ -2136,12 +2137,17 @@
 			time: timebase.progress
 		});
 		const commandEncoder = host.device.createCommandEncoder();
+		// The stage camera's Surface-plane magnification this frame — the same
+		// pose function the stage renders with, so raster-structured chrome
+		// (crt-tube) tracks the staged strokes exactly (G5 scale-compensation).
+		const { eyeZ } = stageCameraPose(stage.cameraMove, stage.cameraAmount, timebase.progress);
 		effectChain.apply({
 			commandEncoder,
 			effects: withPackChrome(stage.effects),
 			inputTexture: depthStage.outputTexture(),
 			outputView,
 			...timebase,
+			stageContentScale: STAGE_CAM_Z / eyeZ,
 			background: undefined
 		});
 		return true;

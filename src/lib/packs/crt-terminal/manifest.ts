@@ -101,13 +101,15 @@ export const crtTerminalPack: PackManifest = {
 						mask: 'shadow',
 						maskPitchPx: 7,
 						// 0.12 (with focus 0.88 below): maximum G5 headroom the dial can
-						// give. Measured limit (Critic round-5 phase map, 2026-07-10):
-						// a depth-stage camera push still decays 33px-caps avg-ink
-						// ~9% across the hold (4.7 → 4.28 on show-open's SEASON TWO)
-						// — that residue is push-magnification sliding sub-pixel
-						// strokes across the fixed screen-space rasters, not a dial
-						// term; the engine-side lane is scanline scale-compensation
-						// (dex h02eht8j).
+						// give — re-confirmed inert (±0.02 ratio) after the 2026-07-13
+						// scale-compensation fix. The round-5 push decay (~9% across the
+						// hold on show-open's SEASON TWO) is RESOLVED engine-side: the
+						// tube's raster + mask lattices now evaluate in staged-content
+						// space (crt-tube contentScale, fed by the stage camera), so
+						// stroke-to-lattice phase holds through a push. What that fix
+						// exposed: the early-hold 4.7 was favourable-phase luck — the
+						// stage-path REST value is ~4.3 (static pieces measure 4.5+),
+						// a rest-state ground/ink gap, not a raster-phase term.
 						maskStrength: 0.12,
 						// 2160 / 360 = 6px line pitch @4K — the same pitch as the
 						// per-element material scanline (pitchPx 6), so the element

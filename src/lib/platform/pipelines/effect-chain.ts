@@ -85,6 +85,7 @@ interface CompiledEffect {
 		timestamp: number;
 		canvasWidth: number;
 		canvasHeight: number;
+		stageContentScale?: number;
 	}): void;
 }
 
@@ -156,9 +157,24 @@ function compileEffect(host: GpuHost, renderer: EffectRenderer): CompiledEffect 
 
 	return {
 		type: renderer.type,
-		apply({ inputView, outputView, params, progress, timestamp, canvasWidth, canvasHeight }) {
+		apply({
+			inputView,
+			outputView,
+			params,
+			progress,
+			timestamp,
+			canvasWidth,
+			canvasHeight,
+			stageContentScale
+		}) {
 			uniformBuffer.write(
-				renderer.pass.pack(params, { progress, timestamp, canvasWidth, canvasHeight }) as never
+				renderer.pass.pack(params, {
+					progress,
+					timestamp,
+					canvasWidth,
+					canvasHeight,
+					stageContentScale
+				}) as never
 			);
 
 			const bindGroup = root.createBindGroup(bindGroupLayout, {
@@ -295,6 +311,8 @@ export interface ApplyChainOptions {
 	// paused-timeline scrub; preview and export agree at the same time.
 	progress: number;
 	timestamp: number;
+	/** Depth-stage Surface-plane magnification this frame (see EffectPackContext). */
+	stageContentScale?: number;
 	/** Premultiplied RGBA fill composited under the surface output. Absent = transparent default. */
 	background?: [number, number, number, number];
 }
@@ -351,6 +369,7 @@ export class EffectChain {
 		outputView,
 		progress,
 		timestamp,
+		stageContentScale,
 		background
 	}: ApplyChainOptions): void {
 		const valid: { effect: Effect; compiled: CompiledEffect }[] = [];
@@ -396,7 +415,8 @@ export class EffectChain {
 				progress,
 				timestamp,
 				canvasWidth: this.#width,
-				canvasHeight: this.#height
+				canvasHeight: this.#height,
+				stageContentScale
 			});
 			currentInputView = outputTexture.createView();
 		}
