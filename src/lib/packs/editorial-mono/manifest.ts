@@ -49,7 +49,10 @@ export const editorialMonoPack: PackManifest = {
 		// SPACE, not a box — no border, generous padding, and tight typographic
 		// tracking (vs the CRT terminal's wide status-line tracking). Same
 		// layout, a distinctly quieter, more art-directed object.
-		'lower-third.pad': { kind: 'style', value: 'calc(2.6 * var(--cqmin)) calc(3.6 * var(--cqmin))' },
+		'lower-third.pad': {
+			kind: 'style',
+			value: 'calc(2.6 * var(--cqmin)) calc(3.6 * var(--cqmin))'
+		},
 		'lower-third.tracking': { kind: 'style', value: '0.12em' },
 		'lower-third.weight': { kind: 'style', value: '600' },
 		// The watermark sits on its dark plate, so its handle can't ride the
@@ -140,9 +143,6 @@ export const editorialMonoPack: PackManifest = {
 				particle: '#c6d4e0'
 			}
 		},
-		// WGSL rim glow on the cinematic lower-third: the implied off-frame key
-		// is cool documentary daylight, not the syntax tungsten rim.
-		'lower-third.flare': { kind: 'style', value: { rim: '#aac6da' } },
 		// Skipped-color re-skins — prove the rgb-channel + grain Roles reach
 		// pixels: a cool trail fade (vs syntax's warm) and a cool-cast tape grain.
 		'cursor-trail.trailMaterial': { kind: 'style', value: { color: '#bfe4ff', softness: 0.5 } },
@@ -174,7 +174,8 @@ export const editorialMonoPack: PackManifest = {
 		'pullquote-on-photo.tracking': { kind: 'style', value: '0.12em' },
 		'watermark.pad': {
 			kind: 'style',
-			value: 'calc(2.4 * var(--cqmin)) calc(3 * var(--cqmin)) calc(2.4 * var(--cqmin)) calc(2.7 * var(--cqmin))'
+			value:
+				'calc(2.4 * var(--cqmin)) calc(3 * var(--cqmin)) calc(2.4 * var(--cqmin)) calc(2.7 * var(--cqmin))'
 		},
 		'watermark.tracking': { kind: 'style', value: '0.12em' }
 	}

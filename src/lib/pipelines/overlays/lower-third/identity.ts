@@ -23,7 +23,8 @@ export const lowerThirdIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'chip plate behind the text',
-				expectation: 'plate fill is painted in the CanvasSource (standard: flat rgba(10,10,10,0.92); cinematic: horizontal scrim gradient). Text ink resolves through lower-third.ink; kicker/accent resolves through lower-third.accent.'
+				expectation:
+					'plate fill is painted in the CanvasSource (standard: flat rgba(10,10,10,0.92); cinematic: horizontal scrim gradient). Text ink resolves through lower-third.ink; kicker/accent resolves through lower-third.accent.'
 			}
 		},
 		{
@@ -50,7 +51,7 @@ export const lowerThirdIdentity: IdentitySpec = {
 			name: 'light-treatment',
 			viaPack: 'lower-third.light',
 			definition:
-				'Any directional light contribution on the chip body (rim glow, flare, sheen, none). The `cinematic` variant\'s anamorphic flare is one resolution of this Role; the `standard` variant\'s flat plate is another.',
+				"Any directional light contribution on the chip body. 'none' is the only shipped resolution — the anamorphic-flare shaderPass was removed 2026-07-13 (Scott: it reads cheap, not cinematic; it was already dead code, gated on a light claim no Pack makes). The Role stays declared so a future light treatment can resolve here, but it must clear that bar.",
 			probe: {
 				kind: 'named-observation',
 				region: 'chip body under any implied light source',
@@ -76,7 +77,7 @@ export const lowerThirdIdentity: IdentitySpec = {
 			definition:
 				'Chip anchors to a frame corner (bottom-left by default) with an offset that does not crowd the frame edge.',
 			implementation:
-				'src/lib/pipelines/overlays/lower-third — OverlayPosition resolved via the engine\'s anchor + offset model.',
+				"src/lib/pipelines/overlays/lower-third — OverlayPosition resolved via the engine's anchor + offset model.",
 			probe: {
 				kind: 'named-observation',
 				region: 'chip position within the frame',

@@ -55,7 +55,10 @@ export const crtTerminalPack: PackManifest = {
 		// 22px @4K hot radius in the element's own foreground; consumers compose
 		// the wider dim skirt. Intensity scales with excitation — hotter Roles
 		// override wider/brighter, UI furniture narrower/dimmer.
-		'depth-treatment': { kind: 'style', value: { glow: { radius: 22, color: 'fg', intensity: 0.85 } } },
+		'depth-treatment': {
+			kind: 'style',
+			value: { glow: { radius: 22, color: 'fg', intensity: 0.85 } }
+		},
 		// Screens emit; nothing lights them. 'none' is a real claim, not an
 		// omission — the ADR-0028 stage gets no key light under this Pack.
 		'light-treatment': { kind: 'style', value: 'none' },
@@ -68,7 +71,10 @@ export const crtTerminalPack: PackManifest = {
 		// crt-tube chrome's beam raster on opaque pieces — 0.2 pushed the
 		// combined small-stroke luminance cost past the G5 ceiling
 		// (Critic 2026-07-10).
-		'material-treatment': { kind: 'style', value: { scanline: { pitchPx: 6, strength: 0.12, shimmer: 0.05 } } },
+		'material-treatment': {
+			kind: 'style',
+			value: { scanline: { pitchPx: 6, strength: 0.12, shimmer: 0.05 } }
+		},
 		'font-treatment': {
 			kind: 'style',
 			value: '"JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace'
@@ -232,7 +238,10 @@ export const crtTerminalPack: PackManifest = {
 		'node.fill': { kind: 'style', value: '#070b08' },
 		'node.ink': { kind: 'style', value: '#45ff6e' },
 		'node.accent': { kind: 'style', value: '#d9ffe0' },
-		'node.depth': { kind: 'style', value: { glow: { radius: 14, color: '#45ff6e', intensity: 0.6 } } },
+		'node.depth': {
+			kind: 'style',
+			value: { glow: { radius: 14, color: '#45ff6e', intensity: 0.6 } }
+		},
 		'stat-callout.accent': { kind: 'style', value: '#d9ffe0' },
 
 		// ---------------- Annotation tool inks ----------------
@@ -286,13 +295,13 @@ export const crtTerminalPack: PackManifest = {
 		// every bezelled panel below.
 		'lower-third.border': { kind: 'style', value: 'calc(0.3 * var(--cqmin)) solid #1e8f3d' },
 		'lower-third.radius': { kind: 'style', value: '0' },
-		'lower-third.pad': { kind: 'style', value: 'calc(1.5 * var(--cqmin)) calc(2.2 * var(--cqmin))' },
+		'lower-third.pad': {
+			kind: 'style',
+			value: 'calc(1.5 * var(--cqmin)) calc(2.2 * var(--cqmin))'
+		},
 		'lower-third.tracking': { kind: 'style', value: '0.34em' },
 		'lower-third.weight': { kind: 'style', value: '600' },
 		'lower-third.edge': { kind: 'style', value: { rule: 'vertical-accent', color: '#45ff6e' } },
-		// WGSL rim tint on the cinematic variant: the implied off-frame source is
-		// the terminal's own phosphor spill — one hue, not a tungsten key.
-		'lower-third.flare': { kind: 'style', value: { rim: '#45ff6e' } },
 
 		'watermark.ink': { kind: 'style', value: '#45ff6e' },
 		'watermark.accent': { kind: 'style', value: '#d9ffe0' },
@@ -368,7 +377,8 @@ export const crtTerminalPack: PackManifest = {
 		'watermark.radius': { kind: 'style', value: '0' },
 		'watermark.pad': {
 			kind: 'style',
-			value: 'calc(1.5 * var(--cqmin)) calc(1.9 * var(--cqmin)) calc(1.5 * var(--cqmin)) calc(1.7 * var(--cqmin))'
+			value:
+				'calc(1.5 * var(--cqmin)) calc(1.9 * var(--cqmin)) calc(1.5 * var(--cqmin)) calc(1.7 * var(--cqmin))'
 		},
 		'watermark.tracking': { kind: 'style', value: '0.34em' },
 		'watermark.case': { kind: 'style', value: 'uppercase' },
