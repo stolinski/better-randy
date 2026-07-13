@@ -1,7 +1,4 @@
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
-
-import { PNG } from 'pngjs';
+import { getProbeBounds, loadProbePng, parseProbeArgs } from './_probe-image.ts';
 
 // Reports text-edge sharpness metrics for a region of a PNG. Used by the
 // Critic for R1 (text sharpness) and R2 (resampled content sharpness).
@@ -20,33 +17,12 @@ import { PNG } from 'pngjs';
 //                    region contained text edges); the detection threshold is
 //                    range-relative so dim edges still register.
 
-interface Args {
-	png: string;
-	region: { x: number; y: number; w: number; h: number };
-}
-
-function parseArgs(): Args {
-	const [, , pngPath, regionFlag, regionValue] = process.argv;
-	if (!pngPath || regionFlag !== '--region' || !regionValue) {
-		console.error('usage: probe-text-edge.ts <png> --region x,y,w,h');
-		process.exit(2);
-	}
-	const [x, y, w, h] = regionValue.split(',').map((part) => Number(part));
-	if (![x, y, w, h].every(Number.isFinite) || w <= 0 || h <= 0) {
-		console.error(`invalid region "${regionValue}"`);
-		process.exit(2);
-	}
-	return { png: resolve(process.cwd(), pngPath), region: { x, y, w, h } };
-}
-
-const { png: pngPath, region } = parseArgs();
-const bytes = await readFile(pngPath);
-const png = PNG.sync.read(bytes);
-
-const x0 = Math.max(0, region.x);
-const y0 = Math.max(0, region.y);
-const x1 = Math.min(png.width, region.x + region.w);
-const y1 = Math.min(png.height, region.y + region.h);
+const { pngPath, region } = parseProbeArgs({
+	region: 'required',
+	usage: 'usage: probe-text-edge.ts <png> --region x,y,w,h'
+});
+const png = await loadProbePng(pngPath);
+const { x0, y0, x1, y1 } = getProbeBounds(png, region);
 
 const luma = (r: number, g: number, b: number): number =>
 	(0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
@@ -104,9 +80,7 @@ for (let y = y0; y < y1; y++) {
 				const gChange = findChannelTransition(xStart, xEnd, y, 1);
 				const bChange = findChannelTransition(xStart, xEnd, y, 2);
 				if (rChange >= 0 && gChange >= 0 && bChange >= 0) {
-					const spread =
-						Math.max(rChange, gChange, bChange) -
-						Math.min(rChange, gChange, bChange);
+					const spread = Math.max(rChange, gChange, bChange) - Math.min(rChange, gChange, bChange);
 					fringingSamples.push(spread);
 				}
 			}

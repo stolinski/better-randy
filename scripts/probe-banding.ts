@@ -1,9 +1,5 @@
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
-
-import { PNG } from 'pngjs';
-
 import { parseChannelFlag, resolveChannel } from './_probe-channel.ts';
+import { getProbeBounds, loadProbePng, parseProbeArgs } from './_probe-image.ts';
 
 // Reports banding metrics for a region of a PNG. Used by the Critic for
 // R3 (shadow falloff) and R5 (tonal banding).
@@ -15,41 +11,16 @@ import { parseChannelFlag, resolveChannel } from './_probe-channel.ts';
 //   transition_span_px — average pixel distance from alpha 0.9 → 0.1 across
 //                       scan lines. Larger span = softer falloff.
 
-interface Args {
-	png: string;
-	region: { x: number; y: number; w: number; h: number };
-}
-
-function parseArgs(): Args {
-	const [, , pngPath, regionFlag, regionValue] = process.argv;
-	if (!pngPath || regionFlag !== '--region' || !regionValue) {
-		console.error('usage: probe-banding.ts <png> --region x,y,w,h');
-		process.exit(2);
-	}
-	const [x, y, w, h] = regionValue.split(',').map((part) => Number(part));
-	if (![x, y, w, h].every(Number.isFinite) || w <= 0 || h <= 0) {
-		console.error(`invalid region "${regionValue}"`);
-		process.exit(2);
-	}
-	return { png: resolve(process.cwd(), pngPath), region: { x, y, w, h } };
-}
-
-const { png: pngPath, region } = parseArgs();
-const bytes = await readFile(pngPath);
-const png = PNG.sync.read(bytes);
-
-const x0 = Math.max(0, region.x);
-const y0 = Math.max(0, region.y);
-const x1 = Math.min(png.width, region.x + region.w);
-const y1 = Math.min(png.height, region.y + region.h);
+const { pngPath, region } = parseProbeArgs({
+	region: 'required',
+	usage: 'usage: probe-banding.ts <png> --region x,y,w,h'
+});
+const png = await loadProbePng(pngPath);
+const { x0, y0, x1, y1 } = getProbeBounds(png, region);
 
 // Measure on alpha (transparent overlays) or luma (opaque pieces / flattened
 // captures); auto-detected unless `--channel` forces it. See _probe-channel.ts.
-const { channel, sample } = resolveChannel(
-	png,
-	{ x0, y0, x1, y1 },
-	parseChannelFlag(process.argv)
-);
+const { channel, sample } = resolveChannel(png, { x0, y0, x1, y1 }, parseChannelFlag(process.argv));
 
 let maxStep = 0;
 let totalPlateaus = 0;
