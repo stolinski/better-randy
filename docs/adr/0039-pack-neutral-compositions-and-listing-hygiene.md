@@ -1,0 +1,43 @@
+# ADR-0039 — Pack-neutral compositions and preset listing hygiene
+
+> **Status — Accepted (Scott, 2026-07-13).** Decided during the clean-light calibration session, triggered by the `server-renders-again` pack-flip verdict: "it doesn't change meaningfully and all packs look bad here."
+
+## Context
+
+Two audits landed together:
+
+**The pack-flip audit.** Flipping `server-renders-again` (a rotated, taped-down newspaper clipping) across packs changes 55% of pixels and none of the meaning. Three distinct causes, none of them "the roles are too timid":
+
+1. **Brand grammar baked into the composition.** The piece's staging — rotate + tape + grain collage — is one brand's language (and a retired register even for syntax). ADR-0023 makes Packs appearance-only, so a swap can only repaint staging it's given. No re-dress makes a taped clipping read as CRT or white-studio.
+2. **Substrate doctrine inconsistency.** A quoted tweet is pack-immune (ADR-0038) but a quoted newspaper is pack-claimable — so packs repaint the _artifact itself_, breaking verisimilitude (a white-and-blue "newspaper" is no longer a newspaper) without gaining brand.
+3. **The remaining dupe deltas are enumerable.** Diffing every pack-suffix duplicate (`*-crt`, `*-clean-light`) against its base yields exactly: the `pack` field, `typography.paperColor/inkColor` restatements (already optional per ADR-0038), `backgroundFill` (a brand-coupled authored hex), sound-event swaps, one grain effect, one variant pick. That's the full list of what stops a pure pack flip from working.
+
+**The orientation audit.** Of 19 `-vertical`/`-horizontal` pairs, **13 are byte-identical** to their base apart from `transport.orientation` (all seven web-documents, all three iMessage pieces, both captions demos, depth-stage-demo). The GUI flips orientation live (CanvasControlsBar); these files add nothing. Two pairs differ by 3 layout nudges (instagram-follow, youtube-subscribe). Four docu-diagram pairs are real vertical recompositions (docu-timeline-build: 174 diffs — diagram coordinates are authored per orientation).
+
+**The product frame** (roadmap § The pack catalog): a creator picks one pack and authors in it. The cross-pack flip is our internal contract proof — the pixel-diff lock needs it as a no-op guard — not a user-facing promise that any composition reads native under every brand.
+
+## Decision
+
+1. **Compositions are pack-neutral.** A shipped Preset must not bake one brand's staging grammar into its composition. Brand-specific staging lives in the Pack (roles, and eventually pack-picked variants) or it doesn't ship as a shared Preset. Existing brand-grammar pieces (the `server-renders-again` collage class) are retired or re-authored — they are not evidence about the pack system.
+
+2. **Substrate immunity extends to paper documents.** `newspaper` (and the paper-document family) becomes substrate-immune like `web-document`/`imessage`: the document's own physics — body fill/ink, print tints, tear/edge character — stop re-skinning under a pack swap. **Channel chrome on and around the document stays claimable**: the kicker chip, marks/annotation inks, depth/shadow chrome, backdrop. This requires _partial_ immunity machinery (immune body + claimable chrome slots) — today's `packImmunity` is all-or-nothing.
+
+3. **One preset per piece — the pack is a dial, not a filename.** No pack-suffix duplicates in the listing. The mechanisms that make a pure flip sufficient, in dependency order:
+   - Lift remaining ADR-0038 `typography` restatements from base presets (pure pruning).
+   - `backgroundFill: "pack"` sentinel — resolves to the active Pack's field color; presence still signals the opaque/transparent export lane. Schema + GUI parity.
+   - Pack-routable grain: `paper-grain` params ride Pack roles with today's literals as defaults (the type-hero-rake `resolveRoleNumberField` pattern); a light pack claims density 0 instead of the composition dropping the effect.
+   - Pack sound voice: sound _events_ stay composition-owned (ADR-0023), but event→sample resolution routes through the active Pack's kit, so 'impact' lands as each brand's impact. Scope to be designed — the CRT dupes exist mostly for this.
+   - Pack-picked pipeline variants (`PackPipelineRole`, unwired since the form-dress round) for the rare places staging itself is brand.
+     The `*-crt` / `*-clean-light` duplicates fold back into their bases **as these mechanisms land** — they are not deleted before the flip can express their deltas.
+
+4. **One preset per composition across orientations.** Orientation is a transport dial. An `-vertical`/`-horizontal` file may exist **only** for a real recomposition (the four docu-diagram pieces qualify — per-orientation diagram coordinates are authored content, until responsive diagram layout exists). The 13 byte-identical duplicates are deleted now; the two 3-diff nudge pairs are pruned once overlay anchor reflow is verified to place them acceptably.
+
+5. **The pixel-diff lock keeps its job and loses the overclaim.** It is a floor against silent no-op packs — never a meaningfulness gate. The meaningfulness gate is the Calibration Trio, ratified live.
+
+## Consequences
+
+- The listing shrinks by 13 files immediately (more as § 3 mechanisms land); the pixel-diff coverage map re-derives from the remaining corpus.
+- Partial substrate immunity is new registry machinery (an Identity-Spec-level split of immune body vs claimable chrome slots) and shrinks the pack surface on the highest-traffic document surfaces — the pack-diff lock's newspaper row will measure chrome-only deltas once it lands.
+- `server-renders-again` stays an editorial-mono showcase until retired/re-authored under the pack-neutral bar; it stops being cited as a pack-system verdict.
+- Historical ADRs/briefs that name deleted `-vertical` deliverables (`0030`, imessage-friday-deploy brief) remain accurate as point-in-time records; the canonical deliverable is the base preset flipped live.
+- Docu-diagram vertical files remain the honest exception until responsive diagram layout is designed (not scheduled by this ADR).
