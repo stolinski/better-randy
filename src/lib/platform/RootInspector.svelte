@@ -110,6 +110,54 @@
 	const progressPercent = $derived(Math.round(progress * 100));
 	const chainFull = $derived(engineState.effects.length >= EFFECT_CHAIN_LIMIT);
 
+	// The active Pack's chrome recipe, surfaced so the Effects list matches
+	// the pixels: the Workspace appends these AFTER the authored chain on
+	// opaque pieces (withPackChrome). The Pack supplies INITIAL values — the
+	// first param edit materializes an authored override into the
+	// composition's own effects[] (the Workspace then skips the pack's copy
+	// of that type), and removing the override restores the pack default.
+	const packChromeEffects = $derived.by(() => {
+		if (!engineState.backgroundFill) return [];
+		const role = PACK_REGISTRY[packState.slug]?.roles['chrome'];
+		return role && role.kind === 'chrome' ? role.effects : [];
+	});
+	const packChromeTypes = $derived(new Set(packChromeEffects.map((entry) => entry.type)));
+	// Authored effects that occupy a chrome slot render in the chrome rows
+	// below (as the override), not in the authored list.
+	const authoredEffects = $derived(
+		engineState.effects.filter((effect) => !packChromeTypes.has(effect.type))
+	);
+
+	function chromeOverrideFor(type: string): Effect | undefined {
+		return engineState.effects.find((effect) => effect.type === type);
+	}
+
+	// Materialize-on-first-write model for an un-overridden chrome entry: the
+	// Editor binds to a proxy over the pack's values; the first set creates
+	// the authored override (with that write applied) and every later set —
+	// e.g. the rest of an in-flight slider drag, before the prop re-binds —
+	// forwards to the authored effect.
+	function chromeDraftModel(entry: { type: string; params?: unknown }): Effect {
+		const draft = structuredClone((entry.params ?? {}) as Record<string, unknown>);
+		let materializedId: string | null = null;
+		const params = new Proxy(draft, {
+			set(target, prop, value) {
+				if (typeof prop !== 'string') return true;
+				target[prop] = value;
+				if (materializedId === null) {
+					materializedId = addEffect({ type: entry.type, params: { ...target } });
+				} else {
+					const authored = engineState.effects.find((effect) => effect.id === materializedId);
+					if (authored) {
+						(authored.params as Record<string, unknown>)[prop] = value;
+					}
+				}
+				return true;
+			}
+		});
+		return { type: entry.type, id: `pack-chrome-draft-${entry.type}`, params };
+	}
+
 	// ---- Composition-level sound: free-standing cues + the bed (ADR-0033 §5) ----
 	// Motion sounds are derived and live on each item's Sound section — this
 	// authors only what has no motion to ride: free-standing sounds (placed at
@@ -321,7 +369,7 @@
 				onselect={handleAddEffect}
 			/>
 		{/snippet}
-		{#each engineState.effects as effect (effect.id)}
+		{#each authoredEffects as effect (effect.id)}
 			{@const renderer = findEffectRenderer(effect.type)}
 			{#if renderer}
 				<div class="layer-row">
@@ -336,6 +384,35 @@
 				{#if renderer.Editor}
 					{@const EffectEditor = renderer.Editor}
 					<EffectEditor effect={effect as Effect & { params: unknown }} />
+				{/if}
+			{/if}
+		{/each}
+		{#each packChromeEffects as entry (entry.type)}
+			{@const renderer = findEffectRenderer(entry.type)}
+			{#if renderer}
+				{@const override = chromeOverrideFor(entry.type)}
+				<div
+					class="layer-row"
+					title={override
+						? `Overriding the ${PACK_REGISTRY[packState.slug]?.label ?? packState.slug} pack's chrome — × restores the pack default`
+						: `${PACK_REGISTRY[packState.slug]?.label ?? packState.slug} pack chrome (opaque pieces) — edits become a composition override`}
+				>
+					<span class="layer-row__label">{renderer.label}</span>
+					<span class="layer-row__pack-tag">{override ? 'pack · overridden' : 'pack'}</span>
+					{#if override}
+						<button
+							type="button"
+							class="remove-btn"
+							aria-label={`Remove ${renderer.label} override`}
+							onclick={() => removeEffect(override.id)}>×</button
+						>
+					{/if}
+				</div>
+				{#if renderer.Editor}
+					{@const EffectEditor = renderer.Editor}
+					<EffectEditor
+						effect={(override ?? chromeDraftModel(entry)) as Effect & { params: unknown }}
+					/>
 				{/if}
 			{/if}
 		{/each}
@@ -738,6 +815,19 @@
 		cursor: pointer;
 		font-size: 1rem;
 		padding: 0 var(--vs-xs);
+	}
+
+	/* Pack-chrome entry: present in the render, owned by the Pack — tagged,
+	   not removable (swap the Pack and it goes with it). */
+	.layer-row__pack-tag {
+		border: 1px solid var(--chrome-hairline);
+		border-radius: var(--br-xs);
+		color: var(--chrome-muted);
+		font-family: 'JetBrains Mono', monospace;
+		font-size: 0.62rem;
+		letter-spacing: 0.08em;
+		padding: 1px 6px;
+		text-transform: uppercase;
 	}
 
 	.remove-btn:hover {

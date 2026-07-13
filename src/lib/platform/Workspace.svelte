@@ -1827,11 +1827,17 @@
 	// Pack chrome (opaque pieces only). When the composition declares a
 	// `backgroundFill` — the frame is a full-frame segment/bumper — the active
 	// Pack's `chrome` Role (kind:'chrome') appends its effect recipe AFTER the
-	// preset's own effects. The chrome is the Pack's dress, not composition
-	// content: it never appears in the preset's `effects[]`, and transparent
-	// overlays never receive it (the footage is not ours to treat). Chrome
-	// entries carry stable synthetic ids so the effect chain's compiled cache
-	// keys stay deterministic.
+	// preset's own effects. The chrome is the Pack's dress: it never appears
+	// in the preset's `effects[]`, and transparent overlays never receive it
+	// (the footage is not ours to treat). Chrome entries carry stable
+	// synthetic ids so the effect chain's compiled cache keys stay
+	// deterministic.
+	//
+	// OVERRIDE LANE: the chrome supplies INITIAL values. An authored effect of
+	// the same type in `effects[]` takes ownership — the pack's copy of that
+	// type is skipped (no double application). The inspector materializes
+	// exactly this when a chrome param is edited; removing the authored
+	// override restores the pack default.
 	function withPackChrome(effects: readonly Effect[]): readonly Effect[] {
 		if (!engineState.backgroundFill) {
 			return effects;
@@ -1840,13 +1846,16 @@
 		if (!role || role.kind !== 'chrome' || role.effects.length === 0) {
 			return effects;
 		}
+		const authoredTypes = new Set(effects.map((effect) => effect.type));
 		return [
 			...effects,
-			...role.effects.map((entry, index) => ({
-				type: entry.type,
-				id: `pack-chrome-${index}`,
-				params: entry.params ?? {}
-			}))
+			...role.effects
+				.filter((entry) => !authoredTypes.has(entry.type))
+				.map((entry, index) => ({
+					type: entry.type,
+					id: `pack-chrome-${index}`,
+					params: entry.params ?? {}
+				}))
 		];
 	}
 
