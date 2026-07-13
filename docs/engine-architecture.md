@@ -8,7 +8,7 @@ Glossary: [`CONTEXT.md`](CONTEXT.md). Why one engine instead of per-tool routes:
 
 ## The model in one read
 
-A **Preset** is one JSON document (`supers@1`) that composes five **Layers** (Surface / Block / Annotation / Overlay / Effect) from a **Pipeline registry**, dressed by a swappable **Pack** (appearance only), rendered frame-deterministically through a TypeGPU compositor to a 3840×2160 (or 2160×3840) canvas, and exported transparent or opaque via Mediabunny. Two anchors hold everything else up:
+A **Preset** is one JSON document (`supers@1`) that composes five **Layers** (Surface / Block / Annotation / Overlay / Effect) from a **Pipeline registry**, dressed by a swappable **Pack** (appearance only), rendered frame-deterministically through a TypeGPU compositor to a 3840×2160 (or 2160×3840) canvas, and exported transparent or opaque through PNG frame capture + ffmpeg. Two anchors hold everything else up:
 
 1. **The data model is the contract.** Everything renderable is described in `engineState`. Pipelines own no state.
 2. **One uniform render path.** Surface, blocks, annotations, overlays, and post-process effects share the same WebGPU/TypeGPU compositor. Preview and export call the *same* `renderAt(timestamp)` — identical pixels.
@@ -32,7 +32,7 @@ src/lib/
     engine-state.svelte.ts       # runtime state + mutation helpers; boot Pack gate
     preset.ts                    # parsePreset, applyPreset, listPresets
     preset-rubric.ts             # static linter — video-safety + readability only (ADR-0025)
-    export-video.ts              # Mediabunny WebM + ProRes
+    export-video.ts              # PNG frame capture + WebM/ProRes export endpoints
     packs/                       # the appearance system
       registry.ts                # PACK_REGISTRY (syntax = REFERENCE_PACK_SLUG, editorial-mono)
       resolve.ts                 # resolveAppearanceVars — the live Pack→pixel path

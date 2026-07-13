@@ -99,13 +99,14 @@
 	import { DepthStage } from './pipelines/depth-stage';
 	import { compileTransitionWipe, type CompiledTransitionWipe } from './pipelines/transition-pass';
 	import {
-		downloadVideoBlob,
+		downloadBlob,
 		exportTransparentProRes,
 		exportTransparentWebM,
 		type TransparentVideoExportOptions
 	} from './export-video';
 	import { annotationBodyPlainText } from '$lib/annotations/annotation-body-text';
 	import { renderAudioMix } from './audio-mix';
+	import { audioBufferToWavBytes } from '$lib/utils/audio-wav';
 	import { AudioPreview } from './audio-preview';
 	import { deriveSoundCues, isAudibleSoundCue } from './sound-cues';
 	import { clampNumber } from '$lib/utils/math';
@@ -209,6 +210,7 @@
 	const SETTLED_PREVIEW_FRACTION = 0.5;
 
 	let isExporting = $state(false);
+	let separateWav = $state(false);
 	let progress = $state(0);
 	let status = $state('');
 	let showCheckerboard = $state(true);
@@ -2788,9 +2790,13 @@
 			? hexToRgbaFloat(engineState.backgroundFill)
 			: undefined;
 
-		const renderFrame: TransparentVideoExportOptions['renderFrame'] = (_frame, timestamp) => {
+		const renderFrame: TransparentVideoExportOptions['renderFrame'] = async (_frame, timestamp) => {
 			const fraction = durationSeconds > 0 ? timestamp / durationSeconds : 0;
 			exportManager.progress(fraction);
+			animState.globalProgress = fraction;
+			// iMessage bubbles and other Svelte-owned DOM motion derive directly from
+			// globalProgress. Flush those updates before HTML-in-Canvas captures this frame.
+			await tick();
 			const parsedMarksForExport = readMarks();
 			const inputs: SurfaceRenderInputs = {
 				animState: { markProgresses: animState.markProgresses },
@@ -2868,6 +2874,8 @@
 			// offline mix of motion-derived cues + manual cues + bed. null when the
 			// piece schedules no sound — the export then stays video-only.
 			const audio = await renderAudioMix(engineState);
+			const hasBackground = exportBackground !== undefined;
+			const basename = hasBackground ? 'supers-bumper' : 'supers-overlay';
 
 			if (format === 'prores') {
 				const blob = await exportTransparentProRes({
@@ -2880,9 +2888,8 @@
 					renderFrame,
 					audio
 				});
-				downloadVideoBlob(blob, 'supers-overlay.mov');
+				downloadBlob(blob, `${basename}.mov`);
 			} else {
-				const hasBackground = exportBackground !== undefined;
 				const blob = await exportTransparentWebM({
 					canvas: activeCanvas,
 					durationSeconds,
@@ -2894,7 +2901,14 @@
 					hasBackground,
 					audio
 				});
-				downloadVideoBlob(blob, hasBackground ? 'supers-bumper.webm' : 'supers-overlay.webm');
+				downloadBlob(blob, `${basename}.webm`);
+			}
+
+			if (separateWav && audio) {
+				downloadBlob(
+					new Blob([audioBufferToWavBytes(audio)], { type: 'audio/wav' }),
+					`${basename}.wav`
+				);
 			}
 		} catch (error) {
 			console.error('Unable to export overlay.', error);
@@ -3015,7 +3029,7 @@
 	</div>
 
 	<div class="workspace__inspector">
-		<Inspector {handleExport} {isExporting} {progress} {status} />
+		<Inspector {handleExport} {isExporting} {progress} {status} bind:separateWav />
 	</div>
 </main>
 

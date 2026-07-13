@@ -37,9 +37,16 @@
 		isExporting: boolean;
 		progress: number;
 		status: string;
+		separateWav?: boolean;
 	}
 
-	let { handleExport, isExporting, progress, status }: Props = $props();
+	let {
+		handleExport,
+		isExporting,
+		progress,
+		status,
+		separateWav = $bindable(false)
+	}: Props = $props();
 
 	const packOptions = Object.entries(PACK_REGISTRY) as [string, (typeof PACK_REGISTRY)[string]][];
 	const effectRenderers = Object.values(PIPELINE_REGISTRY.effects) as EffectRenderer[];
@@ -284,12 +291,6 @@
 		</Field>
 		<Field label="FPS">
 			<input type="number" min="12" max="60" step="1" bind:value={engineState.transport.fps} />
-		</Field>
-		<Field label="Format">
-			<select bind:value={engineState.transport.format}>
-				<option value="webm">WebM VP9</option>
-				<option value="prores">MOV ProRes</option>
-			</select>
 		</Field>
 	</InspectorSection>
 
@@ -685,6 +686,19 @@
 	</InspectorSection>
 
 	<InspectorSection label="Export">
+		<Field label="Format">
+			<select bind:value={engineState.transport.format}>
+				<option value="webm">WebM VP9</option>
+				<option value="prores">MOV ProRes 4444</option>
+			</select>
+		</Field>
+		<Field label="Separate WAV">
+			<InspectorToggle
+				checked={separateWav}
+				label="Separate WAV"
+				onchange={(checked) => (separateWav = checked)}
+			/>
+		</Field>
 		<button class="export-btn" type="button" disabled={isExporting} onclick={handleExport}>
 			{isExporting ? `Exporting ${progressPercent}%…` : 'Export'}
 		</button>

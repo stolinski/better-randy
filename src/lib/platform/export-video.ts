@@ -1,12 +1,3 @@
-import {
-	AudioBufferSource,
-	BufferTarget,
-	CanvasSource,
-	Output,
-	QUALITY_HIGH,
-	WebMOutputFormat
-} from 'mediabunny';
-
 import { audioBufferToWavBytes } from '$lib/utils/audio-wav';
 
 import { fontsReady } from './fonts';
@@ -52,45 +43,16 @@ export async function exportTransparentWebM({
 	hasBackground,
 	audio
 }: TransparentVideoExportOptions): Promise<Blob> {
-	// Channel typefaces must be loaded before frame 0 or the export bakes in OS
-	// fallbacks; preview gates the same way.
 	await fontsReady();
 
 	const frameCount = Math.max(1, Math.round(durationSeconds * fps));
-	const frameDuration = 1 / fps;
-	const target = new BufferTarget();
-	const output = new Output({
-		format: new WebMOutputFormat(),
-		target
-	});
-	const source = new CanvasSource(canvas, {
-		codec: 'vp9',
-		bitrate: QUALITY_HIGH,
-		alpha: hasBackground ? 'discard' : 'keep'
-	});
-
-	output.addVideoTrack(source);
-
-	// The baked audio track (ADR-0033 §6): the offline mix is one AudioBuffer
-	// spanning the whole piece, added once at timestamp 0.
-	const audioSource = audio
-		? new AudioBufferSource({ codec: 'opus', bitrate: QUALITY_HIGH })
-		: null;
-	if (audioSource) {
-		output.addAudioTrack(audioSource);
-	}
-
-	await output.start();
-
-	if (audioSource && audio) {
-		await audioSource.add(audio);
-	}
+	const chunks: Blob[] = [];
 
 	for (let frame = 0; frame < frameCount; frame += 1) {
-		const timestamp = frame * frameDuration;
+		const timestamp = frame / fps;
 
 		await renderFrame(frame, timestamp);
-		await source.add(timestamp, frameDuration);
+		chunks.push(await canvasFrameToPng(canvas));
 		onProgress?.((frame + 1) / frameCount);
 
 		if (frame % fps === fps - 1) {
@@ -100,13 +62,25 @@ export async function exportTransparentWebM({
 		}
 	}
 
-	await output.finalize();
+	const wavBytes = audio ? audioBufferToWavBytes(audio) : null;
+	const body = new Blob(wavBytes ? [wavBytes, ...chunks] : chunks, {
+		type: 'application/octet-stream'
+	});
+	const response = await fetch(`/api/export/webm?fps=${fps}&opaque=${hasBackground === true}`, {
+		method: 'POST',
+		body,
+		headers: {
+			'Content-Type': 'application/octet-stream',
+			...(wavBytes ? { 'x-supers-audio-bytes': String(wavBytes.byteLength) } : {})
+		}
+	});
 
-	if (!target.buffer) {
-		throw new Error('Transparent video export finished without producing a buffer.');
+	if (!response.ok) {
+		const text = await response.text();
+		throw new Error(text || `WebM export failed with status ${response.status}.`);
 	}
 
-	return new Blob([target.buffer], { type: 'video/webm' });
+	return response.blob();
 }
 
 export async function exportTransparentProRes({
@@ -165,7 +139,7 @@ export async function exportTransparentProRes({
 	return response.blob();
 }
 
-export function downloadVideoBlob(blob: Blob, filename: string): void {
+export function downloadBlob(blob: Blob, filename: string): void {
 	const url = URL.createObjectURL(blob);
 	const link = document.createElement('a');
 

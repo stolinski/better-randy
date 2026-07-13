@@ -9,6 +9,7 @@
 		durationSeconds?: number;
 		fps?: number;
 		format?: ExportFormat;
+		separateWav?: boolean;
 		isExporting?: boolean;
 		progress?: number;
 		status?: string;
@@ -20,6 +21,7 @@
 		durationSeconds = $bindable(6),
 		fps = $bindable(30),
 		format = $bindable('webm'),
+		separateWav = $bindable(false),
 		isExporting = false,
 		progress = 0,
 		status = '',
@@ -48,7 +50,7 @@
 			<span>Format</span>
 			<select bind:value={format}>
 				<option value="webm">WebM VP9</option>
-				<option value="prores">MOV ProRes</option>
+				<option value="prores">MOV ProRes 4444</option>
 			</select>
 		</label>
 
@@ -60,6 +62,11 @@
 		<label class="export-panel__field">
 			<span>FPS</span>
 			<input bind:value={fps} min="12" max="60" step="1" type="number" />
+		</label>
+
+		<label class="export-panel__field">
+			<input type="checkbox" bind:checked={separateWav} />
+			<span>Separate WAV</span>
 		</label>
 	</div>
 

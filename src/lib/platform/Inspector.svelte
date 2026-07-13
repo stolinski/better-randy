@@ -15,9 +15,16 @@
 		isExporting: boolean;
 		progress: number;
 		status: string;
+		separateWav?: boolean;
 	}
 
-	let { handleExport, isExporting, progress, status }: Props = $props();
+	let {
+		handleExport,
+		isExporting,
+		progress,
+		status,
+		separateWav = $bindable(false)
+	}: Props = $props();
 
 	// Parse the selected layer ID to determine which inspector to show.
 	// Track IDs follow these patterns (from Workspace.buildTracks()):
@@ -78,7 +85,7 @@
 <aside class="inspector">
 	<div class="inspector__scroll">
 		{#if resolved.kind === 'root'}
-			<RootInspector {handleExport} {isExporting} {progress} {status} />
+			<RootInspector {handleExport} {isExporting} {progress} {status} bind:separateWav />
 		{:else if resolved.kind === 'surface'}
 			<SurfaceInspector />
 		{:else if resolved.kind === 'overlay'}

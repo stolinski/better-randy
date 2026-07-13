@@ -68,7 +68,10 @@ const presentFragmentFn = tgpu['~unstable']
 		// 8-bit canvas would otherwise quantize into visible steps.
 		let ign = fract(52.9829189 * fract(dot(in.position.xy, vec2f(0.06711056, 0.00583715))));
 		let dither = (ign - 0.5) / 255.0;
-		return vec4f(outRgb + vec3f(dither, dither, dither), outA);
+		// The canvas is premultiplied-alpha. Dither must disappear with alpha or
+		// fully transparent pixels retain noisy RGB that VP9 reveals as dark halos.
+		let ditheredRgb = clamp(outRgb + vec3f(dither * outA), vec3f(0.0), vec3f(outA));
+		return vec4f(ditheredRgb, outA);
 	}`.$uses({ layout: presentBindGroupLayout });
 
 interface CompiledEffect {
