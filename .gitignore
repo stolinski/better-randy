@@ -30,6 +30,9 @@ vite.config.ts.timestamp-*
 # User compositions — local-only, never committed (ADR-0032)
 /user-compositions
 
+# User image assets — content-addressed local uploads, never committed
+/user-assets
+
 # Composition posters — rendered picker previews, regenerable, never committed
 /.posters
 

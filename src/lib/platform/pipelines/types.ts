@@ -215,9 +215,8 @@ export interface SurfaceControlsMetadata {
 	 */
 	counterpoint?: boolean;
 	/**
-	 * Author avatar image URL (the `web-document` twitter mock's profile photo).
-	 * Only the twitter site consumes it, so the inspector gates the row on
-	 * `surface.site`.
+	 * Author/contact avatar image URL. Renderers opt into the shared content slot;
+	 * site-selecting renderers may further limit which site consumes it.
 	 */
 	avatarUrl?: boolean;
 	body?: 'always' | 'optional' | 'never';

@@ -6,6 +6,7 @@
 	import { DECORATIVE_ANNOTATION_STYLES } from '$lib/annotations/annotation-mark-styles';
 	import type { AnnotationBody } from '$lib/annotations/annotation-marks';
 	import { defaultMessageEnter } from '$lib/pipelines/surfaces/imessage/schedule';
+	import { uploadUserImage } from '$lib/platform/user-image-assets';
 	import {
 		EFFECT_CATALOG,
 		EFFECT_IDS,
@@ -128,11 +129,15 @@
 
 	// A slot is declared when the renderer's controls claim it AND the current
 	// state renders it: counterpoint only exists on the `pair` variant;
-	// avatarUrl only on the twitter mock.
+	// web-document limits avatarUrl to its twitter mock, while other renderers
+	// that declare the slot can consume it directly.
 	function isSlotDeclared(slot: DocumentSlot): boolean {
 		if (slot === 'counterpoint') return controls.counterpoint === true && activeVariant === 'pair';
 		if (slot === 'avatarUrl')
-			return controls.avatarUrl === true && (engineState.surface.site ?? 'twitter') === 'twitter';
+			return (
+				controls.avatarUrl === true &&
+				(!controls.site || (engineState.surface.site ?? 'twitter') === 'twitter')
+			);
 		return controls[slot] === true;
 	}
 
@@ -174,6 +179,30 @@
 	);
 
 	let inspectorEl = $state<HTMLDivElement>();
+	let avatarUploadSequence = 0;
+
+	async function handleAvatarFileChange(event: Event): Promise<void> {
+		const input = event.currentTarget as HTMLInputElement;
+		const uploadSequence = ++avatarUploadSequence;
+		input.setCustomValidity('');
+		const file = input.files?.[0];
+		if (!file) return;
+
+		try {
+			const avatarUrl = await uploadUserImage(file);
+			if (uploadSequence === avatarUploadSequence) {
+				engineState.surface.content.avatarUrl = avatarUrl;
+			}
+		} catch (error: unknown) {
+			console.error('Avatar image upload failed', error);
+			if (uploadSequence === avatarUploadSequence) {
+				input.setCustomValidity(error instanceof Error ? error.message : 'Avatar image upload failed');
+				input.reportValidity();
+			}
+		} finally {
+			input.value = '';
+		}
+	}
 
 	function addSlot(slot: DocumentSlot): void {
 		engineState.surface.content[slot] = '';
@@ -582,6 +611,12 @@
 						bind:value={engineState.surface.content.avatarUrl}
 						data-slot="avatarUrl"
 						type="text"
+					/>
+					<input
+						accept="image/png,image/jpeg,image/webp"
+						aria-label="Choose avatar image"
+						onchange={handleAvatarFileChange}
+						type="file"
 					/>
 					<button
 						type="button"

@@ -58,6 +58,8 @@
 	const messages = $derived(content.messages ?? []);
 	const contact = $derived((content.author ?? '').trim());
 	const contactInitial = $derived(contact.charAt(0).toUpperCase() || '?');
+	const avatarUrl = $derived((content.avatarUrl ?? '').trim());
+	let failedAvatarUrl = $state('');
 	// Pack-immune (ADR-0038): the iMessage artifact must stay pixel-faithful, so
 	// no Pack colour is routed in. The optional paperColor override only selects
 	// the dark/light theme; absent → light, identical to pre-ADR-0038 behaviour.
@@ -206,6 +208,8 @@
 			<div
 				class="im-row"
 				data-from={message.from}
+				style:--group-avatar-size={`${avatarPx}px`}
+				style:--group-avatar-gap={`${layout.width * 0.012}px`}
 				style:margin-block-start={`${startsGroup(i) ? layout.width * 0.018 : layout.width * 0.005}px`}
 			>
 				{#if typing}
@@ -233,6 +237,24 @@
 					bubble, so the bubble's DOM stays static while the highlight draws —
 					no per-frame texture/geometry desync flash.
 				-->
+				{#if isChromeless && message.from === 'them' && showTail(i)}
+					<span
+						class="im-group-avatar"
+						style:font-size={`${avatarPx * 0.5}px`}
+						style:opacity={typing ? 1 : style.opacity}
+						aria-hidden="true"
+					>
+						{contactInitial}
+						{#if avatarUrl && failedAvatarUrl !== avatarUrl}
+							<img
+								src={avatarUrl}
+								alt=""
+								crossorigin="anonymous"
+								onerror={() => (failedAvatarUrl = avatarUrl)}
+							/>
+						{/if}
+					</span>
+				{/if}
 				<div class="im-bubblewrap">
 					<div
 						class="im-bubble"
@@ -522,6 +544,34 @@
 		background-color: transparent;
 		border-radius: 0;
 		grid-template-rows: 1fr;
+	}
+	.imessage--chromeless .im-row[data-from='them'] {
+		padding-inline-start: calc(var(--group-avatar-size) + var(--group-avatar-gap));
+	}
+	.im-group-avatar {
+		align-items: center;
+		background: #8e8e93;
+		block-size: var(--group-avatar-size);
+		border-radius: 50%;
+		color: #ffffff;
+		display: flex;
+		font-weight: 500;
+		inline-size: var(--group-avatar-size);
+		inset-block-end: 0;
+		inset-inline-start: 0;
+		justify-content: center;
+		overflow: hidden;
+		position: absolute;
+	}
+	.im-group-avatar img {
+		block-size: 100%;
+		inline-size: 100%;
+		inset: 0;
+		object-fit: cover;
+		position: absolute;
+	}
+	.imessage--chromeless .im-row[data-from='them'] .im-typing {
+		inset-inline-start: calc(var(--group-avatar-size) + var(--group-avatar-gap));
 	}
 
 	/*

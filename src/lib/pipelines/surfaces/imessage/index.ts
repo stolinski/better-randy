@@ -59,8 +59,10 @@ export const imessage: SurfaceRenderer = {
 	controls: {
 		// The conversation is authored as `content.messages[]`, edited per bubble
 		// in the inspector's Messages section; only the contact name reuses a
-		// standard slot.
+		// standard slot. Chromeless received groups can also use the shared
+		// avatar URL slot, with the contact initial as their built-in fallback.
 		author: true,
+		avatarUrl: true,
 		body: 'never',
 		messages: true,
 		chrome: true,
