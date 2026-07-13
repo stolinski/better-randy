@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
-	"name": "Docu flowchart \u2014 how your code ships \u2014 CRT Terminal",
-	"description": "The 'how X works' documentary flowchart (ADR-0036 \u00a76, pure-primitive test): a four-node Commit \u2192 Build \u2192 Test \u2192 Deploy chain of box nodes joined by stroke-drawn edge-arrows, one mono-caps headline label as the title voice, revealed in strict reading order via Cascade welds (headline \u2192 node \u2192 edge draws to \u2192 next node, 120/80 ms staggers). Full-frame piece: backgroundFill is the dark field, ink is warm off-white so the pack's marker strokes read. Chrome intent: mono is the signature thread (fontFamily mono carries headline + node labels); low-density paper-grain grit bonds ink to substrate; torn-edge collage card and tape are intentionally omitted \u2014 a stroke-drawn diagram on a dark field is not a collage card; the node plates keep the pack's small hard-offset depth Role. Same recipe as docu-flowchart, published under the crt-terminal Pack \u2014 the ADR-0038 multi-pack integration demo.",
+	"name": "Docu flowchart — how your code ships — CRT Terminal",
+	"description": "The 'how X works' documentary flowchart (ADR-0036 §6, pure-primitive test): a four-node Commit → Build → Test → Deploy chain of box nodes joined by stroke-drawn edge-arrows, one mono-caps headline label as the title voice, revealed in strict reading order via Cascade welds (headline → node → edge draws to → next node, 120/80 ms staggers). Full-frame piece: backgroundFill is the dark field, ink is warm off-white so the pack's marker strokes read. Chrome intent: mono is the signature thread (fontFamily mono carries headline + node labels); low-density paper-grain grit bonds ink to substrate; torn-edge collage card and tape are intentionally omitted — a stroke-drawn diagram on a dark field is not a collage card; the node plates keep the pack's small hard-offset depth Role. Same recipe as docu-flowchart, published under the crt-terminal Pack — the ADR-0038 multi-pack integration demo.",
 	"pack": "crt-terminal",
 	"kind": "deliverable",
 	"state": {
@@ -279,16 +279,7 @@
 		},
 		"textAnimations": [],
 		"overlays": [],
-		"effects": [
-			{
-				"type": "paper-grain",
-				"id": "grit",
-				"params": {
-					"warmth": 0.35,
-					"density": 0.22
-				}
-			}
-		],
+		"effects": [],
 		"audioCues": []
 	}
 }

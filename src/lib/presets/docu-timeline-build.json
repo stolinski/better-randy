@@ -460,16 +460,7 @@
 		},
 		"textAnimations": [],
 		"overlays": [],
-		"effects": [
-			{
-				"type": "paper-grain",
-				"id": "grain",
-				"params": {
-					"warmth": 0.45,
-					"density": 0.32
-				}
-			}
-		],
+		"effects": [],
 		"audioCues": []
 	}
 }

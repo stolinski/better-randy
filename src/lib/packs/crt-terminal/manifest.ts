@@ -100,12 +100,15 @@ export const crtTerminalPack: PackManifest = {
 					params: {
 						mask: 'shadow',
 						maskPitchPx: 7,
-						// 0.14 (with focus 0.85 below): the mask is mean-neutral, but
-						// on ~4px strokes the stroke-to-lattice PHASE modulates the
-						// local average under the camera push — the dial needs
-						// headroom so the phase-worst frame still clears G5
-						// (Critic 2026-07-10 round 4).
-						maskStrength: 0.14,
+						// 0.12 (with focus 0.88 below): maximum G5 headroom the dial can
+						// give. Measured limit (Critic round-5 phase map, 2026-07-10):
+						// a depth-stage camera push still decays 33px-caps avg-ink
+						// ~9% across the hold (4.7 → 4.28 on show-open's SEASON TWO)
+						// — that residue is push-magnification sliding sub-pixel
+						// strokes across the fixed screen-space rasters, not a dial
+						// term; the engine-side lane is scanline scale-compensation
+						// (dex h02eht8j).
+						maskStrength: 0.12,
 						// 2160 / 360 = 6px line pitch @4K — the same pitch as the
 						// per-element material scanline (pitchPx 6), so the element
 						// raster and the tube raster superpose coherently.
@@ -113,7 +116,7 @@ export const crtTerminalPack: PackManifest = {
 						// Soft beam: shallow gaps preserve the average luminance of
 						// 3px mono strokes (avg-ink G5); the raster texture on
 						// elements is carried by the material-treatment scanline.
-						focus: 0.85,
+						focus: 0.88,
 						curvature: 0,
 						bezel: 0.3,
 						halation: 0.4,
