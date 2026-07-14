@@ -91,6 +91,23 @@ export function resolveRoleColorFloat(
 }
 
 /**
+ * Read a Pack style Role whose value is a bare finite number (e.g. the
+ * `paper-grain.strength` scale). Same structural-Role posture as
+ * `resolveRoleColorFloat`: a Pack OPTS INTO the claim explicitly; when the
+ * Role is absent, malformed, or not a finite number, the caller's `fallback`
+ * applies — a silent Pack renders bit-identical.
+ */
+export function resolveRoleNumber(role: unknown, fallback: number): number {
+	if (role !== null && typeof role === 'object' && (role as { kind?: unknown }).kind === 'style') {
+		const value = (role as { value?: unknown }).value;
+		if (typeof value === 'number' && Number.isFinite(value)) {
+			return value;
+		}
+	}
+	return fallback;
+}
+
+/**
  * Read a named finite number out of a Pack style Role whose value is an
  * object (e.g. a `vignette` strength riding the `type-hero.backdrop` Role).
  * Same structural-Role posture as `resolveRoleColorFloat`: a Pack OPTS INTO

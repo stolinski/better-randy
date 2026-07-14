@@ -309,6 +309,12 @@ export const crtTerminalPack: PackManifest = {
 		'instance-stack.ink': { kind: 'style', value: '#45ff6e' },
 		'text-3d.ink': { kind: 'style', value: '#45ff6e' },
 
+		// Paper tooth is a PAPER artifact (aesthetic doc: no grain-as-tooth — a
+		// screen's texture is the scanline, already claimed via material-
+		// treatment). Zeroes any authored paper-grain effect, warmth cast
+		// included ("it's not paper" — the docu-family grain strip, 2026-07-10).
+		'paper-grain.strength': { kind: 'style', value: 0 },
+
 		// Washi tape is a PAPER artifact the aesthetic doc forbids (no tape, no
 		// collage) — these values are defensive so the Role can never leak warm
 		// fibre tones if a re-skinned Preset carries tape anyway: glass-dark and

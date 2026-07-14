@@ -247,6 +247,11 @@ export const cleanLightPack: PackManifest = {
 		'instance-stack.ink': { kind: 'style', value: '#ffffff' },
 		'text-3d.ink': { kind: 'style', value: '#ffffff' },
 
+		// Paper tooth is not this register's material — the studio is
+		// digital-clean (aesthetic.md anti-list: grain reads as dirt on white).
+		// Zeroes any authored paper-grain effect, warmth cast included.
+		'paper-grain.strength': { kind: 'style', value: 0 },
+
 		// Tape is not this register's grammar (nothing is stuck down in a white
 		// studio) — defensive values only, so a re-skinned Preset carrying tape
 		// can never leak another pack's warm fibre tones.

@@ -1,7 +1,10 @@
 import { d } from 'typegpu';
 import { z } from 'zod';
 
+import { packState } from '$lib/platform/engine-state.svelte';
+import { getPack } from '$lib/platform/packs/registry';
 import type { EffectRenderer } from '$lib/platform/pipelines/types';
+import { resolveRoleNumber } from '$lib/utils/color';
 
 import Editor from './Editor.svelte';
 
@@ -102,14 +105,26 @@ export const paperGrain: EffectRenderer<PaperGrainParams> = {
 	pass: {
 		paramsStruct: PaperGrainUniforms,
 		fragmentBody,
-		pack: (params, ctx) => ({
-			warmth: params.warmth,
-			density: params.density,
-			// Pack-chrome recipes bypass the zod parse (withPackChrome passes raw
-			// manifest params), so a missing lift must not feed NaN to the GPU.
-			lift: params.lift ?? 0,
-			grainTime: ctx.timestamp
-		})
+		pack: (params, ctx) => {
+			// Pack-routed strength scale (ADR-0039 §3): paper tooth is a PAPER
+			// material — a pack whose substrate isn't paper claims 0 and the
+			// authored effect goes inert (grain reads as dirt on a white studio
+			// field; a phosphor screen has no tooth) instead of every composition
+			// dropping the effect per pack. Warmth scales too: the warm-paper
+			// tint applies even at density 0, and a warm cast is exactly the leak
+			// a non-paper pack is declining. Silent packs resolve 1 — bit-identical.
+			// Uniforms pack per frame, so a pack switch needs no extra reactivity.
+			const strengthRole = getPack(packState.slug).roles['paper-grain.strength'];
+			const strength = resolveRoleNumber(strengthRole, 1);
+			return {
+				warmth: params.warmth * strength,
+				density: params.density * strength,
+				// Pack-chrome recipes bypass the zod parse (withPackChrome passes raw
+				// manifest params), so a missing lift must not feed NaN to the GPU.
+				lift: (params.lift ?? 0) * strength,
+				grainTime: ctx.timestamp
+			};
+		}
 	},
 	Editor
 };
