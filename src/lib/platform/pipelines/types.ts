@@ -17,6 +17,7 @@ import type {
 	Transition
 } from '$lib/platform/engine-schema';
 import type { GpuHost } from '$lib/platform/gpu-host';
+import type { PackManifest } from '$lib/platform/packs/types';
 import type { ResolvedDiagramStroke } from '$lib/platform/packs/resolve';
 
 // ---------------- Annotations ----------------
@@ -379,4 +380,13 @@ export interface EffectRenderer<TParams = unknown> {
 	pass: EffectPassDefinition<TParams>;
 	Editor?: Component<EffectEditorProps<TParams>>;
 	Inspector?: Component<EffectEditorProps<TParams>>;
+	/**
+	 * True when the active Pack neutralizes this effect entirely (e.g. a
+	 * non-paper Pack claiming `paper-grain.strength: 0`). The inspector then
+	 * tags the authored row `pack · off` and withholds the param editors —
+	 * controls that visibly do nothing read as bugs. The authored entry
+	 * itself stays listed: it is composition state, travels with a pack
+	 * flip, and must remain discoverable / removable.
+	 */
+	isPackInert?(pack: PackManifest): boolean;
 }

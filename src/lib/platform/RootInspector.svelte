@@ -372,8 +372,17 @@
 		{#each authoredEffects as effect (effect.id)}
 			{@const renderer = findEffectRenderer(effect.type)}
 			{#if renderer}
-				<div class="layer-row">
+				{@const packInert = renderer.isPackInert?.(PACK_REGISTRY[packState.slug]) ?? false}
+				<div
+					class="layer-row"
+					title={packInert
+						? `Inert under the ${PACK_REGISTRY[packState.slug]?.label ?? packState.slug} pack — the authored effect travels with the composition and applies under packs that keep it`
+						: undefined}
+				>
 					<span class="layer-row__label">{renderer.label}</span>
+					{#if packInert}
+						<span class="layer-row__pack-tag">pack · off</span>
+					{/if}
 					<button
 						type="button"
 						class="remove-btn"
@@ -381,7 +390,7 @@
 						onclick={() => removeEffect(effect.id)}>×</button
 					>
 				</div>
-				{#if renderer.Editor}
+				{#if renderer.Editor && !packInert}
 					{@const EffectEditor = renderer.Editor}
 					<EffectEditor effect={effect as Effect & { params: unknown }} />
 				{/if}
@@ -490,9 +499,7 @@
 					value={stage.camera.move}
 					onchange={(e) => {
 						ensureStage().camera.move = (e.currentTarget as HTMLSelectElement).value as
-							| 'static'
-							| 'push'
-							| 'drift';
+							'static' | 'push' | 'drift';
 					}}
 				>
 					<option value="static">Static</option>

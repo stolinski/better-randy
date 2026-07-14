@@ -102,6 +102,9 @@ export const paperGrain: EffectRenderer<PaperGrainParams> = {
 	label: 'Paper grain',
 	schema: PaperGrainEffectSchema,
 	defaults: () => ({ params: { warmth: 0.5, density: 0.3, lift: 0 } }),
+	// A strength-0 claim makes every param a no-op — the inspector shows the
+	// authored row as `pack · off` instead of live-looking dead sliders.
+	isPackInert: (pack) => resolveRoleNumber(pack.roles['paper-grain.strength'], 1) === 0,
 	pass: {
 		paramsStruct: PaperGrainUniforms,
 		fragmentBody,
