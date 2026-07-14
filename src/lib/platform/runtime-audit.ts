@@ -64,7 +64,9 @@ const TYPE_HERO_ROLE_SELECTORS: readonly RoleSelector[] = [
 	{ role: 'source', bandKey: 'surface-label', selector: '.type-hero-source__subtitle' }
 ];
 
-const SURFACE_AUDIT_CONFIG: Readonly<Record<string, { root: string; roles: readonly RoleSelector[] }>> = {
+const SURFACE_AUDIT_CONFIG: Readonly<
+	Record<string, { root: string; roles: readonly RoleSelector[] }>
+> = {
 	paper: { root: '.paper-source', roles: PAPER_ROLE_SELECTORS },
 	plain: { root: '.plain-source', roles: PLAIN_ROLE_SELECTORS },
 	newspaper: { root: '.newspaper-source', roles: NEWSPAPER_ROLE_SELECTORS },
@@ -197,7 +199,8 @@ function measureText(
 		const font = classifyFont(style.fontFamily);
 		const ratio = capHeightRatioFor(font);
 		const lineHeightPx = parseFloat(style.lineHeight);
-		const lineHeightRatio = isNaN(lineHeightPx) || lineHeightPx <= 0 ? 1.2 : lineHeightPx / fontSize;
+		const lineHeightRatio =
+			isNaN(lineHeightPx) || lineHeightPx <= 0 ? 1.2 : lineHeightPx / fontSize;
 		const lineCount = countLineBoxes(node, fontSize, lineHeightPx);
 		const effectiveBand = bandKeyFor(node, bandKey);
 		const charsPerLine = measureCharsPerLine(node, fontSize, font);
@@ -228,8 +231,10 @@ function measureSurfaceElement(
 		texts.push(...measureText(root, role, bandKey, selector));
 	}
 
-	let textClientBounds = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity };
-	const allTextElements = root.querySelectorAll<HTMLElement>('h2, p, span, cite, time, footer, header, section');
+	const textClientBounds = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity };
+	const allTextElements = root.querySelectorAll<HTMLElement>(
+		'h2, p, span, cite, time, footer, header, section'
+	);
 
 	for (const el of allTextElements) {
 		if ((el.textContent ?? '').trim().length === 0) {

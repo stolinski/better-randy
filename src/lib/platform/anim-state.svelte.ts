@@ -65,10 +65,9 @@ export const animState = $state<RenderAnimState>({
  * progress can't ghost back when an id is reused.
  */
 export function syncBlockRecords(ids: readonly string[]): void {
-	const keep = new Set(ids);
 	for (const record of [animState.blockProgresses, animState.blockAlphas, animState.blockChannels]) {
 		for (const key of Object.keys(record)) {
-			if (!keep.has(key)) {
+			if (!ids.includes(key)) {
 				delete record[key];
 			}
 		}

@@ -96,18 +96,15 @@ export function splitElement(element: HTMLElement, mode: SplitMode): SplitResult
 		smartWrap: true
 	});
 
-	let units: HTMLElement[] = [];
+	const units = (
+		(mode === 'per-character'
+			? instance.chars
+			: mode === 'per-word'
+				? instance.words
+				: instance.lines) ?? []
+	).filter((node): node is HTMLElement => node instanceof HTMLElement);
 
-	if (mode === 'per-character') {
-		units = (instance.chars ?? []).filter((node): node is HTMLElement => node instanceof HTMLElement);
-	} else if (mode === 'per-word') {
-		units = (instance.words ?? []).filter(
-			(node): node is HTMLElement => node instanceof HTMLElement
-		);
-	} else {
-		units = (instance.lines ?? []).filter(
-			(node): node is HTMLElement => node instanceof HTMLElement
-		);
+	if (mode === 'per-line') {
 		for (const line of units) {
 			line.style.display = 'block';
 		}

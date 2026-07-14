@@ -7,7 +7,8 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 
 const PORT = Number(process.env.CDP_PORT ?? 9223);
 const SLUG = process.argv[2] ?? 'lower-third';
-const URL = process.env.CDP_URL ?? `http://localhost:7263/p/${SLUG}`;
+const PAGE_URL = process.env.CDP_URL ?? `http://localhost:7263/p/${SLUG}`;
+const EXPECTED_PATHNAME = new URL(PAGE_URL).pathname;
 const OUTDIR = `.tmp-baselines/${SLUG}`;
 const SAMPLES = (process.env.CDP_SAMPLES ?? '0,0.25,0.5,0.75,1').split(',').map(Number);
 
@@ -57,14 +58,22 @@ async function evaluate(expression) {
 		returnByValue: true,
 		awaitPromise: true
 	});
-	if (r.exceptionDetails) throw new Error(r.exceptionDetails.text);
+	if (r.exceptionDetails) {
+		throw new Error(r.exceptionDetails.exception?.description ?? r.exceptionDetails.text);
+	}
 	return r.result.value;
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 await send('Page.enable');
 await send('Runtime.enable');
-await send('Page.navigate', { url: URL });
+await send('Emulation.setDeviceMetricsOverride', {
+	width: 1280,
+	height: 1000,
+	deviceScaleFactor: 1,
+	mobile: false
+});
+await send('Page.navigate', { url: PAGE_URL });
 await sleep(1800);
 
 let ready = false;
@@ -74,10 +83,13 @@ for (let i = 0; i < 60; i++) {
 		const s = await evaluate(`(() => ({
 			canvas: !!document.querySelector('canvas'),
 			timeline: !!(window.__supersTimeline),
+			body: !!document.body,
+			complete: document.readyState === 'complete',
+			pathname: location.pathname,
 			flag: (typeof GPUQueue !== 'undefined') && ('copyElementImageToTexture' in GPUQueue.prototype)
 		}))()`);
 		flag = s.flag;
-		if (s.canvas && s.timeline) {
+		if (s.canvas && s.timeline && s.body && s.complete && s.pathname === EXPECTED_PATHNAME) {
 			ready = true;
 			break;
 		}
@@ -85,18 +97,59 @@ for (let i = 0; i < 60; i++) {
 	await sleep(500);
 }
 console.log(`READY=${ready}  FLAG(copyElementImageToTexture in GPUQueue)=${flag}`);
+if (!flag) {
+	console.error('CanvasDrawElement is unavailable; use the flag-enabled Chrome on CDP port 9223.');
+	process.exit(1);
+}
 if (!ready) {
 	console.log('App did not become ready; aborting.');
 	process.exit(1);
 }
 
 await sleep(900);
+let capturePrepared = false;
+for (let i = 0; i < 60; i++) {
+	try {
+		capturePrepared = await evaluate(`(() => {
+			const c = document.querySelector('canvas');
+			if (!document.body || !c || !window.__supersTimeline) return false;
+			const captureScale = 4;
+			document.body.appendChild(c);
+			c.style.position = 'fixed';
+			c.style.inset = '0 auto auto 0';
+			c.style.inlineSize = (c.width / captureScale) + 'px';
+			c.style.blockSize = (c.height / captureScale) + 'px';
+			c.style.zIndex = '2147483647';
+			return true;
+		})()`);
+		if (capturePrepared) break;
+	} catch {}
+	await sleep(500);
+}
+if (!capturePrepared) {
+	console.error('Canvas did not remain ready for native-resolution capture.');
+	process.exit(1);
+}
 const rect = await evaluate(`(() => {
 	const c = document.querySelector('canvas');
 	const r = c.getBoundingClientRect();
-	return { x: r.x, y: r.y, w: r.width, h: r.height, bw: c.width, bh: c.height };
+	const style = getComputedStyle(c);
+	return {
+		x: r.x,
+		y: r.y,
+		w: r.width,
+		h: r.height,
+		clientWidth: c.clientWidth,
+		clientHeight: c.clientHeight,
+		borderLeft: parseFloat(style.borderLeftWidth),
+		borderTop: parseFloat(style.borderTopWidth),
+		bw: c.width,
+		bh: c.height
+	};
 })()`);
-console.log(`canvas displayed=${Math.round(rect.w)}x${Math.round(rect.h)} backing=${rect.bw}x${rect.bh}`);
+console.log(
+	`canvas displayed=${rect.w}x${rect.h} client=${rect.clientWidth}x${rect.clientHeight} border=${rect.borderLeft}x${rect.borderTop} backing=${rect.bw}x${rect.bh}`
+);
 
 const saved = [];
 for (const p of SAMPLES) {

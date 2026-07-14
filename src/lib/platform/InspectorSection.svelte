@@ -1,7 +1,7 @@
 <script lang="ts" module>
 	// Disclosure is remembered per session, keyed by section label, so the
 	// rail keeps its shape while the user works across selections.
-	const sectionOpenState = new Map<string, boolean>();
+	const sectionOpenState: Record<string, boolean> = {};
 </script>
 
 <script lang="ts">
@@ -24,11 +24,11 @@
 	// Init-once on purpose: disclosure is per-label session memory, not a
 	// derivation of props — the user's toggle owns the state after mount.
 	// svelte-ignore state_referenced_locally
-	let open = $state(sectionOpenState.get(label) ?? defaultOpen);
+	let open = $state(sectionOpenState[label] ?? defaultOpen);
 
 	function toggle(): void {
 		open = !open;
-		sectionOpenState.set(label, open);
+		sectionOpenState[label] = open;
 	}
 </script>
 

@@ -28,7 +28,6 @@
 	// parked (from === to → velocity and trail collapse to zero). See schedule.ts.
 	const schedule = $derived(buildCursorSchedule(content.path));
 	const at = $derived(cursorAt(schedule, progress));
-	const totalSteps = $derived(content.path.length);
 	const fromIndex = $derived(at.fromIndex);
 	const toIndex = $derived(at.toIndex);
 	const local = $derived(at.localT);

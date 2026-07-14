@@ -19,7 +19,7 @@
 
 <Field label="Variant">
 	<select bind:value={overlay.content.variant}>
-		{#each VARIANT_IDS as id}
+		{#each VARIANT_IDS as id (id)}
 			<option value={id}>{VARIANTS[id].label}</option>
 		{/each}
 	</select>

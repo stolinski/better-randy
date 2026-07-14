@@ -191,7 +191,7 @@ export function createWebDocumentScreenPass(): ShaderPass<SurfaceState> {
 	return {
 		uniforms: WebDocumentScreenUniforms,
 		wgsl,
-		packUniforms(_target, bounds, _ctx) {
+		packUniforms(_target, bounds) {
 			return {
 				canvasWidth: bounds.width > 0 ? bounds.width : FALLBACK_CANVAS_WIDTH,
 				canvasHeight: bounds.height > 0 ? bounds.height : FALLBACK_CANVAS_HEIGHT,

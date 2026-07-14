@@ -25,6 +25,9 @@ vite.config.ts.timestamp-*
 # Local rubric-verification baselines (ignored, see scripts/verify-presets.ts)
 /.tmp-baselines
 
+# Critique captures — session-local screenshot evidence, regenerable
+/.tmp-critique
+
 .test-snapshots
 
 # User compositions — local-only, never committed (ADR-0032)

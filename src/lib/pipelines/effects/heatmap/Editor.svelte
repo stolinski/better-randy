@@ -20,7 +20,7 @@
 <div class="row">
 	<span>Stops</span>
 	<div class="stops">
-		{#each effect.params.colors as _, index (index)}
+		{#each effect.params.colors, index (index)}
 			<span class="stop">
 				<input aria-label="Stop {index + 1}" bind:value={effect.params.colors[index]} type="color" />
 				{#if effect.params.colors.length > 2}

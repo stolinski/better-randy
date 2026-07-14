@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 
 	import type { Preset } from '$lib/platform/engine-schema';
@@ -90,7 +91,7 @@
 		const slug = `comp-${Date.now()}`;
 		const named: Preset = { ...blank, name: 'Untitled' };
 		await userStore.fork(slug, named, null);
-		await goto(`/p/${slug}`);
+		await goto(resolve('/p/[slug]', { slug }));
 	}
 
 	async function deleteUserComp(slug: string): Promise<void> {
@@ -127,7 +128,6 @@
 			thumbKey={posterKeyForPreset(preset)}
 			name={preset.name}
 			type={preset.state.surface.type}
-			orientation={preset.state.transport.orientation}
 			badge={compositorBadge(preset)}
 		/>
 	</li>
@@ -141,7 +141,6 @@
 			thumbKey={compKeys[comp.slug] ?? null}
 			name={comp.name}
 			type={base?.state.surface.type ?? 'plain'}
-			orientation={base?.state.transport.orientation ?? 'horizontal'}
 			badge={base ? compositorBadge(base) : null}
 		/>
 		<button

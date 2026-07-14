@@ -84,6 +84,11 @@ async function load(slug) {
 		await sleep(500);
 	}
 	console.log(`[${slug}] READY=${ready} FLAG=${flag}`);
+	if (!flag) {
+		throw new Error(
+			'CanvasDrawElement is unavailable; use the flag-enabled Chrome on CDP port 9223.'
+		);
+	}
 	if (!ready) throw new Error(`App did not become ready for ${slug}`);
 	await sleep(900);
 	const rect = await evaluate(`(() => {

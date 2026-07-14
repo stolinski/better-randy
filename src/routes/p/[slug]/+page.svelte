@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 
 	import { compositionMeta } from '$lib/platform/composition-meta.svelte';
@@ -129,7 +130,7 @@
 	<main class="missing stack">
 		<h1>Preset not found</h1>
 		<p>No preset named "{slug}".</p>
-		<a href="/">All presets</a>
+		<a href={resolve('/')}>All presets</a>
 	</main>
 {:else}
 	<Workspace {posterKey} />

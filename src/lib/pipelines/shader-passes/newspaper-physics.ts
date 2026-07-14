@@ -305,7 +305,7 @@ export function createNewspaperPhysicsPass(): ShaderPass<SurfaceState> {
 	return {
 		uniforms: NewspaperPhysicsUniforms,
 		wgsl,
-		packUniforms(target, bounds, _ctx) {
+		packUniforms(target, bounds) {
 			// Surface state carries no explicit id slot today; the preset id
 			// reaches packUniforms via the SurfaceState's title — a stable
 			// per-composition string. This keeps the seed deterministic

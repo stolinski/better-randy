@@ -21,7 +21,7 @@ function mix(a: number, b: number, t: number): number {
 }
 
 /**
- * Width in CSS pixels of one natural word-space character (`' '` is used
+ * Width in CSS pixels of one natural word-space character (a non-breaking space is used
  * because plain space collapses inside an absolute-positioned span). Measured
  * from a hidden probe span inserted at the same DOM position as the units so
  * it inherits the active typeface, weight, and size. The probe is removed
@@ -171,7 +171,8 @@ export function compileKineticCenterBuild(inputs: StrategyInputs): CompileOutput
 				to: 1,
 				onUpdate: (value) => {
 					const x = mix(currentX, nextX, value);
-					const blur = value < 0.5 ? mix(0, reflowBlurPx, value * 2) : mix(reflowBlurPx, 0, (value - 0.5) * 2);
+					const blur =
+						value < 0.5 ? mix(0, reflowBlurPx, value * 2) : mix(reflowBlurPx, 0, (value - 0.5) * 2);
 					reflowedUnit.element.style.transform = `translate(-50%, -50%) translate3d(${x}px, 0px, 0) scale(1)`;
 					reflowedUnit.element.style.filter = materializeUnitFilter(blur);
 					applyUnitFade(reflowedUnit.element, 1);

@@ -77,24 +77,16 @@ function estimateOverlayBoundsPx(
 
 	const ox = (offset?.x ?? 0) * compositionSize.width;
 	const oy = (offset?.y ?? 0) * compositionSize.height;
-	let x = 0;
-	let y = 0;
-
-	if (anchor.startsWith('top')) {
-		y = oy;
-	} else if (anchor.startsWith('bottom')) {
-		y = compositionSize.height - oy;
-	} else {
-		y = compositionSize.height / 2;
-	}
-
-	if (anchor.endsWith('left')) {
-		x = ox;
-	} else if (anchor.endsWith('right')) {
-		x = compositionSize.width - ox;
-	} else {
-		x = compositionSize.width / 2;
-	}
+	const x = anchor.endsWith('left')
+		? ox
+		: anchor.endsWith('right')
+			? compositionSize.width - ox
+			: compositionSize.width / 2;
+	const y = anchor.startsWith('top')
+		? oy
+		: anchor.startsWith('bottom')
+			? compositionSize.height - oy
+			: compositionSize.height / 2;
 
 	return { x, y, width: 0, height: 0 };
 }

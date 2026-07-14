@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+
 	import type { SurfaceType } from '$lib/platform/engine-schema';
 	import { posterUrl } from '$lib/platform/posters';
 	import { SURFACE_LABELS } from './surface-labels';
@@ -12,11 +14,10 @@
 		thumbKey: string | null;
 		name: string;
 		type: SurfaceType;
-		orientation: 'horizontal' | 'vertical';
 		badge: string | null;
 	}
 
-	let { slug, thumbKey, name, type, orientation, badge }: Props = $props();
+	let { slug, thumbKey, name, type, badge }: Props = $props();
 
 	// Fallback chain: this composition's own poster (capture-on-view) → the
 	// committed surface-type default → the surface glyph.
@@ -42,7 +43,7 @@
 	}
 </script>
 
-<a class="poster-card" href="/p/{slug}">
+<a class="poster-card" href={resolve('/p/[slug]', { slug })}>
 	<span class="poster-card__preview">
 		{#if src}
 			<span

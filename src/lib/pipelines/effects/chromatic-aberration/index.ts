@@ -60,7 +60,7 @@ export const chromaticAberration: EffectRenderer<ChromaticAberrationParams> = {
 	pass: {
 		paramsStruct: ChromaticAberrationUniforms,
 		fragmentBody,
-		pack: (params, _ctx) => ({ strength: params.strength, radial: params.radial })
+		pack: (params) => ({ strength: params.strength, radial: params.radial })
 	},
 	Editor
 };

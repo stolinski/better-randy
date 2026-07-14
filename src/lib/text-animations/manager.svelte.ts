@@ -1,4 +1,5 @@
 import gsap from 'gsap';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 import type { AnimationTweenSpec } from '$lib/platform/animation-manager';
 import type { TextAnimation, Transport } from '$lib/platform/engine-schema';
@@ -62,8 +63,8 @@ interface ActiveEntry {
  * not be triggered by reactivity.
  */
 export class TextAnimationManager {
-	#active = new Map<string, ActiveEntry>();
-	#unitAlpha = new Map<string, Float32Array>();
+	#active = new SvelteMap<string, ActiveEntry>();
+	#unitAlpha = new SvelteMap<string, Float32Array>();
 
 	/**
 	 * Rebuild the active set from the current preset. Returns the union of
@@ -83,7 +84,7 @@ export class TextAnimationManager {
 			return [];
 		}
 
-		const nextKeys = new Set<string>();
+		const nextKeys = new SvelteSet<string>();
 		const out: AnimationTweenSpec[] = [];
 
 		for (const entry of entries) {

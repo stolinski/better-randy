@@ -10,10 +10,9 @@
 	// measureOverlayBoundsPx() can read it. Reference the prop so type-narrowing
 	// holds and Svelte doesn't strip the import on dead-code elimination.
 	let { content }: Props = $props();
-	void content;
 </script>
 
-<div class="shader-fill" data-overlay="shader-fill"></div>
+<div class="shader-fill" data-overlay="shader-fill" data-opacity={content.opacity}></div>
 
 <style>
 	.shader-fill {

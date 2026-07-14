@@ -206,10 +206,10 @@
 	 * rule below), so we only inherit font-size on them. Body p/li get both
 	 * inherited so they pick up the section's pipeline-set typography.
 	 */
-	.paper-source :is(h1, h2, h3, h4, h5, h6) {
+	.paper-source h2 {
 		font-size: inherit;
 	}
-	.paper-source :is(p, li, span, cite, time) {
+	.paper-source :is(p, span, cite) {
 		font-size: inherit;
 		line-height: inherit;
 	}

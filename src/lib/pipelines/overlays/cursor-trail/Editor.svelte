@@ -2,11 +2,10 @@
 	import type { OverlayEditorProps } from '$lib/platform/pipelines/types';
 	import type { CursorTrailContent } from './index';
 
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	let { overlay = $bindable() }: OverlayEditorProps<CursorTrailContent> = $props();
+	let { overlay }: OverlayEditorProps<CursorTrailContent> = $props();
 </script>
 
-<p class="hint">
+<p class="hint" data-overlay-type={overlay.type}>
 	Pointer shape comes from the active Pack; waypoint dwell timing is on the timeline.
 </p>
 

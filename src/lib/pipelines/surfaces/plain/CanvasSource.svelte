@@ -87,12 +87,8 @@
 		transform-origin: top left;
 	}
 
-	/* See paper CanvasSource for the rationale. Headings keep their own
-	 * line-height; only body elements inherit both. */
-	.plain-source :is(h1, h2, h3, h4, h5, h6) {
-		font-size: inherit;
-	}
-	.plain-source :is(p, li, span, cite, time) {
+	/* See paper CanvasSource for the rationale. */
+	.plain-source :is(p, span) {
 		font-size: inherit;
 		line-height: inherit;
 	}
