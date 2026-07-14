@@ -249,8 +249,11 @@ export const cleanLightPack: PackManifest = {
 
 		// Paper tooth is not this register's material — the studio is
 		// digital-clean (aesthetic.md anti-list: grain reads as dirt on white).
-		// Zeroes any authored paper-grain effect, warmth cast included.
-		'paper-grain.strength': { kind: 'style', value: 0 },
+		// Categorical decline ('none', the house vocabulary): any authored
+		// paper-grain goes inert, warmth cast included, and the inspector shows
+		// it as pack · off. A NUMBER here would be a dial (quieter grain, still
+		// live) — this pack declines the material outright.
+		'paper-grain.strength': { kind: 'style', value: 'none' },
 
 		// Tape is not this register's grammar (nothing is stuck down in a white
 		// studio) — defensive values only, so a re-skinned Preset carrying tape

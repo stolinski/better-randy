@@ -311,9 +311,11 @@ export const crtTerminalPack: PackManifest = {
 
 		// Paper tooth is a PAPER artifact (aesthetic doc: no grain-as-tooth — a
 		// screen's texture is the scanline, already claimed via material-
-		// treatment). Zeroes any authored paper-grain effect, warmth cast
-		// included ("it's not paper" — the docu-family grain strip, 2026-07-10).
-		'paper-grain.strength': { kind: 'style', value: 0 },
+		// treatment). Categorical decline ('none'): any authored paper-grain
+		// goes inert, warmth cast included, and the inspector shows it as
+		// pack · off ("it's not paper" — the docu-family grain strip,
+		// 2026-07-10). A NUMBER here would be a dial — this pack declines.
+		'paper-grain.strength': { kind: 'style', value: 'none' },
 
 		// Washi tape is a PAPER artifact the aesthetic doc forbids (no tape, no
 		// collage) — these values are defensive so the Role can never leak warm

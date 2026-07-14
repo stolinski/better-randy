@@ -381,12 +381,14 @@ export interface EffectRenderer<TParams = unknown> {
 	Editor?: Component<EffectEditorProps<TParams>>;
 	Inspector?: Component<EffectEditorProps<TParams>>;
 	/**
-	 * True when the active Pack neutralizes this effect entirely (e.g. a
-	 * non-paper Pack claiming `paper-grain.strength: 0`). The inspector then
-	 * tags the authored row `pack · off` and withholds the param editors —
-	 * controls that visibly do nothing read as bugs. The authored entry
+	 * True when the active Pack declines this effect CATEGORICALLY (e.g. a
+	 * non-paper Pack claiming `paper-grain.strength: 'none'`). The inspector
+	 * then tags the authored row `pack · off` and withholds the param editors
+	 * — controls that visibly do nothing read as bugs. The authored entry
 	 * itself stays listed: it is composition state, travels with a pack
-	 * flip, and must remain discoverable / removable.
+	 * flip, and must remain discoverable / removable. Must key off a
+	 * categorical claim ('none'), never a threshold on a numeric dial — a
+	 * draggable value hitting the threshold would delete its own editors.
 	 */
 	isPackInert?(pack: PackManifest): boolean;
 }

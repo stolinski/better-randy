@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { packState } from '$lib/platform/engine-state.svelte';
 import { getPack } from '$lib/platform/packs/registry';
+import type { PackManifest } from '$lib/platform/packs/types';
 import type { EffectRenderer } from '$lib/platform/pipelines/types';
 import { resolveRoleNumber } from '$lib/utils/color';
 
@@ -97,28 +98,40 @@ const fragmentBody = /* wgsl */ `
 	return vec4f(outRgb, inputSample.a);
 `;
 
+// Categorical decline (the house 'none' vocabulary, same as depth/light/
+// textShadow claims): the pack rules paper tooth out of its material world.
+// Distinct from a NUMBER, which is a dial — a dialed grain is live (editors
+// stay), only 'none' reads as pack · off. Binary UI state must never hang
+// off a magic point on a continuous dial (Scott, 2026-07-14: a draggable
+// strength hitting exactly 0 would delete its own editors).
+function packDeclinesGrain(pack: PackManifest): boolean {
+	const role = pack.roles['paper-grain.strength'];
+	return role?.kind === 'style' && role.value === 'none';
+}
+
 export const paperGrain: EffectRenderer<PaperGrainParams> = {
 	type: 'paper-grain',
 	label: 'Paper grain',
 	schema: PaperGrainEffectSchema,
 	defaults: () => ({ params: { warmth: 0.5, density: 0.3, lift: 0 } }),
-	// A strength-0 claim makes every param a no-op — the inspector shows the
-	// authored row as `pack · off` instead of live-looking dead sliders.
-	isPackInert: (pack) => resolveRoleNumber(pack.roles['paper-grain.strength'], 1) === 0,
+	isPackInert: packDeclinesGrain,
 	pass: {
 		paramsStruct: PaperGrainUniforms,
 		fragmentBody,
 		pack: (params, ctx) => {
-			// Pack-routed strength scale (ADR-0039 §3): paper tooth is a PAPER
-			// material — a pack whose substrate isn't paper claims 0 and the
+			// Pack-routed grain claim (ADR-0039 §3): paper tooth is a PAPER
+			// material — a pack whose substrate isn't paper claims 'none' and the
 			// authored effect goes inert (grain reads as dirt on a white studio
 			// field; a phosphor screen has no tooth) instead of every composition
-			// dropping the effect per pack. Warmth scales too: the warm-paper
-			// tint applies even at density 0, and a warm cast is exactly the leak
-			// a non-paper pack is declining. Silent packs resolve 1 — bit-identical.
-			// Uniforms pack per frame, so a pack switch needs no extra reactivity.
-			const strengthRole = getPack(packState.slug).roles['paper-grain.strength'];
-			const strength = resolveRoleNumber(strengthRole, 1);
+			// dropping the effect per pack. A NUMBER claim is a dial (quieter
+			// grain, still live). Warmth scales too: the warm-paper tint applies
+			// even at density 0, and a warm cast is exactly the leak a non-paper
+			// pack is declining. Silent packs resolve 1 — bit-identical. Uniforms
+			// pack per frame, so a pack switch needs no extra reactivity.
+			const activePack = getPack(packState.slug);
+			const strength = packDeclinesGrain(activePack)
+				? 0
+				: resolveRoleNumber(activePack.roles['paper-grain.strength'], 1);
 			return {
 				warmth: params.warmth * strength,
 				density: params.density * strength,

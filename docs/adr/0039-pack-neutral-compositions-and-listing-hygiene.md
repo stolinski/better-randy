@@ -25,7 +25,7 @@ Two audits landed together:
 3. **One preset per piece — the pack is a dial, not a filename.** No pack-suffix duplicates in the listing. The mechanisms that make a pure flip sufficient, in dependency order:
    - Lift remaining ADR-0038 `typography` restatements from base presets (pure pruning).
    - `backgroundFill: "pack"` sentinel — resolves to the active Pack's field color; presence still signals the opaque/transparent export lane. Schema + GUI parity.
-   - Pack-routable grain: `paper-grain` params ride Pack roles with today's literals as defaults (the type-hero-rake `resolveRoleNumberField` pattern); a light pack claims density 0 instead of the composition dropping the effect.
+   - Pack-routable grain: `paper-grain` uniforms scale by a Pack claim (the type-hero-rake routing pattern); a non-paper pack **declines the material categorically** (`'none'` — the authored effect goes inert and the inspector shows `pack · off`) instead of the composition dropping the effect. A NUMBER claim is a dial (quieter grain, still live-edited); binary UI state never hangs off a threshold on a dial.
    - Pack sound voice: sound _events_ stay composition-owned (ADR-0023), but event→sample resolution routes through the active Pack's kit, so 'impact' lands as each brand's impact. Scope to be designed — the CRT dupes exist mostly for this.
    - Pack-picked pipeline variants (`PackPipelineRole`, unwired since the form-dress round) for the rare places staging itself is brand.
      The `*-crt` / `*-clean-light` duplicates fold back into their bases **as these mechanisms land** — they are not deleted before the flip can express their deltas.
