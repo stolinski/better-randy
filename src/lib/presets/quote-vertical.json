@@ -41,18 +41,12 @@
 			"enter": {
 				"start": 0,
 				"duration": 0.2,
-				"ease": "settled",
-				"sound": {
-					"mute": true
-				}
+				"ease": "settled"
 			},
 			"exit": {
 				"start": 0.84,
 				"duration": 0.14,
-				"ease": "smooth",
-				"sound": {
-					"mute": true
-				}
+				"ease": "smooth"
 			},
 			"backgroundVisibility": 0.2
 		},

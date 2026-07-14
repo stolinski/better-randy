@@ -81,7 +81,8 @@
 					"duration": 0.06,
 					"ease": "settled",
 					"sound": {
-						"event": "impact"
+						"event": "impact",
+						"sample": "thud-deep"
 					}
 				},
 				"exit": {

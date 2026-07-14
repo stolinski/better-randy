@@ -44,10 +44,7 @@
 			"enter": {
 				"start": 0,
 				"duration": 0.07,
-				"ease": "settled",
-				"sound": {
-					"mute": true
-				}
+				"ease": "settled"
 			}
 		},
 		"overlays": [],

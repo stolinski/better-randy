@@ -35,18 +35,12 @@
 			"enter": {
 				"start": 0,
 				"duration": 0.05,
-				"ease": "settled",
-				"sound": {
-					"mute": true
-				}
+				"ease": "settled"
 			},
 			"exit": {
 				"start": 0.92,
 				"duration": 0.035,
-				"ease": "smooth",
-				"sound": {
-					"mute": true
-				}
+				"ease": "smooth"
 			}
 		},
 		"textAnimations": [

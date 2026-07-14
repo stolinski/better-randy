@@ -38,7 +38,10 @@
 				{
 					"start": 0.17,
 					"duration": 0.12,
-					"ease": "smooth"
+					"ease": "smooth",
+					"sound": {
+						"sample": "tick-snap"
+					}
 				},
 				{
 					"start": 0.19,
@@ -58,18 +61,12 @@
 			"enter": {
 				"start": 0,
 				"duration": 0.06,
-				"ease": "settled",
-				"sound": {
-					"mute": true
-				}
+				"ease": "settled"
 			},
 			"exit": {
 				"start": 0.86,
 				"duration": 0.08,
-				"ease": "smooth",
-				"sound": {
-					"mute": true
-				}
+				"ease": "smooth"
 			},
 			"backgroundVisibility": 0.5
 		},

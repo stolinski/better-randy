@@ -55,18 +55,12 @@
 			"enter": {
 				"start": 0,
 				"duration": 0.045,
-				"ease": "settled",
-				"sound": {
-					"mute": true
-				}
+				"ease": "settled"
 			},
 			"exit": {
 				"start": 0.93,
 				"duration": 0.034,
-				"ease": "smooth",
-				"sound": {
-					"mute": true
-				}
+				"ease": "smooth"
 			}
 		},
 		"overlays": [],

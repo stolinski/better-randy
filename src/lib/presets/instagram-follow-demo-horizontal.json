@@ -54,7 +54,7 @@
 					"duration": 0.04,
 					"ease": "smooth",
 					"sound": {
-						"mute": true
+						"sample": "fwip-soft-out"
 					}
 				}
 			}

@@ -53,18 +53,12 @@
 			"enter": {
 				"start": 0,
 				"duration": 0.04,
-				"ease": "settled",
-				"sound": {
-					"mute": true
-				}
+				"ease": "settled"
 			},
 			"exit": {
 				"start": 0.94,
 				"duration": 0.028,
-				"ease": "smooth",
-				"sound": {
-					"mute": true
-				}
+				"ease": "smooth"
 			}
 		},
 		"textAnimations": [
