@@ -1,6 +1,6 @@
 # ADR-0032 — GUI ↔ agent parity: local round-trip authoring on the shared Preset
 
-Status: **Designed, not built**
+Status: **Built**
 Date: 2026-06-26
 Relates to: [ADR-0002](0002-per-tool-routes-to-preset-engine.md) (one preset engine), [ADR-0014](0014-pack-preset-split.md) / [ADR-0023](0023-pack-is-appearance-only.md) (Pack/Preset split, appearance-only), [ADR-0004](0004-recipe-cookbook-over-schema-chrome.md) (Starter templates), [ADR-0025](0025-static-linter-checks-safety-and-readability-only.md) (linter scope)
 
@@ -8,7 +8,7 @@ Relates to: [ADR-0002](0002-per-tool-routes-to-preset-engine.md) (one preset eng
 
 The north star is **GUI ↔ agent parity**: a human in the GUI and an agent are co-equal authors over one composition model — either creates a piece end-to-end, or they collaborate. Today the GUI is preview/tune only; this is the remaining critical path (engine arc done, corpus delivered).
 
-The grill that produced this ADR reframed the work. The GUI is **not net-new**: it already two-way-binds a single reactive `engineState` (`engine-state.svelte.ts`) that holds a *fully editable* composition tree — surface type, all content text, typography, background fill, add/remove overlays, add/remove text-animations, the effects chain, every mark via `TrackInspector`, timeline scrub. The expensive 80% exists. What is missing is:
+The grill that produced this ADR reframed the work. The GUI is **not net-new**: it already two-way-binds a single reactive `engineState` (`engine-state.svelte.ts`) that holds a _fully editable_ composition tree — surface type, all content text, typography, background fill, add/remove overlays, add/remove text-animations, the effects chain, every mark via `TrackInspector`, timeline scrub. The expensive 80% exists. What is missing is:
 
 1. **Persistence** — there is no `engineState → Preset` serializer, no write path, no `fs.writeFile` anywhere; `src/routes/api/` has only the ProRes export endpoint. Edits vanish on reload.
 2. **Coverage** — no UI for `transport`, `state.stage` (depth/camera/focus), the active `pack`, overlay placement, or some text-animation params.
@@ -34,7 +34,7 @@ Both hold the identical Preset format; the engine loads either the same way. "On
 
 ### 3. Fork-on-first-edit + autosave
 
-Opening a corpus preset is **read-only**. The **first param change forks** a standalone **User composition** (a full, independent Preset — *not* a patch/override layer bound to the base) into the user store, autosaves it, and the GUI shows a **"forked" state**. Every later edit autosaves to the fork. There are **no save / new / duplicate buttons** (house rule: autosave on change, never a save button).
+Opening a corpus preset is **read-only**. The **first param change forks** a standalone **User composition** (a full, independent Preset — _not_ a patch/override layer bound to the base) into the user store, autosaves it, and the GUI shows a **"forked" state**. Every later edit autosaves to the fork. There are **no save / new / duplicate buttons** (house rule: autosave on change, never a save button).
 
 ### 4. Revert = discard the fork
 
@@ -42,7 +42,7 @@ Opening a corpus preset is **read-only**. The **first param change forks** a sta
 
 ### 5. Lossless round-trip is a hard contract
 
-On save the GUI **preserves the originally-loaded Preset** and patches back **only the GUI-owned subtree**; fields the GUI has no control for (`state.stage`, `transport`, exotic params) **pass through untouched**. The gate is a **byte-identical round-trip test**: load → serialize == original, for every unedited corpus preset. This is what makes save safe with *partial* coverage — opening an agent-authored depth-stage preset and saving can never silently drop the depth stage. Each new control simply **widens the owned subtree** behind the already-proven save path. Parity **accretes**; it never has to land big-bang.
+On save the GUI **preserves the originally-loaded Preset** and patches back **only the GUI-owned subtree**; fields the GUI has no control for (`state.stage`, `transport`, exotic params) **pass through untouched**. The gate is a **byte-identical round-trip test**: load → serialize == original, for every unedited corpus preset. This is what makes save safe with _partial_ coverage — opening an agent-authored depth-stage preset and saving can never silently drop the depth stage. Each new control simply **widens the owned subtree** behind the already-proven save path. Parity **accretes**; it never has to land big-bang.
 
 ### 6. v1 is fork-from-template only
 
@@ -67,3 +67,5 @@ The whole model is template-centric, so **create-from-blank is a fast-follow** �
 - The current coverage gaps (`transport`, `state.stage`, pack picker, overlay placement, structural layer editing) become **incremental tasks behind the proven save path**, not blockers.
 - **Electron migration is a port swap**, not a rewrite — the GUI stays unaware of the transport.
 - Tracked in dex; see [`roadmap.md`](../roadmap.md) § GUI ↔ agent parity.
+
+**Implementation note (2026-07-13).** The local persistence routes now run the same registry-derived semantic Preset validator as catalog loading and `parsePreset` on list/load/create/update. A schema-valid User composition with an unknown Pack, renderer, variant, Effect params, Stage, substrate, or broken text target is rejected before it is stored or reopened. This is artifact validity, not the deferred GUI linter/Critic surface in § Non-goals.

@@ -40,15 +40,37 @@ registerHooks({
 		}
 	},
 	load(url, context, nextLoad) {
+		if (url.endsWith('/engine-state.svelte.ts')) {
+			return {
+				format: 'module',
+				source:
+					"export const engineState = {}; export const packState = { slug: 'syntax' }; export const transitionState = {};",
+				shortCircuit: true
+			};
+		}
 		if (url.endsWith('.css')) {
 			return { format: 'module', source: '', shortCircuit: true };
+		}
+		if (url.endsWith('.svelte')) {
+			return { format: 'module', source: 'export default {};', shortCircuit: true };
+		}
+		if (/\.(png|jpe?g|webp|woff2?|wav)$/.test(url)) {
+			return {
+				format: 'module',
+				source: `export default ${JSON.stringify(url)};`,
+				shortCircuit: true
+			};
 		}
 		return nextLoad(url, context);
 	}
 });
+(globalThis as typeof globalThis & { $state: <T>(value: T) => T }).$state = <T>(value: T): T =>
+	value;
 const schemaModulePath = resolve(repoRoot, 'src/lib/platform/engine-schema.ts');
 const rubricModulePath = resolve(repoRoot, 'src/lib/platform/preset-rubric.ts');
+const presetValidationModulePath = resolve(repoRoot, 'src/lib/platform/preset-validation.ts');
 const packRegistryModulePath = resolve(repoRoot, 'src/lib/platform/packs/registry.ts');
+const packValidationModulePath = resolve(repoRoot, 'src/lib/platform/packs/validation.ts');
 const identityRegistryModulePath = resolve(
 	repoRoot,
 	'src/lib/platform/pipelines/identity-registry.ts'
@@ -67,12 +89,36 @@ interface RubricIssue {
 	message: string;
 }
 
+interface SemanticIssue {
+	path: (string | number)[];
+	message: string;
+}
+
+interface PackValidationIssue {
+	pack: string;
+	path: (string | number)[];
+	kind: string;
+	message: string;
+}
+
+interface IdentityValidationError {
+	pipeline: string;
+	kind: string;
+	message: string;
+}
+
 const { PresetSchema } = (await import(pathToFileURL(schemaModulePath).href)) as {
 	PresetSchema: { safeParse: (value: unknown) => ParseResult };
 };
 
 const { lintPreset } = (await import(pathToFileURL(rubricModulePath).href)) as {
 	lintPreset: (preset: unknown) => RubricIssue[];
+};
+
+const { validatePresetSemantics } = (await import(
+	pathToFileURL(presetValidationModulePath).href
+)) as {
+	validatePresetSemantics: (preset: unknown) => readonly SemanticIssue[];
 };
 
 const presetDir = resolve(repoRoot, 'src/lib/presets');
@@ -94,11 +140,21 @@ for (const file of files) {
 		continue;
 	}
 
+	const semanticIssues = validatePresetSemantics(result.data);
+	if (semanticIssues.length > 0) {
+		console.error(`✗ ${file} (semantic)`);
+		for (const issue of semanticIssues) {
+			console.error(`    ERR ${issue.path.join('.') || '<root>'} — ${issue.message}`);
+		}
+		failed += 1;
+		continue;
+	}
+
 	// Fixtures (demos / showcases / tests / motion-primitive verifiers) are
-	// schema-checked but exempt from the deliverable R/Q/G rubric floors.
+	// structurally + semantically checked but exempt from the deliverable R/Q/G rubric floors.
 	if ((result.data as { kind?: string }).kind === 'fixture') {
 		fixtureCount += 1;
-		console.log(`✓ ${file} (fixture — schema only)`);
+		console.log(`✓ ${file} (fixture — schema + semantics)`);
 		continue;
 	}
 
@@ -148,8 +204,8 @@ const fixtures: Fixture[] = [
 	{
 		name: 'Cross-surface remix (paper → plain content carry-over)',
 		preset: {
-			schema: "supers@1",
-			pack: "syntax",
+			schema: 'supers@1',
+			pack: 'syntax',
 			name: 'Cross-surface remix',
 			state: {
 				transport: { orientation: 'horizontal', durationSeconds: 5, fps: 30, format: 'webm' },
@@ -169,8 +225,8 @@ const fixtures: Fixture[] = [
 	{
 		name: 'Decorative fixture (every decorative style on its own line)',
 		preset: {
-			schema: "supers@1",
-			pack: "syntax",
+			schema: 'supers@1',
+			pack: 'syntax',
 			name: 'Decorative coverage',
 			state: {
 				transport: { orientation: 'horizontal', durationSeconds: 5, fps: 30, format: 'webm' },
@@ -193,8 +249,8 @@ const fixtures: Fixture[] = [
 	{
 		name: 'Focal fixture (every focal style on its own line)',
 		preset: {
-			schema: "supers@1",
-			pack: "syntax",
+			schema: 'supers@1',
+			pack: 'syntax',
 			name: 'Focal coverage',
 			state: {
 				transport: { orientation: 'horizontal', durationSeconds: 5, fps: 30, format: 'webm' },
@@ -215,8 +271,8 @@ const fixtures: Fixture[] = [
 	{
 		name: 'Lower-third overlay fixture',
 		preset: {
-			schema: "supers@1",
-			pack: "syntax",
+			schema: 'supers@1',
+			pack: 'syntax',
 			name: 'Lower-third overlay',
 			state: {
 				transport: { orientation: 'horizontal', durationSeconds: 5, fps: 30, format: 'webm' },
@@ -243,8 +299,8 @@ const fixtures: Fixture[] = [
 	{
 		name: 'Two paper-grain effects stacked in the frame chain',
 		preset: {
-			schema: "supers@1",
-			pack: "syntax",
+			schema: 'supers@1',
+			pack: 'syntax',
 			name: 'Paper grain stacked',
 			state: {
 				transport: { orientation: 'horizontal', durationSeconds: 5, fps: 30, format: 'webm' },
@@ -265,8 +321,8 @@ const fixtures: Fixture[] = [
 	{
 		name: 'AI-authored from schema + brief (no source code access)',
 		preset: {
-			schema: "supers@1",
-			pack: "syntax",
+			schema: 'supers@1',
+			pack: 'syntax',
 			name: 'AI fixture',
 			description: 'Goal: a quick research-paper preset that highlights one keyword.',
 			state: {
@@ -297,42 +353,50 @@ for (const fixture of fixtures) {
 		console.error(`✗ ${fixture.name}`);
 		console.error(result.error);
 		failed += 1;
+	} else if (validatePresetSemantics(result.data).length > 0) {
+		console.error(`✗ ${fixture.name} (semantic)`);
+		failed += 1;
 	} else {
 		console.log(`✓ ${fixture.name}`);
 	}
 }
 
-// Pack core vocabulary (ADR-0024): every registered Pack must supply the six
-// mandatory core Roles (fill/ink/accent/edge/depth/light treatments) with
-// resolver-recognised values — the same gate the engine enforces at boot.
-interface PackCoreVocabularyError {
-	pack: string;
-	role: string;
-	kind: string;
-	message: string;
-}
-
 const { PACK_REGISTRY } = (await import(pathToFileURL(packRegistryModulePath).href)) as {
 	PACK_REGISTRY: Readonly<Record<string, { slug: string }>>;
 };
-const { validatePackCoreVocabulary } = (await import(
+const { validatePackRegistry } = (await import(pathToFileURL(packValidationModulePath).href)) as {
+	validatePackRegistry: (registry: unknown) => readonly PackValidationIssue[];
+};
+const { validateIdentityRegistry } = (await import(
 	pathToFileURL(identityRegistryModulePath).href
 )) as {
-	validatePackCoreVocabulary: (manifest: unknown) => readonly PackCoreVocabularyError[];
+	validateIdentityRegistry: (manifest: unknown) => readonly IdentityValidationError[];
 };
 
-for (const [slug, manifest] of Object.entries(PACK_REGISTRY)) {
-	const errors = validatePackCoreVocabulary(manifest);
-
-	if (errors.length === 0) {
-		console.log(`✓ pack:${slug} (core vocabulary)`);
-		continue;
+const packIssues = validatePackRegistry(PACK_REGISTRY);
+if (packIssues.length === 0) {
+	for (const slug of Object.keys(PACK_REGISTRY)) {
+		console.log(`✓ pack:${slug} (manifest contract)`);
 	}
-
+} else {
 	failed += 1;
-	console.error(`✗ pack:${slug} (core vocabulary)`);
-	for (const error of errors) {
-		console.error(`    ERR ${error.kind} ${error.role} — ${error.message}`);
+	console.error('✗ Pack manifest contract');
+	for (const issue of packIssues) {
+		console.error(
+			`    ERR ${issue.kind} ${issue.pack}.${issue.path.join('.') || '<root>'} — ${issue.message}`
+		);
+	}
+}
+
+const referencePack = PACK_REGISTRY['syntax'];
+const identityIssues = referencePack ? validateIdentityRegistry(referencePack) : [];
+if (referencePack && identityIssues.length === 0) {
+	console.log('✓ identity registry (reference Pack completeness)');
+} else {
+	failed += 1;
+	console.error('✗ identity registry (reference Pack completeness)');
+	for (const issue of identityIssues) {
+		console.error(`    ERR ${issue.kind} ${issue.pipeline} — ${issue.message}`);
 	}
 }
 
@@ -343,7 +407,7 @@ if (failed > 0) {
 
 const fixtureNote =
 	fixtureCount > 0
-		? ` ${fixtureCount} fixture(s) schema-checked only (rubric floors apply to deliverables).`
+		? ` ${fixtureCount} fixture(s) schema + semantic checked (rubric floors apply to deliverables).`
 		: '';
 if (warned > 0) {
 	console.log(`\nAll preset validation checks passed (${warned} rubric warning(s)).${fixtureNote}`);

@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { onDestroy, tick, untrack } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	import {
 		AnimationManager,
@@ -60,8 +62,7 @@
 		type Effect,
 		type Keyframe,
 		type MarkInstance,
-		type Preset,
-		type SurfaceType
+		type Preset
 	} from './engine-schema';
 	import {
 		engineState,
@@ -121,13 +122,14 @@
 	import type { CursorPath } from '$lib/pipelines/overlays/cursor-trail/index';
 	import { exposeVisualAudit } from './runtime-audit';
 	import { captureCanvasWebp } from '$lib/utils/canvas-capture';
+	import { isEngineStateOpaque, isTransitionOpaque } from '$lib/utils/output-classification';
 	import { posterExists, putPoster } from './posters';
 
 	// Content key for this composition's poster, supplied by the route (which owns
 	// the loaded Preset). When set, the settled frame is captured once and cached
 	// server-side so the picker can show a real, always-in-sync preview.
 	let { posterKey = null }: { posterKey?: string | null } = $props();
-	const capturedPosterKeys = new Set<string>();
+	const capturedPosterKeys = new SvelteSet<string>();
 
 	let compositionElement = $state<HTMLElement | null>(null);
 	let surfaceElement = $state<HTMLElement | null>(null);
@@ -139,7 +141,6 @@
 	let canvas = $state.raw<HTMLCanvasElement | null>(null);
 	let host = $state.raw<GpuHost | null>(null);
 	let pipeline = $state.raw<SurfaceRenderInstance | null>(null);
-	let pipelineSurfaceType = $state.raw<SurfaceType | null>(null);
 	let effectChain = $state.raw<EffectChain | null>(null);
 	let shaderPassDispatcher = $state.raw<ShaderPassDispatcher | null>(null);
 	let compositionPlanes = $state.raw<CompositionPlanes | null>(null);
@@ -613,8 +614,7 @@
 
 		for (const element of diagramElements) {
 			const channels = element.animation?.channels as
-				| Partial<Record<(typeof OVERLAY_CHANNEL_KEYS)[number], Keyframe[]>>
-				| undefined;
+				Partial<Record<(typeof OVERLAY_CHANNEL_KEYS)[number], Keyframe[]>> | undefined;
 			const window = cascadeWindows.get(`block:${element.id}`);
 			const hasChannels =
 				channels !== undefined &&
@@ -2040,8 +2040,8 @@
 		return planes.compositeTexture();
 	}
 
-	// The multiplane DOF render, shared by preview (`renderCompositeTo`) and
-	// export (`renderFrame`). Surface plane = the pipeline output read against the
+	// The multiplane DOF render, reached only through `renderCompositionFrameTo`.
+	// Surface plane = the pipeline output read against the
 	// Surface-layer element only; Overlay plane = the Overlay-layer DOM. Composite
 	// back-to-front, then run the remaining effects + present.
 	function renderDofPlanes(
@@ -2058,7 +2058,6 @@
 		// Surface plane: `.composition` is surface-only while the plane split is on,
 		// so the pipeline's default DOM capture is the Surface plane. Overlay plane:
 		// the hoisted Overlay-root sibling, captured on its own.
-		pipeline.uploadDom();
 		pipeline.render(inputs);
 		const surfaceOutput = pipeline.getOutputTexture();
 		planes.captureOverlay(overlayRootElement);
@@ -2084,7 +2083,8 @@
 		return true;
 	}
 
-	// The dimensional depth stage render (ADR-0028), shared by preview and export.
+	// The dimensional depth stage render (ADR-0028), reached only through the
+	// shared composition-frame seam.
 	// The Surface composite (card on transparent) is placed on a 3D plane over the
 	// backdrop plane; the stage outputs an opaque, defocused composite that the
 	// effect chain presents. No `background` fill — the backdrop plane is the
@@ -2098,7 +2098,6 @@
 		if (!pipeline || !host || !effectChain || !depthStage || !shaderPassDispatcher) {
 			return false;
 		}
-		pipeline.uploadDom();
 		pipeline.render(inputs);
 		// Surface-local shader physics (edge treatment, the surface pass) run on
 		// the surface plane texture BEFORE staging — a surface keeps its declared
@@ -2153,33 +2152,44 @@
 		return true;
 	}
 
-	// Composite the current composition (surface → shaderPass → effect chain) into
-	// `outputView`. The single render seam: `renderAt` points it at the canvas;
-	// the transition snapshot path (ADR-0026) points it at an offscreen texture so
-	// a state's finished frame can be captured and reused by the wipe.
-	function renderCompositeTo(outputView: GPUTextureView, timestamp: number): void {
+	// Render one deterministic composition frame into `outputView`. Preview,
+	// transition snapshots, and export all enter here. Prepared transition snapshots
+	// take precedence and need no live DOM upload; every live path builds one complete
+	// input object and queue-orders exactly one upload ahead of its render dispatch.
+	function renderCompositionFrameTo(outputView: GPUTextureView, timestamp: number): void {
+		if (transitionReady && snapshots && transitionWipe) {
+			const duration = engineState.transport.durationSeconds;
+			const progress = duration > 0 ? Math.max(0, Math.min(1, timestamp / duration)) : 0;
+			transitionWipe.apply({
+				fromView: snapshots.fromTexture().createView(),
+				toView: snapshots.toTexture().createView(),
+				outputView,
+				progress
+			});
+			return;
+		}
+
 		if (!pipeline || !host || !effectChain || !shaderPassDispatcher) {
 			return;
 		}
 
 		const timebase = effectChainTimebase(timestamp);
+		const inputs = buildRenderInputs(timestamp);
+		pipeline.uploadDom();
 
 		// Dimensional depth stage (ADR-0028) takes precedence when declared; else the
 		// flat multiplane DOF (ADR-0027); else the plain flat composite.
 		const stage = resolveStage(timebase.progress);
-		if (stage && renderDepthStage(stage, buildRenderInputs(timestamp), timebase, outputView)) {
+		if (stage && renderDepthStage(stage, inputs, timebase, outputView)) {
 			return;
 		}
 
 		const dof = resolveDof(timebase.progress);
-		if (
-			dof &&
-			renderDofPlanes(dof, buildRenderInputs(timestamp), timebase, outputView, backgroundFillFloat)
-		) {
+		if (dof && renderDofPlanes(dof, inputs, timebase, outputView, backgroundFillFloat)) {
 			return;
 		}
 
-		pipeline.render(buildRenderInputs(timestamp));
+		pipeline.render(inputs);
 
 		const commandEncoder = host.device.createCommandEncoder();
 
@@ -2204,22 +2214,7 @@
 		if (!host) {
 			return;
 		}
-		const outputView = host.context.getCurrentTexture().createView();
-		// Transition mode (ADR-0026): once both states are snapshotted, composite
-		// the wipe over them instead of the live composition. The timeline drives
-		// the wipe's local progress (0 = from, 1 = to).
-		if (transitionReady && snapshots && transitionWipe) {
-			const duration = engineState.transport.durationSeconds;
-			const progress = duration > 0 ? Math.max(0, Math.min(1, timestamp / duration)) : 0;
-			transitionWipe.apply({
-				fromView: snapshots.fromTexture().createView(),
-				toView: snapshots.toTexture().createView(),
-				outputView,
-				progress
-			});
-			return;
-		}
-		renderCompositeTo(outputView, timestamp);
+		renderCompositionFrameTo(host.context.getCurrentTexture().createView(), timestamp);
 	}
 
 	// The single per-frame driver. Called by the Timeline's tick (play + seek)
@@ -2246,9 +2241,7 @@
 	// Capture one state's settled composite into `target`. Swap the live
 	// composition to `preset`, let content + pipeline effects flush, drive the
 	// animation to the settled frame, flush the DOM that produces, then re-upload
-	// and composite that frame into the snapshot texture. The explicit uploadDom
-	// immediately before the capture makes it deterministic regardless of the
-	// reactive paint loop running underneath.
+	// and render that live frame into the snapshot texture through the shared seam.
 	function nextFrame(): Promise<void> {
 		return new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 	}
@@ -2269,11 +2262,7 @@
 		await tick();
 		await nextFrame();
 		await nextFrame();
-		if (!pipeline) {
-			return;
-		}
-		pipeline.uploadDom();
-		renderCompositeTo(target, SNAPSHOT_PROGRESS * preset.state.transport.durationSeconds);
+		renderCompositionFrameTo(target, SNAPSHOT_PROGRESS * preset.state.transport.durationSeconds);
 	}
 
 	async function prepareTransition(active: ResolvedTransition): Promise<void> {
@@ -2300,13 +2289,17 @@
 			$state.snapshot(engineState),
 			packState.slug
 		);
+		// Restore the PRIOR value rather than assuming ownership of the flag —
+		// clearing it unconditionally clobbers any concurrent bracket holder
+		// (probe-pack-diff's in-page pack-swap bracket rides the same flag).
+		const wasCapturing = transitionState.capturing;
 		transitionState.capturing = true;
 		try {
 			await captureStateSnapshot(active.from, snapshots.fromTarget());
 			await captureStateSnapshot(active.to, snapshots.toTarget());
 		} finally {
 			applyCompositionState(sourceComposition);
-			transitionState.capturing = false;
+			transitionState.capturing = wasCapturing;
 		}
 		// The recipe may have been cleared or replaced while the captures were in
 		// flight — only arm the wipe if this run still services the active one.
@@ -2403,7 +2396,6 @@
 			}
 
 			pipeline = nextPipeline;
-			pipelineSurfaceType = surfaceType;
 
 			// Always recreate EffectChain and ShaderPassDispatcher — their ping-pong
 			// textures are sized to the canvas at construction. When orientation
@@ -2483,11 +2475,10 @@
 			}
 
 			setCanvasPaintHandler(localCanvas, () => {
-				// A paint re-uploads the current DOM and composites it. The seek/play
+				// A paint composites the current DOM through the shared seam. The seek/play
 				// tick already applied the GSAP state (and wrote animState) before
 				// requesting this paint, so we only composite here — renderAt(), not
 				// tickTimeline(), to avoid re-driving the animation on every paint.
-				nextPipeline.uploadDom();
 				if (timeline) {
 					renderAt(timeline.time);
 				}
@@ -2516,7 +2507,6 @@
 				nextPipeline.dispose();
 				if (pipeline === nextPipeline) {
 					pipeline = null;
-					pipelineSurfaceType = null;
 				}
 			};
 		});
@@ -2785,7 +2775,6 @@
 			return;
 		}
 
-		const activePipeline = pipeline;
 		const activeCanvas = canvas;
 		const exportManager = new AnimationManager();
 
@@ -2799,12 +2788,6 @@
 		const durationSeconds = engineState.transport.durationSeconds;
 		const fps = engineState.transport.fps;
 		const format = engineState.transport.format;
-		const markColorsByIndex = getMarkColorsByIndex();
-		const markIntensityByIndex = getMarkIntensityByIndex();
-		const exportBackground = engineState.backgroundFill
-			? hexToRgbaFloat(engineState.backgroundFill)
-			: undefined;
-
 		const renderFrame: TransparentVideoExportOptions['renderFrame'] = async (_frame, timestamp) => {
 			const fraction = durationSeconds > 0 ? timestamp / durationSeconds : 0;
 			exportManager.progress(fraction);
@@ -2812,75 +2795,8 @@
 			// iMessage bubbles and other Svelte-owned DOM motion derive directly from
 			// globalProgress. Flush those updates before HTML-in-Canvas captures this frame.
 			await tick();
-			const parsedMarksForExport = readMarks();
-			const inputs: SurfaceRenderInputs = {
-				animState: { markProgresses: animState.markProgresses },
-				backgroundVisibility: engineState.surface.backgroundVisibility ?? 0,
-				highlightDarkSurface: surfaceHighlightIsDark(),
-				markColorsByIndex,
-				markIntensityByIndex,
-				textAnimAlphaByMarkIndex: computeTextAnimAlphaByMarkIndex(parsedMarksForExport),
-				timestamp
-			};
-			const timebase = { progress: fraction, timestamp };
-
-			// Dimensional depth stage (ADR-0028): owns its per-frame DOM upload + render,
-			// same as the preview path, so export == preview.
-			const stage = resolveStage(timebase.progress);
-			if (
-				stage &&
-				host &&
-				renderDepthStage(stage, inputs, timebase, host.context.getCurrentTexture().createView())
-			) {
-				return;
-			}
-
-			// Multiplane DOF (ADR-0027): captures the layers and composites itself,
-			// so it owns the per-frame DOM upload (Surface-layer + Overlay-layer).
-			const dof = resolveDof(timebase.progress);
-			if (
-				dof &&
-				host &&
-				renderDofPlanes(
-					dof,
-					inputs,
-					timebase,
-					host.context.getCurrentTexture().createView(),
-					exportBackground
-				)
-			) {
-				return;
-			}
-
-			// Re-capture the DOM into domTexture for THIS frame's progress. The export
-			// loop pauses the preview paint loop, so without this the pipeline samples a
-			// stale domTexture and freezes every DOM-driven visual (split-text kinetic
-			// typography, the surface enter/exit slide) at whatever progress preview was
-			// last scrubbed to. uploadDom() is synchronous and queue-ordered ahead of
-			// render()'s sample — mirroring the preview onpaint handler (uploadDom then
-			// render, no await). Must run after progress() (DOM now at this frame) and
-			// before render(). Not requestCanvasPaint (that re-enters the preview manager).
-			activePipeline.uploadDom();
-			activePipeline.render(inputs);
-
-			if (host && effectChain && shaderPassDispatcher) {
-				const commandEncoder = host.device.createCommandEncoder();
-
-				const postShaderTexture = shaderPassDispatcher.apply({
-					commandEncoder,
-					passes: buildShaderPassDispatchList(),
-					inputTexture: activePipeline.getOutputTexture(),
-					ctx: timebase
-				});
-
-				effectChain.apply({
-					commandEncoder,
-					effects: withPackChrome(engineState.effects),
-					inputTexture: postShaderTexture,
-					outputView: host.context.getCurrentTexture().createView(),
-					...timebase,
-					background: exportBackground
-				});
+			if (host) {
+				renderCompositionFrameTo(host.context.getCurrentTexture().createView(), timestamp);
 			}
 		};
 
@@ -2889,7 +2805,9 @@
 			// offline mix of motion-derived cues + manual cues + bed. null when the
 			// piece schedules no sound — the export then stays video-only.
 			const audio = await renderAudioMix(engineState);
-			const hasBackground = exportBackground !== undefined;
+			const hasBackground = transitionState.active
+				? isTransitionOpaque(transitionState.active)
+				: isEngineStateOpaque(engineState);
 			const basename = hasBackground ? 'supers-bumper' : 'supers-overlay';
 
 			if (format === 'prores') {
@@ -2943,7 +2861,7 @@
 
 <main class="workspace" style:--timeline-h="{effectiveTimelineHeight}px">
 	<header class="workspace__topbar">
-		<a class="topbar__back" href="/" aria-label="Back to presets">
+		<a class="topbar__back" href={resolve('/')} aria-label="Back to presets">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				width="14"

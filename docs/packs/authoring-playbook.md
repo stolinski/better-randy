@@ -40,7 +40,7 @@ Anatomy of a pack (three files + one registration):
    - **`chrome` role** (kind `'chrome'`) only if the brand dresses opaque pieces — an effect recipe the Workspace appends after the preset's own effects **only when `backgroundFill` is declared** (`withPackChrome`). Chrome never appears in preset JSON, and transparent overlays never get it. The GUI shows it read-only with a PACK tag — invisible auto-applied treatments read as bugs.
    - **Per-pipeline overrides** only where the pack diverges — the chain is specific → core (`resolveAppearanceVars`); a partial pack is legitimate (only `syntax` must resolve every `viaPack` reference, as `REFERENCE_PACK_SLUG`).
    - **Form dress** via the `CSS_FORM_SUFFIXES` allowlist (`border`, `radius`, `pad`, `gap`, `tracking`, `weight`, `case`, `leading`, `shadow`, `font`, `fontLabel`, `stretch`, plus the status-voice drives `kickerDim`/`kickerWeight`/`subtitleDim`/`textShadow`; color claims like `kickerInk` ride the normal color-role path). Reference `var(--cqmin)` so widths scale with the frame. This is what makes the element a different _object_, not a recolor.
-   - **Comment the why on every non-obvious value** — the three existing manifests are the model: each hex traces to a measurement, a Critic finding, or an aesthetic-doc law.
+   - **Comment the why on every non-obvious value** — the existing manifests are the model: each hex traces to a measurement, a Critic finding, or an aesthetic-doc law.
 3. **`docs/packs/<slug>/aesthetic.md`** — the doc the Critic verifies against, grounded in the real pixels from intake: voice, palette job-table, type system, surface treatment (the structural claims and their inversions), motion vocabulary preferences, **anti-aesthetic** (what this pack is _not_ — the most load-bearing section), reference reel. Model: `docs/packs/crt-terminal/aesthetic.md`.
 4. **Register** in `PACK_REGISTRY` (`src/lib/platform/packs/registry.ts`). There is no default pack — every Preset names its own.
 
@@ -48,7 +48,7 @@ Anatomy of a pack (three files + one registration):
 
 Run all three before any human review:
 
-1. **Boot validator** — `npx tsx scripts/verify-presets.ts` (runs `validatePackCoreVocabulary` for every registered pack, plus preset schema checks).
+1. **Manifest + Identity validator** — `pnpm verify-presets` validates registry key/slug identity, metadata, the mandatory core vocabulary, font-role-to-manifest declarations and weight integrity, chrome Effect names/params, and the full reference-Pack Identity contract for every registered Pack, alongside Preset schema + semantic checks. An invalid Pack never advances to pixel review.
 2. **Pixel-diff lock** — `npx tsx scripts/probe-pack-diff.ts --packs syntax,<slug>` — every covered non-immune pipeline must visibly re-skin (≥ 0.25% changed pixels at the pinned frame). Coverage-gap warnings are honest state, not failures.
 3. **Render-verify at zoom, at native resolution.** Capture real frames (`scripts/cdp-capture.mjs` saves native 4K), zoom the regions you claimed, and judge rendered pixels — never trust intent. If a change "doesn't take," prove the path runs with a garish diagnostic color before tuning the real value.
 

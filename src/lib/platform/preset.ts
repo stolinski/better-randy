@@ -21,8 +21,8 @@ import {
 	type ResolvedTransition
 } from './engine-state.svelte';
 import { applyPresetBase } from './preset-base.svelte';
-import { PIPELINE_REGISTRY } from './pipelines';
 import { isTransitionEffectType } from './pipelines/transition-registry';
+import { formatPresetSemanticIssues, validatePresetSemantics } from './preset-validation';
 
 export interface CataloguedPreset {
 	slug: string;
@@ -32,56 +32,6 @@ export interface CataloguedPreset {
 const presetModules = import.meta.glob<{ default: unknown }>('$lib/presets/*.json', {
 	eager: true
 });
-
-function validateOverlayContents(overlays: Overlay[]): string | null {
-	for (const overlay of overlays) {
-		const renderer = Object.values(PIPELINE_REGISTRY.overlays).find((r) => r.type === overlay.type);
-		if (!renderer) continue;
-		const check = renderer.schema.safeParse(overlay.content);
-		if (!check.success) {
-			const issues = check.error.issues
-				.map((i) => `${i.path.join('.') || '<root>'}: ${i.message}`)
-				.join('; ');
-			return `overlay "${overlay.id}" (type "${overlay.type}") content invalid: ${issues}`;
-		}
-	}
-	return null;
-}
-
-/**
- * Cross-reference checks for the multi-state transition recipe (ADR-0022) that
- * the structural Zod schema can't do: `from`/`to` must resolve to known Presets,
- * `effect` must be a registered transition Effect, and a transition-Effect type
- * must never appear in the ordinary `effects[]` chain (the two lanes are
- * disjoint). `resolveSlug` returns the referenced Preset or null. Returns an
- * error string, or null when valid.
- */
-function validateTransition(
-	preset: Preset,
-	resolveSlug: (slug: string) => Preset | null
-): string | null {
-	for (const effect of preset.state.effects) {
-		if (isTransitionEffectType(effect.type)) {
-			return `effect "${effect.id}" uses transition-Effect type "${effect.type}", which runs via the top-level transition block — not the effects chain`;
-		}
-	}
-
-	const transition = preset.transition;
-	if (!transition) {
-		return null;
-	}
-
-	if (!resolveSlug(transition.from)) {
-		return `transition.from "${transition.from}" does not resolve to a known Preset`;
-	}
-	if (!resolveSlug(transition.to)) {
-		return `transition.to "${transition.to}" does not resolve to a known Preset`;
-	}
-	if (!isTransitionEffectType(transition.effect)) {
-		return `transition.effect "${transition.effect}" is not a registered transition Effect`;
-	}
-	return null;
-}
 
 const SCHEMA_VALID_CATALOG: CataloguedPreset[] = Object.entries(presetModules)
 	.map<CataloguedPreset | null>(([path, module]) => {
@@ -101,9 +51,11 @@ const SCHEMA_VALID_CATALOG: CataloguedPreset[] = Object.entries(presetModules)
 			return null;
 		}
 
-		const contentError = validateOverlayContents(result.data.state.overlays);
-		if (contentError) {
-			console.error(`Invalid built-in preset at ${path}:`, contentError);
+		const semanticIssues = validatePresetSemantics(result.data);
+		if (semanticIssues.length > 0) {
+			console.error(
+				`Invalid built-in preset at ${path}:\n${formatPresetSemanticIssues(semanticIssues)}`
+			);
 			return null;
 		}
 
@@ -122,12 +74,13 @@ const SCHEMA_VALID_BY_SLUG = new Map(
 );
 
 const PRESET_CATALOG: CataloguedPreset[] = SCHEMA_VALID_CATALOG.filter((entry) => {
-	const transitionError = validateTransition(
-		entry.preset,
-		(slug) => SCHEMA_VALID_BY_SLUG.get(slug) ?? null
-	);
-	if (transitionError) {
-		console.error(`Invalid built-in preset "${entry.slug}":`, transitionError);
+	const semanticIssues = validatePresetSemantics(entry.preset, {
+		resolvePreset: (slug) => SCHEMA_VALID_BY_SLUG.get(slug) ?? null
+	});
+	if (semanticIssues.length > 0) {
+		console.error(
+			`Invalid built-in preset "${entry.slug}":\n${formatPresetSemanticIssues(semanticIssues)}`
+		);
 		return false;
 	}
 	return true;
@@ -170,14 +123,9 @@ export function parsePreset(json: unknown): Preset {
 		throw new Error(`Invalid Supers preset:\n${issues}`);
 	}
 
-	const contentError = validateOverlayContents(result.data.state.overlays);
-	if (contentError) {
-		throw new Error(`Invalid Supers preset:\n${contentError}`);
-	}
-
-	const transitionError = validateTransition(result.data, getPresetBySlug);
-	if (transitionError) {
-		throw new Error(`Invalid Supers preset:\n${transitionError}`);
+	const semanticIssues = validatePresetSemantics(result.data, { resolvePreset: getPresetBySlug });
+	if (semanticIssues.length > 0) {
+		throw new Error(`Invalid Supers preset:\n${formatPresetSemanticIssues(semanticIssues)}`);
 	}
 
 	return result.data;

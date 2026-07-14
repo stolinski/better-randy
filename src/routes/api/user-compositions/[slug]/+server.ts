@@ -5,6 +5,10 @@ import { json, error, type RequestHandler } from '@sveltejs/kit';
 
 import { PresetSchema } from '$lib/platform/engine-schema';
 import { presetToWireFormat } from '$lib/platform/preset-pure';
+import {
+	formatPresetSemanticIssues,
+	validatePresetSemantics
+} from '$lib/platform/preset-validation';
 
 const STORE_DIR = join(process.cwd(), 'user-compositions');
 
@@ -51,6 +55,10 @@ export const GET: RequestHandler = async ({ params }) => {
 
 	const result = PresetSchema.safeParse(stored.preset);
 	if (!result.success) error(500, `Corrupt preset data: ${result.error.message}`);
+	const semanticIssues = validatePresetSemantics(result.data);
+	if (semanticIssues.length > 0) {
+		error(500, `Corrupt preset data:\n${formatPresetSemanticIssues(semanticIssues)}`);
+	}
 
 	return json(result.data);
 };
@@ -68,9 +76,16 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 
 	const result = PresetSchema.safeParse(body);
 	if (!result.success) error(400, `Invalid preset: ${result.error.message}`);
+	const semanticIssues = validatePresetSemantics(result.data);
+	if (semanticIssues.length > 0) {
+		error(400, `Invalid preset:\n${formatPresetSemanticIssues(semanticIssues)}`);
+	}
 
 	// Preserve existing meta (forkedFrom) when updating.
-	let existingMeta: StoredComposition['meta'] = { forkedFrom: null, savedAt: new Date().toISOString() };
+	let existingMeta: StoredComposition['meta'] = {
+		forkedFrom: null,
+		savedAt: new Date().toISOString()
+	};
 	try {
 		const raw = await readFile(slugPath(slug), 'utf-8');
 		const stored: unknown = JSON.parse(raw);

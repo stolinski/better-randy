@@ -6,6 +6,10 @@ import { json, error, type RequestHandler } from '@sveltejs/kit';
 import { PresetSchema } from '$lib/platform/engine-schema';
 import type { UserCompositionMeta } from '$lib/platform/persistence';
 import { presetToWireFormat } from '$lib/platform/preset-pure';
+import {
+	formatPresetSemanticIssues,
+	validatePresetSemantics
+} from '$lib/platform/preset-validation';
 
 const STORE_DIR = join(process.cwd(), 'user-compositions');
 
@@ -51,6 +55,7 @@ export const GET: RequestHandler = async () => {
 			if (!isStoredComposition(stored)) continue;
 			const result = PresetSchema.safeParse(stored.preset);
 			if (!result.success) continue;
+			if (validatePresetSemantics(result.data).length > 0) continue;
 			metas.push({
 				slug,
 				name: result.data.name,
@@ -80,7 +85,11 @@ export const POST: RequestHandler = async ({ request }) => {
 		error(400, 'Body must have { slug, preset }');
 	}
 
-	const { slug, preset, forkedFrom } = body as { slug: unknown; preset: unknown; forkedFrom?: unknown };
+	const { slug, preset, forkedFrom } = body as {
+		slug: unknown;
+		preset: unknown;
+		forkedFrom?: unknown;
+	};
 
 	if (typeof slug !== 'string' || !/^[a-z0-9_-]+$/.test(slug)) {
 		error(400, 'slug must be lowercase alphanumeric/hyphen/underscore');
@@ -89,6 +98,10 @@ export const POST: RequestHandler = async ({ request }) => {
 	const result = PresetSchema.safeParse(preset);
 	if (!result.success) {
 		error(400, `Invalid preset: ${result.error.message}`);
+	}
+	const semanticIssues = validatePresetSemantics(result.data);
+	if (semanticIssues.length > 0) {
+		error(400, `Invalid preset:\n${formatPresetSemanticIssues(semanticIssues)}`);
 	}
 
 	const stored: StoredComposition = {

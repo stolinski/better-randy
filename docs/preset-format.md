@@ -358,4 +358,9 @@ Three marks → three entries in `marks.timings`. The third timing in that prese
 
 ## Validation
 
-`parsePreset(value)` returns the parsed `Preset` or throws with a multi-line summary of every schema issue. `applyPreset(preset)` clones the parsed state into `engineState` in place, preserving object identity at the top level.
+Validation has two ordered layers:
+
+1. `PresetSchema` validates and transforms the structural `supers@1` JSON shape.
+2. `validatePresetSemantics(preset)` validates registry and cross-domain meaning: the Pack slug; Surface registration/variant; Overlay type/content; post-process and composition Effect type/params; Stage type; substrate asset; Overlay/Effect IDs; text-animation Overlay targets; transition lane; and, when a resolver is supplied, transition Preset references.
+
+`parsePreset(value)` runs both layers and returns the parsed `Preset` or throws with a path-qualified multi-line summary. Built-in catalog loading, `scripts/verify-presets.ts`, and user-composition list/load/create/update paths run the same semantic gate, so unknown primitives or malformed renderer params fail before rendering or persistence. `applyPreset(preset)` clones the parsed state into `engineState` in place, preserving object identity at the top level.

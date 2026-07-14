@@ -28,7 +28,7 @@ supers batch <manifest.json>
 That's it. Two subcommands. No `list`, no `validate`, no `preview`:
 
 - Listing built-in slugs is `ls src/lib/presets/`.
-- Validation happens implicitly at render time — a malformed Preset fails `supers render` with the same Zod error `parsePreset` would throw anywhere.
+- Validation happens before rendering — a malformed Preset fails `supers render` with the same structural Zod or registry-derived semantic error `parsePreset` would throw anywhere.
 - Previewing a built-in is `open http://localhost:5173/p/<slug>` in the editor; previewing an arbitrary file isn't supported until the editor route grows a load-from-payload entry.
 
 `--preset` accepts either a built-in slug (resolved against `src/lib/presets/*.json`) or a path to a complete Preset JSON document. The AI step in [[transcript-driven-auto-animation]] emits complete Presets, so it feeds straight in.
@@ -37,8 +37,8 @@ That's it. Two subcommands. No `list`, no `validate`, no `preview`:
 
 ```jsonc
 [
-  { "preset": "./spans/00-12-04.json", "out": "./out/00-12-04.webm" },
-  { "preset": "./spans/00-12-19.json", "out": "./out/00-12-19.webm" }
+	{ "preset": "./spans/00-12-04.json", "out": "./out/00-12-04.webm" },
+	{ "preset": "./spans/00-12-19.json", "out": "./out/00-12-19.webm" }
 ]
 ```
 
