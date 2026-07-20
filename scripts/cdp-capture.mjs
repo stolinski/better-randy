@@ -112,10 +112,17 @@ if (!ready) {
 // The route can become DOM-ready one tick before its Preset state is applied.
 // Wait for the route slug to be reflected in the workspace heading before
 // mutating transport/Pack controls, or a late apply can overwrite the choice.
+let presetApplied = false;
 for (let i = 0; i < 60; i++) {
-	const presetApplied = await evaluate(`document.body.textContent?.includes(${JSON.stringify(SLUG)})`);
+	presetApplied = await evaluate(`document.body.textContent?.includes(${JSON.stringify(SLUG)})`);
 	if (presetApplied) break;
 	await sleep(100);
+}
+if (!presetApplied) {
+	// Continuing here photographs whatever page the tab was on before — a
+	// wrong-preset capture that reads as real evidence. Abort instead.
+	console.error(`Preset "${SLUG}" never applied to the workspace; aborting.`);
+	process.exit(1);
 }
 await sleep(300);
 if (WAIT_SELECTOR) {
