@@ -10,7 +10,8 @@ export interface UserCompositionMeta {
 
 export interface PersistencePort {
 	list(): Promise<UserCompositionMeta[]>;
-	load(slug: string): Promise<Preset>;
+	/** Resolve a slug to its stored composition; null means no fork exists. Throws only on real failures. */
+	load(slug: string): Promise<Preset | null>;
 	/** Create a new user composition, optionally noting which corpus slug it came from. */
 	fork(slug: string, preset: Preset, corpusSlug: string | null): Promise<void>;
 	save(slug: string, preset: Preset): Promise<void>;
@@ -26,10 +27,10 @@ export const userStore: PersistencePort = {
 		return res.json() as Promise<UserCompositionMeta[]>;
 	},
 
-	async load(slug: string): Promise<Preset> {
+	async load(slug: string): Promise<Preset | null> {
 		const res = await fetch(`${API_BASE}/${encodeURIComponent(slug)}`);
 		if (!res.ok) throw new Error(`Failed to load user composition "${slug}": ${res.statusText}`);
-		return res.json() as Promise<Preset>;
+		return res.json() as Promise<Preset | null>;
 	},
 
 	async fork(slug: string, preset: Preset, corpusSlug: string | null): Promise<void> {

@@ -321,7 +321,9 @@ function strokePartialPath(
 	const remainder = drawnFloat - drawnFull;
 
 	context.save();
-	context.lineCap = 'round';
+	// A round cap protrudes around solid arrowheads and reads as a circular
+	// endpoint. Butt caps terminate cleanly beneath every arrowhead form.
+	context.lineCap = 'butt';
 	context.lineJoin = 'round';
 	context.lineWidth = lineWidth;
 	context.strokeStyle = getCanvasRgbColor(color, alpha);

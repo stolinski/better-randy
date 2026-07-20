@@ -5,6 +5,7 @@ import type { MarkTiming, Overlay, Preset, SurfaceState, Transition } from './en
 import { getPack } from './packs/registry.ts';
 import { requireCoreColor, resolveTypographyColors } from './packs/resolve.ts';
 import { getLayoutSafeArea } from '../utils/safe-area.ts';
+import { calculateWebsiteShowcaseLayout } from '../utils/website-showcase.ts';
 
 export type RubricSeverity = 'error' | 'warn';
 
@@ -159,8 +160,103 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 		checkBackgroundFill(state.backgroundFill, resolvedTypography.paperColor, issues);
 	}
 	checkHoldTime(state.surface, state.marks.timings, flattenedMarks, totalSeconds, issues);
+	checkWebsiteShowcase(preset, cascadeWindows, issues);
 
 	return issues;
+}
+
+function checkWebsiteShowcase(
+	preset: Preset,
+	cascadeWindows: Map<string, CascadeWindow>,
+	issues: RubricIssue[]
+): void {
+	if (preset.state.surface.type !== 'website-screenshot') return;
+
+	const sourceUrls = preset.state.overlays.filter((overlay) => overlay.type === 'source-url');
+	if (sourceUrls.length !== 1) {
+		issues.push({
+			rule: 'WS1',
+			severity: 'error',
+			path: 'state.overlays',
+			message: 'website-screenshot requires exactly one source-url Overlay.'
+		});
+		return;
+	}
+
+	const overlay = sourceUrls[0];
+	if (overlay.position.anchor !== 'center') {
+		issues.push({
+			rule: 'WS2',
+			severity: 'error',
+			path: `state.overlays[${preset.state.overlays.indexOf(overlay)}].position.anchor`,
+			message: 'source-url must use the center anchor so its Pipeline can preserve the shared responsive stack.'
+		});
+	}
+
+	for (const [orientation, frame] of [
+		['horizontal', FRAME_HORIZONTAL],
+		['vertical', FRAME_VERTICAL]
+	] as const) {
+		const safe = getLayoutSafeArea(orientation);
+		const layout = calculateWebsiteShowcaseLayout(orientation, frame.width, frame.height);
+		const plateTop = layout.urlPlate.centerY - layout.urlPlate.height / 2;
+		const plateBottom = layout.urlPlate.centerY + layout.urlPlate.height / 2;
+		const browserBottom = layout.browser.y + layout.browser.height;
+		if (
+			layout.browser.x < frame.width * safe.left ||
+			layout.browser.x + layout.browser.width > frame.width * (1 - safe.right) ||
+			layout.browser.y < frame.height * safe.top ||
+			plateTop < frame.height * safe.top ||
+			plateBottom > frame.height * (1 - safe.bottom) ||
+			browserBottom > frame.height * (1 - safe.bottom)
+		) {
+			issues.push({
+				rule: 'WS3',
+				severity: 'error',
+				path: 'state.surface',
+				message: `Website browser-plus-plate stack does not fit the ${orientation} platform-safe frame.`
+			});
+		}
+		const overlapRatio = (plateBottom - layout.browser.y) / layout.urlPlate.height;
+		if (Math.abs(overlapRatio - 0.5) > 0.01) {
+			issues.push({
+				rule: 'WS6',
+				severity: 'error',
+				path: 'state.overlays',
+				message: `source-url overlaps ${(overlapRatio * 100).toFixed(0)}% of its height across the browser top edge in ${orientation}; expected 50%.`
+			});
+		}
+		const capHeight = layout.urlPlate.fontSize * 0.72;
+		const minimum = orientation === 'vertical' ? 32 : 24;
+		if (capHeight < minimum) {
+			issues.push({
+				rule: 'WS4',
+				severity: 'error',
+				path: 'state.overlays',
+				message: `source-url cap height is ${capHeight.toFixed(0)}px in ${orientation}; needs at least ${minimum}px.`
+			});
+		}
+	}
+
+	const totalSeconds = preset.state.transport.durationSeconds;
+	const surfaceSettle = preset.state.surface.enter
+		? preset.state.surface.enter.start + preset.state.surface.enter.duration
+		: 0;
+	const overlaySettle = overlay.enter
+		? (cascadeWindows.get(`overlay:${overlay.id}`)?.startFraction ?? overlay.enter.start) +
+			overlay.enter.duration
+		: 0;
+	const readStart = Math.max(surfaceSettle, overlaySettle);
+	const readEnd = Math.min(preset.state.surface.exit?.start ?? 1, overlay.exit?.start ?? 1);
+	const readSeconds = (readEnd - readStart) * totalSeconds;
+	if (readSeconds < 3) {
+		issues.push({
+			rule: 'WS5',
+			severity: 'error',
+			path: 'state',
+			message: `Complete browser-plus-plate read window is ${readSeconds.toFixed(2)}s; needs at least 3.00s in both transports.`
+		});
+	}
 }
 
 export function formatIssues(issues: readonly RubricIssue[]): string {

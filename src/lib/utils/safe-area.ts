@@ -1,4 +1,4 @@
-import type { VideoOrientation } from './video-frame';
+import type { VideoOrientation } from './video-frame.ts';
 
 export interface SafeAreaMargins {
 	/** Fraction of frame height */

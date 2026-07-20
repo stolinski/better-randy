@@ -27,7 +27,7 @@ One of the five composition layers — **Surface**, **Block**, **Annotation**, *
 _Avoid_: tier, level, stage (in the composition context).
 
 **Surface**:
-The renderable material claim of a composition. The bottommost Layer. The seven registered Surfaces are `paper`, `plain`, `newspaper`, `pullquote-on-photo`, `chapter-card`, `title-sequence`, `type-hero` (the `SurfaceTypeSchema` enum).
+The renderable material claim of a composition. The bottommost Layer. Registered Surfaces include reflective documents, transparent fields, emissive mocks, and stored captures; `SurfaceTypeSchema` and the Pipeline registry are the live catalog. `website-screenshot` is the Pack-immune stored-capture Surface, distinct from the structured `web-document` mock family.
 _Avoid_: background, base, canvas (the canvas is the WebGPU target, not the surface); the fictional names `newspaper-clipping` / `modern-web-article` / `photographed-frame` / `collage-card` (never existed as Surfaces — `collage-card` is a Syntax-pack _appearance_, see below).
 
 **Substrate**:

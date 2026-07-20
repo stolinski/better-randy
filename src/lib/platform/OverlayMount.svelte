@@ -6,6 +6,7 @@
 	import { PIPELINE_REGISTRY } from './pipelines';
 	import type { Overlay } from './engine-schema';
 	import type { OverlayRenderer } from './pipelines/types';
+	import { getVideoFrameSize } from '$lib/utils/video-frame';
 
 	function findRenderer(type: string): OverlayRenderer | null {
 		for (const renderer of Object.values(PIPELINE_REGISTRY.overlays)) {
@@ -117,6 +118,14 @@
 		// — overshoot is a different motion-form that would need per-overlay opt-in
 		// (and overshooting opacity is meaningless). See dex 9z8tm4na.
 		const visible = Math.max(0, Math.min(1, progress));
+		if (renderer.disableOpacityTransition) {
+			return `visibility:${visible <= 0.001 ? 'hidden' : 'visible'};`;
+		}
+		if (renderer.edgeTransition === 'right') {
+			const frame = getVideoFrameSize(engineState.transport.orientation);
+			const translateX = Math.round((1 - progress) * frame.width);
+			return `opacity:${visible};transform:translateX(${translateX}px);`;
+		}
 		if (renderer.disableEntryOffset) {
 			return `opacity:${visible};`;
 		}

@@ -57,6 +57,7 @@
 		"@fontsource/space-mono": "^5.2.9",
 		"gsap": "^3.15.0",
 		"mediabunny": "^1.50.8",
+		"playwright": "^1.61.1",
 		"typegpu": "^0.11.9",
 		"wgpu-matrix": "^3.4.2",
 		"zod": "^4.4.3"

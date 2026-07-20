@@ -7,6 +7,7 @@ import { getCompositionEffectRegistration } from './pipelines/composition-effect
 import { getStageRegistration } from './pipelines/stage-registry';
 import { isTransitionEffectType } from './pipelines/transition-registry';
 import { isSubstrateAsset } from './substrate-textures';
+import { normalizeWebsiteCaptureUrl } from '../utils/website-showcase';
 
 export interface PresetSemanticIssue {
 	path: (string | number)[];
@@ -83,6 +84,24 @@ export function validatePresetSemantics(
 			issues.push({
 				path: ['state', 'surface', 'variant'],
 				message: `Unknown variant "${preset.state.surface.variant}" for Surface "${surfaceRenderer.type}". Registered variants: ${surfaceRenderer.variantIds.join(', ')}`
+			});
+		}
+	}
+
+	if (preset.state.surface.type === 'website-screenshot') {
+		const imageUrl = preset.state.surface.content.imageUrl;
+		if (!imageUrl || !/^\/api\/user-assets\/[a-f0-9]{64}\.(png|jpg|webp)$/.test(imageUrl)) {
+			issues.push({
+				path: ['state', 'surface', 'content', 'imageUrl'],
+				message: 'website-screenshot requires a content-addressed /api/user-assets imageUrl'
+			});
+		}
+		try {
+			normalizeWebsiteCaptureUrl(preset.state.surface.content.sourceUrl ?? '');
+		} catch (errorValue) {
+			issues.push({
+				path: ['state', 'surface', 'content', 'sourceUrl'],
+				message: errorValue instanceof Error ? errorValue.message : 'Website capture URL is invalid'
 			});
 		}
 	}

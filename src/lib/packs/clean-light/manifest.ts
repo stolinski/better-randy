@@ -238,6 +238,48 @@ export const cleanLightPack: PackManifest = {
 		'lower-third.weight': { kind: 'style', value: '600' },
 		'lower-third.tracking': { kind: 'style', value: '0.07em' },
 
+		// Achievement notifications use the white-card product-film grammar:
+		// cool ink/slate hierarchy, one blue for accent and success, a hairline,
+		// and the quiet layered float rather than a chunky or emissive treatment.
+		'achievement.plate': { kind: 'style', value: '#ffffff' },
+		'achievement.ink': { kind: 'style', value: '#16181d' },
+		'achievement.mutedInk': { kind: 'style', value: '#5b6472' },
+		'achievement.accent': { kind: 'style', value: '#0075de' },
+		'achievement.success': { kind: 'style', value: '#0075de' },
+		'achievement.borderInk': { kind: 'style', value: '#d0d7e0' },
+		'achievement.accentInk': { kind: 'style', value: '#ffffff' },
+		'achievement.border': { kind: 'style', value: 'calc(0.18 * var(--cqmin)) solid #e3e8ee' },
+		'achievement.radius': { kind: 'style', value: 'calc(1.1 * var(--cqmin))' },
+		'achievement.shadow': {
+			kind: 'style',
+			value:
+				'0 1px 2px rgba(9, 13, 20, 0.02), 0 2px 6px rgba(9, 13, 20, 0.04), 0 4px 16px rgba(9, 13, 20, 0.05), 0 8px 36px rgba(9, 13, 20, 0.08)'
+		},
+		'achievement.font': { kind: 'style', value: "'Geist', 'Inter', sans-serif" },
+		'achievement.fontLabel': {
+			kind: 'style',
+			value: "'Geist Mono', ui-monospace, monospace"
+		},
+		'achievement.pad': { kind: 'style', value: 'calc(2.4 * var(--cqmin)) calc(3.2 * var(--cqmin))' },
+		'achievement.gap': { kind: 'style', value: 'calc(1.2 * var(--cqmin))' },
+		'achievement.tracking': { kind: 'style', value: '0.07em' },
+		'achievement.weight': { kind: 'style', value: '600' },
+		'achievement.kickerWeight': { kind: 'style', value: '500' },
+		'source-url.plate': { kind: 'style', value: '#ffffff' },
+		'source-url.ink': { kind: 'style', value: '#16181d' },
+		'source-url.accent': { kind: 'style', value: '#0075de' },
+		'source-url.border': { kind: 'style', value: 'calc(0.18 * var(--cqmin)) solid #e3e8ee' },
+		'source-url.radius': { kind: 'style', value: 'calc(1.1 * var(--cqmin))' },
+		'source-url.shadow': {
+			kind: 'style',
+			value:
+				'0 1px 2px rgba(9, 13, 20, 0.02), 0 2px 6px rgba(9, 13, 20, 0.04), 0 4px 16px rgba(9, 13, 20, 0.05), 0 8px 36px rgba(9, 13, 20, 0.08)'
+		},
+		'source-url.fontLabel': { kind: 'style', value: "'Geist Mono', ui-monospace, monospace" },
+		'source-url.pad': { kind: 'style', value: '0.5em 0.8em' },
+		'source-url.tracking': { kind: 'style', value: '0.04em' },
+		'source-url.weight': { kind: 'style', value: '600' },
+
 		// Display echoes over footage run white — near-black ink vanishes on
 		// dark footage; white + the quiet float is the register's overlay read.
 		'watermark.ink': { kind: 'style', value: '#ffffff' },

@@ -11,7 +11,7 @@
 		requestInspectorFocus
 	} from './selection.svelte';
 	import { clampNumber } from '$lib/utils/math';
-	import type { ChatMessage, DiagramElement, Overlay } from './engine-schema';
+	import type { ChatMessage, ChecklistItem, DiagramElement, Overlay } from './engine-schema';
 
 	interface Props {
 		compositionElement: HTMLElement | null;
@@ -544,6 +544,9 @@
 	// spatially placed objects.
 
 	const surfaceMessages = $derived(engineState.surface.content.messages ?? []);
+	const surfaceItems = $derived(
+		engineState.surface.type === 'checklist' ? (engineState.surface.content.items ?? []) : []
+	);
 
 	// Text-animation strategies rebuild slot DOM asynchronously (GSAP span
 	// splits) — no engine state captures that, so boxes measured at mount can be
@@ -616,6 +619,35 @@
 	function selectMessage(index: number): void {
 		selectLayer(`imessage-${index}`);
 		requestInspectorFocus(`message:${index}`);
+	}
+
+	// Checklist item rows (ADR-0040) — the messages pattern, per task: a click
+	// selects the item's timeline-row id and reveals its inspector entry.
+	function itemRelRect(
+		item: ChecklistItem,
+		index: number
+	): { left: number; top: number; width: number; height: number } | null {
+		// Rows ride the surface's enter travel/visibility and reflow on content
+		// edits — subscribe so the hit box tracks them.
+		void animState.globalProgress;
+		void animState.paperVisibility;
+		void measureEpoch;
+		void JSON.stringify(item);
+		const el = compositionElement?.querySelector<HTMLElement>(`[data-item-index="${index}"]`);
+		if (!el) return null;
+		return projectRect(el);
+	}
+
+	function onItemDown(event: PointerEvent, index: number): void {
+		if (event.button !== 0) return;
+		event.preventDefault();
+		event.stopPropagation();
+		selectItem(index);
+	}
+
+	function selectItem(index: number): void {
+		selectLayer(`checklist-${index}`);
+		requestInspectorFocus(`item:${index}`);
 	}
 
 	function onSlotDown(event: PointerEvent, slot: string): void {
@@ -733,6 +765,26 @@
 				aria-label={`Edit message ${index + 1}`}
 				onkeydown={(e) => {
 					if (e.key === 'Enter' || e.key === ' ') selectMessage(index);
+				}}
+				style:left="{rect.left}px"
+				style:top="{rect.top}px"
+				style:width="{rect.width}px"
+				style:height="{rect.height}px"
+			></div>
+		{/if}
+	{/each}
+	{#each surfaceItems as item, index (index)}
+		{@const rect = itemRelRect(item, index)}
+		{#if rect && rect.width > 0}
+			<div
+				class="interior-hit"
+				class:interior-hit--selected={layerSelection.id === `checklist-${index}`}
+				onpointerdown={(e) => onItemDown(e, index)}
+				role="button"
+				tabindex="0"
+				aria-label={`Edit item ${index + 1}`}
+				onkeydown={(e) => {
+					if (e.key === 'Enter' || e.key === ' ') selectItem(index);
 				}}
 				style:left="{rect.left}px"
 				style:top="{rect.top}px"

@@ -56,6 +56,13 @@ interface MarkerLineOptions {
 	startX: number;
 	startY: number;
 	wobble: number;
+	/**
+	 * 0..1 — lerps the dry-break marker texture toward fully solid ink. 0 (the
+	 * default) keeps the porous felt-marker look; 1 fills the stroke to an even,
+	 * opaque rule. Lets a caller ask for a BOLD marker (the checklist completion
+	 * strike) without disturbing the porous default every other marker relies on.
+	 */
+	solidity?: number;
 }
 
 type AnnotationCanvasContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
@@ -339,8 +346,13 @@ function drawStrike(
 		progress,
 		color,
 		intensity,
-		opacity: 0.62 + intensity * 0.2,
-		lineWidth: Math.max(3, fragment.height * 0.14),
+		// A struck-through item is a decisive "done" — a bold, opaque rule, not
+		// a faint felt-tip pass. Weight and opacity scale with intensity; the
+		// solidity fills the dry-break so the rule reads solid (the checklist is
+		// the only strike consumer — underline keeps the porous default).
+		opacity: 0.74 + intensity * 0.26,
+		lineWidth: Math.max(4, fragment.height * (0.16 + intensity * 0.05)),
+		solidity: 0.5 + intensity * 0.45,
 		wobble: fragment.height * 0.035,
 		phase: fragment.x * 0.026 + fragment.y * 0.039
 	});
@@ -497,9 +509,19 @@ function drawMarkerLine(context: AnnotationCanvasContext, options: MarkerLineOpt
 		localOptions,
 		colorWithOpacity(options.color, 0.11 + options.intensity * 0.08)
 	);
-	applyAlphaTexture(texture, (x, y) =>
-		getMarkerTextureAlpha(x, y, texture.width, texture.height, options.phase, options.intensity)
-	);
+	const solidity = clampNumber(options.solidity ?? 0, 0, 1);
+	applyAlphaTexture(texture, (x, y) => {
+		const dryBreak = getMarkerTextureAlpha(
+			x,
+			y,
+			texture.width,
+			texture.height,
+			options.phase,
+			options.intensity
+		);
+		// Lerp the porous texture toward solid ink — a bold, even rule at solidity 1.
+		return dryBreak + (1 - dryBreak) * solidity;
+	});
 	drawTextureCanvas(context, texture, textureBounds, 'multiply');
 }
 

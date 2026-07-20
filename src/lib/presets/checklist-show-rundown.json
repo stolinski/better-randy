@@ -1,0 +1,41 @@
+{
+	"schema": "supers@1",
+	"name": "Checklist — Show Rundown (builds in)",
+	"description": "Half-frame checklist that BUILDS IN: the card slides in from the right, then each numbered item reveals one at a time (opacity + slide-from-right, staggered) — a rundown being laid out live. Nothing is checked or struck (no completion beat) — the payload here is the build-up itself. Sibling of checklist-project-setup, which instead opens as a stable list with completed items struck. Timing is edit-authored via Resolve marker sync (ADR-0042): fps is the Syntax timeline's true 29.97 NDF rate, the duration is the head marker's 300-frame span (exactly 10.01 s), and each item's enter start pins to its beat marker's exact frame — the uneven-looking fractions are frame-exact by construction (frame/300), not hand-tuned. Channel chrome inherited unchanged from ADR-0040 (mono numbers, flat card chrome; the strike-on-chrome exception is declared there and unused here — nothing strikes).",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 10.01,
+			"fps": 29.97,
+			"format": "prores"
+		},
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "checklist",
+			"content": {
+				"title": "SHOW RUNDOWN",
+				"body": "",
+				"items": [
+					{ "text": "Cold open", "checked": false, "enter": { "start": 0.15, "duration": 0.05333333333333334, "ease": "settled" } },
+					{ "text": "Main topic", "checked": false, "enter": { "start": 0.34, "duration": 0.05333333333333334, "ease": "settled" } },
+					{ "text": "Hot tip", "checked": false, "enter": { "start": 0.5366666666666666, "duration": 0.05333333333333334, "ease": "settled" } },
+					{ "text": "Sick picks", "checked": false, "enter": { "start": 0.7266666666666667, "duration": 0.05333333333333334, "ease": "settled" } },
+					{ "text": "Shameless plugs", "checked": false, "enter": { "start": 0.9, "duration": 0.05333333333333334, "ease": "settled" } }
+				]
+			},
+			"enter": { "start": 0, "duration": 0.03, "ease": "settled" },
+			"exit": { "start": 0.9766666666666667, "duration": 0.023333333333333334, "ease": "smooth" }
+		},
+		"textAnimations": [],
+		"overlays": [],
+		"effects": [],
+		"audioCues": []
+	}
+}

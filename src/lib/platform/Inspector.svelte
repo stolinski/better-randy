@@ -34,11 +34,13 @@
 	//   'textanim-{id}'               → TextAnimInspector
 	//   'mark-{n}'                    → MarkInspector
 	//   'imessage-{n}'                → SurfaceInspector (bubbles edit in its Messages section)
+	//   'checklist-{n}'               → SurfaceInspector (items edit in its Checklist section)
 	const resolved = $derived.by(() => {
 		const id = layerSelection.id;
 		if (!id) return { kind: 'root' as const };
 
-		if (id === 'surface' || /^imessage-\d+$/.test(id)) return { kind: 'surface' as const };
+		if (id === 'surface' || /^imessage-\d+$/.test(id) || /^checklist-\d+$/.test(id))
+			return { kind: 'surface' as const };
 
 		if (id === 'captions') return { kind: 'captions' as const };
 

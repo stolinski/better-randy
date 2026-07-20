@@ -19,7 +19,10 @@ A preset is a single JSON document validated by `PresetSchema` (`src/lib/platfor
 "transport": {
   "orientation": "horizontal" | "vertical",
   "durationSeconds": number,   // 0.1 – 600
-  "fps": integer,              // 1 – 120
+  "fps": number,               // integer 1 – 120, or an NTSC fractional literal:
+                               // 23.976 | 29.97 | 59.94 (ADR-0042). The literal is
+                               // display only — frame math resolves it to the exact
+                               // rational (30000/1001) via resolveFrameRate.
   "format": "webm" | "prores"
 }
 ```
@@ -312,6 +315,7 @@ Defaults follow the motion's _character_, not just its window: sliding elements 
 
 - **`paper`** — card chrome with paper-grain shader and fly-in/out animation. Slots: `title`, `sourceUrl`, `author`, `source`, `dateLabel`. Supports `enter`, `exit`, `backgroundVisibility`.
 - **`plain`** — transparent background that hosts a body without chrome. Slots: `author`, `source`, `dateLabel` (decorative metadata only).
+- **`website-screenshot`** — Pack-immune stored 1440×900 website capture in controls-only browser chrome. Slots: `sourceUrl` (author-time capture URL), `imageUrl` (content-addressed `/api/user-assets/...` bytes). Reflows one browser-plus-plate stack across both transports.
 
 ## Block variants
 
@@ -329,6 +333,8 @@ The bracket-tag body format expresses marks inline. Stacked styles nest tags aro
 ## Overlay types (v1)
 
 - **`lower-third`** — content `{ kicker, title, subtitle? }`; default position `{ anchor: 'bottom-left', offset: { x: 0.0625, y: 0.0625 } }`.
+- **`achievement`** — content `{ variant: 'checklist-complete' | 'unlocked', kicker, title, beat }`; `beat` is the draggable focal moment shared by intrinsic variant choreography and derived sound.
+- **`source-url`** — content `{ url }`; Pack-resolved URL plate centered horizontally across a `website-screenshot` Surface's top edge at a 50% overlap, with normal transition/keyframe/Cascade timing.
 
 ## Effect types (v1)
 

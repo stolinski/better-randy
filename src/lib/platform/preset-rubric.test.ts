@@ -60,6 +60,37 @@ function rules(issues: RubricIssue[]): string[] {
 }
 
 describe('preset rubric', () => {
+	it('accepts the website showcase top-edge plate relationship', () => {
+		const preset = makePreset({
+			surface: {
+				type: 'website-screenshot',
+				content: {
+					body: [],
+					sourceUrl: 'https://example.com',
+					imageUrl: `/api/user-assets/${'a'.repeat(64)}.png`
+				},
+				enter: { start: 0, duration: 0.07, ease: 'settled' },
+				exit: { start: 0.9, duration: 0.1, ease: 'smooth' }
+			},
+			overlays: [
+				{
+					type: 'source-url',
+					id: 'source',
+					content: { url: 'example.com' },
+					position: { anchor: 'center' },
+					enter: { start: 0.09, duration: 0.0467, ease: 'sharp' },
+					exit: { start: 0.8833, duration: 0.05, ease: 'sharp' },
+					animation: {
+						cascade: { anchor: 'surface', event: 'end', offsetMs: 120 }
+					}
+				}
+			]
+		});
+
+		const websiteIssues = lintPreset(preset).filter((issue) => issue.rule.startsWith('WS'));
+		assert.deepEqual(websiteIssues, []);
+	});
+
 	it('enforces timing guardrails and reports cascade cycles', () => {
 		// ── L4 against the authored opacity envelope ──────────────────────────────
 

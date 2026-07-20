@@ -1,25 +1,11 @@
-import { createHash } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
-
 import { error, json, type RequestHandler } from '@sveltejs/kit';
 
+import { storeUserImage } from '$lib/platform/user-image-asset-store.server';
 import {
 	hasUserImageSignature,
 	MAX_USER_IMAGE_BYTES,
 	userImageFormatForMime
 } from '$lib/utils/user-image-assets';
-
-const STORE_DIR = join(process.cwd(), 'user-assets');
-
-function isAlreadyStored(errorValue: unknown): boolean {
-	return (
-		typeof errorValue === 'object' &&
-		errorValue !== null &&
-		'code' in errorValue &&
-		errorValue.code === 'EEXIST'
-	);
-}
 
 export const POST: RequestHandler = async ({ request }) => {
 	const contentLength = request.headers.get('content-length');
@@ -37,14 +23,5 @@ export const POST: RequestHandler = async ({ request }) => {
 		error(415, `User image bytes do not match ${format.mime}`);
 	}
 
-	const hash = createHash('sha256').update(bytes).digest('hex');
-	const key = `${hash}.${format.extension}`;
-	await mkdir(STORE_DIR, { recursive: true });
-	try {
-		await writeFile(join(STORE_DIR, key), bytes, { flag: 'wx' });
-	} catch (errorValue) {
-		if (!isAlreadyStored(errorValue)) throw errorValue;
-	}
-
-	return json({ url: `/api/user-assets/${key}` }, { status: 201 });
+	return json({ url: await storeUserImage(bytes, format.mime) }, { status: 201 });
 };

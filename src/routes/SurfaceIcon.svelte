@@ -24,7 +24,7 @@
 			d="M4 8a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v3.5a3 3 0 0 1-3 3H9.5L6 18v-3.2A3 3 0 0 1 4 11.5Z"
 		/>
 		<path d="M8.5 9.5h7M8.5 12h4" />
-	{:else if type === 'web-document'}
+	{:else if type === 'web-document' || type === 'website-screenshot'}
 		<!-- browser window -->
 		<rect x="3.5" y="5" width="17" height="14" rx="1.6" />
 		<path d="M3.5 9h17" />

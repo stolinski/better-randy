@@ -1,0 +1,667 @@
+{
+	"schema": "supers@1",
+	"name": "Wake conversation flow",
+	"description": "A simplified six-state flowchart for Reachy Mini's wake and conversation loop. Two clean rows separate passive listening from continuous conversation; success moves through the center while retry and sleep-return paths stay on the perimeter. Syntax chrome is limited to mono labels, flat bordered nodes, stepped depth, and yellow decision states. Physical-document treatments and composition effects are intentionally omitted to keep the chart readable.",
+	"pack": "syntax",
+	"kind": "deliverable",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 10,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "#0e0e0d",
+		"typography": {
+			"fontFamily": "mono",
+			"inkColor": "#f7f6f2"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.03,
+				"ease": "settled",
+				"sound": {
+					"mute": true
+				}
+			},
+			"exit": {
+				"start": 0.92,
+				"duration": 0.04,
+				"ease": "sharp",
+				"sound": {
+					"mute": true
+				}
+			},
+			"diagram": [
+				{
+					"type": "label",
+					"id": "title",
+					"position": {
+						"x": 0.5,
+						"y": 0.08
+					},
+					"text": "HOW WAKE MODE WORKS",
+					"scale": 1.5,
+					"enter": {
+						"start": 0.04,
+						"duration": 0.04,
+						"ease": "settled",
+						"sound": {
+							"mute": true
+						}
+					},
+					"exit": {
+						"start": 0.91,
+						"duration": 0.04,
+						"ease": "sharp",
+						"sound": {
+							"mute": true
+						}
+					},
+					"animation": {
+						"cascade": {
+							"anchor": "surface",
+							"event": "end",
+							"offsetMs": 100
+						}
+					}
+				},
+				{
+					"type": "node",
+					"id": "wake-listening",
+					"position": {
+						"x": 0.16,
+						"y": 0.29
+					},
+					"form": "box",
+					"text": "Listen · VAD · Whisper",
+					"scale": 0.82,
+					"enter": {
+						"start": 0.14,
+						"duration": 0.042,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.91,
+						"duration": 0.04,
+						"ease": "sharp"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "title"
+							},
+							"event": "end",
+							"offsetMs": 140
+						}
+					}
+				},
+				{
+					"type": "edge-arrow",
+					"id": "wake-listening-to-phrase",
+					"from": {
+						"node": "wake-listening"
+					},
+					"to": {
+						"node": "wake-phrase"
+					},
+					"route": "straight",
+					"direction": "forward",
+					"enter": {
+						"start": 0.2,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
+					"exit": {
+						"start": 0.91,
+						"duration": 0.04,
+						"ease": "sharp"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "wake-listening"
+							},
+							"event": "end",
+							"offsetMs": 120
+						}
+					}
+				},
+				{
+					"type": "node",
+					"id": "wake-phrase",
+					"ink": "accent",
+					"position": {
+						"x": 0.46,
+						"y": 0.29
+					},
+					"form": "box",
+					"text": "Wake phrase?",
+					"scale": 0.98,
+					"enter": {
+						"start": 0.26,
+						"duration": 0.042,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.91,
+						"duration": 0.04,
+						"ease": "sharp"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "wake-listening-to-phrase"
+							},
+							"event": "end",
+							"offsetMs": 80
+						}
+					}
+				},
+				{
+					"type": "label",
+					"id": "wake-retry-label",
+					"ink": "accent",
+					"position": {
+						"x": 0.31,
+						"y": 0.12
+					},
+					"text": "NO · RETRY IN 350 MS",
+					"scale": 0.82,
+					"enter": {
+						"start": 0.32,
+						"duration": 0.025,
+						"ease": "sharp",
+						"sound": {
+							"mute": true
+						}
+					},
+					"exit": {
+						"start": 0.91,
+						"duration": 0.04,
+						"ease": "sharp",
+						"sound": {
+							"mute": true
+						}
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "wake-phrase"
+							},
+							"event": "end",
+							"offsetMs": 100
+						}
+					}
+				},
+				{
+					"type": "edge-arrow",
+					"id": "wake-retry",
+					"from": {
+						"node": "wake-phrase"
+					},
+					"to": {
+						"node": "wake-listening"
+					},
+					"route": "arc",
+					"control": {
+						"x": 0.31,
+						"y": 0.08
+					},
+					"direction": "forward",
+					"enter": {
+						"start": 0.36,
+						"duration": 0.05,
+						"ease": "smooth"
+					},
+					"exit": {
+						"start": 0.91,
+						"duration": 0.04,
+						"ease": "sharp"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "wake-retry-label"
+							},
+							"event": "end",
+							"offsetMs": 80
+						}
+					}
+				},
+				{
+					"type": "label",
+					"id": "wake-yes-label",
+					"ink": "accent",
+					"position": {
+						"x": 0.61,
+						"y": 0.22
+					},
+					"text": "YES",
+					"scale": 0.9,
+					"enter": {
+						"start": 0.42,
+						"duration": 0.025,
+						"ease": "sharp",
+						"sound": {
+							"mute": true
+						}
+					},
+					"exit": {
+						"start": 0.91,
+						"duration": 0.04,
+						"ease": "sharp",
+						"sound": {
+							"mute": true
+						}
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "wake-phrase"
+							},
+							"event": "end",
+							"offsetMs": 550
+						}
+					}
+				},
+				{
+					"type": "edge-arrow",
+					"id": "wake-to-hermes",
+					"from": {
+						"node": "wake-phrase"
+					},
+					"to": {
+						"node": "hermes-reply"
+					},
+					"route": "straight",
+					"direction": "forward",
+					"enter": {
+						"start": 0.46,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
+					"exit": {
+						"start": 0.91,
+						"duration": 0.04,
+						"ease": "sharp"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "wake-yes-label"
+							},
+							"event": "end",
+							"offsetMs": 80
+						}
+					}
+				},
+				{
+					"type": "node",
+					"id": "hermes-reply",
+					"position": {
+						"x": 0.76,
+						"y": 0.29
+					},
+					"form": "box",
+					"text": "Hermes reply",
+					"scale": 0.92,
+					"enter": {
+						"start": 0.52,
+						"duration": 0.042,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.91,
+						"duration": 0.04,
+						"ease": "sharp"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "wake-to-hermes"
+							},
+							"event": "end",
+							"offsetMs": 80
+						}
+					}
+				},
+				{
+					"type": "edge-arrow",
+					"id": "hermes-to-conversation",
+					"from": {
+						"node": "hermes-reply"
+					},
+					"to": {
+						"node": "conversation"
+					},
+					"route": "straight",
+					"direction": "forward",
+					"enter": {
+						"start": 0.58,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
+					"exit": {
+						"start": 0.91,
+						"duration": 0.04,
+						"ease": "sharp"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "hermes-reply"
+							},
+							"event": "end",
+							"offsetMs": 120
+						}
+					}
+				},
+				{
+					"type": "node",
+					"id": "conversation",
+					"position": {
+						"x": 0.76,
+						"y": 0.68
+					},
+					"form": "box",
+					"text": "Listen · STT · Hermes · TTS",
+					"scale": 0.82,
+					"enter": {
+						"start": 0.74,
+						"duration": 0.042,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.91,
+						"duration": 0.04,
+						"ease": "sharp"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "hermes-to-conversation"
+							},
+							"event": "end",
+							"offsetMs": 80
+						}
+					}
+				},
+				{
+					"type": "edge-arrow",
+					"id": "conversation-to-stop",
+					"from": {
+						"node": "conversation"
+					},
+					"to": {
+						"node": "stop-phrase"
+					},
+					"route": "straight",
+					"direction": "forward",
+					"enter": {
+						"start": 0.78,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
+					"exit": {
+						"start": 0.91,
+						"duration": 0.04,
+						"ease": "sharp"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "conversation"
+							},
+							"event": "end",
+							"offsetMs": 120
+						}
+					}
+				},
+				{
+					"type": "node",
+					"id": "stop-phrase",
+					"ink": "accent",
+					"position": {
+						"x": 0.46,
+						"y": 0.68
+					},
+					"form": "box",
+					"text": "Stop phrase?",
+					"scale": 0.98,
+					"enter": {
+						"start": 0.82,
+						"duration": 0.042,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.91,
+						"duration": 0.04,
+						"ease": "sharp"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "conversation-to-stop"
+							},
+							"event": "end",
+							"offsetMs": 80
+						}
+					}
+				},
+				{
+					"type": "label",
+					"id": "conversation-retry-label",
+					"ink": "accent",
+					"position": {
+						"x": 0.61,
+						"y": 0.84
+					},
+					"text": "NO · CONTINUE",
+					"scale": 0.78,
+					"enter": {
+						"start": 0.84,
+						"duration": 0.025,
+						"ease": "sharp",
+						"sound": {
+							"mute": true
+						}
+					},
+					"exit": {
+						"start": 0.91,
+						"duration": 0.04,
+						"ease": "sharp",
+						"sound": {
+							"mute": true
+						}
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "stop-phrase"
+							},
+							"event": "end",
+							"offsetMs": 80
+						}
+					}
+				},
+				{
+					"type": "edge-arrow",
+					"id": "conversation-retry",
+					"from": {
+						"node": "stop-phrase"
+					},
+					"to": {
+						"node": "conversation"
+					},
+					"route": "arc",
+					"control": {
+						"x": 0.61,
+						"y": 0.9
+					},
+					"direction": "forward",
+					"enter": {
+						"start": 0.86,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
+					"exit": {
+						"start": 0.91,
+						"duration": 0.04,
+						"ease": "sharp"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "conversation-retry-label"
+							},
+							"event": "end",
+							"offsetMs": 80
+						}
+					}
+				},
+				{
+					"type": "label",
+					"id": "sleep-label",
+					"ink": "accent",
+					"position": {
+						"x": 0.31,
+						"y": 0.62
+					},
+					"text": "YES",
+					"scale": 0.9,
+					"enter": {
+						"start": 0.86,
+						"duration": 0.025,
+						"ease": "sharp",
+						"sound": {
+							"mute": true
+						}
+					},
+					"exit": {
+						"start": 0.91,
+						"duration": 0.04,
+						"ease": "sharp",
+						"sound": {
+							"mute": true
+						}
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "stop-phrase"
+							},
+							"event": "end",
+							"offsetMs": 480
+						}
+					}
+				},
+				{
+					"type": "edge-arrow",
+					"id": "stop-to-sleep",
+					"from": {
+						"node": "stop-phrase"
+					},
+					"to": {
+						"node": "sleep"
+					},
+					"route": "straight",
+					"direction": "forward",
+					"enter": {
+						"start": 0.87,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
+					"exit": {
+						"start": 0.91,
+						"duration": 0.04,
+						"ease": "sharp"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "sleep-label"
+							},
+							"event": "end",
+							"offsetMs": 80
+						}
+					}
+				},
+				{
+					"type": "node",
+					"id": "sleep",
+					"position": {
+						"x": 0.16,
+						"y": 0.68
+					},
+					"form": "box",
+					"text": "Go to sleep",
+					"scale": 0.92,
+					"enter": {
+						"start": 0.88,
+						"duration": 0.042,
+						"ease": "settled"
+					},
+					"exit": {
+						"start": 0.94,
+						"duration": 0.03,
+						"ease": "sharp"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "stop-to-sleep"
+							},
+							"event": "end",
+							"offsetMs": 80
+						}
+					}
+				},
+				{
+					"type": "edge-arrow",
+					"id": "sleep-to-wake-listening",
+					"from": {
+						"node": "sleep"
+					},
+					"to": {
+						"node": "wake-listening"
+					},
+					"route": "straight",
+					"direction": "forward",
+					"enter": {
+						"start": 0.89,
+						"duration": 0.04,
+						"ease": "smooth"
+					},
+					"exit": {
+						"start": 0.94,
+						"duration": 0.03,
+						"ease": "sharp"
+					},
+					"animation": {
+						"cascade": {
+							"anchor": {
+								"block": "sleep"
+							},
+							"event": "end",
+							"offsetMs": 80
+						}
+					}
+				}
+			]
+		},
+		"textAnimations": [],
+		"overlays": [],
+		"effects": [],
+		"audioCues": []
+	}
+}

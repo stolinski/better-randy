@@ -41,7 +41,8 @@ You are the Critic for the Supers preset at <preset-path>.
 CAPTURE SETUP (this repo): the dev server is at http://localhost:7263 — route
 http://localhost:7263/p/<slug>. Supers renders via WICG HTML-in-Canvas, which
 needs Chrome launched with --enable-blink-features=CanvasDrawElement; a
-flag-enabled Chrome is already running on CDP port 9223. A normal/unflagged
+flag-enabled Chrome runs on CDP port 9223 — start or confirm it with
+`scripts/launch-cdp-chrome.sh` (idempotent). A normal/unflagged
 browser (including the default chrome-devtools MCP browser unless it carries the
 flag) captures a BLANK canvas — do not use one. Capture frames with the repo
 harness: `CDP_SAMPLES=0,0.25,0.5,0.75,1 node scripts/cdp-capture.mjs <slug>`
@@ -88,7 +89,7 @@ Adapt the path tokens to the actual Preset under review.
 
 ### Capture phase
 
-1. Capture through a Chrome with `--enable-blink-features=CanvasDrawElement` (WICG HTML-in-Canvas). A flag-enabled Chrome runs on CDP port 9223; the repo harness `scripts/cdp-capture.mjs` drives it. Any browser lacking the flag captures a blank canvas and is invalid for verification.
+1. Capture through a Chrome with `--enable-blink-features=CanvasDrawElement` (WICG HTML-in-Canvas). A flag-enabled Chrome runs on CDP port 9223 — start or confirm it with `scripts/launch-cdp-chrome.sh`; the repo harness `scripts/cdp-capture.mjs` drives it. Any browser lacking the flag captures a blank canvas and is invalid for verification.
 2. The harness renders at the Preset's native target resolution (`docs/quality-rubric.md` R6) and clips the screenshot to the canvas. `CDP_SAMPLES=0,0.25,0.5,0.75,1 node scripts/cdp-capture.mjs <slug>` drives the **Timeline** to each progress sample. Also capture the peak-amplitude frame of every focal slot and every transition Mark.
 3. Captures land at `.tmp-baselines/<preset-slug>/pX.XX.png`. The Critic's findings must cite these paths. (For sub-canvas-resolution detail — e.g. fine bokeh — `scripts/cdp-dof-detail.mjs` captures at a high device-pixel-ratio.)
 

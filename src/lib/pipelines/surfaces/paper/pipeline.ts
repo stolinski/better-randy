@@ -67,6 +67,11 @@ const PaperUniforms = d.struct({
 	bgFloor: d.f32,
 	highlightDarkSurface: d.u32,
 	flatSubstrate: d.u32,
+	// Over-ink (strokes) alpha multiplier — lets a surface fade its drawn marks
+	// in lockstep with its own enter/exit (the marks canvas is a separate layer
+	// the DOM-capture CSS-opacity fade never reaches). 1 = no attenuation; the
+	// default for every surface that doesn't drive it.
+	markAlpha: d.f32,
 	focalSlots: d.arrayOf(FocalSlotStruct, MAX_FOCAL_SLOTS)
 });
 
@@ -193,7 +198,9 @@ const composeFragmentFn = tgpu['~unstable']
 		let s2 = textureSample(layout.$.strokesTexture, layout.$.samp, in.uv + vec2f(-blurRadius, blurRadius));
 		let s3 = textureSample(layout.$.strokesTexture, layout.$.samp, in.uv + vec2f(blurRadius, -blurRadius));
 		let s4 = textureSample(layout.$.strokesTexture, layout.$.samp, in.uv + vec2f(-blurRadius, -blurRadius));
-		let strokes = s0 * 0.72 + (s1 + s2 + s3 + s4) * 0.07;
+		var strokes = s0 * 0.72 + (s1 + s2 + s3 + s4) * 0.07;
+		// Fade the drawn marks with the surface's own visibility ramp (markAlpha).
+		strokes.a = strokes.a * layout.$.uniforms.markAlpha;
 
 		let baseOutAlpha = strokes.a + tinted.a * (1.0 - strokes.a);
 		let baseOutRgb = strokes.rgb * strokes.a + tinted.rgb * tinted.a * (1.0 - strokes.a);
@@ -696,7 +703,7 @@ export function createPaperPipeline({
 	const initialSlots = Array.from({ length: MAX_FOCAL_SLOTS }, () => EMPTY_FOCAL_SLOT);
 
 	const uniformBuffer = root
-		.createBuffer(PaperUniforms, { focalSlotCount: 0, bgFloor: 0, highlightDarkSurface: 0, flatSubstrate: 0, focalSlots: initialSlots })
+		.createBuffer(PaperUniforms, { focalSlotCount: 0, bgFloor: 0, highlightDarkSurface: 0, flatSubstrate: 0, markAlpha: 1, focalSlots: initialSlots })
 		.$usage('uniform');
 
 	const bindGroup = root.createBindGroup(composeLayout, {
@@ -825,6 +832,7 @@ export function createPaperPipeline({
 			bgFloor: Math.max(0, Math.min(1, inputs.backgroundVisibility ?? 0)),
 			highlightDarkSurface: darkHighlight ? 1 : 0,
 			flatSubstrate: substrate === 'flat' ? 1 : 0,
+			markAlpha: Math.max(0, Math.min(1, inputs.markAlpha ?? 1)),
 			focalSlots: paddedSlots
 		});
 

@@ -55,6 +55,39 @@ export const editorialMonoPack: PackManifest = {
 		},
 		'lower-third.tracking': { kind: 'style', value: '0.12em' },
 		'lower-third.weight': { kind: 'style', value: '600' },
+		// Achievement notifications are restrained dark editorial plates: cool
+		// off-white type, slate secondary ink, and cyan doing both accent and
+		// semantic-success duty. Space carries the object; no border or shadow.
+		'achievement.plate': { kind: 'style', value: 'rgba(13, 18, 24, 0.94)' },
+		'achievement.ink': { kind: 'style', value: '#eef3f8' },
+		'achievement.mutedInk': { kind: 'style', value: '#8aa0b4' },
+		'achievement.accent': { kind: 'style', value: '#22d3ee' },
+		'achievement.success': { kind: 'style', value: '#22d3ee' },
+		'achievement.borderInk': { kind: 'style', value: '#8aa0b4' },
+		'achievement.accentInk': { kind: 'style', value: '#0d1218' },
+		'achievement.border': { kind: 'style', value: '0 solid transparent' },
+		'achievement.radius': { kind: 'style', value: 'calc(0.35 * var(--cqmin))' },
+		'achievement.shadow': { kind: 'style', value: 'none' },
+		'achievement.font': { kind: 'style', value: "'Inter', sans-serif" },
+		'achievement.fontLabel': {
+			kind: 'style',
+			value: "'JetBrains Mono', ui-monospace, monospace"
+		},
+		'achievement.pad': { kind: 'style', value: 'calc(2.2 * var(--cqmin)) calc(2.8 * var(--cqmin))' },
+		'achievement.gap': { kind: 'style', value: 'calc(1.2 * var(--cqmin))' },
+		'achievement.tracking': { kind: 'style', value: '0.12em' },
+		'achievement.weight': { kind: 'style', value: '600' },
+		'achievement.kickerWeight': { kind: 'style', value: '500' },
+		'source-url.plate': { kind: 'style', value: 'rgba(13, 18, 24, 0.94)' },
+		'source-url.ink': { kind: 'style', value: '#eef3f8' },
+		'source-url.accent': { kind: 'style', value: '#22d3ee' },
+		'source-url.border': { kind: 'style', value: '0 solid transparent' },
+		'source-url.radius': { kind: 'style', value: 'calc(0.35 * var(--cqmin))' },
+		'source-url.shadow': { kind: 'style', value: 'none' },
+		'source-url.fontLabel': { kind: 'style', value: "'JetBrains Mono', ui-monospace, monospace" },
+		'source-url.pad': { kind: 'style', value: '0.5em 0.8em' },
+		'source-url.tracking': { kind: 'style', value: '0.12em' },
+		'source-url.weight': { kind: 'style', value: '600' },
 		// The watermark sits on its dark plate, so its handle can't ride the
 		// Pack's near-black core ink — cool off-white, matching the Pack's other
 		// dark-piece inks.

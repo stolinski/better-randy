@@ -33,6 +33,7 @@
 	// slug prefix; anything unmatched falls back to its surface-type label.
 	const TEMPLATE_FAMILIES: readonly { label: string; prefixes: readonly string[] }[] = [
 		{ label: 'Captions', prefixes: ['captions-'] },
+		{ label: 'Flowcharts', prefixes: ['docu-flowchart', 'wake-conversation-flow'] },
 		{ label: 'Docu', prefixes: ['docu-'] },
 		{ label: 'Lower thirds', prefixes: ['lower-third'] },
 		{ label: 'Social beats', prefixes: ['youtube-', 'instagram-'] }
@@ -73,7 +74,7 @@
 					userStore
 						.load(comp.slug)
 						.then((preset) => {
-							compKeys[comp.slug] = posterKeyForPreset(preset);
+							compKeys[comp.slug] = preset ? posterKeyForPreset(preset) : null;
 						})
 						.catch(() => {
 							compKeys[comp.slug] = null;

@@ -1,0 +1,72 @@
+{
+	"schema": "supers@1",
+	"name": "Website showcase",
+	"description": "A stored 1440x900 capture of github.com/syntaxfm presented as immutable quoted substrate in restrained controls-only browser chrome, with a separate Pack-resolved source URL plate centered halfway across the browser's top edge. One responsive composition reflows the complete relationship across horizontal and vertical transport safe areas. The edge entrance is intentional for the literal browser-window reveal: a short decisive rise, one settled-place overshoot, then a static read. Torn edge, registration jitter, grit, paper grain, address-bar duplication, glow, and gaussian shadow on channel chrome are intentionally omitted because the screenshot is a crisp emissive digital substrate and the URL is flat Pack chrome.",
+	"pack": "syntax",
+	"kind": "deliverable",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "mono"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "website-screenshot",
+			"content": {
+				"body": "",
+				"sourceUrl": "https://github.com/syntaxfm",
+				"imageUrl": "/api/user-assets/5670a09a88d83915df6216e0bc8f5f852e72d4cd07f5ec18b5eeb0d450ac85c4.png"
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.07,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.9,
+				"duration": 0.1,
+				"ease": "smooth"
+			}
+		},
+		"textAnimations": [],
+		"overlays": [
+			{
+				"type": "source-url",
+				"id": "source",
+				"content": {
+					"url": "github.com/syntaxfm"
+				},
+				"position": {
+					"anchor": "center"
+				},
+				"enter": {
+					"start": 0.09,
+					"duration": 0.0467,
+					"ease": "sharp"
+				},
+				"exit": {
+					"start": 0.8833,
+					"duration": 0.05,
+					"ease": "sharp"
+				},
+				"animation": {
+					"cascade": {
+						"anchor": "surface",
+						"event": "end",
+						"offsetMs": 120
+					}
+				}
+			}
+		],
+		"effects": [],
+		"audioCues": []
+	}
+}

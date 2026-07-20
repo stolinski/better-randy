@@ -303,6 +303,51 @@ export const crtTerminalPack: PackManifest = {
 		'lower-third.weight': { kind: 'style', value: '600' },
 		'lower-third.edge': { kind: 'style', value: { rule: 'vertical-accent', color: '#45ff6e' } },
 
+		// A small phosphor readout: one-hue excitation hierarchy, square hard
+		// bezel, uniform mono weight, and centered emissive depth only.
+		'achievement.plate': { kind: 'style', value: 'rgba(4, 9, 6, 0.94)' },
+		'achievement.ink': { kind: 'style', value: '#d9ffe0' },
+		'achievement.mutedInk': { kind: 'style', value: '#45ff6e' },
+		'achievement.accent': { kind: 'style', value: '#45ff6e' },
+		'achievement.success': { kind: 'style', value: '#45ff6e' },
+		'achievement.borderInk': { kind: 'style', value: '#1e8f3d' },
+		'achievement.accentInk': { kind: 'style', value: '#070b08' },
+		'achievement.border': { kind: 'style', value: 'calc(0.3 * var(--cqmin)) solid #1e8f3d' },
+		'achievement.radius': { kind: 'style', value: '0' },
+		'achievement.shadow': {
+			kind: 'style',
+			value: '0 0 calc(0.8 * var(--cqmin)) rgba(69, 255, 110, 0.28), inset 0 0 calc(0.35 * var(--cqmin)) rgba(69, 255, 110, 0.12)'
+		},
+		'achievement.font': {
+			kind: 'style',
+			value: '"JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace'
+		},
+		'achievement.fontLabel': {
+			kind: 'style',
+			value: '"JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace'
+		},
+		'achievement.pad': { kind: 'style', value: 'calc(1.5 * var(--cqmin)) calc(2.1 * var(--cqmin))' },
+		'achievement.gap': { kind: 'style', value: 'calc(1.1 * var(--cqmin))' },
+		'achievement.tracking': { kind: 'style', value: '0.34em' },
+		'achievement.weight': { kind: 'style', value: '600' },
+		'achievement.kickerWeight': { kind: 'style', value: '600' },
+		'source-url.plate': { kind: 'style', value: 'rgba(4, 9, 6, 0.94)' },
+		'source-url.ink': { kind: 'style', value: '#d9ffe0' },
+		'source-url.accent': { kind: 'style', value: '#45ff6e' },
+		'source-url.border': { kind: 'style', value: 'calc(0.3 * var(--cqmin)) solid #1e8f3d' },
+		'source-url.radius': { kind: 'style', value: '0' },
+		'source-url.shadow': {
+			kind: 'style',
+			value: '0 0 calc(0.8 * var(--cqmin)) rgba(69, 255, 110, 0.28)'
+		},
+		'source-url.fontLabel': {
+			kind: 'style',
+			value: '"JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace'
+		},
+		'source-url.pad': { kind: 'style', value: '0.45em 0.75em' },
+		'source-url.tracking': { kind: 'style', value: '0.2em' },
+		'source-url.weight': { kind: 'style', value: '600' },
+
 		'watermark.ink': { kind: 'style', value: '#45ff6e' },
 		'watermark.accent': { kind: 'style', value: '#d9ffe0' },
 		'counter.ink': { kind: 'style', value: '#45ff6e' },

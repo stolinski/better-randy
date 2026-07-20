@@ -87,6 +87,32 @@ export const syntaxPack: PackManifest = {
 			value: { top: '#0e0e0d', bottom: '#0e0e0d', light: '#000000' }
 		},
 
+		// ---------------- checklist Surface (ADR-0040) ----------------
+		// The house card system (aesthetic.md § The Card System, values at the 4K
+		// frame): warm-dark plate, visible border, rounded corners, the stepped
+		// hard-offset shadow. Numbers speak Space Mono in the channel yellow;
+		// item text speaks Grotesk. The bare (`chrome: 'none'`) mode's hard
+		// legibility shadow rides the same shadow ink as the stepped stack.
+		'checklist.plate': { kind: 'style', value: '#141413' },
+		'checklist.ink': { kind: 'style', value: '#f7f6f2' },
+		'checklist.accent': { kind: 'style', value: '#ffd54a' },
+		'checklist.border': { kind: 'style', value: '6px solid #454441' },
+		'checklist.radius': { kind: 'style', value: '16px' },
+		'checklist.shadow': {
+			kind: 'style',
+			value:
+				'4px 4px 0 0 #050504, 8px 8px 0 0 #050504, 12px 12px 0 0 #050504, 16px 16px 0 0 #050504, 20px 20px 0 0 #050504, 24px 24px 0 0 #050504, 28px 28px 0 0 #050504, 32px 32px 0 0 #050504, 36px 36px 0 0 #050504, 40px 40px 0 0 #050504'
+		},
+		'checklist.font': { kind: 'style', value: "'Space Grotesk', 'Inter', sans-serif" },
+		'checklist.fontLabel': { kind: 'style', value: "'Space Mono', ui-monospace, monospace" },
+		'checklist.textShadow': { kind: 'style', value: '0.05em 0.055em 0 rgba(5, 5, 4, 0.85)' },
+		// Structural: the CSS shadow stack above IS the depth dress (the
+		// lower-third precedent), so the structural depth Role stays flat; the
+		// border/radius carry the edge claim.
+		'checklist.edge': { kind: 'style', value: 'clean' },
+		'checklist.depth': { kind: 'style', value: 'flat' },
+		'checklist.light': { kind: 'style', value: 'none' },
+
 		// ---------------- pullquote-on-photo Surface ----------------
 		// Consumed color Roles (render-is-truth — match what CanvasSource paints).
 		'pullquote-on-photo.ink': { kind: 'style', value: '#ffffff' },
@@ -202,7 +228,10 @@ export const syntaxPack: PackManifest = {
 		// (render-is-truth: the CanvasSource paints `var(--ink, currentColor)`);
 		// claimed explicitly so the core `ink-treatment` fallback can't repaint it.
 		'node.ink': { kind: 'style', value: 'currentColor' },
-		'node.depth': { kind: 'style', value: { hardOffset: { dx: 8, dy: 8, blur: 0, color: 'rgba(0, 0, 0, 0.85)' } } },
+		'node.depth': {
+			kind: 'style',
+			value: { hardOffset: { dx: 8, dy: 8, blur: 0, color: 'rgba(0, 0, 0, 0.85)' } }
+		},
 		// Caption + stat voices ride the composition ink / channel accent.
 		'label.ink': { kind: 'style', value: 'currentColor' },
 		'stat-callout.accent': { kind: 'style', value: '#ffd54a' },
@@ -255,6 +284,41 @@ export const syntaxPack: PackManifest = {
 
 		// Consumed appearance Roles wired into the overlay CanvasSources
 		// (render-is-truth — values match what each CanvasSource paints).
+		'achievement.plate': { kind: 'style', value: '#141413' },
+		'achievement.ink': { kind: 'style', value: '#f7f6f2' },
+		'achievement.mutedInk': { kind: 'style', value: '#8a8883' },
+		'achievement.accent': { kind: 'style', value: '#ffd54a' },
+		'achievement.success': { kind: 'style', value: '#3dd816' },
+		'achievement.borderInk': { kind: 'style', value: '#454441' },
+		'achievement.accentInk': { kind: 'style', value: '#0a0a09' },
+		'achievement.border': { kind: 'style', value: '6px solid #454441' },
+		'achievement.radius': { kind: 'style', value: '16px' },
+		'achievement.shadow': {
+			kind: 'style',
+			value:
+				'4px 4px 0 0 #050504, 8px 8px 0 0 #050504, 12px 12px 0 0 #050504, 16px 16px 0 0 #050504, 20px 20px 0 0 #050504, 24px 24px 0 0 #050504, 28px 28px 0 0 #050504, 32px 32px 0 0 #050504, 36px 36px 0 0 #050504, 40px 40px 0 0 #050504'
+		},
+		'achievement.font': { kind: 'style', value: "'Space Grotesk', 'Inter', sans-serif" },
+		'achievement.fontLabel': { kind: 'style', value: "'Space Mono', ui-monospace, monospace" },
+		'achievement.pad': { kind: 'style', value: '0.048em 0.058em' },
+		'achievement.gap': { kind: 'style', value: '0.045em' },
+		'achievement.tracking': { kind: 'style', value: '0.08em' },
+		'achievement.weight': { kind: 'style', value: '700' },
+		'achievement.kickerWeight': { kind: 'style', value: '700' },
+		'source-url.plate': { kind: 'style', value: '#141413' },
+		'source-url.ink': { kind: 'style', value: '#f7f6f2' },
+		'source-url.accent': { kind: 'style', value: '#ffd54a' },
+		'source-url.border': { kind: 'style', value: '6px solid #454441' },
+		'source-url.radius': { kind: 'style', value: '16px' },
+		'source-url.shadow': {
+			kind: 'style',
+			value:
+				'4px 4px 0 0 #050504, 8px 8px 0 0 #050504, 12px 12px 0 0 #050504, 16px 16px 0 0 #050504, 20px 20px 0 0 #050504'
+		},
+		'source-url.fontLabel': { kind: 'style', value: "'Space Mono', ui-monospace, monospace" },
+		'source-url.pad': { kind: 'style', value: '0.5em 0.8em' },
+		'source-url.tracking': { kind: 'style', value: '0.02em' },
+		'source-url.weight': { kind: 'style', value: '700' },
 		'watermark.ink': { kind: 'style', value: '#f7f6f2' },
 		'watermark.accent': { kind: 'style', value: '#ffd54a' },
 		'counter.ink': { kind: 'style', value: '#ffd54a' },

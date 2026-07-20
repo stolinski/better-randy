@@ -45,9 +45,21 @@
               "maximum": 600
             },
             "fps": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 120
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 120
+                },
+                {
+                  "type": "number",
+                  "enum": [
+                    23.976,
+                    29.97,
+                    59.94
+                  ]
+                }
+              ]
             },
             "format": {
               "type": "string",
@@ -300,7 +312,9 @@
                 "title-sequence",
                 "type-hero",
                 "web-document",
-                "imessage"
+                "website-screenshot",
+                "imessage",
+                "checklist"
               ]
             },
             "content": {
@@ -337,6 +351,9 @@
                   "type": "string"
                 },
                 "avatarUrl": {
+                  "type": "string"
+                },
+                "imageUrl": {
                   "type": "string"
                 },
                 "messages": {
@@ -446,6 +463,113 @@
                     "required": [
                       "from",
                       "text"
+                    ]
+                  }
+                },
+                "logoUrl": {
+                  "type": "string"
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "text": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "checked": {
+                        "type": "boolean"
+                      },
+                      "enter": {
+                        "type": "object",
+                        "properties": {
+                          "start": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "duration": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "ease": {
+                            "type": "string",
+                            "enum": [
+                              "smooth",
+                              "settled",
+                              "sharp",
+                              "bouncy"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "start",
+                          "duration"
+                        ]
+                      },
+                      "strike": {
+                        "type": "object",
+                        "properties": {
+                          "start": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "duration": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "ease": {
+                            "type": "string",
+                            "enum": [
+                              "smooth",
+                              "settled",
+                              "sharp",
+                              "bouncy"
+                            ]
+                          },
+                          "sound": {
+                            "type": "object",
+                            "properties": {
+                              "mute": {
+                                "type": "boolean"
+                              },
+                              "event": {
+                                "type": "string",
+                                "enum": [
+                                  "whoosh-in",
+                                  "whoosh-out",
+                                  "impact",
+                                  "tick",
+                                  "click",
+                                  "pop",
+                                  "send",
+                                  "swipe",
+                                  "scratch",
+                                  "draw",
+                                  "sub-drop",
+                                  "sting"
+                                ]
+                              },
+                              "sample": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            }
+                          }
+                        },
+                        "required": [
+                          "start",
+                          "duration"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "text",
+                      "checked"
                     ]
                   }
                 }

@@ -1,0 +1,47 @@
+{
+	"schema": "supers@1",
+	"name": "Checklist — Project Setup",
+	"description": "Half-frame progress-tracker checklist (right column horizontal, bottom panel vertical): title + five numbered tasks over footage; completed items carry the red marker strike — item 1 statically struck from frame 0, item 2 draws through mid-clip (the check-off beat) and dims to done. INTENTIONAL: the strike keeps hand-marker physics (wobble/overshoot at the strike mark's tool default) on the flat channel card — the check-off is the block's emotional payload; do not flag hand-energy-on-chrome as an aesthetic-miss. Grit overlay and torn edges omitted intentionally: this is flat chrome, not a paper substrate.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {
+				"strike": { "color": "#e5322b", "intensity": 1 }
+			},
+			"timings": []
+		},
+		"surface": {
+			"type": "checklist",
+			"content": {
+				"title": "PROJECT SETUP",
+				"body": "",
+				"items": [
+					{ "text": "pnpm install", "checked": true },
+					{
+						"text": "Env vars set",
+						"checked": true,
+						"strike": { "start": 0.42, "duration": 0.09, "ease": "sharp" }
+					},
+					{ "text": "DB migrated", "checked": false },
+					{ "text": "Dev server up", "checked": false },
+					{ "text": "First commit", "checked": false }
+				]
+			},
+			"enter": { "start": 0, "duration": 0.07, "ease": "settled" },
+			"exit": { "start": 0.9, "duration": 0.04, "ease": "smooth" }
+		},
+		"textAnimations": [],
+		"overlays": [],
+		"effects": [],
+		"audioCues": []
+	}
+}

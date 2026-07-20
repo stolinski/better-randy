@@ -9,5 +9,7 @@ export const SURFACE_LABELS: Record<SurfaceType, string> = {
 	'title-sequence': 'Title sequence',
 	'type-hero': 'Type hero',
 	'web-document': 'Web document',
-	imessage: 'iMessage'
+	'website-screenshot': 'Website screenshot',
+	imessage: 'iMessage',
+	checklist: 'Checklist'
 };

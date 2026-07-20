@@ -1,7 +1,4 @@
-import type {
-	AnnotationRenderer,
-	SurfaceRenderer
-} from './types';
+import type { AnnotationRenderer, SurfaceRenderer } from './types';
 
 import { box } from '$lib/pipelines/annotations/box';
 import { circle } from '$lib/pipelines/annotations/circle';
@@ -32,6 +29,7 @@ import { heatmap } from '$lib/pipelines/effects/heatmap';
 import { ntscSignal } from '$lib/pipelines/effects/ntsc-signal';
 import { paperGrain } from '$lib/pipelines/effects/paper-grain';
 import { water } from '$lib/pipelines/effects/water';
+import { achievement } from '$lib/pipelines/overlays/achievement';
 import { counter } from '$lib/pipelines/overlays/counter';
 import { cursorTrail } from '$lib/pipelines/overlays/cursor-trail';
 import { instagramFollow } from '$lib/pipelines/overlays/instagram-follow';
@@ -39,11 +37,13 @@ import { instanceStack } from '$lib/pipelines/overlays/instance-stack';
 import { lowerThird } from '$lib/pipelines/overlays/lower-third';
 import { text3d } from '$lib/pipelines/overlays/text-3d';
 import { shaderFill } from '$lib/pipelines/overlays/shader-fill';
+import { sourceUrl } from '$lib/pipelines/overlays/source-url';
 import { washiTape } from '$lib/pipelines/overlays/washi-tape';
 import { watermark } from '$lib/pipelines/overlays/watermark';
 import { youtubeSubscribe } from '$lib/pipelines/overlays/youtube-subscribe';
 
 import { chapterCard } from '$lib/pipelines/surfaces/chapter-card';
+import { checklist } from '$lib/pipelines/surfaces/checklist';
 import { imessage } from '$lib/pipelines/surfaces/imessage';
 import { newspaper } from '$lib/pipelines/surfaces/newspaper';
 import { paper } from '$lib/pipelines/surfaces/paper';
@@ -52,9 +52,22 @@ import { pullquoteOnPhoto } from '$lib/pipelines/surfaces/pullquote-on-photo';
 import { titleSequence } from '$lib/pipelines/surfaces/title-sequence';
 import { typeHero } from '$lib/pipelines/surfaces/type-hero';
 import { webDocument } from '$lib/pipelines/surfaces/web-document';
+import { websiteScreenshot } from '$lib/pipelines/surfaces/website-screenshot';
 
 export const PIPELINE_REGISTRY = {
-	surfaces: { paper, plain, newspaper, pullquoteOnPhoto, chapterCard, titleSequence, typeHero, webDocument, imessage } satisfies Record<string, SurfaceRenderer>,
+	surfaces: {
+		paper,
+		plain,
+		newspaper,
+		pullquoteOnPhoto,
+		chapterCard,
+		titleSequence,
+		typeHero,
+		webDocument,
+		websiteScreenshot,
+		imessage,
+		checklist
+	} satisfies Record<string, SurfaceRenderer>,
 	// Like `overlays`, no `satisfies Record<string, BlockRenderer>` — each
 	// renderer is generic over its own Block type, and Component props are
 	// contravariant, so the specific renderers don't widen. Consumers narrow
@@ -72,8 +85,33 @@ export const PIPELINE_REGISTRY = {
 		tearOut,
 		isolate
 	} satisfies Record<string, AnnotationRenderer>,
-	overlays: { lowerThird, washiTape, watermark, shaderFill, cursorTrail, counter, instanceStack, text3d, youtubeSubscribe, instagramFollow },
-	effects: { paperGrain, chromaticAberration, crtScreen, crtTube, ntscSignal, dithering, halftoneDots, halftoneCmyk, water, flutedGlass, heatmap }
+	overlays: {
+		lowerThird,
+		washiTape,
+		watermark,
+		shaderFill,
+		cursorTrail,
+		counter,
+		instanceStack,
+		text3d,
+		youtubeSubscribe,
+		instagramFollow,
+		achievement,
+		sourceUrl
+	},
+	effects: {
+		paperGrain,
+		chromaticAberration,
+		crtScreen,
+		crtTube,
+		ntscSignal,
+		dithering,
+		halftoneDots,
+		halftoneCmyk,
+		water,
+		flutedGlass,
+		heatmap
+	}
 };
 
 export const REGISTERED_SURFACE_TYPES = Object.values(PIPELINE_REGISTRY.surfaces).map(

@@ -104,6 +104,7 @@
 		downloadBlob,
 		exportTransparentProRes,
 		exportTransparentWebM,
+		type SyncExportRequest,
 		type TransparentVideoExportOptions
 	} from './export-video';
 	import { annotationBodyPlainText } from '$lib/annotations/annotation-body-text';
@@ -120,6 +121,12 @@
 	import { messageEnter, messageTyping } from '$lib/pipelines/surfaces/imessage/schedule';
 	import { buildCursorSchedule } from '$lib/pipelines/overlays/cursor-trail/schedule';
 	import type { CursorPath } from '$lib/pipelines/overlays/cursor-trail/index';
+	import {
+		isAchievementVariantId,
+		setAchievementBeat,
+		VARIANTS as ACHIEVEMENT_VARIANTS
+	} from '$lib/pipelines/overlays/achievement/variants';
+	import type { AchievementContent } from '$lib/pipelines/overlays/achievement';
 	import { exposeVisualAudit } from './runtime-audit';
 	import { captureCanvasWebp } from '$lib/utils/canvas-capture';
 	import { isEngineStateOpaque, isTransitionOpaque } from '$lib/utils/output-classification';
@@ -467,6 +474,29 @@
 		}
 
 		parsedMarks.forEach((mark, index) => {
+			// Checklist item strikes (ADR-0040): timing lives ON the item, never
+			// in marks.timings[]. A static strike is fully drawn (progress 1) from
+			// frame 0 — the surface's `markAlpha` fade (buildRenderInputs) fades it
+			// in WITH the item text, so it neither floats over faint text during
+			// the enter nor pops in after it. An animated one draws over its
+			// authored window on the same pen-drag ease as every mark.
+			if (mark.window === 'static') {
+				animState.markProgresses[index] = 1;
+				return;
+			}
+			if (mark.window !== undefined) {
+				tweens.push({
+					key: `mark-${index}`,
+					start: mark.window.start,
+					duration: mark.window.duration,
+					ease: 'power1.inOut',
+					onUpdate: (value) => {
+						animState.markProgresses[index] = value;
+					}
+				});
+				return;
+			}
+
 			const resolved = resolveMarkForIndex(
 				mark.style,
 				index,
@@ -696,11 +726,24 @@
 		return { tweens };
 	}
 
+	// Checklist item strikes (window-carrying instances) never consume a
+	// marks.timings[] entry — resolve their appearance with an out-of-range
+	// index so only marks.defaults[style] / the Pack chain applies (the
+	// RootInspector markDefaultAppearance idiom).
+	function markTimingIndex(mark: MarkInstance, index: number): number {
+		return mark.window === undefined ? index : engineState.marks.timings.length;
+	}
+
 	function getMarkColorsByIndex(): string[] {
 		const parsedMarks = readMarks();
 		return parsedMarks.map(
 			(mark, index) =>
-				resolveMarkForIndex(mark.style, index, engineState.marks, readMarkColor(mark.style)).color
+				resolveMarkForIndex(
+					mark.style,
+					markTimingIndex(mark, index),
+					engineState.marks,
+					readMarkColor(mark.style)
+				).color
 		);
 	}
 
@@ -708,8 +751,12 @@
 		const parsedMarks = readMarks();
 		return parsedMarks.map(
 			(mark, index) =>
-				resolveMarkForIndex(mark.style, index, engineState.marks, readMarkColor(mark.style))
-					.intensity
+				resolveMarkForIndex(
+					mark.style,
+					markTimingIndex(mark, index),
+					engineState.marks,
+					readMarkColor(mark.style)
+				).intensity
 		);
 	}
 
@@ -722,6 +769,14 @@
 			markColorsByIndex: getMarkColorsByIndex(),
 			markIntensityByIndex: getMarkIntensityByIndex(),
 			textAnimAlphaByMarkIndex: computeTextAnimAlphaByMarkIndex(parsedMarks),
+			// The checklist fades its completion strikes with the card's own
+			// visibility ramp, so a static strike enters WITH its item instead of
+			// popping in after the fade (the marks canvas is a separate layer the
+			// DOM opacity fade doesn't reach). Every other surface leaves it at 1.
+			markAlpha:
+				engineState.surface.type === 'checklist'
+					? Math.max(0, Math.min(1, animState.paperVisibility))
+					: undefined,
 			timestamp,
 			diagram: buildDiagramInputs()
 		};
@@ -1062,7 +1117,86 @@
 			});
 		}
 
+		// Checklist item rows (ADR-0040): one row per item carrying its timed
+		// beats — the build-in ENTRANCE clip (item.enter) and the completion
+		// STRIKE clip (item.strike). Each drag writes back to the item, so the
+		// timeline is the truth for both. Row id `checklist-{index}` matches the
+		// inspector selection highlight and the canvas hit region.
+		if (surface.type === 'checklist') {
+			const strikeColor = resolveMarkForIndex(
+				'strike',
+				engineState.marks.timings.length,
+				engineState.marks,
+				readMarkColor('strike')
+			).color;
+			(surface.content.items ?? []).forEach((item, index) => {
+				const label = truncateMiddle(item.text, 20) || `Item ${index + 1}`;
+				const transitions: TimelineTransition[] = [];
+				// EVERY item gets an entrance clip, so the timeline mirrors the
+				// inspector 1:1 (no item is ever missing from the timeline): a real
+				// build-in window when authored, else a present-at-start placeholder
+				// whose drag MATERIALIZES the build-in. An item with no authored
+				// enter still renders as present (itemRevealAt → 1) until dragged.
+				const enter = item.enter;
+				transitions.push(
+					buildUnifiedBar({
+						id: 'enter',
+						label,
+						color: surfaceTrackColor,
+						enter: enter
+							? { start: enter.start, duration: enter.duration }
+							: { start: 0, duration: 0.06 },
+						enterEase: getEaseGsap(enter?.ease ?? 'settled'),
+						setEnter: (start, duration) => {
+							const target = engineState.surface.content.items?.[index];
+							if (target) target.enter = { start, duration, ease: target.enter?.ease ?? 'settled' };
+						}
+					})
+				);
+				if (item.checked) {
+					const win = item.strike;
+					transitions.push(
+						buildUnifiedBar({
+							id: 'strike',
+							label,
+							color: strikeColor,
+							enter: win
+								? { start: win.start, duration: win.duration }
+								: { start: 0, duration: 0.02 },
+							// The draw-on always runs on power1.inOut (buildAnimationManifest).
+							enterEase: 'power1.inOut',
+							setEnter: (start, duration) => {
+								const target = engineState.surface.content.items?.[index];
+								if (target)
+									target.strike = {
+										start,
+										duration,
+										ease: target.strike?.ease ?? 'sharp',
+										sound: target.strike?.sound
+									};
+							}
+						})
+					);
+				}
+				// Every item yields a row (it always has ≥1 clip — the entrance).
+				trackList.push({
+					id: `checklist-${index}`,
+					label,
+					color: item.checked ? strikeColor : surfaceTrackColor,
+					transitions
+				});
+			});
+		}
+
 		parsedMarks.forEach((mark, index) => {
+			// Checklist item strikes (ADR-0040) get their rows from the dedicated
+			// item loop below (so the strike clip can share the item's row with the
+			// build-in entrance clip) — skip them here. They still DRAW via the
+			// marks manifest; only the timeline ROW is sourced from the item.
+			if (mark.window !== undefined) {
+				return;
+			}
+
 			const resolved = resolveMarkForIndex(
 				mark.style,
 				index,
@@ -1387,6 +1521,46 @@
 						maxDuration: beatWidth,
 						onUpdate: ({ start }: { start: number; duration: number }) => {
 							content.beat = Math.round(Math.max(0, Math.min(1, start)) * 10000) / 10000;
+						}
+					}
+				]
+			});
+		});
+
+		// Achievement focal beat: one draggable, fixed-width clip. The clip width
+		// reflects the selected variant's intrinsic choreography; moving it writes
+		// the same content.beat consumed by pixels and derived sound cues.
+		engineState.overlays.forEach((overlay) => {
+			if (overlay.type !== 'achievement') {
+				return;
+			}
+			const content = overlay.content as AchievementContent;
+			const variantId = content.variant ?? 'checklist-complete';
+			if (!isAchievementVariantId(variantId)) {
+				return;
+			}
+			const focalWidth = Math.min(
+				0.2,
+				ACHIEVEMENT_VARIANTS[variantId].focalDurationMs /
+					(engineState.transport.durationSeconds * 1000)
+			);
+			trackList.push({
+				id: `overlay-${overlay.id}-beat`,
+				label: 'completion beat',
+				color: '#3dd816',
+				transitions: [
+					{
+						id: 'beat',
+						label: variantId === 'unlocked' ? 'unlock' : 'complete',
+						start: content.beat ?? 0.3375,
+						duration: focalWidth,
+						ramp: 'in' as const,
+						minStart: 0,
+						maxStart: 0.95,
+						minDuration: focalWidth,
+						maxDuration: focalWidth,
+						onUpdate: ({ start }: { start: number; duration: number }) => {
+							setAchievementBeat(content, start);
 						}
 					}
 				]
@@ -1813,7 +1987,9 @@
 		// would double-raster the same pixels). On the stage path the surface
 		// plane keeps its material before staging; overlays at depth ride their
 		// own plane, outside the dispatcher (same scope-out as overlay passes).
-		const material = resolveMaterialTreatment(getPack(packState.slug));
+		const material = surfaceRenderer?.disablePackMaterial
+			? null
+			: resolveMaterialTreatment(getPack(packState.slug));
 		if (material) {
 			entries.push({
 				pass: crtScanlinePass as ShaderPass<unknown>,
@@ -2464,6 +2640,9 @@
 				if (typeof window !== 'undefined') {
 					window.__supersTimeline = timeline;
 					window.__supersTextAnimationManager = textAnimationManager;
+					// Agent-facing export seam (ADR-0042) — the sync loop drives the
+					// real export path with a start timecode + sync filename.
+					window.__supersExport = performExport;
 				}
 				// The inspector's keyframe rows navigate the playhead through this
 				// handle (prev/next jumps + add-at-playhead).
@@ -2586,6 +2765,14 @@
 	// touches — that self-subscription is exactly what made the render effects
 	// loop. Rendering is a side effect of authoring changes, expressed once, here.
 	$effect(() => {
+		// --- Transport (manifest tweens) ---
+		// Keyframe `atMs` is converted to a progress fraction via `durationMs`
+		// (buildAnimationManifest), so a duration change must rebuild — otherwise
+		// absolute keyframe motion would run at the wrong fraction. Fraction-timed
+		// windows are rescaled on a duration change (composition-timing) and would
+		// re-fire this on their own, but a pure-keyframe composition would not.
+		void engineState.transport.durationSeconds;
+
 		// --- Text animations (manifest tweens) ---
 		void engineState.textAnimations.length;
 		for (const entry of engineState.textAnimations) {
@@ -2627,6 +2814,18 @@
 		void engineState.surface.content.dateLabel;
 		void engineState.surface.content.body;
 		void engineState.surface.content.counterpoint;
+		// Ordered-list content (checklist items, chat messages) whose per-item
+		// timing drives manifest tweens and/or the DOM the capture rasterizes. A
+		// deep stringify (the diagram pattern) so a timeline-clip drag that mutates
+		// a nested field — item.strike.start/duration, message.enter — rebuilds the
+		// manifest; without this the timeline moves the bar but the render is stale
+		// (the timeline-is-truth invariant would break for the strike draw-on).
+		for (const item of engineState.surface.content.items ?? []) {
+			void JSON.stringify(item);
+		}
+		for (const message of engineState.surface.content.messages ?? []) {
+			void JSON.stringify(message);
+		}
 		void engineState.surface.variant;
 		void engineState.typography.fontFamily;
 		void engineState.typography.paperColor;
@@ -2740,6 +2939,7 @@
 		textAnimationManager.dispose();
 		if (typeof window !== 'undefined') {
 			window.__supersTextAnimationManager = undefined;
+			window.__supersExport = undefined;
 			window.removeEventListener('pointermove', onTimelineResizeMove);
 			window.removeEventListener('pointerup', onTimelineResizeEnd);
 		}
@@ -2769,9 +2969,19 @@
 		host = null;
 	});
 
-	async function handleExport(): Promise<void> {
+	// The full export path. `request` is the agent-facing sync lane (ADR-0042):
+	// an embedded start timecode (ProRes only) and the sync export filename.
+	// GUI exports come through `handleExport` below and pass neither.
+	async function performExport(request?: SyncExportRequest): Promise<void> {
 		if (!canvas || !pipeline) {
 			status = 'Stage is unavailable.';
+			return;
+		}
+
+		if (request?.startTimecode && engineState.transport.format !== 'prores') {
+			// Only the .mov tmcd track carries a start timecode — failing fast beats
+			// exporting a WebM that silently dropped the sync anchor.
+			status = 'A start timecode requires the ProRes format.';
 			return;
 		}
 
@@ -2819,9 +3029,10 @@
 						progress = value;
 					},
 					renderFrame,
-					audio
+					audio,
+					startTimecode: request?.startTimecode
 				});
-				downloadBlob(blob, `${basename}.mov`);
+				downloadBlob(blob, request?.filename ?? `${basename}.mov`);
 			} else {
 				const blob = await exportTransparentWebM({
 					canvas: activeCanvas,
@@ -2834,7 +3045,7 @@
 					hasBackground,
 					audio
 				});
-				downloadBlob(blob, `${basename}.webm`);
+				downloadBlob(blob, request?.filename ?? `${basename}.webm`);
 			}
 
 			if (separateWav && audio) {
@@ -2850,6 +3061,13 @@
 			exportManager.dispose();
 			isExporting = false;
 		}
+	}
+
+	// The GUI export handler — seals arity at the DOM event boundary so a
+	// MouseEvent can never leak into `performExport`'s request (the
+	// phantom-fork lesson: never bind a possibly-absent param to DOM input).
+	function handleExport(): Promise<void> {
+		return performExport();
 	}
 </script>
 

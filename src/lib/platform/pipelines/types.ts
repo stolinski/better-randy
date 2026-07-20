@@ -120,6 +120,12 @@ export interface SurfaceRenderInputs {
 	markColorsByIndex: readonly string[];
 	markIntensityByIndex: readonly number[];
 	textAnimAlphaByMarkIndex?: readonly number[];
+	// Over-ink (strokes) alpha multiplier so a surface can fade its drawn marks
+	// with its own enter/exit (the marks canvas is a separate layer the DOM
+	// CSS-opacity fade never reaches). Absent → 1 (no attenuation). The checklist
+	// drives it with its surface visibility so a completed item's strike fades in
+	// with the item text instead of popping in after it.
+	markAlpha?: number;
 	timestamp: number;
 	// Diagram stroke elements to draw into the marks canvas (ADR-0036); absent
 	// when the surface carries no diagram.
@@ -241,8 +247,18 @@ export interface SurfaceControlsMetadata {
 	 */
 	messages?: boolean;
 	/**
+	 * Surface content is an ordered `content.items[]` task list (ADR-0040) —
+	 * the inspector shows the Checklist editor (per-item text / checked /
+	 * static-vs-animated strike, add/remove). Per-item strike timing stays on
+	 * the timeline's `checklist-{index}` tracks.
+	 */
+	items?: boolean;
+	/** Surface captures an author-entered URL into content.imageUrl. */
+	websiteCapture?: boolean;
+	/**
 	 * Surface supports the `chrome: 'window' | 'none'` mode (ADR-0037) — the
-	 * inspector shows a Window / None select bound to `surface.chrome`.
+	 * inspector shows a Window / None select bound to `surface.chrome`
+	 * ('window' labels as "Card" for the checklist Surface).
 	 */
 	chrome?: boolean;
 	typography?: boolean;
@@ -285,6 +301,12 @@ export interface SurfaceRenderer {
 	 * boundaries are glyphs (not a card silhouette) must not opt in.
 	 */
 	edgeTreatment?: boolean;
+	/**
+	 * Decline the active Pack's composition-wide material pass. Reserved for
+	 * immutable captured substrates whose stored pixels must survive a Pack
+	 * switch; intrinsic Surface shader passes still run.
+	 */
+	disablePackMaterial?: boolean;
 }
 
 // ---------------- Overlays ----------------
@@ -326,6 +348,18 @@ export interface OverlayRenderer<TContent = unknown> {
 	 * positional offset conflicts with the intended animation.
 	 */
 	disableEntryOffset?: boolean;
+	/**
+	 * Keep the mount fully opaque while the CanvasSource performs positional
+	 * enter/exit motion. This avoids CSS-opacity layer promotion in the
+	 * HTML-in-Canvas capture path.
+	 */
+	disableOpacityTransition?: boolean;
+	/**
+	 * Cross the frame's right edge over the authored enter/exit windows instead
+	 * of using the generic short vertical offset. The transition progress still
+	 * comes from the shared deterministic animation manifest.
+	 */
+	edgeTransition?: 'right';
 	// Optional pixel-level renderer; the unified render path captures DOM via
 	// HTML-in-canvas through the overlay's CanvasSource, so this is reserved
 	// for offscreen / worker compositing paths and is not currently invoked.

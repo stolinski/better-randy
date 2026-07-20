@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { parseAnnotationBodyText } from '../annotations/annotation-body-text.ts';
+import { NTSC_FRACTIONAL_FPS } from '../utils/composition-timing.ts';
 import {
 	EFFECT_CATALOG,
 	LAYOUT_AWARE_RENDERERS,
@@ -271,10 +272,54 @@ const ChatMessageSchema = z.object({
 });
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 
+// One task for the `checklist` Surface (ADR-0040). `checked` is the completion
+// state; `strike` is the red marker draw-on window (fractions of the clip) for
+// a checked item. A checked item with NO window is STATICALLY struck — the
+// rule is fully drawn from frame 0, no draw-on. An unchecked item carries no
+// strike at all (the GUI strips a stale window when unchecking). The window is
+// a real, draggable timeline clip (`checklist-{index}` rows), like a mark
+// timing — never a renderer constant.
+const ChecklistItemSchema = z.object({
+	text: z.string().min(1),
+	checked: z.boolean(),
+	// The build-in entrance (fractions of the clip). Present → this item reveals
+	// on its own window (opacity + slide-from-right), so a list can build up
+	// one item at a time; absent → the item is present from the block's own
+	// entrance (the default stable-list behaviour). A real, draggable timeline
+	// clip (`checklist-{index}` rows), never a renderer constant.
+	enter: z
+		.object({
+			start: FractionSchema,
+			duration: FractionSchema,
+			ease: EaseSchema.optional()
+		})
+		.optional(),
+	strike: z
+		.object({
+			start: FractionSchema,
+			duration: FractionSchema,
+			ease: EaseSchema.optional(),
+			sound: SoundOverrideSchema.optional()
+		})
+		.optional()
+});
+export type ChecklistItem = z.infer<typeof ChecklistItemSchema>;
+
+// `fps` accepts integers 1–120 plus the NTSC fractional literals
+// (23.976 | 29.97 | 59.94) so a composition can state a 29.97 NDF edit's true
+// rate (ADR-0042). The stored literal is display/authoring value only — every
+// frame computation resolves it to an exact rational via `resolveFrameRate`
+// (src/lib/utils/composition-timing.ts); ffmpeg receives `30000/1001`, never
+// a rounded float. Existing integer-fps presets parse unchanged.
+const TransportFpsSchema = z.union([
+	z.number().int().min(1).max(120),
+	z.literal([...NTSC_FRACTIONAL_FPS])
+]);
+
 const TransportSchema = z.object({
 	orientation: VideoOrientationSchema,
 	durationSeconds: z.number().min(0.1).max(600),
-	fps: z.number().int().min(1).max(120),
+	fps: TransportFpsSchema,
 	format: ExportFormatSchema
 });
 
@@ -523,7 +568,9 @@ const SurfaceTypeSchema = z.enum([
 	'title-sequence',
 	'type-hero',
 	'web-document',
-	'imessage'
+	'website-screenshot',
+	'imessage',
+	'checklist'
 ]);
 
 // Which site the `web-document` Surface mocks. One Surface, per-site layout =
@@ -567,10 +614,23 @@ const SurfaceContentSchema = z.object({
 	// "anonymous" on the <img> so the HTML-in-Canvas capture isn't tainted).
 	// When absent the Surface falls back to the default silhouette SVG.
 	avatarUrl: z.string().optional(),
+	// Persisted screenshot bytes for the website-screenshot Surface. The live
+	// page is author-time input only; preview/export read this content-addressed
+	// user-assets URL.
+	imageUrl: z.string().optional(),
 	// Ordered conversation for the `imessage` Surface (ignored by every other
 	// surface). The thread-level contact name reuses `author`; each message
 	// carries its own side/text/tapback/receipt. Per ADR-0031.
-	messages: z.array(ChatMessageSchema).optional()
+	messages: z.array(ChatMessageSchema).optional(),
+	// Optional logo lockup for the `checklist` Surface (ignored by every other
+	// surface): an uploaded-image URL (the `/api/user-assets/…` shape, like
+	// `avatarUrl`) rendered LARGE in a white circular chip in place of the
+	// panel title. When it fails to load the renderer falls back to `title`.
+	logoUrl: z.string().optional(),
+	// Ordered task list for the `checklist` Surface (ignored by every other
+	// surface). The panel title reuses `title`; each item carries its own
+	// checked state + strike draw-on window. Per ADR-0040.
+	items: z.array(ChecklistItemSchema).optional()
 });
 
 const SurfaceSchema = z.object({
@@ -583,14 +643,16 @@ const SurfaceSchema = z.object({
 	// shown in the browser address bar, `body` = the post text carrying the hero
 	// `[highlight]` span.
 	site: WebDocumentSiteSchema.optional(),
-	// Chrome mode for the `imessage` Surface (ignored by every other Surface).
-	// 'window' (the default) is the faithful Messages window — header, timestamp,
-	// composer bar, page background. 'none' is the film-insert chromeless thread:
-	// bare bubbles floating directly over footage, with a substrate-darken
-	// vignette for legibility. Absent means 'window'; renderers MUST read
-	// `chrome ?? 'window'` — a Zod `.default()` is not reliably applied to
-	// pre-existing runtime state (the `validateOverlayContents` precedent). See
-	// docs/adr/0037-imessage-chrome-mode.md.
+	// Chrome mode for the `imessage` and `checklist` Surfaces (ignored by every
+	// other Surface). 'window' (the default) is the full-chrome presentation —
+	// the faithful Messages window on imessage; the bordered card plate on
+	// checklist. 'none' is the chromeless presentation: bare bubbles (imessage,
+	// with a substrate-darken vignette) or bare numbered type with a hard
+	// legibility shadow (checklist) floating directly over footage. Absent means
+	// 'window'; renderers MUST read `chrome ?? 'window'` — a Zod `.default()` is
+	// not reliably applied to pre-existing runtime state (the
+	// `validateOverlayContents` precedent). See docs/adr/0037-imessage-chrome-mode.md
+	// and docs/adr/0040-checklist-surface.md.
 	chrome: z.enum(['window', 'none']).optional(),
 	// Optional per-Surface variant id, picked up by Surface families that use
 	// the variants-as-data convention per ADR-0020. Unused by single-shape
@@ -1339,6 +1401,17 @@ export interface MarkInstance {
 	startChar: number;
 	/** End char index (exclusive). */
 	endChar: number;
+	/**
+	 * Checklist item strikes only (ADR-0040): the item's authored draw-on
+	 * window, or 'static' for a checked item with no window (the rule is fully
+	 * drawn from frame 0 — no tween, no sound cue). Absent on body/message
+	 * marks, whose timing lives in `marks.timings[]`.
+	 */
+	window?: { start: number; duration: number; ease?: Ease } | 'static';
+	/** The item strike's per-motion sound override (checklist marks only). */
+	sound?: SoundOverride;
+	/** Index into `content.items[]` for checklist item strikes. */
+	itemIndex?: number;
 }
 
 /**
@@ -1376,6 +1449,29 @@ export function listMarkInstances(content: SurfaceContent): MarkInstance[] {
 			}
 			cursor += 2;
 		}
+	}
+
+	// Checklist item strikes (ADR-0040): one `strike` instance per CHECKED
+	// item, in item order — matching the DOM order of the checklist
+	// CanvasSource's data-annotation-mark spans (the title carries no marks;
+	// items render after it, and only checked items emit a mark span). Timing
+	// lives ON the item (`window` — a draw-on window, or 'static'), never in
+	// `marks.timings[]`.
+	for (const [itemIndex, item] of (content.items ?? []).entries()) {
+		const start = cursor;
+		const end = cursor + item.text.length;
+		if (item.checked) {
+			result.push({
+				style: 'strike',
+				text: item.text,
+				startChar: start,
+				endChar: end,
+				window: item.strike ?? 'static',
+				sound: item.strike?.sound,
+				itemIndex
+			});
+		}
+		cursor = end + 2;
 	}
 
 	return result;

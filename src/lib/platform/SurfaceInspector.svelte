@@ -5,8 +5,11 @@
 	import { parseAnnotationBodyText } from '$lib/annotations/annotation-body-text';
 	import { DECORATIVE_ANNOTATION_STYLES } from '$lib/annotations/annotation-mark-styles';
 	import type { AnnotationBody } from '$lib/annotations/annotation-marks';
+	import { defaultItemEnter, defaultStrikeWindow } from '$lib/pipelines/surfaces/checklist/schedule';
 	import { defaultMessageEnter } from '$lib/pipelines/surfaces/imessage/schedule';
 	import { uploadUserImage } from '$lib/platform/user-image-assets';
+	import { requestWebsiteCapture } from '$lib/platform/website-capture';
+	import { createEnterBlurCommitDeduper } from '$lib/utils/website-showcase';
 	import {
 		EFFECT_CATALOG,
 		EFFECT_IDS,
@@ -20,6 +23,7 @@
 		ENGINE_FONT_FAMILIES,
 		WEB_DOCUMENT_SITES,
 		type ChatMessage,
+		type ChecklistItem,
 		type Ease,
 		type FontDefinition,
 		type FontFamily,
@@ -204,6 +208,95 @@
 		}
 	}
 
+	let logoUploadSequence = 0;
+	let websiteCaptureState = $state<'idle' | 'capturing'>('idle');
+	let websiteCaptureSequence = 0;
+	const websiteCaptureDeduper = createEnterBlurCommitDeduper();
+
+	function updateSourceUrlOverlay(url: string): void {
+		const overlay = engineState.overlays.find((candidate) => candidate.type === 'source-url');
+		if (typeof overlay?.content === 'object' && overlay.content !== null && 'url' in overlay.content) {
+			(overlay.content as Record<string, unknown>).url = url;
+		}
+	}
+
+	async function captureWebsite(
+		trigger: 'enter' | 'blur',
+		input: HTMLInputElement
+	): Promise<void> {
+		if (!websiteCaptureDeduper.shouldCommit(trigger)) return;
+		const value = engineState.surface.content.sourceUrl ?? '';
+		const sequence = ++websiteCaptureSequence;
+		input.setCustomValidity('');
+		websiteCaptureState = 'capturing';
+		try {
+			const result = await requestWebsiteCapture(value);
+			if (sequence !== websiteCaptureSequence) return;
+			engineState.surface.content.sourceUrl = result.url;
+			engineState.surface.content.imageUrl = result.imageUrl;
+			updateSourceUrlOverlay(result.displayUrl);
+		} catch (error: unknown) {
+			console.error('Website capture failed', error);
+			if (sequence === websiteCaptureSequence) {
+				input.setCustomValidity(error instanceof Error ? error.message : 'Website capture failed');
+				input.reportValidity();
+			}
+		} finally {
+			if (sequence === websiteCaptureSequence) websiteCaptureState = 'idle';
+		}
+	}
+
+	function handleWebsiteCaptureKeydown(event: KeyboardEvent): void {
+		if (event.key !== 'Enter') return;
+		event.preventDefault();
+		const input = event.currentTarget as HTMLInputElement;
+		void captureWebsite('enter', input);
+		input.blur();
+	}
+
+	function handleWebsiteCaptureBlur(event: FocusEvent): void {
+		void captureWebsite('blur', event.currentTarget as HTMLInputElement);
+	}
+
+	async function handleWebsiteImageFileChange(event: Event): Promise<void> {
+		const input = event.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+		input.setCustomValidity('');
+		try {
+			engineState.surface.content.imageUrl = await uploadUserImage(file);
+		} catch (error: unknown) {
+			console.error('Website screenshot upload failed', error);
+			input.setCustomValidity(error instanceof Error ? error.message : 'Screenshot upload failed');
+			input.reportValidity();
+		} finally {
+			input.value = '';
+		}
+	}
+
+	async function handleLogoFileChange(event: Event): Promise<void> {
+		const input = event.currentTarget as HTMLInputElement;
+		const uploadSequence = ++logoUploadSequence;
+		input.setCustomValidity('');
+		const file = input.files?.[0];
+		if (!file) return;
+
+		try {
+			const logoUrl = await uploadUserImage(file);
+			if (uploadSequence === logoUploadSequence) {
+				engineState.surface.content.logoUrl = logoUrl;
+			}
+		} catch (error: unknown) {
+			console.error('Logo image upload failed', error);
+			if (uploadSequence === logoUploadSequence) {
+				input.setCustomValidity(error instanceof Error ? error.message : 'Logo image upload failed');
+				input.reportValidity();
+			}
+		} finally {
+			input.value = '';
+		}
+	}
+
 	function addSlot(slot: DocumentSlot): void {
 		engineState.surface.content[slot] = '';
 		tick()
@@ -244,7 +337,11 @@
 	// ---- Chrome mode (ADR-0037) ----
 
 	// Absent means 'window' (canonical) — writing `undefined` back for 'window'
-	// keeps saved compositions free of a redundant field.
+	// keeps saved compositions free of a redundant field. The stored value is
+	// shared across chrome-mode surfaces; only the label differs (the
+	// checklist's full-chrome presentation is its card, not a window).
+	const chromeFullLabel = $derived(engineState.surface.type === 'checklist' ? 'Card' : 'Window');
+
 	function handleChromeChange(event: Event): void {
 		const value = (event.currentTarget as HTMLSelectElement).value;
 		engineState.surface.chrome = value === 'none' ? 'none' : undefined;
@@ -295,6 +392,52 @@
 
 	const messages = $derived(engineState.surface.content.messages ?? []);
 
+	// ---- Checklist items (ADR-0040) ----
+	// Text / checked / static-vs-animated strike edit here; per-item strike
+	// timing stays on the timeline's `checklist-{index}` tracks (one draggable
+	// clip per animated strike).
+
+	const items = $derived(engineState.surface.content.items ?? []);
+
+	function addItem(): void {
+		const list = (engineState.surface.content.items ??= []);
+		// In a build-in list, a new item builds in too — staggered after the
+		// others — so it animates on and lands on the timeline like its siblings,
+		// not a bare item that only appears in the canvas.
+		const buildsIn = list.some((item) => item.enter !== undefined);
+		list.push({
+			text: '',
+			checked: false,
+			...(buildsIn ? { enter: defaultItemEnter(list.length) } : {})
+		});
+	}
+
+	function removeItem(index: number): void {
+		engineState.surface.content.items?.splice(index, 1);
+	}
+
+	// Unchecking strips a stale strike window — an unchecked item carries no
+	// strike at all (the schema's contract).
+	function itemCheckedToggle(item: ChecklistItem, checked: boolean): void {
+		item.checked = checked;
+		if (!checked) {
+			item.strike = undefined;
+		}
+	}
+
+	// Static = no window (fully struck from frame 0); Animated materializes the
+	// default mid-clip draw-on window, re-timed on the item's timeline track.
+	function itemStrikeModeChange(item: ChecklistItem, value: string): void {
+		item.strike = value === 'animated' ? (item.strike ?? defaultStrikeWindow()) : undefined;
+	}
+
+	// Build-in: the item reveals on its own staggered entrance (the list builds
+	// up one item at a time); off = present from the block entrance. Timing is
+	// then a draggable clip on the item's timeline row.
+	function itemBuildInToggle(item: ChecklistItem, index: number, buildsIn: boolean): void {
+		item.enter = buildsIn ? (item.enter ?? defaultItemEnter(index)) : undefined;
+	}
+
 	// ---- On-canvas direct selection (epic 0pkzts2c) ----
 	// A selected `imessage-N` timeline row (set by a canvas bubble click or the
 	// timeline gutter) highlights its message entry; the reveal effect below
@@ -305,12 +448,23 @@
 		return match ? parseInt(match[1], 10) : null;
 	});
 
+	// A selected `checklist-N` timeline row (canvas item click or timeline
+	// gutter) highlights its item entry — the messages pattern, per item.
+	const selectedItemIndex = $derived.by(() => {
+		const match = layerSelection.id?.match(/^checklist-(\d+)$/);
+		return match ? parseInt(match[1], 10) : null;
+	});
+
 	function revealTarget(target: string): void {
 		if (!inspectorEl) return;
 		const [kind, key] = target.split(':');
 		if (kind === 'message') {
 			const row = inspectorEl.querySelector<HTMLElement>(`[data-message-row="${key}"]`);
 			row?.querySelector<HTMLElement>('[contenteditable]')?.focus({ preventScroll: true });
+			row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+		} else if (kind === 'item') {
+			const row = inspectorEl.querySelector<HTMLElement>(`[data-item-row="${key}"]`);
+			row?.querySelector<HTMLInputElement>('input[type="text"]')?.focus({ preventScroll: true });
 			row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 		} else if (kind === 'slot') {
 			const input =
@@ -328,7 +482,11 @@
 		void inspectorFocus.seq;
 		const target =
 			inspectorFocus.target ??
-			(selectedMessageIndex !== null ? `message:${selectedMessageIndex}` : null);
+			(selectedMessageIndex !== null
+				? `message:${selectedMessageIndex}`
+				: selectedItemIndex !== null
+					? `item:${selectedItemIndex}`
+					: null);
 		if (target) revealTarget(target);
 	});
 
@@ -486,6 +644,19 @@
 				});
 			});
 		}
+		// Animated checklist strikes sound (`mark:${index}` cues — indexed by
+		// mark-instance position, i.e. checked-item order; the checklist body
+		// carries no other marks). Static strikes have no motion and no cue.
+		if (controls.items) {
+			let strikeMarkIndex = 0;
+			items.forEach((item, index) => {
+				if (!item.checked) return;
+				const cueId = `mark:${strikeMarkIndex}`;
+				strikeMarkIndex += 1;
+				if (!item.strike) return;
+				rows.push({ label: `Item ${index + 1} strike`, cueId, window: item.strike });
+			});
+		}
 		return rows;
 	});
 </script>
@@ -523,6 +694,36 @@
 						<option value={site}>{SITE_LABELS[site]}</option>
 					{/each}
 				</select>
+			</Field>
+		{/if}
+
+		{#if controls.websiteCapture}
+			<Field label="URL">
+				<input
+					bind:value={engineState.surface.content.sourceUrl}
+					disabled={websiteCaptureState === 'capturing'}
+					onblur={handleWebsiteCaptureBlur}
+					onkeydown={handleWebsiteCaptureKeydown}
+					type="url"
+				/>
+				{#if websiteCaptureState === 'capturing'}
+					<span class="ins-unit">Capturing</span>
+				{/if}
+			</Field>
+			<Field label="Screenshot">
+				{#if engineState.surface.content.imageUrl}
+					<img
+						class="website-capture-preview"
+						alt="Captured website preview"
+						src={engineState.surface.content.imageUrl}
+					/>
+				{/if}
+				<input
+					accept="image/png,image/jpeg,image/webp"
+					aria-label="Choose website screenshot"
+					onchange={handleWebsiteImageFileChange}
+					type="file"
+				/>
 			</Field>
 		{/if}
 
@@ -697,7 +898,7 @@
 		{#if controls.chrome}
 			<Field label="Chrome">
 				<select value={engineState.surface.chrome ?? 'window'} onchange={handleChromeChange}>
-					<option value="window">Window</option>
+					<option value="window">{chromeFullLabel}</option>
 					<option value="none">None</option>
 				</select>
 			</Field>
@@ -783,6 +984,78 @@
 								label={`Message ${index + 1} typing indicator`}
 								onchange={(checked) => messageTypingToggle(message, checked)}
 							/>
+						</Field>
+					{/if}
+				</div>
+			{/each}
+		</InspectorSection>
+	{/if}
+
+	{#if controls.items}
+		<InspectorSection label="Checklist">
+			{#snippet action()}
+				<button type="button" class="ins-add" onclick={addItem}>+ Add</button>
+			{/snippet}
+			<Field label="Logo">
+				<input
+					accept="image/png,image/jpeg,image/webp"
+					aria-label="Choose logo image"
+					onchange={handleLogoFileChange}
+					type="file"
+				/>
+				{#if engineState.surface.content.logoUrl}
+					<button
+						type="button"
+						class="clear-btn"
+						aria-label="Remove logo"
+						onclick={() => (engineState.surface.content.logoUrl = undefined)}>×</button
+					>
+				{/if}
+			</Field>
+			{#each items as item, index (index)}
+				<div
+					class="item-entry"
+					class:item-entry--selected={selectedItemIndex === index}
+					data-item-row={index}
+				>
+					<div class="item-entry__header">
+						<span class="item-entry__num">{index + 1}</span>
+						<input
+							type="text"
+							aria-label={`Item ${index + 1} text`}
+							bind:value={item.text}
+						/>
+						<button
+							type="button"
+							class="remove-btn"
+							aria-label={`Remove item ${index + 1}`}
+							onclick={() => removeItem(index)}>×</button
+						>
+					</div>
+					<Field label="Build in">
+						<InspectorToggle
+							checked={item.enter !== undefined}
+							label={`Item ${index + 1} builds in`}
+							onchange={(buildsIn) => itemBuildInToggle(item, index, buildsIn)}
+						/>
+					</Field>
+					<Field label="Checked">
+						<InspectorToggle
+							checked={item.checked}
+							label={`Item ${index + 1} checked`}
+							onchange={(checked) => itemCheckedToggle(item, checked)}
+						/>
+					</Field>
+					{#if item.checked}
+						<Field label="Strike">
+							<select
+								value={item.strike ? 'animated' : 'static'}
+								onchange={(e) =>
+									itemStrikeModeChange(item, (e.currentTarget as HTMLSelectElement).value)}
+							>
+								<option value="static">Static (struck at open)</option>
+								<option value="animated">Animated (draws on cue)</option>
+							</select>
 						</Field>
 					{/if}
 				</div>
@@ -1095,6 +1368,12 @@
 		font-size: 0.8125rem;
 	}
 
+	.website-capture-preview {
+		aspect-ratio: 16 / 10;
+		inline-size: 5rem;
+		object-fit: cover;
+	}
+
 	/* A message entry: a sub-group separated by a hairline (not a card), same
 	   vocabulary as .anim-entry. */
 	.message-entry {
@@ -1122,6 +1401,37 @@
 	.message-entry__from {
 		flex: 0 1 auto;
 		font-size: 0.8rem;
+	}
+
+	/* A checklist item entry: the message-entry vocabulary, per task. */
+	.item-entry {
+		border-block-start: 1px solid var(--chrome-hairline);
+		border-inline-start: 2px solid transparent;
+		display: grid;
+		gap: var(--vs-xs);
+		padding-block-start: var(--vs-s);
+		padding-inline-start: var(--vs-xs);
+	}
+
+	.item-entry--selected {
+		border-inline-start-color: #ffd608;
+	}
+
+	.item-entry__header {
+		align-items: center;
+		display: flex;
+		gap: var(--vs-xs);
+	}
+
+	.item-entry__header input {
+		flex: 1 1 auto;
+	}
+
+	.item-entry__num {
+		color: var(--chrome-muted);
+		flex: none;
+		font-size: 0.75rem;
+		font-variant-numeric: tabular-nums;
 	}
 
 	/* A text-animation entry: a sub-group separated by a hairline (not a card). */

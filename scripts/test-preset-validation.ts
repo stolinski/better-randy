@@ -121,6 +121,29 @@ expectSemanticIssue((input) => {
 }, 'Unknown Overlay type');
 
 expectSemanticIssue((input) => {
+	(input.state as Record<string, unknown>).surface = {
+		type: 'website-screenshot',
+		content: { body: '', sourceUrl: 'https://example.com' }
+	};
+}, 'requires a content-addressed');
+
+{
+	const input = basePreset();
+	(input.state as Record<string, unknown>).surface = {
+		type: 'website-screenshot',
+		content: {
+			body: '',
+			sourceUrl: 'https://example.com',
+			imageUrl: `/api/user-assets/${'a'.repeat(64)}.png`
+		}
+	};
+	(input.state as Record<string, unknown>).overlays = [
+		{ type: 'source-url', id: 'source', content: { url: 'example.com' }, position: { anchor: 'center' } }
+	];
+	assert.deepEqual(validatePresetSemantics(parsed(input)), []);
+}
+
+expectSemanticIssue((input) => {
 	(input.state as Record<string, unknown>).overlays = [
 		{ type: 'lower-third', id: 'overlay', content: {}, position: { anchor: 'center' } }
 	];

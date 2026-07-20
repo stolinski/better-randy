@@ -27,6 +27,10 @@
 	import type { EffectRenderer } from './pipelines/types';
 	import { transitionEffectTypes } from './pipelines/transition-registry';
 	import { compositionMeta } from './composition-meta.svelte';
+	import {
+		rescaleCompositionTimings,
+		STANDARD_TRANSPORT_RATES
+	} from '$lib/utils/composition-timing';
 	import AddMenu from './AddMenu.svelte';
 	import InspectorSection from './InspectorSection.svelte';
 	import InspectorToggle from './InspectorToggle.svelte';
@@ -297,6 +301,23 @@
 	function setMarkDefault(style: AnnotationMarkStyle, patch: Partial<MarkAppearance>): void {
 		engineState.marks.defaults[style] = { ...markDefaultAppearance(style), ...patch };
 	}
+
+	// Changing the clip duration PRESERVES the real-time speed of every
+	// animation: timing is stored as a fraction of the clip, so a longer clip
+	// would otherwise slow everything down. Rescaling the fractions by prev/next
+	// keeps a 400ms enter at 400ms — the extra time becomes hold. Absolute-time
+	// timing (keyframe atMs, captions, cascade offsets) is left alone.
+	function handleDurationChange(event: Event): void {
+		const input = event.currentTarget as HTMLInputElement;
+		const next = Number(input.value);
+		const prev = engineState.transport.durationSeconds;
+		if (!Number.isFinite(next) || next <= 0 || next === prev) {
+			input.value = String(prev);
+			return;
+		}
+		rescaleCompositionTimings(engineState, prev / next);
+		engineState.transport.durationSeconds = next;
+	}
 </script>
 
 <div class="root-inspector">
@@ -333,12 +354,24 @@
 				min="1"
 				max="60"
 				step="0.1"
-				bind:value={engineState.transport.durationSeconds}
+				value={engineState.transport.durationSeconds}
+				onchange={handleDurationChange}
 			/>
 			<span class="ins-unit">s</span>
 		</Field>
-		<Field label="FPS">
-			<input type="number" min="12" max="60" step="1" bind:value={engineState.transport.fps} />
+		<Field label="Rate">
+			<!-- Standard broadcast/web rates only (ADR-0042) — the NTSC fractional
+			     literals map to exact rationals in every frame computation, so a
+			     free-typed 29.9 has no exact math to run. A loaded legacy value
+			     outside the standard set stays selectable, never silently rewritten. -->
+			<select bind:value={engineState.transport.fps}>
+				{#if !STANDARD_TRANSPORT_RATES.includes(engineState.transport.fps)}
+					<option value={engineState.transport.fps}>{engineState.transport.fps} fps</option>
+				{/if}
+				{#each STANDARD_TRANSPORT_RATES as rate (rate)}
+					<option value={rate}>{rate} fps</option>
+				{/each}
+			</select>
 		</Field>
 	</InspectorSection>
 

@@ -9,6 +9,10 @@
  */
 import { messageEnter, TAPBACK_DELAY } from '../pipelines/surfaces/imessage/schedule.ts';
 import { EFFECT_CATALOG } from '../text-animations/catalog.ts';
+import {
+	isAchievementVariantId,
+	VARIANTS as ACHIEVEMENT_VARIANTS
+} from '../pipelines/overlays/achievement/variants/index.ts';
 
 import { resolveCascadeTimings, type CascadeWindow } from './cascade-timing.ts';
 import {
@@ -305,8 +309,26 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 
 	// One cue per mark instance, indexed like `marks.timings[]` (document
 	// order); `resolveMarkForIndex` supplies the draw-on window even when the
-	// timing entry is absent (shared fallback timing).
+	// timing entry is absent (shared fallback timing). Checklist item strikes
+	// (ADR-0040) carry their window ON the instance: a static strike has no
+	// motion and emits nothing; an animated one sounds at its own window with
+	// the item's override — marks.timings[] is never consulted for them.
 	listMarkInstances(surface.content).forEach((instance, index) => {
+		if (instance.window === 'static') {
+			return;
+		}
+		if (instance.window !== undefined) {
+			cues.push(
+				cueFrom(
+					`mark:${index}`,
+					{ kind: 'marks' },
+					MARK_EVENT_DEFAULTS[instance.style] ?? MOTION_SOUND_DEFAULTS.mark,
+					instance.window,
+					instance.sound
+				)
+			);
+			return;
+		}
 		const resolved = resolveMarkForIndex(instance.style, index, state.marks);
 		cues.push(
 			cueFrom(
@@ -466,6 +488,38 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 				undefined
 			)
 		);
+	}
+
+	// Achievement focal events are intrinsic to each data variant and keyed to
+	// the same authored beat as the pixels and timeline clip. Checklist draws,
+	// then lands with a restrained click; unlocked emits one compact pop.
+	for (const overlay of state.overlays) {
+		if (overlay.type !== 'achievement') {
+			continue;
+		}
+		const content = overlay.content as { variant?: string; beat?: number } | null;
+		const variantId = content?.variant ?? 'checklist-complete';
+		if (!isAchievementVariantId(variantId)) {
+			continue;
+		}
+		const beat = content?.beat ?? 0.3375;
+		for (const sound of ACHIEVEMENT_VARIANTS[variantId].soundEvents) {
+			cues.push(
+				cueFrom(
+					`overlay:${overlay.id}:beat-${sound.event}`,
+					{ kind: 'overlay', overlayId: overlay.id },
+					sound.event,
+					{
+						start: Math.max(
+							0,
+							Math.min(1, beat + sound.offsetMs / (state.transport.durationSeconds * 1000))
+						),
+						duration: 0
+					},
+					undefined
+				)
+			);
+		}
 	}
 
 	// Text animations attribute to their TARGET Layer. Per-character effects

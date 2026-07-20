@@ -45,7 +45,9 @@ import { pullquoteOnPhotoIdentity } from '$lib/pipelines/surfaces/pullquote-on-p
 import { titleSequenceIdentity } from '$lib/pipelines/surfaces/title-sequence/identity';
 import { typeHeroIdentity } from '$lib/pipelines/surfaces/type-hero/identity';
 import { webDocumentIdentity } from '$lib/pipelines/surfaces/web-document/identity';
+import { websiteScreenshotIdentity } from '$lib/pipelines/surfaces/website-screenshot/identity';
 import { imessageIdentity } from '$lib/pipelines/surfaces/imessage/identity';
+import { checklistIdentity } from '$lib/pipelines/surfaces/checklist/identity';
 
 // Captions track
 import { captionsIdentity } from '$lib/pipelines/captions/identity';
@@ -71,6 +73,7 @@ import { tearOutIdentity } from '$lib/pipelines/annotations/tear-out/identity';
 import { underlineIdentity } from '$lib/pipelines/annotations/underline/identity';
 
 // Overlays
+import { achievementIdentity } from '$lib/pipelines/overlays/achievement/identity';
 import { counterIdentity } from '$lib/pipelines/overlays/counter/identity';
 import { cursorTrailIdentity } from '$lib/pipelines/overlays/cursor-trail/identity';
 import { instagramFollowIdentity } from '$lib/pipelines/overlays/instagram-follow/identity';
@@ -81,6 +84,7 @@ import { text3dIdentity } from '$lib/pipelines/overlays/text-3d/identity';
 import { washiTapeIdentity } from '$lib/pipelines/overlays/washi-tape/identity';
 import { watermarkIdentity } from '$lib/pipelines/overlays/watermark/identity';
 import { youtubeSubscribeIdentity } from '$lib/pipelines/overlays/youtube-subscribe/identity';
+import { sourceUrlIdentity } from '$lib/pipelines/overlays/source-url/identity';
 
 export const IDENTITY_REGISTRY: Readonly<Record<string, IdentitySpec>> = {
 	// Surfaces
@@ -92,7 +96,9 @@ export const IDENTITY_REGISTRY: Readonly<Record<string, IdentitySpec>> = {
 	'surface:title-sequence': titleSequenceIdentity,
 	'surface:type-hero': typeHeroIdentity,
 	'surface:web-document': webDocumentIdentity,
+	'surface:website-screenshot': websiteScreenshotIdentity,
 	'surface:imessage': imessageIdentity,
+	'surface:checklist': checklistIdentity,
 
 	// Captions track
 	'captions:track': captionsIdentity,
@@ -118,6 +124,7 @@ export const IDENTITY_REGISTRY: Readonly<Record<string, IdentitySpec>> = {
 	'annotation:underline': underlineIdentity,
 
 	// Overlays
+	'overlay:achievement': achievementIdentity,
 	'overlay:counter': counterIdentity,
 	'overlay:cursor-trail': cursorTrailIdentity,
 	'overlay:instance-stack': instanceStackIdentity,
@@ -127,7 +134,8 @@ export const IDENTITY_REGISTRY: Readonly<Record<string, IdentitySpec>> = {
 	'overlay:washi-tape': washiTapeIdentity,
 	'overlay:watermark': watermarkIdentity,
 	'overlay:youtube-subscribe': youtubeSubscribeIdentity,
-	'overlay:instagram-follow': instagramFollowIdentity
+	'overlay:instagram-follow': instagramFollowIdentity,
+	'overlay:source-url': sourceUrlIdentity
 };
 
 /**
