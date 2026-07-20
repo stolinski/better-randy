@@ -28,35 +28,37 @@
 	// This determines fork vs autosave on edit.
 	let activeIsUserComp = false;
 
-	// Load: user store first, corpus fallback.
+	// Set when the user-store probe fails outright (server/network error). We
+	// deliberately do NOT fall back to the corpus preset then: rendering it would
+	// mark the page un-forked, and the next edit would clobber an existing fork
+	// with corpus-based state. loadedSlug stays empty, so autosave stays off.
+	let loadError = $state(false);
+
+	// Load: user store first; corpus fallback only when no fork exists (null).
 	$effect(() => {
 		const currentSlug = slug;
 		if (!currentSlug) return;
+		loadError = false;
 
 		userStore
 			.load(currentSlug)
-			.then((preset) => {
+			.then((stored) => {
 				if (currentSlug !== slug) return;
+				const preset = stored ?? getPresetBySlug(currentSlug);
+				if (!preset) return;
 				applyPreset(preset);
 				posterKey = posterKeyForPreset(preset);
-				activeIsUserComp = true;
+				activeIsUserComp = stored !== null;
 				loadedSlug = currentSlug;
 				loadSnapshot = snapshotState();
-				compositionMeta.isUserComp = true;
+				compositionMeta.isUserComp = stored !== null;
 				compositionMeta.userSlug = currentSlug;
 				compositionMeta.forkedFrom = null;
 			})
-			.catch(() => {
-				const corpus = getPresetBySlug(currentSlug);
-				if (!corpus || currentSlug !== slug) return;
-				applyPreset(corpus);
-				posterKey = posterKeyForPreset(corpus);
-				activeIsUserComp = false;
-				loadedSlug = currentSlug;
-				loadSnapshot = snapshotState();
-				compositionMeta.isUserComp = false;
-				compositionMeta.userSlug = currentSlug;
-				compositionMeta.forkedFrom = null;
+			.catch((cause: unknown) => {
+				if (currentSlug !== slug) return;
+				console.error(`Failed to load user composition "${currentSlug}"`, cause);
+				loadError = true;
 			});
 	});
 
@@ -126,7 +128,13 @@
 	const isKnown = $derived(!!getPresetBySlug(slug) || compositionMeta.userSlug === slug);
 </script>
 
-{#if !isKnown && !compositionMeta.isUserComp}
+{#if loadError}
+	<main class="missing stack">
+		<h1>Couldn't load composition</h1>
+		<p>The composition store didn't respond. Reload to retry.</p>
+		<a href={resolve('/')}>All presets</a>
+	</main>
+{:else if !isKnown && !compositionMeta.isUserComp}
 	<main class="missing stack">
 		<h1>Preset not found</h1>
 		<p>No preset named "{slug}".</p>

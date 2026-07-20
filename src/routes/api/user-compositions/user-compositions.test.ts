@@ -118,6 +118,33 @@ describe('user composition handlers', () => {
 		]);
 	});
 
+	it('returns null from a slug GET when no composition exists', async () => {
+		fsMocks.readFile.mockRejectedValue(
+			Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' })
+		);
+
+		const response = await slugHandlers.GET({
+			params: { slug: 'absent' }
+		} as Parameters<(typeof slugHandlers)['GET']>[0]);
+
+		assert.equal(response.status, 200);
+		assert.equal(await response.json(), null);
+	});
+
+	it('rejects a slug GET whose file read fails for a non-ENOENT reason', async () => {
+		fsMocks.readFile.mockRejectedValue(
+			Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' })
+		);
+
+		await assert.rejects(
+			async () =>
+				slugHandlers.GET({
+					params: { slug: 'unreadable' }
+				} as Parameters<(typeof slugHandlers)['GET']>[0]),
+			expectHttpError(500, 'Failed to read user composition')
+		);
+	});
+
 	it('rejects corrupt preset data from a slug GET', async () => {
 		fsMocks.readFile.mockResolvedValue(
 			JSON.stringify({

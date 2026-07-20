@@ -43,11 +43,17 @@ export const GET: RequestHandler = async ({ params }) => {
 	const { slug } = params;
 	if (!slug) error(400, 'Missing slug');
 
+	// "No fork of this slug" is a normal answer, not an error — return 200 null
+	// so clients can tell absence apart from a real failure. Only ENOENT means
+	// absent; any other read failure must surface as a 500.
 	let raw: string;
 	try {
 		raw = await readFile(slugPath(slug), 'utf-8');
-	} catch {
-		error(404, `User composition "${slug}" not found`);
+	} catch (cause) {
+		if (cause instanceof Error && (cause as NodeJS.ErrnoException).code === 'ENOENT') {
+			return json(null);
+		}
+		error(500, `Failed to read user composition "${slug}"`);
 	}
 
 	const stored: unknown = JSON.parse(raw);

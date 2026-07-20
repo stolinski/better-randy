@@ -9,8 +9,11 @@ const PORT = Number(process.env.CDP_PORT ?? 9223);
 const SLUG = process.argv[2] ?? 'lower-third';
 const PAGE_URL = process.env.CDP_URL ?? `http://localhost:7263/p/${SLUG}`;
 const EXPECTED_PATHNAME = new URL(PAGE_URL).pathname;
-const OUTDIR = `.tmp-baselines/${SLUG}`;
+const OUTDIR = process.env.CDP_OUTDIR ?? `.tmp-baselines/${SLUG}`;
 const SAMPLES = (process.env.CDP_SAMPLES ?? '0,0.25,0.5,0.75,1').split(',').map(Number);
+const TARGET_ORIENTATION = process.env.CDP_ORIENTATION;
+const TARGET_PACK = process.env.CDP_PACK;
+const WAIT_SELECTOR = process.env.CDP_WAIT_SELECTOR;
 
 mkdirSync(OUTDIR, { recursive: true });
 
@@ -104,6 +107,56 @@ if (!flag) {
 if (!ready) {
 	console.log('App did not become ready; aborting.');
 	process.exit(1);
+}
+
+// The route can become DOM-ready one tick before its Preset state is applied.
+// Wait for the route slug to be reflected in the workspace heading before
+// mutating transport/Pack controls, or a late apply can overwrite the choice.
+for (let i = 0; i < 60; i++) {
+	const presetApplied = await evaluate(`document.body.textContent?.includes(${JSON.stringify(SLUG)})`);
+	if (presetApplied) break;
+	await sleep(100);
+}
+await sleep(300);
+if (WAIT_SELECTOR) {
+	for (let i = 0; i < 60; i++) {
+		if (await evaluate(`!!document.querySelector(${JSON.stringify(WAIT_SELECTOR)})`)) break;
+		await sleep(100);
+	}
+}
+
+if (TARGET_ORIENTATION === 'vertical' || TARGET_ORIENTATION === 'horizontal') {
+	const label = TARGET_ORIENTATION === 'vertical' ? 'Switch to vertical' : 'Switch to horizontal';
+	const expectedWidth = TARGET_ORIENTATION === 'vertical' ? 2160 : 3840;
+	const alreadyOriented = await evaluate(`document.querySelector('canvas')?.width === ${expectedWidth}`);
+	if (!alreadyOriented) {
+	const switched = await evaluate(`(() => {
+		const button = document.querySelector(${JSON.stringify(`button[aria-label="${label}"]`)}) ??
+			[...document.querySelectorAll('button')].find((candidate) =>
+				candidate.textContent?.includes(${JSON.stringify(label)})
+			);
+		button?.click();
+		return !!button;
+	})()`);
+	if (!switched) throw new Error(`Could not find the ${TARGET_ORIENTATION} transport control`);
+	for (let i = 0; i < 30; i++) {
+		if (await evaluate(`document.querySelector('canvas')?.width === ${expectedWidth}`)) break;
+		await sleep(100);
+	}
+	}
+}
+
+if (TARGET_PACK) {
+	const switched = await evaluate(`(() => {
+		const select = [...document.querySelectorAll('select')].find((candidate) =>
+			[...candidate.options].some((option) => option.value === ${JSON.stringify(TARGET_PACK)})
+		);
+		if (!select) return false;
+		select.value = ${JSON.stringify(TARGET_PACK)};
+		select.dispatchEvent(new Event('change', { bubbles: true }));
+		return true;
+	})()`);
+	if (!switched) throw new Error(`Could not find Pack ${TARGET_PACK}`);
 }
 
 await sleep(900);

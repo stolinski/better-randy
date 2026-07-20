@@ -41,9 +41,10 @@ Bind to these docs and read them in order before doing anything else:
 5. docs/CONTEXT.md — terminology.
 
 CAPTURE SETUP (this repo): Supers renders via WICG HTML-in-Canvas, which needs
-Chrome with --enable-blink-features=CanvasDrawElement. A flag-enabled Chrome is
-already running on CDP port 9223. A normal/unflagged browser captures a BLANK
-canvas — do not use one. Capture with the repo harness:
+Chrome with --enable-blink-features=CanvasDrawElement. A flag-enabled Chrome
+runs on CDP port 9223 — start or confirm it with `scripts/launch-cdp-chrome.sh`
+(idempotent; never hand-launch Chrome with improvised flags). A normal/unflagged
+browser captures a BLANK canvas — do not use one. Capture with the repo harness:
 `CDP_SAMPLES=0,0.25,0.5,0.75,1 node scripts/cdp-capture.mjs <slug>` → saves
 .tmp-baselines/<slug>/pX.XX.png at the native 4K render (3840×2160 horizontal /
 2160×3840 vertical), clipped to the canvas, driving window.__supersTimeline.
