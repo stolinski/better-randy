@@ -31,6 +31,11 @@ Read in order, even if you "already know" them — the proposals you make at eac
 
 Do not load `docs/quality-rubric.md` or `docs/animation-rubric.md` during brainstorm — those are Critic-side. The brainstorm should propose moves that *will* pass them, not relitigate them.
 
+## Non-negotiables — never put these to the user
+
+- **One Preset, both orientations, every Pack.** Every Preset reflows across horizontal (3840×2160) and vertical (2160×3840) and renders under every Pack ([ADR-0039](../../docs/adr/0039-pack-neutral-compositions-and-listing-hygiene.md) deleted the per-orientation dupes for exactly this reason). Never ask "separate vertical and horizontal presets?" and never scope a Brief to one orientation or one Pack. What *is* worth grilling: **how** the composition reflows — stacking, safe-areas, focal-slot placement — where the vertical frame changes the geometry.
+- **No hosting constraints.** Supers is local-only; never let deployment concerns (Cloudflare or otherwise) shape a Brief.
+
 ## Protocol
 
 ### Step 0 — slug and existence check

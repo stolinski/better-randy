@@ -46,6 +46,8 @@ Push back on:
 - Placeholder copy.
 - Hand-waved motion ("smooth," "nice," "subtle") — name moves from the vocabulary.
 
+Never ask whether the preset should be vertical or horizontal, or offer per-orientation / per-Pack variants — every Preset works in both orientations under every Pack (ADR-0039). Grill *how* it reflows, never *whether*.
+
 ## Step 4 — write the Brief
 
 Write `docs/briefs/<slug>.md` matching the template in `docs/briefs/README.md`. Omit sections that are n/a for this Brief's `Kind` — don't keep them as "n/a" placeholders.
