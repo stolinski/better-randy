@@ -1,3 +1,5 @@
+import { framesToSeconds, resolveFrameRate } from '$lib/utils/composition-timing';
+
 export type TimelineTick = (timestamp: number) => void;
 
 export interface TimelineOptions {
@@ -51,7 +53,9 @@ export class Timeline {
 	}
 
 	stepFrames(frames: number): void {
-		this.seek(this.time + frames / this.fps);
+		// Frame steps run on the exact rational (ADR-0042) — at 29.97 the
+		// literal drifts off the true 30000/1001 frame grid.
+		this.seek(this.time + framesToSeconds(frames, resolveFrameRate(this.fps)));
 	}
 
 	play(): void {

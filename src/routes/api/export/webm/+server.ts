@@ -5,14 +5,25 @@ import { join } from 'node:path';
 
 import { error, type RequestHandler } from '@sveltejs/kit';
 
-import { clampNumber } from '$lib/utils/math';
+import {
+	formatFrameRateRational,
+	resolveFrameRate,
+	type FrameRate
+} from '$lib/utils/composition-timing';
 
 export const POST: RequestHandler = async ({ request, url }) => {
 	if (!request.body) {
 		error(400, 'Missing request body.');
 	}
 
-	const fps = clampNumber(Number(url.searchParams.get('fps')) || 30, 1, 120);
+	// `fps` is a transport literal (integer or NTSC fractional, ADR-0042);
+	// ffmpeg gets the exact rational (`30000/1001`), never a rounded float.
+	let rate: FrameRate;
+	try {
+		rate = resolveFrameRate(Number(url.searchParams.get('fps') ?? 30));
+	} catch (cause) {
+		error(400, cause instanceof Error ? cause.message : 'Unsupported fps.');
+	}
 	const isOpaque = url.searchParams.get('opaque') === 'true';
 	const audioBytes = Math.max(0, Number(request.headers.get('x-supers-audio-bytes')) || 0);
 	const ffmpegBin = process.env.FFMPEG_PATH ?? 'ffmpeg';
@@ -52,7 +63,7 @@ export const POST: RequestHandler = async ({ request, url }) => {
 			'-f',
 			'image2pipe',
 			'-framerate',
-			String(fps),
+			formatFrameRateRational(rate),
 			'-c:v',
 			'png',
 			'-i',

@@ -112,9 +112,61 @@ describe('export handlers', () => {
 		assert.ok(args.includes('prores_ks'));
 		assertOption(args, '-profile:v', '4444');
 		assertOption(args, '-pix_fmt', 'yuva444p10le');
+		assertOption(args, '-framerate', '24');
+		assert.equal(args.indexOf('-timecode'), -1, 'no -timecode without a tc param');
 		await assertVideoResponse(response, 'video/quicktime');
 		assert.deepEqual(fsMocks.rm.mock.calls, [
 			['/virtual/supers-prores-test-work-dir', { recursive: true, force: true }]
 		]);
+	});
+
+	// NTSC fractional rates reach ffmpeg as the exact rational, never a rounded
+	// float, and the ProRes path stamps the sync start timecode (ADR-0042).
+	it('passes the exact rational -framerate and -timecode for a 29.97 sync export', async () => {
+		const request = exportRequest(
+			'http://localhost/api/export/prores?fps=29.97&tc=01%3A00%3A08%3A00'
+		);
+		const response = await proresHandlers.POST({
+			request,
+			url: new URL(request.url)
+		} as Parameters<(typeof proresHandlers)['POST']>[0]);
+
+		const args = spawnedArguments();
+		assertOption(args, '-framerate', '30000/1001');
+		assertOption(args, '-timecode', '01:00:08:00');
+		await assertVideoResponse(response, 'video/quicktime');
+	});
+
+	it('passes the exact rational -framerate for a 29.97 WebM export', async () => {
+		const request = exportRequest('http://localhost/api/export/webm?fps=29.97');
+		const response = await webmHandlers.POST({
+			request,
+			url: new URL(request.url)
+		} as Parameters<(typeof webmHandlers)['POST']>[0]);
+
+		assertOption(spawnedArguments(), '-framerate', '30000/1001');
+		await assertVideoResponse(response, 'video/webm');
+	});
+
+	it.each([
+		{ label: 'unsupported fractional fps', url: 'http://localhost/api/export/prores?fps=29.9' },
+		{
+			label: 'drop-frame timecode separators',
+			url: 'http://localhost/api/export/prores?fps=29.97&tc=01%3A00%3A08%3B00'
+		}
+	])('rejects $label with a 400 before spawning ffmpeg', async ({ url }) => {
+		const request = exportRequest(url);
+		await assert.rejects(
+			async () =>
+				await proresHandlers.POST({
+					request,
+					url: new URL(request.url)
+				} as Parameters<(typeof proresHandlers)['POST']>[0]),
+			(thrown: unknown) =>
+				typeof thrown === 'object' &&
+				thrown !== null &&
+				(thrown as { status?: number }).status === 400
+		);
+		assert.equal(childProcessMocks.spawn.mock.calls.length, 0);
 	});
 });

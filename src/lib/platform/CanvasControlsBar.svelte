@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { resolveFrameRate, secondsToFrames } from '$lib/utils/composition-timing';
+
 	import type { Timeline } from './timeline.svelte';
 	import { engineState } from './engine-state.svelte';
 
@@ -84,15 +86,20 @@
 	const zoomLabel = $derived(`${Math.round(zoom * 100)}%`);
 
 	const isPlaying = $derived(timeline?.isPlaying ?? false);
-	const currentFrame = $derived(
-		timeline ? Math.min(
-			Math.max(1, Math.round(timeline.durationSeconds * timeline.fps)),
-			Math.round(timeline.time * timeline.fps) + 1
-		) : 0
-	);
-	const totalFrames = $derived(
-		timeline ? Math.max(1, Math.round(timeline.durationSeconds * timeline.fps)) : 0
-	);
+	// Frame counting runs on the exact rational (ADR-0042), matching the
+	// export's whole-frame quantization at fractional NTSC rates.
+	const currentFrame = $derived.by(() => {
+		if (!timeline) return 0;
+		const rate = resolveFrameRate(timeline.fps);
+		return Math.min(
+			Math.max(1, secondsToFrames(timeline.durationSeconds, rate)),
+			secondsToFrames(timeline.time, rate) + 1
+		);
+	});
+	const totalFrames = $derived.by(() => {
+		if (!timeline) return 0;
+		return Math.max(1, secondsToFrames(timeline.durationSeconds, resolveFrameRate(timeline.fps)));
+	});
 	const currentTime = $derived(timeline ? timeline.time : 0);
 
 	function togglePlayPause(): void {

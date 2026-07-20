@@ -1,4 +1,5 @@
 import { audioBufferToWavBytes } from '$lib/utils/audio-wav';
+import { framesToSeconds, resolveFrameRate, secondsToFrames } from '$lib/utils/composition-timing';
 
 import { fontsReady } from './fonts';
 
@@ -16,6 +17,36 @@ export interface TransparentVideoExportOptions {
 	 * a soundless piece must not carry a silent stream.
 	 */
 	audio?: AudioBuffer | null;
+	/**
+	 * Optional non-drop `HH:MM:SS:FF` start timecode stamped into the ProRes
+	 * .mov's tmcd track (ADR-0042) so the NLE lands the piece at its
+	 * edit-authored frame. A sync-session value, never Preset data (the Preset
+	 * carries no edit anchor). Ignored by the WebM path — Matroska carries no
+	 * start-timecode concept.
+	 */
+	startTimecode?: string;
+}
+
+/**
+ * Agent-facing export request (ADR-0042 marker-sync loop): supply the
+ * embedded start timecode and the sync export filename
+ * (`<slug>__<TC>__<frames>f__v<version>.mov`). The GUI export button passes
+ * neither — its downloads keep the `supers-overlay` / `supers-bumper` names.
+ */
+export interface SyncExportRequest {
+	startTimecode?: string;
+	filename?: string;
+}
+
+declare global {
+	interface Window {
+		/**
+		 * Workspace-bound export seam (peer to `__supersTimeline`): lets an
+		 * agent drive the real export path with a `SyncExportRequest`. Set
+		 * while a Workspace is mounted.
+		 */
+		__supersExport?: (request?: SyncExportRequest) => Promise<void>;
+	}
 }
 
 async function canvasFrameToPng(canvas: HTMLCanvasElement | OffscreenCanvas): Promise<Blob> {
@@ -45,17 +76,22 @@ export async function exportTransparentWebM({
 }: TransparentVideoExportOptions): Promise<Blob> {
 	await fontsReady();
 
-	const frameCount = Math.max(1, Math.round(durationSeconds * fps));
+	// Frame math runs on the exact rational (ADR-0042): the exported duration
+	// is a whole frame count at the composition rate, and each timestamp is
+	// the frame's exact time — 29.97 the literal never touches the loop.
+	const rate = resolveFrameRate(fps);
+	const frameCount = Math.max(1, secondsToFrames(durationSeconds, rate));
+	const yieldEvery = Math.max(1, Math.round(rate.num / rate.den));
 	const chunks: Blob[] = [];
 
 	for (let frame = 0; frame < frameCount; frame += 1) {
-		const timestamp = frame / fps;
+		const timestamp = framesToSeconds(frame, rate);
 
 		await renderFrame(frame, timestamp);
 		chunks.push(await canvasFrameToPng(canvas));
 		onProgress?.((frame + 1) / frameCount);
 
-		if (frame % fps === fps - 1) {
+		if ((frame + 1) % yieldEvery === 0) {
 			await new Promise<void>((resolve) => {
 				requestAnimationFrame(() => resolve());
 			});
@@ -89,21 +125,25 @@ export async function exportTransparentProRes({
 	fps,
 	renderFrame,
 	onProgress,
-	audio
+	audio,
+	startTimecode
 }: TransparentVideoExportOptions): Promise<Blob> {
 	await fontsReady();
 
-	const frameCount = Math.max(1, Math.round(durationSeconds * fps));
+	// Frame math runs on the exact rational (ADR-0042) — see the WebM path.
+	const rate = resolveFrameRate(fps);
+	const frameCount = Math.max(1, secondsToFrames(durationSeconds, rate));
+	const yieldEvery = Math.max(1, Math.round(rate.num / rate.den));
 	const chunks: Blob[] = [];
 
 	for (let frame = 0; frame < frameCount; frame += 1) {
-		const timestamp = frame / fps;
+		const timestamp = framesToSeconds(frame, rate);
 
 		await renderFrame(frame, timestamp);
 		chunks.push(await canvasFrameToPng(canvas));
 		onProgress?.((frame + 1) / frameCount);
 
-		if (frame % fps === fps - 1) {
+		if ((frame + 1) % yieldEvery === 0) {
 			await new Promise<void>((resolve) => {
 				requestAnimationFrame(() => resolve());
 			});
@@ -121,7 +161,8 @@ export async function exportTransparentProRes({
 	const body = new Blob(wavBytes ? [wavBytes, ...chunks] : chunks, {
 		type: 'application/octet-stream'
 	});
-	const response = await fetch(`/api/export/prores?fps=${fps}`, {
+	const timecodeParam = startTimecode ? `&tc=${encodeURIComponent(startTimecode)}` : '';
+	const response = await fetch(`/api/export/prores?fps=${fps}${timecodeParam}`, {
 		method: 'POST',
 		body,
 		headers: {

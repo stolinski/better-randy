@@ -5,14 +5,33 @@ import { join } from 'node:path';
 
 import { error, type RequestHandler } from '@sveltejs/kit';
 
-import { clampNumber } from '$lib/utils/math';
+import {
+	formatFrameRateRational,
+	isNonDropTimecode,
+	resolveFrameRate,
+	type FrameRate
+} from '$lib/utils/composition-timing';
 
 export const POST: RequestHandler = async ({ request, url }) => {
 	if (!request.body) {
 		error(400, 'Missing request body.');
 	}
 
-	const fps = clampNumber(Number(url.searchParams.get('fps')) || 30, 1, 120);
+	// `fps` is a transport literal (integer or NTSC fractional, ADR-0042);
+	// ffmpeg gets the exact rational (`30000/1001`), never a rounded float.
+	let rate: FrameRate;
+	try {
+		rate = resolveFrameRate(Number(url.searchParams.get('fps') ?? 30));
+	} catch (cause) {
+		error(400, cause instanceof Error ? cause.message : 'Unsupported fps.');
+	}
+	// Optional start timecode, written into the .mov's tmcd track so the NLE
+	// lands the piece at its edit-authored frame. Non-drop, colon-separated —
+	// the Syntax 29.97 timelines are NDF.
+	const startTimecode = url.searchParams.get('tc');
+	if (startTimecode !== null && !isNonDropTimecode(startTimecode)) {
+		error(400, `Expected tc as a non-drop HH:MM:SS:FF timecode, got "${startTimecode}".`);
+	}
 	// The composition's baked audio mix (ADR-0033 §6) rides ahead of the PNG
 	// stream as a WAV prefix of this many bytes; 0/absent = video-only.
 	const audioBytes = Math.max(0, Number(request.headers.get('x-supers-audio-bytes')) || 0);
@@ -58,7 +77,7 @@ export const POST: RequestHandler = async ({ request, url }) => {
 			'-f',
 			'image2pipe',
 			'-framerate',
-			String(fps),
+			formatFrameRateRational(rate),
 			'-c:v',
 			'png',
 			'-i',
@@ -74,6 +93,7 @@ export const POST: RequestHandler = async ({ request, url }) => {
 			'yuva444p10le',
 			'-vendor',
 			'apl0',
+			...(startTimecode ? ['-timecode', startTimecode] : []),
 			outPath
 		]);
 
