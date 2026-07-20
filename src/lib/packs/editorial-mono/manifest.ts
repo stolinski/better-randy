@@ -1,4 +1,5 @@
 import type { PackManifest } from '$lib/platform/packs/types';
+import { editorialMonoFonts } from './fonts';
 
 /**
  * Minimal second Pack — its job is to *prove the appearance abstraction*: the
@@ -17,6 +18,7 @@ export const editorialMonoPack: PackManifest = {
 	label: 'Editorial Mono',
 	description:
 		'A cool editorial dress — proves the same composition re-skins under a different Pack.',
+	fonts: editorialMonoFonts,
 	roles: {
 		// ---------------------------------------------------------------
 		// Mandatory core vocabulary (ADR-0024 fallback floor).
@@ -32,6 +34,14 @@ export const editorialMonoPack: PackManifest = {
 		'edge-treatment': { kind: 'style', value: 'clean' },
 		'depth-treatment': { kind: 'style', value: 'none' },
 		'light-treatment': { kind: 'style', value: 'none' },
+		// Core type voice (pack-voice architecture: the pack switch IS the font
+		// switch). Headlines speak the aesthetic doc's heavy display serif —
+		// Playfair Display, falling to the bundled EB Garamond book tier — and
+		// the signature thread (kicker / byline / dateline) speaks JetBrains Mono
+		// caps. Document substrates (newspaper/paper) never consume this: their
+		// faces are substrate physics, hardcoded in the CanvasSource.
+		'font-treatment': { kind: 'style', value: "'Playfair Display', 'EB Garamond', Georgia, serif" },
+		'font-label-treatment': { kind: 'style', value: "'JetBrains Mono', ui-monospace, monospace" },
 
 		// Overlay (proven 2026-05-29)
 		'lower-third.accent': { kind: 'style', value: '#22d3ee' },
@@ -68,7 +78,13 @@ export const editorialMonoPack: PackManifest = {
 		'achievement.border': { kind: 'style', value: '0 solid transparent' },
 		'achievement.radius': { kind: 'style', value: 'calc(0.35 * var(--cqmin))' },
 		'achievement.shadow': { kind: 'style', value: 'none' },
-		'achievement.font': { kind: 'style', value: "'Inter', sans-serif" },
+		// The toast headline rides the Pack's display serif (every Pack routes
+		// achievement.font through its own core voice — Inter was a placeholder
+		// from before this Pack claimed one), kicker stays the mono thread.
+		'achievement.font': {
+			kind: 'style',
+			value: "'Playfair Display', 'EB Garamond', Georgia, serif"
+		},
 		'achievement.fontLabel': {
 			kind: 'style',
 			value: "'JetBrains Mono', ui-monospace, monospace"

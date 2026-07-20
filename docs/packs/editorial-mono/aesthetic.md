@@ -36,10 +36,16 @@ cool with a single cyan note.
 
 ## Type System
 
-The engine type system, worn editorially: a heavy display serif for headlines
-(the surface's own stack), JetBrains Mono caps for the signature thread (kicker /
-byline / dateline). The mono labels are the editorial substitute for Syntax's
-watermark — they carry the "signed object" role without collage chrome.
+The engine type system, worn editorially: a heavy display serif for headlines,
+JetBrains Mono caps for the signature thread (kicker / byline / dateline). The
+mono labels are the editorial substitute for Syntax's watermark — they carry
+the "signed object" role without collage chrome.
+
+Claimed as the Pack's core voice (the pack switch IS the font switch):
+`font-treatment` is `'Playfair Display', 'EB Garamond', Georgia, serif` and
+`font-label-treatment` is `'JetBrains Mono', ui-monospace, monospace`. Document
+substrates (newspaper / paper) keep their hardcoded faces — substrate physics,
+never Pack dress.
 
 ## Surface Treatment — flat, clean, structural
 
