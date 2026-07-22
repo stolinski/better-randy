@@ -1,6 +1,6 @@
 /**
- * Generate the DESIGNED default sound kit (dex gmrkycs6) — the engine-default
- * voice behind `DEFAULT_EVENT_SAMPLES`, written to src/lib/assets/sounds/.
+ * Generate the DESIGNED engine-default samples (dex gmrkycs6) — the voice
+ * behind `DEFAULT_EVENT_SAMPLES`, written to src/lib/assets/sounds/.
  * Quick decisive hits that read flat/physical (the syntax-overlay register):
  * tight thuds for landings, ~160 ms fwips for air, dry chip-pops, soft ticks,
  * a mech-keyboard thock for CTA presses. Replaces the desk-object/iMessage

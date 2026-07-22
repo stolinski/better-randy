@@ -3,6 +3,10 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'vitest';
 
+import { TEXT_EFFECT_CATALOG, TEXT_EFFECT_IDS } from './catalog.ts';
+import { resolveTextEffectSpec } from './compile.ts';
+import { SUPERS_TEXT_EFFECT_MODULES } from './supers-effects/index.ts';
+
 const here = dirname(fileURLToPath(import.meta.url));
 
 interface RawSpec {
@@ -61,6 +65,22 @@ const ENTRY_ENTER_DURATION = 0.2;
 const UNIT_COUNT = 4; // 4 representative units for the snapshot
 
 describe('text animation compile shapes', () => {
+	it('exposes qualified text-effect vocabulary without changing catalog ids', () => {
+		const supersIds = Object.keys(SUPERS_TEXT_EFFECT_MODULES);
+		assert.deepEqual(supersIds, ['kerning-pop', 'bracket-pop']);
+		assert.equal(TEXT_EFFECT_IDS.length, 26);
+		assert.deepEqual(TEXT_EFFECT_IDS.slice(-2), supersIds);
+		assert.deepEqual(TEXT_EFFECT_IDS, [...TEXT_EFFECT_CATALOG.keys()]);
+
+		const spec = resolveTextEffectSpec({
+			id: 'title-enter',
+			target: { kind: 'surface', slot: 'title' },
+			effect: 'soft-blur-in',
+			enter: { start: 0.1, duration: 0.2, ease: 'smooth' }
+		});
+		assert.equal(spec?.id, 'soft-blur-in');
+	});
+
 	it('pins every catalog effect across representative progress points', async () => {
 		const { readdir, readFile } = await import('node:fs/promises');
 		const specsDir = resolve(here, 'raw-catalog', 'specs');

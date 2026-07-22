@@ -45,7 +45,7 @@ export const youtubeSubscribeIdentity: IdentitySpec = {
 			name: 'frame-relationship',
 			definition: 'A corner-anchored creator lower-third; timing of the beat is composition data.',
 			implementation:
-				'Standard OverlayMount positioning (anchor/offset/scale); `beat` is content and rides a draggable timeline sub-track (`overlay-{id}-beat`) like the counter’s roll.',
+				"Standard OverlayMount positioning (anchor/offset/scale); `beat` is content and rides the draggable subtrack identified by `createTimelineTrackId({ kind: 'overlay-subtrack', overlayId, subtrack: { kind: 'beat' } })`, like the counter’s roll.",
 			probe: {
 				kind: 'named-observation',
 				region: 'the timeline row + the rendered card',

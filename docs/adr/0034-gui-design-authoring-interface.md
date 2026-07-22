@@ -1,14 +1,14 @@
 # ADR-0034 — GUI design: the authoring interface (three zones, timeline-as-outline, hybrid manipulation)
 
-Status: **Designed, not built** — interaction model **+ visual design** (§7); construction is dex epic `jz2yykvi`.
+Status: **Canon (built)** — the three-zone `Workspace` now mounts `Inspector`, `TimelineOutline`, `CanvasEditingOverlay`, and `CanvasControlsBar`; construction epics `jz2yykvi` + `wfonjyb3` are complete. The body below preserves decision-time context rather than current-layout guidance. Its Sound-kit references are historical; that concept was removed by ADR-0033's 2026-07-02 amendment.
 Date: 2026-06-26
-Relates to: [ADR-0032](0032-gui-agent-parity-authoring.md) (GUI parity — the data model this interface sits over), [ADR-0011](0011-text-animation-orchestration.md) (timeline tracks + ControlPanel sections precedent), [ADR-0033](0033-sound-design-motion-emitted-cues.md) (the per-Layer Sound-kit picker lives in the Layer inspector)
+Relates to: [ADR-0032](0032-gui-agent-parity-authoring.md) (GUI parity — the data model this interface sits over), [ADR-0011](0011-text-animation-orchestration.md) (timeline tracks + grouped editor sections precedent), [ADR-0033](0033-sound-design-motion-emitted-cues.md) (the per-Layer Sound-kit picker lives in the Layer inspector)
 
 ## Context
 
 [ADR-0032](0032-gui-agent-parity-authoring.md) specified the GUI's **data model** (fork-on-edit, persistence, lossless round-trip) but explicitly *not* the interface. This ADR specifies the **interaction model** — the structure and behavior of the authoring UI. It does **not** specify the visual design (layout proportions, hierarchy, component styling, the actual look); that is a follow-up pass.
 
-Today `/p/[slug]` renders one `<Workspace>` shell: a WebGPU canvas that is **preview-only** (no selection or manipulation), a `ControlPanel` of **global** grouped form-controls (nothing is "selected"), a timeline (tracks + scrubber + draggable rail clips), and an `ExportPanel`. Design system is Graffiti tokens.
+At decision time, `/p/[slug]` rendered one `<Workspace>` shell: a WebGPU canvas that was **preview-only** (no selection or manipulation), global grouped form controls (nothing was "selected"), a timeline (tracks + scrubber + draggable rail clips), and a separate export panel. Design system was Graffiti tokens.
 
 The engine's nature constrains the design: a **tasteful, constrained vocabulary with smart defaults — not a freeform node compositor**. The interface must be *capable* (agent-parity: author anything) yet *restrained* (less UI).
 

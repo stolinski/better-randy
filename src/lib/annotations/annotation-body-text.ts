@@ -4,8 +4,8 @@ import {
 } from './annotation-mark-styles.ts';
 import type {
 	AnnotationBody,
-	AnnotationTextSegment,
-	ParagraphBlock
+	AnnotationBodyBlock,
+	AnnotationTextSegment
 } from './annotation-marks.ts';
 
 export function parseAnnotationBodyText(text: string): AnnotationBody {
@@ -13,7 +13,7 @@ export function parseAnnotationBodyText(text: string): AnnotationBody {
 		.split(/\n{2,}/)
 		.map((paragraph) => paragraph.trim())
 		.filter((paragraph) => paragraph.length > 0)
-		.map<ParagraphBlock>((paragraph) => ({
+		.map<AnnotationBodyBlock>((paragraph) => ({
 			type: 'paragraph',
 			segments: parseParagraphSegments(paragraph)
 		}));

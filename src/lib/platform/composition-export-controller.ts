@@ -1,0 +1,299 @@
+import { audioBufferToWavBytes } from '$lib/utils/audio-wav';
+import {
+	framesToSeconds,
+	resolveFrameRate,
+	secondsToFrames,
+	type FrameRate
+} from '$lib/utils/composition-timing';
+import { isEngineStateOpaque, isTransitionOpaque } from '$lib/utils/output-classification';
+import { getVideoFrameSize, type VideoFrameSize } from '$lib/utils/video-frame';
+
+import { AnimationManager, type AnimationManifest } from './animation-manager';
+import { renderAudioMix } from './audio-mix';
+import type { CompositionFrameRenderResult } from './composition-frame-renderer';
+import type { EngineState, Preset } from './engine-schema';
+import {
+	downloadBlob,
+	exportTransparentProRes,
+	exportTransparentWebM,
+	type SyncExportRequest,
+	type TransparentVideoExportOptions
+} from './export-video';
+
+export type CompositionExportCodec = 'vp9-alpha' | 'vp9-opaque' | 'prores-4444';
+export type CompositionOutputClassification = 'transparent' | 'opaque';
+
+export interface CompositionExportFrame {
+	frame: number;
+	timestamp: number;
+}
+
+export interface CompositionExportPlan {
+	format: EngineState['transport']['format'];
+	codec: CompositionExportCodec;
+	output: CompositionOutputClassification;
+	size: VideoFrameSize;
+	durationSeconds: number;
+	fps: number;
+	frameRate: FrameRate;
+	frameCount: number;
+	basename: 'supers-overlay' | 'supers-bumper';
+	videoFilename: string;
+	wavFilename: string;
+	startTimecode?: string;
+}
+
+export interface CompositionExportTransition {
+	from: Preset;
+	to: Preset;
+}
+
+export interface CompositionExportUiState {
+	isExporting: boolean;
+	progress: number;
+	status: string;
+}
+
+interface CompositionExportAnimationManager {
+	rebuild(manifest: AnimationManifest): void;
+	progress(fraction: number): void;
+	dispose(): void;
+}
+
+export interface CompositionExportControllerDependencies {
+	readState(): EngineState;
+	readTransition(): CompositionExportTransition | null;
+	readCanvas(): HTMLCanvasElement | OffscreenCanvas | null;
+	isFrameRendererReady(): boolean;
+	readSeparateWav(): boolean;
+	pauseTimeline(): void;
+	buildAnimationManifest(): AnimationManifest;
+	writeGlobalProgress(fraction: number): void;
+	flushDom(): Promise<void>;
+	renderCompositionFrame(timestamp: number): CompositionFrameRenderResult;
+	writeExportUiState(state: CompositionExportUiState): void;
+}
+
+export interface CompositionExportControllerServices {
+	createAnimationManager(): CompositionExportAnimationManager;
+	renderAudio(state: EngineState): Promise<AudioBuffer | null>;
+	exportWebM(options: TransparentVideoExportOptions): Promise<Blob>;
+	exportProRes(options: TransparentVideoExportOptions): Promise<Blob>;
+	download(blob: Blob, filename: string): void;
+	encodeWav(audio: AudioBuffer): Uint8Array;
+	reportFailure(message: string, error: unknown): void;
+}
+
+const DEFAULT_SERVICES: CompositionExportControllerServices = {
+	createAnimationManager: () => new AnimationManager(),
+	renderAudio: renderAudioMix,
+	exportWebM: exportTransparentWebM,
+	exportProRes: exportTransparentProRes,
+	download: downloadBlob,
+	encodeWav: audioBufferToWavBytes,
+	reportFailure: (message, error) => console.error(message, error)
+};
+
+function compositionExportErrorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : 'Unable to export overlay.';
+}
+
+function isCompositionExportCancellation(error: unknown, signal: AbortSignal): boolean {
+	return signal.aborted || (error instanceof DOMException && error.name === 'AbortError');
+}
+
+function assertNativeCanvasSize(
+	canvas: HTMLCanvasElement | OffscreenCanvas,
+	size: VideoFrameSize
+): void {
+	if (canvas.width !== size.width || canvas.height !== size.height) {
+		throw new Error(
+			`Export canvas must be ${size.width}x${size.height}, got ${canvas.width}x${canvas.height}.`
+		);
+	}
+}
+
+/** Resolve the immutable media contract used by one export invocation. */
+export function buildCompositionExportPlan(options: {
+	state: EngineState;
+	transition: CompositionExportTransition | null;
+	request?: SyncExportRequest;
+}): CompositionExportPlan {
+	const { state, transition, request } = options;
+	const { durationSeconds, fps, format, orientation } = state.transport;
+	if (request?.startTimecode && format !== 'prores') {
+		throw new Error('A start timecode requires the ProRes format.');
+	}
+
+	const frameRate = resolveFrameRate(fps);
+	const frameCount = Math.max(1, secondsToFrames(durationSeconds, frameRate));
+	const isOpaque = transition ? isTransitionOpaque(transition) : isEngineStateOpaque(state);
+	const output: CompositionOutputClassification = isOpaque ? 'opaque' : 'transparent';
+	const basename = isOpaque ? 'supers-bumper' : 'supers-overlay';
+	const extension = format === 'prores' ? 'mov' : 'webm';
+	const codec: CompositionExportCodec =
+		format === 'prores' ? 'prores-4444' : isOpaque ? 'vp9-opaque' : 'vp9-alpha';
+
+	return {
+		format,
+		codec,
+		output,
+		size: getVideoFrameSize(orientation),
+		durationSeconds,
+		fps,
+		frameRate,
+		frameCount,
+		basename,
+		videoFilename: request?.filename ?? `${basename}.${extension}`,
+		wavFilename: `${basename}.wav`,
+		startTimecode: request?.startTimecode
+	};
+}
+
+/** Exact rational frame index → timestamp mapping for preview/export parity. */
+export function compositionExportFrameAt(
+	plan: Pick<CompositionExportPlan, 'frameCount' | 'frameRate'>,
+	frame: number
+): CompositionExportFrame {
+	if (!Number.isInteger(frame) || frame < 0 || frame >= plan.frameCount) {
+		throw new RangeError(`Export frame ${frame} is outside 0..${plan.frameCount - 1}.`);
+	}
+	return { frame, timestamp: framesToSeconds(frame, plan.frameRate) };
+}
+
+/**
+ * Owns one export operation at a time. Workspace remains the composition root:
+ * it supplies live Svelte/DOM/GPU callbacks, while this controller owns media
+ * planning, deterministic stepping, audio/video handoff, state, and cleanup.
+ */
+export class CompositionExportController {
+	readonly #services: CompositionExportControllerServices;
+	#activeAbortController: AbortController | null = null;
+	#uiState: CompositionExportUiState = { isExporting: false, progress: 0, status: '' };
+	#isDisposed = false;
+
+	constructor(services: CompositionExportControllerServices = DEFAULT_SERVICES) {
+		this.#services = services;
+	}
+
+	async export(
+		dependencies: CompositionExportControllerDependencies,
+		request?: SyncExportRequest
+	): Promise<void> {
+		if (this.#isDisposed || this.#activeAbortController) {
+			return;
+		}
+
+		const canvas = dependencies.readCanvas();
+		if (!canvas || !dependencies.isFrameRendererReady()) {
+			this.#publish(dependencies, { status: 'Stage is unavailable.' });
+			return;
+		}
+
+		let plan: CompositionExportPlan;
+		try {
+			plan = buildCompositionExportPlan({
+				state: dependencies.readState(),
+				transition: dependencies.readTransition(),
+				request
+			});
+			assertNativeCanvasSize(canvas, plan.size);
+		} catch (error) {
+			this.#publish(dependencies, { status: compositionExportErrorMessage(error) });
+			return;
+		}
+
+		const abortController = new AbortController();
+		const { signal } = abortController;
+		this.#activeAbortController = abortController;
+		const animationManager = this.#services.createAnimationManager();
+		const state = dependencies.readState();
+
+		dependencies.pauseTimeline();
+		this.#publish(dependencies, { isExporting: true, progress: 0, status: '' });
+
+		try {
+			animationManager.rebuild(dependencies.buildAnimationManifest());
+			const audio = await this.#services.renderAudio(state);
+			signal.throwIfAborted();
+
+			const renderFrame: TransparentVideoExportOptions['renderFrame'] = async (frame) => {
+				signal.throwIfAborted();
+				const { timestamp } = compositionExportFrameAt(plan, frame);
+				const fraction = plan.durationSeconds > 0 ? timestamp / plan.durationSeconds : 0;
+				animationManager.progress(fraction);
+				dependencies.writeGlobalProgress(fraction);
+				await dependencies.flushDom();
+				signal.throwIfAborted();
+				if (dependencies.renderCompositionFrame(timestamp) === 'unavailable') {
+					throw new Error('Composition frame renderer is unavailable.');
+				}
+			};
+
+			const exportOptions: TransparentVideoExportOptions = {
+				canvas,
+				durationSeconds: plan.durationSeconds,
+				fps: plan.fps,
+				frameCount: plan.frameCount,
+				timestampForFrame: (frame) => compositionExportFrameAt(plan, frame).timestamp,
+				onProgress: (progress) => {
+					if (!signal.aborted) this.#publish(dependencies, { progress });
+				},
+				renderFrame,
+				audio,
+				signal
+			};
+
+			const video =
+				plan.format === 'prores'
+					? await this.#services.exportProRes({
+							...exportOptions,
+							startTimecode: plan.startTimecode
+						})
+					: await this.#services.exportWebM({
+							...exportOptions,
+							hasBackground: plan.output === 'opaque'
+						});
+			signal.throwIfAborted();
+			this.#services.download(video, plan.videoFilename);
+
+			if (dependencies.readSeparateWav() && audio) {
+				signal.throwIfAborted();
+				const wavBytes = new Uint8Array(this.#services.encodeWav(audio));
+				this.#services.download(
+					new Blob([wavBytes], { type: 'audio/wav' }),
+					plan.wavFilename
+				);
+			}
+		} catch (error) {
+			if (!isCompositionExportCancellation(error, signal)) {
+				this.#services.reportFailure('Unable to export overlay.', error);
+				this.#publish(dependencies, { status: compositionExportErrorMessage(error) });
+			}
+		} finally {
+			animationManager.dispose();
+			if (this.#activeAbortController === abortController) {
+				this.#activeAbortController = null;
+			}
+			this.#publish(dependencies, { isExporting: false });
+		}
+	}
+
+	cancel(): void {
+		this.#activeAbortController?.abort();
+	}
+
+	dispose(): void {
+		if (this.#isDisposed) return;
+		this.#isDisposed = true;
+		this.cancel();
+	}
+
+	#publish(
+		dependencies: CompositionExportControllerDependencies,
+		patch: Partial<CompositionExportUiState>
+	): void {
+		this.#uiState = { ...this.#uiState, ...patch };
+		dependencies.writeExportUiState({ ...this.#uiState });
+	}
+}

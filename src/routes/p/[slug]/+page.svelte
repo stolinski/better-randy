@@ -4,11 +4,11 @@
 
 	import { compositionMeta } from '$lib/platform/composition-meta.svelte';
 	import { engineState, packState, transitionState } from '$lib/platform/engine-state.svelte';
-	import { userStore } from '$lib/platform/persistence';
 	import { posterKeyForPreset } from '$lib/platform/posters';
 	import { applyPreset, getPresetBySlug } from '$lib/platform/preset';
 	import { presetBase } from '$lib/platform/preset-base.svelte';
 	import { serializeCompositionState } from '$lib/platform/preset-pure';
+	import { userCompositionStore } from '$lib/platform/user-composition-store';
 	import Workspace from '$lib/platform/Workspace.svelte';
 
 	const slug = $derived(page.params.slug ?? '');
@@ -24,35 +24,35 @@
 	let loadSnapshot = '';
 	let loadedSlug = '';
 
-	// Track whether the currently-viewed preset was found in the user store.
+	// Track whether the currently-viewed Preset was found in the User composition store.
 	// This determines fork vs autosave on edit.
-	let activeIsUserComp = false;
+	let activeIsUserComposition = false;
 
-	// Set when the user-store probe fails outright (server/network error). We
+	// Set when the User composition store probe fails outright (server/network error). We
 	// deliberately do NOT fall back to the corpus preset then: rendering it would
 	// mark the page un-forked, and the next edit would clobber an existing fork
 	// with corpus-based state. loadedSlug stays empty, so autosave stays off.
 	let loadError = $state(false);
 
-	// Load: user store first; corpus fallback only when no fork exists (null).
+	// Load: User composition store first; corpus fallback only when no fork exists (null).
 	$effect(() => {
 		const currentSlug = slug;
 		if (!currentSlug) return;
 		loadError = false;
 
-		userStore
-			.load(currentSlug)
-			.then((stored) => {
+		userCompositionStore
+			.loadUserComposition(currentSlug)
+			.then((storedUserComposition) => {
 				if (currentSlug !== slug) return;
-				const preset = stored ?? getPresetBySlug(currentSlug);
+				const preset = storedUserComposition ?? getPresetBySlug(currentSlug);
 				if (!preset) return;
 				applyPreset(preset);
 				posterKey = posterKeyForPreset(preset);
-				activeIsUserComp = stored !== null;
+				activeIsUserComposition = storedUserComposition !== null;
 				loadedSlug = currentSlug;
 				loadSnapshot = snapshotState();
-				compositionMeta.isUserComp = stored !== null;
-				compositionMeta.userSlug = currentSlug;
+				compositionMeta.isUserComposition = storedUserComposition !== null;
+				compositionMeta.userCompositionSlug = currentSlug;
 				compositionMeta.forkedFrom = null;
 			})
 			.catch((cause: unknown) => {
@@ -74,24 +74,28 @@
 		if (!loadedSlug || currentSnap === loadSnapshot) return;
 
 		const capturedSlug = loadedSlug;
-		const capturedIsUser = activeIsUserComp;
+		const capturedIsUserComposition = activeIsUserComposition;
 
 		const timer = setTimeout(() => {
 			// presetBase mirrors the top-level metadata (name / description / kind /
 			// transition) the RootInspector edits; it is reseeded on every load.
-			const serialized = serializeCompositionState(presetBase, engineState, packState.slug);
-			if (capturedIsUser) {
-				userStore
-					.save(capturedSlug, serialized)
+			const serializedUserComposition = serializeCompositionState(
+				presetBase,
+				engineState,
+				packState.slug
+			);
+			if (capturedIsUserComposition) {
+				userCompositionStore
+					.saveUserComposition(capturedSlug, serializedUserComposition)
 					.catch((err) => console.error('Autosave failed', err));
 			} else {
-				userStore
-					.fork(capturedSlug, serialized, capturedSlug)
+				userCompositionStore
+					.forkUserComposition(capturedSlug, serializedUserComposition, capturedSlug)
 					.then(() => {
-						activeIsUserComp = true;
-						compositionMeta.isUserComp = true;
+						activeIsUserComposition = true;
+						compositionMeta.isUserComposition = true;
 						compositionMeta.forkedFrom = capturedSlug;
-						posterKey = posterKeyForPreset(serialized);
+						posterKey = posterKeyForPreset(serializedUserComposition);
 					})
 					.catch((err) => console.error('Fork failed', err));
 			}
@@ -106,26 +110,28 @@
 
 	async function handleRevert(): Promise<void> {
 		const currentSlug = slug;
-		await userStore.del(currentSlug);
-		const corpus = getPresetBySlug(currentSlug);
-		if (!corpus) return;
-		applyPreset(corpus);
-		posterKey = posterKeyForPreset(corpus);
-		activeIsUserComp = false;
+		await userCompositionStore.deleteUserComposition(currentSlug);
+		const corpusPreset = getPresetBySlug(currentSlug);
+		if (!corpusPreset) return;
+		applyPreset(corpusPreset);
+		posterKey = posterKeyForPreset(corpusPreset);
+		activeIsUserComposition = false;
 		loadedSlug = currentSlug;
 		loadSnapshot = snapshotState();
-		compositionMeta.isUserComp = false;
+		compositionMeta.isUserComposition = false;
 		compositionMeta.forkedFrom = null;
 	}
 
 	$effect(() => {
-		compositionMeta.revert = handleRevert;
+		compositionMeta.revertUserComposition = handleRevert;
 		return () => {
-			compositionMeta.revert = null;
+			compositionMeta.revertUserComposition = null;
 		};
 	});
 
-	const isKnown = $derived(!!getPresetBySlug(slug) || compositionMeta.userSlug === slug);
+	const isKnown = $derived(
+		!!getPresetBySlug(slug) || compositionMeta.userCompositionSlug === slug
+	);
 </script>
 
 {#if loadError}
@@ -134,7 +140,7 @@
 		<p>The composition store didn't respond. Reload to retry.</p>
 		<a href={resolve('/')}>All presets</a>
 	</main>
-{:else if !isKnown && !compositionMeta.isUserComp}
+{:else if !isKnown && !compositionMeta.isUserComposition}
 	<main class="missing stack">
 		<h1>Preset not found</h1>
 		<p>No preset named "{slug}".</p>

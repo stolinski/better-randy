@@ -53,7 +53,7 @@ function defaults(): SurfaceState {
 	};
 }
 
-export const imessage: SurfaceRenderer = {
+export const imessageSurfaceRenderer: SurfaceRenderer = {
 	type: 'imessage',
 	label: 'iMessage',
 	controls: {

@@ -250,7 +250,7 @@ const fragmentBody = /* wgsl */ `
 	return vec4f(outColor, outAlpha) * inputSample.a;
 `;
 
-export const halftoneCmyk: EffectRenderer<HalftoneCmykParams> = {
+export const halftoneCmykEffectRenderer: EffectRenderer<HalftoneCmykParams> = {
 	type: 'halftone-cmyk',
 	label: 'Halftone CMYK',
 	schema: HalftoneCmykEffectSchema,

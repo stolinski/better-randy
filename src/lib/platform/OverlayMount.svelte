@@ -4,6 +4,7 @@
 	import { getPack } from './packs/registry';
 	import { appearanceVarsToStyle, resolveAppearanceVars } from './packs/resolve';
 	import { PIPELINE_REGISTRY } from './pipelines';
+	import { isPackImmune } from './pipelines/identity-registry';
 	import type { Overlay } from './engine-schema';
 	import type { OverlayRenderer } from './pipelines/types';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
@@ -133,9 +134,10 @@
 		return `opacity:${visible};transform:translateY(${ty}px);`;
 	}
 
-	// Resolve the overlay's appearance Roles through the active Pack into CSS
-	// vars on the mount root; the CanvasSource consumes them via `var(--…)`.
+	// Immune artifacts retain their intrinsic platform appearance. Treatments
+	// layered around them still resolve through their own Pipeline mounts.
 	function appearanceStyle(overlay: Overlay): string {
+		if (isPackImmune(`overlay:${overlay.type}`)) return '';
 		return appearanceVarsToStyle(resolveAppearanceVars(getPack(packState.slug), overlay.type));
 	}
 </script>

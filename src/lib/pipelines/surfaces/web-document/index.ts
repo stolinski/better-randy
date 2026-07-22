@@ -47,7 +47,7 @@ function defaults(): SurfaceState {
 	};
 }
 
-export const webDocument: SurfaceRenderer = {
+export const webDocumentSurfaceRenderer: SurfaceRenderer = {
 	type: 'web-document',
 	label: 'Web document',
 	controls: {

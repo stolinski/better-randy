@@ -24,7 +24,7 @@
 
 	const cascade = $derived(getCascade());
 
-	// Every anchorable element (excluding self) — the timeline-row identities.
+	// Every anchorable composition entity (excluding self) — the timeline-row identities.
 	const anchorOptions = $derived.by(() => {
 		const options: { key: string; label: string; anchor: CascadeAnchor }[] = [
 			{ key: 'surface', label: 'Surface', anchor: 'surface' }
@@ -46,11 +46,11 @@
 				anchor: { textAnimation: entry.id }
 			});
 		}
-		for (const element of engineState.surface.diagram ?? []) {
+		for (const primitive of engineState.surface.diagram ?? []) {
 			options.push({
-				key: `block:${element.id}`,
-				label: `${element.type} · ${element.id}`,
-				anchor: { block: element.id }
+				key: `block:${primitive.id}`,
+				label: `${primitive.type} · ${primitive.id}`,
+				anchor: { block: primitive.id }
 			});
 		}
 		return options.filter((option) => option.key !== selfKey);
@@ -72,9 +72,9 @@
 			if (entry.cascade)
 				outgoing[`textAnimation:${entry.id}`] = cascadeNodeKey(entry.cascade.anchor);
 		}
-		for (const element of engineState.surface.diagram ?? []) {
-			const c = element.animation?.cascade;
-			if (c) outgoing[`block:${element.id}`] = cascadeNodeKey(c.anchor);
+		for (const primitive of engineState.surface.diagram ?? []) {
+			const c = primitive.animation?.cascade;
+			if (c) outgoing[`block:${primitive.id}`] = cascadeNodeKey(c.anchor);
 		}
 		let node: string | undefined = anchorKey;
 		const seen: string[] = [];

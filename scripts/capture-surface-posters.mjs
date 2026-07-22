@@ -23,7 +23,9 @@ const REPS = {
 	'title-sequence': 'title-sequence-drop',
 	'type-hero': 'type-hero-drift',
 	'web-document': 'web-document-wikipedia',
-	imessage: 'imessage-the-bug'
+	imessage: 'imessage-the-bug',
+	checklist: 'checklist-show-rundown',
+	'website-screenshot': 'website-showcase'
 };
 
 mkdirSync(OUT_DIR, { recursive: true });

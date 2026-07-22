@@ -21,7 +21,7 @@ function defaults(): OverlayDefaults<WatermarkContent> {
 	};
 }
 
-export const watermark: OverlayRenderer<WatermarkContent> = {
+export const watermarkOverlayRenderer: OverlayRenderer<WatermarkContent> = {
 	type: 'watermark',
 	label: 'Watermark',
 	schema: WatermarkContentSchema,

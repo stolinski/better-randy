@@ -25,7 +25,7 @@ These apply to every preset regardless of overlay type or surface.
 
 ### G1. Author at the final delivery resolution
 
-- **Rule** — Horizontal presets render at 3840×2160 (UHD 4K, 16:9). Vertical presets render at 2160×3840 (UHD 4K, 9:16). Frame rate is 30 fps unless the preset explicitly opts into 60 fps for fast motion.
+- **Rule** — The horizontal target renders at 3840×2160 (UHD 4K, 16:9). The vertical target renders at 2160×3840 (UHD 4K, 9:16). Frame rate is 30 fps unless the Preset explicitly opts into 60 fps for fast motion.
 - **Why** — YouTube long-form is mastered at 16:9 and YouTube Shorts is mastered at 9:16 1080×1920 minimum, 2160×3840 ideal. Authoring at the delivery resolution avoids the soft, anti-aliased look that comes from upscaling 1080p overlays, and keeps every margin/font-size rule below expressed in pixels of the actual output frame.
 - **How to apply** — `transport.orientation` selects the aspect, and the pipeline produces 4K output. Set `transport.fps` to 30 unless there is a stated motion-clarity reason to choose 60.
 
@@ -66,7 +66,7 @@ The right size for a piece of text depends on **what job it does**, not on its t
   | **Surface body** (paper / plain card body, marked or unmarked)                                  | **32–56**                       | 44–72                         |
   | **Surface label** (source / kicker / byline / date label, footer)                               | **24–48**                       | 32–60                         |
   | **Diagram headline** (`surface.diagram[]` title / section label)                                | 60–110                          | 76–138                        |
-  | **Diagram node / caption label** (node `text`, `label` element, stat-callout caption)           | 24–48                           | 32–60                         |
+  | **Diagram node / caption label** (node `text`, `label` primitive, stat-callout caption)         | 24–48                           | 32–60                         |
   | **Diagram stat value** (stat-callout built number — the diagram's focal figure)                 | 60–110                          | 76–138                        |
   | **Caption track — social styles** (`state.captions` karaoke line / word-pop statement word)     | 72–140                          | 80–160                        |
 
@@ -78,14 +78,14 @@ Note on marked focal text: a highlighted/underlined/circled phrase inside surfac
 
 Note on the caption-track row: this row is for the `state.captions` social styles and is empirically anchored to the creator tools the register imitates (CapCut / TikTok / Submagic karaoke defaults run ~5.5–7% of frame width as font-size on vertical → ~86–110 px caps at 4K). It is distinct from the "caption" in **Overlay primary**, which is broadcast lower-third copy. Social karaoke is a statement the viewer reads instead of the footage — sub-band captions (the 40 px "legal disclaimer" size) are a G4 failure, not a taste call. Word-pop's single statement word sits in the upper half of the band; the `pack` caption style is editorial by declaration and may sit below this row's floor, judged against the pack's own type voice instead.
 
-Cap-height is computed at runtime as `fontSize × capHeightRatio(font)`, where `capHeightRatio` is the font's measured cap-height ratio (default 0.70 for sans/serif, 0.68 for condensed, 0.72 for mono). The linter reads cap-height directly off the rendered DOM via the visual audit harness — do not approximate from font-size alone.
+Cap-height is computed at runtime as `fontSize × capHeightRatio(font)`, where `capHeightRatio` is the font's measured cap-height ratio (default 0.70 for sans/serif, 0.68 for condensed, 0.72 for mono). The visual audit harness reads cap-height directly off the rendered DOM — do not approximate from font-size alone.
 
-Note on the Diagram Block group: `surface.diagram[]` text (ADR-0036 — node labels, `label` elements, stat-callout numbers and captions) is document typography, not signage, so it maps to the **surface** bands, not the overlay bands — a diagram sits inside the piece as a drawn document, it is not the message the way an overlay lower-third is. Judge each diagram role against its explicit row above rather than by nearest-role analogy: a node/caption label is a surface label (24–48 / 32–60), a diagram headline is a surface title (60–110 / 76–138), and a stat-callout's built number is the diagram's focal figure — it may ride the top of the surface-title band, but pushed into overlay-display scale it stops reading as a document stat and becomes a bumper.
+Note on the Diagram Block group: `surface.diagram[]` text (ADR-0036 — node labels, `label` primitives, stat-callout numbers and captions) is document typography, not signage, so it maps to the **surface** bands, not the overlay bands — a diagram sits inside the piece as a drawn document, it is not the message the way an overlay lower-third is. Judge each diagram role against its explicit row above rather than by nearest-role analogy: a node/caption label is a surface label (24–48 / 32–60), a diagram headline is a surface title (60–110 / 76–138), and a stat-callout's built number is the diagram's focal figure — it may ride the top of the surface-title band, but pushed into overlay-display scale it stops reading as a document stat and becomes a bumper.
 
 Note on corner-chip span measurement: the corner-chip classification (a lower-third **spanning ≤25% frame width**, corner-anchored) is measured at the plate/scrim's **≥50%-alpha extent** — the solid backing the eye reads as the chip's footprint. A soft scrim fade tail below 50% alpha does **not** count toward the span; it carries negligible visual mass, and counting it would inflate the measured width and wrongly bump a small cinematic chip into a larger cap-height band. Measure where the plate is actually present, not where it has faded out.
 
 - **Why** — Overlay text and surface body text are different jobs. An overlay caption IS the message; it must be large enough that the viewer can read it without effort. Surface body inside a paper card is **atmospheric context** — the viewer skims it, the highlighted phrase is what they actually read. Forcing 64 px body cap-height on a paper card produces ~3-word lines that sprawl four lines for a single sentence; the card stops looking like paper and starts looking like a typographic slide. Real research-paper/document footage on YouTube renders body at roughly 40–55 px cap-height at 4K, which gives 7–10 words per line — the typographic measure where dense bodies feel like documents. The upper bounds in each band exist for the same reason: a 100 px paper body would look like signage.
-- **How to apply** — The surface pipeline sets font sizes proportional to the card's render width. The linter's runtime check measures the actual rendered cap-height at 4K and fails the preset if any text role falls outside its band. If a preset's content is too dense to fit at the required size, **shorten the content** before shrinking type below the band floor; if the body looks oversized inside the card, **tighten the body ratio** before reducing content.
+- **How to apply** — The surface pipeline sets font sizes proportional to the card's render width. `lintPresetVisual` in the runtime visual audit measures actual rendered cap-height at 4K; this is separate from `verify-presets`' static lint. If a preset's content is too dense to fit at the required size, **shorten the content** before shrinking type below the band floor; if the body looks oversized inside the card, **tighten the body ratio** before reducing content.
 
 ### G4-density. Bodies must read as bodies
 
@@ -117,7 +117,7 @@ Cap-height is one dimension of legibility. The other two are **measure** (how ma
 - **Rule** — Default durations for any single tween:
   - **Enter** — 250–400 ms (`duration` of 0.05–0.08 on a 5 s preset, 0.04–0.06 on an 8 s preset).
   - **Exit** — 180–280 ms, always 20–30% shorter than the matching enter.
-  - **Mark / emphasis — scales with the marked content.** A marker stroke is a physical gesture: a 1-word highlight is fast; an 18-word highlight is a long pull. The band is `[max(250, words × 60), max(500, words × 90)]` ms for **decorative** marks (highlight, underline, strike, circle, box, side-note) and `[max(450, words × 60), max(800, words × 110)]` ms for **focal** marks (magnify, lift-out, tear-out, isolate, callout). Words is the marked segment's word count. Both bands cap at 1500 ms.
+  - **Mark / emphasis — scales with the marked content.** A marker stroke is a physical gesture: a 1-word highlight is fast; an 18-word highlight is a long pull. The band is `[max(250, words × 60), max(500, words × 90)]` ms for **decorative** marks (highlight, underline, strike, circle, box, side-note) and `[max(450, words × 60), max(800, words × 110)]` ms for **focal** marks (magnify, lift-out, tear-out, isolate). Words is the marked segment's word count. Both bands cap at 1500 ms.
 
     | Marked words | Decorative band (ms) | Focal band (ms) |
     | ------------ | -------------------- | --------------- |
@@ -167,7 +167,7 @@ The 12 Disney principles all apply, but five carry the weight for motion graphic
 ### G9. Frame-addressable and deterministic
 
 - **Rule** — Every animated value must be derivable from the timeline `progress` (`0..1`) alone. No `Math.random()` at render time, no `Date.now()`, no `performance.now()` reads inside `pipeline.render({...})`. Randomness for paper grain, jitter, hand-drawn wobble, etc. is allowed only if seeded from `progress` (or a stable per-mark index).
-- **Why** — Supers preview and export call the same `renderAt(timestamp)`. If a preset's appearance depends on wall-clock state, the exported video drifts from preview and exports re-run on the same input produce different files. The whole timeline architecture in `src/lib/platform/timeline.svelte.ts` exists to guarantee this.
+- **Why** — Supers preview and export call the same request-object `renderCompositionFrameTo` seam. If a preset's appearance depends on wall-clock state, the exported video drifts from preview and exports re-run on the same input produce different files. The whole timeline architecture in `src/lib/platform/timeline.svelte.ts` exists to guarantee this.
 - **How to apply** — Pipelines must read all randomness from a seeded source. Presets must not contain fields that imply non-deterministic motion. If a preset asks for "natural variation," it gets it via per-mark seed + frame index, not real randomness.
 
 ### G10. Respect reduced motion when delivered to the browser; honor motion safety at all times
@@ -176,24 +176,24 @@ The 12 Disney principles all apply, but five carry the weight for motion graphic
   - **No full-frame zoom/pan exceeding 25%** in less than 600 ms. Large fast translations of the whole composition are the dominant vestibular trigger.
   - **No flashing.** Avoid alternating fills/strokes faster than 3 Hz on regions ≥ 25% of the frame. WCAG 2.3.1 (three-flash threshold) is the broadcast floor.
 - **Why** — Over a third of adults have experienced vestibular symptoms. The same gestures (whip pans, fast zooms, strobing color shifts) that trigger discomfort on the web trigger it on video as well. A preset shipped from supers will end up on a 50" TV or a phone in someone's hand — design for both.
-- **How to apply** — When a tool exposes camera moves (`surface.camera`: `'push' | 'snap' | 'none'`), `push` is allowed within these limits; `snap` must be ≤ 200 ms. Reject preset choices that combine `snap` with a high `backgroundVisibility` change in the same beat — the brain reads that as two simultaneous large motions.
+- **How to apply** — Whole-frame camera motion exists only on the dimensional depth stage: inspect `stage.camera.move` (`static` / `push` / `drift`) and `stage.camera.amount` together with the clip duration. Keep the resulting move inside the 25% / 600 ms safety bound, and do not combine a strong camera move with a simultaneous large luminance or visibility change.
 
-### G11. Vertical vs horizontal — change the staging, not just the aspect
+### G11. One Preset, genuinely reflowed across vertical and horizontal
 
-- **Rule** — A vertical preset is not a horizontal preset with `orientation: 'vertical'`. The differences are mandatory:
+- **Rule** — One Preset must render intentionally at both transport orientations; do not create orientation-suffix sibling Presets. Switching to vertical is not merely changing the canvas aspect. The renderer's reflow must produce these differences:
   - **Motion direction prefers Y over X.** Cards/lower thirds enter from the bottom edge or the top edge, not the side. Horizontal slides on 9:16 read as "edge twitches."
   - **One readable column.** No multi-column layouts. The single column lives between roughly `x ∈ [0.06, 0.94]` of the frame.
-  - **Larger type, fewer words.** Apply the higher minimums from G4 and trim copy by ~30% versus the horizontal version.
-  - **Subject lives in the middle 60% vertically.** Top and bottom bands belong to platform UI (G3); important focal annotations (magnify, lift-out, callout) must center inside `y ∈ [0.20, 0.80]`.
-  - **Faster pacing.** Vertical content is consumed in shorter sessions; preset `transport.durationSeconds` should default to 4–7 s, vs. 6–12 s for horizontal long-form.
+  - **Larger type, concise shared copy.** Apply the higher vertical minimums from G4 and author copy short enough to survive both targets; do not fork the text by orientation.
+  - **Subject lives in the middle 60% vertically.** Top and bottom bands belong to platform UI (G3); important focal annotations (magnify, lift-out, isolate) must center inside `y ∈ [0.20, 0.80]`.
+  - **Pacing survives both targets.** Choose one duration and reading cadence that works in the faster vertical context without rushing the horizontal render.
 - **Why** — TikTok/Reels/Shorts engagement data shows native vertical outperforms cropped-horizontal at >90%. The platform-specific staging — center-weighted, Y-motion, short — is what "native vertical" actually means. Reusing horizontal staging on 9:16 produces the cropped-look the algorithm down-ranks.
-- **How to apply** — Today a horizontal preset and its vertical sibling are authored as separate JSON files (e.g. `quote-magnify` ↔ `quote-vertical`); don't toggle `orientation` and assume the same composition holds. (Genuine single-Preset reflow is roadmapped — see [`roadmap.md`](roadmap.md).)
+- **How to apply** — Switch `transport.orientation` in the GUI and verify the same Preset at both native resolutions. Fix layout in orientation-aware Pipeline/safe-area logic rather than duplicating JSON. Orientation-responsive authored placement is still a known engine gap; a composition that exposes it should block on that system fix instead of normalizing a sibling-file workaround.
 
-### G12. Transparent output is the contract
+### G12. Transparency is the default; opacity must be declared
 
-- **Rule** — No preset may paint an opaque full-frame background unless the surface explicitly requires it (`surface.type === 'paper'` renders its own card chrome; everything else stays clear). Decorative full-frame tints, vignettes, or gradient washes are rejected unless the preset's stated purpose is a "fill" overlay.
-- **Why** — Supers exists to produce keyable overlays for Resolve/Premiere/Final Cut. An opaque background defeats the entire delivery format. Preserving alpha is the project's hardest constraint.
-- **How to apply** — Frame-level `effects.frame` entries must not stack to alpha = 1 across the full frame. WebGPU render passes use `clearValue: [0, 0, 0, 0]` and the canvas context uses `alphaMode: 'premultiplied'` — keep it that way.
+- **Rule** — A Preset with neither `state.backgroundFill` nor `state.stage` must preserve transparent frame edges. A Preset may intentionally declare either to become a full-frame segment/bumper. Post-process `effects[]` must not accidentally make a transparent piece opaque to its edges.
+- **Why** — Supers produces both keyable overlays and self-contained full-frame pieces. The export path must infer the right delivery from explicit composition state rather than an accidental painted background.
+- **How to apply** — WebGPU render passes use `clearValue: [0, 0, 0, 0]` and the canvas context uses `alphaMode: 'premultiplied'`. `isEngineStateOpaque` classifies `backgroundFill` or a depth `stage` as opaque; a transition is opaque only when both endpoints are opaque. Verify transparent pieces retain zero-alpha edges and full-frame pieces paint to every edge.
 
 ---
 
@@ -271,13 +271,13 @@ A full-frame or near-full-frame card introducing the video, a section, or a chap
   - **Why** — A title card carries more visual mass than a lower third, so its motion can take slightly longer. But hold ≥ 4 s on a 6 s short reads as a still frame.
   - **How to apply** — On a 5 s vertical preset: `enter.duration ≈ 0.07`, hold ≈ 0.55, `exit.start ≈ 0.85`, `exit.duration ≈ 0.07`.
 
-- **T4. Use `camera: 'push'` for editorial / cinematic, `'snap'` for explainer / news, `'none'` for typographic / pull-quote.** _(Note: `surface.camera` is not yet wired to the render path — see [`roadmap.md`](roadmap.md).)_
-  - **Why** — Camera moves change the read. A slow `push` says "consider this"; `snap` says "here's the data"; `none` says "the words are the show." Pick per the content's voice.
-  - **How to apply** — `surface.camera` field.
+- **T4. Stage camera is reserved for genuinely dimensional title cards.**
+  - **Why** — Camera motion earns its place when planes, parallax, and focus make the move spatially meaningful. Applying a camera vocabulary to a flat card adds motion without depth information.
+  - **How to apply** — Use optional `state.stage.camera` (`static` / `push` / `drift`) only with the dimensional depth stage. Flat title cards use Surface, text, and keyframe motion; they carry no Surface camera field.
 
 ### Callouts & Annotations
 
-These are the mark layer: highlight, underline, strike, circle, box, side-note (decorative) and magnify, lift-out, tear-out, isolate, callout (focal). They sit on body text.
+These are the mark layer: highlight, underline, strike, circle, box, side-note (decorative) and magnify, lift-out, tear-out, isolate (focal). They sit on body text.
 
 - **A1. Marks must arrive after the underlying text is fully on-screen.**
   - **Why** — A mark animating onto text that is still flying in fights for attention and produces two competing readings. The mark should feel like a deliberate gesture on a placed page.
@@ -295,7 +295,7 @@ These are the mark layer: highlight, underline, strike, circle, box, side-note (
   - **Why** — Mark color is one of the loudest signals in the frame. Random per-mark color reads as noise. Three colors max (a warm highlight, a cool underline, a contrast strike) holds the composition together.
   - **How to apply** — `marks.defaults[style]` sets the palette; only override `marks.timings[i].color` when the third color is needed for a single critical mark (see `research-paper-critique.json` for the canonical example).
 
-- **A5. Focal marks (magnify, lift-out, tear-out, isolate, callout) must dim the surrounding context.**
+- **A5. Focal marks (magnify, lift-out, tear-out, isolate) must dim the surrounding context.**
   - **Why** — The whole point of "focal" is suppression of everything else. A magnify that doesn't dim the rest of the page is just a zoom.
   - **How to apply** — Pipelines for focal marks lower `surface.backgroundVisibility` for the mark's duration, or use the composition shader's suppression term. Verify in the rendered preset.
 
@@ -354,8 +354,8 @@ When an agent finishes a preset, the agent must verify the following before cons
 8. **G8** — At least one of arc, anticipation, follow-through, or secondary action is present and identifiable in the pipeline-rendered animation (verified by inspecting the pipeline source, not the JSON).
 9. **G9** — No timing field implies non-deterministic motion.
 10. **G10** — No camera move or color flip exceeds the vestibular/flash floors.
-11. **G11** — If the preset has a vertical sibling, the staging is genuinely rethought (motion direction, copy length, type size), not just a re-orientation toggle.
-12. **G12** — Transparent output preserved end-to-end.
+11. **G11** — The same Preset is rendered at both orientations and genuinely reflows (motion direction, copy length, type size, and safe placement); no orientation sibling is introduced.
+12. **G12** — Transparent output is preserved when no full-frame state is declared; `backgroundFill` / `stage` pieces paint opaquely to every edge and classify correctly.
 13. **Per-overlay rules (L1–L7, T1–T4, A1–A5, P1–P4, C1–C5)** — every overlay in the preset satisfies the rules for its type. T1 uses the aspect-aware area band table from T1.
 
 A preset that fails any of the above is not done. There is no "good enough" tier below this rubric — those failures are what make AI-generated overlays look AI-generated.
@@ -364,7 +364,7 @@ A preset that fails any of the above is not done. There is no "good enough" tier
 
 Two tools enforce this checklist:
 
-- **`scripts/verify-presets.ts`** — static linter. Runs against each preset JSON. Catches every rule whose data is in the preset itself (G1, G5, G6, G7, G10, A1, A2, A3, L1, L3, T2, T4, C2 etc.) plus G3 overlay anchor checks. Errors fail the script.
+- **`scripts/verify-presets.ts`** — structural + semantic + Pack/Identity gate for every Preset, plus `lintPreset`'s objective safety/readability checks for deliverables. It does **not** enforce motion taste or the R/Q/G rubric wholesale; those remain Critic judgments per ADR-0025.
 - **`scripts/audit-presets-visual.ts`** — runtime audit harness. Drives `/p/<slug>` in Chrome with the `chrome-devtools` MCP, measures the source DOM at 4K-equivalent dimensions, and checks the pixel-level rules (G2 placement, G4 cap-heights, T1 card mass). Errors fail the script.
 
 A preset is **not shippable** until both scripts report clean. The static linter alone is necessary but not sufficient — pixel-level rules require the visual harness.

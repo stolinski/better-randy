@@ -5,7 +5,7 @@ import {
 	hasUserImageSignature,
 	MAX_USER_IMAGE_BYTES,
 	userImageFormatForMime
-} from '$lib/utils/user-image-assets';
+} from '$lib/utils/user-image-format-validation';
 
 export const POST: RequestHandler = async ({ request }) => {
 	const contentLength = request.headers.get('content-length');

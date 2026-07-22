@@ -2,6 +2,7 @@
 
 **Kind:** pipeline
 **Slug:** imessage-friday-deploy
+**Pack:** syntax
 **Verification preset:** imessage-friday-deploy
 
 ## Pitch
@@ -59,8 +60,9 @@ Chosen combination: **substrate-darken + pop-in (existing spring) + eased exit**
   - `0.90` — surface `exit` (schema-supported): thread + vignette ease out
 - **Focal slot**: msg 3 — "it's 4:55 on a friday" (the punchline; typing
   suspense before it, tapback emphasis after it).
-- **Sound**: `soundKit: "message-pop"` and the `message-send` sample on the
-  `me` messages, exactly as the existing family.
+- **Sound**: the existing iMessage motion derives locked `message-pop` samples
+  for received bubbles and `message-send` samples for `me` messages. Any
+  exception is authored on that message's `enter.sound` override.
 
 No lean-out moves.
 
@@ -132,11 +134,9 @@ None.
   branch incl. transparent tails + vignette.
 - `src/lib/pipelines/surfaces/imessage/identity.ts` — chromeless dimensions.
 - `docs/adr/<NNNN>-imessage-chrome-mode.md`.
-- `src/lib/presets/imessage-friday-deploy.json` (horizontal, 6s, webm) —
-  **the verification preset; its Critic `ACCEPT` at native 4K is the delete
-  trigger for this Brief.**
-- `src/lib/presets/imessage-friday-deploy-vertical.json` — family-convention
-  reflow sibling, authored from the same Brief, Critic-run *sequentially*
-  after the horizontal ACCEPTs (not fanned out).
+- `src/lib/presets/imessage-friday-deploy.json` (6s, webm) — **the verification
+  preset; its Critic `ACCEPT` at native horizontal (3840×2160) and vertical
+  (2160×3840) resolutions is the delete trigger for this Brief.** The same
+  Preset must reflow; no orientation sibling is authored.
 - Existing `imessage-the-bug*` presets still render identically
   (`chrome ?? 'window'` path proven).

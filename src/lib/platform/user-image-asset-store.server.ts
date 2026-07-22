@@ -7,7 +7,7 @@ import {
 	MAX_USER_IMAGE_BYTES,
 	type UserImageMime,
 	userImageFormatForMime
-} from '../utils/user-image-assets.ts';
+} from '../utils/user-image-format-validation.ts';
 
 const STORE_DIR = join(process.cwd(), 'user-assets');
 

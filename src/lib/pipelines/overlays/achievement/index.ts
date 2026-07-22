@@ -4,7 +4,7 @@ import type { OverlayDefaults, OverlayRenderer } from '$lib/platform/pipelines/t
 
 import CanvasSource from './CanvasSource.svelte';
 import Editor from './Editor.svelte';
-import { VARIANT_IDS, type AchievementVariantId } from './variants';
+import { VARIANT_IDS } from './variants';
 
 const AchievementContentSchema = z.strictObject({
 	variant: z.enum(VARIANT_IDS).default('checklist-complete'),
@@ -14,7 +14,6 @@ const AchievementContentSchema = z.strictObject({
 });
 
 export type AchievementContent = z.infer<typeof AchievementContentSchema>;
-export type { AchievementVariantId };
 
 export interface AchievementFrameLayout {
 	width: number;
@@ -58,7 +57,7 @@ function defaults(): OverlayDefaults<AchievementContent> {
 	};
 }
 
-export const achievement: OverlayRenderer<AchievementContent> = {
+export const achievementOverlayRenderer: OverlayRenderer<AchievementContent> = {
 	type: 'achievement',
 	label: 'Achievement',
 	schema: AchievementContentSchema,

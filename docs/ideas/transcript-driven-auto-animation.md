@@ -1,10 +1,14 @@
 # Transcript-Driven Auto Animation
 
+**Status:** Unbuilt product idea. This document describes a possible transcript-to-Preset workflow, not a current route, service, manifest contract, or batch renderer. Current engine facts are called out explicitly below; all product-flow steps remain future work.
+
 ## Pitch
 
 Drop a video into Supers. The app transcribes it, an AI pass reads the transcript to decide what kinds of overlay animations would land at each moment, and Supers emits a batch of transparent overlay clips keyed to the original timecodes. The editor drops them onto their timeline and the talking-head footage suddenly has receipts, callouts, quotes, and citations.
 
 ## Flow
+
+The following flow is proposed, not implemented:
 
 1. User uploads or links a source video.
 2. Transcribe with word-level timestamps.
@@ -16,22 +20,23 @@ Drop a video into Supers. The app transcribes it, an AI pass reads the transcrip
 
 ## What the AI is choosing
 
-- **Which Preset family** maps to the span's intent. Today's families: `research-paper-*` (paper Surface with decorative marks on body text), `quote-*` (paper Surface with focal marks — magnify / lift-out / tear-out / vertical), `lower-third` (plain Surface with a lower-third overlay). Planned future families would unlock once the corresponding Surface or Overlay types ship: tweet (`tweet` Surface), webpage-evidence (`webpage` Surface), timeline-explainer (`timeline-explainer` Surface) — all listed as future in [`engine-architecture.md`](../engine-architecture.md).
-- **Which specific Preset within the family**: aggressive vs. subtle, vertical vs. horizontal, mark density, ease feel.
+- **Which exact catalog Preset** maps to the span's intent. Current candidates include `research-paper-attention`, `research-paper-critique`, `quote-magnify`, `quote-lift-out`, `quote-tear-out`, and `lower-third`. These filename groupings are catalog search aids, not schema-level Preset families.
+- **Which composition treatment** fits the beat: aggressive vs. subtle, mark density, and ease feel. Orientation is a transport setting on one reflowing Preset, never a choice between horizontal and vertical sibling Presets.
+- **Which current primitive can carry enriched evidence.** Structured web content uses the existing `web-document` Surface, stored captures use `website-screenshot`, and sequential explanations compose the shipped diagram Blocks. A future dedicated Pipeline must be proposed and shipped through the normal Brief/ADR process; `tweet`, `webpage`, and `timeline-explainer` are not current Surface types.
 - **Duration and anchor frame**: snap to the phrase, leave a beat after the punch word. Translates to `transport.durationSeconds` and per-span `start`/`duration` fractions inside the Preset.
 - **Confidence**: low confidence proposals get flagged for review instead of auto-included.
 
 ## Enrichment examples
 
-- "A 2021 Stanford study showed..." → search → fetch paper → `research-paper-*` Preset with the real title, sourceUrl, and a `[highlight]…[/highlight]` mark on the relevant abstract sentence.
-- "There's a tweet from..." → fetch tweet → (future) tweet-Surface Preset with the tweet content.
-- "If you look at the docs for X..." → fetch the docs page → (future) webpage-Surface Preset with a circled region marking the relevant section.
-- "Three things matter here..." → existing `quote-*` Preset or (future) timeline-explainer Preset for sequential reveals, no external fetch needed.
+- "A 2021 Stanford study showed..." → search → fetch paper → `research-paper-attention` or `research-paper-critique` with the real title, sourceUrl, and a `[highlight]…[/highlight]` mark on the relevant abstract sentence.
+- "There's a post from..." → fetch and verify the post → existing `web-document` for structured content or `website-screenshot` for a faithful stored capture.
+- "If you look at the docs for X..." → fetch the docs page → existing `web-document` or `website-screenshot` with an Annotation marking the relevant section.
+- "Three things matter here..." → an existing quote Preset or a composition of the shipped diagram Blocks for sequential reveals, no external fetch needed.
 
 ## Output shape
 
 - A manifest JSON per span: `{ spanId, startTime, endTime, presetSlug, presetJson, content, sourceUrl, confidence }`. `presetSlug` is set when picking from the catalog; `presetJson` is set when authoring a fresh Preset from scratch (mutually exclusive with `presetSlug`).
-- One transparent WebM/MOV per span, named `hh-mm-ss-ff__<preset-slug>.webm`.
+- One transparent WebM or ProRes 4444 MOV per span, named `hh-mm-ss-ff__<preset-slug>.<format>`.
 - An optional Resolve/Premiere XML or EDL so overlays land on the timeline already aligned.
 
 ## Open questions
@@ -42,11 +47,11 @@ Drop a video into Supers. The app transcribes it, an AI pass reads the transcrip
 - How does the user steer it? A pre-render review UI where each proposed overlay is a card the user can accept, swap Preset, edit copy, or kill — before any rendering happens.
 - Batch render cost: rendering N transparent overlays for a 40-minute video is a lot of GPU time. Queue + progress UI matters.
 - Re-runs: if the user edits the source video (cuts a section), how do we re-key timecodes without redoing the whole pipeline?
-- Does the AI **pick from the catalog** or **author fresh Presets** for content that doesn't fit any built-in? Pick-from-catalog is simpler and AI-authoring-from-schema is already a path the engine supports (per the `AI authoring contract` section in `engine-architecture.md`). Probably start with catalog-pick + parameterized overrides; AI-authored Presets are a v2.
+- Does the AI **pick from the catalog** or **author fresh Presets** for content that doesn't fit any built-in? Agents can author schema-valid Preset JSON today, but no transcript automation or runtime AI-authoring contract is implemented. Start with catalog selection plus explicit Preset edits; treat automatic fresh authoring as future work.
 
 ## Why this fits Supers
 
-Supers already has the Preset catalog and the deterministic, frame-addressable timeline + transparent export pipeline. The missing piece is the front end that says "given this transcript, here are 47 overlays you probably want." That front end is the product.
+Supers already has the Preset catalog, deterministic frame-addressable timeline, `CompositionExportController`, and transparent export primitives. Transcript ingestion, segmentation, enrichment, proposal review, batch orchestration, and NLE manifest generation are all unbuilt product work.
 
 ## Adjacency
 

@@ -1,5 +1,7 @@
 # Full Pack buy-in: preset color becomes an override; verisimilar Surfaces declare immunity
 
+> **Status: Canon (built)** — optional typography color overrides, Pack-core fallback, registry-visible immunity, and Pack-swap validation are live. `website-screenshot` subsequently joined the immune faithful-artifact Surfaces.
+
 The engine buys fully into the Pack model for **colors, materials, and fonts**: a Preset owns structure, content, and choreography, and carries **no required aesthetic fields**. `typography.paperColor` / `typography.inkColor` become **optional overrides** — when absent, surfaces resolve fill/ink from the active Pack through the ADR-0024 chain (`specific → core`), so one lower-third preset renders as Syntax, as a high-end broadcast look, or as something deliberately plain purely by pack swap. Pipelines whose entire value is fidelity to a real artifact (iMessage, web-document mocks) declare **pack-immunity** in their Identity Spec — immunity is a registry-visible property, never an unwired accident. Within an immune Surface's frame the *artifact* stays faithful, but every *treatment layered on it* (highlight marks, edge treatment, depth shadow) still resolves from the Pack.
 
 ## Context

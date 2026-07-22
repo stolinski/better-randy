@@ -24,7 +24,15 @@ export interface TransitionSnapshotsOptions {
 	height: number;
 }
 
-export class TransitionSnapshots {
+export interface TransitionSnapshotFrameTextures {
+	fromTarget(): GPUTextureView;
+	toTarget(): GPUTextureView;
+	fromTexture(): GPUTexture;
+	toTexture(): GPUTexture;
+	dispose(): void;
+}
+
+export class TransitionSnapshots implements TransitionSnapshotFrameTextures {
 	#fromTexture: GPUTexture;
 	#toTexture: GPUTexture;
 

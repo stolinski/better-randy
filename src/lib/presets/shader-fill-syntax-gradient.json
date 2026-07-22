@@ -3,6 +3,7 @@
 	"name": "Shader fill — Syntax gradient panel",
 	"description": "Procedural three-colour metaball gradient panel in the Syntax yellow-dominant palette: brand yellow (#fabf47) + bright lemon (#ffd35e) as the two dominant warm centres with a single restrained teal accent (#15d8c6) — warm-led so the field reads as the channel's yellow, not a green keynote wash. The WGSL shader fills a 60%×28% centred rect in canvas UV space; alpha blends at 0.92 opacity without punching through the frame (E4 contract). Flow speed 0.8 keeps motion subtle — the gradient breathes rather than churns. The boundary is an intrinsic clean hard-edged rect (the Pipeline's declared edge-treatment), not a feathered wash. Transparent by default; composites over footage or a dark substrate. Demonstrates the overlay shaderPass path end-to-end.",
 	"pack": "syntax",
+	"kind": "fixture",
 	"state": {
 		"transport": {
 			"orientation": "horizontal",

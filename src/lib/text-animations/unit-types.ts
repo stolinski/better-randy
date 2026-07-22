@@ -4,7 +4,7 @@
  * The renderer owns the DOM `element` and writes inline styles into it on
  * every tween tick.
  */
-export interface ResolvedUnit {
+export interface TextAnimationResolvedUnit {
 	/** Stable per-slot ordinal — what the marks-coupling lookup keys on. */
 	index: number;
 	/** The DOM element SplitText (or the fallback) produced for this unit. */
@@ -22,4 +22,4 @@ export interface ResolvedUnit {
  * The writer signature is `(unitIndex, alpha) => void`. Implementations live
  * in `manager.svelte.ts`; the compiler is pure and only invokes the callback.
  */
-export type UnitAlphaWriter = (unitIndex: number, alpha: number) => void;
+export type TextAnimationUnitAlphaWriter = (unitIndex: number, alpha: number) => void;

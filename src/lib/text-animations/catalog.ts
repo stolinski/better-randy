@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { rawCatalog } from './raw-catalog-bundle.ts';
-import { SUPERS_EFFECT_MODULES } from './supers-effects/index.ts';
+import { RAW_TEXT_EFFECT_CATALOG } from './raw-catalog-bundle.ts';
+import { SUPERS_TEXT_EFFECT_MODULES } from './supers-effects/index.ts';
 
 // Vendored upstream JSON, eager-bundled by `raw-catalog-bundle.ts` so the
 // catalog is available both inside Vite (the production build via the
@@ -13,10 +13,10 @@ import { SUPERS_EFFECT_MODULES } from './supers-effects/index.ts';
 // Supers-original effects (motion-primitives plan Phase 4.1: `kerning-pop`,
 // `bracket-pop`) merge in alongside the vendored set so the catalog lane
 // stays a single registry from the consumer\'s perspective.
-const { specModules } = rawCatalog;
-const effectModules: Record<string, unknown> = {
-	...rawCatalog.effectModules,
-	...SUPERS_EFFECT_MODULES
+const { specModules } = RAW_TEXT_EFFECT_CATALOG;
+const textEffectModules: Record<string, unknown> = {
+	...RAW_TEXT_EFFECT_CATALOG.effectModules,
+	...SUPERS_TEXT_EFFECT_MODULES
 };
 
 /**
@@ -24,8 +24,8 @@ const effectModules: Record<string, unknown> = {
  * its `portable_spec.target`. Supers mirrors this term in `docs/CONTEXT.md` as
  * **Split mode**.
  */
-export const SPLIT_MODES = ['whole', 'per-character', 'per-word', 'per-line'] as const;
-export type SplitMode = (typeof SPLIT_MODES)[number];
+export const TEXT_EFFECT_SPLIT_MODES = ['whole', 'per-character', 'per-word', 'per-line'] as const;
+export type TextEffectSplitMode = (typeof TEXT_EFFECT_SPLIT_MODES)[number];
 
 /**
  * The four renderer families Supers ships. The 20 `visibility: visible` upstream
@@ -33,20 +33,20 @@ export type SplitMode = (typeof SPLIT_MODES)[number];
  * effects (no showcase block) fall through to `generic-stagger`. Supers mirrors
  * this term in `docs/CONTEXT.md` as **Renderer family**.
  */
-export const RENDERER_FAMILIES = [
+export const TEXT_EFFECT_RENDERER_FAMILIES = [
 	'generic-stagger',
 	'kinetic-center-build',
 	'kinetic-top-build',
 	'shared-slide-opacity-stage'
 ] as const;
-export type RendererFamily = (typeof RENDERER_FAMILIES)[number];
+export type TextEffectRendererFamily = (typeof TEXT_EFFECT_RENDERER_FAMILIES)[number];
 
 /**
  * Optional ordering applied by the generic-stagger renderer on top of the
  * unit index. Maps the upstream `portable_spec.stagger_mode` field.
  */
-export const STAGGER_MODES = ['normal', 'reverse', 'center-out', 'edges-in'] as const;
-export type StaggerMode = (typeof STAGGER_MODES)[number];
+export const TEXT_EFFECT_STAGGER_MODES = ['normal', 'reverse', 'center-out', 'edges-in'] as const;
+export type TextEffectStaggerMode = (typeof TEXT_EFFECT_STAGGER_MODES)[number];
 
 const KeyframeShapeSchema = z
 	.object({
@@ -76,9 +76,9 @@ const PortableSpecSchema = z
 		id: z.string(),
 		display_name: z.string(),
 		description: z.string(),
-		target: z.enum(SPLIT_MODES),
+		target: z.enum(TEXT_EFFECT_SPLIT_MODES),
 		signature_easing: z.string().optional(),
-		stagger_mode: z.enum(STAGGER_MODES).optional(),
+		stagger_mode: z.enum(TEXT_EFFECT_STAGGER_MODES).optional(),
 		enter: PhaseSchema,
 		exit: PhaseSchema.optional()
 	})
@@ -96,7 +96,7 @@ const ShowcaseRuntimeSchema = z
 
 const ShowcaseRendererSchema = z
 	.object({
-		id: z.enum(RENDERER_FAMILIES),
+		id: z.enum(TEXT_EFFECT_RENDERER_FAMILIES),
 		params: z.record(z.string(), z.unknown()).optional(),
 		recipe: z.unknown().optional()
 	})
@@ -120,23 +120,24 @@ const EffectFileSchema = z
 
 const SpecFileSchema = PortableSpecSchema;
 
-export type KeyframeShape = z.infer<typeof KeyframeShapeSchema>;
-export type Phase = z.infer<typeof PhaseSchema>;
-export type PortableSpec = z.infer<typeof PortableSpecSchema>;
-export type ShowcaseRuntime = z.infer<typeof ShowcaseRuntimeSchema>;
+export type TextEffectKeyframeShape = z.infer<typeof KeyframeShapeSchema>;
+export type TextEffectPhase = z.infer<typeof PhaseSchema>;
+export type TextEffectPortableSpec = z.infer<typeof PortableSpecSchema>;
+export type TextEffectShowcaseRuntime = z.infer<typeof ShowcaseRuntimeSchema>;
 
-export interface EffectSpec {
+/** Runtime catalog definition for one Effect (text), never a post-process Effect Layer entry. */
+export interface TextEffectSpec {
 	id: string;
 	displayName: string;
 	description: string;
 	visibility: 'visible' | 'hidden';
-	target: SplitMode;
-	renderer: RendererFamily;
-	staggerMode: StaggerMode;
+	target: TextEffectSplitMode;
+	renderer: TextEffectRendererFamily;
+	staggerMode: TextEffectStaggerMode;
 	signatureEasing: string | null;
-	enter: Phase;
-	exit: Phase | null;
-	runtime: ShowcaseRuntime;
+	enter: TextEffectPhase;
+	exit: TextEffectPhase | null;
+	runtime: TextEffectShowcaseRuntime;
 	/**
 	 * Renderer-family-specific recipe params (only populated for the layout-aware
 	 * renderers, copied through verbatim from `showcase.renderer.params`). Empty
@@ -145,18 +146,18 @@ export interface EffectSpec {
 	rendererParams: Record<string, unknown>;
 }
 
-const DEFAULT_RUNTIME: ShowcaseRuntime = {
+const DEFAULT_TEXT_EFFECT_RUNTIME: TextEffectShowcaseRuntime = {
 	speed_multiplier: 1,
 	hold_ms: 0,
 	gap_ms: 0,
 	y_travel_multiplier: 1
 };
 
-function narrowEffect(file: z.infer<typeof EffectFileSchema>): EffectSpec {
+function narrowTextEffect(file: z.infer<typeof EffectFileSchema>): TextEffectSpec {
 	const spec = file.portable_spec;
 	const renderer = file.showcase?.renderer?.id ?? 'generic-stagger';
 	const staggerMode = spec.stagger_mode ?? 'normal';
-	const runtime = { ...DEFAULT_RUNTIME, ...(file.showcase?.runtime ?? {}) };
+	const runtime = { ...DEFAULT_TEXT_EFFECT_RUNTIME, ...(file.showcase?.runtime ?? {}) };
 
 	return {
 		id: file.id,
@@ -174,10 +175,10 @@ function narrowEffect(file: z.infer<typeof EffectFileSchema>): EffectSpec {
 	};
 }
 
-function buildCatalog(): ReadonlyMap<string, EffectSpec> {
-	const out = new Map<string, EffectSpec>();
+function buildTextEffectCatalog(): ReadonlyMap<string, TextEffectSpec> {
+	const out = new Map<string, TextEffectSpec>();
 
-	for (const [id, raw] of Object.entries(effectModules)) {
+	for (const [id, raw] of Object.entries(textEffectModules)) {
 		const parsed = EffectFileSchema.safeParse(raw);
 
 		if (!parsed.success) {
@@ -204,30 +205,30 @@ function buildCatalog(): ReadonlyMap<string, EffectSpec> {
 			}
 		}
 
-		out.set(parsed.data.id, narrowEffect(parsed.data));
+		out.set(parsed.data.id, narrowTextEffect(parsed.data));
 	}
 
 	return out;
 }
 
-export const EFFECT_CATALOG: ReadonlyMap<string, EffectSpec> = buildCatalog();
+export const TEXT_EFFECT_CATALOG: ReadonlyMap<string, TextEffectSpec> = buildTextEffectCatalog();
 
-export type EffectId = string;
+export type TextEffectId = string;
 
-/** Type predicate for use at parse-time validators. */
-export function isEffectId(value: string): value is EffectId {
-	return EFFECT_CATALOG.has(value);
+/** Type predicate for Effect (text) ids at parse-time validators. */
+export function isTextEffectId(value: string): value is TextEffectId {
+	return TEXT_EFFECT_CATALOG.has(value);
 }
 
 /** Layout-aware renderers can only be applied to title-scale slots. */
-export const LAYOUT_AWARE_RENDERERS: ReadonlySet<RendererFamily> = new Set([
+export const LAYOUT_AWARE_TEXT_EFFECT_RENDERERS: ReadonlySet<TextEffectRendererFamily> = new Set([
 	'kinetic-center-build',
 	'kinetic-top-build',
 	'shared-slide-opacity-stage'
 ]);
 
 /** Slots the parse-time validators consider "title-scale". */
-export const TITLE_SCALE_SLOTS: ReadonlySet<string> = new Set([
+export const TEXT_ANIMATION_TITLE_SCALE_SLOTS: ReadonlySet<string> = new Set([
 	'title',
 	'kicker',
 	'overlay:title',
@@ -235,4 +236,4 @@ export const TITLE_SCALE_SLOTS: ReadonlySet<string> = new Set([
 ]);
 
 /** Stable ordering of effect IDs for UI listings (catalog source order). */
-export const EFFECT_IDS: readonly EffectId[] = Array.from(EFFECT_CATALOG.keys());
+export const TEXT_EFFECT_IDS: readonly TextEffectId[] = Array.from(TEXT_EFFECT_CATALOG.keys());

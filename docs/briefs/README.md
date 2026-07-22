@@ -57,6 +57,7 @@ Copy this when starting a new Brief by hand. The `/brainstorm` skill writes the 
 
 **Kind:** preset | pipeline | domain
 **Slug:** <kebab-case slug; must match the filename>
+**Pack:** <required slug from PACK_REGISTRY; there is no implicit default>
 **Verification preset:** <slug>   ← required for `pipeline` and `domain`; omit for `preset`
 
 ## Pitch
@@ -65,8 +66,8 @@ One paragraph: what is this and why does it land for the channel?
 
 ## Surface(s) involved
 
-Which existing **Surface** (`paper`, `plain`, `newspaper`, `pullquote-on-photo`,
-`chapter-card`, `title-sequence`, `type-hero`) this lives on.
+Which registered **Surface** this lives on. Read `SurfaceTypeSchema` and the
+Pipeline registry for the current catalog rather than copying a list here.
 For `pipeline` / `domain` Briefs: which Surface(s) need to be added or extended.
 
 ## Content sample
@@ -77,7 +78,7 @@ verbatim — don't paraphrase.
 
 ## Motion plan
 
-Which moves from `docs/aesthetic.md` § Motion Vocabulary the composition uses
+Which moves from `docs/packs/<pack>/aesthetic.md` § Motion Vocabulary the composition uses
 (brightness-reveal, halo-bloom-up, focal-dim-others, stroke-draw, tear-on,
 tape-down, settled-place, substrate-darken). Note the timeline shape
 (entry → reveal → exit) and the **focal slot**(s).
@@ -86,13 +87,7 @@ If a "lean out" move is being used deliberately, name it and the reason.
 
 ## Channel chrome notes
 
-Which signature elements from `docs/aesthetic.md` § Collage System this carries:
-
-- Mono signature thread (kicker / source URL / date / watermark)
-- Hard offset shadow (8–15 px, no blur, foreground color)
-- Torn edge with 1–2 px white fiber
-- Registration jitter on saturated marks (1–3 px, seeded)
-- Grit overlay (composition-wide, via `effects.frame: paper-grain`)
+Which signature elements from the selected `docs/packs/<pack>/aesthetic.md` this carries. Enumerate the Pack's own vocabulary; do not import another Pack's chrome.
 
 Note any *intentional* omissions. The Producer will carry these into the
 Preset's `description` field so the Critic doesn't re-flag them as
@@ -119,8 +114,12 @@ during authoring" is not allowed.
 ## What 'done' looks like
 
 The concrete deliverables and the gate. For `kind: preset`:
-"`src/lib/presets/<slug>.json` Critic-`ACCEPT`s at native resolution."
+"`src/lib/presets/<slug>.json` Critic-`ACCEPT`s at native horizontal
+(3840×2160) and vertical (2160×3840) resolutions with no orientation-specific
+sibling Preset."
 For `kind: pipeline` / `kind: domain`: list every artifact (pipeline files,
 ADR, preset) and name the verification Preset whose `ACCEPT` is the delete
-trigger.
+trigger. Every Brief's acceptance section must explicitly require both native
+horizontal and vertical renders, even when orientation was otherwise irrelevant
+to the discussion.
 ```

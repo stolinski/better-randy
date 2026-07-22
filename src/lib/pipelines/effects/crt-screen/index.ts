@@ -84,7 +84,7 @@ const fragmentBody = /* wgsl */ `
 	return vec4f(rgb, inputSample.a);
 `;
 
-export const crtScreen: EffectRenderer<CrtScreenParams> = {
+export const crtScreenEffectRenderer: EffectRenderer<CrtScreenParams> = {
 	type: 'crt-screen',
 	label: 'CRT Screen',
 	schema: CrtScreenEffectSchema,

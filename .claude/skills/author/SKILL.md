@@ -1,11 +1,11 @@
 ---
 name: author
-description: Spawn a fresh Producer sub-agent that reads a Supers Brief and writes the Preset (plus any Pipeline / ADR the Brief declares). Use when the user has a `docs/briefs/<slug>.md` with no open questions and says "author it," "write the preset," or types `/author <slug>`. Do NOT use to brainstorm a Brief (use `/brainstorm`) or to verify the result (use `/critic`).
+description: Spawn a fresh Producer sub-agent that reads a Supers Brief and writes the Preset (plus any Pipeline or ADR the Brief declares). Use when the user has a completed Brief, says "author it" or "write the preset," or types `/author SLUG`. Do not use to brainstorm a Brief or verify a result.
 ---
 
 # Supers Author
 
-The operational form of [ADR-0007](../../docs/adr/0007-brainstorm-brief-system.md)'s Producer hand-off. Spawns a sub-agent with **fresh context** that reads `docs/briefs/<slug>.md` and authors the artifacts the Brief declares. The Brief stays in `docs/briefs/` after authoring — only `/critic` returning `ACCEPT` triggers its deletion.
+The operational form of [ADR-0007](../../../docs/adr/0007-brainstorm-brief-system.md)'s Producer hand-off. Spawns a sub-agent with **fresh context** that reads `docs/briefs/<slug>.md` and authors the artifacts the Brief declares. The Brief stays in `docs/briefs/` after authoring — only `/critic` returning `ACCEPT` triggers its deletion.
 
 ## When this skill fires
 
@@ -26,10 +26,10 @@ Do **not** invoke this skill if:
 Parse `$ARGUMENTS` as the Brief's slug.
 
 - Verify `docs/briefs/<slug>.md` exists. If it doesn't:
-  - If `src/lib/presets/<slug>.json` exists, the slug is a *pre-Brief preset* (see [`docs/briefs/README.md`](../../docs/briefs/README.md) § Pre-Brief presets). Stop and tell the user that `/author` requires a Brief; suggest `/brainstorm <slug>` for a rewrite, or direct JSON edits for a `/critic` REVISE fix.
+  - If `src/lib/presets/<slug>.json` exists, the slug is a *pre-Brief preset* (see [`docs/briefs/README.md`](../../../docs/briefs/README.md) § Pre-Brief presets). Stop and tell the user that `/author` requires a Brief; suggest `/brainstorm <slug>` for a rewrite, or direct JSON edits for a `/critic` REVISE fix.
   - Otherwise, list available Briefs from `docs/briefs/*.md` (excluding `README.md`) and stop.
 - Read the Brief. If `## Open questions` has any items, stop and tell the user: "Brief has N open questions — resume `/brainstorm <slug>` before authoring."
-- Note the Brief's `Kind:` and (for `pipeline` / `domain`) `Verification preset:`.
+- Note the Brief's required `Pack:`, its `Kind:`, and (for `pipeline` / `domain`) `Verification preset:`. Stop if the Pack is absent or not registered in `PACK_REGISTRY`.
 
 ### Step 2 — spawn the Producer
 
@@ -37,7 +37,7 @@ Use the **Agent tool** with `subagent_type: "general-purpose"`. **Do not** pass 
 
 ### Spawn prompt template
 
-Substitute `<slug>`, `<kind>`, and (when applicable) `<verification-slug>`:
+Substitute `<slug>`, `<kind>`, `<pack>`, and (when applicable) `<verification-slug>` from the Brief metadata:
 
 ```
 You are the Supers Producer for the Brief at `docs/briefs/<slug>.md`.
@@ -63,9 +63,9 @@ Then author the artifacts the Brief's "What 'done' looks like" section
 declares. For each:
 
 - Preset JSON: write to `src/lib/presets/<slug>.json`. Validate by running
-  `node --experimental-strip-types scripts/verify-presets.ts` — if it
+  `npm run verify-presets` — if it
   errors, fix the JSON, do not loosen the schema.
-- Pipeline code: write under `src/lib/platform/pipelines/<layer>/<variant>/`
+- Pipeline code: write under `src/lib/pipelines/<layer>/<variant>/`
   following the existing renderer pattern (see, e.g., the lower-third
   overlay pipeline for the OverlayRenderer + shaderPass shape from
   ADR-0005). Strict TypeScript, no `any`, explicit return types on exports.
@@ -75,20 +75,20 @@ declares. For each:
   rejected reasons, consequences paragraph).
 - Schema additions: if the Brief calls for new schema, update
   `src/lib/platform/engine-schema.ts` and regenerate the JSON schema with
-  `node --experimental-strip-types scripts/export-preset-schema.ts`.
+  `npm run gen:schema`.
 
 Constraints, all binding:
 
-- Transparent output: never paint an opaque canvas background. `loadOp:
-  'clear'` with `clearValue: [0, 0, 0, 0]`; canvas context
-  `alphaMode: 'premultiplied'`.
+- Transparency is the default: keep `loadOp: 'clear'`, `clearValue:
+  [0, 0, 0, 0]`, and canvas `alphaMode: 'premultiplied'`. Paint to the frame
+  edges only when the composition declares a full-frame fill or stage.
 - Frame-determinism: drive animation from explicit `timestamp` / `frame`.
   No wall-clock.
 - Native resolution: 3840×2160 or 2160×3840. No upscaling.
 - No TODOs, placeholder content, or no-op stubs. Wire it now or the work
   isn't done.
 - No new utility folders. Shared helpers go in `src/lib/utils/`.
-- Don't start a dev server — one runs at http://localhost:5173.
+- Don't start a dev server — one runs at http://localhost:7263.
 
 Do NOT:
 - Verify the result against the rubrics. That's the Critic's job.
@@ -112,7 +112,7 @@ Next: /critic <verification-slug>
 Brief stays at docs/briefs/<slug>.md until Critic returns ACCEPT.
 ```
 
-Do **not** spawn the Critic yourself. The user (or a future Fixer skill, see [`docs/todos/fixer-sub-agent.md`](../../docs/todos/fixer-sub-agent.md)) drives that step.
+Do **not** spawn the Critic yourself. The user drives that step; a possible Fixer workflow remains deferred in [`docs/roadmap.md`](../../../docs/roadmap.md#deferred--low-priority).
 
 ## Re-authoring after a Critic REVISE
 
@@ -126,4 +126,4 @@ If the Critic returned `IMPLEMENTATION-FIX-REQUIRED`, do **not** spawn the Produ
 
 ## Anti-pattern: same-session producer
 
-Never author from the Brief in the *current* conversation (i.e. without spawning a sub-agent). The fresh-context Producer is load-bearing per [ADR-0007](../../docs/adr/0007-brainstorm-brief-system.md) — same logic as the Critic's framing flip. If you're tempted to "just write the JSON quickly," stop and spawn the sub-agent.
+Never author from the Brief in the *current* conversation (i.e. without spawning a sub-agent). The fresh-context Producer is load-bearing per [ADR-0007](../../../docs/adr/0007-brainstorm-brief-system.md) — same logic as the Critic's framing flip. If you're tempted to "just write the JSON quickly," stop and spawn the sub-agent.

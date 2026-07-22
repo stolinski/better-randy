@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { engineState } from './engine-state.svelte';
 	import { layerSelection, deselectLayer } from './selection.svelte';
+	import { parseSoundRailReferenceId, parseTimelineTrackId } from './timeline-entity-identity';
 	import BlockInspector from './BlockInspector.svelte';
 	import CaptionsInspector from './CaptionsInspector.svelte';
 	import RootInspector from './RootInspector.svelte';
@@ -26,60 +26,39 @@
 		separateWav = $bindable(false)
 	}: Props = $props();
 
-	// Parse the selected layer ID to determine which inspector to show.
-	// Track IDs follow these patterns (from Workspace.buildTracks()):
-	//   'surface'                     → SurfaceInspector
-	//   'overlay-{id}'                → OverlayInspector (exact overlay row)
-	//   'overlay-{id}-stack/roll/spin/cursor-n' → sub-track, no dedicated inspector
-	//   'textanim-{id}'               → TextAnimInspector
-	//   'mark-{n}'                    → MarkInspector
-	//   'imessage-{n}'                → SurfaceInspector (bubbles edit in its Messages section)
-	//   'checklist-{n}'               → SurfaceInspector (items edit in its Checklist section)
+	// Resolve the selected runtime identity to its curated inspector. Main rows
+	// and their subtracks intentionally route to the same owning entity.
 	const resolved = $derived.by(() => {
 		const id = layerSelection.id;
 		if (!id) return { kind: 'root' as const };
 
-		if (id === 'surface' || /^imessage-\d+$/.test(id) || /^checklist-\d+$/.test(id))
-			return { kind: 'surface' as const };
-
-		if (id === 'captions') return { kind: 'captions' as const };
-
-		// A cue selected on the timeline's Sound rail (ADR-0033 §9):
-		// 'sound:derived-<cueId>' or 'sound:manual-<cueId>'.
-		if (id.startsWith('sound:')) return { kind: 'soundCue' as const, cueRef: id.slice(6) };
-
-		const markMatch = id.match(/^mark-(\d+)$/);
-		if (markMatch) return { kind: 'mark' as const, index: parseInt(markMatch[1], 10) };
-
-		const textAnimMatch = id.match(/^textanim-(.+)$/);
-		if (textAnimMatch) return { kind: 'textanim' as const, animId: textAnimMatch[1] };
-
-		// Diagram Block row: 'block-{id}' resolves against the live diagram so
-		// the roll sub-track ('block-{id}-roll') routes to its parent element.
-		if (id.startsWith('block-')) {
-			const raw = id.slice('block-'.length);
-			const diagram = engineState.surface.diagram ?? [];
-			const exact = diagram.find((element) => element.id === raw);
-			if (exact) return { kind: 'block' as const, blockId: raw };
-			const parent = raw.endsWith('-roll') ? raw.slice(0, -'-roll'.length) : null;
-			if (parent && diagram.some((element) => element.id === parent)) {
-				return { kind: 'block' as const, blockId: parent };
+		const track = parseTimelineTrackId(id);
+		if (track) {
+			switch (track.kind) {
+				case 'surface':
+				case 'surface-message':
+				case 'checklist-item':
+					return { kind: 'surface' as const };
+				case 'captions':
+					return { kind: 'captions' as const };
+				case 'mark':
+					return { kind: 'mark' as const, index: track.index };
+				case 'text-animation':
+					return { kind: 'text-animation' as const, textAnimationId: track.textAnimationId };
+				case 'block':
+				case 'block-subtrack':
+					return { kind: 'block' as const, blockId: track.blockId };
+				case 'overlay':
+				case 'overlay-subtrack':
+					return { kind: 'overlay' as const, overlayId: track.overlayId };
+				case 'sound':
+					return { kind: 'generic' as const, id };
 			}
 		}
 
-		// Exact overlay row: 'overlay-{id}' but NOT 'overlay-{id}-{suffix}'
-		// Suffix sub-tracks: stack, roll, spin, cursor-N
-		const overlayMatch = id.match(/^overlay-([^-]+(?:-[^-]+)*)$/);
-		if (overlayMatch) {
-			// Confirm it's not a known sub-track suffix
-			const overlayId = overlayMatch[1];
-			const knownSuffixes = ['-stack', '-roll', '-spin', '-beat'];
-			const isSub =
-				knownSuffixes.some((s) => overlayId.endsWith(s)) || /^.+-cursor-\d+$/.test(overlayId);
-			if (!isSub) return { kind: 'overlay' as const, overlayId };
-		}
+		const soundReference = parseSoundRailReferenceId(id);
+		if (soundReference) return { kind: 'sound-cue' as const, reference: soundReference };
 
-		// For overlay sub-tracks — generic label
 		return { kind: 'generic' as const, id };
 	});
 </script>
@@ -96,12 +75,12 @@
 			<BlockInspector blockId={resolved.blockId} />
 		{:else if resolved.kind === 'captions'}
 			<CaptionsInspector />
-		{:else if resolved.kind === 'textanim'}
-			<TextAnimInspector animId={resolved.animId} />
+		{:else if resolved.kind === 'text-animation'}
+			<TextAnimInspector animId={resolved.textAnimationId} />
 		{:else if resolved.kind === 'mark'}
 			<MarkInspector markIndex={resolved.index} />
-		{:else if resolved.kind === 'soundCue'}
-			<SoundCueInspector cueRef={resolved.cueRef} />
+		{:else if resolved.kind === 'sound-cue'}
+			<SoundCueInspector reference={resolved.reference} />
 		{:else}
 			<div class="generic-label">
 				<span class="generic-label__id">{resolved.id}</span>

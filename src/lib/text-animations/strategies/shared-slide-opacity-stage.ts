@@ -1,9 +1,12 @@
 import type { AnimationTweenSpec } from '$lib/platform/animation-manager';
 
-import type { KeyframeShape } from '../catalog';
-import type { CompileOutputs, StrategyInputs } from '../compile';
-import { gsapEaseFromCss } from '../gsap-ease';
-import { applyUnitFade, materializeUnitFilter } from '../unit-style';
+import type { TextEffectKeyframeShape } from '../catalog';
+import type { TextAnimationCompileResult, TextEffectStrategyInputs } from '../compile';
+import { textAnimationGsapEaseFromCss } from '../gsap-ease';
+import {
+	applyTextAnimationUnitFade,
+	materializeTextAnimationUnitFilter
+} from '../unit-style';
 
 /**
  * Shared Slide Opacity Stage. Used by `short-slide-right`. The whole phrase
@@ -12,12 +15,16 @@ import { applyUnitFade, materializeUnitFilter } from '../unit-style';
  * tween; the per-word units only animate opacity. Both phases start in the
  * same tick, exactly as the upstream recipe specifies.
  */
-function readParam(spec: StrategyInputs['spec'], key: string, fallback: number): number {
+function readParam(spec: TextEffectStrategyInputs['spec'], key: string, fallback: number): number {
 	const value = spec.rendererParams[key];
 	return typeof value === 'number' ? value : fallback;
 }
 
-function materializeTitleTransform(keyframe: KeyframeShape, yTravel: number, isVertical: boolean): string {
+function materializeTitleTransform(
+	keyframe: TextEffectKeyframeShape,
+	yTravel: number,
+	isVertical: boolean
+): string {
 	const kx = keyframe.x_px ?? 0;
 	const ky = keyframe.y_px ?? 0;
 	const x = isVertical ? 0 : kx;
@@ -26,24 +33,40 @@ function materializeTitleTransform(keyframe: KeyframeShape, yTravel: number, isV
 	return `translate3d(${x}px, ${y}px, 0) scale(${scale})`;
 }
 
-function materializeFilter(keyframe: KeyframeShape): string {
-	return materializeUnitFilter(keyframe.blur_px ?? 0);
+function materializeFilter(keyframe: TextEffectKeyframeShape): string {
+	return materializeTextAnimationUnitFilter(keyframe.blur_px ?? 0);
 }
 
-function interpolate(from: KeyframeShape, to: KeyframeShape, p: number): KeyframeShape {
-	const keys = new Set<keyof KeyframeShape>();
-	for (const k of Object.keys(from) as (keyof KeyframeShape)[]) keys.add(k);
-	for (const k of Object.keys(to) as (keyof KeyframeShape)[]) keys.add(k);
-	const out: KeyframeShape = {};
+function interpolate(
+	from: TextEffectKeyframeShape,
+	to: TextEffectKeyframeShape,
+	p: number
+): TextEffectKeyframeShape {
+	const keys = new Set<keyof TextEffectKeyframeShape>();
+	for (const k of Object.keys(from) as (keyof TextEffectKeyframeShape)[]) keys.add(k);
+	for (const k of Object.keys(to) as (keyof TextEffectKeyframeShape)[]) keys.add(k);
+	const out: TextEffectKeyframeShape = {};
 	for (const key of keys) {
-		const a = typeof from[key] === 'number' ? (from[key] as number) : key === 'opacity' || key === 'scale' ? 1 : 0;
-		const b = typeof to[key] === 'number' ? (to[key] as number) : key === 'opacity' || key === 'scale' ? 1 : 0;
+		const a =
+			typeof from[key] === 'number'
+				? (from[key] as number)
+				: key === 'opacity' || key === 'scale'
+					? 1
+					: 0;
+		const b =
+			typeof to[key] === 'number'
+				? (to[key] as number)
+				: key === 'opacity' || key === 'scale'
+					? 1
+					: 0;
 		out[key] = a + (b - a) * p;
 	}
 	return out;
 }
 
-export function compileSharedSlideOpacityStage(inputs: StrategyInputs): CompileOutputs {
+export function compileSharedSlideOpacityStage(
+	inputs: TextEffectStrategyInputs
+): TextAnimationCompileResult {
 	const { entry, spec, units, transport, writeUnitAlpha } = inputs;
 	const isVertical = transport.orientation === 'vertical';
 	const tweens: AnimationTweenSpec[] = [];
@@ -85,14 +108,14 @@ export function compileSharedSlideOpacityStage(inputs: StrategyInputs): CompileO
 	// FROM-frame initialization is handled by AnimationManager's init loop (it
 	// calls every tween's onUpdate with `from` after scheduling). Writing it
 	// here would clobber the live tween value when reactive $effects re-run
-	// compile() between scrubs.
+	// compileTextAnimation() between scrubs.
 
 	// Title transform tween (one).
 	tweens.push({
 		key: `${entry.id}:ss:title-enter`,
 		start: entry.enter.start,
 		duration: titleDurationFraction,
-		ease: gsapEaseFromCss(spec.enter.easing),
+		ease: textAnimationGsapEaseFromCss(spec.enter.easing),
 		from: 0,
 		to: 1,
 		onUpdate: (value) => {
@@ -102,7 +125,7 @@ export function compileSharedSlideOpacityStage(inputs: StrategyInputs): CompileO
 			// The slot root is transformed, so its property-opacity is capture-
 			// quantized exactly like a unit span — fade via colour alpha instead
 			// (units clear their own colour at full alpha, so this cascades).
-			applyUnitFade(title, frame.opacity ?? 1);
+			applyTextAnimationUnitFade(title, frame.opacity ?? 1);
 		}
 	});
 
@@ -113,12 +136,12 @@ export function compileSharedSlideOpacityStage(inputs: StrategyInputs): CompileO
 			key: `${entry.id}:ss:word:${i}`,
 			start: entry.enter.start + i * wordOpacityStaggerFraction,
 			duration: wordOpacityDurationFraction,
-			ease: gsapEaseFromCss(spec.enter.easing),
+			ease: textAnimationGsapEaseFromCss(spec.enter.easing),
 			from: 0,
 			to: 1,
 			onUpdate: (value) => {
 				const opacity = wordOpacityFrom + (wordOpacityTo - wordOpacityFrom) * value;
-				applyUnitFade(unit.element, opacity);
+				applyTextAnimationUnitFade(unit.element, opacity);
 				writeUnitAlpha(unit.index, opacity);
 			}
 		});
@@ -132,7 +155,7 @@ export function compileSharedSlideOpacityStage(inputs: StrategyInputs): CompileO
 			key: `${entry.id}:ss:title-exit`,
 			start: entry.exit.start,
 			duration: entry.exit.duration,
-			ease: gsapEaseFromCss(spec.exit.easing),
+			ease: textAnimationGsapEaseFromCss(spec.exit.easing),
 			from: 0,
 			to: 1,
 			onUpdate: (value) => {
@@ -141,7 +164,7 @@ export function compileSharedSlideOpacityStage(inputs: StrategyInputs): CompileO
 				title.style.filter = materializeFilter(frame);
 				// Colour-alpha fade for the same capture-quantization reason as
 				// the enter (transformed root).
-				applyUnitFade(title, frame.opacity ?? 1);
+				applyTextAnimationUnitFade(title, frame.opacity ?? 1);
 				// Propagate title opacity into the per-unit alpha map so marks
 				// coupling fades alongside the exit, even though word spans
 				// themselves stay at wordOpacityTo.

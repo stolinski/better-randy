@@ -3,9 +3,9 @@ import { z } from 'zod';
 import { parseAnnotationBodyText } from '../annotations/annotation-body-text.ts';
 import { NTSC_FRACTIONAL_FPS } from '../utils/composition-timing.ts';
 import {
-	EFFECT_CATALOG,
-	LAYOUT_AWARE_RENDERERS,
-	TITLE_SCALE_SLOTS
+	LAYOUT_AWARE_TEXT_EFFECT_RENDERERS,
+	TEXT_ANIMATION_TITLE_SCALE_SLOTS,
+	TEXT_EFFECT_CATALOG
 } from '../text-animations/catalog.ts';
 import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
 import type { AnnotationBody } from '$lib/annotations/annotation-marks';
@@ -74,9 +74,9 @@ const FractionSchema = z.number().min(0).max(1);
 // deliberately). Each event names a motion kind and carries ONE engine
 // default sample (`DEFAULT_EVENT_SAMPLES` in sound-cues.ts); motions declare
 // which event they emit via the default per-primitive mapping, swappable per
-// motion through `sound.event` below. There is no kit/palette bundle — that
-// indirection was removed 2026-07-02 after GUI testing (see ADR-0033
-// amendments): sound is engine defaults + per-motion overrides.
+// motion through `sound.event` below. There is no per-Layer sample bundle or
+// palette — that indirection was removed 2026-07-02 after GUI testing (see
+// ADR-0033 amendments): sound is engine defaults + per-motion overrides.
 export const SOUND_EVENTS = [
 	'whoosh-in',
 	'whoosh-out',
@@ -186,7 +186,7 @@ const CascadeAnchorSchema = z.union([
 	z.strictObject({ overlay: z.string().min(1) }),
 	z.strictObject({ mark: z.number().int().min(0) }),
 	z.strictObject({ textAnimation: z.string().min(1) }),
-	// A diagram Block element (ADR-0036) — the id of a `surface.diagram[]`
+	// A Diagram primitive Block (ADR-0036) — the id of a `surface.diagram[]`
 	// entry. Diagram reveals are cascade chains (node → edge draws to → next
 	// node), so elements are anchorable exactly like overlays.
 	z.strictObject({ block: z.string().min(1) })
@@ -238,6 +238,8 @@ export const BlockTypeSchema = z.enum([
 	'stat-callout',
 	'timeline-segment'
 ]);
+/** Discriminants for the complete Block Layer vocabulary. */
+export type BlockType = z.infer<typeof BlockTypeSchema>;
 
 const AnnotationBodySchema = z
 	.string()
@@ -277,8 +279,8 @@ export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 // a checked item. A checked item with NO window is STATICALLY struck — the
 // rule is fully drawn from frame 0, no draw-on. An unchecked item carries no
 // strike at all (the GUI strips a stale window when unchecking). The window is
-// a real, draggable timeline clip (`checklist-{index}` rows), like a mark
-// timing — never a renderer constant.
+// a real, draggable checklist-item timeline clip (identified through
+// `createTimelineTrackId`), like a mark timing — never a renderer constant.
 const ChecklistItemSchema = z.object({
 	text: z.string().min(1),
 	checked: z.boolean(),
@@ -286,7 +288,8 @@ const ChecklistItemSchema = z.object({
 	// on its own window (opacity + slide-from-right), so a list can build up
 	// one item at a time; absent → the item is present from the block's own
 	// entrance (the default stable-list behaviour). A real, draggable timeline
-	// clip (`checklist-{index}` rows), never a renderer constant.
+	// checklist-item clip (identified through `createTimelineTrackId`), never a
+	// renderer constant.
 	enter: z
 		.object({
 			start: FractionSchema,
@@ -367,7 +370,7 @@ const TransitionSchema = z.object({
 // ---- Diagram primitives (ADR-0036) ----
 // Five Block types for art-directed docu diagrams — node / edge-arrow / label /
 // stat-callout / timeline-segment — living in `surface.diagram[]` (the "diagram
-// group on the Surface" placement ADR-0036 §3 left to this schema): elements
+// group on the Surface" placement ADR-0036 §3 left to this schema): primitives
 // share the Surface's coordinate space, and the group is pure JSON so it rides
 // `presetToWireFormat`'s surface spread losslessly (the byte-identical
 // round-trip gate). Positions are explicit composition-space fractions —
@@ -385,10 +388,10 @@ const DiagramEndpointSchema = z.union([
 	DiagramPointSchema
 ]);
 
-// DOM-rendered elements (node / label / stat-callout) take the full ADR-0035
+// DOM-rendered primitives (node / label / stat-callout) take the full ADR-0035
 // channel set — they are positioned mounts like overlays. `x`/`y` are
-// composition-fraction deltas from the element's `position`; `scale` is
-// absolute, seeded from the element's static `scale`.
+// composition-fraction deltas from the primitive's `position`; `scale` is
+// absolute, seeded from the primitive's static `scale`.
 const DiagramChannelKeyframesSchema = z.strictObject({
 	opacity: createKeyframeTrackSchema(FractionSchema).optional(),
 	x: createKeyframeTrackSchema(z.number()).optional(),
@@ -397,7 +400,7 @@ const DiagramChannelKeyframesSchema = z.strictObject({
 	rotation: createKeyframeTrackSchema(z.number()).optional()
 });
 
-// Stroke-drawn elements (edge-arrow / timeline-segment) expose `opacity` only —
+// Stroke-drawn primitives (edge-arrow / timeline-segment) expose `opacity` only —
 // their reveal is the annotation stroke-draw scalar riding the enter window
 // (ADR-0036 §4); a transform channel fighting the drawn path is exactly the
 // double-motion mystery ADR-0035 §2 bans.
@@ -415,15 +418,15 @@ const DiagramStrokeAnimationSchema = z.strictObject({
 	cascade: CascadeSchema.optional()
 });
 
-// Shared timed-element fields. `enter`/`exit` are the standard Transition sugar
-// (start/duration/ease/sound) and draw as the element's unified timeline clip.
-// `ink` is a Role SELECTION, not a colour: 'accent' routes the element (label
+// Shared timed-primitive fields. `enter`/`exit` are the standard Transition sugar
+// (start/duration/ease/sound) and draw as the primitive's unified timeline clip.
+// `ink` is a Role SELECTION, not a colour: 'accent' routes the primitive (label
 // ink, node glyphs, stroke) to the active Pack's core accent-treatment so a
 // diagram can carry emphasis hierarchy; absent/'ink' rides the composition ink.
 // Packs keep owning what accent looks like (ADR-0036 §4 — appearance is never
 // schema); consumers read `?? 'ink'` (never a Zod .default — the
 // validateOverlayContents precedent: defaults don't reliably reach runtime).
-const diagramElementBase = {
+const diagramPrimitiveBase = {
 	id: z.string().min(1),
 	ink: z.enum(['ink', 'accent']).optional(),
 	enter: TransitionSchema.optional(),
@@ -434,7 +437,7 @@ const diagramElementBase = {
 // flowchart wants boxes — the author picks); HOW a pin/box/dot looks is the
 // Pack's `node.form`-dimension Role, never schema.
 const DiagramNodeSchema = z.strictObject({
-	...diagramElementBase,
+	...diagramPrimitiveBase,
 	type: z.literal('node'),
 	position: DiagramPointSchema,
 	form: z.enum(['pin', 'box', 'dot']),
@@ -450,7 +453,7 @@ const DiagramNodeSchema = z.strictObject({
 // the arrowhead: forward = at `to` (the default when absent), both, or none
 // (a bare connector).
 const DiagramEdgeArrowSchema = z.strictObject({
-	...diagramElementBase,
+	...diagramPrimitiveBase,
 	type: z.literal('edge-arrow'),
 	from: DiagramEndpointSchema,
 	to: DiagramEndpointSchema,
@@ -462,7 +465,7 @@ const DiagramEdgeArrowSchema = z.strictObject({
 
 // Free text annotating a position — the diagram's caption voice.
 const DiagramLabelSchema = z.strictObject({
-	...diagramElementBase,
+	...diagramPrimitiveBase,
 	type: z.literal('label'),
 	position: DiagramPointSchema,
 	text: z.string().min(1),
@@ -476,7 +479,7 @@ const DiagramLabelSchema = z.strictObject({
 // end and rollWindow ?? 0.5 (never a Zod .default() — the
 // validateOverlayContents precedent: defaults don't reliably reach runtime).
 const DiagramStatCalloutSchema = z.strictObject({
-	...diagramElementBase,
+	...diagramPrimitiveBase,
 	type: z.literal('stat-callout'),
 	position: DiagramPointSchema,
 	from: z.number(),
@@ -493,7 +496,7 @@ const DiagramStatCalloutSchema = z.strictObject({
 // are explicit points (a horizontal band reflows to a vertical rail by
 // repositioning, not by schema change).
 const DiagramTimelineSegmentSchema = z.strictObject({
-	...diagramElementBase,
+	...diagramPrimitiveBase,
 	type: z.literal('timeline-segment'),
 	from: DiagramPointSchema,
 	to: DiagramPointSchema,
@@ -501,7 +504,7 @@ const DiagramTimelineSegmentSchema = z.strictObject({
 	animation: DiagramStrokeAnimationSchema.optional()
 });
 
-const DiagramElementSchema = z.discriminatedUnion('type', [
+const DiagramPrimitiveSchema = z.discriminatedUnion('type', [
 	DiagramNodeSchema,
 	DiagramEdgeArrowSchema,
 	DiagramLabelSchema,
@@ -511,35 +514,35 @@ const DiagramElementSchema = z.discriminatedUnion('type', [
 
 // The diagram group: ids must be unique (they are timeline-row / cascade
 // identities), and every edge endpoint node ref must resolve to a `node`
-// element in the same group — fail fast at parse time, never a runtime guess.
-const DiagramSchema = z.array(DiagramElementSchema).superRefine((elements, ctx) => {
+// primitive in the same group — fail fast at parse time, never a runtime guess.
+const DiagramSchema = z.array(DiagramPrimitiveSchema).superRefine((primitives, ctx) => {
 	const ids = new Set<string>();
-	for (let i = 0; i < elements.length; i += 1) {
-		if (ids.has(elements[i].id)) {
+	for (let i = 0; i < primitives.length; i += 1) {
+		if (ids.has(primitives[i].id)) {
 			ctx.addIssue({
 				code: 'custom',
 				path: [i, 'id'],
-				message: `Duplicate diagram[].id "${elements[i].id}"; ids must be unique within a surface.`
+				message: `Duplicate diagram[].id "${primitives[i].id}"; ids must be unique within a surface.`
 			});
 		}
-		ids.add(elements[i].id);
+		ids.add(primitives[i].id);
 	}
 
 	const nodeIds = new Set(
-		elements.filter((element) => element.type === 'node').map((element) => element.id)
+		primitives.filter((primitive) => primitive.type === 'node').map((primitive) => primitive.id)
 	);
-	for (let i = 0; i < elements.length; i += 1) {
-		const element = elements[i];
-		if (element.type !== 'edge-arrow') {
+	for (let i = 0; i < primitives.length; i += 1) {
+		const primitive = primitives[i];
+		if (primitive.type !== 'edge-arrow') {
 			continue;
 		}
 		for (const end of ['from', 'to'] as const) {
-			const endpoint = element[end];
+			const endpoint = primitive[end];
 			if ('node' in endpoint && !nodeIds.has(endpoint.node)) {
 				ctx.addIssue({
 					code: 'custom',
 					path: [i, end, 'node'],
-					message: `edge-arrow "${element.id}" ${end} references node "${endpoint.node}", which is not a node element in this diagram.`
+					message: `edge-arrow "${primitive.id}" ${end} references node "${endpoint.node}", which is not a node primitive in this diagram.`
 				});
 			}
 		}
@@ -557,7 +560,7 @@ export type DiagramEdgeArrow = z.infer<typeof DiagramEdgeArrowSchema>;
 export type DiagramLabel = z.infer<typeof DiagramLabelSchema>;
 export type DiagramStatCallout = z.infer<typeof DiagramStatCalloutSchema>;
 export type DiagramTimelineSegment = z.infer<typeof DiagramTimelineSegmentSchema>;
-export type DiagramElement = z.infer<typeof DiagramElementSchema>;
+export type DiagramPrimitive = z.infer<typeof DiagramPrimitiveSchema>;
 
 const SurfaceTypeSchema = z.enum([
 	'paper',
@@ -665,7 +668,7 @@ const SurfaceSchema = z.object({
 	// is present the surface's intrinsic enter/exit motion-form does not run.
 	animation: SurfaceAnimationSchema.optional(),
 	backgroundVisibility: FractionSchema.optional(),
-	// Diagram Block elements on this Surface (ADR-0036) — explicit
+	// Diagram primitive Blocks on this Surface (ADR-0036) — explicit
 	// composition-space placement, revealed with stroke-draw + Cascade. Works
 	// full-frame (paper / chapter-card) and over footage (a transparent surface
 	// carrying only diagram Blocks). Every Surface may carry a diagram group.
@@ -827,13 +830,13 @@ const TextAnimationsSchema = z
 
 		for (let i = 0; i < entries.length; i += 1) {
 			const entry = entries[i];
-			const spec = EFFECT_CATALOG.get(entry.effect);
+			const spec = TEXT_EFFECT_CATALOG.get(entry.effect);
 
 			if (!spec) {
 				ctx.addIssue({
 					code: 'custom',
 					path: [i, 'effect'],
-					message: `Unknown text-animation effect "${entry.effect}". Known: ${[...EFFECT_CATALOG.keys()].join(', ')}.`
+					message: `Unknown text-animation effect "${entry.effect}". Known: ${[...TEXT_EFFECT_CATALOG.keys()].join(', ')}.`
 				});
 				continue;
 			}
@@ -859,7 +862,7 @@ const TextAnimationsSchema = z
 
 			const slotKey = targetSlotKey(entry.target);
 
-			if (spec.target === 'per-character' && !TITLE_SCALE_SLOTS.has(slotKey)) {
+			if (spec.target === 'per-character' && !TEXT_ANIMATION_TITLE_SCALE_SLOTS.has(slotKey)) {
 				ctx.addIssue({
 					code: 'custom',
 					path: [i, 'target', 'slot'],
@@ -867,7 +870,10 @@ const TextAnimationsSchema = z
 				});
 			}
 
-			if (LAYOUT_AWARE_RENDERERS.has(spec.renderer) && !TITLE_SCALE_SLOTS.has(slotKey)) {
+			if (
+				LAYOUT_AWARE_TEXT_EFFECT_RENDERERS.has(spec.renderer) &&
+				!TEXT_ANIMATION_TITLE_SCALE_SLOTS.has(slotKey)
+			) {
 				ctx.addIssue({
 					code: 'custom',
 					path: [i, 'target', 'slot'],
@@ -942,7 +948,8 @@ const StageSchema = z.object({
 // free-standing cues (an outro sting) and the optional single music/ambient
 // bed. `start` / `duration` are timeline fractions like every other timed
 // window; `volume` absent → full scale at mix time. `assetSlug` names a
-// bundled audio asset directly — manual cues are not kit-resolved.
+// bundled audio asset directly — manual cues bypass the event-default sample
+// mapping.
 const AudioCueSchema = z.object({
 	id: z.string().min(1),
 	kind: z.enum(['cue', 'bed']).default('cue'),
@@ -1116,7 +1123,7 @@ export const EngineStateSchema = z
 
 		const overlayIds = new Set(state.overlays.map((overlay) => overlay.id));
 		const textAnimationIds = new Set(state.textAnimations.map((entry) => entry.id));
-		const blockIds = new Set(diagram.map((element) => element.id));
+		const blockIds = new Set(diagram.map((primitive) => primitive.id));
 
 		for (const edge of edges.values()) {
 			const anchor = edge.anchor;
@@ -1493,11 +1500,11 @@ export const PresetSchema = z.object({
 	pack: z.string().min(1, 'Preset must declare a pack'),
 	/**
 	 * Catalog classification. `deliverable` (default) is a curated, shippable
-	 * Preset — held to the R/Q/G rubric floors (`verify-presets`) and listed in
-	 * the app catalog (`listPresets`). `fixture` is a demo / showcase / test /
-	 * motion-primitive verifier: schema-checked but exempt from the deliverable
-	 * rubric floors and excluded from the catalog. Fixtures stay loadable by
-	 * slug (`getPresetBySlug`) for development.
+	 * Preset — listed in the app catalog (`listPresets`) and subject to
+	 * `verify-presets`' objective safety/readability lint. `fixture` is a demo /
+	 * showcase / test / motion-primitive verifier: structurally and semantically
+	 * checked, but exempt from that deliverable lint and excluded from the
+	 * catalog. Fixtures stay loadable by slug (`getPresetBySlug`) for development.
 	 */
 	kind: z.enum(['deliverable', 'fixture']).default('deliverable'),
 	state: EngineStateSchema,

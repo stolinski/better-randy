@@ -5,17 +5,20 @@
 	import { parseAnnotationBodyText } from '$lib/annotations/annotation-body-text';
 	import { DECORATIVE_ANNOTATION_STYLES } from '$lib/annotations/annotation-mark-styles';
 	import type { AnnotationBody } from '$lib/annotations/annotation-marks';
-	import { defaultItemEnter, defaultStrikeWindow } from '$lib/pipelines/surfaces/checklist/schedule';
+	import {
+		defaultItemEnter,
+		defaultStrikeWindow
+	} from '$lib/pipelines/surfaces/checklist/schedule';
 	import { defaultMessageEnter } from '$lib/pipelines/surfaces/imessage/schedule';
-	import { uploadUserImage } from '$lib/platform/user-image-assets';
+	import { uploadUserImage } from '$lib/platform/user-image-upload-transport';
 	import { requestWebsiteCapture } from '$lib/platform/website-capture';
 	import { createEnterBlurCommitDeduper } from '$lib/utils/website-showcase';
 	import {
-		EFFECT_CATALOG,
-		EFFECT_IDS,
-		SPLIT_MODES,
-		TITLE_SCALE_SLOTS,
-		type SplitMode
+		TEXT_ANIMATION_TITLE_SCALE_SLOTS,
+		TEXT_EFFECT_CATALOG,
+		TEXT_EFFECT_IDS,
+		TEXT_EFFECT_SPLIT_MODES,
+		type TextEffectSplitMode
 	} from '$lib/text-animations/catalog';
 
 	import {
@@ -44,6 +47,7 @@
 	import { resolveFontTreatment } from './packs/resolve';
 	import { PIPELINE_REGISTRY, getSurfaceRenderer } from './pipelines';
 	import { inspectorFocus, layerSelection } from './selection.svelte';
+	import { parseTimelineTrackId } from './timeline-entity-identity';
 	import { formatFractionAsSeconds } from '$lib/utils/string';
 	import AddMenu from './AddMenu.svelte';
 	import InspectorSection from './InspectorSection.svelte';
@@ -200,7 +204,9 @@
 		} catch (error: unknown) {
 			console.error('Avatar image upload failed', error);
 			if (uploadSequence === avatarUploadSequence) {
-				input.setCustomValidity(error instanceof Error ? error.message : 'Avatar image upload failed');
+				input.setCustomValidity(
+					error instanceof Error ? error.message : 'Avatar image upload failed'
+				);
 				input.reportValidity();
 			}
 		} finally {
@@ -215,15 +221,16 @@
 
 	function updateSourceUrlOverlay(url: string): void {
 		const overlay = engineState.overlays.find((candidate) => candidate.type === 'source-url');
-		if (typeof overlay?.content === 'object' && overlay.content !== null && 'url' in overlay.content) {
+		if (
+			typeof overlay?.content === 'object' &&
+			overlay.content !== null &&
+			'url' in overlay.content
+		) {
 			(overlay.content as Record<string, unknown>).url = url;
 		}
 	}
 
-	async function captureWebsite(
-		trigger: 'enter' | 'blur',
-		input: HTMLInputElement
-	): Promise<void> {
+	async function captureWebsite(trigger: 'enter' | 'blur', input: HTMLInputElement): Promise<void> {
 		if (!websiteCaptureDeduper.shouldCommit(trigger)) return;
 		const value = engineState.surface.content.sourceUrl ?? '';
 		const sequence = ++websiteCaptureSequence;
@@ -289,7 +296,9 @@
 		} catch (error: unknown) {
 			console.error('Logo image upload failed', error);
 			if (uploadSequence === logoUploadSequence) {
-				input.setCustomValidity(error instanceof Error ? error.message : 'Logo image upload failed');
+				input.setCustomValidity(
+					error instanceof Error ? error.message : 'Logo image upload failed'
+				);
 				input.reportValidity();
 			}
 		} finally {
@@ -394,8 +403,8 @@
 
 	// ---- Checklist items (ADR-0040) ----
 	// Text / checked / static-vs-animated strike edit here; per-item strike
-	// timing stays on the timeline's `checklist-{index}` tracks (one draggable
-	// clip per animated strike).
+	// timing stays on the checklist-item tracks produced by `createTimelineTrackId`
+	// (one draggable clip per animated strike).
 
 	const items = $derived(engineState.surface.content.items ?? []);
 
@@ -439,21 +448,22 @@
 	}
 
 	// ---- On-canvas direct selection (epic 0pkzts2c) ----
-	// A selected `imessage-N` timeline row (set by a canvas bubble click or the
+	// A selected Surface-message timeline row (set by a canvas bubble click or the
 	// timeline gutter) highlights its message entry; the reveal effect below
 	// scrolls to it and places the caret so "click a bubble → edit its text".
+	const selectedTrackIdentity = $derived(
+		layerSelection.id ? parseTimelineTrackId(layerSelection.id) : null
+	);
 
-	const selectedMessageIndex = $derived.by(() => {
-		const match = layerSelection.id?.match(/^imessage-(\d+)$/);
-		return match ? parseInt(match[1], 10) : null;
-	});
+	const selectedMessageIndex = $derived(
+		selectedTrackIdentity?.kind === 'surface-message' ? selectedTrackIdentity.index : null
+	);
 
-	// A selected `checklist-N` timeline row (canvas item click or timeline
+	// A selected checklist-item timeline row (canvas item click or timeline
 	// gutter) highlights its item entry — the messages pattern, per item.
-	const selectedItemIndex = $derived.by(() => {
-		const match = layerSelection.id?.match(/^checklist-(\d+)$/);
-		return match ? parseInt(match[1], 10) : null;
-	});
+	const selectedItemIndex = $derived(
+		selectedTrackIdentity?.kind === 'checklist-item' ? selectedTrackIdentity.index : null
+	);
 
 	function revealTarget(target: string): void {
 		if (!inspectorEl) return;
@@ -519,14 +529,14 @@
 	// ---- Text Motion (ADR-0011) ----
 
 	const effectsBySplit = $derived.by(() => {
-		const out: Record<SplitMode, { id: string; label: string }[]> = {
+		const out: Record<TextEffectSplitMode, { id: string; label: string }[]> = {
 			whole: [],
 			'per-character': [],
 			'per-word': [],
 			'per-line': []
 		};
-		for (const id of EFFECT_IDS) {
-			const spec = EFFECT_CATALOG.get(id);
+		for (const id of TEXT_EFFECT_IDS) {
+			const spec = TEXT_EFFECT_CATALOG.get(id);
 			if (!spec) continue;
 			out[spec.target].push({ id, label: spec.displayName });
 		}
@@ -534,16 +544,10 @@
 	});
 
 	// Active document slots that can receive a text animation, in display order.
-	// Per-character effects are restricted to title-scale slots only (TITLE_SCALE_SLOTS).
+	// Per-character effects are restricted to title-scale slots only.
 	const activeSlots = $derived.by(() => {
 		type SurfaceSlot =
-			| 'title'
-			| 'kicker'
-			| 'body'
-			| 'sourceUrl'
-			| 'author'
-			| 'source'
-			| 'dateLabel';
+			'title' | 'kicker' | 'body' | 'sourceUrl' | 'author' | 'source' | 'dateLabel';
 		const slots: { slot: SurfaceSlot; label: string }[] = [];
 		if (documentSlots.kicker) slots.push({ slot: 'kicker', label: 'Kicker' });
 		if (documentSlots.title) slots.push({ slot: 'title', label: 'Title' });
@@ -560,14 +564,16 @@
 		slot: string
 	): { label: string; items: { value: string; label: string }[] }[] {
 		const bySplit = effectsForSlot(slot);
-		return SPLIT_MODES.filter((mode) => bySplit[mode].length > 0).map((mode) => ({
+		return TEXT_EFFECT_SPLIT_MODES.filter((mode) => bySplit[mode].length > 0).map((mode) => ({
 			label: mode,
 			items: bySplit[mode].map((opt) => ({ value: opt.id, label: opt.label }))
 		}));
 	}
 
-	function effectsForSlot(slot: string): Record<SplitMode, { id: string; label: string }[]> {
-		const isTitleScale = TITLE_SCALE_SLOTS.has(slot);
+	function effectsForSlot(
+		slot: string
+	): Record<TextEffectSplitMode, { id: string; label: string }[]> {
+		const isTitleScale = TEXT_ANIMATION_TITLE_SCALE_SLOTS.has(slot);
 		return {
 			whole: effectsBySplit.whole,
 			'per-character': isTitleScale ? effectsBySplit['per-character'] : [],
@@ -581,7 +587,7 @@
 		effectId: string
 	): void {
 		if (!effectId) return;
-		if (!EFFECT_CATALOG.has(effectId)) return;
+		if (!TEXT_EFFECT_CATALOG.has(effectId)) return;
 		addTextAnimation({
 			target: { kind: 'surface', slot },
 			effect: effectId,
@@ -594,7 +600,7 @@
 	);
 
 	function textAnimEffectChange(entry: TextAnimation, value: string): void {
-		if (!EFFECT_CATALOG.has(value)) return;
+		if (!TEXT_EFFECT_CATALOG.has(value)) return;
 		entry.effect = value;
 	}
 
@@ -1020,11 +1026,7 @@
 				>
 					<div class="item-entry__header">
 						<span class="item-entry__num">{index + 1}</span>
-						<input
-							type="text"
-							aria-label={`Item ${index + 1} text`}
-							bind:value={item.text}
-						/>
+						<input type="text" aria-label={`Item ${index + 1} text`} bind:value={item.text} />
 						<button
 							type="button"
 							class="remove-btn"
@@ -1196,7 +1198,7 @@
 						onchange={(e) =>
 							textAnimEffectChange(entry, (e.currentTarget as HTMLSelectElement).value)}
 					>
-						{#each SPLIT_MODES as mode (mode)}
+						{#each TEXT_EFFECT_SPLIT_MODES as mode (mode)}
 							<optgroup label={mode}>
 								{#each effectsBySplit[mode] as opt (opt.id)}
 									<option value={opt.id}>{opt.label}</option>

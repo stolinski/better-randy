@@ -3,7 +3,7 @@
 	"name": "Instagram follow — the press beat (horizontal)",
 	"description": "Horizontal sibling of instagram-follow-demo — the same pack-immune faithful profile card restaged for 3840×2160: bottom-left corner anchor (a widescreen CTA sits corner, not centre). Same press beat at 0.42, same derived pop cue, same intentional no-chrome (faithful artifact, ADR-0038).",
 	"pack": "syntax",
-	"kind": "deliverable",
+	"kind": "fixture",
 	"state": {
 		"transport": {
 			"orientation": "horizontal",

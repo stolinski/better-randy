@@ -343,7 +343,7 @@ const fragmentBody = /* wgsl */ `
 	return vec4f(color, opacity) * inputSample.a;
 `;
 
-export const flutedGlass: EffectRenderer<FlutedGlassParams> = {
+export const flutedGlassEffectRenderer: EffectRenderer<FlutedGlassParams> = {
 	type: 'fluted-glass',
 	label: 'Fluted glass',
 	schema: FlutedGlassEffectSchema,

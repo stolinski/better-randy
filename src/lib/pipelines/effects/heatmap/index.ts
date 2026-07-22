@@ -131,7 +131,7 @@ const fragmentBody = /* wgsl */ `
 	return vec4f(outRgb, 1.0) * inputSample.a;
 `;
 
-export const heatmap: EffectRenderer<HeatmapParams> = {
+export const heatmapEffectRenderer: EffectRenderer<HeatmapParams> = {
 	type: 'heatmap',
 	label: 'Heatmap',
 	schema: HeatmapEffectSchema,

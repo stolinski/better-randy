@@ -10,8 +10,9 @@
 		deselectLayer,
 		requestInspectorFocus
 	} from './selection.svelte';
+	import { createTimelineTrackId, type TimelineTrackIdentity } from './timeline-entity-identity';
 	import { clampNumber } from '$lib/utils/math';
-	import type { ChatMessage, ChecklistItem, DiagramElement, Overlay } from './engine-schema';
+	import type { ChatMessage, ChecklistItem, DiagramPrimitive, Overlay } from './engine-schema';
 
 	interface Props {
 		compositionElement: HTMLElement | null;
@@ -44,6 +45,10 @@
 	}: Props = $props();
 
 	let rootEl = $state<HTMLDivElement | null>(null);
+
+	function isTrackSelected(identity: TimelineTrackIdentity): boolean {
+		return layerSelection.id === createTimelineTrackId(identity);
+	}
 
 	// ─── Coordinate helpers ──────────────────────────────────────────────────────
 
@@ -202,7 +207,7 @@
 		if (event.button !== 0) return;
 		event.preventDefault();
 		event.stopPropagation();
-		selectLayer(`overlay-${overlay.id}`);
+		selectLayer(createTimelineTrackId({ kind: 'overlay', overlayId: overlay.id }));
 		const pos = overlay.position;
 		const isRect = pos.anchor === 'normalized-rect';
 		const measured = measureTopLeftFrac(overlay);
@@ -321,7 +326,7 @@
 		if (event.button !== 0) return;
 		event.preventDefault();
 		event.stopPropagation();
-		selectLayer(`overlay-${overlay.id}`);
+		selectLayer(createTimelineTrackId({ kind: 'overlay', overlayId: overlay.id }));
 		// Anchor point must be in the SAME space as the pointer (client/display px).
 		// The hit box is already projected into display space; the overlay DOM element
 		// is in the composition's native-4K space, so measure the hit box, not the el.
@@ -385,7 +390,7 @@
 		if (event.button !== 0) return;
 		event.preventDefault();
 		event.stopPropagation();
-		selectLayer(`overlay-${overlay.id}`);
+		selectLayer(createTimelineTrackId({ kind: 'overlay', overlayId: overlay.id }));
 		const hitEl = (event.currentTarget as HTMLElement).closest<HTMLElement>('.overlay-hit');
 		if (!hitEl) return;
 		const { x: anchorX, y: anchorY } = anchorPoint(
@@ -437,34 +442,34 @@
 		return pinned[anchor] !== corner;
 	}
 
-	// ─── Diagram Block elements (ADR-0036): click-select + drag placement ────────
+	// ─── Diagram primitive Blocks (ADR-0036): click-select + drag placement ─────
 	// Explicit placement IS the authoring model — the canvas drag writes the
-	// element's composition-fraction position directly (a segment translates
+	// primitive's composition-fraction position directly (a segment translates
 	// both endpoints as one span). Edges have no DOM box; they re-route live as
 	// their nodes move and are selected/edited from the timeline + inspector.
 
-	const diagramDraggables = $derived(
-		(engineState.surface.diagram ?? []).filter((element) => element.type !== 'edge-arrow')
+	const diagramPrimitiveDraggables = $derived(
+		(engineState.surface.diagram ?? []).filter((primitive) => primitive.type !== 'edge-arrow')
 	);
 
 	function blockRelRect(
-		element: DiagramElement
+		primitive: DiagramPrimitive
 	): { left: number; top: number; width: number; height: number } | null {
 		// Subscribe to the authored geometry so the hit box re-measures after a
 		// drag or inspector edit (getBoundingClientRect isn't reactive).
-		if ('position' in element) {
-			void element.position.x;
-			void element.position.y;
+		if ('position' in primitive) {
+			void primitive.position.x;
+			void primitive.position.y;
 		}
-		if ('from' in element && typeof element.from === 'object') {
-			void JSON.stringify(element.from);
-			void JSON.stringify(element.to);
+		if ('from' in primitive && typeof primitive.from === 'object') {
+			void JSON.stringify(primitive.from);
+			void JSON.stringify(primitive.to);
 		}
-		if ('scale' in element) {
-			void element.scale;
+		if ('scale' in primitive) {
+			void primitive.scale;
 		}
 		const el = compositionElement?.querySelector<HTMLElement>(
-			`[data-diagram-element="${element.id}"]`
+			`[data-diagram-primitive="${primitive.id}"]`
 		);
 		if (!el) return null;
 		return projectRect(el);
@@ -481,27 +486,27 @@
 
 	let blockDrag: BlockDragState | null = null;
 
-	function onBlockPointerDown(event: PointerEvent, element: DiagramElement): void {
+	function onBlockPointerDown(event: PointerEvent, primitive: DiagramPrimitive): void {
 		if (event.button !== 0) return;
 		event.preventDefault();
 		event.stopPropagation();
-		selectLayer(`block-${element.id}`);
+		selectLayer(createTimelineTrackId({ kind: 'block', blockId: primitive.id }));
 		const points: BlockDragState['points'] = [];
-		if ('position' in element) {
+		if ('position' in primitive) {
 			points.push({
-				point: element.position,
-				originX: element.position.x,
-				originY: element.position.y
+				point: primitive.position,
+				originX: primitive.position.x,
+				originY: primitive.position.y
 			});
-		} else if (element.type === 'timeline-segment') {
-			points.push({ point: element.from, originX: element.from.x, originY: element.from.y });
-			points.push({ point: element.to, originX: element.to.x, originY: element.to.y });
+		} else if (primitive.type === 'timeline-segment') {
+			points.push({ point: primitive.from, originX: primitive.from.x, originY: primitive.from.y });
+			points.push({ point: primitive.to, originX: primitive.to.x, originY: primitive.to.y });
 		}
 		if (points.length === 0) return;
 		const startComp = pointerToComp(event.clientX, event.clientY, 'surface');
 		if (!startComp) return;
 		blockDrag = {
-			blockId: element.id,
+			blockId: primitive.id,
 			startCompX: startComp.x,
 			startCompY: startComp.y,
 			points
@@ -539,7 +544,8 @@
 	// Rendered surface content (iMessage bubbles, text slots) is live DOM inside
 	// the canvas layoutsubtree, so its boxes project into display space with the
 	// same math as overlays. A click selects the entity's existing address —
-	// bubbles use their timeline row id (`imessage-N`), slots select the surface
+	// bubbles use the id from `createTimelineTrackId({ kind: 'surface-message', index })`;
+	// slots select the surface
 	// and request an inspector reveal — no dragging, these are content, not
 	// spatially placed objects.
 
@@ -617,7 +623,7 @@
 	}
 
 	function selectMessage(index: number): void {
-		selectLayer(`imessage-${index}`);
+		selectLayer(createTimelineTrackId({ kind: 'surface-message', index }));
 		requestInspectorFocus(`message:${index}`);
 	}
 
@@ -646,7 +652,7 @@
 	}
 
 	function selectItem(index: number): void {
-		selectLayer(`checklist-${index}`);
+		selectLayer(createTimelineTrackId({ kind: 'checklist-item', index }));
 		requestInspectorFocus(`item:${index}`);
 	}
 
@@ -658,7 +664,7 @@
 	}
 
 	function selectSlot(slot: string): void {
-		selectLayer('surface');
+		selectLayer(createTimelineTrackId({ kind: 'surface' }));
 		requestInspectorFocus(`slot:${slot}`);
 	}
 
@@ -758,7 +764,7 @@
 		{#if rect && rect.width > 0}
 			<div
 				class="interior-hit"
-				class:interior-hit--selected={layerSelection.id === `imessage-${index}`}
+				class:interior-hit--selected={isTrackSelected({ kind: 'surface-message', index })}
 				onpointerdown={(e) => onMessageDown(e, index)}
 				role="button"
 				tabindex="0"
@@ -778,7 +784,7 @@
 		{#if rect && rect.width > 0}
 			<div
 				class="interior-hit"
-				class:interior-hit--selected={layerSelection.id === `checklist-${index}`}
+				class:interior-hit--selected={isTrackSelected({ kind: 'checklist-item', index })}
 				onpointerdown={(e) => onItemDown(e, index)}
 				role="button"
 				tabindex="0"
@@ -812,18 +818,19 @@
 			></div>
 		{/if}
 	{/each}
-	{#each diagramDraggables as element (element.id)}
-		{@const rect = blockRelRect(element)}
+	{#each diagramPrimitiveDraggables as primitive (primitive.id)}
+		{@const rect = blockRelRect(primitive)}
 		{#if rect && rect.width > 0}
-			{@const isSelected = layerSelection.id === `block-${element.id}`}
+			{@const isSelected = isTrackSelected({ kind: 'block', blockId: primitive.id })}
 			<div
 				class="overlay-hit block-hit"
 				class:overlay-hit--selected={isSelected}
-				onpointerdown={(e) => onBlockPointerDown(e, element)}
+				onpointerdown={(e) => onBlockPointerDown(e, primitive)}
 				role="button"
 				tabindex="0"
 				onkeydown={(e) => {
-					if (e.key === 'Enter' || e.key === ' ') selectLayer(`block-${element.id}`);
+					if (e.key === 'Enter' || e.key === ' ')
+						selectLayer(createTimelineTrackId({ kind: 'block', blockId: primitive.id }));
 				}}
 				style:left="{rect.left}px"
 				style:top="{rect.top}px"
@@ -835,7 +842,7 @@
 	{#each engineState.overlays as overlay (overlay.id)}
 		{@const rect = overlayRelRect(overlay)}
 		{#if rect && rect.width > 0}
-			{@const isSelected = layerSelection.id === `overlay-${overlay.id}`}
+			{@const isSelected = isTrackSelected({ kind: 'overlay', overlayId: overlay.id })}
 			<div
 				class="overlay-hit"
 				class:overlay-hit--selected={isSelected}
@@ -843,7 +850,8 @@
 				role="button"
 				tabindex="0"
 				onkeydown={(e) => {
-					if (e.key === 'Enter' || e.key === ' ') selectLayer(`overlay-${overlay.id}`);
+					if (e.key === 'Enter' || e.key === ' ')
+						selectLayer(createTimelineTrackId({ kind: 'overlay', overlayId: overlay.id }));
 				}}
 				style:left="{rect.left}px"
 				style:top="{rect.top}px"

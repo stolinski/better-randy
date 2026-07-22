@@ -29,7 +29,7 @@ That's it. Two subcommands. No `list`, no `validate`, no `preview`:
 
 - Listing built-in slugs is `ls src/lib/presets/`.
 - Validation happens before rendering — a malformed Preset fails `supers render` with the same structural Zod or registry-derived semantic error `parsePreset` would throw anywhere.
-- Previewing a built-in is `open http://localhost:5173/p/<slug>` in the editor; previewing an arbitrary file isn't supported until the editor route grows a load-from-payload entry.
+- Previewing a built-in is `open http://localhost:7263/p/<slug>` in the editor; previewing an arbitrary file isn't supported until the editor route grows a load-from-payload entry.
 
 `--preset` accepts either a built-in slug (resolved against `src/lib/presets/*.json`) or a path to a complete Preset JSON document. The AI step in [[transcript-driven-auto-animation]] emits complete Presets, so it feeds straight in.
 
@@ -49,9 +49,9 @@ That's it. Two subcommands. No `list`, no `validate`, no `preview`:
 The render path is the existing engine running headlessly. There is no second rendering path.
 
 - **Host:** the CLI is `scripts/supers.ts`, run via `pnpm supers ...`. It lives next to the existing `scripts/probe-*.ts` and `scripts/verify-presets.ts`, imports from `src/lib/` via `resolve()` + dynamic import, and is never picked up by Vite.
-- **Renderer:** Playwright launches headless Chromium with the `canvas-draw-element` flag enabled (the exact launch arg should be probed from a working Chrome's `chrome://version/` before being hard-coded). The CLI assumes the dev server is already running at `:5173` (per `CLAUDE.md`, never starts one) and fails with a clear error if it isn't reachable.
-- **Render route:** a new SvelteKit route `/render` that mounts only `Composition` + the GPU pipeline + `export-video.ts` — no `Controls`, no `TrackInspector`, no `TimelineScrubber`. It accepts a Preset (injection mechanism is implementation detail; `addInitScript` setting `window.__supersPreset` is the obvious starting point), waits for `document.fonts.ready`, calls the existing `exportTransparentWebM` or `exportTransparentProRes` based on `transport.format`, and exposes the resulting `Blob`'s `ArrayBuffer` to the CLI.
-- **Encoding:** stays in Chromium, identical to the in-app exporter. The CLI extracts the `ArrayBuffer` via `page.evaluate` and writes it. Bit-identical to in-app preview; zero new encoder code. ProRes still POSTs PNG frames to `/api/export/prores` exactly as today.
+- **Renderer:** the CLI connects to the project's sanctioned CanvasDrawElement-enabled browser harness rather than inventing a Chrome launch. It assumes the dev server is already running at `:7263` (per `AGENTS.md`, never starts one) and fails clearly if either dependency is unavailable.
+- **Render route:** a new SvelteKit route `/render` mounts `Composition` plus the GPU dependencies needed to build a `CompositionFrameRenderRequest`. It delegates each frame to `renderCompositionFrameTo(request)` in `composition-frame-renderer.ts` and the full media operation to `CompositionExportController`; it does not mount the editor shell (`CanvasControlsBar`, `TimelineOutline`, or `Inspector`) or create a parallel renderer/export loop.
+- **Encoding:** stays in Chromium through `CompositionExportController`, which owns deterministic stepping, output classification, audio/video handoff, cancellation, and cleanup. `export-video.ts` remains the encoding/endpoint primitive. The CLI extracts the completed `Blob` via the route bridge and writes it; ProRes still POSTs PNG frames to `/api/export/prores`.
 - **Batch:** the Chromium page is reused across jobs to amortize cold-boot. Each job either re-navigates `/render` with a fresh injected Preset, or calls a Playwright-bound `window.__supersRender(preset)` function — pick one when implementing.
 
 ## Output

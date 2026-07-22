@@ -18,7 +18,7 @@ function defaults(): SurfaceState {
 	};
 }
 
-export const websiteScreenshot: SurfaceRenderer = {
+export const websiteScreenshotSurfaceRenderer: SurfaceRenderer = {
 	type: 'website-screenshot',
 	label: 'Website screenshot',
 	controls: {

@@ -3,9 +3,9 @@
  * manifest builder (Workspace) and the sound-cue deriver can share one
  * resolver and a node test can drive it directly.
  *
- * Every timed element gets a window: `{ startFraction, durationFraction }` of
+	 * Every timed composition entity gets a window: `{ startFraction, durationFraction }` of
  * the transport. Cascades topo-resolve to absolute starts BEFORE tween
- * emission: an element with `cascade` starts at its anchor's enter start/end
+	 * emission: an entity with `cascade` starts at its anchor's enter start/end
  * plus `offsetMs`, welded in milliseconds so a 120 ms stagger stays 120 ms
  * across a re-time. Cycles are rejected by the schema; the resolver still
  * asserts (fail fast, never a runtime guess).
@@ -20,7 +20,7 @@ import type { Cascade, EngineState, Keyframe, Transition } from './engine-schema
 export const DEFAULT_OVERLAY_ENTER: Transition = { start: 0.04, duration: 0.05, ease: 'settled' };
 
 /**
- * Fallback diagram-element enter (ADR-0036). Starts after the default surface
+	 * Fallback Diagram primitive enter (ADR-0036). Starts after the default surface
  * enter lands (0.05) plus the A1 settle buffer, inside the G6 duration band at
  * the default 6 s transport. Shared with the manifest builder and renderers.
  */
@@ -77,8 +77,8 @@ interface PendingWindow {
 }
 
 /**
- * Resolve every element's window. Elements without a cascade keep their base
- * start (sugar / static timing); elements with one start at the resolved
+	 * Resolve every entity's window. Entities without a cascade keep their base
+	 * start (sugar / static timing); entities with one start at the resolved
  * anchor event + offset. Starts clamp to [0, 1 - duration] so a welded chain
  * can never push a tween past the clip and desync the timeline↔transport
  * mapping.
@@ -143,24 +143,24 @@ export function resolveCascadeTimings(state: EngineState): Map<string, CascadeWi
 		});
 	}
 
-	// Diagram Block elements (ADR-0036) — timed elements exactly like overlays:
-	// channel-owned elements weld dependants to their authored envelope, sugar
-	// elements to their enter window.
-	for (const element of state.surface.diagram ?? []) {
-		const channels = element.animation?.channels;
+	// Diagram primitive Blocks (ADR-0036) are timed exactly like overlays:
+	// channel-owned primitives weld dependants to their authored envelope, sugar
+	// primitives to their enter window.
+	for (const primitive of state.surface.diagram ?? []) {
+		const channels = primitive.animation?.channels;
 
 		if (channels && hasAnyTrack(channels)) {
-			pending.set(`block:${element.id}`, {
-				baseStartFraction: element.enter?.start ?? 0,
+			pending.set(`block:${primitive.id}`, {
+				baseStartFraction: primitive.enter?.start ?? 0,
 				durationFraction: channelEnvelopeSpanMs(channels) / durationMs,
-				cascade: element.animation?.cascade
+				cascade: primitive.animation?.cascade
 			});
 		} else {
-			const enter = element.enter ?? DEFAULT_BLOCK_ENTER;
-			pending.set(`block:${element.id}`, {
+			const enter = primitive.enter ?? DEFAULT_BLOCK_ENTER;
+			pending.set(`block:${primitive.id}`, {
 				baseStartFraction: enter.start,
 				durationFraction: enter.duration,
-				cascade: element.animation?.cascade
+				cascade: primitive.animation?.cascade
 			});
 		}
 	}

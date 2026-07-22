@@ -2,6 +2,7 @@
 
 **Kind:** pipeline
 **Slug:** website-showcase
+**Pack:** syntax
 **Verification preset:** website-showcase
 
 ## Pitch

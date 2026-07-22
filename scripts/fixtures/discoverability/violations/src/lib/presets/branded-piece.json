@@ -1,0 +1,8 @@
+{
+	"schema": "supers@1",
+	"name": "Branded piece",
+	"description": "Authored for the editorial-mono Pack as a catalog piece.",
+	"pack": "editorial-mono",
+	"kind": "deliverable",
+	"state": {}
+}

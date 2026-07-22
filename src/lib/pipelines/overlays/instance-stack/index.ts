@@ -4,7 +4,7 @@ import type { OverlayDefaults, OverlayRenderer } from '$lib/platform/pipelines/t
 
 import CanvasSource from './CanvasSource.svelte';
 import Editor from './Editor.svelte';
-import { VARIANT_IDS, type InstanceStackVariantId } from './variants';
+import { VARIANT_IDS } from './variants';
 
 const InstanceStackContentSchema = z.object({
 	variant: z.enum(VARIANT_IDS).default('vertical-stack'),
@@ -20,7 +20,6 @@ const InstanceStackContentSchema = z.object({
 });
 
 export type InstanceStackContent = z.infer<typeof InstanceStackContentSchema>;
-export type { InstanceStackVariantId };
 
 function defaults(): OverlayDefaults<InstanceStackContent> {
 	return {
@@ -39,7 +38,7 @@ function defaults(): OverlayDefaults<InstanceStackContent> {
 	};
 }
 
-export const instanceStack: OverlayRenderer<InstanceStackContent> = {
+export const instanceStackOverlayRenderer: OverlayRenderer<InstanceStackContent> = {
 	type: 'instance-stack',
 	label: 'Instance stack',
 	schema: InstanceStackContentSchema,

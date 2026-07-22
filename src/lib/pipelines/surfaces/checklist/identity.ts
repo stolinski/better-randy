@@ -80,7 +80,7 @@ export const checklistIdentity: IdentitySpec = {
 			definition:
 				'An item with an authored `enter` window reveals on its own staggered schedule — fading and sliding in from the right — so a list can build up one item at a time (a rundown laid out live). An item with no `enter` is present from the block’s own entrance. Reserved space means later-building items do not shove earlier ones.',
 			implementation:
-				'src/lib/pipelines/surfaces/checklist/CanvasSource.svelte — `itemReveal` composes `itemRevealAt` (schedule.ts window fraction, or 1 when `enter` is absent) into an easeOutQuad opacity × easeOutBack slide, off `animState.globalProgress` (frame-deterministic). Per-item `enter` is a draggable `checklist-{index}` timeline clip.',
+				"src/lib/pipelines/surfaces/checklist/CanvasSource.svelte — `itemReveal` composes `itemRevealAt` (schedule.ts window fraction, or 1 when `enter` is absent) into an easeOutQuad opacity × easeOutBack slide, off `animState.globalProgress` (frame-deterministic). Per-item `enter` is a draggable checklist-item clip identified by `createTimelineTrackId({ kind: 'checklist-item', index })`.",
 			probe: {
 				kind: 'named-observation',
 				region: 'a build-in preset across progress 0.1, 0.4, 0.7',

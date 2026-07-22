@@ -65,13 +65,13 @@ export const paragraphIdentity: IdentitySpec = {
 		{
 			name: 'motion-form',
 			implementation:
-				'src/lib/text-animations/manager.svelte.ts — body enter motion driven by the text-animation strategy (the body TextAnimation entry compiled via compile() in src/lib/text-animations/compile.ts).',
+				'src/lib/text-animations/manager.svelte.ts calls compileTextAnimation() from src/lib/text-animations/compile.ts to drive body enter motion with the selected text-animation strategy.',
 			definition: 'Shape of the body enter motion when one is declared.',
 			probe: {
 				kind: 'named-observation',
 				region: 'first ~10% of the timeline on the body block',
 				expectation:
-					'body enter motion resolves through the body TextAnimation strategy (compiled via compile() in src/lib/text-animations/compile.ts and driven by TextAnimationManager), not a Pack Role.'
+					'body enter motion resolves through the body TextAnimation strategy (compiled by compileTextAnimation() in src/lib/text-animations/compile.ts and driven by TextAnimationManager), not a Pack Role.'
 			}
 		},
 		{

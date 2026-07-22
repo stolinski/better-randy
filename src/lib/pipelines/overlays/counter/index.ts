@@ -4,7 +4,7 @@ import type { OverlayDefaults, OverlayRenderer } from '$lib/platform/pipelines/t
 
 import CanvasSource from './CanvasSource.svelte';
 import Editor from './Editor.svelte';
-import { VARIANT_IDS, type CounterVariantId } from './variants';
+import { VARIANT_IDS } from './variants';
 
 const CounterContentSchema = z.object({
 	variant: z.enum(VARIANT_IDS).default('slot-machine-roll'),
@@ -20,7 +20,6 @@ const CounterContentSchema = z.object({
 });
 
 export type CounterContent = z.infer<typeof CounterContentSchema>;
-export type { CounterVariantId };
 
 function defaults(): OverlayDefaults<CounterContent> {
 	return {
@@ -39,7 +38,7 @@ function defaults(): OverlayDefaults<CounterContent> {
 	};
 }
 
-export const counter: OverlayRenderer<CounterContent> = {
+export const counterOverlayRenderer: OverlayRenderer<CounterContent> = {
 	type: 'counter',
 	label: 'Counter',
 	schema: CounterContentSchema,

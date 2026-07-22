@@ -39,7 +39,7 @@ function defaults(): OverlayDefaults<CursorTrailContent> {
 	};
 }
 
-export const cursorTrail: OverlayRenderer<CursorTrailContent> = {
+export const cursorTrailOverlayRenderer: OverlayRenderer<CursorTrailContent> = {
 	type: 'cursor-trail',
 	label: 'Cursor trail',
 	schema: CursorTrailContentSchema,

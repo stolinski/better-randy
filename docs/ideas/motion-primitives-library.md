@@ -6,13 +6,13 @@
 
 Ship a small library of TypeGPU-backed motion primitives that lift Supers's typographic vocabulary to the level of editor-quality motion-graphics apps (the immediate reference is [mo1.app](https://mo1.app/), particularly its echo-stacks, 3D text geometry, scale-counterpoint compositions, and cursor-driven scene work). The thesis is that Supers's presets read as taste-poor not because the Critic is too lenient or the Producer is undisciplined, but because the *primitive vocabulary* is too thin. Every Preset rediscovers good motion from scratch, and the structural pull of a thin library is toward novelty over restraint. A tight, opinionated primitive set with tasteful defaults at `progress=1` (so the unanimated frame is already a finished composition) fixes the substrate, and the existing Brief → Producer → Critic loop starts producing tasteful Presets by construction.
 
-Seven new Pipelines + two TextAnimation catalog additions, sized to expand the *vocabulary* without expanding the *surface area* of the engine. Each Pipeline declares its Identity Spec (per [ADR-0015](../adr/0015-identity-spec-per-pipeline.md)) and externalizes aesthetic choices as Pack Roles (per [ADR-0014](../adr/0014-pack-preset-split.md)). The architectural addition is a **variants-as-data** convention inside any family-Pipeline so the *next* primitive in a family lands as a single file, not a new BlockType / OverlayType.
+Seven new Pipelines + two text-effect catalog additions, sized to expand the *vocabulary* without expanding the *surface area* of the engine. Each Pipeline declares its Identity Spec (per [ADR-0015](../adr/0015-identity-spec-per-pipeline.md)) and externalizes aesthetic choices as Pack Roles (per [ADR-0014](../adr/0014-pack-preset-split.md)). The architectural addition is a **variants-as-data** convention inside any family-Pipeline so the *next* primitive in a family lands as a single file, not a new Block type / Overlay type.
 
 ## Problem
 
 Three structural pulls produce the taste deficit:
 
-1. **Monolithic Presets re-author motion from scratch.** Each Preset declares its own marks, overlays, transitions, and effect chain inline. There is no shared "kinetic verb" library; the closest analog is the 24-effect TextAnimation catalog (per [ADR-0011](../adr/0011-text-animation-orchestration.md)), which covers per-unit text staggers but nothing else. Composition-level motion (echo stacks, 3D text, mask wipes, depth-of-field, animated cursors) has no primitive.
+1. **Monolithic Presets re-author motion from scratch.** Each Preset declares its own marks, overlays, transitions, and effect chain inline. There is no shared "kinetic verb" library; the closest analog is `TEXT_EFFECT_CATALOG` (per [ADR-0011](../adr/0011-text-animation-orchestration.md)), which covers per-unit text staggers but nothing else. Composition-level motion (echo stacks, 3D text, mask wipes, depth-of-field, animated cursors) has no primitive.
 2. **Pipeline proliferation for motion variants.** When a Pipeline ships a single fixed shape, the natural next step when more variants are wanted is to add a *new* Pipeline. The registry today holds seven Surfaces, eleven Annotations, five Overlays — many of which are motion-variants of each other. Each new Pipeline must re-declare its Identity Spec, its CanvasSource, its render path; the cost is large enough that variants don't get added, and the library stays narrow.
 3. **Defaulted Identity-Spec dimensions render as div-shaped.** Per [ADR-0015](../adr/0015-identity-spec-per-pipeline.md), a Pipeline that ships with five of six Identity Spec dimensions defaulted reads as an animated div regardless of its claim. The library needs to ship every primitive with every dimension implemented, and Pack Roles must externalize anything aesthetic so the Pipeline's behavior is fully claimed in code.
 
@@ -86,7 +86,7 @@ A diegetic cursor moving between content elements is the "screen recording but b
 - TypeGPU edge: the `torn-paper` variant uses the same value-noise function as the `newspaper-physics` shader pass — same vocabulary, same seed convention; the wipe matches the substrate's edge if the substrate is newspaper.
 - Pack Roles: `mask-wipe.edgeMaterial` (Pack-defined edge texture / noise), `mask-wipe.softnessCurve`.
 
-## TextAnimation catalog additions
+## Text-effect catalog additions
 
 Per [ADR-0011](../adr/0011-text-animation-orchestration.md), text-animation effects that fit the `generic-stagger` strategy ship as JSON in `src/lib/text-animations/raw-catalog/effects/` and sync via `scripts/sync-text-animation-catalog.ts`. Zero pipeline code; zero registry entries. The catalog lane is the cheapest extension surface in the engine and should absorb any motion verb expressible as per-unit (per-character / per-word / per-line) keyframed motion.
 
@@ -165,7 +165,7 @@ Adding `radial-burst` later: one new file under `variants/`, one line in `varian
 - **One Identity Spec per family, not per variant.** Every variant must implement every dimension the family declares. If a proposed variant cannot implement a dimension the family claims, it is not a variant — it is a new Pipeline. This is the discipline that prevents the variants pattern from being abused to ship divs under the family banner.
 - **Motion functions are pure.** No reads of engineState, no DOM access, no time-of-day dependencies. The motion function receives `(instanceIndex, instanceCount, progress)` and returns per-instance state. This keeps the family deterministic and export-parity-safe per the frame-determinism rule.
 - **Default variant is the most restrained one.** Per the taste rule "defaults look good unanimated," the variant set defaults to the lowest-novelty option — `vertical-stack` for `instance-stack`, `cylinder-axis-y` for `text-3d`, `slot-machine-roll` for `counter`. The Producer picks louder variants explicitly.
-- **Variant id is part of the schema.** Adding a variant is a schema change (the Zod enum widens). Validate Presets against the regenerated schema and re-run `node --experimental-strip-types scripts/verify-presets.ts` whenever variants change.
+- **Variant id is part of the schema.** Adding a variant is a schema change (the Zod enum widens). Run `npm run gen:schema` and `npm run verify-presets` whenever variants change.
 
 ### When NOT to use the convention
 
@@ -209,7 +209,7 @@ Effects do not ship Identity Specs (Critic walks effects through the Q-rubric / 
 
 ## Alignment with existing ADRs
 
-- **[ADR-0011](../adr/0011-text-animation-orchestration.md)** — TextAnimation catalog. The two catalog additions (`kerning-pop`, `bracket-pop`) ride the existing `generic-stagger` strategy. No engine changes required for them.
+- **[ADR-0011](../adr/0011-text-animation-orchestration.md)** — text-effect catalog. The two catalog additions (`kerning-pop`, `bracket-pop`) ride the existing `generic-stagger` strategy. No engine changes required for them.
 - **[ADR-0014](../adr/0014-pack-preset-split.md)** — Pack/Preset split. Every aesthetic decision in the library is a Pack Role, not a hardcoded value. Default values live in the `syntax` Pack manifest; future Packs dress the same Presets differently.
 - **[ADR-0015](../adr/0015-identity-spec-per-pipeline.md)** — Identity Spec per Pipeline. Each new Pipeline ships its Identity Spec as part of "done." Registration validator gates on completeness.
 - **[ADR-0016](../adr/0016-anti-patterns-loadbearing-when.md)** — Anti-patterns are loadbearing-when-claimed. `text-3d`'s per-fragment lighting is "drop-shadow stacking on text" when judged against the old anti-pattern list; ADR-0016 says it is loadbearing-when-claimed-by-`light-treatment`. The library leans on this resolution and would be rejected by the pre-ADR-0016 rubric.
@@ -236,7 +236,7 @@ Each stage unblocks the next; value lands before the full library ships.
 For each new Pipeline:
 
 - **AC-L1 (MUST)** Identity Spec ships with every dimension implemented and probed; registration validator passes.
-- **AC-L2 (MUST)** Schema is regenerated and `node --experimental-strip-types scripts/verify-presets.ts` passes.
+- **AC-L2 (MUST)** `npm run gen:schema` and `npm run verify-presets` pass.
 - **AC-L3 (MUST)** At least one verification Preset under `src/lib/presets/` uses the new Pipeline. The Critic returns `ACCEPT` for that Preset.
 - **AC-L4 (MUST)** The Pipeline's Pack Roles are resolved in `docs/packs/syntax/` (or wherever the Pack manifest lands per ADR-0014's rollout).
 - **AC-L5 (MUST)** Default param values produce a frame at `progress=1` that reads as a finished composition without animation. Verified by the Critic against a static screenshot.
@@ -253,7 +253,7 @@ For family-Pipelines additionally:
 The library deliberately does NOT include:
 
 - **A new timeline UI.** mo1's polished timeline (named clips, audio waveform, nested groups) is real and worth chasing, but it is UI work, not engine work. A separate proposal.
-- **Audio support.** ~~Supers is a transparent-overlay tool; audio is an editor concern (DaVinci Resolve), not Supers's. Stays out.~~ **Reconsidered (2026-06, [ADR-0033](../adr/0033-sound-design-motion-emitted-cues.md)):** sound *cues* enter Supers as **motion-emitted sound events** resolved by a swappable **Sound kit** (automatic, frame-deterministic, baked into export). In-app **mixing** still stays out — that remains the NLE's job.
+- **Audio support.** ~~Supers is a transparent-overlay tool; audio is an editor concern (DaVinci Resolve), not Supers's. Stays out.~~ **Reconsidered (2026-06, [ADR-0033](../adr/0033-sound-design-motion-emitted-cues.md)):** motion-emitted sound events resolve through `DEFAULT_EVENT_SAMPLES`, with `sound.event`, `sound.sample`, and `sound.mute` overriding one motion. Cues are automatic, frame-deterministic, and baked into export; in-app mixing still stays out because that remains the NLE's job.
 - **More Surfaces in the typography-led-composition family.** `type-hero`, `title-sequence`, and `chapter-card` already exist; we are not adding `mega-numeric`, `quote-card`, etc. The library expands motion vocabulary, not chrome vocabulary.
 - **Variant proliferation in seed sets.** Each family ships with 2–4 seed variants. New variants come from real Preset needs (a Brief that names one), not from completionism.
 - **Generic morphing between primitives.** `instance-stack` does not animate into `text-3d`. Switching primitive type is a content edit; see `engine-architecture.md` non-goals.
@@ -274,7 +274,7 @@ For grilling. Each becomes either a resolution in the ADR or a follow-up Brief.
 
 ## Why this fits Supers
 
-The engine already supports adding Pipelines at low cost (one folder + one registry line). The library doesn't change that — it commits to *which* Pipelines and *to what taste contract* each new one ships with. The TextAnimation catalog already proves the data-only extension lane works. The Pack/Preset split is decided. The Identity Spec gate is decided. The library plugs into all of these and adds one structural piece (variants as data) that the engine has not yet committed to but obviously needs once families like `instance-stack` exist.
+The engine already supports adding Pipelines at low cost (one folder + one registry line). The library doesn't change that — it commits to *which* Pipelines and *to what taste contract* each new one ships with. `TEXT_EFFECT_CATALOG` already proves the data-only extension lane works. The Pack/Preset split is decided. The Identity Spec gate is decided. The library plugs into all of these and adds one structural piece (variants as data) that the engine has not yet committed to but obviously needs once families like `instance-stack` exist.
 
 The mo1.app reference is useful as a vocabulary forcing function (echo stacks, 3D text, scale-counterpoint, cursor-driven scenes) but the library is not a clone. mo1's stack is CSS / SVG / DOM; Supers's edge is TypeGPU + HTML-in-Canvas at 4K with real materials and real lensing. Every primitive in the library exists because there is a TypeGPU strength that justifies it, not because mo1 has the same verb.
 

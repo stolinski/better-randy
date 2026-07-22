@@ -1,7 +1,7 @@
 import { gsap } from 'gsap';
 import { SplitText } from 'gsap/SplitText';
 
-import type { SplitMode } from './catalog';
+import type { TextEffectSplitMode } from './catalog';
 
 let registered = false;
 
@@ -16,9 +16,9 @@ function ensureRegistered(): void {
 	registered = true;
 }
 
-export interface SplitResult {
+export interface TextAnimationSplitResult {
 	root: HTMLElement;
-	mode: SplitMode;
+	mode: TextEffectSplitMode;
 	units: HTMLElement[];
 	/** textContent of the root captured at split time — change detector. */
 	signature: string;
@@ -41,7 +41,10 @@ export interface SplitResult {
  * Throws if `element` is empty (the manager guards this; the throw is a
  * defensive check so the calling site can be loud about misuse).
  */
-export function splitElement(element: HTMLElement, mode: SplitMode): SplitResult {
+export function splitTextAnimationElement(
+	element: HTMLElement,
+	mode: TextEffectSplitMode
+): TextAnimationSplitResult {
 	ensureRegistered();
 
 	const signature = element.textContent ?? '';
@@ -79,7 +82,7 @@ export function splitElement(element: HTMLElement, mode: SplitMode): SplitResult
 		};
 	}
 
-	const splitTypeMap: Record<Exclude<SplitMode, 'whole'>, string> = {
+	const splitTypeMap: Record<Exclude<TextEffectSplitMode, 'whole'>, string> = {
 		'per-character': 'chars',
 		'per-word': 'words',
 		'per-line': 'lines'

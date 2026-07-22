@@ -14,7 +14,7 @@ function defaults(): SurfaceState {
 	};
 }
 
-export const plain: SurfaceRenderer = {
+export const plainSurfaceRenderer: SurfaceRenderer = {
 	type: 'plain',
 	label: 'Plain',
 	controls: {

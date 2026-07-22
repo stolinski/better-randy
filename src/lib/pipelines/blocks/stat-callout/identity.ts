@@ -1,7 +1,7 @@
 /**
  * Identity Spec for the `stat-callout` diagram Block (ADR-0036) — a number
  * that builds, reusing the counter overlay's proven roll behaviour on the
- * element's own window.
+ * primitive's own window.
  */
 
 import type { IdentitySpec } from '$lib/platform/pipelines/identity';

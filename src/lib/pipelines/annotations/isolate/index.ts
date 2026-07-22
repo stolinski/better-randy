@@ -1,6 +1,6 @@
 import type { AnnotationFocalSlot, AnnotationRenderer } from '$lib/platform/pipelines/types';
 
-export const isolate: AnnotationRenderer = {
+export const isolateAnnotationRenderer: AnnotationRenderer = {
 	style: 'isolate',
 	kind: 'focal',
 	appliesTo: ['paragraph'],

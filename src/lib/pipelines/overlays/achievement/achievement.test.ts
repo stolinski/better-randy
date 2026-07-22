@@ -10,7 +10,11 @@ import { resolveAppearanceVars } from '$lib/platform/packs/resolve';
 import { deriveSoundCues } from '$lib/platform/sound-cues';
 import { getVideoFrameSize } from '$lib/utils/video-frame';
 
-import { achievement, achievementFrameLayout, type AchievementContent } from './index';
+import {
+	achievementFrameLayout,
+	achievementOverlayRenderer,
+	type AchievementContent
+} from './index';
 import { checklistCompleteMotion } from './variants/checklist-complete';
 import { setAchievementBeat, setAchievementVariant, VARIANTS } from './variants';
 import { unlockedMotion } from './variants/unlocked';
@@ -39,7 +43,7 @@ function stateWithAchievement(content: AchievementContent): EngineState {
 
 describe('achievement Overlay', () => {
 	it('parses the shared content contract and rejects unknown variants', () => {
-		const valid = achievement.schema.safeParse({
+		const valid = achievementOverlayRenderer.schema.safeParse({
 			variant: 'checklist-complete',
 			kicker: 'TASK COMPLETE',
 			title: 'Env vars set',
@@ -47,7 +51,7 @@ describe('achievement Overlay', () => {
 		});
 		assert.ok(valid.success, valid.success ? '' : valid.error.message);
 
-		const unknown = achievement.schema.safeParse({
+		const unknown = achievementOverlayRenderer.schema.safeParse({
 			variant: 'score-burst',
 			kicker: 'TASK COMPLETE',
 			title: 'Env vars set',

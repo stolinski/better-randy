@@ -2,7 +2,7 @@
 	"schema": "supers@1",
 	"name": "Docu timeline build — Clean Light re-dress",
 	"description": "Calibration Trio piece 1/3 for the clean-light pack: the ratified docu-timeline reference re-dressed under Clean Light (playbook § 5). Same composition, same choreography — the language rebuilt for the white studio: light field, thin plotter rules in cool near-black ink, Geist Mono labels, quiet floats. Authored typography overrides lifted so the pack cores decide (ADR-0038).",
-	"kind": "deliverable",
+	"kind": "fixture",
 	"pack": "clean-light",
 	"state": {
 		"transport": {

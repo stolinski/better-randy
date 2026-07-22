@@ -13,10 +13,10 @@
 	import { PIPELINE_REGISTRY } from './pipelines';
 	import type { OverlayRenderer } from './pipelines/types';
 	import {
-		EFFECT_CATALOG,
-		EFFECT_IDS,
-		SPLIT_MODES,
-		type SplitMode
+		TEXT_EFFECT_CATALOG,
+		TEXT_EFFECT_IDS,
+		TEXT_EFFECT_SPLIT_MODES,
+		type TextEffectSplitMode
 	} from '$lib/text-animations/catalog';
 	import { formatFractionAsSeconds } from '$lib/utils/string';
 	import AddMenu from './AddMenu.svelte';
@@ -64,14 +64,14 @@
 	);
 
 	const effectsBySplit = $derived.by(() => {
-		const out: Record<SplitMode, { id: string; label: string }[]> = {
+		const out: Record<TextEffectSplitMode, { id: string; label: string }[]> = {
 			whole: [],
 			'per-character': [],
 			'per-word': [],
 			'per-line': []
 		};
-		for (const id of EFFECT_IDS) {
-			const spec = EFFECT_CATALOG.get(id);
+		for (const id of TEXT_EFFECT_IDS) {
+			const spec = TEXT_EFFECT_CATALOG.get(id);
 			if (!spec) continue;
 			out[spec.target].push({ id, label: spec.displayName });
 		}
@@ -80,7 +80,7 @@
 
 	// The add-menu's grouped items — one group per split mode with effects.
 	const effectMenuGroups = $derived(
-		SPLIT_MODES.filter((mode) => effectsBySplit[mode].length > 0).map((mode) => ({
+		TEXT_EFFECT_SPLIT_MODES.filter((mode) => effectsBySplit[mode].length > 0).map((mode) => ({
 			label: mode,
 			items: effectsBySplit[mode].map((opt) => ({ value: opt.id, label: opt.label }))
 		}))
@@ -194,7 +194,7 @@
 
 	function handleAddTextAnimation(slot: 'kicker' | 'title' | 'subtitle', effectId: string): void {
 		if (!effectId) return;
-		const spec = EFFECT_CATALOG.get(effectId);
+		const spec = TEXT_EFFECT_CATALOG.get(effectId);
 		if (!spec) return;
 		addTextAnimation({
 			target: { kind: 'overlay', overlayId, slot },
@@ -220,7 +220,7 @@
 	}
 
 	function textAnimationEffectChange(entry: TextAnimation, value: string): void {
-		if (!EFFECT_CATALOG.has(value)) return;
+		if (!TEXT_EFFECT_CATALOG.has(value)) return;
 		entry.effect = value;
 	}
 
@@ -513,7 +513,7 @@
 						onchange={(e) =>
 							textAnimationEffectChange(entry, (e.currentTarget as HTMLSelectElement).value)}
 					>
-						{#each SPLIT_MODES as mode (mode)}
+						{#each TEXT_EFFECT_SPLIT_MODES as mode (mode)}
 							<optgroup label={mode}>
 								{#each effectsBySplit[mode] as opt (opt.id)}
 									<option value={opt.id}>{opt.label}</option>

@@ -4,6 +4,7 @@
 	import { ENGINE_EASES, type Ease, type Keyframe } from './engine-schema';
 	import { engineState } from './engine-state.svelte';
 	import { keyframeSelection, selectKeyframe } from './selection.svelte';
+	import { createKeyframeSelectionId, createTimelineTrackId } from './timeline-entity-identity';
 	import { timelineHandle } from './timeline-handle.svelte';
 	import InspectorSection from './InspectorSection.svelte';
 
@@ -43,22 +44,25 @@
 			: engineState.overlays.findIndex((overlay) => selfKey === `overlay:${overlay.id}`)
 	);
 	const overlay = $derived(overlayIndex >= 0 ? engineState.overlays[overlayIndex] : null);
-	// Diagram Block elements (ADR-0036) are channel owners too — `block:{id}`.
+	// Diagram primitive Blocks (ADR-0036) are channel owners too — `block:{id}`.
 	const blockId = $derived(selfKey.startsWith('block:') ? selfKey.slice('block:'.length) : null);
-	const blockElement = $derived(
+	const blockPrimitive = $derived(
 		blockId
-			? ((engineState.surface.diagram ?? []).find((element) => element.id === blockId) ?? null)
+			? ((engineState.surface.diagram ?? []).find((primitive) => primitive.id === blockId) ?? null)
 			: null
 	);
 	const owner = $derived<ChannelOwner | null>(
-		selfKey === 'surface' ? engineState.surface : (blockElement ?? overlay ?? null)
+		selfKey === 'surface' ? engineState.surface : (blockPrimitive ?? overlay ?? null)
 	);
 	const trackRowId = $derived(
 		selfKey === 'surface'
-			? 'surface'
+			? createTimelineTrackId({ kind: 'surface' })
 			: blockId
-				? `block-${blockId}`
-				: `overlay-${selfKey.slice('overlay:'.length)}`
+				? createTimelineTrackId({ kind: 'block', blockId })
+				: createTimelineTrackId({
+						kind: 'overlay',
+						overlayId: selfKey.slice('overlay:'.length)
+					})
 	);
 
 	const durationMs = $derived(engineState.transport.durationSeconds * 1000);
@@ -101,7 +105,7 @@
 				return round(slot[channel as keyof typeof slot] ?? 0);
 			}
 			if (channel === 'scale') {
-				return blockElement && 'scale' in blockElement ? (blockElement.scale ?? 1) : 1;
+				return blockPrimitive && 'scale' in blockPrimitive ? (blockPrimitive.scale ?? 1) : 1;
 			}
 			return channel === 'opacity' ? 1 : channel === 'rotation' ? 0 : 0;
 		}
@@ -275,7 +279,8 @@
 		{#if onKeyframe && atIndex > 0}
 			<div
 				class="kf-ease"
-				data-selected={keyframeSelection.key === `${trackRowId}:${channel}:${atIndex}` || undefined}
+				data-selected={keyframeSelection.id ===
+					createKeyframeSelectionId(trackRowId, channel, atIndex) || undefined}
 			>
 				<span class="kf-ease__label">ease into</span>
 				<select

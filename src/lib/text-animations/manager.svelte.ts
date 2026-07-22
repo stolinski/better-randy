@@ -1,13 +1,12 @@
-import gsap from 'gsap';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 import type { AnimationTweenSpec } from '$lib/platform/animation-manager';
 import type { TextAnimation, Transport } from '$lib/platform/engine-schema';
 
-import { EFFECT_CATALOG, type EffectSpec, type SplitMode } from './catalog';
-import { compile } from './compile';
-import { splitElement, type SplitResult } from './split-text';
-import type { ResolvedUnit } from './unit-types';
+import { TEXT_EFFECT_CATALOG, type TextEffectSpec, type TextEffectSplitMode } from './catalog';
+import { compileTextAnimation } from './compile';
+import { splitTextAnimationElement, type TextAnimationSplitResult } from './split-text';
+import type { TextAnimationResolvedUnit } from './unit-types';
 
 const DATA_SLOT_ATTRIBUTE = 'data-text-anim-slot';
 
@@ -15,7 +14,7 @@ const DATA_SLOT_ATTRIBUTE = 'data-text-anim-slot';
  * Stable key derived from an entry's target. Used as the lookup index for
  * `unitAlphaAt` and for matching DOM nodes back to entries.
  */
-export function slotKeyFor(entry: TextAnimation): string {
+export function textAnimationSlotKeyFor(entry: TextAnimation): string {
 	if (entry.target.kind === 'surface') {
 		return `surface:${entry.target.slot}`;
 	}
@@ -23,31 +22,25 @@ export function slotKeyFor(entry: TextAnimation): string {
 }
 
 /**
- * DOM-selector form of `slotKeyFor`. Overlay slots are scoped under their
+ * DOM-selector form of `textAnimationSlotKeyFor`. Overlay slots are scoped under their
  * overlay container via `data-overlay-id`; surface slots live directly under
  * the surface CanvasSource root.
  */
 function findSlotElement(root: HTMLElement, entry: TextAnimation): HTMLElement | null {
 	if (entry.target.kind === 'surface') {
-		return root.querySelector<HTMLElement>(
-			`[${DATA_SLOT_ATTRIBUTE}="${entry.target.slot}"]`
-		);
+		return root.querySelector<HTMLElement>(`[${DATA_SLOT_ATTRIBUTE}="${entry.target.slot}"]`);
 	}
 
-	const scope = root.querySelector<HTMLElement>(
-		`[data-overlay-id="${entry.target.overlayId}"]`
-	);
+	const scope = root.querySelector<HTMLElement>(`[data-overlay-id="${entry.target.overlayId}"]`);
 	const within = scope ?? root;
-	return within.querySelector<HTMLElement>(
-		`[${DATA_SLOT_ATTRIBUTE}="${entry.target.slot}"]`
-	);
+	return within.querySelector<HTMLElement>(`[${DATA_SLOT_ATTRIBUTE}="${entry.target.slot}"]`);
 }
 
 interface ActiveEntry {
 	entry: TextAnimation;
-	spec: EffectSpec;
-	split: SplitResult;
-	units: ResolvedUnit[];
+	spec: TextEffectSpec;
+	split: TextAnimationSplitResult;
+	units: TextAnimationResolvedUnit[];
 	tweens: AnimationTweenSpec[];
 }
 
@@ -88,10 +81,10 @@ export class TextAnimationManager {
 		const out: AnimationTweenSpec[] = [];
 
 		for (const entry of entries) {
-			const key = slotKeyFor(entry);
+			const key = textAnimationSlotKeyFor(entry);
 			nextKeys.add(key);
 
-			const spec = EFFECT_CATALOG.get(entry.effect);
+			const spec = TEXT_EFFECT_CATALOG.get(entry.effect);
 			if (!spec) {
 				continue;
 			}
@@ -102,7 +95,7 @@ export class TextAnimationManager {
 			}
 
 			const existing = this.#active.get(key);
-			const splitMode = spec.target satisfies SplitMode;
+			const splitMode = spec.target satisfies TextEffectSplitMode;
 
 			// Re-split when Svelte replaced the slot element (a `{#key}` on the
 			// slot's content forces this on every authored edit — without it,
@@ -115,15 +108,15 @@ export class TextAnimationManager {
 				existing.split.mode !== splitMode ||
 				existing.split.signature !== element.textContent;
 
-			let split: SplitResult;
+			let split: TextAnimationSplitResult;
 			if (needsResplit) {
 				existing?.split.revert();
-				split = splitElement(element, splitMode);
+				split = splitTextAnimationElement(element, splitMode);
 			} else {
 				split = existing.split;
 			}
 
-			const units: ResolvedUnit[] = split.units.map((el, index) => ({
+			const units: TextAnimationResolvedUnit[] = split.units.map((el, index) => ({
 				index,
 				element: el,
 				text: el.textContent ?? ''
@@ -142,7 +135,7 @@ export class TextAnimationManager {
 				}
 			};
 
-			const compiled = compile({
+			const compiled = compileTextAnimation({
 				entry,
 				spec,
 				units,
@@ -191,11 +184,17 @@ export class TextAnimationManager {
 	 * marks renderer uses this to take a `min`-over-overlapped-units when a
 	 * per-word or per-line entry shares the body slot with marks.
 	 */
-	unitRangeFor(slotKey: string, startChar: number, endChar: number): { from: number; to: number } | null {
+	unitRangeFor(
+		slotKey: string,
+		startChar: number,
+		endChar: number
+	): { from: number; to: number } | null {
 		// Walk the units' textContent to find character offsets. Only called
 		// from the per-frame loop on bodies that have marks-coupling enabled,
 		// so the linear cost is acceptable.
-		const entry = [...this.#active.values()].find((a) => slotKeyFor(a.entry) === slotKey);
+		const entry = [...this.#active.values()].find(
+			(a) => textAnimationSlotKeyFor(a.entry) === slotKey
+		);
 		if (!entry) {
 			return null;
 		}
@@ -232,9 +231,6 @@ export class TextAnimationManager {
 		this.#unitAlpha.clear();
 	}
 }
-
-// Re-export the slot-key helper for the marks-coupling consumer site.
-export { gsap as gsapInstance };
 
 declare global {
 	interface Window {

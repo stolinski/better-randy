@@ -1,6 +1,6 @@
 import type { AnnotationFocalSlot, AnnotationRenderer } from '$lib/platform/pipelines/types';
 
-export const liftOut: AnnotationRenderer = {
+export const liftOutAnnotationRenderer: AnnotationRenderer = {
 	style: 'lift-out',
 	kind: 'focal',
 	appliesTo: ['paragraph'],

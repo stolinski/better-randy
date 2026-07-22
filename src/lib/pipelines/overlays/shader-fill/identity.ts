@@ -15,7 +15,7 @@ export const shaderFillIdentity: IdentitySpec = {
 	claim: 'a procedurally shaded fill region anchored within the frame',
 	packImmunity: {
 		rationale:
-			'The three authored gradient colours ARE the content (preset color0/1/2), not a Pack dress; the pipeline is dead-by-use pending prove-or-remove (see packs/resolve.ts), so it deliberately consumes no Pack Roles rather than half-wearing one.'
+			'The three authored gradient colours ARE the content (preset color0/1/2), not a Pack dress. The retained shaderPass deliberately consumes no Pack Roles so switching Packs cannot rewrite authored visual content.'
 	},
 	dimensions: [
 		{

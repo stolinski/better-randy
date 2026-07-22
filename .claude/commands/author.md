@@ -12,13 +12,13 @@ Parse `$ARGUMENTS` as the Brief's slug.
   - If the preset JSON exists but the Brief doesn't, the slug refers to a *pre-Brief preset* (grandfathered, see `docs/briefs/README.md` § Pre-Brief presets). Stop and tell the user: "`<slug>` is a pre-Brief preset — `/author` requires a Brief. If you want to rewrite it, run `/brainstorm <slug>` first to create one. For a `/critic` REVISE fix, edit the JSON directly without `/author`."
   - If neither exists, list available Briefs from `docs/briefs/*.md` (excluding `README.md`) and stop.
 - Read the Brief. If `## Open questions` contains any items, stop and tell the user: "Brief has N open question(s) — resume `/brainstorm <slug>` before authoring." Do not proceed.
-- Note the Brief's `Kind:` and (for `pipeline` / `domain`) `Verification preset:` — these go into the spawn prompt.
+- Note the Brief's required `Pack:`, its `Kind:`, and (for `pipeline` / `domain`) `Verification preset:`. Stop if the Pack is absent or not registered in `PACK_REGISTRY`; these values go into the spawn prompt.
 
 If `$ARGUMENTS` is empty: list available Briefs and stop.
 
 ## Step 2 — spawn the Producer
 
-Use the **Agent tool** with `subagent_type: "general-purpose"` and the prompt below verbatim, substituting `<slug>`. **Do not** include any of the current conversation as context — the Producer must run with a fresh framing (parallel to the Critic's framing-flip per [ADR-0001](../../docs/adr/0001-critic-sub-agent-verification.md) and [ADR-0007](../../docs/adr/0007-brainstorm-brief-system.md)).
+Use the **Agent tool** with `subagent_type: "general-purpose"` and the prompt below verbatim, substituting `<slug>` and `<pack>` from the Brief metadata. **Do not** include any of the current conversation as context — the Producer must run with a fresh framing (parallel to the Critic's framing-flip per [ADR-0001](../../docs/adr/0001-critic-sub-agent-verification.md) and [ADR-0007](../../docs/adr/0007-brainstorm-brief-system.md)).
 
 ```
 You are the Supers Producer for the Brief at `docs/briefs/<slug>.md`.
@@ -41,9 +41,9 @@ declares. For each:
 
 - Preset JSON: write to `src/lib/presets/<slug>.json` (or the verification-
   preset slug for pipeline/domain Briefs). Validate by running
-  `node --experimental-strip-types scripts/verify-presets.ts` — if it
+  `npm run verify-presets` — if it
   errors, fix the JSON, do not loosen the schema.
-- Pipeline code: write under `src/lib/platform/pipelines/<layer>/<variant>/`
+- Pipeline code: write under `src/lib/pipelines/<layer>/<variant>/`
   following the existing renderer pattern. Strict TypeScript, no `any`,
   explicit return types on exports.
 - ADR: if the Brief's `ADR required?` is `yes`, draft
@@ -51,19 +51,18 @@ declares. For each:
   paragraph, considered-options list with rejected reasons, consequences
   paragraph).
 - Schema additions: if needed, update `src/lib/platform/engine-schema.ts`
-  and regenerate the JSON schema with
-  `node --experimental-strip-types scripts/export-preset-schema.ts`.
+  and regenerate the JSON schema with `npm run gen:schema`.
 
 Constraints, all binding:
 
-- Transparent output: never paint an opaque canvas background.
-  `loadOp: 'clear'` with `clearValue: [0, 0, 0, 0]`; canvas context
-  `alphaMode: 'premultiplied'`.
+- Transparency is the default. Keep `loadOp: 'clear'`, `clearValue:
+  [0, 0, 0, 0]`, and canvas `alphaMode: 'premultiplied'`; paint to the frame
+  edges only when the composition declares a full-frame fill or stage.
 - Frame-determinism: drive animation from explicit `timestamp` / `frame`.
 - Native resolution: 3840×2160 or 2160×3840. No upscaling.
 - No TODOs, placeholder content, no-op stubs.
 - No new utility folders. Shared helpers in `src/lib/utils/`.
-- Don't start a dev server — one runs at http://localhost:5173.
+- Don't start a dev server — one runs at http://localhost:7263.
 
 Do NOT:
 - Verify the result against the rubrics. That's the Critic's job.

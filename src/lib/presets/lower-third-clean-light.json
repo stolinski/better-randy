@@ -3,6 +3,7 @@
 	"name": "Lower-third (Clean Light re-dress)",
 	"description": "Calibration Trio piece 2/3 for the clean-light pack: the Syntax house-card lower-third reference re-dressed under Clean Light (playbook § 5). Same overlay, same enter/exit — the card becomes the white product object: white plate, thin #e3e8ee rule, the quiet layered float, blue kicker, Geist/Geist Mono voices. Typography overrides lifted so the pack cores decide (ADR-0038).",
 	"pack": "clean-light",
+	"kind": "fixture",
 	"state": {
 		"transport": {
 			"orientation": "horizontal",

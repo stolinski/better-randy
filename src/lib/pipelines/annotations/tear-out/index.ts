@@ -1,6 +1,6 @@
 import type { AnnotationFocalSlot, AnnotationRenderer } from '$lib/platform/pipelines/types';
 
-export const tearOut: AnnotationRenderer = {
+export const tearOutAnnotationRenderer: AnnotationRenderer = {
 	style: 'tear-out',
 	kind: 'focal',
 	appliesTo: ['paragraph'],

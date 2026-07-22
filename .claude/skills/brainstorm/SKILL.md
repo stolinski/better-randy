@@ -1,11 +1,11 @@
 ---
 name: brainstorm
-description: Grill the user toward a Supers Brief at `docs/briefs/<slug>.md`. Propose options from the active Pack's aesthetic doc (`docs/packs/<pack>/aesthetic.md`) and the existing Registry at each decision point; never just passively capture. Use when the user wants to design a new Preset, Pipeline, or content domain — e.g. "let's brainstorm a tweet overlay," "we need a new pullquote variant," "/brainstorm <slug>". Do NOT use to author the Preset itself — hand off to `/author <slug>` once the Brief's "Open questions" is empty.
+description: Grill the user toward a Supers Brief and propose options from the active Pack's aesthetic doc and the existing Registry at each decision point. Use when the user says "brainstorm a preset," "design a new pipeline," or `/brainstorm SLUG`. Do not use to author or verify a Preset.
 ---
 
 # Supers Brainstorm
 
-The operational form of [ADR-0007](../../docs/adr/0007-brainstorm-brief-system.md). Drives the conversation that produces a [`Brief`](../../docs/briefs/README.md). The agent's stance is **active proposer** — surfaces 2–3 concrete options from `docs/packs/syntax/aesthetic.md` § Motion Vocabulary, the existing Registry, and `docs/inspo/` at every decision point, rather than passively recording user input.
+The operational form of [ADR-0007](../../../docs/adr/0007-brainstorm-brief-system.md). Drives the conversation that produces a [`Brief`](../../../docs/briefs/README.md). The agent's stance is **active proposer** — surfaces 2–3 concrete options from the selected Pack's `docs/packs/<pack>/aesthetic.md`, the existing Registry, and `docs/inspo/` at every decision point, rather than passively recording user input.
 
 ## When this skill fires
 
@@ -24,16 +24,18 @@ Read in order, even if you "already know" them — the proposals you make at eac
 
 1. `docs/briefs/README.md` — the template you're filling and the lifecycle invariant.
 2. `docs/CONTEXT.md` — Brief, Producer, Critic, Brainstorm definitions.
-3. `docs/packs/syntax/aesthetic.md` — Motion Vocabulary, Channel chrome, Surface Vocabulary, Anti-Aesthetic.
+3. `src/lib/platform/packs/registry.ts` — registered Pack slugs; there is no implicit default.
 4. `docs/preset-format.md` — the `supers@1` schema you'll eventually have to satisfy.
 5. `ls src/lib/presets/` — existing slugs (collision check) and family naming.
 6. `docs/adr/` — quick scan for relevant decisions (e.g. ADR-0006 if it's a lower-third-shaped idea).
+
+After resolving the Brief's Pack in Step 1, read `docs/packs/<pack>/aesthetic.md` before proposing Surfaces, motion, or chrome.
 
 Do not load `docs/quality-rubric.md` or `docs/animation-rubric.md` during brainstorm — those are Critic-side. The brainstorm should propose moves that *will* pass them, not relitigate them.
 
 ## Non-negotiables — never put these to the user
 
-- **One Preset, both orientations, every Pack.** Every Preset reflows across horizontal (3840×2160) and vertical (2160×3840) and renders under every Pack ([ADR-0039](../../docs/adr/0039-pack-neutral-compositions-and-listing-hygiene.md) deleted the per-orientation dupes for exactly this reason). Never ask "separate vertical and horizontal presets?" and never scope a Brief to one orientation or one Pack. What *is* worth grilling: **how** the composition reflows — stacking, safe-areas, focal-slot placement — where the vertical frame changes the geometry.
+- **One Preset, both orientations, every Pack.** Every new deliverable Preset reflows across horizontal (3840×2160) and vertical (2160×3840) and renders under every Pack ([ADR-0039](../../../docs/adr/0039-pack-neutral-compositions-and-listing-hygiene.md)). Never ask "separate vertical and horizontal presets?" and never create an orientation or Pack sibling. Existing fixture-only recompositions are engine-gap evidence, not authoring precedent. What *is* worth grilling: **how** the composition reflows — stacking, safe-areas, focal-slot placement — where the vertical frame changes the geometry.
 - **No hosting constraints.** Supers is local-only; never let deployment concerns (Cloudflare or otherwise) shape a Brief.
 
 ## Protocol
@@ -46,7 +48,7 @@ Parse `$ARGUMENTS` (or the user's prompt) as a kebab-case slug.
 - If `src/lib/presets/<slug>.json` exists: ask whether this is a variant (new slug needed), a rewrite (the existing preset is being reauthored — confirm before overwriting), or a misnamed slug.
 - If no slug was given: ask, then proceed.
 
-### Step 1 — kind
+### Step 1 — kind and Pack
 
 Resolve `Kind: preset | pipeline | domain` via AskUserQuestion. Frame the options concretely:
 
@@ -56,14 +58,16 @@ Resolve `Kind: preset | pipeline | domain` via AskUserQuestion. Frame the option
 
 If `pipeline` or `domain`: also resolve `verification preset` (the slug that will gate the delete trigger). It can be a new slug that doesn't exist yet — you'll author it from the same Brief.
 
+Resolve `Pack:` from `PACK_REGISTRY`; do not assume `syntax`. The selection is the Preset's initial appearance dress, not a scope restriction: the finished composition must still work under every Pack. Record the selected slug in the Brief metadata, then read `docs/packs/<pack>/aesthetic.md` before continuing.
+
 ### Step 2 — pitch
 
-Ask: "In one paragraph, what is this and why does it land for the channel?" Don't accept "it's a cool overlay" — push until the answer names *what* it shows and *why a Syntax.fm viewer would care*.
+Ask: "In one paragraph, what is this and why does it land for the intended audience?" Don't accept "it's a cool overlay" — push until the answer names *what* it shows and why the viewer would care.
 
 ### Step 3 — Surface choice
 
 For `kind: preset`:
-- Read `docs/packs/syntax/aesthetic.md` § Surface Vocabulary. Propose 2–3 plausible Surfaces with their substrate + body type + channel chrome implications listed. Use AskUserQuestion with previews showing the trade-offs.
+- Read `docs/packs/<pack>/aesthetic.md` § Surface Vocabulary. Propose 2–3 plausible Surfaces with their substrate + body type + channel chrome implications listed. Use AskUserQuestion with previews showing the trade-offs.
 - If the user picks a Surface that doesn't currently have a Pipeline (rare), flip the brief to `kind: pipeline` and treat this preset as its verification preset.
 
 For `kind: pipeline` / `kind: domain`:
@@ -77,7 +81,7 @@ Push back on placeholder copy ("Lorem ipsum," "Some headline here"). The Produce
 
 ### Step 5 — motion plan (the heaviest grill section)
 
-This is where the "agent proposes options" stance matters most. Don't ask "what motion?" — read `docs/packs/syntax/aesthetic.md` § Motion Vocabulary and propose 2–3 named combinations from the **lean-in** list, each as an AskUserQuestion option with a preview showing the timeline shape.
+This is where the "agent proposes options" stance matters most. Don't ask "what motion?" — read `docs/packs/<pack>/aesthetic.md` § Motion Vocabulary and propose 2–3 named combinations from the **lean-in** list, each as an AskUserQuestion option with a preview showing the timeline shape.
 
 Example proposal shape:
 
@@ -101,13 +105,7 @@ Name the **focal slot**(s) and the timeline shape (entry → reveal → exit bea
 
 ### Step 6 — channel chrome notes
 
-Walk `docs/packs/syntax/aesthetic.md` § Collage System and check each element off explicitly:
-
-- Mono signature thread — present? where (kicker / source URL / date / watermark)?
-- Hard offset shadow — present? offset px? color?
-- Torn edge with white fiber — present?
-- Registration jitter — present? on which marks?
-- Grit overlay — present? (composition-wide via `effects.frame: paper-grain`)
+Walk the selected `docs/packs/<pack>/aesthetic.md` appearance vocabulary and check each named signature element explicitly. Do not import Syntax-specific chrome into another Pack.
 
 For each omission, ask why. Either it's intentional (capture the reason — the Producer will land it in the Preset's `description` so the Critic doesn't re-flag it) or it's an oversight (add it).
 
@@ -116,9 +114,9 @@ For each omission, ask why. Either it's intentional (capture the reason — the 
 For `kind: preset`: usually "none — composes from the existing Registry." Confirm by listing the Pipelines the brief will use (Surface, Block, Annotation styles, Overlay types, Effect types) and verifying each exists.
 
 For `kind: pipeline` / `kind: domain`: enumerate the additions:
-- New Pipeline file(s) under `src/lib/platform/pipelines/<layer>/<variant>/`
+- New Pipeline file(s) under `src/lib/pipelines/<layer>/<variant>/`
 - Schema additions to `src/lib/platform/engine-schema.ts`
-- Shader passes (reference [ADR-0005](../../docs/adr/0005-overlay-renderer-shader-pass.md) if it's overlay-shaped)
+- Shader passes (reference [ADR-0005](../../../docs/adr/0005-overlay-renderer-shader-pass.md) if it's overlay-shaped)
 - New `Effect` types
 - Etc.
 
@@ -142,20 +140,22 @@ The Brief is **not** `ready to /author` while open questions remain. Tell the us
 
 ### Step 10 — "what 'done' looks like"
 
-Write the concrete deliverables block at the end of the Brief. For `kind: preset`:
+Write the concrete deliverables block at the end of the Brief. Explicitly require both native horizontal and vertical renders in every Brief, even when neither orientation came up elsewhere in the grill. For `kind: preset`:
 
 ```
-src/lib/presets/<slug>.json Critic-ACCEPTs at native 4K.
+src/lib/presets/<slug>.json Critic-ACCEPTs at native horizontal (3840×2160)
+and vertical (2160×3840) resolutions with no orientation-specific sibling Preset.
 ```
 
 For `kind: pipeline` / `kind: domain`:
 
 ```
-- src/lib/platform/pipelines/<layer>/<variant>/index.ts (the renderer)
-- src/lib/platform/pipelines/<layer>/<variant>/CanvasSource.svelte (if applicable)
+- src/lib/pipelines/<layer>/<variant>/index.ts (the renderer)
+- src/lib/pipelines/<layer>/<variant>/CanvasSource.svelte (if applicable)
 - docs/adr/<NNNN>-<slug>.md
 - src/lib/presets/<verification-slug>.json
-- /critic <verification-slug> returns ACCEPT
+- /critic <verification-slug> returns ACCEPT for native horizontal (3840×2160)
+  and vertical (2160×3840) renders of the same Preset
 ```
 
 ### Step 11 — write the Brief
@@ -172,14 +172,14 @@ Open questions: <0 or N>.
 Next: /author <slug>   ← when open questions are 0.
 ```
 
-Do **not** start authoring in the same session — `/author` is a fresh Producer sub-agent for a reason ([ADR-0007](../../docs/adr/0007-brainstorm-brief-system.md), parallel to ADR-0001's framing-flip).
+Do **not** start authoring in the same session — `/author` is a fresh Producer sub-agent for a reason ([ADR-0007](../../../docs/adr/0007-brainstorm-brief-system.md), parallel to ADR-0001's framing-flip).
 
 ## House style for the grill
 
 - **AskUserQuestion previews are the proposal mechanism.** Use them whenever there are 2–4 named options with concrete trade-offs. Show the timeline shape, the chrome composition, or the schema delta as ASCII in the preview.
 - **One question at a time** — wait for the answer before moving to the next decision.
-- **Cite the source doc** when proposing — `docs/packs/syntax/aesthetic.md § Motion Vocabulary`, `engine-architecture.md`, `ADR-0005`. The user should be able to verify your proposal against the binding doc.
-- **Push back on Anti-Aesthetic moves** — if the user wants a pastel gradient, a gaussian shadow on the collage layer, or an axis-perfect rectangular card, name the `docs/packs/syntax/aesthetic.md § Anti-Aesthetic` line and ask if they're sure. Record the deviation reasoning in the Brief if they confirm.
+- **Cite the source doc** when proposing — `docs/packs/<pack>/aesthetic.md § Motion Vocabulary`, `engine-architecture.md`, `ADR-0005`. The user should be able to verify your proposal against the binding doc.
+- **Push back on Anti-Aesthetic moves** — name the selected Pack's `docs/packs/<pack>/aesthetic.md § Anti-Aesthetic` line and ask if the user wants an intentional deviation. Record the reasoning in the Brief if they confirm.
 - **Don't author code or JSON in this skill.** Briefs are markdown only. If you find yourself writing schema fragments, stop — that's the Producer's job.
 
 ## Anti-pattern: brainstorm becomes authoring

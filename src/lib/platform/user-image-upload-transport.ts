@@ -1,4 +1,7 @@
-import { MAX_USER_IMAGE_BYTES, userImageFormatForMime } from '$lib/utils/user-image-assets';
+import {
+	MAX_USER_IMAGE_BYTES,
+	userImageFormatForMime
+} from '$lib/utils/user-image-format-validation';
 
 interface UserImageUploadResponse {
 	url: string;

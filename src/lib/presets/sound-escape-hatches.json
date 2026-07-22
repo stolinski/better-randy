@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Sound — escape hatches (fixture)",
-	"description": "Engine fixture exercising every ADR-0033 §5 sound escape hatch on one full-frame piece: the surface enter emits its default whoosh-in through the core kit; the surface exit is MUTED per-motion; the mark draw-on SWAPS its event from tick to pop; the lower-third enter LOCKS a specific sample (core-sting), bypassing kit resolution; audioCues[] carries a manual free-standing outro cue at an absolute fraction and the single ambient BED (segments/bumpers only — this piece declares backgroundFill). Export bakes all of it via the deterministic offline mix; preview schedules the same plan on play.",
+	"description": "Engine fixture exercising every ADR-0033 §5 sound escape hatch on one full-frame piece: the surface transitions are MUTED per-motion; the mark draw-on SWAPS its event from tick to pop; the lower-third enter LOCKS a specific sample (core-sting) instead of its event's engine default; audioCues[] carries a manual free-standing outro cue at an absolute fraction and the single ambient BED (segments/bumpers only — this piece declares backgroundFill). Export bakes all of it via the deterministic offline mix; preview schedules the same plan on play.",
 	"pack": "syntax",
 	"kind": "fixture",
 	"state": {
@@ -67,7 +67,7 @@
 				"content": {
 					"kicker": "FIXTURE",
 					"title": "Locked-specific sample",
-					"subtitle": "This enter plays core-sting, not the kit's whoosh"
+					"subtitle": "This enter locks core-sting over the event default"
 				},
 				"position": {
 					"anchor": "bottom-left",

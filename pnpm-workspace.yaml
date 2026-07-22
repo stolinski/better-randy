@@ -1,4 +1,8 @@
 allowBuilds:
+  # Only pulled in by @sentry/vite-plugin for build-time sourcemap upload —
+  # unused here (local-only dev; the standalone sentry CLIs are installed
+  # globally), so its binary-download postinstall stays off.
+  '@sentry/cli': false
   esbuild: true
   sharp: true
   workerd: true

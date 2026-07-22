@@ -3,7 +3,7 @@ import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-style
 import {
 	createDefaultEngineState,
 	createMarkTiming,
-	type DiagramElement,
+	type DiagramPrimitive,
 	type EngineState,
 	type Effect,
 	type MarkTiming,
@@ -35,8 +35,8 @@ for (const pack of Object.values(PACK_REGISTRY)) {
 	assertPackCoreVocabularyValid(pack);
 }
 
-// ADR-0033 §7 boot gate, same posture: every core sample and every sample a
-// registered Sound kit names must resolve to a bundled audio asset.
+// ADR-0033 §7 boot gate, same posture: every engine-default sample and every
+// per-motion sample override must resolve to a bundled audio asset.
 assertSoundRegistryValid();
 
 export const engineState = $state<EngineState>(createDefaultEngineState());
@@ -155,48 +155,48 @@ export function removeTextAnimation(id: string): void {
 }
 
 /**
- * Add a diagram Block element (ADR-0036) with type-appropriate defaults. A new
+ * Add a Diagram primitive Block (ADR-0036) with type-appropriate defaults. A new
  * edge-arrow connects the two most recently added nodes when they exist —
  * building a flowchart in the GUI is node, node, edge — and falls back to
  * explicit points otherwise. Positions are explicit composition fractions
  * (art-directed placement; there is no auto-layout to fall back to).
  */
-export function addDiagramElement(type: DiagramElement['type']): string {
+export function addDiagramPrimitive(type: DiagramPrimitive['type']): string {
 	const diagram = (engineState.surface.diagram ??= []);
 	const id = nextId(type, diagram);
 	const enter = { start: 0.08, duration: 0.05, ease: 'settled' as const };
 
-	let element: DiagramElement;
+	let primitive: DiagramPrimitive;
 	if (type === 'node') {
-		element = { type, id, position: { x: 0.5, y: 0.45 }, form: 'box', text: 'Node', enter };
+		primitive = { type, id, position: { x: 0.5, y: 0.45 }, form: 'box', text: 'Node', enter };
 	} else if (type === 'edge-arrow') {
 		const nodes = diagram.filter((entry) => entry.type === 'node');
 		const from = nodes.length >= 2 ? { node: nodes[nodes.length - 2].id } : { x: 0.35, y: 0.5 };
 		const to = nodes.length >= 2 ? { node: nodes[nodes.length - 1].id } : { x: 0.65, y: 0.5 };
-		element = { type, id, from, to, route: 'straight', enter };
+		primitive = { type, id, from, to, route: 'straight', enter };
 	} else if (type === 'label') {
-		element = { type, id, position: { x: 0.5, y: 0.3 }, text: 'Label', enter };
+		primitive = { type, id, position: { x: 0.5, y: 0.3 }, text: 'Label', enter };
 	} else if (type === 'stat-callout') {
-		element = { type, id, position: { x: 0.5, y: 0.6 }, from: 0, to: 100, enter };
+		primitive = { type, id, position: { x: 0.5, y: 0.6 }, from: 0, to: 100, enter };
 	} else {
-		element = { type, id, from: { x: 0.3, y: 0.7 }, to: { x: 0.7, y: 0.7 }, enter };
+		primitive = { type, id, from: { x: 0.3, y: 0.7 }, to: { x: 0.7, y: 0.7 }, enter };
 	}
 
-	diagram.push(element);
+	diagram.push(primitive);
 	return id;
 }
 
 /**
- * Remove a diagram element and every weld that would dangle: cascades (on any
+ * Remove a Diagram primitive and every weld that would dangle: cascades (on any
  * layer) anchored to it lose their cascade, and edges referencing a removed
  * node swap that endpoint for the node's last explicit position — the
  * resolver and schema both fail fast on dangling refs, so removal must leave
  * the composition valid.
  */
-export function removeDiagramElement(id: string): void {
+export function removeDiagramPrimitive(id: string): void {
 	const diagram = engineState.surface.diagram;
 	if (!diagram) return;
-	const index = diagram.findIndex((element) => element.id === id);
+	const index = diagram.findIndex((primitive) => primitive.id === id);
 	if (index < 0) return;
 	const removed = diagram[index];
 	diagram.splice(index, 1);
@@ -207,8 +207,8 @@ export function removeDiagramElement(id: string): void {
 			owner.cascade = undefined;
 		}
 	};
-	for (const element of diagram) {
-		if (element.animation) dropAnchoredCascade(element.animation);
+	for (const primitive of diagram) {
+		if (primitive.animation) dropAnchoredCascade(primitive.animation);
 	}
 	for (const overlay of engineState.overlays) {
 		if (overlay.animation) dropAnchoredCascade(overlay.animation);
@@ -222,13 +222,13 @@ export function removeDiagramElement(id: string): void {
 
 	if (removed.type === 'node') {
 		const fallback = removed.position;
-		for (const element of diagram) {
-			if (element.type !== 'edge-arrow') continue;
-			if ('node' in element.from && element.from.node === id) {
-				element.from = { ...fallback };
+		for (const primitive of diagram) {
+			if (primitive.type !== 'edge-arrow') continue;
+			if ('node' in primitive.from && primitive.from.node === id) {
+				primitive.from = { ...fallback };
 			}
-			if ('node' in element.to && element.to.node === id) {
-				element.to = { ...fallback };
+			if ('node' in primitive.to && primitive.to.node === id) {
+				primitive.to = { ...fallback };
 			}
 		}
 	}

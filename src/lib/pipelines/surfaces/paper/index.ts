@@ -18,7 +18,7 @@ function defaults(): SurfaceState {
 	};
 }
 
-export const paper: SurfaceRenderer = {
+export const paperSurfaceRenderer: SurfaceRenderer = {
 	type: 'paper',
 	label: 'Paper',
 	controls: {

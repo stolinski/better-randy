@@ -2,16 +2,25 @@
  * Layer selection store (ADR-0034 §3).
  * Tracks which Layer row is selected in the timeline/canvas.
  * null = composition root → inspector shows transport / Pack / Effects.
- * A string matches a timeline track ID (e.g. 'overlay-abc', 'textanim-xyz').
+ * Runtime selection IDs are created and parsed by timeline-entity-identity.ts.
  */
-export const layerSelection = $state<{ id: string | null }>({ id: null });
+import {
+	createKeyframeSelectionId,
+	createSoundRailReferenceId,
+	type KeyframeSelectionId,
+	type SoundRailReference,
+	type TimelineEntitySelectionId,
+	type TimelineTrackId
+} from './timeline-entity-identity.ts';
+
+export const layerSelection = $state<{ id: TimelineEntitySelectionId | null }>({ id: null });
 
 /**
- * The selected keyframe diamond (ADR-0035 §7) — `"<trackId>:<channel>:<index>"`
- * or null. Set by clicking/dragging a diamond on the timeline; the timeline
- * renders it active and the inspector's keyframe rows reflect it.
+ * The selected keyframe diamond (ADR-0035 §7). Set by clicking/dragging a
+ * diamond on the timeline; the timeline renders it active and the inspector's
+ * keyframe rows reflect it.
  */
-export const keyframeSelection = $state<{ key: string | null }>({ key: null });
+export const keyframeSelection = $state<{ id: KeyframeSelectionId | null }>({ id: null });
 
 /**
  * On-canvas direct selection (epic 0pkzts2c): a one-shot "reveal this entity
@@ -30,22 +39,28 @@ export function requestInspectorFocus(target: string): void {
 	inspectorFocus.seq += 1;
 }
 
-export function selectKeyframe(trackId: string, channel: string, index: number): void {
-	keyframeSelection.key = `${trackId}:${channel}:${index}`;
+export function selectKeyframe(trackId: TimelineTrackId, channel: string, index: number): void {
+	keyframeSelection.id = createKeyframeSelectionId(trackId, channel, index);
 }
 
 export function clearKeyframeSelection(): void {
-	keyframeSelection.key = null;
+	keyframeSelection.id = null;
 }
 
-export function selectLayer(id: string): void {
+export function selectLayer(id: TimelineTrackId): void {
 	layerSelection.id = id;
-	keyframeSelection.key = null;
+	keyframeSelection.id = null;
+	inspectorFocus.target = null;
+}
+
+export function selectSoundRailReference(reference: SoundRailReference): void {
+	layerSelection.id = createSoundRailReferenceId(reference);
+	keyframeSelection.id = null;
 	inspectorFocus.target = null;
 }
 
 export function deselectLayer(): void {
 	layerSelection.id = null;
-	keyframeSelection.key = null;
+	keyframeSelection.id = null;
 	inspectorFocus.target = null;
 }

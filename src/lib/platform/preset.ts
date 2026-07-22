@@ -238,7 +238,7 @@ function cloneSurface(surface: SurfaceState): SurfaceState {
 		exit: surface.exit ? cloneTransition(surface.exit) : undefined,
 		animation: surface.animation ? cloneSurfaceAnimation(surface.animation) : undefined,
 		backgroundVisibility: surface.backgroundVisibility,
-		// Diagram Block elements (ADR-0036). Pure JSON (points, strings, numbers,
+		// Diagram primitive Blocks (ADR-0036). Pure JSON (points, strings, numbers,
 		// transitions, channel tracks), so structuredClone deep-copies every field
 		// without the hand-enumeration trap that lost `counterpoint` and `chrome`.
 		diagram: surface.diagram ? structuredClone(surface.diagram) : undefined

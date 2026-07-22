@@ -1,23 +1,18 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 
 import { error, type RequestHandler } from '@sveltejs/kit';
 
-// Poster blobs live in a gitignored cache dir — regenerable, never committed.
-const STORE_DIR = join(process.cwd(), '.posters');
+import { POSTER_STORE_DIR, posterPathForKey } from '$lib/platform/poster-store.server';
+
 // Keys are content hashes from hashObject() — 16 hex chars; validate to keep
 // the filesystem path safe.
 const KEY_RE = /^[a-f0-9]{8,32}$/;
-
-function pathFor(key: string): string {
-	return join(STORE_DIR, `${key}.webp`);
-}
 
 export const GET: RequestHandler = async ({ params }) => {
 	const key = params.key ?? '';
 	if (!KEY_RE.test(key)) error(400, 'Invalid poster key');
 	try {
-		const data = await readFile(pathFor(key));
+		const data = await readFile(posterPathForKey(key));
 		return new Response(new Uint8Array(data), {
 			headers: {
 				'Content-Type': 'image/webp',
@@ -36,7 +31,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 	if (!KEY_RE.test(key)) error(400, 'Invalid poster key');
 	const body = new Uint8Array(await request.arrayBuffer());
 	if (body.byteLength === 0) error(400, 'Empty poster body');
-	await mkdir(STORE_DIR, { recursive: true });
-	await writeFile(pathFor(key), body);
+	await mkdir(POSTER_STORE_DIR, { recursive: true });
+	await writeFile(posterPathForKey(key), body);
 	return new Response(null, { status: 204 });
 };

@@ -151,7 +151,8 @@ for (const file of files) {
 	}
 
 	// Fixtures (demos / showcases / tests / motion-primitive verifiers) are
-	// structurally + semantically checked but exempt from the deliverable R/Q/G rubric floors.
+	// structurally + semantically checked but exempt from the deliverable-only
+	// static safety/readability lint. R/Q/G remains Critic-judged (ADR-0025).
 	if ((result.data as { kind?: string }).kind === 'fixture') {
 		fixtureCount += 1;
 		console.log(`✓ ${file} (fixture — schema + semantics)`);
@@ -169,9 +170,9 @@ for (const file of files) {
 
 	if (errors.length > 0) {
 		failed += 1;
-		console.error(`✗ ${file} (rubric)`);
+		console.error(`✗ ${file} (static lint)`);
 	} else {
-		console.log(`⚠ ${file} (rubric warnings)`);
+		console.log(`⚠ ${file} (static lint warnings)`);
 	}
 
 	warned += warnings.length;
@@ -407,10 +408,10 @@ if (failed > 0) {
 
 const fixtureNote =
 	fixtureCount > 0
-		? ` ${fixtureCount} fixture(s) schema + semantic checked (rubric floors apply to deliverables).`
+		? ` ${fixtureCount} fixture(s) schema + semantic checked (static safety/readability lint applies to deliverables).`
 		: '';
 if (warned > 0) {
-	console.log(`\nAll preset validation checks passed (${warned} rubric warning(s)).${fixtureNote}`);
+	console.log(`\nAll preset validation checks passed (${warned} static lint warning(s)).${fixtureNote}`);
 } else {
 	console.log(`\nAll preset validation checks passed.${fixtureNote}`);
 }

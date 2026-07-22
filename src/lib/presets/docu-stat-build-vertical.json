@@ -3,7 +3,7 @@
 	"name": "Docu stat build (vertical)",
 	"description": "Vertical re-authoring of the docu stat build — the three stat-callouts stack into a single column inside the platform-safe middle band (clear of the top 6%, bottom 16%, and right 9% UI rails), building top-to-bottom on a tighter 120 ms cascade. Same transparent ADR-0036 stat beat: values roll, land, and hold together before a staggered fade out. Intentional omissions: no collage card, no hard offset shadow, no grit, no backgroundFill — keyed overlay; the footage is the substrate and the mono thread rides the JetBrains Mono values (#fabf47 accent) and captions.",
 	"pack": "syntax",
-	"kind": "deliverable",
+	"kind": "fixture",
 	"state": {
 		"transport": {
 			"orientation": "vertical",

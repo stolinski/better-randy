@@ -1,0 +1,196 @@
+/**
+ * Runtime-only identity protocol for timeline rows and selections.
+ *
+ * Preset entity ids remain untouched. Dynamic segments are URI-encoded and
+ * subtracks have their own discriminants, so an authored id such as
+ * `closing-roll` can never be mistaken for a roll subtrack.
+ */
+
+declare const timelineTrackIdBrand: unique symbol;
+declare const keyframeSelectionIdBrand: unique symbol;
+declare const soundRailReferenceIdBrand: unique symbol;
+
+export type TimelineTrackId = string & { readonly [timelineTrackIdBrand]: true };
+export type KeyframeSelectionId = string & { readonly [keyframeSelectionIdBrand]: true };
+export type SoundRailReferenceId = string & { readonly [soundRailReferenceIdBrand]: true };
+export type TimelineEntitySelectionId = TimelineTrackId | SoundRailReferenceId;
+
+export type OverlayTimelineSubtrack =
+	| { kind: 'stack' }
+	| { kind: 'roll' }
+	| { kind: 'beat' }
+	| { kind: 'spin' }
+	| { kind: 'cursor'; index: number };
+
+export type BlockTimelineSubtrack = { kind: 'roll' };
+
+export type TimelineTrackIdentity =
+	| { kind: 'surface' }
+	| { kind: 'surface-message'; index: number }
+	| { kind: 'checklist-item'; index: number }
+	| { kind: 'mark'; index: number }
+	| { kind: 'overlay'; overlayId: string }
+	| { kind: 'overlay-subtrack'; overlayId: string; subtrack: OverlayTimelineSubtrack }
+	| { kind: 'block'; blockId: string }
+	| { kind: 'block-subtrack'; blockId: string; subtrack: BlockTimelineSubtrack }
+	| { kind: 'text-animation'; textAnimationId: string }
+	| { kind: 'captions' }
+	| { kind: 'sound' };
+
+export type SoundRailReference =
+	{ kind: 'derived'; cueId: string } | { kind: 'manual'; cueId: string };
+
+export interface KeyframeSelectionIdentity {
+	trackId: TimelineTrackId;
+	channel: string;
+	index: number;
+}
+
+function requireIdentitySegment(value: string, name: string): string {
+	if (value.length === 0) {
+		throw new TypeError(`Timeline entity identity: ${name} must not be empty.`);
+	}
+	return encodeURIComponent(value);
+}
+
+function requireIdentityIndex(value: number, name: string): number {
+	if (!Number.isSafeInteger(value) || value < 0) {
+		throw new TypeError(`Timeline entity identity: ${name} must be a non-negative safe integer.`);
+	}
+	return value;
+}
+
+function decodeIdentitySegment(value: string): string | null {
+	try {
+		const decoded = decodeURIComponent(value);
+		return decoded.length > 0 && encodeURIComponent(decoded) === value ? decoded : null;
+	} catch {
+		return null;
+	}
+}
+
+function parseIdentityIndex(value: string): number | null {
+	if (!/^(0|[1-9]\d*)$/.test(value)) {
+		return null;
+	}
+	const parsed = Number(value);
+	return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+export function createTimelineTrackId(identity: TimelineTrackIdentity): TimelineTrackId {
+	switch (identity.kind) {
+		case 'surface':
+		case 'captions':
+		case 'sound':
+			return identity.kind as TimelineTrackId;
+		case 'surface-message':
+			return `surface-message:${requireIdentityIndex(identity.index, 'Message index')}` as TimelineTrackId;
+		case 'checklist-item':
+			return `checklist-item:${requireIdentityIndex(identity.index, 'Checklist item index')}` as TimelineTrackId;
+		case 'mark':
+			return `mark:${requireIdentityIndex(identity.index, 'Mark index')}` as TimelineTrackId;
+		case 'overlay':
+			return `overlay:${requireIdentitySegment(identity.overlayId, 'Overlay id')}` as TimelineTrackId;
+		case 'overlay-subtrack': {
+			const base = `overlay-subtrack:${requireIdentitySegment(identity.overlayId, 'Overlay id')}`;
+			return (
+				identity.subtrack.kind === 'cursor'
+					? `${base}:cursor:${requireIdentityIndex(identity.subtrack.index, 'Cursor index')}`
+					: `${base}:${identity.subtrack.kind}`
+			) as TimelineTrackId;
+		}
+		case 'block':
+			return `block:${requireIdentitySegment(identity.blockId, 'Block id')}` as TimelineTrackId;
+		case 'block-subtrack':
+			return `block-subtrack:${requireIdentitySegment(identity.blockId, 'Block id')}:${identity.subtrack.kind}` as TimelineTrackId;
+		case 'text-animation':
+			return `text-animation:${requireIdentitySegment(identity.textAnimationId, 'Text animation id')}` as TimelineTrackId;
+	}
+}
+
+export function parseTimelineTrackId(value: string): TimelineTrackIdentity | null {
+	if (value === 'surface' || value === 'captions' || value === 'sound') {
+		return { kind: value };
+	}
+
+	const parts = value.split(':');
+	const prefix = parts[0];
+	if (parts.length === 2) {
+		const index = parseIdentityIndex(parts[1]);
+		if (prefix === 'surface-message' && index !== null) return { kind: 'surface-message', index };
+		if (prefix === 'checklist-item' && index !== null) return { kind: 'checklist-item', index };
+		if (prefix === 'mark' && index !== null) return { kind: 'mark', index };
+
+		const entityId = decodeIdentitySegment(parts[1]);
+		if (entityId === null) return null;
+		if (prefix === 'overlay') return { kind: 'overlay', overlayId: entityId };
+		if (prefix === 'block') return { kind: 'block', blockId: entityId };
+		if (prefix === 'text-animation') {
+			return { kind: 'text-animation', textAnimationId: entityId };
+		}
+		return null;
+	}
+
+	if (prefix === 'overlay-subtrack' && (parts.length === 3 || parts.length === 4)) {
+		const overlayId = decodeIdentitySegment(parts[1]);
+		if (overlayId === null) return null;
+		if (parts.length === 4 && parts[2] === 'cursor') {
+			const index = parseIdentityIndex(parts[3]);
+			return index === null
+				? null
+				: { kind: 'overlay-subtrack', overlayId, subtrack: { kind: 'cursor', index } };
+		}
+		if (
+			parts.length === 3 &&
+			(parts[2] === 'stack' || parts[2] === 'roll' || parts[2] === 'beat' || parts[2] === 'spin')
+		) {
+			return { kind: 'overlay-subtrack', overlayId, subtrack: { kind: parts[2] } };
+		}
+		return null;
+	}
+
+	if (prefix === 'block-subtrack' && parts.length === 3 && parts[2] === 'roll') {
+		const blockId = decodeIdentitySegment(parts[1]);
+		return blockId === null
+			? null
+			: { kind: 'block-subtrack', blockId, subtrack: { kind: 'roll' } };
+	}
+
+	return null;
+}
+
+export function createKeyframeSelectionId(
+	trackId: TimelineTrackId,
+	channel: string,
+	index: number
+): KeyframeSelectionId {
+	return `keyframe:${encodeURIComponent(trackId)}:${requireIdentitySegment(channel, 'Keyframe channel')}:${requireIdentityIndex(index, 'Keyframe index')}` as KeyframeSelectionId;
+}
+
+export function parseKeyframeSelectionId(value: string): KeyframeSelectionIdentity | null {
+	const parts = value.split(':');
+	if (parts.length !== 4 || parts[0] !== 'keyframe') return null;
+	const rawTrackId = decodeIdentitySegment(parts[1]);
+	const channel = decodeIdentitySegment(parts[2]);
+	const index = parseIdentityIndex(parts[3]);
+	if (rawTrackId === null || channel === null || index === null) return null;
+	if (parseTimelineTrackId(rawTrackId) === null) return null;
+	return { trackId: rawTrackId as TimelineTrackId, channel, index };
+}
+
+export function createSoundRailReferenceId(reference: SoundRailReference): SoundRailReferenceId {
+	return `sound-reference:${reference.kind}:${requireIdentitySegment(reference.cueId, 'Sound cue id')}` as SoundRailReferenceId;
+}
+
+export function parseSoundRailReferenceId(value: string): SoundRailReference | null {
+	const parts = value.split(':');
+	if (
+		parts.length !== 3 ||
+		parts[0] !== 'sound-reference' ||
+		(parts[1] !== 'derived' && parts[1] !== 'manual')
+	) {
+		return null;
+	}
+	const cueId = decodeIdentitySegment(parts[2]);
+	return cueId === null ? null : { kind: parts[1], cueId };
+}

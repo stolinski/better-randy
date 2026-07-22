@@ -11,7 +11,7 @@
 
 	// The count rides [rollStart, rollStart + rollWindow] of the clip and then
 	// HOLDS the landed value — counter-roll semantics (the counter overlay's
-	// proven behaviour), with the window defaulting to the element's own enter
+	// proven behaviour), with the window defaulting to the primitive's own enter
 	// start (never a Zod .default(): read with ?? at the consumer).
 	const rollStart = $derived(block.rollStart ?? block.enter?.start ?? 0.08);
 	const rollWindow = $derived(block.rollWindow ?? 0.5);

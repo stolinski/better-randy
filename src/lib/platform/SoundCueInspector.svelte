@@ -3,7 +3,8 @@
 	import type { SoundOverride } from './engine-schema';
 	import { engineState, ensureMarkTimingAtIndex } from './engine-state.svelte';
 	import { deselectLayer } from './selection.svelte';
-	import { deriveSoundCues, resolveCueSample } from './sound-cues';
+	import { deriveSoundCues, resolveCueSample, type DerivedSoundCueSource } from './sound-cues';
+	import type { SoundRailReference } from './timeline-entity-identity';
 	import Field from './Field.svelte';
 	import InspectorSection from './InspectorSection.svelte';
 	import SoundPicker from './SoundPicker.svelte';
@@ -15,69 +16,106 @@
 	 * never stored); manual cues and the bed edit their audioCues[] entry.
 	 */
 	interface Props {
-		/** `derived-<cueId>` or `manual-<cueId>` — the rail transition id. */
-		cueRef: string;
+		reference: SoundRailReference;
 	}
 
-	let { cueRef }: Props = $props();
+	let { reference }: Props = $props();
 
 	const soundAssets = listSoundAssets();
 
-	const derivedCueId = $derived(cueRef.startsWith('derived-') ? cueRef.slice(8) : null);
-	const manualCueId = $derived(cueRef.startsWith('manual-') ? cueRef.slice(7) : null);
-
 	const cue = $derived(
-		derivedCueId ? deriveSoundCues(engineState).find((c) => c.id === derivedCueId) : undefined
+		reference.kind === 'derived'
+			? deriveSoundCues(engineState).find((entry) => entry.id === reference.cueId)
+			: undefined
 	);
 	const resolvedSample = $derived(cue ? resolveCueSample(cue) : null);
 
 	const manualCue = $derived(
-		manualCueId ? engineState.audioCues.find((c) => c.id === manualCueId) : undefined
+		reference.kind === 'manual'
+			? engineState.audioCues.find((entry) => entry.id === reference.cueId)
+			: undefined
 	);
 
 	interface MotionWindow {
 		sound?: SoundOverride;
 	}
 
-	/**
-	 * Map a derived-cue id back to the live schema window that owns its sound
-	 * override. Tapbacks are locked per reaction type — info-only.
-	 */
+	function soundCueSourceLabel(source: DerivedSoundCueSource): string {
+		switch (source.kind) {
+			case 'surface-transition':
+				return `Surface ${source.phase}`;
+			case 'mark-transition':
+				return 'Mark draw-on';
+			case 'checklist-item-strike':
+				return 'Checklist item strike';
+			case 'overlay-transition': {
+				const overlay = engineState.overlays.find((entry) => entry.id === source.overlayId);
+				return overlay ? `${overlay.type} ${source.phase}` : `Overlay ${source.phase}`;
+			}
+			case 'block-transition': {
+				const block = (engineState.surface.diagram ?? []).find(
+					(entry) => entry.id === source.blockId
+				);
+				return block ? `${block.type} ${source.phase}` : `Block ${source.phase}`;
+			}
+			case 'text-animation-transition': {
+				const textAnimation = engineState.textAnimations.find(
+					(entry) => entry.id === source.textAnimationId
+				);
+				return textAnimation
+					? `Text · ${textAnimation.effect} ${source.phase}`
+					: `Text animation ${source.phase}`;
+			}
+			case 'surface-message-transition':
+				return 'Message bubble';
+			case 'surface-message-tapback':
+				return 'Tapback';
+			case 'overlay-beat':
+				return source.beat === 'press' ? 'Press beat' : 'Achievement beat';
+		}
+	}
+
 	const motion = $derived.by(
 		(): { window?: MotionWindow; ensure?: () => MotionWindow; source: string } | null => {
-			if (!derivedCueId) return null;
-			const parts = derivedCueId.split(':');
+			if (!cue) return null;
+			const source = soundCueSourceLabel(cue.source);
+			const target = cue.editTarget;
+			if (!target) return { source };
 
-			if (parts[0] === 'surface') {
-				const phase = parts[1] as 'enter' | 'exit';
-				return { window: engineState.surface[phase], source: `Surface ${phase}` };
+			switch (target.kind) {
+				case 'surface-transition':
+					return { window: engineState.surface[target.phase], source };
+				case 'mark-transition':
+					return {
+						window: engineState.marks.timings[target.markIndex],
+						ensure: () => ensureMarkTimingAtIndex(target.markIndex),
+						source
+					};
+				case 'checklist-item-strike': {
+					const item = engineState.surface.content.items?.[target.itemIndex];
+					return item?.strike ? { window: item.strike, source } : { source };
+				}
+				case 'overlay-transition': {
+					const overlay = engineState.overlays.find((entry) => entry.id === target.overlayId);
+					return overlay ? { window: overlay[target.phase], source } : { source };
+				}
+				case 'block-transition': {
+					const block = (engineState.surface.diagram ?? []).find(
+						(entry) => entry.id === target.blockId
+					);
+					return block ? { window: block[target.phase], source } : { source };
+				}
+				case 'text-animation-transition': {
+					const textAnimation = engineState.textAnimations.find(
+						(entry) => entry.id === target.textAnimationId
+					);
+					return textAnimation ? { window: textAnimation[target.phase], source } : { source };
+				}
+				case 'surface-message-transition': {
+					const message = engineState.surface.content.messages?.[target.messageIndex];
+					return message?.enter ? { window: message.enter, source } : { source };
+				}
 			}
-			if (parts[0] === 'mark') {
-				const index = Number(parts[1]);
-				return {
-					window: engineState.marks.timings[index],
-					ensure: () => ensureMarkTimingAtIndex(index),
-					source: 'Mark draw-on'
-				};
-			}
-			if (parts[0] === 'overlay') {
-				const overlay = engineState.overlays.find((o) => o.id === parts[1]);
-				const phase = parts[2] as 'enter' | 'exit';
-				return overlay ? { window: overlay[phase], source: `${overlay.type} ${phase}` } : null;
-			}
-			if (parts[0] === 'text') {
-				const entry = engineState.textAnimations.find((t) => t.id === parts[1]);
-				const phase = parts[2] as 'enter' | 'exit';
-				return entry ? { window: entry[phase], source: `Text · ${entry.effect} ${phase}` } : null;
-			}
-			if (parts[0] === 'message') {
-				if (parts[2] === 'tapback') return { source: 'Tapback' };
-				const message = engineState.surface.content.messages?.[Number(parts[1])];
-				return message?.enter
-					? { window: message.enter, source: 'Message bubble' }
-					: { source: 'Message bubble (default cadence)' };
-			}
-			return null;
 		}
 	);
 
@@ -94,7 +132,9 @@
 	}
 
 	function removeManualCue(): void {
-		const index = engineState.audioCues.findIndex((c) => c.id === manualCueId);
+		const index = engineState.audioCues.findIndex(
+			(entry) => reference.kind === 'manual' && entry.id === reference.cueId
+		);
 		if (index >= 0) engineState.audioCues.splice(index, 1);
 		deselectLayer();
 	}

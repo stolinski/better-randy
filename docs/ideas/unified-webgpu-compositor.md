@@ -1,6 +1,6 @@
-# Unified WebGPU-native compositor (flat = degenerate depth stage)
+# Historical: unified WebGPU-native compositor (flat = degenerate depth stage)
 
-> **Status — 🧭 speculation; one gate validated (text fidelity). Not designed.** Lives in `ideas/` per the roadmap's three tiers. Graduates to `roadmap.md` only if/when a feature-parity audit (below) says it's worth scoping.
+> **Status — historical exploration, superseded by the shipped ADR-0028 stage and `composition-frame-renderer.ts` architecture.** The text-fidelity POC informed the stage, but collapsing every composition into that stage is not current design direction. Current rendering keeps explicit stage, multiplane DOF, and flat branches behind the shared request-object frame seam documented in [`docs/engine-architecture.md`](../engine-architecture.md).
 
 ## The idea
 

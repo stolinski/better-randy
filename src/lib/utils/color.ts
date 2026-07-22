@@ -1,6 +1,6 @@
 import { clampNumber } from './math';
 
-export interface RgbColorChannels {
+interface RgbColorChannels {
 	blue: number;
 	green: number;
 	red: number;

@@ -6,10 +6,10 @@ Supers is an opinionated, high-end **motion-graphics engine** on a web stack (Ty
 
 ## Binding rules — apply to every task
 
-- **Transparency is the default, not a law.** Overlays render transparent — `loadOp: 'clear'`, `clearValue: [0, 0, 0, 0]`, canvas context `alphaMode: 'premultiplied'`. A composition **may** declare a background fill, which makes it a full-frame piece (segment/bumper); the export path keys off whether the frame is opaque to its edges (transparent WebM/ProRes 4444 vs opaque ProRes 422/H.264). Never paint a background a composition didn't ask for.
+- **Transparency is the default, not a law.** Overlays render transparent — `loadOp: 'clear'`, `clearValue: [0, 0, 0, 0]`, canvas context `alphaMode: 'premultiplied'`. A composition **may** declare a background fill, which makes it a full-frame piece (segment/bumper); output classification changes the filename and WebM pixel format, while the current ProRes lane remains 4444 for both transparent and opaque compositions. Never paint a background a composition didn't ask for.
 - **Frame-determinism.** Drive all animation from an explicit `timestamp` / `frame` value. Scrub paused GSAP timelines by `progress`; never play by wall-clock. Preview and export must produce the same pixels at the same time.
 - **Native target resolution.** 3840×2160 horizontal or 2160×3840 vertical. No upscaling from a smaller intermediate.
-- **Every Preset is orientation- and Pack-neutral.** One Preset must render and look good in *both* horizontal and vertical *and* under every Pack ([ADR-0039](docs/adr/0039-pack-neutral-compositions-and-listing-hygiene.md) deleted the orientation dupes for exactly this reason). Never create per-orientation or per-Pack variants of a composition, and never ask the user whether a preset "should support" vertical or horizontal — *how* it reflows is designable; *whether* it reflows is not.
+- **Every deliverable Preset is orientation- and Pack-neutral.** One Preset must render and look good in *both* horizontal and vertical *and* under every Pack ([ADR-0039](docs/adr/0039-pack-neutral-compositions-and-listing-hygiene.md)). Never create per-orientation or per-Pack variants of a composition, and never ask whether a preset "should support" vertical or horizontal — *how* it reflows is designable; *whether* it reflows is not. Existing fixture-only recompositions and Pack calibration re-dresses document engine gaps or validate Packs; they are not listed deliverables or authoring precedent.
 - **Strict TypeScript.** No `any`. `unknown` at trust boundaries, narrowed before use. Explicit return types on exports. No re-exports — import from source.
 - **Proof-corpus discipline (build-harness — not product law).** While we build the reference corpus that proves the engine hits the bar, agent-authored Presets are verified by a separate Critic; producers don't self-verify (see [`docs/critic.md`](docs/critic.md)). This is bootstrap scaffolding, *not* the product's authoring model — shipped Supers is GUI + agent parity, where the human in the GUI is the live critic. "Done" for a corpus Preset still means the Critic returned no `pipeline-bug` or `default-too-permissive` findings.
 - **Svelte runes discipline.** No `$effect` unless genuinely necessary. No rename-only `$derived` aliases. Components own their own data — read from managers / route directly where used; no prop-forwarding wrappers.
@@ -20,6 +20,16 @@ Supers is an opinionated, high-end **motion-graphics engine** on a web stack (Ty
 - **Canvas-verification Chrome is already solved — never improvise a launch.** Rendering needs `--enable-blink-features=CanvasDrawElement`; an unflagged browser captures a blank canvas. Two sanctioned paths only: (1) the `chrome-devtools` MCP browser already carries the flag (configured in `~/.claude.json`) — just use its tools; (2) the CDP harness on port 9223 — start/confirm it with `scripts/launch-cdp-chrome.sh`, drive it with `scripts/cdp-capture.mjs` and the other `scripts/cdp-*.mjs`.
 - **Utilities live in `src/lib/utils/`.** No new utility folders. Extend existing helpers before adding new ones.
 - **No TODOs, placeholders, or no-op stubs.** Wire it now or the task isn't done.
+
+## Agent discoverability
+
+- **Write names for search.** Exported symbols, methods, domain types, files, and directories must be distinctive search terms. Prefer two or three descriptive words including a domain noun (`createStripeClient`, `PresetRenderResult`) over generic names (`create`, `Client`, `Result`, `Data`, `Config`).
+- **Use one spelling per concept.** Follow the canonical terminology in `docs/CONTEXT.md`; do not mix aliases or abbreviations such as `organizationId` / `orgId`, or rename imports without a concrete conflict.
+- **Keep modules concept-focused.** Prefer domain-named files over generic grab bags. Split large mixed-concern modules when the resulting files can be named after coherent concepts; do not split solely to satisfy a line-count target.
+- **Make types searchable and corrective.** Use precise domain types instead of primitive-shaped parameters where values can be confused. Prefer distinct ID types when swapping IDs would otherwise type-check.
+- **Document where search lands.** Put short comments about non-obvious constraints or intent directly above the relevant definition. Document intentional absences where a reader would reasonably search for the behavior.
+- **Pair source and test names.** Name colocated tests after the source unit they cover (`preset.ts` -> `preset.test.ts`) so implementations and verification are found together.
+- **Identify legacy code.** Remove obsolete paths when possible; otherwise mark retained APIs with `@deprecated` and name the supported replacement.
 
 ## Dispatcher — what to read for what you're doing
 
@@ -45,7 +55,7 @@ Always read the doc named here for the task type. Skipping the dispatched doc is
 ## Repo layout
 
 - `src/routes/` — SvelteKit routes. Presets render through a unified shell, not per-tool routes.
-- `src/lib/platform/` — engine shell: `Workspace`, `Composition`, `SurfaceMount`, `OverlayLayer`, `gpu-host.ts`, `html-in-canvas.ts`, `timeline.svelte.ts`, `engine-state.svelte.ts`, `engine-schema.ts`, `preset.ts`, `runtime-audit.ts`, `preset-rubric.ts`, `export-video.ts`, and timeline UI components.
+- `src/lib/platform/` — engine shell: `Workspace`, `Composition`, mounts and inspectors; `composition-frame-renderer.ts`, `composition-export-controller.ts`, and `transition-snapshot-controller.ts` own their named orchestration; `timeline-entity-identity.ts` owns runtime timeline identities; `user-composition-store.ts` owns the client-side User composition transport; plus state, schema, preset, GPU, HTML-in-Canvas, audit, lint, and encoding modules.
 - `src/lib/pipelines/<layer>/` — the per-Layer **Pipeline** renderers (`surfaces/`, `blocks/`, `annotations/`, `overlays/`, `effects/`), one folder per variant.
 - `src/lib/platform/pipelines/` — Registry + runner **infrastructure** only (`index.ts`, `identity-registry.ts`, `effect-chain.ts`, `shader-pass-runner.ts`, `types.ts`) — not the renderers.
 - `src/lib/annotations/` — annotation-mark geometry and 2D drawing shared across Annotation Pipelines.

@@ -2,7 +2,7 @@ import type { AnnotationRenderer } from '$lib/platform/pipelines/types';
 import { getCanvasRgbColor } from '$lib/utils/color';
 import { clampNumber } from '$lib/utils/math';
 
-export const sideNote: AnnotationRenderer = {
+export const sideNoteAnnotationRenderer: AnnotationRenderer = {
 	style: 'side-note',
 	kind: 'decorative',
 	appliesTo: ['paragraph'],

@@ -2,6 +2,7 @@
 
 **Kind:** pipeline
 **Slug:** achievement-complete
+**Pack:** syntax
 **Verification preset:** achievement-complete
 
 ## Pitch

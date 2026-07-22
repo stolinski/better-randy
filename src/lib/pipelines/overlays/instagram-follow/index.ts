@@ -60,7 +60,7 @@ function defaults(): OverlayDefaults<InstagramFollowContent> {
 	};
 }
 
-export const instagramFollow: OverlayRenderer<InstagramFollowContent> = {
+export const instagramFollowOverlayRenderer: OverlayRenderer<InstagramFollowContent> = {
 	type: 'instagram-follow',
 	label: 'Instagram follow',
 	schema: InstagramFollowContentSchema,

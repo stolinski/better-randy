@@ -27,7 +27,7 @@ function defaults(): SurfaceState {
 	};
 }
 
-export const titleSequence: SurfaceRenderer = {
+export const titleSequenceSurfaceRenderer: SurfaceRenderer = {
 	type: 'title-sequence',
 	label: 'Title sequence',
 	controls: {

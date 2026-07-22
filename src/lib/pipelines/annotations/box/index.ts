@@ -2,7 +2,7 @@ import type { AnnotationRenderer } from '$lib/platform/pipelines/types';
 import { getCanvasRgbColor } from '$lib/utils/color';
 import { clampNumber } from '$lib/utils/math';
 
-export const box: AnnotationRenderer = {
+export const boxAnnotationRenderer: AnnotationRenderer = {
 	style: 'box',
 	kind: 'decorative',
 	appliesTo: ['paragraph'],

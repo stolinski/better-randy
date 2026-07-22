@@ -4,8 +4,8 @@
 		ENGINE_EASES,
 		type Cascade,
 		type DiagramEdgeArrow,
-		type DiagramElement,
 		type DiagramEndpoint,
+		type DiagramPrimitive,
 		type Ease,
 		type Transition
 	} from './engine-schema';
@@ -17,7 +17,7 @@
 	import KeyframesSection from './KeyframesSection.svelte';
 	import SoundSection from './SoundSection.svelte';
 
-	// Per-type inspector for diagram Block elements (ADR-0036 §7). Explicit
+	// Per-type inspector for Diagram primitive Blocks (ADR-0036 §7). Explicit
 	// placement is the authoring model, so every positional number is a
 	// first-class field; route/control/direction are the edge's content; stroke
 	// appearance never appears here (it is the Pack's, not the composition's).
@@ -28,16 +28,17 @@
 
 	let { blockId }: Props = $props();
 
-	const element = $derived(
+	const diagramPrimitive = $derived(
 		(engineState.surface.diagram ?? []).find((entry) => entry.id === blockId) ?? null
 	);
 
 	const easeOptions = Object.entries(ENGINE_EASES) as [Ease, (typeof ENGINE_EASES)[Ease]][];
 
-	// Stroke elements expose opacity only (their reveal is the draw-on); DOM
-	// elements take the full ADR-0035 channel set.
+	// Stroke primitives expose opacity only (their reveal is the draw-on); DOM
+	// primitives take the full ADR-0035 channel set.
 	const channelNames = $derived(
-		element && (element.type === 'edge-arrow' || element.type === 'timeline-segment')
+		diagramPrimitive &&
+			(diagramPrimitive.type === 'edge-arrow' || diagramPrimitive.type === 'timeline-segment')
 			? (['opacity'] as const)
 			: (['opacity', 'x', 'y', 'scale', 'rotation'] as const)
 	);
@@ -56,7 +57,7 @@
 		if (n !== null) point[axis] = n;
 	}
 
-	function setScale(el: DiagramElement & { scale?: number }, value: string): void {
+	function setScale(el: DiagramPrimitive & { scale?: number }, value: string): void {
 		const n = Number(value);
 		if (!Number.isFinite(n)) return;
 		el.scale = Math.max(0.25, Math.min(4, n));
@@ -88,7 +89,7 @@
 		edge.control = enabled ? { x: 0.5, y: 0.4 } : undefined;
 	}
 
-	function setCascade(el: DiagramElement, next: Cascade | undefined): void {
+	function setCascade(el: DiagramPrimitive, next: Cascade | undefined): void {
 		if (next === undefined) {
 			if (!el.animation) return;
 			el.animation.cascade = undefined;
@@ -101,7 +102,7 @@
 		el.animation.cascade = next;
 	}
 
-	function ensureTransition(el: DiagramElement, field: 'enter' | 'exit'): Transition {
+	function ensureTransition(el: DiagramPrimitive, field: 'enter' | 'exit'): Transition {
 		const existing = el[field];
 		if (existing) return existing;
 		const next: Transition =
@@ -113,7 +114,7 @@
 	}
 
 	function transitionInput(
-		el: DiagramElement,
+		el: DiagramPrimitive,
 		field: 'enter' | 'exit',
 		key: 'start' | 'duration',
 		value: string
@@ -124,7 +125,7 @@
 	}
 
 	function setStatNumber(
-		el: DiagramElement & { from?: unknown },
+		el: DiagramPrimitive & { from?: unknown },
 		key: 'from' | 'to',
 		value: string
 	): void {
@@ -134,8 +135,8 @@
 	}
 </script>
 
-{#if element}
-	{@const el = element}
+{#if diagramPrimitive}
+	{@const el = diagramPrimitive}
 
 	<InspectorSection label={el.type}>
 		{#if el.type === 'node'}
@@ -347,7 +348,7 @@
 			</Field>
 		{/if}
 		<!-- Ink is a Role SELECTION (which pen), not appearance (what the pen looks
-		     like — still the Pack's): 'accent' routes the element to the Pack's
+		     like — still the Pack's): 'accent' routes the primitive to the Pack's
 		     core accent-treatment for emphasis hierarchy. -->
 		<Field label="Ink">
 			<select

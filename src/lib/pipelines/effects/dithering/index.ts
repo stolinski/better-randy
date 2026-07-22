@@ -138,7 +138,7 @@ const fragmentBody = /* wgsl */ `
 	return result;
 `;
 
-export const dithering: EffectRenderer<DitheringParams> = {
+export const ditheringEffectRenderer: EffectRenderer<DitheringParams> = {
 	type: 'dithering',
 	label: 'Dithering',
 	schema: DitheringEffectSchema,

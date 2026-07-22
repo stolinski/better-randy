@@ -7,15 +7,15 @@ The shared language for Supers's preset engine, channel aesthetic, and agent wor
 ### Composition model
 
 **Preset**:
-A JSON document declaring a **composition recipe** — motion, content, and role references — against the `supers@1` schema. A Preset is _aesthetic-agnostic_: it names which surface, which marks, which timings, which text, and which **Roles** the engine should resolve. It does **not** carry hex codes, font names, edge behavior, or effect chains directly — those live in the **Pack** the Preset names. The unit of authoring.
+A JSON document declaring a **composition recipe** — motion, content, Pipeline choices, and appearance-role references — against the `supers@1` schema. A Preset is _Pack-neutral_: it names the Surface, Blocks, Annotations, Overlays, timings, text, optional composition-wide Effects, and one default **Pack**. `typography.paperColor` / `inkColor` may be explicit hex overrides, but absent colors resolve from the active Pack; edge, depth, light, material, font, and Pack chrome remain Pack-owned. The unit of authoring.
 _Avoid_: tool, scene, template (when referring to a finished composition).
 
 **Starter template** (formerly _Recipe_):
-A curated starting point — Preset + Pack — that a human (GUI) or an agent begins a new composition from, varying rather than authoring from scratch; not itself a deliverable. In the GUI this is concretely a **corpus Preset opened read-only as a fork-base**: the first edit forks a new **User composition**, never mutating the original. **Designed, not built** (reframed from the never-shipped recipe cookbook, ex-[ADR-0004](adr/0004-recipe-cookbook-over-schema-chrome.md)); the fork-on-save mechanism is specified by the GUI-parity work — see [`roadmap.md`](roadmap.md).
+A curated starting point — Preset + Pack — that a human (GUI) or an agent begins a new composition from, varying rather than authoring from scratch; not itself a deliverable. In the GUI this is concretely a **corpus Preset opened read-only as a fork-base**: the first edit forks a new **User composition**, never mutating the original. **Shipped** through the fork-on-edit GUI parity model ([ADR-0032](adr/0032-gui-agent-parity-authoring.md)); this replaced the never-built recipe cookbook from superseded [ADR-0004](adr/0004-recipe-cookbook-over-schema-chrome.md).
 _Avoid_: recipe, boilerplate, scaffold.
 
 **User composition**:
-A **Preset** authored and saved through the GUI to the **user store** — created by forking a **Starter template** (or, later, from a blank composition). Identical artifact format to a corpus Preset (the engine loads either identically); distinguished only by **provenance and store**, never by schema. The product-side unit of authoring, peer to the agent-authored corpus Preset.
+A **Preset** authored and saved through the GUI to the **user store** — created by forking a **Starter template** or by choosing the shipped homepage **New composition** action, which forks the `blank` Preset as an untitled User composition. Identical artifact format to a corpus Preset (the engine loads either identically); distinguished only by **provenance and store**, never by schema. The product-side unit of authoring, peer to the agent-authored corpus Preset.
 _Avoid_: document, override, patch, project (all imply a non-Preset or base-bound artifact — a User composition is a standalone Preset).
 
 **Corpus** vs **user store**:
@@ -55,21 +55,21 @@ A composition-wide post-process pass run after the final composite into the canv
 _Avoid_: filter, shader (a shader is the WebGPU implementation; an Effect is the registry entry), per-layer effect (the engine no longer supports per-layer chains — see ADR-0018).
 
 **Cascade**:
-A declarative timing relationship between elements: an element's enter anchors to another element's enter plus an offset (kicker → title +120 ms → subtitle), so reading-order choreography re-times as one unit instead of drifting apart across hand-set absolute starts. The timing peer of an automatic **audio cue** — welded, never hand-synced. Designed (2026-07 keyframes grill), not built — see [`roadmap.md`](roadmap.md).
+A declarative timing relationship between elements: an element's enter anchors to another element's enter plus an offset (kicker → title +120 ms → subtitle), so reading-order choreography re-times as one unit instead of drifting apart across hand-set absolute starts. The timing peer of an automatic **audio cue** — welded, never hand-synced. Shipped with generalized keyframes ([ADR-0035](adr/0035-generalized-keyframes-and-cascade.md)).
 _Avoid_: stagger (the narrower per-glyph text-animation mechanism), sequence, chain, follow-through (the animation-craft effect a Cascade is used to achieve, not the mechanism).
 
 **Diagram primitive**:
-The five-**Block** vocabulary for art-directed, documentary-style diagrams — `node`, `edge-arrow`, `label`, `stat-callout`, `timeline-segment` — living on any Surface, positioned explicitly (schema + GUI drag), revealed with stroke-draw + **Cascade** choreography. Edge _route_ is content (straight/elbow/arc, authored); edge _stroke_ is appearance (Pack-resolved Role). A map is a **composition** (primitives over an image substrate), not a primitive. Explicitly _not_ auto-layout: mermaid was rejected as the model (auto-layout reads as documentation, not documentary); at most a future compile-into-primitives authoring shortcut. Designed ([ADR-0036](adr/0036-diagram-primitives.md)), not built.
+The five-**Block** vocabulary for art-directed, documentary-style diagrams — `node`, `edge-arrow`, `label`, `stat-callout`, `timeline-segment` — living on any Surface, positioned explicitly (schema + GUI drag), revealed with stroke-draw + **Cascade** choreography. Edge _route_ is content (straight/elbow/arc, authored); edge _stroke_ is appearance (Pack-resolved Role). A map is a **composition** (primitives over an image substrate), not a primitive. Explicitly _not_ auto-layout: mermaid was rejected as the model (auto-layout reads as documentation, not documentary); at most a future compile-into-primitives authoring shortcut. Shipped in [ADR-0036](adr/0036-diagram-primitives.md).
 _Avoid_: chart Block (underspecified), mermaid Block (auto-layout is not the model), infographic, map primitive (a map is a composition, not a type).
 
 ### Pack model
 
 **Pack**:
-A swappable **appearance** dress resolved at render time. One Pack folder lives at `docs/packs/<slug>/` and contains `aesthetic.md`, `inspo/`, and a machine-readable manifest resolving the engine's **Roles** to concrete appearance values — color (fill, ink), edge treatment, depth treatment, light, font, material, and assets. A Pack carries **appearance only**; it carries **no motion** (form, timing, and easing live entirely in the **Preset** and **Pipeline**). A Preset declares exactly one Pack as its default; the runtime may override the active Pack so the same Preset can render under any Pack ("render preset X under pack Y"). There is **no privileged default Pack** — `syntax` is one Pack among N, not a fallback. The engine is general-purpose and supports N Packs.
+A swappable **appearance** dress resolved at render time. Pack artifacts have two roots: `docs/packs/<slug>/` holds the human aesthetic contract and inspiration; `src/lib/packs/<slug>/` holds the machine manifest and bundled fonts/assets. The manifest resolves engine **Roles** to concrete appearance values — color (fill, ink, accent), edge treatment, depth treatment, light, font, material, chrome, and assets. A Pack carries **appearance only**; it carries **no motion** (form, timing, and easing live entirely in the **Preset** and **Pipeline**). A Preset declares exactly one Pack as its default; the runtime may override the active Pack so the same Preset can render under any Pack ("render preset X under pack Y"). There is **no privileged default Pack** — `syntax` is the completeness-reference Pack, not a fallback. `PACK_REGISTRY` is the live catalog.
 _Avoid_: theme, skin, style (under-specified), aesthetic doc (the doc is one artifact inside a Pack), motion pack (Packs never carry motion).
 
 **Role**:
-A named appearance slot a **Pipeline** declares (in its **Identity Spec** `viaPack` clause) and the active **Pack** resolves to a concrete value. Resolution is **two-level, with fallback** (like `var(--specific, var(--core))`): a Pipeline names a specific Role (`chapter-card.fill`); the resolver returns the Pack's value for it if present, else falls back to the **core Role** of the same dimension (`fill-treatment`). The engine pins the core Role vocabulary every Pack must implement (`fill-treatment`, `edge-treatment`, `depth-treatment`, `light-treatment`, plus font/material/asset cores); per-Pipeline Roles are **optional overrides** a Pack supplies only where it wants that Pipeline to diverge. Roles are appearance-only — there are no motion Roles.
+A named appearance slot a **Pipeline** declares (in its **Identity Spec** `viaPack` clause) and the active **Pack** resolves to a concrete value. Resolution is **two-level, with fallback** (like `var(--specific, var(--core))`): a Pipeline names a specific Role (`chapter-card.fill`); the resolver returns the Pack's value for it if present, else falls back to the **core Role** of the same dimension (`fill-treatment`). Every registered Pack must implement the six mandatory cores (`fill-treatment`, `ink-treatment`, `accent-treatment`, `edge-treatment`, `depth-treatment`, `light-treatment`); `font-treatment` and `material-treatment` are recognized optional cores. Per-Pipeline Roles are optional overrides a Pack supplies only where it wants that Pipeline to diverge. Roles are appearance-only — there are no motion Roles.
 _Avoid_: token (collides with design-token systems), variable, slot (overloaded with Focal slot), motion role (Roles never carry motion).
 
 **Identity Spec**:
@@ -86,15 +86,15 @@ _Avoid_: material spec (the narrower predecessor; now the `material` kind), iden
 ### Sound model
 
 **Sound event**:
-A semantic sound a **motion primitive emits** at a frame-deterministic moment — `whoosh-in` at an overlay slide's start, `impact` at a card-drop's settle, `tick` per character of a kinetic build. The _trigger time_ and _which event_ are **intrinsic to the motion** (owned by the Pipeline, like motion-form — never conceded to a kit or Pack); only the _sample_ is resolved by the active **Sound kit**. The sonic peer of a **Role**.
+A semantic sound a **motion primitive emits** at a frame-deterministic moment — `whoosh-in` at an overlay slide's start, `impact` at a card-drop's settle, `tick` per character of a kinetic build. The trigger time and default event are intrinsic to the motion (owned by the Pipeline, like motion-form). `DEFAULT_EVENT_SAMPLES` resolves each event to one engine-default sample; `sound.event`, `sound.sample`, and `sound.mute` override one motion. Sound does not resolve through a Pack or kit.
 _Avoid_: cue (the cue is the scheduled realization), sfx, sound effect.
 
-**Sound kit** (a.k.a. _sound style_; presented as **Palette** in the GUI, named for its sound-world — Desk, Chat — never for one sample):
-**Removed** (2026-07-02, after three rounds of GUI confusion — brand-named, sample-named, then palette-partition-by-Layer all failed legibility). Sound is now **engine defaults + per-motion overrides**: each sound event carries one default sample (`DEFAULT_EVENT_SAMPLES`), and any individual cue is overridden (`sound.sample` / `sound.mute`) from the inspector or the timeline's Sound rail. This entry stays as the tombstone for the term. Assigned **per Layer** (in the Layer's inspector), **not** per composition — there is no whole-piece sound pack; a Layer with no kit is silent. "Choosing a sound style" re-sounds _that Layer_. Carries **sound only** — no appearance (that is the Pack), no motion-timing (that is intrinsic to the motion). Cascade: **Layer** (which kit) → **motion / event** (override one sample). Unlike the appearance **Pack** (one global dress, [ADR-0023](adr/0023-pack-is-appearance-only.md)), the kit lives on the Layer because sound is event-driven and granular.
-_Avoid_: sound pack (it is not the appearance Pack), soundtrack, theme, score; "composition sound kit" (kits are per-Layer).
+**Sound kit**:
+**Removed term.** The proposed per-Layer sample bundle was never part of the final model and was removed on 2026-07-02 after GUI testing. Current sound is engine defaults + per-motion overrides; no `soundKit`, Palette picker, kit registry, or kit fallback exists. This entry is a tombstone so historical ADR prose is not mistaken for active guidance.
+_Avoid_: sound pack, sound style, Palette, kit fallback.
 
 **Audio cue**:
-A scheduled sound on the timeline. **Automatic cues** are _derived_ (not stored) from a motion's **sound event**, resolved through the active **Sound kit** at the motion's own frame — so they stay welded to the motion through every re-time/reflow. **Manual cues** are author-placed at an absolute timeline fraction (an outro sting, the **bed** start) and live in `audioCues[]` on `EngineState` (peer to `textAnimations[]` / `marks.timings[]`). Either way a cue does **not** render pixels — sound is **not a Layer**.
+A scheduled sound on the timeline. **Automatic cues** are _derived_ (not stored) from a motion's **sound event** at the motion's own frame and resolve through `DEFAULT_EVENT_SAMPLES` unless that motion overrides or mutes the cue, so they stay welded through every re-time/reflow. **Manual cues** are author-placed at an absolute timeline fraction (an outro sting, the **bed** start) and live in `audioCues[]` on `EngineState` (peer to `textAnimations[]` / `marks.timings[]`). Either way a cue does **not** render pixels — sound is **not a Layer**.
 _Avoid_: sound event (the semantic trigger vs. its scheduled realization).
 
 **Bed**:
@@ -135,7 +135,7 @@ The three reference compositions re-dressed under a candidate **Pack** and itera
 _Avoid_: smoke test, sample renders.
 
 **Pack-neutral composition**:
-A shipped Preset staged in no single brand's grammar, so it reads well under every catalog **Pack** ([ADR-0039](adr/0039-pack-neutral-compositions-and-listing-hygiene.md)). Brand-specific staging (e.g. the taped-clipping collage) belongs to a Pack's roles/variants or doesn't ship as a shared Preset. Corollaries: the pack is a dial, not a filename (no pack-suffix duplicate presets), and orientation is a transport dial (no byte-identical `-vertical` duplicates).
+A shipped Preset staged in no single brand's grammar, so it reads well under every catalog **Pack** ([ADR-0039](adr/0039-pack-neutral-compositions-and-listing-hygiene.md)). Brand-specific staging (e.g. the taped-clipping collage) belongs to a Pack's roles/variants or doesn't ship as a shared Preset. Corollaries: Pack and orientation are dials, not grounds for duplicate deliverables. Fixture-only calibration re-dresses and retained reflow proofs may use suffixes because they are excluded from the listing and remain loadable only as development evidence.
 _Avoid_: pack-agnostic (the composition still consumes pack roles — it just presumes no particular pack).
 
 ### Engine internals
@@ -158,7 +158,7 @@ A choreographed motion applied to a single text slot (`surface.content.title`, `
 _Avoid_: text effect (collides with **Effect (text)** below), text mark (collides with **Mark**).
 
 **Effect (text)**:
-One entry in the 24-effect catalog vendored from `pixel-point/animate-text` (e.g. `soft-blur-in`, `kinetic-center-build`, `fade-through`, `typewriter`). Identified by `effect` on a **TextAnimation** entry. Disjoint from the per-layer post-process **Effect** Layer — same word, different concept. Where ambiguous, write _text effect_ or _post-process Effect_.
+One entry in `TEXT_EFFECT_CATALOG`, vendored from `pixel-point/animate-text` (e.g. `soft-blur-in`, `kinetic-center-build`, `fade-through`, `typewriter`). Identified by `effect` on a **TextAnimation** entry. Disjoint from the composition-wide post-process **Effect** Layer — same word, different concept. Source vocabulary is always qualified (`TextEffectSpec`, `TextEffectId`, `TextEffectPhase`, `compileTextAnimation`); in prose, write _text effect_ or _post-process Effect_ where ambiguous.
 _Avoid_: text animation (broader; an Effect is a catalog id, an animation is the configured instance).
 
 **Split mode**:
@@ -166,7 +166,7 @@ The unit a text effect operates on — `whole`, `per-character`, `per-word`, or 
 _Avoid_: split granularity, target mode.
 
 **Renderer family**:
-One of four algorithms underneath the 24 catalog effects: `generic-stagger` (covers 21 effects via per-effect keyframe endpoints), `kinetic-center-build`, `kinetic-top-build`, `shared-slide-opacity-stage`. Identified by `effect.showcase.renderer.id` in the catalog. Each family has a dedicated strategy file under `src/lib/text-animations/strategies/`.
+An algorithm underneath the text-effect catalog, such as `generic-stagger`, `kinetic-center-build`, `kinetic-top-build`, or `shared-slide-opacity-stage`. Identified by `effect.showcase.renderer.id` in the catalog. Each family has a dedicated strategy file under `src/lib/text-animations/strategies/`.
 _Avoid_: renderer kind, animator (which collides with the AnimationManager).
 
 ### Workflow roles
@@ -192,7 +192,7 @@ A script under `scripts/probe-*.ts` that reads a captured screenshot and returns
 There are two distinct layers, often confused. The **rubric tiers** (R/Q/G) are human-readable rules judged _by eye_ by the **Critic** against rendered pixels (R and Q require pixels; some G are measurable via Probes). The **Preset linter** is a separate code gate that checks only the JSON-computable slice _before_ rendering. Per [ADR-0025](adr/0025-static-linter-checks-safety-and-readability-only.md), the linter owns objective video-safety + readability; the rubric tiers own everything that needs an eye.
 
 **Preset linter**:
-The static code gate at `src/lib/platform/preset-rubric.ts` (run by `scripts/verify-presets.ts` as `lintPreset`). Checks only what is computable from the Preset JSON plus frame size — **objective video-safety and readability, orientation-aware** (read-window, title/action-safe margins, minimum legible size, frame-fit / no bleed, line measure, contrast). Hard-errors on those; carries **no motion or aesthetic taste** (that is the Critic's). See [ADR-0025](adr/0025-static-linter-checks-safety-and-readability-only.md).
+The static code gate at `src/lib/platform/preset-rubric.ts` (run by `scripts/verify-presets.ts` as `lintPreset`). It checks only objective video-safety/readability facts computable from Preset JSON plus target frame size: authored read windows, safe-area placement, contrast, frame fit, and related structural timing floors. Render-measured cap height, line measure, and density live in `lintPresetVisual` and the visual audit harness, not `verify-presets`. Neither lane carries motion or aesthetic taste (that is the Critic's). See [ADR-0025](adr/0025-static-linter-checks-safety-and-readability-only.md).
 _Avoid_: rubric (the linter is not the R/Q/G rubric tiers), validator (that is schema parsing).
 
 **R-rule**:
@@ -209,7 +209,7 @@ The named-observation format every R-rule check must follow — pixel coordinate
 
 ## Relationships
 
-- A **Preset** declares one **Surface**, one or more **Blocks** on that Surface, zero or more **Annotations** per Block, zero or more **Overlays** over the composition, and zero or more **Effects** per Layer.
+- A **Preset** declares one **Surface**, its **Blocks**, zero or more **Annotations** on those Blocks, zero or more **Overlays**, and one flat list of zero or more composition-wide post-process **Effects**.
 - Every **Mark** is an **Annotation**; not every **Annotation** is a **Mark**.
 - A **Pipeline** belongs to exactly one **Layer** and one variant; the **Registry** is the union of all Pipelines.
 - A **Brainstorm** agent writes a **Brief**; a **Producer** authors from it; a **Critic** verifies the result. The three are never the same agent invocation.
@@ -232,4 +232,4 @@ The named-observation format every R-rule check must follow — pixel coordinate
 - **"surface"** vs **"substrate"** were used interchangeably. Resolved: **Surface** is the renderer; **Substrate** is the material it claims.
 - **"chrome"** was used both for the channel's signature elements and for any layered Overlay. Resolved: **Channel chrome** is the specific channel-identity subset; **Overlay** is the general Layer.
 - **Pack scope (appearance vs motion)** was unresolved — the code put some motion (`enterMotion`, `bodyEnter`, `focalMotion`) into Pack Roles while treating motion-form as intrinsic, leaving the seam undrawn. Resolved: a **Pack is appearance-only**; all motion (form, timing, easing) is intrinsic to the **Preset**/**Pipeline**. The motion Roles are to be removed and made `implementation`-declared.
-- **Pack system is partially wired.** **Color and font** Roles reach pixels via `resolveAppearanceVars` (CSS custom properties injected on the mounts — the live path). Two **structural** Roles reach pixels via typed resolvers (specific→core fallback): `depth` through `resolveDepthTreatment` — proven on the `newspaper` card's hard-offset shadow — and `edge` through `resolveEdgeTreatment`, which resolves the five-value edge vocabulary (`clean / soft / irregular / torn / none`) into a shader-side alpha mask (the shared edge-treatment ShaderPass; opted into by card-silhouette surfaces via `SurfaceRenderer.edgeTreatment`) — proven on the `newspaper` clipping (syntax torn + fiber rim → editorial-mono clean die-cut). The remaining structural Roles (`light` / `material`) are still declared + boot-validated but inert; the old unused `resolveStyle` / `resolveRole` accessors have been removed. The committed direction is to **finish** it (wire the remaining structural resolution to pixels), not cut it — see [`engine-architecture.md`](engine-architecture.md) § Appearance and [`roadmap.md`](roadmap.md). Until then, treat the glossary's Pack/Role definitions as the _target_ model for `light`/`material`, and the live path as current reality for color, font, depth, and edge.
+- **Pack wiring is live.** Color and font Roles reach pixels through `resolveAppearanceVars`; `resolveDepthTreatment` drives hard-offset or glow depth; `resolveEdgeTreatment` drives the shared silhouette ShaderPass; `resolveLightTreatment` drives the depth stage's scene key light; and `resolveMaterialTreatment` drives the shared alpha-masked CRT scanline ShaderPass. All use typed, resolver-recognized values; the old generic `resolveStyle` / `resolveRole` accessors are gone. `PACK_IMMUNE_PIPELINE_KEYS` is the complete runtime-derived authority for faithful artifacts; do not copy a concrete immunity list into guidance.

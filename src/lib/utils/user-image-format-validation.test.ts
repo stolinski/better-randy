@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
-import { hasUserImageSignature, userImageFormatForMime } from './user-image-assets.ts';
+import {
+	hasUserImageSignature,
+	userImageFormatForMime
+} from './user-image-format-validation.ts';
 
-describe('user image assets', () => {
+describe('user image format validation', () => {
 	it('recognizes supported MIME types and file signatures', () => {
 		assert.equal(userImageFormatForMime('image/png')?.extension, 'png');
 		assert.equal(userImageFormatForMime('image/jpeg')?.extension, 'jpg');

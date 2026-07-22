@@ -11,7 +11,7 @@
  * The hero `[highlight]` span is left for the author to mark by hand: the body is
  * emitted as plain prose and the script prints how to wrap your chosen line.
  *
- *   node scripts/url-to-preset.mjs <url> [--vertical] [--force] [--dry-run]
+ *   node scripts/url-to-preset.mjs <url> --pack=<slug> [--force] [--dry-run]
  *
  * Site notes:
  * - wikipedia: clean REST summary API (title + lead extract). Robust.
@@ -26,8 +26,12 @@ import { existsSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { readPackRegistrySlugsFromSource } from '../src/lib/utils/pack-registry-source.mjs';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
-const PRESETS_DIR = join(HERE, '..', 'src', 'lib', 'presets');
+const REPOSITORY_ROOT = join(HERE, '..');
+const PRESETS_DIR = join(REPOSITORY_ROOT, 'src', 'lib', 'presets');
+const PACK_SLUGS = new Set(readPackRegistrySlugsFromSource(REPOSITORY_ROOT));
 
 // A descriptive UA (some sites gate on it); Accept json where the API offers it.
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) supers-url-to-preset/1.0';
@@ -411,14 +415,15 @@ function pruneContent(content) {
 	return Object.fromEntries(Object.entries(content).filter(([, value]) => value !== ''));
 }
 
-function buildPreset({ site, orientation, titleForName, content }) {
+function buildPreset({ site, pack, titleForName, content }) {
 	return {
 		schema: 'supers@1',
-		name: `Web document — ${SITE_LABEL[site]}: ${titleForName} (${orientation})`,
+		name: `Web document — ${SITE_LABEL[site]}: ${titleForName}`,
 		description: `Authored from a URL by scripts/url-to-preset.mjs. Faithful ${SITE_LABEL[site]} look on a transparent overlay; the hero [highlight] span is hand-marked. Emissive screen optics come from the web-document shaderPass, not Pack chrome. ~6s: card settles in, the highlighter draws over the hero line, then a static hold a creator can freeze/extend.`,
-		pack: 'syntax',
+		pack,
+		kind: 'fixture',
 		state: {
-			transport: { orientation, durationSeconds: 6, fps: 30, format: 'webm' },
+			transport: { orientation: 'horizontal', durationSeconds: 6, fps: 30, format: 'webm' },
 			typography: { fontFamily: 'sans', ...SITE_TYPOGRAPHY[site] },
 			marks: {
 				defaults: { highlight: { color: '#fabf47', intensity: 0.62 } },
@@ -441,7 +446,11 @@ async function main() {
 	const flags = new Set(argv.filter((a) => a.startsWith('--')));
 	const url = argv.find((a) => !a.startsWith('--'));
 	if (!url) {
-		fail('usage: node scripts/url-to-preset.mjs <url> [--vertical] [--force] [--dry-run]');
+		fail('usage: node scripts/url-to-preset.mjs <url> --pack=<slug> [--force] [--dry-run]');
+	}
+	const pack = (argv.find((a) => a.startsWith('--pack=')) ?? '').split('=')[1];
+	if (!pack || !PACK_SLUGS.has(pack)) {
+		fail(`--pack must name a registered Pack: ${[...PACK_SLUGS].sort().join(', ')}`);
 	}
 
 	// `--site=<name>` forces a site (e.g. a news outlet not in NEWS_HOSTS).
@@ -458,7 +467,6 @@ async function main() {
 		);
 	}
 
-	const orientation = flags.has('--vertical') ? 'vertical' : 'horizontal';
 	// Date.now() is fine here — this is a one-shot authoring step, not engine render.
 	const nowMs = Date.now();
 
@@ -502,13 +510,12 @@ async function main() {
 
 	const preset = buildPreset({
 		site,
-		orientation,
+		pack,
 		titleForName: scraped.titleForName,
 		content: scraped.content
 	});
 
-	const suffix = orientation === 'vertical' ? '-vertical' : '';
-	const fileName = `web-document-${site}-${scraped.slug}${suffix}.json`;
+	const fileName = `web-document-${site}-${scraped.slug}.json`;
 	const outPath = join(PRESETS_DIR, fileName);
 	const json = `${JSON.stringify(preset, null, '\t')}\n`;
 
@@ -523,7 +530,7 @@ async function main() {
 	writeFileSync(outPath, json);
 
 	console.log(`✓ wrote src/lib/presets/${fileName}`);
-	console.log(`  site: ${site} · slug: ${scraped.slug} · ${orientation}`);
+	console.log(`  site: ${site} · slug: ${scraped.slug} · pack: ${pack}`);
 	if (note) {
 		console.log(`  note: ${note}`);
 	}

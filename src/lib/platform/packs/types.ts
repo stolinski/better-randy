@@ -51,9 +51,9 @@ export type PackRoleKind = 'style' | 'pipeline' | 'chrome';
  *     `font-family: var(--font, <intrinsic stack>)` — one family everywhere.
  *     Per-Pipeline `<type>.font` string Roles beat the core (specific → core,
  *     `resolveFontTreatment`). Any other or absent value is no claim —
- *     pipelines keep their intrinsic stacks. Pack-immune pipelines (imessage,
- *     web-document) never receive it. The family named first must appear in
- *     `fonts` so capture gates on it loading.
+ *     pipelines keep their intrinsic stacks. Pack-immune Pipelines never
+ *     receive it; their mounts derive immunity from the Identity Registry. The
+ *     family named first must appear in `fonts` so capture gates on it loading.
  */
 export const MANDATORY_CORE_ROLES = [
 	'fill-treatment',

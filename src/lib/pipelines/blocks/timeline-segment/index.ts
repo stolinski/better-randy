@@ -5,6 +5,6 @@ import type { BlockRenderer } from '$lib/platform/pipelines/types';
 // endpoints — the H↔V reflow stress case. The rule + end ticks are
 // stroke-drawn into the marks canvas via `drawDiagramStrokes`; the caption is
 // DOM, mounted by DiagramMount above the span's midpoint.
-export const timelineSegment: BlockRenderer<DiagramTimelineSegment> = {
+export const timelineSegmentBlockRenderer: BlockRenderer<DiagramTimelineSegment> = {
 	type: 'timeline-segment'
 };

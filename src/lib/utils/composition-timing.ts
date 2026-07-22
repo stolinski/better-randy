@@ -183,16 +183,16 @@ export function rescaleCompositionTimings(state: EngineState, factor: number): v
 		scaleWindow(entry.exit, factor);
 	}
 
-	for (const element of surface.diagram ?? []) {
-		scaleWindow(element.enter, factor);
-		scaleWindow(element.exit, factor);
+	for (const primitive of surface.diagram ?? []) {
+		scaleWindow(primitive.enter, factor);
+		scaleWindow(primitive.exit, factor);
 		// stat-callout carries its own fraction-timed counter-roll window.
-		if (element.type === 'stat-callout') {
-			if (typeof element.rollStart === 'number') {
-				element.rollStart = clampNumber(element.rollStart * factor, 0, 1);
+		if (primitive.type === 'stat-callout') {
+			if (typeof primitive.rollStart === 'number') {
+				primitive.rollStart = clampNumber(primitive.rollStart * factor, 0, 1);
 			}
-			if (typeof element.rollWindow === 'number') {
-				element.rollWindow = clampNumber(element.rollWindow * factor, 0, 1);
+			if (typeof primitive.rollWindow === 'number') {
+				primitive.rollWindow = clampNumber(primitive.rollWindow * factor, 0, 1);
 			}
 		}
 	}

@@ -226,7 +226,7 @@ const fragmentBody = /* wgsl */ `
 	return vec4f(outColor, outAlpha) * inputSample.a;
 `;
 
-export const halftoneDots: EffectRenderer<HalftoneDotsParams> = {
+export const halftoneDotsEffectRenderer: EffectRenderer<HalftoneDotsParams> = {
 	type: 'halftone-dots',
 	label: 'Halftone dots',
 	schema: HalftoneDotsEffectSchema,

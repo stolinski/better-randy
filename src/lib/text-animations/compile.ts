@@ -1,16 +1,16 @@
 import type { AnimationTweenSpec } from '$lib/platform/animation-manager';
-import type {
-	TextAnimation,
-	TextAnimationParams,
-	Transport
-} from '$lib/platform/engine-schema';
+import type { TextAnimation, TextAnimationParams, Transport } from '$lib/platform/engine-schema';
 
-import { EFFECT_CATALOG, type EffectSpec, type ShowcaseRuntime } from './catalog';
+import {
+	TEXT_EFFECT_CATALOG,
+	type TextEffectShowcaseRuntime,
+	type TextEffectSpec
+} from './catalog';
 import { compileGenericStagger } from './strategies/generic-stagger';
 import { compileKineticCenterBuild } from './strategies/kinetic-center-build';
 import { compileKineticTopBuild } from './strategies/kinetic-top-build';
 import { compileSharedSlideOpacityStage } from './strategies/shared-slide-opacity-stage';
-import type { ResolvedUnit, UnitAlphaWriter } from './unit-types';
+import type { TextAnimationResolvedUnit, TextAnimationUnitAlphaWriter } from './unit-types';
 
 /**
  * The keys live on a per-slot/per-unit basis. Supers timestamp-driven playback
@@ -18,29 +18,29 @@ import type { ResolvedUnit, UnitAlphaWriter } from './unit-types';
  * sees one stable list of units, sized from the SplitText output. Each unit
  * gets one tween for the "enter" phase and (optionally) one for the "exit"
  * phase. Marks coupling reads the resulting per-unit alpha through the
- * `UnitAlphaWriter` callback.
+ * `TextAnimationUnitAlphaWriter` callback.
  */
-export interface CompileInputs {
+export interface TextAnimationCompileInputs {
 	entry: TextAnimation;
-	spec: EffectSpec;
-	units: ResolvedUnit[];
+	spec: TextEffectSpec;
+	units: TextAnimationResolvedUnit[];
 	transport: Transport;
-	writeUnitAlpha: UnitAlphaWriter;
+	writeUnitAlpha: TextAnimationUnitAlphaWriter;
 }
 
-export interface CompileOutputs {
+export interface TextAnimationCompileResult {
 	tweens: AnimationTweenSpec[];
 }
 
 function shallowMergeRuntime(
-	base: ShowcaseRuntime,
+	base: TextEffectShowcaseRuntime,
 	overrides: TextAnimationParams | null | undefined
-): ShowcaseRuntime {
+): TextEffectShowcaseRuntime {
 	if (!overrides) {
 		return base;
 	}
 
-	const next: ShowcaseRuntime = { ...base };
+	const next: TextEffectShowcaseRuntime = { ...base };
 
 	if (typeof overrides.speedMultiplier === 'number') {
 		next.speed_multiplier = overrides.speedMultiplier;
@@ -66,8 +66,8 @@ function shallowMergeRuntime(
  * caller side. Returns `null` when the effect id is unknown — schema parse
  * should have caught this; the runtime guard is defensive only.
  */
-export function resolveSpec(entry: TextAnimation): EffectSpec | null {
-	return EFFECT_CATALOG.get(entry.effect) ?? null;
+export function resolveTextEffectSpec(entry: TextAnimation): TextEffectSpec | null {
+	return TEXT_EFFECT_CATALOG.get(entry.effect) ?? null;
 }
 
 /**
@@ -75,10 +75,12 @@ export function resolveSpec(entry: TextAnimation): EffectSpec | null {
  * the AnimationManager scrubs against the paused GSAP timeline. Pure /
  * deterministic — given the same inputs (catalog, transport, units, entry) the
  * tween list is identical. No DOM access here; the strategies operate on the
- * `ResolvedUnit[]` the manager has already materialized.
+ * `TextAnimationResolvedUnit[]` the manager has already materialized.
  */
-export function compile(inputs: CompileInputs): CompileOutputs {
-	const merged: ResolvedSpec = {
+export function compileTextAnimation(
+	inputs: TextAnimationCompileInputs
+): TextAnimationCompileResult {
+	const merged: ResolvedTextEffectSpec = {
 		...inputs.spec,
 		runtime: shallowMergeRuntime(inputs.spec.runtime, inputs.entry.params ?? null)
 	};
@@ -95,6 +97,8 @@ export function compile(inputs: CompileInputs): CompileOutputs {
 	}
 }
 
-export type ResolvedSpec = EffectSpec;
+export type ResolvedTextEffectSpec = TextEffectSpec;
 
-export type StrategyInputs = Omit<CompileInputs, 'spec'> & { spec: ResolvedSpec };
+export type TextEffectStrategyInputs = Omit<TextAnimationCompileInputs, 'spec'> & {
+	spec: ResolvedTextEffectSpec;
+};

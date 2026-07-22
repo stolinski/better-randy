@@ -4,7 +4,7 @@ import type { OverlayDefaults, OverlayRenderer } from '$lib/platform/pipelines/t
 
 import CanvasSource from './CanvasSource.svelte';
 import Editor from './Editor.svelte';
-import { VARIANT_IDS, type LowerThirdVariantId } from './variants';
+import { VARIANT_IDS } from './variants';
 
 /**
  * Lower-third Overlay family — per ADR-0020 (variants-as-data). After the
@@ -27,7 +27,6 @@ const LowerThirdContentSchema = z.object({
 });
 
 export type LowerThirdContent = z.infer<typeof LowerThirdContentSchema>;
-export type { LowerThirdVariantId };
 
 function defaults(): OverlayDefaults<LowerThirdContent> {
 	return {
@@ -43,7 +42,7 @@ function defaults(): OverlayDefaults<LowerThirdContent> {
 	};
 }
 
-export const lowerThird: OverlayRenderer<LowerThirdContent> = {
+export const lowerThirdOverlayRenderer: OverlayRenderer<LowerThirdContent> = {
 	type: 'lower-third',
 	label: 'Lower-third',
 	schema: LowerThirdContentSchema,

@@ -202,7 +202,7 @@ const fragmentBody = /* wgsl */ `
 	return vec4f(outRgb, outA);
 `;
 
-export const water: EffectRenderer<WaterParams> = {
+export const waterEffectRenderer: EffectRenderer<WaterParams> = {
 	type: 'water',
 	label: 'Water',
 	schema: WaterEffectSchema,

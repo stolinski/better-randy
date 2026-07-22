@@ -8,5 +8,3 @@ export const VARIANTS: Readonly<Record<string, CounterVariant>> = {
 export const VARIANT_IDS = ['slot-machine-roll'] as const;
 
 export type CounterVariantId = (typeof VARIANT_IDS)[number];
-
-export type { CounterVariant } from './types';

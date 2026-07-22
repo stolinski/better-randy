@@ -5,9 +5,9 @@ import {
 } from './annotation-mark-styles';
 import type {
 	AnnotationBody,
+	AnnotationBodyBlock,
 	AnnotationMarkColors,
-	AnnotationTextSegment,
-	ParagraphBlock
+	AnnotationTextSegment
 } from './annotation-marks';
 
 export interface EditorSelection {
@@ -144,7 +144,7 @@ export function toggleMarkInBody(
 }
 
 function buildParagraphElement(
-	paragraph: ParagraphBlock,
+	paragraph: AnnotationBodyBlock,
 	colors: AnnotationMarkColors
 ): HTMLDivElement {
 	const div = document.createElement('div');

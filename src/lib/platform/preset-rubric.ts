@@ -598,7 +598,7 @@ function checkDiagramContrast(
 	// Accent-inked elements ride the Pack's core accent instead of the
 	// composition ink. Accent is emphasis-scale (large type / strokes), so the
 	// G5 large-text floor (3:1) binds against the same opaque field.
-	if (accentColor !== null && diagram.some((element) => element.ink === 'accent')) {
+	if (accentColor !== null && diagram.some((primitive) => primitive.ink === 'accent')) {
 		const accentRatio = contrastRatio(backgroundFill, accentColor);
 		if (accentRatio < 3) {
 			issues.push({

@@ -17,7 +17,7 @@ function defaults(): OverlayDefaults<SourceUrlContent> {
 	};
 }
 
-export const sourceUrl: OverlayRenderer<SourceUrlContent> = {
+export const sourceUrlOverlayRenderer: OverlayRenderer<SourceUrlContent> = {
 	type: 'source-url',
 	label: 'Source URL',
 	schema: SourceUrlContentSchema,

@@ -12,7 +12,7 @@
 
 <style>
 	/* The diagram's caption voice: mono annotation register, sized by the
-	   element's own `scale` (applied by the mount), ink from the Pack →
+	   primitive's own `scale` (applied by the mount), ink from the Pack →
 	   composition typography. */
 	.diagram-label {
 		color: var(--ink, currentColor);

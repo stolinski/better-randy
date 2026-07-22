@@ -7,7 +7,7 @@ import type { CompositionTransition, Preset } from './engine-schema';
  * (user store, corpus, and revert all route through it), edited directly by
  * the RootInspector, and read back by the preset page when it serializes the
  * composition for autosave/fork. Distinct from `compositionMeta`, which
- * tracks provenance (user comp vs corpus, fork origin) — this is preset data.
+ * tracks provenance (User composition vs corpus, fork origin) — this is Preset data.
  */
 export const presetBase = $state<{
 	name: string;

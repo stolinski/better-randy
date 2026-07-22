@@ -4,7 +4,7 @@ import type { OverlayDefaults, OverlayRenderer } from '$lib/platform/pipelines/t
 
 import CanvasSource from './CanvasSource.svelte';
 import Editor from './Editor.svelte';
-import { VARIANT_IDS, type Text3dVariantId } from './variants';
+import { VARIANT_IDS } from './variants';
 
 const Text3dContentSchema = z.object({
 	variant: z.enum(VARIANT_IDS).default('cylinder-axis-y'),
@@ -19,7 +19,6 @@ const Text3dContentSchema = z.object({
 });
 
 export type Text3dContent = z.infer<typeof Text3dContentSchema>;
-export type { Text3dVariantId };
 
 function defaults(): OverlayDefaults<Text3dContent> {
 	return {
@@ -37,7 +36,7 @@ function defaults(): OverlayDefaults<Text3dContent> {
 	};
 }
 
-export const text3d: OverlayRenderer<Text3dContent> = {
+export const text3dOverlayRenderer: OverlayRenderer<Text3dContent> = {
 	type: 'text-3d',
 	label: 'Text 3D',
 	schema: Text3dContentSchema,

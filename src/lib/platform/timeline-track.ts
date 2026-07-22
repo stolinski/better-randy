@@ -2,8 +2,10 @@
  * Timeline data model (ADR-0034 §2/§2a). One row per Layer; each row is a single
  * unified clip bar — `enter` ramp | solid | `exit` ramp — or a simple window clip
  * (stagger, roll, dwell …). Shared by the timeline-outline view and the
- * `buildTracks()` adapter that maps composition state onto it.
+ * `buildCompositionTimelineTracks()` adapter that maps composition state onto it.
  */
+
+import type { SoundRailReference, TimelineTrackId } from './timeline-entity-identity.ts';
 
 export type TimelineTransitionRamp = 'in' | 'out';
 
@@ -46,7 +48,7 @@ export interface ClipKeyframe {
  * the resolved anchor event (leader start or end) on the timeline.
  */
 export interface ClipCascadeLink {
-	anchorTrackId: string;
+	anchorTrackId: TimelineTrackId;
 	anchorFraction: number;
 }
 
@@ -91,10 +93,12 @@ export interface TimelineTransition {
 	onKeyframeDelete?: (channel: string, index: number) => void;
 	/** Present when this clip's enter is cascade-welded to another row. */
 	cascade?: ClipCascadeLink;
+	/** Present only for a cue on the Sound rail; routes selection without parsing the transition id. */
+	soundReference?: SoundRailReference;
 }
 
 export interface TimelineTrack {
-	id: string;
+	id: TimelineTrackId;
 	label: string;
 	color?: string;
 	transitions: TimelineTransition[];

@@ -24,14 +24,14 @@ export interface RenderAnimState {
 	 */
 	overlayChannels: (OverlayChannelValues | null)[];
 	/**
-	 * Diagram Block elements (ADR-0036), keyed by element id — id-keyed rather
-	 * than index-aligned because ids are the elements' timeline-row / cascade
+	 * Diagram primitive Blocks (ADR-0036), keyed by primitive id — id-keyed rather
+	 * than index-aligned because ids are the primitives' timeline-row / cascade
 	 * identities. `blockProgresses` is the ENTER progress (0→1, holds 1): the
 	 * stroke draw-on scalar for edge-arrow / timeline-segment and the entrance
-	 * form driver for the DOM elements. `blockAlphas` is the EXIT fade
-	 * multiplier (1→0 over the exit window) — an exit fades a diagram element,
+	 * form driver for the DOM primitives. `blockAlphas` is the EXIT fade
+	 * multiplier (1→0 over the exit window) — an exit fades a Diagram primitive,
 	 * it never un-draws the stroke. `blockChannels` mirrors `overlayChannels`
-	 * for channel-owned elements (ADR-0035 ownership: intrinsic form bypassed).
+	 * for channel-owned primitives (ADR-0035 ownership: intrinsic form bypassed).
 	 */
 	blockProgresses: Record<string, number>;
 	blockAlphas: Record<string, number>;
@@ -60,8 +60,8 @@ export const animState = $state<RenderAnimState>({
 });
 
 /**
- * Prune diagram-element records to the current id set and seed missing ids —
- * the id-keyed peer of `syncProgressArray`, so a deleted element's stale
+	* Prune Diagram primitive records to the current id set and seed missing ids —
+	* the id-keyed peer of `syncProgressArray`, so a deleted primitive's stale
  * progress can't ghost back when an id is reused.
  */
 export function syncBlockRecords(ids: readonly string[]): void {

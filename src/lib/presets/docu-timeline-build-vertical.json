@@ -2,7 +2,7 @@
 	"schema": "supers@1",
 	"name": "Docu timeline build — the road to ES modules (vertical)",
 	"description": "Vertical sibling of docu-timeline-build — the ADR-0036 H↔V reflow stress case proven: the SAME five-primitive composition re-authored down a vertical rail (x 0.5, era spans stacked top→bottom) purely by repositioning timeline-segment endpoints, never reshaping. The chronological stroke-draw now runs top-to-bottom (Y-motion per G11), year-marker labels sit beside the era joints left of the rail inside the platform-UI safe zones, and type scales up for the 9:16 read. Full-frame dark graphic register (backgroundFill #0f1116, strokes ride warm off-white inkColor); mono signature thread on every label. Intentional omissions per the docu-diagram register: no collage chrome (torn edges, tape, hard offset shadow, registration jitter) and no grit effect — stroke/node/label appearance resolves through the Syntax pack's Roles.",
-	"kind": "deliverable",
+	"kind": "fixture",
 	"pack": "syntax",
 	"state": {
 		"transport": {

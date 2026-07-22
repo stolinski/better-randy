@@ -1,9 +1,9 @@
 <script lang="ts">
 	import {
-		EFFECT_CATALOG,
-		EFFECT_IDS,
-		SPLIT_MODES,
-		type SplitMode
+		TEXT_EFFECT_CATALOG,
+		TEXT_EFFECT_IDS,
+		TEXT_EFFECT_SPLIT_MODES,
+		type TextEffectSplitMode
 	} from '$lib/text-animations/catalog';
 
 	import CascadeSection from './CascadeSection.svelte';
@@ -29,10 +29,10 @@
 
 	const easeOptions = Object.entries(ENGINE_EASES) as [Ease, (typeof ENGINE_EASES)[Ease]][];
 
-	const effectsByGroup: { mode: SplitMode; items: { id: string; label: string }[] }[] =
-		SPLIT_MODES.map((mode) => ({
+	const effectsByGroup: { mode: TextEffectSplitMode; items: { id: string; label: string }[] }[] =
+		TEXT_EFFECT_SPLIT_MODES.map((mode) => ({
 			mode,
-			items: EFFECT_IDS.map((id) => ({ id, spec: EFFECT_CATALOG.get(id) }))
+			items: TEXT_EFFECT_IDS.map((id) => ({ id, spec: TEXT_EFFECT_CATALOG.get(id) }))
 				.filter(({ spec }) => spec?.target === mode)
 				.map(({ id, spec }) => ({ id, label: spec!.displayName }))
 		})).filter((g) => g.items.length > 0);
@@ -68,7 +68,7 @@
 					value={entry.effect}
 					onchange={(e) => {
 						const v = (e.currentTarget as HTMLSelectElement).value;
-						if (EFFECT_CATALOG.has(v)) entry.effect = v;
+						if (TEXT_EFFECT_CATALOG.has(v)) entry.effect = v;
 					}}
 				>
 					{#each effectsByGroup as group (group.mode)}

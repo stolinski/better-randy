@@ -8,12 +8,13 @@ function makeState(overrides: {
 	overlays?: unknown[];
 	timings?: unknown[];
 	textAnimations?: unknown[];
+	surface?: unknown;
 }): EngineState {
 	return {
 		transport: { orientation: 'horizontal', durationSeconds: 10, fps: 30, format: 'webm' },
 		typography: { fontFamily: 'serif', paperColor: '#ffffff', inkColor: '#000000' },
 		marks: { defaults: {}, timings: overrides.timings ?? [] },
-		surface: { type: 'plain', content: { body: [] } },
+		surface: overrides.surface ?? { type: 'plain', content: { body: [] } },
 		textAnimations: overrides.textAnimations ?? [],
 		overlays: overrides.overlays ?? [],
 		effects: [],
@@ -200,6 +201,52 @@ describe('sound cues', () => {
 			const text = deriveSoundCues(state).find((c) => c.id === 'text:reveal:enter');
 			assert.ok(text, 'text cue exists');
 			assert.ok(Math.abs(text.start - 0.21) < 1e-9, `expected 0.21, got ${text.start}`);
+		}
+
+		// ── Structured provenance never reverse-parses suffix-like authored ids ────
+
+		{
+			const overlayId = 'hero-roll-stack-spin-beat-cursor-1';
+			const state = makeState({
+				overlays: [
+					{
+						id: overlayId,
+						type: 'lower-third',
+						content: {},
+						position: { anchor: 'center' },
+						enter: { start: 0.1, duration: 0.05, ease: 'smooth' }
+					}
+				]
+			});
+			const cue = deriveSoundCues(state).find((entry) => entry.id === `overlay:${overlayId}:enter`);
+			assert.ok(cue, 'suffix-like overlay cue exists');
+			assert.deepEqual(cue.source, {
+				kind: 'overlay-transition',
+				overlayId,
+				phase: 'enter'
+			});
+			assert.deepEqual(cue.editTarget, cue.source);
+		}
+
+		{
+			const state = makeState({
+				surface: {
+					type: 'checklist',
+					content: {
+						body: [],
+						items: [
+							{
+								text: 'Ship it',
+								checked: true,
+								strike: { start: 0.4, duration: 0.1, ease: 'sharp' }
+							}
+						]
+					}
+				}
+			});
+			const cue = deriveSoundCues(state).find((entry) => entry.id === 'mark:0');
+			assert.ok(cue, 'checklist strike cue exists');
+			assert.deepEqual(cue.editTarget, { kind: 'checklist-item-strike', itemIndex: 0 });
 		}
 	});
 });

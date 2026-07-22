@@ -21,11 +21,11 @@
  *   3. diffs the two captures (mean absolute RGB diff + changed-pixel
  *      percent) and PASSes the Pipeline only when the frame visibly changed.
  *
- * Pack-immune Pipelines (PACK_IMMUNE_PIPELINE_KEYS — surface:imessage,
- * surface:web-document) are EXEMPT from must-diff: their artifact is
- * verisimilar by contract and may legitimately render identically. They are
- * listed as `immune (exempt)`. A registered Pipeline with no covering Preset
- * is reported as a coverage-gap WARNING, not a failure.
+ * Pipelines in the runtime-derived PACK_IMMUNE_PIPELINE_KEYS set are EXEMPT
+ * from must-diff: their artifact is verisimilar by contract and may
+ * legitimately render identically. They are listed as `immune (exempt)`. A
+ * registered Pipeline with no covering Preset is reported as a coverage-gap
+ * WARNING, not a failure.
  *
  * Thresholds (calibrated 2026-07-04, syntax ↔ editorial-mono at 960×540):
  *   - a pixel counts as "changed" when any RGB channel moves by > 8/255 —
@@ -216,9 +216,9 @@ function scanPreset(slug: string, json: unknown): PresetScan | null {
 	}
 
 	if (surface && Array.isArray(surface.diagram)) {
-		for (const element of surface.diagram) {
-			if (isRecord(element) && typeof element.type === 'string') {
-				covers.add(`block:${element.type}`);
+		for (const primitive of surface.diagram) {
+			if (isRecord(primitive) && typeof primitive.type === 'string') {
+				covers.add(`block:${primitive.type}`);
 			}
 		}
 	}
@@ -245,10 +245,14 @@ function scanPreset(slug: string, json: unknown): PresetScan | null {
 		}
 	}
 
+	if (typeof json.pack !== 'string' || json.pack.trim().length === 0) {
+		throw new Error(`Preset "${slug}" is missing its required Pack.`);
+	}
+
 	return {
 		slug,
 		kind: typeof json.kind === 'string' ? json.kind : undefined,
-		pack: typeof json.pack === 'string' ? json.pack : 'syntax',
+		pack: json.pack,
 		orientation:
 			isRecord(state.transport) && typeof state.transport.orientation === 'string'
 				? state.transport.orientation

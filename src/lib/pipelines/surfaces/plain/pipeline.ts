@@ -8,7 +8,7 @@ import {
 import { drawDiagramStrokes, getDiagramNodeLayouts } from '$lib/annotations/diagram-strokes';
 import { getHtmlInCanvasQueue } from '$lib/platform/html-in-canvas';
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
-import type { SurfaceAnimState, SurfaceRenderInputs, SurfaceRenderInstance } from '$lib/platform/pipelines/types';
+import type { SurfaceRenderInputs, SurfaceRenderInstance } from '$lib/platform/pipelines/types';
 
 const TEXTURE_USAGE_COPY_SRC = 0x01;
 const TEXTURE_USAGE_COPY_DST = 0x02;
@@ -18,8 +18,6 @@ const DOM_TEXTURE_USAGE =
 	TEXTURE_USAGE_TEXTURE_BINDING | TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_RENDER_ATTACHMENT;
 const OUTPUT_TEXTURE_USAGE =
 	TEXTURE_USAGE_TEXTURE_BINDING | TEXTURE_USAGE_COPY_SRC | TEXTURE_USAGE_RENDER_ATTACHMENT;
-
-export type { SurfaceAnimState as PlainAnimState, SurfaceRenderInputs as PlainRenderInputs, SurfaceRenderInstance as PlainPipeline };
 
 export interface CreatePlainPipelineOptions {
 	host: GpuHost;
@@ -151,7 +149,7 @@ export function createPlainPipeline({
 		if (inputs.diagram) {
 			drawDiagramStrokes({
 				context: marksContext,
-				elements: inputs.diagram.elements,
+				primitives: inputs.diagram.primitives,
 				frame: fullLayout,
 				nodeLayouts: getDiagramNodeLayouts(sourceElement, fullLayout),
 				drawProgressById: inputs.diagram.drawProgressById,

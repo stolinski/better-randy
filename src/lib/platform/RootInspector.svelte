@@ -321,11 +321,14 @@
 </script>
 
 <div class="root-inspector">
-	{#if compositionMeta.isUserComp}
+	{#if compositionMeta.isUserComposition}
 		<div class="fork-indicator">
 			<span class="fork-indicator__label">forked</span>
-			{#if compositionMeta.revert}
-				<button type="button" class="fork-indicator__revert" onclick={compositionMeta.revert}
+			{#if compositionMeta.revertUserComposition}
+				<button
+					type="button"
+					class="fork-indicator__revert"
+					onclick={compositionMeta.revertUserComposition}
 					>Revert</button
 				>
 			{/if}
@@ -715,10 +718,15 @@
 			{#each markStylesInUse as style (style)}
 				{@const appearance = markDefaultAppearance(style)}
 				<Field label={MARK_STYLE_LABELS[style]}>
+					<!-- The swatch value is set client-side only: an SSR'd `value` attribute
+					     on a color input makes Svelte's hydration default-removal pass strip
+					     it (transiently ""), which Chrome logs as a #rrggbb format warning. -->
 					<input
 						type="color"
-						value={appearance.color}
 						aria-label={`${MARK_STYLE_LABELS[style]} color`}
+						{@attach (el) => {
+							el.value = markDefaultAppearance(style).color;
+						}}
 						oninput={(e) =>
 							setMarkDefault(style, { color: (e.currentTarget as HTMLInputElement).value })}
 					/>

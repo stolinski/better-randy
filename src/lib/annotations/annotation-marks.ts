@@ -34,15 +34,15 @@ export interface AnnotationTextSegment {
 	text: string;
 }
 
-export interface ParagraphBlock {
+/** One paragraph in the bracket-tag body parsed for inline Annotations. */
+export interface AnnotationBodyBlock {
 	type: 'paragraph';
 	segments: AnnotationTextSegment[];
 }
 
-export type Block = ParagraphBlock;
-export type BlockType = Block['type'];
+export type AnnotationBodyBlockType = AnnotationBodyBlock['type'];
 
-export type AnnotationBody = Block[];
+export type AnnotationBody = AnnotationBodyBlock[];
 
 interface MarkerLineOptions {
 	color: string;

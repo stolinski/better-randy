@@ -98,9 +98,9 @@ const CSS_FORM_SUFFIXES = new Set([
  *       → `null` (no Pack font claim; intrinsic pipeline stacks decide)
  *
  * Only a non-empty, non-colour string is a claim — any other shape resolves
- * to `null` so pre-vocabulary Roles stay inert. Pack-immune pipelines
- * (imessage, web-document) never see this: their mounts skip appearance-var
- * injection entirely, so their artifact fonts stay faithful under every Pack.
+ * to `null` so pre-vocabulary Roles stay inert. Pack-immune Pipelines never
+ * see this: their mounts use the registry-derived immunity query to skip
+ * appearance-var injection entirely.
  */
 export function resolveFontTreatment(
 	manifest: PackManifest,
@@ -637,9 +637,9 @@ export function resolveTypographyColors(
  * be a bare hex string or an object whose `color` field holds the hex. Falls
  * back to `fallbackHex` when the Role is absent, non-hex, or unparseable.
  *
- * This is the CSS form of the rgb-channel resolver. The GPU-uniform form
- * (colour → vec3/vec4 float for a shaderPass) is deferred until a *surviving*
- * shader pipeline needs it — `shader-fill` is dead-by-use pending prove-or-remove.
+ * This is the CSS form of the rgb-channel resolver. ShaderPass Pipelines use
+ * `getRgbColorChannels` directly when packing authored or resolved colours into
+ * GPU uniforms; `shader-fill` is the retained authored-colour example.
  */
 /**
  * The Pack-resolved lower-third kicker treatment (`lower-third.kicker`,

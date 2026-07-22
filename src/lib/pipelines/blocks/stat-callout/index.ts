@@ -7,7 +7,7 @@ import CanvasSource from './CanvasSource.svelte';
 // semantics over its [rollStart, rollStart + rollWindow] window, holding the
 // landed value. Mounted by DiagramMount; shape validated by the Preset
 // schema's `surface.diagram[]` union.
-export const statCallout: BlockRenderer<DiagramStatCallout> = {
+export const statCalloutBlockRenderer: BlockRenderer<DiagramStatCallout> = {
 	type: 'stat-callout',
 	CanvasSource
 };

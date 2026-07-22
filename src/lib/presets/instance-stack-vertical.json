@@ -3,6 +3,7 @@
 	"name": "Instance stack — syntax echo",
 	"description": "Channel bumper using the vertical-stack variant: six stacked echoes of 'SYNTAX' in yellow on deep-black, each instance fading in from transparent as the lag-window propagates top to bottom. Demonstrates the instance-stack pipeline's content-driven spacing, opacityFloor, and lagWindow params against a full-frame dark substrate.",
 	"pack": "syntax",
+	"kind": "fixture",
 	"state": {
 		"transport": {
 			"orientation": "vertical",

@@ -8,7 +8,7 @@
  * Svelte, no DOM.
  */
 import { messageEnter, TAPBACK_DELAY } from '../pipelines/surfaces/imessage/schedule.ts';
-import { EFFECT_CATALOG } from '../text-animations/catalog.ts';
+import { TEXT_EFFECT_CATALOG } from '../text-animations/catalog.ts';
 import {
 	isAchievementVariantId,
 	VARIANTS as ACHIEVEMENT_VARIANTS
@@ -33,10 +33,32 @@ export type SoundCueLayer =
 	| { kind: 'overlay'; overlayId: string }
 	| { kind: 'block'; blockId: string };
 
+export type DerivedSoundCueEditTarget =
+	| { kind: 'surface-transition'; phase: 'enter' | 'exit' }
+	| { kind: 'mark-transition'; markIndex: number }
+	| { kind: 'checklist-item-strike'; itemIndex: number }
+	| { kind: 'overlay-transition'; overlayId: string; phase: 'enter' | 'exit' }
+	| { kind: 'block-transition'; blockId: string; phase: 'enter' }
+	| {
+			kind: 'text-animation-transition';
+			textAnimationId: string;
+			phase: 'enter' | 'exit';
+	  }
+	| { kind: 'surface-message-transition'; messageIndex: number };
+
+export type DerivedSoundCueSource =
+	| DerivedSoundCueEditTarget
+	| { kind: 'surface-message-tapback'; messageIndex: number }
+	| { kind: 'overlay-beat'; overlayId: string; beat: 'press' | 'achievement' };
+
 export interface DerivedSoundCue {
 	/** Stable per-motion-beat id, e.g. `surface:enter`, `overlay:badge:exit`, `mark:2`. */
 	id: string;
 	layer: SoundCueLayer;
+	/** Structured motion provenance; never inferred by splitting the opaque cue id. */
+	source: DerivedSoundCueSource;
+	/** Live schema window the inspector may edit, or null for locked/default-only beats. */
+	editTarget: DerivedSoundCueEditTarget | null;
 	event: SoundEvent;
 	/** Timeline fraction — the motion's own frame. */
 	start: number;
@@ -66,8 +88,8 @@ export const MOTION_SOUND_DEFAULTS = {
 } as const satisfies Record<string, SoundEvent>;
 
 /**
- * The engine's default sample per sound event — THE sound model (kit/palette
- * concept removed 2026-07-02 after GUI testing: a per-Layer bundle indirection
+ * The engine's default sample per sound event — THE sound model (the retired
+ * per-Layer bundle concept was removed 2026-07-02 after GUI testing because it
  * made "what does this play" illegible; see ADR-0033 amendments). Every
  * motion resolves motion → event → this table, and any individual cue is
  * overridden per motion (`sound.sample` / `sound.mute`) from the timeline or
@@ -125,7 +147,8 @@ const OVERLAY_EVENT_DEFAULTS: Record<
 
 // The iMessage bubble arrivals — locked-specific signature sounds (ADR-0033
 // §5), like the tapbacks below. The real Apple recordings belong to the chat
-// surface ONLY; the general `pop` / `send` events resolve to the designed kit
+// surface ONLY; the general `pop` / `send` events resolve through
+// DEFAULT_EVENT_SAMPLES
 // (dex gmrkycs6 — the Messages bloop had leaked onto every pop in the
 // vocabulary, diagram nodes included).
 export const MESSAGE_SAMPLES = {
@@ -217,7 +240,9 @@ function cueFrom(
 	layer: SoundCueLayer,
 	defaultEvent: SoundEvent,
 	window: MotionWindow,
-	override: SoundOverride | undefined
+	override: SoundOverride | undefined,
+	source: DerivedSoundCueSource,
+	editTarget: DerivedSoundCueEditTarget | null
 ): DerivedSoundCue {
 	const event = override?.event ?? defaultEvent;
 	const start = ARRIVAL_EVENTS.has(event)
@@ -227,6 +252,8 @@ function cueFrom(
 	const cue: DerivedSoundCue = {
 		id,
 		layer,
+		source,
+		editTarget,
 		event,
 		start,
 		muted: override?.mute === true
@@ -239,7 +266,7 @@ function cueFrom(
 
 /**
  * Every automatic cue the composition's motion emits, sorted by time. Includes
- * muted and kit-less (silent) cues so the GUI rail can show them; audible
+ * muted cues so the GUI rail can show them; audible
  * consumers filter with {@link isAudibleSoundCue}. Manual cues and the bed
  * live in `state.audioCues[]` and are NOT returned here — the mix combines
  * both.
@@ -275,7 +302,9 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 						start: resolved?.startFraction ?? surface.enter?.start ?? 0,
 						duration: resolved?.durationFraction ?? 0
 					},
-					override
+					override,
+					{ kind: 'surface-transition', phase: 'enter' },
+					{ kind: 'surface-transition', phase: 'enter' }
 				)
 			);
 		}
@@ -301,7 +330,9 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 					surfaceLayer,
 					typeDefault ?? genericDefault,
 					motionWindow,
-					override
+					override,
+					{ kind: 'surface-transition', phase },
+					{ kind: 'surface-transition', phase }
 				)
 			);
 		}
@@ -318,13 +349,22 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 			return;
 		}
 		if (instance.window !== undefined) {
+			if (instance.itemIndex === undefined) {
+				throw new Error('Derived sound cue: checklist item strike is missing its item index.');
+			}
+			const target: DerivedSoundCueEditTarget = {
+				kind: 'checklist-item-strike',
+				itemIndex: instance.itemIndex
+			};
 			cues.push(
 				cueFrom(
 					`mark:${index}`,
 					{ kind: 'marks' },
 					MARK_EVENT_DEFAULTS[instance.style] ?? MOTION_SOUND_DEFAULTS.mark,
 					instance.window,
-					instance.sound
+					instance.sound,
+					target,
+					target
 				)
 			);
 			return;
@@ -336,7 +376,9 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 				{ kind: 'marks' },
 				MARK_EVENT_DEFAULTS[instance.style] ?? MOTION_SOUND_DEFAULTS.mark,
 				enterWindow(`mark:${index}`, resolved),
-				state.marks.timings[index]?.sound
+				state.marks.timings[index]?.sound,
+				{ kind: 'mark-transition', markIndex: index },
+				{ kind: 'mark-transition', markIndex: index }
 			)
 		);
 	});
@@ -374,7 +416,9 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 						start: resolved?.startFraction ?? overlay.enter?.start ?? 0,
 						duration: resolved?.durationFraction ?? 0
 					},
-					override
+					override,
+					{ kind: 'overlay-transition', overlayId: overlay.id, phase: 'enter' },
+					{ kind: 'overlay-transition', overlayId: overlay.id, phase: 'enter' }
 				)
 			);
 			continue;
@@ -401,69 +445,77 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 					typeDefault ?? genericDefault,
 					// Cascade welds anchor the ENTER start; exits keep authored timing.
 					phase === 'enter' ? enterWindow(`overlay:${overlay.id}`, motionWindow) : motionWindow,
-					override
+					override,
+					{ kind: 'overlay-transition', overlayId: overlay.id, phase },
+					{ kind: 'overlay-transition', overlayId: overlay.id, phase }
 				)
 			);
 		}
 	}
 
-	// Diagram Block elements (ADR-0036 + the ADR-0033 motion-character rule):
+	// Diagram primitive Blocks (ADR-0036 + the ADR-0033 motion-character rule):
 	// the stroke draw-ons are clean line draws (`draw` — a technical canvas,
 	// not the annotation Layer's hand pencil); a node PLANTS with its
 	// scale-settle (pop); label rises and the stat roll are silent by default —
 	// their sound is opt-in via the enter override. Exits are fades everywhere
-	// (silent). Channel-owned elements get the one enter beat, silent unless
+	// (silent). Channel-owned primitives get the one enter beat, silent unless
 	// the channels travel.
-	for (const element of surface.diagram ?? []) {
-		const layer: SoundCueLayer = { kind: 'block', blockId: element.id };
+	for (const primitive of surface.diagram ?? []) {
+		const layer: SoundCueLayer = { kind: 'block', blockId: primitive.id };
 		const enterDefault: SoundEvent | null =
-			element.type === 'edge-arrow' || element.type === 'timeline-segment'
+			primitive.type === 'edge-arrow' || primitive.type === 'timeline-segment'
 				? 'draw'
-				: element.type === 'node'
+				: primitive.type === 'node'
 					? 'pop'
 					: null;
 
-		const channels = element.animation?.channels;
+		const channels = primitive.animation?.channels;
 		if (channels && hasChannelMotion(channels)) {
 			const characterDefault = channelsTravel(channels as OverlayChannelKeyframes)
 				? (enterDefault ?? MOTION_SOUND_DEFAULTS.overlayEnter)
 				: null;
-			const override = element.enter?.sound;
+			const override = primitive.enter?.sound;
 			if (characterDefault === null && !override?.event && override?.sample === undefined) {
 				continue;
 			}
-			const resolved = cascadeWindows.get(`block:${element.id}`);
+			const resolved = cascadeWindows.get(`block:${primitive.id}`);
 			cues.push(
 				cueFrom(
-					`block:${element.id}:enter`,
+					`block:${primitive.id}:enter`,
 					layer,
 					characterDefault ?? MOTION_SOUND_DEFAULTS.overlayEnter,
 					{
-						start: resolved?.startFraction ?? element.enter?.start ?? 0,
+						start: resolved?.startFraction ?? primitive.enter?.start ?? 0,
 						duration: resolved?.durationFraction ?? 0
 					},
-					override
+					override,
+					{ kind: 'block-transition', blockId: primitive.id, phase: 'enter' },
+					primitive.enter
+						? { kind: 'block-transition', blockId: primitive.id, phase: 'enter' }
+						: null
 				)
 			);
 			continue;
 		}
 
-		const enter = element.enter;
+		const enter = primitive.enter;
 		const override = enter?.sound;
 		if (enterDefault === null && !override?.event && override?.sample === undefined) {
 			continue;
 		}
-		const resolved = cascadeWindows.get(`block:${element.id}`);
+		const resolved = cascadeWindows.get(`block:${primitive.id}`);
 		cues.push(
 			cueFrom(
-				`block:${element.id}:enter`,
+				`block:${primitive.id}:enter`,
 				layer,
 				enterDefault ?? MOTION_SOUND_DEFAULTS.overlayEnter,
 				{
 					start: resolved?.startFraction ?? enter?.start ?? 0,
 					duration: resolved?.durationFraction ?? enter?.duration ?? 0
 				},
-				override
+				override,
+				{ kind: 'block-transition', blockId: primitive.id, phase: 'enter' },
+				enter ? { kind: 'block-transition', blockId: primitive.id, phase: 'enter' } : null
 			)
 		);
 	}
@@ -485,7 +537,9 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 				{ kind: 'overlay', overlayId: overlay.id },
 				'click',
 				{ start: content?.beat ?? 0.42, duration: 0 },
-				undefined
+				undefined,
+				{ kind: 'overlay-beat', overlayId: overlay.id, beat: 'press' },
+				null
 			)
 		);
 	}
@@ -516,7 +570,9 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 						),
 						duration: 0
 					},
-					undefined
+					undefined,
+					{ kind: 'overlay-beat', overlayId: overlay.id, beat: 'achievement' },
+					null
 				)
 			);
 		}
@@ -532,7 +588,7 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 				? { kind: 'overlay', overlayId: entry.target.overlayId }
 				: surfaceLayer;
 
-		const spec = EFFECT_CATALOG.get(entry.effect);
+		const spec = TEXT_EFFECT_CATALOG.get(entry.effect);
 		const isFade = FADE_TEXT_EFFECTS.has(entry.effect);
 		const enterDefault = isFade
 			? null
@@ -559,7 +615,17 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 						(phase === 'enter' ? MOTION_SOUND_DEFAULTS.textEnter : MOTION_SOUND_DEFAULTS.textExit),
 					// Cascade welds anchor the ENTER start; exits keep authored timing.
 					phase === 'enter' ? enterWindow(`textAnimation:${entry.id}`, motionWindow) : motionWindow,
-					override
+					override,
+					{
+						kind: 'text-animation-transition',
+						textAnimationId: entry.id,
+						phase
+					},
+					{
+						kind: 'text-animation-transition',
+						textAnimationId: entry.id,
+						phase
+					}
 				)
 			);
 		}
@@ -587,7 +653,9 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 					enter,
 					override?.event || override?.sample !== undefined
 						? override
-						: { ...override, sample: signature }
+						: { ...override, sample: signature },
+					{ kind: 'surface-message-transition', messageIndex: index },
+					message.enter ? { kind: 'surface-message-transition', messageIndex: index } : null
 				)
 			);
 
@@ -600,7 +668,9 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 						surfaceLayer,
 						MOTION_SOUND_DEFAULTS.message,
 						{ start: enter.start + TAPBACK_DELAY, duration: 0 },
-						{ sample: TAPBACK_SAMPLES[message.tapback] }
+						{ sample: TAPBACK_SAMPLES[message.tapback] },
+						{ kind: 'surface-message-tapback', messageIndex: index },
+						null
 					)
 				);
 			}

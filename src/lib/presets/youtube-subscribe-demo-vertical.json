@@ -3,7 +3,7 @@
 	"name": "YouTube subscribe — the checked beat (vertical)",
 	"description": "Vertical (Shorts/Reels) sibling of youtube-subscribe-demo — the same pack-immune faithful card restaged for 2160×3840: bottom-center anchor in the vertical action band, clear of the G3 platform rails. Same press beat at 0.42 (dip → Subscribed + check → bell ring), same derived pop cue, same intentional no-chrome (faithful artifact, ADR-0038).",
 	"pack": "syntax",
-	"kind": "deliverable",
+	"kind": "fixture",
 	"state": {
 		"transport": {
 			"orientation": "vertical",

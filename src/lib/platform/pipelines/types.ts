@@ -3,13 +3,13 @@ import type { Component } from 'svelte';
 
 import type {
 	AnnotationFrameLayout,
-	AnnotationMarkLayout,
-	Block,
-	BlockType
+	AnnotationBodyBlock,
+	AnnotationBodyBlockType,
+	AnnotationMarkLayout
 } from '$lib/annotations/annotation-marks';
 import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
 import type {
-	DiagramElement,
+	DiagramPrimitive,
 	Effect,
 	Overlay,
 	OverlayPosition,
@@ -46,7 +46,7 @@ export interface AnnotationFocalSlot {
 }
 
 export interface AnnotationRenderer {
-	appliesTo: readonly (BlockType | 'block')[];
+	appliesTo: readonly (AnnotationBodyBlockType | 'block')[];
 	kind: AnnotationKind;
 	style: AnnotationMarkStyle;
 	draw?(ctx: AnnotationDrawContext): void;
@@ -56,20 +56,21 @@ export interface AnnotationRenderer {
 // ---------------- Blocks ----------------
 
 /**
- * The Block layer's full vocabulary: the body-text `paragraph` (living in
+ * Canonical Block Layer union. It includes the body-text `paragraph` (living in
  * `content.body`) plus the five diagram primitives (ADR-0036, living in
  * `surface.diagram[]`). `AnnotationBody` stays paragraph-only — diagram
- * elements are positioned Blocks, not text flow.
+ * primitives are positioned Blocks, not text flow. The shortest canonical name
+ * is unambiguous here because the paragraph-only type is `AnnotationBodyBlock`.
  */
-export type EngineBlock = Block | DiagramElement;
+export type Block = AnnotationBodyBlock | DiagramPrimitive;
 
-export interface BlockRenderContext<TBlock extends EngineBlock = EngineBlock> {
+export interface BlockRenderContext<TBlock extends Block = Block> {
 	block: TBlock;
 	host: GpuHost;
 	timestamp: number;
 }
 
-export interface BlockRenderer<TBlock extends EngineBlock = EngineBlock> {
+export interface BlockRenderer<TBlock extends Block = Block> {
 	type: TBlock['type'];
 	schema?: z.ZodType<TBlock>;
 	CanvasSource?: Component<{ block: TBlock }>;
@@ -82,18 +83,18 @@ export interface BlockRenderer<TBlock extends EngineBlock = EngineBlock> {
  * Diagram stroke inputs (ADR-0036 §4), carried in `SurfaceRenderInputs` when
  * the surface declares a diagram. The pipelines draw edge-arrow /
  * timeline-segment into their marks canvas via `drawDiagramStrokes`;
- * `drawProgressById` is the draw-on scalar (1 for channel-owned elements),
+	 * `drawProgressById` is the draw-on scalar (1 for channel-owned primitives),
  * `alphaById` the visibility fade (exit sugar or authored opacity channel).
  * `stroke.color` arrives resolved — the `'ink'` sentinel is substituted with
  * the composition's resolved ink (the `typography.inkColor` override when
  * authored, else the Pack's core `ink-treatment` — ADR-0038) before render.
  */
 export interface DiagramStrokeInputs {
-	elements: readonly DiagramElement[];
+	primitives: readonly DiagramPrimitive[];
 	drawProgressById: Readonly<Record<string, number>>;
 	alphaById: Readonly<Record<string, number>>;
 	stroke: ResolvedDiagramStroke;
-	/** The Pack's core accent colour — elements declaring `ink: 'accent'` stroke in this. */
+	/** The Pack's core accent colour — primitives declaring `ink: 'accent'` stroke in this. */
 	accentColor: string;
 }
 
@@ -250,7 +251,7 @@ export interface SurfaceControlsMetadata {
 	 * Surface content is an ordered `content.items[]` task list (ADR-0040) —
 	 * the inspector shows the Checklist editor (per-item text / checked /
 	 * static-vs-animated strike, add/remove). Per-item strike timing stays on
-	 * the timeline's `checklist-{index}` tracks.
+	 * checklist-item tracks produced by `createTimelineTrackId`.
 	 */
 	items?: boolean;
 	/** Surface captures an author-entered URL into content.imageUrl. */

@@ -8,9 +8,10 @@
 
 	interface Props {
 		slug: string;
-		// Content key of this composition's own poster. Null while a user comp's
-		// key resolves. When its poster exists (from capture-on-view) it overrides
-		// the surface default; otherwise the card rides the surface poster.
+		// Content key of this composition's own poster — passed ONLY when the
+		// route's server load says the poster exists in the store. Null means
+		// "no own poster": the card starts on the surface default immediately
+		// instead of discovering absence through a 404 (console noise).
 		thumbKey: string | null;
 		name: string;
 		type: SurfaceType;
@@ -20,14 +21,17 @@
 	let { slug, thumbKey, name, type, badge }: Props = $props();
 
 	// Fallback chain: this composition's own poster (capture-on-view) → the
-	// committed surface-type default → the surface glyph.
-	let level = $state<'composition' | 'surface' | 'failed'>('composition');
+	// committed surface-type default → the surface glyph. The base level comes
+	// from poster knowledge; onerror only downgrades on a genuinely missing
+	// file — it is a backstop, not the discovery mechanism.
+	let downgrade = $state<'surface' | 'failed' | null>(null);
+	const level = $derived(downgrade ?? (thumbKey !== null ? 'composition' : 'surface'));
 	let ready = $state(false);
 
 	const src = $derived(
 		level === 'surface'
 			? `/surface-posters/${type}.webp`
-			: level === 'composition' && thumbKey
+			: level === 'composition' && thumbKey !== null
 				? posterUrl(thumbKey)
 				: ''
 	);
@@ -38,8 +42,7 @@
 
 	function handleError(): void {
 		ready = false;
-		if (level === 'composition') level = 'surface';
-		else if (level === 'surface') level = 'failed';
+		downgrade = level === 'composition' ? 'surface' : 'failed';
 	}
 </script>
 

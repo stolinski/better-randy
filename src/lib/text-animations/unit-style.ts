@@ -8,12 +8,12 @@
  * span DROPS ENTIRELY below ~0.5 — so an opacity tween pops instead of fading.
  * `filter: opacity()` is no better (inert on the spans; promotes-and-drops
  * unpromoted elements). The channel that rasterizes an honest partial fade is
- * PAINT-level text colour alpha, so `applyUnitFade` writes the fade as
+ * PAINT-level text colour alpha, so `applyTextAnimationUnitFade` writes the fade as
  * `rgba(base, α)` and never leaves a partial value in `style.opacity`.
  */
 
-/** Compose a unit span's `filter` string (blur only — see applyUnitFade). */
-export function materializeUnitFilter(blurPx: number): string {
+/** Compose a text-animation unit span's `filter` string (blur only). */
+export function materializeTextAnimationUnitFilter(blurPx: number): string {
 	return blurPx > 0 ? `blur(${blurPx}px)` : 'none';
 }
 
@@ -24,7 +24,7 @@ export function materializeUnitFilter(blurPx: number): string {
  * read once and cached on the element (SplitText re-splits produce fresh
  * spans, so the cache lifetime matches the colour's).
  */
-export function applyUnitFade(element: HTMLElement, opacity: number): void {
+export function applyTextAnimationUnitFade(element: HTMLElement, opacity: number): void {
 	const clamped = Math.max(0, Math.min(1, opacity));
 
 	if (clamped <= 0.001) {

@@ -10,5 +10,3 @@ export const VARIANTS: Readonly<Record<string, InstanceStackVariant>> = {
 export const VARIANT_IDS = ['vertical-stack', 'horizontal-train'] as const;
 
 export type InstanceStackVariantId = (typeof VARIANT_IDS)[number];
-
-export type { InstanceStackVariant, InstanceMotionState } from './types';

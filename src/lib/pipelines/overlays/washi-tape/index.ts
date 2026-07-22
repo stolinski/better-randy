@@ -49,7 +49,7 @@ function defaults(): OverlayDefaults<WashiTapeContent> {
 	};
 }
 
-export const washiTape: OverlayRenderer<WashiTapeContent> = {
+export const washiTapeOverlayRenderer: OverlayRenderer<WashiTapeContent> = {
 	type: 'washi-tape',
 	label: 'Washi tape',
 	schema: WashiTapeContentSchema,

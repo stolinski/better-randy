@@ -1,9 +1,12 @@
 import type { AnimationTweenSpec } from '$lib/platform/animation-manager';
 
-import type { KeyframeShape, Phase, StaggerMode } from '../catalog';
-import type { CompileOutputs, StrategyInputs } from '../compile';
-import { gsapEaseFromCss } from '../gsap-ease';
-import { applyUnitFade, materializeUnitFilter } from '../unit-style';
+import type { TextEffectKeyframeShape, TextEffectPhase, TextEffectStaggerMode } from '../catalog';
+import type { TextAnimationCompileResult, TextEffectStrategyInputs } from '../compile';
+import { textAnimationGsapEaseFromCss } from '../gsap-ease';
+import {
+	applyTextAnimationUnitFade,
+	materializeTextAnimationUnitFilter
+} from '../unit-style';
 
 /**
  * Order the animated units by `staggerMode`. Returns the *visual rank* — index
@@ -12,7 +15,10 @@ import { applyUnitFade, materializeUnitFilter } from '../unit-style';
  * Algorithms match the upstream `stagger_rank_algorithms` in the catalog's
  * generic-stagger recipe.
  */
-export function computeStaggerOrder(unitCount: number, mode: StaggerMode): number[] {
+export function computeTextEffectStaggerOrder(
+	unitCount: number,
+	mode: TextEffectStaggerMode
+): number[] {
 	if (unitCount <= 0) {
 		return [];
 	}
@@ -67,7 +73,11 @@ export function computeStaggerOrder(unitCount: number, mode: StaggerMode): numbe
  * so motion stays in the thumb-scroll axis ("left-slide ↔ up-slide" per the
  * orientation-reflow spec). y_px accumulates both the native y and the remapped x.
  */
-function materializeTransform(keyframe: KeyframeShape, yTravel: number, isVertical: boolean): string {
+function materializeTransform(
+	keyframe: TextEffectKeyframeShape,
+	yTravel: number,
+	isVertical: boolean
+): string {
 	const kx = keyframe.x_px ?? 0;
 	const ky = keyframe.y_px ?? 0;
 	const x = isVertical ? 0 : kx;
@@ -81,12 +91,12 @@ function materializeTransform(keyframe: KeyframeShape, yTravel: number, isVertic
 	return `translate3d(${x}px, ${y}px, ${z}px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) rotate(${rotateZ}deg) scale(${scale})`;
 }
 
-function materializeFilter(keyframe: KeyframeShape): string {
-	return materializeUnitFilter(keyframe.blur_px ?? 0);
+function materializeFilter(keyframe: TextEffectKeyframeShape): string {
+	return materializeTextAnimationUnitFilter(keyframe.blur_px ?? 0);
 }
 
 interface UnitStyleWriter {
-	(element: HTMLElement, keyframe: KeyframeShape, yTravel: number): void;
+	(element: HTMLElement, keyframe: TextEffectKeyframeShape, yTravel: number): void;
 }
 
 /** Default writer applied at every tween tick: transform, filter, opacity. */
@@ -94,7 +104,7 @@ function makeUnitFrameWriter(isVertical: boolean): UnitStyleWriter {
 	return (element, keyframe, yTravel) => {
 		element.style.transform = materializeTransform(keyframe, yTravel, isVertical);
 		element.style.filter = materializeFilter(keyframe);
-		applyUnitFade(element, keyframe.opacity ?? 1);
+		applyTextAnimationUnitFade(element, keyframe.opacity ?? 1);
 		if (typeof keyframe.letter_spacing_em === 'number') {
 			element.style.letterSpacing = `${keyframe.letter_spacing_em}em`;
 		}
@@ -113,8 +123,8 @@ function makeUnitFrameWriter(isVertical: boolean): UnitStyleWriter {
  * scale to `≥ 0`. (Previously `p` itself was clamped to `[0, 1]`, which
  * silently flattened every spring effect to a plain decel.)
  */
-function interpolateKeyframe(phase: Phase, p: number): KeyframeShape {
-	const out: KeyframeShape = {};
+function interpolateKeyframe(phase: TextEffectPhase, p: number): TextEffectKeyframeShape {
+	const out: TextEffectKeyframeShape = {};
 
 	for (const key of mergedKeys(phase.from, phase.to)) {
 		const fromValue = numericOrDefault(phase.from, key);
@@ -149,9 +159,12 @@ const NUMERIC_KEYS = [
 	'rotate_x_deg',
 	'rotate_y_deg',
 	'letter_spacing_em'
-] as const satisfies readonly (keyof KeyframeShape)[];
+] as const satisfies readonly (keyof TextEffectKeyframeShape)[];
 
-function mergedKeys(a: KeyframeShape, b: KeyframeShape): (typeof NUMERIC_KEYS)[number][] {
+function mergedKeys(
+	a: TextEffectKeyframeShape,
+	b: TextEffectKeyframeShape
+): (typeof NUMERIC_KEYS)[number][] {
 	const out: (typeof NUMERIC_KEYS)[number][] = [];
 	for (const key of NUMERIC_KEYS) {
 		if (a[key] !== undefined || b[key] !== undefined) {
@@ -171,13 +184,16 @@ function defaultFor(key: (typeof NUMERIC_KEYS)[number]): number {
 	}
 }
 
-function numericOrDefault(shape: KeyframeShape, key: (typeof NUMERIC_KEYS)[number]): number {
+function numericOrDefault(
+	shape: TextEffectKeyframeShape,
+	key: (typeof NUMERIC_KEYS)[number]
+): number {
 	const value = shape[key];
 	return typeof value === 'number' ? value : defaultFor(key);
 }
 
-interface ScheduledPhase {
-	phase: Phase;
+interface ScheduledTextEffectPhase {
+	phase: TextEffectPhase;
 	/** Window start as a fraction of transport duration (0..1). */
 	windowStart: number;
 	/** Window length as a fraction of transport duration (0..1). */
@@ -192,7 +208,7 @@ interface ScheduledPhase {
  * duration to inter-unit stagger from the catalog is preserved.
  */
 function scheduleUnits(
-	scheduled: ScheduledPhase,
+	scheduled: ScheduledTextEffectPhase,
 	unitCount: number,
 	transportDurationSeconds: number,
 	staggerOrder: number[]
@@ -248,7 +264,9 @@ function scheduleUnits(
  * Each tween's onUpdate(progress) writes the interpolated frame onto the unit
  * element AND publishes the per-unit alpha to the marks-coupling map.
  */
-export function compileGenericStagger(inputs: StrategyInputs): CompileOutputs {
+export function compileGenericStagger(
+	inputs: TextEffectStrategyInputs
+): TextAnimationCompileResult {
 	const { entry, spec, units, transport, writeUnitAlpha } = inputs;
 	const tweens: AnimationTweenSpec[] = [];
 
@@ -256,25 +274,30 @@ export function compileGenericStagger(inputs: StrategyInputs): CompileOutputs {
 		return { tweens };
 	}
 
-	const staggerOrder = computeStaggerOrder(units.length, spec.staggerMode);
+	const staggerOrder = computeTextEffectStaggerOrder(units.length, spec.staggerMode);
 	const yTravel = spec.runtime.y_travel_multiplier ?? 1;
 	const isVertical = transport.orientation === 'vertical';
 	const writeUnitFrame = makeUnitFrameWriter(isVertical);
-	const enterEase = gsapEaseFromCss(spec.enter.easing);
+	const enterEase = textAnimationGsapEaseFromCss(spec.enter.easing);
 
 	// The FROM frame is written by AnimationManager's own init loop (it calls
 	// every tween's onUpdate with `from` after scheduling). Writing it here too
-	// would clobber the live tween value when reactive $effects re-run compile()
+	// would clobber the live tween value when reactive $effects re-run compileTextAnimation()
 	// between scrubs.
 
-	const enterScheduled: ScheduledPhase = {
+	const enterScheduled: ScheduledTextEffectPhase = {
 		phase: spec.enter,
 		windowStart: entry.enter.start,
 		windowDuration: entry.enter.duration,
 		tweenKey: `${entry.id}:enter`
 	};
 
-	for (const slot of scheduleUnits(enterScheduled, units.length, transport.durationSeconds, staggerOrder)) {
+	for (const slot of scheduleUnits(
+		enterScheduled,
+		units.length,
+		transport.durationSeconds,
+		staggerOrder
+	)) {
 		const unit = units[slot.unitIndex];
 
 		tweens.push({
@@ -293,8 +316,8 @@ export function compileGenericStagger(inputs: StrategyInputs): CompileOutputs {
 	}
 
 	if (entry.exit && spec.exit) {
-		const exitEase = gsapEaseFromCss(spec.exit.easing);
-		const exitScheduled: ScheduledPhase = {
+		const exitEase = textAnimationGsapEaseFromCss(spec.exit.easing);
+		const exitScheduled: ScheduledTextEffectPhase = {
 			phase: spec.exit,
 			windowStart: entry.exit.start,
 			windowDuration: entry.exit.duration,
@@ -317,7 +340,7 @@ export function compileGenericStagger(inputs: StrategyInputs): CompileOutputs {
 				from: 0,
 				to: 1,
 				onUpdate: (value) => {
-					const frame = interpolateKeyframe(spec.exit as Phase, value);
+					const frame = interpolateKeyframe(spec.exit as TextEffectPhase, value);
 					writeUnitFrame(unit.element, frame, yTravel);
 					writeUnitAlpha(unit.index, frame.opacity ?? 0);
 				}

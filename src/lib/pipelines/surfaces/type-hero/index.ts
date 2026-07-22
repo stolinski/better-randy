@@ -15,8 +15,6 @@ import { VARIANT_IDS } from './variants';
  * variant is one file in `variants/` + one entry in `variants/index.ts`.
  */
 
-export type { TypeHeroVariantId, CounterpointAnchor } from './variants';
-
 function defaults(): SurfaceState {
 	return {
 		type: 'type-hero',
@@ -29,7 +27,7 @@ function defaults(): SurfaceState {
 	};
 }
 
-export const typeHero: SurfaceRenderer = {
+export const typeHeroSurfaceRenderer: SurfaceRenderer = {
 	type: 'type-hero',
 	label: 'Type hero',
 	controls: {

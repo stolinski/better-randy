@@ -151,7 +151,7 @@ function defaults(): OverlayDefaults<ShaderFillContent> {
 	};
 }
 
-export const shaderFill: OverlayRenderer<ShaderFillContent> = {
+export const shaderFillOverlayRenderer: OverlayRenderer<ShaderFillContent> = {
 	type: 'shader-fill',
 	label: 'Shader fill',
 	schema: ShaderFillContentSchema,

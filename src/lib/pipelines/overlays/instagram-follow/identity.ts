@@ -46,7 +46,7 @@ export const instagramFollowIdentity: IdentitySpec = {
 			definition:
 				'A vertical-first profile card (bottom-centre on Reels-format frames); the beat timing is composition data.',
 			implementation:
-				'Standard OverlayMount positioning; `beat` is content and rides the draggable `overlay-{id}-beat` timeline sub-track shared with youtube-subscribe.',
+				"Standard OverlayMount positioning; `beat` is content and rides the draggable subtrack identified by `createTimelineTrackId({ kind: 'overlay-subtrack', overlayId, subtrack: { kind: 'beat' } })`, shared with youtube-subscribe.",
 			probe: {
 				kind: 'named-observation',
 				region: 'the timeline row + the rendered card in the vertical demo',

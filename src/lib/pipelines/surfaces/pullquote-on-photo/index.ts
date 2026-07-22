@@ -27,7 +27,7 @@ function defaults(): SurfaceState {
 	};
 }
 
-export const pullquoteOnPhoto: SurfaceRenderer = {
+export const pullquoteOnPhotoSurfaceRenderer: SurfaceRenderer = {
 	type: 'pullquote-on-photo',
 	label: 'Pullquote on photo',
 	controls: {

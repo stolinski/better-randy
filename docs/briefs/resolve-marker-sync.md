@@ -2,11 +2,12 @@
 
 **Kind:** pipeline
 **Slug:** resolve-marker-sync
+**Pack:** syntax
 **Verification preset:** checklist-show-rundown (rewrite — re-timed from markers)
 
 ## Pitch
 
-Supers compositions align to the real Syntax edit by frame, not by eye. The editor drops markers in DaVinci Resolve where a piece and its internal beats belong; Supers reads them, derives frame-exact timings at the timeline's true rate (29.97 NDF), exports a timecode-stamped ProRes 4444, and places it back on the timeline at the marker — automatically. The flagship proof is the checklist: five rundown items whose enters land exactly on five markers the editor placed against the actual conversation. This closes the gap between "author a piece, then nudge it in the NLE by eye" and "the edit itself pins the beats" — and it kills the timebase lie (Supers today can only say `fps: 30` against a 29.97 edit).
+Supers compositions align to the real Syntax edit by frame, not by eye. The editor drops markers in DaVinci Resolve where a piece and its internal beats belong; Supers reads them, derives frame-exact timings at the timeline's true rate (29.97 NDF), exports a timecode-stamped ProRes 4444, and places it back on the timeline at the marker — automatically. The flagship proof is the checklist: five rundown items whose enters land exactly on five markers the editor placed against the actual conversation. This closes the gap between "author a piece, then nudge it in the NLE by eye" and "the edit itself pins the beats." The shipped transport already stores the conventional `29.97` literal while all frame math resolves it to the exact `30000/1001` rational; marker sync must consume that exact timebase end to end.
 
 ## Surface(s) involved
 
@@ -42,12 +43,12 @@ Inherited unchanged from the `checklist` Brief / ADR-0040 (mono numbers, card ch
 
 ## Engine work required
 
-**Timebase (the load-bearing fix — Syntax edits are 29.97 NDF 1080p; confirmed on TEMPLATE SESSION 2026 and episode 1023):**
+**Timebase foundation (shipped; Syntax edits are 29.97 NDF 1080p, confirmed on TEMPLATE SESSION 2026 and episode 1023):**
 
-- `engine-schema.ts` — `transport.fps` accepts the NTSC fractional rates `23.976 | 29.97 | 59.94` alongside existing integers (existing presets parse unchanged). Internally each maps to an exact rational (`30000/1001` etc.) — a lookup in `src/lib/utils/` (extend `composition-timing.ts` or sibling; no new utility folder).
-- Both exporters (`api/export/prores`, `api/export/webm`) — `-framerate` takes the rational string (`30000/1001`), never a rounded float. ProRes export additionally accepts a start-timecode param and writes it via ffmpeg `-timecode` (NDF, colon-separated).
-- Frame quantization — exported duration is a whole frame count at the composition rate; sync-derived timings land on frame boundaries.
-- `RootInspector.svelte` — the free-number FPS input becomes a standard-rate picker (23.976 / 24 / 25 / 29.97 / 30 / 50 / 59.94 / 60), GUI↔agent parity for the new legal values (ADR-0032 binding). Timeline math reads the rational, not a float loop.
+- `engine-schema.ts` already accepts NTSC fractional literals `23.976 | 29.97 | 59.94` alongside integers. `resolveFrameRate` maps them to exact broadcast rationals (`24000/1001`, `30000/1001`, `60000/1001`); the stored decimal is display/authoring data, never the arithmetic rate.
+- Preview/export frame counts and timestamps already use rational helpers, and both exporters pass rational `-framerate` strings to ffmpeg. ProRes also writes the colon-separated NDF start timecode.
+- Export duration is quantized to a whole frame count at the resolved rational rate. Marker-sync derivation must use the same helpers so every beat and duration lands on an identical frame boundary without decimal-fps drift.
+- `RootInspector.svelte` already exposes the standard-rate picker (23.976 / 24 / 25 / 29.97 / 30 / 50 / 59.94 / 60). Resolve sync adds no second fps model or float-based frame loop.
 
 **Resolve bridge (I/O pipes are Python, logic is TS):**
 
@@ -62,7 +63,7 @@ Inherited unchanged from the `checklist` Brief / ADR-0040 (mono numbers, card ch
 
 ## ADR required?
 
-`yes` — `docs/adr/0041-resolve-marker-sync.md`, drafted by the Producer. Capture the trade-off framings decided here: fractional-rate literals over a rational `{num,den}` wire format (backward compat + GUI simplicity, exactness via internal lookup); authoring-time projection over live link (composition stays self-contained/deterministic); binding in Resolve `customData` over a preset anchor field (WHAT/WHERE split, episode-reusable presets); one claimed color + head-note grammar over a color taxonomy (zero editor memorization, Blue already taken by chapters).
+`already-filed: 0042-resolve-marker-sync`. The accepted trade-offs are: fractional-rate literals over a rational `{num,den}` wire format (backward compat + GUI simplicity, exactness via internal lookup); authoring-time projection over live link (composition stays self-contained/deterministic); binding in Resolve `customData` over a preset anchor field (WHAT/WHERE split, episode-reusable presets); text-defined, color-blind input grammar over a color taxonomy (zero editor memorization). Mint is output status applied after sync, never an input claim.
 
 ## Open questions
 
@@ -70,9 +71,8 @@ _None — ready to `/author`._
 
 ## What 'done' looks like
 
-- `engine-schema.ts` fractional-rate support + rational lookup util + both exporters emitting rational `-framerate` (ProRes also `-timecode`); existing integer-fps presets still parse and render identically.
-- `RootInspector.svelte` standard-rate picker (GUI parity).
+- The shipped fractional-rate schema, exact-rational frame helpers, exporter `-framerate`/ProRes `-timecode`, and standard-rate Inspector picker remain the single timebase path; Resolve sync introduces no decimal-fps arithmetic.
 - `scripts/resolve-markers.py` + `scripts/resolve-place.py` working over the mbp SSH bridge.
 - `src/lib/utils/marker-sync.ts` + tests green.
 - **Live round trip, fully autonomous:** a scratch Resolve project built via the API at 29.97 (copy of the TEMPLATE SESSION 2026 settings), head + 5 beat markers (any color) dropped programmatically → sync rewrites `checklist-show-rundown` (fps 29.97, derived duration, five enters pinned) → ProRes 4444 export with embedded TC → placed on the SUPERS track at the head frame → probe confirms each item's enter start frame equals its beat's record frame exactly → markers Mint with `customData`. Scratch project deleted after.
-- `/critic checklist-show-rundown` returns **ACCEPT** at native 4K — the delete trigger for this Brief.
+- `/critic checklist-show-rundown` returns **ACCEPT** for native horizontal (3840×2160) and vertical (2160×3840) renders of the same Preset, with no orientation-specific sibling — the delete trigger for this Brief.

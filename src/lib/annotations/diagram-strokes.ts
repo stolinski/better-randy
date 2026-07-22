@@ -18,15 +18,15 @@ import { clampNumber } from '$lib/utils/math';
 import type { AnnotationFrameLayout } from './annotation-marks';
 import type {
 	DiagramEdgeArrow,
-	DiagramElement,
 	DiagramEndpoint,
+	DiagramPrimitive,
 	DiagramTimelineSegment
 } from '$lib/platform/engine-schema';
 import type { ResolvedDiagramStroke } from '$lib/platform/packs/resolve';
 
 export const DIAGRAM_NODE_ATTRIBUTE = 'data-diagram-node';
 
-/** A node element's rendered box, in marks-canvas pixels. */
+	/** A node primitive's rendered box, in marks-canvas pixels. */
 export interface DiagramNodeLayout {
 	id: string;
 	x: number;
@@ -79,29 +79,29 @@ export function getDiagramNodeLayouts(
 
 export interface DrawDiagramStrokesOptions {
 	context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
-	elements: readonly DiagramElement[];
+	primitives: readonly DiagramPrimitive[];
 	frame: AnnotationFrameLayout;
 	nodeLayouts: readonly DiagramNodeLayout[];
-	/** Draw-on progress per element id (0..1; 1 when the composition owns motion). */
+	/** Draw-on progress per primitive id (0..1; 1 when the composition owns motion). */
 	drawProgressById: Readonly<Record<string, number>>;
-	/** Visibility alpha per element id (exit fade / authored opacity channel). */
+	/** Visibility alpha per primitive id (exit fade / authored opacity channel). */
 	alphaById: Readonly<Record<string, number>>;
 	stroke: ResolvedDiagramStroke;
 	/**
-	 * The Pack's core accent colour — an element declaring `ink: 'accent'`
+		 * The Pack's core accent colour — a primitive declaring `ink: 'accent'`
 	 * strokes in this instead of `stroke.color` (composition picks which
 	 * elements carry emphasis; the Pack owns the colour).
 	 */
 	accentColor: string;
 }
 
-// Per-element stroke colour: the schema `ink` selection routes between the
+// Per-primitive stroke colour: the schema `ink` selection routes between the
 // Pack's stroke ink and its core accent (read `?? 'ink'` — never a Zod default).
 function strokeColorFor(
-	element: { ink?: 'ink' | 'accent' },
+	primitive: { ink?: 'ink' | 'accent' },
 	options: DrawDiagramStrokesOptions
 ): string {
-	return (element.ink ?? 'ink') === 'accent' ? options.accentColor : options.stroke.color;
+	return (primitive.ink ?? 'ink') === 'accent' ? options.accentColor : options.stroke.color;
 }
 
 interface Point {
@@ -110,22 +110,22 @@ interface Point {
 }
 
 export function drawDiagramStrokes(options: DrawDiagramStrokesOptions): void {
-	for (const element of options.elements) {
-		const drawProgress = clampNumber(options.drawProgressById[element.id] ?? 0, 0, 1);
-		const alpha = clampNumber(options.alphaById[element.id] ?? 1, 0, 1);
+	for (const primitive of options.primitives) {
+		const drawProgress = clampNumber(options.drawProgressById[primitive.id] ?? 0, 0, 1);
+		const alpha = clampNumber(options.alphaById[primitive.id] ?? 1, 0, 1);
 		if (drawProgress <= 0 || alpha <= 0) {
 			continue;
 		}
 
-		if (element.type === 'edge-arrow') {
-			drawEdgeArrow(element, drawProgress, alpha, options);
-		} else if (element.type === 'timeline-segment') {
-			drawTimelineSegment(element, drawProgress, alpha, options);
+		if (primitive.type === 'edge-arrow') {
+			drawEdgeArrow(primitive, drawProgress, alpha, options);
+		} else if (primitive.type === 'timeline-segment') {
+			drawTimelineSegment(primitive, drawProgress, alpha, options);
 		}
 	}
 }
 
-// Deterministic per-element phase so the hand-drawn wobble is stable across
+// Deterministic per-primitive phase so the hand-drawn wobble is stable across
 // frames and identical between preview and export (frame-determinism).
 function phaseForId(id: string): number {
 	let hash = 0;

@@ -28,5 +28,3 @@ export function setAchievementBeat(content: AchievementContent, beat: number): v
 	}
 	content.beat = Math.round(Math.max(0, Math.min(1, beat)) * 10000) / 10000;
 }
-
-export type { AchievementMotionState, AchievementSoundEvent, AchievementVariant } from './types';

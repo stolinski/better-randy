@@ -12,7 +12,7 @@ A family Pipeline's folder gains the shape:
 
 ```
 src/lib/pipelines/<layer>/<family>/
-  index.ts               # Pipeline renderer; builds Zod schema from VARIANT_IDS
+  index.ts               # Exports <concept><Layer>Renderer; builds schema from VARIANT_IDS
   identity.ts            # one Identity Spec for the family
   CanvasSource.svelte    # one render path; reads active variant by id
   variants/

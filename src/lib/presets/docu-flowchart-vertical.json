@@ -3,7 +3,7 @@
 	"name": "Docu flowchart — how your code ships (vertical)",
 	"description": "Vertical re-staging of docu-flowchart (2160×3840) — same Commit → Build → Test → Deploy chain and Cascade choreography, re-authored per G11 as a top-to-bottom descent: nodes zigzag down the readable column (x 0.36 / 0.64, y 0.28 → 0.73, inside the G3 platform-UI safe bands) and the edges become elbow routes that drop first, then turn — the motion reads vertically, never a squeezed horizontal band. Full-frame piece: backgroundFill is the dark field, ink is warm off-white so the pack's marker strokes read. Chrome intent: mono is the signature thread (fontFamily mono carries headline + node labels); low-density paper-grain grit bonds ink to substrate; torn-edge collage card and tape are intentionally omitted — a stroke-drawn diagram on a dark field is not a collage card; the node plates keep the pack's small hard-offset depth Role.",
 	"pack": "syntax",
-	"kind": "deliverable",
+	"kind": "fixture",
 	"state": {
 		"transport": {
 			"orientation": "vertical",

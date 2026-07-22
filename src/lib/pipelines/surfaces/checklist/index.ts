@@ -44,14 +44,14 @@ function defaults(): SurfaceState {
 	};
 }
 
-export const checklist: SurfaceRenderer = {
+export const checklistSurfaceRenderer: SurfaceRenderer = {
 	type: 'checklist',
 	label: 'Checklist',
 	controls: {
 		// The list is authored as `content.items[]`, edited per item in the
 		// inspector's Checklist section; the panel heading reuses the standard
-		// title slot. Per-item strike timing stays on the timeline's
-		// `checklist-{index}` tracks.
+		// title slot. Per-item strike timing stays on checklist-item tracks
+		// produced by `createTimelineTrackId`.
 		title: true,
 		body: 'never',
 		items: true,

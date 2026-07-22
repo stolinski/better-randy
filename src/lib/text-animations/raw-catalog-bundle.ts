@@ -10,12 +10,12 @@
  * fork.
  */
 
-export interface RawCatalog {
+export interface RawTextEffectCatalog {
 	specModules: Record<string, unknown>;
 	effectModules: Record<string, unknown>;
 }
 
-export const rawCatalog: RawCatalog = {
+export const RAW_TEXT_EFFECT_CATALOG: RawTextEffectCatalog = {
 	specModules: {
   "blur-out-up": {
     "id": "blur-out-up",

@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
  * audit result.
  *
  * To run the audit:
- *   1. `npm run dev` (the dev server stays running at http://localhost:5173).
+ *   1. Confirm the existing dev server at http://localhost:7263 (do not start another).
  *   2. `node --experimental-strip-types scripts/audit-presets-visual.ts`
  *      to print the procedure.
  *   3. Open each printed URL in a Chromium-based browser with the
@@ -39,7 +39,7 @@ const repoRoot = resolve(here, '..');
 const presetDir = resolve(repoRoot, 'src/lib/presets');
 const files = (await readdir(presetDir)).filter((file) => file.endsWith('.json'));
 
-const baseUrl = process.env.SUPERS_DEV_URL ?? 'http://localhost:5173';
+const baseUrl = process.env.SUPERS_DEV_URL ?? 'http://localhost:7263';
 const seekFraction = process.env.SUPERS_AUDIT_SEEK ?? '0.5';
 
 const snippet = `(async () => {

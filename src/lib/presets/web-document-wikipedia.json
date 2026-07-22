@@ -1,6 +1,6 @@
 {
 	"schema": "supers@1",
-	"name": "Web document — Wikipedia (horizontal)",
+	"name": "Web document — Wikipedia",
 	"description": "A recognizable Wikipedia article on a transparent overlay, as a clean backdrop for the channel's hand-pulled highlight. Faithful site look BY DESIGN: Wikipedia Vector light skin (white #ffffff bg, dark #202122 ink, serif article title + section heading each with the signature thin underline rule, italic 'From Wikipedia, the free encyclopedia' subtitle, sans body), inside a browser window whose address bar shows the URL — NO Syntax collage chrome (no torn edge / grit / hard offset shadow), and NO CSS glow on the captured card. Because the page is light, the highlight runs in the light (multiply) blend mode — dark body ink stays readable under the amber band, exactly as on paper. The emissive 'web page on a backlit display' look is a TypeGPU shaderPass (subpixel emission, backlight bloom, escaping-bezel halo, viewport-edge defocus), not Pack chrome. ~6s: card settles in, the highlighter draws on over the hero line (~1.2→2.4s), then a long static hold a creator can freeze/extend. Transparent WebM overlay, composited over footage.",
 	"pack": "syntax",
 	"state": {

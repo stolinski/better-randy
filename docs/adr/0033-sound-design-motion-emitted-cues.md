@@ -56,7 +56,7 @@ The engine pins a core set; kits supply samples; core-fallback covers gaps. Star
 
 ### 9. The sound authoring surface (GUI)
 
-Sound is authored the way text animations were ([ADR-0011](0011-text-animation-orchestration.md)): by **extending the existing ControlPanel + timeline**, not a new app.
+Sound is authored the way text animations were ([ADR-0011](0011-text-animation-orchestration.md)): by **extending the existing `Inspector` + `TimelineOutline`**, not a new app.
 
 - **Timeline — audio-cue rail.** A rail showing the **bed** and cues (derived-from-motion *and* manual) alongside the existing mark / text-anim tracks, so you see where sound fires against the motion. Selecting a cue focuses it in the sidebar.
 - **Sidebar — Sound section.** The **Sound kit** picker ("choose a sound style" — re-sounds the whole piece), per-motion sound overrides (mute / swap event / lock sample), and authoring for manual cues + the bed.

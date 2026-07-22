@@ -1,8 +1,11 @@
 import type { AnimationTweenSpec } from '$lib/platform/animation-manager';
 
-import type { CompileOutputs, StrategyInputs } from '../compile';
-import { gsapEaseFromCss } from '../gsap-ease';
-import { applyUnitFade, materializeUnitFilter } from '../unit-style';
+import type { TextAnimationCompileResult, TextEffectStrategyInputs } from '../compile';
+import { textAnimationGsapEaseFromCss } from '../gsap-ease';
+import {
+	applyTextAnimationUnitFade,
+	materializeTextAnimationUnitFilter
+} from '../unit-style';
 
 /**
  * Read a numeric param from the catalog's `showcase.renderer.params` block,
@@ -11,7 +14,7 @@ import { applyUnitFade, materializeUnitFilter } from '../unit-style';
  * produces the canonical look out-of-the-box on any catalog effect tagged
  * `renderer: kinetic-center-build`.
  */
-function readParam(spec: StrategyInputs['spec'], key: string, fallback: number): number {
+function readParam(spec: TextEffectStrategyInputs['spec'], key: string, fallback: number): number {
 	const value = spec.rendererParams[key];
 	return typeof value === 'number' ? value : fallback;
 }
@@ -52,7 +55,9 @@ function measureNaturalSpaceWidth(referenceUnit: HTMLElement): number {
  * the window evenly, with each later word's entry triggering reflow tweens on
  * the words already placed.
  */
-export function compileKineticCenterBuild(inputs: StrategyInputs): CompileOutputs {
+export function compileKineticCenterBuild(
+	inputs: TextEffectStrategyInputs
+): TextAnimationCompileResult {
 	const { entry, spec, units, writeUnitAlpha } = inputs;
 	const tweens: AnimationTweenSpec[] = [];
 
@@ -86,7 +91,7 @@ export function compileKineticCenterBuild(inputs: StrategyInputs): CompileOutput
 		unit.element.style.whiteSpace = 'nowrap';
 	}
 
-	// Measure word widths after layout. The manager calls compile() after the
+	// Measure word widths after layout. The manager calls compileTextAnimation() after the
 	// DOM is in place, so getBoundingClientRect() returns real sizes.
 	const widths = units.map((unit) => unit.element.getBoundingClientRect().width);
 
@@ -125,7 +130,7 @@ export function compileKineticCenterBuild(inputs: StrategyInputs): CompileOutput
 
 	// FROM-frame initialization is handled by AnimationManager's init loop (it
 	// calls every tween's onUpdate with `from` after scheduling). Writing here
-	// would clobber the live tween value when reactive $effects re-run compile()
+	// would clobber the live tween value when reactive $effects re-run compileTextAnimation()
 	// between scrubs.
 
 	// First word enter — at x=0 (it owns the center alone).
@@ -133,7 +138,7 @@ export function compileKineticCenterBuild(inputs: StrategyInputs): CompileOutput
 		key: `${entry.id}:kc:first`,
 		start: windowStart,
 		duration: firstWordDurationFraction,
-		ease: gsapEaseFromCss(spec.enter.easing),
+		ease: textAnimationGsapEaseFromCss(spec.enter.easing),
 		from: 0,
 		to: 1,
 		onUpdate: (value) => {
@@ -143,8 +148,8 @@ export function compileKineticCenterBuild(inputs: StrategyInputs): CompileOutput
 			const scale = mix(entryScale, 1, value);
 			const blur = mix(entryBlurPx, 0, value);
 			unit.element.style.transform = `translate(-50%, -50%) translate3d(0px, ${y}px, 0) scale(${scale})`;
-			unit.element.style.filter = materializeUnitFilter(blur);
-			applyUnitFade(unit.element, opacity);
+			unit.element.style.filter = materializeTextAnimationUnitFilter(blur);
+			applyTextAnimationUnitFade(unit.element, opacity);
 			writeUnitAlpha(unit.index, opacity);
 		}
 	});
@@ -166,7 +171,7 @@ export function compileKineticCenterBuild(inputs: StrategyInputs): CompileOutput
 				key: `${entry.id}:kc:reflow:${incoming}:${existing}`,
 				start: pushWindowStart,
 				duration: pushDurationFraction,
-				ease: gsapEaseFromCss(spec.enter.easing),
+				ease: textAnimationGsapEaseFromCss(spec.enter.easing),
 				from: 0,
 				to: 1,
 				onUpdate: (value) => {
@@ -174,8 +179,8 @@ export function compileKineticCenterBuild(inputs: StrategyInputs): CompileOutput
 					const blur =
 						value < 0.5 ? mix(0, reflowBlurPx, value * 2) : mix(reflowBlurPx, 0, (value - 0.5) * 2);
 					reflowedUnit.element.style.transform = `translate(-50%, -50%) translate3d(${x}px, 0px, 0) scale(1)`;
-					reflowedUnit.element.style.filter = materializeUnitFilter(blur);
-					applyUnitFade(reflowedUnit.element, 1);
+					reflowedUnit.element.style.filter = materializeTextAnimationUnitFilter(blur);
+					applyTextAnimationUnitFade(reflowedUnit.element, 1);
 					writeUnitAlpha(reflowedUnit.index, 1);
 				}
 			});
@@ -190,7 +195,7 @@ export function compileKineticCenterBuild(inputs: StrategyInputs): CompileOutput
 			key: `${entry.id}:kc:in:${incoming}`,
 			start: pushWindowStart,
 			duration: pushDurationFraction,
-			ease: gsapEaseFromCss(spec.enter.easing),
+			ease: textAnimationGsapEaseFromCss(spec.enter.easing),
 			from: 0,
 			to: 1,
 			onUpdate: (value) => {
@@ -199,8 +204,8 @@ export function compileKineticCenterBuild(inputs: StrategyInputs): CompileOutput
 				const scale = mix(entryScale, 1, value);
 				const blur = mix(entryBlurPx, 0, value);
 				incomingUnit.element.style.transform = `translate(-50%, -50%) translate3d(${x}px, 0px, 0) scale(${scale})`;
-				incomingUnit.element.style.filter = materializeUnitFilter(blur);
-				applyUnitFade(incomingUnit.element, opacity);
+				incomingUnit.element.style.filter = materializeTextAnimationUnitFilter(blur);
+				applyTextAnimationUnitFade(incomingUnit.element, opacity);
 				writeUnitAlpha(incomingUnit.index, opacity);
 			}
 		});
@@ -216,7 +221,7 @@ export function compileKineticCenterBuild(inputs: StrategyInputs): CompileOutput
 				key: `${entry.id}:kc:exit:${i}`,
 				start: entry.exit.start,
 				duration: entry.exit.duration,
-				ease: gsapEaseFromCss(spec.exit.easing),
+				ease: textAnimationGsapEaseFromCss(spec.exit.easing),
 				from: 0,
 				to: 1,
 				onUpdate: (value) => {
@@ -224,8 +229,8 @@ export function compileKineticCenterBuild(inputs: StrategyInputs): CompileOutput
 					const blur = mix(0, exitBlurPx, value);
 					const opacity = 1 - value;
 					exitUnit.element.style.transform = `translate(-50%, -50%) translate3d(${finalX}px, ${y}px, 0) scale(1)`;
-					exitUnit.element.style.filter = materializeUnitFilter(blur);
-					applyUnitFade(exitUnit.element, opacity);
+					exitUnit.element.style.filter = materializeTextAnimationUnitFilter(blur);
+					applyTextAnimationUnitFade(exitUnit.element, opacity);
 					writeUnitAlpha(exitUnit.index, opacity);
 				}
 			});

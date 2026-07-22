@@ -17,5 +17,3 @@ export const VARIANTS: Readonly<Record<string, LowerThirdVariant>> = {
 export const VARIANT_IDS = ['standard', 'cinematic'] as const;
 
 export type LowerThirdVariantId = (typeof VARIANT_IDS)[number];
-
-export type { LowerThirdVariant } from './types';

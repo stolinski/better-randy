@@ -3,6 +3,7 @@
 	"name": "Type hero — vantage (Clean Light re-dress)",
 	"description": "Calibration Trio piece 3/3 for the clean-light pack: the ratified type-hero flat-graphic reference re-dressed under Clean Light (playbook § 5). Same composition and impact choreography — the field flips to the white studio, the word lands in Geist 600 cool near-black, the accent bar goes product blue, the stamp rides Geist Mono. Paper-grain dropped (grit reads as dirt on white — aesthetic.md anti-list); typography overrides lifted so the pack cores decide (ADR-0038).",
 	"pack": "clean-light",
+	"kind": "fixture",
 	"state": {
 		"transport": {
 			"orientation": "horizontal",

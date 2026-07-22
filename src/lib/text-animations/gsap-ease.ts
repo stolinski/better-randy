@@ -26,7 +26,7 @@ function ensureRegistered(): void {
  * tweens with raw catalog strings silently fail to interpolate. This translator
  * registers CustomEase once and caches per-curve.
  */
-export function gsapEaseFromCss(css: string): string {
+export function textAnimationGsapEaseFromCss(css: string): string {
 	const trimmed = css.trim();
 
 	const cached = cache.get(trimmed);

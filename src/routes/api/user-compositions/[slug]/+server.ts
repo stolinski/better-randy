@@ -10,7 +10,7 @@ import {
 	validatePresetSemantics
 } from '$lib/platform/preset-validation';
 
-const STORE_DIR = join(process.cwd(), 'user-compositions');
+const USER_COMPOSITION_STORE_DIR = join(process.cwd(), 'user-compositions');
 
 /**
  * Disk format wrapping the serialized preset so metadata stays out of the
@@ -19,12 +19,12 @@ const STORE_DIR = join(process.cwd(), 'user-compositions');
  * schema (string → AnnotationBody), so the disk must store its INPUT shape for
  * GET to re-parse it. Hence `unknown`, written via `presetToWireFormat`.
  */
-interface StoredComposition {
+interface StoredUserComposition {
 	meta: { forkedFrom: string | null; savedAt: string };
 	preset: unknown;
 }
 
-function isStoredComposition(value: unknown): value is StoredComposition {
+function isStoredUserComposition(value: unknown): value is StoredUserComposition {
 	if (typeof value !== 'object' || value === null) return false;
 	const v = value as Record<string, unknown>;
 	return (
@@ -35,8 +35,8 @@ function isStoredComposition(value: unknown): value is StoredComposition {
 	);
 }
 
-function slugPath(slug: string): string {
-	return join(STORE_DIR, `${slug}.json`);
+function userCompositionPathForSlug(slug: string): string {
+	return join(USER_COMPOSITION_STORE_DIR, `${slug}.json`);
 }
 
 export const GET: RequestHandler = async ({ params }) => {
@@ -48,7 +48,7 @@ export const GET: RequestHandler = async ({ params }) => {
 	// absent; any other read failure must surface as a 500.
 	let raw: string;
 	try {
-		raw = await readFile(slugPath(slug), 'utf-8');
+		raw = await readFile(userCompositionPathForSlug(slug), 'utf-8');
 	} catch (cause) {
 		if (cause instanceof Error && (cause as NodeJS.ErrnoException).code === 'ENOENT') {
 			return json(null);
@@ -56,10 +56,12 @@ export const GET: RequestHandler = async ({ params }) => {
 		error(500, `Failed to read user composition "${slug}"`);
 	}
 
-	const stored: unknown = JSON.parse(raw);
-	if (!isStoredComposition(stored)) error(500, 'Corrupt user composition file');
+	const storedUserComposition: unknown = JSON.parse(raw);
+	if (!isStoredUserComposition(storedUserComposition)) {
+		error(500, 'Corrupt user composition file');
+	}
 
-	const result = PresetSchema.safeParse(stored.preset);
+	const result = PresetSchema.safeParse(storedUserComposition.preset);
 	if (!result.success) error(500, `Corrupt preset data: ${result.error.message}`);
 	const semanticIssues = validatePresetSemantics(result.data);
 	if (semanticIssues.length > 0) {
@@ -88,26 +90,32 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 	}
 
 	// Preserve existing meta (forkedFrom) when updating.
-	let existingMeta: StoredComposition['meta'] = {
+	let existingMeta: StoredUserComposition['meta'] = {
 		forkedFrom: null,
 		savedAt: new Date().toISOString()
 	};
 	try {
-		const raw = await readFile(slugPath(slug), 'utf-8');
-		const stored: unknown = JSON.parse(raw);
-		if (isStoredComposition(stored)) existingMeta = { ...stored.meta };
+		const raw = await readFile(userCompositionPathForSlug(slug), 'utf-8');
+		const storedUserComposition: unknown = JSON.parse(raw);
+		if (isStoredUserComposition(storedUserComposition)) {
+			existingMeta = { ...storedUserComposition.meta };
+		}
 	} catch {
 		// new file — use default meta
 	}
 
-	const stored: StoredComposition = {
+	const storedUserComposition: StoredUserComposition = {
 		meta: { ...existingMeta, savedAt: new Date().toISOString() },
 		// Store the wire format (body as text), not the transformed parse output,
 		// so GET can re-parse it through PresetSchema without a type mismatch.
 		preset: presetToWireFormat(result.data)
 	};
 
-	await writeFile(slugPath(slug), JSON.stringify(stored, null, '\t'), 'utf-8');
+	await writeFile(
+		userCompositionPathForSlug(slug),
+		JSON.stringify(storedUserComposition, null, '\t'),
+		'utf-8'
+	);
 	return new Response(null, { status: 204 });
 };
 
@@ -116,7 +124,7 @@ export const DELETE: RequestHandler = async ({ params }) => {
 	if (!slug) error(400, 'Missing slug');
 
 	try {
-		await unlink(slugPath(slug));
+		await unlink(userCompositionPathForSlug(slug));
 	} catch {
 		error(404, `User composition "${slug}" not found`);
 	}

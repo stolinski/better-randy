@@ -1,11 +1,11 @@
 ---
 name: critic
-description: Verify a Supers Preset against the R/Q/G rubrics + channel aesthetic by spawning an isolated Critic sub-agent. Use when the user asks to verify, review, critique, audit, or check a Preset is "done" — e.g. "is this preset ready?", "critic the lower-third", "verify quote-magnify against the rubric". Also reachable as the `/critic <slug>` slash command. Do NOT use for authoring or fixing Presets.
+description: Verify a Supers Preset against the R/Q/G rubrics + channel aesthetic by spawning an isolated Critic sub-agent. Use when the user asks to verify, review, critique, audit, or check a Preset is "done" — e.g. "is this preset ready?", "critic the lower-third", "verify quote-magnify against the rubric". Also reachable as the `/critic SLUG` slash command. Do NOT use for authoring or fixing Presets.
 ---
 
 # Supers Critic
 
-The operational form of [ADR-0001](../../docs/adr/0001-critic-sub-agent-verification.md). Spawns a sub-agent with **fresh context** that captures its own frames, runs the named-observation protocol from [`docs/quality-rubric.md`](../../docs/quality-rubric.md), invokes probe scripts for measurable rules, and returns classified findings.
+The operational form of [ADR-0001](../../../docs/adr/0001-critic-sub-agent-verification.md). Spawns a sub-agent with **fresh context** that captures its own frames, runs the named-observation protocol from [`docs/quality-rubric.md`](../../../docs/quality-rubric.md), invokes probe scripts for measurable rules, and returns classified findings.
 
 ## When this skill fires
 
@@ -37,7 +37,7 @@ Bind to these docs and read them in order before doing anything else:
 1. docs/critic.md — your protocol and output format (note § "Pack aesthetics never gate").
 2. docs/quality-rubric.md — R-rules (gating) and Q-rules.
 3. docs/animation-rubric.md — G-rules and per-Overlay rules.
-4. docs/packs/<preset.pack>/aesthetic.md — channel-fit NOTES (resolved from the Preset's top-level `pack` field; defaults to `syntax`. The legacy `docs/aesthetic.md` is a redirect stub — do not bind to it).
+4. docs/packs/<preset.pack>/aesthetic.md — channel-fit NOTES (resolved from the Preset's required top-level `pack` field. A Preset without `pack` fails schema validation; never substitute `syntax`. The legacy `docs/aesthetic.md` is a redirect stub — do not bind to it).
 5. docs/CONTEXT.md — terminology.
 
 CAPTURE SETUP (this repo): Supers renders via WICG HTML-in-Canvas, which needs
@@ -91,5 +91,5 @@ aesthetic-miss never blocks ACCEPT.
 ## After the Critic returns
 
 - Surface the full report to the user verbatim.
-- Do **not** act on the findings. Each classification has its own fix-lane (see [`docs/critic.md`](../../docs/critic.md) § Acting on findings). The user routes them, or asks for a follow-up that may eventually spawn a Fixer (see [`docs/todos/fixer-sub-agent.md`](../../docs/todos/fixer-sub-agent.md)).
+- Do **not** act on the findings. Each classification has its own fix-lane (see [`docs/critic.md`](../../../docs/critic.md) § Acting on findings). The user routes them; a possible Fixer workflow remains deferred in [`docs/roadmap.md`](../../../docs/roadmap.md#deferred--low-priority).
 - If the report carries `Recommendation: IMPLEMENTATION-FIX-REQUIRED`, do not suggest preset-value workarounds. R8 binds: the fix is in the pipeline / shader / defaults, not the JSON.

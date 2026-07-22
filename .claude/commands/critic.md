@@ -9,7 +9,7 @@ You are coordinating a Supers Critic run.
 Parse `$ARGUMENTS` as a Preset slug (e.g. `quote-magnify`, `lower-third`).
 
 - Verify `src/lib/presets/<slug>.json` exists. If it doesn't, list the available slugs from `src/lib/presets/*.json` and stop.
-- The route URL is `http://localhost:5173/p/<slug>`.
+- The route URL is `http://localhost:7263/p/<slug>`.
 
 If `$ARGUMENTS` is empty, list the available slugs and stop.
 
@@ -26,7 +26,7 @@ Bind to these docs and read them in order before doing anything else:
 1. docs/critic.md — your protocol and output format.
 2. docs/quality-rubric.md — R-rules (gating) and Q-rules.
 3. docs/animation-rubric.md — G-rules and per-Overlay rules.
-4. docs/packs/<preset.pack>/aesthetic.md — channel-fit checks (resolved from the Preset's top-level `pack` field; defaults to `syntax`. The legacy `docs/aesthetic.md` is a redirect stub — do not bind to it).
+4. docs/packs/<preset.pack>/aesthetic.md — channel-fit checks (resolved from the Preset's required top-level `pack` field. A Preset without `pack` fails schema validation; never substitute `syntax`. The legacy `docs/aesthetic.md` is a redirect stub — do not bind to it).
 5. docs/CONTEXT.md — terminology.
 
 Then execute the protocol from docs/critic.md:

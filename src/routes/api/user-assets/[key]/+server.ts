@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { error, type RequestHandler } from '@sveltejs/kit';
 
-import type { UserImageMime } from '$lib/utils/user-image-assets';
+import type { UserImageMime } from '$lib/utils/user-image-format-validation';
 
 const STORE_DIR = join(process.cwd(), 'user-assets');
 const KEY_RE = /^[a-f0-9]{64}\.(png|jpg|webp)$/;

@@ -3,6 +3,7 @@
 	"name": "Quote (vertical)",
 	"description": "Vertical short-form quote pull-out — paper card with magnified highlight, sized for phone-screen output.",
 	"pack": "syntax",
+	"kind": "fixture",
 	"state": {
 		"transport": {
 			"orientation": "vertical",

@@ -2,6 +2,7 @@
 
 **Kind:** preset
 **Slug:** wake-conversation-flow
+**Pack:** syntax
 
 ## Pitch
 
@@ -9,7 +10,7 @@ An animated systems explainer showing how Reachy Mini moves from passive wake-wo
 
 ## Surface(s) involved
 
-Use the `plain` Surface as an opaque full-frame warm-dark field in horizontal 16:9 at native 3840x2160. Art-direct the diagram explicitly rather than using an auto-layout: organize the passive wake path, wake-phrase branches, and continuous-conversation loop into distinct readable bands while keeping the return arrows visually separate from the forward path.
+Use the `plain` Surface as an opaque full-frame warm-dark field. At native 3840x2160 horizontal, art-direct the diagram explicitly rather than using an auto-layout: organize the passive wake path, wake-phrase branches, and continuous-conversation loop into distinct readable bands while keeping the return arrows visually separate from the forward path. The same Preset must reflow at native 2160x3840 vertical into a legible stacked reading order with platform safe areas intact; do not create an orientation-specific sibling Preset.
 
 ## Content sample
 
@@ -88,4 +89,4 @@ no
 
 ## What 'done' looks like
 
-`src/lib/presets/wake-conversation-flow.json` Critic-`ACCEPT`s at native 3840x2160 resolution.
+`src/lib/presets/wake-conversation-flow.json` Critic-`ACCEPT`s at native horizontal (3840x2160) and vertical (2160x3840) resolutions with no orientation-specific sibling Preset.

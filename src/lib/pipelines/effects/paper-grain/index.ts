@@ -109,7 +109,7 @@ function packDeclinesGrain(pack: PackManifest): boolean {
 	return role?.kind === 'style' && role.value === 'none';
 }
 
-export const paperGrain: EffectRenderer<PaperGrainParams> = {
+export const paperGrainEffectRenderer: EffectRenderer<PaperGrainParams> = {
 	type: 'paper-grain',
 	label: 'Paper grain',
 	schema: PaperGrainEffectSchema,

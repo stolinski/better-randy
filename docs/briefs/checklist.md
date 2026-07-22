@@ -2,6 +2,7 @@
 
 **Kind:** pipeline
 **Slug:** checklist
+**Pack:** syntax
 **Verification preset:** checklist-project-setup
 
 ## Pitch
@@ -48,7 +49,7 @@ Per-item **sound**: an animated strike emits a `scratch` / `draw`-family cue at 
 - **Hard offset shadow** — present on `chrome: "card"` via the Pack's `depth-treatment` Role (the stepped shadow under Syntax); on `chrome: "bare"` a single hard-offset (no-blur) drop-shadow rides under each text line for legibility.
 - **Torn edge** — **omitted** (intentional): tears are for quoted physical documents, never channel chrome. Card corners take the Pack `edge-treatment` (clean/rounded under Syntax).
 - **Registration jitter** — present on the red strike marks (the `strike` Annotation already carries Q6 seeded imperfection).
-- **Grit overlay** — **omitted by default** (intentional): this is a flat chrome card, not a paper substrate. A preset may still compose `effects.frame: paper-grain` if desired; the verification preset does not.
+- **Grit overlay** — **omitted by default** (intentional): this is a flat chrome card, not a paper substrate. A preset may still add a `paper-grain` entry to flat `effects[]`; the verification preset does not.
 
 **Intentional deviation (record in the Preset `description` so the Critic doesn't re-flag `aesthetic-miss`):**
 
@@ -69,7 +70,7 @@ New Surface pipeline + schema + Identity Spec + GUI parity + verification preset
   - `chrome: 'card' | 'bare'` on the surface (read as `chrome ?? 'card'` at runtime — the `validateOverlayContents` `.default()` caveat, ADR-0037).
   - `position` (anchor + `normalized-rect`, like overlays) for half-frame placement; the pipeline owns the H→V reflow (right-half → bottom-half, safe-area aware).
 - **`readMarks` extension** — enumerate `content.items[].text` in item order for the strike marks, the way ADR-0031 extended `readMarks` to walk `content.messages[].text`. Generate one `strike` mark per `checked` item; static = progress pinned to 1, animated = the item's strike window drives draw-on; default mark color = the danger Role (`#c43d3c` under Syntax).
-- **GUI parity (binding — ADR-0032):** a **Checklist** section in the SurfaceInspector (declared via `controls` on the renderer): edit item text (with marks), toggle `checked`, switch static↔animated, add/remove/reorder items, edit title, pick `chrome` mode. Per-item **timeline tracks** (`item:N`) so the animated strike clip drags to re-time the check-off beat; per-item strike **sound cue** surfaces on the Sound rail.
+- **GUI parity (binding — ADR-0032):** a **Checklist** section in the SurfaceInspector (declared via `controls` on the renderer): edit item text (with marks), toggle `checked`, switch static↔animated, add/remove/reorder items, edit title, pick `chrome` mode. Per-item **timeline tracks** use `createTimelineTrackId({ kind: 'checklist-item', index })`, so the animated strike clip drags to re-time the check-off beat; per-item strike **sound cue** surfaces on the Sound rail.
 - **Preset linter (`preset-rubric.ts`)** — the checklist's half-frame rect honors read-window, title/action-safe margins, minimum legible item size, and frame-fit at both orientations (orientation-aware, no new taste rules).
 
 ## ADR required?

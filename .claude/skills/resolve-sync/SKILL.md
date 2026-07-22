@@ -1,6 +1,6 @@
 ---
 name: resolve-sync
-description: Sync a composition to a DaVinci Resolve edit — read the editor's timeline markers over the bridge, derive frame-exact Preset timings at the timeline's true rational rate, export a timecode-stamped .mov, and place it back on the timeline with the Mint + customData sync receipt (ADR-0042). Use when asked to "sync to the edit/markers", "read the Resolve markers and retime", "place this piece in Resolve/the timeline", "re-sync after the markers moved", or via `/resolve-sync <slug>`. Do NOT use for authoring Preset content (/author), verifying render quality (/critic), or Resolve inspection with no sync intent (use the davinci-resolve MCP tools directly).
+description: Sync a composition to a DaVinci Resolve edit — read the editor's timeline markers over the bridge, derive frame-exact Preset timings at the timeline's true rational rate, export a timecode-stamped .mov, and place it back on the timeline with the Mint + customData sync receipt (ADR-0042). Use when asked to "sync to the edit/markers", "read the Resolve markers and retime", "place this piece in Resolve/the timeline", "re-sync after the markers moved", or via `/resolve-sync SLUG`. Do NOT use for authoring Preset content (/author), verifying render quality (/critic), or Resolve inspection with no sync intent (use the davinci-resolve MCP tools directly).
 ---
 
 # Resolve marker sync — the edit authors the beats
@@ -54,7 +54,7 @@ Write the derived `fps` literal, duration, and item windows (fractions, frame-sn
 
 ### 5. Export
 
-Drive the flagged Chrome to `/p/<slug>`. The Workspace exposes `window.__supersExport(request?: { startTimecode?, filename? })` (`src/lib/platform/export-video.ts`) — the *real* export path. Pass the derivation's `startTimecode` and `buildSyncExportFilename(slug, startTimecode, spanFrames, version)` → `<slug>__<TC-with-dashes>__<frames>f__v<version>.mov`. Chrome silently blocks a second automatic download (a reload resets any grant): wrap `window.fetch` to tee the `/api/export/` response blob to a local HTTP receiver (the port-7299 pattern) instead of relying on the download. Transparent pieces export ProRes 4444; opaque full-frame pieces 422 — the export path keys off frame opacity itself.
+Drive the flagged Chrome to `/p/<slug>`. While `Workspace.svelte` is mounted, it exposes `window.__supersExport(request?: { startTimecode?, filename? })`; that callback delegates the full media operation to `CompositionExportController`, the export orchestration seam. `export-video.ts` supplies the encoding, endpoint-upload, and download primitives used by the controller. Pass the derivation's `startTimecode` and `buildSyncExportFilename(slug, startTimecode, spanFrames, version)` → `<slug>__<TC-with-dashes>__<frames>f__v<version>.mov`. Chrome silently blocks a second automatic download (a reload resets any grant): wrap `window.fetch` to tee the `/api/export/` response blob to a local HTTP receiver (the port-7299 pattern) instead of relying on the download. The current ProRes route emits 4444 for both transparent and opaque compositions; ProRes 422 and H.264 export lanes are unbuilt.
 
 ### 6. Ship
 

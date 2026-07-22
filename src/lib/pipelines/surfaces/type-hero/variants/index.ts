@@ -15,5 +15,3 @@ export const VARIANTS: Readonly<Record<string, TypeHeroVariant>> = {
 export const VARIANT_IDS = ['single', 'pair'] as const;
 
 export type TypeHeroVariantId = (typeof VARIANT_IDS)[number];
-
-export type { TypeHeroVariant, CounterpointAnchor } from './types';

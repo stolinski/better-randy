@@ -18,31 +18,34 @@ Read in this order before proposing anything:
 
 1. `docs/briefs/README.md` — the template you're filling and the lifecycle.
 2. `docs/CONTEXT.md` — terminology (Brief, Brainstorm, Producer, Critic).
-3. `docs/packs/syntax/aesthetic.md` — Motion Vocabulary, Channel chrome, Surface Vocabulary, Anti-Aesthetic.
+3. `src/lib/platform/packs/registry.ts` — registered Pack slugs; there is no implicit default.
 4. `docs/preset-format.md` — the schema the resulting Preset must satisfy.
 5. `ls src/lib/presets/` — existing slugs and naming families.
+
+After the Pack is selected, read `docs/packs/<pack>/aesthetic.md` before proposing Surfaces, motion, or chrome.
 
 Do **not** load `docs/quality-rubric.md` or `docs/animation-rubric.md` — those are Critic-side concerns.
 
 ## Step 3 — drive the grill
 
-Follow the protocol in `.claude/skills/brainstorm/SKILL.md` § Protocol. The agent stance is **active proposer**: at every decision point, surface 2–3 concrete options drawn from `docs/packs/syntax/aesthetic.md` and the existing Registry as `AskUserQuestion` previews, not open-ended prompts.
+Follow the protocol in `.claude/skills/brainstorm/SKILL.md` § Protocol. The agent stance is **active proposer**: at every decision point, surface 2–3 concrete options drawn from the selected `docs/packs/<pack>/aesthetic.md` and the existing Registry as `AskUserQuestion` previews, not open-ended prompts.
 
 Section order is fixed:
 
-1. Kind (`preset` | `pipeline` | `domain`)  + `verification preset` if pipeline/domain
-2. Pitch
-3. Surface(s) involved
-4. Content sample (verbatim copy)
-5. Motion plan (propose 2–3 combinations from `docs/packs/syntax/aesthetic.md § Motion Vocabulary`)
-6. Channel chrome notes (walk every signature element)
-7. Engine work required
-8. ADR required?
-9. Open questions sweep — resolve or capture
-10. What 'done' looks like
+1. Kind (`preset` | `pipeline` | `domain`) + `verification preset` if pipeline/domain
+2. Pack (required slug from `PACK_REGISTRY`; never assume `syntax`)
+3. Pitch
+4. Surface(s) involved
+5. Content sample (verbatim copy)
+6. Motion plan (propose 2–3 combinations from `docs/packs/<pack>/aesthetic.md § Motion Vocabulary`)
+7. Channel chrome notes (walk every signature element from the selected Pack)
+8. Engine work required
+9. ADR required?
+10. Open questions sweep — resolve or capture
+11. What 'done' looks like
 
 Push back on:
-- Anti-Aesthetic moves (cite `docs/packs/syntax/aesthetic.md § Anti-Aesthetic` line).
+- Anti-Aesthetic moves (cite the selected `docs/packs/<pack>/aesthetic.md § Anti-Aesthetic` line).
 - Placeholder copy.
 - Hand-waved motion ("smooth," "nice," "subtle") — name moves from the vocabulary.
 

@@ -33,15 +33,15 @@ export interface IdentityDimension {
 }
 
 /**
- * Declared Pack-immunity per ADR-0038. A Pipeline whose entire value is
- * fidelity to a real artifact (the iMessage bubble palette, a pixel-faithful
- * site mock) declares immunity here so it is a registry-visible fact — never
- * an unwired accident indistinguishable from a Pack-plumbing bug.
+ * Declared Pack-immunity per ADR-0038. A Pipeline whose appearance is the
+ * faithful artifact or authored content itself declares immunity here so it
+ * is a registry-visible fact — never an unwired accident indistinguishable
+ * from a Pack-plumbing bug.
  *
- * Semantics: an immune Surface's ARTIFACT skips Pack appearance-var injection
- * entirely (`SurfaceMount` renders its CanvasSource with no appearance-var
- * wrapper style). Treatments layered ON TOP of it — annotation marks, edge
- * treatment, depth shadow, Effects — still resolve from the active Pack.
+ * Semantics: an immune Surface or Overlay artifact skips Pack appearance-var
+ * injection in its Layer mount. Treatments layered around it — annotation
+ * marks, edge treatment, depth shadow, Effects — still resolve from the active
+ * Pack.
  * The rationale is part of the declaration: immunity without a stated "why"
  * is unrepresentable.
  */

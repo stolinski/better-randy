@@ -22,11 +22,9 @@
 	// CanvasSource consumes them via `var(--slot, #fallback)`; under the syntax
 	// Pack the fallbacks already match, so the render is byte-identical.
 	//
-	// A Surface whose Identity Spec declares Pack-immunity (ADR-0038 —
-	// `surface:imessage`, `surface:web-document`) skips the injection entirely:
-	// the artifact stays faithful under every Pack, while treatments layered on
-	// it (annotation marks, edge/depth passes, Effects) still resolve from the
-	// Pack elsewhere.
+	// A Surface whose Identity Spec declares Pack-immunity skips injection. The
+	// registry-derived query is the authority, so new immune Pipelines cannot
+	// leave a copied list stale here.
 	const appearanceStyle = $derived(
 		isPackImmune(`surface:${engineState.surface.type}`)
 			? ''

@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 
-	import { EFFECT_IDS } from '$lib/text-animations/catalog';
+	import { TEXT_EFFECT_IDS } from '$lib/text-animations/catalog';
 	import {
 		engineState,
 		addCaptions,
-		addDiagramElement,
+		addDiagramPrimitive,
 		addOverlay,
 		addTextAnimation,
 		removeCaptions,
-		removeDiagramElement,
+		removeDiagramPrimitive,
 		removeOverlay,
 		removeTextAnimation
 	} from './engine-state.svelte';
@@ -20,8 +20,17 @@
 		layerSelection,
 		selectKeyframe,
 		selectLayer,
+		selectSoundRailReference,
 		deselectLayer
 	} from './selection.svelte';
+	import {
+		createKeyframeSelectionId,
+		createTimelineTrackId,
+		parseKeyframeSelectionId,
+		parseTimelineTrackId,
+		type TimelineTrackId,
+		type TimelineTrackIdentity
+	} from './timeline-entity-identity';
 	import type { Timeline } from './timeline.svelte';
 	import type { TimelineTrack, TimelineTransition } from './timeline-track';
 	import {
@@ -45,7 +54,7 @@
 
 	interface TransitionDragState {
 		kind: 'transition';
-		trackId: string;
+		trackId: TimelineTrackId;
 		transitionId: string;
 		mode: TransitionDragMode;
 		origin: { start: number; duration: number };
@@ -66,7 +75,7 @@
 	// SELECT: the playhead seeks to the keyframe (DaVinci behaviour).
 	interface KeyframeDragState {
 		kind: 'keyframe';
-		trackId: string;
+		trackId: TimelineTrackId;
 		transitionId: string;
 		channel: string;
 		index: number;
@@ -142,46 +151,37 @@
 
 	// ─── Gutter classification helpers ──────────────────────────────────────────
 
-	function isMainOverlayTrack(trackId: string): boolean {
-		if (!trackId.startsWith('overlay-')) return false;
-		const overlayId = trackId.slice('overlay-'.length);
-		return engineState.overlays.some((o) => o.id === overlayId);
+	function trackIdentity(trackId: TimelineTrackId): TimelineTrackIdentity | null {
+		return parseTimelineTrackId(trackId);
 	}
 
-	// A diagram Block element's main row: `block-{id}` where the id resolves —
-	// the roll sub-track (`block-{id}-roll`) fails the lookup and indents under it.
-	function isMainBlockTrack(trackId: string): boolean {
-		if (!trackId.startsWith('block-')) return false;
-		const blockId = trackId.slice('block-'.length);
-		return (engineState.surface.diagram ?? []).some((element) => element.id === blockId);
-	}
-
-	function canRemoveTrack(trackId: string): boolean {
+	function canRemoveTrack(trackId: TimelineTrackId): boolean {
+		const identity = trackIdentity(trackId);
 		return (
-			isMainOverlayTrack(trackId) ||
-			isMainBlockTrack(trackId) ||
-			trackId === 'captions' ||
-			trackId.startsWith('textanim-')
+			identity?.kind === 'overlay' ||
+			identity?.kind === 'block' ||
+			identity?.kind === 'captions' ||
+			identity?.kind === 'text-animation'
 		);
 	}
 
-	function gutterIndent(trackId: string): number {
-		if (trackId === 'surface') return 0;
-		// Sub-tracks (stack, roll, spin, cursor waypoints) sit under a main overlay
-		if (trackId.startsWith('overlay-') && !isMainOverlayTrack(trackId)) return 2;
-		if (trackId.startsWith('block-') && !isMainBlockTrack(trackId)) return 2;
+	function gutterIndent(trackId: TimelineTrackId): number {
+		const identity = trackIdentity(trackId);
+		if (identity?.kind === 'surface') return 0;
+		if (identity?.kind === 'overlay-subtrack' || identity?.kind === 'block-subtrack') return 2;
 		return 1;
 	}
 
-	function handleRemoveTrack(trackId: string): void {
-		if (isMainOverlayTrack(trackId)) {
-			removeOverlay(trackId.slice('overlay-'.length));
-		} else if (isMainBlockTrack(trackId)) {
-			removeDiagramElement(trackId.slice('block-'.length));
-		} else if (trackId === 'captions') {
+	function handleRemoveTrack(trackId: TimelineTrackId): void {
+		const identity = trackIdentity(trackId);
+		if (identity?.kind === 'overlay') {
+			removeOverlay(identity.overlayId);
+		} else if (identity?.kind === 'block') {
+			removeDiagramPrimitive(identity.blockId);
+		} else if (identity?.kind === 'captions') {
 			removeCaptions();
-		} else if (trackId.startsWith('textanim-')) {
-			removeTextAnimation(trackId.slice('textanim-'.length));
+		} else if (identity?.kind === 'text-animation') {
+			removeTextAnimation(identity.textAnimationId);
 		}
 		deselectLayer();
 	}
@@ -222,12 +222,12 @@
 			enter: def.enter,
 			exit: def.exit
 		});
-		selectLayer(`overlay-${id}`);
+		selectLayer(createTimelineTrackId({ kind: 'overlay', overlayId: id }));
 		addMenuEl?.hidePopover();
 	}
 
 	function pickTextAnimation(): void {
-		const firstEffect = EFFECT_IDS[0];
+		const firstEffect = TEXT_EFFECT_IDS[0];
 		if (!firstEffect) return;
 		addTextAnimation({
 			target: { kind: 'surface', slot: 'body' },
@@ -237,8 +237,8 @@
 		addMenuEl?.hidePopover();
 	}
 
-	// Diagram Block elements (ADR-0036) — explicit placement is the authoring
-	// model, so a new element lands at a sensible spot and is immediately
+	// Diagram primitive Blocks (ADR-0036) — explicit placement is the authoring
+	// model, so a new primitive lands at a sensible spot and is immediately
 	// selected for canvas drag + inspector editing.
 	const DIAGRAM_TYPES = [
 		{ type: 'node', label: 'Diagram node' },
@@ -248,15 +248,15 @@
 		{ type: 'timeline-segment', label: 'Timeline segment' }
 	] as const;
 
-	function pickDiagramElement(type: (typeof DIAGRAM_TYPES)[number]['type']): void {
-		const id = addDiagramElement(type);
-		selectLayer(`block-${id}`);
+	function pickDiagramPrimitive(type: (typeof DIAGRAM_TYPES)[number]['type']): void {
+		const id = addDiagramPrimitive(type);
+		selectLayer(createTimelineTrackId({ kind: 'block', blockId: id }));
 		addMenuEl?.hidePopover();
 	}
 
 	function pickCaptions(): void {
 		addCaptions();
-		selectLayer('captions');
+		selectLayer(createTimelineTrackId({ kind: 'captions' }));
 		addMenuEl?.hidePopover();
 	}
 
@@ -397,7 +397,11 @@
 		event.stopPropagation();
 		// Sound-rail cues focus individually in the sidebar (ADR-0033 §9); every
 		// other lane selects its Layer.
-		selectLayer(track.id === 'sound' ? `sound:${transition.id}` : track.id);
+		if (transition.soundReference) {
+			selectSoundRailReference(transition.soundReference);
+		} else {
+			selectLayer(track.id);
+		}
 		timeline.selectTransition(track.id, transition.id);
 		const u = transition.unified;
 		dragState = {
@@ -474,7 +478,7 @@
 	// is typing in a field. The writer lives on the transition (buildTracks).
 	function handleWindowKeydown(event: KeyboardEvent): void {
 		if (event.key !== 'Delete' && event.key !== 'Backspace') return;
-		const key = keyframeSelection.key;
+		const key = keyframeSelection.id;
 		if (!key) return;
 		const target = event.target as HTMLElement | null;
 		if (
@@ -486,19 +490,17 @@
 		) {
 			return;
 		}
-		const parts = key.split(':');
-		const index = Number(parts.pop());
-		const channel = parts.pop() ?? '';
-		const trackId = parts.join(':');
-		const track = tracks.find((t) => t.id === trackId);
+		const identity = parseKeyframeSelectionId(key);
+		if (!identity) return;
+		const track = tracks.find((t) => t.id === identity.trackId);
 		const transition = track?.transitions.find((t) => t.onKeyframeDelete !== undefined);
-		if (!transition?.onKeyframeDelete || !Number.isFinite(index)) return;
+		if (!transition?.onKeyframeDelete) return;
 		event.preventDefault();
-		transition.onKeyframeDelete(channel, index);
+		transition.onKeyframeDelete(identity.channel, identity.index);
 		clearKeyframeSelection();
 	}
 
-	function isTransitionSelected(trackId: string, transitionId: string): boolean {
+	function isTransitionSelected(trackId: TimelineTrackId, transitionId: string): boolean {
 		const sel = timeline.selection;
 		return sel !== null && sel.trackId === trackId && sel.transitionId === transitionId;
 	}
@@ -598,7 +600,7 @@
 					<button
 						class="add-menu__item"
 						type="button"
-						onclick={() => pickDiagramElement(entry.type)}>{entry.label}</button
+						onclick={() => pickDiagramPrimitive(entry.type)}>{entry.label}</button
 					>
 				{/each}
 				<div class="add-menu__divider" role="presentation"></div>
@@ -704,8 +706,8 @@
 								<button
 									aria-label="Retime {keyframe.channel} keyframe {keyframe.index + 1}"
 									class="track-keyframe"
-									class:track-keyframe--selected={keyframeSelection.key ===
-										`${track.id}:${keyframe.channel}:${keyframe.index}`}
+									class:track-keyframe--selected={keyframeSelection.id ===
+										createKeyframeSelectionId(track.id, keyframe.channel, keyframe.index)}
 									class:track-keyframe--playhead={Math.abs(keyframe.fraction - playheadFraction) <=
 										halfFrameFraction}
 									style:left="{transition.duration > 0

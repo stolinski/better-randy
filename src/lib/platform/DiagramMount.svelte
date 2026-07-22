@@ -10,7 +10,7 @@
 		resolveFontTreatment,
 		resolveTypographyColors
 	} from './packs/resolve';
-	import { ENGINE_FONT_FAMILIES, type DiagramElement } from './engine-schema';
+	import { ENGINE_FONT_FAMILIES, type DiagramPrimitive } from './engine-schema';
 	import LabelSource from '$lib/pipelines/blocks/label/CanvasSource.svelte';
 	import NodeSource from '$lib/pipelines/blocks/node/CanvasSource.svelte';
 	import StatCalloutSource from '$lib/pipelines/blocks/stat-callout/CanvasSource.svelte';
@@ -22,18 +22,18 @@
 	// SurfaceMount so the surface pipeline's DOM capture carries it on the
 	// SURFACE plane in every render path (flat, DOF split, depth stage) — a
 	// diagram parallaxes with the surface it annotates, never with overlays.
-	// Stroke elements (edge-arrow, the segment's rule) render in the pipelines'
+	// Stroke primitives (edge-arrow, the segment's rule) render in the pipelines'
 	// marks canvas, not here.
 
-	const elements = $derived(engineState.surface.diagram ?? []);
+	const primitives = $derived(engineState.surface.diagram ?? []);
 	const pack = $derived(getPack(packState.slug));
 
-	// The diagram's inherited ink (each element's currentColor floor) resolves
+	// The diagram's inherited ink (each primitive's currentColor floor) resolves
 	// override → Pack core ink-treatment (ADR-0038), matching body text.
 	const diagramInk = $derived(resolveTypographyColors(pack, engineState.typography).inkColor);
 
-	// An element declaring `ink: 'accent'` rides the Pack's core accent-treatment
-	// instead — the composition picks WHICH elements carry emphasis, the Pack
+	// A primitive declaring `ink: 'accent'` rides the Pack's core accent-treatment
+	// instead — the composition picks WHICH primitives carry emphasis, the Pack
 	// still owns what accent looks like (guaranteed present by the boot validator).
 	const accentInk = $derived(requireCoreColor(pack, 'accent-treatment'));
 
@@ -53,7 +53,7 @@
 	);
 
 	// Transparent piece (no backgroundFill, no stage backdrop): the diagram ink
-	// composites over unknown footage, so DOM elements carry a two-zone
+	// composites over unknown footage, so DOM primitives carry a two-zone
 	// legibility halo by default — G5's worst-case floor must hold over bright
 	// footage, and naked single-colour text over transparent is rejected.
 	// text-shadow inherits and paints without compositing-layer promotion (a
@@ -71,35 +71,35 @@
 	// beside it (left-edge anchored so the centred text can't reach back across
 	// the stroke). An orientation-blind fixed offset put vertical captions ON
 	// the rail (Critic finding, docu-timeline-build-vertical).
-	function isVerticalSpan(element: DiagramElement & { type: 'timeline-segment' }): boolean {
+	function isVerticalSpan(primitive: DiagramPrimitive & { type: 'timeline-segment' }): boolean {
 		return (
-			Math.abs(element.to.y - element.from.y) > Math.abs(element.to.x - element.from.x)
+			Math.abs(primitive.to.y - primitive.from.y) > Math.abs(primitive.to.x - primitive.from.x)
 		);
 	}
 
-	function centerFor(element: DiagramElement): { x: number; y: number } {
-		if (element.type === 'edge-arrow') {
+	function centerFor(primitive: DiagramPrimitive): { x: number; y: number } {
+		if (primitive.type === 'edge-arrow') {
 			return { x: 0, y: 0 };
 		}
-		if (element.type === 'timeline-segment') {
+		if (primitive.type === 'timeline-segment') {
 			const mid = {
-				x: (element.from.x + element.to.x) / 2,
-				y: (element.from.y + element.to.y) / 2
+				x: (primitive.from.x + primitive.to.x) / 2,
+				y: (primitive.from.y + primitive.to.y) / 2
 			};
 			// The rule itself is stroke-drawn in the pipeline.
-			return isVerticalSpan(element)
+			return isVerticalSpan(primitive)
 				? { x: mid.x + 0.033, y: mid.y }
 				: { x: mid.x, y: mid.y - 0.045 };
 		}
-		return element.position;
+		return primitive.position;
 	}
 
-	function channelsFor(element: DiagramElement): OverlayChannelValues | null {
-		return animState.blockChannels[element.id] ?? null;
+	function channelsFor(primitive: DiagramPrimitive): OverlayChannelValues | null {
+		return animState.blockChannels[primitive.id] ?? null;
 	}
 
-	function positionStyle(element: DiagramElement, channels: OverlayChannelValues | null): string {
-		const center = centerFor(element);
+	function positionStyle(primitive: DiagramPrimitive, channels: OverlayChannelValues | null): string {
+		const center = centerFor(primitive);
 		// Channel x/y are composition-fraction deltas from the authored position
 		// (ADR-0035 §3), folded straight into the percentage placement.
 		const x = (center.x + (channels?.x ?? 0)) * 100;
@@ -107,7 +107,7 @@
 		// Beside a vertical rail the caption anchors its LEFT edge (not its
 		// centre) so the text grows away from the stroke, never back across it.
 		const anchor =
-			element.type === 'timeline-segment' && isVerticalSpan(element) ? ';translate:0 -50%' : '';
+			primitive.type === 'timeline-segment' && isVerticalSpan(primitive) ? ';translate:0 -50%' : '';
 		return `left:${x}%;top:${y}%${anchor}`;
 	}
 
@@ -116,16 +116,16 @@
 	// take the pen). Node: scale-settle. Label / segment caption: short rise.
 	// Stat-callout: plain fade (the roll is the show). All fade with the exit
 	// alpha; an exit never un-draws or un-scales.
-	function intrinsicStyle(element: DiagramElement): string {
-		const progress = Math.max(0, Math.min(1, animState.blockProgresses[element.id] ?? 0));
-		const alpha = Math.max(0, Math.min(1, animState.blockAlphas[element.id] ?? 1));
+	function intrinsicStyle(primitive: DiagramPrimitive): string {
+		const progress = Math.max(0, Math.min(1, animState.blockProgresses[primitive.id] ?? 0));
+		const alpha = Math.max(0, Math.min(1, animState.blockAlphas[primitive.id] ?? 1));
 		const opacity = progress * alpha;
-		const baseScale = 'scale' in element ? (element.scale ?? 1) : 1;
+		const baseScale = 'scale' in primitive ? (primitive.scale ?? 1) : 1;
 
-		if (element.type === 'node') {
+		if (primitive.type === 'node') {
 			return `opacity:${opacity};scale:${baseScale * (0.85 + 0.15 * progress)}`;
 		}
-		if (element.type === 'label' || element.type === 'timeline-segment') {
+		if (primitive.type === 'label' || primitive.type === 'timeline-segment') {
 			const rise = (1 - progress) * 24;
 			return `opacity:${opacity};transform:translateY(${rise}px);scale:${baseScale}`;
 		}
@@ -134,8 +134,8 @@
 
 	// Composition-owned styling (ADR-0035 §2): the authored channels replace the
 	// intrinsic entrance outright. Scale/rotation are absolute channel values
-	// seeded from the element's static `scale`.
-	function channelStyle(element: DiagramElement, channels: OverlayChannelValues): string {
+	// seeded from the primitive's static `scale`.
+	function channelStyle(channels: OverlayChannelValues): string {
 		const opacity = Math.max(0, Math.min(1, channels.opacity));
 		const parts = [`opacity:${opacity}`, `scale:${channels.scale}`];
 		if (channels.rotation !== 0) {
@@ -144,17 +144,17 @@
 		return parts.join(';');
 	}
 
-	// Pack appearance per element type (ADR-0024 resolution), plus the node's
+	// Pack appearance per primitive type (ADR-0024 resolution), plus the node's
 	// structural depth rig as a ready CSS shadow and a box-ink that follows the
 	// resolved fill's luminance — a white card wants dark text even when the
 	// composition's ink is footage-white.
-	function appearanceStyle(element: DiagramElement): string {
-		const vars = resolveAppearanceVars(pack, element.type);
+	function appearanceStyle(primitive: DiagramPrimitive): string {
+		const vars = resolveAppearanceVars(pack, primitive.type);
 		let style = appearanceVarsToStyle(vars);
-		if ((element.ink ?? 'ink') === 'accent') {
+		if ((primitive.ink ?? 'ink') === 'accent') {
 			style += `;color:${accentInk}`;
 		}
-		if (element.type === 'node') {
+		if (primitive.type === 'node') {
 			// The 'fg' shadow-colour sentinel resolves through the node's own
 			// mount-injected `--ink` (ADR-0024) — never a baked colour; a Pack
 			// that wants a specific shadow colour names it in the rig.
@@ -184,33 +184,33 @@
 	}
 </script>
 
-{#if elements.length > 0}
+{#if primitives.length > 0}
 	<div
 		class="diagram-mount"
 		style:font-family={fontStack}
 		style:color={diagramInk}
 		style:text-shadow={textGuard}
 	>
-		{#each elements as element (element.id)}
-			{#if element.type !== 'edge-arrow'}
-				{@const channels = channelsFor(element)}
-				{#if element.type !== 'timeline-segment' || element.label}
+		{#each primitives as primitive (primitive.id)}
+			{#if primitive.type !== 'edge-arrow'}
+				{@const channels = channelsFor(primitive)}
+				{#if primitive.type !== 'timeline-segment' || primitive.label}
 					<div
 						class="diagram-mount__item"
-						data-diagram-element={element.id}
-						data-diagram-node={element.type === 'node' ? element.id : undefined}
-						style="{positionStyle(element, channels)};{channels
-							? channelStyle(element, channels)
-							: intrinsicStyle(element)};{appearanceStyle(element)}"
+						data-diagram-primitive={primitive.id}
+						data-diagram-node={primitive.type === 'node' ? primitive.id : undefined}
+						style="{positionStyle(primitive, channels)};{channels
+							? channelStyle(channels)
+							: intrinsicStyle(primitive)};{appearanceStyle(primitive)}"
 					>
-						{#if element.type === 'node'}
-							<NodeSource block={element} />
-						{:else if element.type === 'label'}
-							<LabelSource block={element} />
-						{:else if element.type === 'stat-callout'}
-							<StatCalloutSource block={element} />
+						{#if primitive.type === 'node'}
+							<NodeSource block={primitive} />
+						{:else if primitive.type === 'label'}
+							<LabelSource block={primitive} />
+						{:else if primitive.type === 'stat-callout'}
+							<StatCalloutSource block={primitive} />
 						{:else}
-							<span class="diagram-mount__segment-label">{element.label}</span>
+							<span class="diagram-mount__segment-label">{primitive.label}</span>
 						{/if}
 					</div>
 				{/if}
@@ -228,7 +228,7 @@
 
 	.diagram-mount__item {
 		position: absolute;
-		/* Elements centre on their authored point — GUI drag and the stroke
+		/* Primitives centre on their authored point — GUI drag and the stroke
 		   endpoints both reason about centres. CSS `translate` handles the
 		   centring so `transform` stays free for the entrance rise. */
 		translate: -50% -50%;

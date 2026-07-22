@@ -1,6 +1,6 @@
 # Sources — resolve-sync
 
-Synthesized 2026-07-16 from in-repo and live-verified material. No external retrieval: every Resolve behavior encoded here was verified live against Resolve Studio 21.0.2.4 (2026-07-15/16), which supersedes official API docs for the failure modes documented (false negatives, append refusals, crash modal).
+Synthesized 2026-07-16 from in-repo and live-verified material; export ownership revalidated against the current engine on 2026-07-21. No external retrieval: every Resolve behavior encoded here was verified live against Resolve Studio 21.0.2.4 (2026-07-15/16), which supersedes official API docs for the failure modes documented (false negatives, append refusals, crash modal).
 
 ## Inventory
 
@@ -8,12 +8,15 @@ Synthesized 2026-07-16 from in-repo and live-verified material. No external retr
 - `docs/briefs/resolve-marker-sync.md` — motion-plan semantics (re-place never re-speed, span fallback, lint set), engine-work scope.
 - `scripts/resolve-markers.py` / `scripts/resolve-place.py` — wire shapes (source of truth for snapshot/plan JSON), invocation forms, marker-rewrite restore path.
 - `src/lib/utils/marker-sync.ts` + `marker-sync.test.ts` — grammar constants, grouping, lints, derivation math, versioning, export filename.
-- `src/lib/platform/export-video.ts` — `SyncExportRequest` / `window.__supersExport` seam.
+- `src/lib/platform/composition-export-controller.ts` + tests — export planning, deterministic stepping, output classification, audio/video handoff, cancellation, downloads, and cleanup.
+- `src/lib/platform/Workspace.svelte` — mounted `window.__supersExport` callback and live Svelte/DOM/GPU dependencies delegated to the controller.
+- `src/lib/platform/export-video.ts` — `SyncExportRequest` plus WebM/ProRes encoding, endpoint-upload, and download primitives.
+- `src/routes/api/export/prores/+server.ts` + `src/routes/api/export/export.test.ts` — current ProRes 4444 encoding contract for transparent and opaque compositions.
 - Project memory `resolve-mcp-bridge-mbp` — bridge topology, live gotchas (stale markers, linked-audio refusals, stranded audio, download seam, crash modal), and the 2026-07-16 corrections: identify by label not color, no named editor, Mint receipt stays.
 
 ## Coverage (workflow-process class)
 
-Preconditions, ordered flow, failure handling, and safety boundaries all trace to the inventory above. Retrieval stopped because the flow's knowledge originates in this repo and its live verification — external Resolve documentation is lower-trust than the recorded observed behavior.
+Preconditions, ordered flow, failure handling, safety boundaries, and export ownership all trace to the inventory above. Retrieval stopped because the flow's knowledge originates in this repo and its live verification — external Resolve documentation is lower-trust than the recorded observed behavior.
 
 ## Gaps
 

@@ -232,7 +232,7 @@ const fragmentBody = /* wgsl */ `
 	return vec4f(clamp(col, vec3f(0.0), vec3f(2.0)), aOut);
 `;
 
-export const crtTube: EffectRenderer<CrtTubeParams> = {
+export const crtTubeEffectRenderer: EffectRenderer<CrtTubeParams> = {
 	type: 'crt-tube',
 	label: 'CRT Tube',
 	schema: CrtTubeEffectSchema,

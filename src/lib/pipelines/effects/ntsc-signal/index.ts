@@ -227,7 +227,7 @@ function lumaSubcarrierGain(lumaCut: number): number {
 	return num / den;
 }
 
-export const ntscSignal: EffectRenderer<NtscSignalParams> = {
+export const ntscSignalEffectRenderer: EffectRenderer<NtscSignalParams> = {
 	type: 'ntsc-signal',
 	label: 'NTSC Signal',
 	schema: NtscSignalEffectSchema,

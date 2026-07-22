@@ -4,13 +4,23 @@
 	import { onMount } from 'svelte';
 
 	import type { Preset } from '$lib/platform/engine-schema';
-	import type { UserCompositionMeta } from '$lib/platform/persistence';
-	import { userStore } from '$lib/platform/persistence';
 	import { posterKeyForPreset } from '$lib/platform/posters';
 	import type { CataloguedPreset } from '$lib/platform/preset';
 	import { getPresetBySlug, listFixtures, listPresets } from '$lib/platform/preset';
+	import {
+		userCompositionStore,
+		type UserCompositionMeta
+	} from '$lib/platform/user-composition-store';
 	import PosterCard from './PosterCard.svelte';
 	import { SURFACE_LABELS } from './surface-labels';
+
+	import type { PageProps } from './$types';
+
+	let { data }: PageProps = $props();
+
+	// Posters that actually exist (server load reads the store) — cards get a
+	// thumbKey only for these, so nothing probes a not-yet-captured poster.
+	const posterKeys = $derived(new Set(data.posterKeys));
 
 	// Which compositor a Preset drives, resolved the same way Workspace does:
 	// `state.stage` → the dimensional depth stage (real WebGPU 3D, ADR-0028);
@@ -57,53 +67,57 @@
 			.sort((a, b) => a.label.localeCompare(b.label));
 	})();
 
-	let userComps = $state<UserCompositionMeta[]>([]);
-	// A user comp's poster key needs its full stored preset (not just the meta),
+	let userCompositions = $state<UserCompositionMeta[]>([]);
+	// A User composition's poster key needs its full stored Preset (not just the metadata),
 	// so resolve them once the list loads; null once resolved-but-unavailable.
-	let compKeys = $state<Record<string, string | null>>({});
+	let userCompositionPosterKeys = $state<Record<string, string | null>>({});
 	// Two-step in-place delete: first press arms this slug ("Delete?"), second
 	// press commits; pointer-down elsewhere or Escape disarms.
 	let confirmingSlug = $state<string | null>(null);
 
 	onMount(() => {
-		userStore
-			.list()
-			.then((list) => {
-				userComps = list;
-				for (const comp of list) {
-					userStore
-						.load(comp.slug)
+		userCompositionStore
+			.listUserCompositions()
+			.then((userCompositionList) => {
+				userCompositions = userCompositionList;
+				for (const userComposition of userCompositionList) {
+					userCompositionStore
+						.loadUserComposition(userComposition.slug)
 						.then((preset) => {
-							compKeys[comp.slug] = preset ? posterKeyForPreset(preset) : null;
+							const key = preset ? posterKeyForPreset(preset) : null;
+							userCompositionPosterKeys[userComposition.slug] =
+								key !== null && posterKeys.has(key) ? key : null;
 						})
 						.catch(() => {
-							compKeys[comp.slug] = null;
+							userCompositionPosterKeys[userComposition.slug] = null;
 						});
 				}
 			})
 			.catch(() => {
-				userComps = [];
+				userCompositions = [];
 			});
 	});
 
-	async function createBlank(): Promise<void> {
+	async function createBlankUserComposition(): Promise<void> {
 		const blank = getPresetBySlug('blank');
 		if (!blank) return;
 		const slug = `comp-${Date.now()}`;
 		const named: Preset = { ...blank, name: 'Untitled' };
-		await userStore.fork(slug, named, null);
+		await userCompositionStore.forkUserComposition(slug, named, null);
 		await goto(resolve('/p/[slug]', { slug }));
 	}
 
-	async function deleteUserComp(slug: string): Promise<void> {
+	async function deleteUserComposition(slug: string): Promise<void> {
 		if (confirmingSlug !== slug) {
 			confirmingSlug = slug;
 			return;
 		}
 		confirmingSlug = null;
 		try {
-			await userStore.del(slug);
-			userComps = userComps.filter((c) => c.slug !== slug);
+			await userCompositionStore.deleteUserComposition(slug);
+			userCompositions = userCompositions.filter(
+				(userComposition) => userComposition.slug !== slug
+			);
 		} catch (error) {
 			console.error(`Failed to delete composition "${slug}".`, error);
 		}
@@ -123,10 +137,11 @@
 <svelte:window onpointerdown={disarmDeleteOnPointerDown} onkeydown={disarmDeleteOnEscape} />
 
 {#snippet presetCard(slug: string, preset: Preset)}
+	{@const key = posterKeyForPreset(preset)}
 	<li>
 		<PosterCard
 			{slug}
-			thumbKey={posterKeyForPreset(preset)}
+			thumbKey={posterKeys.has(key) ? key : null}
 			name={preset.name}
 			type={preset.state.surface.type}
 			badge={compositorBadge(preset)}
@@ -134,26 +149,28 @@
 	</li>
 {/snippet}
 
-{#snippet userCard(comp: UserCompositionMeta)}
-	{@const base = comp.forkedFrom ? getPresetBySlug(comp.forkedFrom) : null}
+{#snippet userCompositionCard(userComposition: UserCompositionMeta)}
+	{@const starterTemplate = userComposition.forkedFrom
+		? getPresetBySlug(userComposition.forkedFrom)
+		: null}
 	<li class="card-cell">
 		<PosterCard
-			slug={comp.slug}
-			thumbKey={compKeys[comp.slug] ?? null}
-			name={comp.name}
-			type={base?.state.surface.type ?? 'plain'}
-			badge={base ? compositorBadge(base) : null}
+			slug={userComposition.slug}
+			thumbKey={userCompositionPosterKeys[userComposition.slug] ?? null}
+			name={userComposition.name}
+			type={starterTemplate?.state.surface.type ?? 'plain'}
+			badge={starterTemplate ? compositorBadge(starterTemplate) : null}
 		/>
 		<button
 			class="card__delete"
-			class:is-confirming={confirmingSlug === comp.slug}
+			class:is-confirming={confirmingSlug === userComposition.slug}
 			type="button"
-			aria-label={confirmingSlug === comp.slug
-				? `Confirm delete ${comp.name}`
-				: `Delete ${comp.name}`}
-			onclick={() => deleteUserComp(comp.slug)}
+			aria-label={confirmingSlug === userComposition.slug
+				? `Confirm delete ${userComposition.name}`
+				: `Delete ${userComposition.name}`}
+			onclick={() => deleteUserComposition(userComposition.slug)}
 		>
-			{#if confirmingSlug === comp.slug}
+			{#if confirmingSlug === userComposition.slug}
 				Delete?
 			{:else}
 				<svg
@@ -187,7 +204,7 @@
 			<p class="home__stamp">4K / WebGPU / alpha</p>
 			<h1 class="home__wordmark">Supers</h1>
 		</div>
-		<button class="home__new" type="button" onclick={createBlank}>
+		<button class="home__new" type="button" onclick={createBlankUserComposition}>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				width="14"
@@ -201,12 +218,12 @@
 		</button>
 	</header>
 
-	{#if userComps.length > 0}
+	{#if userCompositions.length > 0}
 		<section class="home__section home__section--user">
 			<h2 class="home__heading">Your compositions</h2>
 			<ul class="home__grid">
-				{#each userComps as comp (comp.slug)}
-					{@render userCard(comp)}
+				{#each userCompositions as userComposition (userComposition.slug)}
+					{@render userCompositionCard(userComposition)}
 				{/each}
 			</ul>
 		</section>

@@ -8,9 +8,9 @@ Relates to: [ADR-0002](0002-per-tool-routes-to-preset-engine.md) (one preset eng
 
 The north star is **GUI ↔ agent parity**: a human in the GUI and an agent are co-equal authors over one composition model — either creates a piece end-to-end, or they collaborate. Today the GUI is preview/tune only; this is the remaining critical path (engine arc done, corpus delivered).
 
-The grill that produced this ADR reframed the work. The GUI is **not net-new**: it already two-way-binds a single reactive `engineState` (`engine-state.svelte.ts`) that holds a _fully editable_ composition tree — surface type, all content text, typography, background fill, add/remove overlays, add/remove text-animations, the effects chain, every mark via `TrackInspector`, timeline scrub. The expensive 80% exists. What is missing is:
+The grill that produced this ADR reframed the work. The GUI is **not net-new**: it already two-way-binds a single reactive `engineState` (`engine-state.svelte.ts`) that holds a _fully editable_ composition tree — surface type, all content text, typography, background fill, add/remove overlays, add/remove text-animations, the effects chain, every mark through the editor, timeline scrub. The expensive 80% exists. What is missing is:
 
-1. **Persistence** — there is no `engineState → Preset` serializer, no write path, no `fs.writeFile` anywhere; `src/routes/api/` has only the ProRes export endpoint. Edits vanish on reload.
+1. **User composition storage** — there is no `engineState → Preset` serializer, no write path, no `fs.writeFile` anywhere; `src/routes/api/` has only the ProRes export endpoint. Edits vanish on reload.
 2. **Coverage** — no UI for `transport`, `state.stage` (depth/camera/focus), the active `pack`, overlay placement, or some text-animation params.
 
 So parity is **a save seam plus incremental coverage**, not a from-scratch app.
@@ -21,7 +21,7 @@ One tension forces the design: the presets in `src/lib/presets/` are **build-har
 
 ### 1. Scope: single-user local authoring tool, architected Electron-ready
 
-Parity targets one local author (you, building your channel), **not** a multi-user product with its own document model (that is a downstream arc, deferred). The save seam is a **transport-agnostic persistence port** (`load(slug) → Preset`, `save(slug, Preset)`, `list()`), backed today by a SvelteKit API route over the local filesystem and swappable later to Electron main-process IPC **with zero GUI changes**. The GUI never calls `fetch` directly — it calls the port. Electron is not planned, but nothing may foreclose it.
+Parity targets one local author (you, building your channel), **not** a multi-user product with its own document model (that is a downstream arc, deferred). The save seam is the browser-side **`UserCompositionStore`** (`loadUserComposition(slug) → Preset`, `saveUserComposition(slug, Preset)`, `listUserCompositions()`), backed today by SvelteKit API routes over the local filesystem and swappable later to Electron main-process IPC **with zero GUI changes**. The GUI never calls `fetch` directly — it calls `userCompositionStore`. Electron is not planned, but nothing may foreclose it.
 
 ### 2. Two stores; corpus presets are read-only Starter templates
 
@@ -63,7 +63,7 @@ The whole model is template-centric, so **create-from-blank is a fast-follow** �
 ## Consequences
 
 - The **Starter template** concept finally has a mechanism: a corpus preset opened read-only as a fork-base.
-- New surfaces to build: a **user store**, the **persistence port** + a local-FS write API, and the **`engineState → Preset` serializer** (today's `applyPreset` has no inverse).
+- New surfaces to build: a **user store**, the browser-side **User composition store** + a local-FS write API, and the **`engineState → Preset` serializer** (today's `applyPreset` has no inverse).
 - The current coverage gaps (`transport`, `state.stage`, pack picker, overlay placement, structural layer editing) become **incremental tasks behind the proven save path**, not blockers.
 - **Electron migration is a port swap**, not a rewrite — the GUI stays unaware of the transport.
 - Tracked in dex; see [`roadmap.md`](../roadmap.md) § GUI ↔ agent parity.

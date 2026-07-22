@@ -52,7 +52,7 @@ const fragmentBody = /* wgsl */ `
 	return vec4f(rSample.r, inputSample.g, bSample.b, inputSample.a);
 `;
 
-export const chromaticAberration: EffectRenderer<ChromaticAberrationParams> = {
+export const chromaticAberrationEffectRenderer: EffectRenderer<ChromaticAberrationParams> = {
 	type: 'chromatic-aberration',
 	label: 'Chromatic aberration',
 	schema: ChromaticAberrationEffectSchema,

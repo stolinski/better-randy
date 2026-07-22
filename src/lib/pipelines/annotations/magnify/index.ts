@@ -12,7 +12,7 @@ function easeInExpo(t: number): number {
 	return Math.pow(2, 10 * (t - 1));
 }
 
-export const magnify: AnnotationRenderer = {
+export const magnifyAnnotationRenderer: AnnotationRenderer = {
 	style: 'magnify',
 	kind: 'focal',
 	appliesTo: ['paragraph'],

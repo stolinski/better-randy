@@ -51,7 +51,7 @@ function defaults(): SurfaceState {
 	};
 }
 
-export const newspaper: SurfaceRenderer = {
+export const newspaperSurfaceRenderer: SurfaceRenderer = {
 	type: 'newspaper',
 	label: 'Newspaper clipping',
 	controls: {

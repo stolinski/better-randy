@@ -8,12 +8,16 @@ import {
 } from '$lib/annotations/annotation-marks';
 import { drawDiagramStrokes, getDiagramNodeLayouts } from '$lib/annotations/diagram-strokes';
 import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
-import { isolate } from '$lib/pipelines/annotations/isolate';
-import { liftOut } from '$lib/pipelines/annotations/lift-out';
-import { magnify } from '$lib/pipelines/annotations/magnify';
-import { tearOut } from '$lib/pipelines/annotations/tear-out';
+import { isolateAnnotationRenderer } from '$lib/pipelines/annotations/isolate';
+import { liftOutAnnotationRenderer } from '$lib/pipelines/annotations/lift-out';
+import { magnifyAnnotationRenderer } from '$lib/pipelines/annotations/magnify';
+import { tearOutAnnotationRenderer } from '$lib/pipelines/annotations/tear-out';
 import { getHtmlInCanvasQueue } from '$lib/platform/html-in-canvas';
-import type { AnnotationRenderer, SurfaceAnimState, SurfaceRenderInputs, SurfaceRenderInstance } from '$lib/platform/pipelines/types';
+import type {
+	AnnotationRenderer,
+	SurfaceRenderInputs,
+	SurfaceRenderInstance
+} from '$lib/platform/pipelines/types';
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
 
 const TEXTURE_USAGE_COPY_SRC = 0x01;
@@ -36,13 +40,11 @@ const FOCAL_STYLE_CODES: Partial<Record<AnnotationMarkStyle, number>> = {
 };
 
 const FOCAL_RENDERERS: Partial<Record<AnnotationMarkStyle, AnnotationRenderer>> = {
-	magnify,
-	'lift-out': liftOut,
-	'tear-out': tearOut,
-	isolate
+	magnify: magnifyAnnotationRenderer,
+	'lift-out': liftOutAnnotationRenderer,
+	'tear-out': tearOutAnnotationRenderer,
+	isolate: isolateAnnotationRenderer
 };
-
-export type { SurfaceAnimState as PaperAnimState, SurfaceRenderInputs as PaperRenderInputs, SurfaceRenderInstance as PaperPipeline };
 
 export interface CreatePaperPipelineOptions {
 	host: GpuHost;
@@ -768,7 +770,7 @@ export function createPaperPipeline({
 			};
 			drawDiagramStrokes({
 				context: strokesContext,
-				elements: inputs.diagram.elements,
+				primitives: inputs.diagram.primitives,
 				frame: frameLayout,
 				nodeLayouts: getDiagramNodeLayouts(sourceElement, frameLayout),
 				drawProgressById: inputs.diagram.drawProgressById,

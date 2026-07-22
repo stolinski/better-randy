@@ -1,116 +1,123 @@
 import type { AnnotationRenderer, SurfaceRenderer } from './types';
 
-import { box } from '$lib/pipelines/annotations/box';
-import { circle } from '$lib/pipelines/annotations/circle';
-import { highlight } from '$lib/pipelines/annotations/highlight';
-import { isolate } from '$lib/pipelines/annotations/isolate';
-import { liftOut } from '$lib/pipelines/annotations/lift-out';
-import { magnify } from '$lib/pipelines/annotations/magnify';
-import { sideNote } from '$lib/pipelines/annotations/side-note';
-import { strike } from '$lib/pipelines/annotations/strike';
-import { tearOut } from '$lib/pipelines/annotations/tear-out';
-import { underline } from '$lib/pipelines/annotations/underline';
+import { boxAnnotationRenderer } from '$lib/pipelines/annotations/box';
+import { circleAnnotationRenderer } from '$lib/pipelines/annotations/circle';
+import { highlightAnnotationRenderer } from '$lib/pipelines/annotations/highlight';
+import { isolateAnnotationRenderer } from '$lib/pipelines/annotations/isolate';
+import { liftOutAnnotationRenderer } from '$lib/pipelines/annotations/lift-out';
+import { magnifyAnnotationRenderer } from '$lib/pipelines/annotations/magnify';
+import { sideNoteAnnotationRenderer } from '$lib/pipelines/annotations/side-note';
+import { strikeAnnotationRenderer } from '$lib/pipelines/annotations/strike';
+import { tearOutAnnotationRenderer } from '$lib/pipelines/annotations/tear-out';
+import { underlineAnnotationRenderer } from '$lib/pipelines/annotations/underline';
 
-import { edgeArrow } from '$lib/pipelines/blocks/edge-arrow';
-import { label } from '$lib/pipelines/blocks/label';
-import { node } from '$lib/pipelines/blocks/node';
-import { paragraph } from '$lib/pipelines/blocks/paragraph';
-import { statCallout } from '$lib/pipelines/blocks/stat-callout';
-import { timelineSegment } from '$lib/pipelines/blocks/timeline-segment';
+import { edgeArrowBlockRenderer } from '$lib/pipelines/blocks/edge-arrow';
+import { labelBlockRenderer } from '$lib/pipelines/blocks/label';
+import { nodeBlockRenderer } from '$lib/pipelines/blocks/node';
+import { paragraphBlockRenderer } from '$lib/pipelines/blocks/paragraph';
+import { statCalloutBlockRenderer } from '$lib/pipelines/blocks/stat-callout';
+import { timelineSegmentBlockRenderer } from '$lib/pipelines/blocks/timeline-segment';
 
-import { chromaticAberration } from '$lib/pipelines/effects/chromatic-aberration';
-import { crtScreen } from '$lib/pipelines/effects/crt-screen';
-import { crtTube } from '$lib/pipelines/effects/crt-tube';
-import { dithering } from '$lib/pipelines/effects/dithering';
-import { flutedGlass } from '$lib/pipelines/effects/fluted-glass';
-import { halftoneCmyk } from '$lib/pipelines/effects/halftone-cmyk';
-import { halftoneDots } from '$lib/pipelines/effects/halftone-dots';
-import { heatmap } from '$lib/pipelines/effects/heatmap';
-import { ntscSignal } from '$lib/pipelines/effects/ntsc-signal';
-import { paperGrain } from '$lib/pipelines/effects/paper-grain';
-import { water } from '$lib/pipelines/effects/water';
-import { achievement } from '$lib/pipelines/overlays/achievement';
-import { counter } from '$lib/pipelines/overlays/counter';
-import { cursorTrail } from '$lib/pipelines/overlays/cursor-trail';
-import { instagramFollow } from '$lib/pipelines/overlays/instagram-follow';
-import { instanceStack } from '$lib/pipelines/overlays/instance-stack';
-import { lowerThird } from '$lib/pipelines/overlays/lower-third';
-import { text3d } from '$lib/pipelines/overlays/text-3d';
-import { shaderFill } from '$lib/pipelines/overlays/shader-fill';
-import { sourceUrl } from '$lib/pipelines/overlays/source-url';
-import { washiTape } from '$lib/pipelines/overlays/washi-tape';
-import { watermark } from '$lib/pipelines/overlays/watermark';
-import { youtubeSubscribe } from '$lib/pipelines/overlays/youtube-subscribe';
+import { chromaticAberrationEffectRenderer } from '$lib/pipelines/effects/chromatic-aberration';
+import { crtScreenEffectRenderer } from '$lib/pipelines/effects/crt-screen';
+import { crtTubeEffectRenderer } from '$lib/pipelines/effects/crt-tube';
+import { ditheringEffectRenderer } from '$lib/pipelines/effects/dithering';
+import { flutedGlassEffectRenderer } from '$lib/pipelines/effects/fluted-glass';
+import { halftoneCmykEffectRenderer } from '$lib/pipelines/effects/halftone-cmyk';
+import { halftoneDotsEffectRenderer } from '$lib/pipelines/effects/halftone-dots';
+import { heatmapEffectRenderer } from '$lib/pipelines/effects/heatmap';
+import { ntscSignalEffectRenderer } from '$lib/pipelines/effects/ntsc-signal';
+import { paperGrainEffectRenderer } from '$lib/pipelines/effects/paper-grain';
+import { waterEffectRenderer } from '$lib/pipelines/effects/water';
+import { achievementOverlayRenderer } from '$lib/pipelines/overlays/achievement';
+import { counterOverlayRenderer } from '$lib/pipelines/overlays/counter';
+import { cursorTrailOverlayRenderer } from '$lib/pipelines/overlays/cursor-trail';
+import { instagramFollowOverlayRenderer } from '$lib/pipelines/overlays/instagram-follow';
+import { instanceStackOverlayRenderer } from '$lib/pipelines/overlays/instance-stack';
+import { lowerThirdOverlayRenderer } from '$lib/pipelines/overlays/lower-third';
+import { text3dOverlayRenderer } from '$lib/pipelines/overlays/text-3d';
+import { shaderFillOverlayRenderer } from '$lib/pipelines/overlays/shader-fill';
+import { sourceUrlOverlayRenderer } from '$lib/pipelines/overlays/source-url';
+import { washiTapeOverlayRenderer } from '$lib/pipelines/overlays/washi-tape';
+import { watermarkOverlayRenderer } from '$lib/pipelines/overlays/watermark';
+import { youtubeSubscribeOverlayRenderer } from '$lib/pipelines/overlays/youtube-subscribe';
 
-import { chapterCard } from '$lib/pipelines/surfaces/chapter-card';
-import { checklist } from '$lib/pipelines/surfaces/checklist';
-import { imessage } from '$lib/pipelines/surfaces/imessage';
-import { newspaper } from '$lib/pipelines/surfaces/newspaper';
-import { paper } from '$lib/pipelines/surfaces/paper';
-import { plain } from '$lib/pipelines/surfaces/plain';
-import { pullquoteOnPhoto } from '$lib/pipelines/surfaces/pullquote-on-photo';
-import { titleSequence } from '$lib/pipelines/surfaces/title-sequence';
-import { typeHero } from '$lib/pipelines/surfaces/type-hero';
-import { webDocument } from '$lib/pipelines/surfaces/web-document';
-import { websiteScreenshot } from '$lib/pipelines/surfaces/website-screenshot';
+import { chapterCardSurfaceRenderer } from '$lib/pipelines/surfaces/chapter-card';
+import { checklistSurfaceRenderer } from '$lib/pipelines/surfaces/checklist';
+import { imessageSurfaceRenderer } from '$lib/pipelines/surfaces/imessage';
+import { newspaperSurfaceRenderer } from '$lib/pipelines/surfaces/newspaper';
+import { paperSurfaceRenderer } from '$lib/pipelines/surfaces/paper';
+import { plainSurfaceRenderer } from '$lib/pipelines/surfaces/plain';
+import { pullquoteOnPhotoSurfaceRenderer } from '$lib/pipelines/surfaces/pullquote-on-photo';
+import { titleSequenceSurfaceRenderer } from '$lib/pipelines/surfaces/title-sequence';
+import { typeHeroSurfaceRenderer } from '$lib/pipelines/surfaces/type-hero';
+import { webDocumentSurfaceRenderer } from '$lib/pipelines/surfaces/web-document';
+import { websiteScreenshotSurfaceRenderer } from '$lib/pipelines/surfaces/website-screenshot';
 
 export const PIPELINE_REGISTRY = {
 	surfaces: {
-		paper,
-		plain,
-		newspaper,
-		pullquoteOnPhoto,
-		chapterCard,
-		titleSequence,
-		typeHero,
-		webDocument,
-		websiteScreenshot,
-		imessage,
-		checklist
+		paper: paperSurfaceRenderer,
+		plain: plainSurfaceRenderer,
+		newspaper: newspaperSurfaceRenderer,
+		pullquoteOnPhoto: pullquoteOnPhotoSurfaceRenderer,
+		chapterCard: chapterCardSurfaceRenderer,
+		titleSequence: titleSequenceSurfaceRenderer,
+		typeHero: typeHeroSurfaceRenderer,
+		webDocument: webDocumentSurfaceRenderer,
+		websiteScreenshot: websiteScreenshotSurfaceRenderer,
+		imessage: imessageSurfaceRenderer,
+		checklist: checklistSurfaceRenderer
 	} satisfies Record<string, SurfaceRenderer>,
 	// Like `overlays`, no `satisfies Record<string, BlockRenderer>` — each
 	// renderer is generic over its own Block type, and Component props are
 	// contravariant, so the specific renderers don't widen. Consumers narrow
 	// by `type`.
-	blocks: { paragraph, node, edgeArrow, label, statCallout, timelineSegment },
+	blocks: {
+		paragraph: paragraphBlockRenderer,
+		node: nodeBlockRenderer,
+		edgeArrow: edgeArrowBlockRenderer,
+		label: labelBlockRenderer,
+		statCallout: statCalloutBlockRenderer,
+		timelineSegment: timelineSegmentBlockRenderer
+	},
 	annotations: {
-		highlight,
-		underline,
-		strike,
-		circle,
-		box,
-		sideNote,
-		magnify,
-		liftOut,
-		tearOut,
-		isolate
+		highlight: highlightAnnotationRenderer,
+		underline: underlineAnnotationRenderer,
+		strike: strikeAnnotationRenderer,
+		circle: circleAnnotationRenderer,
+		box: boxAnnotationRenderer,
+		sideNote: sideNoteAnnotationRenderer,
+		magnify: magnifyAnnotationRenderer,
+		liftOut: liftOutAnnotationRenderer,
+		tearOut: tearOutAnnotationRenderer,
+		isolate: isolateAnnotationRenderer
 	} satisfies Record<string, AnnotationRenderer>,
 	overlays: {
-		lowerThird,
-		washiTape,
-		watermark,
-		shaderFill,
-		cursorTrail,
-		counter,
-		instanceStack,
-		text3d,
-		youtubeSubscribe,
-		instagramFollow,
-		achievement,
-		sourceUrl
+		lowerThird: lowerThirdOverlayRenderer,
+		washiTape: washiTapeOverlayRenderer,
+		watermark: watermarkOverlayRenderer,
+		shaderFill: shaderFillOverlayRenderer,
+		cursorTrail: cursorTrailOverlayRenderer,
+		counter: counterOverlayRenderer,
+		instanceStack: instanceStackOverlayRenderer,
+		text3d: text3dOverlayRenderer,
+		youtubeSubscribe: youtubeSubscribeOverlayRenderer,
+		instagramFollow: instagramFollowOverlayRenderer,
+		achievement: achievementOverlayRenderer,
+		sourceUrl: sourceUrlOverlayRenderer
 	},
 	effects: {
-		paperGrain,
-		chromaticAberration,
-		crtScreen,
-		crtTube,
-		ntscSignal,
-		dithering,
-		halftoneDots,
-		halftoneCmyk,
-		water,
-		flutedGlass,
-		heatmap
+		paperGrain: paperGrainEffectRenderer,
+		chromaticAberration: chromaticAberrationEffectRenderer,
+		crtScreen: crtScreenEffectRenderer,
+		crtTube: crtTubeEffectRenderer,
+		ntscSignal: ntscSignalEffectRenderer,
+		dithering: ditheringEffectRenderer,
+		halftoneDots: halftoneDotsEffectRenderer,
+		halftoneCmyk: halftoneCmykEffectRenderer,
+		water: waterEffectRenderer,
+		flutedGlass: flutedGlassEffectRenderer,
+		heatmap: heatmapEffectRenderer
 	}
 };
 

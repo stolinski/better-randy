@@ -26,7 +26,7 @@ function defaults(): SurfaceState {
 	};
 }
 
-export const chapterCard: SurfaceRenderer = {
+export const chapterCardSurfaceRenderer: SurfaceRenderer = {
 	type: 'chapter-card',
 	label: 'Chapter card',
 	controls: {

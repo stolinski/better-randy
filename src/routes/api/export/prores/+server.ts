@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import * as Sentry from '@sentry/sveltekit';
 import { error, type RequestHandler } from '@sveltejs/kit';
 
 import {
@@ -37,6 +38,15 @@ export const POST: RequestHandler = async ({ request, url }) => {
 	const audioBytes = Math.max(0, Number(request.headers.get('x-supers-audio-bytes')) || 0);
 	const ffmpegBin = process.env.FFMPEG_PATH ?? 'ffmpeg';
 
+	// Export context on the request transaction (docs/sentry-dev-flow.md) —
+	// the client-side `export.prores` transaction carries the render metrics,
+	// this carries the encode's.
+	Sentry.getActiveSpan()?.setAttributes({
+		'export.fps': formatFrameRateRational(rate),
+		'export.audio_bytes': audioBytes,
+		'export.has_timecode': startTimecode !== null
+	});
+
 	const workDir = await mkdtemp(join(tmpdir(), 'supers-prores-'));
 	const outPath = join(workDir, 'overlay.mov');
 	const audioPath = join(workDir, 'mix.wav');
@@ -69,6 +79,7 @@ export const POST: RequestHandler = async ({ request, url }) => {
 			await writeFile(audioPath, Buffer.concat(audioChunks));
 		}
 
+		const encodeStartMs = Date.now();
 		const child = spawn(ffmpegBin, [
 			'-y',
 			'-hide_banner',
@@ -134,6 +145,10 @@ export const POST: RequestHandler = async ({ request, url }) => {
 			}
 
 			const buffer = await readFile(outPath);
+			Sentry.getActiveSpan()?.setAttributes({
+				'export.ffmpeg_ms': Date.now() - encodeStartMs,
+				'export.output_bytes': buffer.byteLength
+			});
 
 			return new Response(buffer, {
 				headers: {

@@ -8,7 +8,7 @@ import CanvasSource from './CanvasSource.svelte';
 // by DiagramMount at its explicit composition position; unlike overlay
 // contents its shape is validated by the Preset schema itself
 // (`surface.diagram[]` discriminated union), so no separate content schema.
-export const node: BlockRenderer<DiagramNode> = {
+export const nodeBlockRenderer: BlockRenderer<DiagramNode> = {
 	type: 'node',
 	CanvasSource
 };

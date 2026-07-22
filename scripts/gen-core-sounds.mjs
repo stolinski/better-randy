@@ -1,10 +1,10 @@
 /**
- * Generate the engine-pinned CORE sound samples (ADR-0033 §7/§8) — one WAV per
- * core sound event, written to src/lib/assets/sounds/. Fully deterministic
+ * Generate the deterministic synthesized engine samples (ADR-0033 §7/§8) — one
+ * WAV per sound event, written to src/lib/assets/sounds/. Fully deterministic
  * synthesis (seeded noise, no Date/Math.random): running this script twice
  * produces byte-identical files, the audio analog of gen-synthetic-substrate.
- * These are the ADR-0024 core-fallback samples every kit resolves through for
- * events it doesn't cover; designed kits (by-ear, dex r9tbnnkh) layer on top.
+ * These remain bundled audio assets; `DEFAULT_EVENT_SAMPLES` selects the engine
+ * default for each event, and an individual motion may lock any asset or mute.
  *
  *   node scripts/gen-core-sounds.mjs
  */
@@ -67,7 +67,7 @@ function render(duration, fill) {
 	return out;
 }
 
-// ---- The seven core sounds ----
+// ---- Synthesized engine sounds ----
 
 // whoosh-in: band-swept noise that CRESCENDOS toward its end — the cue fires
 // at the motion's window start, so the air leads the element in and lands

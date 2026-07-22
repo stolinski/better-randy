@@ -55,7 +55,7 @@ function defaults(): OverlayDefaults<YoutubeSubscribeContent> {
 	};
 }
 
-export const youtubeSubscribe: OverlayRenderer<YoutubeSubscribeContent> = {
+export const youtubeSubscribeOverlayRenderer: OverlayRenderer<YoutubeSubscribeContent> = {
 	type: 'youtube-subscribe',
 	label: 'YouTube subscribe',
 	schema: YoutubeSubscribeContentSchema,

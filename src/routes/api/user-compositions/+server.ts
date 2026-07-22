@@ -4,26 +4,26 @@ import { join } from 'node:path';
 import { json, error, type RequestHandler } from '@sveltejs/kit';
 
 import { PresetSchema } from '$lib/platform/engine-schema';
-import type { UserCompositionMeta } from '$lib/platform/persistence';
 import { presetToWireFormat } from '$lib/platform/preset-pure';
 import {
 	formatPresetSemanticIssues,
 	validatePresetSemantics
 } from '$lib/platform/preset-validation';
+import type { UserCompositionMeta } from '$lib/platform/user-composition-store';
 
-const STORE_DIR = join(process.cwd(), 'user-compositions');
+const USER_COMPOSITION_STORE_DIR = join(process.cwd(), 'user-compositions');
 
-async function ensureStoreDir(): Promise<void> {
-	await mkdir(STORE_DIR, { recursive: true });
+async function ensureUserCompositionStoreDirectory(): Promise<void> {
+	await mkdir(USER_COMPOSITION_STORE_DIR, { recursive: true });
 }
 
 /** Disk format wrapping the Preset so metadata stays out of the Preset JSON. */
-interface StoredComposition {
+interface StoredUserComposition {
 	meta: { forkedFrom: string | null; savedAt: string };
 	preset: unknown;
 }
 
-function isStoredComposition(value: unknown): value is StoredComposition {
+function isStoredUserComposition(value: unknown): value is StoredUserComposition {
 	if (typeof value !== 'object' || value === null) return false;
 	const v = value as Record<string, unknown>;
 	return (
@@ -35,44 +35,44 @@ function isStoredComposition(value: unknown): value is StoredComposition {
 }
 
 export const GET: RequestHandler = async () => {
-	await ensureStoreDir();
+	await ensureUserCompositionStoreDirectory();
 
 	let entries: string[];
 	try {
-		entries = await readdir(STORE_DIR);
+		entries = await readdir(USER_COMPOSITION_STORE_DIR);
 	} catch {
 		entries = [];
 	}
 
-	const metas: UserCompositionMeta[] = [];
+	const userCompositionMetadata: UserCompositionMeta[] = [];
 
 	for (const entry of entries) {
 		if (!entry.endsWith('.json')) continue;
-		const slug = entry.slice(0, -5);
+		const userCompositionSlug = entry.slice(0, -5);
 		try {
-			const raw = await readFile(join(STORE_DIR, entry), 'utf-8');
-			const stored: unknown = JSON.parse(raw);
-			if (!isStoredComposition(stored)) continue;
-			const result = PresetSchema.safeParse(stored.preset);
+			const raw = await readFile(join(USER_COMPOSITION_STORE_DIR, entry), 'utf-8');
+			const storedUserComposition: unknown = JSON.parse(raw);
+			if (!isStoredUserComposition(storedUserComposition)) continue;
+			const result = PresetSchema.safeParse(storedUserComposition.preset);
 			if (!result.success) continue;
 			if (validatePresetSemantics(result.data).length > 0) continue;
-			metas.push({
-				slug,
+			userCompositionMetadata.push({
+				slug: userCompositionSlug,
 				name: result.data.name,
-				forkedFrom: stored.meta.forkedFrom,
-				savedAt: stored.meta.savedAt
+				forkedFrom: storedUserComposition.meta.forkedFrom,
+				savedAt: storedUserComposition.meta.savedAt
 			});
 		} catch {
 			// skip unreadable entries
 		}
 	}
 
-	metas.sort((a, b) => b.savedAt.localeCompare(a.savedAt));
-	return json(metas);
+	userCompositionMetadata.sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+	return json(userCompositionMetadata);
 };
 
 export const POST: RequestHandler = async ({ request }) => {
-	await ensureStoreDir();
+	await ensureUserCompositionStoreDirectory();
 
 	let body: unknown;
 	try {
@@ -104,7 +104,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		error(400, `Invalid preset:\n${formatPresetSemanticIssues(semanticIssues)}`);
 	}
 
-	const stored: StoredComposition = {
+	const storedUserComposition: StoredUserComposition = {
 		meta: {
 			forkedFrom: typeof forkedFrom === 'string' ? forkedFrom : null,
 			savedAt: new Date().toISOString()
@@ -114,6 +114,10 @@ export const POST: RequestHandler = async ({ request }) => {
 		preset: presetToWireFormat(result.data)
 	};
 
-	await writeFile(join(STORE_DIR, `${slug}.json`), JSON.stringify(stored, null, '\t'), 'utf-8');
+	await writeFile(
+		join(USER_COMPOSITION_STORE_DIR, `${slug}.json`),
+		JSON.stringify(storedUserComposition, null, '\t'),
+		'utf-8'
+	);
 	return json({ slug }, { status: 201 });
 };
