@@ -1,536 +1,3144 @@
 {
-	"generatedAt": "2026-07-13T20:59:36.760Z",
-	"packs": {
-		"a": "syntax",
-		"b": "clean-light"
+	"generatedAt": "2026-07-22T22:35:53.767Z",
+	"evidence": {
+		"class": "low-res-regression-lock",
+		"note": "Per-Pipeline masked pack-pair diffs at 25% of native 4K. Machine regression evidence only — NOT native-4K Calibration Trio evidence; pack ratification needs full-resolution captures judged at human scale (docs/packs/authoring-playbook.md §5)."
 	},
+	"packs": [
+		"clean-light",
+		"crt-terminal",
+		"editorial-mono",
+		"syntax"
+	],
 	"thresholds": {
-		"changedPctMin": 0.25,
+		"regionChangedPctMin": 1,
+		"immunityMaxPct": 2,
 		"perChannelDelta": 8,
-		"captureScale": 0.25
+		"captureScale": 0.25,
+		"regionInflateFrac": 0.012,
+		"annotationInflateFrac": 0.03
+	},
+	"sources": {
+		"script": "15c3f6af89f17cdc",
+		"pipelinesTree": "528f041e26dfc219",
+		"packs": {
+			"clean-light": "97e0e1a5183d129d",
+			"crt-terminal": "b1f422b021d491f6",
+			"editorial-mono": "d5a4c3dbf3b34bdc",
+			"syntax": "373d367cf7d4c264"
+		},
+		"presets": {
+			"achievement-complete": "06230d3cd01e8416",
+			"annotation-box-demo": "59234dbbaa91ad82",
+			"captions-pack-style-demo": "cc2773576563d641",
+			"chapter-card-descent": "7cd9df8153348dd2",
+			"checklist-project-setup": "67dc73b93b3dbd2a",
+			"counter-milestone": "7d5e5728159c9418",
+			"cursor-trail-title-sweep": "6557bc9edea37a9b",
+			"docu-flowchart": "abd3db0f775a88d2",
+			"docu-stat-build": "499fcc1ee9ad8c6b",
+			"docu-timeline-build": "190b794c29f08151",
+			"imessage-friday-deploy": "aacdd4445f47f63d",
+			"instagram-follow-demo": "ac323c38fa7f155a",
+			"instance-stack-vertical": "1da54025689aaf33",
+			"isolate-demo": "b8323f65e606fe21",
+			"lower-third": "8f091e9e5a152fb8",
+			"pullquote-cinematic": "20beaea6be189234",
+			"quote-lift-out": "a29199b30130199a",
+			"quote-magnify": "42a9cd3a1f357abf",
+			"quote-tear-out": "f23ecd5428c941e3",
+			"research-paper-critique": "5a5aa4034c84fba9",
+			"shader-fill-demo": "e98e75a81a462c26",
+			"text-3d-cylinder": "700c2b6a895ddd45",
+			"title-card-newspaper": "c350659759fb4cbd",
+			"title-sequence-signal": "9403ed869919ee0b",
+			"watermark-channel-sig": "4a9891e7964df766",
+			"watermark-demo": "afcf16e01e6cb495",
+			"web-document-github": "2785f81a26f3bd57",
+			"website-showcase": "cf83ea11a7455682",
+			"youtube-subscribe-demo": "8b4b6635e6184bef"
+		}
 	},
 	"coverage": [
 		{
 			"pipeline": "surface:newspaper",
-			"preset": "server-renders-again",
-			"diffPct": "55.38%",
-			"status": "PASS"
+			"preset": "title-card-newspaper",
+			"status": "PASS",
+			"maskPctOfFrame": "66%",
+			"worstPair": "clean-light↔editorial-mono 77.36%",
+			"detail": "region re-skins under every pack pair (min 77.36%)"
 		},
 		{
 			"pipeline": "surface:paper",
 			"preset": "research-paper-critique",
-			"diffPct": "40.47%",
-			"status": "PASS"
+			"status": "PASS",
+			"maskPctOfFrame": "43.78%",
+			"worstPair": "clean-light↔editorial-mono 91.23%",
+			"detail": "region re-skins under every pack pair (min 91.23%)"
 		},
 		{
 			"pipeline": "surface:plain",
-			"preset": "docu-flowchart",
-			"diffPct": "0.87%",
-			"status": "PASS"
+			"preset": "watermark-demo",
+			"status": "PASS",
+			"maskPctOfFrame": "5.6%",
+			"worstPair": "clean-light↔syntax 3.93%",
+			"detail": "region re-skins under every pack pair (min 3.93%)"
 		},
 		{
 			"pipeline": "surface:chapter-card",
 			"preset": "chapter-card-descent",
-			"diffPct": "99.98%",
-			"status": "PASS"
+			"status": "PASS",
+			"maskPctOfFrame": "100%",
+			"worstPair": "crt-terminal↔syntax 60.31%",
+			"detail": "region re-skins under every pack pair (min 60.31%)"
 		},
 		{
 			"pipeline": "surface:pullquote-on-photo",
 			"preset": "pullquote-cinematic",
-			"diffPct": "99.96%",
-			"status": "PASS"
+			"status": "PASS",
+			"maskPctOfFrame": "100%",
+			"worstPair": "crt-terminal↔syntax 31.5%",
+			"detail": "region re-skins under every pack pair (min 31.5%)"
 		},
 		{
 			"pipeline": "surface:title-sequence",
 			"preset": "title-sequence-signal",
-			"diffPct": "99.11%",
-			"status": "PASS"
+			"status": "PASS",
+			"maskPctOfFrame": "4.64%",
+			"worstPair": "editorial-mono↔syntax 41.23%",
+			"detail": "region re-skins under every pack pair (min 41.23%)"
 		},
 		{
 			"pipeline": "surface:type-hero",
 			"preset": "cursor-trail-title-sweep",
-			"diffPct": "98.14%",
-			"status": "PASS"
+			"status": "PASS",
+			"maskPctOfFrame": "17.64%",
+			"worstPair": "editorial-mono↔syntax 52.87%",
+			"detail": "region re-skins under every pack pair (min 52.87%)"
 		},
 		{
 			"pipeline": "surface:web-document",
-			"preset": "—",
-			"diffPct": "—",
-			"status": "immune (exempt)"
+			"preset": "web-document-github",
+			"status": "IMMUNE-PASS",
+			"maskPctOfFrame": "50.86%",
+			"worstPair": "clean-light↔editorial-mono 0%",
+			"detail": "artifact stays put under pack swaps (max 0%)"
+		},
+		{
+			"pipeline": "surface:website-screenshot",
+			"preset": "website-showcase",
+			"status": "IMMUNE-PASS",
+			"maskPctOfFrame": "65.38%",
+			"worstPair": "clean-light↔crt-terminal 0%",
+			"detail": "artifact stays put under pack swaps (max 0%)"
 		},
 		{
 			"pipeline": "surface:imessage",
-			"preset": "—",
-			"diffPct": "—",
-			"status": "immune (exempt)"
+			"preset": "imessage-friday-deploy",
+			"status": "IMMUNE-PASS",
+			"maskPctOfFrame": "40.11%",
+			"worstPair": "clean-light↔editorial-mono 0%",
+			"detail": "artifact stays put under pack swaps (max 0%)"
+		},
+		{
+			"pipeline": "surface:checklist",
+			"preset": "checklist-project-setup",
+			"status": "PASS",
+			"maskPctOfFrame": "20.35%",
+			"worstPair": "clean-light↔editorial-mono 90.71%",
+			"detail": "region re-skins under every pack pair (min 90.71%)"
 		},
 		{
 			"pipeline": "captions:track",
-			"preset": "—",
-			"diffPct": "—",
-			"status": "GAP (no covering preset)"
+			"preset": "captions-pack-style-demo",
+			"status": "PASS",
+			"maskPctOfFrame": "3.7%",
+			"worstPair": "clean-light↔syntax 5.37%",
+			"detail": "region re-skins under every pack pair (min 5.37%)"
 		},
 		{
 			"pipeline": "block:paragraph",
 			"preset": "research-paper-critique",
-			"diffPct": "40.47%",
-			"status": "PASS"
+			"status": "PASS",
+			"maskPctOfFrame": "11.23%",
+			"worstPair": "clean-light↔editorial-mono 91.5%",
+			"detail": "region re-skins under every pack pair (min 91.5%)"
 		},
 		{
 			"pipeline": "block:node",
 			"preset": "docu-flowchart",
-			"diffPct": "0.87%",
-			"status": "PASS"
+			"status": "PASS",
+			"maskPctOfFrame": "3.71%",
+			"worstPair": "clean-light↔syntax 10.02%",
+			"detail": "region re-skins under every pack pair (min 10.02%)"
 		},
 		{
 			"pipeline": "block:edge-arrow",
 			"preset": "docu-flowchart",
-			"diffPct": "0.87%",
-			"status": "PASS"
+			"status": "PASS",
+			"maskPctOfFrame": "7.13%",
+			"worstPair": "clean-light↔syntax 6.6%",
+			"detail": "region re-skins under every pack pair (min 6.6%)"
 		},
 		{
 			"pipeline": "block:label",
 			"preset": "docu-flowchart",
-			"diffPct": "0.87%",
-			"status": "PASS"
+			"status": "PASS",
+			"maskPctOfFrame": "2.07%",
+			"worstPair": "clean-light↔syntax 19.33%",
+			"detail": "region re-skins under every pack pair (min 19.33%)"
 		},
 		{
 			"pipeline": "block:stat-callout",
 			"preset": "docu-stat-build",
-			"diffPct": "2.55%",
-			"status": "PASS"
+			"status": "PASS",
+			"maskPctOfFrame": "10.05%",
+			"worstPair": "clean-light↔syntax 24.82%",
+			"detail": "region re-skins under every pack pair (min 24.82%)"
 		},
 		{
 			"pipeline": "block:timeline-segment",
 			"preset": "docu-timeline-build",
-			"diffPct": "2.47%",
-			"status": "PASS"
+			"status": "PASS",
+			"maskPctOfFrame": "2.74%",
+			"worstPair": "clean-light↔editorial-mono 7.59%",
+			"detail": "region re-skins under every pack pair (min 7.59%)"
 		},
 		{
 			"pipeline": "annotation:box",
-			"preset": "—",
-			"diffPct": "—",
-			"status": "GAP (no covering preset)"
+			"preset": "annotation-box-demo",
+			"status": "PASS",
+			"maskPctOfFrame": "3.08%",
+			"worstPair": "clean-light↔editorial-mono 89.15%",
+			"detail": "region re-skins under every pack pair (min 89.15%)"
 		},
 		{
 			"pipeline": "annotation:circle",
 			"preset": "research-paper-critique",
-			"diffPct": "40.47%",
-			"status": "PASS"
+			"status": "PASS",
+			"maskPctOfFrame": "1.26%",
+			"worstPair": "clean-light↔editorial-mono 91.32%",
+			"detail": "region re-skins under every pack pair (min 91.32%)"
 		},
 		{
 			"pipeline": "annotation:highlight",
 			"preset": "research-paper-critique",
-			"diffPct": "40.47%",
-			"status": "PASS"
+			"status": "PASS",
+			"maskPctOfFrame": "1.5%",
+			"worstPair": "clean-light↔editorial-mono 89.69%",
+			"detail": "region re-skins under every pack pair (min 89.69%)"
 		},
 		{
 			"pipeline": "annotation:isolate",
 			"preset": "isolate-demo",
-			"diffPct": "20.8%",
-			"status": "PASS"
+			"status": "PASS",
+			"maskPctOfFrame": "3.98%",
+			"worstPair": "clean-light↔editorial-mono 50.3%",
+			"detail": "region re-skins under every pack pair (min 50.3%)"
 		},
 		{
 			"pipeline": "annotation:lift-out",
 			"preset": "quote-lift-out",
-			"diffPct": "40.07%",
-			"status": "PASS"
+			"status": "PASS",
+			"maskPctOfFrame": "4.39%",
+			"worstPair": "clean-light↔editorial-mono 87.08%",
+			"detail": "region re-skins under every pack pair (min 87.08%)"
 		},
 		{
 			"pipeline": "annotation:magnify",
 			"preset": "quote-magnify",
-			"diffPct": "41.02%",
-			"status": "PASS"
+			"status": "PASS",
+			"maskPctOfFrame": "4.16%",
+			"worstPair": "clean-light↔editorial-mono 90.32%",
+			"detail": "region re-skins under every pack pair (min 90.32%)"
 		},
 		{
 			"pipeline": "annotation:side-note",
 			"preset": "quote-magnify",
-			"diffPct": "41.02%",
-			"status": "PASS"
+			"status": "PASS",
+			"maskPctOfFrame": "4.16%",
+			"worstPair": "clean-light↔editorial-mono 90.32%",
+			"detail": "region re-skins under every pack pair (min 90.32%)"
 		},
 		{
 			"pipeline": "annotation:strike",
-			"preset": "—",
-			"diffPct": "—",
-			"status": "GAP (no covering preset)"
+			"preset": "checklist-project-setup",
+			"status": "PASS",
+			"maskPctOfFrame": "3.35%",
+			"worstPair": "clean-light↔syntax 93.41%",
+			"detail": "region re-skins under every pack pair (min 93.41%)"
 		},
 		{
 			"pipeline": "annotation:tear-out",
 			"preset": "quote-tear-out",
-			"diffPct": "40.3%",
-			"status": "PASS"
+			"status": "PASS",
+			"maskPctOfFrame": "3.02%",
+			"worstPair": "clean-light↔editorial-mono 75.91%",
+			"detail": "region re-skins under every pack pair (min 75.91%)"
 		},
 		{
 			"pipeline": "annotation:underline",
 			"preset": "research-paper-critique",
-			"diffPct": "40.47%",
-			"status": "PASS"
+			"status": "PASS",
+			"maskPctOfFrame": "1.21%",
+			"worstPair": "clean-light↔editorial-mono 91.54%",
+			"detail": "region re-skins under every pack pair (min 91.54%)"
+		},
+		{
+			"pipeline": "overlay:achievement",
+			"preset": "achievement-complete",
+			"status": "PASS",
+			"maskPctOfFrame": "5.51%",
+			"worstPair": "editorial-mono↔syntax 19.97%",
+			"detail": "region re-skins under every pack pair (min 19.97%)"
 		},
 		{
 			"pipeline": "overlay:counter",
 			"preset": "counter-milestone",
-			"diffPct": "1.4%",
-			"status": "PASS"
+			"status": "PASS",
+			"maskPctOfFrame": "5.71%",
+			"worstPair": "clean-light↔editorial-mono 29.99%",
+			"detail": "region re-skins under every pack pair (min 29.99%)"
 		},
 		{
 			"pipeline": "overlay:cursor-trail",
 			"preset": "cursor-trail-title-sweep",
-			"diffPct": "98.14%",
-			"status": "PASS"
+			"status": "PASS",
+			"maskPctOfFrame": "0.68%",
+			"worstPair": "editorial-mono↔syntax 9.27%",
+			"detail": "region re-skins under every pack pair (min 9.27%)"
 		},
 		{
 			"pipeline": "overlay:instance-stack",
 			"preset": "instance-stack-vertical",
-			"diffPct": "6.95%",
-			"status": "PASS"
+			"status": "PASS",
+			"maskPctOfFrame": "21.78%",
+			"worstPair": "clean-light↔syntax 32.12%",
+			"detail": "region re-skins under every pack pair (min 32.12%)"
 		},
 		{
 			"pipeline": "overlay:lower-third",
 			"preset": "lower-third",
-			"diffPct": "5.6%",
-			"status": "PASS"
+			"status": "PASS",
+			"maskPctOfFrame": "6.5%",
+			"worstPair": "editorial-mono↔syntax 25.08%",
+			"detail": "region re-skins under every pack pair (min 25.08%)"
 		},
 		{
 			"pipeline": "overlay:text-3d",
 			"preset": "text-3d-cylinder",
-			"diffPct": "1.44%",
-			"status": "PASS"
+			"status": "PASS",
+			"maskPctOfFrame": "5.5%",
+			"worstPair": "clean-light↔editorial-mono 24.12%",
+			"detail": "region re-skins under every pack pair (min 24.12%)"
 		},
 		{
 			"pipeline": "overlay:shader-fill",
-			"preset": "—",
-			"diffPct": "—",
-			"status": "immune (exempt)"
+			"preset": "shader-fill-demo",
+			"status": "IMMUNE-PASS",
+			"maskPctOfFrame": "13.34%",
+			"worstPair": "clean-light↔editorial-mono 0%",
+			"detail": "artifact stays put under pack swaps (max 0%)"
 		},
 		{
 			"pipeline": "overlay:washi-tape",
-			"preset": "server-renders-again",
-			"diffPct": "55.38%",
-			"status": "PASS"
+			"preset": "title-card-newspaper",
+			"status": "PASS",
+			"maskPctOfFrame": "0.9%",
+			"worstPair": "clean-light↔editorial-mono 79.97%",
+			"detail": "region re-skins under every pack pair (min 79.97%)"
 		},
 		{
 			"pipeline": "overlay:watermark",
-			"preset": "text-3d-cylinder",
-			"diffPct": "1.44%",
-			"status": "PASS"
+			"preset": "watermark-channel-sig",
+			"status": "PASS",
+			"maskPctOfFrame": "2.26%",
+			"worstPair": "editorial-mono↔syntax 15.83%",
+			"detail": "region re-skins under every pack pair (min 15.83%)"
 		},
 		{
 			"pipeline": "overlay:youtube-subscribe",
-			"preset": "—",
-			"diffPct": "—",
-			"status": "immune (exempt)"
+			"preset": "youtube-subscribe-demo",
+			"status": "IMMUNE-PASS",
+			"maskPctOfFrame": "7.95%",
+			"worstPair": "clean-light↔editorial-mono 0%",
+			"detail": "artifact stays put under pack swaps (max 0%)"
 		},
 		{
 			"pipeline": "overlay:instagram-follow",
-			"preset": "—",
-			"diffPct": "—",
-			"status": "immune (exempt)"
+			"preset": "instagram-follow-demo",
+			"status": "IMMUNE-PASS",
+			"maskPctOfFrame": "11.66%",
+			"worstPair": "clean-light↔editorial-mono 0%",
+			"detail": "artifact stays put under pack swaps (max 0%)"
+		},
+		{
+			"pipeline": "overlay:source-url",
+			"preset": "website-showcase",
+			"status": "PASS",
+			"maskPctOfFrame": "3.14%",
+			"worstPair": "editorial-mono↔syntax 37.61%",
+			"detail": "region re-skins under every pack pair (min 37.61%)"
 		}
 	],
 	"presets": [
 		{
+			"slug": "achievement-complete",
+			"progress": 0.5,
+			"timelineTime": 2,
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
+			],
+			"presetSha256": "06230d3cd01e8416",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/achievement-complete--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/achievement-complete--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/achievement-complete--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/achievement-complete--syntax.png"
+			},
+			"frame": {
+				"width": 960,
+				"height": 538
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 4.46
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 4.23
+				},
+				"clean-light~syntax": {
+					"changedPct": 4.76
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 4.26
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 4.76
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 1.26
+				}
+			},
+			"pipelines": {
+				"overlay:achievement": {
+					"maskPctOfFrame": 5.51,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 85.68,
+							"meanAbsDiff": 0.7145,
+							"maskPx": 26880
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 81.24,
+							"meanAbsDiff": 0.69959,
+							"maskPx": 26880
+						},
+						"clean-light~syntax": {
+							"changedPct": 83.56,
+							"meanAbsDiff": 0.66956,
+							"maskPx": 28480
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 84.92,
+							"meanAbsDiff": 0.06883,
+							"maskPx": 25920
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 83.43,
+							"meanAbsDiff": 0.07264,
+							"maskPx": 28480
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 19.97,
+							"meanAbsDiff": 0.05446,
+							"maskPx": 28480
+						}
+					}
+				}
+			},
+			"error": null
+		},
+		{
+			"slug": "annotation-box-demo",
+			"progress": 0.5,
+			"timelineTime": 2.5,
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
+			],
+			"presetSha256": "59234dbbaa91ad82",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/annotation-box-demo--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/annotation-box-demo--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/annotation-box-demo--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/annotation-box-demo--syntax.png"
+			},
+			"frame": {
+				"width": 960,
+				"height": 538
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 41.51
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 40.9
+				},
+				"clean-light~syntax": {
+					"changedPct": 41.15
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 41.51
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 41.51
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 41.04
+				}
+			},
+			"pipelines": {
+				"annotation:box": {
+					"maskPctOfFrame": 3.08,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 100,
+							"meanAbsDiff": 0.79842,
+							"maskPx": 15886
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 89.15,
+							"meanAbsDiff": 0.0678,
+							"maskPx": 15886
+						},
+						"clean-light~syntax": {
+							"changedPct": 92.46,
+							"meanAbsDiff": 0.09817,
+							"maskPx": 15886
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 100,
+							"meanAbsDiff": 0.73798,
+							"maskPx": 15886
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 100,
+							"meanAbsDiff": 0.71053,
+							"maskPx": 15886
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 92.11,
+							"meanAbsDiff": 0.05834,
+							"maskPx": 15886
+						}
+					}
+				}
+			},
+			"error": null
+		},
+		{
+			"slug": "captions-pack-style-demo",
+			"progress": 0.5,
+			"timelineTime": 2.5,
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
+			],
+			"presetSha256": "cc2773576563d641",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/captions-pack-style-demo--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/captions-pack-style-demo--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/captions-pack-style-demo--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/captions-pack-style-demo--syntax.png"
+			},
+			"frame": {
+				"width": 960,
+				"height": 538
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 0.59
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 0.24
+				},
+				"clean-light~syntax": {
+					"changedPct": 0.16
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 0.63
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 0.65
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 0.36
+				}
+			},
+			"pipelines": {
+				"captions:track": {
+					"maskPctOfFrame": 3.7,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 16.01,
+							"meanAbsDiff": 0.04776,
+							"maskPx": 19106
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 7.95,
+							"meanAbsDiff": 0.00386,
+							"maskPx": 15580
+						},
+						"clean-light~syntax": {
+							"changedPct": 5.37,
+							"meanAbsDiff": 0.00345,
+							"maskPx": 15744
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 17.12,
+							"meanAbsDiff": 0.04783,
+							"maskPx": 19106
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 17.53,
+							"meanAbsDiff": 0.04809,
+							"maskPx": 19106
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 11.97,
+							"meanAbsDiff": 0.00441,
+							"maskPx": 15744
+						}
+					}
+				}
+			},
+			"error": null
+		},
+		{
 			"slug": "chapter-card-descent",
-			"packA": "syntax",
-			"packB": "clean-light",
 			"progress": 0.5,
 			"timelineTime": 3.5,
-			"captures": [
-				"docs/critic-captures/pack-diff/chapter-card-descent--syntax.png",
-				"docs/critic-captures/pack-diff/chapter-card-descent--clean-light.png"
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
 			],
-			"stats": {
+			"presetSha256": "7cd9df8153348dd2",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/chapter-card-descent--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/chapter-card-descent--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/chapter-card-descent--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/chapter-card-descent--syntax.png"
+			},
+			"frame": {
+				"width": 539,
+				"height": 959
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 99.98
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 99.95
+				},
+				"clean-light~syntax": {
+					"changedPct": 99.99
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 99.97
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 60.31
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 99.97
+				}
+			},
+			"pipelines": {
+				"surface:chapter-card": {
+					"maskPctOfFrame": 100,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 99.98,
+							"meanAbsDiff": 0.87755,
+							"maskPx": 516901
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 98.4,
+							"meanAbsDiff": 0.7676,
+							"maskPx": 10845
+						},
+						"clean-light~syntax": {
+							"changedPct": 99.95,
+							"meanAbsDiff": 0.844,
+							"maskPx": 10933
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 99.97,
+							"meanAbsDiff": 0.07483,
+							"maskPx": 516901
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 60.31,
+							"meanAbsDiff": 0.02866,
+							"maskPx": 516901
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 99.46,
+							"meanAbsDiff": 0.11417,
+							"maskPx": 10933
+						}
+					}
+				}
+			},
+			"error": null
+		},
+		{
+			"slug": "checklist-project-setup",
+			"progress": 0.5,
+			"timelineTime": 3,
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
+			],
+			"presetSha256": "67dc73b93b3dbd2a",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/checklist-project-setup--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/checklist-project-setup--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/checklist-project-setup--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/checklist-project-setup--syntax.png"
+			},
+			"frame": {
 				"width": 960,
-				"height": 539,
-				"meanAbsDiff": 0.81391,
-				"changedPct": 99.98
+				"height": 538
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 18.41
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 18.39
+				},
+				"clean-light~syntax": {
+					"changedPct": 18.9
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 18.65
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 19.41
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 19.09
+				}
+			},
+			"pipelines": {
+				"surface:checklist": {
+					"maskPctOfFrame": 20.35,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 91.79,
+							"meanAbsDiff": 0.82088,
+							"maskPx": 103572
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 90.71,
+							"meanAbsDiff": 0.11662,
+							"maskPx": 104706
+						},
+						"clean-light~syntax": {
+							"changedPct": 91.03,
+							"meanAbsDiff": 0.78122,
+							"maskPx": 105084
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 91.99,
+							"meanAbsDiff": 0.75738,
+							"maskPx": 104706
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 93.53,
+							"meanAbsDiff": 0.06909,
+							"maskPx": 105084
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 91.95,
+							"meanAbsDiff": 0.7303,
+							"maskPx": 105084
+						}
+					}
+				},
+				"annotation:strike": {
+					"maskPctOfFrame": 3.35,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 99.97,
+							"meanAbsDiff": 0.85478,
+							"maskPx": 17169
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 95.31,
+							"meanAbsDiff": 0.11562,
+							"maskPx": 14413
+						},
+						"clean-light~syntax": {
+							"changedPct": 93.41,
+							"meanAbsDiff": 0.8055,
+							"maskPx": 14634
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 99.88,
+							"meanAbsDiff": 0.78076,
+							"maskPx": 17318
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 99.21,
+							"meanAbsDiff": 0.05784,
+							"maskPx": 17169
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 94.64,
+							"meanAbsDiff": 0.73799,
+							"maskPx": 14932
+						}
+					}
+				}
 			},
 			"error": null
 		},
 		{
 			"slug": "counter-milestone",
-			"packA": "syntax",
-			"packB": "clean-light",
 			"progress": 0.5,
 			"timelineTime": 3,
-			"captures": [
-				"docs/critic-captures/pack-diff/counter-milestone--syntax.png",
-				"docs/critic-captures/pack-diff/counter-milestone--clean-light.png"
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
 			],
-			"stats": {
+			"presetSha256": "7d5e5728159c9418",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/counter-milestone--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/counter-milestone--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/counter-milestone--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/counter-milestone--syntax.png"
+			},
+			"frame": {
 				"width": 960,
-				"height": 539,
-				"meanAbsDiff": 0.00613,
-				"changedPct": 1.4
+				"height": 538
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 2.08
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 1.32
+				},
+				"clean-light~syntax": {
+					"changedPct": 1.39
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 1.97
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 2.11
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 1.36
+				}
+			},
+			"pipelines": {
+				"overlay:counter": {
+					"maskPctOfFrame": 5.71,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 36.38,
+							"meanAbsDiff": 0.14707,
+							"maskPx": 29516
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 29.99,
+							"meanAbsDiff": 0.15625,
+							"maskPx": 22707
+						},
+						"clean-light~syntax": {
+							"changedPct": 31.5,
+							"meanAbsDiff": 0.13993,
+							"maskPx": 22863
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 34.56,
+							"meanAbsDiff": 0.05657,
+							"maskPx": 29516
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 36.94,
+							"meanAbsDiff": 0.10633,
+							"maskPx": 29516
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 30.66,
+							"meanAbsDiff": 0.16116,
+							"maskPx": 22863
+						}
+					}
+				}
 			},
 			"error": null
 		},
 		{
 			"slug": "cursor-trail-title-sweep",
-			"packA": "syntax",
-			"packB": "clean-light",
 			"progress": 0.5,
 			"timelineTime": 3,
-			"captures": [
-				"docs/critic-captures/pack-diff/cursor-trail-title-sweep--syntax.png",
-				"docs/critic-captures/pack-diff/cursor-trail-title-sweep--clean-light.png"
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
 			],
-			"stats": {
+			"presetSha256": "6557bc9edea37a9b",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/cursor-trail-title-sweep--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/cursor-trail-title-sweep--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/cursor-trail-title-sweep--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/cursor-trail-title-sweep--syntax.png"
+			},
+			"frame": {
 				"width": 960,
-				"height": 539,
-				"meanAbsDiff": 0.83665,
-				"changedPct": 98.14
+				"height": 538
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 99.6
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 95.98
+				},
+				"clean-light~syntax": {
+					"changedPct": 98.14
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 39.61
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 73.55
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 10.29
+				}
+			},
+			"pipelines": {
+				"surface:type-hero": {
+					"maskPctOfFrame": 17.64,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 97.79,
+							"meanAbsDiff": 0.60419,
+							"maskPx": 89478
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 77.13,
+							"meanAbsDiff": 0.56604,
+							"maskPx": 90408
+						},
+						"clean-light~syntax": {
+							"changedPct": 88.84,
+							"meanAbsDiff": 0.61776,
+							"maskPx": 85344
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 72.52,
+							"meanAbsDiff": 0.27841,
+							"maskPx": 91098
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 75.03,
+							"meanAbsDiff": 0.31051,
+							"maskPx": 89478
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 52.87,
+							"meanAbsDiff": 0.31442,
+							"maskPx": 91068
+						}
+					}
+				},
+				"overlay:cursor-trail": {
+					"maskPctOfFrame": 0.68,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 100,
+							"meanAbsDiff": 0.82618,
+							"maskPx": 3537
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 96.64,
+							"meanAbsDiff": 0.79674,
+							"maskPx": 3537
+						},
+						"clean-light~syntax": {
+							"changedPct": 97.06,
+							"meanAbsDiff": 0.78289,
+							"maskPx": 3537
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 26.89,
+							"meanAbsDiff": 0.06175,
+							"maskPx": 3537
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 64.29,
+							"meanAbsDiff": 0.07046,
+							"maskPx": 3537
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 9.27,
+							"meanAbsDiff": 0.03364,
+							"maskPx": 3537
+						}
+					}
+				}
 			},
 			"error": null
 		},
 		{
 			"slug": "docu-flowchart",
-			"packA": "syntax",
-			"packB": "clean-light",
 			"progress": 0.5,
 			"timelineTime": 3,
-			"captures": [
-				"docs/critic-captures/pack-diff/docu-flowchart--syntax.png",
-				"docs/critic-captures/pack-diff/docu-flowchart--clean-light.png"
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
 			],
-			"stats": {
+			"presetSha256": "abd3db0f775a88d2",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/docu-flowchart--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/docu-flowchart--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/docu-flowchart--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/docu-flowchart--syntax.png"
+			},
+			"frame": {
 				"width": 960,
-				"height": 539,
-				"meanAbsDiff": 0.00413,
-				"changedPct": 0.87
+				"height": 538
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 3.65
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 2.12
+				},
+				"clean-light~syntax": {
+					"changedPct": 0.87
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 3.4
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 3.66
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 2.42
+				}
+			},
+			"pipelines": {
+				"block:node": {
+					"maskPctOfFrame": 3.71,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 73.18,
+							"meanAbsDiff": 0.44405,
+							"maskPx": 18828
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 45.99,
+							"meanAbsDiff": 0.12146,
+							"maskPx": 18924
+						},
+						"clean-light~syntax": {
+							"changedPct": 10.02,
+							"meanAbsDiff": 0.02697,
+							"maskPx": 19056
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 68.87,
+							"meanAbsDiff": 0.35117,
+							"maskPx": 18924
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 72.32,
+							"meanAbsDiff": 0.43559,
+							"maskPx": 19056
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 49.37,
+							"meanAbsDiff": 0.12297,
+							"maskPx": 19152
+						}
+					}
+				},
+				"block:edge-arrow": {
+					"maskPctOfFrame": 7.13,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 41.58,
+							"meanAbsDiff": 0.23824,
+							"maskPx": 36720
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 23.73,
+							"meanAbsDiff": 0.0629,
+							"maskPx": 36768
+						},
+						"clean-light~syntax": {
+							"changedPct": 6.6,
+							"meanAbsDiff": 0.02066,
+							"maskPx": 36768
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 39.46,
+							"meanAbsDiff": 0.19106,
+							"maskPx": 36768
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 41.55,
+							"meanAbsDiff": 0.23983,
+							"maskPx": 36768
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 27.04,
+							"meanAbsDiff": 0.07035,
+							"maskPx": 36816
+						}
+					}
+				},
+				"block:label": {
+					"maskPctOfFrame": 2.07,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 33.3,
+							"meanAbsDiff": 0.1359,
+							"maskPx": 10686
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 20.7,
+							"meanAbsDiff": 0.12575,
+							"maskPx": 10686
+						},
+						"clean-light~syntax": {
+							"changedPct": 19.33,
+							"meanAbsDiff": 0.13404,
+							"maskPx": 10686
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 28.6,
+							"meanAbsDiff": 0.06098,
+							"maskPx": 10686
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 34.27,
+							"meanAbsDiff": 0.13675,
+							"maskPx": 10530
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 23.56,
+							"meanAbsDiff": 0.12782,
+							"maskPx": 10686
+						}
+					}
+				}
 			},
 			"error": null
 		},
 		{
 			"slug": "docu-stat-build",
-			"packA": "syntax",
-			"packB": "clean-light",
 			"progress": 0.5,
 			"timelineTime": 3,
-			"captures": [
-				"docs/critic-captures/pack-diff/docu-stat-build--syntax.png",
-				"docs/critic-captures/pack-diff/docu-stat-build--clean-light.png"
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
 			],
-			"stats": {
+			"presetSha256": "499fcc1ee9ad8c6b",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/docu-stat-build--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/docu-stat-build--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/docu-stat-build--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/docu-stat-build--syntax.png"
+			},
+			"frame": {
 				"width": 960,
-				"height": 539,
-				"meanAbsDiff": 0.01193,
-				"changedPct": 2.55
+				"height": 538
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 3.76
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 2.72
+				},
+				"clean-light~syntax": {
+					"changedPct": 2.59
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 3.24
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 3.63
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 2.61
+				}
+			},
+			"pipelines": {
+				"block:stat-callout": {
+					"maskPctOfFrame": 10.05,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 29.3,
+							"meanAbsDiff": 0.1324,
+							"maskPx": 51903
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 26.12,
+							"meanAbsDiff": 0.08314,
+							"maskPx": 46428
+						},
+						"clean-light~syntax": {
+							"changedPct": 24.82,
+							"meanAbsDiff": 0.13163,
+							"maskPx": 46720
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 24.9,
+							"meanAbsDiff": 0.12735,
+							"maskPx": 51903
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 28.06,
+							"meanAbsDiff": 0.14046,
+							"maskPx": 51903
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 24.84,
+							"meanAbsDiff": 0.12414,
+							"maskPx": 46428
+						}
+					}
+				}
 			},
 			"error": null
 		},
 		{
 			"slug": "docu-timeline-build",
-			"packA": "syntax",
-			"packB": "clean-light",
 			"progress": 0.5,
 			"timelineTime": 4,
-			"captures": [
-				"docs/critic-captures/pack-diff/docu-timeline-build--syntax.png",
-				"docs/critic-captures/pack-diff/docu-timeline-build--clean-light.png"
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
 			],
-			"stats": {
+			"presetSha256": "190b794c29f08151",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/docu-timeline-build--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/docu-timeline-build--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/docu-timeline-build--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/docu-timeline-build--syntax.png"
+			},
+			"frame": {
 				"width": 960,
-				"height": 539,
-				"meanAbsDiff": 0.01592,
-				"changedPct": 2.47
+				"height": 538
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 4.65
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 2.55
+				},
+				"clean-light~syntax": {
+					"changedPct": 2.6
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 4.12
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 4.88
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 2.98
+				}
+			},
+			"pipelines": {
+				"block:timeline-segment": {
+					"maskPctOfFrame": 2.74,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 37.46,
+							"meanAbsDiff": 0.08732,
+							"maskPx": 14146
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 7.59,
+							"meanAbsDiff": 0.02506,
+							"maskPx": 14146
+						},
+						"clean-light~syntax": {
+							"changedPct": 19.62,
+							"meanAbsDiff": 0.07417,
+							"maskPx": 14146
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 36.82,
+							"meanAbsDiff": 0.07454,
+							"maskPx": 14146
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 43.52,
+							"meanAbsDiff": 0.14807,
+							"maskPx": 14146
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 19.86,
+							"meanAbsDiff": 0.09353,
+							"maskPx": 14146
+						}
+					}
+				}
+			},
+			"error": null
+		},
+		{
+			"slug": "imessage-friday-deploy",
+			"progress": 0.5,
+			"timelineTime": 3,
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
+			],
+			"presetSha256": "aacdd4445f47f63d",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/imessage-friday-deploy--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/imessage-friday-deploy--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/imessage-friday-deploy--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/imessage-friday-deploy--syntax.png"
+			},
+			"frame": {
+				"width": 960,
+				"height": 538
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 2.77
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 0
+				},
+				"clean-light~syntax": {
+					"changedPct": 0
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 2.77
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 2.77
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 0
+				}
+			},
+			"pipelines": {
+				"surface:imessage": {
+					"maskPctOfFrame": 40.11,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 6.91,
+							"meanAbsDiff": 0.00552,
+							"maskPx": 207168,
+							"exempt": "material"
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 207168
+						},
+						"clean-light~syntax": {
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 207168
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 6.91,
+							"meanAbsDiff": 0.00552,
+							"maskPx": 207168,
+							"exempt": "material"
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 6.91,
+							"meanAbsDiff": 0.00552,
+							"maskPx": 207168,
+							"exempt": "material"
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 207168
+						}
+					}
+				}
+			},
+			"error": null
+		},
+		{
+			"slug": "instagram-follow-demo",
+			"progress": 0.5,
+			"timelineTime": 3,
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
+			],
+			"presetSha256": "ac323c38fa7f155a",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/instagram-follow-demo--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/instagram-follow-demo--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/instagram-follow-demo--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/instagram-follow-demo--syntax.png"
+			},
+			"frame": {
+				"width": 539,
+				"height": 959
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 9.44
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 0
+				},
+				"clean-light~syntax": {
+					"changedPct": 0
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 9.44
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 9.44
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 0
+				}
+			},
+			"pipelines": {
+				"overlay:instagram-follow": {
+					"maskPctOfFrame": 11.66,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 80.97,
+							"meanAbsDiff": 0.08209,
+							"maskPx": 60268,
+							"exempt": "material"
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 60268
+						},
+						"clean-light~syntax": {
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 60268
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 80.97,
+							"meanAbsDiff": 0.08209,
+							"maskPx": 60268,
+							"exempt": "material"
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 80.97,
+							"meanAbsDiff": 0.08209,
+							"maskPx": 60268,
+							"exempt": "material"
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 60268
+						}
+					}
+				}
 			},
 			"error": null
 		},
 		{
 			"slug": "instance-stack-vertical",
-			"packA": "syntax",
-			"packB": "clean-light",
 			"progress": 0.5,
 			"timelineTime": 3,
-			"captures": [
-				"docs/critic-captures/pack-diff/instance-stack-vertical--syntax.png",
-				"docs/critic-captures/pack-diff/instance-stack-vertical--clean-light.png"
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
 			],
-			"stats": {
+			"presetSha256": "1da54025689aaf33",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/instance-stack-vertical--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/instance-stack-vertical--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/instance-stack-vertical--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/instance-stack-vertical--syntax.png"
+			},
+			"frame": {
 				"width": 539,
-				"height": 959,
-				"meanAbsDiff": 0.02653,
-				"changedPct": 6.95
+				"height": 959
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 9.47
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 8.58
+				},
+				"clean-light~syntax": {
+					"changedPct": 6.95
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 10.66
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 9.08
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 8.9
+				}
+			},
+			"pipelines": {
+				"overlay:instance-stack": {
+					"maskPctOfFrame": 21.78,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 41.8,
+							"meanAbsDiff": 0.18443,
+							"maskPx": 108282
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 38.3,
+							"meanAbsDiff": 0.21028,
+							"maskPx": 112579
+						},
+						"clean-light~syntax": {
+							"changedPct": 32.12,
+							"meanAbsDiff": 0.12168,
+							"maskPx": 108282
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 45.68,
+							"meanAbsDiff": 0.14637,
+							"maskPx": 112579
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 41.15,
+							"meanAbsDiff": 0.1233,
+							"maskPx": 105021
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 39.73,
+							"meanAbsDiff": 0.19249,
+							"maskPx": 112579
+						}
+					}
+				}
 			},
 			"error": null
 		},
 		{
 			"slug": "isolate-demo",
-			"packA": "syntax",
-			"packB": "clean-light",
 			"progress": 0.5,
 			"timelineTime": 2.5,
-			"captures": [
-				"docs/critic-captures/pack-diff/isolate-demo--syntax.png",
-				"docs/critic-captures/pack-diff/isolate-demo--clean-light.png"
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
 			],
-			"stats": {
+			"presetSha256": "b8323f65e606fe21",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/isolate-demo--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/isolate-demo--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/isolate-demo--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/isolate-demo--syntax.png"
+			},
+			"frame": {
 				"width": 960,
-				"height": 539,
-				"meanAbsDiff": 0.01074,
-				"changedPct": 20.8
+				"height": 538
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 41.51
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 2
+				},
+				"clean-light~syntax": {
+					"changedPct": 19.43
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 41.51
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 41.51
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 2.07
+				}
+			},
+			"pipelines": {
+				"annotation:isolate": {
+					"maskPctOfFrame": 3.98,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 100,
+							"meanAbsDiff": 0.54362,
+							"maskPx": 20580
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 50.3,
+							"meanAbsDiff": 0.04248,
+							"maskPx": 20580
+						},
+						"clean-light~syntax": {
+							"changedPct": 69.95,
+							"meanAbsDiff": 0.06468,
+							"maskPx": 20580
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 100,
+							"meanAbsDiff": 0.50343,
+							"maskPx": 20580
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 100,
+							"meanAbsDiff": 0.48202,
+							"maskPx": 20580
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 52.04,
+							"meanAbsDiff": 0.03572,
+							"maskPx": 20580
+						}
+					}
+				}
 			},
 			"error": null
 		},
 		{
 			"slug": "lower-third",
-			"packA": "syntax",
-			"packB": "clean-light",
 			"progress": 0.5,
 			"timelineTime": 2.5,
-			"captures": [
-				"docs/critic-captures/pack-diff/lower-third--syntax.png",
-				"docs/critic-captures/pack-diff/lower-third--clean-light.png"
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
 			],
-			"stats": {
+			"presetSha256": "8f091e9e5a152fb8",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/lower-third--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/lower-third--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/lower-third--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/lower-third--syntax.png"
+			},
+			"frame": {
 				"width": 960,
-				"height": 539,
-				"meanAbsDiff": 0.0414,
-				"changedPct": 5.6
+				"height": 538
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 5.15
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 4.9
+				},
+				"clean-light~syntax": {
+					"changedPct": 5.6
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 4.63
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 5.34
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 1.86
+				}
+			},
+			"pipelines": {
+				"overlay:lower-third": {
+					"maskPctOfFrame": 6.5,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 85.55,
+							"meanAbsDiff": 0.68316,
+							"maskPx": 31100
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 84.33,
+							"meanAbsDiff": 0.70036,
+							"maskPx": 29988
+						},
+						"clean-light~syntax": {
+							"changedPct": 82.58,
+							"meanAbsDiff": 0.63616,
+							"maskPx": 33549
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 79.7,
+							"meanAbsDiff": 0.11158,
+							"maskPx": 30030
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 78.59,
+							"meanAbsDiff": 0.12689,
+							"maskPx": 33549
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 25.08,
+							"meanAbsDiff": 0.10692,
+							"maskPx": 33549
+						}
+					}
+				}
 			},
 			"error": null
 		},
 		{
 			"slug": "pullquote-cinematic",
-			"packA": "syntax",
-			"packB": "clean-light",
 			"progress": 0.5,
 			"timelineTime": 3,
-			"captures": [
-				"docs/critic-captures/pack-diff/pullquote-cinematic--syntax.png",
-				"docs/critic-captures/pack-diff/pullquote-cinematic--clean-light.png"
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
 			],
-			"stats": {
-				"width": 960,
-				"height": 539,
-				"meanAbsDiff": 0.68515,
-				"changedPct": 99.96
+			"presetSha256": "20beaea6be189234",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/pullquote-cinematic--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/pullquote-cinematic--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/pullquote-cinematic--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/pullquote-cinematic--syntax.png"
+			},
+			"frame": {
+				"width": 539,
+				"height": 959
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 99.87
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 99.71
+				},
+				"clean-light~syntax": {
+					"changedPct": 99.96
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 72.98
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 31.5
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 37.72
+				}
+			},
+			"pipelines": {
+				"surface:pullquote-on-photo": {
+					"maskPctOfFrame": 100,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 99.87,
+							"meanAbsDiff": 0.73662,
+							"maskPx": 516901
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 99.71,
+							"meanAbsDiff": 0.71285,
+							"maskPx": 516901
+						},
+						"clean-light~syntax": {
+							"changedPct": 99.96,
+							"meanAbsDiff": 0.73609,
+							"maskPx": 516901
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 72.98,
+							"meanAbsDiff": 0.0359,
+							"maskPx": 516901
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 31.5,
+							"meanAbsDiff": 0.02738,
+							"maskPx": 516901
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 37.72,
+							"meanAbsDiff": 0.03169,
+							"maskPx": 516901
+						}
+					}
+				}
 			},
 			"error": null
 		},
 		{
 			"slug": "quote-lift-out",
-			"packA": "syntax",
-			"packB": "clean-light",
 			"progress": 0.5,
 			"timelineTime": 3.5,
-			"captures": [
-				"docs/critic-captures/pack-diff/quote-lift-out--syntax.png",
-				"docs/critic-captures/pack-diff/quote-lift-out--clean-light.png"
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
 			],
-			"stats": {
+			"presetSha256": "a29199b30130199a",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/quote-lift-out--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/quote-lift-out--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/quote-lift-out--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/quote-lift-out--syntax.png"
+			},
+			"frame": {
 				"width": 960,
-				"height": 539,
-				"meanAbsDiff": 0.02249,
-				"changedPct": 40.07
+				"height": 538
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 41.67
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 39.37
+				},
+				"clean-light~syntax": {
+					"changedPct": 40.05
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 41.67
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 41.67
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 39.83
+				}
+			},
+			"pipelines": {
+				"annotation:lift-out": {
+					"maskPctOfFrame": 4.39,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 100,
+							"meanAbsDiff": 0.73729,
+							"maskPx": 22679
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 87.08,
+							"meanAbsDiff": 0.05892,
+							"maskPx": 22679
+						},
+						"clean-light~syntax": {
+							"changedPct": 91.78,
+							"meanAbsDiff": 0.0893,
+							"maskPx": 22679
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 100,
+							"meanAbsDiff": 0.68197,
+							"maskPx": 22679
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 100,
+							"meanAbsDiff": 0.6529,
+							"maskPx": 22679
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 90.59,
+							"meanAbsDiff": 0.04934,
+							"maskPx": 22679
+						}
+					}
+				}
 			},
 			"error": null
 		},
 		{
 			"slug": "quote-magnify",
-			"packA": "syntax",
-			"packB": "clean-light",
 			"progress": 0.5,
 			"timelineTime": 4,
-			"captures": [
-				"docs/critic-captures/pack-diff/quote-magnify--syntax.png",
-				"docs/critic-captures/pack-diff/quote-magnify--clean-light.png"
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
 			],
-			"stats": {
+			"presetSha256": "42a9cd3a1f357abf",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/quote-magnify--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/quote-magnify--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/quote-magnify--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/quote-magnify--syntax.png"
+			},
+			"frame": {
 				"width": 960,
-				"height": 539,
-				"meanAbsDiff": 0.04688,
-				"changedPct": 41.02
+				"height": 538
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 41.51
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 40.76
+				},
+				"clean-light~syntax": {
+					"changedPct": 41.02
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 41.51
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 41.51
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 40.9
+				}
+			},
+			"pipelines": {
+				"annotation:magnify": {
+					"maskPctOfFrame": 4.16,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 100,
+							"meanAbsDiff": 0.79218,
+							"maskPx": 21498
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 90.32,
+							"meanAbsDiff": 0.06953,
+							"maskPx": 21498
+						},
+						"clean-light~syntax": {
+							"changedPct": 93.41,
+							"meanAbsDiff": 0.12523,
+							"maskPx": 21498
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 100,
+							"meanAbsDiff": 0.73001,
+							"maskPx": 21498
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 100,
+							"meanAbsDiff": 0.6997,
+							"maskPx": 21498
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 92.93,
+							"meanAbsDiff": 0.07705,
+							"maskPx": 21498
+						}
+					}
+				},
+				"annotation:side-note": {
+					"maskPctOfFrame": 4.16,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 100,
+							"meanAbsDiff": 0.79218,
+							"maskPx": 21498
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 90.32,
+							"meanAbsDiff": 0.06953,
+							"maskPx": 21498
+						},
+						"clean-light~syntax": {
+							"changedPct": 93.41,
+							"meanAbsDiff": 0.12523,
+							"maskPx": 21498
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 100,
+							"meanAbsDiff": 0.73001,
+							"maskPx": 21498
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 100,
+							"meanAbsDiff": 0.6997,
+							"maskPx": 21498
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 92.93,
+							"meanAbsDiff": 0.07705,
+							"maskPx": 21498
+						}
+					}
+				}
 			},
 			"error": null
 		},
 		{
 			"slug": "quote-tear-out",
-			"packA": "syntax",
-			"packB": "clean-light",
 			"progress": 0.5,
 			"timelineTime": 3.5,
-			"captures": [
-				"docs/critic-captures/pack-diff/quote-tear-out--syntax.png",
-				"docs/critic-captures/pack-diff/quote-tear-out--clean-light.png"
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
 			],
-			"stats": {
+			"presetSha256": "f23ecd5428c941e3",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/quote-tear-out--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/quote-tear-out--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/quote-tear-out--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/quote-tear-out--syntax.png"
+			},
+			"frame": {
 				"width": 960,
-				"height": 539,
-				"meanAbsDiff": 0.01801,
-				"changedPct": 40.3
+				"height": 538
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 41.53
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 14.89
+				},
+				"clean-light~syntax": {
+					"changedPct": 40.35
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 41.53
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 41.53
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 40.07
+				}
+			},
+			"pipelines": {
+				"annotation:tear-out": {
+					"maskPctOfFrame": 3.02,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 100,
+							"meanAbsDiff": 0.71783,
+							"maskPx": 15582
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 75.91,
+							"meanAbsDiff": 0.05749,
+							"maskPx": 15582
+						},
+						"clean-light~syntax": {
+							"changedPct": 92.39,
+							"meanAbsDiff": 0.08743,
+							"maskPx": 15582
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 100,
+							"meanAbsDiff": 0.66192,
+							"maskPx": 15582
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 100,
+							"meanAbsDiff": 0.63254,
+							"maskPx": 15582
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 90.35,
+							"meanAbsDiff": 0.04689,
+							"maskPx": 15582
+						}
+					}
+				}
 			},
 			"error": null
 		},
 		{
 			"slug": "research-paper-critique",
-			"packA": "syntax",
-			"packB": "clean-light",
 			"progress": 0.75,
 			"timelineTime": 5.25,
-			"captures": [
-				"docs/critic-captures/pack-diff/research-paper-critique--syntax.png",
-				"docs/critic-captures/pack-diff/research-paper-critique--clean-light.png"
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
 			],
-			"stats": {
+			"presetSha256": "5a5aa4034c84fba9",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/research-paper-critique--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/research-paper-critique--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/research-paper-critique--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/research-paper-critique--syntax.png"
+			},
+			"frame": {
 				"width": 960,
-				"height": 539,
-				"meanAbsDiff": 0.04557,
-				"changedPct": 40.47
+				"height": 538
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 41.47
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 39.94
+				},
+				"clean-light~syntax": {
+					"changedPct": 40.41
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 41.47
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 41.51
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 40.2
+				}
+			},
+			"pipelines": {
+				"surface:paper": {
+					"maskPctOfFrame": 43.78,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 94.74,
+							"meanAbsDiff": 0.85204,
+							"maskPx": 226092
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 91.23,
+							"meanAbsDiff": 0.06817,
+							"maskPx": 226092
+						},
+						"clean-light~syntax": {
+							"changedPct": 92.31,
+							"meanAbsDiff": 0.10408,
+							"maskPx": 226092
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 94.74,
+							"meanAbsDiff": 0.78476,
+							"maskPx": 226092
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 94.82,
+							"meanAbsDiff": 0.74916,
+							"maskPx": 226092
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 91.84,
+							"meanAbsDiff": 0.05539,
+							"maskPx": 226092
+						}
+					}
+				},
+				"block:paragraph": {
+					"maskPctOfFrame": 11.23,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 99.64,
+							"meanAbsDiff": 0.83795,
+							"maskPx": 58016
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 91.5,
+							"meanAbsDiff": 0.06743,
+							"maskPx": 58016
+						},
+						"clean-light~syntax": {
+							"changedPct": 94.32,
+							"meanAbsDiff": 0.10247,
+							"maskPx": 58016
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 99.62,
+							"meanAbsDiff": 0.77292,
+							"maskPx": 58016
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 99.95,
+							"meanAbsDiff": 0.73868,
+							"maskPx": 58016
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 93.54,
+							"meanAbsDiff": 0.05543,
+							"maskPx": 58016
+						}
+					}
+				},
+				"annotation:circle": {
+					"maskPctOfFrame": 1.26,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 100,
+							"meanAbsDiff": 0.82929,
+							"maskPx": 6533
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 91.32,
+							"meanAbsDiff": 0.06581,
+							"maskPx": 6533
+						},
+						"clean-light~syntax": {
+							"changedPct": 94.09,
+							"meanAbsDiff": 0.10025,
+							"maskPx": 6533
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 100,
+							"meanAbsDiff": 0.766,
+							"maskPx": 6533
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 100,
+							"meanAbsDiff": 0.73255,
+							"maskPx": 6533
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 93.51,
+							"meanAbsDiff": 0.05442,
+							"maskPx": 6533
+						}
+					}
+				},
+				"annotation:highlight": {
+					"maskPctOfFrame": 1.5,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 97.27,
+							"meanAbsDiff": 0.72545,
+							"maskPx": 7728
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 89.69,
+							"meanAbsDiff": 0.06429,
+							"maskPx": 7728
+						},
+						"clean-light~syntax": {
+							"changedPct": 91.07,
+							"meanAbsDiff": 0.09529,
+							"maskPx": 7728
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 97.17,
+							"meanAbsDiff": 0.66388,
+							"maskPx": 7728
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 99.64,
+							"meanAbsDiff": 0.63342,
+							"maskPx": 7728
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 91.82,
+							"meanAbsDiff": 0.05137,
+							"maskPx": 7728
+						}
+					}
+				},
+				"annotation:underline": {
+					"maskPctOfFrame": 1.21,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 96.83,
+							"meanAbsDiff": 0.71713,
+							"maskPx": 6251
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 91.54,
+							"meanAbsDiff": 0.06484,
+							"maskPx": 6251
+						},
+						"clean-light~syntax": {
+							"changedPct": 92.05,
+							"meanAbsDiff": 0.09585,
+							"maskPx": 6251
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 96.7,
+							"meanAbsDiff": 0.65438,
+							"maskPx": 6251
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 99.65,
+							"meanAbsDiff": 0.6237,
+							"maskPx": 6251
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 93.04,
+							"meanAbsDiff": 0.05122,
+							"maskPx": 6251
+						}
+					}
+				}
 			},
 			"error": null
 		},
 		{
-			"slug": "server-renders-again",
-			"packA": "syntax",
-			"packB": "clean-light",
+			"slug": "shader-fill-demo",
 			"progress": 0.5,
-			"timelineTime": 1.75,
-			"captures": [
-				"docs/critic-captures/pack-diff/server-renders-again--syntax.png",
-				"docs/critic-captures/pack-diff/server-renders-again--clean-light.png"
+			"timelineTime": 2.5,
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
 			],
-			"stats": {
+			"presetSha256": "e98e75a81a462c26",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/shader-fill-demo--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/shader-fill-demo--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/shader-fill-demo--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/shader-fill-demo--syntax.png"
+			},
+			"frame": {
 				"width": 960,
-				"height": 539,
-				"meanAbsDiff": 0.0733,
-				"changedPct": 55.38
+				"height": 538
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 10.14
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 0
+				},
+				"clean-light~syntax": {
+					"changedPct": 0
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 10.14
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 10.14
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 0
+				}
+			},
+			"pipelines": {
+				"overlay:shader-fill": {
+					"maskPctOfFrame": 13.34,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 75.98,
+							"meanAbsDiff": 0.04884,
+							"maskPx": 68904,
+							"exempt": "material"
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 68904
+						},
+						"clean-light~syntax": {
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 68904
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 75.98,
+							"meanAbsDiff": 0.04884,
+							"maskPx": 68904,
+							"exempt": "material"
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 75.98,
+							"meanAbsDiff": 0.04884,
+							"maskPx": 68904,
+							"exempt": "material"
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 68904
+						}
+					}
+				}
 			},
 			"error": null
 		},
 		{
 			"slug": "text-3d-cylinder",
-			"packA": "syntax",
-			"packB": "clean-light",
 			"progress": 0.5,
 			"timelineTime": 3,
-			"captures": [
-				"docs/critic-captures/pack-diff/text-3d-cylinder--syntax.png",
-				"docs/critic-captures/pack-diff/text-3d-cylinder--clean-light.png"
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
 			],
-			"stats": {
+			"presetSha256": "700c2b6a895ddd45",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/text-3d-cylinder--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/text-3d-cylinder--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/text-3d-cylinder--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/text-3d-cylinder--syntax.png"
+			},
+			"frame": {
 				"width": 960,
-				"height": 539,
-				"meanAbsDiff": 0.00725,
-				"changedPct": 1.44
+				"height": 538
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 2
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 1.38
+				},
+				"clean-light~syntax": {
+					"changedPct": 1.45
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 1.96
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 1.91
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 1.35
+				}
+			},
+			"pipelines": {
+				"overlay:text-3d": {
+					"maskPctOfFrame": 5.5,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 27,
+							"meanAbsDiff": 0.13106,
+							"maskPx": 28414
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 24.12,
+							"meanAbsDiff": 0.12509,
+							"maskPx": 24678
+						},
+						"clean-light~syntax": {
+							"changedPct": 25.38,
+							"meanAbsDiff": 0.12329,
+							"maskPx": 25124
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 27.54,
+							"meanAbsDiff": 0.09112,
+							"maskPx": 27242
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 28.05,
+							"meanAbsDiff": 0.09917,
+							"maskPx": 25570
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 24.62,
+							"meanAbsDiff": 0.11483,
+							"maskPx": 23358
+						}
+					}
+				}
+			},
+			"error": null
+		},
+		{
+			"slug": "title-card-newspaper",
+			"progress": 0.5,
+			"timelineTime": 1.4,
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
+			],
+			"presetSha256": "c350659759fb4cbd",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/title-card-newspaper--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/title-card-newspaper--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/title-card-newspaper--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/title-card-newspaper--syntax.png"
+			},
+			"frame": {
+				"width": 960,
+				"height": 538
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 57.58
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 51.06
+				},
+				"clean-light~syntax": {
+					"changedPct": 54.62
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 57.58
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 58.17
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 51.58
+				}
+			},
+			"pipelines": {
+				"surface:newspaper": {
+					"maskPctOfFrame": 66,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 87.19,
+							"meanAbsDiff": 0.70804,
+							"maskPx": 340860
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 77.36,
+							"meanAbsDiff": 0.07488,
+							"maskPx": 340860
+						},
+						"clean-light~syntax": {
+							"changedPct": 82.7,
+							"meanAbsDiff": 0.11424,
+							"maskPx": 340860
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 87.14,
+							"meanAbsDiff": 0.63516,
+							"maskPx": 340860
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 88.04,
+							"meanAbsDiff": 0.5986,
+							"maskPx": 340860
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 78.11,
+							"meanAbsDiff": 0.05618,
+							"maskPx": 340860
+						}
+					}
+				},
+				"overlay:washi-tape": {
+					"maskPctOfFrame": 0.9,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 96.36,
+							"meanAbsDiff": 0.55321,
+							"maskPx": 4644
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 79.97,
+							"meanAbsDiff": 0.05928,
+							"maskPx": 4644
+						},
+						"clean-light~syntax": {
+							"changedPct": 80.68,
+							"meanAbsDiff": 0.09915,
+							"maskPx": 4644
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 96.36,
+							"meanAbsDiff": 0.49411,
+							"maskPx": 4644
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 95.8,
+							"meanAbsDiff": 0.46015,
+							"maskPx": 4644
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 80.6,
+							"meanAbsDiff": 0.05234,
+							"maskPx": 4644
+						}
+					}
+				}
 			},
 			"error": null
 		},
 		{
 			"slug": "title-sequence-signal",
-			"packA": "syntax",
-			"packB": "clean-light",
 			"progress": 0.5,
 			"timelineTime": 3,
-			"captures": [
-				"docs/critic-captures/pack-diff/title-sequence-signal--syntax.png",
-				"docs/critic-captures/pack-diff/title-sequence-signal--clean-light.png"
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
 			],
-			"stats": {
+			"presetSha256": "9403ed869919ee0b",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/title-sequence-signal--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/title-sequence-signal--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/title-sequence-signal--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/title-sequence-signal--syntax.png"
+			},
+			"frame": {
+				"width": 539,
+				"height": 959
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 99.82
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 99.77
+				},
+				"clean-light~syntax": {
+					"changedPct": 99.98
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 71.25
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 64.62
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 39.59
+				}
+			},
+			"pipelines": {
+				"surface:title-sequence": {
+					"maskPctOfFrame": 4.64,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 96.38,
+							"meanAbsDiff": 0.66186,
+							"maskPx": 23960
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 95.25,
+							"meanAbsDiff": 0.68242,
+							"maskPx": 23328
+						},
+						"clean-light~syntax": {
+							"changedPct": 99.85,
+							"meanAbsDiff": 0.66665,
+							"maskPx": 22740
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 64.74,
+							"meanAbsDiff": 0.24178,
+							"maskPx": 23960
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 64.33,
+							"meanAbsDiff": 0.23477,
+							"maskPx": 23916
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 41.23,
+							"meanAbsDiff": 0.25803,
+							"maskPx": 23636
+						}
+					}
+				}
+			},
+			"error": null
+		},
+		{
+			"slug": "watermark-channel-sig",
+			"progress": 0.5,
+			"timelineTime": 3,
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
+			],
+			"presetSha256": "4a9891e7964df766",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/watermark-channel-sig--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/watermark-channel-sig--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/watermark-channel-sig--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/watermark-channel-sig--syntax.png"
+			},
+			"frame": {
 				"width": 960,
-				"height": 539,
-				"meanAbsDiff": 0.77219,
-				"changedPct": 99.11
+				"height": 538
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 99.54
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 93.47
+				},
+				"clean-light~syntax": {
+					"changedPct": 97.4
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 40.54
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 74.01
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 13.17
+				}
+			},
+			"pipelines": {
+				"overlay:watermark": {
+					"maskPctOfFrame": 2.26,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 99.99,
+							"meanAbsDiff": 0.51465,
+							"maskPx": 11043
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 99.81,
+							"meanAbsDiff": 0.50142,
+							"maskPx": 10251
+						},
+						"clean-light~syntax": {
+							"changedPct": 99.7,
+							"meanAbsDiff": 0.42324,
+							"maskPx": 8883
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 28.04,
+							"meanAbsDiff": 0.06587,
+							"maskPx": 11691
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 51.43,
+							"meanAbsDiff": 0.07502,
+							"maskPx": 11016
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 15.83,
+							"meanAbsDiff": 0.07426,
+							"maskPx": 10251
+						}
+					}
+				}
+			},
+			"error": null
+		},
+		{
+			"slug": "watermark-demo",
+			"progress": 0.5,
+			"timelineTime": 2,
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
+			],
+			"presetSha256": "afcf16e01e6cb495",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/watermark-demo--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/watermark-demo--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/watermark-demo--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/watermark-demo--syntax.png"
+			},
+			"frame": {
+				"width": 960,
+				"height": 538
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 0.87
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 0.48
+				},
+				"clean-light~syntax": {
+					"changedPct": 0.36
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 0.97
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 0.94
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 0.58
+				}
+			},
+			"pipelines": {
+				"surface:plain": {
+					"maskPctOfFrame": 5.6,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 10.72,
+							"meanAbsDiff": 0.02985,
+							"maskPx": 28941
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 4.7,
+							"meanAbsDiff": 0.00857,
+							"maskPx": 28941
+						},
+						"clean-light~syntax": {
+							"changedPct": 3.93,
+							"meanAbsDiff": 0.00741,
+							"maskPx": 28941
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 11.72,
+							"meanAbsDiff": 0.02859,
+							"maskPx": 28941
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 11.67,
+							"meanAbsDiff": 0.02944,
+							"maskPx": 28941
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 6.06,
+							"meanAbsDiff": 0.00735,
+							"maskPx": 28941
+						}
+					}
+				}
+			},
+			"error": null
+		},
+		{
+			"slug": "web-document-github",
+			"progress": 0.5,
+			"timelineTime": 3,
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
+			],
+			"presetSha256": "2785f81a26f3bd57",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/web-document-github--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/web-document-github--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/web-document-github--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/web-document-github--syntax.png"
+			},
+			"frame": {
+				"width": 960,
+				"height": 538
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 4.02
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 0
+				},
+				"clean-light~syntax": {
+					"changedPct": 0
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 4.02
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 4.02
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 0
+				}
+			},
+			"pipelines": {
+				"surface:web-document": {
+					"maskPctOfFrame": 50.86,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 7.9,
+							"meanAbsDiff": 0.02244,
+							"maskPx": 262656,
+							"exempt": "material"
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 262656
+						},
+						"clean-light~syntax": {
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 262656
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 7.9,
+							"meanAbsDiff": 0.02244,
+							"maskPx": 262656,
+							"exempt": "material"
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 7.9,
+							"meanAbsDiff": 0.02244,
+							"maskPx": 262656,
+							"exempt": "material"
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 262656
+						}
+					}
+				}
+			},
+			"error": null
+		},
+		{
+			"slug": "website-showcase",
+			"progress": 0.5,
+			"timelineTime": 3,
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
+			],
+			"presetSha256": "cf83ea11a7455682",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/website-showcase--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/website-showcase--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/website-showcase--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/website-showcase--syntax.png"
+			},
+			"frame": {
+				"width": 960,
+				"height": 538
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 2.57
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 2.49
+				},
+				"clean-light~syntax": {
+					"changedPct": 2.85
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 2.42
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 2.66
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 1.18
+				}
+			},
+			"pipelines": {
+				"surface:website-screenshot": {
+					"maskPctOfFrame": 65.38,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 337700
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 337700
+						},
+						"clean-light~syntax": {
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 337700
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 337700
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 337700
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 337700
+						}
+					}
+				},
+				"overlay:source-url": {
+					"maskPctOfFrame": 3.14,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 82.1,
+							"meanAbsDiff": 0.57355,
+							"maskPx": 16192
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 79.58,
+							"meanAbsDiff": 0.57705,
+							"maskPx": 16192
+						},
+						"clean-light~syntax": {
+							"changedPct": 90.84,
+							"meanAbsDiff": 0.59953,
+							"maskPx": 16192
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 77.32,
+							"meanAbsDiff": 0.09267,
+							"maskPx": 16192
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 84.98,
+							"meanAbsDiff": 0.10765,
+							"maskPx": 16192
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 37.61,
+							"meanAbsDiff": 0.09118,
+							"maskPx": 16192
+						}
+					}
+				}
+			},
+			"error": null
+		},
+		{
+			"slug": "youtube-subscribe-demo",
+			"progress": 0.5,
+			"timelineTime": 3,
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
+			],
+			"presetSha256": "8b4b6635e6184bef",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/youtube-subscribe-demo--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/youtube-subscribe-demo--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/youtube-subscribe-demo--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/youtube-subscribe-demo--syntax.png"
+			},
+			"frame": {
+				"width": 960,
+				"height": 538
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 5.29
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 0
+				},
+				"clean-light~syntax": {
+					"changedPct": 0
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 5.29
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 5.29
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 0
+				}
+			},
+			"pipelines": {
+				"overlay:youtube-subscribe": {
+					"maskPctOfFrame": 7.95,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 66.47,
+							"meanAbsDiff": 0.07276,
+							"maskPx": 41082,
+							"exempt": "material"
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 41082
+						},
+						"clean-light~syntax": {
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 41082
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 66.47,
+							"meanAbsDiff": 0.07276,
+							"maskPx": 41082,
+							"exempt": "material"
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 66.47,
+							"meanAbsDiff": 0.07276,
+							"maskPx": 41082,
+							"exempt": "material"
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 41082
+						}
+					}
+				}
 			},
 			"error": null
 		}

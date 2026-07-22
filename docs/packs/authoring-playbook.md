@@ -49,7 +49,7 @@ Anatomy of a pack (three files + one registration):
 Run all three before any human review:
 
 1. **Manifest + Identity validator** — `pnpm verify-presets` validates registry key/slug identity, metadata, the mandatory core vocabulary, font-role-to-manifest declarations and weight integrity, chrome Effect names/params, and the full reference-Pack Identity contract for every registered Pack, alongside Preset schema + semantic checks. An invalid Pack never advances to pixel review.
-2. **Pixel-diff lock** — `npx tsx scripts/probe-pack-diff.ts --packs syntax,<slug>` — every covered non-immune pipeline must visibly re-skin (≥ 0.25% changed pixels at the pinned frame). Coverage-gap warnings are honest state, not failures.
+2. **Pixel-diff lock** — `npx tsx scripts/probe-pack-diff.ts --packs syntax,<slug>` while iterating, then the no-flag full catalog matrix before ratification — every non-immune pipeline must visibly re-skin **inside its own region mask** under every pack pair, and every Pack-immune pipeline must hold the inverse (its region stays stable). A registered non-immune pipeline with no covering preset is a **failure**, not a warning. The report stores source hashes; `--check` re-validates freshness without Chrome. This evidence is 25%-scale machine proof only — never cite it as Calibration Trio evidence (§ 5).
 3. **Render-verify at zoom, at native resolution.** Capture real frames (`scripts/cdp-capture.mjs` saves native 4K), zoom the regions you claimed, and judge rendered pixels — never trust intent. If a change "doesn't take," prove the path runs with a garish diagnostic color before tuning the real value.
 
 ## 5 — The Calibration Trio loop (the human gate)

@@ -1,0 +1,51 @@
+{
+	"schema": "supers@1",
+	"kind": "fixture",
+	"name": "Box — framed focal fixture",
+	"description": "Proving fixture for the box Annotation (was a pack-diff coverage gap — referenced by zero presets). One [box] focal phrase in a paper body; the mark draws a rectangular frame around the phrase as it progresses. Exists so the attributable pack-diff lock (scripts/probe-pack-diff.ts) has a covering Preset for annotation:box. Fixture — exercises the pipeline, not held to the R/Q/G deliverable floors.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 5,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#ffffff",
+			"inkColor": "#111111"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": [
+				{
+					"start": 0.2,
+					"duration": 0.18,
+					"ease": "smooth",
+					"sound": {
+						"sample": "tick-snap"
+					}
+				}
+			]
+		},
+		"surface": {
+			"type": "paper",
+			"content": {
+				"body": "The migration plan looked complete on paper, but the review kept circling one line item. [box]Nobody had budgeted time for the data backfill.[/box] Every estimate downstream inherited that hole, and the schedule quietly absorbed it until the demo made it visible."
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.06,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.86,
+				"duration": 0.08,
+				"ease": "smooth"
+			}
+		},
+		"overlays": [],
+		"effects": []
+	}
+}

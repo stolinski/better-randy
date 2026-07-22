@@ -1,0 +1,49 @@
+{
+	"schema": "supers@1",
+	"name": "Captions — pack style fixture",
+	"kind": "fixture",
+	"description": "Proving fixture for the captions track's `pack` style — the lane that dresses the caption line from the active Pack (appearance vars + pack ink + pack font). The karaoke and word-pop styles are deliberately pack-independent (the faithful social register), so they can never evidence Pack buy-in; this fixture exists so the attributable pack-diff lock (scripts/probe-pack-diff.ts) has a covering Preset whose captions actually respond to a Pack swap. Cues sit mid-piece so the pinned probe frame always has a line on screen. Fixture — exercises the pipeline, not held to the R/Q/G deliverable floors.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 5,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			}
+		},
+		"textAnimations": [],
+		"overlays": [],
+		"effects": [],
+		"audioCues": [],
+		"captions": {
+			"style": "pack",
+			"cues": [
+				{
+					"id": "cue-1",
+					"startMs": 300,
+					"endMs": 2300,
+					"text": "The pack dresses this caption line"
+				},
+				{
+					"id": "cue-2",
+					"startMs": 2400,
+					"endMs": 4600,
+					"text": "swap the pack and the line re-skins"
+				}
+			]
+		}
+	}
+}
