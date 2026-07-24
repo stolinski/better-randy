@@ -1,6 +1,9 @@
 # ADR-0040 — Checklist: a half-frame progress-tracker Surface
 
-Status: **Canon (v1 built)**
+## Status
+
+**Canon (v1 built).**
+
 Date: 2026-07-14
 Builds on: [ADR-0031](0031-imessage-interactive-surface.md) (ordered-list content shape = its own Surface), [ADR-0037](0037-imessage-chrome-mode.md) (`chrome` mode on a Surface), [ADR-0015](0015-identity-spec-per-pipeline.md) (Identity Spec)
 

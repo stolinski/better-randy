@@ -1,6 +1,6 @@
 /**
  * Deterministic offline audio mix (ADR-0033 §6). The export's audio track is
- * a pure function of {derived motion cues + manual cues + bed + kit samples +
+ * a pure function of {derived motion cues + manual cues + bed + resolved samples +
  * duration}: `planAudioMix` computes the schedule (pure, node-testable) and
  * `renderAudioMix` realizes it through an `OfflineAudioContext` at fixed
  * sample positions — no wall-clock anywhere, so the same composition renders
@@ -42,9 +42,9 @@ export interface ScheduledSound {
 
 /**
  * The full mix schedule, sorted by time: every audible derived cue resolved
- * through its Layer's kit, plus every manual cue and the bed from
- * `audioCues[]`. Pure — this is the part of the §6 determinism contract that
- * is checkable without Web Audio.
+ * through its per-motion override or the engine event default, plus every
+ * manual cue and the bed from `audioCues[]`. Pure — this is the part of the §6
+ * determinism contract that is checkable without Web Audio.
  */
 export function planAudioMix(state: EngineState): ScheduledSound[] {
 	const duration = state.transport.durationSeconds;
@@ -87,8 +87,8 @@ export function planAudioMix(state: EngineState): ScheduledSound[] {
  * (AUDIO_MIX_SAMPLE_RATE, stereo, exactly the transport duration). Returns
  * null when the composition schedules no sound — a silent piece must not
  * grow a silent audio track on export. Sounds whose asset slug is unknown
- * resolve to silence with a console.error (the boot gate catches kit/core
- * slugs; this guards manual-cue typos).
+ * resolve to silence with a console.error (the boot gate catches engine-default
+ * and signature samples; this guards authored asset typos).
  */
 export async function renderAudioMix(state: EngineState): Promise<AudioBuffer | null> {
 	const plan = planAudioMix(state);

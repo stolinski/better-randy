@@ -1,6 +1,9 @@
 # ADR-0037 — iMessage chrome mode: the film-insert chromeless thread
 
-Status: **Canon (v1 built)**
+## Status
+
+**Canon (v1 built).**
+
 Date: 2026-07-02
 Builds on: [ADR-0031](0031-imessage-interactive-surface.md) (the `imessage` interactive Surface), [ADR-0030](0030-web-document-emissive-surface.md) (per-artifact layout = content, not new Surfaces)
 

@@ -1,11 +1,22 @@
 import type { AnnotationMarkStyle } from '../annotations/annotation-mark-styles.ts';
 import type { AnnotationBody } from '../annotations/annotation-marks.ts';
 import { opacityEnvelope, resolveCascadeTimings, type CascadeWindow } from './cascade-timing.ts';
-import type { MarkTiming, Overlay, Preset, SurfaceState, Transition } from './engine-schema.ts';
+import type {
+	DiagramPoint,
+	DiagramPrimitive,
+	MarkTiming,
+	Overlay,
+	OverlayPlacement,
+	Preset,
+	SurfaceState,
+	Transition
+} from './engine-schema.ts';
 import { getPack } from './packs/registry.ts';
 import { requireCoreColor, resolveTypographyColors } from './packs/resolve.ts';
 import { getLayoutSafeArea } from '../utils/safe-area.ts';
 import { calculateWebsiteShowcaseLayout } from '../utils/website-showcase.ts';
+import { resolveDiagramPrimitiveGeometry } from '../utils/diagram-geometry.ts';
+import { resolveOverlayPlacement } from '../utils/overlay-placement.ts';
 
 export type RubricSeverity = 'error' | 'warn';
 
@@ -147,6 +158,7 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 	checkMarkOrdering(state.surface, state.marks.timings, totalSeconds, cascadeWindows, issues);
 	checkOverlayTimings(state.overlays, totalSeconds, cascadeWindows, issues);
 	checkOverlayPlacement(state.overlays, frame, orientation, issues);
+	checkDiagramPlacement(state.surface.diagram ?? [], orientation, issues);
 	if (resolvedTypography) {
 		checkContrast(state.surface, resolvedTypography, issues);
 		checkDiagramContrast(
@@ -184,12 +196,17 @@ function checkWebsiteShowcase(
 	}
 
 	const overlay = sourceUrls[0];
-	if (overlay.position.anchor !== 'center') {
+	const defaultPlacement = resolveOverlayPlacement(
+		overlay.position,
+		preset.state.transport.orientation
+	);
+	if (defaultPlacement.anchor !== 'center') {
 		issues.push({
 			rule: 'WS2',
 			severity: 'error',
 			path: `state.overlays[${preset.state.overlays.indexOf(overlay)}].position.anchor`,
-			message: 'source-url must use the center anchor so its Pipeline can preserve the shared responsive stack.'
+			message:
+				'source-url must use the center anchor so its Pipeline can preserve the shared responsive stack.'
 		});
 	}
 
@@ -416,10 +433,15 @@ function checkOverlayPlacement(
 	const sa = getLayoutSafeArea(orientation);
 
 	for (const [index, overlay] of overlays.entries()) {
-		const path = `overlays[${index}].position`;
-		const anchor = overlay.position.anchor;
-		const offset = overlay.position.offset;
-		const rect = overlay.position.rect;
+		const hasOrientationOverride =
+			overlay.position.orientationOverrides?.[orientation] !== undefined;
+		const path = hasOrientationOverride
+			? `overlays[${index}].position.orientationOverrides.${orientation}`
+			: `overlays[${index}].position`;
+		const placement = resolveOverlayPlacement(overlay.position, orientation);
+		const anchor = placement.anchor;
+		const offset = placement.offset;
+		const rect = placement.rect;
 
 		// cursor-trail uses a full-frame normalized-rect purely as its COORDINATE
 		// REFERENCE: it resolves named slot positions into this space and drives a
@@ -484,19 +506,72 @@ function checkOverlayPlacement(
 		}
 
 		if (overlay.type === 'lower-third') {
-			checkLowerThirdPlacement(overlay, index, orientation, issues);
+			checkLowerThirdPlacement(placement, path, orientation, issues);
+		}
+	}
+}
+
+function checkDiagramPlacement(
+	primitives: readonly DiagramPrimitive[],
+	orientation: 'horizontal' | 'vertical',
+	issues: RubricIssue[]
+): void {
+	const safeArea = getLayoutSafeArea(orientation);
+
+	function checkPoint(point: DiagramPoint, path: string): void {
+		if (
+			point.x < safeArea.left ||
+			point.x > 1 - safeArea.right ||
+			point.y < safeArea.top ||
+			point.y > 1 - safeArea.bottom
+		) {
+			issues.push({
+				rule: 'G2',
+				severity: 'error',
+				path,
+				message: `Diagram geometry sits outside the ${orientation} safe zone (top ${(safeArea.top * 100).toFixed(0)}% / right ${(safeArea.right * 100).toFixed(0)}% / bottom ${(safeArea.bottom * 100).toFixed(0)}% / left ${(safeArea.left * 100).toFixed(0)}%).`
+			});
+		}
+	}
+
+	for (const [index, primitive] of primitives.entries()) {
+		const hasOrientationOverride = primitive.orientationOverrides?.[orientation] !== undefined;
+		const path = hasOrientationOverride
+			? `surface.diagram[${index}].orientationOverrides.${orientation}`
+			: `surface.diagram[${index}]`;
+
+		switch (primitive.type) {
+			case 'node':
+			case 'label':
+			case 'stat-callout': {
+				const geometry = resolveDiagramPrimitiveGeometry(primitive, orientation);
+				checkPoint(geometry.position, `${path}.position`);
+				break;
+			}
+			case 'edge-arrow': {
+				const geometry = resolveDiagramPrimitiveGeometry(primitive, orientation);
+				if ('x' in geometry.from) checkPoint(geometry.from, `${path}.from`);
+				if ('x' in geometry.to) checkPoint(geometry.to, `${path}.to`);
+				if (geometry.control) checkPoint(geometry.control, `${path}.control`);
+				break;
+			}
+			case 'timeline-segment': {
+				const geometry = resolveDiagramPrimitiveGeometry(primitive, orientation);
+				checkPoint(geometry.from, `${path}.from`);
+				checkPoint(geometry.to, `${path}.to`);
+				break;
+			}
 		}
 	}
 }
 
 function checkLowerThirdPlacement(
-	overlay: Overlay,
-	index: number,
+	placement: OverlayPlacement,
+	path: string,
 	orientation: 'horizontal' | 'vertical',
 	issues: RubricIssue[]
 ): void {
-	const path = `overlays[${index}].position`;
-	const anchor = overlay.position.anchor;
+	const anchor = placement.anchor;
 
 	if (!anchor.includes('bottom')) {
 		issues.push({
@@ -509,7 +584,7 @@ function checkLowerThirdPlacement(
 		return;
 	}
 
-	const offset = overlay.position.offset;
+	const offset = placement.offset;
 
 	if (!offset) {
 		return;

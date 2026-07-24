@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Docu timeline build — the road to ES modules",
-	"description": "ADR-0036 timeline build (H↔V reflow stress case), recomposed 2026-07-09 for the quality arc's calibrate-the-bar pass: three eras of JS module loading drawn as timeline-segments back-to-back along one horizontal axis — era spans PROPORTIONAL to their real years (1995–2009–2015–now), segment end-cap ticks anchoring year markers below the axis (dot nodes doubled the ticks and were cut — calibration verdict), standalone era labels above each span (standalone because segment riding captions can't scale — dex lxowmkkj), and a supporting caption line of real dev content under each era. Segments stroke-draw left-to-right in chronological sequence via Cascade — the chronological draw IS the piece. Full-frame dark graphic register on a brand warm-black field (#0e0e0d — re-grounded 2026-07-09 after the purple family left the palette) with paper-grain grit bonding the frame (a syntax.fm corner stamp was cut as unnecessary — the all-mono type already carries the signature thread); type spans the G4 bands (headline ~94px cap, years ~41px, captions ~29px). Stroke/node/label appearance resolves through the Syntax pack's Roles. No collage chrome (torn edges, tape, hard offset shadow) per the docu-diagram register.",
+	"description": "ADR-0036 timeline reflow stress case: three eras of JS module loading draw chronologically as proportional timeline segments, with year markers, era labels, and real supporting content. One Preset reflows the horizontal axis into a top-to-bottom vertical rail through complete Diagram position, scale, and endpoint overrides; content and Cascade timing remain shared. The full-frame dark graphic keeps the all-mono signature thread while stroke and label appearance resolve through Pack Roles.",
 	"kind": "deliverable",
 	"pack": "syntax",
 	"state": {
@@ -51,7 +51,17 @@
 						"y": 0.2
 					},
 					"text": "THE ROAD TO ES MODULES",
-					"scale": 2.6,
+					"role": "headline",
+					"scale": 2.4,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.1
+							},
+							"scale": 2
+						}
+					},
 					"enter": {
 						"start": 0.06,
 						"duration": 0.05,
@@ -80,6 +90,18 @@
 					"to": {
 						"x": 0.46,
 						"y": 0.52
+					},
+					"orientationOverrides": {
+						"vertical": {
+							"from": {
+								"x": 0.5,
+								"y": 0.18
+							},
+							"to": {
+								"x": 0.5,
+								"y": 0.38
+							}
+						}
 					},
 					"enter": {
 						"start": 0.145,
@@ -110,6 +132,15 @@
 					},
 					"text": "1995",
 					"scale": 1.15,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.3,
+								"y": 0.18
+							},
+							"scale": 1.2
+						}
+					},
 					"enter": {
 						"start": 0.16,
 						"duration": 0.04,
@@ -138,7 +169,17 @@
 						"y": 0.445
 					},
 					"text": "SCRIPT TAGS",
+					"role": "headline",
 					"scale": 1.35,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.65,
+								"y": 0.27
+							},
+							"scale": 1.7
+						}
+					},
 					"enter": {
 						"start": 0.19,
 						"duration": 0.045,
@@ -169,6 +210,15 @@
 					},
 					"text": "<script src> — globals in the page",
 					"scale": 0.8,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.65,
+								"y": 0.32
+							},
+							"scale": 0.8
+						}
+					},
 					"enter": {
 						"start": 0.235,
 						"duration": 0.04,
@@ -198,6 +248,15 @@
 					},
 					"text": "2009",
 					"scale": 1.15,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.3,
+								"y": 0.38
+							},
+							"scale": 1.2
+						}
+					},
 					"enter": {
 						"start": 0.245,
 						"duration": 0.04,
@@ -229,6 +288,18 @@
 						"x": 0.62,
 						"y": 0.52
 					},
+					"orientationOverrides": {
+						"vertical": {
+							"from": {
+								"x": 0.5,
+								"y": 0.38
+							},
+							"to": {
+								"x": 0.5,
+								"y": 0.58
+							}
+						}
+					},
 					"enter": {
 						"start": 0.26,
 						"duration": 0.06,
@@ -257,7 +328,17 @@
 						"y": 0.445
 					},
 					"text": "BUNDLER ERA",
+					"role": "headline",
 					"scale": 1.35,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.65,
+								"y": 0.47
+							},
+							"scale": 1.7
+						}
+					},
 					"enter": {
 						"start": 0.29,
 						"duration": 0.045,
@@ -288,6 +369,15 @@
 					},
 					"text": "browserify · webpack · rollup",
 					"scale": 0.8,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.65,
+								"y": 0.52
+							},
+							"scale": 0.8
+						}
+					},
 					"enter": {
 						"start": 0.325,
 						"duration": 0.04,
@@ -317,6 +407,15 @@
 					},
 					"text": "2015",
 					"scale": 1.15,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.3,
+								"y": 0.58
+							},
+							"scale": 1.2
+						}
+					},
 					"enter": {
 						"start": 0.34,
 						"duration": 0.04,
@@ -348,6 +447,18 @@
 						"x": 0.92,
 						"y": 0.52
 					},
+					"orientationOverrides": {
+						"vertical": {
+							"from": {
+								"x": 0.5,
+								"y": 0.58
+							},
+							"to": {
+								"x": 0.5,
+								"y": 0.76
+							}
+						}
+					},
 					"enter": {
 						"start": 0.355,
 						"duration": 0.075,
@@ -376,7 +487,17 @@
 						"y": 0.445
 					},
 					"text": "ESM ERA",
+					"role": "headline",
 					"scale": 1.35,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.65,
+								"y": 0.66
+							},
+							"scale": 1.7
+						}
+					},
 					"enter": {
 						"start": 0.4,
 						"duration": 0.045,
@@ -407,6 +528,15 @@
 					},
 					"text": "import & export, native",
 					"scale": 0.8,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.65,
+								"y": 0.71
+							},
+							"scale": 0.8
+						}
+					},
 					"enter": {
 						"start": 0.44,
 						"duration": 0.04,
@@ -436,6 +566,15 @@
 					},
 					"text": "NOW",
 					"scale": 1.15,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.3,
+								"y": 0.76
+							},
+							"scale": 1.2
+						}
+					},
 					"enter": {
 						"start": 0.455,
 						"duration": 0.04,

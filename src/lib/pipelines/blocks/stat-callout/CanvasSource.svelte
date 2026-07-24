@@ -75,7 +75,7 @@
 </script>
 
 <span class="stat-callout" data-diagram-stat={block.id}>
-	<span class="stat-callout__value">
+	<span class="stat-callout__value" data-diagram-text-role="stat-value">
 		{#each digitTokens as token, i (i)}
 			{#if token.isDigit}
 				<!-- Roll offset rides `top`, not transform: a transformed descendant
@@ -90,7 +90,7 @@
 		{/each}
 	</span>
 	{#if block.label}
-		<span class="stat-callout__label">{block.label}</span>
+		<span class="stat-callout__label" data-diagram-text-role="caption">{block.label}</span>
 	{/if}
 </span>
 
@@ -108,7 +108,7 @@
 		display: inline-flex;
 		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
 		font-feature-settings: 'tnum' 1;
-		font-size: calc(9 * var(--cqmin));
+		font-size: calc(8 * var(--cqmin));
 		font-variant-numeric: tabular-nums;
 		font-weight: 700;
 		line-height: 1;

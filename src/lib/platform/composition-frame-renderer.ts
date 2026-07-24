@@ -278,7 +278,12 @@ function buildShaderPassDispatchList(
 			entries.push({
 				pass: renderer.shaderPass as ShaderPass<unknown>,
 				target: overlay.content,
-				bounds: measureOverlayBoundsPx(overlay, compositionElement, compositionSize)
+				bounds: measureOverlayBoundsPx(
+					overlay,
+					compositionElement,
+					compositionSize,
+					state.transport.orientation
+				)
 			});
 		}
 	}

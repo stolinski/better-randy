@@ -187,7 +187,7 @@ The 12 Disney principles all apply, but five carry the weight for motion graphic
   - **Subject lives in the middle 60% vertically.** Top and bottom bands belong to platform UI (G3); important focal annotations (magnify, lift-out, isolate) must center inside `y ∈ [0.20, 0.80]`.
   - **Pacing survives both targets.** Choose one duration and reading cadence that works in the faster vertical context without rushing the horizontal render.
 - **Why** — TikTok/Reels/Shorts engagement data shows native vertical outperforms cropped-horizontal at >90%. The platform-specific staging — center-weighted, Y-motion, short — is what "native vertical" actually means. Reusing horizontal staging on 9:16 produces the cropped-look the algorithm down-ranks.
-- **How to apply** — Switch `transport.orientation` in the GUI and verify the same Preset at both native resolutions. Fix layout in orientation-aware Pipeline/safe-area logic rather than duplicating JSON. Orientation-responsive authored placement is still a known engine gap; a composition that exposes it should block on that system fix instead of normalizing a sibling-file workaround.
+- **How to apply** — Switch `transport.orientation` in the GUI and verify the same Preset at both native resolutions. Fix automatic layout in orientation-aware Pipeline/safe-area logic; when authored Overlay or Diagram geometry must materially re-stage, use complete orientation snapshots inside the same Preset rather than an orientation-suffix sibling. Safe-area lint reports violations but never clamps the authored geometry.
 
 ### G12. Transparency is the default; opacity must be declared
 

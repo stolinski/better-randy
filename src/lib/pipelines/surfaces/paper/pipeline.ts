@@ -19,6 +19,7 @@ import type {
 	SurfaceRenderInstance
 } from '$lib/platform/pipelines/types';
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
+import { hexToRgbaFloat } from '$lib/utils/color';
 
 const TEXTURE_USAGE_COPY_SRC = 0x01;
 const TEXTURE_USAGE_COPY_DST = 0x02;
@@ -61,7 +62,9 @@ export interface CreatePaperPipelineOptions {
 
 const FocalSlotStruct = d.struct({
 	rect: d.vec4f,
-	params: d.vec4f // x=magnify, y=dim, z=tear, w=styleCode (0 = empty)
+	params: d.vec4f, // x=magnify, y=dim, z=tear, w=styleCode (0 = empty)
+	optics: d.vec4f, // x=shape (0 circle, 1 rounded rect), y=intensity, z=ripple, w=reserved
+	color: d.vec4f
 });
 
 const PaperUniforms = d.struct({
@@ -212,9 +215,9 @@ const composeFragmentFn = tgpu['~unstable']
 		//
 		// styleCode dispatch:
 		//   0 = empty slot (skip)
-		//   1 = magnify  → glass-lens path: pill SDF, barrel distortion,
-		//                  chromatic aberration, specular rim, inner shadow,
-		//                  drop shadow. Composites on top of the page.
+		//   1 = magnify  → optical-lens path: circle/rounded-rect SDF, bounded
+		//                  refraction/dispersion, reticle + inspection ripple,
+		//                  focal dim, material rim and depth shadow.
 		//   2/3/4 = lift-out / tear-out / isolate → dim-and-lift path: dim
 		//          surroundings (capped by bgFloor), composite a magnified
 		//          sample of the rect on top; tear-out adds a torn-edge mask.
@@ -230,6 +233,10 @@ const composeFragmentFn = tgpu['~unstable']
 			let magnifyAmount = slot.params.x;
 			let dimAmount = slot.params.y;
 			let tearAmount = slot.params.z;
+			let opticalShape = slot.optics.x;
+			let opticalIntensity = slot.optics.y;
+			let opticalRipple = slot.optics.z;
+			let opticalColor = slot.color;
 
 			if (styleCode == 1u && magnifyAmount > 0.001) {
 				// -------- MAGNIFY: glass-lens path --------
@@ -248,15 +255,16 @@ const composeFragmentFn = tgpu['~unstable']
 				// The reveal therefore reads as a lens body iris-ing
 				// in and out, not as text scaling up and down.
 				let bodyScale = clamp(magnifyAmount / 0.8, 0.0, 1.0);
-				let magFactor: f32 = 0.8;
+				let magFactor = 0.62 + 0.3 * opticalIntensity;
 				let lensProgress = smoothstep(0.0, 0.15, bodyScale);
 
 				let rectCenter = rect.xy + rect.zw * 0.5;
-				let padX = rect.zw.y * 1.4;
-				let padY = rect.zw.y * 1.7;
-				let pillHalfFull = rect.zw * 0.5 + vec2f(padX, padY);
+				let pillHalfFull = rect.zw * 0.5;
 				let pillHalf = pillHalfFull * bodyScale;
-				let pillR = max(pillHalf.y, 0.0001);
+				let pillR = max(
+					select(min(pillHalf.x, pillHalf.y), min(pillHalf.x, pillHalf.y) * 0.38, opticalShape > 0.5),
+					0.0001
+				);
 
 				let p = in.uv - rectCenter;
 				let absP = abs(p);
@@ -290,7 +298,7 @@ const composeFragmentFn = tgpu['~unstable']
 				// magnification itself, not the aberrations.
 				let scaleFactor = 1.0 + magFactor;
 				let baseOffset = p / scaleFactor;
-				let barrelStrength = magFactor * 0.12;
+				let barrelStrength = magFactor * mix(0.1, 0.16, opticalIntensity);
 				let distortion = baseOffset * pow(edgeFactor, 2.0) * barrelStrength;
 				let sourceUv = rectCenter + baseOffset + distortion;
 
@@ -360,7 +368,7 @@ const composeFragmentFn = tgpu['~unstable']
 				// has thickness; light refracting through the body falls
 				// off on the back rim.
 				let innerBand = exp(-pow((-sdLens) / max(pillR * 0.08, 0.0001), 2.0));
-				let innerShadow = oppositeDot * innerBand * 0.34 * insideCoverage;
+				let innerShadow = oppositeDot * innerBand * 0.16 * insideCoverage;
 
 				// Subtle uniform rim — a thin (~1.5px gaussian) dark line
 				// at the lens boundary on the inside, on ALL sides (not
@@ -368,11 +376,37 @@ const composeFragmentFn = tgpu['~unstable']
 				// page on the rims perpendicular to the light direction,
 				// where neither specular nor inner-shadow reach.
 				let rimDistAA = abs(sdLens) / max(aaWidth * 1.6, 0.0001);
-				let rimDark = exp(-rimDistAA * rimDistAA) * 0.22 * insideCoverage;
+				let rimDark = exp(-rimDistAA * rimDistAA) * 0.1 * insideCoverage;
+
+				// Scanner grammar: a restrained optical ring plus four registration
+				// ticks. The mark color supplies the ink, so the instrument follows
+				// the active composition/Pack instead of hardcoding sci-fi cyan.
+				let ringBand = exp(-pow(abs(sdLens) / max(aaWidth * 1.25, 0.0001), 2.0));
+				let tickWidth = max(aaWidth * 1.7, 0.0001);
+				let tickX = exp(-pow(abs(p.x) / tickWidth, 2.0))
+					* smoothstep(pillHalf.y * 0.66, pillHalf.y * 0.82, abs(p.y))
+					* (1.0 - smoothstep(pillHalf.y * 0.98, pillHalf.y * 1.16, abs(p.y)));
+				let tickY = exp(-pow(abs(p.y) / tickWidth, 2.0))
+					* smoothstep(pillHalf.x * 0.66, pillHalf.x * 0.82, abs(p.x))
+					* (1.0 - smoothstep(pillHalf.x * 0.98, pillHalf.x * 1.16, abs(p.x)));
+				let reticle = clamp(ringBand * 0.78 + max(tickX, tickY), 0.0, 1.0)
+					* lensProgress * opticalColor.a;
+
+				// One authored inspection ripple lands during the lens settle beat.
+				// It is frame-addressed through focal progress and disappears before
+				// the read hold, replacing CanvasUI's pointer-click trigger with a
+				// deterministic motion-graphics event.
+				let lensMetric = length(p / max(pillHalfFull, vec2f(0.0001)));
+				let rippleRadius = 1.0 + 0.9 * opticalRipple;
+				let rippleWidth = 0.018 + 0.012 * opticalRipple;
+				let rippleBand = exp(-pow((lensMetric - rippleRadius) / rippleWidth, 2.0));
+				let rippleAlpha = rippleBand * pow(1.0 - opticalRipple, 2.0)
+					* smoothstep(0.0, 0.08, opticalRipple) * opticalColor.a;
 
 				var glassRgb = lensContentRgb + vec3f(specular * lensProgress);
 				glassRgb = glassRgb - vec3f(innerShadow * lensProgress);
 				glassRgb = glassRgb * (1.0 - rimDark * lensProgress);
+				glassRgb = mix(glassRgb, opticalColor.rgb, reticle);
 				glassRgb = clamp(glassRgb, vec3f(0.0), vec3f(1.0));
 				let glassAlpha = lensContentA * lensProgress;
 				let lensCoverage = glassAlpha * insideCoverage;
@@ -397,7 +431,7 @@ const composeFragmentFn = tgpu['~unstable']
 				let sdContact = length(max(qC, vec2f(0.0))) + min(max(qC.x, qC.y), 0.0) - pillR;
 				let contactDist = max(sdContact, 0.0);
 				let contactFalloff = exp(-pow(contactDist / max(pillR * 0.20, 0.0001), 2.0));
-				let contactStrength = contactFalloff * 0.36 * lensProgress;
+				let contactStrength = contactFalloff * 0.17 * lensProgress;
 
 				let diffuseOffset = vec2f(pillR * 0.24, pillR * 0.40);
 				let diffuseHalf = pillHalf * 1.10;
@@ -408,13 +442,19 @@ const composeFragmentFn = tgpu['~unstable']
 				let sdDiffuse = length(max(qD, vec2f(0.0))) + min(max(qD.x, qD.y), 0.0) - diffuseR;
 				let diffuseDist = max(sdDiffuse, 0.0);
 				let diffuseFalloff = exp(-pow(diffuseDist / max(pillR * 0.55, 0.0001), 2.0));
-				let diffuseStrength = diffuseFalloff * 0.22 * lensProgress;
+				let diffuseStrength = diffuseFalloff * 0.09 * lensProgress;
 
 				let rawShadow = contactStrength + diffuseStrength * (1.0 - contactStrength);
 				let shadowApplied = rawShadow * (1.0 - insideCoverage) * step(0.001, current.a);
 
-				// Darken the page first, then composite the lens body on top.
-				let shadowedRgb = current.rgb * (1.0 - shadowApplied);
+				// Establish one focal hero: dim the surrounding page down to the
+				// authored backgroundVisibility floor, then add the brief inspection
+				// ripple and composite the readable lens body on top.
+				let contextDim = min(clamp(dimAmount, 0.0, 1.0), 1.0 - layout.$.uniforms.bgFloor)
+					* lensProgress;
+				let dimmedRgb = current.rgb * (1.0 - contextDim * (1.0 - insideCoverage));
+				let rippleRgb = opticalColor.rgb * rippleAlpha * current.a;
+				let shadowedRgb = dimmedRgb * (1.0 - shadowApplied) + rippleRgb;
 				let shadowedA = current.a;
 
 				let outA = lensCoverage + shadowedA * (1.0 - lensCoverage);
@@ -580,17 +620,24 @@ interface FocalSlotData {
 	dim: number;
 	tear: number;
 	styleCode: number;
+	opticalColor: string;
+	opticalIntensity: number;
+	opticalRipple: number;
+	opticalShape: 'circle' | 'rounded-rect';
 }
 
 const EMPTY_FOCAL_SLOT = {
 	rect: d.vec4f(0, 0, 0, 0),
-	params: d.vec4f(0, 0, 0, 0)
+	params: d.vec4f(0, 0, 0, 0),
+	optics: d.vec4f(0, 0, 0, 0),
+	color: d.vec4f(1, 1, 1, 1)
 };
 
 function buildFocalSlots(
 	layouts: readonly AnnotationMarkLayout[],
 	progressByIndex: readonly number[],
 	intensityByIndex: readonly number[],
+	colorsByIndex: readonly string[],
 	canvasWidth: number,
 	canvasHeight: number,
 	compositionLayout: AnnotationFrameLayout
@@ -617,12 +664,13 @@ function buildFocalSlots(
 		}
 
 		const intensity = intensityByIndex[i] ?? 1;
+		const color = colorsByIndex[i] ?? '#ffffff';
 
 		const slot = renderer.computeFocalSlot({
 			bounds: layout.bounds,
 			canvasHeight,
 			canvasWidth,
-			color: '',
+			color,
 			context: null as never,
 			intensity,
 			layout,
@@ -636,7 +684,11 @@ function buildFocalSlots(
 			magnify: slot.magnify,
 			dim: slot.dim,
 			tear: slot.tear,
-			styleCode
+			styleCode,
+			opticalColor: slot.opticalColor ?? color,
+			opticalIntensity: slot.opticalIntensity ?? intensity,
+			opticalRipple: slot.opticalRipple ?? 0,
+			opticalShape: slot.opticalShape ?? 'rounded-rect'
 		});
 	}
 
@@ -807,6 +859,7 @@ export function createPaperPipeline({
 			markLayouts,
 			inputs.animState.markProgresses,
 			inputs.markIntensityByIndex,
+			inputs.markColorsByIndex,
 			canvasWidth,
 			canvasHeight,
 			compositionLayout
@@ -819,7 +872,14 @@ export function createPaperPipeline({
 			}
 			return {
 				rect: d.vec4f(slot.rect.x, slot.rect.y, slot.rect.width, slot.rect.height),
-				params: d.vec4f(slot.magnify, slot.dim, slot.tear, slot.styleCode)
+				params: d.vec4f(slot.magnify, slot.dim, slot.tear, slot.styleCode),
+				optics: d.vec4f(
+					slot.opticalShape === 'rounded-rect' ? 1 : 0,
+					slot.opticalIntensity,
+					slot.opticalRipple,
+					0
+				),
+				color: d.vec4f(...hexToRgbaFloat(slot.opticalColor))
 			};
 		});
 

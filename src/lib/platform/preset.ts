@@ -14,6 +14,7 @@ import {
 	type TextAnimation,
 	type Transition
 } from './engine-schema';
+import { cloneOverlayPlacement } from '../utils/overlay-placement';
 import {
 	engineState,
 	packState,
@@ -251,11 +252,17 @@ function cloneOverlay(overlay: Overlay): Overlay {
 		id: overlay.id,
 		content: overlay.content,
 		position: {
-			anchor: overlay.position.anchor,
-			offset: overlay.position.offset ? { ...overlay.position.offset } : undefined,
-			rect: overlay.position.rect ? { ...overlay.position.rect } : undefined,
-			scale: overlay.position.scale,
-			rotation: overlay.position.rotation
+			...cloneOverlayPlacement(overlay.position),
+			orientationOverrides: overlay.position.orientationOverrides
+				? {
+						horizontal: overlay.position.orientationOverrides.horizontal
+							? cloneOverlayPlacement(overlay.position.orientationOverrides.horizontal)
+							: undefined,
+						vertical: overlay.position.orientationOverrides.vertical
+							? cloneOverlayPlacement(overlay.position.orientationOverrides.vertical)
+							: undefined
+					}
+				: undefined
 		},
 		enter: overlay.enter ? cloneTransition(overlay.enter) : undefined,
 		exit: overlay.exit ? cloneTransition(overlay.exit) : undefined,

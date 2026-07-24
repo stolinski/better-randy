@@ -1,5 +1,9 @@
 # Time-driven `EffectPackContext` for the per-layer effect chain
 
+## Status
+
+**Canon.** The title preserves the decision-time name; the current engine has one flat `effects[]` list.
+
 `EffectPassDefinition.pack(params)` (introduced alongside the per-layer effect chain in `src/lib/platform/pipelines/types.ts` and consumed by `EffectChain` in `src/lib/platform/pipelines/effect-chain.ts`) saw only the effect's static `params` — the timeline-driven scrub state was not threaded in, so any imported shader that wanted to animate from a `u_time` / `u_progress` uniform (the calling convention used by every time-driven shader on shaders.com, ShaderToy, and most WebGPU/WGSL galleries) had nowhere to read it. We resolved this by widening `pack` to `pack(params, ctx: EffectPackContext)`, where `EffectPackContext = { progress: number; timestamp: number }`, and plumbing both values from the timeline scrub through `EffectChain.apply()` → the internal compiled-effect closure → each effect's `pack`. Both call sites in `Workspace.svelte` (the live `renderAt` path and the export `renderFrame` path) compute the same `{ progress, timestamp }` pair from the active scrub via a shared `effectChainTimebase(timestamp)` helper, so preview and export agree at every frame. Time-driven effects now declare a `progress: d.f32` (or `timestamp: d.f32`) field in their `paramsStruct`, write `ctx.progress` (or `ctx.timestamp`) into that field inside `pack`, and reference `layout.$.uniforms.progress` in WGSL — the same shape every other uniform takes.
 
 ## Considered options

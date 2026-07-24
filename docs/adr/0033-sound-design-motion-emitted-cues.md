@@ -1,6 +1,9 @@
 # ADR-0033 — Sound design: motion-emitted cues resolved by a swappable Sound kit
 
-Status: **Built** (all of §2–§9 shipped 2026-07-01, epic `1frpmv40` complete). **Amended 2026-07-02:** the §3 Sound-kit concept is REMOVED after GUI testing — three naming/legibility failures in a row showed a per-Layer sample-bundle indirection cannot be made legible. Sound is now **engine defaults + per-motion overrides**: each event in the §8 vocabulary (grown with `send`, `swipe`, `scratch`) carries one engine-default sample (`DEFAULT_EVENT_SAMPLES` in `sound-cues.ts`), the §2 motion-character rules pick the event (and per-side chat events), and any individual cue is overridden per motion (§5 sample-lock/mute) from the inspector or the timeline rail. §6 determinism and §4 derived-not-stored are unchanged. The ADR-0024-style core fallback was also removed (silence is the honest resolution for an uncovered event).
+## Status
+
+**Canon (built; Sound-kit mechanism superseded by amendment).** All of §2–§9 shipped 2026-07-01. **Amended 2026-07-02:** the §3 Sound-kit concept is removed. Sound uses engine defaults plus per-motion overrides through `DEFAULT_EVENT_SAMPLES`; §6 determinism and §4 derived-not-stored are unchanged. The body preserves the rejected Sound-kit design as decision history.
+
 Date: 2026-06-26
 Relates to: [ADR-0011](0011-text-animation-orchestration.md) (timed-motion domain; named "audio cues" as a future one), [ADR-0023](0023-pack-is-appearance-only.md) (Pack is appearance-only), [ADR-0024](0024-role-resolution-core-fallback.md) (Role resolution, core fallback), [ADR-0015](0015-identity-spec-per-pipeline.md) (motion is intrinsic, never conceded), [ADR-0029](0029-image-substrate-on-depth-stage.md) (deterministic bundled assets)
 

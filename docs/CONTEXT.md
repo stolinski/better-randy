@@ -50,16 +50,24 @@ _Avoid_: annotation (broader), stroke (which is the geometry, not the role).
 A renderable element layered over the composition that isn't bound to a Block — lower third, kicker chip, source URL plate, watermark.
 _Avoid_: chrome (broader; see Channel chrome).
 
+**Orientation placement override**:
+An optional target-specific placement for one **Overlay** inside the same **Preset**. The Overlay's shared placement remains the fallback; a horizontal or vertical override changes its staging only for that transport orientation. This preserves orientation as a dial without pretending materially different anchor geometry can be derived from one coordinate pair. Authored geometry remains exact; platform safe areas validate the resolved placement but never clamp or mutate it.
+_Avoid_: orientation variant, vertical Preset, responsive duplicate (the composition and Overlay remain singular).
+
+**Orientation geometry override**:
+An optional target-specific complete geometry snapshot for one **Diagram primitive** inside the same **Preset**. Positioned primitives snapshot position and scale; edge-arrows snapshot endpoints, route, and control; timeline-segments snapshot both endpoints. Shared content, timing, animation, ink, and direction remain the fallback composition. The GUI edits shared geometry until the author explicitly enables **Customize horizontal** or **Customize vertical**.
+_Avoid_: vertical diagram, responsive primitive copy, partial geometry patch (the primitive remains singular and snapshots never inherit individual geometry fields).
+
 **Effect**:
-A composition-wide post-process pass run after the final composite into the canvas — grit overlay, chromatic aberration, color grade, film grain. Effects compose into one chain on the composed frame. Per-target shader work (substrate physics, per-overlay edge treatment) is not an Effect — it is a `shaderPass` on the SurfaceRenderer or OverlayRenderer per ADR-0005 / ADR-0008. See [ADR-0018](adr/0018-collapse-effects-to-frame-only.md).
-_Avoid_: filter, shader (a shader is the WebGPU implementation; an Effect is the registry entry), per-layer effect (the engine no longer supports per-layer chains — see ADR-0018).
+A composition-wide authored operation with one of three registry-owned execution lanes. Ordinary entries in `effects[]` are post-process passes run after the selected render branch — grit overlay, chromatic aberration, color grade, film grain. Composition-owned entries in `effects[]` alter branch dispatch before the remaining post-process chain; `depth-of-field` is the current example. Transition Effects are named by top-level `transition.effect` and composite the two cached endpoint snapshots through the distinct transition registry. Per-target shader work (substrate physics, per-overlay edge treatment) is not an Effect — it is a `shaderPass` on the SurfaceRenderer or OverlayRenderer per ADR-0005 / ADR-0008. See [ADR-0018](adr/0018-collapse-effects-to-frame-only.md) and [ADR-0026](adr/0026-transitions-v1-snapshot-and-wipe.md).
+_Avoid_: filter, shader (a shader is the WebGPU implementation; an Effect is the authored registry entry), per-layer effect (the engine no longer supports per-layer chains — see ADR-0018), assuming every Effect is a post-process pass or an `effects[]` entry.
 
 **Cascade**:
 A declarative timing relationship between elements: an element's enter anchors to another element's enter plus an offset (kicker → title +120 ms → subtitle), so reading-order choreography re-times as one unit instead of drifting apart across hand-set absolute starts. The timing peer of an automatic **audio cue** — welded, never hand-synced. Shipped with generalized keyframes ([ADR-0035](adr/0035-generalized-keyframes-and-cascade.md)).
 _Avoid_: stagger (the narrower per-glyph text-animation mechanism), sequence, chain, follow-through (the animation-craft effect a Cascade is used to achieve, not the mechanism).
 
 **Diagram primitive**:
-The five-**Block** vocabulary for art-directed, documentary-style diagrams — `node`, `edge-arrow`, `label`, `stat-callout`, `timeline-segment` — living on any Surface, positioned explicitly (schema + GUI drag), revealed with stroke-draw + **Cascade** choreography. Edge _route_ is content (straight/elbow/arc, authored); edge _stroke_ is appearance (Pack-resolved Role). A map is a **composition** (primitives over an image substrate), not a primitive. Explicitly _not_ auto-layout: mermaid was rejected as the model (auto-layout reads as documentation, not documentary); at most a future compile-into-primitives authoring shortcut. Shipped in [ADR-0036](adr/0036-diagram-primitives.md).
+The five-**Block** vocabulary for art-directed, documentary-style diagrams — `node`, `edge-arrow`, `label`, `stat-callout`, `timeline-segment` — living on any Surface, positioned explicitly (schema + GUI drag), revealed with stroke-draw + **Cascade** choreography, and reflowed through optional **Orientation geometry overrides**. Edge _route_ is authored geometry; edge _stroke_ is appearance (Pack-resolved Role). A map is a **composition** (primitives over an image substrate), not a primitive. Explicitly _not_ auto-layout: mermaid was rejected as the model (auto-layout reads as documentation, not documentary); at most a future compile-into-primitives authoring shortcut. Shipped in [ADR-0036](adr/0036-diagram-primitives.md).
 _Avoid_: chart Block (underspecified), mermaid Block (auto-layout is not the model), infographic, map primitive (a map is a composition, not a type).
 
 ### Pack model
@@ -158,7 +166,7 @@ A choreographed motion applied to a single text slot (`surface.content.title`, `
 _Avoid_: text effect (collides with **Effect (text)** below), text mark (collides with **Mark**).
 
 **Effect (text)**:
-One entry in `TEXT_EFFECT_CATALOG`, vendored from `pixel-point/animate-text` (e.g. `soft-blur-in`, `kinetic-center-build`, `fade-through`, `typewriter`). Identified by `effect` on a **TextAnimation** entry. Disjoint from the composition-wide post-process **Effect** Layer — same word, different concept. Source vocabulary is always qualified (`TextEffectSpec`, `TextEffectId`, `TextEffectPhase`, `compileTextAnimation`); in prose, write _text effect_ or _post-process Effect_ where ambiguous.
+One entry in `TEXT_EFFECT_CATALOG`, vendored from `pixel-point/animate-text` (e.g. `soft-blur-in`, `kinetic-center-build`, `fade-through`, `typewriter`). Identified by `effect` on a **TextAnimation** entry. Disjoint from the composition-wide **Effect** Layer — same word, different concept. Source vocabulary is always qualified (`TextEffectSpec`, `TextEffectId`, `TextEffectPhase`, `compileTextAnimation`); in prose, write _text effect_, _post-process Effect_, or _composition-owned Effect_ where ambiguous.
 _Avoid_: text animation (broader; an Effect is a catalog id, an animation is the configured instance).
 
 **Split mode**:
@@ -209,7 +217,7 @@ The named-observation format every R-rule check must follow — pixel coordinate
 
 ## Relationships
 
-- A **Preset** declares one **Surface**, its **Blocks**, zero or more **Annotations** on those Blocks, zero or more **Overlays**, and one flat list of zero or more composition-wide post-process **Effects**.
+- A **Preset** declares one **Surface**, its **Blocks**, zero or more **Annotations** on those Blocks, zero or more **Overlays**, and one flat `effects[]` list. Registry ownership determines whether each list entry changes branch dispatch or runs in the final post-process chain; optional `transition.effect` names the distinct two-snapshot transition lane.
 - Every **Mark** is an **Annotation**; not every **Annotation** is a **Mark**.
 - A **Pipeline** belongs to exactly one **Layer** and one variant; the **Registry** is the union of all Pipelines.
 - A **Brainstorm** agent writes a **Brief**; a **Producer** authors from it; a **Critic** verifies the result. The three are never the same agent invocation.
@@ -231,5 +239,5 @@ The named-observation format every R-rule check must follow — pixel coordinate
 - **"layer"** was used loosely for any z-stacked element. Resolved: **Layer** refers specifically to one of the five composition layers, each with its own Pipeline type and Registry section.
 - **"surface"** vs **"substrate"** were used interchangeably. Resolved: **Surface** is the renderer; **Substrate** is the material it claims.
 - **"chrome"** was used both for the channel's signature elements and for any layered Overlay. Resolved: **Channel chrome** is the specific channel-identity subset; **Overlay** is the general Layer.
-- **Pack scope (appearance vs motion)** was unresolved — the code put some motion (`enterMotion`, `bodyEnter`, `focalMotion`) into Pack Roles while treating motion-form as intrinsic, leaving the seam undrawn. Resolved: a **Pack is appearance-only**; all motion (form, timing, easing) is intrinsic to the **Preset**/**Pipeline**. The motion Roles are to be removed and made `implementation`-declared.
+- **Pack scope (appearance vs motion)** was unresolved — the code put some motion (`enterMotion`, `bodyEnter`, `focalMotion`) into Pack Roles while treating motion-form as intrinsic, leaving the seam undrawn. Resolved and shipped: a **Pack is appearance-only**; all motion (form, timing, easing) is intrinsic to the **Preset**/**Pipeline**, and the former motion Roles were removed in favor of `implementation`-declared identity dimensions.
 - **Pack wiring is live.** Color and font Roles reach pixels through `resolveAppearanceVars`; `resolveDepthTreatment` drives hard-offset or glow depth; `resolveEdgeTreatment` drives the shared silhouette ShaderPass; `resolveLightTreatment` drives the depth stage's scene key light; and `resolveMaterialTreatment` drives the shared alpha-masked CRT scanline ShaderPass. All use typed, resolver-recognized values; the old generic `resolveStyle` / `resolveRole` accessors are gone. `PACK_IMMUNE_PIPELINE_KEYS` is the complete runtime-derived authority for faithful artifacts; do not copy a concrete immunity list into guidance.

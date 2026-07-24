@@ -25,7 +25,8 @@ const TITLE_OVERRIDES: Record<string, string> = {
 	'briefs/README.md': 'Writing a Brief',
 	'packs/syntax/aesthetic.md': 'Syntax',
 	'packs/crt-terminal/aesthetic.md': 'CRT Terminal',
-	'packs/editorial-mono/aesthetic.md': 'Editorial Mono'
+	'packs/editorial-mono/aesthetic.md': 'Editorial Mono',
+	'packs/clean-light/aesthetic.md': 'Clean Light'
 };
 
 export interface DocMeta {
@@ -94,7 +95,7 @@ function buildNav(): NavSection[] {
 	const adrs = listDir('adr', (n) => n !== 'README.md');
 	const briefs = listDir('briefs', (n) => n !== 'README.md');
 	const ideas = listDir('ideas');
-	const packs = ['packs/syntax', 'packs/crt-terminal', 'packs/editorial-mono']
+	const packs = ['packs/syntax', 'packs/crt-terminal', 'packs/editorial-mono', 'packs/clean-light']
 		.flatMap((dir) => listDir(dir));
 
 	const plan: Array<{ label: string; files: string[] }> = [

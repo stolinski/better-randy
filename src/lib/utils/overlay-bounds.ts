@@ -1,4 +1,7 @@
-import type { Overlay, OverlayPosition } from '$lib/platform/engine-schema';
+import type { Overlay, OverlayPlacement } from '$lib/platform/engine-schema';
+
+import { resolveOverlayPlacement } from './overlay-placement';
+import type { VideoOrientation } from './video-frame';
 
 export interface OverlayBoundsPx {
 	x: number;
@@ -28,7 +31,8 @@ export interface OverlayBoundsPx {
 export function measureOverlayBoundsPx(
 	overlay: Overlay,
 	compositionRoot: HTMLElement | null,
-	compositionSize: { width: number; height: number }
+	compositionSize: { width: number; height: number },
+	orientation: VideoOrientation
 ): OverlayBoundsPx {
 	if (compositionRoot) {
 		const overlayElement = compositionRoot.querySelector<HTMLElement>(
@@ -57,11 +61,14 @@ export function measureOverlayBoundsPx(
 		}
 	}
 
-	return estimateOverlayBoundsPx(overlay.position, compositionSize);
+	return estimateOverlayBoundsPx(
+		resolveOverlayPlacement(overlay.position, orientation),
+		compositionSize
+	);
 }
 
 function estimateOverlayBoundsPx(
-	position: OverlayPosition,
+	position: OverlayPlacement,
 	compositionSize: { width: number; height: number }
 ): OverlayBoundsPx {
 	const { anchor, offset, rect } = position;

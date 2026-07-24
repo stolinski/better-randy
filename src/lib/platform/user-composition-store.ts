@@ -1,4 +1,5 @@
 import type { Preset } from './engine-schema';
+import { parsePreset } from './preset';
 import { presetToWireFormat } from './preset-pure';
 
 export interface UserCompositionMeta {
@@ -20,8 +21,17 @@ export interface UserCompositionStore {
 
 const USER_COMPOSITION_API_BASE = '/api/user-compositions';
 
-function userCompositionFailureContext(response: Response): string {
-	return `${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+async function userCompositionFailureContext(response: Response): Promise<string> {
+	const status = `${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+	try {
+		const value: unknown = await response.json();
+		if (isRecord(value) && typeof value.message === 'string' && value.message.length > 0) {
+			return `${status}: ${value.message}`;
+		}
+	} catch {
+		// A status without a response body is still actionable.
+	}
+	return status;
 }
 
 async function readUserCompositionResponseJson(
@@ -66,10 +76,11 @@ function parseUserCompositionMetaList(value: unknown): UserCompositionMeta[] {
 
 function parseUserComposition(value: unknown, slug: string): Preset | null {
 	if (value === null) return null;
-	if (!isRecord(value) || value.schema !== 'supers@1' || !isRecord(value.state)) {
-		throw new TypeError(`Failed to load User composition "${slug}": invalid response`);
+	try {
+		return parsePreset(value);
+	} catch (cause) {
+		throw new TypeError(`Failed to load User composition "${slug}": invalid response`, { cause });
 	}
-	return value as unknown as Preset;
 }
 
 export const userCompositionStore: UserCompositionStore = {
@@ -77,7 +88,7 @@ export const userCompositionStore: UserCompositionStore = {
 		const response = await fetch(USER_COMPOSITION_API_BASE);
 		if (!response.ok) {
 			throw new Error(
-				`Failed to list User compositions: ${userCompositionFailureContext(response)}`
+				`Failed to list User compositions: ${await userCompositionFailureContext(response)}`
 			);
 		}
 		const value = await readUserCompositionResponseJson(
@@ -88,12 +99,10 @@ export const userCompositionStore: UserCompositionStore = {
 	},
 
 	async loadUserComposition(slug: string): Promise<Preset | null> {
-		const response = await fetch(
-			`${USER_COMPOSITION_API_BASE}/${encodeURIComponent(slug)}`
-		);
+		const response = await fetch(`${USER_COMPOSITION_API_BASE}/${encodeURIComponent(slug)}`);
 		if (!response.ok) {
 			throw new Error(
-				`Failed to load User composition "${slug}": ${userCompositionFailureContext(response)}`
+				`Failed to load User composition "${slug}": ${await userCompositionFailureContext(response)}`
 			);
 		}
 		const value = await readUserCompositionResponseJson(
@@ -115,37 +124,31 @@ export const userCompositionStore: UserCompositionStore = {
 		});
 		if (!response.ok) {
 			throw new Error(
-				`Failed to fork User composition "${slug}": ${userCompositionFailureContext(response)}`
+				`Failed to fork User composition "${slug}": ${await userCompositionFailureContext(response)}`
 			);
 		}
 	},
 
 	async saveUserComposition(slug: string, preset: Preset): Promise<void> {
-		const response = await fetch(
-			`${USER_COMPOSITION_API_BASE}/${encodeURIComponent(slug)}`,
-			{
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(presetToWireFormat(preset))
-			}
-		);
+		const response = await fetch(`${USER_COMPOSITION_API_BASE}/${encodeURIComponent(slug)}`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(presetToWireFormat(preset))
+		});
 		if (!response.ok) {
 			throw new Error(
-				`Failed to save User composition "${slug}": ${userCompositionFailureContext(response)}`
+				`Failed to save User composition "${slug}": ${await userCompositionFailureContext(response)}`
 			);
 		}
 	},
 
 	async deleteUserComposition(slug: string): Promise<void> {
-		const response = await fetch(
-			`${USER_COMPOSITION_API_BASE}/${encodeURIComponent(slug)}`,
-			{
-				method: 'DELETE'
-			}
-		);
+		const response = await fetch(`${USER_COMPOSITION_API_BASE}/${encodeURIComponent(slug)}`, {
+			method: 'DELETE'
+		});
 		if (!response.ok) {
 			throw new Error(
-				`Failed to delete User composition "${slug}": ${userCompositionFailureContext(response)}`
+				`Failed to delete User composition "${slug}": ${await userCompositionFailureContext(response)}`
 			);
 		}
 	}

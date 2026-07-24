@@ -57,7 +57,9 @@
 	import { TransitionSnapshotController } from './transition-snapshot-controller';
 	import type { SyncExportRequest } from './export-video';
 	import { AudioPreview } from './audio-preview';
+	import { resolveDiagramPrimitiveForRender } from '$lib/utils/diagram-geometry';
 	import { clampNumber } from '$lib/utils/math';
+	import { resolveOverlayPlacement } from '$lib/utils/overlay-placement';
 	import { isDarkSurfaceColor } from '$lib/utils/color';
 	import { exposeVisualAudit } from './runtime-audit';
 	import { captureCanvasWebp } from '$lib/utils/canvas-capture';
@@ -342,10 +344,13 @@
 	// Channel-owned primitives render fully drawn at their authored opacity
 	// (ownership replaces the draw-on form).
 	function buildDiagramInputs(): SurfaceRenderInputs['diagram'] {
-		const primitives = engineState.surface.diagram;
-		if (!primitives || primitives.length === 0) {
+		const authoredPrimitives = engineState.surface.diagram;
+		if (!authoredPrimitives || authoredPrimitives.length === 0) {
 			return undefined;
 		}
+		const primitives = authoredPrimitives.map((primitive) =>
+			resolveDiagramPrimitiveForRender(primitive, engineState.transport.orientation)
+		);
 		const drawProgressById: Record<string, number> = {};
 		const alphaById: Record<string, number> = {};
 		for (const primitive of primitives) {
@@ -776,6 +781,7 @@
 		// windows are rescaled on a duration change (composition-timing) and would
 		// re-fire this on their own, but a pure-keyframe composition would not.
 		void engineState.transport.durationSeconds;
+		const activeOrientation = engineState.transport.orientation;
 
 		// --- Text animations (manifest tweens) ---
 		void engineState.textAnimations.length;
@@ -841,15 +847,17 @@
 			void overlay.content;
 			// Spatial position (canvas drag + scale, and the inspector's anchor/offset
 			// fields) — a change here must repaint so the overlay moves live.
-			void overlay.position.anchor;
-			void overlay.position.offset?.x;
-			void overlay.position.offset?.y;
-			void overlay.position.rect?.x;
-			void overlay.position.rect?.y;
-			void overlay.position.rect?.width;
-			void overlay.position.rect?.height;
-			void overlay.position.scale;
-			void overlay.position.rotation;
+			void overlay.position.orientationOverrides?.[activeOrientation];
+			const placement = resolveOverlayPlacement(overlay.position, activeOrientation);
+			void placement.anchor;
+			void placement.offset?.x;
+			void placement.offset?.y;
+			void placement.rect?.x;
+			void placement.rect?.y;
+			void placement.rect?.width;
+			void placement.rect?.height;
+			void placement.scale;
+			void placement.rotation;
 			// Overlay enter/exit timing + ease (the unified clip bar drags).
 			void overlay.enter?.start;
 			void overlay.enter?.duration;
@@ -891,13 +899,10 @@
 		void engineState.effects.length;
 		for (const entry of engineState.effects) {
 			void entry.type;
-			// Effect Editors mutate params fields in place (bind on nested values),
-			// so subscribe to every field — a read of the object reference alone
-			// leaves the canvas stale until the next timeline tick.
+			// Effect Editors mutate nested region and melt params in place, so deep-read
+			// the full object; its reference alone leaves the canvas stale.
 			if (entry.params && typeof entry.params === 'object') {
-				for (const value of Object.values(entry.params)) {
-					void value;
-				}
+				void JSON.stringify(entry.params);
 			}
 		}
 		void engineState.backgroundFill;

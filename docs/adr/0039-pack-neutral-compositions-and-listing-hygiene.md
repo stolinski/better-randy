@@ -1,6 +1,13 @@
 # ADR-0039 — Pack-neutral compositions and preset listing hygiene
 
-> **Status — Accepted (Scott, 2026-07-13).** Decided during the clean-light calibration session, triggered by the `server-renders-again` pack-flip verdict: "it doesn't change meaningfully and all packs look bad here."
+## Status
+
+**Canon policy, partially built; some mechanisms remain designed, not built.** Accepted by Scott on 2026-07-13 during the Clean Light calibration session.
+
+- **Built:** Pack-neutral/listing policy, orientation-duplicate pruning, orientation-responsive Overlay placement and Diagram geometry, Pack-routable paper grain, fixture-only calibration/reflow proofs, and anamorphic-flare removal.
+- **Designed, not built:** partial paper-document immunity, `backgroundFill: "pack"`, and Pack-picked Pipeline variants.
+- **Superseded:** Pack sound-kit resolution in §3 was replaced by ADR-0033's engine defaults plus per-motion overrides.
+- **Still converging:** remaining Pack-suffix fixture folding and the human-scale Pack-matrix sweep are tracked in Dex; their policy is Canon, but completion must not be inferred from this ADR.
 
 ## Context
 
@@ -32,6 +39,8 @@ Two audits landed together:
 
 4. **One preset per composition across orientations.** Orientation is a transport dial. An `-vertical`/`-horizontal` file may exist **only** for a real recomposition (the four docu-diagram pieces qualify — per-orientation diagram coordinates are authored content, until responsive diagram layout exists). The 13 byte-identical duplicates are deleted now. _Amended same-day (Scott):_ the two "3-diff nudge" pairs (instagram-follow, youtube-subscribe) turned out to encode the **platform safe-area placement rule** — horizontal anchors bottom-left (YouTube lower-third position), vertical anchors bottom-center raised (above TikTok/Reels UI chrome). They are kept as recompositions — **but Scott rules the need for them a system failure, not an acceptable state**: the reflow story promises one composition across targets with platform safe-areas, and an overlay placement that must be re-authored per orientation means the engine has no safe-area placement model. The two files are a stopgap; the wanted state is orientation-responsive placement (roadmap 🧭). Any new creator block needing a duplicate pair re-raises this immediately.
 
+   _Placement amendment (2026-07-24, Scott):_ orientation-responsive authored placement remains explicit geometry, not a semantic named-slot system. Each Overlay has one shared placement fallback and may carry complete horizontal and/or vertical placement snapshots inside the same Preset. Each Diagram primitive applies the same policy through type-specific geometry snapshots: position + scale for nodes/labels/stats, endpoints + route + control for edges, and both endpoints for timeline segments. Partial field inheritance is rejected because mixed geometry becomes ambiguous. In the GUI, edits remain shared until the author explicitly enables **Customize horizontal** or **Customize vertical**; enabling copies the currently resolved geometry into that orientation, disabling deletes it and immediately returns to the shared fallback. Rendering, animation-channel seeds/deltas, direct manipulation, and static lint all consume geometry resolved for the active transport orientation. Safe areas are validation only: authored geometry remains exact and the engine never clamps or mutates it.
+
 5. **The pixel-diff lock keeps its job and loses the overclaim.** It is a floor against silent no-op packs — never a meaningfulness gate. The meaningfulness gate is the Calibration Trio, ratified live.
 
 6. _Amended same-day (Scott)._ **Listing admission: materially different or it doesn't ship.** A new preset enters the listing only if it is materially different from every existing piece — a new register, composition language, or content domain. A re-dress, re-text, re-orientation, or feature demo is not a new piece: pack flips are the dial, feature proofs are `kind: "fixture"`. And the pack-neutral bar is affirmative, not just structural: **every listed preset must _look good_ under every catalog pack** — verified by a pack-matrix render sweep (every deliverable × every pack, judged at human scale), not just the pixel-diff lock.
@@ -44,4 +53,4 @@ Two audits landed together:
 - Partial substrate immunity is new registry machinery (an Identity-Spec-level split of immune body vs claimable chrome slots) and shrinks the pack surface on the highest-traffic document surfaces — the pack-diff lock's newspaper row will measure chrome-only deltas once it lands.
 - `server-renders-again` stays an editorial-mono showcase until retired/re-authored under the pack-neutral bar; it stops being cited as a pack-system verdict.
 - Historical ADRs/briefs that name deleted `-vertical` deliverables (`0030`, imessage-friday-deploy brief) remain accurate as point-in-time records; the canonical deliverable is the base preset flipped live.
-- Docu-diagram vertical files remain the honest exception until responsive diagram layout is designed (not scheduled by this ADR).
+- The Instagram, YouTube, and four docu-diagram orientation siblings folded into their canonical Presets once complete orientation snapshots shipped; orientation-suffix deliverables are no longer an accepted exception.

@@ -1,5 +1,9 @@
 # Q-rule anti-patterns from "banned" to "loadbearing when claimed"
 
+## Status
+
+**Canon.**
+
 The Q-rule anti-pattern list in `docs/quality-rubric.md` bans several moves that are essential to film-grade compositing: lens flares, chromatic aberration, bloom, light leaks ("camera artifacts on a non-camera surface"); drop-shadow stacking ("signals Figma's default elevation system"); full-frame gradient washes ("imply a light source that doesn't match the surface light"); bevel / emboss / inner-glow on type or marks. These bans were written to defend against PowerPoint-grade motion design and they succeed at that defense — but they also reject the exact moves that an Identity Spec (ADR-0015) requires when a Pipeline claims a real material or a real tool. Ink-bleed-at-edges on an aged-newsprint Surface *is* chromatic offset. Edge-occlusion-shadow on a torn-paper Collage card *is* a multi-zone darker layer sitting beneath a softer one. Atmospheric haze on a photographic substrate *is* a localized gradient wash. Either the Identity Specs are wrong (they're not — they describe the dimensions of real materials and real tools) or the anti-patterns are over-pruning (they are — they ban moves outright rather than teach when the moves earn their place). We rewrite the anti-patterns from "banned" to "loadbearing when claimed by an Identity Spec dimension." A drop-shadow stack applied to an Overlay whose Identity Spec doesn't claim a depth-treatment dimension is still rejected as PowerPoint chrome; the same stack applied to a Surface whose `material`-kind Identity Spec claims `edge-occlusion-shadow` is the implementation of that dimension and passes. The rubric's job becomes teaching the *condition* under which a move earns its place, not banning the move.
 
 ## Considered options

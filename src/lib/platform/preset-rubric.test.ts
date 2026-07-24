@@ -17,7 +17,7 @@ registerHooks({
 
 // Dynamic import: a static one is hoisted above `registerHooks`, so the css
 // chain would load before the stub exists.
-const { lintPreset } = await import('./preset-rubric.ts');
+const { lintPreset, lintPresetVisual } = await import('./preset-rubric.ts');
 type RubricIssue = import('./preset-rubric.ts').RubricIssue;
 type Preset = import('./engine-schema.ts').Preset;
 
@@ -60,6 +60,72 @@ function rules(issues: RubricIssue[]): string[] {
 }
 
 describe('preset rubric', () => {
+	it('validates resolved orientation placement without clamping authored geometry', () => {
+		const preset = makePreset({
+			overlays: [
+				{
+					type: 'instagram-follow',
+					id: 'follow',
+					content: {},
+					position: {
+						anchor: 'bottom-left',
+						offset: { x: 0.06, y: 0.08 },
+						orientationOverrides: {
+							vertical: {
+								anchor: 'bottom-center',
+								offset: { x: 0, y: 0.1 }
+							}
+						}
+					}
+				}
+			]
+		});
+		preset.state.transport.orientation = 'vertical';
+
+		const issues = lintPreset(preset).filter((issue) => issue.rule === 'G2');
+
+		assert.equal(issues.length, 1);
+		assert.equal(issues[0].path, 'overlays[0].position.orientationOverrides.vertical.offset.y');
+		assert.equal(
+			preset.state.overlays[0].position.orientationOverrides?.vertical?.offset?.y,
+			0.1,
+			'validation never clamps authored placement'
+		);
+	});
+
+	it('validates resolved Diagram geometry without clamping authored points', () => {
+		const preset = makePreset({
+			surface: {
+				diagram: [
+					{
+						type: 'label',
+						id: 'headline',
+						position: { x: 0.5, y: 0.2 },
+						text: 'Headline',
+						orientationOverrides: {
+							vertical: { position: { x: 0.5, y: 0.02 }, scale: 1.5 }
+						}
+					}
+				]
+			}
+		});
+		preset.state.transport.orientation = 'vertical';
+
+		const issues = lintPreset(preset).filter((issue) => issue.rule === 'G2');
+
+		assert.equal(issues.length, 1);
+		assert.equal(
+			issues[0].path,
+			'surface.diagram[0].orientationOverrides.vertical.position'
+		);
+		const label = preset.state.surface.diagram?.[0];
+		assert.equal(
+			label?.type === 'label' ? label.orientationOverrides?.vertical?.position.y : undefined,
+			0.02,
+			'validation never clamps authored Diagram geometry'
+		);
+	});
+
 	it('accepts the website showcase top-edge plate relationship', () => {
 		const preset = makePreset({
 			surface: {
@@ -226,5 +292,46 @@ describe('preset rubric', () => {
 			const issues = lintPreset(cyclic);
 			assert.equal(issues.filter((issue) => issue.rule === 'A4').length, 1, 'cycle surfaces as A4');
 		}
+	});
+
+	it('excludes Diagram title and label bands from body density checks', () => {
+		const preset = makePreset({});
+		const issues = lintPresetVisual({
+			preset,
+			surface: {
+				cardRect: { x: 0, y: 0, width: 3840, height: 2160 },
+				visibleCardRect: { x: 0, y: 0, width: 3840, height: 2160 },
+				textBounds: { x: 400, y: 300, width: 900, height: 300 },
+				texts: [
+					{
+						role: 'title',
+						bandKey: 'surface-title',
+						capHeight: 60,
+						fontFamily: 'mono',
+						lineHeight: 1,
+						charsPerLine: 12,
+						lineCount: 1,
+						label: 'Diagram headline'
+					},
+					{
+						role: 'caption',
+						bandKey: 'surface-label',
+						capHeight: 24,
+						fontFamily: 'mono',
+						lineHeight: 1,
+						charsPerLine: 10,
+						lineCount: 1,
+						label: 'Diagram caption'
+					}
+				],
+				bleeds: false,
+				bleedLength: 0
+			}
+		});
+
+		assert.deepEqual(
+			issues.filter((issue) => issue.rule === 'G4-density'),
+			[]
+		);
 	});
 });

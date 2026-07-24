@@ -1,9 +1,9 @@
 // Warm the poster cache. Drives the flag-enabled Chrome (CanvasDrawElement) on
 // CDP port 9223 through every composition so the app's capture-on-view renders
-// and stores each one's poster in `.posters/`. Run at build/deploy time so a
-// cold visitor gets a fully-sharp gallery (each card its own render), not just
-// the committed surface-type defaults. Idempotent — already-stored posters are
-// skipped by capture-on-view.
+// and stores each one's poster in `.posters/`. This is an optional local prewarm
+// for a fully-sharp gallery (each card its own render), not a build/deploy step;
+// cold cards use the committed surface-type defaults. Idempotent — existing
+// content-hash entries are skipped by capture-on-view.
 import { readdirSync } from 'node:fs';
 
 const PORT = Number(process.env.CDP_PORT ?? 9223);

@@ -245,6 +245,87 @@ describe('engine schema', () => {
 			assert.ok(!result.success, 'rotation beyond ±360: expected failure');
 		}
 
+		{
+			const state = baseState();
+			const overlay = baseOverlay('responsive');
+			(overlay.position as Record<string, unknown>).orientationOverrides = {
+				vertical: {
+					anchor: 'bottom-center',
+					offset: { x: 0, y: 0.2 },
+					scale: 0.9,
+					rotation: 2
+				}
+			};
+			state.overlays = [overlay];
+			const result = EngineStateSchema.safeParse(state);
+			assert.ok(result.success, result.success ? '' : result.error.message);
+			assert.deepEqual(result.data.overlays[0].position.orientationOverrides?.vertical, {
+				anchor: 'bottom-center',
+				offset: { x: 0, y: 0.2 },
+				scale: 0.9,
+				rotation: 2
+			});
+
+			const incomplete = baseState();
+			const incompleteOverlay = baseOverlay('responsive');
+			(incompleteOverlay.position as Record<string, unknown>).orientationOverrides = {
+				vertical: { offset: { x: 0, y: 0.2 } }
+			};
+			incomplete.overlays = [incompleteOverlay];
+			expectIssue(incomplete, 'expected', 'orientation override requires a complete placement');
+		}
+
+		{
+			const state = baseState();
+			state.surface.diagram = [
+				{
+					type: 'node',
+					id: 'source',
+					position: { x: 0.2, y: 0.5 },
+					form: 'box',
+					orientationOverrides: {
+						vertical: { position: { x: 0.5, y: 0.25 }, scale: 1.2 }
+					}
+				},
+				{
+					type: 'edge-arrow',
+					id: 'path',
+					from: { node: 'source' },
+					to: { x: 0.8, y: 0.5 },
+					route: 'straight',
+					orientationOverrides: {
+						vertical: {
+							from: { node: 'source' },
+							to: { x: 0.5, y: 0.75 },
+							route: 'arc',
+							control: { x: 0.7, y: 0.5 }
+						}
+					}
+				}
+			];
+			expectValid(state, 'diagram orientation geometry snapshots');
+
+			const incomplete = structuredClone(state);
+			const node = (incomplete.surface.diagram as Record<string, unknown>[])[0];
+			node.orientationOverrides = { vertical: { scale: 1.2 } };
+			expectIssue(incomplete, 'expected', 'diagram override requires complete position geometry');
+
+			const badReference = structuredClone(state);
+			const edge = (badReference.surface.diagram as Record<string, unknown>[])[1];
+			edge.orientationOverrides = {
+				vertical: {
+					from: { node: 'missing' },
+					to: { x: 0.5, y: 0.75 },
+					route: 'straight'
+				}
+			};
+			expectIssue(
+				badReference,
+				'which is not a node primitive',
+				'diagram override validates node references'
+			);
+		}
+
 		// ── Cascade refs ───────────────────────────────────────────────────────────
 
 		{
@@ -389,5 +470,34 @@ describe('engine schema', () => {
 				`cycle message names the loop: ${cycleIssues[0].message}`
 			);
 		}
+	});
+
+	it('keeps Diagram label role optional without materializing a schema default', () => {
+		const state = baseState();
+		state.surface.diagram = [
+			{
+				type: 'label',
+				id: 'headline',
+				position: { x: 0.5, y: 0.2 },
+				text: 'Headline',
+				role: 'headline'
+			},
+			{
+				type: 'label',
+				id: 'legacy-caption',
+				position: { x: 0.5, y: 0.4 },
+				text: 'Caption'
+			}
+		];
+
+		const result = EngineStateSchema.safeParse(state);
+		assert.ok(result.success, result.success ? '' : result.error.message);
+		const diagram = result.data.surface.diagram ?? [];
+		assert.equal(diagram[0].type === 'label' ? diagram[0].role : undefined, 'headline');
+		assert.equal(diagram[1].type === 'label' ? diagram[1].role : undefined, undefined);
+
+		const invalid = structuredClone(state);
+		(invalid.surface.diagram as Record<string, unknown>[])[0].role = 'display';
+		expectIssue(invalid, 'Invalid option', 'invalid Diagram label role');
 	});
 });

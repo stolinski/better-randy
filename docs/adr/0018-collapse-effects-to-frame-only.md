@@ -1,5 +1,9 @@
 # Collapse `LayerEffectChain` to a single frame-level chain
 
+## Status
+
+**Canon, with an execution-class refinement.** The flat composition-wide `effects[]` list remains current. Ordinary entries run as post-process passes; composition-owned Effects such as `depth-of-field` alter branch dispatch before the remaining chain. The decision-time prose below predates that registry split.
+
 The `supers@1` schema modelled `effects` as a five-key object — `{ surface, body, annotations, overlays, frame }` — under the engine-architecture diagram (`engine-architecture.md` L317–363) where each composition Layer rendered to its own intermediate texture and that Layer's effect chain ran between Layers. The runtime never reached that shape: `Workspace.svelte`'s `renderAt` (L541–566) and `handleExport`'s `renderFrame` (L808–848) only feed `engineState.effects.frame` into `EffectChain.apply`. The other four keys accepted user input through the then-current global controls panel's `EFFECT_LAYERS` list and stored params in state, but no draw call consumed them. Two months of authoring produced 14 Presets; zero touched any non-`frame` key, and 12 left `effects` empty entirely. Meanwhile every concrete use case the architecture doc invoked for per-Layer chains migrated to a different route: substrate-intrinsic physics (newspaper halftone + ink bleed, future paper grain inside the card, future torn-edge fiber on collage cards) is carried by `SurfaceRenderer.shaderPass` / `OverlayRenderer.shaderPass` per ADR-0005, ADR-0008, ADR-0010 — per-Pipeline, declared by the renderer, not configured per-Preset. We collapsed the schema to `effects: Effect[]`. There is one composition-wide post-process chain, run after the final composite into the canvas. Per-target shader work — the load-bearing differentiator the channel aesthetic actually depends on — stays on `shaderPass` where it belongs.
 
 ## Considered options

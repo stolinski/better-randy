@@ -127,7 +127,7 @@ Gated on Phase 1 + Phase 2. Phase 3 ADRs should be signed before the Pipelines t
 
 **4.2 — `instance-stack` Block with 2 variants**
 - New folder `src/lib/pipelines/blocks/instance-stack/`.
-- `identity.ts`: graphic-kind. Intrinsic: motion-form (lag-window propagation). Via-pack: fill, edge, depth, light, frame-relationship.
+- `identity.ts`: graphic-kind. Intrinsic: motion-form (lag-window propagation) and frame-relationship. Via-pack: fill, edge, depth, light.
 - `variants/vertical-stack.ts`, `variants/horizontal-train.ts`.
 - One HTML-in-Canvas capture of the text slot; shader pass draws N transformed copies in one fragment pass; count + scale + offset are GPU-side.
 - Schema count cap: `count: z.number().int().min(2).max(40).default(9)`.
@@ -136,7 +136,7 @@ Gated on Phase 1 + Phase 2. Phase 3 ADRs should be signed before the Pipelines t
 
 **4.3 — `text-3d` Block with 1 variant**
 - New folder `src/lib/pipelines/blocks/text-3d/`.
-- `identity.ts`: graphic-kind. Intrinsic: depth-treatment (cylinder self-occlusion via depth buffer attached to text-3d's own render pass), light-treatment (per-fragment lighting), motion-form (axis rotation). Via-pack: fill, edge, frame-relationship.
+- `identity.ts`: graphic-kind. Intrinsic: depth-treatment (cylinder self-occlusion via depth buffer attached to text-3d's own render pass), light-treatment (per-fragment lighting), motion-form (axis rotation), and frame-relationship. Via-pack: fill and edge.
 - Depth is internal to text-3d's pipeline (depth buffer attached to its own render target). Output texture composites flat into the final frame — no engine z-plane dependency.
 - `variants/cylinder-axis-y.ts` only. Other geometry variants (`cylinder-axis-x`, `folded-card`) land via subsequent Briefs.
 - Verification Preset.

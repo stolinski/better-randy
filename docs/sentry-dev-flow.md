@@ -1,10 +1,10 @@
 # Sentry dev flow
 
-Supers reports errors, logs, and traces to Sentry (`scott-tolinski-projects/supers`) during local dev. Agents use the `sentry` CLI as the primary way to find and fix broken code — it sees every runtime error with stack, breadcrumbs, and trace context, which beats scraping the dev-server console or the browser log.
+Supers reports captured errors, logs, and traces to Sentry (`scott-tolinski-projects/supers`) during local dev when the relevant DSN is configured. Agents use the `sentry` CLI as the primary way to inspect reported failures with stack, breadcrumbs, and trace context, alongside the dev-server console and browser log for uncaptured or disabled-SDK cases.
 
 ## What is instrumented
 
-- **`src/hooks.server.ts`** — Sentry init + request tracing on every route (`sentryHandle`). Real SSR crashes flow through `handleErrorWithSentry`. Intentional `error(5xx)` HttpErrors (which never reach `handleError`) are captured explicitly with the response body. **4xx responses are logs, not issues** — an absent poster or fork is a signal, and turning it into an issue would recreate the console-noise problem in Sentry.
+- **`src/hooks.server.ts`** — Sentry init + request tracing on every route (`sentryHandle`). Unexpected SSR failures flow through `handleErrorWithSentry`; every resolved 5xx response is also promoted by `logErrorResponses` with a bounded response body, including intentional `error(5xx)` HttpErrors that never reach `handleError`. **4xx responses are logs, not issues** — an absent poster or fork is a signal, and turning it into an issue would recreate the console-noise problem in Sentry.
 - **`src/hooks.client.ts`** — browser error capture, pageload/navigation tracing, unhandled rejections.
 - **Both sides** run `consoleLoggingIntegration`: every existing `console.warn` / `console.error` call site is a structured Sentry log with no code changes.
 - DSN comes from `.env` (`SENTRY_DSN` server, `PUBLIC_SENTRY_DSN` client — same value). No DSN → the SDK is disabled and the app behaves identically; nothing in the codebase may *depend* on Sentry being up.

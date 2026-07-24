@@ -1,5 +1,9 @@
 # Time-driven `EffectPackContext` for `ShaderPass.packUniforms`
 
+## Status
+
+**Canon.**
+
 `ShaderPass<TContent>.packUniforms(target, bounds)` (declared in `src/lib/platform/pipelines/types.ts`, run per-frame by the `ShaderPassDispatcher` per ADR-0010) saw only the per-target content and the rect — the timeline-driven scrub state was not threaded in. This is the same gap [ADR-0012](0012-effect-pack-context-progress-timestamp.md) closed on the effect-chain side, mirrored here for the surface + overlay shader-pass layer. Without it, no `SurfaceRenderer.shaderPass` (ADR-0008) or `OverlayRenderer.shaderPass` (ADR-0005) could animate from a `u_time` / `u_progress` uniform — the calling convention every time-driven shaders.com / ShaderToy port expects. We resolved this by widening `packUniforms` to `packUniforms(target, bounds, ctx: EffectPackContext)`, lifting `EffectPackContext` (`{ progress, timestamp }`) out of the effect-chain section of `types.ts` into a shared declaration both contracts now reference, and plumbing the value from the scrub through `ShaderPassDispatcher.apply()` → the internal compiled-pass closure → each pass's `packUniforms`. The two call sites in `Workspace.svelte` (live `renderAt` and export `renderFrame`) now compute the timebase once per frame via the existing `effectChainTimebase(timestamp)` helper and pass the same `{ progress, timestamp }` object into both `shaderPassDispatcher.apply({..., ctx})` and `effectChain.apply({..., ...ctx})`, so the surface shader pass, every overlay shader pass, and every effect-chain effect see byte-identical timebase values for a given frame — preview and export agree end-to-end.
 
 ## Considered options

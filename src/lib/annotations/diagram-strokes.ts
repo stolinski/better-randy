@@ -374,12 +374,21 @@ function drawArrowhead(
 
 	context.save();
 	if (form === 'solid-triangle') {
-		context.fillStyle = getCanvasRgbColor(color, alpha);
+		const arrowheadColor = getCanvasRgbColor(color, alpha);
+		context.fillStyle = arrowheadColor;
 		context.beginPath();
 		context.moveTo(tip.x + tangent.x * lineWidth * 0.6, tip.y + tangent.y * lineWidth * 0.6);
 		context.lineTo(backX + normalX * spread, backY + normalY * spread);
 		context.lineTo(backX - normalX * spread, backY - normalY * spread);
 		context.closePath();
+		// Canvas fills can quantize a small triangle's diagonal boundary to hard
+		// stairsteps after HTML-in-Canvas upload. A thin sub-opaque under-stroke
+		// supplies a deterministic fractional-coverage fringe while the subsequent
+		// fill keeps the authored silhouette solid.
+		context.lineJoin = 'round';
+		context.lineWidth = Math.max(1.5, lineWidth * 0.3);
+		context.strokeStyle = getCanvasRgbColor(color, alpha * 0.55);
+		context.stroke();
 		context.fill();
 	} else {
 		context.lineCap = 'round';

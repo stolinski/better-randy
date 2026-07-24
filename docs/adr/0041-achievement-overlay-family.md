@@ -1,6 +1,9 @@
 # ADR-0041 — Achievement notifications as one Overlay family
 
-Status: **Canon (v1 built)**
+## Status
+
+**Canon (v1 built).**
+
 Date: 2026-07-15
 Builds on: [ADR-0020](0020-variants-as-data.md) (variants as data), [ADR-0023](0023-pack-is-appearance-only.md) (appearance-only Packs), [ADR-0033](0033-sound-design-motion-emitted-cues.md) (motion-emitted sound)
 

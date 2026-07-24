@@ -11,8 +11,16 @@
 		requestInspectorFocus
 	} from './selection.svelte';
 	import { createTimelineTrackId, type TimelineTrackIdentity } from './timeline-entity-identity';
+	import { resolveDiagramPrimitiveGeometry } from '$lib/utils/diagram-geometry';
 	import { clampNumber } from '$lib/utils/math';
-	import type { ChatMessage, ChecklistItem, DiagramPrimitive, Overlay } from './engine-schema';
+	import { resolveOverlayPlacement } from '$lib/utils/overlay-placement';
+	import type {
+		ChatMessage,
+		ChecklistItem,
+		DiagramPrimitive,
+		Overlay,
+		OverlayPlacement
+	} from './engine-schema';
 
 	interface Props {
 		compositionElement: HTMLElement | null;
@@ -156,13 +164,16 @@
 		// Subscribe to the overlay's position so the hit box re-measures after a drag
 		// or inspector edit moves it — getBoundingClientRect itself isn't reactive, so
 		// without these reads the box would stick to the overlay's original spot.
-		void overlay.position.anchor;
-		void overlay.position.offset?.x;
-		void overlay.position.offset?.y;
-		void overlay.position.rect?.x;
-		void overlay.position.rect?.y;
-		void overlay.position.scale;
-		void overlay.position.rotation;
+		const placement = resolveOverlayPlacement(overlay.position, engineState.transport.orientation);
+		void placement.anchor;
+		void placement.offset?.x;
+		void placement.offset?.y;
+		void placement.rect?.x;
+		void placement.rect?.y;
+		void placement.rect?.width;
+		void placement.rect?.height;
+		void placement.scale;
+		void placement.rotation;
 		const el = getOverlayEl(overlay);
 		if (!el) return null;
 		return projectRect(el, 'overlay');
@@ -208,7 +219,7 @@
 		event.preventDefault();
 		event.stopPropagation();
 		selectLayer(createTimelineTrackId({ kind: 'overlay', overlayId: overlay.id }));
-		const pos = overlay.position;
+		const pos = resolveOverlayPlacement(overlay.position, engineState.transport.orientation);
 		const isRect = pos.anchor === 'normalized-rect';
 		const measured = measureTopLeftFrac(overlay);
 		// Centre-family anchors ignore `offset` on their centred axis, so a drag
@@ -249,16 +260,18 @@
 		if (!comp) return;
 		const dx = comp.x - dragState.startCompX;
 		const dy = comp.y - dragState.startCompY;
+		const pos = resolveOverlayPlacement(overlay.position, engineState.transport.orientation);
 
 		// Ignore sub-pixel jitter so a plain click doesn't count as a drag (and so a
 		// center overlay isn't reanchored just by selecting it).
 		if (!dragState.moved) {
 			if (Math.abs(dx) < 0.0005 && Math.abs(dy) < 0.0005) return;
 			dragState.moved = true;
-			if (dragState.convertCenter) overlay.position.anchor = 'top-left';
+			if (dragState.convertCenter) {
+				pos.anchor = 'top-left';
+			}
 		}
 
-		const pos = overlay.position;
 		if (dragState.mode === 'rect') {
 			if (!pos.rect) return;
 			pos.rect.x = clampNumber(dragState.originX + dx, 0, 1);
@@ -304,7 +317,7 @@
 	/** Corner of the overlay box that an anchor pins (matches OverlayMount's
 	 *  anchorOrigin); the scale grows from there. */
 	function anchorPoint(
-		anchor: Overlay['position']['anchor'],
+		anchor: OverlayPlacement['anchor'],
 		rect: DOMRect
 	): { x: number; y: number } {
 		const x =
@@ -332,10 +345,8 @@
 		// is in the composition's native-4K space, so measure the hit box, not the el.
 		const hitEl = (event.currentTarget as HTMLElement).closest<HTMLElement>('.overlay-hit');
 		if (!hitEl) return;
-		const { x: anchorX, y: anchorY } = anchorPoint(
-			overlay.position.anchor,
-			hitEl.getBoundingClientRect()
-		);
+		const placement = resolveOverlayPlacement(overlay.position, engineState.transport.orientation);
+		const { x: anchorX, y: anchorY } = anchorPoint(placement.anchor, hitEl.getBoundingClientRect());
 		const d0 = Math.hypot(event.clientX - anchorX, event.clientY - anchorY);
 		if (d0 < 4) return; // grabbed essentially at the anchor — no scale axis
 		scaleState = {
@@ -343,7 +354,7 @@
 			anchorX,
 			anchorY,
 			d0,
-			scaleOrigin: overlay.position.scale ?? 1
+			scaleOrigin: placement.scale ?? 1
 		};
 		if (typeof window !== 'undefined') {
 			window.addEventListener('pointermove', onScaleMove);
@@ -356,7 +367,8 @@
 		const overlay = engineState.overlays.find((o) => o.id === scaleState!.overlayId);
 		if (!overlay) return;
 		const d1 = Math.hypot(event.clientX - scaleState.anchorX, event.clientY - scaleState.anchorY);
-		overlay.position.scale = clampNumber((scaleState.scaleOrigin * d1) / scaleState.d0, 0.1, 8);
+		resolveOverlayPlacement(overlay.position, engineState.transport.orientation).scale =
+			clampNumber((scaleState.scaleOrigin * d1) / scaleState.d0, 0.1, 8);
 	}
 
 	function onScaleEnd(): void {
@@ -393,16 +405,14 @@
 		selectLayer(createTimelineTrackId({ kind: 'overlay', overlayId: overlay.id }));
 		const hitEl = (event.currentTarget as HTMLElement).closest<HTMLElement>('.overlay-hit');
 		if (!hitEl) return;
-		const { x: anchorX, y: anchorY } = anchorPoint(
-			overlay.position.anchor,
-			hitEl.getBoundingClientRect()
-		);
+		const placement = resolveOverlayPlacement(overlay.position, engineState.transport.orientation);
+		const { x: anchorX, y: anchorY } = anchorPoint(placement.anchor, hitEl.getBoundingClientRect());
 		rotateState = {
 			overlayId: overlay.id,
 			anchorX,
 			anchorY,
 			angle0: pointerAngle(event, anchorX, anchorY),
-			rotationOrigin: overlay.position.rotation ?? 0
+			rotationOrigin: placement.rotation ?? 0
 		};
 		if (typeof window !== 'undefined') {
 			window.addEventListener('pointermove', onRotateMove);
@@ -418,7 +428,8 @@
 		// Take the short way around so crossing the ±180° seam doesn't jump.
 		if (delta > 180) delta -= 360;
 		if (delta < -180) delta += 360;
-		overlay.position.rotation = clampNumber(rotateState.rotationOrigin + delta, -360, 360);
+		resolveOverlayPlacement(overlay.position, engineState.transport.orientation).rotation =
+			clampNumber(rotateState.rotationOrigin + delta, -360, 360);
 	}
 
 	function onRotateEnd(): void {
@@ -457,16 +468,30 @@
 	): { left: number; top: number; width: number; height: number } | null {
 		// Subscribe to the authored geometry so the hit box re-measures after a
 		// drag or inspector edit (getBoundingClientRect isn't reactive).
-		if ('position' in primitive) {
-			void primitive.position.x;
-			void primitive.position.y;
-		}
-		if ('from' in primitive && typeof primitive.from === 'object') {
-			void JSON.stringify(primitive.from);
-			void JSON.stringify(primitive.to);
-		}
-		if ('scale' in primitive) {
-			void primitive.scale;
+		switch (primitive.type) {
+			case 'node':
+			case 'label':
+			case 'stat-callout': {
+				const geometry = resolveDiagramPrimitiveGeometry(
+					primitive,
+					engineState.transport.orientation
+				);
+				void geometry.position.x;
+				void geometry.position.y;
+				void geometry.scale;
+				break;
+			}
+			case 'timeline-segment': {
+				const geometry = resolveDiagramPrimitiveGeometry(
+					primitive,
+					engineState.transport.orientation
+				);
+				void JSON.stringify(geometry.from);
+				void JSON.stringify(geometry.to);
+				break;
+			}
+			case 'edge-arrow':
+				break;
 		}
 		const el = compositionElement?.querySelector<HTMLElement>(
 			`[data-diagram-primitive="${primitive.id}"]`
@@ -492,15 +517,40 @@
 		event.stopPropagation();
 		selectLayer(createTimelineTrackId({ kind: 'block', blockId: primitive.id }));
 		const points: BlockDragState['points'] = [];
-		if ('position' in primitive) {
-			points.push({
-				point: primitive.position,
-				originX: primitive.position.x,
-				originY: primitive.position.y
-			});
-		} else if (primitive.type === 'timeline-segment') {
-			points.push({ point: primitive.from, originX: primitive.from.x, originY: primitive.from.y });
-			points.push({ point: primitive.to, originX: primitive.to.x, originY: primitive.to.y });
+		switch (primitive.type) {
+			case 'node':
+			case 'label':
+			case 'stat-callout': {
+				const geometry = resolveDiagramPrimitiveGeometry(
+					primitive,
+					engineState.transport.orientation
+				);
+				points.push({
+					point: geometry.position,
+					originX: geometry.position.x,
+					originY: geometry.position.y
+				});
+				break;
+			}
+			case 'timeline-segment': {
+				const geometry = resolveDiagramPrimitiveGeometry(
+					primitive,
+					engineState.transport.orientation
+				);
+				points.push({
+					point: geometry.from,
+					originX: geometry.from.x,
+					originY: geometry.from.y
+				});
+				points.push({
+					point: geometry.to,
+					originX: geometry.to.x,
+					originY: geometry.to.y
+				});
+				break;
+			}
+			case 'edge-arrow':
+				break;
 		}
 		if (points.length === 0) return;
 		const startComp = pointerToComp(event.clientX, event.clientY, 'surface');
@@ -841,6 +891,10 @@
 	{/each}
 	{#each engineState.overlays as overlay (overlay.id)}
 		{@const rect = overlayRelRect(overlay)}
+		{@const placement = resolveOverlayPlacement(
+			overlay.position,
+			engineState.transport.orientation
+		)}
 		{#if rect && rect.width > 0}
 			{@const isSelected = isTrackSelected({ kind: 'overlay', overlayId: overlay.id })}
 			<div
@@ -865,7 +919,7 @@
 						aria-label="Rotate {overlay.type}"
 						onpointerdown={(e) => onRotateStart(e, overlay)}
 					></button>
-					{#if showHandle('nw', overlay.position.anchor)}
+					{#if showHandle('nw', placement.anchor)}
 						<button
 							class="overlay-hit__handle overlay-hit__handle--nw"
 							type="button"
@@ -873,7 +927,7 @@
 							onpointerdown={(e) => onScaleStart(e, overlay)}
 						></button>
 					{/if}
-					{#if showHandle('ne', overlay.position.anchor)}
+					{#if showHandle('ne', placement.anchor)}
 						<button
 							class="overlay-hit__handle overlay-hit__handle--ne"
 							type="button"
@@ -881,7 +935,7 @@
 							onpointerdown={(e) => onScaleStart(e, overlay)}
 						></button>
 					{/if}
-					{#if showHandle('sw', overlay.position.anchor)}
+					{#if showHandle('sw', placement.anchor)}
 						<button
 							class="overlay-hit__handle overlay-hit__handle--sw"
 							type="button"
@@ -889,7 +943,7 @@
 							onpointerdown={(e) => onScaleStart(e, overlay)}
 						></button>
 					{/if}
-					{#if showHandle('se', overlay.position.anchor)}
+					{#if showHandle('se', placement.anchor)}
 						<button
 							class="overlay-hit__handle overlay-hit__handle--se"
 							type="button"

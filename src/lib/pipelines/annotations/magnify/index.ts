@@ -16,13 +16,10 @@ export const magnifyAnnotationRenderer: AnnotationRenderer = {
 	style: 'magnify',
 	kind: 'focal',
 	appliesTo: ['paragraph'],
-	// The lens is sized off ONE LINE of text, not the bounding box of a
-	// wrapped multi-line span. A real magnifier is a fixed-size lens; you
-	// don't stretch a magnifier to cover a paragraph. When the magnified
-	// span wraps to several lines, the lens anchors on the middle
-	// fragment and its width is capped at ~4.5× line-height. For long
-	// spans the user sees the middle portion magnified — exactly what a
-	// real magnifier shows when held over long text.
+	// The lens is sized from one representative line, not stretched across a
+	// wrapped paragraph. Short phrases receive a circular inspection lens;
+	// longer lines receive a bounded rounded rectangle so the focal words stay
+	// readable without turning the whole paragraph into a glass plate.
 	//
 	// Reveal envelope uses exponential easing rather than smoothstep:
 	// snap in over the first 10% of the bar, hold at full scale for 80%,
@@ -30,23 +27,32 @@ export const magnifyAnnotationRenderer: AnnotationRenderer = {
 	// concentrated at the bar edges, so visually the lens "is present
 	// while the bar is on screen" with smooth bookends, rather than
 	// being mid-fade for a full 15% on each side.
-	computeFocalSlot({ canvasHeight, canvasWidth, layout, progress }): AnnotationFocalSlot {
+	computeFocalSlot({ canvasHeight, canvasWidth, color, intensity, layout, progress }): AnnotationFocalSlot {
 		const fragments = layout.fragments.length > 0 ? layout.fragments : [layout.bounds];
 		const midIdx = Math.min(Math.floor(fragments.length / 2), fragments.length - 1);
 		const anchor = fragments[midIdx] ?? layout.bounds;
 
 		const lineHeight = anchor.height;
-		const widthCap = lineHeight * 4.5;
-		const lensWidth = Math.min(anchor.width + lineHeight * 1.2, widthCap);
-		const lensHeight = lineHeight;
-		const lensCenterX = anchor.x + anchor.width / 2;
-		const lensCenterY = anchor.y + anchor.height / 2;
+		const hasMultipleLines = fragments.length > 1;
+		const focalBounds = hasMultipleLines ? layout.bounds : anchor;
+		const isCircular = !hasMultipleLines && focalBounds.width <= lineHeight * 2.4;
+		const circularDiameter = lineHeight * 7;
+		const lensWidth = isCircular
+			? circularDiameter
+			: Math.min(Math.max(focalBounds.width + lineHeight * 3, lineHeight * 10), lineHeight * 14);
+		const lensHeight = isCircular
+			? circularDiameter
+			: Math.min(Math.max(focalBounds.height + lineHeight * 2.5, lineHeight * 6.5), lineHeight * 8);
+		const lensCenterX = focalBounds.x + focalBounds.width / 2;
+		const lensCenterY = focalBounds.y + focalBounds.height / 2;
 
 		const enterT = Math.max(0, Math.min(1, progress / 0.10));
 		const exitT = Math.max(0, Math.min(1, (progress - 0.90) / 0.10));
 		const fadeIn = easeOutExpo(enterT);
 		const fadeOut = 1 - easeInExpo(exitT);
 		const reveal = fadeIn * fadeOut;
+		const inspectionRipple = Math.max(0, Math.min(1, (progress - 0.08) / 0.34));
+		const safeIntensity = Math.max(0, Math.min(1, intensity));
 
 		return {
 			style: 'magnify',
@@ -56,8 +62,12 @@ export const magnifyAnnotationRenderer: AnnotationRenderer = {
 				width: lensWidth / canvasWidth,
 				height: lensHeight / canvasHeight
 			},
-			magnify: 0.8 * reveal,
-			dim: 0,
+			magnify: (0.62 + safeIntensity * 0.26) * reveal,
+			dim: (0.42 + safeIntensity * 0.2) * reveal,
+			opticalColor: color,
+			opticalIntensity: safeIntensity,
+			opticalRipple: inspectionRipple,
+			opticalShape: isCircular ? 'circle' : 'rounded-rect',
 			tear: 0
 		};
 	}

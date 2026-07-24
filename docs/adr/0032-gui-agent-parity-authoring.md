@@ -1,6 +1,9 @@
 # ADR-0032 — GUI ↔ agent parity: local round-trip authoring on the shared Preset
 
-Status: **Built**
+## Status
+
+**Canon.** Fork/autosave persistence, create-from-blank, schema coverage, the three-zone authoring interface, standalone interchange, GUI validation/verification, shared agent store access, and deterministic automated rendering are shipped. Operational workflows are documented in [`user-composition-workflows.md`](../user-composition-workflows.md).
+
 Date: 2026-06-26
 Relates to: [ADR-0002](0002-per-tool-routes-to-preset-engine.md) (one preset engine), [ADR-0014](0014-pack-preset-split.md) / [ADR-0023](0023-pack-is-appearance-only.md) (Pack/Preset split, appearance-only), [ADR-0004](0004-recipe-cookbook-over-schema-chrome.md) (Starter templates), [ADR-0025](0025-static-linter-checks-safety-and-readability-only.md) (linter scope)
 
@@ -69,3 +72,5 @@ The whole model is template-centric, so **create-from-blank is a fast-follow** �
 - Tracked in dex; see [`roadmap.md`](../roadmap.md) § GUI ↔ agent parity.
 
 **Implementation note (2026-07-13).** The local persistence routes now run the same registry-derived semantic Preset validator as catalog loading and `parsePreset` on list/load/create/update. A schema-valid User composition with an unknown Pack, renderer, variant, Effect params, Stage, substrate, or broken text target is rejected before it is stored or reopened. This is artifact validity, not the deferred GUI linter/Critic surface in § Non-goals.
+
+**Operational parity note (2026-07-23).** Item GET/PUT now share one standalone wire-Preset contract; the GUI imports/exports that artifact and surfaces live schema/semantic/static-linter issues; Verify adds the current rendered visual audit; agents use the same API; and `scripts/supers.ts` drives serial render/batch jobs through the mounted Workspace's existing export controller and frame renderer.

@@ -1,5 +1,9 @@
 # Static preset linter checks video-safety + readability only; taste is Critic-judged
 
+## Status
+
+**Canon.**
+
 The static preset linter (`src/lib/platform/preset-rubric.ts`, run by `scripts/verify-presets.ts`) is scoped to **objective, JSON-computable video-safety and readability** — orientation-aware (vertical 2160×3840 and horizontal 3840×2160) — and hard-errors only on those. All **motion/aesthetic taste** (enter/exit feel, timing personality, stagger character) moves out of the linter into the G/Q rubric docs, judged by eye by the **Critic**.
 
 ## Context

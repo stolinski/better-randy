@@ -39,6 +39,7 @@
 		const currentSlug = slug;
 		if (!currentSlug) return;
 		loadError = false;
+		compositionMeta.persistenceError = null;
 
 		userCompositionStore
 			.loadUserComposition(currentSlug)
@@ -87,17 +88,29 @@
 			if (capturedIsUserComposition) {
 				userCompositionStore
 					.saveUserComposition(capturedSlug, serializedUserComposition)
-					.catch((err) => console.error('Autosave failed', err));
+					.then(() => {
+						compositionMeta.persistenceError = null;
+					})
+					.catch((error: unknown) => {
+						console.error('Autosave failed', error);
+						compositionMeta.persistenceError =
+							error instanceof Error ? error.message : 'Autosave failed.';
+					});
 			} else {
 				userCompositionStore
 					.forkUserComposition(capturedSlug, serializedUserComposition, capturedSlug)
 					.then(() => {
+						compositionMeta.persistenceError = null;
 						activeIsUserComposition = true;
 						compositionMeta.isUserComposition = true;
 						compositionMeta.forkedFrom = capturedSlug;
 						posterKey = posterKeyForPreset(serializedUserComposition);
 					})
-					.catch((err) => console.error('Fork failed', err));
+					.catch((error: unknown) => {
+						console.error('Fork failed', error);
+						compositionMeta.persistenceError =
+							error instanceof Error ? error.message : 'Fork failed.';
+					});
 			}
 		}, 500);
 
@@ -120,6 +133,7 @@
 		loadSnapshot = snapshotState();
 		compositionMeta.isUserComposition = false;
 		compositionMeta.forkedFrom = null;
+		compositionMeta.persistenceError = null;
 	}
 
 	$effect(() => {
@@ -129,9 +143,7 @@
 		};
 	});
 
-	const isKnown = $derived(
-		!!getPresetBySlug(slug) || compositionMeta.userCompositionSlug === slug
-	);
+	const isKnown = $derived(!!getPresetBySlug(slug) || compositionMeta.userCompositionSlug === slug);
 </script>
 
 {#if loadError}

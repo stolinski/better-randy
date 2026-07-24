@@ -57,11 +57,10 @@
 		filter: drop-shadow(0.04em 0.06em 0.05em rgba(20, 16, 8, 0.5));
 	}
 
-	/* Grain fibre stops ride the Pack's `washi-tape.grain-dark` / `grain-light`
-	   Roles (both registered Packs claim them). The fallbacks are documented
-	   NEUTRAL fallbacks — achromatic, alpha-only, near-invisible grain — for a
-	   Pack that makes no grain claim; they carry no chroma and can't leak a
-	   channel's palette. */
+	/* Grain fibre stops ride optional Pack `washi-tape.grain-dark` / `grain-light`
+	   Roles. Neutral fallbacks apply when the active Pack makes no grain claim:
+	   achromatic, alpha-only, near-invisible grain that carries no chroma and
+	   can't leak a channel's palette. */
 	.washi-tape__grain {
 		background:
 			repeating-linear-gradient(

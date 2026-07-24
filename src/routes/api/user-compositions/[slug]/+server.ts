@@ -68,7 +68,9 @@ export const GET: RequestHandler = async ({ params }) => {
 		error(500, `Corrupt preset data:\n${formatPresetSemanticIssues(semanticIssues)}`);
 	}
 
-	return json(result.data);
+	// The API is an interchange boundary: GET returns the same standalone wire
+	// format that PUT accepts, so agents can perform an unchanged GET/edit/PUT loop.
+	return json(presetToWireFormat(result.data));
 };
 
 export const PUT: RequestHandler = async ({ params, request }) => {

@@ -26,7 +26,7 @@ Distill the material into the pack's contract _before_ writing a manifest line:
 3. **Card/chrome system, proportioned to the ELEMENT.** Extract _ratios of the element_, not absolute pixels: border ≈ N% of card height, radius ≈ N%, shadow steps ≈ N%, padding ≈ N%. The first Syntax pass scaled 1080p values ×2 for the 4K frame and rendered hairline — chrome scales with the card it dresses, not the frame it sits in.
 4. **Motion grammar.** Which parts of the shared motion vocabulary the brand leans into and out of (Syntax: settled-place, stroke-draw, no gloss sweeps; CRT: sharp snaps, decay exits, "a machine does not wobble"). A Pack never adds motion — ADR-0023 — but the aesthetic doc must say which intrinsic moves read on-brand so Preset authors choose well.
 5. **Sound is outside the Pack contract.** Sound resolves through engine-default event samples plus per-motion `sound.event`, `sound.sample`, and `sound.mute` overrides. A Pack carries appearance only; do not encode a brand sound palette in its manifest or aesthetic contract.
-6. **Substrate ≠ chrome.** Found documents (tweets, newsprint, photos, iMessage) keep their own physics under every pack. Only what the _channel adds_ — cards, chips, lower-thirds, diagram strokes — wears the pack. Pack-immune pipelines (`PACK_IMMUNE_PIPELINE_KEYS`) never receive vars at all.
+6. **Substrate ≠ chrome.** Found artifacts keep their own physics only when their Pipeline's Identity Spec declares Pack immunity. Only what the _channel adds_ — cards, chips, lower-thirds, diagram strokes — should wear the Pack. `PACK_IMMUNE_PIPELINE_KEYS` is the complete runtime authority; never infer or copy its contents from substrate categories.
 7. **Capability ≠ brand membership.** The engine's features are not all this brand's features. A pack may rule a capability out of its aesthetic (CRT forbids tape) — but it still supplies **defensive values** for that capability's roles, so a re-skinned Preset that carries it anyway can't leak another pack's tones. Never curate the engine or the Critics to one pack (`docs/adr/` — the engine stays general).
 
 ## 3 — Author the artifacts
@@ -56,7 +56,7 @@ Run all three before any human review:
 
 The trio: **`docu-timeline-build`**, the **`lower-third` house card**, and **`type-hero-vantage`** — the three Scott-ratified references (task `7sshp8rj`). Re-dress _the same three compositions_ under the new pack:
 
-- Copy each reference preset to `<name>-<slug>.json` with the `pack` field flipped (the `*-crt.json` set is the precedent).
+- Copy each reference preset to `<name>-<slug>.json`, set `kind: "fixture"`, and flip the `pack` field. Calibration re-dresses stay directly loadable but never enter the Starter-template listing.
 - **Lift authored `typography.paperColor`/`inkColor` overrides that fight the pack** — ADR-0038 lets authored overrides legitimately win, so a re-dress must remove the ones that restate the old pack.
 - Re-dressing means **rebuilding the composition's language under the pack**, not repainting: check every voice, every piece of chrome, every treatment against the new aesthetic doc. Where a role can't express the brand, that's a role gap to add — not a preset hack.
 - Capture all three at native 4K, **look at the frames at human scale** (not just probe numbers), then iterate **live with Scott until ratified**. The ratified trio doubles as the pack's pack-switch demo.

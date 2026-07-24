@@ -1,8 +1,11 @@
 # ADR-0031 — iMessage: an interactive (choreographed) Surface
 
-Status: **Canon (v1 built)**
+## Status
+
+**Canon (v1 built).**
+
 Date: 2026-06-26
-Builds on: [ADR-0030](0030-web-document-emissive-surface.md) (per-site mocks, reused paper compositor), [ADR-0015](0015-identity-spec.md) (Identity Spec)
+Builds on: [ADR-0030](0030-web-document-emissive-surface.md) (per-site mocks, reused paper compositor), [ADR-0015](0015-identity-spec-per-pipeline.md) (Identity Spec)
 
 ## Context
 

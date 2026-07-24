@@ -20,11 +20,19 @@ describe('discoverability audit', () => {
 		const rules = result.violations.map((violation) => violation.rule);
 
 		assert.deepEqual(rules.toSorted(), [
+			'adr-index-status-mismatch',
 			'broken-active-guidance-link',
+			'broken-adr-link',
+			'broken-adr-link',
+			'broken-adr-link',
+			'broken-adr-link',
+			'broken-adr-link',
+			'broken-adr-link',
 			'canonical-terminology',
 			'complete-pack-immunity-guidance',
 			'export-orchestration-owner',
 			'implicit-authoring-pack',
+			'missing-adr-status',
 			'no-forwarding-re-export',
 			'no-forwarding-re-export',
 			'no-forwarding-re-export',
@@ -53,6 +61,7 @@ describe('discoverability audit', () => {
 			'stale-current-status',
 			'supported-export-codec',
 			'unmarked-historical-idea',
+			'unrecognized-adr-status',
 			'unregistered-brief-pack'
 		]);
 		for (const violation of result.violations) {
@@ -175,6 +184,37 @@ describe('discoverability audit', () => {
 					rule: 'unregistered-brief-pack'
 				},
 				{ file: 'docs/briefs/stale.md', line: 1, rule: 'required-brief-pack' }
+			]
+		);
+	});
+
+	it('requires numbered ADR status authority and valid local links', () => {
+		const result = auditDiscoverability({ root: resolve(fixturesRoot, 'violations') });
+		const selected = result.violations.filter((entry) =>
+			[
+				'missing-adr-status',
+				'broken-adr-link',
+				'adr-index-status-mismatch',
+				'unrecognized-adr-status'
+			].includes(entry.rule)
+		);
+
+		assert.deepEqual(
+			selected.map(({ file, line, rule }) => ({ file, line, rule })),
+			[
+				{ file: 'docs/adr/0002-missing-status.md', line: 1, rule: 'missing-adr-status' },
+				{ file: 'docs/adr/0002-missing-status.md', line: 3, rule: 'broken-adr-link' },
+				{ file: 'docs/adr/0002-missing-status.md', line: 4, rule: 'broken-adr-link' },
+				{ file: 'docs/adr/0002-missing-status.md', line: 5, rule: 'broken-adr-link' },
+				{ file: 'docs/adr/0002-missing-status.md', line: 6, rule: 'broken-adr-link' },
+				{ file: 'docs/adr/0002-missing-status.md', line: 7, rule: 'broken-adr-link' },
+				{
+					file: 'docs/adr/0003-index-mismatch.md',
+					line: 3,
+					rule: 'adr-index-status-mismatch'
+				},
+				{ file: 'docs/adr/0004-negated-status.md', line: 3, rule: 'unrecognized-adr-status' },
+				{ file: 'docs/adr/README.md', line: 8, rule: 'broken-adr-link' }
 			]
 		);
 	});

@@ -1,5 +1,9 @@
 # Depth-of-field v1 — multiplane bokeh, not a per-pixel depth target
 
+## Status
+
+**Canon.**
+
 > **Status — Canon (v1 implementation decision). Refines [ADR-0021](0021-z-plane-semantics.md).** ADR-0021's Z *semantics* stand: Z is a focal-distance scalar in [0, 1] (0 = in focus, 1 = max defocus), per-Layer defaults (Surface 0.0, Body 0.3, Annotation 0.5, Overlay 0.7), per-instance override gated [0, 1]. What this ADR revises is the *mechanism*: not "every Pipeline writes its z into a per-pixel depth target," but a **2.5D multiplane bokeh** render — capture the composition as a few depth planes, blur each by its circle-of-confusion with a bokeh kernel, composite back-to-front.
 
 ADR-0021 pinned a depth **target** written per-pixel by every contributing Pipeline, sampled by a `depth-of-field` Effect. That mechanism assumes separate per-Layer GPU passes. The real engine has none: `Composition.svelte` nests `SurfaceMount` *and* `OverlayMount` inside one `.composition` element, and the pipeline rasterizes that whole element into a **single flattened DOM texture** via `copyElementImageToTexture` — which captures colour only. There is no per-pixel depth to write or read; the depth-target mechanism does not survive contact with the architecture (the same way ADR-0022's live dual-tree didn't, resolved by [ADR-0026](0026-transitions-v1-snapshot-and-wipe.md)).

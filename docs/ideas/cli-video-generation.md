@@ -1,5 +1,7 @@
 # CLI Video Generation
 
+> **Implemented 2026-07-23.** `scripts/supers.ts` ships `render` and serial `batch` over the sanctioned CDP browser and the Workspace's existing export controller. Current usage and contracts live in [`../user-composition-workflows.md`](../user-composition-workflows.md); this file remains the design history.
+
 ## Pitch
 
 Generate Supers overlay videos from the command line. No browser, no clicking through controls. Point the CLI at a Preset and get back a transparent video file.

@@ -1,5 +1,9 @@
 # Web-document — the first emissive Surface (a website on a backlit display)
 
+## Status
+
+**Canon (v1 built).**
+
 > **Status — Canon (v1 built).** The `web-document` Surface ships its v1 Twitter/X mock: schema (`surface.type: 'web-document'`, top-level `site`, optional `avatarUrl`), the `TwitterMock` CanvasSource, the dark-surface highlight variant on the paper compositor, the emissive screen `shaderPass`, an Identity Spec with five implemented + probed dimensions, and two Critic-ACCEPTed deliverables (`web-document-twitter`, `web-document-twitter-vertical`). Phase 3 (Reddit + Wikipedia mocks, URL→content scraper) is **not** part of this ADR's delete-trigger; tracked in dex `dj3nyv17`.
 
 ## Context
@@ -34,11 +38,11 @@ Same transparency contract as the newspaper clipping: the site renders as a **ca
 
 ### Emissive optics are a shaderPass, not CSS
 
-A CSS `filter`/glow on the captured card pixelates the HTML-in-Canvas capture, so the emissive look is a single-pass surface `shaderPass` (`shader-passes/web-document-screen.ts`, pattern: `newspaper-physics`), run on the composited card between DOM upload and the effect chain ([ADR-0008](0008-surface-shaderpass.md) / [ADR-0010](0010-shaderpass-dispatch.md)). It carries the optical tells the paper compositor + CSS cannot: **subpixel emission** (per-column R/G/B stripe), **backlight bloom** (lit UI radiates a soft glow; the amber highlight sits below the bloom threshold by design so the hand-marked span stays crisp ink, not glowing UI), a **screen backlight floor + edge halo** (darkest pixels above true black; the panel's edge emission bleeds past the bezel into the transparent frame — *light comes OUT*), and **viewport-edge defocus** (the card boundary falls slightly out of focus, screen-behind-glass). No vignette, no occlusion shadow, no paper grain — emissive, not reflective.
+A CSS `filter`/glow on the captured card pixelates the HTML-in-Canvas capture, so the emissive look is a single-pass surface `shaderPass` (`shader-passes/web-document-screen.ts`, pattern: `newspaper-physics`), run on the composited card between DOM upload and the effect chain ([ADR-0008](0008-newspaper-surface-pipeline.md) / [ADR-0010](0010-compose-pipeline-shaderpass-invocation.md)). It carries the optical tells the paper compositor + CSS cannot: **subpixel emission** (per-column R/G/B stripe), **backlight bloom** (lit UI radiates a soft glow; the amber highlight sits below the bloom threshold by design so the hand-marked span stays crisp ink, not glowing UI), a **screen backlight floor + edge halo** (darkest pixels above true black; the panel's edge emission bleeds past the bezel into the transparent frame — *light comes OUT*), and **viewport-edge defocus** (the card boundary falls slightly out of focus, screen-behind-glass). No vignette, no occlusion shadow, no paper grain — emissive, not reflective.
 
 ### Identity Spec
 
-Five dimensions, each `implementation`-pointed + probed per [ADR-0015](0015-identity-spec.md): `window-chrome-frame` (CSS — browser window + address-bar URL), `subpixel-emission`, `backlight-bloom`, `screen-backlight-floor`, `viewport-edge-defocus` (the latter four in the shaderPass). The registration validator passes at boot.
+Five dimensions, each `implementation`-pointed + probed per [ADR-0015](0015-identity-spec-per-pipeline.md): `window-chrome-frame` (CSS — browser window + address-bar URL), `subpixel-emission`, `backlight-bloom`, `screen-backlight-floor`, `viewport-edge-defocus` (the latter four in the shaderPass). The registration validator passes at boot.
 
 ### Faithful site look is not an aesthetic-miss
 

@@ -42,9 +42,8 @@ const logErrorResponses: Handle = async ({ event, resolve }) => {
 		if (response.status >= 500) {
 			const body = await response.clone().text();
 			console.error(`${line}\n${body.slice(0, 2000)}`);
-			// 5xx from intentional error(...) never reaches handleError — capture it
-			// as a real Sentry issue here. 4xx stays a log line only (an absent
-			// poster or fork is a signal, not an issue).
+			// Promote every resolved 5xx response; intentional error(...) never reaches
+			// handleError, while 4xx stays a log line only.
 			Sentry.captureMessage(
 				`${response.status} ${event.request.method} ${event.url.pathname}`,
 				{ level: 'error', extra: { body: body.slice(0, 2000), search: event.url.search } }

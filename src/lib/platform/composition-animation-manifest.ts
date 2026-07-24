@@ -18,6 +18,8 @@ import {
 	type Transport
 } from './engine-schema.ts';
 import { clampNumber } from '$lib/utils/math';
+import { resolveDiagramPrimitiveGeometry } from '$lib/utils/diagram-geometry';
+import { resolveOverlayPlacement } from '$lib/utils/overlay-placement';
 
 const COMPOSITION_CHANNEL_KEYS = ['opacity', 'x', 'y', 'scale', 'rotation'] as const;
 
@@ -72,10 +74,7 @@ function appendChannelKeyframeTweens(options: {
 		const duration = Math.min(toFraction(next.atMs - previous.atMs), 1);
 		tweens.push({
 			key: `${keyPrefix}-${index}`,
-			start: clampCompositionTweenStart(
-				clipStartFraction + toFraction(previous.atMs),
-				duration
-			),
+			start: clampCompositionTweenStart(clipStartFraction + toFraction(previous.atMs), duration),
 			duration,
 			ease: getEaseGsap(next.ease ?? 'smooth'),
 			from: previous.value,
@@ -206,11 +205,7 @@ export function buildCompositionAnimationManifest(
 		return { ...entry, enter: { ...entry.enter, start: resolvedStart } };
 	});
 	tweens.push(
-		...textAnimationCompiler.rebuild(
-			textAnimationRoot,
-			resolvedTextAnimations,
-			state.transport
-		)
+		...textAnimationCompiler.rebuild(textAnimationRoot, resolvedTextAnimations, state.transport)
 	);
 
 	runtime.overlayChannels = state.overlays.map((overlay) => {
@@ -218,12 +213,13 @@ export function buildCompositionAnimationManifest(
 		if (!channels || !COMPOSITION_CHANNEL_KEYS.some((key) => (channels[key]?.length ?? 0) > 0)) {
 			return null;
 		}
+		const placement = resolveOverlayPlacement(overlay.position, state.transport.orientation);
 		return {
 			opacity: channels.opacity?.[0]?.value ?? 1,
 			x: channels.x?.[0]?.value ?? 0,
 			y: channels.y?.[0]?.value ?? 0,
-			scale: channels.scale?.[0]?.value ?? overlay.position.scale ?? 1,
-			rotation: channels.rotation?.[0]?.value ?? overlay.position.rotation ?? 0
+			scale: channels.scale?.[0]?.value ?? placement.scale ?? 1,
+			rotation: channels.rotation?.[0]?.value ?? placement.rotation ?? 0
 		};
 	});
 
@@ -286,15 +282,19 @@ export function buildCompositionAnimationManifest(
 	);
 	for (const primitive of diagramPrimitives) {
 		const channels = primitive.animation?.channels as
-			| Partial<Record<(typeof COMPOSITION_CHANNEL_KEYS)[number], Keyframe[]>>
-			| undefined;
+			Partial<Record<(typeof COMPOSITION_CHANNEL_KEYS)[number], Keyframe[]>> | undefined;
 		const window = cascadeWindows.get(`block:${primitive.id}`);
 		const hasChannels =
 			channels !== undefined &&
 			COMPOSITION_CHANNEL_KEYS.some((key) => (channels[key]?.length ?? 0) > 0);
 
 		if (hasChannels && channels) {
-			const staticScale = 'scale' in primitive ? (primitive.scale ?? 1) : 1;
+			const staticScale =
+				primitive.type === 'node' ||
+				primitive.type === 'label' ||
+				primitive.type === 'stat-callout'
+					? (resolveDiagramPrimitiveGeometry(primitive, state.transport.orientation).scale ?? 1)
+					: 1;
 			runtime.blockChannels[primitive.id] = {
 				opacity: channels.opacity?.[0]?.value ?? 1,
 				x: channels.x?.[0]?.value ?? 0,

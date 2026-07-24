@@ -25,10 +25,10 @@ The default answer to "what's next?" — an agent self-serves this instead of as
 3. **Within an epic, work autonomously** — no check-in task to task.
 4. **At the end of each epic, STOP and check in with the human** — summarize what the epic delivered + anything learned, and get a go-ahead _before_ starting the next epic. **This is the leash: epic-by-epic, not fully autonomous.**
 5. **Also stop mid-epic and ask** before: removing any pipeline/feature (the prove-or-remove epic), resolving a design fork (a 0006-style tension), starting an undesigned arc, or when a task's intent is ambiguous against the docs/code.
-6. **Critical path:** the engine arc is done and the corpus is delivered (one Critic-ACCEPTed deliverable per family). The remaining critical path is **GUI ↔ agent parity** — now grilled into a spec ([ADR-0032](adr/0032-gui-agent-parity-authoring.md)) and task-ified in dex (epic `3pkmqyns`); gated on a go-ahead at the corpus epic boundary.
-7. **Activating a roadmap arc** = break its epic into dex tasks. **GUI parity needed a design grill first** — done (2026-06, [ADR-0032](adr/0032-gui-agent-parity-authoring.md)); the epic now exists in dex. The corpus is demand-pulled: author one ship-grade deliverable per family through the Critic loop as the engine supports it.
+6. **Critical path:** the engine arc, reference corpus, GUI schema/persistence parity, GUI authoring interface, and operational GUI/agent parity are shipped. Standalone interchange, GUI validation/verification, shared agent store access, and deterministic automated rendering landed under Dex task `9hl3hqv7`.
+7. **Activating a roadmap arc** = break its epic into dex tasks. The corpus remains demand-pulled: author one ship-grade deliverable per family through the Critic loop as the engine supports it.
 
-**Aligned with the goals** = engine arc done ✅ **+** ≥1 ship-grade deliverable per surface/overlay family **+** the GUI reaches agent-parity. The arcs below are the scoreboard.
+**Aligned with the goals** = engine arc done ✅ **+** ≥1 ship-grade deliverable per surface/overlay family **+** core GUI authoring shipped ✅ **+** operational GUI/agent parity shipped ✅. The arcs below are the scoreboard.
 
 ### Starting / finishing a session
 
@@ -38,9 +38,9 @@ The default answer to "what's next?" — an agent self-serves this instead of as
 
 ---
 
-## Now — the corpus tail; GUI parity designed
+## Now — quality, capability, and operational parity
 
-The engine gap is closed, the make-cinematic push is **done across every surface/overlay family**, and the web-document arc (incl. iMessage) has shipped. The north-star scoreboard is met: **GUI ↔ agent parity shipped** ([ADR-0032](adr/0032-gui-agent-parity-authoring.md), epic `3pkmqyns`) and the **GUI authoring interface shipped** ([ADR-0034](adr/0034-gui-design-authoring-interface.md), epics `jz2yykvi` + `wfonjyb3`, 2026-07-01). What remains:
+The engine gap is closed, the make-cinematic push is **done across every surface/overlay family**, and the web-document arc (including iMessage) has shipped. **Core GUI schema/persistence parity shipped** ([ADR-0032](adr/0032-gui-agent-parity-authoring.md), epic `3pkmqyns`) and the **GUI authoring interface shipped** ([ADR-0034](adr/0034-gui-design-authoring-interface.md), epics `jz2yykvi` + `wfonjyb3`, 2026-07-01). Operational parity remains open in `9hl3hqv7`. What remains:
 
 - a small **corpus refinement tail** — active, epic `ri2qchcm`;
 - **Sound design** — ✅ **shipped** ([ADR-0033](adr/0033-sound-design-motion-emitted-cues.md), epic `1frpmv40` complete; amended 2026-07-02 to the final by-ear-approved model — engine defaults per motion kind + per-cue overrides, kit concept removed);
@@ -82,7 +82,7 @@ Riding along, small and approved: **export decode verification** (~1 day) — de
 
 **Catalog quality gate (the half-assing firewall):** a pack enters the catalog only with a Scott-ratified **Calibration Trio** (the same three reference compositions re-dressed under the pack, iterated live), on top of the boot core-vocabulary validator and the two-Pack pixel-diff lock. **One pack at a time** — the next starts only after the last is ratified. Every authoring session follows [`docs/packs/authoring-playbook.md`](packs/authoring-playbook.md). The current `PACK_REGISTRY` catalog is Syntax / Editorial Mono / CRT Terminal / **Clean Light** (ratified 2026-07-13, the first light-field pack); candidate directions include bold condensed hype, soft pastel friendly, brutalist mono, and elegant serif editorial. Dex epic `pack-catalog-v1` complete; presets themselves are bound by [ADR-0039](adr/0039-pack-neutral-compositions-and-listing-hygiene.md) (pack-neutral compositions, materially-different listing admission, no pack/orientation duplicate listings — implementation epic `hkajpcgg`, incl. the pack-matrix render sweep that enforces "every preset looks good under every pack").
 
-🧭 **Orientation-responsive overlay placement** ([ADR-0039 §4 amendment](adr/0039-pack-neutral-compositions-and-listing-hygiene.md)): overlay position has no orientation/safe-area resolution — the 2026-06 engine arc's reflow covered type/motion, not placement, so the instagram/youtube creator blocks and four diagram proofs retain fixture-only recompositions. They remain directly loadable development evidence but are excluded from the deliverable listing. Scott rules that a system failure, not an acceptable state. Wanted: a placement model (per-orientation override, named placement slots, or safe-area-aware anchoring — design grill first) so one preset serves both targets; responsive diagram layout is the same family. Dex `s3811v2n`.
+✅ **Orientation-responsive authored placement** shipped 2026-07-24 ([ADR-0039 §4 amendment](adr/0039-pack-neutral-compositions-and-listing-hygiene.md); Dex `s3811v2n`, `q85lmeln`): Overlays and Diagram primitives now carry shared geometry plus optional complete horizontal/vertical snapshots. Rendering, animation, direct manipulation, GUI editing, round-trip persistence, and static safe-area lint resolve the active orientation without clamping authored geometry. The Instagram, YouTube, and four docu-diagram orientation duplicates folded into their canonical Presets.
 
 ## The quality arc (grilled 2026-07-08)
 
@@ -127,14 +127,14 @@ A **web-document Surface** — pixel-faithful mocks of real sites used as transp
 - 📐 **Live dual-tree transition upgrade** — multi-state transitions ship as snapshot-and-wipe ([ADR-0026](adr/0026-transitions-v1-snapshot-and-wipe.md)). Keeping both endpoint Presets animated during a wipe remains deferred until a composition requires it.
 - 🧭 **Additional heavy primitives** — general video substrate input plus additive `code` / `image` Blocks. The image-backed depth-stage substrate and configurable edge-treatment primitive already ship; mermaid auto-layout remains rejected.
 
-## GUI ↔ agent parity (north-star surface — ✅ shipped, [ADR-0032](adr/0032-gui-agent-parity-authoring.md))
+## GUI ↔ agent parity (✅ shipped)
 
-✅ **Shipped (2026-07)** — epics `3pkmqyns` (local round-trip authoring), `y8bsqobp` (schema↔inspector gap closure), and `wfonjyb3` (design-completeness pass) are all complete. The GUI two-way-binds the full editable `engineState` with forking + autosave persistence; every schema field has an inspector editor. What remains are the deferred own-arcs below, not the core parity.
+✅ **Core authoring shipped (2026-07)** — epics `3pkmqyns` (local round-trip authoring), `y8bsqobp` (schema↔inspector gap closure), and `wfonjyb3` (design-completeness pass) are complete. The GUI two-way-binds editable `engineState` with forking + autosave persistence; every schema field has an inspector editor.
 
 - ✅ **GUI as a full authoring tool**, co-equal with agents over one composition model. Reframed by the 2026-06 grill: the GUI already two-way-binds a full editable `engineState`, so the pieces built were **persistence** (a transport-agnostic save port, Electron-ready) and **coverage** (transport / stage / pack / structure) — _not_ a net-new app.
 - ✅ **Create from blank.** The homepage's **New composition** action forks the built-in `blank` Preset into the user store as an untitled User composition and opens it in the Workspace.
 - **Model:** corpus presets are **read-only Starter templates**; the first param change **forks** a **User composition** to a user-writable store and autosaves; **revert** discards the fork. **Lossless round-trip** (preserve loaded Preset, patch only the GUI-owned subtree, gated by a byte-identical round-trip test) makes save safe with partial coverage and widens incrementally. Scope is single-user/local, architected to ship as an Electron app later. Glossary: **User composition**, **Corpus vs user store** in [`CONTEXT.md`](CONTEXT.md).
-- **Deferred (own arcs):** verification parity (linter/Critic over GUI-authored comps) and the multi-user / product-document model.
+- ✅ **Operational parity (2026-07-23):** task `9hl3hqv7` shipped standalone JSON import/export, live GUI validation and one-action verification, symmetric agent API access to the same user store, and deterministic render/batch automation over the Workspace export seam. See [`user-composition-workflows.md`](user-composition-workflows.md). Multi-user/product-document work remains deferred.
 
 ## GUI design — the authoring interface (✅ shipped, [ADR-0034](adr/0034-gui-design-authoring-interface.md))
 

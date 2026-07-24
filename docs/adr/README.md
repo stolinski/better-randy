@@ -28,11 +28,11 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 | [0015](0015-identity-spec-per-pipeline.md) | Canon (gate partly build-harness) | Identity Spec per visible Pipeline |
 | [0016](0016-anti-patterns-loadbearing-when.md) | Canon | Q anti-patterns are load-bearing when claimed, not globally banned |
 | [0017](0017-paper-surface-paint-bug-fix.md) | Canon | Capture-safe paper Surface entrance |
-| [0018](0018-collapse-effects-to-frame-only.md) | Canon | One flat composition-wide `effects[]` chain |
+| [0018](0018-collapse-effects-to-frame-only.md) | Canon | One flat composition-wide `effects[]` list with registry-routed execution classes |
 | [0019](0019-identity-spec-via-pack.md) | Canon (refined by 0023/0024) | Identity dimensions declare implementation or `viaPack` |
 | [0020](0020-variants-as-data.md) | Canon | Pipeline variants as data |
-| [0021](0021-z-plane-semantics.md) | Semantics canon (mechanisms refined by 0027/0028) | Z is focal-distance scalar `[0,1]` |
-| [0022](0022-multi-state-composition.md) | Model canon (implementation refined by 0026) | Multi-state transition model |
+| [0021](0021-z-plane-semantics.md) | Canon semantics (mechanisms refined by 0027/0028) | Z is focal-distance scalar `[0,1]` |
+| [0022](0022-multi-state-composition.md) | Canon model (implementation refined by 0026) | Multi-state transition model |
 | [0023](0023-pack-is-appearance-only.md) | Canon (core) | Pack is appearance-only; no privileged default |
 | [0024](0024-role-resolution-core-fallback.md) | Canon (core) | Per-Pipeline Role override -> core fallback |
 | [0025](0025-static-linter-checks-safety-and-readability-only.md) | Canon | Static linter owns safety/readability only; Critic owns taste |
@@ -49,7 +49,7 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 | [0036](0036-diagram-primitives.md) | Canon (built) | Five art-directed diagram Block Pipelines |
 | [0037](0037-imessage-chrome-mode.md) | Canon (v1 built) | Faithful-artifact Surface chrome mode |
 | [0038](0038-full-pack-buy-in.md) | Canon (built) | Optional typography color overrides + declared Pack immunity |
-| [0039](0039-pack-neutral-compositions-and-listing-hygiene.md) | Accepted; core policy active, responsive placement follow-up open | Pack-neutral compositions, one Preset per piece/orientation, listing hygiene |
+| [0039](0039-pack-neutral-compositions-and-listing-hygiene.md) | Canon policy, partially built; sound mechanism superseded | Pack-neutral compositions, one Preset per piece/orientation, listing hygiene |
 | [0040](0040-checklist-surface.md) | Canon (v1 built) | Checklist Surface |
 | [0041](0041-achievement-overlay-family.md) | Canon (v1 built) | Achievement Overlay family |
 | [0042](0042-resolve-marker-sync.md) | Canon (v1 built; v2 grammar) | Resolve marker sync with frame-exact timing |

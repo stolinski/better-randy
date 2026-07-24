@@ -15,6 +15,7 @@ const TEST_FILE_PATTERN = /\.(?:(?:integration\.)?(?:test|spec))\.[cm]?[jt]sx?$/
 export const DISCOVERABILITY_CONFIG = Object.freeze({
 	sourceRoots: ['src'],
 	domainExportRoots: ['src/lib'],
+	architectureDecisionRecordGlob: 'docs/adr/[0-9][0-9][0-9][0-9]-*.md',
 	activeGuidanceGlobs: [
 		'AGENTS.md',
 		'.claude/commands/*.md',
@@ -236,6 +237,15 @@ function collectExistingFiles(root, relativePaths) {
 	return (relativePaths ?? [])
 		.map((relativePath) => resolve(root, relativePath))
 		.filter((filePath) => existsSync(filePath) && statSync(filePath).isFile());
+}
+
+function collectArchitectureDecisionRecordFiles(root, config) {
+	const pattern = config.architectureDecisionRecordGlob;
+	if (!pattern) return [];
+	return globSync(pattern, { cwd: root })
+		.map((relativePath) => resolve(root, relativePath))
+		.filter((filePath) => existsSync(filePath) && statSync(filePath).isFile())
+		.toSorted((a, b) => a.localeCompare(b));
 }
 
 function sourceUnits(filePath) {
@@ -600,41 +610,210 @@ function auditActiveGuidanceClaims(root, files, config, violations) {
 	}
 }
 
-function auditActiveGuidanceLinks(root, files, violations) {
+function auditMarkdownLinks(root, files, violations, rule, subject) {
 	const markdownLinkPattern = /!?\[[^\]]*\]\(([^)]+)\)/g;
+	const markdownReferenceTargetPattern = /^\s*\[[^\]]+\]:\s*(\S+)/;
+	const markdownReferenceUsePattern = /!?\[([^\]]+)\]\[([^\]]*)\]/g;
+	const headingCache = new Map();
+
+	function headingAnchors(filePath) {
+		const cached = headingCache.get(filePath);
+		if (cached) return cached;
+		const anchors = new Set();
+		const counts = new Map();
+		for (const line of readFileSync(filePath, 'utf8').split(/\r?\n/)) {
+			const match = line.match(/^#{1,6}\s+(.+?)\s*#*\s*$/);
+			if (!match) continue;
+			const base = match[1]
+				.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+				.replace(/<[^>]+>/g, '')
+				.replace(/[`*_~]/g, '')
+				.toLowerCase()
+				.replace(/[^\p{L}\p{N}\s-]/gu, '')
+				.trim()
+				.replace(/\s/g, '-');
+			if (!base) continue;
+			const count = counts.get(base) ?? 0;
+			counts.set(base, count + 1);
+			anchors.add(count === 0 ? base : `${base}-${count}`);
+		}
+		headingCache.set(filePath, anchors);
+		return anchors;
+	}
+
 	for (const filePath of files.filter((file) => extname(file) === '.md')) {
 		const relativeFile = normalizePath(relative(root, filePath));
 		const lines = readFileSync(filePath, 'utf8').split(/\r?\n/);
+		const referenceDefinitions = new Set(
+			lines
+				.map((line) => line.match(/^\s*\[([^\]]+)\]:\s*\S+/)?.[1]?.trim().toLowerCase())
+				.filter((reference) => typeof reference === 'string')
+		);
 		for (const [index, line] of lines.entries()) {
-			for (const match of line.matchAll(markdownLinkPattern)) {
-				const rawTarget = match[1].trim().split(/\s+(?=["'])/, 1)[0];
+			const rawTargets = [
+				...line.matchAll(markdownLinkPattern).map((match) => match[1]),
+				line.match(markdownReferenceTargetPattern)?.[1]
+			].filter((target) => typeof target === 'string');
+			for (const matchedTarget of rawTargets) {
+				const rawTarget = matchedTarget.trim().split(/\s+(?=["'])/, 1)[0];
+				const unwrappedTarget = rawTarget.replace(/^<|>$/g, '');
 				if (
-					!rawTarget ||
-					rawTarget.startsWith('#') ||
-					rawTarget.startsWith('/') ||
-					/^[a-z][a-z0-9+.-]*:/i.test(rawTarget) ||
-					/[<>]/.test(rawTarget)
+					!unwrappedTarget ||
+					unwrappedTarget.startsWith('/') ||
+					/^[a-z][a-z0-9+.-]*:/i.test(unwrappedTarget)
 				) {
 					continue;
 				}
-				const target = rawTarget.replace(/^<|>$/g, '').split(/[?#]/, 1)[0];
-				if (!target) continue;
+				const hashIndex = unwrappedTarget.indexOf('#');
+				const pathAndQuery =
+					hashIndex === -1 ? unwrappedTarget : unwrappedTarget.slice(0, hashIndex);
+				const fragment = hashIndex === -1 ? '' : unwrappedTarget.slice(hashIndex + 1);
+				const target = pathAndQuery.split('?', 1)[0];
 				let decodedTarget = target;
 				try {
 					decodedTarget = decodeURIComponent(target);
 				} catch {
 					// Leave malformed encoding to the missing-target diagnostic below.
 				}
-				if (existsSync(resolve(dirname(filePath), decodedTarget))) continue;
+				const targetFile = decodedTarget ? resolve(dirname(filePath), decodedTarget) : filePath;
+				if (!existsSync(targetFile)) {
+					addViolation(
+						violations,
+						relativeFile,
+						index + 1,
+						rule,
+						`${subject} links to missing target "${rawTarget}".`,
+						'Point the Markdown link at an existing repository file or remove the link.'
+					);
+					continue;
+				}
+				if (!fragment || extname(targetFile) !== '.md') continue;
+				let decodedFragment = fragment.toLowerCase();
+				try {
+					decodedFragment = decodeURIComponent(fragment).toLowerCase();
+				} catch {
+					// Leave malformed encoding to the missing-anchor diagnostic below.
+				}
+				if (headingAnchors(targetFile).has(decodedFragment)) continue;
 				addViolation(
 					violations,
 					relativeFile,
 					index + 1,
-					'broken-active-guidance-link',
-					`Active guidance links to missing target "${rawTarget}".`,
-					'Point the Markdown link at an existing repository file or remove the link.'
+					rule,
+					`${subject} links to missing anchor "#${fragment}" in "${target || relativeFile}".`,
+					'Point the fragment at an existing Markdown heading or remove it.'
 				);
 			}
+
+			const referenceScanLine = line.replace(/`[^`]*`/g, '');
+			for (const match of referenceScanLine.matchAll(markdownReferenceUsePattern)) {
+				const reference = (match[2] || match[1]).trim().toLowerCase();
+				if (referenceDefinitions.has(reference)) continue;
+				addViolation(
+					violations,
+					relativeFile,
+					index + 1,
+					rule,
+					`${subject} uses undefined Markdown reference "${reference}".`,
+					'Add a reference definition with an existing target or use an inline link.'
+				);
+			}
+		}
+	}
+}
+
+function canonicalArchitectureDecisionRecordStatus(text) {
+	const match = text.match(
+		/^\s*(?:>\s*)?(?:\*\*)?(Canon|Build-harness|Superseded|Designed,\s+not built)\b/i
+	);
+	if (!match) return null;
+	const normalized = match[1].toLowerCase().replace(/\s+/g, ' ');
+	if (normalized === 'canon') return 'Canon';
+	if (normalized === 'build-harness') return 'Build-harness';
+	if (normalized === 'superseded') return 'Superseded';
+	return 'Designed, not built';
+}
+
+function architectureDecisionRecordIndexStatuses(root) {
+	const indexPath = resolve(root, 'docs/adr/README.md');
+	if (!existsSync(indexPath)) return new Map();
+	const statuses = new Map();
+	for (const line of readFileSync(indexPath, 'utf8').split(/\r?\n/)) {
+		const match = line.match(/^\|\s*\[\d{4}\]\(([^)]+)\)\s*\|\s*([^|]+)\|/);
+		if (!match) continue;
+		statuses.set(match[1], canonicalArchitectureDecisionRecordStatus(match[2]));
+	}
+	return statuses;
+}
+
+function auditArchitectureDecisionRecords(root, files, violations) {
+	const indexStatuses = architectureDecisionRecordIndexStatuses(root);
+	for (const filePath of files) {
+		const relativeFile = normalizePath(relative(root, filePath));
+		const fileName = relativeFile.split('/').at(-1);
+		const lines = readFileSync(filePath, 'utf8').split(/\r?\n/);
+		const headingIndex = lines.findIndex((line) => /^##\s+Status\s*$/.test(line.trim()));
+		if (headingIndex === -1) {
+			addViolation(
+				violations,
+				relativeFile,
+				1,
+				'missing-adr-status',
+				'Numbered ADR does not declare a current ## Status section.',
+				'Add ## Status near the top using Canon, Build-harness, Superseded, or Designed, not built; preserve decision-time prose below.'
+			);
+			continue;
+		}
+		if (headingIndex !== 2) {
+			addViolation(
+				violations,
+				relativeFile,
+				headingIndex + 1,
+				'misplaced-adr-status',
+				'ADR ## Status section is not immediately below its title.',
+				'Move ## Status to line 3 so historical decision prose cannot precede current authority.'
+			);
+		}
+
+		const nextHeadingOffset = lines
+			.slice(headingIndex + 1)
+			.findIndex((line) => /^##\s+/.test(line.trim()));
+		const sectionEnd =
+			nextHeadingOffset === -1 ? lines.length : headingIndex + 1 + nextHeadingOffset;
+		const statusSection = lines.slice(headingIndex + 1, sectionEnd).join('\n');
+		const status = canonicalArchitectureDecisionRecordStatus(statusSection);
+		if (status === null) {
+			addViolation(
+				violations,
+				relativeFile,
+				headingIndex + 1,
+				'unrecognized-adr-status',
+				'ADR status does not use the index vocabulary.',
+				'Use Canon, Build-harness, Superseded, or Designed, not built, with optional implementation qualifiers.'
+			);
+			continue;
+		}
+
+		if (indexStatuses.size === 0) continue;
+		const indexStatus = indexStatuses.get(fileName);
+		if (indexStatus === undefined) {
+			addViolation(
+				violations,
+				relativeFile,
+				1,
+				'missing-adr-index-entry',
+				'Numbered ADR is absent from docs/adr/README.md.',
+				'Add the ADR to the index with the same primary status as its ## Status section.'
+			);
+		} else if (indexStatus !== status) {
+			addViolation(
+				violations,
+				relativeFile,
+				headingIndex + 1,
+				'adr-index-status-mismatch',
+				`ADR status is ${status}, but the index classifies it as ${indexStatus ?? 'unrecognized'}.`,
+				'Make the ADR status section and docs/adr/README.md use the same primary status.'
+			);
 		}
 	}
 }
@@ -870,6 +1049,10 @@ export function auditDiscoverability({
 	const absoluteRoot = resolve(root);
 	const files = collectSourceFiles(absoluteRoot, config.sourceRoots);
 	const guidanceFiles = collectActiveGuidanceFiles(absoluteRoot, config);
+	const architectureDecisionRecordFiles = collectArchitectureDecisionRecordFiles(
+		absoluteRoot,
+		config
+	);
 	const currentStatusFiles = collectExistingFiles(
 		absoluteRoot,
 		config.currentStatusGuidanceFiles
@@ -903,7 +1086,24 @@ export function auditDiscoverability({
 	auditTestNames(absoluteRoot, files, violations);
 	auditActiveGuidance(absoluteRoot, guidanceFiles, config, violations);
 	auditActiveGuidanceClaims(absoluteRoot, guidanceFiles, config, violations);
-	auditActiveGuidanceLinks(absoluteRoot, guidanceFiles, violations);
+	auditMarkdownLinks(
+		absoluteRoot,
+		guidanceFiles,
+		violations,
+		'broken-active-guidance-link',
+		'Active guidance'
+	);
+	auditArchitectureDecisionRecords(absoluteRoot, architectureDecisionRecordFiles, violations);
+	auditMarkdownLinks(
+		absoluteRoot,
+		[
+			...architectureDecisionRecordFiles,
+			...collectExistingFiles(absoluteRoot, ['docs/adr/README.md'])
+		],
+		violations,
+		'broken-adr-link',
+		'ADR'
+	);
 	auditBriefAcceptance(absoluteRoot, guidanceFiles, violations);
 	auditPresetListingHygiene(absoluteRoot, guidanceFiles, violations);
 	auditPresetAuthoringWorkflows(absoluteRoot, guidanceFiles, violations);
@@ -918,7 +1118,12 @@ export function auditDiscoverability({
 	violations.sort(
 		(a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.rule.localeCompare(b.rule)
 	);
-	return { filesChecked: files.length, guidanceFilesChecked: guidanceFiles.length, violations };
+	return {
+		filesChecked: files.length,
+		guidanceFilesChecked: guidanceFiles.length,
+		architectureDecisionRecordFilesChecked: architectureDecisionRecordFiles.length,
+		violations
+	};
 }
 
 export function formatDiscoverabilityViolation(violation) {
@@ -937,7 +1142,7 @@ function run() {
 		return;
 	}
 	console.log(
-		`discoverability: ${result.filesChecked} source files and ${result.guidanceFilesChecked} active guidance files passed`
+		`discoverability: ${result.filesChecked} source files, ${result.guidanceFilesChecked} active guidance files, and ${result.architectureDecisionRecordFilesChecked} ADR files passed`
 	);
 }
 

@@ -8,6 +8,7 @@ import {
 	type VisualMeasurement
 } from './preset-rubric.ts';
 import type { EngineState, Preset } from './engine-schema.ts';
+import { calculateEffectiveCapHeight } from '../utils/rendered-text-scale.ts';
 import { getVideoFrameSize } from '../utils/video-frame.ts';
 
 const SERIF_CAP_HEIGHT_RATIO = 0.7;
@@ -62,6 +63,26 @@ const TITLE_SEQUENCE_ROLE_SELECTORS: readonly RoleSelector[] = [
 const TYPE_HERO_ROLE_SELECTORS: readonly RoleSelector[] = [
 	{ role: 'title', bandKey: 'surface-title', selector: '.type-hero-source__hero' },
 	{ role: 'source', bandKey: 'surface-label', selector: '.type-hero-source__subtitle' }
+];
+
+// Diagram semantic roles intentionally reuse the established surface bands:
+// diagrams are document typography, not Overlays (G4 / ADR-0036).
+const DIAGRAM_ROLE_SELECTORS: readonly RoleSelector[] = [
+	{
+		role: 'title',
+		bandKey: 'surface-title',
+		selector: '[data-diagram-text-role="headline"]'
+	},
+	{
+		role: 'caption',
+		bandKey: 'surface-label',
+		selector: '[data-diagram-text-role="caption"]'
+	},
+	{
+		role: 'title',
+		bandKey: 'surface-title',
+		selector: '[data-diagram-text-role="stat-value"]'
+	}
 ];
 
 const SURFACE_AUDIT_CONFIG: Readonly<
@@ -179,10 +200,11 @@ function measureCharsPerLine(node: HTMLElement, fontSize: number, font: FontKey)
 }
 
 function measureText(
-	root: HTMLElement,
+	root: ParentNode,
 	role: RenderedTextRole,
 	bandKey: TextBandKey,
-	selector: string
+	selector: string,
+	computedScaleForNode?: (node: HTMLElement) => string
 ): RenderedTextMeasurement[] {
 	const measurements: RenderedTextMeasurement[] = [];
 	const nodes = root.querySelectorAll<HTMLElement>(selector);
@@ -198,6 +220,7 @@ function measureText(
 		const fontSize = parseFloat(style.fontSize);
 		const font = classifyFont(style.fontFamily);
 		const ratio = capHeightRatioFor(font);
+		const computedScale = computedScaleForNode?.(node) ?? 'none';
 		const lineHeightPx = parseFloat(style.lineHeight);
 		const lineHeightRatio =
 			isNaN(lineHeightPx) || lineHeightPx <= 0 ? 1.2 : lineHeightPx / fontSize;
@@ -207,7 +230,7 @@ function measureText(
 		measurements.push({
 			role,
 			bandKey: effectiveBand,
-			capHeight: fontSize * ratio,
+			capHeight: calculateEffectiveCapHeight(fontSize, ratio, computedScale),
 			fontFamily: font,
 			lineHeight: lineHeightRatio,
 			charsPerLine,
@@ -219,10 +242,91 @@ function measureText(
 	return measurements;
 }
 
+interface SourceTextBounds {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+}
+
+interface FrameRect {
+	left: number;
+	top: number;
+	width: number;
+	height: number;
+}
+
+interface DiagramTextMeasurement {
+	texts: readonly RenderedTextMeasurement[];
+	textBounds: SourceTextBounds;
+}
+
+function sourceTextBoundsFor(
+	elements: Iterable<HTMLElement>,
+	frameRect: FrameRect
+): SourceTextBounds {
+	const clientBounds = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity };
+
+	for (const element of elements) {
+		if ((element.textContent ?? '').trim().length === 0) {
+			continue;
+		}
+
+		const rect = element.getBoundingClientRect();
+		clientBounds.left = Math.min(clientBounds.left, rect.left);
+		clientBounds.top = Math.min(clientBounds.top, rect.top);
+		clientBounds.right = Math.max(clientBounds.right, rect.right);
+		clientBounds.bottom = Math.max(clientBounds.bottom, rect.bottom);
+	}
+
+	return isFinite(clientBounds.left)
+		? {
+				x: clientBounds.left - frameRect.left,
+				y: clientBounds.top - frameRect.top,
+				width: clientBounds.right - clientBounds.left,
+				height: clientBounds.bottom - clientBounds.top
+			}
+		: { x: 0, y: 0, width: 0, height: 0 };
+}
+
+function mergeSourceTextBounds(
+	first: SourceTextBounds,
+	second: SourceTextBounds
+): SourceTextBounds {
+	if (second.width <= 0 || second.height <= 0) {
+		return first;
+	}
+	if (first.width <= 0 || first.height <= 0) {
+		return second;
+	}
+
+	const left = Math.min(first.x, second.x);
+	const top = Math.min(first.y, second.y);
+	const right = Math.max(first.x + first.width, second.x + second.width);
+	const bottom = Math.max(first.y + first.height, second.y + second.height);
+
+	return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+function diagramItemComputedScale(node: HTMLElement): string {
+	const item = node.closest<HTMLElement>('.diagram-mount__item');
+	return item ? getComputedStyle(item).scale : 'none';
+}
+
+function measureDiagramText(frameRect: FrameRect): DiagramTextMeasurement {
+	const texts: RenderedTextMeasurement[] = [];
+	for (const { role, bandKey, selector } of DIAGRAM_ROLE_SELECTORS) {
+		texts.push(...measureText(document, role, bandKey, selector, diagramItemComputedScale));
+	}
+
+	const elements = document.querySelectorAll<HTMLElement>('[data-diagram-text-role]');
+	return { texts, textBounds: sourceTextBoundsFor(elements, frameRect) };
+}
+
 function measureSurfaceElement(
 	root: HTMLElement,
 	roleSelectors: readonly RoleSelector[],
-	frameRect: { width: number; height: number; left: number; top: number }
+	frameRect: FrameRect
 ): RenderedSurfaceMeasurement {
 	const cardClientRect = root.getBoundingClientRect();
 	const texts: RenderedTextMeasurement[] = [];
@@ -231,22 +335,9 @@ function measureSurfaceElement(
 		texts.push(...measureText(root, role, bandKey, selector));
 	}
 
-	const textClientBounds = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity };
 	const allTextElements = root.querySelectorAll<HTMLElement>(
 		'h2, p, span, cite, time, footer, header, section'
 	);
-
-	for (const el of allTextElements) {
-		if ((el.textContent ?? '').trim().length === 0) {
-			continue;
-		}
-
-		const r = el.getBoundingClientRect();
-		textClientBounds.left = Math.min(textClientBounds.left, r.left);
-		textClientBounds.top = Math.min(textClientBounds.top, r.top);
-		textClientBounds.right = Math.max(textClientBounds.right, r.right);
-		textClientBounds.bottom = Math.max(textClientBounds.bottom, r.bottom);
-	}
 
 	// Translate from viewport coords to frame-relative (4K source) coords by
 	// subtracting the canvas's viewport offset. The frame origin in source
@@ -268,14 +359,7 @@ function measureSurfaceElement(
 	const visibleHeight = Math.max(0, visibleBottom - visibleTop);
 	const bleedLength = Math.max(0, cardBottom - frameBottom);
 
-	const textBounds = isFinite(textClientBounds.left)
-		? {
-				x: textClientBounds.left - offsetX,
-				y: textClientBounds.top - offsetY,
-				width: textClientBounds.right - textClientBounds.left,
-				height: textClientBounds.bottom - textClientBounds.top
-			}
-		: { x: 0, y: 0, width: 0, height: 0 };
+	const textBounds = sourceTextBoundsFor(allTextElements, frameRect);
 
 	return {
 		cardRect: { x: cardX, y: cardY, width: cardClientRect.width, height: cardClientRect.height },
@@ -310,7 +394,16 @@ export function captureMeasurement(state: EngineState, name = '(current)'): Visu
 	const config = SURFACE_AUDIT_CONFIG[state.surface.type];
 	const root = config ? document.querySelector<HTMLElement>(config.root) : null;
 	const frameRect = getFrameInSourceCoords(state.transport.orientation);
-	const surface = config && root ? measureSurfaceElement(root, config.roles, frameRect) : null;
+	const measuredSurface =
+		config && root ? measureSurfaceElement(root, config.roles, frameRect) : null;
+	const diagram = measureDiagramText(frameRect);
+	const surface = measuredSurface
+		? {
+				...measuredSurface,
+				textBounds: mergeSourceTextBounds(measuredSurface.textBounds, diagram.textBounds),
+				texts: [...measuredSurface.texts, ...diagram.texts]
+			}
+		: null;
 
 	return { preset, surface };
 }

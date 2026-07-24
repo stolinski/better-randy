@@ -59,7 +59,7 @@ const SOUND_ASSETS: Record<string, string> = {
 	'core-scratch': coreScratchUrl,
 	'core-sub-drop': coreSubDropUrl,
 	'core-sting': coreStingUrl,
-	// The designed default kit (gen-designed-sounds.mjs, dex gmrkycs6) — quick
+	// The designed engine-default sample set (gen-designed-sounds.mjs, dex gmrkycs6) — quick
 	// decisive hits that read flat/physical; the engine-default voice behind
 	// DEFAULT_EVENT_SAMPLES.
 	'thud-solid': thudSolidUrl,
@@ -83,7 +83,7 @@ const SOUND_ASSETS: Record<string, string> = {
 	'tick-pencil': tickPencilUrl,
 	'marker-swipe': markerSwipeUrl,
 	'pencil-stroke': pencilStrokeUrl,
-	// Message Pop kit samples (provenance + ⚠ redistribution note in
+	// Locked iMessage signature samples (provenance + ⚠ redistribution note in
 	// Apple Messages recordings at Scott's direction — see 634d0d6/e222fad)
 	'message-pop': messagePopUrl,
 	'message-send': messageSendUrl,

@@ -1,5 +1,9 @@
 # `washi-tape` Overlay
 
+## Status
+
+**Canon.**
+
 Washi-tape strips anchor collage-card corners across the channel's aesthetic (`docs/aesthetic.md` § Collage System / Tape) — semi-transparent multiply blend at ~0.6 alpha, 5–25° rotation, palette-pull color, grain texture so they don't read as flat plastic. We modeled tape as its own **Overlay** Pipeline (`washi-tape`) rather than baking it into a Surface or expressing it as an Effect. Schema is `{ color?: string, rotation?: number, length?: number }`: color defaults to channel yellow `#fabf47`, rotation is bounded 5–25°, length is in canvas pixels at 4K (width is fixed by the aesthetic-correct ratio). Multiply-blend + grain are carried by the CanvasSource's CSS (`mix-blend-mode: multiply; opacity: 0.6` + a stacked `repeating-linear-gradient` for fiber texture) so the v1 ships without a `shaderPass`; if pixel-quality torn ends become a requirement, the `OverlayRenderer.shaderPass` slot from ADR-0005 is the upgrade path.
 
 ## Considered options

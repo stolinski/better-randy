@@ -19,6 +19,7 @@ import type {
 import type { GpuHost } from '$lib/platform/gpu-host';
 import type { PackManifest } from '$lib/platform/packs/types';
 import type { ResolvedDiagramStroke } from '$lib/platform/packs/resolve';
+import type { OpticalShape } from '$lib/utils/optical-geometry';
 
 // ---------------- Annotations ----------------
 
@@ -40,6 +41,10 @@ export interface AnnotationDrawContext {
 export interface AnnotationFocalSlot {
 	dim: number;
 	magnify: number;
+	opticalColor?: string;
+	opticalIntensity?: number;
+	opticalRipple?: number;
+	opticalShape?: OpticalShape;
 	rect: { x: number; y: number; width: number; height: number };
 	style: AnnotationMarkStyle;
 	tear: number;

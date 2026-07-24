@@ -15,6 +15,7 @@
 	import NodeSource from '$lib/pipelines/blocks/node/CanvasSource.svelte';
 	import StatCalloutSource from '$lib/pipelines/blocks/stat-callout/CanvasSource.svelte';
 	import { isDarkSurfaceColor } from '$lib/utils/color';
+	import { resolveDiagramPrimitiveForRender } from '$lib/utils/diagram-geometry';
 
 	// The DOM half of the diagram Block layer (ADR-0036): node / label /
 	// stat-callout mounted at their explicit composition fractions, plus the
@@ -25,7 +26,11 @@
 	// Stroke primitives (edge-arrow, the segment's rule) render in the pipelines'
 	// marks canvas, not here.
 
-	const primitives = $derived(engineState.surface.diagram ?? []);
+	const primitives = $derived(
+		(engineState.surface.diagram ?? []).map((primitive) =>
+			resolveDiagramPrimitiveForRender(primitive, engineState.transport.orientation)
+		)
+	);
 	const pack = $derived(getPack(packState.slug));
 
 	// The diagram's inherited ink (each primitive's currentColor floor) resolves
@@ -70,7 +75,7 @@
 	// a horizontal span captions above its midpoint; a vertical rail captions
 	// beside it (left-edge anchored so the centred text can't reach back across
 	// the stroke). An orientation-blind fixed offset put vertical captions ON
-	// the rail (Critic finding, docu-timeline-build-vertical).
+	// the rail (Critic finding from the original vertical reflow proof).
 	function isVerticalSpan(primitive: DiagramPrimitive & { type: 'timeline-segment' }): boolean {
 		return (
 			Math.abs(primitive.to.y - primitive.from.y) > Math.abs(primitive.to.x - primitive.from.x)
@@ -210,7 +215,9 @@
 						{:else if primitive.type === 'stat-callout'}
 							<StatCalloutSource block={primitive} />
 						{:else}
-							<span class="diagram-mount__segment-label">{primitive.label}</span>
+							<span class="diagram-mount__segment-label" data-diagram-text-role="caption"
+								>{primitive.label}</span
+							>
 						{/if}
 					</div>
 				{/if}

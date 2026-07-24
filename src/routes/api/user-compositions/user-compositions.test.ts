@@ -4,6 +4,8 @@ import { isHttpError } from '@sveltejs/kit';
 import { beforeAll, beforeEach, describe, it, vi } from 'vitest';
 
 import validPreset from '$lib/presets/blank.json';
+import { PresetSchema } from '$lib/platform/engine-schema';
+import { presetToWireFormat } from '$lib/platform/preset-pure';
 
 const fsMocks = vi.hoisted(() => ({
 	mkdir: vi.fn<(path: string, options: { recursive: true }) => Promise<string | undefined>>(),
@@ -160,5 +162,77 @@ describe('user composition handlers', () => {
 				} as Parameters<(typeof slugHandlers)['GET']>[0]),
 			expectHttpError(500, 'Corrupt preset data')
 		);
+	});
+
+	it('returns the standalone wire format accepted by PUT', async () => {
+		fsMocks.readFile.mockResolvedValue(
+			JSON.stringify({
+				meta: { forkedFrom: 'blank', savedAt: '2026-07-14T12:00:00.000Z' },
+				preset: validPreset
+			})
+		);
+
+		const getResponse = await slugHandlers.GET({
+			params: { slug: 'round-trip' }
+		} as Parameters<(typeof slugHandlers)['GET']>[0]);
+		const standalonePreset: unknown = await getResponse.json();
+		const parsed = PresetSchema.parse(standalonePreset);
+
+		assert.deepEqual(standalonePreset, presetToWireFormat(parsed));
+		const putResponse = await slugHandlers.PUT({
+			params: { slug: 'round-trip' },
+			request: new Request('http://localhost/api/user-compositions/round-trip', {
+				method: 'PUT',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(standalonePreset)
+			})
+		} as Parameters<(typeof slugHandlers)['PUT']>[0]);
+
+		assert.equal(putResponse.status, 204);
+		const written = JSON.parse(fsMocks.writeFile.mock.calls[0]?.[1] ?? 'null') as {
+			preset: unknown;
+		};
+		assert.deepEqual(written.preset, standalonePreset);
+	});
+
+	it('preserves agent-only fields through an agent to GUI to agent workflow', async () => {
+		const agentPreset = PresetSchema.parse(validPreset);
+		agentPreset.name = 'Agent-authored composition';
+		agentPreset.state.transport.durationSeconds = 7.5;
+		agentPreset.state.stage = {
+			type: 'depth',
+			camera: { move: 'push', amount: 0.2, ease: 'smooth' },
+			focus: { focusZ: 0.4, aperture: 0.3, band: 0.1 }
+		};
+		fsMocks.readFile.mockResolvedValue(
+			JSON.stringify({
+				meta: { forkedFrom: null, savedAt: '2026-07-14T12:00:00.000Z' },
+				preset: presetToWireFormat(agentPreset)
+			})
+		);
+
+		const getResponse = await slugHandlers.GET({
+			params: { slug: 'agent-composition' }
+		} as Parameters<(typeof slugHandlers)['GET']>[0]);
+		const guiLoadedPreset: unknown = await getResponse.json();
+		const parsed = PresetSchema.parse(guiLoadedPreset);
+		parsed.name = 'Edited in GUI';
+
+		await slugHandlers.PUT({
+			params: { slug: 'agent-composition' },
+			request: new Request('http://localhost/api/user-compositions/agent-composition', {
+				method: 'PUT',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(presetToWireFormat(parsed))
+			})
+		} as Parameters<(typeof slugHandlers)['PUT']>[0]);
+
+		const written = JSON.parse(fsMocks.writeFile.mock.calls[0]?.[1] ?? 'null') as {
+			preset: unknown;
+		};
+		const agentReloadedPreset = PresetSchema.parse(written.preset);
+		assert.equal(agentReloadedPreset.name, 'Edited in GUI');
+		assert.equal(agentReloadedPreset.state.transport.durationSeconds, 7.5);
+		assert.deepEqual(agentReloadedPreset.state.stage, agentPreset.state.stage);
 	});
 });

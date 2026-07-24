@@ -1,6 +1,9 @@
 # ADR-0034 — GUI design: the authoring interface (three zones, timeline-as-outline, hybrid manipulation)
 
-Status: **Canon (built)** — the three-zone `Workspace` now mounts `Inspector`, `TimelineOutline`, `CanvasEditingOverlay`, and `CanvasControlsBar`; construction epics `jz2yykvi` + `wfonjyb3` are complete. The body below preserves decision-time context rather than current-layout guidance. Its Sound-kit references are historical; that concept was removed by ADR-0033's 2026-07-02 amendment.
+## Status
+
+**Canon (built).** The three-zone `Workspace` mounts `Inspector`, `TimelineOutline`, `CanvasEditingOverlay`, and `CanvasControlsBar`; construction epics `jz2yykvi` and `wfonjyb3` are complete. The body preserves decision-time context rather than current-layout guidance. Its Sound-kit references are historical and superseded by ADR-0033's 2026-07-02 amendment.
+
 Date: 2026-06-26
 Relates to: [ADR-0032](0032-gui-agent-parity-authoring.md) (GUI parity — the data model this interface sits over), [ADR-0011](0011-text-animation-orchestration.md) (timeline tracks + grouped editor sections precedent), [ADR-0033](0033-sound-design-motion-emitted-cues.md) (the per-Layer Sound-kit picker lives in the Layer inspector)
 

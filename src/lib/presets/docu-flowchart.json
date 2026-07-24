@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Docu flowchart — how your code ships",
-	"description": "The 'how X works' documentary flowchart (ADR-0036 §6, pure-primitive test): a four-node Commit → Build → Test → Deploy chain of box nodes joined by stroke-drawn edge-arrows, one mono-caps headline label as the title voice, revealed in strict reading order via Cascade welds (headline → node → edge draws to → next node, 120/80 ms staggers). Full-frame piece: backgroundFill is the dark field, ink is warm off-white so the pack's marker strokes read. Chrome intent: mono is the signature thread (fontFamily mono carries headline + node labels); low-density paper-grain grit bonds ink to substrate; torn-edge collage card and tape are intentionally omitted — a stroke-drawn diagram on a dark field is not a collage card; the node plates keep the pack's small hard-offset depth Role.",
+	"description": "The 'how X works' documentary flowchart (ADR-0036 §6, pure-primitive test): a four-node Commit → Build → Test → Deploy chain revealed in strict reading order via Cascade welds. One Preset reflows from a horizontal chain into a vertical zigzag through complete Diagram geometry overrides: nodes reposition, straight edges become authored elbows, while content and choreography stay shared. Full-frame piece: backgroundFill is the dark field, ink is warm off-white, and the mono voice carries the signature thread.",
 	"pack": "syntax",
 	"kind": "deliverable",
 	"state": {
@@ -51,7 +51,17 @@
 						"y": 0.26
 					},
 					"text": "HOW YOUR CODE SHIPS",
+					"role": "headline",
 					"scale": 1.6,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.14
+							},
+							"scale": 2
+						}
+					},
 					"enter": {
 						"start": 0.077,
 						"duration": 0.055,
@@ -80,6 +90,15 @@
 					"form": "box",
 					"text": "Commit",
 					"scale": 1,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.36,
+								"y": 0.28
+							},
+							"scale": 1
+						}
+					},
 					"enter": {
 						"start": 0.152,
 						"duration": 0.05,
@@ -110,6 +129,21 @@
 						"node": "n-build"
 					},
 					"route": "straight",
+					"orientationOverrides": {
+						"vertical": {
+							"from": {
+								"node": "n-commit"
+							},
+							"to": {
+								"node": "n-build"
+							},
+							"route": "elbow",
+							"control": {
+								"x": 0.36,
+								"y": 0.43
+							}
+						}
+					},
 					"direction": "forward",
 					"enter": {
 						"start": 0.222,
@@ -141,6 +175,15 @@
 					"form": "box",
 					"text": "Build",
 					"scale": 1,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.64,
+								"y": 0.43
+							},
+							"scale": 1
+						}
+					},
 					"enter": {
 						"start": 0.295,
 						"duration": 0.05,
@@ -171,6 +214,21 @@
 						"node": "n-test"
 					},
 					"route": "straight",
+					"orientationOverrides": {
+						"vertical": {
+							"from": {
+								"node": "n-build"
+							},
+							"to": {
+								"node": "n-test"
+							},
+							"route": "elbow",
+							"control": {
+								"x": 0.64,
+								"y": 0.58
+							}
+						}
+					},
 					"direction": "forward",
 					"enter": {
 						"start": 0.365,
@@ -202,6 +260,15 @@
 					"form": "box",
 					"text": "Test",
 					"scale": 1,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.36,
+								"y": 0.58
+							},
+							"scale": 1
+						}
+					},
 					"enter": {
 						"start": 0.438,
 						"duration": 0.05,
@@ -232,6 +299,21 @@
 						"node": "n-deploy"
 					},
 					"route": "straight",
+					"orientationOverrides": {
+						"vertical": {
+							"from": {
+								"node": "n-test"
+							},
+							"to": {
+								"node": "n-deploy"
+							},
+							"route": "elbow",
+							"control": {
+								"x": 0.36,
+								"y": 0.73
+							}
+						}
+					},
 					"direction": "forward",
 					"enter": {
 						"start": 0.508,
@@ -263,6 +345,15 @@
 					"form": "box",
 					"text": "Deploy",
 					"scale": 1,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.64,
+								"y": 0.73
+							},
+							"scale": 1
+						}
+					},
 					"enter": {
 						"start": 0.582,
 						"duration": 0.05,

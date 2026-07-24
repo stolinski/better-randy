@@ -1,5 +1,9 @@
 # Paper Surface enter / exit motion via `transform`, not `top`
 
+## Status
+
+**Canon.**
+
 The paper Surface's article DOM (`article.paper-source` in
 `src/lib/pipelines/surfaces/paper/CanvasSource.svelte`) was animated by writing
 to its CSS `top` property as `animState.paperVisibility` ramped from 0 to 1,

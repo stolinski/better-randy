@@ -433,6 +433,32 @@ const diagramPrimitiveBase = {
 	exit: TransitionSchema.optional()
 };
 
+const DiagramPositionGeometrySchema = z.strictObject({
+	position: DiagramPointSchema,
+	scale: z.number().min(0.25).max(4).optional()
+});
+
+const DiagramEdgeGeometrySchema = z.strictObject({
+	from: DiagramEndpointSchema,
+	to: DiagramEndpointSchema,
+	route: z.enum(['straight', 'elbow', 'arc']),
+	control: DiagramPointSchema.optional()
+});
+
+const DiagramTimelineGeometrySchema = z.strictObject({
+	from: DiagramPointSchema,
+	to: DiagramPointSchema
+});
+
+function diagramOrientationOverridesSchema<T extends z.ZodType>(geometrySchema: T) {
+	return z
+		.strictObject({
+			horizontal: geometrySchema.optional(),
+			vertical: geometrySchema.optional()
+		})
+		.optional();
+}
+
 // A labeled point in the diagram. `form` is content (a map wants pins, a
 // flowchart wants boxes — the author picks); HOW a pin/box/dot looks is the
 // Pack's `node.form`-dimension Role, never schema.
@@ -443,6 +469,7 @@ const DiagramNodeSchema = z.strictObject({
 	form: z.enum(['pin', 'box', 'dot']),
 	text: z.string().optional(),
 	scale: z.number().min(0.25).max(4).optional(),
+	orientationOverrides: diagramOrientationOverridesSchema(DiagramPositionGeometrySchema),
 	animation: DiagramAnimationSchema.optional()
 });
 
@@ -460,16 +487,22 @@ const DiagramEdgeArrowSchema = z.strictObject({
 	route: z.enum(['straight', 'elbow', 'arc']),
 	control: DiagramPointSchema.optional(),
 	direction: z.enum(['forward', 'both', 'none']).optional(),
+	orientationOverrides: diagramOrientationOverridesSchema(DiagramEdgeGeometrySchema),
 	animation: DiagramStrokeAnimationSchema.optional()
 });
 
-// Free text annotating a position — the diagram's caption voice.
+// Free text annotating a position. `role` distinguishes a diagram headline
+// from the default caption voice for native-size G4 calibration. It remains
+// optional with a consumer-side caption fallback so existing Presets retain
+// their exact wire shape; do not add a schema default here.
 const DiagramLabelSchema = z.strictObject({
 	...diagramPrimitiveBase,
 	type: z.literal('label'),
 	position: DiagramPointSchema,
 	text: z.string().min(1),
+	role: z.enum(['headline', 'caption']).optional(),
 	scale: z.number().min(0.25).max(4).optional(),
+	orientationOverrides: diagramOrientationOverridesSchema(DiagramPositionGeometrySchema),
 	animation: DiagramAnimationSchema.optional()
 });
 
@@ -489,6 +522,7 @@ const DiagramStatCalloutSchema = z.strictObject({
 	scale: z.number().min(0.25).max(4).optional(),
 	rollStart: FractionSchema.optional(),
 	rollWindow: FractionSchema.optional(),
+	orientationOverrides: diagramOrientationOverridesSchema(DiagramPositionGeometrySchema),
 	animation: DiagramAnimationSchema.optional()
 });
 
@@ -501,6 +535,7 @@ const DiagramTimelineSegmentSchema = z.strictObject({
 	from: DiagramPointSchema,
 	to: DiagramPointSchema,
 	label: z.string().optional(),
+	orientationOverrides: diagramOrientationOverridesSchema(DiagramTimelineGeometrySchema),
 	animation: DiagramStrokeAnimationSchema.optional()
 });
 
@@ -536,14 +571,20 @@ const DiagramSchema = z.array(DiagramPrimitiveSchema).superRefine((primitives, c
 		if (primitive.type !== 'edge-arrow') {
 			continue;
 		}
-		for (const end of ['from', 'to'] as const) {
-			const endpoint = primitive[end];
-			if ('node' in endpoint && !nodeIds.has(endpoint.node)) {
-				ctx.addIssue({
-					code: 'custom',
-					path: [i, end, 'node'],
-					message: `edge-arrow "${primitive.id}" ${end} references node "${endpoint.node}", which is not a node primitive in this diagram.`
-				});
+		for (const orientation of [undefined, 'horizontal', 'vertical'] as const) {
+			const geometry = orientation ? primitive.orientationOverrides?.[orientation] : primitive;
+			if (!geometry) continue;
+			for (const end of ['from', 'to'] as const) {
+				const endpoint = geometry[end];
+				if ('node' in endpoint && !nodeIds.has(endpoint.node)) {
+					ctx.addIssue({
+						code: 'custom',
+						path: orientation
+							? [i, 'orientationOverrides', orientation, end, 'node']
+							: [i, end, 'node'],
+						message: `edge-arrow "${primitive.id}" ${end} references node "${endpoint.node}", which is not a node primitive in this diagram.`
+					});
+				}
 			}
 		}
 	}
@@ -551,6 +592,9 @@ const DiagramSchema = z.array(DiagramPrimitiveSchema).superRefine((primitives, c
 
 export type DiagramPoint = z.infer<typeof DiagramPointSchema>;
 export type DiagramEndpoint = z.infer<typeof DiagramEndpointSchema>;
+export type DiagramPositionGeometry = z.infer<typeof DiagramPositionGeometrySchema>;
+export type DiagramEdgeGeometry = z.infer<typeof DiagramEdgeGeometrySchema>;
+export type DiagramTimelineGeometry = z.infer<typeof DiagramTimelineGeometrySchema>;
 export type DiagramChannelKeyframes = z.infer<typeof DiagramChannelKeyframesSchema>;
 export type DiagramStrokeChannelKeyframes = z.infer<typeof DiagramStrokeChannelKeyframesSchema>;
 export type DiagramAnimation = z.infer<typeof DiagramAnimationSchema>;
@@ -675,7 +719,7 @@ const SurfaceSchema = z.object({
 	diagram: DiagramSchema.optional()
 });
 
-const OverlayPositionSchema = z.object({
+const OverlayPlacementSchema = z.object({
 	anchor: z.enum([
 		'top-left',
 		'top-right',
@@ -702,6 +746,18 @@ const OverlayPositionSchema = z.object({
 	// 5vcak6og). The base value the `rotation` keyframe channel seeds from —
 	// authored spins beyond a full turn live in the channel, not here.
 	rotation: z.number().min(-360).max(360).optional()
+});
+
+const OverlayPositionSchema = OverlayPlacementSchema.extend({
+	// Complete target-specific placement snapshots. Shared placement above is
+	// the fallback; an explicit orientation override replaces it as one coherent
+	// unit so anchor/offset/rect inheritance can never become ambiguous.
+	orientationOverrides: z
+		.object({
+			horizontal: OverlayPlacementSchema.optional(),
+			vertical: OverlayPlacementSchema.optional()
+		})
+		.optional()
 });
 
 const OverlaySchema = z.object({
@@ -1227,6 +1283,7 @@ export type SurfaceState = z.infer<typeof SurfaceSchema>;
 export type SurfaceType = z.infer<typeof SurfaceTypeSchema>;
 export type WebDocumentSite = z.infer<typeof WebDocumentSiteSchema>;
 export type Overlay = z.infer<typeof OverlaySchema>;
+export type OverlayPlacement = z.infer<typeof OverlayPlacementSchema>;
 export type OverlayPosition = z.infer<typeof OverlayPositionSchema>;
 export type Effect = z.infer<typeof EffectSchema>;
 export type EffectChain = z.infer<typeof EffectChainSchema>;

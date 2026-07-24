@@ -25,7 +25,7 @@ src/lib/
     composition-export-controller.ts # deterministic media plan/stepping/encoding handoff + cleanup
     transition-snapshot-controller.ts # endpoint state-swap bracket + cached transition textures
     timeline-entity-identity.ts  # typed runtime track/selection/keyframe/sound identities
-    user-composition-store.ts    # typed client transport for User composition persistence
+    user-composition-store.ts    # typed client transport for User composition persistence/interchange
     Composition.svelte           # canvas root; mounts Surface/Diagram/Overlay/Captions
     SurfaceMount.svelte          # mounts the active SurfaceRenderer's CanvasSource + Pack vars
     OverlayMount.svelte          # iterates engineState.overlays, mounts each + Pack vars
@@ -46,7 +46,7 @@ src/lib/
     preset-rubric.ts             # static linter — video-safety + readability only (ADR-0025)
     export-video.ts              # WebM/ProRes encoding and download primitives
     packs/                       # the appearance system
-      registry.ts                # PACK_REGISTRY (syntax = REFERENCE_PACK_SLUG, editorial-mono)
+      registry.ts                # PACK_REGISTRY (live catalog; syntax = REFERENCE_PACK_SLUG)
       resolve.ts                 # resolveAppearanceVars — the live Pack→pixel path
       types.ts                   # Pack/Role manifest types
       validation.ts              # manifest metadata/font/chrome/core contract gate
@@ -69,21 +69,24 @@ src/lib/
 
 There is no `src/lib/tools/` — per-tool modules were collapsed into the engine ([ADR-0002](adr/0002-per-tool-routes-to-preset-engine.md)). Note the two `pipelines/` dirs: `platform/pipelines/` is **infrastructure** (registry, runners, interfaces); `src/lib/pipelines/` holds the **renderers**. Pack documentation lives separately at `docs/packs/<slug>/`; machine manifests live at `src/lib/packs/<slug>/`. The active `Workspace` shell owns live Svelte/DOM/GPU dependencies and the editor through `CanvasControlsBar`, `TimelineOutline`, and `Inspector`; it delegates frame execution, export lifecycle, and transition snapshot lifecycle to the concept-named modules above. `Composition` mounts Overlays through `OverlayMount`.
 
-`timeline-entity-identity.ts` is the only constructor/parser protocol for runtime timeline tracks, subtracks, selections, keyframes, and Sound-rail references; authored Preset IDs remain unchanged. `user-composition-store.ts` is the searchable `UserCompositionStore` boundary for list/load/fork/save/delete calls to `/api/user-compositions`; route handlers own filesystem persistence behind that transport.
+`timeline-entity-identity.ts` is the only constructor/parser protocol for runtime timeline tracks, subtracks, selections, keyframes, and Sound-rail references; authored Preset IDs remain unchanged. `user-composition-store.ts` is the searchable `UserCompositionStore` boundary for list/load/fork/save/delete calls to `/api/user-compositions`; route handlers own filesystem persistence behind that transport. The item GET and PUT bodies are the same standalone wire Preset, which gives agents a lossless GET/edit/PUT loop over the exact store the GUI autosaves. See [`user-composition-workflows.md`](user-composition-workflows.md).
 
 The homepage's **New composition** action is the shipped create-from-blank entry point: it forks the built-in `blank` Preset into the user store as an untitled User composition, then opens that standalone Preset in the same Workspace used by Starter-template forks.
+
+Poster lifecycle has two layers. Every registered Surface has a committed `static/surface-posters/<type>.webp` fallback for immediate catalog paint. Composition-specific posters are captured on view, keyed by Preset content hash, stored in the local `.posters/` cache, and self-invalidated when content changes; `scripts/warm-posters.mjs` is an optional local prewarm, not a build or deployment step.
 
 ## Verification commands
 
 The shell out of which any engine change is verified.
 
-| Command                                       | Purpose                                                         | Success signal                     |
-| --------------------------------------------- | --------------------------------------------------------------- | ---------------------------------- |
-| `npm run check`                               | Svelte/TypeScript, ESLint, and deterministic discoverability checks | exits 0                         |
-| `npm run check:discoverability`               | Focused source-searchability audit                              | exits 0                            |
-| `npm run verify-presets`                      | Schema + semantic + Pack/Identity gates; static safety/readability lint for deliverables | All `✓`, exits 0 |
-| `npm run gen:schema`                          | Regenerate `docs/preset-format.schema.json` from the Zod schema | `Wrote …preset-format.schema.json` |
-| `npm run build`                               | Smoke-test the production build                                 | `✓ built in <N>s`                  |
+| Command                                                         | Purpose                                                                                  | Success signal                     |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------- |
+| `npm run check`                                                 | Svelte/TypeScript, ESLint, and deterministic discoverability checks                      | exits 0                            |
+| `npm run check:discoverability`                                 | Focused source-searchability audit                                                       | exits 0                            |
+| `npm run verify-presets`                                        | Schema + semantic + Pack/Identity gates; static safety/readability lint for deliverables | All `✓`, exits 0                   |
+| `npm run gen:schema`                                            | Regenerate `docs/preset-format.schema.json` from the Zod schema                          | `Wrote …preset-format.schema.json` |
+| `npm run build`                                                 | Smoke-test the production build                                                          | `✓ built in <N>s`                  |
+| `npm run supers -- render --preset <slug-or-path> --out <file>` | Deterministic automated render through the Workspace export seam                         | output path, exits 0               |
 
 ### Browser checks
 
@@ -95,7 +98,7 @@ A frame composes bottom-to-top:
 
 ```
 +----------------------------------------------------------+
-| 5. Effects        (ONE composition-wide post-process chain)
+| 5. Effects        (`effects[]` routing/post-process + transition lane)
 +----------------------------------------------------------+
 | 4. Overlays       (lower-thirds, watermark, counters, …)  |
 +----------------------------------------------------------+
@@ -107,15 +110,15 @@ A frame composes bottom-to-top:
 +----------------------------------------------------------+
 ```
 
-**Effects are a single composition-wide `effects[]` chain**, run after the final composite — _not_ per-Layer. [ADR-0018](adr/0018-collapse-effects-to-frame-only.md) records the retired five-key shape. Per-target shader work that _does_ need Layer-local knowledge (substrate physics, per-overlay edge treatment) is a **`shaderPass`** on the Surface/Overlay renderer, run by the dispatcher between DOM upload and the effect chain — see [ADR-0005](adr/0005-overlay-renderer-shader-pass.md), [ADR-0008](adr/0008-newspaper-surface-pipeline.md), [ADR-0010](adr/0010-compose-pipeline-shaderpass-invocation.md).
+**Ordinary and composition-owned Effects are authored in one composition-wide `effects[]` list** — _not_ per-Layer. Ordinary `EffectRenderer`s run as the final post-process chain; composition-owned Effects such as `depth-of-field` alter branch dispatch and are removed before the remaining post-process entries run. Transition Effects are the third execution class: top-level `transition.effect` resolves through `transition-registry.ts` and composites two cached endpoint snapshots rather than appearing in `effects[]`. [ADR-0018](adr/0018-collapse-effects-to-frame-only.md) records the retired five-key shape and its execution-class refinement; [ADR-0026](adr/0026-transitions-v1-snapshot-and-wipe.md) owns the transition lane. Per-target shader work that _does_ need Layer-local knowledge is a **`shaderPass`** on the Surface/Overlay renderer, run by the dispatcher between DOM upload and the final chain.
 
-| Layer      | Renderer             | Owns                                          |
-| ---------- | -------------------- | --------------------------------------------- |
-| Surface    | `SurfaceRenderer`    | the material/container + enter/exit           |
-| Block      | `BlockRenderer`      | one content unit inside the Surface           |
-| Annotation | `AnnotationRenderer` | one mark on a Block (decorative or focal)     |
-| Overlay    | `OverlayRenderer`    | a positioned element not bound to a Block     |
-| Effect     | `EffectRenderer`     | one WGSL post-process pass in the frame chain |
+| Layer      | Renderer             | Owns                                                  |
+| ---------- | -------------------- | ----------------------------------------------------- |
+| Surface    | `SurfaceRenderer`    | the material/container + enter/exit                   |
+| Block      | `BlockRenderer`      | one content unit inside the Surface                   |
+| Annotation | `AnnotationRenderer` | one mark on a Block (decorative or focal)             |
+| Overlay    | `OverlayRenderer`    | a positioned element not bound to a Block             |
+| Effect     | registry-dependent   | branch routing, transition wipe, or post-process pass |
 
 ## Data model
 
@@ -190,7 +193,7 @@ interface SurfaceState {
 	backgroundVisibility?: number; // wired: floors focal-dim aggressiveness in the paper pipeline
 }
 
-interface OverlayPosition {
+interface OverlayPlacement {
 	anchor:
 		| 'top-left'
 		| 'top-right'
@@ -200,12 +203,23 @@ interface OverlayPosition {
 		| 'bottom-center'
 		| 'center'
 		| 'normalized-rect';
-	offset?: { x: number; y: number }; // 0..1 fractions of composition dims, anchor-relative
-	rect?: { x: number; y: number; width: number; height: number }; // 0..1 when anchor === 'normalized-rect'
+  offset?: { x: number; y: number }; // 0..1 fractions of composition dims, anchor-relative
+  rect?: { x: number; y: number; width: number; height: number }; // 0..1 when anchor === 'normalized-rect'
+  scale?: number;
+  rotation?: number;
+}
+
+interface OverlayPosition extends OverlayPlacement {
+	orientationOverrides?: {
+		horizontal?: OverlayPlacement; // complete snapshot, not a partial merge
+		vertical?: OverlayPlacement;
+	};
 }
 ```
 
-Placement is **relative** (anchor + fractional offset), never absolute pixels — this is what makes reflow across orientations tractable (see [§ Output & orientation](#output--orientation)).
+Placement is **relative** (anchor + fractional offset), never absolute pixels. Shared placement is the fallback; optional complete horizontal/vertical snapshots let one Overlay change anchor geometry across targets without creating sibling Presets. `resolveOverlayPlacement` is the common render/lint/authoring seam. Platform safe areas validate the resolved snapshot and never clamp authored values (see [§ Output & orientation](#output--orientation)).
+
+Diagram primitives use the parallel `orientationOverrides` policy with type-specific complete geometry: `{ position, scale }` for nodes/labels/stat-callouts, `{ from, to, route, control }` for edge-arrows, and `{ from, to }` for timeline-segments. `resolveDiagramPrimitiveGeometry` supplies live authoring references; `resolveDiagramPrimitiveForRender` materializes the active geometry for DOM and stroke rendering. Content, timing, animation, ink, form, direction, labels, and values remain shared.
 
 ### Body text format
 
@@ -219,13 +233,13 @@ Each registered renderer's exported symbol keeps both its canonical Pipeline ID 
 
 **Live contents** (verified against code):
 
-| Layer       | Registered                                                                                                                                                                                                                                                                                                                  |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| surfaces    | `paper`, `plain`, `newspaper`, `pullquote-on-photo`, `chapter-card`, `title-sequence`, `type-hero` (variants `single`/`pair`), `web-document`, `website-screenshot`, `imessage`, `checklist`                                                                                                                               |
-| blocks      | `paragraph`, `node`, `edge-arrow`, `label`, `stat-callout`, `timeline-segment`                                                                                                                                                                                                                                              |
-| annotations | `highlight`, `underline`, `strike`, `circle`, `box`, `side-note`, `magnify`, `lift-out`, `tear-out`, `isolate`                                                                                                                                                                                                              |
+| Layer       | Registered                                                                                                                                                                                                                                                                                                                                |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| surfaces    | `paper`, `plain`, `newspaper`, `pullquote-on-photo`, `chapter-card`, `title-sequence`, `type-hero` (variants `single`/`pair`), `web-document`, `website-screenshot`, `imessage`, `checklist`                                                                                                                                              |
+| blocks      | `paragraph`, `node`, `edge-arrow`, `label`, `stat-callout`, `timeline-segment`                                                                                                                                                                                                                                                            |
+| annotations | `highlight`, `underline`, `strike`, `circle`, `box`, `side-note`, `magnify`, `lift-out`, `tear-out`, `isolate`                                                                                                                                                                                                                            |
 | overlays    | `lower-third` (variants `standard`/`cinematic`), `washi-tape`, `watermark`, `shader-fill`, `cursor-trail`, `counter` (`slot-machine-roll`), `instance-stack` (`vertical-stack`/`horizontal-train`), `text-3d` (`cylinder-axis-y`), `youtube-subscribe`, `instagram-follow`, `achievement` (`checklist-complete`/`unlocked`), `source-url` |
-| effects     | `paper-grain`, `chromatic-aberration`, `crt-screen`, `crt-tube`, `ntsc-signal`, `dithering`, `halftone-dots`, `halftone-cmyk`, `water`, `fluted-glass`, `heatmap`                                                                                                                                                           |
+| effects     | `paper-grain`, `chromatic-aberration`, `crt-screen`, `crt-tube`, `ntsc-signal`, `dithering`, `halftone-dots`, `halftone-cmyk`, `water`, `fluted-glass`, `heatmap`                                                                                                                                                                         |
 
 **Dead-by-use — resolved.** `isolate`, `watermark`, `shader-fill`, `chromatic-aberration` were registered + boot-valid but referenced by zero presets; each now has a proving fixture (`isolate-demo`, `watermark-demo`, `shader-fill-demo`, `chromatic-aberration-demo`) that renders the pipeline, so all four are kept (not removed). Every registered pipeline is now referenced by ≥1 preset.
 
@@ -233,7 +247,7 @@ Fixtures are excluded from the app catalog and skip the deliverable-only static 
 
 ### Validation boundaries
 
-`PresetSchema` owns structural JSON validation and transforms. `validatePresetSemantics` then validates the parsed Preset against the live registries: Pack slug, Surface registration and variant, Overlay registration/content schema, post-process or composition Effect registration/params, Stage registration, substrate assets, collection IDs, text-animation Overlay targets, transition lane, and transition references when a Preset resolver is available. Unknown authored primitives fail at load; renderers never silently skip them. The same semantic pass runs for the built-in catalog, `parsePreset`, `scripts/verify-presets.ts`, and user-composition list/load/create/update boundaries.
+`PresetSchema` owns structural JSON validation and transforms. `validatePresetSemantics` then validates the parsed Preset against the live registries: Pack slug, Surface registration and variant, Overlay registration/content schema, post-process or composition Effect registration/params, transition Effect registration, Stage registration, substrate assets, collection IDs, text-animation Overlay targets, and transition references when a Preset resolver is available. Unknown authored primitives fail at load; renderers never silently skip them. The same semantic pass runs for the built-in catalog, `parsePreset`, `scripts/verify-presets.ts`, and user-composition list/load/create/update boundaries.
 
 The ordinary Effect registry contains the single-input post-process Effects listed above. Composition-owned Effects whose execution changes the render path live in `composition-effect-registry.ts`; `depth-of-field` is the first. Stage types live in `stage-registry.ts`; `depth` is currently the only registered Stage.
 
@@ -271,7 +285,7 @@ The **stage** branch runs Surface/Pack shader passes, captures an optional Overl
 
 ### shaderPass vs Effect
 
-- **Effect** — pure post-process in the frame chain. Reads a source texture, writes a destination. Needs no scene knowledge beyond its uniforms. Adding one is a shader file + a registry entry.
+- **Effect** — composition-wide authored operation. Ordinary Effects are pure post-process passes; composition-owned Effects alter render dispatch before the ordinary chain; transition Effects composite two cached endpoint snapshots through top-level `transition.effect`. All are registry-validated, while only the first two classes live in `effects[]`.
 - **shaderPass** — per-target work declared on a Surface/Overlay renderer, run before the effect chain, with per-target bounds/seed/time uniforms. This is where torn edges, fiber, hard-offset shadow, and substrate physics live.
 
 ### Focal shader (paper / plain composition)
@@ -298,7 +312,7 @@ A **Pack** is a swappable _appearance dress_ resolved at render time ([ADR-0014]
 
 **Transparency is the default, not a law.** Overlays render transparent (`loadOp: 'clear'`, premultiplied alpha). Output classification is centralized: an EngineState/Preset is opaque when it declares either `backgroundFill` or a dimensional `stage`; a transition is opaque only when **both** resolved `from` and `to` Presets are opaque. Export uses that result for codec handling and the `supers-bumper` / `supers-overlay` basename. There is no `overlay | segment | bumper` enum — those are loose descriptive words, not engine categories.
 
-**Orientation** is `horizontal` (3840×2160) or `vertical` (2160×3840). One deliverable Preset serves both targets: the GUI switches `transport.orientation`, renderer layouts consume frame dimensions and shared safe-area inputs, and the static linter is orientation-aware. Active authoring forbids orientation-suffix deliverables. Retained overlay/diagram recompositions are `kind: "fixture"` evidence for the remaining responsive-placement gap, not catalog entries or precedent; see [`roadmap.md`](roadmap.md).
+**Orientation** is `horizontal` (3840×2160) or `vertical` (2160×3840). One deliverable Preset serves both targets: the GUI switches `transport.orientation`, renderer layouts consume frame dimensions and shared safe-area inputs, and explicit Overlay/Diagram snapshots resolve authored re-staging. The static linter validates the active geometry without clamping it. Active authoring forbids orientation-suffix deliverables.
 
 ## Text animation orchestration
 
@@ -323,7 +337,6 @@ Current mechanisms that remain deliberately narrower than their possible future 
 
 - **Per-pixel depth sidecar on the flat path** — ADR-0021's focal-distance semantics are active through multiplane DOF and the dimensional stage, but the flat compositor has no arbitrary per-pixel z-map target.
 - **Live dual-tree transitions** — multi-state transitions ship as cached snapshot-and-wipe ([ADR-0026](adr/0026-transitions-v1-snapshot-and-wipe.md)); endpoint Presets do not continue animating inside the wipe.
-- **Orientation-responsive authored placement** — core layouts and safe areas reflow, but a general placement model for orientation-dependent overlay positions and diagram coordinates remains open.
 - **Additional Block vocabulary** — `paragraph` plus the five diagram Blocks ship. `code` and `image` are not registered; mermaid-style auto-layout remains explicitly rejected.
 
 ## Constraints

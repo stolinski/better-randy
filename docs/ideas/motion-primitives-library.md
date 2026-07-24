@@ -1,6 +1,6 @@
 # Motion primitives library
 
-> **Status — ✅ SHIPPED (2026-06). Historical reference.** This original pitch was grilled into [`motion-primitives-library-plan.md`](motion-primitives-library-plan.md) and fully delivered (4 pipelines + variants + catalog entries + [ADR-0019](../adr/0019-identity-spec-via-pack.md)/[0020](../adr/0020-variants-as-data.md)). Canonical record: those ADRs + the pipeline registry. Kept for the design rationale.
+> **Status — ✅ SHIPPED (2026-06). Historical reference.** This original pitch was grilled into [`motion-primitives-library-plan.md`](motion-primitives-library-plan.md) and fully delivered (4 pipelines + variants + catalog entries + [ADR-0019](../adr/0019-identity-spec-via-pack.md)/[0020](../adr/0020-variants-as-data.md)). Canonical record: those ADRs + the pipeline registry. The proposal below predates ADR-0023's appearance-only Pack boundary: motion-form, timing, easing, geometry, and frame-relationship are now intrinsic or authored, never Pack Roles. ADR-0018 was also refined when `depth-of-field` became a composition-owned routing Effect. Kept for the design rationale.
 
 ## Pitch
 
@@ -28,7 +28,7 @@ The signature mo1 move (giant `1`, tiny `2` floating next to it) is not a motion
 
 - Params: `scaleRatio: number` (counterpoint as fraction of primary cap-height, default `0.04`), `counterpointAnchor: 'inside-primary' | 'shoulder' | 'baseline-trailing'`, `enterStagger: number` (how much later the counterpoint enters vs the primary).
 - TypeGPU edge: subpixel-accurate text at extreme scale ratios (primary at 1200pt + counterpoint at 48pt in the same composition). HTML-in-Canvas + WebGPU samples cleanly where CSS font-hinting falls over.
-- Pack Roles: `card-pair.background` (Surface or fill Role), `card-pair.enterMotion` (motion-form Role), `card-pair.scaleRatio` (numeric Role with Pack-suggested values for a typographic system).
+- Appearance Role: `card-pair.background`. Enter motion and scale relationship are intrinsic composition behavior, not Pack Roles.
 
 ### Block
 
@@ -39,7 +39,7 @@ The "every line ×9" echo signature. One text string, deterministically repeated
 - Seed variants: `vertical-stack` (mo1's "every line"), `horizontal-train` (right-marching), `diagonal-cascade`.
 - Params: `variant`, `count`, `spacing` (in cap-heights), `opacityFloor`, `lagWindow` (0..1 of slot enter duration), `text` (the slot content).
 - TypeGPU edge: one HTML-in-Canvas capture + N instanced draws in a single fragment pass means count can scale to 20+ without DOM-stacking cost; per-instance offset is precise to fragment-level not CSS-pixel.
-- Pack Roles: `instance-stack.lagCurve` (ease defining how progress propagates from front to back instance), `instance-stack.opacityFloor`, `instance-stack.spacingScale`.
+- Appearance Role: `instance-stack.opacityFloor`. Lag and spacing are intrinsic motion/frame-relationship behavior, not Pack Roles.
 
 **`text-3d`** — kind: `graphic`. Claim: *a text slot rendered on a curved geometry with real perspective and per-fragment lighting.*
 
@@ -48,7 +48,7 @@ The "ROUND SPIN IT" primitive. Text wraps onto a cylinder (or sphere, or folded 
 - Seed variants: `cylinder-axis-y` (vertical-axis spin, mo1-style), `cylinder-axis-x` (horizontal roll), `folded-card` (two-plane fold at an angle).
 - Params: `variant`, `radius` (in cap-heights), `rotationSpeed`, `lighting` (`flat` | `soft` | `hard-rim`), `text`.
 - TypeGPU edge: the entire premise of the primitive — real 3D, real lighting, real self-occlusion at 4K resolution.
-- Pack Roles: `text-3d.material` (resolves to a Pack-defined ink/foil/paper shader), `text-3d.lighting` (Pack-defined lighting rig), `text-3d.curvature`.
+- Appearance Roles: `text-3d.material`, `text-3d.lighting`. Curvature is authored geometry, not a Pack Role.
 
 **`counter`** — kind: `graphic`. Claim: *an animated numeric block that interpolates between two values with a per-digit transition.*
 
@@ -57,7 +57,7 @@ Count-up / count-down / currency / percent / timecode. The signature is the per-
 - Seed variants: `slot-machine-roll`, `fade-through`, `split-flap`, `typewriter`.
 - Params: `variant`, `from`, `to`, `format` (`'integer' | 'currency' | 'percent' | 'timecode'`), `ease`.
 - TypeGPU edge: per-digit glyphs are real text captured at 4K each frame; multi-digit transitions composite without the cross-fade ghosting that DOM-counter implementations show at scale.
-- Pack Roles: `counter.digitMaterial` (resolves to ink / foil / paper), `counter.digitTransitionEase`, `counter.numeralStyle` (lining / oldstyle / tabular — Pack typographic choice).
+- Appearance Roles: `counter.digitMaterial`, `counter.numeralStyle`. Digit transition easing is intrinsic motion, not a Pack Role.
 
 ### Overlay
 
@@ -68,23 +68,23 @@ A diegetic cursor moving between content elements is the "screen recording but b
 - Seed variants: `mac-pointer`, `arrow`, `hand-pointer`, `crosshair`.
 - Params: `variant`, `path` (array of `{ targetSlot, dwellMs, action: 'hover' | 'click' | 'idle' }`), `trailFade`, `easing`.
 - TypeGPU edge: per-frame motion blur sampled shader-side from velocity; the blur shape is correct (oriented along the motion vector, anisotropic) where a CSS approximation is isotropic.
-- Pack Roles: `cursor-trail.pointer` (Pack-defined pointer asset), `cursor-trail.trailMaterial`, `cursor-trail.dwellCurve`.
+- Appearance Roles: `cursor-trail.pointer`, `cursor-trail.trailMaterial`. Dwell timing is authored motion, not a Pack Role.
 
 ### Effect
 
-**`depth-of-field`** — frame-only effect (no Identity Spec — effects are post-process per [ADR-0015](../adr/0015-identity-spec-per-pipeline.md)). Multi-tap shader pass that defocuses the composition with a focal-distance + bokeh-size + bokeh-shape, sampled against the engine's z-plane assignments.
+**`depth-of-field`** — composition-owned routing Effect (no Identity Spec). It selects the multiplane render branch, then the remaining ordinary Effects run as the final post-process chain. Multi-tap shader work defocuses the composition from focal-distance and bokeh parameters sampled against the engine's z-plane assignments.
 
 - Params: `focalSlotId` (the slot that should be in focus; everything else defocuses by its z-distance), `bokehShape` (`circle` | `hex` | `anamorphic`), `bokehSize`, `intensity`.
 - TypeGPU edge: the thing CSS / SVG / `filter: blur()` fundamentally cannot do — real lens DoF requires multi-tap sampling against a depth source. Supers has one because Surface, Body, Annotation, Overlay each declare a z-plane.
 - Honors transparency per the engine's transparency contract.
-- Pack Roles: `dof.bokehShape`, `dof.bokehSize`, `dof.focalCurve`.
+- Authored params: bokeh shape/size and focal behavior; these are not Pack Roles.
 
 **`mask-wipe`** — frame-only effect. Animated procedural wipe between two body states (paragraph swap, surface transition). Geometric (bar, iris, diagonal) or value-noise (torn-paper, ink-bleed) edge shape.
 
 - Seed variants: `bar-horizontal`, `iris-circle`, `diagonal-45`, `torn-paper`, `value-noise`.
 - Params: `variant`, `direction`, `softness`, `seed` (deterministic noise seed when `variant` uses noise).
 - TypeGPU edge: the `torn-paper` variant uses the same value-noise function as the `newspaper-physics` shader pass — same vocabulary, same seed convention; the wipe matches the substrate's edge if the substrate is newspaper.
-- Pack Roles: `mask-wipe.edgeMaterial` (Pack-defined edge texture / noise), `mask-wipe.softnessCurve`.
+- Appearance Role: `mask-wipe.edgeMaterial`. Softness/timing remain authored behavior.
 
 ## Text-effect catalog additions
 
@@ -173,13 +173,11 @@ Single-shape Pipelines (`card-pair` Surface, `depth-of-field` Effect) do not get
 
 ## Pack Role inventory
 
-The library introduces these new Roles to the Core Role vocabulary the `syntax` Pack manifest must resolve (per [ADR-0014](../adr/0014-pack-preset-split.md)):
+The original proposal introduced the following appearance slots. Rows that encoded motion were rejected by ADR-0023 and are omitted; motion-form and frame-relationship are intrinsic Identity dimensions.
 
 | Role | Kind | Used by |
 |---|---|---|
 | `card-pair.background` | pipeline | `card-pair` Surface |
-| `card-pair.enterMotion` | style | `card-pair` Surface |
-| `instance-stack.lagCurve` | style | `instance-stack` Block |
 | `instance-stack.opacityFloor` | style | `instance-stack` Block |
 | `text-3d.material` | pipeline | `text-3d` Block |
 | `text-3d.lighting` | chrome | `text-3d` Block |
@@ -187,8 +185,6 @@ The library introduces these new Roles to the Core Role vocabulary the `syntax` 
 | `counter.numeralStyle` | style | `counter` Block |
 | `cursor-trail.pointer` | pipeline | `cursor-trail` Overlay |
 | `cursor-trail.trailMaterial` | pipeline | `cursor-trail` Overlay |
-| `dof.bokehShape` | style | `depth-of-field` Effect |
-| `dof.bokehSize` | style | `depth-of-field` Effect |
 | `mask-wipe.edgeMaterial` | pipeline | `mask-wipe` Effect |
 
 A future Pack (editorial-minimal, neo-brutalist) implements the same Roles with different values. The Pipeline code does not change.
@@ -213,7 +209,7 @@ Effects do not ship Identity Specs (Critic walks effects through the Q-rubric / 
 - **[ADR-0014](../adr/0014-pack-preset-split.md)** — Pack/Preset split. Every aesthetic decision in the library is a Pack Role, not a hardcoded value. Default values live in the `syntax` Pack manifest; future Packs dress the same Presets differently.
 - **[ADR-0015](../adr/0015-identity-spec-per-pipeline.md)** — Identity Spec per Pipeline. Each new Pipeline ships its Identity Spec as part of "done." Registration validator gates on completeness.
 - **[ADR-0016](../adr/0016-anti-patterns-loadbearing-when.md)** — Anti-patterns are loadbearing-when-claimed. `text-3d`'s per-fragment lighting is "drop-shadow stacking on text" when judged against the old anti-pattern list; ADR-0016 says it is loadbearing-when-claimed-by-`light-treatment`. The library leans on this resolution and would be rejected by the pre-ADR-0016 rubric.
-- **[ADR-0018](../adr/0018-collapse-effects-to-frame-only.md)** — Effects are frame-only. `depth-of-field` and `mask-wipe` are post-process passes on the composed frame, not per-layer.
+- **[ADR-0018](../adr/0018-collapse-effects-to-frame-only.md)** — Effects share one flat authored list. `mask-wipe` uses its transition lane; `depth-of-field` is composition-owned and changes branch dispatch before ordinary post-process Effects run.
 
 The library does NOT require new ADRs for any of these alignments. It DOES propose one new ADR for the variants-as-data convention.
 

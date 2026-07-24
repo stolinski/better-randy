@@ -5,7 +5,7 @@
 		type Cascade,
 		type Ease,
 		type Overlay,
-		type OverlayPosition,
+		type OverlayPlacement,
 		type TextAnimation,
 		type TextAnimationParams,
 		type Transition
@@ -18,6 +18,7 @@
 		TEXT_EFFECT_SPLIT_MODES,
 		type TextEffectSplitMode
 	} from '$lib/text-animations/catalog';
+	import { cloneOverlayPlacement, resolveOverlayPlacement } from '$lib/utils/overlay-placement';
 	import { formatFractionAsSeconds } from '$lib/utils/string';
 	import AddMenu from './AddMenu.svelte';
 	import CascadeSection from './CascadeSection.svelte';
@@ -86,43 +87,64 @@
 		}))
 	);
 
-	function setOverlayAnchor(ov: Overlay, value: string): void {
-		(ov.position as OverlayPosition).anchor = value as OverlayPosition['anchor'];
+	function setOverlayAnchor(placement: OverlayPlacement, value: string): void {
+		placement.anchor = value as OverlayPlacement['anchor'];
 	}
 
-	function setOverlayOffsetX(ov: Overlay, value: string): void {
+	function setOverlayOffsetX(placement: OverlayPlacement, value: string): void {
 		const n = Number(value);
 		if (!Number.isFinite(n)) return;
-		if (!ov.position.offset) ov.position.offset = { x: 0, y: 0 };
-		ov.position.offset.x = Math.max(0, Math.min(1, n));
+		if (!placement.offset) placement.offset = { x: 0, y: 0 };
+		placement.offset.x = Math.max(0, Math.min(1, n));
 	}
 
-	function setOverlayOffsetY(ov: Overlay, value: string): void {
+	function setOverlayOffsetY(placement: OverlayPlacement, value: string): void {
 		const n = Number(value);
 		if (!Number.isFinite(n)) return;
-		if (!ov.position.offset) ov.position.offset = { x: 0, y: 0 };
-		ov.position.offset.y = Math.max(0, Math.min(1, n));
+		if (!placement.offset) placement.offset = { x: 0, y: 0 };
+		placement.offset.y = Math.max(0, Math.min(1, n));
 	}
 
 	// Normalized-rect placement (fractions of the composition; unclamped on
 	// purpose — offscreen rects are how shader overlays park outside the frame).
-	function setOverlayRect(ov: Overlay, key: 'x' | 'y' | 'width' | 'height', value: string): void {
+	function setOverlayRect(
+		placement: OverlayPlacement,
+		key: 'x' | 'y' | 'width' | 'height',
+		value: string
+	): void {
 		const n = Number(value);
 		if (!Number.isFinite(n)) return;
-		if (!ov.position.rect) ov.position.rect = { x: 0, y: 0, width: 1, height: 1 };
-		ov.position.rect[key] = n;
+		if (!placement.rect) placement.rect = { x: 0, y: 0, width: 1, height: 1 };
+		placement.rect[key] = n;
 	}
 
-	function setOverlayScale(ov: Overlay, value: string): void {
+	function setOverlayScale(placement: OverlayPlacement, value: string): void {
 		const n = Number(value);
 		if (!Number.isFinite(n)) return;
-		ov.position.scale = Math.max(0.1, Math.min(8, n));
+		placement.scale = Math.max(0.1, Math.min(8, n));
 	}
 
-	function setOverlayRotation(ov: Overlay, value: string): void {
+	function setOverlayRotation(placement: OverlayPlacement, value: string): void {
 		const n = Number(value);
 		if (!Number.isFinite(n)) return;
-		ov.position.rotation = Math.max(-360, Math.min(360, n));
+		placement.rotation = Math.max(-360, Math.min(360, n));
+	}
+
+	function toggleOrientationCustomization(ov: Overlay, checked: boolean): void {
+		const orientation = engineState.transport.orientation;
+		if (checked) {
+			const placement = cloneOverlayPlacement(resolveOverlayPlacement(ov.position, orientation));
+			if (!ov.position.orientationOverrides) ov.position.orientationOverrides = {};
+			ov.position.orientationOverrides[orientation] = placement;
+			return;
+		}
+
+		const overrides = ov.position.orientationOverrides;
+		if (!overrides) return;
+		delete overrides[orientation];
+		if (!overrides.horizontal && !overrides.vertical) {
+			ov.position.orientationOverrides = undefined;
+		}
 	}
 
 	// Keyframeable overlay channels (ADR-0035 §3), in inspector order.
@@ -243,6 +265,7 @@
 {#if overlay && overlayRenderer}
 	{@const ov = overlay}
 	{@const renderer = overlayRenderer}
+	{@const placement = resolveOverlayPlacement(ov.position, engineState.transport.orientation)}
 
 	<InspectorSection label={renderer.label}>
 		{#if renderer.Inspector}
@@ -255,25 +278,33 @@
 	</InspectorSection>
 
 	<InspectorSection label="Position">
+		{#snippet action()}
+			<InspectorToggle
+				checked={ov.position.orientationOverrides?.[engineState.transport.orientation] !==
+					undefined}
+				label={`Customize ${engineState.transport.orientation}`}
+				onchange={(checked) => toggleOrientationCustomization(ov, checked)}
+			/>
+		{/snippet}
 		<Field label="Anchor">
 			<select
-				value={ov.position.anchor}
-				onchange={(e) => setOverlayAnchor(ov, (e.currentTarget as HTMLSelectElement).value)}
+				value={placement.anchor}
+				onchange={(e) => setOverlayAnchor(placement, (e.currentTarget as HTMLSelectElement).value)}
 			>
 				{#each OVERLAY_ANCHORS as anchor (anchor)}
 					<option value={anchor}>{anchor}</option>
 				{/each}
 			</select>
 		</Field>
-		{#if ov.position.anchor !== 'normalized-rect'}
+		{#if placement.anchor !== 'normalized-rect'}
 			<Field label="Offset X">
 				<input
 					type="number"
 					min="0"
 					max="1"
 					step="any"
-					value={ov.position.offset?.x ?? 0}
-					oninput={(e) => setOverlayOffsetX(ov, (e.currentTarget as HTMLInputElement).value)}
+					value={placement.offset?.x ?? 0}
+					oninput={(e) => setOverlayOffsetX(placement, (e.currentTarget as HTMLInputElement).value)}
 				/>
 			</Field>
 			<Field label="Offset Y">
@@ -282,8 +313,8 @@
 					min="0"
 					max="1"
 					step="any"
-					value={ov.position.offset?.y ?? 0}
-					oninput={(e) => setOverlayOffsetY(ov, (e.currentTarget as HTMLInputElement).value)}
+					value={placement.offset?.y ?? 0}
+					oninput={(e) => setOverlayOffsetY(placement, (e.currentTarget as HTMLInputElement).value)}
 				/>
 			</Field>
 		{:else}
@@ -291,32 +322,36 @@
 				<input
 					type="number"
 					step="any"
-					value={ov.position.rect?.x ?? 0}
-					oninput={(e) => setOverlayRect(ov, 'x', (e.currentTarget as HTMLInputElement).value)}
+					value={placement.rect?.x ?? 0}
+					oninput={(e) =>
+						setOverlayRect(placement, 'x', (e.currentTarget as HTMLInputElement).value)}
 				/>
 			</Field>
 			<Field label="Rect Y">
 				<input
 					type="number"
 					step="any"
-					value={ov.position.rect?.y ?? 0}
-					oninput={(e) => setOverlayRect(ov, 'y', (e.currentTarget as HTMLInputElement).value)}
+					value={placement.rect?.y ?? 0}
+					oninput={(e) =>
+						setOverlayRect(placement, 'y', (e.currentTarget as HTMLInputElement).value)}
 				/>
 			</Field>
 			<Field label="Width">
 				<input
 					type="number"
 					step="any"
-					value={ov.position.rect?.width ?? 1}
-					oninput={(e) => setOverlayRect(ov, 'width', (e.currentTarget as HTMLInputElement).value)}
+					value={placement.rect?.width ?? 1}
+					oninput={(e) =>
+						setOverlayRect(placement, 'width', (e.currentTarget as HTMLInputElement).value)}
 				/>
 			</Field>
 			<Field label="Height">
 				<input
 					type="number"
 					step="any"
-					value={ov.position.rect?.height ?? 1}
-					oninput={(e) => setOverlayRect(ov, 'height', (e.currentTarget as HTMLInputElement).value)}
+					value={placement.rect?.height ?? 1}
+					oninput={(e) =>
+						setOverlayRect(placement, 'height', (e.currentTarget as HTMLInputElement).value)}
 				/>
 			</Field>
 		{/if}
@@ -326,8 +361,8 @@
 				min="0.1"
 				max="8"
 				step="any"
-				value={ov.position.scale ?? 1}
-				oninput={(e) => setOverlayScale(ov, (e.currentTarget as HTMLInputElement).value)}
+				value={placement.scale ?? 1}
+				oninput={(e) => setOverlayScale(placement, (e.currentTarget as HTMLInputElement).value)}
 			/>
 		</Field>
 		<Field label="Rotation°">
@@ -336,8 +371,8 @@
 				min="-360"
 				max="360"
 				step="any"
-				value={ov.position.rotation ?? 0}
-				oninput={(e) => setOverlayRotation(ov, (e.currentTarget as HTMLInputElement).value)}
+				value={placement.rotation ?? 0}
+				oninput={(e) => setOverlayRotation(placement, (e.currentTarget as HTMLInputElement).value)}
 			/>
 		</Field>
 		{#if depthActive}

@@ -9,7 +9,7 @@
 </script>
 
 {#if block.form === 'box'}
-	<span class="node node--box">{block.text ?? ''}</span>
+	<span class="node node--box" data-diagram-text-role="caption">{block.text ?? ''}</span>
 {:else if block.form === 'pin'}
 	<span class="node node--pin">
 		<!-- Shadow is an offset SVG path, never a CSS filter — filters promote
@@ -25,12 +25,16 @@
 			/>
 			<circle class="node__pin-core" cx="24" cy="23" r="8.5" />
 		</svg>
-		{#if block.text}<span class="node__pin-text">{block.text}</span>{/if}
+		{#if block.text}
+			<span class="node__pin-text" data-diagram-text-role="caption">{block.text}</span>
+		{/if}
 	</span>
 {:else}
 	<span class="node node--dot">
 		<span class="node__dot-mark"></span>
-		{#if block.text}<span class="node__dot-text">{block.text}</span>{/if}
+		{#if block.text}
+			<span class="node__dot-text" data-diagram-text-role="caption">{block.text}</span>
+		{/if}
 	</span>
 {/if}
 

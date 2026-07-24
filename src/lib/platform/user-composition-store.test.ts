@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 import blankPresetJson from '$lib/presets/blank.json';
 
 import { PresetSchema, type Preset } from './engine-schema';
+import { presetToWireFormat } from './preset-pure';
 import { userCompositionStore } from './user-composition-store';
 
 const blankPreset: Preset = PresetSchema.parse(blankPresetJson);
@@ -55,7 +56,9 @@ describe('userCompositionStore', () => {
 	});
 
 	it('loads an encoded User composition slug and preserves null as the no-fork response', async () => {
-		fetchMock.mockResolvedValueOnce(jsonResponse(blankPreset)).mockResolvedValueOnce(jsonResponse(null));
+		fetchMock
+			.mockResolvedValueOnce(jsonResponse(presetToWireFormat(blankPreset)))
+			.mockResolvedValueOnce(jsonResponse(null));
 
 		const loaded = await userCompositionStore.loadUserComposition('blank copy');
 		const missing = await userCompositionStore.loadUserComposition('missing');
@@ -113,6 +116,17 @@ describe('userCompositionStore', () => {
 		await assert.rejects(
 			userCompositionStore.loadUserComposition('blank-copy'),
 			/Failed to load User composition "blank-copy": 503 Store unavailable/
+		);
+	});
+
+	it('includes an actionable API error message in HTTP failures', async () => {
+		fetchMock.mockResolvedValueOnce(
+			jsonResponse({ message: 'Invalid preset: state.surface is required' }, { status: 400 })
+		);
+
+		await assert.rejects(
+			userCompositionStore.saveUserComposition('blank-copy', blankPreset),
+			/400: Invalid preset: state\.surface is required/
 		);
 	});
 

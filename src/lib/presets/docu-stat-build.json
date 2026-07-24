@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Docu stat build",
-	"description": "Three stat-callouts build in reading order over footage — a transparent ADR-0036 stat beat: JAVASCRIPT BY THE NUMBERS, then 2,100,000,000 npm downloads/week, 97% of sites, 11,000,000 devs roll up slot-machine style, land, and hold together before a staggered fade out. Intentional omissions: no collage card, no hard offset shadow, no grit, no backgroundFill — this is a keyed overlay; the footage is the substrate and the mono signature thread is carried by the JetBrains Mono stat values and captions, with values in pack accent #fabf47.",
+	"description": "Three stat-callouts build in reading order over footage: JAVASCRIPT BY THE NUMBERS, then npm downloads, sites running JS, and developers roll up and hold. One Preset reflows the horizontal row into a platform-safe vertical stack through complete Diagram position and scale overrides. No collage card, grit, or background fill: the footage is the substrate and the mono stat values carry the signature thread.",
 	"pack": "syntax",
 	"kind": "deliverable",
 	"state": {
@@ -50,7 +50,17 @@
 						"y": 0.3
 					},
 					"text": "JAVASCRIPT BY THE NUMBERS",
+					"role": "headline",
 					"scale": 2,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.48,
+								"y": 0.24
+							},
+							"scale": 2.2
+						}
+					},
 					"enter": {
 						"start": 0.07,
 						"duration": 0.05,
@@ -81,6 +91,15 @@
 					"format": "integer",
 					"label": "NPM DOWNLOADS / WEEK",
 					"scale": 0.85,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.48,
+								"y": 0.4
+							},
+							"scale": 1
+						}
+					},
 					"rollStart": 0.15,
 					"rollWindow": 0.25,
 					"enter": {
@@ -115,6 +134,15 @@
 					"format": "percent",
 					"label": "OF SITES RUN JS",
 					"scale": 0.85,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.48,
+								"y": 0.55
+							},
+							"scale": 1
+						}
+					},
 					"rollStart": 0.225,
 					"rollWindow": 0.23,
 					"enter": {
@@ -149,6 +177,15 @@
 					"format": "integer",
 					"label": "JS DEVELOPERS",
 					"scale": 0.85,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.48,
+								"y": 0.7
+							},
+							"scale": 1
+						}
+					},
 					"rollStart": 0.3,
 					"rollWindow": 0.25,
 					"enter": {

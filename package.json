@@ -20,6 +20,7 @@
 		"format": "prettier --write .",
 		"gen": "wrangler types",
 		"gen:schema": "node --experimental-strip-types scripts/export-preset-schema.ts",
+		"supers": "node --experimental-strip-types scripts/supers.ts",
 		"verify-presets": "node --experimental-strip-types scripts/verify-presets.ts"
 	},
 	"devDependencies": {

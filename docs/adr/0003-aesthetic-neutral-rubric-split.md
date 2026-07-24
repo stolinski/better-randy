@@ -1,5 +1,9 @@
 # Aesthetic-neutral rubric + separate aesthetic doc
 
+## Status
+
+**Canon, refined by ADR-0025.**
+
 A single rubric originally tried to govern both *whether a preset is well-made* and *whether it fits the Supers channel*, and the two kept contaminating each other: craft rules drifted toward channel-specific examples ("yellow highlighter at 0.7 alpha"), and channel-specific rules drifted toward absolutes that broke for legitimate aesthetic experiments. We split the two: `docs/quality-rubric.md` and `docs/animation-rubric.md` define the craft floor every preset must clear regardless of look (R-rules for render quality, Q-rules for composition, G-rules for motion), and `docs/aesthetic.md` defines which well-made the channel actually wants (palette, type, surface vocabulary, collage system, motion vocabulary, anti-aesthetic). Both must pass independently — a preset can be technically immaculate and channel-wrong, or channel-perfect and technically broken.
 
 ## Consequences

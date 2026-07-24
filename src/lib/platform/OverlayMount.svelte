@@ -5,8 +5,9 @@
 	import { appearanceVarsToStyle, resolveAppearanceVars } from './packs/resolve';
 	import { PIPELINE_REGISTRY } from './pipelines';
 	import { isPackImmune } from './pipelines/identity-registry';
-	import type { Overlay } from './engine-schema';
+	import type { Overlay, OverlayPlacement } from './engine-schema';
 	import type { OverlayRenderer } from './pipelines/types';
+	import { resolveOverlayPlacement } from '$lib/utils/overlay-placement';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 
 	function findRenderer(type: string): OverlayRenderer | null {
@@ -28,8 +29,11 @@
 		return `${v} ${h}`;
 	}
 
-	function positionStyle(overlay: Overlay, channels: OverlayChannelValues | null): string {
-		const { anchor, offset, rect } = overlay.position;
+	function positionStyle(
+		placement: OverlayPlacement,
+		channels: OverlayChannelValues | null
+	): string {
+		const { anchor, offset, rect } = placement;
 		// Offsets are fractions of the composition (0..1 of inline-size / block-size).
 		// 0.05 = 5% margin from the anchor edge.
 		const ox = (offset?.x ?? 0) * 100;
@@ -42,8 +46,8 @@
 		const dy = (channels?.y ?? 0) * 100;
 		// Scale / rotation: absolute channel values when the composition owns the
 		// motion; the static position fields (their seeds) otherwise.
-		const scale = channels ? channels.scale : (overlay.position.scale ?? 1);
-		const rotation = channels ? channels.rotation : (overlay.position.rotation ?? 0);
+		const scale = channels ? channels.scale : (placement.scale ?? 1);
+		const rotation = channels ? channels.rotation : (placement.rotation ?? 0);
 
 		const parts: string[] = [];
 
@@ -147,11 +151,15 @@
 	{#if renderer}
 		{@const Component = renderer.CanvasSource}
 		{@const channels = animState.overlayChannels[index] ?? null}
+		{@const placement = resolveOverlayPlacement(
+			overlay.position,
+			engineState.transport.orientation
+		)}
 		<div
 			class="overlay-mount__item"
 			data-overlay-id={overlay.id}
 			data-overlay-type={overlay.type}
-			style="{positionStyle(overlay, channels)};{channels
+			style="{positionStyle(placement, channels)};{channels
 				? channelVisibilityStyle(channels)
 				: visibilityStyle(animState.overlayProgresses[index] ?? 1, renderer)};{appearanceStyle(
 				overlay

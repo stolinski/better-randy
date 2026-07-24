@@ -123,39 +123,52 @@ describe('composition animation manifest', () => {
 
 		assert.deepEqual(
 			manifest.tweens.map((tween) => tween.key),
-			[
-				'paper-opacity-1',
-				'mark-0',
-				'text-probe',
-				'overlay-motion-y-1',
-				'block-node-a-enter'
-			]
+			['paper-opacity-1', 'mark-0', 'text-probe', 'overlay-motion-y-1', 'block-node-a-enter']
 		);
-		assert.ok(Math.abs((manifest.tweens.find((tween) => tween.key === 'mark-0')?.start ?? 0) - 0.16) < 1e-9);
+		assert.ok(
+			Math.abs((manifest.tweens.find((tween) => tween.key === 'mark-0')?.start ?? 0) - 0.16) < 1e-9
+		);
 		assert.equal(compiledEntries[0].enter.start, 0.26);
-		assert.equal(state.textAnimations[0].enter.start, 0.9, 'Cascade resolution does not mutate authored text timing');
+		assert.equal(
+			state.textAnimations[0].enter.start,
+			0.9,
+			'Cascade resolution does not mutate authored text timing'
+		);
 	});
 
 	it('seeds and writes composition-owned runtime channels deterministically', () => {
 		const runtime = makeRuntime();
+		const state = makeManifestState();
+		state.transport.orientation = 'vertical';
+		state.overlays[0].position.orientationOverrides = {
+			vertical: { anchor: 'bottom-center', offset: { x: 0, y: 0.2 }, scale: 1.4, rotation: 5 }
+		};
+		const node = state.surface.diagram?.[0];
+		if (node?.type === 'node') {
+			node.orientationOverrides = {
+				vertical: { position: { x: 0.5, y: 0.6 }, scale: 1.6 }
+			};
+			node.animation = { channels: { opacity: [{ atMs: 0, value: 0.4 }] } };
+		}
 		const manifest = buildCompositionAnimationManifest({
-			state: makeManifestState(),
+			state,
 			runtime,
 			textAnimationRoot: null,
 			textAnimationCompiler: { rebuild: () => [] },
 			resolveMarkColor: () => '#ffee00'
 		});
 
-		assert.equal(runtime.overlayChannels[0]?.scale, 0.9);
+		assert.equal(runtime.overlayChannels[0]?.scale, 1.4);
+		assert.equal(runtime.overlayChannels[0]?.rotation, 5);
 		assert.equal(runtime.overlayChannels[0]?.y, 0.1);
 		assert.equal(runtime.overlayProgresses[0], 1);
-		assert.equal(runtime.blockChannels['node-a'], null);
+		assert.equal(runtime.blockChannels['node-a']?.scale, 1.6);
+		assert.equal(runtime.blockChannels['node-a']?.opacity, 0.4);
 
 		manifest.tweens.find((tween) => tween.key === 'paper-opacity-1')?.onUpdate(0.75);
 		manifest.tweens.find((tween) => tween.key === 'overlay-motion-y-1')?.onUpdate(0.025);
-		manifest.tweens.find((tween) => tween.key === 'block-node-a-enter')?.onUpdate(0.6);
 		assert.equal(runtime.paperVisibility, 0.75);
 		assert.equal(runtime.overlayChannels[0]?.y, 0.025);
-		assert.equal(runtime.blockProgresses['node-a'], 0.6);
+		assert.equal(runtime.blockProgresses['node-a'], 1);
 	});
 });

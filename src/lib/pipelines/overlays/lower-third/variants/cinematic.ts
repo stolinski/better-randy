@@ -2,12 +2,9 @@ import type { LowerThirdVariant } from './types';
 import CinematicCanvasSource from './CinematicCanvasSource.svelte';
 
 /**
- * Cinematic lower-third variant — broadcast-grade plate with a thin orange
- * accent rule, a horizontal-gradient dark scrim, and the family-level
- * shaderPass\'s anamorphic flare gated to this variant. Per ADR-0019 the
- * light-treatment dimension on the family\'s Identity Spec resolves through
- * the active Pack\'s `lower-third.light` Role, which the syntax Pack
- * manifest binds to `anamorphic-flare` for this variant.
+ * Cinematic lower-third variant — a broadcast plate whose appearance resolves
+ * through the active Pack. Its former anamorphic flare was removed by ADR-0039;
+ * this module now owns only the variant's timing shape and defaults.
  */
 export const cinematicLowerThird: LowerThirdVariant = {
 	id: 'cinematic',
@@ -16,8 +13,7 @@ export const cinematicLowerThird: LowerThirdVariant = {
 		offsetY: 0.115
 	},
 	motionShape: (slotIndex, progress) => {
-		// Cinematic variant front-loads the title (slot 1) so it lands as the
-		// flare sweep peaks; kicker and role catch up after.
+		// Cinematic variant front-loads the title; kicker and role catch up after.
 		const lag = slotIndex === 1 ? 0 : slotIndex * 0.1 + 0.02;
 		const local = Math.max(0, Math.min(1, (progress - lag) / (1 - lag)));
 		return local * local * (3 - 2 * local);

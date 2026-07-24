@@ -939,6 +939,80 @@
                         "minimum": 0.25,
                         "maximum": 4
                       },
+                      "orientationOverrides": {
+                        "type": "object",
+                        "properties": {
+                          "horizontal": {
+                            "type": "object",
+                            "properties": {
+                              "position": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "y": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "scale": {
+                                "type": "number",
+                                "minimum": 0.25,
+                                "maximum": 4
+                              }
+                            },
+                            "required": [
+                              "position"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "vertical": {
+                            "type": "object",
+                            "properties": {
+                              "position": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "y": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "scale": {
+                                "type": "number",
+                                "minimum": 0.25,
+                                "maximum": 4
+                              }
+                            },
+                            "required": [
+                              "position"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "additionalProperties": false
+                      },
                       "animation": {
                         "type": "object",
                         "properties": {
@@ -1440,6 +1514,238 @@
                           "none"
                         ]
                       },
+                      "orientationOverrides": {
+                        "type": "object",
+                        "properties": {
+                          "horizontal": {
+                            "type": "object",
+                            "properties": {
+                              "from": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "node": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "node"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "x": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1
+                                      },
+                                      "y": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "x",
+                                      "y"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              },
+                              "to": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "node": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "node"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "x": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1
+                                      },
+                                      "y": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "x",
+                                      "y"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              },
+                              "route": {
+                                "type": "string",
+                                "enum": [
+                                  "straight",
+                                  "elbow",
+                                  "arc"
+                                ]
+                              },
+                              "control": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "y": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "from",
+                              "to",
+                              "route"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "vertical": {
+                            "type": "object",
+                            "properties": {
+                              "from": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "node": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "node"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "x": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1
+                                      },
+                                      "y": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "x",
+                                      "y"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              },
+                              "to": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "node": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "node"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "x": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1
+                                      },
+                                      "y": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "x",
+                                      "y"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              },
+                              "route": {
+                                "type": "string",
+                                "enum": [
+                                  "straight",
+                                  "elbow",
+                                  "arc"
+                                ]
+                              },
+                              "control": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "y": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "from",
+                              "to",
+                              "route"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "additionalProperties": false
+                      },
                       "animation": {
                         "type": "object",
                         "properties": {
@@ -1734,10 +2040,91 @@
                         "type": "string",
                         "minLength": 1
                       },
+                      "role": {
+                        "type": "string",
+                        "enum": [
+                          "headline",
+                          "caption"
+                        ]
+                      },
                       "scale": {
                         "type": "number",
                         "minimum": 0.25,
                         "maximum": 4
+                      },
+                      "orientationOverrides": {
+                        "type": "object",
+                        "properties": {
+                          "horizontal": {
+                            "type": "object",
+                            "properties": {
+                              "position": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "y": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "scale": {
+                                "type": "number",
+                                "minimum": 0.25,
+                                "maximum": 4
+                              }
+                            },
+                            "required": [
+                              "position"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "vertical": {
+                            "type": "object",
+                            "properties": {
+                              "position": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "y": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "scale": {
+                                "type": "number",
+                                "minimum": 0.25,
+                                "maximum": 4
+                              }
+                            },
+                            "required": [
+                              "position"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "additionalProperties": false
                       },
                       "animation": {
                         "type": "object",
@@ -2183,6 +2570,80 @@
                         "minimum": 0,
                         "maximum": 1
                       },
+                      "orientationOverrides": {
+                        "type": "object",
+                        "properties": {
+                          "horizontal": {
+                            "type": "object",
+                            "properties": {
+                              "position": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "y": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "scale": {
+                                "type": "number",
+                                "minimum": 0.25,
+                                "maximum": 4
+                              }
+                            },
+                            "required": [
+                              "position"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "vertical": {
+                            "type": "object",
+                            "properties": {
+                              "position": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "y": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "scale": {
+                                "type": "number",
+                                "minimum": 0.25,
+                                "maximum": 4
+                              }
+                            },
+                            "required": [
+                              "position"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "additionalProperties": false
+                      },
                       "animation": {
                         "type": "object",
                         "properties": {
@@ -2617,6 +3078,112 @@
                       },
                       "label": {
                         "type": "string"
+                      },
+                      "orientationOverrides": {
+                        "type": "object",
+                        "properties": {
+                          "horizontal": {
+                            "type": "object",
+                            "properties": {
+                              "from": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "y": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "to": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "y": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "from",
+                              "to"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "vertical": {
+                            "type": "object",
+                            "properties": {
+                              "from": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "y": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "to": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "y": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "from",
+                              "to"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "additionalProperties": false
                       },
                       "animation": {
                         "type": "object",
@@ -3142,6 +3709,157 @@
                     "type": "number",
                     "minimum": -360,
                     "maximum": 360
+                  },
+                  "orientationOverrides": {
+                    "type": "object",
+                    "properties": {
+                      "horizontal": {
+                        "type": "object",
+                        "properties": {
+                          "anchor": {
+                            "type": "string",
+                            "enum": [
+                              "top-left",
+                              "top-right",
+                              "top-center",
+                              "bottom-left",
+                              "bottom-right",
+                              "bottom-center",
+                              "center",
+                              "normalized-rect"
+                            ]
+                          },
+                          "offset": {
+                            "type": "object",
+                            "properties": {
+                              "x": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "y": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              }
+                            },
+                            "required": [
+                              "x",
+                              "y"
+                            ]
+                          },
+                          "rect": {
+                            "type": "object",
+                            "properties": {
+                              "x": {
+                                "type": "number"
+                              },
+                              "y": {
+                                "type": "number"
+                              },
+                              "width": {
+                                "type": "number"
+                              },
+                              "height": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "x",
+                              "y",
+                              "width",
+                              "height"
+                            ]
+                          },
+                          "scale": {
+                            "type": "number",
+                            "minimum": 0.1,
+                            "maximum": 8
+                          },
+                          "rotation": {
+                            "type": "number",
+                            "minimum": -360,
+                            "maximum": 360
+                          }
+                        },
+                        "required": [
+                          "anchor"
+                        ]
+                      },
+                      "vertical": {
+                        "type": "object",
+                        "properties": {
+                          "anchor": {
+                            "type": "string",
+                            "enum": [
+                              "top-left",
+                              "top-right",
+                              "top-center",
+                              "bottom-left",
+                              "bottom-right",
+                              "bottom-center",
+                              "center",
+                              "normalized-rect"
+                            ]
+                          },
+                          "offset": {
+                            "type": "object",
+                            "properties": {
+                              "x": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "y": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              }
+                            },
+                            "required": [
+                              "x",
+                              "y"
+                            ]
+                          },
+                          "rect": {
+                            "type": "object",
+                            "properties": {
+                              "x": {
+                                "type": "number"
+                              },
+                              "y": {
+                                "type": "number"
+                              },
+                              "width": {
+                                "type": "number"
+                              },
+                              "height": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "x",
+                              "y",
+                              "width",
+                              "height"
+                            ]
+                          },
+                          "scale": {
+                            "type": "number",
+                            "minimum": 0.1,
+                            "maximum": 8
+                          },
+                          "rotation": {
+                            "type": "number",
+                            "minimum": -360,
+                            "maximum": 360
+                          }
+                        },
+                        "required": [
+                          "anchor"
+                        ]
+                      }
+                    }
                   }
                 },
                 "required": [

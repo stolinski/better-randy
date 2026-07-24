@@ -16,7 +16,7 @@ A preset is a single JSON document validated by `PresetSchema` (`src/lib/platfor
 
 `pack` is required and must name an entry in `PACK_REGISTRY`; there is no implicit default Pack. `kind: "deliverable"` is listed in the app catalog and receives the static safety/readability lint, while `kind: "fixture"` remains loadable for development but is excluded from the listing. Either kind still receives structural, semantic, Pack, and Identity validation.
 
-`transition` selects the shipped snapshot-and-wipe multi-state path ([ADR-0026](adr/0026-transitions-v1-snapshot-and-wipe.md)). `from` and `to` resolve to ordinary Presets; this Preset's `state.transport` controls the output.
+`transition` selects the shipped snapshot-and-wipe multi-state path ([ADR-0026](adr/0026-transitions-v1-snapshot-and-wipe.md)). `from` and `to` resolve to ordinary Presets; `effect` resolves through the distinct transition-Effect registry and is not an `effects[]` entry. This Preset's `state.transport` controls the output.
 
 ## Shared blocks
 
@@ -34,7 +34,7 @@ A preset is a single JSON document validated by `PresetSchema` (`src/lib/platfor
 }
 ```
 
-Orientation is a transport target, not grounds for a sibling deliverable. Author one Pack-neutral Preset and validate it at both native targets; renderer layout and safe-area inputs reflow it. Retained authored recompositions are fixture-only evidence for known responsive-placement gaps and are excluded from the deliverable listing.
+Orientation is a transport target, not grounds for a sibling deliverable. Author one Pack-neutral Preset and validate it at both native targets; renderer layout and safe-area inputs reflow it, while complete Overlay placement or Diagram geometry snapshots express authored re-staging inside that same Preset.
 
 ### Transparency and output classification
 
@@ -127,7 +127,8 @@ Every primitive also takes an optional `"ink": "ink" | "accent"` — a Role **se
     "animation": { "channels": { "opacity": [ ... ] }, "cascade": { ... } } },  // stroke elements: opacity only
 
   { "type": "label", "id": "l1", "position": { "x": 0..1, "y": 0..1 },
-    "text": "required", "scale": 0.25..4,
+    "text": "required", "role": "headline" | "caption",   // optional; absent → caption at the consumer
+    "scale": 0.25..4,
     "animation": { ... } },                                 // full channel set
 
   { "type": "stat-callout", "id": "s1", "position": { "x": 0..1, "y": 0..1 },
@@ -146,6 +147,8 @@ Every primitive also takes an optional `"ink": "ink" | "accent"` — a Role **se
 
 Parse-time rules: primitive ids are unique within the surface; every edge endpoint `{ node }` ref must resolve to a `node` primitive in the same diagram. Stroke-drawn primitives (`edge-arrow`, `timeline-segment`) reveal by stroke-draw over their enter window and expose only the `opacity` channel; DOM primitives (`node`, `label`, `stat-callout`) take the full ADR-0035 channel set. Reveal choreography is Cascade chains (node → edge draws to → next node) — see Animation below.
 
+Every primitive may carry `orientationOverrides.horizontal` and/or `.vertical` as a **complete geometry snapshot**. Node, label, and stat-callout snapshots are `{ "position": { "x", "y" }, "scale"? }`; edge-arrow snapshots are `{ "from", "to", "route", "control"? }`; timeline-segment snapshots are `{ "from", "to" }`. A snapshot replaces the shared geometry as one unit rather than inheriting individual fields. Content, timing, animation, ink, form, direction, labels, and values remain shared. The GUI edits shared geometry until **Customize horizontal** or **Customize vertical** is enabled; safe-area lint validates resolved points without mutating them.
+
 ### `overlays`
 
 ```jsonc
@@ -159,7 +162,15 @@ Parse-time rules: primitive ids are unique within the surface; every edge endpoi
       "offset": { "x": 0..1, "y": 0..1 },                           // optional; fractions of composition (5% = 0.05)
       "rect":   { "x": 0..1, "y": 0..1, "width": 0..1, "height": 0..1 },  // optional, anchor === 'normalized-rect'
       "scale": 0.1..8,                                              // optional uniform scale about the anchor
-      "rotation": -360..360                                         // optional static rotation in degrees about the anchor
+      "rotation": -360..360,                                        // optional static rotation in degrees about the anchor
+      "orientationOverrides": {                                     // optional complete placement snapshots
+        "vertical": {
+          "anchor": "bottom-center",
+          "offset": { "x": 0, "y": 0.2 },
+          "scale": 0.9,
+          "rotation": 0
+        }
+      }
     },
     "enter": { "start": 0..1, "duration": 0..1, "ease": Ease },     // optional
     "exit":  { "start": 0..1, "duration": 0..1, "ease": Ease },     // optional
@@ -167,6 +178,8 @@ Parse-time rules: primitive ids are unique within the surface; every edge endpoi
   }
 ]
 ```
+
+The fields directly under `position` are the shared placement fallback. `orientationOverrides.horizontal` and `.vertical` are optional **complete** placement snapshots with the same `anchor` / `offset` or `rect` / `scale` / `rotation` shape; when present, the active transport orientation uses that snapshot instead of shared placement. Animation-channel `x`/`y` remain deltas from the resolved placement, while `scale`/`rotation` channels seed from it. The GUI edits shared placement until **Customize horizontal** or **Customize vertical** is enabled. Platform safe areas validate resolved placement but never clamp or mutate authored geometry.
 
 ### `animation` — generalized keyframes + Cascade ([ADR-0035](adr/0035-generalized-keyframes-and-cascade.md))
 
@@ -241,7 +254,7 @@ Parse-time validation:
 
 When a body has both `marks.timings[]` and a `textAnimations[]` entry targeting it, the marks renderer multiplies its drawn alpha by the body's animated unit alpha so marks ride along with their text.
 
-### `effects` (one composition-wide post-process chain)
+### `effects` (one composition-wide authored list)
 
 ```jsonc
 "effects": [
@@ -250,7 +263,7 @@ When a body has both `marks.timings[]` and a `textAnimations[]` entry targeting 
 ]
 ```
 
-A single flat chain, run after the final composite — [ADR-0018](adr/0018-collapse-effects-to-frame-only.md) collapsed the old per-layer `{ surface, body, annotations, overlays, frame }` object (only `frame` was ever consumed). Each entry is `{ type, id, params }`; `params` is declared by the effect's `EffectRenderer.schema` (`src/lib/pipelines/effects/<name>/index.ts`). Per-target shader work that needs layer-local knowledge is a `shaderPass` on the Surface/Overlay renderer, not an Effect ([ADR-0005](adr/0005-overlay-renderer-shader-pass.md)).
+A single flat list — [ADR-0018](adr/0018-collapse-effects-to-frame-only.md) collapsed the old per-layer `{ surface, body, annotations, overlays, frame }` object (only `frame` was ever consumed). Each entry is `{ type, id, params }`. Ordinary entries resolve through an `EffectRenderer.schema` and run in the final post-process chain; composition-owned entries resolve through `composition-effect-registry.ts` and alter branch dispatch before that chain. `depth-of-field` is the current composition-owned Effect. Per-target shader work that needs layer-local knowledge is a `shaderPass` on the Surface/Overlay renderer, not an Effect ([ADR-0005](adr/0005-overlay-renderer-shader-pass.md)).
 
 ### `stage` (optional — dimensional depth stage)
 
@@ -277,7 +290,7 @@ Opt-in composition-wide 3D compositor ([ADR-0028](adr/0028-dimensional-depth-sta
 }
 ```
 
-With `stage` present: overlays ride their own 3D plane at their ADR-0021 `z` (overlay-at-depth — parallax, per-depth defocus, painter's-order occlusion); the active Pack's `light-treatment` Role becomes a real scene key light (received rake + cast plane-to-plane shadow; no Role → unlit); surface-local shader passes still run on the surface plane, but environment-painting passes (`environment: true` — the chapter-card / title-sequence / type-hero / pullquote painted backdrops) are superseded by the real backdrop plane. Surfaces whose enter/exit fade lives in such a pass don't fade on the stage — carry enter/exit in `textAnimations` instead.
+With `stage` present: overlays ride their own 3D plane at their ADR-0021 `z` (overlay-at-depth — parallax, per-depth defocus, painter's-order occlusion); the active Pack's `light-treatment` Role becomes a real scene key light (received rake + cast plane-to-plane shadow; no Role → unlit); surface-local shader passes still run on the surface plane, but environment-painting passes (`environment: true` — the chapter-card / title-sequence / type-hero / pullquote painted backdrops) are superseded by the real backdrop plane. Surface enter/exit visibility is forwarded into the stage as GPU alpha, so authored Surface fades work without duplicating them as text animations.
 
 ### `captions` (optional — the SRT caption track)
 
@@ -343,10 +356,12 @@ Defaults follow the motion's _character_, not just its window: sliding elements 
 - **`chapter-card`** — full-frame chapter introduction Surface.
 - **`title-sequence`** — full-frame title-sequence Surface.
 - **`type-hero`** — full-frame typographic hero; variants `single` / `pair`.
-- **`web-document`** — Pack-immune structured site mock selected by `surface.site`.
-- **`website-screenshot`** — Pack-immune stored 1440×900 website capture in controls-only browser chrome. Slots: `sourceUrl` (author-time capture URL), `imageUrl` (content-addressed `/api/user-assets/...` bytes). Reflows one browser-plus-plate stack across both transports.
-- **`imessage`** — Pack-immune choreographed Messages conversation; `chrome: "window" | "none"`.
+- **`web-document`** — structured site mock selected by `surface.site`.
+- **`website-screenshot`** — stored 1440×900 website capture in controls-only browser chrome. Slots: `sourceUrl` (author-time capture URL), `imageUrl` (content-addressed `/api/user-assets/...` bytes). Reflows one browser-plus-plate stack across both transports.
+- **`imessage`** — choreographed Messages conversation; `chrome: "window" | "none"`.
 - **`checklist`** — timed checklist/progress Surface; `chrome: "window" | "none"`.
+
+Pack immunity is declared by each Pipeline's Identity Spec and derived at runtime. `PACK_IMMUNE_PIPELINE_KEYS` is the complete authority; this catalog intentionally does not copy that set into prose.
 
 ## Block variants
 
@@ -406,3 +421,5 @@ Validation has two ordered layers:
 2. `validatePresetSemantics(preset)` validates registry and cross-domain meaning: the Pack slug; Surface registration/variant; Overlay type/content; post-process and composition Effect type/params; Stage type; substrate asset; Overlay/Effect IDs; text-animation Overlay targets; transition lane; and, when a resolver is supplied, transition Preset references.
 
 `parsePreset(value)` runs both layers and returns the parsed `Preset` or throws with a path-qualified multi-line summary. Built-in catalog loading, `scripts/verify-presets.ts`, and user-composition list/load/create/update paths run the same semantic gate, so unknown primitives or malformed renderer params fail before rendering or persistence. `applyPreset(preset)` clones the parsed state into `engineState` in place, preserving object identity at the top level.
+
+Standalone interchange uses the wire representation documented here: the GUI's JSON import/export controls and `GET`/`PUT /api/user-compositions/<slug>` consume and return this exact shape. Agents should use that API rather than editing the metadata wrappers under `user-compositions/`. The full GUI, agent, and automated-render workflows are documented in [`user-composition-workflows.md`](user-composition-workflows.md).

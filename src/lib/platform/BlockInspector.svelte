@@ -3,13 +3,18 @@
 	import {
 		ENGINE_EASES,
 		type Cascade,
-		type DiagramEdgeArrow,
+		type DiagramEdgeGeometry,
 		type DiagramEndpoint,
+		type DiagramPositionGeometry,
 		type DiagramPrimitive,
 		type Ease,
 		type Transition
 	} from './engine-schema';
 	import { engineState } from './engine-state.svelte';
+	import {
+		cloneDiagramPrimitiveGeometry,
+		resolveDiagramPrimitiveGeometry
+	} from '$lib/utils/diagram-geometry';
 	import { formatFractionAsSeconds } from '$lib/utils/string';
 	import Field from './Field.svelte';
 	import InspectorToggle from './InspectorToggle.svelte';
@@ -19,8 +24,9 @@
 
 	// Per-type inspector for Diagram primitive Blocks (ADR-0036 §7). Explicit
 	// placement is the authoring model, so every positional number is a
-	// first-class field; route/control/direction are the edge's content; stroke
-	// appearance never appears here (it is the Pack's, not the composition's).
+	// first-class field; route/control belong to the edge's orientation geometry,
+	// while direction remains shared content. Stroke appearance never appears here
+	// (it is the Pack's, not the composition's).
 
 	interface Props {
 		blockId: string;
@@ -57,10 +63,10 @@
 		if (n !== null) point[axis] = n;
 	}
 
-	function setScale(el: DiagramPrimitive & { scale?: number }, value: string): void {
+	function setScale(geometry: DiagramPositionGeometry, value: string): void {
 		const n = Number(value);
 		if (!Number.isFinite(n)) return;
-		el.scale = Math.max(0.25, Math.min(4, n));
+		geometry.scale = Math.max(0.25, Math.min(4, n));
 	}
 
 	// Endpoint editing: a node ref or an explicit point. Switching to `point`
@@ -70,23 +76,68 @@
 		return 'node' in endpoint ? 'node' : 'point';
 	}
 
-	function setEndpointMode(edge: DiagramEdgeArrow, end: 'from' | 'to', mode: string): void {
-		const current = edge[end];
+	function setEndpointMode(
+		geometry: DiagramEdgeGeometry,
+		end: 'from' | 'to',
+		mode: string
+	): void {
+		const current = geometry[end];
 		if (mode === 'node') {
 			const first = nodeOptions[0];
 			if (!first) return;
-			edge[end] = { node: 'node' in current ? current.node : first.id };
+			geometry[end] = { node: 'node' in current ? current.node : first.id };
 		} else {
-			edge[end] = 'node' in current ? { x: 0.5, y: 0.5 } : current;
+			geometry[end] = 'node' in current ? { x: 0.5, y: 0.5 } : current;
 		}
 	}
 
-	function setEndpointNode(edge: DiagramEdgeArrow, end: 'from' | 'to', id: string): void {
-		edge[end] = { node: id };
+	function setEndpointNode(geometry: DiagramEdgeGeometry, end: 'from' | 'to', id: string): void {
+		geometry[end] = { node: id };
 	}
 
-	function toggleControl(edge: DiagramEdgeArrow, enabled: boolean): void {
-		edge.control = enabled ? { x: 0.5, y: 0.4 } : undefined;
+	function toggleControl(geometry: DiagramEdgeGeometry, enabled: boolean): void {
+		geometry.control = enabled ? { x: 0.5, y: 0.4 } : undefined;
+	}
+
+	function toggleOrientationCustomization(primitive: DiagramPrimitive, checked: boolean): void {
+		const orientation = engineState.transport.orientation;
+		if (checked) {
+			switch (primitive.type) {
+				case 'node':
+				case 'label':
+				case 'stat-callout': {
+					const geometry = cloneDiagramPrimitiveGeometry(
+						resolveDiagramPrimitiveGeometry(primitive, orientation)
+					);
+					if (!primitive.orientationOverrides) primitive.orientationOverrides = {};
+					primitive.orientationOverrides[orientation] = geometry;
+					return;
+				}
+				case 'edge-arrow': {
+					const geometry = cloneDiagramPrimitiveGeometry(
+						resolveDiagramPrimitiveGeometry(primitive, orientation)
+					);
+					if (!primitive.orientationOverrides) primitive.orientationOverrides = {};
+					primitive.orientationOverrides[orientation] = geometry;
+					return;
+				}
+				case 'timeline-segment': {
+					const geometry = cloneDiagramPrimitiveGeometry(
+						resolveDiagramPrimitiveGeometry(primitive, orientation)
+					);
+					if (!primitive.orientationOverrides) primitive.orientationOverrides = {};
+					primitive.orientationOverrides[orientation] = geometry;
+					return;
+				}
+			}
+		}
+
+		const overrides = primitive.orientationOverrides;
+		if (!overrides) return;
+		delete overrides[orientation];
+		if (!overrides.horizontal && !overrides.vertical) {
+			primitive.orientationOverrides = undefined;
+		}
 	}
 
 	function setCascade(el: DiagramPrimitive, next: Cascade | undefined): void {
@@ -241,88 +292,6 @@
 				/>
 			</Field>
 		{:else if el.type === 'edge-arrow'}
-			{#each ['from', 'to'] as const as end (end)}
-				{@const endpoint = el[end]}
-				<Field label={end === 'from' ? 'From' : 'To'}>
-					<select
-						value={endpointMode(endpoint)}
-						onchange={(e) => setEndpointMode(el, end, (e.currentTarget as HTMLSelectElement).value)}
-					>
-						<option value="node" disabled={nodeOptions.length === 0}>node</option>
-						<option value="point">point</option>
-					</select>
-					{#if 'node' in endpoint}
-						<select
-							value={endpoint.node}
-							onchange={(e) =>
-								setEndpointNode(el, end, (e.currentTarget as HTMLSelectElement).value)}
-						>
-							{#each nodeOptions as candidate (candidate.id)}
-								<option value={candidate.id}>{candidate.id}</option>
-							{/each}
-						</select>
-					{:else}
-						<input
-							type="number"
-							min="0"
-							max="1"
-							step="any"
-							value={endpoint.x}
-							aria-label="{end} x"
-							oninput={(e) => setPoint(endpoint, 'x', (e.currentTarget as HTMLInputElement).value)}
-						/>
-						<input
-							type="number"
-							min="0"
-							max="1"
-							step="any"
-							value={endpoint.y}
-							aria-label="{end} y"
-							oninput={(e) => setPoint(endpoint, 'y', (e.currentTarget as HTMLInputElement).value)}
-						/>
-					{/if}
-				</Field>
-			{/each}
-			<Field label="Route">
-				<select
-					value={el.route}
-					onchange={(e) => {
-						el.route = (e.currentTarget as HTMLSelectElement).value as typeof el.route;
-					}}
-				>
-					<option value="straight">straight</option>
-					<option value="elbow">elbow</option>
-					<option value="arc">arc</option>
-				</select>
-			</Field>
-			<Field label="Control">
-				<InspectorToggle
-					checked={el.control !== undefined}
-					label="Curve control point"
-					onchange={(checked) => toggleControl(el, checked)}
-				/>
-				{#if el.control}
-					{@const control = el.control}
-					<input
-						type="number"
-						min="0"
-						max="1"
-						step="any"
-						value={control.x}
-						aria-label="control x"
-						oninput={(e) => setPoint(control, 'x', (e.currentTarget as HTMLInputElement).value)}
-					/>
-					<input
-						type="number"
-						min="0"
-						max="1"
-						step="any"
-						value={control.y}
-						aria-label="control y"
-						oninput={(e) => setPoint(control, 'y', (e.currentTarget as HTMLInputElement).value)}
-					/>
-				{/if}
-			</Field>
 			<Field label="Direction">
 				<select
 					value={el.direction ?? 'forward'}
@@ -364,12 +333,108 @@
 		</Field>
 	</InspectorSection>
 
-	<InspectorSection label="Position">
+	<InspectorSection label="Geometry">
+		{#snippet action()}
+			<InspectorToggle
+				checked={el.orientationOverrides?.[engineState.transport.orientation] !== undefined}
+				label={`Customize ${engineState.transport.orientation}`}
+				onchange={(checked) => toggleOrientationCustomization(el, checked)}
+			/>
+		{/snippet}
 		{#if el.type === 'edge-arrow'}
-			<p class="position-note">Endpoints above — an edge lives between its ends.</p>
-		{:else if el.type === 'timeline-segment'}
+			{@const geometry = resolveDiagramPrimitiveGeometry(el, engineState.transport.orientation)}
 			{#each ['from', 'to'] as const as end (end)}
-				{@const point = el[end]}
+				{@const endpoint = geometry[end]}
+				<Field label={end === 'from' ? 'From' : 'To'}>
+					<select
+						value={endpointMode(endpoint)}
+						onchange={(e) =>
+							setEndpointMode(geometry, end, (e.currentTarget as HTMLSelectElement).value)}
+					>
+						<option value="node" disabled={nodeOptions.length === 0}>node</option>
+						<option value="point">point</option>
+					</select>
+					{#if 'node' in endpoint}
+						<select
+							value={endpoint.node}
+							onchange={(e) =>
+								setEndpointNode(
+									geometry,
+									end,
+									(e.currentTarget as HTMLSelectElement).value
+								)}
+						>
+							{#each nodeOptions as candidate (candidate.id)}
+								<option value={candidate.id}>{candidate.id}</option>
+							{/each}
+						</select>
+					{:else}
+						<input
+							type="number"
+							min="0"
+							max="1"
+							step="any"
+							value={endpoint.x}
+							aria-label="{end} x"
+							oninput={(e) => setPoint(endpoint, 'x', (e.currentTarget as HTMLInputElement).value)}
+						/>
+						<input
+							type="number"
+							min="0"
+							max="1"
+							step="any"
+							value={endpoint.y}
+							aria-label="{end} y"
+							oninput={(e) => setPoint(endpoint, 'y', (e.currentTarget as HTMLInputElement).value)}
+						/>
+					{/if}
+				</Field>
+			{/each}
+			<Field label="Route">
+				<select
+					value={geometry.route}
+					onchange={(e) => {
+						geometry.route = (e.currentTarget as HTMLSelectElement)
+							.value as typeof geometry.route;
+					}}
+				>
+					<option value="straight">straight</option>
+					<option value="elbow">elbow</option>
+					<option value="arc">arc</option>
+				</select>
+			</Field>
+			<Field label="Control">
+				<InspectorToggle
+					checked={geometry.control !== undefined}
+					label="Curve control point"
+					onchange={(checked) => toggleControl(geometry, checked)}
+				/>
+				{#if geometry.control}
+					{@const control = geometry.control}
+					<input
+						type="number"
+						min="0"
+						max="1"
+						step="any"
+						value={control.x}
+						aria-label="control x"
+						oninput={(e) => setPoint(control, 'x', (e.currentTarget as HTMLInputElement).value)}
+					/>
+					<input
+						type="number"
+						min="0"
+						max="1"
+						step="any"
+						value={control.y}
+						aria-label="control y"
+						oninput={(e) => setPoint(control, 'y', (e.currentTarget as HTMLInputElement).value)}
+					/>
+				{/if}
+			</Field>
+		{:else if el.type === 'timeline-segment'}
+			{@const geometry = resolveDiagramPrimitiveGeometry(el, engineState.transport.orientation)}
+			{#each ['from', 'to'] as const as end (end)}
+				{@const point = geometry[end]}
 				<Field label={end === 'from' ? 'From' : 'To'}>
 					<input
 						type="number"
@@ -392,14 +457,16 @@
 				</Field>
 			{/each}
 		{:else}
+			{@const geometry = resolveDiagramPrimitiveGeometry(el, engineState.transport.orientation)}
 			<Field label="X">
 				<input
 					type="number"
 					min="0"
 					max="1"
 					step="any"
-					value={el.position.x}
-					oninput={(e) => setPoint(el.position, 'x', (e.currentTarget as HTMLInputElement).value)}
+					value={geometry.position.x}
+					oninput={(e) =>
+						setPoint(geometry.position, 'x', (e.currentTarget as HTMLInputElement).value)}
 				/>
 			</Field>
 			<Field label="Y">
@@ -408,8 +475,9 @@
 					min="0"
 					max="1"
 					step="any"
-					value={el.position.y}
-					oninput={(e) => setPoint(el.position, 'y', (e.currentTarget as HTMLInputElement).value)}
+					value={geometry.position.y}
+					oninput={(e) =>
+						setPoint(geometry.position, 'y', (e.currentTarget as HTMLInputElement).value)}
 				/>
 			</Field>
 			<Field label="Scale">
@@ -418,8 +486,8 @@
 					min="0.25"
 					max="4"
 					step="any"
-					value={el.scale ?? 1}
-					oninput={(e) => setScale(el, (e.currentTarget as HTMLInputElement).value)}
+					value={geometry.scale ?? 1}
+					oninput={(e) => setScale(geometry, (e.currentTarget as HTMLInputElement).value)}
 				/>
 			</Field>
 		{/if}
@@ -557,12 +625,3 @@
 		]}
 	/>
 {/if}
-
-<style>
-	.position-note {
-		color: var(--chrome-muted);
-		font-size: 0.72rem;
-		line-height: 1.4;
-		margin: 0;
-	}
-</style>

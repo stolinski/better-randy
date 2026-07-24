@@ -8,6 +8,10 @@
 	import type { CataloguedPreset } from '$lib/platform/preset';
 	import { getPresetBySlug, listFixtures, listPresets } from '$lib/platform/preset';
 	import {
+		verifyPresetArtifact,
+		type PresetVerificationIssue
+	} from '$lib/platform/preset-verification';
+	import {
 		userCompositionStore,
 		type UserCompositionMeta
 	} from '$lib/platform/user-composition-store';
@@ -74,6 +78,12 @@
 	// Two-step in-place delete: first press arms this slug ("Delete?"), second
 	// press commits; pointer-down elsewhere or Escape disarms.
 	let confirmingSlug = $state<string | null>(null);
+	let isImporting = $state(false);
+	type ImportIssueSource = PresetVerificationIssue['source'] | 'json' | 'store';
+	interface ImportIssue extends Omit<PresetVerificationIssue, 'source'> {
+		source: ImportIssueSource;
+	}
+	let importIssues = $state.raw<ImportIssue[]>([]);
 
 	onMount(() => {
 		userCompositionStore
@@ -105,6 +115,72 @@
 		const named: Preset = { ...blank, name: 'Untitled' };
 		await userCompositionStore.forkUserComposition(slug, named, null);
 		await goto(resolve('/p/[slug]', { slug }));
+	}
+
+	function userCompositionSlugFromFilename(filename: string): string {
+		const stem = filename.replace(/\.[^.]*$/, '');
+		const slug = stem
+			.normalize('NFKD')
+			.replace(/[\u0300-\u036f]/g, '')
+			.toLowerCase()
+			.replace(/[^a-z0-9_-]+/g, '-')
+			.replace(/-+/g, '-')
+			.replace(/^[-_]+|[-_]+$/g, '');
+		return slug || 'composition';
+	}
+
+	async function importPresetJson(event: Event): Promise<void> {
+		const input = event.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+
+		isImporting = true;
+		importIssues = [];
+		try {
+			let value: unknown;
+			try {
+				value = JSON.parse(await file.text()) as unknown;
+			} catch (cause) {
+				importIssues = [
+					{
+						source: 'json',
+						severity: 'error',
+						path: '<root>',
+						message: cause instanceof Error ? cause.message : 'Invalid JSON.'
+					}
+				];
+				return;
+			}
+
+			const verification = verifyPresetArtifact(value);
+			importIssues = verification.issues;
+			const hasBlockingIssue = verification.issues.some(
+				(issue) =>
+					issue.severity === 'error' && (issue.source === 'schema' || issue.source === 'semantic')
+			);
+			if (!verification.preset || hasBlockingIssue) return;
+
+			const slug = userCompositionSlugFromFilename(file.name);
+			await userCompositionStore.saveUserComposition(slug, verification.preset);
+			await goto(resolve('/p/[slug]', { slug }));
+		} catch (cause) {
+			importIssues = [
+				...importIssues,
+				{
+					source: 'store',
+					severity: 'error',
+					path: '<root>',
+					message: cause instanceof Error ? cause.message : 'Import failed.'
+				}
+			];
+		} finally {
+			isImporting = false;
+			input.value = '';
+		}
+	}
+
+	function importIssueKey(issue: ImportIssue): string {
+		return `${issue.source}:${issue.rule ?? ''}:${issue.path}:${issue.message}`;
 	}
 
 	async function deleteUserComposition(slug: string): Promise<void> {
@@ -204,18 +280,62 @@
 			<p class="home__stamp">4K / WebGPU / alpha</p>
 			<h1 class="home__wordmark">Supers</h1>
 		</div>
-		<button class="home__new" type="button" onclick={createBlankUserComposition}>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				width="14"
-				height="14"
-				viewBox="0 0 16 16"
-				aria-hidden="true"
-			>
-				<path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
-			</svg>
-			New composition
-		</button>
+		<div class="home__actions">
+			<button class="home__action" type="button" onclick={createBlankUserComposition}>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="14"
+					height="14"
+					viewBox="0 0 16 16"
+					aria-hidden="true"
+				>
+					<path
+						d="M8 3v10M3 8h10"
+						stroke="currentColor"
+						stroke-width="1.6"
+						stroke-linecap="round"
+					/>
+				</svg>
+				New composition
+			</button>
+			<label class="home__action home__import">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="14"
+					height="14"
+					viewBox="0 0 16 16"
+					aria-hidden="true"
+				>
+					<path
+						d="M8 2v8m0 0 3-3m-3 3L5 7M3 13h10"
+						stroke="currentColor"
+						stroke-width="1.5"
+						fill="none"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
+				</svg>
+				{isImporting ? 'Importing…' : 'Import JSON'}
+				<input
+					type="file"
+					name="preset-json"
+					accept="application/json,.json"
+					disabled={isImporting}
+					onchange={importPresetJson}
+				/>
+			</label>
+			{#if importIssues.length > 0}
+				<ul class="home__import-issues" aria-label="Import issues" aria-live="polite">
+					{#each importIssues as issue (importIssueKey(issue))}
+						<li class:warning={issue.severity === 'warn'}>
+							<span>{issue.source}{issue.rule ? ` / ${issue.rule}` : ''}</span>
+							<code>{issue.path}</code>
+							{issue.message}
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
 	</header>
 
 	{#if userCompositions.length > 0}
@@ -330,7 +450,16 @@
 		transform-origin: 0 100%;
 	}
 
-	.home__new {
+	.home__actions {
+		align-items: center;
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--vs-xs, 0.45rem);
+		justify-content: flex-end;
+		max-inline-size: 42rem;
+	}
+
+	.home__action {
 		align-items: center;
 		background: var(--raised);
 		border: 1px solid var(--line);
@@ -350,15 +479,58 @@
 			border-color 120ms ease;
 	}
 
-	.home__new:hover {
+	.home__action:hover {
 		background: #202024;
 		border-color: #3a3a3e;
 	}
 
-	.home__new:focus-visible {
+	.home__action:focus-visible,
+	.home__import:has(input:focus-visible) {
 		border-color: var(--selection);
 		outline: 2px solid var(--selection);
 		outline-offset: 3px;
+	}
+
+	.home__import {
+		position: relative;
+	}
+
+	.home__import input {
+		cursor: pointer;
+		inset: 0;
+		opacity: 0;
+		position: absolute;
+	}
+
+	.home__import:has(input:disabled) {
+		color: var(--muted);
+		cursor: wait;
+	}
+
+	.home__import-issues {
+		color: var(--danger-text);
+		flex-basis: 100%;
+		font-family: Archivo, sans-serif;
+		font-size: 0.72rem;
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		text-align: end;
+	}
+
+	.home__import-issues li + li {
+		margin-block-start: 0.2rem;
+	}
+
+	.home__import-issues li.warning {
+		color: var(--text);
+	}
+
+	.home__import-issues span,
+	.home__import-issues code {
+		color: var(--muted);
+		font: inherit;
+		margin-inline-end: 0.4rem;
 	}
 
 	.home__section {
@@ -521,6 +693,14 @@
 			align-items: start;
 			flex-direction: column;
 			min-block-size: auto;
+		}
+
+		.home__actions {
+			justify-content: flex-start;
+		}
+
+		.home__import-issues {
+			text-align: start;
 		}
 	}
 </style>

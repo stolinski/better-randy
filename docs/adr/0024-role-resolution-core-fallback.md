@@ -1,5 +1,9 @@
 # Role resolution: per-Pipeline override with core-vocabulary fallback
 
+## Status
+
+**Canon (core).**
+
 A Pipeline declares a **specific** Role in its Identity Spec `viaPack` clause (e.g. `chapter-card.fill`); the resolver returns the active Pack's value for that Role if present, else falls back to the **core Role** of the same dimension (`fill-treatment`). This is `var(--specific, var(--core))`. The engine pins the core vocabulary every Pack must implement (`fill-treatment`, `edge-treatment`, `depth-treatment`, `light-treatment`, plus font/material/asset cores); per-Pipeline Roles are **optional overrides** a Pack supplies only where it wants that Pipeline to diverge.
 
 ## Context

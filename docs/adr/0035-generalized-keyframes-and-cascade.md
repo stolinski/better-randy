@@ -1,5 +1,9 @@
 # Generalized keyframes + Cascade — composition-owned motion channels
 
+## Status
+
+**Canon (built).**
+
 > **Status: Canon (built)** — shipped 2026-07-02 in dex epic `4i8gx2i7`: schema, channel-owned rendering, Cascade resolution, timeline/inspector editing, welded sound cues, and envelope-aware static lint. The existing `enter`/`exit` shape survives as lossless sugar.
 
 The 2-keyframe tween (`Transition: { start, duration, ease }`) is replaced as the *general* form by ordered **`keyframes[]` per channel** with **per-property ease** from the constrained enum, plus **Cascade** — a declarative anchor that welds one element's timing to another's. Declaring keyframes on an element means the composition **takes full ownership of that element's motion**: the pipeline's intrinsic enter/exit form does not run. An element with no keyframes renders exactly as today.

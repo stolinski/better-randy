@@ -1,5 +1,9 @@
 # Compose-pipeline invocation for `SurfaceRenderer.shaderPass` and `OverlayRenderer.shaderPass`
 
+## Status
+
+**Canon.**
+
 The declarative `shaderPass` field added to `OverlayRenderer` by [ADR-0005](0005-overlay-renderer-shader-pass.md) and to `SurfaceRenderer` by [ADR-0008](0008-newspaper-surface-pipeline.md) was authored but never invoked — the `newspaper-physics` WGSL was complete and registered on the newspaper Surface, but the compose-pipeline ran the surface's output texture straight into the per-frame effect chain with no intermediate pass. We resolved this by adding a `ShaderPassDispatcher` to `src/lib/platform/pipelines/shader-pass-runner.ts` that compiles each declared `ShaderPass<T>` once (reusing the same bind-group shape the effect-chain executor uses — `inputTexture`, `samp`, `uniforms`) and runs the surface + overlay passes in document order between the surface pipeline's render and the per-frame effect chain. The dispatcher owns two ping-pong intermediate textures so a sequence of passes (surface first, then any overlay passes) can read the previous pass's output. `Workspace.svelte` builds the per-frame dispatch list from `getSurfaceRenderer(...).shaderPass` plus a walk of `engineState.overlays`, packs uniforms via each pass's `packUniforms(target, bounds)` (surface bounds = full canvas rect; overlay bounds measured against `compositionElement.getBoundingClientRect()` with a position-derived fallback at first paint, lifted into the new `src/lib/utils/overlay-bounds.ts` helper), and feeds the post-shader texture into the existing `EffectChain.apply` call. Both the preview render path and the export render path go through the same dispatcher so AC-D1 still holds (one render function; export inherits shader passes).
 
 ## Considered options

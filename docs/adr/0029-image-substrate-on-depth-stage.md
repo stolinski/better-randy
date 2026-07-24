@@ -1,5 +1,9 @@
 # ADR-0029 — Image substrate as a depth-stage backdrop plane
 
+## Status
+
+**Canon (v1 built).**
+
 **Status:** Accepted (2026-06-22)
 **Context:** dex p20 (image-substrate half) · unblocks pullquote-on-photo · builds on [ADR-0028](0028-dimensional-depth-stage.md)
 

@@ -1,5 +1,9 @@
 # Pack/Preset split — aesthetic-agnostic Presets, render-time Pack resolution
 
+## Status
+
+**Canon (core).**
+
 The original `supers@1` Preset schema bundled the composition recipe (motion timings, content text, surface choice) with the aesthetic dress (palette hex codes, font family names, effect chains, surface chrome) into a single JSON document. As Supers's intended scope expanded from "Syntax channel overlay tool" to "general-purpose engine that ships one channel's Preset family today," the bundling became the structural cause of an overswing where every Brief, every brainstorm option, and every Critic verification defaulted through the Syntax aesthetic — because that was the only aesthetic the engine knew. ADR-0003 already claimed an aesthetic-neutral rubric split at the doc level, but the schema, the Critic spawn prompt, the brainstorm flow, and the canonical glossary in `CONTEXT.md` still encoded Syntax as the engine default. We split the Preset and the aesthetic structurally, not just doc-rhetorically. A **Preset** now declares motion + content + **Role** references only; an aesthetic **Pack** at `docs/packs/<slug>/` resolves Roles to concrete values — style roles to hex codes and font families, pipeline roles to Pipeline picks, chrome roles to effect chains. A Preset names exactly one Pack via a top-level `pack` field; the same Preset rendered against a different Pack produces a different look from one recipe. The engine pins a small Core Role vocabulary every Pack must implement (~8 style roles, ~6 pipeline roles); Packs may declare Pack-only Roles that only Presets bound to that Pack can reference. The existing Syntax aesthetic moves into `docs/packs/syntax/` and stops being privileged at the engine level.
 
 ## Considered options

@@ -1,5 +1,9 @@
 # Pack scope is appearance-only; no default Pack
 
+## Status
+
+**Canon (core).**
+
 A **Pack** carries **appearance only** — color (fill, ink), edge treatment, depth, light, font, material, and assets. All **motion** (form, timing, easing) is intrinsic to the **Preset** and **Pipeline** and never concedes to a Pack. A Preset declares exactly one Pack as its default and the runtime may override the active Pack ("render preset X under pack Y"); there is **no privileged default Pack** — `syntax` is one Pack among N, not a fallback.
 
 ## Context

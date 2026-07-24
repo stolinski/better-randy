@@ -1,6 +1,9 @@
 # ADR-0042 — Resolve marker sync: the edit authors the beats
 
-Status: **Canon (v1 built; grammar amended to v2, 2026-07-16)**
+## Status
+
+**Canon (v1 built; grammar amended to v2, 2026-07-16).**
+
 Date: 2026-07-15
 Builds on: [ADR-0040](0040-checklist-surface.md) (the checklist verification piece), [ADR-0032](0032-gui-agent-parity-authoring.md) (GUI↔agent parity), [ADR-0012](0012-effect-pack-context-progress-timestamp.md) (frame-determinism posture)
 
