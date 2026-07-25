@@ -20,10 +20,11 @@ The eventual cutter adds another constraint. Silence removal does not change wha
 **Source video is optional composition input beneath all five Layers.** It is declared as `state.sourceVideo`, references one immutable content-addressed local asset, and in v1 maps one continuous source range onto the complete composition:
 
 ```text
-source timestamp = sourceOffsetSeconds + composition timestamp
+media-relative timestamp = sourceOffsetSeconds + composition timestamp
+requested presentation timestamp = track first PTS + media-relative timestamp
 ```
 
-`transport` remains authoritative for composition duration, orientation, output format, and exact rational frame rate. For every explicit composition timestamp, the decoder selects the source sample whose presentation timestamp is the last one less than or equal to the mapped source timestamp. This rule covers CFR, VFR, B-frame ordering, source rates above or below the output rate, random preview seeks, and serial export without wall-clock playback. The selected source range must cover the complete composition; v1 does not loop, hold, or silently reuse the last frame.
+`transport` remains authoritative for composition duration, orientation, output format, and exact rational frame rate. `sourceOffsetSeconds` is relative to the media start, not an absolute container timestamp; the decoder adds the track's first presentation timestamp internally. For every explicit composition timestamp, it selects the source sample whose presentation timestamp is the last one less than or equal to the mapped source timestamp. This rule covers CFR, VFR, B-frame ordering, source rates above or below the output rate, random preview seeks, and serial export without wall-clock playback. The selected source range must cover the complete composition; v1 does not loop, hold, or silently reuse the last frame.
 
 The decoded sample is uploaded to a resident GPU texture and centered-cover sampled directly into the native 3840x2160 or 2160x3840 render. The ordinary Supers branch renders to transparent premultiplied content and runs its authored Effects first. The final present pass composites that result over Source video. Consequently creator footage is not silently graded by composition Effects or Pack chrome, while every existing Layer and alpha edge behaves exactly as it does over external NLE footage.
 
