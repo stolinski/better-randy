@@ -4311,6 +4311,34 @@
             ]
           }
         },
+        "sourceVideo": {
+          "type": "object",
+          "properties": {
+            "assetUrl": {
+              "type": "string",
+              "pattern": "^\\/api\\/user-assets\\/[a-f0-9]{64}\\.(mp4|mov|webm)$"
+            },
+            "sourceOffsetSeconds": {
+              "default": 0,
+              "type": "number",
+              "minimum": 0
+            },
+            "includeAudio": {
+              "default": true,
+              "type": "boolean"
+            },
+            "volume": {
+              "default": 1,
+              "type": "number",
+              "minimum": 0,
+              "maximum": 4
+            }
+          },
+          "required": [
+            "assetUrl"
+          ],
+          "additionalProperties": false
+        },
         "backgroundFill": {
           "type": "string",
           "pattern": "^#[0-9a-fA-F]{6}$"

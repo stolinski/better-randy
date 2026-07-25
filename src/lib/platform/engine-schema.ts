@@ -64,6 +64,22 @@ const VideoOrientationSchema = z.enum(['horizontal', 'vertical']);
 const HexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Expected a #RRGGBB hex color');
 const FractionSchema = z.number().min(0).max(1);
 
+// Source video is composition input beneath the five Layers (ADR-0043), not a
+// Surface or preview backdrop. V1 maps one continuous source range onto the
+// complete composition. A later cutting arc can add an edit-segment mapping
+// inside this domain without replacing the immutable asset declaration.
+const SourceVideoSchema = z.strictObject({
+	assetUrl: z
+		.string()
+		.regex(
+			/^\/api\/user-assets\/[a-f0-9]{64}\.(mp4|mov|webm)$/,
+			'Expected a content-addressed /api/user-assets video URL'
+		),
+	sourceOffsetSeconds: z.number().finite().min(0).default(0),
+	includeAudio: z.boolean().default(true),
+	volume: z.number().finite().min(0).max(4).default(1)
+});
+
 // ---- Sound design (ADR-0033) ----
 // Sound is a timed-cue orchestration domain, peer to `textAnimations[]` /
 // `marks.timings[]` — not a sixth Layer (it renders no pixels). Motion
@@ -1129,9 +1145,27 @@ export const EngineStateSchema = z
 		overlays: z.array(OverlaySchema).default([]),
 		effects: EffectChainSchema.default([]),
 		audioCues: AudioCuesSchema,
+		sourceVideo: SourceVideoSchema.optional(),
 		backgroundFill: HexColorSchema.optional(),
 		stage: StageSchema.optional(),
 		captions: CaptionsSchema.optional()
+	})
+	.superRefine((state, ctx) => {
+		if (!state.sourceVideo) return;
+		if (state.backgroundFill !== undefined) {
+			ctx.addIssue({
+				code: 'custom',
+				path: ['backgroundFill'],
+				message: 'Source video cannot be combined with backgroundFill in v1.'
+			});
+		}
+		if (state.stage !== undefined) {
+			ctx.addIssue({
+				code: 'custom',
+				path: ['stage'],
+				message: 'Source video cannot be combined with a dimensional stage in v1.'
+			});
+		}
 	})
 	.superRefine((state, ctx) => {
 		// Cascade graph validation (ADR-0035 §4): every anchor ref must resolve
@@ -1257,8 +1291,8 @@ export const EngineStateSchema = z
 	.superRefine((state, ctx) => {
 		// A bed is for self-contained segments / bumpers only — a transparent
 		// Overlay keeps the footage's own audio (ADR-0033 §1). `backgroundFill`
-		// is the schema-level signal that the piece renders full-frame.
-		if (state.backgroundFill) {
+		// or Source video makes the composition full-frame.
+		if (state.backgroundFill || state.sourceVideo) {
 			return;
 		}
 		const bedIndex = state.audioCues.findIndex((cue) => cue.kind === 'bed');
@@ -1267,7 +1301,7 @@ export const EngineStateSchema = z
 				code: 'custom',
 				path: ['audioCues', bedIndex, 'kind'],
 				message:
-					"A bed requires a full-frame piece (backgroundFill); transparent overlays keep the footage's own audio (ADR-0033 §1)."
+					"A bed requires a full-frame piece (backgroundFill or Source video); transparent overlays keep the footage's own audio (ADR-0033 §1)."
 			});
 		}
 	});
@@ -1290,6 +1324,7 @@ export type EffectChain = z.infer<typeof EffectChainSchema>;
 export type StageCamera = z.infer<typeof StageCameraSchema>;
 export type StageFocus = z.infer<typeof StageFocusSchema>;
 export type Stage = z.infer<typeof StageSchema>;
+export type SourceVideo = z.infer<typeof SourceVideoSchema>;
 export type EngineState = z.infer<typeof EngineStateSchema>;
 
 const DEFAULT_BODY: AnnotationBody = [

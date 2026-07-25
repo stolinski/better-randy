@@ -34,6 +34,10 @@ _Avoid_: background, base, canvas (the canvas is the WebGPU target, not the surf
 The underlying material a surface depicts — paper, photo, web document. A **Surface** is the renderer; the **Substrate** is the material it claims to be.
 _Avoid_: surface (those are distinct), background.
 
+**Source video**:
+An optional creator-owned video asset mapped beneath all five composition **Layers**. It supplies the footage and, unless muted, the footage audio for a full-frame composition; it is not a Surface, Substrate, preview backdrop, or Effect. V1 maps one continuous source range to the composition Timeline. Future silence removal and basic cutting extend this domain with timeline-to-source edit segments rather than replacing the asset contract.
+_Avoid_: background video (background is visually vague), video Surface (it sits beneath the Surface Layer), reference backdrop (that is preview-only and never exported).
+
 **Block**:
 A discrete content unit rendered on a Surface (title, body, image, kicker). One Surface carries multiple Blocks.
 _Avoid_: component, region, element.

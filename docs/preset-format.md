@@ -38,13 +38,28 @@ Orientation is a transport target, not grounds for a sibling deliverable. Author
 
 ### Transparency and output classification
 
-The render target clears to transparent premultiplied alpha by default. `state.backgroundFill` is an optional `#rrggbb` full-frame fill; `state.stage` also makes the output full-frame because the dimensional stage paints to the frame edges. Output classification is centralized in `src/lib/utils/output-classification.ts`:
+The render target clears to transparent premultiplied alpha by default. `state.backgroundFill` is an optional `#rrggbb` full-frame fill; `state.stage` also makes the output full-frame because the dimensional stage paints to the frame edges. `state.sourceVideo` declares creator footage beneath all five Layers and likewise produces full-frame output. Output classification is centralized in `src/lib/utils/output-classification.ts`:
 
-- no `backgroundFill` and no depth `stage` → transparent overlay output (`supers-overlay`);
-- `backgroundFill` or a depth `stage` → opaque full-frame output (`supers-bumper`);
+- no `sourceVideo`, `backgroundFill`, or depth `stage` → transparent overlay output (`supers-overlay`);
+- `sourceVideo`, `backgroundFill`, or a depth `stage` → opaque full-frame output (`supers-bumper`);
 - a transition is opaque only when both resolved endpoint Presets are opaque.
 
 There is no schema enum for overlay/segment/bumper. Those are descriptive delivery terms derived from rendered coverage.
+
+### `sourceVideo` ([ADR-0043](adr/0043-source-video-underlay.md))
+
+```jsonc
+"sourceVideo": {
+  "assetUrl": "/api/user-assets/<sha256>.mp4", // MP4, MOV, or WebM
+  "sourceOffsetSeconds": 0,                     // optional; defaults to 0
+  "includeAudio": true,                         // optional; defaults to true
+  "volume": 1                                   // optional; 0..4, defaults to 1
+}
+```
+
+Source video is composition input beneath the Layer stack, not a Surface or Substrate. V1 maps one uninterrupted source range onto the complete composition using `sourceOffsetSeconds + timeline timestamp`; the selected source must cover `transport.durationSeconds`. The decoder selects the source sample presented at or before each exact rational transport timestamp, including VFR inputs. Output uses centered cover framing at the native target size. Post-process Effects and Pack chrome process the Supers animation result, not creator footage, before that result is composited over the Source video.
+
+V1 rejects `sourceVideo` with `backgroundFill`, `stage`, or transition Presets. Source video makes beds eligible because the result is full-frame, but Source video audio remains distinct from an authored bed. Future silence removal/basic cutting will add timeline-to-source edit segments inside the Source video domain; these v1 fields remain the asset-level contract.
 
 ### `typography`
 
@@ -345,7 +360,7 @@ Defaults follow the motion's _character_, not just its window: sliding elements 
 ]
 ```
 
-`kind` defaults to `"cue"`. `assetSlug` names a bundled audio asset directly, so manual cues do not use the event-default sample mapping. Parse-time rules: ids unique; at most one `bed`; a `bed` requires `backgroundFill` (full-frame segments/bumpers only — a transparent Overlay keeps the footage's own audio).
+`kind` defaults to `"cue"`. `assetSlug` names a bundled audio asset directly, so manual cues do not use the event-default sample mapping. Parse-time rules: ids unique; at most one `bed`; a `bed` requires `backgroundFill` or Source video (full-frame segments/bumpers only — a transparent Overlay keeps the footage's own audio).
 
 ## Surface variants
 

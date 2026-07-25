@@ -180,6 +180,12 @@ export function validatePresetSemantics(
 	}
 
 	if (preset.transition) {
+		if (preset.state.sourceVideo) {
+			issues.push({
+				path: ['state', 'sourceVideo'],
+				message: 'Source video is not supported on transition Presets in v1'
+			});
+		}
 		if (!isTransitionEffectType(preset.transition.effect)) {
 			issues.push({
 				path: ['transition', 'effect'],
@@ -187,16 +193,28 @@ export function validatePresetSemantics(
 			});
 		}
 		if (options.resolvePreset) {
-			if (!options.resolvePreset(preset.transition.from)) {
+			const fromPreset = options.resolvePreset(preset.transition.from);
+			const toPreset = options.resolvePreset(preset.transition.to);
+			if (!fromPreset) {
 				issues.push({
 					path: ['transition', 'from'],
 					message: `Preset "${preset.transition.from}" does not resolve`
 				});
+			} else if (fromPreset.state.sourceVideo) {
+				issues.push({
+					path: ['transition', 'from'],
+					message: `Preset "${preset.transition.from}" uses Source video, which transition snapshots do not support in v1`
+				});
 			}
-			if (!options.resolvePreset(preset.transition.to)) {
+			if (!toPreset) {
 				issues.push({
 					path: ['transition', 'to'],
 					message: `Preset "${preset.transition.to}" does not resolve`
+				});
+			} else if (toPreset.state.sourceVideo) {
+				issues.push({
+					path: ['transition', 'to'],
+					message: `Preset "${preset.transition.to}" uses Source video, which transition snapshots do not support in v1`
 				});
 			}
 		}

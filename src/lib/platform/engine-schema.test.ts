@@ -500,4 +500,74 @@ describe('engine schema', () => {
 		(invalid.surface.diagram as Record<string, unknown>[])[0].role = 'display';
 		expectIssue(invalid, 'Invalid option', 'invalid Diagram label role');
 	});
+
+	it('validates the v1 Source video contract and full-frame bed eligibility', () => {
+		const state = baseState();
+		state.sourceVideo = {
+			assetUrl: `/api/user-assets/${'a'.repeat(64)}.mp4`
+		};
+		state.audioCues = [
+			{
+				id: 'music',
+				kind: 'bed',
+				assetSlug: 'bed-warm-keys',
+				start: 0,
+				duration: 1
+			}
+		];
+
+		const result = EngineStateSchema.safeParse(state);
+		assert.ok(result.success, result.success ? '' : result.error.message);
+		assert.deepEqual(result.data.sourceVideo, {
+			assetUrl: `/api/user-assets/${'a'.repeat(64)}.mp4`,
+			sourceOffsetSeconds: 0,
+			includeAudio: true,
+			volume: 1
+		});
+
+		for (const extension of ['mov', 'webm']) {
+			const alternate = baseState();
+			alternate.sourceVideo = {
+				assetUrl: `/api/user-assets/${'b'.repeat(64)}.${extension}`,
+				sourceOffsetSeconds: 12.5,
+				includeAudio: false,
+				volume: 0
+			};
+			expectValid(alternate, `${extension} Source video`);
+		}
+
+		const invalidUrl = baseState();
+		invalidUrl.sourceVideo = { assetUrl: '/tmp/source.mp4' };
+		expectIssue(invalidUrl, 'content-addressed', 'Source video asset URL');
+
+		const invalidOffset = baseState();
+		invalidOffset.sourceVideo = {
+			assetUrl: `/api/user-assets/${'c'.repeat(64)}.mp4`,
+			sourceOffsetSeconds: -1
+		};
+		expectIssue(invalidOffset, '>=0', 'Source video offset');
+
+		const invalidVolume = baseState();
+		invalidVolume.sourceVideo = {
+			assetUrl: `/api/user-assets/${'d'.repeat(64)}.mp4`,
+			volume: 4.1
+		};
+		expectIssue(invalidVolume, '<=4', 'Source video volume');
+
+		const withFill = structuredClone(state);
+		withFill.backgroundFill = '#000000';
+		expectIssue(withFill, 'cannot be combined with backgroundFill', 'Source video plus fill');
+
+		const withStage = structuredClone(state);
+		withStage.stage = {
+			type: 'depth',
+			camera: { fov: 35, push: 0, driftX: 0, driftY: 0 },
+			focus: { focalZ: 0.5, aperture: 0.2, maxBlur: 20 }
+		};
+		expectIssue(
+			withStage,
+			'cannot be combined with a dimensional stage',
+			'Source video plus stage'
+		);
+	});
 });

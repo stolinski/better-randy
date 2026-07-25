@@ -97,4 +97,27 @@ describe('applyPreset', () => {
 			0.7
 		);
 	});
+
+	it('round-trips and deep-clones Source video configuration', () => {
+		const input = {
+			...blankPresetJson,
+			state: {
+				...blankPresetJson.state,
+				sourceVideo: {
+					assetUrl: `/api/user-assets/${'a'.repeat(64)}.mp4`,
+					sourceOffsetSeconds: 18.25,
+					includeAudio: true,
+					volume: 0.8
+				}
+			}
+		};
+		const preset = PresetSchema.parse(input);
+		const wire = presetToWireFormat(preset) as { state: { sourceVideo?: unknown } };
+
+		assert.deepEqual(wire.state.sourceVideo, input.state.sourceVideo);
+		applyPreset(preset);
+		assert.deepEqual(engineState.sourceVideo, input.state.sourceVideo);
+		engineState.sourceVideo!.sourceOffsetSeconds = 22;
+		assert.equal(preset.state.sourceVideo?.sourceOffsetSeconds, 18.25);
+	});
 });

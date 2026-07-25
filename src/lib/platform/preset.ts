@@ -341,6 +341,7 @@ export function applyCompositionState(preset: Preset): void {
 	engineState.effects = (next.effects ?? []).map(cloneEffect);
 	engineState.textAnimations = (next.textAnimations ?? []).map(cloneTextAnimation);
 	engineState.audioCues = next.audioCues.map((cue) => ({ ...cue }));
+	engineState.sourceVideo = next.sourceVideo ? { ...next.sourceVideo } : undefined;
 	engineState.backgroundFill = next.backgroundFill;
 	engineState.stage = next.stage
 		? {
