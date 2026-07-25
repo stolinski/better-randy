@@ -2,6 +2,7 @@ import {
 	MAX_USER_IMAGE_BYTES,
 	userImageFormatForMime
 } from '$lib/utils/user-image-format-validation';
+import { readHttpResponseMessage } from '$lib/utils/http-response-message';
 
 interface UserImageUploadResponse {
 	url: string;
@@ -15,23 +16,6 @@ function isUserImageUploadResponse(value: unknown): value is UserImageUploadResp
 		typeof value.url === 'string' &&
 		value.url.startsWith('/api/user-assets/')
 	);
-}
-
-async function responseMessage(response: Response): Promise<string> {
-	try {
-		const body: unknown = await response.json();
-		if (
-			typeof body === 'object' &&
-			body !== null &&
-			'message' in body &&
-			typeof body.message === 'string'
-		) {
-			return body.message;
-		}
-	} catch {
-		// Fall back to the HTTP status when the server did not return JSON.
-	}
-	return `${response.status} ${response.statusText}`.trim();
 }
 
 export async function uploadUserImage(file: File): Promise<string> {
@@ -58,7 +42,7 @@ export async function uploadUserImage(file: File): Promise<string> {
 
 	if (!response.ok) {
 		throw new Error(
-			`Failed to upload user image "${file.name}": ${await responseMessage(response)}`
+			`Failed to upload user image "${file.name}": ${await readHttpResponseMessage(response)}`
 		);
 	}
 

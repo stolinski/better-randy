@@ -36,6 +36,22 @@ curl -fsS -X DELETE http://localhost:7263/api/user-compositions/my-composition
 
 `GET /api/user-compositions/<slug>` returns the exact standalone wire format accepted by `PUT`: annotation bodies and chat messages are strings, not the engine's transformed runtime structures. This symmetry is the agent edit loop: GET, edit JSON, PUT, reopen in the GUI. Invalid JSON, schema fields, Packs, Pipeline variants, Effect parameters, assets, or cross-references are rejected before persistence with a path-qualified response message.
 
+### Source video assets
+
+Source video bytes live separately from Preset JSON in the local content-addressed asset store. Ingest an MP4, MOV, or WebM before writing its returned `url` to `state.sourceVideo.assetUrl`:
+
+```sh
+curl -fsS \
+  -X POST \
+  -H 'Content-Type: video/mp4' \
+  --data-binary @episode.mp4 \
+  http://localhost:7263/api/user-assets
+```
+
+The response includes the immutable URL plus probed duration, display dimensions, rotation, average frame rate, video/audio codecs, and audio layout. Re-uploading identical bytes returns the same URL. Large uploads stream to disk while hashing and probing; stored media supports HTTP byte ranges so the browser decoder can seek without loading the whole source into memory.
+
+Standalone Preset JSON does not embed or copy video bytes. Moving a composition to another local Supers workspace therefore requires ingesting the source asset there and updating `assetUrl` to the returned content address.
+
 ## GUI interchange
 
 The home screen's **Import JSON** action derives the User composition slug from the filename. Importing `episode-title.json` creates or replaces `episode-title`. Schema and semantic errors block persistence; static-linter warnings and errors do not, because a valid agent-authored Preset must be able to enter the GUI for repair. Its linter findings appear live in the composition inspector after import.
