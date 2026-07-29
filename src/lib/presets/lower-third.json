@@ -47,13 +47,16 @@
 					"duration": 0.18,
 					"ease": "settled",
 					"sound": {
-						"event": "impact"
+						"mute": true
 					}
 				},
 				"exit": {
 					"start": 0.82,
 					"duration": 0.16,
-					"ease": "smooth"
+					"ease": "smooth",
+					"sound": {
+						"mute": true
+					}
 				}
 			}
 		],

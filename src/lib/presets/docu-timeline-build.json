@@ -106,7 +106,10 @@
 					"enter": {
 						"start": 0.145,
 						"duration": 0.075,
-						"ease": "smooth"
+						"ease": "smooth",
+						"sound": {
+							"mute": true
+						}
 					},
 					"exit": {
 						"start": 0.82,
@@ -144,7 +147,10 @@
 					"enter": {
 						"start": 0.16,
 						"duration": 0.04,
-						"ease": "settled"
+						"ease": "settled",
+						"sound": {
+							"event": "tick"
+						}
 					},
 					"exit": {
 						"start": 0.82,
@@ -260,7 +266,10 @@
 					"enter": {
 						"start": 0.245,
 						"duration": 0.04,
-						"ease": "settled"
+						"ease": "settled",
+						"sound": {
+							"event": "tick"
+						}
 					},
 					"exit": {
 						"start": 0.83,
@@ -303,7 +312,10 @@
 					"enter": {
 						"start": 0.26,
 						"duration": 0.06,
-						"ease": "smooth"
+						"ease": "smooth",
+						"sound": {
+							"mute": true
+						}
 					},
 					"exit": {
 						"start": 0.83,
@@ -419,7 +431,10 @@
 					"enter": {
 						"start": 0.34,
 						"duration": 0.04,
-						"ease": "settled"
+						"ease": "settled",
+						"sound": {
+							"event": "tick"
+						}
 					},
 					"exit": {
 						"start": 0.84,
@@ -462,7 +477,10 @@
 					"enter": {
 						"start": 0.355,
 						"duration": 0.075,
-						"ease": "smooth"
+						"ease": "smooth",
+						"sound": {
+							"mute": true
+						}
 					},
 					"exit": {
 						"start": 0.84,
@@ -578,7 +596,10 @@
 					"enter": {
 						"start": 0.455,
 						"duration": 0.04,
-						"ease": "settled"
+						"ease": "settled",
+						"sound": {
+							"event": "tick"
+						}
 					},
 					"exit": {
 						"start": 0.85,
