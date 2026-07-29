@@ -18,11 +18,14 @@ These rules govern the **technical quality of the rendered pixels**. They sit ab
 
 If a preset fails any R-rule, **do not adjust preset values to hide the defect.** Find the shader, effect, or pipeline pass that produced it and fix the implementation. Preset tweaks that paper over a broken render are explicitly rejected (R8).
 
+**Authored signal-degradation scope.** R1, R4, and Q4 have one narrow alternate bar when the Preset explicitly declares a registered signal-model Effect such as `ntsc-signal` or `crt-tube`. These Effects intentionally model finite signal bandwidth, encode/decode separation, scan raster, and phosphor-mask structure; their predicted blur, chroma fringing, raster steps, and subpixel hues are not defects merely because they differ from a pristine source. This is not a general artistic-intent exemption for blur, chromatic aberration, low-resolution assets, compression, or arbitrary post-processing. The Critic must name the Effect and relevant parameters, then verify that the visible degradation matches that declared model numerically. Artifacts outside the model, outside the Effect's region, or beyond its authored strength still fail the pristine rule.
+
 ### R1. Text renders sharp at the export's native resolution
 
 - **Rule** — Every glyph in the output has clean stroke edges with no visible blur, fuzz, double-edging, or chromatic fringing. Verified at **200% zoom** in the rendered screenshot at native target dimensions (3840×2160 horizontal / 2160×3840 vertical).
 - **Why** — Soft text is the #1 signal of cheap output. Almost always it comes from sampling a lower-resolution intermediate texture (or a DOM rasterization at the wrong DPR) with bilinear filtering at a different scale than the source. The fix is in the rasterization or sampling, not the preset.
 - **How to verify (evidence required)** — Open the rendered frame at 100% (1 screen pixel = 1 export pixel). Zoom the viewer to 200%. Pick the smallest body-text run in the frame. Trace one vertical stroke of one letter (e.g. the stem of an "l" or "k"). Report: *"At 200% zoom on `<smallest text region>`, the stroke edges are [crisp single-pixel transitions / fuzzy multi-pixel gradients / doubled / color-fringed]."* If the answer is anything other than "crisp single-pixel transitions," **FAIL**.
+- **Authored signal degradation** — When the Preset declares a signal-model Effect, replace the pristine-edge verdict only inside that Effect's output with: *"At 200% on `<text region>`, `<Effect>` with `<bandwidth / delay / focus / raster parameters>` produces `<measured blur or fringe width>`; the degradation [matches / exceeds / contradicts] the declared signal model."* Matching, bounded degradation passes. Additional scale blur, ringing, doubled edges, or fringing not predicted by those parameters **FAILS**.
 
 ### R2. Resampled or transformed content stays sharp at its final scale
 
@@ -42,6 +45,7 @@ If a preset fails any R-rule, **do not adjust preset values to hide the defect.*
 - **Rule** — Every diagonal, curved, or otherwise non-axis-aligned edge in the frame has anti-aliased coverage. No visible single-pixel stairstep on any oblique line.
 - **Why** — Aliased edges are 1990s computer graphics. They appear when geometry is rasterized at output resolution without coverage sampling (or with insufficient MSAA / superresolution / SDF threshold smoothing).
 - **How to verify (evidence required)** — Zoom to 400% on the longest diagonal or curved edge in the frame. Report: *"At 400% zoom on `<which edge>`, the edge transition shows [smooth fractional coverage over 1–2px / hard single-pixel stairstep / inconsistent step pattern]."* Anything other than smooth coverage **FAILS**. Fix lives in the geometry shader (MSAA enable, or SDF + smoothstep over a 1–2px band).
+- **Authored signal degradation** — A declared scan raster or phosphor mask may quantize an edge according to its authored `lines` or `maskPitchPx`; judge whether the observed step period matches those parameters and stays deterministic across the frame. Geometry coverage before the signal model, bezel/curvature boundaries, and any edge outside the Effect remain subject to the pristine smooth-coverage bar. Irregular steps or pixelation unrelated to the declared raster **FAIL**.
 
 ### R5. No banding or posterization in tonal regions
 
@@ -88,6 +92,8 @@ R7 (compression):      At 400% near <high-contrast edge>, observed: <artifacts>.
 
 Each line must name the specific region inspected. *"R3 PASS"* on its own is **not a valid report** — without an observation it is indistinguishable from rubber-stamping, which is exactly the failure mode the protocol exists to prevent.
 
+For R1 or R4 under the authored signal-degradation scope, append `PASS (AUTHORED SIGNAL DEGRADATION: <Effect>)` and include the relevant Effect parameters plus the measured blur, fringe, raster, or mask period. A bare claim that the piece is "supposed to look degraded" is invalid and fails the protocol.
+
 If any line is FAIL, the agent stops. Per R8, they identify the responsible code path and propose an implementation fix before continuing. They do **not** edit the preset to make the rendered output appear to pass.
 
 Only after every R-line is PASS does the agent proceed to evaluate Q-rules and per-layer rules.
@@ -121,6 +127,7 @@ Only after every R-line is PASS does the agent proceed to evaluate Q-rules and p
 - **Rule** — Total saturated hues visible at once ≤ 3. Each saturated hue occupies a distinct region of color space (one warm, one cool, one contrast) — never two of the same hue family.
 - **Why** — The eye reads >3 saturated colors as noise. Two saturated colors from the same hue family look like one of them was supposed to be the other. Palette discipline is the dominant signal of "this was designed."
 - **How to apply** — The composition's saturated-color count is bounded across every visible element at every frame, not just within one layer. Specific palette values come from the channel's aesthetic doc, not this rubric.
+- **Authored signal degradation** — Chroma sidebands and phosphor-subpixel colors generated by a declared signal-model Effect do not count as independently authored palette hues. Measure the perceptual palette at viewing distance by downsampling the frame before hue counting (`probe-hue-count.ts --downsample 4` for `ntsc-signal`, `crt-tube`, or `crt-scanline`). The downsampled semantic palette still obeys the ≤ 3 saturated-hue cap; hues that survive downsampling or do not follow the declared subcarrier/mask structure count normally and can **FAIL** Q4.
 
 ### Q5. Every element commits to a physical or formal identity and obeys its physics
 
@@ -249,10 +256,10 @@ The pass/fail bar before a preset is considered done. Apply alongside the animat
 
 **Render Quality is gating — every R-rule below must pass before any Q-rule is even considered.** Each R-line must include a named observation per the Verification Protocol; a bare "PASS" is not a valid report.
 
-1. **R1** — Glyph edges at 200% zoom are crisp single-pixel transitions on every text run in the frame.
+1. **R1** — Glyph edges at 200% zoom are crisp single-pixel transitions on every text run, unless a declared signal-model Effect produces parameter-matched, measured degradation.
 2. **R2** — Any resampled / scaled / transformed region is *equally sharp* at 200% as same-screen-size content rendered natively. N/A if nothing in the frame is resampled.
 3. **R3** — Every shadow's falloff at 400% zoom is continuous gaussian — no banding, stairstep, or hard rim.
-4. **R4** — Every diagonal/curved edge at 400% zoom shows smooth fractional coverage — no single-pixel stairstep.
+4. **R4** — Every diagonal/curved edge at 400% zoom shows smooth fractional coverage, except parameter-matched raster/mask quantization from a declared signal-model Effect.
 5. **R5** — Every flat / gradient / paper region at 200% zoom transitions continuously — no visible banding.
 6. **R6** — Export dimensions exactly match the target; exported text is as sharp as native browser text at the same physical size.
 7. **R7** — At 400% near high-contrast edges and saturated marks: no 8×8 blocks, no chroma bleed, no mosquito noise.
@@ -263,7 +270,7 @@ Only after every R-line is PASS:
 9. **Q1** — Every element commits to one coherent visual identity.
 10. **Q2** — Texture (when used) is multi-scale and tuned to viewing distance.
 11. **Q3** — One light direction; all shadows agree.
-12. **Q4** — ≤ 3 saturated hues at once, distinct in color space.
+12. **Q4** — ≤ 3 saturated semantic hues at once after viewing-distance downsampling; declared signal-model subpixel hues do not count independently.
 13. **Q5** — Every element commits to an identity and obeys its physics.
 14. **Q6** — Hand-claiming elements carry deterministic imperfection; vector-claiming elements are exact.
 15. **Q7** — Hierarchy uses weight + color + casing, not size alone.
@@ -287,9 +294,9 @@ If a preset passes both the R-tier and the Q-tier above, plus the animation chec
 
 These supersede everything else. Any of these means **STOP and fix the implementation** — no preset edits, no "we'll address it later."
 
-- Any text in the frame is not crisp at 200% zoom (R1) → magnify/lift-out or the underlying rasterization is broken.
+- Any text in the frame is not crisp at 200% zoom without parameter-matched evidence from a declared signal-model Effect (R1) → magnify/lift-out or the underlying rasterization is broken.
 - A resampled / scaled / transformed region is softer than equivalent natively-rendered content (R2) → the responsible shader is bilinear-sampling a too-small source.
 - Any shadow shows banding, stairstep, or a hard outer rim (R3) → the shadow blur is box-blur, low-sample, or rendered at the wrong bit depth.
-- Visible jaggies / stairstep on any diagonal edge (R4) → MSAA off or SDF threshold not smoothstepped.
+- Visible jaggies / stairstep on any diagonal edge that do not match a declared signal raster/mask period (R4) → MSAA off or SDF threshold not smoothstepped.
 - Export dimensions don't match target (R6) → the export pipeline is snapshotting the preview canvas instead of rendering at target res.
 - Verification report uses bare "PASS" without a named observation → the verification was not actually performed; redo it.
