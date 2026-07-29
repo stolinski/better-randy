@@ -53,7 +53,7 @@ async function deletePreviewPreset(slug: string): Promise<void> {
 	}
 }
 
-export async function captureSourceVideoExportPreviews(
+export async function captureVideoTrackExportPreviews(
 	matrixPath: string,
 	outputDirectory: string
 ): Promise<string> {
@@ -64,8 +64,13 @@ export async function captureSourceVideoExportPreviews(
 
 	for (const entry of manifest.matrix.filter((candidate) => candidate.format === 'prores')) {
 		const slug = `machine-preview-${entry.id}`;
-		const frameIndexes = [0, Math.floor(entry.expected.frameCount / 2), entry.expected.frameCount - 1];
-		const rate = entry.fps === 29.97 ? 30_000 / 1_001 : entry.fps === 59.94 ? 60_000 / 1_001 : entry.fps;
+		const frameIndexes = [
+			0,
+			Math.floor(entry.expected.frameCount / 2),
+			entry.expected.frameCount - 1
+		];
+		const rate =
+			entry.fps === 29.97 ? 30_000 / 1_001 : entry.fps === 59.94 ? 60_000 / 1_001 : entry.fps;
 		const samples = frameIndexes.map((frame) => frame / rate / manifest.durationSeconds);
 		const caseDirectory = join(output, entry.id);
 		await storePreviewPreset(slug, entry.presetPath);
@@ -92,11 +97,11 @@ export async function captureSourceVideoExportPreviews(
 const [matrixPath, outputDirectory] = process.argv.slice(2);
 if (!matrixPath || !outputDirectory) {
 	process.stderr.write(
-		'usage: capture-source-video-export-previews.ts <matrix.json> <output-directory>\n'
+		'usage: capture-video-track-export-previews.ts <matrix.json> <output-directory>\n'
 	);
 	process.exitCode = 2;
 } else {
-	captureSourceVideoExportPreviews(matrixPath, outputDirectory)
+	captureVideoTrackExportPreviews(matrixPath, outputDirectory)
 		.then((manifestPath) => process.stdout.write(`${manifestPath}\n`))
 		.catch((error: unknown) => {
 			process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);

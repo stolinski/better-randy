@@ -119,6 +119,24 @@ describe('VideoAssetDecoder', () => {
 		assert.equal(futureSample.closed, true);
 	});
 
+	it('accepts a presentation timestamp that is only floating-point dust after the request', async () => {
+		const requestedSourceTimestamp = METADATA.firstTimestamp + 1.9333333333333333;
+		const roundedSample = fakeSample(requestedSourceTimestamp + Number.EPSILON * 8);
+		const services: VideoAssetDecoderServices = {
+			createBackend: () => ({
+				initialize: async () => METADATA,
+				getSample: async () => roundedSample,
+				dispose: () => undefined
+			})
+		};
+		const decoder = new VideoAssetDecoder(ASSET_A, services);
+		await decoder.initialize();
+
+		const frame = await decoder.frameAt(1.9333333333333333);
+		assert.equal(frame.sample, roundedSample);
+		frame.close();
+	});
+
 	it('closes stale random-seek results before they can paint', async () => {
 		const first = deferredSample();
 		const second = deferredSample();

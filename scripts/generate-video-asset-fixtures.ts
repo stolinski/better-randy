@@ -10,7 +10,7 @@ interface FixtureFrame {
 	duration: number;
 }
 
-interface SourceVideoFixture {
+interface VideoAssetFixture {
 	name: string;
 	file: string;
 	mode: 'cfr' | 'vfr';
@@ -234,14 +234,12 @@ function wavBytes(frames: readonly FixtureFrame[]): Buffer {
 async function generateFixture(
 	definition: FixtureDefinition,
 	outputDirectory: string
-): Promise<SourceVideoFixture> {
+): Promise<VideoAssetFixture> {
 	const workDirectory = join(outputDirectory, `.${definition.name}`);
 	await rm(workDirectory, { recursive: true, force: true });
 	await mkdir(workDirectory, { recursive: true });
 	const frames =
-		definition.mode === 'cfr'
-			? cfrFrames(definition.rate!.num, definition.rate!.den)
-			: vfrFrames();
+		definition.mode === 'cfr' ? cfrFrames(definition.rate!.num, definition.rate!.den) : vfrFrames();
 	for (const frame of frames) {
 		await writeFile(
 			join(workDirectory, `frame-${String(frame.identity).padStart(5, '0')}.png`),
@@ -251,7 +249,8 @@ async function generateFixture(
 	const audioPath = join(workDirectory, 'clicks.wav');
 	await writeFile(audioPath, wavBytes(frames));
 	const outputPath = join(outputDirectory, `${definition.name}.mov`);
-	const encodedPath = definition.rotation === 90 ? join(workDirectory, 'unrotated.mov') : outputPath;
+	const encodedPath =
+		definition.rotation === 90 ? join(workDirectory, 'unrotated.mov') : outputPath;
 	const videoInput: string[] = [];
 	const videoFilter: string[] = [];
 	if (definition.mode === 'cfr') {
@@ -261,10 +260,7 @@ async function generateFixture(
 		videoInput.push('-framerate', '60', '-i', join(workDirectory, 'frame-%05d.png'));
 		// PTS increments repeat 2,3,1 ticks on a 60 Hz timebase, yielding exact
 		// 1/30, 1/20, 1/60 frame durations without concat's 25 Hz quantization.
-		videoFilter.push(
-			'-vf',
-			'setpts=N+floor((N+2)/3)+2*floor((N+1)/3)'
-		);
+		videoFilter.push('-vf', 'setpts=N+floor((N+2)/3)+2*floor((N+1)/3)');
 	}
 
 	await ffmpeg([
@@ -333,14 +329,14 @@ async function generateFixture(
 	};
 }
 
-export async function generateSourceVideoFixtures(outputDirectory: string): Promise<string> {
+export async function generateVideoAssetFixtures(outputDirectory: string): Promise<string> {
 	const resolvedOutput = resolve(outputDirectory);
 	await mkdir(resolvedOutput, { recursive: true });
-	const fixtures: SourceVideoFixture[] = [];
+	const fixtures: VideoAssetFixture[] = [];
 	for (const definition of DEFINITIONS) {
 		fixtures.push(await generateFixture(definition, resolvedOutput));
 	}
-	const manifestPath = join(resolvedOutput, 'source-video-fixtures.json');
+	const manifestPath = join(resolvedOutput, 'video-asset-fixtures.json');
 	await writeFile(
 		manifestPath,
 		JSON.stringify(
@@ -363,10 +359,10 @@ export async function generateSourceVideoFixtures(outputDirectory: string): Prom
 
 const outputDirectory = process.argv[2];
 if (!outputDirectory) {
-	process.stderr.write('usage: generate-source-video-fixtures.ts <output-directory>\n');
+	process.stderr.write('usage: generate-video-asset-fixtures.ts <output-directory>\n');
 	process.exitCode = 2;
 } else {
-	generateSourceVideoFixtures(outputDirectory)
+	generateVideoAssetFixtures(outputDirectory)
 		.then((manifestPath) => process.stdout.write(`${manifestPath}\n`))
 		.catch((error: unknown) => {
 			process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);

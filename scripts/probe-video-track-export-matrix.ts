@@ -26,18 +26,29 @@ interface MatrixExpected {
 	durationSeconds: number;
 	pixelFormat: string;
 	hasAudio: boolean;
+	opaque: boolean;
 	audioSampleRate: number;
 	audioChannels: number;
 }
 
+interface MatrixClip {
+	id: string;
+	assetId: string;
+	fixture: string;
+	timelineStartFrame: number;
+	durationFrames: number;
+	sourceStartSeconds: number;
+	audio: { enabled: boolean; gain: number };
+}
+
 interface MatrixEntry {
 	id: string;
-	fixture: string;
 	orientation: 'horizontal' | 'vertical';
 	fps: number;
 	format: 'webm' | 'prores';
-	includeSourceAudio: boolean;
+	includeVideoClipAudio: boolean;
 	includeCue: boolean;
+	clips: MatrixClip[];
 	exportPath: string;
 	expected: MatrixExpected;
 }
@@ -110,7 +121,10 @@ const WEBM_TIMESTAMP_TOLERANCE_SECONDS = 0.00051;
 const PRORES_TIMESTAMP_TOLERANCE_SECONDS = 0.00001;
 const AUDIO_SYNC_TOLERANCE_SAMPLES = 144;
 
-function runBinary(command: string, args: readonly string[]): Promise<{ stdout: Buffer; stderr: string }> {
+function runBinary(
+	command: string,
+	args: readonly string[]
+): Promise<{ stdout: Buffer; stderr: string }> {
 	return new Promise((resolvePromise, reject) => {
 		const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
 		const stdout: Buffer[] = [];
@@ -146,10 +160,17 @@ function rateValue(rate: string): number {
 }
 
 function lowResolution(entry: MatrixEntry): { width: number; height: number } {
-	return entry.orientation === 'horizontal' ? { width: 320, height: 180 } : { width: 180, height: 320 };
+	return entry.orientation === 'horizontal'
+		? { width: 320, height: 180 }
+		: { width: 180, height: 320 };
 }
 
-async function decodeFrames(path: string, width: number, height: number, rgba = false): Promise<RawFrames> {
+async function decodeFrames(
+	path: string,
+	width: number,
+	height: number,
+	rgba = false
+): Promise<RawFrames> {
 	const channels = rgba ? 4 : 3;
 	const { stdout } = await runBinary(process.env.FFMPEG_PATH ?? 'ffmpeg', [
 		'-v',
@@ -170,14 +191,17 @@ async function decodeFrames(path: string, width: number, height: number, rgba = 
 	]);
 	const frameSize = width * height * channels;
 	if (stdout.byteLength % frameSize !== 0) throw new Error(`Decoded ${path} has a partial frame.`);
-	return { bytes: stdout, frameSize, count: stdout.byteLength / frameSize, width, height, channels };
+	return {
+		bytes: stdout,
+		frameSize,
+		count: stdout.byteLength / frameSize,
+		width,
+		height,
+		channels
+	};
 }
 
-async function decodeSourceFrames(
-	path: string,
-	width: number,
-	height: number
-): Promise<RawFrames> {
+async function decodeSourceFrames(path: string, width: number, height: number): Promise<RawFrames> {
 	const { stdout } = await runBinary(process.env.FFMPEG_PATH ?? 'ffmpeg', [
 		'-v',
 		'error',
@@ -197,7 +221,14 @@ async function decodeSourceFrames(
 	]);
 	const frameSize = width * height * 3;
 	if (stdout.byteLength % frameSize !== 0) throw new Error(`Decoded ${path} has a partial frame.`);
-	return { bytes: stdout, frameSize, count: stdout.byteLength / frameSize, width, height, channels: 3 };
+	return {
+		bytes: stdout,
+		frameSize,
+		count: stdout.byteLength / frameSize,
+		width,
+		height,
+		channels: 3
+	};
 }
 
 function frameBytes(frames: RawFrames, index: number): Uint8Array {
@@ -236,7 +267,12 @@ function sourceRegion(width: number, height: number): Region {
 }
 
 function overlayRegion(width: number, height: number): Region {
-	return { x: 0, y: Math.round(height * 0.55), width: Math.round(width * 0.6), height: Math.round(height * 0.4) };
+	return {
+		x: 0,
+		y: Math.round(height * 0.55),
+		width: Math.round(width * 0.6),
+		height: Math.round(height * 0.4)
+	};
 }
 
 function boundaryRegions(width: number, height: number): Record<string, Region> {
@@ -307,6 +343,32 @@ function alphaRange(frames: RawFrames): { min: number; max: number } {
 	return { min, max };
 }
 
+function regionAlphaRange(
+	frame: Uint8Array,
+	frameWidth: number,
+	region: Region
+): { min: number; max: number } {
+	let min = 255;
+	let max = 0;
+	for (let y = region.y; y < region.y + region.height; y += 1) {
+		for (let x = region.x; x < region.x + region.width; x += 1) {
+			const alpha = frame[(y * frameWidth + x) * 4 + 3];
+			min = Math.min(min, alpha);
+			max = Math.max(max, alpha);
+		}
+	}
+	return { min, max };
+}
+
+function activeMatrixClip(entry: MatrixEntry, frame: number): MatrixClip | null {
+	return (
+		entry.clips.find(
+			(clip) =>
+				frame >= clip.timelineStartFrame && frame < clip.timelineStartFrame + clip.durationFrames
+		) ?? null
+	);
+}
+
 async function decodeAudio(path: string): Promise<{ samples: Float32Array; warning: string }> {
 	const { stdout, stderr } = await runBinary(process.env.FFMPEG_PATH ?? 'ffmpeg', [
 		'-v',
@@ -374,14 +436,19 @@ async function previewComparisons(
 			decodedOutput.width,
 			{ x: 0, y: 0, width: decodedOutput.width, height: decodedOutput.height }
 		);
-		results.push({ frame: frame.frame, path: frame.path, mae, pass: mae <= PREVIEW_PRORES_MAE_TOLERANCE });
+		results.push({
+			frame: frame.frame,
+			path: frame.path,
+			mae,
+			pass: mae <= PREVIEW_PRORES_MAE_TOLERANCE
+		});
 	}
 	return results;
 }
 
 async function probeEntry(
 	entry: MatrixEntry,
-	fixture: FixtureEntry,
+	fixtures: ReadonlyMap<string, FixtureEntry>,
 	preview: PreviewCapture | undefined
 ): Promise<{ result: unknown; failures: string[] }> {
 	const failures: string[] = [];
@@ -395,28 +462,43 @@ async function probeEntry(
 	const packets = packetDocument.packets ?? [];
 	const rate = rateValue(entry.expected.rate);
 	const low = lowResolution(entry);
-	const [outputFrames, sourceFrames] = await Promise.all([
-		decodeFrames(entry.exportPath, low.width, low.height, true),
-		decodeSourceFrames(fixture.file, low.width, low.height)
-	]);
+	const outputFrames = await decodeFrames(entry.exportPath, low.width, low.height, true);
+	const sourceFrames = new Map<string, RawFrames>();
+	await Promise.all(
+		[...new Set(entry.clips.map((clip) => clip.fixture))].map(async (fixtureName) => {
+			const fixture = fixtures.get(fixtureName);
+			if (!fixture) throw new Error(`Missing fixture ${fixtureName}.`);
+			sourceFrames.set(fixtureName, await decodeSourceFrames(fixture.file, low.width, low.height));
+		})
+	);
 
 	if (video.width !== entry.expected.width || video.height !== entry.expected.height) {
 		failures.push(`dimensions ${video.width}x${video.height}`);
 	}
-	if (outputFrames.count !== entry.expected.frameCount || Number(video.nb_read_frames) !== entry.expected.frameCount) {
+	if (
+		outputFrames.count !== entry.expected.frameCount ||
+		Number(video.nb_read_frames) !== entry.expected.frameCount
+	) {
 		failures.push(`frame count ${outputFrames.count}/${video.nb_read_frames}`);
 	}
 	const acceptedPixelFormats =
 		entry.format === 'prores' ? new Set(['yuva444p10le', 'yuva444p12le']) : new Set(['yuv444p']);
-	if (!video.pix_fmt || !acceptedPixelFormats.has(video.pix_fmt)) failures.push(`pixel format ${video.pix_fmt}`);
-	if (entry.format === 'prores' && video.profile !== '4444') failures.push(`ProRes profile ${video.profile}`);
-	if ((entry.format === 'webm' && video.codec_name !== 'vp9') || (entry.format === 'prores' && video.codec_name !== 'prores')) {
+	if (!video.pix_fmt || !acceptedPixelFormats.has(video.pix_fmt))
+		failures.push(`pixel format ${video.pix_fmt}`);
+	if (entry.format === 'prores' && video.profile !== '4444')
+		failures.push(`ProRes profile ${video.profile}`);
+	if (
+		(entry.format === 'webm' && video.codec_name !== 'vp9') ||
+		(entry.format === 'prores' && video.codec_name !== 'prores')
+	) {
 		failures.push(`video codec ${video.codec_name}`);
 	}
 	if (entry.expected.hasAudio !== Boolean(audio)) failures.push(`audio presence ${Boolean(audio)}`);
 	if (audio) {
-		if (Number(audio.sample_rate) !== entry.expected.audioSampleRate) failures.push(`audio rate ${audio.sample_rate}`);
-		if (audio.channels !== entry.expected.audioChannels) failures.push(`audio channels ${audio.channels}`);
+		if (Number(audio.sample_rate) !== entry.expected.audioSampleRate)
+			failures.push(`audio rate ${audio.sample_rate}`);
+		if (audio.channels !== entry.expected.audioChannels)
+			failures.push(`audio channels ${audio.channels}`);
 	}
 
 	let maxTimestampError = 0;
@@ -428,7 +510,8 @@ async function probeEntry(
 	}
 	const timestampTolerance =
 		entry.format === 'webm' ? WEBM_TIMESTAMP_TOLERANCE_SECONDS : PRORES_TIMESTAMP_TOLERANCE_SECONDS;
-	if (maxTimestampError > timestampTolerance) failures.push(`timestamp error ${maxTimestampError}s`);
+	if (maxTimestampError > timestampTolerance)
+		failures.push(`timestamp error ${maxTimestampError}s`);
 	const containerRateExact =
 		video.r_frame_rate === entry.expected.rate && video.avg_frame_rate === entry.expected.rate;
 	if (entry.format === 'prores' && !containerRateExact) {
@@ -437,29 +520,49 @@ async function probeEntry(
 	const packetEnd = packets.length
 		? Number(packets.at(-1)?.pts_time) + Number(packets.at(-1)?.duration_time || 1 / rate)
 		: 0;
-	if (Math.abs(packetEnd - entry.expected.durationSeconds) > 0.0011) failures.push(`video duration ${packetEnd}s`);
+	if (Math.abs(packetEnd - entry.expected.durationSeconds) > 0.0011)
+		failures.push(`video duration ${packetEnd}s`);
 
 	const identityRegion = sourceRegion(low.width, low.height);
 	const identities: unknown[] = [];
 	const overlayResiduals: number[] = [];
 	const boundaryMaxMae: Record<string, number> = {};
+	const gapFrames: unknown[] = [];
 	for (let frame = 0; frame < outputFrames.count; frame += 1) {
 		const timestamp = frame / rate;
-		const expectedIdentity = expectedSourceIdentity(fixture.frames, timestamp);
 		const outputFrame = frameBytes(outputFrames, frame);
-		const nearest = nearestSourceIdentity(outputFrame, outputFrames.channels, sourceFrames, identityRegion);
+		const clip = activeMatrixClip(entry, frame);
+		if (!clip) {
+			const gapAlpha = regionAlphaRange(outputFrame, low.width, identityRegion);
+			if (gapAlpha.max !== 0)
+				failures.push(`gap frame ${frame}: alpha ${gapAlpha.min}..${gapAlpha.max}`);
+			gapFrames.push({ frame, timestamp, alpha: gapAlpha });
+			continue;
+		}
+		const fixture = fixtures.get(clip.fixture);
+		const fixtureFrames = sourceFrames.get(clip.fixture);
+		if (!fixture || !fixtureFrames) throw new Error(`Missing decoded fixture ${clip.fixture}.`);
+		const localFrame = frame - clip.timelineStartFrame;
+		const sourceTimestamp = clip.sourceStartSeconds + localFrame / rate;
+		const expectedIdentity = expectedSourceIdentity(fixture.frames, sourceTimestamp);
+		const nearest = nearestSourceIdentity(
+			outputFrame,
+			outputFrames.channels,
+			fixtureFrames,
+			identityRegion
+		);
 		if (nearest.identity !== expectedIdentity || nearest.mae > SOURCE_PIXEL_MAE_TOLERANCE) {
 			failures.push(
-				`source frame ${frame}: expected ${expectedIdentity}, decoded ${nearest.identity}, mae ${nearest.mae}`
+				`Video clip ${clip.id} frame ${frame}: expected ${expectedIdentity}, decoded ${nearest.identity}, mae ${nearest.mae}`
 			);
 		}
-		const expectedFrame = frameBytes(sourceFrames, expectedIdentity);
+		const expectedFrame = frameBytes(fixtureFrames, expectedIdentity);
 		overlayResiduals.push(
 			regionMae(
 				outputFrame,
 				outputFrames.channels,
 				expectedFrame,
-				sourceFrames.channels,
+				fixtureFrames.channels,
 				low.width,
 				overlayRegion(low.width, low.height)
 			)
@@ -471,13 +574,22 @@ async function probeEntry(
 					outputFrame,
 					outputFrames.channels,
 					expectedFrame,
-					sourceFrames.channels,
+					fixtureFrames.channels,
 					low.width,
 					region
 				)
 			);
 		}
-		identities.push({ frame, timestamp, expected: expectedIdentity, decoded: nearest.identity, mae: nearest.mae });
+		identities.push({
+			frame,
+			timestamp,
+			clipId: clip.id,
+			fixture: clip.fixture,
+			sourceTimestamp,
+			expected: expectedIdentity,
+			decoded: nearest.identity,
+			mae: nearest.mae
+		});
 	}
 	for (const [name, mae] of Object.entries(boundaryMaxMae)) {
 		if (mae > CROP_BOUNDARY_MAE_TOLERANCE) failures.push(`crop boundary ${name} mae ${mae}`);
@@ -485,31 +597,62 @@ async function probeEntry(
 	const overlayResidualRange = Math.max(...overlayResiduals) - Math.min(...overlayResiduals);
 	if (overlayResidualRange < 0.003) failures.push(`overlay residual range ${overlayResidualRange}`);
 	const alpha = alphaRange(outputFrames);
-	if (alpha.min !== 255 || alpha.max !== 255) failures.push(`opaque alpha range ${alpha.min}..${alpha.max}`);
+	if (entry.expected.opaque && (alpha.min !== 255 || alpha.max !== 255)) {
+		failures.push(`opaque alpha range ${alpha.min}..${alpha.max}`);
+	}
+	if (!entry.expected.opaque && (alpha.min !== 0 || alpha.max === 0)) {
+		failures.push(`transparent alpha range ${alpha.min}..${alpha.max}`);
+	}
 
 	let audioResult: unknown = null;
 	if (audio) {
 		const decoded = await decodeAudio(entry.exportPath);
 		const audioFrameCount = decoded.samples.length / 2;
 		const expectedAudioFrames = Math.round(entry.expected.durationSeconds * 48_000);
-		if (audioFrameCount !== expectedAudioFrames) failures.push(`audio sample count ${audioFrameCount}`);
+		if (audioFrameCount !== expectedAudioFrames)
+			failures.push(`audio sample count ${audioFrameCount}`);
 		const sourceClickResults: unknown[] = [];
-		if (entry.includeSourceAudio) {
-			for (const sourceFrame of fixture.frames.filter(
-				(candidate) => candidate.timestamp < entry.expected.durationSeconds - 1e-7
-			)) {
-				const expectedFrame = Math.round(sourceFrame.timestamp * 48_000) + 10;
-				const peak = nearestAudioPeak(decoded.samples, expectedFrame, AUDIO_SYNC_TOLERANCE_SAMPLES);
-				const drift = peak.frame - expectedFrame;
-				if (peak.amplitude < 0.025 || Math.abs(drift) > AUDIO_SYNC_TOLERANCE_SAMPLES) {
-					failures.push(`audio click ${sourceFrame.identity}: amplitude ${peak.amplitude}, drift ${drift}`);
+		if (entry.includeVideoClipAudio) {
+			for (const clip of entry.clips.filter((candidate) => candidate.audio.enabled)) {
+				const fixture = fixtures.get(clip.fixture);
+				if (!fixture) throw new Error(`Missing fixture ${clip.fixture}.`);
+				const sourceEndSeconds = clip.sourceStartSeconds + clip.durationFrames / rate;
+				for (const sourceFrame of fixture.frames.filter(
+					(candidate) =>
+						candidate.timestamp >= clip.sourceStartSeconds - 1e-7 &&
+						candidate.timestamp < sourceEndSeconds - 1e-7
+				)) {
+					const destinationSeconds =
+						clip.timelineStartFrame / rate + (sourceFrame.timestamp - clip.sourceStartSeconds);
+					const expectedFrame = Math.round(destinationSeconds * 48_000) + 10;
+					const peak = nearestAudioPeak(
+						decoded.samples,
+						expectedFrame,
+						AUDIO_SYNC_TOLERANCE_SAMPLES
+					);
+					const drift = peak.frame - expectedFrame;
+					if (peak.amplitude < 0.025 || Math.abs(drift) > AUDIO_SYNC_TOLERANCE_SAMPLES) {
+						failures.push(
+							`audio click ${clip.id}/${sourceFrame.identity}: amplitude ${peak.amplitude}, drift ${drift}`
+						);
+					}
+					sourceClickResults.push({
+						clipId: clip.id,
+						identity: sourceFrame.identity,
+						expectedFrame,
+						...peak,
+						drift
+					});
 				}
-				sourceClickResults.push({ identity: sourceFrame.identity, expectedFrame, ...peak, drift });
 			}
 		}
 		let cuePeak: unknown = null;
 		if (entry.includeCue) {
-			cuePeak = nearestAudioPeak(decoded.samples, Math.round(entry.expected.durationSeconds * 0.5 * 48_000), 960);
+			cuePeak = nearestAudioPeak(
+				decoded.samples,
+				Math.round(entry.expected.durationSeconds * 0.5 * 48_000),
+				960
+			);
 			if ((cuePeak as { amplitude: number }).amplitude < 0.02) failures.push('cue is inaudible');
 		}
 		audioResult = {
@@ -549,6 +692,7 @@ async function probeEntry(
 			},
 			alpha,
 			identities,
+			gapFrames,
 			boundaryMaxMae,
 			overlayResiduals,
 			audio: audioResult,
@@ -558,7 +702,7 @@ async function probeEntry(
 	};
 }
 
-export async function probeSourceVideoExportMatrix(
+export async function probeVideoTrackExportMatrix(
 	matrixPath: string,
 	previewManifestPath?: string
 ): Promise<{ verdict: 'pass' | 'fail'; results: unknown[]; failures: string[] }> {
@@ -569,17 +713,15 @@ export async function probeSourceVideoExportMatrix(
 	const fixtures = new Map(fixtureManifest.fixtures.map((fixture) => [fixture.name, fixture]));
 	const previews = previewManifestPath
 		? new Map(
-				(
-					JSON.parse(await readFile(previewManifestPath, 'utf8')) as PreviewManifest
-				).captures.map((capture) => [capture.id, capture])
+				(JSON.parse(await readFile(previewManifestPath, 'utf8')) as PreviewManifest).captures.map(
+					(capture) => [capture.id, capture]
+				)
 			)
 		: new Map<string, PreviewCapture>();
 	const results: unknown[] = [];
 	const failures: string[] = [];
 	for (const entry of matrix.matrix) {
-		const fixture = fixtures.get(entry.fixture);
-		if (!fixture) throw new Error(`Missing fixture ${entry.fixture}.`);
-		const probed = await probeEntry(entry, fixture, previews.get(entry.id));
+		const probed = await probeEntry(entry, fixtures, previews.get(entry.id));
 		results.push(probed.result);
 		failures.push(...probed.failures.map((failure) => `${entry.id}: ${failure}`));
 	}
@@ -592,11 +734,11 @@ const previewIndex = args.indexOf('--previews');
 const outputIndex = args.indexOf('--out');
 if (!matrixPath) {
 	process.stderr.write(
-		'usage: probe-source-video-export-matrix.ts <matrix.json> [--previews preview-manifest.json] [--out results.json]\n'
+		'usage: probe-video-track-export-matrix.ts <matrix.json> [--previews preview-manifest.json] [--out results.json]\n'
 	);
 	process.exitCode = 2;
 } else {
-	probeSourceVideoExportMatrix(
+	probeVideoTrackExportMatrix(
 		resolve(matrixPath),
 		previewIndex >= 0 ? resolve(args[previewIndex + 1]) : undefined
 	)

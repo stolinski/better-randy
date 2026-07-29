@@ -1,12 +1,13 @@
 const CDP_PORT = Number(process.env.CDP_PORT ?? 9223);
-const PAGE_URL = process.argv[2] ?? 'http://localhost:7263/p/source-video-composite-test';
+const PAGE_URL = process.argv[2] ?? 'http://localhost:7263/p/blank';
 const WAIT_MS = Number(process.env.CDP_HEALTH_WAIT_MS ?? 10000);
 
 const targetResponse = await fetch(
 	`http://localhost:${CDP_PORT}/json/new?${encodeURIComponent('about:blank')}`,
 	{ method: 'PUT' }
 );
-if (!targetResponse.ok) throw new Error(`Could not create CDP health target: ${targetResponse.status}.`);
+if (!targetResponse.ok)
+	throw new Error(`Could not create CDP health target: ${targetResponse.status}.`);
 const target = await targetResponse.json();
 const socket = new WebSocket(target.webSocketDebuggerUrl);
 await new Promise((resolve, reject) => {
@@ -32,7 +33,9 @@ socket.onmessage = (event) => {
 		consoleErrors.push(message.params.args.map((arg) => arg.value ?? arg.description).join(' '));
 	}
 	if (message.method === 'Runtime.exceptionThrown') {
-		consoleErrors.push(message.params.exceptionDetails?.exception?.description ?? 'Uncaught exception');
+		consoleErrors.push(
+			message.params.exceptionDetails?.exception?.description ?? 'Uncaught exception'
+		);
 	}
 	if (message.method === 'Log.entryAdded' && message.params.entry?.level === 'error') {
 		consoleErrors.push(message.params.entry.text);
@@ -74,8 +77,8 @@ const evaluateHealth = () =>
 			timeline: Boolean(window.__supersTimeline),
 			exportSeam: typeof window.__supersExport === 'function',
 			canvasDrawElement: typeof GPUQueue !== 'undefined' && 'copyElementImageToTexture' in GPUQueue.prototype,
-			sourceStatus: document.querySelector('.source-video-status')?.textContent?.trim() ?? null,
-			sourceError: document.querySelector('.source-video-error')?.textContent?.trim() ?? null
+			mediaStatuses: Array.from(document.querySelectorAll('.media-status'), (node) => node.textContent?.trim()),
+			mediaErrors: Array.from(document.querySelectorAll('.media-error'), (node) => node.textContent?.trim())
 		};
 	})()`,
 		returnByValue: true
@@ -105,7 +108,7 @@ if (page?.readyState !== 'complete') failures.push(`readyState=${page?.readyStat
 if (!page?.canvas || !page.timeline || !page.exportSeam || !page.canvasDrawElement) {
 	failures.push('required canvas/timeline/export/CanvasDrawElement seam missing');
 }
-if (page?.sourceError) failures.push(page.sourceError);
+failures.push(...(page?.mediaErrors ?? []).map((error) => `media: ${error}`));
 failures.push(...consoleErrors.map((error) => `console: ${error}`));
 failures.push(...networkErrors.map((error) => `network: ${error}`));
 console.log(

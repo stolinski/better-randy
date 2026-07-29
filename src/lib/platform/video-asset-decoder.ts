@@ -202,7 +202,11 @@ export class VideoAssetDecoder {
 				`Video asset has no frame at source time ${sourceTimeSeconds.toFixed(6)}s.`
 			);
 		}
-		if (sample.timestamp > requestedSourceTimestamp) {
+		const timestampTolerance =
+			Number.EPSILON *
+			Math.max(1, Math.abs(sample.timestamp), Math.abs(requestedSourceTimestamp)) *
+			16;
+		if (sample.timestamp - requestedSourceTimestamp > timestampTolerance) {
 			sample.close();
 			throw new RangeError(
 				`Video asset decoder returned presentation timestamp ${sample.timestamp.toFixed(6)}s after requested timestamp ${requestedSourceTimestamp.toFixed(6)}s.`

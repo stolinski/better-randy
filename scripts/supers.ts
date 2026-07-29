@@ -192,24 +192,6 @@ export async function renderJob(page: Page, job: RenderJob): Promise<void> {
 			prepared.slug,
 			{ timeout: READY_TIMEOUT_MS }
 		);
-		await page.evaluate(() => {
-			const sourceVideoLabel = Array.from(
-				document.querySelectorAll<HTMLElement>('.ins-section__label')
-			).find((label) => label.textContent?.trim() === 'Source video');
-			const disclosure = sourceVideoLabel?.closest('button');
-			if (disclosure?.getAttribute('aria-expanded') === 'false') disclosure.click();
-		});
-		await page.waitForFunction(
-			() => !document.querySelector('.source-video-status')?.textContent?.includes('Probing'),
-			undefined,
-			{ timeout: READY_TIMEOUT_MS }
-		);
-		const sourceVideoError = await page.evaluate(async () => {
-			await document.fonts.ready;
-			return document.querySelector('.source-video-error')?.textContent?.trim() ?? null;
-		});
-		if (sourceVideoError) throw new Error(`Source video unavailable: ${sourceVideoError}`);
-
 		const outputPath = resolve(job.out);
 		await mkdir(dirname(outputPath), { recursive: true });
 		const downloadPromise = page.waitForEvent('download', { timeout: RENDER_TIMEOUT_MS });

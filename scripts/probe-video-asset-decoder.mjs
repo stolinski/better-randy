@@ -1,11 +1,17 @@
 const CDP_PORT = Number(process.env.CDP_PORT ?? 9223);
 const assetUrl = process.argv[2];
-const compositionDurationSeconds = Number(process.argv[3] ?? 2);
+const sourceDurationSeconds = Number(process.argv[3] ?? 2);
 const timestamps = process.argv.slice(4).map(Number);
 
-if (!assetUrl || timestamps.length === 0 || timestamps.some((value) => !Number.isFinite(value))) {
+if (
+	!assetUrl ||
+	!Number.isFinite(sourceDurationSeconds) ||
+	sourceDurationSeconds <= 0 ||
+	timestamps.length === 0 ||
+	timestamps.some((value) => !Number.isFinite(value))
+) {
 	console.error(
-		'usage: probe-source-video-decoder.mjs <asset-url> <composition-duration> <timestamp...>'
+		'usage: probe-video-asset-decoder.mjs <asset-url> <source-duration> <timestamp...>'
 	);
 	process.exit(2);
 }
@@ -13,7 +19,7 @@ if (!assetUrl || timestamps.length === 0 || timestamps.some((value) => !Number.i
 const response = await fetch(`http://localhost:${CDP_PORT}/json`);
 const targets = await response.json();
 const page = targets.find((target) => target.type === 'page' && target.webSocketDebuggerUrl);
-if (!page) throw new Error(`Source video decoder probe found no page target on CDP ${CDP_PORT}.`);
+if (!page) throw new Error(`Video asset decoder probe found no page target on CDP ${CDP_PORT}.`);
 
 const socket = new WebSocket(page.webSocketDebuggerUrl);
 await new Promise((resolve, reject) => {
@@ -42,19 +48,11 @@ await send('Page.navigate', { url: 'http://localhost:7263/p/blank' });
 await new Promise((resolve) => setTimeout(resolve, 1200));
 
 const expression = `(async () => {
-	const { SourceVideoDecoder } = await import('/src/lib/platform/source-video-decoder.ts');
-	const { SourceVideoAudioDecoder } = await import('/src/lib/platform/source-video-audio-decoder.ts');
-	const sourceVideo = {
-		assetUrl: ${JSON.stringify(assetUrl)},
-		sourceOffsetSeconds: 0,
-		includeAudio: true,
-		volume: 1
-	};
-	const decoder = new SourceVideoDecoder({
-		...sourceVideo
-	});
+	const { VideoAssetDecoder } = await import('/src/lib/platform/video-asset-decoder.ts');
+	const { VideoAssetAudioDecoder } = await import('/src/lib/platform/video-asset-audio-decoder.ts');
+	const decoder = new VideoAssetDecoder({ assetUrl: ${JSON.stringify(assetUrl)} });
 	try {
-		const metadata = await decoder.initialize(${compositionDurationSeconds});
+		const metadata = await decoder.initialize();
 		const frames = [];
 		for (const timestamp of ${JSON.stringify(timestamps)}) {
 			const frame = await decoder.frameAt(timestamp);
@@ -116,9 +114,11 @@ const expression = `(async () => {
 			device.destroy();
 			frame.close();
 		}
-		const audio = await new SourceVideoAudioDecoder(sourceVideo).decode(
-			Math.round(${compositionDurationSeconds} * 48000)
-		);
+		const audio = await new VideoAssetAudioDecoder(${JSON.stringify(assetUrl)}).decode({
+			sourceStartSeconds: 0,
+			sourceEndSeconds: ${sourceDurationSeconds},
+			outputSampleCount: Math.round(${sourceDurationSeconds} * 48000)
+		});
 		let audioPeak = 0;
 		let firstAudibleSample = -1;
 		if (audio) {
