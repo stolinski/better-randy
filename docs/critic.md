@@ -91,6 +91,7 @@ Adapt the path tokens to the actual Preset under review.
 
 1. Capture through a Chrome with `--enable-blink-features=CanvasDrawElement` (WICG HTML-in-Canvas). A flag-enabled Chrome runs on CDP port 9223 — start or confirm it with `scripts/launch-cdp-chrome.sh`; the repo harness `scripts/cdp-capture.mjs` drives it. Any browser lacking the flag captures a blank canvas and is invalid for verification.
 2. The harness renders at the Preset's native target resolution (`docs/quality-rubric.md` R6) and clips the screenshot to the canvas. `CDP_SAMPLES=0,0.25,0.5,0.75,1 node scripts/cdp-capture.mjs <slug>` drives the **Timeline** to each progress sample. Also capture the peak-amplitude frame of every focal slot and every transition Mark.
+   **Do not inspect the capture's outer edge as canvas evidence.** Fractional CSS-rect clipping can include page chrome in the outermost ~2–5 px along straight edges and up to ~11 px at rounded corners, from the same rounding family documented under R6. Inset edge/backstop samples beyond that strip or verify them against an interior reference patch before reporting a render defect.
 3. Captures land at `.tmp-baselines/<preset-slug>/pX.XX.png`. The Critic's findings must cite these paths. (For sub-canvas-resolution detail — e.g. fine bokeh — `scripts/cdp-dof-detail.mjs` captures at a high device-pixel-ratio.)
 
 ### Inspection phase — R-rules (gating)
