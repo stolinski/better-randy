@@ -66,7 +66,7 @@ registerHooks({
 });
 (globalThis as typeof globalThis & { $state: <T>(value: T) => T }).$state = <T>(value: T): T =>
 	value;
-const schemaModulePath = resolve(repoRoot, 'src/lib/platform/engine-schema.ts');
+const ingressModulePath = resolve(repoRoot, 'src/lib/platform/preset-ingress.ts');
 const rubricModulePath = resolve(repoRoot, 'src/lib/platform/preset-rubric.ts');
 const presetValidationModulePath = resolve(repoRoot, 'src/lib/platform/preset-validation.ts');
 const packRegistryModulePath = resolve(repoRoot, 'src/lib/platform/packs/registry.ts');
@@ -107,8 +107,8 @@ interface IdentityValidationError {
 	message: string;
 }
 
-const { PresetSchema } = (await import(pathToFileURL(schemaModulePath).href)) as {
-	PresetSchema: { safeParse: (value: unknown) => ParseResult };
+const { PresetIngressSchema } = (await import(pathToFileURL(ingressModulePath).href)) as {
+	PresetIngressSchema: { safeParse: (value: unknown) => ParseResult };
 };
 
 const { lintPreset } = (await import(pathToFileURL(rubricModulePath).href)) as {
@@ -131,7 +131,7 @@ let fixtureCount = 0;
 for (const file of files) {
 	const raw = await readFile(resolve(presetDir, file), 'utf8');
 	const json = JSON.parse(raw);
-	const result = PresetSchema.safeParse(json);
+	const result = PresetIngressSchema.safeParse(json);
 
 	if (!result.success) {
 		console.error(`✗ ${file} (schema)`);
@@ -348,7 +348,7 @@ const fixtures: Fixture[] = [
 ];
 
 for (const fixture of fixtures) {
-	const result = PresetSchema.safeParse(fixture.preset);
+	const result = PresetIngressSchema.safeParse(fixture.preset);
 
 	if (!result.success) {
 		console.error(`✗ ${fixture.name}`);

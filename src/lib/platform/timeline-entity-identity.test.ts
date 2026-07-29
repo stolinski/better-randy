@@ -5,9 +5,11 @@ import {
 	createKeyframeSelectionId,
 	createSoundRailReferenceId,
 	createTimelineTrackId,
+	createVideoClipSelectionId,
 	parseKeyframeSelectionId,
 	parseSoundRailReferenceId,
 	parseTimelineTrackId,
+	parseVideoClipSelectionId,
 	type SoundRailReference,
 	type TimelineTrackIdentity
 } from './timeline-entity-identity.ts';
@@ -33,6 +35,7 @@ describe('timeline entity identity', () => {
 			{ kind: 'block-subtrack', blockId: 'revenue-roll', subtrack: { kind: 'roll' } },
 			{ kind: 'text-animation', textAnimationId: 'title-roll-stack' },
 			{ kind: 'captions' },
+			{ kind: 'video' },
 			{ kind: 'sound' }
 		];
 
@@ -107,6 +110,15 @@ describe('timeline entity identity', () => {
 		assert.equal(parseSoundRailReferenceId('sound-reference:manual:cue:extra'), null);
 	});
 
+	it('round-trips video clip selections without confusing clips with tracks', () => {
+		const id = createVideoClipSelectionId('opening:take/β');
+		assert.deepEqual(parseVideoClipSelectionId(id), { clipId: 'opening:take/β' });
+		assert.equal(parseTimelineTrackId(id), null);
+		assert.equal(parseVideoClipSelectionId('video-clip:'), null);
+		assert.equal(parseVideoClipSelectionId('video-clip:opening:extra'), null);
+		assert.equal(parseVideoClipSelectionId('video-clip:opening%2ftake'), null);
+	});
+
 	it('fails fast when constructing invalid identities', () => {
 		assert.throws(() => createTimelineTrackId({ kind: 'overlay', overlayId: '' }), TypeError);
 		assert.throws(() => createTimelineTrackId({ kind: 'mark', index: -1 }), TypeError);
@@ -115,5 +127,6 @@ describe('timeline entity identity', () => {
 			TypeError
 		);
 		assert.throws(() => createSoundRailReferenceId({ kind: 'manual', cueId: '' }), TypeError);
+		assert.throws(() => createVideoClipSelectionId(''), TypeError);
 	});
 });

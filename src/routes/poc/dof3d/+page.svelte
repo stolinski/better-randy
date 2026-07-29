@@ -570,8 +570,10 @@
 				// drives the same renderAt(t) as preview, so the encoded video == preview.
 				exportWebM: async (durationSeconds = 4, fps = 30) => {
 					cancelAnimationFrame(raf);
-					const { exportTransparentWebM } = await import('$lib/platform/export-video');
-					const blob = await exportTransparentWebM({
+					const { downloadVideoExport, exportTransparentWebM } = await import(
+						'$lib/platform/export-video'
+					);
+					const video = await exportTransparentWebM({
 						canvas: c,
 						durationSeconds,
 						fps,
@@ -580,12 +582,8 @@
 					});
 					frame = 0;
 					renderLoop();
-					const bytes = new Uint8Array(await blob.arrayBuffer());
-					let bin = '';
-					for (let i = 0; i < bytes.length; i += 0x8000) {
-						bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-					}
-					return { bytes: blob.size, frames: Math.round(durationSeconds * fps), b64: btoa(bin) };
+					downloadVideoExport(video, 'dof3d.webm');
+					return { frames: Math.round(durationSeconds * fps) };
 				}
 			};
 		})().catch((err) => {

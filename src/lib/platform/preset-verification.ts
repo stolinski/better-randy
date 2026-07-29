@@ -1,6 +1,6 @@
 import type { Preset } from './engine-schema';
-import { PresetSchema } from './engine-schema';
 import { lintPreset, type RubricIssue } from './preset-rubric';
+import { PresetIngressSchema } from './preset-ingress';
 import { validatePresetSemantics } from './preset-validation';
 
 export type PresetVerificationSource = 'schema' | 'semantic' | 'linter' | 'visual';
@@ -38,7 +38,7 @@ function rubricIssueToVerificationIssue(
 
 /** Run the deterministic machine gate used by standalone import and GUI verification. */
 export function verifyPresetArtifact(value: unknown): PresetVerificationResult {
-	const structuralResult = PresetSchema.safeParse(value);
+	const structuralResult = PresetIngressSchema.safeParse(value);
 	if (!structuralResult.success) {
 		const issues = structuralResult.error.issues.map((issue): PresetVerificationIssue => ({
 			source: 'schema',

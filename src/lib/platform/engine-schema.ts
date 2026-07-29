@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { parseAnnotationBodyText } from '../annotations/annotation-body-text.ts';
 import { NTSC_FRACTIONAL_FPS } from '../utils/composition-timing.ts';
+import { isEngineStateOpaque } from '../utils/output-classification.ts';
 import {
 	LAYOUT_AWARE_TEXT_EFFECT_RENDERERS,
 	TEXT_ANIMATION_TITLE_SCALE_SLOTS,
@@ -64,11 +65,10 @@ const VideoOrientationSchema = z.enum(['horizontal', 'vertical']);
 const HexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Expected a #RRGGBB hex color');
 const FractionSchema = z.number().min(0).max(1);
 
-// Source video is composition input beneath the five Layers (ADR-0043), not a
-// Surface or preview backdrop. V1 maps one continuous source range onto the
-// complete composition. A later cutting arc can add an edit-segment mapping
-// inside this domain without replacing the immutable asset declaration.
-const SourceVideoSchema = z.strictObject({
+// Legacy supers@1 Source video input. Canonical Presets use `state.media`; this
+// schema remains exported only so the shared Preset ingress can validate and
+// migrate persisted Source-video JSON without weakening the canonical schema.
+export const SourceVideoSchema = z.strictObject({
 	assetUrl: z
 		.string()
 		.regex(
@@ -79,6 +79,41 @@ const SourceVideoSchema = z.strictObject({
 	includeAudio: z.boolean().default(true),
 	volume: z.number().finite().min(0).max(4).default(1)
 });
+
+const VideoAssetSchema = z.strictObject({
+	id: z.string().min(1, 'Video asset ID must not be empty'),
+	kind: z.literal('video'),
+	name: z.string().min(1, 'Video asset name must not be empty'),
+	assetUrl: z
+		.string()
+		.regex(
+			/^\/api\/user-assets\/[a-f0-9]{64}\.(mp4|mov|webm)$/,
+			'Expected a content-addressed /api/user-assets video URL'
+		)
+});
+
+const VideoClipAudioSchema = z.strictObject({
+	enabled: z.boolean(),
+	gain: z.number().finite().min(0).max(4)
+});
+
+const VideoClipSchema = z.strictObject({
+	id: z.string().min(1, 'Video clip ID must not be empty'),
+	assetId: z.string().min(1, 'Video clip assetId must not be empty'),
+	timelineStartFrame: z.number().int().min(0),
+	durationFrames: z.number().int().positive(),
+	sourceStartSeconds: z.number().finite().min(0),
+	audio: VideoClipAudioSchema
+});
+
+export const MediaSchema = z.strictObject({
+	assets: z.array(VideoAssetSchema),
+	videoTrack: z.strictObject({ clips: z.array(VideoClipSchema) })
+});
+
+export type VideoAsset = z.infer<typeof VideoAssetSchema>;
+export type VideoClip = z.infer<typeof VideoClipSchema>;
+export type Media = z.infer<typeof MediaSchema>;
 
 // ---- Sound design (ADR-0033) ----
 // Sound is a timed-cue orchestration domain, peer to `textAnimations[]` /
@@ -1136,7 +1171,7 @@ export type Captions = z.infer<typeof CaptionsSchema>;
 export type CaptionStyle = Captions['style'];
 
 export const EngineStateSchema = z
-	.object({
+	.strictObject({
 		transport: TransportSchema,
 		typography: TypographySchema,
 		marks: MarksStateSchema,
@@ -1145,25 +1180,25 @@ export const EngineStateSchema = z
 		overlays: z.array(OverlaySchema).default([]),
 		effects: EffectChainSchema.default([]),
 		audioCues: AudioCuesSchema,
-		sourceVideo: SourceVideoSchema.optional(),
+		media: MediaSchema.default({ assets: [], videoTrack: { clips: [] } }),
 		backgroundFill: HexColorSchema.optional(),
 		stage: StageSchema.optional(),
 		captions: CaptionsSchema.optional()
 	})
 	.superRefine((state, ctx) => {
-		if (!state.sourceVideo) return;
+		if (state.media.videoTrack.clips.length === 0) return;
 		if (state.backgroundFill !== undefined) {
 			ctx.addIssue({
 				code: 'custom',
 				path: ['backgroundFill'],
-				message: 'Source video cannot be combined with backgroundFill in v1.'
+				message: 'Active Video clips cannot be combined with backgroundFill in v1.'
 			});
 		}
 		if (state.stage !== undefined) {
 			ctx.addIssue({
 				code: 'custom',
 				path: ['stage'],
-				message: 'Source video cannot be combined with a dimensional stage in v1.'
+				message: 'Active Video clips cannot be combined with a dimensional stage in v1.'
 			});
 		}
 	})
@@ -1291,8 +1326,8 @@ export const EngineStateSchema = z
 	.superRefine((state, ctx) => {
 		// A bed is for self-contained segments / bumpers only — a transparent
 		// Overlay keeps the footage's own audio (ADR-0033 §1). `backgroundFill`
-		// or Source video makes the composition full-frame.
-		if (state.backgroundFill || state.sourceVideo) {
+		// explicit fill/stage or complete Video-track coverage makes the composition full-frame.
+		if (isEngineStateOpaque(state)) {
 			return;
 		}
 		const bedIndex = state.audioCues.findIndex((cue) => cue.kind === 'bed');
@@ -1301,7 +1336,7 @@ export const EngineStateSchema = z
 				code: 'custom',
 				path: ['audioCues', bedIndex, 'kind'],
 				message:
-					"A bed requires a full-frame piece (backgroundFill or Source video); transparent overlays keep the footage's own audio (ADR-0033 §1)."
+					"A bed requires a full-frame piece (backgroundFill, stage, or complete Video-track coverage); transparent overlays keep the footage's own audio (ADR-0033 §1)."
 			});
 		}
 	});
@@ -1404,7 +1439,8 @@ export function createDefaultEngineState(): EngineState {
 		textAnimations: [],
 		overlays: [],
 		effects: createDefaultEffectChain(),
-		audioCues: []
+		audioCues: [],
+		media: { assets: [], videoTrack: { clips: [] } }
 	};
 }
 
@@ -1608,4 +1644,5 @@ export const PresetSchema = z.object({
 });
 
 export type CompositionTransition = z.infer<typeof CompositionTransitionSchema>;
-export type Preset = z.infer<typeof PresetSchema>;
+type CanonicalPreset = z.infer<typeof PresetSchema>;
+export type Preset = Omit<CanonicalPreset, 'state'> & { state: EngineState };

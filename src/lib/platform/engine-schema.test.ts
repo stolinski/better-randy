@@ -39,6 +39,31 @@ function baseOverlay(id: string): Record<string, unknown> {
 	};
 }
 
+function videoMedia(extension = 'mp4'): Record<string, unknown> {
+	return {
+		assets: [
+			{
+				id: 'video-asset',
+				kind: 'video',
+				name: 'Interview angle',
+				assetUrl: `/api/user-assets/${'a'.repeat(64)}.${extension}`
+			}
+		],
+		videoTrack: {
+			clips: [
+				{
+					id: 'video-clip',
+					assetId: 'video-asset',
+					timelineStartFrame: 0,
+					durationFrames: 180,
+					sourceStartSeconds: 18.25,
+					audio: { enabled: true, gain: 0.8 }
+				}
+			]
+		}
+	};
+}
+
 function expectValid(state: unknown, label: string): void {
 	const result = EngineStateSchema.safeParse(state);
 	assert.ok(
@@ -501,11 +526,13 @@ describe('engine schema', () => {
 		expectIssue(invalid, 'Invalid option', 'invalid Diagram label role');
 	});
 
-	it('validates the v1 Source video contract and full-frame bed eligibility', () => {
+	it('validates canonical Video media and full-frame bed eligibility', () => {
+		const emptyResult = EngineStateSchema.safeParse(baseState());
+		assert.ok(emptyResult.success, emptyResult.success ? '' : emptyResult.error.message);
+		assert.deepEqual(emptyResult.data.media, { assets: [], videoTrack: { clips: [] } });
+
 		const state = baseState();
-		state.sourceVideo = {
-			assetUrl: `/api/user-assets/${'a'.repeat(64)}.mp4`
-		};
+		state.media = videoMedia();
 		state.audioCues = [
 			{
 				id: 'music',
@@ -518,45 +545,69 @@ describe('engine schema', () => {
 
 		const result = EngineStateSchema.safeParse(state);
 		assert.ok(result.success, result.success ? '' : result.error.message);
-		assert.deepEqual(result.data.sourceVideo, {
-			assetUrl: `/api/user-assets/${'a'.repeat(64)}.mp4`,
-			sourceOffsetSeconds: 0,
-			includeAudio: true,
-			volume: 1
-		});
+		assert.deepEqual(result.data.media, state.media);
+
+		const gappedBed = structuredClone(state);
+		(
+			((gappedBed.media as Record<string, unknown>).videoTrack as Record<string, unknown>)
+				.clips as Record<string, unknown>[]
+		)[0].timelineStartFrame = 1;
+		expectIssue(gappedBed, 'complete Video-track coverage', 'bed with a Video-track gap');
+
+		const stagedBed = baseState();
+		stagedBed.stage = {
+			type: 'depth',
+			camera: {},
+			focus: {}
+		};
+		stagedBed.audioCues = structuredClone(state.audioCues);
+		expectValid(stagedBed, 'bed with a dimensional stage');
 
 		for (const extension of ['mov', 'webm']) {
 			const alternate = baseState();
-			alternate.sourceVideo = {
-				assetUrl: `/api/user-assets/${'b'.repeat(64)}.${extension}`,
-				sourceOffsetSeconds: 12.5,
-				includeAudio: false,
-				volume: 0
-			};
-			expectValid(alternate, `${extension} Source video`);
+			alternate.media = videoMedia(extension);
+			expectValid(alternate, `${extension} Video asset`);
 		}
 
 		const invalidUrl = baseState();
-		invalidUrl.sourceVideo = { assetUrl: '/tmp/source.mp4' };
-		expectIssue(invalidUrl, 'content-addressed', 'Source video asset URL');
+		invalidUrl.media = videoMedia();
+		(
+			(invalidUrl.media as Record<string, unknown>).assets as Record<string, unknown>[]
+		)[0].assetUrl = '/tmp/source.mp4';
+		expectIssue(invalidUrl, 'content-addressed', 'Video asset URL');
 
-		const invalidOffset = baseState();
-		invalidOffset.sourceVideo = {
-			assetUrl: `/api/user-assets/${'c'.repeat(64)}.mp4`,
-			sourceOffsetSeconds: -1
-		};
-		expectIssue(invalidOffset, '>=0', 'Source video offset');
+		const invalidDuration = baseState();
+		invalidDuration.media = videoMedia();
+		(
+			((invalidDuration.media as Record<string, unknown>).videoTrack as Record<string, unknown>)
+				.clips as Record<string, unknown>[]
+		)[0].durationFrames = 1.5;
+		expectIssue(invalidDuration, 'expected int', 'Video clip duration');
 
-		const invalidVolume = baseState();
-		invalidVolume.sourceVideo = {
-			assetUrl: `/api/user-assets/${'d'.repeat(64)}.mp4`,
-			volume: 4.1
-		};
-		expectIssue(invalidVolume, '<=4', 'Source video volume');
+		const invalidGain = baseState();
+		invalidGain.media = videoMedia();
+		(
+			(
+				((invalidGain.media as Record<string, unknown>).videoTrack as Record<string, unknown>)
+					.clips as Record<string, unknown>[]
+			)[0].audio as Record<string, unknown>
+		).gain = 4.1;
+		expectIssue(invalidGain, '<=4', 'Video clip gain');
+
+		const volatileMetadata = baseState();
+		volatileMetadata.media = videoMedia();
+		(
+			(volatileMetadata.media as Record<string, unknown>).assets as Record<string, unknown>[]
+		)[0].probeDurationSeconds = 30;
+		expectIssue(volatileMetadata, 'Unrecognized key', 'volatile probe metadata');
+
+		const legacy = baseState();
+		legacy.sourceVideo = { assetUrl: `/api/user-assets/${'a'.repeat(64)}.mp4` };
+		expectIssue(legacy, 'Unrecognized key', 'legacy Source video at canonical boundary');
 
 		const withFill = structuredClone(state);
 		withFill.backgroundFill = '#000000';
-		expectIssue(withFill, 'cannot be combined with backgroundFill', 'Source video plus fill');
+		expectIssue(withFill, 'cannot be combined with backgroundFill', 'Video clips plus fill');
 
 		const withStage = structuredClone(state);
 		withStage.stage = {
@@ -564,10 +615,6 @@ describe('engine schema', () => {
 			camera: { fov: 35, push: 0, driftX: 0, driftY: 0 },
 			focus: { focalZ: 0.5, aperture: 0.2, maxBlur: 20 }
 		};
-		expectIssue(
-			withStage,
-			'cannot be combined with a dimensional stage',
-			'Source video plus stage'
-		);
+		expectIssue(withStage, 'cannot be combined with a dimensional stage', 'Video clips plus stage');
 	});
 });

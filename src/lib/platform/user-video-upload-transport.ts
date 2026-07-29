@@ -1,4 +1,4 @@
-import { ALL_FORMATS, BlobSource, Input } from 'mediabunny';
+import { ALL_FORMATS, BlobSource, Input, UrlSource } from 'mediabunny';
 
 import { readHttpResponseMessage } from '$lib/utils/http-response-message';
 import {
@@ -12,31 +12,24 @@ import {
 	type UserVideoAssetMetadata
 } from './user-video-asset';
 
-export async function inspectUserVideoFile(file: File): Promise<UserVideoAssetMetadata> {
-	const format = userVideoFormatForMime(file.type);
-	if (!format) {
-		throw new TypeError(`Cannot upload "${file.name}": expected an MP4, MOV, or WebM file.`);
-	}
-	if (file.size === 0) throw new TypeError(`Cannot upload "${file.name}": file is empty.`);
-	if (file.size > MAX_USER_VIDEO_BYTES) {
-		throw new RangeError(`Cannot upload "${file.name}": file exceeds the 50 GiB limit.`);
-	}
+function isUserVideoRotation(value: number): value is UserVideoAssetMetadata['rotation'] {
+	return value === 0 || value === 90 || value === 180 || value === 270;
+}
 
-	const input = new Input({ formats: ALL_FORMATS, source: new BlobSource(file) });
+async function inspectUserVideoInput(
+	input: Input,
+	failureLabel: string
+): Promise<UserVideoAssetMetadata> {
 	try {
 		const videoTrack = await input.getPrimaryVideoTrack();
-		if (!videoTrack) throw new TypeError(`Cannot upload "${file.name}": no video track found.`);
+		if (!videoTrack) throw new TypeError(`User video inspection failed: ${failureLabel}: no video track found.`);
 		if (!(await videoTrack.canDecode())) {
-			throw new TypeError(
-				`Cannot upload "${file.name}": the browser cannot decode its video codec.`
-			);
+			throw new TypeError(`User video inspection failed: ${failureLabel}: the browser cannot decode its video codec.`);
 		}
 
 		const audioTrack = await input.getPrimaryAudioTrack();
 		if (audioTrack && !(await audioTrack.canDecode())) {
-			throw new TypeError(
-				`Cannot upload "${file.name}": the browser cannot decode its audio codec.`
-			);
+			throw new TypeError(`User video inspection failed: ${failureLabel}: the browser cannot decode its audio codec.`);
 		}
 
 		const [
@@ -60,25 +53,80 @@ export async function inspectUserVideoFile(file: File): Promise<UserVideoAssetMe
 			audioTrack?.getNumberOfChannels(),
 			audioTrack?.getSampleRate()
 		]);
-		if (!videoCodec || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
-			throw new TypeError(`Cannot upload "${file.name}": video metadata is incomplete.`);
+		const averageFrameRate = packetStats.averagePacketRate;
+		if (
+			!videoCodec ||
+			!Number.isFinite(durationSeconds) ||
+			durationSeconds <= 0 ||
+			!Number.isInteger(displayWidth) ||
+			displayWidth <= 0 ||
+			!Number.isInteger(displayHeight) ||
+			displayHeight <= 0 ||
+			!isUserVideoRotation(rotation) ||
+			!Number.isFinite(averageFrameRate) ||
+			averageFrameRate <= 0
+		) {
+			throw new TypeError(`User video inspection failed: ${failureLabel}: video metadata is incomplete.`);
 		}
 
-		return {
+		const videoMetadata = {
 			durationSeconds,
 			displayWidth,
 			displayHeight,
 			rotation,
-			averageFrameRate: packetStats.averagePacketRate,
-			videoCodec,
-			hasAudio: audioTrack !== null,
-			...(audioCodec ? { audioCodec } : {}),
-			...(audioChannels ? { audioChannels } : {}),
-			...(audioSampleRate ? { audioSampleRate } : {})
+			averageFrameRate,
+			videoCodec
+		};
+		if (!audioTrack) return { ...videoMetadata, hasAudio: false };
+		if (
+			!audioCodec ||
+			typeof audioChannels !== 'number' ||
+			!Number.isInteger(audioChannels) ||
+			audioChannels <= 0 ||
+			typeof audioSampleRate !== 'number' ||
+			!Number.isFinite(audioSampleRate) ||
+			audioSampleRate <= 0
+		) {
+			throw new TypeError(`User video inspection failed: ${failureLabel}: audio metadata is incomplete.`);
+		}
+		return {
+			...videoMetadata,
+			hasAudio: true,
+			audioCodec,
+			audioChannels,
+			audioSampleRate
 		};
 	} finally {
 		input.dispose();
 	}
+}
+
+export async function inspectUserVideoFile(file: File): Promise<UserVideoAssetMetadata> {
+	const format = userVideoFormatForMime(file.type);
+	if (!format) {
+		throw new TypeError(`Cannot upload "${file.name}": expected an MP4, MOV, or WebM file.`);
+	}
+	if (file.size === 0) throw new TypeError(`Cannot upload "${file.name}": file is empty.`);
+	if (file.size > MAX_USER_VIDEO_BYTES) {
+		throw new RangeError(`Cannot upload "${file.name}": file exceeds the 50 GiB limit.`);
+	}
+
+	return inspectUserVideoInput(
+		new Input({ formats: ALL_FORMATS, source: new BlobSource(file) }),
+		`Cannot upload "${file.name}"`
+	);
+}
+
+export async function inspectUserVideoAssetUrl(
+	assetUrl: string
+): Promise<UserVideoAssetMetadata> {
+	return inspectUserVideoInput(
+		new Input({
+			formats: ALL_FORMATS,
+			source: new UrlSource(assetUrl, { maxCacheSize: 64 * 1024 * 1024, parallelism: 2 })
+		}),
+		`Cannot inspect "${assetUrl}"`
+	);
 }
 
 export async function uploadUserVideo(file: File): Promise<UserVideoAssetDescriptor> {

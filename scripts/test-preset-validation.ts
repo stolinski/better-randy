@@ -56,8 +56,8 @@ registerHooks({
 (globalThis as typeof globalThis & { $state: <T>(value: T) => T }).$state = <T>(value: T): T =>
 	value;
 
-const { PresetSchema } = await import(
-	pathToFileURL(resolve(repoRoot, 'src/lib/platform/engine-schema.ts')).href
+const { PresetIngressSchema } = await import(
+	pathToFileURL(resolve(repoRoot, 'src/lib/platform/preset-ingress.ts')).href
 );
 const { validatePresetSemantics } = await import(
 	pathToFileURL(resolve(repoRoot, 'src/lib/platform/preset-validation.ts')).href
@@ -82,7 +82,7 @@ function basePreset(): Record<string, unknown> {
 }
 
 function parsed(input: Record<string, unknown>) {
-	const result = PresetSchema.safeParse(input);
+	const result = PresetIngressSchema.safeParse(input);
 	assert.ok(result.success, result.success ? '' : result.error.message);
 	return result.data;
 }

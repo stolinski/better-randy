@@ -23,6 +23,7 @@ declare global {
 
 	interface HTMLCanvasElement {
 		requestPaint?: () => void;
+		onpaint?: ((event: Event & { changedElements?: readonly Element[] }) => void) | null;
 	}
 
 	namespace App {

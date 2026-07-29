@@ -1,13 +1,29 @@
-import type { Preset } from './engine-schema';
+import { z } from 'zod';
+
+import { MediaSchema, type Preset } from './engine-schema';
 import { parsePreset } from './preset';
 import { presetToWireFormat } from './preset-pure';
 
-export interface UserCompositionMeta {
-	slug: string;
-	name: string;
-	forkedFrom: string | null;
-	savedAt: string;
-}
+const UserCompositionMediaStatusSchema = z.enum(['ready', 'missing', 'undecodable']);
+const UserCompositionMediaIssueSchema = z.strictObject({
+	assetIds: z.array(z.string().min(1)),
+	assetUrl: z.string().min(1),
+	status: z.enum(['missing', 'undecodable']),
+	message: z.string().min(1)
+});
+const UserCompositionMetaSchema = z.strictObject({
+	slug: z.string(),
+	name: z.string(),
+	forkedFrom: z.string().nullable(),
+	savedAt: z.string(),
+	media: MediaSchema,
+	mediaStatus: UserCompositionMediaStatusSchema,
+	mediaIssues: z.array(UserCompositionMediaIssueSchema).optional()
+});
+
+export type UserCompositionMediaStatus = z.infer<typeof UserCompositionMediaStatusSchema>;
+export type UserCompositionMediaIssue = z.infer<typeof UserCompositionMediaIssueSchema>;
+export type UserCompositionMeta = z.infer<typeof UserCompositionMetaSchema>;
 
 export interface UserCompositionStore {
 	listUserCompositions(): Promise<UserCompositionMeta[]>;
@@ -55,22 +71,11 @@ function parseUserCompositionMetaList(value: unknown): UserCompositionMeta[] {
 	}
 
 	return value.map((entry, index) => {
-		if (
-			!isRecord(entry) ||
-			typeof entry.slug !== 'string' ||
-			typeof entry.name !== 'string' ||
-			(entry.forkedFrom !== null && typeof entry.forkedFrom !== 'string') ||
-			typeof entry.savedAt !== 'string'
-		) {
+		const result = UserCompositionMetaSchema.safeParse(entry);
+		if (!result.success) {
 			throw new TypeError(`Failed to list User compositions: invalid entry at index ${index}`);
 		}
-
-		return {
-			slug: entry.slug,
-			name: entry.name,
-			forkedFrom: entry.forkedFrom,
-			savedAt: entry.savedAt
-		};
+		return result.data;
 	});
 }
 

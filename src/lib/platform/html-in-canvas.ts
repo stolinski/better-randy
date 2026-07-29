@@ -45,7 +45,12 @@ export function getHtmlInCanvasQueue(queue: GPUQueue): HtmlInCanvasQueue {
 		throw new Error('HTML-in-Canvas copyElementImageToTexture is unavailable in this browser.');
 	}
 
-	function callSpecForm(element: Element, width: number, height: number, texture: GPUTexture): void {
+	function callSpecForm(
+		element: Element,
+		width: number,
+		height: number,
+		texture: GPUTexture
+	): void {
 		(native as SpecFormCopy).call(
 			queue,
 			{ source: element },
@@ -80,8 +85,86 @@ export function requestCanvasPaint(canvas: HTMLCanvasElement): void {
 	canvas.requestPaint?.();
 }
 
-export function setCanvasPaintHandler(canvas: HTMLCanvasElement, handler: () => void): void {
-	(canvas as HTMLCanvasElement & { onpaint: () => void }).onpaint = handler;
+export interface HtmlInCanvasPaintEvent extends Event {
+	changedElements?: readonly Element[];
+}
+
+export type CanvasPaintHandler = (event: HtmlInCanvasPaintEvent) => void;
+
+function directCanvasChild(canvas: HTMLCanvasElement, element: Element): Element | null {
+	let current: Element | null = element;
+	while (current?.parentElement && current.parentElement !== canvas) {
+		current = current.parentElement;
+	}
+	return current?.parentElement === canvas ? current : null;
+}
+
+/**
+ * Tracks browser paint snapshots independently from render requests. A manual
+ * `requestPaint()` may report no changed elements; that advances paint
+ * settlement without invalidating an already resident DOM texture.
+ */
+export class CanvasPaintGenerationTracker {
+	#paintGeneration = 0;
+	readonly #elementGenerations = new WeakMap<Element, number>();
+	readonly #waiters = new Set<() => void>();
+
+	record(canvas: HTMLCanvasElement, event: HtmlInCanvasPaintEvent): void {
+		this.#paintGeneration += 1;
+		const changedElements = event.changedElements;
+		if (changedElements === undefined) {
+			for (const child of canvas.children) {
+				this.#elementGenerations.set(child, this.#paintGeneration);
+			}
+		} else {
+			for (const changedElement of changedElements) {
+				const child = directCanvasChild(canvas, changedElement);
+				if (child) {
+					this.#elementGenerations.set(child, this.#paintGeneration);
+				}
+			}
+		}
+
+		for (const resolve of this.#waiters) {
+			resolve();
+		}
+		this.#waiters.clear();
+	}
+
+	generationFor(element: Element | null): number {
+		return element ? (this.#elementGenerations.get(element) ?? 0) : 0;
+	}
+
+	waitForNextPaint(canvas: HTMLCanvasElement, signal?: AbortSignal): Promise<void> {
+		if (signal?.aborted) {
+			return Promise.reject(signal.reason);
+		}
+		const requestPaint = canvas.requestPaint;
+		if (typeof requestPaint !== 'function') {
+			return Promise.reject(new Error('HTML-in-Canvas requestPaint is unavailable in this browser.'));
+		}
+
+		return new Promise<void>((resolve, reject) => {
+			const settle = (): void => {
+				signal?.removeEventListener('abort', abort);
+				resolve();
+			};
+			const abort = (): void => {
+				this.#waiters.delete(settle);
+				reject(signal?.reason);
+			};
+			this.#waiters.add(settle);
+			signal?.addEventListener('abort', abort, { once: true });
+			requestPaint.call(canvas);
+		});
+	}
+}
+
+export function setCanvasPaintHandler(
+	canvas: HTMLCanvasElement,
+	handler: CanvasPaintHandler
+): void {
+	(canvas as HTMLCanvasElement & { onpaint: CanvasPaintHandler }).onpaint = handler;
 }
 
 export function clearCanvasPaintHandler(canvas: HTMLCanvasElement): void {

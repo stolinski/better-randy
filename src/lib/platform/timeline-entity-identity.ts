@@ -9,11 +9,14 @@
 declare const timelineTrackIdBrand: unique symbol;
 declare const keyframeSelectionIdBrand: unique symbol;
 declare const soundRailReferenceIdBrand: unique symbol;
+declare const videoClipSelectionIdBrand: unique symbol;
 
 export type TimelineTrackId = string & { readonly [timelineTrackIdBrand]: true };
 export type KeyframeSelectionId = string & { readonly [keyframeSelectionIdBrand]: true };
 export type SoundRailReferenceId = string & { readonly [soundRailReferenceIdBrand]: true };
-export type TimelineEntitySelectionId = TimelineTrackId | SoundRailReferenceId;
+export type VideoClipSelectionId = string & { readonly [videoClipSelectionIdBrand]: true };
+export type TimelineEntitySelectionId =
+	TimelineTrackId | SoundRailReferenceId | VideoClipSelectionId;
 
 export type OverlayTimelineSubtrack =
 	| { kind: 'stack' }
@@ -35,6 +38,7 @@ export type TimelineTrackIdentity =
 	| { kind: 'block-subtrack'; blockId: string; subtrack: BlockTimelineSubtrack }
 	| { kind: 'text-animation'; textAnimationId: string }
 	| { kind: 'captions' }
+	| { kind: 'video' }
 	| { kind: 'sound' };
 
 export type SoundRailReference =
@@ -44,6 +48,10 @@ export interface KeyframeSelectionIdentity {
 	trackId: TimelineTrackId;
 	channel: string;
 	index: number;
+}
+
+export interface VideoClipSelectionIdentity {
+	clipId: string;
 }
 
 function requireIdentitySegment(value: string, name: string): string {
@@ -81,6 +89,7 @@ export function createTimelineTrackId(identity: TimelineTrackIdentity): Timeline
 	switch (identity.kind) {
 		case 'surface':
 		case 'captions':
+		case 'video':
 		case 'sound':
 			return identity.kind as TimelineTrackId;
 		case 'surface-message':
@@ -109,7 +118,7 @@ export function createTimelineTrackId(identity: TimelineTrackIdentity): Timeline
 }
 
 export function parseTimelineTrackId(value: string): TimelineTrackIdentity | null {
-	if (value === 'surface' || value === 'captions' || value === 'sound') {
+	if (value === 'surface' || value === 'captions' || value === 'video' || value === 'sound') {
 		return { kind: value };
 	}
 
@@ -193,4 +202,15 @@ export function parseSoundRailReferenceId(value: string): SoundRailReference | n
 	}
 	const cueId = decodeIdentitySegment(parts[2]);
 	return cueId === null ? null : { kind: parts[1], cueId };
+}
+
+export function createVideoClipSelectionId(clipId: string): VideoClipSelectionId {
+	return `video-clip:${requireIdentitySegment(clipId, 'Video clip id')}` as VideoClipSelectionId;
+}
+
+export function parseVideoClipSelectionId(value: string): VideoClipSelectionIdentity | null {
+	const parts = value.split(':');
+	if (parts.length !== 2 || parts[0] !== 'video-clip') return null;
+	const clipId = decodeIdentitySegment(parts[1]);
+	return clipId === null ? null : { clipId };
 }

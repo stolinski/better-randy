@@ -1,12 +1,13 @@
 /**
- * Layer selection store (ADR-0034 §3).
- * Tracks which Layer row is selected in the timeline/canvas.
+ * Timeline entity selection store (ADR-0034 §3).
+ * Tracks selected Layer rows, Sound references, and Video clips in the timeline/canvas.
  * null = composition root → inspector shows transport / Pack / Effects.
  * Runtime selection IDs are created and parsed by timeline-entity-identity.ts.
  */
 import {
 	createKeyframeSelectionId,
 	createSoundRailReferenceId,
+	createVideoClipSelectionId,
 	type KeyframeSelectionId,
 	type SoundRailReference,
 	type TimelineEntitySelectionId,
@@ -55,6 +56,12 @@ export function selectLayer(id: TimelineTrackId): void {
 
 export function selectSoundRailReference(reference: SoundRailReference): void {
 	layerSelection.id = createSoundRailReferenceId(reference);
+	keyframeSelection.id = null;
+	inspectorFocus.target = null;
+}
+
+export function selectVideoClip(clipId: string): void {
+	layerSelection.id = createVideoClipSelectionId(clipId);
 	keyframeSelection.id = null;
 	inspectorFocus.target = null;
 }

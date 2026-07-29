@@ -26,6 +26,6 @@
 	}
 
 	.diagram-label[data-diagram-text-role='headline'] {
-		font-size: calc(2.9 * var(--cqmin));
+		font-size: calc(5.1 * var(--cqmin));
 	}
 </style>

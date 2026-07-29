@@ -7,7 +7,7 @@ Supers reports captured errors, logs, and traces to Sentry (`scott-tolinski-proj
 - **`src/hooks.server.ts`** — Sentry init + request tracing on every route (`sentryHandle`). Unexpected SSR failures flow through `handleErrorWithSentry`; every resolved 5xx response is also promoted by `logErrorResponses` with a bounded response body, including intentional `error(5xx)` HttpErrors that never reach `handleError`. **4xx responses are logs, not issues** — an absent poster or fork is a signal, and turning it into an issue would recreate the console-noise problem in Sentry.
 - **`src/hooks.client.ts`** — browser error capture, pageload/navigation tracing, unhandled rejections.
 - **Both sides** run `consoleLoggingIntegration`: every existing `console.warn` / `console.error` call site is a structured Sentry log with no code changes.
-- DSN comes from `.env` (`SENTRY_DSN` server, `PUBLIC_SENTRY_DSN` client — same value). No DSN → the SDK is disabled and the app behaves identically; nothing in the codebase may *depend* on Sentry being up.
+- DSN comes from `.env` (`SENTRY_DSN` server, `PUBLIC_SENTRY_DSN` client — same value). No DSN → the SDK is disabled and the app behaves identically; nothing in the codebase may _depend_ on Sentry being up.
 
 ## The fix-broken-code loop
 
@@ -34,11 +34,13 @@ sentry trace view <trace-id>                # span tree for one request
 sentry span list <trace-id>                 # spans (export encode, API calls)
 ```
 
-Request tracing is on at 100% sample (local single-user dev — there is no volume to shed). Route transactions give per-endpoint duration series for free; use `sentry explore` or a dashboard when a question needs aggregates (e.g. p95 of `/api/export/prores` over a session).
+Request tracing is on at 100% sample (local single-user dev — there is no volume to shed). Route transactions give per-endpoint duration series for free; use `sentry explore` or a dashboard when a question needs aggregates (e.g. p95 of `/api/export/sessions/*/complete`).
 
 ### Export spans
 
-Every export is its own transaction (`export.webm` / `export.prores`, op `export`) with two children: `export.render-frames` (the per-frame render loop) and `export.encode` (upload + server encode). Attributes carry `export.route` (`/p/<slug>` — the per-composition dimension), fps, frames, duration, opacity, and audio presence; the server request transaction adds `export.ffmpeg_ms` and `export.output_bytes`. Reference read from the first verified trace: a 6s blank WebM export = 79s total, of which 6.4s render and 73s VP9-lossless encode — exports are encode-bound, so encode settings are where export-speed work pays off.
+Every export is its own transaction (`export.webm` / `export.prores`, op `export`). `export.encode` spans the local export-session lifecycle and contains `export.render-frames`, the serial render/PNG-upload loop. Attributes carry `export.route` (`/p/<slug>` — the per-composition dimension), fps, frames, duration, opacity, and audio presence; server session requests add generic encoder/output measurements such as `export.audio_bytes`, `export.ffmpeg_ms`, and `export.output_bytes`.
+
+Video-track exports add only bounded aggregate operational context: whether Video clips participated, clip count, Timeline coverage, audio-enabled count, and authored Source-time/gain summaries. This context deliberately excludes Media library IDs and names, asset URLs/content hashes, original/local filenames, source byte size, codec/probe metadata, and decoded creator content. Do not attach the stable `state.media` records themselves. Sentry should answer whether the Video path participated and where export time went, not identify creator media. Reference read from the first verified trace of the historical singular foundation: a 6s blank WebM export = 79s total, of which 6.4s render and 73s VP9-lossless encode — exports are encode-bound, so encode settings are where export-speed work pays off.
 
 ### Versions
 

@@ -38,6 +38,7 @@ import { deriveSoundCues, isAudibleSoundCue } from './sound-cues';
 import {
 	createSoundRailReferenceId,
 	createTimelineTrackId,
+	createVideoClipSelectionId,
 	type SoundRailReference,
 	type TimelineTrackId
 } from './timeline-entity-identity';
@@ -45,7 +46,8 @@ import type {
 	ClipCascadeLink,
 	ClipKeyframe,
 	TimelineTrack,
-	TimelineTransition
+	TimelineTransition,
+	VideoTimelineTrack
 } from './timeline-track';
 
 const BLOCK_COLOR = '#fabf47';
@@ -950,6 +952,36 @@ function appendSoundTrack(tracks: TimelineTrack[], state: EngineState): void {
 	}
 }
 
+function appendVideoTrack(tracks: TimelineTrack[], state: EngineState): void {
+	const assetNames = new Map(state.media.assets.map((asset) => [asset.id, asset.name]));
+	const videoTrack: VideoTimelineTrack = {
+		kind: 'video',
+		id: createTimelineTrackId({ kind: 'video' }),
+		label: 'Video',
+		isRemovable: false,
+		clips: state.media.videoTrack.clips.map((clip) => {
+			const assetName = assetNames.get(clip.assetId);
+			if (assetName === undefined) {
+				throw new Error(
+					`Video clip "${clip.id}" references missing Media entry "${clip.assetId}".`
+				);
+			}
+			return {
+				id: createVideoClipSelectionId(clip.id),
+				clipId: clip.id,
+				assetId: clip.assetId,
+				label: assetName,
+				timelineStartFrame: clip.timelineStartFrame,
+				durationFrames: clip.durationFrames,
+				sourceStartSeconds: clip.sourceStartSeconds,
+				audio: { ...clip.audio }
+			};
+		}),
+		transitions: []
+	};
+	tracks.push(videoTrack);
+}
+
 /**
  * Build timeline rows in their canonical visual order. Returned transitions
  * contain the authored write-back closures consumed by TimelineOutline; no row
@@ -983,6 +1015,7 @@ export function buildCompositionTimelineTracks(
 	appendSpecialOverlayTracks(tracks, state);
 	appendTextAnimationTracks(tracks, state, windows);
 	appendMessageTracks(tracks, state);
+	appendVideoTrack(tracks, state);
 	appendSoundTrack(tracks, state);
 	return tracks;
 }

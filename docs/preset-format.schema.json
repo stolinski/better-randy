@@ -4311,31 +4311,116 @@
             ]
           }
         },
-        "sourceVideo": {
+        "media": {
+          "default": {
+            "assets": [],
+            "videoTrack": {
+              "clips": []
+            }
+          },
           "type": "object",
           "properties": {
-            "assetUrl": {
-              "type": "string",
-              "pattern": "^\\/api\\/user-assets\\/[a-f0-9]{64}\\.(mp4|mov|webm)$"
+            "assets": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "kind": {
+                    "type": "string",
+                    "const": "video"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "assetUrl": {
+                    "type": "string",
+                    "pattern": "^\\/api\\/user-assets\\/[a-f0-9]{64}\\.(mp4|mov|webm)$"
+                  }
+                },
+                "required": [
+                  "id",
+                  "kind",
+                  "name",
+                  "assetUrl"
+                ],
+                "additionalProperties": false
+              }
             },
-            "sourceOffsetSeconds": {
-              "default": 0,
-              "type": "number",
-              "minimum": 0
-            },
-            "includeAudio": {
-              "default": true,
-              "type": "boolean"
-            },
-            "volume": {
-              "default": 1,
-              "type": "number",
-              "minimum": 0,
-              "maximum": 4
+            "videoTrack": {
+              "type": "object",
+              "properties": {
+                "clips": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "assetId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "timelineStartFrame": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "durationFrames": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "sourceStartSeconds": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "audio": {
+                        "type": "object",
+                        "properties": {
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "gain": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 4
+                          }
+                        },
+                        "required": [
+                          "enabled",
+                          "gain"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "assetId",
+                      "timelineStartFrame",
+                      "durationFrames",
+                      "sourceStartSeconds",
+                      "audio"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "clips"
+              ],
+              "additionalProperties": false
             }
           },
           "required": [
-            "assetUrl"
+            "assets",
+            "videoTrack"
           ],
           "additionalProperties": false
         },
@@ -4533,7 +4618,8 @@
         "typography",
         "marks",
         "surface"
-      ]
+      ],
+      "additionalProperties": false
     },
     "transition": {
       "type": "object",

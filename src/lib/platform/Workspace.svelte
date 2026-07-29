@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { onDestroy, tick, untrack } from 'svelte';
-	import { SvelteSet } from 'svelte/reactivity';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 	import { AnimationManager } from './animation-manager';
 	import { TextAnimationManager } from '$lib/text-animations/manager.svelte';
@@ -31,10 +31,12 @@
 	import { createGpuHost, type GpuHost } from './gpu-host';
 	import { disposeSubstrateTextures, getSubstrateTexture } from './substrate-textures';
 	import {
+		CanvasPaintGenerationTracker,
 		clearCanvasPaintHandler,
 		requestCanvasPaint,
 		setCanvasPaintHandler
 	} from './html-in-canvas';
+	import { waitForCompositionResourceReadiness } from './composition-resource-readiness';
 	import { Timeline } from './timeline.svelte';
 	import { timelineHandle } from './timeline-handle.svelte';
 	import {
@@ -57,13 +59,24 @@
 	import { TransitionSnapshotController } from './transition-snapshot-controller';
 	import type { SyncExportRequest } from './export-video';
 	import { AudioPreview } from './audio-preview';
+	import { resolveFrameRate, secondsToFrames } from '$lib/utils/composition-timing';
 	import { resolveDiagramPrimitiveForRender } from '$lib/utils/diagram-geometry';
 	import { clampNumber } from '$lib/utils/math';
 	import { resolveOverlayPlacement } from '$lib/utils/overlay-placement';
+	import { resolveActiveVideoClipAtFrame } from '$lib/utils/video-clip-resolution';
 	import { isDarkSurfaceColor } from '$lib/utils/color';
 	import { exposeVisualAudit } from './runtime-audit';
 	import { captureCanvasWebp } from '$lib/utils/canvas-capture';
 	import { posterExists, putPoster } from './posters';
+	import {
+		VideoAssetDecoderCache,
+		VideoAssetDecoderSeekSupersededError,
+		type DecodedVideoAssetFrame
+	} from './video-asset-decoder';
+	import {
+		VideoUnderlayFrameTexture,
+		type PreparedVideoUnderlayTexture
+	} from './video-underlay-frame-texture';
 
 	// Content key for this composition's poster, supplied by the route (which owns
 	// the loaded Preset). When set, the settled frame is captured once and cached
@@ -92,12 +105,24 @@
 	// the pipeline-build effect (gated into first paint alongside fonts) and
 	// sampled per frame by the composition frame renderer — never decoded/uploaded per frame.
 	let substrateTexture = $state.raw<GPUTexture | null>(null);
+	let stageSubstrateReadinessPromise: Promise<void> = Promise.resolve();
+	// Imperative media resources do not drive the template or reactive effects;
+	// identity generations, not Svelte signals, guard their asynchronous work.
+	let videoAssetDecoderCache: VideoAssetDecoderCache | null = null;
+	let videoUnderlayFrameTexture: VideoUnderlayFrameTexture | null = null;
+	let videoUnderlayTexture: PreparedVideoUnderlayTexture | null = null;
+	let videoResourceGeneration = 0;
+	let pendingVideoPreviewFrame: { frame: number; timestamp: number } | null = null;
+	let videoPreviewRequestSequence = 0;
+	let videoPreviewRenderPromise: Promise<void> | null = null;
+	let isWorkspaceDestroyed = false;
 	let timeline = $state.raw<Timeline | null>(null);
 	const animationManager = new AnimationManager();
 	const audioPreview = new AudioPreview();
 	const textAnimationManager = new TextAnimationManager();
 	const transitionSnapshotController = new TransitionSnapshotController();
 	const compositionExportController = new CompositionExportController();
+	const canvasPaintGenerationTracker = new CanvasPaintGenerationTracker();
 
 	// Poster capture (see ./posters). Once the composition has mounted its GPU
 	// host and the route has resolved a content key, force one settled paint and
@@ -392,6 +417,264 @@
 
 	const planeSplitActive = $derived(shouldSplitCompositionPlanes(engineState));
 
+	function isCurrentVideoResourceIdentity(
+		candidateVideoAssetDecoderCache: VideoAssetDecoderCache,
+		candidateVideoUnderlayFrameTexture: VideoUnderlayFrameTexture,
+		generation: number
+	): boolean {
+		return (
+			videoAssetDecoderCache === candidateVideoAssetDecoderCache &&
+			videoUnderlayFrameTexture === candidateVideoUnderlayFrameTexture &&
+			videoResourceGeneration === generation
+		);
+	}
+
+	function assertCurrentVideoResourceIdentity(
+		candidateVideoAssetDecoderCache: VideoAssetDecoderCache,
+		candidateVideoUnderlayFrameTexture: VideoUnderlayFrameTexture,
+		generation: number
+	): void {
+		if (
+			!isCurrentVideoResourceIdentity(
+				candidateVideoAssetDecoderCache,
+				candidateVideoUnderlayFrameTexture,
+				generation
+			)
+		) {
+			throw new VideoAssetDecoderSeekSupersededError();
+		}
+	}
+
+	function disposeVideoResources(
+		candidateVideoAssetDecoderCache: VideoAssetDecoderCache | null = videoAssetDecoderCache,
+		candidateVideoUnderlayFrameTexture: VideoUnderlayFrameTexture | null =
+			videoUnderlayFrameTexture
+	): void {
+		const ownsCurrentResources =
+			videoAssetDecoderCache === candidateVideoAssetDecoderCache &&
+			videoUnderlayFrameTexture === candidateVideoUnderlayFrameTexture;
+		if (
+			ownsCurrentResources &&
+			(candidateVideoAssetDecoderCache ||
+				candidateVideoUnderlayFrameTexture ||
+				videoUnderlayTexture)
+		) {
+			videoResourceGeneration += 1;
+			videoAssetDecoderCache = null;
+			videoUnderlayFrameTexture = null;
+			videoUnderlayTexture = null;
+		}
+		candidateVideoAssetDecoderCache?.dispose();
+		candidateVideoUnderlayFrameTexture?.dispose();
+	}
+
+	// The GPU host owns one Video asset decoder cache and one resident underlay texture. The
+	// cache itself is keyed by immutable media asset identity, never clip timing.
+	$effect(() => {
+		const localHost = host;
+
+		return untrack(() => {
+			disposeVideoResources();
+			if (!localHost) return;
+
+			let nextVideoAssetDecoderCache: VideoAssetDecoderCache;
+			let nextVideoUnderlayFrameTexture: VideoUnderlayFrameTexture;
+			try {
+				nextVideoAssetDecoderCache = new VideoAssetDecoderCache();
+				nextVideoUnderlayFrameTexture = new VideoUnderlayFrameTexture(localHost);
+			} catch (error) {
+				console.error('Video asset runtime initialization failed.', error);
+				status =
+					error instanceof Error ? error.message : 'Video asset runtime initialization failed.';
+				return;
+			}
+
+			videoResourceGeneration += 1;
+			videoAssetDecoderCache = nextVideoAssetDecoderCache;
+			videoUnderlayFrameTexture = nextVideoUnderlayFrameTexture;
+			videoUnderlayTexture = null;
+			return () =>
+				disposeVideoResources(nextVideoAssetDecoderCache, nextVideoUnderlayFrameTexture);
+		});
+	});
+
+	// Reconcile only immutable asset membership. Clip slips/cuts intentionally do
+	// not touch decoder ownership and therefore cannot recreate a decoder.
+	$effect(() => {
+		const assets = engineState.media.assets.map(({ id, assetUrl }) => ({ id, assetUrl }));
+		untrack(() => {
+			const activeVideoAssetDecoderCache = videoAssetDecoderCache;
+			if (!activeVideoAssetDecoderCache) return;
+			if (activeVideoAssetDecoderCache.reconcile(assets)) {
+				videoResourceGeneration += 1;
+				videoUnderlayTexture = null;
+			}
+		});
+	});
+
+	async function prepareVideoUnderlayFrame(transportFrame: number): Promise<void> {
+		const resolved = resolveActiveVideoClipAtFrame(
+			engineState.media,
+			transportFrame,
+			resolveFrameRate(engineState.transport.fps)
+		);
+		if (!resolved) {
+			videoUnderlayTexture = null;
+			return;
+		}
+
+		const activeVideoAssetDecoderCache = videoAssetDecoderCache;
+		const activeVideoUnderlayFrameTexture = videoUnderlayFrameTexture;
+		const generation = videoResourceGeneration;
+		if (!activeVideoAssetDecoderCache || !activeVideoUnderlayFrameTexture) {
+			videoUnderlayTexture = null;
+			throw new Error('Video asset decoder runtime is unavailable.');
+		}
+
+		const videoAssetDecoder = activeVideoAssetDecoderCache.acquire(resolved.asset);
+		try {
+			await videoAssetDecoder.initialize();
+			assertCurrentVideoResourceIdentity(
+				activeVideoAssetDecoderCache,
+				activeVideoUnderlayFrameTexture,
+				generation
+			);
+		} catch (error) {
+			assertCurrentVideoResourceIdentity(
+				activeVideoAssetDecoderCache,
+				activeVideoUnderlayFrameTexture,
+				generation
+			);
+			throw error;
+		}
+
+		let decodedVideoAssetFrame: DecodedVideoAssetFrame | null = null;
+		try {
+			decodedVideoAssetFrame = await videoAssetDecoder.frameAt(resolved.sourceTimeSeconds);
+			assertCurrentVideoResourceIdentity(
+				activeVideoAssetDecoderCache,
+				activeVideoUnderlayFrameTexture,
+				generation
+			);
+			const preparedVideoUnderlayTexture =
+				activeVideoUnderlayFrameTexture.upload(decodedVideoAssetFrame);
+			assertCurrentVideoResourceIdentity(
+				activeVideoAssetDecoderCache,
+				activeVideoUnderlayFrameTexture,
+				generation
+			);
+			videoUnderlayTexture = preparedVideoUnderlayTexture;
+		} catch (error) {
+			assertCurrentVideoResourceIdentity(
+				activeVideoAssetDecoderCache,
+				activeVideoUnderlayFrameTexture,
+				generation
+			);
+			throw error;
+		} finally {
+			decodedVideoAssetFrame?.close();
+		}
+	}
+
+	async function waitForActiveCompositionResources(signal?: AbortSignal): Promise<void> {
+		const localCompositionElement = compositionElement;
+		const localOverlayRootElement = overlayRootElement;
+		const localHost = host;
+		const localPackSlug = packState.slug;
+		const localPack = getPack(localPackSlug);
+		const localStageReadiness = stageSubstrateReadinessPromise;
+		const localMediaIdentity = JSON.stringify(engineState.media);
+		const localVideoAssetDecoderCache = videoAssetDecoderCache;
+		const localVideoUnderlayFrameTexture = videoUnderlayFrameTexture;
+		const localVideoResourceGeneration = videoResourceGeneration;
+		const videoAssetsById = new Map(engineState.media.assets.map((asset) => [asset.id, asset]));
+		const referencedVideoAssets = new SvelteMap<
+			string,
+			(typeof engineState.media.assets)[number]
+		>();
+		for (const clip of engineState.media.videoTrack.clips) {
+			const asset = videoAssetsById.get(clip.assetId);
+			if (!asset) {
+				throw new Error(
+					`Video clip "${clip.id}" references missing Video asset "${clip.assetId}" while waiting for resources.`
+				);
+			}
+			referencedVideoAssets.set(asset.id, asset);
+		}
+
+		if (!localCompositionElement) {
+			throw new Error('Composition root is unavailable while waiting for resources.');
+		}
+		if (!localHost) {
+			throw new Error('Composition GPU host is unavailable while waiting for resources.');
+		}
+		if (
+			referencedVideoAssets.size > 0 &&
+			(!localVideoAssetDecoderCache || !localVideoUnderlayFrameTexture)
+		) {
+			throw new Error(
+				'Video asset decoder runtime is unavailable while waiting for resources.'
+			);
+		}
+
+		await waitForCompositionResourceReadiness({
+			pack: localPack,
+			roots: [localCompositionElement, localOverlayRootElement],
+			flushDom: tick,
+			waitForStage: () => localStageReadiness,
+			waitForMedia: async () => {
+				signal?.throwIfAborted();
+				if (localVideoAssetDecoderCache) {
+					await Promise.all(
+						Array.from(referencedVideoAssets.values(), (asset) =>
+							localVideoAssetDecoderCache.acquire(asset).initialize()
+						)
+					);
+				}
+				signal?.throwIfAborted();
+			},
+			signal
+		});
+
+		if (isWorkspaceDestroyed) {
+			throw new Error('Workspace was destroyed while composition resources were pending.');
+		}
+		if (
+			compositionElement !== localCompositionElement ||
+			overlayRootElement !== localOverlayRootElement
+		) {
+			throw new Error('Composition roots changed while resource readiness was pending.');
+		}
+		if (packState.slug !== localPackSlug) {
+			throw new Error('Active Pack changed while composition resources were pending.');
+		}
+		if (host !== localHost) {
+			throw new Error('Composition GPU host changed while resource readiness was pending.');
+		}
+		if (stageSubstrateReadinessPromise !== localStageReadiness) {
+			throw new Error('Stage substrate changed while composition resources were pending.');
+		}
+		if (
+			JSON.stringify(engineState.media) !== localMediaIdentity ||
+			videoAssetDecoderCache !== localVideoAssetDecoderCache ||
+			videoUnderlayFrameTexture !== localVideoUnderlayFrameTexture ||
+			videoResourceGeneration !== localVideoResourceGeneration
+		) {
+			throw new Error('Video media changed while composition resources were pending.');
+		}
+	}
+
+	async function settleCompositionPaint(signal: AbortSignal): Promise<void> {
+		const localCanvas = canvas;
+		if (!localCanvas) {
+			throw new Error('Composition canvas is unavailable while settling export paint.');
+		}
+		await canvasPaintGenerationTracker.waitForNextPaint(localCanvas, signal);
+		if (canvas !== localCanvas) {
+			throw new Error('Composition canvas changed while settling export paint.');
+		}
+	}
+
 	// Workspace owns every live DOM/GPU reference. The renderer receives an
 	// explicit per-call snapshot of those dependencies; it does not subscribe to
 	// Svelte state or create a second lifecycle around them.
@@ -408,6 +691,12 @@
 			compositionElement,
 			overlayRootElement,
 			substrateTexture,
+			videoUnderlayTexture,
+			domCapture: {
+				surface: canvasPaintGenerationTracker.generationFor(compositionElement),
+				overlay: canvasPaintGenerationTracker.generationFor(overlayRootElement),
+				force: isExporting
+			},
 			resources: {
 				host,
 				pipeline,
@@ -421,13 +710,90 @@
 		};
 	}
 
-	function renderAt(timestamp: number): void {
-		if (!host) {
+	function renderPreparedPreviewFrame(localHost: GpuHost, timestamp: number): void {
+		if (host !== localHost || isExporting || isWorkspaceDestroyed) {
 			return;
 		}
 		renderCompositionFrameTo(
-			buildCompositionFrameRenderRequest(host.context.getCurrentTexture().createView(), timestamp)
+			buildCompositionFrameRenderRequest(
+				localHost.context.getCurrentTexture().createView(),
+				timestamp
+			)
 		);
+	}
+
+	// Decode at most one preview frame at a time and retain only the newest queued
+	// timestamp. Starting a decoder seek for every paint would make playback
+	// continuously supersede its own in-flight work and could prevent any frame
+	// from reaching the GPU.
+	async function drainVideoPreviewRenders(): Promise<void> {
+		while (pendingVideoPreviewFrame !== null && !isExporting && !isWorkspaceDestroyed) {
+			const { frame, timestamp } = pendingVideoPreviewFrame;
+			const requestSequence = videoPreviewRequestSequence;
+			const localHost = host;
+			pendingVideoPreviewFrame = null;
+			if (!localHost) {
+				return;
+			}
+
+			try {
+				await prepareVideoUnderlayFrame(frame);
+				if (requestSequence !== videoPreviewRequestSequence) {
+					continue;
+				}
+				renderPreparedPreviewFrame(localHost, timestamp);
+			} catch (error) {
+				if (
+					error instanceof VideoAssetDecoderSeekSupersededError ||
+					requestSequence !== videoPreviewRequestSequence ||
+					isExporting ||
+					isWorkspaceDestroyed
+				) {
+					continue;
+				}
+				console.error('Composition preview render failed.', error);
+				status = error instanceof Error ? error.message : 'Composition preview render failed.';
+			}
+		}
+	}
+
+	function startVideoPreviewDrain(): void {
+		if (videoPreviewRenderPromise) {
+			return;
+		}
+		const renderPromise = drainVideoPreviewRenders();
+		videoPreviewRenderPromise = renderPromise;
+		void renderPromise.then(() => {
+			if (videoPreviewRenderPromise === renderPromise) {
+				videoPreviewRenderPromise = null;
+			}
+			if (pendingVideoPreviewFrame !== null && !isExporting && !isWorkspaceDestroyed) {
+				startVideoPreviewDrain();
+			}
+		});
+	}
+
+	function renderAt(timestamp: number): void {
+		const localHost = host;
+		if (!localHost || isExporting || isWorkspaceDestroyed) {
+			return;
+		}
+		pendingVideoPreviewFrame = {
+			frame: secondsToFrames(timestamp, resolveFrameRate(engineState.transport.fps)),
+			timestamp
+		};
+		videoPreviewRequestSequence += 1;
+		startVideoPreviewDrain();
+	}
+
+	async function prepareVideoExportFrame(frame: number, timestamp: number): Promise<void> {
+		// Export is serial and exact. Invalidate queued preview work, then wait for
+		// its active decode to release the shared decoder/texture before stepping.
+		pendingVideoPreviewFrame = null;
+		videoPreviewRequestSequence += 1;
+		await videoPreviewRenderPromise;
+		await prepareVideoUnderlayFrame(frame);
+		void timestamp;
 	}
 
 	// The single per-frame driver. Called by the Timeline's tick (play + seek)
@@ -517,14 +883,26 @@
 
 		const targetCanvas = canvas;
 
+		let isCancelled = false;
 		createGpuHost(targetCanvas)
 			.then((nextHost) => {
+				if (isCancelled || isWorkspaceDestroyed) {
+					nextHost.dispose();
+					return;
+				}
 				host = nextHost;
 			})
 			.catch((error) => {
+				if (isCancelled || isWorkspaceDestroyed) {
+					return;
+				}
 				console.error('Unable to initialize the GPU host.', error);
 				status = error instanceof Error ? error.message : 'Unable to initialize the GPU host.';
 			});
+
+		return () => {
+			isCancelled = true;
+		};
 	});
 
 	$effect(() => {
@@ -662,7 +1040,8 @@
 				timeline.seek(engineState.transport.durationSeconds * SETTLED_PREVIEW_FRACTION);
 			}
 
-			setCanvasPaintHandler(localCanvas, () => {
+			setCanvasPaintHandler(localCanvas, (event) => {
+				canvasPaintGenerationTracker.record(localCanvas, event);
 				// A paint composites the current DOM through the shared seam. The seek/play
 				// tick already applied the GSAP state (and wrote animState) before
 				// requesting this paint, so we only composite here — renderAt(), not
@@ -679,16 +1058,38 @@
 				engineState.stage?.type === 'depth'
 					? (engineState.stage.backdrop?.image?.asset ?? null)
 					: null;
-			const substrateReady: Promise<unknown> = stageAsset
+			const substrateReady: Promise<void> = stageAsset
 				? getSubstrateTexture(localHost, stageAsset).then((texture) => {
-						substrateTexture = texture;
+						if (!texture) {
+							throw new Error(`Declared stage substrate "${stageAsset}" is unavailable.`);
+						}
+						if (!isWorkspaceDestroyed && host === localHost && pipeline === nextPipeline) {
+							substrateTexture = texture;
+						}
 					})
-				: Promise.resolve((substrateTexture = null));
+				: Promise.resolve().then(() => {
+						if (!isWorkspaceDestroyed && host === localHost && pipeline === nextPipeline) {
+							substrateTexture = null;
+						}
+					});
+			stageSubstrateReadinessPromise = substrateReady;
 
-			// Gate the first capture on the active Pack's typefaces (so the very first
-			// frame rasterizes the channel fonts, not OS fallbacks) and on the substrate
-			// texture. Both memoized, so this resolves ~immediately once cached.
-			void Promise.all([fontsReady(), substrateReady]).then(() => requestCanvasPaint(localCanvas));
+			// Gate first paint on every initial frame input: active Pack fonts, static
+			// substrate upload, and Video asset decoder readiness. A Video underlay paint
+			// also waits for its exact sample in renderAt; this gate prevents a competing
+			// font/substrate paint from racing the decoder's initial probe.
+			void waitForActiveCompositionResources()
+				.then(() => {
+					if (!isWorkspaceDestroyed && host === localHost && pipeline === nextPipeline) {
+						requestCanvasPaint(localCanvas);
+					}
+				})
+				.catch((error) => {
+					if (isWorkspaceDestroyed || host !== localHost || pipeline !== nextPipeline) return;
+					console.error('Composition first paint preparation failed.', error);
+					status =
+						error instanceof Error ? error.message : 'Composition first paint preparation failed.';
+				});
 
 			return () => {
 				clearCanvasPaintHandler(localCanvas);
@@ -906,6 +1307,9 @@
 			}
 		}
 		void engineState.backgroundFill;
+		// Canonical Video media drives only frame resolution and decoder identity;
+		// deep-read edits so cuts, gaps, slips, and asset switches repaint in place.
+		void JSON.stringify(engineState.media);
 
 		// --- Captions (render inputs + rail) --- deep read via stringify so any
 		// cue/style edit repaints — the same anti-hand-enumeration posture as
@@ -952,6 +1356,9 @@
 	});
 
 	onDestroy(() => {
+		isWorkspaceDestroyed = true;
+		pendingVideoPreviewFrame = null;
+		videoPreviewRequestSequence += 1;
 		animationManager.dispose();
 		textAnimationManager.dispose();
 		if (typeof window !== 'undefined') {
@@ -979,6 +1386,7 @@
 		depthStage = null;
 		disposeSubstrateTextures();
 		substrateTexture = null;
+		disposeVideoResources();
 		host?.dispose();
 		host = null;
 	});
@@ -1006,7 +1414,10 @@
 				writeGlobalProgress: (fraction) => {
 					animState.globalProgress = fraction;
 				},
+				waitForCompositionResources: waitForActiveCompositionResources,
 				flushDom: tick,
+				settleCompositionPaint,
+				prepareCompositionFrame: prepareVideoExportFrame,
 				renderCompositionFrame: (timestamp) => {
 					if (!host) return 'unavailable';
 					return renderCompositionFrameTo(

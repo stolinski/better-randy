@@ -7,16 +7,19 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { z } from 'zod';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..');
 
-const schemaPath = resolve(repoRoot, 'src/lib/platform/engine-schema.ts');
+const ingressPath = resolve(repoRoot, 'src/lib/platform/preset-ingress.ts');
 const purePath = resolve(repoRoot, 'src/lib/platform/preset-pure.ts');
 
-const { PresetSchema } = (await import(pathToFileURL(schemaPath).href)) as {
-	PresetSchema: z.ZodTypeAny;
+type StructuralParseResult =
+	| { success: true; data: unknown }
+	| { success: false; error: { message: string } };
+
+const { PresetIngressSchema } = (await import(pathToFileURL(ingressPath).href)) as {
+	PresetIngressSchema: { safeParse(value: unknown): StructuralParseResult };
 };
 
 const { serializeCompositionState, presetToWireFormat } = (await import(
@@ -37,7 +40,7 @@ for (const file of files) {
 	const raw = await readFile(resolve(PRESETS_DIR, file), 'utf-8');
 	const json: unknown = JSON.parse(raw);
 
-	const result = (PresetSchema as z.ZodTypeAny).safeParse(json);
+	const result = PresetIngressSchema.safeParse(json);
 	if (!result.success) {
 		console.error(`SKIP (invalid schema): ${file}  — ${result.error.message}`);
 		continue;
@@ -53,7 +56,7 @@ for (const file of files) {
 		original['pack'] as string
 	);
 	const wire = presetToWireFormat(serialized);
-	const reparsed = (PresetSchema as z.ZodTypeAny).safeParse(wire);
+	const reparsed = PresetIngressSchema.safeParse(wire);
 
 	if (!reparsed.success) {
 		console.error(`FAIL (reparse error): ${file}\n  ${reparsed.error.message}`);
@@ -73,7 +76,7 @@ for (const file of files) {
 
 // Edited-metadata round-trip: the GUI edits name / description / kind /
 // transition through presetBase, so serialization must carry a base whose
-// metadata DIFFERS from the loaded preset. Structural check only — PresetSchema
+// metadata DIFFERS from the loaded preset. Structural check only — Preset ingress
 // does not resolve transition slugs (preset.ts does), so placeholder refs are
 // fine here.
 if (firstValid) {
@@ -86,7 +89,7 @@ if (firstValid) {
 	const wire = presetToWireFormat(
 		serializeCompositionState(editedBase, firstValid['state'], firstValid['pack'] as string)
 	);
-	const reparsed = (PresetSchema as z.ZodTypeAny).safeParse(wire);
+	const reparsed = PresetIngressSchema.safeParse(wire);
 	const fields = reparsed.success
 		? (reparsed.data as { name: string; description?: string; kind: string; transition?: unknown })
 		: null;

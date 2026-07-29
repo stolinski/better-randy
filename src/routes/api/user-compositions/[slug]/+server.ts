@@ -3,12 +3,16 @@ import { join } from 'node:path';
 
 import { json, error, type RequestHandler } from '@sveltejs/kit';
 
-import { PresetSchema } from '$lib/platform/engine-schema';
+import { PresetIngressSchema } from '$lib/platform/preset-ingress';
 import { presetToWireFormat } from '$lib/platform/preset-pure';
 import {
 	formatPresetSemanticIssues,
 	validatePresetSemantics
 } from '$lib/platform/preset-validation';
+import {
+	assertUserCompositionMediaReady,
+	inspectUserCompositionMedia
+} from '$lib/platform/user-composition-media.server';
 
 const USER_COMPOSITION_STORE_DIR = join(process.cwd(), 'user-compositions');
 
@@ -27,9 +31,14 @@ interface StoredUserComposition {
 function isStoredUserComposition(value: unknown): value is StoredUserComposition {
 	if (typeof value !== 'object' || value === null) return false;
 	const v = value as Record<string, unknown>;
+	const meta = v['meta'];
 	return (
-		typeof v['meta'] === 'object' &&
-		v['meta'] !== null &&
+		typeof meta === 'object' &&
+		meta !== null &&
+		'forkedFrom' in meta &&
+		'savedAt' in meta &&
+		(meta.forkedFrom === null || typeof meta.forkedFrom === 'string') &&
+		typeof meta.savedAt === 'string' &&
 		typeof v['preset'] === 'object' &&
 		v['preset'] !== null
 	);
@@ -61,15 +70,16 @@ export const GET: RequestHandler = async ({ params }) => {
 		error(500, 'Corrupt user composition file');
 	}
 
-	const result = PresetSchema.safeParse(storedUserComposition.preset);
+	const result = PresetIngressSchema.safeParse(storedUserComposition.preset);
 	if (!result.success) error(500, `Corrupt preset data: ${result.error.message}`);
 	const semanticIssues = validatePresetSemantics(result.data);
 	if (semanticIssues.length > 0) {
 		error(500, `Corrupt preset data:\n${formatPresetSemanticIssues(semanticIssues)}`);
 	}
-
 	// The API is an interchange boundary: GET returns the same standalone wire
-	// format that PUT accepts, so agents can perform an unchanged GET/edit/PUT loop.
+	// Stored compositions remain readable when immutable media goes missing so
+	// the GUI can surface the decoder error and let the author replace or remove
+	// a referenced asset. New writes below still reject unavailable media.
 	return json(presetToWireFormat(result.data));
 };
 
@@ -84,11 +94,16 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		error(400, 'Invalid JSON body');
 	}
 
-	const result = PresetSchema.safeParse(body);
+	const result = PresetIngressSchema.safeParse(body);
 	if (!result.success) error(400, `Invalid preset: ${result.error.message}`);
 	const semanticIssues = validatePresetSemantics(result.data);
 	if (semanticIssues.length > 0) {
 		error(400, `Invalid preset:\n${formatPresetSemanticIssues(semanticIssues)}`);
+	}
+	try {
+		assertUserCompositionMediaReady(await inspectUserCompositionMedia(result.data));
+	} catch (cause) {
+		error(422, cause instanceof Error ? cause.message : 'Referenced media asset is unavailable');
 	}
 
 	// Preserve existing meta (forkedFrom) when updating.

@@ -5,7 +5,11 @@
  * `buildCompositionTimelineTracks()` adapter that maps composition state onto it.
  */
 
-import type { SoundRailReference, TimelineTrackId } from './timeline-entity-identity.ts';
+import type {
+	SoundRailReference,
+	TimelineTrackId,
+	VideoClipSelectionId
+} from './timeline-entity-identity.ts';
 
 export type TimelineTransitionRamp = 'in' | 'out';
 
@@ -103,4 +107,31 @@ export interface TimelineTrack {
 	color?: string;
 	transitions: TimelineTransition[];
 	onTrackMove?: (delta: number) => void;
+}
+
+/** One canonical Media clip represented on the fixed frame-valued Video row. */
+export interface VideoTimelineClip {
+	id: VideoClipSelectionId;
+	clipId: string;
+	assetId: string;
+	label: string;
+	timelineStartFrame: number;
+	durationFrames: number;
+	sourceStartSeconds: number;
+	audio: {
+		enabled: boolean;
+		gain: number;
+	};
+}
+
+/** The one fixed Video row beneath all five Layers. It is never removable. */
+export interface VideoTimelineTrack extends TimelineTrack {
+	kind: 'video';
+	isRemovable: false;
+	clips: VideoTimelineClip[];
+	transitions: [];
+}
+
+export function isVideoTimelineTrack(track: TimelineTrack): track is VideoTimelineTrack {
+	return 'kind' in track && track.kind === 'video';
 }

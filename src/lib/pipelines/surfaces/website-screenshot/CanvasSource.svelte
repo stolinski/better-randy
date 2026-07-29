@@ -61,6 +61,7 @@
 			<img
 				alt=""
 				crossorigin="anonymous"
+				data-export-resource="required"
 				onerror={handleImageError}
 				onload={handleImageLoad}
 				src={imageUrl}

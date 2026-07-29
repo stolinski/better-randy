@@ -37,7 +37,8 @@ function stateWithAchievement(content: AchievementContent): EngineState {
 			}
 		],
 		effects: [],
-		audioCues: []
+		audioCues: [],
+		media: { assets: [], videoTrack: { clips: [] } }
 	};
 }
 

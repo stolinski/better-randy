@@ -43,29 +43,101 @@ await new Promise((resolve) => setTimeout(resolve, 1200));
 
 const expression = `(async () => {
 	const { SourceVideoDecoder } = await import('/src/lib/platform/source-video-decoder.ts');
-	const decoder = new SourceVideoDecoder({
+	const { SourceVideoAudioDecoder } = await import('/src/lib/platform/source-video-audio-decoder.ts');
+	const sourceVideo = {
 		assetUrl: ${JSON.stringify(assetUrl)},
 		sourceOffsetSeconds: 0,
 		includeAudio: true,
 		volume: 1
+	};
+	const decoder = new SourceVideoDecoder({
+		...sourceVideo
 	});
 	try {
 		const metadata = await decoder.initialize(${compositionDurationSeconds});
 		const frames = [];
 		for (const timestamp of ${JSON.stringify(timestamps)}) {
 			const frame = await decoder.frameAt(timestamp);
+			const imageSource = frame.sample.toCanvasImageSource();
+			const rgba = new Uint8Array(
+				imageSource.allocationSize({ format: 'RGBA', rect: imageSource.visibleRect })
+			);
+			await imageSource.copyTo(rgba, { format: 'RGBA', rect: imageSource.visibleRect });
+			const centerOffset =
+				(Math.floor(imageSource.displayHeight / 2) * imageSource.displayWidth +
+					Math.floor(imageSource.displayWidth / 2)) *
+				4;
+			const adapter = await navigator.gpu.requestAdapter();
+			const device = await adapter.requestDevice();
+			const texture = device.createTexture({
+				size: [imageSource.displayWidth, imageSource.displayHeight],
+				format: 'rgba8unorm',
+				usage:
+					GPUTextureUsage.COPY_DST |
+					GPUTextureUsage.COPY_SRC |
+					GPUTextureUsage.RENDER_ATTACHMENT
+			});
+			device.queue.copyExternalImageToTexture(
+				{ source: imageSource },
+				{ texture },
+				[imageSource.displayWidth, imageSource.displayHeight]
+			);
+			const bytesPerRow = imageSource.displayWidth * 4;
+			const readback = device.createBuffer({
+				size: bytesPerRow * imageSource.displayHeight,
+				usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+			});
+			const encoder = device.createCommandEncoder();
+			encoder.copyTextureToBuffer(
+				{ texture },
+				{ buffer: readback, bytesPerRow, rowsPerImage: imageSource.displayHeight },
+				[imageSource.displayWidth, imageSource.displayHeight]
+			);
+			device.queue.submit([encoder.finish()]);
+			await readback.mapAsync(GPUMapMode.READ);
+			const gpuRgba = new Uint8Array(readback.getMappedRange());
 			frames.push({
-				compositionTimestamp: frame.compositionTimestamp,
+				sourceTimeSeconds: frame.sourceTimeSeconds,
 				requestedSourceTimestamp: frame.requestedSourceTimestamp,
 				presentationTimestamp: frame.presentationTimestamp,
 				duration: frame.duration,
 				displayWidth: frame.displayWidth,
 				displayHeight: frame.displayHeight,
-				rotation: frame.rotation
+				rotation: frame.rotation,
+				imageSourceType: imageSource.constructor.name,
+				imageSourceWidth: imageSource.displayWidth ?? imageSource.width,
+				imageSourceHeight: imageSource.displayHeight ?? imageSource.height,
+				centerRgba: [...rgba.slice(centerOffset, centerOffset + 4)],
+				gpuCenterRgba: [...gpuRgba.slice(centerOffset, centerOffset + 4)]
 			});
+			readback.unmap();
+			readback.destroy();
+			texture.destroy();
+			device.destroy();
 			frame.close();
 		}
-		return { metadata, frames };
+		const audio = await new SourceVideoAudioDecoder(sourceVideo).decode(
+			Math.round(${compositionDurationSeconds} * 48000)
+		);
+		let audioPeak = 0;
+		let firstAudibleSample = -1;
+		if (audio) {
+			for (let index = 0; index < audio.channels[0].length; index += 1) {
+				const amplitude = Math.max(
+					Math.abs(audio.channels[0][index]),
+					Math.abs(audio.channels[1][index])
+				);
+				audioPeak = Math.max(audioPeak, amplitude);
+				if (firstAudibleSample === -1 && amplitude > 1e-6) firstAudibleSample = index;
+			}
+		}
+		return {
+			metadata,
+			frames,
+			audio: audio
+				? { sampleRate: audio.sampleRate, sampleCount: audio.channels[0].length, audioPeak, firstAudibleSample }
+				: null
+		};
 	} finally {
 		decoder.dispose();
 	}

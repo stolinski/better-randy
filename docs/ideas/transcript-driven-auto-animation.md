@@ -10,7 +10,7 @@ Drop a video into Supers. The app transcribes it, an AI pass reads the transcrip
 
 The following flow is proposed, not implemented:
 
-1. User uploads or links a source video.
+1. User ingests a video Media asset, adds a composition-scoped Media library entry, and places Video clips on the primary Video track.
 2. Transcribe with word-level timestamps.
 3. AI segmentation pass labels intent per span: research citation, statistic, quote, definition, named entity, concept, tangent, joke, etc.
 4. AI selection pass picks a Supers **Preset** per labeled span based on intent + emphasis. The Preset encodes the Surface, content shape, marks, overlays, effects, and transport (see [`preset-format.md`](../preset-format.md)) — there is no separate "tool" coordinate (retired by [ADR-0002](../adr/0002-per-tool-routes-to-preset-engine.md)).
@@ -46,12 +46,12 @@ The following flow is proposed, not implemented:
 - How do we keep enrichment fetches honest? Citations need to actually match what the speaker said, not just be a plausible-looking paper. Probably needs a verification step or a confidence threshold below which we skip the fetch.
 - How does the user steer it? A pre-render review UI where each proposed overlay is a card the user can accept, swap Preset, edit copy, or kill — before any rendering happens.
 - Batch render cost: rendering N transparent overlays for a 40-minute video is a lot of GPU time. Queue + progress UI matters.
-- Re-runs: if the user edits the source video (cuts a section), how do we re-key timecodes without redoing the whole pipeline?
+- Re-runs: if the user changes Video clips or Source time, how do we re-key transcript timecodes without redoing the whole pipeline?
 - Does the AI **pick from the catalog** or **author fresh Presets** for content that doesn't fit any built-in? Agents can author schema-valid Preset JSON today, but no transcript automation or runtime AI-authoring contract is implemented. Start with catalog selection plus explicit Preset edits; treat automatic fresh authoring as future work.
 
 ## Why this fits Supers
 
-Supers already has the Preset catalog, deterministic frame-addressable timeline, `CompositionExportController`, and transparent export primitives. Transcript ingestion, segmentation, enrichment, proposal review, batch orchestration, and NLE manifest generation are all unbuilt product work.
+Supers already has the Preset catalog, composition Media library, one frame-addressable Video track, `CompositionExportController`, and transparent export primitives. Transcript ingestion, segmentation, enrichment, proposal review, automatic cut generation, batch orchestration, and NLE manifest generation are all unbuilt product work.
 
 ## Adjacency
 

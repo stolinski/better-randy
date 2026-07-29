@@ -174,7 +174,20 @@ for (let i = 0; i < 60; i++) {
 			const c = document.querySelector('canvas');
 			if (!document.body || !c || !window.__supersTimeline) return false;
 			const captureScale = 4;
+			const inheritedStyle = getComputedStyle(c);
+			for (const property of ['--frame-w', '--frame-h']) {
+				const value = inheritedStyle.getPropertyValue(property);
+				if (value) c.style.setProperty(property, value);
+			}
 			document.body.appendChild(c);
+			for (const child of document.body.children) {
+				if (child !== c) child.style.visibility = 'hidden';
+			}
+			// Page.captureScreenshot flattens transparent canvas pixels against the
+			// page. Use G5's neutral footage proxy instead of photographing the editor
+			// checkerboard and chrome through transparent compositions.
+			document.documentElement.style.background = '#7f7f7f';
+			document.body.style.background = '#7f7f7f';
 			c.style.position = 'fixed';
 			c.style.inset = '0 auto auto 0';
 			c.style.inlineSize = (c.width / captureScale) + 'px';

@@ -10,6 +10,7 @@ import type { EffectChain } from './pipelines/effect-chain';
 import type { ShaderPassDispatcher } from './pipelines/shader-pass-runner';
 import type { CompiledTransitionWipe } from './pipelines/transition-pass';
 import type { TransitionSnapshots } from './pipelines/transition-snapshots';
+import type { PreparedVideoUnderlayTexture } from './video-underlay-frame-texture';
 import type { SurfaceRenderInputs, SurfaceRenderInstance } from './pipelines/types';
 import {
 	renderCompositionFrameTo,
@@ -117,6 +118,7 @@ describe('composition frame renderer ordering', () => {
 			compositionElement: null,
 			overlayRootElement: null,
 			substrateTexture: null,
+			videoUnderlayTexture: null,
 			resources: {
 				host: null,
 				pipeline: null,
@@ -142,6 +144,14 @@ describe('composition frame renderer ordering', () => {
 		state.backgroundFill = '#101010';
 		const surfaceTexture = texture('surface');
 		const shaderTexture = texture('shader');
+		const videoUnderlayTexture: PreparedVideoUnderlayTexture = {
+			texture: texture('video-underlay'),
+			width: 1920,
+			height: 1080,
+			displayWidth: 1920,
+			displayHeight: 1080,
+			rotation: 0
+		};
 		const encoder = {} as GPUCommandEncoder;
 		const pipeline = {
 			uploadDom: () => calls.push('upload-dom'),
@@ -171,11 +181,13 @@ describe('composition frame renderer ordering', () => {
 				effects: readonly Effect[];
 				progress: number;
 				timestamp: number;
+				videoUnderlayTexture: PreparedVideoUnderlayTexture | null;
 			}) => {
 				assert.equal(options.commandEncoder, encoder);
 				assert.equal(options.inputTexture, shaderTexture);
 				assert.equal(options.progress, 0.25);
 				assert.equal(options.timestamp, 2);
+				assert.equal(options.videoUnderlayTexture, videoUnderlayTexture);
 				assert.equal(options.effects.at(-1)?.type, 'crt-tube');
 				calls.push('effects-present');
 			}
@@ -190,6 +202,7 @@ describe('composition frame renderer ordering', () => {
 			compositionElement: null,
 			overlayRootElement: null,
 			substrateTexture: null,
+			videoUnderlayTexture,
 			resources: {
 				host,
 				pipeline,
@@ -214,5 +227,65 @@ describe('composition frame renderer ordering', () => {
 			'shader:0.25',
 			'effects-present'
 		]);
+	});
+
+	it('reuses a resident DOM capture until its browser paint generation changes', () => {
+		const calls: string[] = [];
+		const state = createDefaultEngineState();
+		const surfaceTexture = texture('surface');
+		const pipeline = {
+			uploadDom: () => calls.push('upload-dom'),
+			render: () => calls.push('render'),
+			getOutputTexture: () => surfaceTexture
+		} as unknown as SurfaceRenderInstance;
+		const host = {
+			canvas: { width: 3840, height: 2160 },
+			device: { createCommandEncoder: () => ({}) }
+		} as unknown as GpuHost;
+		const request: CompositionFrameRenderRequest = {
+			outputView: {} as GPUTextureView,
+			timestamp: 0,
+			state,
+			pack: getPack('syntax'),
+			paperVisibility: 1,
+			compositionElement: null,
+			overlayRootElement: null,
+			substrateTexture: null,
+			videoUnderlayTexture: null,
+			domCapture: { surface: 4, overlay: 0, force: false },
+			resources: {
+				host,
+				pipeline,
+				effectChain: {
+					apply: (options: { videoUnderlayTexture: PreparedVideoUnderlayTexture | null }) => {
+						assert.equal(options.videoUnderlayTexture, null);
+						calls.push('effects');
+					}
+				} as unknown as EffectChain,
+				shaderPassDispatcher: {
+					apply: ({ inputTexture }: { inputTexture: GPUTexture }) => inputTexture
+				} as unknown as ShaderPassDispatcher,
+				compositionPlanes: null,
+				depthStage: null
+			},
+			cachedTransition: null,
+			buildSurfaceInputs: () => SURFACE_INPUTS
+		};
+
+		renderCompositionFrameTo(request);
+		renderCompositionFrameTo({ ...request, timestamp: 1 });
+		renderCompositionFrameTo({
+			...request,
+			timestamp: 2,
+			domCapture: { surface: 5, overlay: 0, force: false }
+		});
+		renderCompositionFrameTo({
+			...request,
+			timestamp: 3,
+			domCapture: { surface: 5, overlay: 0, force: true }
+		});
+
+		assert.equal(calls.filter((call) => call === 'upload-dom').length, 3);
+		assert.equal(calls.filter((call) => call === 'render').length, 4);
 	});
 });

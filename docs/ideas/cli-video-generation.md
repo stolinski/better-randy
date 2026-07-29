@@ -11,7 +11,7 @@ pnpm supers render --preset ./inputs/study.json --out ./out/study-overlay.webm
 pnpm supers render --preset research-paper-critique --out ./out/critique.webm
 ```
 
-A **Preset** is the only coordinate. It already declares the surface, blocks, annotations, overlays, effects, and transport (duration / fps / format / orientation) — see [`preset-format.md`](../preset-format.md). The CLI does not invent a parallel "tool" concept (retired by [ADR-0002](../adr/0002-per-tool-routes-to-preset-engine.md)) and does not accept content overlays or transport flag overrides. If you want different content, you produce a different Preset.
+A **Preset** is the only coordinate. It already declares the surface, blocks, annotations, overlays, effects, optional composition Media library/Video track, and transport (duration / fps / format / orientation) — see [`preset-format.md`](../preset-format.md). The CLI does not invent a parallel "tool" or Project concept (retired by [ADR-0002](../adr/0002-per-tool-routes-to-preset-engine.md)) and does not accept content, media, clip, or transport flag overrides. If you want different content or edits, you produce a different Preset.
 
 ## Why
 
@@ -52,8 +52,8 @@ The render path is the existing engine running headlessly. There is no second re
 
 - **Host:** the CLI is `scripts/supers.ts`, run via `pnpm supers ...`. It lives next to the existing `scripts/probe-*.ts` and `scripts/verify-presets.ts`, imports from `src/lib/` via `resolve()` + dynamic import, and is never picked up by Vite.
 - **Renderer:** the CLI connects to the project's sanctioned CanvasDrawElement-enabled browser harness rather than inventing a Chrome launch. It assumes the dev server is already running at `:7263` (per `AGENTS.md`, never starts one) and fails clearly if either dependency is unavailable.
-- **Render route:** a new SvelteKit route `/render` mounts `Composition` plus the GPU dependencies needed to build a `CompositionFrameRenderRequest`. It delegates each frame to `renderCompositionFrameTo(request)` in `composition-frame-renderer.ts` and the full media operation to `CompositionExportController`; it does not mount the editor shell (`CanvasControlsBar`, `TimelineOutline`, or `Inspector`) or create a parallel renderer/export loop.
-- **Encoding:** stays in Chromium through `CompositionExportController`, which owns deterministic stepping, output classification, audio/video handoff, cancellation, and cleanup. `export-video.ts` remains the encoding/endpoint primitive. The CLI extracts the completed `Blob` via the route bridge and writes it; ProRes still POSTs PNG frames to `/api/export/prores`.
+- **Render route:** the CLI opens the same `/p/<slug>` Workspace used by the GUI and invokes its `window.__supersExport` seam. Workspace delegates each frame to `renderCompositionFrameTo(request)` and the full media operation to `CompositionExportController`; there is no parallel renderer/export loop.
+- **Encoding:** stays in Chromium through `CompositionExportController`, which owns deterministic stepping, output classification, audio/video handoff, cancellation, and cleanup. `export-video.ts` sends one frame at a time through `/api/export/sessions/*`; Playwright receives the final disk-streamed output as the same native browser download event as the GUI and writes it with `download.saveAs`.
 - **Batch:** the Chromium page is reused across jobs to amortize cold-boot. Each job either re-navigates `/render` with a fresh injected Preset, or calls a Playwright-bound `window.__supersRender(preset)` function — pick one when implementing.
 
 ## Output

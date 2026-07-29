@@ -1,14 +1,21 @@
 <script lang="ts">
 	import { layerSelection, deselectLayer } from './selection.svelte';
-	import { parseSoundRailReferenceId, parseTimelineTrackId } from './timeline-entity-identity';
+	import {
+		parseSoundRailReferenceId,
+		parseTimelineTrackId,
+		parseVideoClipSelectionId
+	} from './timeline-entity-identity';
+	import { inspectorRailMode } from './inspector-rail-mode.svelte';
 	import BlockInspector from './BlockInspector.svelte';
 	import CaptionsInspector from './CaptionsInspector.svelte';
+	import MediaInspector from './MediaInspector.svelte';
 	import RootInspector from './RootInspector.svelte';
 	import SurfaceInspector from './SurfaceInspector.svelte';
 	import OverlayInspector from './OverlayInspector.svelte';
 	import TextAnimInspector from './TextAnimInspector.svelte';
 	import MarkInspector from './MarkInspector.svelte';
 	import SoundCueInspector from './SoundCueInspector.svelte';
+	import VideoClipInspector from './VideoClipInspector.svelte';
 
 	interface Props {
 		handleExport: () => Promise<void>;
@@ -31,6 +38,8 @@
 	const resolved = $derived.by(() => {
 		const id = layerSelection.id;
 		if (!id) return { kind: 'root' as const };
+		const videoClip = parseVideoClipSelectionId(id);
+		if (videoClip) return { kind: 'video-clip' as const, clipId: videoClip.clipId };
 
 		const track = parseTimelineTrackId(id);
 		if (track) {
@@ -52,6 +61,7 @@
 				case 'overlay-subtrack':
 					return { kind: 'overlay' as const, overlayId: track.overlayId };
 				case 'sound':
+				case 'video':
 					return { kind: 'generic' as const, id };
 			}
 		}
@@ -64,8 +74,22 @@
 </script>
 
 <aside class="inspector">
+	<nav class="inspector__modes" aria-label="Inspector mode">
+		<button
+			type="button"
+			aria-pressed={inspectorRailMode.mode === 'inspector'}
+			onclick={() => inspectorRailMode.switchToInspector()}>Inspector</button
+		>
+		<button
+			type="button"
+			aria-pressed={inspectorRailMode.mode === 'media'}
+			onclick={() => inspectorRailMode.switchToMedia()}>Media</button
+		>
+	</nav>
 	<div class="inspector__scroll">
-		{#if resolved.kind === 'root'}
+		{#if inspectorRailMode.mode === 'media'}
+			<MediaInspector />
+		{:else if resolved.kind === 'root'}
 			<RootInspector {handleExport} {isExporting} {progress} {status} bind:separateWav />
 		{:else if resolved.kind === 'surface'}
 			<SurfaceInspector />
@@ -81,6 +105,8 @@
 			<MarkInspector markIndex={resolved.index} />
 		{:else if resolved.kind === 'sound-cue'}
 			<SoundCueInspector reference={resolved.reference} />
+		{:else if resolved.kind === 'video-clip'}
+			<VideoClipInspector clipId={resolved.clipId} />
 		{:else}
 			<div class="generic-label">
 				<span class="generic-label__id">{resolved.id}</span>
@@ -145,6 +171,44 @@
 
 	.inspector :global(button) {
 		font-family: inherit;
+	}
+
+	.inspector__modes {
+		border-block-end: 1px solid var(--chrome-hairline);
+		display: grid;
+		flex: none;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		padding: var(--vs-xs);
+	}
+
+	.inspector__modes button {
+		background: transparent;
+		border: 1px solid transparent;
+		border-radius: var(--br-xs);
+		color: var(--chrome-muted);
+		cursor: pointer;
+		font-size: 0.75rem;
+		font-weight: var(--fw-semibold);
+		padding-block: 4px;
+		transition:
+			border-color 120ms ease,
+			background-color 120ms ease;
+	}
+
+	.inspector__modes button:hover {
+		background: var(--chrome-raised);
+		color: var(--chrome-text);
+	}
+
+	.inspector__modes button[aria-pressed='true'] {
+		background: var(--chrome-well);
+		border-color: var(--chrome-hairline);
+		color: var(--chrome-text);
+	}
+
+	.inspector__modes button:focus-visible {
+		border-color: #ffd608;
+		outline: none;
 	}
 
 	.inspector :global(input[type='color']) {

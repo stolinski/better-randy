@@ -20,6 +20,12 @@ const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..');
 
 const { parseSrt } = await import(pathToFileURL(resolve(repoRoot, 'src/lib/utils/srt.ts')).href);
+const { parsePresetIngress } = await import(
+	pathToFileURL(resolve(repoRoot, 'src/lib/platform/preset-ingress.ts')).href
+);
+const { presetToWireFormat } = await import(
+	pathToFileURL(resolve(repoRoot, 'src/lib/platform/preset-pure.ts')).href
+);
 
 const args = process.argv.slice(2);
 const srtPath = args.find((arg) => !arg.startsWith('--'));
@@ -44,13 +50,15 @@ const captions = { style, cues };
 const presetFlag = args.indexOf('--preset');
 if (presetFlag >= 0) {
 	const presetPath = resolve(args[presetFlag + 1]);
-	const preset = JSON.parse(await readFile(presetPath, 'utf-8'));
-	if (!preset.state) {
-		console.error(`${presetPath} has no "state" — not a Supers preset.`);
+	let preset;
+	try {
+		preset = parsePresetIngress(JSON.parse(await readFile(presetPath, 'utf-8')));
+	} catch (error) {
+		console.error(`${presetPath} is not a valid Supers preset.`, error);
 		process.exit(1);
 	}
 	preset.state.captions = captions;
-	await writeFile(presetPath, JSON.stringify(preset, null, '\t') + '\n');
+	await writeFile(presetPath, JSON.stringify(presetToWireFormat(preset), null, '\t') + '\n');
 	console.log(`Wrote ${cues.length} cues (style ${style}) into ${presetPath}`);
 } else {
 	console.log(JSON.stringify({ captions }, null, '\t'));

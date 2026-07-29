@@ -2,6 +2,7 @@ import tgpu, { d } from 'typegpu';
 
 import type { Effect } from '$lib/platform/engine-schema';
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
+import type { PreparedVideoUnderlayTexture } from '$lib/platform/video-underlay-frame-texture';
 import { PIPELINE_REGISTRY } from './index';
 import type { EffectRenderer } from './types';
 
@@ -95,7 +96,9 @@ interface CompiledPresent {
 		inputView: GPUTextureView;
 		outputView: GPUTextureView;
 		background?: [number, number, number, number];
+		videoUnderlayTexture?: PreparedVideoUnderlayTexture | null;
 	}): void;
+	dispose(): void;
 }
 
 function findEffectRenderer(type: string): EffectRenderer | null {
@@ -246,7 +249,8 @@ function compileBackgroundComposite(host: GpuHost): CompiledPresent {
 					storeOp: 'store'
 				})
 				.draw(3);
-		}
+		},
+		dispose: () => undefined
 	};
 }
 
@@ -254,10 +258,65 @@ function compilePresent(host: GpuHost): CompiledPresent {
 	// Targets the canvas format (8-bit) — this is the only pass that writes the
 	// final 8-bit output; everything upstream is rgba16float.
 	const { format, root } = host;
+	const FinalPresentUniforms = d.struct({
+		background: d.vec4f,
+		canvasSize: d.vec2f,
+		videoUnderlayDisplaySize: d.vec2f,
+		videoUnderlayRotation: d.f32,
+		videoUnderlayEnabled: d.f32
+	});
+	const finalPresentBindGroupLayout = tgpu.bindGroupLayout({
+		inputTexture: { texture: d.texture2d(d.f32) },
+		videoUnderlayTexture: { texture: d.texture2d(d.f32) },
+		samp: { sampler: 'filtering' },
+		uniforms: { uniform: FinalPresentUniforms }
+	});
+	const finalPresentFragmentFn = tgpu['~unstable']
+		.fragmentFn({
+			in: { uv: d.vec2f, position: d.builtin.position },
+			out: d.vec4f
+		})/* wgsl */ `{
+			let s = textureSample(layout.$.inputTexture, layout.$.samp, in.uv);
+			let underlayDisplaySize = layout.$.uniforms.videoUnderlayDisplaySize;
+			let underlayAspect = underlayDisplaySize.x / max(1.0, underlayDisplaySize.y);
+			let canvasSize = layout.$.uniforms.canvasSize;
+			let canvasAspect = canvasSize.x / max(1.0, canvasSize.y);
+			let cropWidth = min(1.0, canvasAspect / underlayAspect);
+			let cropHeight = min(1.0, underlayAspect / canvasAspect);
+			let underlayUv = vec2f(
+				0.5 + (in.uv.x - 0.5) * cropWidth,
+				0.5 + (in.uv.y - 0.5) * cropHeight
+			);
+			let rotation = layout.$.uniforms.videoUnderlayRotation;
+			let uv0 = underlayUv;
+			let uv90 = vec2f(underlayUv.y, 1.0 - underlayUv.x);
+			let uv180 = vec2f(1.0 - underlayUv.x, 1.0 - underlayUv.y);
+			let uv270 = vec2f(1.0 - underlayUv.y, underlayUv.x);
+			let is0 = select(0.0, 1.0, rotation < 0.5);
+			let is90 = select(0.0, 1.0, rotation >= 0.5 && rotation < 1.5);
+			let is180 = select(0.0, 1.0, rotation >= 1.5 && rotation < 2.5);
+			let is270 = select(0.0, 1.0, rotation >= 2.5);
+			let rawUv = uv0 * is0 + uv90 * is90 + uv180 * is180 + uv270 * is270;
+			let underlaySample = textureSample(
+				layout.$.videoUnderlayTexture,
+				layout.$.samp,
+				clamp(rawUv, vec2f(0.0), vec2f(1.0))
+			);
+			let underlayEnabled = layout.$.uniforms.videoUnderlayEnabled;
+			let bg = layout.$.uniforms.background;
+			let underRgb = mix(bg.rgb * bg.a, underlaySample.rgb, underlayEnabled);
+			let underA = mix(bg.a, underlaySample.a, underlayEnabled);
+			let outRgb = s.rgb + (1.0 - s.a) * underRgb;
+			let outA = s.a + (1.0 - s.a) * underA;
+			let ign = fract(52.9829189 * fract(dot(in.position.xy, vec2f(0.06711056, 0.00583715))));
+			let dither = (ign - 0.5) / 255.0;
+			let ditheredRgb = clamp(outRgb + vec3f(dither * outA), vec3f(0.0), vec3f(outA));
+			return vec4f(ditheredRgb, outA);
+		}`.$uses({ layout: finalPresentBindGroupLayout });
 
 	const pipeline = root['~unstable']
 		.withVertex(fullScreenVertexFn, {})
-		.withFragment(presentFragmentFn, { format })
+		.withFragment(finalPresentFragmentFn, { format })
 		.createPipeline();
 
 	const sampler = root['~unstable'].createSampler({
@@ -268,16 +327,43 @@ function compilePresent(host: GpuHost): CompiledPresent {
 	});
 
 	const uniformBuffer = root
-		.createBuffer(PresentUniforms, { background: d.vec4f(0, 0, 0, 0) })
+		.createBuffer(FinalPresentUniforms, {
+			background: d.vec4f(0, 0, 0, 0),
+			canvasSize: d.vec2f(host.canvas.width, host.canvas.height),
+			videoUnderlayDisplaySize: d.vec2f(1, 1),
+			videoUnderlayRotation: 0,
+			videoUnderlayEnabled: 0
+		})
 		.$usage('uniform');
+	const transparentTexture = host.device.createTexture({
+		size: [1, 1, 1],
+		format: 'rgba8unorm',
+		usage: TEXTURE_USAGE_TEXTURE_BINDING | TEXTURE_USAGE_COPY_DST
+	});
+	host.device.queue.writeTexture(
+		{ texture: transparentTexture },
+		new Uint8Array([0, 0, 0, 0]),
+		{ bytesPerRow: 4 },
+		{ width: 1, height: 1, depthOrArrayLayers: 1 }
+	);
 
 	return {
-		apply({ inputView, outputView, background }) {
+		apply({ inputView, outputView, background, videoUnderlayTexture }) {
 			const [r, g, b, a] = background ?? [0, 0, 0, 0];
-			uniformBuffer.write({ background: d.vec4f(r, g, b, a) });
+			uniformBuffer.write({
+				background: d.vec4f(r, g, b, a),
+				canvasSize: d.vec2f(host.canvas.width, host.canvas.height),
+				videoUnderlayDisplaySize: d.vec2f(
+					videoUnderlayTexture?.displayWidth ?? 1,
+					videoUnderlayTexture?.displayHeight ?? 1
+				),
+				videoUnderlayRotation: videoUnderlayTexture ? videoUnderlayTexture.rotation / 90 : 0,
+				videoUnderlayEnabled: videoUnderlayTexture ? 1 : 0
+			});
 
-			const bindGroup = root.createBindGroup(presentBindGroupLayout, {
+			const bindGroup = root.createBindGroup(finalPresentBindGroupLayout, {
 				inputTexture: inputView,
+				videoUnderlayTexture: videoUnderlayTexture?.texture ?? transparentTexture,
 				samp: sampler,
 				uniforms: uniformBuffer
 			});
@@ -291,7 +377,8 @@ function compilePresent(host: GpuHost): CompiledPresent {
 					storeOp: 'store'
 				})
 				.draw(3);
-		}
+		},
+		dispose: () => transparentTexture.destroy()
 	};
 }
 
@@ -315,6 +402,8 @@ export interface ApplyChainOptions {
 	stageContentScale?: number;
 	/** Premultiplied RGBA fill composited under the surface output. Absent = transparent default. */
 	background?: [number, number, number, number];
+	/** Decoded creator footage composited beneath the processed Supers result in the final pass. */
+	videoUnderlayTexture?: PreparedVideoUnderlayTexture | null;
 }
 
 export class EffectChain {
@@ -370,7 +459,8 @@ export class EffectChain {
 		progress,
 		timestamp,
 		stageContentScale,
-		background
+		background,
+		videoUnderlayTexture
 	}: ApplyChainOptions): void {
 		const valid: { effect: Effect; compiled: CompiledEffect }[] = [];
 		for (const effect of effects) {
@@ -432,13 +522,16 @@ export class EffectChain {
 			// an effect carved alpha out (e.g. a pane-edge fade window), the fill
 			// shows through — a declared-backgroundFill piece stays opaque to its
 			// edges. Transparent pieces (background absent / a=0) are unaffected.
-			background
+			background,
+			videoUnderlayTexture
 		});
 	}
 
 	dispose(): void {
 		this.#pingTexture.destroy();
 		this.#pongTexture.destroy();
+		this.#present.dispose();
+		this.#backgroundComposite.dispose();
 		this.#cache.clear();
 	}
 }

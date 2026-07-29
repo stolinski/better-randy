@@ -1,3 +1,5 @@
+import * as Sentry from '@sentry/sveltekit';
+
 import { audioBufferToWavBytes } from '$lib/utils/audio-wav';
 import {
 	framesToSeconds,
@@ -9,15 +11,21 @@ import { isEngineStateOpaque, isTransitionOpaque } from '$lib/utils/output-class
 import { getVideoFrameSize, type VideoFrameSize } from '$lib/utils/video-frame';
 
 import { AnimationManager, type AnimationManifest } from './animation-manager';
-import { renderAudioMix } from './audio-mix';
+import { renderAudioMix, type AudioMixRenderRequest } from './audio-mix';
 import type { CompositionFrameRenderResult } from './composition-frame-renderer';
 import type { EngineState, Preset } from './engine-schema';
 import {
+	videoTrackExportSentryContext,
+	videoTrackExportSentryTags
+} from './video-track-export-sentry';
+import {
 	downloadBlob,
+	downloadVideoExport,
 	exportTransparentProRes,
 	exportTransparentWebM,
 	type SyncExportRequest,
-	type TransparentVideoExportOptions
+	type TransparentVideoExportOptions,
+	type VideoExportDownload
 } from './export-video';
 
 export type CompositionExportCodec = 'vp9-alpha' | 'vp9-opaque' | 'prores-4444';
@@ -69,17 +77,21 @@ export interface CompositionExportControllerDependencies {
 	pauseTimeline(): void;
 	buildAnimationManifest(): AnimationManifest;
 	writeGlobalProgress(fraction: number): void;
+	waitForCompositionResources(signal: AbortSignal): Promise<void>;
 	flushDom(): Promise<void>;
+	settleCompositionPaint(signal: AbortSignal): Promise<void>;
+	prepareCompositionFrame(frame: number, timestamp: number): Promise<void>;
 	renderCompositionFrame(timestamp: number): CompositionFrameRenderResult;
 	writeExportUiState(state: CompositionExportUiState): void;
 }
 
 export interface CompositionExportControllerServices {
 	createAnimationManager(): CompositionExportAnimationManager;
-	renderAudio(state: EngineState): Promise<AudioBuffer | null>;
-	exportWebM(options: TransparentVideoExportOptions): Promise<Blob>;
-	exportProRes(options: TransparentVideoExportOptions): Promise<Blob>;
-	download(blob: Blob, filename: string): void;
+	renderAudio(request: AudioMixRenderRequest): Promise<AudioBuffer | null>;
+	exportWebM(options: TransparentVideoExportOptions): Promise<VideoExportDownload>;
+	exportProRes(options: TransparentVideoExportOptions): Promise<VideoExportDownload>;
+	downloadVideo(video: VideoExportDownload, filename: string): void;
+	downloadBlob(blob: Blob, filename: string): void;
 	encodeWav(audio: AudioBuffer): Uint8Array;
 	reportFailure(message: string, error: unknown): void;
 }
@@ -89,7 +101,8 @@ const DEFAULT_SERVICES: CompositionExportControllerServices = {
 	renderAudio: renderAudioMix,
 	exportWebM: exportTransparentWebM,
 	exportProRes: exportTransparentProRes,
-	download: downloadBlob,
+	downloadVideo: downloadVideoExport,
+	downloadBlob,
 	encodeWav: audioBufferToWavBytes,
 	reportFailure: (message, error) => console.error(message, error)
 };
@@ -213,17 +226,27 @@ export class CompositionExportController {
 		this.#publish(dependencies, { isExporting: true, progress: 0, status: '' });
 
 		try {
+			await dependencies.waitForCompositionResources(signal);
+			signal.throwIfAborted();
 			animationManager.rebuild(dependencies.buildAnimationManifest());
-			const audio = await this.#services.renderAudio(state);
+			const audio = await this.#services.renderAudio({
+				state,
+				frameCount: plan.frameCount,
+				frameRate: plan.frameRate,
+				signal
+			});
 			signal.throwIfAborted();
 
 			const renderFrame: TransparentVideoExportOptions['renderFrame'] = async (frame) => {
 				signal.throwIfAborted();
-				const { timestamp } = compositionExportFrameAt(plan, frame);
+				const exportFrame = compositionExportFrameAt(plan, frame);
+				const { timestamp } = exportFrame;
 				const fraction = plan.durationSeconds > 0 ? timestamp / plan.durationSeconds : 0;
 				animationManager.progress(fraction);
 				dependencies.writeGlobalProgress(fraction);
 				await dependencies.flushDom();
+				await dependencies.settleCompositionPaint(signal);
+				await dependencies.prepareCompositionFrame(exportFrame.frame, timestamp);
 				signal.throwIfAborted();
 				if (dependencies.renderCompositionFrame(timestamp) === 'unavailable') {
 					throw new Error('Composition frame renderer is unavailable.');
@@ -244,26 +267,27 @@ export class CompositionExportController {
 				signal
 			};
 
-			const video =
-				plan.format === 'prores'
-					? await this.#services.exportProRes({
+			const videoTrackContext = videoTrackExportSentryContext(state);
+			const video = await Sentry.withScope(async (scope) => {
+				scope.setTags(videoTrackExportSentryTags(videoTrackContext));
+				scope.setContext('media_video_track', videoTrackContext);
+				return plan.format === 'prores'
+					? this.#services.exportProRes({
 							...exportOptions,
 							startTimecode: plan.startTimecode
 						})
-					: await this.#services.exportWebM({
+					: this.#services.exportWebM({
 							...exportOptions,
 							hasBackground: plan.output === 'opaque'
 						});
+			});
 			signal.throwIfAborted();
-			this.#services.download(video, plan.videoFilename);
+			this.#services.downloadVideo(video, plan.videoFilename);
 
 			if (dependencies.readSeparateWav() && audio) {
 				signal.throwIfAborted();
 				const wavBytes = new Uint8Array(this.#services.encodeWav(audio));
-				this.#services.download(
-					new Blob([wavBytes], { type: 'audio/wav' }),
-					plan.wavFilename
-				);
+				this.#services.downloadBlob(new Blob([wavBytes], { type: 'audio/wav' }), plan.wavFilename);
 			}
 		} catch (error) {
 			if (!isCompositionExportCancellation(error, signal)) {

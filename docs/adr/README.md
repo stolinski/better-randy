@@ -53,7 +53,8 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 | [0040](0040-checklist-surface.md)                                | Canon (v1 built)                                          | Checklist Surface                                                                        |
 | [0041](0041-achievement-overlay-family.md)                       | Canon (v1 built)                                          | Achievement Overlay family                                                               |
 | [0042](0042-resolve-marker-sync.md)                              | Canon (v1 built; v2 grammar)                              | Resolve marker sync with frame-exact timing                                              |
-| [0043](0043-source-video-underlay.md)                            | Canon (contract; implementation in progress)              | Source video beneath the Layer stack with exact timestamp mapping                        |
+| [0043](0043-source-video-underlay.md)                            | Canon foundation; singular model superseded by 0045       | Deterministic video underlay/compositor/audio/export foundation                          |
+| [0045](0045-composition-media-library-and-video-track.md)        | Canon (current model)                                     | Composition Media library + one primary Video track                                      |
 
 ## Supersession And Refinement
 
@@ -64,6 +65,8 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 - `0021` -> flat multiplane mechanism in `0027` -> continuous dimensional mechanism in `0028`.
 - `0022` -> shipped snapshot-and-wipe implementation in `0026`; live dual-tree remains deferred.
 - `0033`'s original Sound-kit section -> superseded by its 2026-07-02 amendment; engine defaults + per-motion overrides are current.
+- `0034`'s three-zone/no-left-panel UI -> retained by `0045`; the existing right rail switches between Inspector and Media modes.
+- `0043`'s deterministic decoder/compositor/audio/export/privacy foundation -> retained by `0045`; its singular `state.sourceVideo`, authoring, and opacity model -> superseded by composition `state.media` + coverage-aware Video clips.
 
 ## Implementation Reality
 

@@ -32,7 +32,12 @@
 		type TimelineTrackIdentity
 	} from './timeline-entity-identity';
 	import type { Timeline } from './timeline.svelte';
-	import type { TimelineTrack, TimelineTransition } from './timeline-track';
+	import {
+		isVideoTimelineTrack,
+		type TimelineTrack,
+		type TimelineTransition
+	} from './timeline-track';
+	import VideoTimelineTrack from './VideoTimelineTrack.svelte';
 	import {
 		resolveUnifiedDrag,
 		type UnifiedDragMode,
@@ -87,13 +92,25 @@
 
 	type DragState = TransitionDragState | SeekDragState | KeyframeDragState;
 
-	// gutterBodyEl = the scrollable rows section (excludes the fixed header above).
-	// trackAreaEl = the scrollable lanes; trackColEl wraps ruler + lanes + playhead
-	// (the seek surface + the playhead's positioning context, full panel height).
-	let gutterBodyEl = $state<HTMLDivElement | null>(null);
-	let trackAreaEl = $state<HTMLDivElement | null>(null);
-	let trackColEl = $state<HTMLDivElement | null>(null);
+	// DOM references for the two scroll-synced row areas. The track column itself
+	// remains the seek surface and playhead positioning context.
+	let gutterBodyEl: HTMLDivElement | null = null;
+	let trackAreaEl: HTMLDivElement | null = null;
 	let dragState: DragState | null = null;
+
+	function attachGutterBody(element: HTMLDivElement): () => void {
+		gutterBodyEl = element;
+		return () => {
+			if (gutterBodyEl === element) gutterBodyEl = null;
+		};
+	}
+
+	function attachTrackArea(element: HTMLDivElement): () => void {
+		trackAreaEl = element;
+		return () => {
+			if (trackAreaEl === element) trackAreaEl = null;
+		};
+	}
 
 	const playheadFraction = $derived(
 		timeline.durationSeconds > 0 ? timeline.time / timeline.durationSeconds : 0
@@ -193,8 +210,22 @@
 
 	const overlayRenderers = Object.values(PIPELINE_REGISTRY.overlays);
 
-	let addMenuEl = $state<HTMLDivElement | null>(null);
-	let addTriggerEl = $state<HTMLButtonElement | null>(null);
+	let addMenuEl: HTMLDivElement | null = null;
+	let addTriggerEl: HTMLButtonElement | null = null;
+
+	function attachAddMenu(element: HTMLDivElement): () => void {
+		addMenuEl = element;
+		return () => {
+			if (addMenuEl === element) addMenuEl = null;
+		};
+	}
+
+	function attachAddTrigger(element: HTMLButtonElement): () => void {
+		addTriggerEl = element;
+		return () => {
+			if (addTriggerEl === element) addTriggerEl = null;
+		};
+	}
 
 	// The footer sits at the bottom of a clipped, fixed-height panel, so the menu
 	// renders in the top layer (popover) and is anchored on open: fixed, left-edge
@@ -460,7 +491,7 @@
 		const rect = getTrackAreaRect();
 		if (!rect) return;
 		const target = event.target as HTMLElement | null;
-		if (target?.closest('.track-transition')) return;
+		if (target?.closest('.track-transition, [data-video-timeline-clip]')) return;
 		event.preventDefault();
 		deselectLayer();
 		timeline.clearSelection();
@@ -525,7 +556,7 @@
 		     with lane N because both bodies start below the shared top strip. -->
 		<div
 			class="outline__gutter"
-			bind:this={gutterBodyEl}
+			{@attach attachGutterBody}
 			onscroll={onGutterScroll}
 			role="presentation"
 		>
@@ -563,7 +594,7 @@
 			<button
 				class="gutter__add-trigger"
 				type="button"
-				bind:this={addTriggerEl}
+				{@attach attachAddTrigger}
 				popovertarget="timeline-add-menu"
 				aria-label="Add layer"
 			>
@@ -587,7 +618,7 @@
 				class="add-menu"
 				id="timeline-add-menu"
 				popover
-				bind:this={addMenuEl}
+				{@attach attachAddMenu}
 				ontoggle={onAddMenuToggle}
 			>
 				{#each overlayRenderers as renderer (renderer.type)}
@@ -615,17 +646,12 @@
 	</div>
 
 	<!-- RIGHT: track column — ruler strip / scrollable lanes / playhead -->
-	<div
-		class="outline__track-col"
-		bind:this={trackColEl}
-		onpointerdown={startSeekDrag}
-		role="presentation"
-	>
+	<div class="outline__track-col" onpointerdown={startSeekDrag} role="presentation">
 		<div class="track-ruler" aria-hidden="true"></div>
 
 		<div
 			class="outline__tracks"
-			bind:this={trackAreaEl}
+			{@attach attachTrackArea}
 			onscroll={onTrackScroll}
 			role="presentation"
 		>
@@ -652,93 +678,103 @@
 				</svg>
 			{/if}
 			{#each tracks as track (track.id)}
-				<div class="track-lane">
-					{#each track.transitions as transition (transition.id)}
-						{@const isUnified = transition.unified !== undefined}
-						{@const hasEnter = transition.unified?.enterStart !== undefined}
-						{@const hasExit = transition.unified?.exitStart !== undefined}
-						<!-- enterZone / exitZone are the PERCEIVED ramp widths (ADR-0034 §2a):
+				{#if isVideoTimelineTrack(track)}
+					<VideoTimelineTrack {track} {timeline} />
+				{:else}
+					<div class="track-lane">
+						{#each track.transitions as transition (transition.id)}
+							{@const isUnified = transition.unified !== undefined}
+							{@const hasEnter = transition.unified?.enterStart !== undefined}
+							{@const hasExit = transition.unified?.exitStart !== undefined}
+							<!-- enterZone / exitZone are the PERCEIVED ramp widths (ADR-0034 §2a):
 					     computeUnifiedBar has already collapsed each ease's invisible tail,
 					     so the standard ramp gradient + handles land on real motion edges. -->
-						{@const enterPct = (transition.enterZone ?? 0) * 100}
-						{@const exitPct = (transition.exitZone ?? 0) * 100}
-						{@const label = transition.label ?? track.label}
-						<div
-							class="track-transition"
-							class:track-transition--unified={isUnified}
-							class:track-transition--selected={isTransitionSelected(track.id, transition.id)}
-							class:track-transition--ramp-in={!isUnified && transition.ramp === 'in'}
-							class:track-transition--ramp-out={!isUnified && transition.ramp === 'out'}
-							onpointerdown={(event) => startTransitionDrag(event, track, transition, 'move')}
-							role="presentation"
-							style:--track-color={transition.color ?? track.color ?? 'var(--fg-2)'}
-							style:--enter-pct="{enterPct}%"
-							style:--exit-pct="{exitPct}%"
-							style:left="{transition.start * 100}%"
-							style:width="{transition.duration * 100}%"
-						>
-							{#if isUnified ? hasEnter : transition.onUpdate !== undefined}
-								<button
-									aria-label="Trim {label} start"
-									class="track-handle track-handle--left"
-									onpointerdown={(event) =>
-										startTransitionDrag(
-											event,
-											track,
-											transition,
-											isUnified ? 'trim-start' : 'left'
-										)}
-									type="button"
-								></button>
-							{/if}
-							{#if isUnified && hasEnter && enterPct > 0}
-								<button
-									aria-label="Adjust {label} enter fade"
-									class="track-handle track-handle--enter-zone"
-									style:left="{enterPct}%"
-									onpointerdown={(event) =>
-										startTransitionDrag(event, track, transition, 'enter-zone')}
-									type="button"
-								></button>
-							{/if}
-							<span class="track-label">{label}</span>
-							{#each transition.keyframes ?? [] as keyframe (`${keyframe.channel}:${keyframe.index}`)}
-								<button
-									aria-label="Retime {keyframe.channel} keyframe {keyframe.index + 1}"
-									class="track-keyframe"
-									class:track-keyframe--selected={keyframeSelection.id ===
-										createKeyframeSelectionId(track.id, keyframe.channel, keyframe.index)}
-									class:track-keyframe--playhead={Math.abs(keyframe.fraction - playheadFraction) <=
-										halfFrameFraction}
-									style:left="{transition.duration > 0
-										? ((keyframe.fraction - transition.start) / transition.duration) * 100
-										: 0}%"
-									onpointerdown={(event) => startKeyframeDrag(event, track, transition, keyframe)}
-									type="button"
-								></button>
-							{/each}
-							{#if isUnified && hasExit && exitPct > 0}
-								<button
-									aria-label="Adjust {label} exit fade"
-									class="track-handle track-handle--exit-zone"
-									style:right="{exitPct}%"
-									onpointerdown={(event) =>
-										startTransitionDrag(event, track, transition, 'exit-zone')}
-									type="button"
-								></button>
-							{/if}
-							{#if isUnified ? hasExit : transition.onUpdate !== undefined}
-								<button
-									aria-label="Trim {label} end"
-									class="track-handle track-handle--right"
-									onpointerdown={(event) =>
-										startTransitionDrag(event, track, transition, isUnified ? 'trim-end' : 'right')}
-									type="button"
-								></button>
-							{/if}
-						</div>
-					{/each}
-				</div>
+							{@const enterPct = (transition.enterZone ?? 0) * 100}
+							{@const exitPct = (transition.exitZone ?? 0) * 100}
+							{@const label = transition.label ?? track.label}
+							<div
+								class="track-transition"
+								class:track-transition--unified={isUnified}
+								class:track-transition--selected={isTransitionSelected(track.id, transition.id)}
+								class:track-transition--ramp-in={!isUnified && transition.ramp === 'in'}
+								class:track-transition--ramp-out={!isUnified && transition.ramp === 'out'}
+								onpointerdown={(event) => startTransitionDrag(event, track, transition, 'move')}
+								role="presentation"
+								style:--track-color={transition.color ?? track.color ?? 'var(--fg-2)'}
+								style:--enter-pct="{enterPct}%"
+								style:--exit-pct="{exitPct}%"
+								style:left="{transition.start * 100}%"
+								style:width="{transition.duration * 100}%"
+							>
+								{#if isUnified ? hasEnter : transition.onUpdate !== undefined}
+									<button
+										aria-label="Trim {label} start"
+										class="track-handle track-handle--left"
+										onpointerdown={(event) =>
+											startTransitionDrag(
+												event,
+												track,
+												transition,
+												isUnified ? 'trim-start' : 'left'
+											)}
+										type="button"
+									></button>
+								{/if}
+								{#if isUnified && hasEnter && enterPct > 0}
+									<button
+										aria-label="Adjust {label} enter fade"
+										class="track-handle track-handle--enter-zone"
+										style:left="{enterPct}%"
+										onpointerdown={(event) =>
+											startTransitionDrag(event, track, transition, 'enter-zone')}
+										type="button"
+									></button>
+								{/if}
+								<span class="track-label">{label}</span>
+								{#each transition.keyframes ?? [] as keyframe (`${keyframe.channel}:${keyframe.index}`)}
+									<button
+										aria-label="Retime {keyframe.channel} keyframe {keyframe.index + 1}"
+										class="track-keyframe"
+										class:track-keyframe--selected={keyframeSelection.id ===
+											createKeyframeSelectionId(track.id, keyframe.channel, keyframe.index)}
+										class:track-keyframe--playhead={Math.abs(
+											keyframe.fraction - playheadFraction
+										) <= halfFrameFraction}
+										style:left="{transition.duration > 0
+											? ((keyframe.fraction - transition.start) / transition.duration) * 100
+											: 0}%"
+										onpointerdown={(event) => startKeyframeDrag(event, track, transition, keyframe)}
+										type="button"
+									></button>
+								{/each}
+								{#if isUnified && hasExit && exitPct > 0}
+									<button
+										aria-label="Adjust {label} exit fade"
+										class="track-handle track-handle--exit-zone"
+										style:right="{exitPct}%"
+										onpointerdown={(event) =>
+											startTransitionDrag(event, track, transition, 'exit-zone')}
+										type="button"
+									></button>
+								{/if}
+								{#if isUnified ? hasExit : transition.onUpdate !== undefined}
+									<button
+										aria-label="Trim {label} end"
+										class="track-handle track-handle--right"
+										onpointerdown={(event) =>
+											startTransitionDrag(
+												event,
+												track,
+												transition,
+												isUnified ? 'trim-end' : 'right'
+											)}
+										type="button"
+									></button>
+								{/if}
+							</div>
+						{/each}
+					</div>
+				{/if}
 			{/each}
 		</div>
 

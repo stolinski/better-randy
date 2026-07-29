@@ -1,16 +1,22 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, stat } from 'node:fs/promises';
-import { basename, dirname, isAbsolute, resolve } from 'node:path';
+import { basename, dirname, extname, isAbsolute, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-import { chromium, type Page } from 'playwright';
+import type { Page } from 'playwright';
 
-interface RenderJob {
+import { connectCdpRenderBrowser } from './cdp-render-page.ts';
+
+export interface RenderJob {
 	preset: string;
 	out: string;
 }
 
-interface PreparedPreset {
+export type PresetTransportFormat = 'webm' | 'prores';
+
+export interface PreparedPreset {
 	slug: string;
+	format: PresetTransportFormat;
 	cleanup: () => Promise<void>;
 }
 
@@ -32,8 +38,36 @@ function readFlag(args: readonly string[], flag: string): string {
 	return value;
 }
 
-function isFilePreset(value: string): boolean {
+export function isFilePreset(value: string): boolean {
 	return value.endsWith('.json') || value.includes('/') || value.includes('\\');
+}
+
+function presetTransportFormat(value: unknown, description: string): PresetTransportFormat {
+	if (
+		typeof value !== 'object' ||
+		value === null ||
+		!('state' in value) ||
+		typeof value.state !== 'object' ||
+		value.state === null ||
+		!('transport' in value.state) ||
+		typeof value.state.transport !== 'object' ||
+		value.state.transport === null ||
+		!('format' in value.state.transport) ||
+		(value.state.transport.format !== 'webm' && value.state.transport.format !== 'prores')
+	) {
+		throw new TypeError(`${description} does not declare state.transport.format.`);
+	}
+	return value.state.transport.format;
+}
+
+export function assertOutputExtension(format: PresetTransportFormat, outputPath: string): void {
+	const expectedExtension = format === 'prores' ? '.mov' : '.webm';
+	const actualExtension = extname(outputPath).toLowerCase();
+	if (actualExtension !== expectedExtension) {
+		throw new TypeError(
+			`Output extension ${actualExtension || '(none)'} does not match Preset transport.format "${format}"; expected ${expectedExtension}.`
+		);
+	}
 }
 
 async function responseFailure(response: Response): Promise<string> {
@@ -64,9 +98,36 @@ async function assertRuntimeAvailable(): Promise<void> {
 	}
 }
 
-async function preparePreset(presetInput: string): Promise<PreparedPreset> {
+async function readCorpusPreset(presetInput: string): Promise<unknown> {
+	if (!/^[a-z0-9_-]+$/.test(presetInput)) {
+		throw new TypeError(`Invalid Preset slug "${presetInput}".`);
+	}
+	try {
+		return JSON.parse(
+			await readFile(resolve('src/lib/presets', `${presetInput}.json`), 'utf-8')
+		) as unknown;
+	} catch (error) {
+		throw new Error(`Preset "${presetInput}" was not found in the User store or corpus.`, {
+			cause: error
+		});
+	}
+}
+
+export async function preparePreset(presetInput: string): Promise<PreparedPreset> {
 	if (!isFilePreset(presetInput)) {
-		return { slug: presetInput, cleanup: async () => {} };
+		const response = await fetch(
+			`${APP_URL}/api/user-compositions/${encodeURIComponent(presetInput)}`
+		);
+		if (!response.ok) {
+			throw new Error(`Preset lookup failed: ${await responseFailure(response)}`);
+		}
+		const storedPreset: unknown = await response.json();
+		const preset = storedPreset === null ? await readCorpusPreset(presetInput) : storedPreset;
+		return {
+			slug: presetInput,
+			format: presetTransportFormat(preset, `Preset "${presetInput}"`),
+			cleanup: async () => undefined
+		};
 	}
 
 	const presetPath = resolve(presetInput);
@@ -76,12 +137,13 @@ async function preparePreset(presetInput: string): Promise<PreparedPreset> {
 	} catch (error) {
 		throw new Error(`Failed to read Preset ${presetPath}.`, { cause: error });
 	}
+	const format = presetTransportFormat(preset, `Preset ${presetPath}`);
 
 	const slug = `agent-render-${randomUUID()}`;
-	const response = await fetch(`${APP_URL}/api/user-compositions`, {
-		method: 'POST',
+	const response = await fetch(`${APP_URL}/api/user-compositions/${encodeURIComponent(slug)}`, {
+		method: 'PUT',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ slug, preset, forkedFrom: null })
+		body: JSON.stringify(preset)
 	});
 	if (!response.ok) {
 		throw new Error(`Preset import failed: ${await responseFailure(response)}`);
@@ -89,6 +151,7 @@ async function preparePreset(presetInput: string): Promise<PreparedPreset> {
 
 	return {
 		slug,
+		format,
 		cleanup: async () => {
 			const cleanupResponse = await fetch(
 				`${APP_URL}/api/user-compositions/${encodeURIComponent(slug)}`,
@@ -103,9 +166,21 @@ async function preparePreset(presetInput: string): Promise<PreparedPreset> {
 	};
 }
 
-async function renderJob(page: Page, job: RenderJob): Promise<void> {
-	const prepared = await preparePreset(job.preset);
+export async function withPreparedPreset<T>(
+	presetInput: string,
+	operation: (prepared: PreparedPreset) => Promise<T>
+): Promise<T> {
+	const prepared = await preparePreset(presetInput);
 	try {
+		return await operation(prepared);
+	} finally {
+		await prepared.cleanup();
+	}
+}
+
+export async function renderJob(page: Page, job: RenderJob): Promise<void> {
+	await withPreparedPreset(job.preset, async (prepared) => {
+		assertOutputExtension(prepared.format, job.out);
 		await page.goto(`${APP_URL}/p/${encodeURIComponent(prepared.slug)}`, {
 			waitUntil: 'networkidle',
 			timeout: READY_TIMEOUT_MS
@@ -117,7 +192,23 @@ async function renderJob(page: Page, job: RenderJob): Promise<void> {
 			prepared.slug,
 			{ timeout: READY_TIMEOUT_MS }
 		);
-		await page.evaluate(() => document.fonts.ready);
+		await page.evaluate(() => {
+			const sourceVideoLabel = Array.from(
+				document.querySelectorAll<HTMLElement>('.ins-section__label')
+			).find((label) => label.textContent?.trim() === 'Source video');
+			const disclosure = sourceVideoLabel?.closest('button');
+			if (disclosure?.getAttribute('aria-expanded') === 'false') disclosure.click();
+		});
+		await page.waitForFunction(
+			() => !document.querySelector('.source-video-status')?.textContent?.includes('Probing'),
+			undefined,
+			{ timeout: READY_TIMEOUT_MS }
+		);
+		const sourceVideoError = await page.evaluate(async () => {
+			await document.fonts.ready;
+			return document.querySelector('.source-video-error')?.textContent?.trim() ?? null;
+		});
+		if (sourceVideoError) throw new Error(`Source video unavailable: ${sourceVideoError}`);
 
 		const outputPath = resolve(job.out);
 		await mkdir(dirname(outputPath), { recursive: true });
@@ -136,12 +227,10 @@ async function renderJob(page: Page, job: RenderJob): Promise<void> {
 		const output = await stat(outputPath);
 		if (output.size === 0) throw new Error(`Renderer produced an empty file at ${outputPath}.`);
 		process.stdout.write(`${outputPath}\n`);
-	} finally {
-		await prepared.cleanup();
-	}
+	});
 }
 
-function parseBatchManifest(value: unknown, manifestPath: string): RenderJob[] {
+export function parseBatchManifest(value: unknown, manifestPath: string): RenderJob[] {
 	if (!Array.isArray(value)) {
 		throw new TypeError('Batch manifest must be an array.');
 	}
@@ -166,7 +255,23 @@ function parseBatchManifest(value: unknown, manifestPath: string): RenderJob[] {
 	});
 }
 
-async function run(): Promise<void> {
+export async function runRenderJobs(
+	page: Page,
+	jobs: readonly RenderJob[],
+	render: (page: Page, job: RenderJob) => Promise<void> = renderJob
+): Promise<string[]> {
+	const failures: string[] = [];
+	for (const job of jobs) {
+		try {
+			await render(page, job);
+		} catch (error) {
+			failures.push(`${job.preset}: ${error instanceof Error ? error.message : String(error)}`);
+		}
+	}
+	return failures;
+}
+
+export async function run(): Promise<void> {
 	const [command, ...args] = process.argv.slice(2);
 	let jobs: RenderJob[];
 	if (command === 'render') {
@@ -180,24 +285,14 @@ async function run(): Promise<void> {
 	}
 
 	await assertRuntimeAvailable();
-	const browser = await chromium.connectOverCDP(CDP_URL);
-	const context = browser.contexts()[0];
-	if (!context) throw new Error(`No browser context is available at ${CDP_URL}.`);
-	const page = await context.newPage();
-	const failures: string[] = [];
+	const browser = await connectCdpRenderBrowser(CDP_URL);
+	const page = browser.page;
+	let failures: string[];
 	try {
-		for (const job of jobs) {
-			try {
-				await renderJob(page, job);
-			} catch (error) {
-				failures.push(`${job.preset}: ${error instanceof Error ? error.message : String(error)}`);
-			}
-		}
+		failures = await runRenderJobs(page, jobs);
 	} finally {
 		await page.close();
-		// This Browser was attached with connectOverCDP, so close disconnects the
-		// Playwright client without terminating the shared Chrome process.
-		await browser.close({ reason: 'Supers render jobs complete' });
+		await browser.disconnect();
 	}
 
 	if (failures.length > 0) {
@@ -205,7 +300,10 @@ async function run(): Promise<void> {
 	}
 }
 
-run().catch((error: unknown) => {
-	process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-	process.exitCode = 1;
-});
+const entryPath = process.argv[1];
+if (entryPath && import.meta.url === pathToFileURL(resolve(entryPath)).href) {
+	run().catch((error: unknown) => {
+		process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+		process.exitCode = 1;
+	});
+}

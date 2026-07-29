@@ -2,83 +2,85 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
 import { buildCompositionTimelineTracks } from './composition-timeline-tracks.ts';
-import type { EngineState } from './engine-schema.ts';
-import { createTimelineTrackId } from './timeline-entity-identity.ts';
+import { createDefaultEngineState, type EngineState } from './engine-schema.ts';
+import { createTimelineTrackId, createVideoClipSelectionId } from './timeline-entity-identity.ts';
+import { isVideoTimelineTrack } from './timeline-track.ts';
 
 function makeTimelineState(): EngineState {
-	return {
-		transport: { orientation: 'horizontal', durationSeconds: 10, fps: 30, format: 'webm' },
-		typography: { fontFamily: 'serif', paperColor: '#ffffff', inkColor: '#000000' },
-		marks: {
-			defaults: { highlight: { color: '#ffee00', intensity: 0.6 } },
-			timings: [{ start: 0.3, duration: 0.1, ease: 'smooth' }]
-		},
-		surface: {
-			type: 'plain',
-			content: {
-				title: 'Timeline',
-				body: [
-					{
-						type: 'paragraph',
-						segments: [{ text: 'Marked phrase', markStyles: ['highlight'] }]
-					}
-				]
-			},
-			enter: { start: 0, duration: 0.05, ease: 'settled' },
-			exit: { start: 0.9, duration: 0.04, ease: 'smooth' },
-			// Diagram primitive Block with its dedicated roll subtrack.
-			diagram: [
+	const state = createDefaultEngineState();
+	state.transport = { orientation: 'horizontal', durationSeconds: 10, fps: 30, format: 'webm' };
+	state.typography = { fontFamily: 'serif', paperColor: '#ffffff', inkColor: '#000000' };
+	state.marks = {
+		defaults: { highlight: { color: '#ffee00', intensity: 0.6 } },
+		timings: [{ start: 0.3, duration: 0.1, ease: 'smooth' }]
+	};
+	state.surface = {
+		type: 'plain',
+		content: {
+			title: 'Timeline',
+			body: [
 				{
-					type: 'stat-callout',
-					id: 'revenue-roll',
-					position: { x: 0.5, y: 0.5 },
-					from: 0,
-					to: 100,
-					enter: { start: 0.2, duration: 0.05, ease: 'settled' },
-					rollStart: 0.24,
-					rollWindow: 0.3
+					type: 'paragraph',
+					segments: [{ text: 'Marked phrase', markStyles: ['highlight'] }]
 				}
 			]
 		},
-		textAnimations: [
+		enter: { start: 0, duration: 0.05, ease: 'settled' },
+		exit: { start: 0.9, duration: 0.04, ease: 'smooth' },
+		// Diagram primitive Block with its dedicated roll subtrack.
+		diagram: [
 			{
-				id: 'title-reveal',
-				target: { kind: 'surface', slot: 'title' },
-				effect: 'soft-blur-in',
-				enter: { start: 0.22, duration: 0.08, ease: 'smooth' }
+				type: 'stat-callout',
+				id: 'revenue-roll',
+				position: { x: 0.5, y: 0.5 },
+				from: 0,
+				to: 100,
+				enter: { start: 0.2, duration: 0.05, ease: 'settled' },
+				rollStart: 0.24,
+				rollWindow: 0.3
 			}
-		],
-		overlays: [
-			{
-				id: 'leader',
-				type: 'lower-third',
-				content: {},
-				position: { anchor: 'center' },
-				enter: { start: 0.1, duration: 0.05, ease: 'smooth' }
-			},
-			{
-				id: 'follower:roll',
-				type: 'lower-third',
-				content: {},
-				position: { anchor: 'center' },
-				enter: { start: 0.8, duration: 0.05, ease: 'smooth' },
-				animation: {
-					cascade: { anchor: { overlay: 'leader' }, event: 'end', offsetMs: 200 }
-				}
-			},
-			{
-				id: 'counter-roll',
-				type: 'counter',
-				content: { rollStart: 0.15, rollWindow: 0.4 },
-				position: { anchor: 'center' },
-				enter: { start: 0.08, duration: 0.05, ease: 'settled' }
-			}
-		],
-		effects: [],
-		audioCues: [
-			{ id: 'manual:sting', kind: 'cue', assetSlug: 'core-sting', start: 0.75, duration: 0.1 }
 		]
-	} as unknown as EngineState;
+	};
+	state.textAnimations = [
+		{
+			id: 'title-reveal',
+			target: { kind: 'surface', slot: 'title' },
+			effect: 'soft-blur-in',
+			enter: { start: 0.22, duration: 0.08, ease: 'smooth' }
+		}
+	];
+	state.overlays = [
+		{
+			id: 'leader',
+			type: 'lower-third',
+			content: {},
+			position: { anchor: 'center' },
+			enter: { start: 0.1, duration: 0.05, ease: 'smooth' }
+		},
+		{
+			id: 'follower:roll',
+			type: 'lower-third',
+			content: {},
+			position: { anchor: 'center' },
+			enter: { start: 0.8, duration: 0.05, ease: 'smooth' },
+			animation: {
+				cascade: { anchor: { overlay: 'leader' }, event: 'end', offsetMs: 200 }
+			}
+		},
+		{
+			id: 'counter-roll',
+			type: 'counter',
+			content: { rollStart: 0.15, rollWindow: 0.4 },
+			position: { anchor: 'center' },
+			enter: { start: 0.08, duration: 0.05, ease: 'settled' }
+		}
+	];
+	state.effects = [];
+	state.audioCues = [
+		{ id: 'manual:sting', kind: 'cue', assetSlug: 'core-sting', start: 0.75, duration: 0.1 }
+	];
+	state.media = { assets: [], videoTrack: { clips: [] } };
+	return state;
 }
 
 const appearance = {
@@ -110,6 +112,7 @@ describe('composition timeline tracks', () => {
 					subtrack: { kind: 'roll' }
 				}),
 				createTimelineTrackId({ kind: 'text-animation', textAnimationId: 'title-reveal' }),
+				createTimelineTrackId({ kind: 'video' }),
 				createTimelineTrackId({ kind: 'sound' })
 			]
 		);
@@ -117,7 +120,87 @@ describe('composition timeline tracks', () => {
 		assert.equal(tracks[0].label, 'Surface');
 		assert.match(tracks[2].label, /^stat ·/);
 		assert.match(tracks[8].label, /^T · title/);
-		assert.ok(tracks[9].transitions.some((transition) => transition.soundReference?.kind === 'manual'));
+		assert.equal(tracks[9].label, 'Video');
+		assert.ok(
+			tracks[10].transitions.some((transition) => transition.soundReference?.kind === 'manual')
+		);
+	});
+
+	it('always builds one fixed Video row and maps ordered canonical clips', () => {
+		const emptyTracks = buildCompositionTimelineTracks(makeTimelineState(), appearance);
+		const emptyVideo = emptyTracks.find(isVideoTimelineTrack);
+		assert.ok(emptyVideo);
+		assert.equal(emptyVideo.isRemovable, false);
+		assert.deepEqual(emptyVideo.clips, []);
+
+		const state = makeTimelineState();
+		state.media = {
+			assets: [
+				{
+					id: 'camera-a',
+					kind: 'video',
+					name: 'Opening interview camera',
+					assetUrl: `/api/user-assets/${'a'.repeat(64)}.mp4`
+				},
+				{
+					id: 'screen-b',
+					kind: 'video',
+					name: 'Screen capture',
+					assetUrl: `/api/user-assets/${'b'.repeat(64)}.webm`
+				}
+			],
+			videoTrack: {
+				clips: [
+					{
+						id: 'opening:clip',
+						assetId: 'camera-a',
+						timelineStartFrame: 0,
+						durationFrames: 60,
+						sourceStartSeconds: 4.25,
+						audio: { enabled: true, gain: 0.8 }
+					},
+					{
+						id: 'demo',
+						assetId: 'screen-b',
+						timelineStartFrame: 90,
+						durationFrames: 30,
+						sourceStartSeconds: 1,
+						audio: { enabled: false, gain: 1 }
+					}
+				]
+			}
+		};
+
+		const tracks = buildCompositionTimelineTracks(state, appearance);
+		const video = tracks.find(isVideoTimelineTrack);
+		assert.ok(video);
+		assert.deepEqual(video.clips, [
+			{
+				id: createVideoClipSelectionId('opening:clip'),
+				clipId: 'opening:clip',
+				assetId: 'camera-a',
+				label: 'Opening interview camera',
+				timelineStartFrame: 0,
+				durationFrames: 60,
+				sourceStartSeconds: 4.25,
+				audio: { enabled: true, gain: 0.8 }
+			},
+			{
+				id: createVideoClipSelectionId('demo'),
+				clipId: 'demo',
+				assetId: 'screen-b',
+				label: 'Screen capture',
+				timelineStartFrame: 90,
+				durationFrames: 30,
+				sourceStartSeconds: 1,
+				audio: { enabled: false, gain: 1 }
+			}
+		]);
+		const videoIndex = tracks.indexOf(video);
+		const soundIndex = tracks.findIndex(
+			(track) => track.id === createTimelineTrackId({ kind: 'sound' })
+		);
+		assert.equal(videoIndex, soundIndex - 1);
 	});
 
 	it('writes representative track edits back to the authored composition', () => {
@@ -161,7 +244,9 @@ describe('composition timeline tracks', () => {
 		assert.deepEqual(state.overlays[2].content, { rollStart: 0.28, rollWindow: 0.45 });
 
 		const sound = find(createTimelineTrackId({ kind: 'sound' }));
-		const manual = sound.transitions.find((transition) => transition.soundReference?.kind === 'manual');
+		const manual = sound.transitions.find(
+			(transition) => transition.soundReference?.kind === 'manual'
+		);
 		manual?.onUpdate?.({ start: 0.66, duration: 0.2 });
 		assert.equal(state.audioCues[0].start, 0.66);
 		assert.equal(state.audioCues[0].duration, 0.2);

@@ -2,18 +2,18 @@
 
 ## Status
 
-**Canon (built).** The three-zone `Workspace` mounts `Inspector`, `TimelineOutline`, `CanvasEditingOverlay`, and `CanvasControlsBar`; construction epics `jz2yykvi` and `wfonjyb3` are complete. The body preserves decision-time context rather than current-layout guidance. Its Sound-kit references are historical and superseded by ADR-0033's 2026-07-02 amendment.
+**Canon (built; right-rail mode refined by ADR-0045).** The three-zone `Workspace` mounts `Inspector`, `TimelineOutline`, `CanvasEditingOverlay`, and `CanvasControlsBar`; construction epics `jz2yykvi` and `wfonjyb3` are complete. The body preserves decision-time context rather than current-layout guidance. Its Sound-kit references are historical and superseded by ADR-0033's 2026-07-02 amendment.
 
 Date: 2026-06-26
 Relates to: [ADR-0032](0032-gui-agent-parity-authoring.md) (GUI parity — the data model this interface sits over), [ADR-0011](0011-text-animation-orchestration.md) (timeline tracks + grouped editor sections precedent), [ADR-0033](0033-sound-design-motion-emitted-cues.md) (the per-Layer Sound-kit picker lives in the Layer inspector)
 
 ## Context
 
-[ADR-0032](0032-gui-agent-parity-authoring.md) specified the GUI's **data model** (fork-on-edit, persistence, lossless round-trip) but explicitly *not* the interface. This ADR specifies the **interaction model** — the structure and behavior of the authoring UI. It does **not** specify the visual design (layout proportions, hierarchy, component styling, the actual look); that is a follow-up pass.
+[ADR-0032](0032-gui-agent-parity-authoring.md) specified the GUI's **data model** (fork-on-edit, persistence, lossless round-trip) but explicitly _not_ the interface. This ADR specifies the **interaction model** — the structure and behavior of the authoring UI. It does **not** specify the visual design (layout proportions, hierarchy, component styling, the actual look); that is a follow-up pass.
 
 At decision time, `/p/[slug]` rendered one `<Workspace>` shell: a WebGPU canvas that was **preview-only** (no selection or manipulation), global grouped form controls (nothing was "selected"), a timeline (tracks + scrubber + draggable rail clips), and a separate export panel. Design system was Graffiti tokens.
 
-The engine's nature constrains the design: a **tasteful, constrained vocabulary with smart defaults — not a freeform node compositor**. The interface must be *capable* (agent-parity: author anything) yet *restrained* (less UI).
+The engine's nature constrains the design: a **tasteful, constrained vocabulary with smart defaults — not a freeform node compositor**. The interface must be _capable_ (agent-parity: author anything) yet _restrained_ (less UI).
 
 ## Decision
 
@@ -21,7 +21,7 @@ The engine's nature constrains the design: a **tasteful, constrained vocabulary 
 
 The **inspector is the complete editing surface**: the whole Preset schema for the selected element, plus the non-spatial things (timing, effects, content, sound). **On-canvas direct manipulation is a fast-path for the spatial subset only** — position (drag) + scale (handles) — two-way-bound to the inspector. Everything else is inspector-only. (Rotation and broader direct-manipulation are deferred.)
 
-### 2. The timeline *is* the layer outline
+### 2. The timeline _is_ the layer outline
 
 Every Layer is temporal, so the layer list and the timeline are **one panel with two regions**:
 
@@ -63,7 +63,7 @@ The inspector renders a **curated editor for what's selected** — an Overlay's 
 
 ### 5. Three zones
 
-Canvas (preview + position/scale manipulation) · timeline-outline · inspector. Built on Graffiti tokens; **autosave** (no save button — [ADR-0032](0032-gui-agent-parity-authoring.md)); no refresh buttons, no explanatory text; every panel must be load-bearing (both the timeline-outline and the inspector are).
+Canvas (preview + position/scale manipulation) · timeline-outline · right rail. Built on Graffiti tokens; **autosave** (no save button — [ADR-0032](0032-gui-agent-parity-authoring.md)); no refresh buttons, no explanatory text; every panel must be load-bearing (both the timeline-outline and the right rail are). [ADR-0045](0045-composition-media-library-and-video-track.md) refines that existing right rail to switch between Inspector and Media modes. The no-left-panel decision remains; Media does not add a fourth zone.
 
 ### 6. It is the interface over the parity data model
 

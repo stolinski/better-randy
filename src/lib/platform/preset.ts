@@ -1,5 +1,4 @@
 import {
-	PresetSchema,
 	type Cascade,
 	type CascadeAnchor,
 	type CompositionTransition,
@@ -22,6 +21,7 @@ import {
 	type ResolvedTransition
 } from './engine-state.svelte';
 import { applyPresetBase } from './preset-base.svelte';
+import { PresetIngressSchema } from './preset-ingress';
 import { isTransitionEffectType } from './pipelines/transition-registry';
 import { formatPresetSemanticIssues, validatePresetSemantics } from './preset-validation';
 
@@ -45,7 +45,7 @@ const SCHEMA_VALID_CATALOG: CataloguedPreset[] = Object.entries(presetModules)
 			return null;
 		}
 
-		const result = PresetSchema.safeParse(module.default);
+		const result = PresetIngressSchema.safeParse(module.default);
 
 		if (!result.success) {
 			console.error(`Invalid built-in preset at ${path}.`, result.error);
@@ -114,7 +114,7 @@ export function getPresetBySlug(slug: string): Preset | null {
 }
 
 export function parsePreset(json: unknown): Preset {
-	const result = PresetSchema.safeParse(json);
+	const result = PresetIngressSchema.safeParse(json);
 
 	if (!result.success) {
 		const issues = result.error.issues
@@ -341,7 +341,7 @@ export function applyCompositionState(preset: Preset): void {
 	engineState.effects = (next.effects ?? []).map(cloneEffect);
 	engineState.textAnimations = (next.textAnimations ?? []).map(cloneTextAnimation);
 	engineState.audioCues = next.audioCues.map((cue) => ({ ...cue }));
-	engineState.sourceVideo = next.sourceVideo ? { ...next.sourceVideo } : undefined;
+	engineState.media = structuredClone(next.media);
 	engineState.backgroundFill = next.backgroundFill;
 	engineState.stage = next.stage
 		? {

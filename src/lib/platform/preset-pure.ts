@@ -20,6 +20,10 @@ export interface PresetBaseFields {
 	transition?: CompositionTransition | undefined;
 }
 
+function canonicalCompositionState(state: EngineState): Preset['state'] {
+	return { ...state };
+}
+
 /**
  * Produce a Preset from the base (top-level metadata) and the live engine
  * state. The base supplies `name`, `description`, `kind`, and `transition` —
@@ -40,7 +44,7 @@ export function serializeCompositionState(
 		name: base.name,
 		pack: packSlug,
 		kind: base.kind,
-		state
+		state: canonicalCompositionState(state)
 	};
 	if (base.description !== undefined) result.description = base.description;
 	// Cloned so the serialized Preset never shares the live (mutable) recipe
@@ -58,10 +62,11 @@ export function serializeCompositionState(
 export function presetToWireFormat(preset: Preset): unknown {
 	const surface = preset.state.surface;
 	const content: unknown = wireContent(surface.content);
+	const canonicalState = canonicalCompositionState(preset.state);
 	return {
 		...preset,
 		state: {
-			...preset.state,
+			...canonicalState,
 			surface: { ...surface, content }
 		}
 	};

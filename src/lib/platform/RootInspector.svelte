@@ -122,6 +122,7 @@
 	}
 
 	function toggleStage(): void {
+		if (engineState.media.videoTrack.clips.length > 0) return;
 		if (engineState.stage) {
 			engineState.stage = undefined;
 		} else {
@@ -218,7 +219,7 @@
 	// Motion sounds are derived and live on each item's Sound section — this
 	// authors only what has no motion to ride: free-standing sounds (placed at
 	// the playhead) and the single bed (full-frame pieces only, so "+ Bed"
-	// shows only while a background fill is set).
+	// shows only while a background fill or Video clip is present).
 	const soundAssets = listSoundAssets();
 	const hasBed = $derived(engineState.audioCues.some((cue) => cue.kind === 'bed'));
 
@@ -284,6 +285,7 @@
 	}
 
 	function toggleTransition(): void {
+		if (engineState.media.videoTrack.clips.length > 0) return;
 		if (presetBase.transition) {
 			presetBase.transition = undefined;
 		} else {
@@ -525,6 +527,7 @@
 			<InspectorToggle
 				checked={engineState.backgroundFill !== undefined}
 				label="Background fill"
+				disabled={engineState.media.videoTrack.clips.length > 0}
 				onchange={(checked) => {
 					engineState.backgroundFill = checked ? '#000000' : undefined;
 				}}
@@ -542,6 +545,7 @@
 			<InspectorToggle
 				checked={!!presetBase.transition}
 				label="Transition"
+				disabled={engineState.media.videoTrack.clips.length > 0}
 				onchange={toggleTransition}
 			/>
 		{/snippet}
@@ -583,7 +587,12 @@
 
 	<InspectorSection label="Depth Stage">
 		{#snippet action()}
-			<InspectorToggle checked={!!engineState.stage} label="Depth stage" onchange={toggleStage} />
+			<InspectorToggle
+				checked={!!engineState.stage}
+				label="Depth stage"
+				disabled={engineState.media.videoTrack.clips.length > 0}
+				onchange={toggleStage}
+			/>
 		{/snippet}
 		{#if engineState.stage}
 			{@const stage = engineState.stage}
@@ -807,7 +816,7 @@
 	<InspectorSection label="Sound">
 		{#snippet action()}
 			<button type="button" class="ins-add" onclick={() => addAudioCue('cue')}>+ Sound</button>
-			{#if engineState.backgroundFill !== undefined && !hasBed}
+			{#if (engineState.backgroundFill !== undefined || engineState.media.videoTrack.clips.length > 0) && !hasBed}
 				<button type="button" class="ins-add" onclick={() => addAudioCue('bed')}>+ Bed</button>
 			{/if}
 		{/snippet}
@@ -960,6 +969,11 @@
 
 	.remove-btn:hover {
 		color: #f0453d;
+	}
+
+	.remove-btn:disabled {
+		cursor: default;
+		opacity: 0.45;
 	}
 
 	/* A manual cue / bed entry: hairline-separated sub-group, like effect rows. */

@@ -1,15 +1,20 @@
 /**
  * Deterministic offline audio mix (ADR-0033 §6). The export's audio track is
- * a pure function of {derived motion cues + manual cues + bed + resolved samples +
- * duration}: `planAudioMix` computes the schedule (pure, node-testable) and
- * `renderAudioMix` realizes it through an `OfflineAudioContext` at fixed
- * sample positions — no wall-clock anywhere, so the same composition renders
- * a byte-identical buffer every run. Preview playback (real-time, scrub
- * silent) is a separate concern and does NOT go through this module.
+ * a pure function of {Video-clip PCM + derived motion cues + manual cues +
+ * bed + exact export frame plan}: `planAudioMix` computes the cue schedule
+ * (pure, node-testable) and `renderAudioMix` sums every input at fixed sample
+ * positions. No wall-clock participates, so the same composition renders a
+ * byte-identical buffer every run. Preview uses this exact mix whenever
+ * Video-clip audio participates; cue-only preview retains its low-latency scheduler.
  */
+import type { FrameRate } from '$lib/utils/composition-timing';
+import { isEngineStateOpaque } from '$lib/utils/output-classification';
+import { resolveVideoClipInterval } from '$lib/utils/video-clip-resolution';
+
 import { loadSoundBuffer } from './audio-assets';
-import type { EngineState } from './engine-schema';
+import type { EngineState, VideoAsset } from './engine-schema';
 import { deriveSoundCues, isAudibleSoundCue, resolveCueSample } from './sound-cues.ts';
+import { VideoAssetAudioDecoder, type VideoAssetAudioPcm } from './video-asset-audio-decoder';
 
 /** Fixed mix rate — matches the bundled core WAVs; the muxer resamples if it must. */
 export const AUDIO_MIX_SAMPLE_RATE = 48000;
@@ -49,6 +54,7 @@ export interface ScheduledSound {
 export function planAudioMix(state: EngineState): ScheduledSound[] {
 	const duration = state.transport.durationSeconds;
 	const plan: ScheduledSound[] = [];
+	const isBedEligible = isEngineStateOpaque(state);
 
 	for (const cue of deriveSoundCues(state)) {
 		if (!isAudibleSoundCue(cue)) {
@@ -69,6 +75,7 @@ export function planAudioMix(state: EngineState): ScheduledSound[] {
 	}
 
 	for (const cue of state.audioCues) {
+		if (cue.kind === 'bed' && !isBedEligible) continue;
 		plan.push({
 			slug: cue.assetSlug,
 			when: cue.start * duration,
@@ -84,19 +91,146 @@ export function planAudioMix(state: EngineState): ScheduledSound[] {
 
 /**
  * Render the composition's audio into one AudioBuffer
- * (AUDIO_MIX_SAMPLE_RATE, stereo, exactly the transport duration). Returns
+ * (AUDIO_MIX_SAMPLE_RATE, stereo, exactly the whole-frame export duration). Returns
  * null when the composition schedules no sound — a silent piece must not
  * grow a silent audio track on export. Sounds whose asset slug is unknown
  * resolve to silence with a console.error (the boot gate catches engine-default
  * and signature samples; this guards authored asset typos).
  */
-export async function renderAudioMix(state: EngineState): Promise<AudioBuffer | null> {
-	const plan = planAudioMix(state);
-	const duration = state.transport.durationSeconds;
-	const playable = plan.filter((entry) => entry.when < duration);
-	if (playable.length === 0) {
-		return null;
+export interface AudioMixRenderRequest {
+	state: EngineState;
+	frameCount: number;
+	frameRate: FrameRate;
+	signal?: AbortSignal;
+}
+
+export interface AudioMixServices {
+	decodeVideoClipAudio(request: VideoClipAudioDecodeRequest): Promise<VideoAssetAudioPcm | null>;
+	createCueDecodeContext(): BaseAudioContext;
+	loadCueBuffer(slug: string, context: BaseAudioContext): Promise<AudioBuffer> | null;
+	createOutputBuffer(options: AudioBufferOptions): AudioBuffer;
+}
+
+export interface VideoClipAudioDecodeRequest {
+	asset: VideoAsset;
+	sourceStartSeconds: number;
+	sourceEndSeconds: number;
+	outputSampleCount: number;
+	signal?: AbortSignal;
+}
+
+const DEFAULT_AUDIO_MIX_SERVICES: AudioMixServices = {
+	decodeVideoClipAudio: async (request) => {
+		return new VideoAssetAudioDecoder(request.asset.assetUrl).decode({
+			sourceStartSeconds: request.sourceStartSeconds,
+			sourceEndSeconds: request.sourceEndSeconds,
+			outputSampleCount: request.outputSampleCount,
+			...(request.signal ? { signal: request.signal } : {})
+		});
+	},
+	createCueDecodeContext: () =>
+		new OfflineAudioContext(AUDIO_MIX_CHANNELS, 1, AUDIO_MIX_SAMPLE_RATE),
+	loadCueBuffer: loadSoundBuffer,
+	createOutputBuffer: (options) => new AudioBuffer(options)
+};
+
+/** Exact destination sample boundary for an absolute transport frame. */
+export function audioMixSampleAtFrame(frame: number, frameRate: FrameRate): number {
+	if (!Number.isInteger(frame) || frame < 0) {
+		throw new TypeError('Audio mix frame must be a nonnegative integer.');
 	}
+	return Math.round((frame * frameRate.den * AUDIO_MIX_SAMPLE_RATE) / frameRate.num);
+}
+
+/** Exact 48 kHz sample count for a whole-frame export at an exact rational rate. */
+export function audioMixSampleCount(frameCount: number, frameRate: FrameRate): number {
+	if (!Number.isInteger(frameCount) || frameCount < 0) {
+		throw new TypeError('Audio mix frame count must be a nonnegative integer.');
+	}
+	return audioMixSampleAtFrame(frameCount, frameRate);
+}
+
+export function hasAudibleVideoClipAudio(state: Pick<EngineState, 'media'>): boolean {
+	return state.media.videoTrack.clips.some((clip) => clip.audio.enabled && clip.audio.gain > 0);
+}
+
+function emptyMixChannels(
+	outputSampleCount: number
+): [Float32Array<ArrayBuffer>, Float32Array<ArrayBuffer>] {
+	return [new Float32Array(outputSampleCount), new Float32Array(outputSampleCount)];
+}
+
+function assertDecodedClipAudio(pcm: VideoAssetAudioPcm, expectedSampleCount: number): void {
+	if (
+		pcm.sampleRate !== AUDIO_MIX_SAMPLE_RATE ||
+		pcm.channels.some((channel) => channel.length !== expectedSampleCount)
+	) {
+		throw new TypeError('Decoded Video clip audio does not match the deterministic mix format.');
+	}
+}
+
+export async function renderAudioMix(
+	request: AudioMixRenderRequest,
+	services: AudioMixServices = DEFAULT_AUDIO_MIX_SERVICES
+): Promise<AudioBuffer | null> {
+	const { state, frameCount, frameRate, signal } = request;
+	const plan = planAudioMix(state);
+	const outputSampleCount = audioMixSampleCount(frameCount, frameRate);
+	const duration = outputSampleCount / AUDIO_MIX_SAMPLE_RATE;
+	const playable = plan.filter((entry) => entry.when < duration);
+	signal?.throwIfAborted();
+	let channels: [Float32Array<ArrayBuffer>, Float32Array<ArrayBuffer>] | null = null;
+
+	for (const clip of state.media.videoTrack.clips) {
+		if (!clip.audio.enabled || clip.audio.gain === 0) continue;
+		const asset = state.media.assets.find((candidate) => candidate.id === clip.assetId);
+		if (!asset) {
+			throw new Error(`Video clip "${clip.id}" references missing asset "${clip.assetId}".`);
+		}
+		const interval = resolveVideoClipInterval(clip, frameRate);
+		const destinationStartSample = audioMixSampleAtFrame(interval.timelineStartFrame, frameRate);
+		const destinationEndSample = audioMixSampleAtFrame(interval.timelineEndFrame, frameRate);
+		if (destinationEndSample > outputSampleCount) {
+			throw new RangeError(`Video clip "${clip.id}" extends beyond the audio mix transport.`);
+		}
+		const clipSampleCount = destinationEndSample - destinationStartSample;
+		const clipPcm = await services.decodeVideoClipAudio({
+			asset,
+			sourceStartSeconds: interval.sourceStartSeconds,
+			sourceEndSeconds: interval.sourceEndSeconds,
+			outputSampleCount: clipSampleCount,
+			...(signal ? { signal } : {})
+		});
+		signal?.throwIfAborted();
+		if (!clipPcm) continue;
+		assertDecodedClipAudio(clipPcm, clipSampleCount);
+
+		const canAdoptClipBuffer =
+			channels === null &&
+			destinationStartSample === 0 &&
+			destinationEndSample === outputSampleCount;
+		if (canAdoptClipBuffer) {
+			channels = [clipPcm.channels[0], clipPcm.channels[1]];
+			if (clip.audio.gain !== 1) {
+				for (const channel of channels) {
+					for (let sample = 0; sample < channel.length; sample += 1) {
+						channel[sample] *= clip.audio.gain;
+					}
+				}
+			}
+			continue;
+		}
+
+		channels ??= emptyMixChannels(outputSampleCount);
+		for (let channel = 0; channel < AUDIO_MIX_CHANNELS; channel += 1) {
+			const output = channels[channel];
+			const input = clipPcm.channels[channel];
+			for (let sample = 0; sample < clipSampleCount; sample += 1) {
+				output[destinationStartSample + sample] += input[sample] * clip.audio.gain;
+			}
+		}
+	}
+	if (playable.length === 0 && channels === null) return null;
 
 	// Web Audio is used ONLY to decode (resampled to the mix rate). The
 	// summing itself is plain JS in fixed plan order — an OfflineAudioContext
@@ -104,12 +238,13 @@ export async function renderAudioMix(state: EngineState): Promise<AudioBuffer | 
 	// is non-associative, so three-plus overlapping cues broke byte-identity
 	// by ±1 ULP. Hand-mixing keeps the §6 contract literal: same inputs →
 	// same bytes.
-	const context = new OfflineAudioContext(AUDIO_MIX_CHANNELS, 1, AUDIO_MIX_SAMPLE_RATE);
+	const context = playable.length > 0 ? services.createCueDecodeContext() : null;
 	const slugs = [...new Set(playable.map((entry) => entry.slug))];
 	const buffers = new Map<string, AudioBuffer>();
 	await Promise.all(
 		slugs.map(async (slug) => {
-			const pending = loadSoundBuffer(slug, context);
+			signal?.throwIfAborted();
+			const pending = context ? services.loadCueBuffer(slug, context) : null;
 			if (pending === null) {
 				console.error(`Audio mix: unknown sound asset "${slug}"; scheduling silence.`);
 				return;
@@ -117,9 +252,9 @@ export async function renderAudioMix(state: EngineState): Promise<AudioBuffer | 
 			buffers.set(slug, await pending);
 		})
 	);
+	signal?.throwIfAborted();
 
-	const frameCount = Math.ceil(duration * AUDIO_MIX_SAMPLE_RATE);
-	const channels = [new Float32Array(frameCount), new Float32Array(frameCount)];
+	channels ??= emptyMixChannels(outputSampleCount);
 	const releaseFrames = Math.round(RELEASE_SECONDS * AUDIO_MIX_SAMPLE_RATE);
 
 	for (const entry of playable) {
@@ -133,7 +268,7 @@ export async function renderAudioMix(state: EngineState): Promise<AudioBuffer | 
 			entry.windowSeconds !== null
 				? Math.round(entry.windowSeconds * AUDIO_MIX_SAMPLE_RATE)
 				: buffer.length;
-		const playFrames = Math.min(buffer.length, windowFrames, frameCount - startFrame);
+		const playFrames = Math.min(buffer.length, windowFrames, outputSampleCount - startFrame);
 		if (playFrames <= 0) {
 			continue;
 		}
@@ -169,8 +304,8 @@ export async function renderAudioMix(state: EngineState): Promise<AudioBuffer | 
 		}
 	}
 
-	const rendered = new AudioBuffer({
-		length: frameCount,
+	const rendered = services.createOutputBuffer({
+		length: outputSampleCount,
 		numberOfChannels: AUDIO_MIX_CHANNELS,
 		sampleRate: AUDIO_MIX_SAMPLE_RATE
 	});

@@ -32,6 +32,7 @@ import type {
 	SurfaceRenderInputs,
 	SurfaceRenderInstance
 } from './pipelines/types';
+import type { PreparedVideoUnderlayTexture } from './video-underlay-frame-texture';
 
 const SELF_FADING_SURFACE_TYPES = new Set(['chapter-card', 'title-sequence', 'pullquote-on-photo']);
 
@@ -94,6 +95,12 @@ export interface CachedTransitionFrame {
 	wipe: CompiledTransitionWipe;
 }
 
+export interface CompositionDomCaptureGenerations {
+	surface: number;
+	overlay: number;
+	force: boolean;
+}
+
 export interface CompositionFrameRenderRequest {
 	outputView: GPUTextureView;
 	timestamp: number;
@@ -103,9 +110,36 @@ export interface CompositionFrameRenderRequest {
 	compositionElement: HTMLElement | null;
 	overlayRootElement: HTMLElement | null;
 	substrateTexture: GPUTexture | null;
+	videoUnderlayTexture: PreparedVideoUnderlayTexture | null;
+	domCapture?: CompositionDomCaptureGenerations;
 	resources: CompositionFrameRenderResources;
 	cachedTransition: CachedTransitionFrame | null;
 	buildSurfaceInputs(timestamp: number): SurfaceRenderInputs;
+}
+
+const uploadedSurfaceGenerations = new WeakMap<SurfaceRenderInstance, number>();
+const uploadedOverlayGenerations = new WeakMap<CompositionPlanes, number>();
+
+function captureSurfaceDom(request: CompositionFrameRenderRequest): void {
+	const pipeline = request.resources.pipeline;
+	if (!pipeline) return;
+	const capture = request.domCapture;
+	if (!capture || capture.force || uploadedSurfaceGenerations.get(pipeline) !== capture.surface) {
+		pipeline.uploadDom();
+		if (capture) uploadedSurfaceGenerations.set(pipeline, capture.surface);
+	}
+}
+
+function captureOverlayDom(
+	request: CompositionFrameRenderRequest,
+	planes: CompositionPlanes,
+	element: HTMLElement
+): void {
+	const capture = request.domCapture;
+	if (!capture || capture.force || uploadedOverlayGenerations.get(planes) !== capture.overlay) {
+		planes.captureOverlay(element);
+		if (capture) uploadedOverlayGenerations.set(planes, capture.overlay);
+	}
 }
 
 export type CompositionFrameRenderBranch = 'transition' | 'stage' | 'dof' | 'flat';
@@ -455,7 +489,7 @@ function renderDofFrame(
 
 	pipeline.render(inputs);
 	const surfaceOutput = pipeline.getOutputTexture();
-	compositionPlanes.captureOverlay(overlayRootElement);
+	captureOverlayDom(request, compositionPlanes, overlayRootElement);
 	compositionPlanes.composite({
 		surfacePlaneView: surfaceOutput.createView(),
 		focusZ: dof.focusZ,
@@ -474,7 +508,8 @@ function renderDofFrame(
 		...timebase,
 		background: request.state.backgroundFill
 			? hexToRgbaFloat(request.state.backgroundFill)
-			: undefined
+			: undefined,
+		videoUnderlayTexture: request.videoUnderlayTexture
 	});
 	return true;
 }
@@ -501,7 +536,7 @@ function renderStageFrame(
 	});
 	let overlayPlaneView: GPUTextureView | undefined;
 	if (stage.hasOverlayPlane && compositionPlanes && request.overlayRootElement) {
-		compositionPlanes.captureOverlay(request.overlayRootElement);
+		captureOverlayDom(request, compositionPlanes, request.overlayRootElement);
 		compositionPlanes.premultiplyOverlay();
 		overlayPlaneView = compositionPlanes.overlayPlaneTexture().createView();
 	}
@@ -532,7 +567,8 @@ function renderStageFrame(
 		outputView: request.outputView,
 		...timebase,
 		stageContentScale: STAGE_CAM_Z / eyeZ,
-		background: undefined
+		background: undefined,
+		videoUnderlayTexture: request.videoUnderlayTexture
 	});
 	return true;
 }
@@ -563,7 +599,8 @@ function renderFlatFrame(
 		...timebase,
 		background: request.state.backgroundFill
 			? hexToRgbaFloat(request.state.backgroundFill)
-			: undefined
+			: undefined,
+		videoUnderlayTexture: request.videoUnderlayTexture
 	});
 	return true;
 }
@@ -597,10 +634,9 @@ export function renderCompositionFrameTo(
 	const inputs = request.buildSurfaceInputs(request.timestamp);
 	const treatments = prepareFramePackTreatments(request.state, request.pack);
 
-	// copyElementImageToTexture is queue-ordered once before every live branch.
-	// Branch-local Surface render and Overlay capture therefore consume the same
-	// current DOM in preview, export, and transition endpoint capture.
-	pipeline.uploadDom();
+	// Browser paint generations let shader-only frames retain the resident 4K DOM
+	// texture. Export forces one upload after each acknowledged paint settlement.
+	captureSurfaceDom(request);
 
 	for (const branch of branches) {
 		if (branch === 'stage') {

@@ -12,6 +12,7 @@ Read this before designing any tool that mixes html-in-canvas with shaders or pr
 - Texture usage: `TEXTURE_BINDING | COPY_DST | RENDER_ATTACHMENT` (`0x14`).
 - Shader passes (WGSL) sample the texture, compose, output to the canvas's swap chain.
 - `canvas.onpaint` is the right place to re-upload the DOM texture (fires when the layoutsubtree children need repainting). `canvas.requestPaint()` triggers it manually after state edits.
+- Supers records `PaintEvent.changedElements` by direct layoutsubtree child. A paint with no changed elements settles the browser snapshot without invalidating the resident 4K DOM texture; export still forces one upload after each post-scrub paint acknowledgment.
 
 ## Concrete code patterns (TypeGPU 0.11.x)
 
@@ -161,6 +162,8 @@ $effect(() => {
 	canvas.requestPaint();
 });
 ```
+
+Do not treat Svelte's `tick()` as a browser-paint barrier. Export ordering is DOM mutation → `tick()` → request and await the next `onpaint` → `copyElementImageToTexture`. This prevents the first or previous recorded snapshot from leaking into a deterministic export frame.
 
 ### 8. Mixing 2D-drawn overlays (annotations, etc.)
 

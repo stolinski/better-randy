@@ -5,11 +5,61 @@ import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 import blankPresetJson from '$lib/presets/blank.json';
 
 import { PresetSchema, type Preset } from './engine-schema';
+import {
+	LEGACY_SOURCE_VIDEO_ASSET_ID,
+	LEGACY_SOURCE_VIDEO_CLIP_ID
+} from './preset-ingress';
 import { presetToWireFormat } from './preset-pure';
 import { userCompositionStore } from './user-composition-store';
 
 const blankPreset: Preset = PresetSchema.parse(blankPresetJson);
 const fetchMock = vi.fn<typeof fetch>();
+
+function mediaPreset(): Preset {
+	return PresetSchema.parse({
+		...blankPresetJson,
+		state: {
+			...blankPresetJson.state,
+			media: {
+				assets: [
+					{
+						id: 'interview-asset',
+						kind: 'video',
+						name: 'Interview',
+						assetUrl: `/api/user-assets/${'d'.repeat(64)}.webm`
+					}
+				],
+				videoTrack: {
+					clips: [
+						{
+							id: 'interview-clip',
+							assetId: 'interview-asset',
+							timelineStartFrame: 0,
+							durationFrames: 90,
+							sourceStartSeconds: 3,
+							audio: { enabled: true, gain: 0.5 }
+						}
+					]
+				}
+			}
+		}
+	});
+}
+
+function legacySourceVideoPreset(): unknown {
+	return {
+		...blankPresetJson,
+		state: {
+			...blankPresetJson.state,
+			sourceVideo: {
+				assetUrl: `/api/user-assets/${'e'.repeat(64)}.mp4`,
+				sourceOffsetSeconds: 2,
+				includeAudio: false,
+				volume: 0.8
+			}
+		}
+	};
+}
 
 function jsonResponse(value: unknown, init?: ResponseInit): Response {
 	return new Response(JSON.stringify(value), {
@@ -44,7 +94,9 @@ describe('userCompositionStore', () => {
 				slug: 'blank-copy',
 				name: 'Blank copy',
 				forkedFrom: 'blank',
-				savedAt: '2026-07-21T12:00:00.000Z'
+				savedAt: '2026-07-21T12:00:00.000Z',
+				media: blankPreset.state.media,
+				mediaStatus: 'ready'
 			}
 		];
 		fetchMock.mockResolvedValueOnce(jsonResponse(metadata));
@@ -53,6 +105,32 @@ describe('userCompositionStore', () => {
 
 		assert.deepEqual(result, metadata);
 		assert.deepEqual(fetchMock.mock.calls[0], ['/api/user-compositions']);
+	});
+
+	it('parses volatile readiness issues without adding them to canonical media', async () => {
+		const preset = mediaPreset();
+		const issue = {
+			assetIds: ['interview-asset'],
+			assetUrl: preset.state.media.assets[0].assetUrl,
+			status: 'missing' as const,
+			message: 'Referenced media asset "interview-asset" is missing.'
+		};
+		const metadata = {
+			slug: 'missing-media',
+			name: 'Missing media',
+			forkedFrom: null,
+			savedAt: '2026-07-21T12:00:00.000Z',
+			media: preset.state.media,
+			mediaStatus: 'missing' as const,
+			mediaIssues: [issue]
+		};
+		fetchMock.mockResolvedValueOnce(jsonResponse([metadata]));
+
+		const result = await userCompositionStore.listUserCompositions();
+
+		assert.deepEqual(result, [metadata]);
+		assert.equal(Object.hasOwn(result[0].media, 'mediaStatus'), false);
+		assert.equal(Object.hasOwn(result[0].media, 'mediaIssues'), false);
 	});
 
 	it('loads an encoded User composition slug and preserves null as the no-fork response', async () => {
@@ -148,5 +226,69 @@ describe('userCompositionStore', () => {
 			userCompositionStore.listUserCompositions(),
 			/Failed to list User compositions: invalid JSON response/
 		);
+	});
+
+	it('preserves canonical media through list, load, fork, and save transport', async () => {
+		const preset = mediaPreset();
+		const metadata = {
+			slug: 'media-copy',
+			name: 'Media copy',
+			forkedFrom: 'blank',
+			savedAt: '2026-07-27T12:00:00.000Z',
+			media: preset.state.media,
+			mediaStatus: 'ready' as const
+		};
+		fetchMock
+			.mockResolvedValueOnce(jsonResponse([metadata]))
+			.mockResolvedValueOnce(jsonResponse(presetToWireFormat(preset)))
+			.mockResolvedValueOnce(jsonResponse({ slug: 'media-copy' }, { status: 201 }))
+			.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+		assert.deepEqual(await userCompositionStore.listUserCompositions(), [metadata]);
+		assert.deepEqual(await userCompositionStore.loadUserComposition('media-copy'), preset);
+		await userCompositionStore.forkUserComposition('media-copy', preset, 'blank');
+		await userCompositionStore.saveUserComposition('media-copy', preset);
+
+		const forkBody = requestBodyAt(2) as { preset: { state: Record<string, unknown> } };
+		const saveBody = requestBodyAt(3) as { state: Record<string, unknown> };
+		assert.deepEqual(forkBody.preset.state.media, preset.state.media);
+		assert.deepEqual(saveBody.state.media, preset.state.media);
+		assert.equal(Object.hasOwn(forkBody.preset.state, 'sourceVideo'), false);
+		assert.equal(Object.hasOwn(saveBody.state, 'sourceVideo'), false);
+	});
+
+	it('upgrades legacy Source video input to canonical media on the first autosave', async () => {
+		fetchMock
+			.mockResolvedValueOnce(jsonResponse(legacySourceVideoPreset()))
+			.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+		const loaded = await userCompositionStore.loadUserComposition('legacy-source');
+		assert.ok(loaded);
+		await userCompositionStore.saveUserComposition('legacy-source', loaded);
+
+		const saveBody = requestBodyAt(1) as { state: Record<string, unknown> };
+		assert.equal(Object.hasOwn(saveBody.state, 'sourceVideo'), false);
+		assert.deepEqual(saveBody.state.media, {
+			assets: [
+				{
+					id: LEGACY_SOURCE_VIDEO_ASSET_ID,
+					kind: 'video',
+					name: 'Source video',
+					assetUrl: `/api/user-assets/${'e'.repeat(64)}.mp4`
+				}
+			],
+			videoTrack: {
+				clips: [
+					{
+						id: LEGACY_SOURCE_VIDEO_CLIP_ID,
+						assetId: LEGACY_SOURCE_VIDEO_ASSET_ID,
+						timelineStartFrame: 0,
+						durationFrames: 180,
+						sourceStartSeconds: 2,
+						audio: { enabled: false, gain: 0.8 }
+					}
+				]
+			}
+		});
 	});
 });

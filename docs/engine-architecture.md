@@ -8,7 +8,7 @@ Glossary: [`CONTEXT.md`](CONTEXT.md). Why one engine instead of per-tool routes:
 
 ## The model in one read
 
-A **Preset** is one JSON document (`supers@1`) that composes five **Layers** (Surface / Block / Annotation / Overlay / Effect) from a **Pipeline registry**, dressed by a swappable **Pack** (appearance only), rendered frame-deterministically through a TypeGPU compositor to a 3840×2160 (or 2160×3840) canvas, and exported transparent or opaque through PNG frame capture + ffmpeg. Two anchors hold everything else up:
+A **Preset** is one JSON document (`supers@1`) that composes five **Layers** (Surface / Block / Annotation / Overlay / Effect) from a **Pipeline registry**, dressed by a swappable **Pack** (appearance only), optionally declares composition-scoped **Media library entries** and one primary **Video track** beneath that complete Layer stack, renders frame-deterministically through a TypeGPU compositor to a 3840×2160 (or 2160×3840) canvas, and exports transparent or opaque through a bounded local PNG-to-ffmpeg session. Two anchors hold everything else up:
 
 1. **The data model is the contract.** Everything renderable is described in `engineState`. Pipelines own no state.
 2. **One uniform render path.** Surface, blocks, annotations, overlays, and post-process effects share the same WebGPU/TypeGPU compositor. Preview, transition snapshots, and export target the same request-object `renderCompositionFrameTo(request)` seam — identical dispatch and inputs.
@@ -23,6 +23,10 @@ src/lib/
     composition-timeline-tracks.ts # ordered timeline rows + authored write-back adapters
     composition-frame-renderer.ts # request-object frame seam; upload ordering + branch dispatch
     composition-export-controller.ts # deterministic media plan/stepping/encoding handoff + cleanup
+    export-session.server.ts      # bounded local PNG/WAV -> ffmpeg session + output cleanup
+    video-asset-decoder.ts        # Source time -> presentation sample; decoder cache by asset
+    video-underlay-frame-texture.ts # resident active Video-clip frame upload
+    video-asset-audio-decoder.ts  # Video-clip Source ranges -> deterministic PCM
     transition-snapshot-controller.ts # endpoint state-swap bracket + cached transition textures
     timeline-entity-identity.ts  # typed runtime track/selection/keyframe/sound identities
     user-composition-store.ts    # typed client transport for User composition persistence/interchange
@@ -69,9 +73,11 @@ src/lib/
 
 There is no `src/lib/tools/` — per-tool modules were collapsed into the engine ([ADR-0002](adr/0002-per-tool-routes-to-preset-engine.md)). Note the two `pipelines/` dirs: `platform/pipelines/` is **infrastructure** (registry, runners, interfaces); `src/lib/pipelines/` holds the **renderers**. Pack documentation lives separately at `docs/packs/<slug>/`; machine manifests live at `src/lib/packs/<slug>/`. The active `Workspace` shell owns live Svelte/DOM/GPU dependencies and the editor through `CanvasControlsBar`, `TimelineOutline`, and `Inspector`; it delegates frame execution, export lifecycle, and transition snapshot lifecycle to the concept-named modules above. `Composition` mounts Overlays through `OverlayMount`.
 
-`timeline-entity-identity.ts` is the only constructor/parser protocol for runtime timeline tracks, subtracks, selections, keyframes, and Sound-rail references; authored Preset IDs remain unchanged. `user-composition-store.ts` is the searchable `UserCompositionStore` boundary for list/load/fork/save/delete calls to `/api/user-compositions`; route handlers own filesystem persistence behind that transport. The item GET and PUT bodies are the same standalone wire Preset, which gives agents a lossless GET/edit/PUT loop over the exact store the GUI autosaves. See [`user-composition-workflows.md`](user-composition-workflows.md).
+`timeline-entity-identity.ts` is the only constructor/parser protocol for runtime timeline tracks, subtracks, selections, keyframes, sound references, and Video-clip selection; authored Preset IDs remain unchanged. `user-composition-store.ts` is the searchable `UserCompositionStore` boundary for list/load/fork/save/delete calls to `/api/user-compositions`; route handlers own filesystem persistence behind that transport. The item GET and PUT bodies are the same standalone wire Preset, which gives agents a lossless GET/edit/PUT loop over the exact store the GUI autosaves, including `state.media`. Media bytes remain globally deduplicated content-addressed local assets under `/api/user-assets`; only composition membership and edit decisions live in the Preset. See [`user-composition-workflows.md`](user-composition-workflows.md).
 
 The homepage's **New composition** action is the shipped create-from-blank entry point: it forks the built-in `blank` Preset into the user store as an untitled User composition, then opens that standalone Preset in the same Workspace used by Starter-template forks.
+
+Media authoring preserves the three-zone Workspace. The existing right rail switches between Inspector and Media modes; Media mode owns composition library membership, upload, volatile probe/readiness display, and drag affordances. The fixed primary Video track is part of the Timeline beneath the five Layer rows and exclusively owns clip creation, move, trim, slip, and snapping. Selected-clip Inspector controls are limited to audio enabled/gain and removal. There is no Project artifact, left Media panel, fourth workspace zone, sixth Layer, or Video entry in Add layer ([ADR-0045](adr/0045-composition-media-library-and-video-track.md)).
 
 Poster lifecycle has two layers. Every registered Surface has a committed `static/surface-posters/<type>.webp` fallback for immediate catalog paint. Composition-specific posters are captured on view, keyed by Preset content hash, stored in the local `.posters/` cache, and self-invalidated when content changes; `scripts/warm-posters.mjs` is an optional local prewarm, not a build or deployment step.
 
@@ -148,9 +154,31 @@ interface EngineState {
 	overlays: Overlay[]; // default []
 	effects: Effect[]; // default []; ONE flat chain (ADR-0018)
 	audioCues: AudioCue[]; // default []; manual cues + optional bed
+	media: Media; // default { assets: [], videoTrack: { clips: [] } }
 	backgroundFill?: string; // presence classifies a full-frame output
 	stage?: Stage; // optional; absent = flat path. Dimensional depth stage (ADR-0028)
 	captions?: Captions;
+}
+
+interface Media {
+	assets: VideoAsset[]; // composition-scoped Media library entries
+	videoTrack: { clips: VideoClip[] }; // one ordered primary Video track
+}
+
+interface VideoAsset {
+	id: string;
+	kind: 'video';
+	name: string;
+	assetUrl: string; // globally deduplicated /api/user-assets/<sha256>.(mp4|mov|webm)
+}
+
+interface VideoClip {
+	id: string;
+	assetId: string;
+	timelineStartFrame: number; // nonnegative integer
+	durationFrames: number; // positive integer
+	sourceStartSeconds: number; // nonnegative media-relative Source time
+	audio: { enabled: boolean; gain: number }; // gain 0..4
 }
 
 // Surface is a CLOSED enum (1:1 with registered surfaces).
@@ -203,10 +231,10 @@ interface OverlayPlacement {
 		| 'bottom-center'
 		| 'center'
 		| 'normalized-rect';
-  offset?: { x: number; y: number }; // 0..1 fractions of composition dims, anchor-relative
-  rect?: { x: number; y: number; width: number; height: number }; // 0..1 when anchor === 'normalized-rect'
-  scale?: number;
-  rotation?: number;
+	offset?: { x: number; y: number }; // 0..1 fractions of composition dims, anchor-relative
+	rect?: { x: number; y: number; width: number; height: number }; // 0..1 when anchor === 'normalized-rect'
+	scale?: number;
+	rotation?: number;
 }
 
 interface OverlayPosition extends OverlayPlacement {
@@ -268,16 +296,20 @@ The frame renderer owns all ordering after the request arrives:
 ```
 0) Cached transition?     wipe(fromSnapshot, toSnapshot) → output; no live DOM upload
 1) Live preparation       buildSurfaceInputs(timestamp), resolve Pack treatments,
-                           then pipeline.uploadDom() exactly once before any live render
+                           upload DOM only when its browser paint generation changed
 2) Branch dispatch        stage → multiplane DOF → flat (first available branch wins)
 3) Branch-local render    pipeline.render(inputs), then branch compositing/shader passes
 4) Effect chain + present effectChain.apply(effects, input, outputView)
-                           → dithered present pass (the only 16f→8bit canvas write)
+                           → dithered present pass; the active Video clip is
+                             centered-cover composited beneath processed Supers pixels
+                             (the only 16f→8bit canvas write)
 ```
 
 The **stage** branch runs Surface/Pack shader passes, captures an optional Overlay plane, renders `DepthStage`, then applies post-process Effects. The **DOF** branch renders the Surface plane, captures the Overlay plane, composites both through `CompositionPlanes`, removes the routing-only `depth-of-field` entry, then applies remaining Effects. The **flat** branch renders the merged Surface/Block/Annotation/Overlay texture, dispatches Surface then Overlay shader passes in document order, and applies Effects. Shader passes ping-pong over `rgba16float` intermediates.
 
 **Contract specifics (all current):** off-screen intermediates are `rgba16float` (`INTERMEDIATE_FORMAT`); the **present pass** applies interleaved-gradient-noise dither (±0.5/255 on RGB, alpha exact) on the single 16f→8bit write — this is the banding fix, and it runs whether or not effects exist; canvas context is `alphaMode: 'premultiplied'`; every color attachment uses `loadOp: 'clear'`, `clearValue: [0,0,0,0]`. Time-driven shaders read `ctx = { progress, timestamp, canvasWidth, canvasHeight }`, plumbed identically through both the effect chain ([ADR-0012](adr/0012-effect-pack-context-progress-timestamp.md), amended to carry the canvas dimensions for resolution-dependent shaders) and shaderPasses ([ADR-0013](adr/0013-shaderpass-pack-context.md)) so preview and export agree.
+
+**Video-track final-present path.** At explicit output frame `F`, clip resolution searches the ordered half-open intervals `[timelineStartFrame, timelineStartFrame + durationFrames)`. An active clip maps `localFrame = F - timelineStartFrame` and `sourceTime = sourceStartSeconds + framesToSeconds(localFrame, transport rate)`. The decoder adds the asset track's first PTS, selects the last presentation sample at or before that requested timestamp, uploads it to the one resident `rgba8unorm` underlay texture, and passes that prepared texture through the same `CompositionFrameRenderRequest` used by preview and export. Decoder ownership/cache keys use immutable asset identity/URL, so repeated clips can reuse a decoder without making source offsets asset state. The present pass applies display rotation and centered cover sampling at the native target, then composites the already-processed premultiplied Supers result over the footage. Authored Effects and Pack chrome therefore never grade creator footage. A gap supplies no texture and stays transparent; it never paints black or reuses the preceding frame. V1 rejects active Video clips with `backgroundFill`, a dimensional `stage`, or transition Presets before rendering.
 
 **Composition-wide dispatch.** `renderCompositionFrameTo` selects per frame: prepared transition snapshots → cached wipe (no irrelevant live-DOM upload); else `state.stage` present → the **dimensional depth stage** ([ADR-0028](adr/0028-dimensional-depth-stage.md), `DepthStage`); else `depth-of-field` Effect or composition-owned Surface opacity → 2.5D multiplane composition (ADR-0027); else flat composite. Every live branch receives the same complete `SurfaceRenderInputs` (including diagram stroke inputs) and the same queue-ordered upload-before-render. `TransitionSnapshotController` owns endpoint cache allocation, state swapping/restoration, invalidation, and settled endpoint capture; the frame renderer only consumes its cached textures. All branches share the frame seam and final Effect/present path, so preview == export holds for each.
 
@@ -294,7 +326,11 @@ The composition fragment applies focal warps from up to **8 focal-mark slots**, 
 
 ### Determinism + export parity
 
-Every render is computed from a `timestamp`; the shared `Timeline` is the only clock; GSAP timelines are scrubbed by `progress`, never played by wall-clock. `CompositionExportController` owns the immutable native-size/output/codec/frame plan, exact rational frame stepping, export-only animation manager, DOM flush, audio/video handoff, progress, cancellation, downloads, and cleanup. Workspace supplies live state plus a callback into the exact same request-object frame seam used by preview. The frame renderer's queue-ordered `uploadDom()` runs before each live frame's `render()`, so DOM-driven content animates in export, not just preview. Prepared transitions export through their cached wipe, and future `SurfaceRenderInputs` additions cannot silently disappear from export. **Exports include all effects** — no clean-export toggle; edit the preset to strip effects if a clean variant is needed.
+Every render is computed from a `timestamp`; the shared `Timeline` is the only clock; GSAP timelines are scrubbed by `progress`, never played by wall-clock. `CompositionExportController` owns the immutable native-size/output/codec/frame plan, exact rational frame stepping, export-only animation manager, DOM flush, audio/video handoff, progress, cancellation, downloads, and cleanup. Workspace supplies live state plus a callback into the exact same request-object frame seam used by preview. Preview records WICG `changedElements` generations and reuses its resident 4K DOM texture on shader-only paints. Export first awaits active-Pack fonts, required DOM images, stage substrate upload, and referenced media readiness; each frame then scrubs animation, flushes Svelte, requests and awaits the browser's next paint snapshot, and forces one queue-ordered DOM upload before `render()`. Prepared transitions export through their cached wipe, and future `SurfaceRenderInputs` additions cannot silently disappear from export.
+
+Video clip resolution, random preview seeks, and serial export share the same frame-to-Source-time mapping, decoder cache, and resident-texture lifecycle; stale preview seeks are superseded, each sample closes after upload, and export awaits preparation before rendering. Each enabled clip's exact Source interval is decoded into its destination sample interval, gain-adjusted, and mixed with cues and an eligible bed at 48 kHz stereo. Hard-cut and gap boundaries are preserved; pause cancels pending decode/playback, loop restarts it, and scrub remains intentionally silent.
+
+Export transport is a local Node session (`export-session.server.ts` plus `/api/export/sessions/*`): optional WAV is streamed once to a session file, ordered indexed PNG requests are written directly to one ffmpeg stdin under write-callback backpressure, and completion publishes only a successfully closed disk output. The browser retains at most the current PNG instead of an all-frame array and downloads the output URL directly; the server streams it through `createReadableStream` instead of `readFile`. Abort, download cancellation, encoder failure, explicit cancellation, expiry, and startup orphan cleanup remove the session directory and kill live ffmpeg. **Exports include all effects** — no clean-export toggle; edit the preset to strip effects if a clean variant is needed.
 
 ## Appearance: Packs & Roles
 
@@ -310,7 +346,7 @@ A **Pack** is a swappable _appearance dress_ resolved at render time ([ADR-0014]
 
 ## Output & orientation
 
-**Transparency is the default, not a law.** Overlays render transparent (`loadOp: 'clear'`, premultiplied alpha). Output classification is centralized: an EngineState/Preset is opaque when it declares either `backgroundFill` or a dimensional `stage`; a transition is opaque only when **both** resolved `from` and `to` Presets are opaque. Export uses that result for codec handling and the `supers-bumper` / `supers-overlay` basename. There is no `overlay | segment | bumper` enum — those are loose descriptive words, not engine categories.
+**Transparency is the default, not a law.** Overlays render transparent (`loadOp: 'clear'`, premultiplied alpha). Output classification is centralized: `backgroundFill` or a dimensional `stage` is opaque; Video clips are opaque only when their ordered half-open intervals cover every output frame. Unused Media library entries do not affect classification, and any Video-track gap keeps the composition alpha-bearing. A transition is opaque only when **both** resolved `from` and `to` Presets are opaque. Export uses that result for codec handling and the `supers-bumper` / `supers-overlay` basename. Fully covered Video-track WebM uses opaque `yuv444p`; a gapped track retains VP9 alpha; ProRes remains 4444 for both. There is no `overlay | segment | bumper` enum — those are loose descriptive words, not engine categories.
 
 **Orientation** is `horizontal` (3840×2160) or `vertical` (2160×3840). One deliverable Preset serves both targets: the GUI switches `transport.orientation`, renderer layouts consume frame dimensions and shared safe-area inputs, and explicit Overlay/Diagram snapshots resolve authored re-staging. The static linter validates the active geometry without clamping it. Active authoring forbids orientation-suffix deliverables.
 
@@ -338,6 +374,7 @@ Current mechanisms that remain deliberately narrower than their possible future 
 - **Per-pixel depth sidecar on the flat path** — ADR-0021's focal-distance semantics are active through multiplane DOF and the dimensional stage, but the flat compositor has no arbitrary per-pixel z-map target.
 - **Live dual-tree transitions** — multi-state transitions ship as cached snapshot-and-wipe ([ADR-0026](adr/0026-transitions-v1-snapshot-and-wipe.md)); endpoint Presets do not continue animating inside the wipe.
 - **Additional Block vocabulary** — `paragraph` plus the five diagram Blocks ship. `code` and `image` are not registered; mermaid-style auto-layout remains explicitly rejected.
+- **Video-track v1 scope** — one primary 1x track with ordered, non-overlapping hard-cut clips, transparent gaps, clip audio enable/gain, and no ripple edits, overlaps, transitions, speed changes, loops/holds, footage grading, depth-stage video planes, or live video transitions. Silence detection and automatic cut generation remain separate edit-decision producers over this shipped clip model.
 
 ## Constraints
 

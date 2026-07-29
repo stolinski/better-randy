@@ -34,9 +34,25 @@ _Avoid_: background, base, canvas (the canvas is the WebGPU target, not the surf
 The underlying material a surface depicts — paper, photo, web document. A **Surface** is the renderer; the **Substrate** is the material it claims to be.
 _Avoid_: surface (those are distinct), background.
 
-**Source video**:
-An optional creator-owned video asset mapped beneath all five composition **Layers**. It supplies the footage and, unless muted, the footage audio for a full-frame composition; it is not a Surface, Substrate, preview backdrop, or Effect. V1 maps one continuous source range to the composition Timeline. Future silence removal and basic cutting extend this domain with timeline-to-source edit segments rather than replacing the asset contract.
-_Avoid_: background video (background is visually vague), video Surface (it sits beneath the Surface Layer), reference backdrop (that is preview-only and never exported).
+**Media asset**:
+Immutable creator-owned media bytes in the local content-addressed asset store. Bytes are globally deduplicated by content while composition membership stays in the Preset; two **User compositions** may reference the same bytes through different **Media library entries**. V1 accepts video bytes only. Removing a library entry never deletes shared bytes.
+_Avoid_: project asset (there is no Project artifact), embedded media, Source video (the retired singular authoring model; retained only in migration/history).
+
+**Media library entry**:
+A composition-scoped stable record in `state.media.assets[]`: `{ id, kind: "video", name, assetUrl }`. `id`, `kind`, `name`, and `assetUrl` persist and round-trip with the standalone Preset. Duration, dimensions, rotation, frame rate, codecs, channels, sample rate, byte size, readiness, and probe errors are volatile observations of the referenced bytes and never Preset data. An unused entry is legal.
+_Avoid_: Media asset (the immutable bytes, not membership), global library entry, Project asset.
+
+**Video track**:
+The one ordered primary footage lane at `state.media.videoTrack`, rendered beneath all five composition **Layers**. It is not a Layer, Surface, Substrate, Effect, or Add-layer option. V1 has exactly one fixed 1x track with hard cuts and transparent gaps; its **Video clips** must be ordered and non-overlapping.
+_Avoid_: Layer, video Surface, background video, multiple video tracks.
+
+**Video clip**:
+A stable edit decision in `state.media.videoTrack.clips[]` that references one **Media library entry** and maps a half-open Timeline frame interval `[timelineStartFrame, timelineStartFrame + durationFrames)` to **Source time**. Clip audio carries `enabled` and `gain`. Move, trim, slip, snapping, and clip creation are Timeline-only gestures; the right-rail Media mode owns library membership and selected-clip audio/removal, not numeric timing.
+_Avoid_: animation Track, transition clip, Source video.
+
+**Source time**:
+Media-relative time within a **Media asset**. For active output frame `F`, `localFrame = F - timelineStartFrame` and `sourceTime = sourceStartSeconds + framesToSeconds(localFrame, transport rate)`. The decoder adds the media track's first presentation timestamp and selects the last presentation sample at or before that requested timestamp. This exact mapping drives preview, audio, and export.
+_Avoid_: Timeline time (composition placement), container-absolute PTS.
 
 **Block**:
 A discrete content unit rendered on a Surface (title, body, image, kicker). One Surface carries multiple Blocks.
@@ -164,6 +180,7 @@ The single `Timeline` instance per Preset that owns playback state (`time`, `isP
 
 **Track**:
 A horizontal lane in the **Timeline** UI representing a timed segment with `start`, `duration`, and an `onUpdate` callback. A Mark, Overlay, or Focal slot is typically backed by a Track.
+_Avoid_: **Video track**, which is the authored primary-footage domain rather than a generic animation track.
 
 **TextAnimation**:
 A choreographed motion applied to a single text slot (`surface.content.title`, `body`, `kicker`, `sourceUrl`, `dateLabel`, `author`, `source`, or a `lower-third` overlay's `title` / `kicker` / `subtitle`). Declared as an entry in `state.textAnimations[]`, peer to `marks.timings[]`. The orchestration domain is not a Layer — it does not render — it choreographs the DOM the HTML-in-Canvas path captures. See [ADR-0011](adr/0011-text-animation-orchestration.md).
@@ -222,6 +239,8 @@ The named-observation format every R-rule check must follow — pixel coordinate
 ## Relationships
 
 - A **Preset** declares one **Surface**, its **Blocks**, zero or more **Annotations** on those Blocks, zero or more **Overlays**, and one flat `effects[]` list. Registry ownership determines whether each list entry changes branch dispatch or runs in the final post-process chain; optional `transition.effect` names the distinct two-snapshot transition lane.
+- A **Preset** may also declare composition-scoped **Media library entries** and one primary **Video track** beneath that complete Layer stack. Neither is a sixth Layer or an Add-layer option.
+- A **Video clip** references one **Media library entry**; the entry references globally deduplicated **Media asset** bytes. Only the stable entry and clip decisions persist in the Preset.
 - Every **Mark** is an **Annotation**; not every **Annotation** is a **Mark**.
 - A **Pipeline** belongs to exactly one **Layer** and one variant; the **Registry** is the union of all Pipelines.
 - A **Brainstorm** agent writes a **Brief**; a **Producer** authors from it; a **Critic** verifies the result. The three are never the same agent invocation.

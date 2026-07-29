@@ -3,12 +3,16 @@ import { join } from 'node:path';
 
 import { json, error, type RequestHandler } from '@sveltejs/kit';
 
-import { PresetSchema } from '$lib/platform/engine-schema';
+import { PresetIngressSchema } from '$lib/platform/preset-ingress';
 import { presetToWireFormat } from '$lib/platform/preset-pure';
 import {
 	formatPresetSemanticIssues,
 	validatePresetSemantics
 } from '$lib/platform/preset-validation';
+import {
+	assertUserCompositionMediaReady,
+	inspectUserCompositionMedia
+} from '$lib/platform/user-composition-media.server';
 import type { UserCompositionMeta } from '$lib/platform/user-composition-store';
 
 const USER_COMPOSITION_STORE_DIR = join(process.cwd(), 'user-compositions');
@@ -26,9 +30,14 @@ interface StoredUserComposition {
 function isStoredUserComposition(value: unknown): value is StoredUserComposition {
 	if (typeof value !== 'object' || value === null) return false;
 	const v = value as Record<string, unknown>;
+	const meta = v['meta'];
 	return (
-		typeof v['meta'] === 'object' &&
-		v['meta'] !== null &&
+		typeof meta === 'object' &&
+		meta !== null &&
+		'forkedFrom' in meta &&
+		'savedAt' in meta &&
+		(meta.forkedFrom === null || typeof meta.forkedFrom === 'string') &&
+		typeof meta.savedAt === 'string' &&
 		typeof v['preset'] === 'object' &&
 		v['preset'] !== null
 	);
@@ -53,14 +62,18 @@ export const GET: RequestHandler = async () => {
 			const raw = await readFile(join(USER_COMPOSITION_STORE_DIR, entry), 'utf-8');
 			const storedUserComposition: unknown = JSON.parse(raw);
 			if (!isStoredUserComposition(storedUserComposition)) continue;
-			const result = PresetSchema.safeParse(storedUserComposition.preset);
+			const result = PresetIngressSchema.safeParse(storedUserComposition.preset);
 			if (!result.success) continue;
 			if (validatePresetSemantics(result.data).length > 0) continue;
+			const mediaInspection = await inspectUserCompositionMedia(result.data);
 			userCompositionMetadata.push({
 				slug: userCompositionSlug,
 				name: result.data.name,
 				forkedFrom: storedUserComposition.meta.forkedFrom,
-				savedAt: storedUserComposition.meta.savedAt
+				savedAt: storedUserComposition.meta.savedAt,
+				media: result.data.state.media,
+				mediaStatus: mediaInspection.status,
+				...(mediaInspection.issues.length > 0 ? { mediaIssues: mediaInspection.issues } : {})
 			});
 		} catch {
 			// skip unreadable entries
@@ -95,13 +108,18 @@ export const POST: RequestHandler = async ({ request }) => {
 		error(400, 'slug must be lowercase alphanumeric/hyphen/underscore');
 	}
 
-	const result = PresetSchema.safeParse(preset);
+	const result = PresetIngressSchema.safeParse(preset);
 	if (!result.success) {
 		error(400, `Invalid preset: ${result.error.message}`);
 	}
 	const semanticIssues = validatePresetSemantics(result.data);
 	if (semanticIssues.length > 0) {
 		error(400, `Invalid preset:\n${formatPresetSemanticIssues(semanticIssues)}`);
+	}
+	try {
+		assertUserCompositionMediaReady(await inspectUserCompositionMedia(result.data));
+	} catch (cause) {
+		error(422, cause instanceof Error ? cause.message : 'Referenced media asset is unavailable');
 	}
 
 	const storedUserComposition: StoredUserComposition = {

@@ -1,10 +1,26 @@
 import assert from 'node:assert/strict';
 
-import { afterEach, describe, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, vi } from 'vitest';
+
+const mediabunnyState = vi.hoisted(() => ({
+	dispose: vi.fn(),
+	urlSources: [] as {
+		url: string;
+		options: { maxCacheSize: number; parallelism: number };
+	}[]
+}));
 
 vi.mock('mediabunny', () => ({
 	ALL_FORMATS: [],
 	BlobSource: class BlobSource {},
+	UrlSource: class UrlSource {
+		constructor(
+			readonly url: string,
+			readonly options: { maxCacheSize: number; parallelism: number }
+		) {
+			mediabunnyState.urlSources.push({ url, options });
+		}
+	},
 	Input: class Input {
 		async getPrimaryVideoTrack() {
 			return {
@@ -27,11 +43,18 @@ vi.mock('mediabunny', () => ({
 		async computeDuration() {
 			return 12;
 		}
-		dispose() {}
+		dispose() {
+			mediabunnyState.dispose();
+		}
 	}
 }));
 
-import { uploadUserVideo } from './user-video-upload-transport';
+import { inspectUserVideoAssetUrl, uploadUserVideo } from './user-video-upload-transport';
+
+beforeEach(() => {
+	mediabunnyState.dispose.mockClear();
+	mediabunnyState.urlSources.length = 0;
+});
 
 afterEach(() => {
 	vi.unstubAllGlobals();
@@ -82,5 +105,29 @@ describe('user video upload transport', () => {
 			/expected an MP4, MOV, or WebM/
 		);
 		assert.equal(fetchMock.mock.calls.length, 0);
+	});
+
+	it('inspects a stored asset URL and always disposes its Input', async () => {
+		const assetUrl = `/api/user-assets/${'b'.repeat(64)}.webm`;
+
+		assert.deepEqual(await inspectUserVideoAssetUrl(assetUrl), {
+			durationSeconds: 12,
+			displayWidth: 1920,
+			displayHeight: 1080,
+			rotation: 0,
+			averageFrameRate: 30,
+			videoCodec: 'avc',
+			hasAudio: true,
+			audioCodec: 'aac',
+			audioChannels: 2,
+			audioSampleRate: 48000
+		});
+		assert.deepEqual(mediabunnyState.urlSources, [
+			{
+				url: assetUrl,
+				options: { maxCacheSize: 64 * 1024 * 1024, parallelism: 2 }
+			}
+		]);
+		assert.equal(mediabunnyState.dispose.mock.calls.length, 1);
 	});
 });

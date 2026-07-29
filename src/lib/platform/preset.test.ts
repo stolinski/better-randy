@@ -6,8 +6,8 @@ import blankPresetJson from '$lib/presets/blank.json';
 
 import { engineState } from './engine-state.svelte';
 import { PresetSchema } from './engine-schema';
-import { applyPreset } from './preset';
-import { presetToWireFormat } from './preset-pure';
+import { applyPreset, parsePreset } from './preset';
+import { presetToWireFormat, serializeCompositionState } from './preset-pure';
 
 describe('applyPreset', () => {
 	it('deep-clones complete orientation placement overrides into engine state', () => {
@@ -98,7 +98,7 @@ describe('applyPreset', () => {
 		);
 	});
 
-	it('round-trips and deep-clones Source video configuration', () => {
+	it('migrates, serializes, and deep-clones Source video as canonical media', () => {
 		const input = {
 			...blankPresetJson,
 			state: {
@@ -111,13 +111,23 @@ describe('applyPreset', () => {
 				}
 			}
 		};
-		const preset = PresetSchema.parse(input);
-		const wire = presetToWireFormat(preset) as { state: { sourceVideo?: unknown } };
+		const preset = parsePreset(input);
+		const wire = presetToWireFormat(preset) as {
+			state: { media: unknown; sourceVideo?: unknown };
+		};
 
-		assert.deepEqual(wire.state.sourceVideo, input.state.sourceVideo);
+		assert.equal('sourceVideo' in wire.state, false);
+		assert.deepEqual(wire.state.media, preset.state.media);
 		applyPreset(preset);
-		assert.deepEqual(engineState.sourceVideo, input.state.sourceVideo);
-		engineState.sourceVideo!.sourceOffsetSeconds = 22;
-		assert.equal(preset.state.sourceVideo?.sourceOffsetSeconds, 18.25);
+		assert.deepEqual(engineState.media, preset.state.media);
+		const guiExport = serializeCompositionState(
+			{ name: preset.name, description: preset.description, kind: preset.kind },
+			engineState,
+			preset.pack
+		);
+		assert.equal('sourceVideo' in guiExport.state, false);
+		assert.deepEqual(guiExport.state.media, preset.state.media);
+		engineState.media.videoTrack.clips[0].sourceStartSeconds = 22;
+		assert.equal(preset.state.media.videoTrack.clips[0].sourceStartSeconds, 18.25);
 	});
 });

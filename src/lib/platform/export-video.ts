@@ -44,6 +44,18 @@ export interface SyncExportRequest {
 	filename?: string;
 }
 
+export interface VideoExportDownload {
+	downloadUrl: string;
+}
+
+interface ExportSessionControl {
+	sessionId: string;
+	audioUrl: string;
+	frameUrlTemplate: string;
+	completeUrl: string;
+	cancelUrl: string;
+}
+
 declare global {
 	interface Window {
 		/**
@@ -88,6 +100,145 @@ async function canvasFrameToPng(canvas: HTMLCanvasElement | OffscreenCanvas): Pr
 	});
 }
 
+async function responseFailure(response: Response, fallback: string): Promise<Error> {
+	const message = await response.text();
+	return new Error(message || `${fallback} with status ${response.status}.`);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+async function createExportSession(options: {
+	format: 'webm' | 'prores';
+	fps: number;
+	frameCount: number;
+	opaque: boolean;
+	audioBytes: number;
+	startTimecode?: string;
+	signal?: AbortSignal;
+}): Promise<ExportSessionControl> {
+	const { signal, ...metadata } = options;
+	const response = await fetch('/api/export/sessions', {
+		method: 'POST',
+		signal,
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(metadata)
+	});
+	if (!response.ok) throw await responseFailure(response, 'Export session creation failed');
+	const value: unknown = await response.json();
+	if (
+		!isRecord(value) ||
+		typeof value.sessionId !== 'string' ||
+		typeof value.audioUrl !== 'string' ||
+		typeof value.frameUrlTemplate !== 'string' ||
+		typeof value.completeUrl !== 'string' ||
+		typeof value.cancelUrl !== 'string'
+	) {
+		throw new Error('Export session returned an invalid control document.');
+	}
+	return {
+		sessionId: value.sessionId,
+		audioUrl: value.audioUrl,
+		frameUrlTemplate: value.frameUrlTemplate,
+		completeUrl: value.completeUrl,
+		cancelUrl: value.cancelUrl
+	};
+}
+
+async function cancelExportSession(session: ExportSessionControl): Promise<void> {
+	await fetch(session.cancelUrl, { method: 'DELETE', keepalive: true }).catch(() => undefined);
+}
+
+async function exportCanvasVideo(
+	format: 'webm' | 'prores',
+	options: TransparentVideoExportOptions
+): Promise<VideoExportDownload> {
+	const {
+		canvas,
+		durationSeconds,
+		fps,
+		renderFrame,
+		onProgress,
+		hasBackground,
+		audio,
+		startTimecode,
+		frameCount: plannedFrameCount,
+		timestampForFrame,
+		signal
+	} = options;
+	await fontsReady();
+	signal?.throwIfAborted();
+
+	const rate = resolveFrameRate(fps);
+	const frameCount = plannedFrameCount ?? Math.max(1, secondsToFrames(durationSeconds, rate));
+	const yieldEvery = Math.max(1, Math.round(rate.num / rate.den));
+	const wavBytes = audio ? audioBufferToWavBytes(audio) : null;
+	let session: ExportSessionControl | null = null;
+	let isComplete = false;
+	try {
+		session = await createExportSession({
+			format,
+			fps,
+			frameCount,
+			opaque: hasBackground === true,
+			audioBytes: wavBytes?.byteLength ?? 0,
+			startTimecode,
+			signal
+		});
+		const activeSession = session;
+		if (wavBytes) {
+			const audioResponse = await fetch(activeSession.audioUrl, {
+				method: 'PUT',
+				signal,
+				headers: { 'Content-Type': 'audio/wav' },
+				body: new Blob([wavBytes], { type: 'audio/wav' })
+			});
+			if (!audioResponse.ok) {
+				throw await responseFailure(audioResponse, 'Export audio upload failed');
+			}
+		}
+
+		await Sentry.startSpan({ name: 'export.render-frames', op: 'export.render' }, async () => {
+			for (let frame = 0; frame < frameCount; frame += 1) {
+				signal?.throwIfAborted();
+				const timestamp = timestampForFrame?.(frame) ?? framesToSeconds(frame, rate);
+				await renderFrame(frame, timestamp);
+				signal?.throwIfAborted();
+				const png = await canvasFrameToPng(canvas);
+				const frameResponse = await fetch(
+					activeSession.frameUrlTemplate.replace('{frame}', String(frame)),
+					{
+						method: 'PUT',
+						signal,
+						headers: { 'Content-Type': 'image/png' },
+						body: png
+					}
+				);
+				if (!frameResponse.ok) {
+					throw await responseFailure(frameResponse, `Export frame ${frame} upload failed`);
+				}
+				onProgress?.((frame + 1) / frameCount);
+				if ((frame + 1) % yieldEvery === 0) {
+					await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+				}
+			}
+		});
+
+		const response = await fetch(activeSession.completeUrl, { method: 'POST', signal });
+		if (!response.ok) throw await responseFailure(response, `${format} export failed`);
+		const value: unknown = await response.json();
+		if (!isRecord(value) || typeof value.downloadUrl !== 'string') {
+			throw new Error('Export completion returned an invalid download document.');
+		}
+		signal?.throwIfAborted();
+		isComplete = true;
+		return { downloadUrl: value.downloadUrl };
+	} finally {
+		if (session && !isComplete) await cancelExportSession(session);
+	}
+}
+
 export async function exportTransparentWebM({
 	canvas,
 	durationSeconds,
@@ -99,7 +250,7 @@ export async function exportTransparentWebM({
 	frameCount: plannedFrameCount,
 	timestampForFrame,
 	signal
-}: TransparentVideoExportOptions): Promise<Blob> {
+}: TransparentVideoExportOptions): Promise<VideoExportDownload> {
 	// The whole export is its own Sentry transaction: total wall-clock is the
 	// headline metric, the render-loop and encode-upload children break it down.
 	return Sentry.startSpan(
@@ -110,64 +261,23 @@ export async function exportTransparentWebM({
 			attributes: exportSpanAttributes({ fps, durationSeconds, hasBackground, audio })
 		},
 		async (exportSpan) => {
-			await fontsReady();
-			signal?.throwIfAborted();
-
-			// Frame math runs on the exact rational (ADR-0042): the exported duration
-			// is a whole frame count at the composition rate, and each timestamp is
-			// the frame's exact time — 29.97 the literal never touches the loop.
 			const rate = resolveFrameRate(fps);
 			const frameCount = plannedFrameCount ?? Math.max(1, secondsToFrames(durationSeconds, rate));
 			exportSpan.setAttribute('export.frames', frameCount);
-			const yieldEvery = Math.max(1, Math.round(rate.num / rate.den));
-			const chunks: Blob[] = [];
-
-			await Sentry.startSpan({ name: 'export.render-frames', op: 'export.render' }, async () => {
-				for (let frame = 0; frame < frameCount; frame += 1) {
-					signal?.throwIfAborted();
-					const timestamp = timestampForFrame?.(frame) ?? framesToSeconds(frame, rate);
-
-					await renderFrame(frame, timestamp);
-					signal?.throwIfAborted();
-					chunks.push(await canvasFrameToPng(canvas));
-					onProgress?.((frame + 1) / frameCount);
-
-					if ((frame + 1) % yieldEvery === 0) {
-						await new Promise<void>((resolve) => {
-							requestAnimationFrame(() => resolve());
-						});
-					}
-				}
-			});
-
-			const wavBytes = audio ? audioBufferToWavBytes(audio) : null;
-			const body = new Blob(wavBytes ? [wavBytes, ...chunks] : chunks, {
-				type: 'application/octet-stream'
-			});
-			const response = await Sentry.startSpan(
-				{
-					name: 'export.encode',
-					op: 'export.encode',
-					attributes: { 'export.upload_bytes': body.size }
-				},
-				() =>
-					fetch(`/api/export/webm?fps=${fps}&opaque=${hasBackground === true}`, {
-						method: 'POST',
-						body,
-						signal,
-						headers: {
-							'Content-Type': 'application/octet-stream',
-							...(wavBytes ? { 'x-supers-audio-bytes': String(wavBytes.byteLength) } : {})
-						}
-					})
+			return Sentry.startSpan({ name: 'export.encode', op: 'export.encode' }, () =>
+				exportCanvasVideo('webm', {
+					canvas,
+					durationSeconds,
+					fps,
+					renderFrame,
+					onProgress,
+					hasBackground,
+					audio,
+					frameCount: plannedFrameCount,
+					timestampForFrame,
+					signal
+				})
 			);
-
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(text || `WebM export failed with status ${response.status}.`);
-			}
-
-			return response.blob();
 		}
 	);
 }
@@ -183,7 +293,7 @@ export async function exportTransparentProRes({
 	frameCount: plannedFrameCount,
 	timestampForFrame,
 	signal
-}: TransparentVideoExportOptions): Promise<Blob> {
+}: TransparentVideoExportOptions): Promise<VideoExportDownload> {
 	// Same transaction shape as the WebM path — see exportTransparentWebM.
 	return Sentry.startSpan(
 		{
@@ -193,73 +303,32 @@ export async function exportTransparentProRes({
 			attributes: exportSpanAttributes({ fps, durationSeconds, audio })
 		},
 		async (exportSpan) => {
-			await fontsReady();
-			signal?.throwIfAborted();
-
-			// Frame math runs on the exact rational (ADR-0042) — see the WebM path.
 			const rate = resolveFrameRate(fps);
 			const frameCount = plannedFrameCount ?? Math.max(1, secondsToFrames(durationSeconds, rate));
 			exportSpan.setAttribute('export.frames', frameCount);
-			const yieldEvery = Math.max(1, Math.round(rate.num / rate.den));
-			const chunks: Blob[] = [];
-
-			await Sentry.startSpan({ name: 'export.render-frames', op: 'export.render' }, async () => {
-				for (let frame = 0; frame < frameCount; frame += 1) {
-					signal?.throwIfAborted();
-					const timestamp = timestampForFrame?.(frame) ?? framesToSeconds(frame, rate);
-
-					await renderFrame(frame, timestamp);
-					signal?.throwIfAborted();
-					chunks.push(await canvasFrameToPng(canvas));
-					onProgress?.((frame + 1) / frameCount);
-
-					if ((frame + 1) % yieldEvery === 0) {
-						await new Promise<void>((resolve) => {
-							requestAnimationFrame(() => resolve());
-						});
-					}
-				}
-			});
-
-			// The offline mix rides ahead of the PNG stream as a WAV prefix; the
-			// endpoint splits on the declared byte length and hands ffmpeg the WAV as
-			// its second input (ADR-0033 §6).
-			const wavBytes = audio ? audioBufferToWavBytes(audio) : null;
-
-			// Chrome rejects fetch() with a ReadableStream body unless the connection is
-			// HTTP/2; Vite's dev server is HTTP/1.1. Buffer the PNGs into a Blob so the
-			// upload uses the browser's normal body handling.
-			const body = new Blob(wavBytes ? [wavBytes, ...chunks] : chunks, {
-				type: 'application/octet-stream'
-			});
-			const timecodeParam = startTimecode ? `&tc=${encodeURIComponent(startTimecode)}` : '';
-			const response = await Sentry.startSpan(
-				{
-					name: 'export.encode',
-					op: 'export.encode',
-					attributes: { 'export.upload_bytes': body.size }
-				},
-				() =>
-					fetch(`/api/export/prores?fps=${fps}${timecodeParam}`, {
-						method: 'POST',
-						body,
-						signal,
-						headers: {
-							'Content-Type': 'application/octet-stream',
-							...(wavBytes ? { 'x-supers-audio-bytes': String(wavBytes.byteLength) } : {})
-						}
-					})
+			return Sentry.startSpan({ name: 'export.encode', op: 'export.encode' }, () =>
+				exportCanvasVideo('prores', {
+					canvas,
+					durationSeconds,
+					fps,
+					renderFrame,
+					onProgress,
+					audio,
+					startTimecode,
+					frameCount: plannedFrameCount,
+					timestampForFrame,
+					signal
+				})
 			);
-
-			if (!response.ok) {
-				const text = await response.text();
-
-				throw new Error(text || `ProRes export failed with status ${response.status}.`);
-			}
-
-			return response.blob();
 		}
 	);
+}
+
+export function downloadVideoExport(exportedVideo: VideoExportDownload, filename: string): void {
+	const link = document.createElement('a');
+	link.href = exportedVideo.downloadUrl;
+	link.download = filename;
+	link.click();
 }
 
 export function downloadBlob(blob: Blob, filename: string): void {

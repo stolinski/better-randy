@@ -56,11 +56,11 @@ interface PresetSoundReport {
 	manualCues: { id: string; assetSlug: string; kind?: string }[];
 }
 
-const schemaModulePath = resolve(repoRoot, 'src/lib/platform/engine-schema.ts');
+const ingressModulePath = resolve(repoRoot, 'src/lib/platform/preset-ingress.ts');
 const cuesModulePath = resolve(repoRoot, 'src/lib/platform/sound-cues.ts');
 
-const { PresetSchema } = (await import(pathToFileURL(schemaModulePath).href)) as {
-	PresetSchema: {
+const { PresetIngressSchema } = (await import(pathToFileURL(ingressModulePath).href)) as {
+	PresetIngressSchema: {
 		safeParse: (value: unknown) => { success: boolean; data?: unknown; error?: unknown };
 	};
 };
@@ -87,7 +87,7 @@ let parseFailures = 0;
 
 for (const file of files) {
 	const raw = await readFile(resolve(presetDir, file), 'utf8');
-	const parsed = PresetSchema.safeParse(JSON.parse(raw));
+	const parsed = PresetIngressSchema.safeParse(JSON.parse(raw));
 	if (!parsed.success) {
 		parseFailures += 1;
 		console.error(`✗ ${file} — schema parse failed, skipped`);

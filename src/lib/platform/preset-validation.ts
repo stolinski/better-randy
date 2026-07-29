@@ -7,6 +7,7 @@ import { getCompositionEffectRegistration } from './pipelines/composition-effect
 import { getStageRegistration } from './pipelines/stage-registry';
 import { isTransitionEffectType } from './pipelines/transition-registry';
 import { isSubstrateAsset } from './substrate-textures';
+import { resolveFrameRate, secondsToFrames } from '../utils/composition-timing';
 import { normalizeWebsiteCaptureUrl } from '../utils/website-showcase';
 
 export interface PresetSemanticIssue {
@@ -55,6 +56,61 @@ function validateUniqueIds(
 	}
 }
 
+function validateMediaSemantics(preset: Preset, issues: PresetSemanticIssue[]): void {
+	const assetIds = new Set<string>();
+	for (const [index, asset] of preset.state.media.assets.entries()) {
+		if (assetIds.has(asset.id)) {
+			issues.push({
+				path: ['state', 'media', 'assets', index, 'id'],
+				message: `Duplicate Video asset ID "${asset.id}"`
+			});
+		}
+		assetIds.add(asset.id);
+	}
+
+	const clipIds = new Set<string>();
+	const clips = preset.state.media.videoTrack.clips;
+	const compositionFrameCount = Math.max(
+		1,
+		secondsToFrames(
+			preset.state.transport.durationSeconds,
+			resolveFrameRate(preset.state.transport.fps)
+		)
+	);
+	for (const [index, clip] of clips.entries()) {
+		if (clipIds.has(clip.id)) {
+			issues.push({
+				path: ['state', 'media', 'videoTrack', 'clips', index, 'id'],
+				message: `Duplicate Video clip ID "${clip.id}"`
+			});
+		}
+		clipIds.add(clip.id);
+
+		if (!assetIds.has(clip.assetId)) {
+			issues.push({
+				path: ['state', 'media', 'videoTrack', 'clips', index, 'assetId'],
+				message: `Video clip "${clip.id}" references missing asset "${clip.assetId}"`
+			});
+		}
+
+		const clipEndFrame = clip.timelineStartFrame + clip.durationFrames;
+		if (clipEndFrame > compositionFrameCount) {
+			issues.push({
+				path: ['state', 'media', 'videoTrack', 'clips', index, 'durationFrames'],
+				message: `Video clip "${clip.id}" ends at frame ${clipEndFrame}, beyond the composition's ${compositionFrameCount} frames`
+			});
+		}
+
+		const previous = clips[index - 1];
+		if (previous && previous.timelineStartFrame + previous.durationFrames > clip.timelineStartFrame) {
+			issues.push({
+				path: ['state', 'media', 'videoTrack', 'clips', index, 'timelineStartFrame'],
+				message: `Video clips must be ordered and non-overlapping; "${clip.id}" starts before "${previous.id}" ends`
+			});
+		}
+	}
+}
+
 export function validatePresetSemantics(
 	preset: Preset,
 	options: PresetSemanticValidationOptions = {}
@@ -67,6 +123,8 @@ export function validatePresetSemantics(
 			message: `Unknown Pack "${preset.pack}". Registered Packs: ${Object.keys(PACK_REGISTRY).join(', ')}`
 		});
 	}
+
+	validateMediaSemantics(preset, issues);
 
 	const surfaceRenderer = getSurfaceRenderer(preset.state.surface.type);
 	if (!surfaceRenderer) {
@@ -180,10 +238,10 @@ export function validatePresetSemantics(
 	}
 
 	if (preset.transition) {
-		if (preset.state.sourceVideo) {
+		if (preset.state.media.videoTrack.clips.length > 0) {
 			issues.push({
-				path: ['state', 'sourceVideo'],
-				message: 'Source video is not supported on transition Presets in v1'
+				path: ['state', 'media', 'videoTrack', 'clips'],
+				message: 'Active Video clips are not supported on transition Presets in v1'
 			});
 		}
 		if (!isTransitionEffectType(preset.transition.effect)) {
@@ -200,10 +258,10 @@ export function validatePresetSemantics(
 					path: ['transition', 'from'],
 					message: `Preset "${preset.transition.from}" does not resolve`
 				});
-			} else if (fromPreset.state.sourceVideo) {
+			} else if (fromPreset.state.media.videoTrack.clips.length > 0) {
 				issues.push({
 					path: ['transition', 'from'],
-					message: `Preset "${preset.transition.from}" uses Source video, which transition snapshots do not support in v1`
+					message: `Preset "${preset.transition.from}" uses active Video clips, which transition snapshots do not support in v1`
 				});
 			}
 			if (!toPreset) {
@@ -211,10 +269,10 @@ export function validatePresetSemantics(
 					path: ['transition', 'to'],
 					message: `Preset "${preset.transition.to}" does not resolve`
 				});
-			} else if (toPreset.state.sourceVideo) {
+			} else if (toPreset.state.media.videoTrack.clips.length > 0) {
 				issues.push({
 					path: ['transition', 'to'],
-					message: `Preset "${preset.transition.to}" uses Source video, which transition snapshots do not support in v1`
+					message: `Preset "${preset.transition.to}" uses active Video clips, which transition snapshots do not support in v1`
 				});
 			}
 		}

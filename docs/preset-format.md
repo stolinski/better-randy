@@ -38,28 +38,62 @@ Orientation is a transport target, not grounds for a sibling deliverable. Author
 
 ### Transparency and output classification
 
-The render target clears to transparent premultiplied alpha by default. `state.backgroundFill` is an optional `#rrggbb` full-frame fill; `state.stage` also makes the output full-frame because the dimensional stage paints to the frame edges. `state.sourceVideo` declares creator footage beneath all five Layers and likewise produces full-frame output. Output classification is centralized in `src/lib/utils/output-classification.ts`:
+The render target clears to transparent premultiplied alpha by default. `state.backgroundFill` is an optional `#rrggbb` full-frame fill; `state.stage` also makes the output full-frame because the dimensional stage paints to the frame edges. Ordered `state.media.videoTrack.clips[]` may supply creator footage beneath all five Layers. Output classification is centralized in `src/lib/utils/output-classification.ts`:
 
-- no `sourceVideo`, `backgroundFill`, or depth `stage` → transparent overlay output (`supers-overlay`);
-- `sourceVideo`, `backgroundFill`, or a depth `stage` → opaque full-frame output (`supers-bumper`);
+- no `backgroundFill`, depth `stage`, or complete Video-track coverage → transparent overlay output (`supers-overlay`);
+- `backgroundFill`, a depth `stage`, or Video clips covering every output frame → opaque full-frame output (`supers-bumper`);
 - a transition is opaque only when both resolved endpoint Presets are opaque.
 
-There is no schema enum for overlay/segment/bumper. Those are descriptive delivery terms derived from rendered coverage.
+Unused Media library entries do not affect classification. A Video-track gap stays transparent rather than painting black or holding the preceding frame, so a gapped composition retains alpha. There is no schema enum for overlay/segment/bumper; those are descriptive delivery terms derived from rendered coverage.
 
-### `sourceVideo` ([ADR-0043](adr/0043-source-video-underlay.md))
+### `media` ([ADR-0045](adr/0045-composition-media-library-and-video-track.md))
 
 ```jsonc
-"sourceVideo": {
-  "assetUrl": "/api/user-assets/<sha256>.mp4", // MP4, MOV, or WebM
-  "sourceOffsetSeconds": 0,                     // optional; defaults to 0
-  "includeAudio": true,                         // optional; defaults to true
-  "volume": 1                                   // optional; 0..4, defaults to 1
+"media": {
+  "assets": [
+    {
+      "id": "interview-a",                           // stable, non-empty, unique
+      "kind": "video",                               // v1 is video-only
+      "name": "Interview A",                         // composition-owned display name
+      "assetUrl": "/api/user-assets/<sha256>.mp4"    // MP4, MOV, or WebM
+    }
+  ],
+  "videoTrack": {
+    "clips": [
+      {
+        "id": "opening",                  // stable, non-empty, unique
+        "assetId": "interview-a",         // resolves to media.assets[].id
+        "timelineStartFrame": 0,           // nonnegative integer
+        "durationFrames": 180,             // positive integer
+        "sourceStartSeconds": 4.25,        // nonnegative media-relative Source time
+        "audio": {
+          "enabled": true,
+          "gain": 1                        // 0..4
+        }
+      }
+    ]
+  }
 }
 ```
 
-Source video is composition input beneath the Layer stack, not a Surface or Substrate. V1 maps one uninterrupted source range onto the complete composition using `sourceOffsetSeconds + timeline timestamp`; the offset is media-relative, so the decoder adds a track's non-zero first presentation timestamp internally. The selected source must cover `transport.durationSeconds`. The decoder selects the source sample presented at or before each exact rational transport timestamp, including VFR inputs. Output uses centered cover framing at the native target size. Post-process Effects and Pack chrome process the Supers animation result, not creator footage, before that result is composited over the Source video.
+`media` defaults to `{ "assets": [], "videoTrack": { "clips": [] } }`. A Media library entry is composition membership, not embedded bytes: only its stable `id`, `kind`, `name`, and content-addressed `assetUrl` persist. Probe output such as duration, dimensions, rotation, frame rate, codecs, channels, sample rate, byte size, readiness, and errors is volatile and must not be copied into Preset JSON. The bytes are globally deduplicated; different compositions and entries may reference the same `assetUrl` with independent IDs and names. Removing an entry never deletes shared bytes. Unused entries are valid.
 
-V1 rejects `sourceVideo` with `backgroundFill`, `stage`, or transition Presets. Source video makes beds eligible because the result is full-frame, but Source video audio remains distinct from an authored bed. Future silence removal/basic cutting will add timeline-to-source edit segments inside the Source video domain; these v1 fields remain the asset-level contract.
+V1 has exactly one primary Video track. Clips are ordered and non-overlapping half-open intervals:
+
+```text
+timeline interval = [timelineStartFrame, timelineStartFrame + durationFrames)
+localFrame        = outputFrame - timelineStartFrame
+Source time       = sourceStartSeconds + framesToSeconds(localFrame, transport rate)
+requested PTS     = media track first PTS + Source time
+```
+
+At a cut, the ending clip is inactive and the next clip is active. The decoder selects the last presentation sample at or before the requested PTS, including CFR, VFR, B-frame, and non-zero-first-PTS inputs. The referenced source range must cover the complete clip; clips must remain inside the composition frame count. Random preview seeks, serial export, and clip audio use this same exact-rational mapping. One resident underlay texture holds only the active frame; a gap supplies no texture. Output applies display rotation and centered cover framing at native target size. Effects and Pack chrome process the Supers result before final-present compositing, never the creator footage.
+
+Each clip's audio is decoded from the same Source interval and placed at the same destination interval. `audio.enabled` mutes that clip only; `audio.gain` controls its contribution to the deterministic exact-length 48 kHz stereo mix with derived/manual cues and an eligible bed. Timeline play/loop previews that final mix from the explicit playhead; scrub remains silent.
+
+V1 rejects active Video clips with `backgroundFill`, `stage`, or transition Presets. It supports one 1x track, hard cuts, move, left/right trim, slip, snapping, clip removal, and transparent gaps. It excludes multiple Video tracks, overlaps, ripple edits, clip transitions, speed changes, loops/holds, footage grading, depth-stage video planes, live video transitions, silence detection, and automatic cut generation. Those exclusions add behavior around the clip contract rather than adding inert schema now.
+
+Legacy `supers@1` input containing only `state.sourceVideo` is accepted at the shared ingress and normalized to one deterministic Media library entry plus one frame-0 full-span Video clip, preserving its offset, audio inclusion, and gain. Input containing both `state.sourceVideo` and `state.media` is rejected. Canonical parse, runtime state, GET/PUT interchange, GUI export, and first autosave emit only `state.media`; `state.sourceVideo` is migration history, not an active alternative contract.
 
 ### `typography`
 
@@ -360,7 +394,7 @@ Defaults follow the motion's _character_, not just its window: sliding elements 
 ]
 ```
 
-`kind` defaults to `"cue"`. `assetSlug` names a bundled audio asset directly, so manual cues do not use the event-default sample mapping. Parse-time rules: ids unique; at most one `bed`; a `bed` requires `backgroundFill` or Source video (full-frame segments/bumpers only — a transparent Overlay keeps the footage's own audio).
+`kind` defaults to `"cue"`. `assetSlug` names a bundled audio asset directly, so manual cues do not use the event-default sample mapping. Parse-time rules: ids unique; at most one `bed`; a `bed` requires `backgroundFill` or complete Video-track coverage (full-frame segments/bumpers only — a transparent Overlay or gapped Video track keeps alpha).
 
 ## Surface variants
 
@@ -435,6 +469,6 @@ Validation has two ordered layers:
 1. `PresetSchema` validates and transforms the structural `supers@1` JSON shape.
 2. `validatePresetSemantics(preset)` validates registry and cross-domain meaning: the Pack slug; Surface registration/variant; Overlay type/content; post-process and composition Effect type/params; Stage type; substrate asset; Overlay/Effect IDs; text-animation Overlay targets; transition lane; and, when a resolver is supplied, transition Preset references.
 
-`parsePreset(value)` runs both layers and returns the parsed `Preset` or throws with a path-qualified multi-line summary. Built-in catalog loading, `scripts/verify-presets.ts`, and user-composition list/load/create/update paths run the same semantic gate, so unknown primitives or malformed renderer params fail before rendering or persistence. `applyPreset(preset)` clones the parsed state into `engineState` in place, preserving object identity at the top level.
+`parsePreset(value)` runs both layers and returns the parsed `Preset` or throws with a path-qualified multi-line summary. Built-in catalog loading, `scripts/verify-presets.ts`, and user-composition list/load/create/update paths run the same semantic gate, so unknown primitives or malformed renderer params fail before rendering or persistence. Media validation additionally requires unique asset/clip IDs, resolved clip references, ordered non-overlap, composition bounds, and sufficient Source coverage. User-composition writes require every referenced Media asset to exist and pass the server video probe; unused entries may remain for later use, and stored compositions remain readable if bytes later go missing so the GUI can repair them. `applyPreset(preset)` clones the parsed state into `engineState` in place, preserving object identity at the top level.
 
-Standalone interchange uses the wire representation documented here: the GUI's JSON import/export controls and `GET`/`PUT /api/user-compositions/<slug>` consume and return this exact shape. Agents should use that API rather than editing the metadata wrappers under `user-compositions/`. The full GUI, agent, and automated-render workflows are documented in [`user-composition-workflows.md`](user-composition-workflows.md).
+Standalone interchange uses the wire representation documented here: the GUI's JSON import/export controls and `GET`/`PUT /api/user-compositions/<slug>` consume and return this exact shape. Agents should use that API rather than editing the metadata wrappers under `user-compositions/`. Media asset bytes and volatile probes are never embedded in this JSON. The full GUI, agent, and automated-render workflows are documented in [`user-composition-workflows.md`](user-composition-workflows.md).

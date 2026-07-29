@@ -4,9 +4,10 @@
 		/** Accessible name — every rail toggle must announce what it enables. */
 		label: string;
 		onchange: (checked: boolean) => void;
+		disabled?: boolean;
 	}
 
-	let { checked, label, onchange }: Props = $props();
+	let { checked, label, onchange, disabled = false }: Props = $props();
 </script>
 
 <!-- The rail's boolean control: a recessed instrument well, never OS chrome.
@@ -18,6 +19,7 @@
 	aria-checked={checked}
 	aria-label={label}
 	class="ins-toggle"
+	{disabled}
 	onclick={() => onchange(!checked)}
 >
 	{#if checked}
@@ -46,6 +48,11 @@
 
 	.ins-toggle:hover {
 		border-color: var(--chrome-muted);
+	}
+
+	.ins-toggle:disabled {
+		cursor: default;
+		opacity: 0.45;
 	}
 
 	.ins-toggle:focus-visible {

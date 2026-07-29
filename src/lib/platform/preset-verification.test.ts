@@ -16,6 +16,32 @@ describe('verifyPresetArtifact', () => {
 		assert.equal(result.issues[0]?.path, 'pack');
 	});
 
+	it('migrates legacy Source video and rejects dual legacy/canonical media', () => {
+		const legacy = {
+			...blankPresetJson,
+			kind: 'fixture',
+			state: {
+				...blankPresetJson.state,
+				sourceVideo: { assetUrl: `/api/user-assets/${'a'.repeat(64)}.mp4` }
+			}
+		};
+		const migrated = verifyPresetArtifact(legacy);
+		assert.equal(migrated.isValid, true);
+		assert.equal(migrated.preset?.state.media.videoTrack.clips.length, 1);
+		assert.equal(migrated.preset ? 'sourceVideo' in migrated.preset.state : true, false);
+
+		const dual = verifyPresetArtifact({
+			...legacy,
+			state: {
+				...legacy.state,
+				media: { assets: [], videoTrack: { clips: [] } }
+			}
+		});
+		assert.equal(dual.isValid, false);
+		assert.equal(dual.issues[0]?.source, 'schema');
+		assert.equal(dual.issues[0]?.path, 'state');
+	});
+
 	it('returns registry-derived semantic failures', () => {
 		const result = verifyPresetArtifact({ ...blankPresetJson, pack: 'missing-pack' });
 

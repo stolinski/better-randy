@@ -1,172 +1,410 @@
 import assert from 'node:assert/strict';
+import type { ChildProcessWithoutNullStreams, spawn as nodeSpawn } from 'node:child_process';
+import { EventEmitter } from 'node:events';
+import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { PassThrough, Writable } from 'node:stream';
 
-import { beforeAll, beforeEach, describe, it, vi } from 'vitest';
+import { afterEach, describe, it } from 'vitest';
 
-const fsMocks = vi.hoisted(() => ({
-	mkdtemp: vi.fn<(prefix: string) => Promise<string>>(),
-	readFile: vi.fn<(path: string) => Promise<Buffer>>(),
-	rm: vi.fn<(path: string, options: { recursive: true; force: true }) => Promise<void>>(),
-	writeFile: vi.fn<(path: string, data: Uint8Array) => Promise<void>>()
-}));
+import {
+	cleanupOrphanedExportDirectories,
+	ExportSessionError,
+	ExportSessionStore,
+	hasPngSignature,
+	parseExportFrameIndex,
+	parseExportSessionRequest
+} from '$lib/platform/export-session.server';
 
-const childProcessMocks = vi.hoisted(() => ({
-	spawn: vi.fn()
-}));
+const PNG = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3, 4]);
+const temporaryDirectories: string[] = [];
 
-vi.mock('node:fs/promises', () => fsMocks);
-vi.mock('node:child_process', () => childProcessMocks);
-
-let webmHandlers: typeof import('./webm/+server.ts');
-let proresHandlers: typeof import('./prores/+server.ts');
-
-beforeAll(async () => {
-	webmHandlers = await import('./webm/+server.ts');
-	proresHandlers = await import('./prores/+server.ts');
-});
-
-beforeEach(() => {
-	vi.clearAllMocks();
-	fsMocks.mkdtemp.mockImplementation(async (prefix) =>
-		prefix.endsWith('supers-prores-')
-			? '/virtual/supers-prores-test-work-dir'
-			: '/virtual/supers-webm-test-work-dir'
+afterEach(async () => {
+	await Promise.all(
+		temporaryDirectories.splice(0).map((path) => rm(path, { recursive: true, force: true }))
 	);
-	fsMocks.readFile.mockResolvedValue(Buffer.from('encoded-video'));
-	fsMocks.rm.mockResolvedValue(undefined);
-	fsMocks.writeFile.mockResolvedValue(undefined);
-	childProcessMocks.spawn.mockImplementation(() => {
-		const stdin = {
-			write: vi.fn(() => true),
-			once: vi.fn(),
-			end: vi.fn()
-		};
-		return {
-			stdin,
-			stderr: { on: vi.fn() },
-			once: vi.fn((event: string, listener: (value: number | null) => void) => {
-				if (event === 'close') queueMicrotask(() => listener(0));
+});
+
+interface FakeEncoderOptions {
+	exitCode?: number;
+	stderr?: string;
+	createInput?: () => Writable;
+}
+
+interface FakeEncoderHarness {
+	spawnEncoder: typeof nodeSpawn;
+	spawnedArguments: string[][];
+	children: FakeEncoderProcess[];
+}
+
+class FakeEncoderProcess extends EventEmitter {
+	readonly stdin: Writable;
+	readonly stdout = new PassThrough();
+	readonly stderr = new PassThrough();
+	killed = false;
+
+	constructor(
+		outputPath: string,
+		options: FakeEncoderOptions
+	) {
+		super();
+		this.stdin = options.createInput?.() ?? new Writable({ write: (_chunk, _encoding, done) => done() });
+		this.stdin.once('finish', () => {
+			void (async () => {
+				if ((options.exitCode ?? 0) === 0) await writeFile(outputPath, 'encoded-video');
+				if (options.stderr) this.stderr.write(options.stderr);
+				this.stderr.end();
+				this.emit('close', options.exitCode ?? 0, null);
+			})();
+		});
+	}
+
+	kill(signal?: NodeJS.Signals | number): boolean {
+		if (this.killed) return false;
+		this.killed = true;
+		this.stdin.destroy();
+		queueMicrotask(() => this.emit('close', null, signal ?? 'SIGTERM'));
+		return true;
+	}
+}
+
+function createFakeEncoder(options: FakeEncoderOptions = {}): FakeEncoderHarness {
+	const spawnedArguments: string[][] = [];
+	const children: FakeEncoderProcess[] = [];
+	const spawnEncoder = ((_command: string, args?: readonly string[]) => {
+		const normalized = [...(args ?? [])];
+		spawnedArguments.push(normalized);
+		const outputPath = normalized.at(-1);
+		assert.ok(outputPath);
+		const child = new FakeEncoderProcess(outputPath, options);
+		children.push(child);
+		return child as unknown as ChildProcessWithoutNullStreams;
+	}) as typeof nodeSpawn;
+	return { spawnEncoder, spawnedArguments, children };
+}
+
+async function createStore(
+	options: FakeEncoderOptions = {},
+	storeOptions: { ttlMs?: number; now?: () => number } = {}
+): Promise<{ store: ExportSessionStore; directory: string; encoder: FakeEncoderHarness }> {
+	const directory = await mkdtemp(join(tmpdir(), 'supers-export-test-'));
+	temporaryDirectories.push(directory);
+	const encoder = createFakeEncoder(options);
+	return {
+		directory,
+		encoder,
+		store: new ExportSessionStore({
+			temporaryDirectory: directory,
+			spawnEncoder: encoder.spawnEncoder,
+			ttlMs: storeOptions.ttlMs,
+			now: storeOptions.now
+		})
+	};
+}
+
+function frameRequest(signal?: AbortSignal, type = 'image/png'): Request {
+	return new Request('http://localhost/frame', {
+		method: 'PUT',
+		headers: { 'Content-Type': type },
+		body: new Blob([PNG], { type }),
+		signal
+	});
+}
+
+function audioRequest(bytes: Uint8Array): Request {
+	return new Request('http://localhost/audio', {
+		method: 'PUT',
+		headers: { 'Content-Type': 'audio/wav' },
+		body: new Blob([bytes.buffer as ArrayBuffer], { type: 'audio/wav' })
+	});
+}
+
+function optionValue(args: string[], option: string): string | undefined {
+	const index = args.indexOf(option);
+	return index >= 0 ? args[index + 1] : undefined;
+}
+
+describe('export session protocol parsing', () => {
+	it('accepts exact rational transport metadata and PNG framing', () => {
+		assert.deepEqual(
+			parseExportSessionRequest({
+				format: 'prores',
+				fps: 29.97,
+				frameCount: 300,
+				opaque: true,
+				audioBytes: 44,
+				startTimecode: '01:00:08:00'
 			}),
-			killed: false,
-			kill: vi.fn()
-		};
+			{
+				format: 'prores',
+				fps: 29.97,
+				frameCount: 300,
+				opaque: true,
+				audioBytes: 44,
+				startTimecode: '01:00:08:00'
+			}
+		);
+		assert.equal(parseExportFrameIndex('0'), 0);
+		assert.equal(hasPngSignature(PNG), true);
+	});
+
+	it('rejects malformed counts, indexes, rates, and WebM timecode', () => {
+		assert.throws(
+			() =>
+				parseExportSessionRequest({
+					format: 'webm',
+					fps: 29.9,
+					frameCount: 0,
+					opaque: false,
+					audioBytes: 0
+				}),
+			ExportSessionError
+		);
+		assert.throws(() => parseExportFrameIndex('01'), ExportSessionError);
+		assert.throws(
+			() =>
+				parseExportSessionRequest({
+					format: 'webm',
+					fps: 30,
+					frameCount: 1,
+					opaque: false,
+					audioBytes: 0,
+					startTimecode: '01:00:00:00'
+				}),
+			/A start timecode requires/
+		);
 	});
 });
 
-function exportRequest(url: string): Request {
-	return new Request(url, {
-		method: 'POST',
-		body: new Blob([new Uint8Array([1, 2, 3, 4])])
-	});
-}
-
-function spawnedArguments(): string[] {
-	assert.equal(childProcessMocks.spawn.mock.calls.length, 1);
-	const args: unknown = childProcessMocks.spawn.mock.calls[0][1];
-	assert.ok(Array.isArray(args));
-	assert.ok(args.every((value) => typeof value === 'string'));
-	return args;
-}
-
-function assertOption(args: string[], option: string, value: string): void {
-	const index = args.indexOf(option);
-	assert.notEqual(index, -1, `Expected ${option} in ffmpeg arguments`);
-	assert.equal(args[index + 1], value);
-}
-
-async function assertVideoResponse(response: Response, contentType: string): Promise<void> {
-	assert.equal(response.status, 200);
-	assert.equal(response.headers.get('content-type'), contentType);
-	assert.equal(response.headers.get('content-length'), String(Buffer.byteLength('encoded-video')));
-	assert.deepEqual(Buffer.from(await response.arrayBuffer()), Buffer.from('encoded-video'));
-}
-
-describe('export handlers', () => {
-	it.each([
-		{ query: '', pixelFormat: 'yuva420p' },
-		{ query: '?opaque=true', pixelFormat: 'yuv444p' }
-	])('uses $pixelFormat for WebM export', async ({ query, pixelFormat }) => {
-		const request = exportRequest(`http://localhost/api/export/webm${query}`);
-		const response = await webmHandlers.POST({
-			request,
-			url: new URL(request.url)
-		} as Parameters<(typeof webmHandlers)['POST']>[0]);
-
-		const args = spawnedArguments();
-		assertOption(args, '-c:v', 'png');
-		assert.ok(args.includes('libvpx-vp9'));
-		assertOption(args, '-pix_fmt', pixelFormat);
-		await assertVideoResponse(response, 'video/webm');
-		assert.deepEqual(fsMocks.rm.mock.calls, [
-			['/virtual/supers-webm-test-work-dir', { recursive: true, force: true }]
-		]);
+describe('export session encoding', () => {
+	it('enforces ordered frame acknowledgements and rejects completion with missing frames', async () => {
+		const { store, directory } = await createStore();
+		const session = await store.create({
+			format: 'webm',
+			fps: 30,
+			frameCount: 2,
+			opaque: false,
+			audioBytes: 0
+		});
+		await assert.rejects(() => store.uploadFrame(session.sessionId, 1, frameRequest()), /Expected export frame 0/);
+		await store.uploadFrame(session.sessionId, 0, frameRequest());
+		await assert.rejects(() => store.complete(session.sessionId), /received 1 of 2/);
+		await assert.rejects(() => store.outputResponse(session.sessionId), /not ready/);
+		await store.uploadFrame(session.sessionId, 1, frameRequest());
+		const completed = await store.complete(session.sessionId);
+		assert.match(completed.downloadUrl, new RegExp(session.sessionId));
+		const response = await store.outputResponse(session.sessionId);
+		assert.equal(response.headers.get('content-type'), 'video/webm');
+		assert.equal(response.headers.get('content-length'), String('encoded-video'.length));
+		assert.equal(await response.text(), 'encoded-video');
+		assert.deepEqual(await readdir(directory), []);
 	});
 
-	it('uses ProRes 4444 with alpha and returns QuickTime video', async () => {
-		const request = exportRequest('http://localhost/api/export/prores?fps=24');
-		const response = await proresHandlers.POST({
-			request,
-			url: new URL(request.url)
-		} as Parameters<(typeof proresHandlers)['POST']>[0]);
-
-		const args = spawnedArguments();
-		assert.ok(args.includes('prores_ks'));
-		assertOption(args, '-profile:v', '4444');
-		assertOption(args, '-pix_fmt', 'yuva444p10le');
-		assertOption(args, '-framerate', '24');
-		assert.equal(args.indexOf('-timecode'), -1, 'no -timecode without a tc param');
-		await assertVideoResponse(response, 'video/quicktime');
-		assert.deepEqual(fsMocks.rm.mock.calls, [
-			['/virtual/supers-prores-test-work-dir', { recursive: true, force: true }]
-		]);
-	});
-
-	// NTSC fractional rates reach ffmpeg as the exact rational, never a rounded
-	// float, and the ProRes path stamps the sync start timecode (ADR-0042).
-	it('passes the exact rational -framerate and -timecode for a 29.97 sync export', async () => {
-		const request = exportRequest(
-			'http://localhost/api/export/prores?fps=29.97&tc=01%3A00%3A08%3A00'
-		);
-		const response = await proresHandlers.POST({
-			request,
-			url: new URL(request.url)
-		} as Parameters<(typeof proresHandlers)['POST']>[0]);
-
-		const args = spawnedArguments();
-		assertOption(args, '-framerate', '30000/1001');
-		assertOption(args, '-timecode', '01:00:08:00');
-		await assertVideoResponse(response, 'video/quicktime');
-	});
-
-	it('passes the exact rational -framerate for a 29.97 WebM export', async () => {
-		const request = exportRequest('http://localhost/api/export/webm?fps=29.97');
-		const response = await webmHandlers.POST({
-			request,
-			url: new URL(request.url)
-		} as Parameters<(typeof webmHandlers)['POST']>[0]);
-
-		assertOption(spawnedArguments(), '-framerate', '30000/1001');
-		await assertVideoResponse(response, 'video/webm');
-	});
-
-	it.each([
-		{ label: 'unsupported fractional fps', url: 'http://localhost/api/export/prores?fps=29.9' },
-		{
-			label: 'drop-frame timecode separators',
-			url: 'http://localhost/api/export/prores?fps=29.97&tc=01%3A00%3A08%3B00'
-		}
-	])('rejects $label with a 400 before spawning ffmpeg', async ({ url }) => {
-		const request = exportRequest(url);
+	it('rejects invalid frame content and removes the unusable session', async () => {
+		const { store, directory } = await createStore();
+		const session = await store.create({
+			format: 'webm',
+			fps: 30,
+			frameCount: 1,
+			opaque: false,
+			audioBytes: 0
+		});
 		await assert.rejects(
-			async () =>
-				await proresHandlers.POST({
-					request,
-					url: new URL(request.url)
-				} as Parameters<(typeof proresHandlers)['POST']>[0]),
-			(thrown: unknown) =>
-				typeof thrown === 'object' &&
-				thrown !== null &&
-				(thrown as { status?: number }).status === 400
+			() => store.uploadFrame(session.sessionId, 0, frameRequest(undefined, 'image/jpeg')),
+			/Expected an image\/png/
 		);
-		assert.equal(childProcessMocks.spawn.mock.calls.length, 0);
+		assert.deepEqual(await readdir(directory), []);
+
+		const malformed = await store.create({
+			format: 'webm',
+			fps: 30,
+			frameCount: 1,
+			opaque: false,
+			audioBytes: 0
+		});
+		const malformedRequest = new Request('http://localhost/frame', {
+			method: 'PUT',
+			headers: { 'Content-Type': 'image/png' },
+			body: new Blob(['not a png'], { type: 'image/png' })
+		});
+		await assert.rejects(
+			() => store.uploadFrame(malformed.sessionId, 0, malformedRequest),
+			/not a PNG image/
+		);
+		assert.deepEqual(await readdir(directory), []);
+	});
+
+	it('does not acknowledge a frame until the encoder write callback applies backpressure', async () => {
+		let releaseWrite = (): void => undefined;
+		let isReleased = false;
+		let markWriteStarted = (): void => undefined;
+		const writeStarted = new Promise<void>((resolve) => {
+			markWriteStarted = resolve;
+		});
+		const { store } = await createStore({
+			createInput: () =>
+				new Writable({
+					highWaterMark: 1,
+					write: (_chunk, _encoding, done) => {
+						markWriteStarted();
+						if (isReleased) done();
+						else {
+							releaseWrite = () => {
+								isReleased = true;
+								done();
+							};
+						}
+					}
+				})
+		});
+		const session = await store.create({
+			format: 'webm',
+			fps: 30,
+			frameCount: 1,
+			opaque: false,
+			audioBytes: 0
+		});
+		let didResolve = false;
+		const upload = store.uploadFrame(session.sessionId, 0, frameRequest()).then(() => {
+			didResolve = true;
+		});
+		await writeStarted;
+		assert.equal(didResolve, false);
+		releaseWrite();
+		await upload;
+		assert.equal(didResolve, true);
+		await store.cancel(session.sessionId);
+	});
+
+	it('streams audio once before frames and maps it to the encoder', async () => {
+		const { store, encoder } = await createStore();
+		const wav = new Uint8Array([82, 73, 70, 70]);
+		const session = await store.create({
+			format: 'prores',
+			fps: 24,
+			frameCount: 1,
+			opaque: true,
+			audioBytes: wav.byteLength
+		});
+		await assert.rejects(() => store.uploadFrame(session.sessionId, 0, frameRequest()), /Upload export audio/);
+		await store.uploadAudio(session.sessionId, audioRequest(wav));
+		await assert.rejects(() => store.uploadAudio(session.sessionId, audioRequest(wav)), /already uploaded/);
+		await store.uploadFrame(session.sessionId, 0, frameRequest());
+		await store.complete(session.sessionId);
+		assert.ok(encoder.spawnedArguments[0].includes('pcm_s16le'));
+		assert.ok(encoder.spawnedArguments[0].some((value) => value.endsWith('/mix.wav')));
+		await store.cancel(session.sessionId);
+	});
+
+	it.each([
+		{ format: 'webm' as const, opaque: false, pixelFormat: 'yuva420p' },
+		{ format: 'webm' as const, opaque: true, pixelFormat: 'yuv444p' },
+		{ format: 'prores' as const, opaque: true, pixelFormat: 'yuva444p10le' }
+	])('preserves $format codec output with $pixelFormat', async ({ format, opaque, pixelFormat }) => {
+		const { store, encoder } = await createStore();
+		const session = await store.create({
+			format,
+			fps: 29.97,
+			frameCount: 1,
+			opaque,
+			audioBytes: 0,
+			...(format === 'prores' ? { startTimecode: '01:00:08:00' } : {})
+		});
+		await store.uploadFrame(session.sessionId, 0, frameRequest());
+		await store.complete(session.sessionId);
+		const args = encoder.spawnedArguments[0];
+		assert.equal(optionValue(args, '-framerate'), '30000/1001');
+		assert.equal(optionValue(args, '-pix_fmt'), pixelFormat);
+		if (format === 'prores') {
+			assert.ok(args.includes('prores_ks'));
+			assert.equal(optionValue(args, '-profile:v'), '4444');
+			assert.equal(optionValue(args, '-timecode'), '01:00:08:00');
+		} else {
+			assert.ok(args.includes('libvpx-vp9'));
+		}
+		await store.cancel(session.sessionId);
+	});
+
+	it('removes the session and partial output on encoder failure', async () => {
+		const { store, directory } = await createStore({ exitCode: 1, stderr: 'encoder exploded' });
+		const session = await store.create({
+			format: 'webm',
+			fps: 30,
+			frameCount: 1,
+			opaque: false,
+			audioBytes: 0
+		});
+		await store.uploadFrame(session.sessionId, 0, frameRequest());
+		await assert.rejects(() => store.complete(session.sessionId), /encoder exploded/);
+		assert.deepEqual(await readdir(directory), []);
+	});
+
+	it('cancels output streaming and removes the finished session file', async () => {
+		const { store, directory } = await createStore();
+		const session = await store.create({
+			format: 'webm',
+			fps: 30,
+			frameCount: 1,
+			opaque: false,
+			audioBytes: 0
+		});
+		await store.uploadFrame(session.sessionId, 0, frameRequest());
+		await store.complete(session.sessionId);
+		const response = await store.outputResponse(session.sessionId);
+		assert.ok(response.body);
+		await response.body.cancel('download cancelled');
+		assert.deepEqual(await readdir(directory), []);
+	});
+
+	it('kills the encoder and removes temp files when an active request aborts', async () => {
+		let markWriteStarted = (): void => undefined;
+		const writeStarted = new Promise<void>((resolve) => {
+			markWriteStarted = resolve;
+		});
+		const { store, directory, encoder } = await createStore({
+			createInput: () =>
+				new Writable({
+					write: () => markWriteStarted()
+				})
+		});
+		const session = await store.create({
+			format: 'webm',
+			fps: 30,
+			frameCount: 1,
+			opaque: false,
+			audioBytes: 0
+		});
+		const abortController = new AbortController();
+		const upload = store.uploadFrame(
+			session.sessionId,
+			0,
+			frameRequest(abortController.signal)
+		);
+		await writeStarted;
+		abortController.abort();
+		await assert.rejects(upload, /abort/i);
+		assert.equal(encoder.children[0].killed, true);
+		assert.deepEqual(await readdir(directory), []);
+	});
+
+	it('expires abandoned sessions and cleans orphaned directories', async () => {
+		let now = 1_000;
+		const { store, directory } = await createStore({}, { ttlMs: 100, now: () => now });
+		await store.create({
+			format: 'webm',
+			fps: 30,
+			frameCount: 1,
+			opaque: false,
+			audioBytes: 0
+		});
+		now = 1_101;
+		assert.equal(await store.cleanupStale(), 1);
+		assert.deepEqual(await readdir(directory), []);
+
+		const orphan = join(directory, 'supers-export-orphan');
+		await import('node:fs/promises').then(({ mkdir }) => mkdir(orphan));
+		assert.equal(await cleanupOrphanedExportDirectories(directory, 0, Date.now() + 1_000), 1);
+		assert.deepEqual(await readdir(directory), []);
 	});
 });

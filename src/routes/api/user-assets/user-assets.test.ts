@@ -3,7 +3,9 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { afterAll, beforeAll, describe, it } from 'vitest';
+import { isHttpError } from '@sveltejs/kit';
 
+import { POST } from './+server';
 import { GET, HEAD } from './[key]/+server';
 
 const key = `${'e'.repeat(64)}.webm`;
@@ -37,6 +39,20 @@ function event(range?: string): AssetRequestEvent {
 }
 
 describe('user asset byte serving', () => {
+	it('rejects unsupported upload media types at the collection route', async () => {
+		await assert.rejects(
+			async () =>
+				POST({
+					request: new Request('http://localhost/api/user-assets', {
+						method: 'POST',
+						headers: { 'content-type': 'application/octet-stream' },
+						body: new Uint8Array([1, 2, 3])
+					})
+				} as Parameters<typeof POST>[0]),
+			(errorValue: unknown) => isHttpError(errorValue, 415)
+		);
+	});
+
 	it('streams complete immutable assets with range capability', async () => {
 		const response = await getAsset(event());
 

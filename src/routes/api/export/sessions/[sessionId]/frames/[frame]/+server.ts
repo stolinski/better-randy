@@ -1,0 +1,23 @@
+import type { RequestHandler } from '@sveltejs/kit';
+
+import {
+	exportSessionStore,
+	ExportSessionError,
+	parseExportFrameIndex
+} from '$lib/platform/export-session.server';
+
+export const PUT: RequestHandler = async ({ params, request }) => {
+	try {
+		await exportSessionStore.uploadFrame(
+			params.sessionId ?? '',
+			parseExportFrameIndex(params.frame ?? ''),
+			request
+		);
+		return new Response(null, { status: 204 });
+	} catch (cause) {
+		if (cause instanceof ExportSessionError) {
+			return new Response(cause.message, { status: cause.status });
+		}
+		throw cause;
+	}
+};

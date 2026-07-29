@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { join, resolve } from 'node:path';
+import { extname, join, resolve } from 'node:path';
 
 // Decode-verify the ACTUAL exported file — not the captured DOM frames.
 //
@@ -19,11 +19,10 @@ import { join, resolve } from 'node:path';
 // evenly-spaced frames across the clip (enough to prove motion + alpha). Pass
 // `--all` for the literal every-frame decode, or `--frames N` to set the count.
 //
-// Known edge (do NOT solve here): an opaque full-frame piece carries no alpha,
-// so probe-frame-diff's alpha clause fails by design. That's the `--opaque`
-// mode owned by corpus-tail task 9w7kdptf, not this script.
+// Pass `--opaque` for a declared full-frame piece; transparent mode remains the
+// default so accidental edge opacity still fails existing overlay probes.
 //
-// usage: probe-export-decode.ts <exported.mov|.webm> [--frames N] [--all] [--keep]
+// usage: probe-export-decode.ts <exported.mov|.webm> [--frames N] [--all] [--keep] [--opaque]
 // exit:  forwarded from probe-frame-diff — 0 pass, 1 fail, 2 usage.
 
 interface DecodePlan {
@@ -104,7 +103,7 @@ async function main(): Promise<void> {
 	const input = positionals[0];
 	if (!input) {
 		console.error(
-			'usage: probe-export-decode.ts <exported.mov|.webm> [--frames N] [--all] [--keep]'
+			'usage: probe-export-decode.ts <exported.mov|.webm> [--frames N] [--all] [--keep] [--opaque]'
 		);
 		process.exit(2);
 	}
@@ -119,6 +118,8 @@ async function main(): Promise<void> {
 
 	const all = argv.includes('--all');
 	const keep = argv.includes('--keep');
+	const opaque = argv.includes('--opaque');
+	const isWebm = extname(inputPath).toLowerCase() === '.webm';
 	const framesFlag = flagValue(argv, '--frames');
 	const requested = framesFlag ? Math.max(2, Number.parseInt(framesFlag, 10) || 8) : 8;
 
@@ -140,6 +141,7 @@ async function main(): Promise<void> {
 			'-hide_banner',
 			'-loglevel',
 			'error',
+			...(isWebm ? ['-c:v', 'libvpx-vp9'] : []),
 			'-i',
 			inputPath,
 			...selectArgs,
@@ -165,7 +167,14 @@ async function main(): Promise<void> {
 		const probeScript = fileURLToPath(new URL('./probe-frame-diff.ts', import.meta.url));
 		const probe = spawn(
 			process.execPath,
-			['--experimental-strip-types', '--no-warnings', probeScript, ...pngs],
+			[
+				'--experimental-strip-types',
+				'--no-warnings',
+				probeScript,
+				...pngs,
+				...(opaque ? ['--opaque'] : []),
+				...(!opaque && isWebm ? ['--vp9-alpha'] : [])
+			],
 			{ stdio: ['ignore', 'pipe', 'inherit'] }
 		);
 		const stdoutChunks: Buffer[] = [];
@@ -192,7 +201,8 @@ async function main(): Promise<void> {
 						decoded_frames: pngs.length,
 						mode: plan.mode,
 						step: plan.step,
-						pix_fmt: 'rgba'
+						pix_fmt: 'rgba',
+						expected_alpha: opaque ? 'opaque' : 'transparent'
 					},
 					...(typeof probeJson === 'object' && probeJson !== null
 						? probeJson
