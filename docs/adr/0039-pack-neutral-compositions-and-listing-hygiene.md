@@ -7,7 +7,7 @@
 - **Built:** Pack-neutral/listing policy, orientation-duplicate pruning, orientation-responsive Overlay placement and Diagram geometry, Pack-routable paper grain, fixture-only calibration/reflow proofs, anamorphic-flare removal, and `backgroundFill: "pack"` (2026-08-03: `field-treatment` joined the mandatory core vocabulary as the sentinel's resolution target — see the ADR-0024 extension note — with schema/GUI parity and every field-restating corpus fill converted).
 - **Designed, not built:** partial paper-document immunity and Pack-picked Pipeline variants.
 - **Superseded:** Pack sound-kit resolution in §3 was replaced by ADR-0033's engine defaults plus per-motion overrides.
-- **Still converging:** remaining Pack-suffix fixture folding and the human-scale Pack-matrix sweep are tracked in Dex; their policy is Canon, but completion must not be inferred from this ADR.
+- **Still converging:** the human-scale Pack-matrix sweep is tracked in Dex; its policy is Canon, but completion must not be inferred from this ADR. _Pack-suffix folding completed 2026-08-03 (dex `5otj2thj`):_ the four `-crt` fixtures were deleted — their deltas were identity strings, field hexes now expressed by the `backgroundFill: "pack"` sentinel, stale pre-ADR-0033 sound models, and staleness against evolved bases (`lower-third-cinematic-crt` was an orphan of a retired base; its variant-pick lesson is carried by the PackPipelineRole task). The three `-clean-light` re-dresses are retained as `kind: "fixture"` Calibration Trio ratification evidence, per §6's meaningfulness gate — they are calibration records, not listing entries.
 
 ## Context
 

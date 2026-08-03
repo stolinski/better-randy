@@ -100,7 +100,8 @@ export const crtTerminalPack: PackManifest = {
 		// the general effect supports it. The dial is G5-bounded — mask
 		// strength / beam focus / vignette are set so small dim-phosphor text
 		// keeps its measured contrast floor (Critic re-review 2026-07-10);
-		// retune against the show-open-in-focus-crt dim voices before
+		// retune against show-open-in-focus flipped to this Pack (its dim
+		// kicker/subtitle voices — ADR-0039 folded the -crt fixture) before
 		// darkening any of them.
 		// ---------------------------------------------------------------
 		chrome: {
