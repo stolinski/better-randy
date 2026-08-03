@@ -47,6 +47,11 @@ export const crtTerminalPack: PackManifest = {
 		'fill-treatment': { kind: 'style', value: '#070b08' },
 		'ink-treatment': { kind: 'style', value: '#45ff6e' },
 		'accent-treatment': { kind: 'style', value: '#d9ffe0' },
+		// The full-frame FIELD (ADR-0039 §3, `backgroundFill: 'pack'`) coincides
+		// with the fill deliberately: on an emissive screen the card and the
+		// field are the same glass — separation is phosphor drive, never fill
+		// contrast.
+		'field-treatment': { kind: 'style', value: '#070b08' },
 		// Hard pixel edges: a screen silhouette is exactly as rasterized — no
 		// torn fiber, no soft feather.
 		'edge-treatment': { kind: 'style', value: 'none' },

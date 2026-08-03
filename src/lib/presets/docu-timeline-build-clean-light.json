@@ -11,7 +11,7 @@
 			"fps": 30,
 			"format": "webm"
 		},
-		"backgroundFill": "#f6f7f8",
+		"backgroundFill": "pack",
 		"typography": {
 			"fontFamily": "mono"
 		},

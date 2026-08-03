@@ -609,6 +609,12 @@ describe('engine schema', () => {
 		withFill.backgroundFill = '#000000';
 		expectIssue(withFill, 'cannot be combined with backgroundFill', 'Video clips plus fill');
 
+		// The sentinel is still a PRESENT fill — the Video-clip exclusion binds
+		// on presence, not value (ADR-0039 §3 keeps the presence law untouched).
+		const withPackFill = structuredClone(state);
+		withPackFill.backgroundFill = 'pack';
+		expectIssue(withPackFill, 'cannot be combined with backgroundFill', 'Video clips plus pack fill');
+
 		const withStage = structuredClone(state);
 		withStage.stage = {
 			type: 'depth',
@@ -616,5 +622,25 @@ describe('engine schema', () => {
 			focus: { focalZ: 0.5, aperture: 0.2, maxBlur: 20 }
 		};
 		expectIssue(withStage, 'cannot be combined with a dimensional stage', 'Video clips plus stage');
+	});
+});
+
+describe("backgroundFill 'pack' sentinel (ADR-0039 §3)", () => {
+	it('accepts a hex, the pack sentinel, and absence', () => {
+		const hex = baseState();
+		hex.backgroundFill = '#0e0e0d';
+		expectValid(hex, 'hex backgroundFill');
+
+		const sentinel = baseState();
+		sentinel.backgroundFill = 'pack';
+		expectValid(sentinel, 'pack sentinel backgroundFill');
+
+		expectValid(baseState(), 'absent backgroundFill');
+	});
+
+	it('rejects any other keyword — only #rrggbb or the literal "pack"', () => {
+		const invalid = baseState();
+		invalid.backgroundFill = 'field';
+		assert.equal(EngineStateSchema.safeParse(invalid).success, false);
 	});
 });

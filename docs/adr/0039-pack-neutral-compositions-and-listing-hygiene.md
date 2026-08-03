@@ -4,8 +4,8 @@
 
 **Canon policy, partially built; some mechanisms remain designed, not built.** Accepted by Scott on 2026-07-13 during the Clean Light calibration session.
 
-- **Built:** Pack-neutral/listing policy, orientation-duplicate pruning, orientation-responsive Overlay placement and Diagram geometry, Pack-routable paper grain, fixture-only calibration/reflow proofs, and anamorphic-flare removal.
-- **Designed, not built:** partial paper-document immunity, `backgroundFill: "pack"`, and Pack-picked Pipeline variants.
+- **Built:** Pack-neutral/listing policy, orientation-duplicate pruning, orientation-responsive Overlay placement and Diagram geometry, Pack-routable paper grain, fixture-only calibration/reflow proofs, anamorphic-flare removal, and `backgroundFill: "pack"` (2026-08-03: `field-treatment` joined the mandatory core vocabulary as the sentinel's resolution target — see the ADR-0024 extension note — with schema/GUI parity and every field-restating corpus fill converted).
+- **Designed, not built:** partial paper-document immunity and Pack-picked Pipeline variants.
 - **Superseded:** Pack sound-kit resolution in §3 was replaced by ADR-0033's engine defaults plus per-motion overrides.
 - **Still converging:** remaining Pack-suffix fixture folding and the human-scale Pack-matrix sweep are tracked in Dex; their policy is Canon, but completion must not be inferred from this ADR.
 

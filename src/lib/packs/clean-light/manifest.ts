@@ -48,6 +48,11 @@ export const cleanLightPack: PackManifest = {
 		'fill-treatment': { kind: 'style', value: '#ffffff' },
 		'ink-treatment': { kind: 'style', value: '#16181d' },
 		'accent-treatment': { kind: 'style', value: '#0075de' },
+		// The full-frame FIELD (ADR-0039 §3, `backgroundFill: 'pack'`): the
+		// soft-neutral studio white the #ffffff cards float on (intake: notion's
+		// field reads a step cooler than its cards on camera; shadow alone
+		// separates them).
+		'field-treatment': { kind: 'style', value: '#f6f7f8' },
 		// Die-cut clean silhouettes — nothing in this register tears or feathers.
 		'edge-treatment': { kind: 'style', value: 'clean' },
 		// THE structural signature: the quiet float. Straight-down offset with a

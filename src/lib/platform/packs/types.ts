@@ -19,7 +19,7 @@
 export type PackRoleKind = 'style' | 'pipeline' | 'chrome';
 
 /**
- * The mandatory core vocabulary (ADR-0024): the six bare core Roles every
+ * The mandatory core vocabulary (ADR-0024): the seven bare core Roles every
  * registered Pack MUST supply, so the specific → core fallback chain always
  * lands on a real value and no CanvasSource literal fallback ever decides a
  * Pack's pixels. Enforced for every Pack in the registry by
@@ -28,6 +28,16 @@ export type PackRoleKind = 'style' | 'pipeline' | 'chrome';
  * Value contracts (checked by the validator):
  *   - `fill-treatment` / `ink-treatment` / `accent-treatment` — a colour
  *     string (hex / rgb() / oklch() / … — see `isColorValue` in `resolve.ts`).
+ *   - `field-treatment` — a colour string: the Pack's full-frame FIELD (the
+ *     backdrop a full-frame piece sits on), distinct from `fill-treatment`
+ *     (the card/plate colour — syntax fills cards with #f0e8d6 cream but its
+ *     field is #0e0e0d warm black). `backgroundFill: 'pack'` (ADR-0039 §3)
+ *     resolves here via `resolveBackgroundFill`. Mandatory rather than
+ *     optional-with-fallback: `fill-treatment` is the wrong fallback for
+ *     dark packs, and a literal fallback deciding a Pack's pixels is exactly
+ *     what ADR-0024 forbids — so the claim is part of the pack contract. On
+ *     an emissive pack the field and fill may legitimately coincide
+ *     (crt-terminal's glass).
  *   - `edge-treatment` — the five-value edge vocabulary
  *     (`'clean' | 'soft' | 'irregular' | 'torn' | 'none'`), bare or as the
  *     `{ mode, amplitudePx?, wavelengthPx?, fiber? }` object form
@@ -59,6 +69,7 @@ export const MANDATORY_CORE_ROLES = [
 	'fill-treatment',
 	'ink-treatment',
 	'accent-treatment',
+	'field-treatment',
 	'edge-treatment',
 	'depth-treatment',
 	'light-treatment'

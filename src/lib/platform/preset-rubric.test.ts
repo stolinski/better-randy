@@ -334,4 +334,17 @@ describe('preset rubric', () => {
 			[]
 		);
 	});
+
+	it("lints the backgroundFill 'pack' sentinel against the resolved field, not the literal", () => {
+		// syntax field-treatment is #0e0e0d — paper matching it must trip the
+		// G12 invisible-surface warn only because the sentinel resolved.
+		const collides = makePreset({});
+		collides.state.backgroundFill = 'pack';
+		collides.state.typography.paperColor = '#0e0e0d';
+		assert.ok(rules(lintPreset(collides)).includes('G12'));
+
+		const distinct = makePreset({});
+		distinct.state.backgroundFill = 'pack';
+		assert.ok(!rules(lintPreset(distinct)).includes('G12'));
+	});
 });

@@ -4,7 +4,7 @@ import { editorialMonoFonts } from './fonts';
 /**
  * Minimal second Pack — its job is to *prove the appearance abstraction*: the
  * same Preset, rendered under a different Pack, re-skins (ADR-0023). It
- * supplies the six mandatory core Roles (fill/ink/accent/edge/depth/light —
+ * supplies the seven mandatory core Roles (fill/ink/accent/field/edge/depth/light —
  * the ADR-0024 fallback floor, enforced for EVERY registered Pack by
  * `validatePackCoreVocabulary` at engine boot) and overrides per-Pipeline
  * Roles only where it wants divergence; everything else falls back
@@ -31,6 +31,11 @@ export const editorialMonoPack: PackManifest = {
 		'fill-treatment': { kind: 'style', value: '#e9eef3' },
 		'ink-treatment': { kind: 'style', value: '#0f151c' },
 		'accent-treatment': { kind: 'style', value: '#22d3ee' },
+		// The full-frame FIELD (ADR-0039 §3, `backgroundFill: 'pack'`): the cool
+		// near-black this Pack's dark-piece backdrops already anchor on (the
+		// pullquote/scrim #080b10 named below) — NOT the paper fill, which is the
+		// card colour.
+		'field-treatment': { kind: 'style', value: '#080b10' },
 		'edge-treatment': { kind: 'style', value: 'clean' },
 		'depth-treatment': { kind: 'style', value: 'none' },
 		'light-treatment': { kind: 'style', value: 'none' },

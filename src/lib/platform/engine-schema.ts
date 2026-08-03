@@ -1182,7 +1182,12 @@ export const EngineStateSchema = z
 		effects: EffectChainSchema.default([]),
 		audioCues: AudioCuesSchema,
 		media: MediaSchema.default({ assets: [], videoTrack: { clips: [] } }),
-		backgroundFill: HexColorSchema.optional(),
+		// PRESENCE classifies the output opaque (isEngineStateOpaque) — that law
+		// is value-independent. The 'pack' sentinel (ADR-0039 §3) resolves to the
+		// active Pack's mandatory `field-treatment` core at render/lint time
+		// (resolveBackgroundFill in packs/resolve.ts), so a pack-neutral
+		// full-frame piece never restates one brand's field hex.
+		backgroundFill: z.union([HexColorSchema, z.literal('pack')]).optional(),
 		stage: StageSchema.optional(),
 		captions: CaptionsSchema.optional()
 	})

@@ -25,8 +25,8 @@ export const syntaxPack: PackManifest = {
 	roles: {
 		// ---------------------------------------------------------------
 		// Core / channel-level Roles (Pack vocabulary, not Pipeline-scoped).
-		// The six mandatory cores (fill/ink/accent/edge/depth/light) are the
-		// ADR-0024 fallback floor every Pack must supply; the boot validator
+		// The seven mandatory cores (fill/ink/accent/field/edge/depth/light) are
+		// the ADR-0024 fallback floor every Pack must supply; the boot validator
 		// (`validatePackCoreVocabulary`) refuses a Pack missing any of them.
 		// ---------------------------------------------------------------
 		// Colour cores ground in what syntax actually renders: the newspaper
@@ -36,6 +36,10 @@ export const syntaxPack: PackManifest = {
 		// the highlighter/kicker yellow).
 		'fill-treatment': { kind: 'style', value: '#f0e8d6' },
 		'ink-treatment': { kind: 'style', value: '#1a1612' },
+		// The full-frame FIELD (ADR-0039 §3, `backgroundFill: 'pack'`): the flat
+		// warm black every syntax full-frame piece sits on (calibration
+		// 2026-07-09 — the brand field is flat, never a lit gradient).
+		'field-treatment': { kind: 'style', value: '#0e0e0d' },
 		// Brand yellow per the real overlay system (github.com/randyrektor/
 		// syntax-overlay, calibration 2026-07-09) — was #fabf47, which belongs to
 		// the physical-highlighter mark defaults, not the chrome accent.

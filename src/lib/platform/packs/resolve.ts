@@ -22,8 +22,9 @@ const CORE_APPEARANCE = ['fill', 'ink', 'accent', 'edge', 'depth', 'light'] as c
  * Only color-valued style Roles become CSS vars. Many Roles are non-color
  * tokens (`'tabular-lining'`, `'slot-machine-roll'`, `'flat'`, `'sharp'`) that
  * are consumed in code, not CSS — emitting them as `--x` would be junk.
- * Exported for `validatePackCoreVocabulary` — the three colour cores
- * (`fill-treatment` / `ink-treatment` / `accent-treatment`) must pass this.
+ * Exported for `validatePackCoreVocabulary` — the four colour cores
+ * (`fill-treatment` / `ink-treatment` / `accent-treatment` /
+ * `field-treatment`) must pass this.
  */
 export function isColorValue(value: string): boolean {
 	return (
@@ -601,7 +602,7 @@ export function resolveMaterialTreatment(manifest: PackManifest): ResolvedMateri
  */
 export function requireCoreColor(
 	manifest: PackManifest,
-	core: 'fill-treatment' | 'ink-treatment' | 'accent-treatment'
+	core: 'fill-treatment' | 'ink-treatment' | 'accent-treatment' | 'field-treatment'
 ): string {
 	const role = manifest.roles[core];
 	if (!role || role.kind !== 'style' || typeof role.value !== 'string') {
@@ -627,6 +628,25 @@ export function resolveTypographyColors(
 		paperColor: typography.paperColor ?? requireCoreColor(manifest, 'fill-treatment'),
 		inkColor: typography.inkColor ?? requireCoreColor(manifest, 'ink-treatment')
 	};
+}
+
+/**
+ * Resolve a composition's `backgroundFill` to the colour that actually renders
+ * (ADR-0039 §3): absent stays absent (the transparent lane — presence, not
+ * value, classifies the output), the `'pack'` sentinel resolves to the active
+ * Pack's mandatory `field-treatment` core (its full-frame field, distinct from
+ * the card `fill-treatment`), and any authored colour is an intentional
+ * departure that wins over the Pack. The one seam every consumer of the fill's
+ * VALUE must pass through — presence checks keep reading the raw field.
+ */
+export function resolveBackgroundFill(
+	manifest: PackManifest,
+	backgroundFill: string | undefined
+): string | undefined {
+	if (backgroundFill === undefined) {
+		return undefined;
+	}
+	return backgroundFill === 'pack' ? requireCoreColor(manifest, 'field-treatment') : backgroundFill;
 }
 
 /**

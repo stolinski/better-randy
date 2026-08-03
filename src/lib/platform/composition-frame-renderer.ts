@@ -11,6 +11,7 @@ import type { GpuHost } from './gpu-host';
 import type { PackManifest } from './packs/types';
 import {
 	resolveAppearanceVars,
+	resolveBackgroundFill,
 	resolveDepthTreatment,
 	resolveEdgeTreatment,
 	resolveLightTreatment,
@@ -79,6 +80,10 @@ interface PreparedFramePackTreatments {
 	material: ResolvedMaterialTreatment | null;
 	light: LightTreatment | null;
 	chromeEffects: readonly Effect[];
+	/** The declared backgroundFill as premultiplied-ready rgba floats — the
+	 * 'pack' sentinel already resolved through the Pack's `field-treatment`
+	 * (ADR-0039 §3). undefined = transparent lane. */
+	background: [number, number, number, number] | undefined;
 }
 
 export interface CompositionFrameRenderResources {
@@ -248,11 +253,14 @@ function prepareFramePackTreatments(
 				}))
 			: [];
 
+	const resolvedFill = resolveBackgroundFill(pack, state.backgroundFill);
+
 	return {
 		edgeTarget,
 		material,
 		light: resolveLightTreatment(pack),
-		chromeEffects
+		chromeEffects,
+		background: resolvedFill !== undefined ? hexToRgbaFloat(resolvedFill) : undefined
 	};
 }
 
@@ -421,7 +429,7 @@ function resolveDofFrame(state: EngineState, progress: number): ResolvedDofFrame
 function resolveStageFrame(
 	state: EngineState,
 	progress: number,
-	light: LightTreatment | null
+	treatments: PreparedFramePackTreatments
 ): ResolvedStageFrame | null {
 	const stage = state.stage;
 	if (!stage || stage.type !== 'depth') {
@@ -435,7 +443,7 @@ function resolveStageFrame(
 		const eased = local * local * (3 - 2 * local);
 		focusZ = clampNumber(pull.from + (pull.to - pull.from) * eased, 0, 1);
 	}
-	const background = state.backgroundFill ? hexToRgbaFloat(state.backgroundFill) : undefined;
+	const background = treatments.background;
 	return {
 		focusZ,
 		aperture: clampNumber(stage.focus.aperture, 0, 1),
@@ -447,7 +455,7 @@ function resolveStageFrame(
 		cameraAmount: clampNumber(stage.camera.amount, 0, 1),
 		hasOverlayPlane: state.overlays.length > 0,
 		overlayZ: clampNumber(state.overlays[0]?.z ?? 0.7, 0, 1),
-		light,
+		light: treatments.light,
 		effects: state.effects
 	};
 }
@@ -510,9 +518,7 @@ function renderDofFrame(
 		inputTexture: dofInputTexture(compositionPlanes, surfaceOutput),
 		outputView: request.outputView,
 		...timebase,
-		background: request.state.backgroundFill
-			? hexToRgbaFloat(request.state.backgroundFill)
-			: undefined,
+		background: treatments.background,
 		videoUnderlayTexture: request.videoUnderlayTexture
 	});
 	return true;
@@ -600,9 +606,7 @@ function renderFlatFrame(
 		inputTexture: postShaderTexture,
 		outputView: request.outputView,
 		...timebase,
-		background: request.state.backgroundFill
-			? hexToRgbaFloat(request.state.backgroundFill)
-			: undefined,
+		background: treatments.background,
 		videoUnderlayTexture: request.videoUnderlayTexture
 	});
 	return true;
@@ -653,7 +657,7 @@ export function renderCompositionFrameTo(
 
 	for (const branch of branches) {
 		if (branch === 'stage') {
-			const stage = resolveStageFrame(request.state, timebase.progress, treatments.light);
+			const stage = resolveStageFrame(request.state, timebase.progress, treatments);
 			if (stage && renderStageFrame(request, stage, inputs, timebase, treatments)) {
 				return 'stage';
 			}

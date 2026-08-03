@@ -6,7 +6,7 @@
 	"kind": "fixture",
 	"state": {
 		"transport": { "orientation": "horizontal", "durationSeconds": 3.2, "fps": 30, "format": "webm" },
-		"backgroundFill": "#0e0e0d",
+		"backgroundFill": "pack",
 		"typography": { "fontFamily": "sans" },
 		"marks": { "defaults": {}, "timings": [] },
 		"surface": {

@@ -12,7 +12,7 @@ import type {
 	Transition
 } from './engine-schema.ts';
 import { getPack } from './packs/registry.ts';
-import { requireCoreColor, resolveTypographyColors } from './packs/resolve.ts';
+import { requireCoreColor, resolveBackgroundFill, resolveTypographyColors } from './packs/resolve.ts';
 import { getLayoutSafeArea } from '../utils/safe-area.ts';
 import { calculateWebsiteShowcaseLayout } from '../utils/website-showcase.ts';
 import { resolveDiagramPrimitiveGeometry } from '../utils/diagram-geometry.ts';
@@ -137,14 +137,18 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 
 	// Typography colours are optional overrides (ADR-0038): resolve absent
 	// fields through the preset's own Pack so the contrast + background-fill
-	// lints judge the colours that actually render. An unregistered pack slug
+	// lints judge the colours that actually render. The same goes for the
+	// backgroundFill 'pack' sentinel (ADR-0039 §3) — contrast is judged against
+	// the resolved field, never the literal "pack". An unregistered pack slug
 	// surfaces as a lint error rather than crashing the pass.
 	let resolvedTypography: { paperColor: string; inkColor: string } | null = null;
 	let resolvedAccent: string | null = null;
+	let resolvedBackgroundFill: string | undefined = undefined;
 	try {
 		const pack = getPack(preset.pack);
 		resolvedTypography = resolveTypographyColors(pack, state.typography);
 		resolvedAccent = requireCoreColor(pack, 'accent-treatment');
+		resolvedBackgroundFill = resolveBackgroundFill(pack, state.backgroundFill);
 	} catch (error) {
 		issues.push({
 			rule: 'G5',
@@ -163,13 +167,13 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 		checkContrast(state.surface, resolvedTypography, issues);
 		checkDiagramContrast(
 			state.surface,
-			state.backgroundFill,
+			resolvedBackgroundFill,
 			state.stage !== undefined,
 			resolvedTypography,
 			resolvedAccent,
 			issues
 		);
-		checkBackgroundFill(state.backgroundFill, resolvedTypography.paperColor, issues);
+		checkBackgroundFill(resolvedBackgroundFill, resolvedTypography.paperColor, issues);
 	}
 	checkHoldTime(state.surface, state.marks.timings, flattenedMarks, totalSeconds, issues);
 	checkWebsiteShowcase(preset, cascadeWindows, issues);

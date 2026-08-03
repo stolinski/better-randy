@@ -10,7 +10,7 @@
  *     registered Pipeline references
  *
  * `validatePackCoreVocabulary` below is the companion Pack-side gate
- * (ADR-0024): EVERY registered Pack must supply the six mandatory core Roles
+ * (ADR-0024): EVERY registered Pack must supply the seven mandatory core Roles
  * with resolver-recognised values — run at boot for the whole PACK_REGISTRY
  * and in `scripts/verify-presets.ts`.
  *
@@ -231,7 +231,7 @@ export interface PackCoreVocabularyError {
 
 /**
  * Per-core value contracts (see `MANDATORY_CORE_ROLES` in `packs/types.ts`):
- * the three colour cores must be colour strings; the three structural cores
+ * the four colour cores must be colour strings; the three structural cores
  * must carry a shape their resolver (`resolveEdgeTreatment` /
  * `resolveDepthTreatment` / `resolveLightTreatment`) recognises — a Pack that
  * "supplies" a core the resolver would silently drop is refused, not
@@ -253,6 +253,10 @@ const CORE_VALUE_CHECKS: Record<
 		describe: 'a colour string (hex / rgb() / oklch() / …)',
 		isValid: (value) => typeof value === 'string' && isColorValue(value)
 	},
+	'field-treatment': {
+		describe: 'a colour string (hex / rgb() / oklch() / …)',
+		isValid: (value) => typeof value === 'string' && isColorValue(value)
+	},
 	'edge-treatment': {
 		describe: "'clean' | 'soft' | 'irregular' | 'torn' | 'none', or { mode, … }",
 		isValid: isEdgeTreatmentValue
@@ -269,9 +273,9 @@ const CORE_VALUE_CHECKS: Record<
 
 /**
  * Validate a Pack's mandatory core vocabulary (ADR-0024): every registered
- * Pack — not just the completeness-reference one — must supply all six core
- * Roles (`fill` / `ink` / `accent` / `edge` / `depth` / `light`-treatment)
- * with values their resolvers recognise, so the specific → core fallback
+ * Pack — not just the completeness-reference one — must supply all seven core
+ * Roles (`fill` / `ink` / `accent` / `field` / `edge` / `depth` /
+ * `light`-treatment) with values their resolvers recognise, so the specific → core fallback
  * chain always lands on a real value and no CanvasSource literal fallback
  * decides a Pack's pixels. Returns the list of errors; empty means valid.
  */

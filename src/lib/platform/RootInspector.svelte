@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { engineState, packState } from './engine-state.svelte';
-	import { PACK_REGISTRY } from './packs/registry';
+	import { getPack, PACK_REGISTRY } from './packs/registry';
+	import { resolveBackgroundFill } from './packs/resolve';
 	import { presetBase } from './preset-base.svelte';
 	import { compositionMeta } from './composition-meta.svelte';
 	import {
@@ -26,6 +27,34 @@
 		// An empty description clears the optional field entirely — it round-trips
 		// as an absent key, not an empty string.
 		presetBase.description = value === '' ? undefined : value;
+	}
+
+	// ---- Background fill (ADR-0039 §3) ----
+
+	// The colour the declared fill actually renders: the 'pack' sentinel
+	// resolves through the active Pack's `field-treatment` core, an explicit
+	// hex passes through. undefined = no fill (transparent lane).
+	const resolvedBackgroundFillHex = $derived(
+		resolveBackgroundFill(getPack(packState.slug), engineState.backgroundFill)
+	);
+
+	const backgroundSummary = $derived(
+		engineState.backgroundFill === undefined
+			? 'Off'
+			: engineState.backgroundFill === 'pack'
+				? `Pack · ${resolvedBackgroundFillHex}`
+				: engineState.backgroundFill
+	);
+
+	// Editing the swatch materializes an explicit override (the authored hex
+	// wins over the Pack); × restores the pack-field sentinel — the same
+	// override model as pack chrome (PackChromeRow).
+	function setExplicitBackgroundFill(event: Event): void {
+		engineState.backgroundFill = (event.currentTarget as HTMLInputElement).value;
+	}
+
+	function restorePackBackgroundFill(): void {
+		engineState.backgroundFill = 'pack';
 	}
 
 	// Changing the clip duration PRESERVES the real-time speed of every
@@ -112,23 +141,39 @@
 
 	<EffectsChainSection />
 
-	<InspectorSection
-		label="Background"
-		summary={engineState.backgroundFill !== undefined ? engineState.backgroundFill : 'Off'}
-	>
+	<InspectorSection label="Background" summary={backgroundSummary}>
 		{#snippet action()}
 			<InspectorToggle
 				checked={engineState.backgroundFill !== undefined}
 				label="Background fill"
 				disabled={engineState.media.videoTrack.clips.length > 0}
 				onchange={(checked) => {
-					engineState.backgroundFill = checked ? '#000000' : undefined;
+					engineState.backgroundFill = checked ? 'pack' : undefined;
 				}}
 			/>
 		{/snippet}
 		{#if engineState.backgroundFill !== undefined}
 			<Field label="Fill">
-				<input type="color" bind:value={engineState.backgroundFill} />
+				<input
+					type="color"
+					value={resolvedBackgroundFillHex}
+					oninput={setExplicitBackgroundFill}
+				/>
+				{#if engineState.backgroundFill === 'pack'}
+					<span
+						class="fill-pack-tag"
+						title={`The ${PACK_REGISTRY[packState.slug]?.label ?? packState.slug} pack's field — editing the colour becomes a composition override`}
+						>pack</span
+					>
+				{:else}
+					<button
+						type="button"
+						class="fill-reset-btn"
+						aria-label="Restore the pack field"
+						title="× restores the pack's field colour"
+						onclick={restorePackBackgroundFill}>×</button
+					>
+				{/if}
 			</Field>
 		{/if}
 	</InspectorSection>
@@ -163,5 +208,34 @@
 		font-size: 0.68rem;
 		margin-block-end: var(--vs-xs);
 		text-transform: uppercase;
+	}
+
+	/* The same ownership chrome as pack-chrome rows (PackChromeRow): a PACK
+	   tag while the Pack's field drives the fill, × while overridden. */
+	.fill-pack-tag {
+		border: 1px solid var(--chrome-hairline);
+		border-radius: 3px;
+		color: var(--chrome-muted);
+		flex: none;
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.5rem;
+		letter-spacing: 0.14em;
+		padding: 1.5px 5px;
+		text-transform: uppercase;
+	}
+
+	.fill-reset-btn {
+		background: transparent;
+		border: 0;
+		color: var(--chrome-muted);
+		cursor: pointer;
+		flex: none;
+		font-size: 0.875rem;
+		line-height: 1;
+		padding: 0;
+	}
+
+	.fill-reset-btn:hover {
+		color: #f0453d;
 	}
 </style>

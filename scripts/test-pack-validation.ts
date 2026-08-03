@@ -95,6 +95,10 @@ expectIssue((pack) => {
 }, 'invalid-core-role');
 
 expectIssue((pack) => {
+	delete pack.roles['field-treatment'];
+}, 'invalid-core-role');
+
+expectIssue((pack) => {
 	pack.roles['font-treatment'] = { kind: 'style', value: "'Missing Face', sans-serif" };
 }, 'undeclared-font-family');
 

@@ -38,7 +38,7 @@ Orientation is a transport target, not grounds for a sibling deliverable. Author
 
 ### Transparency and output classification
 
-The render target clears to transparent premultiplied alpha by default. `state.backgroundFill` is an optional `#rrggbb` full-frame fill; `state.stage` also makes the output full-frame because the dimensional stage paints to the frame edges. Ordered `state.media.videoTrack.clips[]` may supply creator footage beneath all five Layers. Output classification is centralized in `src/lib/utils/output-classification.ts`:
+The render target clears to transparent premultiplied alpha by default. `state.backgroundFill` is an optional full-frame fill: a `#rrggbb` hex (an intentional authored departure), or the sentinel `"pack"` (ADR-0039 §3), which resolves to the active Pack's mandatory `field-treatment` core at render time — the pack-neutral spelling every full-frame piece should prefer, so a pack flip re-fields the piece instead of keeping one brand's hex. `state.stage` also makes the output full-frame because the dimensional stage paints to the frame edges. Ordered `state.media.videoTrack.clips[]` may supply creator footage beneath all five Layers. Output classification is centralized in `src/lib/utils/output-classification.ts`:
 
 - no `backgroundFill`, depth `stage`, or complete Video-track coverage → transparent overlay output (`supers-overlay`);
 - `backgroundFill`, a depth `stage`, or Video clips covering every output frame → opaque full-frame output (`supers-bumper`);
