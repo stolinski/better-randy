@@ -83,7 +83,7 @@
 
 	code {
 		color: var(--chrome-muted);
-		font-family: 'JetBrains Mono', monospace;
+		font-family: 'Paper Mono', monospace;
 		font-size: 0.68rem;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -93,7 +93,7 @@
 	.clip-remove {
 		background: transparent;
 		border: 1px solid var(--chrome-hairline);
-		border-radius: var(--br-xs);
+		border-radius: 4px;
 		color: var(--chrome-muted);
 		cursor: pointer;
 		font-size: 0.75rem;

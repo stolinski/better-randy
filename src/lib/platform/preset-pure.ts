@@ -5,6 +5,7 @@
  */
 import { PRESET_SCHEMA_ID } from './engine-schema.ts';
 import { serializeAnnotationBodyToText } from '../annotations/annotation-body-text.ts';
+import { cloneJsonValue } from '../utils/json-clone.ts';
 
 import type { CompositionTransition, EngineState, Preset, SurfaceContent } from './engine-schema';
 
@@ -49,7 +50,12 @@ export function serializeCompositionState(
 	if (base.description !== undefined) result.description = base.description;
 	// Cloned so the serialized Preset never shares the live (mutable) recipe
 	// object with the GUI state it came from.
-	if (base.transition !== undefined) result.transition = { ...base.transition };
+	if (base.transition !== undefined) {
+		result.transition = {
+			...base.transition,
+			params: cloneJsonValue(base.transition.params)
+		};
+	}
 	return result;
 }
 

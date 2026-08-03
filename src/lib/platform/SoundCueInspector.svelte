@@ -216,7 +216,7 @@
 	.remove-cue {
 		background: var(--chrome-well);
 		border: 1px solid var(--chrome-hairline);
-		border-radius: var(--br-xs);
+		border-radius: 4px;
 		color: #f0453d;
 		cursor: pointer;
 		font-size: 0.75rem;

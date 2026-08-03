@@ -14,6 +14,7 @@ import {
 	type Transition
 } from './engine-schema';
 import { cloneOverlayPlacement } from '../utils/overlay-placement';
+import { cloneJsonValue } from '../utils/json-clone';
 import {
 	engineState,
 	packState,
@@ -225,7 +226,7 @@ function cloneSurface(surface: SurfaceState): SurfaceState {
 		// fields (it had already lost `counterpoint`, degrading every type-hero
 		// `pair` preset to the `single` fallback). `body` is a parsed structure
 		// shared by reference, matching the prior behavior.
-		content: { ...surface.content },
+		content: cloneJsonValue(surface.content),
 		// Which site the `web-document` Surface mocks (twitter | reddit |
 		// wikipedia). A top-level surface field like `variant` — must be carried
 		// here or applyPreset silently drops it and every site falls back to the
@@ -242,7 +243,7 @@ function cloneSurface(surface: SurfaceState): SurfaceState {
 		// Diagram primitive Blocks (ADR-0036). Pure JSON (points, strings, numbers,
 		// transitions, channel tracks), so structuredClone deep-copies every field
 		// without the hand-enumeration trap that lost `counterpoint` and `chrome`.
-		diagram: surface.diagram ? structuredClone(surface.diagram) : undefined
+		diagram: surface.diagram ? cloneJsonValue(surface.diagram) : undefined
 	};
 }
 
@@ -250,7 +251,7 @@ function cloneOverlay(overlay: Overlay): Overlay {
 	return {
 		type: overlay.type,
 		id: overlay.id,
-		content: overlay.content,
+		content: cloneJsonValue(overlay.content),
 		position: {
 			...cloneOverlayPlacement(overlay.position),
 			orientationOverrides: overlay.position.orientationOverrides
@@ -272,7 +273,7 @@ function cloneOverlay(overlay: Overlay): Overlay {
 }
 
 function cloneEffect(effect: Effect): Effect {
-	return { type: effect.type, id: effect.id, params: effect.params };
+	return { type: effect.type, id: effect.id, params: cloneJsonValue(effect.params) };
 }
 
 function cloneTextAnimation(entry: TextAnimation): TextAnimation {
@@ -341,7 +342,7 @@ export function applyCompositionState(preset: Preset): void {
 	engineState.effects = (next.effects ?? []).map(cloneEffect);
 	engineState.textAnimations = (next.textAnimations ?? []).map(cloneTextAnimation);
 	engineState.audioCues = next.audioCues.map((cue) => ({ ...cue }));
-	engineState.media = structuredClone(next.media);
+	engineState.media = cloneJsonValue(next.media);
 	engineState.backgroundFill = next.backgroundFill;
 	engineState.stage = next.stage
 		? {
@@ -361,7 +362,7 @@ export function applyCompositionState(preset: Preset): void {
 		: undefined;
 	// Captions track (creator blocks): pure JSON (style knobs + ms cues), so
 	// structuredClone deep-copies every field without the hand-enumeration trap.
-	engineState.captions = next.captions ? structuredClone(next.captions) : undefined;
+	engineState.captions = next.captions ? cloneJsonValue(next.captions) : undefined;
 }
 
 /**
@@ -379,7 +380,13 @@ export function resolveTransition(
 	const from = getPresetBySlug(recipe.from);
 	const to = getPresetBySlug(recipe.to);
 	if (!from || !to || !isTransitionEffectType(recipe.effect)) return null;
-	return { from, to, effect: recipe.effect, durationMs: recipe.durationMs };
+	return {
+		from,
+		to,
+		effect: recipe.effect,
+		durationMs: recipe.durationMs,
+		params: cloneJsonValue(recipe.params)
+	};
 }
 
 /**

@@ -154,9 +154,9 @@ export function hasAudibleVideoClipAudio(state: Pick<EngineState, 'media'>): boo
 	return state.media.videoTrack.clips.some((clip) => clip.audio.enabled && clip.audio.gain > 0);
 }
 
-function emptyMixChannels(
-	outputSampleCount: number
-): [Float32Array<ArrayBuffer>, Float32Array<ArrayBuffer>] {
+type MixChannels = [Float32Array<ArrayBuffer>, Float32Array<ArrayBuffer>];
+
+function emptyMixChannels(outputSampleCount: number): MixChannels {
 	return [new Float32Array(outputSampleCount), new Float32Array(outputSampleCount)];
 }
 
@@ -169,17 +169,42 @@ function assertDecodedClipAudio(pcm: VideoAssetAudioPcm, expectedSampleCount: nu
 	}
 }
 
-export async function renderAudioMix(
-	request: AudioMixRenderRequest,
-	services: AudioMixServices = DEFAULT_AUDIO_MIX_SERVICES
-): Promise<AudioBuffer | null> {
-	const { state, frameCount, frameRate, signal } = request;
-	const plan = planAudioMix(state);
-	const outputSampleCount = audioMixSampleCount(frameCount, frameRate);
-	const duration = outputSampleCount / AUDIO_MIX_SAMPLE_RATE;
-	const playable = plan.filter((entry) => entry.when < duration);
-	signal?.throwIfAborted();
-	let channels: [Float32Array<ArrayBuffer>, Float32Array<ArrayBuffer>] | null = null;
+function scaleMixChannels(channels: MixChannels, gain: number): void {
+	for (const channel of channels) {
+		for (let sample = 0; sample < channel.length; sample += 1) {
+			channel[sample] *= gain;
+		}
+	}
+}
+
+function sumPcmIntoMix(
+	channels: MixChannels,
+	pcm: VideoAssetAudioPcm,
+	destinationStartSample: number,
+	gain: number
+): void {
+	for (let channel = 0; channel < AUDIO_MIX_CHANNELS; channel += 1) {
+		const output = channels[channel];
+		const input = pcm.channels[channel];
+		for (let sample = 0; sample < input.length; sample += 1) {
+			output[destinationStartSample + sample] += input[sample] * gain;
+		}
+	}
+}
+
+/**
+ * Decode every audible Video clip and sum it into fresh mix channels. A clip
+ * covering the whole transport donates its decoded buffers directly (no copy);
+ * anything else is summed at its exact destination sample.
+ */
+async function mixVideoClipAudio(
+	state: EngineState,
+	frameRate: FrameRate,
+	outputSampleCount: number,
+	services: AudioMixServices,
+	signal: AbortSignal | undefined
+): Promise<MixChannels | null> {
+	let channels: MixChannels | null = null;
 
 	for (const clip of state.media.videoTrack.clips) {
 		if (!clip.audio.enabled || clip.audio.gain === 0) continue;
@@ -212,32 +237,24 @@ export async function renderAudioMix(
 		if (canAdoptClipBuffer) {
 			channels = [clipPcm.channels[0], clipPcm.channels[1]];
 			if (clip.audio.gain !== 1) {
-				for (const channel of channels) {
-					for (let sample = 0; sample < channel.length; sample += 1) {
-						channel[sample] *= clip.audio.gain;
-					}
-				}
+				scaleMixChannels(channels, clip.audio.gain);
 			}
 			continue;
 		}
 
 		channels ??= emptyMixChannels(outputSampleCount);
-		for (let channel = 0; channel < AUDIO_MIX_CHANNELS; channel += 1) {
-			const output = channels[channel];
-			const input = clipPcm.channels[channel];
-			for (let sample = 0; sample < clipSampleCount; sample += 1) {
-				output[destinationStartSample + sample] += input[sample] * clip.audio.gain;
-			}
-		}
+		sumPcmIntoMix(channels, clipPcm, destinationStartSample, clip.audio.gain);
 	}
-	if (playable.length === 0 && channels === null) return null;
 
-	// Web Audio is used ONLY to decode (resampled to the mix rate). The
-	// summing itself is plain JS in fixed plan order — an OfflineAudioContext
-	// graph sums overlapping sources in unspecified order, and float addition
-	// is non-associative, so three-plus overlapping cues broke byte-identity
-	// by ±1 ULP. Hand-mixing keeps the §6 contract literal: same inputs →
-	// same bytes.
+	return channels;
+}
+
+/** Decode every distinct scheduled slug once, in parallel, through the decode-only context. */
+async function loadScheduledCueBuffers(
+	playable: readonly ScheduledSound[],
+	services: AudioMixServices,
+	signal: AbortSignal | undefined
+): Promise<Map<string, AudioBuffer>> {
 	const context = playable.length > 0 ? services.createCueDecodeContext() : null;
 	const slugs = [...new Set(playable.map((entry) => entry.slug))];
 	const buffers = new Map<string, AudioBuffer>();
@@ -253,8 +270,35 @@ export async function renderAudioMix(
 		})
 	);
 	signal?.throwIfAborted();
+	return buffers;
+}
 
-	channels ??= emptyMixChannels(outputSampleCount);
+function sumCueIntoMix(
+	channels: MixChannels,
+	buffer: AudioBuffer,
+	entry: ScheduledSound,
+	startFrame: number,
+	playFrames: number,
+	rampStart: number
+): void {
+	for (let channel = 0; channel < AUDIO_MIX_CHANNELS; channel += 1) {
+		const out = channels[channel];
+		// Mono samples feed both output channels; stereo maps per channel.
+		const src = buffer.getChannelData(Math.min(channel, buffer.numberOfChannels - 1));
+		for (let i = 0; i < playFrames; i += 1) {
+			const release = i >= rampStart ? 1 - (i - rampStart) / (playFrames - rampStart) : 1;
+			out[startFrame + i] += src[i] * entry.gain * MASTER_GAIN * release;
+		}
+	}
+}
+
+/** Sum every scheduled cue at its exact sample position, in fixed plan order. */
+function mixScheduledSounds(
+	channels: MixChannels,
+	playable: readonly ScheduledSound[],
+	buffers: ReadonlyMap<string, AudioBuffer>,
+	outputSampleCount: number
+): void {
 	const releaseFrames = Math.round(RELEASE_SECONDS * AUDIO_MIX_SAMPLE_RATE);
 
 	for (const entry of playable) {
@@ -278,17 +322,12 @@ export async function renderAudioMix(
 		const cutEarly = entry.windowSeconds !== null && buffer.length > windowFrames;
 		const rampStart = cutEarly ? Math.max(0, playFrames - releaseFrames) : playFrames;
 
-		for (let channel = 0; channel < AUDIO_MIX_CHANNELS; channel += 1) {
-			const out = channels[channel];
-			// Mono samples feed both output channels; stereo maps per channel.
-			const src = buffer.getChannelData(Math.min(channel, buffer.numberOfChannels - 1));
-			for (let i = 0; i < playFrames; i += 1) {
-				const release = i >= rampStart ? 1 - (i - rampStart) / (playFrames - rampStart) : 1;
-				out[startFrame + i] += src[i] * entry.gain * MASTER_GAIN * release;
-			}
-		}
+		sumCueIntoMix(channels, buffer, entry, startFrame, playFrames, rampStart);
 	}
+}
 
+/** Deterministic post-render ceiling: scale every sample down when the sum overshoots. */
+function applyPeakCeiling(channels: MixChannels): void {
 	let peak = 0;
 	for (const data of channels) {
 		for (const sample of data) {
@@ -296,13 +335,35 @@ export async function renderAudioMix(
 		}
 	}
 	if (peak > PEAK_CEILING) {
-		const scale = PEAK_CEILING / peak;
-		for (const data of channels) {
-			for (let i = 0; i < data.length; i += 1) {
-				data[i] *= scale;
-			}
-		}
+		scaleMixChannels(channels, PEAK_CEILING / peak);
 	}
+}
+
+export async function renderAudioMix(
+	request: AudioMixRenderRequest,
+	services: AudioMixServices = DEFAULT_AUDIO_MIX_SERVICES
+): Promise<AudioBuffer | null> {
+	const { state, frameCount, frameRate, signal } = request;
+	const plan = planAudioMix(state);
+	const outputSampleCount = audioMixSampleCount(frameCount, frameRate);
+	const duration = outputSampleCount / AUDIO_MIX_SAMPLE_RATE;
+	const playable = plan.filter((entry) => entry.when < duration);
+	signal?.throwIfAborted();
+
+	const clipChannels = await mixVideoClipAudio(state, frameRate, outputSampleCount, services, signal);
+	if (playable.length === 0 && clipChannels === null) return null;
+
+	// Web Audio is used ONLY to decode (resampled to the mix rate). The
+	// summing itself is plain JS in fixed plan order — an OfflineAudioContext
+	// graph sums overlapping sources in unspecified order, and float addition
+	// is non-associative, so three-plus overlapping cues broke byte-identity
+	// by ±1 ULP. Hand-mixing keeps the §6 contract literal: same inputs →
+	// same bytes.
+	const buffers = await loadScheduledCueBuffers(playable, services, signal);
+
+	const channels = clipChannels ?? emptyMixChannels(outputSampleCount);
+	mixScheduledSounds(channels, playable, buffers, outputSampleCount);
+	applyPeakCeiling(channels);
 
 	const rendered = services.createOutputBuffer({
 		length: outputSampleCount,

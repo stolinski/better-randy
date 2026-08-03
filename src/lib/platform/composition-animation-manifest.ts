@@ -1,11 +1,12 @@
 import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
 
-import type { RenderAnimState } from './anim-state.svelte.ts';
+import type { OverlayChannelValues, RenderAnimState } from './anim-state.svelte.ts';
 import type { AnimationManifest, AnimationTweenSpec } from './animation-manager.ts';
 import {
 	DEFAULT_BLOCK_ENTER,
 	DEFAULT_OVERLAY_ENTER,
-	resolveCascadeTimings
+	resolveCascadeTimings,
+	type CascadeWindow
 } from './cascade-timing.ts';
 import {
 	getEaseGsap,
@@ -14,6 +15,7 @@ import {
 	SUGAR_OPACITY_EXIT_EASES,
 	type EngineState,
 	type Keyframe,
+	type MarkInstance,
 	type TextAnimation,
 	type Transport
 } from './engine-schema.ts';
@@ -22,6 +24,8 @@ import { resolveDiagramPrimitiveGeometry } from '$lib/utils/diagram-geometry';
 import { resolveOverlayPlacement } from '$lib/utils/overlay-placement';
 
 const COMPOSITION_CHANNEL_KEYS = ['opacity', 'x', 'y', 'scale', 'rotation'] as const;
+type CompositionChannelKey = (typeof COMPOSITION_CHANNEL_KEYS)[number];
+type CascadeWindowMap = ReadonlyMap<string, CascadeWindow>;
 
 export interface CompositionTextAnimationCompiler {
 	rebuild(
@@ -102,26 +106,14 @@ function synchronizeBlockAnimationRecords(runtime: RenderAnimState, ids: readonl
 	}
 }
 
-/**
- * Build the frame-deterministic tween manifest for one composition. The input
- * owns both authored state and live animation values; this module only derives
- * tween ordering, resolved starts, and corrective writers.
- */
-export function buildCompositionAnimationManifest(
-	input: CompositionAnimationManifestInput
-): AnimationManifest {
-	const { state, runtime, textAnimationRoot, textAnimationCompiler, resolveMarkColor } = input;
+/** Surface opacity: the declared channel takes the pen; otherwise the enter/exit sugar. */
+function appendSurfaceOpacityTweens(
+	state: EngineState,
+	durationMs: number,
+	runtime: RenderAnimState,
+	tweens: AnimationTweenSpec[]
+): void {
 	const surface = state.surface;
-	const marks = listMarkInstances(surface.content);
-	const durationMs = state.transport.durationSeconds * 1000;
-
-	resizeCompositionProgress(runtime.markProgresses, marks.length);
-	resizeCompositionProgress(runtime.overlayProgresses, state.overlays.length);
-
-	// Cascade welds resolve before every tween and before sound derivation.
-	const cascadeWindows = resolveCascadeTimings(state);
-	const tweens: AnimationTweenSpec[] = [];
-
 	const surfaceOpacity = surface.animation?.channels?.opacity;
 	if (surfaceOpacity && surfaceOpacity.length > 0) {
 		appendChannelKeyframeTweens({
@@ -134,36 +126,46 @@ export function buildCompositionAnimationManifest(
 				runtime.paperVisibility = value;
 			}
 		});
-	} else {
-		if (surface.enter) {
-			tweens.push({
-				key: 'paper-enter',
-				start: surface.enter.start,
-				duration: surface.enter.duration,
-				ease: getEaseGsap(surface.enter.ease),
-				from: 0,
-				to: 1,
-				onUpdate: (value) => {
-					runtime.paperVisibility = value;
-				}
-			});
-		}
-		if (surface.exit) {
-			tweens.push({
-				key: 'paper-exit',
-				start: surface.exit.start,
-				duration: surface.exit.duration,
-				ease: SUGAR_OPACITY_EXIT_EASES[surface.exit.ease],
-				from: 1,
-				to: 0,
-				onUpdate: (value) => {
-					runtime.paperVisibility = value;
-				}
-			});
-		}
-		if (!surface.enter && !surface.exit) runtime.paperVisibility = 1;
+		return;
 	}
 
+	if (surface.enter) {
+		tweens.push({
+			key: 'paper-enter',
+			start: surface.enter.start,
+			duration: surface.enter.duration,
+			ease: getEaseGsap(surface.enter.ease),
+			from: 0,
+			to: 1,
+			onUpdate: (value) => {
+				runtime.paperVisibility = value;
+			}
+		});
+	}
+	if (surface.exit) {
+		tweens.push({
+			key: 'paper-exit',
+			start: surface.exit.start,
+			duration: surface.exit.duration,
+			ease: SUGAR_OPACITY_EXIT_EASES[surface.exit.ease],
+			from: 1,
+			to: 0,
+			onUpdate: (value) => {
+				runtime.paperVisibility = value;
+			}
+		});
+	}
+	if (!surface.enter && !surface.exit) runtime.paperVisibility = 1;
+}
+
+function appendMarkTweens(
+	marks: readonly MarkInstance[],
+	state: EngineState,
+	cascadeWindows: CascadeWindowMap,
+	resolveMarkColor: (style: AnnotationMarkStyle) => string,
+	runtime: RenderAnimState,
+	tweens: AnimationTweenSpec[]
+): void {
 	marks.forEach((mark, index) => {
 		if (mark.window === 'static') {
 			runtime.markProgresses[index] = 1;
@@ -198,17 +200,38 @@ export function buildCompositionAnimationManifest(
 			}
 		});
 	});
+}
 
-	const resolvedTextAnimations = state.textAnimations.map((entry) => {
-		const resolvedStart = cascadeWindows.get(`textAnimation:${entry.id}`)?.startFraction;
-		if (resolvedStart === undefined || resolvedStart === entry.enter.start) return entry;
-		return { ...entry, enter: { ...entry.enter, start: resolvedStart } };
-	});
-	tweens.push(
-		...textAnimationCompiler.rebuild(textAnimationRoot, resolvedTextAnimations, state.transport)
-	);
+/** Every declared channel of one element, written into its live slot at tween time. */
+function appendElementChannelTweens(options: {
+	tweens: AnimationTweenSpec[];
+	keyPrefix: string;
+	channels: Partial<Record<CompositionChannelKey, Keyframe[] | undefined>> | undefined;
+	clipStartFraction: number;
+	durationMs: number;
+	readSlot: () => OverlayChannelValues | null;
+}): void {
+	const { tweens, keyPrefix, channels, clipStartFraction, durationMs, readSlot } = options;
+	for (const channel of COMPOSITION_CHANNEL_KEYS) {
+		const frames = channels?.[channel];
+		if (!frames || frames.length === 0) continue;
+		appendChannelKeyframeTweens({
+			tweens,
+			keyPrefix: `${keyPrefix}-${channel}`,
+			frames,
+			clipStartFraction,
+			durationMs,
+			write: (value) => {
+				const slot = readSlot();
+				if (slot) slot[channel] = value;
+			}
+		});
+	}
+}
 
-	runtime.overlayChannels = state.overlays.map((overlay) => {
+/** Initial per-overlay channel values (null for overlays without declared channels). */
+function resolveOverlayChannelValues(state: EngineState): (OverlayChannelValues | null)[] {
+	return state.overlays.map((overlay) => {
 		const channels = overlay.animation?.channels;
 		if (!channels || !COMPOSITION_CHANNEL_KEYS.some((key) => (channels[key]?.length ?? 0) > 0)) {
 			return null;
@@ -222,28 +245,26 @@ export function buildCompositionAnimationManifest(
 			rotation: channels.rotation?.[0]?.value ?? placement.rotation ?? 0
 		};
 	});
+}
 
+function appendOverlayTweens(
+	state: EngineState,
+	cascadeWindows: CascadeWindowMap,
+	durationMs: number,
+	runtime: RenderAnimState,
+	tweens: AnimationTweenSpec[]
+): void {
 	state.overlays.forEach((overlay, index) => {
-		const channelValues = runtime.overlayChannels[index];
 		const window = cascadeWindows.get(`overlay:${overlay.id}`);
-		if (channelValues) {
-			const channels = overlay.animation?.channels;
-			const clipStart = window?.startFraction ?? overlay.enter?.start ?? 0;
-			for (const channel of COMPOSITION_CHANNEL_KEYS) {
-				const frames = channels?.[channel];
-				if (!frames || frames.length === 0) continue;
-				appendChannelKeyframeTweens({
-					tweens,
-					keyPrefix: `overlay-${overlay.id}-${channel}`,
-					frames,
-					clipStartFraction: clipStart,
-					durationMs,
-					write: (value) => {
-						const slot = runtime.overlayChannels[index];
-						if (slot) slot[channel] = value;
-					}
-				});
-			}
+		if (runtime.overlayChannels[index]) {
+			appendElementChannelTweens({
+				tweens,
+				keyPrefix: `overlay-${overlay.id}`,
+				channels: overlay.animation?.channels,
+				clipStartFraction: window?.startFraction ?? overlay.enter?.start ?? 0,
+				durationMs,
+				readSlot: () => runtime.overlayChannels[index]
+			});
 			runtime.overlayProgresses[index] = 1;
 			return;
 		}
@@ -274,84 +295,150 @@ export function buildCompositionAnimationManifest(
 			});
 		}
 	});
+}
 
-	const diagramPrimitives = surface.diagram ?? [];
+type DiagramPrimitive = NonNullable<EngineState['surface']['diagram']>[number];
+
+function appendPrimitiveChannelTweens(
+	primitive: DiagramPrimitive,
+	state: EngineState,
+	channels: Partial<Record<CompositionChannelKey, Keyframe[]>>,
+	clipStartFraction: number,
+	durationMs: number,
+	runtime: RenderAnimState,
+	tweens: AnimationTweenSpec[]
+): void {
+	const staticScale =
+		primitive.type === 'node' || primitive.type === 'label' || primitive.type === 'stat-callout'
+			? (resolveDiagramPrimitiveGeometry(primitive, state.transport.orientation).scale ?? 1)
+			: 1;
+	runtime.blockChannels[primitive.id] = {
+		opacity: channels.opacity?.[0]?.value ?? 1,
+		x: channels.x?.[0]?.value ?? 0,
+		y: channels.y?.[0]?.value ?? 0,
+		scale: channels.scale?.[0]?.value ?? staticScale,
+		rotation: channels.rotation?.[0]?.value ?? 0
+	};
+	appendElementChannelTweens({
+		tweens,
+		keyPrefix: `block-${primitive.id}`,
+		channels,
+		clipStartFraction,
+		durationMs,
+		readSlot: () => runtime.blockChannels[primitive.id]
+	});
+	runtime.blockProgresses[primitive.id] = 1;
+	runtime.blockAlphas[primitive.id] = 1;
+}
+
+function appendPrimitiveSugarTweens(
+	primitive: DiagramPrimitive,
+	window: CascadeWindow | undefined,
+	runtime: RenderAnimState,
+	tweens: AnimationTweenSpec[]
+): void {
+	runtime.blockChannels[primitive.id] = null;
+	runtime.blockAlphas[primitive.id] = 1;
+	const enter = primitive.enter ?? DEFAULT_BLOCK_ENTER;
+	const isStroke = primitive.type === 'edge-arrow' || primitive.type === 'timeline-segment';
+	tweens.push({
+		key: `block-${primitive.id}-enter`,
+		start: window?.startFraction ?? enter.start,
+		duration: enter.duration,
+		ease: isStroke ? 'power1.inOut' : getEaseGsap(enter.ease),
+		from: 0,
+		to: 1,
+		onUpdate: (value) => {
+			runtime.blockProgresses[primitive.id] = value;
+		}
+	});
+	if (primitive.exit) {
+		tweens.push({
+			key: `block-${primitive.id}-exit`,
+			start: primitive.exit.start,
+			duration: primitive.exit.duration,
+			ease: SUGAR_OPACITY_EXIT_EASES[primitive.exit.ease],
+			from: 1,
+			to: 0,
+			onUpdate: (value) => {
+				runtime.blockAlphas[primitive.id] = value;
+			}
+		});
+	}
+}
+
+function appendDiagramBlockTweens(
+	state: EngineState,
+	cascadeWindows: CascadeWindowMap,
+	durationMs: number,
+	runtime: RenderAnimState,
+	tweens: AnimationTweenSpec[]
+): void {
+	const diagramPrimitives = state.surface.diagram ?? [];
 	synchronizeBlockAnimationRecords(
 		runtime,
 		diagramPrimitives.map((primitive) => primitive.id)
 	);
 	for (const primitive of diagramPrimitives) {
 		const channels = primitive.animation?.channels as
-			Partial<Record<(typeof COMPOSITION_CHANNEL_KEYS)[number], Keyframe[]>> | undefined;
+			| Partial<Record<CompositionChannelKey, Keyframe[]>>
+			| undefined;
 		const window = cascadeWindows.get(`block:${primitive.id}`);
 		const hasChannels =
 			channels !== undefined &&
 			COMPOSITION_CHANNEL_KEYS.some((key) => (channels[key]?.length ?? 0) > 0);
 
 		if (hasChannels && channels) {
-			const staticScale =
-				primitive.type === 'node' ||
-				primitive.type === 'label' ||
-				primitive.type === 'stat-callout'
-					? (resolveDiagramPrimitiveGeometry(primitive, state.transport.orientation).scale ?? 1)
-					: 1;
-			runtime.blockChannels[primitive.id] = {
-				opacity: channels.opacity?.[0]?.value ?? 1,
-				x: channels.x?.[0]?.value ?? 0,
-				y: channels.y?.[0]?.value ?? 0,
-				scale: channels.scale?.[0]?.value ?? staticScale,
-				rotation: channels.rotation?.[0]?.value ?? 0
-			};
-			const clipStart = window?.startFraction ?? primitive.enter?.start ?? 0;
-			for (const channel of COMPOSITION_CHANNEL_KEYS) {
-				const frames = channels[channel];
-				if (!frames || frames.length === 0) continue;
-				appendChannelKeyframeTweens({
-					tweens,
-					keyPrefix: `block-${primitive.id}-${channel}`,
-					frames,
-					clipStartFraction: clipStart,
-					durationMs,
-					write: (value) => {
-						const slot = runtime.blockChannels[primitive.id];
-						if (slot) slot[channel] = value;
-					}
-				});
-			}
-			runtime.blockProgresses[primitive.id] = 1;
-			runtime.blockAlphas[primitive.id] = 1;
+			appendPrimitiveChannelTweens(
+				primitive,
+				state,
+				channels,
+				window?.startFraction ?? primitive.enter?.start ?? 0,
+				durationMs,
+				runtime,
+				tweens
+			);
 			continue;
 		}
 
-		runtime.blockChannels[primitive.id] = null;
-		runtime.blockAlphas[primitive.id] = 1;
-		const enter = primitive.enter ?? DEFAULT_BLOCK_ENTER;
-		const isStroke = primitive.type === 'edge-arrow' || primitive.type === 'timeline-segment';
-		tweens.push({
-			key: `block-${primitive.id}-enter`,
-			start: window?.startFraction ?? enter.start,
-			duration: enter.duration,
-			ease: isStroke ? 'power1.inOut' : getEaseGsap(enter.ease),
-			from: 0,
-			to: 1,
-			onUpdate: (value) => {
-				runtime.blockProgresses[primitive.id] = value;
-			}
-		});
-		if (primitive.exit) {
-			tweens.push({
-				key: `block-${primitive.id}-exit`,
-				start: primitive.exit.start,
-				duration: primitive.exit.duration,
-				ease: SUGAR_OPACITY_EXIT_EASES[primitive.exit.ease],
-				from: 1,
-				to: 0,
-				onUpdate: (value) => {
-					runtime.blockAlphas[primitive.id] = value;
-				}
-			});
-		}
+		appendPrimitiveSugarTweens(primitive, window, runtime, tweens);
 	}
+}
+
+/**
+ * Build the frame-deterministic tween manifest for one composition. The input
+ * owns both authored state and live animation values; this module only derives
+ * tween ordering, resolved starts, and corrective writers.
+ */
+export function buildCompositionAnimationManifest(
+	input: CompositionAnimationManifestInput
+): AnimationManifest {
+	const { state, runtime, textAnimationRoot, textAnimationCompiler, resolveMarkColor } = input;
+	const marks = listMarkInstances(state.surface.content);
+	const durationMs = state.transport.durationSeconds * 1000;
+
+	resizeCompositionProgress(runtime.markProgresses, marks.length);
+	resizeCompositionProgress(runtime.overlayProgresses, state.overlays.length);
+
+	// Cascade welds resolve before every tween and before sound derivation.
+	const cascadeWindows = resolveCascadeTimings(state);
+	const tweens: AnimationTweenSpec[] = [];
+
+	appendSurfaceOpacityTweens(state, durationMs, runtime, tweens);
+	appendMarkTweens(marks, state, cascadeWindows, resolveMarkColor, runtime, tweens);
+
+	const resolvedTextAnimations = state.textAnimations.map((entry) => {
+		const resolvedStart = cascadeWindows.get(`textAnimation:${entry.id}`)?.startFraction;
+		if (resolvedStart === undefined || resolvedStart === entry.enter.start) return entry;
+		return { ...entry, enter: { ...entry.enter, start: resolvedStart } };
+	});
+	tweens.push(
+		...textAnimationCompiler.rebuild(textAnimationRoot, resolvedTextAnimations, state.transport)
+	);
+
+	runtime.overlayChannels = resolveOverlayChannelValues(state);
+	appendOverlayTweens(state, cascadeWindows, durationMs, runtime, tweens);
+	appendDiagramBlockTweens(state, cascadeWindows, durationMs, runtime, tweens);
 
 	return { tweens };
 }

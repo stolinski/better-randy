@@ -1,6 +1,8 @@
 import tgpu, { d } from 'typegpu';
 
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
+import { compilePassComposite, type CompiledPassComposite } from './pass-composite';
+import { resolvePassExecution, type PassPixelBounds } from './pass-execution';
 import type { EffectPackContext, ShaderPass } from './types';
 
 /**
@@ -44,7 +46,7 @@ const INTERMEDIATE_TEXTURE_USAGE =
 const fullScreenVertexFn = tgpu['~unstable'].vertexFn({
 	in: { vertexIndex: d.builtin.vertexIndex },
 	out: { position: d.builtin.position, uv: d.vec2f }
-})/* wgsl */ `{
+}) /* wgsl */ `{
 	var positions = array<vec2f, 3>(
 		vec2f(-1.0, -1.0),
 		vec2f(3.0, -1.0),
@@ -75,6 +77,7 @@ export interface ApplyShaderPassOptions<TContent> {
 	target: TContent;
 	bounds: ShaderPassBounds;
 	ctx: EffectPackContext;
+	scissor?: PassPixelBounds;
 }
 
 export interface CompiledShaderPass<TContent> {
@@ -107,11 +110,10 @@ export function compileShaderPass<TContent>(
 	} as unknown as LayoutDef;
 	const bindGroupLayout = tgpu.bindGroupLayout(layoutDef);
 
-	const fragmentFn = tgpu['~unstable']
-		.fragmentFn({
-			in: { uv: d.vec2f },
-			out: d.vec4f
-		})/* wgsl */ `{
+	const fragmentFn = tgpu['~unstable'].fragmentFn({
+		in: { uv: d.vec2f },
+		out: d.vec4f
+	}) /* wgsl */ `{
 			let inputSample = textureSample(layout.$.inputTexture, layout.$.samp, in.uv);
 			${pass.wgsl}
 		}`.$uses({ layout: bindGroupLayout });
@@ -136,7 +138,7 @@ export function compileShaderPass<TContent>(
 	).$usage('uniform');
 
 	return {
-		apply({ inputView, outputView, target, bounds, ctx }) {
+		apply({ commandEncoder, inputView, outputView, target, bounds, ctx, scissor }) {
 			uniformBuffer.write(pass.packUniforms(target, bounds, ctx) as never);
 
 			const bindGroup = root.createBindGroup(bindGroupLayout, {
@@ -145,15 +147,21 @@ export function compileShaderPass<TContent>(
 				uniforms: uniformBuffer
 			} as never);
 
-			pipeline
-				.with(bindGroup)
-				.withColorAttachment({
-					view: outputView,
-					clearValue: [0, 0, 0, 0],
-					loadOp: 'clear',
-					storeOp: 'store'
-				})
-				.draw(3);
+			const renderPass = commandEncoder.beginRenderPass({
+				colorAttachments: [
+					{
+						view: outputView,
+						clearValue: [0, 0, 0, 0],
+						loadOp: 'clear',
+						storeOp: 'store'
+					}
+				]
+			});
+			if (scissor) {
+				renderPass.setScissorRect(scissor.x, scissor.y, scissor.width, scissor.height);
+			}
+			pipeline.with(bindGroup).with(renderPass).draw(3);
+			renderPass.end();
 		}
 	};
 }
@@ -196,6 +204,8 @@ export class ShaderPassDispatcher {
 	#pingTexture: GPUTexture;
 	#pongTexture: GPUTexture;
 	#cache: WeakMap<ShaderPass<unknown>, CompiledShaderPass<unknown>>;
+	#composite: CompiledPassComposite;
+	#scratchTextures = new Map<string, GPUTexture>();
 	#width: number;
 	#height: number;
 
@@ -204,6 +214,7 @@ export class ShaderPassDispatcher {
 		this.#width = width;
 		this.#height = height;
 		this.#cache = new WeakMap();
+		this.#composite = compilePassComposite(host);
 
 		const descriptor: GPUTextureDescriptor = {
 			size: [width, height, 1],
@@ -212,6 +223,19 @@ export class ShaderPassDispatcher {
 		};
 		this.#pingTexture = host.device.createTexture(descriptor);
 		this.#pongTexture = host.device.createTexture(descriptor);
+	}
+
+	#scratchTexture(width: number, height: number): GPUTexture {
+		const key = `${width}x${height}`;
+		const existing = this.#scratchTextures.get(key);
+		if (existing) return existing;
+		const texture = this.#host.device.createTexture({
+			size: [width, height, 1],
+			format: INTERMEDIATE_FORMAT,
+			usage: INTERMEDIATE_TEXTURE_USAGE
+		});
+		this.#scratchTextures.set(key, texture);
+		return texture;
 	}
 
 	#getCompiled<TContent>(pass: ShaderPass<TContent>): CompiledShaderPass<TContent> {
@@ -256,19 +280,48 @@ export class ShaderPassDispatcher {
 			const entry = passes[i];
 			const outputTexture = i % 2 === 0 ? this.#pingTexture : this.#pongTexture;
 			const compiled = this.#getCompiled(entry.pass);
+			const passContext = { ...ctx, canvasWidth: this.#width, canvasHeight: this.#height };
+			const execution = resolvePassExecution(
+				entry.pass.execution?.(entry.target, entry.bounds, passContext),
+				this.#width,
+				this.#height
+			);
 
-			compiled.apply({
-				commandEncoder,
-				inputView: currentInputView,
-				outputView: outputTexture.createView(),
-				target: entry.target,
-				bounds: entry.bounds,
-				ctx: { ...ctx, canvasWidth: this.#width, canvasHeight: this.#height }
-			});
+			if (execution.mode === 'full') {
+				compiled.apply({
+					commandEncoder,
+					inputView: currentInputView,
+					outputView: outputTexture.createView(),
+					target: entry.target,
+					bounds: entry.bounds,
+					ctx: passContext
+				});
+			} else {
+				const scratchTexture = this.#scratchTexture(execution.targetWidth, execution.targetHeight);
+				compiled.apply({
+					commandEncoder,
+					inputView: currentInputView,
+					outputView: scratchTexture.createView(),
+					target: entry.target,
+					bounds: entry.bounds,
+					ctx: passContext,
+					scissor: execution.mode === 'region' ? execution.region : undefined
+				});
+				this.#composite.apply({
+					commandEncoder,
+					inputView: currentInputView,
+					processedView: scratchTexture.createView(),
+					outputView: outputTexture.createView(),
+					region: execution.region,
+					canvasWidth: this.#width,
+					canvasHeight: this.#height
+				});
+			}
 
 			lastOutputTexture = outputTexture;
 			currentInputView = outputTexture.createView();
 		}
+		this.#host.device.queue.submit([commandEncoder.finish()]);
 
 		return lastOutputTexture;
 	}
@@ -276,6 +329,8 @@ export class ShaderPassDispatcher {
 	dispose(): void {
 		this.#pingTexture.destroy();
 		this.#pongTexture.destroy();
+		for (const texture of this.#scratchTextures.values()) texture.destroy();
+		this.#scratchTextures.clear();
 		// WeakMap cache clears with the dispatcher reference; compiled
 		// pipelines are owned by the TypeGPU root and freed when the host
 		// disposes.

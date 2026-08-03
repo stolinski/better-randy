@@ -71,7 +71,7 @@
 		background: none;
 		block-size: 1.1rem;
 		border: 0;
-		color: var(--fg-6);
+		color: var(--chrome-muted);
 		cursor: pointer;
 		display: grid;
 		inline-size: 1.1rem;
@@ -81,7 +81,7 @@
 	}
 
 	.typo-reset:hover {
-		color: var(--fg-2);
+		color: var(--chrome-text);
 	}
 
 	.typo-reset:focus-visible {

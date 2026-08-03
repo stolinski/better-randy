@@ -264,34 +264,37 @@ function cueFrom(
 	return cue;
 }
 
-/**
- * Every automatic cue the composition's motion emits, sorted by time. Includes
- * muted cues so the GUI rail can show them; audible
- * consumers filter with {@link isAudibleSoundCue}. Manual cues and the bed
- * live in `state.audioCues[]` and are NOT returned here — the mix combines
- * both.
- */
-export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
-	const cues: DerivedSoundCue[] = [];
-	const surface = state.surface;
-	const surfaceLayer: SoundCueLayer = { kind: 'surface' };
+// A silent-by-character motion (default event null) emits only when the
+// author opts in with an explicit event swap or a locked sample.
+function hasSoundOptIn(override: SoundOverride | undefined): boolean {
+	return Boolean(override?.event) || override?.sample !== undefined;
+}
 
-	// Cues resolve AFTER cascade resolution (ADR-0035 §4 + ADR-0033): automatic
-	// cues ride a re-timed cascade welded — same philosophy, one mechanism. The
-	// resolved windows also carry the keyframe envelope for channel-owned
-	// elements (first keyframe → landing).
-	const cascadeWindows = resolveCascadeTimings(state);
-	const enterWindow = (key: string, authored: MotionWindow): MotionWindow => {
-		const resolved: CascadeWindow | undefined = cascadeWindows.get(key);
-		return resolved ? { start: resolved.startFraction, duration: authored.duration } : authored;
-	};
+type CascadeWindowMap = ReadonlyMap<string, CascadeWindow>;
+
+// Cascade welds anchor the ENTER start; the authored duration is kept.
+function resolveEnterWindow(
+	cascadeWindows: CascadeWindowMap,
+	key: string,
+	authored: MotionWindow
+): MotionWindow {
+	const resolved = cascadeWindows.get(key);
+	return resolved ? { start: resolved.startFraction, duration: authored.duration } : authored;
+}
+
+function deriveSurfaceTransitionCues(
+	surface: EngineState['surface'],
+	cascadeWindows: CascadeWindowMap,
+	cues: DerivedSoundCue[]
+): void {
+	const surfaceLayer: SoundCueLayer = { kind: 'surface' };
 
 	if (hasChannelMotion(surface.animation?.channels)) {
 		// Channel-owned surface (opacity is its only channel — a fade): silent by
 		// default per the motion-character rule; the sugar `enter.sound` override
 		// stays the opt-in home. The window is the authored envelope.
 		const override = surface.enter?.sound;
-		if (override?.event || override?.sample !== undefined) {
+		if (hasSoundOptIn(override)) {
 			const resolved = cascadeWindows.get('surface');
 			cues.push(
 				cueFrom(
@@ -308,43 +311,50 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 				)
 			);
 		}
-	} else {
-		const surfaceTypeDefaults = SURFACE_EVENT_DEFAULTS[surface.type];
-		for (const phase of ['enter', 'exit'] as const) {
-			const motionWindow = surface[phase];
-			if (!motionWindow) {
-				continue;
-			}
-			const genericDefault =
-				phase === 'enter' ? MOTION_SOUND_DEFAULTS.surfaceEnter : MOTION_SOUND_DEFAULTS.surfaceExit;
-			const typeDefault =
-				surfaceTypeDefaults === undefined ? genericDefault : surfaceTypeDefaults[phase];
-			const override = motionWindow.sound;
-			// A fade-type surface emits only when the author opts in explicitly.
-			if (typeDefault === null && !override?.event && override?.sample === undefined) {
-				continue;
-			}
-			cues.push(
-				cueFrom(
-					`surface:${phase}`,
-					surfaceLayer,
-					typeDefault ?? genericDefault,
-					motionWindow,
-					override,
-					{ kind: 'surface-transition', phase },
-					{ kind: 'surface-transition', phase }
-				)
-			);
-		}
+		return;
 	}
 
-	// One cue per mark instance, indexed like `marks.timings[]` (document
-	// order); `resolveMarkForIndex` supplies the draw-on window even when the
-	// timing entry is absent (shared fallback timing). Checklist item strikes
-	// (ADR-0040) carry their window ON the instance: a static strike has no
-	// motion and emits nothing; an animated one sounds at its own window with
-	// the item's override — marks.timings[] is never consulted for them.
-	listMarkInstances(surface.content).forEach((instance, index) => {
+	const surfaceTypeDefaults = SURFACE_EVENT_DEFAULTS[surface.type];
+	for (const phase of ['enter', 'exit'] as const) {
+		const motionWindow = surface[phase];
+		if (!motionWindow) {
+			continue;
+		}
+		const genericDefault =
+			phase === 'enter' ? MOTION_SOUND_DEFAULTS.surfaceEnter : MOTION_SOUND_DEFAULTS.surfaceExit;
+		const typeDefault =
+			surfaceTypeDefaults === undefined ? genericDefault : surfaceTypeDefaults[phase];
+		const override = motionWindow.sound;
+		// A fade-type surface emits only when the author opts in explicitly.
+		if (typeDefault === null && !hasSoundOptIn(override)) {
+			continue;
+		}
+		cues.push(
+			cueFrom(
+				`surface:${phase}`,
+				surfaceLayer,
+				typeDefault ?? genericDefault,
+				motionWindow,
+				override,
+				{ kind: 'surface-transition', phase },
+				{ kind: 'surface-transition', phase }
+			)
+		);
+	}
+}
+
+// One cue per mark instance, indexed like `marks.timings[]` (document
+// order); `resolveMarkForIndex` supplies the draw-on window even when the
+// timing entry is absent (shared fallback timing). Checklist item strikes
+// (ADR-0040) carry their window ON the instance: a static strike has no
+// motion and emits nothing; an animated one sounds at its own window with
+// the item's override — marks.timings[] is never consulted for them.
+function deriveMarkCues(
+	state: EngineState,
+	cascadeWindows: CascadeWindowMap,
+	cues: DerivedSoundCue[]
+): void {
+	listMarkInstances(state.surface.content).forEach((instance, index) => {
 		if (instance.window === 'static') {
 			return;
 		}
@@ -375,52 +385,68 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 				`mark:${index}`,
 				{ kind: 'marks' },
 				MARK_EVENT_DEFAULTS[instance.style] ?? MOTION_SOUND_DEFAULTS.mark,
-				enterWindow(`mark:${index}`, resolved),
+				resolveEnterWindow(cascadeWindows, `mark:${index}`, resolved),
 				state.marks.timings[index]?.sound,
 				{ kind: 'mark-transition', markIndex: index },
 				{ kind: 'mark-transition', markIndex: index }
 			)
 		);
 	});
+}
 
-	for (const overlay of state.overlays) {
+// Channel-owned overlay (ADR-0035): ONE motion beat — the enter
+// envelope. Enter-family events fire at the resolved clip start;
+// arrival events (via cueFrom) at the envelope's landing keyframe.
+// There is no discrete exit window — an authored fade-out is part of
+// the envelope, not a second launch. Character rule: travel channels
+// whoosh, an opacity-only fade is silent by default; a silent-by-type
+// Pipeline stays silent. The sugar `enter.sound` is the override home.
+function deriveChannelOverlayCue(
+	overlay: EngineState['overlays'][number],
+	typeDefaults: { enter: SoundEvent | null; exit: SoundEvent | null } | undefined,
+	channels: OverlayChannelKeyframes,
+	cascadeWindows: CascadeWindowMap,
+	cues: DerivedSoundCue[]
+): void {
+	const characterDefault =
+		typeDefaults !== undefined
+			? typeDefaults.enter
+			: channelsTravel(channels)
+				? MOTION_SOUND_DEFAULTS.overlayEnter
+				: null;
+	const override = overlay.enter?.sound;
+	if (characterDefault === null && !hasSoundOptIn(override)) {
+		return;
+	}
+	const resolved = cascadeWindows.get(`overlay:${overlay.id}`);
+	cues.push(
+		cueFrom(
+			`overlay:${overlay.id}:enter`,
+			{ kind: 'overlay', overlayId: overlay.id },
+			characterDefault ?? MOTION_SOUND_DEFAULTS.overlayEnter,
+			{
+				start: resolved?.startFraction ?? overlay.enter?.start ?? 0,
+				duration: resolved?.durationFraction ?? 0
+			},
+			override,
+			{ kind: 'overlay-transition', overlayId: overlay.id, phase: 'enter' },
+			{ kind: 'overlay-transition', overlayId: overlay.id, phase: 'enter' }
+		)
+	);
+}
+
+function deriveOverlayTransitionCues(
+	overlays: EngineState['overlays'],
+	cascadeWindows: CascadeWindowMap,
+	cues: DerivedSoundCue[]
+): void {
+	for (const overlay of overlays) {
 		const layer: SoundCueLayer = { kind: 'overlay', overlayId: overlay.id };
 		const typeDefaults = OVERLAY_EVENT_DEFAULTS[overlay.type];
 		const channels = overlay.animation?.channels;
 
 		if (channels && hasChannelMotion(channels)) {
-			// Channel-owned overlay (ADR-0035): ONE motion beat — the enter
-			// envelope. Enter-family events fire at the resolved clip start;
-			// arrival events (via cueFrom) at the envelope's landing keyframe.
-			// There is no discrete exit window — an authored fade-out is part of
-			// the envelope, not a second launch. Character rule: travel channels
-			// whoosh, an opacity-only fade is silent by default; a silent-by-type
-			// Pipeline stays silent. The sugar `enter.sound` is the override home.
-			const characterDefault =
-				typeDefaults !== undefined
-					? typeDefaults.enter
-					: channelsTravel(channels)
-						? MOTION_SOUND_DEFAULTS.overlayEnter
-						: null;
-			const override = overlay.enter?.sound;
-			if (characterDefault === null && !override?.event && override?.sample === undefined) {
-				continue;
-			}
-			const resolved = cascadeWindows.get(`overlay:${overlay.id}`);
-			cues.push(
-				cueFrom(
-					`overlay:${overlay.id}:enter`,
-					layer,
-					characterDefault ?? MOTION_SOUND_DEFAULTS.overlayEnter,
-					{
-						start: resolved?.startFraction ?? overlay.enter?.start ?? 0,
-						duration: resolved?.durationFraction ?? 0
-					},
-					override,
-					{ kind: 'overlay-transition', overlayId: overlay.id, phase: 'enter' },
-					{ kind: 'overlay-transition', overlayId: overlay.id, phase: 'enter' }
-				)
-			);
+			deriveChannelOverlayCue(overlay, typeDefaults, channels, cascadeWindows, cues);
 			continue;
 		}
 
@@ -432,10 +458,8 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 			const genericDefault =
 				phase === 'enter' ? MOTION_SOUND_DEFAULTS.overlayEnter : MOTION_SOUND_DEFAULTS.overlayExit;
 			const typeDefault = typeDefaults === undefined ? genericDefault : typeDefaults[phase];
-			// A silent-by-default motion emits only when the author opts in with
-			// an explicit event swap or a locked sample.
 			const override = motionWindow.sound;
-			if (typeDefault === null && !override?.event && override?.sample === undefined) {
+			if (typeDefault === null && !hasSoundOptIn(override)) {
 				continue;
 			}
 			cues.push(
@@ -444,7 +468,9 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 					layer,
 					typeDefault ?? genericDefault,
 					// Cascade welds anchor the ENTER start; exits keep authored timing.
-					phase === 'enter' ? enterWindow(`overlay:${overlay.id}`, motionWindow) : motionWindow,
+					phase === 'enter'
+						? resolveEnterWindow(cascadeWindows, `overlay:${overlay.id}`, motionWindow)
+						: motionWindow,
 					override,
 					{ kind: 'overlay-transition', overlayId: overlay.id, phase },
 					{ kind: 'overlay-transition', overlayId: overlay.id, phase }
@@ -452,81 +478,115 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 			);
 		}
 	}
+}
 
-	// Diagram primitive Blocks (ADR-0036 + the ADR-0033 motion-character rule):
-	// the stroke draw-ons are clean line draws (`draw` — a technical canvas,
-	// not the annotation Layer's hand pencil); a node PLANTS with its
-	// scale-settle (pop); label rises and the stat roll are silent by default —
-	// their sound is opt-in via the enter override. Exits are fades everywhere
-	// (silent). Channel-owned primitives get the one enter beat, silent unless
-	// the channels travel.
-	for (const primitive of surface.diagram ?? []) {
-		const layer: SoundCueLayer = { kind: 'block', blockId: primitive.id };
-		const enterDefault: SoundEvent | null =
-			primitive.type === 'edge-arrow' || primitive.type === 'timeline-segment'
-				? 'draw'
-				: primitive.type === 'node'
-					? 'pop'
-					: null;
+type DiagramPrimitive = NonNullable<EngineState['surface']['diagram']>[number];
 
-		const channels = primitive.animation?.channels;
-		if (channels && hasChannelMotion(channels)) {
-			const characterDefault = channelsTravel(channels as OverlayChannelKeyframes)
-				? (enterDefault ?? MOTION_SOUND_DEFAULTS.overlayEnter)
-				: null;
-			const override = primitive.enter?.sound;
-			if (characterDefault === null && !override?.event && override?.sample === undefined) {
-				continue;
-			}
-			const resolved = cascadeWindows.get(`block:${primitive.id}`);
-			cues.push(
-				cueFrom(
-					`block:${primitive.id}:enter`,
-					layer,
-					characterDefault ?? MOTION_SOUND_DEFAULTS.overlayEnter,
-					{
-						start: resolved?.startFraction ?? primitive.enter?.start ?? 0,
-						duration: resolved?.durationFraction ?? 0
-					},
-					override,
-					{ kind: 'block-transition', blockId: primitive.id, phase: 'enter' },
-					primitive.enter
-						? { kind: 'block-transition', blockId: primitive.id, phase: 'enter' }
-						: null
-				)
-			);
+// Intrinsic enter character per diagram primitive type: the stroke draw-ons
+// are clean line draws, a node PLANTS with its scale-settle; everything else
+// (label rises, the stat roll) is silent by default.
+function diagramBlockEnterDefault(type: DiagramPrimitive['type']): SoundEvent | null {
+	if (type === 'edge-arrow' || type === 'timeline-segment') {
+		return 'draw';
+	}
+	return type === 'node' ? 'pop' : null;
+}
+
+function pushDiagramBlockCue(
+	primitive: DiagramPrimitive,
+	defaultEvent: SoundEvent,
+	window: MotionWindow,
+	cues: DerivedSoundCue[]
+): void {
+	const target: DerivedSoundCueEditTarget = {
+		kind: 'block-transition',
+		blockId: primitive.id,
+		phase: 'enter'
+	};
+	cues.push(
+		cueFrom(
+			`block:${primitive.id}:enter`,
+			{ kind: 'block', blockId: primitive.id },
+			defaultEvent,
+			window,
+			primitive.enter?.sound,
+			target,
+			primitive.enter ? target : null
+		)
+	);
+}
+
+// Channel-owned primitives get the one enter beat, silent unless the channels
+// travel.
+function deriveChannelBlockCue(
+	primitive: DiagramPrimitive,
+	enterDefault: SoundEvent | null,
+	cascadeWindows: CascadeWindowMap,
+	cues: DerivedSoundCue[]
+): void {
+	const channels = primitive.animation?.channels;
+	const characterDefault =
+		channels && channelsTravel(channels as OverlayChannelKeyframes)
+			? (enterDefault ?? MOTION_SOUND_DEFAULTS.overlayEnter)
+			: null;
+	if (characterDefault === null && !hasSoundOptIn(primitive.enter?.sound)) {
+		return;
+	}
+	const resolved = cascadeWindows.get(`block:${primitive.id}`);
+	pushDiagramBlockCue(
+		primitive,
+		characterDefault ?? MOTION_SOUND_DEFAULTS.overlayEnter,
+		{
+			start: resolved?.startFraction ?? primitive.enter?.start ?? 0,
+			duration: resolved?.durationFraction ?? 0
+		},
+		cues
+	);
+}
+
+// Diagram primitive Blocks (ADR-0036 + the ADR-0033 motion-character rule):
+// the stroke draw-ons are clean line draws (`draw` — a technical canvas,
+// not the annotation Layer's hand pencil); a node PLANTS with its
+// scale-settle (pop); label rises and the stat roll are silent by default —
+// their sound is opt-in via the enter override. Exits are fades everywhere
+// (silent). Channel-owned primitives get the one enter beat, silent unless
+// the channels travel.
+function deriveDiagramBlockCues(
+	diagram: EngineState['surface']['diagram'],
+	cascadeWindows: CascadeWindowMap,
+	cues: DerivedSoundCue[]
+): void {
+	for (const primitive of diagram ?? []) {
+		const enterDefault = diagramBlockEnterDefault(primitive.type);
+		if (hasChannelMotion(primitive.animation?.channels)) {
+			deriveChannelBlockCue(primitive, enterDefault, cascadeWindows, cues);
 			continue;
 		}
 
-		const enter = primitive.enter;
-		const override = enter?.sound;
-		if (enterDefault === null && !override?.event && override?.sample === undefined) {
+		if (enterDefault === null && !hasSoundOptIn(primitive.enter?.sound)) {
 			continue;
 		}
 		const resolved = cascadeWindows.get(`block:${primitive.id}`);
-		cues.push(
-			cueFrom(
-				`block:${primitive.id}:enter`,
-				layer,
-				enterDefault ?? MOTION_SOUND_DEFAULTS.overlayEnter,
-				{
-					start: resolved?.startFraction ?? enter?.start ?? 0,
-					duration: resolved?.durationFraction ?? enter?.duration ?? 0
-				},
-				override,
-				{ kind: 'block-transition', blockId: primitive.id, phase: 'enter' },
-				enter ? { kind: 'block-transition', blockId: primitive.id, phase: 'enter' } : null
-			)
+		pushDiagramBlockCue(
+			primitive,
+			enterDefault ?? MOTION_SOUND_DEFAULTS.overlayEnter,
+			{
+				start: resolved?.startFraction ?? primitive.enter?.start ?? 0,
+				duration: resolved?.durationFraction ?? primitive.enter?.duration ?? 0
+			},
+			cues
 		);
 	}
+}
 
-	// Platform-CTA press beats (creator blocks): the youtube-subscribe and
-	// instagram-follow presses emit a CLICK at their authored `beat` — a
-	// button press, not a bubble arrival (its own event so the character is
-	// honest and per-motion overrides read right). The beat has no Transition
-	// window (it is content, like the counter's roll), so the cue carries the
-	// default sample; the rail shows it like every derived cue.
-	for (const overlay of state.overlays) {
+// Platform-CTA press beats (creator blocks): the youtube-subscribe and
+// instagram-follow presses emit a CLICK at their authored `beat` — a
+// button press, not a bubble arrival (its own event so the character is
+// honest and per-motion overrides read right). The beat has no Transition
+// window (it is content, like the counter's roll), so the cue carries the
+// default sample; the rail shows it like every derived cue.
+function derivePlatformPressCues(overlays: EngineState['overlays'], cues: DerivedSoundCue[]): void {
+	for (const overlay of overlays) {
 		if (overlay.type !== 'youtube-subscribe' && overlay.type !== 'instagram-follow') {
 			continue;
 		}
@@ -543,11 +603,17 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 			)
 		);
 	}
+}
 
-	// Achievement focal events are intrinsic to each data variant and keyed to
-	// the same authored beat as the pixels and timeline clip. Checklist draws,
-	// then lands with a restrained click; unlocked emits one compact pop.
-	for (const overlay of state.overlays) {
+// Achievement focal events are intrinsic to each data variant and keyed to
+// the same authored beat as the pixels and timeline clip. Checklist draws,
+// then lands with a restrained click; unlocked emits one compact pop.
+function deriveAchievementBeatCues(
+	overlays: EngineState['overlays'],
+	durationSeconds: number,
+	cues: DerivedSoundCue[]
+): void {
+	for (const overlay of overlays) {
 		if (overlay.type !== 'achievement') {
 			continue;
 		}
@@ -564,10 +630,7 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 					{ kind: 'overlay', overlayId: overlay.id },
 					sound.event,
 					{
-						start: Math.max(
-							0,
-							Math.min(1, beat + sound.offsetMs / (state.transport.durationSeconds * 1000))
-						),
+						start: Math.max(0, Math.min(1, beat + sound.offsetMs / (durationSeconds * 1000))),
 						duration: 0
 					},
 					undefined,
@@ -577,16 +640,22 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 			);
 		}
 	}
+}
 
-	// Text animations attribute to their TARGET Layer. Per-character effects
-	// tick; whole/word/line travel effects whoosh with their window;
-	// fade-family effects are silent (the same motion-character rule as the
-	// overlay/surface tables above).
-	for (const entry of state.textAnimations) {
+// Text animations attribute to their TARGET Layer. Per-character effects
+// tick; whole/word/line travel effects whoosh with their window;
+// fade-family effects are silent (the same motion-character rule as the
+// overlay/surface tables above).
+function deriveTextAnimationCues(
+	textAnimations: EngineState['textAnimations'],
+	cascadeWindows: CascadeWindowMap,
+	cues: DerivedSoundCue[]
+): void {
+	for (const entry of textAnimations) {
 		const layer: SoundCueLayer =
 			entry.target.kind === 'overlay'
 				? { kind: 'overlay', overlayId: entry.target.overlayId }
-				: surfaceLayer;
+				: { kind: 'surface' };
 
 		const spec = TEXT_EFFECT_CATALOG.get(entry.effect);
 		const isFade = FADE_TEXT_EFFECTS.has(entry.effect);
@@ -604,7 +673,7 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 			const typeDefault =
 				phase === 'enter' ? enterDefault : isFade ? null : MOTION_SOUND_DEFAULTS.textExit;
 			const override = motionWindow.sound;
-			if (typeDefault === null && !override?.event && override?.sample === undefined) {
+			if (typeDefault === null && !hasSoundOptIn(override)) {
 				continue;
 			}
 			cues.push(
@@ -614,7 +683,9 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 					typeDefault ??
 						(phase === 'enter' ? MOTION_SOUND_DEFAULTS.textEnter : MOTION_SOUND_DEFAULTS.textExit),
 					// Cascade welds anchor the ENTER start; exits keep authored timing.
-					phase === 'enter' ? enterWindow(`textAnimation:${entry.id}`, motionWindow) : motionWindow,
+					phase === 'enter'
+						? resolveEnterWindow(cascadeWindows, `textAnimation:${entry.id}`, motionWindow)
+						: motionWindow,
 					override,
 					{
 						kind: 'text-animation-transition',
@@ -630,52 +701,78 @@ export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
 			);
 		}
 	}
+}
 
-	// Chat bubbles sound on the `imessage` Surface (every other Surface ignores
-	// `content.messages`): received bubbles pop, sent bubbles play the send
-	// swish — the side IS the motion character, and each side locks its Apple
-	// signature sample (MESSAGE_SAMPLES) unless the author re-voices the bubble
-	// with an explicit event swap or sample lock. Bubbles without an explicit
-	// `enter` still sound — the default staggered cadence is composition
-	// timing too.
-	if (surface.type === 'imessage') {
-		(surface.content.messages ?? []).forEach((message, index) => {
-			const enter = messageEnter(message, index);
-			const override = message.enter?.sound;
-			const signature = message.from === 'me' ? MESSAGE_SAMPLES.sent : MESSAGE_SAMPLES.received;
+// Chat bubbles sound on the `imessage` Surface (every other Surface ignores
+// `content.messages`): received bubbles pop, sent bubbles play the send
+// swish — the side IS the motion character, and each side locks its Apple
+// signature sample (MESSAGE_SAMPLES) unless the author re-voices the bubble
+// with an explicit event swap or sample lock. Bubbles without an explicit
+// `enter` still sound — the default staggered cadence is composition
+// timing too.
+function deriveChatMessageCues(surface: EngineState['surface'], cues: DerivedSoundCue[]): void {
+	if (surface.type !== 'imessage') {
+		return;
+	}
+	const surfaceLayer: SoundCueLayer = { kind: 'surface' };
+	(surface.content.messages ?? []).forEach((message, index) => {
+		const enter = messageEnter(message, index);
+		const override = message.enter?.sound;
+		const signature = message.from === 'me' ? MESSAGE_SAMPLES.sent : MESSAGE_SAMPLES.received;
+		cues.push(
+			cueFrom(
+				`message:${index}`,
+				surfaceLayer,
+				message.from === 'me' ? MOTION_SOUND_DEFAULTS.messageReply : MOTION_SOUND_DEFAULTS.message,
+				enter,
+				hasSoundOptIn(override) ? override : { ...override, sample: signature },
+				{ kind: 'surface-message-transition', messageIndex: index },
+				message.enter ? { kind: 'surface-message-transition', messageIndex: index } : null
+			)
+		);
+
+		// A tapback lands TAPBACK_DELAY after its bubble with its per-type
+		// acknowledgement — a locked-specific signature sound (ADR-0033 §5).
+		if (message.tapback) {
 			cues.push(
 				cueFrom(
-					`message:${index}`,
+					`message:${index}:tapback`,
 					surfaceLayer,
-					message.from === 'me'
-						? MOTION_SOUND_DEFAULTS.messageReply
-						: MOTION_SOUND_DEFAULTS.message,
-					enter,
-					override?.event || override?.sample !== undefined
-						? override
-						: { ...override, sample: signature },
-					{ kind: 'surface-message-transition', messageIndex: index },
-					message.enter ? { kind: 'surface-message-transition', messageIndex: index } : null
+					MOTION_SOUND_DEFAULTS.message,
+					{ start: enter.start + TAPBACK_DELAY, duration: 0 },
+					{ sample: TAPBACK_SAMPLES[message.tapback] },
+					{ kind: 'surface-message-tapback', messageIndex: index },
+					null
 				)
 			);
+		}
+	});
+}
 
-			// A tapback lands TAPBACK_DELAY after its bubble with its per-type
-			// acknowledgement — a locked-specific signature sound (ADR-0033 §5).
-			if (message.tapback) {
-				cues.push(
-					cueFrom(
-						`message:${index}:tapback`,
-						surfaceLayer,
-						MOTION_SOUND_DEFAULTS.message,
-						{ start: enter.start + TAPBACK_DELAY, duration: 0 },
-						{ sample: TAPBACK_SAMPLES[message.tapback] },
-						{ kind: 'surface-message-tapback', messageIndex: index },
-						null
-					)
-				);
-			}
-		});
-	}
+/**
+ * Every automatic cue the composition's motion emits, sorted by time. Includes
+ * muted cues so the GUI rail can show them; audible
+ * consumers filter with {@link isAudibleSoundCue}. Manual cues and the bed
+ * live in `state.audioCues[]` and are NOT returned here — the mix combines
+ * both.
+ */
+export function deriveSoundCues(state: EngineState): DerivedSoundCue[] {
+	const cues: DerivedSoundCue[] = [];
+
+	// Cues resolve AFTER cascade resolution (ADR-0035 §4 + ADR-0033): automatic
+	// cues ride a re-timed cascade welded — same philosophy, one mechanism. The
+	// resolved windows also carry the keyframe envelope for channel-owned
+	// elements (first keyframe → landing).
+	const cascadeWindows = resolveCascadeTimings(state);
+
+	deriveSurfaceTransitionCues(state.surface, cascadeWindows, cues);
+	deriveMarkCues(state, cascadeWindows, cues);
+	deriveOverlayTransitionCues(state.overlays, cascadeWindows, cues);
+	deriveDiagramBlockCues(state.surface.diagram, cascadeWindows, cues);
+	derivePlatformPressCues(state.overlays, cues);
+	deriveAchievementBeatCues(state.overlays, state.transport.durationSeconds, cues);
+	deriveTextAnimationCues(state.textAnimations, cascadeWindows, cues);
+	deriveChatMessageCues(state.surface, cues);
 
 	return cues.sort((a, b) => a.start - b.start || a.id.localeCompare(b.id));
 }

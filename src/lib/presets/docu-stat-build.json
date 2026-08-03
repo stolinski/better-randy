@@ -51,14 +51,14 @@
 					},
 					"text": "JAVASCRIPT BY THE NUMBERS",
 					"role": "headline",
-					"scale": 2,
+					"scale": 1.15,
 					"orientationOverrides": {
 						"vertical": {
 							"position": {
 								"x": 0.48,
 								"y": 0.24
 							},
-							"scale": 2.2
+							"scale": 1.08
 						}
 					},
 					"enter": {

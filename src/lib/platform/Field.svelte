@@ -30,7 +30,7 @@
 	.ins-field__label {
 		color: var(--chrome-muted);
 		font-family: Archivo, sans-serif;
-		font-size: 0.8125rem;
+		font-size: 0.71875rem;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;

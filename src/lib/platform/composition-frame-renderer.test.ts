@@ -22,6 +22,7 @@ import {
 const SURFACE_INPUTS: SurfaceRenderInputs = {
 	animState: { markProgresses: [] },
 	markColorsByIndex: [],
+	markDurationMsByIndex: [],
 	markIntensityByIndex: [],
 	timestamp: 0
 };
@@ -105,8 +106,9 @@ describe('composition frame renderer ordering', () => {
 			fromTexture: () => fromTexture,
 			toTexture: () => toTexture
 		} as unknown as TransitionSnapshots;
-		const wipe = {
-			apply: ({ progress }: { progress: number }) => calls.push(`wipe:${progress}`)
+		const effect = {
+			apply: ({ context }: { context: { progress: number } }) =>
+				calls.push(`transition:${context.progress}`)
 		} as unknown as CompiledTransitionWipe;
 
 		const result = renderCompositionFrameTo({
@@ -127,14 +129,21 @@ describe('composition frame renderer ordering', () => {
 				compositionPlanes: null,
 				depthStage: null
 			},
-			cachedTransition: { snapshots, wipe },
+			cachedTransition: {
+				snapshots,
+				effect,
+				params: {},
+				durationMs: 2_000,
+				width: 3840,
+				height: 2160
+			},
 			buildSurfaceInputs: () => {
 				throw new Error('transition must not build live Surface inputs');
 			}
 		});
 
 		assert.equal(result, 'transition');
-		assert.deepEqual(calls, ['wipe:0.25']);
+		assert.deepEqual(calls, ['transition:0.5']);
 	});
 
 	it('builds once, uploads once, then dispatches shader passes before effect/present', () => {
@@ -152,7 +161,9 @@ describe('composition frame renderer ordering', () => {
 			displayHeight: 1080,
 			rotation: 0
 		};
-		const encoder = {} as GPUCommandEncoder;
+		const shaderEncoder = {} as GPUCommandEncoder;
+		const effectEncoder = {} as GPUCommandEncoder;
+		let encoderIndex = 0;
 		const pipeline = {
 			uploadDom: () => calls.push('upload-dom'),
 			render: (inputs: SurfaceRenderInputs) => calls.push(`render:${inputs.timestamp}`),
@@ -163,13 +174,13 @@ describe('composition frame renderer ordering', () => {
 			device: {
 				createCommandEncoder: () => {
 					calls.push('create-encoder');
-					return encoder;
+					return encoderIndex++ === 0 ? shaderEncoder : effectEncoder;
 				}
 			}
 		} as unknown as GpuHost;
 		const shaderPassDispatcher = {
 			apply: (options: { commandEncoder: GPUCommandEncoder; ctx: { progress: number } }) => {
-				assert.equal(options.commandEncoder, encoder);
+				assert.equal(options.commandEncoder, shaderEncoder);
 				calls.push(`shader:${options.ctx.progress}`);
 				return shaderTexture;
 			}
@@ -183,7 +194,7 @@ describe('composition frame renderer ordering', () => {
 				timestamp: number;
 				videoUnderlayTexture: PreparedVideoUnderlayTexture | null;
 			}) => {
-				assert.equal(options.commandEncoder, encoder);
+				assert.equal(options.commandEncoder, effectEncoder);
 				assert.equal(options.inputTexture, shaderTexture);
 				assert.equal(options.progress, 0.25);
 				assert.equal(options.timestamp, 2);
@@ -225,6 +236,7 @@ describe('composition frame renderer ordering', () => {
 			'render:2',
 			'create-encoder',
 			'shader:0.25',
+			'create-encoder',
 			'effects-present'
 		]);
 	});

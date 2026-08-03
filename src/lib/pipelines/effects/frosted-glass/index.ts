@@ -2,11 +2,12 @@ import { d } from 'typegpu';
 import { z } from 'zod';
 
 import type { EffectRenderer } from '$lib/platform/pipelines/types';
+import { normalizedPassRegion } from '$lib/platform/pipelines/pass-execution';
 import { hexToRgbaFloat } from '$lib/utils/color';
 import {
 	DEFAULT_FROSTED_GLASS_REGION,
 	NormalizedOpticalRegionSchema,
-	packNormalizedOpticalRegion
+	packAspectPreservingOpticalRegion
 } from '$lib/utils/optical-geometry';
 
 import Editor from './Editor.svelte';
@@ -30,20 +31,26 @@ const FrostMeltSchema = z
 		message: 'Frost melt `to` must be greater than `from`.'
 	});
 
-const FrostedGlassParamsSchema = z.object({
-	region: NormalizedOpticalRegionSchema.default(DEFAULT_FROSTED_GLASS_REGION),
-	coverage: z.number().min(0).max(1).default(0.72),
-	contrast: z.number().min(0.05).max(1).default(0.42),
-	roughness: z.number().min(0).max(1).default(0.62),
-	haze: z.number().min(0).max(1).default(0.68),
-	refraction: z.number().min(0).max(1).default(0.26),
-	detailScale: z.number().min(0.25).max(4).default(1.15),
-	tint: z.string().regex(HEX_COLOR_PATTERN).default('#e8f1f5'),
-	tintStrength: z.number().min(0).max(1).default(0.18),
-	highlight: z.number().min(0).max(1).default(0.22),
-	seed: z.number().int().min(0).max(65535).default(4107),
-	melt: FrostMeltSchema.optional()
-});
+const FrostedGlassParamsSchema = z
+	.object({
+		region: NormalizedOpticalRegionSchema.default(DEFAULT_FROSTED_GLASS_REGION),
+		coverage: z.number().min(0).max(1).default(0.72),
+		contrast: z.number().min(0.05).max(1).default(0.42),
+		roughness: z.number().min(0).max(1).default(0.62),
+		haze: z.number().min(0).max(1).default(0.68),
+		refraction: z.number().min(0).max(1).default(0.26),
+		detailScale: z.number().min(0.25).max(4).default(1.15),
+		tint: z.string().regex(HEX_COLOR_PATTERN).default('#e8f1f5'),
+		tintStrength: z.number().min(0).max(1).default(0.18),
+		highlight: z.number().min(0).max(1).default(0.22),
+		seed: z.number().int().min(0).max(65535).default(4107),
+		growFrom: z.number().min(0).max(1).default(0),
+		growTo: z.number().min(0).max(1).default(0.08),
+		melt: FrostMeltSchema.optional()
+	})
+	.refine((params) => params.growTo > params.growFrom, {
+		message: 'Frost growth `growTo` must be greater than `growFrom`.'
+	});
 
 export type FrostedGlassParams = z.infer<typeof FrostedGlassParamsSchema>;
 
@@ -60,6 +67,7 @@ const FrostedGlassUniforms = d.struct({
 	meltTiming: d.vec4f,
 	resolution: d.vec2f,
 	progress: d.f32,
+	timestamp: d.f32,
 	coverage: d.f32,
 	contrast: d.f32,
 	roughness: d.f32,
@@ -68,11 +76,13 @@ const FrostedGlassUniforms = d.struct({
 	detailScale: d.f32,
 	tintStrength: d.f32,
 	highlight: d.f32,
-	seed: d.f32
+	seed: d.f32,
+	growFrom: d.f32,
+	growTo: d.f32
 });
 
 // Deterministic pane frost built from three independently-scaled value fields,
-// transmission blur, derivative relief, and sparse surface highlights. The
+// gaussian transmission blur, derivative relief, and sparse surface highlights. The
 // frost front and optional melt are pure functions of composition progress;
 // output alpha always remains the local input alpha.
 const fragmentBody = /* wgsl */ `
@@ -86,10 +96,6 @@ const fragmentBody = /* wgsl */ `
 	);
 	let paneAa = max(fwidth(edgePixels), 0.75);
 	let paneMask = smoothstep(-paneAa, paneAa, edgePixels);
-
-	if (paneMask <= 0.0) {
-		return inputSample;
-	}
 
 	let detailScale = layout.$.uniforms.detailScale;
 	let seed = layout.$.uniforms.seed;
@@ -129,7 +135,7 @@ const fragmentBody = /* wgsl */ `
 	let contrastWidth = mix(0.28, 0.025, layout.$.uniforms.contrast);
 	var frostMask = smoothstep(threshold - contrastWidth, threshold + contrastWidth, frostField);
 
-	let growth = smoothstep(0.0, 0.24, layout.$.uniforms.progress);
+	let growth = smoothstep(layout.$.uniforms.growFrom, layout.$.uniforms.growTo, layout.$.uniforms.progress);
 	let growthFront = 1.0 - smoothstep(growth - 0.08, growth + 0.015, localUv.x);
 	frostMask = frostMask * growthFront;
 
@@ -142,24 +148,32 @@ const fragmentBody = /* wgsl */ `
 	frostMask = frostMask * (1.0 - meltHole * meltProgress) * paneMask;
 
 	let relief = normalize(vec2f(dpdx(frostField), dpdy(frostField)) + vec2f(0.00001));
+	if (paneMask <= 0.0) {
+		return inputSample;
+	}
+
 	let refractedUv = in.uv + relief / resolution
 		* layout.$.uniforms.refraction * frostMask * 22.0;
 	let blurPixels = 1.0 + layout.$.uniforms.roughness * 13.0 + layout.$.uniforms.haze * 8.0;
-	let blurStep = vec2f(blurPixels) / resolution;
-	let centerSample = textureSampleLevel(layout.$.inputTexture, layout.$.samp, refractedUv, 0.0);
-	let north = textureSampleLevel(layout.$.inputTexture, layout.$.samp, refractedUv + vec2f(0.0, blurStep.y), 0.0);
-	let south = textureSampleLevel(layout.$.inputTexture, layout.$.samp, refractedUv - vec2f(0.0, blurStep.y), 0.0);
-	let east = textureSampleLevel(layout.$.inputTexture, layout.$.samp, refractedUv + vec2f(blurStep.x, 0.0), 0.0);
-	let west = textureSampleLevel(layout.$.inputTexture, layout.$.samp, refractedUv - vec2f(blurStep.x, 0.0), 0.0);
-	let northEast = textureSampleLevel(layout.$.inputTexture, layout.$.samp, refractedUv + blurStep, 0.0);
-	let northWest = textureSampleLevel(layout.$.inputTexture, layout.$.samp, refractedUv + vec2f(-blurStep.x, blurStep.y), 0.0);
-	let southEast = textureSampleLevel(layout.$.inputTexture, layout.$.samp, refractedUv + vec2f(blurStep.x, -blurStep.y), 0.0);
-	let southWest = textureSampleLevel(layout.$.inputTexture, layout.$.samp, refractedUv - blurStep, 0.0);
-	let transmission = (centerSample * 4.0 + (north + south + east + west) * 2.0
-		+ northEast + northWest + southEast + southWest) / 16.0;
+	let blurStep = vec2f(blurPixels / 6.0) / resolution;
+	let gaussianWeights = array<f32, 13>(
+		1.0, 12.0, 66.0, 220.0, 495.0, 792.0, 924.0,
+		792.0, 495.0, 220.0, 66.0, 12.0, 1.0
+	);
+	var transmission = vec4f(0.0);
+	for (var blurY = 0; blurY < 13; blurY = blurY + 1) {
+		for (var blurX = 0; blurX < 13; blurX = blurX + 1) {
+			let sampleOffset = vec2f(f32(blurX - 6), f32(blurY - 6)) * blurStep;
+			let sampleWeight = gaussianWeights[blurX] * gaussianWeights[blurY];
+			transmission = transmission
+				+ textureSampleLevel(layout.$.inputTexture, layout.$.samp, refractedUv + sampleOffset, 0.0)
+					* sampleWeight;
+		}
+	}
+	transmission = transmission / 16777216.0;
 
 	let localAlpha = inputSample.a;
-	let straightRgb = select(vec3f(0.0), transmission.rgb / max(transmission.a, 0.0001), transmission.a > 0.0001);
+	var straightRgb = select(vec3f(0.0), transmission.rgb / max(transmission.a, 0.0001), transmission.a > 0.0001);
 	let tint = layout.$.uniforms.tint;
 	let thickness = clamp(frostMask * (0.58 + 0.42 * noiseA), 0.0, 1.0);
 	let tintMix = layout.$.uniforms.tintStrength * mix(0.35, 1.0, thickness) * tint.a;
@@ -189,17 +203,32 @@ export const frostedGlassEffectRenderer: EffectRenderer<FrostedGlassParams> = {
 			tint: '#e8f1f5',
 			tintStrength: 0.18,
 			highlight: 0.22,
-			seed: 4107
+			seed: 4107,
+			growFrom: 0,
+			growTo: 0.08
 		}
 	}),
 	pass: {
 		paramsStruct: FrostedGlassUniforms,
 		fragmentBody,
+		execution: (params, ctx) => {
+			const region = packAspectPreservingOpticalRegion(
+				params.region,
+				DEFAULT_FROSTED_GLASS_REGION,
+				{ width: ctx.canvasWidth, height: ctx.canvasHeight }
+			);
+			return region[0] === 0 && region[1] === 0 && region[2] === 1 && region[3] === 1
+				? {}
+				: { region: normalizedPassRegion(region, ctx.canvasWidth, ctx.canvasHeight, 48) };
+		},
 		pack: (params, ctx) => {
 			const melt = params.melt;
 			return {
 				region: d.vec4f(
-					...packNormalizedOpticalRegion(params.region, DEFAULT_FROSTED_GLASS_REGION)
+					...packAspectPreservingOpticalRegion(params.region, DEFAULT_FROSTED_GLASS_REGION, {
+						width: ctx.canvasWidth,
+						height: ctx.canvasHeight
+					})
 				),
 				tint: d.vec4f(...hexToRgbaFloat(params.tint ?? '#e8f1f5')),
 				melt: d.vec4f(
@@ -211,6 +240,7 @@ export const frostedGlassEffectRenderer: EffectRenderer<FrostedGlassParams> = {
 				meltTiming: d.vec4f(melt?.from ?? 0.42, melt?.to ?? 0.68, melt ? 1 : 0, 0),
 				resolution: d.vec2f(ctx.canvasWidth, ctx.canvasHeight),
 				progress: ctx.progress,
+				timestamp: ctx.timestamp,
 				coverage: params.coverage ?? 0.72,
 				contrast: params.contrast ?? 0.42,
 				roughness: params.roughness ?? 0.62,
@@ -219,7 +249,9 @@ export const frostedGlassEffectRenderer: EffectRenderer<FrostedGlassParams> = {
 				detailScale: params.detailScale ?? 1.15,
 				tintStrength: params.tintStrength ?? 0.18,
 				highlight: params.highlight ?? 0.22,
-				seed: params.seed ?? 4107
+				seed: params.seed ?? 4107,
+				growFrom: params.growFrom ?? 0,
+				growTo: params.growTo ?? 0.08
 			};
 		}
 	},

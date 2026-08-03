@@ -5,10 +5,13 @@ import { beforeAll, describe, it } from 'vitest';
 
 const COMPONENT_FILES = {
 	rootInspector: 'RootInspector.svelte',
+	transitionRecipeSection: 'TransitionRecipeSection.svelte',
+	depthStageSection: 'DepthStageSection.svelte',
 	videoClipInspector: 'VideoClipInspector.svelte',
 	inspector: 'Inspector.svelte',
 	mediaInspector: 'MediaInspector.svelte',
 	timelineOutline: 'TimelineOutline.svelte',
+	timelineAddMenu: 'TimelineAddMenu.svelte',
 	videoTimelineTrack: 'VideoTimelineTrack.svelte'
 } as const;
 
@@ -39,7 +42,7 @@ describe('media right rail source contract', () => {
 	it('keeps composition transport and canonical Video clip guards in RootInspector', () => {
 		assertIncludes(
 			source.rootInspector,
-			'<InspectorSection label="Transport">',
+			'label="Transport"',
 			'RootInspector must retain the composition Transport section'
 		);
 		assertIncludes(
@@ -52,10 +55,20 @@ describe('media right rail source contract', () => {
 			'<Field label="Rate">',
 			'RootInspector Transport must retain composition Rate'
 		);
-		assert.ok(
-			source.rootInspector.split('engineState.media.videoTrack.clips.length > 0').length - 1 >= 3,
-			'RootInspector must retain canonical active Video clip guards for incompatible composition controls'
-		);
+		// The incompatible-with-Video-clips controls each carry the canonical
+		// guard in the section component that owns them: Background fill in
+		// RootInspector, the Transition recipe and Depth stage in their sections.
+		for (const [key, label] of [
+			['rootInspector', 'Background fill'],
+			['transitionRecipeSection', 'Transition recipe'],
+			['depthStageSection', 'Depth stage']
+		] as const) {
+			assertIncludes(
+				source[key],
+				'engineState.media.videoTrack.clips.length > 0',
+				`${label} must retain the canonical active Video clip guard for incompatible composition controls`
+			);
+		}
 	});
 
 	it('limits VideoClipInspector to clip identity, audio, gain, and removal', () => {
@@ -138,16 +151,45 @@ describe('media right rail source contract', () => {
 		);
 	});
 
-	it('keeps native upload, errors, drag transfer, and safe removal in MediaInspector', () => {
-		const fileInput = source.mediaInspector.match(/<input\s+[\s\S]*?type="file"[\s\S]*?\/>/)?.[0];
-		assert.ok(fileInput, 'MediaInspector must include a native file input');
-		assertIncludes(fileInput, 'video/mp4', 'Media upload must accept MP4 video');
-		assertIncludes(fileInput, 'video/quicktime', 'Media upload must accept QuickTime video');
-		assertIncludes(fileInput, 'video/webm', 'Media upload must accept WebM video');
+	it('keeps drop-only multi-file import, errors, Timeline drag transfer, and safe removal', () => {
+		assertExcludes(
+			source.mediaInspector,
+			'type="file"',
+			'MediaInspector must not expose a browser file upload control'
+		);
+		for (const eventHandler of [
+			'ondragenter={handleDragEnter}',
+			'ondragover={handleDragOver}',
+			'ondragleave={handleDragLeave}',
+			'ondrop={handleDrop}'
+		]) {
+			assertIncludes(
+				source.mediaInspector,
+				eventHandler,
+				`MediaInspector must keep its whole-library drop handler ${eventHandler}`
+			);
+		}
+		assertIncludes(
+			source.mediaInspector,
+			"Array.from(event.dataTransfer?.files ?? [])",
+			'Media drop import must retain every dropped file'
+		);
+		for (const formatLabel of ['MP4', 'MOV', 'WEBM']) {
+			assertIncludes(
+				source.mediaInspector,
+				formatLabel,
+				`Media drop affordance must identify ${formatLabel} support`
+			);
+		}
 		assertIncludes(
 			source.mediaInspector,
 			'role="alert"',
-			'Media upload errors must be announced with role=alert'
+			'Media import errors must be announced with role=alert'
+		);
+		assertIncludes(
+			source.mediaInspector,
+			'finally {',
+			'Media multi-file import must clear progress through a finally path'
 		);
 		assertIncludes(source.mediaInspector, 'draggable="true"', 'Media assets must remain draggable');
 		assertIncludes(
@@ -168,11 +210,11 @@ describe('media right rail source contract', () => {
 	});
 
 	it('keeps Media and Video authoring out of the Timeline Add layer menu', () => {
-		const menuStart = source.timelineOutline.indexOf('id="timeline-add-menu"');
-		assert.notEqual(menuStart, -1, 'TimelineOutline must retain the canonical Add layer menu');
-		const menuEnd = source.timelineOutline.indexOf('</footer>', menuStart);
+		const menuStart = source.timelineAddMenu.indexOf('id="timeline-add-menu"');
+		assert.notEqual(menuStart, -1, 'TimelineAddMenu must retain the canonical Add layer menu');
+		const menuEnd = source.timelineAddMenu.indexOf('</footer>', menuStart);
 		assert.notEqual(menuEnd, -1, 'Timeline Add layer menu must remain bounded by its footer');
-		const addMenuMarkup = source.timelineOutline.slice(menuStart, menuEnd);
+		const addMenuMarkup = source.timelineAddMenu.slice(menuStart, menuEnd);
 
 		for (const forbidden of [
 			'>Media<',
@@ -196,7 +238,7 @@ describe('media right rail source contract', () => {
 	it('wires the fixed Video row to accessible direct timeline authoring', () => {
 		assertIncludes(
 			source.timelineOutline,
-			'<VideoTimelineTrack {track} {timeline} />',
+			'<VideoTimelineTrack track={row.track} {timeline} />',
 			'TimelineOutline must delegate the fixed Video row to its focused component'
 		);
 		assertIncludes(
@@ -206,13 +248,13 @@ describe('media right rail source contract', () => {
 		);
 		assertIncludes(
 			source.videoTimelineTrack,
-			'background: #1f5aff',
-			'Video clips must use the DESIGN media blue'
+			'#33363e',
+			'Video clips must use the neutral filmstrip slab, not a layer-kind color'
 		);
 		assertIncludes(
 			source.videoTimelineTrack,
-			'0 0 0 1px #ffd608',
-			'Selected Video clips must use the DESIGN selection yellow'
+			'0 0 0 1.5px #2de8ee',
+			'Selected Video clips must use the transport-cyan selection ring'
 		);
 		assertIncludes(
 			source.videoTimelineTrack,
@@ -233,15 +275,42 @@ describe('media right rail source contract', () => {
 			'inspectorRailMode.switchToInspector()',
 			'Video clip selection must restore Inspector rail mode'
 		);
+		const pointerUpHandler = source.videoTimelineTrack.match(
+			/function handlePointerUp[\s\S]*?\n\t}/
+		)?.[0];
+		assert.ok(pointerUpHandler, 'Video Timeline must handle pointer completion');
 		assertIncludes(
-			source.videoTimelineTrack,
-			'function handlePointerCancel(event: PointerEvent): void',
-			'Video clip pointer cancellation must have an explicit cleanup path'
+			pointerUpHandler,
+			'finishPointerDrag(false)',
+			'Video clip pointer completion must commit the last valid position'
+		);
+		const pointerCancelHandler = source.videoTimelineTrack.match(
+			/function handlePointerCancel[\s\S]*?\n\t}/
+		)?.[0];
+		assert.ok(pointerCancelHandler, 'Video Timeline must handle pointer cancellation');
+		assertIncludes(
+			pointerCancelHandler,
+			'finishPointerDrag(true)',
+			'Video clip pointer cancellation must roll back to the immutable drag origin'
+		);
+		const pointerMoveHandler = source.videoTimelineTrack.match(
+			/function handlePointerMove[\s\S]*?\n\t}/
+		)?.[0];
+		assert.ok(pointerMoveHandler, 'Video Timeline must handle pointer movement');
+		assertIncludes(
+			pointerMoveHandler,
+			'event.buttons === 0',
+			'Video Timeline must close a gesture whose release occurred outside the document'
+		);
+		assertIncludes(
+			pointerMoveHandler,
+			'finishPointerDrag(false)',
+			'A released out-of-document Video drag must keep its last valid position'
 		);
 		assertIncludes(
 			source.videoTimelineTrack,
-			'finishPointerDrag(true)',
-			'Video clip cancellation must roll back to the immutable drag origin'
+			'if (pointerDrag) finishPointerDrag(false)',
+			'A new Video drag must commit any stale capture-loss gesture rather than snap it back'
 		);
 		assertIncludes(
 			source.videoTimelineTrack,
@@ -265,8 +334,38 @@ describe('media right rail source contract', () => {
 		);
 		assertExcludes(
 			source.videoTimelineTrack,
+			'onlostpointercapture',
+			'Lost pointer capture must not terminate a Video drag that is still tracked on window'
+		);
+		assertIncludes(
+			source.videoTimelineTrack,
 			'$effect',
-			'Video timeline event handling must not use effects'
+			'Video timeline must react to clips and assets added after mount'
+		);
+		assertIncludes(
+			source.videoTimelineTrack,
+			'untrack(() => {',
+			'Video timeline media probing must not subscribe to inspection cache updates'
+		);
+		assertIncludes(
+			source.videoTimelineTrack,
+			'.filter((asset) => referencedAssetIds.has(asset.id))',
+			'Video timeline media probing must remain scoped to assets referenced by visible clips'
+		);
+		assertIncludes(
+			source.videoTimelineTrack,
+			'const assetUrls = new Set(',
+			'Video timeline media probing must deduplicate referenced asset URLs'
+		);
+		assertIncludes(
+			source.videoTimelineTrack,
+			"inspection.status !== 'ready' && mode !== 'move'",
+			'Plain Video clip movement must not wait for volatile source metadata'
+		);
+		assertIncludes(
+			source.videoTimelineTrack,
+			'framesToSeconds(canonicalClip.durationFrames, frameRate)',
+			'Pre-probe movement must validate against the clip source range already in use'
 		);
 	});
 });

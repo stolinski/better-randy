@@ -1,0 +1,36 @@
+{
+	"schema": "supers@1",
+	"name": "Particle dissolve transition — demo",
+	"description": "A seeded luminance-aware particle dissolve between two settled composition snapshots, with deterministic cell motion and exact endpoint pixels.",
+	"pack": "syntax",
+	"kind": "fixture",
+	"transition": {
+		"from": "type-hero-vantage",
+		"to": "type-hero-drift",
+		"effect": "particle-dissolve",
+		"durationMs": 1800,
+		"params": {
+			"seed": 2718,
+			"density": 72,
+			"spread": 0.055,
+			"direction": -18,
+			"softness": 0.08,
+			"luminanceBias": 0.2
+		}
+	},
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 2.6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": { "fontFamily": "sans" },
+		"marks": { "defaults": {}, "timings": [] },
+		"surface": { "type": "plain", "content": { "body": "" } },
+		"textAnimations": [],
+		"overlays": [],
+		"effects": [],
+		"audioCues": []
+	}
+}

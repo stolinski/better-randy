@@ -1,3 +1,5 @@
+import { cloneJsonValue } from '$lib/utils/json-clone';
+
 import type {
 	CompositionFrameRenderResult,
 	CachedTransitionFrame
@@ -5,7 +7,12 @@ import type {
 import type { Preset } from './engine-schema';
 import type { ResolvedTransition } from './engine-state.svelte';
 import type { GpuHost } from './gpu-host';
-import { compileTransitionWipe, type CompiledTransitionWipe } from './pipelines/transition-pass';
+import {
+	compileTransitionEffect,
+	type CompiledTransitionEffect
+} from './pipelines/transition-pass';
+import { getTransitionEffectRenderer } from './pipelines/transition-registry';
+import type { TransitionEffectRenderer } from './pipelines/types';
 import {
 	TransitionSnapshots,
 	type TransitionSnapshotFrameTextures,
@@ -33,7 +40,10 @@ export interface TransitionSnapshotControllerDependencies {
 
 export interface TransitionSnapshotControllerFactories {
 	createSnapshots(options: TransitionSnapshotsOptions): TransitionSnapshotFrameTextures;
-	compileWipe(host: GpuHost): CompiledTransitionWipe;
+	compileEffect(
+		host: GpuHost,
+		renderer: TransitionEffectRenderer<unknown>
+	): CompiledTransitionEffect;
 }
 
 interface TransitionSnapshotCache {
@@ -41,7 +51,8 @@ interface TransitionSnapshotCache {
 	width: number;
 	height: number;
 	snapshots: TransitionSnapshotFrameTextures;
-	wipe: CompiledTransitionWipe;
+	effectType: string | null;
+	effect: CompiledTransitionEffect | null;
 }
 
 function combineTransitionFailures(primary: unknown, secondary: unknown, message: string): unknown {
@@ -57,7 +68,7 @@ class TransitionSnapshotPreparationCancelled extends Error {
 
 const DEFAULT_FACTORIES: TransitionSnapshotControllerFactories = {
 	createSnapshots: (options) => new TransitionSnapshots(options),
-	compileWipe: compileTransitionWipe
+	compileEffect: compileTransitionEffect
 };
 
 /**
@@ -69,6 +80,8 @@ export class TransitionSnapshotController {
 	readonly #factories: TransitionSnapshotControllerFactories;
 	#cache: TransitionSnapshotCache | null = null;
 	#preparedFor: ResolvedTransition | null = null;
+	#preparedFrom: Preset | null = null;
+	#preparedTo: Preset | null = null;
 	#preparingFor: ResolvedTransition | null = null;
 	#preparationRevision = 0;
 	#preparation: Promise<void> | null = null;
@@ -83,7 +96,15 @@ export class TransitionSnapshotController {
 		if (!this.#preparedFor || !this.#cache) {
 			return null;
 		}
-		return { snapshots: this.#cache.snapshots, wipe: this.#cache.wipe };
+		if (!this.#cache.effect) return null;
+		return {
+			snapshots: this.#cache.snapshots,
+			effect: this.#cache.effect,
+			params: this.#preparedFor.params,
+			durationMs: this.#preparedFor.durationMs,
+			width: this.#cache.width,
+			height: this.#cache.height
+		};
 	}
 
 	async update(
@@ -118,11 +139,15 @@ export class TransitionSnapshotController {
 		}
 
 		if (this.#isPreparedFor(active, dependencies)) {
+			this.#ensureEffect(active, dependencies);
+			this.#preparedFor = active;
 			return;
 		}
 
 		const revision = ++this.#revision;
 		this.#preparedFor = null;
+		this.#preparedFrom = null;
+		this.#preparedTo = null;
 		this.#preparingFor = active;
 		this.#preparationRevision = revision;
 		const preparation = this.#prepare(active, dependencies, revision);
@@ -144,6 +169,8 @@ export class TransitionSnapshotController {
 	invalidate(): void {
 		this.#revision += 1;
 		this.#preparedFor = null;
+		this.#preparedFrom = null;
+		this.#preparedTo = null;
 		this.#disposeCache();
 	}
 
@@ -160,7 +187,8 @@ export class TransitionSnapshotController {
 		dependencies: TransitionSnapshotControllerDependencies
 	): boolean {
 		return (
-			this.#preparedFor === active &&
+			this.#preparedFrom === active.from &&
+			this.#preparedTo === active.to &&
 			this.#cache?.host === dependencies.host &&
 			this.#cache.width === dependencies.width &&
 			this.#cache.height === dependencies.height
@@ -190,7 +218,8 @@ export class TransitionSnapshotController {
 				width: dependencies.width,
 				height: dependencies.height,
 				snapshots,
-				wipe: this.#factories.compileWipe(dependencies.host)
+				effectType: null,
+				effect: null
 			};
 			this.#cache = next;
 			return next;
@@ -206,6 +235,7 @@ export class TransitionSnapshotController {
 		revision: number
 	): Promise<void> {
 		const cache = this.#ensureCache(dependencies);
+		this.#ensureEffect(active, dependencies);
 		let sourceComposition: Preset;
 		let wasCapturing: boolean;
 		try {
@@ -219,8 +249,21 @@ export class TransitionSnapshotController {
 
 		let failure: unknown;
 		try {
-			await this.#capturePreset(active.from, cache.snapshots.fromTarget(), dependencies, revision);
-			await this.#capturePreset(active.to, cache.snapshots.toTarget(), dependencies, revision);
+			const targetOrientation = sourceComposition.state.transport.orientation;
+			await this.#capturePreset(
+				active.from,
+				cache.snapshots.fromTarget(),
+				targetOrientation,
+				dependencies,
+				revision
+			);
+			await this.#capturePreset(
+				active.to,
+				cache.snapshots.toTarget(),
+				targetOrientation,
+				dependencies,
+				revision
+			);
 		} catch (error) {
 			failure = error;
 		}
@@ -257,17 +300,38 @@ export class TransitionSnapshotController {
 		}
 
 		this.#preparedFor = active;
+		this.#preparedFrom = active.from;
+		this.#preparedTo = active.to;
 		dependencies.seekTimeline(0);
+	}
+
+	#ensureEffect(
+		active: ResolvedTransition,
+		dependencies: TransitionSnapshotControllerDependencies
+	): void {
+		const cache = this.#ensureCache(dependencies);
+		if (cache.effectType === active.effect && cache.effect) return;
+		const renderer = getTransitionEffectRenderer(active.effect);
+		if (!renderer) {
+			throw new Error(`Unknown transition Effect "${active.effect}".`);
+		}
+		const next = this.#factories.compileEffect(dependencies.host, renderer);
+		cache.effect?.dispose?.();
+		cache.effect = next;
+		cache.effectType = active.effect;
 	}
 
 	async #capturePreset(
 		preset: Preset,
 		target: GPUTextureView,
+		orientation: Preset['state']['transport']['orientation'],
 		dependencies: TransitionSnapshotControllerDependencies,
 		revision: number
 	): Promise<void> {
 		this.#assertCurrent(revision);
-		dependencies.applyCompositionState(preset);
+		const capturePreset = cloneJsonValue(preset);
+		capturePreset.state.transport.orientation = orientation;
+		dependencies.applyCompositionState(capturePreset);
 		await dependencies.flushDom();
 		this.#assertCurrent(revision);
 		await dependencies.waitForFonts();
@@ -294,6 +358,7 @@ export class TransitionSnapshotController {
 	}
 
 	#disposeCache(): void {
+		this.#cache?.effect?.dispose?.();
 		this.#cache?.snapshots.dispose();
 		this.#cache = null;
 	}

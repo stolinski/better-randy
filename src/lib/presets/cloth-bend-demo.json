@@ -1,0 +1,38 @@
+{
+	"schema": "supers@1",
+	"name": "Cloth bend — simulation fixture",
+	"description": "A top-pinned composition plane receives one authored gust and resolves through fixed-step spring and damping state before GPU deformation.",
+	"pack": "syntax",
+	"kind": "fixture",
+	"state": {
+		"transport": { "orientation": "horizontal", "durationSeconds": 3, "fps": 30, "format": "webm" },
+		"backgroundFill": "#0e0e0d",
+		"typography": { "fontFamily": "sans" },
+		"marks": { "defaults": {}, "timings": [] },
+		"surface": {
+			"type": "type-hero",
+			"variant": "single",
+			"content": { "title": "BEND", "author": "PINNED / DAMPED / SEEKABLE", "body": "" }
+		},
+		"textAnimations": [],
+		"overlays": [],
+		"effects": [
+			{
+				"type": "cloth-bend",
+				"id": "authored-cloth",
+				"params": {
+					"seed": 512,
+					"pinnedEdge": "top",
+					"gustAtSeconds": 0.55,
+					"gust": 0.72,
+					"stiffness": 7,
+					"damping": 2.8,
+					"folds": 5,
+					"perspective": 0.08,
+					"shadow": 0.32
+				}
+			}
+		],
+		"audioCues": []
+	}
+}

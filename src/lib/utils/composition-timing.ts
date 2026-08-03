@@ -110,6 +110,17 @@ export function framesToTimecode(frame: number, rate: FrameRate): string {
 	return `${pad(hh)}:${pad(mm)}:${pad(ss)}:${pad(ff)}`;
 }
 
+/**
+ * Editor-chrome clock readout (`M:SS.ss`) — the compact form the transport deck
+ * and the playhead flag both display. Distinct from NDF `HH:MM:SS:FF` timecode,
+ * which is the interchange form.
+ */
+export function formatClockTime(seconds: number): string {
+	const m = Math.floor(seconds / 60);
+	const s = (seconds % 60).toFixed(2).padStart(5, '0');
+	return `${m}:${s}`;
+}
+
 /** NDF timecode (`HH:MM:SS:FF`) → absolute frame index at `rate`. */
 export function timecodeToFrames(timecode: string, rate: FrameRate): number {
 	const match = TIMECODE_PATTERN.exec(timecode);

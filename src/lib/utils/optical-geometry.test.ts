@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
 import {
+	DEFAULT_FROSTED_GLASS_REGION,
 	DEFAULT_REFRACTIVE_LENS_REGION,
 	NormalizedOpticalRegionSchema,
 	getOpticalShapeCode,
-	packNormalizedOpticalRegion
+	packAspectPreservingOpticalRegion
 } from './optical-geometry';
 
 describe('optical geometry', () => {
@@ -16,10 +17,41 @@ describe('optical geometry', () => {
 		);
 	});
 
-	it('packs partial runtime regions with explicit fallbacks', () => {
+	it('keeps canonical regions unchanged on horizontal targets', () => {
 		assert.deepEqual(
-			packNormalizedOpticalRegion({ x: 0.1, width: 0.7 }, DEFAULT_REFRACTIVE_LENS_REGION),
+			packAspectPreservingOpticalRegion(
+				{ x: 0.1, width: 0.7 },
+				DEFAULT_REFRACTIVE_LENS_REGION,
+				{ width: 3840, height: 2160 }
+			),
 			[0.1, 0.25, 0.7, 0.5]
+		);
+	});
+
+	it('preserves local optical pixel aspect on vertical targets', () => {
+		const horizontal = { x: 0.62, y: 0.14, width: 0.08, height: 0.24 };
+		const vertical = packAspectPreservingOpticalRegion(
+			horizontal,
+			DEFAULT_REFRACTIVE_LENS_REGION,
+			{ width: 2160, height: 3840 }
+		);
+		const horizontalPixelAspect = (horizontal.width * 3840) / (horizontal.height * 2160);
+		const verticalPixelAspect = (vertical[2] * 2160) / (vertical[3] * 3840);
+
+		assert.ok(Math.abs(verticalPixelAspect - horizontalPixelAspect) < 1e-12);
+		assert.ok(Math.abs(vertical[2] * 2160 - horizontal.width * 3840) < 1e-12);
+		assert.ok(Math.abs(vertical[3] * 3840 - horizontal.height * 2160) < 1e-12);
+		assert.ok(Math.abs(vertical[0] + vertical[2] / 2 - 0.66) < 1e-12);
+		assert.ok(Math.abs(vertical[1] + vertical[3] / 2 - 0.26) < 1e-12);
+	});
+
+	it('leaves explicitly full-frame optical regions target-filling', () => {
+		assert.deepEqual(
+			packAspectPreservingOpticalRegion(undefined, DEFAULT_FROSTED_GLASS_REGION, {
+				width: 2160,
+				height: 3840
+			}),
+			[0, 0, 1, 1]
 		);
 	});
 

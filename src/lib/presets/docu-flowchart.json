@@ -52,14 +52,14 @@
 					},
 					"text": "HOW YOUR CODE SHIPS",
 					"role": "headline",
-					"scale": 1.6,
+					"scale": 0.95,
 					"orientationOverrides": {
 						"vertical": {
 							"position": {
 								"x": 0.5,
 								"y": 0.14
 							},
-							"scale": 2
+							"scale": 1.15
 						}
 					},
 					"enter": {

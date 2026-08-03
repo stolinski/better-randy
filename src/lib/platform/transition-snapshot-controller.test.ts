@@ -29,7 +29,7 @@ function makePreset(name: string, pack: string, durationSeconds: number): Preset
 }
 
 function makeTransition(from: Preset, to: Preset): ResolvedTransition {
-	return { from, to, effect: 'mask-wipe', durationMs: 1_000 };
+	return { from, to, effect: 'mask-wipe', durationMs: 1_000, params: {} };
 }
 
 function clonePreset(preset: Preset): Preset {
@@ -42,6 +42,7 @@ interface TransitionControllerHarness {
 	createdSizes: Array<{ width: number; height: number }>;
 	disposedCaches: string[];
 	renders: string[];
+	renderedOrientations: Array<Preset['state']['transport']['orientation']>;
 	settledProgresses: number[];
 	seekTimes: number[];
 	capturingWrites: boolean[];
@@ -55,6 +56,7 @@ function createHarness(source: Preset, initialCapturing = false): TransitionCont
 	const createdSizes: Array<{ width: number; height: number }> = [];
 	const disposedCaches: string[] = [];
 	const renders: string[] = [];
+	const renderedOrientations: Array<Preset['state']['transport']['orientation']> = [];
 	const settledProgresses: number[] = [];
 	const seekTimes: number[] = [];
 	const capturingWrites: boolean[] = [];
@@ -78,7 +80,7 @@ function createHarness(source: Preset, initialCapturing = false): TransitionCont
 				dispose: () => disposedCaches.push(id)
 			} satisfies TransitionSnapshotFrameTextures;
 		},
-		compileWipe: () => ({ apply: () => undefined }) as CompiledTransitionWipe
+		compileEffect: () => ({ apply: () => undefined }) as CompiledTransitionWipe
 	};
 
 	const dependencies: TransitionSnapshotControllerDependencies = {
@@ -103,6 +105,7 @@ function createHarness(source: Preset, initialCapturing = false): TransitionCont
 				throw new Error(`${currentPreset.name} render failed`);
 			}
 			const label = (outputView as unknown as { label: string }).label;
+			renderedOrientations.push(currentPreset.state.transport.orientation);
 			renders.push(`${currentPreset.name}:${label}:${timestamp}`);
 			return 'flat';
 		},
@@ -116,6 +119,7 @@ function createHarness(source: Preset, initialCapturing = false): TransitionCont
 		createdSizes,
 		disposedCaches,
 		renders,
+		renderedOrientations,
 		settledProgresses,
 		seekTimes,
 		capturingWrites,
@@ -132,6 +136,7 @@ function createHarness(source: Preset, initialCapturing = false): TransitionCont
 describe('transition snapshot controller', () => {
 	it('captures deterministic from/to frames and restores the exact source composition', async () => {
 		const source = makePreset('Transition source', 'crt-terminal', 1);
+		source.state.transport.orientation = 'vertical';
 		const from = makePreset('From', 'syntax', 4);
 		const to = makePreset('To', 'editorial-mono', 6);
 		const transition = makeTransition(from, to);
@@ -141,6 +146,7 @@ describe('transition snapshot controller', () => {
 		await harness.controller.update(transition, harness.dependencies);
 
 		assert.deepEqual(harness.renders, ['From:cache-0:from:2', 'To:cache-0:to:3']);
+		assert.deepEqual(harness.renderedOrientations, ['vertical', 'vertical']);
 		assert.deepEqual(harness.settledProgresses, [0.5, 0.5]);
 		assert.deepEqual(harness.getCurrentPreset(), source);
 		assert.deepEqual(harness.capturingWrites, [true, false]);

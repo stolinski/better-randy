@@ -76,9 +76,8 @@
 		</div>
 	</div>
 
-	<figcaption>
-		<span>{frameSize.width}x{frameSize.height}</span>
-	</figcaption>
+	<!-- The native-resolution readout lives in the Workspace identity strip; the
+	     stage itself stays chrome-free. -->
 </figure>
 
 <style>
@@ -109,10 +108,10 @@
 		border: var(--border-1);
 		border-radius: var(--br-m);
 		/* Fit the frame to the smaller of: container width, a hard max, or the
-		   available height. The height term only needs to reserve the caption + a
-		   little breathing room (~4rem) — over-reserving leaves the canvas squished
-		   with dead space above it, especially once the timeline panel grows. */
-		inline-size: min(100cqw, 76rem, calc((100cqh - 4rem) * var(--frame-w) / var(--frame-h)));
+		   available height. The height term only reserves a little breathing room —
+		   over-reserving leaves the canvas squished with dead space above it,
+		   especially once the timeline panel grows. */
+		inline-size: min(100cqw, 76rem, calc((100cqh - 2rem) * var(--frame-w) / var(--frame-h)));
 		overflow: hidden;
 		position: relative;
 		/* Display zoom + pan — translate then scale the framed canvas about its
@@ -151,11 +150,4 @@
 		position: absolute;
 	}
 
-	figcaption {
-		color: var(--fg-6);
-		font-size: 0.75rem;
-		inline-size: min(100%, 76rem);
-		margin: 0;
-		text-align: end;
-	}
 </style>

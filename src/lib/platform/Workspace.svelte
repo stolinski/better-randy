@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { onDestroy, tick, untrack } from 'svelte';
-	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 	import { AnimationManager } from './animation-manager';
 	import { TextAnimationManager } from '$lib/text-animations/manager.svelte';
 	import { animState } from './anim-state.svelte';
 	import { buildCompositionAnimationManifest } from './composition-animation-manifest';
+	import { trackCompositionAuthoringDependencies } from './composition-authoring-dependencies';
 	import {
 		CompositionExportController,
 		type CompositionExportUiState
@@ -16,15 +16,13 @@
 	import {
 		renderCompositionFrameTo,
 		shouldSplitCompositionPlanes,
-		type CompositionFrameRenderRequest
+		type CompositionFrameRenderRequest,
+		type CompositionFrameRenderResources
 	} from './composition-frame-renderer';
-	import { EffectChain } from './pipelines/effect-chain';
-	import { getSurfaceRenderer } from './pipelines';
-	import { ShaderPassDispatcher } from './pipelines/shader-pass-runner';
-	import type { SurfaceRenderInstance, SurfaceRenderInputs } from './pipelines/types';
 	import CanvasControlsBar from './CanvasControlsBar.svelte';
 	import CanvasEditingOverlay from './CanvasEditingOverlay.svelte';
 	import Inspector from './Inspector.svelte';
+	import InspectorToggle from './InspectorToggle.svelte';
 	import TimelineOutline from './TimelineOutline.svelte';
 	import VideoFrame from './VideoFrame.svelte';
 	import { fontsReady } from './fonts';
@@ -39,53 +37,37 @@
 	import { waitForCompositionResourceReadiness } from './composition-resource-readiness';
 	import { Timeline } from './timeline.svelte';
 	import { timelineHandle } from './timeline-handle.svelte';
-	import {
-		listMarkInstances,
-		resolveMarkForIndex,
-		type Cascade,
-		type Keyframe,
-		type MarkInstance
-	} from './engine-schema';
 	import { engineState, packState, readMarkColor, transitionState } from './engine-state.svelte';
 	import { applyCompositionState } from './preset';
 	import { presetBase } from './preset-base.svelte';
 	import { serializeCompositionState } from './preset-pure';
 	import { compositionMeta } from './composition-meta.svelte';
 	import { getPack } from './packs/registry';
-	import { requireCoreColor, resolveDiagramStroke, resolveTypographyColors } from './packs/resolve';
+	import { resolveTypographyColors } from './packs/resolve';
 
-	import { CompositionPlanes } from './pipelines/composition-planes';
-	import { DepthStage } from './pipelines/depth-stage';
 	import { TransitionSnapshotController } from './transition-snapshot-controller';
 	import type { SyncExportRequest } from './export-video';
 	import { AudioPreview } from './audio-preview';
 	import { resolveFrameRate, secondsToFrames } from '$lib/utils/composition-timing';
-	import { resolveDiagramPrimitiveForRender } from '$lib/utils/diagram-geometry';
 	import { clampNumber } from '$lib/utils/math';
-	import { resolveOverlayPlacement } from '$lib/utils/overlay-placement';
-	import { resolveActiveVideoClipAtFrame } from '$lib/utils/video-clip-resolution';
-	import { isDarkSurfaceColor } from '$lib/utils/color';
 	import { exposeVisualAudit } from './runtime-audit';
 	import { captureCanvasWebp } from '$lib/utils/canvas-capture';
 	import { posterExists, putPoster } from './posters';
+	import { PosterCaptureController } from './poster-capture-controller';
 	import {
-		VideoAssetDecoderCache,
-		VideoAssetDecoderSeekSupersededError,
-		type DecodedVideoAssetFrame
-	} from './video-asset-decoder';
-	import {
-		VideoUnderlayFrameTexture,
-		type PreparedVideoUnderlayTexture
-	} from './video-underlay-frame-texture';
+		CompositionRenderResourceController,
+		type CompositionRenderResourceSet
+	} from './composition-render-resources';
+	import { StageSubstrateController } from './stage-substrate-controller';
+	import { buildSurfaceRenderInputs } from './surface-render-inputs-builder';
+	import { VideoUnderlayRuntimeController } from './video-underlay-runtime-controller';
 
 	// Content key for this composition's poster, supplied by the route (which owns
 	// the loaded Preset). When set, the settled frame is captured once and cached
 	// server-side so the picker can show a real, always-in-sync preview.
 	let { posterKey = null }: { posterKey?: string | null } = $props();
-	const capturedPosterKeys = new SvelteSet<string>();
 
 	let compositionElement = $state<HTMLElement | null>(null);
-	let surfaceElement = $state<HTMLElement | null>(null);
 	// Depth-of-field plane split (ADR-0027). When a `depth-of-field` Effect is
 	// present the Overlay layer is hoisted into this frame-sized sibling of
 	// `.composition` so it can be captured on its own as the Overlay plane; the
@@ -93,36 +75,49 @@
 	let overlayRootElement = $state<HTMLElement | null>(null);
 	let canvas = $state.raw<HTMLCanvasElement | null>(null);
 	let host = $state.raw<GpuHost | null>(null);
-	let pipeline = $state.raw<SurfaceRenderInstance | null>(null);
-	let effectChain = $state.raw<EffectChain | null>(null);
-	let shaderPassDispatcher = $state.raw<ShaderPassDispatcher | null>(null);
-	let compositionPlanes = $state.raw<CompositionPlanes | null>(null);
-	// Dimensional depth stage (ADR-0028). Built when a Preset declares state.stage;
-	// renders the composition through a real 3D compositor instead of the flat path.
-	let depthStage = $state.raw<DepthStage | null>(null);
-	// Resident GPU texture for the depth stage's backdrop image substrate (dex
-	// p20), or null when the active stage declares no backdrop image. Loaded in
-	// the pipeline-build effect (gated into first paint alongside fonts) and
-	// sampled per frame by the composition frame renderer — never decoded/uploaded per frame.
-	let substrateTexture = $state.raw<GPUTexture | null>(null);
-	let stageSubstrateReadinessPromise: Promise<void> = Promise.resolve();
-	// Imperative media resources do not drive the template or reactive effects;
-	// identity generations, not Svelte signals, guard their asynchronous work.
-	let videoAssetDecoderCache: VideoAssetDecoderCache | null = null;
-	let videoUnderlayFrameTexture: VideoUnderlayFrameTexture | null = null;
-	let videoUnderlayTexture: PreparedVideoUnderlayTexture | null = null;
-	let videoResourceGeneration = 0;
-	let pendingVideoPreviewFrame: { frame: number; timestamp: number } | null = null;
-	let videoPreviewRequestSequence = 0;
-	let videoPreviewRenderPromise: Promise<void> | null = null;
+	let renderResourceSet = $state.raw<CompositionRenderResourceSet | null>(null);
 	let isWorkspaceDestroyed = false;
 	let timeline = $state.raw<Timeline | null>(null);
 	const animationManager = new AnimationManager();
 	const audioPreview = new AudioPreview();
 	const textAnimationManager = new TextAnimationManager();
 	const transitionSnapshotController = new TransitionSnapshotController();
+	let transitionSnapshotPreparation: Promise<void> | null = null;
 	const compositionExportController = new CompositionExportController();
 	const canvasPaintGenerationTracker = new CanvasPaintGenerationTracker();
+	const compositionRenderResourceController = new CompositionRenderResourceController();
+	const stageSubstrateController = new StageSubstrateController({
+		load: getSubstrateTexture,
+		onReady: () => {
+			if (canvas && !isWorkspaceDestroyed) requestCanvasPaint(canvas);
+		},
+		onError: (error) => {
+			console.error('Stage substrate preparation failed.', error);
+			status = error instanceof Error ? error.message : 'Stage substrate preparation failed.';
+		}
+	});
+	const posterCaptureController = new PosterCaptureController({
+		waitForFonts: fontsReady,
+		delay: (signal) => abortableTimeout(900, signal),
+		nextFrame: abortableAnimationFrame,
+		requestPaint: requestCanvasPaint,
+		exists: posterExists,
+		// A capture that lands before the video underlay's first decoded frame is
+		// a blank webp (~1 KB). Retry with fresh settle windows until pixels
+		// arrive; a genuinely empty composition still stores after the retries.
+		capture: async (canvas) => {
+			let blob = await captureCanvasWebp(canvas);
+			for (let attempt = 0; attempt < 4 && (blob === null || blob.size <= 1200); attempt++) {
+				await new Promise((resolveDelay) => window.setTimeout(resolveDelay, 700));
+				requestCanvasPaint(canvas);
+				await new Promise(requestAnimationFrame);
+				blob = await captureCanvasWebp(canvas);
+			}
+			return blob;
+		},
+		store: putPoster,
+		reportError: (error) => console.error('Poster capture failed', error)
+	});
 
 	// Poster capture (see ./posters). Once the composition has mounted its GPU
 	// host and the route has resolved a content key, force one settled paint and
@@ -131,30 +126,55 @@
 	$effect(() => {
 		const key = posterKey;
 		const localCanvas = canvas;
-		if (!key || !localCanvas || !host) return;
+		const localCompositionElement = compositionElement;
+		if (!key || !localCanvas || !host || !localCompositionElement) {
+			posterCaptureController.update(null);
+			return;
+		}
 		if (typeof window !== 'undefined') window.__supersPosterKey = key;
-		if (capturedPosterKeys.has(key)) return;
-		capturedPosterKeys.add(key);
-		void capturePoster(localCanvas, key);
+		posterCaptureController.update({
+			key,
+			canvas: localCanvas,
+			compositionIdentity: localCompositionElement
+		});
 	});
 
-	async function capturePoster(targetCanvas: HTMLCanvasElement, key: string): Promise<void> {
-		// The composition already parks at the settled frame on load. Wait for fonts
-		// and give the animated DOM (counter values, typeset text) time to land, then
-		// composite the current settled DOM once more and capture it — without
-		// re-seeking, so the parked state isn't disturbed.
-		await fontsReady();
-		await new Promise((resolve) => setTimeout(resolve, 900));
-		requestCanvasPaint(targetCanvas);
-		await nextFrame();
-		await nextFrame();
-		if (await posterExists(key)) return; // another client already generated it
-		try {
-			const blob = await captureCanvasWebp(targetCanvas);
-			if (blob) await putPoster(key, blob);
-		} catch (err) {
-			console.error('Poster capture failed', err);
-		}
+	function abortableTimeout(delayMs: number, signal: AbortSignal): Promise<void> {
+		return new Promise<void>((resolve, reject) => {
+			const timeout = window.setTimeout(settle, delayMs);
+			function cleanup(): void {
+				window.clearTimeout(timeout);
+				signal.removeEventListener('abort', abort);
+			}
+			function settle(): void {
+				cleanup();
+				resolve();
+			}
+			function abort(): void {
+				cleanup();
+				reject(signal.reason);
+			}
+			signal.addEventListener('abort', abort, { once: true });
+		});
+	}
+
+	function abortableAnimationFrame(signal: AbortSignal): Promise<void> {
+		return new Promise<void>((resolve, reject) => {
+			const frame = requestAnimationFrame(settle);
+			function cleanup(): void {
+				cancelAnimationFrame(frame);
+				signal.removeEventListener('abort', abort);
+			}
+			function settle(): void {
+				cleanup();
+				resolve();
+			}
+			function abort(): void {
+				cleanup();
+				reject(signal.reason);
+			}
+			signal.addEventListener('abort', abort, { once: true });
+		});
 	}
 
 	// Where the editor parks the playhead on first load: a settled frame past every
@@ -167,6 +187,16 @@
 	let separateWav = $state(false);
 	let progress = $state(0);
 	let status = $state('');
+	const videoUnderlayRuntimeController = new VideoUnderlayRuntimeController({
+		readHost: () => host,
+		readIsExporting: () => isExporting,
+		readState: () => engineState,
+		renderPreparedPreview: renderPreparedPreviewFrame,
+		reportError: (error) => {
+			console.error('Composition video underlay failed.', error);
+			status = error instanceof Error ? error.message : 'Composition video underlay failed.';
+		}
+	});
 	let showCheckerboard = $state(true);
 	// Preview-only reference still behind the transparent canvas (ADR-0034 §7) —
 	// judges an overlay over real footage. Never part of the composition or the
@@ -244,10 +274,13 @@
 		window.removeEventListener('pointerup', onTimelineResizeEnd);
 	}
 
-	// Spacebar toggles play/pause — unless the focus is in a field, a button, or
-	// editable content (where Space has its own meaning).
+	// Transport keys — Space toggles play/pause, ←/→ step a frame (Shift ×10) —
+	// unless the focus is in a field, a button, or editable content (where those
+	// keys have their own meaning).
 	function handleKeydown(event: KeyboardEvent): void {
-		if (event.code !== 'Space' || event.repeat) return;
+		const isSpace = event.code === 'Space' && !event.repeat;
+		const isStep = event.key === 'ArrowLeft' || event.key === 'ArrowRight';
+		if (!isSpace && !isStep) return;
 		const target = event.target as HTMLElement | null;
 		const tag = target?.tagName;
 		if (
@@ -260,98 +293,44 @@
 			return;
 		}
 		event.preventDefault();
-		timeline?.toggle();
+		if (isSpace) {
+			timeline?.toggle();
+			return;
+		}
+		const direction = event.key === 'ArrowRight' ? 1 : -1;
+		timeline?.stepFrames(direction * (event.shiftKey ? 10 : 1));
 	}
 
-	function readMarks(): MarkInstance[] {
-		return listMarkInstances(engineState.surface.content);
+	// ── Top-bar identity strip ───────────────────────────────────────────────
+	const isHorizontal = $derived(engineState.transport.orientation === 'horizontal');
+	// Native target resolution is fixed (3840×2160 ↔ 2160×3840) — the readout
+	// states the frame the export renders, it is not an editable field.
+	const resolutionLabel = $derived(isHorizontal ? '3840 × 2160' : '2160 × 3840');
+
+	// Export popover — anchored under the top-bar trigger, same top-layer popover
+	// treatment as the backdrop picker.
+	let exportMenuEl = $state<HTMLDivElement | null>(null);
+	let exportTriggerEl = $state<HTMLButtonElement | null>(null);
+
+	function onExportMenuToggle(event: ToggleEvent): void {
+		if (event.newState !== 'open' || !exportMenuEl || !exportTriggerEl) return;
+		const rect = exportTriggerEl.getBoundingClientRect();
+		exportMenuEl.style.right = `${window.innerWidth - rect.right}px`;
+		exportMenuEl.style.top = `${rect.bottom + 6}px`;
 	}
 
-	function computeTextAnimAlphaByMarkIndex(marks: readonly MarkInstance[]): number[] | undefined {
-		if (typeof window === 'undefined') {
-			return undefined;
-		}
-		const mgr = window.__supersTextAnimationManager;
-		if (!mgr) {
-			return undefined;
-		}
-		// Only the `surface:body` slot can contain marks today.
-		const slotKey = 'surface:body';
-		const hasBodyEntry = engineState.textAnimations.some(
-			(entry) => entry.target.kind === 'surface' && entry.target.slot === 'body'
+	function buildRenderInputs(timestamp: number): ReturnType<typeof buildSurfaceRenderInputs> {
+		return buildSurfaceRenderInputs(
+			{
+				readState: () => engineState,
+				readAnimState: () => animState,
+				readPack: () => getPack(packState.slug),
+				readMarkColor,
+				readTextAnimationAlpha: () =>
+					typeof window === 'undefined' ? null : (window.__supersTextAnimationManager ?? null)
+			},
+			timestamp
 		);
-		if (!hasBodyEntry) {
-			return undefined;
-		}
-		const result: number[] = new Array(marks.length).fill(1);
-		for (let i = 0; i < marks.length; i += 1) {
-			const range = mgr.unitRangeFor(slotKey, marks[i].startChar, marks[i].endChar);
-			if (!range) {
-				continue;
-			}
-			let min = 1;
-			for (let u = range.from; u <= range.to; u += 1) {
-				min = Math.min(min, mgr.unitAlphaAt(slotKey, u));
-			}
-			result[i] = min;
-		}
-		return result;
-	}
-
-	// Checklist item strikes (window-carrying instances) never consume a
-	// marks.timings[] entry — resolve their appearance with an out-of-range
-	// index so only marks.defaults[style] / the Pack chain applies (the
-	// RootInspector markDefaultAppearance idiom).
-	function markTimingIndex(mark: MarkInstance, index: number): number {
-		return mark.window === undefined ? index : engineState.marks.timings.length;
-	}
-
-	function getMarkColorsByIndex(): string[] {
-		const parsedMarks = readMarks();
-		return parsedMarks.map(
-			(mark, index) =>
-				resolveMarkForIndex(
-					mark.style,
-					markTimingIndex(mark, index),
-					engineState.marks,
-					readMarkColor(mark.style)
-				).color
-		);
-	}
-
-	function getMarkIntensityByIndex(): number[] {
-		const parsedMarks = readMarks();
-		return parsedMarks.map(
-			(mark, index) =>
-				resolveMarkForIndex(
-					mark.style,
-					markTimingIndex(mark, index),
-					engineState.marks,
-					readMarkColor(mark.style)
-				).intensity
-		);
-	}
-
-	function buildRenderInputs(timestamp: number): SurfaceRenderInputs {
-		const parsedMarks = readMarks();
-		return {
-			animState: { markProgresses: animState.markProgresses },
-			backgroundVisibility: engineState.surface.backgroundVisibility ?? 0,
-			highlightDarkSurface: surfaceHighlightIsDark(),
-			markColorsByIndex: getMarkColorsByIndex(),
-			markIntensityByIndex: getMarkIntensityByIndex(),
-			textAnimAlphaByMarkIndex: computeTextAnimAlphaByMarkIndex(parsedMarks),
-			// The checklist fades its completion strikes with the card's own
-			// visibility ramp, so a static strike enters WITH its item instead of
-			// popping in after the fade (the marks canvas is a separate layer the
-			// DOM opacity fade doesn't reach). Every other surface leaves it at 1.
-			markAlpha:
-				engineState.surface.type === 'checklist'
-					? Math.max(0, Math.min(1, animState.paperVisibility))
-					: undefined,
-			timestamp,
-			diagram: buildDiagramInputs()
-		};
 	}
 
 	// The composition's resolved paper/ink (ADR-0038): explicit typography
@@ -361,51 +340,6 @@
 	const resolvedTypographyColors = $derived(
 		resolveTypographyColors(getPack(packState.slug), engineState.typography)
 	);
-
-	// Diagram stroke inputs (ADR-0036): per-primitive draw scalar + fade alpha,
-	// with the Pack stroke resolved once per frame — the `'ink'` sentinel
-	// substitutes the composition's resolved ink (override → Pack core,
-	// ADR-0038) so strokes flip with the preset's declared ink over footage.
-	// Channel-owned primitives render fully drawn at their authored opacity
-	// (ownership replaces the draw-on form).
-	function buildDiagramInputs(): SurfaceRenderInputs['diagram'] {
-		const authoredPrimitives = engineState.surface.diagram;
-		if (!authoredPrimitives || authoredPrimitives.length === 0) {
-			return undefined;
-		}
-		const primitives = authoredPrimitives.map((primitive) =>
-			resolveDiagramPrimitiveForRender(primitive, engineState.transport.orientation)
-		);
-		const drawProgressById: Record<string, number> = {};
-		const alphaById: Record<string, number> = {};
-		for (const primitive of primitives) {
-			const channels = animState.blockChannels[primitive.id];
-			if (channels) {
-				drawProgressById[primitive.id] = 1;
-				alphaById[primitive.id] = channels.opacity;
-			} else {
-				drawProgressById[primitive.id] = animState.blockProgresses[primitive.id] ?? 0;
-				alphaById[primitive.id] = animState.blockAlphas[primitive.id] ?? 1;
-			}
-		}
-		const pack = getPack(packState.slug);
-		const stroke = resolveDiagramStroke(pack);
-		return {
-			primitives,
-			drawProgressById,
-			alphaById,
-			stroke:
-				stroke.color === 'ink' ? { ...stroke, color: resolvedTypographyColors.inkColor } : stroke,
-			// Primitives declaring `ink: 'accent'` stroke in the Pack's core accent.
-			accentColor: requireCoreColor(pack, 'accent-treatment')
-		};
-	}
-
-	// Whether the surface background reads as dark, from its resolved paper
-	// (override → Pack core fill, ADR-0038 — always a real colour).
-	function surfaceHighlightIsDark(): boolean | undefined {
-		return isDarkSurfaceColor(resolvedTypographyColors.paperColor);
-	}
 
 	const tracks = $derived(
 		buildCompositionTimelineTracks(engineState, {
@@ -417,164 +351,19 @@
 
 	const planeSplitActive = $derived(shouldSplitCompositionPlanes(engineState));
 
-	function isCurrentVideoResourceIdentity(
-		candidateVideoAssetDecoderCache: VideoAssetDecoderCache,
-		candidateVideoUnderlayFrameTexture: VideoUnderlayFrameTexture,
-		generation: number
-	): boolean {
-		return (
-			videoAssetDecoderCache === candidateVideoAssetDecoderCache &&
-			videoUnderlayFrameTexture === candidateVideoUnderlayFrameTexture &&
-			videoResourceGeneration === generation
-		);
-	}
-
-	function assertCurrentVideoResourceIdentity(
-		candidateVideoAssetDecoderCache: VideoAssetDecoderCache,
-		candidateVideoUnderlayFrameTexture: VideoUnderlayFrameTexture,
-		generation: number
-	): void {
-		if (
-			!isCurrentVideoResourceIdentity(
-				candidateVideoAssetDecoderCache,
-				candidateVideoUnderlayFrameTexture,
-				generation
-			)
-		) {
-			throw new VideoAssetDecoderSeekSupersededError();
-		}
-	}
-
-	function disposeVideoResources(
-		candidateVideoAssetDecoderCache: VideoAssetDecoderCache | null = videoAssetDecoderCache,
-		candidateVideoUnderlayFrameTexture: VideoUnderlayFrameTexture | null =
-			videoUnderlayFrameTexture
-	): void {
-		const ownsCurrentResources =
-			videoAssetDecoderCache === candidateVideoAssetDecoderCache &&
-			videoUnderlayFrameTexture === candidateVideoUnderlayFrameTexture;
-		if (
-			ownsCurrentResources &&
-			(candidateVideoAssetDecoderCache ||
-				candidateVideoUnderlayFrameTexture ||
-				videoUnderlayTexture)
-		) {
-			videoResourceGeneration += 1;
-			videoAssetDecoderCache = null;
-			videoUnderlayFrameTexture = null;
-			videoUnderlayTexture = null;
-		}
-		candidateVideoAssetDecoderCache?.dispose();
-		candidateVideoUnderlayFrameTexture?.dispose();
-	}
-
 	// The GPU host owns one Video asset decoder cache and one resident underlay texture. The
 	// cache itself is keyed by immutable media asset identity, never clip timing.
 	$effect(() => {
 		const localHost = host;
-
-		return untrack(() => {
-			disposeVideoResources();
-			if (!localHost) return;
-
-			let nextVideoAssetDecoderCache: VideoAssetDecoderCache;
-			let nextVideoUnderlayFrameTexture: VideoUnderlayFrameTexture;
-			try {
-				nextVideoAssetDecoderCache = new VideoAssetDecoderCache();
-				nextVideoUnderlayFrameTexture = new VideoUnderlayFrameTexture(localHost);
-			} catch (error) {
-				console.error('Video asset runtime initialization failed.', error);
-				status =
-					error instanceof Error ? error.message : 'Video asset runtime initialization failed.';
-				return;
-			}
-
-			videoResourceGeneration += 1;
-			videoAssetDecoderCache = nextVideoAssetDecoderCache;
-			videoUnderlayFrameTexture = nextVideoUnderlayFrameTexture;
-			videoUnderlayTexture = null;
-			return () =>
-				disposeVideoResources(nextVideoAssetDecoderCache, nextVideoUnderlayFrameTexture);
-		});
+		untrack(() => videoUnderlayRuntimeController.replaceHost(localHost));
 	});
 
 	// Reconcile only immutable asset membership. Clip slips/cuts intentionally do
 	// not touch decoder ownership and therefore cannot recreate a decoder.
 	$effect(() => {
 		const assets = engineState.media.assets.map(({ id, assetUrl }) => ({ id, assetUrl }));
-		untrack(() => {
-			const activeVideoAssetDecoderCache = videoAssetDecoderCache;
-			if (!activeVideoAssetDecoderCache) return;
-			if (activeVideoAssetDecoderCache.reconcile(assets)) {
-				videoResourceGeneration += 1;
-				videoUnderlayTexture = null;
-			}
-		});
+		untrack(() => videoUnderlayRuntimeController.reconcileMedia(assets));
 	});
-
-	async function prepareVideoUnderlayFrame(transportFrame: number): Promise<void> {
-		const resolved = resolveActiveVideoClipAtFrame(
-			engineState.media,
-			transportFrame,
-			resolveFrameRate(engineState.transport.fps)
-		);
-		if (!resolved) {
-			videoUnderlayTexture = null;
-			return;
-		}
-
-		const activeVideoAssetDecoderCache = videoAssetDecoderCache;
-		const activeVideoUnderlayFrameTexture = videoUnderlayFrameTexture;
-		const generation = videoResourceGeneration;
-		if (!activeVideoAssetDecoderCache || !activeVideoUnderlayFrameTexture) {
-			videoUnderlayTexture = null;
-			throw new Error('Video asset decoder runtime is unavailable.');
-		}
-
-		const videoAssetDecoder = activeVideoAssetDecoderCache.acquire(resolved.asset);
-		try {
-			await videoAssetDecoder.initialize();
-			assertCurrentVideoResourceIdentity(
-				activeVideoAssetDecoderCache,
-				activeVideoUnderlayFrameTexture,
-				generation
-			);
-		} catch (error) {
-			assertCurrentVideoResourceIdentity(
-				activeVideoAssetDecoderCache,
-				activeVideoUnderlayFrameTexture,
-				generation
-			);
-			throw error;
-		}
-
-		let decodedVideoAssetFrame: DecodedVideoAssetFrame | null = null;
-		try {
-			decodedVideoAssetFrame = await videoAssetDecoder.frameAt(resolved.sourceTimeSeconds);
-			assertCurrentVideoResourceIdentity(
-				activeVideoAssetDecoderCache,
-				activeVideoUnderlayFrameTexture,
-				generation
-			);
-			const preparedVideoUnderlayTexture =
-				activeVideoUnderlayFrameTexture.upload(decodedVideoAssetFrame);
-			assertCurrentVideoResourceIdentity(
-				activeVideoAssetDecoderCache,
-				activeVideoUnderlayFrameTexture,
-				generation
-			);
-			videoUnderlayTexture = preparedVideoUnderlayTexture;
-		} catch (error) {
-			assertCurrentVideoResourceIdentity(
-				activeVideoAssetDecoderCache,
-				activeVideoUnderlayFrameTexture,
-				generation
-			);
-			throw error;
-		} finally {
-			decodedVideoAssetFrame?.close();
-		}
-	}
 
 	async function waitForActiveCompositionResources(signal?: AbortSignal): Promise<void> {
 		const localCompositionElement = compositionElement;
@@ -582,25 +371,7 @@
 		const localHost = host;
 		const localPackSlug = packState.slug;
 		const localPack = getPack(localPackSlug);
-		const localStageReadiness = stageSubstrateReadinessPromise;
-		const localMediaIdentity = JSON.stringify(engineState.media);
-		const localVideoAssetDecoderCache = videoAssetDecoderCache;
-		const localVideoUnderlayFrameTexture = videoUnderlayFrameTexture;
-		const localVideoResourceGeneration = videoResourceGeneration;
-		const videoAssetsById = new Map(engineState.media.assets.map((asset) => [asset.id, asset]));
-		const referencedVideoAssets = new SvelteMap<
-			string,
-			(typeof engineState.media.assets)[number]
-		>();
-		for (const clip of engineState.media.videoTrack.clips) {
-			const asset = videoAssetsById.get(clip.assetId);
-			if (!asset) {
-				throw new Error(
-					`Video clip "${clip.id}" references missing Video asset "${clip.assetId}" while waiting for resources.`
-				);
-			}
-			referencedVideoAssets.set(asset.id, asset);
-		}
+		const localStageReadiness = stageSubstrateController.snapshot();
 
 		if (!localCompositionElement) {
 			throw new Error('Composition root is unavailable while waiting for resources.');
@@ -608,31 +379,12 @@
 		if (!localHost) {
 			throw new Error('Composition GPU host is unavailable while waiting for resources.');
 		}
-		if (
-			referencedVideoAssets.size > 0 &&
-			(!localVideoAssetDecoderCache || !localVideoUnderlayFrameTexture)
-		) {
-			throw new Error(
-				'Video asset decoder runtime is unavailable while waiting for resources.'
-			);
-		}
-
 		await waitForCompositionResourceReadiness({
 			pack: localPack,
 			roots: [localCompositionElement, localOverlayRootElement],
 			flushDom: tick,
-			waitForStage: () => localStageReadiness,
-			waitForMedia: async () => {
-				signal?.throwIfAborted();
-				if (localVideoAssetDecoderCache) {
-					await Promise.all(
-						Array.from(referencedVideoAssets.values(), (asset) =>
-							localVideoAssetDecoderCache.acquire(asset).initialize()
-						)
-					);
-				}
-				signal?.throwIfAborted();
-			},
+			waitForStage: () => localStageReadiness.promise,
+			waitForMedia: () => videoUnderlayRuntimeController.waitForReadiness(signal),
 			signal
 		});
 
@@ -651,17 +403,7 @@
 		if (host !== localHost) {
 			throw new Error('Composition GPU host changed while resource readiness was pending.');
 		}
-		if (stageSubstrateReadinessPromise !== localStageReadiness) {
-			throw new Error('Stage substrate changed while composition resources were pending.');
-		}
-		if (
-			JSON.stringify(engineState.media) !== localMediaIdentity ||
-			videoAssetDecoderCache !== localVideoAssetDecoderCache ||
-			videoUnderlayFrameTexture !== localVideoUnderlayFrameTexture ||
-			videoResourceGeneration !== localVideoResourceGeneration
-		) {
-			throw new Error('Video media changed while composition resources were pending.');
-		}
+		stageSubstrateController.assertCurrent(localStageReadiness);
 	}
 
 	async function settleCompositionPaint(signal: AbortSignal): Promise<void> {
@@ -673,6 +415,19 @@
 		if (canvas !== localCanvas) {
 			throw new Error('Composition canvas changed while settling export paint.');
 		}
+	}
+
+	function currentFrameRenderResources(): CompositionFrameRenderResources {
+		return (
+			renderResourceSet?.snapshot() ?? {
+				host: null,
+				pipeline: null,
+				effectChain: null,
+				shaderPassDispatcher: null,
+				compositionPlanes: null,
+				depthStage: null
+			}
+		);
 	}
 
 	// Workspace owns every live DOM/GPU reference. The renderer receives an
@@ -690,21 +445,14 @@
 			paperVisibility: animState.paperVisibility,
 			compositionElement,
 			overlayRootElement,
-			substrateTexture,
-			videoUnderlayTexture,
+			substrateTexture: stageSubstrateController.texture(),
+			videoUnderlayTexture: videoUnderlayRuntimeController.preparedTexture(),
 			domCapture: {
 				surface: canvasPaintGenerationTracker.generationFor(compositionElement),
 				overlay: canvasPaintGenerationTracker.generationFor(overlayRootElement),
 				force: isExporting
 			},
-			resources: {
-				host,
-				pipeline,
-				effectChain,
-				shaderPassDispatcher,
-				compositionPlanes,
-				depthStage
-			},
+			resources: currentFrameRenderResources(),
 			cachedTransition: transitionSnapshotController.cachedFrame(),
 			buildSurfaceInputs: buildRenderInputs
 		};
@@ -722,77 +470,19 @@
 		);
 	}
 
-	// Decode at most one preview frame at a time and retain only the newest queued
-	// timestamp. Starting a decoder seek for every paint would make playback
-	// continuously supersede its own in-flight work and could prevent any frame
-	// from reaching the GPU.
-	async function drainVideoPreviewRenders(): Promise<void> {
-		while (pendingVideoPreviewFrame !== null && !isExporting && !isWorkspaceDestroyed) {
-			const { frame, timestamp } = pendingVideoPreviewFrame;
-			const requestSequence = videoPreviewRequestSequence;
-			const localHost = host;
-			pendingVideoPreviewFrame = null;
-			if (!localHost) {
-				return;
-			}
-
-			try {
-				await prepareVideoUnderlayFrame(frame);
-				if (requestSequence !== videoPreviewRequestSequence) {
-					continue;
-				}
-				renderPreparedPreviewFrame(localHost, timestamp);
-			} catch (error) {
-				if (
-					error instanceof VideoAssetDecoderSeekSupersededError ||
-					requestSequence !== videoPreviewRequestSequence ||
-					isExporting ||
-					isWorkspaceDestroyed
-				) {
-					continue;
-				}
-				console.error('Composition preview render failed.', error);
-				status = error instanceof Error ? error.message : 'Composition preview render failed.';
-			}
-		}
-	}
-
-	function startVideoPreviewDrain(): void {
-		if (videoPreviewRenderPromise) {
-			return;
-		}
-		const renderPromise = drainVideoPreviewRenders();
-		videoPreviewRenderPromise = renderPromise;
-		void renderPromise.then(() => {
-			if (videoPreviewRenderPromise === renderPromise) {
-				videoPreviewRenderPromise = null;
-			}
-			if (pendingVideoPreviewFrame !== null && !isExporting && !isWorkspaceDestroyed) {
-				startVideoPreviewDrain();
-			}
-		});
-	}
-
 	function renderAt(timestamp: number): void {
 		const localHost = host;
 		if (!localHost || isExporting || isWorkspaceDestroyed) {
 			return;
 		}
-		pendingVideoPreviewFrame = {
-			frame: secondsToFrames(timestamp, resolveFrameRate(engineState.transport.fps)),
+		videoUnderlayRuntimeController.queuePreview(
+			secondsToFrames(timestamp, resolveFrameRate(engineState.transport.fps)),
 			timestamp
-		};
-		videoPreviewRequestSequence += 1;
-		startVideoPreviewDrain();
+		);
 	}
 
 	async function prepareVideoExportFrame(frame: number, timestamp: number): Promise<void> {
-		// Export is serial and exact. Invalidate queued preview work, then wait for
-		// its active decode to release the shared decoder/texture before stepping.
-		pendingVideoPreviewFrame = null;
-		videoPreviewRequestSequence += 1;
-		await videoPreviewRenderPromise;
-		await prepareVideoUnderlayFrame(frame);
+		await videoUnderlayRuntimeController.prepareExportFrame(frame);
 		void timestamp;
 	}
 
@@ -825,54 +515,59 @@
 			transitionSnapshotController.invalidate();
 			return;
 		}
-		if (!host || !canvas || !pipeline) {
+		if (!host || !canvas || !renderResourceSet) {
 			return;
 		}
 
 		const localHost = host;
 		const localCanvas = canvas;
 		untrack(() => {
-			void transitionSnapshotController
-				.update(active, {
-					host: localHost,
-					width: localCanvas.width,
-					height: localCanvas.height,
-					captureCompositionState: () =>
-						serializeCompositionState(presetBase, $state.snapshot(engineState), packState.slug),
-					applyCompositionState,
-					readCapturing: () => transitionState.capturing,
-					writeCapturing: (value) => {
-						transitionState.capturing = value;
-					},
-					flushDom: tick,
-					waitForFonts: fontsReady,
-					waitForLayout: async () => {
-						await nextFrame();
-						await nextFrame();
-					},
-					settleAnimation: (snapshotProgress) => {
-						animationManager.rebuild(
-							buildCompositionAnimationManifest({
-								state: engineState,
-								runtime: animState,
-								textAnimationRoot: compositionElement,
-								textAnimationCompiler: textAnimationManager,
-								resolveMarkColor: readMarkColor
-							})
-						);
-						animationManager.progress(snapshotProgress);
-						animState.globalProgress = snapshotProgress;
-					},
-					renderFrame: (outputView, timestamp) =>
-						renderCompositionFrameTo(buildCompositionFrameRenderRequest(outputView, timestamp)),
-					isActiveTransition: (candidate) => transitionState.active === candidate,
-					seekTimeline: (timestamp) => timeline?.seek(timestamp)
-				})
-				.catch((error) => {
-					console.error('Transition snapshot preparation failed.', error);
-					status =
-						error instanceof Error ? error.message : 'Transition snapshot preparation failed.';
-				});
+			const preparation = transitionSnapshotController.update(active, {
+				host: localHost,
+				width: localCanvas.width,
+				height: localCanvas.height,
+				captureCompositionState: () =>
+					serializeCompositionState(presetBase, $state.snapshot(engineState), packState.slug),
+				applyCompositionState,
+				readCapturing: () => transitionState.capturing,
+				writeCapturing: (value) => {
+					transitionState.capturing = value;
+				},
+				flushDom: tick,
+				waitForFonts: fontsReady,
+				waitForLayout: async () => {
+					await nextFrame();
+					await nextFrame();
+				},
+				settleAnimation: (snapshotProgress) => {
+					animationManager.rebuild(
+						buildCompositionAnimationManifest({
+							state: engineState,
+							runtime: animState,
+							textAnimationRoot: compositionElement,
+							textAnimationCompiler: textAnimationManager,
+							resolveMarkColor: readMarkColor
+						})
+					);
+					animationManager.progress(snapshotProgress);
+					animState.globalProgress = snapshotProgress;
+				},
+				renderFrame: (outputView, timestamp) =>
+					renderCompositionFrameTo(buildCompositionFrameRenderRequest(outputView, timestamp)),
+				isActiveTransition: (candidate) => transitionState.active === candidate,
+				seekTimeline: (timestamp) => timeline?.seek(timestamp)
+			});
+			transitionSnapshotPreparation = preparation;
+			const clearPreparation = (): void => {
+				if (transitionSnapshotPreparation === preparation) {
+					transitionSnapshotPreparation = null;
+				}
+			};
+			void preparation.then(clearPreparation, (error) => {
+				console.error('Transition snapshot preparation failed.', error);
+				status = error instanceof Error ? error.message : 'Transition snapshot preparation failed.';
+				clearPreparation();
+			});
 		});
 	});
 
@@ -906,6 +601,20 @@
 	});
 
 	$effect(() => {
+		const localHost = host;
+		const localStage = engineState.stage;
+		const stageAsset =
+			localStage?.type === 'depth' ? (localStage.backdrop?.image?.asset ?? null) : null;
+		untrack(() => {
+			stageSubstrateController.update({
+				host: localHost,
+				stageIdentity: localStage ?? null,
+				asset: stageAsset
+			});
+		});
+	});
+
+	$effect(() => {
 		// Triggers (tracked): rebuild the pipeline only when the GPU host, the
 		// composition/canvas elements, or the surface type/orientation change.
 		if (!host || !compositionElement || !canvas) {
@@ -919,82 +628,26 @@
 		const localSource = compositionElement;
 		const localCanvas = canvas;
 
-		// Everything below is imperative engine wiring. It is wrapped in untrack()
-		// because it both READS and WRITES `effectChain` / `shaderPassDispatcher`
-		// (dispose the old instance, assign a fresh one) — without untrack the
-		// effect subscribes to the very state it reassigns and re-runs forever
-		// (effect_update_depth_exceeded). The sibling render effects likewise read
-		// those instances via renderAt(); untrack keeps this effect from coupling
-		// to them. Triggers above stay tracked; the body does not subscribe.
+		// Everything below is imperative engine wiring. Triggers above stay tracked;
+		// allocation and state writes below must not subscribe this effect to itself.
 		return untrack(() => {
-			// Each Surface declares its own Pipeline factory + options in the registry:
-			// `newspaper` (ADR-0008) and `web-document` reuse the paper compositor (the
-			// latter with the dark-surface highlight), the rest use the plain compositor.
-			// Route through the registry's `createPipeline` rather than hardcoding surface
-			// types here, so a Surface's declared pipeline + options are honored without
-			// editing this wiring. (Surface-specific physics rides the declarative
-			// `shaderPass`, dispatched separately ahead of the effect chain.)
-			const surfaceRenderer = getSurfaceRenderer(surfaceType);
-			let nextPipeline: SurfaceRenderInstance;
+			let nextResources: CompositionRenderResourceSet;
 			try {
-				if (!surfaceRenderer) {
-					throw new Error(`No Surface renderer registered for "${surfaceType}".`);
-				}
-				nextPipeline = surfaceRenderer.createPipeline({
+				nextResources = compositionRenderResourceController.replace({
 					host: localHost,
-					sourceElement: localSource
+					sourceElement: localSource,
+					surfaceType,
+					width: localCanvas.width,
+					height: localCanvas.height
 				});
 			} catch (error) {
-				console.error('Surface pipeline initialization failed.', error);
-				status = error instanceof Error ? error.message : 'Surface pipeline unavailable.';
+				renderResourceSet = null;
+				console.error('Composition render resource initialization failed.', error);
+				status =
+					error instanceof Error ? error.message : 'Composition render resources unavailable.';
 				return;
 			}
-
-			pipeline = nextPipeline;
-
-			// Always recreate EffectChain and ShaderPassDispatcher — their ping-pong
-			// textures are sized to the canvas at construction. When orientation
-			// changes (2160×3840 ↔ 3840×2160), the canvas resizes before this effect
-			// fires, so localCanvas.width/height already reflect the new dimensions.
-			if (effectChain) {
-				effectChain.dispose();
-			}
-			effectChain = new EffectChain({
-				host: localHost,
-				width: localCanvas.width,
-				height: localCanvas.height
-			});
-
-			if (shaderPassDispatcher) {
-				shaderPassDispatcher.dispose();
-			}
-			shaderPassDispatcher = new ShaderPassDispatcher({
-				host: localHost,
-				width: localCanvas.width,
-				height: localCanvas.height
-			});
-
-			// Multiplane DOF capture (ADR-0027) — sized to the canvas like the chain
-			// above, so an orientation change recreates it at the new dimensions.
-			if (compositionPlanes) {
-				compositionPlanes.dispose();
-			}
-			compositionPlanes = new CompositionPlanes({
-				host: localHost,
-				width: localCanvas.width,
-				height: localCanvas.height
-			});
-
-			// Dimensional depth stage (ADR-0028) — sized to the canvas like the chain
-			// above, so an orientation change recreates it at the new dimensions.
-			if (depthStage) {
-				depthStage.dispose();
-			}
-			depthStage = new DepthStage({
-				host: localHost,
-				width: localCanvas.width,
-				height: localCanvas.height
-			});
+			renderResourceSet = nextResources;
 
 			if (!timeline) {
 				timeline = new Timeline({
@@ -1005,12 +658,18 @@
 					// play from the playhead, reschedule on loop wrap, cancel on pause.
 					// Scrub stays silent — seek has no hook by design.
 					onPlay: () => {
+						videoUnderlayRuntimeController.startPlayback();
 						audioPreview
 							.start(engineState, () => timeline?.time ?? 0)
 							.catch((error) => console.error('Preview audio failed to start.', error));
 					},
-					onPause: () => audioPreview.stop(),
+					onPause: () => {
+						videoUnderlayRuntimeController.stopPlayback();
+						audioPreview.stop();
+					},
 					onLoop: () => {
+						videoUnderlayRuntimeController.stopPlayback();
+						videoUnderlayRuntimeController.startPlayback();
 						audioPreview
 							.start(engineState, () => timeline?.time ?? 0)
 							.catch((error) => console.error('Preview audio failed to restart.', error));
@@ -1050,42 +709,27 @@
 					renderAt(timeline.time);
 				}
 			});
-			// Load the depth-stage backdrop image substrate (dex p20), if the active
-			// stage declares one — decode + GPU upload once here, resident thereafter.
-			// Gated into first paint with fonts so the very first frame (and export)
-			// has the photo, not a blank/solid backdrop.
-			const stageAsset =
-				engineState.stage?.type === 'depth'
-					? (engineState.stage.backdrop?.image?.asset ?? null)
-					: null;
-			const substrateReady: Promise<void> = stageAsset
-				? getSubstrateTexture(localHost, stageAsset).then((texture) => {
-						if (!texture) {
-							throw new Error(`Declared stage substrate "${stageAsset}" is unavailable.`);
-						}
-						if (!isWorkspaceDestroyed && host === localHost && pipeline === nextPipeline) {
-							substrateTexture = texture;
-						}
-					})
-				: Promise.resolve().then(() => {
-						if (!isWorkspaceDestroyed && host === localHost && pipeline === nextPipeline) {
-							substrateTexture = null;
-						}
-					});
-			stageSubstrateReadinessPromise = substrateReady;
-
 			// Gate first paint on every initial frame input: active Pack fonts, static
 			// substrate upload, and Video asset decoder readiness. A Video underlay paint
 			// also waits for its exact sample in renderAt; this gate prevents a competing
 			// font/substrate paint from racing the decoder's initial probe.
 			void waitForActiveCompositionResources()
 				.then(() => {
-					if (!isWorkspaceDestroyed && host === localHost && pipeline === nextPipeline) {
+					if (
+						!isWorkspaceDestroyed &&
+						host === localHost &&
+						renderResourceSet === nextResources
+					) {
 						requestCanvasPaint(localCanvas);
 					}
 				})
 				.catch((error) => {
-					if (isWorkspaceDestroyed || host !== localHost || pipeline !== nextPipeline) return;
+					if (
+						isWorkspaceDestroyed ||
+						host !== localHost ||
+						renderResourceSet !== nextResources
+					)
+						return;
 					console.error('Composition first paint preparation failed.', error);
 					status =
 						error instanceof Error ? error.message : 'Composition first paint preparation failed.';
@@ -1093,10 +737,6 @@
 
 			return () => {
 				clearCanvasPaintHandler(localCanvas);
-				nextPipeline.dispose();
-				if (pipeline === nextPipeline) {
-					pipeline = null;
-				}
 			};
 		});
 	});
@@ -1121,50 +761,6 @@
 		return () => cancelAnimationFrame(id);
 	});
 
-	// Void-reads every field of an ADR-0035 keyframe channel set so the
-	// composition sync re-fires on any keyframe edit (same void-pattern as
-	// enter/exit — NO new $effect).
-	function trackKeyframeChannels(
-		channels: Partial<Record<string, readonly Keyframe[] | undefined>> | undefined
-	): void {
-		if (!channels) {
-			return;
-		}
-		for (const track of Object.values(channels)) {
-			if (!track) {
-				continue;
-			}
-			void track.length;
-			for (const frame of track) {
-				void frame.atMs;
-				void frame.value;
-				void frame.ease;
-			}
-		}
-	}
-
-	// Void-reads a cascade weld (anchor ref, event edge, ms offset) — each
-	// drives resolved starts in the manifest.
-	function trackCascade(cascade: Cascade | undefined): void {
-		if (!cascade) {
-			return;
-		}
-		void cascade.event;
-		void cascade.offsetMs;
-		const anchor = cascade.anchor;
-		if (typeof anchor !== 'string') {
-			if ('overlay' in anchor) {
-				void anchor.overlay;
-			} else if ('mark' in anchor) {
-				void anchor.mark;
-			} else if ('block' in anchor) {
-				void anchor.block;
-			} else {
-				void anchor.textAnimation;
-			}
-		}
-	}
-
 	// Composition sync — the single reactive bridge from authoring state to the
 	// imperative canvas. It tracks every input that changes WHAT the composition
 	// is (content, marks, effects, overlays, typography, background) and, when any
@@ -1175,155 +771,7 @@
 	// touches — that self-subscription is exactly what made the render effects
 	// loop. Rendering is a side effect of authoring changes, expressed once, here.
 	$effect(() => {
-		// --- Transport (manifest tweens) ---
-		// Keyframe `atMs` is converted to a progress fraction via `durationMs`
-		// (buildCompositionAnimationManifest), so a duration change must rebuild — otherwise
-		// absolute keyframe motion would run at the wrong fraction. Fraction-timed
-		// windows are rescaled on a duration change (composition-timing) and would
-		// re-fire this on their own, but a pure-keyframe composition would not.
-		void engineState.transport.durationSeconds;
-		const activeOrientation = engineState.transport.orientation;
-
-		// --- Text animations (manifest tweens) ---
-		void engineState.textAnimations.length;
-		for (const entry of engineState.textAnimations) {
-			void entry.id;
-			void entry.effect;
-			void entry.target;
-			void entry.enter.start;
-			void entry.enter.duration;
-			void entry.exit?.start;
-			void entry.exit?.duration;
-			trackCascade(entry.cascade);
-			// `enter/exit.ease` is intentionally NOT tracked: a text animation's
-			// easing is intrinsic to its catalog effect (spec.enter.easing), so the
-			// per-entry ease can't change the output — tracking it would force a
-			// needless rebuild. (The field still drives surface/overlay transitions.)
-		}
-
-		// --- Surface enter/exit (manifest tweens — the unified clip bar drags) ---
-		// Unlike text animations, the surface transition's ease DOES drive the
-		// rendered curve (getEaseGsap), so timing AND ease are tracked here.
-		void engineState.surface.enter?.start;
-		void engineState.surface.enter?.duration;
-		void engineState.surface.enter?.ease;
-		void engineState.surface.exit?.start;
-		void engineState.surface.exit?.duration;
-		void engineState.surface.exit?.ease;
-		// Composition-owned surface opacity channel (ADR-0035).
-		trackKeyframeChannels(engineState.surface.animation?.channels);
-
-		// --- Surface + overlay content (DOM the source HTML rasterizes) ---
-		// Each CanvasSource wraps its text-anim slots in `{#key value}` so changing
-		// the text replaces the DOM element the manager last split; the rebuild
-		// notices the new element (`existing.split.root !== element`) and re-splits.
-		void engineState.surface.content.title;
-		void engineState.surface.content.kicker;
-		void engineState.surface.content.sourceUrl;
-		void engineState.surface.content.author;
-		void engineState.surface.content.source;
-		void engineState.surface.content.dateLabel;
-		void engineState.surface.content.body;
-		void engineState.surface.content.counterpoint;
-		// Ordered-list content (checklist items, chat messages) whose per-item
-		// timing drives manifest tweens and/or the DOM the capture rasterizes. A
-		// deep stringify (the diagram pattern) so a timeline-clip drag that mutates
-		// a nested field — item.strike.start/duration, message.enter — rebuilds the
-		// manifest; without this the timeline moves the bar but the render is stale
-		// (the timeline-is-truth invariant would break for the strike draw-on).
-		for (const item of engineState.surface.content.items ?? []) {
-			void JSON.stringify(item);
-		}
-		for (const message of engineState.surface.content.messages ?? []) {
-			void JSON.stringify(message);
-		}
-		void engineState.surface.variant;
-		void engineState.typography.fontFamily;
-		void engineState.typography.paperColor;
-		void engineState.typography.inkColor;
-		void engineState.overlays.length;
-		for (const overlay of engineState.overlays) {
-			void overlay.id;
-			void overlay.type;
-			void overlay.content;
-			// Spatial position (canvas drag + scale, and the inspector's anchor/offset
-			// fields) — a change here must repaint so the overlay moves live.
-			void overlay.position.orientationOverrides?.[activeOrientation];
-			const placement = resolveOverlayPlacement(overlay.position, activeOrientation);
-			void placement.anchor;
-			void placement.offset?.x;
-			void placement.offset?.y;
-			void placement.rect?.x;
-			void placement.rect?.y;
-			void placement.rect?.width;
-			void placement.rect?.height;
-			void placement.scale;
-			void placement.rotation;
-			// Overlay enter/exit timing + ease (the unified clip bar drags).
-			void overlay.enter?.start;
-			void overlay.enter?.duration;
-			void overlay.enter?.ease;
-			void overlay.exit?.start;
-			void overlay.exit?.duration;
-			void overlay.exit?.ease;
-			// Composition-owned channels + cascade weld (ADR-0035).
-			trackKeyframeChannels(overlay.animation?.channels);
-			trackCascade(overlay.animation?.cascade);
-		}
-
-		// --- Diagram Blocks (ADR-0036: manifest tweens + DOM + stroke geometry) ---
-		// A deep read of every primitive — positions, routes, timing, channels,
-		// cascades — via stringify, so any authored field change (including ones
-		// the schema grows later) rebuilds + repaints. The hand-enumeration trap
-		// (lost `counterpoint`) is exactly what this avoids; the cost is a few
-		// hundred bytes per authoring change, not per frame.
-		void engineState.surface.diagram?.length;
-		for (const primitive of engineState.surface.diagram ?? []) {
-			void JSON.stringify(primitive);
-		}
-
-		// --- Marks (manifest tweens) + effects / background (render inputs) ---
-		// Iterating subscribes to the array, so a drag that lazily pushes a timing
-		// (ensureMarkTimingAtIndex) re-fires this. start/duration drive the draw-on.
-		void engineState.marks.timings.length;
-		for (const timing of engineState.marks.timings) {
-			void timing.start;
-			void timing.duration;
-			void timing.color;
-			void timing.intensity;
-			trackCascade(timing.cascade);
-		}
-		for (const appearance of Object.values(engineState.marks.defaults)) {
-			void appearance?.color;
-			void appearance?.intensity;
-		}
-		void engineState.effects.length;
-		for (const entry of engineState.effects) {
-			void entry.type;
-			// Effect Editors mutate nested region and melt params in place, so deep-read
-			// the full object; its reference alone leaves the canvas stale.
-			if (entry.params && typeof entry.params === 'object') {
-				void JSON.stringify(entry.params);
-			}
-		}
-		void engineState.backgroundFill;
-		// Canonical Video media drives only frame resolution and decoder identity;
-		// deep-read edits so cuts, gaps, slips, and asset switches repaint in place.
-		void JSON.stringify(engineState.media);
-
-		// --- Captions (render inputs + rail) --- deep read via stringify so any
-		// cue/style edit repaints — the same anti-hand-enumeration posture as
-		// the diagram block above.
-		if (engineState.captions) {
-			void JSON.stringify(engineState.captions);
-		}
-
-		// --- Pack (appearance) ---
-		// Every CanvasSource resolves its pack Roles from packState reactively, so
-		// the DOM restyles on its own — but the GPU composites a captured texture,
-		// not the live DOM. Tracking the slug here repaints (uploadDom re-capture)
-		// so a pack switch reaches pixels.
-		void packState.slug;
+		trackCompositionAuthoringDependencies(engineState, packState.slug);
 
 		untrack(() => {
 			if (!timeline) return;
@@ -1357,8 +805,8 @@
 
 	onDestroy(() => {
 		isWorkspaceDestroyed = true;
-		pendingVideoPreviewFrame = null;
-		videoPreviewRequestSequence += 1;
+		posterCaptureController.dispose();
+		videoUnderlayRuntimeController.dispose();
 		animationManager.dispose();
 		textAnimationManager.dispose();
 		if (typeof window !== 'undefined') {
@@ -1376,17 +824,10 @@
 		if (typeof window !== 'undefined' && window.__supersTimeline) {
 			window.__supersTimeline = undefined;
 		}
-		effectChain?.dispose();
-		effectChain = null;
-		shaderPassDispatcher?.dispose();
-		shaderPassDispatcher = null;
-		compositionPlanes?.dispose();
-		compositionPlanes = null;
-		depthStage?.dispose();
-		depthStage = null;
+		compositionRenderResourceController.dispose();
+		renderResourceSet = null;
+		stageSubstrateController.dispose();
 		disposeSubstrateTextures();
-		substrateTexture = null;
-		disposeVideoResources();
 		host?.dispose();
 		host = null;
 	});
@@ -1395,12 +836,14 @@
 	// The controller owns planning, deterministic stepping, encoding handoff,
 	// downloads, status, cancellation, and cleanup.
 	async function performExport(request?: SyncExportRequest): Promise<void> {
+		await tick();
+		await transitionSnapshotPreparation;
 		await compositionExportController.export(
 			{
 				readState: () => engineState,
 				readTransition: () => transitionState.active,
 				readCanvas: () => canvas,
-				isFrameRendererReady: () => canvas !== null && pipeline !== null,
+				isFrameRendererReady: () => canvas !== null && renderResourceSet !== null,
 				readSeparateWav: () => separateWav,
 				pauseTimeline: () => timeline?.pause(),
 				buildAnimationManifest: () =>
@@ -1471,8 +914,83 @@
 				/>
 			</svg>
 		</a>
-		<span class="topbar__name">{compositionMeta.userCompositionSlug ?? 'Untitled'}</span>
+		<span class="topbar__name">{presetBase.name || (compositionMeta.userCompositionSlug ?? 'Untitled')}</span>
+		<span class="topbar__chip">{presetBase.kind}</span>
+		<span class="topbar__chip topbar__chip--pack">
+			<i aria-hidden="true"></i>{getPack(packState.slug).label}
+		</span>
+		{#if compositionMeta.isUserComposition}
+			<span class="topbar__chip topbar__chip--forked">Forked</span>
+			{#if compositionMeta.revertUserComposition}
+				<button
+					type="button"
+					class="topbar__revert"
+					onclick={compositionMeta.revertUserComposition}>Revert</button
+				>
+			{/if}
+		{/if}
+		<span class="topbar__spacer"></span>
+		<div class="topbar__orientation" role="group" aria-label="Orientation">
+			<button
+				type="button"
+				aria-pressed={isHorizontal}
+				onclick={() => (engineState.transport.orientation = 'horizontal')}
+			>
+				▭ H
+			</button>
+			<button
+				type="button"
+				aria-pressed={!isHorizontal}
+				onclick={() => (engineState.transport.orientation = 'vertical')}
+			>
+				▯ V
+			</button>
+		</div>
+		<span class="topbar__resolution">{resolutionLabel}</span>
+		<button
+			class="topbar__export"
+			type="button"
+			popovertarget="export-menu"
+			bind:this={exportTriggerEl}
+		>
+			{isExporting ? `Exporting ${Math.round(progress * 100)}%…` : 'Export ⇪'}
+		</button>
 	</header>
+
+	<!-- Top-layer export sheet — the identity strip owns the action; the format
+	     and audio options live with it instead of a rail section. -->
+	<div
+		class="export-menu"
+		id="export-menu"
+		popover
+		bind:this={exportMenuEl}
+		ontoggle={onExportMenuToggle}
+	>
+		<label class="export-menu__row">
+			<span>Format</span>
+			<select bind:value={engineState.transport.format}>
+				<option value="webm">WebM VP9</option>
+				<option value="prores">MOV ProRes 4444</option>
+			</select>
+		</label>
+		<div class="export-menu__row">
+			<span>Separate WAV</span>
+			<InspectorToggle
+				checked={separateWav}
+				label="Separate WAV"
+				onchange={(checked) => (separateWav = checked)}
+			/>
+		</div>
+		<button class="export-menu__go" type="button" disabled={isExporting} onclick={handleExport}>
+			{isExporting ? `Exporting ${Math.round(progress * 100)}%…` : 'Export composition'}
+		</button>
+		{#if isExporting}
+			<progress aria-label="Export progress" max="1" value={progress}></progress>
+		{/if}
+		{#if status}
+			<p class="export-menu__status">{status}</p>
+		{/if}
+	</div>
 
 	<section class="workspace__canvas" aria-label="Composition">
 		<VideoFrame
@@ -1487,7 +1005,6 @@
 		>
 			<Composition
 				bind:element={compositionElement}
-				bind:surfaceElement
 				splitPlanes={planeSplitActive}
 				bind:overlayRootElement
 			/>
@@ -1554,7 +1071,7 @@
 	</div>
 
 	<div class="workspace__inspector">
-		<Inspector {handleExport} {isExporting} {progress} {status} bind:separateWav />
+		<Inspector />
 	</div>
 </main>
 
@@ -1571,6 +1088,22 @@
 		/* The canvas surround is a recessed well — the rail and timeline panels
 		   step up from it, making the three-zone architecture legible. */
 		background: var(--chrome-well);
+	}
+
+	/* Graffiti's raised-button chrome (gradient fill, 8px radius, inset bevel +
+	   drop shadow, 560 weight) must not bleed into the flat editor chrome.
+	   :where keeps this reset's specificity at the element tier: it outranks
+	   Graffiti's bare `button` by cascade order while every component rule still
+	   wins over it, so intended radii/shadows re-add cleanly. */
+	:where(.workspace) :global(:where(button, select, input)) {
+		background-image: none;
+		border-radius: 0;
+		box-shadow: none;
+		font-weight: inherit;
+		text-shadow: none;
+	}
+
+	.workspace {
 		block-size: 100dvh;
 		display: grid;
 		grid-template-areas:
@@ -1584,26 +1117,29 @@
 		overflow: hidden;
 	}
 
-	/* Breadcrumb strip above the canvas — back to the picker + the composition
-	   name. A navigation affordance belongs here, over the stage, not in the
-	   layers panel. Recessive; left-aligned with the canvas content padding. */
+	/* Identity strip above the canvas — the piece's passport: name, kind, pack,
+	   fork state, orientation, native resolution, export. Everything that says
+	   WHAT this composition is lives here, readable before touching anything. */
 	.workspace__topbar {
 		align-items: center;
-		border-block-end: var(--border-1);
+		background: var(--chrome-deck);
+		border-block-end: 1px solid var(--chrome-hairline);
 		display: flex;
-		gap: var(--vs-xs);
+		gap: 12px;
 		grid-area: topbar;
-		min-block-size: 38px;
-		padding-inline: var(--vs-l);
+		min-block-size: 52px;
+		padding-inline: 12px 14px;
 	}
 
 	.topbar__back {
 		align-items: center;
-		border-radius: var(--br-xs);
-		color: var(--fg-5);
+		block-size: 28px;
+		border-radius: 6px;
+		color: var(--chrome-muted);
 		display: inline-flex;
 		flex-shrink: 0;
-		padding: 3px;
+		inline-size: 28px;
+		justify-content: center;
 		text-decoration: none;
 		transition:
 			background 100ms ease,
@@ -1611,17 +1147,250 @@
 	}
 
 	.topbar__back:hover {
-		background: var(--fg-05);
-		color: var(--fg);
+		background: var(--chrome-raised);
+		color: var(--chrome-text);
 	}
 
 	.topbar__name {
-		color: var(--fg-6);
-		font-size: 0.75rem;
-		font-weight: var(--fw-semibold);
+		color: var(--chrome-text);
+		font-size: 0.90625rem;
+		font-weight: 650;
+		letter-spacing: 0.005em;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	.topbar__chip {
+		border: 1px solid var(--chrome-hairline);
+		border-radius: 999px;
+		color: var(--chrome-muted);
+		flex-shrink: 0;
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.5625rem;
+		font-weight: 400;
+		letter-spacing: 0.12em;
+		padding: 3px 8px;
+		text-transform: uppercase;
+	}
+
+	.topbar__chip--pack {
+		align-items: center;
+		color: var(--chrome-text);
+		display: inline-flex;
+		gap: 0.45em;
+	}
+
+	.topbar__chip--pack i {
+		background: #ffd608;
+		block-size: 7px;
+		border-radius: 2px;
+		display: inline-block;
+		inline-size: 7px;
+	}
+
+	.topbar__chip--forked {
+		border-color: color-mix(in srgb, #ffd608 55%, var(--chrome-hairline));
+		color: #ffd608;
+	}
+
+	.topbar__revert {
+		background: transparent;
+		border: 0;
+		color: var(--chrome-muted);
+		cursor: pointer;
+		flex-shrink: 0;
+		font-size: 0.6875rem;
+		padding: 0;
+		text-decoration: underline;
+		text-underline-offset: 3px;
+	}
+
+	.topbar__revert:hover {
+		color: var(--chrome-text);
+	}
+
+	.topbar__spacer {
+		flex: 1;
+	}
+
+	.topbar__orientation {
+		border: 1px solid var(--chrome-hairline);
+		border-radius: 6px;
+		display: inline-flex;
+		flex-shrink: 0;
+		overflow: hidden;
+	}
+
+	.topbar__orientation button {
+		background: transparent;
+		border: 0;
+		color: var(--chrome-muted);
+		cursor: pointer;
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.65625rem;
+		font-weight: 400;
+		padding: 5px 11px;
+		transition:
+			background-color 100ms ease,
+			color 100ms ease;
+	}
+
+	.topbar__orientation button[aria-pressed='true'] {
+		background: var(--chrome-raised);
+		color: var(--chrome-text);
+	}
+
+	.topbar__orientation button:focus-visible {
+		outline: 2px solid #ffd608;
+		outline-offset: -2px;
+	}
+
+	.topbar__resolution {
+		color: var(--chrome-muted);
+		flex-shrink: 0;
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.625rem;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.topbar__export {
+		align-items: center;
+		background: #ffd608;
+		block-size: 30px;
+		border: 1px solid #ffd608;
+		border-radius: 6px;
+		color: #141200;
+		cursor: pointer;
+		display: inline-flex;
+		flex-shrink: 0;
+		font-family: Archivo, sans-serif;
+		font-size: 0.75rem;
+		font-weight: 600;
+		gap: 7px;
+		padding: 0 13px;
+		transition: background-color 120ms ease;
+	}
+
+	.topbar__export:hover {
+		background: #ffe14a;
+		border-color: #ffe14a;
+	}
+
+	.topbar__export:focus-visible {
+		outline: 2px solid #ffd608;
+		outline-offset: 2px;
+	}
+
+	/* Top-layer export sheet — same popover treatment as the backdrop picker.
+	   The layout display lives on :popover-open ONLY: an unconditional author
+	   `display` would override the UA's closed-popover display:none and leave an
+	   invisible click-eating overlay parked over the top bar. */
+	.export-menu {
+		background: var(--chrome-deck);
+		border: 1px solid var(--chrome-hairline);
+		border-radius: var(--br-s);
+		box-shadow: 0 8px 24px rgb(0 0 0 / 0.5);
+		color: var(--chrome-text);
+		flex-direction: column;
+		gap: var(--vs-s);
+		inset: auto;
+		margin: 0;
+		min-inline-size: 15rem;
+		opacity: 1;
+		padding: var(--vs-base);
+		position: fixed;
+		transform: translateY(0) scale(1);
+		transform-origin: top right;
+		transition:
+			opacity 120ms ease,
+			transform 160ms var(--ease-smooth),
+			overlay 160ms allow-discrete,
+			display 160ms allow-discrete;
+	}
+
+	.export-menu:popover-open {
+		display: flex;
+	}
+
+	.export-menu:not(:popover-open) {
+		opacity: 0;
+		transform: translateY(-6px) scale(0.97);
+	}
+
+	@starting-style {
+		.export-menu:popover-open {
+			opacity: 0;
+			transform: translateY(-6px) scale(0.97);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.export-menu {
+			transition-duration: 1ms;
+		}
+	}
+
+	.export-menu__row {
+		align-items: center;
+		display: grid;
+		gap: var(--vs-s);
+		grid-template-columns: 1fr auto;
+	}
+
+	.export-menu__row > span {
+		color: var(--chrome-muted);
+		font-family: Archivo, sans-serif;
+		font-size: 0.8125rem;
+	}
+
+	.export-menu__row select {
+		background: var(--chrome-well);
+		border: 1px solid var(--chrome-hairline);
+		border-radius: 5px;
+		color: var(--chrome-text);
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.78rem;
+		padding: 4px var(--vs-s);
+	}
+
+	.export-menu__row select:focus-visible {
+		border-color: #ffd608;
+		outline: none;
+	}
+
+	.export-menu__go {
+		background: var(--chrome-raised);
+		border: 1px solid var(--chrome-hairline);
+		border-radius: 6px;
+		color: var(--chrome-text);
+		cursor: pointer;
+		font-family: Archivo, sans-serif;
+		font-size: 0.8125rem;
+		padding-block: 6px;
+		transition:
+			border-color 120ms ease,
+			background-color 120ms ease;
+	}
+
+	.export-menu__go:hover:not(:disabled) {
+		background: var(--chrome-hairline);
+	}
+
+	.export-menu__go:focus-visible {
+		border-color: #ffd608;
+		outline: none;
+	}
+
+	.export-menu__go:disabled {
+		cursor: not-allowed;
+		opacity: 0.6;
+	}
+
+	.export-menu__status {
+		color: var(--chrome-muted);
+		font-size: 0.75rem;
+		margin: 0;
 	}
 
 	.workspace__canvas {
@@ -1637,9 +1406,10 @@
 	}
 
 	.workspace__controls {
+		background: var(--chrome-deck);
 		border-block-end: var(--border-1);
+		border-block-start: 1px solid var(--chrome-hairline);
 		grid-area: controls;
-		padding-inline: var(--vs-s);
 	}
 
 	.workspace__timeline {
@@ -1661,7 +1431,7 @@
 	}
 
 	.timeline-resize::after {
-		background: var(--fg-2);
+		background: var(--chrome-hairline);
 		content: '';
 		inset-block-start: 0;
 		inset-inline: 0;
@@ -1673,7 +1443,7 @@
 	}
 
 	.timeline-resize:hover::after {
-		background: var(--fg-4);
+		background: var(--chrome-muted);
 		block-size: 2px;
 	}
 

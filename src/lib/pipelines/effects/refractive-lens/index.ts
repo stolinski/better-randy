@@ -2,13 +2,15 @@ import { d } from 'typegpu';
 import { z } from 'zod';
 
 import type { EffectRenderer } from '$lib/platform/pipelines/types';
+import { normalizedPassRegion } from '$lib/platform/pipelines/pass-execution';
+import { createBicubicSampleWgsl } from '$lib/utils/bicubic-sampling-wgsl';
 import { hexToRgbaFloat } from '$lib/utils/color';
 import {
 	DEFAULT_REFRACTIVE_LENS_REGION,
 	NormalizedOpticalRegionSchema,
 	OpticalShapeSchema,
 	getOpticalShapeCode,
-	packNormalizedOpticalRegion
+	packAspectPreservingOpticalRegion
 } from '$lib/utils/optical-geometry';
 
 import Editor from './Editor.svelte';
@@ -44,6 +46,7 @@ const RefractiveLensUniforms = d.struct({
 	tint: d.vec4f,
 	resolution: d.vec2f,
 	progress: d.f32,
+	timestamp: d.f32,
 	shape: d.f32,
 	magnification: d.f32,
 	thickness: d.f32,
@@ -83,9 +86,9 @@ const fragmentBody = /* wgsl */ `
 		return inputSample;
 	}
 
-	let reveal = smoothstep(0.0, 0.12, layout.$.uniforms.progress);
+	let reveal = smoothstep(0.32, 0.72, layout.$.uniforms.timestamp);
 	let bevelPixels = max(2.0, minHalf * (0.04 + 0.2 * layout.$.uniforms.bevel));
-	let edge = 1.0 - smoothstep(-bevelPixels, -aa, lensDistance);
+	let edge = smoothstep(-bevelPixels, -aa, lensDistance);
 	let normalizedP = p / halfPixels;
 	let radialNormal = normalize(normalizedP + vec2f(0.00001));
 	let magnification = layout.$.uniforms.magnification;
@@ -96,7 +99,13 @@ const fragmentBody = /* wgsl */ `
 		* layout.$.uniforms.roughness * 9.0;
 	let sourceUv = baseUv + refractionOffset;
 
-	let centerSample = textureSampleLevel(layout.$.inputTexture, layout.$.samp, sourceUv, 0.0);
+	${createBicubicSampleWgsl({
+		prefix: 'lensCenter',
+		result: 'centerSample',
+		sampler: 'layout.$.samp',
+		texture: 'layout.$.inputTexture',
+		uv: 'sourceUv'
+	})}
 	let roughA = textureSampleLevel(layout.$.inputTexture, layout.$.samp, sourceUv + roughOffset, 0.0);
 	let roughB = textureSampleLevel(layout.$.inputTexture, layout.$.samp, sourceUv - roughOffset, 0.0);
 	let roughC = textureSampleLevel(layout.$.inputTexture, layout.$.samp, sourceUv + roughOffset.yx, 0.0);
@@ -105,12 +114,24 @@ const fragmentBody = /* wgsl */ `
 	var glassSample = mix(centerSample, (centerSample * 2.0 + roughA + roughB + roughC + roughD) / 6.0, roughMix);
 
 	let dispersionOffset = radialNormal / resolution * edge * layout.$.uniforms.dispersion * 5.0;
-	let sampleR = textureSampleLevel(layout.$.inputTexture, layout.$.samp, sourceUv + dispersionOffset, 0.0);
-	let sampleB = textureSampleLevel(layout.$.inputTexture, layout.$.samp, sourceUv - dispersionOffset, 0.0);
+	${createBicubicSampleWgsl({
+		prefix: 'lensRed',
+		result: 'sampleR',
+		sampler: 'layout.$.samp',
+		texture: 'layout.$.inputTexture',
+		uv: 'sourceUv + dispersionOffset'
+	})}
+	${createBicubicSampleWgsl({
+		prefix: 'lensBlue',
+		result: 'sampleB',
+		sampler: 'layout.$.samp',
+		texture: 'layout.$.inputTexture',
+		uv: 'sourceUv - dispersionOffset'
+	})}
 	glassSample = vec4f(sampleR.r, glassSample.g, sampleB.b, glassSample.a);
 
 	let localAlpha = inputSample.a;
-	let straightRgb = select(vec3f(0.0), glassSample.rgb / max(glassSample.a, 0.0001), glassSample.a > 0.0001);
+	var straightRgb = select(vec3f(0.0), glassSample.rgb / max(glassSample.a, 0.0001), glassSample.a > 0.0001);
 	let tint = layout.$.uniforms.tint;
 	straightRgb = mix(straightRgb, tint.rgb, layout.$.uniforms.tintStrength * tint.a);
 
@@ -149,13 +170,28 @@ export const refractiveLensEffectRenderer: EffectRenderer<RefractiveLensParams> 
 	pass: {
 		paramsStruct: RefractiveLensUniforms,
 		fragmentBody,
+		execution: (params, ctx) => ({
+			region: normalizedPassRegion(
+				packAspectPreservingOpticalRegion(params.region, DEFAULT_REFRACTIVE_LENS_REGION, {
+					width: ctx.canvasWidth,
+					height: ctx.canvasHeight
+				}),
+				ctx.canvasWidth,
+				ctx.canvasHeight,
+				4
+			)
+		}),
 		pack: (params, ctx) => ({
 			region: d.vec4f(
-				...packNormalizedOpticalRegion(params.region, DEFAULT_REFRACTIVE_LENS_REGION)
+				...packAspectPreservingOpticalRegion(params.region, DEFAULT_REFRACTIVE_LENS_REGION, {
+					width: ctx.canvasWidth,
+					height: ctx.canvasHeight
+				})
 			),
 			tint: d.vec4f(...hexToRgbaFloat(params.tint ?? '#dbeafe')),
 			resolution: d.vec2f(ctx.canvasWidth, ctx.canvasHeight),
 			progress: ctx.progress,
+			timestamp: ctx.timestamp,
 			shape: getOpticalShapeCode(params.shape),
 			magnification: params.magnification ?? 1.24,
 			thickness: params.thickness ?? 0.45,

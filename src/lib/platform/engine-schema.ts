@@ -854,7 +854,8 @@ const CompositionTransitionSchema = z.object({
 	from: z.string().min(1, 'transition.from must name a Preset slug'),
 	to: z.string().min(1, 'transition.to must name a Preset slug'),
 	effect: z.string().min(1, 'transition.effect must name a transition Effect'),
-	durationMs: z.number().positive('transition.durationMs must be greater than 0')
+	durationMs: z.number().positive('transition.durationMs must be greater than 0'),
+	params: z.unknown().default({})
 });
 
 // ---- Text animations (ADR-0011) ----

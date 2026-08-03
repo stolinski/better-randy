@@ -18,10 +18,12 @@ import { paragraphBlockRenderer } from '$lib/pipelines/blocks/paragraph';
 import { statCalloutBlockRenderer } from '$lib/pipelines/blocks/stat-callout';
 import { timelineSegmentBlockRenderer } from '$lib/pipelines/blocks/timeline-segment';
 import { chromaticAberrationEffectRenderer } from '$lib/pipelines/effects/chromatic-aberration';
+import { clothBendEffectRenderer } from '$lib/pipelines/effects/cloth-bend';
 import { crtScreenEffectRenderer } from '$lib/pipelines/effects/crt-screen';
 import { crtTubeEffectRenderer } from '$lib/pipelines/effects/crt-tube';
 import { ditheringEffectRenderer } from '$lib/pipelines/effects/dithering';
 import { flutedGlassEffectRenderer } from '$lib/pipelines/effects/fluted-glass';
+import { fluidRippleEffectRenderer } from '$lib/pipelines/effects/fluid-ripple';
 import { frostedGlassEffectRenderer } from '$lib/pipelines/effects/frosted-glass';
 import { halftoneCmykEffectRenderer } from '$lib/pipelines/effects/halftone-cmyk';
 import { halftoneDotsEffectRenderer } from '$lib/pipelines/effects/halftone-dots';
@@ -29,6 +31,7 @@ import { heatmapEffectRenderer } from '$lib/pipelines/effects/heatmap';
 import { ntscSignalEffectRenderer } from '$lib/pipelines/effects/ntsc-signal';
 import { paperGrainEffectRenderer } from '$lib/pipelines/effects/paper-grain';
 import { refractiveLensEffectRenderer } from '$lib/pipelines/effects/refractive-lens';
+import { tiledDeformationEffectRenderer } from '$lib/pipelines/effects/tiled-deformation';
 import { waterEffectRenderer } from '$lib/pipelines/effects/water';
 import { achievementOverlayRenderer } from '$lib/pipelines/overlays/achievement';
 import { counterOverlayRenderer } from '$lib/pipelines/overlays/counter';
@@ -115,6 +118,9 @@ const EXPECTED_PIPELINE_TYPE_IDS = [
 	'fluted-glass',
 	'refractive-lens',
 	'frosted-glass',
+	'fluid-ripple',
+	'cloth-bend',
+	'tiled-deformation',
 	'heatmap'
 ] as const;
 
@@ -187,6 +193,9 @@ describe('Pipeline Registry', () => {
 		assert.strictEqual(PIPELINE_REGISTRY.effects.flutedGlass, flutedGlassEffectRenderer);
 		assert.strictEqual(PIPELINE_REGISTRY.effects.refractiveLens, refractiveLensEffectRenderer);
 		assert.strictEqual(PIPELINE_REGISTRY.effects.frostedGlass, frostedGlassEffectRenderer);
+		assert.strictEqual(PIPELINE_REGISTRY.effects.fluidRipple, fluidRippleEffectRenderer);
+		assert.strictEqual(PIPELINE_REGISTRY.effects.clothBend, clothBendEffectRenderer);
+		assert.strictEqual(PIPELINE_REGISTRY.effects.tiledDeformation, tiledDeformationEffectRenderer);
 		assert.strictEqual(PIPELINE_REGISTRY.effects.heatmap, heatmapEffectRenderer);
 	});
 

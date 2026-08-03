@@ -1,6 +1,7 @@
 <script lang="ts">
+	import { afterNavigate } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
+	import { onMount } from 'svelte';
 
 	import { compositionMeta } from '$lib/platform/composition-meta.svelte';
 	import { engineState, packState, transitionState } from '$lib/platform/engine-state.svelte';
@@ -11,7 +12,11 @@
 	import { userCompositionStore } from '$lib/platform/user-composition-store';
 	import Workspace from '$lib/platform/Workspace.svelte';
 
-	const slug = $derived(page.params.slug ?? '');
+	import type { PageProps } from './$types';
+
+	let { data }: PageProps = $props();
+
+	const routeKey = $derived(JSON.stringify([data.slug, data.source]));
 
 	// Content key for the poster of whatever composition is loaded — handed to the
 	// Workspace, which captures the settled frame under it once (see ./posters).
@@ -22,76 +27,79 @@
 	// `applyPreset` seeds both `engineState` and `presetBase`, so the snapshot
 	// covers composition and metadata edits alike.
 	let loadSnapshot = '';
-	let loadedSlug = '';
+	let appliedRouteKey = $state<string | null>(null);
 
 	// Track whether the currently-viewed Preset was found in the User composition store.
 	// This determines fork vs autosave on edit.
 	let activeIsUserComposition = false;
 
-	// Set when the User composition store probe fails outright (server/network error). We
-	// deliberately do NOT fall back to the corpus preset then: rendering it would
-	// mark the page un-forked, and the next edit would clobber an existing fork
-	// with corpus-based state. loadedSlug stays empty, so autosave stays off.
-	let loadError = $state(false);
+	afterNavigate(() => {
+		const nextData = data;
+		const nextRouteKey = JSON.stringify([nextData.slug, nextData.source]);
 
-	// Load: User composition store first; corpus fallback only when no fork exists (null).
-	$effect(() => {
-		const currentSlug = slug;
-		if (!currentSlug) return;
-		loadError = false;
+		appliedRouteKey = null;
+		posterKey = null;
+		loadSnapshot = '';
+		activeIsUserComposition = false;
+		transitionState.active = null;
+		transitionState.capturing = false;
+		compositionMeta.isUserComposition = false;
+		compositionMeta.userCompositionSlug = null;
+		compositionMeta.forkedFrom = null;
 		compositionMeta.persistenceError = null;
 
-		userCompositionStore
-			.loadUserComposition(currentSlug)
-			.then((storedUserComposition) => {
-				if (currentSlug !== slug) return;
-				const preset = storedUserComposition ?? getPresetBySlug(currentSlug);
-				if (!preset) return;
-				applyPreset(preset);
-				posterKey = posterKeyForPreset(preset);
-				activeIsUserComposition = storedUserComposition !== null;
-				loadedSlug = currentSlug;
-				loadSnapshot = snapshotState();
-				compositionMeta.isUserComposition = storedUserComposition !== null;
-				compositionMeta.userCompositionSlug = currentSlug;
-				compositionMeta.forkedFrom = null;
-			})
-			.catch((cause: unknown) => {
-				if (currentSlug !== slug) return;
-				console.error(`Failed to load user composition "${currentSlug}"`, cause);
-				loadError = true;
-			});
+		if (nextData.status !== 'ready') return;
+
+		applyPreset(nextData.preset);
+		posterKey = posterKeyForPreset(nextData.preset);
+		activeIsUserComposition = nextData.provenance === 'user';
+		loadSnapshot = snapshotState();
+		compositionMeta.isUserComposition = activeIsUserComposition;
+		compositionMeta.userCompositionSlug = nextData.slug;
+		appliedRouteKey = nextRouteKey;
 	});
 
 	// Autosave: run on any change to engineState, presetBase, or pack.
-	// Skips when the state matches the post-load snapshot (no edit yet), and
+	// Skips explicit built-in source mode, when state matches the post-load snapshot, and
 	// while the transition snapshot path is mid-capture — engineState is a
 	// scratch buffer holding a swapped-in from/to state during that window.
 	$effect(() => {
-		if (transitionState.capturing) return;
+		const currentRouteKey = routeKey;
+		if (
+			data.status !== 'ready' ||
+			data.source === 'builtin' ||
+			transitionState.capturing ||
+			appliedRouteKey !== currentRouteKey
+		) {
+			return;
+		}
 
 		const currentSnap = snapshotState();
 
-		if (!loadedSlug || currentSnap === loadSnapshot) return;
+		if (currentSnap === loadSnapshot) return;
 
-		const capturedSlug = loadedSlug;
+		const capturedSlug = data.slug;
+		const capturedRouteKey = currentRouteKey;
 		const capturedIsUserComposition = activeIsUserComposition;
+		// Serialize before the debounce so this save cannot observe a later route's state.
+		const serializedUserComposition = serializeCompositionState(
+			presetBase,
+			engineState,
+			packState.slug
+		);
 
 		const timer = setTimeout(() => {
-			// presetBase mirrors the top-level metadata (name / description / kind /
-			// transition) the RootInspector edits; it is reseeded on every load.
-			const serializedUserComposition = serializeCompositionState(
-				presetBase,
-				engineState,
-				packState.slug
-			);
+			if (!isCurrentAppliedRoute(capturedRouteKey)) return;
+
 			if (capturedIsUserComposition) {
 				userCompositionStore
 					.saveUserComposition(capturedSlug, serializedUserComposition)
 					.then(() => {
+						if (!isCurrentAppliedRoute(capturedRouteKey)) return;
 						compositionMeta.persistenceError = null;
 					})
 					.catch((error: unknown) => {
+						if (!isCurrentAppliedRoute(capturedRouteKey)) return;
 						console.error('Autosave failed', error);
 						compositionMeta.persistenceError =
 							error instanceof Error ? error.message : 'Autosave failed.';
@@ -100,6 +108,7 @@
 				userCompositionStore
 					.forkUserComposition(capturedSlug, serializedUserComposition, capturedSlug)
 					.then(() => {
+						if (!isCurrentAppliedRoute(capturedRouteKey)) return;
 						compositionMeta.persistenceError = null;
 						activeIsUserComposition = true;
 						compositionMeta.isUserComposition = true;
@@ -107,6 +116,7 @@
 						posterKey = posterKeyForPreset(serializedUserComposition);
 					})
 					.catch((error: unknown) => {
+						if (!isCurrentAppliedRoute(capturedRouteKey)) return;
 						console.error('Fork failed', error);
 						compositionMeta.persistenceError =
 							error instanceof Error ? error.message : 'Fork failed.';
@@ -121,45 +131,53 @@
 		return JSON.stringify(engineState) + JSON.stringify(presetBase) + packState.slug;
 	}
 
+	function isCurrentAppliedRoute(expectedRouteKey: string): boolean {
+		return appliedRouteKey === expectedRouteKey && routeKey === expectedRouteKey;
+	}
+
 	async function handleRevert(): Promise<void> {
-		const currentSlug = slug;
+		const currentRouteKey = appliedRouteKey;
+		if (data.status !== 'ready' || !currentRouteKey || routeKey !== currentRouteKey) return;
+
+		const currentSlug = data.slug;
 		await userCompositionStore.deleteUserComposition(currentSlug);
+		if (!isCurrentAppliedRoute(currentRouteKey)) return;
+
 		const corpusPreset = getPresetBySlug(currentSlug);
 		if (!corpusPreset) return;
 		applyPreset(corpusPreset);
 		posterKey = posterKeyForPreset(corpusPreset);
 		activeIsUserComposition = false;
-		loadedSlug = currentSlug;
 		loadSnapshot = snapshotState();
 		compositionMeta.isUserComposition = false;
 		compositionMeta.forkedFrom = null;
 		compositionMeta.persistenceError = null;
 	}
 
-	$effect(() => {
+	onMount(() => {
 		compositionMeta.revertUserComposition = handleRevert;
 		return () => {
 			compositionMeta.revertUserComposition = null;
 		};
 	});
-
-	const isKnown = $derived(!!getPresetBySlug(slug) || compositionMeta.userCompositionSlug === slug);
 </script>
 
-{#if loadError}
+{#if data.status === 'error'}
 	<main class="missing stack">
 		<h1>Couldn't load composition</h1>
 		<p>The composition store didn't respond. Reload to retry.</p>
 		<a href={resolve('/')}>All presets</a>
 	</main>
-{:else if !isKnown && !compositionMeta.isUserComposition}
+{:else if data.status === 'missing'}
 	<main class="missing stack">
 		<h1>Preset not found</h1>
-		<p>No preset named "{slug}".</p>
+		<p>No preset named "{data.slug}".</p>
 		<a href={resolve('/')}>All presets</a>
 	</main>
-{:else}
-	<Workspace {posterKey} />
+{:else if appliedRouteKey === routeKey}
+	{#key routeKey}
+		<Workspace {posterKey} />
+	{/key}
 {/if}
 
 <style>

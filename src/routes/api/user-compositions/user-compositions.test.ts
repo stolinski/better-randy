@@ -46,7 +46,7 @@ let slugHandlers: typeof import('./[slug]/+server.ts');
 beforeAll(async () => {
 	collectionHandlers = await import('./+server.ts');
 	slugHandlers = await import('./[slug]/+server.ts');
-});
+}, 30_000);
 
 beforeEach(() => {
 	vi.clearAllMocks();

@@ -6,6 +6,7 @@ import type { AnnotationDrawContext } from '$lib/platform/pipelines/types';
 import { magnifyAnnotationRenderer } from './index';
 
 function focalSlot(options: {
+	durationMs?: number;
 	width: number;
 	intensity?: number;
 	progress?: number;
@@ -17,6 +18,7 @@ function focalSlot(options: {
 		canvasWidth: 3840,
 		color: '#ffd54a',
 		context: null as never,
+		durationMs: options.durationMs ?? 660,
 		intensity: options.intensity ?? 0.75,
 		layout: { bounds, fragments: [bounds], style: 'magnify' },
 		markIndex: 0,
@@ -42,7 +44,7 @@ describe('magnifyAnnotationRenderer', () => {
 		const widthPixels = slot.rect.width * 3840;
 
 		assert.equal(slot.opticalShape, 'rounded-rect');
-		assert.equal(widthPixels, 80 * 14);
+		assert.equal(widthPixels, 80 * 18);
 		assert.ok(slot.rect.height * 2160 > 80);
 	});
 
@@ -53,5 +55,15 @@ describe('magnifyAnnotationRenderer', () => {
 		assert.deepEqual(first, second);
 		assert.ok((first.opticalRipple ?? 0) > 0);
 		assert.ok((first.opticalIntensity ?? 0) === 0.4);
+	});
+
+	it('derives smooth G6-compliant bookends from absolute Mark duration', () => {
+		const early = focalSlot({ width: 240, durationMs: 660, progress: 0.15 });
+		const settled = focalSlot({ width: 240, durationMs: 660, progress: 0.4 });
+		const exiting = focalSlot({ width: 240, durationMs: 660, progress: 0.85 });
+
+		assert.ok(early.magnify > 0 && early.magnify < settled.magnify);
+		assert.ok(settled.magnify > exiting.magnify);
+		assert.ok(exiting.magnify > 0);
 	});
 });

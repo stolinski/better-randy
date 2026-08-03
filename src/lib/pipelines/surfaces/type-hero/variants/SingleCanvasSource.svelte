@@ -10,6 +10,7 @@
 
 	const frame = $derived(getVideoFrameSize(engineState.transport.orientation));
 	const content = $derived(engineState.surface.content);
+	const isVertical = $derived(engineState.transport.orientation === 'vertical');
 	const hasTitle = $derived((content.title ?? '').trim().length > 0);
 	const hasSubtitle = $derived((content.author ?? '').trim().length > 0);
 	// Subtitle meets the surface-label cap-height floor per orientation:
@@ -19,32 +20,37 @@
 		frame.width * (engineState.transport.orientation === 'vertical' ? 0.022 : 0.012)
 	);
 
-	// Fit the hero to the title-safe width so a longer title never clips
-	// off-frame (e.g. "NEW EPISODE" vs the single-word "DRIFT"). Target the big
-	// display size (0.16 W) but clamp it down so the word fits within ~84% of
-	// the frame (7% left inset + safety right margin). Condensed Inter 900
-	// uppercase advances ~0.6 em/char (conservative, accounting for the negative
-	// tracking), so the estimate errs toward fitting. The min() keeps short
-	// titles at full display scale (DRIFT is unchanged); the CSS max-inline-size
-	// + wrap below is the graceful fail-safe if the estimate is ever slightly
-	// short — the hero wraps to two balanced lines instead of clipping.
+	// Horizontal keeps its established 0.16 W fit-to-safe-width layout. Vertical
+	// reflows to 0.16 H, then condenses the word into the same safe measure below.
 	const HERO_DISPLAY_RATIO = 0.16;
 	const HERO_SAFE_WIDTH_RATIO = 0.84;
 	const HERO_AVG_ADVANCE_EM = 0.6;
+	const VERTICAL_HERO_AVG_ADVANCE_EM = 0.66;
 	const heroLen = $derived(Math.max((content.title ?? '').trim().length, 1));
+	const heroAvailableWidth = $derived(frame.width * HERO_SAFE_WIDTH_RATIO);
 	const heroFontSize = $derived(
-		Math.min(
-			frame.width * HERO_DISPLAY_RATIO,
-			(frame.width * HERO_SAFE_WIDTH_RATIO) / (heroLen * HERO_AVG_ADVANCE_EM)
-		)
+		isVertical
+			? frame.height * HERO_DISPLAY_RATIO
+			: Math.min(
+					frame.width * HERO_DISPLAY_RATIO,
+					heroAvailableWidth / (heroLen * HERO_AVG_ADVANCE_EM)
+				)
 	);
-	const heroMaxWidth = $derived(frame.width * HERO_SAFE_WIDTH_RATIO);
+	// Vertical keeps the full display cap height and condenses only the hero word
+	// into its available measure. This is a type treatment, not frame scaling.
+	const heroScaleX = $derived(
+		isVertical
+			? Math.min(1, heroAvailableWidth / (heroFontSize * heroLen * VERTICAL_HERO_AVG_ADVANCE_EM))
+			: 1
+	);
+	const heroMaxWidth = $derived(heroAvailableWidth / heroScaleX);
 </script>
 
 <article
 	bind:this={element}
 	class="type-hero-source surface"
 	data-variant="single"
+	data-orientation={engineState.transport.orientation}
 	style:block-size={`${frame.height}px`}
 	style:inline-size={`${frame.width}px`}
 >
@@ -55,6 +61,7 @@
 				data-text-anim-slot="title"
 				style:font-size={`${heroFontSize}px`}
 				style:max-inline-size={`${heroMaxWidth}px`}
+				style:--hero-scale-x={`${heroScaleX}`}
 			>
 				{content.title}
 			</h2>
@@ -69,6 +76,8 @@
 				class="type-hero-source__subtitle"
 				data-text-anim-slot="author"
 				style:font-size={`${subtitleFontSize}px`}
+				style:inset-block-end={engineState.transport.orientation === 'vertical' ? '18%' : '9%'}
+				style:inset-inline-end={isVertical ? '12%' : '7%'}
 			>
 				{content.author}
 			</cite>
@@ -106,6 +115,12 @@
 		transform: translateY(-50%);
 	}
 
+	.type-hero-source[data-orientation='vertical'] .type-hero-source__hero {
+		transform: translateY(-50%) scaleX(var(--hero-scale-x));
+		transform-origin: left center;
+		white-space: nowrap;
+	}
+
 	/* The accent gesture: a chunky horizontal bar under the word, left-aligned
 	   with it — a confident graphic mark (the brand's marker stub), not the old
 	   floating vertical hairline (which read as generic-template chrome). */
@@ -126,8 +141,6 @@
 		font-family: var(--fontLabel, var(--font, 'JetBrains Mono', ui-monospace, monospace));
 		font-style: normal;
 		font-weight: 500;
-		inset-block-end: 9%;
-		inset-inline-end: 7%;
 		/* Pack label dress (`type-hero.tracking` / `.case`); silent → today's caps. */
 		letter-spacing: var(--tracking, 0.32em);
 		position: absolute;

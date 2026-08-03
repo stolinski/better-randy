@@ -169,3 +169,47 @@ export function resolveUnifiedDrag(
 		}
 	}
 }
+
+export interface WindowClipDragLimits {
+	minStart: number;
+	maxStart: number;
+	minDuration: number;
+	maxDuration: number;
+}
+
+/**
+ * Simple window clip (stagger / roll / dwell …) drag resolution: `move` slides
+ * the window, `left`/`right` trim it, clamped to the transition's limits and
+ * the 0–1 composition. The simple-clip counterpart of {@link resolveUnifiedDrag}.
+ */
+export function resolveWindowClipDrag(
+	mode: 'move' | 'left' | 'right',
+	delta: number,
+	origin: RampTiming,
+	limits: WindowClipDragLimits
+): RampTiming {
+	let nextStart = origin.start;
+	let nextDuration = origin.duration;
+
+	if (mode === 'move') {
+		nextStart = origin.start + delta;
+	} else if (mode === 'left') {
+		nextStart = origin.start + delta;
+		nextDuration = origin.duration - delta;
+	} else {
+		nextDuration = origin.duration + delta;
+	}
+
+	nextStart = clampNumber(nextStart, limits.minStart, limits.maxStart);
+	nextDuration = clampNumber(nextDuration, limits.minDuration, limits.maxDuration);
+
+	if (nextStart + nextDuration > 1) {
+		if (mode === 'left') {
+			nextStart = 1 - nextDuration;
+		} else {
+			nextDuration = 1 - nextStart;
+		}
+	}
+
+	return { start: nextStart, duration: nextDuration };
+}

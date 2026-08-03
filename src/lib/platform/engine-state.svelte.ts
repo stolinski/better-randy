@@ -64,6 +64,7 @@ export interface ResolvedTransition {
 	to: Preset;
 	effect: string;
 	durationMs: number;
+	params: unknown;
 }
 /**
  * `capturing` is true while the Workspace is snapshotting `from`/`to` — the

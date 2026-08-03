@@ -1,4 +1,5 @@
 import type { CompositionTransition, Preset } from './engine-schema';
+import { cloneJsonValue } from '$lib/utils/json-clone';
 
 /**
  * Reactive Preset-level metadata: the top-level fields that live beside
@@ -27,5 +28,7 @@ export function applyPresetBase(preset: Preset): void {
 	presetBase.name = preset.name;
 	presetBase.description = preset.description;
 	presetBase.kind = preset.kind;
-	presetBase.transition = preset.transition ? { ...preset.transition } : undefined;
+	presetBase.transition = preset.transition
+		? { ...preset.transition, params: cloneJsonValue(preset.transition.params) }
+		: undefined;
 }

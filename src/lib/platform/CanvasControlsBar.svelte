@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { resolveFrameRate, secondsToFrames } from '$lib/utils/composition-timing';
+	import { formatClockTime, resolveFrameRate, secondsToFrames } from '$lib/utils/composition-timing';
 
 	import type { Timeline } from './timeline.svelte';
 	import { engineState } from './engine-state.svelte';
@@ -114,17 +114,18 @@
 		if (timeline) timeline.seek(timeline.durationSeconds);
 	}
 
-	function toggleOrientation(): void {
-		engineState.transport.orientation =
-			engineState.transport.orientation === 'horizontal' ? 'vertical' : 'horizontal';
+	function stepBack(): void {
+		timeline?.stepFrames(-1);
 	}
 
-	const isHorizontal = $derived(engineState.transport.orientation === 'horizontal');
+	function stepForward(): void {
+		timeline?.stepFrames(1);
+	}
 
-	function formatTime(seconds: number): string {
-		const m = Math.floor(seconds / 60);
-		const s = (seconds % 60).toFixed(2).padStart(5, '0');
-		return `${m}:${s}`;
+	const isLooping = $derived(timeline?.loop ?? true);
+
+	function toggleLoop(): void {
+		if (timeline) timeline.loop = !timeline.loop;
 	}
 </script>
 
@@ -155,6 +156,25 @@
 		<button
 			class="controls-bar__btn"
 			type="button"
+			aria-label="Step back one frame"
+			onclick={stepBack}
+		>
+			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+				<path
+					d="M10.5 3.5 5.5 8l5 4.5"
+					stroke="currentColor"
+					stroke-width="1.6"
+					fill="none"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				/>
+				<path d="M4.25 3.5v9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+			</svg>
+		</button>
+
+		<button
+			class="controls-bar__btn controls-bar__btn--play"
+			type="button"
 			aria-label={isPlaying ? 'Pause' : 'Play'}
 			onclick={togglePlayPause}
 		>
@@ -173,6 +193,25 @@
 			{/if}
 		</button>
 
+		<button
+			class="controls-bar__btn"
+			type="button"
+			aria-label="Step forward one frame"
+			onclick={stepForward}
+		>
+			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+				<path
+					d="m5.5 3.5 5 4.5-5 4.5"
+					stroke="currentColor"
+					stroke-width="1.6"
+					fill="none"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				/>
+				<path d="M11.75 3.5v9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+			</svg>
+		</button>
+
 		<button class="controls-bar__btn" type="button" aria-label="Jump to end" onclick={jumpToEnd}>
 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 18 18" aria-hidden="true">
 				<path
@@ -186,13 +225,40 @@
 				/>
 			</svg>
 		</button>
+
+		<button
+			class="controls-bar__btn"
+			class:controls-bar__btn--looping={isLooping}
+			type="button"
+			aria-label="Toggle loop playback"
+			aria-pressed={isLooping}
+			onclick={toggleLoop}
+		>
+			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+				<path
+					d="M3 8a5 5 0 0 1 5-5h3.5M13 8a5 5 0 0 1-5 5H4.5"
+					stroke="currentColor"
+					stroke-width="1.5"
+					fill="none"
+					stroke-linecap="round"
+				/>
+				<path
+					d="m10 1.5 2 1.5-2 1.5M6 11.5 4 13l2 1.5"
+					stroke="currentColor"
+					stroke-width="1.5"
+					fill="none"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				/>
+			</svg>
+		</button>
 	</div>
 
-	<!-- Center: time / frame display -->
+	<!-- Center: time / frame / rate display -->
 	<div class="controls-bar__cluster controls-bar__cluster--center">
-		<span class="controls-bar__time">{formatTime(currentTime)}</span>
-		<span class="controls-bar__sep">·</span>
+		<span class="controls-bar__time">{formatClockTime(currentTime)}</span>
 		<span class="controls-bar__frames">{currentFrame} / {totalFrames}</span>
+		<span class="controls-bar__rate">{engineState.transport.fps} fps</span>
 	</div>
 
 	<!-- Right: canvas framing controls -->
@@ -278,22 +344,6 @@
 			</svg>
 		</button>
 
-		<button
-			class="controls-bar__btn controls-bar__btn--orientation"
-			type="button"
-			aria-label={isHorizontal ? 'Switch to vertical' : 'Switch to horizontal'}
-			onclick={toggleOrientation}
-		>
-			{#if isHorizontal}
-				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-					<rect x="1" y="4" width="14" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.5" />
-				</svg>
-			{:else}
-				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-					<rect x="4" y="1" width="8" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="1.5" />
-				</svg>
-			{/if}
-		</button>
 	</div>
 </div>
 
@@ -324,12 +374,17 @@
 </div>
 
 <style>
+	/* The transport deck — one full-width strip between viewer and timeline.
+	   Step/play/loop left, the timecode readout dead-center, framing right. */
 	.controls-bar {
 		align-items: center;
+		background: var(--chrome-deck);
+		border-block-start: 1px solid var(--chrome-hairline);
 		display: grid;
-		grid-template-columns: 1fr 1fr 1fr;
-		padding-block: var(--vs-xs);
-		padding-inline: var(--vs-xs);
+		grid-template-columns: 1fr auto 1fr;
+		min-block-size: 52px;
+		padding-block: 0;
+		padding-inline: 16px;
 	}
 
 	.controls-bar__cluster {
@@ -338,9 +393,38 @@
 	}
 
 	.controls-bar__cluster--center {
-		align-items: center;
-		gap: var(--vs-xs);
+		align-items: baseline;
+		gap: var(--vs-s);
 		justify-content: center;
+	}
+
+	.controls-bar__btn.controls-bar__btn--play {
+		background: var(--chrome-raised, #1a1a1d);
+		border: 1px solid var(--chrome-hairline, #26262a);
+		border-radius: 6px;
+		block-size: 32px;
+		color: var(--chrome-text);
+		inline-size: 36px;
+	}
+
+	/* Loop-on reads in the transport cyan — the one hue reserved for
+	   transport/selection chrome. */
+	.controls-bar__btn--looping {
+		color: #2de8ee;
+	}
+
+	.controls-bar__btn--looping:hover {
+		color: #2de8ee;
+	}
+
+	.controls-bar__rate {
+		border: 1px solid var(--chrome-hairline, #26262a);
+		border-radius: 4px;
+		color: var(--chrome-muted);
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.59375rem;
+		font-weight: 400;
+		padding: 2px 6px;
 	}
 
 	.controls-bar__cluster--right {
@@ -351,34 +435,39 @@
 		align-items: center;
 		background: transparent;
 		border: 0;
-		border-radius: var(--br-xs);
-		color: var(--fg-7);
+		border-radius: 6px;
+		color: var(--chrome-muted);
 		cursor: pointer;
 		display: inline-flex;
-		block-size: 26px;
-		inline-size: 28px;
+		block-size: 30px;
+		inline-size: 30px;
 		justify-content: center;
 		padding: 0;
 		transition: background-color 100ms ease, color 100ms ease;
 	}
 
 	.controls-bar__btn:hover {
-		background: var(--fg-1);
-		color: var(--fg);
+		background: var(--chrome-raised);
+		color: var(--chrome-text);
 	}
 
 	.controls-bar__btn:disabled {
-		color: var(--fg-3);
+		color: var(--chrome-muted);
 		cursor: default;
+		opacity: 0.45;
 	}
 
 	.controls-bar__btn:disabled:hover {
 		background: transparent;
-		color: var(--fg-3);
 	}
 
+	/* Active view toggles read in the transport cyan, matching the loop state. */
 	.controls-bar__btn--active {
-		color: var(--fg);
+		color: #2de8ee;
+	}
+
+	.controls-bar__btn--active:hover {
+		color: #2de8ee;
 	}
 
 	/* Jump-to-start reuses the jump-to-end glyph, mirrored. */
@@ -389,15 +478,16 @@
 	/* Zoom readout doubles as the fit/reset control (click → 100%). */
 	.controls-bar__zoom {
 		background: transparent;
-		border: 0;
-		border-radius: var(--br-xs);
-		color: var(--fg-6);
+		border: 1px solid var(--chrome-hairline);
+		border-radius: 5px;
+		color: var(--chrome-text);
 		cursor: pointer;
-		font-family: ui-monospace, monospace;
-		font-size: 0.72rem;
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.65625rem;
+		font-weight: 400;
 		min-inline-size: 3.1rem;
 		padding-block: 4px;
-		padding-inline: 2px;
+		padding-inline: 9px;
 		text-align: center;
 		transition:
 			background-color 100ms ease,
@@ -405,30 +495,24 @@
 	}
 
 	.controls-bar__zoom:hover {
-		background: var(--fg-1);
-		color: var(--fg);
+		background: var(--chrome-raised);
 	}
 
 	.controls-bar__divider {
 		align-self: center;
-		background: var(--fg-2);
-		block-size: 16px;
+		background: var(--chrome-hairline);
+		block-size: 20px;
 		inline-size: 1px;
-		margin-inline: 4px;
-	}
-
-	.controls-bar__btn--orientation {
-		inline-size: 28px;
+		margin-inline: 6px;
 	}
 
 	/* Top-layer backdrop picker — same popover treatment as the timeline add
 	   menu: escapes clipping, opens upward, right-edge anchored to the trigger. */
 	.backdrop-menu {
-		background: var(--bg);
-		border: var(--border-1);
+		background: var(--chrome-raised);
+		border: 1px solid var(--chrome-hairline);
 		border-radius: var(--br-s);
 		box-shadow: 0 8px 24px rgb(0 0 0 / 0.5);
-		display: flex;
 		flex-direction: column;
 		gap: var(--vs-xs);
 		inset: auto;
@@ -445,6 +529,13 @@
 			transform 160ms var(--ease-smooth),
 			overlay 160ms allow-discrete,
 			display 160ms allow-discrete;
+	}
+
+	/* Layout display only while open — an unconditional author `display` beats
+	   the UA's closed-popover display:none and leaves an invisible click-eating
+	   overlay at the popover's static position. */
+	.backdrop-menu:popover-open {
+		display: flex;
 	}
 
 	.backdrop-menu:not(:popover-open) {
@@ -466,7 +557,7 @@
 	}
 
 	.backdrop-menu__empty {
-		color: var(--fg-5);
+		color: var(--chrome-muted);
 		font-size: 0.72rem;
 		padding: var(--vs-xs) var(--vs-s);
 		white-space: nowrap;
@@ -475,7 +566,7 @@
 	.backdrop-menu__item {
 		background: transparent;
 		border: 0;
-		border-radius: var(--br-xs);
+		border-radius: 4px;
 		cursor: pointer;
 		display: flex;
 		flex-direction: column;
@@ -486,12 +577,12 @@
 	}
 
 	.backdrop-menu__item:hover {
-		background: var(--fg-1);
+		background: var(--chrome-raised);
 	}
 
 	.backdrop-menu__thumb {
 		aspect-ratio: 16 / 9;
-		border-radius: var(--br-xs);
+		border-radius: 4px;
 		display: block;
 		inline-size: 11rem;
 		object-fit: cover;
@@ -502,29 +593,28 @@
 	}
 
 	.backdrop-menu__name {
-		color: var(--fg-6);
+		color: var(--chrome-muted);
 		font-size: 0.72rem;
 		padding-inline: 2px;
 	}
 
 	.backdrop-menu__item--active .backdrop-menu__name {
-		color: var(--fg);
+		color: var(--chrome-text);
 	}
 
 	.controls-bar__time {
-		color: var(--fg-6);
-		font-family: ui-monospace, monospace;
-		font-size: 0.72rem;
-	}
-
-	.controls-bar__sep {
-		color: var(--fg-3);
-		font-size: 0.72rem;
+		color: var(--chrome-text);
+		font-family: 'Paper Mono', monospace;
+		font-size: 1.1875rem;
+		font-variant-numeric: tabular-nums;
+		font-weight: 700;
+		letter-spacing: 0.04em;
 	}
 
 	.controls-bar__frames {
-		color: var(--fg-5);
-		font-family: ui-monospace, monospace;
-		font-size: 0.72rem;
+		color: var(--chrome-muted);
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.6875rem;
+		font-variant-numeric: tabular-nums;
 	}
 </style>

@@ -10,8 +10,8 @@ Synthesized 2026-07-16 from in-repo and live-verified material; export ownership
 - `src/lib/utils/marker-sync.ts` + `marker-sync.test.ts` — grammar constants, grouping, lints, derivation math, versioning, export filename.
 - `src/lib/platform/composition-export-controller.ts` + tests — export planning, deterministic stepping, output classification, audio/video handoff, cancellation, downloads, and cleanup.
 - `src/lib/platform/Workspace.svelte` — mounted `window.__supersExport` callback and live Svelte/DOM/GPU dependencies delegated to the controller.
-- `src/lib/platform/export-video.ts` — `SyncExportRequest` plus WebM/ProRes encoding, endpoint-upload, and download primitives.
-- `src/routes/api/export/prores/+server.ts` + `src/routes/api/export/export.test.ts` — current ProRes 4444 encoding contract for transparent and opaque compositions.
+- `src/lib/platform/export-video.ts` — `SyncExportRequest` plus bounded WebM/ProRes session upload and native download primitives.
+- `src/lib/platform/export-session.server.ts`, `src/routes/api/export/sessions/`, and `src/routes/api/export/export.test.ts` — ordered frame protocol, disk output streaming, cleanup, and the current ProRes 4444 encoding contract for transparent and opaque compositions.
 - Project memory `resolve-mcp-bridge-mbp` — bridge topology, live gotchas (stale markers, linked-audio refusals, stranded audio, download seam, crash modal), and the 2026-07-16 corrections: identify by label not color, no named editor, Mint receipt stays.
 
 ## Coverage (workflow-process class)

@@ -243,7 +243,7 @@
 	}
 
 	.diagram-mount__segment-label {
-		font-family: 'JetBrains Mono', ui-monospace, monospace;
+		font-family: 'Paper Mono', ui-monospace, monospace;
 		font-size: calc(2.2 * var(--cqmin));
 		font-weight: 600;
 		letter-spacing: 0.08em;

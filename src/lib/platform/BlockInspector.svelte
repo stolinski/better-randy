@@ -1,33 +1,17 @@
 <script lang="ts">
 	import CascadeSection from './CascadeSection.svelte';
-	import {
-		ENGINE_EASES,
-		type Cascade,
-		type DiagramEdgeGeometry,
-		type DiagramEndpoint,
-		type DiagramPositionGeometry,
-		type DiagramPrimitive,
-		type Ease,
-		type Transition
-	} from './engine-schema';
+	import { type Cascade, type Transition } from './engine-schema';
 	import { engineState } from './engine-state.svelte';
-	import {
-		cloneDiagramPrimitiveGeometry,
-		resolveDiagramPrimitiveGeometry
-	} from '$lib/utils/diagram-geometry';
-	import { formatFractionAsSeconds } from '$lib/utils/string';
-	import Field from './Field.svelte';
-	import InspectorToggle from './InspectorToggle.svelte';
-	import InspectorSection from './InspectorSection.svelte';
+	import type { DiagramPrimitive } from './engine-schema';
+	import BlockGeometrySection from './BlockGeometrySection.svelte';
+	import BlockTypeSection from './BlockTypeSection.svelte';
 	import KeyframesSection from './KeyframesSection.svelte';
 	import SoundSection from './SoundSection.svelte';
+	import TransitionWindowSection from './TransitionWindowSection.svelte';
 
-	// Per-type inspector for Diagram primitive Blocks (ADR-0036 §7). Explicit
-	// placement is the authoring model, so every positional number is a
-	// first-class field; route/control belong to the edge's orientation geometry,
-	// while direction remains shared content. Stroke appearance never appears here
-	// (it is the Pack's, not the composition's).
-
+	// Per-type inspector for Diagram primitive Blocks (ADR-0036 §7). Sections
+	// own their own data; this shell resolves the primitive and wires the
+	// shared transition/cascade/keyframe/sound sections.
 	interface Props {
 		blockId: string;
 	}
@@ -38,8 +22,6 @@
 		(engineState.surface.diagram ?? []).find((entry) => entry.id === blockId) ?? null
 	);
 
-	const easeOptions = Object.entries(ENGINE_EASES) as [Ease, (typeof ENGINE_EASES)[Ease]][];
-
 	// Stroke primitives expose opacity only (their reveal is the draw-on); DOM
 	// primitives take the full ADR-0035 channel set.
 	const channelNames = $derived(
@@ -48,97 +30,6 @@
 			? (['opacity'] as const)
 			: (['opacity', 'x', 'y', 'scale', 'rotation'] as const)
 	);
-
-	const nodeOptions = $derived(
-		(engineState.surface.diagram ?? []).filter((entry) => entry.type === 'node')
-	);
-
-	function fraction(value: string): number | null {
-		const n = Number(value);
-		return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : null;
-	}
-
-	function setPoint(point: { x: number; y: number }, axis: 'x' | 'y', value: string): void {
-		const n = fraction(value);
-		if (n !== null) point[axis] = n;
-	}
-
-	function setScale(geometry: DiagramPositionGeometry, value: string): void {
-		const n = Number(value);
-		if (!Number.isFinite(n)) return;
-		geometry.scale = Math.max(0.25, Math.min(4, n));
-	}
-
-	// Endpoint editing: a node ref or an explicit point. Switching to `point`
-	// materialises the endpoint's current node centre-ish default; switching to
-	// `node` takes the first node.
-	function endpointMode(endpoint: DiagramEndpoint): 'node' | 'point' {
-		return 'node' in endpoint ? 'node' : 'point';
-	}
-
-	function setEndpointMode(
-		geometry: DiagramEdgeGeometry,
-		end: 'from' | 'to',
-		mode: string
-	): void {
-		const current = geometry[end];
-		if (mode === 'node') {
-			const first = nodeOptions[0];
-			if (!first) return;
-			geometry[end] = { node: 'node' in current ? current.node : first.id };
-		} else {
-			geometry[end] = 'node' in current ? { x: 0.5, y: 0.5 } : current;
-		}
-	}
-
-	function setEndpointNode(geometry: DiagramEdgeGeometry, end: 'from' | 'to', id: string): void {
-		geometry[end] = { node: id };
-	}
-
-	function toggleControl(geometry: DiagramEdgeGeometry, enabled: boolean): void {
-		geometry.control = enabled ? { x: 0.5, y: 0.4 } : undefined;
-	}
-
-	function toggleOrientationCustomization(primitive: DiagramPrimitive, checked: boolean): void {
-		const orientation = engineState.transport.orientation;
-		if (checked) {
-			switch (primitive.type) {
-				case 'node':
-				case 'label':
-				case 'stat-callout': {
-					const geometry = cloneDiagramPrimitiveGeometry(
-						resolveDiagramPrimitiveGeometry(primitive, orientation)
-					);
-					if (!primitive.orientationOverrides) primitive.orientationOverrides = {};
-					primitive.orientationOverrides[orientation] = geometry;
-					return;
-				}
-				case 'edge-arrow': {
-					const geometry = cloneDiagramPrimitiveGeometry(
-						resolveDiagramPrimitiveGeometry(primitive, orientation)
-					);
-					if (!primitive.orientationOverrides) primitive.orientationOverrides = {};
-					primitive.orientationOverrides[orientation] = geometry;
-					return;
-				}
-				case 'timeline-segment': {
-					const geometry = cloneDiagramPrimitiveGeometry(
-						resolveDiagramPrimitiveGeometry(primitive, orientation)
-					);
-					if (!primitive.orientationOverrides) primitive.orientationOverrides = {};
-					primitive.orientationOverrides[orientation] = geometry;
-					return;
-				}
-			}
-		}
-
-		const overrides = primitive.orientationOverrides;
-		if (!overrides) return;
-		delete overrides[orientation];
-		if (!overrides.horizontal && !overrides.vertical) {
-			primitive.orientationOverrides = undefined;
-		}
-	}
 
 	function setCascade(el: DiagramPrimitive, next: Cascade | undefined): void {
 		if (next === undefined) {
@@ -164,452 +55,31 @@
 		return next;
 	}
 
-	function transitionInput(
-		el: DiagramPrimitive,
-		field: 'enter' | 'exit',
-		key: 'start' | 'duration',
-		value: string
-	): void {
-		const n = fraction(value);
-		if (n === null) return;
-		ensureTransition(el, field)[key] = n;
-	}
-
-	function setStatNumber(
-		el: DiagramPrimitive & { from?: unknown },
-		key: 'from' | 'to',
-		value: string
-	): void {
-		const n = Number(value);
-		if (!Number.isFinite(n)) return;
-		(el as { [K in 'from' | 'to']?: number })[key] = n;
+	function toggleTransition(el: DiagramPrimitive, field: 'enter' | 'exit', checked: boolean): void {
+		if (checked) {
+			ensureTransition(el, field);
+		} else {
+			el[field] = undefined;
+		}
 	}
 </script>
 
 {#if diagramPrimitive}
 	{@const el = diagramPrimitive}
 
-	<InspectorSection label={el.type}>
-		{#if el.type === 'node'}
-			<Field label="Form">
-				<select
-					value={el.form}
-					onchange={(e) => {
-						el.form = (e.currentTarget as HTMLSelectElement).value as typeof el.form;
-					}}
-				>
-					<option value="box">box</option>
-					<option value="pin">pin</option>
-					<option value="dot">dot</option>
-				</select>
-			</Field>
-			<Field label="Text">
-				<input
-					type="text"
-					value={el.text ?? ''}
-					oninput={(e) => {
-						const v = (e.currentTarget as HTMLInputElement).value;
-						el.text = v.length > 0 ? v : undefined;
-					}}
-				/>
-			</Field>
-		{:else if el.type === 'label'}
-			<Field label="Text">
-				<input
-					type="text"
-					value={el.text}
-					oninput={(e) => {
-						el.text = (e.currentTarget as HTMLInputElement).value;
-					}}
-				/>
-			</Field>
-		{:else if el.type === 'stat-callout'}
-			<Field label="From">
-				<input
-					type="number"
-					step="any"
-					value={el.from}
-					oninput={(e) => setStatNumber(el, 'from', (e.currentTarget as HTMLInputElement).value)}
-				/>
-			</Field>
-			<Field label="To">
-				<input
-					type="number"
-					step="any"
-					value={el.to}
-					oninput={(e) => setStatNumber(el, 'to', (e.currentTarget as HTMLInputElement).value)}
-				/>
-			</Field>
-			<Field label="Format">
-				<select
-					value={el.format ?? 'integer'}
-					onchange={(e) => {
-						el.format = (e.currentTarget as HTMLSelectElement).value as typeof el.format;
-					}}
-				>
-					<option value="integer">integer</option>
-					<option value="currency">currency</option>
-					<option value="percent">percent</option>
-					<option value="timecode">timecode</option>
-				</select>
-			</Field>
-			<Field label="Caption">
-				<input
-					type="text"
-					value={el.label ?? ''}
-					oninput={(e) => {
-						const v = (e.currentTarget as HTMLInputElement).value;
-						el.label = v.length > 0 ? v : undefined;
-					}}
-				/>
-			</Field>
-			<Field label="Roll start">
-				<input
-					type="number"
-					min="0"
-					max="1"
-					step="any"
-					value={el.rollStart ?? ''}
-					placeholder="enter start"
-					oninput={(e) => {
-						const n = fraction((e.currentTarget as HTMLInputElement).value);
-						if (n !== null) el.rollStart = n;
-					}}
-				/>
-			</Field>
-			<Field label="Roll window">
-				<input
-					type="number"
-					min="0"
-					max="1"
-					step="any"
-					value={el.rollWindow ?? ''}
-					placeholder="0.5"
-					oninput={(e) => {
-						const n = fraction((e.currentTarget as HTMLInputElement).value);
-						if (n !== null) el.rollWindow = n;
-					}}
-				/>
-			</Field>
-		{:else if el.type === 'edge-arrow'}
-			<Field label="Direction">
-				<select
-					value={el.direction ?? 'forward'}
-					onchange={(e) => {
-						el.direction = (e.currentTarget as HTMLSelectElement).value as typeof el.direction;
-					}}
-				>
-					<option value="forward">forward</option>
-					<option value="both">both</option>
-					<option value="none">none</option>
-				</select>
-			</Field>
-		{:else}
-			<Field label="Caption">
-				<input
-					type="text"
-					value={el.label ?? ''}
-					oninput={(e) => {
-						const v = (e.currentTarget as HTMLInputElement).value;
-						el.label = v.length > 0 ? v : undefined;
-					}}
-				/>
-			</Field>
-		{/if}
-		<!-- Ink is a Role SELECTION (which pen), not appearance (what the pen looks
-		     like — still the Pack's): 'accent' routes the primitive to the Pack's
-		     core accent-treatment for emphasis hierarchy. -->
-		<Field label="Ink">
-			<select
-				value={el.ink ?? 'ink'}
-				onchange={(e) => {
-					const v = (e.currentTarget as HTMLSelectElement).value;
-					el.ink = v === 'accent' ? 'accent' : undefined;
-				}}
-			>
-				<option value="ink">ink</option>
-				<option value="accent">accent</option>
-			</select>
-		</Field>
-	</InspectorSection>
+	<BlockTypeSection primitive={el} />
+	<BlockGeometrySection primitive={el} />
 
-	<InspectorSection label="Geometry">
-		{#snippet action()}
-			<InspectorToggle
-				checked={el.orientationOverrides?.[engineState.transport.orientation] !== undefined}
-				label={`Customize ${engineState.transport.orientation}`}
-				onchange={(checked) => toggleOrientationCustomization(el, checked)}
-			/>
-		{/snippet}
-		{#if el.type === 'edge-arrow'}
-			{@const geometry = resolveDiagramPrimitiveGeometry(el, engineState.transport.orientation)}
-			{#each ['from', 'to'] as const as end (end)}
-				{@const endpoint = geometry[end]}
-				<Field label={end === 'from' ? 'From' : 'To'}>
-					<select
-						value={endpointMode(endpoint)}
-						onchange={(e) =>
-							setEndpointMode(geometry, end, (e.currentTarget as HTMLSelectElement).value)}
-					>
-						<option value="node" disabled={nodeOptions.length === 0}>node</option>
-						<option value="point">point</option>
-					</select>
-					{#if 'node' in endpoint}
-						<select
-							value={endpoint.node}
-							onchange={(e) =>
-								setEndpointNode(
-									geometry,
-									end,
-									(e.currentTarget as HTMLSelectElement).value
-								)}
-						>
-							{#each nodeOptions as candidate (candidate.id)}
-								<option value={candidate.id}>{candidate.id}</option>
-							{/each}
-						</select>
-					{:else}
-						<input
-							type="number"
-							min="0"
-							max="1"
-							step="any"
-							value={endpoint.x}
-							aria-label="{end} x"
-							oninput={(e) => setPoint(endpoint, 'x', (e.currentTarget as HTMLInputElement).value)}
-						/>
-						<input
-							type="number"
-							min="0"
-							max="1"
-							step="any"
-							value={endpoint.y}
-							aria-label="{end} y"
-							oninput={(e) => setPoint(endpoint, 'y', (e.currentTarget as HTMLInputElement).value)}
-						/>
-					{/if}
-				</Field>
-			{/each}
-			<Field label="Route">
-				<select
-					value={geometry.route}
-					onchange={(e) => {
-						geometry.route = (e.currentTarget as HTMLSelectElement)
-							.value as typeof geometry.route;
-					}}
-				>
-					<option value="straight">straight</option>
-					<option value="elbow">elbow</option>
-					<option value="arc">arc</option>
-				</select>
-			</Field>
-			<Field label="Control">
-				<InspectorToggle
-					checked={geometry.control !== undefined}
-					label="Curve control point"
-					onchange={(checked) => toggleControl(geometry, checked)}
-				/>
-				{#if geometry.control}
-					{@const control = geometry.control}
-					<input
-						type="number"
-						min="0"
-						max="1"
-						step="any"
-						value={control.x}
-						aria-label="control x"
-						oninput={(e) => setPoint(control, 'x', (e.currentTarget as HTMLInputElement).value)}
-					/>
-					<input
-						type="number"
-						min="0"
-						max="1"
-						step="any"
-						value={control.y}
-						aria-label="control y"
-						oninput={(e) => setPoint(control, 'y', (e.currentTarget as HTMLInputElement).value)}
-					/>
-				{/if}
-			</Field>
-		{:else if el.type === 'timeline-segment'}
-			{@const geometry = resolveDiagramPrimitiveGeometry(el, engineState.transport.orientation)}
-			{#each ['from', 'to'] as const as end (end)}
-				{@const point = geometry[end]}
-				<Field label={end === 'from' ? 'From' : 'To'}>
-					<input
-						type="number"
-						min="0"
-						max="1"
-						step="any"
-						value={point.x}
-						aria-label="{end} x"
-						oninput={(e) => setPoint(point, 'x', (e.currentTarget as HTMLInputElement).value)}
-					/>
-					<input
-						type="number"
-						min="0"
-						max="1"
-						step="any"
-						value={point.y}
-						aria-label="{end} y"
-						oninput={(e) => setPoint(point, 'y', (e.currentTarget as HTMLInputElement).value)}
-					/>
-				</Field>
-			{/each}
-		{:else}
-			{@const geometry = resolveDiagramPrimitiveGeometry(el, engineState.transport.orientation)}
-			<Field label="X">
-				<input
-					type="number"
-					min="0"
-					max="1"
-					step="any"
-					value={geometry.position.x}
-					oninput={(e) =>
-						setPoint(geometry.position, 'x', (e.currentTarget as HTMLInputElement).value)}
-				/>
-			</Field>
-			<Field label="Y">
-				<input
-					type="number"
-					min="0"
-					max="1"
-					step="any"
-					value={geometry.position.y}
-					oninput={(e) =>
-						setPoint(geometry.position, 'y', (e.currentTarget as HTMLInputElement).value)}
-				/>
-			</Field>
-			<Field label="Scale">
-				<input
-					type="number"
-					min="0.25"
-					max="4"
-					step="any"
-					value={geometry.scale ?? 1}
-					oninput={(e) => setScale(geometry, (e.currentTarget as HTMLInputElement).value)}
-				/>
-			</Field>
-		{/if}
-	</InspectorSection>
-
-	<InspectorSection label="Enter">
-		{#snippet action()}
-			<InspectorToggle
-				checked={el.enter !== undefined}
-				label="Enter transition"
-				onchange={(checked) => {
-					if (checked) {
-						ensureTransition(el, 'enter');
-					} else {
-						el.enter = undefined;
-					}
-				}}
-			/>
-		{/snippet}
-		{#if el.enter}
-			<Field label="Start">
-				<input
-					type="number"
-					min="0"
-					max="1"
-					step="any"
-					value={el.enter.start}
-					oninput={(e) =>
-						transitionInput(el, 'enter', 'start', (e.currentTarget as HTMLInputElement).value)}
-				/>
-				<span class="ins-unit"
-					>{formatFractionAsSeconds(el.enter.start, engineState.transport.durationSeconds)}</span
-				>
-			</Field>
-			<Field label="Duration">
-				<input
-					type="number"
-					min="0"
-					max="1"
-					step="any"
-					value={el.enter.duration}
-					oninput={(e) =>
-						transitionInput(el, 'enter', 'duration', (e.currentTarget as HTMLInputElement).value)}
-				/>
-				<span class="ins-unit"
-					>{formatFractionAsSeconds(el.enter.duration, engineState.transport.durationSeconds)}</span
-				>
-			</Field>
-			<Field label="Ease">
-				<select
-					value={el.enter.ease}
-					onchange={(e) => {
-						ensureTransition(el, 'enter').ease = (e.currentTarget as HTMLSelectElement)
-							.value as Ease;
-					}}
-				>
-					{#each easeOptions as [value, option] (value)}
-						<option {value}>{option.label}</option>
-					{/each}
-				</select>
-			</Field>
-		{/if}
-	</InspectorSection>
-
-	<InspectorSection label="Exit">
-		{#snippet action()}
-			<InspectorToggle
-				checked={el.exit !== undefined}
-				label="Exit transition"
-				onchange={(checked) => {
-					if (checked) {
-						ensureTransition(el, 'exit');
-					} else {
-						el.exit = undefined;
-					}
-				}}
-			/>
-		{/snippet}
-		{#if el.exit}
-			<Field label="Start">
-				<input
-					type="number"
-					min="0"
-					max="1"
-					step="any"
-					value={el.exit.start}
-					oninput={(e) =>
-						transitionInput(el, 'exit', 'start', (e.currentTarget as HTMLInputElement).value)}
-				/>
-				<span class="ins-unit"
-					>{formatFractionAsSeconds(el.exit.start, engineState.transport.durationSeconds)}</span
-				>
-			</Field>
-			<Field label="Duration">
-				<input
-					type="number"
-					min="0"
-					max="1"
-					step="any"
-					value={el.exit.duration}
-					oninput={(e) =>
-						transitionInput(el, 'exit', 'duration', (e.currentTarget as HTMLInputElement).value)}
-				/>
-				<span class="ins-unit"
-					>{formatFractionAsSeconds(el.exit.duration, engineState.transport.durationSeconds)}</span
-				>
-			</Field>
-			<Field label="Ease">
-				<select
-					value={el.exit.ease}
-					onchange={(e) => {
-						ensureTransition(el, 'exit').ease = (e.currentTarget as HTMLSelectElement)
-							.value as Ease;
-					}}
-				>
-					{#each easeOptions as [value, option] (value)}
-						<option {value}>{option.label}</option>
-					{/each}
-				</select>
-			</Field>
-		{/if}
-	</InspectorSection>
+	<TransitionWindowSection
+		label="Enter"
+		transition={el.enter}
+		ontoggle={(checked) => toggleTransition(el, 'enter', checked)}
+	/>
+	<TransitionWindowSection
+		label="Exit"
+		transition={el.exit}
+		ontoggle={(checked) => toggleTransition(el, 'exit', checked)}
+	/>
 
 	<KeyframesSection selfKey={`block:${el.id}`} {channelNames} />
 

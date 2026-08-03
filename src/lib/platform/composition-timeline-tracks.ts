@@ -34,7 +34,7 @@ import {
 	type EngineState,
 	type Keyframe
 } from './engine-schema';
-import { deriveSoundCues, isAudibleSoundCue } from './sound-cues';
+import { deriveSoundCues, isAudibleSoundCue, resolveCueSample } from './sound-cues';
 import {
 	createSoundRailReferenceId,
 	createTimelineTrackId,
@@ -50,9 +50,20 @@ import type {
 	VideoTimelineTrack
 } from './timeline-track';
 
-const BLOCK_COLOR = '#fabf47';
-const OVERLAY_COLOR = '#1f5aff';
-const TEXT_ANIMATION_COLOR = '#7e3aff';
+const BLOCK_COLOR = '#c8a94e';
+const OVERLAY_COLOR = '#7d93b2';
+const TEXT_ANIMATION_COLOR = '#9a86c9';
+const SOUND_CUE_COLOR = '#57b3ac';
+
+// Lane-kind color identity, shared with the inspector's scope crumb so the
+// rail's tick matches the selected lane's tick. Kinds whose lane color is
+// dynamic (surface and mark ride the pack's ink) are intentionally absent.
+export const TIMELINE_KIND_COLORS: Partial<Record<string, string>> = {
+	block: BLOCK_COLOR,
+	overlay: OVERLAY_COLOR,
+	'text-animation': TEXT_ANIMATION_COLOR,
+	'sound-cue': SOUND_CUE_COLOR
+};
 
 type ChannelTrackMap = Partial<Record<string, Keyframe[] | undefined>>;
 
@@ -195,7 +206,12 @@ function clipKeyframes(
 	const markers: ClipKeyframe[] = [];
 	for (const [channel, frames] of Object.entries(channels)) {
 		frames?.forEach((frame, index) => {
-			markers.push({ channel, index, fraction: clipStartFraction + frame.atMs / durationMs });
+			markers.push({
+				channel,
+				index,
+				fraction: clipStartFraction + frame.atMs / durationMs,
+				value: frame.value
+			});
 		});
 	}
 	return markers.sort((left, right) => left.fraction - right.fraction);
@@ -603,7 +619,7 @@ function appendOverlaySubtracks(tracks: TimelineTrack[], state: EngineState): vo
 				subtrack: { kind: 'stack' }
 			}),
 			label: 'stack stagger',
-			color: '#f6c945',
+			color: '#9db0c9',
 			transitions: [
 				{
 					id: 'stagger',
@@ -666,7 +682,7 @@ function appendOverlaySubtracks(tracks: TimelineTrack[], state: EngineState): vo
 				subtrack: { kind: 'beat' }
 			}),
 			label: 'press beat',
-			color: '#ff0033',
+			color: '#e6322a',
 			transitions: [
 				{
 					id: 'beat',
@@ -703,7 +719,7 @@ function appendOverlaySubtracks(tracks: TimelineTrack[], state: EngineState): vo
 				subtrack: { kind: 'beat' }
 			}),
 			label: 'completion beat',
-			color: '#3dd816',
+			color: '#3fae52',
 			transitions: [
 				{
 					id: 'beat',
@@ -795,7 +811,7 @@ function appendSpecialOverlayTracks(tracks: TimelineTrack[], state: EngineState)
 					subtrack: { kind: 'cursor', index: dwell.index }
 				}),
 				label: `↳ ${dwell.targetSlot}`,
-				color: '#16b8a6',
+				color: '#62788f',
 				transitions: [
 					{
 						id: 'dwell',
@@ -917,8 +933,9 @@ function appendSoundTrack(tracks: TimelineTrack[], state: EngineState): void {
 			start: cue.start,
 			duration: 0.012,
 			ramp: 'in',
-			color: isAudibleSoundCue(cue) ? '#2de8ee' : '#4a5560',
-			soundReference: reference
+			color: isAudibleSoundCue(cue) ? SOUND_CUE_COLOR : '#5c6773',
+			soundReference: reference,
+			soundAssetSlug: resolveCueSample(cue) ?? undefined
 		});
 	}
 	state.audioCues.forEach((cue, index) => {
@@ -929,12 +946,13 @@ function appendSoundTrack(tracks: TimelineTrack[], state: EngineState): void {
 			start: cue.start,
 			duration: Math.max(0.015, cue.duration),
 			ramp: 'in',
-			color: cue.kind === 'bed' ? '#17727d' : '#2de8ee',
+			color: cue.kind === 'bed' ? '#3f7d78' : SOUND_CUE_COLOR,
 			minStart: 0,
 			maxStart: 0.98,
 			minDuration: 0.01,
 			maxDuration: 1,
 			soundReference: reference,
+			soundAssetSlug: cue.assetSlug,
 			onUpdate: ({ start, duration }) => {
 				const target = state.audioCues[index];
 				target.start = start;
@@ -946,7 +964,7 @@ function appendSoundTrack(tracks: TimelineTrack[], state: EngineState): void {
 		tracks.push({
 			id: createTimelineTrackId({ kind: 'sound' }),
 			label: 'Sound',
-			color: '#2de8ee',
+			color: SOUND_CUE_COLOR,
 			transitions
 		});
 	}

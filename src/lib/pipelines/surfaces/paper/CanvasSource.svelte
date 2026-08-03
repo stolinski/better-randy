@@ -14,6 +14,13 @@
 
 	let { element = $bindable<HTMLElement | null>(null) }: Props = $props();
 
+	function exposePaperSourceElement(node: HTMLElement): () => void {
+		element = node;
+		return () => {
+			if (element === node) element = null;
+		};
+	}
+
 	// Aspect ratio is orientation-aware. On vertical (9:16) the canonical
 	// "research paper" portrait A4 (√2) fits naturally. On horizontal (16:9)
 	// strict A4 produces a postage-stamp card; a near-square "notebook page"
@@ -21,7 +28,10 @@
 	// for body measure (G4-density) and substantial presence (T1).
 	const PAPER_ASPECT_RATIO_HORIZONTAL = 1.1;
 	const PAPER_ASPECT_RATIO_VERTICAL = Math.SQRT2;
-	const HEIGHT_RATIO = 0.9; // card spans ~90% of frame height
+	const HEIGHT_RATIO = 0.9; // horizontal target; vertical clamps to platform title-safe height
+	const VERTICAL_PAPER_HEIGHT_RATIO = 0.85;
+	const VERTICAL_PAPER_WIDTH_MAX_RATIO = 0.93;
+	const VERTICAL_READABLE_RAIL_BUFFER_RATIO = 0.03;
 
 	const fontFamily = $derived(ENGINE_FONT_FAMILIES[engineState.typography.fontFamily]);
 	// Paper/ink resolve override → Pack core (ADR-0038): an authored
@@ -37,9 +47,32 @@
 		const orientation = portrait ? 'vertical' as const : 'horizontal' as const;
 		const safeArea = getLayoutSafeArea(orientation);
 		const aspect = portrait ? PAPER_ASPECT_RATIO_VERTICAL : PAPER_ASPECT_RATIO_HORIZONTAL;
-		const height = frame.height * HEIGHT_RATIO;
-		const width = height / aspect;
+		const targetHeight = frame.height * HEIGHT_RATIO;
+		const safeHeight = frame.height * (1 - safeArea.top - safeArea.bottom);
+		const contentHeight = portrait ? Math.min(targetHeight, safeHeight) : targetHeight;
+		const height = portrait
+			? Math.max(contentHeight, frame.height * VERTICAL_PAPER_HEIGHT_RATIO)
+			: contentHeight;
+		const aspectWidth = contentHeight / aspect;
+		const width = portrait
+			? Math.min(aspectWidth, frame.width * VERTICAL_PAPER_WIDTH_MAX_RATIO)
+			: aspectWidth;
 		const x = frame.width * 0.5 - width / 2;
+		// Vertical platform margins are asymmetric, so inset the readable column
+		// independently while leaving the accepted horizontal proportions untouched.
+		// Extra vertical height remains below the footer as non-readable paper chrome.
+		const paddingBlockStart = width * 0.05;
+		const paddingBlockEnd = paddingBlockStart + height - contentHeight;
+		const paddingInline = width * 0.07;
+		const paddingInlineStart = portrait
+			? Math.max(paddingInline, frame.width * safeArea.left - x)
+			: paddingInline;
+		const paddingInlineEnd = portrait
+			? Math.max(
+					paddingInline,
+					x + width - frame.width * (1 - safeArea.right - VERTICAL_READABLE_RAIL_BUFFER_RATIO)
+				)
+			: paddingInline;
 		// Anchor the article at its settled vertical position; the enter / exit
 		// motion is expressed as a translate offset (see translateY below) so
 		// the property animated is `transform`, a compositor-only property.
@@ -56,7 +89,19 @@
 		// G8c (arc / secondary action required; pure Y-slide does not).
 		const translateX = (1 - visibility) * (frame.width * -0.003);
 
-		return { x, y, width, height, translateX, translateY };
+		return {
+			x,
+			y,
+			width,
+			height,
+			paddingBlockStart,
+			paddingBlockEnd,
+			paddingInlineStart,
+			paddingInlineEnd,
+			bodyFontSize: width * (portrait ? 0.032 : 0.028),
+			translateX,
+			translateY
+		};
 	});
 
 	const sourceLabel = $derived.by(() => {
@@ -102,7 +147,7 @@
 </script>
 
 <article
-	bind:this={element}
+	{@attach exposePaperSourceElement}
 	class="paper-source surface"
 	style:background-color={typographyColors.paperColor}
 		style:box-shadow={cardShadow}
@@ -111,8 +156,10 @@
 	style:font-family={fontFamily.stack}
 	style:inline-size={`${layout.width}px`}
 	style:left={`${layout.x}px`}
-	style:padding-block={`${layout.width * 0.05}px`}
-	style:padding-inline={`${layout.width * 0.07}px`}
+	style:padding-block-end={`${layout.paddingBlockEnd}px`}
+	style:padding-block-start={`${layout.paddingBlockStart}px`}
+	style:padding-inline-end={`${layout.paddingInlineEnd}px`}
+	style:padding-inline-start={`${layout.paddingInlineStart}px`}
 	style:top={`${layout.y}px`}
 	style:transform={`translate3d(${layout.translateX}px, ${layout.translateY}px, 0)`}
 >
@@ -145,7 +192,7 @@
 	{/if}
 
 	{#key annotationBodyPlainText(engineState.surface.content.body)}
-		<section data-text-anim-slot="body" style:font-size={`${layout.width * 0.028}px`}>
+		<section data-text-anim-slot="body" style:font-size={`${layout.bodyFontSize}px`}>
 			{#each engineState.surface.content.body as block, blockIndex (blockIndex)}
 				{#if block.type === 'paragraph'}
 					<p>

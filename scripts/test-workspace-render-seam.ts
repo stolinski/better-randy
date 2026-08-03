@@ -41,7 +41,32 @@ assert.equal(
 assert.equal(
 	(renderer.match(/pipeline\.uploadDom\(\)/g) ?? []).length,
 	1,
-	'the shared frame seam must own the only live DOM upload'
+	'the shared frame seam must own the only live DOM upload operation'
+);
+assert.match(
+	renderer,
+	/uploadedSurfaceGenerations\.get\(pipeline\) !== capture\.surface/,
+	'preview DOM uploads must be gated by browser paint generations'
+);
+assert.match(
+	source,
+	/force: isExporting/,
+	'export frames must force the post-settlement DOM capture'
+);
+assert.match(
+	source,
+	/transitionSnapshotPreparation = preparation;[\s\S]*?transitionSnapshotPreparation === preparation[\s\S]*?transitionSnapshotPreparation = null;/,
+	'Workspace must retain and identity-clear the active transition snapshot preparation'
+);
+assert.match(
+	source,
+	/async function performExport\(request\?: SyncExportRequest\): Promise<void> \{\s*await tick\(\);\s*await transitionSnapshotPreparation;/,
+	'export must flush reactive effects before awaiting transition snapshot preparation'
+);
+assert.match(
+	exportController,
+	/await dependencies\.waitForCompositionResources\(signal\)[\s\S]*?await dependencies\.settleCompositionPaint\(signal\)[\s\S]*?await dependencies\.prepareCompositionFrame/,
+	'export must await resources and browser paint settlement before frame preparation'
 );
 assert.equal(
 	(renderer.match(/const inputs = request\.buildSurfaceInputs\(request\.timestamp\)/g) ?? [])

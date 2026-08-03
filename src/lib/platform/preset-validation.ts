@@ -5,7 +5,10 @@ import { PACK_REGISTRY } from './packs/registry';
 import { PIPELINE_REGISTRY, getSurfaceRenderer } from './pipelines';
 import { getCompositionEffectRegistration } from './pipelines/composition-effect-registry';
 import { getStageRegistration } from './pipelines/stage-registry';
-import { isTransitionEffectType } from './pipelines/transition-registry';
+import {
+	getTransitionEffectRenderer,
+	isTransitionEffectType
+} from './pipelines/transition-registry';
 import { isSubstrateAsset } from './substrate-textures';
 import { resolveFrameRate, secondsToFrames } from '../utils/composition-timing';
 import { normalizeWebsiteCaptureUrl } from '../utils/website-showcase';
@@ -111,21 +114,16 @@ function validateMediaSemantics(preset: Preset, issues: PresetSemanticIssue[]): 
 	}
 }
 
-export function validatePresetSemantics(
-	preset: Preset,
-	options: PresetSemanticValidationOptions = {}
-): readonly PresetSemanticIssue[] {
-	const issues: PresetSemanticIssue[] = [];
-
+function validatePackSemantics(preset: Preset, issues: PresetSemanticIssue[]): void {
 	if (!(preset.pack in PACK_REGISTRY)) {
 		issues.push({
 			path: ['pack'],
 			message: `Unknown Pack "${preset.pack}". Registered Packs: ${Object.keys(PACK_REGISTRY).join(', ')}`
 		});
 	}
+}
 
-	validateMediaSemantics(preset, issues);
-
+function validateSurfaceSemantics(preset: Preset, issues: PresetSemanticIssue[]): void {
 	const surfaceRenderer = getSurfaceRenderer(preset.state.surface.type);
 	if (!surfaceRenderer) {
 		issues.push({
@@ -163,7 +161,10 @@ export function validatePresetSemantics(
 			});
 		}
 	}
+}
 
+/** Returns the overlay ID set for text-animation target checks. */
+function validateOverlaySemantics(preset: Preset, issues: PresetSemanticIssue[]): Set<string> {
 	validateUniqueIds(preset.state.overlays, 'overlays', issues);
 	const overlayIds = new Set<string>();
 	for (const [index, overlay] of preset.state.overlays.entries()) {
@@ -183,7 +184,10 @@ export function validatePresetSemantics(
 			appendSchemaIssues(issues, ['state', 'overlays', index, 'content'], result.error);
 		}
 	}
+	return overlayIds;
+}
 
+function validateEffectSemantics(preset: Preset, issues: PresetSemanticIssue[]): void {
 	validateUniqueIds(preset.state.effects, 'effects', issues);
 	for (const [index, effect] of preset.state.effects.entries()) {
 		if (isTransitionEffectType(effect.type)) {
@@ -211,23 +215,30 @@ export function validatePresetSemantics(
 			appendSchemaIssues(issues, ['state', 'effects', index], result.error);
 		}
 	}
+}
 
-	if (preset.state.stage) {
-		if (!getStageRegistration(preset.state.stage.type)) {
-			issues.push({
-				path: ['state', 'stage', 'type'],
-				message: `Unknown Stage type "${preset.state.stage.type}"`
-			});
-		}
-		const asset = preset.state.stage.backdrop?.image?.asset;
-		if (asset && !isSubstrateAsset(asset)) {
-			issues.push({
-				path: ['state', 'stage', 'backdrop', 'image', 'asset'],
-				message: `Unknown substrate asset "${asset}"`
-			});
-		}
+function validateStageSemantics(preset: Preset, issues: PresetSemanticIssue[]): void {
+	if (!preset.state.stage) return;
+	if (!getStageRegistration(preset.state.stage.type)) {
+		issues.push({
+			path: ['state', 'stage', 'type'],
+			message: `Unknown Stage type "${preset.state.stage.type}"`
+		});
 	}
+	const asset = preset.state.stage.backdrop?.image?.asset;
+	if (asset && !isSubstrateAsset(asset)) {
+		issues.push({
+			path: ['state', 'stage', 'backdrop', 'image', 'asset'],
+			message: `Unknown substrate asset "${asset}"`
+		});
+	}
+}
 
+function validateTextAnimationTargets(
+	preset: Preset,
+	overlayIds: ReadonlySet<string>,
+	issues: PresetSemanticIssue[]
+): void {
 	for (const [index, animation] of preset.state.textAnimations.entries()) {
 		if (animation.target.kind === 'overlay' && !overlayIds.has(animation.target.overlayId)) {
 			issues.push({
@@ -236,47 +247,64 @@ export function validatePresetSemantics(
 			});
 		}
 	}
+}
 
-	if (preset.transition) {
-		if (preset.state.media.videoTrack.clips.length > 0) {
-			issues.push({
-				path: ['state', 'media', 'videoTrack', 'clips'],
-				message: 'Active Video clips are not supported on transition Presets in v1'
-			});
-		}
-		if (!isTransitionEffectType(preset.transition.effect)) {
-			issues.push({
-				path: ['transition', 'effect'],
-				message: `Unknown transition Effect "${preset.transition.effect}"`
-			});
-		}
-		if (options.resolvePreset) {
-			const fromPreset = options.resolvePreset(preset.transition.from);
-			const toPreset = options.resolvePreset(preset.transition.to);
-			if (!fromPreset) {
-				issues.push({
-					path: ['transition', 'from'],
-					message: `Preset "${preset.transition.from}" does not resolve`
-				});
-			} else if (fromPreset.state.media.videoTrack.clips.length > 0) {
-				issues.push({
-					path: ['transition', 'from'],
-					message: `Preset "${preset.transition.from}" uses active Video clips, which transition snapshots do not support in v1`
-				});
-			}
-			if (!toPreset) {
-				issues.push({
-					path: ['transition', 'to'],
-					message: `Preset "${preset.transition.to}" does not resolve`
-				});
-			} else if (toPreset.state.media.videoTrack.clips.length > 0) {
-				issues.push({
-					path: ['transition', 'to'],
-					message: `Preset "${preset.transition.to}" uses active Video clips, which transition snapshots do not support in v1`
-				});
-			}
+function validateTransitionSemantics(
+	preset: Preset,
+	options: PresetSemanticValidationOptions,
+	issues: PresetSemanticIssue[]
+): void {
+	if (!preset.transition) return;
+	if (preset.state.media.videoTrack.clips.length > 0) {
+		issues.push({
+			path: ['state', 'media', 'videoTrack', 'clips'],
+			message: 'Active Video clips are not supported on transition Presets in v1'
+		});
+	}
+	const renderer = getTransitionEffectRenderer(preset.transition.effect);
+	if (!renderer) {
+		issues.push({
+			path: ['transition', 'effect'],
+			message: `Unknown transition Effect "${preset.transition.effect}"`
+		});
+	} else {
+		const result = renderer.paramsSchema.safeParse(preset.transition.params);
+		if (!result.success) {
+			appendSchemaIssues(issues, ['transition', 'params'], result.error);
 		}
 	}
+	if (!options.resolvePreset) return;
+	for (const endpoint of ['from', 'to'] as const) {
+		const slug = preset.transition[endpoint];
+		const resolved = options.resolvePreset(slug);
+		if (!resolved) {
+			issues.push({
+				path: ['transition', endpoint],
+				message: `Preset "${slug}" does not resolve`
+			});
+		} else if (resolved.state.media.videoTrack.clips.length > 0) {
+			issues.push({
+				path: ['transition', endpoint],
+				message: `Preset "${slug}" uses active Video clips, which transition snapshots do not support in v1`
+			});
+		}
+	}
+}
+
+export function validatePresetSemantics(
+	preset: Preset,
+	options: PresetSemanticValidationOptions = {}
+): readonly PresetSemanticIssue[] {
+	const issues: PresetSemanticIssue[] = [];
+
+	validatePackSemantics(preset, issues);
+	validateMediaSemantics(preset, issues);
+	validateSurfaceSemantics(preset, issues);
+	const overlayIds = validateOverlaySemantics(preset, issues);
+	validateEffectSemantics(preset, issues);
+	validateStageSemantics(preset, issues);
+	validateTextAnimationTargets(preset, overlayIds, issues);
+	validateTransitionSemantics(preset, options, issues);
 
 	return issues;
 }

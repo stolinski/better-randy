@@ -1,0 +1,35 @@
+{
+	"schema": "supers@1",
+	"name": "Sheet peel transition — demo",
+	"description": "A dark sheet peels from a light settled snapshot with mirrored fold geometry, bounded highlight, and visible contact plus diffuse cast-shadow zones.",
+	"pack": "syntax",
+	"kind": "fixture",
+	"transition": {
+		"from": "type-hero-vantage",
+		"to": "type-hero-vantage-clean-light",
+		"effect": "sheet-peel",
+		"durationMs": 1600,
+		"params": {
+			"direction": "right",
+			"curl": 0.16,
+			"perspective": 0.55,
+			"shadow": 0.42,
+			"highlight": 0.35
+		}
+	},
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 2.4,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": { "fontFamily": "sans" },
+		"marks": { "defaults": {}, "timings": [] },
+		"surface": { "type": "plain", "content": { "body": "" } },
+		"textAnimations": [],
+		"overlays": [],
+		"effects": [],
+		"audioCues": []
+	}
+}

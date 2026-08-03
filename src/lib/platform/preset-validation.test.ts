@@ -35,7 +35,13 @@ function videoPreset(name: string): Preset {
 describe('Video media semantic validation', () => {
 	it('rejects active Video clips on a transition Preset', () => {
 		const preset = videoPreset('Transition');
-		preset.transition = { from: 'from', to: 'to', effect: 'mask-wipe', durationMs: 600 };
+		preset.transition = {
+			from: 'from',
+			to: 'to',
+			effect: 'mask-wipe',
+			durationMs: 600,
+			params: {}
+		};
 
 		const issues = validatePresetSemantics(preset);
 
@@ -56,7 +62,13 @@ describe('Video media semantic validation', () => {
 			pack: 'syntax',
 			kind: 'fixture',
 			state,
-			transition: { from: 'video', to: 'plain', effect: 'mask-wipe', durationMs: 600 }
+			transition: {
+				from: 'video',
+				to: 'plain',
+				effect: 'mask-wipe',
+				durationMs: 600,
+				params: {}
+			}
 		};
 		const video = videoPreset('Video');
 		const plain: Preset = {
@@ -121,7 +133,13 @@ describe('Video media semantic validation', () => {
 
 		const assetOnly = videoPreset('Asset library only');
 		assetOnly.state.media.videoTrack.clips = [];
-		assetOnly.transition = { from: 'from', to: 'to', effect: 'mask-wipe', durationMs: 600 };
+		assetOnly.transition = {
+			from: 'from',
+			to: 'to',
+			effect: 'mask-wipe',
+			durationMs: 600,
+			params: {}
+		};
 		const issues = validatePresetSemantics(assetOnly);
 		assert.ok(!issues.some((issue) => issue.path.join('.') === 'state.media.videoTrack.clips'));
 	});

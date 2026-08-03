@@ -1,7 +1,11 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 
-	import { resolveFrameRate, secondsToFrames } from '$lib/utils/composition-timing';
+	import {
+		framesToSeconds,
+		resolveFrameRate,
+		secondsToFrames
+	} from '$lib/utils/composition-timing';
 	import {
 		createVideoClipDragOrigin,
 		type VideoClipDragMode,
@@ -14,6 +18,7 @@
 	import { inspectorRailMode } from './inspector-rail-mode.svelte';
 	import { MEDIA_LIBRARY_ASSET_MIME } from './media-library-drag-transfer';
 	import { layerSelection, selectVideoClip } from './selection.svelte';
+	import { lockedLaneIds } from './timeline-lane-locks.svelte';
 	import type { Timeline } from './timeline.svelte';
 	import type {
 		VideoTimelineClip,
@@ -51,6 +56,21 @@
 		Math.max(1, secondsToFrames(engineState.transport.durationSeconds, frameRate))
 	);
 
+	// Clip/asset membership is reactive; inspection is an external async cache.
+	function ensureReferencedVideoAssetMetadata(): void {
+		const referencedAssetIds = new Set(track.clips.map((clip) => clip.assetId));
+		const assetUrls = new Set(
+			engineState.media.assets
+				.filter((asset) => referencedAssetIds.has(asset.id))
+				.map((asset) => asset.assetUrl)
+		);
+		untrack(() => {
+			for (const assetUrl of assetUrls) void compositionMediaInspection.ensure(assetUrl);
+		});
+	}
+
+	$effect(ensureReferencedVideoAssetMetadata);
+
 	function selectClip(clip: VideoTimelineClip): void {
 		selectVideoClip(clip.clipId);
 		inspectorRailMode.switchToInspector();
@@ -87,6 +107,10 @@
 	function handlePointerMove(event: PointerEvent): void {
 		const state = pointerDrag;
 		if (!state || event.pointerId !== state.pointerId) return;
+		if (event.buttons === 0) {
+			finishPointerDrag(false);
+			return;
+		}
 		event.preventDefault();
 		if (engineState.media !== state.originMedia) {
 			finishPointerDrag(false);
@@ -115,11 +139,6 @@
 		finishPointerDrag(true);
 	}
 
-	function handleLostPointerCapture(event: PointerEvent): void {
-		if (!pointerDrag || event.pointerId !== pointerDrag.pointerId) return;
-		finishPointerDrag(true);
-	}
-
 	function startClipPointerDrag(
 		event: PointerEvent,
 		clip: VideoTimelineClip,
@@ -129,12 +148,14 @@
 		event.preventDefault();
 		event.stopPropagation();
 		selectClip(clip);
+		// A locked lane still selects — lock guards edits, not inspection.
+		if (lockedLaneIds.has(track.id)) return;
 		const asset = engineState.media.assets.find((candidate) => candidate.id === clip.assetId);
 		if (!asset) return;
 		const inspection = compositionMediaInspection.read(asset.assetUrl);
-		if (inspection.status !== 'ready') return;
+		if (inspection.status !== 'ready' && mode !== 'move') return;
 
-		if (pointerDrag) finishPointerDrag(true);
+		if (pointerDrag) finishPointerDrag(false);
 		const captureElement = event.currentTarget as HTMLElement;
 		const laneElement = captureElement.closest<HTMLElement>('.video-timeline-lane');
 		if (!laneElement) return;
@@ -142,11 +163,20 @@
 		if (laneRect.width <= 0) return;
 		const originMedia = engineState.media;
 		const originalClips = snapshotVideoTimelineClips(originMedia.videoTrack.clips);
+		const canonicalClip = originalClips.find((candidate) => candidate.id === clip.clipId);
+		if (!canonicalClip) {
+			throw new Error(`Video timeline clip "${clip.clipId}" does not exist in the drag snapshot.`);
+		}
+		const sourceDurationSeconds =
+			inspection.status === 'ready'
+				? inspection.metadata.durationSeconds
+				: canonicalClip.sourceStartSeconds +
+					framesToSeconds(canonicalClip.durationFrames, frameRate);
 		const origin = createVideoClipDragOrigin({
 			clips: originalClips,
 			clipId: clip.clipId,
 			compositionFrameCount,
-			sourceDurationSeconds: inspection.metadata.durationSeconds,
+			sourceDurationSeconds,
 			frameRate
 		});
 		pointerDrag = {
@@ -231,7 +261,6 @@
 				type="button"
 				aria-label={`Trim ${clip.label} video clip start`}
 				onpointerdown={(event) => startClipPointerDrag(event, clip, 'trim-left')}
-				onlostpointercapture={handleLostPointerCapture}
 				onclick={() => selectClip(clip)}
 			></button>
 			<button
@@ -240,13 +269,12 @@
 				aria-label={`Move ${clip.label} video clip. Hold Alt or Option to slip source.`}
 				aria-pressed={layerSelection.id === clip.id}
 				onpointerdown={(event) => startClipInteriorDrag(event, clip)}
-				onlostpointercapture={handleLostPointerCapture}
 				onclick={() => selectClip(clip)}
 			>
 				<span class:video-timeline-clip__source={isSlipping}>
 					{isSlipping && activeClip
 						? formatVideoTimelineSourceRange(activeClip, frameRate)
-						: clip.label}
+						: `${clip.label} · ${framesToSeconds(clip.durationFrames, frameRate).toFixed(1)} s`}
 				</span>
 			</button>
 			<button
@@ -254,7 +282,6 @@
 				type="button"
 				aria-label={`Trim ${clip.label} video clip end`}
 				onpointerdown={(event) => startClipPointerDrag(event, clip, 'trim-right')}
-				onlostpointercapture={handleLostPointerCapture}
 				onclick={() => selectClip(clip)}
 			></button>
 		</div>
@@ -263,17 +290,27 @@
 
 <style>
 	.video-timeline-lane {
-		background: var(--fg-05);
-		border-radius: var(--br-xs);
-		margin-inline: var(--lane-gap);
+		block-size: var(--lane-row-h, 36px);
+		border-block-end: 1px solid var(--lane-hairline, #1a1a1e);
 		position: relative;
 	}
 
+	/* Media clips read as filmstrip — a neutral slab with sprocket bands top and
+	   bottom, light text. Kind color stays out of the way of the layer palette. */
 	.video-timeline-clip {
-		background: #1f5aff;
-		border-radius: var(--br-xs);
+		background:
+			repeating-linear-gradient(to right, rgb(0 0 0 / 0.4) 0 3px, transparent 3px 11px) top /
+				100% 4px no-repeat,
+			repeating-linear-gradient(to right, rgb(0 0 0 / 0.4) 0 3px, transparent 3px 11px) bottom /
+				100% 4px no-repeat,
+			#33363e;
+		border-radius: 4px;
 		box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.4);
-		inset-block: 0;
+		color: #dcdce2;
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.59375rem;
+		font-weight: 500;
+		inset-block: 5px;
 		min-inline-size: 1px;
 		position: absolute;
 		touch-action: none;
@@ -282,7 +319,7 @@
 	.video-timeline-clip--selected {
 		box-shadow:
 			inset 0 0 0 1px rgb(0 0 0 / 0.4),
-			0 0 0 1px #ffd608;
+			0 0 0 1.5px #2de8ee;
 	}
 
 	.video-timeline-clip__body {
@@ -290,12 +327,11 @@
 		background: transparent;
 		block-size: 100%;
 		border: 1px solid transparent;
-		border-radius: var(--br-xs);
-		color: rgb(0 0 0 / 0.78);
+		border-radius: 4px;
+		color: inherit;
 		cursor: grab;
 		display: flex;
-		font-size: 0.75rem;
-		font-weight: var(--fw-semibold);
+		font: inherit;
 		inline-size: 100%;
 		justify-content: center;
 		overflow: hidden;
@@ -326,7 +362,7 @@
 	}
 
 	.video-timeline-clip__source {
-		font-family: 'JetBrains Mono', monospace;
+		font-family: 'Paper Mono', monospace;
 		font-weight: 600;
 	}
 
@@ -348,7 +384,7 @@
 
 	.video-timeline-clip__handle:hover,
 	.video-timeline-clip__handle:focus-visible {
-		border-color: rgb(0 0 0 / 0.65);
+		border-color: rgb(232 232 234 / 0.65);
 		opacity: 0.78;
 		outline: none;
 	}

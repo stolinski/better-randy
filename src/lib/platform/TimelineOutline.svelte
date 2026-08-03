@@ -1,23 +1,10 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 
-	import { TEXT_EFFECT_IDS } from '$lib/text-animations/catalog';
-	import {
-		engineState,
-		addCaptions,
-		addDiagramPrimitive,
-		addOverlay,
-		addTextAnimation,
-		removeCaptions,
-		removeDiagramPrimitive,
-		removeOverlay,
-		removeTextAnimation
-	} from './engine-state.svelte';
-	import { PIPELINE_REGISTRY } from './pipelines';
 	import {
 		clearKeyframeSelection,
 		keyframeSelection,
-		layerSelection,
 		selectKeyframe,
 		selectLayer,
 		selectSoundRailReference,
@@ -25,24 +12,32 @@
 	} from './selection.svelte';
 	import {
 		createKeyframeSelectionId,
-		createTimelineTrackId,
 		parseKeyframeSelectionId,
-		parseTimelineTrackId,
-		type TimelineTrackId,
-		type TimelineTrackIdentity
+		type TimelineTrackId
 	} from './timeline-entity-identity';
+	import { lockedLaneIds } from './timeline-lane-locks.svelte';
 	import type { Timeline } from './timeline.svelte';
 	import {
 		isVideoTimelineTrack,
+		type ClipKeyframe,
 		type TimelineTrack,
 		type TimelineTransition
 	} from './timeline-track';
+	import CascadeTethers from './CascadeTethers.svelte';
+	import TimelineAddMenu from './TimelineAddMenu.svelte';
+	import TimelineClipBar, {
+		type TimelineClipDragMode,
+		type TimelineClipKeyframeDragTarget
+	} from './TimelineClipBar.svelte';
+	import TimelineGutterRow from './TimelineGutterRow.svelte';
 	import VideoTimelineTrack from './VideoTimelineTrack.svelte';
 	import {
 		resolveUnifiedDrag,
+		resolveWindowClipDrag,
 		type UnifiedDragMode,
 		type UnifiedDragOrigin
 	} from '$lib/utils/timeline-clip';
+	import { formatClockTime } from '$lib/utils/composition-timing';
 
 	interface Props {
 		timeline: Timeline;
@@ -52,16 +47,12 @@
 	let { timeline, tracks }: Props = $props();
 
 	// ─── Track area drag state ──────────────────────────────────────────────────
-	// Simple window clips use `left`/`right`/`move`; unified bars use the five
-	// `trim-start`/`enter-zone`/`move`/`exit-zone`/`trim-end` handles (ADR-0034 §2a).
-
-	type TransitionDragMode = 'move' | 'left' | 'right' | UnifiedDragMode;
 
 	interface TransitionDragState {
 		kind: 'transition';
 		trackId: TimelineTrackId;
 		transitionId: string;
-		mode: TransitionDragMode;
+		mode: TimelineClipDragMode;
 		origin: { start: number; duration: number };
 		/** Captured at drag start for unified bars; absent for simple window clips. */
 		unifiedOrigin?: UnifiedDragOrigin;
@@ -116,179 +107,138 @@
 		timeline.durationSeconds > 0 ? timeline.time / timeline.durationSeconds : 0
 	);
 
-	// ─── Cascade tethers (ADR-0035 §4) ──────────────────────────────────────────
-	// A welded clip draws a dashed elbow from its head back to the anchor event
-	// on the leader's row. Geometry mirrors the lane grid (--lane-h + --lane-gap);
-	// x coordinates are lane-width percentages, y coordinates row-centre pixels.
+	// ─── Row model ──────────────────────────────────────────────────────────────
+	// The timeline is a flat NLE table: one 36px row per track, plus one 46px
+	// automation sub-lane per keyframed channel of the SELECTED clip (its value
+	// curve with draggable diamonds). Both columns render the same row sequence,
+	// so scrollTop sync keeps row N pinned to lane N.
 
-	const LANE_STRIDE = 32; // --lane-h (28) + --lane-gap (4)
-	const LANE_PAD = 4; // padding-block of the lanes body
+	const LANE_ROW_HEIGHT = 36;
+	const AUTOMATION_ROW_HEIGHT = 46;
 
-	interface CascadeTether {
-		key: string;
-		anchorX: number;
-		anchorY: number;
-		followerX: number;
-		followerY: number;
+	interface TrackRow {
+		kind: 'track';
+		rowKey: string;
+		track: TimelineTrack;
 	}
 
-	const cascadeTethers = $derived.by(() => {
-		const tethers: CascadeTether[] = [];
-		tracks.forEach((track, rowIndex) => {
-			for (const transition of track.transitions) {
-				const link = transition.cascade;
-				if (!link) {
-					continue;
-				}
-				const anchorRow = tracks.findIndex((t) => t.id === link.anchorTrackId);
-				if (anchorRow < 0) {
-					continue;
-				}
-				tethers.push({
-					key: `${track.id}:${transition.id}`,
-					anchorX: link.anchorFraction * 100,
-					anchorY: LANE_PAD + anchorRow * LANE_STRIDE + 14,
-					followerX: transition.start * 100,
-					followerY: LANE_PAD + rowIndex * LANE_STRIDE + 14
+	interface AutomationRow {
+		kind: 'automation';
+		rowKey: string;
+		track: TimelineTrack;
+		transition: TimelineTransition;
+		channel: string;
+		keyframes: ClipKeyframe[];
+	}
+
+	type OutlineRow = TrackRow | AutomationRow;
+
+	const outlineRows = $derived.by(() => {
+		const rows: OutlineRow[] = [];
+		for (const track of tracks) {
+			rows.push({ kind: 'track', rowKey: track.id, track });
+			const selection = timeline.selection;
+			if (!selection || selection.trackId !== track.id) continue;
+			const transition = track.transitions.find(
+				(candidate) => candidate.id === selection.transitionId
+			);
+			if (!transition?.keyframes?.length) continue;
+			const byChannel = new SvelteMap<string, ClipKeyframe[]>();
+			for (const keyframe of transition.keyframes) {
+				const bucket = byChannel.get(keyframe.channel);
+				if (bucket) bucket.push(keyframe);
+				else byChannel.set(keyframe.channel, [keyframe]);
+			}
+			for (const [channel, keyframes] of byChannel) {
+				rows.push({
+					kind: 'automation',
+					rowKey: `${track.id}::${transition.id}::${channel}`,
+					track,
+					transition,
+					channel,
+					keyframes
 				});
 			}
-		});
-		return tethers;
+		}
+		return rows;
 	});
 
-	const lanesContentHeight = $derived(LANE_PAD * 2 + tracks.length * LANE_STRIDE);
+	// Row-centre offsets for the cascade tethers, prefix-summed over real row
+	// heights (sub-lanes shift everything below them).
+	const rowCenterYByTrackId = $derived.by(() => {
+		const centers = new SvelteMap<string, number>();
+		let offsetY = 0;
+		for (const row of outlineRows) {
+			const height = row.kind === 'track' ? LANE_ROW_HEIGHT : AUTOMATION_ROW_HEIGHT;
+			if (row.kind === 'track') centers.set(row.track.id, offsetY + height / 2);
+			offsetY += height;
+		}
+		return centers;
+	});
 
-	// A diamond is "at the playhead" within half a frame — same tolerance the
-	// inspector's ◆ toggle uses, so both light together.
-	const halfFrameFraction = $derived(
-		timeline.durationSeconds > 0 && timeline.fps > 0
-			? 0.5 / (timeline.fps * timeline.durationSeconds)
-			: 0
+	const rowsContentHeight = $derived(
+		outlineRows.reduce(
+			(total, row) => total + (row.kind === 'track' ? LANE_ROW_HEIGHT : AUTOMATION_ROW_HEIGHT),
+			0
+		)
 	);
 
-	// ─── Gutter classification helpers ──────────────────────────────────────────
-
-	function trackIdentity(trackId: TimelineTrackId): TimelineTrackIdentity | null {
-		return parseTimelineTrackId(trackId);
+	// The sub-lane's curve geometry: x is percent of the clip span, y percent of
+	// the sub-lane (top-padded), normalized over the channel's value range.
+	function automationPoints(
+		row: AutomationRow
+	): { keyframe: ClipKeyframe; x: number; y: number }[] {
+		const { transition, keyframes } = row;
+		const values = keyframes.map((keyframe) => keyframe.value);
+		const min = Math.min(...values);
+		const max = Math.max(...values);
+		const span = max - min;
+		return keyframes.map((keyframe) => ({
+			keyframe,
+			x:
+				transition.duration > 0
+					? ((keyframe.fraction - transition.start) / transition.duration) * 100
+					: 0,
+			y: span > 0 ? 82 - ((keyframe.value - min) / span) * 64 : 50
+		}));
 	}
 
-	function canRemoveTrack(trackId: TimelineTrackId): boolean {
-		const identity = trackIdentity(trackId);
-		return (
-			identity?.kind === 'overlay' ||
-			identity?.kind === 'block' ||
-			identity?.kind === 'captions' ||
-			identity?.kind === 'text-animation'
-		);
-	}
+	// ─── Ruler scale ─────────────────────────────────────────────────────────────
+	// Labeled seconds at a step that keeps labels readable at any duration, with
+	// finer unlabeled ticks between them.
 
-	function gutterIndent(trackId: TimelineTrackId): number {
-		const identity = trackIdentity(trackId);
-		if (identity?.kind === 'surface') return 0;
-		if (identity?.kind === 'overlay-subtrack' || identity?.kind === 'block-subtrack') return 2;
-		return 1;
-	}
+	const rulerStepSeconds = $derived.by(() => {
+		const duration = timeline.durationSeconds;
+		if (duration <= 8) return 1;
+		if (duration <= 16) return 2;
+		if (duration <= 45) return 5;
+		return 10;
+	});
 
-	function handleRemoveTrack(trackId: TimelineTrackId): void {
-		const identity = trackIdentity(trackId);
-		if (identity?.kind === 'overlay') {
-			removeOverlay(identity.overlayId);
-		} else if (identity?.kind === 'block') {
-			removeDiagramPrimitive(identity.blockId);
-		} else if (identity?.kind === 'captions') {
-			removeCaptions();
-		} else if (identity?.kind === 'text-animation') {
-			removeTextAnimation(identity.textAnimationId);
+	const rulerSeconds = $derived.by(() => {
+		const duration = timeline.durationSeconds;
+		if (duration <= 0) return [];
+		const seconds: number[] = [];
+		// Stop early enough that the last label never clips the right edge.
+		for (let second = 0; second <= duration - rulerStepSeconds * 0.35; second += rulerStepSeconds) {
+			seconds.push(second);
 		}
-		deselectLayer();
-	}
+		return seconds;
+	});
 
-	// ─── Add controls ────────────────────────────────────────────────────────────
-	// A single "Add layer" control in the gutter footer opens a top-layer popover
-	// menu of the addable layer types — the real add affordance, not a stray
-	// <select>. The popover escapes the panel's overflow:hidden and opens upward.
+	// Minor tick spacing as a fraction of the strip: quarter-seconds while the
+	// label step is 1s, whole seconds otherwise.
+	const rulerTickPercent = $derived.by(() => {
+		const duration = timeline.durationSeconds;
+		if (duration <= 0) return 10;
+		const minorStep = rulerStepSeconds === 1 ? 0.25 : 1;
+		return (100 * minorStep) / duration;
+	});
 
-	const overlayRenderers = Object.values(PIPELINE_REGISTRY.overlays);
-
-	let addMenuEl: HTMLDivElement | null = null;
-	let addTriggerEl: HTMLButtonElement | null = null;
-
-	function attachAddMenu(element: HTMLDivElement): () => void {
-		addMenuEl = element;
-		return () => {
-			if (addMenuEl === element) addMenuEl = null;
-		};
-	}
-
-	function attachAddTrigger(element: HTMLButtonElement): () => void {
-		addTriggerEl = element;
-		return () => {
-			if (addTriggerEl === element) addTriggerEl = null;
-		};
-	}
-
-	// The footer sits at the bottom of a clipped, fixed-height panel, so the menu
-	// renders in the top layer (popover) and is anchored on open: fixed, left-edge
-	// aligned to the trigger, bottom resting just above it (opens upward).
-	function positionAddMenu(): void {
-		if (!addMenuEl || !addTriggerEl) return;
-		const rect = addTriggerEl.getBoundingClientRect();
-		addMenuEl.style.left = `${rect.left}px`;
-		addMenuEl.style.bottom = `${window.innerHeight - rect.top + 6}px`;
-		addMenuEl.style.minInlineSize = `${rect.width}px`;
-	}
-
-	function onAddMenuToggle(event: ToggleEvent): void {
-		if (event.newState === 'open') positionAddMenu();
-	}
-
-	function pickOverlay(type: string): void {
-		const renderer = overlayRenderers.find((r) => r.type === type);
-		if (!renderer) return;
-		const def = renderer.defaults();
-		const id = addOverlay({
-			type,
-			content: def.content,
-			position: def.position,
-			enter: def.enter,
-			exit: def.exit
-		});
-		selectLayer(createTimelineTrackId({ kind: 'overlay', overlayId: id }));
-		addMenuEl?.hidePopover();
-	}
-
-	function pickTextAnimation(): void {
-		const firstEffect = TEXT_EFFECT_IDS[0];
-		if (!firstEffect) return;
-		addTextAnimation({
-			target: { kind: 'surface', slot: 'body' },
-			effect: firstEffect,
-			enter: { start: 0.04, duration: 0.1, ease: 'smooth' }
-		});
-		addMenuEl?.hidePopover();
-	}
-
-	// Diagram primitive Blocks (ADR-0036) — explicit placement is the authoring
-	// model, so a new primitive lands at a sensible spot and is immediately
-	// selected for canvas drag + inspector editing.
-	const DIAGRAM_TYPES = [
-		{ type: 'node', label: 'Diagram node' },
-		{ type: 'edge-arrow', label: 'Diagram edge' },
-		{ type: 'label', label: 'Diagram label' },
-		{ type: 'stat-callout', label: 'Stat callout' },
-		{ type: 'timeline-segment', label: 'Timeline segment' }
-	] as const;
-
-	function pickDiagramPrimitive(type: (typeof DIAGRAM_TYPES)[number]['type']): void {
-		const id = addDiagramPrimitive(type);
-		selectLayer(createTimelineTrackId({ kind: 'block', blockId: id }));
-		addMenuEl?.hidePopover();
-	}
-
-	function pickCaptions(): void {
-		addCaptions();
-		selectLayer(createTimelineTrackId({ kind: 'captions' }));
-		addMenuEl?.hidePopover();
+	function formatRulerSecond(totalSeconds: number): string {
+		const m = Math.floor(totalSeconds / 60);
+		const s = totalSeconds % 60;
+		return `${m}:${String(s).padStart(2, '0')}`;
 	}
 
 	// ─── Scroll sync ─────────────────────────────────────────────────────────────
@@ -342,35 +292,14 @@
 
 		// Simple window clip (stagger / roll / dwell …): move + trim left/right.
 		if (!transition.onUpdate) return;
-		const origin = state.origin;
-		const minStart = transition.minStart ?? 0;
-		const maxStart = transition.maxStart ?? 1;
-		const minDuration = transition.minDuration ?? 0.02;
-		const maxDuration = transition.maxDuration ?? 1;
-		let nextStart = origin.start;
-		let nextDuration = origin.duration;
-
-		if (state.mode === 'move') {
-			nextStart = origin.start + delta;
-		} else if (state.mode === 'left') {
-			nextStart = origin.start + delta;
-			nextDuration = origin.duration - delta;
-		} else {
-			nextDuration = origin.duration + delta;
-		}
-
-		nextStart = clampFraction(nextStart, minStart, maxStart);
-		nextDuration = clampFraction(nextDuration, minDuration, maxDuration);
-
-		if (nextStart + nextDuration > 1) {
-			if (state.mode === 'left') {
-				nextStart = 1 - nextDuration;
-			} else {
-				nextDuration = 1 - nextStart;
-			}
-		}
-
-		transition.onUpdate({ start: nextStart, duration: nextDuration });
+		transition.onUpdate(
+			resolveWindowClipDrag(state.mode as 'move' | 'left' | 'right', delta, state.origin, {
+				minStart: transition.minStart ?? 0,
+				maxStart: transition.maxStart ?? 1,
+				minDuration: transition.minDuration ?? 0.02,
+				maxDuration: transition.maxDuration ?? 1
+			})
+		);
 	}
 
 	function applySeekDrag(state: SeekDragState, event: PointerEvent): void {
@@ -419,7 +348,7 @@
 		event: PointerEvent,
 		track: TimelineTrack,
 		transition: TimelineTransition,
-		mode: TransitionDragMode
+		mode: TimelineClipDragMode
 	): void {
 		if (event.button !== 0) return;
 		const rect = getTrackAreaRect();
@@ -434,6 +363,8 @@
 			selectLayer(track.id);
 		}
 		timeline.selectTransition(track.id, transition.id);
+		// A locked lane still selects — lock guards edits, not inspection.
+		if (lockedLaneIds.has(track.id)) return;
 		const u = transition.unified;
 		dragState = {
 			kind: 'transition',
@@ -462,7 +393,7 @@
 		event: PointerEvent,
 		track: TimelineTrack,
 		transition: TimelineTransition,
-		keyframe: { channel: string; index: number; fraction: number }
+		keyframe: TimelineClipKeyframeDragTarget
 	): void {
 		if (event.button !== 0) return;
 		const rect = getTrackAreaRect();
@@ -471,6 +402,11 @@
 		event.stopPropagation();
 		selectLayer(track.id);
 		selectKeyframe(track.id, keyframe.channel, keyframe.index);
+		// Locked lane: the diamond still selects + seeks (navigation), never retimes.
+		if (lockedLaneIds.has(track.id)) {
+			timeline.seek(keyframe.fraction * timeline.durationSeconds);
+			return;
+		}
 		dragState = {
 			kind: 'keyframe',
 			trackId: track.id,
@@ -531,11 +467,6 @@
 		clearKeyframeSelection();
 	}
 
-	function isTransitionSelected(trackId: TimelineTrackId, transitionId: string): boolean {
-		const sel = timeline.selection;
-		return sel !== null && sel.trackId === trackId && sel.transitionId === transitionId;
-	}
-
 	onDestroy(() => {
 		window.removeEventListener('pointermove', handlePointerMove);
 		window.removeEventListener('pointerup', handlePointerUp);
@@ -560,94 +491,30 @@
 			onscroll={onGutterScroll}
 			role="presentation"
 		>
-			{#each tracks as track (track.id)}
-				<div
-					class="gutter__row"
-					class:gutter__row--selected={layerSelection.id === track.id}
-					style:--indent={gutterIndent(track.id)}
-					style:--row-color={track.color ?? 'var(--fg-4)'}
-					role="button"
-					tabindex="0"
-					onclick={() => selectLayer(track.id)}
-					onkeydown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') selectLayer(track.id);
-					}}
-				>
-					<span class="gutter__dot" aria-hidden="true"></span>
-					<span class="gutter__label">{track.label}</span>
-					{#if canRemoveTrack(track.id)}
-						<button
-							class="gutter__remove"
-							type="button"
-							aria-label="Remove {track.label}"
-							onclick={(e) => {
-								e.stopPropagation();
-								handleRemoveTrack(track.id);
-							}}>×</button
-						>
-					{/if}
-				</div>
+			{#each outlineRows as row (row.rowKey)}
+				{#if row.kind === 'track'}
+					<TimelineGutterRow track={row.track} />
+				{:else}
+					<div class="gutter__subrow">└ {row.channel}</div>
+				{/if}
 			{/each}
 		</div>
 
-		<footer class="gutter__add">
-			<button
-				class="gutter__add-trigger"
-				type="button"
-				{@attach attachAddTrigger}
-				popovertarget="timeline-add-menu"
-				aria-label="Add layer"
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="13"
-					height="13"
-					viewBox="0 0 16 16"
-					aria-hidden="true"
-				>
-					<path
-						d="M8 3v10M3 8h10"
-						stroke="currentColor"
-						stroke-width="1.5"
-						stroke-linecap="round"
-					/>
-				</svg>
-				<span>Add layer</span>
-			</button>
-			<div
-				class="add-menu"
-				id="timeline-add-menu"
-				popover
-				{@attach attachAddMenu}
-				ontoggle={onAddMenuToggle}
-			>
-				{#each overlayRenderers as renderer (renderer.type)}
-					<button class="add-menu__item" type="button" onclick={() => pickOverlay(renderer.type)}
-						>{renderer.label}</button
-					>
-				{/each}
-				<div class="add-menu__divider" role="presentation"></div>
-				{#each DIAGRAM_TYPES as entry (entry.type)}
-					<button
-						class="add-menu__item"
-						type="button"
-						onclick={() => pickDiagramPrimitive(entry.type)}>{entry.label}</button
-					>
-				{/each}
-				<div class="add-menu__divider" role="presentation"></div>
-				<button class="add-menu__item" type="button" onclick={pickTextAnimation}
-					>Text animation</button
-				>
-				{#if !engineState.captions}
-					<button class="add-menu__item" type="button" onclick={pickCaptions}>Captions</button>
-				{/if}
-			</div>
-		</footer>
+		<TimelineAddMenu />
 	</div>
 
 	<!-- RIGHT: track column — ruler strip / scrollable lanes / playhead -->
 	<div class="outline__track-col" onpointerdown={startSeekDrag} role="presentation">
-		<div class="track-ruler" aria-hidden="true"></div>
+		<div class="track-ruler" aria-hidden="true" style:--tick-step="{rulerTickPercent}%">
+			{#each rulerSeconds as second (second)}
+				<span
+					class="track-ruler__label"
+					style:left="{(second / timeline.durationSeconds) * 100}%"
+				>
+					{formatRulerSecond(second)}
+				</span>
+			{/each}
+		</div>
 
 		<div
 			class="outline__tracks"
@@ -655,130 +522,61 @@
 			onscroll={onTrackScroll}
 			role="presentation"
 		>
-			{#if cascadeTethers.length > 0}
-				<!-- Cascade tethers: dashed elbow from each welded clip's head back to
-				     its anchor event (dot) on the leader's row. Scrolls with the lanes;
-				     x is a lane-width percentage, y a row-centre pixel. -->
-				<svg class="track-tethers" style:block-size="{lanesContentHeight}px" aria-hidden="true">
-					{#each cascadeTethers as tether (tether.key)}
-						<line
-							x1="{tether.anchorX}%"
-							y1={tether.anchorY}
-							x2="{tether.anchorX}%"
-							y2={tether.followerY}
-						/>
-						<line
-							x1="{tether.anchorX}%"
-							y1={tether.followerY}
-							x2="{tether.followerX}%"
-							y2={tether.followerY}
-						/>
-						<circle cx="{tether.anchorX}%" cy={tether.anchorY} r="2.5" />
-					{/each}
-				</svg>
-			{/if}
-			{#each tracks as track (track.id)}
-				{#if isVideoTimelineTrack(track)}
-					<VideoTimelineTrack {track} {timeline} />
+			<CascadeTethers {tracks} rowCenterY={rowCenterYByTrackId} contentBlockSize={rowsContentHeight} />
+			{#each outlineRows as row (row.rowKey)}
+				{#if row.kind === 'track'}
+					{#if isVideoTimelineTrack(row.track)}
+						<VideoTimelineTrack track={row.track} {timeline} />
+					{:else}
+						<div class="track-lane">
+							{#each row.track.transitions as transition (transition.id)}
+								<TimelineClipBar
+									track={row.track}
+									{transition}
+									{timeline}
+									onstartdrag={startTransitionDrag}
+									onstartkeyframedrag={startKeyframeDrag}
+								/>
+							{/each}
+						</div>
+					{/if}
 				{:else}
-					<div class="track-lane">
-						{#each track.transitions as transition (transition.id)}
-							{@const isUnified = transition.unified !== undefined}
-							{@const hasEnter = transition.unified?.enterStart !== undefined}
-							{@const hasExit = transition.unified?.exitStart !== undefined}
-							<!-- enterZone / exitZone are the PERCEIVED ramp widths (ADR-0034 §2a):
-					     computeUnifiedBar has already collapsed each ease's invisible tail,
-					     so the standard ramp gradient + handles land on real motion edges. -->
-							{@const enterPct = (transition.enterZone ?? 0) * 100}
-							{@const exitPct = (transition.exitZone ?? 0) * 100}
-							{@const label = transition.label ?? track.label}
-							<div
-								class="track-transition"
-								class:track-transition--unified={isUnified}
-								class:track-transition--selected={isTransitionSelected(track.id, transition.id)}
-								class:track-transition--ramp-in={!isUnified && transition.ramp === 'in'}
-								class:track-transition--ramp-out={!isUnified && transition.ramp === 'out'}
-								onpointerdown={(event) => startTransitionDrag(event, track, transition, 'move')}
-								role="presentation"
-								style:--track-color={transition.color ?? track.color ?? 'var(--fg-2)'}
-								style:--enter-pct="{enterPct}%"
-								style:--exit-pct="{exitPct}%"
-								style:left="{transition.start * 100}%"
-								style:width="{transition.duration * 100}%"
-							>
-								{#if isUnified ? hasEnter : transition.onUpdate !== undefined}
-									<button
-										aria-label="Trim {label} start"
-										class="track-handle track-handle--left"
-										onpointerdown={(event) =>
-											startTransitionDrag(
-												event,
-												track,
-												transition,
-												isUnified ? 'trim-start' : 'left'
-											)}
-										type="button"
-									></button>
-								{/if}
-								{#if isUnified && hasEnter && enterPct > 0}
-									<button
-										aria-label="Adjust {label} enter fade"
-										class="track-handle track-handle--enter-zone"
-										style:left="{enterPct}%"
-										onpointerdown={(event) =>
-											startTransitionDrag(event, track, transition, 'enter-zone')}
-										type="button"
-									></button>
-								{/if}
-								<span class="track-label">{label}</span>
-								{#each transition.keyframes ?? [] as keyframe (`${keyframe.channel}:${keyframe.index}`)}
-									<button
-										aria-label="Retime {keyframe.channel} keyframe {keyframe.index + 1}"
-										class="track-keyframe"
-										class:track-keyframe--selected={keyframeSelection.id ===
-											createKeyframeSelectionId(track.id, keyframe.channel, keyframe.index)}
-										class:track-keyframe--playhead={Math.abs(
-											keyframe.fraction - playheadFraction
-										) <= halfFrameFraction}
-										style:left="{transition.duration > 0
-											? ((keyframe.fraction - transition.start) / transition.duration) * 100
-											: 0}%"
-										onpointerdown={(event) => startKeyframeDrag(event, track, transition, keyframe)}
-										type="button"
-									></button>
-								{/each}
-								{#if isUnified && hasExit && exitPct > 0}
-									<button
-										aria-label="Adjust {label} exit fade"
-										class="track-handle track-handle--exit-zone"
-										style:right="{exitPct}%"
-										onpointerdown={(event) =>
-											startTransitionDrag(event, track, transition, 'exit-zone')}
-										type="button"
-									></button>
-								{/if}
-								{#if isUnified ? hasExit : transition.onUpdate !== undefined}
-									<button
-										aria-label="Trim {label} end"
-										class="track-handle track-handle--right"
-										onpointerdown={(event) =>
-											startTransitionDrag(
-												event,
-												track,
-												transition,
-												isUnified ? 'trim-end' : 'right'
-											)}
-										type="button"
-									></button>
-								{/if}
-							</div>
-						{/each}
+					<div class="automation-lane" style:--automation-color={row.track.color ?? '#7d93b2'}>
+						<div
+							class="automation-lane__span"
+							style:left="{row.transition.start * 100}%"
+							style:width="{row.transition.duration * 100}%"
+						>
+							<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+								<polyline
+									points={automationPoints(row)
+										.map((point) => `${point.x},${point.y}`)
+										.join(' ')}
+									vector-effect="non-scaling-stroke"
+								/>
+							</svg>
+							{#each automationPoints(row) as point (point.keyframe.index)}
+								<button
+									aria-label="Retime {row.channel} keyframe {point.keyframe.index + 1}"
+									class="automation-key"
+									class:automation-key--selected={keyframeSelection.id ===
+										createKeyframeSelectionId(row.track.id, row.channel, point.keyframe.index)}
+									style:left="{point.x}%"
+									style:top="{point.y}%"
+									onpointerdown={(event) =>
+										startKeyframeDrag(event, row.track, row.transition, point.keyframe)}
+									type="button"
+								></button>
+							{/each}
+						</div>
 					</div>
 				{/if}
 			{/each}
 		</div>
 
-		<div class="track-playhead" style:left="{playheadFraction * 100}%"></div>
+		<div class="track-playhead" style:left="{playheadFraction * 100}%">
+			<span class="track-playhead__flag">{formatClockTime(timeline.time)}</span>
+		</div>
 	</div>
 </div>
 
@@ -788,10 +586,12 @@
 	.outline {
 		/* Shared top-strip height: the gutter header and the track ruler are both
 		   --strip-h tall, so the rows body and lanes body start at the same Y and
-		   row N aligns with lane N. --lane-h / --lane-gap keep both grids identical. */
-		--strip-h: 30px;
-		--lane-h: 28px;
-		--lane-gap: 4px;
+		   row N aligns with lane N. Rows are a flat table — every row sizes itself
+		   (36px lanes, 46px automation sub-lanes) identically in both columns. */
+		--strip-h: 28px;
+		--lane-row-h: 35px;
+		--automation-row-h: 45px;
+		--lane-hairline: #1a1a1e;
 		block-size: 100%;
 		display: grid;
 		grid-template-columns: 200px minmax(0, 1fr);
@@ -801,209 +601,43 @@
 	/* ── Gutter column: header strip / scrollable rows / add footer ── */
 
 	.outline__gutter-col {
-		border-inline-end: var(--border-1);
+		border-inline-end: 1px solid var(--chrome-hairline);
 		display: grid;
 		grid-template-rows: var(--strip-h) minmax(0, 1fr) auto;
 		min-block-size: 0;
 		overflow: hidden;
 	}
 
-	/* Empty top-strip corner — its only job is to offset the rows by --strip-h so
-	   they line up with the lanes; the hairline continues the ruler's strip band. */
+	/* Deck-toned top-strip corner — offsets the rows by --strip-h so they line
+	   up with the lanes; the hairline continues the ruler's strip band. */
 	.gutter__corner {
-		border-block-end: var(--border-1);
+		background: var(--chrome-deck, #131315);
+		border-block-end: 1px solid var(--chrome-hairline);
 	}
 
-	/* Scrollable rows: identical grid metrics to .outline__tracks (same lane height,
-	   gap, top padding, align-content) so scrollTop sync keeps each row pinned to
-	   its lane. */
+	/* Scrollable rows: block flow with self-sized rows, mirroring
+	   .outline__tracks exactly so scrollTop sync keeps each row on its lane. */
 	.outline__gutter {
-		align-content: start;
-		display: grid;
-		gap: var(--lane-gap);
-		grid-auto-rows: var(--lane-h);
 		min-block-size: 0;
 		overflow-y: auto;
-		padding-block: var(--lane-gap);
 	}
 
-	.gutter__row {
+	/* Automation sub-lane's head: the channel word, engraved and right-aligned
+	   toward its lane. */
+	.gutter__subrow {
 		align-items: center;
-		background: var(--fg-05);
-		border-radius: var(--br-xs);
-		border-inline-start: 3px solid transparent;
-		cursor: pointer;
+		background: var(--chrome-deck, #131315);
+		block-size: var(--automation-row-h);
+		border-block-end: 1px solid var(--lane-hairline);
+		color: var(--chrome-muted);
 		display: flex;
-		gap: var(--vs-xs);
-		margin-inline: var(--lane-gap);
-		padding-inline-end: var(--vs-xs);
-		padding-inline-start: calc(var(--vs-xs) + calc(var(--indent, 0) * 12px));
-		transition:
-			background 100ms ease,
-			border-color 100ms ease;
-		user-select: none;
-	}
-
-	.gutter__row:hover {
-		background: var(--fg-1);
-	}
-
-	.gutter__row--selected {
-		background: color-mix(in srgb, #ffd608 10%, var(--fg-05));
-		border-inline-start-color: #ffd608;
-	}
-
-	/* Color dot keyed to the layer's clip color — ties each gutter row to its lane
-	   bar and color-codes the layer type at a glance. */
-	.gutter__dot {
-		background: var(--row-color, var(--fg-4));
-		block-size: 6px;
-		border-radius: 50%;
-		flex-shrink: 0;
-		inline-size: 6px;
-		opacity: 0.9;
-	}
-
-	.gutter__label {
-		color: var(--fg-7);
-		flex: 1 1 auto;
-		font-size: 0.75rem;
-		min-inline-size: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.gutter__row--selected .gutter__label {
-		color: var(--fg);
-	}
-
-	.gutter__remove {
-		background: transparent;
-		border: 0;
-		color: var(--fg-3);
-		cursor: pointer;
-		flex-shrink: 0;
-		font-size: 0.9rem;
-		line-height: 1;
-		margin-inline-start: auto;
-		opacity: 0;
-		padding: 0 2px;
-		transition:
-			color 100ms ease,
-			opacity 100ms ease;
-	}
-
-	.gutter__row:hover .gutter__remove,
-	.gutter__row--selected .gutter__remove {
-		opacity: 1;
-	}
-
-	.gutter__remove:hover {
-		color: #e6322a;
-	}
-
-	/* Add footer — a real add control with breathing room, not a stray select. */
-	.gutter__add {
-		border-block-start: var(--border-1);
-		padding: var(--vs-s);
-	}
-
-	.gutter__add-trigger {
-		align-items: center;
-		background: transparent;
-		border: var(--border-1);
-		border-radius: var(--br-s);
-		color: var(--fg-6);
-		cursor: pointer;
-		display: flex;
-		font-size: 0.75rem;
-		font-weight: var(--fw-medium);
-		gap: var(--vs-xs);
-		inline-size: 100%;
-		justify-content: center;
-		padding-block: 6px;
-		transition:
-			background 100ms ease,
-			border-color 100ms ease,
-			color 100ms ease;
-	}
-
-	.gutter__add-trigger:hover {
-		background: var(--fg-05);
-		border-color: var(--fg-4);
-		color: var(--fg);
-	}
-
-	/* Top-layer add menu — escapes the panel clip, opens upward from the trigger. */
-	.add-menu {
-		background: var(--bg);
-		border: var(--border-1);
-		border-radius: var(--br-s);
-		box-shadow: 0 8px 24px rgb(0 0 0 / 0.5);
-		display: flex;
-		flex-direction: column;
-		gap: 1px;
-		inset: auto;
-		margin: 0;
-		max-block-size: 60vh;
-		opacity: 1;
-		overflow-y: auto;
-		padding: var(--vs-xs);
-		position: fixed;
-		transform: translateY(0) scale(1);
-		transform-origin: bottom left;
-		transition:
-			opacity 120ms ease,
-			transform 160ms var(--ease-smooth),
-			overlay 160ms allow-discrete,
-			display 160ms allow-discrete;
-	}
-
-	.add-menu:not(:popover-open) {
-		opacity: 0;
-		transform: translateY(6px) scale(0.97);
-	}
-
-	@starting-style {
-		.add-menu:popover-open {
-			opacity: 0;
-			transform: translateY(6px) scale(0.97);
-		}
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.add-menu {
-			transition-duration: 1ms;
-		}
-	}
-
-	.add-menu__item {
-		background: transparent;
-		border: 0;
-		border-radius: var(--br-xs);
-		color: var(--fg-7);
-		cursor: pointer;
-		font-size: 0.75rem;
-		inline-size: 100%;
-		padding: 6px var(--vs-s);
-		text-align: left;
-		text-transform: capitalize;
-		transition:
-			background 100ms ease,
-			color 100ms ease;
-		white-space: nowrap;
-	}
-
-	.add-menu__item:hover {
-		background: var(--fg-05);
-		color: var(--fg);
-	}
-
-	.add-menu__divider {
-		background: var(--fg-2);
-		block-size: 1px;
-		margin-block: var(--vs-xs);
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.53rem;
+		font-weight: var(--fw-semibold);
+		justify-content: flex-end;
+		letter-spacing: 0.14em;
+		padding-inline-end: 10px;
+		text-transform: uppercase;
 	}
 
 	/* ── Track column: ruler strip / scrollable lanes / playhead ── */
@@ -1018,283 +652,125 @@
 		touch-action: none;
 	}
 
-	/* Lanes mirror .outline__gutter exactly (lane height, gap, top padding,
-	   align-content) so scrollTop sync keeps each lane pinned to its gutter row. */
+	/* Lanes mirror .outline__gutter exactly so scrollTop sync keeps each lane
+	   pinned to its gutter row. */
 	.outline__tracks {
-		align-content: start;
-		display: grid;
-		gap: var(--lane-gap);
-		grid-auto-rows: var(--lane-h);
 		min-block-size: 0;
 		overflow-x: hidden;
 		overflow-y: auto;
-		padding-block: var(--lane-gap);
 		position: relative;
 	}
 
+	/* The selected clip's value curve, spanning exactly the clip's window. */
+	.automation-lane {
+		block-size: var(--automation-row-h);
+		border-block-end: 1px solid var(--lane-hairline);
+		position: relative;
+	}
+
+	.automation-lane__span {
+		background: color-mix(in srgb, var(--automation-color) 8%, transparent);
+		border: 1px solid color-mix(in srgb, var(--automation-color) 22%, transparent);
+		border-radius: 4px;
+		inset-block: 4px;
+		position: absolute;
+	}
+
+	.automation-lane__span svg {
+		block-size: 100%;
+		inline-size: 100%;
+		inset: 0;
+		position: absolute;
+	}
+
+	.automation-lane__span polyline {
+		fill: none;
+		stroke: var(--automation-color);
+		stroke-width: 1.5;
+	}
+
+	/* Diamond keys on the curve — same grammar as the clip-bar diamonds and the
+	   inspector's ◆: transport cyan, drag to retime, press to seek. */
+	.automation-key {
+		background: #2de8ee;
+		block-size: 8px;
+		border: 0;
+		border-radius: 1px;
+		cursor: ew-resize;
+		inline-size: 8px;
+		padding: 0;
+		position: absolute;
+		touch-action: none;
+		transform: translate(-50%, -50%) rotate(45deg);
+	}
+
+	.automation-key--selected {
+		box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.65);
+		transform: translate(-50%, -50%) rotate(45deg) scale(1.3);
+	}
+
+	/* A ruler that earns the name: labeled seconds over short minor ticks pinned
+	   to the strip's bottom edge, on the deck band. --tick-step is the
+	   minor-tick spacing as a fraction of the composition, set inline. */
 	.track-ruler {
-		background:
-			linear-gradient(
-				to right,
-				transparent calc(10% - 1px),
-				var(--fg-2) 10%,
-				transparent calc(10% + 1px)
-			),
-			linear-gradient(
-				to right,
-				transparent calc(20% - 1px),
-				var(--fg-2) 20%,
-				transparent calc(20% + 1px)
-			),
-			linear-gradient(
-				to right,
-				transparent calc(30% - 1px),
-				var(--fg-2) 30%,
-				transparent calc(30% + 1px)
-			),
-			linear-gradient(
-				to right,
-				transparent calc(40% - 1px),
-				var(--fg-2) 40%,
-				transparent calc(40% + 1px)
-			),
-			linear-gradient(
-				to right,
-				transparent calc(50% - 1px),
-				var(--fg-2) 50%,
-				transparent calc(50% + 1px)
-			),
-			linear-gradient(
-				to right,
-				transparent calc(60% - 1px),
-				var(--fg-2) 60%,
-				transparent calc(60% + 1px)
-			),
-			linear-gradient(
-				to right,
-				transparent calc(70% - 1px),
-				var(--fg-2) 70%,
-				transparent calc(70% + 1px)
-			),
-			linear-gradient(
-				to right,
-				transparent calc(80% - 1px),
-				var(--fg-2) 80%,
-				transparent calc(80% + 1px)
-			),
-			linear-gradient(
-				to right,
-				transparent calc(90% - 1px),
-				var(--fg-2) 90%,
-				transparent calc(90% + 1px)
-			);
-		/* Short 10px ticks at the bottom edge of the strip — a ruler, not full-height
-		   hairlines. One size value applies to all nine gradient layers. */
+		background-color: var(--chrome-deck, #131315);
+		background-image: repeating-linear-gradient(
+			to right,
+			var(--chrome-hairline) 0 1px,
+			transparent 1px var(--tick-step, 10%)
+		);
 		background-position: bottom;
 		background-repeat: no-repeat;
-		background-size: 100% 10px;
+		background-size: 100% 8px;
 		block-size: 100%;
-		border-block-end: var(--border-1);
+		border-block-end: 1px solid var(--chrome-hairline);
+		overflow: hidden;
+		position: relative;
+	}
+
+	.track-ruler__label {
+		color: var(--chrome-muted, #8a8a90);
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.5625rem;
+		font-variant-numeric: tabular-nums;
+		font-weight: 400;
+		inset-block-start: 4px;
+		position: absolute;
+		transform: translateX(4px);
 	}
 
 	.track-lane {
-		background: var(--fg-05);
-		border-radius: var(--br-xs);
-		margin-inline: var(--lane-gap);
+		block-size: var(--lane-row-h);
+		border-block-end: 1px solid var(--lane-hairline);
 		position: relative;
-	}
-
-	.track-transition {
-		align-items: center;
-		background: var(--track-color);
-		border-radius: var(--br-xs);
-		box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4);
-		color: rgba(0, 0, 0, 0.78);
-		cursor: grab;
-		display: flex;
-		inset-block: 0;
-		/* Label centers over the solid middle (best contrast vs. the faded ramp
-		   ends) regardless of which trim handles the clip has. */
-		justify-content: center;
-		padding-inline: 10px;
-		position: absolute;
-		touch-action: none;
-	}
-
-	/* Unified bar: ramp-in on left, solid in middle, ramp-out on right. The zones
-	   are the PERCEIVED motion widths (the bar already excludes each ease's tail),
-	   so the ramp ends land where the eye sees the motion start/finish. */
-	.track-transition--unified {
-		background: linear-gradient(
-			to right,
-			color-mix(in srgb, var(--track-color) 15%, transparent) 0%,
-			var(--track-color) var(--enter-pct, 0%),
-			var(--track-color) calc(100% - var(--exit-pct, 0%)),
-			color-mix(in srgb, var(--track-color) 15%, transparent) 100%
-		);
-	}
-
-	.track-transition:active {
-		cursor: grabbing;
-	}
-
-	.track-transition--ramp-in {
-		background: linear-gradient(
-			to right,
-			color-mix(in srgb, var(--track-color) 10%, transparent),
-			var(--track-color)
-		);
-	}
-
-	.track-transition--ramp-out {
-		background: linear-gradient(
-			to right,
-			var(--track-color),
-			color-mix(in srgb, var(--track-color) 10%, transparent)
-		);
-	}
-
-	.track-transition--selected {
-		box-shadow:
-			inset 0 0 0 1px rgba(0, 0, 0, 0.4),
-			0 0 0 2px #ffd608;
-	}
-
-	.track-handle {
-		background: transparent;
-		block-size: 100%;
-		border: 0;
-		border-radius: 0;
-		cursor: ew-resize;
-		padding: 0;
-		touch-action: none;
-	}
-
-	/* Outer trim handles pinned to the bar edges, out of the label's flow. */
-	.track-handle--left,
-	.track-handle--right {
-		inline-size: 8px;
-		position: absolute;
-		inset-block: 0;
-	}
-
-	.track-handle--left {
-		inset-inline-start: 0;
-	}
-
-	.track-handle--right {
-		inset-inline-end: 0;
-	}
-
-	.track-handle--left:hover,
-	.track-handle--right:hover {
-		background: rgba(0, 0, 0, 0.2);
-	}
-
-	/* Inner handles sit at absolute positions within the bar */
-	.track-handle--enter-zone,
-	.track-handle--exit-zone {
-		background: transparent;
-		block-size: 100%;
-		border: 0;
-		cursor: ew-resize;
-		flex: none;
-		padding: 0;
-		position: absolute;
-		touch-action: none;
-		inline-size: 6px;
-		transform: translateX(-50%);
-	}
-
-	.track-handle--enter-zone::after,
-	.track-handle--exit-zone::after {
-		background: rgba(0, 0, 0, 0.35);
-		block-size: 60%;
-		content: '';
-		display: block;
-		inline-size: 2px;
-		margin: auto;
-		position: absolute;
-		inset: 0;
-	}
-
-	.track-handle--enter-zone:hover::after,
-	.track-handle--exit-zone:hover::after {
-		background: rgba(0, 0, 0, 0.7);
-	}
-
-	.track-label {
-		color: inherit;
-		font-size: 0.75rem;
-		font-weight: var(--fw-semibold);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 	}
 
 	.track-playhead {
 		background: #2de8ee;
 		block-size: 100%;
-		inline-size: 2px;
+		inline-size: 1.5px;
 		inset-block: 0;
 		pointer-events: none;
 		position: absolute;
 		transform: translateX(-50%);
 	}
 
-	/* ── Keyframe diamonds (ADR-0035) ── */
-
-	.track-keyframe {
-		background: rgba(0, 0, 0, 0.55);
-		block-size: 7px;
-		border: 0;
-		border-radius: 1px;
-		cursor: ew-resize;
-		inline-size: 7px;
-		padding: 0;
+	/* The playhead states its timecode — a flag riding the line inside the ruler
+	   strip, in the transport cyan. */
+	.track-playhead__flag {
+		background: #2de8ee;
+		border-radius: 3px 3px 3px 0;
+		color: #062b2e;
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.56rem;
+		font-variant-numeric: tabular-nums;
+		font-weight: 700;
+		inset-block-start: 4px;
+		inset-inline-start: 1px;
+		line-height: 1;
+		padding: 3px 5px;
 		position: absolute;
-		top: 50%;
-		touch-action: none;
-		transform: translate(-50%, -50%) rotate(45deg);
-		transition: background 100ms ease;
-	}
-
-	.track-keyframe:hover {
-		background: rgba(0, 0, 0, 0.9);
-	}
-
-	/* Playhead parked on it → lit; selected → lit with a ring. Matches the
-	   inspector row's ◆ so the two surfaces read as one system. */
-	.track-keyframe--playhead {
-		background: #ffd608;
-	}
-
-	.track-keyframe--selected {
-		background: #ffd608;
-		box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.65);
-		transform: translate(-50%, -50%) rotate(45deg) scale(1.25);
-	}
-
-	/* ── Cascade tethers (ADR-0035 §4) ── */
-
-	/* Spans the lane content (inset by the lanes' inline margin so x-percentages
-	   match clip fractions); scrolls with the rows; never intercepts drags. */
-	.track-tethers {
-		inset-block-start: 0;
-		inset-inline: var(--lane-gap);
-		inline-size: calc(100% - (2 * var(--lane-gap)));
-		overflow: visible;
-		pointer-events: none;
-		position: absolute;
-	}
-
-	.track-tethers line {
-		stroke: var(--fg-4);
-		stroke-dasharray: 3 3;
-		stroke-width: 1;
-	}
-
-	.track-tethers circle {
-		fill: #2de8ee;
+		transform: translateX(-50%);
+		white-space: nowrap;
 	}
 </style>

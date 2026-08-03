@@ -17,7 +17,7 @@ export const magnifyIdentity: IdentitySpec = {
 			definition:
 				'The focal passage is optically enlarged from the native 4K capture with bounded reconstruction, keeping glyph counters and stroke contrast readable through the lens.',
 			implementation:
-				'src/lib/pipelines/surfaces/paper/pipeline.ts § MAGNIFY — the native-size DOM/highlight/stroke textures are sampled through a stable 1.62–1.92x lens map with low bounded rim distortion and sub-pixel SDF coverage; no claim of independent DOM re-rasterization.',
+				'src/lib/pipelines/surfaces/paper/pipeline.ts § MAGNIFY — the native-size DOM/highlight/stroke textures are sampled through a stable 1.12–1.18x lens map with low bounded rim distortion and sub-pixel SDF coverage; no claim of independent DOM re-rasterization.',
 			probe: {
 				kind: 'named-observation',
 				region: 'the magnified passage at 400% zoom',

@@ -45,8 +45,17 @@ export function loadSubstrateBitmap(slug: string): Promise<ImageBitmap> | null {
 	let pending = bitmapCache.get(slug);
 	if (!pending) {
 		pending = fetch(url)
-			.then((response) => response.blob())
-			.then((blob) => createImageBitmap(blob));
+			.then((response) => {
+				if (!response.ok) {
+					throw new Error(`Substrate asset "${slug}" failed to load (${response.status}).`);
+				}
+				return response.blob();
+			})
+			.then((blob) => createImageBitmap(blob))
+			.catch((error: unknown) => {
+				bitmapCache.delete(slug);
+				throw error;
+			});
 		bitmapCache.set(slug, pending);
 	}
 	return pending;

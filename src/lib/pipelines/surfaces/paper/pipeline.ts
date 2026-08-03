@@ -19,6 +19,7 @@ import type {
 	SurfaceRenderInstance
 } from '$lib/platform/pipelines/types';
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
+import { createBicubicSampleWgsl } from '$lib/utils/bicubic-sampling-wgsl';
 import { hexToRgbaFloat } from '$lib/utils/color';
 
 const TEXTURE_USAGE_COPY_SRC = 0x01;
@@ -77,6 +78,7 @@ const PaperUniforms = d.struct({
 	// the DOM-capture CSS-opacity fade never reaches). 1 = no attenuation; the
 	// default for every surface that doesn't drive it.
 	markAlpha: d.f32,
+	resolution: d.vec2f,
 	focalSlots: d.arrayOf(FocalSlotStruct, MAX_FOCAL_SLOTS)
 });
 
@@ -244,37 +246,44 @@ const composeFragmentFn = tgpu['~unstable']
 				// Body-scale and magnification factor are decoupled.
 				// magnifyAmount carries the lens-body iris envelope
 				// (0→1→0 over the mark bar, with brief enter/exit), and
-				// the magnification factor itself is HELD CONSTANT at
-				// 1.8x for the entire lifetime of the lens. This is the
+				// the magnification factor itself is HELD CONSTANT at a
+				// readable 1.2–1.4x for the entire lifetime of the lens. This is the
 				// architectural reason there is no visible text cross-
 				// fade: at every pixel the magnification is binary,
-				// either "inside lens at 1.8x" or "outside lens at 1x",
+				// either "inside lens at its authored scale" or "outside lens at 1x",
 				// with sub-pixel AA on the boundary. The text never
 				// renders at intermediate scales between 1.0 and 1.8.
 				//
 				// The reveal therefore reads as a lens body iris-ing
 				// in and out, not as text scaling up and down.
 				let bodyScale = clamp(magnifyAmount / 0.8, 0.0, 1.0);
-				let magFactor = 0.62 + 0.3 * opticalIntensity;
+				let magFactor = 0.12 + 0.06 * opticalIntensity;
 				let lensProgress = smoothstep(0.0, 0.15, bodyScale);
 
 				let rectCenter = rect.xy + rect.zw * 0.5;
+				let resolution = layout.$.uniforms.resolution;
 				let pillHalfFull = rect.zw * 0.5;
 				let pillHalf = pillHalfFull * bodyScale;
+				let pillHalfPixels = pillHalf * resolution;
 				let pillR = max(
-					select(min(pillHalf.x, pillHalf.y), min(pillHalf.x, pillHalf.y) * 0.38, opticalShape > 0.5),
-					0.0001
+					select(
+						min(pillHalfPixels.x, pillHalfPixels.y),
+						min(pillHalfPixels.x, pillHalfPixels.y) * 0.38,
+						opticalShape > 0.5
+					),
+					0.75
 				);
 
 				let p = in.uv - rectCenter;
-				let absP = abs(p);
-				let q = absP - pillHalf + vec2f(pillR);
+				let pPixels = p * resolution;
+				let absP = abs(pPixels);
+				let q = absP - pillHalfPixels + vec2f(pillR);
 				let sdLens = length(max(q, vec2f(0.0))) + min(max(q.x, q.y), 0.0) - pillR;
 
 				// Sub-pixel SDF coverage via fwidth + smoothstep — the
 				// rim is one pixel of smooth fractional coverage, not a
 				// binary in/out step.
-				let aaWidth = max(fwidth(sdLens), 0.0001);
+				let aaWidth = max(fwidth(sdLens), 0.75);
 				let insideCoverage = 1.0 - smoothstep(-aaWidth, aaWidth, sdLens);
 
 				// edgeDepth: 0 at the rim → ~1 in the lens core. Clamped
@@ -284,7 +293,7 @@ const composeFragmentFn = tgpu['~unstable']
 				let edgeFactor = clamp(1.0 - edgeDepth, 0.0, 1.0);
 
 				// Magnification at a CONSTANT factor. The lens shows the
-				// underlying texture at 1.8x scale at every pixel inside
+				// underlying texture at a stable readable scale at every pixel inside
 				// its (current) body. As the body grows during enter,
 				// more of the magnified content becomes visible inside
 				// the larger lens — but the magnification factor itself
@@ -298,16 +307,36 @@ const composeFragmentFn = tgpu['~unstable']
 				// magnification itself, not the aberrations.
 				let scaleFactor = 1.0 + magFactor;
 				let baseOffset = p / scaleFactor;
-				let barrelStrength = magFactor * mix(0.1, 0.16, opticalIntensity);
+				let barrelStrength = magFactor * mix(0.05, 0.09, opticalIntensity);
 				let distortion = baseOffset * pow(edgeFactor, 2.0) * barrelStrength;
 				let sourceUv = rectCenter + baseOffset + distortion;
 
 				// Chromatic aberration along the outward normal, peaks at rim.
-				let normalDir = normalize(p + vec2f(0.0001));
-				let chromaShift = edgeFactor * 0.0005;
-				let rChan = textureSampleLevel(layout.$.domTexture, layout.$.samp, sourceUv + normalDir * chromaShift, 0.0).r;
-				let gSample = textureSampleLevel(layout.$.domTexture, layout.$.samp, sourceUv, 0.0);
-				let bChan = textureSampleLevel(layout.$.domTexture, layout.$.samp, sourceUv - normalDir * chromaShift, 0.0).b;
+				let normalDir = normalize(pPixels + vec2f(0.0001));
+				let chromaShift = normalDir / resolution * edgeFactor * opticalIntensity * 0.08;
+				${createBicubicSampleWgsl({
+					prefix: 'magnifyRed',
+					result: 'magnifyRedSample',
+					sampler: 'layout.$.samp',
+					texture: 'layout.$.domTexture',
+					uv: 'sourceUv + chromaShift'
+				})}
+				${createBicubicSampleWgsl({
+					prefix: 'magnifyGreen',
+					result: 'gSample',
+					sampler: 'layout.$.samp',
+					texture: 'layout.$.domTexture',
+					uv: 'sourceUv'
+				})}
+				${createBicubicSampleWgsl({
+					prefix: 'magnifyBlue',
+					result: 'magnifyBlueSample',
+					sampler: 'layout.$.samp',
+					texture: 'layout.$.domTexture',
+					uv: 'sourceUv - chromaShift'
+				})}
+				let rChan = magnifyRedSample.r;
+				let bChan = magnifyBlueSample.b;
 				var lensDom = vec4f(rChan, gSample.g, bChan, gSample.a);
 				let lensDomMask = step(0.001, lensDom.a);
 
@@ -362,13 +391,13 @@ const composeFragmentFn = tgpu['~unstable']
 				// expressed in SDF distance so its width is consistent
 				// across lens sizes.
 				let specBand = exp(-pow((-sdLens) / max(pillR * 0.028, 0.0001), 2.0));
-				let specular = pow(rimDot, 1.5) * specBand * 0.95 * insideCoverage;
+				let specular = pow(rimDot, 1.5) * specBand * 0.45 * insideCoverage;
 
 				// Inner shadow opposite the light — implies the lens
 				// has thickness; light refracting through the body falls
 				// off on the back rim.
 				let innerBand = exp(-pow((-sdLens) / max(pillR * 0.08, 0.0001), 2.0));
-				let innerShadow = oppositeDot * innerBand * 0.16 * insideCoverage;
+				let innerShadow = oppositeDot * innerBand * 0.08 * insideCoverage;
 
 				// Subtle uniform rim — a thin (~1.5px gaussian) dark line
 				// at the lens boundary on the inside, on ALL sides (not
@@ -378,30 +407,39 @@ const composeFragmentFn = tgpu['~unstable']
 				let rimDistAA = abs(sdLens) / max(aaWidth * 1.6, 0.0001);
 				let rimDark = exp(-rimDistAA * rimDistAA) * 0.1 * insideCoverage;
 
-				// Scanner grammar: a restrained optical ring plus four registration
-				// ticks. The mark color supplies the ink, so the instrument follows
-				// the active composition/Pack instead of hardcoding sci-fi cyan.
+				// Scanner grammar: a restrained optical ring plus four rim-local
+				// registration ticks. Keep the chrome beneath readable content so
+				// it cannot overwrite glyphs reconstructed inside the lens.
 				let ringBand = exp(-pow(abs(sdLens) / max(aaWidth * 1.25, 0.0001), 2.0));
 				let tickWidth = max(aaWidth * 1.7, 0.0001);
-				let tickX = exp(-pow(abs(p.x) / tickWidth, 2.0))
-					* smoothstep(pillHalf.y * 0.66, pillHalf.y * 0.82, abs(p.y))
-					* (1.0 - smoothstep(pillHalf.y * 0.98, pillHalf.y * 1.16, abs(p.y)));
-				let tickY = exp(-pow(abs(p.y) / tickWidth, 2.0))
-					* smoothstep(pillHalf.x * 0.66, pillHalf.x * 0.82, abs(p.x))
-					* (1.0 - smoothstep(pillHalf.x * 0.98, pillHalf.x * 1.16, abs(p.x)));
-				let reticle = clamp(ringBand * 0.78 + max(tickX, tickY), 0.0, 1.0)
+				let tickX = exp(-pow(abs(pPixels.x) / tickWidth, 2.0))
+					* smoothstep(pillHalfPixels.y * 0.84, pillHalfPixels.y * 0.91, abs(pPixels.y))
+					* (1.0 - smoothstep(pillHalfPixels.y, pillHalfPixels.y * 1.08, abs(pPixels.y)));
+				let tickY = exp(-pow(abs(pPixels.y) / tickWidth, 2.0))
+					* smoothstep(pillHalfPixels.x * 0.84, pillHalfPixels.x * 0.91, abs(pPixels.x))
+					* (1.0 - smoothstep(pillHalfPixels.x, pillHalfPixels.x * 1.08, abs(pPixels.x)));
+				let lensLuma = dot(lensDom.rgb, vec3f(0.2126, 0.7152, 0.0722));
+				let darkGlyphOccupancy = 1.0 - smoothstep(0.32, 0.72, lensLuma);
+				let lightGlyphOccupancy = smoothstep(0.50, 0.82, lensLuma);
+				let glyphOccupancy = select(
+					darkGlyphOccupancy,
+					lightGlyphOccupancy,
+					layout.$.uniforms.highlightDarkSurface != 0u
+				);
+				let reticleClear = 1.0 - glyphOccupancy;
+				let reticle = clamp(ringBand * 0.78 + max(tickX, tickY), 0.0, 1.0) * reticleClear
 					* lensProgress * opticalColor.a;
 
 				// One authored inspection ripple lands during the lens settle beat.
 				// It is frame-addressed through focal progress and disappears before
 				// the read hold, replacing CanvasUI's pointer-click trigger with a
 				// deterministic motion-graphics event.
-				let lensMetric = length(p / max(pillHalfFull, vec2f(0.0001)));
-				let rippleRadius = 1.0 + 0.9 * opticalRipple;
-				let rippleWidth = 0.018 + 0.012 * opticalRipple;
+				let lensMetric = length(pPixels / max(pillHalfFull * resolution, vec2f(0.75)));
+				let rippleRadius = 1.0 + 0.35 * opticalRipple;
+				let rippleWidth = 0.012 + 0.008 * opticalRipple;
 				let rippleBand = exp(-pow((lensMetric - rippleRadius) / rippleWidth, 2.0));
 				let rippleAlpha = rippleBand * pow(1.0 - opticalRipple, 2.0)
-					* smoothstep(0.0, 0.08, opticalRipple) * opticalColor.a;
+					* smoothstep(0.0, 0.08, opticalRipple) * opticalColor.a * 0.22;
 
 				var glassRgb = lensContentRgb + vec3f(specular * lensProgress);
 				glassRgb = glassRgb - vec3f(innerShadow * lensProgress);
@@ -425,24 +463,24 @@ const composeFragmentFn = tgpu['~unstable']
 				// Both rest on the SAME light direction (Q3) and both
 				// scale with the lens body via pillR (Q15 / Q16).
 				let contactOffset = vec2f(pillR * 0.10, pillR * 0.16);
-				let pContact = p - contactOffset;
+				let pContact = pPixels - contactOffset;
 				let absPC = abs(pContact);
-				let qC = absPC - pillHalf + vec2f(pillR);
+				let qC = absPC - pillHalfPixels + vec2f(pillR);
 				let sdContact = length(max(qC, vec2f(0.0))) + min(max(qC.x, qC.y), 0.0) - pillR;
 				let contactDist = max(sdContact, 0.0);
 				let contactFalloff = exp(-pow(contactDist / max(pillR * 0.20, 0.0001), 2.0));
-				let contactStrength = contactFalloff * 0.17 * lensProgress;
+				let contactStrength = contactFalloff * 0.07 * lensProgress;
 
 				let diffuseOffset = vec2f(pillR * 0.24, pillR * 0.40);
-				let diffuseHalf = pillHalf * 1.10;
+				let diffuseHalf = pillHalfPixels * 1.10;
 				let diffuseR = max(diffuseHalf.y, 0.0001);
-				let pDiffuse = p - diffuseOffset;
+				let pDiffuse = pPixels - diffuseOffset;
 				let absPD = abs(pDiffuse);
 				let qD = absPD - diffuseHalf + vec2f(diffuseR);
 				let sdDiffuse = length(max(qD, vec2f(0.0))) + min(max(qD.x, qD.y), 0.0) - diffuseR;
 				let diffuseDist = max(sdDiffuse, 0.0);
 				let diffuseFalloff = exp(-pow(diffuseDist / max(pillR * 0.55, 0.0001), 2.0));
-				let diffuseStrength = diffuseFalloff * 0.09 * lensProgress;
+				let diffuseStrength = diffuseFalloff * 0.035 * lensProgress;
 
 				let rawShadow = contactStrength + diffuseStrength * (1.0 - contactStrength);
 				let shadowApplied = rawShadow * (1.0 - insideCoverage) * step(0.001, current.a);
@@ -636,6 +674,7 @@ const EMPTY_FOCAL_SLOT = {
 function buildFocalSlots(
 	layouts: readonly AnnotationMarkLayout[],
 	progressByIndex: readonly number[],
+	durationMsByIndex: readonly number[],
 	intensityByIndex: readonly number[],
 	colorsByIndex: readonly string[],
 	canvasWidth: number,
@@ -672,6 +711,7 @@ function buildFocalSlots(
 			canvasWidth,
 			color,
 			context: null as never,
+			durationMs: durationMsByIndex[i] ?? 1,
 			intensity,
 			layout,
 			markIndex: i,
@@ -757,7 +797,15 @@ export function createPaperPipeline({
 	const initialSlots = Array.from({ length: MAX_FOCAL_SLOTS }, () => EMPTY_FOCAL_SLOT);
 
 	const uniformBuffer = root
-		.createBuffer(PaperUniforms, { focalSlotCount: 0, bgFloor: 0, highlightDarkSurface: 0, flatSubstrate: 0, markAlpha: 1, focalSlots: initialSlots })
+		.createBuffer(PaperUniforms, {
+			focalSlotCount: 0,
+			bgFloor: 0,
+			highlightDarkSurface: 0,
+			flatSubstrate: 0,
+			markAlpha: 1,
+			resolution: d.vec2f(canvasWidth, canvasHeight),
+			focalSlots: initialSlots
+		})
 		.$usage('uniform');
 
 	const bindGroup = root.createBindGroup(composeLayout, {
@@ -858,6 +906,7 @@ export function createPaperPipeline({
 		const focalSlots = buildFocalSlots(
 			markLayouts,
 			inputs.animState.markProgresses,
+			inputs.markDurationMsByIndex,
 			inputs.markIntensityByIndex,
 			inputs.markColorsByIndex,
 			canvasWidth,
@@ -895,6 +944,7 @@ export function createPaperPipeline({
 			highlightDarkSurface: darkHighlight ? 1 : 0,
 			flatSubstrate: substrate === 'flat' ? 1 : 0,
 			markAlpha: Math.max(0, Math.min(1, inputs.markAlpha ?? 1)),
+			resolution: d.vec2f(canvasWidth, canvasHeight),
 			focalSlots: paddedSlots
 		});
 

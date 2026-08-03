@@ -1,0 +1,38 @@
+{
+	"schema": "supers@1",
+	"name": "Tiled deformation — fixture",
+	"description": "A seeded hex topology lifts the live composition in an authored radial reveal with bounded perspective, bevel, and one light direction.",
+	"pack": "syntax",
+	"kind": "fixture",
+	"state": {
+		"transport": { "orientation": "horizontal", "durationSeconds": 3.2, "fps": 30, "format": "webm" },
+		"backgroundFill": "#0e0e0d",
+		"typography": { "fontFamily": "sans" },
+		"marks": { "defaults": {}, "timings": [] },
+		"surface": {
+			"type": "type-hero",
+			"variant": "single",
+			"content": { "title": "TILES", "author": "ONE FIELD / ONE LIGHT", "body": "" }
+		},
+		"textAnimations": [],
+		"overlays": [],
+		"effects": [
+			{
+				"type": "tiled-deformation",
+				"id": "hex-lift",
+				"params": {
+					"topology": "hex",
+					"seed": 901,
+					"columns": 12,
+					"lift": 0.42,
+					"bevel": 0.3,
+					"perspective": 0.045,
+					"revealFrom": 0.12,
+					"revealTo": 0.62,
+					"lightAngle": -35
+				}
+			}
+		],
+		"audioCues": []
+	}
+}

@@ -86,8 +86,14 @@
 
 <style>
 	.add-menu {
-		display: inline-flex;
+		display: flex;
 		position: relative;
+	}
+
+	/* In a grid section body the wrapper stretches row-wide; the trigger
+	   follows. Header usages stay content-sized (no free space to grow into). */
+	.add-menu > button {
+		flex: 1;
 	}
 
 	.add-menu__panel {
@@ -98,7 +104,7 @@
 		inset-block-start: calc(100% + 4px);
 		inset-inline-end: 0;
 		max-block-size: 40dvh;
-		min-inline-size: 11rem;
+		min-inline-size: min(max(11rem, 100%), 40dvw);
 		overflow-y: auto;
 		padding: 4px;
 		position: absolute;
@@ -117,7 +123,7 @@
 	.add-menu__item {
 		background: transparent;
 		border: 0;
-		border-radius: var(--br-xs);
+		border-radius: 4px;
 		color: var(--chrome-text);
 		cursor: pointer;
 		display: flex;

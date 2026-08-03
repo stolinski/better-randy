@@ -1,0 +1,111 @@
+{
+	"schema": "supers@1",
+	"kind": "deliverable",
+	"name": "Optical lens study",
+	"description": "A Pack-neutral document study that stages a clear refractive instrument, a deterministic frosted pane with an authored melt window, and a readable focal Magnify event over one native-resolution paper composition.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 12,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "serif"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": [
+				{
+					"start": 0.12,
+					"duration": 0.055,
+					"ease": "smooth",
+					"intensity": 0.72
+				}
+			]
+		},
+		"surface": {
+			"type": "paper",
+			"content": {
+				"title": "The interface is not the image.",
+				"body": "Browsers lay out words; lenses decide what viewers notice.\n\nReadability keeps the [magnify]cue[/magnify] precise: refraction changes attention without sacrificing the sentence.",
+				"source": "OPTICAL STUDY / LIVE TYPE"
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.03,
+				"ease": "settled"
+			},
+			"exit": {
+				"start": 0.978,
+				"duration": 0.022,
+				"ease": "smooth"
+			},
+			"backgroundVisibility": 0.28
+		},
+		"textAnimations": [],
+		"overlays": [],
+		"effects": [
+			{
+				"type": "refractive-lens",
+				"id": "clear-inspection-lens",
+				"params": {
+					"shape": "circle",
+					"region": {
+						"x": 0.36,
+						"y": 0.06,
+						"width": 0.1,
+						"height": 0.18
+					},
+					"magnification": 1.25,
+					"thickness": 0.45,
+					"refraction": 0.3,
+					"roughness": 0.02,
+					"dispersion": 0,
+					"reflection": 0.2,
+					"rimLight": 0.35,
+					"tint": "#e8f1f5",
+					"tintStrength": 0.02,
+					"edgeFlatness": 0.5,
+					"bevel": 0.24
+				}
+			},
+			{
+				"type": "frosted-glass",
+				"id": "frost-study-pane",
+				"params": {
+					"region": {
+						"x": 0.62,
+						"y": 0.14,
+						"width": 0.08,
+						"height": 0.24
+					},
+					"coverage": 0.84,
+					"contrast": 0.22,
+					"roughness": 0.78,
+					"haze": 0.78,
+					"refraction": 0.08,
+					"detailScale": 0.8,
+					"tint": "#e8f1f5",
+					"tintStrength": 0.26,
+					"highlight": 0.05,
+					"seed": 4107,
+					"growFrom": 0.3,
+					"growTo": 0.33,
+					"melt": {
+						"center": {
+							"x": 0.5,
+							"y": 0.52
+						},
+						"radius": 0.34,
+						"softness": 0.08,
+						"from": 0.42,
+						"to": 0.68
+					}
+				}
+			}
+		],
+		"audioCues": []
+	}
+}

@@ -99,7 +99,7 @@
 
 <style>
 	.captions-srt {
-		font-family: 'JetBrains Mono', monospace;
+		font-family: 'Paper Mono', monospace;
 		font-size: 0.72rem;
 		inline-size: 100%;
 		line-height: 1.45;

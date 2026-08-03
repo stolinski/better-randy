@@ -4639,6 +4639,9 @@
         "durationMs": {
           "type": "number",
           "exclusiveMinimum": 0
+        },
+        "params": {
+          "default": {}
         }
       },
       "required": [

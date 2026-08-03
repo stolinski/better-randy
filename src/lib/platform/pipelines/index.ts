@@ -19,10 +19,12 @@ import { statCalloutBlockRenderer } from '$lib/pipelines/blocks/stat-callout';
 import { timelineSegmentBlockRenderer } from '$lib/pipelines/blocks/timeline-segment';
 
 import { chromaticAberrationEffectRenderer } from '$lib/pipelines/effects/chromatic-aberration';
+import { clothBendEffectRenderer } from '$lib/pipelines/effects/cloth-bend';
 import { crtScreenEffectRenderer } from '$lib/pipelines/effects/crt-screen';
 import { crtTubeEffectRenderer } from '$lib/pipelines/effects/crt-tube';
 import { ditheringEffectRenderer } from '$lib/pipelines/effects/dithering';
 import { flutedGlassEffectRenderer } from '$lib/pipelines/effects/fluted-glass';
+import { fluidRippleEffectRenderer } from '$lib/pipelines/effects/fluid-ripple';
 import { frostedGlassEffectRenderer } from '$lib/pipelines/effects/frosted-glass';
 import { halftoneCmykEffectRenderer } from '$lib/pipelines/effects/halftone-cmyk';
 import { halftoneDotsEffectRenderer } from '$lib/pipelines/effects/halftone-dots';
@@ -30,6 +32,7 @@ import { heatmapEffectRenderer } from '$lib/pipelines/effects/heatmap';
 import { ntscSignalEffectRenderer } from '$lib/pipelines/effects/ntsc-signal';
 import { paperGrainEffectRenderer } from '$lib/pipelines/effects/paper-grain';
 import { refractiveLensEffectRenderer } from '$lib/pipelines/effects/refractive-lens';
+import { tiledDeformationEffectRenderer } from '$lib/pipelines/effects/tiled-deformation';
 import { waterEffectRenderer } from '$lib/pipelines/effects/water';
 import { achievementOverlayRenderer } from '$lib/pipelines/overlays/achievement';
 import { counterOverlayRenderer } from '$lib/pipelines/overlays/counter';
@@ -121,6 +124,9 @@ export const PIPELINE_REGISTRY = {
 		flutedGlass: flutedGlassEffectRenderer,
 		refractiveLens: refractiveLensEffectRenderer,
 		frostedGlass: frostedGlassEffectRenderer,
+		fluidRipple: fluidRippleEffectRenderer,
+		clothBend: clothBendEffectRenderer,
+		tiledDeformation: tiledDeformationEffectRenderer,
 		heatmap: heatmapEffectRenderer
 	}
 };

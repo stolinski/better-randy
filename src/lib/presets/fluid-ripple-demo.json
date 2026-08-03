@@ -1,0 +1,39 @@
+{
+	"schema": "supers@1",
+	"name": "Fluid ripple — simulation fixture",
+	"description": "A timeline-authored impulse drives a seekable fixed-step ripple state, then refracts the live composition on the shared WebGPU Effect path.",
+	"pack": "syntax",
+	"kind": "fixture",
+	"state": {
+		"transport": { "orientation": "horizontal", "durationSeconds": 3, "fps": 30, "format": "webm" },
+		"backgroundFill": "#0e0e0d",
+		"typography": { "fontFamily": "sans" },
+		"marks": { "defaults": {}, "timings": [] },
+		"surface": {
+			"type": "type-hero",
+			"variant": "single",
+			"content": { "title": "RIPPLE", "author": "AUTHORED IMPULSE", "body": "" }
+		},
+		"textAnimations": [],
+		"overlays": [],
+		"effects": [
+			{
+				"type": "fluid-ripple",
+				"id": "authored-ripple",
+				"params": {
+					"seed": 8128,
+					"impulseAtSeconds": 0.6,
+					"impulseX": 0.5,
+					"impulseY": 0.48,
+					"impulseStrength": 0.72,
+					"radius": 0.22,
+					"damping": 1.2,
+					"waveSpeed": 2.4,
+					"refraction": 0.018,
+					"highlights": 0.28
+				}
+			}
+		],
+		"audioCues": []
+	}
+}

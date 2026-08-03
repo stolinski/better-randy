@@ -24,7 +24,7 @@ import { DepthStage } from './pipelines/depth-stage';
 import { STAGE_CAM_Z, stageCameraPose } from './pipelines/depth-stage-camera';
 import { EffectChain } from './pipelines/effect-chain';
 import { ShaderPassDispatcher, type ShaderPassDispatchList } from './pipelines/shader-pass-runner';
-import type { CompiledTransitionWipe } from './pipelines/transition-pass';
+import type { CompiledTransitionEffect } from './pipelines/transition-pass';
 import type { TransitionSnapshotFrameTextures } from './pipelines/transition-snapshots';
 import type {
 	OverlayRenderer,
@@ -92,7 +92,11 @@ export interface CompositionFrameRenderResources {
 
 export interface CachedTransitionFrame {
 	snapshots: TransitionSnapshotFrameTextures;
-	wipe: CompiledTransitionWipe;
+	effect: CompiledTransitionEffect;
+	params: unknown;
+	durationMs: number;
+	width: number;
+	height: number;
 }
 
 export interface CompositionDomCaptureGenerations {
@@ -584,15 +588,14 @@ function renderFlatFrame(
 		return false;
 	}
 	pipeline.render(inputs);
-	const commandEncoder = host.device.createCommandEncoder();
 	const postShaderTexture = shaderPassDispatcher.apply({
-		commandEncoder,
+		commandEncoder: host.device.createCommandEncoder(),
 		passes: buildShaderPassDispatchList(request, treatments, 'flat'),
 		inputTexture: pipeline.getOutputTexture(),
 		ctx: timebase
 	});
 	effectChain.apply({
-		commandEncoder,
+		commandEncoder: host.device.createCommandEncoder(),
 		effects: appendPackChrome(request.state.effects, treatments.chromeEffects),
 		inputTexture: postShaderTexture,
 		outputView: request.outputView,
@@ -615,12 +618,22 @@ export function renderCompositionFrameTo(
 		request.cachedTransition !== null
 	);
 	if (branches[0] === 'transition' && request.cachedTransition) {
-		const timebase = frameTimebase(request.state, request.timestamp);
-		request.cachedTransition.wipe.apply({
+		const progress = clampNumber(
+			(request.timestamp * 1000) / request.cachedTransition.durationMs,
+			0,
+			1
+		);
+		request.cachedTransition.effect.apply({
 			fromView: request.cachedTransition.snapshots.fromTexture().createView(),
 			toView: request.cachedTransition.snapshots.toTexture().createView(),
 			outputView: request.outputView,
-			progress: timebase.progress
+			params: request.cachedTransition.params,
+			context: {
+				progress,
+				timestamp: request.timestamp,
+				canvasWidth: request.cachedTransition.width,
+				canvasHeight: request.cachedTransition.height
+			}
 		});
 		return 'transition';
 	}

@@ -1,10 +1,15 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	import type { SurfaceType } from '$lib/platform/engine-schema';
 	import { posterUrl } from '$lib/platform/posters';
-	import { SURFACE_LABELS } from './surface-labels';
+	import { imageContentViewBoxInset } from '$lib/utils/image-alpha-bounds';
 	import SurfaceIcon from './SurfaceIcon.svelte';
+
+	// Content-crop per poster URL, cached module-wide so aspect flips and
+	// re-renders never rescan the same image.
+	const contentViewBoxCache = new SvelteMap<string, string | null>();
 
 	interface Props {
 		slug: string;
@@ -16,9 +21,18 @@
 		name: string;
 		type: SurfaceType;
 		badge: string | null;
+		/** Family / surface chip under the name (e.g. "Checklist", "Social beats"). */
+		kindLabel: string;
+		/** Composition run length; null while a user composition is still resolving. */
+		durationSeconds: number | null;
+		/** Deliverables reflow 16:9 ↔ 9:16 by doctrine — fixtures don't claim it. */
+		reflow: boolean;
+		/** Grid-wide preview aspect from the toolrow toggle. */
+		aspect: 'wide' | 'tall';
 	}
 
-	let { slug, thumbKey, name, type, badge }: Props = $props();
+	let { slug, thumbKey, name, type, badge, kindLabel, durationSeconds, reflow, aspect }: Props =
+		$props();
 
 	// Fallback chain: this composition's own poster (capture-on-view) → the
 	// committed surface-type default → the surface glyph. The base level comes
@@ -36,31 +50,42 @@
 				: ''
 	);
 
-	function handleLoad(): void {
+	// object-view-box crop zooming the poster to its alpha content (mock parity:
+	// the composition reads LARGE in the thumb, not tiny in a 4K frame). Null =
+	// full-frame poster, shown whole.
+	let contentViewBox = $state<string | null>(null);
+
+	function handleLoad(event: Event): void {
 		ready = true;
+		const image = event.currentTarget as HTMLImageElement;
+		const source = image.currentSrc || image.src;
+		const cached = contentViewBoxCache.get(source);
+		if (cached !== undefined) {
+			contentViewBox = cached;
+			return;
+		}
+		const inset = imageContentViewBoxInset(image);
+		contentViewBoxCache.set(source, inset);
+		contentViewBox = inset;
 	}
 
 	function handleError(): void {
 		ready = false;
+		contentViewBox = null;
 		downgrade = level === 'composition' ? 'surface' : 'failed';
 	}
 </script>
 
 <a class="poster-card" href={resolve('/p/[slug]', { slug })}>
-	<span class="poster-card__preview">
+	<span class="poster-card__preview" class:is-tall={aspect === 'tall'}>
 		{#if src}
-			<span
-				class="poster-card__backdrop"
-				class:is-ready={ready}
-				style="background-image: url('{src}')"
-				aria-hidden="true"
-			></span>
 			<img
 				class="poster-card__thumb"
 				class:is-ready={ready}
 				{src}
 				alt=""
 				loading="lazy"
+				style:object-view-box={contentViewBox}
 				onload={handleLoad}
 				onerror={handleError}
 			/>
@@ -76,9 +101,15 @@
 	<span class="poster-card__body">
 		<span class="poster-card__name">{name}</span>
 		<span class="poster-card__meta">
-			<span class="poster-card__surface">{SURFACE_LABELS[type]}</span>
+			<span class="poster-card__kind">{kindLabel}</span>
 			{#if badge}
 				<span class="poster-card__badge">{badge}</span>
+			{/if}
+			{#if reflow}
+				<span class="poster-card__reflow" title="Reflows 16:9 ↔ 9:16" aria-label="Reflows 16:9 and 9:16">▭▯</span>
+			{/if}
+			{#if durationSeconds !== null}
+				<span class="poster-card__duration">{durationSeconds.toFixed(1)} s</span>
 			{/if}
 		</span>
 	</span>
@@ -89,8 +120,9 @@
 	   fallbacks keep the card correct if rendered outside .home. */
 	.poster-card {
 		background: var(--panel, #131315);
+		font-size: 1rem;
 		border: 1px solid var(--line, #26262a);
-		border-radius: 4px;
+		border-radius: 7px;
 		color: var(--text, #e8e8ea);
 		display: grid;
 		grid-template-rows: auto 1fr;
@@ -103,7 +135,7 @@
 
 	.poster-card:hover {
 		background: var(--raised, #1a1a1d);
-		border-color: #3a3a3e;
+		border-color: color-mix(in srgb, var(--selection, #ffd608) 55%, var(--line, #26262a));
 	}
 
 	.poster-card:focus-visible {
@@ -112,30 +144,20 @@
 		outline-offset: 3px;
 	}
 
-	/* Preview stage — 16:9, edge-to-edge. The poster is shown whole (object-fit
-	   contain) over a blurred, cover-scaled copy of itself, so a portrait fills
-	   the frame with its own soft colour instead of dead bars, and a full-frame
-	   piece just covers it. */
+	/* Preview stage — edge-to-edge on the alpha checker, the same ground the
+	   Workspace canvas uses: transparent compositions read as transparent, and a
+	   poster shown whole (object-fit contain) letterboxes onto checker, never
+	   onto dead black. */
 	.poster-card__preview {
 		aspect-ratio: 16 / 9;
-		background: var(--ink, #0c0c0e);
+		background: repeating-conic-gradient(#17171a 0% 25%, #101013 0% 50%) 0 0 / 18px 18px;
 		overflow: hidden;
 		position: relative;
+		transition: aspect-ratio 160ms var(--ease-smooth, ease);
 	}
 
-	.poster-card__backdrop {
-		background-position: center;
-		background-size: cover;
-		filter: blur(28px) brightness(0.5) saturate(1.2);
-		inset: 0;
-		opacity: 0;
-		position: absolute;
-		transform: scale(1.25);
-		transition: opacity 320ms var(--ease-smooth, ease);
-	}
-
-	.poster-card__backdrop.is-ready {
-		opacity: 1;
+	.poster-card__preview.is-tall {
+		aspect-ratio: 9 / 16;
 	}
 
 	.poster-card__thumb {
@@ -187,15 +209,19 @@
 		.poster-card__skeleton {
 			animation: none;
 		}
+
+		.poster-card__preview {
+			transition: none;
+		}
 	}
 
 	.poster-card__body {
 		align-content: start;
 		border-block-start: 1px solid var(--line, #26262a);
 		display: grid;
-		gap: 0.35rem;
+		gap: 0.32rem;
 		min-inline-size: 0;
-		padding: 0.75rem;
+		padding: 0.6rem 0.7rem 0.65rem;
 	}
 
 	.poster-card__name {
@@ -205,39 +231,31 @@
 		color: var(--text, #e8e8ea);
 		display: -webkit-box;
 		font-family: Archivo, sans-serif;
-		font-size: 0.9rem;
+		font-size: 0.78125rem;
 		font-weight: 600;
-		letter-spacing: -0.006em;
+		letter-spacing: 0.01em;
 		line-height: 1.28;
-		/* Reserve two lines so every card body is the same height. */
-		min-block-size: 2lh;
 		overflow: hidden;
-	}
-
-	/* Single-column grids have no cross-card rows to equalize, so the reserved
-	   second line would just read as a hole. The grid is an inline-size
-	   container; below two 13rem tracks + gap it is single column. */
-	@container (width < 26.9rem) {
-		.poster-card__name {
-			min-block-size: auto;
-		}
 	}
 
 	.poster-card__meta {
 		align-items: center;
 		display: flex;
 		flex-wrap: nowrap;
-		gap: 0.4rem;
+		gap: 0.42rem;
 		min-inline-size: 0;
 	}
 
-	.poster-card__surface {
+	.poster-card__kind {
+		border: 1px solid var(--line, #26262a);
+		border-radius: 4px;
 		color: var(--muted, #8a8a90);
-		font-family: Archivo, sans-serif;
-		font-size: 0.72rem;
-		font-weight: 600;
-		letter-spacing: 0.08em;
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.59375rem;
+		font-weight: 400;
+		letter-spacing: 0.06em;
 		overflow: hidden;
+		padding: 1px 6px;
 		text-overflow: ellipsis;
 		text-transform: uppercase;
 		white-space: nowrap;
@@ -246,15 +264,33 @@
 	.poster-card__badge {
 		background: var(--ink, #0c0c0e);
 		border: 1px solid var(--line, #26262a);
-		border-radius: 2px;
+		border-radius: 4px;
 		color: var(--text, #e8e8ea);
 		flex-shrink: 0;
-		font-family: 'JetBrains Mono', monospace;
-		font-size: 0.6875rem;
-		font-weight: 600;
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.59375rem;
+		font-weight: 400;
 		letter-spacing: 0.02em;
-		padding-block: 0.1em;
-		padding-inline: 0.45em;
+		padding: 0.12em 0.5em;
+		white-space: nowrap;
+	}
+
+	.poster-card__reflow {
+		color: var(--muted, #8a8a90);
+		flex-shrink: 0;
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.59375rem;
+		letter-spacing: 0.1em;
+	}
+
+	.poster-card__duration {
+		color: var(--muted, #8a8a90);
+		flex-shrink: 0;
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.59375rem;
+		font-variant-numeric: tabular-nums;
+		font-weight: 400;
+		margin-inline-start: auto;
 		white-space: nowrap;
 	}
 </style>

@@ -88,6 +88,16 @@
 </label>
 
 <label class="row">
+	<span>Grow from</span>
+	<input bind:value={effect.params.growFrom} max="1" min="0" step="0.01" type="range" />
+</label>
+
+<label class="row">
+	<span>Grow to</span>
+	<input bind:value={effect.params.growTo} max="1" min="0" step="0.01" type="range" />
+</label>
+
+<label class="row">
 	<span>Melt</span>
 	<input checked={effect.params.melt !== undefined} onchange={handleMeltChange} type="checkbox" />
 </label>

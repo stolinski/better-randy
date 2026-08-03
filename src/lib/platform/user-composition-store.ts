@@ -28,7 +28,7 @@ export type UserCompositionMeta = z.infer<typeof UserCompositionMetaSchema>;
 export interface UserCompositionStore {
 	listUserCompositions(): Promise<UserCompositionMeta[]>;
 	/** Resolve a slug to its stored User composition; null means no fork exists. */
-	loadUserComposition(slug: string): Promise<Preset | null>;
+	loadUserComposition(slug: string, requestFetch?: typeof fetch): Promise<Preset | null>;
 	/** Create a User composition, optionally noting which corpus Preset it came from. */
 	forkUserComposition(slug: string, preset: Preset, corpusSlug: string | null): Promise<void>;
 	saveUserComposition(slug: string, preset: Preset): Promise<void>;
@@ -103,8 +103,8 @@ export const userCompositionStore: UserCompositionStore = {
 		return parseUserCompositionMetaList(value);
 	},
 
-	async loadUserComposition(slug: string): Promise<Preset | null> {
-		const response = await fetch(`${USER_COMPOSITION_API_BASE}/${encodeURIComponent(slug)}`);
+	async loadUserComposition(slug: string, requestFetch = fetch): Promise<Preset | null> {
+		const response = await requestFetch(`${USER_COMPOSITION_API_BASE}/${encodeURIComponent(slug)}`);
 		if (!response.ok) {
 			throw new Error(
 				`Failed to load User composition "${slug}": ${await userCompositionFailureContext(response)}`

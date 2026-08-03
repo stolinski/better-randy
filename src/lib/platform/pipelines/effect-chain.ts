@@ -4,6 +4,8 @@ import type { Effect } from '$lib/platform/engine-schema';
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
 import type { PreparedVideoUnderlayTexture } from '$lib/platform/video-underlay-frame-texture';
 import { PIPELINE_REGISTRY } from './index';
+import { compilePassComposite, type CompiledPassComposite } from './pass-composite';
+import { resolvePassExecution, type PassPixelBounds } from './pass-execution';
 import type { EffectRenderer } from './types';
 
 const TEXTURE_USAGE_COPY_DST = 0x02;
@@ -19,7 +21,7 @@ const INTERMEDIATE_TEXTURE_USAGE =
 const fullScreenVertexFn = tgpu['~unstable'].vertexFn({
 	in: { vertexIndex: d.builtin.vertexIndex },
 	out: { position: d.builtin.position, uv: d.vec2f }
-})/* wgsl */ `{
+}) /* wgsl */ `{
 	var positions = array<vec2f, 3>(
 		vec2f(-1.0, -1.0),
 		vec2f(3.0, -1.0),
@@ -53,11 +55,10 @@ const presentBindGroupLayout = tgpu.bindGroupLayout({
 	uniforms: { uniform: PresentUniforms }
 });
 
-const presentFragmentFn = tgpu['~unstable']
-	.fragmentFn({
-		in: { uv: d.vec2f, position: d.builtin.position },
-		out: d.vec4f
-	})/* wgsl */ `{
+const presentFragmentFn = tgpu['~unstable'].fragmentFn({
+	in: { uv: d.vec2f, position: d.builtin.position },
+	out: d.vec4f
+}) /* wgsl */ `{
 		let s = textureSample(layout.$.inputTexture, layout.$.samp, in.uv);
 		let bg = layout.$.uniforms.background;
 		// OVER operator (premultiplied): composite surface s over background bg.
@@ -87,6 +88,8 @@ interface CompiledEffect {
 		canvasWidth: number;
 		canvasHeight: number;
 		stageContentScale?: number;
+		defer?: boolean;
+		scissor?: PassPixelBounds;
 	}): void;
 }
 
@@ -124,11 +127,10 @@ function compileEffect(host: GpuHost, renderer: EffectRenderer): CompiledEffect 
 	} as unknown as LayoutDef;
 	const bindGroupLayout = tgpu.bindGroupLayout(layoutDef);
 
-	const fragmentFn = tgpu['~unstable']
-		.fragmentFn({
-			in: { uv: d.vec2f },
-			out: d.vec4f
-		})/* wgsl */ `{
+	const fragmentFn = tgpu['~unstable'].fragmentFn({
+		in: { uv: d.vec2f },
+		out: d.vec4f
+	}) /* wgsl */ `{
 			let inputSample = textureSample(layout.$.inputTexture, layout.$.samp, in.uv);
 			${renderer.pass.fragmentBody}
 		}`.$uses({ layout: bindGroupLayout });
@@ -161,6 +163,7 @@ function compileEffect(host: GpuHost, renderer: EffectRenderer): CompiledEffect 
 	return {
 		type: renderer.type,
 		apply({
+			commandEncoder,
 			inputView,
 			outputView,
 			params,
@@ -168,7 +171,9 @@ function compileEffect(host: GpuHost, renderer: EffectRenderer): CompiledEffect 
 			timestamp,
 			canvasWidth,
 			canvasHeight,
-			stageContentScale
+			stageContentScale,
+			defer,
+			scissor
 		}) {
 			uniformBuffer.write(
 				renderer.pass.pack(params, {
@@ -186,15 +191,33 @@ function compileEffect(host: GpuHost, renderer: EffectRenderer): CompiledEffect 
 				uniforms: uniformBuffer
 			} as never);
 
-			pipeline
-				.with(bindGroup)
-				.withColorAttachment({
-					view: outputView,
-					clearValue: [0, 0, 0, 0],
-					loadOp: 'clear',
-					storeOp: 'store'
-				})
-				.draw(3);
+			if (defer) {
+				const renderPass = commandEncoder.beginRenderPass({
+					colorAttachments: [
+						{
+							view: outputView,
+							clearValue: [0, 0, 0, 0],
+							loadOp: 'clear',
+							storeOp: 'store'
+						}
+					]
+				});
+				if (scissor) {
+					renderPass.setScissorRect(scissor.x, scissor.y, scissor.width, scissor.height);
+				}
+				pipeline.with(bindGroup).with(renderPass).draw(3);
+				renderPass.end();
+			} else {
+				pipeline
+					.with(bindGroup)
+					.withColorAttachment({
+						view: outputView,
+						clearValue: [0, 0, 0, 0],
+						loadOp: 'clear',
+						storeOp: 'store'
+					})
+					.draw(3);
+			}
 
 			// device used implicitly by pipeline; nothing else to do per apply.
 			void device;
@@ -271,11 +294,10 @@ function compilePresent(host: GpuHost): CompiledPresent {
 		samp: { sampler: 'filtering' },
 		uniforms: { uniform: FinalPresentUniforms }
 	});
-	const finalPresentFragmentFn = tgpu['~unstable']
-		.fragmentFn({
-			in: { uv: d.vec2f, position: d.builtin.position },
-			out: d.vec4f
-		})/* wgsl */ `{
+	const finalPresentFragmentFn = tgpu['~unstable'].fragmentFn({
+		in: { uv: d.vec2f, position: d.builtin.position },
+		out: d.vec4f
+	}) /* wgsl */ `{
 			let s = textureSample(layout.$.inputTexture, layout.$.samp, in.uv);
 			let underlayDisplaySize = layout.$.uniforms.videoUnderlayDisplaySize;
 			let underlayAspect = underlayDisplaySize.x / max(1.0, underlayDisplaySize.y);
@@ -415,6 +437,8 @@ export class EffectChain {
 	#present: CompiledPresent;
 	#backgroundComposite: CompiledPresent;
 	#cache: Map<string, CompiledEffect>;
+	#composite: CompiledPassComposite;
+	#scratchTextures = new Map<string, GPUTexture>();
 
 	constructor({ host, width, height }: EffectChainOptions) {
 		this.#host = host;
@@ -423,6 +447,7 @@ export class EffectChain {
 		this.#present = compilePresent(host);
 		this.#backgroundComposite = compileBackgroundComposite(host);
 		this.#cache = new Map();
+		this.#composite = compilePassComposite(host);
 
 		const descriptor: GPUTextureDescriptor = {
 			size: [width, height, 1],
@@ -431,6 +456,19 @@ export class EffectChain {
 		};
 		this.#pingTexture = host.device.createTexture(descriptor);
 		this.#pongTexture = host.device.createTexture(descriptor);
+	}
+
+	#scratchTexture(width: number, height: number): GPUTexture {
+		const key = `${width}x${height}`;
+		const existing = this.#scratchTextures.get(key);
+		if (existing) return existing;
+		const texture = this.#host.device.createTexture({
+			size: [width, height, 1],
+			format: INTERMEDIATE_FORMAT,
+			usage: INTERMEDIATE_TEXTURE_USAGE
+		});
+		this.#scratchTextures.set(key, texture);
+		return texture;
 	}
 
 	#getCompiled(type: string): CompiledEffect | null {
@@ -497,17 +535,50 @@ export class EffectChain {
 		// 16float→8bit conversion) happens either way.
 		for (let i = 0; i < valid.length; i += 1) {
 			const outputTexture = (i + parity) % 2 === 0 ? this.#pingTexture : this.#pongTexture;
-			valid[i].compiled.apply({
-				commandEncoder,
-				inputView: currentInputView,
-				outputView: outputTexture.createView(),
-				params: valid[i].effect.params,
+			const renderer = findEffectRenderer(valid[i].effect.type);
+			const context = {
 				progress,
 				timestamp,
 				canvasWidth: this.#width,
 				canvasHeight: this.#height,
 				stageContentScale
-			});
+			};
+			const execution = resolvePassExecution(
+				renderer?.pass.execution?.(valid[i].effect.params, context),
+				this.#width,
+				this.#height
+			);
+			if (execution.mode === 'full') {
+				valid[i].compiled.apply({
+					commandEncoder,
+					inputView: currentInputView,
+					outputView: outputTexture.createView(),
+					params: valid[i].effect.params,
+					...context
+				});
+			} else {
+				const localEncoder = this.#host.device.createCommandEncoder();
+				const scratchTexture = this.#scratchTexture(execution.targetWidth, execution.targetHeight);
+				valid[i].compiled.apply({
+					commandEncoder: localEncoder,
+					inputView: currentInputView,
+					outputView: scratchTexture.createView(),
+					params: valid[i].effect.params,
+					...context,
+					defer: true,
+					scissor: execution.mode === 'region' ? execution.region : undefined
+				});
+				this.#composite.apply({
+					commandEncoder: localEncoder,
+					inputView: currentInputView,
+					processedView: scratchTexture.createView(),
+					outputView: outputTexture.createView(),
+					region: execution.region,
+					canvasWidth: this.#width,
+					canvasHeight: this.#height
+				});
+				this.#host.device.queue.submit([localEncoder.finish()]);
+			}
 			currentInputView = outputTexture.createView();
 		}
 
@@ -532,6 +603,8 @@ export class EffectChain {
 		this.#pongTexture.destroy();
 		this.#present.dispose();
 		this.#backgroundComposite.dispose();
+		for (const texture of this.#scratchTextures.values()) texture.destroy();
+		this.#scratchTextures.clear();
 		this.#cache.clear();
 	}
 }

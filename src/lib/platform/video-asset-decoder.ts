@@ -46,6 +46,7 @@ export interface DecodedVideoAssetFrame {
 interface VideoAssetDecoderBackend {
 	initialize(): Promise<VideoAssetDecoderMetadata>;
 	getSample(timestamp: number): Promise<VideoSample | null>;
+	samples(startTimestamp: number): AsyncGenerator<VideoSample, void, unknown>;
 	dispose(): void;
 }
 
@@ -100,7 +101,7 @@ class MediabunnyVideoAssetDecoderBackend implements VideoAssetDecoderBackend {
 			throw new TypeError('Video asset timing or codec metadata is invalid.');
 		}
 
-		this.#sink = new VideoSampleSink(track);
+		this.#sink = new VideoSampleSink(track, { optimizeForLatency: true });
 		return {
 			firstTimestamp,
 			sourceDurationSeconds: endTimestamp - firstTimestamp,
@@ -119,6 +120,11 @@ class MediabunnyVideoAssetDecoderBackend implements VideoAssetDecoderBackend {
 	getSample(timestamp: number): Promise<VideoSample | null> {
 		if (!this.#sink) throw new Error('Video asset decoder is not initialized.');
 		return this.#sink.getSample(timestamp);
+	}
+
+	samples(startTimestamp: number): AsyncGenerator<VideoSample, void, unknown> {
+		if (!this.#sink) throw new Error('Video asset decoder is not initialized.');
+		return this.#sink.samples(startTimestamp);
 	}
 
 	dispose(): void {
@@ -170,6 +176,12 @@ export class VideoAssetDecoder {
 	#metadata: VideoAssetDecoderMetadata | null = null;
 	#initializePromise: Promise<VideoAssetDecoderMetadata> | null = null;
 	#requestSequence = 0;
+	#playbackIterator: AsyncGenerator<VideoSample, void, unknown> | null = null;
+	#playbackCurrentSample: VideoSample | null = null;
+	#playbackNextSample: VideoSample | null = null;
+	#playbackIteratorEnded = false;
+	#playbackLastRequestedTimestamp = -Infinity;
+	#playbackGeneration = 0;
 	#isDisposed = false;
 
 	constructor(
@@ -189,6 +201,7 @@ export class VideoAssetDecoder {
 	}
 
 	async frameAt(sourceTimeSeconds: number, signal?: AbortSignal): Promise<DecodedVideoAssetFrame> {
+		this.resetPlayback();
 		const metadata = this.#requireMetadata();
 		const requestSequence = ++this.#requestSequence;
 		const requestedSourceTimestamp = videoAssetPresentationTimestampAt({
@@ -225,10 +238,88 @@ export class VideoAssetDecoder {
 		return decodedVideoAssetFrame(sample, sourceTimeSeconds, requestedSourceTimestamp);
 	}
 
+	/** Playback keeps one range iterator alive so adjacent frames do not each
+	 * restart decoding at their preceding keyframe. Random seek/export uses frameAt. */
+	async playbackFrameAt(sourceTimeSeconds: number): Promise<DecodedVideoAssetFrame> {
+		const metadata = this.#requireMetadata();
+		const requestedSourceTimestamp = videoAssetPresentationTimestampAt({
+			firstTimestamp: metadata.firstTimestamp,
+			sourceTimeSeconds
+		});
+		if (requestedSourceTimestamp < this.#playbackLastRequestedTimestamp) {
+			this.resetPlayback();
+		}
+		const requestSequence = ++this.#requestSequence;
+		if (!this.#playbackIterator) {
+			this.#playbackIterator = this.#backend.samples(requestedSourceTimestamp);
+		}
+
+		const playbackGeneration = this.#playbackGeneration;
+		while (
+			!this.#playbackIteratorEnded &&
+			(!this.#playbackCurrentSample ||
+				!this.#playbackNextSample ||
+				this.#playbackNextSample.timestamp <= requestedSourceTimestamp)
+		) {
+			if (
+				this.#playbackNextSample &&
+				this.#playbackNextSample.timestamp <= requestedSourceTimestamp
+			) {
+				this.#playbackCurrentSample?.close();
+				this.#playbackCurrentSample = this.#playbackNextSample;
+				this.#playbackNextSample = null;
+			}
+
+			const result = await this.#playbackIterator.next();
+			if (
+				this.#isDisposed ||
+				playbackGeneration !== this.#playbackGeneration ||
+				requestSequence !== this.#requestSequence
+			) {
+				if (!result.done) result.value.close();
+				throw new VideoAssetDecoderSeekSupersededError();
+			}
+			if (result.done) {
+				this.#playbackIteratorEnded = true;
+				break;
+			}
+			if (result.value.timestamp <= requestedSourceTimestamp) {
+				this.#playbackCurrentSample?.close();
+				this.#playbackCurrentSample = result.value;
+			} else {
+				this.#playbackNextSample = result.value;
+			}
+		}
+
+		const sample = this.#playbackCurrentSample?.clone();
+		if (!sample) {
+			throw new RangeError(
+				`Video asset has no frame at source time ${sourceTimeSeconds.toFixed(6)}s.`
+			);
+		}
+		this.#playbackLastRequestedTimestamp = requestedSourceTimestamp;
+		return decodedVideoAssetFrame(sample, sourceTimeSeconds, requestedSourceTimestamp);
+	}
+
+	resetPlayback(): void {
+		this.#requestSequence += 1;
+		this.#playbackGeneration += 1;
+		const iterator = this.#playbackIterator;
+		this.#playbackIterator = null;
+		if (iterator) void iterator.return().catch(() => undefined);
+		this.#playbackCurrentSample?.close();
+		this.#playbackNextSample?.close();
+		this.#playbackCurrentSample = null;
+		this.#playbackNextSample = null;
+		this.#playbackIteratorEnded = false;
+		this.#playbackLastRequestedTimestamp = -Infinity;
+	}
+
 	dispose(): void {
 		if (this.#isDisposed) return;
 		this.#isDisposed = true;
 		this.#requestSequence += 1;
+		this.resetPlayback();
 		this.#backend.dispose();
 		this.#metadata = null;
 	}
@@ -279,6 +370,12 @@ export class VideoAssetDecoderCache {
 			didDispose = true;
 		}
 		return didDispose;
+	}
+
+	resetPlayback(): void {
+		for (const cached of this.#entries.values()) {
+			cached.decoder.resetPlayback();
+		}
 	}
 
 	dispose(): void {

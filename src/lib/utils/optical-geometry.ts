@@ -34,15 +34,49 @@ export const DEFAULT_FROSTED_GLASS_REGION: NormalizedOpticalRegion = {
 	height: 1
 };
 
-export function packNormalizedOpticalRegion(
+export interface OpticalFrameSize {
+	height: number;
+	width: number;
+}
+
+const OPTICAL_AUTHORING_WIDTH = 3840;
+const OPTICAL_AUTHORING_HEIGHT = 2160;
+
+export function packAspectPreservingOpticalRegion(
 	region: Partial<NormalizedOpticalRegion> | undefined,
-	fallback: NormalizedOpticalRegion
+	fallback: NormalizedOpticalRegion,
+	frame: OpticalFrameSize
 ): [number, number, number, number] {
+	const x = region?.x ?? fallback.x;
+	const y = region?.y ?? fallback.y;
+	let width = region?.width ?? fallback.width;
+	let height = region?.height ?? fallback.height;
+
+	// A full-frame region explicitly follows the target frame. Local optical
+	// geometry is authored against the canonical 16:9 composition and preserves
+	// that physical pixel aspect when the transport switches orientation.
+	if (width === 1 && height === 1) return [x, y, width, height];
+	if (frame.width <= 0 || frame.height <= 0) return [x, y, width, height];
+	if (frame.width === OPTICAL_AUTHORING_WIDTH && frame.height === OPTICAL_AUTHORING_HEIGHT) {
+		return [x, y, width, height];
+	}
+
+	const centerX = x + width / 2;
+	const centerY = y + height / 2;
+	width = (width * OPTICAL_AUTHORING_WIDTH) / frame.width;
+	height = (height * OPTICAL_AUTHORING_HEIGHT) / frame.height;
+
+	const fitScale = Math.min(1, 1 / width, 1 / height);
+	if (fitScale < 1) {
+		width *= fitScale;
+		height *= fitScale;
+	}
+
 	return [
-		region?.x ?? fallback.x,
-		region?.y ?? fallback.y,
-		region?.width ?? fallback.width,
-		region?.height ?? fallback.height
+		Math.max(0, Math.min(1 - width, centerX - width / 2)),
+		Math.max(0, Math.min(1 - height, centerY - height / 2)),
+		width,
+		height
 	];
 }
 

@@ -54,7 +54,10 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 | [0041](0041-achievement-overlay-family.md)                       | Canon (v1 built)                                          | Achievement Overlay family                                                               |
 | [0042](0042-resolve-marker-sync.md)                              | Canon (v1 built; v2 grammar)                              | Resolve marker sync with frame-exact timing                                              |
 | [0043](0043-source-video-underlay.md)                            | Canon foundation; singular model superseded by 0045       | Deterministic video underlay/compositor/audio/export foundation                          |
+| [0044](0044-optical-lens-and-frost-family.md)                    | Canon (v1 built)                                          | Shared optical vocabulary for Magnify, clear refraction, and deterministic frost         |
 | [0045](0045-composition-media-library-and-video-track.md)        | Canon (current model)                                     | Composition Media library + one primary Video track                                      |
+| [0046](0046-seekable-simulation-and-deformation-families.md)    | Canon (v1 built)                                          | Typed transition families + fixed-step seekable material/deformation runtime              |
+| [0047](0047-reject-general-asset-to-geometry-import.md)          | Canon (broad scope rejected)                              | Reject general SVG/image/GLB-to-geometry import; revisit only for a bounded consumer       |
 
 ## Supersession And Refinement
 

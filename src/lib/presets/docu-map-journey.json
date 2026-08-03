@@ -52,14 +52,14 @@
 					},
 					"text": "WHERE YOUR DEPLOY GOES",
 					"role": "headline",
-					"scale": 1.8,
+					"scale": 1.05,
 					"orientationOverrides": {
 						"vertical": {
 							"position": {
 								"x": 0.5,
 								"y": 0.12
 							},
-							"scale": 2.2
+							"scale": 1.25
 						}
 					},
 					"enter": {

@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 
-	import type { Preset } from '$lib/platform/engine-schema';
+	import type { Preset, SurfaceType } from '$lib/platform/engine-schema';
 	import { posterKeyForPreset } from '$lib/platform/posters';
 	import type { CataloguedPreset } from '$lib/platform/preset';
 	import { getPresetBySlug, listFixtures, listPresets } from '$lib/platform/preset';
@@ -72,9 +72,15 @@
 	})();
 
 	let userCompositions = $state<UserCompositionMeta[]>([]);
-	// A User composition's poster key needs its full stored Preset (not just the metadata),
-	// so resolve them once the list loads; null once resolved-but-unavailable.
-	let userCompositionPosterKeys = $state<Record<string, string | null>>({});
+	// A User composition's poster key + card metadata need its full stored Preset
+	// (not just the meta record), so resolve each once the list loads; null once
+	// resolved-but-unavailable.
+	interface UserCompositionCardInfo {
+		posterKey: string | null;
+		durationSeconds: number;
+		surfaceType: SurfaceType;
+	}
+	let userCompositionInfo = $state<Record<string, UserCompositionCardInfo | null>>({});
 	// Two-step in-place delete: first press arms this slug ("Delete?"), second
 	// press commits; pointer-down elsewhere or Escape disarms.
 	let confirmingSlug = $state<string | null>(null);
@@ -94,12 +100,19 @@
 					userCompositionStore
 						.loadUserComposition(userComposition.slug)
 						.then((preset) => {
-							const key = preset ? posterKeyForPreset(preset) : null;
-							userCompositionPosterKeys[userComposition.slug] =
-								key !== null && posterKeys.has(key) ? key : null;
+							if (!preset) {
+								userCompositionInfo[userComposition.slug] = null;
+								return;
+							}
+							const key = posterKeyForPreset(preset);
+							userCompositionInfo[userComposition.slug] = {
+								posterKey: key !== null && posterKeys.has(key) ? key : null,
+								durationSeconds: preset.state.transport.durationSeconds,
+								surfaceType: preset.state.surface.type
+							};
 						})
 						.catch(() => {
-							userCompositionPosterKeys[userComposition.slug] = null;
+							userCompositionInfo[userComposition.slug] = null;
 						});
 				}
 			})
@@ -107,6 +120,91 @@
 				userCompositions = [];
 			});
 	});
+
+	// ── Rail filter / search / sort / preview aspect ─────────────────────────
+	// Rail selection: 'all' | 'user' | 'fixtures' | a template-family label.
+	let activeFilter = $state<string>('all');
+	let query = $state('');
+	let searchInput = $state<HTMLInputElement | null>(null);
+	let sortKey = $state<'name' | 'duration'>('name');
+	// The whole grid previews in one aspect; flipping it re-flows every card —
+	// the pack-neutral doctrine surfaced at the library level.
+	let previewAspect = $state<'wide' | 'tall'>('wide');
+
+	const normalizedQuery = $derived(query.trim().toLowerCase());
+
+	function matchesQuery(name: string, slug: string): boolean {
+		if (normalizedQuery === '') return true;
+		return (
+			name.toLowerCase().includes(normalizedQuery) || slug.toLowerCase().includes(normalizedQuery)
+		);
+	}
+
+	function sortEntries(entries: readonly CataloguedPreset[]): CataloguedPreset[] {
+		const copy = [...entries];
+		if (sortKey === 'duration') {
+			copy.sort(
+				(a, b) => a.preset.state.transport.durationSeconds - b.preset.state.transport.durationSeconds
+			);
+		} else {
+			copy.sort((a, b) => a.preset.name.localeCompare(b.preset.name));
+		}
+		return copy;
+	}
+
+	const visibleUserCompositions = $derived.by(() => {
+		if (activeFilter !== 'all' && activeFilter !== 'user') return [];
+		return userCompositions
+			.filter((userComposition) => matchesQuery(userComposition.name, userComposition.slug))
+			.toSorted((a, b) => b.savedAt.localeCompare(a.savedAt));
+	});
+
+	const visibleTemplateGroups = $derived.by(() => {
+		if (activeFilter === 'user' || activeFilter === 'fixtures') return [];
+		return templateGroups
+			.filter((group) => activeFilter === 'all' || group.label === activeFilter)
+			.map((group) => ({
+				label: group.label,
+				entries: sortEntries(
+					group.entries.filter((entry) => matchesQuery(entry.preset.name, entry.slug))
+				)
+			}))
+			.filter((group) => group.entries.length > 0);
+	});
+
+	// Fixtures stay demoted: they render only from their rail entry, or at the
+	// bottom of a live search (searching means "everywhere").
+	const visibleFixtures = $derived.by(() => {
+		if (activeFilter !== 'fixtures' && !(activeFilter === 'all' && normalizedQuery !== ''))
+			return [];
+		return sortEntries(
+			fixtures.filter((entry) => matchesQuery(entry.preset.name, entry.slug))
+		);
+	});
+
+	const nothingVisible = $derived(
+		visibleUserCompositions.length === 0 &&
+			visibleTemplateGroups.length === 0 &&
+			visibleFixtures.length === 0
+	);
+
+	function focusSearchShortcut(event: KeyboardEvent): void {
+		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+			event.preventDefault();
+			searchInput?.focus();
+			searchInput?.select();
+		}
+	}
+
+	function clearSearchOnEscape(event: KeyboardEvent): void {
+		if (event.key !== 'Escape') return;
+		if (query !== '') {
+			query = '';
+			event.stopPropagation();
+		} else {
+			searchInput?.blur();
+		}
+	}
 
 	async function createBlankUserComposition(): Promise<void> {
 		const blank = getPresetBySlug('blank');
@@ -210,9 +308,15 @@
 	}
 </script>
 
-<svelte:window onpointerdown={disarmDeleteOnPointerDown} onkeydown={disarmDeleteOnEscape} />
+<svelte:window
+	onpointerdown={disarmDeleteOnPointerDown}
+	onkeydown={(event) => {
+		disarmDeleteOnEscape(event);
+		focusSearchShortcut(event);
+	}}
+/>
 
-{#snippet presetCard(slug: string, preset: Preset)}
+{#snippet presetCard(slug: string, preset: Preset, groupLabel: string)}
 	{@const key = posterKeyForPreset(preset)}
 	<li>
 		<PosterCard
@@ -221,6 +325,10 @@
 			name={preset.name}
 			type={preset.state.surface.type}
 			badge={compositorBadge(preset)}
+			kindLabel={groupLabel}
+			durationSeconds={preset.state.transport.durationSeconds}
+			reflow={preset.kind !== 'fixture'}
+			aspect={previewAspect}
 		/>
 	</li>
 {/snippet}
@@ -229,13 +337,18 @@
 	{@const starterTemplate = userComposition.forkedFrom
 		? getPresetBySlug(userComposition.forkedFrom)
 		: null}
+	{@const info = userCompositionInfo[userComposition.slug] ?? null}
 	<li class="card-cell">
 		<PosterCard
 			slug={userComposition.slug}
-			thumbKey={userCompositionPosterKeys[userComposition.slug] ?? null}
+			thumbKey={info?.posterKey ?? null}
 			name={userComposition.name}
-			type={starterTemplate?.state.surface.type ?? 'plain'}
+			type={info?.surfaceType ?? starterTemplate?.state.surface.type ?? 'plain'}
 			badge={starterTemplate ? compositorBadge(starterTemplate) : null}
+			kindLabel={SURFACE_LABELS[info?.surfaceType ?? starterTemplate?.state.surface.type ?? 'plain']}
+			durationSeconds={info?.durationSeconds ?? null}
+			reflow={true}
+			aspect={previewAspect}
 		/>
 		<button
 			class="card__delete"
@@ -270,39 +383,76 @@
 	</li>
 {/snippet}
 
+{#snippet sectionHeader(label: string, count: number, withControls: boolean)}
+	<div class="home__sectionhead">
+		<h3 class="home__subheading">{label} · {count}</h3>
+		<span class="home__rule" aria-hidden="true"></span>
+		{#if withControls}
+			<label class="toolrow__sort">
+				Sort ·
+				<select bind:value={sortKey}>
+					<option value="name">Name</option>
+					<option value="duration">Duration</option>
+				</select>
+			</label>
+			<div class="toolrow__aspect" role="group" aria-label="Preview aspect">
+				<button
+					type="button"
+					aria-pressed={previewAspect === 'wide'}
+					onclick={() => (previewAspect = 'wide')}
+				>
+					▭ 16:9
+				</button>
+				<button
+					type="button"
+					aria-pressed={previewAspect === 'tall'}
+					onclick={() => (previewAspect = 'tall')}
+				>
+					▯ 9:16
+				</button>
+			</div>
+		{/if}
+	</div>
+{/snippet}
+
 <svelte:head>
 	<title>Supers</title>
 </svelte:head>
 
 <main class="home">
-	<header class="home__header">
-		<div class="home__brand">
-			<p class="home__stamp">4K / WebGPU / alpha</p>
-			<h1 class="home__wordmark">Supers</h1>
+	<header class="topbar">
+		<div class="topbar__brand">
+			<h1 class="topbar__wordmark">Supers</h1>
+			<p class="topbar__stamp">4K / WebGPU / alpha</p>
 		</div>
-		<div class="home__actions">
-			<button class="home__action" type="button" onclick={createBlankUserComposition}>
+		<div class="topbar__search">
+			<svg
+				class="topbar__search-glyph"
+				xmlns="http://www.w3.org/2000/svg"
+				width="13"
+				height="13"
+				viewBox="0 0 16 16"
+				aria-hidden="true"
+			>
+				<circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.5" fill="none" />
+				<path d="m10.5 10.5 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+			</svg>
+			<input
+				bind:this={searchInput}
+				bind:value={query}
+				type="search"
+				placeholder="Search {presets.length + fixtures.length + userCompositions.length} compositions…"
+				aria-label="Search compositions"
+				onkeydown={clearSearchOnEscape}
+			/>
+			<kbd class="topbar__search-hint">⌘K</kbd>
+		</div>
+		<div class="topbar__actions">
+			<label class="topbar__action topbar__import">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					width="14"
-					height="14"
-					viewBox="0 0 16 16"
-					aria-hidden="true"
-				>
-					<path
-						d="M8 3v10M3 8h10"
-						stroke="currentColor"
-						stroke-width="1.6"
-						stroke-linecap="round"
-					/>
-				</svg>
-				New composition
-			</button>
-			<label class="home__action home__import">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="14"
-					height="14"
+					width="13"
+					height="13"
 					viewBox="0 0 16 16"
 					aria-hidden="true"
 				>
@@ -324,53 +474,134 @@
 					onchange={importPresetJson}
 				/>
 			</label>
-			{#if importIssues.length > 0}
-				<ul class="home__import-issues" aria-label="Import issues" aria-live="polite">
-					{#each importIssues as issue (importIssueKey(issue))}
-						<li class:warning={issue.severity === 'warn'}>
-							<span>{issue.source}{issue.rule ? ` / ${issue.rule}` : ''}</span>
-							<code>{issue.path}</code>
-							{issue.message}
-						</li>
-					{/each}
-				</ul>
-			{/if}
+			<button class="topbar__action topbar__action--primary" type="button" onclick={createBlankUserComposition}>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="13"
+					height="13"
+					viewBox="0 0 16 16"
+					aria-hidden="true"
+				>
+					<path
+						d="M8 3v10M3 8h10"
+						stroke="currentColor"
+						stroke-width="1.6"
+						stroke-linecap="round"
+					/>
+				</svg>
+				New composition
+			</button>
 		</div>
 	</header>
 
-	{#if userCompositions.length > 0}
-		<section class="home__section home__section--user">
-			<h2 class="home__heading">Your compositions</h2>
-			<ul class="home__grid">
-				{#each userCompositions as userComposition (userComposition.slug)}
-					{@render userCompositionCard(userComposition)}
-				{/each}
-			</ul>
-		</section>
+	{#if importIssues.length > 0}
+		<ul class="home__import-issues" aria-label="Import issues" aria-live="polite">
+			{#each importIssues as issue (importIssueKey(issue))}
+				<li class:warning={issue.severity === 'warn'}>
+					<span>{issue.source}{issue.rule ? ` / ${issue.rule}` : ''}</span>
+					<code>{issue.path}</code>
+					{issue.message}
+				</li>
+			{/each}
+		</ul>
 	{/if}
 
-	<section class="home__section home__section--templates">
-		<h2 class="home__heading">Starter templates</h2>
-		{#each templateGroups as group (group.label)}
-			<h3 class="home__subheading">{group.label}</h3>
-			<ul class="home__grid">
-				{#each group.entries as entry (entry.slug)}
-					{@render presetCard(entry.slug, entry.preset)}
-				{/each}
-			</ul>
-		{/each}
-	</section>
+	<div class="home__split">
+		<nav class="rail" aria-label="Filter compositions">
+			<div class="rail__body">
+				<button
+				class="rail__item"
+				class:is-active={activeFilter === 'all'}
+				type="button"
+				onclick={() => (activeFilter = 'all')}
+			>
+				<span>All</span>
+				<span class="rail__count">{presets.length + userCompositions.length}</span>
+			</button>
+			<button
+				class="rail__item"
+				class:is-active={activeFilter === 'user'}
+				type="button"
+				onclick={() => (activeFilter = 'user')}
+			>
+				<span>Your compositions</span>
+				<span class="rail__count">{userCompositions.length}</span>
+			</button>
+			<hr class="rail__rule" />
+			<p class="rail__label">Library</p>
+			{#each templateGroups as group (group.label)}
+				<button
+					class="rail__item"
+					class:is-active={activeFilter === group.label}
+					type="button"
+					onclick={() => (activeFilter = group.label)}
+				>
+					<span>{group.label}</span>
+					<span class="rail__count">{group.entries.length}</span>
+				</button>
+			{/each}
+			{#if fixtures.length > 0}
+					<hr class="rail__rule" />
+					<button
+						class="rail__item rail__item--dim"
+						class:is-active={activeFilter === 'fixtures'}
+						type="button"
+						onclick={() => (activeFilter = 'fixtures')}
+					>
+						<span>Demos &amp; fixtures</span>
+						<span class="rail__count">{fixtures.length}</span>
+					</button>
+				{/if}
+			</div>
+		</nav>
 
-	{#if fixtures.length > 0}
-		<details class="home__fixtures">
-			<summary class="home__heading home__heading--summary">Demos &amp; fixtures</summary>
-			<ul class="home__grid">
-				{#each fixtures as entry (entry.slug)}
-					{@render presetCard(entry.slug, entry.preset)}
-				{/each}
-			</ul>
-		</details>
-	{/if}
+		<div class="home__main">
+			{#if visibleUserCompositions.length > 0}
+				<section class="home__section" aria-label="Your compositions">
+					{@render sectionHeader('Your compositions', visibleUserCompositions.length, true)}
+					<ul class="home__grid home__grid--wide" class:is-tall={previewAspect === 'tall'}>
+						{#each visibleUserCompositions as userComposition (userComposition.slug)}
+							{@render userCompositionCard(userComposition)}
+						{/each}
+					</ul>
+				</section>
+			{/if}
+
+			{#each visibleTemplateGroups as group, groupIndex (group.label)}
+				<section class="home__section" aria-label={group.label}>
+					{@render sectionHeader(
+						group.label,
+						group.entries.length,
+						visibleUserCompositions.length === 0 && groupIndex === 0
+					)}
+					<ul class="home__grid" class:is-tall={previewAspect === 'tall'}>
+						{#each group.entries as entry (entry.slug)}
+							{@render presetCard(entry.slug, entry.preset, group.label)}
+						{/each}
+					</ul>
+				</section>
+			{/each}
+
+			{#if visibleFixtures.length > 0}
+				<section class="home__section" aria-label="Demos and fixtures">
+					{@render sectionHeader(
+						'Demos & fixtures',
+						visibleFixtures.length,
+						visibleUserCompositions.length === 0 && visibleTemplateGroups.length === 0
+					)}
+					<ul class="home__grid" class:is-tall={previewAspect === 'tall'}>
+						{#each visibleFixtures as entry (entry.slug)}
+							{@render presetCard(entry.slug, entry.preset, templateGroupLabel(entry))}
+						{/each}
+					</ul>
+				</section>
+			{/if}
+
+			{#if nothingVisible}
+				<p class="home__empty">No matches.</p>
+			{/if}
+		</div>
+	</div>
 </main>
 
 <style>
@@ -386,136 +617,217 @@
 		--selection: #ffd608;
 		--danger-text: #f0453d;
 		background: var(--ink);
-		display: grid;
-		gap: clamp(1.45rem, 2.6vw, 2.75rem);
-		margin-inline: auto;
-		max-inline-size: 90rem;
-		min-block-size: 100svh;
-		padding: clamp(1rem, 2.4vw, 2.4rem);
-	}
-
-	.home__header {
-		align-items: end;
-		border-block-end: 1px solid var(--line);
 		color: var(--text);
 		display: flex;
-		gap: var(--vs-l, 1.5rem);
-		justify-content: space-between;
-		padding-block: clamp(1rem, 3.2vw, 3.2rem);
+		flex-direction: column;
+		min-block-size: 100svh;
 	}
 
-	.home__brand {
-		display: grid;
-		gap: 0.35rem;
+	/* Graffiti's raised-button chrome (gradient fill, 8px radius, inset bevel +
+	   drop shadow, 560 weight) must not bleed into the flat deck. :where keeps
+	   this reset's specificity at the element tier: it outranks Graffiti's bare
+	   `button` by cascade order while every component rule still wins over it,
+	   so intended radii/shadows re-add cleanly. */
+	:where(.home) :global(:where(button, select, input)) {
+		background-image: none;
+		border-radius: 0;
+		box-shadow: none;
+		font-weight: inherit;
+		text-shadow: none;
 	}
 
-	.home__stamp {
-		/* Sanctioned spec-plate exception (DESIGN.md Typography): a data readout,
-		   so it keeps the instrument mono voice. */
-		color: var(--muted);
-		font-family: 'JetBrains Mono', monospace;
-		font-size: clamp(0.68rem, 0.9vw, 0.8rem);
-		font-weight: 600;
-		letter-spacing: 0.12em;
-		margin: 0;
-		text-transform: uppercase;
+	/* ── Top bar ─────────────────────────────────────────────────────────── */
+	.topbar {
+		align-items: center;
+		background: var(--panel);
+		border-block-end: 1px solid var(--line);
+		display: flex;
+		gap: 1.25rem;
+		inset-block-start: 0;
+		min-block-size: 3.5rem;
+		padding-inline: 1.25rem 1rem;
+		position: sticky;
+		z-index: 20;
 	}
 
-	.home__wordmark {
+	.topbar__brand {
+		align-items: baseline;
+		display: flex;
+		flex-shrink: 0;
+		gap: 0.6rem;
+	}
+
+	.topbar__wordmark {
 		font-family: Archivo, sans-serif;
-		font-size: clamp(3.8rem, 9.8vw, 8.8rem);
+		font-size: 1.3125rem;
 		font-style: italic;
 		font-weight: 900;
-		letter-spacing: -0.055em;
-		line-height: 0.82;
+		letter-spacing: -0.045em;
+		line-height: 1;
 		margin: 0;
 		/* The one sanctioned display accent (DESIGN.md Typography): a single
 		   hard-offset signal-hue shadow on the brand shout. */
-		text-shadow: 0.04em 0.03em 0 rgb(230 50 42 / 0.55);
+		text-shadow: 0.055em 0.045em 0 rgb(230 50 42 / 0.7);
 		text-transform: uppercase;
 	}
 
-	.home__wordmark::after {
-		--checker-cell: 0.19em;
+	.topbar__wordmark::after {
+		--checker-cell: 0.16em;
 		--checker-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 3 2' shape-rendering='crispEdges'%3E%3Cpath fill='white' d='M0 0h1v1H0zM2 0h1v1H2zM1 1h1v1H1z'/%3E%3C/svg%3E");
 		background: currentColor;
 		block-size: calc(var(--checker-cell) * 2);
 		content: '';
 		display: inline-block;
 		inline-size: calc(var(--checker-cell) * 3);
-		margin-inline-start: 0.2em;
+		margin-inline-start: 0.24em;
 		-webkit-mask: var(--checker-mask) 0 0 / 100% 100% no-repeat;
 		mask: var(--checker-mask) 0 0 / 100% 100% no-repeat;
 		transform: skewX(-10deg);
 		transform-origin: 0 100%;
 	}
 
-	.home__actions {
-		align-items: center;
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--vs-xs, 0.45rem);
-		justify-content: flex-end;
-		max-inline-size: 42rem;
+	.topbar__stamp {
+		/* Sanctioned spec-plate exception (DESIGN.md Typography): a data readout,
+		   so it keeps the instrument mono voice. */
+		color: var(--muted);
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.5625rem;
+		font-weight: 400;
+		letter-spacing: 0.22em;
+		line-height: 1.2;
+		margin: 0;
+		text-transform: uppercase;
 	}
 
-	.home__action {
+	.topbar__search {
+		align-items: center;
+		background: var(--ink);
+		border: 1px solid var(--line);
+		block-size: 2rem;
+		border-radius: 6px;
+		color: var(--muted);
+		display: flex;
+		flex: 1;
+		gap: 0.5rem;
+		max-inline-size: 27rem;
+		padding-inline: 0.625rem;
+		transition: border-color 120ms ease;
+	}
+
+	.topbar__search:focus-within {
+		border-color: var(--selection);
+	}
+
+	.topbar__search-glyph {
+		flex-shrink: 0;
+	}
+
+	.topbar__search input {
+		appearance: none;
+		background: none;
+		border: none;
+		color: var(--text);
+		flex: 1;
+		font-family: Archivo, sans-serif;
+		font-size: 0.78125rem;
+		min-inline-size: 0;
+		outline: none;
+		padding-block: 0;
+	}
+
+	.topbar__search input::placeholder {
+		color: var(--muted);
+	}
+
+	.topbar__search input::-webkit-search-cancel-button {
+		display: none;
+	}
+
+	.topbar__search-hint {
+		border: 1px solid var(--line);
+		border-radius: 4px;
+		color: var(--muted);
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.59375rem;
+		font-weight: 400;
+		padding: 2px 5px;
+	}
+
+	.topbar__actions {
+		align-items: center;
+		display: flex;
+		flex-shrink: 0;
+		gap: 0.45rem;
+		margin-inline-start: auto;
+	}
+
+	.topbar__action {
 		align-items: center;
 		background: var(--raised);
+		block-size: 2rem;
 		border: 1px solid var(--line);
-		border-radius: 2px;
+		border-radius: 6px;
 		color: var(--text);
 		cursor: pointer;
 		display: inline-flex;
 		font-family: Archivo, sans-serif;
-		font-size: 0.72rem;
+		font-size: 0.75rem;
 		font-weight: 600;
-		gap: var(--vs-xs, 0.45rem);
-		letter-spacing: 0.08em;
-		padding: 0.72rem 0.92rem;
-		text-transform: uppercase;
+		gap: 0.4375rem;
+		letter-spacing: 0.02em;
+		padding: 0 0.8125rem;
 		transition:
 			background 120ms ease,
 			border-color 120ms ease;
 	}
 
-	.home__action:hover {
+	.topbar__action:hover {
 		background: #202024;
 		border-color: #3a3a3e;
 	}
 
-	.home__action:focus-visible,
-	.home__import:has(input:focus-visible) {
+	.topbar__action--primary {
+		background: var(--selection);
 		border-color: var(--selection);
-		outline: 2px solid var(--selection);
-		outline-offset: 3px;
+		color: #141200;
 	}
 
-	.home__import {
+	.topbar__action--primary:hover {
+		background: #ffe14a;
+		border-color: #ffe14a;
+	}
+
+	.topbar__action:focus-visible,
+	.topbar__import:has(input:focus-visible) {
+		border-color: var(--selection);
+		outline: 2px solid var(--selection);
+		outline-offset: 2px;
+	}
+
+	.topbar__import {
 		position: relative;
 	}
 
-	.home__import input {
+	.topbar__import input {
 		cursor: pointer;
 		inset: 0;
 		opacity: 0;
 		position: absolute;
 	}
 
-	.home__import:has(input:disabled) {
+	.topbar__import:has(input:disabled) {
 		color: var(--muted);
 		cursor: wait;
 	}
 
 	.home__import-issues {
+		border-block-end: 1px solid var(--line);
 		color: var(--danger-text);
-		flex-basis: 100%;
 		font-family: Archivo, sans-serif;
 		font-size: 0.72rem;
 		list-style: none;
 		margin: 0;
-		padding: 0;
-		text-align: end;
+		padding: 0.6rem 1.25rem;
 	}
 
 	.home__import-issues li + li {
@@ -533,91 +845,225 @@
 		margin-inline-end: 0.4rem;
 	}
 
-	.home__section {
-		color: var(--text);
+	/* ── Rail + main split ───────────────────────────────────────────────── */
+	.home__split {
 		display: grid;
-		gap: var(--vs-m, 1rem);
+		flex: 1;
+		grid-template-columns: 13.25rem minmax(0, 1fr);
 	}
 
-	.home__heading,
-	.home__subheading {
-		align-items: center;
-		display: flex;
-		font-family: Archivo, sans-serif;
-		font-size: 0.72rem;
-		font-weight: 600;
-		gap: 0.7rem;
-		letter-spacing: 0.08em;
+	/* The rail shell runs the FULL column height (panel + hairline to the page
+	   bottom, like the artifact); the body inside sticks under the top bar and
+	   scrolls its own overflow. */
+	.rail {
+		background: var(--panel);
+		border-inline-end: 1px solid var(--line);
+	}
+
+	.rail__body {
+		display: grid;
+		inset-block-start: 3.5rem;
+		max-block-size: calc(100svh - 3.5rem);
+		overflow-y: auto;
+		padding-block: 0.875rem 1.125rem;
+		position: sticky;
+	}
+
+	.rail__label {
+		color: var(--muted);
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.59375rem;
+		font-weight: 400;
+		letter-spacing: 0.18em;
 		margin: 0;
+		padding: 0.5rem 1.125rem 0.375rem;
 		text-transform: uppercase;
 	}
 
-	.home__heading {
+	.rail__rule {
+		border: none;
+		border-block-start: 1px solid var(--line);
+		margin: 0.625rem 1.125rem;
+	}
+
+	.rail__item {
+		align-items: center;
+		background: none;
+		border: none;
+		border-inline-start: 2px solid transparent;
 		color: var(--text);
+		cursor: pointer;
+		display: flex;
+		font-family: Archivo, sans-serif;
+		font-size: 0.78125rem;
+		gap: 0.5rem;
+		justify-content: space-between;
+		padding: 0.375rem 1.125rem 0.375rem 1.125rem;
+		text-align: start;
+		transition: background 100ms ease;
+	}
+
+	.rail__item:hover {
+		background: rgb(255 255 255 / 0.03);
+	}
+
+	.rail__item.is-active {
+		background: color-mix(in srgb, var(--selection) 6%, transparent);
+		border-inline-start-color: var(--selection);
+		font-weight: 600;
+	}
+
+	.rail__item--dim {
+		color: var(--muted);
+	}
+
+	.rail__item:focus-visible {
+		outline: 2px solid var(--selection);
+		outline-offset: -2px;
+	}
+
+	.rail__count {
+		color: var(--muted);
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.625rem;
+		font-weight: 400;
+	}
+
+	.home__main {
+		display: grid;
+		gap: 1.4rem;
+		min-inline-size: 0;
+		padding: 1rem 1.4rem 3rem;
+	}
+
+	/* ── Section headers ─────────────────────────────────────────────────── */
+	.home__sectionhead {
+		align-items: center;
+		display: flex;
+		gap: 0.9rem;
+	}
+
+	.home__rule {
+		background: var(--line);
+		block-size: 1px;
+		flex: 1;
+	}
+
+	.toolrow__sort {
+		align-items: center;
+		color: var(--muted);
+		display: flex;
+		font-family: Archivo, sans-serif;
+		font-size: 0.71875rem;
+		gap: 0.375rem;
+		white-space: nowrap;
+	}
+
+	.toolrow__sort::after {
+		content: '▾';
+		font-size: 0.6rem;
+	}
+
+	.toolrow__sort select {
+		appearance: none;
+		background: none;
+		border: none;
+		color: var(--muted);
+		block-size: auto;
+		cursor: pointer;
+		font-family: Archivo, sans-serif;
+		font-size: 0.71875rem;
+		line-height: 1.15;
+		padding: 0;
+		transition: color 100ms ease;
+	}
+
+	.toolrow__sort:hover select,
+	.toolrow__sort:hover {
+		color: var(--text);
+	}
+
+	.toolrow__sort select:focus-visible {
+		outline: 2px solid var(--selection);
+		outline-offset: 2px;
+	}
+
+	.toolrow__aspect {
+		border: 1px solid var(--line);
+		border-radius: 3px;
+		display: inline-flex;
+		overflow: hidden;
+	}
+
+	.toolrow__aspect button {
+		background: none;
+		border: none;
+		color: var(--muted);
+		cursor: pointer;
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.625rem;
+		font-weight: 400;
+		padding: 4px 10px;
+		transition: background 100ms ease, color 100ms ease;
+	}
+
+	.toolrow__aspect button[aria-pressed='true'] {
+		background: var(--raised);
+		color: var(--text);
+	}
+
+	.toolrow__aspect button:focus-visible {
+		outline: 2px solid var(--selection);
+		outline-offset: -2px;
+	}
+
+	/* ── Sections + grid ─────────────────────────────────────────────────── */
+	.home__section {
+		display: grid;
+		gap: 0.75rem;
 	}
 
 	.home__subheading {
 		color: var(--muted);
-	}
-
-	.home__heading::after,
-	.home__subheading::after {
-		background: var(--line);
-		block-size: 1px;
-		content: '';
-		flex: 1;
-	}
-
-	/* Group seams inside the template wall: a touch more air above each family
-	   than between its label and its cards. */
-	.home__grid + .home__subheading {
-		margin-block-start: 0.5rem;
-	}
-
-	.home__fixtures {
-		color: var(--text);
-	}
-
-	.home__fixtures .home__grid {
-		margin-block-start: var(--vs-m, 1rem);
-	}
-
-	.home__heading--summary {
-		cursor: pointer;
-		list-style: none;
-	}
-
-	.home__heading--summary::-webkit-details-marker {
-		display: none;
-	}
-
-	.home__heading--summary::before {
-		color: var(--muted);
-		content: '▸';
-	}
-
-	.home__fixtures[open] .home__heading--summary::before {
-		content: '▾';
-	}
-
-	.home__heading--summary:focus-visible {
-		outline: 2px solid var(--selection);
-		outline-offset: 3px;
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.625rem;
+		font-weight: 400;
+		letter-spacing: 0.16em;
+		margin: 0;
+		text-transform: uppercase;
+		white-space: nowrap;
 	}
 
 	.home__grid {
 		container-type: inline-size;
 		display: grid;
-		gap: clamp(0.9rem, 1.8vw, 1.35rem);
-		grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+		gap: 0.875rem;
+		grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
 		list-style: none;
 		margin: 0;
 		padding: 0;
 	}
 
+	.home__grid--wide {
+		grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+	}
+
+	.home__grid.is-tall {
+		grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+	}
+
 	.home__grid > li {
 		min-inline-size: 0;
 		position: relative;
+	}
+
+	.home__empty {
+		color: var(--muted);
+		font-family: 'Paper Mono', monospace;
+		font-size: 0.72rem;
+		letter-spacing: 0.08em;
+		margin: 2.5rem 0;
+		text-align: center;
 	}
 
 	.card-cell {
@@ -688,19 +1134,49 @@
 		}
 	}
 
-	@media (max-width: 46rem) {
-		.home__header {
-			align-items: start;
-			flex-direction: column;
-			min-block-size: auto;
+	@media (max-width: 52rem) {
+		.topbar {
+			flex-wrap: wrap;
+			padding-block: 0.6rem;
+			position: static;
 		}
 
-		.home__actions {
-			justify-content: flex-start;
+		.topbar__search {
+			order: 3;
 		}
 
-		.home__import-issues {
-			text-align: start;
+		.home__split {
+			grid-template-columns: 1fr;
+		}
+
+		.rail {
+			border-block-end: 1px solid var(--line);
+			border-inline-end: none;
+		}
+
+		.rail__body {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.1rem;
+			max-block-size: none;
+			padding: 0.6rem 0.8rem;
+			position: static;
+		}
+
+		.rail__label,
+		.rail__rule {
+			display: none;
+		}
+
+		.rail__item {
+			border: 1px solid var(--line);
+			border-radius: 999px;
+			gap: 0.4rem;
+			padding: 0.28rem 0.7rem;
+		}
+
+		.rail__item.is-active {
+			border-color: var(--selection);
 		}
 	}
 </style>

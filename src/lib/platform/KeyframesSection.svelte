@@ -339,7 +339,7 @@
 		background: transparent;
 		block-size: 20px;
 		border: 0;
-		border-radius: var(--br-xs);
+		border-radius: 4px;
 		color: var(--chrome-muted);
 		cursor: pointer;
 		display: flex;
@@ -364,9 +364,10 @@
 		opacity: 0.4;
 	}
 
-	/* Playhead parked on a keyframe → the diamond lights. */
+	/* Playhead parked on a keyframe → the diamond lights, in the same transport
+	   cyan as the timeline diamonds so the two surfaces read as one system. */
 	.kf-row__toggle--on {
-		color: #ffd608;
+		color: #2de8ee;
 	}
 
 	/* Ease-into for the keyframe under the playhead — only visible parked;

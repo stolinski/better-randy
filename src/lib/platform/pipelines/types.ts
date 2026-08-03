@@ -20,6 +20,7 @@ import type { GpuHost } from '$lib/platform/gpu-host';
 import type { PackManifest } from '$lib/platform/packs/types';
 import type { ResolvedDiagramStroke } from '$lib/platform/packs/resolve';
 import type { OpticalShape } from '$lib/utils/optical-geometry';
+import type { PassExecutionHints } from './pass-execution';
 
 // ---------------- Annotations ----------------
 
@@ -31,6 +32,7 @@ export interface AnnotationDrawContext {
 	canvasWidth: number;
 	color: string;
 	context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+	durationMs: number;
 	intensity: number;
 	layout: AnnotationMarkLayout;
 	markIndex: number;
@@ -88,7 +90,7 @@ export interface BlockRenderer<TBlock extends Block = Block> {
  * Diagram stroke inputs (ADR-0036 §4), carried in `SurfaceRenderInputs` when
  * the surface declares a diagram. The pipelines draw edge-arrow /
  * timeline-segment into their marks canvas via `drawDiagramStrokes`;
-	 * `drawProgressById` is the draw-on scalar (1 for channel-owned primitives),
+ * `drawProgressById` is the draw-on scalar (1 for channel-owned primitives),
  * `alphaById` the visibility fade (exit sugar or authored opacity channel).
  * `stroke.color` arrives resolved — the `'ink'` sentinel is substituted with
  * the composition's resolved ink (the `typography.inkColor` override when
@@ -124,6 +126,7 @@ export interface SurfaceRenderInputs {
 	// `highlightSurface` default.
 	highlightDarkSurface?: boolean;
 	markColorsByIndex: readonly string[];
+	markDurationMsByIndex: readonly number[];
 	markIntensityByIndex: readonly number[];
 	textAnimAlphaByMarkIndex?: readonly number[];
 	// Over-ink (strokes) alpha multiplier so a surface can fade its drawn marks
@@ -198,6 +201,12 @@ export interface ShaderPass<TContent = unknown> {
 	environment?: boolean;
 	/** WGSL fragment body. Same calling convention as `EffectPassDefinition.fragmentBody`. */
 	wgsl: string;
+	/** Optional local-work or intermediate-quality policy. Omitted is native full-frame. */
+	execution?(
+		target: TContent,
+		bounds: { x: number; y: number; width: number; height: number },
+		ctx: EffectPackContext
+	): PassExecutionHints;
 	/**
 	 * Packs target state into the uniform layout's record shape.
 	 *
@@ -409,6 +418,8 @@ export interface EffectEditorProps<TParams = unknown> {
 export interface EffectPassDefinition<TParams> {
 	paramsStruct: unknown; // TgpuStruct describing the WGSL uniform layout
 	fragmentBody: string;
+	/** Optional local-work or intermediate-quality policy. Omitted is native full-frame. */
+	execution?(params: TParams, ctx: EffectPackContext): PassExecutionHints;
 	pack(params: TParams, ctx: EffectPackContext): Record<string, unknown>;
 }
 
@@ -431,4 +442,39 @@ export interface EffectRenderer<TParams = unknown> {
 	 * draggable value hitting the threshold would delete its own editors.
 	 */
 	isPackInert?(pack: PackManifest): boolean;
+}
+
+// ---------------- Transition Effects ----------------
+
+export interface TransitionEffectPackContext {
+	progress: number;
+	timestamp: number;
+	canvasWidth: number;
+	canvasHeight: number;
+}
+
+export interface TransitionEffectEditorProps<TParams = unknown> {
+	params: TParams;
+	onchange(): void;
+}
+
+/**
+ * Declarative two-snapshot transition work. The compiler supplies
+ * `fromSample`, `toSample`, `in.uv`, and `layout.$.uniforms`; renderers own only
+ * the transition-specific mask/deformation math. Progress-zero and progress-one
+ * endpoint identity is enforced by the shared compiler.
+ */
+export interface TransitionEffectPassDefinition<TParams> {
+	paramsStruct: unknown;
+	fragmentBody: string;
+	pack(params: TParams, ctx: TransitionEffectPackContext): Record<string, unknown>;
+}
+
+export interface TransitionEffectRenderer<TParams = unknown> {
+	type: string;
+	label: string;
+	paramsSchema: z.ZodType<TParams>;
+	defaults(): { params: TParams };
+	pass: TransitionEffectPassDefinition<TParams>;
+	Editor?: Component<TransitionEffectEditorProps<TParams>>;
 }

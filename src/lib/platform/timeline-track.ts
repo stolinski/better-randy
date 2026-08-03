@@ -44,6 +44,8 @@ export interface ClipKeyframe {
 	channel: string;
 	index: number;
 	fraction: number;
+	/** The keyframe's channel value — drawn by the automation sub-lane curve. */
+	value: number;
 }
 
 /**
@@ -99,6 +101,8 @@ export interface TimelineTransition {
 	cascade?: ClipCascadeLink;
 	/** Present only for a cue on the Sound rail; routes selection without parsing the transition id. */
 	soundReference?: SoundRailReference;
+	/** Bundled audio-asset slug behind a manual cue clip — drives its waveform. */
+	soundAssetSlug?: string;
 }
 
 export interface TimelineTrack {

@@ -1,33 +1,32 @@
 import type { AnnotationFocalSlot, AnnotationRenderer } from '$lib/platform/pipelines/types';
 
-function easeOutExpo(t: number): number {
-	if (t <= 0) return 0;
-	if (t >= 1) return 1;
-	return 1 - Math.pow(2, -10 * t);
-}
-
-function easeInExpo(t: number): number {
-	if (t <= 0) return 0;
-	if (t >= 1) return 1;
-	return Math.pow(2, 10 * (t - 1));
+function smoothstep01(value: number): number {
+	const t = Math.max(0, Math.min(1, value));
+	return t * t * (3 - 2 * t);
 }
 
 export const magnifyAnnotationRenderer: AnnotationRenderer = {
 	style: 'magnify',
 	kind: 'focal',
 	appliesTo: ['paragraph'],
-	// The lens is sized from one representative line, not stretched across a
-	// wrapped paragraph. Short phrases receive a circular inspection lens;
-	// longer lines receive a bounded rounded rectangle so the focal words stay
-	// readable without turning the whole paragraph into a glass plate.
+	// Short phrases receive a circular inspection lens. Wrapped phrases use
+	// their full marked bounds for centering, then receive a line-height-bounded
+	// rounded rectangle so the focal words stay readable without stretching the
+	// lens across an entire paragraph.
 	//
-	// Reveal envelope uses exponential easing rather than smoothstep:
-	// snap in over the first 10% of the bar, hold at full scale for 80%,
-	// snap out over the final 10%. The bulk of each transition is
-	// concentrated at the bar edges, so visually the lens "is present
-	// while the bar is on screen" with smooth bookends, rather than
-	// being mid-fade for a full 15% on each side.
-	computeFocalSlot({ canvasHeight, canvasWidth, color, intensity, layout, progress }): AnnotationFocalSlot {
+	// Entry occupies 40% of the authored Mark duration, clamped to G6's
+	// 250–400 ms band. Exit is exactly 25% shorter and clamped to 180–280 ms.
+	// Absolute-duration envelopes keep every legal focal Mark smooth regardless
+	// of how its normalized Timeline window changes.
+	computeFocalSlot({
+		canvasHeight,
+		canvasWidth,
+		color,
+		durationMs,
+		intensity,
+		layout,
+		progress
+	}): AnnotationFocalSlot {
 		const fragments = layout.fragments.length > 0 ? layout.fragments : [layout.bounds];
 		const midIdx = Math.min(Math.floor(fragments.length / 2), fragments.length - 1);
 		const anchor = fragments[midIdx] ?? layout.bounds;
@@ -39,19 +38,22 @@ export const magnifyAnnotationRenderer: AnnotationRenderer = {
 		const circularDiameter = lineHeight * 7;
 		const lensWidth = isCircular
 			? circularDiameter
-			: Math.min(Math.max(focalBounds.width + lineHeight * 3, lineHeight * 10), lineHeight * 14);
+			: Math.min(Math.max(focalBounds.width + lineHeight * 2.5, lineHeight * 18), lineHeight * 26);
 		const lensHeight = isCircular
 			? circularDiameter
-			: Math.min(Math.max(focalBounds.height + lineHeight * 2.5, lineHeight * 6.5), lineHeight * 8);
+			: Math.min(Math.max(focalBounds.height + lineHeight, lineHeight * 3.5), lineHeight * 4);
 		const lensCenterX = focalBounds.x + focalBounds.width / 2;
 		const lensCenterY = focalBounds.y + focalBounds.height / 2;
 
-		const enterT = Math.max(0, Math.min(1, progress / 0.10));
-		const exitT = Math.max(0, Math.min(1, (progress - 0.90) / 0.10));
-		const fadeIn = easeOutExpo(enterT);
-		const fadeOut = 1 - easeInExpo(exitT);
+		const safeDurationMs = Math.max(1, durationMs);
+		const enterDurationMs = Math.max(250, Math.min(400, safeDurationMs * 0.4));
+		const exitDurationMs = Math.max(180, Math.min(280, enterDurationMs * 0.75));
+		const enterFraction = enterDurationMs / safeDurationMs;
+		const exitFraction = exitDurationMs / safeDurationMs;
+		const fadeIn = smoothstep01(progress / enterFraction);
+		const fadeOut = 1 - smoothstep01((progress - (1 - exitFraction)) / exitFraction);
 		const reveal = fadeIn * fadeOut;
-		const inspectionRipple = Math.max(0, Math.min(1, (progress - 0.08) / 0.34));
+		const inspectionRipple = Math.max(0, Math.min(1, (progress - 0.04) / 0.22));
 		const safeIntensity = Math.max(0, Math.min(1, intensity));
 
 		return {
@@ -63,7 +65,7 @@ export const magnifyAnnotationRenderer: AnnotationRenderer = {
 				height: lensHeight / canvasHeight
 			},
 			magnify: (0.62 + safeIntensity * 0.26) * reveal,
-			dim: (0.42 + safeIntensity * 0.2) * reveal,
+			dim: (0.32 + safeIntensity * 0.18) * reveal,
 			opticalColor: color,
 			opticalIntensity: safeIntensity,
 			opticalRipple: inspectionRipple,

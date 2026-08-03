@@ -18,6 +18,7 @@ await new Promise((resolve, reject) => {
 let nextId = 1;
 const pending = new Map();
 const consoleErrors = [];
+const consoleWarnings = [];
 const networkErrors = [];
 let responseCount = 0;
 socket.onmessage = (event) => {
@@ -31,6 +32,12 @@ socket.onmessage = (event) => {
 	}
 	if (message.method === 'Runtime.consoleAPICalled' && message.params.type === 'error') {
 		consoleErrors.push(message.params.args.map((arg) => arg.value ?? arg.description).join(' '));
+	}
+	if (message.method === 'Runtime.consoleAPICalled' && message.params.type === 'warning') {
+		const warning = message.params.args.map((arg) => arg.value ?? arg.description).join(' ');
+		if (/WGSL|ShaderModule|RenderPipeline|CommandBuffer|WebGPU/i.test(warning)) {
+			consoleWarnings.push(warning);
+		}
 	}
 	if (message.method === 'Runtime.exceptionThrown') {
 		consoleErrors.push(
@@ -110,6 +117,7 @@ if (!page?.canvas || !page.timeline || !page.exportSeam || !page.canvasDrawEleme
 }
 failures.push(...(page?.mediaErrors ?? []).map((error) => `media: ${error}`));
 failures.push(...consoleErrors.map((error) => `console: ${error}`));
+failures.push(...consoleWarnings.map((warning) => `console warning: ${warning}`));
 failures.push(...networkErrors.map((error) => `network: ${error}`));
 console.log(
 	JSON.stringify(
@@ -117,6 +125,7 @@ console.log(
 			page,
 			responseCount,
 			consoleErrors,
+			consoleWarnings,
 			networkErrors,
 			verdict: failures.length === 0 ? 'pass' : 'fail',
 			failures

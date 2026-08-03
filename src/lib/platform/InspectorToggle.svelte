@@ -35,7 +35,7 @@
 		background: var(--chrome-well);
 		block-size: 20px;
 		border: 1px solid var(--chrome-hairline);
-		border-radius: var(--br-xs);
+		border-radius: 3px;
 		color: var(--chrome-text);
 		cursor: pointer;
 		display: inline-flex;

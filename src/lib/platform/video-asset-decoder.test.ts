@@ -56,6 +56,9 @@ function fakeSample(timestamp: number): FakeSample {
 		pixelAspectRatio: { num: 1, den: 1 },
 		visibleRect: { left: 0, top: 0, width: 1920, height: 1080 },
 		closed: false,
+		clone() {
+			return fakeSample(this.timestamp);
+		},
 		close() {
 			this.closed = true;
 		}
@@ -84,6 +87,7 @@ describe('VideoAssetDecoder', () => {
 		const services: VideoAssetDecoderServices = {
 			createBackend: () => ({
 				initialize: async () => METADATA,
+				samples: async function* () {},
 				getSample: async (timestamp) => {
 					requested.push(timestamp);
 					return fakeSample(timestamp - 0.01);
@@ -108,6 +112,7 @@ describe('VideoAssetDecoder', () => {
 		const services: VideoAssetDecoderServices = {
 			createBackend: () => ({
 				initialize: async () => METADATA,
+				samples: async function* () {},
 				getSample: async () => futureSample,
 				dispose: () => undefined
 			})
@@ -125,6 +130,7 @@ describe('VideoAssetDecoder', () => {
 		const services: VideoAssetDecoderServices = {
 			createBackend: () => ({
 				initialize: async () => METADATA,
+				samples: async function* () {},
 				getSample: async () => roundedSample,
 				dispose: () => undefined
 			})
@@ -144,6 +150,7 @@ describe('VideoAssetDecoder', () => {
 		const services: VideoAssetDecoderServices = {
 			createBackend: () => ({
 				initialize: async () => METADATA,
+				samples: async function* () {},
 				getSample: async () => queue.shift()!.promise,
 				dispose: () => undefined
 			})
@@ -174,6 +181,7 @@ describe('VideoAssetDecoder', () => {
 					initializeCount += 1;
 					return METADATA;
 				},
+				samples: async function* () {},
 				getSample: async (timestamp) => {
 					requested.push(timestamp);
 					return fakeSample(timestamp);
@@ -191,6 +199,33 @@ describe('VideoAssetDecoder', () => {
 		assert.equal(initializeCount, 1);
 		assert.deepEqual(requested, [12, 17.5]);
 	});
+
+	it('keeps one sequential decode iterator alive across playback frames', async () => {
+		let iteratorCount = 0;
+		const yieldedSamples = [fakeSample(10), fakeSample(10.04), fakeSample(10.08)];
+		const services: VideoAssetDecoderServices = {
+			createBackend: () => ({
+				initialize: async () => METADATA,
+				getSample: async () => null,
+				samples: async function* () {
+					iteratorCount += 1;
+					for (const sample of yieldedSamples) yield sample;
+				},
+				dispose: () => undefined
+			})
+		};
+		const decoder = new VideoAssetDecoder(ASSET_A, services);
+		await decoder.initialize();
+
+		const first = await decoder.playbackFrameAt(0.01);
+		const second = await decoder.playbackFrameAt(0.05);
+		assert.equal(first.presentationTimestamp, 10);
+		assert.equal(second.presentationTimestamp, 10.04);
+		assert.equal(iteratorCount, 1);
+		first.close();
+		second.close();
+		decoder.dispose();
+	});
 });
 
 describe('VideoAssetDecoderCache', () => {
@@ -201,6 +236,7 @@ describe('VideoAssetDecoderCache', () => {
 				createdUrls.push(assetUrl);
 				return {
 					initialize: async () => METADATA,
+					samples: async function* () {},
 					getSample: async () => null,
 					dispose: () => undefined
 				};
@@ -221,6 +257,7 @@ describe('VideoAssetDecoderCache', () => {
 		const services: VideoAssetDecoderServices = {
 			createBackend: (assetUrl) => ({
 				initialize: async () => METADATA,
+				samples: async function* () {},
 				getSample: async () => null,
 				dispose: () => disposedUrls.push(assetUrl)
 			})

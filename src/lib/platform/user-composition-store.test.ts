@@ -147,6 +147,18 @@ describe('userCompositionStore', () => {
 		assert.deepEqual(fetchMock.mock.calls[1], ['/api/user-compositions/missing']);
 	});
 
+	it('uses an explicit request fetch instead of global fetch when loading', async () => {
+		const requestFetch = vi.fn<typeof fetch>().mockResolvedValueOnce(
+			jsonResponse(presetToWireFormat(blankPreset))
+		);
+
+		const loaded = await userCompositionStore.loadUserComposition('request-scoped', requestFetch);
+
+		assert.deepEqual(loaded, blankPreset);
+		assert.deepEqual(requestFetch.mock.calls[0], ['/api/user-compositions/request-scoped']);
+		assert.equal(fetchMock.mock.calls.length, 0);
+	});
+
 	it('forks with POST and serializes the standalone Preset to the existing wire format', async () => {
 		fetchMock.mockResolvedValueOnce(jsonResponse({ slug: 'blank-copy' }, { status: 201 }));
 

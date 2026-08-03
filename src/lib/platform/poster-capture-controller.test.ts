@@ -1,0 +1,88 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'vitest';
+
+import { PosterCaptureController, type PosterCaptureServices } from './poster-capture-controller';
+
+interface Deferred<T> {
+	promise: Promise<T>;
+	resolve(value: T): void;
+}
+
+function deferred<T>(): Deferred<T> {
+	let resolvePromise!: (value: T) => void;
+	const promise = new Promise<T>((resolve) => {
+		resolvePromise = resolve;
+	});
+	return { promise, resolve: resolvePromise };
+}
+
+async function flushPromises(): Promise<void> {
+	for (let index = 0; index < 20; index += 1) await Promise.resolve();
+}
+
+describe('PosterCaptureController', () => {
+	it('cancels delayed work when the canvas/composition identity changes', async () => {
+		const firstDelay = deferred<void>();
+		const captures: HTMLCanvasElement[] = [];
+		let delayIndex = 0;
+		const services: PosterCaptureServices = {
+			waitForFonts: async () => undefined,
+			delay: () => (delayIndex++ === 0 ? firstDelay.promise : Promise.resolve()),
+			nextFrame: async () => undefined,
+			requestPaint: () => undefined,
+			exists: async () => false,
+			capture: async (canvas) => {
+				captures.push(canvas);
+				return new Blob(['poster']);
+			},
+			store: async () => undefined,
+			reportError: () => undefined
+		};
+		const controller = new PosterCaptureController(services);
+		const firstCanvas = {} as HTMLCanvasElement;
+		const secondCanvas = {} as HTMLCanvasElement;
+
+		controller.update({ key: 'same-key', canvas: firstCanvas, compositionIdentity: {} });
+		await flushPromises();
+		controller.update({ key: 'same-key', canvas: secondCanvas, compositionIdentity: {} });
+		firstDelay.resolve();
+		await flushPromises();
+
+		assert.deepEqual(captures, [secondCanvas]);
+	});
+
+	it('marks a key complete only after storage succeeds and permits a failed retry', async () => {
+		let storeAttempts = 0;
+		let captures = 0;
+		const errors: unknown[] = [];
+		const services: PosterCaptureServices = {
+			waitForFonts: async () => undefined,
+			delay: async () => undefined,
+			nextFrame: async () => undefined,
+			requestPaint: () => undefined,
+			exists: async () => false,
+			capture: async () => {
+				captures += 1;
+				return new Blob(['poster']);
+			},
+			store: async () => {
+				storeAttempts += 1;
+				if (storeAttempts === 1) throw new Error('storage failed');
+			},
+			reportError: (error) => errors.push(error)
+		};
+		const controller = new PosterCaptureController(services);
+		const request = { key: 'retry-key', canvas: {} as HTMLCanvasElement, compositionIdentity: {} };
+
+		controller.update(request);
+		await flushPromises();
+		controller.update(request);
+		await flushPromises();
+		controller.update(request);
+		await flushPromises();
+
+		assert.equal(errors.length, 1);
+		assert.equal(storeAttempts, 2);
+		assert.equal(captures, 2);
+	});
+});
