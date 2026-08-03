@@ -130,34 +130,22 @@ export const syntaxPack: PackManifest = {
 		},
 
 		// ---------------- newspaper Surface ----------------
-		// Consumed color Roles (render-is-truth — match what CanvasSource paints).
-		'newspaper.fill': { kind: 'style', value: '#f0e8d6' },
-		'newspaper.ink': { kind: 'style', value: '#1a1612' },
+		// Partial substrate immunity (ADR-0039 §2): the document body — sheet
+		// fill, body ink, print tints, tear character — is intrinsic newsprint
+		// (`newsprint-substrate.ts`; this Pack's former claims carried the same
+		// values and folded back in). Only the claimable channel chrome remains:
+		// the kicker chip and the depth rig.
 		'newspaper.accent': { kind: 'style', value: '#fabf47' },
 		'newspaper.kicker-ink': { kind: 'style', value: '#1a1612' },
-		// Structural edge — the clipping is TORN from the paper, never cropped
-		// (aesthetic.md § Cut behavior: tear path ~3–8% of the card's smaller
-		// dimension; 4K card height ≈ 1339 px → 40 px sits at the band floor,
-		// ~4.3% at the fine octave's peak). The footer rule keeps its ink via the
-		// CanvasSource chain `var(--edge, var(--ink))` → `newspaper.ink` — same
-		// value this Role carried when it was a bare colour.
-		'newspaper.edge': {
-			kind: 'style',
-			value: { mode: 'torn', amplitudePx: 40, wavelengthPx: 150, fiber: 1 }
-		},
 		// Structural depth — the signature zine hard-offset shadow under the card
 		// (aesthetic.md § Collage System / Hard offset shadow). `dx`/`dy` are
-		// 4K-reference px; `color:'fg'` resolves to the card's ink so the shadow
-		// tracks the Pack's foreground. The newspaper Identity Spec names this the
-		// "Pack-side Syntax chrome" that coexists with the intrinsic occlusion.
+		// 4K-reference px; `color:'fg'` resolves to the card's intrinsic
+		// newsprint ink so the shadow tracks the foreground. The edge pass
+		// synthesizes it as an offset duplicate of the intrinsic torn silhouette.
 		'newspaper.depth': {
 			kind: 'style',
 			value: { hardOffset: { dx: 12, dy: 12, blur: 0, color: 'fg' } }
 		},
-		// WGSL print tints (render-is-truth — exact byte conversions of the
-		// newspaper-physics pass's vec3f constants): cool near-black halftone
-		// ink, faintly warm edge-occlusion shadow.
-		'newspaper.print': { kind: 'style', value: { ink: '#0a0a0d', shadow: '#0d0a0a' } },
 
 		// ---------------- title-sequence Surface ----------------
 		'title-sequence.edge': { kind: 'style', value: 'none' },

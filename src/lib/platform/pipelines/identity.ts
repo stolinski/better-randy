@@ -33,20 +33,34 @@ export interface IdentityDimension {
 }
 
 /**
- * Declared Pack-immunity per ADR-0038. A Pipeline whose appearance is the
- * faithful artifact or authored content itself declares immunity here so it
- * is a registry-visible fact — never an unwired accident indistinguishable
- * from a Pack-plumbing bug.
+ * Declared Pack-immunity per ADR-0038, extended by ADR-0039 §2 with the
+ * partial (immune-body / claimable-chrome) form. A Pipeline whose appearance
+ * is the faithful artifact or authored content itself declares immunity here
+ * so it is a registry-visible fact — never an unwired accident
+ * indistinguishable from a Pack-plumbing bug.
  *
- * Semantics: an immune Surface or Overlay artifact skips Pack appearance-var
- * injection in its Layer mount. Treatments layered around it — annotation
- * marks, edge treatment, depth shadow, Effects — still resolve from the active
- * Pack.
+ * Semantics: a FULLY immune Surface or Overlay artifact (`claimable` absent)
+ * skips Pack appearance-var injection in its Layer mount. Treatments layered
+ * around it — annotation marks, edge treatment, depth shadow, Effects — still
+ * resolve from the active Pack.
  * The rationale is part of the declaration: immunity without a stated "why"
  * is unrepresentable.
  */
 export interface PackImmunity {
 	rationale: string;
+	/**
+	 * Absent ⇒ FULL immunity (web-document / imessage): no Pack appearance
+	 * reaches the artifact. Present ⇒ PARTIAL immunity (ADR-0039 §2, the
+	 * paper-document split): the artifact's BODY — its own physics: fill, ink,
+	 * print tints, edge character — is immune, while the enumerated slots
+	 * (channel chrome ON the document: the kicker chip, depth/shadow) still
+	 * resolve from the active Pack. Slot names are Role suffixes exactly as
+	 * they appear after `<pipeline>.` (`'accent'`, `'kicker-ink'`, `'depth'`);
+	 * any slot not listed is immune body. Queried through
+	 * `isAppearanceSlotPackClaimable` / `filterPackAppearanceVarsForImmunity`
+	 * in `identity-registry.ts`.
+	 */
+	claimable?: readonly string[];
 }
 
 export interface IdentitySpec {

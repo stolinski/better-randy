@@ -1,11 +1,10 @@
 <script lang="ts">
 	import { annotationBodyPlainText } from '$lib/annotations/annotation-body-text';
 	import { animState } from '$lib/platform/anim-state.svelte';
-	import { engineState, packState } from '$lib/platform/engine-state.svelte';
-	import { getPack } from '$lib/platform/packs/registry';
-	import { resolveDepthTreatment, resolveEdgeTreatment } from '$lib/platform/packs/resolve';
+	import { engineState } from '$lib/platform/engine-state.svelte';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 	import { hashStringToUnitInterval, seededRange } from '$lib/utils/seeded';
+	import { NEWSPRINT_INK_HEX, NEWSPRINT_PAPER_HEX } from './newsprint-substrate';
 
 	interface Props {
 		element?: HTMLElement | null;
@@ -52,40 +51,15 @@
 		return { x: restingX, y, width, height };
 	});
 
-	// Hard-offset depth shadow under the card, resolved from the active Pack's
-	// structural `newspaper.depth` Role (→ core `depth-treatment` fallback). The
-	// Role carries 4K-reference offsets; scale them to the composition's actual
-	// width so the shadow tracks resolution. `color:'fg'` resolves through the
-	// card's mount-injected `--ink`. A Pack that drops depth (`'none'`) leaves the
-	// card flat on its intrinsic edge-occlusion shadow alone.
-	const depthShadow = $derived.by(() => {
-		const pack = getPack(packState.slug);
-		// Displaced edge modes (torn/irregular) hand the hard-offset shadow to
-		// the shared edge-treatment ShaderPass, which synthesizes it as an
-		// offset duplicate of the TORN silhouette. A CSS box-shadow here would
-		// bake a straight card/shadow seam into the flat HTML-in-Canvas capture
-		// that no alpha treatment can cross.
-		const edge = resolveEdgeTreatment(pack, 'newspaper');
-		if (edge && (edge.mode === 'torn' || edge.mode === 'irregular')) {
-			return 'none';
-		}
-		const depth = resolveDepthTreatment(pack, 'newspaper', 'var(--ink)');
-		if (!depth) {
-			return 'none';
-		}
-		const scale = frame.width / 3840;
-		if (depth.kind === 'glow') {
-			// Emissive depth (glow-not-shadow): a centered bloom halo — a hot inner
-			// blur plus a wider skirt whose larger radius reads naturally dimmer, so
-			// bloom scales with excitation. box-shadow captures in HTML-in-Canvas;
-			// CSS filters do not (they promote compositing layers) — never a filter.
-			const hot = depth.radius * scale;
-			const hotColor = `color-mix(in srgb, ${depth.color} ${Math.round(depth.intensity * 100)}%, transparent)`;
-			const skirtColor = `color-mix(in srgb, ${depth.color} ${Math.round(depth.intensity * 45)}%, transparent)`;
-			return `0 0 ${hot}px ${hotColor}, 0 0 ${hot * 2.25}px ${skirtColor}`;
-		}
-		return `${depth.dx * scale}px ${depth.dy * scale}px ${depth.blur * scale}px ${depth.color}`;
-	});
+	// No CSS depth shadow: the clipping's edge is intrinsically torn (partial
+	// substrate immunity, ADR-0039 §2 — `newsprint-substrate.ts`), and displaced
+	// edge modes hand the depth rig to the shared edge-treatment ShaderPass,
+	// which synthesizes the Pack's claimable `newspaper.depth` shadow as an
+	// offset duplicate of the TORN silhouette (`prepareFramePackTreatments`).
+	// A CSS box-shadow here would bake a straight card/shadow seam into the
+	// flat HTML-in-Canvas capture that no alpha treatment can cross. Known
+	// limitation: a glow-form depth claim (crt-terminal) has no torn-silhouette
+	// synthesis lane yet, so it does not reach newspaper pixels.
 
 	const sourceLabel = $derived.by(() => {
 		const url = engineState.surface.content.sourceUrl?.trim() ?? '';
@@ -147,8 +121,9 @@
 	style:left={`${layout.x}px`}
 	style:top={`${layout.y}px`}
 	style:transform={`rotate(${rotationDeg}deg)`}
-	style:--depth-shadow={depthShadow}
-	style:padding={`var(--pad, ${layout.width * 0.045}px ${layout.width * 0.06}px)`}
+	style:padding={`${layout.width * 0.045}px ${layout.width * 0.06}px`}
+	style:background-color={NEWSPRINT_PAPER_HEX}
+	style:color={NEWSPRINT_INK_HEX}
 >
 	<header>
 		{#if hasKicker}
@@ -225,24 +200,18 @@
 
 <style>
 	/*
-	 * Warm-white substrate ~#f0e8d6 per docs/aesthetic.md § Newspaper clipping.
-	 * The hard-offset depth shadow is resolved from the active Pack's structural
-	 * `newspaper.depth` Role (see the script's `depthShadow`) — aesthetic.md
-	 * § Collage System / Hard offset shadow references Syntax's
-	 * `--s-graphic: -4px 4px 0 var(--c-fg)`, the foreground ink, not the accent.
-	 * `none` (a Pack that drops the chrome) leaves the card flat.
+	 * Immune document body (partial substrate immunity, ADR-0039 §2): the
+	 * sheet colour and body ink are the intrinsic newsprint constants
+	 * (`newsprint-substrate.ts`), injected as `style:` attributes on the
+	 * article — never Pack vars. The former Pack FORM dress on the card
+	 * (`newspaper.border` / `.radius` / `.tracking` / `.case` / `.weight`) is
+	 * retired for the same reason: a bezeled, tracked-out "newspaper" is not a
+	 * newspaper. The Pack's remaining claims on this Surface are the kicker
+	 * chip (`--accent` / `--kicker-ink`, filtered through the Identity Spec's
+	 * claimable slots) and the depth rig the edge pass synthesizes.
 	 */
 	.newspaper-source {
-		background-color: var(--fill);
-		/* Pack FORM dress (ADR-0023 appearance): a bezel + corner radius the Pack
-		   may claim via `newspaper.border` / `.radius` (e.g. a CRT phosphor frame
-		   around the clipping). Silent Packs fall back to the borderless square
-		   clipping — syntax renders byte-identical. */
-		border: var(--border, none);
-		border-radius: var(--radius, 0);
-		box-shadow: var(--depth-shadow, none);
 		box-sizing: border-box;
-		color: var(--ink);
 		display: grid;
 		grid-template-rows: auto 1fr auto;
 		gap: 0.6em;
@@ -315,16 +284,18 @@
 	}
 
 	.newspaper-source__kicker {
+		/* The kicker chip is claimable channel chrome (ADR-0039 §2): plate rides
+		   the Pack's `newspaper.accent` → core accent chain; chip ink rides
+		   `newspaper.kicker-ink`, falling to the card's intrinsic newsprint ink
+		   (currentColor) for a Pack silent on the slot. */
 		background-color: var(--accent);
-		/* Extra slot → chains to the ink core (the kicker chip prints in the paper's ink), never a literal (ADR-0024). */
-		color: var(--kicker-ink, var(--ink));
+		color: var(--kicker-ink, currentColor);
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		font-weight: 700;
-		/* Pack label dress (`newspaper.tracking` / `.case`); silent → today's caps. */
-		letter-spacing: var(--tracking, 0.14em);
+		letter-spacing: 0.14em;
 		line-height: 1;
 		padding: 0.5em 0.75em;
-		text-transform: var(--case, uppercase);
+		text-transform: uppercase;
 	}
 
 	/*
@@ -336,8 +307,7 @@
 	 */
 	h2 {
 		font-family: 'Playfair Display', 'Old Standard TT', 'Roboto Slab', serif;
-		/* Pack title weight (`newspaper.weight`); silent → today's 900. */
-		font-weight: var(--weight, 900);
+		font-weight: 900;
 		line-height: 1.02;
 		margin: 0;
 		text-wrap: balance;
@@ -345,20 +315,17 @@
 
 	footer {
 		align-items: end;
-		/* The footer rule prints in the card's ink. `--edge` is only emitted for a
-		   (legacy) colour-valued edge Role — the structural edge vocabulary never
-		   sets it, so this chains to the ink core, never a literal (ADR-0024). */
-		border-block-start: 0.15em solid var(--edge, var(--ink));
+		/* The footer rule prints in the card's own ink — immune document body,
+		   inherited from the article's intrinsic newsprint colour. */
+		border-block-start: 0.15em solid currentColor;
 		display: flex;
 		flex-wrap: wrap;
 		font-family: 'JetBrains Mono', ui-monospace, monospace;
 		gap: 1.5em;
 		justify-content: space-between;
-		/* Footer credit line is a label group — shares the card's label dress
-		   (`newspaper.tracking` / `.case`); silent → today's caps. */
-		letter-spacing: var(--tracking, 0.10em);
+		letter-spacing: 0.1em;
 		padding-block-start: 0.7em;
-		text-transform: var(--case, uppercase);
+		text-transform: uppercase;
 	}
 
 	.newspaper-source__byline {

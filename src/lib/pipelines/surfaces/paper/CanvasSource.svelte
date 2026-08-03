@@ -2,9 +2,8 @@
 	import { annotationBodyPlainText } from '$lib/annotations/annotation-body-text';
 	import { animState } from '$lib/platform/anim-state.svelte';
 	import { ENGINE_FONT_FAMILIES } from '$lib/platform/engine-schema';
-	import { engineState, packState } from '$lib/platform/engine-state.svelte';
-	import { getPack } from '$lib/platform/packs/registry';
-	import { resolveTypographyColors } from '$lib/platform/packs/resolve';
+	import { engineState } from '$lib/platform/engine-state.svelte';
+	import { PAPER_INK_HEX, PAPER_SHEET_HEX } from './paper-substrate';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 	import { getLayoutSafeArea } from '$lib/utils/safe-area';
 
@@ -34,12 +33,17 @@
 	const VERTICAL_READABLE_RAIL_BUFFER_RATIO = 0.03;
 
 	const fontFamily = $derived(ENGINE_FONT_FAMILIES[engineState.typography.fontFamily]);
-	// Paper/ink resolve override → Pack core (ADR-0038): an authored
-	// typography colour wins; absent, the active Pack's fill/ink-treatment
-	// paints the sheet — so a pack switch re-dresses the paper live.
-	const typographyColors = $derived(
-		resolveTypographyColors(getPack(packState.slug), engineState.typography)
-	);
+	// Paper/ink resolve override → intrinsic substrate (ADR-0038 + ADR-0039
+	// §2): an authored typography colour wins; absent, the sheet prints its
+	// own printer-paper constants (`paper-substrate.ts`) — the active Pack
+	// never decides the document body, so no pack is consulted here.
+	// (Platform-level consumers use resolveSurfaceTypographyColors, which
+	// reaches the same values through the registry; this component IS the
+	// surface, so it reads its own substrate directly.)
+	const typographyColors = $derived({
+		paperColor: engineState.typography.paperColor ?? PAPER_SHEET_HEX,
+		inkColor: engineState.typography.inkColor ?? PAPER_INK_HEX
+	});
 	const frame = $derived(getVideoFrameSize(engineState.transport.orientation));
 
 	const layout = $derived.by(() => {

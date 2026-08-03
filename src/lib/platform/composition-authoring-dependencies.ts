@@ -62,10 +62,15 @@ export function trackCompositionAuthoringDependencies(state: EngineState, packSl
 	void state.surface.content.kicker;
 	void state.surface.content.sourceUrl;
 	void state.surface.content.author;
+	void state.surface.content.affiliation;
+	void state.surface.content.avatarUrl;
 	void state.surface.content.source;
 	void state.surface.content.dateLabel;
+	void state.surface.content.bodyLabel;
 	void state.surface.content.body;
 	void state.surface.content.counterpoint;
+	void state.surface.content.imageUrl;
+	void state.surface.content.logoUrl;
 	for (const item of state.surface.content.items ?? []) void JSON.stringify(item);
 	for (const message of state.surface.content.messages ?? []) void JSON.stringify(message);
 	void state.surface.variant;

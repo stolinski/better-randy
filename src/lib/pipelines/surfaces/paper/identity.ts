@@ -4,7 +4,12 @@
  * a real paper claim with multi-scale grain, ink-fibre interaction at glyph
  * edges, edge-occlusion shadow under directional light, and a subtle camera
  * defocus budget. All dimensions are intrinsic to the material; none concede
- * to a Pack via ADR-0019.
+ * to a Pack via ADR-0019, and since ADR-0039 §2 the sheet/ink colours are
+ * substrate-immune too: an unauthored composition falls to the intrinsic
+ * printer-paper constants (`paper-substrate.ts`), never the active Pack's
+ * cores. Immunity is FULL — unlike the newspaper, this Surface carries no
+ * claimable channel chrome of its own (marks and blocks layered on it are
+ * their own Pipelines).
  */
 
 import type { IdentitySpec } from '$lib/platform/pipelines/identity';
@@ -12,6 +17,10 @@ import type { IdentitySpec } from '$lib/platform/pipelines/identity';
 export const paperIdentity: IdentitySpec = {
 	kind: 'material',
 	claim: 'a sheet of printer paper photographed under directional light',
+	packImmunity: {
+		rationale:
+			'A quoted paper document is a faithful artifact (ADR-0038 / ADR-0039 §2): the sheet and its printed ink are document physics. Authored typography colours remain composition content that wins; the active Pack never decides the body.'
+	},
 	dimensions: [
 		{
 			name: 'grain-multi-scale',

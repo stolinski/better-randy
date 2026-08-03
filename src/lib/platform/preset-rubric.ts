@@ -12,7 +12,8 @@ import type {
 	Transition
 } from './engine-schema.ts';
 import { getPack } from './packs/registry.ts';
-import { requireCoreColor, resolveBackgroundFill, resolveTypographyColors } from './packs/resolve.ts';
+import { requireCoreColor, resolveBackgroundFill } from './packs/resolve.ts';
+import { resolveSurfaceTypographyColors } from './pipelines/index.ts';
 import { getLayoutSafeArea } from '../utils/safe-area.ts';
 import { calculateWebsiteShowcaseLayout } from '../utils/website-showcase.ts';
 import { resolveDiagramPrimitiveGeometry } from '../utils/diagram-geometry.ts';
@@ -146,7 +147,13 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 	let resolvedBackgroundFill: string | undefined = undefined;
 	try {
 		const pack = getPack(preset.pack);
-		resolvedTypography = resolveTypographyColors(pack, state.typography);
+		// Surface-aware (ADR-0039 §2): an immune document body lints against its
+		// intrinsic substrate colours, not the Pack cores it no longer wears.
+		resolvedTypography = resolveSurfaceTypographyColors(
+			pack,
+			state.surface.type,
+			state.typography
+		);
 		resolvedAccent = requireCoreColor(pack, 'accent-treatment');
 		resolvedBackgroundFill = resolveBackgroundFill(pack, state.backgroundFill);
 	} catch (error) {

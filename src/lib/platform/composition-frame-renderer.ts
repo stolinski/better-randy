@@ -20,6 +20,7 @@ import {
 	type ResolvedMaterialTreatment
 } from './packs/resolve';
 import { getSurfaceRenderer, PIPELINE_REGISTRY } from './pipelines';
+import { isAppearanceSlotPackClaimable } from './pipelines/identity-registry';
 import { CompositionPlanes, type CompositeBackdrop } from './pipelines/composition-planes';
 import { DepthStage } from './pipelines/depth-stage';
 import { STAGE_CAM_Z, stageCameraPose } from './pipelines/depth-stage-camera';
@@ -218,11 +219,20 @@ function prepareFramePackTreatments(
 	const surfaceRenderer = getSurfaceRenderer(state.surface.type);
 	let edgeTarget: EdgeTreatmentTarget | null = null;
 	if (surfaceRenderer?.edgeTreatment) {
-		const treatment = resolveEdgeTreatment(pack, state.surface.type);
+		// Partial substrate immunity (ADR-0039 §2): a surface whose `edge` slot
+		// is immune cuts with its own intrinsic treatment (the newspaper's tear
+		// is document physics); a claimable edge stays the Pack's. Same split
+		// for the shadow's foreground ink below.
+		const surfaceKey = `surface:${state.surface.type}`;
+		const treatment = isAppearanceSlotPackClaimable(surfaceKey, 'edge')
+			? resolveEdgeTreatment(pack, state.surface.type)
+			: (surfaceRenderer.intrinsicEdgeTreatment ?? null);
 		if (treatment && treatment.mode !== 'none') {
 			let shadow: EdgeTreatmentTarget['shadow'] = null;
 			if (treatment.mode === 'torn' || treatment.mode === 'irregular') {
-				const inkHex = resolveAppearanceVars(pack, state.surface.type)['--ink'] ?? '#000000';
+				const inkHex = isAppearanceSlotPackClaimable(surfaceKey, 'ink')
+					? (resolveAppearanceVars(pack, state.surface.type)['--ink'] ?? '#000000')
+					: (surfaceRenderer.substrateColors?.inkHex ?? '#000000');
 				const rig = resolveDepthTreatment(pack, state.surface.type, inkHex);
 				if (rig?.kind === 'hardOffset') {
 					let rgba: [number, number, number, number];

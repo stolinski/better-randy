@@ -9,11 +9,8 @@ import {
 	type MarkInstance
 } from './engine-schema';
 import type { PackManifest } from './packs/types';
-import {
-	requireCoreColor,
-	resolveDiagramStroke,
-	resolveTypographyColors
-} from './packs/resolve';
+import { requireCoreColor, resolveDiagramStroke } from './packs/resolve';
+import { resolveSurfaceTypographyColors } from './pipelines';
 import type { SurfaceRenderInputs } from './pipelines/types';
 
 export interface SurfaceTextAnimationAlphaReader {
@@ -85,7 +82,9 @@ function buildDiagramInputs(
 		}
 	}
 
-	const typography = resolveTypographyColors(pack, state.typography);
+	// Surface-aware (ADR-0039 §2): the 'ink' stroke sentinel rides the same
+	// channel the surface's body text prints — intrinsic on an immune document.
+	const typography = resolveSurfaceTypographyColors(pack, state.surface.type, state.typography);
 	const stroke = resolveDiagramStroke(pack);
 	return {
 		primitives,
@@ -119,7 +118,7 @@ export function buildSurfaceRenderInputs(
 		animState: { markProgresses: animState.markProgresses },
 		backgroundVisibility: state.surface.backgroundVisibility ?? 0,
 		highlightDarkSurface: isDarkSurfaceColor(
-			resolveTypographyColors(pack, state.typography).paperColor
+			resolveSurfaceTypographyColors(pack, state.surface.type, state.typography).paperColor
 		),
 		markColorsByIndex: resolvedMarks.map((mark) => mark.color),
 		markDurationMsByIndex: marks.map((mark, index) => {

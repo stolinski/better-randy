@@ -43,7 +43,7 @@
 	import { serializeCompositionState } from './preset-pure';
 	import { compositionMeta } from './composition-meta.svelte';
 	import { getPack } from './packs/registry';
-	import { resolveTypographyColors } from './packs/resolve';
+	import { resolveSurfaceTypographyColors } from './pipelines';
 
 	import { TransitionSnapshotController } from './transition-snapshot-controller';
 	import type { SyncExportRequest } from './export-video';
@@ -333,12 +333,17 @@
 		);
 	}
 
-	// The composition's resolved paper/ink (ADR-0038): explicit typography
-	// override → active Pack's core fill/ink-treatment. Derived from
-	// engineState.typography + packState.slug, so a pack switch restyles
+	// The composition's resolved paper/ink as the active Surface prints them
+	// (ADR-0038 + ADR-0039 §2 substrate immunity): explicit typography
+	// override → intrinsic substrate on immune documents → active Pack cores.
+	// Derived from engineState + packState.slug, so a pack switch restyles
 	// every consumer before the re-capture.
 	const resolvedTypographyColors = $derived(
-		resolveTypographyColors(getPack(packState.slug), engineState.typography)
+		resolveSurfaceTypographyColors(
+			getPack(packState.slug),
+			engineState.surface.type,
+			engineState.typography
+		)
 	);
 
 	const tracks = $derived(

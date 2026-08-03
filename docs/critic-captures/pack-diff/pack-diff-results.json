@@ -1,5 +1,5 @@
 {
-	"generatedAt": "2026-07-22T22:35:53.767Z",
+	"generatedAt": "2026-08-03T21:47:05.575Z",
 	"evidence": {
 		"class": "low-res-regression-lock",
 		"note": "Per-Pipeline masked pack-pair diffs at 25% of native 4K. Machine regression evidence only — NOT native-4K Calibration Trio evidence; pack ratification needs full-resolution captures judged at human scale (docs/packs/authoring-playbook.md §5)."
@@ -19,108 +19,110 @@
 		"annotationInflateFrac": 0.03
 	},
 	"sources": {
-		"script": "15c3f6af89f17cdc",
-		"pipelinesTree": "528f041e26dfc219",
+		"script": "72c6a46728895486",
+		"pipelinesTree": "c1d6012ec90e8faf",
 		"packs": {
-			"clean-light": "97e0e1a5183d129d",
-			"crt-terminal": "b1f422b021d491f6",
-			"editorial-mono": "d5a4c3dbf3b34bdc",
-			"syntax": "373d367cf7d4c264"
+			"clean-light": "6e54a12e35d8f40d",
+			"crt-terminal": "218a34c4e058f170",
+			"editorial-mono": "9eec708e5105b642",
+			"syntax": "f79f19d0cb1bb263"
 		},
 		"presets": {
 			"achievement-complete": "06230d3cd01e8416",
 			"annotation-box-demo": "59234dbbaa91ad82",
 			"captions-pack-style-demo": "cc2773576563d641",
-			"chapter-card-descent": "7cd9df8153348dd2",
+			"chapter-card-descent": "fc40b2e1df21cd65",
 			"checklist-project-setup": "67dc73b93b3dbd2a",
-			"counter-milestone": "7d5e5728159c9418",
-			"cursor-trail-title-sweep": "6557bc9edea37a9b",
-			"docu-flowchart": "abd3db0f775a88d2",
-			"docu-stat-build": "499fcc1ee9ad8c6b",
-			"docu-timeline-build": "190b794c29f08151",
+			"counter-milestone": "c6ed69bb80deb907",
+			"cursor-trail-title-sweep": "17badbb45970b1fc",
+			"docu-flowchart": "85ec70f516f9209c",
+			"docu-stat-build": "98efe734b35a7ef6",
+			"docu-timeline-build": "baffd26ce52256bb",
 			"imessage-friday-deploy": "aacdd4445f47f63d",
-			"instagram-follow-demo": "ac323c38fa7f155a",
-			"instance-stack-vertical": "1da54025689aaf33",
+			"instagram-follow-demo": "3481f12dfd6a4c52",
+			"instance-stack-vertical": "ff9b40d54bd3f305",
 			"isolate-demo": "b8323f65e606fe21",
-			"lower-third": "8f091e9e5a152fb8",
-			"pullquote-cinematic": "20beaea6be189234",
+			"keyframes-cascade-demo": "c2bbd3651e0e6cb4",
+			"lower-third": "6406e69ca9cdc32d",
+			"pullquote-cinematic": "f46f2edcdf3abe21",
 			"quote-lift-out": "a29199b30130199a",
 			"quote-magnify": "42a9cd3a1f357abf",
 			"quote-tear-out": "f23ecd5428c941e3",
 			"research-paper-critique": "5a5aa4034c84fba9",
+			"server-renders-again": "2e11e3c8a2fbde89",
 			"shader-fill-demo": "e98e75a81a462c26",
-			"text-3d-cylinder": "700c2b6a895ddd45",
+			"text-3d-cylinder": "531b16fb20664519",
 			"title-card-newspaper": "c350659759fb4cbd",
-			"title-sequence-signal": "9403ed869919ee0b",
-			"watermark-channel-sig": "4a9891e7964df766",
+			"title-sequence-signal": "0fcad9e0a5da02c5",
+			"watermark-channel-sig": "e0f56ae65db6cc7c",
 			"watermark-demo": "afcf16e01e6cb495",
 			"web-document-github": "2785f81a26f3bd57",
 			"website-showcase": "cf83ea11a7455682",
-			"youtube-subscribe-demo": "8b4b6635e6184bef"
+			"youtube-subscribe-demo": "8eec04f3a013b8ed"
 		}
 	},
 	"coverage": [
 		{
 			"pipeline": "surface:newspaper",
-			"preset": "title-card-newspaper",
+			"preset": "server-renders-again",
 			"status": "PASS",
-			"maskPctOfFrame": "66%",
-			"worstPair": "clean-light↔editorial-mono 77.36%",
-			"detail": "region re-skins under every pack pair (min 77.36%)"
+			"maskPctOfFrame": "60.61%",
+			"worstPair": "clean-light↔editorial-mono 3.21%",
+			"detail": "region re-skins under every pack pair (min 3.21%)"
 		},
 		{
 			"pipeline": "surface:paper",
 			"preset": "research-paper-critique",
-			"status": "PASS",
-			"maskPctOfFrame": "43.78%",
-			"worstPair": "clean-light↔editorial-mono 91.23%",
-			"detail": "region re-skins under every pack pair (min 91.23%)"
+			"status": "IMMUNE-PASS",
+			"maskPctOfFrame": "41.44%",
+			"worstPair": "clean-light↔editorial-mono 0%",
+			"detail": "artifact stays put under pack swaps (max 0%)"
 		},
 		{
 			"pipeline": "surface:plain",
 			"preset": "watermark-demo",
 			"status": "PASS",
-			"maskPctOfFrame": "5.6%",
-			"worstPair": "clean-light↔syntax 3.93%",
-			"detail": "region re-skins under every pack pair (min 3.93%)"
+			"maskPctOfFrame": "5.59%",
+			"worstPair": "clean-light↔syntax 3.64%",
+			"detail": "region re-skins under every pack pair (min 3.64%)"
 		},
 		{
 			"pipeline": "surface:chapter-card",
 			"preset": "chapter-card-descent",
 			"status": "PASS",
 			"maskPctOfFrame": "100%",
-			"worstPair": "crt-terminal↔syntax 60.31%",
-			"detail": "region re-skins under every pack pair (min 60.31%)"
+			"worstPair": "crt-terminal↔syntax 49.5%",
+			"detail": "region re-skins under every pack pair (min 49.5%)"
 		},
 		{
 			"pipeline": "surface:pullquote-on-photo",
 			"preset": "pullquote-cinematic",
 			"status": "PASS",
 			"maskPctOfFrame": "100%",
-			"worstPair": "crt-terminal↔syntax 31.5%",
-			"detail": "region re-skins under every pack pair (min 31.5%)"
+			"worstPair": "editorial-mono↔syntax 20.58%",
+			"detail": "region re-skins under every pack pair (min 20.58%)"
 		},
 		{
 			"pipeline": "surface:title-sequence",
 			"preset": "title-sequence-signal",
 			"status": "PASS",
-			"maskPctOfFrame": "4.64%",
-			"worstPair": "editorial-mono↔syntax 41.23%",
-			"detail": "region re-skins under every pack pair (min 41.23%)"
+			"maskPctOfFrame": "13%",
+			"worstPair": "editorial-mono↔syntax 44.79%",
+			"detail": "region re-skins under every pack pair (min 44.79%)"
 		},
 		{
 			"pipeline": "surface:type-hero",
 			"preset": "cursor-trail-title-sweep",
 			"status": "PASS",
-			"maskPctOfFrame": "17.64%",
-			"worstPair": "editorial-mono↔syntax 52.87%",
-			"detail": "region re-skins under every pack pair (min 52.87%)"
+			"maskPctOfFrame": "17.58%",
+			"worstPair": "editorial-mono↔syntax 52.91%",
+			"detail": "region re-skins under every pack pair (min 52.91%)"
 		},
 		{
 			"pipeline": "surface:web-document",
 			"preset": "web-document-github",
 			"status": "IMMUNE-PASS",
-			"maskPctOfFrame": "50.86%",
+			"maskPctOfFrame": "50.88%",
 			"worstPair": "clean-light↔editorial-mono 0%",
 			"detail": "artifact stays put under pack swaps (max 0%)"
 		},
@@ -128,7 +130,7 @@
 			"pipeline": "surface:website-screenshot",
 			"preset": "website-showcase",
 			"status": "IMMUNE-PASS",
-			"maskPctOfFrame": "65.38%",
+			"maskPctOfFrame": "65.4%",
 			"worstPair": "clean-light↔crt-terminal 0%",
 			"detail": "artifact stays put under pack swaps (max 0%)"
 		},
@@ -136,7 +138,7 @@
 			"pipeline": "surface:imessage",
 			"preset": "imessage-friday-deploy",
 			"status": "IMMUNE-PASS",
-			"maskPctOfFrame": "40.11%",
+			"maskPctOfFrame": "40.12%",
 			"worstPair": "clean-light↔editorial-mono 0%",
 			"detail": "artifact stays put under pack swaps (max 0%)"
 		},
@@ -144,223 +146,223 @@
 			"pipeline": "surface:checklist",
 			"preset": "checklist-project-setup",
 			"status": "PASS",
-			"maskPctOfFrame": "20.35%",
-			"worstPair": "clean-light↔editorial-mono 90.71%",
-			"detail": "region re-skins under every pack pair (min 90.71%)"
+			"maskPctOfFrame": "20.24%",
+			"worstPair": "clean-light↔editorial-mono 90.7%",
+			"detail": "region re-skins under every pack pair (min 90.7%)"
 		},
 		{
 			"pipeline": "captions:track",
 			"preset": "captions-pack-style-demo",
 			"status": "PASS",
-			"maskPctOfFrame": "3.7%",
-			"worstPair": "clean-light↔syntax 5.37%",
-			"detail": "region re-skins under every pack pair (min 5.37%)"
+			"maskPctOfFrame": "3.69%",
+			"worstPair": "clean-light↔syntax 5.22%",
+			"detail": "region re-skins under every pack pair (min 5.22%)"
 		},
 		{
 			"pipeline": "block:paragraph",
-			"preset": "research-paper-critique",
+			"preset": "watermark-demo",
 			"status": "PASS",
-			"maskPctOfFrame": "11.23%",
-			"worstPair": "clean-light↔editorial-mono 91.5%",
-			"detail": "region re-skins under every pack pair (min 91.5%)"
+			"maskPctOfFrame": "5.59%",
+			"worstPair": "clean-light↔syntax 3.64%",
+			"detail": "region re-skins under every pack pair (min 3.64%)"
 		},
 		{
 			"pipeline": "block:node",
 			"preset": "docu-flowchart",
 			"status": "PASS",
-			"maskPctOfFrame": "3.71%",
-			"worstPair": "clean-light↔syntax 10.02%",
-			"detail": "region re-skins under every pack pair (min 10.02%)"
+			"maskPctOfFrame": "3.22%",
+			"worstPair": "editorial-mono↔syntax 45.9%",
+			"detail": "region re-skins under every pack pair (min 45.9%)"
 		},
 		{
 			"pipeline": "block:edge-arrow",
 			"preset": "docu-flowchart",
 			"status": "PASS",
-			"maskPctOfFrame": "7.13%",
-			"worstPair": "clean-light↔syntax 6.6%",
-			"detail": "region re-skins under every pack pair (min 6.6%)"
+			"maskPctOfFrame": "6.97%",
+			"worstPair": "editorial-mono↔syntax 22.96%",
+			"detail": "region re-skins under every pack pair (min 22.96%)"
 		},
 		{
 			"pipeline": "block:label",
 			"preset": "docu-flowchart",
 			"status": "PASS",
-			"maskPctOfFrame": "2.07%",
-			"worstPair": "clean-light↔syntax 19.33%",
-			"detail": "region re-skins under every pack pair (min 19.33%)"
+			"maskPctOfFrame": "3.04%",
+			"worstPair": "editorial-mono↔syntax 24.9%",
+			"detail": "region re-skins under every pack pair (min 24.9%)"
 		},
 		{
 			"pipeline": "block:stat-callout",
 			"preset": "docu-stat-build",
 			"status": "PASS",
-			"maskPctOfFrame": "10.05%",
-			"worstPair": "clean-light↔syntax 24.82%",
-			"detail": "region re-skins under every pack pair (min 24.82%)"
+			"maskPctOfFrame": "8.54%",
+			"worstPair": "clean-light↔syntax 22.75%",
+			"detail": "region re-skins under every pack pair (min 22.75%)"
 		},
 		{
 			"pipeline": "block:timeline-segment",
 			"preset": "docu-timeline-build",
 			"status": "PASS",
-			"maskPctOfFrame": "2.74%",
-			"worstPair": "clean-light↔editorial-mono 7.59%",
-			"detail": "region re-skins under every pack pair (min 7.59%)"
+			"maskPctOfFrame": "2.06%",
+			"worstPair": "editorial-mono↔syntax 23.61%",
+			"detail": "region re-skins under every pack pair (min 23.61%)"
 		},
 		{
 			"pipeline": "annotation:box",
 			"preset": "annotation-box-demo",
 			"status": "PASS",
-			"maskPctOfFrame": "3.08%",
-			"worstPair": "clean-light↔editorial-mono 89.15%",
-			"detail": "region re-skins under every pack pair (min 89.15%)"
+			"maskPctOfFrame": "3.07%",
+			"worstPair": "clean-light↔syntax 4.85%",
+			"detail": "region re-skins under every pack pair (min 4.85%)"
 		},
 		{
 			"pipeline": "annotation:circle",
 			"preset": "research-paper-critique",
-			"status": "PASS",
+			"status": "FAIL",
 			"maskPctOfFrame": "1.26%",
-			"worstPair": "clean-light↔editorial-mono 91.32%",
-			"detail": "region re-skins under every pack pair (min 91.32%)"
+			"worstPair": "clean-light↔editorial-mono 0%",
+			"detail": "region diff 0% < 1% under clean-light↔editorial-mono — partial pack buy-in?"
 		},
 		{
 			"pipeline": "annotation:highlight",
-			"preset": "research-paper-critique",
+			"preset": "keyframes-cascade-demo",
 			"status": "PASS",
-			"maskPctOfFrame": "1.5%",
-			"worstPair": "clean-light↔editorial-mono 89.69%",
-			"detail": "region re-skins under every pack pair (min 89.69%)"
+			"maskPctOfFrame": "3.3%",
+			"worstPair": "clean-light↔editorial-mono 15.05%",
+			"detail": "region re-skins under every pack pair (min 15.05%)"
 		},
 		{
 			"pipeline": "annotation:isolate",
 			"preset": "isolate-demo",
-			"status": "PASS",
-			"maskPctOfFrame": "3.98%",
-			"worstPair": "clean-light↔editorial-mono 50.3%",
-			"detail": "region re-skins under every pack pair (min 50.3%)"
+			"status": "FAIL",
+			"maskPctOfFrame": "3.99%",
+			"worstPair": "clean-light↔editorial-mono 0%",
+			"detail": "region diff 0% < 1% under clean-light↔editorial-mono — partial pack buy-in?"
 		},
 		{
 			"pipeline": "annotation:lift-out",
 			"preset": "quote-lift-out",
-			"status": "PASS",
-			"maskPctOfFrame": "4.39%",
-			"worstPair": "clean-light↔editorial-mono 87.08%",
-			"detail": "region re-skins under every pack pair (min 87.08%)"
+			"status": "FAIL",
+			"maskPctOfFrame": "4.37%",
+			"worstPair": "clean-light↔editorial-mono 0%",
+			"detail": "region diff 0% < 1% under clean-light↔editorial-mono — partial pack buy-in?"
 		},
 		{
 			"pipeline": "annotation:magnify",
 			"preset": "quote-magnify",
 			"status": "PASS",
-			"maskPctOfFrame": "4.16%",
-			"worstPair": "clean-light↔editorial-mono 90.32%",
-			"detail": "region re-skins under every pack pair (min 90.32%)"
+			"maskPctOfFrame": "4.21%",
+			"worstPair": "clean-light↔editorial-mono 6.57%",
+			"detail": "region re-skins under every pack pair (min 6.57%)"
 		},
 		{
 			"pipeline": "annotation:side-note",
 			"preset": "quote-magnify",
 			"status": "PASS",
-			"maskPctOfFrame": "4.16%",
-			"worstPair": "clean-light↔editorial-mono 90.32%",
-			"detail": "region re-skins under every pack pair (min 90.32%)"
+			"maskPctOfFrame": "4.21%",
+			"worstPair": "clean-light↔editorial-mono 6.57%",
+			"detail": "region re-skins under every pack pair (min 6.57%)"
 		},
 		{
 			"pipeline": "annotation:strike",
 			"preset": "checklist-project-setup",
 			"status": "PASS",
-			"maskPctOfFrame": "3.35%",
-			"worstPair": "clean-light↔syntax 93.41%",
-			"detail": "region re-skins under every pack pair (min 93.41%)"
+			"maskPctOfFrame": "3.34%",
+			"worstPair": "clean-light↔syntax 93.42%",
+			"detail": "region re-skins under every pack pair (min 93.42%)"
 		},
 		{
 			"pipeline": "annotation:tear-out",
 			"preset": "quote-tear-out",
-			"status": "PASS",
-			"maskPctOfFrame": "3.02%",
-			"worstPair": "clean-light↔editorial-mono 75.91%",
-			"detail": "region re-skins under every pack pair (min 75.91%)"
+			"status": "FAIL",
+			"maskPctOfFrame": "3.07%",
+			"worstPair": "clean-light↔editorial-mono 0%",
+			"detail": "region diff 0% < 1% under clean-light↔editorial-mono — partial pack buy-in?"
 		},
 		{
 			"pipeline": "annotation:underline",
 			"preset": "research-paper-critique",
-			"status": "PASS",
+			"status": "FAIL",
 			"maskPctOfFrame": "1.21%",
-			"worstPair": "clean-light↔editorial-mono 91.54%",
-			"detail": "region re-skins under every pack pair (min 91.54%)"
+			"worstPair": "clean-light↔editorial-mono 0%",
+			"detail": "region diff 0% < 1% under clean-light↔editorial-mono — partial pack buy-in?"
 		},
 		{
 			"pipeline": "overlay:achievement",
 			"preset": "achievement-complete",
 			"status": "PASS",
-			"maskPctOfFrame": "5.51%",
-			"worstPair": "editorial-mono↔syntax 19.97%",
-			"detail": "region re-skins under every pack pair (min 19.97%)"
+			"maskPctOfFrame": "5.5%",
+			"worstPair": "editorial-mono↔syntax 20.57%",
+			"detail": "region re-skins under every pack pair (min 20.57%)"
 		},
 		{
 			"pipeline": "overlay:counter",
 			"preset": "counter-milestone",
 			"status": "PASS",
-			"maskPctOfFrame": "5.71%",
-			"worstPair": "clean-light↔editorial-mono 29.99%",
-			"detail": "region re-skins under every pack pair (min 29.99%)"
+			"maskPctOfFrame": "5.64%",
+			"worstPair": "editorial-mono↔syntax 30.28%",
+			"detail": "region re-skins under every pack pair (min 30.28%)"
 		},
 		{
 			"pipeline": "overlay:cursor-trail",
 			"preset": "cursor-trail-title-sweep",
 			"status": "PASS",
 			"maskPctOfFrame": "0.68%",
-			"worstPair": "editorial-mono↔syntax 9.27%",
-			"detail": "region re-skins under every pack pair (min 9.27%)"
+			"worstPair": "editorial-mono↔syntax 9.39%",
+			"detail": "region re-skins under every pack pair (min 9.39%)"
 		},
 		{
 			"pipeline": "overlay:instance-stack",
 			"preset": "instance-stack-vertical",
 			"status": "PASS",
-			"maskPctOfFrame": "21.78%",
-			"worstPair": "clean-light↔syntax 32.12%",
-			"detail": "region re-skins under every pack pair (min 32.12%)"
+			"maskPctOfFrame": "21.81%",
+			"worstPair": "crt-terminal↔syntax 38.83%",
+			"detail": "region re-skins under every pack pair (min 38.83%)"
 		},
 		{
 			"pipeline": "overlay:lower-third",
 			"preset": "lower-third",
 			"status": "PASS",
-			"maskPctOfFrame": "6.5%",
-			"worstPair": "editorial-mono↔syntax 25.08%",
-			"detail": "region re-skins under every pack pair (min 25.08%)"
+			"maskPctOfFrame": "6.52%",
+			"worstPair": "editorial-mono↔syntax 25.82%",
+			"detail": "region re-skins under every pack pair (min 25.82%)"
 		},
 		{
 			"pipeline": "overlay:text-3d",
 			"preset": "text-3d-cylinder",
 			"status": "PASS",
-			"maskPctOfFrame": "5.5%",
-			"worstPair": "clean-light↔editorial-mono 24.12%",
-			"detail": "region re-skins under every pack pair (min 24.12%)"
+			"maskPctOfFrame": "5.54%",
+			"worstPair": "editorial-mono↔syntax 24.46%",
+			"detail": "region re-skins under every pack pair (min 24.46%)"
 		},
 		{
 			"pipeline": "overlay:shader-fill",
 			"preset": "shader-fill-demo",
 			"status": "IMMUNE-PASS",
-			"maskPctOfFrame": "13.34%",
+			"maskPctOfFrame": "13.39%",
 			"worstPair": "clean-light↔editorial-mono 0%",
 			"detail": "artifact stays put under pack swaps (max 0%)"
 		},
 		{
 			"pipeline": "overlay:washi-tape",
 			"preset": "title-card-newspaper",
-			"status": "PASS",
+			"status": "FAIL",
 			"maskPctOfFrame": "0.9%",
-			"worstPair": "clean-light↔editorial-mono 79.97%",
-			"detail": "region re-skins under every pack pair (min 79.97%)"
+			"worstPair": "editorial-mono↔syntax 0.02%",
+			"detail": "region diff 0.02% < 1% under editorial-mono↔syntax — partial pack buy-in?"
 		},
 		{
 			"pipeline": "overlay:watermark",
 			"preset": "watermark-channel-sig",
 			"status": "PASS",
 			"maskPctOfFrame": "2.26%",
-			"worstPair": "editorial-mono↔syntax 15.83%",
-			"detail": "region re-skins under every pack pair (min 15.83%)"
+			"worstPair": "editorial-mono↔syntax 15.44%",
+			"detail": "region re-skins under every pack pair (min 15.44%)"
 		},
 		{
 			"pipeline": "overlay:youtube-subscribe",
 			"preset": "youtube-subscribe-demo",
 			"status": "IMMUNE-PASS",
-			"maskPctOfFrame": "7.95%",
+			"maskPctOfFrame": "7.94%",
 			"worstPair": "clean-light↔editorial-mono 0%",
 			"detail": "artifact stays put under pack swaps (max 0%)"
 		},
@@ -368,7 +370,7 @@
 			"pipeline": "overlay:instagram-follow",
 			"preset": "instagram-follow-demo",
 			"status": "IMMUNE-PASS",
-			"maskPctOfFrame": "11.66%",
+			"maskPctOfFrame": "11.69%",
 			"worstPair": "clean-light↔editorial-mono 0%",
 			"detail": "artifact stays put under pack swaps (max 0%)"
 		},
@@ -376,9 +378,9 @@
 			"pipeline": "overlay:source-url",
 			"preset": "website-showcase",
 			"status": "PASS",
-			"maskPctOfFrame": "3.14%",
-			"worstPair": "editorial-mono↔syntax 37.61%",
-			"detail": "region re-skins under every pack pair (min 37.61%)"
+			"maskPctOfFrame": "3.13%",
+			"worstPair": "editorial-mono↔syntax 38.18%",
+			"detail": "region re-skins under every pack pair (min 38.18%)"
 		}
 	],
 	"presets": [
@@ -401,61 +403,61 @@
 			},
 			"frame": {
 				"width": 960,
-				"height": 538
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 4.46
+					"changedPct": 4.45
 				},
 				"clean-light~editorial-mono": {
-					"changedPct": 4.23
+					"changedPct": 4.22
 				},
 				"clean-light~syntax": {
-					"changedPct": 4.76
+					"changedPct": 4.77
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 4.26
+					"changedPct": 4.25
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 4.76
+					"changedPct": 4.72
 				},
 				"editorial-mono~syntax": {
-					"changedPct": 1.26
+					"changedPct": 1.28
 				}
 			},
 			"pipelines": {
 				"overlay:achievement": {
-					"maskPctOfFrame": 5.51,
+					"maskPctOfFrame": 5.5,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
 							"changedPct": 85.68,
-							"meanAbsDiff": 0.7145,
+							"meanAbsDiff": 0.71518,
 							"maskPx": 26880
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 81.24,
-							"meanAbsDiff": 0.69959,
+							"changedPct": 81.25,
+							"meanAbsDiff": 0.69983,
 							"maskPx": 26880
 						},
 						"clean-light~syntax": {
-							"changedPct": 83.56,
-							"meanAbsDiff": 0.66956,
+							"changedPct": 83.99,
+							"meanAbsDiff": 0.67024,
 							"maskPx": 28480
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 84.92,
-							"meanAbsDiff": 0.06883,
+							"changedPct": 84.85,
+							"meanAbsDiff": 0.06919,
 							"maskPx": 25920
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 83.43,
-							"meanAbsDiff": 0.07264,
+							"changedPct": 83.17,
+							"meanAbsDiff": 0.07281,
 							"maskPx": 28480
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 19.97,
-							"meanAbsDiff": 0.05446,
+							"changedPct": 20.57,
+							"meanAbsDiff": 0.05497,
 							"maskPx": 28480
 						}
 					}
@@ -482,61 +484,61 @@
 			},
 			"frame": {
 				"width": 960,
-				"height": 538
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 41.51
+					"changedPct": 37.52
 				},
 				"clean-light~editorial-mono": {
-					"changedPct": 40.9
+					"changedPct": 0.17
 				},
 				"clean-light~syntax": {
-					"changedPct": 41.15
+					"changedPct": 0.15
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 41.51
+					"changedPct": 37.52
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 41.51
+					"changedPct": 37.52
 				},
 				"editorial-mono~syntax": {
-					"changedPct": 41.04
+					"changedPct": 0.17
 				}
 			},
 			"pipelines": {
 				"annotation:box": {
-					"maskPctOfFrame": 3.08,
+					"maskPctOfFrame": 3.07,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 100,
-							"meanAbsDiff": 0.79842,
+							"changedPct": 78.67,
+							"meanAbsDiff": 0.09158,
 							"maskPx": 15886
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 89.15,
-							"meanAbsDiff": 0.0678,
+							"changedPct": 5.55,
+							"meanAbsDiff": 0.00691,
 							"maskPx": 15886
 						},
 						"clean-light~syntax": {
-							"changedPct": 92.46,
-							"meanAbsDiff": 0.09817,
+							"changedPct": 4.85,
+							"meanAbsDiff": 0.00432,
 							"maskPx": 15886
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 100,
-							"meanAbsDiff": 0.73798,
+							"changedPct": 78.67,
+							"meanAbsDiff": 0.0867,
 							"maskPx": 15886
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 100,
-							"meanAbsDiff": 0.71053,
+							"changedPct": 78.67,
+							"meanAbsDiff": 0.09347,
 							"maskPx": 15886
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 92.11,
-							"meanAbsDiff": 0.05834,
+							"changedPct": 5.57,
+							"meanAbsDiff": 0.00698,
 							"maskPx": 15886
 						}
 					}
@@ -563,61 +565,61 @@
 			},
 			"frame": {
 				"width": 960,
-				"height": 538
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 0.59
+					"changedPct": 0.61
 				},
 				"clean-light~editorial-mono": {
-					"changedPct": 0.24
+					"changedPct": 0.23
 				},
 				"clean-light~syntax": {
 					"changedPct": 0.16
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 0.63
-				},
-				"crt-terminal~syntax": {
 					"changedPct": 0.65
 				},
+				"crt-terminal~syntax": {
+					"changedPct": 0.67
+				},
 				"editorial-mono~syntax": {
-					"changedPct": 0.36
+					"changedPct": 0.33
 				}
 			},
 			"pipelines": {
 				"captions:track": {
-					"maskPctOfFrame": 3.7,
+					"maskPctOfFrame": 3.69,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 16.01,
-							"meanAbsDiff": 0.04776,
+							"changedPct": 16.65,
+							"meanAbsDiff": 0.04836,
 							"maskPx": 19106
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 7.95,
-							"meanAbsDiff": 0.00386,
+							"changedPct": 7.49,
+							"meanAbsDiff": 0.00383,
 							"maskPx": 15580
 						},
 						"clean-light~syntax": {
-							"changedPct": 5.37,
+							"changedPct": 5.22,
 							"meanAbsDiff": 0.00345,
 							"maskPx": 15744
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 17.12,
-							"meanAbsDiff": 0.04783,
+							"changedPct": 17.73,
+							"meanAbsDiff": 0.0485,
 							"maskPx": 19106
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 17.53,
-							"meanAbsDiff": 0.04809,
+							"changedPct": 18.05,
+							"meanAbsDiff": 0.04869,
 							"maskPx": 19106
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 11.97,
-							"meanAbsDiff": 0.00441,
+							"changedPct": 10.9,
+							"meanAbsDiff": 0.00432,
 							"maskPx": 15744
 						}
 					}
@@ -635,7 +637,7 @@
 				"editorial-mono",
 				"syntax"
 			],
-			"presetSha256": "7cd9df8153348dd2",
+			"presetSha256": "fc40b2e1df21cd65",
 			"captures": {
 				"clean-light": "docs/critic-captures/pack-diff/chapter-card-descent--clean-light.png",
 				"crt-terminal": "docs/critic-captures/pack-diff/chapter-card-descent--crt-terminal.png",
@@ -643,27 +645,27 @@
 				"syntax": "docs/critic-captures/pack-diff/chapter-card-descent--syntax.png"
 			},
 			"frame": {
-				"width": 539,
-				"height": 959
+				"width": 960,
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 99.98
+					"changedPct": 99.99
 				},
 				"clean-light~editorial-mono": {
-					"changedPct": 99.95
+					"changedPct": 99.79
 				},
 				"clean-light~syntax": {
 					"changedPct": 99.99
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 99.97
+					"changedPct": 99.86
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 60.31
+					"changedPct": 49.5
 				},
 				"editorial-mono~syntax": {
-					"changedPct": 99.97
+					"changedPct": 96.96
 				}
 			},
 			"pipelines": {
@@ -672,34 +674,34 @@
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 99.98,
-							"meanAbsDiff": 0.87755,
-							"maskPx": 516901
+							"changedPct": 99.99,
+							"meanAbsDiff": 0.82525,
+							"maskPx": 517440
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 98.4,
-							"meanAbsDiff": 0.7676,
-							"maskPx": 10845
+							"changedPct": 95.99,
+							"meanAbsDiff": 0.77435,
+							"maskPx": 26459
 						},
 						"clean-light~syntax": {
-							"changedPct": 99.95,
-							"meanAbsDiff": 0.844,
-							"maskPx": 10933
+							"changedPct": 99.93,
+							"meanAbsDiff": 0.83251,
+							"maskPx": 26662
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 99.97,
-							"meanAbsDiff": 0.07483,
-							"maskPx": 516901
+							"changedPct": 99.86,
+							"meanAbsDiff": 0.05898,
+							"maskPx": 517440
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 60.31,
-							"meanAbsDiff": 0.02866,
-							"maskPx": 516901
+							"changedPct": 49.5,
+							"meanAbsDiff": 0.02652,
+							"maskPx": 517440
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 99.46,
-							"meanAbsDiff": 0.11417,
-							"maskPx": 10933
+							"changedPct": 98.78,
+							"meanAbsDiff": 0.10628,
+							"maskPx": 26662
 						}
 					}
 				}
@@ -725,98 +727,98 @@
 			},
 			"frame": {
 				"width": 960,
-				"height": 538
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 18.41
+					"changedPct": 18.37
 				},
 				"clean-light~editorial-mono": {
-					"changedPct": 18.39
+					"changedPct": 18.35
 				},
 				"clean-light~syntax": {
-					"changedPct": 18.9
+					"changedPct": 18.85
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 18.65
+					"changedPct": 18.62
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 19.41
+					"changedPct": 19.35
 				},
 				"editorial-mono~syntax": {
-					"changedPct": 19.09
+					"changedPct": 19.02
 				}
 			},
 			"pipelines": {
 				"surface:checklist": {
-					"maskPctOfFrame": 20.35,
+					"maskPctOfFrame": 20.24,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 91.79,
-							"meanAbsDiff": 0.82088,
-							"maskPx": 103572
+							"changedPct": 91.46,
+							"meanAbsDiff": 0.81806,
+							"maskPx": 103950
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 90.71,
-							"meanAbsDiff": 0.11662,
+							"changedPct": 90.7,
+							"meanAbsDiff": 0.11715,
 							"maskPx": 104706
 						},
 						"clean-light~syntax": {
-							"changedPct": 91.03,
-							"meanAbsDiff": 0.78122,
-							"maskPx": 105084
+							"changedPct": 91.68,
+							"meanAbsDiff": 0.78462,
+							"maskPx": 104706
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 91.99,
-							"meanAbsDiff": 0.75738,
+							"changedPct": 92.01,
+							"meanAbsDiff": 0.75648,
 							"maskPx": 104706
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 93.53,
-							"meanAbsDiff": 0.06909,
-							"maskPx": 105084
+							"changedPct": 94.15,
+							"meanAbsDiff": 0.0696,
+							"maskPx": 104706
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 91.95,
-							"meanAbsDiff": 0.7303,
-							"maskPx": 105084
+							"changedPct": 92.49,
+							"meanAbsDiff": 0.73286,
+							"maskPx": 104706
 						}
 					}
 				},
 				"annotation:strike": {
-					"maskPctOfFrame": 3.35,
+					"maskPctOfFrame": 3.34,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 99.97,
-							"meanAbsDiff": 0.85478,
-							"maskPx": 17169
+							"changedPct": 99.96,
+							"meanAbsDiff": 0.85389,
+							"maskPx": 17136
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 95.31,
-							"meanAbsDiff": 0.11562,
-							"maskPx": 14413
+							"changedPct": 95.34,
+							"meanAbsDiff": 0.11535,
+							"maskPx": 14560
 						},
 						"clean-light~syntax": {
-							"changedPct": 93.41,
-							"meanAbsDiff": 0.8055,
-							"maskPx": 14634
+							"changedPct": 93.42,
+							"meanAbsDiff": 0.80576,
+							"maskPx": 14626
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 99.88,
-							"meanAbsDiff": 0.78076,
-							"maskPx": 17318
+							"changedPct": 99.95,
+							"meanAbsDiff": 0.78059,
+							"maskPx": 17290
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 99.21,
-							"meanAbsDiff": 0.05784,
-							"maskPx": 17169
+							"changedPct": 99.59,
+							"meanAbsDiff": 0.05781,
+							"maskPx": 16992
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 94.64,
-							"meanAbsDiff": 0.73799,
-							"maskPx": 14932
+							"changedPct": 94.68,
+							"meanAbsDiff": 0.73821,
+							"maskPx": 14929
 						}
 					}
 				}
@@ -833,7 +835,7 @@
 				"editorial-mono",
 				"syntax"
 			],
-			"presetSha256": "7d5e5728159c9418",
+			"presetSha256": "c6ed69bb80deb907",
 			"captures": {
 				"clean-light": "docs/critic-captures/pack-diff/counter-milestone--clean-light.png",
 				"crt-terminal": "docs/critic-captures/pack-diff/counter-milestone--crt-terminal.png",
@@ -842,62 +844,62 @@
 			},
 			"frame": {
 				"width": 960,
-				"height": 538
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 2.08
+					"changedPct": 99.99
 				},
 				"clean-light~editorial-mono": {
-					"changedPct": 1.32
+					"changedPct": 99.99
 				},
 				"clean-light~syntax": {
-					"changedPct": 1.39
+					"changedPct": 99.99
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 1.97
+					"changedPct": 2.05
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 2.11
+					"changedPct": 1.99
 				},
 				"editorial-mono~syntax": {
-					"changedPct": 1.36
+					"changedPct": 1.34
 				}
 			},
 			"pipelines": {
 				"overlay:counter": {
-					"maskPctOfFrame": 5.71,
+					"maskPctOfFrame": 5.64,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 36.38,
-							"meanAbsDiff": 0.14707,
-							"maskPx": 29516
+							"changedPct": 100,
+							"meanAbsDiff": 0.84092,
+							"maskPx": 29202
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 29.99,
-							"meanAbsDiff": 0.15625,
-							"maskPx": 22707
+							"changedPct": 100,
+							"meanAbsDiff": 0.80164,
+							"maskPx": 22828
 						},
 						"clean-light~syntax": {
-							"changedPct": 31.5,
-							"meanAbsDiff": 0.13993,
-							"maskPx": 22863
+							"changedPct": 100,
+							"meanAbsDiff": 0.75967,
+							"maskPx": 22985
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 34.56,
-							"meanAbsDiff": 0.05657,
-							"maskPx": 29516
+							"changedPct": 34.65,
+							"meanAbsDiff": 0.05953,
+							"maskPx": 29202
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 36.94,
-							"meanAbsDiff": 0.10633,
-							"maskPx": 29516
+							"changedPct": 35.26,
+							"meanAbsDiff": 0.11205,
+							"maskPx": 29202
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 30.66,
-							"meanAbsDiff": 0.16116,
-							"maskPx": 22863
+							"changedPct": 30.28,
+							"meanAbsDiff": 0.1689,
+							"maskPx": 22985
 						}
 					}
 				}
@@ -914,7 +916,7 @@
 				"editorial-mono",
 				"syntax"
 			],
-			"presetSha256": "6557bc9edea37a9b",
+			"presetSha256": "17badbb45970b1fc",
 			"captures": {
 				"clean-light": "docs/critic-captures/pack-diff/cursor-trail-title-sweep--clean-light.png",
 				"crt-terminal": "docs/critic-captures/pack-diff/cursor-trail-title-sweep--crt-terminal.png",
@@ -923,62 +925,62 @@
 			},
 			"frame": {
 				"width": 960,
-				"height": 538
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
 					"changedPct": 99.6
 				},
 				"clean-light~editorial-mono": {
-					"changedPct": 95.98
+					"changedPct": 96
 				},
 				"clean-light~syntax": {
 					"changedPct": 98.14
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 39.61
+					"changedPct": 39.52
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 73.55
+					"changedPct": 74.03
 				},
 				"editorial-mono~syntax": {
-					"changedPct": 10.29
+					"changedPct": 10.28
 				}
 			},
 			"pipelines": {
 				"surface:type-hero": {
-					"maskPctOfFrame": 17.64,
+					"maskPctOfFrame": 17.58,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 97.79,
-							"meanAbsDiff": 0.60419,
-							"maskPx": 89478
+							"changedPct": 97.73,
+							"meanAbsDiff": 0.6031,
+							"maskPx": 89331
 						},
 						"clean-light~editorial-mono": {
 							"changedPct": 77.13,
-							"meanAbsDiff": 0.56604,
-							"maskPx": 90408
+							"meanAbsDiff": 0.56432,
+							"maskPx": 90261
 						},
 						"clean-light~syntax": {
-							"changedPct": 88.84,
-							"meanAbsDiff": 0.61776,
-							"maskPx": 85344
+							"changedPct": 88.74,
+							"meanAbsDiff": 0.6163,
+							"maskPx": 85197
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 72.52,
-							"meanAbsDiff": 0.27841,
-							"maskPx": 91098
+							"changedPct": 72.29,
+							"meanAbsDiff": 0.27941,
+							"maskPx": 90951
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 75.03,
-							"meanAbsDiff": 0.31051,
-							"maskPx": 89478
+							"changedPct": 75.23,
+							"meanAbsDiff": 0.3106,
+							"maskPx": 89331
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 52.87,
-							"meanAbsDiff": 0.31442,
-							"maskPx": 91068
+							"changedPct": 52.91,
+							"meanAbsDiff": 0.31502,
+							"maskPx": 90921
 						}
 					}
 				},
@@ -987,33 +989,33 @@
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 100,
-							"meanAbsDiff": 0.82618,
+							"changedPct": 99.94,
+							"meanAbsDiff": 0.82667,
 							"maskPx": 3537
 						},
 						"clean-light~editorial-mono": {
 							"changedPct": 96.64,
-							"meanAbsDiff": 0.79674,
+							"meanAbsDiff": 0.79594,
 							"maskPx": 3537
 						},
 						"clean-light~syntax": {
-							"changedPct": 97.06,
-							"meanAbsDiff": 0.78289,
+							"changedPct": 96.83,
+							"meanAbsDiff": 0.78329,
 							"maskPx": 3537
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 26.89,
-							"meanAbsDiff": 0.06175,
+							"changedPct": 25.13,
+							"meanAbsDiff": 0.06274,
 							"maskPx": 3537
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 64.29,
-							"meanAbsDiff": 0.07046,
+							"changedPct": 63.56,
+							"meanAbsDiff": 0.07131,
 							"maskPx": 3537
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 9.27,
-							"meanAbsDiff": 0.03364,
+							"changedPct": 9.39,
+							"meanAbsDiff": 0.03452,
 							"maskPx": 3537
 						}
 					}
@@ -1031,7 +1033,7 @@
 				"editorial-mono",
 				"syntax"
 			],
-			"presetSha256": "abd3db0f775a88d2",
+			"presetSha256": "85ec70f516f9209c",
 			"captures": {
 				"clean-light": "docs/critic-captures/pack-diff/docu-flowchart--clean-light.png",
 				"crt-terminal": "docs/critic-captures/pack-diff/docu-flowchart--crt-terminal.png",
@@ -1040,134 +1042,134 @@
 			},
 			"frame": {
 				"width": 960,
-				"height": 538
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 3.65
+					"changedPct": 99.99
 				},
 				"clean-light~editorial-mono": {
-					"changedPct": 2.12
+					"changedPct": 99.74
 				},
 				"clean-light~syntax": {
-					"changedPct": 0.87
+					"changedPct": 98.35
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 3.4
+					"changedPct": 3.46
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 3.66
+					"changedPct": 3.39
 				},
 				"editorial-mono~syntax": {
-					"changedPct": 2.42
+					"changedPct": 2.36
 				}
 			},
 			"pipelines": {
 				"block:node": {
-					"maskPctOfFrame": 3.71,
+					"maskPctOfFrame": 3.22,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 73.18,
-							"meanAbsDiff": 0.44405,
-							"maskPx": 18828
+							"changedPct": 99.95,
+							"meanAbsDiff": 0.82572,
+							"maskPx": 16388
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 45.99,
-							"meanAbsDiff": 0.12146,
-							"maskPx": 18924
+							"changedPct": 95.39,
+							"meanAbsDiff": 0.5574,
+							"maskPx": 16482
 						},
 						"clean-light~syntax": {
-							"changedPct": 10.02,
-							"meanAbsDiff": 0.02697,
-							"maskPx": 19056
+							"changedPct": 57.99,
+							"meanAbsDiff": 0.4831,
+							"maskPx": 16568
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 68.87,
-							"meanAbsDiff": 0.35117,
-							"maskPx": 18924
+							"changedPct": 68.23,
+							"meanAbsDiff": 0.35379,
+							"maskPx": 16482
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 72.32,
-							"meanAbsDiff": 0.43559,
-							"maskPx": 19056
+							"changedPct": 67.21,
+							"meanAbsDiff": 0.41492,
+							"maskPx": 16568
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 49.37,
-							"meanAbsDiff": 0.12297,
-							"maskPx": 19152
+							"changedPct": 45.9,
+							"meanAbsDiff": 0.10289,
+							"maskPx": 16662
 						}
 					}
 				},
 				"block:edge-arrow": {
-					"maskPctOfFrame": 7.13,
+					"maskPctOfFrame": 6.97,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 41.58,
-							"meanAbsDiff": 0.23824,
-							"maskPx": 36720
+							"changedPct": 99.97,
+							"meanAbsDiff": 0.86527,
+							"maskPx": 35955
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 23.73,
-							"meanAbsDiff": 0.0629,
-							"maskPx": 36768
+							"changedPct": 96.41,
+							"meanAbsDiff": 0.73424,
+							"maskPx": 36002
 						},
 						"clean-light~syntax": {
-							"changedPct": 6.6,
-							"meanAbsDiff": 0.02066,
-							"maskPx": 36768
+							"changedPct": 79.18,
+							"meanAbsDiff": 0.68878,
+							"maskPx": 36002
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 39.46,
-							"meanAbsDiff": 0.19106,
-							"maskPx": 36768
+							"changedPct": 35.32,
+							"meanAbsDiff": 0.17673,
+							"maskPx": 36002
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 41.55,
-							"meanAbsDiff": 0.23983,
-							"maskPx": 36768
+							"changedPct": 34.43,
+							"meanAbsDiff": 0.21057,
+							"maskPx": 36002
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 27.04,
-							"meanAbsDiff": 0.07035,
-							"maskPx": 36816
+							"changedPct": 22.96,
+							"meanAbsDiff": 0.0606,
+							"maskPx": 36049
 						}
 					}
 				},
 				"block:label": {
-					"maskPctOfFrame": 2.07,
+					"maskPctOfFrame": 3.04,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 33.3,
-							"meanAbsDiff": 0.1359,
-							"maskPx": 10686
+							"changedPct": 100,
+							"meanAbsDiff": 0.84086,
+							"maskPx": 15732
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 20.7,
-							"meanAbsDiff": 0.12575,
-							"maskPx": 10686
+							"changedPct": 100,
+							"meanAbsDiff": 0.89482,
+							"maskPx": 15732
 						},
 						"clean-light~syntax": {
-							"changedPct": 19.33,
-							"meanAbsDiff": 0.13404,
-							"maskPx": 10686
+							"changedPct": 93.62,
+							"meanAbsDiff": 0.76011,
+							"maskPx": 15732
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 28.6,
-							"meanAbsDiff": 0.06098,
-							"maskPx": 10686
+							"changedPct": 32.89,
+							"meanAbsDiff": 0.0677,
+							"maskPx": 15732
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 34.27,
-							"meanAbsDiff": 0.13675,
-							"maskPx": 10530
+							"changedPct": 33.46,
+							"meanAbsDiff": 0.14934,
+							"maskPx": 15456
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 23.56,
-							"meanAbsDiff": 0.12782,
-							"maskPx": 10686
+							"changedPct": 24.9,
+							"meanAbsDiff": 0.14202,
+							"maskPx": 15732
 						}
 					}
 				}
@@ -1184,7 +1186,7 @@
 				"editorial-mono",
 				"syntax"
 			],
-			"presetSha256": "499fcc1ee9ad8c6b",
+			"presetSha256": "98efe734b35a7ef6",
 			"captures": {
 				"clean-light": "docs/critic-captures/pack-diff/docu-stat-build--clean-light.png",
 				"crt-terminal": "docs/critic-captures/pack-diff/docu-stat-build--crt-terminal.png",
@@ -1193,62 +1195,62 @@
 			},
 			"frame": {
 				"width": 960,
-				"height": 538
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 3.76
+					"changedPct": 3.57
 				},
 				"clean-light~editorial-mono": {
-					"changedPct": 2.72
+					"changedPct": 2.43
 				},
 				"clean-light~syntax": {
-					"changedPct": 2.59
+					"changedPct": 2.23
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 3.24
+					"changedPct": 3.21
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 3.63
+					"changedPct": 3.53
 				},
 				"editorial-mono~syntax": {
-					"changedPct": 2.61
+					"changedPct": 2.4
 				}
 			},
 			"pipelines": {
 				"block:stat-callout": {
-					"maskPctOfFrame": 10.05,
+					"maskPctOfFrame": 8.54,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 29.3,
-							"meanAbsDiff": 0.1324,
-							"maskPx": 51903
+							"changedPct": 27.79,
+							"meanAbsDiff": 0.12522,
+							"maskPx": 44200
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 26.12,
-							"meanAbsDiff": 0.08314,
-							"maskPx": 46428
+							"changedPct": 24.26,
+							"meanAbsDiff": 0.07906,
+							"maskPx": 39508
 						},
 						"clean-light~syntax": {
-							"changedPct": 24.82,
-							"meanAbsDiff": 0.13163,
-							"maskPx": 46720
+							"changedPct": 22.75,
+							"meanAbsDiff": 0.12101,
+							"maskPx": 39780
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 24.9,
-							"meanAbsDiff": 0.12735,
-							"maskPx": 51903
+							"changedPct": 24.08,
+							"meanAbsDiff": 0.12195,
+							"maskPx": 44200
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 28.06,
-							"meanAbsDiff": 0.14046,
-							"maskPx": 51903
+							"changedPct": 26.83,
+							"meanAbsDiff": 0.13289,
+							"maskPx": 44200
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 24.84,
-							"meanAbsDiff": 0.12414,
-							"maskPx": 46428
+							"changedPct": 23.33,
+							"meanAbsDiff": 0.11663,
+							"maskPx": 39508
 						}
 					}
 				}
@@ -1265,7 +1267,7 @@
 				"editorial-mono",
 				"syntax"
 			],
-			"presetSha256": "190b794c29f08151",
+			"presetSha256": "baffd26ce52256bb",
 			"captures": {
 				"clean-light": "docs/critic-captures/pack-diff/docu-timeline-build--clean-light.png",
 				"crt-terminal": "docs/critic-captures/pack-diff/docu-timeline-build--crt-terminal.png",
@@ -1274,62 +1276,62 @@
 			},
 			"frame": {
 				"width": 960,
-				"height": 538
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 4.65
+					"changedPct": 99.99
 				},
 				"clean-light~editorial-mono": {
-					"changedPct": 2.55
+					"changedPct": 99.83
 				},
 				"clean-light~syntax": {
-					"changedPct": 2.6
+					"changedPct": 98.27
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 4.12
+					"changedPct": 5.1
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 4.88
+					"changedPct": 5.29
 				},
 				"editorial-mono~syntax": {
-					"changedPct": 2.98
+					"changedPct": 3.88
 				}
 			},
 			"pipelines": {
 				"block:timeline-segment": {
-					"maskPctOfFrame": 2.74,
+					"maskPctOfFrame": 2.06,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 37.46,
-							"meanAbsDiff": 0.08732,
-							"maskPx": 14146
+							"changedPct": 100,
+							"meanAbsDiff": 0.81217,
+							"maskPx": 10660
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 7.59,
-							"meanAbsDiff": 0.02506,
-							"maskPx": 14146
+							"changedPct": 92.16,
+							"meanAbsDiff": 0.78022,
+							"maskPx": 10660
 						},
 						"clean-light~syntax": {
-							"changedPct": 19.62,
-							"meanAbsDiff": 0.07417,
-							"maskPx": 14146
+							"changedPct": 83.69,
+							"meanAbsDiff": 0.69303,
+							"maskPx": 10660
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 36.82,
-							"meanAbsDiff": 0.07454,
-							"maskPx": 14146
+							"changedPct": 28.36,
+							"meanAbsDiff": 0.09479,
+							"maskPx": 10660
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 43.52,
-							"meanAbsDiff": 0.14807,
-							"maskPx": 14146
+							"changedPct": 32.35,
+							"meanAbsDiff": 0.15335,
+							"maskPx": 10660
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 19.86,
-							"meanAbsDiff": 0.09353,
-							"maskPx": 14146
+							"changedPct": 23.61,
+							"meanAbsDiff": 0.09079,
+							"maskPx": 10660
 						}
 					}
 				}
@@ -1355,11 +1357,11 @@
 			},
 			"frame": {
 				"width": 960,
-				"height": 538
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 2.77
+					"changedPct": 2.71
 				},
 				"clean-light~editorial-mono": {
 					"changedPct": 0
@@ -1368,10 +1370,10 @@
 					"changedPct": 0
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 2.77
+					"changedPct": 2.71
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 2.77
+					"changedPct": 2.71
 				},
 				"editorial-mono~syntax": {
 					"changedPct": 0
@@ -1379,41 +1381,41 @@
 			},
 			"pipelines": {
 				"surface:imessage": {
-					"maskPctOfFrame": 40.11,
+					"maskPctOfFrame": 40.12,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 6.91,
-							"meanAbsDiff": 0.00552,
-							"maskPx": 207168,
+							"changedPct": 6.75,
+							"meanAbsDiff": 0.00547,
+							"maskPx": 207584,
 							"exempt": "material"
 						},
 						"clean-light~editorial-mono": {
 							"changedPct": 0,
 							"meanAbsDiff": 0,
-							"maskPx": 207168
+							"maskPx": 207584
 						},
 						"clean-light~syntax": {
 							"changedPct": 0,
 							"meanAbsDiff": 0,
-							"maskPx": 207168
+							"maskPx": 207584
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 6.91,
-							"meanAbsDiff": 0.00552,
-							"maskPx": 207168,
+							"changedPct": 6.75,
+							"meanAbsDiff": 0.00547,
+							"maskPx": 207584,
 							"exempt": "material"
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 6.91,
-							"meanAbsDiff": 0.00552,
-							"maskPx": 207168,
+							"changedPct": 6.75,
+							"meanAbsDiff": 0.00547,
+							"maskPx": 207584,
 							"exempt": "material"
 						},
 						"editorial-mono~syntax": {
 							"changedPct": 0,
 							"meanAbsDiff": 0,
-							"maskPx": 207168
+							"maskPx": 207584
 						}
 					}
 				}
@@ -1430,7 +1432,7 @@
 				"editorial-mono",
 				"syntax"
 			],
-			"presetSha256": "ac323c38fa7f155a",
+			"presetSha256": "3481f12dfd6a4c52",
 			"captures": {
 				"clean-light": "docs/critic-captures/pack-diff/instagram-follow-demo--clean-light.png",
 				"crt-terminal": "docs/critic-captures/pack-diff/instagram-follow-demo--crt-terminal.png",
@@ -1438,12 +1440,12 @@
 				"syntax": "docs/critic-captures/pack-diff/instagram-follow-demo--syntax.png"
 			},
 			"frame": {
-				"width": 539,
+				"width": 540,
 				"height": 959
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 9.44
+					"changedPct": 9.39
 				},
 				"clean-light~editorial-mono": {
 					"changedPct": 0
@@ -1452,10 +1454,10 @@
 					"changedPct": 0
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 9.44
+					"changedPct": 9.39
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 9.44
+					"changedPct": 9.39
 				},
 				"editorial-mono~syntax": {
 					"changedPct": 0
@@ -1463,41 +1465,41 @@
 			},
 			"pipelines": {
 				"overlay:instagram-follow": {
-					"maskPctOfFrame": 11.66,
+					"maskPctOfFrame": 11.69,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 80.97,
-							"meanAbsDiff": 0.08209,
-							"maskPx": 60268,
+							"changedPct": 80.37,
+							"meanAbsDiff": 0.08186,
+							"maskPx": 60512,
 							"exempt": "material"
 						},
 						"clean-light~editorial-mono": {
 							"changedPct": 0,
 							"meanAbsDiff": 0,
-							"maskPx": 60268
+							"maskPx": 60512
 						},
 						"clean-light~syntax": {
 							"changedPct": 0,
 							"meanAbsDiff": 0,
-							"maskPx": 60268
+							"maskPx": 60512
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 80.97,
-							"meanAbsDiff": 0.08209,
-							"maskPx": 60268,
+							"changedPct": 80.37,
+							"meanAbsDiff": 0.08186,
+							"maskPx": 60512,
 							"exempt": "material"
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 80.97,
-							"meanAbsDiff": 0.08209,
-							"maskPx": 60268,
+							"changedPct": 80.37,
+							"meanAbsDiff": 0.08186,
+							"maskPx": 60512,
 							"exempt": "material"
 						},
 						"editorial-mono~syntax": {
 							"changedPct": 0,
 							"meanAbsDiff": 0,
-							"maskPx": 60268
+							"maskPx": 60512
 						}
 					}
 				}
@@ -1514,7 +1516,7 @@
 				"editorial-mono",
 				"syntax"
 			],
-			"presetSha256": "1da54025689aaf33",
+			"presetSha256": "ff9b40d54bd3f305",
 			"captures": {
 				"clean-light": "docs/critic-captures/pack-diff/instance-stack-vertical--clean-light.png",
 				"crt-terminal": "docs/critic-captures/pack-diff/instance-stack-vertical--crt-terminal.png",
@@ -1522,63 +1524,63 @@
 				"syntax": "docs/critic-captures/pack-diff/instance-stack-vertical--syntax.png"
 			},
 			"frame": {
-				"width": 539,
+				"width": 540,
 				"height": 959
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 9.47
+					"changedPct": 99.98
 				},
 				"clean-light~editorial-mono": {
-					"changedPct": 8.58
+					"changedPct": 99.98
 				},
 				"clean-light~syntax": {
-					"changedPct": 6.95
+					"changedPct": 99.98
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 10.66
+					"changedPct": 11.04
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 9.08
+					"changedPct": 8.62
 				},
 				"editorial-mono~syntax": {
-					"changedPct": 8.9
+					"changedPct": 8.97
 				}
 			},
 			"pipelines": {
 				"overlay:instance-stack": {
-					"maskPctOfFrame": 21.78,
+					"maskPctOfFrame": 21.81,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 41.8,
-							"meanAbsDiff": 0.18443,
-							"maskPx": 108282
+							"changedPct": 100,
+							"meanAbsDiff": 0.82225,
+							"maskPx": 108055
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 38.3,
-							"meanAbsDiff": 0.21028,
-							"maskPx": 112579
+							"changedPct": 100,
+							"meanAbsDiff": 0.80244,
+							"maskPx": 112949
 						},
 						"clean-light~syntax": {
-							"changedPct": 32.12,
-							"meanAbsDiff": 0.12168,
-							"maskPx": 108282
+							"changedPct": 100,
+							"meanAbsDiff": 0.76108,
+							"maskPx": 108055
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 45.68,
-							"meanAbsDiff": 0.14637,
-							"maskPx": 112579
+							"changedPct": 45.59,
+							"meanAbsDiff": 0.15072,
+							"maskPx": 112949
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 41.15,
-							"meanAbsDiff": 0.1233,
-							"maskPx": 105021
+							"changedPct": 38.83,
+							"meanAbsDiff": 0.12794,
+							"maskPx": 105317
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 39.73,
-							"meanAbsDiff": 0.19249,
-							"maskPx": 112579
+							"changedPct": 40.07,
+							"meanAbsDiff": 0.20031,
+							"maskPx": 112949
 						}
 					}
 				}
@@ -1604,62 +1606,143 @@
 			},
 			"frame": {
 				"width": 960,
-				"height": 538
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 41.51
+					"changedPct": 3.02
 				},
 				"clean-light~editorial-mono": {
-					"changedPct": 2
+					"changedPct": 0
 				},
 				"clean-light~syntax": {
-					"changedPct": 19.43
+					"changedPct": 0
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 41.51
+					"changedPct": 3.02
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 41.51
+					"changedPct": 3.02
 				},
 				"editorial-mono~syntax": {
-					"changedPct": 2.07
+					"changedPct": 0
 				}
 			},
 			"pipelines": {
 				"annotation:isolate": {
-					"maskPctOfFrame": 3.98,
+					"maskPctOfFrame": 3.99,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 100,
-							"meanAbsDiff": 0.54362,
-							"maskPx": 20580
+							"changedPct": 41.72,
+							"meanAbsDiff": 0.05104,
+							"maskPx": 20656
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 50.3,
-							"meanAbsDiff": 0.04248,
-							"maskPx": 20580
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 20656
 						},
 						"clean-light~syntax": {
-							"changedPct": 69.95,
-							"meanAbsDiff": 0.06468,
-							"maskPx": 20580
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 20656
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 100,
-							"meanAbsDiff": 0.50343,
-							"maskPx": 20580
+							"changedPct": 41.72,
+							"meanAbsDiff": 0.05104,
+							"maskPx": 20656
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 100,
-							"meanAbsDiff": 0.48202,
-							"maskPx": 20580
+							"changedPct": 41.72,
+							"meanAbsDiff": 0.05104,
+							"maskPx": 20656
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 52.04,
-							"meanAbsDiff": 0.03572,
-							"maskPx": 20580
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 20656
+						}
+					}
+				}
+			},
+			"error": null
+		},
+		{
+			"slug": "keyframes-cascade-demo",
+			"progress": 0.5,
+			"timelineTime": 3,
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
+			],
+			"presetSha256": "c2bbd3651e0e6cb4",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/keyframes-cascade-demo--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/keyframes-cascade-demo--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/keyframes-cascade-demo--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/keyframes-cascade-demo--syntax.png"
+			},
+			"frame": {
+				"width": 960,
+				"height": 539
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 10.41
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 9.42
+				},
+				"clean-light~syntax": {
+					"changedPct": 61.81
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 9.45
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 54.61
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 61.31
+				}
+			},
+			"pipelines": {
+				"annotation:highlight": {
+					"maskPctOfFrame": 3.3,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 21.15,
+							"meanAbsDiff": 0.05446,
+							"maskPx": 16881
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 15.05,
+							"meanAbsDiff": 0.01275,
+							"maskPx": 12393
+						},
+						"clean-light~syntax": {
+							"changedPct": 66.42,
+							"meanAbsDiff": 0.12461,
+							"maskPx": 13464
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 21.38,
+							"meanAbsDiff": 0.05527,
+							"maskPx": 17085
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 66.56,
+							"meanAbsDiff": 0.14281,
+							"maskPx": 16422
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 66.34,
+							"meanAbsDiff": 0.12631,
+							"maskPx": 13668
 						}
 					}
 				}
@@ -1676,7 +1759,7 @@
 				"editorial-mono",
 				"syntax"
 			],
-			"presetSha256": "8f091e9e5a152fb8",
+			"presetSha256": "6406e69ca9cdc32d",
 			"captures": {
 				"clean-light": "docs/critic-captures/pack-diff/lower-third--clean-light.png",
 				"crt-terminal": "docs/critic-captures/pack-diff/lower-third--crt-terminal.png",
@@ -1685,17 +1768,17 @@
 			},
 			"frame": {
 				"width": 960,
-				"height": 538
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
 					"changedPct": 5.15
 				},
 				"clean-light~editorial-mono": {
-					"changedPct": 4.9
+					"changedPct": 4.89
 				},
 				"clean-light~syntax": {
-					"changedPct": 5.6
+					"changedPct": 5.62
 				},
 				"crt-terminal~editorial-mono": {
 					"changedPct": 4.63
@@ -1704,43 +1787,43 @@
 					"changedPct": 5.34
 				},
 				"editorial-mono~syntax": {
-					"changedPct": 1.86
+					"changedPct": 1.87
 				}
 			},
 			"pipelines": {
 				"overlay:lower-third": {
-					"maskPctOfFrame": 6.5,
+					"maskPctOfFrame": 6.52,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 85.55,
-							"meanAbsDiff": 0.68316,
-							"maskPx": 31100
+							"changedPct": 85.18,
+							"meanAbsDiff": 0.68099,
+							"maskPx": 31296
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 84.33,
-							"meanAbsDiff": 0.70036,
-							"maskPx": 29988
+							"changedPct": 83.79,
+							"meanAbsDiff": 0.69932,
+							"maskPx": 30184
 						},
 						"clean-light~syntax": {
-							"changedPct": 82.58,
-							"meanAbsDiff": 0.63616,
-							"maskPx": 33549
+							"changedPct": 83.2,
+							"meanAbsDiff": 0.63564,
+							"maskPx": 33760
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 79.7,
-							"meanAbsDiff": 0.11158,
+							"changedPct": 79.79,
+							"meanAbsDiff": 0.11241,
 							"maskPx": 30030
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 78.59,
-							"meanAbsDiff": 0.12689,
-							"maskPx": 33549
+							"changedPct": 79.01,
+							"meanAbsDiff": 0.12641,
+							"maskPx": 33760
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 25.08,
-							"meanAbsDiff": 0.10692,
-							"maskPx": 33549
+							"changedPct": 25.82,
+							"meanAbsDiff": 0.10664,
+							"maskPx": 33760
 						}
 					}
 				}
@@ -1757,7 +1840,7 @@
 				"editorial-mono",
 				"syntax"
 			],
-			"presetSha256": "20beaea6be189234",
+			"presetSha256": "f46f2edcdf3abe21",
 			"captures": {
 				"clean-light": "docs/critic-captures/pack-diff/pullquote-cinematic--clean-light.png",
 				"crt-terminal": "docs/critic-captures/pack-diff/pullquote-cinematic--crt-terminal.png",
@@ -1765,27 +1848,27 @@
 				"syntax": "docs/critic-captures/pack-diff/pullquote-cinematic--syntax.png"
 			},
 			"frame": {
-				"width": 539,
-				"height": 959
+				"width": 960,
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 99.87
+					"changedPct": 99.59
 				},
 				"clean-light~editorial-mono": {
-					"changedPct": 99.71
+					"changedPct": 99.78
 				},
 				"clean-light~syntax": {
 					"changedPct": 99.96
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 72.98
+					"changedPct": 62.15
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 31.5
+					"changedPct": 26.53
 				},
 				"editorial-mono~syntax": {
-					"changedPct": 37.72
+					"changedPct": 20.58
 				}
 			},
 			"pipelines": {
@@ -1794,34 +1877,34 @@
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 99.87,
-							"meanAbsDiff": 0.73662,
-							"maskPx": 516901
+							"changedPct": 99.59,
+							"meanAbsDiff": 0.68672,
+							"maskPx": 517440
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 99.71,
-							"meanAbsDiff": 0.71285,
-							"maskPx": 516901
+							"changedPct": 99.78,
+							"meanAbsDiff": 0.67009,
+							"maskPx": 517440
 						},
 						"clean-light~syntax": {
 							"changedPct": 99.96,
-							"meanAbsDiff": 0.73609,
-							"maskPx": 516901
+							"meanAbsDiff": 0.68505,
+							"maskPx": 517440
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 72.98,
-							"meanAbsDiff": 0.0359,
-							"maskPx": 516901
+							"changedPct": 62.15,
+							"meanAbsDiff": 0.04969,
+							"maskPx": 517440
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 31.5,
-							"meanAbsDiff": 0.02738,
-							"maskPx": 516901
+							"changedPct": 26.53,
+							"meanAbsDiff": 0.0467,
+							"maskPx": 517440
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 37.72,
-							"meanAbsDiff": 0.03169,
-							"maskPx": 516901
+							"changedPct": 20.58,
+							"meanAbsDiff": 0.03947,
+							"maskPx": 517440
 						}
 					}
 				}
@@ -1847,62 +1930,62 @@
 			},
 			"frame": {
 				"width": 960,
-				"height": 538
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 41.67
+					"changedPct": 25.83
 				},
 				"clean-light~editorial-mono": {
-					"changedPct": 39.37
+					"changedPct": 0
 				},
 				"clean-light~syntax": {
-					"changedPct": 40.05
+					"changedPct": 0
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 41.67
+					"changedPct": 25.83
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 41.67
+					"changedPct": 25.83
 				},
 				"editorial-mono~syntax": {
-					"changedPct": 39.83
+					"changedPct": 0
 				}
 			},
 			"pipelines": {
 				"annotation:lift-out": {
-					"maskPctOfFrame": 4.39,
+					"maskPctOfFrame": 4.37,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 100,
-							"meanAbsDiff": 0.73729,
-							"maskPx": 22679
+							"changedPct": 76.13,
+							"meanAbsDiff": 0.07198,
+							"maskPx": 22612
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 87.08,
-							"meanAbsDiff": 0.05892,
-							"maskPx": 22679
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 22612
 						},
 						"clean-light~syntax": {
-							"changedPct": 91.78,
-							"meanAbsDiff": 0.0893,
-							"maskPx": 22679
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 22612
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 100,
-							"meanAbsDiff": 0.68197,
-							"maskPx": 22679
+							"changedPct": 76.13,
+							"meanAbsDiff": 0.07198,
+							"maskPx": 22612
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 100,
-							"meanAbsDiff": 0.6529,
-							"maskPx": 22679
+							"changedPct": 76.13,
+							"meanAbsDiff": 0.07198,
+							"maskPx": 22612
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 90.59,
-							"meanAbsDiff": 0.04934,
-							"maskPx": 22679
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 22612
 						}
 					}
 				}
@@ -1928,98 +2011,98 @@
 			},
 			"frame": {
 				"width": 960,
-				"height": 538
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 41.51
+					"changedPct": 38.03
 				},
 				"clean-light~editorial-mono": {
-					"changedPct": 40.76
+					"changedPct": 0.28
 				},
 				"clean-light~syntax": {
-					"changedPct": 41.02
+					"changedPct": 0.29
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 41.51
+					"changedPct": 38.03
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 41.51
+					"changedPct": 38.03
 				},
 				"editorial-mono~syntax": {
-					"changedPct": 40.9
+					"changedPct": 0.29
 				}
 			},
 			"pipelines": {
 				"annotation:magnify": {
-					"maskPctOfFrame": 4.16,
+					"maskPctOfFrame": 4.21,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 100,
-							"meanAbsDiff": 0.79218,
-							"maskPx": 21498
+							"changedPct": 80.35,
+							"meanAbsDiff": 0.09642,
+							"maskPx": 21761
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 90.32,
-							"meanAbsDiff": 0.06953,
-							"maskPx": 21498
+							"changedPct": 6.57,
+							"meanAbsDiff": 0.00916,
+							"maskPx": 21761
 						},
 						"clean-light~syntax": {
-							"changedPct": 93.41,
-							"meanAbsDiff": 0.12523,
-							"maskPx": 21498
+							"changedPct": 6.93,
+							"meanAbsDiff": 0.03194,
+							"maskPx": 21761
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 100,
-							"meanAbsDiff": 0.73001,
-							"maskPx": 21498
+							"changedPct": 80.32,
+							"meanAbsDiff": 0.08987,
+							"maskPx": 21761
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 100,
-							"meanAbsDiff": 0.6997,
-							"maskPx": 21498
+							"changedPct": 80.31,
+							"meanAbsDiff": 0.0895,
+							"maskPx": 21761
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 92.93,
-							"meanAbsDiff": 0.07705,
-							"maskPx": 21498
+							"changedPct": 6.91,
+							"meanAbsDiff": 0.02513,
+							"maskPx": 21761
 						}
 					}
 				},
 				"annotation:side-note": {
-					"maskPctOfFrame": 4.16,
+					"maskPctOfFrame": 4.21,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 100,
-							"meanAbsDiff": 0.79218,
-							"maskPx": 21498
+							"changedPct": 80.35,
+							"meanAbsDiff": 0.09642,
+							"maskPx": 21761
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 90.32,
-							"meanAbsDiff": 0.06953,
-							"maskPx": 21498
+							"changedPct": 6.57,
+							"meanAbsDiff": 0.00916,
+							"maskPx": 21761
 						},
 						"clean-light~syntax": {
-							"changedPct": 93.41,
-							"meanAbsDiff": 0.12523,
-							"maskPx": 21498
+							"changedPct": 6.93,
+							"meanAbsDiff": 0.03194,
+							"maskPx": 21761
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 100,
-							"meanAbsDiff": 0.73001,
-							"maskPx": 21498
+							"changedPct": 80.32,
+							"meanAbsDiff": 0.08987,
+							"maskPx": 21761
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 100,
-							"meanAbsDiff": 0.6997,
-							"maskPx": 21498
+							"changedPct": 80.31,
+							"meanAbsDiff": 0.0895,
+							"maskPx": 21761
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 92.93,
-							"meanAbsDiff": 0.07705,
-							"maskPx": 21498
+							"changedPct": 6.91,
+							"meanAbsDiff": 0.02513,
+							"maskPx": 21761
 						}
 					}
 				}
@@ -2045,62 +2128,62 @@
 			},
 			"frame": {
 				"width": 960,
-				"height": 538
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 41.53
+					"changedPct": 21.36
 				},
 				"clean-light~editorial-mono": {
-					"changedPct": 14.89
+					"changedPct": 0
 				},
 				"clean-light~syntax": {
-					"changedPct": 40.35
+					"changedPct": 0
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 41.53
+					"changedPct": 21.36
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 41.53
+					"changedPct": 21.36
 				},
 				"editorial-mono~syntax": {
-					"changedPct": 40.07
+					"changedPct": 0
 				}
 			},
 			"pipelines": {
 				"annotation:tear-out": {
-					"maskPctOfFrame": 3.02,
+					"maskPctOfFrame": 3.07,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 100,
-							"meanAbsDiff": 0.71783,
-							"maskPx": 15582
+							"changedPct": 75.95,
+							"meanAbsDiff": 0.07142,
+							"maskPx": 15900
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 75.91,
-							"meanAbsDiff": 0.05749,
-							"maskPx": 15582
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 15900
 						},
 						"clean-light~syntax": {
-							"changedPct": 92.39,
-							"meanAbsDiff": 0.08743,
-							"maskPx": 15582
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 15900
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 100,
-							"meanAbsDiff": 0.66192,
-							"maskPx": 15582
+							"changedPct": 75.95,
+							"meanAbsDiff": 0.07142,
+							"maskPx": 15900
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 100,
-							"meanAbsDiff": 0.63254,
-							"maskPx": 15582
+							"changedPct": 75.95,
+							"meanAbsDiff": 0.07142,
+							"maskPx": 15900
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 90.35,
-							"meanAbsDiff": 0.04689,
-							"maskPx": 15582
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 15900
 						}
 					}
 				}
@@ -2126,98 +2209,65 @@
 			},
 			"frame": {
 				"width": 960,
-				"height": 538
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 41.47
+					"changedPct": 36.75
 				},
 				"clean-light~editorial-mono": {
-					"changedPct": 39.94
+					"changedPct": 0
 				},
 				"clean-light~syntax": {
-					"changedPct": 40.41
+					"changedPct": 0
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 41.47
+					"changedPct": 36.75
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 41.51
+					"changedPct": 36.75
 				},
 				"editorial-mono~syntax": {
-					"changedPct": 40.2
+					"changedPct": 0
 				}
 			},
 			"pipelines": {
 				"surface:paper": {
-					"maskPctOfFrame": 43.78,
+					"maskPctOfFrame": 41.44,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 94.74,
-							"meanAbsDiff": 0.85204,
-							"maskPx": 226092
+							"changedPct": 83.94,
+							"meanAbsDiff": 0.08492,
+							"maskPx": 214402,
+							"exempt": "material"
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 91.23,
-							"meanAbsDiff": 0.06817,
-							"maskPx": 226092
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 214402
 						},
 						"clean-light~syntax": {
-							"changedPct": 92.31,
-							"meanAbsDiff": 0.10408,
-							"maskPx": 226092
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 214402
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 94.74,
-							"meanAbsDiff": 0.78476,
-							"maskPx": 226092
+							"changedPct": 83.94,
+							"meanAbsDiff": 0.08492,
+							"maskPx": 214402,
+							"exempt": "material"
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 94.82,
-							"meanAbsDiff": 0.74916,
-							"maskPx": 226092
+							"changedPct": 83.94,
+							"meanAbsDiff": 0.08492,
+							"maskPx": 214402,
+							"exempt": "material"
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 91.84,
-							"meanAbsDiff": 0.05539,
-							"maskPx": 226092
-						}
-					}
-				},
-				"block:paragraph": {
-					"maskPctOfFrame": 11.23,
-					"hiddenUnderPacks": [],
-					"pairs": {
-						"clean-light~crt-terminal": {
-							"changedPct": 99.64,
-							"meanAbsDiff": 0.83795,
-							"maskPx": 58016
-						},
-						"clean-light~editorial-mono": {
-							"changedPct": 91.5,
-							"meanAbsDiff": 0.06743,
-							"maskPx": 58016
-						},
-						"clean-light~syntax": {
-							"changedPct": 94.32,
-							"meanAbsDiff": 0.10247,
-							"maskPx": 58016
-						},
-						"crt-terminal~editorial-mono": {
-							"changedPct": 99.62,
-							"meanAbsDiff": 0.77292,
-							"maskPx": 58016
-						},
-						"crt-terminal~syntax": {
-							"changedPct": 99.95,
-							"meanAbsDiff": 0.73868,
-							"maskPx": 58016
-						},
-						"editorial-mono~syntax": {
-							"changedPct": 93.54,
-							"meanAbsDiff": 0.05543,
-							"maskPx": 58016
+							"changedPct": 0,
+							"meanAbsDiff": 0,
+							"maskPx": 214402
 						}
 					}
 				},
@@ -2226,70 +2276,34 @@
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 100,
-							"meanAbsDiff": 0.82929,
+							"changedPct": 79.66,
+							"meanAbsDiff": 0.07912,
 							"maskPx": 6533
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 91.32,
-							"meanAbsDiff": 0.06581,
+							"changedPct": 0,
+							"meanAbsDiff": 0,
 							"maskPx": 6533
 						},
 						"clean-light~syntax": {
-							"changedPct": 94.09,
-							"meanAbsDiff": 0.10025,
+							"changedPct": 0,
+							"meanAbsDiff": 0,
 							"maskPx": 6533
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 100,
-							"meanAbsDiff": 0.766,
+							"changedPct": 79.66,
+							"meanAbsDiff": 0.07912,
 							"maskPx": 6533
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 100,
-							"meanAbsDiff": 0.73255,
+							"changedPct": 79.66,
+							"meanAbsDiff": 0.07912,
 							"maskPx": 6533
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 93.51,
-							"meanAbsDiff": 0.05442,
+							"changedPct": 0,
+							"meanAbsDiff": 0,
 							"maskPx": 6533
-						}
-					}
-				},
-				"annotation:highlight": {
-					"maskPctOfFrame": 1.5,
-					"hiddenUnderPacks": [],
-					"pairs": {
-						"clean-light~crt-terminal": {
-							"changedPct": 97.27,
-							"meanAbsDiff": 0.72545,
-							"maskPx": 7728
-						},
-						"clean-light~editorial-mono": {
-							"changedPct": 89.69,
-							"meanAbsDiff": 0.06429,
-							"maskPx": 7728
-						},
-						"clean-light~syntax": {
-							"changedPct": 91.07,
-							"meanAbsDiff": 0.09529,
-							"maskPx": 7728
-						},
-						"crt-terminal~editorial-mono": {
-							"changedPct": 97.17,
-							"meanAbsDiff": 0.66388,
-							"maskPx": 7728
-						},
-						"crt-terminal~syntax": {
-							"changedPct": 99.64,
-							"meanAbsDiff": 0.63342,
-							"maskPx": 7728
-						},
-						"editorial-mono~syntax": {
-							"changedPct": 91.82,
-							"meanAbsDiff": 0.05137,
-							"maskPx": 7728
 						}
 					}
 				},
@@ -2298,34 +2312,115 @@
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 96.83,
-							"meanAbsDiff": 0.71713,
+							"changedPct": 88.23,
+							"meanAbsDiff": 0.07697,
 							"maskPx": 6251
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 91.54,
-							"meanAbsDiff": 0.06484,
+							"changedPct": 0,
+							"meanAbsDiff": 0,
 							"maskPx": 6251
 						},
 						"clean-light~syntax": {
-							"changedPct": 92.05,
-							"meanAbsDiff": 0.09585,
+							"changedPct": 0,
+							"meanAbsDiff": 0,
 							"maskPx": 6251
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 96.7,
-							"meanAbsDiff": 0.65438,
+							"changedPct": 88.23,
+							"meanAbsDiff": 0.07697,
 							"maskPx": 6251
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 99.65,
-							"meanAbsDiff": 0.6237,
+							"changedPct": 88.23,
+							"meanAbsDiff": 0.07697,
 							"maskPx": 6251
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 93.04,
-							"meanAbsDiff": 0.05122,
+							"changedPct": 0,
+							"meanAbsDiff": 0,
 							"maskPx": 6251
+						}
+					}
+				}
+			},
+			"error": null
+		},
+		{
+			"slug": "server-renders-again",
+			"progress": 0.5,
+			"timelineTime": 1.75,
+			"packs": [
+				"clean-light",
+				"crt-terminal",
+				"editorial-mono",
+				"syntax"
+			],
+			"presetSha256": "2e11e3c8a2fbde89",
+			"captures": {
+				"clean-light": "docs/critic-captures/pack-diff/server-renders-again--clean-light.png",
+				"crt-terminal": "docs/critic-captures/pack-diff/server-renders-again--crt-terminal.png",
+				"editorial-mono": "docs/critic-captures/pack-diff/server-renders-again--editorial-mono.png",
+				"syntax": "docs/critic-captures/pack-diff/server-renders-again--syntax.png"
+			},
+			"frame": {
+				"width": 960,
+				"height": 539
+			},
+			"frameDiff": {
+				"clean-light~crt-terminal": {
+					"changedPct": 47.69
+				},
+				"clean-light~editorial-mono": {
+					"changedPct": 1.95
+				},
+				"clean-light~syntax": {
+					"changedPct": 2.06
+				},
+				"crt-terminal~editorial-mono": {
+					"changedPct": 46.96
+				},
+				"crt-terminal~syntax": {
+					"changedPct": 47.43
+				},
+				"editorial-mono~syntax": {
+					"changedPct": 2.18
+				}
+			},
+			"pipelines": {
+				"surface:newspaper": {
+					"maskPctOfFrame": 60.61,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 78.66,
+							"meanAbsDiff": 0.08,
+							"maskPx": 313632
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 3.21,
+							"meanAbsDiff": 0.00958,
+							"maskPx": 313632
+						},
+						"clean-light~syntax": {
+							"changedPct": 3.38,
+							"meanAbsDiff": 0.01991,
+							"maskPx": 313632
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 77.47,
+							"meanAbsDiff": 0.07268,
+							"maskPx": 313632
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 78.19,
+							"meanAbsDiff": 0.0743,
+							"maskPx": 313632
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 3.55,
+							"meanAbsDiff": 0.01396,
+							"maskPx": 313632
 						}
 					}
 				}
@@ -2351,11 +2446,11 @@
 			},
 			"frame": {
 				"width": 960,
-				"height": 538
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 10.14
+					"changedPct": 9.95
 				},
 				"clean-light~editorial-mono": {
 					"changedPct": 0
@@ -2364,10 +2459,10 @@
 					"changedPct": 0
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 10.14
+					"changedPct": 9.95
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 10.14
+					"changedPct": 9.95
 				},
 				"editorial-mono~syntax": {
 					"changedPct": 0
@@ -2375,41 +2470,41 @@
 			},
 			"pipelines": {
 				"overlay:shader-fill": {
-					"maskPctOfFrame": 13.34,
+					"maskPctOfFrame": 13.39,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 75.98,
-							"meanAbsDiff": 0.04884,
-							"maskPx": 68904,
+							"changedPct": 74.31,
+							"meanAbsDiff": 0.04861,
+							"maskPx": 69300,
 							"exempt": "material"
 						},
 						"clean-light~editorial-mono": {
 							"changedPct": 0,
 							"meanAbsDiff": 0,
-							"maskPx": 68904
+							"maskPx": 69300
 						},
 						"clean-light~syntax": {
 							"changedPct": 0,
 							"meanAbsDiff": 0,
-							"maskPx": 68904
+							"maskPx": 69300
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 75.98,
-							"meanAbsDiff": 0.04884,
-							"maskPx": 68904,
+							"changedPct": 74.31,
+							"meanAbsDiff": 0.04861,
+							"maskPx": 69300,
 							"exempt": "material"
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 75.98,
-							"meanAbsDiff": 0.04884,
-							"maskPx": 68904,
+							"changedPct": 74.31,
+							"meanAbsDiff": 0.04861,
+							"maskPx": 69300,
 							"exempt": "material"
 						},
 						"editorial-mono~syntax": {
 							"changedPct": 0,
 							"meanAbsDiff": 0,
-							"maskPx": 68904
+							"maskPx": 69300
 						}
 					}
 				}
@@ -2426,7 +2521,7 @@
 				"editorial-mono",
 				"syntax"
 			],
-			"presetSha256": "700c2b6a895ddd45",
+			"presetSha256": "531b16fb20664519",
 			"captures": {
 				"clean-light": "docs/critic-captures/pack-diff/text-3d-cylinder--clean-light.png",
 				"crt-terminal": "docs/critic-captures/pack-diff/text-3d-cylinder--crt-terminal.png",
@@ -2435,23 +2530,23 @@
 			},
 			"frame": {
 				"width": 960,
-				"height": 538
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 2
+					"changedPct": 99.99
 				},
 				"clean-light~editorial-mono": {
-					"changedPct": 1.38
+					"changedPct": 99.99
 				},
 				"clean-light~syntax": {
-					"changedPct": 1.45
+					"changedPct": 99.99
 				},
 				"crt-terminal~editorial-mono": {
 					"changedPct": 1.96
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 1.91
+					"changedPct": 1.85
 				},
 				"editorial-mono~syntax": {
 					"changedPct": 1.35
@@ -2459,38 +2554,38 @@
 			},
 			"pipelines": {
 				"overlay:text-3d": {
-					"maskPctOfFrame": 5.5,
+					"maskPctOfFrame": 5.54,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 27,
-							"meanAbsDiff": 0.13106,
-							"maskPx": 28414
+							"changedPct": 100,
+							"meanAbsDiff": 0.86863,
+							"maskPx": 28690
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 24.12,
-							"meanAbsDiff": 0.12509,
-							"maskPx": 24678
+							"changedPct": 100,
+							"meanAbsDiff": 0.84195,
+							"maskPx": 24909
 						},
 						"clean-light~syntax": {
-							"changedPct": 25.38,
-							"meanAbsDiff": 0.12329,
-							"maskPx": 25124
+							"changedPct": 100,
+							"meanAbsDiff": 0.8185,
+							"maskPx": 25364
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 27.54,
-							"meanAbsDiff": 0.09112,
-							"maskPx": 27242
+							"changedPct": 27.22,
+							"meanAbsDiff": 0.09488,
+							"maskPx": 27503
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 28.05,
-							"meanAbsDiff": 0.09917,
-							"maskPx": 25570
+							"changedPct": 26.57,
+							"meanAbsDiff": 0.10458,
+							"maskPx": 25815
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 24.62,
-							"meanAbsDiff": 0.11483,
-							"maskPx": 23358
+							"changedPct": 24.46,
+							"meanAbsDiff": 0.12248,
+							"maskPx": 23573
 						}
 					}
 				}
@@ -2516,97 +2611,61 @@
 			},
 			"frame": {
 				"width": 960,
-				"height": 538
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 57.58
+					"changedPct": 45.05
 				},
 				"clean-light~editorial-mono": {
-					"changedPct": 51.06
+					"changedPct": 47.8
 				},
 				"clean-light~syntax": {
-					"changedPct": 54.62
+					"changedPct": 47.92
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 57.58
+					"changedPct": 44.41
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 58.17
+					"changedPct": 44.83
 				},
 				"editorial-mono~syntax": {
-					"changedPct": 51.58
+					"changedPct": 0.52
 				}
 			},
 			"pipelines": {
-				"surface:newspaper": {
-					"maskPctOfFrame": 66,
-					"hiddenUnderPacks": [],
-					"pairs": {
-						"clean-light~crt-terminal": {
-							"changedPct": 87.19,
-							"meanAbsDiff": 0.70804,
-							"maskPx": 340860
-						},
-						"clean-light~editorial-mono": {
-							"changedPct": 77.36,
-							"meanAbsDiff": 0.07488,
-							"maskPx": 340860
-						},
-						"clean-light~syntax": {
-							"changedPct": 82.7,
-							"meanAbsDiff": 0.11424,
-							"maskPx": 340860
-						},
-						"crt-terminal~editorial-mono": {
-							"changedPct": 87.14,
-							"meanAbsDiff": 0.63516,
-							"maskPx": 340860
-						},
-						"crt-terminal~syntax": {
-							"changedPct": 88.04,
-							"meanAbsDiff": 0.5986,
-							"maskPx": 340860
-						},
-						"editorial-mono~syntax": {
-							"changedPct": 78.11,
-							"meanAbsDiff": 0.05618,
-							"maskPx": 340860
-						}
-					}
-				},
 				"overlay:washi-tape": {
 					"maskPctOfFrame": 0.9,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 96.36,
-							"meanAbsDiff": 0.55321,
+							"changedPct": 67.08,
+							"meanAbsDiff": 0.0583,
 							"maskPx": 4644
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 79.97,
-							"meanAbsDiff": 0.05928,
+							"changedPct": 39.17,
+							"meanAbsDiff": 0.01488,
 							"maskPx": 4644
 						},
 						"clean-light~syntax": {
-							"changedPct": 80.68,
-							"meanAbsDiff": 0.09915,
+							"changedPct": 38.85,
+							"meanAbsDiff": 0.0145,
 							"maskPx": 4644
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 96.36,
-							"meanAbsDiff": 0.49411,
+							"changedPct": 64.86,
+							"meanAbsDiff": 0.04536,
 							"maskPx": 4644
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 95.8,
-							"meanAbsDiff": 0.46015,
+							"changedPct": 65.57,
+							"meanAbsDiff": 0.04582,
 							"maskPx": 4644
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 80.6,
-							"meanAbsDiff": 0.05234,
+							"changedPct": 0.02,
+							"meanAbsDiff": 0.0008,
 							"maskPx": 4644
 						}
 					}
@@ -2624,7 +2683,7 @@
 				"editorial-mono",
 				"syntax"
 			],
-			"presetSha256": "9403ed869919ee0b",
+			"presetSha256": "0fcad9e0a5da02c5",
 			"captures": {
 				"clean-light": "docs/critic-captures/pack-diff/title-sequence-signal--clean-light.png",
 				"crt-terminal": "docs/critic-captures/pack-diff/title-sequence-signal--crt-terminal.png",
@@ -2632,63 +2691,63 @@
 				"syntax": "docs/critic-captures/pack-diff/title-sequence-signal--syntax.png"
 			},
 			"frame": {
-				"width": 539,
-				"height": 959
+				"width": 960,
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 99.82
+					"changedPct": 99.56
 				},
 				"clean-light~editorial-mono": {
-					"changedPct": 99.77
+					"changedPct": 99.3
 				},
 				"clean-light~syntax": {
-					"changedPct": 99.98
+					"changedPct": 99.97
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 71.25
+					"changedPct": 42.06
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 64.62
+					"changedPct": 70.89
 				},
 				"editorial-mono~syntax": {
-					"changedPct": 39.59
+					"changedPct": 24.55
 				}
 			},
 			"pipelines": {
 				"surface:title-sequence": {
-					"maskPctOfFrame": 4.64,
+					"maskPctOfFrame": 13,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 96.38,
-							"meanAbsDiff": 0.66186,
-							"maskPx": 23960
+							"changedPct": 96.64,
+							"meanAbsDiff": 0.63466,
+							"maskPx": 66904
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 95.25,
-							"meanAbsDiff": 0.68242,
-							"maskPx": 23328
+							"changedPct": 94.53,
+							"meanAbsDiff": 0.64705,
+							"maskPx": 65518
 						},
 						"clean-light~syntax": {
-							"changedPct": 99.85,
-							"meanAbsDiff": 0.66665,
-							"maskPx": 22740
+							"changedPct": 99.8,
+							"meanAbsDiff": 0.6271,
+							"maskPx": 63872
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 64.74,
-							"meanAbsDiff": 0.24178,
-							"maskPx": 23960
+							"changedPct": 55.31,
+							"meanAbsDiff": 0.26894,
+							"maskPx": 66419
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 64.33,
-							"meanAbsDiff": 0.23477,
-							"maskPx": 23916
+							"changedPct": 66.68,
+							"meanAbsDiff": 0.25434,
+							"maskPx": 67269
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 41.23,
-							"meanAbsDiff": 0.25803,
-							"maskPx": 23636
+							"changedPct": 44.79,
+							"meanAbsDiff": 0.28633,
+							"maskPx": 66481
 						}
 					}
 				}
@@ -2705,7 +2764,7 @@
 				"editorial-mono",
 				"syntax"
 			],
-			"presetSha256": "4a9891e7964df766",
+			"presetSha256": "e0f56ae65db6cc7c",
 			"captures": {
 				"clean-light": "docs/critic-captures/pack-diff/watermark-channel-sig--clean-light.png",
 				"crt-terminal": "docs/critic-captures/pack-diff/watermark-channel-sig--crt-terminal.png",
@@ -2714,26 +2773,26 @@
 			},
 			"frame": {
 				"width": 960,
-				"height": 538
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 99.54
+					"changedPct": 99.55
 				},
 				"clean-light~editorial-mono": {
-					"changedPct": 93.47
+					"changedPct": 93.52
 				},
 				"clean-light~syntax": {
-					"changedPct": 97.4
+					"changedPct": 97.42
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 40.54
+					"changedPct": 40.34
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 74.01
+					"changedPct": 74.3
 				},
 				"editorial-mono~syntax": {
-					"changedPct": 13.17
+					"changedPct": 13.13
 				}
 			},
 			"pipelines": {
@@ -2743,32 +2802,32 @@
 					"pairs": {
 						"clean-light~crt-terminal": {
 							"changedPct": 99.99,
-							"meanAbsDiff": 0.51465,
-							"maskPx": 11043
+							"meanAbsDiff": 0.5148,
+							"maskPx": 11079
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 99.81,
-							"meanAbsDiff": 0.50142,
+							"changedPct": 99.83,
+							"meanAbsDiff": 0.49932,
 							"maskPx": 10251
 						},
 						"clean-light~syntax": {
-							"changedPct": 99.7,
-							"meanAbsDiff": 0.42324,
+							"changedPct": 99.88,
+							"meanAbsDiff": 0.42054,
 							"maskPx": 8883
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 28.04,
-							"meanAbsDiff": 0.06587,
-							"maskPx": 11691
+							"changedPct": 27.39,
+							"meanAbsDiff": 0.06507,
+							"maskPx": 11715
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 51.43,
-							"meanAbsDiff": 0.07502,
-							"maskPx": 11016
+							"changedPct": 52.05,
+							"meanAbsDiff": 0.07381,
+							"maskPx": 11061
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 15.83,
-							"meanAbsDiff": 0.07426,
+							"changedPct": 15.44,
+							"meanAbsDiff": 0.07378,
 							"maskPx": 10251
 						}
 					}
@@ -2795,17 +2854,17 @@
 			},
 			"frame": {
 				"width": 960,
-				"height": 538
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 0.87
+					"changedPct": 0.88
 				},
 				"clean-light~editorial-mono": {
-					"changedPct": 0.48
+					"changedPct": 0.47
 				},
 				"clean-light~syntax": {
-					"changedPct": 0.36
+					"changedPct": 0.35
 				},
 				"crt-terminal~editorial-mono": {
 					"changedPct": 0.97
@@ -2814,42 +2873,78 @@
 					"changedPct": 0.94
 				},
 				"editorial-mono~syntax": {
-					"changedPct": 0.58
+					"changedPct": 0.56
 				}
 			},
 			"pipelines": {
 				"surface:plain": {
-					"maskPctOfFrame": 5.6,
+					"maskPctOfFrame": 5.59,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 10.72,
-							"meanAbsDiff": 0.02985,
+							"changedPct": 10.93,
+							"meanAbsDiff": 0.03028,
 							"maskPx": 28941
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 4.7,
-							"meanAbsDiff": 0.00857,
+							"changedPct": 4.45,
+							"meanAbsDiff": 0.00858,
 							"maskPx": 28941
 						},
 						"clean-light~syntax": {
-							"changedPct": 3.93,
-							"meanAbsDiff": 0.00741,
+							"changedPct": 3.64,
+							"meanAbsDiff": 0.00736,
 							"maskPx": 28941
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 11.72,
-							"meanAbsDiff": 0.02859,
+							"changedPct": 11.82,
+							"meanAbsDiff": 0.02905,
 							"maskPx": 28941
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 11.67,
-							"meanAbsDiff": 0.02944,
+							"changedPct": 11.63,
+							"meanAbsDiff": 0.02978,
 							"maskPx": 28941
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 6.06,
-							"meanAbsDiff": 0.00735,
+							"changedPct": 5.68,
+							"meanAbsDiff": 0.00727,
+							"maskPx": 28941
+						}
+					}
+				},
+				"block:paragraph": {
+					"maskPctOfFrame": 5.59,
+					"hiddenUnderPacks": [],
+					"pairs": {
+						"clean-light~crt-terminal": {
+							"changedPct": 10.93,
+							"meanAbsDiff": 0.03028,
+							"maskPx": 28941
+						},
+						"clean-light~editorial-mono": {
+							"changedPct": 4.45,
+							"meanAbsDiff": 0.00858,
+							"maskPx": 28941
+						},
+						"clean-light~syntax": {
+							"changedPct": 3.64,
+							"meanAbsDiff": 0.00736,
+							"maskPx": 28941
+						},
+						"crt-terminal~editorial-mono": {
+							"changedPct": 11.82,
+							"meanAbsDiff": 0.02905,
+							"maskPx": 28941
+						},
+						"crt-terminal~syntax": {
+							"changedPct": 11.63,
+							"meanAbsDiff": 0.02978,
+							"maskPx": 28941
+						},
+						"editorial-mono~syntax": {
+							"changedPct": 5.68,
+							"meanAbsDiff": 0.00727,
 							"maskPx": 28941
 						}
 					}
@@ -2876,11 +2971,11 @@
 			},
 			"frame": {
 				"width": 960,
-				"height": 538
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 4.02
+					"changedPct": 3.96
 				},
 				"clean-light~editorial-mono": {
 					"changedPct": 0
@@ -2889,10 +2984,10 @@
 					"changedPct": 0
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 4.02
+					"changedPct": 3.96
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 4.02
+					"changedPct": 3.96
 				},
 				"editorial-mono~syntax": {
 					"changedPct": 0
@@ -2900,41 +2995,41 @@
 			},
 			"pipelines": {
 				"surface:web-document": {
-					"maskPctOfFrame": 50.86,
+					"maskPctOfFrame": 50.88,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 7.9,
-							"meanAbsDiff": 0.02244,
-							"maskPx": 262656,
+							"changedPct": 7.78,
+							"meanAbsDiff": 0.02212,
+							"maskPx": 263264,
 							"exempt": "material"
 						},
 						"clean-light~editorial-mono": {
 							"changedPct": 0,
 							"meanAbsDiff": 0,
-							"maskPx": 262656
+							"maskPx": 263264
 						},
 						"clean-light~syntax": {
 							"changedPct": 0,
 							"meanAbsDiff": 0,
-							"maskPx": 262656
+							"maskPx": 263264
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 7.9,
-							"meanAbsDiff": 0.02244,
-							"maskPx": 262656,
+							"changedPct": 7.78,
+							"meanAbsDiff": 0.02212,
+							"maskPx": 263264,
 							"exempt": "material"
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 7.9,
-							"meanAbsDiff": 0.02244,
-							"maskPx": 262656,
+							"changedPct": 7.78,
+							"meanAbsDiff": 0.02212,
+							"maskPx": 263264,
 							"exempt": "material"
 						},
 						"editorial-mono~syntax": {
 							"changedPct": 0,
 							"meanAbsDiff": 0,
-							"maskPx": 262656
+							"maskPx": 263264
 						}
 					}
 				}
@@ -2960,7 +3055,7 @@
 			},
 			"frame": {
 				"width": 960,
-				"height": 538
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
@@ -2970,87 +3065,87 @@
 					"changedPct": 2.49
 				},
 				"clean-light~syntax": {
-					"changedPct": 2.85
+					"changedPct": 2.84
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 2.42
+					"changedPct": 2.57
 				},
 				"crt-terminal~syntax": {
 					"changedPct": 2.66
 				},
 				"editorial-mono~syntax": {
-					"changedPct": 1.18
+					"changedPct": 1.19
 				}
 			},
 			"pipelines": {
 				"surface:website-screenshot": {
-					"maskPctOfFrame": 65.38,
+					"maskPctOfFrame": 65.4,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
 							"changedPct": 0,
 							"meanAbsDiff": 0,
-							"maskPx": 337700
+							"maskPx": 338422
 						},
 						"clean-light~editorial-mono": {
 							"changedPct": 0,
 							"meanAbsDiff": 0,
-							"maskPx": 337700
+							"maskPx": 338422
 						},
 						"clean-light~syntax": {
 							"changedPct": 0,
 							"meanAbsDiff": 0,
-							"maskPx": 337700
+							"maskPx": 338422
 						},
 						"crt-terminal~editorial-mono": {
 							"changedPct": 0,
 							"meanAbsDiff": 0,
-							"maskPx": 337700
+							"maskPx": 338422
 						},
 						"crt-terminal~syntax": {
 							"changedPct": 0,
 							"meanAbsDiff": 0,
-							"maskPx": 337700
+							"maskPx": 338422
 						},
 						"editorial-mono~syntax": {
 							"changedPct": 0,
 							"meanAbsDiff": 0,
-							"maskPx": 337700
+							"maskPx": 338422
 						}
 					}
 				},
 				"overlay:source-url": {
-					"maskPctOfFrame": 3.14,
+					"maskPctOfFrame": 3.13,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 82.1,
-							"meanAbsDiff": 0.57355,
+							"changedPct": 82.11,
+							"meanAbsDiff": 0.5712,
 							"maskPx": 16192
 						},
 						"clean-light~editorial-mono": {
-							"changedPct": 79.58,
-							"meanAbsDiff": 0.57705,
+							"changedPct": 79.56,
+							"meanAbsDiff": 0.57381,
 							"maskPx": 16192
 						},
 						"clean-light~syntax": {
 							"changedPct": 90.84,
-							"meanAbsDiff": 0.59953,
+							"meanAbsDiff": 0.59685,
 							"maskPx": 16192
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 77.32,
-							"meanAbsDiff": 0.09267,
+							"changedPct": 81.97,
+							"meanAbsDiff": 0.09084,
 							"maskPx": 16192
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 84.98,
-							"meanAbsDiff": 0.10765,
+							"changedPct": 85.04,
+							"meanAbsDiff": 0.10729,
 							"maskPx": 16192
 						},
 						"editorial-mono~syntax": {
-							"changedPct": 37.61,
-							"meanAbsDiff": 0.09118,
+							"changedPct": 38.18,
+							"meanAbsDiff": 0.08981,
 							"maskPx": 16192
 						}
 					}
@@ -3068,7 +3163,7 @@
 				"editorial-mono",
 				"syntax"
 			],
-			"presetSha256": "8b4b6635e6184bef",
+			"presetSha256": "8eec04f3a013b8ed",
 			"captures": {
 				"clean-light": "docs/critic-captures/pack-diff/youtube-subscribe-demo--clean-light.png",
 				"crt-terminal": "docs/critic-captures/pack-diff/youtube-subscribe-demo--crt-terminal.png",
@@ -3077,11 +3172,11 @@
 			},
 			"frame": {
 				"width": 960,
-				"height": 538
+				"height": 539
 			},
 			"frameDiff": {
 				"clean-light~crt-terminal": {
-					"changedPct": 5.29
+					"changedPct": 5.97
 				},
 				"clean-light~editorial-mono": {
 					"changedPct": 0
@@ -3090,10 +3185,10 @@
 					"changedPct": 0
 				},
 				"crt-terminal~editorial-mono": {
-					"changedPct": 5.29
+					"changedPct": 5.97
 				},
 				"crt-terminal~syntax": {
-					"changedPct": 5.29
+					"changedPct": 5.97
 				},
 				"editorial-mono~syntax": {
 					"changedPct": 0
@@ -3101,12 +3196,12 @@
 			},
 			"pipelines": {
 				"overlay:youtube-subscribe": {
-					"maskPctOfFrame": 7.95,
+					"maskPctOfFrame": 7.94,
 					"hiddenUnderPacks": [],
 					"pairs": {
 						"clean-light~crt-terminal": {
-							"changedPct": 66.47,
-							"meanAbsDiff": 0.07276,
+							"changedPct": 75.19,
+							"meanAbsDiff": 0.07262,
 							"maskPx": 41082,
 							"exempt": "material"
 						},
@@ -3121,14 +3216,14 @@
 							"maskPx": 41082
 						},
 						"crt-terminal~editorial-mono": {
-							"changedPct": 66.47,
-							"meanAbsDiff": 0.07276,
+							"changedPct": 75.19,
+							"meanAbsDiff": 0.07262,
 							"maskPx": 41082,
 							"exempt": "material"
 						},
 						"crt-terminal~syntax": {
-							"changedPct": 66.47,
-							"meanAbsDiff": 0.07276,
+							"changedPct": 75.19,
+							"meanAbsDiff": 0.07262,
 							"maskPx": 41082,
 							"exempt": "material"
 						},

@@ -103,17 +103,14 @@ export const cleanLightPack: PackManifest = {
 		},
 
 		// ---------------- newspaper Surface ----------------
-		// The clipping re-skins as a clean printed sheet: white stock, cool
-		// near-black ink, blue accent, slate kicker. Die-cut edge (nothing
-		// tears); depth falls through to the core quiet float.
-		'newspaper.fill': { kind: 'style', value: '#ffffff' },
-		'newspaper.ink': { kind: 'style', value: '#16181d' },
+		// Partial substrate immunity (ADR-0039 §2) retired the clean-sheet
+		// re-skin of the clipping body (white stock / cool ink / die-cut edge /
+		// digital print): a quoted newspaper stays newsprint in the white studio
+		// too. Remaining claimable chrome: the kicker chip (product-blue plate,
+		// slate chip ink); depth falls through to the core quiet float,
+		// synthesized against the intrinsic torn silhouette.
 		'newspaper.accent': { kind: 'style', value: '#0075de' },
 		'newspaper.kicker-ink': { kind: 'style', value: '#5b6472' },
-		'newspaper.edge': { kind: 'style', value: 'clean' },
-		// WGSL print physics stay in the cool ink family — crisp digital print,
-		// no warm newsprint cast in halftone or occlusion.
-		'newspaper.print': { kind: 'style', value: { ink: '#10141a', shadow: '#0c0f14' } },
 
 		// ---------------- title-sequence Surface ----------------
 		'title-sequence.edge': { kind: 'style', value: 'none' },
@@ -328,7 +325,6 @@ export const cleanLightPack: PackManifest = {
 		// ---------------------------------------------------------------
 		'chapter-card.tracking': { kind: 'style', value: '0.07em' },
 		'chapter-card.weight': { kind: 'style', value: '600' },
-		'newspaper.tracking': { kind: 'style', value: '0.07em' },
 		'title-sequence.tracking': { kind: 'style', value: '0.07em' },
 		'title-sequence.weight': { kind: 'style', value: '600' },
 		'type-hero.tracking': { kind: 'style', value: '0.07em' },

@@ -1,10 +1,13 @@
 import { d } from 'typegpu';
 
-import { packState } from '$lib/platform/engine-state.svelte';
-import { getPack } from '$lib/platform/packs/registry';
+import {
+	NEWSPRINT_PRINT_INK_HEX,
+	NEWSPRINT_PRINT_SHADOW_HEX
+} from '$lib/pipelines/surfaces/newspaper/newsprint-substrate';
+
 import type { ShaderPass } from '$lib/platform/pipelines/types';
 import type { SurfaceState } from '$lib/platform/engine-schema';
-import { resolveRoleColorFloat } from '$lib/utils/color';
+import { hexToRgbaFloat } from '$lib/utils/color';
 import { hashStringToUnitInterval } from '$lib/utils/seeded';
 
 /**
@@ -51,8 +54,9 @@ export const NewspaperPhysicsUniforms = d.struct({
 	/** Composition canvas width / height in pixels, used to map UV to px. */
 	canvasWidth: d.f32,
 	canvasHeight: d.f32,
-	// Pack-routed print tints (the `newspaper.print` Role): the halftone
-	// screen's ink and the edge-occlusion shadow.
+	// Intrinsic newsprint print tints (partial substrate immunity, ADR-0039 §2
+	// retired the Pack-routed `newspaper.print` Role): the halftone screen's
+	// ink and the edge-occlusion shadow.
 	inkColor: d.vec3f,
 	shadowColor: d.vec3f
 });
@@ -84,12 +88,13 @@ const BLEED_RADIUS_PX = 3;
 const FALLBACK_CANVAS_WIDTH = 3840;
 const FALLBACK_CANVAS_HEIGHT = 2160;
 
-// Neutral achromatic fallbacks when the active Pack doesn't claim the
-// `newspaper.print` Role (ADR-0024 structural posture: a Pack opts INTO a
-// print character; absence never falls back to Syntax warmth). Each is the
-// Rec.709 luminance of the original constant with zero chroma.
-const NEUTRAL_INK_COLOR: readonly [number, number, number] = [0.0407, 0.0407, 0.0407];
-const NEUTRAL_SHADOW_COLOR: readonly [number, number, number] = [0.0421, 0.0421, 0.0421];
+// The print tints are document physics (ADR-0039 §2): every pack prints the
+// same cool near-black ink and faintly warm occlusion shadow. Converted once
+// from the substrate constants at module scope.
+const [PRINT_INK_R, PRINT_INK_G, PRINT_INK_B] = hexToRgbaFloat(NEWSPRINT_PRINT_INK_HEX);
+const [PRINT_SHADOW_R, PRINT_SHADOW_G, PRINT_SHADOW_B] = hexToRgbaFloat(
+	NEWSPRINT_PRINT_SHADOW_HEX
+);
 
 const wgsl = /* wgsl */ `
 	let seed = layout.$.uniforms.seed;
@@ -169,7 +174,7 @@ const wgsl = /* wgsl */ `
 	// with a binary ink-or-paper choice based on the dot mask. Outside
 	// mid-tones, keep the bled sample. Mix in by inMidtone so the screen
 	// blends gracefully into the surrounding tone ramp. The halftone ink is
-	// Pack-routed (the newspaper.print Role) — Syntax prints a cool near-black.
+	// intrinsic newsprint physics (a cool near-black — newsprint-substrate.ts).
 	let inkColor = layout.$.uniforms.inkColor;
 	let paperColor = bled.rgb;
 	let screened = mix(paperColor, inkColor, dotCoverage);
@@ -259,8 +264,8 @@ const wgsl = /* wgsl */ `
 			shadowMask = max(shadowMask, strength);
 		}
 	}
-	// Occlusion-shadow tint is Pack-routed (the newspaper.print Role) —
-	// Syntax leans it faintly warm, the way newsprint shadow picks up stock.
+	// Occlusion-shadow tint is intrinsic newsprint physics — faintly warm, the
+	// way newsprint shadow picks up stock (newsprint-substrate.ts).
 	let shadowColor = layout.$.uniforms.shadowColor;
 	let isOutsidePaper = inputSample.a < 0.5;
 	let inShadow = isOutsidePaper && shadowMask > 0.0;
@@ -312,9 +317,6 @@ export function createNewspaperPhysicsPass(): ShaderPass<SurfaceState> {
 			// per-preset per Q6 / G9.
 			const seedSource = target.content.title ?? target.type;
 			const seed = hashStringToUnitInterval(seedSource);
-			// Uniforms pack per frame, so a Pack switch takes effect without extra
-			// reactivity — read the active Pack imperatively here.
-			const printRole = getPack(packState.slug).roles['newspaper.print'];
 
 			return {
 				seed,
@@ -322,8 +324,8 @@ export function createNewspaperPhysicsPass(): ShaderPass<SurfaceState> {
 				bleedRadiusPx: BLEED_RADIUS_PX,
 				canvasWidth: bounds.width > 0 ? bounds.width : FALLBACK_CANVAS_WIDTH,
 				canvasHeight: bounds.height > 0 ? bounds.height : FALLBACK_CANVAS_HEIGHT,
-				inkColor: d.vec3f(...resolveRoleColorFloat(printRole, 'ink', NEUTRAL_INK_COLOR)),
-				shadowColor: d.vec3f(...resolveRoleColorFloat(printRole, 'shadow', NEUTRAL_SHADOW_COLOR))
+				inkColor: d.vec3f(PRINT_INK_R, PRINT_INK_G, PRINT_INK_B),
+				shadowColor: d.vec3f(PRINT_SHADOW_R, PRINT_SHADOW_G, PRINT_SHADOW_B)
 			} satisfies NewspaperPhysicsParams;
 		}
 	};

@@ -18,7 +18,7 @@ import type {
 } from '$lib/platform/engine-schema';
 import type { GpuHost } from '$lib/platform/gpu-host';
 import type { PackManifest } from '$lib/platform/packs/types';
-import type { ResolvedDiagramStroke } from '$lib/platform/packs/resolve';
+import type { EdgeTreatment, ResolvedDiagramStroke } from '$lib/platform/packs/resolve';
 import type { OpticalShape } from '$lib/utils/optical-geometry';
 import type { PassExecutionHints } from './pass-execution';
 
@@ -316,6 +316,24 @@ export interface SurfaceRenderer {
 	 * boundaries are glyphs (not a card silhouette) must not opt in.
 	 */
 	edgeTreatment?: boolean;
+	/**
+	 * The edge treatment this surface applies when its `edge` slot is NOT
+	 * Pack-claimable (partial substrate immunity, ADR-0039 §2 — the cut
+	 * character is document physics). Consulted by
+	 * `prepareFramePackTreatments` in place of `resolveEdgeTreatment` when
+	 * `isAppearanceSlotPackClaimable(key, 'edge')` is false; ignored for
+	 * surfaces whose edge stays a Pack claim.
+	 */
+	intrinsicEdgeTreatment?: EdgeTreatment;
+	/**
+	 * The document-body colours this surface intrinsically prints when its
+	 * `fill` / `ink` slots are NOT Pack-claimable (substrate immunity,
+	 * ADR-0039 §2). Consumed by `resolveSurfaceTypographyColors` as the
+	 * fallback for unauthored typography (an authored colour still wins,
+	 * ADR-0038), and by the edge pass's synthesized depth shadow as the
+	 * foreground its `'fg'` sentinel resolves against.
+	 */
+	substrateColors?: { paperHex: string; inkHex: string };
 	/**
 	 * Decline the active Pack's composition-wide material pass. Reserved for
 	 * immutable captured substrates whose stored pixels must survive a Pack

@@ -4,7 +4,7 @@
 	import { getPack } from './packs/registry';
 	import { appearanceVarsToStyle, resolveAppearanceVars } from './packs/resolve';
 	import { PIPELINE_REGISTRY } from './pipelines';
-	import { isPackImmune } from './pipelines/identity-registry';
+	import { filterPackAppearanceVarsForImmunity } from './pipelines/identity-registry';
 	import type { Overlay, OverlayPlacement } from './engine-schema';
 	import type { OverlayRenderer } from './pipelines/types';
 	import { resolveOverlayPlacement } from '$lib/utils/overlay-placement';
@@ -138,11 +138,17 @@
 		return `opacity:${visible};transform:translateY(${ty}px);`;
 	}
 
-	// Immune artifacts retain their intrinsic platform appearance. Treatments
-	// layered around them still resolve through their own Pipeline mounts.
+	// Immune artifacts retain their intrinsic platform appearance; a partially
+	// immune one (ADR-0039 §2) keeps only its declared claimable chrome slots.
+	// Treatments layered around them still resolve through their own Pipeline
+	// mounts.
 	function appearanceStyle(overlay: Overlay): string {
-		if (isPackImmune(`overlay:${overlay.type}`)) return '';
-		return appearanceVarsToStyle(resolveAppearanceVars(getPack(packState.slug), overlay.type));
+		return appearanceVarsToStyle(
+			filterPackAppearanceVarsForImmunity(
+				`overlay:${overlay.type}`,
+				resolveAppearanceVars(getPack(packState.slug), overlay.type)
+			)
+		);
 	}
 </script>
 

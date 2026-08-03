@@ -1,14 +1,18 @@
 /**
  * Identity Spec for the `newspaper` Surface — per ADR-0015. Declares the
  * dimensions of realism this Pipeline owes when it claims to render aged
- * newsprint. The material dimensions are intrinsic — paper grain, halftone,
+ * newsprint. Every material dimension is intrinsic — paper grain, halftone,
  * ink bleed, edge occlusion, optical misregistration, surface rotation,
- * camera defocus, and lens vignette are what the substrate *is*, not
- * aesthetic dress a Pack varies. One dimension concedes via ADR-0019's
- * via-pack clause: `edge-treatment` — how the clipping was CUT from its
- * source (torn zine collage vs die-cut editorial) is the active Pack's
- * appearance claim, resolved through `resolveEdgeTreatment` (ADR-0024) into
- * the shared edge-treatment ShaderPass.
+ * camera defocus, lens vignette, and (since ADR-0039 §2) the tear character
+ * of the cut are what the substrate *is*, not aesthetic dress a Pack varies.
+ *
+ * Partial substrate immunity (ADR-0039 §2): the document BODY — sheet fill,
+ * body ink, print tints, tear character (`newsprint-substrate.ts`) — is
+ * Pack-immune; a re-dressed newspaper stops being a newspaper. Channel chrome
+ * ON the clipping stays claimable through `packImmunity.claimable`: the
+ * kicker chip (`accent` plate + `kicker-ink`) and the depth/shadow rig
+ * (`depth`). Annotation marks and the backdrop resolve through their own
+ * Pipelines/composition state, untouched by this declaration.
  */
 
 import type { IdentitySpec } from '$lib/platform/pipelines/identity';
@@ -16,6 +20,11 @@ import type { IdentitySpec } from '$lib/platform/pipelines/identity';
 export const newspaperIdentity: IdentitySpec = {
 	kind: 'material',
 	claim: 'aged newsprint photographed under directional light',
+	packImmunity: {
+		rationale:
+			'A quoted newspaper is a faithful artifact like a quoted tweet (ADR-0038): repainting its sheet, ink, print tints, or tear under a pack swap breaks verisimilitude without gaining brand (ADR-0039 §2 — a white-and-blue "newspaper" is no longer a newspaper). Channel chrome ON the clipping stays the pack’s.',
+		claimable: ['accent', 'kicker-ink', 'depth']
+	},
 	dimensions: [
 		{
 			name: 'grain-multi-scale',
@@ -85,13 +94,14 @@ export const newspaperIdentity: IdentitySpec = {
 		{
 			name: 'edge-treatment',
 			definition:
-				'The cut behavior of the clipping’s outer silhouette — how the sheet was separated from its source (torn, soft-worn, hand-cut irregular, die-cut clean, or unclaimed). The silhouette itself is the Pipeline’s; the character of the cut is the active Pack’s.',
-			viaPack: 'newspaper.edge',
+				'The cut behavior of the clipping’s outer silhouette. A clipping is TORN from its source — the tear character is document physics, not Pack dress (ADR-0039 §2 reversed the ADR-0019-era via-pack concession: a die-cut “newspaper clipping” under a clean pack read as a printed card, not a quoted artifact).',
+			implementation:
+				'newsprint-substrate.ts § NEWSPRINT_EDGE_TREATMENT — intrinsic torn treatment (amplitudePx 40, wavelengthPx 150, fiber 1) consumed by the shared edge-treatment ShaderPass via the renderer’s intrinsicEdgeTreatment; the `edge` slot is absent from packImmunity.claimable, so resolveEdgeTreatment is never consulted for this Surface.',
 			probe: {
 				kind: 'named-observation',
 				region: 'card silhouette against transparency at 200% zoom',
 				expectation:
-					'under syntax: an irregular displaced tear path (~1–3% of the card’s smaller dimension) with a lighter interior fiber rim at the torn boundary, never an axis-perfect rectangular cut; under a clean-cut Pack (editorial-mono): a straight, anti-aliased edge. The tear path is deterministic per preset — same seed, same tear across re-renders.'
+					'under EVERY pack: an irregular displaced tear path (~1–3% of the card’s smaller dimension) with a lighter interior fiber rim at the torn boundary, never an axis-perfect rectangular cut. The tear path is deterministic per preset — same seed, same tear across re-renders.'
 			}
 		},
 		{

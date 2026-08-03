@@ -513,7 +513,17 @@ const REPRESENTATIVE_OVERRIDES: Readonly<Record<string, string>> = {
 	'overlay:lower-third': 'lower-third',
 	'overlay:watermark': 'watermark-channel-sig',
 	'surface:plain': 'watermark-demo',
-	'captions:track': 'captions-pack-style-demo'
+	'captions:track': 'captions-pack-style-demo',
+	// Partial substrate immunity (ADR-0039 §2) recalibrations: the newspaper
+	// row now measures chrome-only deltas, so its representative must carry
+	// the claimable kicker chip (title-card-newspaper is title-only — its
+	// chrome-free region diffs ~0.77%, under the floor, telling us nothing).
+	// block:paragraph and annotation:highlight lose their document-surface
+	// bleed-through evidence (the body no longer re-skins) and move to
+	// plain-surface presets where the ink they ride is genuinely claimable.
+	'surface:newspaper': 'server-renders-again',
+	'block:paragraph': 'watermark-demo',
+	'annotation:highlight': 'keyframes-cascade-demo'
 };
 
 /**
@@ -1354,8 +1364,13 @@ async function runJob(job: CaptureJob): Promise<PresetReportEntry> {
 	await sleep(900);
 
 	const rect = await session.evaluate<CanvasRect>(
+		// The COMPOSITION canvas is the largest-backing one — the editor chrome
+		// renders small canvases too (timeline sound-clip waveforms), so a bare
+		// querySelector('canvas') is order-dependent and unsafe.
 		`(() => {
-			const c = document.querySelector('canvas');
+			const c = [...document.querySelectorAll('canvas')].sort(
+				(a, b) => b.width * b.height - a.width * a.height
+			)[0];
 			const r = c.getBoundingClientRect();
 			return { x: r.x, y: r.y, w: r.width, h: r.height, bw: c.width, bh: c.height };
 		})()`

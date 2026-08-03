@@ -1,4 +1,7 @@
 import type { AnnotationRenderer, SurfaceRenderer } from './types';
+import { isAppearanceSlotPackClaimable } from './identity-registry';
+import type { PackManifest } from '$lib/platform/packs/types';
+import { resolveTypographyColors } from '$lib/platform/packs/resolve';
 
 import { boxAnnotationRenderer } from '$lib/pipelines/annotations/box';
 import { circleAnnotationRenderer } from '$lib/pipelines/annotations/circle';
@@ -159,4 +162,32 @@ export function getSurfaceRenderer(type: string): SurfaceRenderer | null {
 	}
 
 	return null;
+}
+
+/**
+ * Resolve the composition's paper/ink AS THE ACTIVE SURFACE PRINTS THEM.
+ * Layers ADR-0039 §2 substrate immunity over the ADR-0038 chain: an authored
+ * `typography.paperColor` / `inkColor` always wins (composition content);
+ * absent, a surface whose `fill` / `ink` slot is immune falls to its own
+ * `substrateColors` (the document's physics — newsprint, printer paper) while
+ * every other surface falls to the active Pack's core fill/ink-treatment.
+ * Every consumer judging or painting the SURFACE body (CanvasSources, rubric
+ * contrast lints, highlight dark-surface detection, timeline swatches) must
+ * resolve through this; `resolveTypographyColors` alone remains correct only
+ * for non-document consumers (captions ink, diagram ink — channel chrome).
+ */
+export function resolveSurfaceTypographyColors(
+	pack: PackManifest,
+	surfaceType: string,
+	typography: { paperColor?: string; inkColor?: string }
+): { paperColor: string; inkColor: string } {
+	const substrate = getSurfaceRenderer(surfaceType)?.substrateColors;
+	const surfaceKey = `surface:${surfaceType}`;
+	const paperImmune = substrate && !isAppearanceSlotPackClaimable(surfaceKey, 'fill');
+	const inkImmune = substrate && !isAppearanceSlotPackClaimable(surfaceKey, 'ink');
+	const packResolved = resolveTypographyColors(pack, typography);
+	return {
+		paperColor: typography.paperColor ?? (paperImmune ? substrate.paperHex : packResolved.paperColor),
+		inkColor: typography.inkColor ?? (inkImmune ? substrate.inkHex : packResolved.inkColor)
+	};
 }

@@ -139,23 +139,68 @@ export const IDENTITY_REGISTRY: Readonly<Record<string, IdentitySpec>> = {
 };
 
 /**
- * Every pipeline key whose Identity Spec declares Pack-immunity (ADR-0038).
- * The Critic's two-Pack pixel-diff regression check enumerates the NON-immune
- * pipelines from this list's complement over `IDENTITY_REGISTRY` — a pipeline
- * that ignores the Pack without appearing here is a bug, not an exemption.
+ * Every pipeline key whose Identity Spec declares FULL Pack-immunity
+ * (ADR-0038 — `packImmunity` present with no `claimable` slots). The Critic's
+ * two-Pack pixel-diff regression check enumerates the NON-immune pipelines
+ * from this list's complement over `IDENTITY_REGISTRY` — a pipeline that
+ * ignores the Pack without appearing here is a bug, not an exemption.
+ * PARTIALLY immune pipelines (ADR-0039 §2 — `claimable` present) are
+ * deliberately NOT in this list: their claimable chrome must still visibly
+ * respond to a pack swap, so the diff lock keeps them in the must-change set
+ * (the expected delta is chrome-scale, not document-scale).
  */
 export const PACK_IMMUNE_PIPELINE_KEYS: readonly string[] = Object.entries(IDENTITY_REGISTRY)
-	.filter(([, spec]) => spec.packImmunity !== undefined)
+	.filter(([, spec]) => spec.packImmunity !== undefined && spec.packImmunity.claimable === undefined)
 	.map(([pipelineKey]) => pipelineKey);
 
 /**
  * Registry-visible immunity query (ADR-0038): does this pipeline's Identity
- * Spec declare its artifact Pack-immune? Keys use the registry shape
+ * Spec declare its artifact FULLY Pack-immune? Keys use the registry shape
  * (`surface:imessage`, `annotation:highlight`, …). Unregistered keys are not
- * immune.
+ * immune. A partially immune pipeline (ADR-0039 §2) answers false here — its
+ * mounts inject a filtered var set instead of skipping injection; use
+ * `isAppearanceSlotPackClaimable` / `filterPackAppearanceVarsForImmunity` for
+ * the per-slot decision.
  */
 export function isPackImmune(pipelineKey: string): boolean {
-	return IDENTITY_REGISTRY[pipelineKey]?.packImmunity !== undefined;
+	const immunity = IDENTITY_REGISTRY[pipelineKey]?.packImmunity;
+	return immunity !== undefined && immunity.claimable === undefined;
+}
+
+/**
+ * Per-slot immunity query (ADR-0039 §2 partial substrate immunity): may the
+ * active Pack claim this appearance slot on this pipeline? Slot names are
+ * Role suffixes (`'accent'`, `'kicker-ink'`, `'depth'`, `'edge'`, `'fill'`,
+ * …). No immunity declared ⇒ every slot is claimable; full immunity ⇒ none
+ * is; partial immunity ⇒ exactly the declared `claimable` slots are.
+ * Structural consumers (edge/depth/print resolution in renderer code) gate
+ * their Pack reads on this; CSS-var consumers go through
+ * `filterPackAppearanceVarsForImmunity`.
+ */
+export function isAppearanceSlotPackClaimable(pipelineKey: string, slot: string): boolean {
+	const immunity = IDENTITY_REGISTRY[pipelineKey]?.packImmunity;
+	if (immunity === undefined) return true;
+	return immunity.claimable?.includes(slot) ?? false;
+}
+
+/**
+ * Filter a `resolveAppearanceVars` result down to what this pipeline's
+ * immunity declaration lets the Pack claim (ADR-0039 §2): unchanged for a
+ * non-immune pipeline, empty for a fully immune one, and only the claimable
+ * chrome slots for a partially immune one. Var names are `--<suffix>`; the
+ * suffix is matched against the `claimable` slot list verbatim.
+ */
+export function filterPackAppearanceVarsForImmunity(
+	pipelineKey: string,
+	vars: Record<string, string>
+): Record<string, string> {
+	const immunity = IDENTITY_REGISTRY[pipelineKey]?.packImmunity;
+	if (immunity === undefined) return vars;
+	const claimable = immunity.claimable;
+	if (claimable === undefined) return {};
+	return Object.fromEntries(
+		Object.entries(vars).filter(([name]) => claimable.includes(name.slice('--'.length)))
+	);
 }
 
 export interface IdentityValidationError {

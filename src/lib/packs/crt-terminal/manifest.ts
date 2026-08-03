@@ -169,19 +169,15 @@ export const crtTerminalPack: PackManifest = {
 		},
 
 		// ---------------- newspaper Surface ----------------
-		// The clipping re-skins as a terminal readout panel: near-black glass
-		// fill, phosphor body ink, hot-core accent, dim kicker. The silhouette is
-		// die-cut hard ('none' — a screen is not torn from anything); depth rides
-		// the core glow rig (no per-Pipeline shadow to override away).
-		'newspaper.fill': { kind: 'style', value: '#070b08' },
-		'newspaper.ink': { kind: 'style', value: '#45ff6e' },
+		// Partial substrate immunity (ADR-0039 §2) retired the terminal-readout
+		// re-skin of the clipping body (glass fill / phosphor ink / green print /
+		// die-cut edge): a quoted newspaper stays newsprint on this Pack's glass
+		// too. Remaining claimable chrome: the kicker chip in phosphor voices.
+		// Depth rides the core glow rig, which currently has no torn-silhouette
+		// synthesis lane (noted in the newspaper CanvasSource) — no bloom on the
+		// clipping until that lands.
 		'newspaper.accent': { kind: 'style', value: '#d9ffe0' },
 		'newspaper.kicker-ink': { kind: 'style', value: '#2fb352' },
-		'newspaper.edge': { kind: 'style', value: 'none' },
-		// WGSL print physics tinted ghost-green-black: halftone "ink" and the
-		// edge-occlusion tone both sit between ghost and glass — no warm
-		// newsprint cast anywhere.
-		'newspaper.print': { kind: 'style', value: { ink: '#0c2e17', shadow: '#08170e' } },
 
 		// ---------------- title-sequence Surface ----------------
 		// The drop title is the overdriven moment: hot core over the deepest
@@ -403,11 +399,9 @@ export const crtTerminalPack: PackManifest = {
 		'chapter-card.case': { kind: 'style', value: 'uppercase' },
 		'chapter-card.weight': { kind: 'style', value: '600' },
 
-		'newspaper.border': { kind: 'style', value: 'calc(0.3 * var(--cqmin)) solid #1e8f3d' },
-		'newspaper.radius': { kind: 'style', value: '0' },
-		'newspaper.tracking': { kind: 'style', value: '0.34em' },
-		'newspaper.case': { kind: 'style', value: 'uppercase' },
-		'newspaper.weight': { kind: 'style', value: '600' },
+		// (newspaper form dress — border/radius/tracking/case/weight — retired
+		// with the body re-skin: a bezeled, tracked-out clipping is not a
+		// newspaper. ADR-0039 §2.)
 
 		'title-sequence.tracking': { kind: 'style', value: '0.34em' },
 		'title-sequence.case': { kind: 'style', value: 'uppercase' },

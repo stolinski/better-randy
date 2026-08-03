@@ -137,23 +137,15 @@ export const editorialMonoPack: PackManifest = {
 			kind: 'style',
 			value: { top: '#0d1319', bottom: '#121820', light: '#c2d2e0' }
 		},
-		'newspaper.fill': { kind: 'style', value: '#e9eef3' },
-		'newspaper.ink': { kind: 'style', value: '#0f151c' },
+		// Newspaper: partial substrate immunity (ADR-0039 §2) retired this Pack's
+		// body/edge/print re-skins — the clipping is intrinsic newsprint under
+		// every Pack. Remaining claimable chrome: the kicker chip (cool cyan
+		// plate, near-black chip ink) and the flat depth claim (the card sits on
+		// its intrinsic edge-occlusion alone — proves a structural depth Role
+		// reaches pixels: syntax 12px offset chrome → editorial-mono none).
 		'newspaper.accent': { kind: 'style', value: '#22d3ee' },
 		'newspaper.kicker-ink': { kind: 'style', value: '#0f151c' },
-		// Structural re-skin: this cool editorial dress drops the zine hard-offset
-		// shadow entirely — the card sits flat, carried only by the newspaper
-		// substrate's intrinsic edge-occlusion. Proves a structural depth Role
-		// reaches pixels (syntax: 12px offset chrome → editorial-mono: none).
 		'newspaper.depth': { kind: 'style', value: 'none' },
-		// Structural edge re-skin: a clean die-cut clipping (server-renders-again
-		// claims "clean printed clipping") where syntax tears — the same Preset's
-		// silhouette changes character with the Pack (resolveEdgeTreatment).
-		'newspaper.edge': { kind: 'style', value: 'clean' },
-		// WGSL print physics: halftone ink and edge-occlusion shadow track the
-		// Pack's cool near-black ink family (#0f151c) — press-review print, no
-		// warm newsprint stock cast in the shadow.
-		'newspaper.print': { kind: 'style', value: { ink: '#0a0d11', shadow: '#080b0e' } },
 		// WGSL backdrop for the title drop: deep cinema black that deepens into
 		// blue at the floor (syntax warms there), with the off-frame glow read
 		// as cool north light instead of a tungsten key.
@@ -222,7 +214,6 @@ export const editorialMonoPack: PackManifest = {
 		// (`lower-third.*` form roles live in the Overlays block above.)
 		// ---------------------------------------------------------------
 		'chapter-card.tracking': { kind: 'style', value: '0.12em' },
-		'newspaper.tracking': { kind: 'style', value: '0.12em' },
 		'title-sequence.tracking': { kind: 'style', value: '0.12em' },
 		'type-hero.tracking': { kind: 'style', value: '0.12em' },
 		'pullquote-on-photo.tracking': { kind: 'style', value: '0.12em' },

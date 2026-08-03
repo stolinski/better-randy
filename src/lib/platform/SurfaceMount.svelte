@@ -3,7 +3,7 @@
 	import { getPack } from './packs/registry';
 	import { appearanceVarsToStyle, resolveAppearanceVars } from './packs/resolve';
 	import { getSurfaceRenderer } from './pipelines';
-	import { isPackImmune } from './pipelines/identity-registry';
+	import { filterPackAppearanceVarsForImmunity } from './pipelines/identity-registry';
 
 	interface Props {
 		element?: HTMLElement | null;
@@ -22,15 +22,19 @@
 	// CanvasSource consumes them via `var(--slot, #fallback)`; under the syntax
 	// Pack the fallbacks already match, so the render is byte-identical.
 	//
-	// A Surface whose Identity Spec declares Pack-immunity skips injection. The
-	// registry-derived query is the authority, so new immune Pipelines cannot
-	// leave a copied list stale here.
+	// A Surface's Identity Spec immunity decides what survives injection
+	// (ADR-0038 / ADR-0039 §2): full immunity filters to nothing, partial
+	// immunity keeps only the declared claimable chrome slots (the newspaper's
+	// kicker chip), no immunity keeps everything. The registry-derived filter
+	// is the authority, so new immune Pipelines cannot leave a copied list
+	// stale here.
 	const appearanceStyle = $derived(
-		isPackImmune(`surface:${engineState.surface.type}`)
-			? ''
-			: appearanceVarsToStyle(
-					resolveAppearanceVars(getPack(packState.slug), engineState.surface.type)
-				)
+		appearanceVarsToStyle(
+			filterPackAppearanceVarsForImmunity(
+				`surface:${engineState.surface.type}`,
+				resolveAppearanceVars(getPack(packState.slug), engineState.surface.type)
+			)
+		)
 	);
 </script>
 

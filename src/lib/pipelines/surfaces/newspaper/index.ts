@@ -5,6 +5,11 @@ import type { SurfaceRenderInstance, SurfaceRenderer } from '$lib/platform/pipel
 import { newspaperPhysics } from '$lib/pipelines/shader-passes/newspaper-physics';
 
 import CanvasSource from './CanvasSource.svelte';
+import {
+	NEWSPRINT_EDGE_TREATMENT,
+	NEWSPRINT_INK_HEX,
+	NEWSPRINT_PAPER_HEX
+} from './newsprint-substrate';
 
 /**
  * Newspaper Surface — aged newsprint clipping. Reuses the `paper` Surface's
@@ -13,12 +18,15 @@ import CanvasSource from './CanvasSource.svelte';
  * work identically. The eight material physics dimensions this Surface owes
  * are declared in `./identity.ts` (per ADR-0015) and implemented as follows:
  *
- *   - **CanvasSource HTML/CSS** — warm-white substrate (~`#f0e8d6`),
- *     condensed serif body, heavy slab/serif display, mono kicker chip,
- *     mono byline + dateline, 1–3° seeded camera rotation (dim 6
- *     `surface-rotation`), 12 px hard offset shadow at 4K (Pack-side
- *     Syntax chrome — coexists with the Pipeline-side
- *     `edge-occlusion-shadow`).
+ *   - **CanvasSource HTML/CSS** — intrinsic newsprint substrate
+ *     (`newsprint-substrate.ts`, ADR-0039 §2 partial immunity: sheet/ink/
+ *     print/tear are document physics), condensed serif body, heavy
+ *     slab/serif display, Pack-claimable mono kicker chip
+ *     (`newspaper.accent` / `.kicker-ink`), mono byline + dateline, 1–3°
+ *     seeded camera rotation (dim 6 `surface-rotation`). The Pack's
+ *     claimable `newspaper.depth` shadow is synthesized by the shared edge
+ *     pass against the intrinsic torn silhouette (coexists with the
+ *     Pipeline-side `edge-occlusion-shadow`).
  *   - **`shaderPass: newspaperPhysics`** — single fragment pass running
  *     between the surface's DOM upload and the effect chain via the
  *     ShaderPassDispatcher (ADR-0010). Implements dims 1–5, 7, 8 in one
@@ -69,12 +77,15 @@ export const newspaperSurfaceRenderer: SurfaceRenderer = {
 	CanvasSource,
 	defaults,
 	shaderPass: newspaperPhysics,
-	// The clipping's outer silhouette accepts the Pack's edge Role
-	// (`newspaper.edge` → core `edge-treatment`): syntax tears it (collage law,
-	// aesthetic.md § Cut behavior), editorial-mono die-cuts it clean. The shared
-	// edge pass runs BEFORE newspaperPhysics so the edge-occlusion shadow and
-	// defocus operate on the treated silhouette.
+	// The clipping's outer silhouette runs the shared edge pass BEFORE
+	// newspaperPhysics so the edge-occlusion shadow and defocus operate on the
+	// treated silhouette. Since ADR-0039 §2 the cut character is document
+	// physics — the intrinsic tear below applies under EVERY pack (the `edge`
+	// slot is absent from the Identity Spec's claimable list), replacing the
+	// retired `newspaper.edge` Role.
 	edgeTreatment: true,
+	intrinsicEdgeTreatment: NEWSPRINT_EDGE_TREATMENT,
+	substrateColors: { paperHex: NEWSPRINT_PAPER_HEX, inkHex: NEWSPRINT_INK_HEX },
 	createPipeline(opts): SurfaceRenderInstance {
 		return createPaperPipeline(opts);
 	}

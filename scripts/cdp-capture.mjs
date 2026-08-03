@@ -6,6 +6,11 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 
 const PORT = Number(process.env.CDP_PORT ?? 9223);
+// The COMPOSITION canvas is the largest-backing one. Never bare
+// `querySelector('canvas')`: the editor chrome renders small canvases too
+// (timeline sound-clip waveforms), and the capture prep below re-parents the
+// composition canvas to <body>, so first-in-document-order is not stable.
+const COMPOSITION_CANVAS = `[...document.querySelectorAll('canvas')].sort((a, b) => b.width * b.height - a.width * a.height)[0]`;
 const SLUG = process.argv[2] ?? 'lower-third';
 const PAGE_URL = process.env.CDP_URL ?? `http://localhost:7263/p/${SLUG}?source=builtin`;
 const EXPECTED_PATHNAME = new URL(PAGE_URL).pathname;
@@ -84,7 +89,7 @@ let flag = false;
 for (let i = 0; i < 60; i++) {
 	try {
 		const s = await evaluate(`(() => ({
-			canvas: !!document.querySelector('canvas'),
+			canvas: !!(${COMPOSITION_CANVAS}),
 			timeline: !!(window.__supersTimeline),
 			body: !!document.body,
 			complete: document.readyState === 'complete',
@@ -135,7 +140,7 @@ if (WAIT_SELECTOR) {
 if (TARGET_ORIENTATION === 'vertical' || TARGET_ORIENTATION === 'horizontal') {
 	const label = TARGET_ORIENTATION === 'vertical' ? 'Switch to vertical' : 'Switch to horizontal';
 	const expectedWidth = TARGET_ORIENTATION === 'vertical' ? 2160 : 3840;
-	const alreadyOriented = await evaluate(`document.querySelector('canvas')?.width === ${expectedWidth}`);
+	const alreadyOriented = await evaluate(`(${COMPOSITION_CANVAS})?.width === ${expectedWidth}`);
 	if (!alreadyOriented) {
 	const switched = await evaluate(`(() => {
 		const button = document.querySelector(${JSON.stringify(`button[aria-label="${label}"]`)}) ??
@@ -147,7 +152,7 @@ if (TARGET_ORIENTATION === 'vertical' || TARGET_ORIENTATION === 'horizontal') {
 	})()`);
 	if (!switched) throw new Error(`Could not find the ${TARGET_ORIENTATION} transport control`);
 	for (let i = 0; i < 30; i++) {
-		if (await evaluate(`document.querySelector('canvas')?.width === ${expectedWidth}`)) break;
+		if (await evaluate(`(${COMPOSITION_CANVAS})?.width === ${expectedWidth}`)) break;
 		await sleep(100);
 	}
 	}
@@ -171,7 +176,7 @@ let capturePrepared = false;
 for (let i = 0; i < 60; i++) {
 	try {
 		capturePrepared = await evaluate(`(() => {
-			const c = document.querySelector('canvas');
+			const c = (${COMPOSITION_CANVAS});
 			if (!document.body || !c || !window.__supersTimeline) return false;
 			const captureScale = 4;
 			const inheritedStyle = getComputedStyle(c);
@@ -204,7 +209,7 @@ if (!capturePrepared) {
 	process.exit(1);
 }
 const rect = await evaluate(`(() => {
-	const c = document.querySelector('canvas');
+	const c = (${COMPOSITION_CANVAS});
 	const r = c.getBoundingClientRect();
 	const style = getComputedStyle(c);
 	return {

@@ -3,6 +3,7 @@ import { parseAnnotationBodyText } from '$lib/annotations/annotation-body-text';
 import type { SurfaceRenderInstance, SurfaceRenderer } from '$lib/platform/pipelines/types';
 
 import CanvasSource from './CanvasSource.svelte';
+import { PAPER_INK_HEX, PAPER_SHEET_HEX } from './paper-substrate';
 import { createPaperPipeline } from './pipeline';
 
 function defaults(): SurfaceState {
@@ -38,6 +39,9 @@ export const paperSurfaceRenderer: SurfaceRenderer = {
 	},
 	CanvasSource,
 	defaults,
+	// Substrate immunity (ADR-0039 §2): the sheet/ink an unauthored
+	// composition prints — never the active Pack's cores.
+	substrateColors: { paperHex: PAPER_SHEET_HEX, inkHex: PAPER_INK_HEX },
 	createPipeline(opts): SurfaceRenderInstance {
 		return createPaperPipeline(opts);
 	}
