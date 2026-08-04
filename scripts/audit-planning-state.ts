@@ -11,7 +11,7 @@
 // Output: JSON report on stdout; exit 1 when any gating finding (or a crash)
 // is present. Advisories never gate.
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { readFile, readdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -71,15 +71,33 @@ async function readPresetListing(): Promise<PlanningPresetListing[]> {
 	return presets;
 }
 
+/**
+ * Task records from the dex CLI when it is installed; from the committed
+ * `.dex/tasks.jsonl` store otherwise (CI has no dex binary — the store is the
+ * same records, one JSON object per line).
+ */
+function loadDexTaskRecords(): unknown {
+	try {
+		return JSON.parse(
+			execFileSync('dex', ['list', '--all', '--json'], {
+				cwd: repoRoot,
+				encoding: 'utf8',
+				maxBuffer: 64 * 1024 * 1024
+			})
+		);
+	} catch (error) {
+		if ((error as { code?: unknown }).code !== 'ENOENT') throw error;
+		return readFileSync(resolve(repoRoot, '.dex/tasks.jsonl'), 'utf8')
+			.split('\n')
+			.filter((line) => line.trim().length > 0)
+			.map((line) => JSON.parse(line) as unknown);
+	}
+}
+
 function readDexTasks(): PlanningDexTask[] {
-	const stdout = execFileSync('dex', ['list', '--all', '--json'], {
-		cwd: repoRoot,
-		encoding: 'utf8',
-		maxBuffer: 64 * 1024 * 1024
-	});
-	const parsed: unknown = JSON.parse(stdout);
+	const parsed = loadDexTaskRecords();
 	if (!Array.isArray(parsed)) {
-		throw new Error('dex list --all --json did not return an array');
+		throw new Error('dex task records did not parse to an array');
 	}
 	return parsed.map((entry) => {
 		const record = entry as {

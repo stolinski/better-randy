@@ -37,6 +37,9 @@ jobs:
       - name: Structural tests
         run: pnpm test:structural
 
+      - name: Planning audit
+        run: pnpm audit:planning
+
       - name: Verify presets
         run: pnpm verify-presets
 

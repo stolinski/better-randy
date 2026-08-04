@@ -42,7 +42,7 @@ The default answer to "what's next?" — an agent self-serves this instead of as
 
 The capability and core parity arcs are complete. The next work is deliberately narrower and dependency-ordered; Dex carries the executable edges and `dex list --ready` must expose the first unblocked leaf, not a flat pile of unrelated priority-1 notes.
 
-1. **Generated project control plane** — current factory epic: finish task `t040a0vs` so one CI command catches Roadmap / ADR / Brief / Registry / Dex drift. This audit is its baseline reconciliation.
+1. ✅ **Generated project control plane** — shipped 2026-08-04 (epic `t040a0vs`): the `@supers/repo-audit` `audit-planning` method + `@supers/planning-state` report catch Roadmap / ADR / Brief / ideas / Dex drift, gated by the `policy-sweep` workflow and the CI `Planning audit` step ([`docs/project-control-plane.md`](project-control-plane.md)). The 2026-08-04 audit was its baseline reconciliation.
 2. **Close the Pack-neutral corpus contract** — epic `hkajpcgg`: run the human-scale Pack matrix (`hpc3lrk0`), then retire or re-author the specific brand-grammar failures (`evnlthxa`). `PackPipelineRole` is demand-gated by evidence from that sweep, not a speculative prerequisite.
 3. **Finish Pack contract standardization** — task group `oa9tr4wy`: close the role-contract registry, then add catalog-ratification evidence. This makes future Pack work factory-safe.
 4. **Build the broad Starter-template library** — task `dghxldci`: audit creator-job coverage, then author the missing categories and coordinated episode suite against the completed Pack/quality gates.

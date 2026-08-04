@@ -5,11 +5,11 @@ tags:
 jobs:
   - name: main
     description: >-
-      Supers policy sweep — the four repo checks as one DAG: fraction-window
+      Supers policy sweep — the five repo checks as one DAG: fraction-window
       rescale coverage, authoring-dependency tracker coverage, GUI-agent
-      inspector parity, and the static corpus verification. Audit methods
-      always store their report (findings are data); the assert steps turn any
-      finding into a red run.
+      inspector parity, planning-state drift, and the static corpus
+      verification. Audit methods always store their report (findings are
+      data); the assert steps turn any finding into a red run.
     steps:
       - name: audit-timing
         description: Fraction-window rescale coverage (scripts/audit-timing-coverage.ts)
@@ -35,6 +35,15 @@ jobs:
           type: model_method
           modelIdOrName: repo-audit
           methodName: audit-parity
+        dependsOn: []
+        weight: 0
+        allowFailure: false
+      - name: audit-planning
+        description: Planning-state drift (scripts/audit-planning-state.ts)
+        task:
+          type: model_method
+          modelIdOrName: repo-audit
+          methodName: audit-planning
         dependsOn: []
         weight: 0
         allowFailure: false
@@ -82,6 +91,19 @@ jobs:
           severity: high
         dependsOn:
           - step: audit-parity
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+      - name: assert-planning-clean
+        description: Roadmap, ADR, Brief, ideas, and dex planning tiers match their declared meanings
+        task:
+          type: assert
+          expr: data.latest("repo-audit", "planning-latest").attributes.clean == true
+          message: planning drift — `swamp report get @supers/planning-state --model repo-audit` names each drifted file path and dex id
+          severity: high
+        dependsOn:
+          - step: audit-planning
             condition:
               type: succeeded
         weight: 0
