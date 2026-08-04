@@ -24,7 +24,7 @@
 					"duration": 0.18,
 					"ease": "smooth",
 					"sound": {
-						"sample": "tick-snap"
+						"sample": "foley-switch"
 					}
 				}
 			]

@@ -82,7 +82,7 @@
 					"ease": "settled",
 					"sound": {
 						"event": "impact",
-						"sample": "thud-deep"
+						"sample": "foley-denied"
 					}
 				},
 				"exit": {

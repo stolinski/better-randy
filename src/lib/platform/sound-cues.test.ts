@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
-import { deriveSoundCues } from './sound-cues.ts';
+import {
+	DEFAULT_EVENT_SAMPLES,
+	deriveSoundCues,
+	MESSAGE_SAMPLES,
+	TAPBACK_SAMPLES
+} from './sound-cues.ts';
 import type { EngineState } from './engine-schema.ts';
 
 function makeState(overrides: {
@@ -53,6 +58,15 @@ function cueStart(state: EngineState, id: string): number {
 }
 
 describe('sound cues', () => {
+	it('uses Foley for every engine default while preserving iMessage signatures', () => {
+		assert.ok(Object.values(DEFAULT_EVENT_SAMPLES).every((sample) => sample.startsWith('foley-')));
+		assert.deepEqual(MESSAGE_SAMPLES, {
+			received: 'message-pop',
+			sent: 'message-send'
+		});
+		assert.ok(Object.values(TAPBACK_SAMPLES).every((sample) => sample.startsWith('tapback-')));
+	});
+
 	it('derives cascade-welded sound cues', () => {
 		// ── Re-timing a cascade leader moves follower cues in lockstep ─────────────
 

@@ -40,7 +40,7 @@
 					"duration": 0.12,
 					"ease": "smooth",
 					"sound": {
-						"sample": "tick-snap"
+						"sample": "foley-switch"
 					}
 				},
 				{

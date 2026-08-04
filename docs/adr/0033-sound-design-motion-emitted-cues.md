@@ -2,7 +2,7 @@
 
 ## Status
 
-**Canon (built; Sound-kit mechanism superseded by amendment).** All of §2–§9 shipped 2026-07-01. **Amended 2026-07-02:** the §3 Sound-kit concept is removed. Sound uses engine defaults plus per-motion overrides through `DEFAULT_EVENT_SAMPLES`; §6 determinism and §4 derived-not-stored are unchanged. The body preserves the rejected Sound-kit design as decision history.
+**Canon (built; Sound-kit mechanism superseded by amendment).** All of §2–§9 shipped 2026-07-01. **Amended 2026-07-02:** the §3 Sound-kit concept is removed. Sound uses engine defaults plus per-motion overrides through `DEFAULT_EVENT_SAMPLES`; §6 determinism and §4 derived-not-stored are unchanged. **Amended 2026-08-04:** every non-iMessage engine default and authored sample choice comes from Foley's 28-cue MIT-licensed library. The iMessage bubble and tapback recordings remain locked-specific. Foley cues are checked in as seeded WAV renders rather than synthesized at playback so preview and export consume identical bytes. The body preserves the rejected Sound-kit design as decision history.
 
 Date: 2026-06-26
 Relates to: [ADR-0011](0011-text-animation-orchestration.md) (timed-motion domain; named "audio cues" as a future one), [ADR-0023](0023-pack-is-appearance-only.md) (Pack is appearance-only), [ADR-0024](0024-role-resolution-core-fallback.md) (Role resolution, core fallback), [ADR-0015](0015-identity-spec-per-pipeline.md) (motion is intrinsic, never conceded), [ADR-0029](0029-image-substrate-on-depth-stage.md) (deterministic bundled assets)
@@ -51,7 +51,7 @@ The single source of truth is the **motion**. At render, each motion's emitted e
 
 ### 7. Assets are bundled deterministically
 
-Sound samples load via the audio analog of `substrate-textures.ts` ([ADR-0029](0029-image-substrate-on-depth-stage.md)): Vite import → `decodeAudioData` → memoized `AudioBuffer` cache, keyed by slug. Committed, deterministic, no network at render.
+Sound samples load via the audio analog of `substrate-textures.ts` ([ADR-0029](0029-image-substrate-on-depth-stage.md)): Vite import → `decodeAudioData` → memoized `AudioBuffer` cache, keyed by slug. Committed, deterministic, no network at render. The 28 general-purpose samples are generated from `@foleyjs/core` by `scripts/gen-foley-sounds.mjs`, with random noise seeded to keep their character stable, and checked in as WAV files. Chromium's offline multi-voice rendering is not byte-identical across generation runs, so regeneration is an explicit reviewed asset update; preview and export never synthesize and always consume the same committed bytes. Legacy Supers sample slugs resolve to their Foley replacements for persisted User compositions; they are not listed as authoring choices. The locked iMessage recordings and the ambient bed remain bundled assets outside Foley.
 
 ### 8. Core sound-event vocabulary (starter)
 

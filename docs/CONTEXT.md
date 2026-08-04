@@ -114,7 +114,7 @@ _Avoid_: material spec (the narrower predecessor; now the `material` kind), iden
 ### Sound model
 
 **Sound event**:
-A semantic sound a **motion primitive emits** at a frame-deterministic moment — `whoosh-in` at an overlay slide's start, `impact` at a card-drop's settle, `tick` per character of a kinetic build. The trigger time and default event are intrinsic to the motion (owned by the Pipeline, like motion-form). `DEFAULT_EVENT_SAMPLES` resolves each event to one engine-default sample; `sound.event`, `sound.sample`, and `sound.mute` override one motion. Sound does not resolve through a Pack or kit.
+A semantic sound a **motion primitive emits** at a frame-deterministic moment — `whoosh-in` at an overlay slide's start, `impact` at a card-drop's settle, `tick` per character of a kinetic build. The trigger time and default event are intrinsic to the motion (owned by the Pipeline, like motion-form). `DEFAULT_EVENT_SAMPLES` resolves each event to one engine-default sample from the 28-cue Foley library; `sound.event`, `sound.sample`, and `sound.mute` override one motion. Foley cues are stored as seeded, fixed WAV renders so preview and export consume identical bytes. The iMessage bubble and tapback recordings remain locked-specific exceptions. Sound does not resolve through a Pack or kit.
 _Avoid_: cue (the cue is the scheduled realization), sfx, sound effect.
 
 **Sound kit**:

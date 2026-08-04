@@ -96,18 +96,18 @@ export const MOTION_SOUND_DEFAULTS = {
  * inspector. Slugs into `audio-assets.ts`.
  */
 export const DEFAULT_EVENT_SAMPLES: Record<SoundEvent, string> = {
-	'whoosh-in': 'fwip-in',
-	'whoosh-out': 'fwip-out',
-	impact: 'thud-solid',
-	tick: 'tick-soft',
-	click: 'click-thock',
-	pop: 'pop-chip',
-	send: 'swish-send',
-	swipe: 'marker-swipe',
-	scratch: 'pencil-stroke',
-	draw: 'draw-slide',
-	'sub-drop': 'core-sub-drop',
-	sting: 'core-sting'
+	'whoosh-in': 'foley-swoosh',
+	'whoosh-out': 'foley-whoosh',
+	impact: 'foley-drop',
+	tick: 'foley-tick',
+	click: 'foley-tap',
+	pop: 'foley-pop',
+	send: 'foley-swoosh',
+	swipe: 'foley-whoosh',
+	scratch: 'foley-glide',
+	draw: 'foley-rise',
+	'sub-drop': 'foley-latch',
+	sting: 'foley-complete'
 };
 
 /**

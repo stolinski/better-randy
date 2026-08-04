@@ -47,7 +47,7 @@
 					"duration": 0.105,
 					"ease": "settled",
 					"sound": {
-						"sample": "fwip-soft-in"
+						"sample": "foley-glide"
 					}
 				},
 				"exit": {
@@ -55,7 +55,7 @@
 					"duration": 0.0875,
 					"ease": "sharp",
 					"sound": {
-						"sample": "fwip-soft-out"
+						"sample": "foley-glide"
 					}
 				}
 			}

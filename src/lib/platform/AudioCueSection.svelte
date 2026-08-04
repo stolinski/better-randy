@@ -37,7 +37,7 @@
 						duration: 1,
 						volume: 0.4
 					}
-				: { id, kind, assetSlug: soundAssets[0] ?? 'core-impact', start: playhead, duration: 0.05 }
+				: { id, kind, assetSlug: soundAssets[0] ?? 'foley-tick', start: playhead, duration: 0.05 }
 		);
 	}
 

@@ -13,6 +13,7 @@
 		"test:discoverability": "node --test scripts/check-discoverability.test.mjs",
 		"test:watch": "vitest",
 		"prepare": "svelte-kit sync || echo ''",
+		"gen:sounds": "node scripts/gen-foley-sounds.mjs",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && npm run lint && npm run check:discoverability",
 		"check:discoverability": "node scripts/check-discoverability.mjs",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
@@ -26,6 +27,7 @@
 	"devDependencies": {
 		"@eslint/compat": "^2.0.4",
 		"@eslint/js": "^10.0.1",
+		"@foleyjs/core": "2.7.0",
 		"@sveltejs/adapter-cloudflare": "^7.2.9",
 		"@sveltejs/kit": "^2.69.2",
 		"@sveltejs/vite-plugin-svelte": "^7.2.0",

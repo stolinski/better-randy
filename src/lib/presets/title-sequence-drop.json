@@ -34,7 +34,7 @@
 				"ease": "smooth",
 				"sound": {
 					"event": "impact",
-					"sample": "thud-deep"
+					"sample": "foley-denied"
 				}
 			},
 			"exit": {

@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Sound — escape hatches (fixture)",
-	"description": "Engine fixture exercising every ADR-0033 §5 sound escape hatch on one full-frame piece: the surface transitions are MUTED per-motion; the mark draw-on SWAPS its event from tick to pop; the lower-third enter LOCKS a specific sample (core-sting) instead of its event's engine default; audioCues[] carries a manual free-standing outro cue at an absolute fraction and the single ambient BED (segments/bumpers only — this piece declares backgroundFill). Export bakes all of it via the deterministic offline mix; preview schedules the same plan on play.",
+	"description": "Engine fixture exercising every ADR-0033 §5 sound escape hatch on one full-frame piece: the surface transitions are MUTED per-motion; the mark draw-on SWAPS its event from tick to pop; the lower-third enter LOCKS a specific sample (foley-complete) instead of its event's engine default; audioCues[] carries a manual free-standing outro cue at an absolute fraction and the single ambient BED (segments/bumpers only — this piece declares backgroundFill). Export bakes all of it via the deterministic offline mix; preview schedules the same plan on play.",
 	"pack": "syntax",
 	"kind": "fixture",
 	"state": {
@@ -67,7 +67,7 @@
 				"content": {
 					"kicker": "FIXTURE",
 					"title": "Locked-specific sample",
-					"subtitle": "This enter locks core-sting over the event default"
+					"subtitle": "This enter locks foley-complete over the event default"
 				},
 				"position": {
 					"anchor": "bottom-left",
@@ -81,7 +81,7 @@
 					"duration": 0.06,
 					"ease": "sharp",
 					"sound": {
-						"sample": "core-sting"
+						"sample": "foley-complete"
 					}
 				},
 				"exit": {
@@ -99,14 +99,14 @@
 			{
 				"id": "bed",
 				"kind": "bed",
-				"assetSlug": "core-sub-drop",
+				"assetSlug": "foley-latch",
 				"start": 0,
 				"duration": 1,
 				"volume": 0.35
 			},
 			{
 				"id": "outro-accent",
-				"assetSlug": "core-impact",
+				"assetSlug": "foley-drop",
 				"start": 0.92,
 				"duration": 0.07
 			}

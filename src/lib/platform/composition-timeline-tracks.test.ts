@@ -77,7 +77,7 @@ function makeTimelineState(): EngineState {
 	];
 	state.effects = [];
 	state.audioCues = [
-		{ id: 'manual:sting', kind: 'cue', assetSlug: 'core-sting', start: 0.75, duration: 0.1 }
+		{ id: 'manual:sting', kind: 'cue', assetSlug: 'foley-complete', start: 0.75, duration: 0.1 }
 	];
 	state.media = { assets: [], videoTrack: { clips: [] } };
 	return state;

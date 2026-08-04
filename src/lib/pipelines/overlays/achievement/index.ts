@@ -46,13 +46,13 @@ function defaults(): OverlayDefaults<AchievementContent> {
 			start: 0,
 			duration: 0.105,
 			ease: 'settled',
-			sound: { sample: 'fwip-soft-in' }
+			sound: { sample: 'foley-glide' }
 		},
 		exit: {
 			start: 0.85,
 			duration: 0.0875,
 			ease: 'sharp',
-			sound: { sample: 'fwip-soft-out' }
+			sound: { sample: 'foley-glide' }
 		}
 	};
 }

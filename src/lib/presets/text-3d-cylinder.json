@@ -72,7 +72,7 @@
 					"duration": 0.046,
 					"ease": "smooth",
 					"sound": {
-						"sample": "fwip-soft-out"
+						"sample": "foley-glide"
 					}
 				}
 			},
