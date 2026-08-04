@@ -12,7 +12,7 @@
  *
  * @module
  */
-import { z } from "npm:zod@4";
+import { z } from 'npm:zod@4';
 
 const GlobalArgsSchema = z.object({});
 
@@ -27,7 +27,7 @@ const TimingReportSchema = z.object({
 	sites: z.array(z.object({ path: z.string(), kind: z.string(), covered: z.boolean() })),
 	crash: z.string().nullable(),
 	unknownPayloadBlindSpots: z.array(z.string()),
-	clean: z.boolean(),
+	clean: z.boolean()
 });
 
 const TrackingReportSchema = z.object({
@@ -39,7 +39,7 @@ const TrackingReportSchema = z.object({
 	untracked: z.array(z.string()),
 	documentSlotGaps: z.array(z.string()),
 	crash: z.string().nullable(),
-	clean: z.boolean(),
+	clean: z.boolean()
 });
 
 const ParityReportSchema = z.object({
@@ -55,10 +55,10 @@ const ParityReportSchema = z.object({
 				editableViaDocumentSlot: z.boolean(),
 				editableViaBinding: z.boolean(),
 				bindingSites: z.array(z.string()),
-				gap: z.boolean(),
-			}),
+				gap: z.boolean()
+			})
 		),
-		gaps: z.array(z.string()),
+		gaps: z.array(z.string())
 	}),
 	effects: z.object({
 		findings: z.array(
@@ -67,12 +67,45 @@ const ParityReportSchema = z.object({
 				declaresParamsSchema: z.boolean(),
 				referencesEditor: z.boolean(),
 				editorFileExists: z.boolean(),
-				gap: z.boolean(),
-			}),
+				gap: z.boolean()
+			})
 		),
-		gaps: z.array(z.string()),
+		gaps: z.array(z.string())
 	}),
-	clean: z.boolean(),
+	clean: z.boolean()
+});
+
+// Check ids mirror scripts/planning-state-checks.ts (Node-side source of
+// truth; the Deno bundler cannot import it across the runtime seam).
+const PlanningFindingSchema = z.object({
+	check: z.enum([
+		'adr-index-coverage',
+		'adr-status-drift',
+		'roadmap-adr-reference',
+		'roadmap-ship-claim',
+		'stale-brief',
+		'ideas-inventory',
+		'ideas-historical',
+		'dex-shipped-claim',
+		'dex-blocker-contradiction',
+		'dex-ready-runway'
+	]),
+	message: z.string(),
+	paths: z.array(z.string())
+});
+
+const PlanningReportSchema = z.object({
+	audit: z.string(),
+	generatedAt: z.string(),
+	adrDocs: z.number(),
+	briefDocs: z.number(),
+	ideaDocs: z.number(),
+	presets: z.number(),
+	dexOpenTasks: z.number(),
+	findings: z.array(PlanningFindingSchema),
+	advisories: z.array(PlanningFindingSchema),
+	crash: z.string().nullable(),
+	clean: z.boolean()
 });
 
 type MethodContext = {
@@ -81,19 +114,19 @@ type MethodContext = {
 	writeResource: (
 		specName: string,
 		name: string,
-		data: Record<string, unknown>,
+		data: Record<string, unknown>
 	) => Promise<{ name: string }>;
 };
 
 async function runAuditScript(
 	context: MethodContext,
-	scriptPath: string,
+	scriptPath: string
 ): Promise<{ report: Record<string, unknown>; clean: boolean }> {
-	const command = new Deno.Command("node", {
-		args: ["--experimental-strip-types", scriptPath],
+	const command = new Deno.Command('node', {
+		args: ['--experimental-strip-types', scriptPath],
 		cwd: context.repoDir,
-		stdout: "piped",
-		stderr: "piped",
+		stdout: 'piped',
+		stderr: 'piped'
 	});
 	const { code, stdout, stderr } = await command.output();
 	const stdoutText = new TextDecoder().decode(stdout);
@@ -103,95 +136,110 @@ async function runAuditScript(
 		report = JSON.parse(stdoutText) as Record<string, unknown>;
 	} catch {
 		throw new Error(
-			`${scriptPath} produced no JSON report (exit ${code}): ${stderrText.slice(0, 800)}`,
+			`${scriptPath} produced no JSON report (exit ${code}): ${stderrText.slice(0, 800)}`
 		);
 	}
 	if (code !== 0 && code !== 1) {
 		throw new Error(`${scriptPath} exited ${code}: ${stderrText.slice(0, 800)}`);
 	}
-	context.logger.info("{script} finished: {summary}", {
+	context.logger.info('{script} finished: {summary}', {
 		script: scriptPath,
-		summary: stderrText.trim(),
+		summary: stderrText.trim()
 	});
 	return { report, clean: code === 0 };
 }
 
 /** Model definition for the Supers repo policy audits. */
 export const model = {
-	type: "@supers/repo-audit",
-	version: "2026.08.03.1",
+	type: '@supers/repo-audit',
+	version: '2026.08.04.1',
 	globalArguments: GlobalArgsSchema,
 	resources: {
 		timing: {
 			description:
-				"Fraction-window rescale coverage — every fraction-timed schema field must be rescaled by rescaleCompositionTimings",
+				'Fraction-window rescale coverage — every fraction-timed schema field must be rescaled by rescaleCompositionTimings',
 			schema: TimingReportSchema,
-			lifetime: "infinite",
-			garbageCollection: 20,
+			lifetime: 'infinite',
+			garbageCollection: 20
 		},
 		tracking: {
 			description:
-				"Authoring-dependency tracker coverage — every surface.content schema field must be read by trackCompositionAuthoringDependencies",
+				'Authoring-dependency tracker coverage — every surface.content schema field must be read by trackCompositionAuthoringDependencies',
 			schema: TrackingReportSchema,
-			lifetime: "infinite",
-			garbageCollection: 20,
+			lifetime: 'infinite',
+			garbageCollection: 20
 		},
 		parity: {
 			description:
-				"GUI↔agent parity — every schema content field editable in the GUI, every param-bearing effect ships an Editor",
+				'GUI↔agent parity — every schema content field editable in the GUI, every param-bearing effect ships an Editor',
 			schema: ParityReportSchema,
-			lifetime: "infinite",
-			garbageCollection: 20,
+			lifetime: 'infinite',
+			garbageCollection: 20
 		},
+		planning: {
+			description:
+				'Planning-state drift — roadmap/ADR status claims, stale shipped Briefs, ideas-tier hygiene, and dex graph contradictions with actionable paths',
+			schema: PlanningReportSchema,
+			lifetime: 'infinite',
+			garbageCollection: 20
+		}
 	},
 	methods: {
-		"audit-timing": {
-			description:
-				"Run scripts/audit-timing-coverage.ts and store the coverage report",
+		'audit-timing': {
+			description: 'Run scripts/audit-timing-coverage.ts and store the coverage report',
+			arguments: z.object({}),
+			execute: async (_args: GlobalArgs, context: MethodContext) => {
+				const { report, clean } = await runAuditScript(context, 'scripts/audit-timing-coverage.ts');
+				const handle = await context.writeResource('timing', 'timing-latest', {
+					...report,
+					clean
+				});
+				return { dataHandles: [handle] };
+			}
+		},
+		'audit-tracking': {
+			description: 'Run scripts/audit-tracking-coverage.ts and store the coverage report',
 			arguments: z.object({}),
 			execute: async (_args: GlobalArgs, context: MethodContext) => {
 				const { report, clean } = await runAuditScript(
 					context,
-					"scripts/audit-timing-coverage.ts",
+					'scripts/audit-tracking-coverage.ts'
 				);
-				const handle = await context.writeResource("timing", "timing-latest", {
+				const handle = await context.writeResource('tracking', 'tracking-latest', {
 					...report,
-					clean,
+					clean
 				});
 				return { dataHandles: [handle] };
-			},
+			}
 		},
-		"audit-tracking": {
-			description:
-				"Run scripts/audit-tracking-coverage.ts and store the coverage report",
+		'audit-parity': {
+			description: 'Run scripts/audit-inspector-parity.ts and store the parity report',
 			arguments: z.object({}),
 			execute: async (_args: GlobalArgs, context: MethodContext) => {
 				const { report, clean } = await runAuditScript(
 					context,
-					"scripts/audit-tracking-coverage.ts",
+					'scripts/audit-inspector-parity.ts'
 				);
-				const handle = await context.writeResource("tracking", "tracking-latest", {
+				const handle = await context.writeResource('parity', 'parity-latest', {
 					...report,
-					clean,
+					clean
 				});
 				return { dataHandles: [handle] };
-			},
+			}
 		},
-		"audit-parity": {
-			description:
-				"Run scripts/audit-inspector-parity.ts and store the parity report",
+		'audit-planning': {
+			description: 'Run scripts/audit-planning-state.ts and store the planning-state drift report',
 			arguments: z.object({}),
 			execute: async (_args: GlobalArgs, context: MethodContext) => {
-				const { report, clean } = await runAuditScript(
-					context,
-					"scripts/audit-inspector-parity.ts",
-				);
-				const handle = await context.writeResource("parity", "parity-latest", {
+				const { report, clean } = await runAuditScript(context, 'scripts/audit-planning-state.ts');
+				const handle = await context.writeResource('planning', 'planning-latest', {
 					...report,
-					clean,
+					clean
 				});
 				return { dataHandles: [handle] };
-			},
-		},
+			}
+		}
 	},
+	// Rendered by extensions/reports/planning-state.ts after each method run.
+	reports: ['@supers/planning-state']
 };
