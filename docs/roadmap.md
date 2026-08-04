@@ -38,27 +38,39 @@ The default answer to "what's next?" — an agent self-serves this instead of as
 
 ---
 
+## Active factory runway (audited 2026-08-04)
+
+The capability and core parity arcs are complete. The next work is deliberately narrower and dependency-ordered; Dex carries the executable edges and `dex list --ready` must expose the first unblocked leaf, not a flat pile of unrelated priority-1 notes.
+
+1. **Generated project control plane** — current factory epic: finish task `t040a0vs` so one CI command catches Roadmap / ADR / Brief / Registry / Dex drift. This audit is its baseline reconciliation.
+2. **Close the Pack-neutral corpus contract** — epic `hkajpcgg`: run the human-scale Pack matrix (`hpc3lrk0`), then retire or re-author the specific brand-grammar failures (`evnlthxa`). `PackPipelineRole` is demand-gated by evidence from that sweep, not a speculative prerequisite.
+3. **Finish Pack contract standardization** — task group `oa9tr4wy`: close the role-contract registry, then add catalog-ratification evidence. This makes future Pack work factory-safe.
+4. **Build the broad Starter-template library** — task `dghxldci`: audit creator-job coverage, then author the missing categories and coordinated episode suite against the completed Pack/quality gates.
+5. **Pull production and research work by demand** — Resolve follow-ups, rubric research, Critic research, optional diagram polish, and rendering residuals remain valid but do not interrupt the ordered product runway.
+
+At an epic boundary the factory still stops for the human as required by the execution loop. A task that is advisory, speculative, or waiting on a design ruling must not remain an unblocked priority-1 leaf.
+
 ## Now — quality, capability, and operational parity
 
-The engine gap is closed, the make-cinematic push is **done across every surface/overlay family**, and the web-document arc (including iMessage) has shipped. **Core GUI schema/persistence parity shipped** ([ADR-0032](adr/0032-gui-agent-parity-authoring.md), epic `3pkmqyns`), the **GUI authoring interface shipped** ([ADR-0034](adr/0034-gui-design-authoring-interface.md), epics `jz2yykvi` + `wfonjyb3`, 2026-07-01), and operational parity shipped in `9hl3hqv7`. What remains:
+The engine gap is closed, the make-cinematic push is **done across every surface/overlay family**, and the web-document arc (including iMessage) has shipped. **Core GUI schema/persistence parity shipped** ([ADR-0032](adr/0032-gui-agent-parity-authoring.md), epic `3pkmqyns`), the **GUI authoring interface shipped** ([ADR-0034](adr/0034-gui-design-authoring-interface.md), epics `jz2yykvi` + `wfonjyb3`, 2026-07-01), and operational parity shipped in `9hl3hqv7`. The active work is the factory runway above; residual context:
 
 - a small **corpus refinement tail** — active, epic `ri2qchcm`;
 - **Sound design** — ✅ **shipped** ([ADR-0033](adr/0033-sound-design-motion-emitted-cues.md), epic `1frpmv40` complete; amended 2026-07-02 to the final by-ear-approved model — engine defaults per motion kind + per-cue overrides, kit concept removed);
-- **the capability arc** — the post-north-star direction, grilled 2026-07-01 (§ below).
+- **the capability arc** — ✅ shipped in full (§ below).
 
 **Cinematic-bar recalibration → resolved (2026-06).** A 12-agent cinematic audit (`docs/critic-captures/corpus-cinematic-audit.md`) scored the then-current families **2–5/10** against a Netflix bar — _competent but not cinematic_ — and set the honest bar plus the reusable recipe. That diagnostic drove a family-by-family make-cinematic pass across the registry at that time (zero pipeline-bug / default-too-permissive), with graded backdrops, felt camera, parallax, and reading-order motion. `pullquote-on-photo` shipped on the ADR-0028 depth stage (real photographic substrate), so it is **no longer blocked**.
 
 **The recipe** (proven on chapter-card, applied corpus-wide): off-center staging · filmic grade + toe · eased felt camera · two-octave fBm parallax · GPU-fade outro · reading-order entrances.
 
-**Reference deliverables:** the Scott-ratified Calibration Trio — `docu-timeline-build`, the `lower-third` house card, `type-hero-vantage` — is the bar (calibrated 2026-07-09). The 2026-06 cinematic-era references (`lower-third-cinematic`, `chapter-card-cinematic`) were retired 2026-07-13 under [ADR-0039](adr/0039-pack-neutral-compositions-and-listing-hygiene.md) — superseded by the recomposed house style and the depth-stage deliverables; `server-renders-again` awaits retirement/re-authoring under the pack-neutral bar.
+**Reference deliverables:** the Scott-ratified Calibration Trio — `docu-timeline-build`, the `lower-third` house card, `type-hero-vantage` — is the bar (calibrated 2026-07-09). The 2026-06 cinematic-era references (`lower-third-cinematic`, `chapter-card-cinematic`) were retired 2026-07-13 under [ADR-0039](adr/0039-pack-neutral-compositions-and-listing-hygiene.md) — superseded by the recomposed house style and the depth-stage deliverables; `server-renders-again` was resolved by partial substrate immunity (2026-08-03, ADR-0039 §2): the engine re-authored it — its newsprint body is now intrinsic under every Pack and only the chip/depth chrome re-dresses — so it stays a fixture showcase, no longer awaiting retirement.
 
 **The remaining corpus tail** is tracked in dex epic `ri2qchcm`. Do not duplicate its changing task statuses here; image substrate and the configurable edge-treatment primitive are already shipped engine capabilities.
 
 **dex is the source of truth for per-family task state** (run `dex list --ready`).
 
-## The capability arc (grilled 2026-07-01)
+## The capability arc (✅ shipped; grilled 2026-07-01)
 
-With the north star met, the next arc is **capability expansion** — chosen over production dogfooding and content-scale tooling (those pull later). Epic order:
+With the north star met, **capability expansion** was chosen over production dogfooding and content-scale tooling. That arc is now complete:
 
 1. **Generalized keyframes** — ✅ **shipped** ([ADR-0035](adr/0035-generalized-keyframes-and-cascade.md); dex epic `4i8gx2i7` complete 2026-07-02): schema (`keyframes[]` + per-property ease + Cascade + static rotation), cascade-resolving manifest builder + channel-owned OverlayMount path, welded sound cues, timeline diamonds + tethers, DaVinci-style inspector keyframe rows (playhead value + prev/◆/next), envelope-aware linter, and the Critic-ACCEPTed reference deliverable `lower-third-cascade-reveal`. Absorbed `5vcak6og` (overlay rotation).
 2. **Depth-stage expansion** — ✅ **shipped** (dex epic `jhmh8ax7` complete 2026-07-02): overlay-at-depth (overlays on their own 3D plane at their ADR-0021 z — parallax, per-depth defocus, painter's-order occlusion), scene lighting/shadow (the Pack `light-treatment` Role as a real key light — `resolveLightTreatment`, per-plane rake + plane-to-plane cast shadow), half-res 4K DOF (32→~44 fps preview, in-focus text native-crisp), and the showcase set (`chapter-card-descent` / `title-sequence-signal` / `type-hero-vantage`, each Critic-ACCEPTed). The Critic loop drove 8 engine corrections into the stage's DOF/compositing (ADR-0028 status note) plus one engine-wide fix: text-animation fades now reach pixels (colour-alpha unit fades — the capture quantizes property-opacity on transformed spans). Follow-ups: dex `8ged0rsd` (Critic probe/harness gaps).
@@ -92,13 +104,13 @@ Revisiting "what pulls after the capability arc" (`ku0gh0mc`), the answer was **
 
 **Verification model.** The automated Critic gates _technical_ defects (R-rules: sharpness, contrast, banding) but **cannot judge aesthetic finish** — it ACCEPTed the wireframe-y diagram and the invisible-photo pullquote as Deliverables. So: **the human (Scott, in the GUI) is the aesthetic critic now**, and a **finish-judging Critic** (vision-model / reference-image comparison) runs as a **separate, non-gating research track**. Both in sequence — quality work is not blocked on the AI-judgment research.
 
-**Three workstreams** (dex epic `vgi2krdc`):
+**Three workstreams** (dex epic `vgi2krdc`; the gating quality work is complete):
 
 1. ✅ **Calibrate the bar — with Scott** (complete 2026-07-09, task `7sshp8rj`). Three ratified references — `docu-timeline-build`, the lower-third **Syntax house card**, `type-hero-vantage` flat-graphic — and the ruling that reframed everything: **the brand source of truth is [`github.com/randyrektor/syntax-overlay`](https://github.com/randyrektor/syntax-overlay)** (aesthetic doc rewritten). The playbook for workstream 2: flat warm-black fields, the card system (chrome proportioned to the card), one `#ffd54a` gesture, Space Grotesk/Space Mono at true cuts, real content, decisive ~180ms physical sound hits, no atmosphere/gloss/lens grammar; substrate ≠ chrome. Key lesson: _brand tokens ≠ brand grammar_ — re-dressing means rebuilding the composition's language, not repainting it.
-2. **Propagate + fix systemically.** Kill within-pack sameness (range/variety inside a pack, or more packs), rebuild the weak registers (diagrams), and fix the wasted features: invisible photo-substrate, flat washi edge (`ukc5ip66`), and greeked placeholder → **real content** throughout.
-3. **Finish-Critic research** (parallel, non-gating) — prototype the aesthetic judge (vision-model / reference-image comparison).
+2. ✅ **Propagate + fix systemically.** Within-pack sameness, diagram register quality, and the invisible photo substrate were corrected and human-played through. The fibrous washi edge (`ukc5ip66`) remains optional feature polish, not a quality-arc blocker; the alleged corpus-wide greeked-content problem was disproven by audit.
+3. **Finish-Critic research** — non-gating speculation now lives in [`ideas/finish-judging-critic.md`](ideas/finish-judging-critic.md), outside the executable runway until a research cycle is explicitly activated.
 
-**Running principle:** _real content over synthetic filler._ Half of what makes the demos read as demos is lorem bodies and fake data — real tweets, real Syntax topics, real quotes (also chips at "not enough real-world demos").
+**Running principle:** _real content over synthetic filler._ The 2026-07-09 audit found the corpus was already largely real and coherent, so this remains an admission rule for new work rather than an open cleanup claim.
 
 ## The corpus
 
@@ -125,6 +137,7 @@ A **web-document Surface** — pixel-faithful mocks of real sites used as transp
 
 ## Designed, not built (specs exist, no code)
 
+- 📐 **Pack-picked Pipeline variants** — [ADR-0039](adr/0039-pack-neutral-compositions-and-listing-hygiene.md) defines the mechanism, but it is demand-gated: activate only if the human-scale Pack matrix proves a concrete composition cannot become Pack-neutral through existing Roles or re-authoring.
 - 📐 **Per-pixel depth sidecar on the flat path** — [ADR-0021](adr/0021-z-plane-semantics.md) pins focal-distance semantics. Flat multiplane bokeh ([ADR-0027](adr/0027-dof-v1-multiplane-bokeh.md)) and the dimensional depth stage ([ADR-0028](adr/0028-dimensional-depth-stage.md)) ship; an arbitrary per-pixel z-map target for the flat compositor does not.
 - 📐 **Live dual-tree transition upgrade** — multi-state transitions ship as snapshot-and-wipe ([ADR-0026](adr/0026-transitions-v1-snapshot-and-wipe.md)). Keeping both endpoint Presets animated during a wipe remains deferred until a composition requires it.
 - 🧭 **Additional heavy primitives** — additive `code` / `image` Blocks. The composition Media/Video domain, image-backed depth-stage substrate, and configurable edge-treatment primitive already have their own shipped or active arcs; mermaid auto-layout remains rejected.
@@ -147,12 +160,11 @@ The active `Workspace` is the shipped three-zone interface from ADR-0034: canvas
 Grilled into a spec (2026-06). Overturns the old `ideas/` "audio stays out — Resolve's job" lean for deterministic render audio; an interactive mixer UI remains out.
 
 - ✅ **Motion-emitted cues + engine defaults.** A motion primitive emits a semantic **sound event** (`whoosh-in`, `impact`, `tick`) at its own frame, so automatic cues stay welded through re-time and reflow. `DEFAULT_EVENT_SAMPLES` maps each event to one engine-default sample; `sound.event` / `sound.sample` / `sound.mute` override one motion. Automatic cues are derived, while `audioCues[]` holds manual cues + an optional full-frame bed. Export mixes deterministically; preview is playback-only and scrub remains silent. The per-Layer Sound-kit/Palette design was removed by ADR-0033's 2026-07-02 amendment and has no schema or registry.
-- 🔨 **Video clip audio extension:** each enabled clip's Source interval maps to its exact destination interval, is deterministically resampled/downmixed into the same exact-length 48 kHz stereo cue mix used by WebM, ProRes, and separate WAV, and plays from the explicit Timeline playhead. Hard cuts, gaps, gain/disable, pause, and loop stay synchronized; scrub remains intentionally silent. ADR-0043's singular audio path is the verified foundation.
-- **Deferred (own arcs):** an interactive mixer, audio-on-scrub, and generalized automated sound verification. Video cut/gap A/V sync belongs to the active Media final gate.
+- ✅ **Video clip audio extension:** each enabled clip's Source interval maps to its exact destination interval, is deterministically resampled/downmixed into the same exact-length 48 kHz stereo cue mix used by WebM, ProRes, and separate WAV, and plays from the explicit Timeline playhead. Hard cuts, gaps, gain/disable, pause, and loop stay synchronized; scrub remains intentionally silent. ADR-0043's singular audio path is the verified foundation.
+- **Deferred (own arcs):** an interactive mixer, audio-on-scrub, and generalized automated sound verification.
 
 ## Deferred / low-priority
 
-- 📐 **Export-output verification (real decode)** — **promoted into the capability arc (2026-07-01, ~1 day)**. `scripts/probe-frame-diff.ts` asserts a frame sequence animates + carries alpha, but is only self-tested on captured frames (WebGPU canvas readback returns blank). The path: decode the actual exported file with ffmpeg (already server-side in the ProRes route) to PNGs and feed them to the probe; ProRes for byte-determinism.
 - 🧭 **Depth-stage bit-determinism residual** — the ADR-0028 depth stage renders deterministically to ~0.002% (ProRes ×2: ~200 of 8.3M px/frame differ; the flat path is byte-identical). Scattered-pixel signature ⇒ a GPU barrier race in the scene→mip-pyramid→DOF chain (a tap reading a mip level a hair before the prior pass finished). Visually invisible; spirit of frame-determinism holds (preview==export, no wall-clock). Strict bit-determinism would need the mip chain as separate half/quarter-res textures (explicit read-after-write) rather than mip levels of one texture. NOTE: vp9/WebM export adds its own (invisible) encoder non-determinism — that's the WebCodecs hardware encoder, not the render; use ProRes for byte-exact masters.
 - 🧭 **Linear-light blending** — changes composite math; risky; separate pass with heavy before/after verification (deferred from the render-path work).
 - 🧭 **Fixer sub-agent** for `preset-choice`/`aesthetic-miss` Critic findings — build-harness; revisit after more Critic runs (open design question, ex-`todos/fixer-sub-agent.md`).

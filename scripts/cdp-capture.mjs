@@ -23,16 +23,26 @@ const WAIT_SELECTOR = process.env.CDP_WAIT_SELECTOR;
 mkdirSync(OUTDIR, { recursive: true });
 
 async function getTarget() {
+	let reachable = false;
 	for (let i = 0; i < 60; i++) {
 		try {
 			const res = await fetch(`http://localhost:${PORT}/json`);
 			const targets = await res.json();
+			reachable = true;
 			const page = targets.find((t) => t.type === 'page' && t.webSocketDebuggerUrl);
 			if (page) return page;
+			// Chrome is up but has NO page target (its last tab crashed or was
+			// closed — observed after long capture sessions). Self-heal by opening
+			// one; newer Chrome requires PUT for /json/new.
+			await fetch(`http://localhost:${PORT}/json/new?about:blank`, { method: 'PUT' });
 		} catch {}
 		await new Promise((r) => setTimeout(r, 500));
 	}
-	throw new Error(`Chrome not reachable on port ${PORT}`);
+	throw new Error(
+		reachable
+			? `Chrome on port ${PORT} has no attachable page target (and /json/new could not create one)`
+			: `Chrome not reachable on port ${PORT}`
+	);
 }
 
 const target = await getTarget();
