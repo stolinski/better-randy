@@ -108,6 +108,39 @@ const PlanningReportSchema = z.object({
 	clean: z.boolean()
 });
 
+// Deep semantic audits are agent-run (claims vs code), unlike the four
+// mechanical script audits — the report arrives as authored JSON, not
+// script stdout. Findings record what drifted AND what correction landed.
+const DeepAuditFindingSchema = z.object({
+	domain: z.enum(['adr', 'roadmap', 'dex', 'ideas', 'control-plane']),
+	subject: z.string(),
+	status: z.enum(['drift-corrected', 'advisory', 'verified-exception']),
+	detail: z.string(),
+	correction: z.string().nullable(),
+	paths: z.array(z.string())
+});
+
+const DeepAuditReportSchema = z.object({
+	audit: z.literal('deep-semantic-audit'),
+	date: z.string(),
+	generatedAt: z.string(),
+	scope: z.object({
+		adrDocs: z.number(),
+		roadmapClaims: z.number(),
+		dexOpenTasks: z.number(),
+		ideaDocs: z.number()
+	}),
+	verifiedClean: z.object({
+		adrs: z.number(),
+		roadmapClaims: z.number(),
+		dexTasks: z.number(),
+		ideas: z.number()
+	}),
+	findings: z.array(DeepAuditFindingSchema),
+	policySweep: z.string().nullable(),
+	clean: z.boolean()
+});
+
 type MethodContext = {
 	repoDir: string;
 	logger: { info: (msg: string, props?: Record<string, unknown>) => void };
@@ -152,7 +185,7 @@ async function runAuditScript(
 /** Model definition for the Supers repo policy audits. */
 export const model = {
 	type: '@supers/repo-audit',
-	version: '2026.08.04.1',
+	version: '2026.08.04.2',
 	globalArguments: GlobalArgsSchema,
 	resources: {
 		timing: {
@@ -180,6 +213,13 @@ export const model = {
 			description:
 				'Planning-state drift — roadmap/ADR status claims, stale shipped Briefs, ideas-tier hygiene, and dex graph contradictions with actionable paths',
 			schema: PlanningReportSchema,
+			lifetime: 'infinite',
+			garbageCollection: 20
+		},
+		'deep-audit': {
+			description:
+				'Deep semantic control-plane audit — agent-verified ADR/roadmap/dex/ideas claims against source code, with corrections applied at the drift source',
+			schema: DeepAuditReportSchema,
 			lifetime: 'infinite',
 			garbageCollection: 20
 		}
@@ -235,6 +275,32 @@ export const model = {
 				const handle = await context.writeResource('planning', 'planning-latest', {
 					...report,
 					clean
+				});
+				return { dataHandles: [handle] };
+			}
+		},
+		'record-deep-audit': {
+			description:
+				'Validate and store an agent-authored deep semantic audit report (JSON file matching the deep-audit schema)',
+			arguments: z.object({
+				reportPath: z
+					.string()
+					.describe('Path to the audit report JSON, relative to the repo root')
+			}),
+			execute: async (args: { reportPath: string }, context: MethodContext) => {
+				const absolutePath = `${context.repoDir}/${args.reportPath}`;
+				let parsed: unknown;
+				try {
+					parsed = JSON.parse(await Deno.readTextFile(absolutePath));
+				} catch (error) {
+					throw new Error(`Could not read audit report at ${absolutePath}: ${String(error)}`);
+				}
+				const report = DeepAuditReportSchema.parse(parsed);
+				const handle = await context.writeResource('deep-audit', 'deep-audit-latest', report);
+				context.logger.info('Stored deep audit {date}: {findings} finding(s), clean={clean}', {
+					date: report.date,
+					findings: report.findings.length,
+					clean: report.clean
 				});
 				return { dataHandles: [handle] };
 			}

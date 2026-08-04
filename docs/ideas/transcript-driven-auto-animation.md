@@ -55,4 +55,4 @@ Supers already has the Preset catalog, composition Media library, one frame-addr
 
 ## Adjacency
 
-Shipped prerequisite: the CLI render/batch lane is documented in [`user-composition-workflows.md`](../user-composition-workflows.md), with its original design history in [`history/cli-video-generation.md`](../history/cli-video-generation.md). The CLI accepts complete Presets, not content overrides, so this future flow must materialize one complete Preset per span before handing the batch to the renderer.
+Shipped prerequisite: the CLI render/batch lane is documented in [`user-composition-workflows.md`](../user-composition-workflows.md), with its original design history in [`history/cli-video-generation.md`](../history/cli-video-generation.md). The CLI accepts complete Presets, not content overrides, so this future flow must materialize one complete Preset per span before handing the batch to the renderer. The other shipped timed-text adjacency is `scripts/srt-to-captions.mjs` (backed by `src/lib/utils/srt.ts`): it imports an already-timed `.srt` into `state.captions` — timed-text ingestion, but no transcription, intent labeling, or per-span overlay generation.

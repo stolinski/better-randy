@@ -5,8 +5,8 @@ engine-level — it belongs to a Pack. The Syntax channel aesthetic now lives at
 
 - **`docs/packs/syntax/aesthetic.md`** — the channel-specific aesthetic (palette,
   type system, surface vocabulary, collage system, motion vocabulary, anti-aesthetic).
-- **`docs/packs/syntax/manifest.ts`** — the Pack manifest declaring the Roles
-  every Identity Spec `viaPack` clause resolves through (per [ADR-0019](adr/0019-identity-spec-via-pack.md)).
+- **`src/lib/packs/syntax/manifest.ts`** — the Pack manifest (code, not docs) declaring
+  the Roles every Identity Spec `viaPack` clause resolves through (per [ADR-0019](adr/0019-identity-spec-via-pack.md)).
 
 The Critic spawn prompt at [`docs/critic.md`](critic.md) loads the active
 Preset's Pack aesthetic — `docs/packs/<preset.pack>/aesthetic.md` — rather than

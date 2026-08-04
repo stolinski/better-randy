@@ -218,7 +218,7 @@ Only after every R-line is PASS does the agent proceed to evaluate Q-rules and p
 
 ## Anti-Patterns — Avoid Because
 
-These are general quality failure modes. They are *principles*, not a banned-techniques list: a preset may invoke any of them when the content explicitly calls for it, but the bar is making the choice work harder than the alternative.
+These are general quality failure modes. They are *principles*, not a banned-techniques list ([ADR-0016](adr/0016-anti-patterns-loadbearing-when.md)): a move on this list earns its place when it is **load-bearing for a declared Identity Spec dimension** on the element that carries it — chromatic offset implementing ink-bleed on an aged-newsprint Surface, a multi-zone occlusion shadow implementing a `material` dimension — or when the content otherwise explicitly calls for it; the bar is making the choice work harder than the alternative. The same move as decorative chrome on a non-claiming element still fails.
 
 - **Full-frame gradient washes** — they imply a light source that doesn't match the surface light (Q3) and break the transparent-delivery contract (animation rubric G12). If atmosphere is needed, build it from the surface material, not an overlay gradient.
 - **Drop-shadow stacking** — the "soft + medium + tight" technique signals Figma's default elevation system. On video it reads as "app screenshot." One shadow, consistent direction (Q3).

@@ -224,3 +224,4 @@ This is the cleanest way to keep existing 2D-canvas drawing code working while m
 
 - Chrome's html-in-canvas behavior is undocumented in edge cases (size limits, bitmap vs compositor, snapshot semantics). When something behaves unexpectedly, **probe in DevTools console with `getImageData` and prototype enumeration before refactoring code**. One probe answers a question; refactoring on a hunch wastes hours.
 - Always test html-in-canvas via browser automation unless the user says not to.
+- **Vite HMR holds a detached capture element.** WebGPU pipelines keep their capture-element reference across a hot update — a hot-swapped `CanvasSource` leaves the pipeline pointing at a detached element until full page reload (`copyElementImageToTexture` logs `source undefined`). Harmless; reload clears it. Don't debug it as a capture regression after an HMR cycle.

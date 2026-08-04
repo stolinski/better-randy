@@ -43,10 +43,11 @@ The default answer to "what's next?" — an agent self-serves this instead of as
 The capability and core parity arcs are complete. The next work is deliberately narrower and dependency-ordered; Dex carries the executable edges and `dex list --ready` must expose the first unblocked leaf, not a flat pile of unrelated priority-1 notes.
 
 1. ✅ **Generated project control plane** — shipped 2026-08-04 (epic `t040a0vs`): the `@supers/repo-audit` `audit-planning` method + `@supers/planning-state` report catch Roadmap / ADR / Brief / ideas / Dex drift, gated by the `policy-sweep` workflow and the CI `Planning audit` step ([`docs/project-control-plane.md`](project-control-plane.md)). The 2026-08-04 audit was its baseline reconciliation.
-2. **Close the Pack-neutral corpus contract** — epic `hkajpcgg`: run the human-scale Pack matrix (`hpc3lrk0`), then retire or re-author the specific brand-grammar failures (`evnlthxa`). `PackPipelineRole` is demand-gated by evidence from that sweep, not a speculative prerequisite.
-3. **Finish Pack contract standardization** — task group `oa9tr4wy`: close the role-contract registry, then add catalog-ratification evidence. This makes future Pack work factory-safe.
-4. **Build the broad Starter-template library** — task `dghxldci`: audit creator-job coverage, then author the missing categories and coordinated episode suite against the completed Pack/quality gates.
-5. **Pull production and research work by demand** — Resolve follow-ups, rubric research, Critic research, optional diagram polish, and rendering residuals remain valid but do not interrupt the ordered product runway.
+2. ✅ **Close the Pack-neutral corpus contract** — shipped 2026-08-04 (epic `hkajpcgg`): the human-scale Pack matrix ran (`hpc3lrk0`, 42 deliverables × 4 packs; 37/42 read well under every pack) and the specific brand-grammar failures were retired or re-authored (`evnlthxa`). The sweep produced no evidence demanding `PackPipelineRole`, so it stays demand-gated (see § Designed, not built).
+3. **Design the field-ink pairing** — task `e2z4whnu`, the sweep's one systemic finding: full-frame pieces lose ink contrast under opposite-luminance Packs (authored light ink over a pack-driven light field; card-calibrated dark label inks over a dark field). Grill the companion `field-ink-treatment` core direction with Scott, lift the authored light-ink restatements from the affected presets, and fold the fix into the diagram-register rebuild.
+4. **Finish Pack contract standardization** — task group `oa9tr4wy`: close the role-contract registry, then add catalog-ratification evidence. This makes future Pack work factory-safe.
+5. **Build the broad Starter-template library** — task `dghxldci`: audit creator-job coverage, then author the missing categories and coordinated episode suite against the completed Pack/quality gates.
+6. **Pull production and research work by demand** — Resolve follow-ups, rubric research, Critic research, optional diagram polish, and rendering residuals remain valid but do not interrupt the ordered product runway.
 
 At an epic boundary the factory still stops for the human as required by the execution loop. A task that is advisory, speculative, or waiting on a design ruling must not remain an unblocked priority-1 leaf.
 
@@ -82,7 +83,7 @@ With the north star met, **capability expansion** was chosen over production dog
 
 **Integration demos (corpus v2)** — the corpus proved families in isolation; these prove them together. Each gates on its epic:
 
-- **Show-open bumper** (flagship): a full-frame segment — depth stage + transitions + sound bed + Cascade choreography, 5–10 s.
+- **Show-open bumper** (flagship): a full-frame segment — depth stage + transitions + sound bed + Cascade choreography, 5–10 s. The `show-open-in-focus` fixture is the working candidate; its remaining CRT-pack G5 kicker gap is dex `tqwhuoms`.
 - **Episode graphics suite**: one topic as a coordinated set (title card + lower third + pullquote + counter + outro), one pack, consistent choreography.
 - **Depth-stage showcase set**: ✅ shipped 2026-07-02 — `chapter-card-descent`, `title-sequence-signal`, `type-hero-vantage`, each Critic-ACCEPTed on the completed stage.
 - **CRT-pack corpus rerender**: the corpus under the CRT pack — the "same recipe, two publications" money shot and the acceptance test for the finished pack contract.
@@ -131,13 +132,13 @@ A **web-document Surface** — pixel-faithful mocks of real sites used as transp
 
 ## Pipeline coverage decisions
 
-- ✅ **Previously dead-by-use Pipelines — proven, kept.** `isolate`, `watermark`, `shader-fill`, and `chromatic-aberration` each got a proving fixture (`*-demo`); every registered Pipeline is referenced by at least one Preset.
+- ✅ **Previously dead-by-use Pipelines — proven, kept.** `isolate`, `watermark`, `shader-fill`, and `chromatic-aberration` each got a proving fixture (`*-demo`); every registered Pipeline is referenced by at least one Preset — except `crt-screen`, which is consumed as declared crt-terminal Pack chrome and by design never appears in a Preset's `effects[]`.
 - ✅ **camera motion stripped.** `surface.camera` (`push`/`snap`) was inert (no pipeline read it); field, UI control, and lint rule removed together.
 - ✅ **cursor-trail pointer Pack-resolved.** The 4 pointer SVG paths now read from a `cursor-trail.pointer` Role (ADR-0023).
 
 ## Designed, not built (specs exist, no code)
 
-- 📐 **Pack-picked Pipeline variants** — [ADR-0039](adr/0039-pack-neutral-compositions-and-listing-hygiene.md) defines the mechanism, but it is demand-gated: activate only if the human-scale Pack matrix proves a concrete composition cannot become Pack-neutral through existing Roles or re-authoring.
+- 📐 **Pack-picked Pipeline variants** — [ADR-0039](adr/0039-pack-neutral-compositions-and-listing-hygiene.md) defines the mechanism, but it is demand-gated: activate only if the Pack matrix proves a concrete composition cannot become Pack-neutral through existing Roles or re-authoring. The 2026-08-04 human-scale sweep (`hpc3lrk0`) produced no such evidence. The `PackPipelineRole` type exists only as a declared placeholder whose sole runtime behavior is a validator refusal (`unsupported-pipeline-role`); no manifest declares one and no resolver consumes it.
 - 📐 **Per-pixel depth sidecar on the flat path** — [ADR-0021](adr/0021-z-plane-semantics.md) pins focal-distance semantics. Flat multiplane bokeh ([ADR-0027](adr/0027-dof-v1-multiplane-bokeh.md)) and the dimensional depth stage ([ADR-0028](adr/0028-dimensional-depth-stage.md)) ship; an arbitrary per-pixel z-map target for the flat compositor does not.
 - 📐 **Live dual-tree transition upgrade** — multi-state transitions ship as snapshot-and-wipe ([ADR-0026](adr/0026-transitions-v1-snapshot-and-wipe.md)). Keeping both endpoint Presets animated during a wipe remains deferred until a composition requires it.
 - 🧭 **Additional heavy primitives** — additive `code` / `image` Blocks. The composition Media/Video domain, image-backed depth-stage substrate, and configurable edge-treatment primitive already have their own shipped or active arcs; mermaid auto-layout remains rejected.
@@ -187,7 +188,7 @@ Grilled into a spec (2026-06). Overturns the old `ideas/` "audio stays out — R
 - **`server-renders-again`** — editorial-mono acceptance gate; proves multi-pack is live end-to-end.
 - **The engine substrate:** one preset engine (5 Layers + registry), WebGPU/TypeGPU compositor, WICG HTML-in-Canvas capture, transparent 4K export, frame-determinism, 16-bit-float + dither render path, a substantive safety linter, a probe-backed adversarial Critic.
 - **Pack catalog contract** end-to-end through `PACK_REGISTRY`, typed structural resolvers, CSS-var injection, and `verify-presets`; demo Presets are quarantined as fixtures through `kind`.
-- **`lower-third-cinematic`** — first Critic-grade, ship-grade deliverable (the reference bar).
+- **`lower-third-cinematic`** — first Critic-grade, ship-grade deliverable (the reference bar at the time; retired 2026-07-13 under ADR-0039).
 - **Doc refocus (2026-06)** — north star in [`../AGENTS.md`](../AGENTS.md); current-state [blueprint](engine-architecture.md); [ADR index](adr/README.md) with status + supersession chains; this roadmap.
 
 ## Folded in from `docs/todos/` (now superseded by this file)
