@@ -45,7 +45,7 @@ export const text3dIdentity: IdentitySpec = {
 			definition:
 				'Cylinder rotates around its axis across the timeline; rotation rate is deterministic per progress.',
 			implementation:
-				'src/lib/pipelines/overlays/text-3d/variants/cylinder-axis-y.ts — motionShape returns `t²(3-2t) × rotationDegrees` (smoothstep ease); CylinderAxisYCanvasSource.svelte calls motionShape with content.rotationDegrees to get baseRotation and adds per-glyph slot offsets.',
+				'src/lib/pipelines/overlays/text-3d/variants/cylinder-axis-y-motion.ts — cylinderAxisYMotionShape returns the deterministic settle-and-hold rotation; CylinderAxisYCanvasSource.svelte calls it with content.rotationDegrees to get baseRotation and adds per-glyph slot offsets.',
 			probe: {
 				kind: 'named-observation',
 				region: 'cylinder at progress 0 vs progress 1',

@@ -1,4 +1,4 @@
-# Historical: unified WebGPU-native compositor (flat = degenerate depth stage)
+# Historical: Unified WebGPU-native compositor (flat = degenerate depth stage)
 
 > **Status — historical exploration, superseded by the shipped ADR-0028 stage and `composition-frame-renderer.ts` architecture.** The text-fidelity POC informed the stage, but collapsing every composition into that stage is not current design direction. Current rendering keeps explicit stage, multiplane DOF, and flat branches behind the shared request-object frame seam documented in [`docs/engine-architecture.md`](../engine-architecture.md).
 

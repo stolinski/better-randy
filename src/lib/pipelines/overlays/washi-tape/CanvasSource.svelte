@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { WashiTapeContent } from './index';
-	import { WASHI_TAPE_DEFAULTS } from './index';
+	import { WASHI_TAPE_DEFAULTS } from './washi-tape-defaults';
 
 	interface Props {
 		content: WashiTapeContent;

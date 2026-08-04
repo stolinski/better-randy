@@ -22,11 +22,16 @@
 //
 // Usage:
 //   node scripts/pack-matrix-sweep.mjs                 # all deliverables
-//   node scripts/pack-matrix-sweep.mjs quote-magnify   # one slug (re-capture)
+//   node scripts/pack-matrix-sweep.mjs quote-magnify   # one slug
+//   RESWEEP=1 node scripts/pack-matrix-sweep.mjs       # ignore existing captures
+//
+// The sweep is resumable: a (slug × pack) whose native capture already exists
+// is skipped, so a killed run continues where it stopped. Set RESWEEP=1 after
+// pipeline/pack changes to force full re-capture.
 //
 // Requires the 9223 harness (scripts/launch-cdp-chrome.sh) and the dev server.
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -107,6 +112,14 @@ for (const [index, { slug }] of deliverables.entries()) {
 		process.stdout.write(
 			`[${index + 1}/${deliverables.length}] ${label.padEnd(56)}`
 		);
+		const existingNative = resolve(outDir, 'p0.50.png');
+		const cellPath = resolve(cellsDir, `${slug}--${pack}.png`);
+		if (process.env.RESWEEP !== '1' && existsSync(existingNative)) {
+			if (!existsSync(cellPath)) writeCell(existingNative, cellPath);
+			summary.rows[slug][pack] = 'OK';
+			console.log('OK (kept)');
+			continue;
+		}
 		const capture = spawnSync('node', [resolve(here, 'cdp-capture.mjs'), slug], {
 			env: {
 				...process.env,
@@ -118,7 +131,7 @@ for (const [index, { slug }] of deliverables.entries()) {
 			timeout: 180_000
 		});
 		const nativePath = resolve(outDir, 'p0.50.png');
-		let status = 'FAIL';
+		let status;
 		if (capture.status === 0) {
 			try {
 				writeCell(nativePath, resolve(cellsDir, `${slug}--${pack}.png`));

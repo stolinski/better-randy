@@ -1,4 +1,4 @@
-# CLI Video Generation
+# Historical: CLI Video Generation
 
 > **Implemented 2026-07-23.** `scripts/supers.ts` ships `render` and serial `batch` over the sanctioned CDP browser and the Workspace's existing export controller. Current usage and contracts live in [`../user-composition-workflows.md`](../user-composition-workflows.md); this file remains the design history.
 
@@ -15,7 +15,7 @@ A **Preset** is the only coordinate. It already declares the surface, blocks, an
 
 ## Why
 
-- Unblocks the [[transcript-driven-auto-animation]] idea — that flow needs to render N overlays without a human driving the UI. Each span produces a complete Preset; the CLI renders it.
+- Unblocks the [`transcript-driven-auto-animation`](../ideas/transcript-driven-auto-animation.md) idea — that flow needs to render N overlays without a human driving the UI. Each span produces a complete Preset; the CLI renders it.
 - Lets the app be scripted: batch renders, CI-generated previews, regression snapshots, scheduled jobs.
 - Decouples "design a Preset" (browser, interactive) from "produce the final clip" (headless, reproducible).
 - Makes overlays diffable. A Preset checked into a repo deterministically produces the same video. Reproducibility = Preset JSON + git SHA.
@@ -33,7 +33,7 @@ That's it. Two subcommands. No `list`, no `validate`, no `preview`:
 - Validation happens before rendering — a malformed Preset fails `supers render` with the same structural Zod or registry-derived semantic error `parsePreset` would throw anywhere.
 - Previewing a built-in is `open http://localhost:7263/p/<slug>` in the editor; previewing an arbitrary file isn't supported until the editor route grows a load-from-payload entry.
 
-`--preset` accepts either a built-in slug (resolved against `src/lib/presets/*.json`) or a path to a complete Preset JSON document. The AI step in [[transcript-driven-auto-animation]] emits complete Presets, so it feeds straight in.
+`--preset` accepts either a built-in slug (resolved against `src/lib/presets/*.json`) or a path to a complete Preset JSON document. The proposed [`transcript-driven-auto-animation`](../ideas/transcript-driven-auto-animation.md) flow would emit complete Presets, so it can feed straight in.
 
 ### Batch manifest
 

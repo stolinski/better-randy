@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { animState } from '$lib/platform/anim-state.svelte';
 	import type { Text3dContent } from '../index';
-	import { cylinderAxisY } from './cylinder-axis-y';
+	import { cylinderAxisYMotionShape } from './cylinder-axis-y-motion';
 
 	interface Props {
 		content: Text3dContent;
@@ -16,7 +16,7 @@
 	// Eased spin around the vertical axis (degrees), from the variant's pure
 	// motion shape. Each character sits on an equal angular slice of the cylinder.
 	const baseRotation = $derived(
-		cylinderAxisY.motionShape(
+		cylinderAxisYMotionShape(
 			0,
 			count,
 			progress,

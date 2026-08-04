@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { OverlayEditorProps } from '$lib/platform/pipelines/types';
 	import type { WashiTapeContent } from './index';
-	import { WASHI_TAPE_DEFAULTS } from './index';
+	import { WASHI_TAPE_DEFAULTS } from './washi-tape-defaults';
 	import Field from '$lib/platform/Field.svelte';
 	import { packState } from '$lib/platform/engine-state.svelte';
 	import { getPack } from '$lib/platform/packs/registry';

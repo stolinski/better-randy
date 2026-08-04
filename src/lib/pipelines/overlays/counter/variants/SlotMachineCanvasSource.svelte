@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { animState } from '$lib/platform/anim-state.svelte';
 	import type { CounterContent } from '../index';
-	import { slotMachineRollCounter } from './slot-machine';
+	import { slotMachineRollMotionShape } from './slot-machine-motion';
 
 	interface Props {
 		content: CounterContent;
@@ -24,7 +24,7 @@
 			)
 		)
 	);
-	const eased = $derived(slotMachineRollCounter.motionShape(0, rollProgress));
+	const eased = $derived(slotMachineRollMotionShape(0, rollProgress));
 	const currentValue = $derived(content.from + (content.to - content.from) * eased);
 
 	function formatTokens(value: number): string[] {

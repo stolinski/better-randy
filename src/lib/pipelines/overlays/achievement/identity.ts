@@ -124,7 +124,7 @@ export const achievementIdentity: IdentitySpec = {
 			definition:
 				'An upper-right compact card at 32% horizontal width, reflowing to 82% vertical width within platform safe areas.',
 			implementation:
-				'src/lib/pipelines/overlays/achievement/index.ts achievementFrameLayout plus top-right Overlay position with 10% right and 8% top insets.',
+				'src/lib/pipelines/overlays/achievement/achievement-frame-layout.ts achievementFrameLayout plus top-right Overlay position with 10% right and 8% top insets.',
 			probe: {
 				kind: 'named-observation',
 				region: 'the full horizontal and vertical frames',

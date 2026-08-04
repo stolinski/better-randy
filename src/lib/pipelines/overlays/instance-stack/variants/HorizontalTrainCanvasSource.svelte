@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { animState } from '$lib/platform/anim-state.svelte';
 	import type { InstanceStackContent } from '../index';
-	import { horizontalTrain } from './horizontal-train';
+	import { horizontalTrainMotionShape } from './instance-stack-motion';
 
 	interface Props {
 		content: InstanceStackContent;
@@ -20,7 +20,7 @@
 <aside class="instance-stack-overlay" data-overlay="instance-stack" data-variant="horizontal-train">
 	<div class="instance-stack-overlay__row">
 		{#each indices as i (i)}
-			{@const state = horizontalTrain.motionShape(i, content.count, progress, { spacing: content.spacing, opacityFloor: content.opacityFloor, lagWindow: content.lagWindow })}
+			{@const state = horizontalTrainMotionShape(i, content.count, progress, { spacing: content.spacing, opacityFloor: content.opacityFloor, lagWindow: content.lagWindow })}
 			<span
 				class="instance-stack-overlay__instance"
 				data-text-anim-slot={i === 0 ? 'title' : undefined}

@@ -142,7 +142,8 @@ When a color is absent, the active Pack's core `fill-treatment` / `ink-treatment
     "sourceUrl": "...",   // optional
     "author":    "...",   // optional
     "source":    "...",   // optional
-    "dateLabel": "..."    // optional
+    "dateLabel": "...",   // optional
+    "logoUrl":   "..."    // optional uploaded-image URL; checklist uses it in place of title
   },
   "enter": { "start": 0..1, "duration": 0..1, "ease": Ease },  // optional
   "exit":  { "start": 0..1, "duration": 0..1, "ease": Ease },  // optional
@@ -151,6 +152,8 @@ When a color is absent, the active Pack's core `fill-treatment` / `ink-treatment
   "diagram": [ ... ]                                            // optional Diagram primitive Blocks (see Diagram primitives)
 }
 ```
+
+Surface-specific content widens this common slot set. In particular, `checklist` uses `items[]` for independently timed rows and may use `logoUrl` for an uploaded mark shown in a neutral circular chip; a failed logo load falls back to `title`.
 
 ### `surface.diagram` — diagram primitives ([ADR-0036](adr/0036-diagram-primitives.md))
 

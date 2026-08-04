@@ -1,0 +1,8 @@
+type: '@supers/preflight'
+typeVersion: 2026.08.03.1
+id: 457880c7-ece4-4aa2-9cf9-5cec74f660d2
+name: preflight
+version: 1
+tags: {}
+globalArguments: {}
+methods: {}

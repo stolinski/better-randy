@@ -55,4 +55,4 @@ Supers already has the Preset catalog, composition Media library, one frame-addr
 
 ## Adjacency
 
-Companion idea: [`cli-video-generation.md`](cli-video-generation.md) — once this flow exists, the CLI is the natural batch-rendering surface for the auto-generated manifest. The CLI takes a Preset slug + optional content overrides; the auto-animation flow produces N Preset references with content overrides per span; the CLI renders them.
+Shipped prerequisite: the CLI render/batch lane is documented in [`user-composition-workflows.md`](../user-composition-workflows.md), with its original design history in [`history/cli-video-generation.md`](../history/cli-video-generation.md). The CLI accepts complete Presets, not content overrides, so this future flow must materialize one complete Preset per span before handing the batch to the renderer.

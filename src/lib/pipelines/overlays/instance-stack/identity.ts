@@ -21,7 +21,7 @@ export const instanceStackIdentity: IdentitySpec = {
 			definition:
 				'Each of N instances carries its own enter phase offset by `lagWindow * (i / (count-1))` of the surface enter window; later instances finish their motion after earlier ones, producing the visible "echo" propagation.',
 			implementation:
-				'src/lib/pipelines/overlays/instance-stack/variants/<id>.ts motionShape — pure (instanceIndex, instanceCount, progress) → per-instance state.',
+				'src/lib/pipelines/overlays/instance-stack/variants/instance-stack-motion.ts — pure horizontalTrainMotionShape / verticalStackMotionShape (instanceIndex, instanceCount, progress) → per-instance state.',
 			probe: {
 				kind: 'named-observation',
 				region: 'instance-stack mid-enter',

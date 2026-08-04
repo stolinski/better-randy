@@ -10,7 +10,6 @@ import type { Effect, EngineState } from './engine-schema';
 import type { GpuHost } from './gpu-host';
 import type { PackManifest } from './packs/types';
 import {
-	resolveAppearanceVars,
 	resolveBackgroundFill,
 	resolvePackRoleColor,
 	resolveDepthTreatment,

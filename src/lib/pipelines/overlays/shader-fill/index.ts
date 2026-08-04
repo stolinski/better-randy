@@ -6,6 +6,13 @@ import { getRgbColorChannels } from '$lib/utils/color';
 
 import CanvasSource from './CanvasSource.svelte';
 import Editor from './Editor.svelte';
+import {
+	DEFAULT_COLOR_0,
+	DEFAULT_COLOR_1,
+	DEFAULT_COLOR_2,
+	DEFAULT_FLOW_SPEED,
+	DEFAULT_OPACITY
+} from './shader-fill-defaults';
 
 /**
  * `shader-fill` — first WGSL-rendered Overlay, validating the ADR-0005
@@ -21,12 +28,6 @@ import Editor from './Editor.svelte';
  * contract holds. Drop-in for any Preset that wants a generated colour panel
  * — not bound to the channel aesthetic.
  */
-
-const DEFAULT_COLOR_0 = '#ff5d8f';
-const DEFAULT_COLOR_1 = '#5dd6e6';
-const DEFAULT_COLOR_2 = '#a866f7';
-const DEFAULT_FLOW_SPEED = 1;
-const DEFAULT_OPACITY = 0.85;
 
 const HexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Expected a #RRGGBB hex color');
 
@@ -160,11 +161,3 @@ export const shaderFillOverlayRenderer: OverlayRenderer<ShaderFillContent> = {
 	Editor,
 	shaderPass
 };
-
-export const SHADER_FILL_DEFAULTS = {
-	color0: DEFAULT_COLOR_0,
-	color1: DEFAULT_COLOR_1,
-	color2: DEFAULT_COLOR_2,
-	flowSpeed: DEFAULT_FLOW_SPEED,
-	opacity: DEFAULT_OPACITY
-} as const;

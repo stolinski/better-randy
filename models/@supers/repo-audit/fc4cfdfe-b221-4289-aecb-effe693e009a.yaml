@@ -1,0 +1,8 @@
+type: '@supers/repo-audit'
+typeVersion: 2026.08.03.1
+id: fc4cfdfe-b221-4289-aecb-effe693e009a
+name: repo-audit
+version: 1
+tags: {}
+globalArguments: {}
+methods: {}

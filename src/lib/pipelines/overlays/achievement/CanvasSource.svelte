@@ -3,7 +3,8 @@
 	import { engineState } from '$lib/platform/engine-state.svelte';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 
-	import { achievementFrameLayout, type AchievementContent } from './index';
+	import { achievementFrameLayout } from './achievement-frame-layout';
+	import type { AchievementContent } from './index';
 	import { VARIANTS } from './variants';
 
 	interface Props {

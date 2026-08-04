@@ -18,7 +18,7 @@ export const counterIdentity: IdentitySpec = {
 			definition:
 				'Each digit position carries its own roll animation between source and target digit; carries between positions are deterministic (a 9 → 10 advance rolls the ones-place 9 → 0 and increments the tens-place, in sync).',
 			implementation:
-				'src/lib/pipelines/overlays/counter/variants/<id>.ts motionShape — per-digit interpolation; CanvasSource emits one DOM element per digit position with a CSS transform driven by per-digit progress.',
+				'src/lib/pipelines/overlays/counter/variants/slot-machine-motion.ts slotMachineRollMotionShape — per-digit interpolation; CanvasSource emits one DOM element per digit position with a CSS transform driven by per-digit progress.',
 			probe: {
 				kind: 'named-observation',
 				region: 'multi-digit counter mid-roll',

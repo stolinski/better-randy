@@ -4,6 +4,11 @@ import type { OverlayDefaults, OverlayRenderer } from '$lib/platform/pipelines/t
 
 import CanvasSource from './CanvasSource.svelte';
 import Editor from './Editor.svelte';
+import {
+	DEFAULT_LENGTH_PX,
+	DEFAULT_ROTATION_DEG,
+	ROTATION_MAX_DEG
+} from './washi-tape-defaults';
 
 /**
  * Washi-tape Overlay (ADR-0009).
@@ -23,11 +28,6 @@ import Editor from './Editor.svelte';
  *   - `length`   strip length in pixels at 4K (mapped via composition's
  *                native frame width). Width is fixed by aesthetic ratio.
  */
-const DEFAULT_ROTATION_DEG = 25;
-const DEFAULT_LENGTH_PX = 280;
-const ROTATION_MIN_DEG = 5;
-const ROTATION_MAX_DEG = 25;
-
 const WashiTapeContentSchema = z.object({
 	color: z.string().optional(),
 	rotation: z.number().min(-ROTATION_MAX_DEG).max(ROTATION_MAX_DEG).optional(),
@@ -62,10 +62,3 @@ export const washiTapeOverlayRenderer: OverlayRenderer<WashiTapeContent> = {
 	CanvasSource,
 	Editor
 };
-
-export const WASHI_TAPE_DEFAULTS = {
-	rotation: DEFAULT_ROTATION_DEG,
-	length: DEFAULT_LENGTH_PX,
-	rotationMin: ROTATION_MIN_DEG,
-	rotationMax: ROTATION_MAX_DEG
-} as const;

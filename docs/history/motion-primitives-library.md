@@ -1,4 +1,4 @@
-# Motion primitives library
+# Historical: Motion primitives library
 
 > **Status — ✅ SHIPPED (2026-06). Historical reference.** This original pitch was grilled into [`motion-primitives-library-plan.md`](motion-primitives-library-plan.md) and fully delivered (4 pipelines + variants + catalog entries + [ADR-0019](../adr/0019-identity-spec-via-pack.md)/[0020](../adr/0020-variants-as-data.md)). Canonical record: those ADRs + the pipeline registry. The proposal below predates ADR-0023's appearance-only Pack boundary: motion-form, timing, easing, geometry, and frame-relationship are now intrinsic or authored, never Pack Roles. ADR-0018 was also refined when `depth-of-field` became a composition-owned routing Effect. Kept for the design rationale.
 
@@ -276,5 +276,5 @@ The mo1.app reference is useful as a vocabulary forcing function (echo stacks, 3
 
 ## Adjacency
 
-- **[`transcript-driven-auto-animation.md`](transcript-driven-auto-animation.md)** — Once the library lands, the auto-animation flow has a richer Preset catalog to pick from. `counter` for statistics, `instance-stack` for list reveals, `cursor-trail` for "look at this" gestures, `text-3d` for emphasis on names / titles.
+- **[`transcript-driven-auto-animation.md`](../ideas/transcript-driven-auto-animation.md)** — Once the library lands, the auto-animation flow has a richer Preset catalog to pick from. `counter` for statistics, `instance-stack` for list reveals, `cursor-trail` for "look at this" gestures, `text-3d` for emphasis on names / titles.
 - **[`cli-video-generation.md`](cli-video-generation.md)** — Library Pipelines are addressable by Preset slug just like everything else; no CLI changes required.

@@ -1,0 +1,104 @@
+id: 5eb573fe-76e7-4b59-8ff6-bfccc0ec3b7a
+name: policy-sweep
+tags:
+  purpose: repo-policy
+jobs:
+  - name: main
+    description: >-
+      Supers policy sweep — the four repo checks as one DAG: fraction-window
+      rescale coverage, authoring-dependency tracker coverage, GUI-agent
+      inspector parity, and the static corpus verification. Audit methods
+      always store their report (findings are data); the assert steps turn any
+      finding into a red run.
+    steps:
+      - name: audit-timing
+        description: Fraction-window rescale coverage (scripts/audit-timing-coverage.ts)
+        task:
+          type: model_method
+          modelIdOrName: repo-audit
+          methodName: audit-timing
+        dependsOn: []
+        weight: 0
+        allowFailure: false
+      - name: audit-tracking
+        description: Authoring-dependency tracker coverage (scripts/audit-tracking-coverage.ts)
+        task:
+          type: model_method
+          modelIdOrName: repo-audit
+          methodName: audit-tracking
+        dependsOn: []
+        weight: 0
+        allowFailure: false
+      - name: audit-parity
+        description: GUI-agent inspector parity (scripts/audit-inspector-parity.ts)
+        task:
+          type: model_method
+          modelIdOrName: repo-audit
+          methodName: audit-parity
+        dependsOn: []
+        weight: 0
+        allowFailure: false
+      - name: corpus-sweep
+        description: Static corpus verification (npm run verify-presets)
+        task:
+          type: model_method
+          modelIdOrName: corpus-verify
+          methodName: sweep
+        dependsOn: []
+        weight: 0
+        allowFailure: false
+      - name: assert-timing-clean
+        description: Every fraction-window site is rescaled
+        task:
+          type: assert
+          expr: data.latest("repo-audit", "timing-latest").attributes.clean == true
+          message: rescaleCompositionTimings misses fraction-window sites — see repo-audit timing-latest
+          severity: high
+        dependsOn:
+          - step: audit-timing
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+      - name: assert-tracking-clean
+        description: Every schema content field is tracked by the rebuild effect
+        task:
+          type: assert
+          expr: data.latest("repo-audit", "tracking-latest").attributes.clean == true
+          message: trackCompositionAuthoringDependencies misses schema content fields — see repo-audit tracking-latest
+          severity: high
+        dependsOn:
+          - step: audit-tracking
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+      - name: assert-parity-clean
+        description: No GUI-agent parity gaps
+        task:
+          type: assert
+          expr: data.latest("repo-audit", "parity-latest").attributes.clean == true
+          message: schema fields exist without a GUI editor — see repo-audit parity-latest
+          severity: high
+        dependsOn:
+          - step: audit-parity
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+      - name: assert-corpus-clean
+        description: Every corpus preset passes schema, semantic, and static lint
+        task:
+          type: assert
+          expr: data.latest("corpus-verify", "sweep-latest").attributes.clean == true
+          message: corpus presets failing verification — see corpus-verify sweep-latest
+          severity: high
+        dependsOn:
+          - step: corpus-sweep
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+    dependsOn: []
+    weight: 0
+version: 1

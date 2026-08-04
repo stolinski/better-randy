@@ -1,7 +1,8 @@
 <script lang="ts">
 	import type { OverlayEditorProps } from '$lib/platform/pipelines/types';
-	import { SHADER_FILL_DEFAULTS, type ShaderFillContent } from './index';
 	import Field from '$lib/platform/Field.svelte';
+	import type { ShaderFillContent } from './index';
+	import { SHADER_FILL_DEFAULTS } from './shader-fill-defaults';
 
 	let { overlay = $bindable() }: OverlayEditorProps<ShaderFillContent> = $props();
 

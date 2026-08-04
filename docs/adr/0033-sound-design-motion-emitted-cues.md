@@ -1,4 +1,4 @@
-# ADR-0033 — Sound design: motion-emitted cues resolved by a swappable Sound kit
+# ADR-0033 — Sound design: motion-emitted cues and deterministic samples
 
 ## Status
 
@@ -9,7 +9,7 @@ Relates to: [ADR-0011](0011-text-animation-orchestration.md) (timed-motion domai
 
 ## Context
 
-Supers produces broadcast-quality motion, and broadcast motion has **sound design** — whooshes on entrances, impacts on a title drop. The composition model had nothing for it: the 5 Layers are all visual, the schema carries no audio, export is video-only. A prior lean in `docs/ideas/motion-primitives-library.md` said *"audio is an editor concern (DaVinci Resolve), not Supers's. Stays out."*
+Supers produces broadcast-quality motion, and broadcast motion has **sound design** — whooshes on entrances, impacts on a title drop. The composition model had nothing for it: the 5 Layers are all visual, the schema carries no audio, export is video-only. A prior lean in [`docs/history/motion-primitives-library.md`](../history/motion-primitives-library.md) said *"audio is an editor concern (DaVinci Resolve), not Supers's. Stays out."*
 
 The reversal is driven by a concrete pain: today you hand-place every whoosh and click in DaVinci, and re-sync them by hand whenever the motion changes. The ask is **"want it all in automatically."** And it's feasible: Mediabunny 1.45.3 exposes `addAudioTrack` + `AudioBufferSource` (audio muxes into the WebM export with the current encoder; ProRes needs the ffmpeg backend to take a second input). The timed-motion-domain pattern ([ADR-0011](0011-text-animation-orchestration.md), which explicitly anticipated "audio cues") and the deterministic bundled-asset pattern (`substrate-textures.ts`, [ADR-0029](0029-image-substrate-on-depth-stage.md)) both map directly onto sound.
 

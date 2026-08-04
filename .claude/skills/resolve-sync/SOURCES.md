@@ -5,7 +5,7 @@ Synthesized 2026-07-16 from in-repo and live-verified material; export ownership
 ## Inventory
 
 - `docs/adr/0042-resolve-marker-sync.md` — decision, considered options, consequences (grammar v2 amendment landed 2026-07-16: color-blind read, END markers close spans, beat labels carry item text).
-- `docs/briefs/resolve-marker-sync.md` — motion-plan semantics (re-place never re-speed, span fallback, lint set), engine-work scope.
+- `docs/adr/0042-resolve-marker-sync.md` — current marker grammar, re-place-never-re-speed semantics, span fallback, lint set, and shipped bridge scope.
 - `scripts/resolve-markers.py` / `scripts/resolve-place.py` — wire shapes (source of truth for snapshot/plan JSON), invocation forms, marker-rewrite restore path.
 - `src/lib/utils/marker-sync.ts` + `marker-sync.test.ts` — grammar constants, grouping, lints, derivation math, versioning, export filename.
 - `src/lib/platform/composition-export-controller.ts` + tests — export planning, deterministic stepping, output classification, audio/video handoff, cancellation, downloads, and cleanup.
