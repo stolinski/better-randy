@@ -57,12 +57,13 @@
  * the merged frame in every render path) and the Surface doesn't opt out via
  * `disablePackMaterial`.
  *
- * Annotation-mark colours are NOT pack-wired today (`resolveMarkForIndex`
- * resolves `timing.color ?? defaults.color` with a literal fallback), so an
- * annotation region's diff measures the re-skin of the surface it rides on,
- * not the mark ink itself. Representatives for annotation rows must therefore
- * sit on non-immune surfaces. Until mark ink resolves through the Pack, that
- * is the honest evidence this lock can produce.
+ * Annotation-mark colours ARE pack-wired (`readMarkColor` in engine-state:
+ * authored `marks.defaults` → the Pack's `<style>.fill` Role → mandatory core
+ * accent), so `beginPackSwap` lifts authored mark defaults exactly like
+ * authored typography — the annotation rows measure the Pack side of that
+ * seam (mark ink itself), which also keeps them meaningful on substrate-
+ * immune document surfaces (ADR-0039 §2) where the surface under the mark no
+ * longer re-skins.
  *
  * Freshness: the report stores content hashes of every input that determines
  * the evidence — this script, the Pipeline/appearance source tree, each
@@ -1006,11 +1007,24 @@ async function beginPackSwap(session: CdpSession): Promise<string> {
 			const saved = {
 				lift,
 				paperColor: state.typography.paperColor,
-				inkColor: state.typography.inkColor
+				inkColor: state.typography.inkColor,
+				markDefaults: state.marks.defaults,
+				timingColors: state.marks.timings.map((timing) => timing.color)
 			};
 			if (lift) {
 				state.typography.paperColor = undefined;
 				state.typography.inkColor = undefined;
+				// Authored mark colours mask the pack exactly like authored
+				// typography: the render chain is timing.color ?? defaults.color ??
+				// the Pack's <style>.fill Role -> core accent (readMarkColor), so
+				// BOTH authored tiers are lifted and the annotation rows measure the
+				// Pack side of that seam (the thing being locked) instead of a
+				// composition constant. Same transparent-piece-only condition as the
+				// typography lift, restored in endPackSwap.
+				state.marks.defaults = {};
+				for (const timing of state.marks.timings) {
+					timing.color = undefined;
+				}
 			}
 			window.__packDiff = { mod, originalSlug: mod.packState.slug, saved };
 			mod.transitionState.capturing = true;
@@ -1078,6 +1092,10 @@ async function endPackSwap(session: CdpSession): Promise<void> {
 			if (pd.saved.lift) {
 				state.typography.paperColor = pd.saved.paperColor;
 				state.typography.inkColor = pd.saved.inkColor;
+				state.marks.defaults = pd.saved.markDefaults;
+				for (let i = 0; i < state.marks.timings.length; i++) {
+					state.marks.timings[i].color = pd.saved.timingColors[i];
+				}
 			}
 			pd.mod.packState.slug = pd.originalSlug;
 			await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));

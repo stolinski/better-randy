@@ -54,12 +54,11 @@
 	// No CSS depth shadow: the clipping's edge is intrinsically torn (partial
 	// substrate immunity, ADR-0039 §2 — `newsprint-substrate.ts`), and displaced
 	// edge modes hand the depth rig to the shared edge-treatment ShaderPass,
-	// which synthesizes the Pack's claimable `newspaper.depth` shadow as an
-	// offset duplicate of the TORN silhouette (`prepareFramePackTreatments`).
-	// A CSS box-shadow here would bake a straight card/shadow seam into the
-	// flat HTML-in-Canvas capture that no alpha treatment can cross. Known
-	// limitation: a glow-form depth claim (crt-terminal) has no torn-silhouette
-	// synthesis lane yet, so it does not reach newspaper pixels.
+	// which synthesizes the Pack's claimable `newspaper.depth` chrome against
+	// the TORN silhouette (`prepareFramePackTreatments`): an offset duplicate
+	// for hard-offset rigs, a centered bloom halo for glow rigs. A CSS
+	// box-shadow here would bake a straight card/shadow seam into the flat
+	// HTML-in-Canvas capture that no alpha treatment can cross.
 
 	const sourceLabel = $derived.by(() => {
 		const url = engineState.surface.content.sourceUrl?.trim() ?? '';

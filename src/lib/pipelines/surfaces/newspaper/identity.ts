@@ -42,14 +42,14 @@ export const newspaperIdentity: IdentitySpec = {
 		{
 			name: 'halftone-at-body',
 			definition:
-				'At body cap-height, dark ink resolves as a halftone dot pattern rather than a flat fill. The screen fires only on mid-tone luminance — pure-dark titles stay solid, near-white paper stays clean.',
+				'At body cap-height, dark ink resolves as a halftone dot pattern rather than a flat fill. The screen fires only on mid-tone luminance — pure-dark titles stay solid, near-white paper stays clean — and only on the document body: label ink inside saturated channel chrome (the kicker chip) is printed chrome, not newsprint, and never screens.',
 			implementation:
-				'newspaper-physics.ts § Halftone dot screen — smoothstep(0.05, 0.30) × (1 - smoothstep(0.70, 0.92)) mid-tone mask multiplied by per-cell dot coverage; HALFTONE_PITCH_PX = 10.',
+				'newspaper-physics.ts § Halftone dot screen — smoothstep(0.05, 0.30) × (1 - smoothstep(0.70, 0.92)) mid-tone mask multiplied by per-cell dot coverage; HALFTONE_PITCH_PX = 10. § Chrome-neighborhood mask — four 12 px diagonal saturation taps veto the screen inside saturated chrome, so mid-luma chip label ink (clean-light slate) stays solid (dex lbwpnf69).',
 			probe: {
 				kind: 'named-observation',
-				region: 'body text glyph at 400% zoom',
+				region: 'body text glyph at 400% zoom; kicker chip label at 400% zoom',
 				expectation:
-					'internal dot/grain texture visible inside the stroke; title glyphs at the same zoom stay solid black (the screen correctly skips luma < 0.05).'
+					'internal dot/grain texture visible inside the body stroke; title glyphs at the same zoom stay solid black (the screen correctly skips luma < 0.05); chip label glyphs stay solid under EVERY pack regardless of ink luma.'
 			}
 		},
 		{

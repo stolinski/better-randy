@@ -172,10 +172,9 @@ export const crtTerminalPack: PackManifest = {
 		// Partial substrate immunity (ADR-0039 §2) retired the terminal-readout
 		// re-skin of the clipping body (glass fill / phosphor ink / green print /
 		// die-cut edge): a quoted newspaper stays newsprint on this Pack's glass
-		// too. Remaining claimable chrome: the kicker chip in phosphor voices.
-		// Depth rides the core glow rig, which currently has no torn-silhouette
-		// synthesis lane (noted in the newspaper CanvasSource) — no bloom on the
-		// clipping until that lands.
+		// too. Remaining claimable chrome: the kicker chip in phosphor voices,
+		// and depth via the core glow rig — the edge pass synthesizes the bloom
+		// halo around the torn silhouette in the Pack's phosphor ink.
 		'newspaper.accent': { kind: 'style', value: '#d9ffe0' },
 		'newspaper.kicker-ink': { kind: 'style', value: '#2fb352' },
 

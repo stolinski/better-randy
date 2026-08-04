@@ -631,6 +631,26 @@ export function resolveTypographyColors(
 }
 
 /**
+ * Resolve a colour-valued Pack Role with a mandatory-core fallback — the
+ * `<specific role> → core` colour chain (ADR-0024) as one seam: the Role's
+ * string colour value when claimed, else the named mandatory colour core
+ * (guaranteed by the boot validator — never a literal). Consumers:
+ * unauthored mark inks (`readMarkColor`), the washi tape tint, and any
+ * future colour slot whose absence must fall to a core rather than a bake.
+ */
+export function resolvePackRoleColor(
+	manifest: PackManifest,
+	roleName: string,
+	core: 'fill-treatment' | 'ink-treatment' | 'accent-treatment' | 'field-treatment'
+): string {
+	const role = manifest.roles[roleName];
+	if (role?.kind === 'style' && typeof role.value === 'string' && isColorValue(role.value)) {
+		return role.value;
+	}
+	return requireCoreColor(manifest, core);
+}
+
+/**
  * Resolve a composition's `backgroundFill` to the colour that actually renders
  * (ADR-0039 §3): absent stays absent (the transparent lane — presence, not
  * value, classifies the output), the `'pack'` sentinel resolves to the active

@@ -2,7 +2,7 @@
 	"schema": "supers@1",
 	"kind": "fixture",
 	"name": "Isolate — focal dim fixture",
-	"description": "Proving fixture for the isolate Annotation (was dead-by-use — referenced by zero presets). One [isolate] focal passage in a paper body; as the mark progresses the surrounding text dims toward the backgroundVisibility floor, isolating the focal sentence. Verifies the composition focal shader's isolate styleCode (4) path renders. Fixture — exercises the pipeline, not held to the R/Q/G deliverable floors.",
+	"description": "Proving fixture for the isolate Annotation (was dead-by-use — referenced by zero presets). One [isolate] focal passage in a plain-surface body; as the mark progresses the surrounding text dims toward the backgroundVisibility floor, isolating the focal sentence. Verifies the composition focal shader's isolate styleCode (4) path renders. On plain deliberately (2026-08-03): the isolate treatment is achromatic dimming, so its pack-diff evidence is the dimmed SURFACE responding to the pack — the substrate-immune paper (ADR-0039 §2) stopped re-skinning and left the row nothing to measure. Fixture — exercises the pipeline, not held to the R/Q/G deliverable floors.",
 	"pack": "syntax",
 	"state": {
 		"transport": {
@@ -12,9 +12,7 @@
 			"format": "webm"
 		},
 		"typography": {
-			"fontFamily": "serif",
-			"paperColor": "#ffffff",
-			"inkColor": "#111111"
+			"fontFamily": "serif"
 		},
 		"marks": {
 			"defaults": {},
@@ -30,7 +28,7 @@
 			]
 		},
 		"surface": {
-			"type": "paper",
+			"type": "plain",
 			"content": {
 				"body": "Most of the system runs on conventions nobody wrote down. [isolate]The one rule that actually matters is that the build must stay green.[/isolate] Everything else is negotiable, and most of it gets renegotiated every quarter when a new team inherits the service."
 			},

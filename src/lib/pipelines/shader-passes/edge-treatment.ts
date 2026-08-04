@@ -58,12 +58,19 @@ export const EdgeTreatmentUniforms = d.struct({
 	canvasWidth: d.f32,
 	canvasHeight: d.f32,
 	/**
-	 * Hard-offset depth shadow for displaced modes, 4K-reference px + straight
-	 * colour. `shadowStrength` 0 disables (the CanvasSource keeps its CSS
-	 * shadow for clean/soft/none — see the synthesis note in the WGSL body).
+	 * Depth rig for displaced modes, 4K-reference px + straight colour.
+	 * `shadowStrength` 0 disables (the CanvasSource keeps its CSS shadow for
+	 * clean/soft/none — see the synthesis note in the WGSL body).
+	 * `shadowKind` selects the form: 0 = hard-offset dup (reflective packs),
+	 * 1 = centered bloom halo (emissive packs — dex 3x6uyx5h, the glow lane
+	 * for intrinsically torn silhouettes). Offset rigs read shadowDx/Dy; glow
+	 * rigs read glowRadiusPx/glowIntensity; both share the colour.
 	 */
+	shadowKind: d.f32,
 	shadowDx: d.f32,
 	shadowDy: d.f32,
+	glowRadiusPx: d.f32,
+	glowIntensity: d.f32,
 	shadowR: d.f32,
 	shadowG: d.f32,
 	shadowB: d.f32,
@@ -78,23 +85,36 @@ const EDGE_MODE_CODES: Record<Exclude<EdgeTreatmentMode, 'none'>, number> = {
 };
 
 /**
- * The Pack's hard-offset depth rig, pre-resolved to numbers for the shader
- * (offsets in 4K-reference px, colour as straight RGB floats). Present only
- * when the surface pairs a displaced edge mode with a depth-treatment rig.
+ * The Pack's depth rig, pre-resolved to numbers for the shader (px fields in
+ * 4K-reference px, colour as straight RGB floats). Present only when the
+ * surface pairs a displaced edge mode with a depth-treatment rig. Two forms
+ * (the same split as `ResolvedDepthTreatment`): the reflective hard-offset
+ * dup, and the emissive bloom halo (dex 3x6uyx5h) synthesized around the
+ * torn silhouette for glow-depth Packs (crt-terminal).
  */
-export interface EdgeTreatmentShadow {
-	dx: number;
-	dy: number;
-	rgb: readonly [number, number, number];
-}
+export type EdgeTreatmentDepthRig =
+	| {
+			kind: 'offset';
+			dx: number;
+			dy: number;
+			rgb: readonly [number, number, number];
+			/** Rig-colour alpha — clean-light's quiet float is rgba at 0.1, not opaque. */
+			strength: number;
+	  }
+	| {
+			kind: 'glow';
+			radiusPx: number;
+			intensity: number;
+			rgb: readonly [number, number, number];
+		};
 
 /** What the dispatcher hands `packUniforms` per frame (built in `Workspace`). */
 export interface EdgeTreatmentTarget {
 	treatment: EdgeTreatment;
 	/** Stable per-composition string (surface title) seeding the tear path. */
 	seedSource: string;
-	/** Shader-synthesized hard-offset shadow (displaced modes only), or null. */
-	shadow: EdgeTreatmentShadow | null;
+	/** Shader-synthesized depth rig (displaced modes only), or null. */
+	shadow: EdgeTreatmentDepthRig | null;
 }
 
 const FALLBACK_CANVAS_WIDTH = 3840;
@@ -257,14 +277,51 @@ const wgsl = /* wgsl */ `
 	// dark dup would show through them as mud and push their saturation under
 	// the newspaper-physics overlay-detection threshold.
 	let shadowCaster = smoothstep(0.75, 0.92, min(inputOff.a, edgeOff.a));
-	let shadowA = shadowCaster * layout.$.uniforms.shadowStrength;
+
+	// ----- Bloom halo (glow-form depth, emissive Packs — dex 3x6uyx5h) -----
+	//
+	// A screen has no object floating above paper, so its depth is a centered
+	// bloom, never an offset (resolve.ts § DepthGlow). Synthesized here for the
+	// same reason as the offset dup: the CSS box-shadow lane died with the
+	// intrinsically torn silhouette. Two 8-tap rings of the RAW silhouette
+	// alpha approximate a blurred coverage field: the hot ring at the glow
+	// radius, a wider naturally-dimmer skirt at 2.25× — the same two-layer
+	// halo the CSS branch composed. Tear detail finer than the radius blurs
+	// out of a halo by definition, so raw (undisplaced) alpha is sufficient.
+	let gR = layout.$.uniforms.glowRadiusPx * refScale * pxUv;
+	let g1 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f( gR.x, 0.0)).a;
+	let g2 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(-gR.x, 0.0)).a;
+	let g3 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(0.0,  gR.y)).a;
+	let g4 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(0.0, -gR.y)).a;
+	let g5 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f( gR.x,  gR.y) * 0.7071).a;
+	let g6 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(-gR.x,  gR.y) * 0.7071).a;
+	let g7 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f( gR.x, -gR.y) * 0.7071).a;
+	let g8 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(-gR.x, -gR.y) * 0.7071).a;
+	let hotCoverage = (g1 + g2 + g3 + g4 + g5 + g6 + g7 + g8) * 0.125;
+	let sR = gR * 2.25;
+	let k1s = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f( sR.x, 0.0)).a;
+	let k2s = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(-sR.x, 0.0)).a;
+	let k3s = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(0.0,  sR.y)).a;
+	let k4s = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(0.0, -sR.y)).a;
+	let k5s = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f( sR.x,  sR.y) * 0.7071).a;
+	let k6s = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(-sR.x,  sR.y) * 0.7071).a;
+	let k7s = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f( sR.x, -sR.y) * 0.7071).a;
+	let k8s = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(-sR.x, -sR.y) * 0.7071).a;
+	let skirtCoverage = (k1s + k2s + k3s + k4s + k5s + k6s + k7s + k8s) * 0.125;
+	let glowIntensity = layout.$.uniforms.glowIntensity;
+	let haloA = clamp(hotCoverage * glowIntensity + skirtCoverage * glowIntensity * 0.45, 0.0, 1.0);
+
+	// Depth term under the card: the rig kind picks the form; both share the
+	// rig colour and the premultiplied under-composite below.
+	let isGlowRig = f32(layout.$.uniforms.shadowKind > 0.5);
+	let shadowA = mix(shadowCaster, haloA, isGlowRig) * layout.$.uniforms.shadowStrength;
 	let shadowRgb = vec3f(
 		layout.$.uniforms.shadowR,
 		layout.$.uniforms.shadowG,
 		layout.$.uniforms.shadowB
 	);
 
-	// Torn card OVER its offset shadow (premultiplied over-operator).
+	// Torn card OVER its depth term (premultiplied over-operator).
 	let dispOutRgb = dispRgb + shadowRgb * shadowA * (1.0 - dispA);
 	let dispOutA = dispA + shadowA * (1.0 - dispA);
 
@@ -297,8 +354,11 @@ export function createEdgeTreatmentPass(): ShaderPass<EdgeTreatmentTarget> {
 					seed: 0,
 					canvasWidth,
 					canvasHeight,
+					shadowKind: 0,
 					shadowDx: 0,
 					shadowDy: 0,
+					glowRadiusPx: 0,
+					glowIntensity: 0,
 					shadowR: 0,
 					shadowG: 0,
 					shadowB: 0,
@@ -314,12 +374,15 @@ export function createEdgeTreatmentPass(): ShaderPass<EdgeTreatmentTarget> {
 				seed: hashStringToUnitInterval(seedSource),
 				canvasWidth,
 				canvasHeight,
-				shadowDx: shadow?.dx ?? 0,
-				shadowDy: shadow?.dy ?? 0,
+				shadowKind: shadow?.kind === 'glow' ? 1 : 0,
+				shadowDx: shadow?.kind === 'offset' ? shadow.dx : 0,
+				shadowDy: shadow?.kind === 'offset' ? shadow.dy : 0,
+				glowRadiusPx: shadow?.kind === 'glow' ? shadow.radiusPx : 0,
+				glowIntensity: shadow?.kind === 'glow' ? shadow.intensity : 0,
 				shadowR: shadow?.rgb[0] ?? 0,
 				shadowG: shadow?.rgb[1] ?? 0,
 				shadowB: shadow?.rgb[2] ?? 0,
-				shadowStrength: shadow ? 1 : 0
+				shadowStrength: shadow === null ? 0 : shadow.kind === 'offset' ? shadow.strength : 1
 			};
 		}
 	};

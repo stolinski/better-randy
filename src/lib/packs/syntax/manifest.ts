@@ -318,6 +318,11 @@ export const syntaxPack: PackManifest = {
 		'text-3d.ink': { kind: 'style', value: '#ffd54a' },
 		// Washi-tape procedural grain — the dark/light fibre stops in the tape's
 		// gradient stack (alpha-bound; previously inline literals, now Pack-routed).
+		// The tape tint is the channel's physical-highlighter yellow — measured
+		// from the collage system, deliberately NOT the chrome accent #ffd54a
+		// (the same split as the highlight mark). Unauthored tapes ride this;
+		// packs silent on the slot fall to their core accent.
+		'washi-tape.color': { kind: 'style', value: '#fabf47' },
 		'washi-tape.grain-dark': { kind: 'style', value: 'rgba(0, 0, 0, 0.08)' },
 		'washi-tape.grain-light': { kind: 'style', value: 'rgba(255, 255, 255, 0.06)' },
 		'lower-third.edge': { kind: 'style', value: { rule: 'vertical-accent', color: '#ffd54a' } },

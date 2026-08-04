@@ -16,7 +16,10 @@
 
 	const length = $derived(content.length ?? WASHI_TAPE_DEFAULTS.length);
 	const rotation = $derived(content.rotation ?? WASHI_TAPE_DEFAULTS.rotation);
-	const color = $derived(content.color ?? WASHI_TAPE_DEFAULTS.color);
+	// Authored tint wins; unauthored rides the mount-injected Pack chain —
+	// `washi-tape.color` Role (`--color`) → mandatory core accent (`--accent`,
+	// always emitted for a validated Pack). Never a baked literal (ADR-0024).
+	const color = $derived(content.color ?? 'var(--color, var(--accent))');
 	const width = $derived(length * TAPE_WIDTH_RATIO);
 </script>
 

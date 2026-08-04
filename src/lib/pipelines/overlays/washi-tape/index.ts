@@ -8,9 +8,14 @@ import Editor from './Editor.svelte';
 /**
  * Washi-tape Overlay (ADR-0009).
  *
- *   - `color`    palette pull (default channel yellow `#fabf47`). Multiply
- *                blended at ~0.6 alpha against whatever sits behind so the
- *                tape reads as semi-translucent paper, not a printed sticker.
+ *   - `color`    optional authored tint override. Absent, the tape wears the
+ *                active Pack: `washi-tape.color` Role → mandatory core accent
+ *                (`var(--color, var(--accent))` via the mount's appearance
+ *                vars — no baked literal makes one Pack a de facto base,
+ *                ADR-0024; syntax claims its highlighter yellow #fabf47).
+ *                Multiply blended at ~0.6 alpha against whatever sits behind
+ *                so the tape reads as semi-translucent paper, not a printed
+ *                sticker.
  *   - `rotation` degrees, ±5–25° per docs/aesthetic.md § Collage System / Tape
  *                (the aesthetic doc's "5–25°" is magnitude — tape can be applied
  *                at either diagonal). Schema-bounded but not seeded — the slight
@@ -18,7 +23,6 @@ import Editor from './Editor.svelte';
  *   - `length`   strip length in pixels at 4K (mapped via composition's
  *                native frame width). Width is fixed by aesthetic ratio.
  */
-const DEFAULT_COLOR = '#fabf47';
 const DEFAULT_ROTATION_DEG = 25;
 const DEFAULT_LENGTH_PX = 280;
 const ROTATION_MIN_DEG = 5;
@@ -34,8 +38,9 @@ export type WashiTapeContent = z.infer<typeof WashiTapeContentSchema>;
 
 function defaults(): OverlayDefaults<WashiTapeContent> {
 	return {
+		// `color` is deliberately unauthored: a fresh tape wears the active
+		// Pack's tint chain until the author overrides it.
 		content: {
-			color: DEFAULT_COLOR,
 			rotation: DEFAULT_ROTATION_DEG,
 			length: DEFAULT_LENGTH_PX
 		},
@@ -59,7 +64,6 @@ export const washiTapeOverlayRenderer: OverlayRenderer<WashiTapeContent> = {
 };
 
 export const WASHI_TAPE_DEFAULTS = {
-	color: DEFAULT_COLOR,
 	rotation: DEFAULT_ROTATION_DEG,
 	length: DEFAULT_LENGTH_PX,
 	rotationMin: ROTATION_MIN_DEG,

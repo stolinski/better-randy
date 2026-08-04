@@ -330,8 +330,8 @@ export interface SurfaceRenderer {
 	 * `fill` / `ink` slots are NOT Pack-claimable (substrate immunity,
 	 * ADR-0039 §2). Consumed by `resolveSurfaceTypographyColors` as the
 	 * fallback for unauthored typography (an authored colour still wins,
-	 * ADR-0038), and by the edge pass's synthesized depth shadow as the
-	 * foreground its `'fg'` sentinel resolves against.
+	 * ADR-0038). Deliberately NOT the depth rig's `'fg'` foreground — depth is
+	 * claimable chrome, so its sentinel resolves the Pack's ink voice.
 	 */
 	substrateColors?: { paperHex: string; inkHex: string };
 	/**

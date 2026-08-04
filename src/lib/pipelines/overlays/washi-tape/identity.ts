@@ -54,6 +54,18 @@ export const washiTapeIdentity: IdentitySpec = {
 				region: 'tape axis relative to canvas axes',
 				expectation: 'tape axis is rotated off canvas horizontal; angle is the deterministic preset value.'
 			}
+		},
+		{
+			name: 'tape-tint',
+			definition:
+				'The strip’s tint when the composition does not author one. Unlike the material dimensions above this is brand appearance, not tape physics — an unauthored tape wears the active Pack (ADR-0024: `washi-tape.color` → core accent), never a baked channel literal.',
+			viaPack: 'washi-tape.color',
+			probe: {
+				kind: 'named-observation',
+				region: 'tape body of an unauthored-colour tape under two catalog Packs',
+				expectation:
+					'the tint follows the active Pack (syntax: the physical-highlighter yellow #fabf47; a Pack silent on the slot: its core accent); an authored `content.color` wins over both.'
+			}
 		}
 	]
 };

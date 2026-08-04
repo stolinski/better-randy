@@ -37,6 +37,29 @@ export function hexToRgbaFloat(hex: string): [number, number, number, number] {
 	return [red / 255, green / 255, blue / 255, 1.0];
 }
 
+const RGB_FUNCTION_PATTERN =
+	/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)$/i;
+
+/**
+ * Parse a hex or comma-form `rgb()` / `rgba()` colour to RGBA floats — the two
+ * shapes Pack depth rigs actually carry (clean-light's quiet float is
+ * `rgba(9, 13, 20, 0.1)`; its alpha is the rig's strength, which a hex-only
+ * parse silently discarded as opaque black). Other CSS colour forms throw like
+ * `getRgbColorChannels` — callers own their fallback.
+ */
+export function cssColorToRgbaFloat(color: string): [number, number, number, number] {
+	const fn = RGB_FUNCTION_PATTERN.exec(color.trim());
+	if (fn) {
+		return [
+			clampNumber(Number(fn[1]) / 255, 0, 1),
+			clampNumber(Number(fn[2]) / 255, 0, 1),
+			clampNumber(Number(fn[3]) / 255, 0, 1),
+			fn[4] === undefined ? 1 : clampNumber(Number(fn[4]), 0, 1)
+		];
+	}
+	return hexToRgbaFloat(color);
+}
+
 /** Rec. 709 relative luminance of a hex color, 0 (black) … 1 (white). */
 export function relativeLuminance(hex: string): number {
 	const [red, green, blue] = hexToRgbaFloat(hex);

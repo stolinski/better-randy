@@ -17,7 +17,7 @@ import {
 	assertPackCoreVocabularyValid
 } from './pipelines/identity-registry';
 import { getPack, PACK_REGISTRY, REFERENCE_PACK_SLUG } from './packs/registry';
-import { isColorValue, requireCoreColor } from './packs/resolve';
+import { resolvePackRoleColor } from './packs/resolve';
 
 // ADR-0019 boot gate: refuse to start if any registered Pipeline's Identity
 // Spec ships with an unimplemented + non-via-pack dimension, or if the
@@ -97,12 +97,7 @@ export function readMarkColor(style: AnnotationMarkStyle): string {
 	if (authored) {
 		return authored;
 	}
-	const pack = getPack(packState.slug);
-	const role = pack.roles[`${style}.fill`];
-	if (role?.kind === 'style' && typeof role.value === 'string' && isColorValue(role.value)) {
-		return role.value;
-	}
-	return requireCoreColor(pack, 'accent-treatment');
+	return resolvePackRoleColor(getPack(packState.slug), `${style}.fill`, 'accent-treatment');
 }
 
 function nextId(prefix: string, existing: readonly { id: string }[]): string {

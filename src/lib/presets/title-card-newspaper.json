@@ -40,7 +40,6 @@
 				"type": "washi-tape",
 				"id": "card-corner",
 				"content": {
-					"color": "#fabf47",
 					"rotation": -18,
 					"length": 280
 				},

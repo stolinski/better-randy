@@ -146,6 +146,44 @@ const wgsl = /* wgsl */ `
 	let bledAlpha = mix(centre.a, dilatedAlpha, inkMask);
 	var bled = vec4f(bledRgb, bledAlpha);
 
+	// ----- Chrome-neighborhood mask (halftone exclusion) -----
+	//
+	// The kicker chip prints desaturated label ink ON a saturated Pack plate,
+	// and per-pixel saturation cannot tell that ink from newsprint body ink —
+	// so the dot screen used to chew mid-luma chip labels (clean-light's
+	// slate #5b6472 sat squarely in the mid-tone band; verified at native 4K,
+	// dex lbwpnf69). Four wide diagonal taps: if any lands saturated, this
+	// pixel sits inside saturated chrome and the screen must not fire. 12 px
+	// clears a 700-weight label stroke while staying inside the chip plate;
+	// saturated inks themselves (crt's phosphor chip ink) are already caught
+	// by the per-pixel isNewspaperPixel gate. Cost: body ink within ~12 px of
+	// a saturated mark/overlay boundary also skips the screen — a hairline
+	// halo, invisible against losing whole glyphs.
+	let chromeOffset = 12.0 * pxUv;
+	let n1 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f( chromeOffset.x,  chromeOffset.y));
+	let n2 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(-chromeOffset.x,  chromeOffset.y));
+	let n3 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f( chromeOffset.x, -chromeOffset.y));
+	let n4 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(-chromeOffset.x, -chromeOffset.y));
+	// Axis-aligned ring closes stroke-junction gaps where every diagonal tap
+	// still lands in ink (an N's crossing at 4K weight).
+	let n5 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f( chromeOffset.x, 0.0));
+	let n6 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(-chromeOffset.x, 0.0));
+	let n7 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(0.0,  chromeOffset.y));
+	let n8 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(0.0, -chromeOffset.y));
+	let nSat1 = max(max(n1.r, n1.g), n1.b) - min(min(n1.r, n1.g), n1.b);
+	let nSat2 = max(max(n2.r, n2.g), n2.b) - min(min(n2.r, n2.g), n2.b);
+	let nSat3 = max(max(n3.r, n3.g), n3.b) - min(min(n3.r, n3.g), n3.b);
+	let nSat4 = max(max(n4.r, n4.g), n4.b) - min(min(n4.r, n4.g), n4.b);
+	let nSat5 = max(max(n5.r, n5.g), n5.b) - min(min(n5.r, n5.g), n5.b);
+	let nSat6 = max(max(n6.r, n6.g), n6.b) - min(min(n6.r, n6.g), n6.b);
+	let nSat7 = max(max(n7.r, n7.g), n7.b) - min(min(n7.r, n7.g), n7.b);
+	let nSat8 = max(max(n8.r, n8.g), n8.b) - min(min(n8.r, n8.g), n8.b);
+	let neighborSaturation = max(
+		max(max(nSat1, nSat2), max(nSat3, nSat4)),
+		max(max(nSat5, nSat6), max(nSat7, nSat8))
+	);
+	let outsideSaturatedChrome = select(0.0, 1.0, neighborSaturation < 0.3);
+
 	// ----- Halftone dot screen at body sizes -----
 	//
 	// A small jittered grid; each cell carries a dot whose radius scales
@@ -178,7 +216,7 @@ const wgsl = /* wgsl */ `
 	let inkColor = layout.$.uniforms.inkColor;
 	let paperColor = bled.rgb;
 	let screened = mix(paperColor, inkColor, dotCoverage);
-	let halftonedRgb = mix(bled.rgb, screened, inMidtone * bled.a);
+	let halftonedRgb = mix(bled.rgb, screened, inMidtone * bled.a * outsideSaturatedChrome);
 
 	// ----- Camera defocus -----
 	//

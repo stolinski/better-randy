@@ -54,7 +54,6 @@
 				"type": "washi-tape",
 				"id": "card-corner",
 				"content": {
-					"color": "#fabf47",
 					"rotation": -25,
 					"length": 280
 				},

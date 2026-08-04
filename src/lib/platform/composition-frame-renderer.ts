@@ -3,7 +3,7 @@ import {
 	edgeTreatmentPass,
 	type EdgeTreatmentTarget
 } from '$lib/pipelines/shader-passes/edge-treatment';
-import { hexToRgbaFloat } from '$lib/utils/color';
+import { cssColorToRgbaFloat, hexToRgbaFloat } from '$lib/utils/color';
 import { clampNumber } from '$lib/utils/math';
 import { measureOverlayBoundsPx } from '$lib/utils/overlay-bounds';
 import type { Effect, EngineState } from './engine-schema';
@@ -12,6 +12,7 @@ import type { PackManifest } from './packs/types';
 import {
 	resolveAppearanceVars,
 	resolveBackgroundFill,
+	resolvePackRoleColor,
 	resolveDepthTreatment,
 	resolveEdgeTreatment,
 	resolveLightTreatment,
@@ -230,18 +231,25 @@ function prepareFramePackTreatments(
 		if (treatment && treatment.mode !== 'none') {
 			let shadow: EdgeTreatmentTarget['shadow'] = null;
 			if (treatment.mode === 'torn' || treatment.mode === 'irregular') {
-				const inkHex = isAppearanceSlotPackClaimable(surfaceKey, 'ink')
-					? (resolveAppearanceVars(pack, state.surface.type)['--ink'] ?? '#000000')
-					: (surfaceRenderer.substrateColors?.inkHex ?? '#000000');
+				// The depth rig is CLAIMABLE chrome even on a substrate-immune
+				// document (ADR-0039 §2), so its `'fg'` sentinel resolves the
+				// PACK's ink voice — `<type>.ink` → core ink-treatment — never the
+				// immune document ink (identical hexes under syntax; phosphor, not
+				// newsprint, under crt-terminal's glow).
+				const inkHex = resolvePackRoleColor(pack, `${state.surface.type}.ink`, 'ink-treatment');
 				const rig = resolveDepthTreatment(pack, state.surface.type, inkHex);
-				if (rig?.kind === 'hardOffset') {
+				if (rig !== null) {
 					let rgba: [number, number, number, number];
 					try {
-						rgba = hexToRgbaFloat(rig.color);
+						rgba = cssColorToRgbaFloat(rig.color);
 					} catch {
 						rgba = [0, 0, 0, 1];
 					}
-					shadow = { dx: rig.dx, dy: rig.dy, rgb: [rgba[0], rgba[1], rgba[2]] };
+					const rgb: [number, number, number] = [rgba[0], rgba[1], rgba[2]];
+					shadow =
+						rig.kind === 'hardOffset'
+							? { kind: 'offset', dx: rig.dx, dy: rig.dy, rgb, strength: rgba[3] }
+							: { kind: 'glow', radiusPx: rig.radius, intensity: rig.intensity, rgb };
 				}
 			}
 			edgeTarget = {

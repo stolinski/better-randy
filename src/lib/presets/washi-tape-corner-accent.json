@@ -45,7 +45,6 @@
 				"type": "washi-tape",
 				"id": "tape-tl",
 				"content": {
-					"color": "#fabf47",
 					"rotation": 18,
 					"length": 400
 				},
