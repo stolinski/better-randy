@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Docu timeline build — the road to ES modules",
-	"description": "ADR-0036 timeline reflow stress case: three eras of JS module loading draw chronologically as proportional timeline segments, with year markers, era labels, and real supporting content. One Preset reflows the horizontal axis into a top-to-bottom vertical rail through complete Diagram position, scale, and endpoint overrides; content and Cascade timing remain shared. The full-frame dark graphic keeps the all-mono signature thread while stroke and label appearance resolve through Pack Roles.",
+	"description": "ADR-0036 timeline reflow stress case: three eras of JS module loading draw chronologically as proportional timeline segments, with year markers, era labels, and real supporting content. One Preset reflows the horizontal axis into a top-to-bottom vertical rail through complete Diagram position, scale, and endpoint overrides; content and Cascade timing remain shared. The full-frame field, stroke, and label appearance resolve through Pack Roles while the all-mono signature thread remains intrinsic.",
 	"kind": "deliverable",
 	"pack": "syntax",
 	"state": {
@@ -13,9 +13,7 @@
 		},
 		"backgroundFill": "pack",
 		"typography": {
-			"fontFamily": "mono",
-			"paperColor": "#141413",
-			"inkColor": "#f7f6f2"
+			"fontFamily": "mono"
 		},
 		"marks": {
 			"defaults": {},

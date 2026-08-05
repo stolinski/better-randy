@@ -26,6 +26,15 @@ const PlanningResourceSchema = z.object({
 	ideaDocs: z.number(),
 	presets: z.number(),
 	dexOpenTasks: z.number(),
+	runway: z.object({
+		activeTaskId: z.string().nullable(),
+		activeTaskName: z.string().nullable(),
+		activeEpicId: z.string().nullable(),
+		nextTaskId: z.string().nullable(),
+		nextTaskName: z.string().nullable(),
+		topPriority: z.number().nullable(),
+		readyLeafCount: z.number()
+	}),
 	findings: z.array(PlanningFindingSchema),
 	advisories: z.array(PlanningFindingSchema),
 	crash: z.string().nullable(),
@@ -98,6 +107,10 @@ export const report = {
 			`- **Clean**: ${parsed.clean}`,
 			`- **Generated**: ${parsed.generatedAt}`,
 			`- **Scope**: ${parsed.adrDocs} ADRs, ${parsed.briefDocs} Briefs, ${parsed.ideaDocs} ideas, ${parsed.presets} presets, ${parsed.dexOpenTasks} open dex tasks`,
+			`- **Active work**: ${parsed.runway.activeTaskId ? `${parsed.runway.activeTaskId} — ${parsed.runway.activeTaskName}` : 'none'}`,
+			`- **Active epic**: ${parsed.runway.activeEpicId ?? 'none'}`,
+			`- **Next work**: ${parsed.runway.nextTaskId ? `${parsed.runway.nextTaskId} — ${parsed.runway.nextTaskName}` : 'none'}`,
+			`- **Ready leaves**: ${parsed.runway.readyLeafCount}`,
 			parsed.crash ? `- **Crash**: ${parsed.crash}` : null
 		]
 			.filter((line): line is string => line !== null)

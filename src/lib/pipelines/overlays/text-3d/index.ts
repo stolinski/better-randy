@@ -42,5 +42,6 @@ export const text3dOverlayRenderer: OverlayRenderer<Text3dContent> = {
 	schema: Text3dContentSchema,
 	defaults,
 	CanvasSource,
-	Editor
+	Editor,
+	fieldInkOnBackground: true
 };

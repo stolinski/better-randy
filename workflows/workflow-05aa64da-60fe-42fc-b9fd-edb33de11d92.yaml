@@ -1,0 +1,89 @@
+id: 05aa64da-60fe-42fc-b9fd-edb33de11d92
+name: factory-classify-change
+description: Classify trusted Git changes and record correlated Factory products.
+tags:
+  purpose: factory-change-classification
+inputs:
+  type: object
+  required: [workItem]
+  additionalProperties: false
+  properties:
+    workItem:
+      type: string
+      minLength: 1
+jobs:
+  - name: main
+    description: Keep classification and both Factory writes in one correlated workflow run.
+    steps:
+      - name: classify-change
+        description: Classify baseline-to-HEAD and working-tree paths for this work item.
+        task:
+          type: model_method
+          modelIdOrName: repo-audit
+          methodName: classify-change
+          inputs:
+            workItem: '${{ inputs.workItem }}'
+        dependsOn: []
+        weight: 0
+        allowFailure: false
+      - name: record-change-impact
+        description: Record the exact repo-audit resource produced by this workflow run.
+        task:
+          type: model_method
+          modelIdOrName: supers-delivery
+          methodName: record_artifact
+          inputs:
+            workItem: '${{ inputs.workItem }}'
+            name: change-impact
+            payload:
+              audit: >-
+                ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.audit }}
+              generatedAt: >-
+                ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.generatedAt }}
+              source: >-
+                ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.source }}
+              workItem: '${{ inputs.workItem }}'
+              baselineHead: >-
+                ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.baselineHead }}
+              treeFingerprint: >-
+                ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.treeFingerprint }}
+              changeFingerprint: >-
+                ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.treeFingerprint }}
+              paths: >-
+                ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.paths }}
+              lanes: >-
+                ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.lanes }}
+              requiredLanes: >-
+                ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.lanes }}
+              visualReviewCandidate: >-
+                ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.visualReviewCandidate }}
+              reviewCandidate: >-
+                ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.visualReviewCandidate }}
+        dependsOn:
+          - step: classify-change
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+      - name: record-classify-evidence
+        description: Record classification evidence only after the artifact write succeeds.
+        task:
+          type: model_method
+          modelIdOrName: supers-delivery
+          methodName: record_evidence
+          inputs:
+            workItem: '${{ inputs.workItem }}'
+            name: classify-run
+            payload:
+              status: succeeded
+              runId: '${{ run.id }}'
+              workflow: factory-classify-change
+        dependsOn:
+          - step: record-change-impact
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+    dependsOn: []
+    weight: 0
+version: 1

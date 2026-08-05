@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Wake conversation flow",
-	"description": "A simplified six-state flowchart for Reachy Mini's wake and conversation loop. Two clean rows separate passive listening from continuous conversation; success moves through the center while retry and sleep-return paths stay on the perimeter. Syntax chrome is limited to mono labels, flat bordered nodes, stepped depth, and yellow decision states. Physical-document treatments and composition effects are intentionally omitted to keep the chart readable.",
+	"description": "A simplified six-state flowchart for Reachy Mini's wake and conversation loop. Two clean rows separate passive listening from continuous conversation; success moves through the center while retry and sleep-return paths stay on the perimeter. Pack chrome is limited to label voice, bordered nodes, depth, and accent decision states. Physical-document treatments and composition effects are intentionally omitted to keep the chart readable.",
 	"pack": "syntax",
 	"kind": "deliverable",
 	"state": {
@@ -13,8 +13,7 @@
 		},
 		"backgroundFill": "pack",
 		"typography": {
-			"fontFamily": "mono",
-			"inkColor": "#f7f6f2"
+			"fontFamily": "mono"
 		},
 		"marks": {
 			"defaults": {},

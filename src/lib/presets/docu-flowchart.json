@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Docu flowchart — how your code ships",
-	"description": "The 'how X works' documentary flowchart (ADR-0036 §6, pure-primitive test): a four-node Commit → Build → Test → Deploy chain revealed in strict reading order via Cascade welds. One Preset reflows from a horizontal chain into a vertical zigzag through complete Diagram geometry overrides: nodes reposition, straight edges become authored elbows, while content and choreography stay shared. Full-frame piece: backgroundFill is the dark field, ink is warm off-white, and the mono voice carries the signature thread.",
+	"description": "The 'how X works' documentary flowchart (ADR-0036 §6, pure-primitive test): a four-node Commit → Build → Test → Deploy chain revealed in strict reading order via Cascade welds. One Preset reflows from a horizontal chain into a vertical zigzag through complete Diagram geometry overrides: nodes reposition, straight edges become authored elbows, while content and choreography stay shared. The full-frame field and paired ink resolve from the active Pack; the mono voice carries the signature thread.",
 	"pack": "syntax",
 	"kind": "deliverable",
 	"state": {
@@ -13,9 +13,7 @@
 		},
 		"backgroundFill": "pack",
 		"typography": {
-			"fontFamily": "mono",
-			"paperColor": "#14141a",
-			"inkColor": "#f4ecdc"
+			"fontFamily": "mono"
 		},
 		"marks": {
 			"defaults": {},

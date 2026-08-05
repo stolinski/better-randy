@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Text 3D — channel spin",
-	"description": "Channel bumper using the cylinder-axis-y variant: 'SYNTAX' wraps onto a Y-axis cylinder that spins 90° across the 6-second timeline. Back-facing glyphs self-occlude; front-facing glyphs attenuate by cos(angle) producing a smooth brightness falloff toward the cylinder sides. Yellow ink on deep-black substrate. Demonstrates the text-3d pipeline's per-glyph lighting and self-occlusion — geometry impossible with CSS 3D on a flat plane.",
+	"description": "Channel bumper using the cylinder-axis-y variant: 'SYNTAX' wraps onto a Y-axis cylinder that spins 90° across the 6-second timeline. Back-facing glyphs self-occlude; front-facing glyphs attenuate by cos(angle) producing a smooth brightness falloff toward the cylinder sides. The active Pack pairs the glyph ink with its full-frame field. Demonstrates the text-3d pipeline's per-glyph lighting and self-occlusion — geometry impossible with CSS 3D on a flat plane.",
 	"pack": "syntax",
 	"state": {
 		"transport": {
@@ -12,9 +12,7 @@
 		},
 		"backgroundFill": "pack",
 		"typography": {
-			"fontFamily": "sans",
-			"paperColor": "#000000",
-			"inkColor": "#fabf47"
+			"fontFamily": "sans"
 		},
 		"marks": {
 			"defaults": {},

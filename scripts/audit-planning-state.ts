@@ -124,7 +124,19 @@ function readDexTasks(): PlanningDexTask[] {
 }
 
 let crash: string | null = null;
-let result: PlanningStateCheckResult = { findings: [], advisories: [] };
+let result: PlanningStateCheckResult = {
+	findings: [],
+	advisories: [],
+	runway: {
+		activeTaskId: null,
+		activeTaskName: null,
+		activeEpicId: null,
+		nextTaskId: null,
+		nextTaskName: null,
+		topPriority: null,
+		readyLeafCount: 0
+	}
+};
 let counts = { adrDocs: 0, briefDocs: 0, ideaDocs: 0, presets: 0, dexOpenTasks: 0 };
 
 try {
@@ -165,6 +177,7 @@ const report = {
 	audit: 'planning-state',
 	generatedAt: new Date().toISOString(),
 	...counts,
+	runway: result.runway,
 	findings: result.findings,
 	advisories: result.advisories,
 	crash

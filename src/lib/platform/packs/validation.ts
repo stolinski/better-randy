@@ -1,5 +1,6 @@
 import { PIPELINE_REGISTRY } from '../pipelines';
 import { validatePackCoreVocabulary } from '../pipelines/identity-registry';
+import { isColorValue } from './resolve';
 import type { PackFont, PackManifest } from './types';
 
 export interface PackValidationIssue {
@@ -208,6 +209,20 @@ export function validatePackManifest(
 			path: ['roles', error.role],
 			kind: 'invalid-core-role',
 			message: error.message
+		});
+	}
+	const fieldInkRole = manifest.roles['field-ink-treatment'];
+	if (
+		fieldInkRole !== undefined &&
+		(fieldInkRole.kind !== 'style' ||
+			typeof fieldInkRole.value !== 'string' ||
+			!isColorValue(fieldInkRole.value))
+	) {
+		issues.push({
+			pack: registryKey,
+			path: ['roles', 'field-ink-treatment'],
+			kind: 'invalid-core-role',
+			message: 'Pack role "field-ink-treatment" must be a style role containing a CSS colour'
 		});
 	}
 

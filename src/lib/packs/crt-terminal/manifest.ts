@@ -52,6 +52,7 @@ export const crtTerminalPack: PackManifest = {
 		// field are the same glass — separation is phosphor drive, never fill
 		// contrast.
 		'field-treatment': { kind: 'style', value: '#070b08' },
+		'field-ink-treatment': { kind: 'style', value: '#45ff6e' },
 		// Hard pixel edges: a screen silhouette is exactly as rasterized — no
 		// torn fiber, no soft feather.
 		'edge-treatment': { kind: 'style', value: 'none' },

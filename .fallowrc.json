@@ -1,5 +1,18 @@
 {
 	"$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+	"entry": [
+		"scripts/audit-change-impact.ts",
+		"scripts/materialize-dex-software-factory.ts",
+		"scripts/materialize-dex-software-factory.test.ts",
+		"scripts/dex-software-factory-portability.test.ts",
+		"extensions/models/repo-audit.ts",
+		"extensions/models/dex-task-tracker.ts",
+		"extensions/models/dex-task-tracker.test.ts",
+		"extensions/models/dex-software-factory.ts",
+		"extensions/models/dex-software-factory.test.ts",
+		"extensions/models/factory-sentry-metrics.ts",
+		"extensions/models/factory-sentry-metrics.test.ts"
+	],
 	"ignorePatterns": [
 		"**/worker-configuration.d.ts",
 		"src/lib/text-animations/raw-catalog-bundle.ts"

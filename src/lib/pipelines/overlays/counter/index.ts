@@ -44,5 +44,6 @@ export const counterOverlayRenderer: OverlayRenderer<CounterContent> = {
 	schema: CounterContentSchema,
 	defaults,
 	CanvasSource,
-	Editor
+	Editor,
+	fieldInkOnBackground: true
 };

@@ -1,0 +1,169 @@
+# Feature factory: plan → adversarial plan review (architecture +
+# accessibility) → implement → verified test workflow → adversarial code
+# review (same skills) → done, with loop-backs to implementation at every
+# review/test stage and human approval gates at plan and ship.
+#
+# This is the walkthrough factory from DESIGN.md. It exercises every
+# mechanism: dual-skill dispatch reviews, a zero-LLM workflow stage with
+# verified outcomes, freshness-forced re-review, cycle limits, and a global
+# abort.
+#
+# Usage:
+#   swamp model create @swamp/software-factory my-feature
+#   swamp model edit my-feature   # paste under globalArguments; point the
+#                                 # testing workflow at a real one
+#   swamp model method run my-feature start --input workItem=<your-ref>
+#
+# Recommended in the definition file (top level, sibling of globalArguments)
+# so the work-item-summary report only persists after `summary`:
+#   reports:
+#     require:
+#       - { name: "@swamp/software-factory/work-item-summary", methods: [summary] }
+stages:
+  - id: planning
+    initial: true
+    description: Produce an implementation plan from the work item.
+    work:
+      mode: interactive
+      skills: [planning]
+      constraints: agent-constraints/planning-conventions.md
+    artifacts:
+      - name: plan
+        schema:
+          type: object
+          required: [summary, steps, testingStrategy]
+          properties:
+            summary: { type: string, minLength: 1 }
+            steps:
+              type: array
+              minItems: 1
+              items:
+                type: object
+                required: [description]
+                properties:
+                  description: { type: string }
+                  files: { type: array, items: { type: string } }
+            testingStrategy: { type: string }
+    transitions:
+      - name: submit
+        to: plan-review
+        gates:
+          - type: artifact-exists
+            config: { artifact: plan }
+
+  - id: plan-review
+    description: Adversarial review of the current plan.
+    work:
+      mode: dispatch
+      skills: [architecture, accessibility]
+      systemPrompt: |
+        You are an adversarial reviewer. Try to refute this plan:
+        ${{ data.latest(self.name, "artifact-plan").payload.summary }}
+        Record findings with severities; do not soften them.
+    artifacts:
+      - name: plan-review
+        kind: findings
+        reviews: plan
+    transitions:
+      - name: approve
+        to: implementing
+        gates:
+          - type: artifact-fresh
+            config: { artifact: plan-review, recordedThisCycle: true }
+          - type: findings-clear
+            config: { artifact: plan-review, blocking: [critical, high] }
+          - type: human-approval
+            config: { id: plan-approval }
+      - name: rework
+        to: planning
+
+  - id: implementing
+    description: The primary agent implements the approved plan.
+    work:
+      mode: interactive
+      skills: [implementation]
+      constraints: agent-constraints/implementation-conventions.md
+    artifacts:
+      - name: change-summary
+        schema:
+          type: object
+          required: [summary, headSha]
+          properties:
+            summary: { type: string }
+            headSha: { type: string, minLength: 7 }
+    evidence:
+      - name: change-request
+        schema:
+          type: object
+          required: [url, headSha]
+          properties:
+            url: { type: string, minLength: 1 }
+            headSha: { type: string, minLength: 7 }
+    transitions:
+      - name: submit
+        to: testing
+        gates:
+          - type: artifact-exists
+            config: { artifact: change-summary }
+          - type: evidence-recorded
+            config: { name: change-request }
+
+  - id: testing
+    description: Run the test suite against the current work. No LLM involved.
+    work:
+      mode: workflow
+      workflow:
+        name: "@acme/run-tests"
+        inputs:
+          ref: '${{ data.latest(self.name, "evidence-change-request").payload.headSha }}'
+      resultEvidence: test-run
+    transitions:
+      - name: pass
+        to: code-review
+        gates:
+          - type: workflow-succeeded
+            config: { workflow: "@acme/run-tests" }
+      - name: fail
+        to: implementing
+        gates:
+          - type: evidence-recorded
+            config: { name: test-run, requireField: { status: failed } }
+
+  - id: code-review
+    description: Adversarial review of the implemented change, same skills.
+    work:
+      mode: dispatch
+      skills: [architecture, accessibility]
+      systemPrompt: |
+        You are an adversarial reviewer. Review the change at
+        ${{ data.latest(self.name, "evidence-change-request").payload.url }}
+        against the plan. Record findings with severities.
+    artifacts:
+      - name: code-review
+        kind: findings
+        reviews: change-summary
+    transitions:
+      - name: accept
+        to: done
+        gates:
+          - type: artifact-fresh
+            config: { artifact: code-review, recordedThisCycle: true }
+          - type: findings-clear
+            config: { artifact: code-review, blocking: [critical, high] }
+          - type: human-approval
+            config: { id: ship-approval }
+      - name: rework
+        to: implementing
+
+  - id: done
+    terminal: true
+
+  - id: aborted
+    terminal: true
+
+globalTransitions:
+  - name: abort
+    to: aborted
+    gates:
+      - type: human-approval
+        config: { id: abort-confirmation }

@@ -99,6 +99,10 @@ expectIssue((pack) => {
 }, 'invalid-core-role');
 
 expectIssue((pack) => {
+	pack.roles['field-ink-treatment'] = { kind: 'style', value: 'not-a-color' };
+}, 'invalid-core-role');
+
+expectIssue((pack) => {
 	pack.roles['font-treatment'] = { kind: 'style', value: "'Missing Face', sans-serif" };
 }, 'undeclared-font-family');
 

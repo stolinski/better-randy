@@ -1,0 +1,168 @@
+# Classic SDLC factory: plan → adversarial plan review → implement →
+# comprehensive testing → release → UAT → done. The lifecycle from the
+# original design brief — adversarial review, comprehensive testing,
+# release, and UAT stages — expressed as configuration, not code.
+#
+# Usage:
+#   swamp model create @swamp/software-factory my-sdlc-run
+#   swamp model edit my-sdlc-run  # paste under globalArguments; point the
+#                                 # testing workflow at a real one
+#   swamp model method run my-sdlc-run start --input workItem=<your-ref>
+#
+# Recommended in the definition file (top level, sibling of globalArguments)
+# so the work-item-summary report only persists after `summary`:
+#   reports:
+#     require:
+#       - { name: "@swamp/software-factory/work-item-summary", methods: [summary] }
+stages:
+  - id: planning
+    initial: true
+    work:
+      mode: interactive
+      skills: [planning]
+    artifacts:
+      - name: plan
+        schema:
+          type: object
+          required: [summary, steps, testingStrategy]
+          properties:
+            summary: { type: string }
+            steps: { type: array, minItems: 1 }
+            testingStrategy: { type: string }
+    transitions:
+      - name: submit
+        to: plan-review
+        gates:
+          - type: artifact-exists
+            config: { artifact: plan }
+
+  - id: plan-review
+    work:
+      mode: dispatch
+      skills: [adversarial-review, security-review]
+      systemPrompt: |
+        Adversarially review this plan. Your job is to refute it.
+        Record findings with severities.
+    artifacts:
+      - name: plan-review
+        kind: findings
+        reviews: plan
+    transitions:
+      - name: approve
+        to: implementing
+        gates:
+          - type: artifact-fresh
+            config: { artifact: plan-review, recordedThisCycle: true }
+          - type: findings-clear
+            config: { artifact: plan-review, blocking: [critical, high] }
+          - type: human-approval
+            config: { id: plan-approval }
+      - name: rework
+        to: planning
+
+  - id: implementing
+    work:
+      mode: interactive
+      skills: [implementation]
+    artifacts:
+      - name: change-summary
+        schema:
+          type: object
+          required: [summary]
+          properties:
+            summary: { type: string }
+    evidence:
+      - name: change-request
+        schema:
+          type: object
+          required: [branch]
+          properties:
+            branch: { type: string, minLength: 1 }
+            url: { type: string }
+    transitions:
+      - name: submit
+        to: testing
+        gates:
+          - type: evidence-recorded
+            config: { name: change-request }
+
+  - id: testing
+    description: Comprehensive test matrix, verified against platform records.
+    work:
+      mode: workflow
+      workflow:
+        name: "@acme/test-suite"
+        inputs:
+          ref: '${{ data.latest(self.name, "evidence-change-request").payload.branch }}'
+      resultEvidence: test-run
+    transitions:
+      - name: pass
+        to: releasing
+        gates:
+          - type: workflow-succeeded
+            config: { workflow: "@acme/test-suite" }
+      - name: fail
+        to: implementing
+        gates:
+          - type: evidence-recorded
+            config: { name: test-run, requireField: { status: failed } }
+
+  - id: releasing
+    work:
+      mode: interactive
+      skills: [release]
+    evidence:
+      - name: release
+        schema:
+          type: object
+          required: [url]
+          properties:
+            url: { type: string, minLength: 1 }
+            version: { type: string }
+    transitions:
+      - name: released
+        to: uat
+        gates:
+          - type: evidence-recorded
+            config: { name: release }
+          - type: cooldown
+            config: { afterEvidence: release, seconds: 180 }
+
+  - id: uat
+    description: User acceptance testing against the released build.
+    work:
+      mode: interactive
+      skills: [uat]
+    artifacts:
+      - name: uat-report
+        kind: findings
+    transitions:
+      - name: accept
+        to: done
+        gates:
+          - type: findings-clear
+            config: { artifact: uat-report, blocking: [critical, high] }
+          - type: cel
+            config:
+              expr: 'size(artifacts.uat_report.findings) >= 1'
+              message: >-
+                UAT must record at least one finding entry (use severity: low
+                informational entries for a clean pass) so an empty report
+                cannot be mistaken for a thorough one.
+          - type: human-approval
+            config: { id: uat-signoff }
+      - name: reject
+        to: implementing
+
+  - id: done
+    terminal: true
+
+  - id: aborted
+    terminal: true
+
+globalTransitions:
+  - name: abort
+    to: aborted
+    gates:
+      - type: human-approval
+        config: { id: abort-confirmation }

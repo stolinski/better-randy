@@ -106,6 +106,15 @@ test('clean baseline produces no findings and no advisories', () => {
 	const result = runPlanningStateChecks(cleanInputs());
 	assert.deepEqual(result.findings, []);
 	assert.deepEqual(result.advisories, []);
+	assert.deepEqual(result.runway, {
+		activeTaskId: null,
+		activeTaskName: null,
+		activeEpicId: 'epicroot',
+		nextTaskId: 'leafnext',
+		nextTaskName: 'Next strategic move',
+		topPriority: 1,
+		readyLeafCount: 2
+	});
 });
 
 test('classifyAdrStatus prefix-matches and ignores qualifier text', () => {
@@ -315,4 +324,19 @@ test('a started leaf counts as being worked, not as a co-equal next move', () =>
 	inputs.dexTasks.push(dexTask({ id: 'activeleaf', started: true, name: 'In-flight work' }));
 	const result = runPlanningStateChecks(inputs);
 	assert.deepEqual(result.findings, []);
+	assert.equal(result.runway.activeTaskId, 'activeleaf');
+	assert.equal(result.runway.activeEpicId, 'activeleaf');
+	assert.equal(result.runway.nextTaskId, 'leafnext');
+});
+
+test('multiple started leaves break the factory WIP limit', () => {
+	const inputs = cleanInputs();
+	inputs.dexTasks.push(
+		dexTask({ id: 'activeone', started: true, name: 'First active leaf' }),
+		dexTask({ id: 'activetwo', started: true, name: 'Second active leaf' })
+	);
+	const result = runPlanningStateChecks(inputs);
+	assert.equal(result.findings.length, 1);
+	assert.equal(result.findings[0].check, 'dex-active-work');
+	assert.equal(result.runway.activeTaskId, null);
 });

@@ -4,3 +4,6 @@ repoId: cca5497b-b87c-4f57-81be-4fe61d5e31c3
 tools:
   - claude
 gitignoreManaged: true
+trustedCollectives:
+  - swamp
+  - mgreten

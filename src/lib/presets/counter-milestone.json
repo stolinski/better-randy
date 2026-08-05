@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Counter — one million",
-	"description": "Slot-machine roll counter climbing from 0 to 1,000,000 over the full 6-second timeline. Per-digit columns roll independently with expo-out easing so the roll decelerates into the final value. Yellow tabular-numeral display on deep-black substrate. Demonstrates the counter pipeline's slot-machine-roll variant and large integer formatting at 3840×2160.",
+	"description": "Slot-machine roll counter climbing from 0 to 1,000,000 over the full 6-second timeline. Per-digit columns roll independently with expo-out easing so the roll decelerates into the final value. The tabular-numeral display uses the active Pack's field-paired ink. Demonstrates the counter pipeline's slot-machine-roll variant and large integer formatting at 3840×2160.",
 	"pack": "syntax",
 	"state": {
 		"transport": {
@@ -12,9 +12,7 @@
 		},
 		"backgroundFill": "pack",
 		"typography": {
-			"fontFamily": "sans",
-			"paperColor": "#000000",
-			"inkColor": "#fabf47"
+			"fontFamily": "sans"
 		},
 		"marks": {
 			"defaults": {},

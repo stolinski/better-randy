@@ -1,0 +1,652 @@
+type: '@swamp/software-factory'
+typeVersion: 2026.06.24.1
+version: 6
+globalArguments:
+  stages:
+    - id: preflight
+      initial: true
+      description: Run the consumer policy adapter before implementation.
+      maxDispatchesPerCycle: 2
+      work:
+        mode: workflow
+        workflow:
+          name: factory-policy-sweep
+          inputs:
+            workItem: '${{ self.workItem }}'
+            evidenceName: preflight-run
+        inputsSchema:
+          type: object
+          properties:
+            workItem:
+              type: string
+              minLength: 1
+            evidenceName:
+              type: string
+              enum:
+                - preflight-run
+          required:
+            - workItem
+            - evidenceName
+          additionalProperties: false
+        resultEvidence: preflight-run
+      transitions:
+        - name: implement
+          to: implementation
+          gates:
+            - type: workflow-succeeded
+              config:
+                workflow: factory-policy-sweep
+                requireStepOutputs:
+                  - evidence-preflight-run
+    - id: implementation
+      description: Implement the current Dex work item and record a compact change summary.
+      maxCycles: 5
+      maxDispatchesPerCycle: 2
+      work:
+        mode: interactive
+        systemPrompt: >-
+          Implement only the current Dex work item. Follow repository guidance already loaded by the
+          agent. Complete required source, documentation, and tracker-file edits before
+          classification. Record a compact summary plus every materially changed visual target.
+      artifacts:
+        - name: change-summary
+          description: Compact implementation summary used as the classification subject.
+          schema:
+            type: object
+            required:
+              - summary
+              - visualTargets
+            properties:
+              summary:
+                type: string
+                minLength: 1
+              visualTargets:
+                type: array
+                items:
+                  type: string
+                  minLength: 1
+              commit:
+                type: string
+                minLength: 7
+      transitions:
+        - name: classify
+          to: classify
+          gates:
+            - type: artifact-exists
+              config:
+                artifact: change-summary
+    - id: classify
+      description: 'Derive a trusted, complete verification plan through the consumer adapter.'
+      maxDispatchesPerCycle: 2
+      work:
+        mode: workflow
+        workflow:
+          name: factory-classify-change
+          inputs:
+            workItem: '${{ self.workItem }}'
+        inputsSchema:
+          type: object
+          properties:
+            workItem:
+              type: string
+              minLength: 1
+          required:
+            - workItem
+          additionalProperties: false
+        resultEvidence: classify-run
+      artifacts:
+        - name: change-impact
+          description: Trusted classification and complete verification plan for the current change.
+          reviews: change-summary
+          schema:
+            type: object
+            required:
+              - requiredLanes
+              - reviewCandidate
+              - changeFingerprint
+              - audit
+              - generatedAt
+              - source
+              - workItem
+              - baselineHead
+              - treeFingerprint
+              - paths
+              - lanes
+              - visualReviewCandidate
+            properties:
+              requiredLanes:
+                type: array
+                minItems: 1
+                items:
+                  type: object
+                  required:
+                    - id
+                    - reasons
+                  properties:
+                    id:
+                      type: string
+                      minLength: 1
+                    reasons:
+                      type: array
+                      minItems: 1
+                      items:
+                        type: string
+                        minLength: 1
+              reviewCandidate:
+                type: boolean
+              changeFingerprint:
+                type: string
+                minLength: 1
+              audit:
+                type: string
+                enum:
+                  - change-impact
+              generatedAt:
+                type: string
+              source:
+                type: string
+                enum:
+                  - git-baseline-and-working-tree
+              workItem:
+                type: string
+                minLength: 1
+              baselineHead:
+                type: string
+                pattern: '^[0-9a-f]{40,64}$'
+              treeFingerprint:
+                type: string
+                pattern: '^[0-9a-f]{64}$'
+              paths:
+                type: array
+                items:
+                  type: string
+              lanes:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    reasons:
+                      type: array
+                      items:
+                        type: string
+                      minItems: 1
+                  required:
+                    - id
+                    - reasons
+                minItems: 1
+              visualReviewCandidate:
+                type: boolean
+      transitions:
+        - name: verify
+          to: verification
+          gates:
+            - type: workflow-succeeded
+              config:
+                workflow: factory-classify-change
+                requireStepOutputs:
+                  - artifact-change-impact
+                  - evidence-classify-run
+            - type: artifact-fresh
+              config:
+                artifact: change-impact
+                recordedThisCycle: true
+    - id: verification
+      description: Execute every classified lane and record an exact next-stage dispatch.
+      maxCycles: 5
+      maxDispatchesPerCycle: 2
+      work:
+        mode: interactive
+        systemPrompt: >-
+          Execute every lane in change-impact using the repository deterministic commands. Reuse
+          native captures and probes. Record one unique outcome for every required lane. Set
+          materialPixelChange from pixel evidence only. Set reviewRequired only for changed pixels
+          with visual targets. Route failed, unavailable, or contradictory evidence to rework,
+          changed pixels to review, and unchanged pixels to reconciliation.
+      artifacts:
+        - name: verification
+          description: One explicit outcome per required lane and an exact next-stage dispatch.
+          reviews: change-impact
+          schema:
+            type: object
+            required:
+              - status
+              - executedLanes
+              - reviewRequired
+              - nextStep
+              - summary
+              - materialPixelChange
+            properties:
+              status:
+                type: string
+                enum:
+                  - passed
+                  - failed
+                  - unavailable
+              executedLanes:
+                type: array
+                minItems: 1
+                items:
+                  type: object
+                  required:
+                    - id
+                    - status
+                    - evidence
+                  properties:
+                    id:
+                      type: string
+                      minLength: 1
+                    status:
+                      type: string
+                      enum:
+                        - passed
+                        - failed
+                        - unavailable
+                    evidence:
+                      type: string
+                      minLength: 1
+              reviewRequired:
+                type: boolean
+              nextStep:
+                type: string
+                enum:
+                  - rework
+                  - review
+                  - reconcile
+              summary:
+                type: string
+                minLength: 1
+              materialPixelChange:
+                type: string
+                enum:
+                  - changed
+                  - unchanged
+                  - unavailable
+      transitions:
+        - name: rework
+          to: implementation
+          gates:
+            - type: artifact-fresh
+              config:
+                artifact: verification
+                recordedThisCycle: true
+            - type: cel
+              config:
+                expr: >-
+                  size(artifacts.verification.executedLanes) ==
+                  size(artifacts.change_impact.requiredLanes) &&
+                  artifacts.change_impact.requiredLanes.all(required,
+                  artifacts.verification.executedLanes.exists(executed, executed.id == required.id))
+                  && artifacts.verification.executedLanes.all(executed,
+                  size(artifacts.verification.executedLanes.filter(candidate, candidate.id ==
+                  executed.id)) == 1) && artifacts.verification.nextStep == "rework" &&
+                  ((artifacts.verification.status != "passed" ||
+                  artifacts.verification.executedLanes.exists(lane, lane.status != "passed")) ||
+                  (artifacts.verification.materialPixelChange == "unavailable" ||
+                  (artifacts.verification.materialPixelChange == "changed" &&
+                  size(artifacts.change_summary.visualTargets) == 0)))
+                message: >-
+                  rework requires complete lane coverage, an explicit non-passing result, and
+                  nextStep=rework
+        - name: review
+          to: review
+          gates:
+            - type: artifact-fresh
+              config:
+                artifact: verification
+                recordedThisCycle: true
+            - type: cel
+              config:
+                expr: >-
+                  (size(artifacts.verification.executedLanes) ==
+                  size(artifacts.change_impact.requiredLanes) &&
+                  artifacts.change_impact.requiredLanes.all(required,
+                  artifacts.verification.executedLanes.exists(executed, executed.id == required.id))
+                  && artifacts.verification.executedLanes.all(executed,
+                  size(artifacts.verification.executedLanes.filter(candidate, candidate.id ==
+                  executed.id)) == 1) && artifacts.verification.status == "passed" &&
+                  artifacts.verification.executedLanes.all(lane, lane.status == "passed") &&
+                  artifacts.verification.reviewRequired && artifacts.verification.nextStep ==
+                  "review") && (artifacts.verification.materialPixelChange == "changed" &&
+                  size(artifacts.change_summary.visualTargets) > 0)
+                message: >-
+                  review requires complete passing verification, reviewRequired=true, and
+                  nextStep=review
+        - name: reconcile
+          to: reconciliation
+          gates:
+            - type: artifact-fresh
+              config:
+                artifact: verification
+                recordedThisCycle: true
+            - type: cel
+              config:
+                expr: >-
+                  (size(artifacts.verification.executedLanes) ==
+                  size(artifacts.change_impact.requiredLanes) &&
+                  artifacts.change_impact.requiredLanes.all(required,
+                  artifacts.verification.executedLanes.exists(executed, executed.id == required.id))
+                  && artifacts.verification.executedLanes.all(executed,
+                  size(artifacts.verification.executedLanes.filter(candidate, candidate.id ==
+                  executed.id)) == 1) && artifacts.verification.status == "passed" &&
+                  artifacts.verification.executedLanes.all(lane, lane.status == "passed") &&
+                  !artifacts.verification.reviewRequired && artifacts.verification.nextStep ==
+                  "reconcile") && (artifacts.verification.materialPixelChange == "unchanged")
+                message: >-
+                  reconciliation requires complete passing verification, reviewRequired=false, and
+                  nextStep=reconcile
+    - id: review
+      description: Review the verified change and retain both findings and a route verdict.
+      maxCycles: 5
+      maxDispatchesPerCycle: 2
+      work:
+        mode: dispatch
+        skills:
+          - critic
+        systemPrompt: >-
+          Review only visualTargets from change-summary. Use sanctioned native captures and machine
+          probes. Technical defects are critical or high; aesthetic observations are low and
+          human-owned. Record blockers in visual-review. Record visual-verdict with status matching
+          recommendation, plus summary and concrete evidence references.
+        context:
+          inject:
+            - change-summary
+            - change-impact
+            - verification
+      artifacts:
+        - name: visual-review
+          kind: findings
+          reviews: verification
+        - name: visual-verdict
+          reviews: verification
+          schema:
+            type: object
+            required:
+              - status
+              - summary
+              - recommendation
+              - evidence
+            properties:
+              status:
+                type: string
+                enum:
+                  - accept
+                  - revise
+              summary:
+                type: string
+                minLength: 1
+              recommendation:
+                type: string
+                enum:
+                  - accept
+                  - revise
+              evidence:
+                type: array
+                items:
+                  type: string
+                  minLength: 1
+                minItems: 1
+      transitions:
+        - name: rework
+          to: implementation
+          gates:
+            - type: artifact-fresh
+              config:
+                artifact: visual-review
+                recordedThisCycle: true
+            - type: artifact-fresh
+              config:
+                artifact: visual-verdict
+                recordedThisCycle: true
+            - type: cel
+              config:
+                expr: >-
+                  artifacts.visual_verdict.status == "revise" ||
+                  (size(artifacts.visual_review.findings.filter(f, !f.resolved && f.severity in
+                  ["critical", "high"])) > 0 || artifacts.visual_verdict.recommendation == "revise")
+                message: rework requires an explicit revise verdict
+        - name: accept
+          to: reconciliation
+          gates:
+            - type: artifact-fresh
+              config:
+                artifact: visual-review
+                recordedThisCycle: true
+            - type: artifact-fresh
+              config:
+                artifact: visual-verdict
+                recordedThisCycle: true
+            - type: findings-clear
+              config:
+                artifact: visual-review
+                blocking:
+                  - critical
+                  - high
+            - type: cel
+              config:
+                expr: >-
+                  (artifacts.visual_verdict.status == "accept") &&
+                  (artifacts.visual_verdict.recommendation == "accept")
+                message: acceptance requires an explicit accept verdict
+            - type: human-approval
+              config:
+                id: visual-acceptance
+        - name: human-revision
+          to: implementation
+          gates:
+            - type: artifact-fresh
+              config:
+                artifact: visual-review
+                recordedThisCycle: true
+            - type: artifact-fresh
+              config:
+                artifact: visual-verdict
+                recordedThisCycle: true
+            - type: cel
+              config:
+                expr: >-
+                  has(approvals.visual_acceptance) && approvals.visual_acceptance.exists(approval,
+                  approval.decision == "rejected")
+                message: human revision requires an explicit visual-acceptance rejection
+    - id: reconciliation
+      description: Confirm the terminal disposition and prepare exact Dex completion inputs.
+      maxCycles: 5
+      maxDispatchesPerCycle: 2
+      work:
+        mode: interactive
+        context:
+          inject:
+            - verification
+            - visual-verdict
+        systemPrompt: >-
+          Reconcile the verified result without mutating tracker state. Record nextStep=rework when
+          anything remains; otherwise record nextStep=complete with the exact Dex result and commit
+          decision.
+      artifacts:
+        - name: reconciliation
+          description: Terminal disposition and typed Dex completion inputs.
+          reviews: verification
+          schema:
+            type: object
+            required:
+              - status
+              - nextStep
+              - summary
+              - completionResult
+              - commit
+              - dexDisposition
+            properties:
+              status:
+                type: string
+                enum:
+                  - ready
+                  - needs-rework
+              nextStep:
+                type: string
+                enum:
+                  - rework
+                  - complete
+              summary:
+                type: string
+                minLength: 1
+              completionResult:
+                type: string
+                minLength: 1
+              commit:
+                type: object
+                required:
+                  - kind
+                properties:
+                  kind:
+                    type: string
+                    enum:
+                      - commit
+                      - noCommit
+                  sha:
+                    type: string
+                    pattern: '^[0-9a-fA-F]{7,40}$'
+              dexDisposition:
+                type: string
+                enum:
+                  - ready-for-completion
+                  - reframed
+      transitions:
+        - name: rework
+          to: implementation
+          gates:
+            - type: artifact-fresh
+              config:
+                artifact: reconciliation
+                recordedThisCycle: true
+            - type: cel
+              config:
+                expr: >-
+                  artifacts.reconciliation.status == "needs-rework" &&
+                  artifacts.reconciliation.nextStep == "rework"
+                message: rework requires status=needs-rework and nextStep=rework
+        - name: postflight
+          to: postflight
+          gates:
+            - type: artifact-fresh
+              config:
+                artifact: reconciliation
+                recordedThisCycle: true
+            - type: cel
+              config:
+                expr: >-
+                  artifacts.reconciliation.status == "ready" && artifacts.reconciliation.nextStep ==
+                  "complete"
+                message: postflight requires status=ready and nextStep=complete
+    - id: postflight
+      description: Run the consumer terminal policy adapter before tracker completion.
+      maxDispatchesPerCycle: 2
+      work:
+        mode: workflow
+        workflow:
+          name: factory-postflight-sweep
+          inputs:
+            workItem: '${{ self.workItem }}'
+            evidenceName: postflight-run
+            expectedFingerprint: '${{ data.latest(self.name, "artifact-change-impact").payload.changeFingerprint }}'
+        inputsSchema:
+          type: object
+          properties:
+            workItem:
+              type: string
+              minLength: 1
+            evidenceName:
+              type: string
+              enum:
+                - postflight-run
+            expectedFingerprint:
+              type: string
+              pattern: '^[0-9a-f]{64}$'
+          required:
+            - workItem
+            - evidenceName
+            - expectedFingerprint
+          additionalProperties: false
+        resultEvidence: postflight-run
+      transitions:
+        - name: cleanup
+          to: terminal-cleanup
+          gates:
+            - type: workflow-succeeded
+              config:
+                workflow: factory-postflight-sweep
+                requireStepOutputs:
+                  - evidence-postflight-run
+    - id: terminal-cleanup
+      description: Complete the Dex task only after reconciliation and successful postflight.
+      maxDispatchesPerCycle: 2
+      work:
+        mode: method
+        method:
+          modelIdOrName: supers-dex-task-tracker
+          methodName: complete
+          inputs:
+            taskId: '${{ self.workItem }}'
+            result: '${{ data.latest(self.name, "artifact-reconciliation").payload.completionResult }}'
+            commit: '${{ data.latest(self.name, "artifact-reconciliation").payload.commit }}'
+        inputsSchema:
+          type: object
+          required:
+            - taskId
+            - result
+            - commit
+          additionalProperties: false
+          properties:
+            taskId:
+              type: string
+              minLength: 1
+            result:
+              type: string
+              minLength: 1
+            commit:
+              type: object
+              required:
+                - kind
+              properties:
+                kind:
+                  type: string
+                  enum:
+                    - commit
+                    - noCommit
+                sha:
+                  type: string
+                  pattern: '^[0-9a-fA-F]{7,40}$'
+        resultEvidence: tracker-completion
+      transitions:
+        - name: finish
+          to: done
+          gates:
+            - type: evidence-recorded
+              config:
+                name: tracker-completion
+                requireField:
+                  status: succeeded
+    - id: done
+      terminal: true
+    - id: aborted
+      terminal: true
+  globalTransitions:
+    - name: abort
+      to: aborted
+      gates:
+        - type: human-approval
+          config:
+            id: abort-confirmation
+id: 90fac686-c724-4aee-97c4-e31b9af4c5e2
+name: supers-delivery
+tags:
+  purpose: supers-delivery
+reports:
+  require:
+    - name: '@swamp/software-factory/work-item-summary'
+      methods:
+        - summary
+    - name: '@mgreten/software-factory-flow-metrics'
+      methods:
+        - summary
+methods: {}

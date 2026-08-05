@@ -1,0 +1,27 @@
+# Minimal factory: one working stage, one gate, one terminal stage.
+#
+# Usage:
+#   swamp model create @swamp/software-factory my-run
+#   swamp model edit my-run     # paste this document under globalArguments
+#   swamp model method run my-run start --input workItem=<your-ref>
+stages:
+  - id: work
+    initial: true
+    description: Do the work and summarize it.
+    work:
+      mode: interactive
+    artifacts:
+      - name: summary
+        schema:
+          type: object
+          required: [text]
+          properties:
+            text: { type: string, minLength: 1 }
+    transitions:
+      - name: finish
+        to: done
+        gates:
+          - type: artifact-exists
+            config: { artifact: summary }
+  - id: done
+    terminal: true

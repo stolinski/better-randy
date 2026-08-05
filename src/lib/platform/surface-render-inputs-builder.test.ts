@@ -84,4 +84,30 @@ describe('buildSurfaceRenderInputs', () => {
 		assert.equal(inputs.diagram?.alphaById['label-one'], 0.7);
 		assert.equal(inputs.diagram?.primitives[0].id, 'label-one');
 	});
+
+	it('pairs diagram strokes with an opaque plain Surface field', () => {
+		const state = createDefaultEngineState();
+		state.surface.type = 'plain';
+		state.backgroundFill = 'pack';
+		state.surface.diagram = [
+			{
+				type: 'timeline-segment',
+				id: 'field-rule',
+				from: { x: 0.1, y: 0.5 },
+				to: { x: 0.9, y: 0.5 }
+			}
+		];
+		const inputs = buildSurfaceRenderInputs(
+			{
+				readState: () => state,
+				readAnimState: animationState,
+				readPack: () => getPack('syntax'),
+				readMarkColor: () => '#ff0000',
+				readTextAnimationAlpha: () => null
+			},
+			2
+		);
+
+		assert.equal(inputs.diagram?.stroke.color, '#f7f6f2');
+	});
 });

@@ -347,4 +347,52 @@ describe('preset rubric', () => {
 		distinct.state.backgroundFill = 'pack';
 		assert.ok(!rules(lintPreset(distinct)).includes('G12'));
 	});
+
+	it('lints full-frame Diagram contrast through each Pack field/ink pair', () => {
+		for (const pack of ['syntax', 'editorial-mono', 'crt-terminal', 'clean-light']) {
+			const preset = makePreset({
+				surface: {
+					diagram: [
+						{
+							type: 'label',
+							id: 'field-label',
+							position: { x: 0.5, y: 0.5 },
+							text: 'Field label'
+						}
+					]
+				}
+			});
+			preset.pack = pack;
+			preset.state.backgroundFill = 'pack';
+			delete preset.state.typography.inkColor;
+
+			const diagramIssues = lintPreset(preset).filter(
+				(issue) => issue.rule === 'G5' && issue.path === 'surface.diagram'
+			);
+			assert.deepEqual(diagramIssues, [], pack);
+		}
+	});
+
+	it('keeps authored Diagram ink as an explicit field-pair override', () => {
+		const preset = makePreset({
+			surface: {
+				diagram: [
+					{
+						type: 'label',
+						id: 'field-label',
+						position: { x: 0.5, y: 0.5 },
+						text: 'Field label'
+					}
+				]
+			}
+		});
+		preset.state.backgroundFill = 'pack';
+		preset.state.typography.inkColor = '#0e0e0d';
+
+		assert.ok(
+			lintPreset(preset).some(
+				(issue) => issue.rule === 'G5' && issue.path === 'surface.diagram'
+			)
+		);
+	});
 });

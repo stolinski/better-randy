@@ -1,0 +1,42 @@
+{
+  "@swamp/software-factory": {
+    "version": "2026.06.24.1",
+    "pulledAt": "2026-08-04T23:16:31.260Z",
+    "files": [
+      ".swamp/pulled-extensions/@swamp/software-factory/models/_lib/artifact_schema.ts",
+      ".swamp/pulled-extensions/@swamp/software-factory/models/_lib/bindings.ts",
+      ".swamp/pulled-extensions/@swamp/software-factory/models/_lib/definition_schema.ts",
+      ".swamp/pulled-extensions/@swamp/software-factory/models/_lib/summary.ts",
+      ".swamp/pulled-extensions/@swamp/software-factory/models/_lib/gates.ts",
+      ".swamp/pulled-extensions/@swamp/software-factory/models/_lib/run_names.ts",
+      ".swamp/pulled-extensions/@swamp/software-factory/models/_lib/graph.ts",
+      ".swamp/pulled-extensions/@swamp/software-factory/models/_lib/mermaid.ts",
+      ".swamp/pulled-extensions/@swamp/software-factory/models/_lib/run_data.ts",
+      ".swamp/pulled-extensions/@swamp/software-factory/models/software_factory.ts",
+      ".swamp/bundles/a324fda6/software_factory.js",
+      ".swamp/pulled-extensions/@swamp/software-factory/reports/work_item_summary_report.ts",
+      ".swamp/report-bundles/637144ef/work_item_summary_report.js",
+      ".swamp/pulled-extensions/@swamp/software-factory/files/README.md",
+      ".swamp/pulled-extensions/@swamp/software-factory/files/LICENSE.txt",
+      ".claude/skills/software-factory",
+      ".swamp/pulled-extensions/@swamp/software-factory/manifest.yaml"
+    ],
+    "checksum": "29622d1cb0a3bffabf82f68b3d6cbe7e18efcac2c38458b7231e436eb91ab55f",
+    "filesChecksum": "b67885110295b63236743cdc42522703b2c5b18fae873892420b72e662c6c9d7",
+    "serverUrl": "https://swamp-club.com"
+  },
+  "@mgreten/software-factory-flow-metrics": {
+    "version": "2026.08.02.1",
+    "pulledAt": "2026-08-05T15:31:46.899Z",
+    "files": [
+      ".swamp/pulled-extensions/@mgreten/software-factory-flow-metrics/reports/flow_metrics_report.ts",
+      ".swamp/report-bundles/82c3cf12/flow_metrics_report.js",
+      ".swamp/pulled-extensions/@mgreten/software-factory-flow-metrics/files/README.md",
+      ".swamp/pulled-extensions/@mgreten/software-factory-flow-metrics/files/LICENSE.txt",
+      ".swamp/pulled-extensions/@mgreten/software-factory-flow-metrics/manifest.yaml"
+    ],
+    "checksum": "360154629df9c9544820271b2716fb7a7cd3958301be6b3d0ae83d7f8cbf524b",
+    "filesChecksum": "0a97d08aa64607aa9d83de29666ae41f14cfc822bc97913589f57a55dbf13f58",
+    "serverUrl": "https://swamp-club.com"
+  }
+}

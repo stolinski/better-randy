@@ -2,7 +2,11 @@
 	import { animState, type OverlayChannelValues } from './anim-state.svelte';
 	import { engineState, packState } from './engine-state.svelte';
 	import { getPack } from './packs/registry';
-	import { appearanceVarsToStyle, resolveAppearanceVars } from './packs/resolve';
+	import {
+		appearanceVarsToStyle,
+		resolveAppearanceVars,
+		resolveFieldInkColor
+	} from './packs/resolve';
 	import { PIPELINE_REGISTRY } from './pipelines';
 	import { filterPackAppearanceVarsForImmunity } from './pipelines/identity-registry';
 	import type { Overlay, OverlayPlacement } from './engine-schema';
@@ -142,12 +146,15 @@
 	// immune one (ADR-0039 §2) keeps only its declared claimable chrome slots.
 	// Treatments layered around them still resolve through their own Pipeline
 	// mounts.
-	function appearanceStyle(overlay: Overlay): string {
+	function appearanceStyle(overlay: Overlay, renderer: OverlayRenderer): string {
+		const pack = getPack(packState.slug);
+		const vars = resolveAppearanceVars(pack, overlay.type);
+		if (renderer.fieldInkOnBackground && engineState.backgroundFill !== undefined) {
+			vars['--ink'] = resolveFieldInkColor(pack);
+		}
+
 		return appearanceVarsToStyle(
-			filterPackAppearanceVarsForImmunity(
-				`overlay:${overlay.type}`,
-				resolveAppearanceVars(getPack(packState.slug), overlay.type)
-			)
+			filterPackAppearanceVarsForImmunity(`overlay:${overlay.type}`, vars)
 		);
 	}
 </script>
@@ -168,7 +175,8 @@
 			style="{positionStyle(placement, channels)};{channels
 				? channelVisibilityStyle(channels)
 				: visibilityStyle(animState.overlayProgresses[index] ?? 1, renderer)};{appearanceStyle(
-				overlay
+				overlay,
+				renderer
 			)}"
 		>
 			<Component content={overlay.content} />

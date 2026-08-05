@@ -38,13 +38,13 @@ The default answer to "what's next?" — an agent self-serves this instead of as
 
 ---
 
-## Active factory runway (audited 2026-08-04)
+## Active factory runway (audited 2026-08-05)
 
 The capability and core parity arcs are complete. The next work is deliberately narrower and dependency-ordered; Dex carries the executable edges and `dex list --ready` must expose the first unblocked leaf, not a flat pile of unrelated priority-1 notes.
 
 1. ✅ **Generated project control plane** — shipped 2026-08-04 (epic `t040a0vs`): the `@supers/repo-audit` `audit-planning` method + `@supers/planning-state` report catch Roadmap / ADR / Brief / ideas / Dex drift, gated by the `policy-sweep` workflow and the CI `Planning audit` step ([`docs/project-control-plane.md`](project-control-plane.md)). The 2026-08-04 audit was its baseline reconciliation.
 2. ✅ **Close the Pack-neutral corpus contract** — shipped 2026-08-04 (epic `hkajpcgg`): the human-scale Pack matrix ran (`hpc3lrk0`, 42 deliverables × 4 packs; 37/42 read well under every pack) and the specific brand-grammar failures were retired or re-authored (`evnlthxa`). The sweep produced no evidence demanding `PackPipelineRole`, so it stays demand-gated (see § Designed, not built).
-3. **Design the field-ink pairing** — task `e2z4whnu`, the sweep's one systemic finding: full-frame pieces lose ink contrast under opposite-luminance Packs (authored light ink over a pack-driven light field; card-calibrated dark label inks over a dark field). Grill the companion `field-ink-treatment` core direction with Scott, lift the authored light-ink restatements from the affected presets, and fold the fix into the diagram-register rebuild.
+3. ✅ **Field-ink pairing** — shipped 2026-08-05 (task `e2z4whnu`): the optional `field-ink-treatment` core now pairs direct-on-field content with each Pack's field, with ordinary ink as the explicit fallback and no luminance-adaptive runtime behavior. The affected authored light-ink restatements were removed; 24 native six-Preset × four-Pack captures passed isolated Critic and human visual acceptance.
 4. **Finish Pack contract standardization** — task group `oa9tr4wy`: close the role-contract registry, then add catalog-ratification evidence. This makes future Pack work factory-safe.
 5. **Build the broad Starter-template library** — task `dghxldci`: audit creator-job coverage, then author the missing categories and coordinated episode suite against the completed Pack/quality gates.
 6. **Pull production and research work by demand** — Resolve follow-ups, rubric research, Critic research, optional diagram polish, and rendering residuals remain valid but do not interrupt the ordered product runway.

@@ -53,6 +53,7 @@ export const cleanLightPack: PackManifest = {
 		// field reads a step cooler than its cards on camera; shadow alone
 		// separates them).
 		'field-treatment': { kind: 'style', value: '#f6f7f8' },
+		'field-ink-treatment': { kind: 'style', value: '#16181d' },
 		// Die-cut clean silhouettes — nothing in this register tears or feathers.
 		'edge-treatment': { kind: 'style', value: 'clean' },
 		// THE structural signature: the quiet float. Straight-down offset with a

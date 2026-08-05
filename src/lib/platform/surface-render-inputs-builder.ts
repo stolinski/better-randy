@@ -9,7 +9,7 @@ import {
 	type MarkInstance
 } from './engine-schema';
 import type { PackManifest } from './packs/types';
-import { requireCoreColor, resolveDiagramStroke } from './packs/resolve';
+import { requireCoreColor, resolveDiagramStroke, resolveFieldInkColor } from './packs/resolve';
 import { resolveSurfaceTypographyColors } from './pipelines';
 import type { SurfaceRenderInputs } from './pipelines/types';
 
@@ -84,13 +84,21 @@ function buildDiagramInputs(
 
 	// Surface-aware (ADR-0039 §2): the 'ink' stroke sentinel rides the same
 	// channel the surface's body text prints — intrinsic on an immune document.
-	const typography = resolveSurfaceTypographyColors(pack, state.surface.type, state.typography);
+	const surfaceInk = resolveSurfaceTypographyColors(
+		pack,
+		state.surface.type,
+		state.typography
+	).inkColor;
+	const diagramInk =
+		state.surface.type === 'plain' && state.backgroundFill !== undefined
+			? resolveFieldInkColor(pack, state.typography.inkColor)
+			: surfaceInk;
 	const stroke = resolveDiagramStroke(pack);
 	return {
 		primitives,
 		drawProgressById,
 		alphaById,
-		stroke: stroke.color === 'ink' ? { ...stroke, color: typography.inkColor } : stroke,
+		stroke: stroke.color === 'ink' ? { ...stroke, color: diagramInk } : stroke,
 		accentColor: requireCoreColor(pack, 'accent-treatment')
 	};
 }

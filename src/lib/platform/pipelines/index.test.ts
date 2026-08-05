@@ -215,6 +215,14 @@ describe('Pipeline Registry', () => {
 		assert.equal(new Set(typeIds).size, typeIds.length);
 	});
 
+	it('marks only plate-less display Overlays as field-ink consumers', () => {
+		assert.equal(counterOverlayRenderer.fieldInkOnBackground, true);
+		assert.equal(instanceStackOverlayRenderer.fieldInkOnBackground, true);
+		assert.equal(text3dOverlayRenderer.fieldInkOnBackground, true);
+		assert.equal(lowerThirdOverlayRenderer.fieldInkOnBackground, undefined);
+		assert.equal(sourceUrlOverlayRenderer.fieldInkOnBackground, undefined);
+	});
+
 	it('keeps every visible registered Pipeline paired with a valid Identity Spec', () => {
 		const registeredIdentityKeys = [
 			...Object.values(PIPELINE_REGISTRY.surfaces).map((renderer) => `surface:${renderer.type}`),

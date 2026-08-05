@@ -1,0 +1,46 @@
+{
+	"profileName": "clean-room-delivery",
+	"adapters": {
+		"preflight": {
+			"mode": "method",
+			"modelIdOrName": "consumer-policy",
+			"methodName": "preflight"
+		},
+		"classify": {
+			"mode": "method",
+			"modelIdOrName": "consumer-policy",
+			"methodName": "classify"
+		},
+		"verification": {
+			"mode": "interactive",
+			"systemPrompt": "Execute every required lane and record one exact route."
+		},
+		"postflight": {
+			"mode": "method",
+			"modelIdOrName": "consumer-policy",
+			"methodName": "postflight"
+		},
+		"dexTracker": {
+			"modelIdOrName": "clean-room-dex-tracker",
+			"completeMethodName": "complete"
+		}
+	},
+	"implementation": {
+		"systemPrompt": "Implement the synthetic work item and record a compact summary."
+	},
+	"review": {
+		"skills": ["clean-room-review"],
+		"systemPrompt": "Review only the deterministic fixture evidence.",
+		"blockingSeverities": ["critical", "high"]
+	},
+	"humanGate": {
+		"id": "fixture-acceptance"
+	},
+	"budgets": {
+		"implementation": 2,
+		"verification": 3,
+		"review": 3,
+		"reconciliation": 2,
+		"maxDispatchesPerCycle": 2
+	}
+}

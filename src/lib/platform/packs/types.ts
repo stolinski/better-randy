@@ -51,6 +51,10 @@ export type PackRoleKind = 'style' | 'pipeline' | 'chrome';
  *
  * OPTIONAL cores — recognised dimension vocabulary a Pack MAY supply, never
  * required by the validator:
+ *   - `field-ink-treatment` — the foreground paired with the Pack's full-frame
+ *     `field-treatment`. Direct-on-field content consumes it; absence falls
+ *     to the mandatory `ink-treatment` core for Packs whose document/card ink
+ *     already contrasts with their field.
  *   - `material-treatment` — a grain/material claim (how ink sits on the
  *     substrate; e.g. the paragraph Block's `paragraph.material: 'ink-bleed'`
  *     rides this dimension).

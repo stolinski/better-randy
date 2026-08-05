@@ -56,6 +56,7 @@ export type PlanningCheckId =
 	| 'ideas-historical'
 	| 'dex-shipped-claim'
 	| 'dex-blocker-contradiction'
+	| 'dex-active-work'
 	| 'dex-ready-runway';
 
 export type PlanningStateFinding = {
@@ -71,6 +72,18 @@ export type PlanningStateFinding = {
 export type PlanningStateCheckResult = {
 	findings: PlanningStateFinding[];
 	advisories: PlanningStateFinding[];
+	runway: PlanningRunway;
+};
+
+/** Machine-readable handoff from planning policy to the delivery factory. */
+export type PlanningRunway = {
+	activeTaskId: string | null;
+	activeTaskName: string | null;
+	activeEpicId: string | null;
+	nextTaskId: string | null;
+	nextTaskName: string | null;
+	topPriority: number | null;
+	readyLeafCount: number;
 };
 
 export type AdrStatusCategory = 'canon' | 'build-harness' | 'superseded' | 'designed' | 'unknown';
@@ -302,7 +315,7 @@ function checkIdeasTier(inputs: PlanningStateInputs, findings: PlanningStateFind
 	}
 }
 
-function checkDexPlanning(
+function checkDexTaskState(
 	inputs: PlanningStateInputs,
 	findings: PlanningStateFinding[],
 	advisories: PlanningStateFinding[]
@@ -341,34 +354,108 @@ function checkDexPlanning(
 			});
 		}
 	}
+}
 
+function indexOpenDexChildren(
+	openTasks: PlanningDexTask[]
+): Map<string, PlanningDexTask[]> {
+	const openChildrenByParent = new Map<string, PlanningDexTask[]>();
+	for (const task of openTasks) {
+		if (!task.parentId) continue;
+		const children = openChildrenByParent.get(task.parentId) ?? [];
+		children.push(task);
+		openChildrenByParent.set(task.parentId, children);
+	}
+	return openChildrenByParent;
+}
+
+function findReadyDexLeaves(
+	openTasks: PlanningDexTask[],
+	openChildrenByParent: Map<string, PlanningDexTask[]>
+): PlanningDexTask[] {
+	const openIds = new Set(openTasks.map((task) => task.id));
+	return openTasks.filter((task) => {
+		if (task.started || openChildrenByParent.has(task.id)) return false;
+		return !task.blockedBy.some((id) => openIds.has(id));
+	});
+}
+
+function selectNextDexTask(
+	readyLeaves: PlanningDexTask[],
+	findings: PlanningStateFinding[]
+): { nextTask: PlanningDexTask | null; topPriority: number | null } {
+	if (readyLeaves.length === 0) return { nextTask: null, topPriority: null };
+	const topPriority = Math.min(...readyLeaves.map((task) => task.priority));
+	const topReadyTasks = readyLeaves.filter((task) => task.priority === topPriority);
+	if (topReadyTasks.length > 1) {
+		findings.push({
+			check: 'dex-ready-runway',
+			message: `${topReadyTasks.length} co-equal priority-${topPriority} ready leaves (${topReadyTasks
+				.map((task) => task.id)
+				.join(
+					', '
+				)}) — order the runway with priorities or blocking edges so one strategic first move remains`,
+			paths: topReadyTasks.map((task) => `dex:${task.id}`)
+		});
+	}
+	return {
+		nextTask: topReadyTasks.length === 1 ? topReadyTasks[0] : null,
+		topPriority
+	};
+}
+
+function findDexEpicId(
+	runwayTask: PlanningDexTask | null,
+	taskById: Map<string, PlanningDexTask>
+): string | null {
+	let activeEpicId = runwayTask?.id ?? null;
+	const visited = new Set<string>();
+	while (activeEpicId) {
+		if (visited.has(activeEpicId)) break;
+		visited.add(activeEpicId);
+		const parentId = taskById.get(activeEpicId)?.parentId;
+		if (!parentId || !taskById.has(parentId)) break;
+		activeEpicId = parentId;
+	}
+	return activeEpicId;
+}
+
+function createDexRunway(
+	inputs: PlanningStateInputs,
+	findings: PlanningStateFinding[]
+): PlanningRunway {
 	// The roadmap's runway rule: dex list --ready must expose ONE strategic
 	// first move, not a flat pile of co-equal top-priority leaves. A leaf that
 	// is already started counts as being worked, not as a next move.
+	const taskById = new Map(inputs.dexTasks.map((task) => [task.id, task]));
 	const openTasks = inputs.dexTasks.filter((task) => !task.completed);
-	const openIds = new Set(openTasks.map((task) => task.id));
-	const readyLeaves = openTasks.filter((task) => {
-		if (task.started) return false;
-		const hasOpenBlocker = task.blockedBy.some((id) => openIds.has(id));
-		if (hasOpenBlocker) return false;
-		const hasOpenChild = openTasks.some((other) => other.parentId === task.id);
-		return !hasOpenChild;
-	});
-	if (readyLeaves.length > 1) {
-		const topPriority = Math.min(...readyLeaves.map((task) => task.priority));
-		const coEqual = readyLeaves.filter((task) => task.priority === topPriority);
-		if (coEqual.length > 1) {
-			findings.push({
-				check: 'dex-ready-runway',
-				message: `${coEqual.length} co-equal priority-${topPriority} ready leaves (${coEqual
-					.map((task) => task.id)
-					.join(
-						', '
-					)}) — order the runway with priorities or blocking edges so one strategic first move remains`,
-				paths: coEqual.map((task) => `dex:${task.id}`)
-			});
-		}
+	const openChildrenByParent = indexOpenDexChildren(openTasks);
+	const startedLeaves = openTasks.filter(
+		(task) => task.started && !openChildrenByParent.has(task.id)
+	);
+	if (startedLeaves.length > 1) {
+		findings.push({
+			check: 'dex-active-work',
+			message: `${startedLeaves.length} open leaf tasks are started (${startedLeaves
+				.map((task) => task.id)
+				.join(', ')}) — the factory WIP limit permits one active work item`,
+			paths: startedLeaves.map((task) => `dex:${task.id}`)
+		});
 	}
+	const readyLeaves = findReadyDexLeaves(openTasks, openChildrenByParent);
+	const { nextTask, topPriority } = selectNextDexTask(readyLeaves, findings);
+	const activeTask = startedLeaves.length === 1 ? startedLeaves[0] : null;
+	const activeEpicId = findDexEpicId(activeTask ?? nextTask, taskById);
+
+	return {
+		activeTaskId: activeTask?.id ?? null,
+		activeTaskName: activeTask?.name ?? null,
+		activeEpicId,
+		nextTaskId: nextTask?.id ?? null,
+		nextTaskName: nextTask?.name ?? null,
+		topPriority,
+		readyLeafCount: readyLeaves.length
+	};
 }
 
 /** Run every planning-state drift check over the assembled inputs. */
@@ -380,6 +467,7 @@ export function runPlanningStateChecks(inputs: PlanningStateInputs): PlanningSta
 	checkRoadmapClaims(inputs, findings, adrCategoryByNumber);
 	checkStaleBriefs(inputs, findings);
 	checkIdeasTier(inputs, findings);
-	checkDexPlanning(inputs, findings, advisories);
-	return { findings, advisories };
+	checkDexTaskState(inputs, findings, advisories);
+	const runway = createDexRunway(inputs, findings);
+	return { findings, advisories, runway };
 }

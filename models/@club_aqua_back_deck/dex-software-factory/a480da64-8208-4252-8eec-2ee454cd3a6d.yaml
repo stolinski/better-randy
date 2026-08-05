@@ -1,0 +1,200 @@
+type: '@club_aqua_back_deck/dex-software-factory'
+typeVersion: 2026.08.05.3
+id: a480da64-8208-4252-8eec-2ee454cd3a6d
+name: supers-delivery-profile
+version: 1
+tags: {}
+globalArguments:
+  profileName: supers-dex-delivery
+  adapters:
+    preflight:
+      mode: workflow
+      workflow: factory-policy-sweep
+      inputs:
+        values:
+          evidenceName: preflight-run
+        properties:
+          evidenceName:
+            type: string
+            enum:
+              - preflight-run
+        required:
+          - evidenceName
+    classify:
+      mode: workflow
+      workflow: factory-classify-change
+    verification:
+      mode: interactive
+      systemPrompt: >-
+        Execute every lane in change-impact using the repository deterministic
+        commands. Reuse native captures and probes. Record one unique outcome
+        for every required lane. Set materialPixelChange from pixel evidence
+        only. Set reviewRequired only for changed pixels with visual targets.
+        Route failed, unavailable, or contradictory evidence to rework, changed
+        pixels to review, and unchanged pixels to reconciliation.
+    postflight:
+      mode: workflow
+      workflow: factory-postflight-sweep
+      inputs:
+        values:
+          evidenceName: postflight-run
+          expectedFingerprint: >-
+            ${{ data.latest(self.name,
+            "artifact-change-impact").payload.changeFingerprint }}
+        properties:
+          evidenceName:
+            type: string
+            enum:
+              - postflight-run
+          expectedFingerprint:
+            type: string
+            pattern: '^[0-9a-f]{64}$'
+        required:
+          - evidenceName
+          - expectedFingerprint
+    dexTracker:
+      modelIdOrName: supers-dex-task-tracker
+      completeMethodName: complete
+  implementation:
+    systemPrompt: >-
+      Implement only the current Dex work item. Follow repository guidance
+      already loaded by the agent. Complete required source, documentation, and
+      tracker-file edits before classification. Record a compact summary plus
+      every materially changed visual target.
+  review:
+    skills:
+      - critic
+    systemPrompt: >-
+      Review only visualTargets from change-summary. Use sanctioned native
+      captures and machine probes. Technical defects are critical or high;
+      aesthetic observations are low and human-owned. Record blockers in
+      visual-review. Record visual-verdict with status matching recommendation,
+      plus summary and concrete evidence references.
+    blockingSeverities:
+      - critical
+      - high
+    findingsArtifactName: visual-review
+    verdictArtifactName: visual-verdict
+    reworkCondition: >-
+      size(artifacts.visual_review.findings.filter(f, !f.resolved && f.severity in
+      ["critical", "high"])) > 0 || artifacts.visual_verdict.recommendation == "revise"
+    acceptCondition: artifacts.visual_verdict.recommendation == "accept"
+  humanGate:
+    id: visual-acceptance
+  contracts:
+    changeSummary:
+      properties:
+        visualTargets:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        commit:
+          type: string
+          minLength: 7
+      required:
+        - visualTargets
+    changeImpact:
+      properties:
+        audit:
+          type: string
+          enum:
+            - change-impact
+        generatedAt:
+          type: string
+        source:
+          type: string
+          enum:
+            - git-baseline-and-working-tree
+        workItem:
+          type: string
+          minLength: 1
+        baselineHead:
+          type: string
+          pattern: '^[0-9a-f]{40,64}$'
+        treeFingerprint:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+        paths:
+          type: array
+          items:
+            type: string
+        lanes:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required:
+              - id
+              - reasons
+            properties:
+              id:
+                type: string
+              reasons:
+                type: array
+                minItems: 1
+                items:
+                  type: string
+        visualReviewCandidate:
+          type: boolean
+      required:
+        - audit
+        - generatedAt
+        - source
+        - workItem
+        - baselineHead
+        - treeFingerprint
+        - paths
+        - lanes
+        - visualReviewCandidate
+    verification:
+      properties:
+        materialPixelChange:
+          type: string
+          enum:
+            - changed
+            - unchanged
+            - unavailable
+      required:
+        - materialPixelChange
+    reviewVerdict:
+      properties:
+        recommendation:
+          type: string
+          enum:
+            - accept
+            - revise
+        evidence:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            minLength: 1
+      required:
+        - recommendation
+        - evidence
+    reconciliation:
+      properties:
+        dexDisposition:
+          type: string
+          enum:
+            - ready-for-completion
+            - reframed
+      required:
+        - dexDisposition
+  verificationRouting:
+    reworkCondition: >-
+      artifacts.verification.materialPixelChange == "unavailable" ||
+      (artifacts.verification.materialPixelChange == "changed" &&
+      size(artifacts.change_summary.visualTargets) == 0)
+    reviewCondition: >-
+      artifacts.verification.materialPixelChange == "changed" &&
+      size(artifacts.change_summary.visualTargets) > 0
+    reconcileCondition: artifacts.verification.materialPixelChange == "unchanged"
+  budgets:
+    implementation: 5
+    verification: 5
+    review: 5
+    reconciliation: 5
+    maxDispatchesPerCycle: 2
+methods: {}

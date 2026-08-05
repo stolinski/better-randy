@@ -1,0 +1,57 @@
+{
+  "version": "5",
+  "specifiers": {
+    "jsr:@std/yaml@1.0.10": "1.0.10"
+  },
+  "jsr": {
+    "@std/yaml@1.0.10": {
+      "integrity": "245706ea3511cc50c8c6d00339c23ea2ffa27bd2c7ea5445338f8feff31fa58e"
+    }
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@drop-in/graffiti@^4.30.0",
+        "npm:@eslint/compat@^2.0.4",
+        "npm:@eslint/js@^10.0.1",
+        "npm:@foleyjs/core@2.7.0",
+        "npm:@fontsource/archivo@^5.2.8",
+        "npm:@fontsource/eb-garamond@^5.2.7",
+        "npm:@fontsource/geist-mono@^5.2.8",
+        "npm:@fontsource/geist@^5.2.9",
+        "npm:@fontsource/inter@^5.2.8",
+        "npm:@fontsource/jetbrains-mono@^5.2.8",
+        "npm:@fontsource/old-standard-tt@^5.2.8",
+        "npm:@fontsource/playfair-display@^5.2.8",
+        "npm:@fontsource/space-grotesk@^5.2.10",
+        "npm:@fontsource/space-mono@^5.2.9",
+        "npm:@sentry/sveltekit@^10.67.0",
+        "npm:@sveltejs/adapter-cloudflare@^7.2.9",
+        "npm:@sveltejs/kit@^2.69.2",
+        "npm:@sveltejs/vite-plugin-svelte@^7.2.0",
+        "npm:@types/node@^26.1.1",
+        "npm:@types/pngjs@^6.0.5",
+        "npm:eslint-config-prettier@^10.1.8",
+        "npm:eslint-plugin-svelte@^3.20.0",
+        "npm:eslint@^10.7.0",
+        "npm:globals@^17.7.0",
+        "npm:gsap@^3.15.0",
+        "npm:mediabunny@^1.50.8",
+        "npm:playwright@^1.61.1",
+        "npm:pngjs@7",
+        "npm:prettier-plugin-svelte@^4.1.1",
+        "npm:prettier@^3.9.5",
+        "npm:svelte-check@^4.7.2",
+        "npm:svelte@^5.56.4",
+        "npm:typegpu@~0.11.9",
+        "npm:typescript-eslint@^8.63.0",
+        "npm:typescript@6.0.3",
+        "npm:vite@^8.1.4",
+        "npm:vitest@4.1",
+        "npm:wgpu-matrix@^3.4.2",
+        "npm:wrangler@^4.110.0",
+        "npm:zod@^4.4.3"
+      ]
+    }
+  }
+}

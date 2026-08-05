@@ -1,0 +1,61 @@
+# Retry-with-feedback: an LLM-backed method whose malformed output is fed back
+# into its own next attempt.
+#
+# The planning stage calls a planner model. The plan's schema catches shape
+# drift (e.g. `risks` returned as a string instead of a list). On rejection the
+# engine records a `validation-plan` record — the rejected value plus the exact
+# path-bearing errors — and re-throws. The retry binds that record into the
+# method's `feedback` input, so the model sees what failed and self-corrects.
+# The retry loop is bounded by the dispatch guard (maxDispatchesPerCycle) —
+# there is no separate retry cap.
+#
+# Driver loop, per attempt:
+#   1. record_dispatch
+#   2. run @my/planner.generate   (feedback resolves to null on attempt 1)
+#   3. record_artifact name=plan  → validated; on drift it is rejected and a
+#      `validation-plan` record is written, which attempt 2 binds as feedback
+#   4. record_evidence name=plan-run  (the run outcome {status, runId})
+# A clean record_artifact auto-clears `validation-plan`; if it never converges,
+# the dispatch guard hard-fails with runaway-loop-suspected.
+#
+# Usage:
+#   swamp model create @swamp/software-factory my-planner
+#   swamp model edit my-planner    # paste under globalArguments; point the
+#                                  # method at a real planner model
+#   swamp model method run my-planner start --input workItem=<your-ref>
+stages:
+  - id: planning
+    initial: true
+    description: An LLM produces a plan; malformed output is fed back on retry.
+    work:
+      mode: method
+      method:
+        modelIdOrName: "@my/planner"
+        methodName: generate
+        inputs:
+          workItem: '${{ self.workItem }}'
+          # Whole record, null-safe: null on attempt 1, the recorded failure
+          # (its .rejected value + .errors) on a retry. Never bind a sub-field
+          # like `...("validation-plan").errors` — that throws when absent and
+          # leaves the input unresolved.
+          feedback: '${{ data.latest(self.name, "validation-plan") }}'
+      resultEvidence: plan-run
+    artifacts:
+      - name: plan
+        schema:
+          type: object
+          required: [scope, risks]
+          properties:
+            scope: { type: string, minLength: 1 }
+            risks:
+              type: array
+              items: { type: string } # the field LLMs commonly drift on
+    transitions:
+      - name: submit
+        to: done
+        gates:
+          - type: artifact-exists
+            config: { artifact: plan }
+
+  - id: done
+    terminal: true

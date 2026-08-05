@@ -12,7 +12,11 @@ import type {
 	Transition
 } from './engine-schema.ts';
 import { getPack } from './packs/registry.ts';
-import { requireCoreColor, resolveBackgroundFill } from './packs/resolve.ts';
+import {
+	requireCoreColor,
+	resolveBackgroundFill,
+	resolveFieldInkColor
+} from './packs/resolve.ts';
 import { resolveSurfaceTypographyColors } from './pipelines/index.ts';
 import { getLayoutSafeArea } from '../utils/safe-area.ts';
 import { calculateWebsiteShowcaseLayout } from '../utils/website-showcase.ts';
@@ -143,6 +147,7 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 	// the resolved field, never the literal "pack". An unregistered pack slug
 	// surfaces as a lint error rather than crashing the pass.
 	let resolvedTypography: { paperColor: string; inkColor: string } | null = null;
+	let resolvedDiagramInk: string | null = null;
 	let resolvedAccent: string | null = null;
 	let resolvedBackgroundFill: string | undefined = undefined;
 	try {
@@ -156,6 +161,10 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 		);
 		resolvedAccent = requireCoreColor(pack, 'accent-treatment');
 		resolvedBackgroundFill = resolveBackgroundFill(pack, state.backgroundFill);
+		resolvedDiagramInk =
+			state.surface.type === 'plain' && state.backgroundFill !== undefined
+				? resolveFieldInkColor(pack, state.typography.inkColor)
+				: resolvedTypography.inkColor;
 	} catch (error) {
 		issues.push({
 			rule: 'G5',
@@ -176,7 +185,7 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 			state.surface,
 			resolvedBackgroundFill,
 			state.stage !== undefined,
-			resolvedTypography,
+			resolvedDiagramInk ?? resolvedTypography.inkColor,
 			resolvedAccent,
 			issues
 		);
@@ -658,7 +667,7 @@ function checkDiagramContrast(
 	surface: SurfaceState,
 	backgroundFill: string | undefined,
 	hasStage: boolean,
-	typography: { paperColor: string; inkColor: string },
+	inkColor: string,
 	accentColor: string | null,
 	issues: RubricIssue[]
 ): void {
@@ -670,7 +679,7 @@ function checkDiagramContrast(
 		return;
 	}
 
-	const ratio = contrastRatio(backgroundFill, typography.inkColor);
+	const ratio = contrastRatio(backgroundFill, inkColor);
 
 	if (ratio < 4.5) {
 		issues.push({

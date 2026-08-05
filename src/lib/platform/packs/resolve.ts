@@ -614,6 +614,28 @@ export function requireCoreColor(
 }
 
 /**
+ * Resolve foreground that sits directly on the Pack's full-frame field.
+ * Authored composition ink remains the explicit override; otherwise the
+ * optional paired field ink wins and a silent Pack falls back to its mandatory
+ * ink core. Invalid optional claims fail fast instead of silently changing
+ * pixels despite the Pack validation contract.
+ */
+export function resolveFieldInkColor(
+	manifest: PackManifest,
+	authoredInkColor?: string
+): string {
+	if (authoredInkColor !== undefined) return authoredInkColor;
+	const role = manifest.roles['field-ink-treatment'];
+	if (role === undefined) return requireCoreColor(manifest, 'ink-treatment');
+	if (role.kind !== 'style' || typeof role.value !== 'string' || !isColorValue(role.value)) {
+		throw new Error(
+			`Pack "${manifest.slug}" has an invalid optional core "field-ink-treatment".`
+		);
+	}
+	return role.value;
+}
+
+/**
  * Resolve the composition's paper/ink colours (ADR-0038): the Preset's
  * `typography.paperColor` / `inkColor` are optional explicit overrides that
  * win over the Pack; absent, the active Pack's core `fill-treatment` /

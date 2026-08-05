@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
 import { PACK_REGISTRY } from './registry.ts';
-import { requireCoreColor, resolveBackgroundFill } from './resolve.ts';
+import { requireCoreColor, resolveBackgroundFill, resolveFieldInkColor } from './resolve.ts';
 import type { PackManifest } from './types.ts';
 
 describe('resolveBackgroundFill (ADR-0039 §3)', () => {
@@ -40,5 +40,24 @@ describe('resolveBackgroundFill (ADR-0039 §3)', () => {
 			roles: {}
 		};
 		assert.throws(() => resolveBackgroundFill(corrupted, 'pack'), /field-treatment/);
+	});
+});
+
+describe('resolveFieldInkColor', () => {
+	it('resolves each registered Pack field/ink pair explicitly', () => {
+		assert.equal(resolveFieldInkColor(PACK_REGISTRY.syntax), '#f7f6f2');
+		assert.equal(resolveFieldInkColor(PACK_REGISTRY['editorial-mono']), '#eef3f8');
+		assert.equal(resolveFieldInkColor(PACK_REGISTRY['crt-terminal']), '#45ff6e');
+		assert.equal(resolveFieldInkColor(PACK_REGISTRY['clean-light']), '#16181d');
+	});
+
+	it('preserves authored composition ink', () => {
+		assert.equal(resolveFieldInkColor(PACK_REGISTRY.syntax, '#123456'), '#123456');
+	});
+
+	it('falls back to mandatory ink-treatment when the optional pair is absent', () => {
+		const pack = structuredClone(PACK_REGISTRY['clean-light']);
+		delete pack.roles['field-ink-treatment'];
+		assert.equal(resolveFieldInkColor(pack), '#16181d');
 	});
 });

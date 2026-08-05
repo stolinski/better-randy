@@ -375,6 +375,12 @@ export interface OverlayRenderer<TContent = unknown> {
 	Editor: Component<OverlayEditorProps<TContent>>;
 	Inspector?: Component<OverlayEditorProps<TContent>>;
 	/**
+	 * This plate-less Overlay's ink sits directly on `backgroundFill`. When a
+	 * composition declares that field, OverlayMount pairs its `--ink` with the
+	 * Pack's field rather than using the footage-oriented Pipeline ink.
+	 */
+	fieldInkOnBackground?: boolean;
+	/**
 	 * When true, OverlayMount skips the default 32px translateY entry droop.
 	 * Set for overlay types whose CanvasSource manages its own per-element
 	 * motion (e.g. staggered opacity-only variants) where a container-level

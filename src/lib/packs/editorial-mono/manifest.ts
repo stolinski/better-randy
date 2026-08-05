@@ -36,6 +36,7 @@ export const editorialMonoPack: PackManifest = {
 		// pullquote/scrim #080b10 named below) — NOT the paper fill, which is the
 		// card colour.
 		'field-treatment': { kind: 'style', value: '#080b10' },
+		'field-ink-treatment': { kind: 'style', value: '#eef3f8' },
 		'edge-treatment': { kind: 'style', value: 'clean' },
 		'depth-treatment': { kind: 'style', value: 'none' },
 		'light-treatment': { kind: 'style', value: 'none' },

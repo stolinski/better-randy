@@ -3,7 +3,7 @@
 	import { ENGINE_FONT_FAMILIES } from '$lib/platform/engine-schema';
 	import { engineState, packState } from '$lib/platform/engine-state.svelte';
 	import { getPack } from '$lib/platform/packs/registry';
-	import { resolveTypographyColors } from '$lib/platform/packs/resolve';
+	import { resolveFieldInkColor, resolveTypographyColors } from '$lib/platform/packs/resolve';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 	import { getLayoutSafeArea } from '$lib/utils/safe-area';
 
@@ -13,19 +13,30 @@
 
 	let { element = $bindable<HTMLElement | null>(null) }: Props = $props();
 
+	function captureElement(node: HTMLElement): () => void {
+		element = node;
+		return () => {
+			if (element === node) element = null;
+		};
+	}
+
 	const fontFamily = $derived(ENGINE_FONT_FAMILIES[engineState.typography.fontFamily]);
-	// Ink resolves override → Pack core ink-treatment (ADR-0038); the fill
-	// stays intrinsically transparent per the output contract.
-	const typographyColors = $derived(
-		resolveTypographyColors(getPack(packState.slug), engineState.typography)
-	);
+	// Authored ink remains the explicit override. A declared full-frame field
+	// uses the Pack's paired field ink; transparent-over-footage compositions
+	// retain the ordinary typography ink chain.
+	const inkColor = $derived.by(() => {
+		const pack = getPack(packState.slug);
+		return engineState.backgroundFill !== undefined
+			? resolveFieldInkColor(pack, engineState.typography.inkColor)
+			: resolveTypographyColors(pack, engineState.typography).inkColor;
+	});
 	const frame = $derived(getVideoFrameSize(engineState.transport.orientation));
 	const safeArea = $derived(getLayoutSafeArea(engineState.transport.orientation));
 	// Body font-size meets the per-orientation surface-body cap-height floor:
 	//   horizontal (3840w): 0.014 × 3840 = 53.8px → cap ≈ 37.6px ≥ 32px ✓
 	//   vertical (2160w):   0.030 × 2160 = 64.8px → cap ≈ 45.4px ≥ 44px ✓
 	const bodyFontSize = $derived(
-		frame.width * (engineState.transport.orientation === 'vertical' ? 0.030 : 0.014)
+		frame.width * (engineState.transport.orientation === 'vertical' ? 0.03 : 0.014)
 	);
 	const hasBody = $derived(
 		engineState.surface.content.body.some(
@@ -35,10 +46,10 @@
 </script>
 
 <article
-	bind:this={element}
+	{@attach captureElement}
 	class="plain-source surface"
 	style:block-size={`${frame.height}px`}
-	style:color={typographyColors.inkColor}
+	style:color={inkColor}
 	style:font-family={`var(--font, ${fontFamily.stack})`}
 	style:inline-size={`${frame.width}px`}
 	style:padding={`${frame.height * safeArea.top}px ${frame.width * safeArea.right}px ${frame.height * safeArea.bottom}px ${frame.width * safeArea.left}px`}

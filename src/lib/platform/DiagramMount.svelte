@@ -7,6 +7,7 @@
 		requireCoreColor,
 		resolveAppearanceVars,
 		resolveDepthTreatment,
+		resolveFieldInkColor,
 		resolveFontTreatment,
 		resolveTypographyColors
 	} from './packs/resolve';
@@ -34,8 +35,14 @@
 	const pack = $derived(getPack(packState.slug));
 
 	// The diagram's inherited ink (each primitive's currentColor floor) resolves
-	// override → Pack core ink-treatment (ADR-0038), matching body text.
-	const diagramInk = $derived(resolveTypographyColors(pack, engineState.typography).inkColor);
+	// authored override first. A plain Surface on a declared full-frame field
+	// then uses that field's paired ink; every other Surface retains the ordinary
+	// typography chain used by body text.
+	const diagramInk = $derived(
+		engineState.surface.type === 'plain' && engineState.backgroundFill !== undefined
+			? resolveFieldInkColor(pack, engineState.typography.inkColor)
+			: resolveTypographyColors(pack, engineState.typography).inkColor
+	);
 
 	// A primitive declaring `ink: 'accent'` rides the Pack's core accent-treatment
 	// instead — the composition picks WHICH primitives carry emphasis, the Pack
@@ -103,7 +110,10 @@
 		return animState.blockChannels[primitive.id] ?? null;
 	}
 
-	function positionStyle(primitive: DiagramPrimitive, channels: OverlayChannelValues | null): string {
+	function positionStyle(
+		primitive: DiagramPrimitive,
+		channels: OverlayChannelValues | null
+	): string {
 		const center = centerFor(primitive);
 		// Channel x/y are composition-fraction deltas from the authored position
 		// (ADR-0035 §3), folded straight into the percentage placement.
@@ -155,10 +165,9 @@
 	// composition's ink is footage-white.
 	function appearanceStyle(primitive: DiagramPrimitive): string {
 		const vars = resolveAppearanceVars(pack, primitive.type);
-		let style = appearanceVarsToStyle(vars);
-		if ((primitive.ink ?? 'ink') === 'accent') {
-			style += `;color:${accentInk}`;
-		}
+		const primitiveInk = (primitive.ink ?? 'ink') === 'accent' ? accentInk : diagramInk;
+		vars['--ink'] = primitiveInk;
+		let style = `${appearanceVarsToStyle(vars)};color:${primitiveInk}`;
 		if (primitive.type === 'node') {
 			// The 'fg' shadow-colour sentinel resolves through the node's own
 			// mount-injected `--ink` (ADR-0024) — never a baked colour; a Pack

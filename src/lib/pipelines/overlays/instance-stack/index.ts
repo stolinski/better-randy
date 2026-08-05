@@ -45,5 +45,6 @@ export const instanceStackOverlayRenderer: OverlayRenderer<InstanceStackContent>
 	defaults,
 	CanvasSource,
 	Editor,
+	fieldInkOnBackground: true,
 	disableEntryOffset: true
 };

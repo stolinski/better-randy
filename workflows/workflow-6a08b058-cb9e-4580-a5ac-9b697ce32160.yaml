@@ -1,0 +1,64 @@
+id: 6a08b058-cb9e-4580-a5ac-9b697ce32160
+name: factory-policy-sweep
+description: Run policy, capture the work-item baseline, and record correlated preflight evidence.
+tags:
+  purpose: factory-policy
+inputs:
+  type: object
+  required: [workItem, evidenceName]
+  additionalProperties: false
+  properties:
+    workItem:
+      type: string
+      minLength: 1
+    evidenceName:
+      type: string
+      minLength: 1
+jobs:
+  - name: main
+    description: Preserve the standalone sweep, capture HEAD, then write evidence from this wrapper run.
+    steps:
+      - name: policy-sweep
+        description: Run the existing repository policy workflow unchanged.
+        task:
+          type: workflow
+          workflowIdOrName: policy-sweep
+        dependsOn: []
+        weight: 0
+        allowFailure: false
+      - name: capture-change-baseline
+        description: Capture the trusted pre-implementation Git HEAD for this work item.
+        task:
+          type: model_method
+          modelIdOrName: repo-audit
+          methodName: capture-change-baseline
+          inputs:
+            workItem: '${{ inputs.workItem }}'
+        dependsOn:
+          - step: policy-sweep
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+      - name: record-factory-evidence
+        description: Record evidence only after policy and baseline capture succeed.
+        task:
+          type: model_method
+          modelIdOrName: supers-delivery
+          methodName: record_evidence
+          inputs:
+            workItem: '${{ inputs.workItem }}'
+            name: '${{ inputs.evidenceName }}'
+            payload:
+              status: succeeded
+              runId: '${{ run.id }}'
+              workflow: factory-policy-sweep
+        dependsOn:
+          - step: capture-change-baseline
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+    dependsOn: []
+    weight: 0
+version: 1

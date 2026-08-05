@@ -1,0 +1,67 @@
+id: 42fe6e68-86e1-400d-aaec-84984276248a
+name: factory-postflight-sweep
+description: Reject change-state drift, run policy, and record correlated postflight evidence.
+tags:
+  purpose: factory-postflight-policy
+inputs:
+  type: object
+  required: [workItem, evidenceName, expectedFingerprint]
+  additionalProperties: false
+  properties:
+    workItem:
+      type: string
+      minLength: 1
+    evidenceName:
+      type: string
+      minLength: 1
+    expectedFingerprint:
+      type: string
+      pattern: '^[0-9a-f]{64}$'
+jobs:
+  - name: main
+    description: Verify the classified tree is unchanged before the terminal policy sweep.
+    steps:
+      - name: assert-change-state
+        description: Fail closed when repository content changed after classification.
+        task:
+          type: model_method
+          modelIdOrName: repo-audit
+          methodName: assert-change-state
+          inputs:
+            expectedFingerprint: '${{ inputs.expectedFingerprint }}'
+        dependsOn: []
+        weight: 0
+        allowFailure: false
+      - name: policy-sweep
+        description: Run the existing repository policy workflow unchanged.
+        task:
+          type: workflow
+          workflowIdOrName: policy-sweep
+        dependsOn:
+          - step: assert-change-state
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+      - name: record-factory-evidence
+        description: Record postflight evidence only after fingerprint and policy checks succeed.
+        task:
+          type: model_method
+          modelIdOrName: supers-delivery
+          methodName: record_evidence
+          inputs:
+            workItem: '${{ inputs.workItem }}'
+            name: '${{ inputs.evidenceName }}'
+            payload:
+              status: succeeded
+              runId: '${{ run.id }}'
+              workflow: factory-postflight-sweep
+        dependsOn:
+          - step: policy-sweep
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+    dependsOn: []
+    weight: 0
+version: 1
