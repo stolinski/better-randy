@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 
 import {
+	PASSTHROUGH_DEX_REPOSITORY_LOCK,
+	DexRepositoryLockOwnershipError,
+	DexRepositoryLockTimeoutError
+} from './dex-repository-lock.ts';
+
+import {
 	DexTaskCompleteArgsSchema,
 	DexTaskGetArgsSchema,
 	DexTaskSnapshotSchema,
@@ -175,7 +181,11 @@ function fixtureContext(ownerToken = 'owner-token-exact'): {
 }
 
 function dependencies(commandAdapter: DexTaskCommandAdapter): DexTaskTrackerDependencies {
-	return { commandAdapter, now: () => FIXED_NOW };
+	return {
+		commandAdapter,
+		repositoryLock: PASSTHROUGH_DEX_REPOSITORY_LOCK,
+		now: () => FIXED_NOW
+	};
 }
 
 function receiptWrites(writes: FixtureWrite[]): FixtureWrite[] {
@@ -201,7 +211,7 @@ async function assertTrackerFailure(
 
 Deno.test('model exposes the locked type, version, resources, and method set', () => {
 	assert.equal(model.type, '@club_aqua_back_deck/dex-task-tracker');
-	assert.equal(model.version, '2026.08.05.2');
+	assert.equal(model.version, '2026.08.05.4');
 	assert.deepEqual(Object.keys(model.resources).sort(), ['receipt', 'task']);
 	assert.deepEqual(Object.keys(model.methods).sort(), [
 		'add-note',
@@ -246,6 +256,71 @@ Deno.test(
 		assert.equal(receipt.task?.priority, 73);
 	}
 );
+
+Deno.test('mutations use the repository lock while get remains lock-free', async () => {
+	const adapter = new FakeDexCommandAdapter();
+	const trackerDependencies = dependencies(adapter);
+	let lockCalls = 0;
+	trackerDependencies.repositoryLock = {
+		runExclusive: async (_repoDir, operation) => {
+			lockCalls += 1;
+			return await operation();
+		}
+	};
+
+	await executeDexTaskGet({ taskId: 'task-123' }, fixtureContext().context, trackerDependencies);
+	assert.equal(lockCalls, 0);
+	await executeDexTaskStart({ taskId: 'task-123' }, fixtureContext().context, trackerDependencies);
+	assert.equal(lockCalls, 1);
+});
+
+Deno.test('pre-operation repository lock failure persists a stable tracker receipt', async () => {
+	const adapter = new FakeDexCommandAdapter();
+	const fixture = fixtureContext();
+	const trackerDependencies = dependencies(adapter);
+	trackerDependencies.repositoryLock = {
+		runExclusive: () =>
+			Promise.reject(new DexRepositoryLockTimeoutError('/fixture/repository/.dex/lock', 10))
+	};
+
+	await assertTrackerFailure(
+		executeDexTaskStart({ taskId: 'task-123' }, fixture.context, trackerDependencies),
+		'repository-lock-acquisition-failed'
+	);
+	assert.equal(adapter.cliCalls.length, 0);
+	assert.equal(taskWrites(fixture.writes).length, 0);
+	const receipt = DexTaskTrackerReceiptSchema.parse(receiptWrites(fixture.writes)[0].data);
+	assert.equal(receipt.status, 'failed');
+	assert.equal(receipt.errorCode, 'repository-lock-acquisition-failed');
+});
+
+Deno.test('post-commit repository lock cleanup failure preserves tracker success', async () => {
+	const adapter = new FakeDexCommandAdapter();
+	const fixture = fixtureContext();
+	const trackerDependencies = dependencies(adapter);
+	trackerDependencies.repositoryLock = {
+		runExclusive: async (_repoDir, operation) => {
+			await operation();
+			throw new DexRepositoryLockOwnershipError('/fixture/repository/.dex/lock');
+		}
+	};
+
+	const result = await executeDexTaskStart(
+		{ taskId: 'task-123' },
+		fixture.context,
+		trackerDependencies
+	);
+	assert.equal(adapter.cliCalls.length, 3);
+	assert.equal(receiptWrites(fixture.writes).length, 1);
+	assert.equal(
+		DexTaskTrackerReceiptSchema.parse(receiptWrites(fixture.writes)[0].data).status,
+		'succeeded'
+	);
+	assert.deepEqual(
+		result.dataHandles.map((handle) => handle.name).sort(),
+		fixture.writes.map((write) => write.name).sort()
+	);
+});
 
 Deno.test('get normalizes expanded Dex relationship objects to stable task ids', async () => {
 	const adapter = new FakeDexCommandAdapter(

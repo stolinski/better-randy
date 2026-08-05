@@ -9,7 +9,14 @@
  */
 import { z } from 'npm:zod@4';
 
-export const DEX_TASK_TRACKER_ADAPTER_VERSION = '2026.08.05.2';
+import {
+	DEFAULT_DEX_REPOSITORY_LOCK,
+	type DexRepositoryLock,
+	DexRepositoryLockOwnershipError,
+	DexRepositoryLockTimeoutError
+} from './dex-repository-lock.ts';
+
+export const DEX_TASK_TRACKER_ADAPTER_VERSION = '2026.08.05.4';
 
 const MAX_DEX_CONTENT_LENGTH = 50 * 1024;
 const OUTPUT_EXCERPT_LENGTH = 800;
@@ -89,6 +96,8 @@ const DexTaskTrackerErrorCodeSchema = z.enum([
 	'mcp-protocol-invalid',
 	'mcp-json-invalid',
 	'mcp-tool-failed',
+	'repository-lock-acquisition-failed',
+	'repository-lock-ownership-lost',
 	'unexpected-failure',
 	'resource-write-failed'
 ]);
@@ -168,6 +177,7 @@ export interface DexTaskCommandAdapter {
 
 export type DexTaskTrackerDependencies = {
 	commandAdapter: DexTaskCommandAdapter;
+	repositoryLock: DexRepositoryLock;
 	now: () => string;
 };
 
@@ -523,6 +533,47 @@ async function persistFailure(
 	await context.writeResource('receipt', receiptName, receipt);
 }
 
+function repositoryLockTrackerError(error: unknown): DexTaskTrackerError {
+	return error instanceof DexRepositoryLockOwnershipError
+		? trackerError(
+				'repository-lock-ownership-lost',
+				'Dex repository lock ownership was lost',
+				error
+			)
+		: trackerError(
+				'repository-lock-acquisition-failed',
+				error instanceof DexRepositoryLockTimeoutError
+					? 'Timed out acquiring the Dex repository lock'
+					: 'Could not acquire the Dex repository lock',
+				error
+			);
+}
+
+async function persistRepositoryLockTrackerFailure(
+	request: DexTaskActionRequest,
+	context: DexTaskTrackerMethodContext,
+	dependencies: DexTaskTrackerDependencies,
+	failure: DexTaskTrackerError
+): Promise<void> {
+	const receiptName = await createDexTaskReceiptResourceName(
+		request,
+		context.globalArgs.ownerToken
+	);
+	const priorReceipt = DexTaskTrackerReceiptSchema.safeParse(
+		await context.readResource(receiptName)
+	);
+	if (priorReceipt.success && priorReceipt.data.status === 'succeeded') return;
+	try {
+		await persistFailure(request, context, null, dependencies.now(), failure.errorCode);
+	} catch (error) {
+		throw trackerError(
+			'resource-write-failed',
+			'Could not persist the repository lock failure receipt',
+			error
+		);
+	}
+}
+
 async function withTaskInvocationLock<T>(key: string, operation: () => Promise<T>): Promise<T> {
 	const previous = invocationTails.get(key) ?? Promise.resolve();
 	let release = (): void => undefined;
@@ -548,34 +599,57 @@ function executeDexTaskRequest(
 	const taskId = request.args.taskId;
 	const lockKey = `${context.repoDir}\0${taskId}`;
 	return withTaskInvocationLock(lockKey, async () => {
-		const occurredAt = dependencies.now();
-		let task: DexTaskSnapshot | null = null;
-		try {
-			task = await executeTaskAction(request, context, dependencies, occurredAt, (observed) => {
-				task = observed;
-			});
-			context.logger.info('Dex task {taskId} action {action} succeeded', {
-				taskId,
-				action: request.action
-			});
-			return await persistSuccess(request, context, task, occurredAt);
-		} catch (error) {
-			const trackerFailure = normalizeTrackerError(error);
-			context.logger.warning('Dex task {taskId} action {action} failed with {errorCode}', {
-				taskId,
-				action: request.action,
-				errorCode: trackerFailure.errorCode
-			});
+		const action = async (): Promise<DexTaskTrackerExecutionResult> => {
+			const occurredAt = dependencies.now();
+			let task: DexTaskSnapshot | null = null;
 			try {
-				await persistFailure(request, context, task, occurredAt, trackerFailure.errorCode);
-			} catch (writeError) {
-				throw trackerError(
-					'resource-write-failed',
-					'Could not persist the failed Dex task receipt',
-					writeError
-				);
+				task = await executeTaskAction(request, context, dependencies, occurredAt, (observed) => {
+					task = observed;
+				});
+				context.logger.info('Dex task {taskId} action {action} succeeded', {
+					taskId,
+					action: request.action
+				});
+				return await persistSuccess(request, context, task, occurredAt);
+			} catch (error) {
+				const trackerFailure = normalizeTrackerError(error);
+				context.logger.warning('Dex task {taskId} action {action} failed with {errorCode}', {
+					taskId,
+					action: request.action,
+					errorCode: trackerFailure.errorCode
+				});
+				try {
+					await persistFailure(request, context, task, occurredAt, trackerFailure.errorCode);
+				} catch (writeError) {
+					throw trackerError(
+						'resource-write-failed',
+						'Could not persist the failed Dex task receipt',
+						writeError
+					);
+				}
+				throw trackerFailure;
 			}
-			throw trackerFailure;
+		};
+		if (request.action === 'get') return action();
+		let committedResult: DexTaskTrackerExecutionResult | null = null;
+		try {
+			return await dependencies.repositoryLock.runExclusive(context.repoDir, async () => {
+				const result = await action();
+				committedResult = result;
+				return result;
+			});
+		} catch (error) {
+			if (committedResult !== null) {
+				context.logger.warning('Dex repository lock cleanup failed after task commit', {
+					taskId,
+					action: request.action
+				});
+				return committedResult;
+			}
+			if (error instanceof DexTaskTrackerError) throw error;
+			const failure = repositoryLockTrackerError(error);
+			await persistRepositoryLockTrackerFailure(request, context, dependencies, failure);
+			throw failure;
 		}
 	});
 }
@@ -741,6 +815,7 @@ function createDenoDexTaskCommandAdapter(): DexTaskCommandAdapter {
 
 const DEFAULT_DEPENDENCIES: DexTaskTrackerDependencies = {
 	commandAdapter: createDenoDexTaskCommandAdapter(),
+	repositoryLock: DEFAULT_DEX_REPOSITORY_LOCK,
 	now: () => new Date().toISOString()
 };
 

@@ -31,11 +31,15 @@ const MATERIALIZER_PATH = join(REPOSITORY_ROOT, 'scripts/materialize-dex-softwar
 const PORTABLE_MODEL_FILES = [
 	'dex-software-factory.ts',
 	'dex-software-factory-compiler.ts',
+	'dex-repository-lock.ts',
+	'dex-plan-applier.ts',
+	'dex-plan-applier-adapter.ts',
 	'dex-task-tracker.ts',
 	'dex-task-tracker-adapter.ts'
 ] as const;
 const FACTORY_MODEL = 'clean-room-factory';
 const PROFILE_MODEL = 'clean-room-profile';
+const PLAN_APPLIER_MODEL = 'clean-room-dex-plan-applier';
 const TRACKER_MODEL = 'clean-room-dex-tracker';
 
 async function runCommand(
@@ -417,6 +421,14 @@ async function setUpCleanConsumer(repository: string): Promise<string> {
 		TRACKER_MODEL
 	);
 	await setModelGlobalArguments(trackerDefinition, { ownerToken: 'clean-room-delivery' });
+	const planApplierDefinition = await createModel(
+		repository,
+		'@club_aqua_back_deck/dex-plan-applier',
+		PLAN_APPLIER_MODEL
+	);
+	await setModelGlobalArguments(planApplierDefinition, {
+		ownerToken: 'clean-room-delivery'
+	});
 
 	const factoryDefinition = await createModel(repository, '@swamp/software-factory', FACTORY_MODEL);
 	await runCommand(
@@ -451,7 +463,7 @@ async function setUpCleanConsumer(repository: string): Promise<string> {
 	assert.equal(secondDefinition.version, firstVersion);
 	assert.match(secondMaterialization.stdout, /already matches/);
 
-	for (const modelName of [PROFILE_MODEL, TRACKER_MODEL, FACTORY_MODEL]) {
+	for (const modelName of [PROFILE_MODEL, PLAN_APPLIER_MODEL, TRACKER_MODEL, FACTORY_MODEL]) {
 		await runCommand('swamp', ['model', 'validate', modelName, '--json'], repository);
 	}
 	const dexDirectory = await runCommand('dex', ['dir'], repository);
