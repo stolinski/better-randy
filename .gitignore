@@ -43,6 +43,9 @@ vite.config.ts.timestamp-*
 # footage (ADR-0034 §7); personal footage frames, never committed
 /static/backdrops
 
+# Cross-process Dex write coordination
+/.dex/swamp-repository-write.lock
+
 # BEGIN swamp managed section - DO NOT EDIT
 
 # Runtime data (not needed in version control)
