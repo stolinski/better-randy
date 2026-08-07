@@ -271,4 +271,61 @@ describe('composition timeline tracks', () => {
 		assert.equal(state.overlays[1].enter?.duration, 0.06);
 		assert.ok(Math.abs((state.overlays[1].animation?.cascade?.offsetMs ?? 0) - 1200) < 1e-9);
 	});
+
+	it('exposes chart items through the shared Block timeline identity', () => {
+		const state = makeTimelineState();
+		state.surface.chart = {
+			mode: 'single',
+			items: [
+				{
+					id: 'agent-chart',
+					type: 'column-chart',
+					title: 'Agent count distribution',
+					data: {
+						categories: [{ id: 'multiple', label: '2–5' }],
+						series: [
+							{
+								id: 'responses',
+								label: 'Responses',
+								values: [{ categoryId: 'multiple', value: 744 }]
+							}
+						]
+					},
+					layout: { mode: 'single' },
+					domain: { min: 0, max: 800 },
+					labels: { categories: true, values: true, legend: false },
+					fill: { role: 'default' },
+					motion: {
+						entry: { start: 0.1, duration: 0.05 },
+						reveal: { start: 0.15, duration: 0.15 },
+						emphasis: { start: 0.3, duration: 0.05 },
+						annotation: { start: 0.35, duration: 0.05 },
+						exit: { start: 0.8, duration: 0.1 }
+					}
+				}
+			]
+		};
+
+		const tracks = buildCompositionTimelineTracks(state, appearance);
+		const chartTrack = tracks.find(
+			(track) => track.id === createTimelineTrackId({ kind: 'block', blockId: 'agent-chart' })
+		);
+		assert.ok(chartTrack);
+		assert.equal(chartTrack.label, 'Agent count distribution');
+		assert.equal(chartTrack.transitions[0].start, 0.1);
+		assert.ok(Math.abs(chartTrack.transitions[0].duration - 0.8) < 1e-9);
+
+		state.surface.chart.items[0].motion = {
+			entry: { start: 0.1, duration: 0.001 },
+			reveal: { start: 0.101, duration: 0.001 },
+			emphasis: { start: 0.102, duration: 0.001 },
+			annotation: { start: 0.103, duration: 0.001 },
+			exit: { start: 0.104, duration: 0.001 }
+		};
+		const shortTrack = buildCompositionTimelineTracks(state, appearance).find(
+			(track) => track.id === createTimelineTrackId({ kind: 'block', blockId: 'agent-chart' })
+		);
+		assert.ok(shortTrack);
+		assert.ok(Math.abs(shortTrack.transitions[0].duration - 0.005) < 1e-9);
+	});
 });

@@ -46,6 +46,49 @@ function mediaPreset(): Preset {
 	});
 }
 
+function chartPreset(): Preset {
+	return PresetSchema.parse({
+		...blankPresetJson,
+		state: {
+			...blankPresetJson.state,
+			surface: {
+				...blankPresetJson.state.surface,
+				chart: {
+					mode: 'single',
+					items: [
+						{
+							id: 'agent-chart',
+							type: 'column-chart',
+							title: 'Agent count',
+							data: {
+								categories: [{ id: 'multiple', label: '2–5' }],
+								series: [
+									{
+										id: 'responses',
+										label: 'Responses',
+										values: [{ categoryId: 'multiple', value: 744 }]
+									}
+								]
+							},
+							layout: { mode: 'single' },
+							domain: { min: 0, max: 800 },
+							labels: { values: true, legend: false },
+							fill: { role: 'default' },
+							motion: {
+								entry: { start: 0, duration: 0.1 },
+								reveal: { start: 0.1, duration: 0.2 },
+								emphasis: { start: 0.3, duration: 0.1 },
+								annotation: { start: 0.4, duration: 0.1 },
+								exit: { start: 0.9, duration: 0.1 }
+							}
+						}
+					]
+				}
+			}
+		}
+	});
+}
+
 function legacySourceVideoPreset(): unknown {
 	return {
 		...blankPresetJson,
@@ -267,6 +310,41 @@ describe('userCompositionStore', () => {
 		assert.deepEqual(saveBody.state.media, preset.state.media);
 		assert.equal(Object.hasOwn(forkBody.preset.state, 'sourceVideo'), false);
 		assert.equal(Object.hasOwn(saveBody.state, 'sourceVideo'), false);
+	});
+
+	it('preserves a valid chart through load, fork, and save and rejects invalid chart loads', async () => {
+		const preset = chartPreset();
+		const invalidWire = structuredClone(presetToWireFormat(preset)) as Preset;
+		invalidWire.state.surface.chart!.items[0].domain = { min: 500, max: 800 };
+		const unknownKeyWire = structuredClone(presetToWireFormat(preset)) as unknown as {
+			state: { surface: { chart: { items: Array<Record<string, unknown>> } } };
+		};
+		unknownKeyWire.state.surface.chart.items[0]['literalColor'] = '#ff0000';
+		fetchMock
+			.mockResolvedValueOnce(jsonResponse(presetToWireFormat(preset)))
+			.mockResolvedValueOnce(jsonResponse({ slug: 'agent-chart-copy' }, { status: 201 }))
+			.mockResolvedValueOnce(new Response(null, { status: 204 }))
+			.mockResolvedValueOnce(jsonResponse(invalidWire))
+			.mockResolvedValueOnce(jsonResponse(unknownKeyWire));
+
+		const loaded = await userCompositionStore.loadUserComposition('agent-chart');
+		assert.ok(loaded);
+		assert.deepEqual(loaded.state.surface.chart, preset.state.surface.chart);
+		await userCompositionStore.forkUserComposition('agent-chart-copy', loaded, 'agent-chart');
+		await userCompositionStore.saveUserComposition('agent-chart-copy', loaded);
+
+		const forkBody = requestBodyAt(1) as { preset: Preset };
+		const saveBody = requestBodyAt(2) as Preset;
+		assert.deepEqual(forkBody.preset.state.surface.chart, preset.state.surface.chart);
+		assert.deepEqual(saveBody.state.surface.chart, preset.state.surface.chart);
+		await assert.rejects(
+			userCompositionStore.loadUserComposition('invalid-chart'),
+			/invalid response/
+		);
+		await assert.rejects(
+			userCompositionStore.loadUserComposition('unknown-chart-key'),
+			/invalid response/
+		);
 	});
 
 	it('upgrades legacy Source video input to canonical media on the first autosave', async () => {

@@ -9,6 +9,7 @@ import type {
 } from '$lib/annotations/annotation-marks';
 import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
 import type {
+	ChartBlock,
 	DiagramPrimitive,
 	Effect,
 	Overlay,
@@ -69,7 +70,7 @@ export interface AnnotationRenderer {
  * primitives are positioned Blocks, not text flow. The shortest canonical name
  * is unambiguous here because the paragraph-only type is `AnnotationBodyBlock`.
  */
-export type Block = AnnotationBodyBlock | DiagramPrimitive;
+export type Block = AnnotationBodyBlock | DiagramPrimitive | ChartBlock;
 
 export interface BlockRenderContext<TBlock extends Block = Block> {
 	block: TBlock;

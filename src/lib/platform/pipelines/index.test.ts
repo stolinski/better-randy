@@ -11,12 +11,16 @@ import { sideNoteAnnotationRenderer } from '$lib/pipelines/annotations/side-note
 import { strikeAnnotationRenderer } from '$lib/pipelines/annotations/strike';
 import { tearOutAnnotationRenderer } from '$lib/pipelines/annotations/tear-out';
 import { underlineAnnotationRenderer } from '$lib/pipelines/annotations/underline';
+import { barChartBlockRenderer } from '$lib/pipelines/blocks/bar-chart';
+import { columnChartBlockRenderer } from '$lib/pipelines/blocks/column-chart';
+import { dotFieldChartBlockRenderer } from '$lib/pipelines/blocks/dot-field-chart';
 import { edgeArrowBlockRenderer } from '$lib/pipelines/blocks/edge-arrow';
 import { labelBlockRenderer } from '$lib/pipelines/blocks/label';
 import { nodeBlockRenderer } from '$lib/pipelines/blocks/node';
 import { paragraphBlockRenderer } from '$lib/pipelines/blocks/paragraph';
 import { statCalloutBlockRenderer } from '$lib/pipelines/blocks/stat-callout';
 import { timelineSegmentBlockRenderer } from '$lib/pipelines/blocks/timeline-segment';
+import { unitGridChartBlockRenderer } from '$lib/pipelines/blocks/unit-grid-chart';
 import { chromaticAberrationEffectRenderer } from '$lib/pipelines/effects/chromatic-aberration';
 import { clothBendEffectRenderer } from '$lib/pipelines/effects/cloth-bend';
 import { crtScreenEffectRenderer } from '$lib/pipelines/effects/crt-screen';
@@ -59,7 +63,7 @@ import { websiteScreenshotSurfaceRenderer } from '$lib/pipelines/surfaces/websit
 import { syntaxPack } from '$lib/packs/syntax/manifest';
 import { PACK_REGISTRY } from '$lib/platform/packs/registry';
 
-import { PIPELINE_REGISTRY, resolveSurfaceTypographyColors } from './index';
+import { PIPELINE_REGISTRY, REGISTERED_BLOCK_TYPES, resolveSurfaceTypographyColors } from './index';
 import {
 	IDENTITY_REGISTRY,
 	PACK_IMMUNE_PIPELINE_KEYS,
@@ -87,6 +91,10 @@ const EXPECTED_PIPELINE_TYPE_IDS = [
 	'label',
 	'stat-callout',
 	'timeline-segment',
+	'bar-chart',
+	'column-chart',
+	'unit-grid-chart',
+	'dot-field-chart',
 	'highlight',
 	'underline',
 	'strike',
@@ -153,6 +161,10 @@ describe('Pipeline Registry', () => {
 		assert.strictEqual(PIPELINE_REGISTRY.blocks.label, labelBlockRenderer);
 		assert.strictEqual(PIPELINE_REGISTRY.blocks.statCallout, statCalloutBlockRenderer);
 		assert.strictEqual(PIPELINE_REGISTRY.blocks.timelineSegment, timelineSegmentBlockRenderer);
+		assert.strictEqual(PIPELINE_REGISTRY.blocks.barChart, barChartBlockRenderer);
+		assert.strictEqual(PIPELINE_REGISTRY.blocks.columnChart, columnChartBlockRenderer);
+		assert.strictEqual(PIPELINE_REGISTRY.blocks.unitGridChart, unitGridChartBlockRenderer);
+		assert.strictEqual(PIPELINE_REGISTRY.blocks.dotFieldChart, dotFieldChartBlockRenderer);
 
 		assert.strictEqual(PIPELINE_REGISTRY.annotations.highlight, highlightAnnotationRenderer);
 		assert.strictEqual(PIPELINE_REGISTRY.annotations.underline, underlineAnnotationRenderer);
@@ -213,6 +225,21 @@ describe('Pipeline Registry', () => {
 
 		assert.deepEqual(typeIds.toSorted(), EXPECTED_PIPELINE_TYPE_IDS.toSorted());
 		assert.equal(new Set(typeIds).size, typeIds.length);
+		assert.deepEqual(
+			REGISTERED_BLOCK_TYPES.toSorted(),
+			[
+				'paragraph',
+				'node',
+				'edge-arrow',
+				'label',
+				'stat-callout',
+				'timeline-segment',
+				'bar-chart',
+				'column-chart',
+				'unit-grid-chart',
+				'dot-field-chart'
+			].toSorted()
+		);
 	});
 
 	it('marks only plate-less display Overlays as field-ink consumers', () => {
@@ -238,6 +265,17 @@ describe('Pipeline Registry', () => {
 
 		assert.deepEqual(registeredIdentityKeys.toSorted(), pipelineIdentityKeys.toSorted());
 		assert.deepEqual(validateIdentityRegistry(syntaxPack), []);
+		for (const pack of Object.values(PACK_REGISTRY)) {
+			for (const role of [
+				'chart.mark',
+				'chart.axis',
+				'chart.grid',
+				'chart.label',
+				'chart.annotation'
+			]) {
+				assert.ok(role in pack.roles, `${pack.slug} is missing ${role}`);
+			}
+		}
 	});
 
 	it('derives the complete FULL Pack-immunity set from Identity Specs', () => {

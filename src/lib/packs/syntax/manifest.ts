@@ -23,6 +23,15 @@ export const syntaxPack: PackManifest = {
 		'The Syntax.fm house style (github.com/randyrektor/syntax-overlay): flat warm-black fields, bordered cards with chunky stepped shadows, Space Grotesk display + Space Mono chrome, one loud #ffd54a yellow. Substrate ≠ chrome: quoted documents keep their own physics.',
 	fonts: syntaxFonts,
 	roles: {
+		// ---------------- chart Block domain (ADR-0048) ----------------
+		// Final chart-specific colour Roles. Structural edge/depth/light
+		// dimensions intentionally land on the mandatory core fallback floor.
+		'chart.mark': { kind: 'style', value: '#ffd54a' },
+		'chart.axis': { kind: 'style', value: '#f7f6f2' },
+		'chart.grid': { kind: 'style', value: '#454441' },
+		'chart.label': { kind: 'style', value: '#f7f6f2' },
+		'chart.annotation': { kind: 'style', value: '#ffd54a' },
+
 		// ---------------------------------------------------------------
 		// Core / channel-level Roles (Pack vocabulary, not Pipeline-scoped).
 		// The seven mandatory cores (fill/ink/accent/field/edge/depth/light) are

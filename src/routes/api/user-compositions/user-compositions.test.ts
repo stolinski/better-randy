@@ -4,7 +4,7 @@ import { isHttpError } from '@sveltejs/kit';
 import { beforeAll, beforeEach, describe, it, vi } from 'vitest';
 
 import validPreset from '$lib/presets/blank.json';
-import { PresetSchema } from '$lib/platform/engine-schema';
+import { PresetSchema, type Preset } from '$lib/platform/engine-schema';
 import { presetToWireFormat } from '$lib/platform/preset-pure';
 
 const fsMocks = vi.hoisted(() => ({
@@ -93,6 +93,50 @@ function mediaPreset(): unknown {
 			}
 		}
 	};
+}
+
+function chartPreset(): Preset {
+	return PresetSchema.parse({
+		...validPreset,
+		name: 'Agent chart',
+		state: {
+			...validPreset.state,
+			surface: {
+				...validPreset.state.surface,
+				chart: {
+					mode: 'single',
+					items: [
+						{
+							id: 'agent-chart',
+							type: 'column-chart',
+							title: 'Agent count',
+							data: {
+								categories: [{ id: 'multiple', label: '2–5' }],
+								series: [
+									{
+										id: 'responses',
+										label: 'Responses',
+										values: [{ categoryId: 'multiple', value: 744 }]
+									}
+								]
+							},
+							layout: { mode: 'single' },
+							domain: { min: 0, max: 800 },
+							labels: { values: true, legend: false },
+							fill: { role: 'default' },
+							motion: {
+								entry: { start: 0, duration: 0.1 },
+								reveal: { start: 0.1, duration: 0.2 },
+								emphasis: { start: 0.3, duration: 0.1 },
+								annotation: { start: 0.4, duration: 0.1 },
+								exit: { start: 0.9, duration: 0.1 }
+							}
+						}
+					]
+				}
+			}
+		}
+	});
 }
 
 function legacySourceVideoPreset(): unknown {
@@ -280,6 +324,79 @@ describe('user composition handlers', () => {
 			preset: unknown;
 		};
 		assert.deepEqual(written.preset, standalonePreset);
+	});
+
+	it('preserves valid charts and rejects semantic chart errors at POST, GET, and PUT boundaries', async () => {
+		const preset = chartPreset();
+		const wire = presetToWireFormat(preset);
+		const postResponse = await collectionHandlers.POST(
+			postEvent({ slug: 'agent-chart', preset: wire, forkedFrom: 'blank' })
+		);
+		assert.equal(postResponse.status, 201);
+		const stored = fsMocks.writeFile.mock.calls[0]?.[1];
+		assert.ok(stored);
+		fsMocks.readFile.mockResolvedValue(stored);
+
+		const getResponse = await slugHandlers.GET({
+			params: { slug: 'agent-chart' }
+		} as Parameters<(typeof slugHandlers)['GET']>[0]);
+		assert.deepEqual(await getResponse.json(), wire);
+		const putResponse = await slugHandlers.PUT({
+			params: { slug: 'agent-chart' },
+			request: new Request('http://localhost/api/user-compositions/agent-chart', {
+				method: 'PUT',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(wire)
+			})
+		} as Parameters<(typeof slugHandlers)['PUT']>[0]);
+		assert.equal(putResponse.status, 204);
+
+		const invalidWire = structuredClone(wire) as Preset;
+		invalidWire.state.surface.chart!.items[0].domain = { min: 500, max: 800 };
+		const unknownKeyWire = structuredClone(wire) as unknown as {
+			state: { surface: { chart: { items: Array<Record<string, unknown>> } } };
+		};
+		unknownKeyWire.state.surface.chart.items[0]['literalColor'] = '#ff0000';
+		await assert.rejects(
+			async () =>
+				collectionHandlers.POST(
+					postEvent({ slug: 'unknown-chart-key', preset: unknownKeyWire, forkedFrom: 'blank' })
+				),
+			expectHttpError(400, 'Invalid preset')
+		);
+		await assert.rejects(
+			async () =>
+				collectionHandlers.POST(
+					postEvent({ slug: 'invalid-chart', preset: invalidWire, forkedFrom: 'blank' })
+				),
+			expectHttpError(400, 'domains must include zero')
+		);
+		await assert.rejects(
+			async () =>
+				slugHandlers.PUT({
+					params: { slug: 'agent-chart' },
+					request: new Request('http://localhost/api/user-compositions/agent-chart', {
+						method: 'PUT',
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify(invalidWire)
+					})
+				} as Parameters<(typeof slugHandlers)['PUT']>[0]),
+			expectHttpError(400, 'domains must include zero')
+		);
+
+		fsMocks.readFile.mockResolvedValue(
+			JSON.stringify({
+				meta: { forkedFrom: null, savedAt: '2026-08-07T12:00:00.000Z' },
+				preset: invalidWire
+			})
+		);
+		await assert.rejects(
+			async () =>
+				slugHandlers.GET({
+					params: { slug: 'invalid-chart' }
+				} as Parameters<(typeof slugHandlers)['GET']>[0]),
+			expectHttpError(500, 'Corrupt preset data')
+		);
 	});
 
 	it('preserves agent-only fields through an agent to GUI to agent workflow', async () => {

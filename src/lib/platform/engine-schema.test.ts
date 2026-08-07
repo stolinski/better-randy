@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
-import { EngineStateSchema } from './engine-schema.ts';
+import { BlockTypeSchema, EngineStateSchema } from './engine-schema.ts';
 
 // Minimal valid EngineState input (wire form — `body` is the bracket-tag
 // string the schema transforms). Each test mutates a structuredClone of this.
@@ -642,5 +642,206 @@ describe("backgroundFill 'pack' sentinel (ADR-0039 §3)", () => {
 		const invalid = baseState();
 		invalid.backgroundFill = 'field';
 		assert.equal(EngineStateSchema.safeParse(invalid).success, false);
+	});
+});
+
+function chartWire(type: 'bar-chart' | 'column-chart' | 'unit-grid-chart' | 'dot-field-chart') {
+	const common = {
+		id: `${type}-a`,
+		type,
+		title: 'Agent count',
+		data: {
+			categories: [
+				{ id: 'one', label: '1' },
+				{ id: 'multiple', label: '2–5' }
+			],
+			series: [
+				{
+					id: 'responses',
+					label: 'Responses',
+					values: [
+						{ categoryId: 'one', value: 360 },
+						{ categoryId: 'multiple', value: 744 }
+					]
+				}
+			]
+		},
+		domain: { min: 0, max: 1104 },
+		labels: { categories: true, values: true, legend: false },
+		highlights: [{ target: { kind: 'datum', seriesId: 'responses', categoryId: 'multiple' } }],
+		callouts: [
+			{
+				target: { kind: 'datum', seriesId: 'responses', categoryId: 'multiple' },
+				valueLabel: {
+					kind: 'approximate-fraction-and-percent',
+					maxDenominator: 10,
+					precision: 1
+				}
+			}
+		],
+		sourceNote: 'Syntax survey',
+		fill: { role: 'default' },
+		motion: {
+			entry: { start: 0, duration: 0.1, ease: 'smooth' },
+			reveal: { start: 0.1, duration: 0.2, ease: 'smooth' },
+			emphasis: { start: 0.3, duration: 0.1, ease: 'sharp' },
+			annotation: { start: 0.4, duration: 0.1, ease: 'smooth' },
+			exit: { start: 0.9, duration: 0.1, ease: 'smooth' }
+		}
+	};
+	return type === 'bar-chart' || type === 'column-chart'
+		? { ...common, layout: { mode: 'single' } }
+		: { ...common, normalization: { total: 1104, unitCount: 100 } };
+}
+
+function stateWithChart(
+	type: 'bar-chart' | 'column-chart' | 'unit-grid-chart' | 'dot-field-chart' = 'bar-chart'
+): WireState {
+	const state = baseState();
+	state.surface['chart'] = { mode: 'single', items: [chartWire(type)] };
+	return state;
+}
+
+function chartRecordAt(
+	state: WireState,
+	path: readonly (string | number)[]
+): Record<string, unknown> {
+	let value: unknown = state.surface['chart'];
+	for (const segment of path) {
+		if (typeof segment === 'number') {
+			if (!Array.isArray(value)) throw new TypeError(`Expected chart array at ${path.join('.')}`);
+			value = value[segment];
+			continue;
+		}
+		if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+			throw new TypeError(`Expected chart object at ${path.join('.')}`);
+		}
+		value = (value as Record<string, unknown>)[segment];
+	}
+	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+		throw new TypeError(`Expected chart object at ${path.join('.')}`);
+	}
+	return value as Record<string, unknown>;
+}
+
+describe('chart Block structural schema', () => {
+	it('parses all four stable chart Pipeline IDs', () => {
+		for (const type of [
+			'bar-chart',
+			'column-chart',
+			'unit-grid-chart',
+			'dot-field-chart'
+		] as const) {
+			expectValid(stateWithChart(type), type);
+			assert.equal(BlockTypeSchema.safeParse(type).success, true);
+		}
+	});
+
+	it('rejects unknown keys at every chart object boundary', () => {
+		const paths: readonly (readonly (string | number)[])[] = [
+			[],
+			['items', 0],
+			['items', 0, 'data'],
+			['items', 0, 'data', 'categories', 0],
+			['items', 0, 'data', 'series', 0],
+			['items', 0, 'data', 'series', 0, 'values', 0],
+			['items', 0, 'highlights', 0],
+			['items', 0, 'highlights', 0, 'target'],
+			['items', 0, 'callouts', 0],
+			['items', 0, 'callouts', 0, 'target'],
+			['items', 0, 'callouts', 0, 'valueLabel'],
+			['items', 0, 'domain'],
+			['items', 0, 'labels'],
+			['items', 0, 'fill'],
+			['items', 0, 'layout'],
+			['items', 0, 'motion'],
+			['items', 0, 'motion', 'entry']
+		];
+		for (const [index, path] of paths.entries()) {
+			const state = stateWithChart();
+			chartRecordAt(state, path)['unknown'] = true;
+			expectIssue(state, 'Unrecognized key', `unknown chart key ${index}`);
+		}
+
+		const normalized = stateWithChart('unit-grid-chart');
+		chartRecordAt(normalized, ['items', 0, 'normalization'])['unknown'] = true;
+		expectIssue(normalized, 'Unrecognized key', 'unknown normalization key');
+	});
+
+	it('rejects non-finite values and bounded chart controls', () => {
+		const infinite = stateWithChart();
+		const infiniteItem = (
+			infinite.surface['chart'] as {
+				items: Array<{ data: { series: Array<{ values: Array<{ value: number }> }> } }>;
+			}
+		).items[0];
+		infiniteItem.data.series[0].values[0].value = Number.POSITIVE_INFINITY;
+		expectIssue(infinite, 'expected number', 'infinite chart value');
+
+		const lowUnits = stateWithChart('unit-grid-chart');
+		(
+			lowUnits.surface['chart'] as { items: Array<{ normalization: { unitCount: number } }> }
+		).items[0].normalization.unitCount = 9;
+		expectIssue(lowUnits, 'Too small', 'unitCount lower bound');
+
+		const highDenominator = stateWithChart();
+		(
+			highDenominator.surface['chart'] as {
+				items: Array<{ callouts: Array<{ valueLabel: { maxDenominator: number } }> }>;
+			}
+		).items[0].callouts[0].valueLabel.maxDenominator = 21;
+		expectIssue(highDenominator, 'Too big', 'fraction denominator upper bound');
+	});
+
+	it('accepts only smooth and sharp chart eases', () => {
+		for (const ease of ['settled', 'bouncy', 'power2.out']) {
+			const state = stateWithChart();
+			(
+				state.surface['chart'] as {
+					items: Array<{ motion: { reveal: { ease: string } } }>;
+				}
+			).items[0].motion.reveal.ease = ease;
+			expectIssue(state, 'Invalid option', `chart ease ${ease}`);
+		}
+	});
+
+	it('keeps bar/column and normalized variant fields mutually exclusive', () => {
+		const bar = stateWithChart();
+		(bar.surface['chart'] as { items: Array<Record<string, unknown>> }).items[0]['normalization'] =
+			{ total: 1104, unitCount: 100 };
+		expectIssue(bar, 'Unrecognized key', 'bar normalization');
+
+		const grid = stateWithChart('unit-grid-chart');
+		(grid.surface['chart'] as { items: Array<Record<string, unknown>> }).items[0]['layout'] = {
+			mode: 'single'
+		};
+		expectIssue(grid, 'Unrecognized key', 'unit-grid layout');
+	});
+
+	it('resolves chart Block Cascade anchors and rejects unknown ones', () => {
+		const valid = stateWithChart();
+		valid.overlays = [
+			{
+				...baseOverlay('overlay'),
+				animation: {
+					cascade: { anchor: { block: 'bar-chart-a' }, event: 'end', offsetMs: 0 }
+				}
+			}
+		];
+		expectValid(valid, 'chart Block Cascade anchor');
+
+		const invalid = structuredClone(valid);
+		(
+			invalid.overlays[0] as { animation: { cascade: { anchor: { block: string } } } }
+		).animation.cascade.anchor.block = 'missing';
+		expectIssue(invalid, 'surface.chart.items[].id', 'unknown chart Block anchor');
+	});
+
+	it('rejects Diagram/chart collisions in the shared Block identity namespace', () => {
+		const state = stateWithChart();
+		state.surface['diagram'] = [
+			{ id: 'bar-chart-a', type: 'label', position: { x: 0.5, y: 0.5 }, text: 'x' }
+		];
+		expectIssue(state, 'duplicates a surface.diagram[] Block id', 'Block identity collision');
 	});
 });

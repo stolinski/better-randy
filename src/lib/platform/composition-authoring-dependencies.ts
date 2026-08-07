@@ -106,6 +106,9 @@ export function trackCompositionAuthoringDependencies(state: EngineState, packSl
 
 	void state.surface.diagram?.length;
 	for (const primitive of state.surface.diagram ?? []) void JSON.stringify(primitive);
+	void state.surface.chart?.mode;
+	void state.surface.chart?.items.length;
+	for (const chartItem of state.surface.chart?.items ?? []) void JSON.stringify(chartItem);
 
 	void state.marks.timings.length;
 	for (const timing of state.marks.timings) {

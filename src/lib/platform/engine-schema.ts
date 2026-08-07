@@ -287,7 +287,11 @@ export const BlockTypeSchema = z.enum([
 	'edge-arrow',
 	'label',
 	'stat-callout',
-	'timeline-segment'
+	'timeline-segment',
+	'bar-chart',
+	'column-chart',
+	'unit-grid-chart',
+	'dot-field-chart'
 ]);
 /** Discriminants for the complete Block Layer vocabulary. */
 export type BlockType = z.infer<typeof BlockTypeSchema>;
@@ -657,6 +661,198 @@ export type DiagramStatCallout = z.infer<typeof DiagramStatCalloutSchema>;
 export type DiagramTimelineSegment = z.infer<typeof DiagramTimelineSegmentSchema>;
 export type DiagramPrimitive = z.infer<typeof DiagramPrimitiveSchema>;
 
+// Chart Blocks (ADR-0048): one strict inline declaration shared by agents and
+// the GUI. Structural parsing owns wire shape only; cross-field factual rules
+// live in chart-validation.ts so every ingress reports precise semantic paths.
+const ChartIdSchema = z.string().min(1);
+const ChartFiniteNumberSchema = z.number().finite();
+
+export const ChartTypeSchema = z.enum([
+	'bar-chart',
+	'column-chart',
+	'unit-grid-chart',
+	'dot-field-chart'
+]);
+export type ChartType = z.infer<typeof ChartTypeSchema>;
+
+export const ChartCategorySchema = z.strictObject({
+	id: ChartIdSchema,
+	label: z.string().min(1)
+});
+export type ChartCategory = z.infer<typeof ChartCategorySchema>;
+
+export const ChartDatumSchema = z.strictObject({
+	categoryId: ChartIdSchema,
+	value: ChartFiniteNumberSchema
+});
+export type ChartDatum = z.infer<typeof ChartDatumSchema>;
+
+export const ChartSeriesSchema = z.strictObject({
+	id: ChartIdSchema,
+	label: z.string().min(1),
+	values: z.array(ChartDatumSchema).min(1)
+});
+export type ChartSeries = z.infer<typeof ChartSeriesSchema>;
+
+export const ChartDataSchema = z.strictObject({
+	categories: z.array(ChartCategorySchema).min(1),
+	series: z.array(ChartSeriesSchema).min(1)
+});
+export type ChartData = z.infer<typeof ChartDataSchema>;
+
+const ChartDatumTargetSchema = z.strictObject({
+	kind: z.literal('datum'),
+	seriesId: ChartIdSchema,
+	categoryId: ChartIdSchema
+});
+const ChartCategorySetTargetSchema = z.strictObject({
+	kind: z.literal('category-set'),
+	seriesId: ChartIdSchema,
+	categoryIds: z.array(ChartIdSchema).min(2)
+});
+const ChartSeriesTotalTargetSchema = z.strictObject({
+	kind: z.literal('series-total'),
+	seriesId: ChartIdSchema
+});
+export const ChartDataTargetSchema = z.discriminatedUnion('kind', [
+	ChartDatumTargetSchema,
+	ChartCategorySetTargetSchema,
+	ChartSeriesTotalTargetSchema
+]);
+export type ChartDataTarget = z.infer<typeof ChartDataTargetSchema>;
+
+const ChartValueLabelSchema = z.discriminatedUnion('kind', [
+	z.strictObject({ kind: z.literal('value') }),
+	z.strictObject({
+		kind: z.literal('percent-of-series-total'),
+		precision: z.number().int().min(0).max(4)
+	}),
+	z.strictObject({
+		kind: z.literal('approximate-fraction-and-percent'),
+		maxDenominator: z.number().int().min(2).max(20),
+		precision: z.number().int().min(0).max(4)
+	})
+]);
+export type ChartValueLabel = z.infer<typeof ChartValueLabelSchema>;
+
+export const ChartHighlightSchema = z.strictObject({
+	target: ChartDataTargetSchema
+});
+export type ChartHighlight = z.infer<typeof ChartHighlightSchema>;
+
+export const ChartCalloutSchema = z.strictObject({
+	target: ChartDataTargetSchema,
+	valueLabel: ChartValueLabelSchema
+});
+export type ChartCallout = z.infer<typeof ChartCalloutSchema>;
+
+export const ChartDomainSchema = z
+	.strictObject({
+		min: ChartFiniteNumberSchema.optional(),
+		max: ChartFiniteNumberSchema.optional()
+	})
+	.superRefine((domain, ctx) => {
+		if (domain.min === undefined && domain.max === undefined) {
+			ctx.addIssue({
+				code: 'custom',
+				message: 'Chart domain must declare at least min or max.'
+			});
+		}
+	});
+export type ChartDomain = z.infer<typeof ChartDomainSchema>;
+
+export const ChartLabelsSchema = z.strictObject({
+	categories: z.boolean().optional(),
+	values: z.boolean(),
+	legend: z.boolean()
+});
+export type ChartLabels = z.infer<typeof ChartLabelsSchema>;
+
+export const ChartFillSchema = z.strictObject({
+	role: z.enum(['default', 'series', 'emphasis'])
+});
+export type ChartFill = z.infer<typeof ChartFillSchema>;
+
+const ChartEaseSchema = z.enum(['smooth', 'sharp']);
+export const ChartMotionPhaseSchema = z.strictObject({
+	start: ChartFiniteNumberSchema.min(0).max(1),
+	duration: ChartFiniteNumberSchema.gt(0).max(1),
+	ease: ChartEaseSchema.optional()
+});
+export type ChartMotionPhase = z.infer<typeof ChartMotionPhaseSchema>;
+
+export const ChartMotionSchema = z.strictObject({
+	entry: ChartMotionPhaseSchema,
+	reveal: ChartMotionPhaseSchema,
+	emphasis: ChartMotionPhaseSchema,
+	annotation: ChartMotionPhaseSchema,
+	exit: ChartMotionPhaseSchema
+});
+export type ChartMotion = z.infer<typeof ChartMotionSchema>;
+
+const chartBlockBase = {
+	id: ChartIdSchema,
+	title: z.string().min(1),
+	data: ChartDataSchema,
+	domain: ChartDomainSchema.optional(),
+	labels: ChartLabelsSchema,
+	highlights: z.array(ChartHighlightSchema).optional(),
+	callouts: z.array(ChartCalloutSchema).optional(),
+	sourceNote: z.string().min(1).optional(),
+	fill: ChartFillSchema,
+	motion: ChartMotionSchema
+};
+
+const ChartBarColumnLayoutSchema = z.strictObject({
+	mode: z.enum(['single', 'grouped', 'stacked'])
+});
+const ChartNormalizationSchema = z.strictObject({
+	total: ChartFiniteNumberSchema.gt(0),
+	unitCount: z.number().int().min(10).max(400)
+});
+
+export const BarChartBlockSchema = z.strictObject({
+	...chartBlockBase,
+	type: z.literal('bar-chart'),
+	layout: ChartBarColumnLayoutSchema
+});
+export type BarChartBlock = z.infer<typeof BarChartBlockSchema>;
+
+export const ColumnChartBlockSchema = z.strictObject({
+	...chartBlockBase,
+	type: z.literal('column-chart'),
+	layout: ChartBarColumnLayoutSchema
+});
+export type ColumnChartBlock = z.infer<typeof ColumnChartBlockSchema>;
+
+export const UnitGridChartBlockSchema = z.strictObject({
+	...chartBlockBase,
+	type: z.literal('unit-grid-chart'),
+	normalization: ChartNormalizationSchema
+});
+export type UnitGridChartBlock = z.infer<typeof UnitGridChartBlockSchema>;
+
+export const DotFieldChartBlockSchema = z.strictObject({
+	...chartBlockBase,
+	type: z.literal('dot-field-chart'),
+	normalization: ChartNormalizationSchema
+});
+export type DotFieldChartBlock = z.infer<typeof DotFieldChartBlockSchema>;
+
+export const ChartBlockSchema = z.discriminatedUnion('type', [
+	BarChartBlockSchema,
+	ColumnChartBlockSchema,
+	UnitGridChartBlockSchema,
+	DotFieldChartBlockSchema
+]);
+export type ChartBlock = z.infer<typeof ChartBlockSchema>;
+
+export const ChartGroupSchema = z.strictObject({
+	mode: z.enum(['single', 'sequence']),
+	items: z.array(ChartBlockSchema).min(1).max(4)
+});
+export type ChartGroup = z.infer<typeof ChartGroupSchema>;
+
 const SurfaceTypeSchema = z.enum([
 	'paper',
 	'plain',
@@ -767,7 +963,11 @@ const SurfaceSchema = z.object({
 	// composition-space placement, revealed with stroke-draw + Cascade. Works
 	// full-frame (paper / chapter-card) and over footage (a transparent surface
 	// carrying only diagram Blocks). Every Surface may carry a diagram group.
-	diagram: DiagramSchema.optional()
+	diagram: DiagramSchema.optional(),
+	// Chart Blocks (ADR-0048) share one strict group across agent and GUI
+	// authoring. Rendering remains in the Block Layer; this is Surface-carried
+	// content, not a sixth Layer or a parallel chart document model.
+	chart: ChartGroupSchema.optional()
 });
 
 const OverlayPlacementSchema = z.object({
@@ -1254,7 +1454,18 @@ export const EngineStateSchema = z
 
 		const overlayIds = new Set(state.overlays.map((overlay) => overlay.id));
 		const textAnimationIds = new Set(state.textAnimations.map((entry) => entry.id));
-		const blockIds = new Set(diagram.map((primitive) => primitive.id));
+		const diagramBlockIds = new Set(diagram.map((primitive) => primitive.id));
+		const chartItems = state.surface.chart?.items ?? [];
+		for (let i = 0; i < chartItems.length; i += 1) {
+			if (diagramBlockIds.has(chartItems[i].id)) {
+				ctx.addIssue({
+					code: 'custom',
+					path: ['surface', 'chart', 'items', i, 'id'],
+					message: `Chart Block id "${chartItems[i].id}" duplicates a surface.diagram[] Block id.`
+				});
+			}
+		}
+		const blockIds = new Set([...diagramBlockIds, ...chartItems.map((chartItem) => chartItem.id)]);
 
 		for (const edge of edges.values()) {
 			const anchor = edge.anchor;
@@ -1283,7 +1494,7 @@ export const EngineStateSchema = z
 				ctx.addIssue({
 					code: 'custom',
 					path: [...edge.path, 'anchor'],
-					message: `cascade.anchor block "${anchor.block}" does not match any surface.diagram[].id.`
+					message: `cascade.anchor block "${anchor.block}" does not match any surface.diagram[].id or surface.chart.items[].id.`
 				});
 			}
 		}

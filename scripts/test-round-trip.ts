@@ -8,6 +8,8 @@ import { readdir, readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { createServer as createViteModuleLoader } from 'vite';
+
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..');
 
@@ -29,6 +31,25 @@ const { serializeCompositionState, presetToWireFormat } = (await import(
 	presetToWireFormat: (preset: unknown) => unknown;
 };
 
+// Middleware mode creates a Vite transform loader without listening on a port.
+// It lets this Node structural gate call the same public semantic boundary used
+// by catalog and User composition ingress, including project aliases.
+const viteModuleLoader = await createViteModuleLoader({
+	root: repoRoot,
+	appType: 'custom',
+	logLevel: 'error',
+	server: { middlewareMode: true, watch: null }
+});
+const { validatePresetSemantics, formatPresetSemanticIssues } =
+	(await viteModuleLoader.ssrLoadModule('/src/lib/platform/preset-validation.ts')) as {
+		validatePresetSemantics: (
+			preset: unknown
+		) => readonly { path: readonly (string | number)[]; message: string }[];
+		formatPresetSemanticIssues: (
+			issues: readonly { path: readonly (string | number)[]; message: string }[]
+		) => string;
+	};
+
 const PRESETS_DIR = resolve(repoRoot, 'src/lib/presets');
 const files = (await readdir(PRESETS_DIR)).filter((f) => f.endsWith('.json'));
 
@@ -47,6 +68,14 @@ for (const file of files) {
 	}
 
 	const original = result.data as Record<string, unknown>;
+	const originalSemanticIssues = validatePresetSemantics(original);
+	if (originalSemanticIssues.length > 0) {
+		console.error(
+			`FAIL (semantic validation): ${file}\n  ${formatPresetSemanticIssues(originalSemanticIssues)}`
+		);
+		failed += 1;
+		continue;
+	}
 	firstValid ??= original;
 
 	// Serialize without edits: base = original, state = original.state, pack = original.pack
@@ -60,6 +89,15 @@ for (const file of files) {
 
 	if (!reparsed.success) {
 		console.error(`FAIL (reparse error): ${file}\n  ${reparsed.error.message}`);
+		failed += 1;
+		continue;
+	}
+
+	const reparsedSemanticIssues = validatePresetSemantics(reparsed.data as Record<string, unknown>);
+	if (reparsedSemanticIssues.length > 0) {
+		console.error(
+			`FAIL (semantic reparse): ${file}\n  ${formatPresetSemanticIssues(reparsedSemanticIssues)}`
+		);
 		failed += 1;
 		continue;
 	}
@@ -84,7 +122,7 @@ if (firstValid) {
 		name: 'Edited name',
 		description: 'Edited description',
 		kind: 'fixture',
-		transition: { from: 'slug-a', to: 'slug-b', effect: 'mask-wipe', durationMs: 900 }
+		transition: { from: 'slug-a', to: 'slug-b', effect: 'mask-wipe', durationMs: 900, params: {} }
 	};
 	const wire = presetToWireFormat(
 		serializeCompositionState(editedBase, firstValid['state'], firstValid['pack'] as string)
@@ -124,6 +162,8 @@ if (firstValid) {
 		failed += 1;
 	}
 }
+
+await viteModuleLoader.close();
 
 console.log(`\n${passed} passed, ${failed} failed out of ${files.length} files`);
 

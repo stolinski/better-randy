@@ -144,3 +144,72 @@ describe('Video media semantic validation', () => {
 		assert.ok(!issues.some((issue) => issue.path.join('.') === 'state.media.videoTrack.clips'));
 	});
 });
+
+function chartPresetForSemanticValidation(): Preset {
+	const preset: Preset = {
+		schema: 'supers@1',
+		name: 'Chart semantic validation',
+		pack: 'syntax',
+		kind: 'fixture',
+		state: createDefaultEngineState()
+	};
+	preset.state.surface.chart = {
+		mode: 'single',
+		items: [
+			{
+				id: 'agent-grid',
+				type: 'unit-grid-chart',
+				title: 'Agent count',
+				data: {
+					categories: [
+						{ id: 'one', label: '1' },
+						{ id: 'multiple', label: '2–5' }
+					],
+					series: [
+						{
+							id: 'responses',
+							label: 'Responses',
+							values: [
+								{ categoryId: 'one', value: 360 },
+								{ categoryId: 'multiple', value: 744 }
+							]
+						}
+					]
+				},
+				normalization: { total: 1104, unitCount: 100 },
+				labels: { categories: true, values: true, legend: false },
+				fill: { role: 'default' },
+				motion: {
+					entry: { start: 0, duration: 0.1 },
+					reveal: { start: 0.1, duration: 0.2 },
+					emphasis: { start: 0.3, duration: 0.1 },
+					annotation: { start: 0.4, duration: 0.1 },
+					exit: { start: 0.9, duration: 0.1 }
+				}
+			}
+		]
+	};
+	return preset;
+}
+
+describe('Chart semantic validation boundary', () => {
+	it('accepts a structurally and semantically valid chart', () => {
+		assert.deepEqual(validatePresetSemantics(chartPresetForSemanticValidation()), []);
+	});
+
+	it('prefixes chart semantic issues through validatePresetSemantics', () => {
+		const preset = chartPresetForSemanticValidation();
+		const item = preset.state.surface.chart!.items[0];
+		if (item.type !== 'unit-grid-chart') throw new Error('fixture type');
+		item.normalization.total = 1000;
+
+		const issues = validatePresetSemantics(preset);
+		assert.ok(
+			issues.some(
+				(issue) =>
+					issue.path.join('.') === 'state.surface.chart.items.0.normalization.total' &&
+					issue.message.includes('parts sum')
+			)
+		);
+	});
+});

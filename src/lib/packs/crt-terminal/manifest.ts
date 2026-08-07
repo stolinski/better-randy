@@ -37,6 +37,15 @@ export const crtTerminalPack: PackManifest = {
 		'80s phosphor terminal — one green phosphor at several excitations on near-black glass; depth is bloom, grain is scanline, edges are hard pixels. Mission console, not arcade.',
 	fonts: crtTerminalFonts,
 	roles: {
+		// ---------------- chart Block domain (ADR-0048) ----------------
+		// Final chart-specific colour Roles. Structural edge/depth/light
+		// dimensions intentionally land on the mandatory core fallback floor.
+		'chart.mark': { kind: 'style', value: '#d9ffe0' },
+		'chart.axis': { kind: 'style', value: '#45ff6e' },
+		'chart.grid': { kind: 'style', value: '#173d20' },
+		'chart.label': { kind: 'style', value: '#45ff6e' },
+		'chart.annotation': { kind: 'style', value: '#d9ffe0' },
+
 		// ---------------------------------------------------------------
 		// Mandatory core vocabulary (ADR-0024 fallback floor).
 		// ---------------------------------------------------------------

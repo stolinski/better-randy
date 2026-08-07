@@ -243,7 +243,10 @@ function cloneSurface(surface: SurfaceState): SurfaceState {
 		// Diagram primitive Blocks (ADR-0036). Pure JSON (points, strings, numbers,
 		// transitions, channel tracks), so structuredClone deep-copies every field
 		// without the hand-enumeration trap that lost `counterpoint` and `chrome`.
-		diagram: surface.diagram ? cloneJsonValue(surface.diagram) : undefined
+		diagram: surface.diagram ? cloneJsonValue(surface.diagram) : undefined,
+		// Chart Blocks (ADR-0048) are the same pure JSON contract. Clone the
+		// complete group so applyPreset cannot share mutable data with catalog or wire input.
+		chart: surface.chart ? cloneJsonValue(surface.chart) : undefined
 	};
 }
 

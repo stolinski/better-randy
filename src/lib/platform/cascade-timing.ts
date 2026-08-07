@@ -165,6 +165,17 @@ export function resolveCascadeTimings(state: EngineState): Map<string, CascadeWi
 		}
 	}
 
+	// Chart Blocks use their required entry phase as the stable Block anchor.
+	// Their five intrinsic phases remain ordered inside the chart Pipeline; a
+	// Cascade may target this window but cannot rewrite chart-local phase order.
+	for (const chartItem of state.surface.chart?.items ?? []) {
+		pending.set(`block:${chartItem.id}`, {
+			baseStartFraction: chartItem.motion.entry.start,
+			durationFraction: chartItem.motion.entry.duration,
+			cascade: undefined
+		});
+	}
+
 	const resolved = new Map<string, CascadeWindow>();
 	const visiting = new Set<string>();
 

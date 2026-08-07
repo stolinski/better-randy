@@ -20,6 +20,15 @@ export const editorialMonoPack: PackManifest = {
 		'A cool editorial dress — proves the same composition re-skins under a different Pack.',
 	fonts: editorialMonoFonts,
 	roles: {
+		// ---------------- chart Block domain (ADR-0048) ----------------
+		// Final chart-specific colour Roles. Structural edge/depth/light
+		// dimensions intentionally land on the mandatory core fallback floor.
+		'chart.mark': { kind: 'style', value: '#22d3ee' },
+		'chart.axis': { kind: 'style', value: '#eef3f8' },
+		'chart.grid': { kind: 'style', value: '#34404d' },
+		'chart.label': { kind: 'style', value: '#eef3f8' },
+		'chart.annotation': { kind: 'style', value: '#22d3ee' },
+
 		// ---------------------------------------------------------------
 		// Mandatory core vocabulary (ADR-0024 fallback floor).
 		// Cool-neutral taste decisions per docs/packs/editorial-mono/aesthetic.md:

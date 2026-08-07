@@ -98,6 +98,64 @@ describe('applyPreset', () => {
 		);
 	});
 
+	it('round-trips and deep-clones the chart Block declaration', () => {
+		const chart = {
+			mode: 'single',
+			items: [
+				{
+					id: 'agent-columns',
+					type: 'column-chart',
+					title: 'Agent count',
+					data: {
+						categories: [
+							{ id: 'one', label: '1' },
+							{ id: 'multiple', label: '2–5' }
+						],
+						series: [
+							{
+								id: 'responses',
+								label: 'Responses',
+								values: [
+									{ categoryId: 'one', value: 360 },
+									{ categoryId: 'multiple', value: 744 }
+								]
+							}
+						]
+					},
+					layout: { mode: 'single' },
+					domain: { min: 0, max: 800 },
+					labels: { categories: true, values: true, legend: false },
+					fill: { role: 'default' },
+					motion: {
+						entry: { start: 0, duration: 0.1 },
+						reveal: { start: 0.1, duration: 0.2 },
+						emphasis: { start: 0.3, duration: 0.1 },
+						annotation: { start: 0.4, duration: 0.1 },
+						exit: { start: 0.9, duration: 0.1 }
+					}
+				}
+			]
+		};
+		const input = {
+			...blankPresetJson,
+			state: {
+				...blankPresetJson.state,
+				surface: { ...blankPresetJson.state.surface, chart }
+			}
+		};
+		const preset = parsePreset(input);
+		applyPreset(preset);
+		assert.deepEqual(engineState.surface.chart, chart);
+
+		const liveItem = engineState.surface.chart!.items[0];
+		liveItem.data.series[0].values[0].value = 361;
+		assert.equal(preset.state.surface.chart!.items[0].data.series[0].values[0].value, 360);
+
+		const wire = presetToWireFormat(preset) as { state: { surface: { chart?: unknown } } };
+		assert.deepEqual(wire.state.surface.chart, chart);
+		assert.deepEqual(parsePreset(wire).state.surface.chart, chart);
+	});
+
 	it('migrates, serializes, and deep-clones Source video as canonical media', () => {
 		const input = {
 			...blankPresetJson,

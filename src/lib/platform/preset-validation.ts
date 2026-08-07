@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 
+import { validateChartGroupSemantics } from './chart-validation';
 import type { Preset } from './engine-schema';
 import { PACK_REGISTRY } from './packs/registry';
 import { PIPELINE_REGISTRY, getSurfaceRenderer } from './pipelines';
@@ -160,6 +161,16 @@ function validateSurfaceSemantics(preset: Preset, issues: PresetSemanticIssue[])
 				message: errorValue instanceof Error ? errorValue.message : 'Website capture URL is invalid'
 			});
 		}
+	}
+
+	for (const issue of validateChartGroupSemantics(
+		preset.state.surface.chart,
+		preset.state.surface.diagram ?? []
+	)) {
+		issues.push({
+			path: ['state', 'surface', ...issue.path],
+			message: issue.message
+		});
 	}
 }
 

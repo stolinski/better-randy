@@ -53,12 +53,16 @@ import { checklistIdentity } from '$lib/pipelines/surfaces/checklist/identity';
 import { captionsIdentity } from '$lib/pipelines/captions/identity';
 
 // Blocks
+import { barChartIdentity } from '$lib/pipelines/blocks/bar-chart/identity';
+import { columnChartIdentity } from '$lib/pipelines/blocks/column-chart/identity';
+import { dotFieldChartIdentity } from '$lib/pipelines/blocks/dot-field-chart/identity';
 import { edgeArrowIdentity } from '$lib/pipelines/blocks/edge-arrow/identity';
 import { labelIdentity } from '$lib/pipelines/blocks/label/identity';
 import { nodeIdentity } from '$lib/pipelines/blocks/node/identity';
 import { paragraphIdentity } from '$lib/pipelines/blocks/paragraph/identity';
 import { statCalloutIdentity } from '$lib/pipelines/blocks/stat-callout/identity';
 import { timelineSegmentIdentity } from '$lib/pipelines/blocks/timeline-segment/identity';
+import { unitGridChartIdentity } from '$lib/pipelines/blocks/unit-grid-chart/identity';
 
 // Annotations
 import { boxIdentity } from '$lib/pipelines/annotations/box/identity';
@@ -110,6 +114,10 @@ export const IDENTITY_REGISTRY: Readonly<Record<string, IdentitySpec>> = {
 	'block:label': labelIdentity,
 	'block:stat-callout': statCalloutIdentity,
 	'block:timeline-segment': timelineSegmentIdentity,
+	'block:bar-chart': barChartIdentity,
+	'block:column-chart': columnChartIdentity,
+	'block:unit-grid-chart': unitGridChartIdentity,
+	'block:dot-field-chart': dotFieldChartIdentity,
 
 	// Annotations (keyed by style)
 	'annotation:box': boxIdentity,

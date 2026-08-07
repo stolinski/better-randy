@@ -246,4 +246,57 @@ describe('cascade timing', () => {
 			assert.throws(() => resolveCascadeTimings(state), /Cascade cycle/);
 		}
 	});
+
+	it('resolves a Block cascade from a chart entry phase without changing chart motion', () => {
+		const state = makeState({
+			overlays: [
+				{
+					id: 'chart-follower',
+					type: 'lower-third',
+					content: {},
+					position: { anchor: 'center' },
+					enter: { start: 0.8, duration: 0.05, ease: 'smooth' },
+					animation: {
+						cascade: { anchor: { block: 'agent-chart' }, event: 'end', offsetMs: 500 }
+					}
+				}
+			]
+		});
+		state.surface.chart = {
+			mode: 'single',
+			items: [
+				{
+					id: 'agent-chart',
+					type: 'column-chart',
+					title: 'Agent count',
+					data: {
+						categories: [{ id: 'multiple', label: '2–5' }],
+						series: [
+							{
+								id: 'responses',
+								label: 'Responses',
+								values: [{ categoryId: 'multiple', value: 744 }]
+							}
+						]
+					},
+					layout: { mode: 'single' },
+					domain: { min: 0, max: 800 },
+					labels: { values: true, legend: false },
+					fill: { role: 'default' },
+					motion: {
+						entry: { start: 0.1, duration: 0.1 },
+						reveal: { start: 0.2, duration: 0.1 },
+						emphasis: { start: 0.3, duration: 0.1 },
+						annotation: { start: 0.4, duration: 0.1 },
+						exit: { start: 0.8, duration: 0.1 }
+					}
+				}
+			]
+		};
+		const motionBefore = structuredClone(state.surface.chart.items[0].motion);
+
+		const windows = resolveCascadeTimings(state);
+		assert.ok(Math.abs((windows.get('overlay:chart-follower')?.startFraction ?? -1) - 0.25) < 1e-9);
+		assert.deepEqual(state.surface.chart.items[0].motion, motionBefore);
+	});
 });

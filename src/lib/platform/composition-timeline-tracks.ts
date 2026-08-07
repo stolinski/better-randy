@@ -498,6 +498,29 @@ function appendBlockTracks(
 		tracks.push({ id: trackId, label, color: BLOCK_COLOR, transitions: [bar] });
 	}
 
+	// Chart Blocks receive the same stable `block:<id>` timeline identity as
+	// Diagram Blocks. The schema task exposes the complete visibility envelope;
+	// the chart-motion task adds focused phase clips without inventing a new Layer.
+	for (const chartItem of state.surface.chart?.items ?? []) {
+		const label = truncateMiddle(chartItem.title || chartItem.type, 32);
+		const start = chartItem.motion.entry.start;
+		const end = chartItem.motion.exit.start + chartItem.motion.exit.duration;
+		tracks.push({
+			id: createTimelineTrackId({ kind: 'block', blockId: chartItem.id }),
+			label,
+			color: BLOCK_COLOR,
+			transitions: [
+				{
+					id: 'clip',
+					label,
+					color: BLOCK_COLOR,
+					start,
+					duration: end - start
+				}
+			]
+		});
+	}
+
 	for (const primitive of state.surface.diagram ?? []) {
 		if (primitive.type !== 'stat-callout') continue;
 		tracks.push({

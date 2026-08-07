@@ -14,12 +14,16 @@ import { strikeAnnotationRenderer } from '$lib/pipelines/annotations/strike';
 import { tearOutAnnotationRenderer } from '$lib/pipelines/annotations/tear-out';
 import { underlineAnnotationRenderer } from '$lib/pipelines/annotations/underline';
 
+import { barChartBlockRenderer } from '$lib/pipelines/blocks/bar-chart';
+import { columnChartBlockRenderer } from '$lib/pipelines/blocks/column-chart';
+import { dotFieldChartBlockRenderer } from '$lib/pipelines/blocks/dot-field-chart';
 import { edgeArrowBlockRenderer } from '$lib/pipelines/blocks/edge-arrow';
 import { labelBlockRenderer } from '$lib/pipelines/blocks/label';
 import { nodeBlockRenderer } from '$lib/pipelines/blocks/node';
 import { paragraphBlockRenderer } from '$lib/pipelines/blocks/paragraph';
 import { statCalloutBlockRenderer } from '$lib/pipelines/blocks/stat-callout';
 import { timelineSegmentBlockRenderer } from '$lib/pipelines/blocks/timeline-segment';
+import { unitGridChartBlockRenderer } from '$lib/pipelines/blocks/unit-grid-chart';
 
 import { chromaticAberrationEffectRenderer } from '$lib/pipelines/effects/chromatic-aberration';
 import { clothBendEffectRenderer } from '$lib/pipelines/effects/cloth-bend';
@@ -86,7 +90,11 @@ export const PIPELINE_REGISTRY = {
 		edgeArrow: edgeArrowBlockRenderer,
 		label: labelBlockRenderer,
 		statCallout: statCalloutBlockRenderer,
-		timelineSegment: timelineSegmentBlockRenderer
+		timelineSegment: timelineSegmentBlockRenderer,
+		barChart: barChartBlockRenderer,
+		columnChart: columnChartBlockRenderer,
+		unitGridChart: unitGridChartBlockRenderer,
+		dotFieldChart: dotFieldChartBlockRenderer
 	},
 	annotations: {
 		highlight: highlightAnnotationRenderer,
@@ -135,6 +143,9 @@ export const PIPELINE_REGISTRY = {
 };
 
 export const REGISTERED_SURFACE_TYPES = Object.values(PIPELINE_REGISTRY.surfaces).map(
+	(renderer) => renderer.type
+);
+export const REGISTERED_BLOCK_TYPES = Object.values(PIPELINE_REGISTRY.blocks).map(
 	(renderer) => renderer.type
 );
 export const REGISTERED_OVERLAY_TYPES = Object.values(PIPELINE_REGISTRY.overlays).map(

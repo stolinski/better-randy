@@ -37,6 +37,15 @@ export const cleanLightPack: PackManifest = {
 		'White-studio minimal — soft-neutral light fields, white cards with thin rules and a quiet layered shadow, Geist + Geist Mono, one confident product blue. The design-YouTuber / product-demo voice.',
 	fonts: cleanLightFonts,
 	roles: {
+		// ---------------- chart Block domain (ADR-0048) ----------------
+		// Final chart-specific colour Roles. Structural edge/depth/light
+		// dimensions intentionally land on the mandatory core fallback floor.
+		'chart.mark': { kind: 'style', value: '#0075de' },
+		'chart.axis': { kind: 'style', value: '#16181d' },
+		'chart.grid': { kind: 'style', value: '#c7ced8' },
+		'chart.label': { kind: 'style', value: '#16181d' },
+		'chart.annotation': { kind: 'style', value: '#0075de' },
+
 		// ---------------------------------------------------------------
 		// Mandatory core vocabulary (ADR-0024 fallback floor).
 		// ---------------------------------------------------------------
