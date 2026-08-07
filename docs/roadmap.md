@@ -38,16 +38,17 @@ The default answer to "what's next?" — an agent self-serves this instead of as
 
 ---
 
-## Active factory runway (audited 2026-08-05)
+## Active factory runway (audited 2026-08-07)
 
 The capability and core parity arcs are complete. The next work is deliberately narrower and dependency-ordered; Dex carries the executable edges and `dex list --ready` must expose the first unblocked leaf, not a flat pile of unrelated priority-1 notes.
 
 1. ✅ **Generated project control plane** — shipped 2026-08-04 (epic `t040a0vs`): the `@supers/repo-audit` `audit-planning` method + `@supers/planning-state` report catch Roadmap / ADR / Brief / ideas / Dex drift, gated by the `policy-sweep` workflow and the CI `Planning audit` step ([`docs/project-control-plane.md`](project-control-plane.md)). The 2026-08-04 audit was its baseline reconciliation.
 2. ✅ **Close the Pack-neutral corpus contract** — shipped 2026-08-04 (epic `hkajpcgg`): the human-scale Pack matrix ran (`hpc3lrk0`, 42 deliverables × 4 packs; 37/42 read well under every pack) and the specific brand-grammar failures were retired or re-authored (`evnlthxa`). The sweep produced no evidence demanding `PackPipelineRole`, so it stays demand-gated (see § Designed, not built).
 3. ✅ **Field-ink pairing** — shipped 2026-08-05 (task `e2z4whnu`): the optional `field-ink-treatment` core now pairs direct-on-field content with each Pack's field, with ordinary ink as the explicit fallback and no luminance-adaptive runtime behavior. The affected authored light-ink restatements were removed; 24 native six-Preset × four-Pack captures passed isolated Critic and human visual acceptance.
-4. **Finish Pack contract standardization** — task group `oa9tr4wy`: close the role-contract registry, then add catalog-ratification evidence. This makes future Pack work factory-safe.
-5. **Build the broad Starter-template library** — task `dghxldci`: audit creator-job coverage, then author the missing categories and coordinated episode suite against the completed Pack/quality gates.
-6. **Pull production and research work by demand** — Resolve follow-ups, rubric research, Critic research, optional diagram polish, and rendering residuals remain valid but do not interrupt the ordered product runway.
+4. 🔨 **Build the agent-authored animated chart domain** — epic `tsr3078l`: add the strict Block-domain chart contract, bar/column and normalized unit-grid/dot-field Pipelines, shared GUI/agent authoring, Pack-resolved mark-local fills, deterministic motion, and one unlisted Critic verification fixture. [ADR-0048](adr/0048-agent-authored-chart-domain.md) is designed; the active Brief remains [`animated-chart-domain`](briefs/animated-chart-domain.md) until fixture ACCEPT.
+5. **Finish Pack contract standardization** — task group `oa9tr4wy`: close the role-contract registry, then add catalog-ratification evidence. This makes future Pack work factory-safe.
+6. **Build the broad Starter-template library** — task `dghxldci`: audit creator-job coverage, then author the missing categories and coordinated episode suite against the completed Pack/quality gates.
+7. **Pull production and research work by demand** — Resolve follow-ups, rubric research, Critic research, optional diagram polish, and rendering residuals remain valid but do not interrupt the ordered product runway.
 
 At an epic boundary the factory still stops for the human as required by the execution loop. A task that is advisory, speculative, or waiting on a design ruling must not remain an unblocked priority-1 leaf.
 

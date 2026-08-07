@@ -38,6 +38,8 @@ Existing presets are grandfathered. The rules:
 ACCEPT                → Brief deleted in the commit that lands the ACCEPT.
 ```
 
+For a `pipeline` or `domain` Brief, ACCEPT also closes the documentation boundary declared by that Brief. The landing change must update current-state docs from the code that actually shipped, reconcile any designed ADR/roadmap status, and delete the Brief. Do not add an active-Brief catalog here; the files present in this folder are the live inventory.
+
 ## Where Briefs sit relative to existing docs
 
 | Folder | When | Lifetime |
