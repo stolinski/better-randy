@@ -282,6 +282,33 @@ describe('validateChartGroupSemantics', () => {
 		);
 	});
 
+	it('preserves series and target declaration order for cancellation-sensitive sums', () => {
+		const chart = singleChart();
+		chart.items[0].data.categories = [
+			{ id: 'alpha', label: 'A' },
+			{ id: 'beta', label: 'B' },
+			{ id: 'gamma', label: 'C' }
+		];
+		chart.items[0].data.series[0].values = [
+			{ categoryId: 'alpha', value: 1e16 },
+			{ categoryId: 'gamma', value: -1e16 },
+			{ categoryId: 'beta', value: 1 }
+		];
+		chart.items[0].domain = { min: -1e16, max: 1e16 };
+		chart.items[0].highlights = undefined;
+		chart.items[0].callouts = [
+			{
+				target: { kind: 'series-total', seriesId: 'responses' },
+				valueLabel: { kind: 'percent-of-series-total', precision: 1 }
+			}
+		];
+		const issues = issuesFor(chart);
+		assert.equal(
+			issues.some((issue) => issue.message.includes('positive series total')),
+			false
+		);
+	});
+
 	it('rejects phase overflow and phase overlap while permitting gaps', () => {
 		const overflow = singleChart();
 		overflow.items[0].motion.exit = { start: 0.98, duration: 0.05 };

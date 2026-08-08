@@ -1,3 +1,4 @@
+import { resolveChartDataTarget, ChartDataTargetInvariantError } from '../utils/chart-data-target';
 import type {
 	ChartBlock,
 	ChartDataTarget,
@@ -14,6 +15,7 @@ export interface ChartSemanticIssue {
 type ChartTargetResolution = {
 	series: ChartSeries;
 	value: number;
+	seriesTotal: number;
 };
 
 const CHART_MOTION_PHASES = ['entry', 'reveal', 'emphasis', 'annotation', 'exit'] as const;
@@ -42,61 +44,57 @@ function resolveChartTargetValue(
 		return null;
 	}
 
-	if (target.kind === 'series-total') {
-		const value = chartSeriesTotal(series);
-		if (!Number.isFinite(value)) {
-			addChartIssue(issues, path, 'Resolved chart target value must be finite.');
-			return null;
-		}
-		return { series, value };
-	}
-
-	const categoryIds = target.kind === 'datum' ? [target.categoryId] : target.categoryIds;
+	const categoryIds =
+		target.kind === 'series-total'
+			? []
+			: target.kind === 'datum'
+				? [target.categoryId]
+				: target.categoryIds;
+	let valid = true;
 	if (target.kind === 'category-set') {
 		const seen = new Set<string>();
-		for (let i = 0; i < categoryIds.length; i += 1) {
-			if (seen.has(categoryIds[i])) {
+		for (let index = 0; index < categoryIds.length; index += 1) {
+			if (seen.has(categoryIds[index])) {
+				valid = false;
 				addChartIssue(
 					issues,
-					[...path, 'categoryIds', i],
-					`Duplicate chart target category "${categoryIds[i]}".`
+					[...path, 'categoryIds', index],
+					`Duplicate chart target category "${categoryIds[index]}".`
 				);
 			}
-			seen.add(categoryIds[i]);
+			seen.add(categoryIds[index]);
 		}
 	}
 
-	let value = 0;
-	let valid = true;
-	for (let i = 0; i < categoryIds.length; i += 1) {
-		const categoryId = categoryIds[i];
+	for (let index = 0; index < categoryIds.length; index += 1) {
+		const categoryId = categoryIds[index];
 		const categoryPath =
-			target.kind === 'datum' ? [...path, 'categoryId'] : [...path, 'categoryIds', i];
+			target.kind === 'datum' ? [...path, 'categoryId'] : [...path, 'categoryIds', index];
 		if (!item.data.categories.some((category) => category.id === categoryId)) {
 			addChartIssue(issues, categoryPath, `Unknown chart category "${categoryId}".`);
 			valid = false;
 			continue;
 		}
-		const datum = series.values.find((candidate) => candidate.categoryId === categoryId);
-		if (!datum) {
+		if (!series.values.some((datum) => datum.categoryId === categoryId)) {
 			addChartIssue(
 				issues,
 				categoryPath,
 				`Chart series "${series.id}" has no value for category "${categoryId}".`
 			);
 			valid = false;
-			continue;
 		}
-		value += datum.value;
 	}
+	if (!valid) return null;
 
-	if (valid && !Number.isFinite(value)) {
-		addChartIssue(issues, path, 'Resolved chart target value must be finite.');
+	try {
+		const resolved = resolveChartDataTarget(item, target);
+		return { series, value: resolved.value, seriesTotal: resolved.seriesTotal };
+	} catch (errorValue) {
+		if (!(errorValue instanceof ChartDataTargetInvariantError)) throw errorValue;
+		addChartIssue(issues, path, errorValue.message);
 		return null;
 	}
-	return valid ? { series, value } : null;
 }
-
 function validateChartDataset(
 	item: ChartBlock,
 	itemPath: (string | number)[],
@@ -341,7 +339,7 @@ function validateChartTargets(
 			issues
 		);
 		if (!resolution || callout.valueLabel.kind === 'value') continue;
-		const seriesTotal = chartSeriesTotal(resolution.series);
+		const { seriesTotal } = resolution;
 		if (seriesTotal <= 0) {
 			addChartIssue(
 				issues,
