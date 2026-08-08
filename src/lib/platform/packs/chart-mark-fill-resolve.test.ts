@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
 import { PACK_REGISTRY } from './registry.ts';
-import { isColorValue, resolveChartMarkFillTreatment } from './resolve.ts';
+import {
+	isColorValue,
+	resolveChartChromeColors,
+	resolveChartMarkFillTreatment
+} from './resolve.ts';
 import type { PackManifest } from './types.ts';
 import { validatePackManifest } from './validation.ts';
 
@@ -25,6 +29,33 @@ describe('resolveChartMarkFillTreatment', () => {
 				assert.equal(treatment.colorB.length, 4, `${slug}.${role}.colorB`);
 				assert.ok(Number.isInteger(treatment.cellPx));
 				assert.ok(treatment.cellPx >= 2 && treatment.cellPx <= 32);
+			}
+		}
+	});
+
+	it('resolves four distinct Pack-owned series voices with legend-safe declaration ordering', () => {
+		for (const [slug, manifest] of Object.entries(PACK_REGISTRY)) {
+			const colors = [0, 1, 2, 3].map(
+				(seriesIndex) => resolveChartMarkFillTreatment(manifest, 'series', seriesIndex).colorA
+			);
+			assert.equal(new Set(colors.map((color) => color.join(','))).size, 4, slug);
+		}
+		assert.throws(
+			() => resolveChartMarkFillTreatment(PACK_REGISTRY.syntax, 'series', -1),
+			/seriesIndex/
+		);
+	});
+
+	it('keeps every highlight-capable base role distinct from emphasis in every Pack', () => {
+		for (const [slug, manifest] of Object.entries(PACK_REGISTRY)) {
+			for (const baseRole of ['default', 'series'] as const) {
+				for (let seriesIndex = 0; seriesIndex < 4; seriesIndex += 1) {
+					assert.notDeepEqual(
+						resolveChartMarkFillTreatment(manifest, baseRole, seriesIndex),
+						resolveChartMarkFillTreatment(manifest, 'emphasis', seriesIndex),
+						`${slug}:${baseRole}:${seriesIndex}`
+					);
+				}
 			}
 		}
 	});
@@ -150,6 +181,33 @@ describe('resolveChartMarkFillTreatment', () => {
 			manifest.roles['chart.mark-fill'] = { kind: 'style', value };
 			assert.equal(resolveChartMarkFillTreatment(manifest, 'default').mode, 'solid');
 		}
+	});
+});
+
+describe('resolveChartChromeColors', () => {
+	it('resolves crisp axis, grid, label, and annotation colors for every Pack', () => {
+		for (const manifest of Object.values(PACK_REGISTRY)) {
+			const chrome = resolveChartChromeColors(manifest);
+			assert.equal(
+				Object.values(chrome).every((color) => typeof color === 'string'),
+				true
+			);
+		}
+	});
+
+	it('falls back to core ink and accent colors without inventing Preset literals', () => {
+		const manifest = cloneManifest(PACK_REGISTRY.syntax);
+		delete manifest.roles['chart.axis'];
+		delete manifest.roles['chart.grid'];
+		delete manifest.roles['chart.label'];
+		delete manifest.roles['chart.annotation'];
+		assert.deepEqual(resolveChartChromeColors(manifest), {
+			axis: '#1a1612',
+			grid: '#1a1612',
+			label: '#1a1612',
+			annotation: '#ffd54a',
+			labelPlate: '#0e0e0d'
+		});
 	});
 });
 

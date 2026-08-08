@@ -156,13 +156,48 @@ function appendChartMarkFillIssues(
 	}
 	const recipes = role.value as Record<string, unknown>;
 	for (const key of Object.keys(recipes)) {
-		if (!includesString(CHART_FILL_ROLES, key)) {
+		if (!includesString(CHART_FILL_ROLES, key) && key !== 'seriesRoles') {
 			appendChartMarkFillIssue(
 				registryKey,
 				issues,
 				[...basePath, key],
 				`Unknown chart mark fill role "${key}"`
 			);
+		}
+	}
+	const seriesRoles = recipes.seriesRoles;
+	if (
+		!Array.isArray(seriesRoles) ||
+		seriesRoles.length !== 4 ||
+		new Set(seriesRoles).size !== seriesRoles.length
+	) {
+		appendChartMarkFillIssue(
+			registryKey,
+			issues,
+			[...basePath, 'seriesRoles'],
+			'Chart mark fill seriesRoles must contain four distinct color roles'
+		);
+	} else {
+		for (let index = 0; index < seriesRoles.length; index += 1) {
+			const seriesRole = seriesRoles[index];
+			if (!includesString(CHART_MARK_FILL_COLOR_ROLES, seriesRole)) {
+				appendChartMarkFillIssue(
+					registryKey,
+					issues,
+					[...basePath, 'seriesRoles', index],
+					`Unknown chart series color role "${String(seriesRole)}"`
+				);
+				continue;
+			}
+			const colorRole = manifest.roles[seriesRole];
+			if (!colorRole || colorRole.kind !== 'style' || !isChartMarkFillColorValue(colorRole.value)) {
+				appendChartMarkFillIssue(
+					registryKey,
+					issues,
+					[...basePath, 'seriesRoles', index],
+					`Chart series color role "${seriesRole}" must resolve to a supported color`
+				);
+			}
 		}
 	}
 	for (const chartRole of CHART_FILL_ROLES) {

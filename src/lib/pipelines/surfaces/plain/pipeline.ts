@@ -6,6 +6,7 @@ import {
 	type AnnotationFrameLayout
 } from '$lib/annotations/annotation-marks';
 import { drawDiagramStrokes, getDiagramNodeLayouts } from '$lib/annotations/diagram-strokes';
+import { createChartMarkRenderer } from '$lib/pipelines/shader-passes/chart-mark-renderer';
 import { getHtmlInCanvasQueue } from '$lib/platform/html-in-canvas';
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
 import type { SurfaceRenderInputs, SurfaceRenderInstance } from '$lib/platform/pipelines/types';
@@ -26,6 +27,7 @@ export interface CreatePlainPipelineOptions {
 
 const composeLayout = tgpu.bindGroupLayout({
 	domTexture: { texture: d.texture2d(d.f32) },
+	chartTexture: { texture: d.texture2d(d.f32) },
 	marksTexture: { texture: d.texture2d(d.f32) },
 	samp: { sampler: 'filtering' }
 });
@@ -33,7 +35,7 @@ const composeLayout = tgpu.bindGroupLayout({
 const composeVertexFn = tgpu['~unstable'].vertexFn({
 	in: { vertexIndex: d.builtin.vertexIndex },
 	out: { position: d.builtin.position, uv: d.vec2f }
-})/* wgsl */ `{
+}) /* wgsl */ `{
 	var positions = array<vec2f, 3>(
 		vec2f(-1.0, -1.0),
 		vec2f(3.0, -1.0),
@@ -50,16 +52,18 @@ const composeVertexFn = tgpu['~unstable'].vertexFn({
 	);
 }`;
 
-const composeFragmentFn = tgpu['~unstable']
-	.fragmentFn({
-		in: { uv: d.vec2f },
-		out: d.vec4f
-	})/* wgsl */ `{
+const composeFragmentFn = tgpu['~unstable'].fragmentFn({
+	in: { uv: d.vec2f },
+	out: d.vec4f
+}) /* wgsl */ `{
 		let dom = textureSample(layout.$.domTexture, layout.$.samp, in.uv);
+		let chart = textureSample(layout.$.chartTexture, layout.$.samp, in.uv);
 		let marks = textureSample(layout.$.marksTexture, layout.$.samp, in.uv);
 
-		let outAlpha = marks.a + dom.a * (1.0 - marks.a);
-		let outRgb = marks.rgb * marks.a + dom.rgb * dom.a * (1.0 - marks.a);
+		let chartedAlpha = chart.a + dom.a * (1.0 - chart.a);
+		let chartedRgb = chart.rgb + dom.rgb * dom.a * (1.0 - chart.a);
+		let outAlpha = marks.a + chartedAlpha * (1.0 - marks.a);
+		let outRgb = marks.rgb * marks.a + chartedRgb * (1.0 - marks.a);
 		return vec4f(outRgb, outAlpha);
 	}`.$uses({ layout: composeLayout });
 
@@ -107,8 +111,10 @@ export function createPlainPipeline({
 		addressModeV: 'clamp-to-edge'
 	});
 
+	const chartRenderer = createChartMarkRenderer(device, canvasWidth, canvasHeight);
 	const bindGroup = root.createBindGroup(composeLayout, {
 		domTexture,
+		chartTexture: chartRenderer.getOutputTexture(),
 		marksTexture,
 		samp: sampler
 	});
@@ -127,6 +133,7 @@ export function createPlainPipeline({
 	}
 
 	function render(inputs: SurfaceRenderInputs): void {
+		chartRenderer.render(inputs.chart);
 		const fullLayout: AnnotationFrameLayout = {
 			x: 0,
 			y: 0,
@@ -159,11 +166,10 @@ export function createPlainPipeline({
 			});
 		}
 
-		device.queue.copyExternalImageToTexture(
-			{ source: marksCanvas },
-			{ texture: marksTexture },
-			[canvasWidth, canvasHeight]
-		);
+		device.queue.copyExternalImageToTexture({ source: marksCanvas }, { texture: marksTexture }, [
+			canvasWidth,
+			canvasHeight
+		]);
 
 		pipeline
 			.with(bindGroup)
@@ -177,6 +183,7 @@ export function createPlainPipeline({
 	}
 
 	function dispose(): void {
+		chartRenderer.dispose();
 		outputTexture.destroy();
 		domTexture.destroy();
 		marksTexture.destroy();

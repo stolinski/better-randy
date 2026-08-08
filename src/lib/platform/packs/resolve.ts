@@ -25,6 +25,9 @@ export type ChartMarkGradientAxis = 'inline' | 'block';
 
 export const CHART_MARK_FILL_COLOR_ROLES = [
 	'chart.mark',
+	'chart.series-2',
+	'chart.series-3',
+	'chart.series-4',
 	'chart.annotation',
 	'chart.grid',
 	'chart.axis',
@@ -70,7 +73,11 @@ function readChartMarkFillRecipe(
 ): ChartMarkFillRecipe | null {
 	if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
 	const recipes = value as Record<string, unknown>;
-	if (Object.keys(recipes).some((key) => !['default', 'series', 'emphasis'].includes(key))) {
+	if (
+		Object.keys(recipes).some(
+			(key) => !['default', 'series', 'emphasis', 'seriesRoles'].includes(key)
+		)
+	) {
 		return null;
 	}
 	const entry = recipes[role];
@@ -131,13 +138,74 @@ function resolveChartColor(
 	}
 }
 
-/** Resolve a semantic chart fill through one optional Pack-owned structural recipe. */
+export interface ResolvedChartChromeColors {
+	axis: string;
+	grid: string;
+	label: string;
+	annotation: string;
+	labelPlate: string;
+}
+
+function resolveChartCssColor(
+	manifest: PackManifest,
+	roleKey: ChartMarkFillColorRole
+): string | null {
+	const role = manifest.roles[roleKey];
+	return role?.kind === 'style' && isChartMarkFillColorValue(role.value) ? role.value : null;
+}
+
+/** Resolve crisp chart chrome independently from mark-local fill treatments. */
+export function resolveChartChromeColors(manifest: PackManifest): ResolvedChartChromeColors {
+	const ink = requireCoreColor(manifest, 'ink-treatment');
+	const accent = requireCoreColor(manifest, 'accent-treatment');
+	return {
+		axis: resolveChartCssColor(manifest, 'chart.axis') ?? ink,
+		grid: resolveChartCssColor(manifest, 'chart.grid') ?? ink,
+		label: resolveChartCssColor(manifest, 'chart.label') ?? ink,
+		annotation: resolveChartCssColor(manifest, 'chart.annotation') ?? accent,
+		labelPlate: requireCoreColor(manifest, 'field-treatment')
+	};
+}
+
+function resolveChartSeriesColorRole(
+	manifest: PackManifest,
+	seriesIndex: number
+): ChartMarkFillColorRole | null {
+	const structuralRole = manifest.roles['chart.mark-fill'];
+	if (!structuralRole || structuralRole.kind !== 'style') return null;
+	if (
+		structuralRole.value === null ||
+		typeof structuralRole.value !== 'object' ||
+		Array.isArray(structuralRole.value)
+	)
+		return null;
+	const seriesRoles = (structuralRole.value as Record<string, unknown>).seriesRoles;
+	if (
+		!Array.isArray(seriesRoles) ||
+		seriesRoles.length < 1 ||
+		seriesRoles.length > 4 ||
+		seriesRoles.some((candidate) => !isListedString(candidate, CHART_MARK_FILL_COLOR_ROLES))
+	)
+		return null;
+	return seriesRoles[seriesIndex] ?? null;
+}
+
+/** Resolve a semantic chart fill and its bounded declaration-order series voice through the Pack. */
 export function resolveChartMarkFillTreatment(
 	manifest: PackManifest,
-	role: ChartMarkFillRole
+	role: ChartMarkFillRole,
+	seriesIndex = 0
 ): ResolvedChartMarkFill {
+	if (!Number.isSafeInteger(seriesIndex) || seriesIndex < 0) {
+		throw new RangeError(
+			'resolveChartMarkFillTreatment: seriesIndex must be a non-negative safe integer.'
+		);
+	}
+	const seriesColorRole = resolveChartSeriesColorRole(manifest, seriesIndex);
 	const colorA =
-		resolveChartColor(manifest, 'chart.mark') ?? resolveChartColor(manifest, 'accent-treatment');
+		(seriesColorRole === null ? null : resolveChartColor(manifest, seriesColorRole)) ??
+		resolveChartColor(manifest, 'chart.mark') ??
+		resolveChartColor(manifest, 'accent-treatment');
 	if (colorA === null) {
 		throw new Error(
 			`resolveChartMarkFillTreatment: Pack "${manifest.slug}" requires a chart.mark or accent-treatment color supported by cssColorToRgbaFloat.`

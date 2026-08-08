@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CaptionsMount from './CaptionsMount.svelte';
+	import ChartMount from './ChartMount.svelte';
 	import DiagramMount from './DiagramMount.svelte';
 	import { engineState } from './engine-state.svelte';
 	import OverlayMount from './OverlayMount.svelte';
@@ -39,6 +40,9 @@
 	style:inline-size={`${frame.width}px`}
 >
 	<SurfaceMount bind:element={surfaceElement} />
+	<!-- Chart Blocks share the Surface plane. DOM chrome provides the intentional
+	     grid/axis underlay and reserved labels; analytic GPU marks punch inside-label plates. -->
+	<ChartMount />
 	<!-- Diagram Blocks (ADR-0036) live on the SURFACE plane in every render
 	     path — inside .composition even when the Overlay plane is hoisted, so
 	     a diagram parallaxes with the surface it annotates. -->

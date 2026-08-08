@@ -1,10 +1,10 @@
+import ChartBarColumnCanvasSource from '$lib/pipelines/blocks/bar-chart/CanvasSource.svelte';
 import { BarChartBlockSchema, type BarChartBlock } from '$lib/platform/engine-schema';
 import type { BlockRenderer } from '$lib/platform/pipelines/types';
 
-// ADR-0048 registers the strict validation Pipeline before visible renderer
-// work. Later renderer tasks add CanvasSource/render to this same stable record;
-// the schema is already live at every Preset ingress boundary.
+// One stable Block record owns validation and the shared crisp chart-chrome source.
 export const barChartBlockRenderer: BlockRenderer<BarChartBlock> = {
 	type: 'bar-chart',
-	schema: BarChartBlockSchema
+	schema: BarChartBlockSchema,
+	CanvasSource: ChartBarColumnCanvasSource
 };

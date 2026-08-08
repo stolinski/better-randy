@@ -96,6 +96,17 @@ export const columnChartIdentity: IdentitySpec = {
 			}
 		},
 		{
+			name: 'mark-render-boundary',
+			implementation:
+				'src/lib/pipelines/shader-passes/chart-mark-renderer.ts createChartMarkRenderer — one instanced analytic-mask pass using the shared mark-fill WGSL.',
+			definition:
+				'Premultiplied Pack-driven data marks remain local to factual renderer geometry and never texture chart chrome.',
+			probe: {
+				kind: 'script',
+				path: 'scripts/probe-chart-bar-column-gpu.ts'
+			}
+		},
+		{
 			name: 'factual-integrity',
 			implementation:
 				'src/lib/platform/chart-validation.ts validateChartGroupSemantics — strict data, domain, target, normalization, and phase validation before rendering.',

@@ -1,0 +1,298 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'vitest';
+import type { BarChartBlock, ChartMotion, ColumnChartBlock } from '$lib/platform/engine-schema';
+import {
+	chartMarkMatchesTarget,
+	resolveChartBarColumnGeometry,
+	resolveChartBarColumnTargetRect
+} from './chart-bar-column-geometry';
+import { resolveChartFrameLayout, type ChartTextMeasurer } from './chart-layout';
+
+function motion(): ChartMotion {
+	return {
+		entry: { start: 0, duration: 0.1 },
+		reveal: { start: 0.1, duration: 0.1 },
+		emphasis: { start: 0.2, duration: 0.1 },
+		annotation: { start: 0.3, duration: 0.1 },
+		exit: { start: 0.8, duration: 0.1 }
+	};
+}
+
+function barChart(): BarChartBlock {
+	return {
+		id: 'survey',
+		type: 'bar-chart',
+		title: 'Agent usage',
+		data: {
+			categories: [
+				{ id: 'one', label: 'One agent' },
+				{ id: 'many', label: 'Multiple agents' }
+			],
+			series: [
+				{
+					id: 'responses',
+					label: 'Responses',
+					values: [
+						{ categoryId: 'one', value: 360 },
+						{ categoryId: 'many', value: 744 }
+					]
+				}
+			]
+		},
+		layout: { mode: 'single' },
+		domain: { min: 0, max: 800 },
+		labels: { categories: true, values: true, legend: false },
+		highlights: [{ target: { kind: 'datum', seriesId: 'responses', categoryId: 'many' } }],
+		fill: { role: 'default' },
+		motion: motion()
+	};
+}
+
+const measureText: ChartTextMeasurer = ({ text, role }) => ({
+	width: text.length * (role === 'title' ? 34 : 22),
+	height: role === 'title' ? 92 : 48
+});
+
+function geometry(
+	block: BarChartBlock | ColumnChartBlock,
+	orientation: 'horizontal' | 'vertical' = 'horizontal'
+) {
+	const layout = resolveChartFrameLayout({ block, orientation, measureText });
+	return {
+		layout,
+		geometry: resolveChartBarColumnGeometry({ block, layout, orientation, measureText })
+	};
+}
+
+describe('resolveChartBarColumnGeometry', () => {
+	it('maps horizontal bars from the factual zero baseline in declaration order', () => {
+		const first = geometry(barChart());
+		const second = geometry(barChart());
+		assert.equal(JSON.stringify(first.geometry), JSON.stringify(second.geometry));
+		assert.deepEqual(
+			first.geometry.marks.map((mark) => mark.id),
+			['9:responses3:one', '9:responses4:many']
+		);
+		assert.equal(first.geometry.marks[0].bounds.x, first.layout.linearScale?.map(0));
+		assert.equal(
+			first.geometry.marks[1].bounds.width,
+			(first.layout.linearScale?.map(744) ?? 0) - (first.layout.linearScale?.map(0) ?? 0)
+		);
+		assert.equal(first.geometry.marks[0].isHighlighted, false);
+		assert.equal(first.geometry.marks[1].isHighlighted, true);
+		assert.equal(first.geometry.valueLabels.length, 2);
+	});
+
+	it('maps negative columns away from zero and keeps all geometry inside the plot', () => {
+		const block: ColumnChartBlock = {
+			...barChart(),
+			type: 'column-chart',
+			domain: { min: -400, max: 800 },
+			data: {
+				...barChart().data,
+				series: [
+					{
+						id: 'responses',
+						label: 'Responses',
+						values: [
+							{ categoryId: 'one', value: -360 },
+							{ categoryId: 'many', value: 744 }
+						]
+					}
+				]
+			}
+		};
+		for (const orientation of ['horizontal', 'vertical'] as const) {
+			const { layout, geometry: result } = geometry(block, orientation);
+			const zero = layout.linearScale?.map(0) ?? 0;
+			assert.equal(result.marks[0].bounds.y, zero);
+			assert.equal(result.marks[1].bounds.y + result.marks[1].bounds.height, zero);
+			for (const mark of result.marks) {
+				assert.ok(mark.bounds.x >= layout.plotBounds.x);
+				assert.ok(mark.bounds.y >= layout.plotBounds.y);
+				assert.ok(
+					mark.bounds.x + mark.bounds.width <= layout.plotBounds.x + layout.plotBounds.width
+				);
+				assert.ok(
+					mark.bounds.y + mark.bounds.height <= layout.plotBounds.y + layout.plotBounds.height
+				);
+			}
+		}
+	});
+
+	it('subdivides grouped categories by series without overlap', () => {
+		const source = barChart();
+		const block: BarChartBlock = {
+			...source,
+			layout: { mode: 'grouped' },
+			data: {
+				...source.data,
+				series: [
+					source.data.series[0],
+					{
+						id: 'returning',
+						label: 'Returning',
+						values: [
+							{ categoryId: 'one', value: 200 },
+							{ categoryId: 'many', value: 500 }
+						]
+					}
+				]
+			}
+		};
+		const result = geometry(block).geometry;
+		assert.deepEqual(
+			result.marks.map((mark) => mark.id),
+			['9:responses3:one', '9:returning3:one', '9:responses4:many', '9:returning4:many']
+		);
+		const [first, second] = result.marks;
+		assert.ok(first.bounds.y + first.bounds.height < second.bounds.y);
+		assert.equal(first.bounds.height, second.bounds.height);
+	});
+
+	it('builds cumulative stacked geometry and preserves each factual segment', () => {
+		const source = barChart();
+		const block: ColumnChartBlock = {
+			...source,
+			type: 'column-chart',
+			layout: { mode: 'stacked' },
+			domain: { min: 0, max: 1000 },
+			data: {
+				...source.data,
+				series: [
+					source.data.series[0],
+					{
+						id: 'returning',
+						label: 'Returning',
+						values: [
+							{ categoryId: 'one', value: 100 },
+							{ categoryId: 'many', value: 200 }
+						]
+					}
+				]
+			}
+		};
+		const { layout, geometry: result } = geometry(block);
+		const oneMarks = result.marks.filter((mark) => mark.categoryId === 'one');
+		assert.equal(oneMarks[0].bounds.x, oneMarks[1].bounds.x);
+		assert.equal(oneMarks[0].bounds.width, oneMarks[1].bounds.width);
+		assert.equal(oneMarks[1].bounds.y + oneMarks[1].bounds.height, oneMarks[0].bounds.y);
+		assert.equal(oneMarks[1].bounds.y, layout.linearScale?.map(460));
+	});
+
+	it('exposes target-aware 2D geometry for later annotation placement', () => {
+		const result = geometry(barChart()).geometry;
+		const datum = { kind: 'datum', seriesId: 'responses', categoryId: 'many' } as const;
+		const total = { kind: 'series-total', seriesId: 'responses' } as const;
+		assert.equal(chartMarkMatchesTarget(result.marks[1], datum), true);
+		assert.deepEqual(resolveChartBarColumnTargetRect(result.marks, datum), result.marks[1].bounds);
+		const totalRect = resolveChartBarColumnTargetRect(result.marks, total);
+		assert.ok(totalRect);
+		assert.ok(totalRect.height > result.marks[0].bounds.height);
+		assert.equal(
+			resolveChartBarColumnTargetRect(result.marks, {
+				kind: 'series-total',
+				seriesId: 'missing'
+			}),
+			null
+		);
+	});
+
+	it('keeps zero marks factual and emits a precise zero label without inventing area', () => {
+		const block = barChart();
+		block.data.series[0].values[0].value = 0;
+		const result = geometry(block).geometry;
+		assert.equal(result.marks[0].isZero, true);
+		assert.equal(result.marks[0].bounds.width, 0);
+		assert.equal(result.valueLabels[0].text, '0');
+		assert.equal(result.valueLabels[0].anchor, 'outside');
+	});
+
+	it('centers stacked value labels inside their factual segments for a punched chrome plate', () => {
+		const source = barChart();
+		const block: ColumnChartBlock = {
+			...source,
+			type: 'column-chart',
+			layout: { mode: 'stacked' },
+			domain: { min: 0, max: 1200 },
+			data: {
+				...source.data,
+				series: [
+					source.data.series[0],
+					{
+						id: 'returning',
+						label: 'Returning',
+						values: [
+							{ categoryId: 'one', value: 200 },
+							{ categoryId: 'many', value: 300 }
+						]
+					}
+				]
+			}
+		};
+		const result = geometry(block).geometry;
+		assert.equal(result.valueLabels.length, 4);
+		assert.equal(
+			result.valueLabels.every((label) => label.anchor === 'inside'),
+			true
+		);
+		assert.equal(
+			result.marks.every((mark) => mark.cornerRadius === 0),
+			true
+		);
+	});
+
+	it('places computed callouts from resolved target geometry in declaration order', () => {
+		const block = barChart();
+		block.callouts = [
+			{
+				target: {
+					kind: 'datum',
+					seriesId: 'responses',
+					categoryId: 'many'
+				},
+				valueLabel: {
+					kind: 'approximate-fraction-and-percent',
+					maxDenominator: 10,
+					precision: 1
+				}
+			}
+		];
+		const result = geometry(block).geometry;
+		assert.equal(result.annotations.length, 1);
+		assert.equal(result.annotations[0].text, '2 in 3 · 67.4%');
+		assert.equal(result.annotations[0].id, 'survey:callout:0');
+	});
+
+	it('fails closed before allocating more than four series', () => {
+		const block = barChart();
+		block.layout = { mode: 'grouped' };
+		block.data.series = Array.from({ length: 5 }, (_, index) => ({
+			id: `series-${index}`,
+			label: `Series ${index}`,
+			values: block.data.categories.map((category) => ({ categoryId: category.id, value: 1 }))
+		}));
+		const layout = resolveChartFrameLayout({ block, orientation: 'horizontal', measureText });
+		assert.throws(
+			() =>
+				resolveChartBarColumnGeometry({
+					block,
+					layout,
+					orientation: 'horizontal',
+					measureText
+				}),
+			/at most 4/
+		);
+	});
+
+	it('fails closed when a renderer receives incomplete data', () => {
+		const block = barChart();
+		block.data.series[0].values = [{ categoryId: 'one', value: 360 }];
+		const layout = resolveChartFrameLayout({ block, orientation: 'horizontal', measureText });
+		assert.throws(
+			() =>
+				resolveChartBarColumnGeometry({ block, layout, orientation: 'horizontal', measureText }),
+			/has no value for category "many"/
+		);
+	});
+});

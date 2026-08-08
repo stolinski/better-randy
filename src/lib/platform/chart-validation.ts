@@ -321,6 +321,13 @@ function validateChartTargets(
 	itemPath: (string | number)[],
 	issues: ChartSemanticIssue[]
 ): void {
+	if (item.fill.role === 'emphasis' && (item.highlights?.length ?? 0) > 0) {
+		addChartIssue(
+			issues,
+			[...itemPath, 'fill', 'role'],
+			'Charts with highlights cannot use emphasis as the base fill role.'
+		);
+	}
 	for (let index = 0; index < (item.highlights?.length ?? 0); index += 1) {
 		resolveChartTargetValue(
 			item,

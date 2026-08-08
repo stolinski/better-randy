@@ -24,6 +24,9 @@ export const editorialMonoPack: PackManifest = {
 		// Final chart-specific colour Roles. Structural edge/depth/light
 		// dimensions intentionally land on the mandatory core fallback floor.
 		'chart.mark': { kind: 'style', value: '#22d3ee' },
+		'chart.series-2': { kind: 'style', value: '#eef3f8' },
+		'chart.series-3': { kind: 'style', value: '#8aa0b4' },
+		'chart.series-4': { kind: 'style', value: '#fabf47' },
 		'chart.axis': { kind: 'style', value: '#eef3f8' },
 		'chart.grid': { kind: 'style', value: '#34404d' },
 		'chart.label': { kind: 'style', value: '#eef3f8' },
@@ -31,6 +34,7 @@ export const editorialMonoPack: PackManifest = {
 		'chart.mark-fill': {
 			kind: 'style',
 			value: {
+				seriesRoles: ['chart.mark', 'chart.series-2', 'chart.series-3', 'chart.series-4'],
 				default: { mode: 'solid' },
 				series: { mode: 'gradient', toRole: 'chart.axis', axis: 'inline' },
 				emphasis: { mode: 'ordered-dither', toRole: 'chart.grid', matrix: '4x4', cellPx: 6 }

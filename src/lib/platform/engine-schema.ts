@@ -666,6 +666,10 @@ export type DiagramPrimitive = z.infer<typeof DiagramPrimitiveSchema>;
 // live in chart-validation.ts so every ingress reports precise semantic paths.
 const ChartIdSchema = z.string().min(1);
 const ChartFiniteNumberSchema = z.number().finite();
+export const CHART_CATEGORY_LIMIT = 12;
+export const CHART_SERIES_LIMIT = 4;
+export const CHART_HIGHLIGHT_LIMIT = 24;
+export const CHART_CALLOUT_LIMIT = 4;
 
 export const ChartTypeSchema = z.enum([
 	'bar-chart',
@@ -690,13 +694,13 @@ export type ChartDatum = z.infer<typeof ChartDatumSchema>;
 export const ChartSeriesSchema = z.strictObject({
 	id: ChartIdSchema,
 	label: z.string().min(1),
-	values: z.array(ChartDatumSchema).min(1)
+	values: z.array(ChartDatumSchema).min(1).max(CHART_CATEGORY_LIMIT)
 });
 export type ChartSeries = z.infer<typeof ChartSeriesSchema>;
 
 export const ChartDataSchema = z.strictObject({
-	categories: z.array(ChartCategorySchema).min(1),
-	series: z.array(ChartSeriesSchema).min(1)
+	categories: z.array(ChartCategorySchema).min(1).max(CHART_CATEGORY_LIMIT),
+	series: z.array(ChartSeriesSchema).min(1).max(CHART_SERIES_LIMIT)
 });
 export type ChartData = z.infer<typeof ChartDataSchema>;
 
@@ -708,7 +712,7 @@ const ChartDatumTargetSchema = z.strictObject({
 const ChartCategorySetTargetSchema = z.strictObject({
 	kind: z.literal('category-set'),
 	seriesId: ChartIdSchema,
-	categoryIds: z.array(ChartIdSchema).min(2)
+	categoryIds: z.array(ChartIdSchema).min(2).max(CHART_CATEGORY_LIMIT)
 });
 const ChartSeriesTotalTargetSchema = z.strictObject({
 	kind: z.literal('series-total'),
@@ -796,8 +800,8 @@ const chartBlockBase = {
 	data: ChartDataSchema,
 	domain: ChartDomainSchema.optional(),
 	labels: ChartLabelsSchema,
-	highlights: z.array(ChartHighlightSchema).optional(),
-	callouts: z.array(ChartCalloutSchema).optional(),
+	highlights: z.array(ChartHighlightSchema).max(CHART_HIGHLIGHT_LIMIT).optional(),
+	callouts: z.array(ChartCalloutSchema).max(CHART_CALLOUT_LIMIT).optional(),
 	sourceNote: z.string().min(1).optional(),
 	fill: ChartFillSchema,
 	motion: ChartMotionSchema

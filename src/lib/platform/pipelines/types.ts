@@ -19,7 +19,12 @@ import type {
 } from '$lib/platform/engine-schema';
 import type { GpuHost } from '$lib/platform/gpu-host';
 import type { PackManifest } from '$lib/platform/packs/types';
-import type { EdgeTreatment, ResolvedDiagramStroke } from '$lib/platform/packs/resolve';
+import type {
+	EdgeTreatment,
+	ResolvedChartMarkFill,
+	ResolvedDiagramStroke
+} from '$lib/platform/packs/resolve';
+import type { ChartBarColumnGeometry } from '$lib/utils/chart-bar-column-geometry';
 import type { OpticalShape } from '$lib/utils/optical-geometry';
 import type { PassExecutionHints } from './pass-execution';
 
@@ -106,6 +111,14 @@ export interface DiagramStrokeInputs {
 	accentColor: string;
 }
 
+export interface ChartRenderInputs {
+	block: Extract<ChartBlock, { type: 'bar-chart' | 'column-chart' }>;
+	geometry: ChartBarColumnGeometry;
+	baseFillBySeries: readonly ResolvedChartMarkFill[];
+	emphasisFillBySeries: readonly ResolvedChartMarkFill[];
+	alpha: number;
+}
+
 // ---------------- Surfaces ----------------
 
 export interface PipelineFactoryOptions {
@@ -140,6 +153,9 @@ export interface SurfaceRenderInputs {
 	// Diagram stroke elements to draw into the marks canvas (ADR-0036); absent
 	// when the surface carries no diagram.
 	diagram?: DiagramStrokeInputs;
+	// Active chart marks composite above the captured Surface. Mark masks punch
+	// requested inside-label plates so mark-local fills cannot texture text.
+	chart?: ChartRenderInputs;
 }
 
 export interface SurfaceRenderInstance {

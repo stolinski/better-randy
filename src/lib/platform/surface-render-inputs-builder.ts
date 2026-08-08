@@ -1,3 +1,7 @@
+import { resolveChartBarColumnGeometry } from '$lib/utils/chart-bar-column-geometry';
+import { resolveChartFrameLayout } from '$lib/utils/chart-layout';
+import { chartRenderTextMeasurer } from '$lib/utils/chart-text-measurement';
+import { resolveVisibleChartBlock } from '$lib/utils/chart-visibility';
 import { isDarkSurfaceColor } from '$lib/utils/color';
 import { resolveDiagramPrimitiveForRender } from '$lib/utils/diagram-geometry';
 
@@ -9,7 +13,12 @@ import {
 	type MarkInstance
 } from './engine-schema';
 import type { PackManifest } from './packs/types';
-import { requireCoreColor, resolveDiagramStroke, resolveFieldInkColor } from './packs/resolve';
+import {
+	requireCoreColor,
+	resolveChartMarkFillTreatment,
+	resolveDiagramStroke,
+	resolveFieldInkColor
+} from './packs/resolve';
 import { resolveSurfaceTypographyColors } from './pipelines';
 import type { SurfaceRenderInputs } from './pipelines/types';
 
@@ -103,6 +112,40 @@ function buildDiagramInputs(
 	};
 }
 
+function buildChartInputs(
+	state: EngineState,
+	pack: PackManifest,
+	timestamp: number
+): SurfaceRenderInputs['chart'] {
+	const progress = timestamp / state.transport.durationSeconds;
+	const block = resolveVisibleChartBlock(state.surface.chart, progress);
+	if (!block || (block.type !== 'bar-chart' && block.type !== 'column-chart')) return undefined;
+	const layout = resolveChartFrameLayout({
+		block,
+		orientation: state.transport.orientation,
+		measureText: chartRenderTextMeasurer
+	});
+	const geometry = resolveChartBarColumnGeometry({
+		block,
+		layout,
+		orientation: state.transport.orientation,
+		measureText: chartRenderTextMeasurer
+	});
+	if (layout.overflow.length > 0 || geometry.overflow.length > 0) return undefined;
+	return {
+		block,
+		geometry,
+		baseFillBySeries: block.data.series.map((_, seriesIndex) =>
+			resolveChartMarkFillTreatment(pack, block.fill.role, seriesIndex)
+		),
+		emphasisFillBySeries: block.data.series.map((_, seriesIndex) =>
+			resolveChartMarkFillTreatment(pack, 'emphasis', seriesIndex)
+		),
+		// Choreography owns phase alpha later; this renderer task ships the terminal factual state.
+		alpha: 1
+	};
+}
+
 /** Builds the complete imperative Surface input snapshot from live state at one timestamp. */
 export function buildSurfaceRenderInputs(
 	request: SurfaceRenderInputsBuilderRequest,
@@ -145,6 +188,7 @@ export function buildSurfaceRenderInputs(
 				? Math.max(0, Math.min(1, animState.paperVisibility))
 				: undefined,
 		timestamp,
-		diagram: buildDiagramInputs(state, animState, pack)
+		diagram: buildDiagramInputs(state, animState, pack),
+		chart: buildChartInputs(state, pack, timestamp)
 	};
 }

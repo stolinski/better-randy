@@ -122,6 +122,12 @@ describe('validateChartGroupSemantics', () => {
 		assertIssue(chart, 'chart.items.0.data.series.1.id', 'Duplicate chart series');
 	});
 
+	it('rejects emphasis as a base fill when authored highlights require contrast', () => {
+		const chart = singleChart();
+		chart.items[0].fill = { role: 'emphasis' };
+		assertIssue(chart, 'chart.items.0.fill.role', 'cannot use emphasis as the base fill');
+	});
+
 	it('rejects missing, repeated, and unknown category values', () => {
 		const missing = singleChart();
 		missing.items[0].data.series[0].values.pop();

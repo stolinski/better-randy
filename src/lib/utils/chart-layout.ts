@@ -88,6 +88,8 @@ export type ChartLayoutOverflowCode =
 	| 'text-collision'
 	| 'counter-too-large'
 	| 'plot-too-small'
+	| 'mark-too-small'
+	| 'value-label-no-space'
 	| 'annotation-no-space';
 export interface ChartLayoutOverflow {
 	code: ChartLayoutOverflowCode;

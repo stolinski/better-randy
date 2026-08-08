@@ -12,6 +12,7 @@ import { isolateAnnotationRenderer } from '$lib/pipelines/annotations/isolate';
 import { liftOutAnnotationRenderer } from '$lib/pipelines/annotations/lift-out';
 import { magnifyAnnotationRenderer } from '$lib/pipelines/annotations/magnify';
 import { tearOutAnnotationRenderer } from '$lib/pipelines/annotations/tear-out';
+import { createChartMarkRenderer } from '$lib/pipelines/shader-passes/chart-mark-renderer';
 import { getHtmlInCanvasQueue } from '$lib/platform/html-in-canvas';
 import type {
 	AnnotationRenderer,
@@ -84,6 +85,7 @@ const PaperUniforms = d.struct({
 
 const composeLayout = tgpu.bindGroupLayout({
 	domTexture: { texture: d.texture2d(d.f32) },
+	chartTexture: { texture: d.texture2d(d.f32) },
 	highlightTexture: { texture: d.texture2d(d.f32) },
 	strokesTexture: { texture: d.texture2d(d.f32) },
 	samp: { sampler: 'filtering' },
@@ -93,7 +95,7 @@ const composeLayout = tgpu.bindGroupLayout({
 const composeVertexFn = tgpu['~unstable'].vertexFn({
 	in: { vertexIndex: d.builtin.vertexIndex },
 	out: { position: d.builtin.position, uv: d.vec2f }
-})/* wgsl */ `{
+}) /* wgsl */ `{
 	var positions = array<vec2f, 3>(
 		vec2f(-1.0, -1.0),
 		vec2f(3.0, -1.0),
@@ -115,13 +117,16 @@ const composeVertexFn = tgpu['~unstable'].vertexFn({
 // (sampling the same texture stack at a backward-mapped uv to produce the
 // lifted appearance). Inlining is intentional — TypeGPU's fragmentFn template
 // is a single function body and the duplication keeps the shader self-contained.
-const composeFragmentFn = tgpu['~unstable']
-	.fragmentFn({
-		in: { uv: d.vec2f },
-		out: d.vec4f
-	})/* wgsl */ `{
+const composeFragmentFn = tgpu['~unstable'].fragmentFn({
+	in: { uv: d.vec2f },
+	out: d.vec4f
+}) /* wgsl */ `{
 		// ----- Base composition at in.uv -----
 		var dom = textureSample(layout.$.domTexture, layout.$.samp, in.uv);
+		let chart = textureSample(layout.$.chartTexture, layout.$.samp, in.uv);
+		let chartedAlpha = chart.a + dom.a * (1.0 - chart.a);
+		let chartedRgb = chart.rgb + dom.rgb * dom.a * (1.0 - chart.a);
+		dom = vec4f(chartedRgb / max(chartedAlpha, 0.000001), chartedAlpha);
 		let mask = step(0.001, dom.a);
 
 		let coarsePos = in.uv * vec2f(220.0, 220.0);
@@ -338,6 +343,10 @@ const composeFragmentFn = tgpu['~unstable']
 				let rChan = magnifyRedSample.r;
 				let bChan = magnifyBlueSample.b;
 				var lensDom = vec4f(rChan, gSample.g, bChan, gSample.a);
+				let lensChart = textureSampleLevel(layout.$.chartTexture, layout.$.samp, sourceUv, 0.0);
+				let lensChartedAlpha = lensChart.a + lensDom.a * (1.0 - lensChart.a);
+				let lensChartedRgb = lensChart.rgb + lensDom.rgb * lensDom.a * (1.0 - lensChart.a);
+				lensDom = vec4f(lensChartedRgb / max(lensChartedAlpha, 0.000001), lensChartedAlpha);
 				let lensDomMask = step(0.001, lensDom.a);
 
 				// Paper substrate resampled at sourceUv so lens content
@@ -531,6 +540,10 @@ const composeFragmentFn = tgpu['~unstable']
 				let sourceUv = rect.xy + liftedLocalUv * rect.zw;
 
 				var liftedDom = textureSampleLevel(layout.$.domTexture, layout.$.samp, sourceUv, 0.0);
+				let liftedChart = textureSampleLevel(layout.$.chartTexture, layout.$.samp, sourceUv, 0.0);
+				let liftedChartedAlpha = liftedChart.a + liftedDom.a * (1.0 - liftedChart.a);
+				let liftedChartedRgb = liftedChart.rgb + liftedDom.rgb * liftedDom.a * (1.0 - liftedChart.a);
+				liftedDom = vec4f(liftedChartedRgb / max(liftedChartedAlpha, 0.000001), liftedChartedAlpha);
 				let liftedMask = step(0.001, liftedDom.a);
 
 				let lCoarsePos = sourceUv * vec2f(220.0, 220.0);
@@ -808,8 +821,10 @@ export function createPaperPipeline({
 		})
 		.$usage('uniform');
 
+	const chartRenderer = createChartMarkRenderer(device, canvasWidth, canvasHeight);
 	const bindGroup = root.createBindGroup(composeLayout, {
 		domTexture,
+		chartTexture: chartRenderer.getOutputTexture(),
 		highlightTexture,
 		strokesTexture,
 		samp: sampler,
@@ -893,6 +908,7 @@ export function createPaperPipeline({
 	}
 
 	function render(inputs: SurfaceRenderInputs): void {
+		chartRenderer.render(inputs.chart);
 		const compositionLayout: AnnotationFrameLayout = {
 			x: 0,
 			y: 0,
@@ -960,6 +976,7 @@ export function createPaperPipeline({
 	}
 
 	function dispose(): void {
+		chartRenderer.dispose();
 		outputTexture.destroy();
 		domTexture.destroy();
 		highlightTexture.destroy();

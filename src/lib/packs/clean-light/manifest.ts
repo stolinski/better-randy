@@ -41,6 +41,9 @@ export const cleanLightPack: PackManifest = {
 		// Final chart-specific colour Roles. Structural edge/depth/light
 		// dimensions intentionally land on the mandatory core fallback floor.
 		'chart.mark': { kind: 'style', value: '#0075de' },
+		'chart.series-2': { kind: 'style', value: '#16181d' },
+		'chart.series-3': { kind: 'style', value: '#5b6472' },
+		'chart.series-4': { kind: 'style', value: '#8fc2f0' },
 		'chart.axis': { kind: 'style', value: '#16181d' },
 		'chart.grid': { kind: 'style', value: '#c7ced8' },
 		'chart.label': { kind: 'style', value: '#16181d' },
@@ -48,6 +51,7 @@ export const cleanLightPack: PackManifest = {
 		'chart.mark-fill': {
 			kind: 'style',
 			value: {
+				seriesRoles: ['chart.mark', 'chart.series-2', 'chart.series-3', 'chart.series-4'],
 				default: { mode: 'solid' },
 				series: { mode: 'gradient', toRole: 'chart.axis', axis: 'block' },
 				emphasis: { mode: 'gradient', toRole: 'chart.label', axis: 'inline' }

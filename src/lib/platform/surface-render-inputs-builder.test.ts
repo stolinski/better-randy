@@ -110,4 +110,57 @@ describe('buildSurfaceRenderInputs', () => {
 
 		assert.equal(inputs.diagram?.stroke.color, '#f7f6f2');
 	});
+	it('builds one active bar or column chart snapshot with factual geometry and Pack series voices', () => {
+		const state = createDefaultEngineState();
+		state.transport.durationSeconds = 10;
+		state.surface.chart = {
+			mode: 'single',
+			items: [
+				{
+					id: 'grouped-chart',
+					type: 'column-chart',
+					title: 'Grouped chart',
+					data: {
+						categories: [{ id: 'a', label: 'A' }],
+						series: [
+							{ id: 'first', label: 'First', values: [{ categoryId: 'a', value: 3 }] },
+							{ id: 'second', label: 'Second', values: [{ categoryId: 'a', value: 7 }] }
+						]
+					},
+					layout: { mode: 'grouped' },
+					domain: { min: 0, max: 10 },
+					labels: { values: true, legend: true },
+					highlights: [{ target: { kind: 'datum', seriesId: 'second', categoryId: 'a' } }],
+					fill: { role: 'series' },
+					motion: {
+						entry: { start: 0, duration: 0.1 },
+						reveal: { start: 0.1, duration: 0.1 },
+						emphasis: { start: 0.2, duration: 0.1 },
+						annotation: { start: 0.3, duration: 0.1 },
+						exit: { start: 0.8, duration: 0.1 }
+					}
+				}
+			]
+		};
+		const request = {
+			readState: () => state,
+			readAnimState: animationState,
+			readPack: () => getPack('syntax'),
+			readMarkColor: () => '#ff0000',
+			readTextAnimationAlpha: () => null
+		};
+		const inputs = buildSurfaceRenderInputs(request, 5);
+		assert.equal(inputs.chart?.block.id, 'grouped-chart');
+		assert.equal(inputs.chart?.geometry.marks.length, 2);
+		assert.equal(inputs.chart?.geometry.marks[1].isHighlighted, true);
+		assert.equal(inputs.chart?.baseFillBySeries.length, 2);
+		assert.notDeepEqual(
+			inputs.chart?.baseFillBySeries[0].colorA,
+			inputs.chart?.baseFillBySeries[1].colorA
+		);
+		assert.equal(buildSurfaceRenderInputs(request, 9.5).chart, undefined);
+
+		state.surface.chart.items[0].title = 'Unreadable '.repeat(200);
+		assert.equal(buildSurfaceRenderInputs(request, 5).chart, undefined);
+	});
 });

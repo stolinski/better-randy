@@ -613,7 +613,11 @@ describe('engine schema', () => {
 		// on presence, not value (ADR-0039 §3 keeps the presence law untouched).
 		const withPackFill = structuredClone(state);
 		withPackFill.backgroundFill = 'pack';
-		expectIssue(withPackFill, 'cannot be combined with backgroundFill', 'Video clips plus pack fill');
+		expectIssue(
+			withPackFill,
+			'cannot be combined with backgroundFill',
+			'Video clips plus pack fill'
+		);
 
 		const withStage = structuredClone(state);
 		withStage.stage = {
@@ -791,6 +795,58 @@ describe('chart Block structural schema', () => {
 			}
 		).items[0].callouts[0].valueLabel.maxDenominator = 21;
 		expectIssue(highDenominator, 'Too big', 'fraction denominator upper bound');
+	});
+
+	it('bounds chart categories, values, and series before renderer allocation', () => {
+		const categories = stateWithChart();
+		const categoryData = chartRecordAt(categories, ['items', 0, 'data']);
+		categoryData['categories'] = Array.from({ length: 13 }, (_, index) => ({
+			id: `category-${index}`,
+			label: `Category ${index}`
+		}));
+		expectIssue(categories, 'Too big', 'chart category upper bound');
+
+		const values = stateWithChart();
+		const seriesRecord = chartRecordAt(values, ['items', 0, 'data', 'series', 0]);
+		seriesRecord['values'] = Array.from({ length: 13 }, (_, index) => ({
+			categoryId: `category-${index}`,
+			value: index
+		}));
+		expectIssue(values, 'Too big', 'chart value upper bound');
+
+		const series = stateWithChart();
+		const seriesData = chartRecordAt(series, ['items', 0, 'data']);
+		const firstSeries = (seriesData['series'] as unknown[])[0];
+		seriesData['series'] = Array.from({ length: 5 }, (_, index) => ({
+			...(firstSeries as Record<string, unknown>),
+			id: `series-${index}`
+		}));
+		expectIssue(series, 'Too big', 'chart series upper bound');
+
+		const highlights = stateWithChart();
+		const highlightItem = chartRecordAt(highlights, ['items', 0]);
+		const firstHighlight = (highlightItem['highlights'] as unknown[])[0];
+		highlightItem['highlights'] = Array.from({ length: 25 }, () => firstHighlight);
+		expectIssue(highlights, 'Too big', 'chart highlight upper bound');
+
+		const callouts = stateWithChart();
+		const calloutItem = chartRecordAt(callouts, ['items', 0]);
+		const firstCallout = (calloutItem['callouts'] as unknown[])[0];
+		calloutItem['callouts'] = Array.from({ length: 5 }, () => firstCallout);
+		expectIssue(callouts, 'Too big', 'chart callout upper bound');
+
+		const categorySet = stateWithChart();
+		const categorySetItem = chartRecordAt(categorySet, ['items', 0]);
+		categorySetItem['highlights'] = [
+			{
+				target: {
+					kind: 'category-set',
+					seriesId: 'responses',
+					categoryIds: Array.from({ length: 13 }, (_, index) => `category-${index}`)
+				}
+			}
+		];
+		expectIssue(categorySet, 'Too big', 'chart category-set target upper bound');
 	});
 
 	it('accepts only smooth and sharp chart eases', () => {
