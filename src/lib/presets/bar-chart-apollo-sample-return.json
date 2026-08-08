@@ -1,0 +1,121 @@
+{
+	"schema": "supers@1",
+	"name": "Bar chart \u2014 Apollo sample return",
+	"description": "Apollo 17 returned 5.1 times the lunar-sample mass of Apollo 11, shown as a focused comparison from NASA\u2019s fixed mission record.",
+	"pack": "syntax",
+	"kind": "deliverable",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 10,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "pack",
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"chart": {
+				"mode": "single",
+				"items": [
+					{
+						"id": "apollo-returned-sample-mass",
+						"type": "bar-chart",
+						"title": "Apollo\u2019s sample return grew 5.1\u00d7",
+						"data": {
+							"categories": [
+								{
+									"id": "apollo-11",
+									"label": "Apollo 11"
+								},
+								{
+									"id": "apollo-17",
+									"label": "Apollo 17"
+								}
+							],
+							"series": [
+								{
+									"id": "returned-sample-mass",
+									"label": "Returned sample mass (kg)",
+									"values": [
+										{
+											"categoryId": "apollo-11",
+											"value": 21.5
+										},
+										{
+											"categoryId": "apollo-17",
+											"value": 110.5
+										}
+									]
+								}
+							]
+						},
+						"layout": {
+							"mode": "single"
+						},
+						"domain": {
+							"min": 0,
+							"max": 120
+						},
+						"labels": {
+							"categories": true,
+							"values": true,
+							"legend": true
+						},
+						"highlights": [
+							{
+								"target": {
+									"kind": "datum",
+									"seriesId": "returned-sample-mass",
+									"categoryId": "apollo-17"
+								}
+							}
+						],
+						"sourceNote": "Source: NASA NTRS 20090011852",
+						"fill": {
+							"role": "default"
+						},
+						"motion": {
+							"entry": {
+								"start": 0.04,
+								"duration": 0.03333333333333333,
+								"ease": "smooth"
+							},
+							"reveal": {
+								"start": 0.12,
+								"duration": 0.22,
+								"ease": "smooth"
+							},
+							"emphasis": {
+								"start": 0.38,
+								"duration": 0.08,
+								"ease": "sharp"
+							},
+							"annotation": {
+								"start": 0.5,
+								"duration": 0.1,
+								"ease": "smooth"
+							},
+							"exit": {
+								"start": 0.88,
+								"duration": 0.02666666666666667,
+								"ease": "smooth"
+							}
+						}
+					}
+				]
+			}
+		},
+		"overlays": [],
+		"effects": []
+	}
+}
