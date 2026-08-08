@@ -5,7 +5,7 @@ import {
 	resolveChartMotionState,
 	resolveChartOrderedRevealProgress
 } from '$lib/utils/chart-motion';
-import { chartRenderTextMeasurer } from '$lib/utils/chart-text-measurement';
+import { createChartRenderTextMeasurer } from '$lib/utils/chart-text-measurement';
 import { resolveVisibleChartBlock } from '$lib/utils/chart-visibility';
 import { isDarkSurfaceColor } from '$lib/utils/color';
 import { resolveDiagramPrimitiveForRender } from '$lib/utils/diagram-geometry';
@@ -125,10 +125,11 @@ function buildChartInputs(
 	const progress = timestamp / state.transport.durationSeconds;
 	const block = resolveVisibleChartBlock(state.surface.chart, progress);
 	if (!block) return undefined;
+	const measureText = createChartRenderTextMeasurer(state.transport.orientation);
 	const layout = resolveChartFrameLayout({
 		block,
 		orientation: state.transport.orientation,
-		measureText: chartRenderTextMeasurer
+		measureText
 	});
 	const geometry =
 		block.type === 'bar-chart' || block.type === 'column-chart'
@@ -136,13 +137,13 @@ function buildChartInputs(
 					block,
 					layout,
 					orientation: state.transport.orientation,
-					measureText: chartRenderTextMeasurer
+					measureText
 				})
 			: resolveChartNormalizedGeometry({
 					block,
 					layout,
 					orientation: state.transport.orientation,
-					measureText: chartRenderTextMeasurer
+					measureText
 				});
 	if (layout.overflow.length > 0 || geometry.overflow.length > 0) return undefined;
 	const motionState = resolveChartMotionState(block.motion, progress);

@@ -1,0 +1,132 @@
+{
+	"schema": "supers@1",
+	"name": "Dot field \u2014 Apollo lunar travelers",
+	"description": "Twenty-four dots represent the distinct people who flew to the Moon in Apollo, split evenly between those who walked and those who did not.",
+	"pack": "syntax",
+	"kind": "deliverable",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 10,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "pack",
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"chart": {
+				"mode": "single",
+				"items": [
+					{
+						"id": "apollo-lunar-travelers-dot-field",
+						"type": "dot-field-chart",
+						"title": "Half of Apollo lunar travelers",
+						"data": {
+							"categories": [
+								{
+									"id": "walked",
+									"label": "Walked on the Moon"
+								},
+								{
+									"id": "did-not-walk",
+									"label": "Flew without walking"
+								}
+							],
+							"series": [
+								{
+									"id": "people",
+									"label": "People",
+									"values": [
+										{
+											"categoryId": "walked",
+											"value": 12
+										},
+										{
+											"categoryId": "did-not-walk",
+											"value": 12
+										}
+									]
+								}
+							]
+						},
+						"normalization": {
+							"total": 24,
+							"unitCount": 24
+						},
+						"labels": {
+							"categories": true,
+							"values": true,
+							"legend": true
+						},
+						"highlights": [
+							{
+								"target": {
+									"kind": "datum",
+									"seriesId": "people",
+									"categoryId": "walked"
+								}
+							}
+						],
+						"callouts": [
+							{
+								"target": {
+									"kind": "datum",
+									"seriesId": "people",
+									"categoryId": "walked"
+								},
+								"valueLabel": {
+									"kind": "approximate-fraction-and-percent",
+									"maxDenominator": 2,
+									"precision": 0
+								}
+							}
+						],
+						"sourceNote": "Source: NASA, Apollo program mission roster",
+						"fill": {
+							"role": "series"
+						},
+						"motion": {
+							"entry": {
+								"start": 0.04,
+								"duration": 0.03333333333333333,
+								"ease": "smooth"
+							},
+							"reveal": {
+								"start": 0.12,
+								"duration": 0.24,
+								"ease": "smooth"
+							},
+							"emphasis": {
+								"start": 0.4,
+								"duration": 0.1,
+								"ease": "sharp"
+							},
+							"annotation": {
+								"start": 0.52,
+								"duration": 0.08,
+								"ease": "smooth"
+							},
+							"exit": {
+								"start": 0.88,
+								"duration": 0.02666666666666667,
+								"ease": "smooth"
+							}
+						}
+					}
+				]
+			}
+		},
+		"overlays": [],
+		"effects": []
+	}
+}

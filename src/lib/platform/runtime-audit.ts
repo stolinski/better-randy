@@ -85,6 +85,18 @@ const DIAGRAM_ROLE_SELECTORS: readonly RoleSelector[] = [
 	}
 ];
 
+// Chart SVG text is native document typography and must pass the same G4 floors.
+// Renderers expose one searchable role attribute across both chart families.
+const CHART_ROLE_SELECTORS: readonly RoleSelector[] = [
+	{ role: 'title', bandKey: 'surface-title', selector: '[data-chart-text-role="title"]' },
+	{ role: 'caption', bandKey: 'surface-label', selector: '[data-chart-text-role="axis"]' },
+	{ role: 'caption', bandKey: 'surface-label', selector: '[data-chart-text-role="category"]' },
+	{ role: 'caption', bandKey: 'surface-label', selector: '[data-chart-text-role="value"]' },
+	{ role: 'caption', bandKey: 'surface-label', selector: '[data-chart-text-role="legend"]' },
+	{ role: 'source', bandKey: 'surface-label', selector: '[data-chart-text-role="source"]' },
+	{ role: 'caption', bandKey: 'surface-label', selector: '[data-chart-text-role="callout"]' }
+];
+
 const SURFACE_AUDIT_CONFIG: Readonly<
 	Record<string, { root: string; roles: readonly RoleSelector[] }>
 > = {
@@ -323,6 +335,16 @@ function measureDiagramText(frameRect: FrameRect): DiagramTextMeasurement {
 	return { texts, textBounds: sourceTextBoundsFor(elements, frameRect) };
 }
 
+function measureChartText(frameRect: FrameRect): DiagramTextMeasurement {
+	const texts: RenderedTextMeasurement[] = [];
+	for (const { role, bandKey, selector } of CHART_ROLE_SELECTORS) {
+		texts.push(...measureText(document, role, bandKey, selector));
+	}
+
+	const elements = document.querySelectorAll<HTMLElement>('[data-chart-text-role]');
+	return { texts, textBounds: sourceTextBoundsFor(elements, frameRect) };
+}
+
 function measureSurfaceElement(
 	root: HTMLElement,
 	roleSelectors: readonly RoleSelector[],
@@ -397,11 +419,15 @@ export function captureMeasurement(state: EngineState, name = '(current)'): Visu
 	const measuredSurface =
 		config && root ? measureSurfaceElement(root, config.roles, frameRect) : null;
 	const diagram = measureDiagramText(frameRect);
+	const chart = measureChartText(frameRect);
 	const surface = measuredSurface
 		? {
 				...measuredSurface,
-				textBounds: mergeSourceTextBounds(measuredSurface.textBounds, diagram.textBounds),
-				texts: [...measuredSurface.texts, ...diagram.texts]
+				textBounds: mergeSourceTextBounds(
+					mergeSourceTextBounds(measuredSurface.textBounds, diagram.textBounds),
+					chart.textBounds
+				),
+				texts: [...measuredSurface.texts, ...diagram.texts, ...chart.texts]
 			}
 		: null;
 

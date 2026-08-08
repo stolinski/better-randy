@@ -12,7 +12,7 @@
 	import { resolveChartFrameLayout, type ChartMeasuredTextLayout } from '$lib/utils/chart-layout';
 	import { formatChartCounterValue, resolveChartMotionState } from '$lib/utils/chart-motion';
 	import {
-		chartRenderTextMeasurer,
+		createChartRenderTextMeasurer,
 		resolveChartTextRoleStyle
 	} from '$lib/utils/chart-text-measurement';
 
@@ -28,11 +28,12 @@
 			ENGINE_FONT_FAMILIES[engineState.typography.fontFamily]?.stack ??
 			ENGINE_FONT_FAMILIES.sans.stack
 	);
+	const measureText = $derived(createChartRenderTextMeasurer(engineState.transport.orientation));
 	const layout = $derived(
 		resolveChartFrameLayout({
 			block,
 			orientation: engineState.transport.orientation,
-			measureText: chartRenderTextMeasurer
+			measureText
 		})
 	);
 	const geometry = $derived(
@@ -40,7 +41,7 @@
 			block,
 			layout,
 			orientation: engineState.transport.orientation,
-			measureText: chartRenderTextMeasurer
+			measureText
 		})
 	);
 	const isRenderable = $derived(layout.overflow.length === 0 && geometry.overflow.length === 0);
@@ -57,7 +58,7 @@
 	}
 
 	function textStyle(text: ChartMeasuredTextLayout): string {
-		const style = resolveChartTextRoleStyle(text.role);
+		const style = resolveChartTextRoleStyle(text.role, engineState.transport.orientation);
 		return `font-size:${style.fontSize}px;font-weight:${style.fontWeight};letter-spacing:${style.letterSpacing}px`;
 	}
 
@@ -140,6 +141,7 @@
 
 		<g class="chart-bar-column__labels" opacity={motion.chromeAlpha} fill={chrome.label}>
 			<text
+				data-chart-text-role="title"
 				x={layout.chrome.title.origin.x}
 				y={layout.chrome.title.origin.y}
 				textLength={layout.chrome.title.measurement.width}
@@ -149,6 +151,7 @@
 			>
 			{#each layout.axes.linearTicks as tick (`label:${tick.value}`)}
 				<text
+					data-chart-text-role="axis"
 					x={tick.labelLayout.origin.x}
 					y={tick.labelLayout.origin.y}
 					textLength={tick.labelLayout.measurement.width}
@@ -159,6 +162,7 @@
 			{/each}
 			{#each layout.axes.categoryLabels as category (category.categoryId)}
 				<text
+					data-chart-text-role="category"
 					x={category.labelLayout.origin.x}
 					y={category.labelLayout.origin.y}
 					textLength={category.labelLayout.measurement.width}
@@ -169,6 +173,7 @@
 			{/each}
 			{#if layout.chrome.sourceNote}
 				<text
+					data-chart-text-role="source"
 					x={layout.chrome.sourceNote.origin.x}
 					y={layout.chrome.sourceNote.origin.y}
 					textLength={layout.chrome.sourceNote.measurement.width}
@@ -181,7 +186,7 @@
 
 		<g class="chart-bar-column__values" opacity={motion.annotationAlpha} fill={chrome.label}>
 			{#each geometry.valueLabels as valueLabel (valueLabel.markId)}
-				{@const roleStyle = resolveChartTextRoleStyle('value')}
+				{@const roleStyle = resolveChartTextRoleStyle('value', engineState.transport.orientation)}
 				{#if valueLabel.anchor === 'inside'}
 					<rect
 						x={valueLabel.origin.x - 10}
@@ -193,6 +198,7 @@
 					/>
 				{/if}
 				<text
+					data-chart-text-role="value"
 					data-chart-value={valueLabel.markId}
 					x={valueLabel.origin.x}
 					y={valueLabel.origin.y}
@@ -216,6 +222,7 @@
 					fill="transparent"
 				/>
 				<text
+					data-chart-text-role="legend"
 					x={legend.labelLayout.origin.x}
 					y={legend.labelLayout.origin.y}
 					textLength={legend.labelLayout.measurement.width}
@@ -246,8 +253,12 @@
 					rx="12"
 					stroke-width="4"
 				/>
-				{@const calloutStyle = resolveChartTextRoleStyle('callout')}
+				{@const calloutStyle = resolveChartTextRoleStyle(
+					'callout',
+					engineState.transport.orientation
+				)}
 				<text
+					data-chart-text-role="callout"
 					data-chart-callout={annotation.id}
 					x={annotation.box.x + 28}
 					y={annotation.box.y + 20}

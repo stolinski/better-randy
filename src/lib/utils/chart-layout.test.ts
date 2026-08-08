@@ -99,6 +99,7 @@ describe('resolveChartFrameLayout', () => {
 			assert.equal(inside(first.plotBounds, first.safeBounds), true);
 			assert.equal(first.frame.width, orientation === 'horizontal' ? 3840 : 2160);
 			assert.equal(first.chrome.title.origin.x, first.safeBounds.x);
+			assert.ok(first.chrome.title.origin.y > first.safeBounds.y);
 			assert.ok(first.chrome.calloutLane);
 			assert.equal(first.overflow.length, 0);
 		}

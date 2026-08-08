@@ -283,13 +283,16 @@ export function resolveChartFrameLayout(input: {
 			message: 'Chart title exceeds the native target safe width.',
 			itemId: block.id
 		});
+	// SVG hanging baselines can paint above their declared y position. Portrait titles use
+	// larger type, so reserve a deterministic cap overshoot inset inside title-safe.
+	const titleTopInset = Math.ceil(titleMeasurement.height * 0.2) + 2;
 	const title: ChartMeasuredTextLayout = {
 		text: block.title,
 		role: 'title',
-		origin: { x: safeBounds.x, y: safeBounds.y },
+		origin: { x: safeBounds.x, y: safeBounds.y + titleTopInset },
 		measurement: titleMeasurement
 	};
-	let contentTop = safeBounds.y + titleMeasurement.height + gap;
+	let contentTop = title.origin.y + titleMeasurement.height + gap;
 	const calloutLaneWidth =
 		block.callouts && block.callouts.length > 0
 			? safeBounds.width * (orientation === 'vertical' ? 0.32 : 0.24)
