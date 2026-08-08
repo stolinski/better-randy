@@ -1,6 +1,6 @@
 import { PIPELINE_REGISTRY } from '../pipelines';
 import { validatePackCoreVocabulary } from '../pipelines/identity-registry';
-import { isColorValue } from './resolve';
+import { CHART_MARK_FILL_COLOR_ROLES, isChartMarkFillColorValue, isColorValue } from './resolve';
 import type { PackFont, PackManifest } from './types';
 
 export interface PackValidationIssue {
@@ -16,7 +16,8 @@ export interface PackValidationIssue {
 		| 'invalid-chrome-effect'
 		| 'duplicate-chrome-effect'
 		| 'invalid-font-declaration'
-		| 'undeclared-font-family';
+		| 'undeclared-font-family'
+		| 'invalid-chart-mark-fill';
 	message: string;
 }
 
@@ -90,6 +91,182 @@ function appendFontDeclarationIssues(
 	}
 
 	return declaredFamilies;
+}
+
+const CHART_FILL_ROLES = ['default', 'series', 'emphasis'] as const;
+const CHART_FILL_MODES = ['solid', 'gradient', 'ordered-dither'] as const;
+const CHART_GRADIENT_AXES = ['inline', 'block'] as const;
+const CHART_DITHER_MATRICES = ['2x2', '4x4', '8x8'] as const;
+
+function includesString(values: readonly string[], value: unknown): value is string {
+	return typeof value === 'string' && values.includes(value);
+}
+
+function appendChartMarkFillIssue(
+	registryKey: string,
+	issues: PackValidationIssue[],
+	path: (string | number)[],
+	message: string
+): void {
+	issues.push({ pack: registryKey, path, kind: 'invalid-chart-mark-fill', message });
+}
+
+function appendChartMarkFillIssues(
+	registryKey: string,
+	manifest: PackManifest,
+	issues: PackValidationIssue[]
+): void {
+	const markRole = manifest.roles['chart.mark'];
+	const markColorValid = markRole?.kind === 'style' && isChartMarkFillColorValue(markRole.value);
+	if (markRole !== undefined && !markColorValid) {
+		appendChartMarkFillIssue(
+			registryKey,
+			issues,
+			['roles', 'chart.mark'],
+			'Chart mark fill requires chart.mark to use a color supported by cssColorToRgbaFloat'
+		);
+	}
+	const accentRole = manifest.roles['accent-treatment'];
+	const accentColorValid =
+		accentRole?.kind === 'style' && isChartMarkFillColorValue(accentRole.value);
+	if (!markColorValid && !accentColorValid) {
+		appendChartMarkFillIssue(
+			registryKey,
+			issues,
+			['roles', 'accent-treatment'],
+			'Chart mark fill requires a parseable chart.mark or accent-treatment color floor'
+		);
+	}
+	const role = manifest.roles['chart.mark-fill'];
+	if (role === undefined) return;
+	const basePath = ['roles', 'chart.mark-fill'] as const;
+	if (
+		role.kind !== 'style' ||
+		role.value === null ||
+		typeof role.value !== 'object' ||
+		Array.isArray(role.value)
+	) {
+		appendChartMarkFillIssue(
+			registryKey,
+			issues,
+			[...basePath],
+			'Pack role "chart.mark-fill" must be a style role containing a recipe object'
+		);
+		return;
+	}
+	const recipes = role.value as Record<string, unknown>;
+	for (const key of Object.keys(recipes)) {
+		if (!includesString(CHART_FILL_ROLES, key)) {
+			appendChartMarkFillIssue(
+				registryKey,
+				issues,
+				[...basePath, key],
+				`Unknown chart mark fill role "${key}"`
+			);
+		}
+	}
+	for (const chartRole of CHART_FILL_ROLES) {
+		const value = recipes[chartRole];
+		if (value === undefined) continue;
+		const recipePath = [...basePath, chartRole];
+		if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+			appendChartMarkFillIssue(
+				registryKey,
+				issues,
+				recipePath,
+				'Chart mark fill recipe must be an object'
+			);
+			continue;
+		}
+		const recipe = value as Record<string, unknown>;
+		if (!includesString(CHART_FILL_MODES, recipe.mode)) {
+			appendChartMarkFillIssue(
+				registryKey,
+				issues,
+				[...recipePath, 'mode'],
+				`Unknown chart mark fill mode "${String(recipe.mode)}"`
+			);
+			continue;
+		}
+		const allowedKeys =
+			recipe.mode === 'solid'
+				? ['mode']
+				: recipe.mode === 'gradient'
+					? ['mode', 'toRole', 'axis']
+					: ['mode', 'toRole', 'matrix', 'cellPx'];
+		for (const key of Object.keys(recipe)) {
+			if (!allowedKeys.includes(key)) {
+				appendChartMarkFillIssue(
+					registryKey,
+					issues,
+					[...recipePath, key],
+					`Unknown key "${key}" for ${recipe.mode} chart mark fill`
+				);
+			}
+		}
+		if (
+			recipe.toRole !== undefined &&
+			!includesString(CHART_MARK_FILL_COLOR_ROLES, recipe.toRole)
+		) {
+			appendChartMarkFillIssue(
+				registryKey,
+				issues,
+				[...recipePath, 'toRole'],
+				`Unknown chart mark fill color role "${String(recipe.toRole)}"`
+			);
+		}
+		if (
+			includesString(CHART_MARK_FILL_COLOR_ROLES, recipe.toRole) &&
+			manifest.roles[recipe.toRole] !== undefined
+		) {
+			const destination = manifest.roles[recipe.toRole];
+			if (destination.kind !== 'style' || !isChartMarkFillColorValue(destination.value)) {
+				appendChartMarkFillIssue(
+					registryKey,
+					issues,
+					[...recipePath, 'toRole'],
+					`Chart mark fill color role "${recipe.toRole}" is not supported by cssColorToRgbaFloat`
+				);
+			}
+		}
+		if (
+			recipe.mode === 'gradient' &&
+			recipe.axis !== undefined &&
+			!includesString(CHART_GRADIENT_AXES, recipe.axis)
+		) {
+			appendChartMarkFillIssue(
+				registryKey,
+				issues,
+				[...recipePath, 'axis'],
+				`Unknown chart mark gradient axis "${String(recipe.axis)}"`
+			);
+		}
+		if (recipe.mode === 'ordered-dither') {
+			if (recipe.matrix !== undefined && !includesString(CHART_DITHER_MATRICES, recipe.matrix)) {
+				appendChartMarkFillIssue(
+					registryKey,
+					issues,
+					[...recipePath, 'matrix'],
+					`Unknown ordered-dither matrix "${String(recipe.matrix)}"`
+				);
+			}
+			if (
+				recipe.cellPx !== undefined &&
+				(typeof recipe.cellPx !== 'number' ||
+					!Number.isFinite(recipe.cellPx) ||
+					!Number.isInteger(recipe.cellPx) ||
+					recipe.cellPx < 2 ||
+					recipe.cellPx > 32)
+			) {
+				appendChartMarkFillIssue(
+					registryKey,
+					issues,
+					[...recipePath, 'cellPx'],
+					'Ordered-dither cellPx must be a finite integer from 2 to 32'
+				);
+			}
+		}
+	}
 }
 
 function appendChromeIssues(
@@ -250,6 +427,7 @@ export function validatePackManifest(
 		}
 	}
 
+	appendChartMarkFillIssues(registryKey, manifest, issues);
 	appendChromeIssues(registryKey, manifest, issues);
 	return issues;
 }

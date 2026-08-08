@@ -37,8 +37,11 @@ export function hexToRgbaFloat(hex: string): [number, number, number, number] {
 	return [red / 255, green / 255, blue / 255, 1.0];
 }
 
-const RGB_FUNCTION_PATTERN =
-	/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)$/i;
+const CSS_DECIMAL_TOKEN = String.raw`(?:\d+(?:\.\d*)?|\.\d+)`;
+const RGB_FUNCTION_PATTERN = new RegExp(
+	String.raw`^rgba?\(\s*(${CSS_DECIMAL_TOKEN})\s*,\s*(${CSS_DECIMAL_TOKEN})\s*,\s*(${CSS_DECIMAL_TOKEN})\s*(?:,\s*(${CSS_DECIMAL_TOKEN})\s*)?\)$`,
+	'i'
+);
 
 /**
  * Parse a hex or comma-form `rgb()` / `rgba()` colour to RGBA floats — the two
@@ -50,11 +53,17 @@ const RGB_FUNCTION_PATTERN =
 export function cssColorToRgbaFloat(color: string): [number, number, number, number] {
 	const fn = RGB_FUNCTION_PATTERN.exec(color.trim());
 	if (fn) {
+		const channels = fn
+			.slice(1, 5)
+			.map((channel) => (channel === undefined ? undefined : Number(channel)));
+		if (channels.some((channel) => channel !== undefined && !Number.isFinite(channel))) {
+			throw new TypeError(`Expected finite rgb color channels, received "${color}".`);
+		}
 		return [
-			clampNumber(Number(fn[1]) / 255, 0, 1),
-			clampNumber(Number(fn[2]) / 255, 0, 1),
-			clampNumber(Number(fn[3]) / 255, 0, 1),
-			fn[4] === undefined ? 1 : clampNumber(Number(fn[4]), 0, 1)
+			clampNumber((channels[0] ?? 0) / 255, 0, 1),
+			clampNumber((channels[1] ?? 0) / 255, 0, 1),
+			clampNumber((channels[2] ?? 0) / 255, 0, 1),
+			channels[3] === undefined ? 1 : clampNumber(channels[3], 0, 1)
 		];
 	}
 	return hexToRgbaFloat(color);

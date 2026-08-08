@@ -13,10 +13,159 @@
  * Only string-valued `style` Roles become CSS vars; structural Roles (edge
  * recipes, depth rigs, chrome) are consumed in code, not here.
  */
-import { getRgbColorChannels } from '$lib/utils/color';
+import { cssColorToRgbaFloat, getRgbColorChannels } from '$lib/utils/color';
+import type { ChartFill } from '../engine-schema';
 import type { PackManifest } from './types';
 
 const CORE_APPEARANCE = ['fill', 'ink', 'accent', 'edge', 'depth', 'light'] as const;
+
+export type ChartMarkFillMode = 'solid' | 'gradient' | 'ordered-dither';
+export type ChartOrderedDitherMatrix = '2x2' | '4x4' | '8x8';
+export type ChartMarkGradientAxis = 'inline' | 'block';
+
+export const CHART_MARK_FILL_COLOR_ROLES = [
+	'chart.mark',
+	'chart.annotation',
+	'chart.grid',
+	'chart.axis',
+	'chart.label',
+	'accent-treatment',
+	'ink-treatment',
+	'fill-treatment',
+	'field-treatment',
+	'field-ink-treatment'
+] as const;
+
+export type ChartMarkFillColorRole = (typeof CHART_MARK_FILL_COLOR_ROLES)[number];
+export type ChartMarkFillRole = ChartFill['role'];
+
+export interface ResolvedChartMarkFill {
+	mode: ChartMarkFillMode;
+	colorA: readonly [number, number, number, number];
+	colorB: readonly [number, number, number, number];
+	gradientAxis: ChartMarkGradientAxis;
+	matrix: ChartOrderedDitherMatrix;
+	cellPx: number;
+}
+
+interface ChartMarkFillRecipe {
+	mode: ChartMarkFillMode;
+	toRole?: ChartMarkFillColorRole;
+	axis?: ChartMarkGradientAxis;
+	matrix?: ChartOrderedDitherMatrix;
+	cellPx?: number;
+}
+
+const CHART_MARK_FILL_MODES: readonly ChartMarkFillMode[] = ['solid', 'gradient', 'ordered-dither'];
+const CHART_MARK_GRADIENT_AXES: readonly ChartMarkGradientAxis[] = ['inline', 'block'];
+const CHART_ORDERED_DITHER_MATRICES: readonly ChartOrderedDitherMatrix[] = ['2x2', '4x4', '8x8'];
+
+function isListedString<T extends string>(value: unknown, list: readonly T[]): value is T {
+	return typeof value === 'string' && (list as readonly string[]).includes(value);
+}
+
+function readChartMarkFillRecipe(
+	value: unknown,
+	role: ChartMarkFillRole
+): ChartMarkFillRecipe | null {
+	if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
+	const recipes = value as Record<string, unknown>;
+	if (Object.keys(recipes).some((key) => !['default', 'series', 'emphasis'].includes(key))) {
+		return null;
+	}
+	const entry = recipes[role];
+	if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) return null;
+	const recipe = entry as Record<string, unknown>;
+	if (!isListedString(recipe.mode, CHART_MARK_FILL_MODES)) return null;
+	const allowedKeys =
+		recipe.mode === 'solid'
+			? ['mode']
+			: recipe.mode === 'gradient'
+				? ['mode', 'toRole', 'axis']
+				: ['mode', 'toRole', 'matrix', 'cellPx'];
+	if (Object.keys(recipe).some((key) => !allowedKeys.includes(key))) return null;
+	if (recipe.toRole !== undefined && !isListedString(recipe.toRole, CHART_MARK_FILL_COLOR_ROLES))
+		return null;
+	if (recipe.axis !== undefined && !isListedString(recipe.axis, CHART_MARK_GRADIENT_AXES))
+		return null;
+	if (recipe.matrix !== undefined && !isListedString(recipe.matrix, CHART_ORDERED_DITHER_MATRICES))
+		return null;
+	if (
+		recipe.cellPx !== undefined &&
+		(typeof recipe.cellPx !== 'number' ||
+			!Number.isFinite(recipe.cellPx) ||
+			!Number.isInteger(recipe.cellPx) ||
+			recipe.cellPx < 2 ||
+			recipe.cellPx > 32)
+	)
+		return null;
+	return {
+		mode: recipe.mode,
+		toRole: recipe.toRole,
+		axis: recipe.axis,
+		matrix: recipe.matrix,
+		cellPx: recipe.cellPx
+	};
+}
+
+export function isChartMarkFillColorValue(value: unknown): value is string {
+	if (typeof value !== 'string') return false;
+	try {
+		cssColorToRgbaFloat(value);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+function resolveChartColor(
+	manifest: PackManifest,
+	roleKey: ChartMarkFillColorRole
+): readonly [number, number, number, number] | null {
+	const role = manifest.roles[roleKey];
+	if (!role || role.kind !== 'style' || !isChartMarkFillColorValue(role.value)) return null;
+	try {
+		return cssColorToRgbaFloat(role.value);
+	} catch {
+		return null;
+	}
+}
+
+/** Resolve a semantic chart fill through one optional Pack-owned structural recipe. */
+export function resolveChartMarkFillTreatment(
+	manifest: PackManifest,
+	role: ChartMarkFillRole
+): ResolvedChartMarkFill {
+	const colorA =
+		resolveChartColor(manifest, 'chart.mark') ?? resolveChartColor(manifest, 'accent-treatment');
+	if (colorA === null) {
+		throw new Error(
+			`resolveChartMarkFillTreatment: Pack "${manifest.slug}" requires a chart.mark or accent-treatment color supported by cssColorToRgbaFloat.`
+		);
+	}
+	const fallback: ResolvedChartMarkFill = {
+		mode: 'solid',
+		colorA,
+		colorB: colorA,
+		gradientAxis: 'inline',
+		matrix: '4x4',
+		cellPx: 8
+	};
+	const structuralRole = manifest.roles['chart.mark-fill'];
+	if (!structuralRole || structuralRole.kind !== 'style') return fallback;
+	const recipe = readChartMarkFillRecipe(structuralRole.value, role);
+	if (!recipe || recipe.mode === 'solid') return fallback;
+	const colorB = recipe.toRole === undefined ? null : resolveChartColor(manifest, recipe.toRole);
+	if (colorB === null) return fallback;
+	return {
+		mode: recipe.mode,
+		colorA,
+		colorB,
+		gradientAxis: recipe.axis ?? 'inline',
+		matrix: recipe.matrix ?? '4x4',
+		cellPx: recipe.cellPx ?? 8
+	};
+}
 
 /**
  * Only color-valued style Roles become CSS vars. Many Roles are non-color
@@ -27,10 +176,7 @@ const CORE_APPEARANCE = ['fill', 'ink', 'accent', 'edge', 'depth', 'light'] as c
  * `field-treatment`) must pass this.
  */
 export function isColorValue(value: string): boolean {
-	return (
-		/^#[0-9a-f]{3,8}$/i.test(value) ||
-		/^(rgba?|hsla?|oklch|oklab|color|hwb)\(/i.test(value)
-	);
+	return /^#[0-9a-f]{3,8}$/i.test(value) || /^(rgba?|hsla?|oklch|oklab|color|hwb)\(/i.test(value);
 }
 
 /**
@@ -103,10 +249,7 @@ const CSS_FORM_SUFFIXES = new Set([
  * see this: their mounts use the registry-derived immunity query to skip
  * appearance-var injection entirely.
  */
-export function resolveFontTreatment(
-	manifest: PackManifest,
-	pipelineType?: string
-): string | null {
+export function resolveFontTreatment(manifest: PackManifest, pipelineType?: string): string | null {
 	const role =
 		(pipelineType !== undefined ? manifest.roles[`${pipelineType}.font`] : undefined) ??
 		manifest.roles['font-treatment'];
@@ -155,7 +298,12 @@ export function resolveAppearanceVars(
 			continue;
 		}
 		const role = manifest.roles[`${core}-treatment`] ?? manifest.roles[core];
-		if (role && role.kind === 'style' && typeof role.value === 'string' && isColorValue(role.value)) {
+		if (
+			role &&
+			role.kind === 'style' &&
+			typeof role.value === 'string' &&
+			isColorValue(role.value)
+		) {
 			vars[`--${core}`] = role.value;
 		}
 	}
@@ -235,8 +383,7 @@ export interface DepthGlow {
  * `DepthShadow` return; `glow` is the CRT bloom form.
  */
 export type ResolvedDepthTreatment =
-	| ({ kind: 'hardOffset' } & DepthShadow)
-	| ({ kind: 'glow' } & DepthGlow);
+	({ kind: 'hardOffset' } & DepthShadow) | ({ kind: 'glow' } & DepthGlow);
 
 interface HardOffsetRig {
 	dx: number;
@@ -620,17 +767,12 @@ export function requireCoreColor(
  * ink core. Invalid optional claims fail fast instead of silently changing
  * pixels despite the Pack validation contract.
  */
-export function resolveFieldInkColor(
-	manifest: PackManifest,
-	authoredInkColor?: string
-): string {
+export function resolveFieldInkColor(manifest: PackManifest, authoredInkColor?: string): string {
 	if (authoredInkColor !== undefined) return authoredInkColor;
 	const role = manifest.roles['field-ink-treatment'];
 	if (role === undefined) return requireCoreColor(manifest, 'ink-treatment');
 	if (role.kind !== 'style' || typeof role.value !== 'string' || !isColorValue(role.value)) {
-		throw new Error(
-			`Pack "${manifest.slug}" has an invalid optional core "field-ink-treatment".`
-		);
+		throw new Error(`Pack "${manifest.slug}" has an invalid optional core "field-ink-treatment".`);
 	}
 	return role.value;
 }

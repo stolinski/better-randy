@@ -45,6 +45,14 @@ export const crtTerminalPack: PackManifest = {
 		'chart.grid': { kind: 'style', value: '#173d20' },
 		'chart.label': { kind: 'style', value: '#45ff6e' },
 		'chart.annotation': { kind: 'style', value: '#d9ffe0' },
+		'chart.mark-fill': {
+			kind: 'style',
+			value: {
+				default: { mode: 'ordered-dither', toRole: 'chart.grid', matrix: '8x8', cellPx: 6 },
+				series: { mode: 'ordered-dither', toRole: 'chart.axis', matrix: '4x4', cellPx: 6 },
+				emphasis: { mode: 'gradient', toRole: 'chart.axis', axis: 'block' }
+			}
+		},
 
 		// ---------------------------------------------------------------
 		// Mandatory core vocabulary (ADR-0024 fallback floor).
@@ -327,7 +335,8 @@ export const crtTerminalPack: PackManifest = {
 		'achievement.radius': { kind: 'style', value: '0' },
 		'achievement.shadow': {
 			kind: 'style',
-			value: '0 0 calc(0.8 * var(--cqmin)) rgba(69, 255, 110, 0.28), inset 0 0 calc(0.35 * var(--cqmin)) rgba(69, 255, 110, 0.12)'
+			value:
+				'0 0 calc(0.8 * var(--cqmin)) rgba(69, 255, 110, 0.28), inset 0 0 calc(0.35 * var(--cqmin)) rgba(69, 255, 110, 0.12)'
 		},
 		'achievement.font': {
 			kind: 'style',
@@ -337,7 +346,10 @@ export const crtTerminalPack: PackManifest = {
 			kind: 'style',
 			value: '"JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace'
 		},
-		'achievement.pad': { kind: 'style', value: 'calc(1.5 * var(--cqmin)) calc(2.1 * var(--cqmin))' },
+		'achievement.pad': {
+			kind: 'style',
+			value: 'calc(1.5 * var(--cqmin)) calc(2.1 * var(--cqmin))'
+		},
 		'achievement.gap': { kind: 'style', value: 'calc(1.1 * var(--cqmin))' },
 		'achievement.tracking': { kind: 'style', value: '0.34em' },
 		'achievement.weight': { kind: 'style', value: '600' },

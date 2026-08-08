@@ -31,6 +31,14 @@ export const syntaxPack: PackManifest = {
 		'chart.grid': { kind: 'style', value: '#454441' },
 		'chart.label': { kind: 'style', value: '#f7f6f2' },
 		'chart.annotation': { kind: 'style', value: '#ffd54a' },
+		'chart.mark-fill': {
+			kind: 'style',
+			value: {
+				default: { mode: 'solid' },
+				series: { mode: 'gradient', toRole: 'chart.axis', axis: 'inline' },
+				emphasis: { mode: 'ordered-dither', toRole: 'chart.grid', matrix: '4x4', cellPx: 8 }
+			}
+		},
 
 		// ---------------------------------------------------------------
 		// Core / channel-level Roles (Pack vocabulary, not Pipeline-scoped).

@@ -45,6 +45,14 @@ export const cleanLightPack: PackManifest = {
 		'chart.grid': { kind: 'style', value: '#c7ced8' },
 		'chart.label': { kind: 'style', value: '#16181d' },
 		'chart.annotation': { kind: 'style', value: '#0075de' },
+		'chart.mark-fill': {
+			kind: 'style',
+			value: {
+				default: { mode: 'solid' },
+				series: { mode: 'gradient', toRole: 'chart.axis', axis: 'block' },
+				emphasis: { mode: 'gradient', toRole: 'chart.label', axis: 'inline' }
+			}
+		},
 
 		// ---------------------------------------------------------------
 		// Mandatory core vocabulary (ADR-0024 fallback floor).
@@ -272,7 +280,10 @@ export const cleanLightPack: PackManifest = {
 			kind: 'style',
 			value: "'Geist Mono', ui-monospace, monospace"
 		},
-		'achievement.pad': { kind: 'style', value: 'calc(2.4 * var(--cqmin)) calc(3.2 * var(--cqmin))' },
+		'achievement.pad': {
+			kind: 'style',
+			value: 'calc(2.4 * var(--cqmin)) calc(3.2 * var(--cqmin))'
+		},
 		'achievement.gap': { kind: 'style', value: 'calc(1.2 * var(--cqmin))' },
 		'achievement.tracking': { kind: 'style', value: '0.07em' },
 		'achievement.weight': { kind: 'style', value: '600' },

@@ -28,6 +28,14 @@ export const editorialMonoPack: PackManifest = {
 		'chart.grid': { kind: 'style', value: '#34404d' },
 		'chart.label': { kind: 'style', value: '#eef3f8' },
 		'chart.annotation': { kind: 'style', value: '#22d3ee' },
+		'chart.mark-fill': {
+			kind: 'style',
+			value: {
+				default: { mode: 'solid' },
+				series: { mode: 'gradient', toRole: 'chart.axis', axis: 'inline' },
+				emphasis: { mode: 'ordered-dither', toRole: 'chart.grid', matrix: '4x4', cellPx: 6 }
+			}
+		},
 
 		// ---------------------------------------------------------------
 		// Mandatory core vocabulary (ADR-0024 fallback floor).
@@ -104,7 +112,10 @@ export const editorialMonoPack: PackManifest = {
 			kind: 'style',
 			value: "'JetBrains Mono', ui-monospace, monospace"
 		},
-		'achievement.pad': { kind: 'style', value: 'calc(2.2 * var(--cqmin)) calc(2.8 * var(--cqmin))' },
+		'achievement.pad': {
+			kind: 'style',
+			value: 'calc(2.2 * var(--cqmin)) calc(2.8 * var(--cqmin))'
+		},
 		'achievement.gap': { kind: 'style', value: 'calc(1.2 * var(--cqmin))' },
 		'achievement.tracking': { kind: 'style', value: '0.12em' },
 		'achievement.weight': { kind: 'style', value: '600' },
