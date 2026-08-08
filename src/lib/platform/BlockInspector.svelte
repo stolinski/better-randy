@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ChartInspector from './ChartInspector.svelte';
 	import CascadeSection from './CascadeSection.svelte';
 	import { type Cascade, type Transition } from './engine-schema';
 	import { engineState } from './engine-state.svelte';
@@ -18,6 +19,9 @@
 
 	let { blockId }: Props = $props();
 
+	const chartBlock = $derived(
+		engineState.surface.chart?.items.find((entry) => entry.id === blockId) ?? null
+	);
 	const diagramPrimitive = $derived(
 		(engineState.surface.diagram ?? []).find((entry) => entry.id === blockId) ?? null
 	);
@@ -64,7 +68,9 @@
 	}
 </script>
 
-{#if diagramPrimitive}
+{#if chartBlock}
+	<ChartInspector {blockId} />
+{:else if diagramPrimitive}
 	{@const el = diagramPrimitive}
 
 	<BlockTypeSection primitive={el} />

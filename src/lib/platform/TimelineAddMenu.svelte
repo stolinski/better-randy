@@ -3,6 +3,7 @@
 	import {
 		engineState,
 		addCaptions,
+		addChartBlock,
 		addDiagramPrimitive,
 		addOverlay,
 		addTextAnimation
@@ -19,6 +20,18 @@
 	// Diagram primitive Blocks (ADR-0036) — explicit placement is the authoring
 	// model, so a new primitive lands at a sensible spot and is immediately
 	// selected for canvas drag + inspector editing.
+	const CHART_TYPES = [
+		{ type: 'bar-chart', label: 'Bar chart' },
+		{ type: 'column-chart', label: 'Column chart' },
+		{ type: 'unit-grid-chart', label: 'Unit grid' },
+		{ type: 'dot-field-chart', label: 'Dot field' }
+	] as const;
+
+	const canAddChart = $derived(
+		(engineState.surface.type === 'plain' || engineState.surface.type === 'paper') &&
+			(engineState.surface.chart?.items.length ?? 0) < 4
+	);
+
 	const DIAGRAM_TYPES = [
 		{ type: 'node', label: 'Diagram node' },
 		{ type: 'edge-arrow', label: 'Diagram edge' },
@@ -74,6 +87,13 @@
 		addMenuEl?.hidePopover();
 	}
 
+	function pickChart(type: (typeof CHART_TYPES)[number]['type']): void {
+		const id = addChartBlock(type);
+		if (!id) return;
+		selectLayer(createTimelineTrackId({ kind: 'block', blockId: id }));
+		addMenuEl?.hidePopover();
+	}
+
 	function pickTextAnimation(): void {
 		const firstEffect = TEXT_EFFECT_IDS[0];
 		if (!firstEffect) return;
@@ -106,12 +126,24 @@
 		popovertarget="timeline-add-menu"
 		aria-label="Add layer"
 	>
-		<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 16 16" aria-hidden="true">
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			width="11"
+			height="11"
+			viewBox="0 0 16 16"
+			aria-hidden="true"
+		>
 			<path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
 		</svg>
 		<span>Layer ▾</span>
 	</button>
-	<div class="add-menu" id="timeline-add-menu" popover {@attach attachAddMenu} ontoggle={onAddMenuToggle}>
+	<div
+		class="add-menu"
+		id="timeline-add-menu"
+		popover
+		{@attach attachAddMenu}
+		ontoggle={onAddMenuToggle}
+	>
 		{#each overlayRenderers as renderer (renderer.type)}
 			<button class="add-menu__item" type="button" onclick={() => pickOverlay(renderer.type)}
 				>{renderer.label}</button
@@ -121,6 +153,15 @@
 		{#each DIAGRAM_TYPES as entry (entry.type)}
 			<button class="add-menu__item" type="button" onclick={() => pickDiagramPrimitive(entry.type)}
 				>{entry.label}</button
+			>
+		{/each}
+		<div class="add-menu__divider" role="presentation"></div>
+		{#each CHART_TYPES as entry (entry.type)}
+			<button
+				class="add-menu__item"
+				type="button"
+				disabled={!canAddChart}
+				onclick={() => pickChart(entry.type)}>{entry.label}</button
 			>
 		{/each}
 		<div class="add-menu__divider" role="presentation"></div>
@@ -233,6 +274,12 @@
 	.add-menu__item:hover {
 		background: var(--chrome-hairline);
 		color: var(--chrome-text);
+	}
+
+	.add-menu__item:disabled {
+		color: var(--chrome-muted);
+		cursor: not-allowed;
+		opacity: 0.45;
 	}
 
 	.add-menu__divider {

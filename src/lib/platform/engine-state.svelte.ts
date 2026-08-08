@@ -3,6 +3,7 @@ import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-style
 import {
 	createDefaultEngineState,
 	createMarkTiming,
+	type ChartBlock,
 	type DiagramPrimitive,
 	type EngineState,
 	type Effect,
@@ -12,6 +13,10 @@ import {
 	type TextAnimation
 } from './engine-schema';
 import { assertSoundRegistryValid } from './audio-assets';
+import {
+	appendChartBlock as appendChartBlockToSurface,
+	removeChartBlock as removeChartBlockFromSurface
+} from './chart-authoring';
 import {
 	assertIdentityRegistryValid,
 	assertPackCoreVocabularyValid
@@ -150,6 +155,44 @@ export function removeTextAnimation(id: string): void {
 	}
 }
 
+export function addChartBlock(type: ChartBlock['type']): string | null {
+	const id = appendChartBlockToSurface(engineState.surface, type);
+	return id;
+}
+
+function removeBlockCascadeAnchors(id: string): void {
+	const dropAnchoredCascade = (owner: { cascade?: { anchor: unknown } }): void => {
+		const anchor = owner.cascade?.anchor;
+		if (anchor && typeof anchor === 'object' && 'block' in anchor && anchor.block === id) {
+			owner.cascade = undefined;
+		}
+	};
+	for (const primitive of engineState.surface.diagram ?? []) {
+		if (primitive.animation) dropAnchoredCascade(primitive.animation);
+	}
+	for (const overlay of engineState.overlays) {
+		if (overlay.animation) dropAnchoredCascade(overlay.animation);
+	}
+	for (const timing of engineState.marks.timings) dropAnchoredCascade(timing);
+	for (const entry of engineState.textAnimations) dropAnchoredCascade(entry);
+}
+
+export function removeChartBlock(id: string): void {
+	const chart = engineState.surface.chart;
+	if (!chart?.items.some((item) => item.id === id)) return;
+	if (chart.items.length === 1) engineState.surface = { ...engineState.surface, chart: undefined };
+	else removeChartBlockFromSurface(engineState.surface, id);
+	removeBlockCascadeAnchors(id);
+}
+
+export function removeBlock(id: string): void {
+	if (engineState.surface.chart?.items.some((item) => item.id === id)) {
+		removeChartBlock(id);
+		return;
+	}
+	removeDiagramPrimitive(id);
+}
+
 /**
  * Add a Diagram primitive Block (ADR-0036) with type-appropriate defaults. A new
  * edge-arrow connects the two most recently added nodes when they exist —
@@ -197,24 +240,7 @@ export function removeDiagramPrimitive(id: string): void {
 	const removed = diagram[index];
 	diagram.splice(index, 1);
 
-	const dropAnchoredCascade = (owner: { cascade?: { anchor: unknown } }): void => {
-		const anchor = owner.cascade?.anchor;
-		if (anchor && typeof anchor === 'object' && 'block' in anchor && anchor.block === id) {
-			owner.cascade = undefined;
-		}
-	};
-	for (const primitive of diagram) {
-		if (primitive.animation) dropAnchoredCascade(primitive.animation);
-	}
-	for (const overlay of engineState.overlays) {
-		if (overlay.animation) dropAnchoredCascade(overlay.animation);
-	}
-	for (const timing of engineState.marks.timings) {
-		dropAnchoredCascade(timing);
-	}
-	for (const entry of engineState.textAnimations) {
-		dropAnchoredCascade(entry);
-	}
+	removeBlockCascadeAnchors(id);
 
 	if (removed.type === 'node') {
 		const fallback = removed.position;

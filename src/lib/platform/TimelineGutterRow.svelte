@@ -1,7 +1,8 @@
 <script lang="ts">
+	import { invalidateCompositionAutosave } from './composition-autosave-invalidation.svelte.ts';
 	import {
 		removeCaptions,
-		removeDiagramPrimitive,
+		removeBlock,
 		removeOverlay,
 		removeTextAnimation
 	} from './engine-state.svelte';
@@ -69,13 +70,31 @@
 		if (identity?.kind === 'overlay') {
 			removeOverlay(identity.overlayId);
 		} else if (identity?.kind === 'block') {
-			removeDiagramPrimitive(identity.blockId);
+			removeBlock(identity.blockId);
 		} else if (identity?.kind === 'captions') {
 			removeCaptions();
 		} else if (identity?.kind === 'text-animation') {
 			removeTextAnimation(identity.textAnimationId);
 		}
+		if (canRemoveTrack(trackId)) invalidateCompositionAutosave();
 		deselectLayer();
+		queueMicrotask(() => {
+			document.querySelector<HTMLButtonElement>('[aria-label="Add layer"]')?.focus();
+		});
+	}
+
+	function handleRowKeydown(event: KeyboardEvent): void {
+		if ((event.target as HTMLElement).closest('button, input, select, textarea')) return;
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			selectLayer(track.id);
+			return;
+		}
+		if ((event.key === 'Delete' || event.key === 'Backspace') && canRemoveTrack(track.id)) {
+			event.preventDefault();
+			event.stopPropagation();
+			handleRemoveTrack(track.id);
+		}
 	}
 </script>
 
@@ -87,9 +106,7 @@
 	role="button"
 	tabindex="0"
 	onclick={() => selectLayer(track.id)}
-	onkeydown={(e) => {
-		if (e.key === 'Enter' || e.key === ' ') selectLayer(track.id);
-	}}
+	onkeydown={handleRowKeydown}
 >
 	<span class="gutter__text">
 		<span class="gutter__label">{track.label}</span>
@@ -108,14 +125,15 @@
 			toggleLaneLock(track.id);
 		}}
 	>
-		<svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 16 16" aria-hidden="true">
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			width="9"
+			height="9"
+			viewBox="0 0 16 16"
+			aria-hidden="true"
+		>
 			<rect x="3" y="7" width="10" height="6.5" rx="1.5" fill="currentColor" />
-			<path
-				d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="1.6"
-			/>
+			<path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" stroke-width="1.6" />
 		</svg>
 	</button>
 	{#if canRemoveTrack(track.id)}

@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 
+	import { compositionAutosaveInvalidation } from '../../../lib/platform/composition-autosave-invalidation.svelte.ts';
 	import { compositionMeta } from '$lib/platform/composition-meta.svelte';
 	import { engineState, packState, transitionState } from '$lib/platform/engine-state.svelte';
 	import { posterKeyForPreset } from '$lib/platform/posters';
@@ -128,7 +129,12 @@
 	});
 
 	function snapshotState(): string {
-		return JSON.stringify(engineState) + JSON.stringify(presetBase) + packState.slug;
+		return (
+			JSON.stringify(engineState) +
+			JSON.stringify(presetBase) +
+			packState.slug +
+			compositionAutosaveInvalidation.revision
+		);
 	}
 
 	function isCurrentAppliedRoute(expectedRouteKey: string): boolean {

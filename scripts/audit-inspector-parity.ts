@@ -12,6 +12,9 @@
 //     `OverlayRenderer.Editor` being required; effects' `Editor?` is optional,
 //     so only a runtime check catches a missing one).
 //
+//  3. Chart authoring parity — every Chart type and required field family is discoverable
+//     through the shared add menu and chart inspector components, including all five phases.
+//
 // Bindings are discovered by source scan (`content.<key>` over inspector and
 // editor Svelte sources) — a heuristic, recorded as such in the report.
 //
@@ -61,6 +64,12 @@ const { EngineStateSchema } = (await import(
 const { DOCUMENT_SLOTS } = (await import(
 	pathToFileURL(resolve(repoRoot, 'src/lib/utils/surface-document-slots.ts')).href
 )) as { DOCUMENT_SLOTS: readonly string[] };
+const { ChartTypeSchema } = (await import(
+	pathToFileURL(resolve(repoRoot, 'src/lib/platform/engine-schema.ts')).href
+)) as { ChartTypeSchema: { options: readonly string[] } };
+const { CHART_MOTION_PHASE_NAMES } = (await import(
+	pathToFileURL(resolve(repoRoot, 'src/lib/utils/chart-motion.ts')).href
+)) as { CHART_MOTION_PHASE_NAMES: readonly string[] };
 
 // ---- Slice 1: surface.content parity ----
 
@@ -174,13 +183,64 @@ for (const slug of effectFolders) {
 }
 const effectGaps = effectFindings.filter((finding) => finding.gap).map((finding) => finding.slug);
 
+// ---- Slice 3: chart authoring parity ----
+
+const chartEditorPaths = [
+	resolve(repoRoot, 'src/lib/platform/TimelineAddMenu.svelte'),
+	...editorSources.filter((sourcePath) => /Chart[A-Za-z]+\.svelte$/.test(sourcePath))
+];
+const chartEditorSource = (
+	await Promise.all(chartEditorPaths.map((sourcePath) => readFile(sourcePath, 'utf8')))
+).join('\n');
+const chartTypes = ChartTypeSchema.options;
+const chartTypeFindings = chartTypes.map((type) => ({
+	type,
+	discoverable: chartEditorSource.includes(`'${type}'`) || chartEditorSource.includes(`"${type}"`)
+}));
+const chartFieldPatterns: Readonly<Record<string, RegExp>> = {
+	type: /replaceChartBlockType|block\.type/,
+	title: /block\.title/,
+	sourceNote: /block\.sourceNote/,
+	categories: /block\.data\.categories|appendChartCategory/,
+	series: /block\.data\.series|appendChartSeries/,
+	values: /setChartDatumValue/,
+	layout: /block\.layout/,
+	normalization: /setChartNormalizationTotal/,
+	labels: /block\.labels/,
+	fill: /block\.fill/,
+	highlights: /block\.highlights|appendChartHighlight/,
+	callouts: /block\.callouts|appendChartCallout/,
+	targets: /ChartTargetRow/,
+	valueLabel: /callout\.valueLabel/,
+	motion: /CHART_MOTION_PHASE_NAMES/
+};
+const chartFieldFindings = Object.entries(chartFieldPatterns).map(([field, pattern]) => ({
+	field,
+	exposed: pattern.test(chartEditorSource)
+}));
+const chartPhaseFindings = CHART_MOTION_PHASE_NAMES.map((phase) => ({
+	phase,
+	exposed: chartEditorSource.includes('CHART_MOTION_PHASE_NAMES')
+}));
+const chartGaps = [
+	...chartTypeFindings
+		.filter((finding) => !finding.discoverable)
+		.map((finding) => `type:${finding.type}`),
+	...chartFieldFindings
+		.filter((finding) => !finding.exposed)
+		.map((finding) => `field:${finding.field}`),
+	...chartPhaseFindings
+		.filter((finding) => !finding.exposed)
+		.map((finding) => `phase:${finding.phase}`)
+];
+
 // ---- Report ----
 
 const report = {
 	audit: 'inspector-parity',
 	generatedAt: new Date().toISOString(),
 	method:
-		'schema property walk + DOCUMENT_SLOTS + `content.<key>` source scan over src/lib/platform Svelte components (pipeline sources are render sites, not editors); effect folders scanned for params schema and Editor component',
+		'schema property walk + platform editor source inventory for surface content, Effect Editors, and shared chart authoring fields/types/phases (pipeline render reads never count as editors)',
 	content: {
 		schemaProps: schemaContentProps,
 		documentSlots: [...DOCUMENT_SLOTS],
@@ -190,14 +250,20 @@ const report = {
 	effects: {
 		findings: effectFindings,
 		gaps: effectGaps
+	},
+	charts: {
+		typeFindings: chartTypeFindings,
+		fieldFindings: chartFieldFindings,
+		phaseFindings: chartPhaseFindings,
+		gaps: chartGaps
 	}
 };
 
-const gapCount = contentGaps.length + effectGaps.length;
+const gapCount = contentGaps.length + effectGaps.length + chartGaps.length;
 console.log(JSON.stringify(report, null, 2));
 console.error(
 	gapCount > 0
-		? `audit-inspector-parity: ${gapCount} parity gap(s) — content: [${contentGaps.join(', ')}], effects: [${effectGaps.join(', ')}]`
-		: `audit-inspector-parity: no parity gaps (${schemaContentProps.length} content props, ${effectFindings.length} effects)`
+		? `audit-inspector-parity: ${gapCount} parity gap(s) — content: [${contentGaps.join(', ')}], effects: [${effectGaps.join(', ')}], charts: [${chartGaps.join(', ')}]`
+		: `audit-inspector-parity: no parity gaps (${schemaContentProps.length} content props, ${effectFindings.length} effects, ${chartTypes.length} chart types)`
 );
 if (gapCount > 0) process.exit(1);
