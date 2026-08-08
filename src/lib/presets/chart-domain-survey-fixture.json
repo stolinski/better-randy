@@ -1,0 +1,472 @@
+{
+	"schema": "supers@1",
+	"name": "Chart domain \u2014 agent concurrency survey",
+	"description": "Unlisted full-frame proof fixture for the complete agent-authored chart domain. Four sequential chart Blocks preserve the supplied 1\u20135 survey distribution and its exact 360/744 partition while exercising Pack-neutral bar, column, unit-grid, and dot-field rendering, computed callouts, mark-local fills, and deterministic intrinsic motion.",
+	"pack": "syntax",
+	"kind": "fixture",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 12,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "pack",
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"chart": {
+				"mode": "sequence",
+				"items": [
+					{
+						"id": "agent-count-columns",
+						"type": "column-chart",
+						"title": "Coding agents run at once",
+						"data": {
+							"categories": [
+								{
+									"id": "one",
+									"label": "1"
+								},
+								{
+									"id": "two",
+									"label": "2"
+								},
+								{
+									"id": "three",
+									"label": "3"
+								},
+								{
+									"id": "four",
+									"label": "4"
+								},
+								{
+									"id": "five",
+									"label": "5"
+								}
+							],
+							"series": [
+								{
+									"id": "responses",
+									"label": "Responses",
+									"values": [
+										{
+											"categoryId": "one",
+											"value": 360
+										},
+										{
+											"categoryId": "two",
+											"value": 354
+										},
+										{
+											"categoryId": "three",
+											"value": 237
+										},
+										{
+											"categoryId": "four",
+											"value": 73
+										},
+										{
+											"categoryId": "five",
+											"value": 80
+										}
+									]
+								}
+							]
+						},
+						"layout": {
+							"mode": "single"
+						},
+						"domain": {
+							"min": 0
+						},
+						"labels": {
+							"categories": true,
+							"values": true,
+							"legend": false
+						},
+						"highlights": [
+							{
+								"target": {
+									"kind": "category-set",
+									"seriesId": "responses",
+									"categoryIds": ["two", "three", "four", "five"]
+								}
+							}
+						],
+						"callouts": [
+							{
+								"target": {
+									"kind": "category-set",
+									"seriesId": "responses",
+									"categoryIds": ["two", "three", "four", "five"]
+								},
+								"valueLabel": {
+									"kind": "approximate-fraction-and-percent",
+									"precision": 1,
+									"maxDenominator": 10
+								}
+							}
+						],
+						"sourceNote": "Source: Syntax survey, n=1,104",
+						"fill": {
+							"role": "default"
+						},
+						"motion": {
+							"entry": {
+								"start": 0.002,
+								"duration": 0.025,
+								"ease": "smooth"
+							},
+							"reveal": {
+								"start": 0.027,
+								"duration": 0.03,
+								"ease": "smooth"
+							},
+							"emphasis": {
+								"start": 0.057,
+								"duration": 0.015,
+								"ease": "sharp"
+							},
+							"annotation": {
+								"start": 0.072,
+								"duration": 0.015,
+								"ease": "smooth"
+							},
+							"exit": {
+								"start": 0.23,
+								"duration": 0.018,
+								"ease": "smooth"
+							}
+						}
+					},
+					{
+						"id": "one-versus-many-bars",
+						"type": "bar-chart",
+						"title": "More than one agent is the norm",
+						"data": {
+							"categories": [
+								{
+									"id": "one-agent",
+									"label": "1 agent"
+								},
+								{
+									"id": "multiple-agents",
+									"label": "2\u20135 agents"
+								}
+							],
+							"series": [
+								{
+									"id": "responses",
+									"label": "Responses",
+									"values": [
+										{
+											"categoryId": "one-agent",
+											"value": 360
+										},
+										{
+											"categoryId": "multiple-agents",
+											"value": 744
+										}
+									]
+								}
+							]
+						},
+						"layout": {
+							"mode": "single"
+						},
+						"domain": {
+							"min": 0
+						},
+						"labels": {
+							"categories": true,
+							"values": true,
+							"legend": false
+						},
+						"highlights": [
+							{
+								"target": {
+									"kind": "datum",
+									"seriesId": "responses",
+									"categoryId": "multiple-agents"
+								}
+							}
+						],
+						"callouts": [
+							{
+								"target": {
+									"kind": "datum",
+									"seriesId": "responses",
+									"categoryId": "multiple-agents"
+								},
+								"valueLabel": {
+									"kind": "approximate-fraction-and-percent",
+									"precision": 1,
+									"maxDenominator": 10
+								}
+							}
+						],
+						"sourceNote": "Source: Syntax survey, n=1,104",
+						"fill": {
+							"role": "series"
+						},
+						"motion": {
+							"entry": {
+								"start": 0.252,
+								"duration": 0.025,
+								"ease": "smooth"
+							},
+							"reveal": {
+								"start": 0.277,
+								"duration": 0.03,
+								"ease": "smooth"
+							},
+							"emphasis": {
+								"start": 0.307,
+								"duration": 0.015,
+								"ease": "sharp"
+							},
+							"annotation": {
+								"start": 0.322,
+								"duration": 0.015,
+								"ease": "smooth"
+							},
+							"exit": {
+								"start": 0.48,
+								"duration": 0.018,
+								"ease": "smooth"
+							}
+						}
+					},
+					{
+						"id": "agent-count-unit-grid",
+						"type": "unit-grid-chart",
+						"title": "The full 1\u20135 distribution",
+						"data": {
+							"categories": [
+								{
+									"id": "one",
+									"label": "1"
+								},
+								{
+									"id": "two",
+									"label": "2"
+								},
+								{
+									"id": "three",
+									"label": "3"
+								},
+								{
+									"id": "four",
+									"label": "4"
+								},
+								{
+									"id": "five",
+									"label": "5"
+								}
+							],
+							"series": [
+								{
+									"id": "responses",
+									"label": "Responses",
+									"values": [
+										{
+											"categoryId": "one",
+											"value": 360
+										},
+										{
+											"categoryId": "two",
+											"value": 354
+										},
+										{
+											"categoryId": "three",
+											"value": 237
+										},
+										{
+											"categoryId": "four",
+											"value": 73
+										},
+										{
+											"categoryId": "five",
+											"value": 80
+										}
+									]
+								}
+							]
+						},
+						"normalization": {
+							"total": 1104,
+							"unitCount": 100
+						},
+						"labels": {
+							"categories": true,
+							"values": true,
+							"legend": true
+						},
+						"highlights": [
+							{
+								"target": {
+									"kind": "category-set",
+									"seriesId": "responses",
+									"categoryIds": ["two", "three", "four", "five"]
+								}
+							}
+						],
+						"callouts": [
+							{
+								"target": {
+									"kind": "category-set",
+									"seriesId": "responses",
+									"categoryIds": ["two", "three", "four", "five"]
+								},
+								"valueLabel": {
+									"kind": "approximate-fraction-and-percent",
+									"precision": 1,
+									"maxDenominator": 10
+								}
+							}
+						],
+						"sourceNote": "Source: Syntax survey, n=1,104",
+						"fill": {
+							"role": "series"
+						},
+						"motion": {
+							"entry": {
+								"start": 0.502,
+								"duration": 0.025,
+								"ease": "smooth"
+							},
+							"reveal": {
+								"start": 0.527,
+								"duration": 0.03,
+								"ease": "smooth"
+							},
+							"emphasis": {
+								"start": 0.557,
+								"duration": 0.015,
+								"ease": "sharp"
+							},
+							"annotation": {
+								"start": 0.572,
+								"duration": 0.015,
+								"ease": "smooth"
+							},
+							"exit": {
+								"start": 0.73,
+								"duration": 0.018,
+								"ease": "smooth"
+							}
+						}
+					},
+					{
+						"id": "multiple-agents-dot-field",
+						"type": "dot-field-chart",
+						"title": "2 in 3 AI coders run multiple agents",
+						"data": {
+							"categories": [
+								{
+									"id": "one-agent",
+									"label": "1 agent"
+								},
+								{
+									"id": "multiple-agents",
+									"label": "2\u20135 agents"
+								}
+							],
+							"series": [
+								{
+									"id": "responses",
+									"label": "Responses",
+									"values": [
+										{
+											"categoryId": "one-agent",
+											"value": 360
+										},
+										{
+											"categoryId": "multiple-agents",
+											"value": 744
+										}
+									]
+								}
+							]
+						},
+						"normalization": {
+							"total": 1104,
+							"unitCount": 1000
+						},
+						"labels": {
+							"categories": true,
+							"values": true,
+							"legend": true
+						},
+						"highlights": [
+							{
+								"target": {
+									"kind": "datum",
+									"seriesId": "responses",
+									"categoryId": "multiple-agents"
+								}
+							}
+						],
+						"callouts": [
+							{
+								"target": {
+									"kind": "datum",
+									"seriesId": "responses",
+									"categoryId": "multiple-agents"
+								},
+								"valueLabel": {
+									"kind": "approximate-fraction-and-percent",
+									"precision": 1,
+									"maxDenominator": 10
+								}
+							}
+						],
+						"sourceNote": "Source: Syntax survey, n=1,104",
+						"fill": {
+							"role": "default"
+						},
+						"motion": {
+							"entry": {
+								"start": 0.752,
+								"duration": 0.025,
+								"ease": "smooth"
+							},
+							"reveal": {
+								"start": 0.777,
+								"duration": 0.03,
+								"ease": "smooth"
+							},
+							"emphasis": {
+								"start": 0.807,
+								"duration": 0.015,
+								"ease": "sharp"
+							},
+							"annotation": {
+								"start": 0.822,
+								"duration": 0.015,
+								"ease": "smooth"
+							},
+							"exit": {
+								"start": 0.98,
+								"duration": 0.018,
+								"ease": "smooth"
+							}
+						}
+					}
+				]
+			}
+		},
+		"overlays": [],
+		"effects": []
+	}
+}

@@ -938,6 +938,7 @@
 		<div class="topbar__orientation" role="group" aria-label="Orientation">
 			<button
 				type="button"
+				aria-label="Switch to horizontal"
 				aria-pressed={isHorizontal}
 				onclick={() => (engineState.transport.orientation = 'horizontal')}
 			>
@@ -945,6 +946,7 @@
 			</button>
 			<button
 				type="button"
+				aria-label="Switch to vertical"
 				aria-pressed={!isHorizontal}
 				onclick={() => (engineState.transport.orientation = 'vertical')}
 			>
