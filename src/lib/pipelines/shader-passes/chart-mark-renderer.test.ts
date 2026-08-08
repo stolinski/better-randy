@@ -56,11 +56,22 @@ function inputs(): ChartRenderInputs {
 	});
 	return {
 		block: chart,
-		geometry,
-		baseFillBySeries: chart.data.series.map((_, index) =>
+		marks: geometry.marks.map((mark) => ({
+			bounds: mark.bounds,
+			cornerRadius: mark.cornerRadius,
+			fillVoiceIndex: mark.fillVoiceIndex,
+			isHighlighted: mark.isHighlighted,
+			labelPlateBounds: null
+		})),
+		swatches: geometry.legendSwatches.map((swatch) => ({
+			bounds: swatch.bounds,
+			cornerRadius: swatch.cornerRadius,
+			fillVoiceIndex: swatch.fillVoiceIndex
+		})),
+		baseFillByVoice: chart.data.series.map((_, index) =>
 			resolveChartMarkFillTreatment(PACK_REGISTRY.syntax, 'series', index)
 		),
-		emphasisFillBySeries: chart.data.series.map((_, index) =>
+		emphasisFillByVoice: chart.data.series.map((_, index) =>
 			resolveChartMarkFillTreatment(PACK_REGISTRY.syntax, 'emphasis', index)
 		),
 		alpha: 0.75
@@ -74,8 +85,8 @@ describe('packChartMarkRendererInstances', () => {
 		assert.equal(packed.byteLength, countChartMarkRendererInstances(source) * 144);
 		assert.equal(countChartMarkRendererInstances(source), 4);
 		const view = new DataView(packed);
-		assert.ok(Math.abs(view.getFloat32(0, true) - source.geometry.marks[0].bounds.x) < 1e-4);
-		assert.ok(Math.abs(view.getFloat32(8, true) - source.geometry.marks[0].bounds.width) < 1e-4);
+		assert.ok(Math.abs(view.getFloat32(0, true) - source.marks[0].bounds.x) < 1e-4);
+		assert.ok(Math.abs(view.getFloat32(8, true) - source.marks[0].bounds.width) < 1e-4);
 		assert.equal(view.getUint32(96, true), 0);
 		assert.equal(view.getUint32(144 + 96, true), 1);
 		assert.equal(view.getUint32(112 + 12, true), 0);
@@ -85,16 +96,28 @@ describe('packChartMarkRendererInstances', () => {
 		assert.notEqual(view.getFloat32(20, true), view.getFloat32(144 + 20, true));
 	});
 
+	it('packs one thousand normalized-style mark voices in one bounded instance buffer', () => {
+		const source = inputs();
+		const marks = Array.from({ length: 1000 }, (_, index) => ({
+			...source.marks[index % source.marks.length],
+			fillVoiceIndex: index % 2,
+			bounds: { x: index % 100, y: Math.floor(index / 100), width: 1, height: 1 }
+		}));
+		const packed = packChartMarkRendererInstances({ ...source, marks }, 3840, 2160);
+		assert.equal(packed.byteLength, (1000 + source.swatches.length) * 144);
+		assert.equal(new DataView(packed).getUint32(999 * 144 + 96, true), 1);
+	});
+
 	it('fails closed when treatment cardinality does not match the declaration', () => {
 		const source = inputs();
 		assert.throws(
 			() =>
 				packChartMarkRendererInstances(
-					{ ...source, baseFillBySeries: source.baseFillBySeries.slice(0, 1) },
+					{ ...source, baseFillByVoice: source.baseFillByVoice.slice(0, 1) },
 					3840,
 					2160
 				),
-			/one base fill/
+			/matching base and emphasis fill voices/
 		);
 	});
 });

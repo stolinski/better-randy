@@ -93,6 +93,7 @@ async function main(): Promise<void> {
 				seriesId,
 				categoryId: 'a',
 				seriesIndex,
+				fillVoiceIndex: seriesIndex,
 				categoryIndex: 0,
 				value: seriesIndex + 1,
 				stackStart: 0,
@@ -138,11 +139,18 @@ async function main(): Promise<void> {
 				device.pushErrorScope('validation');
 				const renderInputs = {
 					block,
-					geometry,
-					baseFillBySeries: block.data.series.map((_, index) =>
+					marks: geometry.marks.map((mark) => ({
+						bounds: mark.bounds,
+						cornerRadius: mark.cornerRadius,
+						fillVoiceIndex: mark.fillVoiceIndex,
+						isHighlighted: mark.isHighlighted,
+						labelPlateBounds: mark.id === 'one:a' ? { x: 40, y: 34, width: 40, height: 22 } : null
+					})),
+					swatches: [],
+					baseFillByVoice: block.data.series.map((_, index) =>
 						resolveChartMarkFillTreatment(manifest, 'series', index)
 					),
-					emphasisFillBySeries: block.data.series.map((_, index) =>
+					emphasisFillByVoice: block.data.series.map((_, index) =>
 						resolveChartMarkFillTreatment(manifest, 'emphasis', index)
 					),
 					alpha: 0.5

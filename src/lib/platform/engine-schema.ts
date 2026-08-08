@@ -812,7 +812,7 @@ const ChartBarColumnLayoutSchema = z.strictObject({
 });
 const ChartNormalizationSchema = z.strictObject({
 	total: ChartFiniteNumberSchema.gt(0),
-	unitCount: z.number().int().min(10).max(400)
+	unitCount: z.number().int().min(10).max(1000)
 });
 
 export const BarChartBlockSchema = z.strictObject({

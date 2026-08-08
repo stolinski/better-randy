@@ -29,7 +29,7 @@ function writeU32x4(view: DataView, byteOffset: number, values: readonly number[
 }
 
 export function countChartMarkRendererInstances(inputs: ChartRenderInputs): number {
-	return inputs.geometry.marks.length + inputs.geometry.legendSwatches.length;
+	return inputs.marks.length + inputs.swatches.length;
 }
 
 export function packChartMarkRendererInstances(
@@ -37,36 +37,39 @@ export function packChartMarkRendererInstances(
 	canvasWidth: number,
 	canvasHeight: number
 ): ArrayBuffer {
-	if (inputs.baseFillBySeries.length !== inputs.block.data.series.length) {
-		throw new RangeError('Chart mark renderer requires one base fill per declared series.');
+	if (inputs.baseFillByVoice.length === 0) {
+		throw new RangeError('Chart mark renderer requires at least one base fill voice.');
 	}
-	if (inputs.emphasisFillBySeries.length !== inputs.block.data.series.length) {
-		throw new RangeError('Chart mark renderer requires one emphasis fill per declared series.');
+	if (inputs.emphasisFillByVoice.length !== inputs.baseFillByVoice.length) {
+		throw new RangeError('Chart mark renderer requires matching base and emphasis fill voices.');
+	}
+	const highestVoiceIndex = Math.max(
+		-1,
+		...inputs.marks.map((mark) => mark.fillVoiceIndex),
+		...inputs.swatches.map((swatch) => swatch.fillVoiceIndex)
+	);
+	if (highestVoiceIndex >= inputs.baseFillByVoice.length) {
+		throw new RangeError('Chart mark renderer has no treatment for a geometry fill voice.');
 	}
 	const visualMarks = [
-		...inputs.geometry.marks.map((mark) => {
-			const label = inputs.geometry.valueLabels.find(
-				(candidate) => candidate.markId === mark.id && candidate.anchor === 'inside'
-			);
-			return {
-				bounds: mark.bounds,
-				cornerRadius: mark.cornerRadius,
-				seriesIndex: mark.seriesIndex,
-				isHighlighted: mark.isHighlighted,
-				labelBounds: label
-					? [
-							label.origin.x - 10,
-							label.origin.y - 6,
-							label.measurement.width + 20,
-							label.measurement.height + 12
-						]
-					: [0, 0, 0, 0]
-			};
-		}),
-		...inputs.geometry.legendSwatches.map((swatch) => ({
+		...inputs.marks.map((mark) => ({
+			bounds: mark.bounds,
+			cornerRadius: mark.cornerRadius,
+			fillVoiceIndex: mark.fillVoiceIndex,
+			isHighlighted: mark.isHighlighted,
+			labelBounds: mark.labelPlateBounds
+				? [
+						mark.labelPlateBounds.x,
+						mark.labelPlateBounds.y,
+						mark.labelPlateBounds.width,
+						mark.labelPlateBounds.height
+					]
+				: [0, 0, 0, 0]
+		})),
+		...inputs.swatches.map((swatch) => ({
 			bounds: swatch.bounds,
 			cornerRadius: swatch.cornerRadius,
-			seriesIndex: swatch.seriesIndex,
+			fillVoiceIndex: swatch.fillVoiceIndex,
 			isHighlighted: false,
 			labelBounds: [0, 0, 0, 0]
 		}))
@@ -76,8 +79,8 @@ export function packChartMarkRendererInstances(
 	for (let index = 0; index < visualMarks.length; index += 1) {
 		const mark = visualMarks[index];
 		const packed = packChartMarkFillUniforms(
-			inputs.baseFillBySeries[mark.seriesIndex],
-			inputs.emphasisFillBySeries[mark.seriesIndex],
+			inputs.baseFillByVoice[mark.fillVoiceIndex],
+			inputs.emphasisFillByVoice[mark.fillVoiceIndex],
 			canvasWidth,
 			canvasHeight
 		);
@@ -94,7 +97,7 @@ export function packChartMarkRendererInstances(
 			inputs.alpha
 		]);
 		writeU32x4(view, offset + 96, [
-			mark.seriesIndex,
+			mark.fillVoiceIndex,
 			packed.baseMode,
 			packed.baseGradientAxis,
 			packed.baseMatrixBits

@@ -34,6 +34,7 @@ export interface ChartBarColumnMarkGeometry extends ChartDatumGeometry {
 	seriesId: string;
 	categoryId: string;
 	seriesIndex: number;
+	fillVoiceIndex: number;
 	categoryIndex: number;
 	value: number;
 	stackStart: number;
@@ -48,6 +49,7 @@ export interface ChartBarColumnMarkGeometry extends ChartDatumGeometry {
 export interface ChartLegendSwatchGeometry {
 	seriesId: string;
 	seriesIndex: number;
+	fillVoiceIndex: number;
 	bounds: ChartPixelRect;
 	cornerRadius: number;
 }
@@ -315,6 +317,7 @@ export function resolveChartBarColumnGeometry(input: {
 				id: chartMarkId(series.id, category.id),
 				...partialMark,
 				seriesIndex,
+				fillVoiceIndex: seriesIndex,
 				categoryIndex,
 				value: datum.value,
 				stackStart: valueStart,
@@ -340,8 +343,9 @@ export function resolveChartBarColumnGeometry(input: {
 		return label ? [label] : [];
 	});
 	const legendSwatches = layout.chrome.legendItems.map((legend, seriesIndex) => ({
-		seriesId: legend.seriesId,
+		seriesId: legend.itemId,
 		seriesIndex,
+		fillVoiceIndex: seriesIndex,
 		bounds: legend.swatch,
 		cornerRadius: Math.min(8, Math.min(legend.swatch.width, legend.swatch.height) * 0.18)
 	}));

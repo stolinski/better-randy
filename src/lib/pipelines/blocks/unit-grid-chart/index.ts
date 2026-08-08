@@ -1,10 +1,10 @@
+import ChartNormalizedCanvasSource from '$lib/pipelines/blocks/unit-grid-chart/CanvasSource.svelte';
 import { UnitGridChartBlockSchema, type UnitGridChartBlock } from '$lib/platform/engine-schema';
 import type { BlockRenderer } from '$lib/platform/pipelines/types';
 
-// ADR-0048 registers the strict validation Pipeline before visible renderer
-// work. Later renderer tasks add CanvasSource/render to this same stable record;
-// the schema is already live at every Preset ingress boundary.
+// One stable normalized Block record owns strict validation and shared crisp key/callout chrome.
 export const unitGridChartBlockRenderer: BlockRenderer<UnitGridChartBlock> = {
 	type: 'unit-grid-chart',
-	schema: UnitGridChartBlockSchema
+	schema: UnitGridChartBlockSchema,
+	CanvasSource: ChartNormalizedCanvasSource
 };

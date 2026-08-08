@@ -788,6 +788,18 @@ describe('chart Block structural schema', () => {
 		).items[0].normalization.unitCount = 9;
 		expectIssue(lowUnits, 'Too small', 'unitCount lower bound');
 
+		const maximumUnits = stateWithChart('unit-grid-chart');
+		(
+			maximumUnits.surface['chart'] as { items: Array<{ normalization: { unitCount: number } }> }
+		).items[0].normalization.unitCount = 1000;
+		expectValid(maximumUnits, 'unitCount upper boundary');
+
+		const highUnits = stateWithChart('dot-field-chart');
+		(
+			highUnits.surface['chart'] as { items: Array<{ normalization: { unitCount: number } }> }
+		).items[0].normalization.unitCount = 1001;
+		expectIssue(highUnits, 'Too big', 'unitCount upper bound');
+
 		const highDenominator = stateWithChart();
 		(
 			highDenominator.surface['chart'] as {

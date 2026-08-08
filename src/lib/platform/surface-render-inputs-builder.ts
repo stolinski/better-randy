@@ -1,5 +1,6 @@
 import { resolveChartBarColumnGeometry } from '$lib/utils/chart-bar-column-geometry';
 import { resolveChartFrameLayout } from '$lib/utils/chart-layout';
+import { resolveChartNormalizedGeometry } from '$lib/utils/chart-normalized-geometry';
 import { chartRenderTextMeasurer } from '$lib/utils/chart-text-measurement';
 import { resolveVisibleChartBlock } from '$lib/utils/chart-visibility';
 import { isDarkSurfaceColor } from '$lib/utils/color';
@@ -119,27 +120,65 @@ function buildChartInputs(
 ): SurfaceRenderInputs['chart'] {
 	const progress = timestamp / state.transport.durationSeconds;
 	const block = resolveVisibleChartBlock(state.surface.chart, progress);
-	if (!block || (block.type !== 'bar-chart' && block.type !== 'column-chart')) return undefined;
+	if (!block) return undefined;
 	const layout = resolveChartFrameLayout({
 		block,
 		orientation: state.transport.orientation,
 		measureText: chartRenderTextMeasurer
 	});
-	const geometry = resolveChartBarColumnGeometry({
-		block,
-		layout,
-		orientation: state.transport.orientation,
-		measureText: chartRenderTextMeasurer
-	});
+	const geometry =
+		block.type === 'bar-chart' || block.type === 'column-chart'
+			? resolveChartBarColumnGeometry({
+					block,
+					layout,
+					orientation: state.transport.orientation,
+					measureText: chartRenderTextMeasurer
+				})
+			: resolveChartNormalizedGeometry({
+					block,
+					layout,
+					orientation: state.transport.orientation,
+					measureText: chartRenderTextMeasurer
+				});
 	if (layout.overflow.length > 0 || geometry.overflow.length > 0) return undefined;
+	const voiceCount =
+		block.type === 'bar-chart' || block.type === 'column-chart'
+			? block.data.series.length
+			: block.data.categories.length;
+	const insideLabelByMarkId = new Map(
+		geometry.valueLabels
+			.filter((label) => label.anchor === 'inside')
+			.map((label) => [label.markId, label] as const)
+	);
 	return {
 		block,
-		geometry,
-		baseFillBySeries: block.data.series.map((_, seriesIndex) =>
-			resolveChartMarkFillTreatment(pack, block.fill.role, seriesIndex)
+		marks: geometry.marks.map((mark) => {
+			const label = insideLabelByMarkId.get(mark.id);
+			return {
+				bounds: mark.bounds,
+				cornerRadius: mark.cornerRadius,
+				fillVoiceIndex: mark.fillVoiceIndex,
+				isHighlighted: mark.isHighlighted,
+				labelPlateBounds: label
+					? {
+							x: label.origin.x - 10,
+							y: label.origin.y - 6,
+							width: label.measurement.width + 20,
+							height: label.measurement.height + 12
+						}
+					: null
+			};
+		}),
+		swatches: geometry.legendSwatches.map((swatch) => ({
+			bounds: swatch.bounds,
+			cornerRadius: swatch.cornerRadius,
+			fillVoiceIndex: swatch.fillVoiceIndex
+		})),
+		baseFillByVoice: Array.from({ length: voiceCount }, (_, fillVoiceIndex) =>
+			resolveChartMarkFillTreatment(pack, block.fill.role, fillVoiceIndex)
 		),
-		emphasisFillBySeries: block.data.series.map((_, seriesIndex) =>
-			resolveChartMarkFillTreatment(pack, 'emphasis', seriesIndex)
+		emphasisFillByVoice: Array.from({ length: voiceCount }, (_, fillVoiceIndex) =>
+			resolveChartMarkFillTreatment(pack, 'emphasis', fillVoiceIndex)
 		),
 		// Choreography owns phase alpha later; this renderer task ships the terminal factual state.
 		alpha: 1

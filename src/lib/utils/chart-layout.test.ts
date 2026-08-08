@@ -125,7 +125,7 @@ describe('resolveChartFrameLayout', () => {
 			layout.chrome.counterSlots.map((slot) => slot.text),
 			['360', '744']
 		);
-		assert.equal(layout.chrome.legendItems[0].seriesId, 'responses');
+		assert.equal(layout.chrome.legendItems[0].itemId, 'responses');
 		assert.equal(layout.chrome.sourceNote?.text, 'Source: Syntax survey, n=1,104');
 	});
 
@@ -280,12 +280,16 @@ describe('resolveChartFrameLayout', () => {
 			block.labels.categories = true;
 			const visible = resolveChartFrameLayout({ block, orientation: 'vertical', measureText });
 			assert.deepEqual(
-				visible.axes.categoryLabels.map((label) => label.categoryId),
-				['one', 'many']
+				visible.chrome.legendItems.map((item) => [item.itemId, item.labelLayout.text]),
+				[
+					['one', '1 · 360'],
+					['many', '2–5 · 744']
+				]
 			);
-			block.labels.categories = false;
+			assert.deepEqual(visible.axes.categoryLabels, []);
+			block.labels = { categories: false, values: false, legend: false };
 			const hidden = resolveChartFrameLayout({ block, orientation: 'horizontal', measureText });
-			assert.deepEqual(hidden.axes.categoryLabels, []);
+			assert.deepEqual(hidden.chrome.legendItems, []);
 		}
 	});
 

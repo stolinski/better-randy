@@ -172,9 +172,9 @@
 		</g>
 
 		<g class="chart-bar-column__legend" fill={chrome.label}>
-			{#each layout.chrome.legendItems as legend (legend.seriesId)}
+			{#each layout.chrome.legendItems as legend (legend.itemId)}
 				<rect
-					data-chart-legend-swatch={legend.seriesId}
+					data-chart-legend-swatch={legend.itemId}
 					x={legend.swatch.x}
 					y={legend.swatch.y}
 					width={legend.swatch.width}

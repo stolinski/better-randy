@@ -116,7 +116,7 @@ The renderer derives target values from the dataset. V1 callouts contain no free
 ### Variant-specific constraints
 
 - `bar-chart` and `column-chart` accept `single`, `grouped`, or `stacked` layout. `single` requires one series. Initial stacked values are non-negative; mixed-sign grouped values are allowed only with a visible zero baseline.
-- `unit-grid-chart` and `dot-field-chart` require exactly one parts-of-whole series plus `normalization: { total, unitCount }`. `total` is finite and positive. `unitCount` is a required integer from 10 through 400. Every part is explicit and non-negative; omitted remainder is invalid.
+- `unit-grid-chart` and `dot-field-chart` require exactly one parts-of-whole series plus `normalization: { total, unitCount }`. `total` is finite and positive. `unitCount` is a required integer from 10 through 1,000. Every part is explicit and non-negative; omitted remainder is invalid.
 - The sum of normalized values must equal `total` within `max(1e-9, abs(total) * 1e-9)`. The validator treats a difference inside that tolerance as numeric representation noise only; it never creates a remainder category or rewrites values.
 - Unit allocation uses deterministic largest-remainder rounding of `value / total * unitCount`, with declaration order as the final tie-breaker, and must sum exactly to `unitCount`.
 - Precise labels retain the authored or computed numeric value. A 100-unit field may show 67 marks while its computed label says `67.4%`; mark quantization never changes the fact.
@@ -130,7 +130,7 @@ Structural parsing is strict and rejects unknown keys. `validatePresetSemantics`
 - A value, domain bound, total, or timing is non-finite or out of its bounded range.
 - An explicit domain excludes zero where the selected bar/column form requires it, clips an authored value or stack total, or has `min >= max`.
 - `single`, `grouped`, or `stacked` mode disagrees with the series shape; a stack contains a negative value.
-- A normalized total is not positive, a part is negative, `unitCount` falls outside 10–400, an explicit part is missing, or the part sum differs from `total` by more than `max(1e-9, abs(total) * 1e-9)`.
+- A normalized total is not positive, a part is negative, `unitCount` falls outside 10–1,000, an explicit part is missing, or the part sum differs from `total` by more than `max(1e-9, abs(total) * 1e-9)`.
 - A highlight, label, callout target, or series reference does not resolve exactly; a target repeats categories; a percent formatter would divide by a non-positive series total; an approximate-fraction formatter resolves to a ratio outside `(0, 1]`; or a callout contains any field outside its target and strict computed `valueLabel` formatter.
 - A motion phase is outside `[0, 1]`, has non-positive duration, uses an ease outside the chart-safe `smooth | sharp` subset of `EaseSchema`, or violates `entry.end <= reveal.start <= reveal.end <= emphasis.start <= emphasis.end <= annotation.start <= annotation.end <= exit.start <= exit.end`.
 - A `single` group does not contain exactly one item, or a `sequence` group contains outside two-to-four items or has overlapping item visibility intervals `[entry.start, exit.end]`.

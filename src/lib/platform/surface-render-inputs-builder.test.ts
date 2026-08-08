@@ -151,16 +151,73 @@ describe('buildSurfaceRenderInputs', () => {
 		};
 		const inputs = buildSurfaceRenderInputs(request, 5);
 		assert.equal(inputs.chart?.block.id, 'grouped-chart');
-		assert.equal(inputs.chart?.geometry.marks.length, 2);
-		assert.equal(inputs.chart?.geometry.marks[1].isHighlighted, true);
-		assert.equal(inputs.chart?.baseFillBySeries.length, 2);
+		assert.equal(inputs.chart?.marks.length, 2);
+		assert.equal(inputs.chart?.marks[1].isHighlighted, true);
+		assert.equal(inputs.chart?.baseFillByVoice.length, 2);
 		assert.notDeepEqual(
-			inputs.chart?.baseFillBySeries[0].colorA,
-			inputs.chart?.baseFillBySeries[1].colorA
+			inputs.chart?.baseFillByVoice[0].colorA,
+			inputs.chart?.baseFillByVoice[1].colorA
 		);
 		assert.equal(buildSurfaceRenderInputs(request, 9.5).chart, undefined);
 
 		state.surface.chart.items[0].title = 'Unreadable '.repeat(200);
 		assert.equal(buildSurfaceRenderInputs(request, 5).chart, undefined);
+	});
+	it('builds a bounded one-thousand-unit normalized snapshot with category fill voices', () => {
+		const state = createDefaultEngineState();
+		state.transport.durationSeconds = 10;
+		state.surface.chart = {
+			mode: 'single',
+			items: [
+				{
+					id: 'normalized-chart',
+					type: 'dot-field-chart',
+					title: 'Concurrent agent share',
+					data: {
+						categories: [
+							{ id: 'multiple', label: 'Multiple agents' },
+							{ id: 'one', label: 'One agent' }
+						],
+						series: [
+							{
+								id: 'respondents',
+								label: 'Respondents',
+								values: [
+									{ categoryId: 'multiple', value: 744 },
+									{ categoryId: 'one', value: 360 }
+								]
+							}
+						]
+					},
+					normalization: { total: 1104, unitCount: 1000 },
+					labels: { categories: true, values: true, legend: false },
+					highlights: [
+						{ target: { kind: 'datum', seriesId: 'respondents', categoryId: 'multiple' } }
+					],
+					fill: { role: 'series' },
+					motion: {
+						entry: { start: 0, duration: 0.1 },
+						reveal: { start: 0.1, duration: 0.1 },
+						emphasis: { start: 0.2, duration: 0.1 },
+						annotation: { start: 0.3, duration: 0.1 },
+						exit: { start: 0.8, duration: 0.1 }
+					}
+				}
+			]
+		};
+		const inputs = buildSurfaceRenderInputs(
+			{
+				readState: () => state,
+				readAnimState: animationState,
+				readPack: () => getPack('syntax'),
+				readMarkColor: () => '#ff0000',
+				readTextAnimationAlpha: () => null
+			},
+			5
+		);
+		assert.equal(inputs.chart?.marks.length, 1000);
+		assert.equal(inputs.chart?.baseFillByVoice.length, 2);
+		assert.equal(inputs.chart?.marks[0].fillVoiceIndex, 0);
+		assert.equal(inputs.chart?.marks.at(-1)?.fillVoiceIndex, 1);
 	});
 });

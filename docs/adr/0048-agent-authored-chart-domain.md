@@ -35,7 +35,7 @@ Highlights and callouts share a data-target union: one datum, a unique category 
 
 IDs and references are unique and total. Values and domains are finite. Bar and column domains include the required zero baseline and cannot clip values or stack totals. `single`, `grouped`, and `stacked` layouts enforce compatible series shapes; initial stacks are non-negative. Linear scales are the only initial scale.
 
-Unit-grid and dot-field charts require exactly one non-negative parts-of-whole series and `normalization: { total, unitCount }`. The total is finite and positive. `unitCount` is a required integer from 10 through 400. Every part is explicit; omitted remainder is invalid. The part sum must equal the total within `max(1e-9, abs(total) * 1e-9)`, which absorbs numeric representation noise but never creates a category or rewrites a value.
+Unit-grid and dot-field charts require exactly one non-negative parts-of-whole series and `normalization: { total, unitCount }`. The total is finite and positive. `unitCount` is a required integer from 10 through 1,000. Every part is explicit; omitted remainder is invalid. The part sum must equal the total within `max(1e-9, abs(total) * 1e-9)`, which absorbs numeric representation noise but never creates a category or rewrites a value.
 
 Allocation uses deterministic largest-remainder rounding of `value / total * unitCount`, with declaration order as the final tie-breaker, so allocated marks sum exactly to the unit count. Precise text retains the authored or computed value; quantized marks never rewrite or overstate it.
 

@@ -24,7 +24,7 @@ import type {
 	ResolvedChartMarkFill,
 	ResolvedDiagramStroke
 } from '$lib/platform/packs/resolve';
-import type { ChartBarColumnGeometry } from '$lib/utils/chart-bar-column-geometry';
+import type { ChartPixelRect } from '$lib/utils/chart-layout';
 import type { OpticalShape } from '$lib/utils/optical-geometry';
 import type { PassExecutionHints } from './pass-execution';
 
@@ -111,11 +111,26 @@ export interface DiagramStrokeInputs {
 	accentColor: string;
 }
 
+export interface ChartGpuMark {
+	bounds: ChartPixelRect;
+	cornerRadius: number;
+	fillVoiceIndex: number;
+	isHighlighted: boolean;
+	labelPlateBounds: ChartPixelRect | null;
+}
+
+export interface ChartGpuSwatch {
+	bounds: ChartPixelRect;
+	cornerRadius: number;
+	fillVoiceIndex: number;
+}
+
 export interface ChartRenderInputs {
-	block: Extract<ChartBlock, { type: 'bar-chart' | 'column-chart' }>;
-	geometry: ChartBarColumnGeometry;
-	baseFillBySeries: readonly ResolvedChartMarkFill[];
-	emphasisFillBySeries: readonly ResolvedChartMarkFill[];
+	block: ChartBlock;
+	marks: readonly ChartGpuMark[];
+	swatches: readonly ChartGpuSwatch[];
+	baseFillByVoice: readonly ResolvedChartMarkFill[];
+	emphasisFillByVoice: readonly ResolvedChartMarkFill[];
 	alpha: number;
 }
 

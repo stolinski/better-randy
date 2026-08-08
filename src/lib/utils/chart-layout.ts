@@ -60,7 +60,7 @@ export interface ChartAxisLayout {
 	categoryLabels: readonly ChartCategoryLabelLayout[];
 }
 export interface ChartLegendItemLayout {
-	seriesId: string;
+	itemId: string;
 	swatch: ChartPixelRect;
 	labelLayout: ChartMeasuredTextLayout;
 }
@@ -169,21 +169,37 @@ function layoutChartLegend(
 	measureText: ChartTextMeasurer,
 	overflow: ChartLayoutOverflow[]
 ): { items: ChartLegendItemLayout[]; height: number } {
-	if (!block.labels.legend) return { items: [], height: 0 };
+	const normalized = block.type === 'unit-grid-chart' || block.type === 'dot-field-chart';
+	const showNormalizedKey =
+		normalized && ((block.labels.categories ?? true) || block.labels.values || block.labels.legend);
+	if (!block.labels.legend && !showNormalizedKey) return { items: [], height: 0 };
+	const entries = normalized
+		? block.data.categories.map((category) => {
+				const datum = block.data.series[0]?.values.find(
+					(candidate) => candidate.categoryId === category.id
+				);
+				const showCategory = (block.labels.categories ?? true) || block.labels.legend;
+				const label = [
+					...(showCategory ? [category.label] : []),
+					...(block.labels.values && datum ? [chartValueLabel(datum.value)] : [])
+				].join(' · ');
+				return { id: category.id, label };
+			})
+		: block.data.series.map((series) => ({ id: series.id, label: series.label }));
 	const swatchSize = Math.max(18, gap * 0.55);
 	const rowGap = gap * 0.6;
 	let cursorX = x;
 	let cursorY = y;
 	let rowHeight = 0;
 	const items: ChartLegendItemLayout[] = [];
-	for (const series of block.data.series) {
-		const measurement = measureChartText(measureText, series.label, 'legend', overflow, series.id);
+	for (const entry of entries) {
+		const measurement = measureChartText(measureText, entry.label, 'legend', overflow, entry.id);
 		const itemWidth = swatchSize + gap * 0.45 + measurement.width;
 		if (itemWidth > availableWidth) {
 			overflow.push({
 				code: 'legend-item-too-wide',
-				message: `Chart legend item "${series.id}" exceeds its native safe row.`,
-				itemId: series.id
+				message: `Chart legend item "${entry.id}" exceeds its native safe row.`,
+				itemId: entry.id
 			});
 		}
 		if (cursorX > x && cursorX + itemWidth > x + availableWidth) {
@@ -192,7 +208,7 @@ function layoutChartLegend(
 			rowHeight = 0;
 		}
 		items.push({
-			seriesId: series.id,
+			itemId: entry.id,
 			swatch: {
 				x: cursorX,
 				y: cursorY + Math.max(0, (measurement.height - swatchSize) / 2),
@@ -200,7 +216,7 @@ function layoutChartLegend(
 				height: swatchSize
 			},
 			labelLayout: {
-				text: series.label,
+				text: entry.label,
 				role: 'legend',
 				origin: { x: cursorX + swatchSize + gap * 0.45, y: cursorY },
 				measurement
@@ -524,52 +540,6 @@ export function resolveChartFrameLayout(input: {
 		};
 	}
 
-	if ((block.type === 'unit-grid-chart' || block.type === 'dot-field-chart') && categoriesVisible) {
-		const measurements = block.data.categories.map((category) =>
-			measureChartText(measureText, category.label, 'category', overflow, category.id)
-		);
-		const labelHeight = measurements.reduce(
-			(maximum, measurement) => Math.max(maximum, measurement.height),
-			0
-		);
-		plotBounds = {
-			...plotBounds,
-			height: Math.max(0, plotBounds.height - labelHeight - gap)
-		};
-		const bands = createChartCategoricalScale(
-			block.data.categories.map((category) => category.id),
-			[plotBounds.x, plotBounds.x + plotBounds.width]
-		);
-		const categoryLabels = block.data.categories.map((category, index) => {
-			const measurement = measurements[index];
-			const band = bands.bands[index];
-			if (measurement.width > bands.bandwidth) {
-				overflow.push({
-					code: 'category-label-too-wide',
-					message: `Normalized chart category "${category.id}" exceeds its declaration-order label band.`,
-					itemId: category.id
-				});
-			}
-			return {
-				categoryId: category.id,
-				labelLayout: {
-					text: category.label,
-					role: 'category' as const,
-					origin: {
-						x: clampChartTextOrigin(
-							band.center - measurement.width / 2,
-							band.start,
-							band.end - measurement.width
-						),
-						y: plotBounds.y + plotBounds.height + gap * 0.35
-					},
-					measurement
-				}
-			};
-		});
-		axes = { ...axes, categoryLabels };
-	}
-
 	if (Math.min(plotBounds.width, plotBounds.height) < MIN_PLOT_SHORT_EDGE)
 		overflow.push({
 			code: 'plot-too-small',
@@ -611,7 +581,7 @@ export function resolveChartFrameLayout(input: {
 	const readableLayouts: { id: string; layout: ChartMeasuredTextLayout }[] = [
 		{ id: `${block.id}:title`, layout: title },
 		...legend.items.map((item) => ({
-			id: `${block.id}:legend:${item.seriesId}`,
+			id: `${block.id}:legend:${item.itemId}`,
 			layout: item.labelLayout
 		})),
 		...axes.linearTicks.map((tick, index) => ({
@@ -650,8 +620,8 @@ export function resolveChartFrameLayout(input: {
 		if (!chartRectContains(safeBounds, item.swatch)) {
 			overflow.push({
 				code: 'text-outside-safe',
-				message: `Chart legend swatch "${item.seriesId}" exceeds the native safe area.`,
-				itemId: item.seriesId
+				message: `Chart legend swatch "${item.itemId}" exceeds the native safe area.`,
+				itemId: item.itemId
 			});
 		}
 	}
