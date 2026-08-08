@@ -37,10 +37,14 @@ src/lib/
     seekable-simulation-runtime.ts # fixed-step seeded reset/replay state for authored simulation Effects
     timeline-entity-identity.ts  # typed runtime track/selection/keyframe/sound identities
     user-composition-store.ts    # typed client transport for User composition persistence/interchange
-    Composition.svelte           # canvas root; mounts Surface/Diagram/Overlay/Captions
+    Composition.svelte           # canvas root; mounts Surface/Diagram/Chart/Overlay/Captions
     SurfaceMount.svelte          # mounts the active SurfaceRenderer's CanvasSource + Pack vars
     OverlayMount.svelte          # iterates engineState.overlays, mounts each + Pack vars
     DiagramMount.svelte          # mounts surface.diagram Block primitives
+    ChartMount.svelte            # selects the visible surface.chart Block family
+    chart-validation.ts          # cross-field factual and timeline semantic boundary
+    chart-authoring.ts           # bounded shared-model mutations used by the GUI and agents
+    ChartInspector.svelte        # direct editor for chart data, targets, layout, and motion
     CaptionsMount.svelte         # mounts the topmost caption track
     Inspector.svelte             # active selection-driven inspector
     TimelineOutline.svelte       # active timeline + Layer outline
@@ -223,6 +227,8 @@ interface SurfaceState {
 	type: SurfaceType;
 	variant?: string; // validated per-pipeline against that family's VARIANT_IDS
 	content: SurfaceContent;
+	diagram?: DiagramPrimitive[]; // explicit Block geometry (ADR-0036)
+	chart?: ChartGroup; // strict inline factual Chart Blocks (ADR-0048)
 	enter?: Transition;
 	exit?: Transition;
 	backgroundVisibility?: number; // wired: floors focal-dim aggressiveness in the paper pipeline
@@ -256,6 +262,10 @@ Placement is **relative** (anchor + fractional offset), never absolute pixels. S
 
 Diagram primitives use the parallel `orientationOverrides` policy with type-specific complete geometry: `{ position, scale }` for nodes/labels/stat-callouts, `{ from, to, route, control }` for edge-arrows, and `{ from, to }` for timeline-segments. `resolveDiagramPrimitiveGeometry` supplies live authoring references; `resolveDiagramPrimitiveForRender` materializes the active geometry for DOM and stroke rendering. Content, timing, animation, ink, form, direction, labels, and values remain shared.
 
+Chart Blocks use a different, data-derived geometry contract. Only `plain` and `paper` Surfaces may carry `surface.chart`; semantic validation rejects it elsewhere. The group carries one to four `bar-chart`, `column-chart`, `unit-grid-chart`, or `dot-field-chart` Blocks; sequence visibility selects at most one active item. `chart-validation.ts` is the cross-field factual boundary after structural parsing. Pure helpers in `src/lib/utils/chart-*` own finite-safe scales, native reflow, exact targets and computed labels, largest-remainder normalized allocation, and explicit-progress choreography. `ChartMount.svelte` selects the shared bar/column or normalized DOM source. DOM supplies crisp editorial chrome; `surface-render-inputs-builder.ts` packs the same resolved geometry and motion into neutral instanced analytic marks for `chart-mark-renderer.ts`. Pack `chart.mark-fill` recipes can resolve solid, gradient, or bounded ordered-dither treatment only inside those mark masks. Chrome, transparent pixels, facts, geometry, and motion remain unaffected by Pack choice.
+
+Create-from-blank chart edits do not fork a second data model. `chart-authoring.ts` performs bounded, atomic mutations on `surface.chart.items[]`; `ChartInspector.svelte` and its focused sections call those helpers directly. Runtime resolves intrinsic `ChartMotion` directly from explicit composition progress. The four types share timeline Block identities and expose five editable clips — `entry`, `reveal`, `emphasis`, `annotation`, and `exit` — as an authoring projection; those clips are not a second runtime timeline and charts do not enter `composition-animation-manifest.ts`. Every rendered value derives from the common frame request, so preview, scrubbing, random seeks, transition snapshots, and export resolve the same chart frame.
+
 ### Body text format
 
 Paragraph bodies are stored as a single bracket-tag string, parsed into the runtime `AnnotationBodyBlock[]` shape by `parseAnnotationBodyText`. Paragraphs split on `\n\n`; marks wrap text with paired tags (`[highlight]…[/highlight]`); marks stack by nesting (`[magnify][side-note]…[/side-note][/magnify]`). Per-mark appearance + timing live in `marks.timings[index]`, keyed by each `(segment, style)` pair's document-order position; `marks.defaults[style]` is the per-style fallback. No inline-on-tag attributes.
@@ -271,10 +281,10 @@ Each registered renderer's exported symbol keeps both its canonical Pipeline ID 
 | Layer       | Registered                                                                                                                                                                                                                                                                                                                                |
 | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | surfaces    | `paper`, `plain`, `newspaper`, `pullquote-on-photo`, `chapter-card`, `title-sequence`, `type-hero` (variants `single`/`pair`), `web-document`, `website-screenshot`, `imessage`, `checklist`                                                                                                                                              |
-| blocks      | `paragraph`, `node`, `edge-arrow`, `label`, `stat-callout`, `timeline-segment`                                                                                                                                                                                                                                                            |
+| blocks      | `paragraph`, `node`, `edge-arrow`, `label`, `stat-callout`, `timeline-segment`, `bar-chart`, `column-chart`, `unit-grid-chart`, `dot-field-chart`                                                                                                                                                                                         |
 | annotations | `highlight`, `underline`, `strike`, `circle`, `box`, `side-note`, `magnify`, `lift-out`, `tear-out`, `isolate`                                                                                                                                                                                                                            |
 | overlays    | `lower-third` (variants `standard`/`cinematic`), `washi-tape`, `watermark`, `shader-fill`, `cursor-trail`, `counter` (`slot-machine-roll`), `instance-stack` (`vertical-stack`/`horizontal-train`), `text-3d` (`cylinder-axis-y`), `youtube-subscribe`, `instagram-follow`, `achievement` (`checklist-complete`/`unlocked`), `source-url` |
-| effects     | `paper-grain`, `chromatic-aberration`, `crt-screen`, `crt-tube`, `ntsc-signal`, `dithering`, `halftone-dots`, `halftone-cmyk`, `water`, `fluted-glass`, `refractive-lens`, `frosted-glass`, `fluid-ripple`, `cloth-bend`, `tiled-deformation`, `heatmap`                                                                                               |
+| effects     | `paper-grain`, `chromatic-aberration`, `crt-screen`, `crt-tube`, `ntsc-signal`, `dithering`, `halftone-dots`, `halftone-cmyk`, `water`, `fluted-glass`, `refractive-lens`, `frosted-glass`, `fluid-ripple`, `cloth-bend`, `tiled-deformation`, `heatmap`                                                                                  |
 
 **Dead-by-use — resolved.** `isolate`, `watermark`, `shader-fill`, `chromatic-aberration` were registered + boot-valid but referenced by zero presets; each now has a proving fixture (`isolate-demo`, `watermark-demo`, `shader-fill-demo`, `chromatic-aberration-demo`) that renders the pipeline, so all four are kept (not removed). Every registered pipeline is now referenced by ≥1 preset.
 
@@ -282,7 +292,9 @@ Fixtures are excluded from the app catalog and skip the deliverable-only static 
 
 ### Validation boundaries
 
-`PresetSchema` owns structural JSON validation and transforms. `validatePresetSemantics` then validates the parsed Preset against the live registries: Pack slug, Surface registration and variant, Overlay registration/content schema, post-process or composition Effect registration/params, transition Effect registration, Stage registration, substrate assets, collection IDs, text-animation Overlay targets, and transition references when a Preset resolver is available. Unknown authored primitives fail at load; renderers never silently skip them. The same semantic pass runs for the built-in catalog, `parsePreset`, `scripts/verify-presets.ts`, and user-composition list/load/create/update boundaries.
+`PresetSchema` owns structural JSON validation and transforms. `validatePresetSemantics` then validates the parsed Preset against the live registries: Pack slug, Surface registration and variant, Overlay registration/content schema, post-process or composition Effect registration/params, transition Effect registration, Stage registration, substrate assets, collection IDs, text-animation Overlay targets, Chart cross-field facts/timing, and transition references when a Preset resolver is available. Unknown authored primitives and malformed Chart declarations fail at load; renderers never silently skip or repair them. The same semantic pass runs for the built-in catalog, `parsePreset`, `scripts/verify-presets.ts`, and user-composition list/load/create/update boundaries.
+
+For charts, `validateChartGroupSemantics` requires unique complete category/series references, finite factual domains, compatible single/grouped/stacked layouts, explicit normalized parts whose exact sum matches the authored total, resolvable factual highlight/callout targets, valid computed-label formats, a non-emphasis base fill role, ordered phases, and non-overlapping sequence intervals. Render/layout/GPU helpers also fail closed on non-finite values or allocation overflow rather than altering represented values.
 
 The ordinary Effect registry contains the single-input post-process Effects listed above. Smooth `refractive-lens` and rough `frosted-glass` share normalized optical geometry but remain distinct from architectural `fluted-glass` ([ADR-0044](adr/0044-optical-lens-and-frost-family.md)). Frost uses a bounded region-local 169-tap isotropic gaussian kernel inside the existing single-pass contract; no speculative multi-pass resource lane exists. `fluid-ripple` and `cloth-bend` resolve authored impulses through the shared fixed-step reset/replay runtime before packing GPU uniforms; `tiled-deformation` remains stateless and progress-addressed ([ADR-0046](adr/0046-seekable-simulation-and-deformation-families.md)). Composition-owned Effects whose execution changes the render path live in `composition-effect-registry.ts`; `depth-of-field` is the first. Stage types live in `stage-registry.ts`; `depth` is currently the only registered Stage.
 
@@ -292,7 +304,7 @@ A Pipeline hosting a _family_ of motion shapes carries a `variants/` subfolder �
 
 ### Adding a primitive
 
-One folder under `src/lib/pipelines/<layer>/<name>/` (`index.ts` + `CanvasSource.svelte` + optional per-type inspector) + one line in `PIPELINE_REGISTRY` + its `identity.ts`. `Overlay.type`/`Effect.type` are open strings validated by `validatePresetSemantics`, so no enum edit is needed for those; `SurfaceType` is a closed enum, so a new surface adds one enum member. Registry-backed add menus and mounts discover the renderer; specialized inspector UI remains explicitly additive.
+One folder under `src/lib/pipelines/<layer>/<name>/` (`index.ts` + `CanvasSource.svelte` + optional per-type inspector) + one line in `PIPELINE_REGISTRY` + its `identity.ts`. `Overlay.type`/`Effect.type` are open strings validated by `validatePresetSemantics`, so no enum edit is needed for those; `SurfaceType` is a closed enum, so a new surface adds one enum member. Registry-backed ordinary add menus and mounts discover the renderer; specialized inspector UI remains explicitly additive. Chart registration is deliberately stricter: each new Chart family also needs its discriminated schema, factual semantic rules, shared authoring mutations and explicit add-menu/inspector support, geometry/render-input path, timeline projection, and tests.
 
 ## Rendering pipeline (TypeGPU)
 
@@ -380,7 +392,7 @@ Current mechanisms that remain deliberately narrower than their possible future 
 
 - **Per-pixel depth sidecar on the flat path** — ADR-0021's focal-distance semantics are active through multiplane DOF and the dimensional stage, but the flat compositor has no arbitrary per-pixel z-map target.
 - **Live dual-tree transitions** — multi-state transitions ship as cached snapshot-and-wipe ([ADR-0026](adr/0026-transitions-v1-snapshot-and-wipe.md)); endpoint Presets do not continue animating inside the wipe.
-- **Additional Block vocabulary** — `paragraph` plus the five diagram Blocks ship. `code` and `image` are not registered; mermaid-style auto-layout remains explicitly rejected.
+- **Additional Block vocabulary** — `paragraph`, the five diagram Blocks, and the four chart Blocks ship. `code` and `image` are not registered; mermaid-style auto-layout remains explicitly rejected.
 - **Video-track v1 scope** — one primary 1x track with ordered, non-overlapping hard-cut clips, transparent gaps, clip audio enable/gain, and no ripple edits, overlaps, transitions, speed changes, loops/holds, footage grading, depth-stage video planes, or live video transitions. Silence detection and automatic cut generation remain separate edit-decision producers over this shipped clip model.
 
 ## Constraints

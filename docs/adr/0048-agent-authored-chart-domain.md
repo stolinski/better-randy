@@ -2,14 +2,16 @@
 
 ## Status
 
-**Designed, not built (implementation and Critic proof in progress).**
+**Canon (built).**
+
+Implemented through commit `abf76b0`; the unlisted verification fixture received Critic `ACCEPT` on 2026-08-08 with no `pipeline-bug` or `default-too-permissive` findings.
 
 Date: 2026-08-07
 Builds on: [ADR-0002](0002-per-tool-routes-to-preset-engine.md) (one constrained engine), [ADR-0015](0015-identity-spec-per-pipeline.md) (Pipeline identity), [ADR-0023](0023-pack-is-appearance-only.md) (appearance-only Packs), [ADR-0032](0032-gui-agent-parity-authoring.md) (shared Preset authoring), [ADR-0035](0035-generalized-keyframes-and-cascade.md) (deterministic authored motion), [ADR-0036](0036-diagram-primitives.md) (Block-domain precedent), and [ADR-0039](0039-pack-neutral-compositions-and-listing-hygiene.md) (Pack-neutral deliverables)
 
 ## Context
 
-Supers needs authored statistical graphics for factual video storytelling. Today an agent can approximate a chart from generic text, diagram primitives, or hand-positioned geometry, but those paths do not provide one strict data contract, scale integrity, reusable chart layout, Pack-resolved mark treatment, or shared GUI/agent authoring. Per-composition drawing would fragment bar, grid, labeling, and motion behavior and make factual verification difficult.
+Supers needs authored statistical graphics for factual video storytelling. Before ADR-0048, an agent could only approximate a chart from generic text, diagram primitives, or hand-positioned geometry; those paths did not provide one strict data contract, scale integrity, reusable chart layout, Pack-resolved mark treatment, or shared GUI/agent authoring. The shipped chart domain now supplies that bounded contract instead of fragmenting bar, grid, labeling, and motion behavior across compositions.
 
 The goal is not a general visualization grammar. Initial demand is bounded: bar/column comparisons and normalized unit-grid/dot-field parts-of-whole graphics, with crisp editorial labels and annotations. Data is supplied conversationally by the user and encoded inline in the Preset. CSV import, live URLs, broad chart families, and a separate ingestion product are unnecessary.
 
@@ -17,7 +19,7 @@ The goal is not a general visualization grammar. Initial demand is bounded: bar/
 
 ### 1. Charts are a Block-domain group
 
-A Preset may carry one optional `surface.chart` group. The Surface owns the content, while each `surface.chart.items[]` entry is a Block rendered in the existing **Block Layer**, following the current `surface.diagram[]` precedent. Charts do not introduce a sixth Layer, a general node compositor, or a new top-level document model.
+A `plain` or `paper` Surface may carry one optional `surface.chart` group; semantic validation rejects the group on other Surface types. The Surface owns the content, while each `surface.chart.items[]` entry is a Block rendered in the existing **Block Layer**, following the current `surface.diagram[]` precedent. Charts do not introduce a sixth Layer, a general node compositor, or a new top-level document model.
 
 The initial stable Pipeline IDs are `bar-chart`, `column-chart`, `unit-grid-chart`, and `dot-field-chart`. Every ID must appear coherently in `BlockTypeSchema`, `PIPELINE_REGISTRY.blocks`, an Identity Spec, core fallback coverage, Block mounts, timeline identity, and authoring discovery before its renderer is considered registered. Source exports use the discoverable `<variant>BlockRenderer` naming convention.
 
@@ -49,7 +51,7 @@ All fill texture is clipped to data marks. Axes, grids, labels, legends, callout
 
 Each chart item has the ordered phases `entry`, `reveal`, `emphasis`, `annotation`, and `exit`. Every phase has normalized start, positive duration, and an optional value from the chart-safe `smooth | sharp` subset of the shared `EaseSchema`. The shipped `settled` and `bouncy` curves are rejected because they overshoot. Omitted eases resolve exactly to entry `smooth`, reveal `smooth`, emphasis `sharp`, annotation `smooth`, and exit `smooth`; Packs cannot change them. Timings are authored and never defaulted. Phases satisfy `entry.end <= reveal.start <= reveal.end <= emphasis.start <= emphasis.end <= annotation.start <= annotation.end <= exit.start <= exit.end <= 1`. Gaps hold state. The chart is invisible outside `[entry.start, exit.end]`; sequence-mode item intervals also cannot overlap.
 
-Entry introduces non-data chrome, reveal animates marks from the factual baseline or deterministic allocation order, emphasis changes factual focus treatment, annotation introduces labels/callouts, and exit removes the chart. Bounce and magnitude overshoot are invalid factual motion. The phases compile into ADR-0035 composition animation manifests and timeline tracks. A chart Block ID remains a Cascade anchor for other elements, but Cascade cannot reorder or overlap its internal phases. Packs do not resolve motion, and every animated value derives from explicit timestamp/frame inputs.
+Entry introduces non-data chrome, reveal animates marks from the factual baseline or deterministic allocation order, emphasis changes factual focus treatment, annotation introduces labels/callouts, and exit removes the chart. Bounce and magnitude overshoot are invalid factual motion. Runtime resolves the intrinsic `ChartMotion` directly from explicit composition progress; the five clips exposed by `composition-timeline-tracks.ts` are an editable authoring projection, not a second runtime timeline or an ADR-0035 animation manifest. A chart Block ID remains a Cascade anchor for other elements, but Cascade cannot reorder or overlap its internal phases. Packs do not resolve motion, and every animated value derives from explicit timestamp/frame inputs.
 
 ### 5. Layout reflows one declaration
 
@@ -61,15 +63,15 @@ Chart-local callouts are Block content, distinct from bracket-tag marks in the A
 
 `chart-domain-survey-fixture` is an unlisted `kind: fixture` full-frame proof with an explicit Pack-resolved background. Its source distribution is 1 agent = 360, 2 = 354, 3 = 237, 4 = 73, and 5 = 80, totaling 1,104. Categories 2–5 total 744, so 744/1,104 = 67.4%, stated editorially as “2 in 3.”
 
-The fixture uses `surface.chart.mode: "sequence"` with four non-overlapping chart items, so one Preset executes all four stable Pipeline identities. Every item uses either the complete 1–5 distribution or the explicit 360/744 partition; no missing value is inferred. The one fixture must prove every initial Pipeline and mark treatment at both native orientations and under every Pack.
+The fixture uses `surface.chart.mode: "sequence"` with four non-overlapping chart items, so one Preset executes all four stable Pipeline identities. Every item uses either the complete 1–5 distribution or the explicit 360/744 partition; no missing value is inferred. The accepted proof covers every initial Pipeline at both native orientations under the four registered Packs: `syntax`, `editorial-mono`, `crt-terminal`, and `clean-light`.
 
-A separate Critic must return no `pipeline-bug` or `default-too-permissive` findings. Only after ACCEPT may the implementation be described as built.
+The separate Critic returned `ACCEPT` on 2026-08-08 after one preset/evidence remediation round, with zero `pipeline-bug` and zero `default-too-permissive` findings.
 
 ### 7. Documentation changes state at the proof boundary
 
-The in-flight Brief remains until fixture ACCEPT. While implementation is in progress, this ADR and its index say `Designed`, and the roadmap says building. Current-state documents do not advertise an unavailable schema or unregistered Pipelines.
+The proof boundary was crossed on 2026-08-08. The chart Brief was deleted; this ADR and its index became Canon; the roadmap recorded the shipped domain; and current-state documentation was reconciled from the implemented schema, validation, renderer, and authoring paths.
 
-The ACCEPT landing change deletes the Brief, changes this ADR/index to `Canon (built)`, reconciles the roadmap, and updates `docs/CONTEXT.md`, `docs/preset-format.md`, and `docs/engine-architecture.md` from the actual shipped contract. That explicit closeout prevents designed architecture from being mistaken for current runtime behavior.
+This explicit closeout keeps lifecycle scaffolding out of current engine truth and prevents designed architecture from being mistaken for runtime behavior.
 
 ## Consequences
 
@@ -79,4 +81,4 @@ The ACCEPT landing change deletes the Brief, changes this ADR/index to `Canon (b
 - Data integrity is testable before rendering, and preview/export determinism remains part of the engine boundary.
 - Packs can give charts distinct solid, gradient, or dither character without owning data, geometry, motion, or per-Preset variants.
 - Supporting another chart family requires an additive Pipeline and a concrete contract; it does not widen the initial grammar implicitly.
-- The designed status remains honest until the unlisted fixture passes Critic and the closeout change reconciles current-state documentation.
+- The unlisted fixture preserves reusable proof without entering deliverable listings, and the accepted documentation boundary records the implementation as current engine truth.

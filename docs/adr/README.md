@@ -58,7 +58,7 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 | [0045](0045-composition-media-library-and-video-track.md)        | Canon (current model)                                     | Composition Media library + one primary Video track                                      |
 | [0046](0046-seekable-simulation-and-deformation-families.md)    | Canon (v1 built)                                          | Typed transition families + fixed-step seekable material/deformation runtime              |
 | [0047](0047-reject-general-asset-to-geometry-import.md)          | Canon (broad scope rejected)                              | Reject general SVG/image/GLB-to-geometry import; revisit only for a bounded consumer       |
-| [0048](0048-agent-authored-chart-domain.md)                      | Designed, not built                                       | Strict Block-domain charts with Pack-owned appearance and intrinsic deterministic motion   |
+| [0048](0048-agent-authored-chart-domain.md)                      | Canon (built)                                             | Strict Block-domain charts with Pack-owned appearance and intrinsic deterministic motion   |
 
 ## Supersession And Refinement
 

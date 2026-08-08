@@ -149,7 +149,8 @@ When a color is absent, the active Pack's core `fill-treatment` / `ink-treatment
   "exit":  { "start": 0..1, "duration": 0..1, "ease": Ease },  // optional
   "animation": { "channels": { "opacity": [ ... ] } },          // optional (see Animation; opacity only)
   "backgroundVisibility": 0..1,                                 // optional
-  "diagram": [ ... ]                                            // optional Diagram primitive Blocks (see Diagram primitives)
+  "diagram": [ ... ],                                           // optional Diagram primitive Blocks
+  "chart": { "mode": "single" | "sequence", "items": [ ... ] } // optional Chart Blocks; plain/paper only
 }
 ```
 
@@ -200,6 +201,66 @@ Every primitive also takes an optional `"ink": "ink" | "accent"` — a Role **se
 Parse-time rules: primitive ids are unique within the surface; every edge endpoint `{ node }` ref must resolve to a `node` primitive in the same diagram. Stroke-drawn primitives (`edge-arrow`, `timeline-segment`) reveal by stroke-draw over their enter window and expose only the `opacity` channel; DOM primitives (`node`, `label`, `stat-callout`) take the full ADR-0035 channel set. Reveal choreography is Cascade chains (node → edge draws to → next node) — see Animation below.
 
 Every primitive may carry `orientationOverrides.horizontal` and/or `.vertical` as a **complete geometry snapshot**. Node, label, and stat-callout snapshots are `{ "position": { "x", "y" }, "scale"? }`; edge-arrow snapshots are `{ "from", "to", "route", "control"? }`; timeline-segment snapshots are `{ "from", "to" }`. A snapshot replaces the shared geometry as one unit rather than inheriting individual fields. Content, timing, animation, ink, form, direction, labels, and values remain shared. The GUI edits shared geometry until **Customize horizontal** or **Customize vertical** is enabled; safe-area lint validates resolved points without mutating them.
+
+### `surface.chart` — authored statistical graphics ([ADR-0048](adr/0048-agent-authored-chart-domain.md))
+
+`surface.chart` is one strict inline declaration shared by agents and the GUI. It is supported on `plain` and `paper` Surfaces; semantic validation rejects it elsewhere. Its items are **Blocks** on the Surface plane, not a sixth Layer or an external data source. `single` requires one item; `sequence` requires two to four declaration-ordered items whose `[entry.start, exit.end]` visibility intervals do not overlap.
+
+```jsonc
+"chart": {
+  "mode": "single" | "sequence",
+  "items": [
+    {
+      "id": "agents-by-count",                       // unique Block/timeline identity
+      "type": "bar-chart" | "column-chart",
+      "title": "Coding agents run at once",
+      "data": {
+        "categories": [{ "id": "one", "label": "1" }], // 1..12, unique ids
+        "series": [{                                  // 1..4, unique ids
+          "id": "responses",
+          "label": "Responses",
+          "values": [{ "categoryId": "one", "value": 360 }]
+        }]
+      },
+      "layout": { "mode": "single" | "grouped" | "stacked" },
+      "domain": { "min": 0, "max": 400 },           // optional; at least one bound
+      "labels": { "categories": true, "values": true, "legend": false },
+      "highlights": [{ "target": { "kind": "datum", "seriesId": "responses", "categoryId": "one" } }],
+      "callouts": [{
+        "target": { "kind": "datum", "seriesId": "responses", "categoryId": "one" },
+        "valueLabel": { "kind": "value" }
+      }],
+      "sourceNote": "Source: survey, n=1,104",
+      "fill": { "role": "default" | "series" },
+      "motion": {
+        "entry":     { "start": 0.00, "duration": 0.03, "ease": "smooth" },
+        "reveal":    { "start": 0.03, "duration": 0.08, "ease": "smooth" },
+        "emphasis":  { "start": 0.11, "duration": 0.04, "ease": "sharp" },
+        "annotation":{ "start": 0.15, "duration": 0.04, "ease": "smooth" },
+        "exit":      { "start": 0.21, "duration": 0.02, "ease": "smooth" }
+      }
+    }
+  ]
+}
+```
+
+`unit-grid-chart` and `dot-field-chart` use the same common fields but replace `layout` with:
+
+```jsonc
+"normalization": { "total": 360, "unitCount": 100 } // total must equal the explicit part sum; unitCount: integer 10..1000
+```
+
+The strict common limits and unions are:
+
+- 1–12 categories, 1–4 series, exactly one finite datum per declared category in each series, at most 24 highlights, and at most 4 callouts;
+- targets `{ kind: "datum", seriesId, categoryId }`, `{ kind: "category-set", seriesId, categoryIds }` with 2–12 unique categories, or `{ kind: "series-total", seriesId }`;
+- computed `valueLabel` `{ kind: "value" }`, `{ kind: "percent-of-series-total", precision: 0..4 }`, or `{ kind: "approximate-fraction-and-percent", maxDenominator: 2..20, precision: 0..4 }`; percent formats require a positive series total, and approximate fractions require a target ratio in `(0, 1]`;
+- bar/column `single` with one series or `grouped | stacked` with at least two; stacks are non-negative, and an explicit finite linear domain must include zero, satisfy `min < max`, and contain every value or stack total;
+- normalized charts with exactly one non-negative series, positive `total`, integer `unitCount` 10–1,000, and explicit parts summing to `total` within `max(1e-9, abs(total) * 1e-9)`.
+
+Semantic validation in `chart-validation.ts` runs at every Preset ingress after structural Zod parsing. It requires unique and complete category/series references; finite values and domains; compatible `single`, `grouped`, and non-negative `stacked` layouts; one non-negative series whose explicit parts sum to the positive normalized total; resolvable `datum`, `category-set`, or `series-total` targets; valid computed-label denominators; and ordered non-overlapping motion phases. Base `fill.role: "emphasis"` is rejected because emphasis is reserved for choreography. Normalized marks use exact decimal largest-remainder allocation with declaration order as the final tie-breaker and emit exactly `unitCount` marks, while labels and callouts keep authored/computed facts exact.
+
+The five motion windows are authored, Pack-invariant, and frame-deterministic. Omitted eases resolve to `smooth`, `smooth`, `sharp`, `smooth`, `smooth`; only `smooth | sharp` is accepted. Gaps hold state. Charts have no orientation-override schema: shared layout reflows the one declaration natively in horizontal and vertical and owns factual scales, zero baselines, chrome, legends, labels, source notes, and callout geometry. Marks render analytically through one instanced WebGPU path with Pack-resolved solid, gradient, or ordered-dither recipes localized to mark masks. The GUI add menu and Chart inspector mutate this same `surface.chart.items[]` model through bounded authoring helpers; there is no CSV upload, URL fetch, or GUI-only chart state.
 
 ### `overlays`
 
@@ -263,10 +324,10 @@ Keyframes:
 
 Cascade welds an element's **enter start** to another element's timing (milliseconds, not fractions — a 120 ms stagger stays 120 ms when the piece re-times):
 
-- `anchor` — `"surface"` | `{ "overlay": id }` | `{ "mark": index }` | `{ "textAnimation": id }` | `{ "block": id }` (the same identities the timeline rows use; `block` names a `surface.diagram[]` primitive).
+- `anchor` — `"surface"` | `{ "overlay": id }` | `{ "mark": index }` | `{ "textAnimation": id }` | `{ "block": id }` (the same identities the timeline rows use; `block` names a `surface.diagram[]` primitive or `surface.chart.items[]` Chart Block).
 - `event` — `"start"` | `"end"` of the anchor's enter.
 - `offsetMs` — signed milliseconds after (or before) the anchor event.
-- Allowed on `overlays[].animation`, `marks.timings[]` entries, `textAnimations[]` entries, and `surface.diagram[].animation`. The surface is the timing root and carries no cascade.
+- Allowed on `overlays[].animation`, `marks.timings[]` entries, `textAnimations[]` entries, and `surface.diagram[].animation`. A Chart Block may be an anchor through its intrinsic entry phase, but its five `ChartMotion` phases are not generalized keyframe channels and cannot carry Cascade. The surface is the timing root and carries no cascade.
 - Parse-time rules: every anchor ref must resolve, and anchor chains must be acyclic — a cycle is rejected with an error naming the loop.
 
 ### `textAnimations` (per-slot text choreography)
@@ -418,7 +479,8 @@ Pack immunity is declared by each Pipeline's Identity Spec and derived at runtim
 ## Block variants
 
 - **`paragraph`** — text run inside `content.body` (the bracket-tag string).
-- **`node`**, **`edge-arrow`**, **`label`**, **`stat-callout`**, **`timeline-segment`** — shipped diagram primitives ([ADR-0036](adr/0036-diagram-primitives.md)), carried in `surface.diagram[]` (see the Diagram primitives section above). A mermaid-style auto-layout Block is explicitly rejected; `image` and `code` remain possible future additive variants.
+- **`node`**, **`edge-arrow`**, **`label`**, **`stat-callout`**, **`timeline-segment`** — shipped diagram primitives ([ADR-0036](adr/0036-diagram-primitives.md)), carried in `surface.diagram[]` (see the Diagram primitives section above).
+- **`bar-chart`**, **`column-chart`**, **`unit-grid-chart`**, **`dot-field-chart`** — shipped factual Chart Blocks ([ADR-0048](adr/0048-agent-authored-chart-domain.md)), carried in `surface.chart.items[]` and edited through the shared Chart inspector/authoring helpers. A mermaid-style auto-layout Block is explicitly rejected; `image` and `code` remain possible future additive variants.
 
 ## Annotation styles
 
@@ -475,7 +537,7 @@ Three marks → three entries in `marks.timings`. The third timing in that prese
 Validation has two ordered layers:
 
 1. `PresetSchema` validates and transforms the structural `supers@1` JSON shape.
-2. `validatePresetSemantics(preset)` validates registry and cross-domain meaning: the Pack slug; Surface registration/variant; Overlay type/content; post-process and composition Effect type/params; Stage type; substrate asset; Overlay/Effect IDs; text-animation Overlay targets; transition lane; and, when a resolver is supplied, transition Preset references.
+2. `validatePresetSemantics(preset)` validates registry and cross-domain meaning: the Pack slug; Surface registration/variant; Overlay type/content; post-process and composition Effect type/params; Stage type; substrate asset; Overlay/Effect IDs; text-animation Overlay targets; strict Chart surface/data/domain/target/normalization/fill/motion rules; transition lane; and, when a resolver is supplied, transition Preset references.
 
 `parsePreset(value)` runs both layers and returns the parsed `Preset` or throws with a path-qualified multi-line summary. Built-in catalog loading, `scripts/verify-presets.ts`, and user-composition list/load/create/update paths run the same semantic gate, so unknown primitives or malformed renderer params fail before rendering or persistence. Media validation additionally requires unique asset/clip IDs, resolved clip references, ordered non-overlap, composition bounds, and sufficient Source coverage. User-composition writes require every referenced Media asset to exist and pass the server video probe; unused entries may remain for later use, and stored compositions remain readable if bytes later go missing so the GUI can repair them. `applyPreset(preset)` clones the parsed state into `engineState` in place, preserving object identity at the top level.
 

@@ -88,7 +88,15 @@ _Avoid_: stagger (the narrower per-glyph text-animation mechanism), sequence, ch
 
 **Diagram primitive**:
 The five-**Block** vocabulary for art-directed, documentary-style diagrams — `node`, `edge-arrow`, `label`, `stat-callout`, `timeline-segment` — living on any Surface, positioned explicitly (schema + GUI drag), revealed with stroke-draw + **Cascade** choreography, and reflowed through optional **Orientation geometry overrides**. Edge _route_ is authored geometry; edge _stroke_ is appearance (Pack-resolved Role). A map is a **composition** (primitives over an image substrate), not a primitive. Explicitly _not_ auto-layout: mermaid was rejected as the model (auto-layout reads as documentation, not documentary); at most a future compile-into-primitives authoring shortcut. Shipped in [ADR-0036](adr/0036-diagram-primitives.md).
-_Avoid_: chart Block (underspecified), mermaid Block (auto-layout is not the model), infographic, map primitive (a map is a composition, not a type).
+_Avoid_: mermaid Block (auto-layout is not the model), infographic, map primitive (a map is a composition, not a type).
+
+**Chart group**:
+The optional `surface.chart` declaration that carries one to four **Chart Blocks** on a `plain` or `paper` Surface; other Surface types reject it semantically. `single` mode contains exactly one item; `sequence` mode contains two to four declaration-ordered items with non-overlapping visibility windows. It is one bounded composition mechanism, not a dashboard or a sixth Layer. Agents and the GUI author this same strict inline Preset model.
+_Avoid_: chart layer, dashboard, data source, ingestion model, orientation-specific chart Preset.
+
+**Chart Block**:
+One factual statistical graphic rendered in the **Block Layer** with a stable Pipeline identity: `bar-chart`, `column-chart`, `unit-grid-chart`, or `dot-field-chart`. It owns explicit categories and series, factual domain or normalization, semantic targets for highlights and computed callouts, label visibility, a semantic fill role, and the five deterministic phases `entry`, `reveal`, `emphasis`, `annotation`, and `exit`. Shared layout reflows the same declaration at both native orientations; Packs own mark and chrome appearance but never values, geometry, or motion. Shipped in [ADR-0048](adr/0048-agent-authored-chart-domain.md).
+_Avoid_: chart (when the group or Pipeline identity matters), graph, visualization widget, canvas chart, Pack-specific chart variant.
 
 ### Pack model
 
