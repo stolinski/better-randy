@@ -1,6 +1,10 @@
 import { resolveChartBarColumnGeometry } from '$lib/utils/chart-bar-column-geometry';
 import { resolveChartFrameLayout } from '$lib/utils/chart-layout';
 import { resolveChartNormalizedGeometry } from '$lib/utils/chart-normalized-geometry';
+import {
+	resolveChartMotionState,
+	resolveChartOrderedRevealProgress
+} from '$lib/utils/chart-motion';
 import { chartRenderTextMeasurer } from '$lib/utils/chart-text-measurement';
 import { resolveVisibleChartBlock } from '$lib/utils/chart-visibility';
 import { isDarkSurfaceColor } from '$lib/utils/color';
@@ -141,6 +145,7 @@ function buildChartInputs(
 					measureText: chartRenderTextMeasurer
 				});
 	if (layout.overflow.length > 0 || geometry.overflow.length > 0) return undefined;
+	const motionState = resolveChartMotionState(block.motion, progress);
 	const voiceCount =
 		block.type === 'bar-chart' || block.type === 'column-chart'
 			? block.data.series.length
@@ -152,13 +157,12 @@ function buildChartInputs(
 	);
 	return {
 		block,
-		marks: geometry.marks.map((mark) => {
+		marks: geometry.marks.map((mark, declarationIndex) => {
 			const label = insideLabelByMarkId.get(mark.id);
 			return {
 				bounds: mark.bounds,
 				cornerRadius: mark.cornerRadius,
 				fillVoiceIndex: mark.fillVoiceIndex,
-				isHighlighted: mark.isHighlighted,
 				labelPlateBounds: label
 					? {
 							x: label.origin.x - 10,
@@ -166,7 +170,22 @@ function buildChartInputs(
 							width: label.measurement.width + 20,
 							height: label.measurement.height + 12
 						}
-					: null
+					: null,
+				labelPlateProgress: label ? motionState.annotationProgress : 0,
+				revealProgress: resolveChartOrderedRevealProgress(
+					block.motion,
+					progress,
+					declarationIndex,
+					geometry.marks.length
+				),
+				revealAxis:
+					block.type === 'bar-chart'
+						? 'inline'
+						: block.type === 'column-chart'
+							? 'block'
+							: 'coverage',
+				revealDirection: mark.revealDirection,
+				emphasisProgress: mark.isHighlighted ? motionState.emphasisProgress : 0
 			};
 		}),
 		swatches: geometry.legendSwatches.map((swatch) => ({
@@ -180,8 +199,7 @@ function buildChartInputs(
 		emphasisFillByVoice: Array.from({ length: voiceCount }, (_, fillVoiceIndex) =>
 			resolveChartMarkFillTreatment(pack, 'emphasis', fillVoiceIndex)
 		),
-		// Choreography owns phase alpha later; this renderer task ships the terminal factual state.
-		alpha: 1
+		alpha: motionState.chartAlpha
 	};
 }
 

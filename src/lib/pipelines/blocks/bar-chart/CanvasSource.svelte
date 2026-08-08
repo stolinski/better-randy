@@ -4,11 +4,13 @@
 		type BarChartBlock,
 		type ColumnChartBlock
 	} from '$lib/platform/engine-schema';
+	import { animState } from '$lib/platform/anim-state.svelte';
 	import { engineState, packState } from '$lib/platform/engine-state.svelte';
 	import { getPack } from '$lib/platform/packs/registry';
 	import { resolveChartChromeColors, resolveFontTreatment } from '$lib/platform/packs/resolve';
 	import { resolveChartBarColumnGeometry } from '$lib/utils/chart-bar-column-geometry';
 	import { resolveChartFrameLayout, type ChartMeasuredTextLayout } from '$lib/utils/chart-layout';
+	import { formatChartCounterValue, resolveChartMotionState } from '$lib/utils/chart-motion';
 	import {
 		chartRenderTextMeasurer,
 		resolveChartTextRoleStyle
@@ -42,6 +44,17 @@
 		})
 	);
 	const isRenderable = $derived(layout.overflow.length === 0 && geometry.overflow.length === 0);
+	const motion = $derived(resolveChartMotionState(block.motion, animState.globalProgress));
+	const valueByMarkId = $derived(
+		new Map(geometry.marks.map((mark) => [mark.id, mark.value] as const))
+	);
+
+	function valueLabelText(markId: string, terminalText: string): string {
+		const value = valueByMarkId.get(markId);
+		return value === undefined
+			? terminalText
+			: formatChartCounterValue(value, motion.annotationProgress);
+	}
 
 	function textStyle(text: ChartMeasuredTextLayout): string {
 		const style = resolveChartTextRoleStyle(text.role);
@@ -62,18 +75,36 @@
 	data-chart-type={block.type}
 	data-chart-overflow={layout.overflow.length + geometry.overflow.length}
 	data-chart-renderable={isRenderable}
+	data-chart-entry={motion.entryProgress}
+	data-chart-reveal={motion.revealProgress}
+	data-chart-emphasis={motion.emphasisProgress}
+	data-chart-annotation={motion.annotationProgress}
+	data-chart-exit={motion.exitProgress}
+	data-chart-alpha={motion.chartAlpha}
 	viewBox={`0 0 ${layout.frame.width} ${layout.frame.height}`}
 	preserveAspectRatio="none"
 	style:font-family={fontFamily}
 	aria-hidden="true"
 >
 	{#if isRenderable}
-		<g class="chart-bar-column__grid" fill="none" stroke={chrome.grid} stroke-width="2">
+		<g
+			class="chart-bar-column__grid"
+			opacity={motion.chromeAlpha}
+			fill="none"
+			stroke={chrome.grid}
+			stroke-width="2"
+		>
 			{#each layout.axes.linearTicks as tick (`${tick.value}:${tick.gridLine.from.x}:${tick.gridLine.from.y}`)}
 				<path d={linePath(tick.gridLine)} opacity={tick.isZero ? 0 : 0.58} />
 			{/each}
 		</g>
-		<g class="chart-bar-column__axes" fill="none" stroke={chrome.axis} stroke-linecap="square">
+		<g
+			class="chart-bar-column__axes"
+			opacity={motion.chromeAlpha}
+			fill="none"
+			stroke={chrome.axis}
+			stroke-linecap="square"
+		>
 			{#if layout.axes.numericAxis}<path
 					d={linePath(layout.axes.numericAxis)}
 					stroke-width="3"
@@ -107,7 +138,7 @@
 			{/each}
 		</g>
 
-		<g class="chart-bar-column__labels" fill={chrome.label}>
+		<g class="chart-bar-column__labels" opacity={motion.chromeAlpha} fill={chrome.label}>
 			<text
 				x={layout.chrome.title.origin.x}
 				y={layout.chrome.title.origin.y}
@@ -136,6 +167,19 @@
 					style={textStyle(category.labelLayout)}>{category.labelLayout.text}</text
 				>
 			{/each}
+			{#if layout.chrome.sourceNote}
+				<text
+					x={layout.chrome.sourceNote.origin.x}
+					y={layout.chrome.sourceNote.origin.y}
+					textLength={layout.chrome.sourceNote.measurement.width}
+					lengthAdjust="spacingAndGlyphs"
+					dominant-baseline="hanging"
+					style={textStyle(layout.chrome.sourceNote)}>{layout.chrome.sourceNote.text}</text
+				>
+			{/if}
+		</g>
+
+		<g class="chart-bar-column__values" opacity={motion.annotationAlpha} fill={chrome.label}>
 			{#each geometry.valueLabels as valueLabel (valueLabel.markId)}
 				{@const roleStyle = resolveChartTextRoleStyle('value')}
 				{#if valueLabel.anchor === 'inside'}
@@ -156,22 +200,12 @@
 					lengthAdjust="spacingAndGlyphs"
 					dominant-baseline="hanging"
 					style={`font-size:${roleStyle.fontSize}px;font-weight:${roleStyle.fontWeight};letter-spacing:${roleStyle.letterSpacing}px`}
-					>{valueLabel.text}</text
+					>{valueLabelText(valueLabel.markId, valueLabel.text)}</text
 				>
 			{/each}
-			{#if layout.chrome.sourceNote}
-				<text
-					x={layout.chrome.sourceNote.origin.x}
-					y={layout.chrome.sourceNote.origin.y}
-					textLength={layout.chrome.sourceNote.measurement.width}
-					lengthAdjust="spacingAndGlyphs"
-					dominant-baseline="hanging"
-					style={textStyle(layout.chrome.sourceNote)}>{layout.chrome.sourceNote.text}</text
-				>
-			{/if}
 		</g>
 
-		<g class="chart-bar-column__legend" fill={chrome.label}>
+		<g class="chart-bar-column__legend" opacity={motion.chromeAlpha} fill={chrome.label}>
 			{#each layout.chrome.legendItems as legend (legend.itemId)}
 				<rect
 					data-chart-legend-swatch={legend.itemId}
@@ -192,7 +226,12 @@
 			{/each}
 		</g>
 
-		<g class="chart-bar-column__annotations" stroke={chrome.annotation} fill="none">
+		<g
+			class="chart-bar-column__annotations"
+			opacity={motion.annotationAlpha}
+			stroke={chrome.annotation}
+			fill="none"
+		>
 			{#each geometry.annotations as annotation (annotation.id)}
 				<path
 					data-chart-callout-leader={annotation.id}

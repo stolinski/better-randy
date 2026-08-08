@@ -80,6 +80,7 @@ describe('resolveChartBarColumnGeometry', () => {
 		);
 		assert.equal(first.geometry.marks[0].isHighlighted, false);
 		assert.equal(first.geometry.marks[1].isHighlighted, true);
+		assert.ok(first.geometry.marks.every((mark) => mark.revealDirection === 'forward'));
 		assert.equal(first.geometry.valueLabels.length, 2);
 	});
 
@@ -105,6 +106,8 @@ describe('resolveChartBarColumnGeometry', () => {
 		for (const orientation of ['horizontal', 'vertical'] as const) {
 			const { layout, geometry: result } = geometry(block, orientation);
 			const zero = layout.linearScale?.map(0) ?? 0;
+			assert.equal(result.marks[0].revealDirection, 'forward');
+			assert.equal(result.marks[1].revealDirection, 'reverse');
 			assert.equal(result.marks[0].bounds.y, zero);
 			assert.equal(result.marks[1].bounds.y + result.marks[1].bounds.height, zero);
 			for (const mark of result.marks) {
@@ -118,6 +121,15 @@ describe('resolveChartBarColumnGeometry', () => {
 				);
 			}
 		}
+	});
+
+	it('reveals negative bars in reverse pixel direction from their factual baseline', () => {
+		const block = barChart();
+		block.domain = { min: -800, max: 800 };
+		block.data.series[0].values[0].value = -360;
+		const result = geometry(block).geometry;
+		assert.equal(result.marks[0].revealDirection, 'reverse');
+		assert.equal(result.marks[1].revealDirection, 'forward');
 	});
 
 	it('subdivides grouped categories by series without overlap', () => {

@@ -44,6 +44,7 @@ export interface ChartBarColumnMarkGeometry extends ChartDatumGeometry {
 	isZero: boolean;
 	cornerRadius: number;
 	isHighlighted: boolean;
+	revealDirection: 'forward' | 'reverse';
 }
 
 export interface ChartLegendSwatchGeometry {
@@ -327,6 +328,10 @@ export function resolveChartBarColumnGeometry(input: {
 				calloutAnchor: valueEndpoint,
 				valueEndpoint,
 				isZero: datum.value === 0,
+				revealDirection:
+					layout.linearScale.map(valueStart) <= layout.linearScale.map(valueEnd)
+						? 'forward'
+						: 'reverse',
 				cornerRadius:
 					block.layout.mode === 'stacked'
 						? 0

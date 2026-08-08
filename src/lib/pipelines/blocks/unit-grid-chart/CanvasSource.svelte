@@ -4,11 +4,13 @@
 		type DotFieldChartBlock,
 		type UnitGridChartBlock
 	} from '$lib/platform/engine-schema';
+	import { animState } from '$lib/platform/anim-state.svelte';
 	import { engineState, packState } from '$lib/platform/engine-state.svelte';
 	import { getPack } from '$lib/platform/packs/registry';
 	import { resolveChartChromeColors, resolveFontTreatment } from '$lib/platform/packs/resolve';
 	import { resolveChartFrameLayout, type ChartMeasuredTextLayout } from '$lib/utils/chart-layout';
 	import { resolveChartNormalizedGeometry } from '$lib/utils/chart-normalized-geometry';
+	import { resolveChartMotionState } from '$lib/utils/chart-motion';
 	import {
 		chartRenderTextMeasurer,
 		resolveChartTextRoleStyle
@@ -42,6 +44,7 @@
 		})
 	);
 	const isRenderable = $derived(layout.overflow.length === 0 && geometry.overflow.length === 0);
+	const motion = $derived(resolveChartMotionState(block.motion, animState.globalProgress));
 
 	function textStyle(text: ChartMeasuredTextLayout): string {
 		const style = resolveChartTextRoleStyle(text.role);
@@ -59,13 +62,19 @@
 	data-chart-rows={geometry.grid.rows}
 	data-chart-overflow={layout.overflow.length + geometry.overflow.length}
 	data-chart-renderable={isRenderable}
+	data-chart-entry={motion.entryProgress}
+	data-chart-reveal={motion.revealProgress}
+	data-chart-emphasis={motion.emphasisProgress}
+	data-chart-annotation={motion.annotationProgress}
+	data-chart-exit={motion.exitProgress}
+	data-chart-alpha={motion.chartAlpha}
 	viewBox={`0 0 ${layout.frame.width} ${layout.frame.height}`}
 	preserveAspectRatio="none"
 	style:font-family={fontFamily}
 	aria-hidden="true"
 >
 	{#if isRenderable}
-		<g class="chart-normalized__labels" fill={chrome.label}>
+		<g class="chart-normalized__labels" opacity={motion.chromeAlpha} fill={chrome.label}>
 			<text
 				x={layout.chrome.title.origin.x}
 				y={layout.chrome.title.origin.y}
@@ -106,7 +115,12 @@
 			{/if}
 		</g>
 
-		<g class="chart-normalized__annotations" stroke={chrome.annotation} fill="none">
+		<g
+			class="chart-normalized__annotations"
+			opacity={motion.annotationAlpha}
+			stroke={chrome.annotation}
+			fill="none"
+		>
 			{#each geometry.annotations as annotation (annotation.id)}
 				<path
 					data-chart-callout-leader={annotation.id}

@@ -11,6 +11,7 @@ import { buildCursorSchedule } from '$lib/pipelines/overlays/cursor-trail/schedu
 import { messageEnter, messageTyping } from '$lib/pipelines/surfaces/imessage/schedule';
 import { TEXT_EFFECT_CATALOG, type TextEffectPhase } from '$lib/text-animations/catalog';
 import { clampNumber } from '$lib/utils/math';
+import { CHART_MOTION_PHASE_NAMES, CHART_TIMING_EPSILON } from '$lib/utils/chart-motion';
 import { isDarkSurfaceColor } from '$lib/utils/color';
 import { truncateMiddle } from '$lib/utils/string';
 import { computeUnifiedBar, type RampTiming } from '$lib/utils/timeline-clip';
@@ -151,9 +152,7 @@ function textAnimationLandingFraction(target: string, phase: TextEffectPhase): n
 	const total = phase.duration_ms + (unitCount - 1) * stagger;
 	if (total <= 0) return 1;
 	return (
-		((unitCount - 1) * stagger +
-			phase.duration_ms * easeLandingFraction(phase.easing)) /
-		total
+		((unitCount - 1) * stagger + phase.duration_ms * easeLandingFraction(phase.easing)) / total
 	);
 }
 
@@ -239,14 +238,8 @@ function makeKeyframeRetimer(
 		const durationMs = state.transport.durationSeconds * 1000;
 		const min = index > 0 ? frames[index - 1].atMs + 1 : 0;
 		const max =
-			index < frames.length - 1
-				? frames[index + 1].atMs - 1
-				: (1 - clipStartFraction) * durationMs;
-		frame.atMs = clampNumber(
-			(fraction - clipStartFraction) * durationMs,
-			min,
-			Math.max(min, max)
-		);
+			index < frames.length - 1 ? frames[index + 1].atMs - 1 : (1 - clipStartFraction) * durationMs;
+		frame.atMs = clampNumber((fraction - clipStartFraction) * durationMs, min, Math.max(min, max));
 	};
 }
 
@@ -311,9 +304,7 @@ function appendSurfaceTrack(
 					enter: surface.enter,
 					exit: surface.exit,
 					enterEase: surface.enter ? getEaseGsap(surface.enter.ease) : undefined,
-					exitEase: surface.exit
-						? SUGAR_OPACITY_EXIT_EASES[surface.exit.ease]
-						: undefined
+					exitEase: surface.exit ? SUGAR_OPACITY_EXIT_EASES[surface.exit.ease] : undefined
 				})
 			]
 		});
@@ -340,9 +331,7 @@ function appendChecklistTracks(
 				enterEase: getEaseGsap(item.enter?.ease ?? 'settled'),
 				setEnter: (start, duration) => {
 					const target =
-						state.surface.type === 'checklist'
-							? state.surface.content.items?.[index]
-							: undefined;
+						state.surface.type === 'checklist' ? state.surface.content.items?.[index] : undefined;
 					if (target) {
 						target.enter = { start, duration, ease: target.enter?.ease ?? 'settled' };
 					}
@@ -361,9 +350,7 @@ function appendChecklistTracks(
 					enterEase: 'power1.inOut',
 					setEnter: (start, duration) => {
 						const target =
-							state.surface.type === 'checklist'
-								? state.surface.content.items?.[index]
-								: undefined;
+							state.surface.type === 'checklist' ? state.surface.content.items?.[index] : undefined;
 						if (target) {
 							target.strike = {
 								start,
@@ -483,9 +470,7 @@ function appendBlockTracks(
 			color: BLOCK_COLOR,
 			enter: displayEnter,
 			exit: primitive.exit,
-			enterEase: isStroke
-				? 'power1.inOut'
-				: getEaseGsap(enter?.ease ?? DEFAULT_BLOCK_ENTER.ease),
+			enterEase: isStroke ? 'power1.inOut' : getEaseGsap(enter?.ease ?? DEFAULT_BLOCK_ENTER.ease),
 			exitEase: primitive.exit ? SUGAR_OPACITY_EXIT_EASES[primitive.exit.ease] : undefined,
 			setEnter: (start, duration) => {
 				const target = (primitive.enter ??= { ...DEFAULT_BLOCK_ENTER });
@@ -498,26 +483,58 @@ function appendBlockTracks(
 		tracks.push({ id: trackId, label, color: BLOCK_COLOR, transitions: [bar] });
 	}
 
-	// Chart Blocks receive the same stable `block:<id>` timeline identity as
-	// Diagram Blocks. The schema task exposes the complete visibility envelope;
-	// the chart-motion task adds focused phase clips without inventing a new Layer.
-	for (const chartItem of state.surface.chart?.items ?? []) {
+	// Five clips on the existing Block row are an authoring projection of the
+	// intrinsic ChartMotion declaration, not a second runtime timeline.
+	const chartItems = state.surface.chart?.items ?? [];
+	for (let chartIndex = 0; chartIndex < chartItems.length; chartIndex += 1) {
+		const chartItem = chartItems[chartIndex];
 		const label = truncateMiddle(chartItem.title || chartItem.type, 32);
-		const start = chartItem.motion.entry.start;
-		const end = chartItem.motion.exit.start + chartItem.motion.exit.duration;
+		const previousItem = chartIndex > 0 ? chartItems[chartIndex - 1] : null;
+		const nextItem = chartIndex + 1 < chartItems.length ? chartItems[chartIndex + 1] : null;
+		const transitions = CHART_MOTION_PHASE_NAMES.map((phaseName, phaseIndex) => {
+			const phase = chartItem.motion[phaseName];
+			const previousPhase =
+				phaseIndex > 0 ? chartItem.motion[CHART_MOTION_PHASE_NAMES[phaseIndex - 1]] : null;
+			const nextPhase =
+				phaseIndex + 1 < CHART_MOTION_PHASE_NAMES.length
+					? chartItem.motion[CHART_MOTION_PHASE_NAMES[phaseIndex + 1]]
+					: null;
+			const minimumStart = previousPhase
+				? previousPhase.start + previousPhase.duration
+				: previousItem
+					? previousItem.motion.exit.start + previousItem.motion.exit.duration
+					: 0;
+			const maximumEnd = nextPhase ? nextPhase.start : (nextItem?.motion.entry.start ?? 1);
+			return {
+				id: phaseName,
+				label: phaseName,
+				color: BLOCK_COLOR,
+				start: phase.start,
+				duration: phase.duration,
+				minStart: minimumStart,
+				maxStart: Math.max(minimumStart, maximumEnd - phase.duration),
+				minDuration: Number.EPSILON,
+				maxDuration: Math.max(Number.EPSILON, maximumEnd - phase.start),
+				onUpdate: ({ start, duration }: { start: number; duration: number }) => {
+					if (
+						!Number.isFinite(start) ||
+						!Number.isFinite(duration) ||
+						duration <= 0 ||
+						start + CHART_TIMING_EPSILON < minimumStart ||
+						start + duration > maximumEnd + CHART_TIMING_EPSILON
+					) {
+						return;
+					}
+					phase.start = start;
+					phase.duration = duration;
+				}
+			};
+		});
 		tracks.push({
 			id: createTimelineTrackId({ kind: 'block', blockId: chartItem.id }),
 			label,
 			color: BLOCK_COLOR,
-			transitions: [
-				{
-					id: 'clip',
-					label,
-					color: BLOCK_COLOR,
-					start,
-					duration: end - start
-				}
-			]
+			transitions
 		});
 	}
 
@@ -732,8 +749,7 @@ function appendOverlaySubtracks(tracks: TimelineTrack[], state: EngineState): vo
 		if (!isAchievementVariantId(variantId)) return;
 		const focalWidth = Math.min(
 			0.2,
-			ACHIEVEMENT_VARIANTS[variantId].focalDurationMs /
-				(state.transport.durationSeconds * 1000)
+			ACHIEVEMENT_VARIANTS[variantId].focalDurationMs / (state.transport.durationSeconds * 1000)
 		);
 		tracks.push({
 			id: createTimelineTrackId({
@@ -872,9 +888,7 @@ function appendTextAnimationTracks(
 		const label = `${targetLabel} · ${entry.effect}`;
 		const spec = TEXT_EFFECT_CATALOG.get(entry.effect);
 		const cascade = entry.cascade;
-		const welded = cascade
-			? windows.get(`textAnimation:${entry.id}`)?.startFraction
-			: undefined;
+		const welded = cascade ? windows.get(`textAnimation:${entry.id}`)?.startFraction : undefined;
 		const bar = buildUnifiedTimelineTransition({
 			id: 'clip',
 			label,
@@ -911,8 +925,7 @@ function appendMessageTracks(tracks: TimelineTrack[], state: EngineState): void 
 		const leadInSpan = bubbleLanded - leadInStart;
 		const enterLandFrac =
 			leadInSpan > 0
-				? (timing.start - leadInStart +
-						timing.duration * easeLandingFraction('back.out')) /
+				? (timing.start - leadInStart + timing.duration * easeLandingFraction('back.out')) /
 					leadInSpan
 				: 1;
 		tracks.push({
@@ -1035,10 +1048,9 @@ export function buildCompositionTimelineTracks(
 	const tracks: TimelineTrack[] = [];
 	const windows = resolveCascadeTimings(state);
 	const surfaceColor = appearance.paperColor;
-	const surfaceTrackColor =
-		isDarkSurfaceColor(appearance.paperColor)
-			? appearance.inkColor
-			: surfaceColor;
+	const surfaceTrackColor = isDarkSurfaceColor(appearance.paperColor)
+		? appearance.inkColor
+		: surfaceColor;
 
 	appendSurfaceTrack(tracks, state, surfaceTrackColor, windows);
 	const strikeColor = resolveMarkForIndex(

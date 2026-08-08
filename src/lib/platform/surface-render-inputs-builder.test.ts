@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
+import { packChartMarkRendererInstances } from '$lib/pipelines/shader-passes/chart-mark-renderer';
 
 import type { RenderAnimState } from './anim-state.svelte';
 import { createDefaultEngineState } from './engine-schema';
@@ -127,7 +128,7 @@ describe('buildSurfaceRenderInputs', () => {
 							{ id: 'second', label: 'Second', values: [{ categoryId: 'a', value: 7 }] }
 						]
 					},
-					layout: { mode: 'grouped' },
+					layout: { mode: 'stacked' },
 					domain: { min: 0, max: 10 },
 					labels: { values: true, legend: true },
 					highlights: [{ target: { kind: 'datum', seriesId: 'second', categoryId: 'a' } }],
@@ -152,13 +153,72 @@ describe('buildSurfaceRenderInputs', () => {
 		const inputs = buildSurfaceRenderInputs(request, 5);
 		assert.equal(inputs.chart?.block.id, 'grouped-chart');
 		assert.equal(inputs.chart?.marks.length, 2);
-		assert.equal(inputs.chart?.marks[1].isHighlighted, true);
+		assert.equal(inputs.chart?.marks[1].emphasisProgress, 1);
 		assert.equal(inputs.chart?.baseFillByVoice.length, 2);
 		assert.notDeepEqual(
 			inputs.chart?.baseFillByVoice[0].colorA,
 			inputs.chart?.baseFillByVoice[1].colorA
 		);
+		const entryStart = buildSurfaceRenderInputs(request, 0).chart;
+		assert.equal(entryStart?.alpha, 0);
+		assert.ok(entryStart?.marks.every((mark) => mark.revealProgress === 0));
+		const revealMiddle = buildSurfaceRenderInputs(request, 1.5).chart;
+		assert.equal(revealMiddle?.alpha, 1);
+		assert.ok((revealMiddle?.marks[0].revealProgress ?? 0) > 0);
+		assert.ok(
+			(revealMiddle?.marks[0].revealProgress ?? 0) > (revealMiddle?.marks[1].revealProgress ?? 0)
+		);
+		const emphasisMiddle = buildSurfaceRenderInputs(request, 2.5).chart;
+		assert.equal(emphasisMiddle?.marks[0].emphasisProgress, 0);
+		assert.ok((emphasisMiddle?.marks[1].emphasisProgress ?? 0) > 0);
+		const partialAnnotationMark = buildSurfaceRenderInputs(request, 3.5).chart?.marks.find(
+			(mark) => mark.labelPlateBounds !== null
+		);
+		assert.ok(partialAnnotationMark);
+		assert.ok(Math.abs(partialAnnotationMark.labelPlateProgress - 0.875) < 1e-12);
+		assert.deepEqual(
+			partialAnnotationMark.labelPlateBounds,
+			buildSurfaceRenderInputs(request, 5).chart?.marks.find(
+				(mark) => mark.labelPlateBounds !== null
+			)?.labelPlateBounds
+		);
+		assert.ok(Math.abs((buildSurfaceRenderInputs(request, 8.5).chart?.alpha ?? 0) - 0.125) < 1e-9);
 		assert.equal(buildSurfaceRenderInputs(request, 9.5).chart, undefined);
+
+		const randomSeekTimes = [7.3, 0.4, 4.55, 1.6, 9.1, 4.55];
+		const randomSeekMotion = randomSeekTimes.map((time) => {
+			const chart = buildSurfaceRenderInputs(request, time).chart;
+			return chart
+				? {
+						alpha: chart.alpha,
+						packed: Array.from(new Uint8Array(packChartMarkRendererInstances(chart, 3840, 2160))),
+						marks: chart.marks.map((mark) => ({
+							bounds: mark.bounds,
+							revealProgress: mark.revealProgress,
+							emphasisProgress: mark.emphasisProgress
+						}))
+					}
+				: null;
+		});
+		assert.deepEqual(randomSeekMotion[2], randomSeekMotion[5]);
+		assert.deepEqual(
+			buildSurfaceRenderInputs(request, 1).chart?.marks.map((mark) => mark.bounds),
+			buildSurfaceRenderInputs(request, 2).chart?.marks.map((mark) => mark.bounds)
+		);
+		const cleanPackMotion = buildSurfaceRenderInputs(
+			{ ...request, readPack: () => getPack('clean-light') },
+			2.5
+		).chart?.marks.map((mark) => ({
+			revealProgress: mark.revealProgress,
+			emphasisProgress: mark.emphasisProgress
+		}));
+		assert.deepEqual(
+			cleanPackMotion,
+			buildSurfaceRenderInputs(request, 2.5).chart?.marks.map((mark) => ({
+				revealProgress: mark.revealProgress,
+				emphasisProgress: mark.emphasisProgress
+			}))
+		);
 
 		state.surface.chart.items[0].title = 'Unreadable '.repeat(200);
 		assert.equal(buildSurfaceRenderInputs(request, 5).chart, undefined);

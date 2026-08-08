@@ -111,12 +111,19 @@ export interface DiagramStrokeInputs {
 	accentColor: string;
 }
 
+export type ChartMarkRevealAxis = 'inline' | 'block' | 'coverage';
+export type ChartMarkRevealDirection = 'forward' | 'reverse';
+
 export interface ChartGpuMark {
 	bounds: ChartPixelRect;
 	cornerRadius: number;
 	fillVoiceIndex: number;
-	isHighlighted: boolean;
 	labelPlateBounds: ChartPixelRect | null;
+	labelPlateProgress: number;
+	revealProgress: number;
+	revealAxis: ChartMarkRevealAxis;
+	revealDirection: ChartMarkRevealDirection;
+	emphasisProgress: number;
 }
 
 export interface ChartGpuSwatch {

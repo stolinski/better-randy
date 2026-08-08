@@ -1,7 +1,7 @@
 import type { ChartRenderInputs } from '$lib/platform/pipelines/types';
 import { createChartMarkFillWgsl, packChartMarkFillUniforms } from './chart-mark-fill';
 
-const CHART_MARK_INSTANCE_STRIDE = 144;
+const CHART_MARK_INSTANCE_STRIDE = 176;
 const TEXTURE_USAGE_COPY_SRC = 0x01;
 const TEXTURE_USAGE_TEXTURE_BINDING = 0x04;
 const TEXTURE_USAGE_RENDER_ATTACHMENT = 0x10;
@@ -56,7 +56,11 @@ export function packChartMarkRendererInstances(
 			bounds: mark.bounds,
 			cornerRadius: mark.cornerRadius,
 			fillVoiceIndex: mark.fillVoiceIndex,
-			isHighlighted: mark.isHighlighted,
+			revealProgress: mark.revealProgress,
+			labelPlateProgress: mark.labelPlateProgress,
+			revealAxis: mark.revealAxis,
+			revealDirection: mark.revealDirection,
+			emphasisProgress: mark.emphasisProgress,
 			labelBounds: mark.labelPlateBounds
 				? [
 						mark.labelPlateBounds.x,
@@ -70,10 +74,42 @@ export function packChartMarkRendererInstances(
 			bounds: swatch.bounds,
 			cornerRadius: swatch.cornerRadius,
 			fillVoiceIndex: swatch.fillVoiceIndex,
-			isHighlighted: false,
+			revealProgress: 1,
+			labelPlateProgress: 0,
+			revealAxis: 'coverage' as const,
+			revealDirection: 'forward' as const,
+			emphasisProgress: 0,
 			labelBounds: [0, 0, 0, 0]
 		}))
 	];
+	if (!Number.isFinite(inputs.alpha) || inputs.alpha < 0 || inputs.alpha > 1) {
+		throw new RangeError('Chart mark renderer alpha must be finite and in [0, 1].');
+	}
+	for (const mark of visualMarks) {
+		if (
+			mark.revealAxis !== 'inline' &&
+			mark.revealAxis !== 'block' &&
+			mark.revealAxis !== 'coverage'
+		) {
+			throw new RangeError('Chart mark renderer reveal axis must be inline, block, or coverage.');
+		}
+		if (mark.revealDirection !== 'forward' && mark.revealDirection !== 'reverse') {
+			throw new RangeError('Chart mark renderer reveal direction must be forward or reverse.');
+		}
+		if (
+			!Number.isFinite(mark.revealProgress) ||
+			mark.revealProgress < 0 ||
+			mark.revealProgress > 1 ||
+			!Number.isFinite(mark.emphasisProgress) ||
+			mark.emphasisProgress < 0 ||
+			mark.emphasisProgress > 1 ||
+			!Number.isFinite(mark.labelPlateProgress) ||
+			mark.labelPlateProgress < 0 ||
+			mark.labelPlateProgress > 1
+		) {
+			throw new RangeError('Chart mark renderer motion progress must be finite and in [0, 1].');
+		}
+	}
 	const buffer = new ArrayBuffer(visualMarks.length * CHART_MARK_INSTANCE_STRIDE);
 	const view = new DataView(buffer);
 	for (let index = 0; index < visualMarks.length; index += 1) {
@@ -106,9 +142,16 @@ export function packChartMarkRendererInstances(
 			packed.emphasisMode,
 			packed.emphasisGradientAxis,
 			packed.emphasisMatrixBits,
-			mark.isHighlighted ? 1 : 0
+			0
 		]);
 		writeVec4(view, offset + 128, mark.labelBounds);
+		writeVec4(view, offset + 144, [
+			mark.revealProgress,
+			mark.emphasisProgress,
+			mark.revealAxis === 'inline' ? 0 : mark.revealAxis === 'block' ? 1 : 2,
+			mark.revealDirection === 'forward' ? 0 : 1
+		]);
+		writeVec4(view, offset + 160, [mark.labelPlateProgress, 0, 0, 0]);
 	}
 	return buffer;
 }
@@ -127,6 +170,8 @@ struct ChartMarkInstance {
 	baseFlags: vec4u,
 	emphasisFlags: vec4u,
 	labelBounds: vec4f,
+	motion: vec4f,
+	labelMotion: vec4f,
 };
 
 @group(0) @binding(0) var<storage, read> chartMarks: array<ChartMarkInstance>;
@@ -168,13 +213,27 @@ fn chartMarkFragment(input: ChartMarkVertexOutput) -> @location(0) vec4f {
 	let rounded = abs(centered) - halfSize + vec2f(radius);
 	let signedDistance = length(max(rounded, vec2f(0.0))) + min(max(rounded.x, rounded.y), 0.0) - radius;
 	var maskAlpha = 1.0 - smoothstep(-0.75, 0.75, signedDistance);
+	let revealProgress = mark.motion.x;
+	let revealAxis = u32(mark.motion.z);
+	let revealDirection = u32(mark.motion.w);
+	var revealMask = 1.0;
+	if (revealAxis != 2u) {
+		let extent = select(mark.bounds.w, mark.bounds.z, revealAxis == 0u);
+		let coordinate = select(localPx.y, localPx.x, revealAxis == 0u);
+		let directedCoordinate = select(coordinate, extent - coordinate, revealDirection == 1u);
+		let revealDistance = revealProgress * extent - directedCoordinate;
+		revealMask = smoothstep(-0.75, 0.75, revealDistance);
+		if (revealProgress <= 0.0) { revealMask = 0.0; }
+		if (revealProgress >= 1.0) { revealMask = 1.0; }
+	}
+	maskAlpha *= revealMask;
 	let pixel = mark.bounds.xy + localPx;
 	let hasLabelPlate = mark.labelBounds.z > 0.0 && mark.labelBounds.w > 0.0;
 	let insideLabelPlate =
 		pixel.x >= mark.labelBounds.x && pixel.x <= mark.labelBounds.x + mark.labelBounds.z &&
 		pixel.y >= mark.labelBounds.y && pixel.y <= mark.labelBounds.y + mark.labelBounds.w;
 	if (hasLabelPlate && insideLabelPlate) {
-		maskAlpha = 0.0;
+		maskAlpha *= 1.0 - mark.labelMotion.x;
 	}
 	let sample = resolveChartMarkFillSample(
 		mark.baseFlags.y,
@@ -194,8 +253,8 @@ fn chartMarkFragment(input: ChartMarkVertexOutput) -> @location(0) vec4f {
 		vec2f(${canvasWidth.toFixed(1)}, ${canvasHeight.toFixed(1)}),
 		mark.baseFlags.x,
 		maskAlpha,
-		1.0,
-		f32(mark.emphasisFlags.w)
+		select(revealProgress, 1.0, revealAxis != 2u),
+		mark.motion.y
 	);
 	return sample * mark.numeric.w;
 }

@@ -1,10 +1,12 @@
 import { resolveChartDataTarget, ChartDataTargetInvariantError } from '../utils/chart-data-target';
+import { CHART_MOTION_PHASE_NAMES, CHART_TIMING_EPSILON } from '../utils/chart-motion';
 import type {
 	ChartBlock,
 	ChartDataTarget,
 	ChartGroup,
 	ChartSeries,
-	DiagramPrimitive
+	DiagramPrimitive,
+	SurfaceType
 } from './engine-schema';
 
 export interface ChartSemanticIssue {
@@ -17,8 +19,6 @@ type ChartTargetResolution = {
 	value: number;
 	seriesTotal: number;
 };
-
-const CHART_MOTION_PHASES = ['entry', 'reveal', 'emphasis', 'annotation', 'exit'] as const;
 
 function addChartIssue(
 	issues: ChartSemanticIssue[],
@@ -321,11 +321,11 @@ function validateChartTargets(
 	itemPath: (string | number)[],
 	issues: ChartSemanticIssue[]
 ): void {
-	if (item.fill.role === 'emphasis' && (item.highlights?.length ?? 0) > 0) {
+	if (item.fill.role === 'emphasis') {
 		addChartIssue(
 			issues,
 			[...itemPath, 'fill', 'role'],
-			'Charts with highlights cannot use emphasis as the base fill role.'
+			'Charts cannot use emphasis as the base fill role because emphasis is reserved for choreography.'
 		);
 	}
 	for (let index = 0; index < (item.highlights?.length ?? 0); index += 1) {
@@ -374,15 +374,15 @@ function validateChartMotion(
 	issues: ChartSemanticIssue[]
 ): void {
 	let previousEnd = 0;
-	for (let index = 0; index < CHART_MOTION_PHASES.length; index += 1) {
-		const phaseName = CHART_MOTION_PHASES[index];
+	for (let index = 0; index < CHART_MOTION_PHASE_NAMES.length; index += 1) {
+		const phaseName = CHART_MOTION_PHASE_NAMES[index];
 		const phase = item.motion[phaseName];
 		const phasePath = [...itemPath, 'motion', phaseName];
 		const end = phase.start + phase.duration;
-		if (end > 1 + 1e-12) {
+		if (end > 1 + CHART_TIMING_EPSILON) {
 			addChartIssue(issues, [...phasePath, 'duration'], `Chart ${phaseName} phase ends after 1.`);
 		}
-		if (index > 0 && phase.start + 1e-12 < previousEnd) {
+		if (index > 0 && phase.start + CHART_TIMING_EPSILON < previousEnd) {
 			addChartIssue(
 				issues,
 				[...phasePath, 'start'],
@@ -395,10 +395,18 @@ function validateChartMotion(
 
 export function validateChartGroupSemantics(
 	chart: ChartGroup | undefined,
-	diagram: readonly DiagramPrimitive[]
+	diagram: readonly DiagramPrimitive[],
+	surfaceType: SurfaceType = 'plain'
 ): readonly ChartSemanticIssue[] {
 	if (!chart) return [];
 	const issues: ChartSemanticIssue[] = [];
+	if (surfaceType !== 'plain' && surfaceType !== 'paper') {
+		addChartIssue(
+			issues,
+			['chart'],
+			`Charts require a plain or paper Surface; "${surfaceType}" does not composite analytic chart marks.`
+		);
+	}
 	if (chart.mode === 'single' && chart.items.length !== 1) {
 		addChartIssue(issues, ['chart', 'items'], 'Chart single mode requires exactly one item.');
 	}
@@ -440,7 +448,7 @@ export function validateChartGroupSemantics(
 		if (chart.mode === 'sequence') {
 			const visibilityStart = item.motion.entry.start;
 			const visibilityEnd = item.motion.exit.start + item.motion.exit.duration;
-			if (itemIndex > 0 && visibilityStart + 1e-12 < previousVisibilityEnd) {
+			if (itemIndex > 0 && visibilityStart + CHART_TIMING_EPSILON < previousVisibilityEnd) {
 				addChartIssue(
 					issues,
 					[...itemPath, 'motion', 'entry', 'start'],

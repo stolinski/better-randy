@@ -12,6 +12,9 @@ interface ProbeCaseResult {
 	gapAlpha: number;
 	outsideAlpha: number;
 	partialAlphaPixels: number;
+	zeroRevealAlpha: number;
+	midFirstAlpha: number;
+	midLastAlpha: number;
 }
 interface ProbeResult {
 	errors: string[];
@@ -38,6 +41,7 @@ async function main(): Promise<void> {
 			} = await import('/src/lib/pipelines/shader-passes/chart-mark-renderer.ts');
 			const { PACK_REGISTRY } = await import('/src/lib/platform/packs/registry.ts');
 			const { resolveChartMarkFillTreatment } = await import('/src/lib/platform/packs/resolve.ts');
+			const { resolveChartOrderedRevealProgress } = await import('/src/lib/utils/chart-motion.ts');
 			const width = 512;
 			const height = 320;
 			const bytesPerRow = width * 4;
@@ -105,6 +109,11 @@ async function main(): Promise<void> {
 									isHighlighted: categoryIndex === 0,
 									allocationKind: 'base' as const,
 									labelPlateBounds: null,
+									labelPlateProgress: 0,
+									revealProgress: 1,
+									revealAxis: 'coverage' as const,
+									revealDirection: 'forward' as const,
+									emphasisProgress: categoryIndex === 0 ? 1 : 0,
 									calloutAnchor: { x: x + 4, y: y + 4 }
 								};
 							});
@@ -155,23 +164,64 @@ async function main(): Promise<void> {
 								errors.push(`${pack}/${variant}/${orientation}/${unitCount}: wrong instance count`);
 							const packed = packChartMarkRendererInstances(renderInputs, width, height);
 							const packedView = new DataView(packed);
-							if (packed.byteLength !== unitCount * 144)
+							if (packed.byteLength !== unitCount * 176)
 								errors.push(
 									`${pack}/${variant}/${orientation}/${unitCount}: wrong packed byte size`
 								);
 							if (
 								packedView.getUint32(96, true) !== 0 ||
-								packedView.getUint32((unitCount - 1) * 144 + 96, true) !== 1
+								packedView.getUint32((unitCount - 1) * 176 + 96, true) !== 1
 							)
 								errors.push(
 									`${pack}/${variant}/${orientation}/${unitCount}: category voices were not packed`
 								);
 							if (
-								packedView.getUint32(124, true) !== 1 ||
-								packedView.getUint32((unitCount - 1) * 144 + 124, true) !== 0
+								packedView.getFloat32(148, true) !== 1 ||
+								packedView.getFloat32((unitCount - 1) * 176 + 148, true) !== 0
 							)
 								errors.push(
 									`${pack}/${variant}/${orientation}/${unitCount}: highlight flags were not packed`
+								);
+							const revealInputsAt = (compositionProgress: number) => ({
+								...renderInputs,
+								marks: renderInputs.marks.map((mark, declarationIndex) => ({
+									...mark,
+									revealProgress: resolveChartOrderedRevealProgress(
+										block.motion,
+										compositionProgress,
+										declarationIndex,
+										unitCount
+									)
+								}))
+							});
+							renderer.render(revealInputsAt(0.1));
+							await device.queue.onSubmittedWorkDone();
+							const zeroRevealBytes = await readTexture(renderer.getOutputTexture());
+							const zeroRevealAlpha = readPixel(
+								zeroRevealBytes,
+								marks[0].bounds.x + 4,
+								marks[0].bounds.y + 4
+							)[3];
+							if (zeroRevealAlpha !== 0)
+								errors.push(
+									`${pack}/${variant}/${orientation}/${unitCount}: zero reveal painted a unit`
+								);
+							renderer.render(revealInputsAt(0.15));
+							await device.queue.onSubmittedWorkDone();
+							const midRevealBytes = await readTexture(renderer.getOutputTexture());
+							const midFirstAlpha = readPixel(
+								midRevealBytes,
+								marks[0].bounds.x + 4,
+								marks[0].bounds.y + 4
+							)[3];
+							const midLastAlpha = readPixel(
+								midRevealBytes,
+								marks.at(-1)!.bounds.x + 4,
+								marks.at(-1)!.bounds.y + 4
+							)[3];
+							if (midFirstAlpha === 0 || midLastAlpha !== 0)
+								errors.push(
+									`${pack}/${variant}/${orientation}/${unitCount}: midpoint reveal violated declaration order`
 								);
 							device.pushErrorScope('validation');
 							renderer.render(renderInputs);
@@ -235,7 +285,10 @@ async function main(): Promise<void> {
 								cornerAlpha,
 								gapAlpha,
 								outsideAlpha,
-								partialAlphaPixels
+								partialAlphaPixels,
+								zeroRevealAlpha,
+								midFirstAlpha,
+								midLastAlpha
 							});
 						}
 					}

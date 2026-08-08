@@ -1,4 +1,5 @@
 import type { ChartBlock, ChartGroup } from '$lib/platform/engine-schema';
+import { CHART_TIMING_EPSILON } from './chart-motion';
 
 export function resolveVisibleChartBlock(
 	chart: ChartGroup | undefined,
@@ -13,7 +14,11 @@ export function resolveVisibleChartBlock(
 		const item = chart.items[index];
 		const visibleStart = item.motion.entry.start;
 		const visibleEnd = item.motion.exit.start + item.motion.exit.duration;
-		if (progress + 1e-12 >= visibleStart && progress + 1e-12 < visibleEnd) return item;
+		if (
+			progress + CHART_TIMING_EPSILON >= visibleStart &&
+			progress + CHART_TIMING_EPSILON < visibleEnd
+		)
+			return item;
 	}
 	return null;
 }

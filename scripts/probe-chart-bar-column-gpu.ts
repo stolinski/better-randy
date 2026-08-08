@@ -10,6 +10,14 @@ interface ProbeResult {
 		labelHoleAlpha: number;
 		maxAlpha: number;
 		partialAlphaPixels: number;
+		zeroRevealAlpha: number;
+		zeroChartAlpha: number;
+		fullChartAlpha: number;
+		midLabelPlateAlpha: number;
+		midForwardAlpha: number;
+		midForwardHiddenAlpha: number;
+		midReverseAlpha: number;
+		midReverseHiddenAlpha: number;
 		extent: [number, number, number, number];
 	}[];
 	clearedAlpha: number;
@@ -143,8 +151,12 @@ async function main(): Promise<void> {
 						bounds: mark.bounds,
 						cornerRadius: mark.cornerRadius,
 						fillVoiceIndex: mark.fillVoiceIndex,
-						isHighlighted: mark.isHighlighted,
-						labelPlateBounds: mark.id === 'one:a' ? { x: 40, y: 34, width: 40, height: 22 } : null
+						revealProgress: 1,
+						revealAxis: 'inline' as const,
+						revealDirection: mark.id === 'two:a' ? ('reverse' as const) : ('forward' as const),
+						emphasisProgress: mark.isHighlighted ? 1 : 0,
+						labelPlateBounds: mark.id === 'one:a' ? { x: 40, y: 34, width: 40, height: 22 } : null,
+						labelPlateProgress: 1
 					})),
 					swatches: [],
 					baseFillByVoice: block.data.series.map((_, index) =>
@@ -161,6 +173,72 @@ async function main(): Promise<void> {
 					packChartMarkRendererInstances(renderInputs, width, height)
 				);
 				if (packedDebug.getFloat32(0, true) !== 16) errors.push(`${pack}: wrong packed x`);
+				const zeroRevealInputs = {
+					...renderInputs,
+					marks: renderInputs.marks.map((mark) => ({
+						...mark,
+						revealProgress: 0,
+						emphasisProgress: 0
+					}))
+				};
+				renderer.render(zeroRevealInputs);
+				await device.queue.onSubmittedWorkDone();
+				const zeroRevealBytes = await readTexture(renderer.getOutputTexture());
+				const zeroRevealAlpha = readPixel(zeroRevealBytes, 28, 56)[3];
+				if (zeroRevealAlpha !== 0) errors.push(`${pack}: zero reveal painted chart marks`);
+				const zeroAlphaInputs = { ...renderInputs, alpha: 0 };
+				renderer.render(zeroAlphaInputs);
+				await device.queue.onSubmittedWorkDone();
+				const zeroAlphaBytes = await readTexture(renderer.getOutputTexture());
+				const zeroChartAlpha = readPixel(zeroAlphaBytes, 28, 56)[3];
+				if (zeroChartAlpha !== 0) errors.push(`${pack}: zero chart alpha painted chart marks`);
+				const fullAlphaInputs = { ...renderInputs, alpha: 1 };
+				renderer.render(fullAlphaInputs);
+				await device.queue.onSubmittedWorkDone();
+				const fullAlphaBytes = await readTexture(renderer.getOutputTexture());
+				const fullChartAlpha = readPixel(fullAlphaBytes, 28, 56)[3];
+				if (fullChartAlpha !== 255)
+					errors.push(`${pack}: full chart alpha did not preserve terminal opacity`);
+				const midLabelPlateInputs = {
+					...renderInputs,
+					marks: renderInputs.marks.map((mark) => ({
+						...mark,
+						labelPlateProgress: mark.labelPlateBounds ? 0.5 : 0
+					}))
+				};
+				renderer.render(midLabelPlateInputs);
+				await device.queue.onSubmittedWorkDone();
+				const midLabelPlateBytes = await readTexture(renderer.getOutputTexture());
+				const midLabelPlateAlpha = readPixel(midLabelPlateBytes, 60, 45)[3];
+				if (Math.abs(midLabelPlateAlpha - 64) > 1)
+					errors.push(`${pack}: partial label plate did not crossfade continuously`);
+				const midRevealInputs = {
+					...renderInputs,
+					marks: renderInputs.marks.map((mark) => ({
+						...mark,
+						revealProgress: 0.5,
+						emphasisProgress: mark.fillVoiceIndex === 1 ? 0.5 : 0
+					}))
+				};
+				renderer.render(midRevealInputs);
+				await device.queue.onSubmittedWorkDone();
+				const midRevealBytes = await readTexture(renderer.getOutputTexture());
+				const midForwardAlpha = readPixel(midRevealBytes, 28, 56)[3];
+				const midForwardHiddenAlpha = readPixel(midRevealBytes, 84, 56)[3];
+				const midReverseAlpha = readPixel(midRevealBytes, 212, 56)[3];
+				const midReverseHiddenAlpha = readPixel(midRevealBytes, 156, 56)[3];
+				if (midForwardAlpha === 0 || midForwardHiddenAlpha !== 0) {
+					errors.push(`${pack}: forward half reveal did not grow from the authored start edge`);
+				}
+				if (midReverseAlpha === 0 || midReverseHiddenAlpha !== 0) {
+					errors.push(`${pack}: reverse half reveal did not grow from the authored start edge`);
+				}
+				const midPacked = new DataView(
+					packChartMarkRendererInstances(midRevealInputs, width, height)
+				);
+				if (midPacked.getFloat32(176 + 148, true) !== 0.5) {
+					errors.push(`${pack}: continuous emphasis progress was not packed`);
+				}
 				renderer.render(renderInputs);
 				await device.queue.onSubmittedWorkDone();
 				const validationError = await device.popErrorScope();
@@ -241,6 +319,14 @@ async function main(): Promise<void> {
 					labelHoleAlpha: labelHole[3],
 					maxAlpha,
 					partialAlphaPixels,
+					zeroRevealAlpha,
+					zeroChartAlpha,
+					fullChartAlpha,
+					midLabelPlateAlpha,
+					midForwardAlpha,
+					midForwardHiddenAlpha,
+					midReverseAlpha,
+					midReverseHiddenAlpha,
 					extent: [minX, minY, maxX, maxY]
 				});
 			}

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
 import { buildCompositionTimelineTracks } from './composition-timeline-tracks.ts';
-import { createDefaultEngineState, type EngineState } from './engine-schema.ts';
+import { createDefaultEngineState, type ChartMotion, type EngineState } from './engine-schema.ts';
 import { createTimelineTrackId, createVideoClipSelectionId } from './timeline-entity-identity.ts';
 import { isVideoTimelineTrack } from './timeline-track.ts';
 
@@ -296,7 +296,7 @@ describe('composition timeline tracks', () => {
 					labels: { categories: true, values: true, legend: false },
 					fill: { role: 'default' },
 					motion: {
-						entry: { start: 0.1, duration: 0.05 },
+						entry: { start: 0.1, duration: 0.05, ease: 'sharp' },
 						reveal: { start: 0.15, duration: 0.15 },
 						emphasis: { start: 0.3, duration: 0.05 },
 						annotation: { start: 0.35, duration: 0.05 },
@@ -312,8 +312,49 @@ describe('composition timeline tracks', () => {
 		);
 		assert.ok(chartTrack);
 		assert.equal(chartTrack.label, 'Agent count distribution');
-		assert.equal(chartTrack.transitions[0].start, 0.1);
-		assert.ok(Math.abs(chartTrack.transitions[0].duration - 0.8) < 1e-9);
+		assert.deepEqual(
+			chartTrack.transitions.map((transition) => transition.id),
+			['entry', 'reveal', 'emphasis', 'annotation', 'exit']
+		);
+		assert.deepEqual(
+			chartTrack.transitions.map((transition) => [transition.start, transition.duration]),
+			[
+				[0.1, 0.05],
+				[0.15, 0.15],
+				[0.3, 0.05],
+				[0.35, 0.05],
+				[0.8, 0.1]
+			]
+		);
+		const phaseUpdates = [
+			{ start: 0.11, duration: 0.03 },
+			{ start: 0.16, duration: 0.13 },
+			{ start: 0.31, duration: 0.03 },
+			{ start: 0.36, duration: 0.03 },
+			{ start: 0.81, duration: 0.08 }
+		];
+		for (let index = 0; index < chartTrack.transitions.length; index += 1) {
+			const phaseName = chartTrack.transitions[index].id as keyof ChartMotion;
+			const previousMotion: ChartMotion = structuredClone(state.surface.chart.items[0].motion);
+			chartTrack.transitions[index].onUpdate?.(phaseUpdates[index]);
+			assert.deepEqual(state.surface.chart.items[0].motion[phaseName], {
+				...previousMotion[phaseName],
+				...phaseUpdates[index]
+			});
+			for (const otherName of Object.keys(previousMotion) as (keyof ChartMotion)[]) {
+				if (otherName !== phaseName) {
+					assert.deepEqual(
+						state.surface.chart.items[0].motion[otherName],
+						previousMotion[otherName]
+					);
+				}
+			}
+		}
+		assert.ok(Math.abs((chartTrack.transitions[1].minStart ?? 0) - 0.15) < 1e-12);
+		assert.ok(Math.abs((chartTrack.transitions[1].maxDuration ?? 0) - 0.15) < 1e-12);
+		const revealBeforeInvalidEdit = structuredClone(state.surface.chart.items[0].motion.reveal);
+		chartTrack.transitions[1].onUpdate?.({ start: 0.14, duration: 0.15 });
+		assert.deepEqual(state.surface.chart.items[0].motion.reveal, revealBeforeInvalidEdit);
 
 		state.surface.chart.items[0].motion = {
 			entry: { start: 0.1, duration: 0.001 },
@@ -326,6 +367,12 @@ describe('composition timeline tracks', () => {
 			(track) => track.id === createTimelineTrackId({ kind: 'block', blockId: 'agent-chart' })
 		);
 		assert.ok(shortTrack);
-		assert.ok(Math.abs(shortTrack.transitions[0].duration - 0.005) < 1e-9);
+		assert.deepEqual(
+			shortTrack.transitions.map((transition) => transition.duration),
+			[0.001, 0.001, 0.001, 0.001, 0.001]
+		);
+		assert.ok(
+			shortTrack.transitions.every((transition) => transition.minDuration === Number.EPSILON)
+		);
 	});
 });

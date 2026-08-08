@@ -33,6 +33,7 @@ export interface ChartNormalizedMarkGeometry extends ChartDatumGeometry {
 	cornerRadius: number;
 	isHighlighted: boolean;
 	allocationKind: 'base' | 'largest-remainder';
+	revealDirection: 'forward';
 }
 
 export interface ChartNormalizedLegendSwatchGeometry {
@@ -161,6 +162,7 @@ export function resolveChartNormalizedGeometry(input: {
 				calloutAnchor: { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 },
 				cornerRadius: block.type === 'dot-field-chart' ? grid.markSize / 2 : grid.markSize * 0.16,
 				isHighlighted: highlightedCategoryIds.has(allocation.categoryId),
+				revealDirection: 'forward',
 				allocationKind: roundedAdjustment ? 'largest-remainder' : 'base'
 			});
 			unitIndex += 1;

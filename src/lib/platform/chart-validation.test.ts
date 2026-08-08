@@ -122,10 +122,20 @@ describe('validateChartGroupSemantics', () => {
 		assertIssue(chart, 'chart.items.0.data.series.1.id', 'Duplicate chart series');
 	});
 
+	it('allows authored emphasis and annotation windows to be deterministic no-ops', () => {
+		const chart = singleChart();
+		chart.items[0].highlights = [];
+		chart.items[0].callouts = [];
+		chart.items[0].labels.values = false;
+		assert.deepEqual(issuesFor(chart), []);
+	});
+
 	it('rejects emphasis as a base fill when authored highlights require contrast', () => {
 		const chart = singleChart();
 		chart.items[0].fill = { role: 'emphasis' };
 		assertIssue(chart, 'chart.items.0.fill.role', 'cannot use emphasis as the base fill');
+		chart.items[0].highlights = [];
+		assertIssue(chart, 'chart.items.0.fill.role', 'reserved for choreography');
 	});
 
 	it('rejects missing, repeated, and unknown category values', () => {
@@ -337,5 +347,13 @@ describe('validateChartGroupSemantics', () => {
 		assertIssue(chart, 'chart.items.1.motion.entry.start', 'previous item exits');
 		second.motion = chartMotion(0.3);
 		assert.deepEqual(issuesFor(chart), []);
+	});
+	it('rejects charts on Surfaces that cannot composite analytic chart marks', () => {
+		const issues = validateChartGroupSemantics(singleChart(), [], 'checklist');
+		assert.ok(
+			issues.some(
+				(issue) => issue.path.join('.') === 'chart' && issue.message.includes('plain or paper')
+			)
+		);
 	});
 });

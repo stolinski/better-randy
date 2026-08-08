@@ -106,7 +106,10 @@ function validateMediaSemantics(preset: Preset, issues: PresetSemanticIssue[]): 
 		}
 
 		const previous = clips[index - 1];
-		if (previous && previous.timelineStartFrame + previous.durationFrames > clip.timelineStartFrame) {
+		if (
+			previous &&
+			previous.timelineStartFrame + previous.durationFrames > clip.timelineStartFrame
+		) {
 			issues.push({
 				path: ['state', 'media', 'videoTrack', 'clips', index, 'timelineStartFrame'],
 				message: `Video clips must be ordered and non-overlapping; "${clip.id}" starts before "${previous.id}" ends`
@@ -165,7 +168,8 @@ function validateSurfaceSemantics(preset: Preset, issues: PresetSemanticIssue[])
 
 	for (const issue of validateChartGroupSemantics(
 		preset.state.surface.chart,
-		preset.state.surface.diagram ?? []
+		preset.state.surface.diagram ?? [],
+		preset.state.surface.type
 	)) {
 		issues.push({
 			path: ['state', 'surface', ...issue.path],
