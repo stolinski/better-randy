@@ -1,0 +1,140 @@
+{
+	"schema": "supers@1",
+	"name": "Unit grid \u2014 U.S. plastic MSW destinations",
+	"description": "One hundred units show how the U.S. EPA estimated plastic in municipal solid waste was managed in 2018, with the recycled share isolated.",
+	"pack": "syntax",
+	"kind": "deliverable",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 10,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "pack",
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"chart": {
+				"mode": "single",
+				"items": [
+					{
+						"id": "plastic-msw-management-grid",
+						"type": "unit-grid-chart",
+						"title": "U.S. plastic in municipal waste, 2018",
+						"data": {
+							"categories": [
+								{
+									"id": "recycled",
+									"label": "Recycled"
+								},
+								{
+									"id": "energy-recovery",
+									"label": "Combustion with energy recovery"
+								},
+								{
+									"id": "landfilled",
+									"label": "Landfilled"
+								}
+							],
+							"series": [
+								{
+									"id": "plastic-msw",
+									"label": "Thousand U.S. tons",
+									"values": [
+										{
+											"categoryId": "recycled",
+											"value": 3090
+										},
+										{
+											"categoryId": "energy-recovery",
+											"value": 5620
+										},
+										{
+											"categoryId": "landfilled",
+											"value": 26970
+										}
+									]
+								}
+							]
+						},
+						"normalization": {
+							"total": 35680,
+							"unitCount": 100
+						},
+						"labels": {
+							"categories": true,
+							"values": true,
+							"legend": true
+						},
+						"highlights": [
+							{
+								"target": {
+									"kind": "datum",
+									"seriesId": "plastic-msw",
+									"categoryId": "recycled"
+								}
+							}
+						],
+						"callouts": [
+							{
+								"target": {
+									"kind": "datum",
+									"seriesId": "plastic-msw",
+									"categoryId": "recycled"
+								},
+								"valueLabel": {
+									"kind": "approximate-fraction-and-percent",
+									"maxDenominator": 20,
+									"precision": 1
+								}
+							}
+						],
+						"sourceNote": "Source: U.S. EPA, plastics in MSW, 2018 \u00b7 thousand U.S. tons",
+						"fill": {
+							"role": "series"
+						},
+						"motion": {
+							"entry": {
+								"start": 0.04,
+								"duration": 0.03333333333333333,
+								"ease": "smooth"
+							},
+							"reveal": {
+								"start": 0.12,
+								"duration": 0.24,
+								"ease": "smooth"
+							},
+							"emphasis": {
+								"start": 0.4,
+								"duration": 0.08,
+								"ease": "sharp"
+							},
+							"annotation": {
+								"start": 0.5,
+								"duration": 0.08,
+								"ease": "smooth"
+							},
+							"exit": {
+								"start": 0.9,
+								"duration": 0.02666666666666667,
+								"ease": "smooth"
+							}
+						}
+					}
+				]
+			}
+		},
+		"overlays": [],
+		"effects": []
+	}
+}

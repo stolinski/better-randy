@@ -16,6 +16,16 @@ function cloneManifest(manifest: PackManifest): PackManifest {
 	return structuredClone(manifest);
 }
 
+function resolvedFillAverageLuma(
+	treatment: ReturnType<typeof resolveChartMarkFillTreatment>
+): number {
+	const mix = treatment.mode === 'solid' ? 0 : 0.5;
+	const rgb = treatment.colorA
+		.slice(0, 3)
+		.map((channel, index) => channel * (1 - mix) + (treatment.colorB[index] ?? channel) * mix);
+	return (rgb[0] ?? 0) * 0.2126 + (rgb[1] ?? 0) * 0.7152 + (rgb[2] ?? 0) * 0.0722;
+}
+
 describe('resolveChartMarkFillTreatment', () => {
 	it('resolves every semantic role for every registered Pack', () => {
 		for (const [slug, manifest] of Object.entries(PACK_REGISTRY)) {
@@ -44,6 +54,20 @@ describe('resolveChartMarkFillTreatment', () => {
 			() => resolveChartMarkFillTreatment(PACK_REGISTRY.syntax, 'series', -1),
 			/seriesIndex/
 		);
+	});
+
+	it('keeps CRT semantic series voices separated after their rendered fill recipe', () => {
+		const lumas = [0, 1, 2, 3].map((seriesIndex) =>
+			resolvedFillAverageLuma(
+				resolveChartMarkFillTreatment(PACK_REGISTRY['crt-terminal'], 'series', seriesIndex)
+			)
+		);
+		for (let index = 1; index < lumas.length; index += 1) {
+			assert.ok(
+				Math.abs((lumas[index - 1] ?? 0) - (lumas[index] ?? 0)) >= 0.1,
+				`crt-terminal series voices ${index - 1}/${index}: ${lumas.join(', ')}`
+			);
+		}
 	});
 
 	it('keeps every highlight-capable base role distinct from emphasis in every Pack', () => {

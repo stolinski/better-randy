@@ -41,9 +41,11 @@ export const crtTerminalPack: PackManifest = {
 		// Final chart-specific colour Roles. Structural edge/depth/light
 		// dimensions intentionally land on the mandatory core fallback floor.
 		'chart.mark': { kind: 'style', value: '#d9ffe0' },
-		'chart.series-2': { kind: 'style', value: '#45ff6e' },
-		'chart.series-3': { kind: 'style', value: '#2fb352' },
-		'chart.series-4': { kind: 'style', value: '#1e8f3d' },
+		// Ordered-dither averages must stay separated after the tube signal model;
+		// the renderer contract test guards the four excitation steps.
+		'chart.series-2': { kind: 'style', value: '#35d65b' },
+		'chart.series-3': { kind: 'style', value: '#208c3b' },
+		'chart.series-4': { kind: 'style', value: '#0e4620' },
 		'chart.axis': { kind: 'style', value: '#45ff6e' },
 		'chart.grid': { kind: 'style', value: '#173d20' },
 		'chart.label': { kind: 'style', value: '#45ff6e' },
@@ -53,7 +55,7 @@ export const crtTerminalPack: PackManifest = {
 			value: {
 				seriesRoles: ['chart.mark', 'chart.series-2', 'chart.series-3', 'chart.series-4'],
 				default: { mode: 'ordered-dither', toRole: 'chart.grid', matrix: '8x8', cellPx: 6 },
-				series: { mode: 'ordered-dither', toRole: 'chart.axis', matrix: '4x4', cellPx: 6 },
+				series: { mode: 'ordered-dither', toRole: 'chart.grid', matrix: '4x4', cellPx: 6 },
 				emphasis: { mode: 'gradient', toRole: 'chart.axis', axis: 'block' }
 			}
 		},

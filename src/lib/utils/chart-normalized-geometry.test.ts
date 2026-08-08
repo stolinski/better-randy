@@ -70,6 +70,39 @@ function geometry(
 	};
 }
 
+function segmentIntersectsRectInterior(
+	from: { x: number; y: number },
+	to: { x: number; y: number },
+	rect: { x: number; y: number; width: number; height: number }
+): boolean {
+	const epsilon = 1e-6;
+	const dx = to.x - from.x;
+	const dy = to.y - from.y;
+	const p = [-dx, dx, -dy, dy];
+	const q = [
+		from.x - (rect.x + epsilon),
+		rect.x + rect.width - epsilon - from.x,
+		from.y - (rect.y + epsilon),
+		rect.y + rect.height - epsilon - from.y
+	];
+	let entry = 0;
+	let exit = 1;
+	for (let index = 0; index < p.length; index += 1) {
+		const direction = p[index];
+		const distance = q[index];
+		if (direction === undefined || distance === undefined) return false;
+		if (Math.abs(direction) < Number.EPSILON) {
+			if (distance < 0) return false;
+			continue;
+		}
+		const ratio = distance / direction;
+		if (direction < 0) entry = Math.max(entry, ratio);
+		else exit = Math.min(exit, ratio);
+		if (entry > exit) return false;
+	}
+	return entry < 1 && exit > 0;
+}
+
 describe('resolveChartNormalizedGeometry', () => {
 	it('produces stable bounded row-major geometry and exact category voices at both native targets', () => {
 		for (const orientation of ['horizontal', 'vertical'] as const) {
@@ -142,6 +175,48 @@ describe('resolveChartNormalizedGeometry', () => {
 					);
 				}
 			}
+		}
+	});
+
+	it('routes normalized callouts without crossing unrelated category marks', () => {
+		const block = unitGrid(100);
+		block.data.categories = [
+			{ id: 'recycled', label: 'Recycled' },
+			{ id: 'energy', label: 'Energy recovery' },
+			{ id: 'landfill', label: 'Landfilled' }
+		];
+		block.data.series[0].values = [
+			{ categoryId: 'recycled', value: 3090 },
+			{ categoryId: 'energy', value: 5620 },
+			{ categoryId: 'landfill', value: 26970 }
+		];
+		block.normalization = { total: 35680, unitCount: 100 };
+		block.highlights = [
+			{ target: { kind: 'datum', seriesId: 'respondents', categoryId: 'recycled' } }
+		];
+		block.callouts = [
+			{
+				target: { kind: 'datum', seriesId: 'respondents', categoryId: 'recycled' },
+				valueLabel: {
+					kind: 'approximate-fraction-and-percent',
+					maxDenominator: 20,
+					precision: 1
+				}
+			}
+		];
+		for (const orientation of ['horizontal', 'vertical'] as const) {
+			const result = geometry(block, orientation).geometry;
+			const annotation = result.annotations[0];
+			assert.ok(annotation);
+			assert.equal(
+				result.marks
+					.filter((mark) => mark.categoryId !== 'recycled')
+					.some((mark) =>
+						segmentIntersectsRectInterior(annotation.leaderFrom, annotation.leaderTo, mark.bounds)
+					),
+				false,
+				orientation
+			);
 		}
 	});
 

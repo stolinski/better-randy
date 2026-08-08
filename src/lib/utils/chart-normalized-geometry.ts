@@ -16,6 +16,7 @@ import {
 import type {
 	ChartFrameLayout,
 	ChartLayoutOverflow,
+	ChartPixelPoint,
 	ChartPixelRect,
 	ChartTextMeasurer
 } from './chart-layout';
@@ -57,6 +58,121 @@ export interface ChartNormalizedGeometry {
 
 const NORMALIZED_MARK_SIZE_FRACTION = 0.72;
 const NORMALIZED_MIN_MARK_SIZE = 8;
+
+interface ChartNormalizedLeaderCandidate {
+	point: ChartPixelPoint;
+	markId: string;
+	declarationIndex: number;
+}
+
+function segmentIntersectsRectInterior(
+	from: ChartPixelPoint,
+	to: ChartPixelPoint,
+	rect: ChartPixelRect
+): boolean {
+	const epsilon = 1e-6;
+	const dx = to.x - from.x;
+	const dy = to.y - from.y;
+	const p = [-dx, dx, -dy, dy];
+	const q = [
+		from.x - (rect.x + epsilon),
+		rect.x + rect.width - epsilon - from.x,
+		from.y - (rect.y + epsilon),
+		rect.y + rect.height - epsilon - from.y
+	];
+	let entry = 0;
+	let exit = 1;
+	for (let index = 0; index < p.length; index += 1) {
+		const direction = p[index];
+		const distance = q[index];
+		if (direction === undefined || distance === undefined) return false;
+		if (Math.abs(direction) < Number.EPSILON) {
+			if (distance < 0) return false;
+			continue;
+		}
+		const ratio = distance / direction;
+		if (direction < 0) entry = Math.max(entry, ratio);
+		else exit = Math.min(exit, ratio);
+		if (entry > exit) return false;
+	}
+	return entry < 1 && exit > 0;
+}
+
+function normalizedLeaderCandidates(
+	targetMarks: readonly ChartNormalizedMarkGeometry[]
+): ChartNormalizedLeaderCandidate[] {
+	return targetMarks.flatMap((mark) => {
+		const { x, y, width, height } = mark.bounds;
+		const right = x + width;
+		const bottom = y + height;
+		const points = [
+			{ x: right, y },
+			{ x: right, y: y + height / 2 },
+			{ x: right, y: bottom },
+			{ x: x + width / 2, y },
+			{ x: x + width / 2, y: bottom },
+			{ x, y },
+			{ x, y: y + height / 2 },
+			{ x, y: bottom }
+		];
+		return points.map((point, declarationIndex) => ({
+			point,
+			markId: mark.id,
+			declarationIndex: mark.unitIndex * points.length + declarationIndex
+		}));
+	});
+}
+
+// Normalized charts have no authored routing escape hatch. Search deterministic mark/box
+// perimeter pairs so a factual leader never claims a different category's marks.
+function annotationLeaderTargets(box: ChartPixelRect): ChartPixelPoint[] {
+	const right = box.x + box.width;
+	const bottom = box.y + box.height;
+	return [
+		{ x: box.x, y: box.y },
+		{ x: box.x + box.width / 2, y: box.y },
+		{ x: right, y: box.y },
+		{ x: right, y: box.y + box.height / 2 },
+		{ x: right, y: bottom },
+		{ x: box.x + box.width / 2, y: bottom },
+		{ x: box.x, y: bottom },
+		{ x: box.x, y: box.y + box.height / 2 }
+	];
+}
+
+function routeNormalizedAnnotationLeader(
+	annotation: ChartEditorialAnnotationLayout,
+	targetMarks: readonly ChartNormalizedMarkGeometry[],
+	allMarks: readonly ChartNormalizedMarkGeometry[]
+): ChartEditorialAnnotationLayout | null {
+	const targetMarkIds = new Set(targetMarks.map((mark) => mark.id));
+	const nonTargetMarks = allMarks.filter((mark) => !targetMarkIds.has(mark.id));
+	const leaderTargets = annotationLeaderTargets(annotation.box);
+	const candidates = normalizedLeaderCandidates(targetMarks)
+		.flatMap((candidate) =>
+			leaderTargets.map((leaderTo, targetIndex) => ({
+				...candidate,
+				leaderTo,
+				targetIndex,
+				distanceSquared:
+					(candidate.point.x - leaderTo.x) ** 2 + (candidate.point.y - leaderTo.y) ** 2
+			}))
+		)
+		.sort(
+			(a, b) =>
+				a.distanceSquared - b.distanceSquared ||
+				a.declarationIndex - b.declarationIndex ||
+				a.targetIndex - b.targetIndex
+		);
+	const selected = candidates.find((candidate) =>
+		nonTargetMarks.every(
+			(mark) => !segmentIntersectsRectInterior(candidate.point, candidate.leaderTo, mark.bounds)
+		)
+	);
+	return selected
+		? { ...annotation, leaderFrom: selected.point, leaderTo: selected.leaderTo }
+		: null;
+}
 
 function resolveNormalizedGrid(
 	bounds: ChartPixelRect,
@@ -219,12 +335,21 @@ export function resolveChartNormalizedGeometry(input: {
 			itemId: block.id
 		});
 	}
+	const annotationTargetMarks = new Map<string, readonly ChartNormalizedMarkGeometry[]>();
 	const annotationInputs = (block.callouts ?? []).map((callout, declarationIndex) => {
+		const id = `${block.id}:callout:${declarationIndex}`;
 		const resolved = resolveChartDataTarget(block, callout.target);
 		const targetGeometry = resolveChartTargetGeometry(resolved, datumGeometry);
+		const targetIdentities = new Set(
+			resolved.data.map((identity) => `${identity.seriesId}:${identity.categoryId}`)
+		);
+		annotationTargetMarks.set(
+			id,
+			marks.filter((mark) => targetIdentities.has(`${mark.seriesId}:${mark.categoryId}`))
+		);
 		const text = formatChartValueLabel(resolved, callout.valueLabel);
 		return {
-			id: `${block.id}:callout:${declarationIndex}`,
+			id,
 			declarationIndex,
 			anchor: targetGeometry.anchor,
 			text,
@@ -251,14 +376,27 @@ export function resolveChartNormalizedGeometry(input: {
 					occupied: [...marks.map((mark) => mark.bounds), ...readableChrome],
 					orientation
 				});
+	const annotationRoutingOverflow: ChartLayoutOverflow[] = [];
+	const annotations = annotationPlacement.layouts.flatMap((annotation) => {
+		const targetMarks = annotationTargetMarks.get(annotation.id) ?? [];
+		if (targetMarks.length === 0) return [annotation];
+		const routed = routeNormalizedAnnotationLeader(annotation, targetMarks, marks);
+		if (routed) return [routed];
+		annotationRoutingOverflow.push({
+			code: 'annotation-no-space',
+			message: `Chart annotation "${annotation.id}" has no mark-safe leader route.`,
+			itemId: block.id
+		});
+		return [];
+	});
 	return {
 		allocations,
 		marks,
 		datumGeometry,
 		legendSwatches,
 		valueLabels: [],
-		annotations: annotationPlacement.layouts,
-		overflow: [...overflow, ...annotationPlacement.overflow],
+		annotations,
+		overflow: [...overflow, ...annotationPlacement.overflow, ...annotationRoutingOverflow],
 		allocationSignature: allocation.allocationSignature,
 		grid: {
 			columns: grid.columns,
