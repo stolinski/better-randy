@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import { describe, expect, it } from 'vitest';
 import type { ChartResolvedDataTarget } from './chart-data-target';
 import {
+	chartAnnotationLeaderSvgPath,
 	formatChartValueLabel,
-	placeChartEditorialAnnotations
+	placeChartEditorialAnnotations,
+	routeChartAnnotationLeader
 } from './chart-editorial-annotation';
 
 function resolved(value = 744, seriesTotal = 1104): ChartResolvedDataTarget {
@@ -97,6 +99,30 @@ describe('formatChartValueLabel', () => {
 	});
 });
 
+describe('chart annotation leader routing', () => {
+	it('replaces an arbitrary diagonal with one orthogonal elbow into an edge midpoint', () => {
+		const route = routeChartAnnotationLeader(
+			{ x: 500, y: 500 },
+			{ x: 700, y: 200, width: 100, height: 80 }
+		);
+		assert.deepEqual(route, {
+			leaderFrom: { x: 500, y: 500 },
+			leaderWaypoints: [{ x: 500, y: 240 }],
+			leaderTo: { x: 700, y: 240 }
+		});
+		assert.equal(chartAnnotationLeaderSvgPath(route), 'M 500 500 L 500 240 L 700 240');
+	});
+
+	it('omits a redundant elbow when the datum already aligns with the edge midpoint', () => {
+		const route = routeChartAnnotationLeader(
+			{ x: 500, y: 500 },
+			{ x: 450, y: 300, width: 100, height: 100 }
+		);
+		assert.deepEqual(route.leaderWaypoints, []);
+		assert.equal(chartAnnotationLeaderSvgPath(route), 'M 500 500 L 500 400');
+	});
+});
+
 describe('placeChartEditorialAnnotations', () => {
 	it('uses the fixed local candidate order and produces deterministic leaders', () => {
 		const input = {
@@ -118,6 +144,8 @@ describe('placeChartEditorialAnnotations', () => {
 		assert.deepEqual(first, placeChartEditorialAnnotations(input));
 		assert.equal(first.layouts[0].lane, 'local-above');
 		assert.deepEqual(first.layouts[0].leaderFrom, { x: 500, y: 500 });
+		assert.deepEqual(first.layouts[0].leaderWaypoints, []);
+		assert.deepEqual(first.layouts[0].leaderTo, { x: 500, y: 476 });
 		assert.equal(first.overflow.length, 0);
 	});
 

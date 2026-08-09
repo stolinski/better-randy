@@ -8,6 +8,7 @@
 	import { engineState, packState } from '$lib/platform/engine-state.svelte';
 	import { getPack } from '$lib/platform/packs/registry';
 	import { resolveChartChromeColors, resolveFontTreatment } from '$lib/platform/packs/resolve';
+	import { chartAnnotationLeaderSvgPath } from '$lib/utils/chart-editorial-annotation';
 	import { resolveChartBarColumnGeometry } from '$lib/utils/chart-bar-column-geometry';
 	import { resolveChartFrameLayout, type ChartMeasuredTextLayout } from '$lib/utils/chart-layout';
 	import { formatChartCounterValue, resolveChartMotionState } from '$lib/utils/chart-motion';
@@ -242,8 +243,18 @@
 			{#each geometry.annotations as annotation (annotation.id)}
 				<path
 					data-chart-callout-leader={annotation.id}
-					d={`M ${annotation.leaderFrom.x} ${annotation.leaderFrom.y} L ${annotation.leaderTo.x} ${annotation.leaderTo.y}`}
-					stroke-width="4"
+					d={chartAnnotationLeaderSvgPath(annotation)}
+					stroke-width="6"
+					stroke-linecap="square"
+					stroke-linejoin="miter"
+				/>
+				<circle
+					data-chart-callout-terminal={annotation.id}
+					cx={annotation.leaderFrom.x}
+					cy={annotation.leaderFrom.y}
+					r="9"
+					fill={chrome.annotation}
+					stroke="none"
 				/>
 				<rect
 					x={annotation.box.x}

@@ -11,6 +11,7 @@ import {
 import {
 	formatChartValueLabel,
 	placeChartEditorialAnnotations,
+	routeChartAnnotationLeader,
 	type ChartEditorialAnnotationLayout
 } from './chart-editorial-annotation';
 import type {
@@ -99,79 +100,176 @@ function segmentIntersectsRectInterior(
 }
 
 function normalizedLeaderCandidates(
-	targetMarks: readonly ChartNormalizedMarkGeometry[]
+	targetMarks: readonly ChartNormalizedMarkGeometry[],
+	box: ChartPixelRect
 ): ChartNormalizedLeaderCandidate[] {
-	return targetMarks.flatMap((mark) => {
-		const { x, y, width, height } = mark.bounds;
-		const right = x + width;
-		const bottom = y + height;
-		const points = [
-			{ x: right, y },
-			{ x: right, y: y + height / 2 },
-			{ x: right, y: bottom },
-			{ x: x + width / 2, y },
-			{ x: x + width / 2, y: bottom },
-			{ x, y },
-			{ x, y: y + height / 2 },
-			{ x, y: bottom }
-		];
-		return points.map((point, declarationIndex) => ({
-			point,
-			markId: mark.id,
-			declarationIndex: mark.unitIndex * points.length + declarationIndex
-		}));
-	});
+	const boxCenter = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+	return targetMarks
+		.flatMap((mark) => {
+			const { x, y, width, height } = mark.bounds;
+			const right = x + width;
+			const bottom = y + height;
+			const points = [
+				{ x: right, y },
+				{ x: right, y: y + height / 2 },
+				{ x: right, y: bottom },
+				{ x: x + width / 2, y },
+				{ x: x + width / 2, y: bottom },
+				{ x, y },
+				{ x, y: y + height / 2 },
+				{ x, y: bottom }
+			];
+			return points.map((point, declarationIndex) => ({
+				point,
+				markId: mark.id,
+				declarationIndex: mark.unitIndex * points.length + declarationIndex
+			}));
+		})
+		.sort((a, b) => {
+			const aDistance = (a.point.x - boxCenter.x) ** 2 + (a.point.y - boxCenter.y) ** 2;
+			const bDistance = (b.point.x - boxCenter.x) ** 2 + (b.point.y - boxCenter.y) ** 2;
+			return aDistance - bDistance || a.declarationIndex - b.declarationIndex;
+		})
+		.slice(0, 64);
 }
 
-// Normalized charts have no authored routing escape hatch. Search deterministic mark/box
-// perimeter pairs so a factual leader never claims a different category's marks.
-function annotationLeaderTargets(box: ChartPixelRect): ChartPixelPoint[] {
-	const right = box.x + box.width;
-	const bottom = box.y + box.height;
-	return [
-		{ x: box.x, y: box.y },
-		{ x: box.x + box.width / 2, y: box.y },
-		{ x: right, y: box.y },
-		{ x: right, y: box.y + box.height / 2 },
-		{ x: right, y: bottom },
-		{ x: box.x + box.width / 2, y: bottom },
-		{ x: box.x, y: bottom },
-		{ x: box.x, y: box.y + box.height / 2 }
+// Normalized charts have no authored routing escape hatch. Search deterministic mark
+// perimeter starts, then route an orthogonal leader to a box-edge midpoint. Dense fields
+// may need one clean dogleg corridor to avoid claiming a different category's marks.
+function normalizedOrthogonalLeaderRoutes(
+	leaderFrom: ChartPixelPoint,
+	box: ChartPixelRect,
+	allMarks: readonly ChartNormalizedMarkGeometry[]
+) {
+	const direct = routeChartAnnotationLeader(leaderFrom, box);
+	const routeGutter = 24;
+	const horizontalCorridors = [
+		...new Set([
+			box.y - routeGutter,
+			box.y + box.height + routeGutter,
+			...allMarks.flatMap((mark) => [
+				mark.bounds.y - routeGutter,
+				mark.bounds.y + mark.bounds.height + routeGutter
+			])
+		])
 	];
+	const verticalCorridors = [
+		...new Set([
+			box.x - routeGutter,
+			box.x + box.width + routeGutter,
+			...allMarks.flatMap((mark) => [
+				mark.bounds.x - routeGutter,
+				mark.bounds.x + mark.bounds.width + routeGutter
+			])
+		])
+	];
+	const routes = [direct];
+	for (const corridorY of horizontalCorridors) {
+		const leaderTo =
+			corridorY <= box.y
+				? { x: box.x + box.width / 2, y: box.y }
+				: corridorY >= box.y + box.height
+					? { x: box.x + box.width / 2, y: box.y + box.height }
+					: null;
+		if (!leaderTo) continue;
+		routes.push({
+			leaderFrom,
+			leaderWaypoints: [
+				{ x: leaderFrom.x, y: corridorY },
+				{ x: leaderTo.x, y: corridorY }
+			].filter(
+				(point, index, points) =>
+					(index === 0
+						? point.x !== leaderFrom.x || point.y !== leaderFrom.y
+						: point.x !== points[index - 1]?.x || point.y !== points[index - 1]?.y) &&
+					(point.x !== leaderTo.x || point.y !== leaderTo.y)
+			),
+			leaderTo
+		});
+	}
+	for (const corridorX of verticalCorridors) {
+		const leaderTo =
+			corridorX <= box.x
+				? { x: box.x, y: box.y + box.height / 2 }
+				: corridorX >= box.x + box.width
+					? { x: box.x + box.width, y: box.y + box.height / 2 }
+					: null;
+		if (!leaderTo) continue;
+		routes.push({
+			leaderFrom,
+			leaderWaypoints: [
+				{ x: corridorX, y: leaderFrom.y },
+				{ x: corridorX, y: leaderTo.y }
+			].filter(
+				(point, index, points) =>
+					(index === 0
+						? point.x !== leaderFrom.x || point.y !== leaderFrom.y
+						: point.x !== points[index - 1]?.x || point.y !== points[index - 1]?.y) &&
+					(point.x !== leaderTo.x || point.y !== leaderTo.y)
+			),
+			leaderTo
+		});
+	}
+	return routes;
 }
 
 function routeNormalizedAnnotationLeader(
 	annotation: ChartEditorialAnnotationLayout,
 	targetMarks: readonly ChartNormalizedMarkGeometry[],
-	allMarks: readonly ChartNormalizedMarkGeometry[]
+	allMarks: readonly ChartNormalizedMarkGeometry[],
+	safeBounds: ChartPixelRect,
+	calloutBoxes: readonly ChartPixelRect[]
 ): ChartEditorialAnnotationLayout | null {
 	const targetMarkIds = new Set(targetMarks.map((mark) => mark.id));
 	const nonTargetMarks = allMarks.filter((mark) => !targetMarkIds.has(mark.id));
-	const leaderTargets = annotationLeaderTargets(annotation.box);
-	const candidates = normalizedLeaderCandidates(targetMarks)
+	const candidates = normalizedLeaderCandidates(targetMarks, annotation.box)
 		.flatMap((candidate) =>
-			leaderTargets.map((leaderTo, targetIndex) => ({
-				...candidate,
-				leaderTo,
-				targetIndex,
-				distanceSquared:
-					(candidate.point.x - leaderTo.x) ** 2 + (candidate.point.y - leaderTo.y) ** 2
-			}))
+			normalizedOrthogonalLeaderRoutes(candidate.point, annotation.box, allMarks).map(
+				(route, routeIndex) => {
+					const points = [route.leaderFrom, ...route.leaderWaypoints, route.leaderTo];
+					const distance = points.slice(1).reduce((total, point, index) => {
+						const previous = points[index];
+						return previous
+							? total + Math.abs(point.x - previous.x) + Math.abs(point.y - previous.y)
+							: total;
+					}, 0);
+					return { ...candidate, route, routeIndex, points, distance };
+				}
+			)
 		)
 		.sort(
 			(a, b) =>
-				a.distanceSquared - b.distanceSquared ||
+				a.distance - b.distance ||
+				a.route.leaderWaypoints.length - b.route.leaderWaypoints.length ||
 				a.declarationIndex - b.declarationIndex ||
-				a.targetIndex - b.targetIndex
+				a.routeIndex - b.routeIndex
 		);
-	const selected = candidates.find((candidate) =>
-		nonTargetMarks.every(
-			(mark) => !segmentIntersectsRectInterior(candidate.point, candidate.leaderTo, mark.bounds)
-		)
-	);
-	return selected
-		? { ...annotation, leaderFrom: selected.point, leaderTo: selected.leaderTo }
-		: null;
+	const leaderClearance = 18;
+	const selected = candidates.find((candidate) => {
+		const withinSafeBounds = candidate.points.every(
+			(point) =>
+				point.x >= safeBounds.x &&
+				point.x <= safeBounds.x + safeBounds.width &&
+				point.y >= safeBounds.y &&
+				point.y <= safeBounds.y + safeBounds.height
+		);
+		if (!withinSafeBounds) return false;
+		const segmentsAvoid = (rect: ChartPixelRect): boolean =>
+			candidate.points.slice(1).every((point, index) => {
+				const previous = candidate.points[index];
+				return previous ? !segmentIntersectsRectInterior(previous, point, rect) : true;
+			});
+		if (!calloutBoxes.every(segmentsAvoid)) return false;
+		return nonTargetMarks.every((mark) =>
+			segmentsAvoid({
+				x: mark.bounds.x - leaderClearance,
+				y: mark.bounds.y - leaderClearance,
+				width: mark.bounds.width + leaderClearance * 2,
+				height: mark.bounds.height + leaderClearance * 2
+			})
+		);
+	});
+	return selected ? { ...annotation, ...selected.route } : null;
 }
 
 function resolveNormalizedGrid(
@@ -380,7 +478,13 @@ export function resolveChartNormalizedGeometry(input: {
 	const annotations = annotationPlacement.layouts.flatMap((annotation) => {
 		const targetMarks = annotationTargetMarks.get(annotation.id) ?? [];
 		if (targetMarks.length === 0) return [annotation];
-		const routed = routeNormalizedAnnotationLeader(annotation, targetMarks, marks);
+		const routed = routeNormalizedAnnotationLeader(
+			annotation,
+			targetMarks,
+			marks,
+			layout.safeBounds,
+			annotationPlacement.layouts.map((layout) => layout.box)
+		);
 		if (routed) return [routed];
 		annotationRoutingOverflow.push({
 			code: 'annotation-no-space',

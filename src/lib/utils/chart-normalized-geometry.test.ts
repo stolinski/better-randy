@@ -205,18 +205,96 @@ describe('resolveChartNormalizedGeometry', () => {
 			}
 		];
 		for (const orientation of ['horizontal', 'vertical'] as const) {
-			const result = geometry(block, orientation).geometry;
+			const resolvedGeometry = geometry(block, orientation);
+			const result = resolvedGeometry.geometry;
 			const annotation = result.annotations[0];
 			assert.ok(annotation);
+			const leaderPoints = [
+				annotation.leaderFrom,
+				...annotation.leaderWaypoints,
+				annotation.leaderTo
+			];
+			assert.equal(
+				leaderPoints.slice(1).every((point, index) => {
+					const previous = leaderPoints[index];
+					return previous ? point.x === previous.x || point.y === previous.y : false;
+				}),
+				true,
+				`${orientation} leader segments are orthogonal`
+			);
 			assert.equal(
 				result.marks
 					.filter((mark) => mark.categoryId !== 'recycled')
 					.some((mark) =>
-						segmentIntersectsRectInterior(annotation.leaderFrom, annotation.leaderTo, mark.bounds)
+						leaderPoints.slice(1).some((point, index) => {
+							const previous = leaderPoints[index];
+							const clearance = 18;
+							return previous
+								? segmentIntersectsRectInterior(previous, point, {
+										x: mark.bounds.x - clearance,
+										y: mark.bounds.y - clearance,
+										width: mark.bounds.width + clearance * 2,
+										height: mark.bounds.height + clearance * 2
+									})
+								: false;
+						})
 					),
 				false,
 				orientation
 			);
+			assert.equal(
+				leaderPoints.every(
+					(point) =>
+						point.x >= resolvedGeometry.layout.safeBounds.x &&
+						point.x <=
+							resolvedGeometry.layout.safeBounds.x + resolvedGeometry.layout.safeBounds.width &&
+						point.y >= resolvedGeometry.layout.safeBounds.y &&
+						point.y <=
+							resolvedGeometry.layout.safeBounds.y + resolvedGeometry.layout.safeBounds.height
+				),
+				true,
+				`${orientation} leader stays inside safe bounds`
+			);
+			const { box, leaderTo } = annotation;
+			const attachesAtVerticalMidpoint =
+				(leaderTo.x === box.x || leaderTo.x === box.x + box.width) &&
+				leaderTo.y === box.y + box.height / 2;
+			const attachesAtHorizontalMidpoint =
+				(leaderTo.y === box.y || leaderTo.y === box.y + box.height) &&
+				leaderTo.x === box.x + box.width / 2;
+			assert.equal(attachesAtVerticalMidpoint || attachesAtHorizontalMidpoint, true, orientation);
+		}
+	});
+
+	it('keeps multiple callout routes out of every callout box interior', () => {
+		const block = unitGrid(100);
+		block.callouts = [
+			{
+				target: { kind: 'datum', seriesId: 'respondents', categoryId: 'multiple' },
+				valueLabel: { kind: 'percent-of-series-total', precision: 1 }
+			},
+			{
+				target: { kind: 'datum', seriesId: 'respondents', categoryId: 'one' },
+				valueLabel: { kind: 'percent-of-series-total', precision: 1 }
+			}
+		];
+		for (const orientation of ['horizontal', 'vertical'] as const) {
+			const result = geometry(block, orientation).geometry;
+			assert.equal(result.annotations.length, 2, orientation);
+			assert.deepEqual(result.overflow, [], orientation);
+			for (const annotation of result.annotations) {
+				const points = [annotation.leaderFrom, ...annotation.leaderWaypoints, annotation.leaderTo];
+				for (const box of result.annotations.map((candidate) => candidate.box)) {
+					assert.equal(
+						points.slice(1).some((point, index) => {
+							const previous = points[index];
+							return previous ? segmentIntersectsRectInterior(previous, point, box) : false;
+						}),
+						false,
+						orientation
+					);
+				}
+			}
 		}
 	});
 

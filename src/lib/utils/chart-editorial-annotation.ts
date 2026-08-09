@@ -22,6 +22,7 @@ export interface ChartEditorialAnnotationLayout {
 	text: string;
 	box: ChartPixelRect;
 	leaderFrom: ChartPixelPoint;
+	leaderWaypoints: readonly ChartPixelPoint[];
 	leaderTo: ChartPixelPoint;
 	lane: ChartAnnotationLane;
 }
@@ -156,11 +157,49 @@ function containedBy(inner: ChartPixelRect, outer: ChartPixelRect): boolean {
 	);
 }
 
-function nearestBoxPoint(anchor: ChartPixelPoint, box: ChartPixelRect): ChartPixelPoint {
-	return {
-		x: Math.max(box.x, Math.min(anchor.x, box.x + box.width)),
-		y: Math.max(box.y, Math.min(anchor.y, box.y + box.height))
-	};
+interface ChartAnnotationLeaderRoute {
+	leaderFrom: ChartPixelPoint;
+	leaderWaypoints: readonly ChartPixelPoint[];
+	leaderTo: ChartPixelPoint;
+}
+
+// Callout leaders attach at an edge midpoint and enter perpendicular to the box.
+// This avoids arbitrary shallow diagonals that read as accidental in editorial graphics.
+export function routeChartAnnotationLeader(
+	leaderFrom: ChartPixelPoint,
+	box: ChartPixelRect
+): ChartAnnotationLeaderRoute {
+	const edges = [
+		{ target: { x: box.x, y: box.y + box.height / 2 }, axis: 'horizontal' as const },
+		{ target: { x: box.x + box.width, y: box.y + box.height / 2 }, axis: 'horizontal' as const },
+		{ target: { x: box.x + box.width / 2, y: box.y }, axis: 'vertical' as const },
+		{ target: { x: box.x + box.width / 2, y: box.y + box.height }, axis: 'vertical' as const }
+	].map((edge, declarationIndex) => ({
+		...edge,
+		declarationIndex,
+		distanceSquared: (leaderFrom.x - edge.target.x) ** 2 + (leaderFrom.y - edge.target.y) ** 2
+	}));
+	const selected = edges.sort(
+		(a, b) => a.distanceSquared - b.distanceSquared || a.declarationIndex - b.declarationIndex
+	)[0];
+	if (!selected) throw new Error('Chart annotation leader requires a box edge.');
+	const bend =
+		selected.axis === 'horizontal'
+			? { x: leaderFrom.x, y: selected.target.y }
+			: { x: selected.target.x, y: leaderFrom.y };
+	const leaderWaypoints =
+		(bend.x === leaderFrom.x && bend.y === leaderFrom.y) ||
+		(bend.x === selected.target.x && bend.y === selected.target.y)
+			? []
+			: [bend];
+	return { leaderFrom, leaderWaypoints, leaderTo: selected.target };
+}
+
+export function chartAnnotationLeaderSvgPath(
+	annotation: Pick<ChartEditorialAnnotationLayout, 'leaderFrom' | 'leaderWaypoints' | 'leaderTo'>
+): string {
+	const waypoints = annotation.leaderWaypoints.map((point) => ` L ${point.x} ${point.y}`).join('');
+	return `M ${annotation.leaderFrom.x} ${annotation.leaderFrom.y}${waypoints} L ${annotation.leaderTo.x} ${annotation.leaderTo.y}`;
 }
 
 function localCandidates(
@@ -325,13 +364,12 @@ export function placeChartEditorialAnnotations(input: {
 			});
 			continue;
 		}
-		const leaderTo = nearestBoxPoint(annotation.anchor, selected.box);
+		const leader = routeChartAnnotationLeader(annotation.anchor, selected.box);
 		layouts.push({
 			id: annotation.id,
 			text: annotation.text,
 			box: selected.box,
-			leaderFrom: annotation.anchor,
-			leaderTo,
+			...leader,
 			lane: selected.lane
 		});
 		occupied.push(selected.box);
