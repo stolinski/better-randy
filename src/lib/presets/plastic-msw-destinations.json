@@ -30,7 +30,7 @@
 					{
 						"id": "plastic-msw-management-grid",
 						"type": "unit-grid-chart",
-						"title": "U.S. plastic in municipal waste, 2018",
+						"title": "U.S. plastic MSW, 2018",
 						"data": {
 							"categories": [
 								{
@@ -99,7 +99,7 @@
 								}
 							}
 						],
-						"sourceNote": "Source: U.S. EPA, plastics in MSW, 2018 \u00b7 thousand U.S. tons",
+						"sourceNote": "Source: U.S. EPA \u00b7 plastics in MSW, 2018",
 						"fill": {
 							"role": "series"
 						},

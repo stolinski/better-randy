@@ -7,6 +7,8 @@ import { listFixtures, listPresets, parsePreset } from '../platform/preset';
 import { presetToWireFormat } from '../platform/preset-pure';
 import { validatePresetSemantics } from '../platform/preset-validation';
 import { resolveChartDataTarget } from '../utils/chart-data-target';
+import { resolveChartFrameLayout } from '../utils/chart-layout';
+import { createChartRenderTextMeasurer } from '../utils/chart-text-measurement';
 
 const preset = PresetSchema.parse(presetJson);
 const chart = preset.state.surface.chart;
@@ -72,6 +74,16 @@ describe('U.S. population column-chart Preset', () => {
 				(block.motion.annotation.start + block.motion.annotation.duration) >=
 				0.22
 		);
+	});
+
+	it('fits its compact title at the enlarged native portrait typography floor', () => {
+		const layout = resolveChartFrameLayout({
+			block,
+			orientation: 'vertical',
+			measureText: createChartRenderTextMeasurer('vertical')
+		});
+		assert.equal(block.title, 'U.S. population grew 2.2×');
+		assert.deepEqual(layout.overflow, []);
 	});
 
 	it('round-trips through the same strict model used by agents and the GUI', () => {

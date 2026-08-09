@@ -150,12 +150,13 @@ function chartValues(block: ChartBlock): readonly { seriesId: string; datum: Cha
 export function resolveChartSafeBounds(orientation: VideoOrientation): ChartPixelRect {
 	const frame = getVideoFrameSize(orientation);
 	const safe = getLayoutSafeArea(orientation);
-	const x = frame.width * safe.left;
+	const titleSafeX = frame.width * safe.left;
 	const y = frame.height * safe.top;
+	const inlineGlyphBearingGutter = 4;
 	return {
-		x,
+		x: titleSafeX + inlineGlyphBearingGutter,
 		y,
-		width: frame.width - x - frame.width * safe.right,
+		width: frame.width - titleSafeX - frame.width * safe.right - inlineGlyphBearingGutter * 2,
 		height: frame.height - y - frame.height * safe.bottom
 	};
 }

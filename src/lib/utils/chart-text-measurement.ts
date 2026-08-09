@@ -27,7 +27,7 @@ const HORIZONTAL_CHART_TEXT_ROLE_STYLES: Readonly<Record<ChartTextRole, ChartTex
 const VERTICAL_CHART_TEXT_ROLE_STYLES: Readonly<Record<ChartTextRole, ChartTextRoleStyle>> = {
 	title: { fontSize: 112, fontWeight: 760, letterSpacing: -1.4, lineHeight: 1.04 },
 	axis: { fontSize: 48, fontWeight: 560, letterSpacing: 0, lineHeight: 1.15 },
-	category: { fontSize: 52, fontWeight: 650, letterSpacing: -0.2, lineHeight: 1.1 },
+	category: { fontSize: 48, fontWeight: 650, letterSpacing: -0.2, lineHeight: 1.1 },
 	value: { fontSize: 52, fontWeight: 720, letterSpacing: 0.2, lineHeight: 1.05 },
 	legend: { fontSize: 48, fontWeight: 620, letterSpacing: 0, lineHeight: 1.1 },
 	source: { fontSize: 48, fontWeight: 480, letterSpacing: 0.2, lineHeight: 1.15 },

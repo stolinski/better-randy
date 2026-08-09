@@ -7,6 +7,8 @@ import { listFixtures, listPresets, parsePreset } from '../platform/preset';
 import { presetToWireFormat } from '../platform/preset-pure';
 import { validatePresetSemantics } from '../platform/preset-validation';
 import { resolveChartDataTarget } from '../utils/chart-data-target';
+import { resolveChartFrameLayout } from '../utils/chart-layout';
+import { createChartRenderTextMeasurer } from '../utils/chart-text-measurement';
 import { formatChartValueLabel } from '../utils/chart-editorial-annotation';
 import { allocateChartNormalizedUnits } from '../utils/chart-normalized-allocation';
 
@@ -75,6 +77,16 @@ describe('U.S. plastic MSW unit-grid Preset', () => {
 				(block.motion.annotation.start + block.motion.annotation.duration) >=
 				0.32
 		);
+	});
+
+	it('fits its compact title at the enlarged native portrait typography floor', () => {
+		const layout = resolveChartFrameLayout({
+			block,
+			orientation: 'vertical',
+			measureText: createChartRenderTextMeasurer('vertical')
+		});
+		assert.equal(block.title, 'U.S. plastic MSW, 2018');
+		assert.deepEqual(layout.overflow, []);
 	});
 
 	it('round-trips through the same strict model used by agents and the GUI', () => {

@@ -30,7 +30,7 @@
 					{
 						"id": "us-population-columns",
 						"type": "column-chart",
-						"title": "U.S. population more than doubled",
+						"title": "U.S. population grew 2.2\u00d7",
 						"data": {
 							"categories": [
 								{
@@ -147,7 +147,7 @@
 								}
 							}
 						],
-						"sourceNote": "Source: U.S. Census Bureau \u00b7 decennial census counts",
+						"sourceNote": "Source: U.S. Census Bureau \u00b7 1950\u20132020",
 						"fill": {
 							"role": "default"
 						},

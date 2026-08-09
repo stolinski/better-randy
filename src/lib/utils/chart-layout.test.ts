@@ -77,15 +77,15 @@ function inside(
 describe('resolveChartSafeBounds', () => {
 	it('uses native target sizes and the shared platform safe-area policy', () => {
 		assert.deepEqual(resolveChartSafeBounds('horizontal'), {
-			x: 192,
+			x: 196,
 			y: 108,
-			width: 3456,
+			width: 3448,
 			height: 1944
 		});
 		const vertical = resolveChartSafeBounds('vertical');
-		assert.equal(vertical.x, 108);
+		assert.equal(vertical.x, 112);
 		assert.ok(Math.abs(vertical.y - 230.4) < 1e-9);
-		assert.ok(Math.abs(vertical.width - 1857.6) < 1e-9);
+		assert.ok(Math.abs(vertical.width - 1849.6) < 1e-9);
 		assert.ok(Math.abs(vertical.height - 2995.2) < 1e-9);
 	});
 });

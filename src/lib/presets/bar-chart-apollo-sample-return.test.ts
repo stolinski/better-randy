@@ -7,6 +7,8 @@ import { listFixtures, listPresets, parsePreset } from '../platform/preset';
 import { presetToWireFormat } from '../platform/preset-pure';
 import { validatePresetSemantics } from '../platform/preset-validation';
 import { resolveChartDataTarget } from '../utils/chart-data-target';
+import { resolveChartFrameLayout } from '../utils/chart-layout';
+import { createChartRenderTextMeasurer } from '../utils/chart-text-measurement';
 
 const preset = PresetSchema.parse(presetJson);
 const chart = preset.state.surface.chart;
@@ -68,6 +70,16 @@ describe('Apollo sample return bar-chart Preset', () => {
 				(block.motion.annotation.start + block.motion.annotation.duration) >=
 				0.28
 		);
+	});
+
+	it('fits its compact title at the enlarged native portrait typography floor', () => {
+		const layout = resolveChartFrameLayout({
+			block,
+			orientation: 'vertical',
+			measureText: createChartRenderTextMeasurer('vertical')
+		});
+		assert.equal(block.title, 'Apollo 17 sample: 5.1× Apollo 11');
+		assert.deepEqual(layout.overflow, []);
 	});
 
 	it('round-trips through the same strict model used by agents and the GUI', () => {
