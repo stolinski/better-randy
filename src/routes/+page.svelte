@@ -42,9 +42,9 @@
 	const presets = listPresets();
 	const fixtures = listFixtures();
 
-	// Content families that cut across the generic `plain` surface — grouping by
-	// surface type alone would leave a 25-card run under one heading. Matched by
-	// slug prefix; anything unmatched falls back to its surface-type label.
+	// Content families cut across the generic `plain` Surface. Charts are a semantic
+	// Block-domain family, so group every chart declaration together without slug heuristics;
+	// legacy content families still use prefixes before falling back to Surface type.
 	const TEMPLATE_FAMILIES: readonly { label: string; prefixes: readonly string[] }[] = [
 		{ label: 'Captions', prefixes: ['captions-'] },
 		{ label: 'Flowcharts', prefixes: ['docu-flowchart', 'wake-conversation-flow'] },
@@ -54,6 +54,7 @@
 	];
 
 	function templateGroupLabel(entry: CataloguedPreset): string {
+		if (entry.preset.state.surface.chart) return 'Charts';
 		const family = TEMPLATE_FAMILIES.find((candidate) =>
 			candidate.prefixes.some((prefix) => entry.slug.startsWith(prefix))
 		);
