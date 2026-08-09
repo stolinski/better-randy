@@ -24,6 +24,30 @@ Org/project auto-detect from the DSN in `.env` — run the CLI from the repo roo
 
 After driving the app (captures, exports, Critic runs), check `sentry issue list --query "is:unresolved"` before calling the work verified — a flow that "looked fine" but threw upstream shows up there.
 
+## Factory issue intake
+
+The first self-healing Factory slice is deliberately read-only. The
+`supers-sentry-issue-intake` Swamp model collects bounded unresolved issue
+metadata into immutable `snapshot` and `reconciliation` resources:
+
+```bash
+swamp model method run supers-sentry-issue-intake collect \
+  --input lookbackDays=7 \
+  --input historyDays=90 \
+  --input limit=100 \
+  --input currentRelease=supers@<git-sha>
+```
+
+The reconciliation classifies each issue as `current-release`, `recent`,
+`historical-unresolved`, or `ambiguous`. Only an issue observed in the exact
+current release becomes a repair candidate; a merely recent issue requires
+runtime reproduction first. Pagination, malformed output, command timeouts,
+and conflicting issue identities fail closed; incomplete snapshots are never
+automation-eligible. Stored titles strip ANSI control sequences,
+URLs, absolute paths, and common inline secrets. This model cannot mutate
+Sentry, Dex, or source code. Repair planning, runtime reproduction, and issue
+resolution remain separate gated stages of epic `ueo65fsy`.
+
 ## Logs and metrics
 
 ```bash
