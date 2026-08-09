@@ -278,11 +278,12 @@ Deno.test("stored titles redact URLs, repository paths, and inline secrets", asy
   assert.equal(JSON.stringify(fixture.writes).includes("/Users/person"), false);
 });
 
-Deno.test("model exposes only the read-only collect method and bounded resources", () => {
+Deno.test("model exposes only read-only intake and triage methods with bounded resources", () => {
   assert.equal(model.type, "@supers/sentry-issue-intake");
-  assert.deepEqual(Object.keys(model.methods), ["collect"]);
+  assert.deepEqual(Object.keys(model.methods).sort(), ["collect", "triage"]);
   assert.deepEqual(Object.keys(model.resources).sort(), [
     "reconciliation",
     "snapshot",
+    "triage",
   ]);
 });

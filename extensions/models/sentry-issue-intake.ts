@@ -9,6 +9,14 @@
 import { z } from "npm:zod@4.4.3";
 
 import {
+  DEFAULT_SENTRY_DEX_TRIAGE_DEPENDENCIES,
+  executeSentryDexTriage,
+  SentryDexTriageArgsSchema,
+  type SentryDexTriageContext,
+  SentryDexTriageSchema,
+} from "./sentry-dex-triage.ts";
+
+import {
   DEFAULT_SENTRY_ISSUE_INTAKE_DEPENDENCIES,
   executeSentryIssueIntake,
   SentryIssueIntakeArgsSchema,
@@ -25,7 +33,7 @@ const GlobalArgsSchema = z.object({
 
 export const model = {
   type: "@supers/sentry-issue-intake",
-  version: "2026.08.09.2",
+  version: "2026.08.09.3",
   globalArguments: GlobalArgsSchema,
   resources: {
     snapshot: {
@@ -42,8 +50,29 @@ export const model = {
       lifetime: "infinite",
       garbageCollection: 50,
     },
+    triage: {
+      description:
+        "Read-only create, attach, reproduce, review, or ignore recommendation from one Sentry reconciliation and one official Dex snapshot",
+      schema: SentryDexTriageSchema,
+      lifetime: "infinite",
+      garbageCollection: 50,
+    },
   },
   methods: {
+    triage: {
+      description:
+        "Read one named Sentry reconciliation and official Dex once to produce fail-closed deduplication recommendations",
+      arguments: SentryDexTriageArgsSchema,
+      execute: (
+        args: z.infer<typeof SentryDexTriageArgsSchema>,
+        context: SentryDexTriageContext,
+      ) =>
+        executeSentryDexTriage(
+          args,
+          context,
+          DEFAULT_SENTRY_DEX_TRIAGE_DEPENDENCIES,
+        ),
+    },
     collect: {
       description:
         "Collect and reconcile unresolved Supers issues without mutating Sentry, Dex, or source code",

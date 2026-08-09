@@ -43,10 +43,28 @@ The reconciliation classifies each issue as `current-release`, `recent`,
 current release becomes a repair candidate; a merely recent issue requires
 runtime reproduction first. Pagination, malformed output, command timeouts,
 and conflicting issue identities fail closed; incomplete snapshots are never
-automation-eligible. Stored titles strip ANSI control sequences,
-URLs, absolute paths, and common inline secrets. This model cannot mutate
-Sentry, Dex, or source code. Repair planning, runtime reproduction, and issue
-resolution remain separate gated stages of epic `ueo65fsy`.
+automation-eligible.
+
+The `triage` method consumes one exact named reconciliation and reads official
+Dex exactly once:
+
+```bash
+swamp model method run supers-sentry-issue-intake triage \
+  --input sourceReconciliation=<sentry-issue-reconciliation-name> \
+  --input expectedFingerprint=<sha256>
+```
+
+It recommends `create-task`, `attach-existing`, `reproduce-first`,
+`human-review`, or `ignore`. Exact Sentry short-id matches outrank bounded
+lexical candidates; multiple/completed exact matches, lexical candidates,
+source drift, malformed Dex output, and existing active WIP fail closed. The
+resource preserves matching task ancestors and descendants but performs no Dex
+mutation.
+
+Stored titles strip ANSI control sequences, URLs, absolute paths, and common
+inline secrets. This model cannot mutate Sentry, Dex, or source code. Repair
+planning, runtime reproduction, and issue resolution remain separate gated
+stages of epic `ueo65fsy`.
 
 ## Logs and metrics
 
