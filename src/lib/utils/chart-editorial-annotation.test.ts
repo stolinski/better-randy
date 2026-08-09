@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, expect, it } from 'vitest';
 import type { ChartResolvedDataTarget } from './chart-data-target';
 import {
+	chartAnnotationBracketSvgPath,
 	chartAnnotationLeaderSvgPath,
 	formatChartValueLabel,
 	placeChartEditorialAnnotations,
@@ -100,7 +101,7 @@ describe('formatChartValueLabel', () => {
 });
 
 describe('chart annotation leader routing', () => {
-	it('replaces an arbitrary diagonal with one orthogonal elbow into an edge midpoint', () => {
+	it('replaces an arbitrary diagonal with one orthogonal elbow into a box-edge midpoint', () => {
 		const route = routeChartAnnotationLeader(
 			{ x: 500, y: 500 },
 			{ x: 700, y: 200, width: 100, height: 80 }
@@ -111,6 +112,22 @@ describe('chart annotation leader routing', () => {
 			leaderTo: { x: 700, y: 240 }
 		});
 		assert.equal(chartAnnotationLeaderSvgPath(route), 'M 500 500 L 500 240 L 700 240');
+	});
+
+	it('keeps a preferred-lane launch inside the annotation gutter', () => {
+		const box = { x: 524, y: 450, width: 100, height: 100 };
+		const route = routeChartAnnotationLeader({ x: 500, y: 500 }, box, 'local-right');
+		assert.deepEqual(route.leaderWaypoints, [{ x: 516, y: 500 }]);
+		assert.deepEqual(route.leaderTo, { x: 524, y: 500 });
+		assert.ok(route.leaderWaypoints[0].x < box.x);
+		assert.equal(chartAnnotationLeaderSvgPath(route), 'M 500 500 L 516 500 L 524 500');
+	});
+
+	it('draws an aggregate bracket with deliberate perpendicular caps', () => {
+		assert.equal(
+			chartAnnotationBracketSvgPath({ from: { x: 100, y: 200 }, to: { x: 300, y: 200 } }),
+			'M 100 188 L 100 212 M 100 200 L 300 200 M 300 188 L 300 212'
+		);
 	});
 
 	it('omits a redundant elbow when the datum already aligns with the edge midpoint', () => {

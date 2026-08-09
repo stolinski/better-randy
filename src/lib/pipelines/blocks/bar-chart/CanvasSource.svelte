@@ -8,7 +8,10 @@
 	import { engineState, packState } from '$lib/platform/engine-state.svelte';
 	import { getPack } from '$lib/platform/packs/registry';
 	import { resolveChartChromeColors, resolveFontTreatment } from '$lib/platform/packs/resolve';
-	import { chartAnnotationLeaderSvgPath } from '$lib/utils/chart-editorial-annotation';
+	import {
+		chartAnnotationBracketSvgPath,
+		chartAnnotationLeaderSvgPath
+	} from '$lib/utils/chart-editorial-annotation';
 	import { resolveChartBarColumnGeometry } from '$lib/utils/chart-bar-column-geometry';
 	import { resolveChartFrameLayout, type ChartMeasuredTextLayout } from '$lib/utils/chart-layout';
 	import { formatChartCounterValue, resolveChartMotionState } from '$lib/utils/chart-motion';
@@ -248,14 +251,24 @@
 					stroke-linecap="square"
 					stroke-linejoin="miter"
 				/>
-				<circle
-					data-chart-callout-terminal={annotation.id}
-					cx={annotation.leaderFrom.x}
-					cy={annotation.leaderFrom.y}
-					r="9"
-					fill={chrome.annotation}
-					stroke="none"
-				/>
+				{#if annotation.bracket}
+					<path
+						data-chart-callout-bracket={annotation.id}
+						d={chartAnnotationBracketSvgPath(annotation.bracket)}
+						stroke-width="6"
+						stroke-linecap="square"
+						stroke-linejoin="miter"
+					/>
+				{:else}
+					<circle
+						data-chart-callout-terminal={annotation.id}
+						cx={annotation.leaderFrom.x}
+						cy={annotation.leaderFrom.y}
+						r="9"
+						fill={chrome.annotation}
+						stroke="none"
+					/>
+				{/if}
 				<rect
 					x={annotation.box.x}
 					y={annotation.box.y}

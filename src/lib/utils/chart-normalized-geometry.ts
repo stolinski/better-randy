@@ -110,14 +110,10 @@ function normalizedLeaderCandidates(
 			const right = x + width;
 			const bottom = y + height;
 			const points = [
-				{ x: right, y },
 				{ x: right, y: y + height / 2 },
-				{ x: right, y: bottom },
 				{ x: x + width / 2, y },
 				{ x: x + width / 2, y: bottom },
-				{ x, y },
-				{ x, y: y + height / 2 },
-				{ x, y: bottom }
+				{ x, y: y + height / 2 }
 			];
 			return points.map((point, declarationIndex) => ({
 				point,

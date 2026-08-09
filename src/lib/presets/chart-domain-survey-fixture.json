@@ -152,7 +152,7 @@
 					{
 						"id": "one-versus-many-bars",
 						"type": "bar-chart",
-						"title": "More than one agent is the norm",
+						"title": "Multiple agents are the norm",
 						"data": {
 							"categories": [
 								{
@@ -370,7 +370,7 @@
 					{
 						"id": "multiple-agents-dot-field",
 						"type": "dot-field-chart",
-						"title": "2 in 3 AI coders run multiple agents",
+						"title": "2 in 3 use multiple agents",
 						"data": {
 							"categories": [
 								{

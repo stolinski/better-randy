@@ -19,7 +19,7 @@ const HORIZONTAL_CHART_TEXT_ROLE_STYLES: Readonly<Record<ChartTextRole, ChartTex
 	value: { fontSize: 44, fontWeight: 720, letterSpacing: 0.2, lineHeight: 1.05 },
 	legend: { fontSize: 40, fontWeight: 620, letterSpacing: 0, lineHeight: 1.1 },
 	source: { fontSize: 36, fontWeight: 480, letterSpacing: 0.2, lineHeight: 1.15 },
-	callout: { fontSize: 50, fontWeight: 760, letterSpacing: -0.2, lineHeight: 1.05 }
+	callout: { fontSize: 64, fontWeight: 760, letterSpacing: -0.2, lineHeight: 1.05 }
 };
 
 // Portrait compositions retain native 4K pixels but need a larger optical text floor.
@@ -31,7 +31,7 @@ const VERTICAL_CHART_TEXT_ROLE_STYLES: Readonly<Record<ChartTextRole, ChartTextR
 	value: { fontSize: 52, fontWeight: 720, letterSpacing: 0.2, lineHeight: 1.05 },
 	legend: { fontSize: 48, fontWeight: 620, letterSpacing: 0, lineHeight: 1.1 },
 	source: { fontSize: 48, fontWeight: 480, letterSpacing: 0.2, lineHeight: 1.15 },
-	callout: { fontSize: 56, fontWeight: 760, letterSpacing: -0.2, lineHeight: 1.05 }
+	callout: { fontSize: 72, fontWeight: 760, letterSpacing: -0.2, lineHeight: 1.05 }
 };
 
 function chartCharacterWidthFactor(character: string): number {

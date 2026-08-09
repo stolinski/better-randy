@@ -274,6 +274,132 @@ describe('resolveChartBarColumnGeometry', () => {
 		assert.equal(result.annotations.length, 1);
 		assert.equal(result.annotations[0].text, '2 in 3 · 67.4%');
 		assert.equal(result.annotations[0].id, 'survey:callout:0');
+		assert.equal(result.annotations[0].lane, 'local-right');
+		assert.equal(
+			result.annotations[0].leaderFrom.y,
+			result.marks[1].bounds.y + result.marks[1].bounds.height / 2
+		);
+		assert.ok(result.annotations[0].leaderWaypoints[0].x > result.annotations[0].leaderFrom.x);
+		assert.equal(
+			result.valueLabels.find((label) => label.markId === result.marks[1].id)?.anchor,
+			'inside'
+		);
+	});
+
+	it('uses a spanning bracket instead of implying an aggregate belongs to one column', () => {
+		const source = barChart();
+		const block: ColumnChartBlock = { ...source, type: 'column-chart' };
+		block.callouts = [
+			{
+				target: {
+					kind: 'category-set',
+					seriesId: 'responses',
+					categoryIds: ['one', 'many']
+				},
+				valueLabel: { kind: 'percent-of-series-total', precision: 1 }
+			}
+		];
+		const result = geometry(block).geometry;
+		const annotation = result.annotations[0];
+		assert.ok(annotation.bracket);
+		assert.equal(annotation.lane, 'local-above');
+		assert.equal(annotation.bracket.from.y, annotation.bracket.to.y);
+		assert.equal(annotation.bracket.from.x, result.marks[0].bounds.x);
+		assert.equal(annotation.bracket.to.x, result.marks[1].bounds.x + result.marks[1].bounds.width);
+		assert.equal(
+			annotation.leaderFrom.x,
+			(annotation.bracket.from.x + annotation.bracket.to.x) / 2
+		);
+	});
+
+	it('keeps later aggregate brackets clear of earlier callout boxes', () => {
+		const source = barChart();
+		const block: ColumnChartBlock = {
+			...source,
+			type: 'column-chart',
+			callouts: [
+				{
+					target: { kind: 'datum', seriesId: 'responses', categoryId: 'many' },
+					valueLabel: { kind: 'value' }
+				},
+				{
+					target: {
+						kind: 'category-set',
+						seriesId: 'responses',
+						categoryIds: ['one', 'many']
+					},
+					valueLabel: { kind: 'percent-of-series-total', precision: 1 }
+				}
+			]
+		};
+		const result = geometry(block).geometry;
+		assert.deepEqual(result.overflow, []);
+		const firstBox = result.annotations[0].box;
+		const bracket = result.annotations[1].bracket;
+		assert.ok(bracket);
+		const bracketBounds = {
+			x: Math.min(bracket.from.x, bracket.to.x) - 15,
+			y: Math.min(bracket.from.y, bracket.to.y) - 15,
+			width: Math.abs(bracket.to.x - bracket.from.x) + 30,
+			height: Math.abs(bracket.to.y - bracket.from.y) + 30
+		};
+		const overlaps =
+			bracketBounds.x < firstBox.x + firstBox.width &&
+			bracketBounds.x + bracketBounds.width > firstBox.x &&
+			bracketBounds.y < firstBox.y + firstBox.height &&
+			bracketBounds.y + bracketBounds.height > firstBox.y;
+		assert.equal(overlaps, false);
+	});
+
+	it('moves aggregate brackets clear of taller non-target series', () => {
+		const source = barChart();
+		const block: ColumnChartBlock = {
+			...source,
+			type: 'column-chart',
+			data: {
+				...source.data,
+				series: [
+					{
+						id: 'target',
+						label: 'Target',
+						values: [
+							{ categoryId: 'one', value: 200 },
+							{ categoryId: 'many', value: 220 }
+						]
+					},
+					{
+						id: 'other',
+						label: 'Other',
+						values: [
+							{ categoryId: 'one', value: 420 },
+							{ categoryId: 'many', value: 400 }
+						]
+					}
+				]
+			},
+			highlights: [],
+			callouts: [
+				{
+					target: {
+						kind: 'category-set',
+						seriesId: 'target',
+						categoryIds: ['one', 'many']
+					},
+					valueLabel: { kind: 'percent-of-series-total', precision: 1 }
+				}
+			]
+		};
+		const result = geometry(block);
+		const annotation = result.geometry.annotations[0];
+		assert.deepEqual(result.geometry.overflow, []);
+		assert.ok(annotation.bracket);
+		const tallestNonTargetTop = Math.min(
+			...result.geometry.marks
+				.filter((mark) => mark.seriesId === 'other')
+				.map((mark) => mark.bounds.y)
+		);
+		assert.ok(annotation.bracket.from.y + 15 <= tallestNonTargetTop);
+		assert.ok(annotation.bracket.from.y - 15 >= result.layout.safeBounds.y);
 	});
 
 	it('fails closed before allocating more than four series', () => {

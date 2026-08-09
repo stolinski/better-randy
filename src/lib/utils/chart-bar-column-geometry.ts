@@ -164,17 +164,39 @@ function chartRectContains(outer: ChartPixelRect, inner: ChartPixelRect): boolea
 	);
 }
 
+function chartRectsOverlap(first: ChartPixelRect, second: ChartPixelRect): boolean {
+	return (
+		first.x < second.x + second.width &&
+		first.x + first.width > second.x &&
+		first.y < second.y + second.height &&
+		first.y + first.height > second.y
+	);
+}
+
+function chartAnnotationBracketBounds(
+	bracket: NonNullable<ChartEditorialAnnotationLayout['bracket']>
+): ChartPixelRect {
+	const padding = 15;
+	return {
+		x: Math.min(bracket.from.x, bracket.to.x) - padding,
+		y: Math.min(bracket.from.y, bracket.to.y) - padding,
+		width: Math.abs(bracket.to.x - bracket.from.x) + padding * 2,
+		height: Math.abs(bracket.to.y - bracket.from.y) + padding * 2
+	};
+}
+
 function resolveValueLabel(
 	block: ChartBarColumnBlock,
 	layout: ChartFrameLayout,
-	mark: ChartBarColumnMarkGeometry
+	mark: ChartBarColumnMarkGeometry,
+	preferInside = false
 ): ChartBarColumnValueLabelGeometry | null {
 	if (!block.labels.values) return null;
 	const slot = layout.chrome.counterSlots.find(
 		(candidate) => candidate.seriesId === mark.seriesId && candidate.categoryId === mark.categoryId
 	);
 	if (!slot) return null;
-	if (block.layout.mode === 'stacked' && !mark.isZero) {
+	if ((block.layout.mode === 'stacked' || preferInside) && !mark.isZero) {
 		const insideOrigin = {
 			x: mark.bounds.x + (mark.bounds.width - slot.measurement.width) / 2,
 			y: mark.bounds.y + (mark.bounds.height - slot.measurement.height) / 2
@@ -343,8 +365,15 @@ export function resolveChartBarColumnGeometry(input: {
 			});
 		}
 	}
+	const calledOutDatumMarkIds = new Set(
+		(block.callouts ?? []).flatMap((callout) =>
+			callout.target.kind === 'datum'
+				? [chartMarkId(callout.target.seriesId, callout.target.categoryId)]
+				: []
+		)
+	);
 	const valueLabels = marks.flatMap((mark) => {
-		const label = resolveValueLabel(block, layout, mark);
+		const label = resolveValueLabel(block, layout, mark, calledOutDatumMarkIds.has(mark.id));
 		return label ? [label] : [];
 	});
 	const legendSwatches = layout.chrome.legendItems.map((legend, seriesIndex) => ({
@@ -392,18 +421,6 @@ export function resolveChartBarColumnGeometry(input: {
 			});
 		}
 	}
-	const annotationInputs = (block.callouts ?? []).map((callout, declarationIndex) => {
-		const resolved = resolveChartDataTarget(block, callout.target);
-		const targetGeometry = resolveChartTargetGeometry(resolved, marks);
-		const text = formatChartValueLabel(resolved, callout.valueLabel);
-		return {
-			id: `${block.id}:callout:${declarationIndex}`,
-			declarationIndex,
-			anchor: targetGeometry.anchor,
-			text,
-			measured: measureText({ text, role: 'callout' })
-		};
-	});
 	const readableChrome = [
 		layout.chrome.title,
 		...layout.chrome.legendItems.map((item) => item.labelLayout),
@@ -416,31 +433,135 @@ export function resolveChartBarColumnGeometry(input: {
 		width: text.measurement.width,
 		height: text.measurement.height
 	}));
-	const annotationPlacement =
-		annotationInputs.length === 0
-			? { layouts: [], overflow: [] }
-			: placeChartEditorialAnnotations({
-					annotations: annotationInputs,
-					safeBounds: layout.safeBounds,
-					plotBounds: layout.plotBounds,
-					occupied: [
-						...marks.map((mark) => mark.bounds),
-						...valueLabels.map((label) => ({
-							x: label.origin.x,
-							y: label.origin.y,
-							width: label.measurement.width,
-							height: label.measurement.height
-						})),
-						...readableChrome
-					],
-					orientation
+	const annotationLayouts: ChartEditorialAnnotationLayout[] = [];
+	const annotationOverflow: ChartLayoutOverflow[] = [];
+	const placedAnnotationOccupied: ChartPixelRect[] = [];
+	const staticAnnotationOccupied: ChartPixelRect[] = [
+		...marks.map((mark) => mark.bounds),
+		...valueLabelRects.map((label) => label.rect),
+		...readableChrome
+	];
+	const callouts = block.callouts ?? [];
+	for (const [declarationIndex, callout] of callouts.entries()) {
+		const id = `${block.id}:callout:${declarationIndex}`;
+		const resolved = resolveChartDataTarget(block, callout.target);
+		const targetGeometry = resolveChartTargetGeometry(resolved, marks);
+		const text = formatChartValueLabel(resolved, callout.valueLabel);
+		const aggregate = resolved.data.length > 1;
+		const positive = resolved.value >= 0;
+		const valueMeasurement = measureText({ text: String(resolved.value), role: 'value' });
+		const baseBracketOffset =
+			(block.type === 'bar-chart' ? valueMeasurement.width : valueMeasurement.height) + 24;
+		const targetMarkIds = new Set(
+			marks.filter((mark) => chartMarkMatchesTarget(mark, callout.target)).map((mark) => mark.id)
+		);
+		const futureAggregateSharesTarget = callouts.slice(declarationIndex + 1).some((candidate) => {
+			const candidateResolved = resolveChartDataTarget(block, candidate.target);
+			if (candidateResolved.data.length <= 1) return false;
+			return marks.some(
+				(mark) => targetMarkIds.has(mark.id) && chartMarkMatchesTarget(mark, candidate.target)
+			);
+		});
+		const bracketObstacles = [
+			...marks.filter((mark) => !targetMarkIds.has(mark.id)).map((mark) => mark.bounds),
+			...valueLabelRects.map((label) => label.rect),
+			...readableChrome,
+			...placedAnnotationOccupied
+		];
+		let bracket: ChartEditorialAnnotationLayout['bracket'];
+		if (aggregate) {
+			for (let attempt = 0; attempt < 64; attempt += 1) {
+				const bracketOffset = baseBracketOffset + attempt * 24;
+				const candidate =
+					block.type === 'bar-chart'
+						? (() => {
+								const x = positive
+									? targetGeometry.bounds.x + targetGeometry.bounds.width + bracketOffset
+									: targetGeometry.bounds.x - bracketOffset;
+								return {
+									from: { x, y: targetGeometry.bounds.y },
+									to: { x, y: targetGeometry.bounds.y + targetGeometry.bounds.height }
+								};
+							})()
+						: (() => {
+								const y = positive
+									? targetGeometry.bounds.y - bracketOffset
+									: targetGeometry.bounds.y + targetGeometry.bounds.height + bracketOffset;
+								return {
+									from: { x: targetGeometry.bounds.x, y },
+									to: { x: targetGeometry.bounds.x + targetGeometry.bounds.width, y }
+								};
+							})();
+				const bounds = chartAnnotationBracketBounds(candidate);
+				if (
+					chartRectContains(layout.safeBounds, bounds) &&
+					!bracketObstacles.some((obstacle) => chartRectsOverlap(bounds, obstacle))
+				) {
+					bracket = candidate;
+					break;
+				}
+			}
+			if (!bracket) {
+				geometryOverflow.push({
+					code: 'annotation-no-space',
+					message: `Chart aggregate annotation "${id}" has no safe bracket route.`,
+					itemId: id
 				});
+				continue;
+			}
+		}
+		const datumAnchor =
+			block.type === 'column-chart' && !aggregate && futureAggregateSharesTarget
+				? {
+						x: positive
+							? targetGeometry.bounds.x + targetGeometry.bounds.width
+							: targetGeometry.bounds.x,
+						y: targetGeometry.bounds.y + targetGeometry.bounds.height / 2
+					}
+				: targetGeometry.anchor;
+		const anchor = bracket
+			? {
+					x: (bracket.from.x + bracket.to.x) / 2,
+					y: (bracket.from.y + bracket.to.y) / 2
+				}
+			: datumAnchor;
+		const annotation: Parameters<typeof placeChartEditorialAnnotations>[0]['annotations'][number] =
+			{
+				id,
+				declarationIndex,
+				anchor,
+				preferredLane:
+					block.type === 'bar-chart' || (!aggregate && futureAggregateSharesTarget)
+						? positive
+							? 'local-right'
+							: 'local-left'
+						: positive
+							? 'local-above'
+							: 'local-below',
+				...(bracket ? { bracket } : {}),
+				text,
+				measured: measureText({ text, role: 'callout' })
+			};
+		const placed = placeChartEditorialAnnotations({
+			annotations: [annotation],
+			safeBounds: layout.safeBounds,
+			plotBounds: layout.plotBounds,
+			occupied: [...staticAnnotationOccupied, ...placedAnnotationOccupied],
+			orientation
+		});
+		annotationLayouts.push(...placed.layouts);
+		annotationOverflow.push(...placed.overflow);
+		const placedLayout = placed.layouts[0];
+		if (placedLayout) placedAnnotationOccupied.push(placedLayout.box);
+		if (bracket) placedAnnotationOccupied.push(chartAnnotationBracketBounds(bracket));
+	}
+
 	return {
 		marks,
 		legendSwatches,
 		valueLabels,
-		annotations: annotationPlacement.layouts,
-		overflow: [...geometryOverflow, ...annotationPlacement.overflow]
+		annotations: annotationLayouts,
+		overflow: [...geometryOverflow, ...annotationOverflow]
 	};
 }
 

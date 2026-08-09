@@ -8,6 +8,16 @@ import { presetToWireFormat } from '../platform/preset-pure';
 import { validatePresetSemantics } from '../platform/preset-validation';
 import { resolveChartDataTarget } from '../utils/chart-data-target';
 import { allocateChartNormalizedUnits } from '../utils/chart-normalized-allocation';
+import { resolveChartFrameLayout } from '../utils/chart-layout';
+import { createChartRenderTextMeasurer } from '../utils/chart-text-measurement';
+import {
+	resolveChartBarColumnGeometry,
+	type ChartBarColumnGeometry
+} from '../utils/chart-bar-column-geometry';
+import {
+	resolveChartNormalizedGeometry,
+	type ChartNormalizedGeometry
+} from '../utils/chart-normalized-geometry';
 
 const fixture = PresetSchema.parse(fixtureJson);
 const chart = fixture.state.surface.chart;
@@ -87,6 +97,22 @@ describe('chart-domain survey fixture', () => {
 			assert.ok(Math.abs(exitMilliseconds - 216) < 1e-9);
 			assert.ok(exitMilliseconds <= entryMilliseconds * 0.8);
 			assert.ok(settledHoldSeconds >= 1.7);
+		}
+	});
+
+	it('keeps every survey scene readable with safe annotation geometry at both native targets', () => {
+		for (const orientation of ['horizontal', 'vertical'] as const) {
+			for (const block of chart.items) {
+				const measureText = createChartRenderTextMeasurer(orientation);
+				const layout = resolveChartFrameLayout({ block, orientation, measureText });
+				const resolvedGeometry: ChartBarColumnGeometry | ChartNormalizedGeometry =
+					block.type === 'bar-chart' || block.type === 'column-chart'
+						? resolveChartBarColumnGeometry({ block, layout, orientation, measureText })
+						: resolveChartNormalizedGeometry({ block, layout, orientation, measureText });
+				assert.deepEqual(layout.overflow, [], `${orientation}:${block.id}:layout`);
+				assert.deepEqual(resolvedGeometry.overflow, [], `${orientation}:${block.id}:geometry`);
+				assert.equal(resolvedGeometry.annotations.length, block.callouts?.length ?? 0);
+			}
 		}
 	});
 

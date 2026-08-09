@@ -209,6 +209,22 @@ describe('resolveChartNormalizedGeometry', () => {
 			const result = resolvedGeometry.geometry;
 			const annotation = result.annotations[0];
 			assert.ok(annotation);
+			const targetMarks = result.marks.filter((mark) => mark.categoryId === 'recycled');
+			assert.equal(
+				targetMarks.some((mark) => {
+					const { x, y, width, height } = mark.bounds;
+					return [
+						{ x: x + width, y: y + height / 2 },
+						{ x: x + width / 2, y },
+						{ x: x + width / 2, y: y + height },
+						{ x, y: y + height / 2 }
+					].some(
+						(point) => point.x === annotation.leaderFrom.x && point.y === annotation.leaderFrom.y
+					);
+				}),
+				true,
+				`${orientation} terminal uses a mark-edge midpoint`
+			);
 			const leaderPoints = [
 				annotation.leaderFrom,
 				...annotation.leaderWaypoints,

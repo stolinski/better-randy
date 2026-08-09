@@ -10,12 +10,19 @@ import type { VideoOrientation } from './video-frame';
 
 export type ChartAnnotationLane =
 	'local-above' | 'local-right' | 'local-below' | 'local-left' | 'editorial';
+export type ChartAnnotationLocalLane = Exclude<ChartAnnotationLane, 'editorial'>;
+export interface ChartAnnotationBracket {
+	from: ChartPixelPoint;
+	to: ChartPixelPoint;
+}
 export interface ChartEditorialAnnotationInput {
 	id: string;
 	declarationIndex: number;
 	anchor: ChartPixelPoint;
 	text: string;
 	measured: ChartTextMeasurement;
+	preferredLane?: ChartAnnotationLocalLane;
+	bracket?: ChartAnnotationBracket;
 }
 export interface ChartEditorialAnnotationLayout {
 	id: string;
@@ -25,6 +32,7 @@ export interface ChartEditorialAnnotationLayout {
 	leaderWaypoints: readonly ChartPixelPoint[];
 	leaderTo: ChartPixelPoint;
 	lane: ChartAnnotationLane;
+	bracket?: ChartAnnotationBracket;
 }
 
 const ANNOTATION_GUTTER = 24;
@@ -163,21 +171,47 @@ interface ChartAnnotationLeaderRoute {
 	leaderTo: ChartPixelPoint;
 }
 
-// Callout leaders attach at an edge midpoint and enter perpendicular to the box.
+// Callout leaders attach at a box-edge midpoint by default or align with an explicit launch.
 // This avoids arbitrary shallow diagonals that read as accidental in editorial graphics.
 export function routeChartAnnotationLeader(
 	leaderFrom: ChartPixelPoint,
-	box: ChartPixelRect
+	box: ChartPixelRect,
+	launchLane?: ChartAnnotationLocalLane
 ): ChartAnnotationLeaderRoute {
+	const launchDistance = 16;
+	const launchPoint = launchLane
+		? {
+				x:
+					leaderFrom.x +
+					(launchLane === 'local-right'
+						? launchDistance
+						: launchLane === 'local-left'
+							? -launchDistance
+							: 0),
+				y:
+					leaderFrom.y +
+					(launchLane === 'local-below'
+						? launchDistance
+						: launchLane === 'local-above'
+							? -launchDistance
+							: 0)
+			}
+		: leaderFrom;
+	const alignedX = launchLane
+		? Math.max(box.x, Math.min(launchPoint.x, box.x + box.width))
+		: box.x + box.width / 2;
+	const alignedY = launchLane
+		? Math.max(box.y, Math.min(launchPoint.y, box.y + box.height))
+		: box.y + box.height / 2;
 	const edges = [
-		{ target: { x: box.x, y: box.y + box.height / 2 }, axis: 'horizontal' as const },
-		{ target: { x: box.x + box.width, y: box.y + box.height / 2 }, axis: 'horizontal' as const },
-		{ target: { x: box.x + box.width / 2, y: box.y }, axis: 'vertical' as const },
-		{ target: { x: box.x + box.width / 2, y: box.y + box.height }, axis: 'vertical' as const }
+		{ target: { x: box.x, y: alignedY }, axis: 'horizontal' as const },
+		{ target: { x: box.x + box.width, y: alignedY }, axis: 'horizontal' as const },
+		{ target: { x: alignedX, y: box.y }, axis: 'vertical' as const },
+		{ target: { x: alignedX, y: box.y + box.height }, axis: 'vertical' as const }
 	].map((edge, declarationIndex) => ({
 		...edge,
 		declarationIndex,
-		distanceSquared: (leaderFrom.x - edge.target.x) ** 2 + (leaderFrom.y - edge.target.y) ** 2
+		distanceSquared: (launchPoint.x - edge.target.x) ** 2 + (launchPoint.y - edge.target.y) ** 2
 	}));
 	const selected = edges.sort(
 		(a, b) => a.distanceSquared - b.distanceSquared || a.declarationIndex - b.declarationIndex
@@ -185,13 +219,16 @@ export function routeChartAnnotationLeader(
 	if (!selected) throw new Error('Chart annotation leader requires a box edge.');
 	const bend =
 		selected.axis === 'horizontal'
-			? { x: leaderFrom.x, y: selected.target.y }
-			: { x: selected.target.x, y: leaderFrom.y };
-	const leaderWaypoints =
-		(bend.x === leaderFrom.x && bend.y === leaderFrom.y) ||
-		(bend.x === selected.target.x && bend.y === selected.target.y)
-			? []
-			: [bend];
+			? { x: launchPoint.x, y: selected.target.y }
+			: { x: selected.target.x, y: launchPoint.y };
+	const candidates = [launchPoint, bend];
+	const leaderWaypoints = candidates.filter((point, index) => {
+		const previous = index === 0 ? leaderFrom : candidates[index - 1];
+		return (
+			(point.x !== previous?.x || point.y !== previous?.y) &&
+			(point.x !== selected.target.x || point.y !== selected.target.y)
+		);
+	});
 	return { leaderFrom, leaderWaypoints, leaderTo: selected.target };
 }
 
@@ -202,12 +239,21 @@ export function chartAnnotationLeaderSvgPath(
 	return `M ${annotation.leaderFrom.x} ${annotation.leaderFrom.y}${waypoints} L ${annotation.leaderTo.x} ${annotation.leaderTo.y}`;
 }
 
+export function chartAnnotationBracketSvgPath(bracket: ChartAnnotationBracket): string {
+	const cap = 12;
+	if (bracket.from.x === bracket.to.x) {
+		return `M ${bracket.from.x - cap} ${bracket.from.y} L ${bracket.from.x + cap} ${bracket.from.y} M ${bracket.from.x} ${bracket.from.y} L ${bracket.to.x} ${bracket.to.y} M ${bracket.to.x - cap} ${bracket.to.y} L ${bracket.to.x + cap} ${bracket.to.y}`;
+	}
+	return `M ${bracket.from.x} ${bracket.from.y - cap} L ${bracket.from.x} ${bracket.from.y + cap} M ${bracket.from.x} ${bracket.from.y} L ${bracket.to.x} ${bracket.to.y} M ${bracket.to.x} ${bracket.to.y - cap} L ${bracket.to.x} ${bracket.to.y + cap}`;
+}
+
 function localCandidates(
 	anchor: ChartPixelPoint,
 	width: number,
-	height: number
-): readonly { lane: Exclude<ChartAnnotationLane, 'editorial'>; box: ChartPixelRect }[] {
-	return [
+	height: number,
+	preferredLane?: ChartAnnotationLocalLane
+): readonly { lane: ChartAnnotationLocalLane; box: ChartPixelRect }[] {
+	const candidates: readonly { lane: ChartAnnotationLocalLane; box: ChartPixelRect }[] = [
 		{
 			lane: 'local-above',
 			box: { x: anchor.x - width / 2, y: anchor.y - ANNOTATION_GUTTER - height, width, height }
@@ -225,6 +271,12 @@ function localCandidates(
 			box: { x: anchor.x - ANNOTATION_GUTTER - width, y: anchor.y - height / 2, width, height }
 		}
 	];
+	return preferredLane
+		? [
+				...candidates.filter((candidate) => candidate.lane === preferredLane),
+				...candidates.filter((candidate) => candidate.lane !== preferredLane)
+			]
+		: candidates;
 }
 
 function editorialLaneSlots(input: {
@@ -313,6 +365,22 @@ export function placeChartEditorialAnnotations(input: {
 				'Chart annotation anchors and declaration indices must be finite and deterministic.'
 			);
 		}
+		if (annotation.bracket) {
+			const { from, to } = annotation.bracket;
+			const axisAligned = from.x === to.x || from.y === to.y;
+			const midpoint = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 };
+			if (
+				!isFiniteChartPoint(from) ||
+				!isFiniteChartPoint(to) ||
+				!axisAligned ||
+				midpoint.x !== annotation.anchor.x ||
+				midpoint.y !== annotation.anchor.y
+			) {
+				throw new RangeError(
+					'Chart annotation brackets must be finite, axis-aligned, and centered on the anchor.'
+				);
+			}
+		}
 	}
 	const ordered = [...input.annotations].sort(
 		(a, b) => a.declarationIndex - b.declarationIndex || a.id.localeCompare(b.id, 'en')
@@ -342,7 +410,7 @@ export function placeChartEditorialAnnotations(input: {
 		const width = annotation.measured.width + ANNOTATION_PADDING_X * 2;
 		const height = annotation.measured.height + ANNOTATION_PADDING_Y * 2;
 		const candidates: readonly { lane: ChartAnnotationLane; box: ChartPixelRect }[] = [
-			...localCandidates(annotation.anchor, width, height),
+			...localCandidates(annotation.anchor, width, height, annotation.preferredLane),
 			...editorialLaneSlots({
 				safeBounds: input.safeBounds,
 				plotBounds: input.plotBounds,
@@ -364,13 +432,18 @@ export function placeChartEditorialAnnotations(input: {
 			});
 			continue;
 		}
-		const leader = routeChartAnnotationLeader(annotation.anchor, selected.box);
+		const leader = routeChartAnnotationLeader(
+			annotation.anchor,
+			selected.box,
+			annotation.preferredLane
+		);
 		layouts.push({
 			id: annotation.id,
 			text: annotation.text,
 			box: selected.box,
 			...leader,
-			lane: selected.lane
+			lane: selected.lane,
+			...(annotation.bracket ? { bracket: annotation.bracket } : {})
 		});
 		occupied.push(selected.box);
 	}
