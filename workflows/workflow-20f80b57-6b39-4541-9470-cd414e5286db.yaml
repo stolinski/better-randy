@@ -1,0 +1,77 @@
+id: 20f80b57-6b39-4541-9470-cd414e5286db
+name: supers-sentry-readonly-intake
+description: Collect bounded unresolved Supers issues and derive one exact read-only Dex triage without mutating either system.
+tags:
+  purpose: supers-sentry-self-healing-intake
+  capability: read-only
+inputs:
+  type: object
+  required: [lookbackDays, historyDays, limit, currentRelease]
+  additionalProperties: false
+  properties:
+    lookbackDays:
+      type: integer
+      minimum: 1
+      maximum: 30
+    historyDays:
+      type: integer
+      minimum: 7
+      maximum: 365
+    limit:
+      type: integer
+      minimum: 1
+      maximum: 100
+    currentRelease:
+      type: string
+      minLength: 1
+      maxLength: 160
+      pattern: '^[A-Za-z0-9@._:+-]+$'
+jobs:
+  - name: main
+    description: Bind one current collection to one official-Dex triage through workflow-correlated immutable data.
+    steps:
+      - name: collect-sentry-issues
+        description: Store the bounded issue snapshot and current/recent/historical reconciliation.
+        task:
+          type: model_method
+          modelIdOrName: supers-sentry-issue-intake
+          methodName: collect
+          inputs:
+            lookbackDays: '${{ inputs.lookbackDays }}'
+            historyDays: '${{ inputs.historyDays }}'
+            limit: '${{ inputs.limit }}'
+            currentRelease: '${{ inputs.currentRelease }}'
+        dependsOn: []
+        weight: 0
+        allowFailure: false
+      - name: triage-against-dex
+        description: Read official Dex once and bind the exact workflow-produced reconciliation by name and fingerprint.
+        task:
+          type: model_method
+          modelIdOrName: supers-sentry-issue-intake
+          methodName: triage
+          inputs:
+            sourceReconciliation: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "reconciliation" && workflowRunId == "'' + run.id + ''"'')[0].name }}'
+            expectedFingerprint: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "reconciliation" && workflowRunId == "'' + run.id + ''"'')[0].attributes.sourceFingerprint }}'
+        dependsOn:
+          - step: collect-sentry-issues
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+      - name: assert-correlated-triage
+        description: Require the terminal triage to preserve the exact current-run reconciliation fingerprint.
+        task:
+          type: assert
+          expr: 'data.query(''modelName == "supers-sentry-issue-intake" && specName == "triage" && workflowRunId == "'' + run.id + ''"'')[0].attributes.sourceFingerprint == data.query(''modelName == "supers-sentry-issue-intake" && specName == "reconciliation" && workflowRunId == "'' + run.id + ''"'')[0].attributes.sourceFingerprint'
+          message: Sentry intake triage did not preserve the current workflow reconciliation fingerprint
+          severity: high
+        dependsOn:
+          - step: triage-against-dex
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+    dependsOn: []
+    weight: 0
+version: 1

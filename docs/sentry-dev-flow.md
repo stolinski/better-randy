@@ -54,6 +54,17 @@ swamp model method run supers-sentry-issue-intake triage \
   --input expectedFingerprint=<sha256>
 ```
 
+The durable entrypoint runs both stages and asserts their current-run
+fingerprint correlation:
+
+```bash
+swamp workflow run supers-sentry-readonly-intake \
+  --input lookbackDays=7 \
+  --input historyDays=90 \
+  --input limit=100 \
+  --input currentRelease=supers@<git-sha>
+```
+
 It recommends `create-task`, `attach-existing`, `reproduce-first`,
 `human-review`, or `ignore`. Exact Sentry short-id matches outrank bounded
 lexical candidates; multiple/completed exact matches, lexical candidates,
