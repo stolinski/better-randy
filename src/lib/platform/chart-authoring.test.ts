@@ -50,6 +50,7 @@ describe('chart authoring', () => {
 		for (const type of [
 			'bar-chart',
 			'column-chart',
+			'line-chart',
 			'unit-grid-chart',
 			'dot-field-chart'
 		] as const) {
@@ -58,6 +59,7 @@ describe('chart authoring', () => {
 			const id = appendChartBlock(state.surface, type);
 			assert.equal(id, `${type}-1`);
 			assert.equal(state.surface.chart?.items[0].type, type);
+			assert.equal(state.surface.chart?.items[0].progressBar, true);
 			assertStateValid(state);
 			const preset: Preset = {
 				schema: 'supers@1',
@@ -128,6 +130,7 @@ describe('chart authoring', () => {
 		assertStateValid(state);
 		assert.equal(replaceChartBlockType(state.surface, id!, 'dot-field-chart'), true);
 		assert.equal(replaceChartBlockType(state.surface, id!, 'column-chart'), true);
+		assert.equal(state.surface.chart?.items[0].progressBar, true);
 		assertStateValid(state);
 	});
 

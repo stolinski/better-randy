@@ -187,7 +187,6 @@ function layoutChartLegend(
 				return { id: category.id, label };
 			})
 		: block.data.series.map((series) => ({ id: series.id, label: series.label }));
-	const swatchSize = Math.max(18, gap * 0.55);
 	const rowGap = gap * 0.6;
 	let cursorX = x;
 	let cursorY = y;
@@ -195,6 +194,7 @@ function layoutChartLegend(
 	const items: ChartLegendItemLayout[] = [];
 	for (const entry of entries) {
 		const measurement = measureChartText(measureText, entry.label, 'legend', overflow, entry.id);
+		const swatchSize = Math.max(28, measurement.height * 0.55);
 		const itemWidth = swatchSize + gap * 0.45 + measurement.width;
 		if (itemWidth > availableWidth) {
 			overflow.push({
@@ -345,7 +345,7 @@ export function resolveChartFrameLayout(input: {
 	let axes = emptyAxes();
 	const categoriesVisible = block.labels.categories ?? true;
 
-	if (block.type === 'bar-chart' || block.type === 'column-chart') {
+	if (block.type === 'bar-chart' || block.type === 'column-chart' || block.type === 'line-chart') {
 		const domain = resolveChartLinearDomain(block);
 		const provisionalPixels = block.type === 'bar-chart' ? plotBounds.width : plotBounds.height;
 		const provisionalScale = createChartLinearScale(domain, [0, provisionalPixels]);

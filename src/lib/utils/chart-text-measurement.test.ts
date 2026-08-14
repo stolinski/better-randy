@@ -20,17 +20,19 @@ describe('measureChartTextForRender', () => {
 		}
 	});
 
-	it('raises every vertical chart role above the native portrait typography floor', () => {
+	it('keeps every vertical chart role above the native portrait typography floor', () => {
 		assert.ok(resolveChartTextRoleStyle('title', 'vertical').fontSize >= 112);
-		assert.equal(resolveChartTextRoleStyle('callout').fontSize, 64);
+		assert.equal(resolveChartTextRoleStyle('callout').fontSize, 72);
 		assert.equal(resolveChartTextRoleStyle('callout', 'vertical').fontSize, 72);
 		for (const role of ['axis', 'category', 'value', 'legend', 'source', 'callout'] as const) {
 			assert.ok(resolveChartTextRoleStyle(role, 'vertical').fontSize >= 48, role);
-			assert.ok(
-				createChartRenderTextMeasurer('vertical')({ text: 'Readable', role }).width >
-					createChartRenderTextMeasurer('horizontal')({ text: 'Readable', role }).width,
-				role
-			);
+		}
+	});
+
+	it('keeps chart keys and supporting labels readable at editor scale', () => {
+		assert.ok(resolveChartTextRoleStyle('legend').fontSize >= 64);
+		for (const role of ['axis', 'category', 'value', 'source'] as const) {
+			assert.ok(resolveChartTextRoleStyle(role).fontSize >= 48, role);
 		}
 	});
 

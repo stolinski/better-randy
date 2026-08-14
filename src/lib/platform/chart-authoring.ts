@@ -14,8 +14,9 @@ import {
 
 export type ChartBlockType = ChartBlock['type'];
 export type ChartTargetKind = ChartDataTarget['kind'];
+type LinearChartBlock = Extract<ChartBlock, { type: 'bar-chart' | 'column-chart' | 'line-chart' }>;
 type BarColumnChartBlock = Extract<ChartBlock, { type: 'bar-chart' | 'column-chart' }>;
-type ChartDomain = NonNullable<BarColumnChartBlock['domain']>;
+type ChartDomain = NonNullable<LinearChartBlock['domain']>;
 type ChartLayoutMode = BarColumnChartBlock['layout']['mode'];
 
 const CHART_SINGLE_MOTION: ChartMotion = {
@@ -86,12 +87,15 @@ export function createDefaultChartBlock(type: ChartBlockType, id: string): Chart
 		title: 'Chart title',
 		data,
 		labels: { categories: true, values: true, legend: false },
+		progressBar: true,
 		fill: { role: 'default' as const },
 		motion: cloneChartMotion(CHART_SINGLE_MOTION)
 	};
-	return type === 'bar-chart' || type === 'column-chart'
-		? { ...common, type, layout: { mode: 'single' }, domain: { min: 0, max: 100 } }
-		: { ...common, type, normalization: { total: 100, unitCount: 100 } };
+	if (type === 'bar-chart' || type === 'column-chart') {
+		return { ...common, type, layout: { mode: 'single' }, domain: { min: 0, max: 100 } };
+	}
+	if (type === 'line-chart') return { ...common, type, domain: { min: 0, max: 100 } };
+	return { ...common, type, normalization: { total: 100, unitCount: 100 } };
 }
 
 export function appendChartBlock(surface: SurfaceState, type: ChartBlockType): string | null {
@@ -128,7 +132,16 @@ function chartCommonFields(
 	block: ChartBlock
 ): Pick<
 	ChartBlock,
-	'id' | 'title' | 'data' | 'labels' | 'highlights' | 'callouts' | 'sourceNote' | 'fill' | 'motion'
+	| 'id'
+	| 'title'
+	| 'data'
+	| 'labels'
+	| 'highlights'
+	| 'callouts'
+	| 'sourceNote'
+	| 'progressBar'
+	| 'fill'
+	| 'motion'
 > {
 	return {
 		id: block.id,
@@ -138,6 +151,7 @@ function chartCommonFields(
 		highlights: block.highlights,
 		callouts: block.callouts,
 		sourceNote: block.sourceNote,
+		progressBar: block.progressBar,
 		fill: block.fill,
 		motion: block.motion
 	};
@@ -154,16 +168,31 @@ export function replaceChartBlockType(
 	const current = items[index];
 	if (current.type === nextType) return true;
 	const common = chartCommonFields(current);
-	if (
-		(current.type === 'bar-chart' || current.type === 'column-chart') &&
-		(nextType === 'bar-chart' || nextType === 'column-chart')
-	) {
-		items[index] = {
-			...common,
-			type: nextType,
-			layout: { ...current.layout },
-			domain: current.domain ? { ...current.domain } : undefined
-		};
+	const currentIsLinear =
+		current.type === 'bar-chart' ||
+		current.type === 'column-chart' ||
+		current.type === 'line-chart';
+	const nextIsLinear =
+		nextType === 'bar-chart' || nextType === 'column-chart' || nextType === 'line-chart';
+	if (currentIsLinear && nextIsLinear) {
+		const domain = current.domain ? { ...current.domain } : undefined;
+		if (nextType === 'line-chart') {
+			items[index] = { ...common, type: nextType, domain };
+		} else {
+			items[index] = {
+				...common,
+				type: nextType,
+				layout: {
+					mode:
+						current.type === 'bar-chart' || current.type === 'column-chart'
+							? current.layout.mode
+							: current.data.series.length === 1
+								? 'single'
+								: 'grouped'
+				},
+				domain
+			};
+		}
 		return true;
 	}
 	if (nextType === 'unit-grid-chart' || nextType === 'dot-field-chart') {
@@ -186,19 +215,12 @@ export function replaceChartBlockType(
 		return true;
 	}
 	const values = current.data.series.flatMap((series) => series.values.map((datum) => datum.value));
-	const minimum = Math.min(0, ...values);
-	const maximum = Math.max(1, ...values);
-	items[index] = {
-		...common,
-		type: nextType,
-		layout: {
-			mode:
-				current.type === 'bar-chart' || current.type === 'column-chart'
-					? current.layout.mode
-					: 'single'
-		},
-		domain: { min: minimum, max: maximum }
-	};
+	const domain = { min: Math.min(0, ...values), max: Math.max(1, ...values) };
+	if (nextType === 'line-chart') {
+		items[index] = { ...common, type: nextType, domain };
+	} else {
+		items[index] = { ...common, type: nextType, layout: { mode: 'single' }, domain };
+	}
 	return true;
 }
 
@@ -314,7 +336,12 @@ export function appendChartSeries(block: ChartBlock): string | null {
 		values: block.data.categories.map((category) => ({ categoryId: category.id, value: 0 }))
 	};
 	block.data.series.push(series);
-	if (block.layout.mode === 'single') block.layout.mode = 'grouped';
+	if (
+		(block.type === 'bar-chart' || block.type === 'column-chart') &&
+		block.layout.mode === 'single'
+	) {
+		block.layout.mode = 'grouped';
+	}
 	return id;
 }
 
@@ -334,10 +361,10 @@ export function removeChartSeries(block: ChartBlock, seriesId: string): boolean 
 }
 
 function chartAuthoringDomainValues(
-	block: BarColumnChartBlock,
-	layoutMode: ChartLayoutMode
+	block: LinearChartBlock,
+	layoutMode?: ChartLayoutMode
 ): number[] {
-	return layoutMode === 'stacked'
+	return layoutMode === 'stacked' && block.type !== 'line-chart'
 		? block.data.categories.map((category) =>
 				block.data.series.reduce(
 					(total, series) =>
@@ -349,17 +376,18 @@ function chartAuthoringDomainValues(
 }
 
 export function createChartFactualDomain(
-	block: BarColumnChartBlock,
-	layoutMode: ChartLayoutMode = block.layout.mode
+	block: LinearChartBlock,
+	layoutMode?: ChartLayoutMode
 ): ChartDomain {
-	const values = chartAuthoringDomainValues(block, layoutMode);
+	const mode = layoutMode ?? (block.type === 'line-chart' ? undefined : block.layout.mode);
+	const values = chartAuthoringDomainValues(block, mode);
 	return { min: Math.min(0, ...values), max: Math.max(1, ...values) };
 }
 
 export function chartDomainIncludesFactualValues(
-	block: BarColumnChartBlock,
+	block: LinearChartBlock,
 	domain: ChartDomain | undefined,
-	layoutMode: ChartLayoutMode = block.layout.mode
+	layoutMode?: ChartLayoutMode
 ): boolean {
 	if (!domain) return true;
 	if (
@@ -368,7 +396,8 @@ export function chartDomainIncludesFactualValues(
 		(domain.min !== undefined && domain.max !== undefined && domain.min >= domain.max)
 	)
 		return false;
-	return chartAuthoringDomainValues(block, layoutMode).every(
+	const mode = layoutMode ?? (block.type === 'line-chart' ? undefined : block.layout.mode);
+	return chartAuthoringDomainValues(block, mode).every(
 		(value) =>
 			Number.isFinite(value) &&
 			(domain.min === undefined || value >= domain.min) &&
@@ -434,7 +463,7 @@ export function setChartDatumValue(
 	)
 		return false;
 	if (
-		(block.type === 'bar-chart' || block.type === 'column-chart') &&
+		(block.type === 'bar-chart' || block.type === 'column-chart' || block.type === 'line-chart') &&
 		((block.domain?.min !== undefined && value < block.domain.min) ||
 			(block.domain?.max !== undefined && value > block.domain.max))
 	)
@@ -447,7 +476,7 @@ export function setChartDatumValue(
 	datum.value = value;
 	if (
 		!recomputeNormalizedTotal(block) ||
-		((block.type === 'bar-chart' || block.type === 'column-chart') &&
+		((block.type === 'bar-chart' || block.type === 'column-chart' || block.type === 'line-chart') &&
 			!chartDomainIncludesFactualValues(block, block.domain))
 	) {
 		datum.value = previous;

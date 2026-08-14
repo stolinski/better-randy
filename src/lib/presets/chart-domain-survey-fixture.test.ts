@@ -105,6 +105,8 @@ describe('chart-domain survey fixture', () => {
 			for (const block of chart.items) {
 				const measureText = createChartRenderTextMeasurer(orientation);
 				const layout = resolveChartFrameLayout({ block, orientation, measureText });
+				if (block.type === 'line-chart')
+					throw new Error('Survey fixture does not include line charts.');
 				const resolvedGeometry: ChartBarColumnGeometry | ChartNormalizedGeometry =
 					block.type === 'bar-chart' || block.type === 'column-chart'
 						? resolveChartBarColumnGeometry({ block, layout, orientation, measureText })

@@ -147,28 +147,21 @@ export function resolveChartOrderedRevealProgress(
 	return applyChartMotionEase(localProgress, motion.reveal.ease ?? CHART_PHASE_DEFAULT_EASE.reveal);
 }
 
-export function formatChartCounterValue(terminalValue: number, counterProgress: number): string {
-	if (
-		!Number.isFinite(terminalValue) ||
-		!Number.isFinite(counterProgress) ||
-		counterProgress < 0 ||
-		counterProgress > 1
-	) {
-		throw new RangeError('Chart counters require finite values and progress in [0, 1].');
+/** Linear lifetime progress from chart entry start until its exit begins. */
+export function resolveChartProgressBarProgress(
+	motion: ChartMotion,
+	compositionProgress: number
+): number {
+	if (!Number.isFinite(compositionProgress)) {
+		throw new RangeError('Chart progress bar requires finite composition progress.');
 	}
-	const progress = counterProgress;
-	const terminalText = Object.is(terminalValue, -0) ? '0' : String(terminalValue);
-	if (progress === 1) return terminalText;
-	if (/e/i.test(terminalText)) {
-		const value = terminalValue * progress;
-		return Object.is(value, -0) ? '0' : String(value);
+	assertChartMotion(motion);
+	const lifetimeStart = motion.entry.start;
+	const lifetimeEnd = motion.exit.start;
+	if (lifetimeEnd <= lifetimeStart) {
+		throw new RangeError('Chart progress bar requires exit to begin after entry starts.');
 	}
-	if (Number.isInteger(terminalValue)) {
-		const value = Math.trunc(terminalValue * progress);
-		return Object.is(value, -0) ? '0' : String(value);
-	}
-	const decimalPlaces = terminalText.split('.')[1]?.length ?? 0;
-	const scale = 10 ** decimalPlaces;
-	const value = Math.trunc(terminalValue * progress * scale) / scale;
-	return Object.is(value, -0) ? '0' : String(value);
+	return clampChartUnitInterval(
+		(clampChartUnitInterval(compositionProgress) - lifetimeStart) / (lifetimeEnd - lifetimeStart)
+	);
 }

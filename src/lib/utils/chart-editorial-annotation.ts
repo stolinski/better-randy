@@ -178,30 +178,11 @@ export function routeChartAnnotationLeader(
 	box: ChartPixelRect,
 	launchLane?: ChartAnnotationLocalLane
 ): ChartAnnotationLeaderRoute {
-	const launchDistance = 16;
-	const launchPoint = launchLane
-		? {
-				x:
-					leaderFrom.x +
-					(launchLane === 'local-right'
-						? launchDistance
-						: launchLane === 'local-left'
-							? -launchDistance
-							: 0),
-				y:
-					leaderFrom.y +
-					(launchLane === 'local-below'
-						? launchDistance
-						: launchLane === 'local-above'
-							? -launchDistance
-							: 0)
-			}
-		: leaderFrom;
 	const alignedX = launchLane
-		? Math.max(box.x, Math.min(launchPoint.x, box.x + box.width))
+		? Math.max(box.x, Math.min(leaderFrom.x, box.x + box.width))
 		: box.x + box.width / 2;
 	const alignedY = launchLane
-		? Math.max(box.y, Math.min(launchPoint.y, box.y + box.height))
+		? Math.max(box.y, Math.min(leaderFrom.y, box.y + box.height))
 		: box.y + box.height / 2;
 	const edges = [
 		{ target: { x: box.x, y: alignedY }, axis: 'horizontal' as const },
@@ -211,24 +192,29 @@ export function routeChartAnnotationLeader(
 	].map((edge, declarationIndex) => ({
 		...edge,
 		declarationIndex,
-		distanceSquared: (launchPoint.x - edge.target.x) ** 2 + (launchPoint.y - edge.target.y) ** 2
+		distanceSquared: (leaderFrom.x - edge.target.x) ** 2 + (leaderFrom.y - edge.target.y) ** 2
 	}));
 	const selected = edges.sort(
 		(a, b) => a.distanceSquared - b.distanceSquared || a.declarationIndex - b.declarationIndex
 	)[0];
 	if (!selected) throw new Error('Chart annotation leader requires a box edge.');
-	const bend =
-		selected.axis === 'horizontal'
-			? { x: launchPoint.x, y: selected.target.y }
-			: { x: selected.target.x, y: launchPoint.y };
-	const candidates = [launchPoint, bend];
-	const leaderWaypoints = candidates.filter((point, index) => {
-		const previous = index === 0 ? leaderFrom : candidates[index - 1];
-		return (
-			(point.x !== previous?.x || point.y !== previous?.y) &&
-			(point.x !== selected.target.x || point.y !== selected.target.y)
-		);
-	});
+	const deltaX = selected.target.x - leaderFrom.x;
+	const deltaY = selected.target.y - leaderFrom.y;
+	if (deltaX === 0 || deltaY === 0) {
+		return { leaderFrom, leaderWaypoints: [], leaderTo: selected.target };
+	}
+	// Put both square elbows at the route midpoint. The resulting horizontal–vertical–horizontal
+	// (or vertical–horizontal–vertical) dogleg reads as a hard S rather than an L bent at the datum.
+	const leaderWaypoints =
+		Math.abs(deltaX) >= Math.abs(deltaY)
+			? [
+					{ x: leaderFrom.x + deltaX / 2, y: leaderFrom.y },
+					{ x: leaderFrom.x + deltaX / 2, y: selected.target.y }
+				]
+			: [
+					{ x: leaderFrom.x, y: leaderFrom.y + deltaY / 2 },
+					{ x: selected.target.x, y: leaderFrom.y + deltaY / 2 }
+				];
 	return { leaderFrom, leaderWaypoints, leaderTo: selected.target };
 }
 

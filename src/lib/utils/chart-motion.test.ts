@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 import type { ChartMotion } from '$lib/platform/engine-schema';
 import {
-	formatChartCounterValue,
 	resolveChartMotionState,
-	resolveChartOrderedRevealProgress
+	resolveChartOrderedRevealProgress,
+	resolveChartProgressBarProgress
 } from './chart-motion';
 
 function motion(): ChartMotion {
@@ -83,20 +83,14 @@ describe('resolveChartOrderedRevealProgress', () => {
 	});
 });
 
-describe('formatChartCounterValue', () => {
-	it('counts integer, negative, zero, and decimal facts without negative zero', () => {
-		assert.equal(formatChartCounterValue(744, 0.5), '372');
-		assert.equal(formatChartCounterValue(-120, 0.5), '-60');
-		assert.equal(formatChartCounterValue(-1, 0), '0');
-		assert.equal(formatChartCounterValue(67.4, 0.5), '33.7');
-		assert.equal(formatChartCounterValue(67.4, 1), '67.4');
-	});
-
-	it('counts scientific-range facts and preserves their exact terminal string', () => {
-		assert.equal(formatChartCounterValue(1e-12, 0.5), '5e-13');
-		assert.equal(formatChartCounterValue(1e308, 0.5), '5e+307');
-		assert.equal(formatChartCounterValue(1e308, 1), '1e+308');
-		assert.throws(() => formatChartCounterValue(Number.NaN, 0.5), /finite/);
-		assert.throws(() => formatChartCounterValue(12, 1.1), /progress in/);
+describe('resolveChartProgressBarProgress', () => {
+	it('tracks the complete visible hold linearly and completes when exit begins', () => {
+		const declaration = motion();
+		assert.equal(resolveChartProgressBarProgress(declaration, 0), 0);
+		assert.equal(resolveChartProgressBarProgress(declaration, 0.1), 0);
+		assert.equal(resolveChartProgressBarProgress(declaration, 0.5), 0.5);
+		assert.equal(resolveChartProgressBarProgress(declaration, 0.9), 1);
+		assert.equal(resolveChartProgressBarProgress(declaration, 1), 1);
+		assert.throws(() => resolveChartProgressBarProgress(declaration, Number.NaN), /finite/);
 	});
 });

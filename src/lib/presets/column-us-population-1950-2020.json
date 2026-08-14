@@ -148,6 +148,7 @@
 							}
 						],
 						"sourceNote": "Source: U.S. Census Bureau \u00b7 1950\u20132020",
+						"progressBar": true,
 						"fill": {
 							"role": "default"
 						},

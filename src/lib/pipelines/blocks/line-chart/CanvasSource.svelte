@@ -1,18 +1,18 @@
 <script lang="ts">
-	import {
-		ENGINE_FONT_FAMILIES,
-		type BarChartBlock,
-		type ColumnChartBlock
-	} from '$lib/platform/engine-schema';
+	import { ENGINE_FONT_FAMILIES, type LineChartBlock } from '$lib/platform/engine-schema';
 	import { animState } from '$lib/platform/anim-state.svelte';
 	import { engineState, packState } from '$lib/platform/engine-state.svelte';
 	import { getPack } from '$lib/platform/packs/registry';
-	import { resolveChartChromeColors, resolveFontTreatment } from '$lib/platform/packs/resolve';
+	import {
+		resolveChartChromeColors,
+		resolveChartSeriesStrokeColor,
+		resolveFontTreatment
+	} from '$lib/platform/packs/resolve';
 	import {
 		chartAnnotationBracketSvgPath,
 		chartAnnotationLeaderSvgPath
 	} from '$lib/utils/chart-editorial-annotation';
-	import { resolveChartBarColumnGeometry } from '$lib/utils/chart-bar-column-geometry';
+	import { resolveChartLineGeometry } from '$lib/utils/chart-line-geometry';
 	import { resolveChartFrameLayout, type ChartMeasuredTextLayout } from '$lib/utils/chart-layout';
 	import { resolveChartMotionState } from '$lib/utils/chart-motion';
 	import {
@@ -21,7 +21,7 @@
 	} from '$lib/utils/chart-text-measurement';
 
 	interface Props {
-		block: BarChartBlock | ColumnChartBlock;
+		block: LineChartBlock;
 	}
 
 	let { block }: Props = $props();
@@ -41,7 +41,7 @@
 		})
 	);
 	const geometry = $derived(
-		resolveChartBarColumnGeometry({
+		resolveChartLineGeometry({
 			block,
 			layout,
 			orientation: engineState.transport.orientation,
@@ -65,7 +65,7 @@
 </script>
 
 <svg
-	class="chart-bar-column"
+	class="chart-line"
 	data-chart-block={block.id}
 	data-chart-type={block.type}
 	data-chart-overflow={layout.overflow.length + geometry.overflow.length}
@@ -83,7 +83,7 @@
 >
 	{#if isRenderable}
 		<g
-			class="chart-bar-column__grid"
+			class="chart-line__grid"
 			opacity={motion.chromeAlpha}
 			fill="none"
 			stroke={chrome.grid}
@@ -94,7 +94,7 @@
 			{/each}
 		</g>
 		<g
-			class="chart-bar-column__axes"
+			class="chart-line__axes"
 			opacity={motion.chromeAlpha}
 			fill="none"
 			stroke={chrome.axis}
@@ -117,7 +117,22 @@
 			{/each}
 		</g>
 
-		<g class="chart-bar-column__datum-sentinels" fill="none" stroke="none">
+		<g class="chart-line__series" fill="none" stroke-linecap="square" stroke-linejoin="miter">
+			{#each geometry.series as series (series.seriesId)}
+				<polyline
+					data-chart-line-series={series.seriesId}
+					points={series.points.map((point) => `${point.x},${point.y}`).join(' ')}
+					stroke={resolveChartSeriesStrokeColor(pack, series.seriesIndex)}
+					stroke-width="12"
+					opacity={motion.chartAlpha}
+					pathLength="1"
+					stroke-dasharray="1"
+					stroke-dashoffset={1 - motion.revealProgress}
+				/>
+			{/each}
+		</g>
+
+		<g class="chart-line__datum-sentinels" fill="none" stroke="none">
 			{#each geometry.marks as mark (mark.id)}
 				<rect
 					data-chart-datum={mark.id}
@@ -133,7 +148,7 @@
 			{/each}
 		</g>
 
-		<g class="chart-bar-column__labels" opacity={motion.chromeAlpha} fill={chrome.label}>
+		<g class="chart-line__labels" opacity={motion.chromeAlpha} fill={chrome.label}>
 			<text
 				data-chart-text-role="title"
 				x={layout.chrome.title.origin.x}
@@ -178,19 +193,10 @@
 			{/if}
 		</g>
 
-		<g class="chart-bar-column__values" opacity={motion.annotationAlpha} fill={chrome.label}>
+		<g class="chart-line__values" opacity={motion.annotationAlpha} fill={chrome.label}>
 			{#each geometry.valueLabels as valueLabel (valueLabel.markId)}
 				{@const roleStyle = resolveChartTextRoleStyle('value', engineState.transport.orientation)}
-				{#if valueLabel.anchor === 'inside'}
-					<rect
-						x={valueLabel.origin.x - 10}
-						y={valueLabel.origin.y - 6}
-						width={valueLabel.measurement.width + 20}
-						height={valueLabel.measurement.height + 12}
-						rx="6"
-						fill={chrome.labelPlate}
-					/>
-				{/if}
+
 				<text
 					data-chart-text-role="value"
 					data-chart-value={valueLabel.markId}
@@ -205,7 +211,7 @@
 			{/each}
 		</g>
 
-		<g class="chart-bar-column__legend" opacity={motion.chromeAlpha} fill={chrome.label}>
+		<g class="chart-line__legend" opacity={motion.chromeAlpha} fill={chrome.label}>
 			{#each layout.chrome.legendItems as legend (legend.itemId)}
 				<rect
 					data-chart-legend-swatch={legend.itemId}
@@ -228,7 +234,7 @@
 		</g>
 
 		<g
-			class="chart-bar-column__annotations"
+			class="chart-line__annotations"
 			opacity={motion.annotationAlpha}
 			stroke={chrome.annotation}
 			fill="none"
@@ -290,7 +296,7 @@
 </svg>
 
 <style>
-	.chart-bar-column {
+	.chart-line {
 		block-size: 100%;
 		inset: 0;
 		inline-size: 100%;

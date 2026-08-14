@@ -92,6 +92,7 @@
 							}
 						],
 						"sourceNote": "Source: NASA, Apollo program mission roster",
+						"progressBar": true,
 						"fill": {
 							"role": "series"
 						},

@@ -279,7 +279,8 @@ describe('resolveChartBarColumnGeometry', () => {
 			result.annotations[0].leaderFrom.y,
 			result.marks[1].bounds.y + result.marks[1].bounds.height / 2
 		);
-		assert.ok(result.annotations[0].leaderWaypoints[0].x > result.annotations[0].leaderFrom.x);
+		assert.deepEqual(result.annotations[0].leaderWaypoints, []);
+		assert.ok(result.annotations[0].leaderTo.x > result.annotations[0].leaderFrom.x);
 		assert.equal(
 			result.valueLabels.find((label) => label.markId === result.marks[1].id)?.anchor,
 			'inside'

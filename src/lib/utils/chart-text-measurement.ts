@@ -13,17 +13,17 @@ export interface ChartTextRoleStyle {
 }
 
 const HORIZONTAL_CHART_TEXT_ROLE_STYLES: Readonly<Record<ChartTextRole, ChartTextRoleStyle>> = {
-	title: { fontSize: 92, fontWeight: 760, letterSpacing: -1.4, lineHeight: 1.04 },
-	axis: { fontSize: 38, fontWeight: 560, letterSpacing: 0, lineHeight: 1.15 },
-	category: { fontSize: 46, fontWeight: 650, letterSpacing: -0.2, lineHeight: 1.1 },
-	value: { fontSize: 44, fontWeight: 720, letterSpacing: 0.2, lineHeight: 1.05 },
-	legend: { fontSize: 40, fontWeight: 620, letterSpacing: 0, lineHeight: 1.1 },
-	source: { fontSize: 36, fontWeight: 480, letterSpacing: 0.2, lineHeight: 1.15 },
-	callout: { fontSize: 64, fontWeight: 760, letterSpacing: -0.2, lineHeight: 1.05 }
+	title: { fontSize: 96, fontWeight: 760, letterSpacing: -1.4, lineHeight: 1.04 },
+	axis: { fontSize: 52, fontWeight: 560, letterSpacing: 0, lineHeight: 1.15 },
+	category: { fontSize: 56, fontWeight: 650, letterSpacing: -0.2, lineHeight: 1.1 },
+	value: { fontSize: 52, fontWeight: 720, letterSpacing: 0.2, lineHeight: 1.05 },
+	legend: { fontSize: 64, fontWeight: 620, letterSpacing: 0, lineHeight: 1.1 },
+	source: { fontSize: 48, fontWeight: 480, letterSpacing: 0.2, lineHeight: 1.15 },
+	callout: { fontSize: 72, fontWeight: 760, letterSpacing: -0.2, lineHeight: 1.05 }
 };
 
-// Portrait compositions retain native 4K pixels but need a larger optical text floor.
-// These sizes keep every current Pack above the G4 cap-height minima without Preset styling.
+// Portrait compositions retain independent native-pixel floors tuned for their narrower safe width.
+// Horizontal supporting text is larger at editor scale; portrait roles stay bounded to avoid overflow.
 const VERTICAL_CHART_TEXT_ROLE_STYLES: Readonly<Record<ChartTextRole, ChartTextRoleStyle>> = {
 	title: { fontSize: 112, fontWeight: 760, letterSpacing: -1.4, lineHeight: 1.04 },
 	axis: { fontSize: 48, fontWeight: 560, letterSpacing: 0, lineHeight: 1.15 },

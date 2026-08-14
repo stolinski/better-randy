@@ -269,6 +269,42 @@ function validateBarColumnChart(
 	}
 }
 
+function validateLineChart(
+	item: Extract<ChartBlock, { type: 'line-chart' }>,
+	itemPath: (string | number)[],
+	issues: ChartSemanticIssue[]
+): void {
+	if (!item.domain) return;
+	if (
+		item.domain.min !== undefined &&
+		item.domain.max !== undefined &&
+		item.domain.min >= item.domain.max
+	) {
+		addChartIssue(issues, [...itemPath, 'domain'], 'Chart domain min must be less than max.');
+	}
+	if (item.domain.min !== undefined && item.domain.min > 0) {
+		addChartIssue(issues, [...itemPath, 'domain', 'min'], 'Line chart domains must include zero.');
+	}
+	if (item.domain.max !== undefined && item.domain.max < 0) {
+		addChartIssue(issues, [...itemPath, 'domain', 'max'], 'Line chart domains must include zero.');
+	}
+	const values = item.data.series.flatMap((series) => series.values.map((datum) => datum.value));
+	if (item.domain.min !== undefined && values.some((value) => value < item.domain!.min!)) {
+		addChartIssue(
+			issues,
+			[...itemPath, 'domain', 'min'],
+			`Chart domain clips a factual value below min ${item.domain.min}.`
+		);
+	}
+	if (item.domain.max !== undefined && values.some((value) => value > item.domain!.max!)) {
+		addChartIssue(
+			issues,
+			[...itemPath, 'domain', 'max'],
+			`Chart domain clips a factual value above max ${item.domain.max}.`
+		);
+	}
+}
+
 function validateNormalizedChart(
 	item: Extract<ChartBlock, { type: 'unit-grid-chart' | 'dot-field-chart' }>,
 	itemPath: (string | number)[],
@@ -439,6 +475,8 @@ export function validateChartGroupSemantics(
 		validateChartDataset(item, itemPath, issues);
 		if (item.type === 'bar-chart' || item.type === 'column-chart') {
 			validateBarColumnChart(item, itemPath, issues);
+		} else if (item.type === 'line-chart') {
+			validateLineChart(item, itemPath, issues);
 		} else {
 			validateNormalizedChart(item, itemPath, issues);
 		}

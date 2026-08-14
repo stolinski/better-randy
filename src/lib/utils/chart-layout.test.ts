@@ -127,6 +127,10 @@ describe('resolveChartFrameLayout', () => {
 			['360', '744']
 		);
 		assert.equal(layout.chrome.legendItems[0].itemId, 'responses');
+		assert.ok(
+			layout.chrome.legendItems[0].swatch.height >=
+				layout.chrome.legendItems[0].labelLayout.measurement.height * 0.5
+		);
 		assert.equal(layout.chrome.sourceNote?.text, 'Source: Syntax survey, n=1,104');
 	});
 

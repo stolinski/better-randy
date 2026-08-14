@@ -57,7 +57,11 @@
 	}
 
 	function toggleDomain(enabled: boolean): void {
-		if (!block || (block.type !== 'bar-chart' && block.type !== 'column-chart')) return;
+		if (
+			!block ||
+			(block.type !== 'bar-chart' && block.type !== 'column-chart' && block.type !== 'line-chart')
+		)
+			return;
 		if (!enabled) {
 			block.domain = undefined;
 			return;
@@ -66,7 +70,11 @@
 	}
 
 	function commitDomainBound(event: Event, field: 'min' | 'max'): void {
-		if (!block || (block.type !== 'bar-chart' && block.type !== 'column-chart')) return;
+		if (
+			!block ||
+			(block.type !== 'bar-chart' && block.type !== 'column-chart' && block.type !== 'line-chart')
+		)
+			return;
 		const input = event.currentTarget as HTMLInputElement;
 		const previous = block.domain?.[field];
 		const raw = input.value.trim();
@@ -143,6 +151,7 @@
 			<select aria-label="Chart type" value={block.type} onchange={commitType}>
 				<option value="bar-chart">Bar</option>
 				<option value="column-chart">Column</option>
+				<option value="line-chart">Line</option>
 				<option value="unit-grid-chart">Unit grid</option>
 				<option value="dot-field-chart">Dot field</option>
 			</select>
@@ -167,24 +176,33 @@
 				}}
 			/>
 		</Field>
+		<Field label="Progress">
+			<InspectorToggle
+				checked={block.progressBar ?? false}
+				label="Screen progress bar"
+				onchange={(checked) => (block.progressBar = checked)}
+			/>
+		</Field>
 	</InspectorSection>
 
 	<ChartDataSection {blockId} />
 
 	<InspectorSection label="Layout">
-		{#if block.type === 'bar-chart' || block.type === 'column-chart'}
-			<Field label="Mode">
-				<select aria-label="Chart layout mode" value={block.layout.mode} onchange={commitLayout}>
-					<option value="single" disabled={block.data.series.length !== 1}>Single</option>
-					<option value="grouped" disabled={block.data.series.length < 2}>Grouped</option>
-					<option
-						value="stacked"
-						disabled={block.data.series.length < 2 ||
-							block.data.series.some((series) => series.values.some((datum) => datum.value < 0))}
-						>Stacked</option
-					>
-				</select>
-			</Field>
+		{#if block.type === 'bar-chart' || block.type === 'column-chart' || block.type === 'line-chart'}
+			{#if block.type === 'bar-chart' || block.type === 'column-chart'}
+				<Field label="Mode">
+					<select aria-label="Chart layout mode" value={block.layout.mode} onchange={commitLayout}>
+						<option value="single" disabled={block.data.series.length !== 1}>Single</option>
+						<option value="grouped" disabled={block.data.series.length < 2}>Grouped</option>
+						<option
+							value="stacked"
+							disabled={block.data.series.length < 2 ||
+								block.data.series.some((series) => series.values.some((datum) => datum.value < 0))}
+							>Stacked</option
+						>
+					</select>
+				</Field>
+			{/if}
 			<Field label="Domain">
 				<InspectorToggle
 					checked={block.domain !== undefined}

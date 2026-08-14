@@ -173,7 +173,7 @@
 				{/each}
 			</div>
 		{/each}
-		{#if block.type === 'bar-chart' || block.type === 'column-chart'}
+		{#if block.type === 'bar-chart' || block.type === 'column-chart' || block.type === 'line-chart'}
 			<button
 				type="button"
 				class="ins-add"

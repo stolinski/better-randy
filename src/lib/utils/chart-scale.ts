@@ -1,4 +1,4 @@
-import type { BarChartBlock, ColumnChartBlock } from '../platform/engine-schema.ts';
+import type { BarChartBlock, ColumnChartBlock, LineChartBlock } from '../platform/engine-schema.ts';
 
 export interface ChartNumericExtent {
 	min: number;
@@ -76,10 +76,10 @@ function niceChartUpperBound(value: number, span: number): number {
 }
 
 export function resolveChartNumericExtent(
-	block: BarChartBlock | ColumnChartBlock
+	block: BarChartBlock | ColumnChartBlock | LineChartBlock
 ): ChartNumericExtent {
 	let values: number[];
-	if (block.layout.mode === 'stacked') {
+	if (block.type !== 'line-chart' && block.layout.mode === 'stacked') {
 		values = block.data.categories.map((category) =>
 			block.data.series.reduce((total, series) => {
 				const datum = series.values.find((candidate) => candidate.categoryId === category.id);
@@ -106,7 +106,7 @@ export function resolveChartNumericExtent(
 }
 
 export function resolveChartLinearDomain(
-	block: BarChartBlock | ColumnChartBlock
+	block: BarChartBlock | ColumnChartBlock | LineChartBlock
 ): ChartLinearDomain {
 	const extent = resolveChartNumericExtent(block);
 	const explicitMin = block.domain?.min;

@@ -101,26 +101,28 @@ describe('formatChartValueLabel', () => {
 });
 
 describe('chart annotation leader routing', () => {
-	it('replaces an arbitrary diagonal with one orthogonal elbow into a box-edge midpoint', () => {
+	it('routes an arbitrary diagonal as a hard S with both elbows at the route midpoint', () => {
 		const route = routeChartAnnotationLeader(
 			{ x: 500, y: 500 },
 			{ x: 700, y: 200, width: 100, height: 80 }
 		);
 		assert.deepEqual(route, {
 			leaderFrom: { x: 500, y: 500 },
-			leaderWaypoints: [{ x: 500, y: 240 }],
+			leaderWaypoints: [
+				{ x: 500, y: 370 },
+				{ x: 700, y: 370 }
+			],
 			leaderTo: { x: 700, y: 240 }
 		});
-		assert.equal(chartAnnotationLeaderSvgPath(route), 'M 500 500 L 500 240 L 700 240');
+		assert.equal(chartAnnotationLeaderSvgPath(route), 'M 500 500 L 500 370 L 700 370 L 700 240');
 	});
 
-	it('keeps a preferred-lane launch inside the annotation gutter', () => {
+	it('keeps an already aligned preferred-lane leader straight', () => {
 		const box = { x: 524, y: 450, width: 100, height: 100 };
 		const route = routeChartAnnotationLeader({ x: 500, y: 500 }, box, 'local-right');
-		assert.deepEqual(route.leaderWaypoints, [{ x: 516, y: 500 }]);
+		assert.deepEqual(route.leaderWaypoints, []);
 		assert.deepEqual(route.leaderTo, { x: 524, y: 500 });
-		assert.ok(route.leaderWaypoints[0].x < box.x);
-		assert.equal(chartAnnotationLeaderSvgPath(route), 'M 500 500 L 516 500 L 524 500');
+		assert.equal(chartAnnotationLeaderSvgPath(route), 'M 500 500 L 524 500');
 	});
 
 	it('draws an aggregate bracket with deliberate perpendicular caps', () => {

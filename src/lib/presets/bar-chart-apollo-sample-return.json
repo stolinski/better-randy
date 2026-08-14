@@ -81,6 +81,7 @@
 							}
 						],
 						"sourceNote": "Source: NASA NTRS 20090011852",
+						"progressBar": true,
 						"fill": {
 							"role": "default"
 						},

@@ -118,6 +118,7 @@
 							}
 						],
 						"sourceNote": "Source: Syntax survey, n=1,104",
+						"progressBar": true,
 						"fill": {
 							"role": "default"
 						},
@@ -216,6 +217,7 @@
 							}
 						],
 						"sourceNote": "Source: Syntax survey, n=1,104",
+						"progressBar": true,
 						"fill": {
 							"role": "series"
 						},
@@ -336,6 +338,7 @@
 							}
 						],
 						"sourceNote": "Source: Syntax survey, n=1,104",
+						"progressBar": true,
 						"fill": {
 							"role": "series"
 						},
@@ -432,6 +435,7 @@
 							}
 						],
 						"sourceNote": "Source: Syntax survey, n=1,104",
+						"progressBar": true,
 						"fill": {
 							"role": "default"
 						},
