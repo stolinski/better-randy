@@ -11,7 +11,8 @@ import { deriveSoundCues } from '$lib/platform/sound-cues';
 import { getVideoFrameSize } from '$lib/utils/video-frame';
 
 import { achievementFrameLayout } from './achievement-frame-layout';
-import { achievementOverlayRenderer, type AchievementContent } from './index';
+import type { AchievementContent } from './achievement-content';
+import { achievementOverlayRenderer } from './index';
 import { checklistCompleteMotion } from './variants/checklist-complete';
 import { setAchievementBeat, setAchievementVariant, VARIANTS } from './variants';
 import { unlockedMotion } from './variants/unlocked';

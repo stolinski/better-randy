@@ -1,19 +1,8 @@
-import { z } from 'zod';
-
 import type { OverlayDefaults, OverlayRenderer } from '$lib/platform/pipelines/types';
 
+import { AchievementContentSchema, type AchievementContent } from './achievement-content';
 import CanvasSource from './CanvasSource.svelte';
 import Editor from './Editor.svelte';
-import { VARIANT_IDS } from './variants';
-
-const AchievementContentSchema = z.strictObject({
-	variant: z.enum(VARIANT_IDS).default('checklist-complete'),
-	kicker: z.string().min(1),
-	title: z.string().min(1),
-	beat: z.number().min(0).max(1).default(0.3375)
-});
-
-export type AchievementContent = z.infer<typeof AchievementContentSchema>;
 
 function defaults(): OverlayDefaults<AchievementContent> {
 	return {

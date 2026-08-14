@@ -4,7 +4,7 @@
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 
 	import { achievementFrameLayout } from './achievement-frame-layout';
-	import type { AchievementContent } from './index';
+	import type { AchievementContent } from './achievement-content';
 	import { VARIANTS } from './variants';
 
 	interface Props {

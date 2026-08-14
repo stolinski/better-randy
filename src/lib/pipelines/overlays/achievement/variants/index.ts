@@ -1,10 +1,11 @@
-import type { AchievementContent } from '../index';
+import type { AchievementContent } from '../achievement-content';
 import { checklistCompleteVariant } from './checklist-complete';
 import type { AchievementVariant } from './types';
 import { unlockedVariant } from './unlocked';
 
-export const VARIANT_IDS = ['checklist-complete', 'unlocked'] as const;
-export type AchievementVariantId = (typeof VARIANT_IDS)[number];
+import { VARIANT_IDS as ACHIEVEMENT_VARIANT_IDS, type AchievementVariantId } from './variant-ids';
+
+export const VARIANT_IDS = ACHIEVEMENT_VARIANT_IDS;
 
 export const VARIANTS: Readonly<Record<AchievementVariantId, AchievementVariant>> = {
 	'checklist-complete': checklistCompleteVariant,

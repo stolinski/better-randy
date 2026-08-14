@@ -2,7 +2,7 @@
 	import Field from '$lib/platform/Field.svelte';
 	import type { OverlayEditorProps } from '$lib/platform/pipelines/types';
 
-	import type { AchievementContent } from './index';
+	import type { AchievementContent } from './achievement-content';
 	import {
 		isAchievementVariantId,
 		setAchievementBeat,
