@@ -123,7 +123,11 @@
 		// centre) so the text grows away from the stroke, never back across it.
 		const anchor =
 			primitive.type === 'timeline-segment' && isVerticalSpan(primitive) ? ';translate:0 -50%' : '';
-		return `left:${x}%;top:${y}%${anchor}`;
+		const textBoxWidth =
+			'maxWidth' in primitive && primitive.maxWidth
+				? `;inline-size:calc(${primitive.maxWidth / Math.max(primitive.scale ?? 1, 0.25)} * var(--frame-w) * 1px)`
+				: '';
+		return `left:${x}%;top:${y}%${anchor}${textBoxWidth}`;
 	}
 
 	// Intrinsic entrance forms per type — the pipeline-owned motion-form
@@ -174,15 +178,17 @@
 			// that wants a specific shadow colour names it in the rig.
 			const depth = resolveDepthTreatment(pack, 'node', 'var(--ink)');
 			if (depth) {
-				// Branch on the resolved depth kind: reflective packs cast a
-				// hard-offset shadow; emissive packs bloom — a centered two-layer
-				// phosphor halo (hot core + naturally-dimmer wide skirt), never an
-				// offset. box-shadow captures in HTML-in-Canvas; CSS filters do not.
-				const shadow =
-					depth.kind === 'glow'
-						? `0 0 ${depth.radius}px color-mix(in srgb, ${depth.color} ${Math.round(depth.intensity * 100)}%, transparent), 0 0 ${depth.radius * 2.25}px color-mix(in srgb, ${depth.color} ${Math.round(depth.intensity * 45)}%, transparent)`
-						: `${depth.dx}px ${depth.dy}px ${depth.blur}px ${depth.color}`;
-				style += `;--node-shadow:${shadow}`;
+				if (depth.kind === 'glow') {
+					// Emissive packs bloom with a centered hot core and wider skirt.
+					const glow = `0 0 ${depth.radius}px color-mix(in srgb, ${depth.color} ${Math.round(depth.intensity * 100)}%, transparent), 0 0 ${depth.radius * 2.25}px color-mix(in srgb, ${depth.color} ${Math.round(depth.intensity * 45)}%, transparent)`;
+					style += `;--node-shadow:${glow}`;
+				} else {
+					// A reflective Pack's hard offset is a physical backing plate, not a
+					// zero-falloff shadow. Keep that signature as explicit geometry and
+					// add a restrained soft cast shadow for continuous outer falloff.
+					const softBlur = Math.max(18, depth.blur + 18);
+					style += `;--node-depth-plate:${depth.color};--node-depth-x:${depth.dx}px;--node-depth-y:${depth.dy}px;--node-shadow:0 ${Math.max(8, depth.dy + 4)}px ${softBlur}px color-mix(in srgb, ${depth.color} 28%, transparent)`;
+				}
 			}
 			const fill = vars['--fill'];
 			if (fill) {

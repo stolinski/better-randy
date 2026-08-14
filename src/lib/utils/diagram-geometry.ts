@@ -16,9 +16,7 @@ import type { VideoOrientation } from './video-frame';
 type DiagramPositionedPrimitive = DiagramNode | DiagramLabel | DiagramStatCallout;
 
 export type DiagramPrimitiveGeometry =
-	| DiagramPositionGeometry
-	| DiagramEdgeGeometry
-	| DiagramTimelineGeometry;
+	DiagramPositionGeometry | DiagramEdgeGeometry | DiagramTimelineGeometry;
 
 export function resolveDiagramPrimitiveGeometry(
 	primitive: DiagramPositionedPrimitive,
@@ -56,7 +54,8 @@ export function cloneDiagramPrimitiveGeometry(
 	if ('position' in geometry) {
 		return {
 			position: { ...geometry.position },
-			scale: geometry.scale
+			scale: geometry.scale,
+			maxWidth: geometry.maxWidth
 		};
 	}
 	if ('route' in geometry) {
@@ -85,7 +84,8 @@ export function resolveDiagramPrimitiveForRender(
 			return {
 				...primitive,
 				position: { ...geometry.position },
-				scale: geometry.scale
+				scale: geometry.scale,
+				maxWidth: geometry.maxWidth
 			};
 		}
 		case 'edge-arrow': {

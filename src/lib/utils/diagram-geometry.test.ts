@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 
 import { describe, it } from 'vitest';
 
-import type { DiagramEdgeArrow, DiagramLabel, DiagramTimelineSegment } from '$lib/platform/engine-schema';
+import type {
+	DiagramEdgeArrow,
+	DiagramLabel,
+	DiagramTimelineSegment
+} from '$lib/platform/engine-schema';
 
 import {
 	cloneDiagramPrimitiveGeometry,
@@ -17,21 +21,25 @@ describe('Diagram orientation geometry', () => {
 			id: 'title',
 			position: { x: 0.2, y: 0.2 },
 			text: 'Title',
+			wrap: 'explicit',
 			scale: 1,
+			maxWidth: 0.8,
 			orientationOverrides: {
-				vertical: { position: { x: 0.5, y: 0.12 }, scale: 1.8 }
+				vertical: { position: { x: 0.5, y: 0.12 }, scale: 1.8, maxWidth: 0.7 }
 			}
 		};
 
 		assert.equal(resolveDiagramPrimitiveGeometry(label, 'horizontal'), label);
 		assert.deepEqual(resolveDiagramPrimitiveGeometry(label, 'vertical'), {
 			position: { x: 0.5, y: 0.12 },
-			scale: 1.8
+			scale: 1.8,
+			maxWidth: 0.7
 		});
 		assert.deepEqual(resolveDiagramPrimitiveForRender(label, 'vertical'), {
 			...label,
 			position: { x: 0.5, y: 0.12 },
-			scale: 1.8
+			scale: 1.8,
+			maxWidth: 0.7
 		});
 	});
 

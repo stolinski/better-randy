@@ -8,7 +8,11 @@
 	let { block }: Props = $props();
 </script>
 
-<span class="diagram-label" data-diagram-text-role={block.role ?? 'caption'}>{block.text}</span>
+<span
+	class="diagram-label"
+	class:diagram-label--explicit-wrap={block.wrap === 'explicit'}
+	data-diagram-text-role={block.role ?? 'caption'}>{block.text}</span
+>
 
 <style>
 	/* Caption and headline preserve one Pack-resolved voice; only their native
@@ -22,6 +26,10 @@
 		letter-spacing: 0.05em;
 		line-height: 1.25;
 		text-align: center;
+		white-space: normal;
+	}
+
+	.diagram-label--explicit-wrap {
 		white-space: pre-line;
 	}
 

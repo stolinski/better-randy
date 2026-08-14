@@ -9,7 +9,10 @@
 </script>
 
 {#if block.form === 'box'}
-	<span class="node node--box" data-diagram-text-role="caption">{block.text ?? ''}</span>
+	<span class="node node--box">
+		<span class="node__box-depth" aria-hidden="true"></span>
+		<span class="node__box-face" data-diagram-text-role="caption">{block.text ?? ''}</span>
+	</span>
 {:else if block.form === 'pin'}
 	<span class="node node--pin">
 		<!-- Shadow is an offset SVG path, never a CSS filter — filters promote
@@ -46,19 +49,34 @@
 		white-space: nowrap;
 	}
 
-	/* Box — the flowchart card: Pack fill (mount-guaranteed, ADR-0024), hard
-	   Pack depth, ink that follows the fill's luminance (--node-box-ink is
-	   computed + injected by DiagramMount whenever --fill resolves — always,
-	   for a validated Pack). */
+	/* Box — the flowchart card: Pack fill (mount-guaranteed, ADR-0024), a
+	   structural backing plate plus continuous cast-shadow falloff, and ink that
+	   follows the fill's luminance. The plate is geometry rather than a
+	   zero-blur CSS shadow, preserving hard-offset Pack depth without claiming a
+	   physically impossible hard-edged shadow. */
 	.node--box {
-		background: var(--fill);
-		border: calc(0.32 * var(--cqmin)) solid var(--node-box-ink);
 		box-shadow: var(--node-shadow, none);
 		color: var(--node-box-ink);
 		font-size: calc(2.9 * var(--cqmin));
 		font-weight: 700;
 		letter-spacing: 0.01em;
+		position: relative;
+	}
+	.node__box-depth,
+	.node__box-face {
+		box-sizing: border-box;
+		inset: 0;
+	}
+	.node__box-depth {
+		background: var(--node-depth-plate, transparent);
+		position: absolute;
+		translate: var(--node-depth-x, 0) var(--node-depth-y, 0);
+	}
+	.node__box-face {
+		background: var(--fill);
+		border: calc(0.32 * var(--cqmin)) solid var(--node-box-ink);
 		padding: calc(1.5 * var(--cqmin)) calc(2.4 * var(--cqmin));
+		position: relative;
 	}
 
 	/* Pin — the map marker: Pack accent body, punched core. */
