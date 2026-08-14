@@ -1,0 +1,82 @@
+id: 89c20393-3689-4cd1-8b05-b36c13561cef
+name: supers-complete-human-approved-task
+description: Complete exactly one Supers Dex task from authoritative current-cycle human-approved Factory evidence.
+tags:
+  purpose: human-approved-task-completion
+inputs:
+  type: object
+  properties:
+    workItem:
+      type: string
+      minLength: 1
+  required:
+    - workItem
+  additionalProperties: false
+jobs:
+  - name: main
+    description: Refresh Factory state, verify authoritative approval at the tracker boundary, and record completion evidence.
+    steps:
+      - name: refresh-factory-state
+        description: Refresh the exact task status before reading completion provenance.
+        task:
+          type: model_method
+          modelIdOrName: supers-delivery
+          methodName: status
+          inputs:
+            workItem: ${{ inputs.workItem }}
+        dependsOn: []
+        weight: 0
+        allowFailure: false
+      - name: complete-approved-task
+        description: Complete Dex only when current Factory, reconciliation, postflight, and human approval evidence cohere.
+        task:
+          type: model_method
+          modelIdOrName: supers-dex-task-tracker
+          methodName: complete
+          inputs:
+            taskId: ${{ inputs.workItem }}
+            result: ${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-reconciliation").attributes.payload.completionResult }}
+            commit: ${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-reconciliation").attributes.payload.commit }}
+            factoryModelName: supers-delivery
+            factoryState: ${{ data.latest("supers-delivery", "state-" + inputs.workItem).attributes }}
+            reconciliation: ${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-reconciliation").attributes }}
+            postflightEvidence: ${{ data.latest("supers-delivery", "evidence-" + inputs.workItem + "-postflight-run").attributes }}
+            humanApproval: ${{ data.latest("supers-delivery", "approval-" + inputs.workItem + "-completion-approval").attributes }}
+            completionSourceNames:
+              factoryState: ${{ "state-" + inputs.workItem }}
+              reconciliation: ${{ "artifact-" + inputs.workItem + "-reconciliation" }}
+              postflightEvidence: ${{ "evidence-" + inputs.workItem + "-postflight-run" }}
+              humanApproval: ${{ "approval-" + inputs.workItem + "-completion-approval" }}
+            completionAuthorizationCapability: ${{ vault.get(supers-human-task-completion, AUTHORIZATION_KEY) }}
+        dependsOn:
+          - step: refresh-factory-state
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+      - name: record-tracker-completion
+        description: Persist Factory evidence only after the authorized tracker mutation succeeds.
+        task:
+          type: model_method
+          modelIdOrName: supers-delivery
+          methodName: record_evidence
+          inputs:
+            workItem: ${{ inputs.workItem }}
+            name: tracker-completion
+            payload:
+              status: succeeded
+              runId: ${{ run.id }}
+              model: supers-dex-task-tracker
+              method: complete
+              outputId: ${{ run.id }}
+              taskId: ${{ inputs.workItem }}
+              commitKind: ${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-reconciliation").attributes.payload.commit.kind }}
+        dependsOn:
+          - step: complete-approved-task
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+    dependsOn: []
+    weight: 0
+version: 1

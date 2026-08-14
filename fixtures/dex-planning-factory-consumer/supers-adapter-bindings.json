@@ -1,0 +1,205 @@
+{
+  "schemaVersion": 1,
+  "model": "repo-audit",
+  "adapters": {
+    "inventory": {
+      "mode": "workflow",
+      "workflow": "supers-planning-inventory",
+      "readOnly": true
+    },
+    "tracker": {
+      "mode": "workflow",
+      "workflow": "supers-planning-tracker-inventory",
+      "readOnly": true
+    },
+    "documentationPolicy": {
+      "mode": "workflow",
+      "workflow": "supers-planning-documentation-effects",
+      "readOnly": true
+    },
+    "planApplier": {
+      "mode": "workflow",
+      "workflow": "supers-planning-apply-approved-plan"
+    },
+    "audit": {
+      "mode": "workflow",
+      "workflow": "supers-planning-audit",
+      "readOnly": true
+    }
+  },
+  "methodContracts": {
+    "collectPlanningInventory": {
+      "modelIdOrName": "repo-audit",
+      "methodName": "collect-planning-inventory",
+      "inputs": {
+        "values": {
+          "planningState": "${{ {\"dataReference\": \"swamp:data/repo-audit/planning-latest\", \"generatedAt\": data.latest(\"repo-audit\", \"planning-latest\").attributes.generatedAt, \"clean\": data.latest(\"repo-audit\", \"planning-latest\").attributes.clean, \"runway\": {\"activeTaskId\": data.latest(\"repo-audit\", \"planning-latest\").attributes.runway.activeTaskId == null ? \"\" : data.latest(\"repo-audit\", \"planning-latest\").attributes.runway.activeTaskId, \"activeTaskName\": data.latest(\"repo-audit\", \"planning-latest\").attributes.runway.activeTaskName == null ? \"\" : data.latest(\"repo-audit\", \"planning-latest\").attributes.runway.activeTaskName, \"activeEpicId\": data.latest(\"repo-audit\", \"planning-latest\").attributes.runway.activeEpicId == null ? \"\" : data.latest(\"repo-audit\", \"planning-latest\").attributes.runway.activeEpicId, \"nextTaskId\": data.latest(\"repo-audit\", \"planning-latest\").attributes.runway.nextTaskId == null ? \"\" : data.latest(\"repo-audit\", \"planning-latest\").attributes.runway.nextTaskId, \"nextTaskName\": data.latest(\"repo-audit\", \"planning-latest\").attributes.runway.nextTaskName == null ? \"\" : data.latest(\"repo-audit\", \"planning-latest\").attributes.runway.nextTaskName, \"topPriority\": data.latest(\"repo-audit\", \"planning-latest\").attributes.runway.topPriority == null ? -1 : data.latest(\"repo-audit\", \"planning-latest\").attributes.runway.topPriority, \"readyLeafCount\": data.latest(\"repo-audit\", \"planning-latest\").attributes.runway.readyLeafCount}} }}",
+          "unresolvedDecisions": []
+        },
+        "properties": {
+          "planningState": {
+            "type": "object",
+            "properties": {
+              "dataReference": {
+                "type": "string",
+                "minLength": 1
+              },
+              "generatedAt": {
+                "type": "string",
+                "minLength": 1
+              },
+              "clean": {
+                "type": "boolean"
+              },
+              "runway": {
+                "type": "object",
+                "properties": {
+                  "activeTaskId": {
+                    "type": "string"
+                  },
+                  "activeTaskName": {
+                    "type": "string"
+                  },
+                  "activeEpicId": {
+                    "type": "string"
+                  },
+                  "nextTaskId": {
+                    "type": "string"
+                  },
+                  "nextTaskName": {
+                    "type": "string"
+                  },
+                  "topPriority": {
+                    "type": "integer",
+                    "minimum": -1,
+                    "maximum": 100
+                  },
+                  "readyLeafCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "activeTaskId",
+                  "activeTaskName",
+                  "activeEpicId",
+                  "nextTaskId",
+                  "nextTaskName",
+                  "topPriority",
+                  "readyLeafCount"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "dataReference",
+              "generatedAt",
+              "clean",
+              "runway"
+            ],
+            "additionalProperties": false
+          },
+          "unresolvedDecisions": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "question": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "id",
+                "question",
+                "reason"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "planningState",
+          "unresolvedDecisions"
+        ]
+      }
+    },
+    "deriveTrackerInventory": {
+      "modelIdOrName": "repo-audit",
+      "methodName": "derive-tracker-inventory",
+      "inputs": {
+        "inventory": "${{ data.latest(self.name, \"artifact-planning-inventory\").payload }}",
+        "sourceSnapshot": "${{ data.latest(\"repo-audit\", data.latest(self.name, \"artifact-planning-inventory\").payload.sourceSnapshotName).attributes }}"
+      }
+    },
+    "proposeDocumentationEffects": {
+      "modelIdOrName": "repo-audit",
+      "methodName": "propose-documentation-effects",
+      "inputs": {
+        "inventory": "${{ data.latest(self.name, \"artifact-planning-inventory\").payload }}",
+        "trackerInventory": "${{ data.latest(self.name, \"artifact-tracker-inventory\").payload }}",
+        "intent": "${{ data.latest(self.name, \"artifact-clarified-intent\").payload }}",
+        "sourceSnapshot": "${{ data.latest(\"repo-audit\", data.latest(self.name, \"artifact-planning-inventory\").payload.sourceSnapshotName).attributes }}"
+      }
+    },
+    "normalizePlanApplication": {
+      "modelIdOrName": "repo-audit",
+      "methodName": "normalize-plan-application",
+      "sourceResources": [
+        "checkpoint",
+        "receipt",
+        "result"
+      ],
+      "outputSpec": "plan-application-normalized"
+    },
+    "auditPlanningApplication": {
+      "modelIdOrName": "repo-audit",
+      "methodName": "audit-planning-application",
+      "inputs": {
+        "approvedPlan": "${{ data.latest(self.name, \"artifact-approved-plan\").payload.plan }}",
+        "application": "${{ data.latest(self.name, \"artifact-plan-application\").payload }}",
+        "documentationEffects": "${{ data.latest(self.name, \"artifact-documentation-effects\").payload }}"
+      },
+      "outputSpec": "planning-application-audit"
+    },
+    "prepareDeliveryHandoff": {
+      "modelIdOrName": "supers-delivery-handoff-authorizer",
+      "methodName": "prepare-delivery-handoff",
+      "sourceArtifacts": [
+        "dex-graph-proposal",
+        "approved-plan",
+        "plan-application",
+        "planning-audit",
+        "planning-handoff"
+      ],
+      "sourceApproval": "planning-approval",
+      "outputSpec": "delivery-handoff-approval"
+    },
+    "normalizeDeliveryHandoff": {
+      "modelIdOrName": "supers-delivery-handoff-authorizer",
+      "methodName": "normalize-delivery-handoff",
+      "sourceResources": [
+        "delivery-handoff-approval",
+        "ready-leaf-claim",
+        "supers-delivery/state"
+      ],
+      "outputSpec": "delivery-handoff-outcome"
+    }
+  },
+  "deliveryHandoff": {
+    "workflow": "supers-planning-delivery-handoff",
+    "claimModel": "supers-dex-delivery-handoff-authorized",
+    "claimMethod": "claim-next-ready",
+    "deliveryFactory": "supers-delivery",
+    "authorizationVault": "supers-planning-delivery-handoff"
+  }
+}

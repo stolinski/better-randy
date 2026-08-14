@@ -20,6 +20,7 @@ Supers is an opinionated, high-end **motion-graphics engine** on a web stack (Ty
 - **Canvas-verification Chrome is already solved — never improvise a launch.** Rendering needs `--enable-blink-features=CanvasDrawElement`; an unflagged browser captures a blank canvas. Two sanctioned paths only: (1) the `chrome-devtools` MCP browser already carries the flag (configured in `~/.claude.json`) — just use its tools; (2) the CDP harness on port 9223 — start/confirm it with `scripts/launch-cdp-chrome.sh`, drive it with `scripts/cdp-capture.mjs` and the other `scripts/cdp-*.mjs`.
 - **Utilities live in `src/lib/utils/`.** No new utility folders. Extend existing helpers before adding new ones.
 - **No TODOs, placeholders, or no-op stubs.** Wire it now or the task isn't done.
+- **Plain language.** Always respond to the user using the plain-language principles in ISO 24495-1:2023.
 
 ## Agent discoverability
 

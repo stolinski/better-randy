@@ -1,5 +1,5 @@
 type: '@club_aqua_back_deck/dex-software-factory'
-typeVersion: 2026.08.05.3
+typeVersion: 2026.08.07.1
 id: a480da64-8208-4252-8eec-2ee454cd3a6d
 name: supers-delivery-profile
 version: 1
@@ -26,12 +26,17 @@ globalArguments:
     verification:
       mode: interactive
       systemPrompt: >-
-        Execute every lane in change-impact using the repository deterministic
-        commands. Reuse native captures and probes. Record one unique outcome
-        for every required lane. Set materialPixelChange from pixel evidence
-        only. Set reviewRequired only for changed pixels with visual targets.
-        Route failed, unavailable, or contradictory evidence to rework, changed
-        pixels to review, and unchanged pixels to reconciliation.
+        Run factory-verification-fanout exactly once with the work item, the
+        classified change fingerprint, and the required check, unit, and
+        structural lane ids. Use its stored policy result for policy-sweep and
+        corpus, and its verification-fanout resource for the selected lanes;
+        never rerun those commands interactively. Execute only the remaining
+        browser, visual, pack-matrix, and export-decode lanes with sanctioned
+        native captures and probes. Record one unique outcome for every required
+        lane. Set materialPixelChange from pixel evidence only. Set
+        reviewRequired only for changed pixels with visual targets. Route failed,
+        unavailable, or contradictory evidence to rework, changed pixels to
+        review, and unchanged pixels to reconciliation.
     postflight:
       mode: workflow
       workflow: factory-postflight-sweep
@@ -52,9 +57,12 @@ globalArguments:
         required:
           - evidenceName
           - expectedFingerprint
+    terminalObserver:
+      workflow: supers-delivery-terminal-observability
     dexTracker:
       modelIdOrName: supers-dex-task-tracker
       completeMethodName: complete
+      completionWorkflow: supers-complete-human-approved-task
   implementation:
     systemPrompt: >-
       Implement only the current Dex work item. Follow repository guidance
@@ -81,6 +89,8 @@ globalArguments:
     acceptCondition: artifacts.visual_verdict.recommendation == "accept"
   humanGate:
     id: visual-acceptance
+  completionGate:
+    id: completion-approval
   contracts:
     changeSummary:
       properties:

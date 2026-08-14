@@ -1,0 +1,253 @@
+id: dcf79830-61e6-4982-a938-d7dea1bdc180
+name: supers-planning-apply-approved-plan
+description: Validate and apply the exact compiler-owned approved plan while preserving typed recovery evidence.
+tags:
+  purpose: supers-planning-factory
+inputs:
+  type: object
+  properties:
+    workItem:
+      type: string
+      minLength: 1
+    plan:
+      type: object
+      properties:
+        schemaVersion:
+          type: integer
+          enum:
+          - 1
+        planId:
+          type: string
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$
+        tasks:
+          type: array
+          minItems: 1
+          maxItems: 250
+          items:
+            type: object
+            properties:
+              kind:
+                type: string
+                enum:
+                - create
+                - attachExisting
+            required:
+            - kind
+            additionalProperties: true
+      required:
+      - schemaVersion
+      - planId
+      - tasks
+      additionalProperties: false
+    reviewedPlan:
+      type: object
+      properties:
+        schemaVersion:
+          type: integer
+          enum:
+          - 1
+        planId:
+          type: string
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$
+        createTasks:
+          type: array
+          maxItems: 250
+          items:
+            type: object
+            properties:
+              clientRef:
+                type: string
+                pattern: ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$
+                maxLength: 64
+              name:
+                type: string
+                minLength: 1
+                maxLength: 51200
+              description:
+                type: string
+                minLength: 1
+                maxLength: 51200
+              priority:
+                type: integer
+                minimum: 0
+                maximum: 100
+              parentKind:
+                type: string
+                enum:
+                - root
+                - reference
+              parentClientRef:
+                type: string
+                maxLength: 64
+              blockedBy:
+                type: array
+                maxItems: 250
+                items:
+                  type: string
+                  pattern: ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$
+                  maxLength: 64
+            required:
+            - clientRef
+            - name
+            - description
+            - priority
+            - parentKind
+            - parentClientRef
+            - blockedBy
+            additionalProperties: false
+        attachExistingTasks:
+          type: array
+          maxItems: 250
+          items:
+            type: object
+            properties:
+              clientRef:
+                type: string
+                pattern: ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$
+                maxLength: 64
+              selectorKind:
+                type: string
+                enum:
+                - id
+                - exactName
+              selectorValue:
+                type: string
+                minLength: 1
+                maxLength: 51200
+              expectedName:
+                type: string
+                minLength: 1
+                maxLength: 51200
+              expectedDescription:
+                type: string
+                maxLength: 51200
+              expectedPriority:
+                type: integer
+                minimum: 0
+                maximum: 100
+              parentKind:
+                type: string
+                enum:
+                - preserve
+                - root
+                - reference
+              parentClientRef:
+                type: string
+                maxLength: 64
+              addBlockedBy:
+                type: array
+                maxItems: 250
+                items:
+                  type: string
+                  pattern: ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$
+                  maxLength: 64
+            required:
+            - clientRef
+            - selectorKind
+            - selectorValue
+            - expectedName
+            - expectedDescription
+            - expectedPriority
+            - parentKind
+            - parentClientRef
+            - addBlockedBy
+            additionalProperties: false
+      required:
+      - schemaVersion
+      - planId
+      - createTasks
+      - attachExistingTasks
+      additionalProperties: false
+  required:
+  - workItem
+  - reviewedPlan
+  - plan
+  additionalProperties: false
+jobs:
+- name: main
+  description: Apply an approved plan with only plan input and preserve typed recovery evidence.
+  steps:
+  - name: validate-plan-boundary
+    description: Verify the emitted Plan Applier input is the exact deterministic normalization of the reviewed plan.
+    task:
+      type: model_method
+      modelIdOrName: repo-audit
+      methodName: validate-plan-boundary
+      inputs:
+        reviewedPlan: ${{ inputs.reviewedPlan }}
+        plan: ${{ inputs.plan }}
+    dependsOn: []
+    weight: 0
+    allowFailure: false
+  - name: apply-approved-plan
+    description: Apply only the compiler-bound approved plan through the typed Plan Applier.
+    task:
+      type: model_method
+      modelIdOrName: supers-dex-plan-applier
+      methodName: apply-plan
+      inputs:
+        plan: ${{ inputs.plan }}
+    dependsOn:
+    - step: validate-plan-boundary
+      condition:
+        type: succeeded
+    weight: 0
+    allowFailure: true
+  - name: normalize-plan-application
+    description: Normalize checkpoint, receipt, result, and recoverable failure evidence.
+    task:
+      type: model_method
+      modelIdOrName: repo-audit
+      methodName: normalize-plan-application
+      inputs:
+        workItem: ${{ inputs.workItem }}
+        approvedPlan: ${{ inputs.plan }}
+        checkpoint: '${{ size(data.query(''modelName == "supers-dex-plan-applier" && specName == "checkpoint" && workflowRunId == "'' + run.id + ''"'')) == 0 ? null : data.query(''modelName == "supers-dex-plan-applier" && specName == "checkpoint" && workflowRunId == "'' + run.id + ''"'')[0].attributes }}'
+        receipt: ${{ data.query('modelName == "supers-dex-plan-applier" && specName == "receipt" && workflowRunId == "' + run.id + '"')[0].attributes }}
+        receiptDataName: ${{ data.query('modelName == "supers-dex-plan-applier" && specName == "receipt" && workflowRunId == "' + run.id + '"')[0].name }}
+        result: '${{ size(data.query(''modelName == "supers-dex-plan-applier" && specName == "result" && workflowRunId == "'' + run.id + ''"'')) == 0 ? null : data.query(''modelName == "supers-dex-plan-applier" && specName == "result" && workflowRunId == "'' + run.id + ''"'')[0].attributes }}'
+        resultDataName: '${{ size(data.query(''modelName == "supers-dex-plan-applier" && specName == "result" && workflowRunId == "'' + run.id + ''"'')) == 0 ? "" : data.query(''modelName == "supers-dex-plan-applier" && specName == "result" && workflowRunId == "'' + run.id + ''"'')[0].name }}'
+    dependsOn:
+    - step: apply-approved-plan
+      condition:
+        type: completed
+    weight: 0
+    allowFailure: false
+  - name: record-plan-application
+    description: Record exact plan-application output in the active Planning Factory.
+    task:
+      type: model_method
+      modelIdOrName: supers-planning
+      methodName: record_artifact
+      inputs:
+        workItem: ${{ inputs.workItem }}
+        name: plan-application
+        payload: ${{ data.query('modelName == "repo-audit" && specName == "plan-application-normalized" && workflowRunId == "' + run.id + '"')[0].attributes }}
+    dependsOn:
+    - step: normalize-plan-application
+      condition:
+        type: succeeded
+    weight: 0
+    allowFailure: false
+  - name: record-plan-apply-run
+    description: Record correlated plan-apply-run workflow evidence.
+    task:
+      type: model_method
+      modelIdOrName: supers-planning
+      methodName: record_evidence
+      inputs:
+        workItem: ${{ inputs.workItem }}
+        name: plan-apply-run
+        payload:
+          status: succeeded
+          runId: ${{ run.id }}
+          workflow: supers-planning-apply-approved-plan
+    dependsOn:
+    - step: record-plan-application
+      condition:
+        type: succeeded
+    weight: 0
+    allowFailure: false
+  dependsOn: []
+  weight: 0
+version: 1

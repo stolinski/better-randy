@@ -1,0 +1,8 @@
+id: cdb6c066-9b7d-4e7e-9186-bff264c73979
+name: factory-observability-sentry
+type: local_encryption
+config:
+  auto_generate: true
+  base_dir: /Users/scotttolinski/Sites/projects/better-randy
+createdAt: '2026-08-05T23:12:44.463Z'
+auditReads: true

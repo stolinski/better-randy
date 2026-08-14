@@ -1,0 +1,94 @@
+id: 1d982225-a620-4f8a-9c9d-49e2236ad07d
+name: supers-delivery-terminal-observability
+description: Finalize one supers-delivery run, persist its canonical summary, and emit non-gating Factory observability.
+tags:
+  purpose: automatic-factory-observability
+  factory: supers-delivery
+inputs:
+  type: object
+  required:
+  - workItem
+  additionalProperties: false
+  properties:
+    workItem:
+      type: string
+      minLength: 1
+jobs:
+- name: main
+  description: Make the Factory terminal first, then derive reports and observability from the durable terminal journal.
+  steps:
+  - name: finalize-terminal-state
+    description: Advance into the durable terminal state; tolerate an already-terminal replay so receipt recovery remains possible.
+    task:
+      type: model_method
+      modelIdOrName: supers-delivery
+      methodName: advance
+      inputs:
+        workItem: ${{ inputs.workItem }}
+        transition: finalize
+    dependsOn: []
+    weight: 0
+    allowFailure: true
+  - name: persist-terminal-summary
+    description: Persist the built-in and canonical flow-metrics reports from the terminal journal.
+    task:
+      type: model_method
+      modelIdOrName: supers-delivery
+      methodName: summary
+      inputs:
+        workItem: ${{ inputs.workItem }}
+    dependsOn:
+    - step: finalize-terminal-state
+      condition:
+        type: completed
+    weight: 0
+    allowFailure: true
+  - name: emit-terminal-flow-metrics
+    description: Emit bounded effectiveness and profiling metrics; Sentry failure cannot change Factory outcome.
+    task:
+      type: model_method
+      modelIdOrName: supers-factory-sentry-metrics
+      methodName: emit_flow_report
+      inputs:
+        workItem: ${{ inputs.workItem }}
+        sourceFactory:
+          id: 90fac686-c724-4aee-97c4-e31b9af4c5e2
+          name: supers-delivery
+        factory:
+          project: better-randy
+          name: supers-delivery
+          profile: supers-dex-delivery
+        visualReviewStages:
+        - review
+    dependsOn:
+    - step: finalize-terminal-state
+      condition:
+        type: completed
+    weight: 0
+    allowFailure: true
+  - name: verify-observability-coverage
+    description: Fail the observer workflow when the terminal run lacks an emitted or duplicate local receipt.
+    task:
+      type: model_method
+      modelIdOrName: supers-factory-sentry-metrics
+      methodName: verify_flow_receipt
+      inputs:
+        workItem: ${{ inputs.workItem }}
+        sourceFactory:
+          id: 90fac686-c724-4aee-97c4-e31b9af4c5e2
+          name: supers-delivery
+        factory:
+          project: better-randy
+          name: supers-delivery
+          profile: supers-dex-delivery
+        visualReviewStages:
+        - review
+    dependsOn:
+    - step: emit-terminal-flow-metrics
+      condition:
+        type: completed
+    weight: 0
+    allowFailure: false
+  dependsOn: []
+  weight: 0
+version: 1

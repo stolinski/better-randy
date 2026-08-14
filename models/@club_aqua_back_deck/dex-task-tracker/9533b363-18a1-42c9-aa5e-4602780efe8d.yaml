@@ -1,0 +1,10 @@
+type: '@club_aqua_back_deck/dex-task-tracker'
+typeVersion: 2026.08.06.2
+id: 9533b363-18a1-42c9-aa5e-4602780efe8d
+name: supers-dex-delivery-handoff-authorized
+version: 1
+tags: {}
+globalArguments:
+  ownerToken: supers-delivery
+  deliveryHandoffAuthorizationKey: '${{ vault.get(supers-planning-delivery-handoff, AUTHORIZATION_KEY) }}'
+methods: {}

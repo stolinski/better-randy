@@ -1,0 +1,21 @@
+manifestVersion: 1
+name: "@club_aqua_back_deck/dex-software-factory"
+version: "2026.08.07.1"
+description: "Compile consumer-owned Dex adapters and review policy into a portable @swamp/software-factory profile."
+repository: https://github.com/stolinski/better-randy
+models:
+  - dex-software-factory.ts
+additionalFiles:
+  - README.md
+  - CHANGELOG.md
+  - LICENSE.txt
+  - examples/profile-arguments.yaml
+  - examples/usage.md
+platforms: []
+labels:
+  - dex
+  - software-factory
+  - profile-compiler
+dependencies:
+  - "@swamp/software-factory"
+  - "@club_aqua_back_deck/dex-task-tracker"

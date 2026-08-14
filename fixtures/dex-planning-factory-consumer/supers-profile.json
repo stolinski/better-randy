@@ -1,0 +1,79 @@
+{
+  "profileName": "supers-planning",
+  "adapters": {
+    "inventory": {
+      "mode": "workflow",
+      "workflow": "supers-planning-inventory",
+      "readOnly": true
+    },
+    "tracker": {
+      "mode": "workflow",
+      "workflow": "supers-planning-tracker-inventory",
+      "readOnly": true
+    },
+    "documentationPolicy": {
+      "mode": "workflow",
+      "workflow": "supers-planning-documentation-effects",
+      "readOnly": true
+    },
+    "planApplier": {
+      "mode": "workflow",
+      "workflow": "supers-planning-apply-approved-plan"
+    },
+    "audit": {
+      "mode": "workflow",
+      "workflow": "supers-planning-audit",
+      "readOnly": true
+    },
+    "terminalObserver": {
+      "workflow": "supers-planning-terminal-observability"
+    }
+  },
+  "clarification": {
+    "skills": [
+      "grilling"
+    ],
+    "systemPrompt": "Use only unresolvedDecisions from injected inventory. Ask for judgment only when clarificationRequired; otherwise record not-needed. Never mutate Dex or documentation.",
+    "constraints": "Do not re-fetch repository facts."
+  },
+  "intent": {
+    "systemPrompt": "Produce strict clarified intent from injected facts and decisions, including at least one explicit documentationDirectives create, update, retire, or no-change proposal. Never mutate Dex or documentation."
+  },
+  "proposal": {
+    "systemPrompt": "Propose a complete plan-applier-compatible Dex graph and trace it to approved intent. Never mutate Dex or documentation."
+  },
+  "review": {
+    "skills": [
+      "code-review"
+    ],
+    "systemPrompt": "Independently review the documentation-effects and Dex graph proposals for completeness, duplication, ordering, and safe application.",
+    "blockingSeverities": [
+      "critical",
+      "high",
+      "medium"
+    ]
+  },
+  "approval": {
+    "systemPrompt": "After human approval, persist the exact reviewed plan and matching plan hash. Do not revise or apply it here."
+  },
+  "handoff": {
+    "systemPrompt": "Record the typed planning outcome for later Delivery intake. Do not start Delivery or mutate Dex."
+  },
+  "humanGate": {
+    "id": "planning-approval",
+    "minApprovals": 1
+  },
+  "budgets": {
+    "inventory": 2,
+    "clarification": 3,
+    "intent": 3,
+    "documentation": 3,
+    "proposal": 3,
+    "review": 3,
+    "approval": 1,
+    "application": 2,
+    "audit": 2,
+    "handoff": 1,
+    "maxDispatchesPerCycle": 2
+  }
+}

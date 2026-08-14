@@ -1,0 +1,271 @@
+{
+  "schemaVersion": 1,
+  "paths": [
+    {
+      "name": "clean",
+      "route": [
+        {
+          "from": "inventory",
+          "transition": "inventory-tracker",
+          "to": "tracker-inventory"
+        },
+        {
+          "from": "tracker-inventory",
+          "transition": "clarify",
+          "to": "clarification"
+        },
+        {
+          "from": "clarification",
+          "transition": "intent",
+          "to": "clarified-intent"
+        },
+        {
+          "from": "clarified-intent",
+          "transition": "documentation-effects",
+          "to": "documentation-effects"
+        },
+        {
+          "from": "documentation-effects",
+          "transition": "propose-graph",
+          "to": "graph-proposal"
+        },
+        {
+          "from": "graph-proposal",
+          "transition": "review-plan",
+          "to": "plan-review"
+        },
+        {
+          "from": "plan-review",
+          "transition": "approve",
+          "to": "approval"
+        },
+        {
+          "from": "approval",
+          "transition": "apply-plan",
+          "to": "plan-application"
+        },
+        {
+          "from": "plan-application",
+          "transition": "audit",
+          "to": "planning-audit"
+        },
+        {
+          "from": "planning-audit",
+          "transition": "handoff",
+          "to": "handoff"
+        },
+        {
+          "from": "handoff",
+          "transition": "finish",
+          "to": "done"
+        }
+      ],
+      "terminal": "done",
+      "mutationStages": [
+        "plan-application"
+      ]
+    },
+    {
+      "name": "revised",
+      "route": [
+        {
+          "from": "inventory",
+          "transition": "inventory-tracker",
+          "to": "tracker-inventory"
+        },
+        {
+          "from": "tracker-inventory",
+          "transition": "clarify",
+          "to": "clarification"
+        },
+        {
+          "from": "clarification",
+          "transition": "intent",
+          "to": "clarified-intent"
+        },
+        {
+          "from": "clarified-intent",
+          "transition": "documentation-effects",
+          "to": "documentation-effects"
+        },
+        {
+          "from": "documentation-effects",
+          "transition": "propose-graph",
+          "to": "graph-proposal"
+        },
+        {
+          "from": "graph-proposal",
+          "transition": "review-plan",
+          "to": "plan-review"
+        },
+        {
+          "from": "plan-review",
+          "transition": "revise",
+          "to": "clarified-intent"
+        },
+        {
+          "from": "clarified-intent",
+          "transition": "documentation-effects",
+          "to": "documentation-effects"
+        },
+        {
+          "from": "documentation-effects",
+          "transition": "propose-graph",
+          "to": "graph-proposal"
+        },
+        {
+          "from": "graph-proposal",
+          "transition": "review-plan",
+          "to": "plan-review"
+        },
+        {
+          "from": "plan-review",
+          "transition": "approve",
+          "to": "approval"
+        },
+        {
+          "from": "approval",
+          "transition": "apply-plan",
+          "to": "plan-application"
+        },
+        {
+          "from": "plan-application",
+          "transition": "audit",
+          "to": "planning-audit"
+        },
+        {
+          "from": "planning-audit",
+          "transition": "handoff",
+          "to": "handoff"
+        },
+        {
+          "from": "handoff",
+          "transition": "finish",
+          "to": "done"
+        }
+      ],
+      "terminal": "done",
+      "mutationStages": [
+        "plan-application"
+      ]
+    },
+    {
+      "name": "rejected",
+      "route": [
+        {
+          "from": "inventory",
+          "transition": "inventory-tracker",
+          "to": "tracker-inventory"
+        },
+        {
+          "from": "tracker-inventory",
+          "transition": "clarify",
+          "to": "clarification"
+        },
+        {
+          "from": "clarification",
+          "transition": "intent",
+          "to": "clarified-intent"
+        },
+        {
+          "from": "clarified-intent",
+          "transition": "documentation-effects",
+          "to": "documentation-effects"
+        },
+        {
+          "from": "documentation-effects",
+          "transition": "propose-graph",
+          "to": "graph-proposal"
+        },
+        {
+          "from": "graph-proposal",
+          "transition": "review-plan",
+          "to": "plan-review"
+        },
+        {
+          "from": "plan-review",
+          "transition": "reject",
+          "to": "rejected"
+        }
+      ],
+      "terminal": "rejected",
+      "mutationStages": []
+    },
+    {
+      "name": "parked",
+      "route": [
+        {
+          "from": "inventory",
+          "transition": "inventory-tracker",
+          "to": "tracker-inventory"
+        },
+        {
+          "from": "tracker-inventory",
+          "transition": "clarify",
+          "to": "clarification"
+        },
+        {
+          "from": "clarification",
+          "transition": "park",
+          "to": "parked"
+        }
+      ],
+      "terminal": "parked",
+      "mutationStages": []
+    },
+    {
+      "name": "failed-apply",
+      "route": [
+        {
+          "from": "inventory",
+          "transition": "inventory-tracker",
+          "to": "tracker-inventory"
+        },
+        {
+          "from": "tracker-inventory",
+          "transition": "clarify",
+          "to": "clarification"
+        },
+        {
+          "from": "clarification",
+          "transition": "intent",
+          "to": "clarified-intent"
+        },
+        {
+          "from": "clarified-intent",
+          "transition": "documentation-effects",
+          "to": "documentation-effects"
+        },
+        {
+          "from": "documentation-effects",
+          "transition": "propose-graph",
+          "to": "graph-proposal"
+        },
+        {
+          "from": "graph-proposal",
+          "transition": "review-plan",
+          "to": "plan-review"
+        },
+        {
+          "from": "plan-review",
+          "transition": "approve",
+          "to": "approval"
+        },
+        {
+          "from": "approval",
+          "transition": "apply-plan",
+          "to": "plan-application"
+        },
+        {
+          "from": "plan-application",
+          "transition": "failed-apply",
+          "to": "failed-apply"
+        }
+      ],
+      "terminal": "failed-apply",
+      "mutationStages": [
+        "plan-application"
+      ]
+    }
+  ]
+}

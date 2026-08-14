@@ -1,0 +1,8 @@
+id: 2645c96e-d9ad-46ff-91cc-600b7e8bf51c
+name: supers-planning-delivery-handoff
+type: local_encryption
+config:
+  auto_generate: true
+  base_dir: /Users/scotttolinski/Sites/projects/better-randy
+createdAt: '2026-08-06T21:44:32.813Z'
+auditReads: true

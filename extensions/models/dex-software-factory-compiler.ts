@@ -7,274 +7,319 @@
  *
  * @module
  */
-import { z } from 'npm:zod@4';
+import { z } from "npm:zod@4.4.3";
 
-export const DEX_SOFTWARE_FACTORY_VERSION = '2026.08.05.3';
-const SOFTWARE_FACTORY_TARGET_VERSION = '2026.06.24.1';
+export const DEX_SOFTWARE_FACTORY_VERSION = "2026.08.07.1";
+const SOFTWARE_FACTORY_TARGET_VERSION = "2026.06.24.1";
 
 const FACTORY_NAME_PATTERN = /^[a-z][a-z0-9_-]*$/;
-const GIT_SHA_PATTERN = '^[0-9a-fA-F]{7,40}$';
-const CEL_WORK_ITEM = '${{ self.workItem }}';
+const GIT_SHA_PATTERN = "^[0-9a-fA-F]{7,40}$";
+const CEL_WORK_ITEM = "${{ self.workItem }}";
 const COMPLETION_RESULT_BINDING =
-	'${{ data.latest(self.name, "artifact-reconciliation").payload.completionResult }}';
+  '${{ data.latest(self.name, "artifact-reconciliation").payload.completionResult }}';
 const COMPLETION_COMMIT_BINDING =
-	'${{ data.latest(self.name, "artifact-reconciliation").payload.commit }}';
+  '${{ data.latest(self.name, "artifact-reconciliation").payload.commit }}';
 
 const FactoryNameSchema = z.string().regex(FACTORY_NAME_PATTERN);
 
 type FactoryDeclaredSchema = {
-	type: 'object' | 'array' | 'string' | 'number' | 'integer' | 'boolean';
-	description?: string;
-	properties?: Record<string, FactoryDeclaredSchema>;
-	required?: string[];
-	additionalProperties?: boolean;
-	items?: FactoryDeclaredSchema;
-	enum?: Array<string | number>;
-	pattern?: string;
-	minLength?: number;
-	maxLength?: number;
-	minimum?: number;
-	maximum?: number;
-	minItems?: number;
-	maxItems?: number;
+  type: "object" | "array" | "string" | "number" | "integer" | "boolean";
+  description?: string;
+  properties?: Record<string, FactoryDeclaredSchema>;
+  required?: string[];
+  additionalProperties?: boolean;
+  items?: FactoryDeclaredSchema;
+  enum?: Array<string | number>;
+  pattern?: string;
+  minLength?: number;
+  maxLength?: number;
+  minimum?: number;
+  maximum?: number;
+  minItems?: number;
+  maxItems?: number;
 };
 
-const FactoryDeclaredSchemaSchema: z.ZodType<FactoryDeclaredSchema> = z.lazy(() =>
-	z.strictObject({
-		type: z.enum(['object', 'array', 'string', 'number', 'integer', 'boolean']),
-		description: z.string().optional(),
-		properties: z.record(z.string(), FactoryDeclaredSchemaSchema).optional(),
-		required: z.array(z.string()).optional(),
-		additionalProperties: z.boolean().optional(),
-		items: FactoryDeclaredSchemaSchema.optional(),
-		enum: z.array(z.union([z.string(), z.number()])).optional(),
-		pattern: z.string().optional(),
-		minLength: z.number().int().nonnegative().optional(),
-		maxLength: z.number().int().nonnegative().optional(),
-		minimum: z.number().optional(),
-		maximum: z.number().optional(),
-		minItems: z.number().int().nonnegative().optional(),
-		maxItems: z.number().int().nonnegative().optional()
-	})
+const FactoryDeclaredSchemaSchema: z.ZodType<FactoryDeclaredSchema> = z.lazy(
+  () =>
+    z.strictObject({
+      type: z.enum([
+        "object",
+        "array",
+        "string",
+        "number",
+        "integer",
+        "boolean",
+      ]),
+      description: z.string().optional(),
+      properties: z.record(z.string(), FactoryDeclaredSchemaSchema).optional(),
+      required: z.array(z.string()).optional(),
+      additionalProperties: z.boolean().optional(),
+      items: FactoryDeclaredSchemaSchema.optional(),
+      enum: z.array(z.union([z.string(), z.number()])).optional(),
+      pattern: z.string().optional(),
+      minLength: z.number().int().nonnegative().optional(),
+      maxLength: z.number().int().nonnegative().optional(),
+      minimum: z.number().optional(),
+      maximum: z.number().optional(),
+      minItems: z.number().int().nonnegative().optional(),
+      maxItems: z.number().int().nonnegative().optional(),
+    }),
 );
 
 const AdapterInputsSchema = z
-	.strictObject({
-		values: z.record(z.string(), z.unknown()),
-		properties: z.record(z.string(), FactoryDeclaredSchemaSchema),
-		required: z.array(z.string()).optional()
-	})
-	.superRefine((inputs, context) => {
-		if ('workItem' in inputs.values || 'workItem' in inputs.properties) {
-			context.addIssue({
-				code: 'custom',
-				message: 'workItem is compiler-owned and cannot be overridden'
-			});
-		}
-		for (const key of Object.keys(inputs.values)) {
-			if (!(key in inputs.properties)) {
-				context.addIssue({
-					code: 'custom',
-					message: `input '${key}' requires a declared schema`,
-					path: ['properties', key]
-				});
-			}
-		}
-		for (const key of inputs.required ?? []) {
-			if (!(key in inputs.properties)) {
-				context.addIssue({
-					code: 'custom',
-					message: `required input '${key}' has no declared schema`,
-					path: ['required']
-				});
-			}
-		}
-	});
+  .strictObject({
+    values: z.record(z.string(), z.unknown()),
+    properties: z.record(z.string(), FactoryDeclaredSchemaSchema),
+    required: z.array(z.string()).optional(),
+  })
+  .superRefine((inputs, context) => {
+    if ("workItem" in inputs.values || "workItem" in inputs.properties) {
+      context.addIssue({
+        code: "custom",
+        message: "workItem is compiler-owned and cannot be overridden",
+      });
+    }
+    for (const key of Object.keys(inputs.values)) {
+      if (!(key in inputs.properties)) {
+        context.addIssue({
+          code: "custom",
+          message: `input '${key}' requires a declared schema`,
+          path: ["properties", key],
+        });
+      }
+    }
+    for (const key of inputs.required ?? []) {
+      if (!(key in inputs.properties)) {
+        context.addIssue({
+          code: "custom",
+          message: `required input '${key}' has no declared schema`,
+          path: ["required"],
+        });
+      }
+    }
+  });
 
 const WorkflowAdapterSchema = z.strictObject({
-	mode: z.literal('workflow'),
-	workflow: z.string().min(1),
-	inputs: AdapterInputsSchema.optional()
+  mode: z.literal("workflow"),
+  workflow: z.string().min(1),
+  inputs: AdapterInputsSchema.optional(),
 });
 
 const MethodAdapterSchema = z.strictObject({
-	mode: z.literal('method'),
-	modelIdOrName: z.string().min(1),
-	methodName: z.string().min(1),
-	inputs: AdapterInputsSchema.optional()
+  mode: z.literal("method"),
+  modelIdOrName: z.string().min(1),
+  methodName: z.string().min(1),
+  inputs: AdapterInputsSchema.optional(),
 });
 
-const ExecutableAdapterSchema = z.discriminatedUnion('mode', [
-	WorkflowAdapterSchema,
-	MethodAdapterSchema
+const ExecutableAdapterSchema = z.discriminatedUnion("mode", [
+  WorkflowAdapterSchema,
+  MethodAdapterSchema,
 ]);
 
 const InteractiveWorkSchema = z.strictObject({
-	mode: z.literal('interactive'),
-	skills: z.array(z.string().min(1)).optional(),
-	systemPrompt: z.string().min(1),
-	constraints: z.string().min(1).optional()
+  mode: z.literal("interactive"),
+  skills: z.array(z.string().min(1)).optional(),
+  systemPrompt: z.string().min(1),
+  constraints: z.string().min(1).optional(),
 });
 
-const VerificationAdapterSchema = z.discriminatedUnion('mode', [
-	InteractiveWorkSchema,
-	WorkflowAdapterSchema,
-	MethodAdapterSchema
+const VerificationAdapterSchema = z.discriminatedUnion("mode", [
+  InteractiveWorkSchema,
+  WorkflowAdapterSchema,
+  MethodAdapterSchema,
 ]);
 
 const ArtifactExtensionSchema = z
-	.strictObject({
-		properties: z.record(z.string(), FactoryDeclaredSchemaSchema),
-		required: z.array(z.string()).optional()
-	})
-	.superRefine((extension, context) => {
-		for (const key of extension.required ?? []) {
-			if (!(key in extension.properties)) {
-				context.addIssue({
-					code: 'custom',
-					message: `required artifact property '${key}' has no declared schema`,
-					path: ['required']
-				});
-			}
-		}
-	});
+  .strictObject({
+    properties: z.record(z.string(), FactoryDeclaredSchemaSchema),
+    required: z.array(z.string()).optional(),
+  })
+  .superRefine((extension, context) => {
+    for (const key of extension.required ?? []) {
+      if (!(key in extension.properties)) {
+        context.addIssue({
+          code: "custom",
+          message: `required artifact property '${key}' has no declared schema`,
+          path: ["required"],
+        });
+      }
+    }
+  });
 
 const ReviewAdapterSchema = z.strictObject({
-	skills: z.array(z.string().min(1)).min(1),
-	systemPrompt: z.string().min(1),
-	blockingSeverities: z.array(z.enum(['critical', 'high', 'medium', 'low'])).min(1),
-	findingsArtifactName: FactoryNameSchema.optional(),
-	verdictArtifactName: FactoryNameSchema.optional(),
-	reworkCondition: z.string().min(1).optional(),
-	acceptCondition: z.string().min(1).optional()
+  skills: z.array(z.string().min(1)).min(1),
+  systemPrompt: z.string().min(1),
+  blockingSeverities: z.array(z.enum(["critical", "high", "medium", "low"]))
+    .min(1),
+  findingsArtifactName: FactoryNameSchema.optional(),
+  verdictArtifactName: FactoryNameSchema.optional(),
+  reworkCondition: z.string().min(1).optional(),
+  acceptCondition: z.string().min(1).optional(),
 });
 
 const HumanGateSchema = z.strictObject({
-	id: FactoryNameSchema,
-	minApprovals: z.number().int().positive().optional()
+  id: FactoryNameSchema,
+  minApprovals: z.number().int().positive().optional(),
 });
 
 const CycleBudgetsSchema = z.strictObject({
-	implementation: z.number().int().positive().max(20),
-	verification: z.number().int().positive().max(20),
-	review: z.number().int().positive().max(20),
-	reconciliation: z.number().int().positive().max(20),
-	maxDispatchesPerCycle: z.number().int().positive().max(5)
+  implementation: z.number().int().positive().max(20),
+  verification: z.number().int().positive().max(20),
+  review: z.number().int().positive().max(20),
+  reconciliation: z.number().int().positive().max(20),
+  maxDispatchesPerCycle: z.number().int().positive().max(5),
 });
 
 /** Consumer-owned adapters and prompts for one portable delivery profile. */
 export const DexSoftwareFactoryProfileSchema = z
-	.strictObject({
-		profileName: FactoryNameSchema,
-		adapters: z.strictObject({
-			preflight: ExecutableAdapterSchema,
-			classify: ExecutableAdapterSchema,
-			verification: VerificationAdapterSchema,
-			postflight: ExecutableAdapterSchema,
-			dexTracker: z.strictObject({
-				modelIdOrName: z.string().min(1),
-				completeMethodName: z.string().min(1)
-			})
-		}),
-		implementation: InteractiveWorkSchema.omit({ mode: true }),
-		review: ReviewAdapterSchema.optional(),
-		humanGate: HumanGateSchema.optional(),
-		contracts: z
-			.strictObject({
-				changeSummary: ArtifactExtensionSchema.optional(),
-				changeImpact: ArtifactExtensionSchema.optional(),
-				verification: ArtifactExtensionSchema.optional(),
-				reviewVerdict: ArtifactExtensionSchema.optional(),
-				reconciliation: ArtifactExtensionSchema.optional()
-			})
-			.optional(),
-		verificationRouting: z
-			.strictObject({
-				reworkCondition: z.string().min(1).optional(),
-				reviewCondition: z.string().min(1).optional(),
-				reconcileCondition: z.string().min(1).optional()
-			})
-			.optional(),
-		budgets: CycleBudgetsSchema
-	})
-	.superRefine((profile, context) => {
-		const reservedProperties = {
-			changeSummary: ['summary'],
-			changeImpact: ['requiredLanes', 'reviewCandidate', 'changeFingerprint'],
-			verification: ['status', 'executedLanes', 'reviewRequired', 'nextStep', 'summary'],
-			reviewVerdict: ['status', 'summary'],
-			reconciliation: ['status', 'nextStep', 'summary', 'completionResult', 'commit']
-		} as const;
-		for (const [contractName, reserved] of Object.entries(reservedProperties)) {
-			const extension = profile.contracts?.[contractName as keyof typeof reservedProperties];
-			for (const key of reserved) {
-				if (extension !== undefined && key in extension.properties) {
-					context.addIssue({
-						code: 'custom',
-						message: `artifact extension cannot override compiler-owned property '${key}'`,
-						path: ['contracts', contractName, 'properties', key]
-					});
-				}
-			}
-		}
-	});
+  .strictObject({
+    profileName: FactoryNameSchema,
+    adapters: z.strictObject({
+      preflight: ExecutableAdapterSchema,
+      classify: ExecutableAdapterSchema,
+      verification: VerificationAdapterSchema,
+      postflight: ExecutableAdapterSchema,
+      terminalObserver: z.strictObject({
+        workflow: FactoryNameSchema,
+      }).optional(),
+      dexTracker: z.strictObject({
+        modelIdOrName: z.string().min(1),
+        completeMethodName: z.string().min(1),
+        completionWorkflow: FactoryNameSchema.optional(),
+      }),
+    }),
+    implementation: InteractiveWorkSchema.omit({ mode: true }),
+    review: ReviewAdapterSchema.optional(),
+    humanGate: HumanGateSchema.optional(),
+    completionGate: HumanGateSchema.optional(),
+    contracts: z
+      .strictObject({
+        changeSummary: ArtifactExtensionSchema.optional(),
+        changeImpact: ArtifactExtensionSchema.optional(),
+        verification: ArtifactExtensionSchema.optional(),
+        reviewVerdict: ArtifactExtensionSchema.optional(),
+        reconciliation: ArtifactExtensionSchema.optional(),
+      })
+      .optional(),
+    verificationRouting: z
+      .strictObject({
+        reworkCondition: z.string().min(1).optional(),
+        reviewCondition: z.string().min(1).optional(),
+        reconcileCondition: z.string().min(1).optional(),
+      })
+      .optional(),
+    budgets: CycleBudgetsSchema,
+  })
+  .superRefine((profile, context) => {
+    if (
+      profile.completionGate !== undefined &&
+      profile.adapters.dexTracker.completionWorkflow === undefined
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "completionGate requires adapters.dexTracker.completionWorkflow",
+        path: ["adapters", "dexTracker", "completionWorkflow"],
+      });
+    }
+    const reservedProperties = {
+      changeSummary: ["summary"],
+      changeImpact: ["requiredLanes", "reviewCandidate", "changeFingerprint"],
+      verification: [
+        "status",
+        "executedLanes",
+        "reviewRequired",
+        "nextStep",
+        "summary",
+      ],
+      reviewVerdict: ["status", "summary"],
+      reconciliation: [
+        "status",
+        "nextStep",
+        "summary",
+        "completionResult",
+        "commit",
+      ],
+    } as const;
+    for (const [contractName, reserved] of Object.entries(reservedProperties)) {
+      const extension = profile.contracts
+        ?.[contractName as keyof typeof reservedProperties];
+      for (const key of reserved) {
+        if (extension !== undefined && key in extension.properties) {
+          context.addIssue({
+            code: "custom",
+            message:
+              `artifact extension cannot override compiler-owned property '${key}'`,
+            path: ["contracts", contractName, "properties", key],
+          });
+        }
+      }
+    }
+  });
 
-export type DexSoftwareFactoryProfile = z.infer<typeof DexSoftwareFactoryProfileSchema>;
+export type DexSoftwareFactoryProfile = z.infer<
+  typeof DexSoftwareFactoryProfileSchema
+>;
 
 // CEL inside adapter inputs belongs to the generated Factory stage. The
 // platform-facing schema therefore stays lenient; compile reparses the raw
 // definition with DexSoftwareFactoryProfileSchema before producing output.
 export const DexSoftwareFactoryPlatformArgsSchema = z.object({
-	profileName: FactoryNameSchema.optional(),
-	adapters: z.unknown().optional(),
-	implementation: z.unknown().optional(),
-	review: z.unknown().optional(),
-	humanGate: z.unknown().optional(),
-	contracts: z.unknown().optional(),
-	verificationRouting: z.unknown().optional(),
-	budgets: z.unknown().optional()
+  profileName: FactoryNameSchema.optional(),
+  adapters: z.unknown().optional(),
+  implementation: z.unknown().optional(),
+  review: z.unknown().optional(),
+  humanGate: z.unknown().optional(),
+  completionGate: z.unknown().optional(),
+  contracts: z.unknown().optional(),
+  verificationRouting: z.unknown().optional(),
+  budgets: z.unknown().optional(),
 });
 
 const FactoryArgumentsOutputSchema = z.strictObject({
-	stages: z.array(z.record(z.string(), z.unknown())).min(1),
-	globalTransitions: z.array(z.record(z.string(), z.unknown()))
+  stages: z.array(z.record(z.string(), z.unknown())).min(1),
+  globalTransitions: z.array(z.record(z.string(), z.unknown())),
 });
 
 /** Versioned compilation result consumed by a Factory definition through CEL. */
 export const CompiledDexSoftwareFactoryProfileSchema = z.strictObject({
-	schemaVersion: z.literal(1),
-	compilerVersion: z.literal(DEX_SOFTWARE_FACTORY_VERSION),
-	profileName: FactoryNameSchema,
-	target: z.strictObject({
-		type: z.literal('@swamp/software-factory'),
-		version: z.literal(SOFTWARE_FACTORY_TARGET_VERSION)
-	}),
-	factoryArguments: FactoryArgumentsOutputSchema
+  schemaVersion: z.literal(1),
+  compilerVersion: z.literal(DEX_SOFTWARE_FACTORY_VERSION),
+  profileName: FactoryNameSchema,
+  target: z.strictObject({
+    type: z.literal("@swamp/software-factory"),
+    version: z.literal(SOFTWARE_FACTORY_TARGET_VERSION),
+  }),
+  factoryArguments: FactoryArgumentsOutputSchema,
 });
 
 export type CompiledDexSoftwareFactoryProfile = z.infer<
-	typeof CompiledDexSoftwareFactoryProfileSchema
+  typeof CompiledDexSoftwareFactoryProfileSchema
 >;
 
 export type DexSoftwareFactoryMethodContext = {
-	globalArgs: Record<string, unknown>;
-	modelType?: unknown;
-	modelId?: string;
-	definitionRepository?: {
-		findById: (
-			modelType: unknown,
-			id: string
-		) => Promise<{ globalArguments: Record<string, unknown> } | null>;
-	};
-	writeResource: (
-		specName: string,
-		name: string,
-		data: Record<string, unknown>
-	) => Promise<{ name: string }>;
+  globalArgs: Record<string, unknown>;
+  modelType?: unknown;
+  modelId?: string;
+  definitionRepository?: {
+    findById: (
+      modelType: unknown,
+      id: string,
+    ) => Promise<{ globalArguments: Record<string, unknown> } | null>;
+  };
+  logger: {
+    info: (message: string, properties?: Record<string, unknown>) => void;
+  };
+  writeResource: (
+    specName: string,
+    name: string,
+    data: Record<string, unknown>,
+  ) => Promise<{ name: string }>;
 };
 
 export type DexSoftwareFactoryExecutionResult = {
-	dataHandles: Array<{ name: string }>;
+  dataHandles: Array<{ name: string }>;
 };
 
 type ExecutableAdapter = z.infer<typeof ExecutableAdapterSchema>;
@@ -284,698 +329,828 @@ type FactoryStage = Record<string, unknown>;
 type FactoryGate = Record<string, unknown>;
 
 const STRING_SCHEMA = {
-	type: 'string',
-	minLength: 1
+  type: "string",
+  minLength: 1,
 } satisfies FactoryDeclaredSchema;
 
 function artifactExists(artifact: string): FactoryGate {
-	return { type: 'artifact-exists', config: { artifact } };
+  return { type: "artifact-exists", config: { artifact } };
 }
 
 function artifactFresh(artifact: string): FactoryGate {
-	return {
-		type: 'artifact-fresh',
-		config: { artifact, recordedThisCycle: true }
-	};
+  return {
+    type: "artifact-fresh",
+    config: { artifact, recordedThisCycle: true },
+  };
 }
 
 function celGate(expr: string, message: string): FactoryGate {
-	return { type: 'cel', config: { expr, message } };
+  return { type: "cel", config: { expr, message } };
 }
 
 function andCondition(base: string, condition: string | undefined): string {
-	return condition === undefined ? base : `(${base}) && (${condition})`;
+  return condition === undefined ? base : `(${base}) && (${condition})`;
 }
 
 function humanApprovalGate(
-	humanGate: z.infer<typeof HumanGateSchema> | undefined
+  humanGate: z.infer<typeof HumanGateSchema> | undefined,
 ): FactoryGate | null {
-	if (humanGate === undefined) return null;
-	return {
-		type: 'human-approval',
-		config: {
-			id: humanGate.id,
-			...(humanGate.minApprovals === undefined ? {} : { minApprovals: humanGate.minApprovals })
-		}
-	};
+  if (humanGate === undefined) return null;
+  return {
+    type: "human-approval",
+    config: {
+      id: humanGate.id,
+      ...(humanGate.minApprovals === undefined
+        ? {}
+        : { minApprovals: humanGate.minApprovals }),
+    },
+  };
 }
 
-function humanRejectionGate(humanGate: z.infer<typeof HumanGateSchema>): FactoryGate {
-	const approvalName = humanGate.id.replaceAll('-', '_');
-	return celGate(
-		`has(approvals.${approvalName}) && approvals.${approvalName}.exists(approval, approval.decision == "rejected")`,
-		`human revision requires an explicit ${humanGate.id} rejection`
-	);
+function humanRejectionGate(
+  humanGate: z.infer<typeof HumanGateSchema>,
+): FactoryGate {
+  const approvalName = humanGate.id.replaceAll("-", "_");
+  return celGate(
+    `has(approvals.${approvalName}) && approvals.${approvalName}.exists(approval, approval.decision == "rejected")`,
+    `human revision requires an explicit ${humanGate.id} rejection`,
+  );
 }
 
 function adapterInputs(adapter: ExecutableAdapter): {
-	inputs: Record<string, unknown>;
-	inputsSchema: FactoryDeclaredSchema;
+  inputs: Record<string, unknown>;
+  inputsSchema: FactoryDeclaredSchema;
 } {
-	const configured = adapter.inputs;
-	return {
-		inputs: { workItem: CEL_WORK_ITEM, ...(configured?.values ?? {}) },
-		inputsSchema: {
-			type: 'object',
-			properties: {
-				workItem: STRING_SCHEMA,
-				...(configured?.properties ?? {})
-			},
-			required: ['workItem', ...(configured?.required ?? [])],
-			additionalProperties: false
-		}
-	};
+  const configured = adapter.inputs;
+  return {
+    inputs: { workItem: CEL_WORK_ITEM, ...(configured?.values ?? {}) },
+    inputsSchema: {
+      type: "object",
+      properties: {
+        workItem: STRING_SCHEMA,
+        ...(configured?.properties ?? {}),
+      },
+      required: ["workItem", ...(configured?.required ?? [])],
+      additionalProperties: false,
+    },
+  };
 }
 
-function adapterWork(adapter: ExecutableAdapter, resultEvidence: string): Record<string, unknown> {
-	const contract = adapterInputs(adapter);
-	if (adapter.mode === 'workflow') {
-		return {
-			mode: 'workflow',
-			workflow: { name: adapter.workflow, inputs: contract.inputs },
-			inputsSchema: contract.inputsSchema,
-			resultEvidence
-		};
-	}
-	return {
-		mode: 'method',
-		method: {
-			modelIdOrName: adapter.modelIdOrName,
-			methodName: adapter.methodName,
-			inputs: contract.inputs
-		},
-		inputsSchema: contract.inputsSchema,
-		resultEvidence
-	};
+function adapterWork(
+  adapter: ExecutableAdapter,
+  resultEvidence: string,
+): Record<string, unknown> {
+  const contract = adapterInputs(adapter);
+  if (adapter.mode === "workflow") {
+    return {
+      mode: "workflow",
+      workflow: { name: adapter.workflow, inputs: contract.inputs },
+      inputsSchema: contract.inputsSchema,
+      resultEvidence,
+    };
+  }
+  return {
+    mode: "method",
+    method: {
+      modelIdOrName: adapter.modelIdOrName,
+      methodName: adapter.methodName,
+      inputs: contract.inputs,
+    },
+    inputsSchema: contract.inputsSchema,
+    resultEvidence,
+  };
 }
 
 function adapterSucceededGate(
-	adapter: ExecutableAdapter,
-	resultEvidence: string,
-	requiredStepOutputs: string[]
+  adapter: ExecutableAdapter,
+  resultEvidence: string,
+  requiredStepOutputs: string[],
 ): FactoryGate {
-	if (adapter.mode === 'workflow') {
-		return {
-			type: 'workflow-succeeded',
-			config: {
-				workflow: adapter.workflow,
-				requireStepOutputs: requiredStepOutputs
-			}
-		};
-	}
-	return {
-		type: 'evidence-recorded',
-		config: { name: resultEvidence, requireField: { status: 'succeeded' } }
-	};
+  if (adapter.mode === "workflow") {
+    return {
+      type: "workflow-succeeded",
+      config: {
+        workflow: adapter.workflow,
+        requireStepOutputs: requiredStepOutputs,
+      },
+    };
+  }
+  return {
+    type: "evidence-recorded",
+    config: { name: resultEvidence, requireField: { status: "succeeded" } },
+  };
 }
 
-function interactiveWork(work: z.infer<typeof InteractiveWorkSchema>): Record<string, unknown> {
-	return {
-		mode: 'interactive',
-		...(work.skills === undefined ? {} : { skills: work.skills }),
-		systemPrompt: work.systemPrompt,
-		...(work.constraints === undefined ? {} : { constraints: work.constraints })
-	};
+function interactiveWork(
+  work: z.infer<typeof InteractiveWorkSchema>,
+): Record<string, unknown> {
+  return {
+    mode: "interactive",
+    ...(work.skills === undefined ? {} : { skills: work.skills }),
+    systemPrompt: work.systemPrompt,
+    ...(work.constraints === undefined
+      ? {}
+      : { constraints: work.constraints }),
+  };
 }
 
-function verificationWork(adapter: VerificationAdapter): Record<string, unknown> {
-	return adapter.mode === 'interactive'
-		? interactiveWork(adapter)
-		: adapterWork(adapter, 'verification-run');
+function verificationWork(
+  adapter: VerificationAdapter,
+): Record<string, unknown> {
+  return adapter.mode === "interactive"
+    ? interactiveWork(adapter)
+    : adapterWork(adapter, "verification-run");
 }
 
-function verificationSucceededGate(adapter: VerificationAdapter): FactoryGate | null {
-	return adapter.mode === 'interactive'
-		? null
-		: adapterSucceededGate(adapter, 'verification-run', [
-				'artifact-verification',
-				'evidence-verification-run'
-			]);
+function verificationSucceededGate(
+  adapter: VerificationAdapter,
+): FactoryGate | null {
+  return adapter.mode === "interactive"
+    ? null
+    : adapterSucceededGate(adapter, "verification-run", [
+      "artifact-verification",
+      "evidence-verification-run",
+    ]);
 }
 
 function compactGates(gates: Array<FactoryGate | null>): FactoryGate[] {
-	return gates.filter((gate): gate is FactoryGate => gate !== null);
+  return gates.filter((gate): gate is FactoryGate => gate !== null);
 }
 
 function extendedArtifactSchema(
-	required: string[],
-	properties: Record<string, FactoryDeclaredSchema>,
-	extension: ArtifactExtension | undefined
+  required: string[],
+  properties: Record<string, FactoryDeclaredSchema>,
+  extension: ArtifactExtension | undefined,
 ): FactoryDeclaredSchema {
-	return {
-		type: 'object',
-		required: [...required, ...(extension?.required ?? [])],
-		properties: { ...properties, ...(extension?.properties ?? {}) }
-	};
+  return {
+    type: "object",
+    required: [...required, ...(extension?.required ?? [])],
+    properties: { ...properties, ...(extension?.properties ?? {}) },
+  };
 }
 
 function reviewArtifactNames(profile: DexSoftwareFactoryProfile): {
-	findings: string;
-	verdict: string;
+  findings: string;
+  verdict: string;
 } {
-	return {
-		findings: profile.review?.findingsArtifactName ?? 'review-findings',
-		verdict: profile.review?.verdictArtifactName ?? 'review-verdict'
-	};
+  return {
+    findings: profile.review?.findingsArtifactName ?? "review-findings",
+    verdict: profile.review?.verdictArtifactName ?? "review-verdict",
+  };
 }
 
 const VERIFICATION_COVERAGE_EXPR = [
-	'size(artifacts.verification.executedLanes) == size(artifacts.change_impact.requiredLanes)',
-	'artifacts.change_impact.requiredLanes.all(required, artifacts.verification.executedLanes.exists(executed, executed.id == required.id))',
-	'artifacts.verification.executedLanes.all(executed, size(artifacts.verification.executedLanes.filter(candidate, candidate.id == executed.id)) == 1)'
-].join(' && ');
+  "size(artifacts.verification.executedLanes) == size(artifacts.change_impact.requiredLanes)",
+  "artifacts.change_impact.requiredLanes.all(required, artifacts.verification.executedLanes.exists(executed, executed.id == required.id))",
+  "artifacts.verification.executedLanes.all(executed, size(artifacts.verification.executedLanes.filter(candidate, candidate.id == executed.id)) == 1)",
+].join(" && ");
 
 const VERIFICATION_PASS_EXPR = [
-	VERIFICATION_COVERAGE_EXPR,
-	'artifacts.verification.status == "passed"',
-	'artifacts.verification.executedLanes.all(lane, lane.status == "passed")'
-].join(' && ');
+  VERIFICATION_COVERAGE_EXPR,
+  'artifacts.verification.status == "passed"',
+  'artifacts.verification.executedLanes.all(lane, lane.status == "passed")',
+].join(" && ");
 
-function changeSummaryArtifact(profile: DexSoftwareFactoryProfile): Record<string, unknown> {
-	return {
-		name: 'change-summary',
-		description: 'Compact implementation summary used as the classification subject.',
-		schema: extendedArtifactSchema(
-			['summary'],
-			{ summary: STRING_SCHEMA },
-			profile.contracts?.changeSummary
-		)
-	};
+function changeSummaryArtifact(
+  profile: DexSoftwareFactoryProfile,
+): Record<string, unknown> {
+  return {
+    name: "change-summary",
+    description:
+      "Compact implementation summary used as the classification subject.",
+    schema: extendedArtifactSchema(
+      ["summary"],
+      { summary: STRING_SCHEMA },
+      profile.contracts?.changeSummary,
+    ),
+  };
 }
 
-function changeImpactArtifact(profile: DexSoftwareFactoryProfile): Record<string, unknown> {
-	return {
-		name: 'change-impact',
-		description: 'Trusted classification and complete verification plan for the current change.',
-		reviews: 'change-summary',
-		schema: extendedArtifactSchema(
-			['requiredLanes', 'reviewCandidate', 'changeFingerprint'],
-			{
-				requiredLanes: {
-					type: 'array',
-					minItems: 1,
-					items: {
-						type: 'object',
-						required: ['id', 'reasons'],
-						properties: {
-							id: STRING_SCHEMA,
-							reasons: {
-								type: 'array',
-								minItems: 1,
-								items: STRING_SCHEMA
-							}
-						}
-					}
-				},
-				reviewCandidate: { type: 'boolean' },
-				changeFingerprint: STRING_SCHEMA
-			},
-			profile.contracts?.changeImpact
-		)
-	};
+function changeImpactArtifact(
+  profile: DexSoftwareFactoryProfile,
+): Record<string, unknown> {
+  return {
+    name: "change-impact",
+    description:
+      "Trusted classification and complete verification plan for the current change.",
+    reviews: "change-summary",
+    schema: extendedArtifactSchema(
+      ["requiredLanes", "reviewCandidate", "changeFingerprint"],
+      {
+        requiredLanes: {
+          type: "array",
+          minItems: 1,
+          items: {
+            type: "object",
+            required: ["id", "reasons"],
+            properties: {
+              id: STRING_SCHEMA,
+              reasons: {
+                type: "array",
+                minItems: 1,
+                items: STRING_SCHEMA,
+              },
+            },
+          },
+        },
+        reviewCandidate: { type: "boolean" },
+        changeFingerprint: STRING_SCHEMA,
+      },
+      profile.contracts?.changeImpact,
+    ),
+  };
 }
 
-function verificationArtifact(profile: DexSoftwareFactoryProfile): Record<string, unknown> {
-	return {
-		name: 'verification',
-		description: 'One explicit outcome per required lane and an exact next-stage dispatch.',
-		reviews: 'change-impact',
-		schema: extendedArtifactSchema(
-			['status', 'executedLanes', 'reviewRequired', 'nextStep', 'summary'],
-			{
-				status: { type: 'string', enum: ['passed', 'failed', 'unavailable'] },
-				executedLanes: {
-					type: 'array',
-					minItems: 1,
-					items: {
-						type: 'object',
-						required: ['id', 'status', 'evidence'],
-						properties: {
-							id: STRING_SCHEMA,
-							status: {
-								type: 'string',
-								enum: ['passed', 'failed', 'unavailable']
-							},
-							evidence: STRING_SCHEMA
-						}
-					}
-				},
-				reviewRequired: { type: 'boolean' },
-				nextStep: { type: 'string', enum: ['rework', 'review', 'reconcile'] },
-				summary: STRING_SCHEMA
-			},
-			profile.contracts?.verification
-		)
-	};
+function verificationArtifact(
+  profile: DexSoftwareFactoryProfile,
+): Record<string, unknown> {
+  return {
+    name: "verification",
+    description:
+      "One explicit outcome per required lane and an exact next-stage dispatch.",
+    reviews: "change-impact",
+    schema: extendedArtifactSchema(
+      ["status", "executedLanes", "reviewRequired", "nextStep", "summary"],
+      {
+        status: { type: "string", enum: ["passed", "failed", "unavailable"] },
+        executedLanes: {
+          type: "array",
+          minItems: 1,
+          items: {
+            type: "object",
+            required: ["id", "status", "evidence"],
+            properties: {
+              id: STRING_SCHEMA,
+              status: {
+                type: "string",
+                enum: ["passed", "failed", "unavailable"],
+              },
+              evidence: STRING_SCHEMA,
+            },
+          },
+        },
+        reviewRequired: { type: "boolean" },
+        nextStep: { type: "string", enum: ["rework", "review", "reconcile"] },
+        summary: STRING_SCHEMA,
+      },
+      profile.contracts?.verification,
+    ),
+  };
 }
 
-function reconciliationArtifact(profile: DexSoftwareFactoryProfile): Record<string, unknown> {
-	return {
-		name: 'reconciliation',
-		description: 'Terminal disposition and typed Dex completion inputs.',
-		// Verification is the common subject for reviewed and review-bypassed routes.
-		// The review transition already gates freshness and acceptance when present.
-		reviews: 'verification',
-		schema: extendedArtifactSchema(
-			['status', 'nextStep', 'summary', 'completionResult', 'commit'],
-			{
-				status: { type: 'string', enum: ['ready', 'needs-rework'] },
-				nextStep: { type: 'string', enum: ['rework', 'complete'] },
-				summary: STRING_SCHEMA,
-				completionResult: STRING_SCHEMA,
-				commit: {
-					type: 'object',
-					required: ['kind'],
-					properties: {
-						kind: { type: 'string', enum: ['commit', 'noCommit'] },
-						sha: { type: 'string', pattern: GIT_SHA_PATTERN }
-					}
-				}
-			},
-			profile.contracts?.reconciliation
-		)
-	};
+function reconciliationArtifact(
+  profile: DexSoftwareFactoryProfile,
+): Record<string, unknown> {
+  return {
+    name: "reconciliation",
+    description: "Terminal disposition and typed Dex completion inputs.",
+    // Verification is the common subject for reviewed and review-bypassed routes.
+    // The review transition already gates freshness and acceptance when present.
+    reviews: "verification",
+    schema: extendedArtifactSchema(
+      ["status", "nextStep", "summary", "completionResult", "commit"],
+      {
+        status: { type: "string", enum: ["ready", "needs-rework"] },
+        nextStep: { type: "string", enum: ["rework", "complete"] },
+        summary: STRING_SCHEMA,
+        completionResult: STRING_SCHEMA,
+        commit: {
+          type: "object",
+          required: ["kind"],
+          properties: {
+            kind: { type: "string", enum: ["commit", "noCommit"] },
+            sha: { type: "string", pattern: GIT_SHA_PATTERN },
+          },
+        },
+      },
+      profile.contracts?.reconciliation,
+    ),
+  };
 }
 
 function preflightStage(profile: DexSoftwareFactoryProfile): FactoryStage {
-	return {
-		id: 'preflight',
-		initial: true,
-		description: 'Run the consumer policy adapter before implementation.',
-		maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
-		work: adapterWork(profile.adapters.preflight, 'preflight-run'),
-		transitions: [
-			{
-				name: 'implement',
-				to: 'implementation',
-				gates: [
-					adapterSucceededGate(profile.adapters.preflight, 'preflight-run', [
-						'evidence-preflight-run'
-					])
-				]
-			}
-		]
-	};
+  return {
+    id: "preflight",
+    initial: true,
+    description: "Run the consumer policy adapter before implementation.",
+    maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
+    work: adapterWork(profile.adapters.preflight, "preflight-run"),
+    transitions: [
+      {
+        name: "implement",
+        to: "implementation",
+        gates: [
+          adapterSucceededGate(profile.adapters.preflight, "preflight-run", [
+            "evidence-preflight-run",
+          ]),
+        ],
+      },
+    ],
+  };
 }
 
 function implementationStage(profile: DexSoftwareFactoryProfile): FactoryStage {
-	return {
-		id: 'implementation',
-		description: 'Implement the current Dex work item and record a compact change summary.',
-		maxCycles: profile.budgets.implementation,
-		maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
-		work: interactiveWork({ mode: 'interactive', ...profile.implementation }),
-		artifacts: [changeSummaryArtifact(profile)],
-		transitions: [
-			{
-				name: 'classify',
-				to: 'classify',
-				gates: [artifactExists('change-summary')]
-			}
-		]
-	};
+  return {
+    id: "implementation",
+    description:
+      "Implement the current Dex work item and record a compact change summary.",
+    maxCycles: profile.budgets.implementation,
+    maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
+    work: interactiveWork({ mode: "interactive", ...profile.implementation }),
+    artifacts: [changeSummaryArtifact(profile)],
+    transitions: [
+      {
+        name: "classify",
+        to: "classify",
+        gates: [artifactExists("change-summary")],
+      },
+    ],
+  };
 }
 
 function classifyStage(profile: DexSoftwareFactoryProfile): FactoryStage {
-	return {
-		id: 'classify',
-		description: 'Derive a trusted, complete verification plan through the consumer adapter.',
-		maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
-		work: adapterWork(profile.adapters.classify, 'classify-run'),
-		artifacts: [changeImpactArtifact(profile)],
-		transitions: [
-			{
-				name: 'verify',
-				to: 'verification',
-				gates: [
-					adapterSucceededGate(profile.adapters.classify, 'classify-run', [
-						'artifact-change-impact',
-						'evidence-classify-run'
-					]),
-					artifactFresh('change-impact')
-				]
-			}
-		]
-	};
+  return {
+    id: "classify",
+    description:
+      "Derive a trusted, complete verification plan through the consumer adapter.",
+    maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
+    work: adapterWork(profile.adapters.classify, "classify-run"),
+    artifacts: [changeImpactArtifact(profile)],
+    transitions: [
+      {
+        name: "verify",
+        to: "verification",
+        gates: [
+          adapterSucceededGate(profile.adapters.classify, "classify-run", [
+            "artifact-change-impact",
+            "evidence-classify-run",
+          ]),
+          artifactFresh("change-impact"),
+        ],
+      },
+    ],
+  };
 }
 
 function verificationTransitions(
-	profile: DexSoftwareFactoryProfile
+  profile: DexSoftwareFactoryProfile,
 ): Array<Record<string, unknown>> {
-	const adapterGate = verificationSucceededGate(profile.adapters.verification);
-	const baseGates = [adapterGate, artifactFresh('verification')];
-	const nonPassingResult =
-		'artifacts.verification.status != "passed" || artifacts.verification.executedLanes.exists(lane, lane.status != "passed")';
-	const reworkReason =
-		profile.verificationRouting?.reworkCondition === undefined
-			? nonPassingResult
-			: `(${nonPassingResult}) || (${profile.verificationRouting.reworkCondition})`;
-	const transitions: Array<Record<string, unknown>> = [
-		{
-			name: 'rework',
-			to: 'implementation',
-			gates: compactGates([
-				...baseGates,
-				celGate(
-					`${VERIFICATION_COVERAGE_EXPR} && artifacts.verification.nextStep == "rework" && (${reworkReason})`,
-					'rework requires complete lane coverage, an explicit non-passing result, and nextStep=rework'
-				)
-			])
-		}
-	];
+  const adapterGate = verificationSucceededGate(profile.adapters.verification);
+  const baseGates = [adapterGate, artifactFresh("verification")];
+  const nonPassingResult =
+    'artifacts.verification.status != "passed" || artifacts.verification.executedLanes.exists(lane, lane.status != "passed")';
+  const reworkReason =
+    profile.verificationRouting?.reworkCondition === undefined
+      ? nonPassingResult
+      : `(${nonPassingResult}) || (${profile.verificationRouting.reworkCondition})`;
+  const transitions: Array<Record<string, unknown>> = [
+    {
+      name: "rework",
+      to: "implementation",
+      gates: compactGates([
+        ...baseGates,
+        celGate(
+          `${VERIFICATION_COVERAGE_EXPR} && artifacts.verification.nextStep == "rework" && (${reworkReason})`,
+          "rework requires complete lane coverage, an explicit non-passing result, and nextStep=rework",
+        ),
+      ]),
+    },
+  ];
 
-	if (profile.review !== undefined) {
-		transitions.push({
-			name: 'review',
-			to: 'review',
-			gates: compactGates([
-				...baseGates,
-				celGate(
-					andCondition(
-						`${VERIFICATION_PASS_EXPR} && artifacts.verification.reviewRequired && artifacts.verification.nextStep == "review"`,
-						profile.verificationRouting?.reviewCondition
-					),
-					'review requires complete passing verification, reviewRequired=true, and nextStep=review'
-				)
-			])
-		});
-	}
+  if (profile.review !== undefined) {
+    transitions.push({
+      name: "review",
+      to: "review",
+      gates: compactGates([
+        ...baseGates,
+        celGate(
+          andCondition(
+            `${VERIFICATION_PASS_EXPR} && artifacts.verification.reviewRequired && artifacts.verification.nextStep == "review"`,
+            profile.verificationRouting?.reviewCondition,
+          ),
+          "review requires complete passing verification, reviewRequired=true, and nextStep=review",
+        ),
+      ]),
+    });
+  }
 
-	transitions.push({
-		name: 'reconcile',
-		to: 'reconciliation',
-		gates: compactGates([
-			...baseGates,
-			celGate(
-				andCondition(
-					`${VERIFICATION_PASS_EXPR} && !artifacts.verification.reviewRequired && artifacts.verification.nextStep == "reconcile"`,
-					profile.verificationRouting?.reconcileCondition
-				),
-				'reconciliation requires complete passing verification, reviewRequired=false, and nextStep=reconcile'
-			),
-			profile.review === undefined ? humanApprovalGate(profile.humanGate) : null
-		])
-	});
+  transitions.push({
+    name: "reconcile",
+    to: "reconciliation",
+    gates: compactGates([
+      ...baseGates,
+      celGate(
+        andCondition(
+          `${VERIFICATION_PASS_EXPR} && !artifacts.verification.reviewRequired && artifacts.verification.nextStep == "reconcile"`,
+          profile.verificationRouting?.reconcileCondition,
+        ),
+        "reconciliation requires complete passing verification, reviewRequired=false, and nextStep=reconcile",
+      ),
+      profile.review === undefined
+        ? humanApprovalGate(profile.humanGate)
+        : null,
+    ]),
+  });
 
-	if (profile.review === undefined && profile.humanGate !== undefined) {
-		transitions.push({
-			name: 'human-revision',
-			to: 'implementation',
-			gates: compactGates([
-				...baseGates,
-				celGate(
-					andCondition(
-						`${VERIFICATION_PASS_EXPR} && !artifacts.verification.reviewRequired && artifacts.verification.nextStep == "reconcile"`,
-						profile.verificationRouting?.reconcileCondition
-					),
-					'human revision requires complete passing verification routed to reconciliation'
-				),
-				humanRejectionGate(profile.humanGate)
-			])
-		});
-	}
+  if (profile.review === undefined && profile.humanGate !== undefined) {
+    transitions.push({
+      name: "human-revision",
+      to: "implementation",
+      gates: compactGates([
+        ...baseGates,
+        celGate(
+          andCondition(
+            `${VERIFICATION_PASS_EXPR} && !artifacts.verification.reviewRequired && artifacts.verification.nextStep == "reconcile"`,
+            profile.verificationRouting?.reconcileCondition,
+          ),
+          "human revision requires complete passing verification routed to reconciliation",
+        ),
+        humanRejectionGate(profile.humanGate),
+      ]),
+    });
+  }
 
-	return transitions;
+  return transitions;
 }
 
 function verificationStage(profile: DexSoftwareFactoryProfile): FactoryStage {
-	return {
-		id: 'verification',
-		description: 'Execute every classified lane and record an exact next-stage dispatch.',
-		maxCycles: profile.budgets.verification,
-		maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
-		work: verificationWork(profile.adapters.verification),
-		artifacts: [verificationArtifact(profile)],
-		transitions: verificationTransitions(profile)
-	};
+  return {
+    id: "verification",
+    description:
+      "Execute every classified lane and record an exact next-stage dispatch.",
+    maxCycles: profile.budgets.verification,
+    maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
+    work: verificationWork(profile.adapters.verification),
+    artifacts: [verificationArtifact(profile)],
+    transitions: verificationTransitions(profile),
+  };
 }
 
 function reviewStage(profile: DexSoftwareFactoryProfile): FactoryStage | null {
-	if (profile.review === undefined) return null;
-	const artifactNames = reviewArtifactNames(profile);
-	const verdictCelName = artifactNames.verdict.replaceAll('-', '_');
-	const reviewReworkExpression =
-		profile.review.reworkCondition === undefined
-			? `artifacts.${verdictCelName}.status == "revise"`
-			: `artifacts.${verdictCelName}.status == "revise" || (${profile.review.reworkCondition})`;
-	const reviewAcceptExpression = andCondition(
-		`artifacts.${verdictCelName}.status == "accept"`,
-		profile.review.acceptCondition
-	);
-	const humanRevisionTransition =
-		profile.humanGate === undefined
-			? []
-			: [
-					{
-						name: 'human-revision',
-						to: 'implementation',
-						gates: [
-							artifactFresh(artifactNames.findings),
-							artifactFresh(artifactNames.verdict),
-							humanRejectionGate(profile.humanGate)
-						]
-					}
-				];
-	return {
-		id: 'review',
-		description: 'Review the verified change and retain both findings and a route verdict.',
-		maxCycles: profile.budgets.review,
-		maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
-		work: {
-			mode: 'dispatch',
-			skills: profile.review.skills,
-			systemPrompt: profile.review.systemPrompt,
-			context: { inject: ['change-summary', 'change-impact', 'verification'] }
-		},
-		artifacts: [
-			{ name: artifactNames.findings, kind: 'findings', reviews: 'verification' },
-			{
-				name: artifactNames.verdict,
-				reviews: 'verification',
-				schema: extendedArtifactSchema(
-					['status', 'summary'],
-					{
-						status: { type: 'string', enum: ['accept', 'revise'] },
-						summary: STRING_SCHEMA
-					},
-					profile.contracts?.reviewVerdict
-				)
-			}
-		],
-		transitions: [
-			{
-				name: 'rework',
-				to: 'implementation',
-				gates: [
-					artifactFresh(artifactNames.findings),
-					artifactFresh(artifactNames.verdict),
-					celGate(reviewReworkExpression, 'rework requires an explicit revise verdict')
-				]
-			},
-			{
-				name: 'accept',
-				to: 'reconciliation',
-				gates: compactGates([
-					artifactFresh(artifactNames.findings),
-					artifactFresh(artifactNames.verdict),
-					{
-						type: 'findings-clear',
-						config: {
-							artifact: artifactNames.findings,
-							blocking: profile.review.blockingSeverities
-						}
-					},
-					celGate(reviewAcceptExpression, 'acceptance requires an explicit accept verdict'),
-					humanApprovalGate(profile.humanGate)
-				])
-			},
-			...humanRevisionTransition
-		]
-	};
+  if (profile.review === undefined) return null;
+  const artifactNames = reviewArtifactNames(profile);
+  const verdictCelName = artifactNames.verdict.replaceAll("-", "_");
+  const reviewReworkExpression = profile.review.reworkCondition === undefined
+    ? `artifacts.${verdictCelName}.status == "revise"`
+    : `artifacts.${verdictCelName}.status == "revise" || (${profile.review.reworkCondition})`;
+  const reviewAcceptExpression = andCondition(
+    `artifacts.${verdictCelName}.status == "accept"`,
+    profile.review.acceptCondition,
+  );
+  const humanRevisionTransition = profile.humanGate === undefined ? [] : [
+    {
+      name: "human-revision",
+      to: "implementation",
+      gates: [
+        artifactFresh(artifactNames.findings),
+        artifactFresh(artifactNames.verdict),
+        humanRejectionGate(profile.humanGate),
+      ],
+    },
+  ];
+  return {
+    id: "review",
+    description:
+      "Review the verified change and retain both findings and a route verdict.",
+    maxCycles: profile.budgets.review,
+    maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
+    work: {
+      mode: "dispatch",
+      skills: profile.review.skills,
+      systemPrompt: profile.review.systemPrompt,
+      context: { inject: ["change-summary", "change-impact", "verification"] },
+    },
+    artifacts: [
+      {
+        name: artifactNames.findings,
+        kind: "findings",
+        reviews: "verification",
+      },
+      {
+        name: artifactNames.verdict,
+        reviews: "verification",
+        schema: extendedArtifactSchema(
+          ["status", "summary"],
+          {
+            status: { type: "string", enum: ["accept", "revise"] },
+            summary: STRING_SCHEMA,
+          },
+          profile.contracts?.reviewVerdict,
+        ),
+      },
+    ],
+    transitions: [
+      {
+        name: "rework",
+        to: "implementation",
+        gates: [
+          artifactFresh(artifactNames.findings),
+          artifactFresh(artifactNames.verdict),
+          celGate(
+            reviewReworkExpression,
+            "rework requires an explicit revise verdict",
+          ),
+        ],
+      },
+      {
+        name: "accept",
+        to: "reconciliation",
+        gates: compactGates([
+          artifactFresh(artifactNames.findings),
+          artifactFresh(artifactNames.verdict),
+          {
+            type: "findings-clear",
+            config: {
+              artifact: artifactNames.findings,
+              blocking: profile.review.blockingSeverities,
+            },
+          },
+          celGate(
+            reviewAcceptExpression,
+            "acceptance requires an explicit accept verdict",
+          ),
+          humanApprovalGate(profile.humanGate),
+        ]),
+      },
+      ...humanRevisionTransition,
+    ],
+  };
 }
 
 function reconciliationStage(profile: DexSoftwareFactoryProfile): FactoryStage {
-	const reviewNames = reviewArtifactNames(profile);
-	return {
-		id: 'reconciliation',
-		description: 'Confirm the terminal disposition and prepare exact Dex completion inputs.',
-		maxCycles: profile.budgets.reconciliation,
-		maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
-		work: {
-			mode: 'interactive',
-			context: {
-				inject:
-					profile.review === undefined ? ['verification'] : ['verification', reviewNames.verdict]
-			},
-			systemPrompt:
-				'Reconcile the verified result without mutating tracker state. Record nextStep=rework when anything remains; otherwise record nextStep=complete with the exact Dex result and commit decision.'
-		},
-		artifacts: [reconciliationArtifact(profile)],
-		transitions: [
-			{
-				name: 'rework',
-				to: 'implementation',
-				gates: [
-					artifactFresh('reconciliation'),
-					celGate(
-						'artifacts.reconciliation.status == "needs-rework" && artifacts.reconciliation.nextStep == "rework"',
-						'rework requires status=needs-rework and nextStep=rework'
-					)
-				]
-			},
-			{
-				name: 'postflight',
-				to: 'postflight',
-				gates: [
-					artifactFresh('reconciliation'),
-					celGate(
-						'artifacts.reconciliation.status == "ready" && artifacts.reconciliation.nextStep == "complete"',
-						'postflight requires status=ready and nextStep=complete'
-					)
-				]
-			}
-		]
-	};
+  const reviewNames = reviewArtifactNames(profile);
+  return {
+    id: "reconciliation",
+    description:
+      "Confirm the terminal disposition and prepare exact Dex completion inputs.",
+    maxCycles: profile.budgets.reconciliation,
+    maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
+    work: {
+      mode: "interactive",
+      context: {
+        inject: profile.review === undefined
+          ? ["verification"]
+          : ["verification", reviewNames.verdict],
+      },
+      systemPrompt:
+        "Reconcile the verified result without mutating tracker state. Record nextStep=rework when anything remains; otherwise record nextStep=complete with the exact Dex result and commit decision.",
+    },
+    artifacts: [reconciliationArtifact(profile)],
+    transitions: [
+      {
+        name: "rework",
+        to: "implementation",
+        gates: [
+          artifactFresh("reconciliation"),
+          celGate(
+            'artifacts.reconciliation.status == "needs-rework" && artifacts.reconciliation.nextStep == "rework"',
+            "rework requires status=needs-rework and nextStep=rework",
+          ),
+        ],
+      },
+      {
+        name: "postflight",
+        to: "postflight",
+        gates: [
+          artifactFresh("reconciliation"),
+          celGate(
+            'artifacts.reconciliation.status == "ready" && artifacts.reconciliation.nextStep == "complete"',
+            "postflight requires status=ready and nextStep=complete",
+          ),
+        ],
+      },
+    ],
+  };
 }
 
 function postflightStage(profile: DexSoftwareFactoryProfile): FactoryStage {
-	return {
-		id: 'postflight',
-		description: 'Run the consumer terminal policy adapter before tracker completion.',
-		maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
-		work: adapterWork(profile.adapters.postflight, 'postflight-run'),
-		transitions: [
-			{
-				name: 'cleanup',
-				to: 'terminal-cleanup',
-				gates: [
-					adapterSucceededGate(profile.adapters.postflight, 'postflight-run', [
-						'evidence-postflight-run'
-					])
-				]
-			}
-		]
-	};
+  return {
+    id: "postflight",
+    description:
+      "Run the consumer terminal policy adapter before tracker completion.",
+    maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
+    work: adapterWork(profile.adapters.postflight, "postflight-run"),
+    transitions: [
+      {
+        name: "cleanup",
+        to: "terminal-cleanup",
+        gates: compactGates([
+          adapterSucceededGate(profile.adapters.postflight, "postflight-run", [
+            "evidence-postflight-run",
+          ]),
+          humanApprovalGate(profile.completionGate),
+        ]),
+      },
+      ...(profile.completionGate === undefined ? [] : [{
+        name: "human-revision",
+        to: "implementation",
+        gates: [
+          adapterSucceededGate(
+            profile.adapters.postflight,
+            "postflight-run",
+            ["evidence-postflight-run"],
+          ),
+          humanRejectionGate(profile.completionGate),
+        ],
+      }]),
+    ],
+  };
 }
 
-function terminalCleanupStage(profile: DexSoftwareFactoryProfile): FactoryStage {
-	return {
-		id: 'terminal-cleanup',
-		description: 'Complete the Dex task only after reconciliation and successful postflight.',
-		maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
-		work: {
-			mode: 'method',
-			method: {
-				modelIdOrName: profile.adapters.dexTracker.modelIdOrName,
-				methodName: profile.adapters.dexTracker.completeMethodName,
-				inputs: {
-					taskId: CEL_WORK_ITEM,
-					result: COMPLETION_RESULT_BINDING,
-					commit: COMPLETION_COMMIT_BINDING
-				}
-			},
-			inputsSchema: {
-				type: 'object',
-				required: ['taskId', 'result', 'commit'],
-				additionalProperties: false,
-				properties: {
-					taskId: STRING_SCHEMA,
-					result: STRING_SCHEMA,
-					commit: {
-						type: 'object',
-						required: ['kind'],
-						properties: {
-							kind: { type: 'string', enum: ['commit', 'noCommit'] },
-							sha: { type: 'string', pattern: GIT_SHA_PATTERN }
-						}
-					}
-				}
-			},
-			resultEvidence: 'tracker-completion'
-		},
-		transitions: [
-			{
-				name: 'finish',
-				to: 'done',
-				gates: [
-					{
-						type: 'evidence-recorded',
-						config: {
-							name: 'tracker-completion',
-							requireField: { status: 'succeeded' }
-						}
-					}
-				]
-			}
-		]
-	};
+function terminalCleanupStage(
+  profile: DexSoftwareFactoryProfile,
+): FactoryStage {
+  const completionWorkflow = profile.adapters.dexTracker.completionWorkflow;
+  const work = profile.completionGate !== undefined &&
+      completionWorkflow !== undefined
+    ? {
+      mode: "workflow" as const,
+      workflow: {
+        name: completionWorkflow,
+        inputs: { workItem: CEL_WORK_ITEM },
+      },
+      inputsSchema: {
+        type: "object" as const,
+        required: ["workItem"],
+        additionalProperties: false,
+        properties: { workItem: STRING_SCHEMA },
+      },
+      resultEvidence: "tracker-completion",
+    }
+    : {
+      mode: "method" as const,
+      method: {
+        modelIdOrName: profile.adapters.dexTracker.modelIdOrName,
+        methodName: profile.adapters.dexTracker.completeMethodName,
+        inputs: {
+          taskId: CEL_WORK_ITEM,
+          result: COMPLETION_RESULT_BINDING,
+          commit: COMPLETION_COMMIT_BINDING,
+        },
+      },
+      inputsSchema: {
+        type: "object" as const,
+        required: ["taskId", "result", "commit"],
+        additionalProperties: false,
+        properties: {
+          taskId: STRING_SCHEMA,
+          result: STRING_SCHEMA,
+          commit: {
+            type: "object",
+            required: ["kind"],
+            properties: {
+              kind: { type: "string", enum: ["commit", "noCommit"] },
+              sha: { type: "string", pattern: GIT_SHA_PATTERN },
+            },
+          },
+        },
+      },
+      resultEvidence: "tracker-completion",
+    };
+  return {
+    id: "terminal-cleanup",
+    description: profile.completionGate === undefined
+      ? "Complete the Dex task only after reconciliation and successful postflight."
+      : "Complete the Dex task only through the repository completion workflow after explicit task-specific human approval.",
+    maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
+    work,
+    transitions: [
+      {
+        name: "finish",
+        to: profile.adapters.terminalObserver === undefined
+          ? "done"
+          : "done-observability",
+        gates: [
+          {
+            type: "evidence-recorded",
+            config: {
+              name: "tracker-completion",
+              requireField: { status: "succeeded" },
+            },
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function terminalObservabilityStage(
+  id: "done-observability" | "aborted-observability",
+  terminalStage: "done" | "aborted",
+  workflow: string,
+  maxDispatchesPerCycle: number,
+): FactoryStage {
+  return {
+    id,
+    description:
+      `Finalize ${terminalStage}, persist canonical Factory reports, and emit non-gating observability.`,
+    maxDispatchesPerCycle,
+    work: {
+      mode: "workflow",
+      workflow: {
+        name: workflow,
+        inputs: { workItem: CEL_WORK_ITEM },
+      },
+      inputsSchema: {
+        type: "object",
+        required: ["workItem"],
+        additionalProperties: false,
+        properties: { workItem: STRING_SCHEMA },
+      },
+    },
+    transitions: [{ name: "finalize", to: terminalStage }],
+  };
 }
 
 /** Compile one consumer profile into @swamp/software-factory global arguments. */
 export function compileDexSoftwareFactoryProfile(
-	input: DexSoftwareFactoryProfile
+  input: DexSoftwareFactoryProfile,
 ): CompiledDexSoftwareFactoryProfile {
-	const profile = DexSoftwareFactoryProfileSchema.parse(input);
-	const review = reviewStage(profile);
-	const stages = [
-		preflightStage(profile),
-		implementationStage(profile),
-		classifyStage(profile),
-		verificationStage(profile),
-		...(review === null ? [] : [review]),
-		reconciliationStage(profile),
-		postflightStage(profile),
-		terminalCleanupStage(profile),
-		{ id: 'done', terminal: true },
-		{ id: 'aborted', terminal: true }
-	];
+  const profile = DexSoftwareFactoryProfileSchema.parse(input);
+  const review = reviewStage(profile);
+  const stages = [
+    preflightStage(profile),
+    implementationStage(profile),
+    classifyStage(profile),
+    verificationStage(profile),
+    ...(review === null ? [] : [review]),
+    reconciliationStage(profile),
+    postflightStage(profile),
+    terminalCleanupStage(profile),
+    ...(profile.adapters.terminalObserver === undefined ? [] : [
+      terminalObservabilityStage(
+        "done-observability",
+        "done",
+        profile.adapters.terminalObserver.workflow,
+        profile.budgets.maxDispatchesPerCycle,
+      ),
+      terminalObservabilityStage(
+        "aborted-observability",
+        "aborted",
+        profile.adapters.terminalObserver.workflow,
+        profile.budgets.maxDispatchesPerCycle,
+      ),
+    ]),
+    { id: "done", terminal: true },
+    { id: "aborted", terminal: true },
+  ];
 
-	return CompiledDexSoftwareFactoryProfileSchema.parse({
-		schemaVersion: 1,
-		compilerVersion: DEX_SOFTWARE_FACTORY_VERSION,
-		profileName: profile.profileName,
-		target: {
-			type: '@swamp/software-factory',
-			version: SOFTWARE_FACTORY_TARGET_VERSION
-		},
-		factoryArguments: {
-			stages,
-			globalTransitions: [
-				{
-					name: 'abort',
-					to: 'aborted',
-					gates: [
-						{
-							type: 'human-approval',
-							config: { id: 'abort-confirmation' }
-						}
-					]
-				}
-			]
-		}
-	});
+  return CompiledDexSoftwareFactoryProfileSchema.parse({
+    schemaVersion: 1,
+    compilerVersion: DEX_SOFTWARE_FACTORY_VERSION,
+    profileName: profile.profileName,
+    target: {
+      type: "@swamp/software-factory",
+      version: SOFTWARE_FACTORY_TARGET_VERSION,
+    },
+    factoryArguments: {
+      stages,
+      globalTransitions: [
+        {
+          name: "abort",
+          to: profile.adapters.terminalObserver === undefined
+            ? "aborted"
+            : "aborted-observability",
+          gates: [
+            {
+              type: "human-approval",
+              config: { id: "abort-confirmation" },
+            },
+          ],
+        },
+      ],
+    },
+  });
 }
 
 /** Compile and persist the profile configured on this model instance. */
 export async function executeDexSoftwareFactoryCompile(
-	_contextArgs: Record<string, never>,
-	context: DexSoftwareFactoryMethodContext
+  _contextArgs: Record<string, never>,
+  context: DexSoftwareFactoryMethodContext,
 ): Promise<DexSoftwareFactoryExecutionResult> {
-	let rawProfile = context.globalArgs;
-	if (
-		context.definitionRepository !== undefined &&
-		context.modelType !== undefined &&
-		context.modelId !== undefined
-	) {
-		const definition = await context.definitionRepository.findById(
-			context.modelType,
-			context.modelId
-		);
-		if (definition !== null) rawProfile = definition.globalArguments;
-	}
-	const compiled = compileDexSoftwareFactoryProfile(
-		DexSoftwareFactoryProfileSchema.parse(rawProfile)
-	);
-	const handle = await context.writeResource('profile', 'compiled-profile', compiled);
-	return { dataHandles: [handle] };
+  context.logger.info("Compiling Dex software Factory profile");
+  let rawProfile = context.globalArgs;
+  if (
+    context.definitionRepository !== undefined &&
+    context.modelType !== undefined &&
+    context.modelId !== undefined
+  ) {
+    const definition = await context.definitionRepository.findById(
+      context.modelType,
+      context.modelId,
+    );
+    if (definition !== null) rawProfile = definition.globalArguments;
+  }
+  const compiled = compileDexSoftwareFactoryProfile(
+    DexSoftwareFactoryProfileSchema.parse(rawProfile),
+  );
+  const handle = await context.writeResource(
+    "profile",
+    "compiled-profile",
+    compiled,
+  );
+  context.logger.info("Compiled Dex software Factory profile {profileName}", {
+    profileName: compiled.profileName,
+  });
+  return { dataHandles: [handle] };
 }

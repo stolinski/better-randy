@@ -1,0 +1,2141 @@
+type: '@swamp/software-factory'
+typeVersion: 2026.06.24.1
+id: d5f581ad-2c79-41c4-829f-ced1ae9331cc
+name: supers-planning
+version: 1
+tags: {}
+globalArguments:
+  stages:
+  - id: inventory
+    initial: true
+    description: Collect deterministic repository facts before asking judgment questions.
+    maxCycles: 2
+    maxDispatchesPerCycle: 2
+    work:
+      mode: workflow
+      workflow:
+        name: supers-planning-inventory
+        inputs:
+          workItem: ${{ self.workItem }}
+      inputsSchema:
+        type: object
+        properties:
+          workItem:
+            type: string
+            minLength: 1
+        required:
+        - workItem
+        additionalProperties: false
+      resultEvidence: inventory-run
+    artifacts:
+    - name: planning-inventory
+      description: Deterministic repository facts and unresolved judgments.
+      schema:
+        type: object
+        properties:
+          schemaVersion:
+            type: integer
+            enum:
+            - 1
+          objective:
+            type: string
+            minLength: 1
+          contextRefs:
+            type: array
+            items:
+              type: object
+              properties:
+                kind:
+                  type: string
+                  minLength: 1
+                name:
+                  type: string
+                  minLength: 1
+                reference:
+                  type: string
+                  minLength: 1
+                summary:
+                  type: string
+                  minLength: 1
+              required:
+              - kind
+              - name
+              - reference
+              - summary
+              additionalProperties: false
+          unresolvedDecisions:
+            type: array
+            items:
+              type: object
+              properties:
+                id:
+                  type: string
+                  minLength: 1
+                question:
+                  type: string
+                  minLength: 1
+                reason:
+                  type: string
+                  minLength: 1
+              required:
+              - id
+              - question
+              - reason
+              additionalProperties: false
+          clarificationRequired:
+            type: boolean
+          sourceSnapshotName:
+            type: string
+            minLength: 1
+          sourceSnapshotFingerprint:
+            type: string
+            pattern: ^[0-9a-f]{64}$
+          fingerprint:
+            type: string
+            pattern: ^[0-9a-f]{64}$
+        required:
+        - schemaVersion
+        - objective
+        - contextRefs
+        - unresolvedDecisions
+        - clarificationRequired
+        - sourceSnapshotName
+        - sourceSnapshotFingerprint
+        - fingerprint
+        additionalProperties: false
+    transitions:
+    - name: inventory-tracker
+      to: tracker-inventory
+      gates:
+      - type: workflow-succeeded
+        config:
+          workflow: supers-planning-inventory
+          requireStepOutputs:
+          - artifact-planning-inventory
+          - evidence-inventory-run
+      - type: artifact-exists
+        config:
+          artifact: planning-inventory
+  - id: tracker-inventory
+    description: Read related Dex tasks through the consumer tracker adapter before proposing work.
+    maxCycles: 2
+    maxDispatchesPerCycle: 2
+    work:
+      mode: workflow
+      workflow:
+        name: supers-planning-tracker-inventory
+        inputs:
+          workItem: ${{ self.workItem }}
+          inventory: ${{ data.latest(self.name, "artifact-planning-inventory").payload }}
+      inputsSchema:
+        type: object
+        properties:
+          workItem:
+            type: string
+            minLength: 1
+          inventory:
+            type: object
+            properties:
+              schemaVersion:
+                type: integer
+                enum:
+                - 1
+              objective:
+                type: string
+                minLength: 1
+              contextRefs:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    kind:
+                      type: string
+                      minLength: 1
+                    name:
+                      type: string
+                      minLength: 1
+                    reference:
+                      type: string
+                      minLength: 1
+                    summary:
+                      type: string
+                      minLength: 1
+                  required:
+                  - kind
+                  - name
+                  - reference
+                  - summary
+                  additionalProperties: false
+              unresolvedDecisions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      minLength: 1
+                    question:
+                      type: string
+                      minLength: 1
+                    reason:
+                      type: string
+                      minLength: 1
+                  required:
+                  - id
+                  - question
+                  - reason
+                  additionalProperties: false
+              clarificationRequired:
+                type: boolean
+              sourceSnapshotName:
+                type: string
+                minLength: 1
+              sourceSnapshotFingerprint:
+                type: string
+                pattern: ^[0-9a-f]{64}$
+              fingerprint:
+                type: string
+                pattern: ^[0-9a-f]{64}$
+            required:
+            - schemaVersion
+            - objective
+            - contextRefs
+            - unresolvedDecisions
+            - clarificationRequired
+            - sourceSnapshotName
+            - sourceSnapshotFingerprint
+            - fingerprint
+            additionalProperties: false
+        required:
+        - workItem
+        - inventory
+        additionalProperties: false
+      resultEvidence: tracker-inventory-run
+    artifacts:
+    - name: tracker-inventory
+      description: Read-only related Dex work used to prevent duplicate plans.
+      reviews: planning-inventory
+      schema:
+        type: object
+        properties:
+          schemaVersion:
+            type: integer
+            enum:
+            - 1
+          relatedTasks:
+            type: array
+            items:
+              type: object
+              properties:
+                id:
+                  type: string
+                  minLength: 1
+                name:
+                  type: string
+                  minLength: 1
+                status:
+                  type: string
+                  minLength: 1
+                relationship:
+                  type: string
+                  minLength: 1
+              required:
+              - id
+              - name
+              - status
+              - relationship
+              additionalProperties: false
+          duplicateRisk:
+            type: boolean
+          summary:
+            type: string
+            minLength: 1
+          sourceSnapshotFingerprint:
+            type: string
+            pattern: ^[0-9a-f]{64}$
+          planningInventoryFingerprint:
+            type: string
+            pattern: ^[0-9a-f]{64}$
+          fingerprint:
+            type: string
+            pattern: ^[0-9a-f]{64}$
+        required:
+        - schemaVersion
+        - relatedTasks
+        - duplicateRisk
+        - summary
+        - sourceSnapshotFingerprint
+        - planningInventoryFingerprint
+        - fingerprint
+        additionalProperties: false
+    transitions:
+    - name: clarify
+      to: clarification
+      gates:
+      - type: workflow-succeeded
+        config:
+          workflow: supers-planning-tracker-inventory
+          requireStepOutputs:
+          - artifact-tracker-inventory
+          - evidence-tracker-inventory-run
+      - type: artifact-fresh
+        config:
+          artifact: tracker-inventory
+          recordedThisCycle: true
+  - id: clarification
+    description: Conditionally grill only unresolved judgments; record not-needed when inventory is complete.
+    maxCycles: 3
+    maxDispatchesPerCycle: 2
+    work:
+      mode: interactive
+      skills:
+      - grilling
+      systemPrompt: Use only unresolvedDecisions from injected inventory. Ask for judgment only when clarificationRequired; otherwise record not-needed. Never mutate Dex or documentation.
+      constraints: Do not re-fetch repository facts.
+      context:
+        inject:
+        - planning-inventory
+        - tracker-inventory
+    artifacts:
+    - name: clarification
+      description: Only unresolved judgment answers; repository facts stay in inventory.
+      reviews: tracker-inventory
+      schema:
+        type: object
+        properties:
+          schemaVersion:
+            type: integer
+            enum:
+            - 1
+          status:
+            type: string
+            enum:
+            - not-needed
+            - clarified
+            - parked
+          decisions:
+            type: array
+            items:
+              type: object
+              properties:
+                id:
+                  type: string
+                  minLength: 1
+                answer:
+                  type: string
+                  minLength: 1
+                rationale:
+                  type: string
+                  minLength: 1
+              required:
+              - id
+              - answer
+              - rationale
+              additionalProperties: false
+          summary:
+            type: string
+            minLength: 1
+        required:
+        - schemaVersion
+        - status
+        - decisions
+        - summary
+        additionalProperties: false
+    transitions:
+    - name: intent
+      to: clarified-intent
+      gates:
+      - type: artifact-fresh
+        config:
+          artifact: clarification
+          recordedThisCycle: true
+      - type: cel
+        config:
+          expr: artifacts.clarification.status in ["not-needed", "clarified"] && ((artifacts.planning_inventory.clarificationRequired && artifacts.clarification.status == "clarified") || (!artifacts.planning_inventory.clarificationRequired && artifacts.clarification.status == "not-needed"))
+          message: clarification status must match the deterministic inventory decision
+    - name: park
+      to: parked-observability
+      gates:
+      - type: artifact-fresh
+        config:
+          artifact: clarification
+          recordedThisCycle: true
+      - type: cel
+        config:
+          expr: artifacts.clarification.status == "parked"
+          message: parking requires an explicit parked clarification
+  - id: clarified-intent
+    description: Normalize the objective into a complete typed intent.
+    maxCycles: 3
+    maxDispatchesPerCycle: 2
+    work:
+      mode: interactive
+      systemPrompt: Produce strict clarified intent from injected facts and decisions, including at least one explicit documentationDirectives create, update, retire, or no-change proposal. Never mutate Dex or documentation.
+      context:
+        inject:
+        - planning-inventory
+        - tracker-inventory
+        - clarification
+        - plan-review-findings
+        - plan-review-verdict
+    artifacts:
+    - name: clarified-intent
+      description: Typed planning intent derived from facts and decisions.
+      reviews: clarification
+      schema:
+        type: object
+        properties:
+          schemaVersion:
+            type: integer
+            enum:
+            - 1
+          status:
+            type: string
+            enum:
+            - ready
+            - needs-clarification
+            - parked
+          objective:
+            type: string
+            minLength: 1
+          outcome:
+            type: string
+            minLength: 1
+          inScope:
+            type: array
+            minItems: 0
+            items:
+              type: string
+              minLength: 1
+          outOfScope:
+            type: array
+            minItems: 0
+            items:
+              type: string
+              minLength: 1
+          constraints:
+            type: array
+            minItems: 0
+            items:
+              type: string
+              minLength: 1
+          acceptanceCriteria:
+            type: array
+            minItems: 1
+            items:
+              type: string
+              minLength: 1
+          tasteDecisions:
+            type: array
+            minItems: 0
+            items:
+              type: string
+              minLength: 1
+          documentationDirectives:
+            type: array
+            minItems: 1
+            maxItems: 100
+            items:
+              type: object
+              properties:
+                operation:
+                  type: string
+                  enum:
+                  - create
+                  - update
+                  - retire
+                  - no-change
+                documentKind:
+                  type: string
+                  minLength: 1
+                target:
+                  type: string
+                  minLength: 1
+                rationale:
+                  type: string
+                  minLength: 1
+              required:
+              - operation
+              - documentKind
+              - target
+              - rationale
+              additionalProperties: false
+          revision:
+            type: integer
+            minimum: 1
+          summary:
+            type: string
+            minLength: 1
+        required:
+        - schemaVersion
+        - status
+        - objective
+        - outcome
+        - inScope
+        - outOfScope
+        - constraints
+        - acceptanceCriteria
+        - tasteDecisions
+        - documentationDirectives
+        - revision
+        - summary
+        additionalProperties: false
+    transitions:
+    - name: documentation-effects
+      to: documentation-effects
+      gates:
+      - type: artifact-fresh
+        config:
+          artifact: clarified-intent
+          recordedThisCycle: true
+      - type: cel
+        config:
+          expr: artifacts.clarified_intent.status == "ready"
+          message: documentation planning requires ready clarified intent
+    - name: clarify-again
+      to: clarification
+      gates:
+      - type: artifact-fresh
+        config:
+          artifact: clarified-intent
+          recordedThisCycle: true
+      - type: cel
+        config:
+          expr: artifacts.clarified_intent.status == "needs-clarification"
+          message: clarification re-entry requires an explicit needs-clarification status
+    - name: park
+      to: parked-observability
+      gates:
+      - type: artifact-fresh
+        config:
+          artifact: clarified-intent
+          recordedThisCycle: true
+      - type: cel
+        config:
+          expr: artifacts.clarified_intent.status == "parked"
+          message: parking requires an explicit parked intent
+  - id: documentation-effects
+    description: Propose documentation effects through read-only repository policy.
+    maxCycles: 3
+    maxDispatchesPerCycle: 2
+    work:
+      mode: workflow
+      workflow:
+        name: supers-planning-documentation-effects
+        inputs:
+          workItem: ${{ self.workItem }}
+          inventory: ${{ data.latest(self.name, "artifact-planning-inventory").payload }}
+          trackerInventory: ${{ data.latest(self.name, "artifact-tracker-inventory").payload }}
+          intent: ${{ data.latest(self.name, "artifact-clarified-intent").payload }}
+      inputsSchema:
+        type: object
+        properties:
+          workItem:
+            type: string
+            minLength: 1
+          inventory:
+            type: object
+            properties:
+              schemaVersion:
+                type: integer
+                enum:
+                - 1
+              objective:
+                type: string
+                minLength: 1
+              contextRefs:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    kind:
+                      type: string
+                      minLength: 1
+                    name:
+                      type: string
+                      minLength: 1
+                    reference:
+                      type: string
+                      minLength: 1
+                    summary:
+                      type: string
+                      minLength: 1
+                  required:
+                  - kind
+                  - name
+                  - reference
+                  - summary
+                  additionalProperties: false
+              unresolvedDecisions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      minLength: 1
+                    question:
+                      type: string
+                      minLength: 1
+                    reason:
+                      type: string
+                      minLength: 1
+                  required:
+                  - id
+                  - question
+                  - reason
+                  additionalProperties: false
+              clarificationRequired:
+                type: boolean
+              sourceSnapshotName:
+                type: string
+                minLength: 1
+              sourceSnapshotFingerprint:
+                type: string
+                pattern: ^[0-9a-f]{64}$
+              fingerprint:
+                type: string
+                pattern: ^[0-9a-f]{64}$
+            required:
+            - schemaVersion
+            - objective
+            - contextRefs
+            - unresolvedDecisions
+            - clarificationRequired
+            - sourceSnapshotName
+            - sourceSnapshotFingerprint
+            - fingerprint
+            additionalProperties: false
+          trackerInventory:
+            type: object
+            properties:
+              schemaVersion:
+                type: integer
+                enum:
+                - 1
+              relatedTasks:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      minLength: 1
+                    name:
+                      type: string
+                      minLength: 1
+                    status:
+                      type: string
+                      minLength: 1
+                    relationship:
+                      type: string
+                      minLength: 1
+                  required:
+                  - id
+                  - name
+                  - status
+                  - relationship
+                  additionalProperties: false
+              duplicateRisk:
+                type: boolean
+              summary:
+                type: string
+                minLength: 1
+              sourceSnapshotFingerprint:
+                type: string
+                pattern: ^[0-9a-f]{64}$
+              planningInventoryFingerprint:
+                type: string
+                pattern: ^[0-9a-f]{64}$
+              fingerprint:
+                type: string
+                pattern: ^[0-9a-f]{64}$
+            required:
+            - schemaVersion
+            - relatedTasks
+            - duplicateRisk
+            - summary
+            - sourceSnapshotFingerprint
+            - planningInventoryFingerprint
+            - fingerprint
+            additionalProperties: false
+          intent:
+            type: object
+            properties:
+              schemaVersion:
+                type: integer
+                enum:
+                - 1
+              status:
+                type: string
+                enum:
+                - ready
+                - needs-clarification
+                - parked
+              objective:
+                type: string
+                minLength: 1
+              outcome:
+                type: string
+                minLength: 1
+              inScope:
+                type: array
+                minItems: 0
+                items:
+                  type: string
+                  minLength: 1
+              outOfScope:
+                type: array
+                minItems: 0
+                items:
+                  type: string
+                  minLength: 1
+              constraints:
+                type: array
+                minItems: 0
+                items:
+                  type: string
+                  minLength: 1
+              acceptanceCriteria:
+                type: array
+                minItems: 1
+                items:
+                  type: string
+                  minLength: 1
+              tasteDecisions:
+                type: array
+                minItems: 0
+                items:
+                  type: string
+                  minLength: 1
+              documentationDirectives:
+                type: array
+                minItems: 1
+                maxItems: 100
+                items:
+                  type: object
+                  properties:
+                    operation:
+                      type: string
+                      enum:
+                      - create
+                      - update
+                      - retire
+                      - no-change
+                    documentKind:
+                      type: string
+                      minLength: 1
+                    target:
+                      type: string
+                      minLength: 1
+                    rationale:
+                      type: string
+                      minLength: 1
+                  required:
+                  - operation
+                  - documentKind
+                  - target
+                  - rationale
+                  additionalProperties: false
+              revision:
+                type: integer
+                minimum: 1
+              summary:
+                type: string
+                minLength: 1
+            required:
+            - schemaVersion
+            - status
+            - objective
+            - outcome
+            - inScope
+            - outOfScope
+            - constraints
+            - acceptanceCriteria
+            - tasteDecisions
+            - documentationDirectives
+            - revision
+            - summary
+            additionalProperties: false
+        required:
+        - workItem
+        - inventory
+        - trackerInventory
+        - intent
+        additionalProperties: false
+      resultEvidence: documentation-policy-run
+    artifacts:
+    - name: documentation-effects
+      description: Proposed documentation changes only; this stage cannot mutate documents.
+      reviews: clarified-intent
+      schema:
+        type: object
+        properties:
+          schemaVersion:
+            type: integer
+            enum:
+            - 1
+          effects:
+            type: array
+            items:
+              type: object
+              properties:
+                operation:
+                  type: string
+                  enum:
+                  - create
+                  - update
+                  - retire
+                  - no-change
+                documentKind:
+                  type: string
+                  minLength: 1
+                target:
+                  type: string
+                  minLength: 1
+                rationale:
+                  type: string
+                  minLength: 1
+              required:
+              - operation
+              - documentKind
+              - target
+              - rationale
+              additionalProperties: false
+          summary:
+            type: string
+            minLength: 1
+          sourceSnapshotFingerprint:
+            type: string
+            pattern: ^[0-9a-f]{64}$
+          planningInventoryFingerprint:
+            type: string
+            pattern: ^[0-9a-f]{64}$
+          trackerInventoryFingerprint:
+            type: string
+            pattern: ^[0-9a-f]{64}$
+          intentFingerprint:
+            type: string
+            pattern: ^[0-9a-f]{64}$
+          fingerprint:
+            type: string
+            pattern: ^[0-9a-f]{64}$
+        required:
+        - schemaVersion
+        - effects
+        - summary
+        - sourceSnapshotFingerprint
+        - planningInventoryFingerprint
+        - trackerInventoryFingerprint
+        - intentFingerprint
+        - fingerprint
+        additionalProperties: false
+    transitions:
+    - name: revise-intent
+      to: clarified-intent
+      gates:
+      - type: artifact-exists
+        config:
+          artifact: clarified-intent
+    - name: propose-graph
+      to: graph-proposal
+      gates:
+      - type: workflow-succeeded
+        config:
+          workflow: supers-planning-documentation-effects
+          requireStepOutputs:
+          - artifact-documentation-effects
+          - evidence-documentation-policy-run
+      - type: artifact-fresh
+        config:
+          artifact: documentation-effects
+          recordedThisCycle: true
+  - id: graph-proposal
+    description: Propose a complete Dex graph without mutating tracker state.
+    maxCycles: 3
+    maxDispatchesPerCycle: 2
+    work:
+      mode: interactive
+      systemPrompt: Propose a complete plan-applier-compatible Dex graph and trace it to approved intent. Never mutate Dex or documentation.
+      context:
+        inject:
+        - planning-inventory
+        - tracker-inventory
+        - clarified-intent
+        - documentation-effects
+        - plan-review-findings
+        - plan-review-verdict
+    artifacts:
+    - name: dex-graph-proposal
+      description: Complete proposed Dex graph; no tracker mutation has occurred.
+      reviews: documentation-effects
+      schema:
+        type: object
+        properties:
+          schemaVersion:
+            type: integer
+            enum:
+            - 1
+          plan:
+            type: object
+            properties:
+              schemaVersion:
+                type: integer
+                enum:
+                - 1
+              planId:
+                type: string
+                pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$
+              createTasks:
+                type: array
+                maxItems: 250
+                items:
+                  type: object
+                  properties:
+                    clientRef:
+                      type: string
+                      pattern: ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$
+                      maxLength: 64
+                    name:
+                      type: string
+                      minLength: 1
+                      maxLength: 51200
+                    description:
+                      type: string
+                      minLength: 1
+                      maxLength: 51200
+                    priority:
+                      type: integer
+                      minimum: 0
+                      maximum: 100
+                    parentKind:
+                      type: string
+                      enum:
+                      - root
+                      - reference
+                    parentClientRef:
+                      type: string
+                      maxLength: 64
+                    blockedBy:
+                      type: array
+                      maxItems: 250
+                      items:
+                        type: string
+                        pattern: ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$
+                        maxLength: 64
+                  required:
+                  - clientRef
+                  - name
+                  - description
+                  - priority
+                  - parentKind
+                  - parentClientRef
+                  - blockedBy
+                  additionalProperties: false
+              attachExistingTasks:
+                type: array
+                maxItems: 250
+                items:
+                  type: object
+                  properties:
+                    clientRef:
+                      type: string
+                      pattern: ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$
+                      maxLength: 64
+                    selectorKind:
+                      type: string
+                      enum:
+                      - id
+                      - exactName
+                    selectorValue:
+                      type: string
+                      minLength: 1
+                      maxLength: 51200
+                    expectedName:
+                      type: string
+                      minLength: 1
+                      maxLength: 51200
+                    expectedDescription:
+                      type: string
+                      maxLength: 51200
+                    expectedPriority:
+                      type: integer
+                      minimum: 0
+                      maximum: 100
+                    parentKind:
+                      type: string
+                      enum:
+                      - preserve
+                      - root
+                      - reference
+                    parentClientRef:
+                      type: string
+                      maxLength: 64
+                    addBlockedBy:
+                      type: array
+                      maxItems: 250
+                      items:
+                        type: string
+                        pattern: ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$
+                        maxLength: 64
+                  required:
+                  - clientRef
+                  - selectorKind
+                  - selectorValue
+                  - expectedName
+                  - expectedDescription
+                  - expectedPriority
+                  - parentKind
+                  - parentClientRef
+                  - addBlockedBy
+                  additionalProperties: false
+            required:
+            - schemaVersion
+            - planId
+            - createTasks
+            - attachExistingTasks
+            additionalProperties: false
+          planHash:
+            type: string
+            pattern: ^[0-9a-f]{64}$
+          documentationEffectsFingerprint:
+            type: string
+            pattern: ^[0-9a-f]{64}$
+          summary:
+            type: string
+            minLength: 1
+        required:
+        - schemaVersion
+        - plan
+        - planHash
+        - documentationEffectsFingerprint
+        - summary
+        additionalProperties: false
+    transitions:
+    - name: review-plan
+      to: plan-review
+      gates:
+      - type: artifact-fresh
+        config:
+          artifact: dex-graph-proposal
+          recordedThisCycle: true
+      - type: cel
+        config:
+          expr: size(artifacts.dex_graph_proposal.plan.createTasks) + size(artifacts.dex_graph_proposal.plan.attachExistingTasks) > 0 && size(artifacts.dex_graph_proposal.plan.createTasks) + size(artifacts.dex_graph_proposal.plan.attachExistingTasks) <= 250 && artifacts.dex_graph_proposal.plan.createTasks.all(task, (task.parentKind == 'root' && task.parentClientRef == '') || (task.parentKind == 'reference' && task.parentClientRef.matches('^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$'))) && artifacts.dex_graph_proposal.plan.attachExistingTasks.all(task, (((task.parentKind in ['preserve', 'root']) && task.parentClientRef == '') || (task.parentKind == 'reference' && task.parentClientRef.matches('^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$'))) && ((task.selectorKind == 'id' && size(task.selectorValue) <= 128 && task.selectorValue.matches('^[A-Za-z0-9_-]{1,128}$')) || (task.selectorKind == 'exactName' && size(task.selectorValue) <= 51200)))
+          message: proposal requires one to 250 normalized tasks with Plan-Applier-compatible parent and selector values
+  - id: plan-review
+    description: Independently review the documentation and Dex graph proposals.
+    maxCycles: 3
+    maxDispatchesPerCycle: 2
+    work:
+      mode: dispatch
+      skills:
+      - code-review
+      systemPrompt: Independently review the documentation-effects and Dex graph proposals for completeness, duplication, ordering, and safe application.
+      context:
+        inject:
+        - planning-inventory
+        - tracker-inventory
+        - clarified-intent
+        - documentation-effects
+        - dex-graph-proposal
+    artifacts:
+    - name: plan-review-findings
+      kind: findings
+      reviews: dex-graph-proposal
+    - name: plan-review-verdict
+      reviews: dex-graph-proposal
+      schema:
+        type: object
+        properties:
+          schemaVersion:
+            type: integer
+            enum:
+            - 1
+          status:
+            type: string
+            enum:
+            - accept
+            - revise
+            - reject
+            - park
+          summary:
+            type: string
+            minLength: 1
+        required:
+        - schemaVersion
+        - status
+        - summary
+        additionalProperties: false
+    transitions:
+    - name: reinventory
+      to: inventory
+      gates:
+      - type: artifact-fresh
+        config:
+          artifact: plan-review-findings
+          recordedThisCycle: true
+      - type: artifact-fresh
+        config:
+          artifact: plan-review-verdict
+          recordedThisCycle: true
+      - type: cel
+        config:
+          expr: artifacts.plan_review_verdict.status == "revise"
+          message: reinventory requires an explicit revise verdict
+    - name: revise
+      to: clarified-intent
+      gates:
+      - type: artifact-fresh
+        config:
+          artifact: plan-review-findings
+          recordedThisCycle: true
+      - type: artifact-fresh
+        config:
+          artifact: plan-review-verdict
+          recordedThisCycle: true
+      - type: cel
+        config:
+          expr: artifacts.plan_review_verdict.status == "revise"
+          message: revision requires an explicit revise verdict
+    - name: approve
+      to: approval
+      gates:
+      - type: artifact-fresh
+        config:
+          artifact: plan-review-findings
+          recordedThisCycle: true
+      - type: artifact-fresh
+        config:
+          artifact: plan-review-verdict
+          recordedThisCycle: true
+      - type: findings-clear
+        config:
+          artifact: plan-review-findings
+          blocking:
+          - critical
+          - high
+          - medium
+      - type: cel
+        config:
+          expr: artifacts.plan_review_verdict.status == "accept"
+          message: approval requires an explicit accept verdict
+      - type: human-approval
+        config:
+          id: planning-approval
+          minApprovals: 1
+    - name: human-reject
+      to: rejected-observability
+      gates:
+      - type: artifact-fresh
+        config:
+          artifact: plan-review-findings
+          recordedThisCycle: true
+      - type: artifact-fresh
+        config:
+          artifact: plan-review-verdict
+          recordedThisCycle: true
+      - type: findings-clear
+        config:
+          artifact: plan-review-findings
+          blocking:
+          - critical
+          - high
+          - medium
+      - type: cel
+        config:
+          expr: artifacts.plan_review_verdict.status == "accept"
+          message: approval requires an explicit accept verdict
+      - type: cel
+        config:
+          expr: has(approvals.planning_approval) && approvals.planning_approval.exists(approval, approval.stageId == state.stageId && approval.cycle == state.cycles[state.stageId] && approval.decision == "rejected")
+          message: rejection requires an explicit current-cycle planning-approval human decision
+    - name: reject
+      to: rejected-observability
+      gates:
+      - type: artifact-fresh
+        config:
+          artifact: plan-review-findings
+          recordedThisCycle: true
+      - type: artifact-fresh
+        config:
+          artifact: plan-review-verdict
+          recordedThisCycle: true
+      - type: cel
+        config:
+          expr: artifacts.plan_review_verdict.status == "reject"
+          message: rejection requires an explicit reject verdict
+    - name: park
+      to: parked-observability
+      gates:
+      - type: artifact-fresh
+        config:
+          artifact: plan-review-findings
+          recordedThisCycle: true
+      - type: artifact-fresh
+        config:
+          artifact: plan-review-verdict
+          recordedThisCycle: true
+      - type: cel
+        config:
+          expr: artifacts.plan_review_verdict.status == "park"
+          message: parking requires an explicit park verdict
+  - id: approval
+    description: Persist the exact approved proposal only after the human approval gate.
+    maxCycles: 1
+    maxDispatchesPerCycle: 2
+    work:
+      mode: interactive
+      systemPrompt: After human approval, persist the exact reviewed plan and matching plan hash. Do not revise or apply it here.
+      context:
+        inject:
+        - documentation-effects
+        - dex-graph-proposal
+        - plan-review-verdict
+    artifacts:
+    - name: approved-plan
+      description: Exact post-approval plan consumed directly by the Plan Applier through CEL.
+      reviews: dex-graph-proposal
+      schema:
+        type: object
+        properties:
+          schemaVersion:
+            type: integer
+            enum:
+            - 1
+          plan:
+            type: object
+            properties:
+              schemaVersion:
+                type: integer
+                enum:
+                - 1
+              planId:
+                type: string
+                pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$
+              createTasks:
+                type: array
+                maxItems: 250
+                items:
+                  type: object
+                  properties:
+                    clientRef:
+                      type: string
+                      pattern: ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$
+                      maxLength: 64
+                    name:
+                      type: string
+                      minLength: 1
+                      maxLength: 51200
+                    description:
+                      type: string
+                      minLength: 1
+                      maxLength: 51200
+                    priority:
+                      type: integer
+                      minimum: 0
+                      maximum: 100
+                    parentKind:
+                      type: string
+                      enum:
+                      - root
+                      - reference
+                    parentClientRef:
+                      type: string
+                      maxLength: 64
+                    blockedBy:
+                      type: array
+                      maxItems: 250
+                      items:
+                        type: string
+                        pattern: ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$
+                        maxLength: 64
+                  required:
+                  - clientRef
+                  - name
+                  - description
+                  - priority
+                  - parentKind
+                  - parentClientRef
+                  - blockedBy
+                  additionalProperties: false
+              attachExistingTasks:
+                type: array
+                maxItems: 250
+                items:
+                  type: object
+                  properties:
+                    clientRef:
+                      type: string
+                      pattern: ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$
+                      maxLength: 64
+                    selectorKind:
+                      type: string
+                      enum:
+                      - id
+                      - exactName
+                    selectorValue:
+                      type: string
+                      minLength: 1
+                      maxLength: 51200
+                    expectedName:
+                      type: string
+                      minLength: 1
+                      maxLength: 51200
+                    expectedDescription:
+                      type: string
+                      maxLength: 51200
+                    expectedPriority:
+                      type: integer
+                      minimum: 0
+                      maximum: 100
+                    parentKind:
+                      type: string
+                      enum:
+                      - preserve
+                      - root
+                      - reference
+                    parentClientRef:
+                      type: string
+                      maxLength: 64
+                    addBlockedBy:
+                      type: array
+                      maxItems: 250
+                      items:
+                        type: string
+                        pattern: ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$
+                        maxLength: 64
+                  required:
+                  - clientRef
+                  - selectorKind
+                  - selectorValue
+                  - expectedName
+                  - expectedDescription
+                  - expectedPriority
+                  - parentKind
+                  - parentClientRef
+                  - addBlockedBy
+                  additionalProperties: false
+            required:
+            - schemaVersion
+            - planId
+            - createTasks
+            - attachExistingTasks
+            additionalProperties: false
+          planHash:
+            type: string
+            pattern: ^[0-9a-f]{64}$
+          proposalPlanHash:
+            type: string
+            pattern: ^[0-9a-f]{64}$
+          approvalGateId:
+            type: string
+            minLength: 1
+          summary:
+            type: string
+            minLength: 1
+        required:
+        - schemaVersion
+        - plan
+        - planHash
+        - proposalPlanHash
+        - approvalGateId
+        - summary
+        additionalProperties: false
+    transitions:
+    - name: apply-plan
+      to: plan-application
+      gates:
+      - type: artifact-fresh
+        config:
+          artifact: approved-plan
+          recordedThisCycle: true
+      - type: cel
+        config:
+          expr: artifacts.approved_plan.plan == artifacts.dex_graph_proposal.plan && artifacts.approved_plan.planHash == artifacts.dex_graph_proposal.planHash && artifacts.approved_plan.proposalPlanHash == artifacts.dex_graph_proposal.planHash && artifacts.approved_plan.approvalGateId == "planning-approval"
+          message: approved plan must retain the reviewed proposal hash and approval gate
+  - id: plan-application
+    description: Apply the approved graph through one consumer fan-out adapter.
+    maxCycles: 2
+    maxDispatchesPerCycle: 2
+    work:
+      mode: workflow
+      workflow:
+        name: supers-planning-apply-approved-plan
+        inputs:
+          workItem: ${{ self.workItem }}
+          reviewedPlan: ${{ data.latest(self.name, "artifact-approved-plan").payload.plan }}
+          plan: '${{ {"schemaVersion": data.latest(self.name, "artifact-approved-plan").payload.plan.schemaVersion, "planId": data.latest(self.name, "artifact-approved-plan").payload.plan.planId, "tasks": data.latest(self.name, "artifact-approved-plan").payload.plan.createTasks.map(task, {"kind": "create", "clientRef": task.clientRef, "name": task.name, "description": task.description, "priority": task.priority, "parent": task.parentKind == "root" ? {"kind": "root"} : {"kind": "reference", "clientRef": task.parentClientRef}, "blockedBy": task.blockedBy}) + data.latest(self.name, "artifact-approved-plan").payload.plan.attachExistingTasks.map(task, {"kind": "attachExisting", "clientRef": task.clientRef, "selector": task.selectorKind == "id" ? {"kind": "id", "taskId": task.selectorValue} : {"kind": "exactName", "name": task.selectorValue}, "expected": {"name": task.expectedName, "description": task.expectedDescription, "priority": task.expectedPriority}, "parent": task.parentKind == "preserve"
+            ? {"kind": "preserve"} : task.parentKind == "root" ? {"kind": "root"} : {"kind": "reference", "clientRef": task.parentClientRef}, "addBlockedBy": task.addBlockedBy})} }}'
+      inputsSchema:
+        type: object
+        properties:
+          workItem:
+            type: string
+            minLength: 1
+          reviewedPlan:
+            type: object
+            properties:
+              schemaVersion:
+                type: integer
+                enum:
+                - 1
+              planId:
+                type: string
+                pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$
+              createTasks:
+                type: array
+                maxItems: 250
+                items:
+                  type: object
+                  properties:
+                    clientRef:
+                      type: string
+                      pattern: ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$
+                      maxLength: 64
+                    name:
+                      type: string
+                      minLength: 1
+                      maxLength: 51200
+                    description:
+                      type: string
+                      minLength: 1
+                      maxLength: 51200
+                    priority:
+                      type: integer
+                      minimum: 0
+                      maximum: 100
+                    parentKind:
+                      type: string
+                      enum:
+                      - root
+                      - reference
+                    parentClientRef:
+                      type: string
+                      maxLength: 64
+                    blockedBy:
+                      type: array
+                      maxItems: 250
+                      items:
+                        type: string
+                        pattern: ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$
+                        maxLength: 64
+                  required:
+                  - clientRef
+                  - name
+                  - description
+                  - priority
+                  - parentKind
+                  - parentClientRef
+                  - blockedBy
+                  additionalProperties: false
+              attachExistingTasks:
+                type: array
+                maxItems: 250
+                items:
+                  type: object
+                  properties:
+                    clientRef:
+                      type: string
+                      pattern: ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$
+                      maxLength: 64
+                    selectorKind:
+                      type: string
+                      enum:
+                      - id
+                      - exactName
+                    selectorValue:
+                      type: string
+                      minLength: 1
+                      maxLength: 51200
+                    expectedName:
+                      type: string
+                      minLength: 1
+                      maxLength: 51200
+                    expectedDescription:
+                      type: string
+                      maxLength: 51200
+                    expectedPriority:
+                      type: integer
+                      minimum: 0
+                      maximum: 100
+                    parentKind:
+                      type: string
+                      enum:
+                      - preserve
+                      - root
+                      - reference
+                    parentClientRef:
+                      type: string
+                      maxLength: 64
+                    addBlockedBy:
+                      type: array
+                      maxItems: 250
+                      items:
+                        type: string
+                        pattern: ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$
+                        maxLength: 64
+                  required:
+                  - clientRef
+                  - selectorKind
+                  - selectorValue
+                  - expectedName
+                  - expectedDescription
+                  - expectedPriority
+                  - parentKind
+                  - parentClientRef
+                  - addBlockedBy
+                  additionalProperties: false
+            required:
+            - schemaVersion
+            - planId
+            - createTasks
+            - attachExistingTasks
+            additionalProperties: false
+          plan:
+            type: object
+            properties:
+              schemaVersion:
+                type: integer
+                enum:
+                - 1
+              planId:
+                type: string
+                pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$
+              tasks:
+                type: array
+                minItems: 1
+                maxItems: 250
+                items:
+                  type: object
+                  properties:
+                    kind:
+                      type: string
+                      enum:
+                      - create
+                      - attachExisting
+                  required:
+                  - kind
+                  additionalProperties: true
+            required:
+            - schemaVersion
+            - planId
+            - tasks
+            additionalProperties: false
+        required:
+        - workItem
+        - reviewedPlan
+        - plan
+        additionalProperties: false
+      resultEvidence: plan-apply-run
+    artifacts:
+    - name: plan-application
+      description: Normalized checkpoint, receipt, and result references from the application workflow.
+      reviews: approved-plan
+      schema:
+        type: object
+        properties:
+          schemaVersion:
+            type: integer
+            enum:
+            - 1
+          status:
+            type: string
+            enum:
+            - succeeded
+            - failed
+          planId:
+            type: string
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$
+          planHash:
+            type: string
+            pattern: ^[0-9a-f]{64}$
+          idempotencyKey:
+            type: string
+            pattern: ^[0-9a-f]{64}$
+          attempt:
+            type: integer
+            minimum: 1
+          checkpointDataName:
+            type: string
+            minLength: 1
+          receiptDataName:
+            type: string
+            minLength: 1
+          resultDataName:
+            type: string
+          mappings:
+            type: array
+            items:
+              type: object
+              properties:
+                clientRef:
+                  type: string
+                  pattern: ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$
+                  maxLength: 64
+                dexTaskId:
+                  type: string
+                  pattern: ^[A-Za-z0-9_-]{1,128}$
+                  maxLength: 128
+                disposition:
+                  type: string
+                  enum:
+                  - created
+                  - attachedExisting
+              required:
+              - clientRef
+              - dexTaskId
+              - disposition
+              additionalProperties: false
+          retryDisposition:
+            type: string
+            enum:
+            - none
+            - retry
+            - do-not-retry
+            - manual-review
+          errorCode:
+            type: string
+          summary:
+            type: string
+            minLength: 1
+        required:
+        - schemaVersion
+        - status
+        - planId
+        - planHash
+        - idempotencyKey
+        - attempt
+        - checkpointDataName
+        - receiptDataName
+        - resultDataName
+        - mappings
+        - retryDisposition
+        - errorCode
+        - summary
+        additionalProperties: false
+    transitions:
+    - name: audit
+      to: planning-audit
+      gates:
+      - type: workflow-succeeded
+        config:
+          workflow: supers-planning-apply-approved-plan
+          requireStepOutputs:
+          - artifact-plan-application
+          - evidence-plan-apply-run
+      - type: artifact-fresh
+        config:
+          artifact: plan-application
+          recordedThisCycle: true
+      - type: cel
+        config:
+          expr: artifacts.plan_application.status == "succeeded" && artifacts.plan_application.retryDisposition == "none" && artifacts.plan_application.errorCode == "" && artifacts.plan_application.resultDataName != "" && size(artifacts.plan_application.mappings) > 0
+          message: audit requires a complete successful Plan Applier result
+    - name: failed-apply
+      to: failed-apply-observability
+      gates:
+      - type: workflow-succeeded
+        config:
+          workflow: supers-planning-apply-approved-plan
+          requireStepOutputs:
+          - artifact-plan-application
+          - evidence-plan-apply-run
+      - type: artifact-fresh
+        config:
+          artifact: plan-application
+          recordedThisCycle: true
+      - type: cel
+        config:
+          expr: artifacts.plan_application.status == "failed" && artifacts.plan_application.retryDisposition != "none" && artifacts.plan_application.errorCode != "" && artifacts.plan_application.resultDataName == ""
+          message: failed application requires a complete typed failure receipt
+  - id: planning-audit
+    description: Verify the applied graph and repository planning policy before handoff.
+    maxCycles: 2
+    maxDispatchesPerCycle: 2
+    work:
+      mode: workflow
+      workflow:
+        name: supers-planning-audit
+        inputs:
+          workItem: ${{ self.workItem }}
+          approvedPlan: '${{ {"schemaVersion": data.latest(self.name, "artifact-approved-plan").payload.plan.schemaVersion, "planId": data.latest(self.name, "artifact-approved-plan").payload.plan.planId, "tasks": data.latest(self.name, "artifact-approved-plan").payload.plan.createTasks.map(task, {"kind": "create", "clientRef": task.clientRef, "name": task.name, "description": task.description, "priority": task.priority, "parent": task.parentKind == "root" ? {"kind": "root"} : {"kind": "reference", "clientRef": task.parentClientRef}, "blockedBy": task.blockedBy}) + data.latest(self.name, "artifact-approved-plan").payload.plan.attachExistingTasks.map(task, {"kind": "attachExisting", "clientRef": task.clientRef, "selector": task.selectorKind == "id" ? {"kind": "id", "taskId": task.selectorValue} : {"kind": "exactName", "name": task.selectorValue}, "expected": {"name": task.expectedName, "description": task.expectedDescription, "priority": task.expectedPriority}, "parent": task.parentKind ==
+            "preserve" ? {"kind": "preserve"} : task.parentKind == "root" ? {"kind": "root"} : {"kind": "reference", "clientRef": task.parentClientRef}, "addBlockedBy": task.addBlockedBy})} }}'
+          application: ${{ data.latest(self.name, "artifact-plan-application").payload }}
+          documentationEffects: ${{ data.latest(self.name, "artifact-documentation-effects").payload }}
+      inputsSchema:
+        type: object
+        properties:
+          workItem:
+            type: string
+            minLength: 1
+          approvedPlan:
+            type: object
+            properties:
+              schemaVersion:
+                type: integer
+                enum:
+                - 1
+              planId:
+                type: string
+                pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$
+              tasks:
+                type: array
+                minItems: 1
+                maxItems: 250
+                items:
+                  type: object
+                  properties:
+                    kind:
+                      type: string
+                      enum:
+                      - create
+                      - attachExisting
+                  required:
+                  - kind
+                  additionalProperties: true
+            required:
+            - schemaVersion
+            - planId
+            - tasks
+            additionalProperties: false
+          application:
+            type: object
+            properties:
+              schemaVersion:
+                type: integer
+                enum:
+                - 1
+              status:
+                type: string
+                enum:
+                - succeeded
+                - failed
+              planId:
+                type: string
+                pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$
+              planHash:
+                type: string
+                pattern: ^[0-9a-f]{64}$
+              idempotencyKey:
+                type: string
+                pattern: ^[0-9a-f]{64}$
+              attempt:
+                type: integer
+                minimum: 1
+              checkpointDataName:
+                type: string
+                minLength: 1
+              receiptDataName:
+                type: string
+                minLength: 1
+              resultDataName:
+                type: string
+              mappings:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    clientRef:
+                      type: string
+                      pattern: ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$
+                      maxLength: 64
+                    dexTaskId:
+                      type: string
+                      pattern: ^[A-Za-z0-9_-]{1,128}$
+                      maxLength: 128
+                    disposition:
+                      type: string
+                      enum:
+                      - created
+                      - attachedExisting
+                  required:
+                  - clientRef
+                  - dexTaskId
+                  - disposition
+                  additionalProperties: false
+              retryDisposition:
+                type: string
+                enum:
+                - none
+                - retry
+                - do-not-retry
+                - manual-review
+              errorCode:
+                type: string
+              summary:
+                type: string
+                minLength: 1
+            required:
+            - schemaVersion
+            - status
+            - planId
+            - planHash
+            - idempotencyKey
+            - attempt
+            - checkpointDataName
+            - receiptDataName
+            - resultDataName
+            - mappings
+            - retryDisposition
+            - errorCode
+            - summary
+            additionalProperties: false
+          documentationEffects:
+            type: object
+            properties:
+              schemaVersion:
+                type: integer
+                enum:
+                - 1
+              effects:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    operation:
+                      type: string
+                      enum:
+                      - create
+                      - update
+                      - retire
+                      - no-change
+                    documentKind:
+                      type: string
+                      minLength: 1
+                    target:
+                      type: string
+                      minLength: 1
+                    rationale:
+                      type: string
+                      minLength: 1
+                  required:
+                  - operation
+                  - documentKind
+                  - target
+                  - rationale
+                  additionalProperties: false
+              summary:
+                type: string
+                minLength: 1
+              sourceSnapshotFingerprint:
+                type: string
+                pattern: ^[0-9a-f]{64}$
+              planningInventoryFingerprint:
+                type: string
+                pattern: ^[0-9a-f]{64}$
+              trackerInventoryFingerprint:
+                type: string
+                pattern: ^[0-9a-f]{64}$
+              intentFingerprint:
+                type: string
+                pattern: ^[0-9a-f]{64}$
+              fingerprint:
+                type: string
+                pattern: ^[0-9a-f]{64}$
+            required:
+            - schemaVersion
+            - effects
+            - summary
+            - sourceSnapshotFingerprint
+            - planningInventoryFingerprint
+            - trackerInventoryFingerprint
+            - intentFingerprint
+            - fingerprint
+            additionalProperties: false
+        required:
+        - workItem
+        - approvedPlan
+        - application
+        - documentationEffects
+        additionalProperties: false
+      resultEvidence: planning-audit-run
+    artifacts:
+    - name: planning-audit
+      description: Post-application graph and planning-policy verification.
+      reviews: plan-application
+      schema:
+        type: object
+        properties:
+          schemaVersion:
+            type: integer
+            enum:
+            - 1
+          status:
+            type: string
+            enum:
+            - passed
+            - failed
+          planId:
+            type: string
+            minLength: 1
+          verifiedTaskIds:
+            type: array
+            minItems: 0
+            items:
+              type: string
+              minLength: 1
+          approvedEpicTaskId:
+            type: string
+            pattern: ^[A-Za-z0-9_-]{1,128}$
+          unresolvedIssues:
+            type: array
+            minItems: 0
+            items:
+              type: string
+              minLength: 1
+          summary:
+            type: string
+            minLength: 1
+        required:
+        - schemaVersion
+        - status
+        - planId
+        - verifiedTaskIds
+        - unresolvedIssues
+        - summary
+        additionalProperties: false
+    transitions:
+    - name: handoff
+      to: handoff
+      gates:
+      - type: workflow-succeeded
+        config:
+          workflow: supers-planning-audit
+          requireStepOutputs:
+          - artifact-planning-audit
+          - evidence-planning-audit-run
+      - type: artifact-fresh
+        config:
+          artifact: planning-audit
+          recordedThisCycle: true
+      - type: cel
+        config:
+          expr: artifacts.planning_audit.status == "passed" && size(artifacts.planning_audit.unresolvedIssues) == 0
+          message: handoff requires a clean planning audit
+    - name: failed-audit
+      to: failed-audit-observability
+      gates:
+      - type: workflow-succeeded
+        config:
+          workflow: supers-planning-audit
+          requireStepOutputs:
+          - artifact-planning-audit
+          - evidence-planning-audit-run
+      - type: artifact-fresh
+        config:
+          artifact: planning-audit
+          recordedThisCycle: true
+      - type: cel
+        config:
+          expr: artifacts.planning_audit.status == "failed" || size(artifacts.planning_audit.unresolvedIssues) > 0
+          message: failed audit requires failed status or unresolved issues
+  - id: handoff
+    description: Expose one typed planning result without starting Delivery or creating more work.
+    maxCycles: 1
+    maxDispatchesPerCycle: 2
+    work:
+      mode: interactive
+      systemPrompt: Record the typed planning outcome for later Delivery intake. Do not start Delivery or mutate Dex.
+      context:
+        inject:
+        - approved-plan
+        - plan-application
+        - planning-audit
+    artifacts:
+    - name: planning-handoff
+      description: Planning outcome for a later Delivery handoff; this profile does not start delivery.
+      reviews: planning-audit
+      schema:
+        type: object
+        properties:
+          schemaVersion:
+            type: integer
+            enum:
+            - 1
+          status:
+            type: string
+            enum:
+            - ready
+            - no-ready-work
+            - human-gate
+          planId:
+            type: string
+            minLength: 1
+          candidateTaskId:
+            type: string
+            pattern: ^[A-Za-z0-9_-]{1,128}$
+          approvedEpicTaskId:
+            type: string
+            pattern: ^[A-Za-z0-9_-]{1,128}$
+          summary:
+            type: string
+            minLength: 1
+        required:
+        - schemaVersion
+        - status
+        - planId
+        - summary
+        additionalProperties: false
+    transitions:
+    - name: finish
+      to: done-observability
+      gates:
+      - type: artifact-fresh
+        config:
+          artifact: planning-handoff
+          recordedThisCycle: true
+  - id: done-observability
+    description: Finalize done, persist canonical Factory reports, and emit non-gating observability.
+    maxDispatchesPerCycle: 2
+    work:
+      mode: workflow
+      workflow:
+        name: supers-planning-terminal-observability
+        inputs:
+          workItem: ${{ self.workItem }}
+      inputsSchema:
+        type: object
+        required:
+        - workItem
+        additionalProperties: false
+        properties:
+          workItem:
+            type: string
+            minLength: 1
+    transitions:
+    - name: finalize
+      to: done
+  - id: rejected-observability
+    description: Finalize rejected, persist canonical Factory reports, and emit non-gating observability.
+    maxDispatchesPerCycle: 2
+    work:
+      mode: workflow
+      workflow:
+        name: supers-planning-terminal-observability
+        inputs:
+          workItem: ${{ self.workItem }}
+      inputsSchema:
+        type: object
+        required:
+        - workItem
+        additionalProperties: false
+        properties:
+          workItem:
+            type: string
+            minLength: 1
+    transitions:
+    - name: finalize
+      to: rejected
+  - id: parked-observability
+    description: Finalize parked, persist canonical Factory reports, and emit non-gating observability.
+    maxDispatchesPerCycle: 2
+    work:
+      mode: workflow
+      workflow:
+        name: supers-planning-terminal-observability
+        inputs:
+          workItem: ${{ self.workItem }}
+      inputsSchema:
+        type: object
+        required:
+        - workItem
+        additionalProperties: false
+        properties:
+          workItem:
+            type: string
+            minLength: 1
+    transitions:
+    - name: finalize
+      to: parked
+  - id: failed-apply-observability
+    description: Finalize failed-apply, persist canonical Factory reports, and emit non-gating observability.
+    maxDispatchesPerCycle: 2
+    work:
+      mode: workflow
+      workflow:
+        name: supers-planning-terminal-observability
+        inputs:
+          workItem: ${{ self.workItem }}
+      inputsSchema:
+        type: object
+        required:
+        - workItem
+        additionalProperties: false
+        properties:
+          workItem:
+            type: string
+            minLength: 1
+    transitions:
+    - name: finalize
+      to: failed-apply
+  - id: failed-audit-observability
+    description: Finalize failed-audit, persist canonical Factory reports, and emit non-gating observability.
+    maxDispatchesPerCycle: 2
+    work:
+      mode: workflow
+      workflow:
+        name: supers-planning-terminal-observability
+        inputs:
+          workItem: ${{ self.workItem }}
+      inputsSchema:
+        type: object
+        required:
+        - workItem
+        additionalProperties: false
+        properties:
+          workItem:
+            type: string
+            minLength: 1
+    transitions:
+    - name: finalize
+      to: failed-audit
+  - id: aborted-observability
+    description: Finalize aborted, persist canonical Factory reports, and emit non-gating observability.
+    maxDispatchesPerCycle: 2
+    work:
+      mode: workflow
+      workflow:
+        name: supers-planning-terminal-observability
+        inputs:
+          workItem: ${{ self.workItem }}
+      inputsSchema:
+        type: object
+        required:
+        - workItem
+        additionalProperties: false
+        properties:
+          workItem:
+            type: string
+            minLength: 1
+    transitions:
+    - name: finalize
+      to: aborted
+  - id: done
+    terminal: true
+  - id: rejected
+    terminal: true
+  - id: parked
+    terminal: true
+  - id: failed-apply
+    terminal: true
+  - id: failed-audit
+    terminal: true
+  - id: aborted
+    terminal: true
+  globalTransitions:
+  - name: abort
+    to: aborted-observability
+    gates:
+    - type: human-approval
+      config:
+        id: abort-confirmation
+reports:
+  require:
+  - name: '@swamp/software-factory/work-item-summary'
+    methods:
+    - summary
+  - name: '@mgreten/software-factory-flow-metrics'
+    methods:
+    - summary
+methods: {}

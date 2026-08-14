@@ -60,3 +60,5 @@ vite.config.ts.timestamp-*
 .claude/scheduled_tasks.lock
 .claude/scheduled_tasks.json
 # END swamp managed section
+# Prime Agent Factory cockpit runtime telemetry
+.prime/agent/telemetry/

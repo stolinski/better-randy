@@ -1,0 +1,9 @@
+type: '@club_aqua_back_deck/dex-plan-applier'
+typeVersion: 2026.08.05.1
+id: afad4f96-7d06-4d43-856a-6ab4165e81ba
+name: supers-dex-plan-applier
+version: 1
+tags: {}
+globalArguments:
+  ownerToken: supers-planning-factory
+methods: {}

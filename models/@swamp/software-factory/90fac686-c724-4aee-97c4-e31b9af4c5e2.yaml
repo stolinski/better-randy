@@ -1,6 +1,6 @@
 type: '@swamp/software-factory'
 typeVersion: 2026.06.24.1
-version: 6
+version: 7
 globalArguments:
   stages:
     - id: preflight
@@ -199,11 +199,15 @@ globalArguments:
       work:
         mode: interactive
         systemPrompt: >-
-          Execute every lane in change-impact using the repository deterministic commands. Reuse
-          native captures and probes. Record one unique outcome for every required lane. Set
-          materialPixelChange from pixel evidence only. Set reviewRequired only for changed pixels
-          with visual targets. Route failed, unavailable, or contradictory evidence to rework,
-          changed pixels to review, and unchanged pixels to reconciliation.
+          Run factory-verification-fanout exactly once with the work item, the classified change
+          fingerprint, and the required check, unit, and structural lane ids. Use its stored policy
+          result for policy-sweep and corpus, and its verification-fanout resource for the selected
+          lanes; never rerun those commands interactively. Execute only the remaining browser,
+          visual, pack-matrix, and export-decode lanes with sanctioned native captures and probes.
+          Record one unique outcome for every required lane. Set materialPixelChange from pixel
+          evidence only. Set reviewRequired only for changed pixels with visual targets. Route
+          failed, unavailable, or contradictory evidence to rework, changed pixels to review, and
+          unchanged pixels to reconciliation.
       artifacts:
         - name: verification
           description: One explicit outcome per required lane and an exact next-stage dispatch.
@@ -577,62 +581,102 @@ globalArguments:
                 workflow: factory-postflight-sweep
                 requireStepOutputs:
                   - evidence-postflight-run
+            - type: human-approval
+              config:
+                id: completion-approval
+        - name: human-revision
+          to: implementation
+          gates:
+            - type: workflow-succeeded
+              config:
+                workflow: factory-postflight-sweep
+                requireStepOutputs:
+                  - evidence-postflight-run
+            - type: cel
+              config:
+                expr: >-
+                  has(approvals.completion_approval) &&
+                  approvals.completion_approval.exists(approval, approval.decision == "rejected")
+                message: human revision requires an explicit completion-approval rejection
     - id: terminal-cleanup
-      description: Complete the Dex task only after reconciliation and successful postflight.
+      description: >-
+        Complete the Dex task only through the repository completion workflow after explicit
+        task-specific human approval.
       maxDispatchesPerCycle: 2
       work:
-        mode: method
-        method:
-          modelIdOrName: supers-dex-task-tracker
-          methodName: complete
+        mode: workflow
+        workflow:
+          name: supers-complete-human-approved-task
           inputs:
-            taskId: '${{ self.workItem }}'
-            result: '${{ data.latest(self.name, "artifact-reconciliation").payload.completionResult }}'
-            commit: '${{ data.latest(self.name, "artifact-reconciliation").payload.commit }}'
+            workItem: '${{ self.workItem }}'
         inputsSchema:
           type: object
           required:
-            - taskId
-            - result
-            - commit
+            - workItem
           additionalProperties: false
           properties:
-            taskId:
+            workItem:
               type: string
               minLength: 1
-            result:
-              type: string
-              minLength: 1
-            commit:
-              type: object
-              required:
-                - kind
-              properties:
-                kind:
-                  type: string
-                  enum:
-                    - commit
-                    - noCommit
-                sha:
-                  type: string
-                  pattern: '^[0-9a-fA-F]{7,40}$'
         resultEvidence: tracker-completion
       transitions:
         - name: finish
-          to: done
+          to: done-observability
           gates:
             - type: evidence-recorded
               config:
                 name: tracker-completion
                 requireField:
                   status: succeeded
+    - id: done-observability
+      description: 'Finalize done, persist canonical Factory reports, and emit non-gating observability.'
+      maxDispatchesPerCycle: 2
+      work:
+        mode: workflow
+        workflow:
+          name: supers-delivery-terminal-observability
+          inputs:
+            workItem: '${{ self.workItem }}'
+        inputsSchema:
+          type: object
+          required:
+            - workItem
+          additionalProperties: false
+          properties:
+            workItem:
+              type: string
+              minLength: 1
+      transitions:
+        - name: finalize
+          to: done
+    - id: aborted-observability
+      description: 'Finalize aborted, persist canonical Factory reports, and emit non-gating observability.'
+      maxDispatchesPerCycle: 2
+      work:
+        mode: workflow
+        workflow:
+          name: supers-delivery-terminal-observability
+          inputs:
+            workItem: '${{ self.workItem }}'
+        inputsSchema:
+          type: object
+          required:
+            - workItem
+          additionalProperties: false
+          properties:
+            workItem:
+              type: string
+              minLength: 1
+      transitions:
+        - name: finalize
+          to: aborted
     - id: done
       terminal: true
     - id: aborted
       terminal: true
   globalTransitions:
     - name: abort
-      to: aborted
+      to: aborted-observability
       gates:
         - type: human-approval
           config:
