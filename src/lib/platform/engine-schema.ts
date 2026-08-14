@@ -290,6 +290,7 @@ export const BlockTypeSchema = z.enum([
 	'timeline-segment',
 	'bar-chart',
 	'column-chart',
+	'line-chart',
 	'unit-grid-chart',
 	'dot-field-chart'
 ]);
@@ -490,7 +491,8 @@ const diagramPrimitiveBase = {
 
 const DiagramPositionGeometrySchema = z.strictObject({
 	position: DiagramPointSchema,
-	scale: z.number().min(0.25).max(4).optional()
+	scale: z.number().min(0.25).max(4).optional(),
+	maxWidth: FractionSchema.optional()
 });
 
 const DiagramEdgeGeometrySchema = z.strictObject({
@@ -556,7 +558,9 @@ const DiagramLabelSchema = z.strictObject({
 	position: DiagramPointSchema,
 	text: z.string().min(1),
 	role: z.enum(['headline', 'caption']).optional(),
+	wrap: z.enum(['auto', 'explicit']).optional(),
 	scale: z.number().min(0.25).max(4).optional(),
+	maxWidth: FractionSchema.optional(),
 	orientationOverrides: diagramOrientationOverridesSchema(DiagramPositionGeometrySchema),
 	animation: DiagramAnimationSchema.optional()
 });
@@ -674,6 +678,7 @@ export const CHART_CALLOUT_LIMIT = 4;
 export const ChartTypeSchema = z.enum([
 	'bar-chart',
 	'column-chart',
+	'line-chart',
 	'unit-grid-chart',
 	'dot-field-chart'
 ]);
@@ -803,6 +808,7 @@ const chartBlockBase = {
 	highlights: z.array(ChartHighlightSchema).max(CHART_HIGHLIGHT_LIMIT).optional(),
 	callouts: z.array(ChartCalloutSchema).max(CHART_CALLOUT_LIMIT).optional(),
 	sourceNote: z.string().min(1).optional(),
+	progressBar: z.boolean().optional(),
 	fill: ChartFillSchema,
 	motion: ChartMotionSchema
 };
@@ -829,6 +835,12 @@ export const ColumnChartBlockSchema = z.strictObject({
 });
 export type ColumnChartBlock = z.infer<typeof ColumnChartBlockSchema>;
 
+export const LineChartBlockSchema = z.strictObject({
+	...chartBlockBase,
+	type: z.literal('line-chart')
+});
+export type LineChartBlock = z.infer<typeof LineChartBlockSchema>;
+
 export const UnitGridChartBlockSchema = z.strictObject({
 	...chartBlockBase,
 	type: z.literal('unit-grid-chart'),
@@ -846,6 +858,7 @@ export type DotFieldChartBlock = z.infer<typeof DotFieldChartBlockSchema>;
 export const ChartBlockSchema = z.discriminatedUnion('type', [
 	BarChartBlockSchema,
 	ColumnChartBlockSchema,
+	LineChartBlockSchema,
 	UnitGridChartBlockSchema,
 	DotFieldChartBlockSchema
 ]);
@@ -863,6 +876,7 @@ const SurfaceTypeSchema = z.enum([
 	'newspaper',
 	'pullquote-on-photo',
 	'chapter-card',
+	'brand-mark',
 	'title-sequence',
 	'type-hero',
 	'web-document',
@@ -875,8 +889,9 @@ const SurfaceTypeSchema = z.enum([
 // content (a captured Svelte mock selected by this field), not per-site
 // Surfaces and not a Pack — see docs/adr/0030-web-document-emissive-surface.md.
 // Each value selects a per-site mock layout captured via HTML-in-Canvas. Mix of
-// dark pages (twitter/reddit/github) and light pages (wikipedia/hackernews); the
-// highlight blend mode follows each page's paperColor luminance automatically.
+// dark pages (twitter/reddit/github/youtube) and light pages
+// (wikipedia/hackernews/news/pubmed); the highlight blend mode follows each
+// page's paperColor luminance automatically.
 const WebDocumentSiteSchema = z.enum([
 	'twitter',
 	'reddit',
@@ -884,7 +899,8 @@ const WebDocumentSiteSchema = z.enum([
 	'hackernews',
 	'github',
 	'youtube',
-	'news'
+	'news',
+	'pubmed'
 ]);
 export const WEB_DOCUMENT_SITES = WebDocumentSiteSchema.options;
 

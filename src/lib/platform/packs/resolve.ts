@@ -190,6 +190,21 @@ function resolveChartSeriesColorRole(
 	return seriesRoles[seriesIndex] ?? null;
 }
 
+/** Resolve the solid stroke voice for a declaration-order chart series. */
+export function resolveChartSeriesStrokeColor(manifest: PackManifest, seriesIndex: number): string {
+	if (!Number.isSafeInteger(seriesIndex) || seriesIndex < 0) {
+		throw new RangeError(
+			'resolveChartSeriesStrokeColor: seriesIndex must be a non-negative safe integer.'
+		);
+	}
+	const role = resolveChartSeriesColorRole(manifest, seriesIndex);
+	return (
+		(role === null ? null : resolveChartCssColor(manifest, role)) ??
+		resolveChartCssColor(manifest, 'chart.mark') ??
+		requireCoreColor(manifest, 'accent-treatment')
+	);
+}
+
 /** Resolve a semantic chart fill and its bounded declaration-order series voice through the Pack. */
 export function resolveChartMarkFillTreatment(
 	manifest: PackManifest,

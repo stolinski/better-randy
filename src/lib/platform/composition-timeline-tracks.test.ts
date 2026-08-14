@@ -375,4 +375,26 @@ describe('composition timeline tracks', () => {
 			shortTrack.transitions.every((transition) => transition.minDuration === Number.EPSILON)
 		);
 	});
+
+	it('exposes a draggable tweet pile window that writes through to overlay content', () => {
+		const state = makeTimelineState();
+		state.overlays.push({
+			id: 'reactions',
+			type: 'tweet-stack',
+			content: { pileStart: 0.08, pileWindow: 0.52 },
+			position: { anchor: 'center' }
+		});
+		const trackId = createTimelineTrackId({
+			kind: 'overlay-subtrack',
+			overlayId: 'reactions',
+			subtrack: { kind: 'pile' }
+		});
+		const track = buildCompositionTimelineTracks(state, appearance).find(
+			(candidate) => candidate.id === trackId
+		);
+		assert.ok(track);
+		assert.equal(track.label, 'tweet pile');
+		track.transitions[0].onUpdate?.({ start: 0.2, duration: 0.44 });
+		assert.deepEqual(state.overlays.at(-1)?.content, { pileStart: 0.2, pileWindow: 0.44 });
+	});
 });

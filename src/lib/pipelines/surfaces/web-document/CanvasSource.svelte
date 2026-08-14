@@ -6,6 +6,7 @@
 	import GitHubMock from './GitHubMock.svelte';
 	import HackerNewsMock from './HackerNewsMock.svelte';
 	import NewsArticleMock from './NewsArticleMock.svelte';
+	import PubMedMock from './PubMedMock.svelte';
 	import RedditMock from './RedditMock.svelte';
 	import TwitterMock from './TwitterMock.svelte';
 	import WikipediaMock from './WikipediaMock.svelte';
@@ -45,7 +46,7 @@
 		const x = Math.round((frame.width - width) / 2);
 		const visibility = Math.max(0, Math.min(1, animState.paperVisibility));
 		const enterOffsetPx = Math.round((1 - visibility) * frame.height * ENTER_TRAVEL_RATIO);
-		return { x, width, enterOffsetPx };
+		return { x, width, enterOffsetPx, visibility };
 	});
 
 	// Address-bar text: the URL being shown, protocol + www stripped.
@@ -53,7 +54,7 @@
 		(content.sourceUrl?.trim() ?? '').replace(/^https?:\/\//, '').replace(/^www\./, '')
 	);
 
-	const chromeFontPx = $derived(layout.width * 0.024);
+	const chromeFontPx = $derived(layout.width * (layout.width > 2200 ? 0.02 : 0.024));
 </script>
 
 <article
@@ -62,6 +63,7 @@
 	data-site={site}
 	style:inline-size={`${layout.width}px`}
 	style:left={`${layout.x}px`}
+	style:opacity={site === 'twitter' ? layout.visibility : 1}
 	style:transform={`translateY(calc(-50% + ${layout.enterOffsetPx}px))`}
 >
 	<!-- Dark browser chrome (mac-style) with the page URL in the address bar. -->
@@ -89,6 +91,8 @@
 		<YouTubeMock {content} width={layout.width} />
 	{:else if site === 'news'}
 		<NewsArticleMock {content} width={layout.width} />
+	{:else if site === 'pubmed'}
+		<PubMedMock {content} width={layout.width} />
 	{:else}
 		<TwitterMock {content} width={layout.width} />
 	{/if}

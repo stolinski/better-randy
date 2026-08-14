@@ -649,7 +649,9 @@ describe("backgroundFill 'pack' sentinel (ADR-0039 §3)", () => {
 	});
 });
 
-function chartWire(type: 'bar-chart' | 'column-chart' | 'unit-grid-chart' | 'dot-field-chart') {
+function chartWire(
+	type: 'bar-chart' | 'column-chart' | 'line-chart' | 'unit-grid-chart' | 'dot-field-chart'
+) {
 	const common = {
 		id: `${type}-a`,
 		type,
@@ -693,13 +695,20 @@ function chartWire(type: 'bar-chart' | 'column-chart' | 'unit-grid-chart' | 'dot
 			exit: { start: 0.9, duration: 0.1, ease: 'smooth' }
 		}
 	};
-	return type === 'bar-chart' || type === 'column-chart'
-		? { ...common, layout: { mode: 'single' } }
-		: { ...common, normalization: { total: 1104, unitCount: 100 } };
+	if (type === 'bar-chart' || type === 'column-chart') {
+		return { ...common, layout: { mode: 'single' } };
+	}
+	if (type === 'line-chart') return common;
+	return { ...common, normalization: { total: 1104, unitCount: 100 } };
 }
 
 function stateWithChart(
-	type: 'bar-chart' | 'column-chart' | 'unit-grid-chart' | 'dot-field-chart' = 'bar-chart'
+	type:
+		| 'bar-chart'
+		| 'column-chart'
+		| 'line-chart'
+		| 'unit-grid-chart'
+		| 'dot-field-chart' = 'bar-chart'
 ): WireState {
 	const state = baseState();
 	state.surface['chart'] = { mode: 'single', items: [chartWire(type)] };
@@ -729,10 +738,11 @@ function chartRecordAt(
 }
 
 describe('chart Block structural schema', () => {
-	it('parses all four stable chart Pipeline IDs', () => {
+	it('parses all five stable chart Pipeline IDs', () => {
 		for (const type of [
 			'bar-chart',
 			'column-chart',
+			'line-chart',
 			'unit-grid-chart',
 			'dot-field-chart'
 		] as const) {

@@ -6,6 +6,7 @@ export const SURFACE_LABELS: Record<SurfaceType, string> = {
 	newspaper: 'Newspaper',
 	'pullquote-on-photo': 'Pullquote on photo',
 	'chapter-card': 'Chapter card',
+	'brand-mark': 'Brand mark',
 	'title-sequence': 'Title sequence',
 	'type-hero': 'Type hero',
 	'web-document': 'Web document',

@@ -33,7 +33,8 @@
 		hackernews: 'Hacker News',
 		github: 'GitHub',
 		youtube: 'YouTube',
-		news: 'News article'
+		news: 'News article',
+		pubmed: 'PubMed'
 	};
 
 	// ---- Surface controls derived from the active renderer ----

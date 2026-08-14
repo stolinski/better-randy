@@ -40,6 +40,7 @@ import {
 import { newspaperIdentity } from '$lib/pipelines/surfaces/newspaper/identity';
 import { paperIdentity } from '$lib/pipelines/surfaces/paper/identity';
 import { plainIdentity } from '$lib/pipelines/surfaces/plain/identity';
+import { brandMarkIdentity } from '$lib/pipelines/surfaces/brand-mark/identity';
 import { chapterCardIdentity } from '$lib/pipelines/surfaces/chapter-card/identity';
 import { pullquoteOnPhotoIdentity } from '$lib/pipelines/surfaces/pullquote-on-photo/identity';
 import { titleSequenceIdentity } from '$lib/pipelines/surfaces/title-sequence/identity';
@@ -62,6 +63,7 @@ import { nodeIdentity } from '$lib/pipelines/blocks/node/identity';
 import { paragraphIdentity } from '$lib/pipelines/blocks/paragraph/identity';
 import { statCalloutIdentity } from '$lib/pipelines/blocks/stat-callout/identity';
 import { timelineSegmentIdentity } from '$lib/pipelines/blocks/timeline-segment/identity';
+import { lineChartIdentity } from '$lib/pipelines/blocks/line-chart/identity';
 import { unitGridChartIdentity } from '$lib/pipelines/blocks/unit-grid-chart/identity';
 
 // Annotations
@@ -85,6 +87,7 @@ import { instanceStackIdentity } from '$lib/pipelines/overlays/instance-stack/id
 import { lowerThirdIdentity } from '$lib/pipelines/overlays/lower-third/identity';
 import { shaderFillIdentity } from '$lib/pipelines/overlays/shader-fill/identity';
 import { text3dIdentity } from '$lib/pipelines/overlays/text-3d/identity';
+import { tweetStackIdentity } from '$lib/pipelines/overlays/tweet-stack/identity';
 import { washiTapeIdentity } from '$lib/pipelines/overlays/washi-tape/identity';
 import { watermarkIdentity } from '$lib/pipelines/overlays/watermark/identity';
 import { youtubeSubscribeIdentity } from '$lib/pipelines/overlays/youtube-subscribe/identity';
@@ -95,6 +98,7 @@ export const IDENTITY_REGISTRY: Readonly<Record<string, IdentitySpec>> = {
 	'surface:newspaper': newspaperIdentity,
 	'surface:paper': paperIdentity,
 	'surface:plain': plainIdentity,
+	'surface:brand-mark': brandMarkIdentity,
 	'surface:chapter-card': chapterCardIdentity,
 	'surface:pullquote-on-photo': pullquoteOnPhotoIdentity,
 	'surface:title-sequence': titleSequenceIdentity,
@@ -116,6 +120,7 @@ export const IDENTITY_REGISTRY: Readonly<Record<string, IdentitySpec>> = {
 	'block:timeline-segment': timelineSegmentIdentity,
 	'block:bar-chart': barChartIdentity,
 	'block:column-chart': columnChartIdentity,
+	'block:line-chart': lineChartIdentity,
 	'block:unit-grid-chart': unitGridChartIdentity,
 	'block:dot-field-chart': dotFieldChartIdentity,
 
@@ -138,6 +143,7 @@ export const IDENTITY_REGISTRY: Readonly<Record<string, IdentitySpec>> = {
 	'overlay:instance-stack': instanceStackIdentity,
 	'overlay:lower-third': lowerThirdIdentity,
 	'overlay:text-3d': text3dIdentity,
+	'overlay:tweet-stack': tweetStackIdentity,
 	'overlay:shader-fill': shaderFillIdentity,
 	'overlay:washi-tape': washiTapeIdentity,
 	'overlay:watermark': watermarkIdentity,
@@ -158,7 +164,9 @@ export const IDENTITY_REGISTRY: Readonly<Record<string, IdentitySpec>> = {
  * (the expected delta is chrome-scale, not document-scale).
  */
 export const PACK_IMMUNE_PIPELINE_KEYS: readonly string[] = Object.entries(IDENTITY_REGISTRY)
-	.filter(([, spec]) => spec.packImmunity !== undefined && spec.packImmunity.claimable === undefined)
+	.filter(
+		([, spec]) => spec.packImmunity !== undefined && spec.packImmunity.claimable === undefined
+	)
 	.map(([pipelineKey]) => pipelineKey);
 
 /**

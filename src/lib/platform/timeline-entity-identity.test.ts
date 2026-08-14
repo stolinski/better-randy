@@ -23,6 +23,7 @@ describe('timeline entity identity', () => {
 			{ kind: 'mark', index: 4 },
 			{ kind: 'overlay', overlayId: 'lower-third-roll-stack-spin-beat-cursor-1' },
 			{ kind: 'overlay-subtrack', overlayId: 'lower-third-roll', subtrack: { kind: 'stack' } },
+			{ kind: 'overlay-subtrack', overlayId: 'tweet-stack', subtrack: { kind: 'pile' } },
 			{ kind: 'overlay-subtrack', overlayId: 'counter-stack', subtrack: { kind: 'roll' } },
 			{ kind: 'overlay-subtrack', overlayId: 'cta-spin', subtrack: { kind: 'beat' } },
 			{ kind: 'overlay-subtrack', overlayId: 'hero-beat', subtrack: { kind: 'spin' } },

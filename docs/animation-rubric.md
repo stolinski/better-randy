@@ -65,6 +65,8 @@ The right size for a piece of text depends on **what job it does**, not on its t
   | **Surface title** (paper / plain card title slot)                                               | **60–110**                      | 76–138                        |
   | **Surface body** (paper / plain card body, marked or unmarked)                                  | **32–56**                       | 44–72                         |
   | **Surface label** (source / kicker / byline / date label, footer)                               | **24–48**                       | 32–60                         |
+  | **Found-document body** (baked post/article body inside faithful platform chrome)               | **30–54**                       | 40–70                         |
+  | **Found-document metadata** (handle, date, action labels inside faithful platform chrome)       | **18–34**                       | 24–44                         |
   | **Diagram headline** (`surface.diagram[]` title / section label)                                | 60–110                          | 76–138                        |
   | **Diagram node / caption label** (node `text`, `label` primitive, stat-callout caption)         | 24–48                           | 32–60                         |
   | **Diagram stat value** (stat-callout built number — the diagram's focal figure)                 | 60–110                          | 76–138                        |
@@ -317,6 +319,22 @@ Image-with-caption pop-ins, source citations, stat reveals, side-of-frame info c
 - **P4. Enter with `settled`, exit with `smooth`. No bouncy on pop-ups.**
   - **Why** — Pop-ups carry information (a number, a citation, an image). `bouncy` distracts from that information. `settled` says "here it is"; `smooth` says "and now we move on."
 
+### Tweet stacks
+
+The `tweet-stack` Overlay is a focal montage rather than a supporting pop-up. These rules supersede P1–P2 for that Pipeline; G2–G11 remain binding.
+
+- **TS1. Cards arrive one at a time; no two cards share an arrival start.**
+  - **Why** — The stagger is what communicates a flood of independent reactions rather than one precomposed collage.
+  - **How to apply** — Partition `content.pileWindow` by card index and derive every arrival from explicit composition progress.
+- **TS2. Each card lands in 250–400 ms and the final pile holds completely still.**
+  - **Why** — A post must feel decisively placed while the stable hold supplies the reading window.
+- **TS3. Use 2–8 cards and keep the complete pile inside title/platform safe areas in both orientations.**
+  - **Why** — Fewer than two is not a stack; more than eight becomes unreadable texture. Vertical reflows the same authored Preset rather than using a sibling.
+- **TS4. Live network content is forbidden during preview and export.**
+  - **Why** — External layout, deletion, authentication, and response timing violate frame determinism. Share URLs are resolved once during authoring and baked into `content.posts`.
+- **TS5. The fully landed top card is the reading target; the rest of the pile communicates reaction gist.**
+  - **Why** — A reaction flood is a focal montage, not caption or lower-third hierarchy. G6's 2× overlay reading rule does not apply to every partially occluded post; the top card must instead hold fully readable before the reverse exit.
+
 ### Captions & Subtitles
 
 Spoken-word captions for the host audio. First-class as the `state.captions` track (SRT-welded cues, karaoke / word-pop / pack styles) — these rules govern that track and any open-captions case.
@@ -356,7 +374,7 @@ When an agent finishes a preset, the agent must verify the following before cons
 10. **G10** — No camera move or color flip exceeds the vestibular/flash floors.
 11. **G11** — The same Preset is rendered at both orientations and genuinely reflows (motion direction, copy length, type size, and safe placement); no orientation sibling is introduced.
 12. **G12** — Transparent output is preserved when no full-frame state is declared; `backgroundFill` / `stage` pieces paint opaquely to every edge and classify correctly.
-13. **Per-overlay rules (L1–L7, T1–T4, A1–A5, P1–P4, C1–C5)** — every overlay in the preset satisfies the rules for its type. T1 uses the aspect-aware area band table from T1.
+13. **Per-overlay rules (L1–L7, T1–T4, A1–A5, P1–P4, TS1–TS4, C1–C5)** — every overlay in the preset satisfies the rules for its type. T1 uses the aspect-aware area band table from T1.
 
 A preset that fails any of the above is not done. There is no "good enough" tier below this rubric — those failures are what make AI-generated overlays look AI-generated.
 

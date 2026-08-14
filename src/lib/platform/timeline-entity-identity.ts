@@ -20,6 +20,7 @@ export type TimelineEntitySelectionId =
 
 export type OverlayTimelineSubtrack =
 	| { kind: 'stack' }
+	| { kind: 'pile' }
 	| { kind: 'roll' }
 	| { kind: 'beat' }
 	| { kind: 'spin' }
@@ -151,7 +152,11 @@ export function parseTimelineTrackId(value: string): TimelineTrackIdentity | nul
 		}
 		if (
 			parts.length === 3 &&
-			(parts[2] === 'stack' || parts[2] === 'roll' || parts[2] === 'beat' || parts[2] === 'spin')
+			(parts[2] === 'stack' ||
+				parts[2] === 'pile' ||
+				parts[2] === 'roll' ||
+				parts[2] === 'beat' ||
+				parts[2] === 'spin')
 		) {
 			return { kind: 'overlay-subtrack', overlayId, subtrack: { kind: parts[2] } };
 		}

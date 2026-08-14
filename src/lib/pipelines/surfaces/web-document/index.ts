@@ -11,8 +11,9 @@ import CanvasSource from './CanvasSource.svelte';
  * overlay frame (the first **emissive** Surface). One Surface, per-site layout
  * = content: an inner Svelte mock captured via HTML-in-Canvas, selected by
  * `surface.site` (`twitter` / `reddit` / `wikipedia` / `hackernews` / `github` /
- * `youtube` / `news`). A mix of dark pages (twitter/reddit/github/youtube) and
- * light pages (wikipedia/hackernews/news); the highlight blend mode follows each
+ * `youtube` / `news` / `pubmed`). A mix of dark pages
+ * (twitter/reddit/github/youtube) and light pages
+ * (wikipedia/hackernews/news/pubmed); the highlight blend mode follows each
  * page's paperColor luminance, so dark pages punch text to ink and light pages
  * multiply. CanvasSource owns the shared browser chrome + address bar + enter
  * motion; each site mock owns its panel. See

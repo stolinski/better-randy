@@ -1,6 +1,6 @@
 import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
 import { annotationBodyPlainText } from '$lib/annotations/annotation-body-text';
-import type { AchievementContent } from '$lib/pipelines/overlays/achievement';
+import type { AchievementContent } from '$lib/pipelines/overlays/achievement/achievement-content';
 import {
 	isAchievementVariantId,
 	setAchievementBeat,
@@ -649,6 +649,37 @@ function appendOverlayTracks(
 }
 
 function appendOverlaySubtracks(tracks: TimelineTrack[], state: EngineState): void {
+	state.overlays.forEach((overlay) => {
+		if (overlay.type !== 'tweet-stack') return;
+		const content = overlay.content as { pileStart?: number; pileWindow?: number };
+		tracks.push({
+			id: createTimelineTrackId({
+				kind: 'overlay-subtrack',
+				overlayId: overlay.id,
+				subtrack: { kind: 'pile' }
+			}),
+			label: 'tweet pile',
+			color: '#1d9bf0',
+			transitions: [
+				{
+					id: 'pile',
+					label: 'pile up',
+					start: content.pileStart ?? 0.08,
+					duration: content.pileWindow ?? 0.52,
+					ramp: 'in',
+					minStart: 0,
+					maxStart: 0.92,
+					minDuration: 0.08,
+					maxDuration: 0.8,
+					onUpdate: ({ start, duration }) => {
+						content.pileStart = start;
+						content.pileWindow = Math.min(1 - start, duration);
+					}
+				}
+			]
+		});
+	});
+
 	state.overlays.forEach((overlay) => {
 		if (overlay.type !== 'instance-stack') return;
 		const content = overlay.content as { staggerStart?: number; lagWindow?: number };

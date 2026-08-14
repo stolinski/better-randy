@@ -23,6 +23,7 @@
 	const CHART_TYPES = [
 		{ type: 'bar-chart', label: 'Bar chart' },
 		{ type: 'column-chart', label: 'Column chart' },
+		{ type: 'line-chart', label: 'Line chart' },
 		{ type: 'unit-grid-chart', label: 'Unit grid' },
 		{ type: 'dot-field-chart', label: 'Dot field' }
 	] as const;

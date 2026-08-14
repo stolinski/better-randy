@@ -1,5 +1,6 @@
 import { resolveChartBarColumnGeometry } from '$lib/utils/chart-bar-column-geometry';
 import { resolveChartFrameLayout } from '$lib/utils/chart-layout';
+import { resolveChartLineGeometry } from '$lib/utils/chart-line-geometry';
 import { resolveChartNormalizedGeometry } from '$lib/utils/chart-normalized-geometry';
 import {
 	resolveChartMotionState,
@@ -139,16 +140,23 @@ function buildChartInputs(
 					orientation: state.transport.orientation,
 					measureText
 				})
-			: resolveChartNormalizedGeometry({
-					block,
-					layout,
-					orientation: state.transport.orientation,
-					measureText
-				});
+			: block.type === 'line-chart'
+				? resolveChartLineGeometry({
+						block,
+						layout,
+						orientation: state.transport.orientation,
+						measureText
+					})
+				: resolveChartNormalizedGeometry({
+						block,
+						layout,
+						orientation: state.transport.orientation,
+						measureText
+					});
 	if (layout.overflow.length > 0 || geometry.overflow.length > 0) return undefined;
 	const motionState = resolveChartMotionState(block.motion, progress);
 	const voiceCount =
-		block.type === 'bar-chart' || block.type === 'column-chart'
+		block.type === 'bar-chart' || block.type === 'column-chart' || block.type === 'line-chart'
 			? block.data.series.length
 			: block.data.categories.length;
 	const insideLabelByMarkId = new Map(

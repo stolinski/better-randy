@@ -46,6 +46,7 @@ import { lowerThirdOverlayRenderer } from '$lib/pipelines/overlays/lower-third';
 import { shaderFillOverlayRenderer } from '$lib/pipelines/overlays/shader-fill';
 import { sourceUrlOverlayRenderer } from '$lib/pipelines/overlays/source-url';
 import { text3dOverlayRenderer } from '$lib/pipelines/overlays/text-3d';
+import { tweetStackOverlayRenderer } from '$lib/pipelines/overlays/tweet-stack';
 import { washiTapeOverlayRenderer } from '$lib/pipelines/overlays/washi-tape';
 import { watermarkOverlayRenderer } from '$lib/pipelines/overlays/watermark';
 import { youtubeSubscribeOverlayRenderer } from '$lib/pipelines/overlays/youtube-subscribe';
@@ -103,6 +104,7 @@ const EXPECTED_PIPELINE_TYPE_IDS = [
 	'side-note',
 	'magnify',
 	'lift-out',
+	'line-chart',
 	'tear-out',
 	'isolate',
 	'lower-third',
@@ -113,6 +115,7 @@ const EXPECTED_PIPELINE_TYPE_IDS = [
 	'counter',
 	'instance-stack',
 	'text-3d',
+	'tweet-stack',
 	'youtube-subscribe',
 	'instagram-follow',
 	'achievement',
@@ -185,6 +188,7 @@ describe('Pipeline Registry', () => {
 		assert.strictEqual(PIPELINE_REGISTRY.overlays.counter, counterOverlayRenderer);
 		assert.strictEqual(PIPELINE_REGISTRY.overlays.instanceStack, instanceStackOverlayRenderer);
 		assert.strictEqual(PIPELINE_REGISTRY.overlays.text3d, text3dOverlayRenderer);
+		assert.strictEqual(PIPELINE_REGISTRY.overlays.tweetStack, tweetStackOverlayRenderer);
 		assert.strictEqual(
 			PIPELINE_REGISTRY.overlays.youtubeSubscribe,
 			youtubeSubscribeOverlayRenderer
@@ -236,6 +240,7 @@ describe('Pipeline Registry', () => {
 				'timeline-segment',
 				'bar-chart',
 				'column-chart',
+				'line-chart',
 				'unit-grid-chart',
 				'dot-field-chart'
 			].toSorted()
@@ -282,6 +287,7 @@ describe('Pipeline Registry', () => {
 		const expectedImmuneKeys = [
 			'overlay:instagram-follow',
 			'overlay:shader-fill',
+			'overlay:tweet-stack',
 			'overlay:youtube-subscribe',
 			'surface:imessage',
 			'surface:paper',

@@ -212,7 +212,7 @@ Every primitive may carry `orientationOverrides.horizontal` and/or `.vertical` a
   "items": [
     {
       "id": "agents-by-count",                       // unique Block/timeline identity
-      "type": "bar-chart" | "column-chart",
+      "type": "bar-chart" | "column-chart" | "line-chart",
       "title": "Coding agents run at once",
       "data": {
         "categories": [{ "id": "one", "label": "1" }], // 1..12, unique ids
@@ -222,7 +222,7 @@ Every primitive may carry `orientationOverrides.horizontal` and/or `.vertical` a
           "values": [{ "categoryId": "one", "value": 360 }]
         }]
       },
-      "layout": { "mode": "single" | "grouped" | "stacked" },
+      "layout": { "mode": "single" | "grouped" | "stacked" }, // bar/column only; omitted for line
       "domain": { "min": 0, "max": 400 },           // optional; at least one bound
       "labels": { "categories": true, "values": true, "legend": false },
       "highlights": [{ "target": { "kind": "datum", "seriesId": "responses", "categoryId": "one" } }],
@@ -231,6 +231,7 @@ Every primitive may carry `orientationOverrides.horizontal` and/or `.vertical` a
         "valueLabel": { "kind": "value" }
       }],
       "sourceNote": "Source: survey, n=1,104",
+      "progressBar": true,                           // optional; absent/false hides it
       "fill": { "role": "default" | "series" },
       "motion": {
         "entry":     { "start": 0.00, "duration": 0.03, "ease": "smooth" },
@@ -255,10 +256,12 @@ The strict common limits and unions are:
 - 1–12 categories, 1–4 series, exactly one finite datum per declared category in each series, at most 24 highlights, and at most 4 callouts;
 - targets `{ kind: "datum", seriesId, categoryId }`, `{ kind: "category-set", seriesId, categoryIds }` with 2–12 unique categories, or `{ kind: "series-total", seriesId }`;
 - computed `valueLabel` `{ kind: "value" }`, `{ kind: "percent-of-series-total", precision: 0..4 }`, or `{ kind: "approximate-fraction-and-percent", maxDenominator: 2..20, precision: 0..4 }`; percent formats require a positive series total, and approximate fractions require a target ratio in `(0, 1]`;
-- bar/column `single` with one series or `grouped | stacked` with at least two; stacks are non-negative, and an explicit finite linear domain must include zero, satisfy `min < max`, and contain every value or stack total;
+- bar/column `single` with one series or `grouped | stacked` with at least two; stacks are non-negative; line charts connect declaration-order category points and need no layout mode; every explicit finite linear domain must include zero, satisfy `min < max`, and contain every factual value or stack total;
 - normalized charts with exactly one non-negative series, positive `total`, integer `unitCount` 10–1,000, and explicit parts summing to `total` within `max(1e-9, abs(total) * 1e-9)`.
 
-Semantic validation in `chart-validation.ts` runs at every Preset ingress after structural Zod parsing. It requires unique and complete category/series references; finite values and domains; compatible `single`, `grouped`, and non-negative `stacked` layouts; one non-negative series whose explicit parts sum to the positive normalized total; resolvable `datum`, `category-set`, or `series-total` targets; valid computed-label denominators; and ordered non-overlapping motion phases. Base `fill.role: "emphasis"` is rejected because emphasis is reserved for choreography. Normalized marks use exact decimal largest-remainder allocation with declaration order as the final tie-breaker and emit exactly `unitCount` marks, while labels and callouts keep authored/computed facts exact.
+Semantic validation in `chart-validation.ts` runs at every Preset ingress after structural Zod parsing. It requires unique and complete category/series references; finite values and domains; compatible `single`, `grouped`, and non-negative `stacked` layouts; one non-negative series whose explicit parts sum to the positive normalized total; resolvable `datum`, `category-set`, or `series-total` targets; valid computed-label denominators; and ordered non-overlapping motion phases. Base `fill.role: "emphasis"` is rejected because emphasis is reserved for choreography. Normalized marks use exact decimal largest-remainder allocation with declaration order as the final tie-breaker and emit exactly `unitCount` marks, while labels and callouts keep authored/computed facts exact. Value labels reveal at their authored terminal text and never count or crawl through inaccurate intermediate numbers.
+
+An optional `progressBar: true` draws a subtle Pack-colored ordered-dither strip at the top edge. It advances linearly from `entry.start` to `exit.start`, reaching full width as the chart begins to disappear; absent or `false` renders no strip.
 
 The five motion windows are authored, Pack-invariant, and frame-deterministic. Omitted eases resolve to `smooth`, `smooth`, `sharp`, `smooth`, `smooth`; only `smooth | sharp` is accepted. Gaps hold state. Charts have no orientation-override schema: shared layout reflows the one declaration natively in horizontal and vertical and owns factual scales, zero baselines, chrome, legends, labels, source notes, and callout geometry. Marks render analytically through one instanced WebGPU path with Pack-resolved solid, gradient, or ordered-dither recipes localized to mark masks. The GUI add menu and Chart inspector mutate this same `surface.chart.items[]` model through bounded authoring helpers; there is no CSV upload, URL fetch, or GUI-only chart state.
 
@@ -480,7 +483,7 @@ Pack immunity is declared by each Pipeline's Identity Spec and derived at runtim
 
 - **`paragraph`** — text run inside `content.body` (the bracket-tag string).
 - **`node`**, **`edge-arrow`**, **`label`**, **`stat-callout`**, **`timeline-segment`** — shipped diagram primitives ([ADR-0036](adr/0036-diagram-primitives.md)), carried in `surface.diagram[]` (see the Diagram primitives section above).
-- **`bar-chart`**, **`column-chart`**, **`unit-grid-chart`**, **`dot-field-chart`** — shipped factual Chart Blocks ([ADR-0048](adr/0048-agent-authored-chart-domain.md)), carried in `surface.chart.items[]` and edited through the shared Chart inspector/authoring helpers. A mermaid-style auto-layout Block is explicitly rejected; `image` and `code` remain possible future additive variants.
+- **`bar-chart`**, **`column-chart`**, **`line-chart`**, **`unit-grid-chart`**, **`dot-field-chart`** — shipped factual Chart Blocks ([ADR-0048](adr/0048-agent-authored-chart-domain.md)), carried in `surface.chart.items[]` and edited through the shared Chart inspector/authoring helpers. A mermaid-style auto-layout Block is explicitly rejected; `image` and `code` remain possible future additive variants.
 
 ## Annotation styles
 
@@ -500,6 +503,7 @@ The bracket-tag body format expresses marks inline. Stacked styles nest tags aro
 - **`youtube-subscribe`**, **`instagram-follow`** — platform creator-action overlays.
 - **`achievement`** — content `{ variant: 'checklist-complete' | 'unlocked', kicker, title, beat }`; `beat` is the draggable focal moment shared by intrinsic variant choreography and derived sound.
 - **`source-url`** — content `{ url }`; Pack-resolved URL plate centered horizontally across a `website-screenshot` Surface's top edge at a 50% overlap, with normal transition/keyframe/Cascade timing.
+- **`tweet-stack`** — content `{ posts: [{ id, url, displayName, handle, body, dateLabel, avatarUrl?, verified }], pileStart, pileWindow, spread }`; 2–8 baked X posts arrive sequentially during the draggable pile window, settle into a deterministic overlapping cluster, and reflow for both orientations. `url` must be an `x.com` or `twitter.com` status share URL. The inspector imports public posts through X oEmbed once; exports use only the baked content and never fetch live X data.
 
 ## Effect types (v1)
 

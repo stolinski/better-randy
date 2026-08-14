@@ -18,6 +18,7 @@ import { barChartBlockRenderer } from '$lib/pipelines/blocks/bar-chart';
 import { columnChartBlockRenderer } from '$lib/pipelines/blocks/column-chart';
 import { dotFieldChartBlockRenderer } from '$lib/pipelines/blocks/dot-field-chart';
 import { edgeArrowBlockRenderer } from '$lib/pipelines/blocks/edge-arrow';
+import { lineChartBlockRenderer } from '$lib/pipelines/blocks/line-chart';
 import { labelBlockRenderer } from '$lib/pipelines/blocks/label';
 import { nodeBlockRenderer } from '$lib/pipelines/blocks/node';
 import { paragraphBlockRenderer } from '$lib/pipelines/blocks/paragraph';
@@ -48,12 +49,14 @@ import { instagramFollowOverlayRenderer } from '$lib/pipelines/overlays/instagra
 import { instanceStackOverlayRenderer } from '$lib/pipelines/overlays/instance-stack';
 import { lowerThirdOverlayRenderer } from '$lib/pipelines/overlays/lower-third';
 import { text3dOverlayRenderer } from '$lib/pipelines/overlays/text-3d';
+import { tweetStackOverlayRenderer } from '$lib/pipelines/overlays/tweet-stack';
 import { shaderFillOverlayRenderer } from '$lib/pipelines/overlays/shader-fill';
 import { sourceUrlOverlayRenderer } from '$lib/pipelines/overlays/source-url';
 import { washiTapeOverlayRenderer } from '$lib/pipelines/overlays/washi-tape';
 import { watermarkOverlayRenderer } from '$lib/pipelines/overlays/watermark';
 import { youtubeSubscribeOverlayRenderer } from '$lib/pipelines/overlays/youtube-subscribe';
 
+import { brandMarkSurfaceRenderer } from '$lib/pipelines/surfaces/brand-mark';
 import { chapterCardSurfaceRenderer } from '$lib/pipelines/surfaces/chapter-card';
 import { checklistSurfaceRenderer } from '$lib/pipelines/surfaces/checklist';
 import { imessageSurfaceRenderer } from '$lib/pipelines/surfaces/imessage';
@@ -73,6 +76,7 @@ export const PIPELINE_REGISTRY = {
 		newspaper: newspaperSurfaceRenderer,
 		pullquoteOnPhoto: pullquoteOnPhotoSurfaceRenderer,
 		chapterCard: chapterCardSurfaceRenderer,
+		brandMark: brandMarkSurfaceRenderer,
 		titleSequence: titleSequenceSurfaceRenderer,
 		typeHero: typeHeroSurfaceRenderer,
 		webDocument: webDocumentSurfaceRenderer,
@@ -93,6 +97,7 @@ export const PIPELINE_REGISTRY = {
 		timelineSegment: timelineSegmentBlockRenderer,
 		barChart: barChartBlockRenderer,
 		columnChart: columnChartBlockRenderer,
+		lineChart: lineChartBlockRenderer,
 		unitGridChart: unitGridChartBlockRenderer,
 		dotFieldChart: dotFieldChartBlockRenderer
 	},
@@ -117,6 +122,7 @@ export const PIPELINE_REGISTRY = {
 		counter: counterOverlayRenderer,
 		instanceStack: instanceStackOverlayRenderer,
 		text3d: text3dOverlayRenderer,
+		tweetStack: tweetStackOverlayRenderer,
 		youtubeSubscribe: youtubeSubscribeOverlayRenderer,
 		instagramFollow: instagramFollowOverlayRenderer,
 		achievement: achievementOverlayRenderer,
@@ -198,7 +204,8 @@ export function resolveSurfaceTypographyColors(
 	const inkImmune = substrate && !isAppearanceSlotPackClaimable(surfaceKey, 'ink');
 	const packResolved = resolveTypographyColors(pack, typography);
 	return {
-		paperColor: typography.paperColor ?? (paperImmune ? substrate.paperHex : packResolved.paperColor),
+		paperColor:
+			typography.paperColor ?? (paperImmune ? substrate.paperHex : packResolved.paperColor),
 		inkColor: typography.inkColor ?? (inkImmune ? substrate.inkHex : packResolved.inkColor)
 	};
 }

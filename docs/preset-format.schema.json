@@ -309,6 +309,7 @@
                 "newspaper",
                 "pullquote-on-photo",
                 "chapter-card",
+                "brand-mark",
                 "title-sequence",
                 "type-hero",
                 "web-document",
@@ -587,7 +588,8 @@
                 "hackernews",
                 "github",
                 "youtube",
-                "news"
+                "news",
+                "pubmed"
               ]
             },
             "chrome": {
@@ -3698,6 +3700,9 @@
                             "type": "string",
                             "minLength": 1
                           },
+                          "progressBar": {
+                            "type": "boolean"
+                          },
                           "fill": {
                             "type": "object",
                             "properties": {
@@ -4256,6 +4261,9 @@
                             "type": "string",
                             "minLength": 1
                           },
+                          "progressBar": {
+                            "type": "boolean"
+                          },
                           "fill": {
                             "type": "object",
                             "properties": {
@@ -4813,6 +4821,552 @@
                           "sourceNote": {
                             "type": "string",
                             "minLength": 1
+                          },
+                          "progressBar": {
+                            "type": "boolean"
+                          },
+                          "fill": {
+                            "type": "object",
+                            "properties": {
+                              "role": {
+                                "type": "string",
+                                "enum": [
+                                  "default",
+                                  "series",
+                                  "emphasis"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "role"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "motion": {
+                            "type": "object",
+                            "properties": {
+                              "entry": {
+                                "type": "object",
+                                "properties": {
+                                  "start": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "duration": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "ease": {
+                                    "type": "string",
+                                    "enum": [
+                                      "smooth",
+                                      "sharp"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "start",
+                                  "duration"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "reveal": {
+                                "type": "object",
+                                "properties": {
+                                  "start": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "duration": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "ease": {
+                                    "type": "string",
+                                    "enum": [
+                                      "smooth",
+                                      "sharp"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "start",
+                                  "duration"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "emphasis": {
+                                "type": "object",
+                                "properties": {
+                                  "start": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "duration": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "ease": {
+                                    "type": "string",
+                                    "enum": [
+                                      "smooth",
+                                      "sharp"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "start",
+                                  "duration"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "annotation": {
+                                "type": "object",
+                                "properties": {
+                                  "start": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "duration": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "ease": {
+                                    "type": "string",
+                                    "enum": [
+                                      "smooth",
+                                      "sharp"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "start",
+                                  "duration"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "exit": {
+                                "type": "object",
+                                "properties": {
+                                  "start": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "duration": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "ease": {
+                                    "type": "string",
+                                    "enum": [
+                                      "smooth",
+                                      "sharp"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "start",
+                                  "duration"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "entry",
+                              "reveal",
+                              "emphasis",
+                              "annotation",
+                              "exit"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "type": {
+                            "type": "string",
+                            "const": "line-chart"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "data",
+                          "labels",
+                          "fill",
+                          "motion",
+                          "type"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "title": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "data": {
+                            "type": "object",
+                            "properties": {
+                              "categories": {
+                                "minItems": 1,
+                                "maxItems": 12,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "label": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "label"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "series": {
+                                "minItems": 1,
+                                "maxItems": 4,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "label": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "values": {
+                                      "minItems": 1,
+                                      "maxItems": 12,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "categoryId": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "value": {
+                                            "type": "number"
+                                          }
+                                        },
+                                        "required": [
+                                          "categoryId",
+                                          "value"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "label",
+                                    "values"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "categories",
+                              "series"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "domain": {
+                            "type": "object",
+                            "properties": {
+                              "min": {
+                                "type": "number"
+                              },
+                              "max": {
+                                "type": "number"
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "labels": {
+                            "type": "object",
+                            "properties": {
+                              "categories": {
+                                "type": "boolean"
+                              },
+                              "values": {
+                                "type": "boolean"
+                              },
+                              "legend": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "values",
+                              "legend"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "highlights": {
+                            "maxItems": 24,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "target": {
+                                  "oneOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "const": "datum"
+                                        },
+                                        "seriesId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "categoryId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "seriesId",
+                                        "categoryId"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "const": "category-set"
+                                        },
+                                        "seriesId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "categoryIds": {
+                                          "minItems": 2,
+                                          "maxItems": 12,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "seriesId",
+                                        "categoryIds"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "const": "series-total"
+                                        },
+                                        "seriesId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "seriesId"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "target"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "callouts": {
+                            "maxItems": 4,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "target": {
+                                  "oneOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "const": "datum"
+                                        },
+                                        "seriesId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "categoryId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "seriesId",
+                                        "categoryId"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "const": "category-set"
+                                        },
+                                        "seriesId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "categoryIds": {
+                                          "minItems": 2,
+                                          "maxItems": 12,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "seriesId",
+                                        "categoryIds"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "const": "series-total"
+                                        },
+                                        "seriesId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "seriesId"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                },
+                                "valueLabel": {
+                                  "oneOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "const": "value"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "const": "percent-of-series-total"
+                                        },
+                                        "precision": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 4
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "precision"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "const": "approximate-fraction-and-percent"
+                                        },
+                                        "maxDenominator": {
+                                          "type": "integer",
+                                          "minimum": 2,
+                                          "maximum": 20
+                                        },
+                                        "precision": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 4
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "maxDenominator",
+                                        "precision"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "target",
+                                "valueLabel"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "sourceNote": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "progressBar": {
+                            "type": "boolean"
                           },
                           "fill": {
                             "type": "object",
@@ -5373,6 +5927,9 @@
                           "sourceNote": {
                             "type": "string",
                             "minLength": 1
+                          },
+                          "progressBar": {
+                            "type": "boolean"
                           },
                           "fill": {
                             "type": "object",
