@@ -85,14 +85,21 @@ export function resolveDiagramPrimitiveForRender(
 				scale: geometry.scale
 			};
 		}
-		case 'label':
-		case 'stat-callout': {
+		case 'label': {
 			const geometry = resolveDiagramPrimitiveGeometry(primitive, orientation);
 			return {
 				...primitive,
 				position: { ...geometry.position },
 				scale: geometry.scale,
 				maxWidth: geometry.maxWidth
+			};
+		}
+		case 'stat-callout': {
+			const geometry = resolveDiagramPrimitiveGeometry(primitive, orientation);
+			return {
+				...primitive,
+				position: { ...geometry.position },
+				scale: geometry.scale
 			};
 		}
 		case 'edge-arrow': {
