@@ -1,0 +1,2379 @@
+{
+	"presets": [
+		{
+			"file": "achievement-complete.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "overlay:task-complete:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-glide"
+				},
+				{
+					"id": "overlay:task-complete:beat-draw",
+					"event": "draw",
+					"start": 0.338,
+					"sample": "foley-rise"
+				},
+				{
+					"id": "overlay:task-complete:beat-click",
+					"event": "click",
+					"start": 0.418,
+					"sample": "foley-tap"
+				},
+				{
+					"id": "overlay:task-complete:exit",
+					"event": "whoosh-out",
+					"start": 0.85,
+					"sample": "foley-glide"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "achievement-unlocked.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "overlay:achievement-unlocked:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-glide"
+				},
+				{
+					"id": "overlay:achievement-unlocked:beat-pop",
+					"event": "pop",
+					"start": 0.383,
+					"sample": "foley-pop"
+				},
+				{
+					"id": "overlay:achievement-unlocked:exit",
+					"event": "whoosh-out",
+					"start": 0.85,
+					"sample": "foley-glide"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "annotation-box-demo.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "mark:0",
+					"event": "scratch",
+					"start": 0.2,
+					"sample": "foley-switch"
+				},
+				{
+					"id": "surface:exit",
+					"event": "whoosh-out",
+					"start": 0.86,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "apollo-lunar-travelers.json",
+			"kind": "deliverable",
+			"cues": [],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "bar-chart-apollo-sample-return.json",
+			"kind": "deliverable",
+			"cues": [],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "blank.json",
+			"kind": "fixture",
+			"cues": [],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "captions-karaoke-demo.json",
+			"kind": "deliverable",
+			"cues": [],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "captions-pack-style-demo.json",
+			"kind": "fixture",
+			"cues": [],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "captions-word-pop-demo.json",
+			"kind": "deliverable",
+			"cues": [],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "chapter-card-descent.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "text:kicker-fade:enter",
+					"event": "tick",
+					"start": 0.05,
+					"sample": "foley-tick"
+				},
+				{
+					"id": "text:title-reveal:enter",
+					"event": "impact",
+					"start": 0.2,
+					"sample": "foley-denied"
+				}
+			],
+			"mutedCueIds": [
+				"text:title-reveal:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "chart-domain-survey-fixture.json",
+			"kind": "fixture",
+			"cues": [],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "checklist-project-setup.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "mark:1",
+					"event": "scratch",
+					"start": 0.42,
+					"sample": "foley-glide"
+				},
+				{
+					"id": "surface:exit",
+					"event": "whoosh-out",
+					"start": 0.9,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "checklist-show-rundown.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "surface:exit",
+					"event": "whoosh-out",
+					"start": 0.977,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "chromatic-aberration-demo.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "surface:exit",
+					"event": "whoosh-out",
+					"start": 0.9,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "cloth-bend-demo.json",
+			"kind": "fixture",
+			"cues": [],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "column-us-population-1950-2020.json",
+			"kind": "deliverable",
+			"cues": [],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "counter-demo.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "overlay:main:enter",
+					"event": "impact",
+					"start": 0.2,
+					"sample": "foley-drop"
+				},
+				{
+					"id": "overlay:main:exit",
+					"event": "whoosh-out",
+					"start": 0.88,
+					"sample": "foley-glide"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "counter-milestone.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "overlay:main:enter",
+					"event": "impact",
+					"start": 0.06,
+					"sample": "foley-drop"
+				},
+				{
+					"id": "overlay:main:exit",
+					"event": "whoosh-out",
+					"start": 0.88,
+					"sample": "foley-glide"
+				}
+			],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "crt-tube-demo.json",
+			"kind": "fixture",
+			"cues": [],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "cursor-trail-demo.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "overlay:trail:enter",
+					"event": "impact",
+					"start": 0.06,
+					"sample": "foley-drop"
+				}
+			],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "cursor-trail-title-sweep.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "overlay:trail:enter",
+					"event": "impact",
+					"start": 0.06,
+					"sample": "foley-drop"
+				}
+			],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "depth-of-field-bokeh.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "overlay:chip:enter",
+					"event": "impact",
+					"start": 0.098,
+					"sample": "foley-drop"
+				}
+			],
+			"mutedCueIds": [
+				"surface:enter",
+				"overlay:chip:exit",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "depth-of-field-rack-focus.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "overlay:title-card:enter",
+					"event": "impact",
+					"start": 0.098,
+					"sample": "foley-drop"
+				}
+			],
+			"mutedCueIds": [
+				"surface:enter",
+				"overlay:title-card:exit",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "depth-of-field-tabletop.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "surface:exit",
+					"event": "whoosh-out",
+					"start": 0.92,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "depth-stage-demo.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "overlay:stage-credit:enter",
+					"event": "impact",
+					"start": 0.118,
+					"sample": "foley-drop"
+				},
+				{
+					"id": "surface:exit",
+					"event": "whoosh-out",
+					"start": 0.92,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [
+				"overlay:stage-credit:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "diagram-schema-fixture.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "block:l-caption:enter",
+					"event": "whoosh-in",
+					"start": 0.063,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "block:n-origin:enter",
+					"event": "pop",
+					"start": 0.08,
+					"sample": "foley-pop"
+				},
+				{
+					"id": "block:e-flow:enter",
+					"event": "draw",
+					"start": 0.15,
+					"sample": "foley-rise"
+				},
+				{
+					"id": "block:n-server:enter",
+					"event": "pop",
+					"start": 0.22,
+					"sample": "foley-pop"
+				},
+				{
+					"id": "block:t-span:enter",
+					"event": "draw",
+					"start": 0.55,
+					"sample": "foley-rise"
+				}
+			],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "dithering-demo.json",
+			"kind": "fixture",
+			"cues": [],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "docu-flowchart.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "block:n-commit:enter",
+					"event": "pop",
+					"start": 0.152,
+					"sample": "foley-pop"
+				},
+				{
+					"id": "block:e-commit-build:enter",
+					"event": "draw",
+					"start": 0.222,
+					"sample": "foley-rise"
+				},
+				{
+					"id": "block:n-build:enter",
+					"event": "pop",
+					"start": 0.295,
+					"sample": "foley-pop"
+				},
+				{
+					"id": "block:e-build-test:enter",
+					"event": "draw",
+					"start": 0.365,
+					"sample": "foley-rise"
+				},
+				{
+					"id": "block:n-test:enter",
+					"event": "pop",
+					"start": 0.438,
+					"sample": "foley-pop"
+				},
+				{
+					"id": "block:e-test-deploy:enter",
+					"event": "draw",
+					"start": 0.508,
+					"sample": "foley-rise"
+				},
+				{
+					"id": "block:n-deploy:enter",
+					"event": "pop",
+					"start": 0.582,
+					"sample": "foley-pop"
+				}
+			],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "docu-map-journey.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "block:n-local:enter",
+					"event": "pop",
+					"start": 0.1,
+					"sample": "foley-pop"
+				},
+				{
+					"id": "block:e-local-ci:enter",
+					"event": "draw",
+					"start": 0.167,
+					"sample": "foley-rise"
+				},
+				{
+					"id": "block:n-ci:enter",
+					"event": "pop",
+					"start": 0.26,
+					"sample": "foley-pop"
+				},
+				{
+					"id": "block:e-ci-edge:enter",
+					"event": "draw",
+					"start": 0.327,
+					"sample": "foley-rise"
+				},
+				{
+					"id": "block:n-edge:enter",
+					"event": "pop",
+					"start": 0.42,
+					"sample": "foley-pop"
+				}
+			],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "docu-stat-build.json",
+			"kind": "deliverable",
+			"cues": [],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "docu-timeline-build-clean-light.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "block:era-script-tags:enter",
+					"event": "draw",
+					"start": 0.152,
+					"sample": "foley-rise"
+				},
+				{
+					"id": "block:era-bundlers:enter",
+					"event": "draw",
+					"start": 0.247,
+					"sample": "foley-rise"
+				},
+				{
+					"id": "block:era-esm:enter",
+					"event": "draw",
+					"start": 0.328,
+					"sample": "foley-rise"
+				}
+			],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "docu-timeline-build.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "block:year-1995:enter",
+					"event": "tick",
+					"start": 0.163,
+					"sample": "foley-tick"
+				},
+				{
+					"id": "block:year-2009:enter",
+					"event": "tick",
+					"start": 0.237,
+					"sample": "foley-tick"
+				},
+				{
+					"id": "block:year-2015:enter",
+					"event": "tick",
+					"start": 0.318,
+					"sample": "foley-tick"
+				},
+				{
+					"id": "block:year-now:enter",
+					"event": "tick",
+					"start": 0.413,
+					"sample": "foley-tick"
+				}
+			],
+			"mutedCueIds": [
+				"surface:enter",
+				"block:era-script-tags:enter",
+				"block:era-bundlers:enter",
+				"block:era-esm:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "dof-multiplane-check.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "overlay:main:enter",
+					"event": "impact",
+					"start": 0.098,
+					"sample": "foley-drop"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "fluid-ripple-demo.json",
+			"kind": "fixture",
+			"cues": [],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "fluted-glass-demo.json",
+			"kind": "fixture",
+			"cues": [],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "halftone-cmyk-demo.json",
+			"kind": "fixture",
+			"cues": [],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "halftone-dots-demo.json",
+			"kind": "fixture",
+			"cues": [],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "heatmap-demo.json",
+			"kind": "fixture",
+			"cues": [],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "imessage-friday-deploy.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "message:0",
+					"event": "pop",
+					"start": 0.07,
+					"sample": "message-pop"
+				},
+				{
+					"id": "message:1",
+					"event": "send",
+					"start": 0.22,
+					"sample": "message-send"
+				},
+				{
+					"id": "message:2",
+					"event": "pop",
+					"start": 0.5,
+					"sample": "message-pop"
+				},
+				{
+					"id": "message:2:tapback",
+					"event": "pop",
+					"start": 0.55,
+					"sample": "tapback-emphasize"
+				},
+				{
+					"id": "message:3",
+					"event": "send",
+					"start": 0.7,
+					"sample": "message-send"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "imessage-the-bug-dark.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "message:0",
+					"event": "pop",
+					"start": 0.07,
+					"sample": "message-pop"
+				},
+				{
+					"id": "message:1",
+					"event": "pop",
+					"start": 0.25,
+					"sample": "message-pop"
+				},
+				{
+					"id": "message:1:tapback",
+					"event": "pop",
+					"start": 0.3,
+					"sample": "tapback-heart"
+				},
+				{
+					"id": "message:2",
+					"event": "send",
+					"start": 0.43,
+					"sample": "message-send"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "imessage-the-bug.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "message:0",
+					"event": "pop",
+					"start": 0.07,
+					"sample": "message-pop"
+				},
+				{
+					"id": "message:1",
+					"event": "pop",
+					"start": 0.25,
+					"sample": "message-pop"
+				},
+				{
+					"id": "message:1:tapback",
+					"event": "pop",
+					"start": 0.3,
+					"sample": "tapback-heart"
+				},
+				{
+					"id": "message:2",
+					"event": "send",
+					"start": 0.43,
+					"sample": "message-send"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "instagram-follow-demo.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "overlay:follow-card:enter",
+					"event": "whoosh-in",
+					"start": 0.08,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "overlay:follow-card:beat",
+					"event": "click",
+					"start": 0.42,
+					"sample": "foley-tap"
+				},
+				{
+					"id": "overlay:follow-card:exit",
+					"event": "whoosh-out",
+					"start": 0.88,
+					"sample": "foley-glide"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "instance-stack-vertical.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "overlay:main:enter",
+					"event": "impact",
+					"start": 0.06,
+					"sample": "foley-drop"
+				},
+				{
+					"id": "overlay:sig:enter",
+					"event": "impact",
+					"start": 0.09,
+					"sample": "foley-drop"
+				},
+				{
+					"id": "overlay:main:exit",
+					"event": "whoosh-out",
+					"start": 0.88,
+					"sample": "foley-glide"
+				}
+			],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "isolate-demo.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "mark:0",
+					"event": "tick",
+					"start": 0.2,
+					"sample": "foley-switch"
+				},
+				{
+					"id": "surface:exit",
+					"event": "whoosh-out",
+					"start": 0.86,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "keyframes-cascade-demo.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "overlay:main:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "overlay:tag:enter",
+					"event": "impact",
+					"start": 0.167,
+					"sample": "foley-drop"
+				},
+				{
+					"id": "mark:0",
+					"event": "swipe",
+					"start": 0.217,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [
+				"overlay:tag:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "lower-third-cascade-reveal.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "text:title-reveal:enter",
+					"event": "impact",
+					"start": 0.167,
+					"sample": "foley-drop"
+				},
+				{
+					"id": "text:subtitle-reveal:enter",
+					"event": "tick",
+					"start": 0.187,
+					"sample": "foley-tick"
+				},
+				{
+					"id": "overlay:main:enter",
+					"event": "impact",
+					"start": 0.92,
+					"sample": "foley-drop"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "lower-third-clean-light.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "overlay:main:enter",
+					"event": "impact",
+					"start": 0.28,
+					"sample": "foley-drop"
+				},
+				{
+					"id": "overlay:main:exit",
+					"event": "whoosh-out",
+					"start": 0.82,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "lower-third.json",
+			"kind": "deliverable",
+			"cues": [],
+			"mutedCueIds": [
+				"overlay:main:enter",
+				"overlay:main:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "newspaper-body-test.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "overlay:card-corner:enter",
+					"event": "impact",
+					"start": 0.148,
+					"sample": "foley-drop"
+				},
+				{
+					"id": "mark:0",
+					"event": "swipe",
+					"start": 0.18,
+					"sample": "foley-whoosh"
+				},
+				{
+					"id": "surface:exit",
+					"event": "whoosh-out",
+					"start": 0.915,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "ntsc-signal-demo.json",
+			"kind": "fixture",
+			"cues": [],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "optical-glass-photo-fixture.json",
+			"kind": "fixture",
+			"cues": [],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "optical-lens-showcase.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "mark:0",
+					"event": "tick",
+					"start": 0.12,
+					"sample": "foley-tick"
+				},
+				{
+					"id": "surface:exit",
+					"event": "whoosh-out",
+					"start": 0.978,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "plastic-msw-destinations.json",
+			"kind": "deliverable",
+			"cues": [],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "pullquote-cinematic.json",
+			"kind": "deliverable",
+			"cues": [],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "pullquote-on-photo.json",
+			"kind": "deliverable",
+			"cues": [],
+			"mutedCueIds": [
+				"surface:enter",
+				"text:quote-reveal:enter",
+				"surface:exit",
+				"text:quote-reveal:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "quote-lift-out.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "mark:0",
+					"event": "tick",
+					"start": 0.17,
+					"sample": "foley-switch"
+				},
+				{
+					"id": "mark:1",
+					"event": "scratch",
+					"start": 0.19,
+					"sample": "foley-glide"
+				},
+				{
+					"id": "surface:exit",
+					"event": "whoosh-out",
+					"start": 0.86,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "quote-magnify.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "mark:0",
+					"event": "tick",
+					"start": 0.16,
+					"sample": "foley-switch"
+				},
+				{
+					"id": "mark:1",
+					"event": "scratch",
+					"start": 0.18,
+					"sample": "foley-glide"
+				},
+				{
+					"id": "surface:exit",
+					"event": "whoosh-out",
+					"start": 0.92,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "quote-tear-out.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "mark:0",
+					"event": "tick",
+					"start": 0.17,
+					"sample": "foley-switch"
+				},
+				{
+					"id": "mark:1",
+					"event": "scratch",
+					"start": 0.19,
+					"sample": "foley-glide"
+				},
+				{
+					"id": "surface:exit",
+					"event": "whoosh-out",
+					"start": 0.86,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "quote-vertical.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "mark:0",
+					"event": "swipe",
+					"start": 0.34,
+					"sample": "foley-whoosh"
+				},
+				{
+					"id": "surface:exit",
+					"event": "whoosh-out",
+					"start": 0.84,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "research-paper-attention.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "mark:0",
+					"event": "swipe",
+					"start": 0.16,
+					"sample": "foley-whoosh"
+				},
+				{
+					"id": "surface:exit",
+					"event": "whoosh-out",
+					"start": 0.93,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "research-paper-critique.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "mark:0",
+					"event": "swipe",
+					"start": 0.17,
+					"sample": "foley-whoosh"
+				},
+				{
+					"id": "mark:1",
+					"event": "scratch",
+					"start": 0.41,
+					"sample": "foley-glide"
+				},
+				{
+					"id": "mark:2",
+					"event": "scratch",
+					"start": 0.6,
+					"sample": "foley-glide"
+				},
+				{
+					"id": "surface:exit",
+					"event": "whoosh-out",
+					"start": 0.86,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "server-renders-again.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "mark:0",
+					"event": "scratch",
+					"start": 0.35,
+					"sample": "foley-glide"
+				},
+				{
+					"id": "surface:exit",
+					"event": "whoosh-out",
+					"start": 0.915,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "shader-fill-demo.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "overlay:panel:enter",
+					"event": "impact",
+					"start": 0.108,
+					"sample": "foley-drop"
+				}
+			],
+			"mutedCueIds": [
+				"surface:enter",
+				"overlay:panel:exit",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "shader-fill-syntax-gradient.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "overlay:panel:enter",
+					"event": "impact",
+					"start": 0.06,
+					"sample": "foley-drop"
+				}
+			],
+			"mutedCueIds": [
+				"surface:enter",
+				"overlay:panel:exit",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "show-open-in-focus.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "text:kicker-fade:enter",
+					"event": "tick",
+					"start": 0.055,
+					"sample": "foley-tick"
+				},
+				{
+					"id": "text:title-rise:enter",
+					"event": "impact",
+					"start": 0.169,
+					"sample": "foley-denied"
+				},
+				{
+					"id": "overlay:episode-plate:enter",
+					"event": "impact",
+					"start": 0.331,
+					"sample": "foley-drop"
+				}
+			],
+			"mutedCueIds": [
+				"surface:enter",
+				"overlay:episode-plate:exit",
+				"text:title-rise:exit",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "sound-escape-hatches.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "overlay:signature:enter",
+					"event": "whoosh-in",
+					"start": 0.18,
+					"sample": "foley-complete"
+				},
+				{
+					"id": "mark:0",
+					"event": "pop",
+					"start": 0.38,
+					"sample": "foley-pop"
+				}
+			],
+			"mutedCueIds": [
+				"surface:enter",
+				"overlay:signature:exit",
+				"surface:exit"
+			],
+			"manualCues": [
+				{
+					"id": "bed",
+					"assetSlug": "foley-latch",
+					"kind": "bed"
+				},
+				{
+					"id": "outro-accent",
+					"assetSlug": "foley-drop",
+					"kind": "cue"
+				}
+			]
+		},
+		{
+			"file": "text-3d-cylinder.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "overlay:main:enter",
+					"event": "impact",
+					"start": 0.06,
+					"sample": "foley-drop"
+				},
+				{
+					"id": "overlay:sig:enter",
+					"event": "impact",
+					"start": 0.066,
+					"sample": "foley-drop"
+				},
+				{
+					"id": "overlay:main:exit",
+					"event": "whoosh-out",
+					"start": 0.88,
+					"sample": "foley-glide"
+				}
+			],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "text-anim-showcase-generic.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "text:body-fade:enter",
+					"event": "tick",
+					"start": 0.1,
+					"sample": "foley-tick"
+				},
+				{
+					"id": "mark:0",
+					"event": "swipe",
+					"start": 0.13,
+					"sample": "foley-whoosh"
+				},
+				{
+					"id": "text:source-url:enter",
+					"event": "tick",
+					"start": 0.14,
+					"sample": "foley-tick"
+				},
+				{
+					"id": "text:title-reveal:enter",
+					"event": "impact",
+					"start": 0.14,
+					"sample": "foley-drop"
+				},
+				{
+					"id": "overlay:main:enter",
+					"event": "impact",
+					"start": 0.23,
+					"sample": "foley-drop"
+				},
+				{
+					"id": "surface:exit",
+					"event": "whoosh-out",
+					"start": 0.94,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [
+				"overlay:main:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "text-anim-showcase-kinetic-center-build.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "text:title-kinetic:enter",
+					"event": "impact",
+					"start": 0.3,
+					"sample": "foley-drop"
+				},
+				{
+					"id": "surface:exit",
+					"event": "whoosh-out",
+					"start": 0.92,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [
+				"text:title-kinetic:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "text-anim-showcase-kinetic-top-build.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "text:title-kinetic-top:enter",
+					"event": "impact",
+					"start": 0.34,
+					"sample": "foley-drop"
+				},
+				{
+					"id": "surface:exit",
+					"event": "whoosh-out",
+					"start": 0.92,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [
+				"text:title-kinetic-top:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "text-anim-showcase-shared-slide-opacity.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "text:title-shared-slide:enter",
+					"event": "impact",
+					"start": 0.28,
+					"sample": "foley-drop"
+				},
+				{
+					"id": "surface:exit",
+					"event": "whoosh-out",
+					"start": 0.92,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [
+				"text:title-shared-slide:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "tiled-deformation-demo.json",
+			"kind": "fixture",
+			"cues": [],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "title-card-newspaper.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "overlay:card-corner:enter",
+					"event": "impact",
+					"start": 0.148,
+					"sample": "foley-drop"
+				},
+				{
+					"id": "surface:exit",
+					"event": "whoosh-out",
+					"start": 0.915,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "title-sequence-drop.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "impact",
+					"start": 0.2,
+					"sample": "foley-denied"
+				},
+				{
+					"id": "text:kicker-fade:enter",
+					"event": "tick",
+					"start": 0.24,
+					"sample": "foley-tick"
+				}
+			],
+			"mutedCueIds": [
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "title-sequence-signal.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "text:kicker-fade:enter",
+					"event": "tick",
+					"start": 0.06,
+					"sample": "foley-tick"
+				},
+				{
+					"id": "text:title-rise:enter",
+					"event": "impact",
+					"start": 0.2,
+					"sample": "foley-denied"
+				}
+			],
+			"mutedCueIds": [
+				"surface:enter",
+				"text:title-rise:exit",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "transition-particle-dissolve-demo.json",
+			"kind": "fixture",
+			"cues": [],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "transition-seeded-shatter-demo.json",
+			"kind": "fixture",
+			"cues": [],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "transition-sheet-peel-demo.json",
+			"kind": "fixture",
+			"cues": [],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "transition-wipe-demo.json",
+			"kind": "fixture",
+			"cues": [],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "tweet-stack-reaction-flood.json",
+			"kind": "fixture",
+			"cues": [],
+			"mutedCueIds": [],
+			"manualCues": [
+				{
+					"id": "tweet-arrival-1",
+					"assetSlug": "foley-tick",
+					"kind": "cue"
+				},
+				{
+					"id": "tweet-arrival-2",
+					"assetSlug": "foley-tick",
+					"kind": "cue"
+				},
+				{
+					"id": "tweet-arrival-3",
+					"assetSlug": "foley-tick",
+					"kind": "cue"
+				},
+				{
+					"id": "tweet-arrival-4",
+					"assetSlug": "foley-tick",
+					"kind": "cue"
+				},
+				{
+					"id": "tweet-arrival-5",
+					"assetSlug": "foley-tick",
+					"kind": "cue"
+				},
+				{
+					"id": "tweet-arrival-6",
+					"assetSlug": "foley-tick",
+					"kind": "cue"
+				},
+				{
+					"id": "tweet-arrival-7",
+					"assetSlug": "foley-tick",
+					"kind": "cue"
+				},
+				{
+					"id": "tweet-arrival-8",
+					"assetSlug": "foley-tick",
+					"kind": "cue"
+				}
+			]
+		},
+		{
+			"file": "type-hero-drift.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "text:subtitle-fade:enter",
+					"event": "tick",
+					"start": 0.18,
+					"sample": "foley-tick"
+				}
+			],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "type-hero-vantage-clean-light.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "text:hero-resolve:enter",
+					"event": "impact",
+					"start": 0.1,
+					"sample": "foley-denied"
+				},
+				{
+					"id": "text:stamp-fade:enter",
+					"event": "tick",
+					"start": 0.22,
+					"sample": "foley-tick"
+				},
+				{
+					"id": "surface:exit",
+					"event": "whoosh-out",
+					"start": 0.92,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [
+				"surface:enter"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "type-hero-vantage.json",
+			"kind": "deliverable",
+			"cues": [],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "wake-conversation-flow.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "block:wake-listening:enter",
+					"event": "pop",
+					"start": 0.094,
+					"sample": "foley-pop"
+				},
+				{
+					"id": "block:wake-listening-to-phrase:enter",
+					"event": "draw",
+					"start": 0.148,
+					"sample": "foley-rise"
+				},
+				{
+					"id": "block:wake-phrase:enter",
+					"event": "pop",
+					"start": 0.196,
+					"sample": "foley-pop"
+				},
+				{
+					"id": "block:wake-retry:enter",
+					"event": "draw",
+					"start": 0.281,
+					"sample": "foley-rise"
+				},
+				{
+					"id": "block:wake-to-hermes:enter",
+					"event": "draw",
+					"start": 0.326,
+					"sample": "foley-rise"
+				},
+				{
+					"id": "block:hermes-reply:enter",
+					"event": "pop",
+					"start": 0.374,
+					"sample": "foley-pop"
+				},
+				{
+					"id": "block:hermes-to-conversation:enter",
+					"event": "draw",
+					"start": 0.428,
+					"sample": "foley-rise"
+				},
+				{
+					"id": "block:conversation:enter",
+					"event": "pop",
+					"start": 0.476,
+					"sample": "foley-pop"
+				},
+				{
+					"id": "block:conversation-to-stop:enter",
+					"event": "draw",
+					"start": 0.53,
+					"sample": "foley-rise"
+				},
+				{
+					"id": "block:stop-phrase:enter",
+					"event": "pop",
+					"start": 0.578,
+					"sample": "foley-pop"
+				},
+				{
+					"id": "block:conversation-retry:enter",
+					"event": "draw",
+					"start": 0.661,
+					"sample": "foley-rise"
+				},
+				{
+					"id": "block:stop-to-sleep:enter",
+					"event": "draw",
+					"start": 0.701,
+					"sample": "foley-rise"
+				},
+				{
+					"id": "block:sleep:enter",
+					"event": "pop",
+					"start": 0.749,
+					"sample": "foley-pop"
+				},
+				{
+					"id": "block:sleep-to-wake-listening:enter",
+					"event": "draw",
+					"start": 0.799,
+					"sample": "foley-rise"
+				}
+			],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "washi-tape-corner-accent.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "overlay:tape-tl:enter",
+					"event": "impact",
+					"start": 0.09,
+					"sample": "foley-drop"
+				},
+				{
+					"id": "overlay:tape-tr:enter",
+					"event": "impact",
+					"start": 0.1,
+					"sample": "foley-drop"
+				},
+				{
+					"id": "surface:exit",
+					"event": "whoosh-out",
+					"start": 0.93,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "water-demo.json",
+			"kind": "fixture",
+			"cues": [],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "watermark-channel-sig.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "overlay:sig:enter",
+					"event": "impact",
+					"start": 0.12,
+					"sample": "foley-drop"
+				}
+			],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "watermark-demo.json",
+			"kind": "fixture",
+			"cues": [
+				{
+					"id": "overlay:sig:enter",
+					"event": "impact",
+					"start": 0.2,
+					"sample": "foley-drop"
+				}
+			],
+			"mutedCueIds": [
+				"surface:enter",
+				"surface:exit"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "web-document-github.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "mark:0",
+					"event": "swipe",
+					"start": 0.2,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "web-document-hackernews.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "mark:0",
+					"event": "swipe",
+					"start": 0.2,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "web-document-news.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "mark:0",
+					"event": "swipe",
+					"start": 0.2,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "web-document-reddit.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "mark:0",
+					"event": "swipe",
+					"start": 0.2,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "web-document-twitter.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "mark:0",
+					"event": "swipe",
+					"start": 0.2,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [
+				"surface:enter"
+			],
+			"manualCues": []
+		},
+		{
+			"file": "web-document-wikipedia.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "mark:0",
+					"event": "swipe",
+					"start": 0.2,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "web-document-youtube.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "mark:0",
+					"event": "swipe",
+					"start": 0.2,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "website-showcase.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "surface:enter",
+					"event": "whoosh-in",
+					"start": 0,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "overlay:source:enter",
+					"event": "whoosh-in",
+					"start": 0.09,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "overlay:source:exit",
+					"event": "whoosh-out",
+					"start": 0.883,
+					"sample": "foley-whoosh"
+				},
+				{
+					"id": "surface:exit",
+					"event": "whoosh-out",
+					"start": 0.9,
+					"sample": "foley-whoosh"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		},
+		{
+			"file": "youtube-subscribe-demo.json",
+			"kind": "deliverable",
+			"cues": [
+				{
+					"id": "overlay:sub-card:enter",
+					"event": "whoosh-in",
+					"start": 0.08,
+					"sample": "foley-swoosh"
+				},
+				{
+					"id": "overlay:sub-card:beat",
+					"event": "click",
+					"start": 0.42,
+					"sample": "foley-tap"
+				},
+				{
+					"id": "overlay:sub-card:exit",
+					"event": "whoosh-out",
+					"start": 0.88,
+					"sample": "foley-glide"
+				}
+			],
+			"mutedCueIds": [],
+			"manualCues": []
+		}
+	],
+	"samples": [
+		{
+			"sample": "foley-whoosh",
+			"cueCount": 39,
+			"presets": [
+				"annotation-box-demo.json",
+				"checklist-project-setup.json",
+				"checklist-show-rundown.json",
+				"chromatic-aberration-demo.json",
+				"depth-of-field-tabletop.json",
+				"depth-stage-demo.json",
+				"isolate-demo.json",
+				"keyframes-cascade-demo.json",
+				"lower-third-clean-light.json",
+				"newspaper-body-test.json",
+				"optical-lens-showcase.json",
+				"quote-lift-out.json",
+				"quote-magnify.json",
+				"quote-tear-out.json",
+				"quote-vertical.json",
+				"research-paper-attention.json",
+				"research-paper-critique.json",
+				"server-renders-again.json",
+				"text-anim-showcase-generic.json",
+				"text-anim-showcase-kinetic-center-build.json",
+				"text-anim-showcase-kinetic-top-build.json",
+				"text-anim-showcase-shared-slide-opacity.json",
+				"title-card-newspaper.json",
+				"type-hero-vantage-clean-light.json",
+				"washi-tape-corner-accent.json",
+				"web-document-github.json",
+				"web-document-hackernews.json",
+				"web-document-news.json",
+				"web-document-reddit.json",
+				"web-document-twitter.json",
+				"web-document-wikipedia.json",
+				"web-document-youtube.json",
+				"website-showcase.json"
+			]
+		},
+		{
+			"sample": "foley-swoosh",
+			"cueCount": 35,
+			"presets": [
+				"annotation-box-demo.json",
+				"checklist-project-setup.json",
+				"checklist-show-rundown.json",
+				"chromatic-aberration-demo.json",
+				"depth-of-field-tabletop.json",
+				"depth-stage-demo.json",
+				"diagram-schema-fixture.json",
+				"dof-multiplane-check.json",
+				"instagram-follow-demo.json",
+				"isolate-demo.json",
+				"keyframes-cascade-demo.json",
+				"newspaper-body-test.json",
+				"optical-lens-showcase.json",
+				"quote-lift-out.json",
+				"quote-magnify.json",
+				"quote-tear-out.json",
+				"quote-vertical.json",
+				"research-paper-attention.json",
+				"research-paper-critique.json",
+				"server-renders-again.json",
+				"text-anim-showcase-generic.json",
+				"text-anim-showcase-kinetic-center-build.json",
+				"text-anim-showcase-kinetic-top-build.json",
+				"text-anim-showcase-shared-slide-opacity.json",
+				"title-card-newspaper.json",
+				"washi-tape-corner-accent.json",
+				"web-document-github.json",
+				"web-document-hackernews.json",
+				"web-document-news.json",
+				"web-document-reddit.json",
+				"web-document-wikipedia.json",
+				"web-document-youtube.json",
+				"website-showcase.json",
+				"youtube-subscribe-demo.json"
+			]
+		},
+		{
+			"sample": "foley-drop",
+			"cueCount": 31,
+			"presets": [
+				"counter-demo.json",
+				"counter-milestone.json",
+				"cursor-trail-demo.json",
+				"cursor-trail-title-sweep.json",
+				"depth-of-field-bokeh.json",
+				"depth-of-field-rack-focus.json",
+				"depth-stage-demo.json",
+				"dof-multiplane-check.json",
+				"instance-stack-vertical.json",
+				"keyframes-cascade-demo.json",
+				"lower-third-cascade-reveal.json",
+				"lower-third-clean-light.json",
+				"newspaper-body-test.json",
+				"shader-fill-demo.json",
+				"shader-fill-syntax-gradient.json",
+				"show-open-in-focus.json",
+				"sound-escape-hatches.json",
+				"text-3d-cylinder.json",
+				"text-anim-showcase-generic.json",
+				"text-anim-showcase-kinetic-center-build.json",
+				"text-anim-showcase-kinetic-top-build.json",
+				"text-anim-showcase-shared-slide-opacity.json",
+				"title-card-newspaper.json",
+				"washi-tape-corner-accent.json",
+				"watermark-channel-sig.json",
+				"watermark-demo.json"
+			]
+		},
+		{
+			"sample": "foley-tick",
+			"cueCount": 22,
+			"presets": [
+				"chapter-card-descent.json",
+				"docu-timeline-build.json",
+				"lower-third-cascade-reveal.json",
+				"optical-lens-showcase.json",
+				"show-open-in-focus.json",
+				"text-anim-showcase-generic.json",
+				"title-sequence-drop.json",
+				"title-sequence-signal.json",
+				"tweet-stack-reaction-flood.json",
+				"type-hero-drift.json",
+				"type-hero-vantage-clean-light.json"
+			]
+		},
+		{
+			"sample": "foley-rise",
+			"cueCount": 19,
+			"presets": [
+				"achievement-complete.json",
+				"diagram-schema-fixture.json",
+				"docu-flowchart.json",
+				"docu-map-journey.json",
+				"docu-timeline-build-clean-light.json",
+				"wake-conversation-flow.json"
+			]
+		},
+		{
+			"sample": "foley-glide",
+			"cueCount": 17,
+			"presets": [
+				"achievement-complete.json",
+				"achievement-unlocked.json",
+				"checklist-project-setup.json",
+				"counter-demo.json",
+				"counter-milestone.json",
+				"instagram-follow-demo.json",
+				"instance-stack-vertical.json",
+				"quote-lift-out.json",
+				"quote-magnify.json",
+				"quote-tear-out.json",
+				"research-paper-critique.json",
+				"server-renders-again.json",
+				"text-3d-cylinder.json",
+				"youtube-subscribe-demo.json"
+			]
+		},
+		{
+			"sample": "foley-pop",
+			"cueCount": 17,
+			"presets": [
+				"achievement-unlocked.json",
+				"diagram-schema-fixture.json",
+				"docu-flowchart.json",
+				"docu-map-journey.json",
+				"sound-escape-hatches.json",
+				"wake-conversation-flow.json"
+			]
+		},
+		{
+			"sample": "message-pop",
+			"cueCount": 6,
+			"presets": [
+				"imessage-friday-deploy.json",
+				"imessage-the-bug-dark.json",
+				"imessage-the-bug.json"
+			]
+		},
+		{
+			"sample": "foley-switch",
+			"cueCount": 5,
+			"presets": [
+				"annotation-box-demo.json",
+				"isolate-demo.json",
+				"quote-lift-out.json",
+				"quote-magnify.json",
+				"quote-tear-out.json"
+			]
+		},
+		{
+			"sample": "foley-denied",
+			"cueCount": 5,
+			"presets": [
+				"chapter-card-descent.json",
+				"show-open-in-focus.json",
+				"title-sequence-drop.json",
+				"title-sequence-signal.json",
+				"type-hero-vantage-clean-light.json"
+			]
+		},
+		{
+			"sample": "message-send",
+			"cueCount": 4,
+			"presets": [
+				"imessage-friday-deploy.json",
+				"imessage-the-bug-dark.json",
+				"imessage-the-bug.json"
+			]
+		},
+		{
+			"sample": "foley-tap",
+			"cueCount": 3,
+			"presets": [
+				"achievement-complete.json",
+				"instagram-follow-demo.json",
+				"youtube-subscribe-demo.json"
+			]
+		},
+		{
+			"sample": "tapback-heart",
+			"cueCount": 2,
+			"presets": [
+				"imessage-the-bug-dark.json",
+				"imessage-the-bug.json"
+			]
+		},
+		{
+			"sample": "tapback-emphasize",
+			"cueCount": 1,
+			"presets": [
+				"imessage-friday-deploy.json"
+			]
+		},
+		{
+			"sample": "foley-complete",
+			"cueCount": 1,
+			"presets": [
+				"sound-escape-hatches.json"
+			]
+		},
+		{
+			"sample": "foley-latch",
+			"cueCount": 1,
+			"presets": [
+				"sound-escape-hatches.json"
+			]
+		}
+	]
+}
