@@ -1,0 +1,10 @@
+type: '@club_aqua_back_deck/software-factory-sentry-metrics'
+typeVersion: 2026.08.07.2
+id: 20dc0c74-fde2-4e58-89b4-af6bbfc3daec
+name: supers-factory-sentry-metrics
+version: 1
+tags:
+  purpose: factory-effectiveness-metrics
+globalArguments:
+  dsn: '${{ vault.get(factory-observability-sentry, SENTRY_DSN) }}'
+methods: {}

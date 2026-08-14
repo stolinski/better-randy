@@ -10,9 +10,16 @@
  * @module
  */
 import * as Sentry from "npm:@sentry/node@10.67.0";
-import { z } from "npm:zod@4";
+import { z } from "npm:zod@4.4.3";
 
-export const FACTORY_METRIC_MODEL_VERSION = "2026.08.05.1";
+import {
+  buildFlowMetricsReport,
+  loadMetricsData,
+  workItemSlug,
+} from "../../.swamp/pulled-extensions/@mgreten/software-factory-flow-metrics/reports/flow_metrics_report.ts";
+import type { RunDataReader } from "../../.swamp/pulled-extensions/@mgreten/software-factory-flow-metrics/reports/flow_metrics_report.ts";
+
+export const FACTORY_METRIC_MODEL_VERSION = "2026.08.09.1";
 const SENTRY_SDK_VERSION = "10.67.0";
 const MAX_DURATION_MS = 315_576_000_000;
 const MAX_COUNT = 1_000_000;
@@ -22,6 +29,18 @@ const BoundedNameSchema = z
   .min(1)
   .max(64)
   .regex(/^[a-z0-9][a-z0-9._-]*$/);
+
+const FactoryMetricSeriesIdentitySchema = z.strictObject({
+  project: BoundedNameSchema,
+  name: BoundedNameSchema,
+  profile: BoundedNameSchema,
+});
+
+const FactoryMetricIdentitySchema = FactoryMetricSeriesIdentitySchema.extend({
+  definition_version: z.number().int().nonnegative().max(
+    Number.MAX_SAFE_INTEGER,
+  ),
+});
 
 export const FactoryMetricGlobalArgsSchema = z.strictObject({
   dsn: z.string().url().max(2_048).optional().meta({ sensitive: true }),
@@ -58,6 +77,30 @@ const StageDurationSchema = z.strictObject({
   durationMs: z.number().finite().nonnegative().max(MAX_DURATION_MS),
 });
 
+const StageProfileSchema = z.strictObject({
+  stage: BoundedNameSchema,
+  entries: z.number().int().nonnegative().max(MAX_COUNT),
+  firstEnteredMs: z.number().finite().nonnegative().max(MAX_DURATION_MS)
+    .nullable(),
+  dispatchAttempts: z.number().int().nonnegative().max(MAX_COUNT),
+});
+
+const AvailableStageProfilesSchema = z.discriminatedUnion("availability", [
+  z.strictObject({
+    availability: z.literal("available"),
+    value: z.array(StageProfileSchema).max(128),
+  }),
+  z.strictObject({ availability: z.literal("unavailable") }),
+]);
+
+const AvailableFailedStageSchema = z.discriminatedUnion("availability", [
+  z.strictObject({
+    availability: z.literal("available"),
+    value: BoundedNameSchema.nullable(),
+  }),
+  z.strictObject({ availability: z.literal("unavailable") }),
+]);
+
 const AvailableStageDurationsSchema = z.discriminatedUnion("availability", [
   z.strictObject({
     availability: z.literal("available"),
@@ -73,17 +116,16 @@ const AvailableStageDurationsSchema = z.discriminatedUnion("availability", [
   z.strictObject({ availability: z.literal("unavailable") }),
 ]);
 
-/** Strict input contract for one terminal Factory run. */
-export const FactoryMetricEmissionArgsSchema = z.strictObject({
+/**
+ * Strict serialized contract for one terminal Factory run.
+ *
+ * Swamp merges resolved global arguments into the runtime validation envelope;
+ * `z.object` strips that known envelope before execution while the generated
+ * method JSON Schema and every nested payload remain closed to caller extras.
+ */
+export const FactoryMetricEmissionArgsSchema = z.object({
   idempotencyKey: z.string().min(1).max(256).meta({ sensitive: true }),
-  factory: z.strictObject({
-    project: BoundedNameSchema,
-    name: BoundedNameSchema,
-    profile: BoundedNameSchema,
-    definition_version: z.number().int().nonnegative().max(
-      Number.MAX_SAFE_INTEGER,
-    ),
-  }),
+  factory: FactoryMetricIdentitySchema,
   terminal: z.strictObject({
     outcome: z.enum(["done", "cleanup-required", "parked", "aborted"]),
     duration: AvailableDurationSchema,
@@ -93,6 +135,18 @@ export const FactoryMetricEmissionArgsSchema = z.strictObject({
     patchCycles: AvailableCountSchema,
     acceptedFirstPass: AvailableBooleanSchema,
     visualReviewUsed: AvailableBooleanSchema,
+    stageProfiles: AvailableStageProfilesSchema.default({
+      availability: "unavailable",
+    }),
+    failedStage: AvailableFailedStageSchema.default({
+      availability: "unavailable",
+    }),
+    humanTouches: AvailableCountSchema.default({ availability: "unavailable" }),
+    approvals: AvailableCountSchema.default({ availability: "unavailable" }),
+    rejections: AvailableCountSchema.default({ availability: "unavailable" }),
+    cycleOverrides: AvailableCountSchema.default({
+      availability: "unavailable",
+    }),
   }),
 });
 
@@ -100,10 +154,104 @@ export type FactoryMetricEmissionArgs = z.infer<
   typeof FactoryMetricEmissionArgsSchema
 >;
 
+const MetricSourceSchema = z.object({
+  kind: z.enum(["state", "journal", "artifact", "evidence", "approval"]),
+  name: z.string().min(1),
+  version: z.number().int().positive().optional(),
+});
+
+const TracedNumberSchema = z.object({
+  value: z.number().finite().nonnegative().nullable(),
+  sources: z.array(MetricSourceSchema),
+});
+
+const TrustedCountSchema = z.object({
+  value: z.number().int().nonnegative().nullable(),
+  availability: z.enum(["available", "partial", "unavailable"]),
+});
+
+const FlowStageSchema = z.object({
+  stageId: BoundedNameSchema,
+  entries: z.number().int().nonnegative().max(MAX_COUNT),
+  totalMs: z.number().finite().nonnegative().nullable(),
+  durationAvailability: z.enum(["available", "partial", "unavailable"]),
+  firstEnteredMs: z.number().finite().nonnegative().nullable(),
+  dispatchAttempts: z.number().int().nonnegative().max(MAX_COUNT),
+  terminal: z.boolean(),
+});
+
+/** Canonical flow-report fields consumed by the Sentry projection. */
+const FactoryFlowMetricReportSchema = z.object({
+  workItem: z.string().min(1),
+  metrics: z.object({
+    workItem: z.string().min(1),
+    runStatus: z.enum(["active", "terminal", "unknown"]),
+    timeToTerminalMs: TracedNumberSchema,
+    stages: z.array(FlowStageSchema).max(128),
+    dispatchAttempts: TracedNumberSchema,
+    failedStage: z.object({
+      value: BoundedNameSchema.nullable(),
+      sources: z.array(MetricSourceSchema),
+    }),
+    humanTouches: TracedNumberSchema,
+    approvals: z.number().int().nonnegative().max(MAX_COUNT),
+    rejections: z.number().int().nonnegative().max(MAX_COUNT),
+    cycleOverrides: z.object({
+      count: z.number().int().nonnegative().max(MAX_COUNT),
+    }),
+    patchCycles: TracedNumberSchema,
+    outcome: z.object({
+      value: z.enum([
+        "done",
+        "cleanup-required",
+        "parked",
+        "aborted",
+        "active",
+        "unknown",
+      ]),
+      sources: z.array(MetricSourceSchema),
+    }),
+    acceptedFirstPass: z.boolean(),
+    journalTruncated: z.boolean(),
+    ceremony: z.object({
+      distinctDecisionCount: TrustedCountSchema,
+    }),
+  }),
+});
+
+export const FactoryFlowMetricEmissionArgsSchema = z.strictObject({
+  factory: FactoryMetricIdentitySchema,
+  visualReviewStages: z.array(BoundedNameSchema).max(16),
+  report: FactoryFlowMetricReportSchema,
+});
+
+export type FactoryFlowMetricEmissionArgs = z.infer<
+  typeof FactoryFlowMetricEmissionArgsSchema
+>;
+
+// See FactoryMetricEmissionArgsSchema: strip Swamp's merged global envelope.
+export const FactoryFlowMetricSourceArgsSchema = z.object({
+  workItem: z.string().min(1).max(256),
+  sourceFactory: z.strictObject({
+    id: z.string().uuid(),
+    name: BoundedNameSchema,
+  }),
+  factory: FactoryMetricSeriesIdentitySchema,
+  visualReviewStages: z.array(BoundedNameSchema).max(16),
+});
+
+export type FactoryFlowMetricSourceArgs = z.infer<
+  typeof FactoryFlowMetricSourceArgsSchema
+>;
+
 /** Typed, secret-free record of an emission attempt. */
 export const FactoryMetricEmissionReceiptSchema = z.strictObject({
   schemaVersion: z.literal(1),
-  emitterVersion: z.literal(FACTORY_METRIC_MODEL_VERSION),
+  emitterVersion: z.enum([
+    "2026.08.06.1",
+    "2026.08.07.1",
+    FACTORY_METRIC_MODEL_VERSION,
+  ]),
   sentrySdkVersion: z.literal(SENTRY_SDK_VERSION),
   emissionKeyHash: z.string().regex(/^[a-f0-9]{64}$/),
   recordedAt: z.string().datetime(),
@@ -117,20 +265,24 @@ export const FactoryMetricEmissionReceiptSchema = z.strictObject({
   ]),
   flush: z.enum(["succeeded", "failed", "not-attempted"]),
   metricPoints: z.number().int().nonnegative(),
-  factory: z.strictObject({
-    project: BoundedNameSchema,
-    name: BoundedNameSchema,
-    profile: BoundedNameSchema,
-    definition_version: z.number().int().nonnegative().max(
-      Number.MAX_SAFE_INTEGER,
-    ),
-  }),
+  factory: FactoryMetricIdentitySchema,
   outcome: z.enum(["done", "cleanup-required", "parked", "aborted"]),
 });
 
 type FactoryMetricEmissionReceipt = z.infer<
   typeof FactoryMetricEmissionReceiptSchema
 >;
+
+/** Local control-plane result proving whether one terminal run has a receipt. */
+export const FactoryMetricCoverageSchema = z.strictObject({
+  schemaVersion: z.literal(1),
+  checkedAt: z.string().datetime(),
+  status: z.enum(["observed", "degraded", "missing"]),
+  expectedReceipt: z.string().regex(/^receipt-[a-f0-9]{64}$/),
+  receiptStatus: FactoryMetricEmissionReceiptSchema.shape.status.nullable(),
+  factory: FactoryMetricIdentitySchema,
+  outcome: z.enum(["done", "cleanup-required", "parked", "aborted"]),
+});
 
 type MetricAttributeValue = string | number | boolean;
 type MetricOptions = {
@@ -143,6 +295,7 @@ export interface FactoryMetricSink {
   count(name: string, value: number, options: MetricOptions): void;
   distribution(name: string, value: number, options: MetricOptions): void;
   gauge(name: string, value: number, options: MetricOptions): void;
+  trace?(args: FactoryMetricEmissionArgs): void;
   flush(timeoutMs: number): Promise<boolean>;
 }
 
@@ -153,6 +306,19 @@ export type FactoryMetricMethodContext = {
     warning: (message: string, properties?: Record<string, unknown>) => void;
   };
   readResource: (name: string) => Promise<Record<string, unknown> | null>;
+  dataRepository: {
+    getContent: (
+      type: unknown,
+      modelId: string,
+      dataName: string,
+      version?: number,
+    ) => Promise<Uint8Array | null>;
+    listVersions?: (
+      type: unknown,
+      modelId: string,
+      dataName: string,
+    ) => Promise<number[]>;
+  };
   writeResource: (
     specName: string,
     name: string,
@@ -180,6 +346,10 @@ type EmissionResult = Pick<
   "status" | "reason" | "flush" | "metricPoints"
 >;
 
+type AvailableMetric<T> = { availability: "available"; value: T } | {
+  availability: "unavailable";
+};
+
 const COVERAGE_FACTS = [
   "factory.run.duration",
   "factory.stage.duration",
@@ -188,15 +358,255 @@ const COVERAGE_FACTS = [
   "factory.run.patch_cycles",
   "factory.run.accepted_first_pass",
   "factory.run.visual_review_used",
+  "factory.stage.profile",
+  "factory.run.failed_stage",
+  "factory.run.human_touches",
+  "factory.run.approvals",
+  "factory.run.rejections",
+  "factory.run.cycle_overrides",
 ] as const;
 
+const TERMINAL_OUTCOMES: ReadonlySet<string> = new Set(
+  [
+    "done",
+    "cleanup-required",
+    "parked",
+    "aborted",
+  ] as const,
+);
+
+function availableNumber(
+  value: number | null,
+  isComplete = true,
+): AvailableMetric<number> {
+  return value !== null && isComplete
+    ? { availability: "available", value }
+    : { availability: "unavailable" };
+}
+
+function availableBoolean(
+  value: boolean,
+  isComplete: boolean,
+): AvailableMetric<boolean> {
+  return isComplete
+    ? { availability: "available", value }
+    : { availability: "unavailable" };
+}
+
+function terminalEmissionKey(
+  report: FactoryFlowMetricEmissionArgs["report"],
+): string {
+  const terminalJournalSource = report.metrics.outcome.sources.find(
+    (source) => source.kind === "journal" && source.version !== undefined,
+  );
+  if (terminalJournalSource?.version === undefined) {
+    throw new TypeError(
+      "terminal flow report outcome must reference a versioned journal record",
+    );
+  }
+  return `${terminalJournalSource.name}:${terminalJournalSource.version}`;
+}
+
+function availableStageDurations(
+  stages: FactoryFlowMetricEmissionArgs["report"]["metrics"]["stages"],
+): FactoryMetricEmissionArgs["terminal"]["stageDurations"] {
+  const completedStages = stages.filter((stage) => !stage.terminal);
+  if (
+    completedStages.length === 0 ||
+    completedStages.some(
+      (stage) =>
+        stage.durationAvailability !== "available" || stage.totalMs === null,
+    )
+  ) {
+    return { availability: "unavailable" };
+  }
+  return {
+    availability: "available",
+    value: completedStages.map((stage) => ({
+      stage: stage.stageId,
+      durationMs: stage.totalMs as number,
+    })),
+  };
+}
+
+function availableStageProfiles(
+  stages: FactoryFlowMetricEmissionArgs["report"]["metrics"]["stages"],
+  isComplete: boolean,
+): FactoryMetricEmissionArgs["terminal"]["stageProfiles"] {
+  if (!isComplete) return { availability: "unavailable" };
+  return {
+    availability: "available",
+    value: stages.map((stage) => ({
+      stage: stage.stageId,
+      entries: stage.entries,
+      firstEnteredMs: stage.firstEnteredMs,
+      dispatchAttempts: stage.dispatchAttempts,
+    })),
+  };
+}
+
+function assertTerminalFlowReport(
+  report: FactoryFlowMetricEmissionArgs["report"],
+): void {
+  if (report.metrics.workItem !== report.workItem) {
+    throw new TypeError(
+      "flow report work item does not match its metrics payload",
+    );
+  }
+  if (report.metrics.runStatus !== "terminal") {
+    throw new TypeError(
+      "Factory metrics can only be emitted for terminal flow reports",
+    );
+  }
+  if (!TERMINAL_OUTCOMES.has(report.metrics.outcome.value)) {
+    throw new TypeError(
+      "Factory metrics can only be emitted for terminal flow reports",
+    );
+  }
+}
+
+/** Project one canonical terminal flow report into the strict emitter payload. */
+export function factoryMetricEmissionFromFlowReport(
+  args: FactoryFlowMetricEmissionArgs,
+): FactoryMetricEmissionArgs {
+  const { report } = args;
+  assertTerminalFlowReport(report);
+  const { metrics } = report;
+
+  const hasCompleteJournal = !metrics.journalTruncated;
+  const humanDecisions = metrics.ceremony.distinctDecisionCount;
+  const visualReviewUsed = availableBoolean(
+    metrics.stages.some((stage) =>
+      args.visualReviewStages.includes(stage.stageId)
+    ),
+    hasCompleteJournal,
+  );
+
+  return FactoryMetricEmissionArgsSchema.parse({
+    idempotencyKey: terminalEmissionKey(report),
+    factory: args.factory,
+    terminal: {
+      outcome: metrics.outcome.value,
+      duration: availableNumber(metrics.timeToTerminalMs.value),
+      stageDurations: availableStageDurations(metrics.stages),
+      dispatchAttempts: availableNumber(
+        metrics.dispatchAttempts.value,
+        hasCompleteJournal,
+      ),
+      humanDecisions: availableNumber(
+        humanDecisions.value,
+        humanDecisions.availability === "available",
+      ),
+      patchCycles: availableNumber(
+        metrics.patchCycles.value,
+        hasCompleteJournal,
+      ),
+      acceptedFirstPass: availableBoolean(
+        metrics.acceptedFirstPass,
+        hasCompleteJournal,
+      ),
+      visualReviewUsed,
+      stageProfiles: availableStageProfiles(metrics.stages, hasCompleteJournal),
+      failedStage: hasCompleteJournal
+        ? { availability: "available", value: metrics.failedStage.value }
+        : { availability: "unavailable" },
+      humanTouches: availableNumber(
+        metrics.humanTouches.value,
+        hasCompleteJournal,
+      ),
+      approvals: availableNumber(metrics.approvals, hasCompleteJournal),
+      rejections: availableNumber(metrics.rejections, hasCompleteJournal),
+      cycleOverrides: availableNumber(
+        metrics.cycleOverrides.count,
+        hasCompleteJournal,
+      ),
+    },
+  });
+}
+
+function recordFactoryRunTrace(args: FactoryMetricEmissionArgs): void {
+  const durationMs = args.terminal.duration.availability === "available"
+    ? args.terminal.duration.value
+    : 0;
+  const endedAt = new Date();
+  const startedAt = new Date(endedAt.getTime() - durationMs);
+  const sharedAttributes: Record<string, MetricAttributeValue> = {
+    "factory.project": args.factory.project,
+    "factory.name": args.factory.name,
+    "factory.profile": args.factory.profile,
+    "factory.definition_version": String(args.factory.definition_version),
+    outcome: args.terminal.outcome,
+    "factory.telemetry_source": "terminal-observer",
+    "factory.duration_available":
+      args.terminal.duration.availability === "available",
+  };
+  Sentry.startSpanManual(
+    {
+      name: `Factory ${args.factory.name}`,
+      op: "factory.run",
+      forceTransaction: true,
+      startTime: startedAt,
+      attributes: sharedAttributes,
+    },
+    (runSpan) => {
+      if (
+        args.terminal.duration.availability === "available" &&
+        args.terminal.stageProfiles.availability === "available"
+      ) {
+        const stageDurations = args.terminal.stageDurations.availability ===
+            "available"
+          ? new Map(
+            args.terminal.stageDurations.value.map((stage) => [
+              stage.stage,
+              stage.durationMs,
+            ]),
+          )
+          : new Map<string, number>();
+        for (const stage of args.terminal.stageProfiles.value) {
+          if (stage.firstEnteredMs === null) continue;
+          const stageStartedAt = new Date(
+            startedAt.getTime() + stage.firstEnteredMs,
+          );
+          const stageSpan = Sentry.startInactiveSpan({
+            name: stage.stage,
+            op: "factory.stage",
+            parentSpan: runSpan,
+            startTime: stageStartedAt,
+            attributes: {
+              ...sharedAttributes,
+              stage: stage.stage,
+              entries: stage.entries,
+              "dispatch.attempts": stage.dispatchAttempts,
+            },
+          });
+          const stageDurationMs = stageDurations.get(stage.stage) ?? 0;
+          stageSpan.end(
+            new Date(
+              Math.min(
+                endedAt.getTime(),
+                stageStartedAt.getTime() + stageDurationMs,
+              ),
+            ),
+          );
+        }
+      }
+      runSpan.end(endedAt);
+    },
+  );
+}
+
 function createSentryFactoryMetricSink(dsn: string): FactoryMetricSink {
-  Sentry.init({ dsn, defaultIntegrations: false });
+  Sentry.init({
+    dsn,
+    defaultIntegrations: false,
+    tracesSampleRate: 1,
+  });
   return {
     count: (name, value, options) => Sentry.metrics.count(name, value, options),
     distribution: (name, value, options) =>
       Sentry.metrics.distribution(name, value, options),
     gauge: (name, value, options) => Sentry.metrics.gauge(name, value, options),
+    trace: recordFactoryRunTrace,
     flush: (timeoutMs) => Sentry.flush(timeoutMs),
   };
 }
@@ -213,9 +623,9 @@ function availabilityValue(
 }
 
 function booleanAttribute(
-  fact:
-    | { availability: "available"; value: boolean }
-    | { availability: "unavailable" },
+  fact: { availability: "available"; value: boolean } | {
+    availability: "unavailable";
+  },
 ): boolean | "unavailable" {
   return fact.availability === "available" ? fact.value : "unavailable";
 }
@@ -250,6 +660,40 @@ function buildDurationMetricOperations(
   return operations;
 }
 
+function buildStageProfileMetricOperations(
+  args: FactoryMetricEmissionArgs,
+  sharedAttributes: Record<string, MetricAttributeValue>,
+): MetricOperation[] {
+  if (args.terminal.stageProfiles.availability !== "available") return [];
+  const operations: MetricOperation[] = [];
+  for (const stage of args.terminal.stageProfiles.value) {
+    const attributes = { ...sharedAttributes, stage: stage.stage };
+    operations.push(
+      {
+        kind: "distribution",
+        name: "factory.stage.entries",
+        value: stage.entries,
+        options: { attributes },
+      },
+      {
+        kind: "distribution",
+        name: "factory.stage.dispatch_attempts",
+        value: stage.dispatchAttempts,
+        options: { attributes },
+      },
+    );
+    if (stage.firstEnteredMs !== null) {
+      operations.push({
+        kind: "distribution",
+        name: "factory.stage.first_entered",
+        value: stage.firstEnteredMs,
+        options: { unit: "millisecond", attributes },
+      });
+    }
+  }
+  return operations;
+}
+
 function buildCountMetricOperations(
   args: FactoryMetricEmissionArgs,
   sharedAttributes: Record<string, MetricAttributeValue>,
@@ -259,6 +703,10 @@ function buildCountMetricOperations(
     ["factory.run.dispatch_attempts", args.terminal.dispatchAttempts],
     ["factory.run.human_decisions", args.terminal.humanDecisions],
     ["factory.run.patch_cycles", args.terminal.patchCycles],
+    ["factory.run.human_touches", args.terminal.humanTouches],
+    ["factory.run.approvals", args.terminal.approvals],
+    ["factory.run.rejections", args.terminal.rejections],
+    ["factory.run.cycle_overrides", args.terminal.cycleOverrides],
   ] as const;
   const operations: MetricOperation[] = [];
   for (const [name, fact] of distributionFacts) {
@@ -277,6 +725,22 @@ function buildCountMetricOperations(
       name: "factory.run.cleanup_failure",
       value: 1,
       options: { attributes: sharedAttributes },
+    });
+  }
+  if (
+    args.terminal.failedStage.availability === "available" &&
+    args.terminal.failedStage.value !== null
+  ) {
+    operations.push({
+      kind: "count",
+      name: "factory.run.failed_terminal",
+      value: 1,
+      options: {
+        attributes: {
+          ...outcomeAttributes,
+          "failed-stage": args.terminal.failedStage.value,
+        },
+      },
     });
   }
   return operations;
@@ -302,6 +766,14 @@ function buildCoverageMetricOperations(
     "factory.run.visual_review_used": availabilityValue(
       args.terminal.visualReviewUsed,
     ),
+    "factory.stage.profile": availabilityValue(args.terminal.stageProfiles),
+    "factory.run.failed_stage": availabilityValue(args.terminal.failedStage),
+    "factory.run.human_touches": availabilityValue(args.terminal.humanTouches),
+    "factory.run.approvals": availabilityValue(args.terminal.approvals),
+    "factory.run.rejections": availabilityValue(args.terminal.rejections),
+    "factory.run.cycle_overrides": availabilityValue(
+      args.terminal.cycleOverrides,
+    ),
   };
   return COVERAGE_FACTS.map((metric) => ({
     kind: "gauge",
@@ -319,7 +791,8 @@ export function buildFactoryMetricOperations(
     "factory.project": args.factory.project,
     "factory.name": args.factory.name,
     "factory.profile": args.factory.profile,
-    "factory.definition_version": args.factory.definition_version,
+    // Sentry custom attributes group reliably as strings across Trace Metrics queries.
+    "factory.definition_version": String(args.factory.definition_version),
   };
   const outcomeAttributes = {
     ...sharedAttributes,
@@ -342,11 +815,8 @@ export function buildFactoryMetricOperations(
         },
       },
     },
-    ...buildDurationMetricOperations(
-      args,
-      sharedAttributes,
-      outcomeAttributes,
-    ),
+    ...buildDurationMetricOperations(args, sharedAttributes, outcomeAttributes),
+    ...buildStageProfileMetricOperations(args, sharedAttributes),
     ...buildCountMetricOperations(args, sharedAttributes, outcomeAttributes),
     ...buildCoverageMetricOperations(args, sharedAttributes),
   ];
@@ -369,9 +839,7 @@ async function emissionKeyHash(
   return Array.from(
     new Uint8Array(digest),
     (byte) => byte.toString(16).padStart(2, "0"),
-  ).join(
-    "",
-  );
+  ).join("");
 }
 
 function isFinalReceipt(value: Record<string, unknown> | null): boolean {
@@ -415,20 +883,27 @@ async function writeEmissionReceipt(
   return { dataHandles: [handle] };
 }
 
-function emitMetricOperations(
+function emitFactoryTelemetry(
   sink: FactoryMetricSink,
+  args: FactoryMetricEmissionArgs,
   operations: MetricOperation[],
 ): { failed: boolean; metricPoints: number } {
+  let failed = false;
   let metricPoints = 0;
+  try {
+    sink.trace?.(args);
+  } catch {
+    failed = true;
+  }
   try {
     for (const operation of operations) {
       sink[operation.kind](operation.name, operation.value, operation.options);
       metricPoints += 1;
     }
-    return { failed: false, metricPoints };
   } catch {
-    return { failed: true, metricPoints };
+    failed = true;
   }
+  return { failed, metricPoints };
 }
 
 async function flushMetricSink(
@@ -494,9 +969,10 @@ function logEmissionResult(
   );
 }
 
-type MetricSinkPreflight =
-  | { status: "ready"; sink: FactoryMetricSink }
-  | { status: "stop"; result: EmissionResult };
+type MetricSinkPreflight = { status: "ready"; sink: FactoryMetricSink } | {
+  status: "stop";
+  result: EmissionResult;
+};
 
 async function prepareMetricSink(
   args: FactoryMetricEmissionArgs,
@@ -507,7 +983,10 @@ async function prepareMetricSink(
   if (isFinalReceipt(await context.readResource(receiptName))) {
     context.logger.info(
       "Skipped duplicate Factory metric emission for {project}/{factory}",
-      { project: args.factory.project, factory: args.factory.name },
+      {
+        project: args.factory.project,
+        factory: args.factory.name,
+      },
     );
     return {
       status: "stop",
@@ -541,7 +1020,10 @@ async function prepareMetricSink(
   } catch {
     context.logger.warning(
       "Factory metric SDK initialization failed for {project}/{factory}",
-      { project: args.factory.project, factory: args.factory.name },
+      {
+        project: args.factory.project,
+        factory: args.factory.name,
+      },
     );
     return {
       status: "stop",
@@ -587,7 +1069,7 @@ export async function executeFactoryMetricEmission(
   }
 
   const operations = buildFactoryMetricOperations(args);
-  const emission = emitMetricOperations(preflight.sink, operations);
+  const emission = emitFactoryTelemetry(preflight.sink, args, operations);
   const flushSucceeded = await flushMetricSink(
     preflight.sink,
     context.globalArgs.flushTimeoutMs ?? 5_000,
@@ -604,5 +1086,170 @@ export async function executeFactoryMetricEmission(
     keyHash,
     dependencies.now(),
     result,
+  );
+}
+
+/** Transform one canonical flow report and execute its non-gating emission. */
+export function executeFactoryFlowMetricEmission(
+  args: FactoryFlowMetricEmissionArgs,
+  context: FactoryMetricMethodContext,
+  dependencies: FactoryMetricEmissionDependencies = DEFAULT_DEPENDENCIES,
+): Promise<{ dataHandles: Array<{ name: string }> }> {
+  return executeFactoryMetricEmission(
+    factoryMetricEmissionFromFlowReport(args),
+    context,
+    dependencies,
+  );
+}
+
+function decodeFactoryRunData(
+  content: Uint8Array,
+): Record<string, unknown> | null {
+  try {
+    const parsed = z
+      .record(z.string(), z.unknown())
+      .safeParse(JSON.parse(new TextDecoder().decode(content)));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+function factoryRunDataReader(
+  context: FactoryMetricMethodContext,
+  sourceModelId: string,
+): RunDataReader {
+  const modelTypeName = "@swamp/software-factory";
+  const modelTypePath = {
+    toDirectoryPath: (): string => "@swamp/software-factory",
+    toString: (): string => "@swamp/software-factory",
+  };
+  return {
+    versionsOf: (name) =>
+      context.dataRepository.listVersions?.(
+        modelTypePath,
+        sourceModelId,
+        name,
+      ) ??
+        Promise.resolve([]),
+    read: async (name, version) => {
+      const content = await context.dataRepository.getContent(
+        modelTypeName,
+        sourceModelId,
+        name,
+        version,
+      );
+      return content === null ? null : decodeFactoryRunData(content);
+    },
+  };
+}
+
+async function factoryMetricEmissionArgsFromSource(
+  args: FactoryFlowMetricSourceArgs,
+  context: FactoryMetricMethodContext,
+): Promise<FactoryMetricEmissionArgs> {
+  const reader = factoryRunDataReader(context, args.sourceFactory.id);
+  const metricsData = await loadMetricsData(
+    reader,
+    workItemSlug(args.workItem),
+  );
+  const definitionVersion = metricsData.state?.definitionVersion;
+  if (definitionVersion === undefined) {
+    throw new TypeError(
+      "terminal Factory state must record a definition version",
+    );
+  }
+  const report = buildFlowMetricsReport(args.workItem, metricsData, [], {
+    factoryName: args.sourceFactory.name,
+  });
+  return factoryMetricEmissionFromFlowReport(
+    FactoryFlowMetricEmissionArgsSchema.parse({
+      factory: {
+        ...args.factory,
+        definition_version: definitionVersion,
+      },
+      visualReviewStages: args.visualReviewStages,
+      report,
+    }),
+  );
+}
+
+/** Rebuild the canonical flow report from Factory data and emit its terminal facts. */
+export async function executeFactoryFlowMetricEmissionFromSource(
+  args: FactoryFlowMetricSourceArgs,
+  context: FactoryMetricMethodContext,
+  dependencies: FactoryMetricEmissionDependencies = DEFAULT_DEPENDENCIES,
+): Promise<{ dataHandles: Array<{ name: string }> }> {
+  return executeFactoryMetricEmission(
+    await factoryMetricEmissionArgsFromSource(args, context),
+    context,
+    dependencies,
+  );
+}
+
+/** Verify one terminal run has a local receipt, surfacing missing or degraded observability. */
+export async function verifyFactoryMetricReceipt(
+  emissionArgs: FactoryMetricEmissionArgs,
+  context: FactoryMetricMethodContext,
+  dependencies: FactoryMetricEmissionDependencies = DEFAULT_DEPENDENCIES,
+): Promise<{ dataHandles: Array<{ name: string }> }> {
+  const keyHash = await emissionKeyHash(emissionArgs);
+  const expectedReceipt = `receipt-${keyHash}`;
+  const parsedReceipt = FactoryMetricEmissionReceiptSchema.safeParse(
+    await context.readResource(expectedReceipt),
+  );
+  const receiptStatus = parsedReceipt.success
+    ? parsedReceipt.data.status
+    : null;
+  const status = receiptStatus === "emitted" || receiptStatus === "duplicate"
+    ? "observed"
+    : receiptStatus === null
+    ? "missing"
+    : "degraded";
+  const coverage = FactoryMetricCoverageSchema.parse({
+    schemaVersion: 1,
+    checkedAt: dependencies.now(),
+    status,
+    expectedReceipt,
+    receiptStatus,
+    factory: emissionArgs.factory,
+    outcome: emissionArgs.terminal.outcome,
+  });
+  const handle = await context.writeResource(
+    "coverage",
+    `coverage-${keyHash}`,
+    coverage,
+  );
+  if (status !== "observed") {
+    context.logger.warning(
+      "Factory observability coverage is {status} for {project}/{factory}",
+      {
+        status,
+        project: emissionArgs.factory.project,
+        factory: emissionArgs.factory.name,
+      },
+    );
+    throw new Error(`Factory observability coverage is ${status}`);
+  }
+  context.logger.info(
+    "Verified Factory observability receipt for {project}/{factory}",
+    {
+      project: emissionArgs.factory.project,
+      factory: emissionArgs.factory.name,
+    },
+  );
+  return { dataHandles: [handle] };
+}
+
+/** Rebuild terminal flow facts and verify their exact local emission receipt. */
+export async function verifyFactoryFlowMetricReceipt(
+  args: FactoryFlowMetricSourceArgs,
+  context: FactoryMetricMethodContext,
+  dependencies: FactoryMetricEmissionDependencies = DEFAULT_DEPENDENCIES,
+): Promise<{ dataHandles: Array<{ name: string }> }> {
+  return verifyFactoryMetricReceipt(
+    await factoryMetricEmissionArgsFromSource(args, context),
+    context,
+    dependencies,
   );
 }
