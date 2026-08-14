@@ -427,6 +427,12 @@ export interface OverlayRenderer<TContent = unknown> {
 	 */
 	disableEntryOffset?: boolean;
 	/**
+	 * Frame-height fraction used for an intrinsic below-axis entry. Unlike the
+	 * generic 32px offset, this preserves authored settled overshoot and scales
+	 * consistently at both native orientations.
+	 */
+	entryOffsetRatio?: number;
+	/**
 	 * Keep the mount fully opaque while the CanvasSource performs positional
 	 * enter/exit motion. This avoids CSS-opacity layer promotion in the
 	 * HTML-in-Canvas capture path.

@@ -54,7 +54,7 @@
 		(content.sourceUrl?.trim() ?? '').replace(/^https?:\/\//, '').replace(/^www\./, '')
 	);
 
-	const chromeFontPx = $derived(layout.width * (layout.width > 2200 ? 0.02 : 0.024));
+	const chromeFontPx = $derived(layout.width * (layout.width > 2200 ? 0.014 : 0.024));
 </script>
 
 <article
