@@ -77,7 +77,14 @@ export function resolveDiagramPrimitiveForRender(
 	orientation: VideoOrientation
 ): DiagramPrimitive {
 	switch (primitive.type) {
-		case 'node':
+		case 'node': {
+			const geometry = resolveDiagramPrimitiveGeometry(primitive, orientation);
+			return {
+				...primitive,
+				position: { ...geometry.position },
+				scale: geometry.scale
+			};
+		}
 		case 'label':
 		case 'stat-callout': {
 			const geometry = resolveDiagramPrimitiveGeometry(primitive, orientation);

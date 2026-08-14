@@ -84,6 +84,7 @@ const EXPECTED_PIPELINE_TYPE_IDS = [
 	'type-hero',
 	'web-document',
 	'website-screenshot',
+	'brand-mark',
 	'imessage',
 	'checklist',
 	'paragraph',
