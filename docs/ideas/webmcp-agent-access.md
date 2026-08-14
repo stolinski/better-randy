@@ -23,7 +23,7 @@ This idea seeded as "connect agents to the hosted tool," but WebMCP doesn't actu
 
 WebMCP is the enhancement, never the foundation. The agent-access architecture is two transports over the same domain verbs:
 
-1. **Standard remote MCP server** — boring, shipping-today MCP over HTTP. Serves external and headless agents (Claude Code, CI, Critics, batch renders) and every workflow that needs determinism. If the [[shared-asset-service]] exists, this is its registry/store/render API; locally, the shipped CLI lane in [`user-composition-workflows.md`](../user-composition-workflows.md) already covers headless render.
+1. **Standard remote MCP server** — boring, shipping-today MCP over HTTP. Serves external and headless agents (Claude Code, CI, Critics, batch renders) and every workflow that needs determinism. If the [[shared-asset-service]] exists, this is its registry/store/render API; locally, the shipped CLI lane in [`user-composition-workflows.md`](../user-composition-workflows.md) already covers headless render. The speculative [`managed-chromium-render-worker.md`](managed-chromium-render-worker.md) would remove that lane's remaining manual server and flag-enabled Chrome lifecycle without changing its Workspace render seam.
 2. **WebMCP in the Workspace page** — the same verbs declared to in-browser agents for live co-editing sessions. Structurally browsing-context-only: it cannot serve headless work, and it should never be asked to.
 
 Both transports front one operation set. A verb that exists in one and not the other is a parity bug.
