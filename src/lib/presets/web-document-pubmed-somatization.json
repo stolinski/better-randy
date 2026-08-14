@@ -1,0 +1,52 @@
+{
+	"schema": "supers@1",
+	"name": "Web document — PubMed somatization",
+	"description": "A faithful PubMed article record on a transparent browser-framed Surface, using PubMed's official published logo asset, federal-blue masthead, search field, citation metadata, authorship, PMID, and article actions. The requested title is the dominant element and receives the shared hand-pulled highlight. The composition reflows across both orientations and holds after the mark for editorial timing.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 8,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#ffffff",
+			"inkColor": "#1b1b1b"
+		},
+		"marks": {
+			"defaults": {
+				"highlight": {
+					"color": "#fabf47",
+					"intensity": 0.62
+				}
+			},
+			"timings": [
+				{
+					"start": 0.14,
+					"duration": 0.12,
+					"ease": "smooth"
+				}
+			]
+		},
+		"surface": {
+			"type": "web-document",
+			"site": "pubmed",
+			"content": {
+				"source": "Am J Psychiatry. 1988 Nov;145(11):1358–1368.",
+				"author": "Z J Lipowski",
+				"dateLabel": "PMID: 3056044 · DOI: 10.1176/ajp.145.11.1358",
+				"sourceUrl": "https://pubmed.ncbi.nlm.nih.gov/3056044/",
+				"body": "[highlight]Somatization: the experience and communication of psychological distress as somatic symptoms[/highlight]"
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.05,
+				"ease": "settled"
+			}
+		},
+		"overlays": [],
+		"effects": []
+	}
+}
