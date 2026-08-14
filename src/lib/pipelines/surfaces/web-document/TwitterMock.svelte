@@ -21,8 +21,8 @@
 	// real proportions (status column ≈ 600 px: body 23 / name 15 / meta 15 /
 	// avatar 48). Slightly enlarged for 4K-overlay legibility.
 	const bodyFontPx = $derived(width * (width > 2200 ? 0.032 : 0.046));
-	const nameFontPx = $derived(width * (width > 2200 ? 0.014 : 0.03));
-	const metaFontPx = $derived(width * (width > 2200 ? 0.014 : 0.027));
+	const nameFontPx = $derived(width * (width > 2200 ? 0.02 : 0.03));
+	const metaFontPx = $derived(width * (width > 2200 ? 0.02 : 0.027));
 	const avatarPx = $derived(width * 0.1);
 	const badgePx = $derived(nameFontPx * 1.05);
 </script>

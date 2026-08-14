@@ -283,19 +283,15 @@ export const syntaxPack: PackManifest = {
 		// Repo card ≈ 95px tall: border 2px ≈ 2.1% of card height, radius 8px ≈
 		// 8.4%, shadow 10 × 1px steps ≈ 10.5% total, pad 14/20 ≈ 15%/21%. Our
 		// card ≈ 480px @4K → the same ratios below.
-		'lower-third.border': { kind: 'style', value: '4px solid #454441' },
-		'lower-third.radius': { kind: 'style', value: '20px' },
-		// Constructed backing depth and cast shadow are separate claims: the
-		// backing keeps Syntax's flat physical stack while the shadow retains a
-		// continuous falloff under R3.
-		'lower-third.backing': { kind: 'style', value: '#050504' },
-		'lower-third.backingOffset': { kind: 'style', value: '12px' },
+		'lower-third.border': { kind: 'style', value: '10px solid #454441' },
+		'lower-third.radius': { kind: 'style', value: '40px' },
 		'lower-third.shadow': {
 			kind: 'style',
-			value: '0 10px 14px rgb(0 0 0 / 0.32)'
+			value:
+				'5px 5px 0 0 #050504, 10px 10px 0 0 #050504, 15px 15px 0 0 #050504, 20px 20px 0 0 #050504, 25px 25px 0 0 #050504, 30px 30px 0 0 #050504, 35px 35px 0 0 #050504, 40px 40px 0 0 #050504, 45px 45px 0 0 #050504, 50px 50px 0 0 #050504'
 		},
-		'lower-third.pad': { kind: 'style', value: '4px 48px 6px' },
-		'lower-third.gap': { kind: 'style', value: '4px' },
+		'lower-third.pad': { kind: 'style', value: '68px 100px 72px 96px' },
+		'lower-third.gap': { kind: 'style', value: '20px' },
 		'lower-third.weight': { kind: 'style', value: '700' },
 		'lower-third.tracking': { kind: 'style', value: '0.08em' },
 		// The cinematic scrim base stays claimed for the variant that uses it.

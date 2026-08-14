@@ -48,6 +48,5 @@ export const lowerThirdOverlayRenderer: OverlayRenderer<LowerThirdContent> = {
 	schema: LowerThirdContentSchema,
 	defaults,
 	CanvasSource,
-	Editor,
-	entryOffsetRatio: 0.018
+	Editor
 };

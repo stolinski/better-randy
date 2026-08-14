@@ -138,11 +138,6 @@
 		if (renderer.disableEntryOffset) {
 			return `opacity:${visible};`;
 		}
-		if (renderer.entryOffsetRatio !== undefined) {
-			const frame = getVideoFrameSize(engineState.transport.orientation);
-			const translateY = Math.round((1 - progress) * frame.height * renderer.entryOffsetRatio);
-			return `opacity:${visible};transform:translateY(${translateY}px);`;
-		}
 		const ty = (1 - visible) * 32;
 		return `opacity:${visible};transform:translateY(${ty}px);`;
 	}
