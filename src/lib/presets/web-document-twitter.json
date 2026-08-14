@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Web document — Twitter",
-	"description": "A recognizable X/Twitter status on a transparent overlay, as a clean backdrop for the channel's hand-pulled highlight. Faithful site look BY DESIGN: exact X 'Dim' dark mode (bg #15202b, real action + verified-badge icons, X font stack), inside a browser window whose address bar shows the URL — NO Syntax collage chrome (no torn edge / grit / hard offset shadow), and NO CSS glow on the captured card. The emissive 'web page on a backlit display' look is a TypeGPU shaderPass (subpixel emission, backlight bloom, escaping-bezel halo, viewport-edge defocus), not Pack chrome. ~6s: card settles in, the highlighter draws on over the hero line (~1.2→2.4s), then a long static hold a creator can freeze/extend. Transparent WebM overlay, composited over footage.",
+	"description": "A modern true-black X status featuring Rob Hallam's text-only post, with locally baked profile art. The silent transparent browser-framed Surface combines its restrained upward settle with a fade, quickly highlights the hospital-stress sentence, then holds for editorial use.",
 	"pack": "syntax",
 	"state": {
 		"transport": {
@@ -12,8 +12,8 @@
 		},
 		"typography": {
 			"fontFamily": "sans",
-			"paperColor": "#15202b",
-			"inkColor": "#f7f9f9"
+			"paperColor": "#000000",
+			"inkColor": "#e7e9ea"
 		},
 		"marks": {
 			"defaults": {
@@ -25,8 +25,11 @@
 			"timings": [
 				{
 					"start": 0.2,
-					"duration": 0.2,
-					"ease": "smooth"
+					"duration": 0.08,
+					"ease": "smooth",
+					"sound": {
+						"mute": true
+					}
 				}
 			]
 		},
@@ -34,16 +37,20 @@
 			"type": "web-document",
 			"site": "twitter",
 			"content": {
-				"author": "Dev Notes",
-				"source": "@devnotes",
-				"dateLabel": "2:14 PM · Jun 22, 2026",
-				"sourceUrl": "x.com/devnotes/status/1934000000000000000",
-				"body": "Spent all weekend chasing a slow build. Turns out [highlight]the bottleneck was a console.log inside a hot loop[/highlight] — pulled it and the bundle step dropped 4x."
+				"author": "Rob Hallam",
+				"source": "@robj3d3",
+				"dateLabel": "5:24 PM · Jul 12, 2026",
+				"sourceUrl": "x.com/robj3d3/status/2076356929878966555",
+				"body": "I'm done with them fucking with us.\n\n[highlight]Ended up in hospital today from stress.[/highlight]\n\nStayed up all night pushing my limits too hard, thinking it would be removed.\n\nHealth comes first.\n\nDo better @AnthropicAI",
+				"avatarUrl": "/web-document-twitter/robj3d3.png"
 			},
 			"enter": {
 				"start": 0,
-				"duration": 0.07,
-				"ease": "settled"
+				"duration": 0.065,
+				"ease": "settled",
+				"sound": {
+					"mute": true
+				}
 			}
 		},
 		"overlays": [],

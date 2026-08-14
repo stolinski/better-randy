@@ -1,0 +1,59 @@
+{
+	"schema": "supers@1",
+	"name": "Web document — Adam on AI burnout",
+	"description": "A modern true-black X status featuring Adam's text-only AI-burnout post, with locally baked profile art and no footer treatment. The silent transparent browser-framed Surface fades through a restrained upward settle, quickly highlights the opening burnout sentence, then holds for editorial use.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#000000",
+			"inkColor": "#e7e9ea"
+		},
+		"marks": {
+			"defaults": {
+				"highlight": {
+					"color": "#fabf47",
+					"intensity": 0.62
+				}
+			},
+			"timings": [
+				{
+					"start": 0.2,
+					"duration": 0.08,
+					"ease": "smooth",
+					"sound": {
+						"mute": true
+					}
+				}
+			]
+		},
+		"surface": {
+			"type": "web-document",
+			"site": "twitter",
+			"content": {
+				"author": "Adam",
+				"source": "@adamdotdev",
+				"dateLabel": "2:36 PM · Apr 28, 2026",
+				"sourceUrl": "x.com/adamdotdev/status/2049135608728019393",
+				"body": "[highlight]I’m going through the craziest burnout I’ve experienced in my ~17 year career[/highlight]\n\nI’ve been sick for 16 days now, haven’t even been able to go for walks\n\nI kind of fucking hate AI\n\nI think all of these things are related",
+				"avatarUrl": "/web-document-twitter/adamdotdev.jpg"
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.065,
+				"ease": "settled",
+				"sound": {
+					"mute": true
+				}
+			}
+		},
+		"overlays": [],
+		"effects": []
+	}
+}
