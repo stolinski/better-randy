@@ -1,0 +1,190 @@
+{
+	"schema": "supers@1",
+	"name": "Tweet stack — public reaction flood",
+	"description": "Eight real public X reactions zoom-land in a rapid sequence into a readable, deterministic cluster and hold without drift through the edit point. The cards retain faithful true-black X artifact chrome and locally baked avatars under every Pack, with a subtle tick on each arrival; the transparent plain Surface paints no background.",
+	"pack": "syntax",
+	"kind": "fixture",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 10,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			}
+		},
+		"textAnimations": [],
+		"overlays": [
+			{
+				"type": "tweet-stack",
+				"id": "reaction-flood",
+				"content": {
+					"posts": [
+						{
+							"id": "2076358654819766652",
+							"url": "https://x.com/gabefletcher/status/2076358654819766652",
+							"displayName": "Gabe Fletcher",
+							"handle": "@gabefletcher",
+							"body": "Bro. this is 100% a you problem. Anthropic has nothing to do with this. Absolutely not",
+							"dateLabel": "July 12, 2026",
+							"verified": false,
+							"avatarUrl": "/tweet-stack-reaction-flood/gabefletcher.jpg"
+						},
+						{
+							"id": "2076376298314756582",
+							"url": "https://x.com/ryancarson/status/2076376298314756582",
+							"displayName": "Ryan Carson",
+							"handle": "@ryancarson",
+							"body": "Feel better soon brother",
+							"dateLabel": "July 12, 2026",
+							"verified": false,
+							"avatarUrl": "/tweet-stack-reaction-flood/ryancarson.jpg"
+						},
+						{
+							"id": "2076362348814553184",
+							"url": "https://x.com/forgebitz/status/2076362348814553184",
+							"displayName": "Klaas",
+							"handle": "@forgebitz",
+							"body": "lmao at this point just learn how to code",
+							"dateLabel": "July 12, 2026",
+							"verified": false,
+							"avatarUrl": "/tweet-stack-reaction-flood/forgebitz.jpg"
+						},
+						{
+							"id": "2076368181833138376",
+							"url": "https://x.com/sunglassesface/status/2076368181833138376",
+							"displayName": "orlie",
+							"handle": "@sunglassesface",
+							"body": "Bro you're crazy! Letting AI ruin your actual life wtf",
+							"dateLabel": "July 12, 2026",
+							"verified": false,
+							"avatarUrl": "/tweet-stack-reaction-flood/sunglassesface.jpg"
+						},
+						{
+							"id": "2076402623867953384",
+							"url": "https://x.com/eurofounder/status/2076402623867953384",
+							"displayName": "Matthias Schmidt",
+							"handle": "@eurofounder",
+							"body": "This one right here. The most pathetic pick me post in the history of X",
+							"dateLabel": "July 12, 2026",
+							"verified": false,
+							"avatarUrl": "/tweet-stack-reaction-flood/eurofounder.jpg"
+						},
+						{
+							"id": "2076443905411936522",
+							"url": "https://x.com/d33v33d0/status/2076443905411936522",
+							"displayName": "Martin_DeVido",
+							"handle": "@d33v33d0",
+							"body": "You'd have to get the CIA to waterboard me to get me to confess this",
+							"dateLabel": "July 12, 2026",
+							"verified": false,
+							"avatarUrl": "/tweet-stack-reaction-flood/d33v33d0.jpg"
+						},
+						{
+							"id": "2076401116120514720",
+							"url": "https://x.com/jim_bisenius/status/2076401116120514720",
+							"displayName": "Jim Bisenius",
+							"handle": "@jim_bisenius",
+							"body": "hard to believe this wasnt satirical",
+							"dateLabel": "July 12, 2026",
+							"verified": false,
+							"avatarUrl": "/tweet-stack-reaction-flood/jim_bisenius.jpg"
+						},
+						{
+							"id": "2076409798023585811",
+							"url": "https://x.com/rozhkov_/status/2076409798023585811",
+							"displayName": "Dima",
+							"handle": "@rozhkov_",
+							"body": "How can you possibly blame them for your own choice to overwork yourself? How this makes any sense?",
+							"dateLabel": "July 12, 2026",
+							"verified": false,
+							"avatarUrl": "/tweet-stack-reaction-flood/rozhkov_.jpg"
+						}
+					],
+					"pileStart": 0.05,
+					"pileWindow": 0.3,
+					"spread": 1
+				},
+				"position": {
+					"anchor": "center"
+				}
+			}
+		],
+		"effects": [],
+		"audioCues": [
+			{
+				"id": "tweet-arrival-1",
+				"assetSlug": "foley-tick",
+				"start": 0.05,
+				"duration": 0.014,
+				"volume": 0.22
+			},
+			{
+				"id": "tweet-arrival-2",
+				"assetSlug": "foley-tick",
+				"start": 0.089143,
+				"duration": 0.014,
+				"volume": 0.22
+			},
+			{
+				"id": "tweet-arrival-3",
+				"assetSlug": "foley-tick",
+				"start": 0.128286,
+				"duration": 0.014,
+				"volume": 0.22
+			},
+			{
+				"id": "tweet-arrival-4",
+				"assetSlug": "foley-tick",
+				"start": 0.167429,
+				"duration": 0.014,
+				"volume": 0.22
+			},
+			{
+				"id": "tweet-arrival-5",
+				"assetSlug": "foley-tick",
+				"start": 0.206571,
+				"duration": 0.014,
+				"volume": 0.22
+			},
+			{
+				"id": "tweet-arrival-6",
+				"assetSlug": "foley-tick",
+				"start": 0.245714,
+				"duration": 0.014,
+				"volume": 0.22
+			},
+			{
+				"id": "tweet-arrival-7",
+				"assetSlug": "foley-tick",
+				"start": 0.284857,
+				"duration": 0.014,
+				"volume": 0.22
+			},
+			{
+				"id": "tweet-arrival-8",
+				"assetSlug": "foley-tick",
+				"start": 0.324,
+				"duration": 0.014,
+				"volume": 0.22
+			}
+		],
+		"media": {
+			"assets": [],
+			"videoTrack": {
+				"clips": []
+			}
+		}
+	}
+}
