@@ -1,4 +1,4 @@
-import { readFile, unlink, writeFile } from 'node:fs/promises';
+import { readFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { json, error, type RequestHandler } from '@sveltejs/kit';
@@ -7,6 +7,7 @@ import {
 	addUserCompositionFileToIndex,
 	removeUserCompositionFileFromIndex
 } from '$lib/platform/user-composition-file-index.server';
+import { writeUserCompositionFileAtomically } from '$lib/platform/user-composition-file-write.server';
 import { PresetIngressSchema } from '$lib/platform/preset-ingress';
 import { presetToWireFormat } from '$lib/platform/preset-pure';
 import {
@@ -132,10 +133,9 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		preset: presetToWireFormat(result.data)
 	};
 
-	await writeFile(
+	await writeUserCompositionFileAtomically(
 		userCompositionPathForSlug(slug),
-		JSON.stringify(storedUserComposition, null, '\t'),
-		'utf-8'
+		JSON.stringify(storedUserComposition, null, '\t')
 	);
 	await addUserCompositionFileToIndex(slug);
 	return new Response(null, { status: 204 });

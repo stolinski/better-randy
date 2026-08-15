@@ -1,9 +1,10 @@
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { json, error, type RequestHandler } from '@sveltejs/kit';
 
 import { addUserCompositionFileToIndex } from '$lib/platform/user-composition-file-index.server';
+import { writeUserCompositionFileAtomically } from '$lib/platform/user-composition-file-write.server';
 import { PresetIngressSchema } from '$lib/platform/preset-ingress';
 import { posterKeyForPreset } from '$lib/platform/posters';
 import { presetToWireFormat } from '$lib/platform/preset-pure';
@@ -156,10 +157,9 @@ export const POST: RequestHandler = async ({ request }) => {
 		preset: presetToWireFormat(result.data)
 	};
 
-	await writeFile(
+	await writeUserCompositionFileAtomically(
 		join(USER_COMPOSITION_STORE_DIR, `${slug}.json`),
-		JSON.stringify(storedUserComposition, null, '\t'),
-		'utf-8'
+		JSON.stringify(storedUserComposition, null, '\t')
 	);
 	await addUserCompositionFileToIndex(slug);
 	return json({ slug }, { status: 201 });
