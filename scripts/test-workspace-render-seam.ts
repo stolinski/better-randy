@@ -31,7 +31,7 @@ assert.doesNotMatch(
 assert.match(
 	exportController,
 	/dependencies\.renderCompositionFrame\(timestamp\)/,
-	'the export controller must invoke Workspace\'s shared frame callback'
+	"the export controller must invoke Workspace's shared frame callback"
 );
 assert.equal(
 	(renderer.match(/export function renderCompositionFrameTo\(/g) ?? []).length,
@@ -69,10 +69,14 @@ assert.match(
 	'export must await resources and browser paint settlement before frame preparation'
 );
 assert.equal(
-	(renderer.match(/const inputs = request\.buildSurfaceInputs\(request\.timestamp\)/g) ?? [])
-		.length,
+	(renderer.match(/request\.buildSurfaceInputs\(request\.timestamp\)/g) ?? []).length,
 	1,
 	'the shared frame seam must build complete Surface inputs once'
+);
+assert.match(
+	renderer,
+	/const builtInputs = request\.buildSurfaceInputs\(request\.timestamp\);[\s\S]*?readableProbeMode === 'readable-mask'[\s\S]*?\{ \.\.\.builtInputs, chart: undefined \}/,
+	'readable-mask capture must derive from the single complete Surface input build'
 );
 assert.doesNotMatch(
 	source,
