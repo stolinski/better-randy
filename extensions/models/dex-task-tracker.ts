@@ -107,7 +107,7 @@ export const model = {
     },
     "claim-next-ready": {
       description:
-        "Resume active Delivery ownership or atomically claim the approved unique ready leaf",
+        "Resume root-scoped Delivery ownership or atomically claim its approved unique ready leaf",
       arguments: DexReadyLeafClaimArgsSchema,
       execute: (
         args: DexReadyLeafClaimArgs,

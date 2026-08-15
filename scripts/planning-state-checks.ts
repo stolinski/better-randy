@@ -56,6 +56,7 @@ export type PlanningCheckId =
 	| 'ideas-historical'
 	| 'dex-shipped-claim'
 	| 'dex-blocker-contradiction'
+	| 'dex-graph-invalid'
 	| 'dex-active-work'
 	| 'dex-ready-runway';
 
@@ -70,18 +71,43 @@ export type PlanningStateFinding = {
  * need human judgment and never gate on their own.
  */
 export type PlanningStateCheckResult = {
+	clean: boolean;
 	findings: PlanningStateFinding[];
 	advisories: PlanningStateFinding[];
 	runway: PlanningRunway;
 };
 
-/** Machine-readable handoff from planning policy to the delivery factory. */
+/** `rootEpicId` is the established field name for the effective open execution root id. */
+export type PlanningActiveLane = {
+	rootEpicId: string;
+	activeTaskId: string;
+	activeTaskName: string;
+};
+
+/** `rootEpicId` is the established field name for the effective open execution root id. */
+export type PlanningReadyLane = {
+	rootEpicId: string;
+	nextTaskId: string;
+	nextTaskName: string;
+	topPriority: number;
+	readyLeafCount: number;
+};
+
+/** Machine-readable per-root handoff from planning policy to Delivery. */
 export type PlanningRunway = {
+	activeLanes: PlanningActiveLane[];
+	readyLanes: PlanningReadyLane[];
+	/** @deprecated Deterministic compatibility projection; use activeLanes. */
 	activeTaskId: string | null;
+	/** @deprecated Deterministic compatibility projection; use activeLanes. */
 	activeTaskName: string | null;
+	/** @deprecated Deterministic compatibility projection; use lane rootEpicId. */
 	activeEpicId: string | null;
+	/** @deprecated Deterministic compatibility projection; use readyLanes. */
 	nextTaskId: string | null;
+	/** @deprecated Deterministic compatibility projection; use readyLanes. */
 	nextTaskName: string | null;
+	/** @deprecated Deterministic compatibility projection; use readyLanes. */
 	topPriority: number | null;
 	readyLeafCount: number;
 };
@@ -118,7 +144,9 @@ function extractAdrStatusText(markdown: string): string | null {
 function collectAdrReferences(text: string): Set<string> {
 	const refs = new Set<string>();
 	for (const match of text.matchAll(/ADR-(\d{4})/g)) refs.add(match[1]);
-	for (const match of text.matchAll(/\(adr\/(\d{4})[^)]*\)/g)) refs.add(match[1]);
+	for (const match of text.matchAll(/\(adr\/(\d{4})[^)]*\)/g)) {
+		refs.add(match[1]);
+	}
 	return refs;
 }
 
@@ -162,7 +190,10 @@ function checkAdrIndexAndStatus(
 		if (category === 'unknown') {
 			findings.push({
 				check: 'adr-status-drift',
-				message: `ADR ${number} status "${statusText.slice(0, 60)}" does not start with Canon / Build-harness / Superseded / Designed`,
+				message: `ADR ${number} status "${statusText.slice(
+					0,
+					60
+				)}" does not start with Canon / Build-harness / Superseded / Designed`,
 				paths: [doc.path]
 			});
 			continue;
@@ -174,7 +205,10 @@ function checkAdrIndexAndStatus(
 	for (const row of inputs.adrIndex.markdown.matchAll(
 		/^\|\s*\[(\d{4})\]\(([^)]+)\)\s*\|\s*([^|]+)\|/gm
 	)) {
-		indexedNumbers.set(row[1], { link: row[2], category: classifyAdrStatus(row[3]) });
+		indexedNumbers.set(row[1], {
+			link: row[2],
+			category: classifyAdrStatus(row[3])
+		});
 	}
 
 	const docNumbers = new Set(
@@ -308,7 +342,9 @@ function checkIdeasTier(inputs: PlanningStateInputs, findings: PlanningStateFind
 		if (declaresShipped) {
 			findings.push({
 				check: 'ideas-historical',
-				message: `Idea doc ${basename(doc.path)} declares shipped/complete status — historical explorations belong in docs/history/`,
+				message: `Idea doc ${basename(
+					doc.path
+				)} declares shipped/complete status — historical explorations belong in docs/history/`,
 				paths: [doc.path]
 			});
 		}
@@ -340,7 +376,9 @@ function checkDexTaskState(
 		if (nameHit) {
 			findings.push({
 				check: 'dex-shipped-claim',
-				message: `Open task ${task.id} claims completion in its name ("${nameHit[0]}") — close it out with dex complete or rename it`,
+				message: `Open task ${task.id} claims completion in its name ("${
+					nameHit[0]
+				}") — close it out with dex complete or rename it`,
 				paths: [`dex:${task.id}`]
 			});
 			continue;
@@ -349,16 +387,16 @@ function checkDexTaskState(
 		if (descriptionHit) {
 			advisories.push({
 				check: 'dex-shipped-claim',
-				message: `Open task ${task.id} ("${task.name}") describes work as ${descriptionHit[0]} — verify the shipped half is committed and reframe the remainder`,
+				message: `Open task ${task.id} ("${task.name}") describes work as ${
+					descriptionHit[0]
+				} — verify the shipped half is committed and reframe the remainder`,
 				paths: [`dex:${task.id}`]
 			});
 		}
 	}
 }
 
-function indexOpenDexChildren(
-	openTasks: PlanningDexTask[]
-): Map<string, PlanningDexTask[]> {
+function indexOpenDexChildren(openTasks: PlanningDexTask[]): Map<string, PlanningDexTask[]> {
 	const openChildrenByParent = new Map<string, PlanningDexTask[]>();
 	for (const task of openTasks) {
 		if (!task.parentId) continue;
@@ -369,91 +407,216 @@ function indexOpenDexChildren(
 	return openChildrenByParent;
 }
 
+type PlanningDexAncestry =
+	| { status: 'resolved'; path: PlanningDexTask[]; executionRoot: PlanningDexTask }
+	| { status: 'missing-parent' | 'cycle'; path: PlanningDexTask[]; invalidTaskId: string };
+
+/** Resolve only the open execution graph; a completed parent is historical context. */
+function resolvePlanningDexAncestry(
+	taskId: string,
+	taskById: Map<string, PlanningDexTask>
+): PlanningDexAncestry {
+	const path: PlanningDexTask[] = [];
+	const visited = new Set<string>();
+	let currentId: string = taskId;
+	while (true) {
+		if (visited.has(currentId)) return { status: 'cycle', path, invalidTaskId: currentId };
+		visited.add(currentId);
+		const task = taskById.get(currentId);
+		if (!task) return { status: 'missing-parent', path, invalidTaskId: currentId };
+		path.push(task);
+		if (task.parentId === null) return { status: 'resolved', path, executionRoot: task };
+		const parent = taskById.get(task.parentId);
+		if (!parent) return { status: 'missing-parent', path, invalidTaskId: task.parentId };
+		if (parent.completed) return { status: 'resolved', path, executionRoot: task };
+		currentId = parent.id;
+	}
+}
+
+function analyzePlanningDexGraph(
+	tasks: PlanningDexTask[],
+	findings: PlanningStateFinding[]
+): Set<string> {
+	const taskById = new Map(tasks.map((task) => [task.id, task]));
+	const openTasks = tasks.filter((task) => !task.completed);
+	const openIds = new Set(openTasks.map((task) => task.id));
+	const tasksWithUnknownBlockers = new Set<string>();
+	for (const task of openTasks) {
+		const unknownBlockers = task.blockedBy.filter((blockerId) => !taskById.has(blockerId));
+		if (unknownBlockers.length === 0) continue;
+		tasksWithUnknownBlockers.add(task.id);
+		findings.push({
+			check: 'dex-graph-invalid',
+			message: `Task ${task.id} ("${task.name}") references unknown blocker id(s): ${unknownBlockers.join(', ')}`,
+			paths: [`dex:${task.id}`, ...unknownBlockers.map((id) => `dex:${id}`)]
+		});
+	}
+
+	const eligible = new Set<string>();
+	for (const task of openTasks) {
+		const ancestry = resolvePlanningDexAncestry(task.id, taskById);
+		if (ancestry.status !== 'resolved') {
+			findings.push({
+				check: 'dex-graph-invalid',
+				message: `Open task ${task.id} ("${task.name}") has ${
+					ancestry.status === 'cycle' ? 'cyclic ancestry' : 'a missing parent'
+				} at ${ancestry.invalidTaskId}`,
+				paths: [`dex:${task.id}`, `dex:${ancestry.invalidTaskId}`]
+			});
+			continue;
+		}
+		if (ancestry.path.some((ancestor) => tasksWithUnknownBlockers.has(ancestor.id))) continue;
+		const blockedAncestor = ancestry.path
+			.slice(1)
+			.find((ancestor) => ancestor.blockedBy.some((blockerId) => openIds.has(blockerId)));
+		if (blockedAncestor) {
+			const blockers = blockedAncestor.blockedBy.filter((blockerId) => openIds.has(blockerId));
+			findings.push({
+				check: 'dex-ready-runway',
+				message: `Open task ${task.id} ("${task.name}") inherits open blocker(s) ${blockers.join(
+					', '
+				)} from ancestor ${blockedAncestor.id} ("${blockedAncestor.name}")`,
+				paths: [`dex:${task.id}`, `dex:${blockedAncestor.id}`, ...blockers.map((id) => `dex:${id}`)]
+			});
+			continue;
+		}
+		eligible.add(task.id);
+	}
+	return eligible;
+}
+
 function findReadyDexLeaves(
 	openTasks: PlanningDexTask[],
-	openChildrenByParent: Map<string, PlanningDexTask[]>
+	openChildrenByParent: Map<string, PlanningDexTask[]>,
+	projectionEligibleTaskIds: ReadonlySet<string>
 ): PlanningDexTask[] {
 	const openIds = new Set(openTasks.map((task) => task.id));
 	return openTasks.filter((task) => {
-		if (task.started || openChildrenByParent.has(task.id)) return false;
+		if (
+			!projectionEligibleTaskIds.has(task.id) ||
+			task.started ||
+			openChildrenByParent.has(task.id)
+		)
+			return false;
 		return !task.blockedBy.some((id) => openIds.has(id));
 	});
 }
 
-function selectNextDexTask(
+function createReadyDexLanes(
 	readyLeaves: PlanningDexTask[],
+	taskById: Map<string, PlanningDexTask>,
 	findings: PlanningStateFinding[]
-): { nextTask: PlanningDexTask | null; topPriority: number | null } {
-	if (readyLeaves.length === 0) return { nextTask: null, topPriority: null };
-	const topPriority = Math.min(...readyLeaves.map((task) => task.priority));
-	const topReadyTasks = readyLeaves.filter((task) => task.priority === topPriority);
-	if (topReadyTasks.length > 1) {
-		findings.push({
-			check: 'dex-ready-runway',
-			message: `${topReadyTasks.length} co-equal priority-${topPriority} ready leaves (${topReadyTasks
-				.map((task) => task.id)
-				.join(
-					', '
-				)}) — order the runway with priorities or blocking edges so one strategic first move remains`,
-			paths: topReadyTasks.map((task) => `dex:${task.id}`)
+): PlanningReadyLane[] {
+	const readyByEpic = new Map<string, PlanningDexTask[]>();
+	for (const task of readyLeaves) {
+		const epicId = findDexExecutionRootId(task, taskById) ?? `invalid:${task.id}`;
+		const tasks = readyByEpic.get(epicId) ?? [];
+		tasks.push(task);
+		readyByEpic.set(epicId, tasks);
+	}
+	const lanes: PlanningReadyLane[] = [];
+	for (const [rootEpicId, tasks] of readyByEpic) {
+		const priority = Math.min(...tasks.map((task) => task.priority));
+		const topTasks = tasks.filter((task) => task.priority === priority);
+		if (topTasks.length > 1) {
+			findings.push({
+				check: 'dex-ready-runway',
+				message: `${topTasks.length} co-equal priority-${priority} ready leaves in one effective execution root (${topTasks
+					.map((task) => task.id)
+					.join(
+						', '
+					)}) — order that epic with priorities or blocking edges so one leaf owns its lane`,
+				paths: topTasks.map((task) => `dex:${task.id}`)
+			});
+			continue;
+		}
+		const nextTask = topTasks[0];
+		lanes.push({
+			rootEpicId,
+			nextTaskId: nextTask.id,
+			nextTaskName: nextTask.name,
+			topPriority: priority,
+			readyLeafCount: tasks.length
 		});
 	}
-	return {
-		nextTask: topReadyTasks.length === 1 ? topReadyTasks[0] : null,
-		topPriority
-	};
+	return lanes.sort((left, right) => left.rootEpicId.localeCompare(right.rootEpicId));
 }
 
-function findDexEpicId(
+function findDexExecutionRootId(
 	runwayTask: PlanningDexTask | null,
 	taskById: Map<string, PlanningDexTask>
 ): string | null {
-	let activeEpicId = runwayTask?.id ?? null;
-	const visited = new Set<string>();
-	while (activeEpicId) {
-		if (visited.has(activeEpicId)) break;
-		visited.add(activeEpicId);
-		const parentId = taskById.get(activeEpicId)?.parentId;
-		if (!parentId || !taskById.has(parentId)) break;
-		activeEpicId = parentId;
-	}
-	return activeEpicId;
+	if (!runwayTask) return null;
+	const ancestry = resolvePlanningDexAncestry(runwayTask.id, taskById);
+	return ancestry.status === 'resolved' ? ancestry.executionRoot.id : null;
 }
 
 function createDexRunway(
 	inputs: PlanningStateInputs,
 	findings: PlanningStateFinding[]
 ): PlanningRunway {
-	// The roadmap's runway rule: dex list --ready must expose ONE strategic
-	// first move, not a flat pile of co-equal top-priority leaves. A leaf that
-	// is already started counts as being worked, not as a next move.
+	// Each effective open execution root owns one lane. Independent roots may run
+	// concurrently, but one root cannot expose co-equal ready or active leaves.
 	const taskById = new Map(inputs.dexTasks.map((task) => [task.id, task]));
 	const openTasks = inputs.dexTasks.filter((task) => !task.completed);
+	const projectionEligibleTaskIds = analyzePlanningDexGraph(inputs.dexTasks, findings);
 	const openChildrenByParent = indexOpenDexChildren(openTasks);
 	const startedLeaves = openTasks.filter(
-		(task) => task.started && !openChildrenByParent.has(task.id)
+		(task) =>
+			projectionEligibleTaskIds.has(task.id) && task.started && !openChildrenByParent.has(task.id)
 	);
-	if (startedLeaves.length > 1) {
+	const startedByEpic = new Map<string, PlanningDexTask[]>();
+	for (const task of startedLeaves) {
+		const epicId = findDexExecutionRootId(task, taskById) ?? `invalid:${task.id}`;
+		const tasks = startedByEpic.get(epicId) ?? [];
+		tasks.push(task);
+		startedByEpic.set(epicId, tasks);
+	}
+	for (const tasks of startedByEpic.values()) {
+		if (tasks.length <= 1) continue;
 		findings.push({
 			check: 'dex-active-work',
-			message: `${startedLeaves.length} open leaf tasks are started (${startedLeaves
+			message: `${tasks.length} open leaf tasks are started in one effective execution root (${tasks
 				.map((task) => task.id)
-				.join(', ')}) — the factory WIP limit permits one active work item`,
-			paths: startedLeaves.map((task) => `dex:${task.id}`)
+				.join(', ')}) — each execution lane permits one active work item`,
+			paths: tasks.map((task) => `dex:${task.id}`)
 		});
 	}
-	const readyLeaves = findReadyDexLeaves(openTasks, openChildrenByParent);
-	const { nextTask, topPriority } = selectNextDexTask(readyLeaves, findings);
-	const activeTask = startedLeaves.length === 1 ? startedLeaves[0] : null;
-	const activeEpicId = findDexEpicId(activeTask ?? nextTask, taskById);
+	const activeLanes = [...startedByEpic.entries()]
+		.filter(([, tasks]) => tasks.length === 1)
+		.map(([rootEpicId, tasks]) => ({
+			rootEpicId,
+			activeTaskId: tasks[0].id,
+			activeTaskName: tasks[0].name
+		}))
+		.sort((left, right) => left.rootEpicId.localeCompare(right.rootEpicId));
+	const readyLeaves = findReadyDexLeaves(
+		openTasks,
+		openChildrenByParent,
+		projectionEligibleTaskIds
+	).filter((task) => {
+		const rootEpicId = findDexExecutionRootId(task, taskById);
+		return rootEpicId !== null && !startedByEpic.has(rootEpicId);
+	});
+	const readyLanes = createReadyDexLanes(readyLeaves, taskById, findings);
 
+	// Singular fields are deterministic compatibility projections only. They do
+	// not authorize lane selection; consumers must use the complete arrays.
+	const compatibilityActiveLane = activeLanes[0] ?? null;
+	const compatibilityReadyLane =
+		[...readyLanes].sort(
+			(left, right) =>
+				left.topPriority - right.topPriority || left.nextTaskId.localeCompare(right.nextTaskId)
+		)[0] ?? null;
 	return {
-		activeTaskId: activeTask?.id ?? null,
-		activeTaskName: activeTask?.name ?? null,
-		activeEpicId,
-		nextTaskId: nextTask?.id ?? null,
-		nextTaskName: nextTask?.name ?? null,
-		topPriority,
+		activeLanes,
+		readyLanes,
+		activeTaskId: compatibilityActiveLane?.activeTaskId ?? null,
+		activeTaskName: compatibilityActiveLane?.activeTaskName ?? null,
+		activeEpicId: compatibilityActiveLane?.rootEpicId ?? compatibilityReadyLane?.rootEpicId ?? null,
+		nextTaskId: compatibilityReadyLane?.nextTaskId ?? null,
+		nextTaskName: compatibilityReadyLane?.nextTaskName ?? null,
+		topPriority: compatibilityReadyLane?.topPriority ?? null,
 		readyLeafCount: readyLeaves.length
 	};
 }
@@ -469,5 +632,5 @@ export function runPlanningStateChecks(inputs: PlanningStateInputs): PlanningSta
 	checkIdeasTier(inputs, findings);
 	checkDexTaskState(inputs, findings, advisories);
 	const runway = createDexRunway(inputs, findings);
-	return { findings, advisories, runway };
+	return { clean: findings.length === 0, findings, advisories, runway };
 }

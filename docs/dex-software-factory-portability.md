@@ -24,7 +24,7 @@ in the profile definition's `globalArguments`, then run:
 ```bash
 swamp model method run <profile> compile
 deno run --allow-run --allow-read --allow-write scripts/materialize-dex-software-factory.ts \
-  <profile> <factory-definition-path>
+  <profile-model> <factory-definition-path> <expected-compiled-profile-name>
 swamp model validate <factory>
 ```
 

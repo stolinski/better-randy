@@ -108,6 +108,14 @@ const planningState = {
   generatedAt: "2026-08-06T00:00:00.000Z",
   clean: true,
   runway: {
+    activeLanes: [],
+    readyLanes: [{
+      rootEpicId: "planning-epic",
+      nextTaskId: "adapter-task",
+      nextTaskName: "Build planning adapters",
+      topPriority: 2,
+      readyLeafCount: 1,
+    }],
     activeTaskId: "",
     activeTaskName: "",
     activeEpicId: "",
@@ -1070,6 +1078,15 @@ Deno.test("delivery handoff binds the audited mapping to current human approval 
   assertEquals(prepared.approvedEpicTaskId, "epic-1");
   assertEquals(prepared.candidateTaskId, "leaf-1");
   assertEquals(prepared.approvedTaskIds, ["epic-1", "leaf-1"]);
+  const conflictingMappedBoundary = await prepareFixtureDeliveryHandoff({
+    ...args,
+    planningHandoff: {
+      ...args.planningHandoff,
+      approvedEpicTaskId: "leaf-1",
+    },
+  });
+  assertEquals(conflictingMappedBoundary.status, "human-gate");
+  assertEquals(conflictingMappedBoundary.approvedEpicTaskId, null);
   const flattenedPlan = {
     schemaVersion: 1 as const,
     planId: plan.planId,
@@ -1121,11 +1138,91 @@ Deno.test("delivery handoff binds the audited mapping to current human approval 
   assertEquals(reviewedPrepared.status, "ready");
   assertEquals(reviewedPrepared.approvedEpicTaskId, "epic-1");
   assertEquals(reviewedPrepared.planHash, "d".repeat(64));
+
+  const attachedExistingRootPlan = {
+    schemaVersion: 1 as const,
+    planId: plan.planId,
+    createTasks: [{
+      clientRef: "delivery-leaf",
+      name: "Approved delivery leaf",
+      description: "The one audited ready leaf.",
+      priority: 2,
+      parentKind: "reference" as const,
+      parentClientRef: "existing-root",
+      blockedBy: [],
+    }],
+    attachExistingTasks: [{
+      clientRef: "existing-root",
+      selectorKind: "id" as const,
+      selectorValue: "epic-existing",
+      expectedName: "Existing approved epic",
+      expectedDescription: "Existing human-approved Delivery boundary.",
+      expectedPriority: 1,
+      parentKind: "preserve" as const,
+      parentClientRef: "",
+      addBlockedBy: [],
+    }],
+  };
+  const attachedApplication = {
+    ...args.application,
+    mappings: [{
+      clientRef: "existing-root",
+      dexTaskId: "epic-existing",
+      disposition: "attachedExisting" as const,
+    }, {
+      clientRef: "delivery-leaf",
+      dexTaskId: "leaf-1",
+      disposition: "created" as const,
+    }],
+  };
+  const attachedArgs = {
+    ...args,
+    graphProposal: { ...args.graphProposal, plan: attachedExistingRootPlan },
+    approvedPlan: { ...args.approvedPlan, plan: attachedExistingRootPlan },
+    application: attachedApplication,
+    planningAudit: {
+      ...args.planningAudit,
+      verifiedTaskIds: ["epic-existing", "leaf-1"],
+    },
+    planningHandoff: {
+      ...args.planningHandoff,
+      approvedEpicTaskId: "epic-existing",
+    },
+  };
+  const attachedPrepared = await prepareFixtureDeliveryHandoff(attachedArgs);
+  assertEquals(attachedPrepared.status, "ready");
+  assertEquals(attachedPrepared.approvedEpicTaskId, "epic-existing");
+  assertEquals(attachedPrepared.approvedTaskIds, ["epic-existing", "leaf-1"]);
+  assertEquals(
+    attachedPrepared.planningHandoffFingerprint,
+    (await prepareFixtureDeliveryHandoff(attachedArgs))
+      .planningHandoffFingerprint,
+  );
+
+  const unmappedBoundary = await prepareFixtureDeliveryHandoff({
+    ...attachedArgs,
+    planningHandoff: {
+      ...attachedArgs.planningHandoff,
+      approvedEpicTaskId: "outside-approved-plan",
+    },
+  });
+  assertEquals(unmappedBoundary.status, "human-gate");
+  assertEquals(unmappedBoundary.approvedEpicTaskId, null);
+  assert(
+    unmappedBoundary.summary.includes(
+      "not an exact approved and audited mapping",
+    ),
+  );
+  assert(
+    unmappedBoundary.planningHandoffFingerprint !==
+      attachedPrepared.planningHandoffFingerprint,
+  );
+
   const outcome = await normalizeSupersDeliveryHandoffOutcome({
     approval: prepared,
     claim: {
       schemaVersion: 1,
-      adapterVersion: "2026.08.06.2",
+      adapterVersion: "2026.08.15.1",
       planningWorkItem: prepared.planningWorkItem,
       planId: prepared.planId,
       planHash: prepared.planHash,
@@ -1150,7 +1247,7 @@ Deno.test("delivery handoff binds the audited mapping to current human approval 
         approval: prepared,
         claim: {
           schemaVersion: 1,
-          adapterVersion: "2026.08.06.2",
+          adapterVersion: "2026.08.15.1",
           planningWorkItem: prepared.planningWorkItem,
           planId: prepared.planId,
           planHash: prepared.planHash,

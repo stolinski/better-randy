@@ -186,11 +186,12 @@ function parsedClaim(
   return DexReadyLeafClaimSchema.parse(writes.at(-1)?.data);
 }
 
-Deno.test("claim-next-ready atomically starts the unique global approved leaf", async () => {
+Deno.test("claim-next-ready atomically starts the unique approved-root leaf", async () => {
   const adapter = new FakeDexReadyLeafAdapter([
     task("epic-1", { priority: 1 }),
     task("leaf-1", { parent_id: "epic-1", priority: 2 }),
-    task("later-1", { priority: 5 }),
+    task("epic-2", { priority: 0 }),
+    task("later-1", { parent_id: "epic-2", priority: 0 }),
   ]);
   const fixture = fixtureContext();
   await executeDexReadyLeafClaim(
@@ -214,8 +215,9 @@ Deno.test("claim-next-ready atomically starts the unique global approved leaf", 
 
 Deno.test("an active Factory is resumed before runway selection and tracker state is repaired", async () => {
   const adapter = new FakeDexReadyLeafAdapter([
-    task("active-1", { priority: 9 }),
-    task("leaf-1", { priority: 1 }),
+    task("epic-1", { priority: 1 }),
+    task("active-1", { parent_id: "epic-1", priority: 9 }),
+    task("leaf-1", { parent_id: "epic-1", priority: 1 }),
   ]);
   const fixture = fixtureContext();
   await executeDexReadyLeafClaim(
@@ -234,8 +236,9 @@ Deno.test("an active Factory is resumed before runway selection and tracker stat
   assert.deepEqual(adapter.starts, ["active-1"]);
 
   const conflictingAdapter = new FakeDexReadyLeafAdapter([
-    task("active-1"),
-    task("other-started", { started_at: NOW }),
+    task("epic-1", { priority: 1 }),
+    task("active-1", { parent_id: "epic-1" }),
+    task("other-started", { parent_id: "epic-1", started_at: NOW }),
   ]);
   const conflicting = fixtureContext();
   await executeDexReadyLeafClaim(
@@ -255,8 +258,82 @@ Deno.test("an active Factory is resumed before runway selection and tracker stat
   assert.deepEqual(conflictingAdapter.starts, []);
 });
 
-Deno.test("multiple active ownership signals and ambiguous runways require a human gate", async () => {
-  const multipleFactoryAdapter = new FakeDexReadyLeafAdapter([task("leaf-1")]);
+Deno.test("active Factory work in another proven root does not block this root", async () => {
+  const adapter = new FakeDexReadyLeafAdapter([
+    task("epic-1"),
+    task("leaf-1", { parent_id: "epic-1" }),
+    task("epic-2"),
+    task("active-2", {
+      parent_id: "epic-2",
+      started_at: NOW,
+    }),
+  ]);
+  const fixture = fixtureContext();
+  await executeDexReadyLeafClaim(
+    {
+      authorizationCapability: AUTHORIZATION_KEY,
+      approval: await approval(),
+      activeFactoryWorkItems: ["active-2"],
+    },
+    fixture.context,
+    dependencies(adapter),
+  );
+  assert.equal(parsedClaim(fixture.writes).selectedTaskId, "leaf-1");
+  assert.deepEqual(adapter.starts, ["leaf-1"]);
+});
+
+Deno.test("unknown active Factory identity fails closed", async () => {
+  const adapter = new FakeDexReadyLeafAdapter([
+    task("epic-1"),
+    task("leaf-1", { parent_id: "epic-1" }),
+  ]);
+  const fixture = fixtureContext();
+  await executeDexReadyLeafClaim(
+    {
+      authorizationCapability: AUTHORIZATION_KEY,
+      approval: await approval(),
+      activeFactoryWorkItems: ["unknown-active"],
+    },
+    fixture.context,
+    dependencies(adapter),
+  );
+  assert.equal(
+    parsedClaim(fixture.writes).reason,
+    "active-factory-task-invalid",
+  );
+  assert.deepEqual(adapter.starts, []);
+});
+
+Deno.test("cyclic ancestry in an active Factory identity fails closed", async () => {
+  const adapter = new FakeDexReadyLeafAdapter([
+    task("epic-1"),
+    task("leaf-1", { parent_id: "epic-1" }),
+    task("cycle-a", { parent_id: "cycle-b" }),
+    task("cycle-b", { parent_id: "cycle-a" }),
+  ]);
+  const fixture = fixtureContext();
+  await executeDexReadyLeafClaim(
+    {
+      authorizationCapability: AUTHORIZATION_KEY,
+      approval: await approval(),
+      activeFactoryWorkItems: ["cycle-a"],
+    },
+    fixture.context,
+    dependencies(adapter),
+  );
+  assert.equal(
+    parsedClaim(fixture.writes).reason,
+    "active-factory-task-invalid",
+  );
+  assert.deepEqual(adapter.starts, []);
+});
+
+Deno.test("multiple same-root ownership signals and ambiguous runways require a human gate", async () => {
+  const multipleFactoryAdapter = new FakeDexReadyLeafAdapter([
+    task("epic-1"),
+    task("active-1", { parent_id: "epic-1" }),
+    task("active-2", { parent_id: "epic-1" }),
+  ]);
   const multipleFactory = fixtureContext();
   await executeDexReadyLeafClaim(
     {
@@ -269,7 +346,7 @@ Deno.test("multiple active ownership signals and ambiguous runways require a hum
   );
   assert.equal(
     parsedClaim(multipleFactory.writes).reason,
-    "multiple-active-factory-runs",
+    "multiple-active-factory-runs-in-epic",
   );
   assert.deepEqual(multipleFactoryAdapter.starts, []);
 
@@ -290,15 +367,37 @@ Deno.test("multiple active ownership signals and ambiguous runways require a hum
     tie.context,
     dependencies(tieAdapter),
   );
-  assert.equal(parsedClaim(tie.writes).reason, "global-runway-ambiguous");
+  assert.equal(parsedClaim(tie.writes).reason, "epic-runway-ambiguous");
   assert.deepEqual(tieAdapter.starts, []);
+
+  const multipleStartedAdapter = new FakeDexReadyLeafAdapter([
+    task("epic-1"),
+    task("started-1", { parent_id: "epic-1", started_at: NOW }),
+    task("started-2", { parent_id: "epic-1", started_at: NOW }),
+  ]);
+  const multipleStarted = fixtureContext();
+  await executeDexReadyLeafClaim(
+    {
+      authorizationCapability: AUTHORIZATION_KEY,
+      approval: await approval(),
+      activeFactoryWorkItems: [],
+    },
+    multipleStarted.context,
+    dependencies(multipleStartedAdapter),
+  );
+  assert.equal(
+    parsedClaim(multipleStarted.writes).reason,
+    "multiple-started-tasks-in-epic",
+  );
+  assert.deepEqual(multipleStartedAdapter.starts, []);
 });
 
-Deno.test("a global winner outside the approved epic is never claimed", async () => {
+Deno.test("a higher-priority leaf in another root does not preempt the approved root", async () => {
   const adapter = new FakeDexReadyLeafAdapter([
     task("epic-1", { priority: 1 }),
     task("leaf-1", { parent_id: "epic-1", priority: 3 }),
-    task("outside-1", { priority: 2 }),
+    task("epic-2", { priority: 0 }),
+    task("outside-1", { parent_id: "epic-2", priority: 0 }),
   ]);
   const fixture = fixtureContext();
   await executeDexReadyLeafClaim(
@@ -310,17 +409,157 @@ Deno.test("a global winner outside the approved epic is never claimed", async ()
     fixture.context,
     dependencies(adapter),
   );
-  assert.equal(
-    parsedClaim(fixture.writes).reason,
-    "runway-outside-approved-plan",
+  assert.equal(parsedClaim(fixture.writes).selectedTaskId, "leaf-1");
+  assert.deepEqual(adapter.starts, ["leaf-1"]);
+});
+
+Deno.test("an ax4-like open follow-up under a completed parent claims as its own boundary leaf", async () => {
+  const adapter = new FakeDexReadyLeafAdapter([
+    task("kwg92wzb", {
+      completed: true,
+      blockedBy: ["historical-missing-blocker"],
+    }),
+    task("ax4rmn66", { parent_id: "kwg92wzb", priority: 4 }),
+  ]);
+  const fixture = fixtureContext();
+  await executeDexReadyLeafClaim(
+    {
+      authorizationCapability: AUTHORIZATION_KEY,
+      approval: await approval({
+        candidateTaskId: "ax4rmn66",
+        approvedEpicTaskId: "ax4rmn66",
+        approvedTaskIds: ["ax4rmn66"],
+        auditedTaskIds: ["ax4rmn66"],
+      }),
+      activeFactoryWorkItems: [],
+    },
+    fixture.context,
+    dependencies(adapter),
   );
+  const claim = parsedClaim(fixture.writes);
+  assert.equal(claim.status, "claimed");
+  assert.equal(claim.selectedTaskId, "ax4rmn66");
+  assert.deepEqual(claim.readyTaskIds, ["ax4rmn66"]);
+  assert.deepEqual(adapter.starts, ["ax4rmn66"]);
+});
+
+Deno.test("unknown blockers on a leaf or ancestor fail closed", async () => {
+  for (const blockedNode of ["leaf-1", "epic-1"]) {
+    const adapter = new FakeDexReadyLeafAdapter([
+      task("epic-1", {
+        blockedBy: blockedNode === "epic-1" ? ["missing-blocker"] : [],
+      }),
+      task("leaf-1", {
+        parent_id: "epic-1",
+        blockedBy: blockedNode === "leaf-1" ? ["missing-blocker"] : [],
+      }),
+    ]);
+    const fixture = fixtureContext();
+    await executeDexReadyLeafClaim(
+      {
+        authorizationCapability: AUTHORIZATION_KEY,
+        approval: await approval(),
+        activeFactoryWorkItems: [],
+      },
+      fixture.context,
+      dependencies(adapter),
+    );
+    const claim = parsedClaim(fixture.writes);
+    assert.equal(claim.status, "human-gate");
+    assert.equal(claim.reason, "dex-graph-invalid");
+    assert.deepEqual(adapter.starts, []);
+  }
+});
+
+Deno.test("an open blocker on the leaf or an ancestor waits without a claim", async () => {
+  for (const blockedNode of ["leaf-1", "epic-1"]) {
+    const adapter = new FakeDexReadyLeafAdapter([
+      task("epic-1", {
+        blockedBy: blockedNode === "epic-1" ? ["blocker-2"] : [],
+      }),
+      task("leaf-1", {
+        parent_id: "epic-1",
+        blockedBy: blockedNode === "leaf-1" ? ["blocker-2"] : [],
+      }),
+      task("epic-2"),
+      task("blocker-2", { parent_id: "epic-2" }),
+    ]);
+    const fixture = fixtureContext();
+    await executeDexReadyLeafClaim(
+      {
+        authorizationCapability: AUTHORIZATION_KEY,
+        approval: await approval(),
+        activeFactoryWorkItems: [],
+      },
+      fixture.context,
+      dependencies(adapter),
+    );
+    assert.equal(parsedClaim(fixture.writes).status, "no-ready-work");
+    assert.deepEqual(adapter.starts, []);
+  }
+});
+
+Deno.test("missing or cyclic approved-boundary ancestry fails closed", async () => {
+  const topologies = [
+    [
+      task("epic-1", { parent_id: "missing-parent" }),
+      task("leaf-1", { parent_id: "epic-1" }),
+    ],
+    [
+      task("epic-1", { parent_id: "cycle-parent" }),
+      task("cycle-parent", { parent_id: "epic-1" }),
+      task("leaf-1", { parent_id: "epic-1" }),
+    ],
+  ];
+  for (const tasks of topologies) {
+    const adapter = new FakeDexReadyLeafAdapter(tasks);
+    const fixture = fixtureContext();
+    await executeDexReadyLeafClaim(
+      {
+        authorizationCapability: AUTHORIZATION_KEY,
+        approval: await approval(),
+        activeFactoryWorkItems: [],
+      },
+      fixture.context,
+      dependencies(adapter),
+    );
+    const claim = parsedClaim(fixture.writes);
+    assert.equal(claim.status, "human-gate");
+    assert.equal(claim.reason, "approved-boundary-invalid");
+    assert.deepEqual(adapter.starts, []);
+  }
+});
+
+Deno.test("a completed approved root is an invalid boundary", async () => {
+  const adapter = new FakeDexReadyLeafAdapter([
+    task("epic-1", { completed: true }),
+    task("leaf-1", { parent_id: "epic-1", completed: true }),
+  ]);
+  const fixture = fixtureContext();
+  await executeDexReadyLeafClaim(
+    {
+      authorizationCapability: AUTHORIZATION_KEY,
+      approval: await approval({
+        status: "no-ready-work",
+        candidateTaskId: null,
+      }),
+      activeFactoryWorkItems: [],
+    },
+    fixture.context,
+    dependencies(adapter),
+  );
+  const claim = parsedClaim(fixture.writes);
+  assert.equal(claim.status, "human-gate");
+  assert.equal(claim.reason, "approved-boundary-invalid");
   assert.deepEqual(adapter.starts, []);
 });
 
 Deno.test("no-ready-work is a clean typed outcome", async () => {
   const adapter = new FakeDexReadyLeafAdapter([
-    task("epic-1", { completed: true }),
-    task("leaf-1", { parent_id: "epic-1", completed: true }),
+    task("epic-1"),
+    task("leaf-1", { parent_id: "epic-1", blockedBy: ["blocker-2"] }),
+    task("epic-2"),
+    task("blocker-2", { parent_id: "epic-2" }),
   ]);
   const fixture = fixtureContext();
   await executeDexReadyLeafClaim(
@@ -375,6 +614,91 @@ Deno.test("competing claims serialize to one Dex start and deterministic outbox 
   assert.equal(claims[1].reason, "claimed-ready-leaf");
   assert.deepEqual(claims[1], claims[0]);
   assert.equal(new Set(fixture.writes.map((write) => write.name)).size, 2);
+});
+
+Deno.test("different approvals for the same root cannot double-start one leaf", async () => {
+  const adapter = new FakeDexReadyLeafAdapter([
+    task("epic-1"),
+    task("leaf-1", { parent_id: "epic-1", priority: 1 }),
+  ]);
+  const lock = serialRepositoryLock();
+  const fixture = fixtureContext();
+  const competingApproval = await approval({
+    planningWorkItem: "planning-competing",
+    planId: "plan-competing",
+  });
+  await Promise.all([
+    executeDexReadyLeafClaim(
+      {
+        authorizationCapability: AUTHORIZATION_KEY,
+        approval: await approval(),
+        activeFactoryWorkItems: [],
+      },
+      fixture.context,
+      dependencies(adapter, lock),
+    ),
+    executeDexReadyLeafClaim(
+      {
+        authorizationCapability: AUTHORIZATION_KEY,
+        approval: competingApproval,
+        activeFactoryWorkItems: [],
+      },
+      fixture.context,
+      dependencies(adapter, lock),
+    ),
+  ]);
+  assert.deepEqual(adapter.starts, ["leaf-1"]);
+  const claims = fixture.writes
+    .filter((write) => write.name.includes("ready-leaf-claim-"))
+    .map((write) => DexReadyLeafClaimSchema.parse(write.data));
+  assert.deepEqual(
+    claims.map((claim) => claim.status).sort(),
+    ["claimed", "human-gate"],
+  );
+});
+
+Deno.test("different approved roots converge independently under the same repository lock", async () => {
+  const adapter = new FakeDexReadyLeafAdapter([
+    task("historical-epic", { completed: true }),
+    task("epic-1", { parent_id: "historical-epic" }),
+    task("leaf-1", { parent_id: "epic-1", priority: 1 }),
+    task("epic-2", { parent_id: "historical-epic" }),
+    task("leaf-2", { parent_id: "epic-2", priority: 1 }),
+  ]);
+  const lock = serialRepositoryLock();
+  const first = fixtureContext();
+  const second = fixtureContext();
+  const secondApproval = await approval({
+    planningWorkItem: "planning-2",
+    planId: "plan-2",
+    candidateTaskId: "leaf-2",
+    approvedEpicTaskId: "epic-2",
+    approvedTaskIds: ["epic-2", "leaf-2"],
+    auditedTaskIds: ["epic-2", "leaf-2"],
+  });
+  await Promise.all([
+    executeDexReadyLeafClaim(
+      {
+        authorizationCapability: AUTHORIZATION_KEY,
+        approval: await approval(),
+        activeFactoryWorkItems: [],
+      },
+      first.context,
+      dependencies(adapter, lock),
+    ),
+    executeDexReadyLeafClaim(
+      {
+        authorizationCapability: AUTHORIZATION_KEY,
+        approval: secondApproval,
+        activeFactoryWorkItems: [],
+      },
+      second.context,
+      dependencies(adapter, lock),
+    ),
+  ]);
+  assert.deepEqual(adapter.starts.sort(), ["leaf-1", "leaf-2"]);
+  assert.equal(parsedClaim(first.writes).status, "claimed");
+  assert.equal(parsedClaim(second.writes).status, "claimed");
 });
 
 Deno.test("a started candidate without a durable intent is never adopted", async () => {

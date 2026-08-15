@@ -1,6 +1,6 @@
 id: 5837b051-a547-4624-a26c-3dffc2e6b1f8
 name: supers-planning-delivery-handoff
-description: Atomically resume or claim one human-approved Dex ready leaf, then converge the repository Delivery Factory state.
+description: Atomically resume or claim one human-approved Dex ready leaf inside its approved root, then converge that Delivery Factory lane.
 tags:
   purpose: supers-planning-delivery-handoff
 inputs:
@@ -19,7 +19,7 @@ jobs:
   description: Validate Planning provenance, claim Dex ownership, and converge Delivery Factory state.
   steps:
   - name: refresh-delivery-fleet
-    description: Materialize the current typed Delivery Factory fleet before any Dex selection.
+    description: Materialize the current typed Delivery Factory fleet before root-scoped Dex selection.
     task:
       type: model_method
       modelIdOrName: supers-delivery
@@ -47,7 +47,7 @@ jobs:
     weight: 0
     allowFailure: false
   - name: claim-next-ready
-    description: Under the Dex repository lock, resume active ownership or start the unique global approved ready leaf.
+    description: Under the Dex repository lock, resume ownership or start the unique approved ready leaf inside this root epic.
     task:
       type: model_method
       modelIdOrName: supers-dex-delivery-handoff-authorized
@@ -81,7 +81,7 @@ jobs:
     allowFailure: true
     guard: ${{ data.query('modelName == "supers-dex-delivery-handoff-authorized" && specName == "ready-leaf-claim" && workflowRunId == "' + run.id + '"')[0].attributes.status != "claimed" }}
   - name: normalize-claimed-delivery-handoff
-    description: Require the claim to converge to exactly one active Factory state or a clean no-work/human-gate outcome.
+    description: Require claimed or resumed ownership in this approved root to converge to at most one active Factory state.
     task:
       type: model_method
       modelIdOrName: supers-delivery-handoff-authorizer
@@ -96,6 +96,7 @@ jobs:
         type: completed
     weight: 0
     allowFailure: false
+    guard: ${{ data.query('modelName == "supers-dex-delivery-handoff-authorized" && specName == "ready-leaf-claim" && workflowRunId == "' + run.id + '"')[0].attributes.status != "claimed" && data.query('modelName == "supers-dex-delivery-handoff-authorized" && specName == "ready-leaf-claim" && workflowRunId == "' + run.id + '"')[0].attributes.status != "resumed" }}
   - name: normalize-terminal-delivery-handoff
     description: Normalize no-work and human-gate claims without attempting to start Delivery.
     task:
@@ -112,7 +113,7 @@ jobs:
         type: succeeded
     weight: 0
     allowFailure: false
-    guard: ${{ data.query('modelName == "supers-dex-delivery-handoff-authorized" && specName == "ready-leaf-claim" && workflowRunId == "' + run.id + '"')[0].attributes.status == "claimed" }}
+    guard: ${{ data.query('modelName == "supers-dex-delivery-handoff-authorized" && specName == "ready-leaf-claim" && workflowRunId == "' + run.id + '"')[0].attributes.status == "claimed" || data.query('modelName == "supers-dex-delivery-handoff-authorized" && specName == "ready-leaf-claim" && workflowRunId == "' + run.id + '"')[0].attributes.status == "resumed" }}
   dependsOn: []
   weight: 0
 version: 1

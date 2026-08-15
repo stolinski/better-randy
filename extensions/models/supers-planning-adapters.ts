@@ -35,6 +35,19 @@ const MAX_RELATED_TASKS = 25;
 const SUMMARY_MAX_LENGTH = 800;
 
 const PlanningRunwaySchema = z.strictObject({
+  activeLanes: z.array(z.strictObject({
+    rootEpicId: z.string().min(1).max(128),
+    activeTaskId: z.string().min(1).max(128),
+    activeTaskName: z.string().min(1).max(51_200),
+  })).max(MAX_DEX_TASKS),
+  readyLanes: z.array(z.strictObject({
+    rootEpicId: z.string().min(1).max(128),
+    nextTaskId: z.string().min(1).max(128),
+    nextTaskName: z.string().min(1).max(51_200),
+    topPriority: z.number().int().min(0).max(100),
+    readyLeafCount: z.number().int().min(1),
+  })).max(MAX_DEX_TASKS),
+  // Compatibility projections only; lane arrays are authoritative.
   activeTaskId: z.string().max(128),
   activeTaskName: z.string().max(51_200),
   activeEpicId: z.string().max(128),
@@ -1511,9 +1524,21 @@ export async function prepareSupersDeliveryHandoff(
   );
   const approvedEpicClientRef = normalizedApprovedPlan.epic?.clientRef ??
     (rootCreateTasks.length === 1 ? rootCreateTasks[0].clientRef : null);
-  const approvedEpicTaskId = approvedEpicClientRef === null
+  const planDerivedEpicTaskId = approvedEpicClientRef === null
     ? null
     : mappingByClientRef.get(approvedEpicClientRef)?.dexTaskId ?? null;
+  const handoffEpicTaskId = planningHandoff.approvedEpicTaskId ?? null;
+  const handoffEpicIsMapped = handoffEpicTaskId !== null &&
+    approvedTaskIds.includes(handoffEpicTaskId) &&
+    auditedTaskIds.includes(handoffEpicTaskId);
+  const handoffEpicConflictsWithPlan = handoffEpicTaskId !== null &&
+    planDerivedEpicTaskId !== null &&
+    handoffEpicTaskId !== planDerivedEpicTaskId;
+  const approvedEpicTaskId = handoffEpicTaskId === null
+    ? planDerivedEpicTaskId
+    : handoffEpicIsMapped && !handoffEpicConflictsWithPlan
+    ? handoffEpicTaskId
+    : null;
   const requestedCandidate = planningHandoff.candidateTaskId ?? null;
   const candidateIsApproved = requestedCandidate !== null &&
     approvedTaskIds.includes(requestedCandidate);
@@ -1527,7 +1552,9 @@ export async function prepareSupersDeliveryHandoff(
     summary = "Planning audit did not authorize Delivery handoff.";
   } else if (status === "ready" && approvedEpicTaskId === null) {
     status = "human-gate";
-    summary = "The approved plan did not establish one explicit epic boundary.";
+    summary = handoffEpicTaskId === null
+      ? "The approved plan did not establish one explicit epic boundary."
+      : "The approved Planning handoff epic boundary is not an exact approved and audited mapping.";
   } else if (status === "ready" && !candidateIsApproved) {
     status = "human-gate";
     summary =

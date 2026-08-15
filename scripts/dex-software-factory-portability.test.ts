@@ -31,6 +31,8 @@ const MATERIALIZER_PATH = join(REPOSITORY_ROOT, 'scripts/materialize-dex-softwar
 const PORTABLE_MODEL_FILES = [
 	'dex-software-factory.ts',
 	'dex-software-factory-compiler.ts',
+	'dex-bounded-process.ts',
+	'dex-ready-leaf-handoff.ts',
 	'dex-repository-lock.ts',
 	'dex-plan-applier.ts',
 	'dex-plan-applier-adapter.ts',
@@ -172,7 +174,11 @@ function recordArtifact(
 	name: string,
 	payload: JsonObject
 ): Promise<CommandResult> {
-	return runFactoryMethod(repository, 'record_artifact', { workItem, name, payload });
+	return runFactoryMethod(repository, 'record_artifact', {
+		workItem,
+		name,
+		payload
+	});
 }
 
 function recordEvidence(
@@ -181,7 +187,11 @@ function recordEvidence(
 	name: string,
 	payload: JsonObject
 ): Promise<CommandResult> {
-	return runFactoryMethod(repository, 'record_evidence', { workItem, name, payload });
+	return runFactoryMethod(repository, 'record_evidence', {
+		workItem,
+		name,
+		payload
+	});
 }
 
 function advance(repository: string, workItem: string, transition: string): Promise<CommandResult> {
@@ -253,7 +263,12 @@ async function implementationThroughVerification(
 	await advance(repository, workItem, 'classify');
 	await recordDispatch(repository, workItem);
 	await recordArtifact(repository, workItem, 'change-impact', {
-		requiredLanes: [{ id: 'fixture-tests', reasons: ['portable lifecycle evidence'] }],
+		requiredLanes: [
+			{
+				id: 'fixture-tests',
+				reasons: ['portable lifecycle evidence']
+			}
+		],
 		reviewCandidate: true,
 		changeFingerprint: `fingerprint-${workItem}-${summary.replaceAll(' ', '-')}`
 	});
@@ -368,7 +383,9 @@ const gate = { type: "workflow-succeeded", config: { workflow: "consumer-workflo
 const summary = (createdAt) => ({ ownerRef: "consumer-workflow-id", createdAt, content: JSON.stringify({ status: "succeeded", workflowName: "consumer-workflow", workflowRunId: "consumer-run-id" }) });
 const state = { workItem: "workflow-fixture", stageId: "preflight", cycles: { preflight: 1 }, enteredAt: "2026-08-05T20:00:00.000Z", status: "active", definitionVersion: 1, startedAt: "2026-08-05T20:00:00.000Z" };
 const view = { state, artifacts: new Map(), evidence: new Map(), validations: new Map(), approvals: new Map() };
-const base = { args: { stages: [], globalTransitions: [] }, state, view, workItem: "workflow-fixture", workItemSlug: "workflow-fixture", now: new Date("2026-08-05T20:01:00.000Z"), selfName: ${JSON.stringify(FACTORY_MODEL)}, dataRepository: { findAllForModel: () => Promise.resolve([]), getContent: () => Promise.resolve(null) } };
+const base = { args: { stages: [], globalTransitions: [] }, state, view, workItem: "workflow-fixture", workItemSlug: "workflow-fixture", now: new Date("2026-08-05T20:01:00.000Z"), selfName: ${JSON.stringify(
+		FACTORY_MODEL
+	)}, dataRepository: { findAllForModel: () => Promise.resolve([]), getContent: () => Promise.resolve(null) } };
 const stale = await evaluateGate(gate, { ...base, queryData: () => Promise.resolve([summary("2026-08-05T19:59:00.000Z")]) });
 const currentSummary = summary("2026-08-05T20:00:30.000Z");
 const missingOutput = await evaluateGate(gate, { ...base, queryData: (predicate) => Promise.resolve(predicate.includes("report-swamp-workflow-summary-json") ? [currentSummary] : []) });
@@ -384,7 +401,10 @@ console.log(JSON.stringify({ stale, missingOutput, current }));
 	const stale = matrix.stale as { pass: boolean; reasons: string[] };
 	assert.equal(stale.pass, false);
 	assert.match(stale.reasons.join(' '), /predates the current entry/);
-	const missingOutput = matrix.missingOutput as { pass: boolean; reasons: string[] };
+	const missingOutput = matrix.missingOutput as {
+		pass: boolean;
+		reasons: string[];
+	};
 	assert.equal(missingOutput.pass, false);
 	assert.match(missingOutput.reasons.join(' '), /did not write required output/);
 	const current = matrix.current as { pass: boolean; reasons: string[] };
@@ -420,7 +440,9 @@ async function setUpCleanConsumer(repository: string): Promise<string> {
 		'@club_aqua_back_deck/dex-task-tracker',
 		TRACKER_MODEL
 	);
-	await setModelGlobalArguments(trackerDefinition, { ownerToken: 'clean-room-delivery' });
+	await setModelGlobalArguments(trackerDefinition, {
+		ownerToken: 'clean-room-delivery'
+	});
 	const planApplierDefinition = await createModel(
 		repository,
 		'@club_aqua_back_deck/dex-plan-applier',
@@ -440,7 +462,8 @@ async function setUpCleanConsumer(repository: string): Promise<string> {
 			'--allow-write',
 			MATERIALIZER_PATH,
 			PROFILE_MODEL,
-			factoryDefinition
+			factoryDefinition,
+			'clean-room-delivery'
 		],
 		repository
 	);
@@ -455,7 +478,8 @@ async function setUpCleanConsumer(repository: string): Promise<string> {
 			'--allow-write',
 			MATERIALIZER_PATH,
 			PROFILE_MODEL,
-			factoryDefinition
+			factoryDefinition,
+			'clean-room-delivery'
 		],
 		repository
 	);
@@ -514,7 +538,9 @@ async function runPortabilityMatrix(repository: string): Promise<void> {
 	assert.deepEqual(satisfiedTransitions(await factoryStatus(repository, reviewedTask)), ['review']);
 	await advance(repository, reviewedTask, 'review');
 	await recordDispatch(repository, reviewedTask);
-	await recordArtifact(repository, reviewedTask, 'review-findings', { findings: [] });
+	await recordArtifact(repository, reviewedTask, 'review-findings', {
+		findings: []
+	});
 	await recordArtifact(repository, reviewedTask, 'review-verdict', {
 		status: 'accept',
 		summary: 'Synthetic review accepted the first result.'
@@ -539,7 +565,9 @@ async function runPortabilityMatrix(repository: string): Promise<void> {
 	);
 	await advance(repository, reviewedTask, 'review');
 	await recordDispatch(repository, reviewedTask);
-	await recordArtifact(repository, reviewedTask, 'review-findings', { findings: [] });
+	await recordArtifact(repository, reviewedTask, 'review-findings', {
+		findings: []
+	});
 	await recordArtifact(repository, reviewedTask, 'review-verdict', {
 		status: 'accept',
 		summary: 'Synthetic review accepted the patched result.'
@@ -632,7 +660,9 @@ Deno.test({
 	sanitizeOps: false,
 	sanitizeResources: false,
 	fn: async () => {
-		const repository = await Deno.makeTempDir({ prefix: 'dex-software-factory-consumer-' });
+		const repository = await Deno.makeTempDir({
+			prefix: 'dex-software-factory-consumer-'
+		});
 		try {
 			const definitionPath = await setUpCleanConsumer(repository);
 			const definitionText = await Deno.readTextFile(definitionPath);

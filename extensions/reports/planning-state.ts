@@ -27,6 +27,22 @@ const PlanningResourceSchema = z.object({
 	presets: z.number(),
 	dexOpenTasks: z.number(),
 	runway: z.object({
+		activeLanes: z.array(
+			z.object({
+				rootEpicId: z.string(),
+				activeTaskId: z.string(),
+				activeTaskName: z.string()
+			})
+		),
+		readyLanes: z.array(
+			z.object({
+				rootEpicId: z.string(),
+				nextTaskId: z.string(),
+				nextTaskName: z.string(),
+				topPriority: z.number(),
+				readyLeafCount: z.number()
+			})
+		),
 		activeTaskId: z.string().nullable(),
 		activeTaskName: z.string().nullable(),
 		activeEpicId: z.string().nullable(),
@@ -43,7 +59,11 @@ const PlanningResourceSchema = z.object({
 
 type PlanningFinding = z.infer<typeof PlanningFindingSchema>;
 
-type PlanningReportDataHandle = { specName?: string; name: string; version?: number };
+type PlanningReportDataHandle = {
+	specName?: string;
+	name: string;
+	version?: number;
+};
 
 type PlanningReportContext = {
 	methodName: string;
@@ -107,9 +127,30 @@ export const report = {
 			`- **Clean**: ${parsed.clean}`,
 			`- **Generated**: ${parsed.generatedAt}`,
 			`- **Scope**: ${parsed.adrDocs} ADRs, ${parsed.briefDocs} Briefs, ${parsed.ideaDocs} ideas, ${parsed.presets} presets, ${parsed.dexOpenTasks} open dex tasks`,
-			`- **Active work**: ${parsed.runway.activeTaskId ? `${parsed.runway.activeTaskId} — ${parsed.runway.activeTaskName}` : 'none'}`,
-			`- **Active epic**: ${parsed.runway.activeEpicId ?? 'none'}`,
-			`- **Next work**: ${parsed.runway.nextTaskId ? `${parsed.runway.nextTaskId} — ${parsed.runway.nextTaskName}` : 'none'}`,
+			`- **Active lanes**: ${
+				parsed.runway.activeLanes.length > 0
+					? parsed.runway.activeLanes
+							.map((lane) => `${lane.rootEpicId}:${lane.activeTaskId}`)
+							.join(', ')
+					: 'none'
+			}`,
+			`- **Ready lanes**: ${
+				parsed.runway.readyLanes.length > 0
+					? parsed.runway.readyLanes
+							.map((lane) => `${lane.rootEpicId}:${lane.nextTaskId}`)
+							.join(', ')
+					: 'none'
+			}`,
+			`- **Compatibility active projection**: ${
+				parsed.runway.activeTaskId
+					? `${parsed.runway.activeTaskId} — ${parsed.runway.activeTaskName}`
+					: 'none'
+			}`,
+			`- **Compatibility next projection**: ${
+				parsed.runway.nextTaskId
+					? `${parsed.runway.nextTaskId} — ${parsed.runway.nextTaskName}`
+					: 'none'
+			}`,
 			`- **Ready leaves**: ${parsed.runway.readyLeafCount}`,
 			parsed.crash ? `- **Crash**: ${parsed.crash}` : null
 		]

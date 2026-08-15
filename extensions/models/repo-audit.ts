@@ -140,6 +140,7 @@ const PlanningFindingSchema = z.object({
     "ideas-historical",
     "dex-shipped-claim",
     "dex-blocker-contradiction",
+    "dex-graph-invalid",
     "dex-active-work",
     "dex-ready-runway",
   ]),
@@ -156,6 +157,18 @@ const PlanningReportSchema = z.object({
   presets: z.number(),
   dexOpenTasks: z.number(),
   runway: z.object({
+    activeLanes: z.array(z.object({
+      rootEpicId: z.string(),
+      activeTaskId: z.string(),
+      activeTaskName: z.string(),
+    })),
+    readyLanes: z.array(z.object({
+      rootEpicId: z.string(),
+      nextTaskId: z.string(),
+      nextTaskName: z.string(),
+      topPriority: z.number(),
+      readyLeafCount: z.number(),
+    })),
     activeTaskId: z.string().nullable(),
     activeTaskName: z.string().nullable(),
     activeEpicId: z.string().nullable(),

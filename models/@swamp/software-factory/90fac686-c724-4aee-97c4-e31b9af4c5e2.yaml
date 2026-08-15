@@ -1,6 +1,6 @@
 type: '@swamp/software-factory'
 typeVersion: 2026.06.24.1
-version: 7
+version: 9
 globalArguments:
   stages:
     - id: preflight
@@ -45,9 +45,13 @@ globalArguments:
       work:
         mode: interactive
         systemPrompt: >-
-          Implement only the current Dex work item. Follow repository guidance already loaded by the
-          agent. Complete required source, documentation, and tracker-file edits before
-          classification. Record a compact summary plus every materially changed visual target.
+          Implement only the current Dex work item in the Pi-managed isolated worktree. Follow
+          repository guidance already loaded by the agent. Complete required source, documentation,
+          and tracker-file edits, commit the lane, and return the strict child revision plus durable
+          handoff manifest path. The central parent must verify and integrate that handoff while
+          this work item remains in implementation. Only after serialized integration may the parent
+          record change-summary with the digest-verified, content-addressed integrationReceipt and
+          every materially changed visual target.
       artifacts:
         - name: change-summary
           description: Compact implementation summary used as the classification subject.
@@ -56,6 +60,7 @@ globalArguments:
             required:
               - summary
               - visualTargets
+              - integrationReceipt
             properties:
               summary:
                 type: string
@@ -68,6 +73,89 @@ globalArguments:
               commit:
                 type: string
                 minLength: 7
+              integrationReceipt:
+                type: object
+                properties:
+                  schemaVersion:
+                    type: integer
+                    enum:
+                      - 1
+                  receiptId:
+                    type: string
+                    pattern: '^[0-9a-f]{64}$'
+                  rootEpicId:
+                    type: string
+                    pattern: '^[a-z0-9][a-z0-9._:-]{0,127}$'
+                  activeTaskId:
+                    type: string
+                    pattern: '^[a-z0-9][a-z0-9._:-]{0,127}$'
+                  factoryName:
+                    type: string
+                    enum:
+                      - supers-delivery
+                  handoffManifestDigest:
+                    type: string
+                    pattern: '^[0-9a-f]{64}$'
+                  targetBaselineRevision:
+                    type: string
+                    pattern: '^[0-9a-f]{40,64}$'
+                  childRevisionEvidence:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        enum:
+                          - verified
+                      childCommittedRevision:
+                        type: string
+                        pattern: '^[0-9a-f]{40,64}$'
+                    required:
+                      - status
+                      - childCommittedRevision
+                    additionalProperties: false
+                  disposition:
+                    type: string
+                    enum:
+                      - integrated
+                  baseCommit:
+                    type: string
+                    pattern: '^[0-9a-f]{40,64}$'
+                  patchDigest:
+                    type: string
+                    pattern: '^[0-9a-f]{64}$'
+                  changedPaths:
+                    type: array
+                    items:
+                      type: string
+                      minLength: 1
+                    minItems: 1
+                  integratedRevision:
+                    type: string
+                    pattern: '^[0-9a-f]{40,64}$'
+                  integratedTreeFingerprint:
+                    type: string
+                    pattern: '^[0-9a-f]{64}$'
+                  rejectionReason:
+                    type: string
+                    enum:
+                      - none
+                required:
+                  - schemaVersion
+                  - receiptId
+                  - rootEpicId
+                  - activeTaskId
+                  - factoryName
+                  - handoffManifestDigest
+                  - targetBaselineRevision
+                  - childRevisionEvidence
+                  - disposition
+                  - baseCommit
+                  - patchDigest
+                  - changedPaths
+                  - integratedRevision
+                  - integratedTreeFingerprint
+                  - rejectionReason
+                additionalProperties: false
       transitions:
         - name: classify
           to: classify
@@ -461,10 +549,12 @@ globalArguments:
         mode: interactive
         context:
           inject:
+            - change-summary
             - verification
             - visual-verdict
         systemPrompt: >-
-          Reconcile the verified result without mutating tracker state. Record nextStep=rework when
+          Reconcile the verified result without mutating the repository or tracker state. Confirm
+          any integration evidence already recorded in change-summary. Record nextStep=rework when
           anything remains; otherwise record nextStep=complete with the exact Dex result and commit
           decision.
       artifacts:

@@ -1,9 +1,9 @@
 /**
  * Atomic Dex ready-leaf ownership for repository Delivery Factories.
  *
- * Planning supplies an audited, human-approved boundary. This adapter decides
- * no backlog content: under the canonical Dex repository lock it resumes the
- * one active item or claims the unique global top-priority ready leaf.
+ * Planning supplies an audited, human-approved effective open execution root.
+ * This adapter decides no backlog content: under the canonical Dex repository
+ * lock it resumes that root's one active item or claims its unique top-priority leaf.
  *
  * @module
  */
@@ -17,7 +17,7 @@ import {
   DexRepositoryLockTimeoutError,
 } from "./dex-repository-lock.ts";
 
-export const DEX_READY_LEAF_HANDOFF_VERSION = "2026.08.06.2";
+export const DEX_READY_LEAF_HANDOFF_VERSION = "2026.08.15.1";
 
 const MAX_DEX_TASKS = 500;
 const TASK_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
@@ -94,13 +94,14 @@ const DexReadyLeafReasonSchema = z.enum([
   "no-ready-work",
   "planning-no-ready-work-stale",
   "planning-human-gate",
-  "multiple-active-factory-runs",
-  "multiple-started-tasks",
+  "multiple-active-factory-runs-in-epic",
+  "multiple-started-tasks-in-epic",
   "started-task-ownership-ambiguous",
   "active-factory-task-invalid",
   "approved-epic-boundary-missing",
   "approved-boundary-invalid",
-  "global-runway-ambiguous",
+  "dex-graph-invalid",
+  "epic-runway-ambiguous",
   "runway-outside-approved-plan",
   "candidate-mismatch",
   "claim-intent-invalid",
@@ -263,7 +264,83 @@ function parseDexList(value: unknown): DexListTask[] {
   return tasks;
 }
 
-function findReadyLeaves(tasks: DexListTask[]): DexListTask[] {
+type DexTaskAncestry = {
+  executionRootTaskId: string;
+  path: string[];
+};
+
+/** Resolve only the open execution graph; a completed parent is historical context. */
+function resolveTaskAncestry(
+  taskId: string,
+  tasksById: Map<string, DexListTask>,
+): DexTaskAncestry | null {
+  const path: string[] = [];
+  const visited = new Set<string>();
+  let currentId = taskId;
+  while (true) {
+    if (visited.has(currentId)) return null;
+    visited.add(currentId);
+    const task = tasksById.get(currentId);
+    if (task === undefined) return null;
+    path.push(currentId);
+    if (task.parent_id === null) {
+      return { executionRootTaskId: currentId, path };
+    }
+    const parent = tasksById.get(task.parent_id);
+    if (parent === undefined) return null;
+    if (parent.completed) {
+      return { executionRootTaskId: currentId, path };
+    }
+    currentId = parent.id;
+  }
+}
+
+function isInsideBoundary(
+  taskId: string,
+  boundaryTaskId: string,
+  tasksById: Map<string, DexListTask>,
+): boolean {
+  const ancestry = resolveTaskAncestry(taskId, tasksById);
+  return ancestry?.executionRootTaskId === boundaryTaskId;
+}
+
+function hasOpenAncestralBlocker(
+  taskId: string,
+  boundaryTaskId: string,
+  tasksById: Map<string, DexListTask>,
+  openIds: ReadonlySet<string>,
+): boolean {
+  let currentId = taskId;
+  const visited = new Set<string>();
+  while (true) {
+    if (visited.has(currentId)) return true;
+    visited.add(currentId);
+    const task = tasksById.get(currentId);
+    if (task === undefined) return true;
+    if (task.blockedBy.some((blockerId) => openIds.has(blockerId))) return true;
+    if (currentId === boundaryTaskId) return false;
+    if (task.parent_id === null) return true;
+    currentId = task.parent_id;
+  }
+}
+
+function hasInvalidBlockerInsideBoundary(
+  tasks: DexListTask[],
+  boundaryTaskId: string,
+  tasksById: Map<string, DexListTask>,
+): boolean {
+  return tasks.some((task) =>
+    !task.completed &&
+    isInsideBoundary(task.id, boundaryTaskId, tasksById) &&
+    task.blockedBy.some((blockerId) => !tasksById.has(blockerId))
+  );
+}
+
+function findReadyLeavesInsideBoundary(
+  tasks: DexListTask[],
+  boundaryTaskId: string,
+  tasksById: Map<string, DexListTask>,
+): DexListTask[] {
   const openTasks = tasks.filter((task) => !task.completed);
   const openIds = new Set(openTasks.map((task) => task.id));
   const parentsWithOpenChildren = new Set(
@@ -273,25 +350,36 @@ function findReadyLeaves(tasks: DexListTask[]): DexListTask[] {
   );
   return openTasks.filter((task) =>
     task.started_at === null &&
+    isInsideBoundary(task.id, boundaryTaskId, tasksById) &&
     !parentsWithOpenChildren.has(task.id) &&
-    !task.blockedBy.some((blockerId) => openIds.has(blockerId))
+    !hasOpenAncestralBlocker(
+      task.id,
+      boundaryTaskId,
+      tasksById,
+      openIds,
+    )
   );
 }
 
-function isInsideBoundary(
-  taskId: string,
+function scopeTaskIdsToApprovedRoot(
+  taskIds: readonly string[],
   boundaryTaskId: string,
   tasksById: Map<string, DexListTask>,
-): boolean {
-  let currentId: string | null = taskId;
-  const visited = new Set<string>();
-  while (currentId !== null) {
-    if (currentId === boundaryTaskId) return taskId !== boundaryTaskId;
-    if (visited.has(currentId)) return false;
-    visited.add(currentId);
-    currentId = tasksById.get(currentId)?.parent_id ?? null;
+): { inside: string[]; valid: boolean } {
+  const boundaryAncestry = resolveTaskAncestry(boundaryTaskId, tasksById);
+  if (
+    boundaryAncestry === null ||
+    boundaryAncestry.executionRootTaskId !== boundaryTaskId
+  ) {
+    return { inside: [], valid: false };
   }
-  return false;
+  const inside: string[] = [];
+  for (const taskId of taskIds) {
+    const ancestry = resolveTaskAncestry(taskId, tasksById);
+    if (ancestry === null) return { inside: [], valid: false };
+    if (ancestry.executionRootTaskId === boundaryTaskId) inside.push(taskId);
+  }
+  return { inside, valid: true };
 }
 
 function claimResult(
@@ -333,53 +421,130 @@ async function selectOrClaimReadyLeaf(
     await dependencies.commandAdapter.listAll(context.repoDir),
   );
   const tasksById = new Map(tasks.map((task) => [task.id, task]));
-  const readyLeaves = findReadyLeaves(tasks).sort((left, right) =>
+  const boundaryTaskId = args.approval.approvedEpicTaskId;
+  if (boundaryTaskId === null) {
+    return claimResult(args, {
+      status: "human-gate",
+      reason: "approved-epic-boundary-missing",
+      selectedTaskId: null,
+      approvedEpicTaskId: null,
+      topPriority: null,
+      readyTaskIds: [],
+      trackerStarted: false,
+    }, occurredAt);
+  }
+  const boundaryAncestry = resolveTaskAncestry(boundaryTaskId, tasksById);
+  if (
+    boundaryAncestry === null ||
+    boundaryAncestry.executionRootTaskId !== boundaryTaskId ||
+    tasksById.get(boundaryTaskId)?.completed === true
+  ) {
+    return claimResult(args, {
+      status: "human-gate",
+      reason: "approved-boundary-invalid",
+      selectedTaskId: null,
+      approvedEpicTaskId: boundaryTaskId,
+      topPriority: null,
+      readyTaskIds: [],
+      trackerStarted: false,
+    }, occurredAt);
+  }
+
+  if (hasInvalidBlockerInsideBoundary(tasks, boundaryTaskId, tasksById)) {
+    return claimResult(args, {
+      status: "human-gate",
+      reason: "dex-graph-invalid",
+      selectedTaskId: null,
+      approvedEpicTaskId: boundaryTaskId,
+      topPriority: null,
+      readyTaskIds: [],
+      trackerStarted: false,
+    }, occurredAt);
+  }
+
+  const readyLeaves = findReadyLeavesInsideBoundary(
+    tasks,
+    boundaryTaskId,
+    tasksById,
+  ).sort((left, right) =>
     left.priority - right.priority || left.id.localeCompare(right.id)
   );
   const readyTaskIds = readyLeaves.map((task) => task.id);
   const topPriority = readyLeaves[0]?.priority ?? null;
-  const startedTasks = tasks.filter((task) =>
-    !task.completed && task.started_at !== null
+  const activeScope = scopeTaskIdsToApprovedRoot(
+    args.activeFactoryWorkItems,
+    boundaryTaskId,
+    tasksById,
   );
-
-  if (args.activeFactoryWorkItems.length > 1) {
+  if (!activeScope.valid) {
     return claimResult(args, {
       status: "human-gate",
-      reason: "multiple-active-factory-runs",
+      reason: "active-factory-task-invalid",
       selectedTaskId: null,
-      approvedEpicTaskId: args.approval.approvedEpicTaskId,
+      approvedEpicTaskId: boundaryTaskId,
+      topPriority,
+      readyTaskIds,
+      trackerStarted: false,
+    }, occurredAt);
+  }
+  const startedScope = scopeTaskIdsToApprovedRoot(
+    tasks.filter((task) => !task.completed && task.started_at !== null).map(
+      (task) => task.id,
+    ),
+    boundaryTaskId,
+    tasksById,
+  );
+  if (!startedScope.valid) {
+    return claimResult(args, {
+      status: "human-gate",
+      reason: "started-task-ownership-ambiguous",
+      selectedTaskId: null,
+      approvedEpicTaskId: boundaryTaskId,
+      topPriority,
+      readyTaskIds,
+      trackerStarted: false,
+    }, occurredAt);
+  }
+  const activeFactoryWorkItems = [...new Set(activeScope.inside)];
+  const startedTaskIds = [...new Set(startedScope.inside)];
+  if (activeFactoryWorkItems.length > 1) {
+    return claimResult(args, {
+      status: "human-gate",
+      reason: "multiple-active-factory-runs-in-epic",
+      selectedTaskId: null,
+      approvedEpicTaskId: boundaryTaskId,
+      topPriority,
+      readyTaskIds,
+      trackerStarted: false,
+    }, occurredAt);
+  }
+  if (startedTaskIds.length > 1) {
+    return claimResult(args, {
+      status: "human-gate",
+      reason: "multiple-started-tasks-in-epic",
+      selectedTaskId: null,
+      approvedEpicTaskId: boundaryTaskId,
       topPriority,
       readyTaskIds,
       trackerStarted: false,
     }, occurredAt);
   }
 
-  if (startedTasks.length > 1) {
-    return claimResult(args, {
-      status: "human-gate",
-      reason: "multiple-started-tasks",
-      selectedTaskId: null,
-      approvedEpicTaskId: args.approval.approvedEpicTaskId,
-      topPriority,
-      readyTaskIds,
-      trackerStarted: false,
-    }, occurredAt);
-  }
-
-  const activeFactoryWorkItem = args.activeFactoryWorkItems[0];
+  const activeFactoryWorkItem = activeFactoryWorkItems[0];
   if (activeFactoryWorkItem !== undefined) {
     const activeTask = tasksById.get(activeFactoryWorkItem);
     if (
       activeTask === undefined ||
       activeTask.completed ||
-      (startedTasks.length === 1 &&
-        startedTasks[0].id !== activeFactoryWorkItem)
+      !isInsideBoundary(activeTask.id, boundaryTaskId, tasksById) ||
+      (startedTaskIds.length === 1 &&
+        startedTaskIds[0] !== activeFactoryWorkItem)
     ) {
       return claimResult(args, {
         status: "human-gate",
         reason: "active-factory-task-invalid",
         selectedTaskId: null,
-        approvedEpicTaskId: args.approval.approvedEpicTaskId,
+        approvedEpicTaskId: boundaryTaskId,
         topPriority,
         readyTaskIds,
         trackerStarted: false,
@@ -394,31 +559,28 @@ async function selectOrClaimReadyLeaf(
       status: "resumed",
       reason: "resumed-active-factory",
       selectedTaskId: activeTask.id,
-      approvedEpicTaskId: args.approval.approvedEpicTaskId,
+      approvedEpicTaskId: boundaryTaskId,
       topPriority,
       readyTaskIds,
       trackerStarted,
     }, occurredAt);
   }
 
-  if (startedTasks.length === 1) {
-    const startedTask = startedTasks[0];
-    const boundaryTaskId = args.approval.approvedEpicTaskId;
+  if (startedTaskIds.length === 1) {
+    const startedTaskId = startedTaskIds[0];
     const sameApprovedClaim = priorIntent !== null &&
       priorIntent.approvalFingerprint === args.approval.approvalFingerprint &&
-      priorIntent.selectedTaskId === startedTask.id &&
+      priorIntent.selectedTaskId === startedTaskId &&
       args.approval.status === "ready" &&
-      args.approval.candidateTaskId === startedTask.id &&
-      args.approval.approvedTaskIds.includes(startedTask.id) &&
-      args.approval.auditedTaskIds.includes(startedTask.id) &&
-      boundaryTaskId !== null &&
-      isInsideBoundary(startedTask.id, boundaryTaskId, tasksById);
+      args.approval.candidateTaskId === startedTaskId &&
+      args.approval.approvedTaskIds.includes(startedTaskId) &&
+      args.approval.auditedTaskIds.includes(startedTaskId);
     return claimResult(args, {
       status: sameApprovedClaim ? "claimed" : "human-gate",
       reason: sameApprovedClaim
         ? "recovered-started-task"
         : "started-task-ownership-ambiguous",
-      selectedTaskId: sameApprovedClaim ? startedTask.id : null,
+      selectedTaskId: sameApprovedClaim ? startedTaskId : null,
       approvedEpicTaskId: boundaryTaskId,
       topPriority,
       readyTaskIds,
@@ -460,37 +622,13 @@ async function selectOrClaimReadyLeaf(
     }, occurredAt);
   }
 
-  const boundaryTaskId = args.approval.approvedEpicTaskId;
-  if (boundaryTaskId === null) {
-    return claimResult(args, {
-      status: "human-gate",
-      reason: "approved-epic-boundary-missing",
-      selectedTaskId: null,
-      approvedEpicTaskId: null,
-      topPriority,
-      readyTaskIds,
-      trackerStarted: false,
-    }, occurredAt);
-  }
-  if (!tasksById.has(boundaryTaskId)) {
-    return claimResult(args, {
-      status: "human-gate",
-      reason: "approved-boundary-invalid",
-      selectedTaskId: null,
-      approvedEpicTaskId: boundaryTaskId,
-      topPriority,
-      readyTaskIds,
-      trackerStarted: false,
-    }, occurredAt);
-  }
-
   const topReadyLeaves = readyLeaves.filter((task) =>
     task.priority === topPriority
   );
   if (topReadyLeaves.length !== 1) {
     return claimResult(args, {
       status: "human-gate",
-      reason: "global-runway-ambiguous",
+      reason: "epic-runway-ambiguous",
       selectedTaskId: null,
       approvedEpicTaskId: boundaryTaskId,
       topPriority,

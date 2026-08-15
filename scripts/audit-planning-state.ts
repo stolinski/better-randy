@@ -12,16 +12,16 @@
 // is present. Advisories never gate.
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { readFile, readdir } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-	runPlanningStateChecks,
 	type PlanningDexTask,
 	type PlanningMarkdownFile,
 	type PlanningPresetListing,
-	type PlanningStateCheckResult
+	type PlanningStateCheckResult,
+	runPlanningStateChecks
 } from './planning-state-checks.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -125,9 +125,12 @@ function readDexTasks(): PlanningDexTask[] {
 
 let crash: string | null = null;
 let result: PlanningStateCheckResult = {
+	clean: true,
 	findings: [],
 	advisories: [],
 	runway: {
+		activeLanes: [],
+		readyLanes: [],
 		activeTaskId: null,
 		activeTaskName: null,
 		activeEpicId: null,
@@ -137,15 +140,25 @@ let result: PlanningStateCheckResult = {
 		readyLeafCount: 0
 	}
 };
-let counts = { adrDocs: 0, briefDocs: 0, ideaDocs: 0, presets: 0, dexOpenTasks: 0 };
+let counts = {
+	adrDocs: 0,
+	briefDocs: 0,
+	ideaDocs: 0,
+	presets: 0,
+	dexOpenTasks: 0
+};
 
 try {
 	const roadmap = await readMarkdownFile('docs/roadmap.md');
 	const adrFolder = await readMarkdownFolder('docs/adr');
-	if (!adrFolder.index) throw new Error('docs/adr/README.md (the ADR index) is missing');
+	if (!adrFolder.index) {
+		throw new Error('docs/adr/README.md (the ADR index) is missing');
+	}
 	const briefFolder = await readMarkdownFolder('docs/briefs');
 	const ideaFolder = await readMarkdownFolder('docs/ideas');
-	if (!ideaFolder.index) throw new Error('docs/ideas/README.md (the ideas index) is missing');
+	if (!ideaFolder.index) {
+		throw new Error('docs/ideas/README.md (the ideas index) is missing');
+	}
 	const historyFolder = await readMarkdownFolder('docs/history');
 	const presets = await readPresetListing();
 	const dexTasks = readDexTasks();
@@ -173,6 +186,7 @@ try {
 	crash = error instanceof Error ? error.message : String(error);
 }
 
+const clean = crash === null && result.clean;
 const report = {
 	audit: 'planning-state',
 	generatedAt: new Date().toISOString(),
@@ -180,7 +194,8 @@ const report = {
 	runway: result.runway,
 	findings: result.findings,
 	advisories: result.advisories,
-	crash
+	crash,
+	clean
 };
 
 console.log(JSON.stringify(report, null, 2));

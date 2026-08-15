@@ -2,14 +2,17 @@ import assert from "node:assert/strict";
 
 import {
   createSupersDeterministicContractHash,
+  createSupersIntegratedTreeFingerprint,
   SUPERS_DETERMINISTIC_RULE_INVENTORY,
   SupersAdvisoryVisualObservationSchema,
   SupersDeterministicRenderCheckSchema,
   type SupersDeterministicRenderFailureCode,
   SupersDeterministicRenderFailureCodeSchema,
   SupersFactoryEpicLaneLeaseSchema,
+  SupersFactoryIntegrationReceiptSchema,
   SupersHumanAestheticDecisionSchema,
   SupersRenderMatrixCoordinateSchema,
+  verifySupersFactoryIntegrationReceipt,
   verifySupersHumanAestheticDecision,
   verifySupersRenderMatrixBundle,
 } from "./supers-deterministic-factory-contract.ts";
@@ -180,6 +183,113 @@ Deno.test("epic lane contracts close integration states and released disposition
         integratedRevision: GIT_REVISION,
       },
     })
+  );
+});
+
+Deno.test("Pi integration receipts bind exact handoff and target identities", async () => {
+  const content = {
+    schemaVersion: 1 as const,
+    rootEpicId: "factory-redesign",
+    activeTaskId: "typed-contracts",
+    factoryName: "supers-delivery",
+    handoffManifestDigest: SHA,
+    targetBaselineRevision: GIT_REVISION,
+    childRevisionEvidence: {
+      status: "verified" as const,
+      childCommittedRevision: "d".repeat(40),
+    },
+    disposition: "integrated" as const,
+    baseCommit: GIT_REVISION,
+    patchDigest: SECOND_SHA,
+    changedPaths: ["extensions/models/factory-contract.ts"],
+    integratedRevision: "e".repeat(40),
+    integratedTreeFingerprint: SHA,
+    rejectionReason: "none" as const,
+  };
+  const receipt = {
+    ...content,
+    receiptId: await createSupersDeterministicContractHash(content),
+  };
+  assert.equal(
+    (await verifySupersFactoryIntegrationReceipt(receipt)).disposition,
+    "integrated",
+  );
+  await assert.rejects(() =>
+    verifySupersFactoryIntegrationReceipt({
+      ...receipt,
+      targetBaselineRevision: "f".repeat(40),
+    })
+  );
+  assert.throws(() =>
+    SupersFactoryIntegrationReceiptSchema.parse({
+      ...receipt,
+      disposition: "rejected",
+      integratedRevision: "e".repeat(40),
+      integratedTreeFingerprint: SHA,
+      rejectionReason: "patch-conflict",
+    })
+  );
+  assert.throws(() =>
+    SupersFactoryIntegrationReceiptSchema.parse({
+      ...receipt,
+      changedPaths: ["z.ts", "a.ts"],
+    })
+  );
+  assert.throws(() =>
+    SupersFactoryIntegrationReceiptSchema.parse({
+      ...receipt,
+      childRevisionEvidence: {
+        status: "not-provided",
+        childCommittedRevision: null,
+      },
+    })
+  );
+});
+
+Deno.test("integrated tree fingerprint hashes exact NUL-delimited listing bytes", async () => {
+  const listing = new TextEncoder().encode(
+    "100644 blob 0123456789012345678901234567890123456789\ta.ts\0",
+  );
+  const directDigest = await crypto.subtle.digest("SHA-256", listing);
+  const expected = [...new Uint8Array(directDigest)].map((byte) =>
+    byte.toString(16).padStart(2, "0")
+  ).join("");
+  assert.equal(await createSupersIntegratedTreeFingerprint(listing), expected);
+  assert.notEqual(
+    await createSupersIntegratedTreeFingerprint(
+      new Uint8Array([...listing, "\n".charCodeAt(0)]),
+    ),
+    expected,
+  );
+});
+
+Deno.test("rejected Pi handoffs do not claim unavailable integration facts", async () => {
+  const content = {
+    schemaVersion: 1 as const,
+    rootEpicId: "factory-redesign",
+    activeTaskId: "typed-contracts",
+    factoryName: "supers-delivery",
+    handoffManifestDigest: SHA,
+    targetBaselineRevision: GIT_REVISION,
+    childRevisionEvidence: {
+      status: "not-provided" as const,
+      childCommittedRevision: null,
+    },
+    disposition: "rejected" as const,
+    baseCommit: GIT_REVISION,
+    patchDigest: null,
+    changedPaths: [],
+    integratedRevision: null,
+    integratedTreeFingerprint: null,
+    rejectionReason: "manifest-invalid" as const,
+  };
+  const receipt = {
+    ...content,
+    receiptId: await createSupersDeterministicContractHash(content),
+  };
+  assert.equal(
+    (await verifySupersFactoryIntegrationReceipt(receipt)).disposition,
+    "rejected",
   );
 });
 

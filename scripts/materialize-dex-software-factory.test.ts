@@ -9,6 +9,7 @@ const FACTORY_ARGUMENTS = {
 
 const COMPILED_PROFILE = {
 	content: {
+		profileName: 'fixture-delivery',
 		target: { type: '@swamp/software-factory', version: '2026.06.24.1' },
 		factoryArguments: FACTORY_ARGUMENTS
 	}
@@ -27,14 +28,22 @@ Deno.test('materialization changes only arguments and increments once', () => {
 		reports: { require: ['fixture-report'] }
 	};
 
-	const first = materializeDexSoftwareFactoryDefinition(source, COMPILED_PROFILE);
+	const first = materializeDexSoftwareFactoryDefinition(
+		source,
+		COMPILED_PROFILE,
+		'fixture-delivery'
+	);
 	assert.equal(first.changed, true);
 	assert.equal(first.definition.version, 8);
 	assert.deepEqual(first.definition.globalArguments, FACTORY_ARGUMENTS);
 	assert.deepEqual(first.definition.tags, source.tags);
 	assert.deepEqual(first.definition.reports, source.reports);
 
-	const second = materializeDexSoftwareFactoryDefinition(first.definition, COMPILED_PROFILE);
+	const second = materializeDexSoftwareFactoryDefinition(
+		first.definition,
+		COMPILED_PROFILE,
+		'fixture-delivery'
+	);
 	assert.equal(second.changed, false);
 	assert.equal(second.definition.version, 8);
 	assert.deepEqual(second.definition, first.definition);
@@ -50,8 +59,26 @@ Deno.test('materialization rejects a Factory target version mismatch', () => {
 					version: 1,
 					globalArguments: {}
 				},
-				COMPILED_PROFILE
+				COMPILED_PROFILE,
+				'fixture-delivery'
 			),
 		/Factory target mismatch/
+	);
+});
+
+Deno.test('materialization rejects the wrong compiled profile identity', () => {
+	assert.throws(
+		() =>
+			materializeDexSoftwareFactoryDefinition(
+				{
+					type: '@swamp/software-factory',
+					typeVersion: '2026.06.24.1',
+					version: 1,
+					globalArguments: {}
+				},
+				COMPILED_PROFILE,
+				'another-delivery-profile'
+			),
+		/Factory profile mismatch/
 	);
 });

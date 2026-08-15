@@ -40,7 +40,7 @@ The default answer to "what's next?" — an agent self-serves this instead of as
 
 ## Active factory runway (audited 2026-08-07)
 
-The capability and core parity arcs are complete. The next work is deliberately narrower and dependency-ordered; Dex carries the executable edges and `dex list --ready` must expose the first unblocked leaf, not a flat pile of unrelated priority-1 notes.
+The capability and core parity arcs are complete. Dex carries executable edges. Each effective open execution root must expose at most one unblocked top-priority leaf, while unrelated roots may supply concurrent Factory lanes in isolated worktrees. Completed parents remain historical epic context; an intentional open follow-up beneath one begins its own execution lane.
 
 1. ✅ **Generated project control plane** — shipped 2026-08-04 (epic `t040a0vs`): the `@supers/repo-audit` `audit-planning` method + `@supers/planning-state` report catch Roadmap / ADR / Brief / ideas / Dex drift, gated by the `policy-sweep` workflow and the CI `Planning audit` step ([`docs/project-control-plane.md`](project-control-plane.md)). The 2026-08-04 audit was its baseline reconciliation.
 2. ✅ **Close the Pack-neutral corpus contract** — shipped 2026-08-04 (epic `hkajpcgg`): the human-scale Pack matrix ran (`hpc3lrk0`, 42 deliverables × 4 packs; 37/42 read well under every pack) and the specific brand-grammar failures were retired or re-authored (`evnlthxa`). The sweep produced no evidence demanding `PackPipelineRole`, so it stays demand-gated (see § Designed, not built).
@@ -51,7 +51,7 @@ The capability and core parity arcs are complete. The next work is deliberately 
 7. **Build the broad Starter-template library** — task `dghxldci`: audit creator-job coverage, then author the missing categories and coordinated episode suite against the completed Pack/quality gates.
 8. **Pull production and research work by demand** — Resolve follow-ups, rubric research, Critic research, optional diagram polish, and rendering residuals remain valid but do not interrupt the ordered product runway.
 
-At an epic boundary the factory still stops for the human as required by the execution loop. A task that is advisory, speculative, or waiting on a design ruling must not remain an unblocked priority-1 leaf.
+At an epic boundary that lane still stops for the human as required by the execution loop; other independent epic lanes may continue. A task that is advisory, speculative, or waiting on a design ruling must not remain an unblocked priority-1 leaf.
 
 ## Now — quality, capability, and operational parity
 

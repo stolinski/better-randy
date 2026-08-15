@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026.08.15.1
+
+- Inject `change-summary` into read-only reconciliation so consumers can confirm pre-classification integration evidence.
+- Make the reconciliation prompt explicitly forbid repository and tracker mutation.
+
 ## 2026.08.07.1
 
 - Add an optional terminal-observer workflow adapter.

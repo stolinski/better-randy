@@ -98,10 +98,12 @@ requires a sensitive `authorizationCapability` input; the repository workflow
 resolves it directly from the vault, while ordinary method callers cannot obtain
 it. A caller-minted checksum, a missing capability, or a model without the key
 is rejected before any Dex read or mutation. Under the canonical Dex repository
-lock it resumes one active owner before selecting anything. Otherwise it
-recomputes the global ready-leaf runway from strict official Dex JSON and starts
-only the unique highest-priority leaf inside the approved task and epic
-boundary. Ambiguity, out-of-boundary work, and no-work conditions are persisted
+lock it scopes active Factory ids, started tasks, priority, and ambiguity to the
+approved root epic. It starts only that root's unique highest-priority approved
+leaf; independently approved roots serialize their brief claim/start mutations
+through that same shared lock. Unknown or cyclic ancestry, unknown blocker ids,
+inherited open blockers, completed boundaries, same-root duplicate
+ownership, out-of-boundary work, and no-work conditions are persisted
 as typed outcomes; Planning does not create or select backlog through this
 method.
 

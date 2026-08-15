@@ -3,6 +3,7 @@ import { z } from 'npm:zod@4';
 
 const CompiledProfileResourceSchema = z.object({
 	content: z.object({
+		profileName: z.string().min(1),
 		target: z.strictObject({
 			type: z.literal('@swamp/software-factory'),
 			version: z.string().min(1)
@@ -34,10 +35,16 @@ export type FactoryMaterializationResult = {
 /** Materialize compiled arguments without changing unrelated definition fields. */
 export function materializeDexSoftwareFactoryDefinition(
 	definitionInput: unknown,
-	compiledInput: unknown
+	compiledInput: unknown,
+	expectedProfileName: string
 ): FactoryMaterializationResult {
 	const definition = FactoryDefinitionSchema.parse(definitionInput);
 	const compiled = CompiledProfileResourceSchema.parse(compiledInput);
+	if (compiled.content.profileName !== expectedProfileName) {
+		throw new Error(
+			`Factory profile mismatch: expected ${expectedProfileName}, compiled ${compiled.content.profileName}`
+		);
+	}
 	if (String(definition.typeVersion) !== compiled.content.target.version) {
 		throw new Error(
 			`Factory target mismatch: definition uses ${definition.typeVersion}, compiled profile targets ${compiled.content.target.version}`
@@ -73,10 +80,18 @@ async function readCompiledProfile(profileModel: string): Promise<CompiledProfil
 	return CompiledProfileResourceSchema.parse(JSON.parse(new TextDecoder().decode(result.stdout)));
 }
 
-async function materializeFactory(profileModel: string, definitionPath: string): Promise<void> {
+async function materializeFactory(
+	profileModel: string,
+	definitionPath: string,
+	expectedProfileName: string
+): Promise<void> {
 	const compiled = await readCompiledProfile(profileModel);
 	const source = await Deno.readTextFile(definitionPath);
-	const materialized = materializeDexSoftwareFactoryDefinition(parse(source), compiled);
+	const materialized = materializeDexSoftwareFactoryDefinition(
+		parse(source),
+		compiled,
+		expectedProfileName
+	);
 	if (!materialized.changed) {
 		console.log(`Factory definition already matches ${profileModel}`);
 		return;
@@ -91,12 +106,16 @@ async function materializeFactory(profileModel: string, definitionPath: string):
 }
 
 if (import.meta.main) {
-	const [profileModel, definitionPath] = Deno.args;
-	if (profileModel === undefined || definitionPath === undefined) {
+	const [profileModel, definitionPath, expectedProfileName] = Deno.args;
+	if (
+		profileModel === undefined ||
+		definitionPath === undefined ||
+		expectedProfileName === undefined
+	) {
 		throw new Error(
-			'Usage: deno run --allow-run --allow-read --allow-write scripts/materialize-dex-software-factory.ts <profile-model> <factory-definition-path>'
+			'Usage: deno run --allow-run --allow-read --allow-write scripts/materialize-dex-software-factory.ts <profile-model> <factory-definition-path> <expected-profile-name>'
 		);
 	}
 
-	await materializeFactory(profileModel, definitionPath);
+	await materializeFactory(profileModel, definitionPath, expectedProfileName);
 }

@@ -9,9 +9,9 @@ import { test } from 'node:test';
 
 import {
 	classifyAdrStatus,
-	runPlanningStateChecks,
 	type PlanningDexTask,
-	type PlanningStateInputs
+	type PlanningStateInputs,
+	runPlanningStateChecks
 } from './planning-state-checks.ts';
 
 function adrDoc(number: string, statusLine: string): { path: string; markdown: string } {
@@ -82,7 +82,10 @@ function cleanInputs(): PlanningStateInputs {
 			markdown: '# History\n\n- [`old-exploration.md`](old-exploration.md) — settled.\n'
 		},
 		historyDocs: [
-			{ path: 'docs/history/old-exploration.md', markdown: '# Old exploration\n\nSettled.\n' }
+			{
+				path: 'docs/history/old-exploration.md',
+				markdown: '# Old exploration\n\nSettled.\n'
+			}
 		],
 		presets: [
 			{ slug: 'shipped-deliverable', kind: 'deliverable' },
@@ -90,7 +93,11 @@ function cleanInputs(): PlanningStateInputs {
 		],
 		dexTasks: [
 			dexTask({ id: 'epicroot', name: 'Fixture epic' }),
-			dexTask({ id: 'leafnext', parentId: 'epicroot', name: 'Next strategic move' }),
+			dexTask({
+				id: 'leafnext',
+				parentId: 'epicroot',
+				name: 'Next strategic move'
+			}),
 			dexTask({
 				id: 'gatedone',
 				parentId: 'epicroot',
@@ -104,9 +111,27 @@ function cleanInputs(): PlanningStateInputs {
 
 test('clean baseline produces no findings and no advisories', () => {
 	const result = runPlanningStateChecks(cleanInputs());
+	assert.equal(result.clean, true);
 	assert.deepEqual(result.findings, []);
 	assert.deepEqual(result.advisories, []);
 	assert.deepEqual(result.runway, {
+		activeLanes: [],
+		readyLanes: [
+			{
+				rootEpicId: 'epicroot',
+				nextTaskId: 'leafnext',
+				nextTaskName: 'Next strategic move',
+				topPriority: 1,
+				readyLeafCount: 1
+			},
+			{
+				rootEpicId: 'lowprio',
+				nextTaskId: 'lowprio',
+				nextTaskName: 'Demand-pulled polish',
+				topPriority: 5,
+				readyLeafCount: 1
+			}
+		],
 		activeTaskId: null,
 		activeTaskName: null,
 		activeEpicId: 'epicroot',
@@ -223,7 +248,10 @@ test('Brief with a shipped declared verification preset is stale; fixture target
 
 test('idea file absent from the README index is an inventory finding', () => {
 	const inputs = cleanInputs();
-	inputs.ideaDocs.push({ path: 'docs/ideas/unlisted-idea.md', markdown: '# Unlisted idea\n' });
+	inputs.ideaDocs.push({
+		path: 'docs/ideas/unlisted-idea.md',
+		markdown: '# Unlisted idea\n'
+	});
 	const result = runPlanningStateChecks(inputs);
 	assert.equal(result.findings.length, 1);
 	assert.equal(result.findings[0].check, 'ideas-inventory');
@@ -292,7 +320,12 @@ test('prose-case "Done when" and "shipped" never trip the completion markers', (
 test('completed task still blocked by an open task is a blocker contradiction', () => {
 	const inputs = cleanInputs();
 	inputs.dexTasks.push(
-		dexTask({ id: 'sweptdone', completed: true, blockedBy: ['epicroot'], name: 'Early sweep' })
+		dexTask({
+			id: 'sweptdone',
+			completed: true,
+			blockedBy: ['epicroot'],
+			name: 'Early sweep'
+		})
 	);
 	const result = runPlanningStateChecks(inputs);
 	assert.equal(result.findings.length, 1);
@@ -303,20 +336,73 @@ test('completed task still blocked by an open task is a blocker contradiction', 
 test('open task whose blocker already completed is dex-normal, not drift', () => {
 	const inputs = cleanInputs();
 	inputs.dexTasks.push(
-		dexTask({ id: 'formerblocker', completed: true, name: 'Landed dependency' }),
-		dexTask({ id: 'nowready', priority: 2, blockedBy: ['formerblocker'], name: 'Follow-up' })
+		dexTask({
+			id: 'formerblocker',
+			completed: true,
+			name: 'Landed dependency'
+		}),
+		dexTask({
+			id: 'nowready',
+			priority: 2,
+			blockedBy: ['formerblocker'],
+			name: 'Follow-up'
+		})
 	);
 	const result = runPlanningStateChecks(inputs);
 	assert.deepEqual(result.findings, []);
 });
 
-test('two co-equal top-priority unstarted ready leaves break the runway rule', () => {
+test('two co-equal top-priority ready leaves in one root break that epic runway', () => {
 	const inputs = cleanInputs();
-	inputs.dexTasks.push(dexTask({ id: 'rivalleaf', name: 'Co-equal strategic leaf' }));
+	inputs.dexTasks.push(
+		dexTask({
+			id: 'rivalleaf',
+			parentId: 'epicroot',
+			name: 'Co-equal strategic leaf'
+		})
+	);
 	const result = runPlanningStateChecks(inputs);
 	assert.equal(result.findings.length, 1);
 	assert.equal(result.findings[0].check, 'dex-ready-runway');
 	assert.deepEqual(result.findings[0].paths.sort(), ['dex:leafnext', 'dex:rivalleaf']);
+});
+
+test('co-equal ready leaves in unrelated roots project complete concurrent lanes', () => {
+	const inputs = cleanInputs();
+	inputs.dexTasks.push(
+		dexTask({ id: 'rivalepic', name: 'Other epic' }),
+		dexTask({
+			id: 'rivalleaf',
+			parentId: 'rivalepic',
+			name: 'Other ready leaf'
+		})
+	);
+	const result = runPlanningStateChecks(inputs);
+	assert.deepEqual(result.findings, []);
+	assert.equal(result.runway.readyLeafCount, 3);
+	assert.deepEqual(result.runway.readyLanes, [
+		{
+			rootEpicId: 'epicroot',
+			nextTaskId: 'leafnext',
+			nextTaskName: 'Next strategic move',
+			topPriority: 1,
+			readyLeafCount: 1
+		},
+		{
+			rootEpicId: 'lowprio',
+			nextTaskId: 'lowprio',
+			nextTaskName: 'Demand-pulled polish',
+			topPriority: 5,
+			readyLeafCount: 1
+		},
+		{
+			rootEpicId: 'rivalepic',
+			nextTaskId: 'rivalleaf',
+			nextTaskName: 'Other ready leaf',
+			topPriority: 1,
+			readyLeafCount: 1
+		}
+	]);
 });
 
 test('a started leaf counts as being worked, not as a co-equal next move', () => {
@@ -329,14 +415,202 @@ test('a started leaf counts as being worked, not as a co-equal next move', () =>
 	assert.equal(result.runway.nextTaskId, 'leafnext');
 });
 
-test('multiple started leaves break the factory WIP limit', () => {
+test('child leaves under two explicit roots project complete active Factory lanes', () => {
 	const inputs = cleanInputs();
 	inputs.dexTasks.push(
-		dexTask({ id: 'activeone', started: true, name: 'First active leaf' }),
-		dexTask({ id: 'activetwo', started: true, name: 'Second active leaf' })
+		dexTask({ id: 'activeepicone', name: 'First active epic' }),
+		dexTask({ id: 'activeepictwo', name: 'Second active epic' }),
+		dexTask({
+			id: 'activeone',
+			parentId: 'activeepicone',
+			started: true,
+			name: 'First active leaf'
+		}),
+		dexTask({
+			id: 'queuedone',
+			parentId: 'activeepicone',
+			name: 'Queued behind active lane'
+		}),
+		dexTask({
+			id: 'activetwo',
+			parentId: 'activeepictwo',
+			started: true,
+			name: 'Second active leaf'
+		})
+	);
+	const result = runPlanningStateChecks(inputs);
+	assert.deepEqual(result.findings, []);
+	assert.deepEqual(result.runway.activeLanes, [
+		{
+			rootEpicId: 'activeepicone',
+			activeTaskId: 'activeone',
+			activeTaskName: 'First active leaf'
+		},
+		{
+			rootEpicId: 'activeepictwo',
+			activeTaskId: 'activetwo',
+			activeTaskName: 'Second active leaf'
+		}
+	]);
+	assert.equal(result.runway.activeTaskId, 'activeone');
+	assert.equal(result.runway.activeEpicId, 'activeepicone');
+	assert.equal(
+		result.runway.readyLanes.some((lane) => lane.rootEpicId === 'activeepicone'),
+		false
+	);
+});
+
+test('unknown blocker ids fail closed and never project ready work', () => {
+	const inputs = cleanInputs();
+	const leaf = inputs.dexTasks.find((task) => task.id === 'leafnext');
+	assert.ok(leaf);
+	leaf.blockedBy = ['missing-blocker'];
+	const result = runPlanningStateChecks(inputs);
+	assert.equal(result.clean, false);
+	assert.equal(
+		result.findings.some((finding) => finding.check === 'dex-graph-invalid'),
+		true
+	);
+	assert.equal(
+		result.runway.readyLanes.some((lane) => lane.nextTaskId === 'leafnext'),
+		false
+	);
+});
+
+test('open ancestor blockers are gating findings and suppress descendant lanes', () => {
+	const inputs = cleanInputs();
+	const epic = inputs.dexTasks.find((task) => task.id === 'epicroot');
+	assert.ok(epic);
+	epic.blockedBy = ['rootblocker'];
+	inputs.dexTasks.push(dexTask({ id: 'rootblocker', name: 'Open root blocker' }));
+	const result = runPlanningStateChecks(inputs);
+	assert.equal(result.clean, false);
+	assert.equal(
+		result.findings.some(
+			(finding) => finding.check === 'dex-ready-runway' && finding.paths.includes('dex:leafnext')
+		),
+		true
+	);
+	assert.equal(
+		result.runway.readyLanes.some((lane) => lane.rootEpicId === 'epicroot'),
+		false
+	);
+});
+
+test('missing ancestry fails closed and does not create a synthetic root lane', () => {
+	const inputs = cleanInputs();
+	inputs.dexTasks.push(
+		dexTask({ id: 'orphanleaf', parentId: 'missing-parent', name: 'Orphan leaf' })
+	);
+	const result = runPlanningStateChecks(inputs);
+	assert.equal(result.clean, false);
+	assert.equal(
+		result.findings.some(
+			(finding) => finding.check === 'dex-graph-invalid' && finding.paths.includes('dex:orphanleaf')
+		),
+		true
+	);
+	assert.equal(
+		result.runway.readyLanes.some((lane) => lane.nextTaskId === 'orphanleaf'),
+		false
+	);
+});
+
+test('cyclic ancestry fails closed and does not project active or ready lanes', () => {
+	const inputs = cleanInputs();
+	inputs.dexTasks.push(
+		dexTask({ id: 'cycleone', parentId: 'cycletwo', started: true }),
+		dexTask({ id: 'cycletwo', parentId: 'cycleone' })
+	);
+	const result = runPlanningStateChecks(inputs);
+	assert.equal(result.clean, false);
+	assert.equal(
+		result.findings.some(
+			(finding) => finding.check === 'dex-graph-invalid' && finding.paths.includes('dex:cycleone')
+		),
+		true
+	);
+	assert.equal(
+		result.runway.activeLanes.some((lane) => lane.activeTaskId === 'cycleone'),
+		false
+	);
+	assert.equal(
+		result.runway.readyLanes.some((lane) => lane.nextTaskId === 'cycletwo'),
+		false
+	);
+});
+
+test('an ax4-like open follow-up under a completed parent becomes its own ready lane', () => {
+	const inputs = cleanInputs();
+	inputs.dexTasks.push(
+		dexTask({
+			id: 'kwg92wzb',
+			name: 'Completed historical epic',
+			completed: true
+		}),
+		dexTask({
+			id: 'ax4rmn66',
+			parentId: 'kwg92wzb',
+			name: 'Intentional open follow-up',
+			priority: 4
+		}),
+		dexTask({
+			id: 'followuproot',
+			parentId: 'kwg92wzb',
+			name: 'Second open follow-up root'
+		}),
+		dexTask({
+			id: 'followupleaf',
+			parentId: 'followuproot',
+			name: 'Nested follow-up leaf',
+			priority: 3
+		})
+	);
+	const result = runPlanningStateChecks(inputs);
+	assert.equal(result.clean, true);
+	assert.deepEqual(result.findings, []);
+	assert.deepEqual(
+		result.runway.readyLanes.filter((lane) =>
+			['ax4rmn66', 'followuproot'].includes(lane.rootEpicId)
+		),
+		[
+			{
+				rootEpicId: 'ax4rmn66',
+				nextTaskId: 'ax4rmn66',
+				nextTaskName: 'Intentional open follow-up',
+				topPriority: 4,
+				readyLeafCount: 1
+			},
+			{
+				rootEpicId: 'followuproot',
+				nextTaskId: 'followupleaf',
+				nextTaskName: 'Nested follow-up leaf',
+				topPriority: 3,
+				readyLeafCount: 1
+			}
+		]
+	);
+});
+
+test('multiple started leaves inside one root break that epic WIP limit', () => {
+	const inputs = cleanInputs();
+	inputs.dexTasks.push(
+		dexTask({ id: 'activeepic', name: 'Active epic' }),
+		dexTask({
+			id: 'activeone',
+			parentId: 'activeepic',
+			started: true,
+			name: 'First active leaf'
+		}),
+		dexTask({
+			id: 'activetwo',
+			parentId: 'activeepic',
+			started: true,
+			name: 'Second active leaf'
+		})
 	);
 	const result = runPlanningStateChecks(inputs);
 	assert.equal(result.findings.length, 1);
 	assert.equal(result.findings[0].check, 'dex-active-work');
-	assert.equal(result.runway.activeTaskId, null);
+	assert.deepEqual(result.findings[0].paths.sort(), ['dex:activeone', 'dex:activetwo']);
 });

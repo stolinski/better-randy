@@ -88,6 +88,89 @@ export type SupersFactoryEpicLaneLease = z.infer<
   typeof SupersFactoryEpicLaneLeaseSchema
 >;
 
+const UniqueChangedPathsSchema = z.array(RepositoryPathSchema).max(2_000)
+  .superRefine((paths, context) => {
+    if (new Set(paths).size !== paths.length) {
+      context.addIssue({
+        code: "custom",
+        message: "Changed paths must be unique",
+      });
+    }
+    const sorted = [...paths].sort((left, right) => left.localeCompare(right));
+    if (paths.some((path, index) => path !== sorted[index])) {
+      context.addIssue({
+        code: "custom",
+        message: "Changed paths must be sorted",
+      });
+    }
+  });
+
+const VerifiedChildRevisionEvidenceSchema = z.strictObject({
+  status: z.literal("verified"),
+  childCommittedRevision: GitRevisionSchema,
+});
+
+const ChildRevisionEvidenceSchema = z.discriminatedUnion("status", [
+  VerifiedChildRevisionEvidenceSchema,
+  z.strictObject({
+    status: z.literal("not-provided"),
+    childCommittedRevision: z.null(),
+  }),
+]);
+
+const FactoryIntegrationReceiptIdentityFields = {
+  schemaVersion: z.literal(1),
+  receiptId: Sha256Schema,
+  rootEpicId: DomainIdSchema,
+  activeTaskId: DomainIdSchema,
+  factoryName: DomainIdSchema,
+  handoffManifestDigest: Sha256Schema,
+  targetBaselineRevision: GitRevisionSchema,
+};
+
+/**
+ * Exact Pi handoff disposition recorded before Factory classification. Rejected
+ * receipts keep unavailable Git/patch values null instead of inventing proof.
+ */
+export const SupersFactoryIntegrationReceiptSchema = z.discriminatedUnion(
+  "disposition",
+  [
+    z.strictObject({
+      ...FactoryIntegrationReceiptIdentityFields,
+      disposition: z.literal("integrated"),
+      childRevisionEvidence: VerifiedChildRevisionEvidenceSchema,
+      baseCommit: GitRevisionSchema,
+      patchDigest: Sha256Schema,
+      changedPaths: UniqueChangedPathsSchema.min(1),
+      integratedRevision: GitRevisionSchema,
+      integratedTreeFingerprint: Sha256Schema,
+      rejectionReason: z.literal("none"),
+    }),
+    z.strictObject({
+      ...FactoryIntegrationReceiptIdentityFields,
+      disposition: z.literal("rejected"),
+      childRevisionEvidence: ChildRevisionEvidenceSchema,
+      baseCommit: GitRevisionSchema.nullable(),
+      patchDigest: Sha256Schema.nullable(),
+      changedPaths: UniqueChangedPathsSchema,
+      integratedRevision: z.null(),
+      integratedTreeFingerprint: z.null(),
+      rejectionReason: z.enum([
+        "manifest-invalid",
+        "stale-target-baseline",
+        "patch-digest-mismatch",
+        "child-revision-mismatch",
+        "changed-path-mismatch",
+        "patch-conflict",
+      ]),
+    }),
+  ],
+);
+
+export type SupersFactoryIntegrationReceipt = z.infer<
+  typeof SupersFactoryIntegrationReceiptSchema
+>;
+
 export const SupersRenderOrientationSchema = z.enum([
   "horizontal",
   "vertical",
@@ -616,6 +699,22 @@ function canonicalize(value: unknown): CanonicalJson {
   throw new TypeError(`Unsupported canonical JSON value: ${typeof value}`);
 }
 
+/**
+ * SHA-256 of raw `git ls-tree -r -z --full-tree <revision>` stdout bytes,
+ * without text decoding or newline/path normalization.
+ */
+export async function createSupersIntegratedTreeFingerprint(
+  canonicalTreeListing: Uint8Array,
+): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new Uint8Array(canonicalTreeListing),
+  );
+  return [...new Uint8Array(digest)].map((byte) =>
+    byte.toString(16).padStart(2, "0")
+  ).join("");
+}
+
 /** Create the canonical digest used by coordinates, manifests, and bundles. */
 export async function createSupersDeterministicContractHash(
   value: unknown,
@@ -634,6 +733,20 @@ function withoutProperty<T extends Record<string, unknown>>(
   return Object.fromEntries(
     Object.entries(value).filter(([key]) => key !== property),
   );
+}
+
+/** Parse and content-address a Pi handoff/integration receipt by canonical digest. */
+export async function verifySupersFactoryIntegrationReceipt(
+  rawReceipt: unknown,
+): Promise<SupersFactoryIntegrationReceipt> {
+  const receipt = SupersFactoryIntegrationReceiptSchema.parse(rawReceipt);
+  const expectedReceiptId = await createSupersDeterministicContractHash(
+    withoutProperty(receipt, "receiptId"),
+  );
+  if (receipt.receiptId !== expectedReceiptId) {
+    throw new TypeError("Factory integration receipt digest mismatch");
+  }
+  return receipt;
 }
 
 async function verifyCoordinateIdentity(

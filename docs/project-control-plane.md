@@ -59,11 +59,17 @@ Gating findings (`clean: false`, exit 1):
   / all-caps COMPLETE / SHIPPED / DONE).
 - **`dex-blocker-contradiction`** — no _completed_ task is still edge-blocked by
   an open task.
-- **`dex-active-work`** — at most one open leaf task is started; the factory WIP
-  limit is one active work item.
+- **`dex-graph-invalid`** — unknown blocker ids and missing or cyclic ancestry
+  in the open graph fail closed and never enter a lane. A completed parent is
+  historical context: its open child begins a new effective execution root.
+- **`dex-active-work`** — at most one open leaf task is started inside each
+  effective open execution root; independent roots may run concurrently in
+  isolated lanes.
 - **`dex-ready-runway`** — at most one un-started ready leaf holds the top
-  priority: `dex list --ready` must expose one strategic first move, not a pile
-  of co-equal priority-1 leaves (roadmap § Active factory runway).
+  priority inside each effective open execution root. Co-equal leaves in
+  different roots are valid concurrent lanes; co-equal leaves in one root
+  require ordering. A leaf that inherits an open ancestor blocker is a gating
+  runway finding, not ready work.
 
 Advisories (reported, never gating): completion markers in an open task's
 _description_ — a half-shipped grab-bag needs human judgment, not an automatic
@@ -85,13 +91,16 @@ default) renders each finding with its actionable paths — repo file paths for
 doc drift, `dex:<id>` entries for graph drift. On a red run the structured
 resource is still stored, so the report names exactly what to fix.
 
-`planning-latest.runway` is the typed read-side runway preview. It names the one
-active leaf (if work is in progress), that leaf's root epic, the unique
-highest-priority unstarted leaf, and the total ready-leaf count. Planning
-inventory consumes these fields instead of reparsing roadmap prose. The preview
-is not mutation authorization: Delivery refreshes Factory fleet state and
-recomputes the strict official-Dex runway inside the repository lock before any
-claim.
+`planning-latest.runway` is the typed read-side runway preview. Its authoritative
+`activeLanes[]` and `readyLanes[]` preserve every effective open execution root
+and that root's one active or unique highest-priority unstarted leaf. The schema
+retains `rootEpicId` as the established user-facing compatibility field. The singular active/next
+fields remain deterministic compatibility projections only; they never select
+or authorize a lane. `readyLeafCount` remains the total across roots. Planning
+inventory consumes the complete arrays instead of reparsing roadmap prose. The
+preview is not mutation authorization: Delivery refreshes Factory fleet state
+and recomputes the strict official-Dex runway inside the repository lock before
+any claim.
 
 ### Planning Factory read adapters
 
@@ -167,14 +176,23 @@ instance owns normalized Dex operations and receipts. The
 `supers-dex-delivery-handoff-authorized` instance extends that typed tracker
 boundary with HMAC-authorized `claim-next-ready`; the
 `supers-planning-delivery-handoff` saga validates human-approved Planning
-provenance, resumes active Factory ownership before any selection, and converges
-a deterministic Dex claim to exactly one Factory state. One Factory instance
-serves many Dex work-item ids. It does not own roadmap, ADR, Brief,
+provenance, resumes active Factory ownership inside the approved effective open
+execution root before selection, and converges each root to at most one Factory state. Other roots may
+claim independently under the same short repository lock. One Factory instance
+serves many Dex work-item ids concurrently; leaf ids remain Factory work items. It does not own roadmap, ADR, Brief,
 idea/history, or task prose; it records only compact execution artifacts and
 evidence.
 
 Its path is
-`preflight baseline capture → implementation → workflow-owned classification → complete required verification → optional Critic/human review → reconciliation → postflight → terminal Dex cleanup`.
+`preflight baseline capture → isolated implementation → serialized parent integration → change-summary → workflow-owned classification → complete required verification → optional Critic/human review → reconciliation → postflight → terminal Dex cleanup`.
+The project fleet driver is [`.claude/skills/supers-factory-fleet/SKILL.md`](../.claude/skills/supers-factory-fleet/SKILL.md).
+It launches one Pi-managed worktree writer per approved root, with no fixed
+product lane cap, then queues durable Pi handoffs. The single parent validates
+and integrates one patch while that work item is still in implementation. The
+parent records the canonical integration receipt in `change-summary` before
+classification. Reconciliation never integrates or otherwise mutates the
+repository.
+
 Classification unions `baseline..HEAD`, staged/unstaged/deleted files, and
 untracked files, then seals a content-sensitive tree fingerprint. Verification
 runs `factory-verification-fanout` once: the canonical policy workflow supplies
@@ -204,7 +222,8 @@ definition version only when the graph changes:
 ```bash
 swamp model method run supers-delivery-profile compile
 deno run --allow-run --allow-read --allow-write scripts/materialize-dex-software-factory.ts \
-  supers-delivery-profile models/@swamp/software-factory/90fac686-c724-4aee-97c4-e31b9af4c5e2.yaml
+  supers-delivery-profile models/@swamp/software-factory/90fac686-c724-4aee-97c4-e31b9af4c5e2.yaml \
+  supers-dex-delivery
 swamp model validate supers-delivery
 ```
 
@@ -219,7 +238,11 @@ swamp model method run supers-delivery status --input workItem=<dex-id>
 
 The Factory status record is the execution contract. Drivers project only the
 current work, satisfied transitions, and failing gate reasons; they do not load
-the entire run history into model context.
+the entire run history into model context. Because classification, render
+verification, postflight, and completion inspect the shared target checkout,
+the current driver completes that serialized Factory tail before integrating
+the next queued handoff. Parallelism applies to isolated implementation lanes,
+not simultaneous mutation or verification of one target checkout.
 
 ## Factory effectiveness
 

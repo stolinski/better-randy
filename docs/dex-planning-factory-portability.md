@@ -144,13 +144,17 @@ boundary.
 
 The `supers-dex-delivery-handoff-authorized` model then runs `claim-next-ready`
 under the same canonical repository-wide Dex lock used by all mutations. It
-first resumes the sole active `supers-delivery` work item, including repair of
-interrupted tracker start. With no active owner it recomputes the global runway
-from one bounded, strict `dex list --all --json` snapshot. Ties, multiple
-owners, missing boundaries, candidates outside the approved mappings, and a
-global winner outside the approved epic return typed `human-gate`; an empty
-runway returns `no-ready-work`. Only the unique global highest-priority leaf
-inside the approved and audited epic is started.
+first scopes active `supers-delivery` work items and started tasks to the
+approved effective open execution root, including repair of interrupted tracker
+start. Ancestry stops at a completed parent, which remains historical context,
+so its open child begins a new execution root and may itself be the ready leaf.
+With no owner inside that root the model recomputes its runway from one bounded,
+strict `dex list --all --json` snapshot. Same-root ties or multiple owners,
+unknown or cyclic open ancestry, unknown blocker ids, inherited open blockers,
+missing or completed boundaries, and candidates outside the approved mappings
+return typed `human-gate` or `no-ready-work` as appropriate. Only the unique
+highest-priority approved leaf in that root is started. Independently approved roots may claim and run concurrently; the
+repository lock serializes only the short Dex mutation.
 
 Dex and Factory cannot share an ACID transaction, so the workflow is an
 idempotent saga: a deterministic claim/outbox resource precedes an

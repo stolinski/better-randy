@@ -222,7 +222,7 @@ async function assertTrackerFailure(
 
 Deno.test("model exposes the locked type, version, resources, and method set", () => {
   assert.equal(model.type, "@club_aqua_back_deck/dex-task-tracker");
-  assert.equal(model.version, "2026.08.06.2");
+  assert.equal(model.version, "2026.08.15.1");
   assert.deepEqual(Object.keys(model.resources).sort(), [
     "ready-leaf-claim",
     "ready-leaf-intent",

@@ -1,6 +1,6 @@
 manifestVersion: 1
 name: "@club_aqua_back_deck/dex-task-tracker"
-version: "2026.08.06.2"
+version: "2026.08.15.1"
 description: "Typed, receipt-backed Dex task lifecycle operations for Swamp models and software Factory workflows."
 repository: https://github.com/stolinski/better-randy
 models:

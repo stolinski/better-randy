@@ -9,7 +9,7 @@
  */
 import { z } from "npm:zod@4.4.3";
 
-export const DEX_SOFTWARE_FACTORY_VERSION = "2026.08.07.1";
+export const DEX_SOFTWARE_FACTORY_VERSION = "2026.08.15.1";
 const SOFTWARE_FACTORY_TARGET_VERSION = "2026.06.24.1";
 
 const FACTORY_NAME_PATTERN = /^[a-z][a-z0-9_-]*$/;
@@ -889,11 +889,11 @@ function reconciliationStage(profile: DexSoftwareFactoryProfile): FactoryStage {
       mode: "interactive",
       context: {
         inject: profile.review === undefined
-          ? ["verification"]
-          : ["verification", reviewNames.verdict],
+          ? ["change-summary", "verification"]
+          : ["change-summary", "verification", reviewNames.verdict],
       },
       systemPrompt:
-        "Reconcile the verified result without mutating tracker state. Record nextStep=rework when anything remains; otherwise record nextStep=complete with the exact Dex result and commit decision.",
+        "Reconcile the verified result without mutating the repository or tracker state. Confirm any integration evidence already recorded in change-summary. Record nextStep=rework when anything remains; otherwise record nextStep=complete with the exact Dex result and commit decision.",
     },
     artifacts: [reconciliationArtifact(profile)],
     transitions: [

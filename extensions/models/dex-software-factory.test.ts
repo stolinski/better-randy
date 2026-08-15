@@ -63,7 +63,7 @@ function serializedProfile(profile: DexSoftwareFactoryProfile): string {
 
 Deno.test("model exposes the locked compiler type, version, resource, and method", () => {
   assert.equal(model.type, "@club_aqua_back_deck/dex-software-factory");
-  assert.equal(model.version, "2026.08.07.1");
+  assert.equal(model.version, "2026.08.15.1");
   assert.deepEqual(Object.keys(model.resources), ["profile"]);
   assert.deepEqual(Object.keys(model.methods), ["compile"]);
 });
@@ -180,6 +180,37 @@ Deno.test("consumer contracts extend artifacts and preserve configured review na
     );
   assert.equal(reconciliationArtifact?.reviews, "verification");
   assert.match(JSON.stringify(reconciliation.work), /visual-verdict/);
+  assert.match(JSON.stringify(reconciliation.work), /change-summary/);
+  assert.match(
+    JSON.stringify(reconciliation.work),
+    /without mutating the repository or tracker state/,
+  );
+});
+
+Deno.test("consumer change-summary preserves a strict integration receipt contract", () => {
+  const profile = minimalProfile();
+  profile.contracts = {
+    changeSummary: {
+      properties: {
+        integrationReceipt: {
+          type: "object",
+          additionalProperties: false,
+          required: ["receiptId", "activeTaskId", "disposition"],
+          properties: {
+            receiptId: { type: "string", pattern: "^[0-9a-f]{64}$" },
+            activeTaskId: { type: "string", minLength: 1 },
+            disposition: { type: "string", enum: ["integrated"] },
+          },
+        },
+      },
+      required: ["integrationReceipt"],
+    },
+  };
+  const compiled = compileDexSoftwareFactoryProfile(profile);
+  const implementation = JSON.stringify(stage(compiled, "implementation"));
+  assert.match(implementation, /integrationReceipt/);
+  assert.match(implementation, /additionalProperties.*false/);
+  assert.match(implementation, /receiptId.*activeTaskId.*disposition/);
 });
 
 Deno.test("human-gated profile places approval on the final acceptance route", () => {
@@ -341,7 +372,7 @@ Deno.test("compile method persists the versioned profile resource", async () => 
   assert.deepEqual(result, { dataHandles: [{ name: "compiled-profile" }] });
   assert.equal(writes[0].specName, "profile");
   assert.equal(writes[0].name, "compiled-profile");
-  assert.equal(writes[0].data.compilerVersion, "2026.08.07.1");
+  assert.equal(writes[0].data.compilerVersion, "2026.08.15.1");
   assert.deepEqual(logs, [
     "Compiling Dex software Factory profile",
     "Compiled Dex software Factory profile {profileName}",
