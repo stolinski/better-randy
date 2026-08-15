@@ -1,4 +1,5 @@
 import { getPresetBySlug } from '$lib/platform/preset';
+import { userCompositionFileExists } from '$lib/platform/user-composition-file-index.server';
 import { userCompositionStore } from '$lib/platform/user-composition-store';
 
 import type { PageServerLoad } from './$types';
@@ -9,7 +10,9 @@ export const load = (async ({ params, url, fetch }) => {
 
 	try {
 		const userComposition =
-			source === 'builtin' ? null : await userCompositionStore.loadUserComposition(slug, fetch);
+			source === 'builtin' || !(await userCompositionFileExists(slug))
+				? null
+				: await userCompositionStore.loadUserComposition(slug, fetch);
 		const preset = userComposition ?? getPresetBySlug(slug);
 
 		if (!preset) {

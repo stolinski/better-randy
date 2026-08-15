@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { json, error, type RequestHandler } from '@sveltejs/kit';
 
+import { addUserCompositionFileToIndex } from '$lib/platform/user-composition-file-index.server';
 import { PresetIngressSchema } from '$lib/platform/preset-ingress';
 import { posterKeyForPreset } from '$lib/platform/posters';
 import { presetToWireFormat } from '$lib/platform/preset-pure';
@@ -160,5 +161,6 @@ export const POST: RequestHandler = async ({ request }) => {
 		JSON.stringify(storedUserComposition, null, '\t'),
 		'utf-8'
 	);
+	await addUserCompositionFileToIndex(slug);
 	return json({ slug }, { status: 201 });
 };

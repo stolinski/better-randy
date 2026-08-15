@@ -3,6 +3,10 @@ import { join } from 'node:path';
 
 import { json, error, type RequestHandler } from '@sveltejs/kit';
 
+import {
+	addUserCompositionFileToIndex,
+	removeUserCompositionFileFromIndex
+} from '$lib/platform/user-composition-file-index.server';
 import { PresetIngressSchema } from '$lib/platform/preset-ingress';
 import { presetToWireFormat } from '$lib/platform/preset-pure';
 import {
@@ -133,6 +137,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		JSON.stringify(storedUserComposition, null, '\t'),
 		'utf-8'
 	);
+	await addUserCompositionFileToIndex(slug);
 	return new Response(null, { status: 204 });
 };
 
@@ -145,6 +150,7 @@ export const DELETE: RequestHandler = async ({ params }) => {
 	} catch {
 		error(404, `User composition "${slug}" not found`);
 	}
+	await removeUserCompositionFileFromIndex(slug);
 
 	return new Response(null, { status: 204 });
 };

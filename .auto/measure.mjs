@@ -13,6 +13,10 @@ const paths = [
 ];
 
 const results = [];
+function percentile(values, fraction) {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * fraction))] ?? 0;
+}
 let cursor = 0;
 const workers = Array.from({ length: 8 }, async () => {
   while (cursor < paths.length) {
@@ -36,12 +40,18 @@ await Promise.all(workers);
 
 const durations = results.map((result) => result.ms).sort((a, b) => a - b);
 const failures = results.filter((result) => result.broken);
-const p95 = durations[Math.min(durations.length - 1, Math.floor(durations.length * 0.95))] ?? 0;
+const normalDurations = results.filter((result) => !result.path.includes('?source=builtin')).map((result) => result.ms);
+const builtinDurations = results.filter((result) => result.path.includes('?source=builtin')).map((result) => result.ms);
+const p95 = percentile(durations, 0.95);
+const normalP95 = percentile(normalDurations, 0.95);
+const builtinP95 = percentile(builtinDurations, 0.95);
 const mean = durations.reduce((sum, value) => sum + value, 0) / Math.max(1, durations.length);
 const score = p95 + failures.length * 10_000;
 for (const failure of failures.slice(0, 10)) console.error('FAILED', failure);
 console.log(`METRIC load_score_ms=${score.toFixed(3)}`);
 console.log(`METRIC p95_ms=${p95.toFixed(3)}`);
 console.log(`METRIC mean_ms=${mean.toFixed(3)}`);
+console.log(`METRIC normal_p95_ms=${normalP95.toFixed(3)}`);
+console.log(`METRIC builtin_p95_ms=${builtinP95.toFixed(3)}`);
 console.log(`METRIC failures=${failures.length}`);
 console.log(`METRIC requests=${results.length}`);
