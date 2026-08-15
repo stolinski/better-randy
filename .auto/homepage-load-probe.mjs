@@ -110,6 +110,9 @@ async function measureOnce() {
 					return rect.bottom > 0 && rect.top < innerHeight && rect.right > 0 && rect.left < innerWidth;
 				}).length;
 				const navigation = performance.getEntriesByType('navigation')[0];
+				const userApi = performance.getEntriesByType('resource').find(
+					(entry) => entry.name.includes('/api/user-compositions')
+				);
 				return {
 					readyState: document.readyState,
 					hasHome: Boolean(document.querySelector('.home')),
@@ -120,7 +123,8 @@ async function measureOnce() {
 					ttfb: navigation?.responseStart ?? 0,
 					domContentLoaded: navigation?.domContentLoadedEventEnd ?? 0,
 					loadEvent: navigation?.loadEventEnd ?? 0,
-					lcp: window.__homeLcp ?? 0
+					lcp: window.__homeLcp ?? 0,
+					userApiEnd: userApi?.responseEnd ?? 0
 				};
 			})()`);
 		} catch {
@@ -171,6 +175,7 @@ const keys = [
 	'domContentLoaded',
 	'loadEvent',
 	'lcp',
+	'userApiEnd',
 	'apiRequests',
 	'posterRequests',
 	'posterKb',
