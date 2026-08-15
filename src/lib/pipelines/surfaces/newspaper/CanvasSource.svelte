@@ -88,7 +88,9 @@
 				paragraph.segments?.some((segment) => (segment.text ?? '').trim().length > 0)
 			)
 	);
-	const hasFooterContent = $derived(hasByline || hasDate || (!hasByline && !hasDate && sourceLabel.length > 0));
+	const hasFooterContent = $derived(
+		hasByline || hasDate || (!hasByline && !hasDate && sourceLabel.length > 0)
+	);
 
 	const secondarySlotCount = $derived(
 		(hasKicker ? 1 : 0) + (hasByline ? 1 : 0) + (hasDate ? 1 : 0) + (hasBody ? 1 : 0)
@@ -127,14 +129,25 @@
 	<header>
 		{#if hasKicker}
 			{#key content.kicker}
-				<span class="newspaper-source__kicker" data-text-anim-slot="kicker" style:font-size={`${layout.width * 0.022}px`}>
+				<span
+					class="newspaper-source__kicker"
+					data-text-anim-slot="kicker"
+					data-supers-readable-id="surface:newspaper:kicker"
+					data-supers-text-role="surface-label"
+					style:font-size={`${layout.width * 0.022}px`}
+				>
 					{content.kicker}
 				</span>
 			{/key}
 		{/if}
 		{#if content.title}
 			{#key content.title}
-				<h2 data-text-anim-slot="title" style:font-size={`${layout.width * titleSizeRatio}px`}>
+				<h2
+					data-text-anim-slot="title"
+					data-supers-readable-id="surface:newspaper:title"
+					data-supers-text-role="surface-title"
+					style:font-size={`${layout.width * titleSizeRatio}px`}
+				>
 					{content.title}
 				</h2>
 			{/key}
@@ -146,7 +159,10 @@
 			<section data-text-anim-slot="body" style:font-size={`${layout.width * 0.022}px`}>
 				{#each content.body as block, blockIndex (blockIndex)}
 					{#if block.type === 'paragraph'}
-						<p>
+						<p
+							data-supers-readable-id={`surface:newspaper:body:${blockIndex}`}
+							data-supers-text-role="surface-body"
+						>
 							{#each block.segments as segment, segmentIndex (`${blockIndex}:${segmentIndex}:${segment.text}`)}
 								{#if segment.markStyles.length > 0}
 									{@const innerText = segment.text}
@@ -176,21 +192,39 @@
 		<footer>
 			{#if hasByline}
 				{#key content.author}
-					<span class="newspaper-source__byline" data-text-anim-slot="author" style:font-size={`${layout.width * 0.020}px`}>
+					<span
+						class="newspaper-source__byline"
+						data-text-anim-slot="author"
+						data-supers-readable-id="surface:newspaper:author"
+						data-supers-text-role="surface-label"
+						style:font-size={`${layout.width * 0.02}px`}
+					>
 						{content.author}
 					</span>
 				{/key}
 			{/if}
 			{#if hasDate}
 				{#key content.dateLabel}
-					<span class="newspaper-source__date" data-text-anim-slot="dateLabel" style:font-size={`${layout.width * 0.020}px`}>
+					<span
+						class="newspaper-source__date"
+						data-text-anim-slot="dateLabel"
+						data-supers-readable-id="surface:newspaper:date-label"
+						data-supers-text-role="surface-label"
+						style:font-size={`${layout.width * 0.02}px`}
+					>
 						{content.dateLabel}
 					</span>
 				{/key}
 			{/if}
 			{#if !hasByline && !hasDate && sourceLabel}
 				{#key sourceLabel}
-					<span class="newspaper-source__date" data-text-anim-slot="source" style:font-size={`${layout.width * 0.020}px`}>{sourceLabel}</span>
+					<span
+						class="newspaper-source__date"
+						data-text-anim-slot="source"
+						data-supers-readable-id={`surface:newspaper:${content.sourceUrl?.trim() ? 'source-url' : 'source'}`}
+						data-supers-text-role="surface-label"
+						style:font-size={`${layout.width * 0.02}px`}>{sourceLabel}</span
+					>
 				{/key}
 			{/if}
 		</footer>
@@ -220,7 +254,6 @@
 		transform-origin: center;
 		will-change: top, transform;
 	}
-
 
 	/*
 	 * Title-only density (e.g. the `title-card-newspaper` preset): the

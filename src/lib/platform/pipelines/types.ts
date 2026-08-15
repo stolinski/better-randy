@@ -405,6 +405,45 @@ export interface OverlayCanvasSourceProps<TContent = unknown> {
 	content: TContent;
 }
 
+export type DeterministicReadableTextRole =
+	| 'overlay-display'
+	| 'overlay-primary'
+	| 'overlay-secondary'
+	| 'overlay-corner-primary'
+	| 'overlay-corner-secondary'
+	| 'surface-display'
+	| 'surface-title'
+	| 'surface-body'
+	| 'surface-body-focal'
+	| 'surface-label'
+	| 'found-document-body'
+	| 'found-document-metadata'
+	| 'diagram-headline'
+	| 'diagram-caption'
+	| 'diagram-stat-value'
+	| 'caption-social';
+
+export interface RendererReadableTextContract {
+	id: string;
+	text: string;
+	role: DeterministicReadableTextRole;
+}
+
+/** Typed reasons a visible text node is intentionally outside readability probes. */
+export const DETERMINISTIC_NON_READABLE_TEXT_REASONS = [
+	'decorative-symbol',
+	'duplicate-semantic-label',
+	'rasterized-artifact-text'
+] as const;
+
+export type DeterministicNonReadableTextReason =
+	(typeof DETERMINISTIC_NON_READABLE_TEXT_REASONS)[number];
+
+export interface RendererReadableTextContext {
+	progress: number;
+	durationMilliseconds: number;
+}
+
 export interface OverlayRenderer<TContent = unknown> {
 	type: string;
 	label: string;
@@ -413,6 +452,15 @@ export interface OverlayRenderer<TContent = unknown> {
 	CanvasSource: Component<OverlayCanvasSourceProps<TContent>>;
 	Editor: Component<OverlayEditorProps<TContent>>;
 	Inspector?: Component<OverlayEditorProps<TContent>>;
+	/**
+	 * Typed content-to-readable identity authority for deterministic probes.
+	 * Omit only when the renderer cannot yet declare complete readable output;
+	 * the runtime then reports coverage unavailable rather than inferring DOM.
+	 */
+	readableText?: (
+		content: TContent,
+		context: RendererReadableTextContext
+	) => readonly RendererReadableTextContract[];
 	/**
 	 * This plate-less Overlay's ink sits directly on `backgroundFill`. When a
 	 * composition declares that field, OverlayMount pairs its `--ink` with the

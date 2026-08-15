@@ -45,5 +45,6 @@ export const cursorTrailOverlayRenderer: OverlayRenderer<CursorTrailContent> = {
 	schema: CursorTrailContentSchema,
 	defaults,
 	CanvasSource,
-	Editor
+	Editor,
+	readableText: () => []
 };

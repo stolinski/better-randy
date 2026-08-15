@@ -111,6 +111,8 @@ export interface CompositionDomCaptureGenerations {
 	force: boolean;
 }
 
+export type CompositionReadableProbeMode = 'normal' | 'readable-mask';
+
 export interface CompositionFrameRenderRequest {
 	outputView: GPUTextureView;
 	timestamp: number;
@@ -121,6 +123,7 @@ export interface CompositionFrameRenderRequest {
 	overlayRootElement: HTMLElement | null;
 	substrateTexture: GPUTexture | null;
 	videoUnderlayTexture: PreparedVideoUnderlayTexture | null;
+	readableProbeMode?: CompositionReadableProbeMode;
 	domCapture?: CompositionDomCaptureGenerations;
 	resources: CompositionFrameRenderResources;
 	cachedTransition: CachedTransitionFrame | null;
@@ -536,7 +539,8 @@ function renderDofFrame(
 		outputView: request.outputView,
 		...timebase,
 		background: treatments.background,
-		videoUnderlayTexture: request.videoUnderlayTexture
+		videoUnderlayTexture:
+			request.readableProbeMode === 'readable-mask' ? null : request.videoUnderlayTexture
 	});
 	return true;
 }
@@ -595,7 +599,8 @@ function renderStageFrame(
 		...timebase,
 		stageContentScale: STAGE_CAM_Z / eyeZ,
 		background: undefined,
-		videoUnderlayTexture: request.videoUnderlayTexture
+		videoUnderlayTexture:
+			request.readableProbeMode === 'readable-mask' ? null : request.videoUnderlayTexture
 	});
 	return true;
 }
@@ -624,7 +629,8 @@ function renderFlatFrame(
 		outputView: request.outputView,
 		...timebase,
 		background: treatments.background,
-		videoUnderlayTexture: request.videoUnderlayTexture
+		videoUnderlayTexture:
+			request.readableProbeMode === 'readable-mask' ? null : request.videoUnderlayTexture
 	});
 	return true;
 }
@@ -665,8 +671,22 @@ export function renderCompositionFrameTo(
 	}
 
 	const timebase = frameTimebase(request.state, request.timestamp);
-	const inputs = request.buildSurfaceInputs(request.timestamp);
-	const treatments = prepareFramePackTreatments(request.state, request.pack);
+	const builtInputs = request.buildSurfaceInputs(request.timestamp);
+	const inputs =
+		request.readableProbeMode === 'readable-mask'
+			? { ...builtInputs, chart: undefined }
+			: builtInputs;
+	const resolvedTreatments = prepareFramePackTreatments(request.state, request.pack);
+	const treatments =
+		request.readableProbeMode === 'readable-mask'
+			? {
+					...resolvedTreatments,
+					edgeTarget: null,
+					light: null,
+					chromeEffects: [],
+					background: undefined
+				}
+			: resolvedTreatments;
 
 	// Browser paint generations let shader-only frames retain the resident 4K DOM
 	// texture. Export forces one upload after each acknowledged paint settlement.

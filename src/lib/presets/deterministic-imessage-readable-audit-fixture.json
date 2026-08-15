@@ -1,0 +1,61 @@
+{
+	"schema": "supers@1",
+	"name": "Deterministic iMessage readable audit fixture",
+	"description": "Runtime-only fixture covering complete iMessage window chrome, message, tapback, and receipt readable identities.",
+	"pack": "syntax",
+	"kind": "fixture",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 5,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans",
+			"paperColor": "#ffffff",
+			"inkColor": "#000000"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "imessage",
+			"chrome": "window",
+			"content": {
+				"author": "Wes",
+				"body": "",
+				"messages": [
+					{
+						"from": "them",
+						"text": "Complete readable authority",
+						"tapback": "heart",
+						"enter": {
+							"start": 0.1,
+							"duration": 0.06
+						}
+					},
+					{
+						"from": "me",
+						"text": "Window chrome included",
+						"status": "read",
+						"enter": {
+							"start": 0.3,
+							"duration": 0.06
+						}
+					}
+				]
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.05,
+				"ease": "settled"
+			}
+		},
+		"textAnimations": [],
+		"overlays": [],
+		"effects": [],
+		"audioCues": []
+	}
+}

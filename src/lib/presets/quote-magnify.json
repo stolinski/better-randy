@@ -6,7 +6,7 @@
 	"state": {
 		"transport": {
 			"orientation": "horizontal",
-			"durationSeconds": 8,
+			"durationSeconds": 12,
 			"fps": 30,
 			"format": "webm"
 		},

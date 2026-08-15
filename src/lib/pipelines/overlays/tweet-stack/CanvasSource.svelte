@@ -74,7 +74,10 @@
 					{/if}
 				</span>
 				<span class="tweet-card__identity">
-					<strong>{post.displayName}</strong>
+					<strong
+						data-supers-readable-id={`${post.id}-display-name`}
+						data-supers-text-role="found-document-metadata">{post.displayName}</strong
+					>
 					{#if post.verified}
 						<svg class="tweet-card__verified" viewBox="0 0 24 24" aria-label="Verified">
 							<path
@@ -82,7 +85,10 @@
 							/>
 						</svg>
 					{/if}
-					<span>{post.handle}</span>
+					<span
+						data-supers-readable-id={`${post.id}-handle`}
+						data-supers-text-role="found-document-metadata">{post.handle}</span
+					>
 				</span>
 				<svg class="tweet-card__x" viewBox="0 0 24 24" aria-hidden="true">
 					<path
@@ -91,10 +97,19 @@
 				</svg>
 			</header>
 
-			<p class="tweet-card__body">{post.body}</p>
+			<p
+				class="tweet-card__body"
+				data-supers-readable-id={`${post.id}-body`}
+				data-supers-text-role="found-document-body"
+			>
+				{post.body}
+			</p>
 
 			<footer class="tweet-card__footer" style:font-size={`${metaFontSize}px`}>
-				<time>{post.dateLabel}</time>
+				<time
+					data-supers-readable-id={`${post.id}-date`}
+					data-supers-text-role="found-document-metadata">{post.dateLabel}</time
+				>
 				<span class="tweet-card__actions" aria-hidden="true">
 					<svg viewBox="0 0 24 24"
 						><path

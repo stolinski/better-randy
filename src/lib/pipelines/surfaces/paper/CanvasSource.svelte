@@ -48,7 +48,7 @@
 
 	const layout = $derived.by(() => {
 		const portrait = frame.height > frame.width;
-		const orientation = portrait ? 'vertical' as const : 'horizontal' as const;
+		const orientation = portrait ? ('vertical' as const) : ('horizontal' as const);
 		const safeArea = getLayoutSafeArea(orientation);
 		const aspect = portrait ? PAPER_ASPECT_RATIO_VERTICAL : PAPER_ASPECT_RATIO_HORIZONTAL;
 		const targetHeight = frame.height * HEIGHT_RATIO;
@@ -125,9 +125,9 @@
 	const hasHeader = $derived(
 		Boolean(
 			engineState.surface.content.title ||
-				engineState.surface.content.sourceUrl ||
-				engineState.surface.content.author ||
-				engineState.surface.content.affiliation
+			engineState.surface.content.sourceUrl ||
+			engineState.surface.content.author ||
+			engineState.surface.content.affiliation
 		)
 	);
 	const hasFooter = $derived(
@@ -154,7 +154,7 @@
 	{@attach exposePaperSourceElement}
 	class="paper-source surface"
 	style:background-color={typographyColors.paperColor}
-		style:box-shadow={cardShadow}
+	style:box-shadow={cardShadow}
 	style:block-size={`${layout.height}px`}
 	style:color={typographyColors.inkColor}
 	style:font-family={fontFamily.stack}
@@ -171,18 +171,44 @@
 		<header style:font-size={`${layout.width * 0.024}px`}>
 			{#if engineState.surface.content.sourceUrl}
 				{#key sourceLabel}
-					<p class="paper-source__kicker" data-text-anim-slot="sourceUrl">{sourceLabel}</p>
+					<p
+						class="paper-source__kicker"
+						data-text-anim-slot="sourceUrl"
+						data-supers-readable-id="surface:paper:source-url"
+						data-supers-text-role="surface-label"
+					>
+						{sourceLabel}
+					</p>
 				{/key}
 			{/if}
 			{#if engineState.surface.content.title}
 				{#key engineState.surface.content.title}
-					<h2 data-text-anim-slot="title" style:font-size={`${layout.width * 0.06}px`}>{engineState.surface.content.title}</h2>
+					<h2
+						data-text-anim-slot="title"
+						data-supers-readable-id="surface:paper:title"
+						data-supers-text-role="surface-title"
+						style:font-size={`${layout.width * 0.06}px`}
+					>
+						{engineState.surface.content.title}
+					</h2>
 				{/key}
 			{/if}
 			{#if engineState.surface.content.author}
 				{#key `${engineState.surface.content.author}|${engineState.surface.content.affiliation ?? ''}`}
-					<p class="paper-source__byline" data-text-anim-slot="author" style:font-size={`${layout.width * 0.026}px`}>
-						{engineState.surface.content.author}{#if engineState.surface.content.affiliation}<span class="paper-source__affiliation"> · {engineState.surface.content.affiliation}</span>{/if}
+					<p
+						class="paper-source__byline"
+						data-text-anim-slot="author"
+						style:font-size={`${layout.width * 0.026}px`}
+					>
+						<span
+							data-supers-readable-id="surface:paper:author"
+							data-supers-text-role="surface-label">{engineState.surface.content.author}</span
+						>{#if engineState.surface.content.affiliation}<span aria-hidden="true"> · </span><span
+								class="paper-source__affiliation"
+								data-supers-readable-id="surface:paper:affiliation"
+								data-supers-text-role="surface-label"
+								>{engineState.surface.content.affiliation}</span
+							>{/if}
 					</p>
 				{/key}
 			{/if}
@@ -190,7 +216,12 @@
 	{/if}
 
 	{#if engineState.surface.content.bodyLabel}
-		<p class="paper-source__body-label" style:font-size={`${layout.width * 0.024}px`}>
+		<p
+			class="paper-source__body-label"
+			data-supers-readable-id="surface:paper:body-label"
+			data-supers-text-role="surface-label"
+			style:font-size={`${layout.width * 0.024}px`}
+		>
 			{engineState.surface.content.bodyLabel}
 		</p>
 	{/if}
@@ -199,7 +230,10 @@
 		<section data-text-anim-slot="body" style:font-size={`${layout.bodyFontSize}px`}>
 			{#each engineState.surface.content.body as block, blockIndex (blockIndex)}
 				{#if block.type === 'paragraph'}
-					<p>
+					<p
+						data-supers-readable-id={`surface:paper:body:${blockIndex}`}
+						data-supers-text-role="surface-body"
+					>
 						{#each block.segments as segment, segmentIndex (`${blockIndex}:${segmentIndex}:${segment.text}`)}
 							{#if segment.markStyles.length > 0}
 								{@const innerText = segment.text}
@@ -228,12 +262,20 @@
 		<footer style:font-size={`${layout.width * 0.024}px`}>
 			{#if engineState.surface.content.source}
 				{#key engineState.surface.content.source}
-					<cite data-text-anim-slot="source">{engineState.surface.content.source}</cite>
+					<cite
+						data-text-anim-slot="source"
+						data-supers-readable-id="surface:paper:source"
+						data-supers-text-role="surface-label">{engineState.surface.content.source}</cite
+					>
 				{/key}
 			{/if}
 			{#if engineState.surface.content.dateLabel}
 				{#key engineState.surface.content.dateLabel}
-					<span data-text-anim-slot="dateLabel">{engineState.surface.content.dateLabel}</span>
+					<span
+						data-text-anim-slot="dateLabel"
+						data-supers-readable-id="surface:paper:date-label"
+						data-supers-text-role="surface-label">{engineState.surface.content.dateLabel}</span
+					>
 				{/key}
 			{/if}
 		</footer>

@@ -69,6 +69,7 @@ console.log(
 		channel,
 		hard_stairsteps: hardSteps,
 		smooth_pixels: smoothPixels,
+		transition_sample_count: total,
 		coverage_ratio: ratio === null ? null : Number(ratio.toFixed(3)),
 		polarity: { empty_top: emptyTopColumns, full_top: fullTopColumns }
 	})

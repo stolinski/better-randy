@@ -35,5 +35,9 @@ export const achievementOverlayRenderer: OverlayRenderer<AchievementContent> = {
 	defaults,
 	CanvasSource,
 	Editor,
+	readableText: (content) => [
+		{ id: 'kicker', text: content.kicker, role: 'overlay-secondary' },
+		{ id: 'title', text: content.title, role: 'overlay-primary' }
+	],
 	edgeTransition: 'right'
 };

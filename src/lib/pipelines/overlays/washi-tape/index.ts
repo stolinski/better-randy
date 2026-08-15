@@ -4,11 +4,7 @@ import type { OverlayDefaults, OverlayRenderer } from '$lib/platform/pipelines/t
 
 import CanvasSource from './CanvasSource.svelte';
 import Editor from './Editor.svelte';
-import {
-	DEFAULT_LENGTH_PX,
-	DEFAULT_ROTATION_DEG,
-	ROTATION_MAX_DEG
-} from './washi-tape-defaults';
+import { DEFAULT_LENGTH_PX, DEFAULT_ROTATION_DEG, ROTATION_MAX_DEG } from './washi-tape-defaults';
 
 /**
  * Washi-tape Overlay (ADR-0009).
@@ -60,5 +56,6 @@ export const washiTapeOverlayRenderer: OverlayRenderer<WashiTapeContent> = {
 	schema: WashiTapeContentSchema,
 	defaults,
 	CanvasSource,
-	Editor
+	Editor,
+	readableText: () => []
 };

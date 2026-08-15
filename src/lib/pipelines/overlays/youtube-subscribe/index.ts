@@ -61,5 +61,26 @@ export const youtubeSubscribeOverlayRenderer: OverlayRenderer<YoutubeSubscribeCo
 	schema: YoutubeSubscribeContentSchema,
 	defaults,
 	CanvasSource,
-	Editor
+	Editor,
+	readableText: (content, context) => {
+		const subscribed =
+			(context.progress - (content.beat ?? 0.42)) * context.durationMilliseconds >= 110;
+		return [
+			{ id: 'channel', text: content.channel, role: 'overlay-primary' },
+			...([content.handle, content.subscribers].filter(Boolean).length > 0
+				? [
+						{
+							id: 'meta',
+							text: [content.handle, content.subscribers].filter(Boolean).join(' · '),
+							role: 'overlay-secondary' as const
+						}
+					]
+				: []),
+			{
+				id: subscribed ? 'subscribed-action' : 'subscribe-action',
+				text: subscribed ? 'Subscribed' : 'Subscribe',
+				role: 'overlay-secondary'
+			}
+		];
+	}
 };

@@ -43,5 +43,11 @@ export const text3dOverlayRenderer: OverlayRenderer<Text3dContent> = {
 	defaults,
 	CanvasSource,
 	Editor,
+	readableText: (content) =>
+		[...content.text].map((text, index) => ({
+			id: `glyph-${index}`,
+			text,
+			role: 'overlay-display'
+		})),
 	fieldInkOnBackground: true
 };

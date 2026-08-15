@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { SurfaceState } from '$lib/platform/engine-schema';
+	import type { DeterministicNonReadableTextReason } from '$lib/platform/pipelines/types';
 
 	import DocumentBody from './DocumentBody.svelte';
 
@@ -28,6 +29,7 @@
 	const voteIconPx = $derived(width * 0.04);
 	const actionFontPx = $derived(width * 0.026);
 	const actionIconPx = $derived(width * 0.032);
+	const decorativeSymbolReason: DeterministicNonReadableTextReason = 'decorative-symbol';
 </script>
 
 <!-- Reddit post (classic night-mode card). Iconic left vote rail + content column. -->
@@ -40,7 +42,13 @@
 			viewBox="0 0 24 24"
 			aria-hidden="true"><path d="M12 3l9 9h-5.4v9h-7.2v-9H3z" /></svg
 		>
-		<span class="reddit-score" style:font-size={`${scoreFontPx}px`}>4.2k</span>
+		<span
+			class="reddit-score"
+			data-supers-readable-id="surface:web-document:chrome:score"
+			data-supers-readable-text="4.2k"
+			data-supers-text-role="found-document-metadata"
+			style:font-size={`${scoreFontPx}px`}>4.2k</span
+		>
 		<svg
 			class="reddit-arrow reddit-arrow--down"
 			style:inline-size={`${voteIconPx}px`}
@@ -54,44 +62,103 @@
 		<div class="reddit-meta" style:font-size={`${metaFontPx}px`}>
 			<span class="reddit-sub-dot" aria-hidden="true"></span>
 			{#if subreddit}
-				<span class="reddit-sub">{subreddit}</span>
+				<span
+					class="reddit-sub"
+					data-supers-readable-id="surface:web-document:source"
+					data-supers-readable-text={subreddit}
+					data-supers-text-role="found-document-metadata">{subreddit}</span
+				>
 			{/if}
 			<span class="reddit-meta-rest">
-				{#if poster}<span class="reddit-sep">·</span>Posted by {poster}{/if}
-				{#if age}<span class="reddit-sep">·</span>{age}{/if}
+				{#if poster}<span
+						class="reddit-sep"
+						aria-hidden="true"
+						data-supers-non-readable-reason={decorativeSymbolReason}>·</span
+					><span
+						data-supers-readable-id="surface:web-document:chrome:posted-by"
+						data-supers-readable-text="Posted by"
+						data-supers-text-role="found-document-metadata">Posted by</span
+					>
+					<span
+						data-supers-readable-id="surface:web-document:author"
+						data-supers-readable-text={poster}
+						data-supers-text-role="found-document-metadata">{poster}</span
+					>{/if}
+				{#if age}<span
+						class="reddit-sep"
+						aria-hidden="true"
+						data-supers-non-readable-reason={decorativeSymbolReason}>·</span
+					><span
+						data-supers-readable-id="surface:web-document:date-label"
+						data-supers-readable-text={age}
+						data-supers-text-role="found-document-metadata">{age}</span
+					>{/if}
 			</span>
 		</div>
 
 		{#if title}
-			<h2 class="reddit-title" style:font-size={`${titleFontPx}px`}>{title}</h2>
+			<h2
+				class="reddit-title"
+				data-supers-readable-id="surface:web-document:title"
+				data-supers-readable-text={title}
+				data-supers-text-role="surface-title"
+				style:font-size={`${titleFontPx}px`}
+			>
+				{title}
+			</h2>
 		{/if}
 
-		<DocumentBody body={content.body} fontSize={bodyFontPx} />
+		<DocumentBody
+			body={content.body}
+			fontSize={bodyFontPx}
+			readablePrefix="surface:web-document:body"
+		/>
 
 		<footer class="reddit-actions" style:font-size={`${actionFontPx}px`} aria-hidden="true">
 			<span class="reddit-action">
-				<svg style:inline-size={`${actionIconPx}px`} style:block-size={`${actionIconPx}px`} viewBox="0 0 20 20"
+				<svg
+					style:inline-size={`${actionIconPx}px`}
+					style:block-size={`${actionIconPx}px`}
+					viewBox="0 0 20 20"
 					><path
 						fill="currentColor"
 						d="M10 2c4.42 0 8 2.96 8 6.6 0 3.64-3.58 6.6-8 6.6-.86 0-1.69-.11-2.46-.32L4 17v-3.1C2.16 12.7 1 10.78 1 8.6 1 4.96 4.58 2 10 2z"
 					/></svg
-				>142 Comments</span
+				><span
+					data-supers-readable-id="surface:web-document:chrome:comments"
+					data-supers-readable-text="142 Comments"
+					data-supers-text-role="found-document-metadata">142 Comments</span
+				></span
 			>
 			<span class="reddit-action">
-				<svg style:inline-size={`${actionIconPx}px`} style:block-size={`${actionIconPx}px`} viewBox="0 0 24 24"
+				<svg
+					style:inline-size={`${actionIconPx}px`}
+					style:block-size={`${actionIconPx}px`}
+					viewBox="0 0 24 24"
 					><path
 						fill="currentColor"
 						d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"
 					/></svg
-				>Share</span
+				><span
+					data-supers-readable-id="surface:web-document:chrome:share"
+					data-supers-readable-text="Share"
+					data-supers-text-role="found-document-metadata">Share</span
+				></span
 			>
 			<span class="reddit-action">
-				<svg style:inline-size={`${actionIconPx}px`} style:block-size={`${actionIconPx}px`} viewBox="0 0 24 24"
+				<svg
+					style:inline-size={`${actionIconPx}px`}
+					style:block-size={`${actionIconPx}px`}
+					viewBox="0 0 24 24"
 					><path
 						fill="currentColor"
 						d="M6 3h12c.55 0 1 .45 1 1v17l-7-4-7 4V4c0-.55.45-1 1-1z"
 					/></svg
-				>Save</span
+				><span
+					data-supers-readable-id="surface:web-document:chrome:save"
+					data-supers-readable-text="Save"
+					data-supers-text-role="found-document-metadata">Save</span
+				></span
 			>
 		</footer>
 	</div>
@@ -117,7 +184,13 @@
 		box-sizing: border-box;
 		color: var(--rd-text);
 		display: grid;
-		font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+		font-family:
+			'IBM Plex Sans',
+			-apple-system,
+			BlinkMacSystemFont,
+			'Segoe UI',
+			Roboto,
+			sans-serif;
 		grid-template-columns: auto 1fr;
 		overflow: hidden;
 	}

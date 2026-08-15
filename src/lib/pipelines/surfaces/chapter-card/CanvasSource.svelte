@@ -32,6 +32,8 @@
 			<span
 				class="chapter-card-source__kicker"
 				data-text-anim-slot="kicker"
+				data-supers-readable-id="surface:chapter-card:kicker"
+				data-supers-text-role="surface-label"
 				style:font-size={`${frame.width * 0.011}px`}
 			>
 				{content.kicker}
@@ -44,6 +46,8 @@
 			<h2
 				class="chapter-card-source__title"
 				data-text-anim-slot="title"
+				data-supers-readable-id="surface:chapter-card:title"
+				data-supers-text-role="surface-title"
 				style:font-size={`${frame.width * 0.033}px`}
 			>
 				{content.title}

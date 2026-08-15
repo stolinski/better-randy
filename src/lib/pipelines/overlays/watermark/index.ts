@@ -27,5 +27,11 @@ export const watermarkOverlayRenderer: OverlayRenderer<WatermarkContent> = {
 	schema: WatermarkContentSchema,
 	defaults,
 	CanvasSource,
-	Editor
+	Editor,
+	readableText: (content) => [
+		{ id: 'handle', text: content.handle, role: 'overlay-corner-primary' },
+		...(content.label
+			? [{ id: 'label', text: content.label, role: 'overlay-corner-secondary' as const }]
+			: [])
+	]
 };

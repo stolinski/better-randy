@@ -21,9 +21,7 @@
 	// frame-width ratio instead (2160 × 0.022 × 0.7 ≈ 33.3px ≥ 32px ✓).
 	const isVertical = $derived(engineState.transport.orientation === 'vertical');
 	const primaryFontSize = $derived(frame.width * 0.16);
-	const counterpointFontSize = $derived(
-		isVertical ? frame.width * 0.022 : primaryFontSize * 0.06
-	);
+	const counterpointFontSize = $derived(isVertical ? frame.width * 0.022 : primaryFontSize * 0.06);
 	const subtitleFontSize = $derived(frame.width * (isVertical ? 0.022 : 0.012));
 </script>
 
@@ -39,6 +37,8 @@
 			<h2
 				class="type-hero-source__hero"
 				data-text-anim-slot="title"
+				data-supers-readable-id="surface:type-hero:title"
+				data-supers-text-role="surface-display"
 				style:font-size={`${primaryFontSize}px`}
 			>
 				{content.title}
@@ -51,6 +51,8 @@
 			<span
 				class="type-hero-source__counterpoint"
 				data-text-anim-slot="counterpoint"
+				data-supers-readable-id="surface:type-hero:counterpoint"
+				data-supers-text-role="surface-title"
 				style:font-size={`${counterpointFontSize}px`}
 			>
 				{content.counterpoint}
@@ -65,6 +67,8 @@
 			<cite
 				class="type-hero-source__subtitle"
 				data-text-anim-slot="author"
+				data-supers-readable-id="surface:type-hero:author"
+				data-supers-text-role="surface-label"
 				style:font-size={`${subtitleFontSize}px`}
 			>
 				{content.author}

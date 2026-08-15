@@ -43,6 +43,13 @@ export const tweetStackOverlayRenderer: OverlayRenderer<TweetStackContent> = {
 	defaults,
 	CanvasSource,
 	Editor,
+	readableText: (content) =>
+		content.posts.flatMap((post) => [
+			{ id: `${post.id}-display-name`, text: post.displayName, role: 'found-document-metadata' },
+			{ id: `${post.id}-handle`, text: post.handle, role: 'found-document-metadata' },
+			{ id: `${post.id}-body`, text: post.body, role: 'found-document-body' },
+			{ id: `${post.id}-date`, text: post.dateLabel, role: 'found-document-metadata' }
+		]),
 	disableEntryOffset: true,
 	disableOpacityTransition: true
 };

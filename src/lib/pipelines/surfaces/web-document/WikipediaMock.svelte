@@ -32,15 +32,45 @@
 <!-- Wikipedia article (Vector 2024 dark mode). Serif title/headings, sans body. -->
 <article class="wiki-panel" style:padding={`${width * 0.038}px`} style:gap={`${width * 0.018}px`}>
 	{#if title}
-		<h1 class="wiki-title" style:font-size={`${titleFontPx}px`}>{title}</h1>
+		<h1
+			class="wiki-title"
+			data-supers-readable-id="surface:web-document:title"
+			data-supers-readable-text={title}
+			data-supers-text-role="surface-title"
+			style:font-size={`${titleFontPx}px`}
+		>
+			{title}
+		</h1>
 	{/if}
-	<p class="wiki-subtitle" style:font-size={`${subtitleFontPx}px`}>{subtitle}</p>
+	<p
+		class="wiki-subtitle"
+		data-supers-readable-id={content.source
+			? 'surface:web-document:source'
+			: 'surface:web-document:chrome:wikipedia-subtitle'}
+		data-supers-readable-text={subtitle}
+		data-supers-text-role="found-document-metadata"
+		style:font-size={`${subtitleFontPx}px`}
+	>
+		{subtitle}
+	</p>
 
 	{#if sectionHeading}
-		<h2 class="wiki-heading" style:font-size={`${headingFontPx}px`}>{sectionHeading}</h2>
+		<h2
+			class="wiki-heading"
+			data-supers-readable-id="surface:web-document:kicker"
+			data-supers-readable-text={sectionHeading}
+			data-supers-text-role="found-document-metadata"
+			style:font-size={`${headingFontPx}px`}
+		>
+			{sectionHeading}
+		</h2>
 	{/if}
 
-	<DocumentBody body={content.body} fontSize={bodyFontPx} />
+	<DocumentBody
+		body={content.body}
+		fontSize={bodyFontPx}
+		readablePrefix="surface:web-document:body"
+	/>
 </article>
 
 <style>
@@ -64,7 +94,8 @@
 		box-sizing: border-box;
 		color: var(--wk-text);
 		display: grid;
-		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+		font-family:
+			-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 	}
 
 	.wiki-title {

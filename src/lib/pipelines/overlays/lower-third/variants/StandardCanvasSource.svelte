@@ -8,18 +8,38 @@
 	let { content }: Props = $props();
 </script>
 
-<aside class="lower-third lower-third--standard" data-overlay="lower-third" data-variant="standard">
+<aside
+	class="lower-third lower-third--standard"
+	data-overlay="lower-third"
+	data-variant="standard"
+	data-supers-shadow-owner="plate"
+>
 	{#if content.kicker}
 		{#key content.kicker}
-			<span class="lower-third__kicker" data-text-anim-slot="kicker">{content.kicker}</span>
+			<span
+				class="lower-third__kicker"
+				data-text-anim-slot="kicker"
+				data-supers-readable-id="kicker"
+				data-supers-text-role="overlay-secondary">{content.kicker}</span
+			>
 		{/key}
 	{/if}
 	{#key content.title}
-		<strong class="lower-third__title" data-text-anim-slot="title">{content.title}</strong>
+		<strong
+			class="lower-third__title"
+			data-text-anim-slot="title"
+			data-supers-readable-id="title"
+			data-supers-text-role="overlay-primary">{content.title}</strong
+		>
 	{/key}
 	{#if content.subtitle}
 		{#key content.subtitle}
-			<span class="lower-third__subtitle" data-text-anim-slot="subtitle">{content.subtitle}</span>
+			<span
+				class="lower-third__subtitle"
+				data-text-anim-slot="subtitle"
+				data-supers-readable-id="subtitle"
+				data-supers-text-role="overlay-secondary">{content.subtitle}</span
+			>
 		{/key}
 	{/if}
 </aside>
@@ -35,7 +55,9 @@
 		   NEUTRAL achromatic legibility plate (a Pack that makes no plate claim
 		   gets a near-black scrim, never another Pack's colour). */
 		background-color: var(--plate, rgb(10 10 10 / 0.92));
-		color: var(--ink); /* Q17: sub-maximum contrast against the dark plate (mount-guaranteed, ADR-0024) */
+		color: var(
+			--ink
+		); /* Q17: sub-maximum contrast against the dark plate (mount-guaranteed, ADR-0024) */
 		padding: var(--pad, calc(3 * var(--cqmin)) calc(4.5 * var(--cqmin)));
 		font-family: var(--font, 'Inter', 'Helvetica Neue', system-ui, sans-serif);
 		/* Pack FORM dress (ADR-0023 appearance): border + corner radius the Pack

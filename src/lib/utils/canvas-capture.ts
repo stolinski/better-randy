@@ -1,3 +1,9 @@
+/** Capture the native backing store as an alpha-preserving PNG. */
+export async function captureCanvasPng(source: HTMLCanvasElement): Promise<Blob | null> {
+	if (source.width === 0 || source.height === 0) return null;
+	return new Promise<Blob | null>((resolve) => source.toBlob((blob) => resolve(blob), 'image/png'));
+}
+
 /**
  * Read a live canvas (including a WebGPU-backed one) into a downscaled WebP
  * blob. On a WebGPU canvas `createImageBitmap(canvas)` / `drawImage(canvas)`

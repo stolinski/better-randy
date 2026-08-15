@@ -1,0 +1,87 @@
+{
+	"schema": "supers@1",
+	"name": "Deterministic readable audit fixture",
+	"description": "Runtime-only fixture with renderer-owned readable text, a later-painted opaque occluder, and the cinematic lower-third's real 50%-opacity gaussian accent shadow.",
+	"pack": "syntax",
+	"kind": "fixture",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 5,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			}
+		},
+		"textAnimations": [],
+		"overlays": [
+			{
+				"type": "lower-third",
+				"id": "readable-target",
+				"content": {
+					"variant": "cinematic",
+					"kicker": "AUDIT",
+					"title": "Partially covered",
+					"subtitle": "Exact-frame evidence"
+				},
+				"position": {
+					"anchor": "bottom-left",
+					"offset": {
+						"x": 0.08,
+						"y": 0.18
+					}
+				},
+				"enter": {
+					"start": 0.05,
+					"duration": 0.08,
+					"ease": "smooth"
+				},
+				"exit": {
+					"start": 0.9,
+					"duration": 0.06,
+					"ease": "smooth"
+				}
+			},
+			{
+				"type": "achievement",
+				"id": "later-occluder",
+				"content": {
+					"variant": "unlocked",
+					"kicker": "LATER PAINT",
+					"title": "Occluder",
+					"beat": 0.4
+				},
+				"position": {
+					"anchor": "bottom-left",
+					"offset": {
+						"x": 0.24,
+						"y": 0.16
+					}
+				},
+				"enter": {
+					"start": 0.1,
+					"duration": 0.08,
+					"ease": "smooth"
+				},
+				"exit": {
+					"start": 0.9,
+					"duration": 0.06,
+					"ease": "smooth"
+				}
+			}
+		],
+		"effects": [],
+		"audioCues": []
+	}
+}

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { SurfaceState } from '$lib/platform/engine-schema';
+	import type { DeterministicNonReadableTextReason } from '$lib/platform/pipelines/types';
 
 	import DocumentBody from './DocumentBody.svelte';
 
@@ -26,27 +27,51 @@
 	const metaFontPx = $derived(width * 0.024);
 	const bodyFontPx = $derived(width * 0.03);
 	const voteIconPx = $derived(width * 0.02);
+	const decorativeSymbolReason: DeterministicNonReadableTextReason = 'decorative-symbol';
 </script>
 
 <!-- Hacker News thread (light beige page, orange masthead). -->
 <div class="hn-panel">
-	<div class="hn-topbar" style:padding={`${width * 0.012}px ${width * 0.018}px`} style:gap={`${width * 0.018}px`}>
+	<div
+		class="hn-topbar"
+		style:padding={`${width * 0.012}px ${width * 0.018}px`}
+		style:gap={`${width * 0.018}px`}
+	>
 		<span
 			class="hn-logo"
 			style:font-size={`${logoFontPx}px`}
 			style:inline-size={`${logoFontPx}px`}
 			style:block-size={`${logoFontPx}px`}
-			aria-hidden="true">Y</span
+			aria-hidden="true"
+			data-supers-non-readable-reason={decorativeSymbolReason}>Y</span
 		>
-		<span class="hn-title" style:font-size={`${logoFontPx}px`}>Hacker News</span>
-		<span class="hn-nav" style:font-size={`${navFontPx}px`}
-			>new | past | comments | ask | show | jobs</span
+		<span
+			class="hn-title"
+			data-supers-readable-id="surface:web-document:chrome:site-name"
+			data-supers-readable-text="Hacker News"
+			data-supers-text-role="found-document-metadata"
+			style:font-size={`${logoFontPx}px`}>Hacker News</span
+		>
+		<span
+			class="hn-nav"
+			data-supers-readable-id="surface:web-document:chrome:navigation"
+			data-supers-readable-text="new | past | comments | ask | show | jobs"
+			data-supers-text-role="found-document-metadata"
+			style:font-size={`${navFontPx}px`}>new | past | comments | ask | show | jobs</span
 		>
 	</div>
 
 	<div class="hn-thread" style:padding={`${width * 0.03}px`} style:gap={`${width * 0.022}px`}>
 		{#if storyTitle}
-			<h2 class="hn-story" style:font-size={`${storyFontPx}px`}>{storyTitle}</h2>
+			<h2
+				class="hn-story"
+				data-supers-readable-id="surface:web-document:title"
+				data-supers-readable-text={storyTitle}
+				data-supers-text-role="surface-title"
+				style:font-size={`${storyFontPx}px`}
+			>
+				{storyTitle}
+			</h2>
 		{/if}
 
 		<div class="hn-comment" style:gap={`${width * 0.012}px`}>
@@ -58,13 +83,34 @@
 					viewBox="0 0 16 16"
 					aria-hidden="true"><path fill="#999" d="M8 2l6 9H2z" /></svg
 				>
-				{#if username}<span class="hn-user">{username}</span>{/if}
-				{#if age}<span>{age}</span>{/if}
+				{#if username}<span
+						class="hn-user"
+						data-supers-readable-id="surface:web-document:source"
+						data-supers-readable-text={username}
+						data-supers-text-role="found-document-metadata">{username}</span
+					>{/if}
+				{#if age}<span
+						data-supers-readable-id="surface:web-document:date-label"
+						data-supers-readable-text={age}
+						data-supers-text-role="found-document-metadata">{age}</span
+					>{/if}
 			</div>
 
-			<DocumentBody body={content.body} fontSize={bodyFontPx} />
+			<DocumentBody
+				body={content.body}
+				fontSize={bodyFontPx}
+				readablePrefix="surface:web-document:body"
+			/>
 
-			<div class="hn-reply" style:font-size={`${metaFontPx}px`} aria-hidden="true">reply</div>
+			<div
+				class="hn-reply"
+				data-supers-readable-id="surface:web-document:chrome:reply"
+				data-supers-readable-text="reply"
+				data-supers-text-role="found-document-metadata"
+				style:font-size={`${metaFontPx}px`}
+			>
+				reply
+			</div>
 		</div>
 	</div>
 </div>

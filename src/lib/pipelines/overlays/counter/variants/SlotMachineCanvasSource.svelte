@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { animState } from '$lib/platform/anim-state.svelte';
 	import type { CounterContent } from '../index';
-	import { slotMachineRollMotionShape } from './slot-machine-motion';
+	import {
+		formatCounterReadableValue,
+		resolveCounterRollProgress,
+		resolveCounterValueAtProgress
+	} from '$lib/utils/counter-readable-value';
 
 	interface Props {
 		content: CounterContent;
@@ -14,42 +18,8 @@
 	// the overlay's exit, so the settled number is on screen for a beat —
 	// motionShape's ease-out still decelerates the roll into the landing. The
 	// window is composition data, not a hardcoded constant.
-	const rollProgress = $derived(
-		Math.max(
-			0,
-			Math.min(
-				1,
-				(animState.globalProgress - (content.rollStart ?? 0)) /
-					Math.max(content.rollWindow ?? 0.78, 0.0001)
-			)
-		)
-	);
-	const eased = $derived(slotMachineRollMotionShape(0, rollProgress));
-	const currentValue = $derived(content.from + (content.to - content.from) * eased);
-
-	function formatTokens(value: number): string[] {
-		switch (content.format) {
-			case 'currency': {
-				const rounded = Math.round(value);
-				return `$${rounded.toLocaleString('en-US')}`.split('');
-			}
-			case 'percent': {
-				const rounded = Math.round(value);
-				return `${rounded}%`.split('');
-			}
-			case 'timecode': {
-				const total = Math.max(0, Math.round(value));
-				const min = String(Math.floor(total / 60)).padStart(2, '0');
-				const sec = String(total % 60).padStart(2, '0');
-				return `${min}:${sec}`.split('');
-			}
-			case 'integer':
-			default: {
-				const rounded = Math.round(value);
-				return rounded.toLocaleString('en-US').split('');
-			}
-		}
-	}
+	const eased = $derived(resolveCounterRollProgress(content, animState.globalProgress));
+	const currentValue = $derived(resolveCounterValueAtProgress(content, animState.globalProgress));
 
 	// Each token carries its right-anchored digit index (separators excluded) so a
 	// digit's roll speed scales with its place value: the ones place rolls fast,
@@ -64,7 +34,7 @@
 	}
 
 	const digitTokens = $derived.by<DigitToken[]>(() => {
-		const tokens = formatTokens(currentValue);
+		const tokens = formatCounterReadableValue(content, currentValue).split('');
 		let digitsToRight = 0;
 		const out: DigitToken[] = new Array(tokens.length);
 		for (let i = tokens.length - 1; i >= 0; i -= 1) {
@@ -90,16 +60,18 @@
 	}
 </script>
 
-<aside class="counter-overlay" data-overlay="counter" data-variant="slot-machine-roll">
+<aside
+	class="counter-overlay"
+	data-overlay="counter"
+	data-variant="slot-machine-roll"
+	data-supers-readable-id="value"
+	data-supers-text-role="overlay-display"
+>
 	{#each digitTokens as token, i (i)}
 		{#if token.isDigit}
 			<!-- Roll offset rides `top`, not transform: a transformed descendant span
 			     quantizes the mount's fade opacity in the HTML-in-canvas capture. -->
-			<span
-				class="counter-overlay__digit"
-				data-text-anim-slot={i === 0 ? 'title' : undefined}
-				style:top={`${rollOffsetEm(token.rightIndex)}em`}
-			>
+			<span class="counter-overlay__digit" style:top={`${rollOffsetEm(token.rightIndex)}em`}>
 				{token.char}
 			</span>
 		{:else}

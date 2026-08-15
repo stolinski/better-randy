@@ -123,6 +123,8 @@
 		<h2
 			class="cl-title"
 			data-text-anim-slot="title"
+			data-supers-readable-id="surface:checklist:title"
+			data-supers-text-role="surface-title"
 			style:font-size={`${titleFontPx}px`}
 			style:margin-block-end={`${Math.round(titleFontPx * 0.65)}px`}
 		>
@@ -143,7 +145,11 @@
 				style:transform={`translateX(${reveal.slidePx}px)`}
 			>
 				<span class="cl-item__num" aria-hidden="true">{index + 1}</span>
-				<span class="cl-item__body">
+				<span
+					class="cl-item__body"
+					data-supers-readable-id={`surface:checklist:item:${index}`}
+					data-supers-text-role="surface-body"
+				>
 					{#if item.checked}
 						<!-- INLINE mark span: its client rects hug the word, so the strike
 						     reaches only the text width — not the full grid column. -->

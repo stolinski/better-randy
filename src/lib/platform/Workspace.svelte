@@ -17,7 +17,8 @@
 		renderCompositionFrameTo,
 		shouldSplitCompositionPlanes,
 		type CompositionFrameRenderRequest,
-		type CompositionFrameRenderResources
+		type CompositionFrameRenderResources,
+		type CompositionReadableProbeMode
 	} from './composition-frame-renderer';
 	import CanvasControlsBar from './CanvasControlsBar.svelte';
 	import CanvasEditingOverlay from './CanvasEditingOverlay.svelte';
@@ -50,8 +51,19 @@
 	import { AudioPreview } from './audio-preview';
 	import { resolveFrameRate, secondsToFrames } from '$lib/utils/composition-timing';
 	import { clampNumber } from '$lib/utils/math';
-	import { exposeVisualAudit } from './runtime-audit';
+	import {
+		captureDeterministicRenderRegionManifest,
+		exposeDeterministicRenderAudit,
+		exposeVisualAudit,
+		type DeterministicRenderCaptureAuthority,
+		type DeterministicTransitionEndpointManifest
+	} from './runtime-audit';
+	import { seekDeterministicTimelineFrame } from './deterministic-render-capture-authority';
+	import { deriveDeterministicTransitionReadableContracts } from './deterministic-readable-contract';
+	import { DeterministicRenderCaptureController } from './deterministic-render-capture-controller';
 	import { captureCanvasWebp } from '$lib/utils/canvas-capture';
+	import { cloneJsonValue } from '$lib/utils/json-clone';
+	import { deterministicFrameAddressFor } from '$lib/utils/deterministic-render-measurements';
 	import { posterExists, putPoster } from './posters';
 	import { PosterCaptureController } from './poster-capture-controller';
 	import {
@@ -82,6 +94,9 @@
 	const audioPreview = new AudioPreview();
 	const textAnimationManager = new TextAnimationManager();
 	const transitionSnapshotController = new TransitionSnapshotController();
+	const deterministicRenderCaptureController = new DeterministicRenderCaptureController();
+	let readableProbeMode: CompositionReadableProbeMode = 'normal';
+	let suppressCachedTransitionForAudit = false;
 	let transitionSnapshotPreparation: Promise<void> | null = null;
 	const compositionExportController = new CompositionExportController();
 	const canvasPaintGenerationTracker = new CanvasPaintGenerationTracker();
@@ -452,13 +467,16 @@
 			overlayRootElement,
 			substrateTexture: stageSubstrateController.texture(),
 			videoUnderlayTexture: videoUnderlayRuntimeController.preparedTexture(),
+			readableProbeMode,
 			domCapture: {
 				surface: canvasPaintGenerationTracker.generationFor(compositionElement),
 				overlay: canvasPaintGenerationTracker.generationFor(overlayRootElement),
 				force: isExporting
 			},
 			resources: currentFrameRenderResources(),
-			cachedTransition: transitionSnapshotController.cachedFrame(),
+			cachedTransition: suppressCachedTransitionForAudit
+				? null
+				: transitionSnapshotController.cachedFrame(),
 			buildSurfaceInputs: buildRenderInputs
 		};
 	}
@@ -514,6 +532,20 @@
 		return new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 	}
 
+	function rebuildAnimationAtProgress(snapshotProgress: number): void {
+		animationManager.rebuild(
+			buildCompositionAnimationManifest({
+				state: engineState,
+				runtime: animState,
+				textAnimationRoot: compositionElement,
+				textAnimationCompiler: textAnimationManager,
+				resolveMarkColor: readMarkColor
+			})
+		);
+		animationManager.progress(snapshotProgress);
+		animState.globalProgress = snapshotProgress;
+	}
+
 	$effect(() => {
 		const active = transitionState.active;
 		if (!active) {
@@ -544,19 +576,7 @@
 					await nextFrame();
 					await nextFrame();
 				},
-				settleAnimation: (snapshotProgress) => {
-					animationManager.rebuild(
-						buildCompositionAnimationManifest({
-							state: engineState,
-							runtime: animState,
-							textAnimationRoot: compositionElement,
-							textAnimationCompiler: textAnimationManager,
-							resolveMarkColor: readMarkColor
-						})
-					);
-					animationManager.progress(snapshotProgress);
-					animState.globalProgress = snapshotProgress;
-				},
+				settleAnimation: rebuildAnimationAtProgress,
 				renderFrame: (outputView, timestamp) =>
 					renderCompositionFrameTo(buildCompositionFrameRenderRequest(outputView, timestamp)),
 				isActiveTransition: (candidate) => transitionState.active === candidate,
@@ -720,20 +740,12 @@
 			// font/substrate paint from racing the decoder's initial probe.
 			void waitForActiveCompositionResources()
 				.then(() => {
-					if (
-						!isWorkspaceDestroyed &&
-						host === localHost &&
-						renderResourceSet === nextResources
-					) {
+					if (!isWorkspaceDestroyed && host === localHost && renderResourceSet === nextResources) {
 						requestCanvasPaint(localCanvas);
 					}
 				})
 				.catch((error) => {
-					if (
-						isWorkspaceDestroyed ||
-						host !== localHost ||
-						renderResourceSet !== nextResources
-					)
+					if (isWorkspaceDestroyed || host !== localHost || renderResourceSet !== nextResources)
 						return;
 					console.error('Composition first paint preparation failed.', error);
 					status =
@@ -744,6 +756,146 @@
 				clearCanvasPaintHandler(localCanvas);
 			};
 		});
+	});
+
+	$effect(() => {
+		const localTimeline = timeline;
+		const localCompositionRoot = compositionElement;
+		const localOverlayRoot = overlayRootElement;
+		if (!localTimeline || !localCompositionRoot) return;
+
+		async function forceAuditPaint(): Promise<void> {
+			const localCanvas = canvas;
+			if (!localCanvas) throw new Error('Readable capture requires the active canvas.');
+			const settledPaint = settleCompositionPaint(new AbortController().signal);
+			requestCanvasPaint(localCanvas);
+			await settledPaint;
+			await tick();
+		}
+
+		const baseAuthority: DeterministicRenderCaptureAuthority = {
+			compositionRoot: localCompositionRoot,
+			overlayRoot: localOverlayRoot,
+			seekExactFrame: (requestedAddress) =>
+				seekDeterministicTimelineFrame(requestedAddress, {
+					timeline: localTimeline,
+					fps: engineState.transport.fps,
+					settleNextPaint: () => settleCompositionPaint(new AbortController().signal),
+					flushDom: tick
+				}),
+			captureReadableCompositedMasks: (settled, targets) => {
+				const localCanvas = canvas;
+				const localHost = host;
+				if (!localCanvas || !localHost) {
+					throw new Error('Readable capture requires the active canvas and GPU host.');
+				}
+				return deterministicRenderCaptureController.capture(settled, targets, {
+					canvas: localCanvas,
+					compositionRoots: localOverlayRoot
+						? [localCompositionRoot, localOverlayRoot]
+						: [localCompositionRoot],
+					waitForGpu: () => localHost.device.queue.onSubmittedWorkDone(),
+					forcePaint: forceAuditPaint,
+					setProbeMode: (mode) => {
+						readableProbeMode = mode;
+					}
+				});
+			}
+		};
+
+		const authority: DeterministicRenderCaptureAuthority = {
+			...baseAuthority,
+			captureTransitionEndpointManifests: async (settled) => {
+				const active = transitionState.active;
+				if (!active) return [];
+				await transitionSnapshotPreparation;
+				const sourceComposition = serializeCompositionState(
+					presetBase,
+					$state.snapshot(engineState),
+					packState.slug
+				);
+				const wasCapturing = transitionState.capturing;
+				const endpointManifests: DeterministicTransitionEndpointManifest[] = [];
+				const endpointContracts = deriveDeterministicTransitionReadableContracts(active);
+				try {
+					transitionState.capturing = true;
+					suppressCachedTransitionForAudit = true;
+					for (const endpoint of ['from', 'to'] as const) {
+						const preset = cloneJsonValue(active[endpoint]);
+						preset.state.transport.orientation = sourceComposition.state.transport.orientation;
+						applyCompositionState(preset);
+						await tick();
+						await fontsReady();
+						await nextFrame();
+						await nextFrame();
+						const frameRate = resolveFrameRate(preset.state.transport.fps);
+						const frameIndex = Math.round(
+							preset.state.transport.durationSeconds * 0.5 * (frameRate.num / frameRate.den)
+						);
+						const endpointRequest = {
+							address: deterministicFrameAddressFor(frameIndex, frameRate),
+							frameRate: { num: frameRate.num, den: frameRate.den }
+						};
+						const endpointSettled = await seekDeterministicTimelineFrame(endpointRequest, {
+							timeline: localTimeline,
+							fps: preset.state.transport.fps,
+							settleNextPaint: () => settleCompositionPaint(new AbortController().signal),
+							flushDom: tick
+						});
+						const contract = endpointContracts.find(
+							(entry) => entry.endpoint === endpoint
+						)?.contract;
+						if (!contract || contract.status === 'unavailable') {
+							throw new Error(`Transition ${endpoint} readable contract was unavailable.`);
+						}
+						const manifest = await captureDeterministicRenderRegionManifest(
+							engineState,
+							endpointSettled,
+							baseAuthority
+						);
+						const expectedIds = contract.expected.map((entry) => entry.id);
+						if (
+							expectedIds.length !== manifest.readableCoverage.expectedReadableIdentities.length ||
+							expectedIds.some(
+								(id) => !manifest.readableCoverage.expectedReadableIdentities.includes(id)
+							)
+						) {
+							throw new Error(`Transition ${endpoint} endpoint identity authority diverged.`);
+						}
+						endpointManifests.push({
+							endpoint,
+							presetSlug: endpoint === 'from' ? active.fromSlug : active.toSlug,
+							manifest
+						});
+					}
+				} finally {
+					applyCompositionState(sourceComposition);
+					await tick();
+					await nextFrame();
+					await nextFrame();
+					transitionState.capturing = wasCapturing;
+					suppressCachedTransitionForAudit = false;
+					const requestedProgress =
+						settled.address.timestampMicroseconds /
+						(sourceComposition.state.transport.durationSeconds * 1_000_000);
+					rebuildAnimationAtProgress(requestedProgress);
+					await seekDeterministicTimelineFrame(
+						{ address: settled.address, frameRate: settled.activeFrameRate },
+						{
+							timeline: localTimeline,
+							fps: sourceComposition.state.transport.fps,
+							settleNextPaint: () => settleCompositionPaint(new AbortController().signal),
+							flushDom: tick
+						}
+					);
+				}
+				return endpointManifests;
+			}
+		};
+
+		window.__captureSupersDeterministicReadablePngArtifacts = (readableId) =>
+			deterministicRenderCaptureController.artifactDataUrls(readableId);
+		exposeDeterministicRenderAudit(engineState, authority);
 	});
 
 	$effect(() => {
@@ -817,6 +969,8 @@
 		if (typeof window !== 'undefined') {
 			window.__supersTextAnimationManager = undefined;
 			window.__supersExport = undefined;
+			window.__captureSupersDeterministicReadablePngArtifacts = undefined;
+			window.__captureSupersDeterministicRenderRegionManifest = undefined;
 			window.removeEventListener('pointermove', onTimelineResizeMove);
 			window.removeEventListener('pointerup', onTimelineResizeEnd);
 		}
@@ -919,7 +1073,9 @@
 				/>
 			</svg>
 		</a>
-		<span class="topbar__name">{presetBase.name || (compositionMeta.userCompositionSlug ?? 'Untitled')}</span>
+		<span class="topbar__name"
+			>{presetBase.name || (compositionMeta.userCompositionSlug ?? 'Untitled')}</span
+		>
 		<span class="topbar__chip">{presetBase.kind}</span>
 		<span class="topbar__chip topbar__chip--pack">
 			<i aria-hidden="true"></i>{getPack(packState.slug).label}
@@ -927,10 +1083,8 @@
 		{#if compositionMeta.isUserComposition}
 			<span class="topbar__chip topbar__chip--forked">Forked</span>
 			{#if compositionMeta.revertUserComposition}
-				<button
-					type="button"
-					class="topbar__revert"
-					onclick={compositionMeta.revertUserComposition}>Revert</button
+				<button type="button" class="topbar__revert" onclick={compositionMeta.revertUserComposition}
+					>Revert</button
 				>
 			{/if}
 		{/if}

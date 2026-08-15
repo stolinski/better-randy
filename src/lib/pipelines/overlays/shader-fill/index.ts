@@ -159,5 +159,6 @@ export const shaderFillOverlayRenderer: OverlayRenderer<ShaderFillContent> = {
 	defaults,
 	CanvasSource,
 	Editor,
+	readableText: () => [],
 	shaderPass
 };

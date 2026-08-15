@@ -45,6 +45,12 @@ export const instanceStackOverlayRenderer: OverlayRenderer<InstanceStackContent>
 	defaults,
 	CanvasSource,
 	Editor,
+	readableText: (content) =>
+		Array.from({ length: content.count }, (_, index) => ({
+			id: `instance-${index}`,
+			text: content.text,
+			role: 'overlay-display'
+		})),
 	fieldInkOnBackground: true,
 	disableEntryOffset: true
 };

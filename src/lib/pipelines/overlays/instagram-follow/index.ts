@@ -66,5 +66,26 @@ export const instagramFollowOverlayRenderer: OverlayRenderer<InstagramFollowCont
 	schema: InstagramFollowContentSchema,
 	defaults,
 	CanvasSource,
-	Editor
+	Editor,
+	readableText: (content, context) => {
+		const following =
+			(context.progress - (content.beat ?? 0.42)) * context.durationMilliseconds >= 110;
+		return [
+			{ id: 'username', text: content.username, role: 'overlay-primary' },
+			...(content.name || content.meta
+				? [
+						{
+							id: 'meta',
+							text: [content.name, content.meta].filter(Boolean).join(' · '),
+							role: 'overlay-secondary' as const
+						}
+					]
+				: []),
+			{
+				id: following ? 'following-action' : 'follow-action',
+				text: following ? 'Following' : 'Follow',
+				role: 'overlay-secondary'
+			}
+		];
+	}
 };

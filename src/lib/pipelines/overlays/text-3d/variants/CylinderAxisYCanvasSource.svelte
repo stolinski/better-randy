@@ -76,10 +76,12 @@
 				<span
 					class="text-3d-overlay__glyph"
 					data-text-anim-slot={i === 0 ? 'title' : undefined}
+					data-supers-readable-id={`glyph-${i}`}
+					data-supers-text-role="overlay-display"
 					style:transform={`translate(-50%, -50%) translateX(${glyph.xCh}ch) scale(${glyph.scale}) scaleX(${glyph.scaleX})`}
 					style:opacity={glyph.opacity}
-					style:z-index={glyph.zIndex}
-				>{glyph.ch === ' ' ? ' ' : glyph.ch}</span>
+					style:z-index={glyph.zIndex}>{glyph.ch === ' ' ? ' ' : glyph.ch}</span
+				>
 			{/if}
 		{/each}
 	</div>

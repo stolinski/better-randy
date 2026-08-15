@@ -65,6 +65,8 @@ export const packState = $state<{ slug: string }>({ slug: REFERENCE_PACK_SLUG })
  * without clearing the transition it is servicing.
  */
 export interface ResolvedTransition {
+	fromSlug: string;
+	toSlug: string;
 	from: Preset;
 	to: Preset;
 	effect: string;

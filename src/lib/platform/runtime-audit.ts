@@ -8,8 +8,41 @@ import {
 	type VisualMeasurement
 } from './preset-rubric.ts';
 import type { EngineState, Preset } from './engine-schema.ts';
-import { calculateEffectiveCapHeight } from '../utils/rendered-text-scale.ts';
+import { resolveFrameRate } from '../utils/composition-timing.ts';
+import {
+	calculateEffectiveCapHeight,
+	parseRenderedTextScaleY
+} from '../utils/rendered-text-scale.ts';
 import { getVideoFrameSize } from '../utils/video-frame.ts';
+import {
+	intersectDeterministicRenderRects,
+	deterministicFrameAddressFor,
+	measureReadableClippedPixels,
+	measureReadableOccludedPixels,
+	measureTitleSafeAreaPixels,
+	measureVerticalPlatformSafeAreaPixels,
+	selectDeterministicProbeRegions,
+	type DeterministicFrameRequest,
+	type DeterministicProbeRegion,
+	type DeterministicReadableCompositedMask,
+	type DeterministicReadableRegion,
+	type DeterministicRenderRect,
+	type DeterministicSettledFrame,
+	type DeterministicShadowBinding
+} from '../utils/deterministic-render-measurements.ts';
+import {
+	deriveDeterministicReadableContract,
+	type DeterministicExpectedReadableText
+} from './deterministic-readable-contract';
+import {
+	DETERMINISTIC_NON_READABLE_TEXT_REASONS,
+	type DeterministicReadableTextRole
+} from './pipelines/types';
+import type {
+	DeterministicReadableCaptureDataUrls,
+	DeterministicReadableCaptureTarget
+} from './deterministic-render-capture-controller';
+import { deriveDeterministicReadingPlan } from './deterministic-reading-plan';
 
 const SERIF_CAP_HEIGHT_RATIO = 0.7;
 const SANS_CAP_HEIGHT_RATIO = 0.7;
@@ -65,6 +98,34 @@ const TYPE_HERO_ROLE_SELECTORS: readonly RoleSelector[] = [
 	{ role: 'source', bandKey: 'surface-label', selector: '.type-hero-source__subtitle' }
 ];
 
+const CHECKLIST_ROLE_SELECTORS: readonly RoleSelector[] = [
+	{ role: 'title', bandKey: 'surface-title', selector: '.cl-title' },
+	{ role: 'body', bandKey: 'surface-body', selector: '.cl-item__body' }
+];
+
+const IMESSAGE_ROLE_SELECTORS: readonly RoleSelector[] = [
+	{ role: 'source', bandKey: 'surface-label', selector: '.im-name, .im-timestamp, .im-receipt' },
+	{ role: 'body', bandKey: 'surface-body', selector: '.im-bubble:not(.im-typing)' }
+];
+
+const WEB_DOCUMENT_ROLE_SELECTORS: readonly RoleSelector[] = [
+	{
+		role: 'title',
+		bandKey: 'surface-title',
+		selector: 'h1, h2, [class*="title"], [class*="story"], [class*="video"]'
+	},
+	{
+		role: 'body',
+		bandKey: 'surface-body',
+		selector: 'p, [class*="comment-body"], [class*="comment-text"]'
+	},
+	{
+		role: 'source',
+		bandKey: 'surface-label',
+		selector: '.web-document__chrome, [class*="meta"], [class*="user"], [class*="when"]'
+	}
+];
+
 // Diagram semantic roles intentionally reuse the established surface bands:
 // diagrams are document typography, not Overlays (G4 / ADR-0036).
 const DIAGRAM_ROLE_SELECTORS: readonly RoleSelector[] = [
@@ -106,7 +167,12 @@ const SURFACE_AUDIT_CONFIG: Readonly<
 	'chapter-card': { root: '.chapter-card-source', roles: CHAPTER_CARD_ROLE_SELECTORS },
 	'pullquote-on-photo': { root: '.pullquote-source', roles: PULLQUOTE_ROLE_SELECTORS },
 	'title-sequence': { root: '.title-sequence-source', roles: TITLE_SEQUENCE_ROLE_SELECTORS },
-	'type-hero': { root: '.type-hero-source', roles: TYPE_HERO_ROLE_SELECTORS }
+	'type-hero': { root: '.type-hero-source', roles: TYPE_HERO_ROLE_SELECTORS },
+	checklist: { root: '.checklist', roles: CHECKLIST_ROLE_SELECTORS },
+	imessage: { root: '.imessage', roles: IMESSAGE_ROLE_SELECTORS },
+	'web-document': { root: '.web-document', roles: WEB_DOCUMENT_ROLE_SELECTORS },
+	'website-screenshot': { root: '.website-screenshot', roles: [] },
+	'brand-mark': { root: '.brand-mark-source', roles: [] }
 };
 
 type FontKey = 'serif' | 'sans' | 'mono' | 'condensed' | 'unknown';
@@ -469,6 +535,12 @@ declare global {
 			measurement: VisualMeasurement;
 			timestamp: number;
 		};
+		__captureSupersDeterministicRenderRegionManifest?: (
+			request: DeterministicFrameRequest
+		) => Promise<DeterministicRenderRegionManifest>;
+		__captureSupersDeterministicReadablePngArtifacts?: (
+			readableId: string
+		) => Promise<DeterministicReadableCaptureDataUrls | null>;
 	}
 }
 
@@ -482,5 +554,718 @@ export function exposeVisualAudit(state: EngineState, name = '(current)'): void 
 		issues,
 		measurement,
 		timestamp: Date.now()
+	};
+}
+
+export interface DeterministicTransitionEndpointManifest {
+	endpoint: 'from' | 'to';
+	presetSlug: string;
+	manifest: DeterministicRenderRegionManifest;
+}
+
+export interface DeterministicRenderCaptureAuthority {
+	compositionRoot: HTMLElement;
+	overlayRoot: HTMLElement | null;
+	seekExactFrame(request: DeterministicFrameRequest): Promise<DeterministicSettledFrame>;
+	captureTransitionEndpointManifests?(
+		settled: DeterministicSettledFrame
+	): Promise<readonly DeterministicTransitionEndpointManifest[]>;
+	captureReadableCompositedMasks?(
+		address: DeterministicSettledFrame,
+		targets: readonly DeterministicReadableCaptureTarget[]
+	): Promise<readonly DeterministicReadableCompositedMask[]>;
+}
+
+/** Install the runtime-authoritative seam as soon as composition roots and Timeline exist. */
+export function exposeDeterministicRenderAudit(
+	state: EngineState,
+	authority: DeterministicRenderCaptureAuthority
+): void {
+	window.__captureSupersDeterministicRenderRegionManifest = async (request) => {
+		const settled = await authority.seekExactFrame(request);
+		if (
+			settled.address.frameIndex !== request.address.frameIndex ||
+			settled.address.timestampMicroseconds !== request.address.timestampMicroseconds ||
+			settled.activeFrameRate.num !== request.frameRate.num ||
+			settled.activeFrameRate.den !== request.frameRate.den
+		) {
+			throw new RangeError('Timeline did not settle at the requested frame and active frame rate.');
+		}
+		const transitionEndpoints = authority.captureTransitionEndpointManifests
+			? await authority.captureTransitionEndpointManifests(settled)
+			: [];
+		const manifest = await captureDeterministicRenderRegionManifest(state, settled, authority);
+		return { ...manifest, transitionEndpoints };
+	};
+}
+
+export interface DeterministicRuntimeTextMeasurement {
+	id: string;
+	textRole: DeterministicReadableTextRole;
+	measuredCapHeightPixels: number;
+	textClass: 'body' | 'large';
+	computedColor: string;
+}
+
+export interface DeterministicReadableIdentityEvidence {
+	id: string;
+	region: DeterministicReadableRegion;
+	textMeasurement: DeterministicRuntimeTextMeasurement;
+	clippedPixelCount: number;
+	contrastMaskAuthority: 'available' | 'unavailable';
+	compositedOcclusionMaskAuthority: 'available' | 'unavailable';
+	capture: DeterministicReadableCompositedMask | null;
+}
+
+export interface DeterministicRenderRegionManifest {
+	address: DeterministicSettledFrame['address'];
+	activeFrameRate: DeterministicSettledFrame['activeFrameRate'];
+	orientation: 'horizontal' | 'vertical';
+	frame: DeterministicRenderRect;
+	pendingFontCount: number;
+	readableRegions: readonly DeterministicReadableRegion[];
+	textMeasurements: readonly DeterministicRuntimeTextMeasurement[];
+	readableIdentityEvidence: readonly DeterministicReadableIdentityEvidence[];
+	readingPlan: ReturnType<typeof deriveDeterministicReadingPlan>;
+	readingPlanDigest: string | null;
+	transitionEndpoints?: readonly DeterministicTransitionEndpointManifest[];
+	readableCoverage: {
+		authority: 'schema-renderer' | 'unavailable';
+		expectedReadableIdentities: readonly string[];
+		discoveredReadableIdentities: readonly string[];
+		missingReadableIdentities: readonly string[];
+		complete: boolean;
+		unavailableReason: string | null;
+	};
+	shadowCoverage: {
+		authority: 'renderer-owner' | 'unavailable';
+		ownedShadowIds: readonly string[];
+		unownedShadowCount: number;
+	};
+	probeRegions: readonly DeterministicProbeRegion[];
+	selectedProbeRegions: ReturnType<typeof selectDeterministicProbeRegions>;
+	measurements: {
+		titleSafeAreaAffectedPixels: number;
+		verticalPlatformSafeAreaAffectedPixels: number;
+		readableClippedPixels: number;
+		readableOccludedPixels: number | null;
+	};
+}
+
+const READABLE_AUDIT_SELECTOR = [
+	'[data-supers-readable-id]',
+	'[data-supers-text-role]',
+	'[data-diagram-text-role]',
+	'[data-chart-text-role]',
+	'[data-text-anim-slot]',
+	'.captions__line',
+	'.checklist .cl-title',
+	'.checklist .cl-item__body',
+	'[data-overlay] h1',
+	'[data-overlay] h2',
+	'[data-overlay] h3',
+	'[data-overlay] p',
+	'[data-overlay] strong',
+	'[data-overlay] small',
+	'[data-overlay] time',
+	'[data-overlay] cite',
+	'.paper-source h2',
+	'.paper-source p',
+	'.paper-source span',
+	'.paper-source cite',
+	'.plain-source p',
+	'.newspaper-source h2',
+	'.newspaper-source p',
+	'.newspaper-source span',
+	'.chapter-card-source h2',
+	'.chapter-card-source p',
+	'.pullquote-source blockquote',
+	'.pullquote-source cite',
+	'.title-sequence-source h2',
+	'.title-sequence-source p',
+	'.type-hero-source h2',
+	'.type-hero-source p'
+].join(',');
+
+export interface DeterministicNativeRootGeometry {
+	root: HTMLElement;
+	viewportRect: DOMRect;
+	scaleX: number;
+	scaleY: number;
+}
+
+function nativeRootGeometry(
+	root: HTMLElement,
+	frame: DeterministicRenderRect
+): DeterministicNativeRootGeometry {
+	const viewportRect = root.getBoundingClientRect();
+	if (viewportRect.width <= 0 || viewportRect.height <= 0) {
+		throw new RangeError('Composition root has no measurable viewport extent.');
+	}
+	return {
+		root,
+		viewportRect,
+		scaleX: frame.width / viewportRect.width,
+		scaleY: frame.height / viewportRect.height
+	};
+}
+
+function relevantNativeRoot(
+	element: Element,
+	roots: readonly DeterministicNativeRootGeometry[]
+): DeterministicNativeRootGeometry {
+	const root = roots.find(
+		(candidate) => candidate.root === element || candidate.root.contains(element)
+	);
+	if (!root) throw new RangeError('Measured element is outside the composition roots.');
+	return root;
+}
+
+/** Convert viewport CSS geometry to covering native backing-store pixel bounds. */
+export function nativeRectForElement(
+	element: Element,
+	roots: readonly DeterministicNativeRootGeometry[]
+): DeterministicRenderRect {
+	const rect = element.getBoundingClientRect();
+	const root = relevantNativeRoot(element, roots);
+	const left = Math.floor((rect.left - root.viewportRect.left) * root.scaleX);
+	const top = Math.floor((rect.top - root.viewportRect.top) * root.scaleY);
+	const right = Math.ceil((rect.right - root.viewportRect.left) * root.scaleX);
+	const bottom = Math.ceil((rect.bottom - root.viewportRect.top) * root.scaleY);
+	return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+function clippingRectForElement(
+	element: Element,
+	frame: DeterministicRenderRect,
+	roots: readonly DeterministicNativeRootGeometry[]
+): DeterministicRenderRect {
+	let clippingRect = frame;
+	const relevantRoot = relevantNativeRoot(element, roots).root;
+	let ancestor = element.parentElement;
+	while (ancestor) {
+		const style = getComputedStyle(ancestor);
+		if (
+			[style.overflow, style.overflowX, style.overflowY].some(
+				(value) => value === 'hidden' || value === 'clip'
+			)
+		) {
+			const intersection = intersectDeterministicRenderRects(
+				clippingRect,
+				nativeRectForElement(ancestor, roots)
+			);
+			if (!intersection) return { x: 0, y: 0, width: 0, height: 0 };
+			clippingRect = intersection;
+		}
+		if (ancestor === relevantRoot) break;
+		ancestor = ancestor.parentElement;
+	}
+	return clippingRect;
+}
+
+function compositionElements(
+	compositionRoot: HTMLElement,
+	overlayRoot: HTMLElement | null,
+	selector: string
+): HTMLElement[] {
+	const roots = overlayRoot ? [compositionRoot, overlayRoot] : [compositionRoot];
+	return roots.flatMap((root) => [
+		...(root.matches(selector) ? [root] : []),
+		...root.querySelectorAll<HTMLElement>(selector)
+	]);
+}
+
+const NON_READABLE_REASON_SET = new Set<string>(DETERMINISTIC_NON_READABLE_TEXT_REASONS);
+
+function hasTypedNonReadableContract(element: HTMLElement): boolean {
+	const reason = element.dataset.supersNonReadableReason;
+	return reason !== undefined && NON_READABLE_REASON_SET.has(reason);
+}
+
+/** Discover every found-document text owner without selective CSS selectors. */
+export function foundDocumentTextOwners(roots: readonly HTMLElement[]): HTMLElement[] {
+	const owners = new Set<HTMLElement>();
+	for (const root of roots) {
+		for (const foundRoot of [
+			...(root.matches('.imessage, .web-document') ? [root] : []),
+			...root.querySelectorAll<HTMLElement>('.imessage, .web-document')
+		]) {
+			const walker = document.createTreeWalker(foundRoot, NodeFilter.SHOW_TEXT);
+			let node = walker.nextNode();
+			while (node) {
+				if (normalizeDeterministicRenderedText(node.textContent ?? '').length > 0) {
+					const parent = node.parentElement;
+					const owner = parent?.closest<HTMLElement>(
+						'[data-supers-readable-id], [data-supers-non-readable-reason]'
+					);
+					if (parent && foundRoot.contains(parent)) {
+						owners.add(owner && foundRoot.contains(owner) ? owner : parent);
+					}
+				}
+				node = walker.nextNode();
+			}
+		}
+	}
+	return [...owners];
+}
+
+function hasEffectiveVisibility(element: HTMLElement, roots: readonly HTMLElement[]): boolean {
+	let current: HTMLElement | null = element;
+	let effectiveOpacity = 1;
+	while (current) {
+		const style = getComputedStyle(current);
+		if (style.display === 'none' || style.visibility === 'hidden') return false;
+		effectiveOpacity *= Number(style.opacity);
+		if (roots.includes(current)) break;
+		current = current.parentElement;
+	}
+	return effectiveOpacity > 0;
+}
+
+function declaredIntentionalOverlaps(element: Element): readonly string[] {
+	return (element.getAttribute('data-supers-intentional-overlap') ?? '')
+		.split(',')
+		.map((id) => id.trim())
+		.filter((id) => id.length > 0);
+}
+
+function hasPaintedBackground(element: HTMLElement): boolean {
+	const style = getComputedStyle(element);
+	return (
+		element.hasAttribute('data-supers-opaque-region') ||
+		style.backgroundColor !== 'rgba(0, 0, 0, 0)' ||
+		style.backgroundImage !== 'none' ||
+		element instanceof HTMLCanvasElement ||
+		element instanceof HTMLImageElement
+	);
+}
+
+function pendingDocumentFontCount(): number {
+	let pending = 0;
+	document.fonts.forEach((font) => {
+		if (font.status !== 'loaded') pending += 1;
+	});
+	return pending;
+}
+
+function deterministicTextRoleFor(
+	element: HTMLElement,
+	frameWidth: number
+): DeterministicReadableTextRole {
+	const explicitRole = element.dataset.supersTextRole as DeterministicReadableTextRole | undefined;
+	if (explicitRole) return explicitRole;
+	if (element.closest('.captions')) return 'caption-social';
+	const diagramRole = element.dataset.diagramTextRole ?? element.dataset.chartTextRole;
+	if (diagramRole === 'headline' || diagramRole === 'title') return 'diagram-headline';
+	if (diagramRole === 'stat-value') return 'diagram-stat-value';
+	if (element.dataset.chartTextRole === 'source') return 'surface-label';
+	if (diagramRole) return 'diagram-caption';
+	if (element.closest('.type-hero-source') && element.matches('.type-hero-source__hero')) {
+		return 'surface-display';
+	}
+	if (element.closest('.web-document') && element.matches('h1, h2')) return 'surface-title';
+	if (element.closest('.imessage, .web-document')) {
+		return element.matches('.im-bubble, p, [class*="comment-body"], [class*="comment-text"]')
+			? 'found-document-body'
+			: 'found-document-metadata';
+	}
+	const overlay = element.closest<HTMLElement>('[data-overlay]');
+	if (overlay) {
+		const isCorner = overlay.getBoundingClientRect().width <= frameWidth * 0.25;
+		const slot = element.dataset.textAnimSlot;
+		if (slot === 'title') return isCorner ? 'overlay-corner-primary' : 'overlay-primary';
+		if (slot === 'subtitle' || slot === 'kicker') {
+			return isCorner ? 'overlay-corner-secondary' : 'overlay-secondary';
+		}
+		return 'overlay-display';
+	}
+	if (element.matches('h1, h2, .cl-title, [class*="title"], [class*="story"]')) {
+		return 'surface-title';
+	}
+	if (element.closest('[data-annotation-mark]')) return 'surface-body-focal';
+	if (element.matches('p, .cl-item__body, blockquote')) return 'surface-body';
+	return 'surface-label';
+}
+
+export function composedElementScale(element: HTMLElement, compositionRoot: HTMLElement): number {
+	let matrix = new DOMMatrixReadOnly();
+	let individualScale = 1;
+	let current: HTMLElement | null = element;
+	while (current && current !== compositionRoot) {
+		const style = getComputedStyle(current);
+		if (style.transform !== 'none') {
+			matrix = new DOMMatrixReadOnly(style.transform).multiply(matrix);
+		}
+		individualScale *= parseRenderedTextScaleY(style.scale);
+		current = current.parentElement;
+	}
+	if (current !== compositionRoot) {
+		throw new RangeError('Text element is outside its composition root.');
+	}
+	return Math.hypot(matrix.c, matrix.d) * individualScale;
+}
+
+function deterministicTextMeasurementFor(
+	element: HTMLElement,
+	contract: DeterministicExpectedReadableText,
+	frameWidth: number,
+	compositionRoot: HTMLElement
+): DeterministicRuntimeTextMeasurement {
+	const style = getComputedStyle(element);
+	const fontSize = Number.parseFloat(style.fontSize);
+	const font = classifyFont(style.fontFamily);
+	const fontWeight = Number.parseInt(style.fontWeight, 10);
+	return {
+		id: contract.id,
+		textRole: contract.role,
+		measuredCapHeightPixels: calculateEffectiveCapHeight(
+			fontSize,
+			capHeightRatioFor(font),
+			String(composedElementScale(element, compositionRoot))
+		),
+		textClass: fontSize >= 96 || (fontSize >= 60 && fontWeight >= 700) ? 'large' : 'body',
+		computedColor: style.color
+	};
+}
+
+function exactOwnedIdentity(element: HTMLElement, localIdentity: string): string | null {
+	if (/^(surface|block|overlay|caption|transition):/.test(localIdentity)) return localIdentity;
+	const overlay = element.closest<HTMLElement>('[data-overlay-id]');
+	if (overlay?.dataset.overlayId) return `overlay:${overlay.dataset.overlayId}:${localIdentity}`;
+	return null;
+}
+
+function exactReadableIdentity(element: HTMLElement): string | null {
+	const localIdentity = element.getAttribute('data-supers-readable-id');
+	if (!localIdentity) return null;
+	return exactOwnedIdentity(element, localIdentity);
+}
+
+export function normalizeDeterministicRenderedText(text: string): string {
+	return text.replace(/\s+/g, ' ').trim();
+}
+
+export function matchesDeterministicRenderedText(
+	element: Pick<HTMLElement, 'textContent' | 'dataset'>,
+	expectedText: string
+): boolean {
+	const rendererCanonicalText = element.dataset.supersReadableText;
+	const observed = rendererCanonicalText ?? element.textContent ?? '';
+	return normalizeDeterministicRenderedText(observed) === expectedText;
+}
+
+function matchReadableContractElements(
+	expected: readonly DeterministicExpectedReadableText[],
+	candidates: readonly HTMLElement[],
+	frameWidth: number
+): Array<{ contract: DeterministicExpectedReadableText; element: HTMLElement }> {
+	const byIdentity = new Map<string, HTMLElement[]>();
+	for (const candidate of candidates) {
+		const identity = exactReadableIdentity(candidate);
+		if (!identity) continue;
+		const entries = byIdentity.get(identity) ?? [];
+		entries.push(candidate);
+		byIdentity.set(identity, entries);
+	}
+	return expected.flatMap((contract) => {
+		const candidatesForIdentity = byIdentity.get(contract.id) ?? [];
+		if (candidatesForIdentity.length !== 1) return [];
+		const element = candidatesForIdentity[0];
+		return deterministicTextRoleFor(element, frameWidth) === contract.role &&
+			matchesDeterministicRenderedText(element, contract.text)
+			? [{ contract, element }]
+			: [];
+	});
+}
+
+function splitCssShadowList(value: string): readonly string[] {
+	if (value === 'none') return [];
+	const shadows: string[] = [];
+	let start = 0;
+	let depth = 0;
+	for (let index = 0; index < value.length; index += 1) {
+		if (value[index] === '(') depth += 1;
+		else if (value[index] === ')') depth -= 1;
+		else if (value[index] === ',' && depth === 0) {
+			shadows.push(value.slice(start, index).trim());
+			start = index + 1;
+		}
+	}
+	shadows.push(value.slice(start).trim());
+	return shadows.filter((shadow) => shadow.length > 0);
+}
+
+export function parseDeterministicCssShadows(
+	value: string,
+	property: DeterministicShadowBinding['property']
+): readonly DeterministicShadowBinding[] {
+	return splitCssShadowList(value).flatMap((shadow, shadowIndex) => {
+		const lengths = shadow.match(/-?\d+(?:\.\d+)?px/g)?.map(Number.parseFloat) ?? [];
+		if (lengths.length < 2) return [];
+		return [
+			{
+				property,
+				shadowIndex,
+				offsetX: lengths[0],
+				offsetY: lengths[1],
+				blurRadius: Math.max(0, lengths[2] ?? 0),
+				spreadRadius: property === 'box-shadow' ? Math.max(0, lengths[3] ?? 0) : 0
+			}
+		];
+	});
+}
+
+function shadowOutset(shadow: DeterministicShadowBinding): number {
+	return Math.max(
+		Math.abs(shadow.offsetX) + shadow.blurRadius * 3 + shadow.spreadRadius,
+		Math.abs(shadow.offsetY) + shadow.blurRadius * 3 + shadow.spreadRadius
+	);
+}
+
+function expandedRect(rect: DeterministicRenderRect, outset: number): DeterministicRenderRect {
+	const left = Math.floor(rect.x - outset);
+	const top = Math.floor(rect.y - outset);
+	const right = Math.ceil(rect.x + rect.width + outset);
+	const bottom = Math.ceil(rect.y + rect.height + outset);
+	return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+async function deterministicRuntimeSha256(value: unknown): Promise<string> {
+	const bytes = new TextEncoder().encode(JSON.stringify(value));
+	const digest = await crypto.subtle.digest('SHA-256', bytes);
+	return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Capture one browser-side manifest at an exact render coordinate. The matrix
+ * runner must await this before any pixel or text probe; absent regions remain
+ * absent so the contract emits unavailable rather than manufacturing PASS.
+ */
+export async function captureDeterministicRenderRegionManifest(
+	state: EngineState,
+	settled: DeterministicSettledFrame,
+	authority: Pick<
+		DeterministicRenderCaptureAuthority,
+		'compositionRoot' | 'overlayRoot' | 'captureReadableCompositedMasks'
+	>
+): Promise<DeterministicRenderRegionManifest> {
+	await document.fonts.ready;
+	const activeFrameRate = resolveFrameRate(state.transport.fps);
+	const expectedAddress = deterministicFrameAddressFor(settled.address.frameIndex, activeFrameRate);
+	if (
+		settled.address.timestampMicroseconds !== expectedAddress.timestampMicroseconds ||
+		settled.activeFrameRate.num !== activeFrameRate.num ||
+		settled.activeFrameRate.den !== activeFrameRate.den
+	) {
+		throw new RangeError('Settled frame does not match the active composition frame rate.');
+	}
+	const frameSize = getVideoFrameSize(state.transport.orientation);
+	const frame = { x: 0, y: 0, width: frameSize.width, height: frameSize.height };
+	const rootElements = authority.overlayRoot
+		? [authority.compositionRoot, authority.overlayRoot]
+		: [authority.compositionRoot];
+	const nativeRoots = rootElements.map((root) => nativeRootGeometry(root, frame));
+	const candidates = [
+		...new Set([
+			...compositionElements(
+				authority.compositionRoot,
+				authority.overlayRoot,
+				READABLE_AUDIT_SELECTOR
+			),
+			...foundDocumentTextOwners(rootElements)
+		])
+	].filter((element) => {
+		const rect = element.getBoundingClientRect();
+		return (
+			!hasTypedNonReadableContract(element) &&
+			(element.textContent ?? '').trim().length > 0 &&
+			hasEffectiveVisibility(element, rootElements) &&
+			rect.width > 0 &&
+			rect.height > 0
+		);
+	});
+	const readableContract = deriveDeterministicReadableContract(
+		state,
+		settled.address.timestampMicroseconds
+	);
+	const expected = readableContract.status === 'available' ? readableContract.expected : [];
+	const matched = matchReadableContractElements(expected, candidates, frame.width);
+	const readableRegions = matched.map(({ contract, element }) => ({
+		id: contract.id,
+		rect: nativeRectForElement(element, nativeRoots),
+		clipRect: clippingRectForElement(element, frame, nativeRoots),
+		intentionalOverlapIds: declaredIntentionalOverlaps(element)
+	}));
+	const textMeasurements = matched.map(({ contract, element }) =>
+		deterministicTextMeasurementFor(
+			element,
+			contract,
+			frame.width,
+			relevantNativeRoot(element, nativeRoots).root
+		)
+	);
+	const expectedReadableIdentities = expected.map((entry) => entry.id);
+	const claimedCandidateIdentities = candidates.flatMap((candidate) => {
+		const identity = exactReadableIdentity(candidate);
+		return identity ? [identity] : [];
+	});
+	const unclaimedVisibleTextCount = candidates.filter(
+		(candidate) => exactReadableIdentity(candidate) === null
+	).length;
+	const duplicateClaimCount =
+		claimedCandidateIdentities.length - new Set(claimedCandidateIdentities).size;
+	const discoveredReadableIdentities = [...new Set(claimedCandidateIdentities)].sort();
+	const discoveredSet = new Set(discoveredReadableIdentities);
+	const expectedSet = new Set(expectedReadableIdentities);
+	const missingReadableIdentities = expectedReadableIdentities.filter(
+		(id) => !discoveredSet.has(id)
+	);
+	const extraReadableIdentityCount = discoveredReadableIdentities.filter(
+		(id) => !expectedSet.has(id)
+	).length;
+	const coverageComplete =
+		readableContract.status === 'available' &&
+		missingReadableIdentities.length === 0 &&
+		extraReadableIdentityCount === 0 &&
+		duplicateClaimCount === 0 &&
+		unclaimedVisibleTextCount === 0 &&
+		matched.length === expected.length;
+	const capturedMasks =
+		coverageComplete && authority.captureReadableCompositedMasks
+			? await authority.captureReadableCompositedMasks(
+					settled,
+					matched.map(({ element }, index) => ({ region: readableRegions[index], element }))
+				)
+			: [];
+	const compositedMasks = capturedMasks.filter(
+		(mask) =>
+			mask.binding.frameIndex === settled.address.frameIndex &&
+			mask.binding.timestampMicroseconds === settled.address.timestampMicroseconds &&
+			mask.binding.captureWidth === frame.width &&
+			mask.binding.captureHeight === frame.height
+	);
+	const probeRegions: DeterministicProbeRegion[] = readableRegions.flatMap((region, index) => {
+		const readable = matched[index]?.element;
+		const regions: DeterministicProbeRegion[] = [{ ...region, kind: 'text' }];
+		if (readable?.closest('[data-annotation-mark], [data-text-anim-slot="title"]')) {
+			regions.push({ ...region, id: `${region.id}:focal`, kind: 'focal' });
+		}
+		return regions;
+	});
+	let unownedShadowCount = 0;
+	const ownedShadowIds: string[] = [];
+	for (const element of compositionElements(
+		authority.compositionRoot,
+		authority.overlayRoot,
+		'*'
+	)) {
+		const style = getComputedStyle(element);
+		const rect = nativeRectForElement(element, nativeRoots);
+		if (rect.width <= 0 || rect.height <= 0) continue;
+		const inheritsTextShadow =
+			!element.hasAttribute('data-supers-readable-id') &&
+			element.parentElement !== null &&
+			getComputedStyle(element.parentElement).textShadow === style.textShadow;
+		const shadows = [
+			...parseDeterministicCssShadows(style.boxShadow, 'box-shadow'),
+			...(inheritsTextShadow ? [] : parseDeterministicCssShadows(style.textShadow, 'text-shadow'))
+		];
+		for (const shadow of shadows) {
+			const outset = shadowOutset(shadow);
+			if (outset <= 0) continue;
+			const localOwner =
+				element.getAttribute('data-supers-shadow-owner') ??
+				element.getAttribute('data-supers-readable-id');
+			const owner = localOwner ? exactOwnedIdentity(element, localOwner) : null;
+			if (!owner) {
+				unownedShadowCount += 1;
+				continue;
+			}
+			const shadowId = `shadow:${owner}:${shadow.property}:${shadow.shadowIndex}`;
+			ownedShadowIds.push(shadowId);
+			probeRegions.push({
+				id: shadowId,
+				kind: 'shadow',
+				rect: expandedRect(rect, outset),
+				excludedRect: rect,
+				shadow
+			});
+		}
+		if (hasPaintedBackground(element) && (element.textContent ?? '').trim().length === 0) {
+			const tonalOwner =
+				element.getAttribute('data-supers-shadow-owner') ??
+				element.getAttribute('data-supers-readable-id');
+			const stableOwner = tonalOwner ? exactOwnedIdentity(element, tonalOwner) : null;
+			if (stableOwner) probeRegions.push({ id: `tonal:${stableOwner}`, kind: 'tonal', rect });
+		}
+		const radius = Number.parseFloat(style.borderTopLeftRadius);
+		if (radius > 0 || element instanceof SVGGeometryElement) {
+			probeRegions.push({
+				id: `non-axis-edge:${exactReadableIdentity(element) ?? element.tagName.toLowerCase()}`,
+				kind: 'non-axis-edge',
+				rect,
+				lengthPixels: Math.hypot(rect.width, rect.height)
+			});
+		}
+	}
+	const readingPlan = deriveDeterministicReadingPlan(state);
+	const readingPlanDigest =
+		readingPlan.status === 'available'
+			? await deterministicRuntimeSha256(readingPlan.windows)
+			: null;
+	const readableIdentityEvidence = readableRegions.map((region, index) => {
+		const capture = compositedMasks.find((mask) => mask.readableId === region.id) ?? null;
+		return {
+			id: region.id,
+			region,
+			textMeasurement: textMeasurements[index],
+			clippedPixelCount: measureReadableClippedPixels([region], frame),
+			contrastMaskAuthority: capture ? ('available' as const) : ('unavailable' as const),
+			compositedOcclusionMaskAuthority: capture ? ('available' as const) : ('unavailable' as const),
+			capture
+		};
+	});
+	return {
+		address: settled.address,
+		activeFrameRate: settled.activeFrameRate,
+		orientation: state.transport.orientation,
+		frame,
+		pendingFontCount: pendingDocumentFontCount(),
+		readableRegions,
+		textMeasurements,
+		readableIdentityEvidence,
+		readingPlan,
+		readingPlanDigest,
+		readableCoverage: {
+			authority: readableContract.status === 'available' ? 'schema-renderer' : 'unavailable',
+			expectedReadableIdentities,
+			discoveredReadableIdentities,
+			missingReadableIdentities,
+			complete: coverageComplete,
+			unavailableReason:
+				readableContract.status === 'unavailable'
+					? readableContract.reason
+					: coverageComplete
+						? null
+						: 'visible-readable-identity-set-mismatch'
+		},
+		shadowCoverage: {
+			authority: unownedShadowCount === 0 ? 'renderer-owner' : 'unavailable',
+			ownedShadowIds: [...new Set(ownedShadowIds)].sort(),
+			unownedShadowCount
+		},
+		probeRegions,
+		selectedProbeRegions: selectDeterministicProbeRegions(probeRegions),
+		measurements: {
+			titleSafeAreaAffectedPixels: measureTitleSafeAreaPixels(readableRegions, frame),
+			verticalPlatformSafeAreaAffectedPixels:
+				state.transport.orientation === 'vertical'
+					? measureVerticalPlatformSafeAreaPixels(readableRegions, frame)
+					: 0,
+			readableClippedPixels: measureReadableClippedPixels(readableRegions, frame),
+			readableOccludedPixels: coverageComplete
+				? measureReadableOccludedPixels(readableRegions, compositedMasks)
+				: null
+		}
 	};
 }

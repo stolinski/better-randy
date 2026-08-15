@@ -20,10 +20,16 @@
 <aside class="instance-stack-overlay" data-overlay="instance-stack" data-variant="horizontal-train">
 	<div class="instance-stack-overlay__row">
 		{#each indices as i (i)}
-			{@const state = horizontalTrainMotionShape(i, content.count, progress, { spacing: content.spacing, opacityFloor: content.opacityFloor, lagWindow: content.lagWindow })}
+			{@const state = horizontalTrainMotionShape(i, content.count, progress, {
+				spacing: content.spacing,
+				opacityFloor: content.opacityFloor,
+				lagWindow: content.lagWindow
+			})}
 			<span
 				class="instance-stack-overlay__instance"
 				data-text-anim-slot={i === 0 ? 'title' : undefined}
+				data-supers-readable-id={`instance-${i}`}
+				data-supers-text-role="overlay-display"
 				style:transform={`translate(${state.xOffset}em, ${state.yOffset}em) scale(${state.scale})`}
 				style:opacity={state.opacity}
 			>

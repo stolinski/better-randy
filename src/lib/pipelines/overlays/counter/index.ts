@@ -1,6 +1,10 @@
 import { z } from 'zod';
 
 import type { OverlayDefaults, OverlayRenderer } from '$lib/platform/pipelines/types';
+import {
+	formatCounterReadableValue,
+	resolveCounterValueAtProgress
+} from '$lib/utils/counter-readable-value';
 
 import CanvasSource from './CanvasSource.svelte';
 import Editor from './Editor.svelte';
@@ -45,5 +49,15 @@ export const counterOverlayRenderer: OverlayRenderer<CounterContent> = {
 	defaults,
 	CanvasSource,
 	Editor,
+	readableText: (content, context) => [
+		{
+			id: 'value',
+			text: formatCounterReadableValue(
+				content,
+				resolveCounterValueAtProgress(content, context.progress)
+			),
+			role: 'overlay-display'
+		}
+	],
 	fieldInkOnBackground: true
 };

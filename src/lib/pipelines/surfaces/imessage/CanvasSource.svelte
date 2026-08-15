@@ -2,6 +2,7 @@
 	import { annotationBodyPlainText } from '$lib/annotations/annotation-body-text';
 	import { animState } from '$lib/platform/anim-state.svelte';
 	import { engineState } from '$lib/platform/engine-state.svelte';
+	import type { DeterministicNonReadableTextReason } from '$lib/platform/pipelines/types';
 	import { isDarkSurfaceColor } from '$lib/utils/color';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 
@@ -51,7 +52,6 @@
 	const VIGNETTE_CENTER_Y_RATIO = 0.82;
 	const VIGNETTE_MAX_ALPHA = 0.45;
 
-
 	const frame = $derived(getVideoFrameSize(engineState.transport.orientation));
 	const isVertical = $derived(frame.height > frame.width);
 	const content = $derived(engineState.surface.content);
@@ -63,7 +63,9 @@
 	// Pack-immune (ADR-0038): the iMessage artifact must stay pixel-faithful, so
 	// no Pack colour is routed in. The optional paperColor override only selects
 	// the dark/light theme; absent → light, identical to pre-ADR-0038 behaviour.
-	const theme = $derived(isDarkSurfaceColor(engineState.typography?.paperColor ?? '#ffffff') ? 'dark' : 'light');
+	const theme = $derived(
+		isDarkSurfaceColor(engineState.typography?.paperColor ?? '#ffffff') ? 'dark' : 'light'
+	);
 	// Read with `?? 'window'` — a schema `.default()` is NOT reliably applied at
 	// runtime for pre-existing presets/state, so absence must mean window here.
 	const isChromeless = $derived((engineState.surface.chrome ?? 'window') === 'none');
@@ -136,9 +138,11 @@
 	}
 	// A bubble shows its tail only when it's the last in a consecutive same-sender
 	// run (iMessage grouping); group starts get extra spacing above.
-	const showTail = (i: number): boolean => i === messages.length - 1 || messages[i + 1]?.from !== messages[i].from;
+	const showTail = (i: number): boolean =>
+		i === messages.length - 1 || messages[i + 1]?.from !== messages[i].from;
 	const startsGroup = (i: number): boolean => i === 0 || messages[i - 1]?.from !== messages[i].from;
 
+	const decorativeSymbolReason: DeterministicNonReadableTextReason = 'decorative-symbol';
 	const TAPBACK_GLYPH: Record<string, string> = {
 		heart: '♥',
 		like: '👍',
@@ -165,7 +169,11 @@
 		     localized radial darkening under the thread so the bubbles read over
 		     any footage grade. Rides the surface visibility ramp, so it rises with
 		     the enter and eases out with the exit — frame-deterministic. -->
-		<div class="im-vignette" style:background={vignetteBackground} style:opacity={layout.visibility}></div>
+		<div
+			class="im-vignette"
+			style:background={vignetteBackground}
+			style:opacity={layout.visibility}
+		></div>
 	{:else}
 		<!-- Messages conversation header. -->
 		<header class="im-header" style:padding={`${layout.width * 0.02}px ${layout.width * 0.028}px`}>
@@ -176,9 +184,18 @@
 					style:inline-size={`${avatarPx}px`}
 					style:block-size={`${avatarPx}px`}
 					style:font-size={`${avatarPx * 0.5}px`}
-					aria-hidden="true">{contactInitial}</span
+					aria-hidden="true"
+					data-supers-non-readable-reason={decorativeSymbolReason}>{contactInitial}</span
 				>
-				<span class="im-name" style:font-size={`${nameFontPx}px`}>{contact} ›</span>
+				<span class="im-name" style:font-size={`${nameFontPx}px`}
+					><span
+						data-supers-readable-id="surface:imessage:author"
+						data-supers-readable-text={contact}
+						data-supers-text-role="found-document-metadata">{contact}</span
+					><span aria-hidden="true" data-supers-non-readable-reason={decorativeSymbolReason}>
+						›</span
+					></span
+				>
 			</span>
 			<svg
 				class="im-facetime"
@@ -197,7 +214,13 @@
 	<!-- Thread: every bubble reserves space; visibility is scheduled. -->
 	<div class="im-thread" style:padding={`${layout.width * 0.028}px ${layout.width * 0.03}px`}>
 		{#if !isChromeless}
-			<div class="im-timestamp" style:font-size={`${metaFontPx}px`}>
+			<div
+				class="im-timestamp"
+				data-supers-readable-id="surface:imessage:chrome:timestamp"
+				data-supers-readable-text="Today 2:14 PM"
+				data-supers-text-role="found-document-metadata"
+				style:font-size={`${metaFontPx}px`}
+			>
 				<span>Today</span> 2:14 PM
 			</div>
 		{/if}
@@ -205,6 +228,7 @@
 		{#each messages as message, i (i)}
 			{@const style = bubbleStyle(i)}
 			{@const typing = isTyping(i)}
+			{@const renderedStatus = message.status ? receiptLabel(i, message.status) : ''}
 			<div
 				class="im-row"
 				data-from={message.from}
@@ -243,6 +267,7 @@
 						style:font-size={`${avatarPx * 0.5}px`}
 						style:opacity={typing ? 1 : style.opacity}
 						aria-hidden="true"
+						data-supers-non-readable-reason={decorativeSymbolReason}
 					>
 						{contactInitial}
 						{#if avatarUrl && failedAvatarUrl !== avatarUrl}
@@ -267,13 +292,20 @@
 						style:transform={`scale(${typing ? 0.6 : style.scale})`}
 					>
 						{#key annotationBodyPlainText(message.text)}
-							<DocumentBody body={message.text} fontSize={bodyFontPx} />
+							<DocumentBody
+								body={message.text}
+								fontSize={bodyFontPx}
+								readablePrefix={`surface:imessage:message:${i}`}
+							/>
 						{/key}
 					</div>
 					{#if message.tapback}
 						<span
 							class="im-tapback"
 							data-from={message.from}
+							data-supers-readable-id={`surface:imessage:message:${i}:tapback`}
+							data-supers-readable-text={TAPBACK_GLYPH[message.tapback]}
+							data-supers-text-role="found-document-metadata"
 							style:inline-size={`${bodyFontPx * 1.6}px`}
 							style:block-size={`${bodyFontPx * 1.6}px`}
 							style:font-size={`${bodyFontPx * 0.78}px`}
@@ -285,7 +317,11 @@
 					<!-- Always rendered (nbsp fallback) so the Delivered→Read receipt
 					     reserves its line and the window height stays stable. -->
 					<div class="im-receipt" style:font-size={`${metaFontPx}px`}>
-						{receiptLabel(i, message.status) || ' '}
+						{#if renderedStatus}<span
+								data-supers-readable-id={`surface:imessage:message:${i}:status`}
+								data-supers-readable-text={renderedStatus}
+								data-supers-text-role="found-document-metadata">{renderedStatus}</span
+							>{:else}<span aria-hidden="true">&nbsp;</span>{/if}
 					</div>
 				{/if}
 			</div>
@@ -294,9 +330,27 @@
 
 	{#if !isChromeless}
 		<!-- Composer bar — the modern Messages tell. -->
-		<div class="im-inputbar" style:padding={`${layout.width * 0.018}px ${layout.width * 0.026}px`} style:gap={`${layout.width * 0.016}px`}>
-			<span class="im-plus" style:inline-size={`${iconPx}px`} style:block-size={`${iconPx}px`} style:font-size={`${iconPx * 0.8}px`} aria-hidden="true">+</span>
-			<span class="im-field" style:font-size={`${inputFontPx}px`} style:padding={`${inputFontPx * 0.5}px ${inputFontPx * 0.8}px`}>iMessage</span>
+		<div
+			class="im-inputbar"
+			style:padding={`${layout.width * 0.018}px ${layout.width * 0.026}px`}
+			style:gap={`${layout.width * 0.016}px`}
+		>
+			<span
+				class="im-plus"
+				style:inline-size={`${iconPx}px`}
+				style:block-size={`${iconPx}px`}
+				style:font-size={`${iconPx * 0.8}px`}
+				aria-hidden="true"
+				data-supers-non-readable-reason={decorativeSymbolReason}>+</span
+			>
+			<span
+				class="im-field"
+				data-supers-readable-id="surface:imessage:chrome:composer"
+				data-supers-readable-text="iMessage"
+				data-supers-text-role="found-document-metadata"
+				style:font-size={`${inputFontPx}px`}
+				style:padding={`${inputFontPx * 0.5}px ${inputFontPx * 0.8}px`}>iMessage</span
+			>
 		</div>
 	{/if}
 </article>

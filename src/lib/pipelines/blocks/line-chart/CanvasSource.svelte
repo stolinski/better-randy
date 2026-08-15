@@ -151,6 +151,7 @@
 		<g class="chart-line__labels" opacity={motion.chromeAlpha} fill={chrome.label}>
 			<text
 				data-chart-text-role="title"
+				data-supers-readable-id={`block:${block.id}:title`}
 				x={layout.chrome.title.origin.x}
 				y={layout.chrome.title.origin.y}
 				textLength={layout.chrome.title.measurement.width}
@@ -158,9 +159,10 @@
 				dominant-baseline="hanging"
 				style={textStyle(layout.chrome.title)}>{layout.chrome.title.text}</text
 			>
-			{#each layout.axes.linearTicks as tick (`label:${tick.value}`)}
+			{#each layout.axes.linearTicks as tick, index (`label:${tick.value}`)}
 				<text
 					data-chart-text-role="axis"
+					data-supers-readable-id={`block:${block.id}:axis:${index}`}
 					x={tick.labelLayout.origin.x}
 					y={tick.labelLayout.origin.y}
 					textLength={tick.labelLayout.measurement.width}
@@ -172,6 +174,7 @@
 			{#each layout.axes.categoryLabels as category (category.categoryId)}
 				<text
 					data-chart-text-role="category"
+					data-supers-readable-id={`block:${block.id}:category:${category.categoryId}`}
 					x={category.labelLayout.origin.x}
 					y={category.labelLayout.origin.y}
 					textLength={category.labelLayout.measurement.width}
@@ -183,6 +186,7 @@
 			{#if layout.chrome.sourceNote}
 				<text
 					data-chart-text-role="source"
+					data-supers-readable-id={`block:${block.id}:source`}
 					x={layout.chrome.sourceNote.origin.x}
 					y={layout.chrome.sourceNote.origin.y}
 					textLength={layout.chrome.sourceNote.measurement.width}
@@ -200,6 +204,7 @@
 				<text
 					data-chart-text-role="value"
 					data-chart-value={valueLabel.markId}
+					data-supers-readable-id={`block:${block.id}:value:${valueLabel.markId}`}
 					x={valueLabel.origin.x}
 					y={valueLabel.origin.y}
 					textLength={valueLabel.measurement.width}
@@ -223,6 +228,7 @@
 				/>
 				<text
 					data-chart-text-role="legend"
+					data-supers-readable-id={`block:${block.id}:legend:${legend.itemId}`}
 					x={legend.labelLayout.origin.x}
 					y={legend.labelLayout.origin.y}
 					textLength={legend.labelLayout.measurement.width}
@@ -280,6 +286,7 @@
 				<text
 					data-chart-text-role="callout"
 					data-chart-callout={annotation.id}
+					data-supers-readable-id={`block:${block.id}:callout:${annotation.id}`}
 					x={annotation.box.x + 28}
 					y={annotation.box.y + 20}
 					fill={chrome.annotation}

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { SurfaceState } from '$lib/platform/engine-schema';
+	import type { DeterministicNonReadableTextReason } from '$lib/platform/pipelines/types';
 
 	import DocumentBody from './DocumentBody.svelte';
 
@@ -23,26 +24,52 @@
 	const citationFontPx = $derived(width * 0.022);
 	const titleFontPx = $derived(width * (width > 2200 ? 0.063 : 0.072));
 	const metaFontPx = $derived(width * 0.021);
+	const decorativeSymbolReason: DeterministicNonReadableTextReason = 'decorative-symbol';
+	const rasterizedArtifactTextReason: DeterministicNonReadableTextReason =
+		'rasterized-artifact-text';
 </script>
 
 <!-- PubMed article: NLM masthead/search followed by the citation record. -->
 <article class="pubmed-panel">
 	<header class="pubmed-header" style:padding={`${width * 0.022}px ${width * 0.06}px`}>
 		<div class="pubmed-utility" style:font-size={`${utilityFontPx}px`}>
-			<span class="pubmed-ncbi">NCBI</span>
-			<span>National Library of Medicine</span>
-			<span class="pubmed-login">Log in</span>
+			<span
+				class="pubmed-ncbi"
+				data-supers-readable-id="surface:web-document:chrome:ncbi"
+				data-supers-readable-text="NCBI"
+				data-supers-text-role="found-document-metadata">NCBI</span
+			>
+			<span
+				data-supers-readable-id="surface:web-document:chrome:library-name"
+				data-supers-readable-text="National Library of Medicine"
+				data-supers-text-role="found-document-metadata">National Library of Medicine</span
+			>
+			<span
+				class="pubmed-login"
+				data-supers-readable-id="surface:web-document:chrome:login"
+				data-supers-readable-text="Log in"
+				data-supers-text-role="found-document-metadata">Log in</span
+			>
 		</div>
 		<div class="pubmed-search-row" style:gap={`${width * 0.02}px`}>
 			<img
 				class="pubmed-logo"
 				src="/web-document-pubmed/pubmed-logo.png"
 				alt="PubMed"
+				data-supers-non-readable-reason={rasterizedArtifactTextReason}
 				style:inline-size={`${width * 0.15}px`}
 			/>
 			<div class="pubmed-search" style:font-size={`${searchFontPx}px`}>
-				<span>Search PubMed</span>
-				<span class="pubmed-search-button" aria-hidden="true">⌕</span>
+				<span
+					data-supers-readable-id="surface:web-document:chrome:search-placeholder"
+					data-supers-readable-text="Search PubMed"
+					data-supers-text-role="found-document-metadata">Search PubMed</span
+				>
+				<span
+					class="pubmed-search-button"
+					aria-hidden="true"
+					data-supers-non-readable-reason={decorativeSymbolReason}>⌕</span
+				>
 			</div>
 		</div>
 	</header>
@@ -53,22 +80,66 @@
 		style:gap={`${width * 0.018}px`}
 	>
 		{#if citation}
-			<div class="pubmed-citation" style:font-size={`${citationFontPx}px`}>{citation}</div>
+			<div
+				class="pubmed-citation"
+				data-supers-readable-id="surface:web-document:source"
+				data-supers-readable-text={citation}
+				data-supers-text-role="found-document-metadata"
+				style:font-size={`${citationFontPx}px`}
+			>
+				{citation}
+			</div>
 		{/if}
 
 		<div class="pubmed-title">
-			<DocumentBody body={content.body} fontSize={titleFontPx} />
+			<DocumentBody
+				body={content.body}
+				fontSize={titleFontPx}
+				readablePrefix="surface:web-document:body"
+			/>
 		</div>
 
 		{#if author}
-			<div class="pubmed-author" style:font-size={`${metaFontPx}px`}>{author}</div>
+			<div
+				class="pubmed-author"
+				data-supers-readable-id="surface:web-document:author"
+				data-supers-readable-text={author}
+				data-supers-text-role="found-document-metadata"
+				style:font-size={`${metaFontPx}px`}
+			>
+				{author}
+			</div>
 		{/if}
 		{#if identifiers}
-			<div class="pubmed-identifiers" style:font-size={`${metaFontPx}px`}>{identifiers}</div>
+			<div
+				class="pubmed-identifiers"
+				data-supers-readable-id="surface:web-document:date-label"
+				data-supers-readable-text={identifiers}
+				data-supers-text-role="found-document-metadata"
+				style:font-size={`${metaFontPx}px`}
+			>
+				{identifiers}
+			</div>
 		{/if}
 
 		<div class="pubmed-actions" style:font-size={`${utilityFontPx}px`} aria-hidden="true">
-			<span>Save</span><span>Email</span><span>Send to</span><span>Display options</span>
+			<span
+				data-supers-readable-id="surface:web-document:chrome:save"
+				data-supers-readable-text="Save"
+				data-supers-text-role="found-document-metadata">Save</span
+			><span
+				data-supers-readable-id="surface:web-document:chrome:email"
+				data-supers-readable-text="Email"
+				data-supers-text-role="found-document-metadata">Email</span
+			><span
+				data-supers-readable-id="surface:web-document:chrome:send-to"
+				data-supers-readable-text="Send to"
+				data-supers-text-role="found-document-metadata">Send to</span
+			><span
+				data-supers-readable-id="surface:web-document:chrome:display-options"
+				data-supers-readable-text="Display options"
+				data-supers-text-role="found-document-metadata">Display options</span
+			>
 		</div>
 	</div>
 </article>

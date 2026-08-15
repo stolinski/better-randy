@@ -48,5 +48,14 @@ export const lowerThirdOverlayRenderer: OverlayRenderer<LowerThirdContent> = {
 	schema: LowerThirdContentSchema,
 	defaults,
 	CanvasSource,
-	Editor
+	Editor,
+	readableText: (content) => [
+		...(content.kicker
+			? [{ id: 'kicker', text: content.kicker, role: 'overlay-secondary' as const }]
+			: []),
+		{ id: 'title', text: content.title, role: 'overlay-primary' },
+		...(content.subtitle
+			? [{ id: 'subtitle', text: content.subtitle, role: 'overlay-secondary' as const }]
+			: [])
+	]
 };

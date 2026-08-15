@@ -30,7 +30,15 @@
 <!-- YouTube comment (dark). Video headline as context · avatar + comment. -->
 <div class="yt-panel" style:padding={`${width * 0.032}px`} style:gap={`${width * 0.024}px`}>
 	{#if videoTitle}
-		<h2 class="yt-video" style:font-size={`${videoFontPx}px`}>{videoTitle}</h2>
+		<h2
+			class="yt-video"
+			data-supers-readable-id="surface:web-document:title"
+			data-supers-readable-text={videoTitle}
+			data-supers-text-role="surface-title"
+			style:font-size={`${videoFontPx}px`}
+		>
+			{videoTitle}
+		</h2>
 	{/if}
 
 	<div class="yt-comment" style:gap={`${width * 0.018}px`}>
@@ -47,28 +55,63 @@
 		>
 		<div class="yt-content" style:gap={`${width * 0.012}px`}>
 			<div class="yt-meta" style:font-size={`${metaFontPx}px`} style:gap={`${width * 0.01}px`}>
-				{#if commenter}<span class="yt-user">{commenter}</span>{/if}
-				{#if age}<span class="yt-age">{age}</span>{/if}
+				{#if commenter}<span
+						class="yt-user"
+						data-supers-readable-id="surface:web-document:author"
+						data-supers-readable-text={commenter}
+						data-supers-text-role="found-document-metadata">{commenter}</span
+					>{/if}
+				{#if age}<span
+						class="yt-age"
+						data-supers-readable-id="surface:web-document:date-label"
+						data-supers-readable-text={age}
+						data-supers-text-role="found-document-metadata">{age}</span
+					>{/if}
 			</div>
 
-			<DocumentBody body={content.body} fontSize={bodyFontPx} />
+			<DocumentBody
+				body={content.body}
+				fontSize={bodyFontPx}
+				readablePrefix="surface:web-document:body"
+			/>
 
-			<div class="yt-actions" style:font-size={`${actionFontPx}px`} style:gap={`${width * 0.02}px`} aria-hidden="true">
+			<div
+				class="yt-actions"
+				style:font-size={`${actionFontPx}px`}
+				style:gap={`${width * 0.02}px`}
+				aria-hidden="true"
+			>
 				<span class="yt-action">
-					<svg style:inline-size={`${actionIconPx}px`} style:block-size={`${actionIconPx}px`} viewBox="0 0 24 24"
+					<svg
+						style:inline-size={`${actionIconPx}px`}
+						style:block-size={`${actionIconPx}px`}
+						viewBox="0 0 24 24"
 						><path
 							fill="#aaaaaa"
 							d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"
 						/></svg
-					>1.2K</span
+					><span
+						data-supers-readable-id="surface:web-document:chrome:likes"
+						data-supers-readable-text="1.2K"
+						data-supers-text-role="found-document-metadata">1.2K</span
+					></span
 				>
-				<svg class="yt-dislike" style:inline-size={`${actionIconPx}px`} style:block-size={`${actionIconPx}px`} viewBox="0 0 24 24"
+				<svg
+					class="yt-dislike"
+					style:inline-size={`${actionIconPx}px`}
+					style:block-size={`${actionIconPx}px`}
+					viewBox="0 0 24 24"
 					><path
 						fill="#aaaaaa"
 						d="M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z"
 					/></svg
 				>
-				<span class="yt-reply">Reply</span>
+				<span
+					class="yt-reply"
+					data-supers-readable-id="surface:web-document:chrome:reply"
+					data-supers-readable-text="Reply"
+					data-supers-text-role="found-document-metadata">Reply</span
+				>
 			</div>
 		</div>
 	</div>
@@ -90,7 +133,13 @@
 		box-sizing: border-box;
 		color: var(--yt-text);
 		display: grid;
-		font-family: Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+		font-family:
+			Roboto,
+			-apple-system,
+			BlinkMacSystemFont,
+			'Segoe UI',
+			Arial,
+			sans-serif;
 	}
 
 	.yt-video {

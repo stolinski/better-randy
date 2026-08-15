@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { SurfaceState } from '$lib/platform/engine-schema';
+	import type { DeterministicNonReadableTextReason } from '$lib/platform/pipelines/types';
 
 	import DocumentBody from './DocumentBody.svelte';
 
@@ -25,25 +26,64 @@
 	const headlineFontPx = $derived(width * 0.052);
 	const bylineFontPx = $derived(width * 0.024);
 	const bodyFontPx = $derived(width * 0.03);
+	const decorativeSymbolReason: DeterministicNonReadableTextReason = 'decorative-symbol';
 </script>
 
 <!-- News article (light editorial): kicker · serif headline · byline · body. -->
 <article class="news-panel" style:padding={`${width * 0.04}px`} style:gap={`${width * 0.016}px`}>
 	{#if kicker}
-		<div class="news-kicker" style:font-size={`${kickerFontPx}px`}>{kicker}</div>
+		<div
+			class="news-kicker"
+			data-supers-readable-id="surface:web-document:source"
+			data-supers-readable-text={kicker}
+			data-supers-text-role="found-document-metadata"
+			style:font-size={`${kickerFontPx}px`}
+		>
+			{kicker}
+		</div>
 	{/if}
 	{#if headline}
-		<h1 class="news-headline" style:font-size={`${headlineFontPx}px`}>{headline}</h1>
+		<h1
+			class="news-headline"
+			data-supers-readable-id="surface:web-document:title"
+			data-supers-readable-text={headline}
+			data-supers-text-role="surface-title"
+			style:font-size={`${headlineFontPx}px`}
+		>
+			{headline}
+		</h1>
 	{/if}
 	{#if author || date}
 		<div class="news-byline" style:font-size={`${bylineFontPx}px`}>
-			{#if author}<span class="news-author">By {author}</span>{/if}{#if author && date}<span
-					class="news-dot">·</span
-				>{/if}{#if date}<span class="news-date">{date}</span>{/if}
+			{#if author}<span class="news-author"
+					><span
+						data-supers-readable-id="surface:web-document:chrome:by"
+						data-supers-readable-text="By"
+						data-supers-text-role="found-document-metadata">By</span
+					>
+					<span
+						data-supers-readable-id="surface:web-document:author"
+						data-supers-readable-text={author}
+						data-supers-text-role="found-document-metadata">{author}</span
+					></span
+				>{/if}{#if author && date}<span
+					class="news-dot"
+					aria-hidden="true"
+					data-supers-non-readable-reason={decorativeSymbolReason}>·</span
+				>{/if}{#if date}<span
+					class="news-date"
+					data-supers-readable-id="surface:web-document:date-label"
+					data-supers-readable-text={date}
+					data-supers-text-role="found-document-metadata">{date}</span
+				>{/if}
 		</div>
 	{/if}
 	<div class="news-rule"></div>
-	<DocumentBody body={content.body} fontSize={bodyFontPx} />
+	<DocumentBody
+		body={content.body}
+		fontSize={bodyFontPx}
+		readablePrefix="surface:web-document:body"
+	/>
 </article>
 
 <style>
@@ -65,7 +105,8 @@
 		box-sizing: border-box;
 		color: var(--news-text);
 		display: grid;
-		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+		font-family:
+			-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 	}
 
 	.news-kicker {

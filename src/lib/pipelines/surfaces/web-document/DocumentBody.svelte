@@ -7,9 +7,11 @@
 		body: AnnotationBody;
 		/** Canvas-pixel font size for the body text; mark spans inherit it. */
 		fontSize: number;
+		/** Stable owner prefix for one readable identity per rendered paragraph. */
+		readablePrefix: string;
 	}
 
-	let { body, fontSize }: Props = $props();
+	let { body, fontSize, readablePrefix }: Props = $props();
 
 	const hasBody = $derived(
 		Array.isArray(body) &&
@@ -32,7 +34,11 @@
 		<section class="document-body" data-text-anim-slot="body" style:font-size={`${fontSize}px`}>
 			{#each body as block, blockIndex (blockIndex)}
 				{#if block.type === 'paragraph'}
-					<p>
+					<p
+						data-supers-readable-id={`${readablePrefix}:${blockIndex}`}
+						data-supers-readable-text={block.segments.map((segment) => segment.text).join('')}
+						data-supers-text-role="found-document-body"
+					>
 						{#each block.segments as segment, segmentIndex (`${blockIndex}:${segmentIndex}:${segment.text}`)}
 							{#if segment.markStyles.length > 0}
 								{@const innerText = segment.text}

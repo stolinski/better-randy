@@ -9,6 +9,7 @@
 	} from './packs/resolve';
 	import { ENGINE_FONT_FAMILIES } from './engine-schema';
 	import { cueWordWindows } from '$lib/utils/srt';
+	import { resolveCaptionReadableText } from '$lib/utils/caption-readable-text';
 
 	// The captions track (creator blocks, grilled 2026-07-09): time-coded cues
 	// rendered TOPMOST (above overlays — broadcast captions sit over
@@ -32,6 +33,7 @@
 	const activeWordIndex = $derived(
 		words.findIndex((word) => currentMs >= word.startMs && currentMs < word.endMs)
 	);
+	const readable = $derived(resolveCaptionReadableText(captions, currentMs));
 
 	const accent = $derived(captions?.accent ?? '#ffd608');
 	// Orientation-aware band default: vertical platforms occlude the bottom
@@ -70,7 +72,13 @@
 {#if captions && activeCue}
 	<div class="captions" style:top="{bandY * 100}%" style:--caption-scale={scale}>
 		{#if captions.style === 'karaoke'}
-			<p class="captions__line captions__line--karaoke" style:--caption-accent={accent}>
+			<p
+				class="captions__line captions__line--karaoke"
+				style:--caption-accent={accent}
+				data-supers-readable-id={readable?.id}
+				data-supers-readable-text={readable?.text}
+				data-supers-text-role="caption-social"
+			>
 				{#each words as word, index (index)}<span
 						class="captions__word"
 						class:captions__word--active={index === activeWordIndex}>{word.text}</span
@@ -82,6 +90,9 @@
 					class="captions__line captions__line--word-pop"
 					style:--caption-accent={accent}
 					style:scale={popScale !== 1 ? String(popScale) : undefined}
+					data-supers-readable-id={readable?.id}
+					data-supers-readable-text={readable?.text}
+					data-supers-text-role="caption-social"
 				>
 					{words[activeWordIndex].text}
 				</p>
@@ -90,6 +101,9 @@
 			<p
 				class="captions__line captions__line--pack"
 				style="{packVars};color:{packInk};--caption-pack-font:{packFontFallback}"
+				data-supers-readable-id={readable?.id}
+				data-supers-readable-text={readable?.text}
+				data-supers-text-role="caption-social"
 			>
 				{activeCue.text}
 			</p>

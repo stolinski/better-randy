@@ -19,10 +19,16 @@
 
 <aside class="instance-stack-overlay" data-overlay="instance-stack" data-variant="vertical-stack">
 	{#each indices as i (i)}
-		{@const state = verticalStackMotionShape(i, content.count, progress, { spacing: content.spacing, opacityFloor: content.opacityFloor, lagWindow: content.lagWindow })}
+		{@const state = verticalStackMotionShape(i, content.count, progress, {
+			spacing: content.spacing,
+			opacityFloor: content.opacityFloor,
+			lagWindow: content.lagWindow
+		})}
 		<span
 			class="instance-stack-overlay__instance"
 			data-text-anim-slot={i === 0 ? 'title' : undefined}
+			data-supers-readable-id={`instance-${i}`}
+			data-supers-text-role="overlay-display"
 			style:margin-top={i > 0 ? `${content.spacing - 1}em` : null}
 			style:transform={`translate(${state.xOffset}em, ${state.yOffset}em) scale(${state.scale})`}
 			style:opacity={state.opacity}

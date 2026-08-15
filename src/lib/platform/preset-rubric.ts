@@ -1,9 +1,11 @@
 import type { AnnotationMarkStyle } from '../annotations/annotation-mark-styles.ts';
 import type { AnnotationBody } from '../annotations/annotation-marks.ts';
 import { opacityEnvelope, resolveCascadeTimings, type CascadeWindow } from './cascade-timing.ts';
+import { deriveDeterministicReadingPlan } from './deterministic-reading-plan.ts';
 import type {
 	DiagramPoint,
 	DiagramPrimitive,
+	EngineState,
 	MarkTiming,
 	Overlay,
 	OverlayPlacement,
@@ -12,11 +14,7 @@ import type {
 	Transition
 } from './engine-schema.ts';
 import { getPack } from './packs/registry.ts';
-import {
-	requireCoreColor,
-	resolveBackgroundFill,
-	resolveFieldInkColor
-} from './packs/resolve.ts';
+import { requireCoreColor, resolveBackgroundFill, resolveFieldInkColor } from './packs/resolve.ts';
 import { resolveSurfaceTypographyColors } from './pipelines/index.ts';
 import { getLayoutSafeArea } from '../utils/safe-area.ts';
 import { calculateWebsiteShowcaseLayout } from '../utils/website-showcase.ts';
@@ -154,11 +152,7 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 		const pack = getPack(preset.pack);
 		// Surface-aware (ADR-0039 §2): an immune document body lints against its
 		// intrinsic substrate colours, not the Pack cores it no longer wears.
-		resolvedTypography = resolveSurfaceTypographyColors(
-			pack,
-			state.surface.type,
-			state.typography
-		);
+		resolvedTypography = resolveSurfaceTypographyColors(pack, state.surface.type, state.typography);
 		resolvedAccent = requireCoreColor(pack, 'accent-treatment');
 		resolvedBackgroundFill = resolveBackgroundFill(pack, state.backgroundFill);
 		resolvedDiagramInk =
@@ -191,7 +185,7 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 		);
 		checkBackgroundFill(resolvedBackgroundFill, resolvedTypography.paperColor, issues);
 	}
-	checkHoldTime(state.surface, state.marks.timings, flattenedMarks, totalSeconds, issues);
+	checkHoldTime(state, state.marks.timings, flattenedMarks, totalSeconds, issues);
 	checkWebsiteShowcase(preset, cascadeWindows, issues);
 
 	return issues;
@@ -707,12 +701,13 @@ function checkDiagramContrast(
 }
 
 function checkHoldTime(
-	surface: SurfaceState,
+	state: EngineState,
 	timings: readonly MarkTiming[],
 	flattenedMarks: readonly FlattenedMark[],
 	totalSeconds: number,
 	issues: RubricIssue[]
 ): void {
+	const surface = state.surface;
 	if (!surface.enter || !surface.exit) {
 		return;
 	}
@@ -722,7 +717,6 @@ function checkHoldTime(
 	}
 
 	const surfaceEnterEnd = surface.enter.start + surface.enter.duration;
-	const exitStart = surface.exit.start;
 	const sortedIndices = timings
 		.map((timing, index) => ({ timing, index }))
 		.sort((a, b) => a.timing.start - b.timing.start);
@@ -749,57 +743,26 @@ function checkHoldTime(
 		}
 	}
 
-	// Read window: one per marked *segment*, not per mark. Stacked marks on one
-	// span (e.g. [magnify][side-note]) are a single read — require the read time
-	// once, after the last mark on that span settles, until the next segment's
-	// mark fires (or surface exit). 1× at 200 wpm is the readability floor;
-	// re-read padding is taste (Critic).
-	interface SegmentWindow {
-		firstStart: number;
-		lastEnd: number;
-		words: number;
-		index: number;
+	// The deterministic producer and static lint share one Preset-derived plan,
+	// including cascade-resolved stacked-mark grouping and the 1.5× read floor.
+	const readingPlan = deriveDeterministicReadingPlan(state);
+	if (readingPlan.status === 'unavailable') {
+		issues.push({
+			rule: 'G6-post-mark',
+			severity: 'error',
+			path: 'state',
+			message: `Reading plan unavailable: ${readingPlan.reason}.`
+		});
+		return;
 	}
-	const bySegment = new Map<number, SegmentWindow>();
-
-	for (const { timing, index } of sortedIndices) {
-		const flat = flattenedMarks[index];
-
-		if (!flat || flat.wordCount === 0) {
-			continue;
-		}
-
-		const end = timing.start + timing.duration;
-		const existing = bySegment.get(flat.segmentIndex);
-
-		if (!existing) {
-			bySegment.set(flat.segmentIndex, {
-				firstStart: timing.start,
-				lastEnd: end,
-				words: flat.wordCount,
-				index
-			});
-		} else {
-			existing.firstStart = Math.min(existing.firstStart, timing.start);
-			existing.lastEnd = Math.max(existing.lastEnd, end);
-		}
-	}
-
-	const segments = [...bySegment.values()].sort((a, b) => a.firstStart - b.firstStart);
-
-	for (let i = 0; i < segments.length; i += 1) {
-		const seg = segments[i];
-		const next = segments[i + 1];
-		const windowEnd = next ? next.firstStart : exitStart;
-		const holdSeconds = (windowEnd - seg.lastEnd) * totalSeconds;
-		const requiredSeconds = (seg.words / READING_WPM) * 60;
-
-		if (holdSeconds < requiredSeconds) {
+	for (const window of readingPlan.windows.filter((entry) => entry.kind === 'post-mark')) {
+		const availableMilliseconds = window.endMilliseconds - window.startMilliseconds;
+		if (availableMilliseconds < window.requiredMilliseconds) {
 			issues.push({
 				rule: 'G6-post-mark',
 				severity: 'error',
-				path: `marks.timings[${seg.index}]`,
-				message: `Post-mark window is ${holdSeconds.toFixed(2)}s — reading ${seg.words} marked words at ${READING_WPM} wpm needs ${requiredSeconds.toFixed(2)}s.`
+				path: window.readingId,
+				message: `Post-mark window is ${(availableMilliseconds / 1000).toFixed(2)}s — reading ${window.wordCount} marked words at ${READING_WPM} wpm with the 1.5× absorption floor needs ${(window.requiredMilliseconds / 1000).toFixed(2)}s.`
 			});
 		}
 	}

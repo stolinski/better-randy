@@ -24,6 +24,7 @@ export const sourceUrlOverlayRenderer: OverlayRenderer<SourceUrlContent> = {
 	defaults,
 	CanvasSource,
 	Editor,
+	readableText: (content) => [{ id: 'url', text: content.url, role: 'overlay-secondary' }],
 	disableEntryOffset: true,
 	disableOpacityTransition: true
 };

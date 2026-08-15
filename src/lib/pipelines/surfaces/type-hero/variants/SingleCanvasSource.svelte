@@ -59,6 +59,8 @@
 			<h2
 				class="type-hero-source__hero"
 				data-text-anim-slot="title"
+				data-supers-readable-id="surface:type-hero:title"
+				data-supers-text-role="surface-display"
 				style:font-size={`${heroFontSize}px`}
 				style:max-inline-size={`${heroMaxWidth}px`}
 				style:--hero-scale-x={`${heroScaleX}`}
@@ -75,6 +77,8 @@
 			<cite
 				class="type-hero-source__subtitle"
 				data-text-anim-slot="author"
+				data-supers-readable-id="surface:type-hero:author"
+				data-supers-text-role="surface-label"
 				style:font-size={`${subtitleFontSize}px`}
 				style:inset-block-end={engineState.transport.orientation === 'vertical' ? '18%' : '9%'}
 				style:inset-inline-end={isVertical ? '12%' : '7%'}

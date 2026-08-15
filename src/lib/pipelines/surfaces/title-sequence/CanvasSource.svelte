@@ -32,6 +32,8 @@
 			<span
 				class="title-sequence-source__kicker"
 				data-text-anim-slot="kicker"
+				data-supers-readable-id="surface:title-sequence:kicker"
+				data-supers-text-role="surface-label"
 				style:font-size={`${frame.width * 0.012}px`}
 			>
 				{content.kicker}
@@ -44,6 +46,8 @@
 			<h2
 				class="title-sequence-source__title"
 				data-text-anim-slot="title"
+				data-supers-readable-id="surface:title-sequence:title"
+				data-supers-text-role="surface-title"
 				style:font-size={`${frame.width * 0.088}px`}
 			>
 				{content.title}
@@ -89,13 +93,13 @@
 		inset-inline-start: 8%;
 		/* Pack label dress (`title-sequence.tracking` / `.case`); the optical
 		   indent equals the tracking so both ride `--tracking`; silent → today's. */
-		letter-spacing: var(--tracking, 0.30em);
+		letter-spacing: var(--tracking, 0.3em);
 		opacity: var(--kickerDim, 0.88);
-		padding-inline-start: var(--tracking, 0.30em);
+		padding-inline-start: var(--tracking, 0.3em);
 		position: absolute;
 		/* Pack shadow claim (`title-sequence.textShadow`); an emissive Pack
 		   claims 'none' (depth is bloom); silent → today's. */
-		text-shadow: var(--textShadow, -0.02em 0.04em 0.10em rgba(0, 0, 0, 0.85));
+		text-shadow: var(--textShadow, -0.02em 0.04em 0.1em rgba(0, 0, 0, 0.85));
 		text-transform: var(--case, uppercase);
 		transform: translateY(-50%);
 	}

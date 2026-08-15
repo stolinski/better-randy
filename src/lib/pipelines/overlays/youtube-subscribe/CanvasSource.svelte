@@ -65,9 +65,7 @@
 
 	// Check draw-on: stroke walks the path (pathLength-normalized dashoffset),
 	// trailing the morph so the mark lands on the settled chip.
-	const checkT = $derived(
-		Math.max(0, Math.min(1, (sinceBeatMs - DOWN_MS - 60) / CHECK_MS))
-	);
+	const checkT = $derived(Math.max(0, Math.min(1, (sinceBeatMs - DOWN_MS - 60) / CHECK_MS)));
 
 	const ringT = $derived(Math.max(0, Math.min(1, (sinceBeatMs - DOWN_MS) / RING_MS)));
 
@@ -97,9 +95,17 @@
 	</span>
 
 	<span class="yt-sub__identity">
-		<span class="yt-sub__channel">{content.channel}</span>
+		<span
+			class="yt-sub__channel"
+			data-supers-readable-id="channel"
+			data-supers-text-role="overlay-primary">{content.channel}</span
+		>
 		{#if content.handle || content.subscribers}
-			<span class="yt-sub__meta">
+			<span
+				class="yt-sub__meta"
+				data-supers-readable-id="meta"
+				data-supers-text-role="overlay-secondary"
+			>
 				{[content.handle, content.subscribers].filter(Boolean).join(' · ')}
 			</span>
 		{/if}
@@ -122,7 +128,9 @@
 				class="yt-sub__pill"
 				style:scale={pressScale !== 1 && !subscribed ? String(pressScale) : undefined}
 			>
-				<span>Subscribe</span>
+				<span data-supers-readable-id="subscribe-action" data-supers-text-role="overlay-secondary"
+					>Subscribe</span
+				>
 			</span>
 		</span>
 		<span class="yt-sub__state" style:visibility={subscribed ? undefined : 'hidden'}>
@@ -145,7 +153,9 @@
 						stroke-dashoffset={checkT < 1 ? String(1 - checkT) : undefined}
 					/>
 				</svg>
-				<span>Subscribed</span>
+				<span data-supers-readable-id="subscribed-action" data-supers-text-role="overlay-secondary"
+					>Subscribed</span
+				>
 			</span>
 			<span
 				class="yt-sub__bell"

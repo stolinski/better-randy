@@ -384,6 +384,8 @@ export function resolveTransition(
 	const to = getPresetBySlug(recipe.to);
 	if (!from || !to || !isTransitionEffectType(recipe.effect)) return null;
 	return {
+		fromSlug: recipe.from,
+		toSlug: recipe.to,
 		from,
 		to,
 		effect: recipe.effect,

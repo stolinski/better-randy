@@ -55,7 +55,7 @@
 	style:--accent-rgb={accentRgb}
 >
 	<div class="lower-third--cinematic__scrim"></div>
-	<div class="lower-third--cinematic__accent"></div>
+	<div class="lower-third--cinematic__accent" data-supers-shadow-owner="accent"></div>
 	<div class="lower-third--cinematic__content">
 		{#if content.kicker}
 			{#key content.kicker}
@@ -65,19 +65,31 @@
 					style:--kicker-plate={kickerPlate}
 					style:--kicker-ink={kicker.form === 'chip' ? kicker.ink : undefined}
 					data-text-anim-slot="kicker"
+					data-supers-readable-id="kicker"
+					data-supers-text-role="overlay-secondary"
 				>
 					{content.kicker}
 				</span>
 			{/key}
 		{/if}
 		{#key content.title}
-			<strong class="lower-third--cinematic__name" data-text-anim-slot="title">
+			<strong
+				class="lower-third--cinematic__name"
+				data-text-anim-slot="title"
+				data-supers-readable-id="title"
+				data-supers-text-role="overlay-primary"
+			>
 				{content.title}
 			</strong>
 		{/key}
 		{#if content.subtitle}
 			{#key content.subtitle}
-				<span class="lower-third--cinematic__role" data-text-anim-slot="subtitle">
+				<span
+					class="lower-third--cinematic__role"
+					data-text-anim-slot="subtitle"
+					data-supers-readable-id="subtitle"
+					data-supers-text-role="overlay-secondary"
+				>
 					{content.subtitle}
 				</span>
 			{/key}
@@ -125,7 +137,7 @@
 
 	.lower-third--cinematic__accent {
 		background-color: var(--accent);
-		box-shadow: 0 0 calc(1.4 * var(--cqmin)) rgb(var(--accent-rgb) / 0.45);
+		box-shadow: 0 0 calc(1.4 * var(--cqmin)) rgb(var(--accent-rgb) / 0.5);
 		grid-column: 1;
 		grid-row: 1;
 		position: relative;

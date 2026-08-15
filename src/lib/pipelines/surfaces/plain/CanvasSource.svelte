@@ -59,7 +59,10 @@
 			<section data-text-anim-slot="body" style:font-size={`${bodyFontSize}px`}>
 				{#each engineState.surface.content.body as block, blockIndex (blockIndex)}
 					{#if block.type === 'paragraph'}
-						<p>
+						<p
+							data-supers-readable-id={`surface:plain:body:${blockIndex}`}
+							data-supers-text-role="surface-body"
+						>
 							{#each block.segments as segment, segmentIndex (`${blockIndex}:${segmentIndex}:${segment.text}`)}
 								{#if segment.markStyles.length > 0}
 									{@const innerText = segment.text}

@@ -20,9 +20,7 @@
 	const title = $derived((content.title ?? '').trim());
 	const username = $derived((content.author ?? '').trim());
 	const when = $derived((content.dateLabel ?? '').trim());
-	const issueNumber = $derived(
-		(content.sourceUrl ?? '').match(/(\d+)\/?(?:[?#].*)?$/)?.[1] ?? ''
-	);
+	const issueNumber = $derived((content.sourceUrl ?? '').match(/(\d+)\/?(?:[?#].*)?$/)?.[1] ?? '');
 
 	const [repoOwner, repoName] = $derived.by(() => {
 		const parts = repo.split('/');
@@ -44,7 +42,13 @@
 <div class="gh-panel" style:padding={`${width * 0.034}px`} style:gap={`${width * 0.022}px`}>
 	<div class="gh-head" style:gap={`${width * 0.012}px`}>
 		{#if repo}
-			<div class="gh-repo" style:font-size={`${repoFontPx}px`}>
+			<div
+				class="gh-repo"
+				data-supers-readable-id="surface:web-document:source"
+				data-supers-readable-text={repo}
+				data-supers-text-role="found-document-metadata"
+				style:font-size={`${repoFontPx}px`}
+			>
 				<span class="gh-repo-owner">{repoOwner}</span>{#if repoName}<span class="gh-repo-sep"
 						>/</span
 					><span class="gh-repo-name">{repoName}</span>{/if}
@@ -52,11 +56,27 @@
 		{/if}
 		{#if title}
 			<h2 class="gh-title" style:font-size={`${titleFontPx}px`}>
-				{title}{#if issueNumber}<span class="gh-number">#{issueNumber}</span>{/if}
+				<span
+					data-supers-readable-id="surface:web-document:title"
+					data-supers-readable-text={title}
+					data-supers-text-role="surface-title">{title}</span
+				>{#if issueNumber}<span
+						class="gh-number"
+						data-supers-readable-id="surface:web-document:chrome:issue-number"
+						data-supers-readable-text={`#${issueNumber}`}
+						data-supers-text-role="found-document-metadata">#{issueNumber}</span
+					>{/if}
 			</h2>
 		{/if}
 		<div class="gh-meta" style:font-size={`${metaFontPx}px`} style:gap={`${width * 0.012}px`}>
-			<span class="gh-badge" style:font-size={`${badgeFontPx}px`} style:gap={`${width * 0.007}px`}>
+			<span
+				class="gh-badge"
+				data-supers-readable-id="surface:web-document:chrome:open-status"
+				data-supers-readable-text="Open"
+				data-supers-text-role="found-document-metadata"
+				style:font-size={`${badgeFontPx}px`}
+				style:gap={`${width * 0.007}px`}
+			>
 				<svg
 					style:inline-size={`${badgeIconPx}px`}
 					style:block-size={`${badgeIconPx}px`}
@@ -69,7 +89,17 @@
 				>Open</span
 			>
 			{#if username}<span class="gh-meta-text"
-					><span class="gh-user">{username}</span> opened this issue</span
+					><span
+						class="gh-user"
+						data-supers-readable-id="surface:web-document:author"
+						data-supers-readable-text={username}
+						data-supers-text-role="found-document-metadata">{username}</span
+					>
+					<span
+						data-supers-readable-id="surface:web-document:chrome:opened-issue"
+						data-supers-readable-text="opened this issue"
+						data-supers-text-role="found-document-metadata">opened this issue</span
+					></span
 				>{/if}
 		</div>
 	</div>
@@ -92,12 +122,34 @@
 				style:padding={`${width * 0.015}px ${width * 0.02}px`}
 				style:font-size={`${headFontPx}px`}
 			>
-				{#if username}<span class="gh-user">{username}</span>{/if}
-				<span class="gh-when">{when || 'commented'}</span>
-				<span class="gh-role" style:font-size={`${metaFontPx}px`}>Owner</span>
+				{#if username}<span
+						class="gh-user"
+						data-supers-readable-id="surface:web-document:chrome:comment-author"
+						data-supers-readable-text={username}
+						data-supers-text-role="found-document-metadata">{username}</span
+					>{/if}
+				<span
+					class="gh-when"
+					data-supers-readable-id={when
+						? 'surface:web-document:date-label'
+						: 'surface:web-document:chrome:commented'}
+					data-supers-readable-text={when || 'commented'}
+					data-supers-text-role="found-document-metadata">{when || 'commented'}</span
+				>
+				<span
+					class="gh-role"
+					data-supers-readable-id="surface:web-document:chrome:owner-role"
+					data-supers-readable-text="Owner"
+					data-supers-text-role="found-document-metadata"
+					style:font-size={`${metaFontPx}px`}>Owner</span
+				>
 			</div>
 			<div class="gh-comment-body" style:padding={`${width * 0.024}px`}>
-				<DocumentBody body={content.body} fontSize={bodyFontPx} />
+				<DocumentBody
+					body={content.body}
+					fontSize={bodyFontPx}
+					readablePrefix="surface:web-document:body"
+				/>
 			</div>
 		</div>
 	</div>
@@ -125,7 +177,8 @@
 		box-sizing: border-box;
 		color: var(--gh-text);
 		display: grid;
-		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+		font-family:
+			-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 	}
 
 	.gh-head {

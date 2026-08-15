@@ -85,7 +85,11 @@
 		</span>
 	</span>
 
-	<span class="ig-follow__username">
+	<span
+		class="ig-follow__username"
+		data-supers-readable-id="username"
+		data-supers-text-role="overlay-primary"
+	>
 		{content.username}{#if content.verified ?? false}<svg
 				class="ig-follow__verified"
 				viewBox="0 0 24 24"
@@ -106,7 +110,11 @@
 			</svg>{/if}
 	</span>
 	{#if content.name || content.meta}
-		<span class="ig-follow__meta">
+		<span
+			class="ig-follow__meta"
+			data-supers-readable-id="meta"
+			data-supers-text-role="overlay-secondary"
+		>
 			{[content.name, content.meta].filter(Boolean).join(' · ')}
 		</span>
 	{/if}
@@ -117,6 +125,8 @@
 		<span class="ig-follow__state" style:visibility={following ? 'hidden' : undefined}>
 			<span
 				class="ig-follow__button"
+				data-supers-readable-id="follow-action"
+				data-supers-text-role="overlay-secondary"
 				style:scale={pressScale !== 1 && !following ? String(pressScale) : undefined}
 			>
 				Follow
@@ -125,6 +135,8 @@
 		<span class="ig-follow__state" style:visibility={following ? undefined : 'hidden'}>
 			<span
 				class="ig-follow__button ig-follow__button--following"
+				data-supers-readable-id="following-action"
+				data-supers-text-role="overlay-secondary"
 				style:scale={pressScale !== 1 && following ? String(pressScale) : undefined}
 				style:background={morphBg}
 				style:color={morphInk}

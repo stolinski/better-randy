@@ -10,9 +10,17 @@
 
 <aside class="watermark" data-overlay="watermark">
 	<span class="watermark__accent" aria-hidden="true"></span>
-	<span class="watermark__handle">{content.handle}</span>
+	<span
+		class="watermark__handle"
+		data-supers-readable-id="handle"
+		data-supers-text-role="overlay-corner-primary">{content.handle}</span
+	>
 	{#if content.label}
-		<span class="watermark__label">{content.label}</span>
+		<span
+			class="watermark__label"
+			data-supers-readable-id="label"
+			data-supers-text-role="overlay-corner-secondary">{content.label}</span
+		>
 	{/if}
 </aside>
 
@@ -26,8 +34,14 @@
 		grid-template-rows: auto auto;
 		align-items: center;
 		background-color: rgba(10, 10, 10, 0.74);
-		color: var(--ink); /* Q17: sub-maximum contrast against the dark plate (mount-guaranteed, ADR-0024) */
-		padding: var(--pad, calc(2 * var(--cqmin)) calc(2.5 * var(--cqmin)) calc(2 * var(--cqmin)) calc(2.25 * var(--cqmin)));
+		color: var(
+			--ink
+		); /* Q17: sub-maximum contrast against the dark plate (mount-guaranteed, ADR-0024) */
+		padding: var(
+			--pad,
+			calc(2 * var(--cqmin)) calc(2.5 * var(--cqmin)) calc(2 * var(--cqmin))
+				calc(2.25 * var(--cqmin))
+		);
 		font-family: var(--font, 'Inter', 'Helvetica Neue', system-ui, sans-serif);
 		/* Pack FORM dress (ADR-0023 appearance): a Pack may turn the corner chip
 		   into a bezelled terminal status tag (`watermark.border` / `.radius`,
@@ -47,7 +61,10 @@
 
 	.watermark__handle {
 		grid-column: 2;
-		font-family: var(--fontLabel, var(--font, 'SFMono-Regular', Consolas, 'Liberation Mono', monospace));
+		font-family: var(
+			--fontLabel,
+			var(--font, 'SFMono-Regular', Consolas, 'Liberation Mono', monospace)
+		);
 		font-size: calc(3 * var(--cqmin));
 		font-weight: var(--weight, 600);
 		letter-spacing: var(--tracking, normal);

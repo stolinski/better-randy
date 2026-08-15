@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { SurfaceState } from '$lib/platform/engine-schema';
+	import type { DeterministicNonReadableTextReason } from '$lib/platform/pipelines/types';
 
 	import DocumentBody from './DocumentBody.svelte';
 
@@ -25,6 +26,7 @@
 	const metaFontPx = $derived(width * (width > 2200 ? 0.02 : 0.027));
 	const avatarPx = $derived(width * 0.1);
 	const badgePx = $derived(nameFontPx * 1.05);
+	const decorativeSymbolReason: DeterministicNonReadableTextReason = 'decorative-symbol';
 </script>
 
 <!-- X status (Lights Out theme). The only opaque element; the frame around it stays transparent. -->
@@ -49,7 +51,13 @@
 		<span class="x-identity">
 			<span class="x-nameline">
 				{#if displayName}
-					<span class="x-name" style:font-size={`${nameFontPx}px`}>{displayName}</span>
+					<span
+						class="x-name"
+						data-supers-readable-id="surface:web-document:author"
+						data-supers-readable-text={displayName}
+						data-supers-text-role="found-document-metadata"
+						style:font-size={`${nameFontPx}px`}>{displayName}</span
+					>
 				{/if}
 				<svg
 					class="x-badge"
@@ -64,16 +72,39 @@
 				>
 			</span>
 			{#if handle}
-				<span class="x-handle" style:font-size={`${metaFontPx}px`}>{handle}</span>
+				<span
+					class="x-handle"
+					data-supers-readable-id="surface:web-document:source"
+					data-supers-readable-text={handle}
+					data-supers-text-role="found-document-metadata"
+					style:font-size={`${metaFontPx}px`}>{handle}</span
+				>
 			{/if}
 		</span>
-		<span class="x-more" style:font-size={`${nameFontPx}px`} aria-hidden="true">···</span>
+		<span
+			class="x-more"
+			style:font-size={`${nameFontPx}px`}
+			aria-hidden="true"
+			data-supers-non-readable-reason={decorativeSymbolReason}>···</span
+		>
 	</header>
 
-	<DocumentBody body={content.body} fontSize={bodyFontPx} />
+	<DocumentBody
+		body={content.body}
+		fontSize={bodyFontPx}
+		readablePrefix="surface:web-document:body"
+	/>
 
 	{#if timestamp}
-		<div class="x-meta" style:font-size={`${metaFontPx}px`}>{timestamp}</div>
+		<div
+			class="x-meta"
+			data-supers-readable-id="surface:web-document:date-label"
+			data-supers-readable-text={timestamp}
+			data-supers-text-role="found-document-metadata"
+			style:font-size={`${metaFontPx}px`}
+		>
+			{timestamp}
+		</div>
 	{/if}
 </div>
 

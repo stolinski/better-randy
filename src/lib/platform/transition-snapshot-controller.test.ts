@@ -29,7 +29,15 @@ function makePreset(name: string, pack: string, durationSeconds: number): Preset
 }
 
 function makeTransition(from: Preset, to: Preset): ResolvedTransition {
-	return { from, to, effect: 'mask-wipe', durationMs: 1_000, params: {} };
+	return {
+		fromSlug: 'from',
+		toSlug: 'to',
+		from,
+		to,
+		effect: 'mask-wipe',
+		durationMs: 1_000,
+		params: {}
+	};
 }
 
 function clonePreset(preset: Preset): Preset {

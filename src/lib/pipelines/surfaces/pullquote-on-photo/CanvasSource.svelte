@@ -34,6 +34,8 @@
 			<blockquote
 				class="pullquote-source__quote"
 				data-text-anim-slot="title"
+				data-supers-readable-id="surface:pullquote-on-photo:title"
+				data-supers-text-role="surface-title"
 				style:font-size={`${frame.width * 0.034}px`}
 			>
 				{content.title}
@@ -46,6 +48,8 @@
 			<cite
 				class="pullquote-source__attribution"
 				data-text-anim-slot="author"
+				data-supers-readable-id="surface:pullquote-on-photo:author"
+				data-supers-text-role="surface-label"
 				style:font-size={`${frame.width * 0.0125}px`}
 			>
 				{content.author}
@@ -123,7 +127,7 @@
 		letter-spacing: var(--tracking, 0.24em);
 		position: absolute;
 		text-align: end;
-		text-shadow: 0 0.04em 0.10em rgba(0, 0, 0, 0.8);
+		text-shadow: 0 0.04em 0.1em rgba(0, 0, 0, 0.8);
 		text-transform: var(--case, uppercase);
 	}
 </style>
