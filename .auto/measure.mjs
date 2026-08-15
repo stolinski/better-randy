@@ -1,4 +1,4 @@
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { performance } from 'node:perf_hooks';
 
 const baseUrl = 'http://localhost:7263';
@@ -88,6 +88,56 @@ try {
   await Promise.all(stressOperations);
 } finally {
   const cleanupResponse = await fetch(`${baseUrl}/api/user-compositions/${probeSlug}`, { method: 'DELETE' });
+  if (!cleanupResponse.ok) operationFailures++;
+}
+
+// A broken optional User override must not make its valid built-in Preset unavailable.
+// Select a disposable built-in slug without an existing override, publish it through
+// the real API so the filename index stays authoritative, then corrupt only its file.
+const metadataResponse = await fetch(`${baseUrl}/api/user-compositions?view=cards`);
+if (!metadataResponse.ok) throw new Error(`Fault probe metadata failed: ${metadataResponse.status}`);
+const userCompositionMetadata = await metadataResponse.json();
+const occupiedSlugs = new Set(userCompositionMetadata.map((entry) => entry.slug));
+const corruptOverrideSlug = names.find((slug) => !occupiedSlugs.has(slug));
+if (!corruptOverrideSlug) throw new Error('No disposable built-in slug is available for fault probing.');
+const corruptOverridePreset = JSON.parse(
+  await readFile(new URL(`../src/lib/presets/${corruptOverrideSlug}.json`, import.meta.url), 'utf8')
+);
+const corruptSetupResponse = await fetch(`${baseUrl}/api/user-compositions`, {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({
+    slug: corruptOverrideSlug,
+    preset: corruptOverridePreset,
+    forkedFrom: corruptOverrideSlug
+  })
+});
+if (!corruptSetupResponse.ok) {
+  throw new Error(`Corrupt override setup failed: ${corruptSetupResponse.status}`);
+}
+try {
+  await writeFile(
+    new URL(`../user-compositions/${corruptOverrideSlug}.json`, import.meta.url),
+    '{"truncated":',
+    'utf8'
+  );
+  const path = `/p/${encodeURIComponent(corruptOverrideSlug)}`;
+  const started = performance.now();
+  try {
+    const response = await fetch(`${baseUrl}${path}`, {
+      headers: { accept: 'text/html', 'user-agent': 'supers-autoresearch-preset-load/1' },
+      signal: AbortSignal.timeout(10_000)
+    });
+    const body = await response.text();
+    const broken = !response.ok || body.includes("Couldn't load composition") || body.includes('Preset not found');
+    results.push({ path, ms: performance.now() - started, broken, status: response.status });
+  } catch (error) {
+    results.push({ path, ms: performance.now() - started, broken: true, status: 0, error: String(error) });
+  }
+} finally {
+  const cleanupResponse = await fetch(`${baseUrl}/api/user-compositions/${corruptOverrideSlug}`, {
+    method: 'DELETE'
+  });
   if (!cleanupResponse.ok) operationFailures++;
 }
 
