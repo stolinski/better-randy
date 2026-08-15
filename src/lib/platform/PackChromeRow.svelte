@@ -2,8 +2,8 @@
 	import { engineState, packState, addEffect, removeEffect } from './engine-state.svelte';
 	import type { Effect } from './engine-schema';
 	import { PACK_REGISTRY } from './packs/registry';
-	import { PIPELINE_REGISTRY } from './pipelines';
-	import type { EffectRenderer } from './pipelines/types';
+	import { getEffectDefinition } from './pipelines/definition-registry';
+	import { getPipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 
 	// One Pack-chrome entry: present in the render, owned by the Pack — tagged,
 	// not removable (swap the Pack and it goes with it). The Pack supplies
@@ -16,11 +16,9 @@
 
 	let { entry }: Props = $props();
 
-	const renderer = $derived(
-		(Object.values(PIPELINE_REGISTRY.effects) as EffectRenderer[]).find(
-			(candidate) => candidate.type === entry.type
-		) ?? null
-	);
+	const rendererController = getPipelineRendererRuntime();
+	const definition = $derived(getEffectDefinition(entry.type));
+	const renderer = $derived(rendererController.current().effects.get(entry.type) ?? null);
 	const override = $derived(engineState.effects.find((effect) => effect.type === entry.type));
 
 	// Materialize-on-first-write model for an un-overridden chrome entry: the
@@ -50,20 +48,20 @@
 	}
 </script>
 
-{#if renderer}
+{#if renderer && definition}
 	<div
 		class="layer-row"
 		title={override
 			? `Overriding the ${PACK_REGISTRY[packState.slug]?.label ?? packState.slug} pack's chrome — × restores the pack default`
 			: `${PACK_REGISTRY[packState.slug]?.label ?? packState.slug} pack chrome (opaque pieces) — edits become a composition override`}
 	>
-		<span class="layer-row__label">{renderer.label}</span>
+		<span class="layer-row__label">{definition.label}</span>
 		<span class="layer-row__pack-tag">{override ? 'pack · overridden' : 'pack'}</span>
 		{#if override}
 			<button
 				type="button"
 				class="remove-btn"
-				aria-label={`Remove ${renderer.label} override`}
+				aria-label={`Remove ${definition.label} override`}
 				onclick={() => removeEffect(override.id)}>×</button
 			>
 		{/if}

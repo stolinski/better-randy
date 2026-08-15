@@ -15,6 +15,7 @@ import {
 } from './engine-schema';
 import { cloneOverlayPlacement } from '../utils/overlay-placement';
 import { cloneJsonValue } from '../utils/json-clone';
+import { getPresetBySlug } from './preset-catalog';
 import {
 	engineState,
 	packState,
@@ -22,116 +23,7 @@ import {
 	type ResolvedTransition
 } from './engine-state.svelte';
 import { applyPresetBase } from './preset-base.svelte';
-import { PresetIngressSchema } from './preset-ingress';
-import { isTransitionEffectType } from './pipelines/transition-registry';
-import { formatPresetSemanticIssues, validatePresetSemantics } from './preset-validation';
-
-export interface CataloguedPreset {
-	slug: string;
-	preset: Preset;
-}
-
-const presetModules = import.meta.glob<{ default: unknown }>('$lib/presets/*.json', {
-	eager: true
-});
-
-const SCHEMA_VALID_CATALOG: CataloguedPreset[] = Object.entries(presetModules)
-	.map<CataloguedPreset | null>(([path, module]) => {
-		const slug = path
-			.split('/')
-			.pop()
-			?.replace(/\.json$/, '');
-
-		if (!slug) {
-			return null;
-		}
-
-		const result = PresetIngressSchema.safeParse(module.default);
-
-		if (!result.success) {
-			console.error(`Invalid built-in preset at ${path}.`, result.error);
-			return null;
-		}
-
-		const semanticIssues = validatePresetSemantics(result.data);
-		if (semanticIssues.length > 0) {
-			console.error(
-				`Invalid built-in preset at ${path}:\n${formatPresetSemanticIssues(semanticIssues)}`
-			);
-			return null;
-		}
-
-		return { slug, preset: result.data };
-	})
-	.filter((entry): entry is CataloguedPreset => entry !== null)
-	.sort((a, b) => a.preset.name.localeCompare(b.preset.name));
-
-// Transition recipes (ADR-0022) reference other Presets by slug, so they can
-// only be validated once every schema-valid Preset is resolvable. Second pass:
-// resolve `from`/`to` against the schema-valid set and drop any Preset whose
-// transition is invalid (unknown slug, unregistered effect, or a transition
-// type leaking into the ordinary effects chain).
-const SCHEMA_VALID_BY_SLUG = new Map(
-	SCHEMA_VALID_CATALOG.map((entry) => [entry.slug, entry.preset])
-);
-
-const PRESET_CATALOG: CataloguedPreset[] = SCHEMA_VALID_CATALOG.filter((entry) => {
-	const semanticIssues = validatePresetSemantics(entry.preset, {
-		resolvePreset: (slug) => SCHEMA_VALID_BY_SLUG.get(slug) ?? null
-	});
-	if (semanticIssues.length > 0) {
-		console.error(
-			`Invalid built-in preset "${entry.slug}":\n${formatPresetSemanticIssues(semanticIssues)}`
-		);
-		return false;
-	}
-	return true;
-});
-
-// Resolves every Preset (fixtures included) so demo / test / showcase
-// fixtures stay loadable by URL during development.
-const PRESET_BY_SLUG = new Map(PRESET_CATALOG.map((entry) => [entry.slug, entry.preset]));
-
-// The catalog (app preset list) is deliverables only — fixtures are
-// schema-valid but not shippable, so they are excluded here.
-const DELIVERABLE_CATALOG = PRESET_CATALOG.filter((entry) => entry.preset.kind !== 'fixture');
-
-// Fixtures (engine demos / verification / showcase) — schema-valid and loadable
-// by URL, but not shippable deliverables. Listed separately so demos like the
-// dimensional depth stage stay discoverable from the index without mixing into
-// the deliverables list.
-const FIXTURE_CATALOG = PRESET_CATALOG.filter((entry) => entry.preset.kind === 'fixture');
-
-export function listPresets(): readonly CataloguedPreset[] {
-	return DELIVERABLE_CATALOG;
-}
-
-export function listFixtures(): readonly CataloguedPreset[] {
-	return FIXTURE_CATALOG;
-}
-
-export function getPresetBySlug(slug: string): Preset | null {
-	return PRESET_BY_SLUG.get(slug) ?? null;
-}
-
-export function parsePreset(json: unknown): Preset {
-	const result = PresetIngressSchema.safeParse(json);
-
-	if (!result.success) {
-		const issues = result.error.issues
-			.map((issue) => `${issue.path.join('.') || '<root>'}: ${issue.message}`)
-			.join('\n');
-
-		throw new Error(`Invalid Supers preset:\n${issues}`);
-	}
-
-	const semanticIssues = validatePresetSemantics(result.data, { resolvePreset: getPresetBySlug });
-	if (semanticIssues.length > 0) {
-		throw new Error(`Invalid Supers preset:\n${formatPresetSemanticIssues(semanticIssues)}`);
-	}
-
-	return result.data;
-}
+import { isTransitionEffectType } from './pipelines/transition-definition-registry';
 
 function cloneCascadeAnchor(anchor: CascadeAnchor): CascadeAnchor {
 	if (anchor === 'surface') {

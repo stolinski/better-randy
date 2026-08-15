@@ -1,70 +1,14 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
-import { boxAnnotationRenderer } from '$lib/pipelines/annotations/box';
-import { circleAnnotationRenderer } from '$lib/pipelines/annotations/circle';
-import { highlightAnnotationRenderer } from '$lib/pipelines/annotations/highlight';
-import { isolateAnnotationRenderer } from '$lib/pipelines/annotations/isolate';
-import { liftOutAnnotationRenderer } from '$lib/pipelines/annotations/lift-out';
-import { magnifyAnnotationRenderer } from '$lib/pipelines/annotations/magnify';
-import { sideNoteAnnotationRenderer } from '$lib/pipelines/annotations/side-note';
-import { strikeAnnotationRenderer } from '$lib/pipelines/annotations/strike';
-import { tearOutAnnotationRenderer } from '$lib/pipelines/annotations/tear-out';
-import { underlineAnnotationRenderer } from '$lib/pipelines/annotations/underline';
-import { barChartBlockRenderer } from '$lib/pipelines/blocks/bar-chart';
-import { columnChartBlockRenderer } from '$lib/pipelines/blocks/column-chart';
-import { dotFieldChartBlockRenderer } from '$lib/pipelines/blocks/dot-field-chart';
-import { edgeArrowBlockRenderer } from '$lib/pipelines/blocks/edge-arrow';
-import { labelBlockRenderer } from '$lib/pipelines/blocks/label';
-import { nodeBlockRenderer } from '$lib/pipelines/blocks/node';
-import { paragraphBlockRenderer } from '$lib/pipelines/blocks/paragraph';
-import { statCalloutBlockRenderer } from '$lib/pipelines/blocks/stat-callout';
-import { timelineSegmentBlockRenderer } from '$lib/pipelines/blocks/timeline-segment';
-import { unitGridChartBlockRenderer } from '$lib/pipelines/blocks/unit-grid-chart';
-import { chromaticAberrationEffectRenderer } from '$lib/pipelines/effects/chromatic-aberration';
-import { clothBendEffectRenderer } from '$lib/pipelines/effects/cloth-bend';
-import { crtScreenEffectRenderer } from '$lib/pipelines/effects/crt-screen';
-import { crtTubeEffectRenderer } from '$lib/pipelines/effects/crt-tube';
-import { ditheringEffectRenderer } from '$lib/pipelines/effects/dithering';
-import { flutedGlassEffectRenderer } from '$lib/pipelines/effects/fluted-glass';
-import { fluidRippleEffectRenderer } from '$lib/pipelines/effects/fluid-ripple';
-import { frostedGlassEffectRenderer } from '$lib/pipelines/effects/frosted-glass';
-import { halftoneCmykEffectRenderer } from '$lib/pipelines/effects/halftone-cmyk';
-import { halftoneDotsEffectRenderer } from '$lib/pipelines/effects/halftone-dots';
-import { heatmapEffectRenderer } from '$lib/pipelines/effects/heatmap';
-import { ntscSignalEffectRenderer } from '$lib/pipelines/effects/ntsc-signal';
-import { paperGrainEffectRenderer } from '$lib/pipelines/effects/paper-grain';
-import { refractiveLensEffectRenderer } from '$lib/pipelines/effects/refractive-lens';
-import { tiledDeformationEffectRenderer } from '$lib/pipelines/effects/tiled-deformation';
-import { waterEffectRenderer } from '$lib/pipelines/effects/water';
-import { achievementOverlayRenderer } from '$lib/pipelines/overlays/achievement';
-import { counterOverlayRenderer } from '$lib/pipelines/overlays/counter';
-import { cursorTrailOverlayRenderer } from '$lib/pipelines/overlays/cursor-trail';
-import { instagramFollowOverlayRenderer } from '$lib/pipelines/overlays/instagram-follow';
-import { instanceStackOverlayRenderer } from '$lib/pipelines/overlays/instance-stack';
-import { lowerThirdOverlayRenderer } from '$lib/pipelines/overlays/lower-third';
-import { shaderFillOverlayRenderer } from '$lib/pipelines/overlays/shader-fill';
-import { sourceUrlOverlayRenderer } from '$lib/pipelines/overlays/source-url';
-import { text3dOverlayRenderer } from '$lib/pipelines/overlays/text-3d';
-import { tweetStackOverlayRenderer } from '$lib/pipelines/overlays/tweet-stack';
-import { washiTapeOverlayRenderer } from '$lib/pipelines/overlays/washi-tape';
-import { watermarkOverlayRenderer } from '$lib/pipelines/overlays/watermark';
-import { youtubeSubscribeOverlayRenderer } from '$lib/pipelines/overlays/youtube-subscribe';
-import { chapterCardSurfaceRenderer } from '$lib/pipelines/surfaces/chapter-card';
-import { checklistSurfaceRenderer } from '$lib/pipelines/surfaces/checklist';
-import { imessageSurfaceRenderer } from '$lib/pipelines/surfaces/imessage';
-import { newspaperSurfaceRenderer } from '$lib/pipelines/surfaces/newspaper';
-import { paperSurfaceRenderer } from '$lib/pipelines/surfaces/paper';
-import { plainSurfaceRenderer } from '$lib/pipelines/surfaces/plain';
-import { pullquoteOnPhotoSurfaceRenderer } from '$lib/pipelines/surfaces/pullquote-on-photo';
-import { titleSequenceSurfaceRenderer } from '$lib/pipelines/surfaces/title-sequence';
-import { typeHeroSurfaceRenderer } from '$lib/pipelines/surfaces/type-hero';
-import { webDocumentSurfaceRenderer } from '$lib/pipelines/surfaces/web-document';
-import { websiteScreenshotSurfaceRenderer } from '$lib/pipelines/surfaces/website-screenshot';
 import { syntaxPack } from '$lib/packs/syntax/manifest';
 import { PACK_REGISTRY } from '$lib/platform/packs/registry';
-
-import { PIPELINE_REGISTRY, REGISTERED_BLOCK_TYPES, resolveSurfaceTypographyColors } from './index';
+import {
+	PIPELINE_DEFINITION_REGISTRY,
+	REGISTERED_BLOCK_TYPES,
+	getOverlayDefinition,
+	resolveSurfaceTypographyColors
+} from './definition-registry';
 import {
 	IDENTITY_REGISTRY,
 	PACK_IMMUNE_PIPELINE_KEYS,
@@ -139,93 +83,14 @@ const EXPECTED_PIPELINE_TYPE_IDS = [
 	'heatmap'
 ] as const;
 
-describe('Pipeline Registry', () => {
-	it('wires each Layer key to its qualified renderer export', () => {
-		assert.strictEqual(PIPELINE_REGISTRY.surfaces.paper, paperSurfaceRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.surfaces.plain, plainSurfaceRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.surfaces.newspaper, newspaperSurfaceRenderer);
-		assert.strictEqual(
-			PIPELINE_REGISTRY.surfaces.pullquoteOnPhoto,
-			pullquoteOnPhotoSurfaceRenderer
-		);
-		assert.strictEqual(PIPELINE_REGISTRY.surfaces.chapterCard, chapterCardSurfaceRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.surfaces.titleSequence, titleSequenceSurfaceRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.surfaces.typeHero, typeHeroSurfaceRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.surfaces.webDocument, webDocumentSurfaceRenderer);
-		assert.strictEqual(
-			PIPELINE_REGISTRY.surfaces.websiteScreenshot,
-			websiteScreenshotSurfaceRenderer
-		);
-		assert.strictEqual(PIPELINE_REGISTRY.surfaces.imessage, imessageSurfaceRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.surfaces.checklist, checklistSurfaceRenderer);
-
-		assert.strictEqual(PIPELINE_REGISTRY.blocks.paragraph, paragraphBlockRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.blocks.node, nodeBlockRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.blocks.edgeArrow, edgeArrowBlockRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.blocks.label, labelBlockRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.blocks.statCallout, statCalloutBlockRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.blocks.timelineSegment, timelineSegmentBlockRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.blocks.barChart, barChartBlockRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.blocks.columnChart, columnChartBlockRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.blocks.unitGridChart, unitGridChartBlockRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.blocks.dotFieldChart, dotFieldChartBlockRenderer);
-
-		assert.strictEqual(PIPELINE_REGISTRY.annotations.highlight, highlightAnnotationRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.annotations.underline, underlineAnnotationRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.annotations.strike, strikeAnnotationRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.annotations.circle, circleAnnotationRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.annotations.box, boxAnnotationRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.annotations.sideNote, sideNoteAnnotationRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.annotations.magnify, magnifyAnnotationRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.annotations.liftOut, liftOutAnnotationRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.annotations.tearOut, tearOutAnnotationRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.annotations.isolate, isolateAnnotationRenderer);
-
-		assert.strictEqual(PIPELINE_REGISTRY.overlays.lowerThird, lowerThirdOverlayRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.overlays.washiTape, washiTapeOverlayRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.overlays.watermark, watermarkOverlayRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.overlays.shaderFill, shaderFillOverlayRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.overlays.cursorTrail, cursorTrailOverlayRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.overlays.counter, counterOverlayRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.overlays.instanceStack, instanceStackOverlayRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.overlays.text3d, text3dOverlayRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.overlays.tweetStack, tweetStackOverlayRenderer);
-		assert.strictEqual(
-			PIPELINE_REGISTRY.overlays.youtubeSubscribe,
-			youtubeSubscribeOverlayRenderer
-		);
-		assert.strictEqual(PIPELINE_REGISTRY.overlays.instagramFollow, instagramFollowOverlayRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.overlays.achievement, achievementOverlayRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.overlays.sourceUrl, sourceUrlOverlayRenderer);
-
-		assert.strictEqual(PIPELINE_REGISTRY.effects.paperGrain, paperGrainEffectRenderer);
-		assert.strictEqual(
-			PIPELINE_REGISTRY.effects.chromaticAberration,
-			chromaticAberrationEffectRenderer
-		);
-		assert.strictEqual(PIPELINE_REGISTRY.effects.crtScreen, crtScreenEffectRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.effects.crtTube, crtTubeEffectRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.effects.ntscSignal, ntscSignalEffectRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.effects.dithering, ditheringEffectRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.effects.halftoneDots, halftoneDotsEffectRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.effects.halftoneCmyk, halftoneCmykEffectRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.effects.water, waterEffectRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.effects.flutedGlass, flutedGlassEffectRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.effects.refractiveLens, refractiveLensEffectRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.effects.frostedGlass, frostedGlassEffectRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.effects.fluidRipple, fluidRippleEffectRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.effects.clothBend, clothBendEffectRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.effects.tiledDeformation, tiledDeformationEffectRenderer);
-		assert.strictEqual(PIPELINE_REGISTRY.effects.heatmap, heatmapEffectRenderer);
-	});
-
+describe('Pipeline Definition Registry', () => {
 	it('keeps the complete registered Pipeline type-id set unique', () => {
 		const typeIds = [
-			...Object.values(PIPELINE_REGISTRY.surfaces).map((renderer) => renderer.type),
-			...Object.values(PIPELINE_REGISTRY.blocks).map((renderer) => renderer.type),
-			...Object.values(PIPELINE_REGISTRY.annotations).map((renderer) => renderer.style),
-			...Object.values(PIPELINE_REGISTRY.overlays).map((renderer) => renderer.type),
-			...Object.values(PIPELINE_REGISTRY.effects).map((renderer) => renderer.type)
+			...Object.values(PIPELINE_DEFINITION_REGISTRY.surfaces).map((renderer) => renderer.type),
+			...Object.values(PIPELINE_DEFINITION_REGISTRY.blocks).map((renderer) => renderer.type),
+			...Object.values(PIPELINE_DEFINITION_REGISTRY.annotations).map((renderer) => renderer.style),
+			...Object.values(PIPELINE_DEFINITION_REGISTRY.overlays).map((renderer) => renderer.type),
+			...Object.values(PIPELINE_DEFINITION_REGISTRY.effects).map((renderer) => renderer.type)
 		];
 
 		assert.deepEqual(typeIds.toSorted(), EXPECTED_PIPELINE_TYPE_IDS.toSorted());
@@ -248,22 +113,47 @@ describe('Pipeline Registry', () => {
 		);
 	});
 
+	it('validates definition-owned defaults without loading runtime renderers', () => {
+		for (const definition of Object.values(PIPELINE_DEFINITION_REGISTRY.surfaces)) {
+			assert.equal(definition.defaults().type, definition.type);
+		}
+		for (const definition of Object.values(PIPELINE_DEFINITION_REGISTRY.overlays)) {
+			assert.equal(definition.schema.safeParse(definition.defaults().content).success, true);
+		}
+		for (const definition of Object.values(PIPELINE_DEFINITION_REGISTRY.effects)) {
+			assert.equal(
+				definition.schema.safeParse({
+					type: definition.type,
+					id: `${definition.type}-default`,
+					params: definition.defaults().params
+				}).success,
+				true
+			);
+		}
+	});
+
 	it('marks only plate-less display Overlays as field-ink consumers', () => {
-		assert.equal(counterOverlayRenderer.fieldInkOnBackground, true);
-		assert.equal(instanceStackOverlayRenderer.fieldInkOnBackground, true);
-		assert.equal(text3dOverlayRenderer.fieldInkOnBackground, true);
-		assert.equal(lowerThirdOverlayRenderer.fieldInkOnBackground, undefined);
-		assert.equal(sourceUrlOverlayRenderer.fieldInkOnBackground, undefined);
+		assert.equal(PIPELINE_DEFINITION_REGISTRY.overlays.counter.fieldInkOnBackground, true);
+		assert.equal(PIPELINE_DEFINITION_REGISTRY.overlays.instanceStack.fieldInkOnBackground, true);
+		assert.equal(PIPELINE_DEFINITION_REGISTRY.overlays.text3d.fieldInkOnBackground, true);
+		assert.equal(getOverlayDefinition('lower-third')?.fieldInkOnBackground, undefined);
+		assert.equal(getOverlayDefinition('source-url')?.fieldInkOnBackground, undefined);
 	});
 
 	it('keeps every visible registered Pipeline paired with a valid Identity Spec', () => {
 		const registeredIdentityKeys = [
-			...Object.values(PIPELINE_REGISTRY.surfaces).map((renderer) => `surface:${renderer.type}`),
-			...Object.values(PIPELINE_REGISTRY.blocks).map((renderer) => `block:${renderer.type}`),
-			...Object.values(PIPELINE_REGISTRY.annotations).map(
+			...Object.values(PIPELINE_DEFINITION_REGISTRY.surfaces).map(
+				(renderer) => `surface:${renderer.type}`
+			),
+			...Object.values(PIPELINE_DEFINITION_REGISTRY.blocks).map(
+				(renderer) => `block:${renderer.type}`
+			),
+			...Object.values(PIPELINE_DEFINITION_REGISTRY.annotations).map(
 				(renderer) => `annotation:${renderer.style}`
 			),
-			...Object.values(PIPELINE_REGISTRY.overlays).map((renderer) => `overlay:${renderer.type}`)
+			...Object.values(PIPELINE_DEFINITION_REGISTRY.overlays).map(
+				(renderer) => `overlay:${renderer.type}`
+			)
 		];
 		const pipelineIdentityKeys = Object.keys(IDENTITY_REGISTRY).filter(
 			(key) => key !== 'captions:track'

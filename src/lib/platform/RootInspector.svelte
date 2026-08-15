@@ -1,8 +1,11 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
+
 	import { engineState, packState } from './engine-state.svelte';
 	import { getPack, PACK_REGISTRY } from './packs/registry';
 	import { resolveBackgroundFill } from './packs/resolve';
 	import { presetBase } from './preset-base.svelte';
+	import { getPipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 	import { compositionMeta } from './composition-meta.svelte';
 	import {
 		rescaleCompositionTimings,
@@ -17,8 +20,72 @@
 	import Field from './Field.svelte';
 	import MarkDefaultsSection from './MarkDefaultsSection.svelte';
 	import TransitionRecipeSection from './TransitionRecipeSection.svelte';
+	import { AsyncAuthoringOperationGuard } from '$lib/utils/async-authoring-operation';
 
 	const packOptions = Object.entries(PACK_REGISTRY) as [string, (typeof PACK_REGISTRY)[string]][];
+	const rendererController = getPipelineRendererRuntime();
+	const rendererChangeGuard = new AsyncAuthoringOperationGuard();
+	onDestroy(() => rendererChangeGuard.dispose());
+
+	async function ensurePackChromeEffectRenderers(
+		pack: (typeof PACK_REGISTRY)[string],
+		generation: number
+	): Promise<boolean> {
+		const chromeRole = pack.roles.chrome;
+		if (chromeRole?.kind !== 'chrome') return true;
+		for (const effect of chromeRole.effects) {
+			await rendererController.ensureEffect(effect.type);
+			if (!rendererChangeGuard.isCurrent(generation)) return false;
+		}
+		return true;
+	}
+
+	async function handlePackChange(event: Event): Promise<void> {
+		const select = event.currentTarget as HTMLSelectElement;
+		const slug = select.value;
+		const previousSlug = packState.slug;
+		const pack = PACK_REGISTRY[slug];
+		if (!pack || slug === previousSlug) {
+			select.value = previousSlug;
+			return;
+		}
+		const generation = rendererChangeGuard.begin();
+		try {
+			if (
+				engineState.backgroundFill &&
+				!(await ensurePackChromeEffectRenderers(pack, generation))
+			) {
+				return;
+			}
+			if (!rendererChangeGuard.isCurrent(generation) || packState.slug !== previousSlug) return;
+			packState.slug = slug;
+		} catch (cause) {
+			if (rendererChangeGuard.isCurrent(generation)) select.value = packState.slug;
+			console.error('Failed to load Pack Effect renderers.', { pack: slug, cause });
+		}
+	}
+
+	async function handleBackgroundFillToggle(checked: boolean): Promise<void> {
+		const previousFill = engineState.backgroundFill;
+		const generation = rendererChangeGuard.begin();
+		try {
+			if (
+				checked &&
+				!(await ensurePackChromeEffectRenderers(getPack(packState.slug), generation))
+			) {
+				return;
+			}
+			if (
+				!rendererChangeGuard.isCurrent(generation) ||
+				engineState.backgroundFill !== previousFill
+			) {
+				return;
+			}
+			engineState.backgroundFill = checked ? 'pack' : undefined;
+		} catch (cause) {
+			console.error('Failed to load background Effect renderers.', { checked, cause });
+		}
+	}
 
 	// ---- Composition metadata (presetBase) ----
 
@@ -50,10 +117,12 @@
 	// wins over the Pack); × restores the pack-field sentinel — the same
 	// override model as pack chrome (PackChromeRow).
 	function setExplicitBackgroundFill(event: Event): void {
+		rendererChangeGuard.supersede();
 		engineState.backgroundFill = (event.currentTarget as HTMLInputElement).value;
 	}
 
 	function restorePackBackgroundFill(): void {
+		rendererChangeGuard.supersede();
 		engineState.backgroundFill = 'pack';
 	}
 
@@ -131,7 +200,7 @@
 
 	<InspectorSection label="Pack" summary={PACK_REGISTRY[packState.slug]?.label ?? packState.slug}>
 		<Field label="Pack">
-			<select bind:value={packState.slug}>
+			<select value={packState.slug} onchange={handlePackChange}>
 				{#each packOptions as [slug, pack] (slug)}
 					<option value={slug}>{pack.label}</option>
 				{/each}
@@ -147,18 +216,12 @@
 				checked={engineState.backgroundFill !== undefined}
 				label="Background fill"
 				disabled={engineState.media.videoTrack.clips.length > 0}
-				onchange={(checked) => {
-					engineState.backgroundFill = checked ? 'pack' : undefined;
-				}}
+				onchange={handleBackgroundFillToggle}
 			/>
 		{/snippet}
 		{#if engineState.backgroundFill !== undefined}
 			<Field label="Fill">
-				<input
-					type="color"
-					value={resolvedBackgroundFillHex}
-					oninput={setExplicitBackgroundFill}
-				/>
+				<input type="color" value={resolvedBackgroundFillHex} oninput={setExplicitBackgroundFill} />
 				{#if engineState.backgroundFill === 'pack'}
 					<span
 						class="fill-pack-tag"

@@ -6,7 +6,8 @@ import blankPresetJson from '$lib/presets/blank.json';
 
 import { engineState } from './engine-state.svelte';
 import { PresetSchema } from './engine-schema';
-import { applyPreset, parsePreset } from './preset';
+import { parsePreset } from './preset-parser';
+import { applyPreset } from './preset';
 import { presetToWireFormat, serializeCompositionState } from './preset-pure';
 
 describe('applyPreset', () => {

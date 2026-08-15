@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { Component } from 'svelte';
+
 	import { animState, type OverlayChannelValues } from './anim-state.svelte';
 	import { engineState, packState } from './engine-state.svelte';
 	import { getPack } from './packs/registry';
@@ -12,9 +14,8 @@
 		resolveTypographyColors
 	} from './packs/resolve';
 	import { ENGINE_FONT_FAMILIES, type DiagramPrimitive } from './engine-schema';
-	import LabelSource from '$lib/pipelines/blocks/label/CanvasSource.svelte';
-	import NodeSource from '$lib/pipelines/blocks/node/CanvasSource.svelte';
-	import StatCalloutSource from '$lib/pipelines/blocks/stat-callout/CanvasSource.svelte';
+	import { getPipelineRendererRuntime } from './pipelines/runtime-context.svelte';
+	import { requireLoadedBlockRenderer } from './pipelines/runtime-loader';
 	import { isDarkSurfaceColor } from '$lib/utils/color';
 	import { resolveDiagramPrimitiveForRender } from '$lib/utils/diagram-geometry';
 
@@ -26,6 +27,23 @@
 	// diagram parallaxes with the surface it annotates, never with overlays.
 	// Stroke primitives (edge-arrow, the segment's rule) render in the pipelines'
 	// marks canvas, not here.
+
+	const rendererController = getPipelineRendererRuntime();
+
+	function getDiagramCanvasSource(
+		primitive: DiagramPrimitive
+	): Component<{ block: DiagramPrimitive }> | null {
+		// Every authored primitive requires its renderer, including GPU-only strokes.
+		rendererController.current();
+		const CanvasSource = requireLoadedBlockRenderer(primitive.type).CanvasSource;
+		if (
+			!CanvasSource &&
+			(primitive.type === 'node' || primitive.type === 'label' || primitive.type === 'stat-callout')
+		) {
+			throw new Error(`Required diagram Block renderer "${primitive.type}" has no CanvasSource.`);
+		}
+		return (CanvasSource ?? null) as Component<{ block: DiagramPrimitive }> | null;
+	}
 
 	const primitives = $derived(
 		(engineState.surface.diagram ?? []).map((primitive) =>
@@ -212,6 +230,7 @@
 		style:text-shadow={textGuard}
 	>
 		{#each primitives as primitive (primitive.id)}
+			{@const PrimitiveSource = getDiagramCanvasSource(primitive)}
 			{#if primitive.type !== 'edge-arrow'}
 				{@const channels = channelsFor(primitive)}
 				{#if primitive.type !== 'timeline-segment' || primitive.label}
@@ -223,13 +242,9 @@
 							? channelStyle(channels)
 							: intrinsicStyle(primitive)};{appearanceStyle(primitive)}"
 					>
-						{#if primitive.type === 'node'}
-							<NodeSource block={primitive} />
-						{:else if primitive.type === 'label'}
-							<LabelSource block={primitive} />
-						{:else if primitive.type === 'stat-callout'}
-							<StatCalloutSource block={primitive} />
-						{:else}
+						{#if (primitive.type === 'node' || primitive.type === 'label' || primitive.type === 'stat-callout') && PrimitiveSource}
+							<PrimitiveSource block={primitive} />
+						{:else if primitive.type === 'timeline-segment'}
 							<span class="diagram-mount__segment-label" data-diagram-text-role="caption"
 								>{primitive.label}</span
 							>

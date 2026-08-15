@@ -3,13 +3,17 @@ import type { z } from 'zod';
 import { validateChartGroupSemantics } from './chart-validation';
 import type { Preset } from './engine-schema';
 import { PACK_REGISTRY } from './packs/registry';
-import { PIPELINE_REGISTRY, getSurfaceRenderer } from './pipelines';
+import {
+	getEffectDefinition,
+	getOverlayDefinition,
+	getSurfaceDefinition
+} from './pipelines/definition-registry';
 import { getCompositionEffectRegistration } from './pipelines/composition-effect-registry';
 import { getStageRegistration } from './pipelines/stage-registry';
 import {
-	getTransitionEffectRenderer,
+	getTransitionEffectDefinition,
 	isTransitionEffectType
-} from './pipelines/transition-registry';
+} from './pipelines/transition-definition-registry';
 import { isSubstrateAsset } from './substrate-textures';
 import { resolveFrameRate, secondsToFrames } from '../utils/composition-timing';
 import { normalizeWebsiteCaptureUrl } from '../utils/website-showcase';
@@ -128,22 +132,22 @@ function validatePackSemantics(preset: Preset, issues: PresetSemanticIssue[]): v
 }
 
 function validateSurfaceSemantics(preset: Preset, issues: PresetSemanticIssue[]): void {
-	const surfaceRenderer = getSurfaceRenderer(preset.state.surface.type);
-	if (!surfaceRenderer) {
+	const surfaceDefinition = getSurfaceDefinition(preset.state.surface.type);
+	if (!surfaceDefinition) {
 		issues.push({
 			path: ['state', 'surface', 'type'],
 			message: `Unknown Surface type "${preset.state.surface.type}"`
 		});
 	} else if (preset.state.surface.variant !== undefined) {
-		if (!surfaceRenderer.variantIds) {
+		if (!surfaceDefinition.variantIds) {
 			issues.push({
 				path: ['state', 'surface', 'variant'],
-				message: `Surface "${surfaceRenderer.type}" does not support variants`
+				message: `Surface "${surfaceDefinition.type}" does not support variants`
 			});
-		} else if (!surfaceRenderer.variantIds.includes(preset.state.surface.variant)) {
+		} else if (!surfaceDefinition.variantIds.includes(preset.state.surface.variant)) {
 			issues.push({
 				path: ['state', 'surface', 'variant'],
-				message: `Unknown variant "${preset.state.surface.variant}" for Surface "${surfaceRenderer.type}". Registered variants: ${surfaceRenderer.variantIds.join(', ')}`
+				message: `Unknown variant "${preset.state.surface.variant}" for Surface "${surfaceDefinition.type}". Registered variants: ${surfaceDefinition.variantIds.join(', ')}`
 			});
 		}
 	}
@@ -184,17 +188,15 @@ function validateOverlaySemantics(preset: Preset, issues: PresetSemanticIssue[])
 	const overlayIds = new Set<string>();
 	for (const [index, overlay] of preset.state.overlays.entries()) {
 		overlayIds.add(overlay.id);
-		const renderer = Object.values(PIPELINE_REGISTRY.overlays).find(
-			(candidate) => candidate.type === overlay.type
-		);
-		if (!renderer) {
+		const definition = getOverlayDefinition(overlay.type);
+		if (!definition) {
 			issues.push({
 				path: ['state', 'overlays', index, 'type'],
 				message: `Unknown Overlay type "${overlay.type}"`
 			});
 			continue;
 		}
-		const result = renderer.schema.safeParse(overlay.content);
+		const result = definition.schema.safeParse(overlay.content);
 		if (!result.success) {
 			appendSchemaIssues(issues, ['state', 'overlays', index, 'content'], result.error);
 		}
@@ -213,11 +215,9 @@ function validateEffectSemantics(preset: Preset, issues: PresetSemanticIssue[]):
 			continue;
 		}
 
-		const renderer = Object.values(PIPELINE_REGISTRY.effects).find(
-			(candidate) => candidate.type === effect.type
-		);
+		const definition = getEffectDefinition(effect.type);
 		const compositionRegistration = getCompositionEffectRegistration(effect.type);
-		const schema = renderer?.schema ?? compositionRegistration?.schema;
+		const schema = definition?.schema ?? compositionRegistration?.schema;
 		if (!schema) {
 			issues.push({
 				path: ['state', 'effects', index, 'type'],
@@ -276,14 +276,14 @@ function validateTransitionSemantics(
 			message: 'Active Video clips are not supported on transition Presets in v1'
 		});
 	}
-	const renderer = getTransitionEffectRenderer(preset.transition.effect);
-	if (!renderer) {
+	const definition = getTransitionEffectDefinition(preset.transition.effect);
+	if (!definition) {
 		issues.push({
 			path: ['transition', 'effect'],
 			message: `Unknown transition Effect "${preset.transition.effect}"`
 		});
 	} else {
-		const result = renderer.paramsSchema.safeParse(preset.transition.params);
+		const result = definition.paramsSchema.safeParse(preset.transition.params);
 		if (!result.success) {
 			appendSchemaIssues(issues, ['transition', 'params'], result.error);
 		}

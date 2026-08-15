@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'vitest';
+import { beforeEach, describe, it } from 'vitest';
 
 import { createDefaultEngineState, type Effect, type EngineState } from './engine-schema';
 import type { GpuHost } from './gpu-host';
@@ -11,7 +11,12 @@ import type { ShaderPassDispatcher } from './pipelines/shader-pass-runner';
 import type { CompiledTransitionWipe } from './pipelines/transition-pass';
 import type { TransitionSnapshots } from './pipelines/transition-snapshots';
 import type { PreparedVideoUnderlayTexture } from './video-underlay-frame-texture';
-import type { SurfaceRenderInputs, SurfaceRenderInstance } from './pipelines/types';
+import { pipelineRendererController } from './pipelines/runtime-loader';
+import type {
+	SurfaceRenderer,
+	SurfaceRenderInputs,
+	SurfaceRenderInstance
+} from './pipelines/types';
 import {
 	renderCompositionFrameTo,
 	resolveCompositionFrameBranchOrder,
@@ -96,6 +101,17 @@ describe('composition frame renderer branch policy', () => {
 });
 
 describe('composition frame renderer ordering', () => {
+	beforeEach(() => {
+		pipelineRendererController.activate({
+			surfaces: new Map([['paper', { type: 'paper' } as unknown as SurfaceRenderer]]),
+			blocks: new Map(),
+			annotations: new Map(),
+			overlays: new Map(),
+			effects: new Map(),
+			transitions: new Map()
+		});
+	});
+
 	it('does not build inputs or upload live DOM for a cached transition', () => {
 		const calls: string[] = [];
 		const state = createDefaultEngineState();

@@ -1,12 +1,8 @@
 <script lang="ts">
 	import { engineState, addTextAnimation } from './engine-state.svelte';
-	import {
-		type Cascade,
-		type Overlay,
-		type Transition
-	} from './engine-schema';
-	import { PIPELINE_REGISTRY } from './pipelines';
-	import type { OverlayRenderer } from './pipelines/types';
+	import { type Cascade, type Overlay, type Transition } from './engine-schema';
+	import { getOverlayDefinition } from './pipelines/definition-registry';
+	import { getPipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 	import {
 		TEXT_EFFECT_CATALOG,
 		TEXT_EFFECT_IDS,
@@ -29,17 +25,12 @@
 
 	let { overlayId }: Props = $props();
 
-	const overlayRenderers = Object.values(PIPELINE_REGISTRY.overlays);
-
-	function findOverlayRenderer(type: string): OverlayRenderer | null {
-		for (const candidate of overlayRenderers) {
-			if (candidate.type === type) return candidate as OverlayRenderer;
-		}
-		return null;
-	}
-
+	const rendererController = getPipelineRendererRuntime();
 	const overlay = $derived(engineState.overlays.find((o) => o.id === overlayId) ?? null);
-	const overlayRenderer = $derived(overlay ? findOverlayRenderer(overlay.type) : null);
+	const overlayDefinition = $derived(overlay ? getOverlayDefinition(overlay.type) : null);
+	const overlayRenderer = $derived(
+		overlay ? (rendererController.current().overlays.get(overlay.type) ?? null) : null
+	);
 
 	const overlayTextAnimations = $derived(
 		engineState.textAnimations.filter(
@@ -119,11 +110,11 @@
 	}
 </script>
 
-{#if overlay && overlayRenderer}
+{#if overlay && overlayRenderer && overlayDefinition}
 	{@const ov = overlay}
 	{@const renderer = overlayRenderer}
 
-	<InspectorSection label={renderer.label}>
+	<InspectorSection label={overlayDefinition.label}>
 		{#if renderer.Inspector}
 			{@const OverlayInspectorComponent = renderer.Inspector}
 			<OverlayInspectorComponent overlay={ov as never} />

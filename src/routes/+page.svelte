@@ -174,9 +174,7 @@
 			.filter((group) => activeFilter === 'all' || group.label === activeFilter)
 			.map((group) => ({
 				label: group.label,
-				entries: sortEntries(
-					group.entries.filter((entry) => matchesQuery(entry.name, entry.slug))
-				)
+				entries: sortEntries(group.entries.filter((entry) => matchesQuery(entry.name, entry.slug)))
 			}))
 			.filter((group) => group.entries.length > 0);
 	});
@@ -186,9 +184,7 @@
 	const visibleFixtures = $derived.by(() => {
 		if (activeFilter !== 'fixtures' && !(activeFilter === 'all' && normalizedQuery !== ''))
 			return [];
-		return sortEntries(
-			fixtures.filter((entry) => matchesQuery(entry.name, entry.slug))
-		);
+		return sortEntries(fixtures.filter((entry) => matchesQuery(entry.name, entry.slug)));
 	});
 
 	const nothingVisible = $derived(
@@ -217,7 +213,7 @@
 
 	async function createBlankUserComposition(): Promise<void> {
 		const [{ getPresetBySlug }, { userCompositionStore }] = await Promise.all([
-			import('$lib/platform/preset'),
+			import('$lib/platform/preset-catalog'),
 			import('$lib/platform/user-composition-store')
 		]);
 		const blank = getPresetBySlug('blank');
@@ -338,7 +334,9 @@
 	<li>
 		<PosterCard
 			slug={entry.slug}
-			thumbKey={entry.posterKey !== null && posterKeys.has(entry.posterKey) ? entry.posterKey : null}
+			thumbKey={entry.posterKey !== null && posterKeys.has(entry.posterKey)
+				? entry.posterKey
+				: null}
 			name={entry.name}
 			type={entry.surfaceType}
 			badge={compositorBadge(entry)}
@@ -352,16 +350,14 @@
 
 {#snippet userCompositionCard(userComposition: UserCompositionCardMeta)}
 	{@const starterTemplate = userComposition.forkedFrom
-		? presetCardsBySlug.get(userComposition.forkedFrom) ?? null
+		? (presetCardsBySlug.get(userComposition.forkedFrom) ?? null)
 		: null}
 	<li class="card-cell">
 		<PosterCard
 			slug={userComposition.slug}
-			thumbKey={
-				userComposition.posterKey !== null && posterKeys.has(userComposition.posterKey)
-					? userComposition.posterKey
-					: null
-			}
+			thumbKey={userComposition.posterKey !== null && posterKeys.has(userComposition.posterKey)
+				? userComposition.posterKey
+				: null}
 			name={userComposition.name}
 			type={userComposition.surfaceType}
 			badge={starterTemplate ? compositorBadge(starterTemplate) : null}
@@ -461,7 +457,9 @@
 				bind:this={searchInput}
 				bind:value={query}
 				type="search"
-				placeholder="Search {presets.length + fixtures.length + userCompositions.length} compositions…"
+				placeholder="Search {presets.length +
+					fixtures.length +
+					userCompositions.length} compositions…"
 				aria-label="Search compositions"
 				onkeydown={clearSearchOnEscape}
 			/>
@@ -494,7 +492,11 @@
 					onchange={importPresetJson}
 				/>
 			</label>
-			<button class="topbar__action topbar__action--primary" type="button" onclick={createBlankUserComposition}>
+			<button
+				class="topbar__action topbar__action--primary"
+				type="button"
+				onclick={createBlankUserComposition}
+			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					width="13"
@@ -530,37 +532,37 @@
 		<nav class="rail" aria-label="Filter compositions">
 			<div class="rail__body">
 				<button
-				class="rail__item"
-				class:is-active={activeFilter === 'all'}
-				type="button"
-				onclick={() => (activeFilter = 'all')}
-			>
-				<span>All</span>
-				<span class="rail__count">{presets.length + userCompositions.length}</span>
-			</button>
-			<button
-				class="rail__item"
-				class:is-active={activeFilter === 'user'}
-				type="button"
-				onclick={() => (activeFilter = 'user')}
-			>
-				<span>Your compositions</span>
-				<span class="rail__count">{userCompositions.length}</span>
-			</button>
-			<hr class="rail__rule" />
-			<p class="rail__label">Library</p>
-			{#each templateGroups as group (group.label)}
+					class="rail__item"
+					class:is-active={activeFilter === 'all'}
+					type="button"
+					onclick={() => (activeFilter = 'all')}
+				>
+					<span>All</span>
+					<span class="rail__count">{presets.length + userCompositions.length}</span>
+				</button>
 				<button
 					class="rail__item"
-					class:is-active={activeFilter === group.label}
+					class:is-active={activeFilter === 'user'}
 					type="button"
-					onclick={() => (activeFilter = group.label)}
+					onclick={() => (activeFilter = 'user')}
 				>
-					<span>{group.label}</span>
-					<span class="rail__count">{group.entries.length}</span>
+					<span>Your compositions</span>
+					<span class="rail__count">{userCompositions.length}</span>
 				</button>
-			{/each}
-			{#if fixtures.length > 0}
+				<hr class="rail__rule" />
+				<p class="rail__label">Library</p>
+				{#each templateGroups as group (group.label)}
+					<button
+						class="rail__item"
+						class:is-active={activeFilter === group.label}
+						type="button"
+						onclick={() => (activeFilter = group.label)}
+					>
+						<span>{group.label}</span>
+						<span class="rail__count">{group.entries.length}</span>
+					</button>
+				{/each}
+				{#if fixtures.length > 0}
 					<hr class="rail__rule" />
 					<button
 						class="rail__item rail__item--dim"
@@ -1024,7 +1026,9 @@
 		font-size: 0.625rem;
 		font-weight: 400;
 		padding: 4px 10px;
-		transition: background 100ms ease, color 100ms ease;
+		transition:
+			background 100ms ease,
+			color 100ms ease;
 	}
 
 	.toolrow__aspect button[aria-pressed='true'] {

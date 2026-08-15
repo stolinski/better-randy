@@ -5,7 +5,7 @@
  * intentional composition-content choice that wins (ADR-0038); what stopped
  * existing is the ACTIVE PACK deciding the sheet: a quoted document's body is
  * document physics, not brand dress. Resolved through
- * `resolveSurfaceTypographyColors` (`src/lib/platform/pipelines/index.ts`).
+ * `resolveSurfaceTypographyColors` (`src/lib/platform/pipelines/definition-registry.ts`).
  *
  * Values are the corpus's canonical print-paper look — the hexes nearly every
  * paper preset already authors explicitly.

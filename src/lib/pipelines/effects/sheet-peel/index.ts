@@ -1,20 +1,14 @@
 import { d } from 'typegpu';
-import { z } from 'zod';
 
 import type { TransitionEffectRenderer } from '$lib/platform/pipelines/types';
 
 import Editor from './Editor.svelte';
+import {
+	sheetPeelTransitionEffectDefinition,
+	type SheetPeelParams as SheetPeelParamsDefinition
+} from './definition';
 
-const SheetPeelParamsSchema = z.object({
-	direction: z.enum(['right', 'left', 'down', 'up']).default('right'),
-	curl: z.number().min(0.04).max(0.35).default(0.16),
-	perspective: z.number().min(0).max(1).default(0.55),
-	shadow: z.number().min(0).max(1).default(0.42),
-	highlight: z.number().min(0).max(1).default(0.35)
-});
-
-export type SheetPeelParams = z.infer<typeof SheetPeelParamsSchema>;
-
+export type SheetPeelParams = SheetPeelParamsDefinition;
 const SheetPeelUniforms = d.struct({
 	progress: d.f32,
 	direction: d.f32,
@@ -32,12 +26,7 @@ const DIRECTION_CODES: Record<SheetPeelParams['direction'], number> = {
 };
 
 export const sheetPeelTransitionEffectRenderer: TransitionEffectRenderer<SheetPeelParams> = {
-	type: 'sheet-peel',
-	label: 'Sheet peel',
-	paramsSchema: SheetPeelParamsSchema,
-	defaults: () => ({
-		params: { direction: 'right', curl: 0.16, perspective: 0.55, shadow: 0.42, highlight: 0.35 }
-	}),
+	...sheetPeelTransitionEffectDefinition,
 	Editor,
 	pass: {
 		paramsStruct: SheetPeelUniforms,

@@ -1,4 +1,5 @@
 import type { AnnotationFocalSlot, AnnotationRenderer } from '$lib/platform/pipelines/types';
+import { magnifyAnnotationDefinition } from './definition';
 
 function smoothstep01(value: number): number {
 	const t = Math.max(0, Math.min(1, value));
@@ -6,9 +7,7 @@ function smoothstep01(value: number): number {
 }
 
 export const magnifyAnnotationRenderer: AnnotationRenderer = {
-	style: 'magnify',
-	kind: 'focal',
-	appliesTo: ['paragraph'],
+	...magnifyAnnotationDefinition,
 	// Short phrases receive a circular inspection lens. Wrapped phrases use
 	// their full marked bounds for centering, then receive a line-height-bounded
 	// rounded rectangle so the focal words stay readable without stretching the

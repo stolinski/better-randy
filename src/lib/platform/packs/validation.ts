@@ -1,4 +1,4 @@
-import { PIPELINE_REGISTRY } from '../pipelines';
+import { getEffectDefinition } from '../pipelines/definition-registry';
 import { validatePackCoreVocabulary } from '../pipelines/identity-registry';
 import { CHART_MARK_FILL_COLOR_ROLES, isChartMarkFillColorValue, isColorValue } from './resolve';
 import type { PackFont, PackManifest } from './types';
@@ -342,10 +342,8 @@ function appendChromeIssues(
 			}
 			seenTypes.add(effect.type);
 
-			const renderer = Object.values(PIPELINE_REGISTRY.effects).find(
-				(candidate) => candidate.type === effect.type
-			);
-			if (!renderer) {
+			const definition = getEffectDefinition(effect.type);
+			if (!definition) {
 				issues.push({
 					pack: registryKey,
 					path: ['roles', roleKey, 'effects', index, 'type'],
@@ -355,7 +353,7 @@ function appendChromeIssues(
 				continue;
 			}
 
-			const result = renderer.schema.safeParse({
+			const result = definition.schema.safeParse({
 				type: effect.type,
 				id: `pack-${manifest.slug}-${index}`,
 				params: effect.params ?? {}

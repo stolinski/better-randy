@@ -2,8 +2,8 @@
 	import { packState, removeEffect } from './engine-state.svelte';
 	import type { Effect } from './engine-schema';
 	import { PACK_REGISTRY } from './packs/registry';
-	import { PIPELINE_REGISTRY } from './pipelines';
-	import type { EffectRenderer } from './pipelines/types';
+	import { getEffectDefinition } from './pipelines/definition-registry';
+	import { getPipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 
 	// One authored effect: its label row (with a pack-inert tag when the active
 	// Pack disables it) plus the effect's own Editor.
@@ -13,29 +13,27 @@
 
 	let { effect }: Props = $props();
 
-	const renderer = $derived(
-		(Object.values(PIPELINE_REGISTRY.effects) as EffectRenderer[]).find(
-			(candidate) => candidate.type === effect.type
-		) ?? null
-	);
-	const packInert = $derived(renderer?.isPackInert?.(PACK_REGISTRY[packState.slug]) ?? false);
+	const rendererController = getPipelineRendererRuntime();
+	const definition = $derived(getEffectDefinition(effect.type));
+	const renderer = $derived(rendererController.current().effects.get(effect.type) ?? null);
+	const packInert = $derived(definition?.isPackInert?.(PACK_REGISTRY[packState.slug]) ?? false);
 </script>
 
-{#if renderer}
+{#if renderer && definition}
 	<div
 		class="layer-row"
 		title={packInert
 			? `Inert under the ${PACK_REGISTRY[packState.slug]?.label ?? packState.slug} pack — the authored effect travels with the composition and applies under packs that keep it`
 			: undefined}
 	>
-		<span class="layer-row__label">{renderer.label}</span>
+		<span class="layer-row__label">{definition.label}</span>
 		{#if packInert}
 			<span class="layer-row__pack-tag">pack · off</span>
 		{/if}
 		<button
 			type="button"
 			class="remove-btn"
-			aria-label={`Remove ${renderer.label}`}
+			aria-label={`Remove ${definition.label}`}
 			onclick={() => removeEffect(effect.id)}>×</button
 		>
 	</div>

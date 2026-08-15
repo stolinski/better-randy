@@ -60,7 +60,7 @@ Always read the doc named here for the task type. Skipping the dispatched doc is
 - `src/routes/` — SvelteKit routes. Presets render through a unified shell, not per-tool routes.
 - `src/lib/platform/` — engine shell: `Workspace`, `Composition`, mounts and inspectors; `composition-frame-renderer.ts`, `composition-export-controller.ts`, and `transition-snapshot-controller.ts` own their named orchestration; `timeline-entity-identity.ts` owns runtime timeline identities; `user-composition-store.ts` owns the client-side User composition transport; plus state, schema, preset, GPU, HTML-in-Canvas, audit, lint, and encoding modules.
 - `src/lib/pipelines/<layer>/` — the per-Layer **Pipeline** renderers (`surfaces/`, `blocks/`, `annotations/`, `overlays/`, `effects/`), one folder per variant.
-- `src/lib/platform/pipelines/` — Registry + runner **infrastructure** only (`index.ts`, `identity-registry.ts`, `effect-chain.ts`, `shader-pass-runner.ts`, `types.ts`) — not the renderers.
+- `src/lib/platform/pipelines/` — Registry + runner **infrastructure** only (`definition-registry.ts`, `runtime-loader.ts`, `identity-registry.ts`, `effect-chain.ts`, `shader-pass-runner.ts`, `types.ts`) — not the renderers.
 - `src/lib/annotations/` — annotation-mark geometry and 2D drawing shared across Annotation Pipelines.
 - `src/lib/presets/` — the built-in **Presets** as JSON.
 - `src/lib/utils/` — the only utility folder. Don't create new ones.

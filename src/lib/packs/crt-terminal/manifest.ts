@@ -16,7 +16,7 @@
  *     applied per element pixel by the shared crt-scanline ShaderPass
  *     (alpha-masked — footage under transparent overlays is never treated).
  *   - **Chrome (opaque pieces only).** The `chrome` Role appends the
- *     `crt-screen` effect (full-frame scanline + bloom + vignette) AFTER a
+ *     `crt-tube` effect (full-frame scanline + bloom + vignette) AFTER a
  *     preset's own effects whenever the composition declares a
  *     `backgroundFill`. It is the Pack's dress, so it never appears in the
  *     preset's `effects[]` — swap the Pack and the chrome goes with it.

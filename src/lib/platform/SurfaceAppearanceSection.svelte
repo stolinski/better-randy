@@ -3,7 +3,7 @@
 	import { ENGINE_FONT_FAMILIES, type FontDefinition, type FontFamily } from './engine-schema';
 	import { getPack } from './packs/registry';
 	import { resolveFontTreatment } from './packs/resolve';
-	import { getSurfaceRenderer } from './pipelines';
+	import { getSurfaceDefinition } from './pipelines/definition-registry';
 	import { isBodyVisible } from '$lib/utils/surface-document-slots';
 	import InspectorSection from './InspectorSection.svelte';
 	import Field from './Field.svelte';
@@ -16,7 +16,7 @@
 	// everywhere pixels render, so the select must not pretend to edit it.
 	const packFontClaim = $derived(resolveFontTreatment(getPack(packState.slug)));
 
-	const controls = $derived(getSurfaceRenderer(engineState.surface.type)?.controls ?? {});
+	const controls = $derived(getSurfaceDefinition(engineState.surface.type)?.controls ?? {});
 	const showBody = $derived(isBodyVisible(controls, engineState.surface));
 	const appearanceVisible = $derived(
 		Boolean(

@@ -43,7 +43,7 @@
 	import { serializeCompositionState } from './preset-pure';
 	import { compositionMeta } from './composition-meta.svelte';
 	import { getPack } from './packs/registry';
-	import { resolveSurfaceTypographyColors } from './pipelines';
+	import { resolveSurfaceTypographyColors } from './pipelines/definition-registry';
 
 	import { TransitionSnapshotController } from './transition-snapshot-controller';
 	import type { SyncExportRequest } from './export-video';
@@ -720,20 +720,12 @@
 			// font/substrate paint from racing the decoder's initial probe.
 			void waitForActiveCompositionResources()
 				.then(() => {
-					if (
-						!isWorkspaceDestroyed &&
-						host === localHost &&
-						renderResourceSet === nextResources
-					) {
+					if (!isWorkspaceDestroyed && host === localHost && renderResourceSet === nextResources) {
 						requestCanvasPaint(localCanvas);
 					}
 				})
 				.catch((error) => {
-					if (
-						isWorkspaceDestroyed ||
-						host !== localHost ||
-						renderResourceSet !== nextResources
-					)
+					if (isWorkspaceDestroyed || host !== localHost || renderResourceSet !== nextResources)
 						return;
 					console.error('Composition first paint preparation failed.', error);
 					status =
@@ -919,7 +911,9 @@
 				/>
 			</svg>
 		</a>
-		<span class="topbar__name">{presetBase.name || (compositionMeta.userCompositionSlug ?? 'Untitled')}</span>
+		<span class="topbar__name"
+			>{presetBase.name || (compositionMeta.userCompositionSlug ?? 'Untitled')}</span
+		>
 		<span class="topbar__chip">{presetBase.kind}</span>
 		<span class="topbar__chip topbar__chip--pack">
 			<i aria-hidden="true"></i>{getPack(packState.slug).label}
@@ -927,10 +921,8 @@
 		{#if compositionMeta.isUserComposition}
 			<span class="topbar__chip topbar__chip--forked">Forked</span>
 			{#if compositionMeta.revertUserComposition}
-				<button
-					type="button"
-					class="topbar__revert"
-					onclick={compositionMeta.revertUserComposition}>Revert</button
+				<button type="button" class="topbar__revert" onclick={compositionMeta.revertUserComposition}
+					>Revert</button
 				>
 			{/if}
 		{/if}

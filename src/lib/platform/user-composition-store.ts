@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { MediaSchema, SurfaceTypeSchema, type Preset } from './engine-schema';
-import { parsePreset } from './preset';
+import { parsePreset } from './preset-parser';
 import { presetToWireFormat } from './preset-pure';
 
 const UserCompositionMediaStatusSchema = z.enum(['ready', 'missing', 'undecodable']);

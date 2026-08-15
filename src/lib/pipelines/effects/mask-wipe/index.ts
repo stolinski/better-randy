@@ -1,17 +1,14 @@
 import { d } from 'typegpu';
-import { z } from 'zod';
 
 import type { TransitionEffectRenderer } from '$lib/platform/pipelines/types';
 
 import Editor from './Editor.svelte';
+import {
+	maskWipeTransitionEffectDefinition,
+	type MaskWipeParams as MaskWipeParamsDefinition
+} from './definition';
 
-const MaskWipeParamsSchema = z.object({
-	direction: z.enum(['right', 'left', 'down', 'up']).default('right'),
-	softness: z.number().min(0.0002).max(0.05).default(0.001)
-});
-
-export type MaskWipeParams = z.infer<typeof MaskWipeParamsSchema>;
-
+export type MaskWipeParams = MaskWipeParamsDefinition;
 const MaskWipeUniforms = d.struct({
 	progress: d.f32,
 	direction: d.f32,
@@ -26,10 +23,7 @@ const DIRECTION_CODES: Record<MaskWipeParams['direction'], number> = {
 };
 
 export const maskWipeTransitionEffectRenderer: TransitionEffectRenderer<MaskWipeParams> = {
-	type: 'mask-wipe',
-	label: 'Mask wipe',
-	paramsSchema: MaskWipeParamsSchema,
-	defaults: () => ({ params: { direction: 'right', softness: 0.001 } }),
+	...maskWipeTransitionEffectDefinition,
 	Editor,
 	pass: {
 		paramsStruct: MaskWipeUniforms,

@@ -3,7 +3,8 @@ import { describe, it } from 'vitest';
 
 import fixtureJson from './chart-domain-survey-fixture.json';
 import { PresetSchema, type ChartBlock } from '../platform/engine-schema';
-import { listFixtures, listPresets, parsePreset } from '../platform/preset';
+import { listFixtures, listPresets } from '../platform/preset-catalog';
+import { parsePreset } from '../platform/preset-parser';
 import { presetToWireFormat } from '../platform/preset-pure';
 import { validatePresetSemantics } from '../platform/preset-validation';
 import { resolveChartDataTarget } from '../utils/chart-data-target';

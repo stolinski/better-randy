@@ -25,7 +25,7 @@ import {
 	resolveDiagramStroke,
 	resolveFieldInkColor
 } from './packs/resolve';
-import { resolveSurfaceTypographyColors } from './pipelines';
+import { resolveSurfaceTypographyColors } from './pipelines/definition-registry';
 import type { SurfaceRenderInputs } from './pipelines/types';
 
 export interface SurfaceTextAnimationAlphaReader {

@@ -1,6 +1,6 @@
 import { listPosterKeys } from '$lib/platform/poster-store.server';
 import { posterKeyForPreset } from '$lib/platform/posters';
-import { listFixtures, listPresets, type CataloguedPreset } from '$lib/platform/preset';
+import { listFixtures, listPresets, type CataloguedPreset } from '$lib/platform/preset-catalog';
 
 import type { PageServerLoad } from './$types';
 
@@ -12,9 +12,7 @@ function homepagePresetCard(entry: CataloguedPreset) {
 		surfaceType: entry.preset.state.surface.type,
 		hasChart: entry.preset.state.surface.chart !== undefined,
 		hasDepthStage: entry.preset.state.stage !== undefined,
-		hasDepthOfField: entry.preset.state.effects.some(
-			(effect) => effect.type === 'depth-of-field'
-		),
+		hasDepthOfField: entry.preset.state.effects.some((effect) => effect.type === 'depth-of-field'),
 		durationSeconds: entry.preset.state.transport.durationSeconds,
 		posterKey: posterKeyForPreset(entry.preset)
 	};

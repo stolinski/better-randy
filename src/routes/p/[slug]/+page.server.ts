@@ -1,5 +1,5 @@
 import type { Preset } from '$lib/platform/engine-schema';
-import { getPresetBySlug } from '$lib/platform/preset';
+import { getPresetBySlug } from '$lib/platform/preset-catalog';
 import { userCompositionFileExists } from '$lib/platform/user-composition-file-index.server';
 import { userCompositionStore } from '$lib/platform/user-composition-store';
 
@@ -11,8 +11,7 @@ export const load = (async ({ params, url, fetch }) => {
 
 	try {
 		const builtinPreset = getPresetBySlug(slug);
-		const indexedFileExists =
-			source === 'builtin' ? false : await userCompositionFileExists(slug);
+		const indexedFileExists = source === 'builtin' ? false : await userCompositionFileExists(slug);
 		let userComposition: Preset | null = null;
 		if (indexedFileExists !== false) {
 			try {

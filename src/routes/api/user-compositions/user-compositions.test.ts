@@ -12,6 +12,7 @@ const fsMocks = vi.hoisted(() => ({
 	mkdir: vi.fn<(path: string, options: { recursive: true }) => Promise<string | undefined>>(),
 	readdir: vi.fn<(path: string) => Promise<string[]>>(),
 	readFile: vi.fn<(path: string, encoding: 'utf-8') => Promise<string>>(),
+	rename: vi.fn<(oldPath: string, newPath: string) => Promise<void>>(),
 	writeFile: vi.fn<(path: string, data: string, encoding: 'utf-8') => Promise<void>>(),
 	unlink: vi.fn<(path: string) => Promise<void>>()
 }));
@@ -24,7 +25,8 @@ const mediaMocks = vi.hoisted(() => ({
 			'status' in inspection &&
 			inspection.status !== 'ready'
 		) {
-			const issues = 'issues' in inspection && Array.isArray(inspection.issues) ? inspection.issues : [];
+			const issues =
+				'issues' in inspection && Array.isArray(inspection.issues) ? inspection.issues : [];
 			const messages = issues.flatMap((issue) =>
 				typeof issue === 'object' &&
 				issue !== null &&
@@ -53,6 +55,7 @@ beforeEach(() => {
 	vi.clearAllMocks();
 	fsMocks.mkdir.mockResolvedValue(undefined);
 	fsMocks.readdir.mockResolvedValue([]);
+	fsMocks.rename.mockResolvedValue(undefined);
 	fsMocks.writeFile.mockResolvedValue(undefined);
 	fsMocks.unlink.mockResolvedValue(undefined);
 	mediaMocks.inspectUserCompositionMedia.mockResolvedValue({ status: 'ready', issues: [] });
@@ -198,7 +201,9 @@ describe('user composition handlers', () => {
 			meta: { forkedFrom: string | null; savedAt: string };
 			preset: { state: { surface: { content: { body: unknown } } } };
 		};
-		assert.match(path, /user-compositions\/blank-copy\.json$/);
+		assert.match(path, /user-compositions\/\.[a-f0-9-]+\.tmp$/);
+		assert.equal(fsMocks.rename.mock.calls[0]?.[0], path);
+		assert.match(fsMocks.rename.mock.calls[0]?.[1] ?? '', /user-compositions\/blank-copy\.json$/);
 		assert.equal(encoding, 'utf-8');
 		assert.equal(stored.meta.forkedFrom, 'blank');
 		assert.equal(Number.isNaN(Date.parse(stored.meta.savedAt)), false);

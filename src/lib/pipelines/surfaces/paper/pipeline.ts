@@ -8,17 +8,10 @@ import {
 } from '$lib/annotations/annotation-marks';
 import { drawDiagramStrokes, getDiagramNodeLayouts } from '$lib/annotations/diagram-strokes';
 import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
-import { isolateAnnotationRenderer } from '$lib/pipelines/annotations/isolate';
-import { liftOutAnnotationRenderer } from '$lib/pipelines/annotations/lift-out';
-import { magnifyAnnotationRenderer } from '$lib/pipelines/annotations/magnify';
-import { tearOutAnnotationRenderer } from '$lib/pipelines/annotations/tear-out';
 import { createChartMarkRenderer } from '$lib/pipelines/shader-passes/chart-mark-renderer';
 import { getHtmlInCanvasQueue } from '$lib/platform/html-in-canvas';
-import type {
-	AnnotationRenderer,
-	SurfaceRenderInputs,
-	SurfaceRenderInstance
-} from '$lib/platform/pipelines/types';
+import { requireLoadedAnnotationRenderer } from '$lib/platform/pipelines/runtime-loader';
+import type { SurfaceRenderInputs, SurfaceRenderInstance } from '$lib/platform/pipelines/types';
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
 import { createBicubicSampleWgsl } from '$lib/utils/bicubic-sampling-wgsl';
 import { hexToRgbaFloat } from '$lib/utils/color';
@@ -40,13 +33,6 @@ const FOCAL_STYLE_CODES: Partial<Record<AnnotationMarkStyle, number>> = {
 	'lift-out': 2,
 	'tear-out': 3,
 	isolate: 4
-};
-
-const FOCAL_RENDERERS: Partial<Record<AnnotationMarkStyle, AnnotationRenderer>> = {
-	magnify: magnifyAnnotationRenderer,
-	'lift-out': liftOutAnnotationRenderer,
-	'tear-out': tearOutAnnotationRenderer,
-	isolate: isolateAnnotationRenderer
 };
 
 export interface CreatePaperPipelineOptions {
@@ -703,10 +689,10 @@ function buildFocalSlots(
 
 		const layout = layouts[i];
 		const styleCode = FOCAL_STYLE_CODES[layout.style];
-		const renderer = FOCAL_RENDERERS[layout.style];
-
-		if (styleCode === undefined || !renderer || !renderer.computeFocalSlot) {
-			continue;
+		if (styleCode === undefined) continue;
+		const renderer = requireLoadedAnnotationRenderer(layout.style);
+		if (!renderer.computeFocalSlot) {
+			throw new Error(`Focal Annotation renderer "${layout.style}" has no focal-slot resolver.`);
 		}
 
 		const progress = progressByIndex[i] ?? 0;

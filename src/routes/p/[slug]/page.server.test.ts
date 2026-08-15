@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 
 import { PresetSchema, type Preset } from '$lib/platform/engine-schema';
-import { getPresetBySlug } from '$lib/platform/preset';
+import { getPresetBySlug } from '$lib/platform/preset-catalog';
 import * as userCompositionFileIndex from '$lib/platform/user-composition-file-index.server';
 import { userCompositionStore } from '$lib/platform/user-composition-store';
 import blankPresetJson from '$lib/presets/blank.json';
@@ -38,6 +38,7 @@ afterEach(() => {
 
 describe('/p/[slug] server load', () => {
 	it('returns a User composition without consulting the corpus', async () => {
+		vi.spyOn(userCompositionFileIndex, 'userCompositionFileExists').mockResolvedValueOnce(true);
 		const requestFetch = vi.fn<typeof fetch>();
 		const loadUserComposition = vi
 			.spyOn(userCompositionStore, 'loadUserComposition')
@@ -59,6 +60,7 @@ describe('/p/[slug] server load', () => {
 	});
 
 	it('falls back to the corpus only when the User store returns null', async () => {
+		vi.spyOn(userCompositionFileIndex, 'userCompositionFileExists').mockResolvedValueOnce(true);
 		vi.spyOn(userCompositionStore, 'loadUserComposition').mockResolvedValueOnce(null);
 
 		const result = await load(createLoadEvent('blank'));
@@ -88,6 +90,7 @@ describe('/p/[slug] server load', () => {
 	});
 
 	it('returns missing when neither User nor corpus composition exists', async () => {
+		vi.spyOn(userCompositionFileIndex, 'userCompositionFileExists').mockResolvedValueOnce(true);
 		vi.spyOn(userCompositionStore, 'loadUserComposition').mockResolvedValueOnce(null);
 
 		const result = await load(createLoadEvent('not-a-real-preset'));
@@ -102,6 +105,7 @@ describe('/p/[slug] server load', () => {
 	});
 
 	it('logs and falls back to a built-in Preset when its optional User override fails', async () => {
+		vi.spyOn(userCompositionFileIndex, 'userCompositionFileExists').mockResolvedValueOnce(null);
 		const cause = new Error('Store unavailable');
 		vi.spyOn(userCompositionStore, 'loadUserComposition').mockRejectedValueOnce(cause);
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);

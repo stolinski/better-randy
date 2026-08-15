@@ -5,6 +5,10 @@
  * load, so the export script regenerates the JSON schema automatically.
  */
 
+import {
+	VARIANT_IDS as DEFINITION_VARIANT_IDS,
+	type LowerThirdVariantId as DefinitionLowerThirdVariantId
+} from './variant-ids';
 import type { LowerThirdVariant } from './types';
 import { standardLowerThird } from './standard';
 import { cinematicLowerThird } from './cinematic';
@@ -14,6 +18,6 @@ export const VARIANTS: Readonly<Record<string, LowerThirdVariant>> = {
 	cinematic: cinematicLowerThird
 };
 
-export const VARIANT_IDS = ['standard', 'cinematic'] as const;
+export const VARIANT_IDS = DEFINITION_VARIANT_IDS;
 
-export type LowerThirdVariantId = (typeof VARIANT_IDS)[number];
+export type LowerThirdVariantId = DefinitionLowerThirdVariantId;
