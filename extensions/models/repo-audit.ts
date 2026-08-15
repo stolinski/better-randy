@@ -58,6 +58,7 @@ import {
   VerificationFanoutArgumentsSchema,
   VerificationFanoutReportSchema,
 } from "./repo-verification-fanout.ts";
+import { createRepositoryTreeFingerprint } from "../../src/lib/utils/repository-tree-fingerprint.server.ts";
 
 const GlobalArgsSchema = z.object({
   deliveryHandoffAuthorizationKey: z.string().min(32).max(256)
@@ -361,19 +362,21 @@ async function readCurrentTreeState(
       runGit(context, ["ls-files", "--others", "--exclude-standard", "-z"]),
     ],
   );
-  const untracked = [] as Array<{ path: string; contentHash: string }>;
+  const untracked = [] as Array<{ path: string; content: Uint8Array }>;
   for (const path of parseNulPaths(untrackedOutput).sort()) {
-    const content = await Deno.readFile(`${context.repoDir}/${path}`);
-    untracked.push({ path, contentHash: await sha256Hex(content) });
+    untracked.push({ path, content: await Deno.readFile(`${context.repoDir}/${path}`) });
   }
-  const fingerprintSource = JSON.stringify({
+  return {
     head,
-    unstagedDiff: await sha256Hex(unstagedDiff),
-    stagedDiff: await sha256Hex(stagedDiff),
-    status: await sha256Hex(status),
-    untracked,
-  });
-  return { head, status, treeFingerprint: await sha256Hex(fingerprintSource) };
+    status,
+    treeFingerprint: await createRepositoryTreeFingerprint({
+      head,
+      unstagedDiff,
+      stagedDiff,
+      status,
+      untracked,
+    }),
+  };
 }
 
 async function readChangeBaseline(

@@ -12,7 +12,9 @@ import {
 	SupersFactoryIntegrationReceiptSchema,
 	SupersHumanAestheticDecisionSchema,
 	SupersRenderMatrixCoordinateSchema,
+	SupersRenderRegistrySnapshotSchema,
 	verifySupersFactoryIntegrationReceipt,
+	verifySupersFullRenderMatrixBundle,
 	verifySupersHumanAestheticDecision,
 	verifySupersRenderMatrixBundle
 } from './supers-deterministic-factory-contract.ts';
@@ -63,7 +65,9 @@ async function coordinate(
 			kind: 'checkpoint',
 			sampleId: 'settled',
 			frameIndex: 30,
-			timestampMicroseconds: 1_000_000
+			timestampMicroseconds: 1_000_000,
+			auxiliaryFrameIndices: [30],
+			stableGeometryCandidateIds: ['composition-root', 'overlay-root']
 		}
 	};
 	return {
@@ -222,7 +226,9 @@ async function verifiedFixture(): Promise<{
 						kind: 'checkpoint',
 						sampleId: 'settled',
 						frameIndex: 30,
-						timestampMicroseconds: 1_000_000
+						timestampMicroseconds: 1_000_000,
+						auxiliaryFrameIndices: [30],
+						stableGeometryCandidateIds: ['composition-root', 'overlay-root']
 					}
 				]
 			}
@@ -607,6 +613,7 @@ Deno.test('every implemented threshold is closed and measurement-derived', () =>
 
 Deno.test('signal-dependent checks reject empty regions and coverage fails unavailable', () => {
 	for (const [code, measurement] of [
+		['text-edge-softness', { normalizedMaximumStep: 0, transitionCount: 0 }],
 		['edge-aliasing', { hardStairstepCount: 0, transitionSampleCount: 0 }],
 		[
 			'shadow-banding',
@@ -665,6 +672,17 @@ Deno.test('signal-dependent checks reject empty regions and coverage fails unava
 		}).outcome,
 		'unavailable'
 	);
+	for (const code of ['text-edge-softness', 'shadow-banding', 'edge-aliasing'] as const) {
+		const check = SupersDeterministicRenderCheckSchema.parse({
+			checkId: code,
+			code,
+			outcome: 'unavailable',
+			unavailableReason: 'probe-zero-signal',
+			evidence: [evidence()]
+		});
+		assert.equal(check.outcome, 'unavailable');
+		assert.equal(check.evidence.length, 1);
+	}
 });
 
 Deno.test('verified full matrix binds every axis, check, revision, and digest', async () => {
@@ -716,6 +734,64 @@ Deno.test('verified full matrix binds every axis, check, revision, and digest', 
 	);
 });
 
+Deno.test(
+	'full matrix snapshot rejects stale, missing, duplicate, and extra live axes',
+	async () => {
+		const fixture = await verifiedFixture();
+		const manifest = fixture.manifest as {
+			presets: Array<{
+				slug: string;
+				fingerprint: string;
+				readingPlanDigest: string;
+				readingPlanIds: string[];
+				samples: Record<string, unknown>[];
+			}>;
+			packs: Array<{ id: string; fingerprint: string }>;
+		};
+		const snapshotContent = {
+			schemaVersion: 1,
+			sourceRevision: GIT_REVISION,
+			engineFingerprint: SHA,
+			deliverablePresets: manifest.presets.map((preset) => ({
+				slug: preset.slug,
+				presetFingerprint: preset.fingerprint,
+				readingPlanDigest: preset.readingPlanDigest,
+				readingPlanIds: preset.readingPlanIds,
+				samples: preset.samples
+			})),
+			packs: manifest.packs.map((pack) => ({ id: pack.id, packFingerprint: pack.fingerprint })),
+			orientations: ['horizontal', 'vertical'] as const
+		};
+		const snapshot = {
+			...snapshotContent,
+			snapshotDigest: await createSupersDeterministicContractHash(snapshotContent)
+		};
+		assert.equal(SupersRenderRegistrySnapshotSchema.parse(snapshot).deliverablePresets.length, 1);
+		assert.equal(
+			(await verifySupersFullRenderMatrixBundle(snapshot, fixture.manifest, fixture.bundle)).cells
+				.length,
+			2
+		);
+
+		for (const mutate of [
+			(value: typeof snapshot) => ({ ...value, sourceRevision: 'd'.repeat(40) }),
+			(value: typeof snapshot) => ({ ...value, deliverablePresets: [] }),
+			(value: typeof snapshot) => ({
+				...value,
+				deliverablePresets: [...value.deliverablePresets, value.deliverablePresets[0]]
+			}),
+			(value: typeof snapshot) => ({
+				...value,
+				packs: [...value.packs, { id: 'extra-pack', packFingerprint: SHA }]
+			})
+		]) {
+			await assert.rejects(() =>
+				verifySupersFullRenderMatrixBundle(mutate(snapshot), fixture.manifest, fixture.bundle)
+			);
+		}
+	}
+);
+
 Deno.test('full matrix compares complete transition sample identities', async () => {
 	const fixture = await verifiedFixture();
 	const manifest = structuredClone(fixture.manifest) as {
@@ -733,7 +809,9 @@ Deno.test('full matrix compares complete transition sample identities', async ()
 		transitionId: 'declared-transition',
 		sampleId: 'transition-frame',
 		frameIndex: 30,
-		timestampMicroseconds: 1_000_000
+		timestampMicroseconds: 1_000_000,
+		auxiliaryFrameIndices: [29, 30, 31],
+		stableGeometryCandidateIds: ['composition-root', 'overlay-root']
 	};
 	const renderedSample = {
 		...declaredSample,

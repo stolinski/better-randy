@@ -28,6 +28,43 @@ carries `baselineHead`, a content-sensitive `treeFingerprint`, and conservative
 verification lanes; an empty change set still selects `policy-sweep`. No agent
 supplies paths or re-records the report.
 
+## Objective render matrices
+
+`@supers/render-matrix-verification` owns browser/GPU verification separately
+from the static corpus model. Its single `verify-render-matrix` method derives
+an immutable live deliverable-Preset and Pack snapshot, binds every coordinate
+to the content-sensitive tree fingerprint, and fans out internally by
+Preset × Pack × orientation with concurrency two. Every cell retains all 18
+closed objective checks. Missing signals are `unavailable`; aesthetic
+observations remain advisory with no routing authority. The method checks the
+local and served checkout before and after capture and rejects stale registry,
+source, cell, or evidence identities before storing the bundle.
+
+Two generated workflows define the operational boundary:
+
+- `supers-verify-affected-render-cells` consumes the canonical `change-impact`
+  paths for the exact work item and fingerprint. It unions narrow Preset, Pack,
+  and typed Pipeline impacts, expands unknown pixel-affecting paths to the full
+  matrix, and records `not-applicable` only for proven non-render changes.
+- `supers-verify-full-render-matrix` enumerates the exact live deliverable
+  Preset × Pack × horizontal/vertical × deterministic-sample cross-product. It
+  is the root-epic completion gate, not a replacement for human visual review.
+
+Both workflows assert change state before and after the one model call and gate
+only the `render-matrix-run` resource tagged with their own workflow run id.
+Read retained evidence without changing its verdict:
+
+```bash
+swamp workflow run supers-verify-affected-render-cells \
+  --input workItem=<dex-id> \
+  --input expectedFingerprint=<change-impact-treeFingerprint>
+swamp workflow run supers-verify-full-render-matrix \
+  --input workItem=<root-epic-or-leaf-id> \
+  --input expectedFingerprint=<change-impact-treeFingerprint>
+swamp report get @supers/render-matrix --model supers-render-verification --markdown
+swamp report get @supers/render-matrix --model supers-render-verification --json
+```
+
 ## The planning-state audit
 
 `scripts/planning-state-checks.ts` holds the pure check logic (fixture-tested in

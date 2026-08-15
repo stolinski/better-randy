@@ -1,0 +1,72 @@
+id: f2815b38-2282-4c95-9585-88177a198113
+name: supers-verify-full-render-matrix
+description: Verify the exact live deliverable Preset × Pack × orientation × deterministic sample matrix.
+version: 1
+tags:
+  purpose: render-matrix-verification
+inputs:
+  type: object
+  properties:
+    workItem:
+      type: string
+      pattern: '^[a-z0-9][a-z0-9._:-]{0,127}$'
+    expectedFingerprint:
+      type: string
+      pattern: '^[0-9a-f]{64}$'
+  required:
+    - workItem
+    - expectedFingerprint
+  additionalProperties: false
+jobs:
+  - name: main
+    description: Assert source freshness, run one full internal fan-out, reassert freshness, then gate objective data.
+    dependsOn: []
+    steps:
+      - name: assert-change-state
+        description: Reject source drift before deriving the live matrix.
+        dependsOn: []
+        task:
+          type: model_method
+          modelIdOrName: repo-audit
+          methodName: assert-change-state
+          inputs:
+            expectedFingerprint: '${{ inputs.expectedFingerprint }}'
+      - name: verify-full
+        description: Execute one typed model method over every live render coordinate.
+        dependsOn:
+          - step: assert-change-state
+            condition:
+              type: succeeded
+        task:
+          type: model_method
+          modelIdOrName: supers-render-verification
+          methodName: verify-render-matrix
+          inputs:
+            schemaVersion: 1
+            scope: full
+            workItem: '${{ inputs.workItem }}'
+            expectedTreeFingerprint: '${{ inputs.expectedFingerprint }}'
+      - name: assert-change-state-after
+        description: Reject source drift after the full fan-out even when objective findings are red.
+        dependsOn:
+          - step: verify-full
+            condition:
+              type: succeeded
+        task:
+          type: model_method
+          modelIdOrName: repo-audit
+          methodName: assert-change-state
+          inputs:
+            expectedFingerprint: '${{ inputs.expectedFingerprint }}'
+      - name: assert-objective-result
+        description: Gate the current run's exact full matrix and both orientations; advisories have no authority.
+        dependsOn:
+          - step: assert-change-state-after
+            condition:
+              type: succeeded
+        task:
+          type: assert
+          expr: 'data.query(''modelName == "supers-render-verification" && specName == "render-matrix-run" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem && record.attributes.expectedTreeFingerprint == inputs.expectedFingerprint)[0].attributes.status == ''completed'' && data.query(''modelName == "supers-render-verification" && specName == "render-matrix-run" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem && record.attributes.expectedTreeFingerprint == inputs.expectedFingerprint)[0].attributes.scope == ''full'' && data.query(''modelName == "supers-render-verification" && specName == "render-matrix-run" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem && record.attributes.expectedTreeFingerprint == inputs.expectedFingerprint)[0].attributes.counts.orientations == 2 && data.query(''modelName == "supers-render-verification" && specName == "render-matrix-run" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem && record.attributes.expectedTreeFingerprint == inputs.expectedFingerprint)[0].attributes.outcome == ''pass'''
+          message: Full render matrix is incomplete, failed, or unavailable.
+          severity: high
+    weight: 0

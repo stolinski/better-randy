@@ -39,11 +39,13 @@
 	import { Timeline } from './timeline.svelte';
 	import { timelineHandle } from './timeline-handle.svelte';
 	import { engineState, packState, readMarkColor, transitionState } from './engine-state.svelte';
-	import { applyCompositionState } from './preset';
+	import { applyCompositionState, applyPreset, getPresetBySlug } from './preset';
 	import { presetBase } from './preset-base.svelte';
 	import { serializeCompositionState } from './preset-pure';
 	import { compositionMeta } from './composition-meta.svelte';
 	import { getPack } from './packs/registry';
+	import { isPresetOpaque, isTransitionOpaque } from '$lib/utils/output-classification';
+	import { readRuntimeRenderRegistryIdentity } from './deterministic-render-registry-identity';
 	import { resolveSurfaceTypographyColors } from './pipelines';
 
 	import { TransitionSnapshotController } from './transition-snapshot-controller';
@@ -895,6 +897,83 @@
 
 		window.__captureSupersDeterministicReadablePngArtifacts = (readableId) =>
 			deterministicRenderCaptureController.artifactDataUrls(readableId);
+		window.__readSupersRuntimeRenderRegistryIdentity = readRuntimeRenderRegistryIdentity;
+		window.__captureSupersDeterministicFrameGeometry = (candidateIds) => {
+			const width = engineState.transport.orientation === 'horizontal' ? 3840 : 2160;
+			const height = engineState.transport.orientation === 'horizontal' ? 2160 : 3840;
+			const rootRect = localCompositionRoot.getBoundingClientRect();
+			if (rootRect.width <= 0 || rootRect.height <= 0) {
+				throw new Error('Composition geometry root is unavailable.');
+			}
+			const elements: Record<string, { x: number; y: number; width: number; height: number }> = {};
+			for (const candidateId of candidateIds) {
+				if (candidateId === 'composition-root') {
+					elements[candidateId] = { x: 0, y: 0, width, height };
+					continue;
+				}
+				const element =
+					candidateId === 'overlay-root'
+						? (localOverlayRoot ?? localCompositionRoot)
+						: candidateId.startsWith('overlay:')
+							? (localOverlayRoot ?? localCompositionRoot).querySelector<HTMLElement>(
+									`[data-overlay-id="${CSS.escape(candidateId.slice('overlay:'.length))}"]`
+								)
+							: null;
+				if (!element) continue;
+				const rect = element.getBoundingClientRect();
+				elements[candidateId] = {
+					x: ((rect.x - rootRect.x) * width) / rootRect.width,
+					y: ((rect.y - rootRect.y) * height) / rootRect.height,
+					width: (rect.width * width) / rootRect.width,
+					height: (rect.height * height) / rootRect.height
+				};
+			}
+			return { elements };
+		};
+		window.__configureSupersDeterministicRenderCell = async (input) => {
+			if (new URLSearchParams(window.location.search).get('source') !== 'builtin') {
+				throw new Error('Deterministic render cells require the built-in Preset route.');
+			}
+			const preset = getPresetBySlug(input.presetSlug);
+			if (!preset || preset.kind === 'fixture') {
+				throw new Error(`Unknown deliverable Preset ${input.presetSlug}.`);
+			}
+			getPack(input.packId);
+			const configuredPreset = cloneJsonValue(preset);
+			configuredPreset.pack = input.packId;
+			configuredPreset.state.transport.orientation = input.orientation;
+			applyPreset(configuredPreset);
+			if (transitionState.active) {
+				transitionState.active = {
+					...transitionState.active,
+					from: { ...cloneJsonValue(transitionState.active.from), pack: input.packId },
+					to: { ...cloneJsonValue(transitionState.active.to), pack: input.packId }
+				};
+			}
+			await tick();
+			await fontsReady();
+			await waitForActiveCompositionResources();
+			await nextFrame();
+			await nextFrame();
+			if (!canvas) throw new Error('Composition canvas is unavailable.');
+			const frameRate = resolveFrameRate(configuredPreset.state.transport.fps);
+			const transition = transitionState.active;
+			return {
+				presetSlug: input.presetSlug,
+				packId: packState.slug,
+				orientation: engineState.transport.orientation,
+				width: canvas.width,
+				height: canvas.height,
+				frameRate: { num: frameRate.num, den: frameRate.den },
+				expectedOutputClass: (
+					transition
+						? isTransitionOpaque({ from: transition.from, to: transition.to })
+						: isPresetOpaque(configuredPreset)
+				)
+					? 'opaque'
+					: 'transparent'
+			};
+		};
 		exposeDeterministicRenderAudit(engineState, authority);
 	});
 
@@ -971,6 +1050,9 @@
 			window.__supersExport = undefined;
 			window.__captureSupersDeterministicReadablePngArtifacts = undefined;
 			window.__captureSupersDeterministicRenderRegionManifest = undefined;
+			window.__readSupersRuntimeRenderRegistryIdentity = undefined;
+			window.__captureSupersDeterministicFrameGeometry = undefined;
+			window.__configureSupersDeterministicRenderCell = undefined;
 			window.removeEventListener('pointermove', onTimelineResizeMove);
 			window.removeEventListener('pointerup', onTimelineResizeEnd);
 		}

@@ -166,21 +166,63 @@ export type SupersFactoryIntegrationReceipt = z.infer<typeof SupersFactoryIntegr
 
 export const SupersRenderOrientationSchema = z.enum(['horizontal', 'vertical']);
 
-const RenderSampleSchema = z.discriminatedUnion('kind', [
-	z.strictObject({
-		kind: z.literal('checkpoint'),
-		sampleId: DomainIdSchema,
-		frameIndex: NonNegativeIntegerSchema,
-		timestampMicroseconds: NonNegativeIntegerSchema
-	}),
-	z.strictObject({
-		kind: z.literal('transition-window'),
-		sampleId: DomainIdSchema,
-		transitionId: DomainIdSchema,
-		frameIndex: NonNegativeIntegerSchema,
-		timestampMicroseconds: NonNegativeIntegerSchema
-	})
-]);
+const SupersRenderSampleSharedFields = {
+	sampleId: DomainIdSchema,
+	frameIndex: NonNegativeIntegerSchema,
+	timestampMicroseconds: NonNegativeIntegerSchema,
+	auxiliaryFrameIndices: z.array(NonNegativeIntegerSchema).min(1),
+	stableGeometryCandidateIds: z.array(DomainIdSchema).min(1)
+};
+
+export const SupersRenderSampleSchema = z
+	.discriminatedUnion('kind', [
+		z.strictObject({
+			kind: z.literal('checkpoint'),
+			...SupersRenderSampleSharedFields
+		}),
+		z.strictObject({
+			kind: z.literal('transition-window'),
+			transitionId: DomainIdSchema,
+			...SupersRenderSampleSharedFields
+		})
+	])
+	.superRefine((sample, context) => {
+		if (
+			new Set(sample.auxiliaryFrameIndices).size !== sample.auxiliaryFrameIndices.length ||
+			sample.auxiliaryFrameIndices.some(
+				(frameIndex, index) => index > 0 && frameIndex <= sample.auxiliaryFrameIndices[index - 1]
+			)
+		) {
+			context.addIssue({
+				code: 'custom',
+				path: ['auxiliaryFrameIndices'],
+				message: 'Auxiliary frame indices must be unique and ordered'
+			});
+		}
+		if (!sample.auxiliaryFrameIndices.includes(sample.frameIndex)) {
+			context.addIssue({
+				code: 'custom',
+				path: ['auxiliaryFrameIndices'],
+				message: 'Auxiliary frame indices must include the primary frame'
+			});
+		}
+		const sortedCandidateIds = [...sample.stableGeometryCandidateIds].sort((left, right) =>
+			left.localeCompare(right)
+		);
+		if (
+			new Set(sample.stableGeometryCandidateIds).size !==
+				sample.stableGeometryCandidateIds.length ||
+			sample.stableGeometryCandidateIds.some(
+				(candidateId, index) => candidateId !== sortedCandidateIds[index]
+			)
+		) {
+			context.addIssue({
+				code: 'custom',
+				path: ['stableGeometryCandidateIds'],
+				message: 'Stable geometry candidates must be unique and ordered'
+			});
+		}
+	});
 
 const RenderMatrixCoordinateFields = {
 	schemaVersion: z.literal(1),
@@ -197,7 +239,7 @@ const RenderMatrixCoordinateFields = {
 	}),
 	width: z.union([z.literal(3840), z.literal(2160)]),
 	height: z.union([z.literal(2160), z.literal(3840)]),
-	sample: RenderSampleSchema
+	sample: SupersRenderSampleSchema
 };
 
 /** Exact identity of one deterministic render-matrix sample. */
@@ -519,6 +561,7 @@ const UnavailableRenderCheckSchema = z.strictObject({
 	unavailableReason: z.enum([
 		'capture-failed',
 		'probe-failed',
+		'probe-zero-signal',
 		'evidence-stale',
 		'incomplete-readable-coverage',
 		'authority-missing',
@@ -871,8 +914,78 @@ const MatrixPresetSchema = z.strictObject({
 	fingerprint: Sha256Schema,
 	readingPlanDigest: Sha256Schema,
 	readingPlanIds: z.array(DomainIdSchema),
-	samples: z.array(RenderSampleSchema).min(1)
+	samples: z.array(SupersRenderSampleSchema).min(1)
 });
+
+const RenderRegistryPresetSchema = z.strictObject({
+	slug: DomainIdSchema,
+	presetFingerprint: Sha256Schema,
+	readingPlanDigest: Sha256Schema,
+	readingPlanIds: z.array(DomainIdSchema),
+	samples: z.array(SupersRenderSampleSchema).min(1)
+});
+
+const RenderRegistryPackSchema = z.strictObject({
+	id: DomainIdSchema,
+	packFingerprint: Sha256Schema
+});
+
+const RenderRegistrySnapshotContentSchema = z.strictObject({
+	schemaVersion: z.literal(1),
+	sourceRevision: GitRevisionSchema,
+	engineFingerprint: Sha256Schema,
+	deliverablePresets: z.array(RenderRegistryPresetSchema).min(1),
+	packs: z.array(RenderRegistryPackSchema).min(1),
+	orientations: z.tuple([z.literal('horizontal'), z.literal('vertical')])
+});
+
+/** Immutable, independently collected identity of the live deliverable render axes. */
+export const SupersRenderRegistrySnapshotSchema = z
+	.strictObject({
+		...RenderRegistrySnapshotContentSchema.shape,
+		snapshotDigest: Sha256Schema
+	})
+	.superRefine((snapshot, context) => {
+		for (const [path, values] of [
+			[['deliverablePresets'], snapshot.deliverablePresets.map((entry) => entry.slug)],
+			[['packs'], snapshot.packs.map((entry) => entry.id)]
+		] as const) {
+			if (new Set(values).size !== values.length) {
+				context.addIssue({
+					code: 'custom',
+					path: [...path],
+					message: 'Registry identities must be unique'
+				});
+			}
+			const sorted = [...values].sort((left, right) => left.localeCompare(right));
+			if (values.some((value, index) => value !== sorted[index])) {
+				context.addIssue({
+					code: 'custom',
+					path: [...path],
+					message: 'Registry identities must use canonical order'
+				});
+			}
+		}
+		for (const [index, preset] of snapshot.deliverablePresets.entries()) {
+			if (new Set(preset.readingPlanIds).size !== preset.readingPlanIds.length) {
+				context.addIssue({
+					code: 'custom',
+					path: ['deliverablePresets', index, 'readingPlanIds'],
+					message: 'Reading plan identities must be unique'
+				});
+			}
+			const sampleIds = preset.samples.map((sample) => sample.sampleId);
+			if (new Set(sampleIds).size !== sampleIds.length) {
+				context.addIssue({
+					code: 'custom',
+					path: ['deliverablePresets', index, 'samples'],
+					message: 'Render sample identities must be unique'
+				});
+			}
+		}
+	});
+
+export type SupersRenderRegistrySnapshot = z.infer<typeof SupersRenderRegistrySnapshotSchema>;
 const MatrixPackSchema = z.strictObject({
 	id: DomainIdSchema,
 	fingerprint: Sha256Schema
@@ -989,7 +1102,7 @@ function matrixAxisKey(
 	presetSlug: string,
 	packId: string,
 	orientation: 'horizontal' | 'vertical',
-	sample: z.infer<typeof RenderSampleSchema>
+	sample: z.infer<typeof SupersRenderSampleSchema>
 ): string {
 	return JSON.stringify(canonicalize({ presetSlug, packId, orientation, sample }));
 }
@@ -1213,22 +1326,22 @@ export async function verifySupersRenderMatrixBundle(
 		const resolutionCheck = cell.checks.find(
 			(check) => check.code === 'target-resolution-mismatch'
 		);
-		if (
-			!resolutionCheck ||
-			(resolutionCheck.outcome !== 'pass' && resolutionCheck.outcome !== 'fail') ||
-			resolutionCheck.code !== 'target-resolution-mismatch'
-		) {
-			throw new TypeError('Target resolution must always be measured');
+		if (!resolutionCheck || resolutionCheck.code !== 'target-resolution-mismatch') {
+			throw new TypeError('Target resolution check is missing');
 		}
-		if (
-			resolutionCheck.measurement.actualWidth !== cell.coordinate.width ||
-			resolutionCheck.measurement.actualHeight !== cell.coordinate.height ||
-			resolutionCheck.measurement.activeFrameRate.num !== cell.coordinate.frameRate.num ||
-			resolutionCheck.measurement.activeFrameRate.den !== cell.coordinate.frameRate.den
-		) {
-			throw new TypeError(
-				'Target resolution or active frame rate measurement contradicts its coordinate'
-			);
+		if (resolutionCheck.outcome === 'pass' || resolutionCheck.outcome === 'fail') {
+			if (
+				resolutionCheck.measurement.actualWidth !== cell.coordinate.width ||
+				resolutionCheck.measurement.actualHeight !== cell.coordinate.height ||
+				resolutionCheck.measurement.activeFrameRate.num !== cell.coordinate.frameRate.num ||
+				resolutionCheck.measurement.activeFrameRate.den !== cell.coordinate.frameRate.den
+			) {
+				throw new TypeError(
+					'Target resolution or active frame rate measurement contradicts its coordinate'
+				);
+			}
+		} else if (resolutionCheck.outcome !== 'unavailable') {
+			throw new TypeError('Target resolution must be measured or explicitly unavailable');
 		}
 	}
 	const derivedOutcome = bundle.cells.some((cell) => cell.outcome === 'fail')
@@ -1246,6 +1359,76 @@ export async function verifySupersRenderMatrixBundle(
 		throw new TypeError('Render matrix bundle digest mismatch');
 	}
 	return bundle;
+}
+
+function registrySnapshotManifestProjection(snapshot: SupersRenderRegistrySnapshot): {
+	presets: SupersRenderMatrixManifest['presets'];
+	packs: SupersRenderMatrixManifest['packs'];
+	orientations: SupersRenderMatrixManifest['orientations'];
+} {
+	return {
+		presets: snapshot.deliverablePresets.map((preset) => ({
+			slug: preset.slug,
+			fingerprint: preset.presetFingerprint,
+			readingPlanDigest: preset.readingPlanDigest,
+			readingPlanIds: preset.readingPlanIds,
+			samples: preset.samples
+		})),
+		packs: snapshot.packs.map((pack) => ({ id: pack.id, fingerprint: pack.packFingerprint })),
+		orientations: [...snapshot.orientations]
+	};
+}
+
+/**
+ * Certify a full bundle against an independent snapshot of the live registries.
+ * This prevents a self-consistent manifest from silently omitting a deliverable
+ * Preset, Pack, orientation, or deterministic sample.
+ */
+export async function verifySupersFullRenderMatrixBundle(
+	rawSnapshot: unknown,
+	rawManifest: unknown,
+	rawBundle: unknown
+): Promise<SupersRenderMatrixBundle> {
+	const snapshot = SupersRenderRegistrySnapshotSchema.parse(rawSnapshot);
+	const manifest = SupersRenderMatrixManifestSchema.parse(rawManifest);
+	if (manifest.scope !== 'full') {
+		throw new TypeError('Live registry snapshots can certify full render matrices only');
+	}
+	const expectedSnapshotDigest = await createSupersDeterministicContractHash(
+		withoutProperty(snapshot, 'snapshotDigest')
+	);
+	if (snapshot.snapshotDigest !== expectedSnapshotDigest) {
+		throw new TypeError('Render registry snapshot digest mismatch');
+	}
+	if (
+		snapshot.sourceRevision !== manifest.sourceRevision ||
+		snapshot.engineFingerprint !== manifest.engineFingerprint
+	) {
+		throw new TypeError('Render registry snapshot provenance is stale or mixed');
+	}
+	const projection = registrySnapshotManifestProjection(snapshot);
+	if (
+		JSON.stringify(canonicalize(projection.presets)) !==
+		JSON.stringify(canonicalize(manifest.presets))
+	) {
+		throw new TypeError('Full matrix Presets do not exactly equal the live registry snapshot');
+	}
+	if (
+		JSON.stringify(canonicalize(projection.packs)) !== JSON.stringify(canonicalize(manifest.packs))
+	) {
+		throw new TypeError('Full matrix Packs do not exactly equal the live registry snapshot');
+	}
+	if (
+		JSON.stringify(canonicalize(projection.orientations)) !==
+		JSON.stringify(canonicalize(manifest.orientations))
+	) {
+		throw new TypeError('Full matrix orientations do not exactly equal the live registry snapshot');
+	}
+	const expectedAxes = expectedFullCoordinates(manifest);
+	if (new Set(expectedAxes).size !== expectedAxes.length) {
+		throw new TypeError('Live registry snapshot derives duplicate render coordinates');
+	}
+	return verifySupersRenderMatrixBundle(manifest, rawBundle);
 }
 
 export type SupersDeterministicRuleInventoryEntry = {
