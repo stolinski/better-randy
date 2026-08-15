@@ -268,6 +268,31 @@ describe('user composition handlers', () => {
 		assert.equal(await response.json(), null);
 	});
 
+	it('coalesces concurrent reads of the same User composition', async () => {
+		let resolveRead: ((value: string) => void) | undefined;
+		fsMocks.readFile.mockImplementationOnce(
+			() => new Promise<string>((resolve) => (resolveRead = resolve))
+		);
+		const event = {
+			params: { slug: 'concurrent' }
+		} as Parameters<(typeof slugHandlers)['GET']>[0];
+
+		const firstResponse = slugHandlers.GET(event);
+		const secondResponse = slugHandlers.GET(event);
+		await vi.waitFor(() => assert.equal(fsMocks.readFile.mock.calls.length, 1));
+		resolveRead?.(
+			JSON.stringify({
+				meta: { forkedFrom: 'blank', savedAt: '2026-07-14T12:00:00.000Z' },
+				preset: validPreset
+			})
+		);
+
+		const [first, second] = await Promise.all([firstResponse, secondResponse]);
+		assert.deepEqual(await first.json(), presetToWireFormat(PresetSchema.parse(validPreset)));
+		assert.deepEqual(await second.json(), presetToWireFormat(PresetSchema.parse(validPreset)));
+		assert.equal(fsMocks.readFile.mock.calls.length, 1);
+	});
+
 	it('rejects a slug GET whose file read fails for a non-ENOENT reason', async () => {
 		fsMocks.readFile.mockRejectedValue(
 			Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' })
