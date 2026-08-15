@@ -7,9 +7,11 @@ const names = (await readdir(new URL('../src/lib/presets/', import.meta.url)))
   .map((name) => name.slice(0, -5))
   .sort();
 const builtinSample = names.filter((_, index) => index % 4 === 0);
+const normalPaths = names.map((slug) => `/p/${encodeURIComponent(slug)}`);
 const paths = [
-  ...names.map((slug) => `/p/${encodeURIComponent(slug)}`),
-  ...builtinSample.map((slug) => `/p/${encodeURIComponent(slug)}?source=builtin`)
+  ...normalPaths,
+  ...builtinSample.map((slug) => `/p/${encodeURIComponent(slug)}?source=builtin`),
+  ...normalPaths
 ];
 
 const results = [];
