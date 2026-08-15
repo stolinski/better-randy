@@ -115,6 +115,7 @@
 				class:is-ready={ready}
 				{src}
 				alt=""
+				decoding="async"
 				loading="lazy"
 				style:object-view-box={contentViewBox}
 				onload={handleLoad}
