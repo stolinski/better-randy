@@ -1,39 +1,41 @@
-# Autoresearch: Faster homepage visual readiness
+# Autoresearch: Faster and more reliable Preset routes
 
 ## Objective
-Make `http://localhost:7263/` visibly ready much faster. The current homepage shows poster skeletons for seconds while it loads the composition library. Optimize the real cold-cache browser path, including server response, client hydration, user-composition metadata, and poster loading. Do not hide the delay by removing useful previews or by weakening the benchmark.
+Improve full-page loads for every built-in `/p/<slug>` composition route, with special attention to intermittent 500s reported at `/p/lower-third-miranda-heath`. Optimize load speed, eliminate intermittent route failures, and make actionable failures visible in Sentry. Run exactly 15 experiment rounds. Do not optimize only Miranda Heath: every benchmark sweeps the complete built-in Preset corpus.
 
 ## Metrics
-- **Primary**: `visualReadyMs` (ms, lower is better) — median cold-cache time until the 1440×900 viewport has no poster skeletons and homepage network work has been idle for 300 ms.
-- **Secondary**: `ttfb`, `domContentLoaded`, `loadEvent`, `lcp`, `apiRequests`, `responseKb` — trade-off and diagnosis signals.
+- **Primary**: `routeSuiteCostMs` (ms, lower is better) — corpus p95 ready time plus a 60,000 ms reliability cost for each failed route. This makes any 500, uncaught exception, console error, or readiness timeout dominate small speed gains.
+- **Secondary**: `routeLoadP50Ms`, `routeLoadP95Ms`, `routeLoadMaxMs`, `failedRoutes`, `http5xx`, `consoleErrors`, `routeCount`, `mirandaReadyMs`.
 
 ## How to Run
-`./.auto/measure.sh` connects to the sanctioned flag-enabled Chrome on CDP port 9223 and measures the already-running app at port 7263. It runs three cold-cache samples and emits structured `METRIC` lines.
+`./.auto/measure.sh` connects to the sanctioned flag-enabled Chrome on CDP port 9223. It performs a cache-disabled full-document navigation for every JSON Preset path, checks the Workspace canvas/timeline/export seams, captures HTTP 5xx and browser errors, and emits structured `METRIC` lines.
 
 ## Files in Scope
-- `src/routes/+page.server.ts` — homepage server data.
-- `src/routes/+page.svelte` — homepage composition loading and grid rendering.
-- `src/routes/PosterCard.svelte` — poster loading and skeleton lifecycle.
-- `src/routes/+layout.svelte` — shared chrome assets; keep workspace-only dependencies off the homepage.
-- `src/routes/p/[slug]/+page.svelte` — workspace route entry and workspace-only dependency loading.
-- `src/routes/api/user-compositions/+server.ts` — user-composition listing response.
-- `src/lib/platform/user-composition-store.ts` — client transport and response parsing.
-- Focused colocated tests for changed behavior.
+- `src/routes/p/[slug]/+page.server.ts` — composition route data loading and server failure behavior.
+- `src/routes/p/[slug]/+page.svelte` — route application and Workspace readiness.
+- `src/lib/platform/preset.ts` and focused modules split from it — built-in Preset catalog loading and validation.
+- `src/lib/platform/user-composition-store.ts` — built-in/user composition lookup transport.
+- `src/routes/api/user-compositions/[slug]/+server.ts` and its local persistence dependencies — route lookup reliability and latency.
+- `src/hooks.server.ts`, `src/hooks.client.ts`, and focused observability helpers/tests — Sentry error and trace capture.
+- Focused tests for changed behavior.
 - `.auto/` benchmark, checks, prompt, and ideas.
 
 ## Off Limits
-- Preset JSON, rendering pipelines, Pack appearance, and export behavior.
-- The existing dev server configuration and sanctioned Chrome launch.
-- Unrelated in-progress Dex and deterministic-factory files present before this branch.
+- Preset JSON content, Pack appearance, rendering output, animation behavior, export behavior, or reduced native resolution.
+- The existing dev server and sanctioned Chrome launch configuration.
+- Homepage-only optimization work and unrelated in-progress Dex files.
 
 ## Constraints
-- Keep homepage functionality, previews, filtering, sorting, importing, deleting, and user-composition metadata correct.
-- Do not start another dev server.
-- Do not overfit to the probe, special-case its viewport, fake readiness, remove skeletons before content is ready, or warm caches inside the measurement.
+- Preserve transparent rendering defaults, frame determinism, native target resolution, and orientation/Pack neutrality.
+- Do not hide failures, retry until the benchmark passes, special-case benchmark paths, weaken readiness checks, warm caches inside a sample, or remove useful route behavior.
+- Test every built-in Preset path each round; keep Miranda Heath as a named diagnostic, not a privileged implementation case.
+- A route is ready only when the document completes and the canvas, timeline, export seam, and CanvasDrawElement capability exist.
 - Strict TypeScript: no `any`, no re-exports, explicit return types on exports.
-- Follow Svelte runes discipline and validate changed `.svelte` files with the Svelte autofixer.
-- `npm run check` must pass after every passing benchmark.
-- Primary metric improvements determine keep/discard; watch request count and LCP for regressions.
+- Sentry must remain optional; application behavior cannot depend on a configured DSN.
+- Do not start another dev server.
+- `npm run check` must pass after every benchmark.
 
 ## What's Been Tried
-- Baseline pending. Source inspection suggests an N+1 client path: the homepage lists user compositions, then requests every full Preset separately to derive three card fields. This is a prime candidate because 45 local compositions currently produce many API requests before the page settles.
+- New baseline pending.
+- Existing Sentry setup captures unexpected SSR errors and promotes resolved 5xx responses. Recent Sentry data proves local 500s are reaching both issues and structured error logs.
+- The current route server load checks the User composition API before falling back to the eager built-in catalog. The route HTML for Miranda Heath is currently about 445 KB and a direct request currently returns 200 in about 83 ms.

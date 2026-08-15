@@ -1,0 +1,184 @@
+diff --git a/.auto/config.json b/.auto/config.json
+index 03ff72e..0dea6f3 100644
+--- a/.auto/config.json
++++ b/.auto/config.json
+@@ -1,3 +1,3 @@
+ {
+-	"maxIterations": 19
++	"maxIterations": 38
+ }
+diff --git a/.auto/homepage-load-probe.mjs b/.auto/homepage-load-probe.mjs
+index 6e332d1..18e13e1 100644
+--- a/.auto/homepage-load-probe.mjs
++++ b/.auto/homepage-load-probe.mjs
+@@ -19,15 +19,23 @@ async function measureOnce() {
+ 	});
+ 
+ 	let nextId = 1;
++	let navigationStartedAt = 0;
+ 	let inFlight = 0;
+ 	let lastNetworkActivity = performance.now();
+ 	let apiRequests = 0;
+ 	let responseBytes = 0;
+ 	let posterRequests = 0;
+ 	let posterBytes = 0;
++	let surfacePosterRequests = 0;
++	let surfacePosterBytes = 0;
++	let compositionPosterRequests = 0;
++	let compositionPosterBytes = 0;
++	let posterLastEndMs = 0;
++	let posterMaxDurationMs = 0;
+ 	let scriptBytes = 0;
+ 	let presetBytes = 0;
+ 	const requestUrls = new Map();
++	const requestStartedAt = new Map();
+ 	const pending = new Map();
+ 	socket.onmessage = (event) => {
+ 		const message = JSON.parse(event.data);
+@@ -43,6 +51,7 @@ async function measureOnce() {
+ 			lastNetworkActivity = performance.now();
+ 			const url = message.params.request.url;
+ 			requestUrls.set(message.params.requestId, url);
++			requestStartedAt.set(message.params.requestId, performance.now());
+ 			if (url.includes('/api/user-compositions')) apiRequests += 1;
+ 		}
+ 		if (message.method === 'Network.loadingFinished') {
+@@ -50,10 +59,25 @@ async function measureOnce() {
+ 			lastNetworkActivity = performance.now();
+ 			const bytes = message.params.encodedDataLength ?? 0;
+ 			const url = requestUrls.get(message.params.requestId) ?? '';
++			const finishedAt = performance.now();
+ 			responseBytes += bytes;
+-			if (url.includes('/api/posters/') || url.includes('/surface-posters/')) {
++			if (url.includes('/surface-posters/') || url.includes('/api/posters/')) {
++				posterLastEndMs = Math.max(posterLastEndMs, finishedAt - navigationStartedAt);
++				posterMaxDurationMs = Math.max(
++					posterMaxDurationMs,
++					finishedAt - (requestStartedAt.get(message.params.requestId) ?? finishedAt)
++				);
++			}
++			if (url.includes('/surface-posters/')) {
++				posterRequests += 1;
++				posterBytes += bytes;
++				surfacePosterRequests += 1;
++				surfacePosterBytes += bytes;
++			} else if (url.includes('/api/posters/')) {
+ 				posterRequests += 1;
+ 				posterBytes += bytes;
++				compositionPosterRequests += 1;
++				compositionPosterBytes += bytes;
+ 			} else if (/\/src\/.*(?:\.svelte|\.ts)(?:\?|$)|\/@(?:id|vite|fs)\//.test(url)) {
+ 				scriptBytes += bytes;
+ 			} else if (url.includes('/src/lib/presets/') && url.includes('.json')) {
+@@ -100,6 +124,7 @@ async function measureOnce() {
+ 	});
+ 
+ 	const startedAt = performance.now();
++	navigationStartedAt = startedAt;
+ 	await send('Page.navigate', { url: PAGE_URL });
+ 	let snapshot;
+ 	while (performance.now() - startedAt < TIMEOUT_MS) {
+@@ -156,6 +181,12 @@ async function measureOnce() {
+ 		apiRequests,
+ 		posterRequests,
+ 		posterKb: posterBytes / 1024,
++		surfacePosterRequests,
++		surfacePosterKb: surfacePosterBytes / 1024,
++		compositionPosterRequests,
++		compositionPosterKb: compositionPosterBytes / 1024,
++		posterLastEndMs,
++		posterMaxDurationMs,
+ 		scriptKb: scriptBytes / 1024,
+ 		presetKb: presetBytes / 1024,
+ 		responseKb: responseBytes / 1024
+@@ -179,6 +210,12 @@ const keys = [
+ 	'apiRequests',
+ 	'posterRequests',
+ 	'posterKb',
++	'surfacePosterRequests',
++	'surfacePosterKb',
++	'compositionPosterRequests',
++	'compositionPosterKb',
++	'posterLastEndMs',
++	'posterMaxDurationMs',
+ 	'scriptKb',
+ 	'presetKb',
+ 	'responseKb'
+diff --git a/.auto/log.jsonl b/.auto/log.jsonl
+index e1cb367..c5eab9a 100644
+--- a/.auto/log.jsonl
++++ b/.auto/log.jsonl
+@@ -17,3 +17,22 @@
+ {"run":16,"commit":"pending","metric":1622.44,"metrics":{"ttfb":93.9,"domContentLoaded":442.9,"loadEvent":457.8,"lcp":1484,"userApiEnd":319.1,"apiRequests":1,"posterRequests":14,"posterKb":195.8,"scriptKb":1858.76,"presetKb":0,"responseKb":10593.71},"status":"discard","description":"Preload the dynamic user-composition card response from homepage HTML","timestamp":1786761020164,"segment":0,"confidence":2.8039839677979805,"asi":{"hypothesis":"Starting the same dynamic card-response fetch from the HTML head will overlap local Preset parsing with hydration and reduce the post-mount wait without caching or hardcoding data.","finding":"The card response ended only 9 ms earlier, while DOMContentLoaded regressed by about 390 ms and visual readiness regressed by 899 ms. Preloading the CPU-heavy local endpoint competed with critical dev-server module transformation and hydration rather than creating useful overlap.","rollback_reason":"Primary metric more than doubled; eager preload moved non-critical local parsing onto the critical path.","next_action_hint":"Keep user-composition loading after mount. Future work should reduce endpoint CPU cost or use true server streaming, not raise its network priority."}}
+ {"run":17,"commit":"pending","metric":746.82,"metrics":{"ttfb":50.7,"domContentLoaded":85.7,"loadEvent":97.7,"lcp":508,"userApiEnd":337,"apiRequests":1,"posterRequests":23,"posterKb":308.15,"scriptKb":1858.33,"presetKb":0,"responseKb":10705.45},"status":"discard","description":"Read and validate local user compositions concurrently for the card endpoint","timestamp":1786761153512,"segment":0,"confidence":2.693301609332144,"asi":{"hypothesis":"Parallel filesystem reads will reduce the card endpoint's response time while retaining full schema and semantic validation of frequently changing local Presets.","finding":"The user-composition response ended 9 ms later than the current best, LCP regressed 40 ms, and visual readiness regressed 23 ms. Concurrent reads did not help because validation and hashing remain CPU-bound on the single JavaScript thread, while extra promise scheduling added overhead.","rollback_reason":"Primary metric worsened 3.2% and the endpoint-specific timing also regressed.","next_action_hint":"Keep sequential reads. A meaningful endpoint improvement requires reducing repeated CPU validation/hashing work through an invalidation-safe design, not parallelizing local I/O."}}
+ {"run":18,"commit":"pending","metric":763.75,"metrics":{"ttfb":42.5,"domContentLoaded":68.6,"loadEvent":86.6,"lcp":508,"userApiEnd":386.4,"apiRequests":1,"posterRequests":21,"posterKb":298.72,"scriptKb":1858.11,"presetKb":0,"responseKb":10344.85},"status":"discard","description":"Load Graffiti only on the workspace route instead of the homepage layout","timestamp":1786761281659,"segment":0,"confidence":3.206657092833395,"asi":{"hypothesis":"The homepage fully restyles its controls and should not load the workspace-oriented Graffiti package globally; route-scoping it may shrink cold dev-server work without changing workspace behavior.","finding":"Total response traffic fell by about 361 KB, confirming Graffiti contributed avoidable homepage bytes, but visual readiness regressed 40 ms, LCP regressed 40 ms, and the user API completed 59 ms later. The byte reduction did not translate into the primary metric under this workload.","rollback_reason":"Primary metric worsened 5.6%; do not retain a dependency-boundary refactor based only on transferred bytes.","next_action_hint":"Profile the client main-thread timeline or endpoint CPU directly before another structural change. Remaining differences are now close to dev-server variance."}}
++{"run":19,"commit":"1e3b73d","metric":713.35,"metrics":{"ttfb":36,"domContentLoaded":53.9,"loadEvent":81.3,"lcp":496,"userApiEnd":328.7,"apiRequests":1,"posterRequests":23,"posterKb":308.15,"scriptKb":1858.29,"presetKb":0,"responseKb":10705.48},"status":"keep","description":"Remove redundant native lazy loading after the viewport observer mounts a poster","timestamp":1786761409182,"segment":0,"confidence":4.300479516313978,"asi":{"hypothesis":"The zero-margin IntersectionObserver already prevents off-screen image creation, so native loading=\"lazy\" adds a second scheduler delay to images known to be visible.","finding":"Visual readiness improved 10 ms versus the current best with unchanged API and transfer characteristics. LCP varied 28 ms worse, so the gain is modest, but the primary metric improved and the code is simpler: the observer now solely owns deferred loading.","next_action_hint":"Confirm the small gain on a repeat before building further on it; observed dev-server noise is of similar magnitude."}}
++{"run":20,"commit":"pending","metric":719.06,"metrics":{"ttfb":38.5,"domContentLoaded":54.2,"loadEvent":80.6,"lcp":472,"userApiEnd":334.2,"apiRequests":1,"posterRequests":23,"posterKb":308.15,"scriptKb":1858.29,"presetKb":0,"responseKb":10705.48},"status":"discard","description":"Repeat the observer-only poster loading result to measure its stability","timestamp":1786761510392,"segment":0,"confidence":5.2783801938393635,"asi":{"hypothesis":"A repeat of the unchanged observer-only image-loading path will show whether iteration 19's 10 ms primary improvement exceeds dev-server noise.","finding":"The unchanged code measured 719 ms, 5.7 ms slower than iteration 19 but still 4.4 ms faster than the prior 723 ms best. LCP improved from 496 ms to 472 ms. This confirms the change is at least neutral-to-positive, while the exact 10 ms gain is within run noise.","rollback_reason":"No new product change was under test and the repeated primary value did not beat the current recorded best.","next_action_hint":"Retain iteration 19 because it simplifies scheduling and remains slightly ahead of the previous implementation across the repeat; require larger structural gains for future keeps."}}
++{"run":21,"commit":"pending","metric":727.06,"metrics":{"ttfb":43.2,"domContentLoaded":67.3,"loadEvent":99.4,"lcp":496,"userApiEnd":0,"apiRequests":0,"posterRequests":23,"posterKb":308.15,"scriptKb":1858.28,"presetKb":0,"responseKb":10705.47},"status":"discard","description":"Split homepage card metadata into a dedicated lightweight API route","timestamp":1786761694453,"segment":0,"confidence":8.389323843416369,"asi":{"hypothesis":"A dedicated card endpoint will avoid loading the full collection route's media-inspection and write dependencies during the homepage request while preserving live schema and semantic validation.","finding":"Visual readiness regressed 14 ms and initial script/response traffic was unchanged, showing that the shared Preset schema and semantic-validation graph—not the omitted route dependencies—dominates this dev-server request. The API-specific probe matched only the old URL, so its zero values are instrumentation gaps; the primary network-idle metric still covered the new request.","rollback_reason":"Primary metric worsened 1.9% and no transfer reduction supported the added route/module complexity.","next_action_hint":"Keep the existing card query lane. Further endpoint splitting is unlikely to help unless Preset validation itself is moved off the request path with safe invalidation."}}
++{"run":22,"commit":"pending","metric":726.34,"metrics":{"ttfb":43.4,"domContentLoaded":58.1,"loadEvent":84.3,"lcp":488,"userApiEnd":321,"apiRequests":1,"posterRequests":23,"posterKb":308.15,"scriptKb":1858.29,"presetKb":0,"responseKb":10705.48},"status":"discard","description":"Memoize validated card metadata with filesystem-signature invalidation","timestamp":1786761853672,"segment":0,"confidence":8.71313163313796,"asi":{"hypothesis":"A process-local card metadata cache keyed by inode, size, mtime, and ctime can skip repeated schema validation and hashing while immediately invalidating whenever frequently edited local Presets change.","finding":"The API response ended 7.7 ms earlier, but per-file stat checks and overall timing produced a 13 ms visual-readiness regression. The small endpoint gain did not justify cache state or its invalidation complexity, especially given the user's preference against caching as the solution.","rollback_reason":"Primary metric worsened 1.8%; discard the cache despite its safe invalidation and modest API improvement.","next_action_hint":"Do not pursue metadata caching. Remaining work should target first-request CPU cost directly or stop when gains are below noise."}}
++{"run":23,"commit":"pending","metric":716.46,"metrics":{"ttfb":39.6,"domContentLoaded":81.2,"loadEvent":81.8,"lcp":460,"userApiEnd":320.1,"apiRequests":1,"posterRequests":23,"posterKb":308.15,"scriptKb":1858.48,"presetKb":0,"responseKb":10705.74},"status":"discard","description":"Skip off-screen homepage section rendering with CSS content visibility","timestamp":1786761982974,"segment":0,"confidence":8.811298590346007,"asi":{"hypothesis":"Applying content-visibility:auto to library sections will let the browser skip style, paint, and rendering work for off-screen composition groups without removing content or changing dynamic loading.","finding":"LCP improved 36 ms and the user API ended 8.6 ms earlier, but visual readiness was 3.1 ms slower than the current best. The primary difference is within noise, and transferred resources were unchanged.","rollback_reason":"Primary metric did not improve; avoid retaining intrinsic-size/layout behavior solely for secondary gains without a confirmed end-to-end benefit.","next_action_hint":"If off-screen rendering remains interesting, repeat with profiling rather than relying on a sub-5 ms primary difference. Current best likely represents the practical floor of this dev workload."}}
++{"run":24,"commit":"pending","metric":715.77,"metrics":{"ttfb":33.8,"domContentLoaded":60,"loadEvent":83,"lcp":488,"userApiEnd":345.1,"apiRequests":1,"posterRequests":23,"posterKb":308.15,"scriptKb":1858.29,"presetKb":0,"responseKb":10705.48},"status":"discard","description":"Store user-composition API results in shallow Svelte state","timestamp":1786762087729,"segment":0,"confidence":11.65216777291344,"asi":{"hypothesis":"User-composition card metadata is only replaced as a whole, so $state.raw should avoid unnecessary deep proxy creation for the 45-object API response while preserving reactive assignments and deletion.","finding":"Visual readiness was 2.4 ms slower than the current best and the API response itself arrived 16 ms later; any proxy savings were below dev-server noise. Functionality and checks remained correct.","rollback_reason":"Primary metric did not improve, so the state-style cleanup was reverted under the experiment rules.","next_action_hint":"Proxy creation is not a meaningful bottleneck at this data size. Avoid micro-optimizing Svelte state without direct profile evidence."}}
++{"run":25,"commit":"pending","metric":731.78,"metrics":{"ttfb":36.2,"domContentLoaded":61.1,"loadEvent":90,"lcp":496,"userApiEnd":350.8,"apiRequests":1,"posterRequests":23,"posterKb":308.15,"scriptKb":1859.84,"presetKb":0,"responseKb":10707.03},"status":"discard","description":"Cancel unfinished poster requests when layout shifts cards off-screen","timestamp":1786762240870,"segment":0,"confidence":17.207299270072976,"asi":{"hypothesis":"Keeping the viewport observer active until image load will unmount and cancel template poster requests that become off-screen when user cards insert above them, eliminating wasted dynamic-layout traffic.","finding":"Poster request count and bytes were unchanged, showing those requests complete before the layout shift or are retained by Chrome despite image unmounting. Extra observer lifecycle work regressed visual readiness by 18 ms.","rollback_reason":"Primary metric worsened 2.6%, with no reduction in the targeted request or byte metrics.","next_action_hint":"Do not add cancellation state to PosterCard. Initial template requests are not the remaining bottleneck under local network conditions."}}
++{"run":26,"commit":"pending","metric":750.94,"metrics":{"ttfb":39.1,"domContentLoaded":54,"loadEvent":80.6,"lcp":516,"userApiEnd":358.6,"apiRequests":1,"posterRequests":23,"posterKb":308.15,"scriptKb":1857.45,"presetKb":0,"responseKb":10704.64},"status":"discard","description":"Validate user card metadata with a type guard without cloning every entry","timestamp":1786762359118,"segment":0,"confidence":17.79937439326935,"asi":{"hypothesis":"Replacing flatMap plus per-entry array/object allocations with a type-guard filter will reduce client work when the card response is inserted into Svelte state while preserving trust-boundary validation.","finding":"Visual readiness regressed 38 ms and LCP regressed 20 ms. The user API also arrived 30 ms later, dominating the result; any client allocation reduction was not measurable end to end.","rollback_reason":"Primary metric worsened 5.3%, so the parser refactor was reverted despite being allocation-light.","next_action_hint":"Client parsing of 45 metadata objects is not worth further micro-optimization. Remaining variance is dominated by server/API timing."}}
++{"run":27,"commit":"pending","metric":757.64,"metrics":{"ttfb":35,"domContentLoaded":60.5,"loadEvent":101.8,"lcp":512,"userApiEnd":345.8,"apiRequests":1,"posterRequests":23,"posterKb":308.15,"scriptKb":1859.57,"presetKb":0,"responseKb":10706.76},"status":"discard","description":"Start the user-card request during component initialization before grid hydration","timestamp":1786762505686,"segment":0,"confidence":19.501063578350244,"asi":{"hypothesis":"Starting a fresh per-instance card request when the client component initializes—after its module loads but before the large grid hydrates—will avoid onMount scheduling delay without the critical-path competition caused by HTML preload.","finding":"The API response did not arrive earlier and visual readiness regressed 44 ms. Component initialization and onMount are already close enough that the earlier fetch only competed with hydration and poster scheduling.","rollback_reason":"Primary metric worsened 6.2%, with no improvement in the targeted API response end.","next_action_hint":"Keep the post-mount request. Request start scheduling is not the remaining bottleneck; direct tracing is required before changing it again."}}
++{"run":28,"commit":"pending","metric":753,"metrics":{"ttfb":46.4,"domContentLoaded":90.3,"loadEvent":91,"lcp":436,"userApiEnd":346.7,"apiRequests":1,"posterRequests":23,"posterKb":308.15,"scriptKb":1857.37,"presetKb":0,"responseKb":10704.19},"status":"discard","description":"Replace repainting skeleton shimmers with a static placeholder","timestamp":1786762629795,"segment":0,"confidence":19.76500179662235,"asi":{"hypothesis":"Animating background-position across every unresolved card repaints many skeleton surfaces during hydration and image decode; a static visible placeholder should remove that paint pressure without hiding readiness.","finding":"LCP improved 60 ms to the best observed 436 ms, but visual readiness regressed 40 ms because navigation and API timing were slower. The primary result did not confirm an end-to-end gain despite the promising paint-side signal.","rollback_reason":"Primary metric worsened 5.6%; under the experiment rules the static-placeholder change cannot be retained on LCP alone.","next_action_hint":"A controlled repeat could determine whether the LCP gain is real, but primary readiness is now dominated by timing variance outside skeleton paint."}}
++{"run":29,"commit":"pending","metric":715.25,"metrics":{"ttfb":39.9,"domContentLoaded":54.7,"loadEvent":84.9,"lcp":484,"userApiEnd":351.5,"apiRequests":1,"posterRequests":23,"posterKb":308.15,"scriptKb":1857.37,"presetKb":0,"responseKb":10704.19},"status":"discard","description":"Repeat the static skeleton placeholder experiment","timestamp":1786762741107,"segment":0,"confidence":19.70599474564127,"asi":{"hypothesis":"Repeating the static skeleton candidate will determine whether iteration 28's 60 ms LCP gain reflects reduced repaint pressure or ordinary dev-server variance.","finding":"LCP was only 12 ms better than the current kept state rather than the prior 60 ms signal, and visual readiness remained 1.9 ms slower than the best. The large iteration 28 LCP improvement did not reproduce.","rollback_reason":"Primary metric again failed to improve, and the secondary gain was not stable enough to justify changing the loading treatment.","next_action_hint":"Keep the existing shimmer. Skeleton animation is not a confirmed bottleneck; avoid further repeats without a paint trace."}}
++{"run":30,"commit":"pending","metric":723.41,"metrics":{"ttfb":34.1,"domContentLoaded":73,"loadEvent":73.9,"lcp":424,"userApiEnd":327.6,"apiRequests":1,"posterRequests":23,"posterKb":308.15,"scriptKb":1857.85,"presetKb":0,"responseKb":10704.91},"status":"discard","description":"Show decoded posters immediately instead of fading them in over 300 ms","timestamp":1786762856494,"segment":0,"confidence":21.04552990689967,"asi":{"hypothesis":"Once a poster's load event removes its skeleton, a 300 ms opacity transition delays useful pixels and LCP without conveying meaningful state; immediate display should improve perceived readiness and reduce compositing work.","finding":"LCP improved 72 ms to the best observed 424 ms and the API timing matched the current best, but the primary network-idle readiness metric was 10 ms slower. The visual improvement is real, but it did not satisfy the session's primary keep criterion.","rollback_reason":"Primary metric worsened 1.4%; under the configured rules the fade removal was reverted despite the strong LCP gain.","next_action_hint":"The primary metric's 300 ms network-idle tail now diverges from perceived readiness. Do not change the metric mid-session, but consider a future separate LCP-focused session if immediate poster display is the product priority."}}
++{"run":31,"commit":"pending","metric":714.64,"metrics":{"ttfb":37.4,"domContentLoaded":53.5,"loadEvent":82.7,"lcp":496,"userApiEnd":341,"apiRequests":1,"posterRequests":23,"posterKb":308.15,"scriptKb":1860.26,"presetKb":0,"responseKb":10707.45},"status":"discard","description":"Start visible poster requests from a post-DOM microtask instead of waiting for observer delivery","timestamp":1786763024982,"segment":0,"confidence":22.161966156325533,"asi":{"hypothesis":"A batched post-DOM geometry check can identify actually visible cards before IntersectionObserver's asynchronous callback, starting their poster requests roughly one frame earlier without hardcoded card counts or viewport assumptions.","finding":"Visual readiness was 1.3 ms slower than the current best, LCP was unchanged, and poster request counts/bytes were unchanged. Any observer delivery delay is below the workload's timing noise; geometry checks only added code and bytes.","rollback_reason":"Primary metric did not improve and no targeted secondary signal changed.","next_action_hint":"Keep IntersectionObserver as the sole visibility mechanism. Poster request dispatch is not measurably late."}}
++{"run":32,"commit":"pending","metric":723.11,"metrics":{"ttfb":34,"domContentLoaded":48.8,"loadEvent":78.1,"lcp":460,"userApiEnd":342.1,"apiRequests":1,"posterRequests":23,"posterKb":308.15,"scriptKb":1857.85,"presetKb":0,"responseKb":10704.91},"status":"discard","description":"Repeat immediate poster display without the opacity fade","timestamp":1786763132259,"segment":0,"confidence":23.011853298005846,"asi":{"hypothesis":"Repeating fade removal will confirm whether its large LCP improvement can coexist with a primary readiness win once API timing variance settles.","finding":"LCP again improved, this time by 36 ms, but visual readiness again regressed by about 10 ms. Two runs now show the same trade-off: immediate display improves perceived paint timing but not the session's network-idle primary metric.","rollback_reason":"Primary metric failed to improve on the confirmation run, so fade removal was reverted again.","next_action_hint":"Do not repeat fade removal in this session. Its value belongs in a separately configured LCP/perceived-readiness experiment."}}
++{"run":33,"commit":"pending","metric":727.71,"metrics":{"ttfb":38.4,"domContentLoaded":55.6,"loadEvent":84.6,"lcp":496,"userApiEnd":336.9,"apiRequests":1,"posterRequests":23,"posterKb":308.15,"surfacePosterRequests":2,"surfacePosterKb":5.43,"compositionPosterRequests":21,"compositionPosterKb":302.72,"scriptKb":1858.32,"presetKb":0,"responseKb":10705.51},"status":"discard","description":"Instrument composition versus surface poster traffic on the kept homepage","timestamp":1786763256158,"segment":0,"confidence":23.929524361948943,"asi":{"hypothesis":"Separating surface fallback traffic from composition poster traffic will identify whether duplicate fallback images or real visible previews determine the network-idle tail.","finding":"Of 23 poster requests, only 2 requests/5.4 KB were surface fallbacks; 21 requests/302.7 KB were actual composition previews. The remaining poster traffic is useful visible content, not duplicate fallback waste. Unchanged product code measured 728 ms, within established dev-server variance but above the current best.","rollback_reason":"No product change was tested and the repeated primary value did not beat the current best.","next_action_hint":"Do not optimize surface fallbacks. Any further network-tail reduction must make the 21 real composition thumbnails smaller/faster without lowering visual quality, or use a different primary metric."}}
++{"run":34,"commit":"pending","metric":732.04,"metrics":{"ttfb":38.4,"domContentLoaded":78.1,"loadEvent":83.9,"lcp":512,"userApiEnd":356.4,"apiRequests":1,"posterRequests":23,"posterKb":308.15,"surfacePosterRequests":2,"surfacePosterKb":5.43,"compositionPosterRequests":21,"compositionPosterKb":302.72,"scriptKb":1857.68,"presetKb":0,"responseKb":10686.66},"status":"discard","description":"Send per-card poster availability instead of the full poster-key corpus","timestamp":1786763424343,"segment":0,"confidence":26.513174807197842,"asi":{"hypothesis":"Replacing the serialized set of roughly 1,146 poster keys with per-card availability booleans will reduce homepage payload and client Set construction while still deriving every value from the live local poster store.","finding":"Total response traffic fell by about 19 KB, but the card API ended 28 ms later because it had to read the poster directory again after mount. Visual readiness regressed 19 ms; the duplicated filesystem lookup outweighed serialization savings.","rollback_reason":"Primary metric worsened 2.6%, and API timing confirmed the architectural trade-off was negative.","next_action_hint":"Keep the single server-loaded poster-key set. Its small payload is cheaper than repeating poster-store discovery in the card endpoint."}}
++{"run":35,"commit":"pending","metric":718.24,"metrics":{"ttfb":36.5,"domContentLoaded":92.1,"loadEvent":92.7,"lcp":468,"userApiEnd":0,"apiRequests":0,"posterRequests":14,"posterKb":195.8,"surfacePosterRequests":2,"surfacePosterKb":5.43,"compositionPosterRequests":12,"compositionPosterKb":190.37,"scriptKb":1857.82,"presetKb":0,"responseKb":10592.51},"status":"discard","description":"Stream user-composition cards from server load instead of fetching after mount","timestamp":1786763571691,"segment":0,"confidence":28.869489153253983,"asi":{"hypothesis":"Starting the internal card endpoint during server load and streaming its promise will overlap filesystem validation with SSR, eliminate the browser API request, and avoid blocking initial page fields behind an await.","finding":"The browser API request disappeared, composition poster requests fell from 21 to 12, poster bytes fell 37%, and LCP improved 28 ms. However the streamed document kept DOMContentLoaded about 38 ms later, leaving primary visual readiness 4.9 ms slower than the current best.","rollback_reason":"Primary metric did not improve; the streaming trade-off shifted work into document completion despite strong request and LCP reductions.","next_action_hint":"Streaming is promising for perceived paint but incompatible with the current readyState/network-idle primary. Do not retry without a separate metric or a rendering design that does not hold document completion."}}
++{"run":36,"commit":"pending","metric":738.75,"metrics":{"ttfb":47.4,"domContentLoaded":89.6,"loadEvent":90.2,"lcp":508,"userApiEnd":359.9,"apiRequests":1,"posterRequests":23,"posterKb":307.78,"surfacePosterRequests":2,"surfacePosterKb":5.43,"compositionPosterRequests":21,"compositionPosterKb":302.34,"scriptKb":1858.32,"presetKb":0,"responseKb":10705.14},"status":"discard","description":"Add explicit content lengths to poster image responses","timestamp":1786763702280,"segment":0,"confidence":30.70673613695571,"asi":{"hypothesis":"Explicit Content-Length headers on 21 local poster responses will avoid chunked-transfer completion overhead and let Chrome recognize image completion sooner without changing bytes, quality, or caching.","finding":"Visual readiness regressed 25 ms; request count was unchanged and encoded poster bytes changed only by header accounting. Explicit lengths did not improve local image completion.","rollback_reason":"Primary metric worsened 3.6%, so the header change was reverted.","next_action_hint":"Poster HTTP framing is not the bottleneck. Avoid further micro-optimizations without request-level timing traces."}}
++{"run":37,"commit":"pending","metric":733.65,"metrics":{"ttfb":49.4,"domContentLoaded":94.6,"loadEvent":95.3,"lcp":516,"userApiEnd":351.1,"apiRequests":1,"posterRequests":22,"posterKb":302.48,"surfacePosterRequests":2,"surfacePosterKb":5.43,"compositionPosterRequests":20,"compositionPosterKb":297.05,"posterLastEndMs":428.04,"posterMaxDurationMs":36.68,"scriptKb":1858.32,"presetKb":0,"responseKb":10699.84},"status":"discard","description":"Instrument poster completion timing on the kept homepage","timestamp":1786763835026,"segment":0,"confidence":32.793720190778906,"asi":{"hypothesis":"Request-level poster timing will show whether one unusually slow image or the aggregate request wave determines the 300 ms network-idle tail.","finding":"The final poster completed at 428 ms, while the slowest individual poster took only 36.7 ms. The card API ended at 351 ms, leaving a 77 ms post-API poster wave before the fixed 300 ms idle window. No single large/slow poster dominates; scheduling roughly 20 useful composition requests after layout insertion determines the tail.","rollback_reason":"No product change was tested and the unchanged primary value did not beat the current best.","next_action_hint":"Target layout-stabilization waste: avoid starting built-in template posters that are immediately pushed off-screen when user cards arrive, without reducing visible final previews."}}
+diff --git a/.auto/prompt.md b/.auto/prompt.md
+index ca8ccd2..99ad6c2 100644
+--- a/.auto/prompt.md
++++ b/.auto/prompt.md
+@@ -16,7 +16,8 @@ Make `http://localhost:7263/` visibly ready much faster. The current homepage sh
+ - `src/routes/PosterCard.svelte` — poster loading and skeleton lifecycle.
+ - `src/routes/+layout.svelte` — shared chrome assets; keep workspace-only dependencies off the homepage.
+ - `src/routes/p/[slug]/+page.svelte` — workspace route entry and workspace-only dependency loading.
+-- `src/routes/api/user-compositions/+server.ts` — user-composition listing response.
++- `src/routes/api/user-compositions/+server.ts` — user-composition card/full listing and writes.
++- `src/routes/api/posters/[key]/+server.ts` — dynamic poster response delivery.
+ - `src/lib/platform/user-composition-store.ts` — client transport and response parsing.
+ - Focused colocated tests for changed behavior.
+ - `.auto/` benchmark, checks, prompt, and ideas.
+diff --git a/src/routes/PosterCard.svelte b/src/routes/PosterCard.svelte
+index 04ce15e..96f47f4 100644
+--- a/src/routes/PosterCard.svelte
++++ b/src/routes/PosterCard.svelte
+@@ -30,10 +30,22 @@
+ 		reflow: boolean;
+ 		/** Grid-wide preview aspect from the toolrow toggle. */
+ 		aspect: 'wide' | 'tall';
++		/** Whether the surrounding layout is stable enough to start preview work. */
++		allowLoad: boolean;
+ 	}
+ 
+-	let { slug, thumbKey, name, type, badge, kindLabel, durationSeconds, reflow, aspect }: Props =
+-		$props();
++	let {
++		slug,
++		thumbKey,
++		name,
++		type,
++		badge,
++		kindLabel,
++		durationSeconds,
++		reflow,
++		aspect,
++		allowLoad
++	}: Props = $props();
+ 
+ 	// Fallback chain: this composition's own poster (capture-on-view) → the
+ 	// committed surface-type default → the surface glyph. The base level comes
+@@ -45,6 +57,7 @@
+ 	let shouldLoad = $state(false);
+ 
+ 	const loadVisiblePoster: Attachment<HTMLElement> = (element) => {
++		if (!allowLoad) return;
+ 		if (typeof IntersectionObserver === 'undefined') {
+ 			shouldLoad = true;
+ 			return;
