@@ -44,8 +44,20 @@ function isStoredUserComposition(value: unknown): value is StoredUserComposition
 	);
 }
 
-export const GET: RequestHandler = async () => {
+type UserCompositionCardMetadata = Pick<
+	UserCompositionMeta,
+	| 'slug'
+	| 'name'
+	| 'forkedFrom'
+	| 'savedAt'
+	| 'posterKey'
+	| 'durationSeconds'
+	| 'surfaceType'
+>;
+
+export const GET: RequestHandler = async (event) => {
 	await ensureUserCompositionStoreDirectory();
+	const cardView = event.url?.searchParams.get('view') === 'cards';
 
 	let entries: string[];
 	try {
@@ -54,7 +66,7 @@ export const GET: RequestHandler = async () => {
 		entries = [];
 	}
 
-	const userCompositionMetadata: UserCompositionMeta[] = [];
+	const userCompositionMetadata: Array<UserCompositionMeta | UserCompositionCardMetadata> = [];
 
 	for (const entry of entries) {
 		if (!entry.endsWith('.json')) continue;
@@ -66,15 +78,22 @@ export const GET: RequestHandler = async () => {
 			const result = PresetIngressSchema.safeParse(storedUserComposition.preset);
 			if (!result.success) continue;
 			if (validatePresetSemantics(result.data).length > 0) continue;
-			const mediaInspection = await inspectUserCompositionMedia(result.data);
-			userCompositionMetadata.push({
+			const cardMetadata = {
 				slug: userCompositionSlug,
 				name: result.data.name,
 				forkedFrom: storedUserComposition.meta.forkedFrom,
 				savedAt: storedUserComposition.meta.savedAt,
 				posterKey: posterKeyForPreset(result.data),
 				durationSeconds: result.data.state.transport.durationSeconds,
-				surfaceType: result.data.state.surface.type,
+				surfaceType: result.data.state.surface.type
+			};
+			if (cardView) {
+				userCompositionMetadata.push(cardMetadata);
+				continue;
+			}
+			const mediaInspection = await inspectUserCompositionMedia(result.data);
+			userCompositionMetadata.push({
+				...cardMetadata,
 				media: result.data.state.media,
 				mediaStatus: mediaInspection.status,
 				...(mediaInspection.issues.length > 0 ? { mediaIssues: mediaInspection.issues } : {})

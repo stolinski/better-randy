@@ -122,7 +122,7 @@
 	}
 
 	onMount(() => {
-		fetch('/api/user-compositions')
+		fetch('/api/user-compositions?view=cards')
 			.then(async (response) => {
 				if (!response.ok) throw new Error(`Failed to list User compositions: ${response.status}`);
 				userCompositions = parseUserCompositionCards(await response.json());
