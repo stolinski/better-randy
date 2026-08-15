@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 
-	import type { Preset, SurfaceType } from '$lib/platform/engine-schema';
+	import type { Preset } from '$lib/platform/engine-schema';
 	import { posterKeyForPreset } from '$lib/platform/posters';
 	import type { CataloguedPreset } from '$lib/platform/preset';
 	import { getPresetBySlug, listFixtures, listPresets } from '$lib/platform/preset';
@@ -73,15 +73,6 @@
 	})();
 
 	let userCompositions = $state<UserCompositionMeta[]>([]);
-	// A User composition's poster key + card metadata need its full stored Preset
-	// (not just the meta record), so resolve each once the list loads; null once
-	// resolved-but-unavailable.
-	interface UserCompositionCardInfo {
-		posterKey: string | null;
-		durationSeconds: number;
-		surfaceType: SurfaceType;
-	}
-	let userCompositionInfo = $state<Record<string, UserCompositionCardInfo | null>>({});
 	// Two-step in-place delete: first press arms this slug ("Delete?"), second
 	// press commits; pointer-down elsewhere or Escape disarms.
 	let confirmingSlug = $state<string | null>(null);
@@ -97,25 +88,6 @@
 			.listUserCompositions()
 			.then((userCompositionList) => {
 				userCompositions = userCompositionList;
-				for (const userComposition of userCompositionList) {
-					userCompositionStore
-						.loadUserComposition(userComposition.slug)
-						.then((preset) => {
-							if (!preset) {
-								userCompositionInfo[userComposition.slug] = null;
-								return;
-							}
-							const key = posterKeyForPreset(preset);
-							userCompositionInfo[userComposition.slug] = {
-								posterKey: key !== null && posterKeys.has(key) ? key : null,
-								durationSeconds: preset.state.transport.durationSeconds,
-								surfaceType: preset.state.surface.type
-							};
-						})
-						.catch(() => {
-							userCompositionInfo[userComposition.slug] = null;
-						});
-				}
 			})
 			.catch(() => {
 				userCompositions = [];
@@ -338,16 +310,19 @@
 	{@const starterTemplate = userComposition.forkedFrom
 		? getPresetBySlug(userComposition.forkedFrom)
 		: null}
-	{@const info = userCompositionInfo[userComposition.slug] ?? null}
 	<li class="card-cell">
 		<PosterCard
 			slug={userComposition.slug}
-			thumbKey={info?.posterKey ?? null}
+			thumbKey={
+				userComposition.posterKey !== null && posterKeys.has(userComposition.posterKey)
+					? userComposition.posterKey
+					: null
+			}
 			name={userComposition.name}
-			type={info?.surfaceType ?? starterTemplate?.state.surface.type ?? 'plain'}
+			type={userComposition.surfaceType}
 			badge={starterTemplate ? compositorBadge(starterTemplate) : null}
-			kindLabel={SURFACE_LABELS[info?.surfaceType ?? starterTemplate?.state.surface.type ?? 'plain']}
-			durationSeconds={info?.durationSeconds ?? null}
+			kindLabel={SURFACE_LABELS[userComposition.surfaceType]}
+			durationSeconds={userComposition.durationSeconds}
 			reflow={true}
 			aspect={previewAspect}
 		/>

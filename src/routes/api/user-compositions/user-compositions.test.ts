@@ -5,6 +5,7 @@ import { beforeAll, beforeEach, describe, it, vi } from 'vitest';
 
 import validPreset from '$lib/presets/blank.json';
 import { PresetSchema, type Preset } from '$lib/platform/engine-schema';
+import { posterKeyForPreset } from '$lib/platform/posters';
 import { presetToWireFormat } from '$lib/platform/preset-pure';
 
 const fsMocks = vi.hoisted(() => ({
@@ -245,6 +246,9 @@ describe('user composition handlers', () => {
 				name: 'Blank',
 				forkedFrom: null,
 				savedAt: '2026-07-14T12:00:00.000Z',
+				posterKey: posterKeyForPreset(PresetSchema.parse(validPreset)),
+				durationSeconds: PresetSchema.parse(validPreset).state.transport.durationSeconds,
+				surfaceType: PresetSchema.parse(validPreset).state.surface.type,
 				media: { assets: [], videoTrack: { clips: [] } },
 				mediaStatus: 'ready'
 			}
@@ -482,6 +486,9 @@ describe('user composition handlers', () => {
 				name: 'Media composition',
 				forkedFrom: null,
 				savedAt: '2026-07-27T12:00:00.000Z',
+				posterKey: posterKeyForPreset(PresetSchema.parse(preset)),
+				durationSeconds: PresetSchema.parse(preset).state.transport.durationSeconds,
+				surfaceType: PresetSchema.parse(preset).state.surface.type,
 				media,
 				mediaStatus: 'ready'
 			}

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { json, error, type RequestHandler } from '@sveltejs/kit';
 
 import { PresetIngressSchema } from '$lib/platform/preset-ingress';
+import { posterKeyForPreset } from '$lib/platform/posters';
 import { presetToWireFormat } from '$lib/platform/preset-pure';
 import {
 	formatPresetSemanticIssues,
@@ -71,6 +72,9 @@ export const GET: RequestHandler = async () => {
 				name: result.data.name,
 				forkedFrom: storedUserComposition.meta.forkedFrom,
 				savedAt: storedUserComposition.meta.savedAt,
+				posterKey: posterKeyForPreset(result.data),
+				durationSeconds: result.data.state.transport.durationSeconds,
+				surfaceType: result.data.state.surface.type,
 				media: result.data.state.media,
 				mediaStatus: mediaInspection.status,
 				...(mediaInspection.issues.length > 0 ? { mediaIssues: mediaInspection.issues } : {})
