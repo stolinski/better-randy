@@ -9,8 +9,10 @@ export const load = (async ({ params, url, fetch }) => {
 	const source = url.searchParams.get('source') === 'builtin' ? ('builtin' as const) : null;
 
 	try {
+		const indexedFileExists =
+			source === 'builtin' ? false : await userCompositionFileExists(slug);
 		const userComposition =
-			source === 'builtin' || !(await userCompositionFileExists(slug))
+			indexedFileExists === false
 				? null
 				: await userCompositionStore.loadUserComposition(slug, fetch);
 		const preset = userComposition ?? getPresetBySlug(slug);
