@@ -64,9 +64,20 @@
 			contentViewBox = cached;
 			return;
 		}
-		const inset = imageContentViewBoxInset(image);
-		contentViewBoxCache.set(source, inset);
-		contentViewBox = inset;
+
+		// Alpha scanning is presentation refinement, not image readiness. Keep it
+		// out of the load event so a burst of local poster decodes can paint first.
+		const measureContentCrop = (): void => {
+			if (!ready || (image.currentSrc || image.src) !== source) return;
+			const inset = imageContentViewBoxInset(image);
+			contentViewBoxCache.set(source, inset);
+			contentViewBox = inset;
+		};
+		if ('requestIdleCallback' in window) {
+			window.requestIdleCallback(measureContentCrop, { timeout: 1_000 });
+		} else {
+			globalThis.setTimeout(measureContentCrop, 0);
+		}
 	}
 
 	function handleError(): void {

@@ -23,6 +23,11 @@ async function measureOnce() {
 	let lastNetworkActivity = performance.now();
 	let apiRequests = 0;
 	let responseBytes = 0;
+	let posterRequests = 0;
+	let posterBytes = 0;
+	let scriptBytes = 0;
+	let presetBytes = 0;
+	const requestUrls = new Map();
 	const pending = new Map();
 	socket.onmessage = (event) => {
 		const message = JSON.parse(event.data);
@@ -36,12 +41,24 @@ async function measureOnce() {
 		if (message.method === 'Network.requestWillBeSent') {
 			inFlight += 1;
 			lastNetworkActivity = performance.now();
-			if (message.params.request.url.includes('/api/user-compositions')) apiRequests += 1;
+			const url = message.params.request.url;
+			requestUrls.set(message.params.requestId, url);
+			if (url.includes('/api/user-compositions')) apiRequests += 1;
 		}
 		if (message.method === 'Network.loadingFinished') {
 			inFlight = Math.max(0, inFlight - 1);
 			lastNetworkActivity = performance.now();
-			responseBytes += message.params.encodedDataLength ?? 0;
+			const bytes = message.params.encodedDataLength ?? 0;
+			const url = requestUrls.get(message.params.requestId) ?? '';
+			responseBytes += bytes;
+			if (url.includes('/api/posters/') || url.includes('/surface-posters/')) {
+				posterRequests += 1;
+				posterBytes += bytes;
+			} else if (/\/src\/.*(?:\.svelte|\.ts)(?:\?|$)|\/@(?:id|vite|fs)\//.test(url)) {
+				scriptBytes += bytes;
+			} else if (url.includes('/src/lib/presets/') && url.includes('.json')) {
+				presetBytes += bytes;
+			}
 		}
 		if (message.method === 'Network.loadingFailed') {
 			inFlight = Math.max(0, inFlight - 1);
@@ -133,6 +150,10 @@ async function measureOnce() {
 		visualReadyMs,
 		...snapshot,
 		apiRequests,
+		posterRequests,
+		posterKb: posterBytes / 1024,
+		scriptKb: scriptBytes / 1024,
+		presetKb: presetBytes / 1024,
 		responseKb: responseBytes / 1024
 	};
 }
@@ -144,7 +165,19 @@ function median(values) {
 
 const results = [];
 for (let run = 0; run < RUNS; run += 1) results.push(await measureOnce());
-const keys = ['visualReadyMs', 'ttfb', 'domContentLoaded', 'loadEvent', 'lcp', 'apiRequests', 'responseKb'];
+const keys = [
+	'visualReadyMs',
+	'ttfb',
+	'domContentLoaded',
+	'loadEvent',
+	'lcp',
+	'apiRequests',
+	'posterRequests',
+	'posterKb',
+	'scriptKb',
+	'presetKb',
+	'responseKb'
+];
 const medians = Object.fromEntries(keys.map((key) => [key, median(results.map((result) => result[key]))]));
 console.log(JSON.stringify({ medians, results }, null, 2));
 for (const [key, value] of Object.entries(medians)) console.log(`METRIC ${key}=${value.toFixed(2)}`);
