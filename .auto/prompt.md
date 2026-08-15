@@ -14,6 +14,8 @@ Make `http://localhost:7263/` visibly ready much faster. The current homepage sh
 - `src/routes/+page.server.ts` — homepage server data.
 - `src/routes/+page.svelte` — homepage composition loading and grid rendering.
 - `src/routes/PosterCard.svelte` — poster loading and skeleton lifecycle.
+- `src/routes/+layout.svelte` — shared chrome assets; keep workspace-only dependencies off the homepage.
+- `src/routes/p/[slug]/+page.svelte` — workspace route entry and workspace-only dependency loading.
 - `src/routes/api/user-compositions/+server.ts` — user-composition listing response.
 - `src/lib/platform/user-composition-store.ts` — client transport and response parsing.
 - Focused colocated tests for changed behavior.
