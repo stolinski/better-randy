@@ -213,20 +213,28 @@ async function checkPatchWithoutTargetMutation(
 ): Promise<boolean> {
 	const indexPath = join(temporaryRoot, `alternate-index-${crypto.randomUUID()}`);
 	const env = { GIT_INDEX_FILE: indexPath };
+	let patchApplies = false;
+	let operationError: unknown;
 	try {
 		const readTree = await runGit(repository, ['read-tree', 'HEAD'], env);
-		if (readTree.code !== 0) return false;
-		const apply = await runGit(repository, ['apply', '--cached', '--3way', patchPath], env);
-		return apply.code === 0;
-	} finally {
-		for (const temporaryPath of [indexPath, `${indexPath}.lock`]) {
-			try {
-				await Deno.remove(temporaryPath);
-			} catch (error) {
-				if (!(error instanceof Deno.errors.NotFound)) throw error;
+		if (readTree.code === 0) {
+			const apply = await runGit(repository, ['apply', '--cached', '--3way', patchPath], env);
+			patchApplies = apply.code === 0;
+		}
+	} catch (error) {
+		operationError = error;
+	}
+	for (const temporaryPath of [indexPath, `${indexPath}.lock`]) {
+		try {
+			await Deno.remove(temporaryPath);
+		} catch (error) {
+			if (!(error instanceof Deno.errors.NotFound) && operationError === undefined) {
+				operationError = error;
 			}
 		}
 	}
+	if (operationError !== undefined) throw operationError;
+	return patchApplies;
 }
 
 async function baseIsAncestor(repository: string, baseRevision: string): Promise<boolean> {
