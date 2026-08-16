@@ -115,6 +115,64 @@ describe('preset rubric', () => {
 		assert.deepEqual(placementIssues, []);
 	});
 
+	it('fails charts that their renderer suppresses after vertical layout overflow', () => {
+		const preset = makePreset({
+			surface: {
+				chart: {
+					mode: 'single',
+					items: [
+						{
+							id: 'q4-responses',
+							type: 'column-chart',
+							title: 'Are your coding skills sharpening or diminishing?',
+							data: {
+								categories: [
+									{ id: 'one', label: '1 sharpening' },
+									{ id: 'two', label: '2' },
+									{ id: 'three', label: '3 steady' },
+									{ id: 'four', label: '4' },
+									{ id: 'five', label: '5 diminishing' }
+								],
+								series: [
+									{
+										id: 'responses',
+										label: 'Responses',
+										values: [
+											{ categoryId: 'one', value: 39 },
+											{ categoryId: 'two', value: 125 },
+											{ categoryId: 'three', value: 344 },
+											{ categoryId: 'four', value: 493 },
+											{ categoryId: 'five', value: 251 }
+										]
+									}
+								]
+							},
+							domain: { min: 0, max: 600 },
+							labels: { categories: true, values: true, legend: false },
+							fill: { role: 'default' },
+							layout: { mode: 'single' },
+							motion: {
+								entry: { start: 0.02, duration: 0.02 },
+								reveal: { start: 0.04, duration: 0.1 },
+								emphasis: { start: 0.15, duration: 0.03 },
+								annotation: { start: 0.19, duration: 0.04 },
+								exit: { start: 0.93, duration: 0.04 }
+							}
+						}
+					]
+				}
+			}
+		});
+
+		const issues = lintPreset(preset).filter(
+			(issue) => issue.rule === 'G2' && issue.path === 'surface.chart.items[0]'
+		);
+
+		assert.equal(issues.length, 1);
+		assert.match(issues[0].message, /cannot render in vertical/);
+		assert.match(issues[0].message, /title-too-wide/);
+	});
+
 	it('validates resolved Diagram geometry without clamping authored points', () => {
 		const preset = makePreset({
 			surface: {

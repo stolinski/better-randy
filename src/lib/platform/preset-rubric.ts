@@ -3,6 +3,7 @@ import type { AnnotationBody } from '../annotations/annotation-marks.ts';
 import { opacityEnvelope, resolveCascadeTimings, type CascadeWindow } from './cascade-timing.ts';
 import { deriveDeterministicReadingPlan } from './deterministic-reading-plan.ts';
 import type {
+	ChartBlock,
 	DiagramPoint,
 	DiagramPrimitive,
 	EngineState,
@@ -17,6 +18,11 @@ import { requireCoreColor, resolveBackgroundFill, resolveFieldInkColor } from '.
 import { resolveSurfaceTypographyColors } from './pipelines/definition-registry';
 import { getLayoutSafeArea } from '../utils/safe-area.ts';
 import { calculateWebsiteShowcaseLayout } from '../utils/website-showcase.ts';
+import { resolveChartBarColumnGeometry } from '../utils/chart-bar-column-geometry.ts';
+import { resolveChartFrameLayout, type ChartLayoutOverflow } from '../utils/chart-layout.ts';
+import { resolveChartLineGeometry } from '../utils/chart-line-geometry.ts';
+import { resolveChartNormalizedGeometry } from '../utils/chart-normalized-geometry.ts';
+import { createChartRenderTextMeasurer } from '../utils/chart-text-measurement.ts';
 import { resolveDiagramPrimitiveGeometry } from '../utils/diagram-geometry.ts';
 import { resolveOverlayPlacement } from '../utils/overlay-placement.ts';
 
@@ -165,6 +171,7 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 	checkMarkOrdering(state.surface, state.marks.timings, totalSeconds, cascadeWindows, issues);
 	checkOverlayTimings(state.overlays, totalSeconds, cascadeWindows, issues);
 	checkOverlayPlacement(state.overlays, orientation, issues);
+	checkChartLayout(state.surface.chart?.items ?? [], issues);
 	checkDiagramPlacement(state.surface.diagram ?? [], orientation, issues);
 	if (resolvedTypography) {
 		checkContrast(state.surface, resolvedTypography, issues);
@@ -475,6 +482,50 @@ function checkOverlayPlacement(
 		// content. Internal padding and Pack chrome can keep text safe even when
 		// the container edge crosses a platform margin, so offset-only geometry
 		// cannot prove clipping. Exact normalized rects remain statically checkable.
+	}
+}
+
+function resolveChartGeometryOverflow(
+	block: ChartBlock,
+	orientation: 'horizontal' | 'vertical'
+): readonly ChartLayoutOverflow[] {
+	const measureText = createChartRenderTextMeasurer(orientation);
+	const layout = resolveChartFrameLayout({ block, orientation, measureText });
+	if (layout.overflow.length > 0) return layout.overflow;
+
+	switch (block.type) {
+		case 'bar-chart':
+		case 'column-chart':
+			return resolveChartBarColumnGeometry({ block, layout, orientation, measureText }).overflow;
+		case 'line-chart':
+			return resolveChartLineGeometry({ block, layout, orientation, measureText }).overflow;
+		case 'unit-grid-chart':
+		case 'dot-field-chart':
+			return resolveChartNormalizedGeometry({ block, layout, orientation, measureText }).overflow;
+	}
+}
+
+function checkChartLayout(blocks: readonly ChartBlock[], issues: RubricIssue[]): void {
+	for (const [index, block] of blocks.entries()) {
+		for (const orientation of ['horizontal', 'vertical'] as const) {
+			try {
+				const overflow = resolveChartGeometryOverflow(block, orientation);
+				if (overflow.length === 0) continue;
+				issues.push({
+					rule: 'G2',
+					severity: 'error',
+					path: `surface.chart.items[${index}]`,
+					message: `Chart cannot render in ${orientation}: ${overflow.map((failure) => `${failure.code} — ${failure.message}`).join(' ')}`
+				});
+			} catch (error) {
+				issues.push({
+					rule: 'G2',
+					severity: 'error',
+					path: `surface.chart.items[${index}]`,
+					message: `Chart geometry could not resolve in ${orientation}: ${error instanceof Error ? error.message : String(error)}`
+				});
+			}
+		}
 	}
 }
 
