@@ -8,7 +8,6 @@ import type {
 	EngineState,
 	MarkTiming,
 	Overlay,
-	OverlayPlacement,
 	Preset,
 	SurfaceState,
 	Transition
@@ -99,11 +98,6 @@ const LINE_HEIGHT_SANS_MIN = 1.32;
 const LINE_HEIGHT_SANS_MAX = 1.5;
 const MAX_LINES_PER_PARAGRAPH = 8;
 
-const LOWER_THIRD_OFFSET_Y_MIN_PCT_HORIZONTAL = 0.1;
-const LOWER_THIRD_OFFSET_Y_MAX_PCT_HORIZONTAL = 0.28;
-const LOWER_THIRD_OFFSET_Y_MIN_PCT_VERTICAL = 0.16;
-const LOWER_THIRD_OFFSET_Y_MAX_PCT_VERTICAL = 0.32;
-
 interface FlattenedMark {
 	style: AnnotationMarkStyle;
 	wordCount: number;
@@ -118,7 +112,6 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 	const { state } = preset;
 	const totalSeconds = state.transport.durationSeconds;
 	const orientation = state.transport.orientation;
-	const frame = orientation === 'vertical' ? FRAME_VERTICAL : FRAME_HORIZONTAL;
 	const flattenedMarks = flattenBody(state.surface.content.body);
 
 	// Cascade-resolved windows (ADR-0035 §6): the window rules below run against
@@ -171,7 +164,7 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 	checkMarkTimings(flattenedMarks, state.marks.timings, issues);
 	checkMarkOrdering(state.surface, state.marks.timings, totalSeconds, cascadeWindows, issues);
 	checkOverlayTimings(state.overlays, totalSeconds, cascadeWindows, issues);
-	checkOverlayPlacement(state.overlays, frame, orientation, issues);
+	checkOverlayPlacement(state.overlays, orientation, issues);
 	checkDiagramPlacement(state.surface.diagram ?? [], orientation, issues);
 	if (resolvedTypography) {
 		checkContrast(state.surface, resolvedTypography, issues);
@@ -440,7 +433,6 @@ function checkMarkOrdering(
 
 function checkOverlayPlacement(
 	overlays: readonly Overlay[],
-	frame: FrameSize,
 	orientation: 'horizontal' | 'vertical',
 	issues: RubricIssue[]
 ): void {
@@ -454,7 +446,6 @@ function checkOverlayPlacement(
 			: `overlays[${index}].position`;
 		const placement = resolveOverlayPlacement(overlay.position, orientation);
 		const anchor = placement.anchor;
-		const offset = placement.offset;
 		const rect = placement.rect;
 
 		// cursor-trail uses a full-frame normalized-rect purely as its COORDINATE
@@ -478,50 +469,12 @@ function checkOverlayPlacement(
 					message: `Overlay rect extends outside the ${orientation} safe zone (top ${(sa.top * 100).toFixed(0)}% / right ${(sa.right * 100).toFixed(0)}% / bottom ${(sa.bottom * 100).toFixed(0)}% / left ${(sa.left * 100).toFixed(0)}%).`
 				});
 			}
-		} else if (offset) {
-			// Offsets are fractions of the composition dimensions (0..1). Use the
-			// orientation-specific safe-area margins from getLayoutSafeArea so the
-			// linter and CanvasSource layout agree on the same numbers.
-			if (anchor.includes('left') && offset.x < sa.left) {
-				issues.push({
-					rule: 'G2',
-					severity: 'error',
-					path: `${path}.offset.x`,
-					message: `Anchor "${anchor}" requires offset.x ≥ ${sa.left} (${(sa.left * 100).toFixed(0)}% left safe-area for ${orientation}); got ${offset.x}.`
-				});
-			}
-
-			if (anchor.includes('right') && offset.x < sa.right) {
-				issues.push({
-					rule: 'G2',
-					severity: 'error',
-					path: `${path}.offset.x`,
-					message: `Anchor "${anchor}" requires offset.x ≥ ${sa.right} (${(sa.right * 100).toFixed(0)}% right safe-area for ${orientation}); got ${offset.x}.`
-				});
-			}
-
-			if (anchor.includes('top') && offset.y < sa.top) {
-				issues.push({
-					rule: 'G2',
-					severity: 'error',
-					path: `${path}.offset.y`,
-					message: `Anchor "${anchor}" requires offset.y ≥ ${sa.top} (${(sa.top * 100).toFixed(0)}% top safe-area for ${orientation}); got ${offset.y}.`
-				});
-			}
-
-			if (anchor.includes('bottom') && offset.y < sa.bottom) {
-				issues.push({
-					rule: 'G2',
-					severity: 'error',
-					path: `${path}.offset.y`,
-					message: `Anchor "${anchor}" requires offset.y ≥ ${sa.bottom} (${(sa.bottom * 100).toFixed(0)}% bottom safe-area for ${orientation}); got ${offset.y}.`
-				});
-			}
 		}
 
-		if (overlay.type === 'lower-third') {
-			checkLowerThirdPlacement(placement, path, orientation, issues);
-		}
+		// Edge-anchor offsets locate the Pipeline container, not its readable
+		// content. Internal padding and Pack chrome can keep text safe even when
+		// the container edge crosses a platform margin, so offset-only geometry
+		// cannot prove clipping. Exact normalized rects remain statically checkable.
 	}
 }
 
@@ -576,54 +529,6 @@ function checkDiagramPlacement(
 				break;
 			}
 		}
-	}
-}
-
-function checkLowerThirdPlacement(
-	placement: OverlayPlacement,
-	path: string,
-	orientation: 'horizontal' | 'vertical',
-	issues: RubricIssue[]
-): void {
-	const anchor = placement.anchor;
-
-	if (!anchor.includes('bottom')) {
-		issues.push({
-			rule: 'L1',
-			severity: 'warn',
-			path: `${path}.anchor`,
-			message: `Lower-third anchored to "${anchor}" — convention is a bottom corner.`
-		});
-
-		return;
-	}
-
-	const offset = placement.offset;
-
-	if (!offset) {
-		return;
-	}
-
-	// Offsets are fractions of the composition dimensions (0..1).
-	const [minPct, maxPct] =
-		orientation === 'vertical'
-			? [LOWER_THIRD_OFFSET_Y_MIN_PCT_VERTICAL, LOWER_THIRD_OFFSET_Y_MAX_PCT_VERTICAL]
-			: [LOWER_THIRD_OFFSET_Y_MIN_PCT_HORIZONTAL, LOWER_THIRD_OFFSET_Y_MAX_PCT_HORIZONTAL];
-
-	if (offset.y < minPct) {
-		issues.push({
-			rule: 'L1',
-			severity: 'error',
-			path: `${path}.offset.y`,
-			message: `Lower-third sits too low — offset.y must be ≥ ${minPct} (${(minPct * 100).toFixed(0)}% of frame height) so the block lands inside the lower-third band; got ${offset.y}.`
-		});
-	} else if (offset.y > maxPct) {
-		issues.push({
-			rule: 'L1',
-			severity: 'error',
-			path: `${path}.offset.y`,
-			message: `Lower-third sits too high — offset.y must be ≤ ${maxPct} (${(maxPct * 100).toFixed(0)}% of frame height) so the block stays inside the lower-third band; got ${offset.y}.`
-		});
 	}
 }
 

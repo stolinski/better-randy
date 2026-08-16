@@ -29,10 +29,9 @@
 	let verifiedVisualIssues = $state.raw<PresetVerificationIssue[]>([]);
 	let lastVerificationPassed = $state(false);
 	const isVerificationCurrent = $derived(verifiedArtifactJson === liveArtifact.json);
-	const visibleVerificationIssues = $derived([
-		...liveArtifact.verification.issues,
-		...(isVerificationCurrent ? verifiedVisualIssues : [])
-	]);
+	const visibleVerificationIssues = $derived(
+		isVerificationCurrent ? [...liveArtifact.verification.issues, ...verifiedVisualIssues] : []
+	);
 	const verificationPassed = $derived(isVerificationCurrent && lastVerificationPassed);
 
 	function exportPresetJson(): void {

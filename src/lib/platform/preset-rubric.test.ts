@@ -60,7 +60,7 @@ function rules(issues: RubricIssue[]): string[] {
 }
 
 describe('preset rubric', () => {
-	it('validates resolved orientation placement without clamping authored geometry', () => {
+	it('validates exact orientation rects without clamping authored geometry', () => {
 		const preset = makePreset({
 			overlays: [
 				{
@@ -72,8 +72,8 @@ describe('preset rubric', () => {
 						offset: { x: 0.06, y: 0.08 },
 						orientationOverrides: {
 							vertical: {
-								anchor: 'bottom-center',
-								offset: { x: 0, y: 0.1 }
+								anchor: 'normalized-rect',
+								rect: { x: 0.1, y: 0.82, width: 0.5, height: 0.1 }
 							}
 						}
 					}
@@ -85,12 +85,34 @@ describe('preset rubric', () => {
 		const issues = lintPreset(preset).filter((issue) => issue.rule === 'G2');
 
 		assert.equal(issues.length, 1);
-		assert.equal(issues[0].path, 'overlays[0].position.orientationOverrides.vertical.offset.y');
+		assert.equal(issues[0].path, 'overlays[0].position.orientationOverrides.vertical.rect');
 		assert.equal(
-			preset.state.overlays[0].position.orientationOverrides?.vertical?.offset?.y,
-			0.1,
+			preset.state.overlays[0].position.orientationOverrides?.vertical?.rect?.y,
+			0.82,
 			'validation never clamps authored placement'
 		);
+	});
+
+	it('does not invent lower-third failures from a container anchor offset', () => {
+		const preset = makePreset({
+			overlays: [
+				{
+					type: 'lower-third',
+					id: 'main',
+					content: { title: 'Readable title', subtitle: 'Readable subtitle' },
+					position: {
+						anchor: 'bottom-left',
+						offset: { x: 0.06, y: 0.13880917445208948 }
+					}
+				}
+			]
+		});
+		preset.state.transport.orientation = 'vertical';
+
+		const placementIssues = lintPreset(preset).filter(
+			(issue) => issue.rule === 'G2' || issue.rule === 'L1'
+		);
+		assert.deepEqual(placementIssues, []);
 	});
 
 	it('validates resolved Diagram geometry without clamping authored points', () => {

@@ -61,7 +61,7 @@ describe('verifyPresetArtifact', () => {
 						type: 'lower-third',
 						id: 'unsafe',
 						content: { kicker: 'Kicker', title: 'Title' },
-						position: { anchor: 'bottom-left', offset: { x: 0, y: 0 } }
+						position: { anchor: 'normalized-rect', rect: { x: 0, y: 0, width: 1, height: 1 } }
 					}
 				]
 			}
