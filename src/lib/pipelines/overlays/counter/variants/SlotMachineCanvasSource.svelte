@@ -71,7 +71,11 @@
 		{#if token.isDigit}
 			<!-- Roll offset rides `top`, not transform: a transformed descendant span
 			     quantizes the mount's fade opacity in the HTML-in-canvas capture. -->
-			<span class="counter-overlay__digit" style:top={`${rollOffsetEm(token.rightIndex)}em`}>
+			<span
+				class="counter-overlay__digit"
+				data-text-anim-slot={i === 0 ? 'title' : undefined}
+				style:top={`${rollOffsetEm(token.rightIndex)}em`}
+			>
 				{token.char}
 			</span>
 		{:else}
