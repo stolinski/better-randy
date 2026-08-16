@@ -4,23 +4,23 @@
 	import { onMount } from 'svelte';
 
 	import type { Preset, SurfaceType } from '$lib/platform/engine-schema';
-	import { posterKeyForPreset } from '$lib/platform/posters';
-	import type { CataloguedPreset } from '$lib/platform/preset';
-	import { getPresetBySlug, listFixtures, listPresets } from '$lib/platform/preset';
-	import {
-		verifyPresetArtifact,
-		type PresetVerificationIssue
-	} from '$lib/platform/preset-verification';
-	import {
-		userCompositionStore,
-		type UserCompositionMeta
-	} from '$lib/platform/user-composition-store';
+	import type { PresetVerificationIssue } from '$lib/platform/preset-verification';
 	import PosterCard from './PosterCard.svelte';
 	import { SURFACE_LABELS } from './surface-labels';
 
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+	type HomepagePresetCard = PageProps['data']['presets'][number];
+	interface UserCompositionCardMeta {
+		slug: string;
+		name: string;
+		forkedFrom: string | null;
+		savedAt: string;
+		posterKey: string | null;
+		durationSeconds: number;
+		surfaceType: SurfaceType;
+	}
 
 	// Posters that actually exist (server load reads the store) — cards get a
 	// thumbKey only for these, so nothing probes a not-yet-captured poster.
@@ -31,16 +31,17 @@
 	// a `depth-of-field` Effect → the flat multiplane DOF (2.5D, ADR-0027);
 	// otherwise the plain flat composite. Only the non-default (3D / 2.5D) ones
 	// get a badge so they're discoverable — flat is the unmarked default.
-	function compositorBadge(preset: Preset): string | null {
-		if (preset.state.stage) return '3D depth stage';
-		if (preset.state.effects.some((effect) => effect.type === 'depth-of-field')) {
-			return '2.5D multiplane DOF';
-		}
+	function compositorBadge(entry: HomepagePresetCard): string | null {
+		if (entry.hasDepthStage) return '3D depth stage';
+		if (entry.hasDepthOfField) return '2.5D multiplane DOF';
 		return null;
 	}
 
-	const presets = listPresets();
-	const fixtures = listFixtures();
+	const presets = $derived(data.presets);
+	const fixtures = $derived(data.fixtures);
+	const presetCardsBySlug = $derived(
+		new Map([...presets, ...fixtures].map((entry) => [entry.slug, entry]))
+	);
 
 	// Content families cut across the generic `plain` Surface. Charts are a semantic
 	// Block-domain family, so group every chart declaration together without slug heuristics;
@@ -53,16 +54,16 @@
 		{ label: 'Social beats', prefixes: ['youtube-', 'instagram-'] }
 	];
 
-	function templateGroupLabel(entry: CataloguedPreset): string {
-		if (entry.preset.state.surface.chart) return 'Charts';
+	function templateGroupLabel(entry: HomepagePresetCard): string {
+		if (entry.hasChart) return 'Charts';
 		const family = TEMPLATE_FAMILIES.find((candidate) =>
 			candidate.prefixes.some((prefix) => entry.slug.startsWith(prefix))
 		);
-		return family ? family.label : SURFACE_LABELS[entry.preset.state.surface.type];
+		return family ? family.label : SURFACE_LABELS[entry.surfaceType];
 	}
 
-	const templateGroups: readonly { label: string; entries: CataloguedPreset[] }[] = (() => {
-		const byLabel: Record<string, CataloguedPreset[]> = {};
+	const templateGroups = $derived.by(() => {
+		const byLabel: Record<string, HomepagePresetCard[]> = {};
 		for (const entry of presets) {
 			const label = templateGroupLabel(entry);
 			(byLabel[label] ??= []).push(entry);
@@ -70,18 +71,9 @@
 		return Object.entries(byLabel)
 			.map(([label, entries]) => ({ label, entries }))
 			.sort((a, b) => a.label.localeCompare(b.label));
-	})();
+	});
 
-	let userCompositions = $state<UserCompositionMeta[]>([]);
-	// A User composition's poster key + card metadata need its full stored Preset
-	// (not just the meta record), so resolve each once the list loads; null once
-	// resolved-but-unavailable.
-	interface UserCompositionCardInfo {
-		posterKey: string | null;
-		durationSeconds: number;
-		surfaceType: SurfaceType;
-	}
-	let userCompositionInfo = $state<Record<string, UserCompositionCardInfo | null>>({});
+	let userCompositions = $state<UserCompositionCardMeta[]>([]);
 	// Two-step in-place delete: first press arms this slug ("Delete?"), second
 	// press commits; pointer-down elsewhere or Escape disarms.
 	let confirmingSlug = $state<string | null>(null);
@@ -92,30 +84,48 @@
 	}
 	let importIssues = $state.raw<ImportIssue[]>([]);
 
-	onMount(() => {
-		userCompositionStore
-			.listUserCompositions()
-			.then((userCompositionList) => {
-				userCompositions = userCompositionList;
-				for (const userComposition of userCompositionList) {
-					userCompositionStore
-						.loadUserComposition(userComposition.slug)
-						.then((preset) => {
-							if (!preset) {
-								userCompositionInfo[userComposition.slug] = null;
-								return;
-							}
-							const key = posterKeyForPreset(preset);
-							userCompositionInfo[userComposition.slug] = {
-								posterKey: key !== null && posterKeys.has(key) ? key : null,
-								durationSeconds: preset.state.transport.durationSeconds,
-								surfaceType: preset.state.surface.type
-							};
-						})
-						.catch(() => {
-							userCompositionInfo[userComposition.slug] = null;
-						});
+	function isRecord(value: unknown): value is Record<string, unknown> {
+		return typeof value === 'object' && value !== null && !Array.isArray(value);
+	}
+
+	function isSurfaceType(value: unknown): value is SurfaceType {
+		return typeof value === 'string' && Object.hasOwn(SURFACE_LABELS, value);
+	}
+
+	function parseUserCompositionCards(value: unknown): UserCompositionCardMeta[] {
+		if (!Array.isArray(value)) throw new TypeError('User composition list must be an array.');
+		return value.flatMap((entry) => {
+			if (
+				!isRecord(entry) ||
+				typeof entry.slug !== 'string' ||
+				typeof entry.name !== 'string' ||
+				!(entry.forkedFrom === null || typeof entry.forkedFrom === 'string') ||
+				typeof entry.savedAt !== 'string' ||
+				!(entry.posterKey === null || typeof entry.posterKey === 'string') ||
+				typeof entry.durationSeconds !== 'number' ||
+				!isSurfaceType(entry.surfaceType)
+			) {
+				return [];
+			}
+			return [
+				{
+					slug: entry.slug,
+					name: entry.name,
+					forkedFrom: entry.forkedFrom,
+					savedAt: entry.savedAt,
+					posterKey: entry.posterKey,
+					durationSeconds: entry.durationSeconds,
+					surfaceType: entry.surfaceType
 				}
+			];
+		});
+	}
+
+	onMount(() => {
+		fetch('/api/user-compositions?view=cards')
+			.then(async (response) => {
+				if (!response.ok) throw new Error(`Failed to list User compositions: ${response.status}`);
+				userCompositions = parseUserCompositionCards(await response.json());
 			})
 			.catch(() => {
 				userCompositions = [];
@@ -141,14 +151,12 @@
 		);
 	}
 
-	function sortEntries(entries: readonly CataloguedPreset[]): CataloguedPreset[] {
+	function sortEntries(entries: readonly HomepagePresetCard[]): HomepagePresetCard[] {
 		const copy = [...entries];
 		if (sortKey === 'duration') {
-			copy.sort(
-				(a, b) => a.preset.state.transport.durationSeconds - b.preset.state.transport.durationSeconds
-			);
+			copy.sort((a, b) => a.durationSeconds - b.durationSeconds);
 		} else {
-			copy.sort((a, b) => a.preset.name.localeCompare(b.preset.name));
+			copy.sort((a, b) => a.name.localeCompare(b.name));
 		}
 		return copy;
 	}
@@ -166,9 +174,7 @@
 			.filter((group) => activeFilter === 'all' || group.label === activeFilter)
 			.map((group) => ({
 				label: group.label,
-				entries: sortEntries(
-					group.entries.filter((entry) => matchesQuery(entry.preset.name, entry.slug))
-				)
+				entries: sortEntries(group.entries.filter((entry) => matchesQuery(entry.name, entry.slug)))
 			}))
 			.filter((group) => group.entries.length > 0);
 	});
@@ -178,9 +184,7 @@
 	const visibleFixtures = $derived.by(() => {
 		if (activeFilter !== 'fixtures' && !(activeFilter === 'all' && normalizedQuery !== ''))
 			return [];
-		return sortEntries(
-			fixtures.filter((entry) => matchesQuery(entry.preset.name, entry.slug))
-		);
+		return sortEntries(fixtures.filter((entry) => matchesQuery(entry.name, entry.slug)));
 	});
 
 	const nothingVisible = $derived(
@@ -208,6 +212,10 @@
 	}
 
 	async function createBlankUserComposition(): Promise<void> {
+		const [{ getPresetBySlug }, { userCompositionStore }] = await Promise.all([
+			import('$lib/platform/preset-catalog'),
+			import('$lib/platform/user-composition-store')
+		]);
 		const blank = getPresetBySlug('blank');
 		if (!blank) return;
 		const slug = `comp-${Date.now()}`;
@@ -251,6 +259,10 @@
 				return;
 			}
 
+			const [{ verifyPresetArtifact }, { userCompositionStore }] = await Promise.all([
+				import('$lib/platform/preset-verification'),
+				import('$lib/platform/user-composition-store')
+			]);
 			const verification = verifyPresetArtifact(value);
 			importIssues = verification.issues;
 			const hasBlockingIssue = verification.issues.some(
@@ -289,6 +301,7 @@
 		}
 		confirmingSlug = null;
 		try {
+			const { userCompositionStore } = await import('$lib/platform/user-composition-store');
 			await userCompositionStore.deleteUserComposition(slug);
 			userCompositions = userCompositions.filter(
 				(userComposition) => userComposition.slug !== slug
@@ -317,37 +330,39 @@
 	}}
 />
 
-{#snippet presetCard(slug: string, preset: Preset, groupLabel: string)}
-	{@const key = posterKeyForPreset(preset)}
+{#snippet presetCard(entry: HomepagePresetCard, groupLabel: string)}
 	<li>
 		<PosterCard
-			{slug}
-			thumbKey={posterKeys.has(key) ? key : null}
-			name={preset.name}
-			type={preset.state.surface.type}
-			badge={compositorBadge(preset)}
+			slug={entry.slug}
+			thumbKey={entry.posterKey !== null && posterKeys.has(entry.posterKey)
+				? entry.posterKey
+				: null}
+			name={entry.name}
+			type={entry.surfaceType}
+			badge={compositorBadge(entry)}
 			kindLabel={groupLabel}
-			durationSeconds={preset.state.transport.durationSeconds}
-			reflow={preset.kind !== 'fixture'}
+			durationSeconds={entry.durationSeconds}
+			reflow={entry.kind !== 'fixture'}
 			aspect={previewAspect}
 		/>
 	</li>
 {/snippet}
 
-{#snippet userCompositionCard(userComposition: UserCompositionMeta)}
+{#snippet userCompositionCard(userComposition: UserCompositionCardMeta)}
 	{@const starterTemplate = userComposition.forkedFrom
-		? getPresetBySlug(userComposition.forkedFrom)
+		? (presetCardsBySlug.get(userComposition.forkedFrom) ?? null)
 		: null}
-	{@const info = userCompositionInfo[userComposition.slug] ?? null}
 	<li class="card-cell">
 		<PosterCard
 			slug={userComposition.slug}
-			thumbKey={info?.posterKey ?? null}
+			thumbKey={userComposition.posterKey !== null && posterKeys.has(userComposition.posterKey)
+				? userComposition.posterKey
+				: null}
 			name={userComposition.name}
-			type={info?.surfaceType ?? starterTemplate?.state.surface.type ?? 'plain'}
+			type={userComposition.surfaceType}
 			badge={starterTemplate ? compositorBadge(starterTemplate) : null}
-			kindLabel={SURFACE_LABELS[info?.surfaceType ?? starterTemplate?.state.surface.type ?? 'plain']}
-			durationSeconds={info?.durationSeconds ?? null}
+			kindLabel={SURFACE_LABELS[userComposition.surfaceType]}
+			durationSeconds={userComposition.durationSeconds}
 			reflow={true}
 			aspect={previewAspect}
 		/>
@@ -442,7 +457,9 @@
 				bind:this={searchInput}
 				bind:value={query}
 				type="search"
-				placeholder="Search {presets.length + fixtures.length + userCompositions.length} compositions…"
+				placeholder="Search {presets.length +
+					fixtures.length +
+					userCompositions.length} compositions…"
 				aria-label="Search compositions"
 				onkeydown={clearSearchOnEscape}
 			/>
@@ -475,7 +492,11 @@
 					onchange={importPresetJson}
 				/>
 			</label>
-			<button class="topbar__action topbar__action--primary" type="button" onclick={createBlankUserComposition}>
+			<button
+				class="topbar__action topbar__action--primary"
+				type="button"
+				onclick={createBlankUserComposition}
+			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					width="13"
@@ -511,37 +532,37 @@
 		<nav class="rail" aria-label="Filter compositions">
 			<div class="rail__body">
 				<button
-				class="rail__item"
-				class:is-active={activeFilter === 'all'}
-				type="button"
-				onclick={() => (activeFilter = 'all')}
-			>
-				<span>All</span>
-				<span class="rail__count">{presets.length + userCompositions.length}</span>
-			</button>
-			<button
-				class="rail__item"
-				class:is-active={activeFilter === 'user'}
-				type="button"
-				onclick={() => (activeFilter = 'user')}
-			>
-				<span>Your compositions</span>
-				<span class="rail__count">{userCompositions.length}</span>
-			</button>
-			<hr class="rail__rule" />
-			<p class="rail__label">Library</p>
-			{#each templateGroups as group (group.label)}
+					class="rail__item"
+					class:is-active={activeFilter === 'all'}
+					type="button"
+					onclick={() => (activeFilter = 'all')}
+				>
+					<span>All</span>
+					<span class="rail__count">{presets.length + userCompositions.length}</span>
+				</button>
 				<button
 					class="rail__item"
-					class:is-active={activeFilter === group.label}
+					class:is-active={activeFilter === 'user'}
 					type="button"
-					onclick={() => (activeFilter = group.label)}
+					onclick={() => (activeFilter = 'user')}
 				>
-					<span>{group.label}</span>
-					<span class="rail__count">{group.entries.length}</span>
+					<span>Your compositions</span>
+					<span class="rail__count">{userCompositions.length}</span>
 				</button>
-			{/each}
-			{#if fixtures.length > 0}
+				<hr class="rail__rule" />
+				<p class="rail__label">Library</p>
+				{#each templateGroups as group (group.label)}
+					<button
+						class="rail__item"
+						class:is-active={activeFilter === group.label}
+						type="button"
+						onclick={() => (activeFilter = group.label)}
+					>
+						<span>{group.label}</span>
+						<span class="rail__count">{group.entries.length}</span>
+					</button>
+				{/each}
+				{#if fixtures.length > 0}
 					<hr class="rail__rule" />
 					<button
 						class="rail__item rail__item--dim"
@@ -577,7 +598,7 @@
 					)}
 					<ul class="home__grid" class:is-tall={previewAspect === 'tall'}>
 						{#each group.entries as entry (entry.slug)}
-							{@render presetCard(entry.slug, entry.preset, group.label)}
+							{@render presetCard(entry, group.label)}
 						{/each}
 					</ul>
 				</section>
@@ -592,7 +613,7 @@
 					)}
 					<ul class="home__grid" class:is-tall={previewAspect === 'tall'}>
 						{#each visibleFixtures as entry (entry.slug)}
-							{@render presetCard(entry.slug, entry.preset, templateGroupLabel(entry))}
+							{@render presetCard(entry, templateGroupLabel(entry))}
 						{/each}
 					</ul>
 				</section>
@@ -1005,7 +1026,9 @@
 		font-size: 0.625rem;
 		font-weight: 400;
 		padding: 4px 10px;
-		transition: background 100ms ease, color 100ms ease;
+		transition:
+			background 100ms ease,
+			color 100ms ease;
 	}
 
 	.toolrow__aspect button[aria-pressed='true'] {

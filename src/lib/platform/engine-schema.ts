@@ -870,7 +870,7 @@ export const ChartGroupSchema = z.strictObject({
 });
 export type ChartGroup = z.infer<typeof ChartGroupSchema>;
 
-const SurfaceTypeSchema = z.enum([
+export const SurfaceTypeSchema = z.enum([
 	'paper',
 	'plain',
 	'newspaper',

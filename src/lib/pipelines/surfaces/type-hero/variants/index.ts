@@ -3,6 +3,10 @@
  * file in this folder + one entry here + one identifier in `VARIANT_IDS`.
  */
 
+import {
+	VARIANT_IDS as DEFINITION_VARIANT_IDS,
+	type TypeHeroVariantId as DefinitionTypeHeroVariantId
+} from './variant-ids';
 import type { TypeHeroVariant } from './types';
 import { singleTypeHero } from './single';
 import { pairTypeHero } from './pair';
@@ -12,6 +16,6 @@ export const VARIANTS: Readonly<Record<string, TypeHeroVariant>> = {
 	pair: pairTypeHero
 };
 
-export const VARIANT_IDS = ['single', 'pair'] as const;
+export const VARIANT_IDS = DEFINITION_VARIANT_IDS;
 
-export type TypeHeroVariantId = (typeof VARIANT_IDS)[number];
+export type TypeHeroVariantId = DefinitionTypeHeroVariantId;

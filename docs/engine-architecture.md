@@ -58,7 +58,9 @@ src/lib/
     animation-manager.ts         # GSAP timeline driver (scrubbed by progress)
     engine-schema.ts             # Zod schema, types, defaults
     engine-state.svelte.ts       # runtime state + mutation helpers; boot Pack gate
-    preset.ts                    # parsePreset, applyPreset, listPresets
+    preset-catalog.ts            # renderer/state-free built-in lookup + deliverable/fixture lists
+    preset-parser.ts             # pure Preset ingress + semantic validation
+    preset.ts                    # stateful apply/clone/transition operations
     preset-validation.ts         # registry-derived semantic Preset validation
     preset-rubric.ts             # static linter — video-safety + readability only (ADR-0025)
     export-video.ts              # WebM/ProRes encoding and download primitives
@@ -68,14 +70,17 @@ src/lib/
       types.ts                   # Pack/Role manifest types
       validation.ts              # manifest metadata/font/chrome/core contract gate
     pipelines/                   # Registry + runner INFRASTRUCTURE (not the renderers)
-      index.ts                   # PIPELINE_REGISTRY (single source of truth)
+      definition-registry.ts     # synchronous renderer-free Pipeline metadata catalog
+      runtime-loader.ts          # typed dynamic renderer imports + readiness controller
+      runtime-context.svelte.ts  # reactive Workspace descendant access to the active renderer bundle
+      preset-renderer-requirements.ts # Preset/Pack/transition graph → required renderer IDs
       identity-registry.ts       # IDENTITY_REGISTRY + assertIdentityRegistryValid (boot gate)
       composition-effect-registry.ts # non-post-process composition Effects
       stage-registry.ts          # registered composition stage types
       types.ts                   # *Renderer interfaces
       effect-chain.ts            # ping-pong post-process executor + dithered present pass
       shader-pass-runner.ts      # ShaderPassDispatcher (per-target shader passes)
-  pipelines/<layer>/<variant>/   # the actual Layer renderers (one folder per variant)
+  pipelines/<layer>/<variant>/   # definition.ts metadata + lazy runtime renderer index.ts
     surfaces/  blocks/  annotations/  overlays/  effects/  shader-passes/
   annotations/                   # shared 2D annotation-mark geometry + body-text serialization
   text-animations/               # text-animation orchestration (peer to Layers; does not render)
@@ -129,7 +134,7 @@ A frame composes bottom-to-top:
 +----------------------------------------------------------+
 ```
 
-**Ordinary and composition-owned Effects are authored in one composition-wide `effects[]` list** — _not_ per-Layer. Ordinary `EffectRenderer`s run as the final post-process chain; composition-owned Effects such as `depth-of-field` alter branch dispatch and are removed before the remaining post-process entries run. Transition Effects are the third execution class: top-level `transition.effect` resolves through `transition-registry.ts` and composites two cached endpoint snapshots rather than appearing in `effects[]`. [ADR-0018](adr/0018-collapse-effects-to-frame-only.md) records the retired five-key shape and its execution-class refinement; [ADR-0026](adr/0026-transitions-v1-snapshot-and-wipe.md) owns the transition lane. Per-target shader work that _does_ need Layer-local knowledge is a **`shaderPass`** on the Surface/Overlay renderer, run by the dispatcher between DOM upload and the final chain.
+**Ordinary and composition-owned Effects are authored in one composition-wide `effects[]` list** — _not_ per-Layer. Ordinary `EffectRenderer`s run as the final post-process chain; composition-owned Effects such as `depth-of-field` alter branch dispatch and are removed before the remaining post-process entries run. Transition Effects are the third execution class: top-level `transition.effect` validates through `transition-definition-registry.ts`, resolves its already-loaded runtime renderer through `runtime-loader.ts`, and composites two cached endpoint snapshots rather than appearing in `effects[]`. [ADR-0018](adr/0018-collapse-effects-to-frame-only.md) records the retired five-key shape and its execution-class refinement; [ADR-0026](adr/0026-transitions-v1-snapshot-and-wipe.md) owns the transition lane. Per-target shader work that _does_ need Layer-local knowledge is a **`shaderPass`** on the Surface/Overlay renderer, run by the dispatcher between DOM upload and the final chain.
 
 | Layer      | Renderer             | Owns                                                  |
 | ---------- | -------------------- | ----------------------------------------------------- |
@@ -150,7 +155,13 @@ interface Preset {
 	pack: string; // REQUIRED, no default — names the appearance Pack (ADR-0023)
 	kind: 'deliverable' | 'fixture'; // default 'deliverable'; fixtures skip only the deliverable static lint
 	state: EngineState;
-	transition?: { from: string; to: string; effect: string; durationMs: number };
+	transition?: {
+		from: string;
+		to: string;
+		effect: string;
+		durationMs: number;
+		params: unknown;
+	};
 }
 
 interface EngineState {
@@ -201,6 +212,7 @@ type SurfaceType =
 	| 'newspaper'
 	| 'pullquote-on-photo'
 	| 'chapter-card'
+	| 'brand-mark'
 	| 'title-sequence'
 	| 'type-hero'
 	| 'web-document'
@@ -264,9 +276,9 @@ Placement is **relative** (anchor + fractional offset), never absolute pixels. S
 
 Diagram primitives use the parallel `orientationOverrides` policy with type-specific complete geometry: `{ position, scale }` for nodes/labels/stat-callouts, `{ from, to, route, control }` for edge-arrows, and `{ from, to }` for timeline-segments. `resolveDiagramPrimitiveGeometry` supplies live authoring references; `resolveDiagramPrimitiveForRender` materializes the active geometry for DOM and stroke rendering. Content, timing, animation, ink, form, direction, labels, and values remain shared.
 
-Chart Blocks use a different, data-derived geometry contract. Only `plain` and `paper` Surfaces may carry `surface.chart`; semantic validation rejects it elsewhere. The group carries one to four `bar-chart`, `column-chart`, `unit-grid-chart`, or `dot-field-chart` Blocks; sequence visibility selects at most one active item. `chart-validation.ts` is the cross-field factual boundary after structural parsing. Pure helpers in `src/lib/utils/chart-*` own finite-safe scales, native reflow, exact targets and computed labels, largest-remainder normalized allocation, and explicit-progress choreography. `ChartMount.svelte` selects the shared bar/column or normalized DOM source. DOM supplies crisp editorial chrome; `surface-render-inputs-builder.ts` packs the same resolved geometry and motion into neutral instanced analytic marks for `chart-mark-renderer.ts`. Pack `chart.mark-fill` recipes can resolve solid, gradient, or bounded ordered-dither treatment only inside those mark masks. Chrome, transparent pixels, facts, geometry, and motion remain unaffected by Pack choice.
+Chart Blocks use a different, data-derived geometry contract. Only `plain` and `paper` Surfaces may carry `surface.chart`; semantic validation rejects it elsewhere. The group carries one to four `bar-chart`, `column-chart`, `line-chart`, `unit-grid-chart`, or `dot-field-chart` Blocks; sequence visibility selects at most one active item. `chart-validation.ts` is the cross-field factual boundary after structural parsing. Pure helpers in `src/lib/utils/chart-*` own finite-safe scales, native reflow, exact targets and computed labels, largest-remainder normalized allocation, and explicit-progress choreography. `ChartMount.svelte` selects the shared bar/column or normalized DOM source. DOM supplies crisp editorial chrome; `surface-render-inputs-builder.ts` packs the same resolved geometry and motion into neutral instanced analytic marks for `chart-mark-renderer.ts`. Pack `chart.mark-fill` recipes can resolve solid, gradient, or bounded ordered-dither treatment only inside those mark masks. Chrome, transparent pixels, facts, geometry, and motion remain unaffected by Pack choice.
 
-Create-from-blank chart edits do not fork a second data model. `chart-authoring.ts` performs bounded, atomic mutations on `surface.chart.items[]`; `ChartInspector.svelte` and its focused sections call those helpers directly. Runtime resolves intrinsic `ChartMotion` directly from explicit composition progress. The four types share timeline Block identities and expose five editable clips — `entry`, `reveal`, `emphasis`, `annotation`, and `exit` — as an authoring projection; those clips are not a second runtime timeline and charts do not enter `composition-animation-manifest.ts`. Every rendered value derives from the common frame request, so preview, scrubbing, random seeks, transition snapshots, and export resolve the same chart frame.
+Create-from-blank chart edits do not fork a second data model. `chart-authoring.ts` performs bounded, atomic mutations on `surface.chart.items[]`; `ChartInspector.svelte` and its focused sections call those helpers directly. Runtime resolves intrinsic `ChartMotion` directly from explicit composition progress. The five types share timeline Block identities and expose five editable clips — `entry`, `reveal`, `emphasis`, `annotation`, and `exit` — as an authoring projection; those clips are not a second runtime timeline and charts do not enter `composition-animation-manifest.ts`. Every rendered value derives from the common frame request, so preview, scrubbing, random seeks, transition snapshots, and export resolve the same chart frame.
 
 ### Body text format
 
@@ -274,16 +286,18 @@ Paragraph bodies are stored as a single bracket-tag string, parsed into the runt
 
 ## The Pipeline Registry
 
-`PIPELINE_REGISTRY` in `src/lib/platform/pipelines/index.ts` is the single source of truth. Every renderer is also paired with an **Identity Spec** ([ADR-0015](adr/0015-identity-spec-per-pipeline.md)) validated at boot by `assertIdentityRegistryValid`.
+Pipeline registration is split at a deliberate load boundary ([ADR-0049](adr/0049-lazy-pipeline-renderer-loading.md)). `PIPELINE_DEFINITION_REGISTRY` in `src/lib/platform/pipelines/definition-registry.ts` is the synchronous source for canonical IDs, labels, schemas, defaults, controls, and semantic validation. Each family runtime renderer imports and spreads its `definition.ts`, then adds Svelte, drawing, shader-pass, or GPU-pass capabilities. Every visible Pipeline is also paired with an **Identity Spec** ([ADR-0015](adr/0015-identity-spec-per-pipeline.md)) validated at boot by `assertIdentityRegistryValid`.
 
-Each registered renderer's exported symbol keeps both its canonical Pipeline ID and Layer role when imported outside its family directory: hyphenated IDs become camelCase, followed by `SurfaceRenderer`, `BlockRenderer`, `AnnotationRenderer`, `OverlayRenderer`, or `EffectRenderer` (for example `paperSurfaceRenderer`, `edgeArrowBlockRenderer`, and `waterEffectRenderer`). Registry property names and renderer `type` / `style` IDs remain stable independently of those source-level symbols.
+`runtime-loader.ts` is the only complete concrete-renderer catalog. Its explicit dynamic imports are keyed by definition identity; tests invoke every production loader, verify the returned identity, and check every catalogued Preset's recursive requirement closure. Deterministic readable-text declarations stay on renderer-free Overlay definitions, so static lint and render audits share one typed content authority without pulling Svelte or renderer implementations into server and initial route graphs. Requirements use `listMarkInstances`, so generated checklist strikes and authored body/message marks share one authority. Before `Workspace` mounts, the route derives requirements from the active Preset, Pack chrome, and recursive transition endpoint graph, awaits them, and activates one synchronous bundle. Concurrent activations merge, so an older completion cannot discard another loaded family. `runtime-context.svelte.ts` exposes one reactive activation revision; mounts and inspectors therefore update even when activation is not paired with an engine-state mutation. Authoring operations await a newly selected type, reject stale generations after navigation or a newer edit, and only then mutate state. Frame execution, transition snapshots, and export only read the active bundle; they never import asynchronously, and a missing required Surface, Block, Annotation, Overlay, or ordinary Effect renderer is an invariant error rather than a silent skip. The route preloads every authored chart and diagram Block renderer; each mount then requires the renderer for the currently visible chart or mounted diagram primitive. The paper Surface resolves focal Annotation behavior from that active bundle instead of statically importing focal renderer modules.
+
+Each registered renderer's exported symbol keeps both its canonical Pipeline ID and Layer role when imported outside its family directory: hyphenated IDs become camelCase, followed by `SurfaceRenderer`, `BlockRenderer`, `AnnotationRenderer`, `OverlayRenderer`, or `EffectRenderer` (for example `paperSurfaceRenderer`, `edgeArrowBlockRenderer`, and `waterEffectRenderer`). Definition exports use the corresponding `SurfaceDefinition`, `BlockDefinition`, `AnnotationDefinition`, `OverlayDefinition`, or `EffectDefinition` suffix. Registry property names and renderer `type` / `style` IDs remain stable independently of those source-level symbols.
 
 **Live contents** (verified against code):
 
 | Layer       | Registered                                                                                                                                                                                                                                                                                                                                               |
 | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| surfaces    | `paper`, `plain`, `newspaper`, `pullquote-on-photo`, `chapter-card`, `title-sequence`, `type-hero` (variants `single`/`pair`), `web-document`, `website-screenshot`, `imessage`, `checklist`                                                                                                                                                             |
-| blocks      | `paragraph`, `node`, `edge-arrow`, `label`, `stat-callout`, `timeline-segment`, `bar-chart`, `column-chart`, `unit-grid-chart`, `dot-field-chart`                                                                                                                                                                                                        |
+| surfaces    | `paper`, `plain`, `newspaper`, `pullquote-on-photo`, `chapter-card`, `brand-mark`, `title-sequence`, `type-hero` (variants `single`/`pair`), `web-document`, `website-screenshot`, `imessage`, `checklist`                                                                                                                                               |
+| blocks      | `paragraph`, `node`, `edge-arrow`, `label`, `stat-callout`, `timeline-segment`, `bar-chart`, `column-chart`, `line-chart`, `unit-grid-chart`, `dot-field-chart`                                                                                                                                                                                          |
 | annotations | `highlight`, `underline`, `strike`, `circle`, `box`, `side-note`, `magnify`, `lift-out`, `tear-out`, `isolate`                                                                                                                                                                                                                                           |
 | overlays    | `lower-third` (variants `standard`/`cinematic`), `washi-tape`, `watermark`, `shader-fill`, `cursor-trail`, `counter` (`slot-machine-roll`), `instance-stack` (`vertical-stack`/`horizontal-train`), `text-3d` (`cylinder-axis-y`), `tweet-stack`, `youtube-subscribe`, `instagram-follow`, `achievement` (`checklist-complete`/`unlocked`), `source-url` |
 | effects     | `paper-grain`, `chromatic-aberration`, `crt-screen`, `crt-tube`, `ntsc-signal`, `dithering`, `halftone-dots`, `halftone-cmyk`, `water`, `fluted-glass`, `refractive-lens`, `frosted-glass`, `fluid-ripple`, `cloth-bend`, `tiled-deformation`, `heatmap`                                                                                                 |
@@ -308,11 +322,11 @@ A Pipeline hosting a _family_ of motion shapes carries a `variants/` subfolder �
 
 ### Adding a primitive
 
-One folder under `src/lib/pipelines/<layer>/<name>/` (`index.ts` + `CanvasSource.svelte` + optional per-type inspector) + one line in `PIPELINE_REGISTRY` + its `identity.ts`. `Overlay.type`/`Effect.type` are open strings validated by `validatePresetSemantics`, so no enum edit is needed for those; `SurfaceType` is a closed enum, so a new surface adds one enum member. Registry-backed ordinary add menus and mounts discover the renderer; specialized inspector UI remains explicitly additive. Chart registration is deliberately stricter: each new Chart family also needs its discriminated schema, factual semantic rules, shared authoring mutations and explicit add-menu/inspector support, geometry/render-input path, timeline projection, and tests.
+One folder under `src/lib/pipelines/<layer>/<name>/` (`definition.ts` + lazy runtime `index.ts` + `CanvasSource.svelte` + optional per-type inspector) + one entry in `PIPELINE_DEFINITION_REGISTRY` + one dynamic loader in `runtime-loader.ts` + its `identity.ts`. `Overlay.type`/`Effect.type` are open strings validated by `validatePresetSemantics`, so no enum edit is needed for those; `SurfaceType` is a closed enum, so a new surface adds one enum member. Registry-backed ordinary add menus and mounts discover the renderer; specialized inspector UI remains explicitly additive. Chart registration is deliberately stricter: each new Chart family also needs its discriminated schema, factual semantic rules, shared authoring mutations and explicit add-menu/inspector support, geometry/render-input path, timeline projection, and tests.
 
 ## Rendering pipeline (TypeGPU)
 
-`composition-frame-renderer.ts` owns the deterministic request-object `renderCompositionFrameTo(request)` seam. `Workspace.svelte` owns the live Svelte/DOM/GPU references and builds one `CompositionFrameRenderRequest` snapshot for each call. Preview supplies the current canvas view; `CompositionExportController` calls back with the same canvas view at exact frame timestamps; `TransitionSnapshotController` calls back with offscreen endpoint views.
+`composition-frame-renderer.ts` owns the deterministic request-object `renderCompositionFrameTo(request)` seam. Renderer readiness is established before `Workspace` mounts; this path only performs synchronous lookups in the active renderer bundle. `Workspace.svelte` owns the live Svelte/DOM/GPU references and builds one `CompositionFrameRenderRequest` snapshot for each call. Preview supplies the current canvas view; `CompositionExportController` calls back with the same canvas view at exact frame timestamps; `TransitionSnapshotController` calls back with offscreen endpoint views.
 
 The frame renderer owns all ordering after the request arrives:
 
@@ -396,7 +410,7 @@ Current mechanisms that remain deliberately narrower than their possible future 
 
 - **Per-pixel depth sidecar on the flat path** — ADR-0021's focal-distance semantics are active through multiplane DOF and the dimensional stage, but the flat compositor has no arbitrary per-pixel z-map target.
 - **Live dual-tree transitions** — multi-state transitions ship as cached snapshot-and-wipe ([ADR-0026](adr/0026-transitions-v1-snapshot-and-wipe.md)); endpoint Presets do not continue animating inside the wipe.
-- **Additional Block vocabulary** — `paragraph`, the five diagram Blocks, and the four chart Blocks ship. `code` and `image` are not registered; mermaid-style auto-layout remains explicitly rejected.
+- **Additional Block vocabulary** — `paragraph`, the five diagram Blocks, and the five chart Blocks ship. `code` and `image` are not registered; mermaid-style auto-layout remains explicitly rejected.
 - **Video-track v1 scope** — one primary 1x track with ordered, non-overlapping hard-cut clips, transparent gaps, clip audio enable/gain, and no ripple edits, overlaps, transitions, speed changes, loops/holds, footage grading, depth-stage video planes, or live video transitions. Silence detection and automatic cut generation remain separate edit-decision producers over this shipped clip model.
 
 ## Constraints

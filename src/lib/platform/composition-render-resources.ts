@@ -1,6 +1,6 @@
 import type { CompositionFrameRenderResources } from './composition-frame-renderer';
 import type { GpuHost } from './gpu-host';
-import { getSurfaceRenderer } from './pipelines';
+import { getLoadedSurfaceRenderer } from './pipelines/runtime-loader';
 import { CompositionPlanes } from './pipelines/composition-planes';
 import { DepthStage } from './pipelines/depth-stage';
 import { EffectChain } from './pipelines/effect-chain';
@@ -25,7 +25,7 @@ export interface CompositionRenderResourceFactories {
 
 const DEFAULT_FACTORIES: CompositionRenderResourceFactories = {
 	createSurfacePipeline: (identity) => {
-		const renderer = getSurfaceRenderer(identity.surfaceType);
+		const renderer = getLoadedSurfaceRenderer(identity.surfaceType);
 		if (!renderer) throw new Error(`No Surface renderer registered for "${identity.surfaceType}".`);
 		return renderer.createPipeline({ host: identity.host, sourceElement: identity.sourceElement });
 	},

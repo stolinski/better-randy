@@ -2,7 +2,7 @@
 	import { engineState, packState } from './engine-state.svelte';
 	import { getPack } from './packs/registry';
 	import { appearanceVarsToStyle, resolveAppearanceVars } from './packs/resolve';
-	import { getSurfaceRenderer } from './pipelines';
+	import { getPipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 	import { filterPackAppearanceVarsForImmunity } from './pipelines/identity-registry';
 
 	interface Props {
@@ -11,7 +11,10 @@
 
 	let { element = $bindable<HTMLElement | null>(null) }: Props = $props();
 
-	const renderer = $derived(getSurfaceRenderer(engineState.surface.type));
+	const rendererController = getPipelineRendererRuntime();
+	const renderer = $derived(
+		rendererController.current().surfaces.get(engineState.surface.type) ?? null
+	);
 	const SurfaceCanvasSource = $derived(renderer?.CanvasSource ?? null);
 
 	// Resolve the active Pack's appearance Roles for this Surface into CSS vars.

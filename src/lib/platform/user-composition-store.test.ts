@@ -138,6 +138,9 @@ describe('userCompositionStore', () => {
 				name: 'Blank copy',
 				forkedFrom: 'blank',
 				savedAt: '2026-07-21T12:00:00.000Z',
+				posterKey: null,
+				durationSeconds: blankPreset.state.transport.durationSeconds,
+				surfaceType: blankPreset.state.surface.type,
 				media: blankPreset.state.media,
 				mediaStatus: 'ready'
 			}
@@ -163,6 +166,9 @@ describe('userCompositionStore', () => {
 			name: 'Missing media',
 			forkedFrom: null,
 			savedAt: '2026-07-21T12:00:00.000Z',
+			posterKey: null,
+			durationSeconds: preset.state.transport.durationSeconds,
+			surfaceType: preset.state.surface.type,
 			media: preset.state.media,
 			mediaStatus: 'missing' as const,
 			mediaIssues: [issue]
@@ -290,6 +296,9 @@ describe('userCompositionStore', () => {
 			name: 'Media copy',
 			forkedFrom: 'blank',
 			savedAt: '2026-07-27T12:00:00.000Z',
+			posterKey: null,
+			durationSeconds: preset.state.transport.durationSeconds,
+			surfaceType: preset.state.surface.type,
 			media: preset.state.media,
 			mediaStatus: 'ready' as const
 		};

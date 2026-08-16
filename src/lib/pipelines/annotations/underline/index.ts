@@ -1,5 +1,8 @@
 import { createDecorativeAnnotationRenderer } from '$lib/annotations/decorative-renderer';
 import type { AnnotationRenderer } from '$lib/platform/pipelines/types';
 
-export const underlineAnnotationRenderer: AnnotationRenderer =
-	createDecorativeAnnotationRenderer('underline');
+import { underlineAnnotationDefinition } from './definition';
+
+export const underlineAnnotationRenderer: AnnotationRenderer = createDecorativeAnnotationRenderer(
+	underlineAnnotationDefinition
+);

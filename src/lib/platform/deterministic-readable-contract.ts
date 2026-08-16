@@ -6,10 +6,13 @@ import type {
 	SurfaceContent
 } from '$lib/platform/engine-schema';
 import { resolveCascadeTimings } from '$lib/platform/cascade-timing';
-import { PIPELINE_REGISTRY, getSurfaceRenderer } from '$lib/platform/pipelines';
+import {
+	getOverlayDefinition,
+	getSurfaceDefinition
+} from '$lib/platform/pipelines/definition-registry';
+import type { OverlayPipelineDefinition } from '$lib/platform/pipelines/definition-types';
 import type {
 	DeterministicReadableTextRole,
-	OverlayRenderer,
 	RendererReadableTextContract
 } from '$lib/platform/pipelines/types';
 import { resolveCaptionReadableText } from '$lib/utils/caption-readable-text';
@@ -205,13 +208,16 @@ function expectedSurfaceReadableText(
 	state: EngineState,
 	progress: number
 ): DeterministicReadableContractResult {
-	const renderer = getSurfaceRenderer(state.surface.type);
-	if (!renderer) return { status: 'unavailable', reason: 'surface-renderer-unavailable' };
+	const definition = getSurfaceDefinition(state.surface.type);
+	if (!definition) return { status: 'unavailable', reason: 'surface-definition-unavailable' };
 	const entries: DeterministicExpectedReadableText[] = [];
 	const content = state.surface.content;
 	const prefix = `surface:${state.surface.type}`;
 	const metadataRole = surfaceMetadataRole(state);
-	if (renderer.controls.title && !(state.surface.type === 'checklist' && content.logoUrl?.trim())) {
+	if (
+		definition.controls.title &&
+		!(state.surface.type === 'checklist' && content.logoUrl?.trim())
+	) {
 		appendReadableText(
 			entries,
 			`${prefix}:title`,
@@ -219,12 +225,12 @@ function expectedSurfaceReadableText(
 			state.surface.type === 'type-hero' ? 'surface-display' : 'surface-title'
 		);
 	}
-	if (renderer.controls.kicker)
+	if (definition.controls.kicker)
 		appendReadableText(entries, `${prefix}:kicker`, content.kicker, metadataRole);
-	if (renderer.controls.counterpoint && state.surface.variant === 'pair') {
+	if (definition.controls.counterpoint && state.surface.variant === 'pair') {
 		appendReadableText(entries, `${prefix}:counterpoint`, content.counterpoint, 'surface-title');
 	}
-	if (renderer.controls.sourceUrl) {
+	if (definition.controls.sourceUrl) {
 		appendReadableText(
 			entries,
 			`${prefix}:source-url`,
@@ -233,17 +239,17 @@ function expectedSurfaceReadableText(
 		);
 	}
 	if (
-		renderer.controls.author &&
+		definition.controls.author &&
 		!(state.surface.type === 'imessage' && state.surface.chrome === 'none')
 	) {
 		appendReadableText(entries, `${prefix}:author`, content.author, metadataRole);
 	}
-	if (renderer.controls.affiliation) {
+	if (definition.controls.affiliation) {
 		appendReadableText(entries, `${prefix}:affiliation`, content.affiliation, metadataRole);
 	}
-	if (renderer.controls.source)
+	if (definition.controls.source)
 		appendReadableText(entries, `${prefix}:source`, content.source, metadataRole);
-	if (renderer.controls.dateLabel) {
+	if (definition.controls.dateLabel) {
 		appendReadableText(entries, `${prefix}:date-label`, content.dateLabel, metadataRole);
 	}
 	if (state.surface.type === 'newspaper' && !content.author?.trim() && !content.dateLabel?.trim()) {
@@ -255,13 +261,13 @@ function expectedSurfaceReadableText(
 			metadataRole
 		);
 	}
-	if (renderer.controls.bodyLabel) {
+	if (definition.controls.bodyLabel) {
 		appendReadableText(entries, `${prefix}:body-label`, content.bodyLabel, metadataRole);
 	}
-	if (renderer.controls.body !== 'never') {
+	if (definition.controls.body !== 'never') {
 		appendAnnotationBody(entries, `${prefix}:body`, content.body, surfaceBodyRole(state));
 	}
-	if (renderer.controls.messages) {
+	if (definition.controls.messages) {
 		for (const [messageIndex, message] of (content.messages ?? []).entries()) {
 			if (progress >= messageEnter(message, messageIndex).start) {
 				appendAnnotationBody(
@@ -279,7 +285,7 @@ function expectedSurfaceReadableText(
 			);
 		}
 	}
-	if (renderer.controls.items) {
+	if (definition.controls.items) {
 		for (const [itemIndex, item] of (content.items ?? []).entries()) {
 			if (itemRevealAt(item, progress) > 0) {
 				appendReadableText(entries, `${prefix}:item:${itemIndex}`, item.text, 'surface-body');
@@ -325,11 +331,8 @@ function expectedSurfaceReadableText(
 	return { status: 'available', expected: entries };
 }
 
-function findOverlayRenderer(type: string): OverlayRenderer | null {
-	for (const renderer of Object.values(PIPELINE_REGISTRY.overlays)) {
-		if (renderer.type === type) return renderer as OverlayRenderer;
-	}
-	return null;
+function findOverlayDefinition(type: string): OverlayPipelineDefinition | null {
+	return getOverlayDefinition(type);
 }
 
 function keyframeTrackHasPaint(track: readonly Keyframe[], localMilliseconds: number): boolean {
@@ -376,7 +379,7 @@ export function deriveDeterministicTransitionReadableContracts(transition: {
 	});
 }
 
-/** Derive complete readable identities from parsed EngineState and renderer declarations. */
+/** Derive complete readable identities from parsed EngineState and renderer-free definitions. */
 export function deriveDeterministicReadableContract(
 	state: EngineState,
 	timestampMicroseconds: number
@@ -390,20 +393,20 @@ export function deriveDeterministicReadableContract(
 	const expected = [...surface.expected];
 	for (const overlay of state.overlays) {
 		if (!overlayHasReadablePaint(overlay, progress, state)) continue;
-		const renderer = findOverlayRenderer(overlay.type);
-		if (!renderer)
-			return { status: 'unavailable', reason: `overlay-renderer-unavailable:${overlay.type}` };
-		const parsed = renderer.schema.safeParse(overlay.content);
+		const definition = findOverlayDefinition(overlay.type);
+		if (!definition)
+			return { status: 'unavailable', reason: `overlay-definition-unavailable:${overlay.type}` };
+		const parsed = definition.schema.safeParse(overlay.content);
 		if (!parsed.success) {
 			return { status: 'unavailable', reason: `overlay-content-invalid:${overlay.id}` };
 		}
-		if (!renderer.readableText) {
+		if (!definition.readableText) {
 			return {
 				status: 'unavailable',
 				reason: `overlay-readable-contract-unavailable:${overlay.type}`
 			};
 		}
-		for (const entry of renderer.readableText(parsed.data, {
+		for (const entry of definition.readableText(parsed.data, {
 			progress,
 			durationMilliseconds: state.transport.durationSeconds * 1000
 		})) {

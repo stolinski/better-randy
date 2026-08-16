@@ -1,12 +1,12 @@
 import { drawAnnotationMarks } from '$lib/annotations/annotation-marks';
-import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
+import type { AnnotationPipelineDefinition } from '$lib/platform/pipelines/definition-types';
 import type { AnnotationRenderer } from '$lib/platform/pipelines/types';
 
-export function createDecorativeAnnotationRenderer(style: AnnotationMarkStyle): AnnotationRenderer {
+export function createDecorativeAnnotationRenderer(
+	definition: AnnotationPipelineDefinition
+): AnnotationRenderer {
 	return {
-		style,
-		kind: 'decorative',
-		appliesTo: ['paragraph'],
+		...definition,
 		draw({ color, context, intensity, layout, progress }) {
 			drawAnnotationMarks({
 				colorsByIndex: [color],

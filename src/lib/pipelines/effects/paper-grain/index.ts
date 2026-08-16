@@ -1,5 +1,4 @@
 import { d } from 'typegpu';
-import { z } from 'zod';
 
 import { packState } from '$lib/platform/engine-state.svelte';
 import { getPack } from '$lib/platform/packs/registry';
@@ -8,26 +7,12 @@ import type { EffectRenderer } from '$lib/platform/pipelines/types';
 import { resolveRoleNumber } from '$lib/utils/color';
 
 import Editor from './Editor.svelte';
+import {
+	paperGrainEffectDefinition,
+	type PaperGrainParams as PaperGrainParamsDefinition
+} from './definition';
 
-const PaperGrainParamsSchema = z.object({
-	warmth: z.number().min(0).max(1).default(0.5),
-	density: z.number().min(0).max(1).default(0.3),
-	// Additive shadow grain. Multiplicative grain scales with the pixel it
-	// lands on, so a near-black field (luma ~0.02) carries ~0.0002 luma of
-	// shimmer — below visibility. lift adds the same grain field directly,
-	// weighted toward shadows (alpha − luma), so dark bumper fields get a
-	// living grain layer. 0 = exactly the pre-lift output.
-	lift: z.number().min(0).max(1).default(0)
-});
-
-export type PaperGrainParams = z.infer<typeof PaperGrainParamsSchema>;
-
-const PaperGrainEffectSchema = z.object({
-	type: z.literal('paper-grain'),
-	id: z.string(),
-	params: PaperGrainParamsSchema
-});
-
+export type PaperGrainParams = PaperGrainParamsDefinition;
 const PaperGrainUniforms = d.struct({
 	warmth: d.f32,
 	density: d.f32,
@@ -110,11 +95,7 @@ function packDeclinesGrain(pack: PackManifest): boolean {
 }
 
 export const paperGrainEffectRenderer: EffectRenderer<PaperGrainParams> = {
-	type: 'paper-grain',
-	label: 'Paper grain',
-	schema: PaperGrainEffectSchema,
-	defaults: () => ({ params: { warmth: 0.5, density: 0.3, lift: 0 } }),
-	isPackInert: packDeclinesGrain,
+	...paperGrainEffectDefinition,
 	pass: {
 		paramsStruct: PaperGrainUniforms,
 		fragmentBody,

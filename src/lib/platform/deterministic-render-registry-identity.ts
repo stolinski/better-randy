@@ -1,5 +1,5 @@
 import { PACK_REGISTRY } from './packs/registry';
-import { listPresets } from './preset';
+import { listPresets } from './preset-catalog';
 
 interface RuntimeRenderRegistryEntry {
 	id: string;

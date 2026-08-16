@@ -6,11 +6,19 @@
 	import { compositionAutosaveInvalidation } from '../../../lib/platform/composition-autosave-invalidation.svelte.ts';
 	import { compositionMeta } from '$lib/platform/composition-meta.svelte';
 	import { engineState, packState, transitionState } from '$lib/platform/engine-state.svelte';
+	import { getPack } from '$lib/platform/packs/registry';
+	import { collectPresetRendererRequirements } from '$lib/platform/pipelines/preset-renderer-requirements';
+	import {
+		pipelineRendererRuntime,
+		setPipelineRendererRuntime
+	} from '$lib/platform/pipelines/runtime-context.svelte';
 	import { posterKeyForPreset } from '$lib/platform/posters';
-	import { applyPreset, getPresetBySlug } from '$lib/platform/preset';
+	import { getPresetBySlug } from '$lib/platform/preset-catalog';
+	import { applyPreset } from '$lib/platform/preset';
 	import { presetBase } from '$lib/platform/preset-base.svelte';
 	import { serializeCompositionState } from '$lib/platform/preset-pure';
 	import { userCompositionStore } from '$lib/platform/user-composition-store';
+	import { isCurrentPresetRouteRendererLoad } from '$lib/utils/preset-route-renderer-load';
 	import Workspace from '$lib/platform/Workspace.svelte';
 
 	import type { PageProps } from './$types';
@@ -29,16 +37,29 @@
 	// covers composition and metadata edits alike.
 	let loadSnapshot = '';
 	let appliedRouteKey = $state<string | null>(null);
+	let rendererLoadError = $state<string | null>(null);
+	let rendererLoading = $state(true);
+	let routeLoadGeneration = 0;
+	let revertGeneration = 0;
+
+	setPipelineRendererRuntime(pipelineRendererRuntime);
 
 	// Track whether the currently-viewed Preset was found in the User composition store.
 	// This determines fork vs autosave on edit.
 	let activeIsUserComposition = false;
 
 	afterNavigate(() => {
+		void loadNavigatedPreset();
+	});
+
+	async function loadNavigatedPreset(): Promise<void> {
+		const generation = ++routeLoadGeneration;
 		const nextData = data;
 		const nextRouteKey = JSON.stringify([nextData.slug, nextData.source]);
 
 		appliedRouteKey = null;
+		rendererLoadError = null;
+		rendererLoading = nextData.status === 'ready';
 		posterKey = null;
 		loadSnapshot = '';
 		activeIsUserComposition = false;
@@ -51,14 +72,42 @@
 
 		if (nextData.status !== 'ready') return;
 
-		applyPreset(nextData.preset);
-		posterKey = posterKeyForPreset(nextData.preset);
-		activeIsUserComposition = nextData.provenance === 'user';
-		loadSnapshot = snapshotState();
-		compositionMeta.isUserComposition = activeIsUserComposition;
-		compositionMeta.userCompositionSlug = nextData.slug;
-		appliedRouteKey = nextRouteKey;
-	});
+		try {
+			const requirements = collectPresetRendererRequirements(nextData.preset, {
+				pack: getPack(nextData.preset.pack),
+				resolvePack: getPack,
+				resolvePreset: getPresetBySlug
+			});
+			const rendererBundle = await pipelineRendererRuntime.resolve(requirements);
+			if (
+				!isCurrentPresetRouteRendererLoad(generation, routeLoadGeneration, nextRouteKey, routeKey)
+			) {
+				return;
+			}
+			pipelineRendererRuntime.activate(rendererBundle);
+			applyPreset(nextData.preset);
+			rendererLoading = false;
+			posterKey = posterKeyForPreset(nextData.preset);
+			activeIsUserComposition = nextData.provenance === 'user';
+			loadSnapshot = snapshotState();
+			compositionMeta.isUserComposition = activeIsUserComposition;
+			compositionMeta.userCompositionSlug = nextData.slug;
+			appliedRouteKey = nextRouteKey;
+		} catch (cause) {
+			if (
+				!isCurrentPresetRouteRendererLoad(generation, routeLoadGeneration, nextRouteKey, routeKey)
+			) {
+				return;
+			}
+			rendererLoading = false;
+			console.error('Failed to load composition renderers.', {
+				slug: nextData.slug,
+				cause
+			});
+			rendererLoadError =
+				cause instanceof Error ? cause.message : 'Failed to load composition renderers.';
+		}
+	}
 
 	// Autosave: run on any change to engineState, presetBase, or pack.
 	// Skips explicit built-in source mode, when state matches the post-load snapshot, and
@@ -145,19 +194,48 @@
 		const currentRouteKey = appliedRouteKey;
 		if (data.status !== 'ready' || !currentRouteKey || routeKey !== currentRouteKey) return;
 
+		const generation = ++revertGeneration;
+		const currentRouteGeneration = routeLoadGeneration;
 		const currentSlug = data.slug;
-		await userCompositionStore.deleteUserComposition(currentSlug);
-		if (!isCurrentAppliedRoute(currentRouteKey)) return;
-
 		const corpusPreset = getPresetBySlug(currentSlug);
 		if (!corpusPreset) return;
-		applyPreset(corpusPreset);
-		posterKey = posterKeyForPreset(corpusPreset);
-		activeIsUserComposition = false;
-		loadSnapshot = snapshotState();
-		compositionMeta.isUserComposition = false;
-		compositionMeta.forkedFrom = null;
-		compositionMeta.persistenceError = null;
+		try {
+			const rendererBundle = await pipelineRendererRuntime.resolve(
+				collectPresetRendererRequirements(corpusPreset, {
+					pack: getPack(corpusPreset.pack),
+					resolvePack: getPack,
+					resolvePreset: getPresetBySlug
+				})
+			);
+			if (
+				generation !== revertGeneration ||
+				currentRouteGeneration !== routeLoadGeneration ||
+				!isCurrentAppliedRoute(currentRouteKey)
+			) {
+				return;
+			}
+			await userCompositionStore.deleteUserComposition(currentSlug);
+			if (
+				generation !== revertGeneration ||
+				currentRouteGeneration !== routeLoadGeneration ||
+				!isCurrentAppliedRoute(currentRouteKey)
+			) {
+				return;
+			}
+			pipelineRendererRuntime.activate(rendererBundle);
+			applyPreset(corpusPreset);
+			posterKey = posterKeyForPreset(corpusPreset);
+			activeIsUserComposition = false;
+			loadSnapshot = snapshotState();
+			compositionMeta.isUserComposition = false;
+			compositionMeta.forkedFrom = null;
+			compositionMeta.persistenceError = null;
+		} catch (cause) {
+			if (generation !== revertGeneration || !isCurrentAppliedRoute(currentRouteKey)) return;
+			console.error('Failed to revert composition.', { slug: currentSlug, cause });
+			compositionMeta.persistenceError =
+				cause instanceof Error ? cause.message : 'Failed to revert composition.';
+		}
 	}
 
 	onMount(() => {
@@ -168,7 +246,13 @@
 	});
 </script>
 
-{#if data.status === 'error'}
+{#if rendererLoadError}
+	<main class="missing stack">
+		<h1>Couldn't load renderer</h1>
+		<p>{rendererLoadError}</p>
+		<a href={resolve('/')}>All presets</a>
+	</main>
+{:else if data.status === 'error'}
 	<main class="missing stack">
 		<h1>Couldn't load composition</h1>
 		<p>The composition store didn't respond. Reload to retry.</p>
@@ -180,6 +264,10 @@
 		<p>No preset named "{data.slug}".</p>
 		<a href={resolve('/')}>All presets</a>
 	</main>
+{:else if data.status === 'ready' && rendererLoading}
+	<main class="loading" aria-busy="true">
+		<p role="status">Loading…</p>
+	</main>
 {:else if appliedRouteKey === routeKey}
 	{#key routeKey}
 		<Workspace {posterKey} />
@@ -187,6 +275,14 @@
 {/if}
 
 <style>
+	.loading {
+		padding: var(--pad-l);
+	}
+
+	.loading p {
+		margin: 0;
+	}
+
 	.missing {
 		padding: var(--pad-l);
 		max-inline-size: 32rem;

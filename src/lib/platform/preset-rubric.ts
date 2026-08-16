@@ -15,7 +15,7 @@ import type {
 } from './engine-schema.ts';
 import { getPack } from './packs/registry.ts';
 import { requireCoreColor, resolveBackgroundFill, resolveFieldInkColor } from './packs/resolve.ts';
-import { resolveSurfaceTypographyColors } from './pipelines/index.ts';
+import { resolveSurfaceTypographyColors } from './pipelines/definition-registry';
 import { getLayoutSafeArea } from '../utils/safe-area.ts';
 import { calculateWebsiteShowcaseLayout } from '../utils/website-showcase.ts';
 import { resolveDiagramPrimitiveGeometry } from '../utils/diagram-geometry.ts';

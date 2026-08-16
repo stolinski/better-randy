@@ -1,5 +1,8 @@
 import { createDecorativeAnnotationRenderer } from '$lib/annotations/decorative-renderer';
 import type { AnnotationRenderer } from '$lib/platform/pipelines/types';
 
-export const highlightAnnotationRenderer: AnnotationRenderer =
-	createDecorativeAnnotationRenderer('highlight');
+import { highlightAnnotationDefinition } from './definition';
+
+export const highlightAnnotationRenderer: AnnotationRenderer = createDecorativeAnnotationRenderer(
+	highlightAnnotationDefinition
+);

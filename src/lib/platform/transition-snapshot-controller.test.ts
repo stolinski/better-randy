@@ -9,6 +9,7 @@ import type {
 	TransitionSnapshotFrameTextures,
 	TransitionSnapshotsOptions
 } from './pipelines/transition-snapshots';
+import type { TransitionEffectRenderer } from './pipelines/types';
 import {
 	TransitionSnapshotController,
 	type TransitionSnapshotControllerDependencies,
@@ -88,6 +89,8 @@ function createHarness(source: Preset, initialCapturing = false): TransitionCont
 				dispose: () => disposedCaches.push(id)
 			} satisfies TransitionSnapshotFrameTextures;
 		},
+		getTransitionEffectRenderer: () =>
+			({ type: 'mask-wipe' }) as unknown as TransitionEffectRenderer<unknown>,
 		compileEffect: () => ({ apply: () => undefined }) as CompiledTransitionWipe
 	};
 

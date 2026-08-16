@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { MediaSchema, type Preset } from './engine-schema';
-import { parsePreset } from './preset';
+import { MediaSchema, SurfaceTypeSchema, type Preset } from './engine-schema';
+import { parsePreset } from './preset-parser';
 import { presetToWireFormat } from './preset-pure';
 
 const UserCompositionMediaStatusSchema = z.enum(['ready', 'missing', 'undecodable']);
@@ -16,6 +16,9 @@ const UserCompositionMetaSchema = z.strictObject({
 	name: z.string(),
 	forkedFrom: z.string().nullable(),
 	savedAt: z.string(),
+	posterKey: z.string().nullable(),
+	durationSeconds: z.number().positive(),
+	surfaceType: SurfaceTypeSchema,
 	media: MediaSchema,
 	mediaStatus: UserCompositionMediaStatusSchema,
 	mediaIssues: z.array(UserCompositionMediaIssueSchema).optional()

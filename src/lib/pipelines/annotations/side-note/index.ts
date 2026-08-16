@@ -1,11 +1,10 @@
 import type { AnnotationRenderer } from '$lib/platform/pipelines/types';
 import { getCanvasRgbColor } from '$lib/utils/color';
 import { clampNumber } from '$lib/utils/math';
+import { sideNoteAnnotationDefinition } from './definition';
 
 export const sideNoteAnnotationRenderer: AnnotationRenderer = {
-	style: 'side-note',
-	kind: 'decorative',
-	appliesTo: ['paragraph'],
+	...sideNoteAnnotationDefinition,
 	draw({ color, context, intensity, layout, paperLayout, progress }) {
 		const bounds = layout.bounds;
 		const useRightMargin = bounds.x + bounds.width * 0.5 <= paperLayout.x + paperLayout.width * 0.5;

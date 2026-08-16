@@ -1,23 +1,14 @@
 import { d } from 'typegpu';
-import { z } from 'zod';
 
 import type { EffectRenderer } from '$lib/platform/pipelines/types';
 
 import Editor from './Editor.svelte';
+import {
+	chromaticAberrationEffectDefinition,
+	type ChromaticAberrationParams as ChromaticAberrationParamsDefinition
+} from './definition';
 
-const ChromaticAberrationParamsSchema = z.object({
-	strength: z.number().min(0).max(1).default(0.25),
-	radial: z.number().min(0).max(1).default(1)
-});
-
-export type ChromaticAberrationParams = z.infer<typeof ChromaticAberrationParamsSchema>;
-
-const ChromaticAberrationEffectSchema = z.object({
-	type: z.literal('chromatic-aberration'),
-	id: z.string(),
-	params: ChromaticAberrationParamsSchema
-});
-
+export type ChromaticAberrationParams = ChromaticAberrationParamsDefinition;
 const ChromaticAberrationUniforms = d.struct({
 	strength: d.f32,
 	radial: d.f32
@@ -53,10 +44,7 @@ const fragmentBody = /* wgsl */ `
 `;
 
 export const chromaticAberrationEffectRenderer: EffectRenderer<ChromaticAberrationParams> = {
-	type: 'chromatic-aberration',
-	label: 'Chromatic aberration',
-	schema: ChromaticAberrationEffectSchema,
-	defaults: () => ({ params: { strength: 0.25, radial: 1 } }),
+	...chromaticAberrationEffectDefinition,
 	pass: {
 		paramsStruct: ChromaticAberrationUniforms,
 		fragmentBody,

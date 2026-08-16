@@ -1,9 +1,8 @@
 import type { AnnotationFocalSlot, AnnotationRenderer } from '$lib/platform/pipelines/types';
+import { tearOutAnnotationDefinition } from './definition';
 
 export const tearOutAnnotationRenderer: AnnotationRenderer = {
-	style: 'tear-out',
-	kind: 'focal',
-	appliesTo: ['paragraph'],
+	...tearOutAnnotationDefinition,
 	computeFocalSlot({ canvasHeight, canvasWidth, layout, progress }): AnnotationFocalSlot {
 		const bounds = layout.bounds;
 		return {

@@ -5,12 +5,14 @@ import { beforeAll, beforeEach, describe, it, vi } from 'vitest';
 
 import validPreset from '$lib/presets/blank.json';
 import { PresetSchema, type Preset } from '$lib/platform/engine-schema';
+import { posterKeyForPreset } from '$lib/platform/posters';
 import { presetToWireFormat } from '$lib/platform/preset-pure';
 
 const fsMocks = vi.hoisted(() => ({
 	mkdir: vi.fn<(path: string, options: { recursive: true }) => Promise<string | undefined>>(),
 	readdir: vi.fn<(path: string) => Promise<string[]>>(),
 	readFile: vi.fn<(path: string, encoding: 'utf-8') => Promise<string>>(),
+	rename: vi.fn<(oldPath: string, newPath: string) => Promise<void>>(),
 	writeFile: vi.fn<(path: string, data: string, encoding: 'utf-8') => Promise<void>>(),
 	unlink: vi.fn<(path: string) => Promise<void>>()
 }));
@@ -23,7 +25,8 @@ const mediaMocks = vi.hoisted(() => ({
 			'status' in inspection &&
 			inspection.status !== 'ready'
 		) {
-			const issues = 'issues' in inspection && Array.isArray(inspection.issues) ? inspection.issues : [];
+			const issues =
+				'issues' in inspection && Array.isArray(inspection.issues) ? inspection.issues : [];
 			const messages = issues.flatMap((issue) =>
 				typeof issue === 'object' &&
 				issue !== null &&
@@ -52,6 +55,7 @@ beforeEach(() => {
 	vi.clearAllMocks();
 	fsMocks.mkdir.mockResolvedValue(undefined);
 	fsMocks.readdir.mockResolvedValue([]);
+	fsMocks.rename.mockResolvedValue(undefined);
 	fsMocks.writeFile.mockResolvedValue(undefined);
 	fsMocks.unlink.mockResolvedValue(undefined);
 	mediaMocks.inspectUserCompositionMedia.mockResolvedValue({ status: 'ready', issues: [] });
@@ -197,7 +201,9 @@ describe('user composition handlers', () => {
 			meta: { forkedFrom: string | null; savedAt: string };
 			preset: { state: { surface: { content: { body: unknown } } } };
 		};
-		assert.match(path, /user-compositions\/blank-copy\.json$/);
+		assert.match(path, /user-compositions\/\.[a-f0-9-]+\.tmp$/);
+		assert.equal(fsMocks.rename.mock.calls[0]?.[0], path);
+		assert.match(fsMocks.rename.mock.calls[0]?.[1] ?? '', /user-compositions\/blank-copy\.json$/);
 		assert.equal(encoding, 'utf-8');
 		assert.equal(stored.meta.forkedFrom, 'blank');
 		assert.equal(Number.isNaN(Date.parse(stored.meta.savedAt)), false);
@@ -245,6 +251,9 @@ describe('user composition handlers', () => {
 				name: 'Blank',
 				forkedFrom: null,
 				savedAt: '2026-07-14T12:00:00.000Z',
+				posterKey: posterKeyForPreset(PresetSchema.parse(validPreset)),
+				durationSeconds: PresetSchema.parse(validPreset).state.transport.durationSeconds,
+				surfaceType: PresetSchema.parse(validPreset).state.surface.type,
 				media: { assets: [], videoTrack: { clips: [] } },
 				mediaStatus: 'ready'
 			}
@@ -262,6 +271,31 @@ describe('user composition handlers', () => {
 
 		assert.equal(response.status, 200);
 		assert.equal(await response.json(), null);
+	});
+
+	it('coalesces concurrent reads of the same User composition', async () => {
+		let resolveRead: ((value: string) => void) | undefined;
+		fsMocks.readFile.mockImplementationOnce(
+			() => new Promise<string>((resolve) => (resolveRead = resolve))
+		);
+		const event = {
+			params: { slug: 'concurrent' }
+		} as Parameters<(typeof slugHandlers)['GET']>[0];
+
+		const firstResponse = slugHandlers.GET(event);
+		const secondResponse = slugHandlers.GET(event);
+		await vi.waitFor(() => assert.equal(fsMocks.readFile.mock.calls.length, 1));
+		resolveRead?.(
+			JSON.stringify({
+				meta: { forkedFrom: 'blank', savedAt: '2026-07-14T12:00:00.000Z' },
+				preset: validPreset
+			})
+		);
+
+		const [first, second] = await Promise.all([firstResponse, secondResponse]);
+		assert.deepEqual(await first.json(), presetToWireFormat(PresetSchema.parse(validPreset)));
+		assert.deepEqual(await second.json(), presetToWireFormat(PresetSchema.parse(validPreset)));
+		assert.equal(fsMocks.readFile.mock.calls.length, 1);
 	});
 
 	it('rejects a slug GET whose file read fails for a non-ENOENT reason', async () => {
@@ -482,6 +516,9 @@ describe('user composition handlers', () => {
 				name: 'Media composition',
 				forkedFrom: null,
 				savedAt: '2026-07-27T12:00:00.000Z',
+				posterKey: posterKeyForPreset(PresetSchema.parse(preset)),
+				durationSeconds: PresetSchema.parse(preset).state.transport.durationSeconds,
+				surfaceType: PresetSchema.parse(preset).state.surface.type,
 				media,
 				mediaStatus: 'ready'
 			}

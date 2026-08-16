@@ -3,7 +3,7 @@ import tgpu, { d } from 'typegpu';
 import type { Effect } from '$lib/platform/engine-schema';
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
 import type { PreparedVideoUnderlayTexture } from '$lib/platform/video-underlay-frame-texture';
-import { PIPELINE_REGISTRY } from './index';
+import { requireLoadedEffectRenderer } from './runtime-loader';
 import { compilePassComposite, type CompiledPassComposite } from './pass-composite';
 import { resolvePassExecution, type PassPixelBounds } from './pass-execution';
 import type { EffectRenderer } from './types';
@@ -102,15 +102,6 @@ interface CompiledPresent {
 		videoUnderlayTexture?: PreparedVideoUnderlayTexture | null;
 	}): void;
 	dispose(): void;
-}
-
-function findEffectRenderer(type: string): EffectRenderer | null {
-	for (const renderer of Object.values(PIPELINE_REGISTRY.effects)) {
-		if (renderer.type === type) {
-			return renderer as EffectRenderer;
-		}
-	}
-	return null;
 }
 
 function compileEffect(host: GpuHost, renderer: EffectRenderer): CompiledEffect {
@@ -471,17 +462,13 @@ export class EffectChain {
 		return texture;
 	}
 
-	#getCompiled(type: string): CompiledEffect | null {
+	#getCompiled(type: string): CompiledEffect {
 		const cached = this.#cache.get(type);
 		if (cached) {
 			return cached;
 		}
 
-		const renderer = findEffectRenderer(type);
-		if (!renderer) {
-			return null;
-		}
-
+		const renderer = requireLoadedEffectRenderer(type);
 		const compiled = compileEffect(this.#host, renderer);
 		this.#cache.set(type, compiled);
 		return compiled;
@@ -500,13 +487,10 @@ export class EffectChain {
 		background,
 		videoUnderlayTexture
 	}: ApplyChainOptions): void {
-		const valid: { effect: Effect; compiled: CompiledEffect }[] = [];
-		for (const effect of effects) {
-			const compiled = this.#getCompiled(effect.type);
-			if (compiled) {
-				valid.push({ effect, compiled });
-			}
-		}
+		const valid = effects.map((effect) => ({
+			effect,
+			compiled: this.#getCompiled(effect.type)
+		}));
 
 		// Full-frame fill baked BEFORE the effects: when a `backgroundFill` is
 		// declared (background.a > 0) AND effects run, composite the content over
@@ -535,7 +519,7 @@ export class EffectChain {
 		// 16float→8bit conversion) happens either way.
 		for (let i = 0; i < valid.length; i += 1) {
 			const outputTexture = (i + parity) % 2 === 0 ? this.#pingTexture : this.#pongTexture;
-			const renderer = findEffectRenderer(valid[i].effect.type);
+			const renderer = requireLoadedEffectRenderer(valid[i].effect.type);
 			const context = {
 				progress,
 				timestamp,
@@ -544,7 +528,7 @@ export class EffectChain {
 				stageContentScale
 			};
 			const execution = resolvePassExecution(
-				renderer?.pass.execution?.(valid[i].effect.params, context),
+				renderer.pass.execution?.(valid[i].effect.params, context),
 				this.#width,
 				this.#height
 			);

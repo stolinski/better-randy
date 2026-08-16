@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { SvelteMap } from 'svelte/reactivity';
+	import type { Attachment } from 'svelte/attachments';
 
 	import type { SurfaceType } from '$lib/platform/engine-schema';
 	import { posterUrl } from '$lib/platform/posters';
@@ -41,6 +42,21 @@
 	let downgrade = $state<'surface' | 'failed' | null>(null);
 	const level = $derived(downgrade ?? (thumbKey !== null ? 'composition' : 'surface'));
 	let ready = $state(false);
+	let shouldLoad = $state(false);
+
+	const loadVisiblePoster: Attachment<HTMLElement> = (element) => {
+		if (typeof IntersectionObserver === 'undefined') {
+			shouldLoad = true;
+			return;
+		}
+		const observer = new IntersectionObserver((entries) => {
+			if (!entries.some((entry) => entry.isIntersecting)) return;
+			shouldLoad = true;
+			observer.disconnect();
+		});
+		observer.observe(element);
+		return () => observer.disconnect();
+	};
 
 	const src = $derived(
 		level === 'surface'
@@ -64,9 +80,20 @@
 			contentViewBox = cached;
 			return;
 		}
-		const inset = imageContentViewBoxInset(image);
-		contentViewBoxCache.set(source, inset);
-		contentViewBox = inset;
+
+		// Alpha scanning is presentation refinement, not image readiness. Keep it
+		// out of the load event so a burst of local poster decodes can paint first.
+		const measureContentCrop = (): void => {
+			if (!ready || (image.currentSrc || image.src) !== source) return;
+			const inset = imageContentViewBoxInset(image);
+			contentViewBoxCache.set(source, inset);
+			contentViewBox = inset;
+		};
+		if ('requestIdleCallback' in window) {
+			window.requestIdleCallback(measureContentCrop, { timeout: 1_000 });
+		} else {
+			globalThis.setTimeout(measureContentCrop, 0);
+		}
 	}
 
 	function handleError(): void {
@@ -77,14 +104,18 @@
 </script>
 
 <a class="poster-card" href={resolve('/p/[slug]', { slug })}>
-	<span class="poster-card__preview" class:is-tall={aspect === 'tall'}>
-		{#if src}
+	<span
+		class="poster-card__preview"
+		class:is-tall={aspect === 'tall'}
+		{@attach loadVisiblePoster}
+	>
+		{#if src && shouldLoad}
 			<img
 				class="poster-card__thumb"
 				class:is-ready={ready}
 				{src}
 				alt=""
-				loading="lazy"
+				decoding="async"
 				style:object-view-box={contentViewBox}
 				onload={handleLoad}
 				onerror={handleError}

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
+
 	import { TEXT_EFFECT_IDS } from '$lib/text-animations/catalog';
 	import {
 		engineState,
@@ -8,14 +10,19 @@
 		addOverlay,
 		addTextAnimation
 	} from './engine-state.svelte';
-	import { PIPELINE_REGISTRY } from './pipelines';
+	import { PIPELINE_DEFINITION_REGISTRY } from './pipelines/definition-registry';
+	import { getPipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 	import { selectLayer } from './selection.svelte';
 	import { createTimelineTrackId } from './timeline-entity-identity';
+	import { AsyncAuthoringOperationGuard } from '$lib/utils/async-authoring-operation';
 
 	// The gutter footer's "Add layer" control: a top-layer popover menu of the
 	// addable layer types — the real add affordance, not a stray <select>. The
 	// popover escapes the panel's overflow:hidden and opens upward.
-	const overlayRenderers = Object.values(PIPELINE_REGISTRY.overlays);
+	const overlayDefinitions = Object.values(PIPELINE_DEFINITION_REGISTRY.overlays);
+	const rendererController = getPipelineRendererRuntime();
+	const addOperationGuard = new AsyncAuthoringOperationGuard();
+	onDestroy(() => addOperationGuard.dispose());
 
 	// Diagram primitive Blocks (ADR-0036) — explicit placement is the authoring
 	// model, so a new primitive lands at a sensible spot and is immediately
@@ -73,29 +80,67 @@
 		if (event.newState === 'open') positionAddMenu();
 	}
 
-	function pickOverlay(type: string): void {
-		const renderer = overlayRenderers.find((r) => r.type === type);
-		if (!renderer) return;
-		const def = renderer.defaults();
-		const id = addOverlay({
-			type,
-			content: def.content,
-			position: def.position,
-			enter: def.enter,
-			exit: def.exit
-		});
-		selectLayer(createTimelineTrackId({ kind: 'overlay', overlayId: id }));
-		addMenuEl?.hidePopover();
+	async function pickOverlay(type: string): Promise<void> {
+		const definition = overlayDefinitions.find((entry) => entry.type === type);
+		if (!definition) return;
+		const generation = addOperationGuard.begin();
+		const overlayIdentity = engineState.overlays.map((overlay) => overlay.id).join('\u0000');
+		try {
+			await rendererController.ensureOverlay(type);
+			if (
+				!addOperationGuard.isCurrent(generation) ||
+				engineState.overlays.map((overlay) => overlay.id).join('\u0000') !== overlayIdentity
+			) {
+				return;
+			}
+			const def = definition.defaults();
+			const id = addOverlay({
+				type,
+				content: def.content,
+				position: def.position,
+				enter: def.enter,
+				exit: def.exit
+			});
+			selectLayer(createTimelineTrackId({ kind: 'overlay', overlayId: id }));
+			addMenuEl?.hidePopover();
+		} catch (cause) {
+			console.error('Failed to load Overlay renderer.', { type, cause });
+		}
 	}
 
-	function pickChart(type: (typeof CHART_TYPES)[number]['type']): void {
-		const id = addChartBlock(type);
-		if (!id) return;
-		selectLayer(createTimelineTrackId({ kind: 'block', blockId: id }));
-		addMenuEl?.hidePopover();
+	async function pickChart(type: (typeof CHART_TYPES)[number]['type']): Promise<void> {
+		const generation = addOperationGuard.begin();
+		const surface = engineState.surface;
+		const chartIdentity = surface.chart?.items.map((item) => item.id).join('\u0000') ?? '';
+		try {
+			const bundle = await rendererController.resolve({
+				surfaces: new Set(),
+				blocks: new Set([type]),
+				annotations: new Set(),
+				overlays: new Set(),
+				effects: new Set(),
+				transitions: new Set()
+			});
+			if (
+				!addOperationGuard.isCurrent(generation) ||
+				engineState.surface !== surface ||
+				(surface.chart?.items.map((item) => item.id).join('\u0000') ?? '') !== chartIdentity ||
+				!canAddChart
+			) {
+				return;
+			}
+			rendererController.activate(bundle);
+			const id = addChartBlock(type);
+			if (!id) return;
+			selectLayer(createTimelineTrackId({ kind: 'block', blockId: id }));
+			addMenuEl?.hidePopover();
+		} catch (cause) {
+			console.error('Failed to load Chart renderer.', { type, cause });
+		}
 	}
 
 	function pickTextAnimation(): void {
+		addOperationGuard.supersede();
 		const firstEffect = TEXT_EFFECT_IDS[0];
 		if (!firstEffect) return;
 		addTextAnimation({
@@ -106,13 +151,37 @@
 		addMenuEl?.hidePopover();
 	}
 
-	function pickDiagramPrimitive(type: (typeof DIAGRAM_TYPES)[number]['type']): void {
-		const id = addDiagramPrimitive(type);
-		selectLayer(createTimelineTrackId({ kind: 'block', blockId: id }));
-		addMenuEl?.hidePopover();
+	async function pickDiagramPrimitive(type: (typeof DIAGRAM_TYPES)[number]['type']): Promise<void> {
+		const generation = addOperationGuard.begin();
+		const surface = engineState.surface;
+		const diagramIdentity = surface.diagram?.map((item) => item.id).join('\u0000') ?? '';
+		try {
+			const bundle = await rendererController.resolve({
+				surfaces: new Set(),
+				blocks: new Set([type]),
+				annotations: new Set(),
+				overlays: new Set(),
+				effects: new Set(),
+				transitions: new Set()
+			});
+			if (
+				!addOperationGuard.isCurrent(generation) ||
+				engineState.surface !== surface ||
+				(surface.diagram?.map((item) => item.id).join('\u0000') ?? '') !== diagramIdentity
+			) {
+				return;
+			}
+			rendererController.activate(bundle);
+			const id = addDiagramPrimitive(type);
+			selectLayer(createTimelineTrackId({ kind: 'block', blockId: id }));
+			addMenuEl?.hidePopover();
+		} catch (cause) {
+			console.error('Failed to load Diagram renderer.', { type, cause });
+		}
 	}
 
 	function pickCaptions(): void {
+		addOperationGuard.supersede();
 		addCaptions();
 		selectLayer(createTimelineTrackId({ kind: 'captions' }));
 		addMenuEl?.hidePopover();
@@ -145,7 +214,7 @@
 		{@attach attachAddMenu}
 		ontoggle={onAddMenuToggle}
 	>
-		{#each overlayRenderers as renderer (renderer.type)}
+		{#each overlayDefinitions as renderer (renderer.type)}
 			<button class="add-menu__item" type="button" onclick={() => pickOverlay(renderer.type)}
 				>{renderer.label}</button
 			>

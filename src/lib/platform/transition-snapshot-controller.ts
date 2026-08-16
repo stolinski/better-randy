@@ -11,7 +11,7 @@ import {
 	compileTransitionEffect,
 	type CompiledTransitionEffect
 } from './pipelines/transition-pass';
-import { getTransitionEffectRenderer } from './pipelines/transition-registry';
+import { getLoadedTransitionEffectRenderer } from './pipelines/runtime-loader';
 import type { TransitionEffectRenderer } from './pipelines/types';
 import {
 	TransitionSnapshots,
@@ -40,6 +40,7 @@ export interface TransitionSnapshotControllerDependencies {
 
 export interface TransitionSnapshotControllerFactories {
 	createSnapshots(options: TransitionSnapshotsOptions): TransitionSnapshotFrameTextures;
+	getTransitionEffectRenderer(type: string): TransitionEffectRenderer<unknown> | null;
 	compileEffect(
 		host: GpuHost,
 		renderer: TransitionEffectRenderer<unknown>
@@ -68,6 +69,7 @@ class TransitionSnapshotPreparationCancelled extends Error {
 
 const DEFAULT_FACTORIES: TransitionSnapshotControllerFactories = {
 	createSnapshots: (options) => new TransitionSnapshots(options),
+	getTransitionEffectRenderer: getLoadedTransitionEffectRenderer,
 	compileEffect: compileTransitionEffect
 };
 
@@ -311,7 +313,7 @@ export class TransitionSnapshotController {
 	): void {
 		const cache = this.#ensureCache(dependencies);
 		if (cache.effectType === active.effect && cache.effect) return;
-		const renderer = getTransitionEffectRenderer(active.effect);
+		const renderer = this.#factories.getTransitionEffectRenderer(active.effect);
 		if (!renderer) {
 			throw new Error(`Unknown transition Effect "${active.effect}".`);
 		}

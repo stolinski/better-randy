@@ -1,5 +1,8 @@
 import { createDecorativeAnnotationRenderer } from '$lib/annotations/decorative-renderer';
 import type { AnnotationRenderer } from '$lib/platform/pipelines/types';
 
-export const strikeAnnotationRenderer: AnnotationRenderer =
-	createDecorativeAnnotationRenderer('strike');
+import { strikeAnnotationDefinition } from './definition';
+
+export const strikeAnnotationRenderer: AnnotationRenderer = createDecorativeAnnotationRenderer(
+	strikeAnnotationDefinition
+);

@@ -19,7 +19,11 @@ import {
 	type LightTreatment,
 	type ResolvedMaterialTreatment
 } from './packs/resolve';
-import { getSurfaceRenderer, PIPELINE_REGISTRY } from './pipelines';
+import { getSurfaceDefinition } from './pipelines/definition-registry';
+import {
+	requireLoadedOverlayRenderer,
+	requireLoadedSurfaceRenderer
+} from './pipelines/runtime-loader';
 import { isAppearanceSlotPackClaimable } from './pipelines/identity-registry';
 import { CompositionPlanes, type CompositeBackdrop } from './pipelines/composition-planes';
 import { DepthStage } from './pipelines/depth-stage';
@@ -28,12 +32,7 @@ import { EffectChain } from './pipelines/effect-chain';
 import { ShaderPassDispatcher, type ShaderPassDispatchList } from './pipelines/shader-pass-runner';
 import type { CompiledTransitionEffect } from './pipelines/transition-pass';
 import type { TransitionSnapshotFrameTextures } from './pipelines/transition-snapshots';
-import type {
-	OverlayRenderer,
-	ShaderPass,
-	SurfaceRenderInputs,
-	SurfaceRenderInstance
-} from './pipelines/types';
+import type { ShaderPass, SurfaceRenderInputs, SurfaceRenderInstance } from './pipelines/types';
 import type { PreparedVideoUnderlayTexture } from './video-underlay-frame-texture';
 
 const SELF_FADING_SURFACE_TYPES = new Set(['chapter-card', 'title-sequence', 'pullquote-on-photo']);
@@ -206,22 +205,13 @@ function frameTimebase(state: EngineState, timestamp: number): CompositionFrameT
 	};
 }
 
-function findOverlayRenderer(type: string): OverlayRenderer | null {
-	for (const renderer of Object.values(PIPELINE_REGISTRY.overlays)) {
-		if (renderer.type === type) {
-			return renderer as OverlayRenderer;
-		}
-	}
-	return null;
-}
-
 function prepareFramePackTreatments(
 	state: EngineState,
 	pack: PackManifest
 ): PreparedFramePackTreatments {
-	const surfaceRenderer = getSurfaceRenderer(state.surface.type);
+	const surfaceDefinition = getSurfaceDefinition(state.surface.type);
 	let edgeTarget: EdgeTreatmentTarget | null = null;
-	if (surfaceRenderer?.edgeTreatment) {
+	if (surfaceDefinition?.edgeTreatment) {
 		// Partial substrate immunity (ADR-0039 §2): a surface whose `edge` slot
 		// is immune cuts with its own intrinsic treatment (the newspaper's tear
 		// is document physics); a claimable edge stays the Pack's. Same split
@@ -229,7 +219,7 @@ function prepareFramePackTreatments(
 		const surfaceKey = `surface:${state.surface.type}`;
 		const treatment = isAppearanceSlotPackClaimable(surfaceKey, 'edge')
 			? resolveEdgeTreatment(pack, state.surface.type)
-			: (surfaceRenderer.intrinsicEdgeTreatment ?? null);
+			: (surfaceDefinition.intrinsicEdgeTreatment ?? null);
 		if (treatment && treatment.mode !== 'none') {
 			let shadow: EdgeTreatmentTarget['shadow'] = null;
 			if (treatment.mode === 'torn' || treatment.mode === 'irregular') {
@@ -262,7 +252,7 @@ function prepareFramePackTreatments(
 		}
 	}
 
-	const material = surfaceRenderer?.disablePackMaterial ? null : resolveMaterialTreatment(pack);
+	const material = surfaceDefinition?.disablePackMaterial ? null : resolveMaterialTreatment(pack);
 	const role = state.backgroundFill ? pack.roles['chrome'] : undefined;
 	const chromeEffects: Effect[] =
 		role?.kind === 'chrome'
@@ -312,7 +302,7 @@ function buildShaderPassDispatchList(
 		target: unknown;
 		bounds: typeof bounds;
 	}> = [];
-	const surfaceRenderer = getSurfaceRenderer(state.surface.type);
+	const surfaceRenderer = requireLoadedSurfaceRenderer(state.surface.type);
 
 	// Pack edge treatment runs before the Surface's own physics so those physics
 	// operate on the treated silhouette.
@@ -337,8 +327,8 @@ function buildShaderPassDispatchList(
 
 	if (scope === 'flat') {
 		for (const overlay of state.overlays) {
-			const renderer = findOverlayRenderer(overlay.type);
-			if (!renderer?.shaderPass) {
+			const renderer = requireLoadedOverlayRenderer(overlay.type);
+			if (!renderer.shaderPass) {
 				continue;
 			}
 			entries.push({
@@ -485,7 +475,7 @@ function surfaceFadeAlpha(state: EngineState, paperVisibility: number): number {
 }
 
 function stageSurfaceFadeAlpha(state: EngineState, paperVisibility: number): number {
-	const renderer = getSurfaceRenderer(state.surface.type);
+	const renderer = requireLoadedSurfaceRenderer(state.surface.type);
 	const fadeCarrierSkipped = Boolean(
 		(renderer?.shaderPass as ShaderPass<unknown> | undefined)?.environment
 	);
@@ -669,6 +659,9 @@ export function renderCompositionFrameTo(
 	if (!pipeline || !host || !effectChain || !shaderPassDispatcher) {
 		return 'unavailable';
 	}
+
+	requireLoadedSurfaceRenderer(request.state.surface.type);
+	for (const overlay of request.state.overlays) requireLoadedOverlayRenderer(overlay.type);
 
 	const timebase = frameTimebase(request.state, request.timestamp);
 	const builtInputs = request.buildSurfaceInputs(request.timestamp);

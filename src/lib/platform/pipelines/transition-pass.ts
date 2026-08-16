@@ -5,12 +5,10 @@ import type {
 	TransitionEffectPackContext,
 	TransitionEffectRenderer
 } from '$lib/platform/pipelines/types';
-import { maskWipeTransitionEffectRenderer } from '$lib/pipelines/effects/mask-wipe';
-
 const fullScreenVertexFn = tgpu['~unstable'].vertexFn({
 	in: { vertexIndex: d.builtin.vertexIndex },
 	out: { position: d.builtin.position, uv: d.vec2f }
-})/* wgsl */ `{
+}) /* wgsl */ `{
 	var positions = array<vec2f, 3>(
 		vec2f(-1.0, -1.0),
 		vec2f(3.0, -1.0),
@@ -37,7 +35,7 @@ export interface CompiledTransitionEffect {
 	dispose?(): void;
 }
 
-/** @deprecated Use CompiledTransitionEffect. Retained for test/source compatibility. */
+/** @deprecated Use CompiledTransitionEffect. */
 export type CompiledTransitionWipe = CompiledTransitionEffect;
 
 interface UniformBufferShape {
@@ -56,8 +54,10 @@ function compileTypedTransitionEffect<TParams>(
 		uniforms: { uniform: renderer.pass.paramsStruct as never }
 	});
 
-	const fragmentFn = tgpu['~unstable']
-		.fragmentFn({ in: { uv: d.vec2f }, out: d.vec4f })/* wgsl */ `{
+	const fragmentFn = tgpu['~unstable'].fragmentFn({
+		in: { uv: d.vec2f },
+		out: d.vec4f
+	}) /* wgsl */ `{
 			let fromSample = textureSample(layout.$.fromTexture, layout.$.samp, in.uv);
 			let toSample = textureSample(layout.$.toTexture, layout.$.samp, in.uv);
 			let transitionProgress = clamp(layout.$.uniforms.progress, 0.0, 1.0);
@@ -110,9 +110,4 @@ export function compileTransitionEffect(
 	renderer: TransitionEffectRenderer<unknown>
 ): CompiledTransitionEffect {
 	return compileTypedTransitionEffect(host, renderer);
-}
-
-/** @deprecated Compile the registered renderer through compileTransitionEffect. */
-export function compileTransitionWipe(host: GpuHost): CompiledTransitionWipe {
-	return compileTypedTransitionEffect(host, maskWipeTransitionEffectRenderer);
 }

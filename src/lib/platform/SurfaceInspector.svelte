@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
+
 	import {
 		WEB_DOCUMENT_SITES,
 		type Ease,
@@ -7,10 +9,15 @@
 		type SurfaceType
 	} from './engine-schema';
 	import { engineState } from './engine-state.svelte';
-	import { PIPELINE_REGISTRY, getSurfaceRenderer } from './pipelines';
+	import {
+		getSurfaceDefinition,
+		PIPELINE_DEFINITION_REGISTRY
+	} from './pipelines/definition-registry';
+	import { getPipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 	import { inspectorFocus, layerSelection } from './selection.svelte';
 	import { parseTimelineTrackId } from './timeline-entity-identity';
 	import { defaultMessageEnter } from '$lib/pipelines/surfaces/imessage/schedule';
+	import { AsyncAuthoringOperationGuard } from '$lib/utils/async-authoring-operation';
 	import { DOCUMENT_SLOTS } from '$lib/utils/surface-document-slots';
 	import InspectorSection from './InspectorSection.svelte';
 	import Field from './Field.svelte';
@@ -24,7 +31,10 @@
 	import TransitionWindowSection from './TransitionWindowSection.svelte';
 	import WebsiteCaptureFields from './WebsiteCaptureFields.svelte';
 
-	const surfaceRenderers = Object.values(PIPELINE_REGISTRY.surfaces);
+	const surfaceDefinitions = Object.values(PIPELINE_DEFINITION_REGISTRY.surfaces);
+	const rendererController = getPipelineRendererRuntime();
+	const surfaceChangeGuard = new AsyncAuthoringOperationGuard();
+	onDestroy(() => surfaceChangeGuard.dispose());
 
 	const SITE_LABELS: Record<(typeof WEB_DOCUMENT_SITES)[number], string> = {
 		twitter: 'Twitter / X',
@@ -39,14 +49,14 @@
 
 	// ---- Surface controls derived from the active renderer ----
 
-	const renderer = $derived(getSurfaceRenderer(engineState.surface.type));
-	const controls = $derived(renderer?.controls ?? {});
+	const definition = $derived(getSurfaceDefinition(engineState.surface.type));
+	const controls = $derived(definition?.controls ?? {});
 
 	// ---- Variant (variants-as-data families, ADR-0020) ----
 	// Absent `variant` means the family's first id (how type-hero's CanvasSource
 	// resolves it), so the select reflects the effective value.
 
-	const variantIds = $derived(renderer?.variantIds ?? []);
+	const variantIds = $derived(definition?.variantIds ?? []);
 	const activeVariant = $derived(engineState.surface.variant ?? variantIds[0]);
 
 	function handleVariantChange(event: Event): void {
@@ -55,12 +65,30 @@
 
 	// ---- Surface type change ----
 
-	function handleSurfaceTypeChange(event: Event): void {
-		const nextType = (event.currentTarget as HTMLSelectElement).value as SurfaceType;
-		if (nextType === engineState.surface.type) return;
-		const nextRenderer = getSurfaceRenderer(nextType);
-		if (!nextRenderer) return;
-		const nextDefaults = nextRenderer.defaults();
+	async function handleSurfaceTypeChange(event: Event): Promise<void> {
+		const select = event.currentTarget as HTMLSelectElement;
+		const nextType = select.value as SurfaceType;
+		const previousType = engineState.surface.type;
+		if (nextType === previousType) return;
+		const nextDefinition = getSurfaceDefinition(nextType);
+		if (!nextDefinition) {
+			select.value = previousType;
+			return;
+		}
+		const generation = surfaceChangeGuard.begin();
+		try {
+			await rendererController.ensureSurface(nextType);
+			if (!surfaceChangeGuard.isCurrent(generation)) return;
+			if (engineState.surface.type !== previousType) {
+				select.value = engineState.surface.type;
+				return;
+			}
+		} catch (cause) {
+			if (surfaceChangeGuard.isCurrent(generation)) select.value = engineState.surface.type;
+			console.error('Failed to load Surface renderer.', { type: nextType, cause });
+			return;
+		}
+		const nextDefaults = nextDefinition.defaults();
 		nextDefaults.content.body = engineState.surface.content.body;
 		for (const slot of DOCUMENT_SLOTS) {
 			const value = engineState.surface.content[slot];
@@ -207,7 +235,7 @@
 	<InspectorSection label="Surface">
 		<Field label="Type">
 			<select value={engineState.surface.type} onchange={handleSurfaceTypeChange}>
-				{#each surfaceRenderers as surface (surface.type)}
+				{#each surfaceDefinitions as surface (surface.type)}
 					<option value={surface.type}>{surface.label}</option>
 				{/each}
 			</select>

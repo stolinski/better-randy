@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { engineState, addTextAnimation } from './engine-state.svelte';
-	import { getSurfaceRenderer } from './pipelines';
+	import { getSurfaceDefinition } from './pipelines/definition-registry';
 	import {
 		TEXT_ANIMATION_TITLE_SCALE_SLOTS,
 		TEXT_EFFECT_CATALOG,
@@ -8,10 +8,7 @@
 		TEXT_EFFECT_SPLIT_MODES,
 		type TextEffectSplitMode
 	} from '$lib/text-animations/catalog';
-	import {
-		isBodyVisible,
-		resolveDocumentSlotVisibility
-	} from '$lib/utils/surface-document-slots';
+	import { isBodyVisible, resolveDocumentSlotVisibility } from '$lib/utils/surface-document-slots';
 	import AddMenu from './AddMenu.svelte';
 	import InspectorSection from './InspectorSection.svelte';
 	import Field from './Field.svelte';
@@ -22,9 +19,9 @@
 	// restricted to title-scale slots.
 	type SurfaceSlot = 'title' | 'kicker' | 'body' | 'sourceUrl' | 'author' | 'source' | 'dateLabel';
 
-	const renderer = $derived(getSurfaceRenderer(engineState.surface.type));
-	const controls = $derived(renderer?.controls ?? {});
-	const activeVariant = $derived(engineState.surface.variant ?? renderer?.variantIds?.[0]);
+	const definition = $derived(getSurfaceDefinition(engineState.surface.type));
+	const controls = $derived(definition?.controls ?? {});
+	const activeVariant = $derived(engineState.surface.variant ?? definition?.variantIds?.[0]);
 
 	const effectsBySplit = $derived.by(() => {
 		const out: Record<TextEffectSplitMode, { id: string; label: string }[]> = {
@@ -43,7 +40,11 @@
 
 	// Active document slots that can receive a text animation, in display order.
 	const activeSlots = $derived.by(() => {
-		const documentSlots = resolveDocumentSlotVisibility(controls, engineState.surface, activeVariant);
+		const documentSlots = resolveDocumentSlotVisibility(
+			controls,
+			engineState.surface,
+			activeVariant
+		);
 		const showBody = isBodyVisible(controls, engineState.surface);
 		const slots: { slot: SurfaceSlot; label: string }[] = [];
 		if (documentSlots.kicker) slots.push({ slot: 'kicker', label: 'Kicker' });

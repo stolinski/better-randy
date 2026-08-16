@@ -1,9 +1,8 @@
 import type { AnnotationFocalSlot, AnnotationRenderer } from '$lib/platform/pipelines/types';
+import { isolateAnnotationDefinition } from './definition';
 
 export const isolateAnnotationRenderer: AnnotationRenderer = {
-	style: 'isolate',
-	kind: 'focal',
-	appliesTo: ['paragraph'],
+	...isolateAnnotationDefinition,
 	computeFocalSlot({ canvasHeight, canvasWidth, layout, progress }): AnnotationFocalSlot {
 		const bounds = layout.bounds;
 		return {

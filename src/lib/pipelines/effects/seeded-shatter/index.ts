@@ -1,21 +1,14 @@
 import { d } from 'typegpu';
-import { z } from 'zod';
 
 import type { TransitionEffectRenderer } from '$lib/platform/pipelines/types';
 
 import Editor from './Editor.svelte';
+import {
+	seededShatterTransitionEffectDefinition,
+	type SeededShatterParams as SeededShatterParamsDefinition
+} from './definition';
 
-const SeededShatterParamsSchema = z.object({
-	seed: z.number().int().min(0).max(65535).default(1337),
-	columns: z.number().int().min(4).max(32).default(14),
-	scatter: z.number().min(0).max(0.4).default(0.13),
-	rotation: z.number().min(0).max(1).default(0.55),
-	depth: z.number().min(0).max(1).default(0.6),
-	shadow: z.number().min(0).max(1).default(0.35)
-});
-
-export type SeededShatterParams = z.infer<typeof SeededShatterParamsSchema>;
-
+export type SeededShatterParams = SeededShatterParamsDefinition;
 const SeededShatterUniforms = d.struct({
 	progress: d.f32,
 	resolution: d.vec2f,
@@ -29,12 +22,7 @@ const SeededShatterUniforms = d.struct({
 
 export const seededShatterTransitionEffectRenderer: TransitionEffectRenderer<SeededShatterParams> =
 	{
-		type: 'seeded-shatter',
-		label: 'Seeded shatter',
-		paramsSchema: SeededShatterParamsSchema,
-		defaults: () => ({
-			params: { seed: 1337, columns: 14, scatter: 0.13, rotation: 0.55, depth: 0.6, shadow: 0.35 }
-		}),
+		...seededShatterTransitionEffectDefinition,
 		Editor,
 		pass: {
 			paramsStruct: SeededShatterUniforms,

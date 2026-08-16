@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 import { createDefaultEngineState, PresetSchema, type Preset } from './engine-schema';
-import { parsePreset } from './preset';
+import { parsePreset } from './preset-parser';
 import { presetToWireFormat } from './preset-pure';
 import { validatePresetSemantics } from './preset-validation';
 import {

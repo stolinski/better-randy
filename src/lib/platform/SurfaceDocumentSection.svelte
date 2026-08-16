@@ -1,7 +1,8 @@
 <script lang="ts">
 	import AnnotationTextEditor from '$lib/annotations/AnnotationTextEditor.svelte';
 	import { engineState, EDITOR_MARK_COLORS } from './engine-state.svelte';
-	import { getSurfaceRenderer } from './pipelines';
+	import { getSurfaceDefinition } from './pipelines/definition-registry';
+	import { getPipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 	import { requestInspectorFocus } from './selection.svelte';
 	import { uploadUserImage } from '$lib/platform/user-image-upload-transport';
 	import {
@@ -17,9 +18,10 @@
 	// The Surface's document text slots (kicker / title / … / body label), the
 	// rich-text body, and the "+ Slot" menu for declared-but-absent slots.
 	// Which rows exist derives from the active renderer's controls.
-	const renderer = $derived(getSurfaceRenderer(engineState.surface.type));
-	const controls = $derived(renderer?.controls ?? {});
-	const activeVariant = $derived(engineState.surface.variant ?? renderer?.variantIds?.[0]);
+	const rendererController = getPipelineRendererRuntime();
+	const definition = $derived(getSurfaceDefinition(engineState.surface.type));
+	const controls = $derived(definition?.controls ?? {});
+	const activeVariant = $derived(engineState.surface.variant ?? definition?.variantIds?.[0]);
 
 	const documentSlots = $derived(
 		resolveDocumentSlotVisibility(controls, engineState.surface, activeVariant)
@@ -28,9 +30,7 @@
 	const absentSlots = $derived(
 		listAbsentDocumentSlots(controls, engineState.surface, activeVariant)
 	);
-	const documentVisible = $derived(
-		Object.values(documentSlots).some(Boolean) || showBody
-	);
+	const documentVisible = $derived(Object.values(documentSlots).some(Boolean) || showBody);
 
 	let avatarUploadSequence = 0;
 
@@ -111,11 +111,7 @@
 	{/if}
 	{#if documentSlots.sourceUrl}
 		<Field label="Source">
-			<input
-				bind:value={engineState.surface.content.sourceUrl}
-				data-slot="sourceUrl"
-				type="text"
-			/>
+			<input bind:value={engineState.surface.content.sourceUrl} data-slot="sourceUrl" type="text" />
 			<button
 				type="button"
 				class="clear-btn"
@@ -191,11 +187,7 @@
 	{/if}
 	{#if documentSlots.bodyLabel}
 		<Field label="Body label">
-			<input
-				bind:value={engineState.surface.content.bodyLabel}
-				data-slot="bodyLabel"
-				type="text"
-			/>
+			<input bind:value={engineState.surface.content.bodyLabel} data-slot="bodyLabel" type="text" />
 			<button
 				type="button"
 				class="clear-btn"
@@ -211,6 +203,7 @@
 				bind:body={engineState.surface.content.body}
 				colors={EDITOR_MARK_COLORS}
 				label="Body"
+				prepareMarkStyle={(style) => rendererController.ensureAnnotation(style)}
 				rows={10}
 			/>
 		</div>

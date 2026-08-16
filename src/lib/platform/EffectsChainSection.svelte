@@ -1,17 +1,23 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
+
 	import { engineState, packState, addEffect } from './engine-state.svelte';
 	import { PACK_REGISTRY } from './packs/registry';
-	import { PIPELINE_REGISTRY } from './pipelines';
-	import type { EffectRenderer } from './pipelines/types';
+	import { PIPELINE_DEFINITION_REGISTRY } from './pipelines/definition-registry';
+	import { getPipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 	import AddMenu from './AddMenu.svelte';
 	import EffectChainRow from './EffectChainRow.svelte';
 	import InspectorSection from './InspectorSection.svelte';
+	import { AsyncAuthoringOperationGuard } from '$lib/utils/async-authoring-operation';
 	import PackChromeRow from './PackChromeRow.svelte';
 
 	// The Effect chain: authored effects in order, then the active Pack's
 	// chrome recipe (surfaced so the list matches the pixels — the Workspace
 	// appends these AFTER the authored chain on opaque pieces).
-	const effectRenderers = Object.values(PIPELINE_REGISTRY.effects) as EffectRenderer[];
+	const effectDefinitions = Object.values(PIPELINE_DEFINITION_REGISTRY.effects);
+	const rendererController = getPipelineRendererRuntime();
+	const effectAddGuard = new AsyncAuthoringOperationGuard();
+	onDestroy(() => effectAddGuard.dispose());
 	const EFFECT_CHAIN_LIMIT = 3;
 
 	const chainFull = $derived(engineState.effects.length >= EFFECT_CHAIN_LIMIT);
@@ -28,17 +34,31 @@
 		engineState.effects.filter((effect) => !packChromeTypes.has(effect.type))
 	);
 
-	function handleAddEffect(type: string): void {
-		const renderer = effectRenderers.find((candidate) => candidate.type === type);
-		if (!renderer) return;
-		const def = renderer.defaults();
-		addEffect({ type, params: def.params });
+	async function handleAddEffect(type: string): Promise<void> {
+		const definition = effectDefinitions.find((candidate) => candidate.type === type);
+		if (!definition) return;
+		const generation = effectAddGuard.begin();
+		const chainIdentity = engineState.effects.map((effect) => effect.id).join('\u0000');
+		try {
+			await rendererController.ensureEffect(type);
+			if (
+				!effectAddGuard.isCurrent(generation) ||
+				engineState.effects.map((effect) => effect.id).join('\u0000') !== chainIdentity ||
+				chainFull
+			) {
+				return;
+			}
+			const def = definition.defaults();
+			addEffect({ type, params: def.params });
+		} catch (cause) {
+			console.error('Failed to load Effect renderer.', { type, cause });
+		}
 	}
 
 	// Collapsed-state readout: the chain's names, so closed ≠ invisible.
 	const chainSummary = $derived.by(() => {
 		const names = [...authoredEffects, ...packChromeEffects].map(
-			(entry) => effectRenderers.find((candidate) => candidate.type === entry.type)?.label
+			(entry) => effectDefinitions.find((candidate) => candidate.type === entry.type)?.label
 		);
 		const present = names.filter((name): name is string => name !== undefined);
 		return present.length > 0 ? present.join(' · ') : 'None';
@@ -60,7 +80,7 @@
 		title={chainFull ? `Chain is full (max ${EFFECT_CHAIN_LIMIT})` : undefined}
 		groups={[
 			{
-				items: effectRenderers.map((renderer) => ({
+				items: effectDefinitions.map((renderer) => ({
 					value: renderer.type,
 					label: renderer.label
 				}))

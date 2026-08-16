@@ -1,7 +1,6 @@
 import { d } from 'typegpu';
-import { z } from 'zod';
 
-import type { OverlayDefaults, OverlayRenderer, ShaderPass } from '$lib/platform/pipelines/types';
+import type { OverlayRenderer, ShaderPass } from '$lib/platform/pipelines/types';
 import { getRgbColorChannels } from '$lib/utils/color';
 
 import CanvasSource from './CanvasSource.svelte';
@@ -13,34 +12,12 @@ import {
 	DEFAULT_FLOW_SPEED,
 	DEFAULT_OPACITY
 } from './shader-fill-defaults';
+import {
+	shaderFillOverlayDefinition,
+	type ShaderFillContent as ShaderFillContentDefinition
+} from './definition';
 
-/**
- * `shader-fill` — first WGSL-rendered Overlay, validating the ADR-0005
- * `OverlayRenderer.shaderPass` path end-to-end. Paints a three-colour
- * smooth-mesh gradient inside the overlay's rect using inverse-square-distance
- * metaball blending of three time-driven centres. Animation comes from the
- * timeline's `progress`, threaded through `ShaderPass.packUniforms(...,
- * ctx)` per ADR-0013.
- *
- * Outside the rect: pass-through (the substrate behind the overlay shows
- * unchanged). Inside the rect: the gradient blends over the substrate at
- * `opacity`, never punching out alpha so the transparent-overlay export
- * contract holds. Drop-in for any Preset that wants a generated colour panel
- * — not bound to the channel aesthetic.
- */
-
-const HexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Expected a #RRGGBB hex color');
-
-const ShaderFillContentSchema = z.object({
-	color0: HexColorSchema.optional(),
-	color1: HexColorSchema.optional(),
-	color2: HexColorSchema.optional(),
-	flowSpeed: z.number().min(0).max(4).optional(),
-	opacity: z.number().min(0).max(1).optional()
-});
-
-export type ShaderFillContent = z.infer<typeof ShaderFillContentSchema>;
-
+export type ShaderFillContent = ShaderFillContentDefinition;
 const ShaderFillUniforms = d.struct({
 	color0: d.vec3f,
 	color1: d.vec3f,
@@ -134,31 +111,9 @@ const shaderPass: ShaderPass<ShaderFillContent> = {
 		};
 	}
 };
-
-function defaults(): OverlayDefaults<ShaderFillContent> {
-	return {
-		content: {
-			color0: DEFAULT_COLOR_0,
-			color1: DEFAULT_COLOR_1,
-			color2: DEFAULT_COLOR_2,
-			flowSpeed: DEFAULT_FLOW_SPEED,
-			opacity: DEFAULT_OPACITY
-		},
-		// Centered 40% × 30% rect via normalized-rect so the size is part of the
-		// position contract; authors can drag-resize or swap to anchor+offset.
-		position: { anchor: 'normalized-rect', rect: { x: 0.3, y: 0.35, width: 0.4, height: 0.3 } },
-		enter: { start: 0, duration: 0.108, ease: 'settled' },
-		exit: { start: 0.915, duration: 0.085, ease: 'smooth' }
-	};
-}
-
 export const shaderFillOverlayRenderer: OverlayRenderer<ShaderFillContent> = {
-	type: 'shader-fill',
-	label: 'Shader fill',
-	schema: ShaderFillContentSchema,
-	defaults,
+	...shaderFillOverlayDefinition,
 	CanvasSource,
 	Editor,
-	readableText: () => [],
 	shaderPass
 };

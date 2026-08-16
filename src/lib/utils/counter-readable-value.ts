@@ -1,5 +1,9 @@
-import type { CounterContent } from '$lib/pipelines/overlays/counter';
-import { slotMachineRollMotionShape } from '$lib/pipelines/overlays/counter/variants/slot-machine-motion';
+import type { CounterContent } from '$lib/pipelines/overlays/counter/definition';
+
+export function resolveCounterRollMotionShape(progress: number): number {
+	const clamped = Math.max(0, Math.min(1, progress));
+	return clamped * clamped * (3 - 2 * clamped);
+}
 
 export function resolveCounterRollProgress(content: CounterContent, progress: number): number {
 	const rollProgress = Math.max(
@@ -9,7 +13,7 @@ export function resolveCounterRollProgress(content: CounterContent, progress: nu
 			(progress - (content.rollStart ?? 0)) / Math.max(content.rollWindow ?? 0.78, 0.0001)
 		)
 	);
-	return slotMachineRollMotionShape(0, rollProgress);
+	return resolveCounterRollMotionShape(rollProgress);
 }
 
 export function resolveCounterValueAtProgress(content: CounterContent, progress: number): number {

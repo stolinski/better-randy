@@ -5,8 +5,8 @@ import {
 	type MarkInstance
 } from './engine-schema';
 import { opacityEnvelope, resolveCascadeTimings } from './cascade-timing';
-import { PIPELINE_REGISTRY } from './pipelines';
-import type { OverlayRenderer } from './pipelines/types';
+import { getOverlayDefinition } from './pipelines/definition-registry';
+import type { OverlayPipelineDefinition } from './pipelines/definition-types';
 
 export interface DeterministicReadingWindowPlan {
 	readingId: string;
@@ -34,11 +34,8 @@ function requiredReadingMilliseconds(wordCount: number, multiplier: number): num
 	return (wordCount * 60 * 1000 * multiplier) / READING_WORDS_PER_MINUTE;
 }
 
-function overlayRenderer(type: string): OverlayRenderer | null {
-	for (const renderer of Object.values(PIPELINE_REGISTRY.overlays)) {
-		if (renderer.type === type) return renderer as OverlayRenderer;
-	}
-	return null;
+function overlayDefinition(type: string): OverlayPipelineDefinition | null {
+	return getOverlayDefinition(type);
 }
 
 interface RenderedMarkWindow {
@@ -136,19 +133,19 @@ export function deriveDeterministicReadingPlan(state: EngineState): Deterministi
 	}
 
 	for (const overlay of state.overlays) {
-		const renderer = overlayRenderer(overlay.type);
-		if (!renderer)
-			return { status: 'unavailable', reason: `overlay-renderer-unavailable:${overlay.type}` };
-		const parsed = renderer.schema.safeParse(overlay.content);
+		const definition = overlayDefinition(overlay.type);
+		if (!definition)
+			return { status: 'unavailable', reason: `overlay-definition-unavailable:${overlay.type}` };
+		const parsed = definition.schema.safeParse(overlay.content);
 		if (!parsed.success)
 			return { status: 'unavailable', reason: `overlay-content-invalid:${overlay.id}` };
-		if (!renderer.readableText) {
+		if (!definition.readableText) {
 			return {
 				status: 'unavailable',
 				reason: `overlay-reading-contract-unavailable:${overlay.type}`
 			};
 		}
-		const declarations = renderer.readableText(parsed.data, {
+		const declarations = definition.readableText(parsed.data, {
 			progress: 1,
 			durationMilliseconds
 		});

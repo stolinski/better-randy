@@ -1,5 +1,6 @@
 import type { DiagramEdgeArrow } from '$lib/platform/engine-schema';
 import type { BlockRenderer } from '$lib/platform/pipelines/types';
+import { edgeArrowBlockDefinition } from './definition';
 
 // Diagram edge-arrow Block (ADR-0036): a directed connection with an AUTHORED
 // route (endpoints + one optional control point → straight / elbow / arc).
@@ -8,5 +9,5 @@ import type { BlockRenderer } from '$lib/platform/pipelines/types';
 // diagram-strokes.ts), the arrowhead riding the drawing tip; appearance is the
 // Pack's `diagram.stroke` / `diagram.arrowhead` Roles.
 export const edgeArrowBlockRenderer: BlockRenderer<DiagramEdgeArrow> = {
-	type: 'edge-arrow'
+	...edgeArrowBlockDefinition
 };

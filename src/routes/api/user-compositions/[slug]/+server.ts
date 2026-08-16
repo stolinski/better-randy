@@ -1,8 +1,13 @@
-import { readFile, unlink, writeFile } from 'node:fs/promises';
+import { readFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { json, error, type RequestHandler } from '@sveltejs/kit';
 
+import {
+	addUserCompositionFileToIndex,
+	removeUserCompositionFileFromIndex
+} from '$lib/platform/user-composition-file-index.server';
+import { writeUserCompositionFileAtomically } from '$lib/platform/user-composition-file-write.server';
 import { PresetIngressSchema } from '$lib/platform/preset-ingress';
 import { presetToWireFormat } from '$lib/platform/preset-pure';
 import {
@@ -48,20 +53,17 @@ function userCompositionPathForSlug(slug: string): string {
 	return join(USER_COMPOSITION_STORE_DIR, `${slug}.json`);
 }
 
-export const GET: RequestHandler = async ({ params }) => {
-	const { slug } = params;
-	if (!slug) error(400, 'Missing slug');
+const pendingUserCompositionReads = new Map<string, Promise<unknown>>();
 
-	// "No fork of this slug" is a normal answer, not an error — return 200 null
-	// so clients can tell absence apart from a real failure. Only ENOENT means
+async function readUserCompositionWirePreset(slug: string): Promise<unknown> {
+	// "No fork of this slug" is a normal answer, not an error — return null so
+	// clients can tell absence apart from a real failure. Only ENOENT means
 	// absent; any other read failure must surface as a 500.
 	let raw: string;
 	try {
 		raw = await readFile(userCompositionPathForSlug(slug), 'utf-8');
 	} catch (cause) {
-		if (cause instanceof Error && (cause as NodeJS.ErrnoException).code === 'ENOENT') {
-			return json(null);
-		}
+		if (cause instanceof Error && (cause as NodeJS.ErrnoException).code === 'ENOENT') return null;
 		error(500, `Failed to read user composition "${slug}"`);
 	}
 
@@ -76,11 +78,32 @@ export const GET: RequestHandler = async ({ params }) => {
 	if (semanticIssues.length > 0) {
 		error(500, `Corrupt preset data:\n${formatPresetSemanticIssues(semanticIssues)}`);
 	}
-	// The API is an interchange boundary: GET returns the same standalone wire
+	// The API is an interchange boundary: GET returns the same standalone wire.
 	// Stored compositions remain readable when immutable media goes missing so
 	// the GUI can surface the decoder error and let the author replace or remove
 	// a referenced asset. New writes below still reject unavailable media.
-	return json(presetToWireFormat(result.data));
+	return presetToWireFormat(result.data);
+}
+
+async function loadUserCompositionWirePreset(slug: string): Promise<unknown> {
+	const existingRead = pendingUserCompositionReads.get(slug);
+	if (existingRead) return existingRead;
+
+	const pendingRead = readUserCompositionWirePreset(slug);
+	pendingUserCompositionReads.set(slug, pendingRead);
+	try {
+		return await pendingRead;
+	} finally {
+		if (pendingUserCompositionReads.get(slug) === pendingRead) {
+			pendingUserCompositionReads.delete(slug);
+		}
+	}
+}
+
+export const GET: RequestHandler = async ({ params }) => {
+	const { slug } = params;
+	if (!slug) error(400, 'Missing slug');
+	return json(await loadUserCompositionWirePreset(slug));
 };
 
 export const PUT: RequestHandler = async ({ params, request }) => {
@@ -128,11 +151,11 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		preset: presetToWireFormat(result.data)
 	};
 
-	await writeFile(
+	await writeUserCompositionFileAtomically(
 		userCompositionPathForSlug(slug),
-		JSON.stringify(storedUserComposition, null, '\t'),
-		'utf-8'
+		JSON.stringify(storedUserComposition, null, '\t')
 	);
+	await addUserCompositionFileToIndex(slug);
 	return new Response(null, { status: 204 });
 };
 
@@ -145,6 +168,7 @@ export const DELETE: RequestHandler = async ({ params }) => {
 	} catch {
 		error(404, `User composition "${slug}" not found`);
 	}
+	await removeUserCompositionFileFromIndex(slug);
 
 	return new Response(null, { status: 204 });
 };

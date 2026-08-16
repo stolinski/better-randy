@@ -39,14 +39,15 @@
 	import { Timeline } from './timeline.svelte';
 	import { timelineHandle } from './timeline-handle.svelte';
 	import { engineState, packState, readMarkColor, transitionState } from './engine-state.svelte';
-	import { applyCompositionState, applyPreset, getPresetBySlug } from './preset';
+	import { applyCompositionState, applyPreset } from './preset';
+	import { getPresetBySlug } from './preset-catalog';
 	import { presetBase } from './preset-base.svelte';
 	import { serializeCompositionState } from './preset-pure';
 	import { compositionMeta } from './composition-meta.svelte';
 	import { getPack } from './packs/registry';
 	import { isPresetOpaque, isTransitionOpaque } from '$lib/utils/output-classification';
 	import { readRuntimeRenderRegistryIdentity } from './deterministic-render-registry-identity';
-	import { resolveSurfaceTypographyColors } from './pipelines';
+	import { resolveSurfaceTypographyColors } from './pipelines/definition-registry';
 
 	import { TransitionSnapshotController } from './transition-snapshot-controller';
 	import type { SyncExportRequest } from './export-video';
