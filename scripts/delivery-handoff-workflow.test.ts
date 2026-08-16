@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { parse } from 'jsr:@std/yaml@1.0.10';
 
 const WORKFLOW_PATH = 'workflows/workflow-5837b051-a547-4624-a26c-3dffc2e6b1f8.yaml';
+const DETERMINISTIC_VERIFICATION_WORKFLOW_PATH =
+	'workflows/workflow-41b30cb4-5142-4f41-9fd3-b0a2a718c4a7.yaml';
 const FLEET_DRIVER_PATH = '.claude/skills/supers-factory-fleet/references/driver-loop.md';
 const CLAIM_STATUSES = ['claimed', 'resumed', 'no-ready-work', 'human-gate'] as const;
 
@@ -48,6 +50,22 @@ Deno.test('fleet driver workflowScript is valid ordinary JavaScript', async () =
 	) => (...args: unknown[]) => Promise<unknown>;
 	assert.doesNotThrow(() => new AsyncFunction('runs', 'allocated', script));
 	assert.doesNotMatch(script, /\bas const\b/);
+});
+
+Deno.test('deterministic verification scopes Factory artifacts to the active work item', async () => {
+	const workflowSource = await Deno.readTextFile(DETERMINISTIC_VERIFICATION_WORKFLOW_PATH);
+	assert.doesNotMatch(
+		workflowSource,
+		/data\.latest\("supers-delivery", "artifact-(?:change-impact|change-summary)"\)/
+	);
+	assert.match(
+		workflowSource,
+		/data\.latest\("supers-delivery", "artifact-" \+ inputs\.workItem \+ "-change-impact"\)/
+	);
+	assert.match(
+		workflowSource,
+		/data\.latest\("supers-delivery", "artifact-" \+ inputs\.workItem \+ "-change-summary"\)/
+	);
 });
 
 Deno.test('delivery handoff status guards choose exactly one normalization path', async () => {
