@@ -13,6 +13,7 @@ type WorkflowStep = {
 };
 
 type WorkflowDefinition = {
+	version: number;
 	jobs: Array<{ steps: WorkflowStep[] }>;
 };
 
@@ -52,21 +53,26 @@ Deno.test('fleet driver workflowScript is valid ordinary JavaScript', async () =
 	assert.doesNotMatch(script, /\bas const\b/);
 });
 
-Deno.test('deterministic verification scopes Factory artifacts to the active work item', async () => {
-	const workflowSource = await Deno.readTextFile(DETERMINISTIC_VERIFICATION_WORKFLOW_PATH);
-	assert.doesNotMatch(
-		workflowSource,
-		/data\.latest\("supers-delivery", "artifact-(?:change-impact|change-summary)"\)/
-	);
-	assert.match(
-		workflowSource,
-		/data\.latest\("supers-delivery", "artifact-" \+ inputs\.workItem \+ "-change-impact"\)/
-	);
-	assert.match(
-		workflowSource,
-		/data\.latest\("supers-delivery", "artifact-" \+ inputs\.workItem \+ "-change-summary"\)/
-	);
-});
+Deno.test(
+	'deterministic verification scopes Factory artifacts to the active work item',
+	async () => {
+		const workflowSource = await Deno.readTextFile(DETERMINISTIC_VERIFICATION_WORKFLOW_PATH);
+		const workflow = parse(workflowSource) as WorkflowDefinition;
+		assert.equal(workflow.version, 2);
+		assert.doesNotMatch(
+			workflowSource,
+			/data\.latest\("supers-delivery", "artifact-(?:change-impact|change-summary)"\)/
+		);
+		assert.match(
+			workflowSource,
+			/data\.latest\("supers-delivery", "artifact-" \+ inputs\.workItem \+ "-change-impact"\)/
+		);
+		assert.match(
+			workflowSource,
+			/data\.latest\("supers-delivery", "artifact-" \+ inputs\.workItem \+ "-change-summary"\)/
+		);
+	}
+);
 
 Deno.test('delivery handoff status guards choose exactly one normalization path', async () => {
 	const workflow = parse(await Deno.readTextFile(WORKFLOW_PATH)) as WorkflowDefinition;
