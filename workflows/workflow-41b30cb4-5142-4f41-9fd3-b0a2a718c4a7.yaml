@@ -1,7 +1,7 @@
 id: 41b30cb4-5142-4f41-9fd3-b0a2a718c4a7
 name: supers-delivery-deterministic-verification
 description: Derive the Delivery route only from fresh correlated deterministic verification resources.
-version: 2
+version: 3
 tags:
   purpose: delivery-deterministic-routing
 inputs:
@@ -24,7 +24,7 @@ jobs:
           modelIdOrName: repo-audit
           methodName: assert-change-state
           inputs:
-            expectedFingerprint: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").payload.changeFingerprint }}'
+            expectedFingerprint: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.changeFingerprint }}'
       - name: policy-sweep
         description: Run the canonical policy and static corpus gates before code and render verification.
         dependsOn:
@@ -47,8 +47,8 @@ jobs:
           methodName: run-verification-fanout
           inputs:
             workItem: '${{ inputs.workItem }}'
-            expectedFingerprint: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").payload.changeFingerprint }}'
-            lanes: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").payload.requiredLanes.filter(lane, lane.id in ["browser", "check", "unit", "structural"]).map(lane, lane.id) }}'
+            expectedFingerprint: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.changeFingerprint }}'
+            lanes: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.requiredLanes.filter(lane, lane.id in ["browser", "check", "unit", "structural"]).map(lane, lane.id) }}'
       - name: verify-affected-render-matrix
         dependsOn:
           - step: deterministic-lanes
@@ -61,8 +61,8 @@ jobs:
             schemaVersion: 1
             scope: affected
             workItem: '${{ inputs.workItem }}'
-            expectedTreeFingerprint: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").payload.changeFingerprint }}'
-            changedPaths: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").payload.paths }}'
+            expectedTreeFingerprint: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.changeFingerprint }}'
+            changedPaths: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.paths }}'
       - name: assert-change-state-after
         dependsOn:
           - step: verify-affected-render-matrix
@@ -72,7 +72,7 @@ jobs:
           modelIdOrName: repo-audit
           methodName: assert-change-state
           inputs:
-            expectedFingerprint: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").payload.changeFingerprint }}'
+            expectedFingerprint: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.changeFingerprint }}'
       - name: normalize-route
         dependsOn:
           - step: assert-change-state-after
@@ -85,18 +85,18 @@ jobs:
             schemaVersion: 1
             workItem: '${{ inputs.workItem }}'
             expectedWorkflowRunId: '${{ run.id }}'
-            expectedIntegratedRevision: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-summary").payload.integrationReceipt.integratedRevision }}'
-            expectedIntegratedTreeFingerprint: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-summary").payload.integrationReceipt.integratedTreeFingerprint }}'
-            expectedTreeFingerprint: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").payload.changeFingerprint }}'
+            expectedIntegratedRevision: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-summary").attributes.payload.integrationReceipt.integratedRevision }}'
+            expectedIntegratedTreeFingerprint: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-summary").attributes.payload.integrationReceipt.integratedTreeFingerprint }}'
+            expectedTreeFingerprint: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.changeFingerprint }}'
             changeImpact:
               resourceName: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").name }}'
               workItem: '${{ inputs.workItem }}'
-              treeFingerprint: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").payload.changeFingerprint }}'
+              treeFingerprint: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.changeFingerprint }}'
               workflowRunId: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").workflowRunId }}'
-            requiredLaneIds: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").payload.requiredLanes.map(lane, lane.id) }}'
-            deterministicFanoutResourceName: '${{ data.query(''modelName == "repo-audit" && specName == "verification-fanout" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem && record.attributes.expectedFingerprint == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").payload.changeFingerprint)[0].name }}'
-            deterministicFanoutWorkflowRunId: '${{ data.query(''modelName == "repo-audit" && specName == "verification-fanout" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem && record.attributes.expectedFingerprint == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").payload.changeFingerprint)[0].workflowRunId }}'
-            deterministicFanout: '${{ data.query(''modelName == "repo-audit" && specName == "verification-fanout" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem && record.attributes.expectedFingerprint == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").payload.changeFingerprint)[0].attributes }}'
+            requiredLaneIds: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.requiredLanes.map(lane, lane.id) }}'
+            deterministicFanoutResourceName: '${{ data.query(''modelName == "repo-audit" && specName == "verification-fanout" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem && record.attributes.expectedFingerprint == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.changeFingerprint)[0].name }}'
+            deterministicFanoutWorkflowRunId: '${{ data.query(''modelName == "repo-audit" && specName == "verification-fanout" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem && record.attributes.expectedFingerprint == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.changeFingerprint)[0].workflowRunId }}'
+            deterministicFanout: '${{ data.query(''modelName == "repo-audit" && specName == "verification-fanout" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem && record.attributes.expectedFingerprint == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.changeFingerprint)[0].attributes }}'
             policySweepResourceName: '${{ data.query(''modelName == "supers-delivery-verification-router" && specName == "policy-sweep-execution"'').filter(record, record.attributes.workItem == inputs.workItem && record.attributes.routingWorkflowRunId == run.id)[0].name }}'
             policySweepResourceWorkflowRunId: '${{ data.query(''modelName == "supers-delivery-verification-router" && specName == "policy-sweep-execution"'').filter(record, record.attributes.workItem == inputs.workItem && record.attributes.routingWorkflowRunId == run.id)[0].workflowRunId }}'
             policySweepExecution: '${{ data.query(''modelName == "supers-delivery-verification-router" && specName == "policy-sweep-execution"'').filter(record, record.attributes.workItem == inputs.workItem && record.attributes.routingWorkflowRunId == run.id)[0].attributes }}'
