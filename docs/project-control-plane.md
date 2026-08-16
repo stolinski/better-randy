@@ -221,7 +221,9 @@ execution root before selection, and converges each root to at most one Factory 
 claim independently under the same short repository lock. One Factory instance
 serves many Dex work-item ids concurrently; leaf ids remain Factory work items. It does not own roadmap, ADR, Brief,
 idea/history, or task prose; it records only compact execution artifacts and
-evidence.
+evidence. Factory artifacts are namespaced by work item. Every workflow lookup
+must derive `artifact-<workItem>-<artifactName>`; unscoped artifact names are
+invalid because concurrent roots could read another work item's artifact.
 
 Its path is
 `preflight baseline capture → isolated implementation → serialized parent integration → change-summary → workflow-owned classification → deterministic verification route → exact-bundle human aesthetic gate when rendering is affected → reconciliation → postflight → terminal Dex cleanup`.
