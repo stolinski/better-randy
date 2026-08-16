@@ -55,10 +55,6 @@ jobs:
                 ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.lanes }}
               requiredLanes: >-
                 ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.lanes }}
-              visualReviewCandidate: >-
-                ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.visualReviewCandidate }}
-              reviewCandidate: >-
-                ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.visualReviewCandidate }}
         dependsOn:
           - step: classify-change
             condition:

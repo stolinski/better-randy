@@ -214,7 +214,7 @@ const ChangeImpactReportSchema = z.object({
           "structural",
           "corpus",
           "browser",
-          "visual",
+          "render-matrix",
           "pack-matrix",
           "export-decode",
         ]),
@@ -222,7 +222,6 @@ const ChangeImpactReportSchema = z.object({
       }),
     )
     .min(1),
-  visualReviewCandidate: z.boolean(),
 });
 
 // Deep semantic audits are agent-run (claims vs code), unlike the four

@@ -23,7 +23,7 @@ Read only the reference needed for the current phase:
 - Require a clean parent checkout before fanout.
 - Record Factory dispatch before work. Consume Pi handoff manifests and patch files after work; child prose is not evidence.
 - Integrate one queued handoff at a time while that work item is still in `implementation`. Record `change-summary` only after integration.
-- Never integrate during reconciliation. Reconciliation is read-only and confirms evidence already recorded in `change-summary`.
+- Never integrate during reconciliation. Reconciliation is read-only and completion-only. Classification, deterministic verification, and the exact-bundle human gate catch objective or subjective incompleteness before reconciliation.
 - Define `integratedTreeFingerprint` only as lowercase SHA-256 of the raw, unmodified stdout bytes from `git ls-tree -r -z --full-tree <integratedRevision>`.
 - Route stale, malformed, or conflicting handoffs back to implementation without partially mutating the target.
 - Do not start every Dex task before runner allocation. Claim only approval-bound leaves that receive a lane.
@@ -36,8 +36,10 @@ Read only the reference needed for the current phase:
 - [ ] Launch one isolated writer per root with strict structured output.
 - [ ] Queue durable handoff manifest paths.
 - [ ] Validate and integrate one handoff.
-- [ ] Record the digest-verified, content-addressed `integrationReceipt` in `change-summary`.
-- [ ] Drive that work item through the complete Factory tail.
+- [ ] Record only the concise `summary` and digest-verified, content-addressed `integrationReceipt` in `change-summary`.
+- [ ] Run the deterministic bundle, including exact fanout/policy/corpus/browser/matrix receipts selected for the change.
+- [ ] When rendering is affected, bind the human decision to that exact bundle; never route from Critic prose.
+- [ ] Drive that work item through completion-only reconciliation and the rest of the Factory tail.
 - [ ] Confirm terminal Factory state and the recorded integrated revision/fingerprint still match the clean central checkout.
 - [ ] Repeat for the next queued handoff. A pending human gate pauses the entire queue.
 

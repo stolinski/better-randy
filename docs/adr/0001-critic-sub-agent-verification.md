@@ -2,7 +2,7 @@
 
 ## Status
 
-**Build-harness.** This is proof-corpus verification scaffolding, not product authoring law.
+**Superseded for Delivery routing; retained as build-harness history.** Critic observations are optional and advisory. Fresh deterministic closed-code evidence owns objective routing, and exact-evidence-bound human approval owns subjective acceptance.
 
 > **Status — build-harness, not product law (Refocus, 2026-06).** The Critic is scaffolding to produce & verify the proof corpus, not the shipped authoring model (GUI + agent parity, where the human in the GUI is the live critic). Keep the *function* — a quality-check pass either surface can invoke; the isolated-sub-agent ceremony is one optional workflow.
 

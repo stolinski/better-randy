@@ -209,7 +209,7 @@ _Avoid_: renderer kind, animator (which collides with the AnimationManager).
 ### Workflow roles
 
 **Brief**:
-A markdown document under `docs/briefs/<slug>.md` defining a not-yet-shipped **Preset**, **Pipeline**, or content domain. One Brief per in-flight idea; no separate backlog. The **Producer** authors from a Brief. The **Critic** never reads it. The Brief is deleted when its target Preset (or, for non-Preset Briefs, its declared verification Preset) returns the Critic's `ACCEPT`. See [ADR-0007](adr/0007-brainstorm-brief-system.md) and `docs/briefs/README.md`.
+A markdown document under `docs/briefs/<slug>.md` defining a not-yet-shipped **Preset**, **Pipeline**, or content domain. One Brief per in-flight idea; no separate backlog. The **Producer** authors from a Brief. The **Critic** never reads it. Retirement is a separately classified Delivery change after the declared implementation and documentation boundary is complete; historical Critic `ACCEPT` has no current authority. See the current lifecycle in `docs/briefs/README.md` and the superseded decision history in [ADR-0007](adr/0007-brainstorm-brief-system.md).
 _Avoid_: proposal, plan, sketch, spec, draft.
 
 **Producer**:
@@ -219,30 +219,30 @@ A sub-agent spawned with fresh context to author a Preset (or the engine work + 
 The agent that grills the user through a Brief and writes `docs/briefs/<slug>.md`. Actively proposes options from the active Pack's aesthetic doc (`docs/packs/<pack>/aesthetic.md`) and the existing Registry rather than just capturing user input. Invoked via `/brainstorm <slug>`. Hands off to the **Producer** (via `/author <slug>`), not to authoring directly.
 
 **Critic**:
-A sub-agent spawned with fresh context to adversarially verify a Producer's output. Sees only the Preset + renders + rubrics; never the Brief, never the brainstorm conversation, never the Producer's session. See [ADR-0001](adr/0001-critic-sub-agent-verification.md) and `docs/critic.md`.
+An optional sub-agent spawned with fresh context to supply adversarial observations about a Producer's output. It sees only the Preset + renders + rubrics; never the Brief, brainstorm conversation, or Producer session. Its prose is advisory and has no Delivery authority. See the superseded build-harness history in [ADR-0001](adr/0001-critic-sub-agent-verification.md) and the current advisory protocol in `docs/critic.md`.
 
 **Probe**:
-A script under `scripts/probe-*.ts` that reads a captured screenshot and returns numeric measurements (banding, dimensions, hue count). Probes exist so the Critic can quote unfakeable numbers for rules with a measurable form.
+A script under `scripts/probe-*.ts` that reads a captured screenshot and returns numeric measurements (banding, dimensions, hue count). Deterministic verification and optional Critic observations may use Probes; only closed-code evidence can route objective failure.
 
 ### Rubric tiers
 
-There are two distinct layers, often confused. The **rubric tiers** (R/Q/G) are human-readable rules judged _by eye_ by the **Critic** against rendered pixels (R and Q require pixels; some G are measurable via Probes). The **Preset linter** is a separate code gate that checks only the JSON-computable slice _before_ rendering. Per [ADR-0025](adr/0025-static-linter-checks-safety-and-readability-only.md), the linter owns objective video-safety + readability; the rubric tiers own everything that needs an eye.
+There are two distinct layers, often confused. The **rubric tiers** (R/Q/G) contain deterministic rules and human review criteria evaluated against rendered pixels. Closed-code measured failures own objective routing; exact-evidence-bound human approval owns subjective acceptance. Optional Critic prose remains advisory. The **Preset linter** is a separate code gate that checks only the JSON-computable slice _before_ rendering. Per [ADR-0025](adr/0025-static-linter-checks-safety-and-readability-only.md), the linter owns objective video-safety + readability; the remaining criteria belong to deterministic render checks or the human aesthetic decision.
 
 **Preset linter**:
-The static code gate at `src/lib/platform/preset-rubric.ts` (run by `scripts/verify-presets.ts` as `lintPreset`). It checks only objective video-safety/readability facts computable from Preset JSON plus target frame size: authored read windows, safe-area placement, contrast, frame fit, and related structural timing floors. Render-measured cap height, line measure, and density live in `lintPresetVisual` and the visual audit harness, not `verify-presets`. Neither lane carries motion or aesthetic taste (that is the Critic's). See [ADR-0025](adr/0025-static-linter-checks-safety-and-readability-only.md).
+The static code gate at `src/lib/platform/preset-rubric.ts` (run by `scripts/verify-presets.ts` as `lintPreset`). It checks only objective video-safety/readability facts computable from Preset JSON plus target frame size: authored read windows, safe-area placement, contrast, frame fit, and related structural timing floors. Render-measured cap height, line measure, and density live in `lintPresetVisual` and the visual audit harness, not `verify-presets`. Neither lane carries motion or aesthetic taste; exact-evidence-bound human review owns that judgment. See [ADR-0025](adr/0025-static-linter-checks-safety-and-readability-only.md).
 _Avoid_: rubric (the linter is not the R/Q/G rubric tiers), validator (that is schema parsing).
 
 **R-rule**:
-A render-quality rule from `docs/quality-rubric.md` (R1–R8). Non-negotiable; a failing R-rule means a pipeline bug to fix, not a Preset to tune. Critic-judged against pixels — not in the **Preset linter**.
+A render-quality rule from `docs/quality-rubric.md` (R1–R8). Non-negotiable; a closed-code measured failure means a pipeline bug to fix, not a Preset to tune. Rules without closed measurement remain human criteria, never Critic routing authority.
 
 **Q-rule**:
-A composition-craft rule from `docs/quality-rubric.md` (Q1–Q18). Aesthetic-neutral; evaluated only after every R-rule passes.
+A composition-craft rule from `docs/quality-rubric.md` (Q1–Q18). Aesthetic-neutral; evaluated after every closed R-rule passes.
 
 **G-rule**:
 A general animation rule from `docs/animation-rubric.md` (G1–G12, plus per-overlay rules). Governs how the composition moves over time.
 
 **R-protocol**:
-The named-observation format every R-rule check must follow — pixel coordinate, saved screenshot path, and (for measurable rules) numeric Probe output. Prevents prose-only rubber-stamping.
+The named-observation format for advisory R-rule observations — pixel coordinate, saved screenshot path, and (for measurable rules) numeric Probe output. It prevents prose-only rubber-stamping but does not grant routing authority.
 
 ## Relationships
 
@@ -251,17 +251,17 @@ The named-observation format every R-rule check must follow — pixel coordinate
 - A **Video clip** references one **Media library entry**; the entry references globally deduplicated **Media asset** bytes. Only the stable entry and clip decisions persist in the Preset.
 - Every **Mark** is an **Annotation**; not every **Annotation** is a **Mark**.
 - A **Pipeline** belongs to exactly one **Layer** and one variant; the **Registry** is the union of all Pipelines.
-- A **Brainstorm** agent writes a **Brief**; a **Producer** authors from it; a **Critic** verifies the result. The three are never the same agent invocation.
-- A **Brief**'s existence in `docs/briefs/` implies its target Preset (or declared verification Preset) is not yet Critic-`ACCEPT`-ed. The converse does not hold — pre-Brief presets shipped before the system landed have no Brief and don't need one for `/critic` to run.
-- A **Critic** invokes **Probes** to satisfy the **R-protocol** for measurable **R-rules**.
-- **Channel chrome** is enforced at **Critic** time (`aesthetic-miss`), not at schema-validation time — see [ADR-0004](adr/0004-recipe-cookbook-over-schema-chrome.md).
+- A **Brainstorm** agent writes a **Brief**; a **Producer** authors from it; an optional **Critic** supplies independent advisory observations. The three are never the same agent invocation.
+- A **Brief**'s existence in `docs/briefs/` means its declared implementation and documentation boundary remains active. Brief retirement is a classified Delivery change, not a Critic side effect.
+- A **Critic** may invoke **Probes** to support the **R-protocol** for measurable **R-rules**, but its output cannot block, approve, reject, mutate, or route Delivery.
+- **Channel chrome** is judged by the human aesthetic authority, which is bound to the exact integrated revision/tree and matrix evidence. Critic `aesthetic-miss` observations are optional context only — see [ADR-0004](adr/0004-recipe-cookbook-over-schema-chrome.md).
 
 ## Example dialogue
 
 > **Scott:** "The new pullquote preset looks generic — what's missing?"
 > **Critic agent:** "Three findings, all `aesthetic-miss`. (1) No **Mono signature thread** — the kicker uses Inter, not Space Mono. (2) The card paints a scrim gradient; the house style is a flat plate with a visible border. (3) The **stepped hard-offset shadow** is missing — the card carries a gaussian shadow, which never appears on chrome."
 > **Scott:** "Why didn't the schema catch (1) and (3)?"
-> **Critic agent:** "Per [ADR-0004](adr/0004-recipe-cookbook-over-schema-chrome.md), **Channel chrome** is enforced at critic time, not schema-validation time — the trade is flexibility for stripped / test presets at the cost of one revise loop per preset."
+> **Critic agent:** "Per [ADR-0004](adr/0004-recipe-cookbook-over-schema-chrome.md), **Channel chrome** is not schema-enforced. These observations are advisory context for your exact-evidence aesthetic decision; they cannot route a revision themselves."
 
 ## Flagged ambiguities
 

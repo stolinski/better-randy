@@ -1,6 +1,6 @@
 type: '@swamp/software-factory'
 typeVersion: 2026.06.24.1
-version: 9
+version: 15
 globalArguments:
   stages:
     - id: preflight
@@ -50,8 +50,7 @@ globalArguments:
           and tracker-file edits, commit the lane, and return the strict child revision plus durable
           handoff manifest path. The central parent must verify and integrate that handoff while
           this work item remains in implementation. Only after serialized integration may the parent
-          record change-summary with the digest-verified, content-addressed integrationReceipt and
-          every materially changed visual target.
+          record change-summary with the digest-verified, content-addressed integrationReceipt.
       artifacts:
         - name: change-summary
           description: Compact implementation summary used as the classification subject.
@@ -59,17 +58,11 @@ globalArguments:
             type: object
             required:
               - summary
-              - visualTargets
               - integrationReceipt
             properties:
               summary:
                 type: string
                 minLength: 1
-              visualTargets:
-                type: array
-                items:
-                  type: string
-                  minLength: 1
               commit:
                 type: string
                 minLength: 7
@@ -190,7 +183,6 @@ globalArguments:
             type: object
             required:
               - requiredLanes
-              - reviewCandidate
               - changeFingerprint
               - audit
               - generatedAt
@@ -200,7 +192,6 @@ globalArguments:
               - treeFingerprint
               - paths
               - lanes
-              - visualReviewCandidate
             properties:
               requiredLanes:
                 type: array
@@ -264,8 +255,6 @@ globalArguments:
                     - id
                     - reasons
                 minItems: 1
-              visualReviewCandidate:
-                type: boolean
       transitions:
         - name: verify
           to: verification
@@ -281,266 +270,703 @@ globalArguments:
                 artifact: change-impact
                 recordedThisCycle: true
     - id: verification
-      description: Execute every classified lane and record an exact next-stage dispatch.
+      description: Derive the only route from complete correlated deterministic evidence.
       maxCycles: 5
       maxDispatchesPerCycle: 2
       work:
-        mode: interactive
-        systemPrompt: >-
-          Run factory-verification-fanout exactly once with the work item, the classified change
-          fingerprint, and the required check, unit, and structural lane ids. Use its stored policy
-          result for policy-sweep and corpus, and its verification-fanout resource for the selected
-          lanes; never rerun those commands interactively. Execute only the remaining browser,
-          visual, pack-matrix, and export-decode lanes with sanctioned native captures and probes.
-          Record one unique outcome for every required lane. Set materialPixelChange from pixel
-          evidence only. Set reviewRequired only for changed pixels with visual targets. Route
-          failed, unavailable, or contradictory evidence to rework, changed pixels to review, and
-          unchanged pixels to reconciliation.
+        mode: workflow
+        workflow:
+          name: supers-delivery-deterministic-verification
+          inputs:
+            workItem: '${{ self.workItem }}'
+        inputsSchema:
+          type: object
+          properties:
+            workItem:
+              type: string
+              minLength: 1
+          required:
+            - workItem
+          additionalProperties: false
+        resultEvidence: verification-run
       artifacts:
         - name: verification
-          description: One explicit outcome per required lane and an exact next-stage dispatch.
+          description: Correlated model-derived objective routing authority.
           reviews: change-impact
           schema:
             type: object
+            additionalProperties: false
             required:
-              - status
-              - executedLanes
-              - reviewRequired
-              - nextStep
-              - summary
-              - materialPixelChange
+              - schemaVersion
+              - workItem
+              - integratedRevision
+              - integratedTreeFingerprint
+              - treeFingerprint
+              - changeImpactResourceName
+              - deterministicFanoutResourceName
+              - deterministicFanoutContentDigest
+              - deterministicFanoutWorkflowRunId
+              - policySweepResourceName
+              - policySweepWorkflowId
+              - policySweepWorkflowName
+              - policySweepWorkflowVersion
+              - policySweepWorkflowRunId
+              - policySweepExecutionDigest
+              - policyReceipts
+              - corpusReceipt
+              - renderMatrixRunName
+              - renderMatrixManifestName
+              - renderMatrixBundleName
+              - renderMatrixManifestDigest
+              - renderMatrixBundleDigest
+              - renderMatrixRunDigest
+              - renderEvidenceArchiveDigest
+              - workflowRunId
+              - disposition
+              - objectiveFailureCodes
+              - unavailableEvidenceCodes
+              - advisories
             properties:
-              status:
+              schemaVersion:
+                type: integer
+                enum:
+                  - 1
+              workItem:
+                type: string
+                minLength: 1
+              integratedRevision:
+                type: string
+                pattern: '^[0-9a-f]{40,64}$'
+              integratedTreeFingerprint:
+                type: string
+                pattern: '^[0-9a-f]{64}$'
+              treeFingerprint:
+                type: string
+                pattern: '^[0-9a-f]{64}$'
+              changeImpactResourceName:
+                type: string
+                minLength: 1
+              deterministicFanoutResourceName:
+                type: string
+                minLength: 1
+              deterministicFanoutContentDigest:
+                type: string
+                pattern: '^[0-9a-f]{64}$'
+              deterministicFanoutWorkflowRunId:
+                type: string
+                minLength: 1
+              policySweepResourceName:
+                type: string
+                minLength: 1
+              policySweepWorkflowId:
                 type: string
                 enum:
-                  - passed
-                  - failed
-                  - unavailable
-              executedLanes:
+                  - 5eb573fe-76e7-4b59-8ff6-bfccc0ec3b7a
+              policySweepWorkflowName:
+                type: string
+                enum:
+                  - policy-sweep
+              policySweepWorkflowVersion:
+                type: integer
+                enum:
+                  - 2
+              policySweepWorkflowRunId:
+                type: string
+                minLength: 1
+              policySweepExecutionDigest:
+                type: string
+                pattern: '^[0-9a-f]{64}$'
+              policyReceipts:
                 type: array
-                minItems: 1
+                minItems: 4
+                maxItems: 4
                 items:
                   type: object
+                  additionalProperties: false
                   required:
-                    - id
-                    - status
-                    - evidence
+                    - modelName
+                    - specName
+                    - resourceName
+                    - workflowRunId
+                    - contentDigest
                   properties:
-                    id:
+                    modelName:
                       type: string
                       minLength: 1
-                    status:
-                      type: string
-                      enum:
-                        - passed
-                        - failed
-                        - unavailable
-                    evidence:
+                    specName:
                       type: string
                       minLength: 1
-              reviewRequired:
-                type: boolean
-              nextStep:
+                    resourceName:
+                      type: string
+                      minLength: 1
+                    workflowRunId:
+                      type: string
+                      minLength: 1
+                    contentDigest:
+                      type: string
+                      pattern: '^[0-9a-f]{64}$'
+              corpusReceipt:
+                type: object
+                additionalProperties: false
+                required:
+                  - modelName
+                  - specName
+                  - resourceName
+                  - workflowRunId
+                  - contentDigest
+                properties:
+                  modelName:
+                    type: string
+                    minLength: 1
+                  specName:
+                    type: string
+                    minLength: 1
+                  resourceName:
+                    type: string
+                    minLength: 1
+                  workflowRunId:
+                    type: string
+                    minLength: 1
+                  contentDigest:
+                    type: string
+                    pattern: '^[0-9a-f]{64}$'
+              renderMatrixRunName:
+                type: string
+                minLength: 1
+              renderMatrixManifestName:
+                type: string
+              renderMatrixBundleName:
+                type: string
+              renderMatrixManifestDigest:
+                type: string
+                pattern: '^$|^[0-9a-f]{64}$'
+              renderMatrixBundleDigest:
+                type: string
+                pattern: '^$|^[0-9a-f]{64}$'
+              renderMatrixRunDigest:
+                type: string
+                pattern: '^[0-9a-f]{64}$'
+              renderEvidenceArchiveDigest:
+                type: string
+                pattern: '^$|^[0-9a-f]{64}$'
+              workflowRunId:
+                type: string
+                minLength: 1
+              disposition:
                 type: string
                 enum:
-                  - rework
-                  - review
+                  - automatic-rework
+                  - evidence-unavailable
+                  - await-human-aesthetic
                   - reconcile
-              summary:
-                type: string
-                minLength: 1
-              materialPixelChange:
-                type: string
-                enum:
-                  - changed
-                  - unchanged
-                  - unavailable
-      transitions:
-        - name: rework
-          to: implementation
-          gates:
-            - type: artifact-fresh
-              config:
-                artifact: verification
-                recordedThisCycle: true
-            - type: cel
-              config:
-                expr: >-
-                  size(artifacts.verification.executedLanes) ==
-                  size(artifacts.change_impact.requiredLanes) &&
-                  artifacts.change_impact.requiredLanes.all(required,
-                  artifacts.verification.executedLanes.exists(executed, executed.id == required.id))
-                  && artifacts.verification.executedLanes.all(executed,
-                  size(artifacts.verification.executedLanes.filter(candidate, candidate.id ==
-                  executed.id)) == 1) && artifacts.verification.nextStep == "rework" &&
-                  ((artifacts.verification.status != "passed" ||
-                  artifacts.verification.executedLanes.exists(lane, lane.status != "passed")) ||
-                  (artifacts.verification.materialPixelChange == "unavailable" ||
-                  (artifacts.verification.materialPixelChange == "changed" &&
-                  size(artifacts.change_summary.visualTargets) == 0)))
-                message: >-
-                  rework requires complete lane coverage, an explicit non-passing result, and
-                  nextStep=rework
-        - name: review
-          to: review
-          gates:
-            - type: artifact-fresh
-              config:
-                artifact: verification
-                recordedThisCycle: true
-            - type: cel
-              config:
-                expr: >-
-                  (size(artifacts.verification.executedLanes) ==
-                  size(artifacts.change_impact.requiredLanes) &&
-                  artifacts.change_impact.requiredLanes.all(required,
-                  artifacts.verification.executedLanes.exists(executed, executed.id == required.id))
-                  && artifacts.verification.executedLanes.all(executed,
-                  size(artifacts.verification.executedLanes.filter(candidate, candidate.id ==
-                  executed.id)) == 1) && artifacts.verification.status == "passed" &&
-                  artifacts.verification.executedLanes.all(lane, lane.status == "passed") &&
-                  artifacts.verification.reviewRequired && artifacts.verification.nextStep ==
-                  "review") && (artifacts.verification.materialPixelChange == "changed" &&
-                  size(artifacts.change_summary.visualTargets) > 0)
-                message: >-
-                  review requires complete passing verification, reviewRequired=true, and
-                  nextStep=review
-        - name: reconcile
-          to: reconciliation
-          gates:
-            - type: artifact-fresh
-              config:
-                artifact: verification
-                recordedThisCycle: true
-            - type: cel
-              config:
-                expr: >-
-                  (size(artifacts.verification.executedLanes) ==
-                  size(artifacts.change_impact.requiredLanes) &&
-                  artifacts.change_impact.requiredLanes.all(required,
-                  artifacts.verification.executedLanes.exists(executed, executed.id == required.id))
-                  && artifacts.verification.executedLanes.all(executed,
-                  size(artifacts.verification.executedLanes.filter(candidate, candidate.id ==
-                  executed.id)) == 1) && artifacts.verification.status == "passed" &&
-                  artifacts.verification.executedLanes.all(lane, lane.status == "passed") &&
-                  !artifacts.verification.reviewRequired && artifacts.verification.nextStep ==
-                  "reconcile") && (artifacts.verification.materialPixelChange == "unchanged")
-                message: >-
-                  reconciliation requires complete passing verification, reviewRequired=false, and
-                  nextStep=reconcile
-    - id: review
-      description: Review the verified change and retain both findings and a route verdict.
-      maxCycles: 5
-      maxDispatchesPerCycle: 2
-      work:
-        mode: dispatch
-        skills:
-          - critic
-        systemPrompt: >-
-          Review only visualTargets from change-summary. Use sanctioned native captures and machine
-          probes. Technical defects are critical or high; aesthetic observations are low and
-          human-owned. Record blockers in visual-review. Record visual-verdict with status matching
-          recommendation, plus summary and concrete evidence references.
-        context:
-          inject:
-            - change-summary
-            - change-impact
-            - verification
-      artifacts:
-        - name: visual-review
-          kind: findings
-          reviews: verification
-        - name: visual-verdict
-          reviews: verification
-          schema:
-            type: object
-            required:
-              - status
-              - summary
-              - recommendation
-              - evidence
-            properties:
-              status:
-                type: string
-                enum:
-                  - accept
-                  - revise
-              summary:
-                type: string
-                minLength: 1
-              recommendation:
-                type: string
-                enum:
-                  - accept
-                  - revise
-              evidence:
+              objectiveFailureCodes:
                 type: array
                 items:
                   type: string
                   minLength: 1
-                minItems: 1
+              unavailableEvidenceCodes:
+                type: array
+                items:
+                  type: string
+                  minLength: 1
+              advisories:
+                type: array
+                items:
+                  type: object
       transitions:
-        - name: rework
+        - name: automatic-rework
           to: implementation
           gates:
+            - type: workflow-succeeded
+              config:
+                workflow: supers-delivery-deterministic-verification
+                requireStepOutputs:
+                  - artifact-verification
+                  - evidence-verification-run
             - type: artifact-fresh
               config:
-                artifact: visual-review
-                recordedThisCycle: true
-            - type: artifact-fresh
-              config:
-                artifact: visual-verdict
+                artifact: verification
                 recordedThisCycle: true
             - type: cel
               config:
                 expr: >-
-                  artifacts.visual_verdict.status == "revise" ||
-                  (size(artifacts.visual_review.findings.filter(f, !f.resolved && f.severity in
-                  ["critical", "high"])) > 0 || artifacts.visual_verdict.recommendation == "revise")
-                message: rework requires an explicit revise verdict
+                  artifacts.verification.workItem == state.workItem &&
+                  artifacts.verification.integratedRevision ==
+                  artifacts.change_summary.integrationReceipt.integratedRevision &&
+                  artifacts.verification.integratedTreeFingerprint ==
+                  artifacts.change_summary.integrationReceipt.integratedTreeFingerprint &&
+                  artifacts.verification.treeFingerprint ==
+                  artifacts.change_impact.changeFingerprint && artifacts.verification.disposition ==
+                  "automatic-rework" && size(artifacts.verification.objectiveFailureCodes) > 0 &&
+                  size(artifacts.verification.unavailableEvidenceCodes) == 0
+                message: automatic rework requires fresh complete closed objective failure evidence
+        - name: evidence-unavailable
+          to: evidence-unavailable
+          gates:
+            - type: workflow-succeeded
+              config:
+                workflow: supers-delivery-deterministic-verification
+                requireStepOutputs:
+                  - artifact-verification
+                  - evidence-verification-run
+            - type: artifact-fresh
+              config:
+                artifact: verification
+                recordedThisCycle: true
+            - type: cel
+              config:
+                expr: >-
+                  artifacts.verification.workItem == state.workItem &&
+                  artifacts.verification.integratedRevision ==
+                  artifacts.change_summary.integrationReceipt.integratedRevision &&
+                  artifacts.verification.integratedTreeFingerprint ==
+                  artifacts.change_summary.integrationReceipt.integratedTreeFingerprint &&
+                  artifacts.verification.treeFingerprint ==
+                  artifacts.change_impact.changeFingerprint && artifacts.verification.disposition ==
+                  "evidence-unavailable" && size(artifacts.verification.unavailableEvidenceCodes) >
+                  0
+                message: unavailable evidence pauses Delivery without authorizing mutation
+        - name: await-human-aesthetic
+          to: aesthetic-approval
+          gates:
+            - type: workflow-succeeded
+              config:
+                workflow: supers-delivery-deterministic-verification
+                requireStepOutputs:
+                  - artifact-verification
+                  - evidence-verification-run
+            - type: artifact-fresh
+              config:
+                artifact: verification
+                recordedThisCycle: true
+            - type: cel
+              config:
+                expr: >-
+                  artifacts.verification.workItem == state.workItem &&
+                  artifacts.verification.integratedRevision ==
+                  artifacts.change_summary.integrationReceipt.integratedRevision &&
+                  artifacts.verification.integratedTreeFingerprint ==
+                  artifacts.change_summary.integrationReceipt.integratedTreeFingerprint &&
+                  artifacts.verification.treeFingerprint ==
+                  artifacts.change_impact.changeFingerprint && artifacts.verification.disposition ==
+                  "await-human-aesthetic" && size(artifacts.verification.objectiveFailureCodes) == 0
+                  && size(artifacts.verification.unavailableEvidenceCodes) == 0 &&
+                  artifacts.verification.renderMatrixManifestDigest.matches("^[0-9a-f]{64}$") &&
+                  artifacts.verification.renderMatrixBundleDigest.matches("^[0-9a-f]{64}$") &&
+                  artifacts.verification.renderMatrixRunDigest.matches("^[0-9a-f]{64}$") &&
+                  artifacts.verification.renderEvidenceArchiveDigest.matches("^[0-9a-f]{64}$")
+                message: aesthetic review requires a complete passing exact render bundle
+        - name: reconcile
+          to: reconciliation
+          gates:
+            - type: workflow-succeeded
+              config:
+                workflow: supers-delivery-deterministic-verification
+                requireStepOutputs:
+                  - artifact-verification
+                  - evidence-verification-run
+            - type: artifact-fresh
+              config:
+                artifact: verification
+                recordedThisCycle: true
+            - type: cel
+              config:
+                expr: >-
+                  artifacts.verification.workItem == state.workItem &&
+                  artifacts.verification.integratedRevision ==
+                  artifacts.change_summary.integrationReceipt.integratedRevision &&
+                  artifacts.verification.integratedTreeFingerprint ==
+                  artifacts.change_summary.integrationReceipt.integratedTreeFingerprint &&
+                  artifacts.verification.treeFingerprint ==
+                  artifacts.change_impact.changeFingerprint && artifacts.verification.disposition ==
+                  "reconcile" && size(artifacts.verification.objectiveFailureCodes) == 0 &&
+                  size(artifacts.verification.unavailableEvidenceCodes) == 0
+                message: >-
+                  reconciliation requires complete passing objective evidence and proven render
+                  non-applicability
+    - id: evidence-unavailable
+      description: Pause the serialized Delivery tail until deterministic evidence can be retried.
+      transitions:
+        - name: retry-verification
+          to: verification
+          gates:
+            - type: human-approval
+              config:
+                id: retry-verification
+    - id: aesthetic-approval
+      description: Pause the entire serialized integration queue for exact-bundle human aesthetic judgment.
+      transitions:
+        - name: bind-approval
+          to: aesthetic-decision-binding
+          gates:
+            - type: human-approval
+              config:
+                id: aesthetic-acceptance
+        - name: bind-rejection
+          to: aesthetic-decision-binding
+          gates:
+            - type: cel
+              config:
+                expr: >-
+                  has(approvals.aesthetic_acceptance) &&
+                  approvals.aesthetic_acceptance.exists(approval, approval.decision == "rejected")
+                message: human revision requires an explicit aesthetic-acceptance rejection
+    - id: aesthetic-decision-binding
+      description: Bind the trusted Factory approval record to the exact verified evidence bundle.
+      maxDispatchesPerCycle: 2
+      work:
+        mode: workflow
+        workflow:
+          name: supers-bind-human-aesthetic-decision
+          inputs:
+            workItem: '${{ self.workItem }}'
+        inputsSchema:
+          type: object
+          properties:
+            workItem:
+              type: string
+              minLength: 1
+          required:
+            - workItem
+          additionalProperties: false
+        resultEvidence: human-aesthetic-decision-run
+      artifacts:
+        - name: human-aesthetic-decision
+          description: Trusted exact-bundle-bound Factory human aesthetic decision.
+          reviews: verification
+          schema:
+            type: object
+            additionalProperties: false
+            required:
+              - schemaVersion
+              - decisionId
+              - workItem
+              - factoryName
+              - gateId
+              - stageId
+              - cycle
+              - verificationRouteResourceName
+              - matrixBundleResourceName
+              - factoryStateResourceName
+              - factoryApprovalResourceName
+              - integratedRevision
+              - integratedTreeFingerprint
+              - treeFingerprint
+              - deterministicFanoutResourceName
+              - deterministicFanoutContentDigest
+              - deterministicFanoutWorkflowRunId
+              - policySweepResourceName
+              - policySweepWorkflowId
+              - policySweepWorkflowName
+              - policySweepWorkflowVersion
+              - policySweepWorkflowRunId
+              - policySweepExecutionDigest
+              - policyReceipts
+              - corpusReceipt
+              - renderMatrixRunName
+              - renderMatrixManifestName
+              - renderMatrixBundleName
+              - verificationWorkflowRunId
+              - renderMatrixManifestDigest
+              - renderMatrixBundleDigest
+              - renderMatrixRunDigest
+              - renderEvidenceArchiveDigest
+              - approvalReceiptId
+              - approvalIdentity
+              - decision
+              - note
+            properties:
+              schemaVersion:
+                type: integer
+                enum:
+                  - 1
+              decisionId:
+                type: string
+                pattern: '^[0-9a-f]{64}$'
+              workItem:
+                type: string
+                minLength: 1
+              factoryName:
+                type: string
+                minLength: 1
+              gateId:
+                type: string
+                enum:
+                  - aesthetic-acceptance
+              stageId:
+                type: string
+                enum:
+                  - aesthetic-approval
+              cycle:
+                type: integer
+                minimum: 1
+              verificationRouteResourceName:
+                type: string
+                minLength: 1
+              matrixBundleResourceName:
+                type: string
+                minLength: 1
+              factoryStateResourceName:
+                type: string
+                minLength: 1
+              factoryApprovalResourceName:
+                type: string
+                minLength: 1
+              integratedRevision:
+                type: string
+                pattern: '^[0-9a-f]{40,64}$'
+              integratedTreeFingerprint:
+                type: string
+                pattern: '^[0-9a-f]{64}$'
+              treeFingerprint:
+                type: string
+                pattern: '^[0-9a-f]{64}$'
+              deterministicFanoutResourceName:
+                type: string
+                minLength: 1
+              deterministicFanoutContentDigest:
+                type: string
+                pattern: '^[0-9a-f]{64}$'
+              deterministicFanoutWorkflowRunId:
+                type: string
+                minLength: 1
+              policySweepResourceName:
+                type: string
+                minLength: 1
+              policySweepWorkflowId:
+                type: string
+                enum:
+                  - 5eb573fe-76e7-4b59-8ff6-bfccc0ec3b7a
+              policySweepWorkflowName:
+                type: string
+                enum:
+                  - policy-sweep
+              policySweepWorkflowVersion:
+                type: integer
+                enum:
+                  - 2
+              policySweepWorkflowRunId:
+                type: string
+                minLength: 1
+              policySweepExecutionDigest:
+                type: string
+                pattern: '^[0-9a-f]{64}$'
+              policyReceipts:
+                type: array
+                minItems: 4
+                maxItems: 4
+                items:
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - modelName
+                    - specName
+                    - resourceName
+                    - workflowRunId
+                    - contentDigest
+                  properties:
+                    modelName:
+                      type: string
+                      minLength: 1
+                    specName:
+                      type: string
+                      minLength: 1
+                    resourceName:
+                      type: string
+                      minLength: 1
+                    workflowRunId:
+                      type: string
+                      minLength: 1
+                    contentDigest:
+                      type: string
+                      pattern: '^[0-9a-f]{64}$'
+              corpusReceipt:
+                type: object
+                additionalProperties: false
+                required:
+                  - modelName
+                  - specName
+                  - resourceName
+                  - workflowRunId
+                  - contentDigest
+                properties:
+                  modelName:
+                    type: string
+                    minLength: 1
+                  specName:
+                    type: string
+                    minLength: 1
+                  resourceName:
+                    type: string
+                    minLength: 1
+                  workflowRunId:
+                    type: string
+                    minLength: 1
+                  contentDigest:
+                    type: string
+                    pattern: '^[0-9a-f]{64}$'
+              renderMatrixRunName:
+                type: string
+                minLength: 1
+              renderMatrixManifestName:
+                type: string
+                minLength: 1
+              renderMatrixBundleName:
+                type: string
+                minLength: 1
+              verificationWorkflowRunId:
+                type: string
+                minLength: 1
+              renderMatrixManifestDigest:
+                type: string
+                pattern: '^[0-9a-f]{64}$'
+              renderMatrixBundleDigest:
+                type: string
+                pattern: '^[0-9a-f]{64}$'
+              renderMatrixRunDigest:
+                type: string
+                pattern: '^[0-9a-f]{64}$'
+              renderEvidenceArchiveDigest:
+                type: string
+                pattern: '^[0-9a-f]{64}$'
+              approvalReceiptId:
+                type: string
+                pattern: '^[0-9a-f]{64}$'
+              approvalIdentity:
+                type: string
+                minLength: 1
+              decision:
+                type: string
+                enum:
+                  - accept
+                  - reject
+              note:
+                type: string
+      transitions:
         - name: accept
           to: reconciliation
           gates:
+            - type: workflow-succeeded
+              config:
+                workflow: supers-bind-human-aesthetic-decision
+                requireStepOutputs:
+                  - artifact-human-aesthetic-decision
+                  - evidence-human-aesthetic-decision-run
             - type: artifact-fresh
               config:
-                artifact: visual-review
+                artifact: human-aesthetic-decision
                 recordedThisCycle: true
-            - type: artifact-fresh
-              config:
-                artifact: visual-verdict
-                recordedThisCycle: true
-            - type: findings-clear
-              config:
-                artifact: visual-review
-                blocking:
-                  - critical
-                  - high
             - type: cel
               config:
                 expr: >-
-                  (artifacts.visual_verdict.status == "accept") &&
-                  (artifacts.visual_verdict.recommendation == "accept")
-                message: acceptance requires an explicit accept verdict
-            - type: human-approval
-              config:
-                id: visual-acceptance
+                  artifacts.human_aesthetic_decision.decision == "accept" &&
+                  artifacts.human_aesthetic_decision.integratedRevision ==
+                  artifacts.verification.integratedRevision &&
+                  artifacts.human_aesthetic_decision.integratedTreeFingerprint ==
+                  artifacts.verification.integratedTreeFingerprint &&
+                  artifacts.human_aesthetic_decision.treeFingerprint ==
+                  artifacts.verification.treeFingerprint &&
+                  artifacts.human_aesthetic_decision.deterministicFanoutResourceName ==
+                  artifacts.verification.deterministicFanoutResourceName &&
+                  artifacts.human_aesthetic_decision.deterministicFanoutContentDigest ==
+                  artifacts.verification.deterministicFanoutContentDigest &&
+                  artifacts.human_aesthetic_decision.deterministicFanoutWorkflowRunId ==
+                  artifacts.verification.deterministicFanoutWorkflowRunId &&
+                  artifacts.human_aesthetic_decision.policySweepResourceName ==
+                  artifacts.verification.policySweepResourceName &&
+                  artifacts.human_aesthetic_decision.policySweepWorkflowId ==
+                  artifacts.verification.policySweepWorkflowId &&
+                  artifacts.human_aesthetic_decision.policySweepWorkflowName ==
+                  artifacts.verification.policySweepWorkflowName &&
+                  artifacts.human_aesthetic_decision.policySweepWorkflowVersion ==
+                  artifacts.verification.policySweepWorkflowVersion &&
+                  artifacts.human_aesthetic_decision.policySweepWorkflowRunId ==
+                  artifacts.verification.policySweepWorkflowRunId &&
+                  artifacts.human_aesthetic_decision.policySweepExecutionDigest ==
+                  artifacts.verification.policySweepExecutionDigest &&
+                  artifacts.human_aesthetic_decision.policyReceipts ==
+                  artifacts.verification.policyReceipts &&
+                  artifacts.human_aesthetic_decision.corpusReceipt ==
+                  artifacts.verification.corpusReceipt &&
+                  artifacts.human_aesthetic_decision.renderMatrixRunName ==
+                  artifacts.verification.renderMatrixRunName &&
+                  artifacts.human_aesthetic_decision.renderMatrixManifestName ==
+                  artifacts.verification.renderMatrixManifestName &&
+                  artifacts.human_aesthetic_decision.renderMatrixBundleName ==
+                  artifacts.verification.renderMatrixBundleName &&
+                  artifacts.human_aesthetic_decision.verificationWorkflowRunId ==
+                  artifacts.verification.workflowRunId &&
+                  artifacts.human_aesthetic_decision.renderMatrixManifestDigest ==
+                  artifacts.verification.renderMatrixManifestDigest &&
+                  artifacts.human_aesthetic_decision.renderMatrixBundleDigest ==
+                  artifacts.verification.renderMatrixBundleDigest &&
+                  artifacts.human_aesthetic_decision.renderMatrixRunDigest ==
+                  artifacts.verification.renderMatrixRunDigest &&
+                  artifacts.human_aesthetic_decision.renderEvidenceArchiveDigest ==
+                  artifacts.verification.renderEvidenceArchiveDigest
+                message: acceptance requires the trusted current evidence-bound human decision
         - name: human-revision
           to: implementation
           gates:
+            - type: workflow-succeeded
+              config:
+                workflow: supers-bind-human-aesthetic-decision
+                requireStepOutputs:
+                  - artifact-human-aesthetic-decision
+                  - evidence-human-aesthetic-decision-run
             - type: artifact-fresh
               config:
-                artifact: visual-review
-                recordedThisCycle: true
-            - type: artifact-fresh
-              config:
-                artifact: visual-verdict
+                artifact: human-aesthetic-decision
                 recordedThisCycle: true
             - type: cel
               config:
                 expr: >-
-                  has(approvals.visual_acceptance) && approvals.visual_acceptance.exists(approval,
-                  approval.decision == "rejected")
-                message: human revision requires an explicit visual-acceptance rejection
+                  artifacts.human_aesthetic_decision.decision == "reject" &&
+                  artifacts.human_aesthetic_decision.integratedRevision ==
+                  artifacts.verification.integratedRevision &&
+                  artifacts.human_aesthetic_decision.integratedTreeFingerprint ==
+                  artifacts.verification.integratedTreeFingerprint &&
+                  artifacts.human_aesthetic_decision.treeFingerprint ==
+                  artifacts.verification.treeFingerprint &&
+                  artifacts.human_aesthetic_decision.deterministicFanoutResourceName ==
+                  artifacts.verification.deterministicFanoutResourceName &&
+                  artifacts.human_aesthetic_decision.deterministicFanoutContentDigest ==
+                  artifacts.verification.deterministicFanoutContentDigest &&
+                  artifacts.human_aesthetic_decision.deterministicFanoutWorkflowRunId ==
+                  artifacts.verification.deterministicFanoutWorkflowRunId &&
+                  artifacts.human_aesthetic_decision.policySweepResourceName ==
+                  artifacts.verification.policySweepResourceName &&
+                  artifacts.human_aesthetic_decision.policySweepWorkflowId ==
+                  artifacts.verification.policySweepWorkflowId &&
+                  artifacts.human_aesthetic_decision.policySweepWorkflowName ==
+                  artifacts.verification.policySweepWorkflowName &&
+                  artifacts.human_aesthetic_decision.policySweepWorkflowVersion ==
+                  artifacts.verification.policySweepWorkflowVersion &&
+                  artifacts.human_aesthetic_decision.policySweepWorkflowRunId ==
+                  artifacts.verification.policySweepWorkflowRunId &&
+                  artifacts.human_aesthetic_decision.policySweepExecutionDigest ==
+                  artifacts.verification.policySweepExecutionDigest &&
+                  artifacts.human_aesthetic_decision.policyReceipts ==
+                  artifacts.verification.policyReceipts &&
+                  artifacts.human_aesthetic_decision.corpusReceipt ==
+                  artifacts.verification.corpusReceipt &&
+                  artifacts.human_aesthetic_decision.renderMatrixRunName ==
+                  artifacts.verification.renderMatrixRunName &&
+                  artifacts.human_aesthetic_decision.renderMatrixManifestName ==
+                  artifacts.verification.renderMatrixManifestName &&
+                  artifacts.human_aesthetic_decision.renderMatrixBundleName ==
+                  artifacts.verification.renderMatrixBundleName &&
+                  artifacts.human_aesthetic_decision.verificationWorkflowRunId ==
+                  artifacts.verification.workflowRunId &&
+                  artifacts.human_aesthetic_decision.renderMatrixManifestDigest ==
+                  artifacts.verification.renderMatrixManifestDigest &&
+                  artifacts.human_aesthetic_decision.renderMatrixBundleDigest ==
+                  artifacts.verification.renderMatrixBundleDigest &&
+                  artifacts.human_aesthetic_decision.renderMatrixRunDigest ==
+                  artifacts.verification.renderMatrixRunDigest &&
+                  artifacts.human_aesthetic_decision.renderEvidenceArchiveDigest ==
+                  artifacts.verification.renderEvidenceArchiveDigest
+                message: revision requires the trusted current evidence-bound human rejection
     - id: reconciliation
       description: Confirm the terminal disposition and prepare exact Dex completion inputs.
       maxCycles: 5
@@ -551,12 +977,10 @@ globalArguments:
           inject:
             - change-summary
             - verification
-            - visual-verdict
         systemPrompt: >-
-          Reconcile the verified result without mutating the repository or tracker state. Confirm
-          any integration evidence already recorded in change-summary. Record nextStep=rework when
-          anything remains; otherwise record nextStep=complete with the exact Dex result and commit
-          decision.
+          Prepare the exact Dex completion result and commit decision from already verified
+          integration evidence. Do not mutate the repository or tracker, assess aesthetics, or route
+          rework.
       artifacts:
         - name: reconciliation
           description: Terminal disposition and typed Dex completion inputs.
@@ -575,11 +999,9 @@ globalArguments:
                 type: string
                 enum:
                   - ready
-                  - needs-rework
               nextStep:
                 type: string
                 enum:
-                  - rework
                   - complete
               summary:
                 type: string
@@ -606,19 +1028,6 @@ globalArguments:
                   - ready-for-completion
                   - reframed
       transitions:
-        - name: rework
-          to: implementation
-          gates:
-            - type: artifact-fresh
-              config:
-                artifact: reconciliation
-                recordedThisCycle: true
-            - type: cel
-              config:
-                expr: >-
-                  artifacts.reconciliation.status == "needs-rework" &&
-                  artifacts.reconciliation.nextStep == "rework"
-                message: rework requires status=needs-rework and nextStep=rework
         - name: postflight
           to: postflight
           gates:

@@ -143,8 +143,9 @@ The Brief is **not** `ready to /author` while open questions remain. Tell the us
 Write the concrete deliverables block at the end of the Brief. Explicitly require both native horizontal and vertical renders in every Brief, even when neither orientation came up elsewhere in the grill. For `kind: preset`:
 
 ```
-src/lib/presets/<slug>.json Critic-ACCEPTs at native horizontal (3840×2160)
-and vertical (2160×3840) resolutions with no orientation-specific sibling Preset.
+src/lib/presets/<slug>.json passes the deterministic affected render matrix at native
+horizontal (3840×2160) and vertical (2160×3840), and the exact integrated-tree
+evidence receives human aesthetic approval, with no orientation-specific sibling Preset.
 ```
 
 For `kind: pipeline` / `kind: domain`:
@@ -154,8 +155,10 @@ For `kind: pipeline` / `kind: domain`:
 - src/lib/pipelines/<layer>/<variant>/CanvasSource.svelte (if applicable)
 - docs/adr/<NNNN>-<slug>.md
 - src/lib/presets/<verification-slug>.json
-- /critic <verification-slug> returns ACCEPT for native horizontal (3840×2160)
-  and vertical (2160×3840) renders of the same Preset
+- deterministic Delivery passes native horizontal (3840×2160) and vertical
+  (2160×3840) renders of the same Preset
+- the trusted human aesthetic decision binds the exact integrated revision/tree
+  and matrix run, manifest, bundle, and evidence digests
 ```
 
 ### Step 11 — write the Brief

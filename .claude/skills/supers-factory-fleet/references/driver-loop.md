@@ -117,10 +117,12 @@ Hash the manifest bytes and patch bytes with SHA-256. Queue the immutable eviden
 
 Use `integration-gate.md`. Only the central parent drains the queue, one item at a time. After one integration succeeds:
 
-1. Record `change-summary` with the verified integrated receipt, concise summary, and visual targets.
-2. Drive that work item through classification, verification, optional review/human approval, read-only reconciliation, postflight, and terminal handling by following the `software-factory` status loop.
-3. Do not integrate the next handoff until the current work item's full shared-checkout tail is terminal and no human decision is pending. A parked state awaiting a human does not release the queue.
-4. Re-read the central HEAD, clean status, and canonical tree fingerprint. They must still equal the integrated revision and fingerprint recorded for the terminal work item.
+1. Record only the Supers `change-summary` contract: the concise `summary` and digest-verified `integrationReceipt`. Do not add legacy `visualTargets` or review fields.
+2. Drive classification and the deterministic verification workflow. The workflow binds the exact fanout resource/digest/run, canonical policy and corpus receipts, required browser receipt when selected, and render matrix evidence. Objective failure or missing evidence returns to implementation or pauses before reconciliation. If rendering is affected and objective evidence passes, present the exact stored bundle for the Factory human aesthetic decision; no prose report can route it.
+3. Enter read-only reconciliation only after objective completeness and any exact-bundle human approval are already established. Reconciliation is completion-only; it cannot discover or route incomplete implementation.
+4. Continue through postflight and terminal handling by following the generic `software-factory` status loop, with this Supers profile override controlling artifacts and routes.
+5. Do not integrate the next handoff until the current work item's full shared-checkout tail is terminal and no human decision is pending. A parked state awaiting a human does not release the queue.
+6. Re-read the central HEAD, clean status, and canonical tree fingerprint. They must still equal the integrated revision and fingerprint recorded for the terminal work item.
 
 This serialized tail is intentional today: classification, render verification, postflight, and completion inspect the shared target checkout. A pending human gate pauses the entire integration queue; there is no parked-tail exception.
 

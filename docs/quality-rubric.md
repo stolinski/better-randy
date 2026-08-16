@@ -1,5 +1,7 @@
 # Supers Quality Rubric
 
+This rubric supplies deterministic rules and human review criteria. Critic prose is advisory; only closed-code measured failures route automatic rework, and only an exact-evidence-bound human approval supplies subjective acceptance.
+
 The companion to [`docs/animation-rubric.md`](animation-rubric.md). Where the animation rubric governs how a preset *moves*, this rubric governs the *craft* of how it looks at every frame: composition, hierarchy, contrast, light coherence, effect discipline.
 
 **This rubric is aesthetic-neutral.** It is the craft floor every preset clears regardless of which visual style it executes. The channel's specific aesthetic — the collage system, palette, material vocabulary, brand references — lives in the active Pack's aesthetic doc ([`docs/packs/<pack>/aesthetic.md`](packs/syntax/aesthetic.md)). Rules here describe *whether a preset is well-made*; they do not describe *whether it fits a particular look*. If a guideline only makes sense for one aesthetic, it belongs in that aesthetic's doc, not in this rubric.

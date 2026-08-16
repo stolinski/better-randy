@@ -305,6 +305,21 @@ export type SupersDeterministicRenderFailureCode = z.infer<
 	typeof SupersDeterministicRenderFailureCodeSchema
 >;
 
+export const SupersDeliveryObjectiveFailureCodeSchema = z.union([
+	SupersDeterministicRenderFailureCodeSchema,
+	z.enum([
+		'browser-failed',
+		'check-failed',
+		'unit-failed',
+		'structural-failed',
+		'timing-policy-failed',
+		'tracking-policy-failed',
+		'parity-policy-failed',
+		'planning-policy-failed',
+		'corpus-failed'
+	])
+]);
+
 const EvidenceReferenceSchema = z.strictObject({
 	kind: z.enum(['static', 'dom', 'capture', 'probe', 'export']),
 	path: RepositoryPathSchema,
@@ -881,30 +896,288 @@ export const SupersAdvisoryVisualObservationSchema = z.strictObject({
 
 export type SupersAdvisoryVisualObservation = z.infer<typeof SupersAdvisoryVisualObservationSchema>;
 
-/**
- * This record is authoritative only when read from the Factory's trusted human
- * approval resource. Parsing caller input as this shape does not authenticate it.
- */
-export const SupersHumanAestheticDecisionSchema = z.strictObject({
+export const SupersDeliveryUnavailableEvidenceCodeSchema = z.enum([
+	'capture-failed',
+	'probe-failed',
+	'probe-zero-signal',
+	'evidence-stale',
+	'incomplete-readable-coverage',
+	'authority-missing',
+	'composited-mask-unavailable',
+	'contrast-mask-unavailable',
+	'reading-intent-unrepresented',
+	'missing-render-manifest',
+	'missing-render-bundle',
+	'missing-render-cell',
+	'duplicate-render-cell',
+	'extra-render-cell',
+	'missing-render-check',
+	'duplicate-render-check',
+	'stale-render-evidence',
+	'incomplete-deterministic-fanout',
+	'unexecuted-required-lane'
+]);
+
+/** Exact immutable identity of one canonical verification resource. */
+export const SupersVerificationReceiptIdentitySchema = z.strictObject({
+	modelName: DomainIdSchema,
+	specName: DomainIdSchema,
+	resourceName: z.string().min(1),
+	workflowRunId: DomainIdSchema,
+	contentDigest: Sha256Schema
+});
+
+export type SupersVerificationReceiptIdentity = z.infer<
+	typeof SupersVerificationReceiptIdentitySchema
+>;
+
+const DeliveryVerificationRouteFields = {
 	schemaVersion: z.literal(1),
-	decisionId: Sha256Schema,
-	evidenceBundleDigest: Sha256Schema,
+	workItem: DomainIdSchema,
+	integratedRevision: GitRevisionSchema,
+	integratedTreeFingerprint: Sha256Schema,
+	treeFingerprint: Sha256Schema,
+	changeImpactResourceName: z.string().min(1),
+	deterministicFanoutResourceName: z.string().min(1),
+	deterministicFanoutContentDigest: Sha256Schema,
+	deterministicFanoutWorkflowRunId: DomainIdSchema,
+	policySweepResourceName: z.string().min(1),
+	policySweepWorkflowId: z.literal('5eb573fe-76e7-4b59-8ff6-bfccc0ec3b7a'),
+	policySweepWorkflowName: z.literal('policy-sweep'),
+	policySweepWorkflowVersion: z.literal(2),
+	policySweepWorkflowRunId: DomainIdSchema,
+	policySweepExecutionDigest: Sha256Schema,
+	policyReceipts: z.array(SupersVerificationReceiptIdentitySchema).length(4),
+	corpusReceipt: SupersVerificationReceiptIdentitySchema,
+	renderMatrixRunName: z.string().min(1),
+	renderMatrixManifestName: z.string(),
+	renderMatrixBundleName: z.string(),
+	renderMatrixManifestDigest: z.union([Sha256Schema, z.literal('')]),
+	renderMatrixBundleDigest: z.union([Sha256Schema, z.literal('')]),
+	renderMatrixRunDigest: Sha256Schema,
+	renderEvidenceArchiveDigest: z.union([Sha256Schema, z.literal('')]),
+	workflowRunId: DomainIdSchema,
+	objectiveFailureCodes: z.array(SupersDeliveryObjectiveFailureCodeSchema),
+	unavailableEvidenceCodes: z.array(SupersDeliveryUnavailableEvidenceCodeSchema),
+	advisories: z.array(SupersAdvisoryVisualObservationSchema)
+};
+
+/** A model-derived Delivery route. No caller-selected status or recommendation is accepted. */
+export const SupersDeliveryVerificationRouteSchema = z
+	.discriminatedUnion('disposition', [
+		z.strictObject({
+			...DeliveryVerificationRouteFields,
+			disposition: z.literal('automatic-rework')
+		}),
+		z.strictObject({
+			...DeliveryVerificationRouteFields,
+			disposition: z.literal('evidence-unavailable')
+		}),
+		z.strictObject({
+			...DeliveryVerificationRouteFields,
+			disposition: z.literal('await-human-aesthetic')
+		}),
+		z.strictObject({
+			...DeliveryVerificationRouteFields,
+			disposition: z.literal('reconcile')
+		})
+	])
+	.superRefine((route, context) => {
+		const expectedPolicyReceipts = [
+			'repo-audit:parity:parity-latest',
+			'repo-audit:planning:planning-latest',
+			'repo-audit:timing:timing-latest',
+			'repo-audit:tracking:tracking-latest'
+		];
+		const policyReceiptKeys = route.policyReceipts.map(
+			(receipt) => `${receipt.modelName}:${receipt.specName}:${receipt.resourceName}`
+		);
+		if (JSON.stringify(policyReceiptKeys) !== JSON.stringify(expectedPolicyReceipts)) {
+			context.addIssue({
+				code: 'custom',
+				message: 'Policy receipts must be the canonical ordered Supers policy set'
+			});
+		}
+		if (
+			route.corpusReceipt.modelName !== 'corpus-verify' ||
+			route.corpusReceipt.specName !== 'sweep' ||
+			route.corpusReceipt.resourceName !== 'sweep-latest'
+		) {
+			context.addIssue({
+				code: 'custom',
+				message: 'Corpus receipt must identify the canonical corpus sweep'
+			});
+		}
+		const policyWorkflowRunIds = new Set([
+			...route.policyReceipts.map((receipt) => receipt.workflowRunId),
+			route.corpusReceipt.workflowRunId
+		]);
+		if (
+			policyWorkflowRunIds.size !== 1 ||
+			!policyWorkflowRunIds.has(route.policySweepWorkflowRunId)
+		) {
+			context.addIssue({
+				code: 'custom',
+				message: 'Policy and corpus receipts must originate from the bound policy workflow run'
+			});
+		}
+		if (route.deterministicFanoutWorkflowRunId !== route.workflowRunId) {
+			context.addIssue({
+				code: 'custom',
+				message: 'Deterministic fanout must originate from the routing workflow run'
+			});
+		}
+		const uniqueFailures = new Set(route.objectiveFailureCodes);
+		const uniqueUnavailable = new Set(route.unavailableEvidenceCodes);
+		if (
+			uniqueFailures.size !== route.objectiveFailureCodes.length ||
+			uniqueUnavailable.size !== route.unavailableEvidenceCodes.length
+		) {
+			context.addIssue({ code: 'custom', message: 'Delivery route codes must be unique' });
+		}
+		const sortedFailures = [...route.objectiveFailureCodes].sort((left, right) =>
+			left.localeCompare(right)
+		);
+		const sortedUnavailable = [...route.unavailableEvidenceCodes].sort((left, right) =>
+			left.localeCompare(right)
+		);
+		if (
+			route.objectiveFailureCodes.some((code, index) => code !== sortedFailures[index]) ||
+			route.unavailableEvidenceCodes.some((code, index) => code !== sortedUnavailable[index])
+		) {
+			context.addIssue({
+				code: 'custom',
+				message: 'Delivery route codes must use canonical order'
+			});
+		}
+		if (
+			route.disposition === 'automatic-rework' &&
+			(route.objectiveFailureCodes.length === 0 || route.unavailableEvidenceCodes.length !== 0)
+		) {
+			context.addIssue({
+				code: 'custom',
+				message: 'Automatic rework requires complete closed objective failure evidence'
+			});
+		}
+		if (
+			route.disposition === 'evidence-unavailable' &&
+			route.unavailableEvidenceCodes.length === 0
+		) {
+			context.addIssue({
+				code: 'custom',
+				message: 'Unavailable routing requires an unavailable evidence code'
+			});
+		}
+		if (
+			(route.disposition === 'await-human-aesthetic' || route.disposition === 'reconcile') &&
+			(route.objectiveFailureCodes.length !== 0 || route.unavailableEvidenceCodes.length !== 0)
+		) {
+			context.addIssue({
+				code: 'custom',
+				message: 'Passing routes cannot contain failure or unavailable codes'
+			});
+		}
+		const hasRenderFailure = route.objectiveFailureCodes.some(
+			(code) => SupersDeterministicRenderFailureCodeSchema.safeParse(code).success
+		);
+		if (
+			(route.disposition === 'automatic-rework' && hasRenderFailure) ||
+			route.disposition === 'await-human-aesthetic'
+		) {
+			for (const [field, digest] of [
+				['manifest', route.renderMatrixManifestDigest],
+				['bundle', route.renderMatrixBundleDigest],
+				['evidence archive', route.renderEvidenceArchiveDigest]
+			] as const) {
+				if (!SHA256_PATTERN.test(digest)) {
+					context.addIssue({
+						code: 'custom',
+						message: `Measured render routing requires an exact ${field} digest`
+					});
+				}
+			}
+		}
+		if (
+			route.disposition === 'reconcile' &&
+			(route.renderMatrixManifestDigest !== '' ||
+				route.renderMatrixBundleDigest !== '' ||
+				route.renderEvidenceArchiveDigest !== '')
+		) {
+			context.addIssue({
+				code: 'custom',
+				message: 'Not-applicable rendering cannot claim matrix or evidence digests'
+			});
+		}
+	});
+
+export type SupersDeliveryVerificationRoute = z.infer<typeof SupersDeliveryVerificationRouteSchema>;
+
+const HumanAestheticDecisionContentFields = {
+	schemaVersion: z.literal(1),
+	workItem: DomainIdSchema,
+	factoryName: DomainIdSchema,
+	gateId: z.literal('aesthetic-acceptance'),
+	stageId: z.literal('aesthetic-approval'),
+	cycle: z.number().int().positive(),
+	verificationRouteResourceName: z.string().min(1),
+	matrixBundleResourceName: z.string().min(1),
+	factoryStateResourceName: z.string().min(1),
+	factoryApprovalResourceName: z.string().min(1),
+	integratedRevision: GitRevisionSchema,
+	integratedTreeFingerprint: Sha256Schema,
+	treeFingerprint: Sha256Schema,
+	deterministicFanoutResourceName: z.string().min(1),
+	deterministicFanoutContentDigest: Sha256Schema,
+	deterministicFanoutWorkflowRunId: DomainIdSchema,
+	policySweepResourceName: z.string().min(1),
+	policySweepWorkflowId: z.literal('5eb573fe-76e7-4b59-8ff6-bfccc0ec3b7a'),
+	policySweepWorkflowName: z.literal('policy-sweep'),
+	policySweepWorkflowVersion: z.literal(2),
+	policySweepWorkflowRunId: DomainIdSchema,
+	policySweepExecutionDigest: Sha256Schema,
+	policyReceipts: z.array(SupersVerificationReceiptIdentitySchema).length(4),
+	corpusReceipt: SupersVerificationReceiptIdentitySchema,
+	renderMatrixRunName: z.string().min(1),
+	renderMatrixManifestName: z.string().min(1),
+	renderMatrixBundleName: z.string().min(1),
+	verificationWorkflowRunId: DomainIdSchema,
+	renderMatrixManifestDigest: Sha256Schema,
+	renderMatrixBundleDigest: Sha256Schema,
+	renderMatrixRunDigest: Sha256Schema,
+	renderEvidenceArchiveDigest: Sha256Schema,
 	approvalReceiptId: Sha256Schema,
-	authenticatedActorId: DomainIdSchema,
+	approvalIdentity: z.string().min(1).max(256),
 	decision: z.enum(['accept', 'reject']),
 	note: z.string().max(4_000)
+};
+
+/** Content-addressed decision derived only at the trusted Factory approval boundary. */
+export const SupersHumanAestheticDecisionSchema = z.strictObject({
+	...HumanAestheticDecisionContentFields,
+	decisionId: Sha256Schema
 });
 
 export type SupersHumanAestheticDecision = z.infer<typeof SupersHumanAestheticDecisionSchema>;
 
-/** Verify evidence binding after loading the decision from the trusted approval resource. */
-export function verifySupersHumanAestheticDecision(
+/** Verify both content hashes and exact evidence binding after loading trusted resources. */
+export async function verifySupersHumanAestheticDecision(
 	rawDecision: unknown,
-	verifiedBundle: SupersRenderMatrixBundle
-): SupersHumanAestheticDecision {
+	verifiedBundle: SupersRenderMatrixBundle,
+	rawApproval: unknown
+): Promise<SupersHumanAestheticDecision> {
 	const decision = SupersHumanAestheticDecisionSchema.parse(rawDecision);
-	if (decision.evidenceBundleDigest !== verifiedBundle.bundleDigest) {
-		throw new TypeError('Human aesthetic decision targets a different evidence bundle');
+	if (decision.renderMatrixBundleDigest !== verifiedBundle.bundleDigest) {
+		throw new TypeError('Human aesthetic decision targets a different render matrix bundle');
+	}
+	const approvalReceiptId = await createSupersDeterministicContractHash(rawApproval);
+	if (decision.approvalReceiptId !== approvalReceiptId) {
+		throw new TypeError('Human aesthetic approval receipt digest mismatch');
+	}
+	const expectedDecisionId = await createSupersDeterministicContractHash(
+		withoutProperty(decision, 'decisionId')
+	);
+	if (decision.decisionId !== expectedDecisionId) {
+		throw new TypeError('Human aesthetic decision digest mismatch');
 	}
 	return decision;
 }

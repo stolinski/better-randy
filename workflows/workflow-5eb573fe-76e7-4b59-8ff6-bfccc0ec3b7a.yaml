@@ -2,6 +2,16 @@ id: 5eb573fe-76e7-4b59-8ff6-bfccc0ec3b7a
 name: policy-sweep
 tags:
   purpose: repo-policy
+inputs:
+  type: object
+  properties:
+    workItem:
+      type: string
+      pattern: '^[a-z0-9][a-z0-9._:-]{0,127}$'
+    routingWorkflowRunId:
+      type: string
+      pattern: '^[a-z0-9][a-z0-9._:-]{0,127}$'
+  additionalProperties: false
 jobs:
   - name: main
     description: >-
@@ -56,15 +66,69 @@ jobs:
         dependsOn: []
         weight: 0
         allowFailure: false
+      - name: record-delivery-policy-sweep
+        description: Bind exact canonical receipts before assertions can make the policy workflow red.
+        task:
+          type: model_method
+          modelIdOrName: supers-delivery-verification-router
+          methodName: record-policy-sweep-execution
+          inputs:
+            schemaVersion: 1
+            workItem: '${{ has(inputs.workItem) ? inputs.workItem : "standalone-policy-sweep" }}'
+            routingWorkflowRunId: '${{ has(inputs.routingWorkflowRunId) ? inputs.routingWorkflowRunId : run.id }}'
+            policyWorkflowId: 5eb573fe-76e7-4b59-8ff6-bfccc0ec3b7a
+            policyWorkflowName: policy-sweep
+            policyWorkflowVersion: 2
+            policyWorkflowRunId: '${{ run.id }}'
+            policyReceipts:
+              - modelName: repo-audit
+                specName: timing
+                resourceName: timing-latest
+                workflowRunId: '${{ run.id }}'
+                content: '${{ data.query(''modelName == "repo-audit" && specName == "timing" && name == "timing-latest" && workflowRunId == "'' + run.id + ''"'')[0].attributes }}'
+              - modelName: repo-audit
+                specName: tracking
+                resourceName: tracking-latest
+                workflowRunId: '${{ run.id }}'
+                content: '${{ data.query(''modelName == "repo-audit" && specName == "tracking" && name == "tracking-latest" && workflowRunId == "'' + run.id + ''"'')[0].attributes }}'
+              - modelName: repo-audit
+                specName: parity
+                resourceName: parity-latest
+                workflowRunId: '${{ run.id }}'
+                content: '${{ data.query(''modelName == "repo-audit" && specName == "parity" && name == "parity-latest" && workflowRunId == "'' + run.id + ''"'')[0].attributes }}'
+              - modelName: repo-audit
+                specName: planning
+                resourceName: planning-latest
+                workflowRunId: '${{ run.id }}'
+                content: '${{ data.query(''modelName == "repo-audit" && specName == "planning" && name == "planning-latest" && workflowRunId == "'' + run.id + ''"'')[0].attributes }}'
+            corpusReceipt:
+              modelName: corpus-verify
+              specName: sweep
+              resourceName: sweep-latest
+              workflowRunId: '${{ run.id }}'
+              content: '${{ data.query(''modelName == "corpus-verify" && specName == "sweep" && name == "sweep-latest" && workflowRunId == "'' + run.id + ''"'')[0].attributes }}'
+        dependsOn:
+          - step: audit-timing
+            condition: { type: succeeded }
+          - step: audit-tracking
+            condition: { type: succeeded }
+          - step: audit-parity
+            condition: { type: succeeded }
+          - step: audit-planning
+            condition: { type: succeeded }
+          - step: corpus-sweep
+            condition: { type: succeeded }
+        weight: 0
+        allowFailure: false
       - name: assert-timing-clean
         description: Every fraction-window site is rescaled
         task:
           type: assert
-          expr: data.latest("repo-audit", "timing-latest").attributes.clean == true
+          expr: data.query('modelName == "repo-audit" && specName == "timing" && name == "timing-latest" && workflowRunId == "' + run.id + '"')[0].attributes.clean == true
           message: rescaleCompositionTimings misses fraction-window sites — see repo-audit timing-latest
           severity: high
         dependsOn:
-          - step: audit-timing
+          - step: record-delivery-policy-sweep
             condition:
               type: succeeded
         weight: 0
@@ -73,11 +137,11 @@ jobs:
         description: Every schema content field is tracked by the rebuild effect
         task:
           type: assert
-          expr: data.latest("repo-audit", "tracking-latest").attributes.clean == true
+          expr: data.query('modelName == "repo-audit" && specName == "tracking" && name == "tracking-latest" && workflowRunId == "' + run.id + '"')[0].attributes.clean == true
           message: trackCompositionAuthoringDependencies misses schema content fields — see repo-audit tracking-latest
           severity: high
         dependsOn:
-          - step: audit-tracking
+          - step: record-delivery-policy-sweep
             condition:
               type: succeeded
         weight: 0
@@ -86,11 +150,11 @@ jobs:
         description: No GUI-agent parity gaps
         task:
           type: assert
-          expr: data.latest("repo-audit", "parity-latest").attributes.clean == true
+          expr: data.query('modelName == "repo-audit" && specName == "parity" && name == "parity-latest" && workflowRunId == "' + run.id + '"')[0].attributes.clean == true
           message: schema fields exist without a GUI editor — see repo-audit parity-latest
           severity: high
         dependsOn:
-          - step: audit-parity
+          - step: record-delivery-policy-sweep
             condition:
               type: succeeded
         weight: 0
@@ -99,11 +163,11 @@ jobs:
         description: Roadmap, ADR, Brief, ideas, and dex planning tiers match their declared meanings
         task:
           type: assert
-          expr: data.latest("repo-audit", "planning-latest").attributes.clean == true
+          expr: data.query('modelName == "repo-audit" && specName == "planning" && name == "planning-latest" && workflowRunId == "' + run.id + '"')[0].attributes.clean == true
           message: planning drift — `swamp report get @supers/planning-state --model repo-audit` names each drifted file path and dex id
           severity: high
         dependsOn:
-          - step: audit-planning
+          - step: record-delivery-policy-sweep
             condition:
               type: succeeded
         weight: 0
@@ -112,15 +176,15 @@ jobs:
         description: Every corpus preset passes schema, semantic, and static lint
         task:
           type: assert
-          expr: data.latest("corpus-verify", "sweep-latest").attributes.clean == true
+          expr: data.query('modelName == "corpus-verify" && specName == "sweep" && name == "sweep-latest" && workflowRunId == "' + run.id + '"')[0].attributes.clean == true
           message: corpus presets failing verification — see corpus-verify sweep-latest
           severity: high
         dependsOn:
-          - step: corpus-sweep
+          - step: record-delivery-policy-sweep
             condition:
               type: succeeded
         weight: 0
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 1
+version: 2

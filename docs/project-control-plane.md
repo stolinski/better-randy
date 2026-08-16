@@ -86,8 +86,8 @@ Gating findings (`clean: false`, exit 1):
   **shipped**) against an ADR still categorized "Designed, not built".
 - **`stale-brief`** — no Brief targets (by filename slug, `**Slug:**`, or
   declared verification preset) a preset that ships as `kind: "deliverable"` —
-  the [Brief invariant](briefs/README.md) requires deleting the Brief when its
-  target ACCEPTs.
+  the [Brief invariant](briefs/README.md) requires a separately classified
+  retirement change when the declared boundary ships.
 - **`ideas-inventory`** — `docs/ideas/` and `docs/history/` folder contents
   match their README indexes exactly.
 - **`ideas-historical`** — no idea doc self-declares shipped/complete status;
@@ -221,7 +221,7 @@ idea/history, or task prose; it records only compact execution artifacts and
 evidence.
 
 Its path is
-`preflight baseline capture → isolated implementation → serialized parent integration → change-summary → workflow-owned classification → complete required verification → optional Critic/human review → reconciliation → postflight → terminal Dex cleanup`.
+`preflight baseline capture → isolated implementation → serialized parent integration → change-summary → workflow-owned classification → deterministic verification route → exact-bundle human aesthetic gate when rendering is affected → reconciliation → postflight → terminal Dex cleanup`.
 The project fleet driver is [`.claude/skills/supers-factory-fleet/SKILL.md`](../.claude/skills/supers-factory-fleet/SKILL.md).
 It launches one Pi-managed worktree writer per approved root, with no fixed
 product lane cap, then queues durable Pi handoffs. The single parent validates
@@ -230,21 +230,7 @@ parent records the canonical integration receipt in `change-summary` before
 classification. Reconciliation never integrates or otherwise mutates the
 repository.
 
-Classification unions `baseline..HEAD`, staged/unstaged/deleted files, and
-untracked files, then seals a content-sensitive tree fingerprint. Verification
-runs `factory-verification-fanout` once: the canonical policy workflow supplies
-`policy-sweep` and `corpus` evidence, while one `repo-audit.run-verification-fanout`
-model execution runs the selected `check`, `unit`, and `structural` commands
-concurrently and stores every bounded outcome even when a lane fails. The agent
-then runs only classified browser, visual, Pack-matrix, or export-decode work.
-Executed lane ids must be unique and exactly equal classified ids. Pixel evidence
-is `changed`, `unchanged`, or `unavailable`; unavailable or contradictory results
-rework. Changed pixels need visual targets and reach an isolated Critic;
-unchanged pixels reconcile directly. The profile retains typed `visual-review`
-findings and a typed `visual-verdict` carrying status, recommendation, summary,
-and evidence. Reconciliation is read-only: any missing documentation, Brief, or
-tracker-file edit returns to implementation so classification and verification
-cover it. Postflight first asserts the classified tree fingerprint, then runs
+Classification unions `baseline..HEAD`, staged/unstaged/deleted files, and untracked files, then seals a content-sensitive tree fingerprint. The deterministic Delivery workflow correlates the exact hash-named fanout resource, its content digest and workflow run, and canonical affected render matrix/report evidence to that fingerprint. The canonical `policy-sweep` first binds exact policy/corpus resource names, clean states, content digests, workflow identity, workflow run id, and an execution digest before its assertion steps can make that child run red. Delivery continues after the closed assertion result and accepts only the bound policy execution whose routing run is the current verification run; internally consistent stale sets and renamed copies are rejected. A completed render matrix never substitutes for a selected browser lane. The trusted router derives one closed disposition: verified policy, corpus, command, or render failures may route automatic rework; unavailable, stale, mismatched, incomplete, duplicate, extra, zero-signal, or unexecuted required-lane evidence pauses in `evidence-unavailable`; a passing affected matrix pauses the whole serialized queue for exact-bundle human aesthetic approval; proven render non-applicability reconciles directly. Mixed failure plus unavailable evidence remains unavailable. Critic observations are advisory only and appear in no gate CEL. Reconciliation is completion-only and cannot route subjective or prose-controlled rework. Postflight first asserts the classified tree fingerprint, then runs
 policy. Only the generated `terminal-cleanup` stage calls the typed tracker
 `complete` method with CEL-bound reconciliation data; no Factory stage embeds a
 Dex shell command.
@@ -402,16 +388,16 @@ for historical receipt recovery and is not an authoring or operations path.
 
 ## Gates
 
-- **`policy-sweep` workflow** (`workflows/workflow-5eb573fe….yaml`) — unchanged
-  standalone DAG: five audits fan out, then one assert per resource turns
-  findings into a red run.
+- **`policy-sweep` workflow** (`workflows/workflow-5eb573fe….yaml`) — five
+  collection methods fan out, then the canonical Delivery receipt is bound for
+  the exact current run before one assert per resource turns findings into a red
+  child run. Delivery can therefore retain closed failures as route evidence.
 - **`factory-policy-sweep`** — runs policy, captures the work-item baseline,
   then records correlated preflight evidence with `run.id`.
 - **`factory-classify-change`** — classifies trusted Git state, then records the
   exact current-run report and evidence inside one workflow.
-- **`factory-verification-fanout`** — rejects tree-fingerprint drift, runs the
-  canonical policy workflow, then executes the selected deterministic verification
-  commands concurrently through one model method and asserts the stored outcomes.
+- **`supers-delivery-deterministic-verification`** — rejects tree-fingerprint drift, runs canonical policy and static corpus gates, executes the selected check/unit/structural commands through one fan-out method, verifies the affected render matrix, and records only the router-derived disposition.
+- **`supers-bind-human-aesthetic-decision`** — binds the current-cycle human approval identity to the exact work item, integrated revision and tree, matrix run/manifest/bundle/evidence digests, and Factory resources before recording acceptance or rejection.
 - **`factory-postflight-sweep`** — rejects tree-fingerprint drift before policy
   and correlated postflight evidence.
 

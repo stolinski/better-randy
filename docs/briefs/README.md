@@ -1,14 +1,14 @@
 # Supers Briefs
 
-A **Brief** is the markdown directive for one not-yet-shipped **Preset**, **Pipeline**, or content domain. One file per in-flight idea. Authored by the **Brainstorm** agent (`/brainstorm <slug>`), read by the **Producer** sub-agent (`/author <slug>`), never seen by the **Critic**. Deleted when the target (or declared verification) Preset returns `ACCEPT` from `/critic`.
+A **Brief** is the markdown directive for one not-yet-shipped **Preset**, **Pipeline**, or content domain. One file per in-flight idea. Authored by the **Brainstorm** agent (`/brainstorm <slug>`) and read by the **Producer** sub-agent (`/author <slug>`). Critic observations never authorize Brief deletion.
 
 Background: [ADR-0007](../adr/0007-brainstorm-brief-system.md). Glossary entry: [`CONTEXT.md` § Brief](../CONTEXT.md).
 
 ## Invariant
 
-> If `docs/briefs/<slug>.md` exists, then its target Preset (or, for non-Preset Briefs, its declared `verification preset`) is not yet Critic-`ACCEPT`-ed.
+> If `docs/briefs/<slug>.md` exists, its declared implementation and documentation boundary remains active.
 
-One-way implication, not a biconditional. The converse — *every* preset must have a Brief at some point — does **not** hold. Presets that shipped before this system landed (the original `quote-*`, `research-paper-*`, `lower-third`) have no Brief and never will. `/critic` runs against them work normally; `ACCEPT` is just a no-op on the briefs folder.
+Brief retirement is a classified implementation/documentation change. It is governed by planning audit and the human-bound Delivery record, never by Critic prose.
 
 The folder is the current in-flight surface of *newly authored* work, not a complete record of every preset.
 
@@ -18,7 +18,7 @@ Existing presets are grandfathered. The rules:
 
 - **`/critic <existing-slug>`** — works as before. Critic never reads a Brief.
 - **`/author <existing-slug>`** — errors. Authoring requires a Brief. If you want to *rewrite* an existing preset, run `/brainstorm <existing-slug>` first; the skill will detect the JSON and ask whether this is a new variant slug, a rewrite (which creates a Brief and the rewrite then follows the standard lifecycle), or a misnamed slug.
-- **A retroactive Brief** is never required. If a pre-Brief preset gets a `REVISE` from `/critic`, the user can fix the JSON in any session; no Brief needs to exist.
+- **A retroactive Brief** is never required. Critic observations do not create, retire, or mutate Briefs.
 
 ## Lifecycle
 
@@ -31,14 +31,15 @@ Existing presets are grandfathered. The rules:
                         Preset (and any Pipeline / ADR the Brief declares).
                         Brief stays put through this step.
                       ↓
-/critic <slug>        → Returns REVISE | IMPLEMENTATION-FIX-REQUIRED | ACCEPT.
-                        Anything except ACCEPT loops back to /author.
-                        Brief stays through every REVISE round.
+deterministic Delivery → Closed objective checks verify the integrated tree.
                       ↓
-ACCEPT                → Brief deleted in the commit that lands the ACCEPT.
+human aesthetic gate  → Human decision binds the exact render evidence.
+                      ↓
+retirement change     → Brief deletion lands as a classified documentation
+                        change after its declared boundary is complete.
 ```
 
-For a `pipeline` or `domain` Brief, ACCEPT also closes the documentation boundary declared by that Brief. The landing change must update current-state docs from the code that actually shipped, reconcile any designed ADR/roadmap status, and delete the Brief. Do not add an active-Brief catalog here; the files present in this folder are the live inventory.
+For a `pipeline` or `domain` Brief, the landing change closes the declared documentation boundary only after the shipped code, planning audit, and human-bound Delivery record agree. Do not add an active-Brief catalog here; the files present in this folder are the live inventory.
 
 ## Where Briefs sit relative to existing docs
 
@@ -46,7 +47,7 @@ For a `pipeline` or `domain` Brief, ACCEPT also closes the documentation boundar
 |---|---|---|
 | [`docs/ideas/`](../ideas/) | Speculative product surface — a thing that *might* be built someday (CLI, transcript flow). | Indefinite. |
 | [`docs/roadmap.md`](../roadmap.md) | The backlog — *designed or wanted, not yet built* (incl. starter templates). | Until built (then an ADR). |
-| [`docs/briefs/`](.) | A thing *about to be built*. | Until its verification Preset Critic-`ACCEPT`-s. |
+| [`docs/briefs/`](.) | A thing *about to be built*. | Until its declared implementation/documentation boundary is retired through Delivery. |
 
 If a Brief stalls — open questions can't resolve, or the idea no longer fits — delete the Brief manually with a one-line commit explaining why. Stalled Briefs are not allowed to linger.
 
@@ -92,8 +93,8 @@ If a "lean out" move is being used deliberately, name it and the reason.
 Which signature elements from the selected `docs/packs/<pack>/aesthetic.md` this carries. Enumerate the Pack's own vocabulary; do not import another Pack's chrome.
 
 Note any *intentional* omissions. The Producer will carry these into the
-Preset's `description` field so the Critic doesn't re-flag them as
-`aesthetic-miss`.
+Preset's `description` field so future human and optional advisory review retains
+that intent.
 
 ## Engine work required
 
@@ -116,12 +117,9 @@ during authoring" is not allowed.
 ## What 'done' looks like
 
 The concrete deliverables and the gate. For `kind: preset`:
-"`src/lib/presets/<slug>.json` Critic-`ACCEPT`s at native horizontal
-(3840×2160) and vertical (2160×3840) resolutions with no orientation-specific
-sibling Preset."
+"`src/lib/presets/<slug>.json` passes the deterministic affected render matrix at native horizontal (3840×2160) and vertical (2160×3840), and its exact evidence bundle receives human aesthetic approval, with no orientation-specific sibling Preset."
 For `kind: pipeline` / `kind: domain`: list every artifact (pipeline files,
-ADR, preset) and name the verification Preset whose `ACCEPT` is the delete
-trigger. Every Brief's acceptance section must explicitly require both native
+ADR, preset) and name the verification Preset covered by deterministic Delivery and the exact-evidence human gate. Every Brief's acceptance section must explicitly require both native
 horizontal and vertical renders, even when orientation was otherwise irrelevant
 to the discussion.
 ```

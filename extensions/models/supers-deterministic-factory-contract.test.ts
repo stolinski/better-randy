@@ -862,24 +862,88 @@ Deno.test('advisory observations have no blocking or routing authority', () => {
 Deno.test('human decisions require a trusted approval receipt bound to evidence', async () => {
 	const fixture = await verifiedFixture();
 	const bundle = await verifySupersRenderMatrixBundle(fixture.manifest, fixture.bundle);
-	const decision = SupersHumanAestheticDecisionSchema.parse({
-		schemaVersion: 1,
-		decisionId: SHA,
-		evidenceBundleDigest: bundle.bundleDigest,
-		approvalReceiptId: SHA,
-		authenticatedActorId: 'scott',
-		decision: 'reject',
+	const approval = {
+		gateId: 'aesthetic-acceptance',
+		workItem: 'task-1',
+		decision: 'rejected',
+		actor: 'scott',
+		stageId: 'aesthetic-approval',
+		cycle: 2,
+		decidedAt: '2026-08-16T12:00:00.000Z'
+	};
+	const decisionContent = {
+		schemaVersion: 1 as const,
+		workItem: 'task-1',
+		factoryName: 'supers-delivery',
+		gateId: 'aesthetic-acceptance' as const,
+		stageId: 'aesthetic-approval' as const,
+		cycle: 2,
+		verificationRouteResourceName: 'delivery-verification-route-task-1-run-1',
+		matrixBundleResourceName: 'render-matrix-bundle-task-1',
+		factoryStateResourceName: 'state-task-1',
+		factoryApprovalResourceName: 'approval-task-1-aesthetic-acceptance',
+		integratedRevision: GIT_REVISION,
+		integratedTreeFingerprint: SECOND_SHA,
+		treeFingerprint: SHA,
+		deterministicFanoutResourceName: 'verification-fanout-hash',
+		deterministicFanoutContentDigest: SHA,
+		deterministicFanoutWorkflowRunId: 'verification-run-1',
+		policySweepResourceName: 'policy-sweep-execution-task-1-policy-run-1',
+		policySweepWorkflowId: '5eb573fe-76e7-4b59-8ff6-bfccc0ec3b7a',
+		policySweepWorkflowName: 'policy-sweep',
+		policySweepWorkflowVersion: 2,
+		policySweepWorkflowRunId: 'policy-run-1',
+		policySweepExecutionDigest: SHA,
+		policyReceipts: ['parity', 'planning', 'timing', 'tracking'].map((specName) => ({
+			modelName: 'repo-audit',
+			specName,
+			resourceName: `${specName}-latest`,
+			workflowRunId: 'policy-run-1',
+			contentDigest: SHA
+		})),
+		corpusReceipt: {
+			modelName: 'corpus-verify',
+			specName: 'sweep',
+			resourceName: 'sweep-latest',
+			workflowRunId: 'policy-run-1',
+			contentDigest: SHA
+		},
+		renderMatrixRunName: 'render-matrix-run-task-1',
+		renderMatrixManifestName: 'render-matrix-manifest-task-1',
+		renderMatrixBundleName: 'render-matrix-bundle-task-1',
+		verificationWorkflowRunId: 'verification-run-1',
+		renderMatrixManifestDigest: SHA,
+		renderMatrixBundleDigest: bundle.bundleDigest,
+		renderMatrixRunDigest: SECOND_SHA,
+		renderEvidenceArchiveDigest: SHA,
+		approvalReceiptId: await createSupersDeterministicContractHash(approval),
+		approvalIdentity: 'scott',
+		decision: 'reject' as const,
 		note: 'The motion hierarchy still needs work.'
+	};
+	const decision = SupersHumanAestheticDecisionSchema.parse({
+		...decisionContent,
+		decisionId: await createSupersDeterministicContractHash(decisionContent)
 	});
-	assert.equal(verifySupersHumanAestheticDecision(decision, bundle).authenticatedActorId, 'scott');
+	assert.equal(
+		(await verifySupersHumanAestheticDecision(decision, bundle, approval)).approvalIdentity,
+		'scott'
+	);
 	assert.throws(() =>
 		SupersHumanAestheticDecisionSchema.parse({
 			...decision,
 			authority: 'human-aesthetic'
 		})
 	);
-	assert.throws(() =>
-		verifySupersHumanAestheticDecision({ ...decision, evidenceBundleDigest: SECOND_SHA }, bundle)
+	await assert.rejects(() =>
+		verifySupersHumanAestheticDecision(
+			{ ...decision, renderMatrixBundleDigest: SECOND_SHA },
+			bundle,
+			approval
+		)
+	);
+	await assert.rejects(() =>
+		verifySupersHumanAestheticDecision(decision, bundle, { ...approval, actor: 'mallory' })
 	);
 });
 

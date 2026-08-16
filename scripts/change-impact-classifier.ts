@@ -6,7 +6,7 @@ export type VerificationLaneId =
 	| 'structural'
 	| 'corpus'
 	| 'browser'
-	| 'visual'
+	| 'render-matrix'
 	| 'pack-matrix'
 	| 'export-decode';
 
@@ -18,7 +18,6 @@ export type VerificationLane = {
 export type ChangeImpactClassification = {
 	paths: string[];
 	lanes: VerificationLane[];
-	visualReviewCandidate: boolean;
 };
 
 const PORCELAIN_STATUS_WIDTH = 3;
@@ -185,8 +184,8 @@ const LANE_RULES: LaneRule[] = [
 		matches: isBrowserPath
 	},
 	{
-		id: 'visual',
-		reason: 'rendered pixels may change',
+		id: 'render-matrix',
+		reason: 'canonical affected render matrix may change',
 		matches: (path) => isRenderPath(path) || isStylesheetPath(path) || isVisualAssetPath(path)
 	},
 	{
@@ -303,7 +302,6 @@ export function classifyChangeImpact(paths: string[]): ChangeImpactClassificatio
 
 	return {
 		paths: normalizedPaths,
-		lanes,
-		visualReviewCandidate: lanes.some((lane) => lane.id === 'visual')
+		lanes
 	};
 }

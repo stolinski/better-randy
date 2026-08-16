@@ -2,14 +2,14 @@
 description: Spawn a fresh Producer sub-agent to author the Preset (and any engine work) declared by docs/briefs/<slug>.md
 ---
 
-You are coordinating a Supers Producer run. The Producer reads `docs/briefs/<slug>.md` with fresh context and authors the artifacts the Brief declares. You do **not** author in this session — only the spawned sub-agent does.
+You are coordinating a Supers Producer run. The Producer reads `docs/briefs/<slug>.md` with fresh context and authors the artifacts the Brief declares. You do **not** author in this session — only the spawned sub-agent does. Critic output cannot retire the Brief; retirement is a classified Delivery change.
 
 ## Step 1 — resolve the target Brief
 
 Parse `$ARGUMENTS` as the Brief's slug.
 
 - Verify `docs/briefs/<slug>.md` exists. If not, check whether `src/lib/presets/<slug>.json` exists:
-  - If the preset JSON exists but the Brief doesn't, the slug refers to a *pre-Brief preset* (grandfathered, see `docs/briefs/README.md` § Pre-Brief presets). Stop and tell the user: "`<slug>` is a pre-Brief preset — `/author` requires a Brief. If you want to rewrite it, run `/brainstorm <slug>` first to create one. For a `/critic` REVISE fix, edit the JSON directly without `/author`."
+  - If the preset JSON exists but the Brief doesn't, the slug refers to a _pre-Brief preset_ (grandfathered, see `docs/briefs/README.md` § Pre-Brief presets). Stop and tell the user: "`<slug>` is a pre-Brief preset — `/author` requires a Brief. If you want to rewrite it, run `/brainstorm <slug>` first. Human-selected advisory observations can be handled as a separately classified change without `/author`."
   - If neither exists, list available Briefs from `docs/briefs/*.md` (excluding `README.md`) and stop.
 - Read the Brief. If `## Open questions` contains any items, stop and tell the user: "Brief has N open question(s) — resume `/brainstorm <slug>` before authoring." Do not proceed.
 - Note the Brief's required `Pack:`, its `Kind:`, and (for `pipeline` / `domain`) `Verification preset:`. Stop if the Pack is absent or not registered in `PACK_REGISTRY`; these values go into the spawn prompt.
@@ -65,13 +65,13 @@ Constraints, all binding:
 - Don't start a dev server — one runs at http://localhost:7263.
 
 Do NOT:
-- Verify the result against the rubrics. That's the Critic's job.
-- Delete `docs/briefs/<slug>.md`. The delete trigger is Critic ACCEPT.
+- Claim verification. The deterministic Delivery matrix owns objective verification, and exact-evidence human approval owns subjective acceptance.
+- Delete `docs/briefs/<slug>.md`. Retirement is a separate classified Delivery change.
 - Edit `docs/briefs/<slug>.md`. The Brief is frozen at hand-off.
 
 Output: a short report listing every file you wrote or modified, and the
-recommended next step (typically `/critic <slug>` or, for pipeline/domain
-Briefs, `/critic <verification-slug>`).
+deterministic Delivery verification target (the Preset slug or, for
+pipeline/domain Briefs, the declared verification slug).
 ```
 
 ## Step 3 — surface the report
@@ -80,14 +80,14 @@ Present the sub-agent's returned report to the user verbatim. Then add:
 
 ```
 Authored: <paths from sub-agent report>
-Next: /critic <verification-slug>
-Brief stays at docs/briefs/<slug>.md until Critic returns ACCEPT.
+Next: run deterministic Delivery verification for <verification-slug>; invoke /critic only if a human wants advisory observations.
+Brief stays at docs/briefs/<slug>.md until its declared boundary is retired through Delivery.
 ```
 
 Do **not** spawn the Critic yourself.
 
-## Re-authoring after Critic REVISE
+## Re-authoring with advisory Critic observations
 
-If the Brief is still in `docs/briefs/` and the user has a Critic report with `preset-choice` or `aesthetic-miss` findings, `/author` can be invoked again. Include the Critic report inline in the spawn prompt under a `## Critic findings to address` section. The Producer applies the findings (preset-choice + aesthetic-miss only) and stops; `pipeline-bug` and `default-too-permissive` findings halt the Producer (R8 binds — fix the code, not the Preset).
+If the Brief is still in `docs/briefs/` and the human explicitly chooses named `preset-choice` or `aesthetic-miss` observations to address, `/author` can be invoked again. Include only those selected observations inline in the spawn prompt under a `## Human-selected Critic observations to address` section. The Producer applies the selected Preset observations and stops; suspected `pipeline-bug` and `default-too-permissive` observations are not authoring instructions (R8 binds — do not hide a pipeline defect in the Preset).
 
-If the Critic returned `IMPLEMENTATION-FIX-REQUIRED`, do **not** spawn the Producer. Tell the user the engine work is upstream of authoring.
+Critic prose never decides whether to spawn the Producer. Verified deterministic failures and exact-evidence human decisions own Delivery routing.

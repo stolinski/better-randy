@@ -21,16 +21,15 @@ test('Svelte UI changes require typed, unit, structural, and browser lanes', () 
 	]);
 });
 
-test('Pack pipeline changes add corpus, visual, and Pack-matrix lanes', () => {
+test('Pack pipeline changes add corpus, render-matrix, and Pack-matrix lanes', () => {
 	const result = classifyChangeImpact([
 		'src/lib/packs/syntax/manifest.ts',
 		'src/lib/pipelines/overlays/lower-third/identity.ts'
 	]);
 	assert.deepEqual(
 		result.lanes.map((lane) => lane.id),
-		['policy-sweep', 'check', 'unit', 'structural', 'corpus', 'visual', 'pack-matrix']
+		['policy-sweep', 'check', 'unit', 'structural', 'corpus', 'render-matrix', 'pack-matrix']
 	);
-	assert.equal(result.visualReviewCandidate, true);
 });
 
 test('export controller changes require browser and export-decode verification', () => {
@@ -43,14 +42,14 @@ test('export controller changes require browser and export-decode verification',
 	]);
 });
 
-test('stylesheets require check, structural, corpus, browser, and visual lanes', () => {
+test('stylesheets require check, structural, corpus, browser, and render-matrix lanes', () => {
 	assert.deepEqual(laneIds(['src/app.css']), [
 		'policy-sweep',
 		'check',
 		'structural',
 		'corpus',
 		'browser',
-		'visual'
+		'render-matrix'
 	]);
 });
 
@@ -60,14 +59,14 @@ test('static fonts and images require structural rendered-output verification', 
 		'structural',
 		'corpus',
 		'browser',
-		'visual'
+		'render-matrix'
 	]);
 });
 
 test('Pack fonts and assets also require Pack-matrix verification', () => {
 	assert.deepEqual(
 		laneIds(['src/lib/packs/syntax/fonts/channel.woff2', 'src/lib/packs/syntax/assets/noise.png']),
-		['policy-sweep', 'structural', 'corpus', 'browser', 'visual', 'pack-matrix']
+		['policy-sweep', 'structural', 'corpus', 'browser', 'render-matrix', 'pack-matrix']
 	);
 });
 

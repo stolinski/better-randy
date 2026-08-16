@@ -2,7 +2,7 @@
 description: Spawn a Critic sub-agent to verify a Supers Preset against the rubrics
 ---
 
-You are coordinating a Supers Critic run.
+You are coordinating an optional Supers Critic observation run. Its output is advisory only and cannot block, approve, reject, mutate, or route Delivery.
 
 ## Step 1 — resolve the target
 
@@ -24,7 +24,7 @@ Route URL: <route-url>.
 Bind to these docs and read them in order before doing anything else:
 
 1. docs/critic.md — your protocol and output format.
-2. docs/quality-rubric.md — R-rules (gating) and Q-rules.
+2. docs/quality-rubric.md — R-rules first, then Q-rules; all Critic output remains advisory.
 3. docs/animation-rubric.md — G-rules and per-Overlay rules.
 4. docs/packs/<preset.pack>/aesthetic.md — channel-fit checks (resolved from the Preset's required top-level `pack` field. A Preset without `pack` fails schema validation; never substitute `syntax`. The legacy `docs/aesthetic.md` is a redirect stub — do not bind to it).
 5. docs/CONTEXT.md — terminology.
@@ -42,9 +42,7 @@ Then execute the protocol from docs/critic.md:
   numeric output of the relevant probe script under scripts/probe-*.ts.
   If the probe doesn't exist yet, annotate `Probe: not yet implemented`
   and file a `rubric-gap` finding for the missing probe.
-- If any R-rule FAILs, stop. Output the report with
-  Recommendation: IMPLEMENTATION-FIX-REQUIRED. Do not edit the Preset
-  to hide the defect (quality-rubric.md R8).
+- If an R-rule appears to fail, record the measured observation. Do not recommend or route a fix; deterministic Delivery independently verifies closed objective failures.
 - If all R-rules PASS, walk Q-rules, G-rules, and docs/packs/<preset.pack>/aesthetic.md.
 - Classify every finding as exactly one of:
   pipeline-bug, default-too-permissive, preset-choice,
@@ -56,11 +54,9 @@ when asked "what's wrong" but plausibly invents PASS observations when asked
 without a named observation, screenshot path, and pixel coord is invalid
 and you should redo it.
 
-Output: the full report shape from docs/critic.md § Output format,
-ending with Recommendation: ACCEPT / REVISE / IMPLEMENTATION-FIX-REQUIRED.
-ACCEPT requires zero pipeline-bug and zero default-too-permissive findings.
+Output the advisory report shape from docs/critic.md § Output format. Do not include an acceptance, rejection, rework, or Delivery recommendation.
 ```
 
 ## Step 3 — surface the report
 
-Present the sub-agent's returned report to the user verbatim. Do not act on the findings yourself; the user decides next steps based on the recommendation.
+Present the advisory observations to the user. Do not act on them or translate them into Delivery transitions.

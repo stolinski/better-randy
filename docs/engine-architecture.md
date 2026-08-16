@@ -1,5 +1,7 @@
 # Supers Engine Architecture
 
+Delivery routes from a fresh deterministic affected render matrix. Missing or incomplete evidence pauses without claiming failure; Critic observations have no transition authority; subjective acceptance is a human decision bound to the exact integrated tree and evidence bundle.
+
 The data model, rendering layers, pipeline registry, appearance (Pack) system, and render path that drive every Supers **Preset**. Companion to [`preset-format.md`](preset-format.md) (the preset JSON format reference).
 
 **This doc states current truth.** Where it describes a mechanism, the code does that today. Deliberately narrower mechanisms are collected under [§ Known gaps](#known-gaps) and tracked in [`../docs/roadmap.md`](roadmap.md), not described here as if they are absent wholesale. The _why_ behind each decision lives in [`adr/`](adr/); this is the _what_.

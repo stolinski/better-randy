@@ -11,13 +11,13 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 
 | ADR                                                              | Status                                                    | Decision                                                                                 |
 | ---------------------------------------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| [0001](0001-critic-sub-agent-verification.md)                    | Build-harness                                             | Critic sub-agent + adversarial verification                                              |
+| [0001](0001-critic-sub-agent-verification.md)                    | Superseded (build-harness history)                        | Critic sub-agent + adversarial verification                                              |
 | [0002](0002-per-tool-routes-to-preset-engine.md)                 | Canon (foundational)                                      | Per-tool routes -> one Preset engine with five Layers + registry                         |
 | [0003](0003-aesthetic-neutral-rubric-split.md)                   | Canon (refined by 0025)                                   | Aesthetic-neutral rubric; Pack aesthetic owns channel fit                                |
 | [0004](0004-recipe-cookbook-over-schema-chrome.md)               | Superseded -> Starter templates in 0032                   | Recipe cookbook over schema-enforced chrome (cookbook never built)                       |
 | [0005](0005-overlay-renderer-shader-pass.md)                     | Canon                                                     | Per-overlay shader work via `OverlayRenderer.shaderPass`                                 |
 | [0006](0006-lower-third-corner-collage-card.md)                  | Superseded by 0023                                        | Lower-third collage appearance moved out of composition truth                            |
-| [0007](0007-brainstorm-brief-system.md)                          | Build-harness                                             | Brainstorm -> Brief -> Producer -> Critic                                                |
+| [0007](0007-brainstorm-brief-system.md)                          | Superseded (authoring-harness history)                    | Brainstorm -> Brief -> Producer; historical Critic ACCEPT retirement                     |
 | [0008](0008-newspaper-surface-pipeline.md)                       | Canon                                                     | `newspaper` Surface + `SurfaceRenderer.shaderPass`                                       |
 | [0009](0009-washi-tape-overlay.md)                               | Canon                                                     | `washi-tape` Overlay                                                                     |
 | [0010](0010-compose-pipeline-shaderpass-invocation.md)           | Canon                                                     | `ShaderPassDispatcher` invocation                                                        |

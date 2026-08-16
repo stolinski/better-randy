@@ -1,7 +1,7 @@
 manifestVersion: 1
 name: "@club_aqua_back_deck/dex-software-factory"
-version: "2026.08.15.1"
-description: "Compile consumer-owned Dex adapters and review policy into a portable @swamp/software-factory profile."
+version: "2026.08.16.1"
+description: "Compile consumer-owned Dex adapters and deterministic closed-objective routing into a portable @swamp/software-factory profile."
 repository: https://github.com/stolinski/better-randy
 models:
   - dex-software-factory.ts

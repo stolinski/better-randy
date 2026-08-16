@@ -1,5 +1,7 @@
 # Supers Animation Rubric
 
+This rubric supplies deterministic rules and human review criteria. Critic prose is advisory; only closed-code measured failures route automatic rework, and only an exact-evidence-bound human approval supplies subjective acceptance.
+
 This document is the rubric agents use when designing or reviewing a supers preset. Every preset shipped from `src/lib/presets/` must satisfy the **General Rules** unless the rule explicitly carves out an exception. Each **Overlay Rule** applies to the specific overlay type named in its heading.
 
 Every rule has three parts:

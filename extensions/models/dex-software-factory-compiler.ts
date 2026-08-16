@@ -9,7 +9,7 @@
  */
 import { z } from "npm:zod@4.4.3";
 
-export const DEX_SOFTWARE_FACTORY_VERSION = "2026.08.15.1";
+export const DEX_SOFTWARE_FACTORY_VERSION = "2026.08.16.1";
 const SOFTWARE_FACTORY_TARGET_VERSION = "2026.06.24.1";
 
 const FACTORY_NAME_PATTERN = /^[a-z][a-z0-9_-]*$/;
@@ -163,6 +163,22 @@ const HumanGateSchema = z.strictObject({
   minApprovals: z.number().int().positive().optional(),
 });
 
+const ClosedObjectiveRoutingSchema = z.strictObject({
+  mode: z.literal("closed-objective"),
+  unavailableStage: z.literal("evidence-unavailable"),
+  aestheticGateId: z.literal("aesthetic-acceptance"),
+  aestheticDecisionAdapter: z.strictObject({
+    mode: z.literal("workflow"),
+    workflow: FactoryNameSchema,
+  }),
+});
+
+const LegacyVerificationRoutingSchema = z.strictObject({
+  reworkCondition: z.string().min(1).optional(),
+  reviewCondition: z.string().min(1).optional(),
+  reconcileCondition: z.string().min(1).optional(),
+});
+
 const CycleBudgetsSchema = z.strictObject({
   implementation: z.number().int().positive().max(20),
   verification: z.number().int().positive().max(20),
@@ -203,15 +219,33 @@ export const DexSoftwareFactoryProfileSchema = z
       })
       .optional(),
     verificationRouting: z
-      .strictObject({
-        reworkCondition: z.string().min(1).optional(),
-        reviewCondition: z.string().min(1).optional(),
-        reconcileCondition: z.string().min(1).optional(),
-      })
+      .union([ClosedObjectiveRoutingSchema, LegacyVerificationRoutingSchema])
       .optional(),
     budgets: CycleBudgetsSchema,
   })
   .superRefine((profile, context) => {
+    if (
+      profile.verificationRouting !== undefined &&
+      "mode" in profile.verificationRouting &&
+      profile.verificationRouting.mode === "closed-objective"
+    ) {
+      if (profile.review !== undefined || profile.humanGate !== undefined) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "closed-objective routing cannot use review or legacy humanGate",
+          path: ["verificationRouting"],
+        });
+      }
+      if (profile.adapters.verification.mode !== "workflow") {
+        context.addIssue({
+          code: "custom",
+          message:
+            "closed-objective routing requires a correlated verification workflow",
+          path: ["adapters", "verification"],
+        });
+      }
+    }
     if (
       profile.completionGate !== undefined &&
       profile.adapters.dexTracker.completionWorkflow === undefined
@@ -232,6 +266,9 @@ export const DexSoftwareFactoryProfileSchema = z
         "reviewRequired",
         "nextStep",
         "summary",
+        "disposition",
+        "objectiveFailureCodes",
+        "unavailableEvidenceCodes",
       ],
       reviewVerdict: ["status", "summary"],
       reconciliation: [
@@ -350,6 +387,21 @@ function celGate(expr: string, message: string): FactoryGate {
 
 function andCondition(base: string, condition: string | undefined): string {
   return condition === undefined ? base : `(${base}) && (${condition})`;
+}
+
+function isClosedObjectiveRouting(profile: DexSoftwareFactoryProfile): boolean {
+  return (
+    profile.verificationRouting !== undefined &&
+    "mode" in profile.verificationRouting &&
+    profile.verificationRouting.mode === "closed-objective"
+  );
+}
+
+function legacyRouting(
+  profile: DexSoftwareFactoryProfile,
+): z.infer<typeof LegacyVerificationRoutingSchema> | undefined {
+  const routing = profile.verificationRouting;
+  return routing !== undefined && !("mode" in routing) ? routing : undefined;
 }
 
 function humanApprovalGate(
@@ -535,7 +587,9 @@ function changeImpactArtifact(
       "Trusted classification and complete verification plan for the current change.",
     reviews: "change-summary",
     schema: extendedArtifactSchema(
-      ["requiredLanes", "reviewCandidate", "changeFingerprint"],
+      isClosedObjectiveRouting(profile)
+        ? ["requiredLanes", "changeFingerprint"]
+        : ["requiredLanes", "reviewCandidate", "changeFingerprint"],
       {
         requiredLanes: {
           type: "array",
@@ -598,9 +652,252 @@ function verificationArtifact(
   };
 }
 
+function verificationReceiptIdentityJsonSchema(): Record<string, unknown> {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: [
+      "modelName",
+      "specName",
+      "resourceName",
+      "workflowRunId",
+      "contentDigest",
+    ],
+    properties: {
+      modelName: STRING_SCHEMA,
+      specName: STRING_SCHEMA,
+      resourceName: STRING_SCHEMA,
+      workflowRunId: STRING_SCHEMA,
+      contentDigest: { type: "string", pattern: "^[0-9a-f]{64}$" },
+    },
+  };
+}
+
+function closedObjectiveVerificationArtifact(): Record<string, unknown> {
+  return {
+    name: "verification",
+    description: "Correlated model-derived objective routing authority.",
+    reviews: "change-impact",
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "schemaVersion",
+        "workItem",
+        "integratedRevision",
+        "integratedTreeFingerprint",
+        "treeFingerprint",
+        "changeImpactResourceName",
+        "deterministicFanoutResourceName",
+        "deterministicFanoutContentDigest",
+        "deterministicFanoutWorkflowRunId",
+        "policySweepResourceName",
+        "policySweepWorkflowId",
+        "policySweepWorkflowName",
+        "policySweepWorkflowVersion",
+        "policySweepWorkflowRunId",
+        "policySweepExecutionDigest",
+        "policyReceipts",
+        "corpusReceipt",
+        "renderMatrixRunName",
+        "renderMatrixManifestName",
+        "renderMatrixBundleName",
+        "renderMatrixManifestDigest",
+        "renderMatrixBundleDigest",
+        "renderMatrixRunDigest",
+        "renderEvidenceArchiveDigest",
+        "workflowRunId",
+        "disposition",
+        "objectiveFailureCodes",
+        "unavailableEvidenceCodes",
+        "advisories",
+      ],
+      properties: {
+        schemaVersion: { type: "integer", enum: [1] },
+        workItem: STRING_SCHEMA,
+        integratedRevision: { type: "string", pattern: "^[0-9a-f]{40,64}$" },
+        integratedTreeFingerprint: {
+          type: "string",
+          pattern: "^[0-9a-f]{64}$",
+        },
+        treeFingerprint: { type: "string", pattern: "^[0-9a-f]{64}$" },
+        changeImpactResourceName: STRING_SCHEMA,
+        deterministicFanoutResourceName: STRING_SCHEMA,
+        deterministicFanoutContentDigest: {
+          type: "string",
+          pattern: "^[0-9a-f]{64}$",
+        },
+        deterministicFanoutWorkflowRunId: STRING_SCHEMA,
+        policySweepResourceName: STRING_SCHEMA,
+        policySweepWorkflowId: {
+          type: "string",
+          enum: ["5eb573fe-76e7-4b59-8ff6-bfccc0ec3b7a"],
+        },
+        policySweepWorkflowName: { type: "string", enum: ["policy-sweep"] },
+        policySweepWorkflowVersion: { type: "integer", enum: [2] },
+        policySweepWorkflowRunId: STRING_SCHEMA,
+        policySweepExecutionDigest: {
+          type: "string",
+          pattern: "^[0-9a-f]{64}$",
+        },
+        policyReceipts: {
+          type: "array",
+          minItems: 4,
+          maxItems: 4,
+          items: verificationReceiptIdentityJsonSchema(),
+        },
+        corpusReceipt: verificationReceiptIdentityJsonSchema(),
+        renderMatrixRunName: STRING_SCHEMA,
+        renderMatrixManifestName: { type: "string" },
+        renderMatrixBundleName: { type: "string" },
+        renderMatrixManifestDigest: {
+          type: "string",
+          pattern: "^$|^[0-9a-f]{64}$",
+        },
+        renderMatrixBundleDigest: {
+          type: "string",
+          pattern: "^$|^[0-9a-f]{64}$",
+        },
+        renderMatrixRunDigest: { type: "string", pattern: "^[0-9a-f]{64}$" },
+        renderEvidenceArchiveDigest: {
+          type: "string",
+          pattern: "^$|^[0-9a-f]{64}$",
+        },
+        workflowRunId: STRING_SCHEMA,
+        disposition: {
+          type: "string",
+          enum: [
+            "automatic-rework",
+            "evidence-unavailable",
+            "await-human-aesthetic",
+            "reconcile",
+          ],
+        },
+        objectiveFailureCodes: { type: "array", items: STRING_SCHEMA },
+        unavailableEvidenceCodes: { type: "array", items: STRING_SCHEMA },
+        advisories: { type: "array", items: { type: "object" } },
+      },
+    },
+  };
+}
+
+function humanAestheticDecisionArtifact(): Record<string, unknown> {
+  return {
+    name: "human-aesthetic-decision",
+    description: "Trusted exact-bundle-bound Factory human aesthetic decision.",
+    reviews: "verification",
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "schemaVersion",
+        "decisionId",
+        "workItem",
+        "factoryName",
+        "gateId",
+        "stageId",
+        "cycle",
+        "verificationRouteResourceName",
+        "matrixBundleResourceName",
+        "factoryStateResourceName",
+        "factoryApprovalResourceName",
+        "integratedRevision",
+        "integratedTreeFingerprint",
+        "treeFingerprint",
+        "deterministicFanoutResourceName",
+        "deterministicFanoutContentDigest",
+        "deterministicFanoutWorkflowRunId",
+        "policySweepResourceName",
+        "policySweepWorkflowId",
+        "policySweepWorkflowName",
+        "policySweepWorkflowVersion",
+        "policySweepWorkflowRunId",
+        "policySweepExecutionDigest",
+        "policyReceipts",
+        "corpusReceipt",
+        "renderMatrixRunName",
+        "renderMatrixManifestName",
+        "renderMatrixBundleName",
+        "verificationWorkflowRunId",
+        "renderMatrixManifestDigest",
+        "renderMatrixBundleDigest",
+        "renderMatrixRunDigest",
+        "renderEvidenceArchiveDigest",
+        "approvalReceiptId",
+        "approvalIdentity",
+        "decision",
+        "note",
+      ],
+      properties: {
+        schemaVersion: { type: "integer", enum: [1] },
+        decisionId: { type: "string", pattern: "^[0-9a-f]{64}$" },
+        workItem: STRING_SCHEMA,
+        factoryName: STRING_SCHEMA,
+        gateId: { type: "string", enum: ["aesthetic-acceptance"] },
+        stageId: { type: "string", enum: ["aesthetic-approval"] },
+        cycle: { type: "integer", minimum: 1 },
+        verificationRouteResourceName: STRING_SCHEMA,
+        matrixBundleResourceName: STRING_SCHEMA,
+        factoryStateResourceName: STRING_SCHEMA,
+        factoryApprovalResourceName: STRING_SCHEMA,
+        integratedRevision: { type: "string", pattern: "^[0-9a-f]{40,64}$" },
+        integratedTreeFingerprint: {
+          type: "string",
+          pattern: "^[0-9a-f]{64}$",
+        },
+        treeFingerprint: { type: "string", pattern: "^[0-9a-f]{64}$" },
+        deterministicFanoutResourceName: STRING_SCHEMA,
+        deterministicFanoutContentDigest: {
+          type: "string",
+          pattern: "^[0-9a-f]{64}$",
+        },
+        deterministicFanoutWorkflowRunId: STRING_SCHEMA,
+        policySweepResourceName: STRING_SCHEMA,
+        policySweepWorkflowId: {
+          type: "string",
+          enum: ["5eb573fe-76e7-4b59-8ff6-bfccc0ec3b7a"],
+        },
+        policySweepWorkflowName: { type: "string", enum: ["policy-sweep"] },
+        policySweepWorkflowVersion: { type: "integer", enum: [2] },
+        policySweepWorkflowRunId: STRING_SCHEMA,
+        policySweepExecutionDigest: {
+          type: "string",
+          pattern: "^[0-9a-f]{64}$",
+        },
+        policyReceipts: {
+          type: "array",
+          minItems: 4,
+          maxItems: 4,
+          items: verificationReceiptIdentityJsonSchema(),
+        },
+        corpusReceipt: verificationReceiptIdentityJsonSchema(),
+        renderMatrixRunName: STRING_SCHEMA,
+        renderMatrixManifestName: STRING_SCHEMA,
+        renderMatrixBundleName: STRING_SCHEMA,
+        verificationWorkflowRunId: STRING_SCHEMA,
+        renderMatrixManifestDigest: {
+          type: "string",
+          pattern: "^[0-9a-f]{64}$",
+        },
+        renderMatrixBundleDigest: { type: "string", pattern: "^[0-9a-f]{64}$" },
+        renderMatrixRunDigest: { type: "string", pattern: "^[0-9a-f]{64}$" },
+        renderEvidenceArchiveDigest: {
+          type: "string",
+          pattern: "^[0-9a-f]{64}$",
+        },
+        approvalReceiptId: { type: "string", pattern: "^[0-9a-f]{64}$" },
+        approvalIdentity: STRING_SCHEMA,
+        decision: { type: "string", enum: ["accept", "reject"] },
+        note: { type: "string" },
+      },
+    },
+  };
+}
+
 function reconciliationArtifact(
   profile: DexSoftwareFactoryProfile,
 ): Record<string, unknown> {
+  const closedObjective = isClosedObjectiveRouting(profile);
   return {
     name: "reconciliation",
     description: "Terminal disposition and typed Dex completion inputs.",
@@ -610,8 +907,14 @@ function reconciliationArtifact(
     schema: extendedArtifactSchema(
       ["status", "nextStep", "summary", "completionResult", "commit"],
       {
-        status: { type: "string", enum: ["ready", "needs-rework"] },
-        nextStep: { type: "string", enum: ["rework", "complete"] },
+        status: {
+          type: "string",
+          enum: closedObjective ? ["ready"] : ["ready", "needs-rework"],
+        },
+        nextStep: {
+          type: "string",
+          enum: closedObjective ? ["complete"] : ["rework", "complete"],
+        },
         summary: STRING_SCHEMA,
         completionResult: STRING_SCHEMA,
         commit: {
@@ -692,6 +995,193 @@ function classifyStage(profile: DexSoftwareFactoryProfile): FactoryStage {
   };
 }
 
+const CLOSED_ROUTE_FRESHNESS_EXPR = [
+  "artifacts.verification.workItem == state.workItem",
+  "artifacts.verification.integratedRevision == artifacts.change_summary.integrationReceipt.integratedRevision",
+  "artifacts.verification.integratedTreeFingerprint == artifacts.change_summary.integrationReceipt.integratedTreeFingerprint",
+  "artifacts.verification.treeFingerprint == artifacts.change_impact.changeFingerprint",
+].join(" && ");
+
+function closedObjectiveVerificationTransitions(
+  profile: DexSoftwareFactoryProfile,
+): Array<Record<string, unknown>> {
+  const adapter = profile.adapters.verification;
+  if (adapter.mode !== "workflow") {
+    throw new TypeError("closed-objective verification requires workflow mode");
+  }
+  const base = [
+    adapterSucceededGate(adapter, "verification-run", [
+      "artifact-verification",
+      "evidence-verification-run",
+    ]),
+    artifactFresh("verification"),
+  ];
+  return [
+    {
+      name: "automatic-rework",
+      to: "implementation",
+      gates: [
+        ...base,
+        celGate(
+          `${CLOSED_ROUTE_FRESHNESS_EXPR} && artifacts.verification.disposition == "automatic-rework" && size(artifacts.verification.objectiveFailureCodes) > 0 && size(artifacts.verification.unavailableEvidenceCodes) == 0`,
+          "automatic rework requires fresh complete closed objective failure evidence",
+        ),
+      ],
+    },
+    {
+      name: "evidence-unavailable",
+      to: "evidence-unavailable",
+      gates: [
+        ...base,
+        celGate(
+          `${CLOSED_ROUTE_FRESHNESS_EXPR} && artifacts.verification.disposition == "evidence-unavailable" && size(artifacts.verification.unavailableEvidenceCodes) > 0`,
+          "unavailable evidence pauses Delivery without authorizing mutation",
+        ),
+      ],
+    },
+    {
+      name: "await-human-aesthetic",
+      to: "aesthetic-approval",
+      gates: [
+        ...base,
+        celGate(
+          `${CLOSED_ROUTE_FRESHNESS_EXPR} && artifacts.verification.disposition == "await-human-aesthetic" && size(artifacts.verification.objectiveFailureCodes) == 0 && size(artifacts.verification.unavailableEvidenceCodes) == 0 && artifacts.verification.renderMatrixManifestDigest.matches("^[0-9a-f]{64}$") && artifacts.verification.renderMatrixBundleDigest.matches("^[0-9a-f]{64}$") && artifacts.verification.renderMatrixRunDigest.matches("^[0-9a-f]{64}$") && artifacts.verification.renderEvidenceArchiveDigest.matches("^[0-9a-f]{64}$")`,
+          "aesthetic review requires a complete passing exact render bundle",
+        ),
+      ],
+    },
+    {
+      name: "reconcile",
+      to: "reconciliation",
+      gates: [
+        ...base,
+        celGate(
+          `${CLOSED_ROUTE_FRESHNESS_EXPR} && artifacts.verification.disposition == "reconcile" && size(artifacts.verification.objectiveFailureCodes) == 0 && size(artifacts.verification.unavailableEvidenceCodes) == 0`,
+          "reconciliation requires complete passing objective evidence and proven render non-applicability",
+        ),
+      ],
+    },
+  ];
+}
+
+function evidenceUnavailableStage(): FactoryStage {
+  return {
+    id: "evidence-unavailable",
+    description:
+      "Pause the serialized Delivery tail until deterministic evidence can be retried.",
+    transitions: [
+      {
+        name: "retry-verification",
+        to: "verification",
+        gates: [{
+          type: "human-approval",
+          config: { id: "retry-verification" },
+        }],
+      },
+    ],
+  };
+}
+
+function aestheticApprovalStage(): FactoryStage {
+  return {
+    id: "aesthetic-approval",
+    description:
+      "Pause the entire serialized integration queue for exact-bundle human aesthetic judgment.",
+    transitions: [
+      {
+        name: "bind-approval",
+        to: "aesthetic-decision-binding",
+        gates: [{
+          type: "human-approval",
+          config: { id: "aesthetic-acceptance" },
+        }],
+      },
+      {
+        name: "bind-rejection",
+        to: "aesthetic-decision-binding",
+        gates: [humanRejectionGate({ id: "aesthetic-acceptance" })],
+      },
+    ],
+  };
+}
+
+function aestheticDecisionBindingStage(
+  profile: DexSoftwareFactoryProfile,
+): FactoryStage {
+  const routing = profile.verificationRouting;
+  if (routing === undefined || !("mode" in routing)) {
+    throw new TypeError("closed-objective routing missing");
+  }
+  const adapter = {
+    mode: "workflow" as const,
+    workflow: routing.aestheticDecisionAdapter.workflow,
+  };
+  const exactEvidenceBinding = [
+    "artifacts.human_aesthetic_decision.integratedRevision == artifacts.verification.integratedRevision",
+    "artifacts.human_aesthetic_decision.integratedTreeFingerprint == artifacts.verification.integratedTreeFingerprint",
+    "artifacts.human_aesthetic_decision.treeFingerprint == artifacts.verification.treeFingerprint",
+    "artifacts.human_aesthetic_decision.deterministicFanoutResourceName == artifacts.verification.deterministicFanoutResourceName",
+    "artifacts.human_aesthetic_decision.deterministicFanoutContentDigest == artifacts.verification.deterministicFanoutContentDigest",
+    "artifacts.human_aesthetic_decision.deterministicFanoutWorkflowRunId == artifacts.verification.deterministicFanoutWorkflowRunId",
+    "artifacts.human_aesthetic_decision.policySweepResourceName == artifacts.verification.policySweepResourceName",
+    "artifacts.human_aesthetic_decision.policySweepWorkflowId == artifacts.verification.policySweepWorkflowId",
+    "artifacts.human_aesthetic_decision.policySweepWorkflowName == artifacts.verification.policySweepWorkflowName",
+    "artifacts.human_aesthetic_decision.policySweepWorkflowVersion == artifacts.verification.policySweepWorkflowVersion",
+    "artifacts.human_aesthetic_decision.policySweepWorkflowRunId == artifacts.verification.policySweepWorkflowRunId",
+    "artifacts.human_aesthetic_decision.policySweepExecutionDigest == artifacts.verification.policySweepExecutionDigest",
+    "artifacts.human_aesthetic_decision.policyReceipts == artifacts.verification.policyReceipts",
+    "artifacts.human_aesthetic_decision.corpusReceipt == artifacts.verification.corpusReceipt",
+    "artifacts.human_aesthetic_decision.renderMatrixRunName == artifacts.verification.renderMatrixRunName",
+    "artifacts.human_aesthetic_decision.renderMatrixManifestName == artifacts.verification.renderMatrixManifestName",
+    "artifacts.human_aesthetic_decision.renderMatrixBundleName == artifacts.verification.renderMatrixBundleName",
+    "artifacts.human_aesthetic_decision.verificationWorkflowRunId == artifacts.verification.workflowRunId",
+    "artifacts.human_aesthetic_decision.renderMatrixManifestDigest == artifacts.verification.renderMatrixManifestDigest",
+    "artifacts.human_aesthetic_decision.renderMatrixBundleDigest == artifacts.verification.renderMatrixBundleDigest",
+    "artifacts.human_aesthetic_decision.renderMatrixRunDigest == artifacts.verification.renderMatrixRunDigest",
+    "artifacts.human_aesthetic_decision.renderEvidenceArchiveDigest == artifacts.verification.renderEvidenceArchiveDigest",
+  ].join(" && ");
+  return {
+    id: "aesthetic-decision-binding",
+    description:
+      "Bind the trusted Factory approval record to the exact verified evidence bundle.",
+    maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
+    work: adapterWork(adapter, "human-aesthetic-decision-run"),
+    artifacts: [humanAestheticDecisionArtifact()],
+    transitions: [
+      {
+        name: "accept",
+        to: "reconciliation",
+        gates: [
+          adapterSucceededGate(adapter, "human-aesthetic-decision-run", [
+            "artifact-human-aesthetic-decision",
+            "evidence-human-aesthetic-decision-run",
+          ]),
+          artifactFresh("human-aesthetic-decision"),
+          celGate(
+            `artifacts.human_aesthetic_decision.decision == "accept" && ${exactEvidenceBinding}`,
+            "acceptance requires the trusted current evidence-bound human decision",
+          ),
+        ],
+      },
+      {
+        name: "human-revision",
+        to: "implementation",
+        gates: [
+          adapterSucceededGate(adapter, "human-aesthetic-decision-run", [
+            "artifact-human-aesthetic-decision",
+            "evidence-human-aesthetic-decision-run",
+          ]),
+          artifactFresh("human-aesthetic-decision"),
+          celGate(
+            `artifacts.human_aesthetic_decision.decision == "reject" && ${exactEvidenceBinding}`,
+            "revision requires the trusted current evidence-bound human rejection",
+          ),
+        ],
+      },
+    ],
+  };
+}
+
 function verificationTransitions(
   profile: DexSoftwareFactoryProfile,
 ): Array<Record<string, unknown>> {
@@ -699,10 +1189,9 @@ function verificationTransitions(
   const baseGates = [adapterGate, artifactFresh("verification")];
   const nonPassingResult =
     'artifacts.verification.status != "passed" || artifacts.verification.executedLanes.exists(lane, lane.status != "passed")';
-  const reworkReason =
-    profile.verificationRouting?.reworkCondition === undefined
-      ? nonPassingResult
-      : `(${nonPassingResult}) || (${profile.verificationRouting.reworkCondition})`;
+  const reworkReason = legacyRouting(profile)?.reworkCondition === undefined
+    ? nonPassingResult
+    : `(${nonPassingResult}) || (${legacyRouting(profile)?.reworkCondition})`;
   const transitions: Array<Record<string, unknown>> = [
     {
       name: "rework",
@@ -726,7 +1215,7 @@ function verificationTransitions(
         celGate(
           andCondition(
             `${VERIFICATION_PASS_EXPR} && artifacts.verification.reviewRequired && artifacts.verification.nextStep == "review"`,
-            profile.verificationRouting?.reviewCondition,
+            legacyRouting(profile)?.reviewCondition,
           ),
           "review requires complete passing verification, reviewRequired=true, and nextStep=review",
         ),
@@ -742,7 +1231,7 @@ function verificationTransitions(
       celGate(
         andCondition(
           `${VERIFICATION_PASS_EXPR} && !artifacts.verification.reviewRequired && artifacts.verification.nextStep == "reconcile"`,
-          profile.verificationRouting?.reconcileCondition,
+          legacyRouting(profile)?.reconcileCondition,
         ),
         "reconciliation requires complete passing verification, reviewRequired=false, and nextStep=reconcile",
       ),
@@ -761,7 +1250,7 @@ function verificationTransitions(
         celGate(
           andCondition(
             `${VERIFICATION_PASS_EXPR} && !artifacts.verification.reviewRequired && artifacts.verification.nextStep == "reconcile"`,
-            profile.verificationRouting?.reconcileCondition,
+            legacyRouting(profile)?.reconcileCondition,
           ),
           "human revision requires complete passing verification routed to reconciliation",
         ),
@@ -774,15 +1263,23 @@ function verificationTransitions(
 }
 
 function verificationStage(profile: DexSoftwareFactoryProfile): FactoryStage {
+  const closedObjective = isClosedObjectiveRouting(profile);
   return {
     id: "verification",
-    description:
-      "Execute every classified lane and record an exact next-stage dispatch.",
+    description: closedObjective
+      ? "Derive the only route from complete correlated deterministic evidence."
+      : "Execute every classified lane and record an exact next-stage dispatch.",
     maxCycles: profile.budgets.verification,
     maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
     work: verificationWork(profile.adapters.verification),
-    artifacts: [verificationArtifact(profile)],
-    transitions: verificationTransitions(profile),
+    artifacts: [
+      closedObjective
+        ? closedObjectiveVerificationArtifact()
+        : verificationArtifact(profile),
+    ],
+    transitions: closedObjective
+      ? closedObjectiveVerificationTransitions(profile)
+      : verificationTransitions(profile),
   };
 }
 
@@ -879,6 +1376,7 @@ function reviewStage(profile: DexSoftwareFactoryProfile): FactoryStage | null {
 
 function reconciliationStage(profile: DexSoftwareFactoryProfile): FactoryStage {
   const reviewNames = reviewArtifactNames(profile);
+  const closedObjective = isClosedObjectiveRouting(profile);
   return {
     id: "reconciliation",
     description:
@@ -892,22 +1390,25 @@ function reconciliationStage(profile: DexSoftwareFactoryProfile): FactoryStage {
           ? ["change-summary", "verification"]
           : ["change-summary", "verification", reviewNames.verdict],
       },
-      systemPrompt:
-        "Reconcile the verified result without mutating the repository or tracker state. Confirm any integration evidence already recorded in change-summary. Record nextStep=rework when anything remains; otherwise record nextStep=complete with the exact Dex result and commit decision.",
+      systemPrompt: closedObjective
+        ? "Prepare the exact Dex completion result and commit decision from already verified integration evidence. Do not mutate the repository or tracker, assess aesthetics, or route rework."
+        : "Reconcile the verified result without mutating the repository or tracker state. Confirm any integration evidence already recorded in change-summary. Record nextStep=rework when anything remains; otherwise record nextStep=complete with the exact Dex result and commit decision.",
     },
     artifacts: [reconciliationArtifact(profile)],
     transitions: [
-      {
-        name: "rework",
-        to: "implementation",
-        gates: [
-          artifactFresh("reconciliation"),
-          celGate(
-            'artifacts.reconciliation.status == "needs-rework" && artifacts.reconciliation.nextStep == "rework"',
-            "rework requires status=needs-rework and nextStep=rework",
-          ),
-        ],
-      },
+      ...(closedObjective ? [] : [
+        {
+          name: "rework",
+          to: "implementation",
+          gates: [
+            artifactFresh("reconciliation"),
+            celGate(
+              'artifacts.reconciliation.status == "needs-rework" && artifacts.reconciliation.nextStep == "rework"',
+              "rework requires status=needs-rework and nextStep=rework",
+            ),
+          ],
+        },
+      ]),
       {
         name: "postflight",
         to: "postflight",
@@ -1068,11 +1569,19 @@ export function compileDexSoftwareFactoryProfile(
 ): CompiledDexSoftwareFactoryProfile {
   const profile = DexSoftwareFactoryProfileSchema.parse(input);
   const review = reviewStage(profile);
+  const closedObjective = isClosedObjectiveRouting(profile);
   const stages = [
     preflightStage(profile),
     implementationStage(profile),
     classifyStage(profile),
     verificationStage(profile),
+    ...(closedObjective
+      ? [
+        evidenceUnavailableStage(),
+        aestheticApprovalStage(),
+        aestheticDecisionBindingStage(profile),
+      ]
+      : []),
     ...(review === null ? [] : [review]),
     reconciliationStage(profile),
     postflightStage(profile),

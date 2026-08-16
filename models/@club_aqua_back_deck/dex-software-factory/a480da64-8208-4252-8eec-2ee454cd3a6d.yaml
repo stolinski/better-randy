@@ -1,5 +1,6 @@
-type: '@club_aqua_back_deck/dex-software-factory'
-typeVersion: 2026.08.15.1
+---
+type: "@club_aqua_back_deck/dex-software-factory"
+typeVersion: 2026.08.16.1
 id: a480da64-8208-4252-8eec-2ee454cd3a6d
 name: supers-delivery-profile
 version: 1
@@ -17,46 +18,34 @@ globalArguments:
           evidenceName:
             type: string
             enum:
-              - preflight-run
+            - preflight-run
         required:
-          - evidenceName
+        - evidenceName
     classify:
       mode: workflow
       workflow: factory-classify-change
     verification:
-      mode: interactive
-      systemPrompt: >-
-        Run factory-verification-fanout exactly once with the work item, the
-        classified change fingerprint, and the required check, unit, and
-        structural lane ids. Use its stored policy result for policy-sweep and
-        corpus, and its verification-fanout resource for the selected lanes;
-        never rerun those commands interactively. Execute only the remaining
-        browser, visual, pack-matrix, and export-decode lanes with sanctioned
-        native captures and probes. Record one unique outcome for every required
-        lane. Set materialPixelChange from pixel evidence only. Set
-        reviewRequired only for changed pixels with visual targets. Route failed,
-        unavailable, or contradictory evidence to rework, changed pixels to
-        review, and unchanged pixels to reconciliation.
+      mode: workflow
+      workflow: supers-delivery-deterministic-verification
     postflight:
       mode: workflow
       workflow: factory-postflight-sweep
       inputs:
         values:
           evidenceName: postflight-run
-          expectedFingerprint: >-
-            ${{ data.latest(self.name,
-            "artifact-change-impact").payload.changeFingerprint }}
+          expectedFingerprint: ${{ data.latest(self.name, "artifact-change-impact").payload.changeFingerprint
+            }}
         properties:
           evidenceName:
             type: string
             enum:
-              - postflight-run
+            - postflight-run
           expectedFingerprint:
             type: string
-            pattern: '^[0-9a-f]{64}$'
+            pattern: "^[0-9a-f]{64}$"
         required:
-          - evidenceName
-          - expectedFingerprint
+        - evidenceName
+        - expectedFingerprint
     terminalObserver:
       workflow: supers-delivery-terminal-observability
     dexTracker:
@@ -64,45 +53,18 @@ globalArguments:
       completeMethodName: complete
       completionWorkflow: supers-complete-human-approved-task
   implementation:
-    systemPrompt: >-
-      Implement only the current Dex work item in the Pi-managed isolated
-      worktree. Follow repository guidance already loaded by the agent. Complete
-      required source, documentation, and tracker-file edits, commit the lane,
-      and return the strict child revision plus durable handoff manifest path.
-      The central parent must verify and integrate that handoff while this work
-      item remains in implementation. Only after serialized integration may the
-      parent record change-summary with the digest-verified, content-addressed
-      integrationReceipt and every materially changed visual target.
-  review:
-    skills:
-      - critic
-    systemPrompt: >-
-      Review only visualTargets from change-summary. Use sanctioned native
-      captures and machine probes. Technical defects are critical or high;
-      aesthetic observations are low and human-owned. Record blockers in
-      visual-review. Record visual-verdict with status matching recommendation,
-      plus summary and concrete evidence references.
-    blockingSeverities:
-      - critical
-      - high
-    findingsArtifactName: visual-review
-    verdictArtifactName: visual-verdict
-    reworkCondition: >-
-      size(artifacts.visual_review.findings.filter(f, !f.resolved && f.severity in
-      ["critical", "high"])) > 0 || artifacts.visual_verdict.recommendation == "revise"
-    acceptCondition: artifacts.visual_verdict.recommendation == "accept"
-  humanGate:
-    id: visual-acceptance
+    systemPrompt: Implement only the current Dex work item in the Pi-managed isolated
+      worktree. Follow repository guidance already loaded by the agent. Complete required
+      source, documentation, and tracker-file edits, commit the lane, and return the
+      strict child revision plus durable handoff manifest path. The central parent
+      must verify and integrate that handoff while this work item remains in implementation.
+      Only after serialized integration may the parent record change-summary with
+      the digest-verified, content-addressed integrationReceipt.
   completionGate:
     id: completion-approval
   contracts:
     changeSummary:
       properties:
-        visualTargets:
-          type: array
-          items:
-            type: string
-            minLength: 1
         commit:
           type: string
           minLength: 7
@@ -110,69 +72,69 @@ globalArguments:
           type: object
           additionalProperties: false
           required:
-            - schemaVersion
-            - receiptId
-            - rootEpicId
-            - activeTaskId
-            - factoryName
-            - handoffManifestDigest
-            - targetBaselineRevision
-            - childRevisionEvidence
-            - disposition
-            - baseCommit
-            - patchDigest
-            - changedPaths
-            - integratedRevision
-            - integratedTreeFingerprint
-            - rejectionReason
+          - schemaVersion
+          - receiptId
+          - rootEpicId
+          - activeTaskId
+          - factoryName
+          - handoffManifestDigest
+          - targetBaselineRevision
+          - childRevisionEvidence
+          - disposition
+          - baseCommit
+          - patchDigest
+          - changedPaths
+          - integratedRevision
+          - integratedTreeFingerprint
+          - rejectionReason
           properties:
             schemaVersion:
               type: integer
               enum:
-                - 1
+              - 1
             receiptId:
               type: string
-              pattern: '^[0-9a-f]{64}$'
+              pattern: "^[0-9a-f]{64}$"
             rootEpicId:
               type: string
-              pattern: '^[a-z0-9][a-z0-9._:-]{0,127}$'
+              pattern: "^[a-z0-9][a-z0-9._:-]{0,127}$"
             activeTaskId:
               type: string
-              pattern: '^[a-z0-9][a-z0-9._:-]{0,127}$'
+              pattern: "^[a-z0-9][a-z0-9._:-]{0,127}$"
             factoryName:
               type: string
               enum:
-                - supers-delivery
+              - supers-delivery
             handoffManifestDigest:
               type: string
-              pattern: '^[0-9a-f]{64}$'
+              pattern: "^[0-9a-f]{64}$"
             targetBaselineRevision:
               type: string
-              pattern: '^[0-9a-f]{40,64}$'
+              pattern: "^[0-9a-f]{40,64}$"
             childRevisionEvidence:
               type: object
               additionalProperties: false
               required:
-                - status
-                - childCommittedRevision
+              - status
+              - childCommittedRevision
               properties:
                 status:
                   type: string
                   enum:
-                    - verified
+                  - verified
                 childCommittedRevision:
                   type: string
-                  pattern: '^[0-9a-f]{40,64}$'
+                  pattern: "^[0-9a-f]{40,64}$"
             disposition:
               type: string
               enum:
-                - integrated
+              - integrated
             baseCommit:
               type: string
-              pattern: '^[0-9a-f]{40,64}$'
+              pattern: "^[0-9a-f]{40,64}$"
             patchDigest:
               type: string
-              pattern: '^[0-9a-f]{64}$'
+              pattern: "^[0-9a-f]{64}$"
             changedPaths:
               type: array
               minItems: 1
@@ -181,38 +143,37 @@ globalArguments:
                 minLength: 1
             integratedRevision:
               type: string
-              pattern: '^[0-9a-f]{40,64}$'
+              pattern: "^[0-9a-f]{40,64}$"
             integratedTreeFingerprint:
               type: string
-              pattern: '^[0-9a-f]{64}$'
+              pattern: "^[0-9a-f]{64}$"
             rejectionReason:
               type: string
               enum:
-                - none
+              - none
       required:
-        - visualTargets
-        - integrationReceipt
+      - integrationReceipt
     changeImpact:
       properties:
         audit:
           type: string
           enum:
-            - change-impact
+          - change-impact
         generatedAt:
           type: string
         source:
           type: string
           enum:
-            - git-baseline-and-working-tree
+          - git-baseline-and-working-tree
         workItem:
           type: string
           minLength: 1
         baselineHead:
           type: string
-          pattern: '^[0-9a-f]{40,64}$'
+          pattern: "^[0-9a-f]{40,64}$"
         treeFingerprint:
           type: string
-          pattern: '^[0-9a-f]{64}$'
+          pattern: "^[0-9a-f]{64}$"
         paths:
           type: array
           items:
@@ -223,8 +184,8 @@ globalArguments:
           items:
             type: object
             required:
-              - id
-              - reasons
+            - id
+            - reasons
             properties:
               id:
                 type: string
@@ -233,62 +194,31 @@ globalArguments:
                 minItems: 1
                 items:
                   type: string
-        visualReviewCandidate:
-          type: boolean
       required:
-        - audit
-        - generatedAt
-        - source
-        - workItem
-        - baselineHead
-        - treeFingerprint
-        - paths
-        - lanes
-        - visualReviewCandidate
-    verification:
-      properties:
-        materialPixelChange:
-          type: string
-          enum:
-            - changed
-            - unchanged
-            - unavailable
-      required:
-        - materialPixelChange
-    reviewVerdict:
-      properties:
-        recommendation:
-          type: string
-          enum:
-            - accept
-            - revise
-        evidence:
-          type: array
-          minItems: 1
-          items:
-            type: string
-            minLength: 1
-      required:
-        - recommendation
-        - evidence
+      - audit
+      - generatedAt
+      - source
+      - workItem
+      - baselineHead
+      - treeFingerprint
+      - paths
+      - lanes
     reconciliation:
       properties:
         dexDisposition:
           type: string
           enum:
-            - ready-for-completion
-            - reframed
+          - ready-for-completion
+          - reframed
       required:
-        - dexDisposition
+      - dexDisposition
   verificationRouting:
-    reworkCondition: >-
-      artifacts.verification.materialPixelChange == "unavailable" ||
-      (artifacts.verification.materialPixelChange == "changed" &&
-      size(artifacts.change_summary.visualTargets) == 0)
-    reviewCondition: >-
-      artifacts.verification.materialPixelChange == "changed" &&
-      size(artifacts.change_summary.visualTargets) > 0
-    reconcileCondition: artifacts.verification.materialPixelChange == "unchanged"
+    mode: closed-objective
+    unavailableStage: evidence-unavailable
+    aestheticGateId: aesthetic-acceptance
+    aestheticDecisionAdapter:
+      mode: workflow
+      workflow: supers-bind-human-aesthetic-decision
   budgets:
     implementation: 5
     verification: 5

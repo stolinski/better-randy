@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026.08.16.1
+
+- Add closed-objective verification routing with a non-mutating unavailable-evidence pause.
+- Add human aesthetic approval and decision-binding stages tied to the exact work item, integrated revision/tree, matrix run/manifest/bundle/evidence digests, and approval identity, without Critic authority.
+- Make reconciliation completion-only for closed-objective profiles.
+
 ## 2026.08.15.1
 
 - Inject `change-summary` into read-only reconciliation so consumers can confirm pre-classification integration evidence.

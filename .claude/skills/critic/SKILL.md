@@ -5,7 +5,7 @@ description: Verify a Supers Preset against the R/Q/G rubrics + channel aestheti
 
 # Supers Critic
 
-The operational form of [ADR-0001](../../../docs/adr/0001-critic-sub-agent-verification.md). Spawns a sub-agent with **fresh context** that captures its own frames, runs the named-observation protocol from [`docs/quality-rubric.md`](../../../docs/quality-rubric.md), invokes probe scripts for measurable rules, and returns classified findings.
+The operational form of [ADR-0001](../../../docs/adr/0001-critic-sub-agent-verification.md), retained as an optional adversarial observation tool. It captures frames and returns advisory observations. It must not block, approve, reject, mutate, or route Delivery, and must not emit a Delivery recommendation.
 
 ## When this skill fires
 
@@ -34,8 +34,8 @@ Route URL: http://localhost:7263/p/<slug>.
 
 Bind to these docs and read them in order before doing anything else:
 
-1. docs/critic.md — your protocol and output format (note § "Pack aesthetics never gate").
-2. docs/quality-rubric.md — R-rules (gating) and Q-rules.
+1. docs/critic.md — your advisory protocol and output format (note § "Pack aesthetics stay advisory").
+2. docs/quality-rubric.md — R-rules first, then Q-rules; none grant Delivery authority.
 3. docs/animation-rubric.md — G-rules and per-Overlay rules.
 4. docs/packs/<preset.pack>/aesthetic.md — channel-fit NOTES (resolved from the Preset's required top-level `pack` field. A Preset without `pack` fails schema validation; never substitute `syntax`. The legacy `docs/aesthetic.md` is a redirect stub — do not bind to it).
 5. docs/CONTEXT.md — terminology.
@@ -61,9 +61,7 @@ Then execute the protocol from docs/critic.md:
   Probes available: probe-dimensions, probe-banding, probe-text-edge,
   probe-edge-aa, probe-hue-count, probe-ink-coverage. Run with
   `node --experimental-strip-types scripts/probe-<name>.ts <png> [--region x,y,w,h]`.
-- If any R-rule FAILs, stop. Output the report with
-  Recommendation: IMPLEMENTATION-FIX-REQUIRED. Do not edit the Preset
-  to hide the defect (quality-rubric.md R8).
+- If an R-rule appears to fail, record the measured observation. Do not recommend or route a fix; deterministic Delivery independently verifies closed objective failures.
 - If all R-rules PASS, walk Q-rules, G-rules, and docs/packs/<preset.pack>/aesthetic.md.
 - Classify every finding as exactly one of:
   pipeline-bug, default-too-permissive, preset-choice,
@@ -71,10 +69,7 @@ Then execute the protocol from docs/critic.md:
 
 PACK AESTHETICS NEVER GATE: Supers is a general engine — a Pack supplies the look,
 not what the engine may do. A Pack style / channel-fit mismatch is `aesthetic-miss`
-ONLY — never `pipeline-bug`, never `default-too-permissive`, and never a reason for
-REVISE / IMPLEMENTATION-FIX-REQUIRED. A defect is a wrong pixel measurable against
-the R/Q/G rules, independent of any Pack. If this is an engine-capability demo, gate
-on pipeline correctness + R/Q/G only; treat Pack-aesthetic observations as advisory.
+ONLY — never `pipeline-bug` or `default-too-permissive`. All Critic output is advisory. A suspected defect is a wrong pixel measurable against the R/Q/G rules, independent of any Pack, but only the deterministic matrix has Delivery routing authority.
 
 Be brutal. The user's prior experience is that Claude finds real problems
 when asked "what's wrong" but plausibly invents PASS observations when asked
@@ -82,14 +77,11 @@ when asked "what's wrong" but plausibly invents PASS observations when asked
 without a named observation, screenshot path, and pixel coord is invalid
 and you should redo it.
 
-Output: the full report shape from docs/critic.md § Output format,
-ending with Recommendation: ACCEPT / REVISE / IMPLEMENTATION-FIX-REQUIRED.
-ACCEPT requires zero pipeline-bug and zero default-too-permissive findings;
-aesthetic-miss never blocks ACCEPT.
+Output the advisory report shape from docs/critic.md § Output format. Do not include an acceptance, rejection, rework, or Delivery recommendation.
 ```
 
 ## After the Critic returns
 
 - Surface the full report to the user verbatim.
-- Do **not** act on the findings. Each classification has its own fix-lane (see [`docs/critic.md`](../../../docs/critic.md) § Acting on findings). The user routes them; a possible Fixer workflow remains deferred in [`docs/roadmap.md`](../../../docs/roadmap.md#deferred--low-priority).
-- If the report carries `Recommendation: IMPLEMENTATION-FIX-REQUIRED`, do not suggest preset-value workarounds. R8 binds: the fix is in the pipeline / shader / defaults, not the JSON.
+- Do **not** act on the findings. A human may select observations as context or follow-up work; the report itself cannot route them.
+- Ignore any accidental recommendation field. R8 still forbids hiding suspected pipeline defects with preset-value workarounds.
