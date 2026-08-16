@@ -7,6 +7,7 @@ import { PNG } from 'pngjs';
 import { classifyProbeOutputClass } from './_probe-output-class.ts';
 import {
 	buildSupersRenderMatrixCellVerdict,
+	captureSupersAuxiliaryFrameSequence,
 	createSupersEdgeAliasingProbeCandidate,
 	createSupersShadowBandingProbeCandidate,
 	createSupersTextEdgeProbeCandidate,
@@ -294,10 +295,13 @@ async function main() {
 						if (dataUrls) readableArtifacts.set(readable.id, dataUrls);
 					}
 					const replay = await captureFrame(coordinate.sample.frameIndex);
-					const auxiliaryFrames = [];
-					for (const frameIndex of coordinate.sample.auxiliaryFrameIndices) {
-						auxiliaryFrames.push(await captureFrame(frameIndex));
-					}
+					const auxiliaryCaptures = await captureSupersAuxiliaryFrameSequence({
+						primaryFrameIndex: coordinate.sample.frameIndex,
+						primaryFrame: primary,
+						auxiliaryFrameIndices: coordinate.sample.auxiliaryFrameIndices,
+						captureFrame
+					});
+					const auxiliaryFrames = auxiliaryCaptures.map((capture) => capture.frame);
 
 					const runtimeBytes = Buffer.from(JSON.stringify(primary.manifest));
 					const canonicalPath = resolve(directory, 'canonical.png');
@@ -342,8 +346,16 @@ async function main() {
 
 					const auxiliaryEvidence = [];
 					const auxiliaryGeometryEvidence = [];
-					for (const [index, frame] of auxiliaryFrames.entries()) {
-						const prefix = `auxiliary-${String(index).padStart(2, '0')}-frame-${frame.address.frameIndex}`;
+					const auxiliaryPaths = [];
+					for (const [index, capture] of auxiliaryCaptures.entries()) {
+						if (capture.reusedPrimary) {
+							auxiliaryPaths.push(canonicalPath);
+							auxiliaryEvidence.push(canonicalEvidence);
+							auxiliaryGeometryEvidence.push(primaryGeometryEvidence);
+							continue;
+						}
+						const frame = capture.frame;
+						const prefix = `auxiliary-${String(index).padStart(2, '0')}-frame-${capture.frameIndex}`;
 						const pngPath = resolve(directory, `${prefix}.png`);
 						const geometryBytes = Buffer.from(
 							JSON.stringify({ address: frame.address, ...frame.geometry })
@@ -352,6 +364,7 @@ async function main() {
 							writeFile(pngPath, frame.png),
 							writeFile(resolve(directory, `${prefix}-geometry.json`), geometryBytes)
 						]);
+						auxiliaryPaths.push(pngPath);
 						auxiliaryEvidence.push(
 							registerEvidence(
 								evidenceReference(`${logicalBase}/${prefix}.png`, frame.png, 'capture'),
@@ -822,12 +835,6 @@ async function main() {
 							);
 						} else {
 							try {
-								const auxiliaryPaths = auxiliaryFrames.map((frame, index) =>
-									resolve(
-										directory,
-										`auxiliary-${String(index).padStart(2, '0')}-frame-${frame.address.frameIndex}.png`
-									)
-								);
 								const probe = runJsonProbe('scripts/probe-temporal-energy.ts', [
 									...auxiliaryPaths,
 									'--region',

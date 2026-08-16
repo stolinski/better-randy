@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
 	buildSupersRenderMatrixCellVerdict,
+	captureSupersAuxiliaryFrameSequence,
 	createSupersEdgeAliasingProbeCandidate,
 	createSupersShadowBandingProbeCandidate,
 	createSupersTextEdgeProbeCandidate,
@@ -29,6 +30,31 @@ test('runner groups samples by Preset, Pack, and orientation', () => {
 		groups.find((group) => group.presetSlug === 'alpha')?.coordinates.map((entry) => entry.cellId),
 		['a', 'b']
 	);
+});
+
+test('auxiliary sequence reuses the primary capture without changing sample identities', async () => {
+	const primaryFrame = { captureId: 'primary' };
+	const capturedFrameIndices: number[] = [];
+	const captures = await captureSupersAuxiliaryFrameSequence({
+		primaryFrameIndex: 30,
+		primaryFrame,
+		auxiliaryFrameIndices: [29, 30, 31],
+		captureFrame: async (frameIndex) => {
+			capturedFrameIndices.push(frameIndex);
+			return { captureId: `captured-${frameIndex}` };
+		}
+	});
+
+	assert.deepEqual(capturedFrameIndices, [29, 31]);
+	assert.deepEqual(
+		captures.map(({ frameIndex, reusedPrimary }) => ({ frameIndex, reusedPrimary })),
+		[
+			{ frameIndex: 29, reusedPrimary: false },
+			{ frameIndex: 30, reusedPrimary: true },
+			{ frameIndex: 31, reusedPrimary: false }
+		]
+	);
+	assert.equal(captures[1].frame, primaryFrame);
 });
 
 test('bounded fanout starts groups concurrently and retains failures as values', async () => {

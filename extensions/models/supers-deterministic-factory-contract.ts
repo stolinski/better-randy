@@ -1781,10 +1781,11 @@ export const SUPERS_DETERMINISTIC_RULE_INVENTORY: readonly SupersDeterministicRu
 		},
 		{
 			code: 'output-class-mismatch',
-			owner: 'scripts/probe-export-decode.ts',
+			owner: 'scripts/_probe-output-class.ts',
 			implementation: 'existing',
 			evidenceKind: 'pixel',
-			notes: 'Decoded edge alpha normalizes declared transparent or opaque output.'
+			notes:
+				'Canvas backing-store PNG edge alpha is compared with the declared class; encoded output requires the separate export-decode lane.'
 		},
 		{
 			code: 'text-edge-softness',

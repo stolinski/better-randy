@@ -373,6 +373,31 @@ export function createSupersEdgeAliasingProbeCandidate(
 			};
 }
 
+export interface SupersAuxiliaryFrameCapture<Frame> {
+	frameIndex: number;
+	frame: Frame;
+	reusedPrimary: boolean;
+}
+
+/** Preserve auxiliary sample order while avoiding a duplicate capture of the primary frame. */
+export async function captureSupersAuxiliaryFrameSequence<Frame>(input: {
+	primaryFrameIndex: number;
+	primaryFrame: Frame;
+	auxiliaryFrameIndices: readonly number[];
+	captureFrame: (frameIndex: number) => Promise<Frame>;
+}): Promise<SupersAuxiliaryFrameCapture<Frame>[]> {
+	const captures: SupersAuxiliaryFrameCapture<Frame>[] = [];
+	for (const frameIndex of input.auxiliaryFrameIndices) {
+		const reusedPrimary = frameIndex === input.primaryFrameIndex;
+		captures.push({
+			frameIndex,
+			frame: reusedPrimary ? input.primaryFrame : await input.captureFrame(frameIndex),
+			reusedPrimary
+		});
+	}
+	return captures;
+}
+
 export interface SupersRenderMatrixCoordinateLike {
 	cellId: string;
 	presetSlug: string;

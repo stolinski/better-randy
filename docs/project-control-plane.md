@@ -35,8 +35,11 @@ from the static corpus model. Its single `verify-render-matrix` method derives
 an immutable live deliverable-Preset and Pack snapshot, binds every coordinate
 to the content-sensitive tree fingerprint, and fans out internally by
 Preset × Pack × orientation with concurrency two. Every cell retains all 18
-closed objective checks. Missing signals are `unavailable`; aesthetic
-observations remain advisory with no routing authority. The method checks the
+closed objective checks. Its `output-class-mismatch` check classifies the canvas
+backing-store PNG with `scripts/_probe-output-class.ts`; it does not prove the
+encoded deliverable's class. Export-decode verification remains a separate
+required lane over the actual encoded output. Missing signals are `unavailable`;
+aesthetic observations remain advisory with no routing authority. The method checks the
 local and served checkout before and after capture and rejects stale registry,
 source, cell, or evidence identities before storing the bundle.
 

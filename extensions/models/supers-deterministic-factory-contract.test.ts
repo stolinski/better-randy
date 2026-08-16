@@ -957,3 +957,12 @@ Deno.test('every failure code has one canonical implementation inventory entry',
 		true
 	);
 });
+
+Deno.test('output class inventory owns canvas classification without claiming export proof', () => {
+	const entry = SUPERS_DETERMINISTIC_RULE_INVENTORY.find(
+		(candidate) => candidate.code === 'output-class-mismatch'
+	);
+	assert.equal(entry?.owner, 'scripts/_probe-output-class.ts');
+	assert.match(entry?.notes ?? '', /Canvas backing-store PNG/);
+	assert.match(entry?.notes ?? '', /separate export-decode lane/);
+});
