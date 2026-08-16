@@ -1,7 +1,7 @@
 id: 41b30cb4-5142-4f41-9fd3-b0a2a718c4a7
 name: supers-delivery-deterministic-verification
 description: Derive the Delivery route only from fresh correlated deterministic verification resources.
-version: 1
+version: 2
 tags:
   purpose: delivery-deterministic-routing
 inputs:
