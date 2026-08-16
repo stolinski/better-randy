@@ -77,6 +77,10 @@ Deno.test(
 		);
 		assert.match(
 			workflowSource,
+			/data\.latest\("supers-delivery", "artifact-" \+ inputs\.workItem \+ "-change-summary"\)\.attributes\.payload\.integrationReceipt/
+		);
+		assert.match(
+			workflowSource,
 			/data\.latest\("supers-delivery", "artifact-" \+ inputs\.workItem \+ "-change-summary"\)/
 		);
 	}
