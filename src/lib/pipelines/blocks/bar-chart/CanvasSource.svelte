@@ -48,7 +48,8 @@
 			measureText
 		})
 	);
-	const isRenderable = $derived(layout.overflow.length === 0 && geometry.overflow.length === 0);
+	// Invalid layout remains visible for repair; static verification blocks delivery.
+	const isLayoutValid = $derived(layout.overflow.length === 0 && geometry.overflow.length === 0);
 	const motion = $derived(resolveChartMotionState(block.motion, animState.globalProgress));
 
 	function textStyle(text: ChartMeasuredTextLayout): string {
@@ -69,7 +70,7 @@
 	data-chart-block={block.id}
 	data-chart-type={block.type}
 	data-chart-overflow={layout.overflow.length + geometry.overflow.length}
-	data-chart-renderable={isRenderable}
+	data-chart-layout-valid={isLayoutValid}
 	data-chart-entry={motion.entryProgress}
 	data-chart-reveal={motion.revealProgress}
 	data-chart-emphasis={motion.emphasisProgress}
@@ -81,9 +82,8 @@
 	style:font-family={fontFamily}
 	aria-hidden="true"
 >
-	{#if isRenderable}
-		<g
-			class="chart-bar-column__grid"
+	<g
+		class="chart-bar-column__grid"
 			opacity={motion.chromeAlpha}
 			fill="none"
 			stroke={chrome.grid}
@@ -291,9 +291,8 @@
 					style={`font-size:${calloutStyle.fontSize}px;font-weight:${calloutStyle.fontWeight};letter-spacing:${calloutStyle.letterSpacing}px`}
 					>{annotation.text}</text
 				>
-			{/each}
-		</g>
-	{/if}
+		{/each}
+	</g>
 </svg>
 
 <style>

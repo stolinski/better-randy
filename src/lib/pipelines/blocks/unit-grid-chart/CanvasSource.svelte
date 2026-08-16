@@ -48,7 +48,8 @@
 			measureText
 		})
 	);
-	const isRenderable = $derived(layout.overflow.length === 0 && geometry.overflow.length === 0);
+	// Invalid layout remains visible for repair; static verification blocks delivery.
+	const isLayoutValid = $derived(layout.overflow.length === 0 && geometry.overflow.length === 0);
 	const motion = $derived(resolveChartMotionState(block.motion, animState.globalProgress));
 
 	function textStyle(text: ChartMeasuredTextLayout): string {
@@ -66,7 +67,7 @@
 	data-chart-columns={geometry.grid.columns}
 	data-chart-rows={geometry.grid.rows}
 	data-chart-overflow={layout.overflow.length + geometry.overflow.length}
-	data-chart-renderable={isRenderable}
+	data-chart-layout-valid={isLayoutValid}
 	data-chart-entry={motion.entryProgress}
 	data-chart-reveal={motion.revealProgress}
 	data-chart-emphasis={motion.emphasisProgress}
@@ -78,8 +79,7 @@
 	style:font-family={fontFamily}
 	aria-hidden="true"
 >
-	{#if isRenderable}
-		<g class="chart-normalized__labels" opacity={motion.chromeAlpha} fill={chrome.label}>
+	<g class="chart-normalized__labels" opacity={motion.chromeAlpha} fill={chrome.label}>
 			<text
 				data-chart-text-role="title"
 				data-supers-readable-id={`block:${block.id}:title`}
@@ -184,9 +184,8 @@
 					style={`font-size:${calloutStyle.fontSize}px;font-weight:${calloutStyle.fontWeight};letter-spacing:${calloutStyle.letterSpacing}px`}
 					>{annotation.text}</text
 				>
-			{/each}
-		</g>
-	{/if}
+		{/each}
+	</g>
 </svg>
 
 <style>
