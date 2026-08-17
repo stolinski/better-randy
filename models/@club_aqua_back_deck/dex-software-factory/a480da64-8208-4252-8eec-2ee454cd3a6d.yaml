@@ -1,13 +1,17 @@
 ---
-type: "@club_aqua_back_deck/dex-software-factory"
-typeVersion: 2026.08.16.1
+type: '@club_aqua_back_deck/dex-software-factory'
+typeVersion: 2026.08.16.14
 id: a480da64-8208-4252-8eec-2ee454cd3a6d
 name: supers-delivery-profile
 version: 1
 tags: {}
 globalArguments:
   profileName: supers-dex-delivery
+  profileModelName: supers-delivery-profile
+  sourceFactoryId: 90fac686-c724-4aee-97c4-e31b9af4c5e2
   adapters:
+    failureAuthorizer:
+      workflow: factory-execution-failure-authorizer
     preflight:
       mode: workflow
       workflow: factory-policy-sweep
@@ -18,9 +22,9 @@ globalArguments:
           evidenceName:
             type: string
             enum:
-            - preflight-run
+              - preflight-run
         required:
-        - evidenceName
+          - evidenceName
     classify:
       mode: workflow
       workflow: factory-classify-change
@@ -33,19 +37,20 @@ globalArguments:
       inputs:
         values:
           evidenceName: postflight-run
-          expectedFingerprint: ${{ data.latest(self.name, "artifact-change-impact").payload.changeFingerprint
+          expectedFingerprint:
+            ${{ data.latest(self.name, "artifact-change-impact").payload.changeFingerprint
             }}
         properties:
           evidenceName:
             type: string
             enum:
-            - postflight-run
+              - postflight-run
           expectedFingerprint:
             type: string
-            pattern: "^[0-9a-f]{64}$"
+            pattern: '^[0-9a-f]{64}$'
         required:
-        - evidenceName
-        - expectedFingerprint
+          - evidenceName
+          - expectedFingerprint
     terminalObserver:
       workflow: supers-delivery-terminal-observability
     dexTracker:
@@ -53,6 +58,8 @@ globalArguments:
       completeMethodName: complete
       completionWorkflow: supers-complete-human-approved-task
   implementation:
+    skills:
+      - implementation
     systemPrompt: Implement only the current Dex work item in the Pi-managed isolated
       worktree. Follow repository guidance already loaded by the agent. Complete required
       source, documentation, and tracker-file edits, commit the lane, and return the
@@ -72,69 +79,69 @@ globalArguments:
           type: object
           additionalProperties: false
           required:
-          - schemaVersion
-          - receiptId
-          - rootEpicId
-          - activeTaskId
-          - factoryName
-          - handoffManifestDigest
-          - targetBaselineRevision
-          - childRevisionEvidence
-          - disposition
-          - baseCommit
-          - patchDigest
-          - changedPaths
-          - integratedRevision
-          - integratedTreeFingerprint
-          - rejectionReason
+            - schemaVersion
+            - receiptId
+            - rootEpicId
+            - activeTaskId
+            - factoryName
+            - handoffManifestDigest
+            - targetBaselineRevision
+            - childRevisionEvidence
+            - disposition
+            - baseCommit
+            - patchDigest
+            - changedPaths
+            - integratedRevision
+            - integratedTreeFingerprint
+            - rejectionReason
           properties:
             schemaVersion:
               type: integer
               enum:
-              - 1
+                - 1
             receiptId:
               type: string
-              pattern: "^[0-9a-f]{64}$"
+              pattern: '^[0-9a-f]{64}$'
             rootEpicId:
               type: string
-              pattern: "^[a-z0-9][a-z0-9._:-]{0,127}$"
+              pattern: '^[a-z0-9][a-z0-9._:-]{0,127}$'
             activeTaskId:
               type: string
-              pattern: "^[a-z0-9][a-z0-9._:-]{0,127}$"
+              pattern: '^[a-z0-9][a-z0-9._:-]{0,127}$'
             factoryName:
               type: string
               enum:
-              - supers-delivery
+                - supers-delivery
             handoffManifestDigest:
               type: string
-              pattern: "^[0-9a-f]{64}$"
+              pattern: '^[0-9a-f]{64}$'
             targetBaselineRevision:
               type: string
-              pattern: "^[0-9a-f]{40,64}$"
+              pattern: '^[0-9a-f]{40,64}$'
             childRevisionEvidence:
               type: object
               additionalProperties: false
               required:
-              - status
-              - childCommittedRevision
+                - status
+                - childCommittedRevision
               properties:
                 status:
                   type: string
                   enum:
-                  - verified
+                    - verified
                 childCommittedRevision:
                   type: string
-                  pattern: "^[0-9a-f]{40,64}$"
+                  pattern: '^[0-9a-f]{40,64}$'
             disposition:
               type: string
               enum:
-              - integrated
+                - integrated
             baseCommit:
               type: string
-              pattern: "^[0-9a-f]{40,64}$"
+              pattern: '^[0-9a-f]{40,64}$'
             patchDigest:
               type: string
-              pattern: "^[0-9a-f]{64}$"
+              pattern: '^[0-9a-f]{64}$'
             changedPaths:
               type: array
               minItems: 1
@@ -143,37 +150,37 @@ globalArguments:
                 minLength: 1
             integratedRevision:
               type: string
-              pattern: "^[0-9a-f]{40,64}$"
+              pattern: '^[0-9a-f]{40,64}$'
             integratedTreeFingerprint:
               type: string
-              pattern: "^[0-9a-f]{64}$"
+              pattern: '^[0-9a-f]{64}$'
             rejectionReason:
               type: string
               enum:
-              - none
+                - none
       required:
-      - integrationReceipt
+        - integrationReceipt
     changeImpact:
       properties:
         audit:
           type: string
           enum:
-          - change-impact
+            - change-impact
         generatedAt:
           type: string
         source:
           type: string
           enum:
-          - git-baseline-and-working-tree
+            - git-baseline-and-working-tree
         workItem:
           type: string
           minLength: 1
         baselineHead:
           type: string
-          pattern: "^[0-9a-f]{40,64}$"
+          pattern: '^[0-9a-f]{40,64}$'
         treeFingerprint:
           type: string
-          pattern: "^[0-9a-f]{64}$"
+          pattern: '^[0-9a-f]{64}$'
         paths:
           type: array
           items:
@@ -184,8 +191,8 @@ globalArguments:
           items:
             type: object
             required:
-            - id
-            - reasons
+              - id
+              - reasons
             properties:
               id:
                 type: string
@@ -195,23 +202,23 @@ globalArguments:
                 items:
                   type: string
       required:
-      - audit
-      - generatedAt
-      - source
-      - workItem
-      - baselineHead
-      - treeFingerprint
-      - paths
-      - lanes
+        - audit
+        - generatedAt
+        - source
+        - workItem
+        - baselineHead
+        - treeFingerprint
+        - paths
+        - lanes
     reconciliation:
       properties:
         dexDisposition:
           type: string
           enum:
-          - ready-for-completion
-          - reframed
+            - ready-for-completion
+            - reframed
       required:
-      - dexDisposition
+        - dexDisposition
   verificationRouting:
     mode: closed-objective
     unavailableStage: evidence-unavailable
@@ -224,5 +231,5 @@ globalArguments:
     verification: 5
     review: 5
     reconciliation: 5
-    maxDispatchesPerCycle: 2
+    maxDispatchesPerCycle: 1
 methods: {}

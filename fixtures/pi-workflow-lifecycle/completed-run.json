@@ -1,0 +1,93 @@
+{
+	"status": {
+		"runId": "OUTER_RUN_ID",
+		"toolCallId": "fixture-tool-call",
+		"sessionId": "PARENT_SESSION",
+		"mode": "workflow",
+		"state": "complete",
+		"startedAt": 1786938863824,
+		"lastUpdate": 1786939465446,
+		"endedAt": 1786939465446,
+		"cwd": "REPO_DIR",
+		"steps": [
+			{
+				"agent": "worker",
+				"label": "factory-worker",
+				"workflowKey": "factory-worker",
+				"parentWorkflowRunId": "OUTER_RUN_ID",
+				"status": "completed",
+				"sessionFile": "SESSION_FILE",
+				"runId": "CHILD_RUN_ID"
+			}
+		],
+		"workflow": {
+			"value": {
+				"key": "factory-worker",
+				"ok": true,
+				"agent": "worker",
+				"runId": "CHILD_RUN_ID",
+				"structuredOutput": { "fixture": true },
+				"artifactPaths": ["HANDOFF_FILE", "SESSION_FILE"],
+				"results": [
+					{
+						"index": 0,
+						"agent": "worker",
+						"launchContractDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+						"launchResolvedExtensions": {
+							"version": 1,
+							"source": "launch-resolved",
+							"disableAmbientExtensions": false,
+							"runtime": ["sha256:bdb0e45147091503"],
+							"configured": [],
+							"effective": ["sha256:bdb0e45147091503"],
+							"omitted": { "runtime": 0, "configured": 0, "effective": 0 }
+						},
+						"sessionFile": "SESSION_FILE",
+						"structuredOutputSchemaPath": "SCHEMA_FILE",
+						"structuredOutput": { "fixture": true }
+					}
+				]
+			}
+		}
+	},
+	"handoff": {
+		"version": 1,
+		"runId": "CHILD_RUN_ID",
+		"mode": "parallel",
+		"source": "foreground",
+		"cwd": "REPO_DIR",
+		"createdAt": 1786938863824,
+		"updatedAt": 1786939465446,
+		"groups": [
+			{
+				"stepIndex": 0,
+				"baseCommit": "8dc7ed443be3f1b1ee06e8594c822e4fa7d52b9f",
+				"repoRoot": "REPO_DIR",
+				"children": [
+					{
+						"index": 0,
+						"taskIndex": 0,
+						"agent": "worker",
+						"status": "completed",
+						"summary": "Completed isolated implementation.",
+						"structuredOutput": { "fixture": true },
+						"patch": {
+							"path": "PATCH_FILE",
+							"branch": "pi-parallel-CHILD_RUN_ID-0",
+							"changed": true,
+							"diffStat": "1 file changed",
+							"filesChanged": 1,
+							"insertions": 1,
+							"deletions": 0
+						}
+					}
+				],
+				"cleanup": {
+					"state": "complete",
+					"tasks": [],
+					"pruned": true
+				}
+			}
+		]
+	}
+}

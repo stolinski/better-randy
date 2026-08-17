@@ -1,50 +1,53 @@
 id: 1d982225-a620-4f8a-9c9d-49e2236ad07d
 name: supers-delivery-terminal-observability
-description: Finalize one supers-delivery run, persist its canonical summary, and emit non-gating Factory observability.
+description: Persist and verify the exact projected terminal supers-delivery outcome before the Factory finalizes it.
 tags:
   purpose: automatic-factory-observability
   factory: supers-delivery
 inputs:
   type: object
-  required:
-  - workItem
+  required: [workItem, preterminalStage, targetStage, outcome]
   additionalProperties: false
   properties:
-    workItem:
+    workItem: { type: string, minLength: 1 }
+    preterminalStage:
       type: string
-      minLength: 1
+      enum: [done-observability, aborted-observability, escalated-observability]
+    targetStage:
+      type: string
+      enum: [done, aborted, operational-escalation]
+    outcome:
+      type: string
+      enum: [done, aborted, parked]
 jobs:
 - name: main
-  description: Make the Factory terminal first, then derive reports and observability from the durable terminal journal.
+  description: Project the exact terminal route, persist its receipt, and leave the Factory transition to finalize only after verification.
   steps:
-  - name: finalize-terminal-state
-    description: Advance into the durable terminal state; tolerate an already-terminal replay so receipt recovery remains possible.
+  - name: persist-terminal-summary
+    description: Persist the canonical exact projected terminal summary before finalization.
     task:
       type: model_method
-      modelIdOrName: supers-delivery
-      methodName: advance
+      modelIdOrName: supers-factory-sentry-metrics
+      methodName: persist_projected_summary
       inputs:
         workItem: ${{ inputs.workItem }}
-        transition: finalize
+        sourceFactory:
+          id: 90fac686-c724-4aee-97c4-e31b9af4c5e2
+          name: supers-delivery
+        factory:
+          project: better-randy
+          name: supers-delivery
+          profile: supers-dex-delivery
+        visualReviewStages: [review]
+        projectedTerminal:
+          preterminalStage: ${{ inputs.preterminalStage }}
+          targetStage: ${{ inputs.targetStage }}
+          outcome: ${{ inputs.outcome }}
     dependsOn: []
     weight: 0
-    allowFailure: true
-  - name: persist-terminal-summary
-    description: Persist the built-in and canonical flow-metrics reports from the terminal journal.
-    task:
-      type: model_method
-      modelIdOrName: supers-delivery
-      methodName: summary
-      inputs:
-        workItem: ${{ inputs.workItem }}
-    dependsOn:
-    - step: finalize-terminal-state
-      condition:
-        type: completed
-    weight: 0
-    allowFailure: true
+    allowFailure: false
   - name: emit-terminal-flow-metrics
-    description: Emit bounded effectiveness and profiling metrics; Sentry failure cannot change Factory outcome.
+    description: Emit the explicitly projected terminal outcome tied to current preterminal Factory state.
     task:
       type: model_method
       modelIdOrName: supers-factory-sentry-metrics
@@ -58,16 +61,18 @@ jobs:
           project: better-randy
           name: supers-delivery
           profile: supers-dex-delivery
-        visualReviewStages:
-        - review
+        visualReviewStages: [review]
+        projectedTerminal:
+          preterminalStage: ${{ inputs.preterminalStage }}
+          targetStage: ${{ inputs.targetStage }}
+          outcome: ${{ inputs.outcome }}
     dependsOn:
-    - step: finalize-terminal-state
-      condition:
-        type: completed
+    - step: persist-terminal-summary
+      condition: { type: completed }
     weight: 0
     allowFailure: true
   - name: verify-observability-coverage
-    description: Fail the observer workflow when the terminal run lacks an emitted or duplicate local receipt.
+    description: Require the exact projected outcome's complete local receipt before finalization without gating on Sentry availability or emission success.
     task:
       type: model_method
       modelIdOrName: supers-factory-sentry-metrics
@@ -81,14 +86,16 @@ jobs:
           project: better-randy
           name: supers-delivery
           profile: supers-dex-delivery
-        visualReviewStages:
-        - review
+        visualReviewStages: [review]
+        projectedTerminal:
+          preterminalStage: ${{ inputs.preterminalStage }}
+          targetStage: ${{ inputs.targetStage }}
+          outcome: ${{ inputs.outcome }}
     dependsOn:
     - step: emit-terminal-flow-metrics
-      condition:
-        type: completed
+      condition: { type: completed }
     weight: 0
     allowFailure: false
   dependsOn: []
   weight: 0
-version: 1
+version: 3

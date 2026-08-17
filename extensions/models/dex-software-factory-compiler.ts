@@ -9,7 +9,7 @@
  */
 import { z } from "npm:zod@4.4.3";
 
-export const DEX_SOFTWARE_FACTORY_VERSION = "2026.08.16.1";
+export const DEX_SOFTWARE_FACTORY_VERSION = "2026.08.16.14";
 const SOFTWARE_FACTORY_TARGET_VERSION = "2026.06.24.1";
 
 const FACTORY_NAME_PATTERN = /^[a-z][a-z0-9_-]*$/;
@@ -124,6 +124,14 @@ const InteractiveWorkSchema = z.strictObject({
   constraints: z.string().min(1).optional(),
 });
 
+const DispatchWorkSchema = z.strictObject({
+  mode: z.literal("dispatch"),
+  skills: z.array(z.string().min(1)).min(1),
+  systemPrompt: z.string().min(1),
+  command: z.string().min(1).optional(),
+  constraints: z.string().min(1).optional(),
+});
+
 const VerificationAdapterSchema = z.discriminatedUnion("mode", [
   InteractiveWorkSchema,
   WorkflowAdapterSchema,
@@ -184,28 +192,35 @@ const CycleBudgetsSchema = z.strictObject({
   verification: z.number().int().positive().max(20),
   review: z.number().int().positive().max(20),
   reconciliation: z.number().int().positive().max(20),
-  maxDispatchesPerCycle: z.number().int().positive().max(5),
+  maxDispatchesPerCycle: z.literal(1),
 });
 
 /** Consumer-owned adapters and prompts for one portable delivery profile. */
 export const DexSoftwareFactoryProfileSchema = z
   .strictObject({
     profileName: FactoryNameSchema,
+    profileModelName: FactoryNameSchema,
+    sourceFactoryId: z.string().uuid(),
     adapters: z.strictObject({
+      failureAuthorizer: z.strictObject({
+        workflow: FactoryNameSchema,
+      }),
       preflight: ExecutableAdapterSchema,
       classify: ExecutableAdapterSchema,
       verification: VerificationAdapterSchema,
       postflight: ExecutableAdapterSchema,
-      terminalObserver: z.strictObject({
-        workflow: FactoryNameSchema,
-      }).optional(),
+      terminalObserver: z
+        .strictObject({
+          workflow: FactoryNameSchema,
+        })
+        .optional(),
       dexTracker: z.strictObject({
         modelIdOrName: z.string().min(1),
         completeMethodName: z.string().min(1),
         completionWorkflow: FactoryNameSchema.optional(),
       }),
     }),
-    implementation: InteractiveWorkSchema.omit({ mode: true }),
+    implementation: DispatchWorkSchema.omit({ mode: true }),
     review: ReviewAdapterSchema.optional(),
     humanGate: HumanGateSchema.optional(),
     completionGate: HumanGateSchema.optional(),
@@ -304,6 +319,8 @@ export type DexSoftwareFactoryProfile = z.infer<
 // definition with DexSoftwareFactoryProfileSchema before producing output.
 export const DexSoftwareFactoryPlatformArgsSchema = z.object({
   profileName: FactoryNameSchema.optional(),
+  profileModelName: FactoryNameSchema.optional(),
+  sourceFactoryId: z.string().uuid().optional(),
   adapters: z.unknown().optional(),
   implementation: z.unknown().optional(),
   review: z.unknown().optional(),
@@ -364,6 +381,26 @@ type VerificationAdapter = z.infer<typeof VerificationAdapterSchema>;
 type ArtifactExtension = z.infer<typeof ArtifactExtensionSchema>;
 type FactoryStage = Record<string, unknown>;
 type FactoryGate = Record<string, unknown>;
+type RecoverableStageId =
+  | "preflight"
+  | "implementation"
+  | "classify"
+  | "verification"
+  | "review"
+  | "aesthetic-decision-binding"
+  | "reconciliation"
+  | "postflight"
+  | "terminal-cleanup"
+  | "done-observability"
+  | "aborted-observability"
+  | "escalated-observability";
+
+const OPERATIONAL_FAILURE_CATEGORIES = [
+  "prerequisite",
+  "tool-unavailable",
+  "workflow-failed",
+  "method-failed",
+] as const;
 
 const STRING_SCHEMA = {
   type: "string",
@@ -500,6 +537,20 @@ function interactiveWork(
     mode: "interactive",
     ...(work.skills === undefined ? {} : { skills: work.skills }),
     systemPrompt: work.systemPrompt,
+    ...(work.constraints === undefined
+      ? {}
+      : { constraints: work.constraints }),
+  };
+}
+
+function dispatchWork(
+  work: z.infer<typeof DispatchWorkSchema>,
+): Record<string, unknown> {
+  return {
+    mode: "dispatch",
+    skills: work.skills,
+    systemPrompt: work.systemPrompt,
+    ...(work.command === undefined ? {} : { command: work.command }),
     ...(work.constraints === undefined
       ? {}
       : { constraints: work.constraints }),
@@ -931,6 +982,141 @@ function reconciliationArtifact(
   };
 }
 
+function executionReceiptSchema(): FactoryDeclaredSchema {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["kind", "receiptId", "status"],
+    properties: {
+      kind: { type: "string", enum: ["workflow", "command"] },
+      receiptId: STRING_SCHEMA,
+      status: { type: "string", enum: ["failed"] },
+      workflowName: STRING_SCHEMA,
+      workflowRunId: STRING_SCHEMA,
+      inputsDigest: { type: "string", pattern: "^[0-9a-f]{64}$" },
+      operation: STRING_SCHEMA,
+      command: STRING_SCHEMA,
+      exitCode: { type: "integer" },
+      stdoutDigest: { type: "string", pattern: "^[0-9a-f]{64}$" },
+      stderrDigest: { type: "string", pattern: "^[0-9a-f]{64}$" },
+    },
+  };
+}
+
+function executionFailureArtifact(
+  profile: DexSoftwareFactoryProfile,
+  stageId: RecoverableStageId,
+): FactoryStage {
+  return {
+    name: `${stageId}-execution-failure`,
+    description:
+      "Content-addressed operational failure generated from an actual execution receipt for the current dispatch.",
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "schemaVersion",
+        "receiptDigest",
+        "sourceFactoryId",
+        "workItem",
+        "stage",
+        "stageCycle",
+        "dispatchAttempt",
+        "dispatchRunId",
+        "failureKind",
+        "category",
+        "executionReceipt",
+        "retryable",
+        "error",
+        "occurredAt",
+        "authorityWorkflow",
+        "authorityReceiptName",
+        "authorityDigest",
+      ],
+      properties: {
+        schemaVersion: { type: "integer", enum: [5] },
+        receiptDigest: { type: "string", pattern: "^[0-9a-f]{64}$" },
+        sourceFactoryId: { type: "string", enum: [profile.sourceFactoryId] },
+        workItem: STRING_SCHEMA,
+        stage: { type: "string", enum: [stageId] },
+        stageCycle: { type: "integer", minimum: 1 },
+        dispatchAttempt: { type: "integer", minimum: 1 },
+        dispatchRunId: { type: "string", pattern: "^[0-9a-f]{64}$" },
+        failureKind: { type: "string", enum: ["operational"] },
+        category: { type: "string", enum: [...OPERATIONAL_FAILURE_CATEGORIES] },
+        executionReceipt: executionReceiptSchema(),
+        retryable: { type: "boolean" },
+        error: { type: "string", minLength: 1, maxLength: 2000 },
+        occurredAt: STRING_SCHEMA,
+        authorityWorkflow: {
+          type: "string",
+          enum: [profile.adapters.failureAuthorizer.workflow],
+        },
+        authorityReceiptName: {
+          type: "string",
+          pattern: "^factory-execution-failure-[A-Za-z0-9._:-]+$",
+        },
+        authorityDigest: { type: "string", pattern: "^[0-9a-f]{64}$" },
+      },
+    },
+  };
+}
+
+function currentExecutionFailureGate(
+  profile: DexSoftwareFactoryProfile,
+  stageId: RecoverableStageId,
+): FactoryGate {
+  const celName = `${stageId}-execution-failure`.replaceAll("-", "_");
+  const receipt = `artifacts.${celName}.executionReceipt`;
+  return celGate(
+    `artifacts.${celName}.sourceFactoryId == "${profile.sourceFactoryId}" && artifacts.${celName}.workItem == workItem && artifacts.${celName}.stage == "${stageId}" && artifacts.${celName}.stageCycle == state.cycles["${stageId}"] && artifacts.${celName}.dispatchAttempt == 1 && artifacts.${celName}.failureKind == "operational" && artifacts.${celName}.authorityWorkflow == "${profile.adapters.failureAuthorizer.workflow}" && artifacts.${celName}.authorityReceiptName == "factory-execution-failure-" + artifacts.${celName}.receiptDigest && artifacts.${celName}.authorityDigest == artifacts.${celName}.receiptDigest && ${receipt}.status == "failed" && ((${receipt}.kind == "workflow" && has(${receipt}.workflowName) && has(${receipt}.workflowRunId) && has(${receipt}.inputsDigest)) || (${receipt}.kind == "command" && has(${receipt}.operation) && has(${receipt}.command) && has(${receipt}.exitCode) && has(${receipt}.stdoutDigest) && has(${receipt}.stderrDigest)))`,
+    `operational recovery requires a trusted content-addressed receipt from the current ${stageId} cycle and dispatch`,
+  );
+}
+
+function failureTransitions(
+  profile: DexSoftwareFactoryProfile,
+  stageId: RecoverableStageId,
+): FactoryStage[] {
+  return [
+    {
+      name: "operational-pause",
+      to: `${stageId}-recovery`,
+      gates: [
+        artifactExists(`${stageId}-execution-failure`),
+        currentExecutionFailureGate(profile, stageId),
+        {
+          type: "workflow-succeeded",
+          config: {
+            workflow: profile.adapters.failureAuthorizer.workflow,
+            requireStepOutputs: [`artifact-${stageId}-execution-failure`],
+          },
+        },
+      ],
+    },
+  ];
+}
+
+function recoveryStage(stageId: RecoverableStageId): FactoryStage {
+  return {
+    id: `${stageId}-recovery`,
+    description:
+      `Pause after an operational ${stageId} failure, preserve its evidence, and retry only after repair.`,
+    transitions: [
+      {
+        name: `retry-${stageId}`,
+        to: stageId,
+        gates: [
+          {
+            type: "human-approval",
+            config: { id: `retry-${stageId}` },
+          },
+        ],
+      },
+    ],
+  };
+}
+
 function preflightStage(profile: DexSoftwareFactoryProfile): FactoryStage {
   return {
     id: "preflight",
@@ -938,6 +1124,7 @@ function preflightStage(profile: DexSoftwareFactoryProfile): FactoryStage {
     description: "Run the consumer policy adapter before implementation.",
     maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
     work: adapterWork(profile.adapters.preflight, "preflight-run"),
+    artifacts: [executionFailureArtifact(profile, "preflight")],
     transitions: [
       {
         name: "implement",
@@ -948,6 +1135,7 @@ function preflightStage(profile: DexSoftwareFactoryProfile): FactoryStage {
           ]),
         ],
       },
+      ...failureTransitions(profile, "preflight"),
     ],
   };
 }
@@ -959,14 +1147,18 @@ function implementationStage(profile: DexSoftwareFactoryProfile): FactoryStage {
       "Implement the current Dex work item and record a compact change summary.",
     maxCycles: profile.budgets.implementation,
     maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
-    work: interactiveWork({ mode: "interactive", ...profile.implementation }),
-    artifacts: [changeSummaryArtifact(profile)],
+    work: dispatchWork({ mode: "dispatch", ...profile.implementation }),
+    artifacts: [
+      changeSummaryArtifact(profile),
+      executionFailureArtifact(profile, "implementation"),
+    ],
     transitions: [
       {
         name: "classify",
         to: "classify",
         gates: [artifactExists("change-summary")],
       },
+      ...failureTransitions(profile, "implementation"),
     ],
   };
 }
@@ -978,7 +1170,10 @@ function classifyStage(profile: DexSoftwareFactoryProfile): FactoryStage {
       "Derive a trusted, complete verification plan through the consumer adapter.",
     maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
     work: adapterWork(profile.adapters.classify, "classify-run"),
-    artifacts: [changeImpactArtifact(profile)],
+    artifacts: [
+      changeImpactArtifact(profile),
+      executionFailureArtifact(profile, "classify"),
+    ],
     transitions: [
       {
         name: "verify",
@@ -991,12 +1186,13 @@ function classifyStage(profile: DexSoftwareFactoryProfile): FactoryStage {
           artifactFresh("change-impact"),
         ],
       },
+      ...failureTransitions(profile, "classify"),
     ],
   };
 }
 
 const CLOSED_ROUTE_FRESHNESS_EXPR = [
-  "artifacts.verification.workItem == state.workItem",
+  "artifacts.verification.workItem == workItem",
   "artifacts.verification.integratedRevision == artifacts.change_summary.integrationReceipt.integratedRevision",
   "artifacts.verification.integratedTreeFingerprint == artifacts.change_summary.integrationReceipt.integratedTreeFingerprint",
   "artifacts.verification.treeFingerprint == artifacts.change_impact.changeFingerprint",
@@ -1073,10 +1269,12 @@ function evidenceUnavailableStage(): FactoryStage {
       {
         name: "retry-verification",
         to: "verification",
-        gates: [{
-          type: "human-approval",
-          config: { id: "retry-verification" },
-        }],
+        gates: [
+          {
+            type: "human-approval",
+            config: { id: "retry-verification" },
+          },
+        ],
       },
     ],
   };
@@ -1091,10 +1289,12 @@ function aestheticApprovalStage(): FactoryStage {
       {
         name: "bind-approval",
         to: "aesthetic-decision-binding",
-        gates: [{
-          type: "human-approval",
-          config: { id: "aesthetic-acceptance" },
-        }],
+        gates: [
+          {
+            type: "human-approval",
+            config: { id: "aesthetic-acceptance" },
+          },
+        ],
       },
       {
         name: "bind-rejection",
@@ -1146,7 +1346,10 @@ function aestheticDecisionBindingStage(
       "Bind the trusted Factory approval record to the exact verified evidence bundle.",
     maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
     work: adapterWork(adapter, "human-aesthetic-decision-run"),
-    artifacts: [humanAestheticDecisionArtifact()],
+    artifacts: [
+      humanAestheticDecisionArtifact(),
+      executionFailureArtifact(profile, "aesthetic-decision-binding"),
+    ],
     transitions: [
       {
         name: "accept",
@@ -1178,6 +1381,7 @@ function aestheticDecisionBindingStage(
           ),
         ],
       },
+      ...failureTransitions(profile, "aesthetic-decision-binding"),
     ],
   };
 }
@@ -1276,10 +1480,14 @@ function verificationStage(profile: DexSoftwareFactoryProfile): FactoryStage {
       closedObjective
         ? closedObjectiveVerificationArtifact()
         : verificationArtifact(profile),
+      executionFailureArtifact(profile, "verification"),
     ],
-    transitions: closedObjective
-      ? closedObjectiveVerificationTransitions(profile)
-      : verificationTransitions(profile),
+    transitions: [
+      ...(closedObjective
+        ? closedObjectiveVerificationTransitions(profile)
+        : verificationTransitions(profile)),
+      ...failureTransitions(profile, "verification"),
+    ],
   };
 }
 
@@ -1335,6 +1543,7 @@ function reviewStage(profile: DexSoftwareFactoryProfile): FactoryStage | null {
           profile.contracts?.reviewVerdict,
         ),
       },
+      executionFailureArtifact(profile, "review"),
     ],
     transitions: [
       {
@@ -1370,6 +1579,7 @@ function reviewStage(profile: DexSoftwareFactoryProfile): FactoryStage | null {
         ]),
       },
       ...humanRevisionTransition,
+      ...failureTransitions(profile, "review"),
     ],
   };
 }
@@ -1394,7 +1604,10 @@ function reconciliationStage(profile: DexSoftwareFactoryProfile): FactoryStage {
         ? "Prepare the exact Dex completion result and commit decision from already verified integration evidence. Do not mutate the repository or tracker, assess aesthetics, or route rework."
         : "Reconcile the verified result without mutating the repository or tracker state. Confirm any integration evidence already recorded in change-summary. Record nextStep=rework when anything remains; otherwise record nextStep=complete with the exact Dex result and commit decision.",
     },
-    artifacts: [reconciliationArtifact(profile)],
+    artifacts: [
+      reconciliationArtifact(profile),
+      executionFailureArtifact(profile, "reconciliation"),
+    ],
     transitions: [
       ...(closedObjective ? [] : [
         {
@@ -1420,6 +1633,7 @@ function reconciliationStage(profile: DexSoftwareFactoryProfile): FactoryStage {
           ),
         ],
       },
+      ...failureTransitions(profile, "reconciliation"),
     ],
   };
 }
@@ -1431,6 +1645,7 @@ function postflightStage(profile: DexSoftwareFactoryProfile): FactoryStage {
       "Run the consumer terminal policy adapter before tracker completion.",
     maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
     work: adapterWork(profile.adapters.postflight, "postflight-run"),
+    artifacts: [executionFailureArtifact(profile, "postflight")],
     transitions: [
       {
         name: "cleanup",
@@ -1442,18 +1657,23 @@ function postflightStage(profile: DexSoftwareFactoryProfile): FactoryStage {
           humanApprovalGate(profile.completionGate),
         ]),
       },
-      ...(profile.completionGate === undefined ? [] : [{
-        name: "human-revision",
-        to: "implementation",
-        gates: [
-          adapterSucceededGate(
-            profile.adapters.postflight,
-            "postflight-run",
-            ["evidence-postflight-run"],
-          ),
-          humanRejectionGate(profile.completionGate),
-        ],
-      }]),
+      ...(profile.completionGate === undefined ? [] : [
+        {
+          name: "human-revision",
+          to: "implementation",
+          gates: [
+            adapterSucceededGate(
+              profile.adapters.postflight,
+              "postflight-run",
+              [
+                "evidence-postflight-run",
+              ],
+            ),
+            humanRejectionGate(profile.completionGate),
+          ],
+        },
+      ]),
+      ...failureTransitions(profile, "postflight"),
     ],
   };
 }
@@ -1462,52 +1682,52 @@ function terminalCleanupStage(
   profile: DexSoftwareFactoryProfile,
 ): FactoryStage {
   const completionWorkflow = profile.adapters.dexTracker.completionWorkflow;
-  const work = profile.completionGate !== undefined &&
-      completionWorkflow !== undefined
-    ? {
-      mode: "workflow" as const,
-      workflow: {
-        name: completionWorkflow,
-        inputs: { workItem: CEL_WORK_ITEM },
-      },
-      inputsSchema: {
-        type: "object" as const,
-        required: ["workItem"],
-        additionalProperties: false,
-        properties: { workItem: STRING_SCHEMA },
-      },
-      resultEvidence: "tracker-completion",
-    }
-    : {
-      mode: "method" as const,
-      method: {
-        modelIdOrName: profile.adapters.dexTracker.modelIdOrName,
-        methodName: profile.adapters.dexTracker.completeMethodName,
-        inputs: {
-          taskId: CEL_WORK_ITEM,
-          result: COMPLETION_RESULT_BINDING,
-          commit: COMPLETION_COMMIT_BINDING,
+  const work =
+    profile.completionGate !== undefined && completionWorkflow !== undefined
+      ? {
+        mode: "workflow" as const,
+        workflow: {
+          name: completionWorkflow,
+          inputs: { workItem: CEL_WORK_ITEM },
         },
-      },
-      inputsSchema: {
-        type: "object" as const,
-        required: ["taskId", "result", "commit"],
-        additionalProperties: false,
-        properties: {
-          taskId: STRING_SCHEMA,
-          result: STRING_SCHEMA,
-          commit: {
-            type: "object",
-            required: ["kind"],
-            properties: {
-              kind: { type: "string", enum: ["commit", "noCommit"] },
-              sha: { type: "string", pattern: GIT_SHA_PATTERN },
+        inputsSchema: {
+          type: "object" as const,
+          required: ["workItem"],
+          additionalProperties: false,
+          properties: { workItem: STRING_SCHEMA },
+        },
+        resultEvidence: "tracker-completion",
+      }
+      : {
+        mode: "method" as const,
+        method: {
+          modelIdOrName: profile.adapters.dexTracker.modelIdOrName,
+          methodName: profile.adapters.dexTracker.completeMethodName,
+          inputs: {
+            taskId: CEL_WORK_ITEM,
+            result: COMPLETION_RESULT_BINDING,
+            commit: COMPLETION_COMMIT_BINDING,
+          },
+        },
+        inputsSchema: {
+          type: "object" as const,
+          required: ["taskId", "result", "commit"],
+          additionalProperties: false,
+          properties: {
+            taskId: STRING_SCHEMA,
+            result: STRING_SCHEMA,
+            commit: {
+              type: "object",
+              required: ["kind"],
+              properties: {
+                kind: { type: "string", enum: ["commit", "noCommit"] },
+                sha: { type: "string", pattern: GIT_SHA_PATTERN },
+              },
             },
           },
         },
-      },
-      resultEvidence: "tracker-completion",
-    };
+        resultEvidence: "tracker-completion",
+      };
   return {
     id: "terminal-cleanup",
     description: profile.completionGate === undefined
@@ -1515,6 +1735,7 @@ function terminalCleanupStage(
       : "Complete the Dex task only through the repository completion workflow after explicit task-specific human approval.",
     maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
     work,
+    artifacts: [executionFailureArtifact(profile, "terminal-cleanup")],
     transitions: [
       {
         name: "finish",
@@ -1531,35 +1752,76 @@ function terminalCleanupStage(
           },
         ],
       },
+      ...failureTransitions(profile, "terminal-cleanup"),
     ],
   };
 }
 
 function terminalObservabilityStage(
-  id: "done-observability" | "aborted-observability",
-  terminalStage: "done" | "aborted",
+  profile: DexSoftwareFactoryProfile,
+  id:
+    | "done-observability"
+    | "aborted-observability"
+    | "escalated-observability",
+  terminalStage: "done" | "aborted" | "operational-escalation",
   workflow: string,
   maxDispatchesPerCycle: number,
 ): FactoryStage {
   return {
     id,
     description:
-      `Finalize ${terminalStage}, persist canonical Factory reports, and emit non-gating observability.`,
+      `Persist canonical Factory reports and verify observability before finalizing ${terminalStage}.`,
     maxDispatchesPerCycle,
     work: {
       mode: "workflow",
       workflow: {
         name: workflow,
-        inputs: { workItem: CEL_WORK_ITEM },
+        inputs: {
+          workItem: CEL_WORK_ITEM,
+          preterminalStage: id,
+          targetStage: terminalStage,
+          outcome: terminalStage === "done"
+            ? "done"
+            : terminalStage === "aborted"
+            ? "aborted"
+            : "parked",
+        },
       },
       inputsSchema: {
         type: "object",
-        required: ["workItem"],
+        required: ["workItem", "preterminalStage", "targetStage", "outcome"],
         additionalProperties: false,
-        properties: { workItem: STRING_SCHEMA },
+        properties: {
+          workItem: STRING_SCHEMA,
+          preterminalStage: { type: "string", enum: [id] },
+          targetStage: { type: "string", enum: [terminalStage] },
+          outcome: {
+            type: "string",
+            enum: [
+              terminalStage === "done"
+                ? "done"
+                : terminalStage === "aborted"
+                ? "aborted"
+                : "parked",
+            ],
+          },
+        },
       },
     },
-    transitions: [{ name: "finalize", to: terminalStage }],
+    artifacts: [executionFailureArtifact(profile, id)],
+    transitions: [
+      {
+        name: "finalize",
+        to: terminalStage,
+        gates: [
+          {
+            type: "workflow-succeeded",
+            config: { workflow },
+          },
+        ],
+      },
+      ...failureTransitions(profile, id),
+    ],
   };
 }
 
@@ -1575,33 +1837,59 @@ export function compileDexSoftwareFactoryProfile(
     implementationStage(profile),
     classifyStage(profile),
     verificationStage(profile),
+    recoveryStage("preflight"),
+    recoveryStage("implementation"),
+    recoveryStage("classify"),
+    recoveryStage("verification"),
     ...(closedObjective
       ? [
         evidenceUnavailableStage(),
         aestheticApprovalStage(),
         aestheticDecisionBindingStage(profile),
+        recoveryStage("aesthetic-decision-binding"),
       ]
       : []),
-    ...(review === null ? [] : [review]),
+    ...(review === null ? [] : [review, recoveryStage("review")]),
     reconciliationStage(profile),
+    recoveryStage("reconciliation"),
     postflightStage(profile),
+    recoveryStage("postflight"),
     terminalCleanupStage(profile),
+    recoveryStage("terminal-cleanup"),
     ...(profile.adapters.terminalObserver === undefined ? [] : [
       terminalObservabilityStage(
+        profile,
         "done-observability",
         "done",
         profile.adapters.terminalObserver.workflow,
         profile.budgets.maxDispatchesPerCycle,
       ),
       terminalObservabilityStage(
+        profile,
         "aborted-observability",
         "aborted",
         profile.adapters.terminalObserver.workflow,
         profile.budgets.maxDispatchesPerCycle,
       ),
+      terminalObservabilityStage(
+        profile,
+        "escalated-observability",
+        "operational-escalation",
+        profile.adapters.terminalObserver.workflow,
+        profile.budgets.maxDispatchesPerCycle,
+      ),
+      recoveryStage("done-observability"),
+      recoveryStage("aborted-observability"),
+      recoveryStage("escalated-observability"),
     ]),
     { id: "done", terminal: true },
     { id: "aborted", terminal: true },
+    {
+      id: "operational-escalation",
+      terminal: true,
+      description:
+        "Human-escalated terminal state for an unrecoverable operational Factory failure.",
+    },
   ];
 
   return CompiledDexSoftwareFactoryProfileSchema.parse({
@@ -1624,6 +1912,18 @@ export function compileDexSoftwareFactoryProfile(
             {
               type: "human-approval",
               config: { id: "abort-confirmation" },
+            },
+          ],
+        },
+        {
+          name: "escalate-operational-failure",
+          to: profile.adapters.terminalObserver === undefined
+            ? "operational-escalation"
+            : "escalated-observability",
+          gates: [
+            {
+              type: "human-approval",
+              config: { id: "operational-escalation" },
             },
           ],
         },

@@ -42,15 +42,16 @@ function guardSkips(step: WorkflowStep, status: (typeof CLAIM_STATUSES)[number])
 			: outcomes[0];
 }
 
-Deno.test('fleet driver workflowScript is valid ordinary JavaScript', async () => {
+Deno.test('fleet driver binds durable per-root Pi dispatch instead of a fictional batch', async () => {
 	const markdown = await Deno.readTextFile(FLEET_DRIVER_PATH);
-	const script = /```javascript\n([\s\S]*?)\n```/.exec(markdown)?.[1];
-	assert.ok(script, 'Missing JavaScript workflowScript example');
-	const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as new (
-		...args: string[]
-	) => (...args: unknown[]) => Promise<unknown>;
-	assert.doesNotThrow(() => new AsyncFunction('runs', 'allocated', script));
-	assert.doesNotMatch(script, /\bas const\b/);
+	assert.match(markdown, /coordinateFactoryPiDispatchWave/);
+	assert.match(markdown, /reserve_pi_dispatch/);
+	assert.match(markdown, /record_dispatch/);
+	assert.match(markdown, /record_pi_submission_attempt/);
+	assert.match(markdown, /claim_pi_execution/);
+	assert.match(markdown, /bind_pi_handoff/);
+	assert.match(markdown, /one top-level Pi request/);
+	assert.doesNotMatch(markdown, /dispatchValidatedFactoryBatch|recordDispatchBatchAtomically/);
 });
 
 Deno.test(

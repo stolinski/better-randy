@@ -1,33 +1,67 @@
 id: 5dfa5e46-8098-4cf3-8dae-75162e8a967a
 name: factory-terminal-summary
-description: Persist a terminal Factory summary and emit its bounded flow metrics without gating delivery.
+description: Recover a projected terminal Factory receipt without allowing summary or telemetry failures to gate recovery.
 tags:
-  purpose: factory-terminal-observability
+  purpose: factory-terminal-observability-recovery
 inputs:
   type: object
-  required: [workItem]
+  required: [workItem, preterminalStage, targetStage, outcome]
   additionalProperties: false
   properties:
     workItem:
       type: string
       minLength: 1
+    preterminalStage:
+      type: string
+      enum: [done-observability, aborted-observability, escalated-observability]
+    targetStage:
+      type: string
+      enum: [done, aborted, operational-escalation]
+    outcome:
+      type: string
+      enum: [done, aborted, parked]
+  oneOf:
+    - properties:
+        preterminalStage: { const: done-observability }
+        targetStage: { const: done }
+        outcome: { const: done }
+    - properties:
+        preterminalStage: { const: aborted-observability }
+        targetStage: { const: aborted }
+        outcome: { const: aborted }
+    - properties:
+        preterminalStage: { const: escalated-observability }
+        targetStage: { const: operational-escalation }
+        outcome: { const: parked }
 jobs:
   - name: main
-    description: Persist canonical reports first, then project the same terminal run into Sentry metrics.
+    description: Attempt canonical summary persistence first, then recover the exact projected terminal receipt as a non-gating side effect.
     steps:
       - name: summarize-factory-run
-        description: Generate the built-in work-item summary and canonical flow-metrics report.
+        description: Attempt the canonical exact projected terminal summary without blocking legacy receipt recovery.
         task:
           type: model_method
-          modelIdOrName: supers-delivery
-          methodName: summary
+          modelIdOrName: supers-factory-sentry-metrics
+          methodName: persist_projected_summary
           inputs:
             workItem: '${{ inputs.workItem }}'
+            sourceFactory:
+              id: 90fac686-c724-4aee-97c4-e31b9af4c5e2
+              name: supers-delivery
+            factory:
+              project: better-randy
+              name: supers-delivery
+              profile: supers-dex-delivery
+            visualReviewStages: [review]
+            projectedTerminal:
+              preterminalStage: '${{ inputs.preterminalStage }}'
+              targetStage: '${{ inputs.targetStage }}'
+              outcome: '${{ inputs.outcome }}'
         dependsOn: []
         weight: 0
-        allowFailure: false
+        allowFailure: true
       - name: emit-terminal-flow-metrics
-        description: Emit only terminal facts; failures remain observable but never fail the summary workflow.
+        description: Emit only the explicit projected terminal route; telemetry failures never fail recovery.
         task:
           type: model_method
           modelIdOrName: supers-factory-sentry-metrics
@@ -42,14 +76,16 @@ jobs:
               name: supers-delivery
               profile: supers-dex-delivery
             visualReviewStages: [review]
+            projectedTerminal:
+              preterminalStage: '${{ inputs.preterminalStage }}'
+              targetStage: '${{ inputs.targetStage }}'
+              outcome: '${{ inputs.outcome }}'
         dependsOn:
           - step: summarize-factory-run
             condition:
-              type: succeeded
+              type: completed
         weight: 0
         allowFailure: true
-        guard: >-
-          ${{ data.query('modelName == "supers-delivery" && specName == "state" && attributes.workItem == "' + inputs.workItem + '" && attributes.status == "terminal"').size() != 1 }}
     dependsOn: []
     weight: 0
-version: 1
+version: 2

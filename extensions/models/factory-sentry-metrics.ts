@@ -12,18 +12,22 @@ import {
 import {
   executeFactoryFlowMetricEmissionFromSource,
   executeFactoryMetricEmission,
+  executePersistFactoryProjectedTerminalSummary,
   FACTORY_METRIC_MODEL_VERSION,
   FactoryFlowMetricSourceArgsSchema,
   FactoryMetricCoverageSchema,
   FactoryMetricEmissionArgsSchema,
   FactoryMetricEmissionReceiptSchema,
   FactoryMetricGlobalArgsSchema,
+  FactoryProjectedTerminalSummaryArgsSchema,
+  FactoryProjectedTerminalSummarySchema,
   verifyFactoryFlowMetricReceipt,
 } from "./factory-sentry-metrics-emitter.ts";
 import type {
   FactoryFlowMetricSourceArgs,
   FactoryMetricEmissionArgs,
   FactoryMetricMethodContext,
+  FactoryProjectedTerminalSummaryArgs,
 } from "./factory-sentry-metrics-emitter.ts";
 
 /** Model definition for bounded Factory Application Metrics emission. */
@@ -38,6 +42,13 @@ export const model = {
       schema: FactoryMetricEmissionReceiptSchema,
       lifetime: "infinite",
       garbageCollection: 20,
+    },
+    "projected-summary": {
+      description:
+        "Canonical exact terminal projection persisted before Factory finalization",
+      schema: FactoryProjectedTerminalSummarySchema,
+      lifetime: "infinite",
+      garbageCollection: 100,
     },
     coverage: {
       description:
@@ -63,6 +74,15 @@ export const model = {
         args: FactoryAgentTelemetryArgs,
         context: FactoryMetricMethodContext,
       ) => executeFactoryAgentTelemetryEmission(args, context),
+    },
+    persist_projected_summary: {
+      description:
+        "Persist the exact canonical terminal summary projected by the current observability route",
+      arguments: FactoryProjectedTerminalSummaryArgsSchema,
+      execute: (
+        args: FactoryProjectedTerminalSummaryArgs,
+        context: FactoryMetricMethodContext,
+      ) => executePersistFactoryProjectedTerminalSummary(args, context),
     },
     emit_flow_report: {
       description:

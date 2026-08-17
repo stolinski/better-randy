@@ -50,16 +50,31 @@ Pulling this extension also resolves its pinned `@swamp/software-factory` and `d
 swamp extension pull @club_aqua_back_deck/dex-software-factory
 ```
 
-Create the tracker and profile compiler through Swamp:
+Create the tracker and target Factory first, then create the profile compiler:
 
 ```sh
 swamp model create @club_aqua_back_deck/dex-task-tracker project-dex-tracker \
   --global-arg ownerToken=project-factory --json
+swamp model create @swamp/software-factory project-delivery --json
+swamp model get project-delivery --json
 swamp model create @club_aqua_back_deck/dex-software-factory \
   project-delivery-profile --json
 ```
 
-Use `swamp model edit project-delivery-profile` in an interactive terminal and copy the `globalArguments` mapping from [`examples/profile-arguments.yaml`](examples/profile-arguments.yaml). Replace every example adapter name and prompt with consumer-owned configuration. Never copy or invent a model ID.
+Read the exact generated Factory ID, install the shipped portable failure-authorizer workflow, and create a concrete argument fragment before editing the profile:
+
+```sh
+PROJECT_DELIVERY_ID="$(swamp model get project-delivery --json | jq -er '.id')"
+mkdir -p workflows
+cp .swamp/pulled-extensions/@club_aqua_back_deck/dex-software-factory/examples/project-failure-authorizer.workflow.yaml \
+  workflows/workflow-project-failure-authorizer.yaml
+swamp workflow validate project-failure-authorizer --json
+sed "s/REPLACE_WITH_PROJECT_DELIVERY_ID/$PROJECT_DELIVERY_ID/" \
+  .swamp/pulled-extensions/@club_aqua_back_deck/dex-software-factory/examples/profile-arguments.yaml \
+  > /tmp/project-delivery-profile-arguments.yaml
+```
+
+Use `swamp model edit project-delivery-profile` in an interactive terminal and copy the generated mapping from `/tmp/project-delivery-profile-arguments.yaml` into `globalArguments`. Replace every remaining adapter name and prompt with consumer-owned configuration. Keep `profileModelName` equal to the actual profile instance name. The source fragment's replacement marker is deliberately not a valid UUID, so an unsubstituted example cannot compile. Never copy or invent a model ID.
 
 ## Compile the profile
 
@@ -78,16 +93,15 @@ The `compiled-profile` resource contains:
 
 Compilation is deterministic and does not execute any configured adapter.
 
-## Create the generated Factory
+## Configure the generated Factory
 
-Create the target definition, then bind its `globalArguments` to the compiled resource:
+Bind the already-created target Factory's `globalArguments` to the compiled resource:
 
 ```yaml
 globalArguments: '${{ data.latest("project-delivery-profile", "compiled-profile").attributes.factoryArguments }}'
 ```
 
 ```sh
-swamp model create @swamp/software-factory project-delivery --json
 swamp model validate project-delivery --json
 swamp model method run project-delivery validate
 ```
@@ -100,9 +114,16 @@ The exact definition-editing mechanism is consumer-owned. Preserve the ID genera
 - `workItem` remains compiler-owned and cannot be overridden.
 - Contract extensions may add fields but cannot replace required base fields.
 - Optional review, acceptance, and completion gates may be omitted.
-- Optional `adapters.terminalObserver.workflow` routes done and aborted outcomes through required observability stages before their terminal states; the workflow owns the final `finalize` transition and non-gating telemetry.
+- Optional `adapters.terminalObserver.workflow` routes done, aborted, and operational-escalation outcomes through required preterminal observability stages. The observer persists and verifies the exact projected outcome and never advances the Factory. The generated preterminal stage owns the `workflow-succeeded`-gated `finalize` transition; telemetry remains non-gating.
 - When `completionGate` is configured, rejection returns to implementation and `adapters.dexTracker.completionWorkflow` is required. That workflow must read authoritative Factory evidence and own the tracker mutation.
-- Workflow and model names are configuration, not embedded project policy.
+- Workflow and model names are configuration, not embedded project policy. `adapters.failureAuthorizer.workflow` selects the operational recovery authorizer; install and validate the shipped exact example under that configured name or provide an equivalent consumer-owned workflow.
+- `profileModelName` is checked against the trusted current model ID through its fixed Swamp definition identity. Pi outbox reservations persist that verified name, and launch verification requires the exact matching claim command.
+- Reservation persists the exact canonical frozen Pi request in the durable outbox. Retry reads it only through the concrete trusted method `swamp model method run project-delivery-profile get_pi_dispatch_request --input '{"dispatchToken":"<token>"}' --json`, then recomputes the request digest, task digest, and content-addressed token. Retry callers supply no request bytes or digests.
+- Pi submission-attempt recording returns `newlyConsumed` and `ordinal`; only a newly consumed identity authorizes one physical launch. A recording failure is a typed per-root error and never invokes reconciliation.
+- Reconciliation requires the exact current durable attempt receipt and accepts only submit-pending, submitted, execution-claimed, or handoff-ready state. Retryable, uncertain, parked, and terminal states cannot be revived through an old attempt.
+- Launch binding accepts only submit-pending, execution claims accept only submit-pending or submitted for the exact current run, and handoff binding accepts only execution-claimed for the same run and claim.
+- Exact failed, stopped, or rejected Pi runs are retryable transport failures before an execution claim. After a claim, they create claim- and launch-bound execution-failure evidence for the existing operational recovery route. Paused or unavailable runs remain uncertain until explicit human retry authorization.
+- Lost-ack scans use durable attempt time plus package-owned run metadata, mission, repository, and session markers. A new malformed candidate that cannot be ruled out pauses submission; proven old or unrelated malformed candidates do not.
 - No credentials are accepted or emitted.
 
 See [`examples/usage.md`](examples/usage.md) for clean-repository validation. The accompanying `profile-arguments.yaml` is a configuration fragment, not a model definition.

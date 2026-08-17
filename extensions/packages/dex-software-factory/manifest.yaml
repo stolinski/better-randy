@@ -1,7 +1,7 @@
 manifestVersion: 1
-name: "@club_aqua_back_deck/dex-software-factory"
-version: "2026.08.16.1"
-description: "Compile consumer-owned Dex adapters and deterministic closed-objective routing into a portable @swamp/software-factory profile."
+name: '@club_aqua_back_deck/dex-software-factory'
+version: '2026.08.16.14'
+description: 'Compile consumer-owned Dex adapters and deterministic closed-objective routing into a portable @swamp/software-factory profile.'
 repository: https://github.com/stolinski/better-randy
 models:
   - dex-software-factory.ts
@@ -10,6 +10,7 @@ additionalFiles:
   - CHANGELOG.md
   - LICENSE.txt
   - examples/profile-arguments.yaml
+  - examples/project-failure-authorizer.workflow.yaml
   - examples/usage.md
 platforms: []
 labels:
@@ -17,5 +18,5 @@ labels:
   - software-factory
   - profile-compiler
 dependencies:
-  - "@swamp/software-factory"
-  - "@club_aqua_back_deck/dex-task-tracker"
+  - '@swamp/software-factory'
+  - '@club_aqua_back_deck/dex-task-tracker'

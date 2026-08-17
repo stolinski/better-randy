@@ -2,8 +2,12 @@ import assert from "node:assert/strict";
 
 import {
   buildFactoryMetricOperations,
+  createFactoryProjectedTerminalAttemptIdentity,
+  createFactoryProjectedTerminalSummary,
   executeFactoryFlowMetricEmission,
+  executeFactoryFlowMetricEmissionFromSource,
   executeFactoryMetricEmission,
+  executePersistFactoryProjectedTerminalSummary,
   FactoryFlowMetricEmissionArgsSchema,
   FactoryFlowMetricSourceArgsSchema,
   FactoryMetricCoverageSchema,
@@ -11,6 +15,10 @@ import {
   factoryMetricEmissionFromFlowReport,
   FactoryMetricEmissionReceiptSchema,
   type FactoryMetricSink,
+  FactoryProjectedTerminalSummaryArgsSchema,
+  projectedTerminalSummaryResourceName,
+  projectFactoryTerminalFlowReport,
+  verifyFactoryFlowMetricReceipt,
   verifyFactoryMetricReceipt,
 } from "./factory-sentry-metrics-emitter.ts";
 import { model } from "./factory-sentry-metrics.ts";
@@ -45,6 +53,11 @@ Deno.test("method schemas strip Swamp's resolved global argument envelope", () =
       profile: "supers-dex-delivery",
     },
     visualReviewStages: ["review"],
+    projectedTerminal: {
+      preterminalStage: "done-observability",
+      targetStage: "done",
+      outcome: "done",
+    },
     dsn: "https://public@example.invalid/1",
   });
   assert.equal("dsn" in source, false);
@@ -99,6 +112,22 @@ function validArgs() {
       approvals: { availability: "available", value: 1 },
       rejections: { availability: "available", value: 1 },
       cycleOverrides: { availability: "available", value: 1 },
+    },
+  });
+}
+
+function terminalArgs(outcome: "done" | "aborted" | "parked") {
+  const args = validArgs();
+  return FactoryMetricEmissionArgsSchema.parse({
+    ...args,
+    idempotencyKey: `run-${outcome}`,
+    terminal: {
+      ...args.terminal,
+      outcome,
+      failedStage: {
+        availability: "available",
+        value: outcome === "done" ? null : outcome,
+      },
     },
   });
 }
@@ -192,6 +221,266 @@ function validFlowReportArgs(
   });
 }
 
+Deno.test("all projected observability outcomes persist exact summaries bound by terminal receipts", async () => {
+  for (
+    const route of [
+      {
+        preterminalStage: "done-observability",
+        targetStage: "done",
+        outcome: "done",
+      },
+      {
+        preterminalStage: "aborted-observability",
+        targetStage: "aborted",
+        outcome: "aborted",
+      },
+      {
+        preterminalStage: "escalated-observability",
+        targetStage: "operational-escalation",
+        outcome: "parked",
+      },
+    ] as const
+  ) {
+    const terminal = validFlowReportArgs(route.outcome);
+    const activeReport = {
+      ...terminal.report,
+      metrics: {
+        ...terminal.report.metrics,
+        runStatus: "active" as const,
+        stages: [
+          ...terminal.report.metrics.stages.filter((stage) => !stage.terminal),
+          {
+            stageId: route.preterminalStage,
+            entries: 1,
+            totalMs: null,
+            durationAvailability: "unavailable" as const,
+            firstEnteredMs: 15_000,
+            dispatchAttempts: 1,
+            terminal: false,
+          },
+        ],
+        outcome: { value: "active" as const, sources: [] },
+      },
+    };
+    const projected = projectFactoryTerminalFlowReport(activeReport, route, 12);
+    const projectedArgs = {
+      workItem: "task-example",
+      sourceFactory: {
+        id: "90fac686-c724-4aee-97c4-e31b9af4c5e2",
+        name: "supers-delivery",
+      },
+      factory: {
+        project: "better-randy",
+        name: "supers-delivery",
+        profile: "supers-dex-delivery",
+      },
+      visualReviewStages: ["review"],
+      projectedTerminal: route,
+    };
+    const attemptIdentity = await createFactoryProjectedTerminalAttemptIdentity(
+      projected,
+      1,
+      { kind: "journal", name: "journal-task-example", version: 12 },
+    );
+    const summary = await createFactoryProjectedTerminalSummary(
+      projectedArgs,
+      projected,
+      attemptIdentity,
+      "2026-08-17T12:00:00.000Z",
+    );
+    assert.equal(summary.report.metrics.runStatus, "terminal");
+    assert.equal(summary.report.metrics.outcome.value, route.outcome);
+    assert.equal(
+      summary.report.metrics.stages.at(-1)?.stageId,
+      route.targetStage,
+    );
+    const emission = FactoryMetricEmissionArgsSchema.parse({
+      ...factoryMetricEmissionFromFlowReport({
+        ...terminal,
+        report: projected,
+      }),
+      projectedSummaryDigest: summary.summaryDigest,
+    });
+    assert.equal(emission.terminal.outcome, route.outcome);
+    assert.equal(emission.idempotencyKey, "journal-task-example:12");
+    const receiptContext = fixtureContext(undefined);
+    await executeFactoryMetricEmission(emission, receiptContext.context, {
+      createSink: () => {
+        throw new Error("Sentry must remain non-gating");
+      },
+      now: () => "2026-08-17T12:00:01.000Z",
+    });
+    const receipt = metricReceipt(receiptContext.resources);
+    assert.equal(receipt.status, "unavailable");
+    assert.equal(receipt.projectedSummaryDigest, summary.summaryDigest);
+    const receiptEntry = [...receiptContext.resources.entries()].find((
+      [name],
+    ) => name.startsWith("receipt-"));
+    if (receiptEntry === undefined) {
+      throw new Error("missing projected receipt");
+    }
+    receiptContext.resources.set(receiptEntry[0], {
+      ...receiptEntry[1],
+      projectedSummaryDigest: "b".repeat(64),
+    });
+    await assert.rejects(
+      verifyFactoryMetricReceipt(emission, receiptContext.context, {
+        createSink: () => recordingSink().sink,
+        now: () => "2026-08-17T12:00:02.000Z",
+      }),
+      /coverage is missing/,
+    );
+  }
+  const terminal = validFlowReportArgs("done");
+  const activeDone = {
+    ...terminal.report,
+    metrics: {
+      ...terminal.report.metrics,
+      runStatus: "active" as const,
+      stages: [
+        ...terminal.report.metrics.stages.filter((stage) => !stage.terminal),
+        {
+          stageId: "done-observability",
+          entries: 1,
+          totalMs: null,
+          durationAvailability: "unavailable" as const,
+          firstEnteredMs: 15_000,
+          dispatchAttempts: 1,
+          terminal: false,
+        },
+      ],
+      outcome: { value: "active" as const, sources: [] },
+    },
+  };
+  assert.throws(() =>
+    projectFactoryTerminalFlowReport(activeDone, {
+      preterminalStage: "done-observability",
+      targetStage: "aborted",
+      outcome: "aborted",
+    }, 12), /does not match/);
+});
+
+Deno.test("recovered observability cycles persist distinct terminal summaries for every outcome", async () => {
+  for (
+    const route of [
+      {
+        preterminalStage: "done-observability",
+        targetStage: "done",
+        outcome: "done",
+      },
+      {
+        preterminalStage: "aborted-observability",
+        targetStage: "aborted",
+        outcome: "aborted",
+      },
+      {
+        preterminalStage: "escalated-observability",
+        targetStage: "operational-escalation",
+        outcome: "parked",
+      },
+    ] as const
+  ) {
+    const terminal = validFlowReportArgs(route.outcome);
+    const activeReport = {
+      ...terminal.report,
+      metrics: {
+        ...terminal.report.metrics,
+        runStatus: "active" as const,
+        stages: [
+          ...terminal.report.metrics.stages.filter((stage) => !stage.terminal),
+          {
+            stageId: route.preterminalStage,
+            entries: 2,
+            totalMs: null,
+            durationAvailability: "unavailable" as const,
+            firstEnteredMs: 15_000,
+            dispatchAttempts: 1,
+            terminal: false,
+          },
+        ],
+        outcome: { value: "active" as const, sources: [] },
+      },
+    };
+    const projectedArgs = {
+      workItem: "task-example",
+      sourceFactory: {
+        id: "90fac686-c724-4aee-97c4-e31b9af4c5e2",
+        name: "supers-delivery",
+      },
+      factory: {
+        project: "better-randy",
+        name: "supers-delivery",
+        profile: "supers-dex-delivery",
+      },
+      visualReviewStages: ["review"],
+      projectedTerminal: route,
+    };
+    const summaries = new Map<string, unknown>();
+    let firstIdentity:
+      | Awaited<
+        ReturnType<
+          typeof createFactoryProjectedTerminalAttemptIdentity
+        >
+      >
+      | undefined;
+    for (
+      const attempt of [
+        {
+          cycle: 1,
+          journalVersion: 12,
+          persistedAt: "2026-08-17T12:00:00.000Z",
+        },
+        {
+          cycle: 2,
+          journalVersion: 14,
+          persistedAt: "2026-08-17T12:05:00.000Z",
+        },
+      ]
+    ) {
+      const report = projectFactoryTerminalFlowReport(
+        activeReport,
+        route,
+        attempt.journalVersion,
+      );
+      const identity = await createFactoryProjectedTerminalAttemptIdentity(
+        report,
+        attempt.cycle,
+        {
+          kind: "journal",
+          name: "journal-task-example",
+          version: attempt.journalVersion,
+        },
+      );
+      const name = await projectedTerminalSummaryResourceName(
+        projectedArgs,
+        identity,
+      );
+      const summary = await createFactoryProjectedTerminalSummary(
+        projectedArgs,
+        report,
+        identity,
+        attempt.persistedAt,
+      );
+      summaries.set(name, summary);
+      assert.equal(summary.report.metrics.runStatus, "terminal");
+      assert.equal(summary.report.metrics.outcome.value, route.outcome);
+      if (firstIdentity === undefined) firstIdentity = identity;
+      else {
+        await assert.rejects(
+          createFactoryProjectedTerminalSummary(
+            projectedArgs,
+            report,
+            firstIdentity,
+            attempt.persistedAt,
+          ),
+          /report digest/,
+        );
+      }
+    }
+    assert.equal(summaries.size, 2);
+  }
+});
+
 type RecordedOperation = {
   kind: "count" | "distribution" | "gauge";
   name: string;
@@ -260,8 +549,18 @@ function fixtureContext(
       readResource: (name: string) =>
         Promise.resolve(resources.get(name) ?? null),
       dataRepository: {
-        getContent: () => Promise.resolve(null),
-        listVersions: () => Promise.resolve([]),
+        getContent: (
+          ...args: [unknown, string, string, number?]
+        ): Promise<Uint8Array | null> => {
+          void args;
+          return Promise.resolve(null);
+        },
+        listVersions: (
+          ...args: [unknown, string, string]
+        ): Promise<number[]> => {
+          void args;
+          return Promise.resolve([]);
+        },
       },
       writeResource: (
         _specName: string,
@@ -275,9 +574,207 @@ function fixtureContext(
   };
 }
 
+function historicalTerminalContext(
+  route: {
+    preterminalStage:
+      | "done-observability"
+      | "aborted-observability"
+      | "escalated-observability";
+    targetStage: "done" | "aborted" | "operational-escalation";
+    outcome: "done" | "aborted" | "parked";
+  },
+) {
+  const fixture = fixtureContext(undefined);
+  const encode = (value: unknown) =>
+    new TextEncoder().encode(JSON.stringify(value));
+  const records = new Map<string, Record<string, unknown>>([
+    ["state-task-example", {
+      workItem: "task-example",
+      stageId: route.targetStage,
+      cycles: {
+        implementation: 1,
+        [route.preterminalStage]: 1,
+        [route.targetStage]: 1,
+      },
+      enteredAt: "2026-08-17T12:02:00.000Z",
+      status: "terminal",
+      definitionVersion: 6,
+      startedAt: "2026-08-17T12:00:00.000Z",
+    }],
+    ["journal-task-example:1", {
+      event: "started",
+      workItem: "task-example",
+      stageId: "implementation",
+      summary: "Factory run started",
+      at: "2026-08-17T12:00:00.000Z",
+    }],
+    ["journal-task-example:2", {
+      event: "advanced",
+      workItem: "task-example",
+      stageId: route.preterminalStage,
+      summary: "Entered terminal observability",
+      payload: {
+        from: "implementation",
+        to: route.preterminalStage,
+        transition: "observe-terminal",
+        cycle: 1,
+      },
+      at: "2026-08-17T12:01:00.000Z",
+    }],
+    ["journal-task-example:3", {
+      event: "run_terminal",
+      workItem: "task-example",
+      stageId: route.targetStage,
+      summary: "Factory run reached its recorded terminal route",
+      payload: {
+        from: route.preterminalStage,
+        to: route.targetStage,
+        transition: "finalize",
+        cycle: 1,
+      },
+      at: "2026-08-17T12:02:00.000Z",
+    }],
+  ]);
+  fixture.context.dataRepository = {
+    getContent: (_type, _modelId, name, version) => {
+      const record = records.get(
+        version === undefined ? name : `${name}:${version}`,
+      );
+      return Promise.resolve(record === undefined ? null : encode(record));
+    },
+    listVersions: (_type, _modelId, name) =>
+      Promise.resolve(name === "journal-task-example" ? [1, 2, 3] : []),
+  };
+  return fixture;
+}
+
+Deno.test("historical terminal recovery persists, emits, and verifies every exact route", async () => {
+  for (
+    const route of [
+      {
+        preterminalStage: "done-observability",
+        targetStage: "done",
+        outcome: "done",
+      },
+      {
+        preterminalStage: "aborted-observability",
+        targetStage: "aborted",
+        outcome: "aborted",
+      },
+      {
+        preterminalStage: "escalated-observability",
+        targetStage: "operational-escalation",
+        outcome: "parked",
+      },
+    ] as const
+  ) {
+    const fixture = historicalTerminalContext(route);
+    const args = FactoryProjectedTerminalSummaryArgsSchema.parse({
+      workItem: "task-example",
+      sourceFactory: {
+        id: "90fac686-c724-4aee-97c4-e31b9af4c5e2",
+        name: "supers-delivery",
+      },
+      factory: {
+        project: "better-randy",
+        name: "supers-delivery",
+        profile: "supers-dex-delivery",
+      },
+      visualReviewStages: ["review"],
+      projectedTerminal: route,
+    });
+    const dependencies = {
+      createSink: () => {
+        throw new Error("missing DSN must remain non-gating");
+      },
+      now: () => "2026-08-17T12:03:00.000Z",
+    };
+    await executePersistFactoryProjectedTerminalSummary(
+      args,
+      fixture.context,
+      dependencies,
+    );
+    await executeFactoryFlowMetricEmissionFromSource(
+      args,
+      fixture.context,
+      dependencies,
+    );
+    await verifyFactoryFlowMetricReceipt(args, fixture.context, dependencies);
+
+    const summaryEntry = [...fixture.resources.entries()].find(([name]) =>
+      name.startsWith("projected-terminal-summary-")
+    );
+    assert(summaryEntry);
+    const summary = summaryEntry[1] as {
+      summaryDigest: string;
+      report: ReturnType<typeof validFlowReportArgs>["report"];
+      attemptIdentity: { sourceRevision: { version: number } };
+    };
+    assert.equal(summary.report.metrics.outcome.value, route.outcome);
+    assert.equal(
+      summary.report.metrics.stages.filter((stage) => stage.terminal)[0]
+        ?.stageId,
+      route.targetStage,
+    );
+    assert.equal(summary.attemptIdentity.sourceRevision.version, 3);
+    const receipt = metricReceipt(fixture.resources);
+    assert.equal(receipt.projectedSummaryDigest, summary.summaryDigest);
+    assert(
+      [...fixture.resources.keys()].some((name) =>
+        name.startsWith("coverage-")
+      ),
+    );
+  }
+});
+
+Deno.test("historical terminal recovery rejects a requested route that differs from durable history", async () => {
+  const fixture = historicalTerminalContext({
+    preterminalStage: "done-observability",
+    targetStage: "done",
+    outcome: "done",
+  });
+  await assert.rejects(
+    executePersistFactoryProjectedTerminalSummary(
+      {
+        workItem: "task-example",
+        sourceFactory: {
+          id: "90fac686-c724-4aee-97c4-e31b9af4c5e2",
+          name: "supers-delivery",
+        },
+        factory: {
+          project: "better-randy",
+          name: "supers-delivery",
+          profile: "supers-dex-delivery",
+        },
+        visualReviewStages: ["review"],
+        projectedTerminal: {
+          preterminalStage: "aborted-observability",
+          targetStage: "aborted",
+          outcome: "aborted",
+        },
+      },
+      fixture.context,
+      {
+        createSink: () => recordingSink().sink,
+        now: () => "2026-08-17T12:03:00.000Z",
+      },
+    ),
+    /durable terminal Factory route/,
+  );
+  assert.equal(fixture.resources.size, 0);
+});
+
 function onlyReceipt(resources: Map<string, Record<string, unknown>>) {
   assert.equal(resources.size, 1);
   return FactoryMetricEmissionReceiptSchema.parse([...resources.values()][0]);
+}
+
+function metricReceipt(resources: Map<string, Record<string, unknown>>) {
+  const receipt = [...resources.entries()].find(([name]) =>
+    name.startsWith("receipt-")
+  );
+  if (receipt === undefined) throw new Error("missing metric receipt");
+  return FactoryMetricEmissionReceiptSchema.parse(receipt[1]);
 }
 
 Deno.test("buildFactoryMetricOperations emits the documented bounded vocabulary", () => {
@@ -590,30 +1087,67 @@ Deno.test("trace failure preserves metric attempts and records degraded telemetr
   assert.equal(receipt.metricPoints, recorder.operations.length);
 });
 
-Deno.test("missing DSN is explicit, non-gating, and retryable", async () => {
-  const fixture = fixtureContext(undefined);
-  let sinkCreated = false;
-  await executeFactoryMetricEmission(validArgs(), fixture.context, {
-    createSink: () => {
-      sinkCreated = true;
-      return recordingSink().sink;
-    },
-    now: () => "2026-08-05T12:00:00.000Z",
-  });
+Deno.test("missing DSN receipts are complete and non-gating for every projected outcome", async () => {
+  for (const outcome of ["done", "aborted", "parked"] as const) {
+    const fixture = fixtureContext(undefined);
+    const args = terminalArgs(outcome);
+    let sinkCreated = false;
+    await executeFactoryMetricEmission(args, fixture.context, {
+      createSink: () => {
+        sinkCreated = true;
+        return recordingSink().sink;
+      },
+      now: () => "2026-08-05T12:00:00.000Z",
+    });
 
-  assert.equal(sinkCreated, false);
-  const unavailableReceipt = onlyReceipt(fixture.resources);
-  assert.equal(unavailableReceipt.status, "unavailable");
-  assert.equal(unavailableReceipt.reason, "missing-dsn");
+    assert.equal(sinkCreated, false);
+    const unavailableReceipt = FactoryMetricEmissionReceiptSchema.parse(
+      onlyReceipt(fixture.resources),
+    );
+    assert.equal(unavailableReceipt.status, "unavailable");
+    assert.equal(unavailableReceipt.reason, "missing-dsn");
+    assert.equal(unavailableReceipt.outcome, outcome);
 
-  fixture.context.globalArgs.dsn = "https://public@example.com/42";
-  const recorder = recordingSink();
-  await executeFactoryMetricEmission(validArgs(), fixture.context, {
-    createSink: () => recorder.sink,
-    now: () => "2026-08-05T12:01:00.000Z",
-  });
-  assert.equal(recorder.flushTimeouts.length, 1);
-  assert.equal(onlyReceipt(fixture.resources).status, "emitted");
+    const verification = await verifyFactoryMetricReceipt(
+      args,
+      fixture.context,
+      {
+        createSink: () => recordingSink().sink,
+        now: () => "2026-08-05T12:00:01.000Z",
+      },
+    );
+    const coverage = FactoryMetricCoverageSchema.parse(
+      fixture.resources.get(verification.dataHandles[0].name),
+    );
+    assert.equal(coverage.status, "degraded");
+    assert.equal(coverage.receiptStatus, "unavailable");
+    assert.equal(coverage.outcome, outcome);
+
+    const receiptBeforeReplay = structuredClone(unavailableReceipt);
+    await executeFactoryMetricEmission(args, fixture.context, {
+      createSink: () => {
+        sinkCreated = true;
+        return recordingSink().sink;
+      },
+      now: () => "2026-08-05T12:05:00.000Z",
+    });
+    assert.equal(sinkCreated, false);
+    assert.deepEqual(metricReceipt(fixture.resources), receiptBeforeReplay);
+    const replayVerification = await verifyFactoryMetricReceipt(
+      args,
+      fixture.context,
+      {
+        createSink: () => recordingSink().sink,
+        now: () => "2026-08-05T12:05:01.000Z",
+      },
+    );
+    assert.equal(
+      FactoryMetricCoverageSchema.parse(
+        fixture.resources.get(replayVerification.dataHandles[0].name),
+      ).status,
+      "degraded",
+    );
+  }
 });
 
 Deno.test("an omitted flush timeout uses the bounded internal default", async () => {
@@ -656,6 +1190,79 @@ Deno.test("a final receipt suppresses duplicate network emission", async () => {
   );
 });
 
+Deno.test("legacy receipts retain their exact key and suppress duplicate emission", async () => {
+  const legacyVersions = [
+    "2026.08.06.1",
+    "2026.08.07.1",
+    "2026.08.09.1",
+  ] as const;
+  const legacyKeyHash =
+    "1473cdb5da2dc831ff4fe081e60c777aeaa0ff70847b31a0259bfdae16d67f4e";
+  const legacyReceiptName = `receipt-${legacyKeyHash}`;
+  const args = validArgs();
+  const now = () => "2026-08-05T12:00:00.000Z";
+
+  for (const emitterVersion of legacyVersions) {
+    const fixture = fixtureContext("https://public@example.com/42");
+    const legacyReceipt = {
+      schemaVersion: 1,
+      emitterVersion,
+      sentrySdkVersion: "10.67.0",
+      emissionKeyHash: legacyKeyHash,
+      recordedAt: "2026-08-05T11:59:00.000Z",
+      status: "emitted",
+      reason: "none",
+      flush: "succeeded",
+      metricPoints: 19,
+      factory: args.factory,
+      outcome: args.terminal.outcome,
+    };
+    fixture.resources.set(legacyReceiptName, legacyReceipt);
+
+    const parsedLegacyReceipt = FactoryMetricEmissionReceiptSchema.parse(
+      legacyReceipt,
+    );
+    assert.equal(parsedLegacyReceipt.emitterVersion, emitterVersion);
+    assert.equal("projectedSummaryDigest" in parsedLegacyReceipt, false);
+
+    const verification = await verifyFactoryMetricReceipt(
+      args,
+      fixture.context,
+      { createSink: () => recordingSink().sink, now },
+    );
+    const coverage = FactoryMetricCoverageSchema.parse(
+      fixture.resources.get(verification.dataHandles[0].name),
+    );
+    assert.equal(coverage.expectedReceipt, legacyReceiptName);
+    assert.equal(coverage.status, "observed");
+
+    let duplicateSinkCreated = false;
+    const recorder = recordingSink();
+    const replay = await executeFactoryMetricEmission(args, fixture.context, {
+      createSink: () => {
+        duplicateSinkCreated = true;
+        return recorder.sink;
+      },
+      now,
+    });
+    assert.equal(replay.dataHandles[0].name, legacyReceiptName);
+    assert.equal(duplicateSinkCreated, false);
+    assert.equal(recorder.operations.length, 0);
+    assert.deepEqual(
+      [...fixture.resources.keys()].filter((name) =>
+        name.startsWith("receipt-")
+      ),
+      [legacyReceiptName],
+    );
+    assert.equal(
+      FactoryMetricEmissionReceiptSchema.parse(
+        fixture.resources.get(legacyReceiptName),
+      ).status,
+      "duplicate",
+    );
+  }
+});
+
 Deno.test("repeated terminal flow summaries reuse the receipt idempotency key", async () => {
   const fixture = fixtureContext("https://public@example.com/42");
   const recorder = recordingSink();
@@ -673,29 +1280,62 @@ Deno.test("repeated terminal flow summaries reuse the receipt idempotency key", 
   assert.equal(onlyReceipt(fixture.resources).status, "duplicate");
 });
 
-Deno.test("flush failure is recorded without throwing and remains idempotent", async () => {
-  const fixture = fixtureContext("https://public@example.com/42");
-  const recorder = recordingSink(false);
-  await executeFactoryMetricEmission(validArgs(), fixture.context, {
-    createSink: () => recorder.sink,
-    now: () => "2026-08-05T12:00:00.000Z",
-  });
+Deno.test("flush-failure receipts are complete and non-gating for every projected outcome", async () => {
+  for (const outcome of ["done", "aborted", "parked"] as const) {
+    const fixture = fixtureContext("https://public@example.com/42");
+    const recorder = recordingSink(false);
+    const args = terminalArgs(outcome);
+    await executeFactoryMetricEmission(args, fixture.context, {
+      createSink: () => recorder.sink,
+      now: () => "2026-08-05T12:00:00.000Z",
+    });
 
-  const failedReceipt = onlyReceipt(fixture.resources);
-  assert.equal(failedReceipt.status, "failed");
-  assert.equal(failedReceipt.reason, "flush-failed");
-  assert.equal(failedReceipt.flush, "failed");
+    const failedReceipt = FactoryMetricEmissionReceiptSchema.parse(
+      onlyReceipt(fixture.resources),
+    );
+    assert.equal(failedReceipt.status, "failed");
+    assert.equal(failedReceipt.reason, "flush-failed");
+    assert.equal(failedReceipt.flush, "failed");
+    assert.equal(failedReceipt.outcome, outcome);
 
-  let retrySinkCreated = false;
-  await executeFactoryMetricEmission(validArgs(), fixture.context, {
-    createSink: () => {
-      retrySinkCreated = true;
-      return recordingSink().sink;
-    },
-    now: () => "2026-08-05T12:01:00.000Z",
-  });
-  assert.equal(retrySinkCreated, false);
-  assert.equal(onlyReceipt(fixture.resources).status, "duplicate");
+    const verification = await verifyFactoryMetricReceipt(
+      args,
+      fixture.context,
+      {
+        createSink: () => recordingSink().sink,
+        now: () => "2026-08-05T12:00:01.000Z",
+      },
+    );
+    const coverage = FactoryMetricCoverageSchema.parse(
+      fixture.resources.get(verification.dataHandles[0].name),
+    );
+    assert.equal(coverage.status, "degraded");
+    assert.equal(coverage.receiptStatus, "failed");
+    assert.equal(coverage.outcome, outcome);
+
+    const receiptBeforeReplay = structuredClone(failedReceipt);
+    const operationCountBeforeReplay = recorder.operations.length;
+    await executeFactoryMetricEmission(args, fixture.context, {
+      createSink: () => recorder.sink,
+      now: () => "2026-08-05T12:05:00.000Z",
+    });
+    assert.equal(recorder.operations.length, operationCountBeforeReplay);
+    assert.deepEqual(metricReceipt(fixture.resources), receiptBeforeReplay);
+    const replayVerification = await verifyFactoryMetricReceipt(
+      args,
+      fixture.context,
+      {
+        createSink: () => recordingSink().sink,
+        now: () => "2026-08-05T12:05:01.000Z",
+      },
+    );
+    assert.equal(
+      FactoryMetricCoverageSchema.parse(
+        fixture.resources.get(replayVerification.dataHandles[0].name),
+      ).status,
+      "degraded",
+    );
+  }
 });
 
 Deno.test("receipt coverage distinguishes observed, degraded, and missing telemetry", async () => {
@@ -722,14 +1362,10 @@ Deno.test("receipt coverage distinguishes observed, degraded, and missing teleme
     createSink: () => recordingSink().sink,
     now,
   });
-  await assert.rejects(
-    () =>
-      verifyFactoryMetricReceipt(validArgs(), degraded.context, {
-        createSink: () => recordingSink().sink,
-        now,
-      }),
-    /coverage is degraded/,
-  );
+  await verifyFactoryMetricReceipt(validArgs(), degraded.context, {
+    createSink: () => recordingSink().sink,
+    now,
+  });
   const degradedCoverage = [...degraded.resources.entries()].find(([name]) =>
     name.startsWith("coverage-")
   )?.[1];

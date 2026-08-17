@@ -2,133 +2,96 @@
 
 ## 1. Establish central state
 
-1. Require a clean parent checkout. Pi worktree fanout refuses ordinary dirty state, and integration needs a stable target.
-2. Load the `software-factory` skill and refresh the fleet:
+1. Require a clean parent checkout.
+2. Load the `software-factory` skill and refresh `supers-delivery`.
+3. Project active work-item ids with `swamp data query`; do not inspect `.swamp/` files directly.
+4. Run the approval-bound Delivery claim saga only for leaves receiving a lane now.
+5. Prove one active leaf per effective open root. Unrelated roots may coexist; ambiguous ancestry parks.
 
-   ```bash
-   swamp model method run supers-delivery status
-   ```
+## 2. Validate and reserve the wave
 
-3. Project active work-item ids from `status-_factory` with `swamp data query`; do not parse logs or read `.swamp/` directly.
-4. Run the approval-bound `supers-planning-delivery-handoff` saga for each approved Planning handoff being allocated now. The Dex claim is root-scoped: unrelated active roots may coexist, but ambiguous ancestry or two active leaves in one root park at a human gate.
-5. Refresh `supers-delivery` and each claimed work item. Only allocate work whose current Factory stage is `implementation`.
+For each allocated work item, read current `status-<workItem>` and construct exactly one matching workflow, method, dispatch, or interactive invocation.
 
-Do not start a backlog of Dex tasks and hope runners catch up. A claim and Factory start belong to a lane that is being allocated in this dispatch wave.
+For Pi work:
 
-## 2. Build the dispatch wave
+1. Construct one top-level request with `agent: "worker"`, `async: true`, `worktree: true`, `context: "fork"`, `artifacts: true`, the exact skills/task, strict worker output schema, and `acceptance: false`. The stable lane identity remains `factory:<root>:<leaf>` in the schema; it is not a `runs.all` key.
+2. Call `checkFactoryDispatchPrerequisites`. A caller-constructed `{passed:true}` is invalid.
+3. Pass the complete set of opaque plans to `coordinateFactoryPiDispatchWave`. It consumes and refreshes the complete wave, rejects duplicate roots/digests/lanes, and calls `reserve_pi_dispatch` for every root before Factory accounting.
+4. A reservation stores the exact request, request digest, task digest, root, work item, stage, cycle, expected attempt, bounded transport budget, and content-addressed dispatch token. The profile re-reads current Factory work and rejects changed or caller-substituted inputs. Reservation failure consumes no Factory attempt.
 
-Group claimed leaves by the proven `approvedEpicTaskId`. Refuse duplicate roots. Do not infer roots from names or prose.
+Workflow/method work continues through `dispatchValidatedFactoryRequest` and the profile's `execute_work_boundary`. That is the sole execution owner and persists an exact operational failure when its real call fails.
 
-For every allocated work item:
+## 3. Dispatch one root at a time
 
-1. Call `supers-delivery record_dispatch` before execution.
-2. Fetch the resolved implementation work spec from the current `status-<workItem>` record.
-3. Build one Pi child request with:
-   - stable key equal to the approved effective open execution root id;
-   - `agent: "worker"`;
-   - `worktree: true`;
-   - the exact Dex leaf scope and resolved Factory prompt;
-   - an instruction to commit its work;
-   - strict structured output containing `rootEpicId`, `activeTaskId`, `baseCommit`, `childCommittedRevision`, sorted unique `changedPaths`, `commandsRun`, and `residualRisks`.
+Process reserved roots in deterministic root-id order:
 
-Launch the complete set in one `runs.all` call. Omit a hardcoded concurrency value. Pi runtime capacity controls execution. Attach this schema to every item, not only the aggregate call.
+1. Refresh Git, Dex ancestry/blockers, dependency/tool probes, current Factory status/work, and the immutable request.
+2. Call generic `record_dispatch` with `runId` equal to the exact frozen Pi request digest.
+3. Make no unrelated operation between successful recording and Pi submission.
+4. Invoke one top-level Pi request with `async: true` and `worktree: true`. Do not use a workflow wrapper or `runs.all`.
+5. The coordinator adds only its code-owned transport preamble. It carries `SUPERS_FACTORY_DISPATCH_TOKEN`, the task digest, and the mandatory `claim_pi_execution` command. The approved semantic task remains byte-identical in the durable outbox.
+6. Bind the returned real `piRunId` through `bind_pi_launch`. The profile re-reads fixed Pi `status.json` and child session artifacts; caller-authored launch JSON is never a receipt.
+7. Continue to the next root. Earlier accepted workers are already running, so independent roots execute concurrently up to Pi capacity without one aggregate failure domain.
 
-```javascript
-const FLEET_WORKER_OUTPUT_SCHEMA = {
-	type: 'object',
-	additionalProperties: false,
-	required: [
-		'rootEpicId',
-		'activeTaskId',
-		'baseCommit',
-		'childCommittedRevision',
-		'changedPaths',
-		'commandsRun',
-		'residualRisks'
-	],
-	properties: {
-		rootEpicId: { type: 'string', pattern: '^[a-z0-9][a-z0-9._:-]{0,127}$' },
-		activeTaskId: { type: 'string', pattern: '^[a-z0-9][a-z0-9._:-]{0,127}$' },
-		baseCommit: { type: 'string', pattern: '^[0-9a-f]{40,64}$' },
-		childCommittedRevision: { type: 'string', pattern: '^[0-9a-f]{40,64}$' },
-		changedPaths: {
-			type: 'array',
-			minItems: 1,
-			maxItems: 2000,
-			uniqueItems: true,
-			items: {
-				type: 'string',
-				minLength: 1,
-				maxLength: 1000,
-				pattern: '^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$'
-			}
-		},
-		commandsRun: {
-			type: 'array',
-			items: {
-				type: 'object',
-				additionalProperties: false,
-				required: ['command', 'result', 'summary'],
-				properties: {
-					command: { type: 'string', minLength: 1 },
-					result: { type: 'string', enum: ['passed', 'failed', 'not-run'] },
-					summary: { type: 'string', minLength: 1 }
-				}
-			}
-		},
-		residualRisks: {
-			type: 'array',
-			uniqueItems: true,
-			items: { type: 'string', minLength: 1 }
-		}
-	}
-};
+Pi's durable contract is:
 
-const results = await runs.all(
-	allocated.map((lane) => ({
-		key: lane.rootEpicId,
-		agent: 'worker',
-		worktree: true,
-		task: lane.task,
-		acceptance: lane.acceptance,
-		outputSchema: FLEET_WORKER_OUTPUT_SCHEMA
-	}))
-);
-return results.map(({ key, artifactPaths, structuredOutput }) => ({
-	key,
-	artifactPaths,
-	structuredOutput
-}));
+- lifecycle status under the package-owned `async-subagent-runs/<piRunId>/status.json` root;
+- one top-level `mode: parallel` group containing exactly one worktree worker rooted at the expected repository;
+- a package-owned child session file under `~/.pi/agent/sessions/` containing the exact transport task, not only marker fragments;
+- an immediate acknowledgement containing `runId` and `asyncDir` but no required run-level launch digest;
+- on completion, one child status carrying the launch-contract digest, resolved extensions, exact structured-output schema path, and matching async handoff.
+
+`scripts/factory-pi-runtime-receipt.ts` is the diagnostic wrapper around the same fixed verifier used by the profile. Unknown fields are ignored, but missing identity pauses.
+
+## 4. Transport reconciliation
+
+`record_dispatch` and Pi launch cannot be one distributed transaction. The durable outbox is the recovery boundary:
+
+- Reservation only, no journal entry: discard or retry; no Factory attempt exists.
+- Matching Factory dispatch journal plus an exact durable submission-attempt receipt, no Pi run after a complete fixed-root scan: mark `submission-retryable`, then read the request only through `swamp model method run supers-delivery-profile get_pi_dispatch_request --input '{"dispatchToken":"<token>"}' --json`. Recompute its request digest, task digest, and content-addressed token before recording a fresh attempt and resubmitting it under the same Factory attempt. Never accept retry request bytes or digests from the caller, and never reconcile before the prior receipt exists.
+- Existing matching Pi run: bind it; never launch another because an acknowledgement was lost.
+- Pi runtime root unavailable, malformed, or ambiguous: mark `submission-uncertain` and pause.
+- Immediately before each actual launch, call `record_pi_submission_attempt`; only a response with `newlyConsumed: true` and its explicit `ordinal` authorizes that launch. Replaying the same submission-attempt ID returns `newlyConsumed: false` and must reconcile or bind existing state without launching. `retryFactoryPiSubmission` accepts only the dispatch token and a fresh attempt ID as retry identity; its request comes from `get_pi_dispatch_request`.
+- Exact `rejected`, `failed`, or `stopped` lifecycle before an execution claim is a definite transport failure and retries only under a fresh submission-attempt ID. `paused` or unavailable lifecycle remains uncertain.
+- Exact `rejected`, `failed`, or `stopped` lifecycle after the authorized claim creates launch- and claim-bound `execution-failed` evidence; run the existing failure-authorizer and operational recovery path to enter a fresh Factory cycle. Claimed `paused` lifecycle remains a human decision.
+- During a lost-ack full scan, use the durable attempt timestamp plus package-owned run metadata, mission/repository identity, and exact session task. Any new unreadable candidate that cannot be ruled out is `submission-uncertain`; proven old or unrelated malformed artifacts do not block retry.
+- Bounded recorded submission attempts exhausted: mark `submission-parked` for explicit human operational action. Do not reset.
+- A coordinator failure while recording the submission attempt does not reconcile or launch. It returns a typed error for that root, leaves the dispatch-recorded boundary for repair, and continues unrelated roots.
+- Reconciliation accepts only `submit-pending`, `submitted`, `execution-claimed`, or `handoff-ready` with the exact current attempt receipt. It rejects retryable, uncertain, parked, completed, and execution-failed state instead of reviving them from an old attempt.
+- A human may call `authorize_pi_submission_retry` with `resolution: human-confirmed-no-live-run` to move an unbound uncertain or parked submission to retryable while budget remains. Exhausted budget requires a fresh Factory cycle.
+- Reconciliation is read-only and never consumes transport budget or submits work itself. `factory-pi-dispatch-reconciliation` only compares outbox, Factory journal, and fixed Pi artifacts.
+
+A rejected submission for which no Pi execution claim exists is transport failure, not Factory execution failure. Only failure after an execution claim uses the trusted current-dispatch operational failure authority and fresh-cycle Factory recovery.
+
+## 5. Single-writer admission and handoff
+
+Before reading or editing repository files, every worker calls:
+
+```bash
+swamp model method run supers-delivery-profile claim_pi_execution \
+  --input '{"dispatchToken":"<token>","piRunId":"'"$PI_SUBAGENT_RUN_ID"'"}' --json
 ```
 
-## 3. Queue evidence, not prose
+The profile verifies the current Factory journal, exact current submission-attempt receipt, and real Pi artifacts, then atomically grants one opaque claim nonce. Claim admission exists only from submit-pending or submitted state for that exact run. Any later duplicate claim is rejected and must stop without edits. Claims never expire or transfer automatically.
 
-For each result, retain the durable handoff manifest path from `artifactPaths`. Read the manifest and select the child by stable lane key/index. Require:
+Only `bind_pi_handoff` may admit a handoff. It requires the dispatch token, claimed `piRunId`, exact claim nonce, handoff digest, and the final child launch-contract digest. The profile verifies Pi's normalized top-level one-worker `workflow` lifecycle and its completed inner worktree handoff, then writes a content-addressed handoff-acceptance resource. The integration gate reads the trusted current outbox, current Factory status, and acceptance resource and matches the exact Factory, token, work item, stage, cycle, attempt, run, nonce digest, handoff digest, and launch-contract digest. Caller-supplied identity fields and old-cycle acceptances are not authority. Duplicate delivery can create a disposable worktree, but only one claim and one handoff are accepted.
 
-- child status `completed`;
-- one changed patch with a readable patch path;
-- group `baseCommit` matching structured `baseCommit`;
-- cleanup state understood (partial cleanup is not automatic rejection, but preserved work must be reported);
-- strict structured output matching the allocated root and leaf.
+Queue durable handoff manifests, not prose. Require completed child state, readable patch, matching base commit, sorted unique changed paths, no protected paths, and exact claim binding. Hash manifest and patch bytes before integration.
 
-Hash the manifest bytes and patch bytes with SHA-256. Queue the immutable evidence tuple; do not mutate the parent yet.
+## 6. Drain the integration queue
 
-## 4. Drain the integration queue
+Use `integration-gate.md`. The central parent integrates one item at a time while it remains in `implementation`, then records only the concise `change-summary` and digest-verified integration receipt. Classification, deterministic verification, exact-bundle human aesthetic approval when required, reconciliation, postflight, and terminal handling remain serialized on the shared checkout.
 
-Use `integration-gate.md`. Only the central parent drains the queue, one item at a time. After one integration succeeds:
-
-1. Record only the Supers `change-summary` contract: the concise `summary` and digest-verified `integrationReceipt`. Do not add legacy `visualTargets` or review fields.
-2. Drive classification and the deterministic verification workflow. The workflow binds the exact fanout resource/digest/run, canonical policy and corpus receipts, required browser receipt when selected, and render matrix evidence. Objective failure or missing evidence returns to implementation or pauses before reconciliation. If rendering is affected and objective evidence passes, present the exact stored bundle for the Factory human aesthetic decision; no prose report can route it.
-3. Enter read-only reconciliation only after objective completeness and any exact-bundle human approval are already established. Reconciliation is completion-only; it cannot discover or route incomplete implementation.
-4. Continue through postflight and terminal handling by following the generic `software-factory` status loop, with this Supers profile override controlling artifacts and routes.
-5. Do not integrate the next handoff until the current work item's full shared-checkout tail is terminal and no human decision is pending. A parked state awaiting a human does not release the queue.
-6. Re-read the central HEAD, clean status, and canonical tree fingerprint. They must still equal the integrated revision and fingerprint recorded for the terminal work item.
-
-This serialized tail is intentional today: classification, render verification, postflight, and completion inspect the shared target checkout. A pending human gate pauses the entire integration queue; there is no parked-tail exception.
+Critic prose is advisory. Objective evidence routes only through its typed correlated owner. Missing evidence pauses. Human aesthetic approval binds the exact stored evidence bundle.
 
 ## Failure routes
 
-- Unknown/cyclic Dex ancestry or duplicate lane for one root: human gate; launch nothing for that root.
-- Child failed or no patch captured: keep the Factory item in implementation and rework.
-- Handoff validation or integration rejection: record the rejected receipt in driver evidence, re-enter/re-dispatch implementation, and never record it as an integrated `change-summary`.
-- Human approval pending: present stored Factory artifacts exactly as the `software-factory` skill requires and stop.
+- Prerequisite or reservation failure: no Factory attempt; repair and validate again.
+- `record_dispatch` failure: harmless reservation remains; refresh before retrying.
+- Submission rejection/crash/lost acknowledgement: reconcile the outbox under the same Factory attempt.
+- Runtime unavailable or ambiguous: pause for human operations; do not infer no-run.
+- Failure after execution claim: use the trusted operational execution-failure receipt and fresh-cycle retry budget.
+- Invalid/duplicate/unclaimed handoff: reject integration and preserve evidence.
+- Objective verification failure: retain the correlated objective route; generic recovery cannot consume it.
+- Human approval pending: present exact stored artifacts and stop.
+- Reset is only for explicit abandonment or corrupted state, never ordinary recovery.

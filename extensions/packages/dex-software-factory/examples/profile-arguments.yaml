@@ -1,5 +1,9 @@
 profileName: example-delivery
+profileModelName: project-delivery-profile
+sourceFactoryId: REPLACE_WITH_PROJECT_DELIVERY_ID
 adapters:
+  failureAuthorizer:
+    workflow: project-failure-authorizer
   preflight:
     mode: workflow
     workflow: example-preflight
@@ -19,6 +23,8 @@ adapters:
     completeMethodName: complete
     completionWorkflow: complete-human-approved-task
 implementation:
+  skills:
+    - implementation
   systemPrompt: >-
     Implement only the current work item, follow repository guidance, and
     record a concise change summary before requesting verification.
@@ -40,4 +46,4 @@ budgets:
   verification: 3
   review: 2
   reconciliation: 2
-  maxDispatchesPerCycle: 2
+  maxDispatchesPerCycle: 1

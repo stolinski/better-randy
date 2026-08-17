@@ -227,6 +227,7 @@ invalid because concurrent roots could read another work item's artifact.
 
 Its path is
 `preflight baseline capture → isolated implementation → serialized parent integration → change-summary → workflow-owned classification → deterministic verification route → exact-bundle human aesthetic gate when rendering is affected → reconciliation → postflight → terminal Dex cleanup`.
+Every work-bearing nonterminal stage has a typed operational-recovery exit, including aesthetic decision binding, reconciliation, postflight, terminal cleanup, and all terminal-observability dispositions. The driver reads authoritative Factory status, validates the complete invocation, and receives an opaque content-addressed plan only after Git, parsed Dex JSON, dependencies, and the selected execution tool pass. Pi plans are first persisted as per-root outbox reservations; this consumes no Factory attempt. For each root in deterministic order, the driver refreshes every fact, calls `record_dispatch` with the exact frozen request digest, performs no unrelated operation, and launches one top-level asynchronous worktree run. Accepted runs execute concurrently up to Pi capacity. Pi normalizes each public top-level worktree request into a one-worker `workflow` lifecycle. Its immediate acknowledgement carries the outer workflow run id and async directory, not a launch-contract digest. Immediately before every actual launch, the driver records one distinct submission attempt; only an explicit newly-consumed ordinal authorizes launch, replay of the same attempt identity reconciles without relaunching, and read-only reconciliation never changes that count. Recording failure returns a typed per-root error without reconciliation and does not stop unrelated roots. Reconciliation requires the exact current durable attempt receipt and an active submit-pending, submitted, execution-claimed, or handoff-ready source state; it cannot revive retryable, uncertain, parked, completed, or execution-failed delivery. Retry reads the canonical frozen request only through `swamp model method run supers-delivery-profile get_pi_dispatch_request --input '{"dispatchToken":"<token>"}' --json`, recomputes its request digest, task digest, and content-addressed token, and never accepts request bytes or digests from the retry caller. Explicit human no-live-run authorization is required to move an unbound uncertain or parked submission to retryable while budget remains. The profile binds the real outer workflow from package-owned status and the exact child session task only from submit-pending, permits the exact current-attempt run to claim execution only from submit-pending or submitted, and accepts a handoff only from execution-claimed for that same run and claim. At completion it proves the persisted semantic request against the exact structured-output schema, inner worktree handoff, resolved extensions, and child launch-contract digest. A crash, rejection, malformed lifecycle, or lost acknowledgement is reconciled from outbox plus Factory journal plus those real artifacts under the same Factory attempt; absent, unavailable, malformed, and ambiguous evidence have distinct fail-closed states. Once a run is submitted, execution-claimed, handoff-ready, or completed, a later missing scan cannot regress it or authorize another launch. Only the claimed nonce and run id can create the profile-owned content-addressed handoff-acceptance resource, and the integration gate reads the trusted current outbox, current Factory status, and exact acceptance before admitting the manifest. Old-cycle acceptances are rejected, so duplicate delivery grants one writer and one accepted handoff. Workflow/method execution remains owned by the profile's trusted work boundary. Fixed probes use their separate trusted operation boundary. Exact failed, stopped, or rejected lifecycle after an execution claim creates launch- and claim-bound current-dispatch evidence and enters operational recovery in a fresh Factory cycle; the same states before a claim are retryable transport failures under a new submission identity. Paused or unavailable lifecycle remains uncertain. A lost-ack scan fails closed for every newly created malformed package-owned candidate that its durable attempt time, run metadata, mission/repository identity, and session marker cannot rule out, while old unrelated malformed artifacts do not block retry. Each fresh Factory cycle receives a fresh attempt while prior outbox and recovery history remain durable. Generic failure artifacts are operational-only; objective failures remain in their correlated domain route. Terminal observability projects, emits, and verifies the exact outcome while recoverable, then finalizes it. Reset is only for explicit abandonment or corrupted state.
 The project fleet driver is [`.claude/skills/supers-factory-fleet/SKILL.md`](../.claude/skills/supers-factory-fleet/SKILL.md).
 It launches one Pi-managed worktree writer per approved root, with no fixed
 product lane cap, then queues durable Pi handoffs. The single parent validates
@@ -376,20 +377,24 @@ journal. Missing facts remain explicit coverage zeros rather than invented value
 
 Observability is part of both Factory lifecycles. Every `supers-delivery` and
 `supers-planning` terminal route first enters an outcome-specific observability
-stage. The configured terminal-observability workflow advances to the durable
-terminal state, persists the built-in and canonical flow reports, invokes
-`emit_flow_report` as an `allowFailure` step, then runs `verify_flow_receipt`.
-The receipt check writes `observed`, `degraded`, or `missing` coverage and fails
-the observer workflow when Sentry did not emit, but it runs only after the
-Factory is already terminal, so observability availability cannot change the
-Factory outcome. An emitted or duplicate receipt is required for a clean
-observer workflow. No separate manual telemetry command is part of the normal
-path.
+stage. The configured terminal-observability workflow first persists a
+Supers-owned canonical summary projected to the exact target status and outcome.
+The summary resource identity includes the immutable preterminal cycle, exact
+journal revision, and projected report digest, so a recovered observability
+cycle writes a distinct summary. It then invokes `emit_flow_report` as an
+`allowFailure` step and runs `verify_flow_receipt`; summary lookup, emission,
+and coverage verification bind that exact attempt identity and summary digest. Missing Sentry configuration or an SDK/flush failure produces a
+complete degraded receipt rather than changing Delivery. The Factory finalizes
+only after canonical summary persistence and local receipt verification succeed.
+No misleading active built-in summary or separate manual telemetry command is
+part of the normal path.
 
 Do not wrap the Sentry CLI in `command/shell`, send metrics from a report
 extension, or make transition into a terminal Factory state depend on Sentry
 availability. The legacy `factory-terminal-summary` workflow is retained only
-for historical receipt recovery and is not an authoring or operations path.
+for explicit preterminal receipt recovery. Its caller must provide one exact
+projected terminal route, and both summary and telemetry failures are non-gating;
+it is not an authoring or normal operations path.
 
 ## Gates
 

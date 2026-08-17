@@ -19,7 +19,7 @@ import {
 } from "../../.swamp/pulled-extensions/@mgreten/software-factory-flow-metrics/reports/flow_metrics_report.ts";
 import type { RunDataReader } from "../../.swamp/pulled-extensions/@mgreten/software-factory-flow-metrics/reports/flow_metrics_report.ts";
 
-export const FACTORY_METRIC_MODEL_VERSION = "2026.08.09.1";
+export const FACTORY_METRIC_MODEL_VERSION = "2026.08.16.5";
 const SENTRY_SDK_VERSION = "10.67.0";
 const MAX_DURATION_MS = 315_576_000_000;
 const MAX_COUNT = 1_000_000;
@@ -125,6 +125,7 @@ const AvailableStageDurationsSchema = z.discriminatedUnion("availability", [
  */
 export const FactoryMetricEmissionArgsSchema = z.object({
   idempotencyKey: z.string().min(1).max(256).meta({ sensitive: true }),
+  projectedSummaryDigest: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   factory: FactoryMetricIdentitySchema,
   terminal: z.strictObject({
     outcome: z.enum(["done", "cleanup-required", "parked", "aborted"]),
@@ -230,6 +231,16 @@ export type FactoryFlowMetricEmissionArgs = z.infer<
 >;
 
 // See FactoryMetricEmissionArgsSchema: strip Swamp's merged global envelope.
+const ProjectedTerminalSchema = z.strictObject({
+  preterminalStage: z.enum([
+    "done-observability",
+    "aborted-observability",
+    "escalated-observability",
+  ]),
+  targetStage: z.enum(["done", "aborted", "operational-escalation"]),
+  outcome: z.enum(["done", "aborted", "parked"]),
+});
+
 export const FactoryFlowMetricSourceArgsSchema = z.object({
   workItem: z.string().min(1).max(256),
   sourceFactory: z.strictObject({
@@ -238,11 +249,42 @@ export const FactoryFlowMetricSourceArgsSchema = z.object({
   }),
   factory: FactoryMetricSeriesIdentitySchema,
   visualReviewStages: z.array(BoundedNameSchema).max(16),
+  projectedTerminal: ProjectedTerminalSchema.optional(),
 });
 
 export type FactoryFlowMetricSourceArgs = z.infer<
   typeof FactoryFlowMetricSourceArgsSchema
 >;
+
+export const FactoryProjectedTerminalSummaryArgsSchema =
+  FactoryFlowMetricSourceArgsSchema.required({ projectedTerminal: true });
+export type FactoryProjectedTerminalSummaryArgs = z.infer<
+  typeof FactoryProjectedTerminalSummaryArgsSchema
+>;
+
+export const FactoryProjectedTerminalAttemptIdentitySchema = z.strictObject({
+  preterminalStageCycle: z.number().int().positive(),
+  sourceRevision: z.strictObject({
+    kind: z.literal("journal"),
+    name: z.string().min(1).max(320),
+    version: z.number().int().positive(),
+  }),
+  reportDigest: z.string().regex(/^[a-f0-9]{64}$/),
+});
+
+export const FactoryProjectedTerminalSummarySchema = z.strictObject({
+  schemaVersion: z.literal(2),
+  summaryDigest: z.string().regex(/^[a-f0-9]{64}$/),
+  persistedAt: z.string().datetime(),
+  workItem: z.string().min(1).max(256),
+  sourceFactory: z.strictObject({
+    id: z.string().uuid(),
+    name: BoundedNameSchema,
+  }),
+  projectedTerminal: ProjectedTerminalSchema,
+  attemptIdentity: FactoryProjectedTerminalAttemptIdentitySchema,
+  report: FactoryFlowMetricReportSchema,
+});
 
 /** Typed, secret-free record of an emission attempt. */
 export const FactoryMetricEmissionReceiptSchema = z.strictObject({
@@ -250,10 +292,16 @@ export const FactoryMetricEmissionReceiptSchema = z.strictObject({
   emitterVersion: z.enum([
     "2026.08.06.1",
     "2026.08.07.1",
+    "2026.08.09.1",
+    "2026.08.16.2",
+    "2026.08.16.3",
+    "2026.08.16.4",
     FACTORY_METRIC_MODEL_VERSION,
   ]),
   sentrySdkVersion: z.literal(SENTRY_SDK_VERSION),
   emissionKeyHash: z.string().regex(/^[a-f0-9]{64}$/),
+  projectedSummaryDigest: z.string().regex(/^[a-f0-9]{64}$/).nullable()
+    .optional(),
   recordedAt: z.string().datetime(),
   status: z.enum(["emitted", "duplicate", "unavailable", "failed"]),
   reason: z.enum([
@@ -279,6 +327,7 @@ export const FactoryMetricCoverageSchema = z.strictObject({
   checkedAt: z.string().datetime(),
   status: z.enum(["observed", "degraded", "missing"]),
   expectedReceipt: z.string().regex(/^receipt-[a-f0-9]{64}$/),
+  projectedSummaryDigest: z.string().regex(/^[a-f0-9]{64}$/).nullable(),
   receiptStatus: FactoryMetricEmissionReceiptSchema.shape.status.nullable(),
   factory: FactoryMetricIdentitySchema,
   outcome: z.enum(["done", "cleanup-required", "parked", "aborted"]),
@@ -831,6 +880,9 @@ async function emissionKeyHash(
     args.factory.profile,
     String(args.factory.definition_version),
     args.idempotencyKey,
+    ...(args.projectedSummaryDigest === undefined
+      ? []
+      : [args.projectedSummaryDigest]),
   ].join("\0");
   const digest = await crypto.subtle.digest(
     "SHA-256",
@@ -842,14 +894,21 @@ async function emissionKeyHash(
   ).join("");
 }
 
-function isFinalReceipt(value: Record<string, unknown> | null): boolean {
+function parsedEmissionReceipt(
+  value: Record<string, unknown> | null,
+): FactoryMetricEmissionReceipt | null {
   const parsed = FactoryMetricEmissionReceiptSchema.safeParse(value);
-  return (
-    parsed.success &&
-    (parsed.data.status === "emitted" ||
-      parsed.data.status === "failed" ||
-      parsed.data.status === "duplicate")
-  );
+  return parsed.success ? parsed.data : null;
+}
+
+function receiptMatchesProjectedSummary(
+  receipt: FactoryMetricEmissionReceipt,
+  args: FactoryMetricEmissionArgs,
+): boolean {
+  return args.projectedSummaryDigest === undefined
+    ? receipt.projectedSummaryDigest === undefined ||
+      receipt.projectedSummaryDigest === null
+    : receipt.projectedSummaryDigest === args.projectedSummaryDigest;
 }
 
 function receiptData(
@@ -863,6 +922,7 @@ function receiptData(
     emitterVersion: FACTORY_METRIC_MODEL_VERSION,
     sentrySdkVersion: SENTRY_SDK_VERSION,
     emissionKeyHash: emissionKeyHashValue,
+    projectedSummaryDigest: args.projectedSummaryDigest ?? null,
     recordedAt,
     ...result,
     factory: args.factory,
@@ -972,6 +1032,8 @@ function logEmissionResult(
 type MetricSinkPreflight = { status: "ready"; sink: FactoryMetricSink } | {
   status: "stop";
   result: EmissionResult;
+} | {
+  status: "preserve";
 };
 
 async function prepareMetricSink(
@@ -980,14 +1042,24 @@ async function prepareMetricSink(
   dependencies: FactoryMetricEmissionDependencies,
   receiptName: string,
 ): Promise<MetricSinkPreflight> {
-  if (isFinalReceipt(await context.readResource(receiptName))) {
+  const priorReceipt = parsedEmissionReceipt(
+    await context.readResource(receiptName),
+  );
+  if (priorReceipt !== null) {
+    if (
+      priorReceipt.emissionKeyHash !== receiptName.slice("receipt-".length) ||
+      !receiptMatchesProjectedSummary(priorReceipt, args)
+    ) {
+      throw new Error("Factory metric receipt is stale or substituted");
+    }
     context.logger.info(
-      "Skipped duplicate Factory metric emission for {project}/{factory}",
+      "Skipped repeated Factory metric emission for {project}/{factory}",
       {
         project: args.factory.project,
         factory: args.factory.name,
       },
     );
+    if (priorReceipt.status !== "emitted") return { status: "preserve" };
     return {
       status: "stop",
       result: {
@@ -1058,6 +1130,9 @@ export async function executeFactoryMetricEmission(
     dependencies,
     receiptName,
   );
+  if (preflight.status === "preserve") {
+    return { dataHandles: [{ name: receiptName }] };
+  }
   if (preflight.status === "stop") {
     return writeEmissionReceipt(
       args,
@@ -1144,34 +1219,463 @@ function factoryRunDataReader(
   };
 }
 
-async function factoryMetricEmissionArgsFromSource(
-  args: FactoryFlowMetricSourceArgs,
-  context: FactoryMetricMethodContext,
-): Promise<FactoryMetricEmissionArgs> {
-  const reader = factoryRunDataReader(context, args.sourceFactory.id);
-  const metricsData = await loadMetricsData(
-    reader,
-    workItemSlug(args.workItem),
-  );
-  const definitionVersion = metricsData.state?.definitionVersion;
-  if (definitionVersion === undefined) {
-    throw new TypeError(
-      "terminal Factory state must record a definition version",
+function canonicalizeFactorySummary(value: unknown): unknown {
+  if (
+    value === null || typeof value === "string" || typeof value === "boolean"
+  ) return value;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (Array.isArray(value)) return value.map(canonicalizeFactorySummary);
+  if (typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, entry]) => [key, canonicalizeFactorySummary(entry)]),
     );
   }
-  const report = buildFlowMetricsReport(args.workItem, metricsData, [], {
+  throw new TypeError(`Unsupported projected summary value: ${typeof value}`);
+}
+
+function canonicalFactorySummaryJson(value: unknown): string {
+  return JSON.stringify(canonicalizeFactorySummary(value));
+}
+
+async function factorySummaryDigest(value: unknown): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(canonicalFactorySummaryJson(value)),
+  );
+  return [...new Uint8Array(digest)].map((byte) =>
+    byte.toString(16).padStart(2, "0")
+  ).join("");
+}
+
+export async function createFactoryProjectedTerminalAttemptIdentity(
+  rawReport: unknown,
+  preterminalStageCycle: number,
+  sourceRevision: { kind: "journal"; name: string; version: number },
+): Promise<ProjectedTerminalAttemptIdentity> {
+  const report = FactoryFlowMetricReportSchema.parse(rawReport);
+  return FactoryProjectedTerminalAttemptIdentitySchema.parse({
+    preterminalStageCycle,
+    sourceRevision,
+    reportDigest: await factorySummaryDigest(report),
+  });
+}
+
+const PROJECTED_TERMINAL_ROUTES = {
+  "done-observability": { targetStage: "done", outcome: "done" },
+  "aborted-observability": { targetStage: "aborted", outcome: "aborted" },
+  "escalated-observability": {
+    targetStage: "operational-escalation",
+    outcome: "parked",
+  },
+} as const;
+
+/** Convert a current observability report into the exact terminal outcome the verified transition will commit. */
+export function projectFactoryTerminalFlowReport(
+  rawReport: unknown,
+  projection: z.infer<typeof ProjectedTerminalSchema>,
+  journalVersion: number,
+): z.infer<typeof FactoryFlowMetricReportSchema> {
+  const report = FactoryFlowMetricReportSchema.parse(rawReport);
+  const expected = PROJECTED_TERMINAL_ROUTES[projection.preterminalStage];
+  if (
+    projection.targetStage !== expected.targetStage ||
+    projection.outcome !== expected.outcome
+  ) {
+    throw new TypeError(
+      "Projected terminal outcome does not match the observability route",
+    );
+  }
+  if (
+    report.metrics.runStatus !== "active" ||
+    report.metrics.stages.some((stage) => stage.terminal) ||
+    !report.metrics.stages.some((stage) =>
+      stage.stageId === projection.preterminalStage
+    )
+  ) {
+    throw new TypeError(
+      "Terminal projection requires the matching active preterminal stage",
+    );
+  }
+  const source = {
+    kind: "journal" as const,
+    name: `journal-${workItemSlug(report.workItem)}`,
+    version: journalVersion,
+  };
+  return FactoryFlowMetricReportSchema.parse({
+    ...report,
+    metrics: {
+      ...report.metrics,
+      runStatus: "terminal",
+      stages: [...report.metrics.stages, {
+        stageId: projection.targetStage,
+        entries: 1,
+        totalMs: null,
+        durationAvailability: "unavailable",
+        firstEnteredMs: null,
+        dispatchAttempts: 0,
+        terminal: true,
+      }],
+      timeToTerminalMs: {
+        ...report.metrics.timeToTerminalMs,
+        sources: [...report.metrics.timeToTerminalMs.sources, source],
+      },
+      failedStage: projection.outcome === "done"
+        ? { value: null, sources: [source] }
+        : { value: projection.targetStage, sources: [source] },
+      outcome: { value: projection.outcome, sources: [source] },
+    },
+  });
+}
+
+type ProjectedTerminalAttemptIdentity = z.infer<
+  typeof FactoryProjectedTerminalAttemptIdentitySchema
+>;
+
+type BuiltFactoryFlowReport = {
+  report: z.infer<typeof FactoryFlowMetricReportSchema>;
+  definitionVersion: number;
+  projectedAttemptIdentity?: ProjectedTerminalAttemptIdentity;
+};
+
+async function buildFactoryFlowReportFromSource(
+  args: FactoryFlowMetricSourceArgs,
+  context: FactoryMetricMethodContext,
+): Promise<BuiltFactoryFlowReport> {
+  const reader = factoryRunDataReader(context, args.sourceFactory.id);
+  const slug = workItemSlug(args.workItem);
+  const metricsData = await loadMetricsData(reader, slug);
+  const state = z.object({
+    stageId: z.string(),
+    status: z.string(),
+    definitionVersion: z.number().int(),
+    cycles: z.record(z.string(), z.number().int().positive()).optional(),
+  }).parse(metricsData.state);
+  const currentReport = buildFlowMetricsReport(args.workItem, metricsData, [], {
     factoryName: args.sourceFactory.name,
   });
-  return factoryMetricEmissionFromFlowReport(
+  if (args.projectedTerminal === undefined) {
+    if (state.status !== "terminal") {
+      throw new TypeError(
+        "Unprojected Factory metric emission requires a terminal Factory state",
+      );
+    }
+    return {
+      report: FactoryFlowMetricReportSchema.parse(currentReport),
+      definitionVersion: state.definitionVersion,
+    };
+  }
+  const expectedTerminal =
+    PROJECTED_TERMINAL_ROUTES[args.projectedTerminal.preterminalStage];
+  if (
+    args.projectedTerminal.targetStage !== expectedTerminal.targetStage ||
+    args.projectedTerminal.outcome !== expectedTerminal.outcome
+  ) {
+    throw new TypeError(
+      "Projected terminal outcome does not match the observability route",
+    );
+  }
+  if (state.status === "terminal") {
+    const terminalStages = currentReport.metrics.stages.filter((stage) =>
+      stage.terminal
+    );
+    const terminalSource = currentReport.metrics.outcome.sources.find((
+      source,
+    ) => source.kind === "journal" && source.version !== undefined);
+    const terminalJournal = terminalSource?.version === undefined
+      ? undefined
+      : metricsData.journal.find((entry) =>
+        entry.version === terminalSource.version &&
+        entry.entry.event === "run_terminal"
+      );
+    const terminalPayload = terminalJournal?.entry.payload;
+    if (
+      state.stageId !== args.projectedTerminal.targetStage ||
+      currentReport.metrics.runStatus !== "terminal" ||
+      currentReport.metrics.outcome.value !== args.projectedTerminal.outcome ||
+      terminalStages.length !== 1 ||
+      terminalStages[0]?.stageId !== args.projectedTerminal.targetStage ||
+      terminalSource?.name !== `journal-${slug}` ||
+      terminalSource.version === undefined ||
+      terminalJournal?.entry.stageId !== args.projectedTerminal.targetStage ||
+      terminalPayload?.from !== args.projectedTerminal.preterminalStage ||
+      terminalPayload?.to !== args.projectedTerminal.targetStage
+    ) {
+      throw new TypeError(
+        "Projected terminal outcome does not match the durable terminal Factory route",
+      );
+    }
+    const preterminalStageCycle = state.cycles
+      ?.[args.projectedTerminal.preterminalStage];
+    if (preterminalStageCycle === undefined) {
+      throw new TypeError(
+        "Historical terminal recovery requires the recorded preterminal stage cycle",
+      );
+    }
+    return {
+      report: FactoryFlowMetricReportSchema.parse(currentReport),
+      definitionVersion: state.definitionVersion,
+      projectedAttemptIdentity:
+        await createFactoryProjectedTerminalAttemptIdentity(
+          currentReport,
+          preterminalStageCycle,
+          {
+            kind: "journal",
+            name: `journal-${slug}`,
+            version: terminalSource.version,
+          },
+        ),
+    };
+  }
+  if (state.stageId !== args.projectedTerminal.preterminalStage) {
+    throw new TypeError(
+      "Projected terminal outcome does not match current preterminal Factory state",
+    );
+  }
+  const journalVersions = await reader.versionsOf(`journal-${slug}`);
+  const journalVersion = journalVersions.toSorted((left, right) => left - right)
+    .at(-1);
+  if (journalVersion === undefined) {
+    throw new TypeError(
+      "Terminal projection requires a versioned current journal",
+    );
+  }
+  const report = projectFactoryTerminalFlowReport(
+    currentReport,
+    args.projectedTerminal,
+    journalVersion,
+  );
+  const preterminalStageCycle = state.cycles
+    ?.[args.projectedTerminal.preterminalStage];
+  if (preterminalStageCycle === undefined) {
+    throw new TypeError(
+      "Terminal projection requires the current preterminal stage cycle",
+    );
+  }
+  return {
+    report,
+    definitionVersion: state.definitionVersion,
+    projectedAttemptIdentity:
+      await createFactoryProjectedTerminalAttemptIdentity(
+        report,
+        preterminalStageCycle,
+        {
+          kind: "journal",
+          name: `journal-${slug}`,
+          version: journalVersion,
+        },
+      ),
+  };
+}
+
+function projectedSummaryIdentity(
+  args: z.infer<typeof FactoryProjectedTerminalSummaryArgsSchema>,
+  attemptIdentity: ProjectedTerminalAttemptIdentity,
+): Record<string, unknown> {
+  return {
+    workItem: args.workItem,
+    sourceFactory: args.sourceFactory,
+    projectedTerminal: args.projectedTerminal,
+    attemptIdentity,
+  };
+}
+
+export async function projectedTerminalSummaryResourceName(
+  args: z.infer<typeof FactoryProjectedTerminalSummaryArgsSchema>,
+  attemptIdentity: ProjectedTerminalAttemptIdentity,
+): Promise<string> {
+  return `projected-terminal-summary-${await factorySummaryDigest(
+    projectedSummaryIdentity(args, attemptIdentity),
+  )}`;
+}
+
+function projectedSummaryContentDigest(
+  args: z.infer<typeof FactoryProjectedTerminalSummaryArgsSchema>,
+  attemptIdentity: ProjectedTerminalAttemptIdentity,
+  report: z.infer<typeof FactoryFlowMetricReportSchema>,
+): Promise<string> {
+  return factorySummaryDigest({
+    ...projectedSummaryIdentity(args, attemptIdentity),
+    report,
+  });
+}
+
+/** Build one canonical persisted summary for an exact projected terminal route. */
+export async function createFactoryProjectedTerminalSummary(
+  rawArgs: FactoryProjectedTerminalSummaryArgs,
+  report: z.infer<typeof FactoryFlowMetricReportSchema>,
+  attemptIdentity: ProjectedTerminalAttemptIdentity,
+  persistedAt: string,
+): Promise<z.infer<typeof FactoryProjectedTerminalSummarySchema>> {
+  const args = FactoryProjectedTerminalSummaryArgsSchema.parse(rawArgs);
+  const identity = FactoryProjectedTerminalAttemptIdentitySchema.parse(
+    attemptIdentity,
+  );
+  if (identity.reportDigest !== await factorySummaryDigest(report)) {
+    throw new Error(
+      "Projected terminal attempt identity does not match its report digest",
+    );
+  }
+  return FactoryProjectedTerminalSummarySchema.parse({
+    schemaVersion: 2,
+    summaryDigest: await projectedSummaryContentDigest(args, identity, report),
+    persistedAt,
+    ...projectedSummaryIdentity(args, identity),
+    report,
+  });
+}
+
+function stableProjectedSummaryContent(
+  summary: z.infer<typeof FactoryProjectedTerminalSummarySchema>,
+): Record<string, unknown> {
+  return {
+    schemaVersion: summary.schemaVersion,
+    summaryDigest: summary.summaryDigest,
+    workItem: summary.workItem,
+    sourceFactory: summary.sourceFactory,
+    projectedTerminal: summary.projectedTerminal,
+    attemptIdentity: summary.attemptIdentity,
+    report: summary.report,
+  };
+}
+
+/** Persist the canonical exact terminal projection before the Factory finalizes it. */
+export async function executePersistFactoryProjectedTerminalSummary(
+  rawArgs: FactoryProjectedTerminalSummaryArgs,
+  context: FactoryMetricMethodContext,
+  dependencies: FactoryMetricEmissionDependencies = DEFAULT_DEPENDENCIES,
+): Promise<{ dataHandles: Array<{ name: string }> }> {
+  const args = FactoryProjectedTerminalSummaryArgsSchema.parse(rawArgs);
+  const built = await buildFactoryFlowReportFromSource(args, context);
+  if (built.projectedAttemptIdentity === undefined) {
+    throw new Error(
+      "Projected terminal summary has no immutable attempt identity",
+    );
+  }
+  const { report, projectedAttemptIdentity } = built;
+  const name = await projectedTerminalSummaryResourceName(
+    args,
+    projectedAttemptIdentity,
+  );
+  const summary = await createFactoryProjectedTerminalSummary(
+    args,
+    report,
+    projectedAttemptIdentity,
+    dependencies.now(),
+  );
+  const existing = FactoryProjectedTerminalSummarySchema.safeParse(
+    await context.readResource(name),
+  );
+  if (existing.success) {
+    if (
+      canonicalFactorySummaryJson(
+        stableProjectedSummaryContent(existing.data),
+      ) !==
+        canonicalFactorySummaryJson(stableProjectedSummaryContent(summary))
+    ) {
+      throw new Error(
+        "Projected terminal summary identity already binds different canonical facts",
+      );
+    }
+    return { dataHandles: [{ name }] };
+  }
+  const handle = await context.writeResource(
+    "projected-summary",
+    name,
+    summary,
+  );
+  return { dataHandles: [handle] };
+}
+
+async function factoryMetricEmissionArgsFromSource(
+  rawArgs: FactoryFlowMetricSourceArgs,
+  context: FactoryMetricMethodContext,
+): Promise<FactoryMetricEmissionArgs> {
+  const args = FactoryFlowMetricSourceArgsSchema.parse(rawArgs);
+  let report: z.infer<typeof FactoryFlowMetricReportSchema>;
+  let definitionVersion: number;
+  let projectedSummaryDigest: string | undefined;
+  if (args.projectedTerminal === undefined) {
+    const built = await buildFactoryFlowReportFromSource(args, context);
+    report = built.report;
+    definitionVersion = built.definitionVersion;
+  } else {
+    const projectedArgs = FactoryProjectedTerminalSummaryArgsSchema.parse(args);
+    const current = await buildFactoryFlowReportFromSource(
+      projectedArgs,
+      context,
+    );
+    if (current.projectedAttemptIdentity === undefined) {
+      throw new Error(
+        "Projected terminal emission has no immutable attempt identity",
+      );
+    }
+    const name = await projectedTerminalSummaryResourceName(
+      projectedArgs,
+      current.projectedAttemptIdentity,
+    );
+    const summary = FactoryProjectedTerminalSummarySchema.parse(
+      await context.readResource(name),
+    );
+    const expectedDigest = await projectedSummaryContentDigest(
+      projectedArgs,
+      current.projectedAttemptIdentity,
+      current.report,
+    );
+    if (
+      summary.summaryDigest !== expectedDigest ||
+      canonicalFactorySummaryJson(summary.attemptIdentity) !==
+        canonicalFactorySummaryJson(current.projectedAttemptIdentity) ||
+      canonicalFactorySummaryJson(summary.report) !==
+        canonicalFactorySummaryJson(current.report) ||
+      canonicalFactorySummaryJson({
+          workItem: summary.workItem,
+          sourceFactory: summary.sourceFactory,
+          projectedTerminal: summary.projectedTerminal,
+          attemptIdentity: summary.attemptIdentity,
+        }) !==
+        canonicalFactorySummaryJson(
+          projectedSummaryIdentity(
+            projectedArgs,
+            current.projectedAttemptIdentity,
+          ),
+        )
+    ) {
+      throw new Error(
+        "Projected terminal summary is missing, stale, or substituted",
+      );
+    }
+    const confirmed = await buildFactoryFlowReportFromSource(
+      projectedArgs,
+      context,
+    );
+    if (
+      confirmed.projectedAttemptIdentity === undefined ||
+      canonicalFactorySummaryJson(confirmed.projectedAttemptIdentity) !==
+        canonicalFactorySummaryJson(current.projectedAttemptIdentity) ||
+      canonicalFactorySummaryJson(confirmed.report) !==
+        canonicalFactorySummaryJson(current.report)
+    ) {
+      throw new Error(
+        "Projected terminal summary no longer matches current preterminal Factory attempt",
+      );
+    }
+    report = summary.report;
+    definitionVersion = confirmed.definitionVersion;
+    projectedSummaryDigest = summary.summaryDigest;
+  }
+  const emission = factoryMetricEmissionFromFlowReport(
     FactoryFlowMetricEmissionArgsSchema.parse({
-      factory: {
-        ...args.factory,
-        definition_version: definitionVersion,
-      },
+      factory: { ...args.factory, definition_version: definitionVersion },
       visualReviewStages: args.visualReviewStages,
       report,
     }),
   );
+  return FactoryMetricEmissionArgsSchema.parse({
+    ...emission,
+    ...(projectedSummaryDigest === undefined ? {} : { projectedSummaryDigest }),
+  });
 }
 
 /** Rebuild the canonical flow report from Factory data and emit its terminal facts. */
@@ -1187,7 +1691,7 @@ export async function executeFactoryFlowMetricEmissionFromSource(
   );
 }
 
-/** Verify one terminal run has a local receipt, surfacing missing or degraded observability. */
+/** Verify one terminal run has a complete local receipt without making emission success a delivery gate. */
 export async function verifyFactoryMetricReceipt(
   emissionArgs: FactoryMetricEmissionArgs,
   context: FactoryMetricMethodContext,
@@ -1198,7 +1702,10 @@ export async function verifyFactoryMetricReceipt(
   const parsedReceipt = FactoryMetricEmissionReceiptSchema.safeParse(
     await context.readResource(expectedReceipt),
   );
-  const receiptStatus = parsedReceipt.success
+  const receiptMatchesSummary = parsedReceipt.success &&
+    parsedReceipt.data.emissionKeyHash === keyHash &&
+    receiptMatchesProjectedSummary(parsedReceipt.data, emissionArgs);
+  const receiptStatus = receiptMatchesSummary
     ? parsedReceipt.data.status
     : null;
   const status = receiptStatus === "emitted" || receiptStatus === "duplicate"
@@ -1211,6 +1718,7 @@ export async function verifyFactoryMetricReceipt(
     checkedAt: dependencies.now(),
     status,
     expectedReceipt,
+    projectedSummaryDigest: emissionArgs.projectedSummaryDigest ?? null,
     receiptStatus,
     factory: emissionArgs.factory,
     outcome: emissionArgs.terminal.outcome,
@@ -1220,24 +1728,33 @@ export async function verifyFactoryMetricReceipt(
     `coverage-${keyHash}`,
     coverage,
   );
-  if (status !== "observed") {
+  if (status === "missing") {
     context.logger.warning(
-      "Factory observability coverage is {status} for {project}/{factory}",
+      "Factory observability coverage is missing for {project}/{factory}",
       {
-        status,
         project: emissionArgs.factory.project,
         factory: emissionArgs.factory.name,
       },
     );
-    throw new Error(`Factory observability coverage is ${status}`);
+    throw new Error("Factory observability coverage is missing");
   }
-  context.logger.info(
-    "Verified Factory observability receipt for {project}/{factory}",
-    {
-      project: emissionArgs.factory.project,
-      factory: emissionArgs.factory.name,
-    },
-  );
+  const properties = {
+    status,
+    receiptStatus,
+    project: emissionArgs.factory.project,
+    factory: emissionArgs.factory.name,
+  };
+  if (status === "degraded") {
+    context.logger.warning(
+      "Verified complete Factory observability receipt with {receiptStatus} emission for {project}/{factory}",
+      properties,
+    );
+  } else {
+    context.logger.info(
+      "Verified Factory observability receipt for {project}/{factory}",
+      properties,
+    );
+  }
   return { dataHandles: [handle] };
 }
 

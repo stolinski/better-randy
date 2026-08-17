@@ -1,6 +1,6 @@
 manifestVersion: 1
 name: "@club_aqua_back_deck/software-factory-sentry-metrics"
-version: "2026.08.07.2"
+version: "2026.08.16.5"
 description: "Emit bounded, idempotent @swamp/software-factory terminal flow metrics to Sentry without making observability a delivery gate."
 repository: https://github.com/stolinski/better-randy
 models:

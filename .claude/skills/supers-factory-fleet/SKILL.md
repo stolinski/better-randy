@@ -19,9 +19,9 @@ Read only the reference needed for the current phase:
 - Keep one central parent as the only integration owner.
 - Use the existing `supers-delivery` Factory. A Dex leaf id is its `workItem`.
 - Run at most one writer for each approved effective open execution root.
-- Launch independent writers together in one Pi `runs.all` call with `worktree: true`. Do not impose a product lane limit; runtime capacity schedules the set.
+- Launch one top-level asynchronous Pi worker per independent root, in deterministic sequence, with `worktree: true`. Each accepted run starts immediately and therefore executes concurrently up to Pi capacity; never combine roots in `runs.all`.
 - Require a clean parent checkout before fanout.
-- Record Factory dispatch before work. Consume Pi handoff manifests and patch files after work; child prose is not evidence.
+- Build and validate the complete immutable request wave first. Reserve every exact canonical request in the Supers-owned Pi outbox without consuming a Factory attempt. For each root, refresh all facts, call `record_dispatch` with the exact request digest, then call `record_pi_submission_attempt` immediately before launching that request and bind Pi's real normalized workflow artifacts. Retry reads request bytes only through the profile's `get_pi_dispatch_request` trusted method and recomputes every binding; callers provide only the token and fresh attempt ID. Only explicit submission recording consumes transport budget; read-only reconciliation remains under that Factory attempt. Consume only current-outbox claim-bound handoff manifests and patch files; child prose and caller-authored JSON are not evidence.
 - Integrate one queued handoff at a time while that work item is still in `implementation`. Record `change-summary` only after integration.
 - Never integrate during reconciliation. Reconciliation is read-only and completion-only. Classification, deterministic verification, and the exact-bundle human gate catch objective or subjective incompleteness before reconciliation.
 - Define `integratedTreeFingerprint` only as lowercase SHA-256 of the raw, unmodified stdout bytes from `git ls-tree -r -z --full-tree <integratedRevision>`.
@@ -32,8 +32,8 @@ Read only the reference needed for the current phase:
 
 - [ ] Refresh the Factory fleet and approval-bound Delivery claims.
 - [ ] Prove one selected leaf per approved effective open execution root.
-- [ ] Record dispatch for each allocated implementation lane.
-- [ ] Launch one isolated writer per root with strict structured output.
+- [ ] Validate the complete wave and durably reserve every exact per-root request without Factory attempts.
+- [ ] Refresh, record, and top-level async-launch one isolated writer per root; bind each real Pi run receipt.
 - [ ] Queue durable handoff manifest paths.
 - [ ] Validate and integrate one handoff.
 - [ ] Record only the concise `summary` and digest-verified, content-addressed `integrationReceipt` in `change-summary`.
@@ -43,4 +43,4 @@ Read only the reference needed for the current phase:
 - [ ] Confirm terminal Factory state and the recorded integrated revision/fingerprint still match the clean central checkout.
 - [ ] Repeat for the next queued handoff. A pending human gate pauses the entire queue.
 
-Stop for the human when a Factory gate requires approval, several transitions are satisfied, root ancestry is ambiguous, or another parent appears to own integration.
+Stop for the human when a Factory gate requires approval, several transitions are satisfied, root ancestry is ambiguous, another parent appears to own integration, or operational escalation is required. Ordinary failures use typed recovery transitions and preserve history; never reset a run as routine recovery.

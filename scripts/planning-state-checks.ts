@@ -407,12 +407,12 @@ function indexOpenDexChildren(openTasks: PlanningDexTask[]): Map<string, Plannin
 	return openChildrenByParent;
 }
 
-type PlanningDexAncestry =
+export type PlanningDexAncestry =
 	| { status: 'resolved'; path: PlanningDexTask[]; executionRoot: PlanningDexTask }
 	| { status: 'missing-parent' | 'cycle'; path: PlanningDexTask[]; invalidTaskId: string };
 
 /** Resolve only the open execution graph; a completed parent is historical context. */
-function resolvePlanningDexAncestry(
+export function resolvePlanningDexAncestry(
 	taskId: string,
 	taskById: Map<string, PlanningDexTask>
 ): PlanningDexAncestry {
