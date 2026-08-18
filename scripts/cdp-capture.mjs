@@ -3,7 +3,7 @@
 // timeline via window.__supersTimeline.seekProgress, and saves clipped canvas
 // screenshots. This is the documented workaround for the chrome-devtools MCP
 // browser lacking the html-in-canvas flag. Node 22+ (built-in fetch/WebSocket).
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
 const PORT = Number(process.env.CDP_PORT ?? 9223);
 // The COMPOSITION canvas is the largest-backing one. Never bare
@@ -19,6 +19,10 @@ const SAMPLES = (process.env.CDP_SAMPLES ?? '0,0.25,0.5,0.75,1').split(',').map(
 const TARGET_ORIENTATION = process.env.CDP_ORIENTATION;
 const TARGET_PACK = process.env.CDP_PACK;
 const WAIT_SELECTOR = process.env.CDP_WAIT_SELECTOR;
+const BUILT_IN_PRESET_PATH = `src/lib/presets/${SLUG}.json`;
+const EXPECTED_PRESET_LABEL = existsSync(BUILT_IN_PRESET_PATH)
+	? JSON.parse(readFileSync(BUILT_IN_PRESET_PATH, 'utf8')).name
+	: SLUG;
 
 mkdirSync(OUTDIR, { recursive: true });
 
@@ -129,7 +133,9 @@ if (!ready) {
 // mutating transport/Pack controls, or a late apply can overwrite the choice.
 let presetApplied = false;
 for (let i = 0; i < 60; i++) {
-	presetApplied = await evaluate(`document.body.textContent?.includes(${JSON.stringify(SLUG)})`);
+	presetApplied = await evaluate(
+		`document.body.textContent?.includes(${JSON.stringify(EXPECTED_PRESET_LABEL)})`
+	);
 	if (presetApplied) break;
 	await sleep(100);
 }
@@ -152,7 +158,7 @@ if (TARGET_ORIENTATION === 'vertical' || TARGET_ORIENTATION === 'horizontal') {
 	const expectedWidth = TARGET_ORIENTATION === 'vertical' ? 2160 : 3840;
 	const alreadyOriented = await evaluate(`(${COMPOSITION_CANVAS})?.width === ${expectedWidth}`);
 	if (!alreadyOriented) {
-	const switched = await evaluate(`(() => {
+		const switched = await evaluate(`(() => {
 		const button = document.querySelector(${JSON.stringify(`button[aria-label="${label}"]`)}) ??
 			[...document.querySelectorAll('button')].find((candidate) =>
 				candidate.textContent?.includes(${JSON.stringify(label)})
@@ -160,11 +166,11 @@ if (TARGET_ORIENTATION === 'vertical' || TARGET_ORIENTATION === 'horizontal') {
 		button?.click();
 		return !!button;
 	})()`);
-	if (!switched) throw new Error(`Could not find the ${TARGET_ORIENTATION} transport control`);
-	for (let i = 0; i < 30; i++) {
-		if (await evaluate(`(${COMPOSITION_CANVAS})?.width === ${expectedWidth}`)) break;
-		await sleep(100);
-	}
+		if (!switched) throw new Error(`Could not find the ${TARGET_ORIENTATION} transport control`);
+		for (let i = 0; i < 30; i++) {
+			if (await evaluate(`(${COMPOSITION_CANVAS})?.width === ${expectedWidth}`)) break;
+			await sleep(100);
+		}
 	}
 }
 
