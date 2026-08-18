@@ -1,0 +1,133 @@
+id: cd2d6b3d-2948-426d-8f03-7975c9b92cc3
+name: supers-sentry-repair-to-planning
+description: Persist every eligible Sentry repair intent, then start or resume at most one stable human-gated Planning work item.
+tags:
+  purpose: supers-sentry-self-healing-planning
+  capability: human-gated-planning
+inputs:
+  type: object
+  required:
+    - sourceSnapshot
+    - expectedSnapshotFingerprint
+    - sourceReconciliation
+    - expectedReconciliationFingerprint
+    - sourceTriage
+    - expectedTriageFingerprint
+    - issuePlans
+  additionalProperties: false
+  properties:
+    sourceSnapshot:
+      type: string
+      minLength: 1
+    expectedSnapshotFingerprint:
+      type: string
+      pattern: '^[0-9a-f]{64}$'
+    sourceReconciliation:
+      type: string
+      minLength: 1
+    expectedReconciliationFingerprint:
+      type: string
+      pattern: '^[0-9a-f]{64}$'
+    sourceTriage:
+      type: string
+      minLength: 1
+    expectedTriageFingerprint:
+      type: string
+      pattern: '^[0-9a-f]{64}$'
+    issuePlans:
+      type: array
+      maxItems: 100
+      items:
+        type: object
+        additionalProperties: false
+        required: [issueId, scope, acceptanceCriteria]
+        properties:
+          issueId:
+            type: string
+            pattern: '^[A-Za-z0-9_-]{1,100}$'
+          scope:
+            type: array
+            minItems: 1
+            maxItems: 20
+            items:
+              type: string
+              minLength: 1
+              maxLength: 2000
+          acceptanceCriteria:
+            type: array
+            minItems: 1
+            maxItems: 20
+            items:
+              type: string
+              minLength: 1
+              maxLength: 2000
+jobs:
+  - name: main
+    description: Prepare the durable queue and serialize one Planning activation.
+    steps:
+      - name: prepare-repair-intents
+        description: Revalidate exact intake evidence and persist the aggregate handoff plus every eligible per-issue intent.
+        task:
+          type: model_method
+          modelIdOrName: supers-sentry-repair-planning-handoff
+          methodName: prepare
+          inputs:
+            sourceSnapshot: '${{ inputs.sourceSnapshot }}'
+            expectedSnapshotFingerprint: '${{ inputs.expectedSnapshotFingerprint }}'
+            sourceReconciliation: '${{ inputs.sourceReconciliation }}'
+            expectedReconciliationFingerprint: '${{ inputs.expectedReconciliationFingerprint }}'
+            sourceTriage: '${{ inputs.sourceTriage }}'
+            expectedTriageFingerprint: '${{ inputs.expectedTriageFingerprint }}'
+            issuePlans: '${{ inputs.issuePlans }}'
+        dependsOn: []
+        weight: 0
+        allowFailure: false
+      - name: select-repair-planning-work
+        description: Enforce one active Sentry repair and select the durable queue by severity, priority, age, and issue id.
+        task:
+          type: model_method
+          modelIdOrName: supers-sentry-repair-planning-handoff
+          methodName: select-next
+          inputs:
+            repairIntents: '${{ data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "repair-intent"'').map(resource, resource.attributes) }}'
+            planningStates: '${{ data.query(''modelName == "supers-planning" && specName == "state"'').filter(resource, resource.attributes.workItem.startsWith("sentry-")).map(resource, {"workItem": resource.attributes.workItem, "status": resource.attributes.status, "stageId": resource.attributes.stageId}) }}'
+            priorSelections: '${{ size(data.query(''modelName == "supers-sentry-repair-planning-handoff" && name == "sentry-repair-planning-queue-selection"'')) == 0 ? [] : [{"status": data.latest("supers-sentry-repair-planning-handoff", "sentry-repair-planning-queue-selection").attributes.status, "selectedWorkItem": data.latest("supers-sentry-repair-planning-handoff", "sentry-repair-planning-queue-selection").attributes.selectedWorkItem, "selectedIntentFingerprint": data.latest("supers-sentry-repair-planning-handoff", "sentry-repair-planning-queue-selection").attributes.selectedIntentFingerprint}] }}'
+        dependsOn:
+          - step: prepare-repair-intents
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+      - name: start-selected-planning-work
+        description: Start the stable Planning work item only when the selector proves it has no existing state.
+        task:
+          type: model_method
+          modelIdOrName: supers-planning
+          methodName: start
+          inputs:
+            workItem: '${{ data.latest("supers-sentry-repair-planning-handoff", "sentry-repair-planning-queue-selection").attributes.selectedWorkItem }}'
+        guard: ${{ data.latest("supers-sentry-repair-planning-handoff", "sentry-repair-planning-queue-selection").attributes.action != "start" }}
+        dependsOn:
+          - step: select-repair-planning-work
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+      - name: resume-selected-planning-status
+        description: Replay an active repair by refreshing its existing Factory status instead of starting duplicate state.
+        task:
+          type: model_method
+          modelIdOrName: supers-planning
+          methodName: status
+          inputs:
+            workItem: '${{ data.latest("supers-sentry-repair-planning-handoff", "sentry-repair-planning-queue-selection").attributes.selectedWorkItem }}'
+        guard: ${{ data.latest("supers-sentry-repair-planning-handoff", "sentry-repair-planning-queue-selection").attributes.action != "status" }}
+        dependsOn:
+          - step: select-repair-planning-work
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+    dependsOn: []
+    weight: 0
+version: 1

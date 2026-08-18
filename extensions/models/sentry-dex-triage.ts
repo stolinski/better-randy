@@ -1,6 +1,10 @@
 import { z } from "npm:zod@4.4.3";
 
-import { SentryIssueReconciliationSchema } from "./sentry-issue-intake-adapter.ts";
+import {
+  canonicalSentryJson,
+  createSentrySha256,
+  SentryIssueReconciliationSchema,
+} from "./sentry-issue-intake-adapter.ts";
 
 const FingerprintSchema = z.string().regex(/^[0-9a-f]{64}$/);
 const IdSchema = z.string().min(1).max(100);
@@ -11,7 +15,7 @@ export const SentryDexTriageArgsSchema = z.object({
 });
 export type SentryDexTriageArgs = z.infer<typeof SentryDexTriageArgsSchema>;
 
-const DexTaskSchema = z.object({
+export const SentryDexTaskSchema = z.object({
   id: IdSchema,
   parent_id: IdSchema.nullable(),
   name: z.string().max(500),
@@ -35,9 +39,29 @@ const DexTaskSchema = z.object({
   ),
 }).passthrough();
 
+export type SentryDexTask = z.infer<typeof SentryDexTaskSchema>;
+
+const SentryDexTriageItemSchema = z.object({
+  issueId: IdSchema,
+  shortId: IdSchema,
+  recommendation: z.enum([
+    "attach-existing",
+    "create-task",
+    "reproduce-first",
+    "human-review",
+    "ignore",
+  ]),
+  exactMatchTaskIds: z.array(IdSchema),
+  lexicalMatchTaskIds: z.array(IdSchema).max(5),
+  ancestorTaskIds: z.array(IdSchema),
+  descendantTaskIds: z.array(IdSchema),
+  reasons: z.array(z.string().min(1).max(160)),
+});
+
 export const SentryDexTriageSchema = z.object({
   sourceReconciliation: z.string().min(1),
   sourceFingerprint: FingerprintSchema,
+  sourceReconciliationFingerprint: FingerprintSchema,
   generatedAt: z.string().datetime(),
   dexTaskCount: z.number().int().nonnegative(),
   activeTaskIds: z.array(IdSchema),
@@ -51,22 +75,19 @@ export const SentryDexTriageSchema = z.object({
     "reproduction-required",
     "ambiguous-source",
   ])),
-  items: z.array(z.object({
-    issueId: IdSchema,
-    shortId: IdSchema,
-    recommendation: z.enum([
-      "attach-existing",
-      "create-task",
-      "reproduce-first",
-      "human-review",
-      "ignore",
-    ]),
-    exactMatchTaskIds: z.array(IdSchema),
-    lexicalMatchTaskIds: z.array(IdSchema).max(5),
-    ancestorTaskIds: z.array(IdSchema),
-    descendantTaskIds: z.array(IdSchema),
-    reasons: z.array(z.string().min(1).max(160)),
-  })).max(100),
+  items: z.array(SentryDexTriageItemSchema).max(100).superRefine(
+    (items, context) => {
+      for (const key of ["issueId", "shortId"] as const) {
+        const values = items.map((item) => item[key].toLowerCase());
+        if (new Set(values).size !== values.length) {
+          context.addIssue({
+            code: "custom",
+            message: `Triage ${key} values must be unique`,
+          });
+        }
+      }
+    },
+  ),
   fingerprint: FingerprintSchema,
 });
 
@@ -181,22 +202,47 @@ function significantTokens(value: string): Set<string> {
   );
 }
 
-function lexicalScore(
-  title: string,
-  task: z.infer<typeof DexTaskSchema>,
-): number {
+function sentryDexTaskSearchText(task: SentryDexTask): string {
+  return `${task.name}\n${task.description}\n${task.result ?? ""}`;
+}
+
+function lexicalScore(title: string, task: SentryDexTask): number {
   const issueTokens = significantTokens(title);
   if (issueTokens.size === 0) return 0;
-  const taskTokens = significantTokens(`${task.name} ${task.description}`);
+  const taskTokens = significantTokens(sentryDexTaskSearchText(task));
   let overlap = 0;
   for (const token of issueTokens) if (taskTokens.has(token)) overlap += 1;
   return overlap / issueTokens.size;
 }
 
-function graphContext(
-  taskIds: string[],
-  tasks: z.infer<typeof DexTaskSchema>[],
-) {
+export function findSentryDexTaskMatches(
+  shortId: string,
+  title: string,
+  tasks: SentryDexTask[],
+): {
+  exact: SentryDexTask[];
+  openExact: SentryDexTask[];
+  completedExact: SentryDexTask[];
+  lexical: SentryDexTask[];
+} {
+  const exact = tasks.filter((task) =>
+    containsExactSentryId(sentryDexTaskSearchText(task), shortId)
+  );
+  return {
+    exact,
+    openExact: exact.filter((task) => !task.completed),
+    completedExact: exact.filter((task) => task.completed),
+    lexical: exact.length > 0 ? [] : tasks
+      .filter((task) => !task.completed && lexicalScore(title, task) >= 0.6)
+      .sort((left, right) =>
+        lexicalScore(title, right) - lexicalScore(title, left) ||
+        left.id.localeCompare(right.id)
+      )
+      .slice(0, 5),
+  };
+}
+
+function graphContext(taskIds: string[], tasks: SentryDexTask[]) {
   const byId = new Map(tasks.map((task) => [task.id, task]));
   const ancestors = new Set<string>();
   const descendants = new Set<string>();
@@ -233,14 +279,13 @@ function graphContext(
   };
 }
 
-async function sha256(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(value),
-  );
-  return [...new Uint8Array(digest)].map((byte) =>
-    byte.toString(16).padStart(2, "0")
-  ).join("");
+export function createSentryDexTriageFingerprint(
+  value: Omit<
+    z.infer<typeof SentryDexTriageSchema>,
+    "generatedAt" | "fingerprint"
+  >,
+): Promise<string> {
+  return createSentrySha256(canonicalSentryJson(value));
 }
 
 export async function executeSentryDexTriage(
@@ -268,9 +313,11 @@ export async function executeSentryDexTriage(
   if (command.code !== 0) {
     throw new Error(`dex list failed with exit ${command.code}`);
   }
-  let tasks: z.infer<typeof DexTaskSchema>[];
+  let tasks: SentryDexTask[];
   try {
-    tasks = z.array(DexTaskSchema).max(2_000).parse(JSON.parse(command.stdout));
+    tasks = z.array(SentryDexTaskSchema).max(2_000).parse(
+      JSON.parse(command.stdout),
+    );
   } catch {
     throw new Error("dex list returned malformed or out-of-contract JSON");
   }
@@ -285,20 +332,8 @@ export async function executeSentryDexTriage(
   if (activeTaskIds.length > 0) globalReasons.add("active-wip");
 
   const items = source.items.map((issue) => {
-    const exact = tasks.filter((task) =>
-      containsExactSentryId(`${task.name}\n${task.description}`, issue.shortId)
-    );
-    const openExact = exact.filter((task) => !task.completed);
-    const completedExact = exact.filter((task) => task.completed);
-    const lexical = exact.length > 0 ? [] : tasks
-      .filter((task) =>
-        !task.completed && lexicalScore(issue.title, task) >= 0.6
-      )
-      .sort((a, b) =>
-        lexicalScore(issue.title, b) - lexicalScore(issue.title, a) ||
-        a.id.localeCompare(b.id)
-      )
-      .slice(0, 5);
+    const { exact, openExact, completedExact, lexical } =
+      findSentryDexTaskMatches(issue.shortId, issue.title, tasks);
     let recommendation:
       | "attach-existing"
       | "create-task"
@@ -350,10 +385,14 @@ export async function executeSentryDexTriage(
       reasons,
     };
   });
-  const generatedAt = dependencies.now();
+  // Triage is a deterministic derivation of one immutable reconciliation.
+  // Replays retain the source observation time instead of minting a new body
+  // under the same fingerprint-derived resource name.
+  const generatedAt = source.generatedAt;
   const reportBase = {
     sourceReconciliation: args.sourceReconciliation,
     sourceFingerprint: source.sourceFingerprint,
+    sourceReconciliationFingerprint: source.fingerprint,
     generatedAt,
     dexTaskCount: tasks.length,
     activeTaskIds,
@@ -361,15 +400,16 @@ export async function executeSentryDexTriage(
     blockingReasons: [...globalReasons].sort(),
     items,
   };
-  const fingerprint = await sha256(JSON.stringify({
+  const fingerprint = await createSentryDexTriageFingerprint({
     sourceReconciliation: reportBase.sourceReconciliation,
     sourceFingerprint: reportBase.sourceFingerprint,
+    sourceReconciliationFingerprint: reportBase.sourceReconciliationFingerprint,
     dexTaskCount: reportBase.dexTaskCount,
     activeTaskIds: reportBase.activeTaskIds,
     automationEligible: reportBase.automationEligible,
     blockingReasons: reportBase.blockingReasons,
     items: reportBase.items,
-  }));
+  });
   const report = SentryDexTriageSchema.parse({ ...reportBase, fingerprint });
   const handle = await context.writeResource(
     "triage",

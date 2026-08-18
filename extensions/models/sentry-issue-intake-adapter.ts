@@ -21,6 +21,7 @@ export const SentryIssueSchema = z.object({
   title: BoundedTextSchema,
   priority: z.enum(["low", "medium", "high"]).nullable(),
   level: z.enum(["debug", "info", "warning", "error", "fatal"]).nullable(),
+  firstSeen: z.string().datetime(),
   status: z.literal("unresolved"),
 });
 
@@ -55,6 +56,8 @@ export const SentryIssueReconciliationSchema = z.object({
     title: BoundedTextSchema,
     priority: z.enum(["low", "medium", "high"]).nullable(),
     level: z.enum(["debug", "info", "warning", "error", "fatal"]).nullable(),
+    firstSeen: z.string().datetime(),
+    status: z.literal("unresolved"),
     disposition: z.enum([
       "current-release",
       "recent",
@@ -64,6 +67,7 @@ export const SentryIssueReconciliationSchema = z.object({
     repairCandidate: z.boolean(),
     requiresReproduction: z.boolean(),
   })).max(100),
+  fingerprint: z.string().regex(/^[0-9a-f]{64}$/),
 });
 
 export type SentryCommandResult = {
@@ -104,6 +108,7 @@ const CliIssueSchema = z.object({
   title: z.string(),
   priority: z.string().nullish(),
   level: z.string().nullish(),
+  firstSeen: z.string().datetime().nullish(),
   status: z.string(),
 });
 const CliListSchema = z.object({
@@ -136,6 +141,7 @@ function sanitizeTitle(value: string): string {
 
 function normalizeIssue(
   value: z.infer<typeof CliIssueSchema>,
+  firstSeen: string,
 ): z.infer<typeof SentryIssueSchema> {
   return SentryIssueSchema.parse({
     id: value.id,
@@ -148,11 +154,27 @@ function normalizeIssue(
       ["debug", "info", "warning", "error", "fatal"].includes(value.level ?? "")
         ? value.level
         : null,
+    firstSeen,
     status: value.status,
   });
 }
 
-async function sha256(value: string): Promise<string> {
+export function canonicalSentryJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalSentryJson).join(",")}]`;
+  }
+  if (value !== null && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, entry]) =>
+        `${JSON.stringify(key)}:${canonicalSentryJson(entry)}`
+      ).join(",");
+    return `{${entries}}`;
+  }
+  return JSON.stringify(value);
+}
+
+export async function createSentrySha256(value: string): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
     new TextEncoder().encode(value),
@@ -185,7 +207,7 @@ async function fetchIssues(
     "--fresh",
     "--json",
     "--fields",
-    "id,shortId,title,priority,level,status",
+    "id,shortId,title,priority,level,firstSeen,status",
   ];
   const result = await runner.run(args, context.repoDir, 20_000);
   if (result.code !== 0) {
@@ -204,12 +226,85 @@ async function fetchIssues(
   }
 }
 
-function uniqueIssues(lists: CliList[]): z.infer<typeof SentryIssueSchema>[] {
+const CliIssueFirstSeenSchema = z.object({
+  id: z.union([z.string(), z.number()]).transform(String),
+  shortId: z.string(),
+  firstSeen: z.string().datetime(),
+});
+
+async function fetchIssueFirstSeen(
+  runner: SentryCommandRunner,
+  context: SentryIssueIntakeContext,
+  lists: CliList[],
+): Promise<Map<string, string>> {
+  const rawById = new Map<string, z.infer<typeof CliIssueSchema>>();
+  for (const list of lists) {
+    for (const issue of list.data) rawById.set(issue.id, issue);
+  }
+  const firstSeenByIssueId = new Map<string, string>();
+  const missing = [...rawById.values()].filter((issue) => {
+    if (issue.firstSeen !== null && issue.firstSeen !== undefined) {
+      firstSeenByIssueId.set(issue.id, issue.firstSeen);
+      return false;
+    }
+    return true;
+  });
+  for (let offset = 0; offset < missing.length; offset += 5) {
+    const batch = missing.slice(offset, offset + 5);
+    const details = await Promise.all(batch.map(async (issue) => {
+      const result = await runner.run(
+        [
+          "issue",
+          "view",
+          issue.shortId,
+          "--fresh",
+          "--json",
+          "--fields",
+          "id,shortId,firstSeen",
+        ],
+        context.repoDir,
+        20_000,
+      );
+      if (result.code !== 0) {
+        throw new Error(
+          `sentry issue view failed with exit ${result.code}: ${
+            sanitizeTitle(result.stderr || result.stdout)
+          }`,
+        );
+      }
+      let detail: z.infer<typeof CliIssueFirstSeenSchema>;
+      try {
+        detail = CliIssueFirstSeenSchema.parse(JSON.parse(result.stdout));
+      } catch {
+        throw new Error(
+          "sentry issue view returned malformed firstSeen JSON",
+        );
+      }
+      if (detail.id !== issue.id || detail.shortId !== issue.shortId) {
+        throw new Error(`Sentry firstSeen identity drift for ${issue.shortId}`);
+      }
+      return detail;
+    }));
+    for (const detail of details) {
+      firstSeenByIssueId.set(detail.id, detail.firstSeen);
+    }
+  }
+  return firstSeenByIssueId;
+}
+
+function uniqueIssues(
+  lists: CliList[],
+  firstSeenByIssueId: Map<string, string>,
+): z.infer<typeof SentryIssueSchema>[] {
   const byId = new Map<string, z.infer<typeof SentryIssueSchema>>();
   const byShortId = new Map<string, string>();
   for (const list of lists) {
     for (const raw of list.data) {
-      const issue = normalizeIssue(raw);
+      const firstSeen = firstSeenByIssueId.get(raw.id);
+      if (firstSeen === undefined) {
+        throw new Error(`Missing firstSeen for Sentry issue ${raw.shortId}`);
+      }
+      const issue = normalizeIssue(raw, firstSeen);
       const existingShortIdOwner = byShortId.get(issue.shortId);
       if (existingShortIdOwner && existingShortIdOwner !== issue.id) {
         throw new Error(
@@ -310,12 +405,17 @@ export async function executeSentryIssueIntake(
       args.limit,
     )
     : { data: [], hasMore: false, hasPrev: false };
-  const issues = uniqueIssues([history, recent, release]);
+  const firstSeenByIssueId = await fetchIssueFirstSeen(
+    dependencies.commandRunner,
+    context,
+    [history, recent, release],
+  );
+  const issues = uniqueIssues([history, recent, release], firstSeenByIssueId);
   const recentIds = new Set(recent.data.map((issue) => String(issue.id)));
   const releaseIds = new Set(release.data.map((issue) => String(issue.id)));
   const complete = !history.hasMore && !recent.hasMore && !release.hasMore;
   const capturedAt = dependencies.now();
-  const fingerprint = await sha256(
+  const fingerprint = await createSentrySha256(
     JSON.stringify({
       target,
       args,
@@ -365,12 +465,21 @@ export async function executeSentryIssueIntake(
       requiresReproduction: complete && disposition === "recent",
     };
   });
-  const reconciliation = SentryIssueReconciliationSchema.parse({
+  const reconciliationBase = {
     sourceSnapshot: snapshotName,
     sourceFingerprint: fingerprint,
     generatedAt: capturedAt,
     automationEligible: complete,
     items,
+  };
+  const reconciliation = SentryIssueReconciliationSchema.parse({
+    ...reconciliationBase,
+    fingerprint: await createSentrySha256(canonicalSentryJson({
+      sourceSnapshot: reconciliationBase.sourceSnapshot,
+      sourceFingerprint: reconciliationBase.sourceFingerprint,
+      automationEligible: reconciliationBase.automationEligible,
+      items: reconciliationBase.items,
+    })),
   });
   const reconciliationHandle = await context.writeResource(
     "reconciliation",

@@ -39,6 +39,9 @@ inputs:
       - planId
       - tasks
       additionalProperties: false
+    planningInventory:
+      type: object
+      additionalProperties: true
     reviewedPlan:
       type: object
       properties:
@@ -160,6 +163,7 @@ inputs:
       additionalProperties: false
   required:
   - workItem
+  - planningInventory
   - reviewedPlan
   - plan
   additionalProperties: false
@@ -174,6 +178,9 @@ jobs:
       modelIdOrName: repo-audit
       methodName: validate-plan-boundary
       inputs:
+        workItem: ${{ inputs.workItem }}
+        planningInventory: ${{ inputs.planningInventory }}
+        sourceSnapshot: ${{ data.latest("repo-audit", inputs.planningInventory.sourceSnapshotName).attributes }}
         reviewedPlan: ${{ inputs.reviewedPlan }}
         plan: ${{ inputs.plan }}
     dependsOn: []

@@ -1,0 +1,9 @@
+type: '@supers/sentry-repair-planning-handoff'
+typeVersion: 2026.08.18.4
+id: 43609d3c-92b1-4509-9ed0-db25b48ee7c1
+name: supers-sentry-repair-planning-handoff
+version: 1
+tags: {}
+globalArguments:
+  sourceIntakeModelId: 97e8375f-5908-482d-846e-2a5b037ae9cf
+methods: {}

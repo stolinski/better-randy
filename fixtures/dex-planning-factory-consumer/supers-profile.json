@@ -4,7 +4,23 @@
     "inventory": {
       "mode": "workflow",
       "workflow": "supers-planning-inventory",
-      "readOnly": true
+      "readOnly": true,
+      "inputs": {
+        "values": {
+          "repairIntents": "${{ data.query('modelName == \"supers-sentry-repair-planning-handoff\" && specName == \"repair-intent\" && attributes.planningWorkItem == \"' + self.workItem + '\"').map(resource, resource.attributes) }}"
+        },
+        "properties": {
+          "repairIntents": {
+            "type": "array",
+            "maxItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": ["repairIntents"]
+      }
     },
     "tracker": {
       "mode": "workflow",
@@ -18,7 +34,19 @@
     },
     "planApplier": {
       "mode": "workflow",
-      "workflow": "supers-planning-apply-approved-plan"
+      "workflow": "supers-planning-apply-approved-plan",
+      "inputs": {
+        "values": {
+          "planningInventory": "${{ data.latest(self.name, \"artifact-planning-inventory\").payload }}"
+        },
+        "properties": {
+          "planningInventory": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": ["planningInventory"]
+      }
     },
     "audit": {
       "mode": "workflow",

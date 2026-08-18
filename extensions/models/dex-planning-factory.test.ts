@@ -442,6 +442,7 @@ Deno.test("Supers profile compiles the complete materialized workflow set", asyn
   };
   assert.deepEqual(Object.keys(application.workflow.inputs).sort(), [
     "plan",
+    "planningInventory",
     "reviewedPlan",
     "workItem",
   ]);

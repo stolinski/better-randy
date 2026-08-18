@@ -23,6 +23,9 @@ import {
   DexReadyLeafApprovalSchema,
   DexReadyLeafClaimSchema,
 } from "./dex-ready-leaf-handoff.ts";
+import {
+  SentryRepairIntentEnvelopeSchema,
+} from "./sentry-repair-planning-handoff-adapter.ts";
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const CLIENT_REF_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
@@ -108,6 +111,7 @@ export const SupersPlanningSourceSnapshotSchema = z.strictObject({
   history: z.array(SourceDocumentSchema).max(MAX_SOURCE_DOCUMENTS),
   currentStateDocuments: z.array(SourceDocumentSchema).max(10),
   dexTasks: z.array(DexTaskSnapshotSchema).max(MAX_DEX_TASKS),
+  repairIntent: SentryRepairIntentEnvelopeSchema.nullable(),
   fingerprint: z.string().regex(SHA256_PATTERN),
 });
 
@@ -120,6 +124,7 @@ const UnresolvedDecisionSchema = z.strictObject({
 export const SupersPlanningInventoryArgumentsSchema = z.strictObject({
   workItem: z.string().regex(TASK_ID_PATTERN).max(128),
   planningState: PlanningStateReferenceSchema,
+  repairIntents: z.array(SentryRepairIntentEnvelopeSchema).max(1).default([]),
   unresolvedDecisions: z.array(UnresolvedDecisionSchema).max(20).default([]),
 });
 
@@ -269,8 +274,11 @@ export const SupersReviewedPlanSchema = z.strictObject({
   attachExistingTasks: z.array(SupersReviewedAttachmentSchema).max(250),
 });
 export const SupersPlanBoundaryArgumentsSchema = z.strictObject({
+  workItem: z.string().regex(TASK_ID_PATTERN).max(128),
   reviewedPlan: SupersReviewedPlanSchema,
   plan: DexApprovedPlanSchema,
+  planningInventory: SupersPlanningInventorySchema,
+  sourceSnapshot: SupersPlanningSourceSnapshotSchema,
 });
 export const SupersPlanBoundarySchema = z.strictObject({
   schemaVersion: z.literal(1),
@@ -278,6 +286,7 @@ export const SupersPlanBoundarySchema = z.strictObject({
   planId: z.string().regex(PLAN_ID_PATTERN),
   reviewedPlanHash: z.string().regex(SHA256_PATTERN),
   applicationPlanHash: z.string().regex(SHA256_PATTERN),
+  sentryRepairIntentFingerprint: z.string().regex(SHA256_PATTERN).nullable(),
 });
 
 export const SupersPlanApplicationSchema = z.strictObject({
@@ -447,6 +456,7 @@ type MarkdownSources = Omit<
   | "objectiveRevision"
   | "planningState"
   | "dexTasks"
+  | "repairIntent"
   | "fingerprint"
 >;
 
@@ -857,13 +867,28 @@ export async function buildSupersPlanningSourceSnapshot(
   dexTasks: Array<z.infer<typeof DexTaskSnapshotSchema>>,
 ): Promise<SupersPlanningSourceSnapshot> {
   const objectiveTask = dexTasks.find((task) => task.id === args.workItem);
+  const repairIntent = args.repairIntents[0] ?? null;
+  if (
+    repairIntent !== null &&
+    repairIntent.planningWorkItem !== args.workItem
+  ) {
+    throw new Error("Sentry repair intent does not match the Planning work item");
+  }
   // New-idea intake intentionally starts before an approved Dex graph exists.
-  // The work-item slug supplies only the bounded inventory objective; focused
-  // clarification records the richer human intent before any task mutation.
-  const objective = objectiveTask
+  // Sentry repair intake supplies its exact typed objective; ordinary intake
+  // continues to use the work-item slug until clarification enriches it.
+  const objective = repairIntent !== null
+    ? [
+      `Repair ${repairIntent.intent.shortId}: ${repairIntent.intent.title}`,
+      `Scope: ${repairIntent.intent.scope.join("; ")}`,
+      `Acceptance: ${repairIntent.intent.acceptanceCriteria.join("; ")}`,
+    ].join("\n")
+    : objectiveTask
     ? objectiveTask.description.trim() || objectiveTask.name
     : args.workItem.replace(/[-_]+/g, " ").trim();
-  const objectiveRevision = objectiveTask
+  const objectiveRevision = repairIntent !== null
+    ? `sentry-repair:${repairIntent.fingerprint}`
+    : objectiveTask
     ? `dex:${args.workItem}@sha256:${await sha256Hex(
       canonicalJson(objectiveTask),
     )}`
@@ -877,6 +902,7 @@ export async function buildSupersPlanningSourceSnapshot(
     planningState: args.planningState,
     ...markdown,
     dexTasks,
+    repairIntent,
   };
   return SupersPlanningSourceSnapshotSchema.parse({
     ...withoutFingerprint,
@@ -936,7 +962,17 @@ export async function deriveSupersPlanningInventory(
     )
     .slice(0, 20);
 
+  const repairIntentContext = sourceSnapshot.repairIntent === null
+    ? []
+    : [PlanningContextReferenceSchema.parse({
+      kind: "sentry-repair-intent",
+      name: sourceSnapshot.repairIntent.intent.shortId,
+      reference: `swamp:data/supers-sentry-repair-planning-handoff/${sourceSnapshot.repairIntent.fingerprint}`,
+      summary: `release=${sourceSnapshot.repairIntent.intent.currentRelease}; recommendation=${sourceSnapshot.repairIntent.intent.recommendation}; scope=${sourceSnapshot.repairIntent.intent.scope.join("; ")}`
+        .slice(0, SUMMARY_MAX_LENGTH),
+    })];
   const coreContextRefs = [
+    ...repairIntentContext,
     contextReference("roadmap", sourceSnapshot.roadmap),
     contextReference("adr-index", sourceSnapshot.adrIndex),
     contextReference("briefs-index", sourceSnapshot.briefsIndex),
@@ -1315,12 +1351,70 @@ export async function validateSupersPlanBoundary(
       "Compiler-emitted application plan does not match the reviewed plan",
     );
   }
+  await assertContentFingerprint(
+    { ...args.sourceSnapshot },
+    "Planning source snapshot",
+  );
+  if (
+    args.planningInventory.sourceSnapshotName !==
+      supersPlanningSnapshotResourceName(
+        args.workItem,
+        args.sourceSnapshot.fingerprint,
+      ) ||
+    args.planningInventory.sourceSnapshotFingerprint !==
+      args.sourceSnapshot.fingerprint
+  ) {
+    throw new Error("Planning inventory does not match its source snapshot");
+  }
+  const repairIntent = args.sourceSnapshot.repairIntent;
+  if (repairIntent !== null) {
+    const createTasks = args.reviewedPlan.createTasks;
+    const attachTasks = args.reviewedPlan.attachExistingTasks;
+    const exactSentryId = (value: string): boolean => {
+      const escaped = repairIntent.intent.shortId.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        "\\$&",
+      );
+      return new RegExp(
+        `(?:^|[^A-Za-z0-9_-])${escaped}(?:$|[^A-Za-z0-9_-])`,
+        "i",
+      ).test(value);
+    };
+    const createBoundary = createTasks.length === 1 && attachTasks.length === 0;
+    const attachBoundary = createTasks.length === 0 && attachTasks.length === 1;
+    if (
+      (repairIntent.intent.recommendation === "create-task" &&
+        !createBoundary) ||
+      (repairIntent.intent.recommendation === "attach-existing" &&
+        !attachBoundary)
+    ) {
+      throw new Error("Sentry repair Planning must apply exactly one approved task");
+    }
+    if (createBoundary) {
+      const task = createTasks[0]!;
+      if (!exactSentryId(`${task.name}\n${task.description}`)) {
+        throw new Error("Sentry repair task must preserve the exact Sentry short id");
+      }
+    } else {
+      const task = attachTasks[0]!;
+      if (
+        task.selectorKind !== "id" ||
+        task.selectorValue !== repairIntent.intent.existingDexTaskId
+      ) {
+        throw new Error("Sentry repair attachment must target the triaged Dex task");
+      }
+      if (!exactSentryId(`${task.expectedName}\n${task.expectedDescription}`)) {
+        throw new Error("Sentry repair task must preserve the exact Sentry short id");
+      }
+    }
+  }
   return SupersPlanBoundarySchema.parse({
     schemaVersion: 1,
     status: "matched",
     planId: normalized.planId,
     reviewedPlanHash: await sha256Hex(canonicalJson(args.reviewedPlan)),
     applicationPlanHash: await sha256Hex(canonicalJson(normalized)),
+    sentryRepairIntentFingerprint: repairIntent?.fingerprint ?? null,
   });
 }
 

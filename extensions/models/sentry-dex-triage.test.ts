@@ -31,6 +31,7 @@ function reconciliation(items: Array<Record<string, unknown>>) {
     generatedAt: NOW,
     automationEligible: true,
     items,
+    fingerprint: "c".repeat(64),
   };
 }
 
@@ -41,6 +42,8 @@ function issue(overrides: Record<string, unknown> = {}) {
     title: "Identifier allowedKeys has already been declared",
     priority: "high",
     level: "error",
+    firstSeen: NOW,
+    status: "unresolved",
     disposition: "current-release",
     repairCandidate: true,
     requiresReproduction: false,
@@ -173,6 +176,38 @@ Deno.test("triage routes lexical duplicates, completed exact matches, and multip
   }
 });
 
+Deno.test("completed task result text prevents duplicate repair work", async () => {
+  const fixture = fixtureContext(reconciliation([issue()]));
+  await executeSentryDexTriage(
+    {
+      sourceReconciliation: "reconciliation-source",
+      expectedFingerprint: FINGERPRINT,
+    },
+    fixture.context,
+    {
+      commandRunner: new FakeDexRunner([
+        task({
+          id: "completed-result-match",
+          name: "Repair duplicate declaration",
+          description: "Current release regression.",
+          result: "Verified and resolved Sentry issue SUPERS-17.",
+          completed: true,
+          completed_at: NOW,
+        }),
+      ]),
+      now: () => NOW,
+    },
+  );
+
+  const report = SentryDexTriageSchema.parse(fixture.writes[0].data);
+  assert.equal(report.automationEligible, false);
+  assert.equal(report.items[0].recommendation, "human-review");
+  assert.deepEqual(report.items[0].exactMatchTaskIds, [
+    "completed-result-match",
+  ]);
+  assert(report.blockingReasons.includes("completed-exact-match"));
+});
+
 Deno.test("recent issues require reproduction and active Dex WIP blocks automation", async () => {
   const fixture = fixtureContext(reconciliation([
     issue({
@@ -259,8 +294,8 @@ Deno.test("exact matching does not confuse Sentry short-id prefixes", async () =
   assert.equal(report.items[0].recommendation, "create-task");
 });
 
-Deno.test("triage resource identity is stable across observation timestamps", async () => {
-  const names: string[] = [];
+Deno.test("triage replay keeps one immutable body across execution timestamps", async () => {
+  const writes: Array<{ name: string; data: Record<string, unknown> }> = [];
   for (const now of [NOW, "2026-08-10T00:00:00.000Z"]) {
     const fixture = fixtureContext(reconciliation([issue()]));
     await executeSentryDexTriage(
@@ -271,7 +306,8 @@ Deno.test("triage resource identity is stable across observation timestamps", as
       fixture.context,
       { commandRunner: new FakeDexRunner([]), now: () => now },
     );
-    names.push(fixture.writes[0].name);
+    writes.push(fixture.writes[0]);
   }
-  assert.equal(names[0], names[1]);
+  assert.equal(writes[0].name, writes[1].name);
+  assert.deepEqual(writes[0].data, writes[1].data);
 });

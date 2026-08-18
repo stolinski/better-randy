@@ -202,6 +202,21 @@ or shell reconstruction. Each derived artifact carries and checks its upstream
 fingerprints. Planning documents and Dex remain unchanged until the separate
 approved-plan and Delivery boundaries.
 
+Sentry repair Planning uses the same boundary through an optional, exact
+`repair-intent` adapter input. `supers-sentry-repair-to-planning` stores every
+eligible intent, serializes one active `sentry-<issueId>` work item, and orders
+the remaining queue by severity, priority, oldest observation, then issue id.
+The intent becomes part of the immutable Planning source snapshot; ordinary
+Planning receives no repair intent and keeps its existing behavior. Before the
+sole Dex Plan Applier runs, the Supers adapter requires exactly one create or
+attach operation matching the intent and exact Sentry short id. Queue selection
+and Planning remain read-only until the existing human approval gate passes.
+After a clean application and audit, `supers-sentry-repair-backlink` is the
+separate Sentry mutation boundary: it correlates the exact intent, approval,
+single Dex mapping, audit, and handoff, then adds or confirms one idempotent
+issue comment and stores a fingerprinted receipt. It has no issue-resolution
+method.
+
 ### Planning-item promotions
 
 `@supers/planning-promotion` is the repository mutation boundary for the

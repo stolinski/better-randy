@@ -74,7 +74,11 @@ class FakeRunner implements SentryCommandRunner {
       ];
     return Promise.resolve({
       code: 0,
-      stdout: JSON.stringify({ data, hasMore: false, hasPrev: false }),
+      stdout: JSON.stringify({
+        data: data.map((issue) => ({ firstSeen: FIXED_NOW, ...issue })),
+        hasMore: false,
+        hasPrev: false,
+      }),
       stderr: "",
     });
   }
@@ -161,7 +165,15 @@ class SequenceRunner implements SentryCommandRunner {
 function cliResult(data: unknown[], hasMore = false) {
   return {
     code: 0,
-    stdout: JSON.stringify({ data, hasMore, hasPrev: false }),
+    stdout: JSON.stringify({
+      data: data.map((issue) =>
+        typeof issue === "object" && issue !== null
+          ? { firstSeen: FIXED_NOW, ...issue }
+          : issue
+      ),
+      hasMore,
+      hasPrev: false,
+    }),
     stderr: "",
   };
 }

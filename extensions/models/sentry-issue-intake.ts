@@ -33,7 +33,7 @@ const GlobalArgsSchema = z.object({
 
 export const model = {
   type: "@supers/sentry-issue-intake",
-  version: "2026.08.09.3",
+  version: "2026.08.18.2",
   globalArguments: GlobalArgsSchema,
   resources: {
     snapshot: {

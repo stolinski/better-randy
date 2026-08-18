@@ -73,9 +73,39 @@ resource preserves matching task ancestors and descendants but performs no Dex
 mutation.
 
 Stored titles strip ANSI control sequences, URLs, absolute paths, and common
-inline secrets. This model cannot mutate Sentry, Dex, or source code. Repair
-planning, runtime reproduction, and issue resolution remain separate gated
-stages of epic `ueo65fsy`.
+inline secrets. `firstSeen` is required for queue ordering; when issue-list
+omits it, collection performs bounded issue-view hydration and verifies the
+returned issue identity. This model cannot mutate Sentry, Dex, or source code.
+
+The separate `@supers/sentry-repair-planning-handoff` model consumes exact
+named snapshot, reconciliation, and triage resources. Its `prepare` method
+recomputes the complete fingerprint chain, reads official Dex once to catch
+recommendation drift, and writes one content-addressed `repair-intent` queue
+resource per eligible issue. Authored scope and acceptance criteria cannot
+override Sentry identity, release, or the create-versus-attach recommendation.
+`human-gate` and `no-candidate` are typed successful outcomes, so incomplete
+evidence, reproduction requirements, duplicate risk, active work, staleness,
+and an empty live intake cannot silently start repair work.
+
+`supers-sentry-repair-to-planning` preserves every queued intent and activates
+at most one stable `sentry-<issueId>` Planning work item. Selection is severity,
+then priority, oldest `firstSeen`, and stable issue id. Replay refreshes the
+existing Factory status rather than creating duplicate state; later intents
+remain queued until the active repair is terminal. Supers Planning binds the
+exact intent into its immutable source snapshot, and its pre-Plan-Applier
+boundary permits exactly one matching create or attach operation. The existing
+human gate and Dex Plan Applier remain the only task-creation authority.
+
+Each Sentry issue therefore maps to one durable Dex repair task; retries remain
+Factory attempt history on that task. After Planning returns one audited Dex
+task ID, `supers-sentry-repair-backlink` binds the exact repair intent, human
+approval, successful Plan Application mapping, clean audit, and ready handoff.
+It then idempotently adds the Dex task reference to the Sentry issue and stores
+a fingerprinted `linked | already-linked` receipt. It cannot resolve the issue,
+and stale or conflicting Planning evidence fails before Sentry access. Sentry
+resolution still requires runtime evidence from re-driving the affected flow.
+Repair planning, runtime reproduction, backlink mutation, and issue resolution
+remain separate gated stages of epic `ueo65fsy`.
 
 ## Logs and metrics
 

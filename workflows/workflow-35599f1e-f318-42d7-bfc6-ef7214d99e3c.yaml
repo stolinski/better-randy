@@ -9,8 +9,15 @@ inputs:
     workItem:
       type: string
       minLength: 1
+    repairIntents:
+      type: array
+      maxItems: 1
+      items:
+        type: object
+        additionalProperties: true
   required:
     - workItem
+    - repairIntents
   additionalProperties: false
 jobs:
   - name: main
@@ -38,6 +45,7 @@ jobs:
                 nextTaskName: '${{ data.latest("repo-audit", "planning-latest").attributes.runway.nextTaskName == null ? "" : data.latest("repo-audit", "planning-latest").attributes.runway.nextTaskName }}'
                 topPriority: '${{ data.latest("repo-audit", "planning-latest").attributes.runway.topPriority == null ? -1 : data.latest("repo-audit", "planning-latest").attributes.runway.topPriority }}'
                 readyLeafCount: '${{ data.latest("repo-audit", "planning-latest").attributes.runway.readyLeafCount == null ? 0 : data.latest("repo-audit", "planning-latest").attributes.runway.readyLeafCount }}'
+            repairIntents: ${{ inputs.repairIntents }}
             unresolvedDecisions: []
         dependsOn: []
         weight: 0

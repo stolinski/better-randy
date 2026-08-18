@@ -17,9 +17,68 @@ import {
   prepareSupersDeliveryHandoff,
   readSupersPlanningMarkdownSources,
   SupersPlanningInventoryArgumentsSchema,
+  validateSupersPlanBoundary,
 } from "./supers-planning-adapters.ts";
+import {
+  normalizeDexReviewedPlanForApplication,
+} from "./dex-planning-factory-compiler.ts";
+import { DexApprovedPlanSchema } from "./dex-plan-applier-adapter.ts";
+import {
+  SentryRepairIntentEnvelopeSchema,
+} from "./sentry-repair-planning-handoff-adapter.ts";
 
 const DELIVERY_HANDOFF_TEST_KEY = "fixture-delivery-handoff-key-32-bytes";
+const TEST_HASH = "a".repeat(64);
+
+function sentryRepairIntentEnvelope(
+  recommendation: "create-task" | "attach-existing" = "create-task",
+) {
+  const existingDexTaskId = recommendation === "attach-existing"
+    ? "existing-sentry-task"
+    : null;
+  return SentryRepairIntentEnvelopeSchema.parse({
+    schemaVersion: 1,
+    sourceHandoff: "sentry-repair-handoff",
+    sourceHandoffFingerprint: TEST_HASH,
+    planningWorkItem: "sentry-123",
+    intent: {
+      schemaVersion: 1,
+      sourceSnapshot: "sentry-snapshot",
+      sourceSnapshotFingerprint: TEST_HASH,
+      sourceReconciliation: "sentry-reconciliation",
+      sourceReconciliationFingerprint: TEST_HASH,
+      sourceTriage: "sentry-triage",
+      sourceTriageFingerprint: TEST_HASH,
+      sentryTarget: "scott-tolinski-projects/supers",
+      issueId: "123",
+      shortId: "SUPERS-123",
+      title: "Current release crash",
+      priority: "high",
+      level: "error",
+      firstSeen: "2026-08-01T00:00:00.000Z",
+      severityRank: 4,
+      priorityRank: 3,
+      currentRelease: "supers@abc123",
+      disposition: "current-release",
+      requiresReproduction: false,
+      recommendation,
+      existingDexTaskId,
+      scope: ["Repair the affected flow."],
+      acceptanceCriteria: ["SUPERS-123 no longer reproduces."],
+      requestedSentryBacklink: {
+        status: "requested",
+        mode: "post-planning-comment",
+        target: "scott-tolinski-projects/supers",
+        issueId: "123",
+        shortId: "SUPERS-123",
+      },
+      planningWorkItem: "sentry-123",
+      idempotencyKey: TEST_HASH,
+      fingerprint: TEST_HASH,
+    },
+    fingerprint: TEST_HASH,
+  });
+}
 
 function prepareFixtureDeliveryHandoff(
   args: Parameters<typeof prepareSupersDeliveryHandoff>[0],
@@ -1332,6 +1391,101 @@ Deno.test("materialized Supers handoff normalizes claimed and terminal outcomes"
     true,
   );
   assertEquals(handoffWorkflow.includes("factoryStates: []"), true);
+});
+
+Deno.test("Sentry repair inventory and Plan Applier boundary preserve one exact issue task", async () => {
+  const root = await fixtureRepository();
+  try {
+    const args = SupersPlanningInventoryArgumentsSchema.parse({
+      workItem: "sentry-123",
+      planningState,
+      repairIntents: [sentryRepairIntentEnvelope()],
+      unresolvedDecisions: [],
+    });
+    const snapshot = await buildSupersPlanningSourceSnapshot(
+      args,
+      await readSupersPlanningMarkdownSources(root),
+      normalizeSupersDexTasks(rawTasks),
+    );
+    const inventory = await deriveSupersPlanningInventory(args, snapshot);
+    assertEquals(snapshot.repairIntent?.planningWorkItem, "sentry-123");
+    assert(snapshot.objective.includes("SUPERS-123"));
+    assert(inventory.contextRefs.some((entry) =>
+      entry.kind === "sentry-repair-intent"
+    ));
+
+    const reviewedCreate = {
+      schemaVersion: 1 as const,
+      planId: "sentry-123-repair",
+      createTasks: [{
+        clientRef: "sentry-repair",
+        name: "Repair SUPERS-123 current release crash",
+        description: "Fix the affected flow and preserve the Sentry identity.",
+        priority: 1,
+        parentKind: "root" as const,
+        parentClientRef: "",
+        blockedBy: [] as string[],
+      }],
+      attachExistingTasks: [],
+    };
+    const boundary = await validateSupersPlanBoundary({
+      workItem: "sentry-123",
+      reviewedPlan: reviewedCreate,
+      plan: DexApprovedPlanSchema.parse(
+        normalizeDexReviewedPlanForApplication(reviewedCreate),
+      ),
+      planningInventory: inventory,
+      sourceSnapshot: snapshot,
+    });
+    assertEquals(boundary.sentryRepairIntentFingerprint, TEST_HASH);
+
+    const extraTask = structuredClone(reviewedCreate);
+    extraTask.createTasks.push({
+      ...extraTask.createTasks[0]!,
+      clientRef: "extra-task",
+    });
+    await assertRejects(
+      () => validateSupersPlanBoundary({
+        workItem: "sentry-123",
+        reviewedPlan: extraTask,
+        plan: DexApprovedPlanSchema.parse(
+          normalizeDexReviewedPlanForApplication(extraTask),
+        ),
+        planningInventory: inventory,
+        sourceSnapshot: snapshot,
+      }),
+      Error,
+      "exactly one",
+    );
+
+    const ordinaryArgs = SupersPlanningInventoryArgumentsSchema.parse({
+      workItem: "ordinary-planning",
+      planningState,
+      repairIntents: [],
+      unresolvedDecisions: [],
+    });
+    const ordinarySnapshot = await buildSupersPlanningSourceSnapshot(
+      ordinaryArgs,
+      await readSupersPlanningMarkdownSources(root),
+      normalizeSupersDexTasks(rawTasks),
+    );
+    const ordinaryInventory = await deriveSupersPlanningInventory(
+      ordinaryArgs,
+      ordinarySnapshot,
+    );
+    const ordinaryBoundary = await validateSupersPlanBoundary({
+      workItem: ordinaryArgs.workItem,
+      reviewedPlan: extraTask,
+      plan: DexApprovedPlanSchema.parse(
+        normalizeDexReviewedPlanForApplication(extraTask),
+      ),
+      planningInventory: ordinaryInventory,
+      sourceSnapshot: ordinarySnapshot,
+    });
+    assertEquals(ordinaryBoundary.sentryRepairIntentFingerprint, null);
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
 });
 
 Deno.test("new-idea planning inventory does not require a pre-approved Dex task", async () => {
