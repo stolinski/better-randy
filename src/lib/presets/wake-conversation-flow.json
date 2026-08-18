@@ -72,6 +72,15 @@
 							"event": "end",
 							"offsetMs": 100
 						}
+					},
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.09
+							},
+							"scale": 1.5
+						}
 					}
 				},
 				{
@@ -101,6 +110,15 @@
 							},
 							"event": "end",
 							"offsetMs": 140
+						}
+					},
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.2
+							},
+							"scale": 0.82
 						}
 					}
 				},
@@ -133,6 +151,17 @@
 							"event": "end",
 							"offsetMs": 120
 						}
+					},
+					"orientationOverrides": {
+						"vertical": {
+							"from": {
+								"node": "wake-listening"
+							},
+							"to": {
+								"node": "wake-phrase"
+							},
+							"route": "straight"
+						}
 					}
 				},
 				{
@@ -163,6 +192,15 @@
 							},
 							"event": "end",
 							"offsetMs": 80
+						}
+					},
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.32
+							},
+							"scale": 0.98
 						}
 					}
 				},
@@ -200,6 +238,15 @@
 							"event": "end",
 							"offsetMs": 100
 						}
+					},
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.24,
+								"y": 0.26
+							},
+							"scale": 0.82
+						}
 					}
 				},
 				{
@@ -234,6 +281,21 @@
 							},
 							"event": "end",
 							"offsetMs": 80
+						}
+					},
+					"orientationOverrides": {
+						"vertical": {
+							"from": {
+								"node": "wake-phrase"
+							},
+							"to": {
+								"node": "wake-listening"
+							},
+							"route": "arc",
+							"control": {
+								"x": 0.22,
+								"y": 0.26
+							}
 						}
 					}
 				},
@@ -271,6 +333,15 @@
 							"event": "end",
 							"offsetMs": 550
 						}
+					},
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.72,
+								"y": 0.38
+							},
+							"scale": 0.9
+						}
 					}
 				},
 				{
@@ -302,6 +373,17 @@
 							"event": "end",
 							"offsetMs": 80
 						}
+					},
+					"orientationOverrides": {
+						"vertical": {
+							"from": {
+								"node": "wake-phrase"
+							},
+							"to": {
+								"node": "hermes-reply"
+							},
+							"route": "straight"
+						}
 					}
 				},
 				{
@@ -331,6 +413,15 @@
 							},
 							"event": "end",
 							"offsetMs": 80
+						}
+					},
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.44
+							},
+							"scale": 0.92
 						}
 					}
 				},
@@ -363,6 +454,17 @@
 							"event": "end",
 							"offsetMs": 120
 						}
+					},
+					"orientationOverrides": {
+						"vertical": {
+							"from": {
+								"node": "hermes-reply"
+							},
+							"to": {
+								"node": "conversation"
+							},
+							"route": "straight"
+						}
 					}
 				},
 				{
@@ -392,6 +494,15 @@
 							},
 							"event": "end",
 							"offsetMs": 80
+						}
+					},
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.56
+							},
+							"scale": 0.82
 						}
 					}
 				},
@@ -424,6 +535,17 @@
 							"event": "end",
 							"offsetMs": 120
 						}
+					},
+					"orientationOverrides": {
+						"vertical": {
+							"from": {
+								"node": "conversation"
+							},
+							"to": {
+								"node": "stop-phrase"
+							},
+							"route": "straight"
+						}
 					}
 				},
 				{
@@ -454,6 +576,15 @@
 							},
 							"event": "end",
 							"offsetMs": 80
+						}
+					},
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.68
+							},
+							"scale": 0.98
 						}
 					}
 				},
@@ -491,6 +622,15 @@
 							"event": "end",
 							"offsetMs": 80
 						}
+					},
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.75,
+								"y": 0.62
+							},
+							"scale": 0.78
+						}
 					}
 				},
 				{
@@ -506,6 +646,21 @@
 					"control": {
 						"x": 0.61,
 						"y": 0.9
+					},
+					"orientationOverrides": {
+						"vertical": {
+							"from": {
+								"node": "stop-phrase"
+							},
+							"to": {
+								"node": "conversation"
+							},
+							"route": "arc",
+							"control": {
+								"x": 0.78,
+								"y": 0.62
+							}
+						}
 					},
 					"direction": "forward",
 					"enter": {
@@ -562,6 +717,15 @@
 							"event": "end",
 							"offsetMs": 480
 						}
+					},
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.28,
+								"y": 0.74
+							},
+							"scale": 0.9
+						}
 					}
 				},
 				{
@@ -593,6 +757,17 @@
 							"event": "end",
 							"offsetMs": 80
 						}
+					},
+					"orientationOverrides": {
+						"vertical": {
+							"from": {
+								"node": "stop-phrase"
+							},
+							"to": {
+								"node": "sleep"
+							},
+							"route": "straight"
+						}
 					}
 				},
 				{
@@ -622,6 +797,15 @@
 							},
 							"event": "end",
 							"offsetMs": 80
+						}
+					},
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.8
+							},
+							"scale": 0.92
 						}
 					}
 				},
@@ -653,6 +837,21 @@
 							},
 							"event": "end",
 							"offsetMs": 80
+						}
+					},
+					"orientationOverrides": {
+						"vertical": {
+							"from": {
+								"node": "sleep"
+							},
+							"to": {
+								"node": "wake-listening"
+							},
+							"route": "arc",
+							"control": {
+								"x": 0.16,
+								"y": 0.5
+							}
 						}
 					}
 				}

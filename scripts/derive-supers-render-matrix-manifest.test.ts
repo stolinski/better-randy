@@ -5,9 +5,9 @@ import test from 'node:test';
 import {
 	collectPresetPipelineReferences,
 	collectSupersRenderRegistry,
-	deriveSupersRenderMatrixManifest,
-	selectAffectedPresetPackAxes
+	deriveSupersRenderMatrixManifest
 } from './derive-supers-render-matrix-manifest.ts';
+import { selectAffectedStaticPresetPackAxes as selectAffectedPresetPackAxes } from './preset-validation-scope.ts';
 
 const REVISION = 'a'.repeat(40);
 const FINGERPRINT = 'b'.repeat(64);
@@ -140,6 +140,7 @@ test('affected selection maps annotation styles across body, messages, and check
 			samples: [],
 			frameRate: { num: 30, den: 1 },
 			pipelineReferences: collectPresetPipelineReferences(preset),
+			presetDependencies: [],
 			preset
 		};
 	});

@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { listMarkInstances, type Preset } from '../src/lib/platform/engine-schema.ts';
 import type { DeterministicRenderSamplePlanEntry } from '../src/lib/platform/deterministic-render-sample-plan.ts';
+import { selectAffectedStaticPresetPackAxes } from './preset-validation-scope.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = resolve(here, '..');
@@ -91,6 +92,7 @@ export interface SupersCollectedPreset {
 	samples: RenderContractSample[];
 	frameRate: { num: number; den: number };
 	pipelineReferences: string[];
+	presetDependencies: string[];
 	preset: Preset;
 }
 
@@ -276,6 +278,11 @@ export async function collectSupersRenderRegistry(repoRoot = defaultRepoRoot): P
 			samples: samplePlan.samples.map(contractSample),
 			frameRate: samplePlan.frameRate,
 			pipelineReferences: collectPresetPipelineReferences(preset),
+			presetDependencies: preset.transition
+				? [preset.transition.from, preset.transition.to].sort((left, right) =>
+						left.localeCompare(right)
+					)
+				: [],
 			preset
 		});
 	}
@@ -284,78 +291,6 @@ export async function collectSupersRenderRegistry(repoRoot = defaultRepoRoot): P
 		.map(([id, pack]) => ({ id, packFingerprint: createSupersRenderMatrixHash(pack) }))
 		.sort((left, right) => left.id.localeCompare(right.id));
 	return { presets, packs };
-}
-
-function normalizeChangedPaths(changedPaths: readonly string[]): string[] {
-	const normalized = changedPaths.map((path) => path.replaceAll('\\', '/').replace(/^\.\//, ''));
-	if (
-		normalized.some((path) => !path || path.startsWith('/') || path.split('/').includes('..')) ||
-		new Set(normalized).size !== normalized.length
-	) {
-		throw new TypeError('Changed paths must be unique safe project-relative paths');
-	}
-	const sorted = [...normalized].sort((left, right) => left.localeCompare(right));
-	if (normalized.some((path, index) => path !== sorted[index])) {
-		throw new TypeError('Changed paths must use canonical order');
-	}
-	return normalized;
-}
-
-function isNoRenderImpactPath(path: string): boolean {
-	return (
-		path.startsWith('docs/') ||
-		path.startsWith('workflows/') ||
-		path.startsWith('models/') ||
-		path.startsWith('extensions/') ||
-		path === 'AGENTS.md' ||
-		path === 'README.md'
-	);
-}
-
-/** Conservative union selector. An unmappable pixel-impact path expands to full. */
-export function selectAffectedPresetPackAxes(
-	registry: { presets: SupersCollectedPreset[]; packs: Array<{ id: string }> },
-	changedPaths: readonly string[]
-): Array<{ presetSlug: string; packId: string }> {
-	const paths = normalizeChangedPaths(changedPaths);
-	const pairs = new Set<string>();
-	const all = (): void => {
-		for (const preset of registry.presets)
-			for (const pack of registry.packs) pairs.add(`${preset.slug}\0${pack.id}`);
-	};
-	for (const path of paths) {
-		if (isNoRenderImpactPath(path)) continue;
-		const presetMatch = /^src\/lib\/presets\/([^/]+)\.json$/.exec(path);
-		if (presetMatch) {
-			const preset = registry.presets.find((entry) => entry.slug === presetMatch[1]);
-			if (!preset) all();
-			else for (const pack of registry.packs) pairs.add(`${preset.slug}\0${pack.id}`);
-			continue;
-		}
-		const packMatch = /^src\/lib\/packs\/([^/]+)\//.exec(path);
-		if (packMatch && registry.packs.some((entry) => entry.id === packMatch[1])) {
-			for (const preset of registry.presets) pairs.add(`${preset.slug}\0${packMatch[1]}`);
-			continue;
-		}
-		const pipelineMatch =
-			/^src\/lib\/pipelines\/(surfaces|blocks|annotations|overlays|effects)\/([^/]+)\//.exec(path);
-		if (pipelineMatch) {
-			const reference = `${pipelineMatch[1]}:${pipelineMatch[2]}`;
-			for (const preset of registry.presets.filter((entry) =>
-				entry.pipelineReferences.includes(reference)
-			)) {
-				for (const pack of registry.packs) pairs.add(`${preset.slug}\0${pack.id}`);
-			}
-			continue;
-		}
-		all();
-	}
-	return [...pairs]
-		.sort((left, right) => left.localeCompare(right))
-		.map((pair) => {
-			const [presetSlug, packId] = pair.split('\0');
-			return { presetSlug, packId };
-		});
 }
 
 export async function deriveSupersRenderMatrixManifest(input: {
@@ -392,7 +327,7 @@ export async function deriveSupersRenderMatrixManifest(input: {
 			? registry.presets.flatMap((preset) =>
 					registry.packs.map((pack) => ({ presetSlug: preset.slug, packId: pack.id }))
 				)
-			: selectAffectedPresetPackAxes(registry, input.changedPaths ?? []);
+			: selectAffectedStaticPresetPackAxes(registry, input.changedPaths ?? []);
 	if (selectedAxes.length === 0) return { snapshot, manifest: null };
 	const coordinates: Array<Record<string, unknown>> = [];
 	for (const axis of selectedAxes) {

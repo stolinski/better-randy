@@ -1,33 +1,35 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { readFile, readdir } from 'node:fs/promises';
 import { registerHooks } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import {
+	mergePresetValidationChangedPaths,
+	parsePresetValidationCommand,
+	type PresetValidationCommandOptions
+} from './preset-validation-command.ts';
+import {
+	selectAffectedStaticPresetPackAxes,
+	type StaticPresetPackAxis
+} from './preset-validation-scope.ts';
+
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..');
 
-// The engine modules use SvelteKit's `$lib` alias, which plain Node cannot
-// resolve — map it to `src/lib` (probing `.ts` / `/index.ts` for the
-// extensionless import convention). The Pack manifests also transitively
-// import @fontsource side-effect stylesheets (`packs/syntax/fonts.ts`), which
-// Node/tsx cannot load — stub `.css` modules so the registry is importable
-// outside Vite.
 registerHooks({
 	resolve(specifier, context, nextResolve) {
 		if (specifier.startsWith('$lib/')) {
 			const base = resolve(repoRoot, 'src/lib', specifier.slice('$lib/'.length));
 			for (const candidate of [`${base}.ts`, resolve(base, 'index.ts'), base]) {
-				if (existsSync(candidate)) {
+				if (existsSync(candidate))
 					return { url: pathToFileURL(candidate).href, shortCircuit: true };
-				}
 			}
 		}
 		try {
 			return nextResolve(specifier, context);
 		} catch (error) {
-			// The codebase's relative imports are extensionless (Vite convention);
-			// plain-Node ESM requires extensions — probe .ts / /index.ts.
 			if ((specifier.startsWith('./') || specifier.startsWith('../')) && context.parentURL) {
 				const base = resolve(dirname(fileURLToPath(context.parentURL)), specifier);
 				for (const candidate of [`${base}.ts`, resolve(base, 'index.ts')]) {
@@ -48,9 +50,7 @@ registerHooks({
 				shortCircuit: true
 			};
 		}
-		if (url.endsWith('.css')) {
-			return { format: 'module', source: '', shortCircuit: true };
-		}
+		if (url.endsWith('.css')) return { format: 'module', source: '', shortCircuit: true };
 		if (url.endsWith('.svelte')) {
 			return { format: 'module', source: 'export default {};', shortCircuit: true };
 		}
@@ -66,20 +66,27 @@ registerHooks({
 });
 (globalThis as typeof globalThis & { $state: <T>(value: T) => T }).$state = <T>(value: T): T =>
 	value;
-const ingressModulePath = resolve(repoRoot, 'src/lib/platform/preset-ingress.ts');
-const rubricModulePath = resolve(repoRoot, 'src/lib/platform/preset-rubric.ts');
-const presetValidationModulePath = resolve(repoRoot, 'src/lib/platform/preset-validation.ts');
-const packRegistryModulePath = resolve(repoRoot, 'src/lib/platform/packs/registry.ts');
-const packValidationModulePath = resolve(repoRoot, 'src/lib/platform/packs/validation.ts');
-const identityRegistryModulePath = resolve(
-	repoRoot,
-	'src/lib/platform/pipelines/identity-registry.ts'
-);
+
+type Orientation = 'horizontal' | 'vertical';
+
+interface StaticPreset {
+	kind?: string;
+	pack: string;
+	state: {
+		transport: { orientation: Orientation };
+	};
+	transition?: { from: string; to: string };
+}
 
 interface ParseResult {
 	success: boolean;
-	data?: unknown;
+	data?: StaticPreset;
 	error?: unknown;
+}
+
+interface ValidationIssue {
+	path: (string | number)[];
+	message: string;
 }
 
 interface RubricIssue {
@@ -89,329 +96,239 @@ interface RubricIssue {
 	message: string;
 }
 
-interface SemanticIssue {
-	path: (string | number)[];
-	message: string;
+function gitChangedPaths(baseRevision?: string): string[] {
+	const paths = new Set<string>();
+	if (baseRevision) {
+		const output = execFileSync('git', ['diff', '--name-only', '-z', `${baseRevision}...HEAD`], {
+			cwd: repoRoot,
+			encoding: 'utf8'
+		});
+		for (const path of output.split('\0')) if (path) paths.add(path);
+	}
+	const status = execFileSync('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all'], {
+		cwd: repoRoot,
+		encoding: 'utf8'
+	});
+	const { parseGitWorkingTreeStatus } = requireChangeImpactModule;
+	for (const path of parseGitWorkingTreeStatus(status)) paths.add(path);
+	return [...paths].sort((left, right) => left.localeCompare(right));
 }
 
-interface PackValidationIssue {
-	pack: string;
-	path: (string | number)[];
-	kind: string;
-	message: string;
-}
+const ingressPath = pathToFileURL(resolve(repoRoot, 'src/lib/platform/preset-ingress.ts')).href;
+const semanticPath = pathToFileURL(resolve(repoRoot, 'src/lib/platform/preset-validation.ts')).href;
+const rubricPath = pathToFileURL(resolve(repoRoot, 'src/lib/platform/preset-rubric.ts')).href;
+const packRegistryPath = pathToFileURL(
+	resolve(repoRoot, 'src/lib/platform/packs/registry.ts')
+).href;
+const packValidationPath = pathToFileURL(
+	resolve(repoRoot, 'src/lib/platform/packs/validation.ts')
+).href;
+const identityRegistryPath = pathToFileURL(
+	resolve(repoRoot, 'src/lib/platform/pipelines/identity-registry.ts')
+).href;
 
-interface IdentityValidationError {
-	pipeline: string;
-	kind: string;
-	message: string;
-}
+const [
+	ingressModule,
+	semanticModule,
+	rubricModule,
+	packRegistryModule,
+	packValidationModule,
+	identityModule,
+	matrixModule,
+	changeImpactModule
+] = await Promise.all([
+	import(ingressPath),
+	import(semanticPath),
+	import(rubricPath),
+	import(packRegistryPath),
+	import(packValidationPath),
+	import(identityRegistryPath),
+	import(pathToFileURL(resolve(repoRoot, 'scripts/derive-supers-render-matrix-manifest.ts')).href),
+	import(pathToFileURL(resolve(repoRoot, 'scripts/change-impact-classifier.ts')).href)
+]);
 
-const { PresetIngressSchema } = (await import(pathToFileURL(ingressModulePath).href)) as {
-	PresetIngressSchema: { safeParse: (value: unknown) => ParseResult };
+const PresetIngressSchema = ingressModule.PresetIngressSchema as {
+	safeParse: (value: unknown) => ParseResult;
+};
+const validatePresetSemantics = semanticModule.validatePresetSemantics as (
+	preset: StaticPreset,
+	options?: { resolvePreset: (slug: string) => StaticPreset | null }
+) => readonly ValidationIssue[];
+const lintPreset = rubricModule.lintPreset as (preset: StaticPreset) => RubricIssue[];
+const PACK_REGISTRY = packRegistryModule.PACK_REGISTRY as Readonly<Record<string, unknown>>;
+const validatePackRegistry = packValidationModule.validatePackRegistry as (
+	registry: Readonly<Record<string, unknown>>
+) => readonly { kind: string; pack: string; path: (string | number)[]; message: string }[];
+const validateIdentityRegistry = identityModule.validateIdentityRegistry as (
+	manifest: unknown
+) => readonly { kind: string; pipeline: string; message: string }[];
+const collectPresetPipelineReferences = matrixModule.collectPresetPipelineReferences as (
+	preset: StaticPreset
+) => string[];
+const requireChangeImpactModule = changeImpactModule as {
+	parseGitWorkingTreeStatus: (status: string) => string[];
 };
 
-const { lintPreset } = (await import(pathToFileURL(rubricModulePath).href)) as {
-	lintPreset: (preset: unknown) => RubricIssue[];
-};
-
-const { validatePresetSemantics } = (await import(
-	pathToFileURL(presetValidationModulePath).href
-)) as {
-	validatePresetSemantics: (preset: unknown) => readonly SemanticIssue[];
-};
-
-const presetDir = resolve(repoRoot, 'src/lib/presets');
-const files = (await readdir(presetDir)).filter((file) => file.endsWith('.json'));
-
-let failed = 0;
-let warned = 0;
-let fixtureCount = 0;
-
-for (const file of files) {
-	const raw = await readFile(resolve(presetDir, file), 'utf8');
-	const json = JSON.parse(raw);
-	const result = PresetIngressSchema.safeParse(json);
-
-	if (!result.success) {
-		console.error(`✗ ${file} (schema)`);
-		console.error(result.error);
-		failed += 1;
-		continue;
-	}
-
-	const semanticIssues = validatePresetSemantics(result.data);
-	if (semanticIssues.length > 0) {
-		console.error(`✗ ${file} (semantic)`);
-		for (const issue of semanticIssues) {
-			console.error(`    ERR ${issue.path.join('.') || '<root>'} — ${issue.message}`);
-		}
-		failed += 1;
-		continue;
-	}
-
-	// Fixtures (demos / showcases / tests / motion-primitive verifiers) are
-	// structurally + semantically checked but exempt from the deliverable-only
-	// static safety/readability lint. R/Q/G remains Critic-judged (ADR-0025).
-	if ((result.data as { kind?: string }).kind === 'fixture') {
-		fixtureCount += 1;
-		console.log(`✓ ${file} (fixture — schema + semantics)`);
-		continue;
-	}
-
-	const issues = lintPreset(result.data);
-	const errors = issues.filter((issue) => issue.severity === 'error');
-	const warnings = issues.filter((issue) => issue.severity === 'warn');
-
-	if (errors.length === 0 && warnings.length === 0) {
-		console.log(`✓ ${file}`);
-		continue;
-	}
-
-	if (errors.length > 0) {
-		failed += 1;
-		console.error(`✗ ${file} (static lint)`);
-	} else {
-		console.log(`⚠ ${file} (static lint warnings)`);
-	}
-
-	warned += warnings.length;
-
-	for (const issue of issues) {
-		const tag = issue.severity === 'error' ? 'ERR' : 'WRN';
-		console[issue.severity === 'error' ? 'error' : 'log'](
-			`    ${tag} ${issue.rule} ${issue.path} — ${issue.message}`
-		);
-	}
-}
-
-interface Fixture {
-	name: string;
-	preset: unknown;
-}
-
-const baseMarks = {
-	defaults: {
-		highlight: { color: '#ffd642', intensity: 0.62 },
-		underline: { color: '#1f5aff', intensity: 0.62 },
-		strike: { color: '#de263a', intensity: 0.62 },
-		circle: { color: '#de263a', intensity: 0.62 }
-	},
-	timings: []
-};
-const emptyEffects: never[] = [];
-
-const fixtures: Fixture[] = [
-	{
-		name: 'Cross-surface remix (paper → plain content carry-over)',
-		preset: {
-			schema: 'supers@1',
-			pack: 'syntax',
-			name: 'Cross-surface remix',
-			state: {
-				transport: { orientation: 'horizontal', durationSeconds: 5, fps: 30, format: 'webm' },
-				typography: { fontFamily: 'serif', paperColor: '#ffffff', inkColor: '#0a0a0a' },
-				marks: baseMarks,
-				surface: {
-					type: 'plain',
-					content: {
-						body: 'Plain background body with one [highlight]bright phrase[/highlight].'
-					}
-				},
-				overlays: [],
-				effects: emptyEffects
-			}
-		}
-	},
-	{
-		name: 'Decorative fixture (every decorative style on its own line)',
-		preset: {
-			schema: 'supers@1',
-			pack: 'syntax',
-			name: 'Decorative coverage',
-			state: {
-				transport: { orientation: 'horizontal', durationSeconds: 5, fps: 30, format: 'webm' },
-				typography: { fontFamily: 'serif', paperColor: '#ffffff', inkColor: '#0a0a0a' },
-				marks: baseMarks,
-				surface: {
-					type: 'paper',
-					content: {
-						title: 'Decorative coverage',
-						body: '[highlight]highlight[/highlight] [underline]underline[/underline] [strike]strike[/strike] [circle]circle[/circle] [box]box[/box] [side-note]side-note[/side-note]'
-					},
-					enter: { start: 0, duration: 0.18, ease: 'settled' },
-					exit: { start: 0.82, duration: 0.18, ease: 'smooth' }
-				},
-				overlays: [],
-				effects: emptyEffects
-			}
-		}
-	},
-	{
-		name: 'Focal fixture (every focal style on its own line)',
-		preset: {
-			schema: 'supers@1',
-			pack: 'syntax',
-			name: 'Focal coverage',
-			state: {
-				transport: { orientation: 'horizontal', durationSeconds: 5, fps: 30, format: 'webm' },
-				typography: { fontFamily: 'serif', paperColor: '#ffffff', inkColor: '#0a0a0a' },
-				marks: baseMarks,
-				surface: {
-					type: 'paper',
-					content: {
-						title: 'Focal coverage',
-						body: '[magnify]magnify[/magnify] [lift-out]lift-out[/lift-out] [tear-out]tear-out[/tear-out] [isolate]isolate[/isolate]'
-					}
-				},
-				overlays: [],
-				effects: emptyEffects
-			}
-		}
-	},
-	{
-		name: 'Lower-third overlay fixture',
-		preset: {
-			schema: 'supers@1',
-			pack: 'syntax',
-			name: 'Lower-third overlay',
-			state: {
-				transport: { orientation: 'horizontal', durationSeconds: 5, fps: 30, format: 'webm' },
-				typography: { fontFamily: 'sans', paperColor: '#ffffff', inkColor: '#0a0a0a' },
-				marks: baseMarks,
-				surface: {
-					type: 'plain',
-					content: { body: 'Body text in the background.' }
-				},
-				overlays: [
-					{
-						type: 'lower-third',
-						id: 'main',
-						content: { kicker: 'CHAPTER 01', title: 'Origins', subtitle: 'How it began' },
-						position: { anchor: 'bottom-left', offset: { x: 0.0625, y: 0.0625 } },
-						enter: { start: 0.1, duration: 0.18, ease: 'settled' },
-						exit: { start: 0.82, duration: 0.16, ease: 'smooth' }
-					}
-				],
-				effects: emptyEffects
-			}
-		}
-	},
-	{
-		name: 'Two paper-grain effects stacked in the frame chain',
-		preset: {
-			schema: 'supers@1',
-			pack: 'syntax',
-			name: 'Paper grain stacked',
-			state: {
-				transport: { orientation: 'horizontal', durationSeconds: 5, fps: 30, format: 'webm' },
-				typography: { fontFamily: 'serif', paperColor: '#ffffff', inkColor: '#0a0a0a' },
-				marks: baseMarks,
-				surface: {
-					type: 'paper',
-					content: { title: 'Grain test', body: 'Body content.' }
-				},
-				overlays: [],
-				effects: [
-					{ type: 'paper-grain', id: 'warm', params: { warmth: 0.6, density: 0.4 } },
-					{ type: 'paper-grain', id: 'cool', params: { warmth: 0.3, density: 0.2 } }
-				]
-			}
-		}
-	},
-	{
-		name: 'AI-authored from schema + brief (no source code access)',
-		preset: {
-			schema: 'supers@1',
-			pack: 'syntax',
-			name: 'AI fixture',
-			description: 'Goal: a quick research-paper preset that highlights one keyword.',
-			state: {
-				transport: { orientation: 'horizontal', durationSeconds: 5, fps: 30, format: 'webm' },
-				typography: { fontFamily: 'serif', paperColor: '#ffffff', inkColor: '#0a0a0a' },
-				marks: baseMarks,
-				surface: {
-					type: 'paper',
-					content: {
-						title: 'Test paper',
-						sourceUrl: 'https://example.com/paper',
-						body: 'Plain paragraph with [highlight]one highlight[/highlight] in it.'
-					},
-					enter: { start: 0, duration: 0.18, ease: 'settled' },
-					exit: { start: 0.82, duration: 0.18, ease: 'smooth' }
-				},
-				overlays: [],
-				effects: emptyEffects
-			}
-		}
-	}
-];
-
-for (const fixture of fixtures) {
-	const result = PresetIngressSchema.safeParse(fixture.preset);
-
-	if (!result.success) {
-		console.error(`✗ ${fixture.name}`);
-		console.error(result.error);
-		failed += 1;
-	} else if (validatePresetSemantics(result.data).length > 0) {
-		console.error(`✗ ${fixture.name} (semantic)`);
-		failed += 1;
-	} else {
-		console.log(`✓ ${fixture.name}`);
-	}
-}
-
-const { PACK_REGISTRY } = (await import(pathToFileURL(packRegistryModulePath).href)) as {
-	PACK_REGISTRY: Readonly<Record<string, { slug: string }>>;
-};
-const { validatePackRegistry } = (await import(pathToFileURL(packValidationModulePath).href)) as {
-	validatePackRegistry: (registry: unknown) => readonly PackValidationIssue[];
-};
-const { validateIdentityRegistry } = (await import(
-	pathToFileURL(identityRegistryModulePath).href
-)) as {
-	validateIdentityRegistry: (manifest: unknown) => readonly IdentityValidationError[];
-};
-
-const packIssues = validatePackRegistry(PACK_REGISTRY);
-if (packIssues.length === 0) {
-	for (const slug of Object.keys(PACK_REGISTRY)) {
-		console.log(`✓ pack:${slug} (manifest contract)`);
-	}
-} else {
-	failed += 1;
-	console.error('✗ Pack manifest contract');
-	for (const issue of packIssues) {
-		console.error(
-			`    ERR ${issue.kind} ${issue.pack}.${issue.path.join('.') || '<root>'} — ${issue.message}`
-		);
-	}
-}
-
-const referencePack = PACK_REGISTRY['syntax'];
-const identityIssues = referencePack ? validateIdentityRegistry(referencePack) : [];
-if (referencePack && identityIssues.length === 0) {
-	console.log('✓ identity registry (reference Pack completeness)');
-} else {
-	failed += 1;
-	console.error('✗ identity registry (reference Pack completeness)');
-	for (const issue of identityIssues) {
-		console.error(`    ERR ${issue.kind} ${issue.pipeline} — ${issue.message}`);
-	}
-}
-
-if (failed > 0) {
-	console.error(`\n${failed} validation check(s) failed.`);
+function fail(message: string): never {
+	console.error(`✗ ${message}`);
 	process.exit(1);
 }
 
-const fixtureNote =
-	fixtureCount > 0
-		? ` ${fixtureCount} fixture(s) schema + semantic checked (static safety/readability lint applies to deliverables).`
-		: '';
-if (warned > 0) {
-	console.log(`\nAll preset validation checks passed (${warned} static lint warning(s)).${fixtureNote}`);
-} else {
-	console.log(`\nAll preset validation checks passed.${fixtureNote}`);
+function issuePath(path: readonly (string | number)[]): string {
+	return path.length > 0 ? path.join('.') : '<root>';
 }
+
+function readPresetDependencies(preset: StaticPreset): string[] {
+	return preset.transition
+		? [preset.transition.from, preset.transition.to].sort((left, right) =>
+				left.localeCompare(right)
+			)
+		: [];
+}
+
+async function loadBuiltInPresets(): Promise<Map<string, StaticPreset>> {
+	const presetDirectory = resolve(repoRoot, 'src/lib/presets');
+	const presets = new Map<string, StaticPreset>();
+	const filenames = (await readdir(presetDirectory))
+		.filter((filename) => filename.endsWith('.json'))
+		.sort((left, right) => left.localeCompare(right));
+
+	for (const filename of filenames) {
+		const slug = filename.slice(0, -'.json'.length);
+		let json: unknown;
+		try {
+			json = JSON.parse(await readFile(resolve(presetDirectory, filename), 'utf8'));
+		} catch (error) {
+			fail(
+				`${slug} schema JSON parse failed — ${error instanceof Error ? error.message : String(error)}`
+			);
+		}
+		const result = PresetIngressSchema.safeParse(json);
+		if (!result.success || !result.data) fail(`${slug} schema failed — ${String(result.error)}`);
+		presets.set(slug, result.data);
+	}
+
+	for (const [slug, preset] of presets) {
+		const issues = validatePresetSemantics(preset, {
+			resolvePreset: (identity) => presets.get(identity) ?? null
+		});
+		const first = issues[0];
+		if (first) fail(`${slug} semantic ${issuePath(first.path)} — ${first.message}`);
+	}
+	return presets;
+}
+
+function explicitAxes(
+	presets: ReadonlyMap<string, StaticPreset>,
+	presetSlugs: readonly string[],
+	packIds: readonly string[]
+): StaticPresetPackAxis[] {
+	const axes: StaticPresetPackAxis[] = [];
+	for (const slug of [...presetSlugs].sort((left, right) => left.localeCompare(right))) {
+		const preset = presets.get(slug);
+		if (!preset) fail(`Unknown built-in Preset: ${slug}`);
+		if (preset.kind === 'fixture') fail(`Preset ${slug} is a fixture, not a deliverable`);
+		for (const packId of packIds) axes.push({ presetSlug: slug, packId });
+	}
+	return axes;
+}
+
+async function main(): Promise<void> {
+	let options: PresetValidationCommandOptions;
+	try {
+		options = parsePresetValidationCommand(process.argv.slice(2));
+	} catch (error) {
+		fail(error instanceof Error ? error.message : String(error));
+	}
+
+	const presets = await loadBuiltInPresets();
+	const packIssues = validatePackRegistry(PACK_REGISTRY);
+	const firstPackIssue = packIssues[0];
+	if (firstPackIssue) {
+		fail(
+			`Pack ${firstPackIssue.pack} ${firstPackIssue.kind} ${issuePath(firstPackIssue.path)} — ${firstPackIssue.message}`
+		);
+	}
+	const syntaxPack = PACK_REGISTRY.syntax;
+	const identityIssue = syntaxPack ? validateIdentityRegistry(syntaxPack)[0] : undefined;
+	if (!syntaxPack) fail('Reference Pack syntax is not registered');
+	if (identityIssue) {
+		fail(`Identity ${identityIssue.pipeline} ${identityIssue.kind} — ${identityIssue.message}`);
+	}
+
+	const packIds = Object.keys(PACK_REGISTRY).sort((left, right) => left.localeCompare(right));
+	const deliverables = [...presets]
+		.filter(([, preset]) => preset.kind !== 'fixture')
+		.map(([slug, preset]) => ({
+			slug,
+			pipelineReferences: collectPresetPipelineReferences(preset),
+			presetDependencies: readPresetDependencies(preset)
+		}))
+		.sort((left, right) => left.slug.localeCompare(right.slug));
+
+	let axes: StaticPresetPackAxis[];
+	let changedPaths = options.changedPaths;
+	if (options.mode === 'explicit') {
+		axes = explicitAxes(presets, options.presetSlugs, packIds);
+	} else if (options.mode === 'affected') {
+		const discoveredPaths =
+			options.baseRevision || changedPaths.length === 0
+				? gitChangedPaths(options.baseRevision)
+				: [];
+		changedPaths = mergePresetValidationChangedPaths(changedPaths, discoveredPaths);
+		axes = selectAffectedStaticPresetPackAxes(
+			{ presets: deliverables, packs: packIds.map((id) => ({ id })) },
+			changedPaths
+		);
+	} else {
+		axes = explicitAxes(
+			presets,
+			deliverables.map((entry) => entry.slug),
+			packIds
+		);
+	}
+
+	if (axes.length === 0) {
+		console.log('No deliverable Presets are affected; static Preset validation is not applicable.');
+		return;
+	}
+
+	let warningCount = 0;
+	for (const axis of axes) {
+		const source = presets.get(axis.presetSlug);
+		if (!source) fail(`Selected Preset disappeared: ${axis.presetSlug}`);
+		for (const orientation of ['horizontal', 'vertical'] as const) {
+			const candidate = structuredClone(source);
+			candidate.pack = axis.packId;
+			candidate.state.transport.orientation = orientation;
+			const semanticIssue = validatePresetSemantics(candidate, {
+				resolvePreset: (identity) => presets.get(identity) ?? null
+			})[0];
+			if (semanticIssue) {
+				fail(
+					`${axis.presetSlug} × ${axis.packId} × ${orientation} semantic ${issuePath(semanticIssue.path)} — ${semanticIssue.message}`
+				);
+			}
+			const issues = lintPreset(candidate);
+			const firstError = issues.find((issue) => issue.severity === 'error');
+			if (firstError) {
+				fail(
+					`${axis.presetSlug} × ${axis.packId} × ${orientation} ${firstError.rule} ${firstError.path} — ${firstError.message}`
+				);
+			}
+			for (const warning of issues.filter((issue) => issue.severity === 'warn')) {
+				warningCount += 1;
+				console.warn(
+					`⚠ ${axis.presetSlug} × ${axis.packId} × ${orientation} ${warning.rule} ${warning.path} — ${warning.message}`
+				);
+			}
+		}
+		console.log(`✓ ${axis.presetSlug} × ${axis.packId} (horizontal + vertical)`);
+	}
+
+	console.log(
+		`Validated ${axes.length} Preset × Pack ${axes.length === 1 ? 'axis' : 'axes'} in both orientations${warningCount > 0 ? ` with ${warningCount} warning(s)` : ''}. Static checks only; no browser, capture, export, Critic, or render matrix was launched.`
+	);
+}
+
+await main();

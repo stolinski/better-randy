@@ -28,6 +28,33 @@ carries `baselineHead`, a content-sensitive `treeFingerprint`, and conservative
 verification lanes; an empty change set still selects `policy-sweep`. No agent
 supplies paths or re-records the report.
 
+## Static Preset preflight
+
+`pnpm verify-presets` is the fast deterministic Preset gate used by normal
+preflight. It validates every selected deliverable against every relevant Pack
+in both horizontal and vertical through schema, semantics, Pipeline-aware
+layout, timing, safe-area, clipping, overlap, contrast, and readability checks.
+It stops at the first exact error and does not launch Chrome, capture pixels,
+export media, run the Critic, create evidence archives, or execute a render
+matrix.
+
+```bash
+pnpm verify-presets --preset lower-third
+pnpm verify-presets --preset lower-third --preset chapter-card
+pnpm verify-presets --affected --changed src/lib/pipelines/overlays/lower-third/renderer.ts
+pnpm verify-presets --affected --changed-paths-json '["src/lib/packs/syntax/manifest.ts"]'
+pnpm verify-presets --affected --base main
+pnpm verify-presets --all
+```
+
+Affected selection is conservative and smallest-complete: direct Preset changes
+select that deliverable across Packs; a concrete Pipeline selects its consumers
+across Packs; a Pack selects all deliverables against that Pack; broad or
+unmapped engine/layout changes select all deliverables across all Packs. Proven
+documentation/control-plane-only changes are not applicable. Full browser/GPU
+render matrices remain a separate downstream regression and human-aesthetic
+evidence lane.
+
 ## Objective render matrices
 
 `@supers/render-matrix-verification` owns browser/GPU verification separately
