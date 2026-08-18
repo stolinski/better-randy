@@ -149,6 +149,36 @@ Deno.test("intake stores one bounded snapshot and classifies current, recent, an
   assert.equal(reconciliation.items[2].requiresReproduction, false);
 });
 
+Deno.test("scheduled intake resolves the current Git release at run time", async () => {
+  const runner = new FakeRunner();
+  const fixture = fixtureContext();
+  await executeSentryIssueIntake(
+    {
+      lookbackDays: 7,
+      historyDays: 90,
+      limit: 100,
+      currentRelease: "auto",
+    },
+    fixture.context,
+    {
+      commandRunner: runner,
+      now: () => FIXED_NOW,
+      resolveCurrentRelease: () => Promise.resolve("supers@scheduled-sha"),
+    },
+  );
+
+  const snapshot = SentryIssueSnapshotSchema.parse(
+    fixture.writes.find((write) => write.specName === "snapshot")?.data,
+  );
+  assert.equal(snapshot.currentRelease, "supers@scheduled-sha");
+  assert(
+    runner.calls.some((call) =>
+      call[call.indexOf("--query") + 1] ===
+        "is:unresolved release:supers@scheduled-sha"
+    ),
+  );
+});
+
 class SequenceRunner implements SentryCommandRunner {
   constructor(
     private readonly results: Array<

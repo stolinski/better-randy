@@ -8,7 +8,7 @@ export const SentryIssueIntakeArgsSchema = z.object({
   historyDays: z.number().int().min(7).max(365).default(90),
   limit: z.number().int().min(1).max(100).default(100),
   currentRelease: z.string().min(1).max(160).regex(/^[A-Za-z0-9@._:+-]+$/)
-    .optional(),
+    .nullish(),
 }).refine((value) => value.historyDays >= value.lookbackDays, {
   message: "historyDays must be greater than or equal to lookbackDays",
 });
@@ -100,6 +100,7 @@ export type SentryIssueIntakeContext = {
 export type SentryIssueIntakeDependencies = {
   commandRunner: SentryCommandRunner;
   now: () => string;
+  resolveCurrentRelease?: (repoDir: string) => Promise<string>;
 };
 
 const CliIssueSchema = z.object({
@@ -363,10 +364,26 @@ export class DenoSentryCommandRunner implements SentryCommandRunner {
   }
 }
 
+async function resolveGitCurrentRelease(repoDir: string): Promise<string> {
+  const result = await new Deno.Command("git", {
+    args: ["rev-parse", "HEAD"],
+    cwd: repoDir,
+    stdin: "null",
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  const revision = new TextDecoder().decode(result.stdout).trim();
+  if (result.code !== 0 || !/^[0-9a-f]{40}$/.test(revision)) {
+    throw new Error("Unable to resolve the current Git release for Sentry intake");
+  }
+  return `supers@${revision}`;
+}
+
 export const DEFAULT_SENTRY_ISSUE_INTAKE_DEPENDENCIES:
   SentryIssueIntakeDependencies = {
     commandRunner: new DenoSentryCommandRunner(),
     now: () => new Date().toISOString(),
+    resolveCurrentRelease: resolveGitCurrentRelease,
   };
 
 export async function executeSentryIssueIntake(
@@ -375,6 +392,12 @@ export async function executeSentryIssueIntake(
   dependencies: SentryIssueIntakeDependencies,
 ): Promise<{ dataHandles: Array<{ name: string }> }> {
   const args = SentryIssueIntakeArgsSchema.parse(rawArgs);
+  const currentRelease = args.currentRelease === "auto"
+    ? await (dependencies.resolveCurrentRelease ?? resolveGitCurrentRelease)(
+      context.repoDir,
+    )
+    : args.currentRelease;
+  const resolvedArgs = { ...args, currentRelease };
   const target = context.globalArgs.target ?? "scott-tolinski-projects/supers";
   if (!/^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/.test(target)) {
     throw new TypeError("Invalid Sentry target");
@@ -395,12 +418,12 @@ export async function executeSentryIssueIntake(
     args.lookbackDays,
     args.limit,
   );
-  const release = args.currentRelease
+  const release = currentRelease
     ? await fetchIssues(
       dependencies.commandRunner,
       context,
       target,
-      `is:unresolved release:${args.currentRelease}`,
+      `is:unresolved release:${currentRelease}`,
       args.historyDays,
       args.limit,
     )
@@ -418,7 +441,7 @@ export async function executeSentryIssueIntake(
   const fingerprint = await createSentrySha256(
     JSON.stringify({
       target,
-      args,
+      args: resolvedArgs,
       issues,
       recentIds: [...recentIds].sort(),
       releaseIds: [...releaseIds].sort(),
@@ -433,7 +456,7 @@ export async function executeSentryIssueIntake(
     lookbackDays: args.lookbackDays,
     historyDays: args.historyDays,
     limit: args.limit,
-    currentRelease: args.currentRelease ?? null,
+    currentRelease: currentRelease ?? null,
     complete,
     coverage: {
       historyHasMore: history.hasMore,

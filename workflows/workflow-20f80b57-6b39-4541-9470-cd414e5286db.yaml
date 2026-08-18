@@ -4,9 +4,16 @@ description: Collect bounded unresolved Supers issues and derive one exact read-
 tags:
   purpose: supers-sentry-self-healing-intake
   capability: read-only
+trigger:
+  schedule: '0 */6 * * *'
+  inputs:
+    lookbackDays: 7
+    historyDays: 90
+    limit: 100
+    currentRelease: auto
 inputs:
   type: object
-  required: [lookbackDays, historyDays, limit, currentRelease]
+  required: [lookbackDays, historyDays, limit]
   additionalProperties: false
   properties:
     lookbackDays:

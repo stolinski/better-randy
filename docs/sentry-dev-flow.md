@@ -55,14 +55,17 @@ swamp model method run supers-sentry-issue-intake triage \
 ```
 
 The durable entrypoint runs both stages and asserts their current-run
-fingerprint correlation:
+fingerprint correlation. It is scheduled every six hours with a seven-day
+recent window, 90-day history window, 100-issue bound, and `currentRelease:
+auto`; `auto` resolves the repository's current Git SHA at execution time.
+Manual runs may use the same resolver:
 
 ```bash
 swamp workflow run supers-sentry-readonly-intake \
   --input lookbackDays=7 \
   --input historyDays=90 \
   --input limit=100 \
-  --input currentRelease=supers@<git-sha>
+  --input currentRelease=auto
 ```
 
 It recommends `create-task`, `attach-existing`, `reproduce-first`,
