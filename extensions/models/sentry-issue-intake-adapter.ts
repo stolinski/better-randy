@@ -1,5 +1,7 @@
 import { z } from "npm:zod@4.4.3";
 
+import { resolveSentryCliExecutable } from "./sentry-cli-executable.ts";
+
 const BoundedTextSchema = z.string().min(1).max(300);
 const IssueIdentitySchema = z.string().regex(/^[A-Za-z0-9_-]{1,80}$/);
 
@@ -331,7 +333,7 @@ export class DenoSentryCommandRunner implements SentryCommandRunner {
     cwd: string,
     timeoutMs: number,
   ): Promise<SentryCommandResult> {
-    const child = new Deno.Command("sentry", {
+    const child = new Deno.Command(resolveSentryCliExecutable(), {
       args: [...args],
       cwd,
       stdin: "null",

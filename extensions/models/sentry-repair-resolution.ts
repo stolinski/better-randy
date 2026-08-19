@@ -1,5 +1,6 @@
 import { z } from "npm:zod@4.4.3";
 
+import { resolveSentryCliExecutable } from "./sentry-cli-executable.ts";
 import {
   canonicalSentryJson,
   createSentrySha256,
@@ -115,7 +116,7 @@ export class DenoSentryRepairResolutionCommandRunner
     cwd: string,
     timeoutMs: number,
   ): Promise<SentryRepairResolutionCommandResult> {
-    const child = new Deno.Command("sentry", {
+    const child = new Deno.Command(resolveSentryCliExecutable(), {
       args: [...args],
       cwd,
       stdin: "null",

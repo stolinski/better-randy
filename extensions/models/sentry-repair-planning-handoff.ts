@@ -40,7 +40,7 @@ import {
 
 export const model = {
   type: "@supers/sentry-repair-planning-handoff",
-  version: "2026.08.19.1",
+  version: "2026.08.19.2",
   globalArguments: z.strictObject({
     sourceIntakeModelId: z.string().uuid(),
     sourceDeliveryModelId: z.string().uuid(),
