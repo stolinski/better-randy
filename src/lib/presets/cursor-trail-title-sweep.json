@@ -1,5 +1,6 @@
 {
 	"schema": "supers@1",
+	"kind": "fixture",
 	"name": "Cursor trail \u2014 title sweep",
 	"description": "Mac pointer enters at the top-left, sweeps to the 'BUILD THINGS' title slot and dwells 600ms (hover), then moves to the '@syntaxfm' author byline and clicks with a 400ms dwell before returning to idle. Velocity-anisotropic trail stretches along the motion vector. Demonstrates the cursor-trail pipeline's deterministic path replay, per-step action types, and trail physics at 3840\u00d72160. Type-hero single variant on deep-black substrate.",
 	"pack": "syntax",

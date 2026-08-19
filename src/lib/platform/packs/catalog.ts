@@ -53,25 +53,25 @@ const PACK_CATALOG_ENTRIES = {
 	syntax: {
 		status: 'ratified',
 		humanRatifiedAt: '2026-08-19',
-		verificationBundleId: 'd09f7ffce47a9f0cb7d15dead4eca0093c0ddf80bc460fadf45a09df0c48a080',
+		verificationBundleId: '31cd28dcfcad4de3d5e6977b58c603b61e564944baafb0aa0bf0dd2a19c6b6c5',
 		calibrationTrio: CALIBRATION_TRIO_FRAME_SPECS
 	},
 	'editorial-mono': {
 		status: 'ratified',
 		humanRatifiedAt: '2026-08-19',
-		verificationBundleId: '8f54fa6ab4e456b7d0a18864ea0af7d4e22acc160025d6baecaf017103a2695b',
+		verificationBundleId: '802da6bacf34890ea622b304ad189208e253026c67f7ea69d4a037ba91af6590',
 		calibrationTrio: CALIBRATION_TRIO_FRAME_SPECS
 	},
 	'crt-terminal': {
 		status: 'ratified',
 		humanRatifiedAt: '2026-08-19',
-		verificationBundleId: '45ce29248a04fc2fbb0c348539e7da1adbeeb34608f0cb504d061345272a867e',
+		verificationBundleId: 'f7855f1a92edcafd541e44b43f2da8dd580921e0769333e9c754c3ee78d140d4',
 		calibrationTrio: CALIBRATION_TRIO_FRAME_SPECS
 	},
 	'clean-light': {
 		status: 'ratified',
 		humanRatifiedAt: '2026-08-19',
-		verificationBundleId: 'c484e96a4181facef7ff8d7bd6c8dff17dc30964509377374c2b4d152e12f01a',
+		verificationBundleId: '6153d4518407af5aaa7ea982ff2a2619a6ea8913941552d136b39c83959e3dc8',
 		calibrationTrio: CALIBRATION_TRIO_FRAME_SPECS
 	}
 } satisfies Readonly<Record<PackCatalogSlug, PackCatalogMetadata>>;

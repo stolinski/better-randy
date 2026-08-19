@@ -6,12 +6,12 @@ This audit measures the corpus as a creator-facing Starter-template library. It 
 
 ## Honest baseline
 
-- Corpus: **101 Presets** — **48 listed** and **53 fixtures**.
+- Corpus: **96 Presets** — **39 listed** and **57 fixtures**.
 - Structurally distinct Starter candidates: **39**.
-- Listing inflation: **5 folds** (re-text, re-dress, or same composition language) and **4 feature proofs that should become fixtures**.
+- Listing inflation is reconciled: **5 duplicates were folded** into canonical Starters and **4 feature proofs are fixtures**.
 - No listed Preset has an orientation or Pack suffix.
 - This is a structural count, not final aesthetic ratification. A Preset counts toward the finished epic only after the current deterministic matrix and exact-evidence human gate pass for its integrated revision.
-- `pnpm verify-presets --all` passes all **192 Preset × Pack axes in both orientations**. It reports **18 non-blocking G12 warnings** on nine direct-on-field Presets under `crt-terminal`: `apollo-lunar-travelers`, `bar-chart-apollo-sample-return`, `column-us-population-1950-2020`, `counter-milestone`, `docu-flowchart`, `docu-timeline-build`, `plastic-msw-destinations`, `text-3d-cylinder`, and `wake-conversation-flow`. Each warning appears once per orientation. The warnings are existing linter output, not failures introduced by this audit.
+- `pnpm verify-presets --all` passes all **156 Preset × Pack axes in both orientations**. It reports **16 non-blocking G12 warnings** on eight direct-on-field Presets under `crt-terminal`: `apollo-lunar-travelers`, `bar-chart-apollo-sample-return`, `column-us-population-1950-2020`, `counter-milestone`, `docu-flowchart`, `docu-timeline-build`, `plastic-msw-destinations`, and `wake-conversation-flow`. Each warning appears once per orientation. The warnings are existing linter output, not failures introduced by this audit.
 
 A **Count** disposition means the Preset expresses a materially different register, composition language, creator job, or content domain. It does not mean a similarly named Pipeline variant automatically earns another listing. **Fold** means one Starter must represent the job. **Demote** means the composition is useful proof corpus but not a creator-facing starting point.
 
@@ -23,50 +23,41 @@ A **Count** disposition means the Preset expresses a materially different regist
 | `achievement-unlocked`              | Plain              | Announce an unlocked milestone                | Count                              | Unlock beat is materially different from checklist completion.                   |
 | `apollo-lunar-travelers`            | Charts             | Explain a part-to-whole fact with dots        | Count                              | Distinct dot-field chart language.                                               |
 | `bar-chart-apollo-sample-return`    | Charts             | Compare categories horizontally               | Count                              | Distinct bar-chart creator job.                                                  |
-| `captions-karaoke-demo`             | Captions           | Caption speech with active-word context       | Count                              | Full-line karaoke register. Rename later to remove “demo.”                       |
-| `captions-word-pop-demo`            | Captions           | Caption fast social speech one word at a time | Count                              | Word-pop register is materially different. Rename later to remove “demo.”        |
+| `captions-karaoke`                  | Captions           | Caption speech with active-word context       | Count                              | Full-line karaoke register.                                                      |
+| `captions-word-pop`                 | Captions           | Caption fast social speech one word at a time | Count                              | Word-pop register is materially different.                                       |
 | `chapter-card-descent`              | Chapter card       | Introduce a chapter                           | Count                              | Dedicated chapter transition with depth staging.                                 |
 | `checklist-project-setup`           | Checklist          | Show progress through a task list             | Count                              | Persistent checked/unchecked progress state.                                     |
 | `checklist-show-rundown`            | Checklist          | Reveal an ordered rundown                     | Count                              | Sequential build-in differs materially from progress state.                      |
 | `column-us-population-1950-2020`    | Charts             | Show change across ordered periods            | Count                              | Distinct column-chart temporal comparison.                                       |
 | `counter-milestone`                 | Plain              | Land on a single milestone number             | Count                              | Usable counter outcome, not the counter Pipeline proof.                          |
-| `cursor-trail-title-sweep`          | Type hero          | Demonstrate cursor-trail targeting            | Demote to fixture                  | Feature proof wrapped around a type hero; not a separate creator job.            |
 | `docu-flowchart`                    | Flowcharts         | Explain a short linear process                | Count                              | Compact process diagram.                                                         |
 | `docu-map-journey`                  | Docu               | Explain a geographic journey                  | Count                              | Distinct map composition and content domain.                                     |
 | `docu-stat-build`                   | Docu               | Build one documentary stat                    | Count                              | Documentary stat-callout language.                                               |
 | `docu-timeline-build`               | Docu               | Explain a dated sequence                      | Count                              | Timeline creator job and geometry.                                               |
 | `imessage-friday-deploy`            | iMessage           | Recreate a short text conversation            | Count                              | Canonical choreographed conversation Starter.                                    |
-| `imessage-the-bug`                  | iMessage           | Recreate a short text conversation            | Fold into `imessage-friday-deploy` | Same Surface and creator job with different copy and mark timing.                |
-| `imessage-the-bug-dark`             | iMessage           | Recreate a short text conversation            | Fold into `imessage-friday-deploy` | Re-text plus field re-dress; Pack and content are dials.                         |
-| `instagram-follow-demo`             | Social beats       | Ask viewers to follow on Instagram            | Count                              | Platform-specific creator CTA. Rename later to remove “demo.”                    |
+| `instagram-follow`                  | Social beats       | Ask viewers to follow on Instagram            | Count                              | Platform-specific creator CTA.                                                   |
 | `lower-third`                       | Lower thirds       | Identify a speaker                            | Count                              | Canonical identifier overlay.                                                    |
-| `optical-lens-showcase`             | Paper              | Demonstrate a refractive-lens Effect          | Demote to fixture                  | Effect study, not a durable creator job.                                         |
 | `plastic-msw-destinations`          | Charts             | Explain a normalized part-to-whole fact       | Count                              | Distinct unit-grid chart language.                                               |
-| `pullquote-cinematic`               | Pullquote on photo | Feature a quote over photography              | Fold into `pullquote-on-photo`     | Flat-path predecessor named as a demo; the depth-stage composition is canonical. |
 | `pullquote-on-photo`                | Pullquote on photo | Feature a quote over photography              | Count                              | Canonical photographic pullquote with real depth staging.                        |
 | `quote-lift-out`                    | Paper              | Pull one phrase out of a document             | Count                              | Distinct focal Annotation language.                                              |
 | `quote-magnify`                     | Paper              | Magnify and annotate one phrase               | Count                              | Distinct optical focal treatment and side note.                                  |
 | `quote-tear-out`                    | Paper              | Tear one quote away from its context          | Count                              | Distinct physical-document callout language.                                     |
 | `research-paper-attention`          | Paper              | Explain a research paper passage              | Count                              | Citation-bearing paper explainer with guided marks.                              |
 | `research-paper-critique`           | Paper              | Critique a research method                    | Count                              | Different creator job and annotation sequence from explanation.                  |
-| `text-3d-cylinder`                  | Plain              | Demonstrate cylindrical 3D text               | Demote to fixture                  | Pipeline proof with a watermark, not a reusable composition job.                 |
 | `title-card-newspaper`              | Newspaper          | Introduce a story as a newspaper artifact     | Count                              | Distinct faithful-document title register.                                       |
 | `title-sequence-signal`             | Title sequence     | Open a titled segment                         | Count                              | Full-frame title-sequence language.                                              |
-| `type-hero-drift`                   | Type hero          | Open on a large episode title                 | Fold into `type-hero-vantage`      | Same single-title composition language with modest copy/timing changes.          |
 | `type-hero-vantage`                 | Type hero          | Open on a large episode title                 | Count                              | Canonical flat type-hero Starter.                                                |
 | `wake-conversation-flow`            | Flowcharts         | Explain a branching conversation              | Count                              | Branching, annotation-heavy flow differs from the short linear flowchart.        |
-| `watermark-channel-sig`             | Type hero          | Demonstrate a watermark Overlay               | Demote to fixture                  | Feature proof over a type hero; the library still needs a true corner-bug job.   |
 | `web-document-github`               | Web document       | Quote a GitHub artifact                       | Count                              | Distinct faithful web content domain.                                            |
 | `web-document-hackernews`           | Web document       | Quote a Hacker News discussion                | Count                              | Distinct faithful web content domain.                                            |
 | `web-document-news`                 | Web document       | Quote a news article                          | Count                              | Distinct faithful web content domain.                                            |
 | `web-document-pubmed-somatization`  | Web document       | Quote a PubMed paper page                     | Count                              | Distinct faithful web content domain.                                            |
 | `web-document-reddit`               | Web document       | Quote a Reddit thread                         | Count                              | Distinct faithful web content domain.                                            |
 | `web-document-twitter`              | Web document       | Quote a public X/Twitter post                 | Count                              | Canonical Twitter content domain.                                                |
-| `web-document-twitter-adam-burnout` | Web document       | Quote a public X/Twitter post                 | Fold into `web-document-twitter`   | Same site composition with different baked post content.                         |
 | `web-document-wikipedia`            | Web document       | Quote a Wikipedia article                     | Count                              | Distinct faithful web content domain.                                            |
 | `web-document-youtube`              | Web document       | Quote a YouTube page                          | Count                              | Distinct faithful web content domain.                                            |
 | `website-showcase`                  | Website screenshot | Present a creator-supplied website capture    | Count                              | Stored-capture job differs from structured site mocks.                           |
-| `youtube-subscribe-demo`            | Social beats       | Ask viewers to subscribe on YouTube           | Count                              | Platform-specific creator CTA. Rename later to remove “demo.”                    |
+| `youtube-subscribe`                 | Social beats       | Ask viewers to subscribe on YouTube           | Count                              | Platform-specific creator CTA.                                                   |
 
 ## Fixture inventory
 
@@ -83,6 +74,7 @@ Fixtures remain directly loadable proof corpus and do not inflate the Starter co
 | `counter-demo`                                  | Overlay proof         | Counter Pipeline                   | Keep fixture | Superseded as a Starter by `counter-milestone`.                      |
 | `crt-tube-demo`                                 | Effect proof          | CRT tube                           | Keep fixture | Isolated Effect proof.                                               |
 | `cursor-trail-demo`                             | Overlay proof         | Cursor trail                       | Keep fixture | Isolated Overlay proof.                                              |
+| `cursor-trail-title-sweep`                      | Overlay proof         | Cursor-trail targeting             | Keep fixture | Feature proof wrapped around a type hero, not a separate creator job. |
 | `depth-of-field-bokeh`                          | Depth proof           | Bokeh behavior                     | Keep fixture | Renderer calibration.                                                |
 | `depth-of-field-rack-focus`                     | Depth proof           | Rack focus                         | Keep fixture | Renderer calibration.                                                |
 | `depth-of-field-tabletop`                       | Depth proof           | Multiplane tabletop                | Keep fixture | Renderer calibration.                                                |
@@ -106,6 +98,7 @@ Fixtures remain directly loadable proof corpus and do not inflate the Starter co
 | `newspaper-body-test`                           | Surface proof         | Newsprint body and tape            | Keep fixture | Pipeline regression input.                                           |
 | `ntsc-signal-demo`                              | Effect proof          | NTSC signal                        | Keep fixture | Isolated Effect proof.                                               |
 | `optical-glass-photo-fixture`                   | Effect proof          | Optical glass over photo           | Keep fixture | Isolated Effect proof.                                               |
+| `optical-lens-showcase`                         | Effect proof          | Refractive-lens composition        | Keep fixture | Effect study, not a durable creator job.                              |
 | `quote-vertical`                                | Reflow proof          | Vertical paper quote               | Keep fixture | Historical orientation proof, not a sibling Starter.                 |
 | `server-renders-again`                          | Pack proof            | Partial substrate immunity         | Keep fixture | Pack/Surface showcase retained outside listing.                      |
 | `shader-fill-demo`                              | Overlay proof         | Shader fill                        | Keep fixture | Isolated Overlay proof.                                              |
@@ -115,6 +108,7 @@ Fixtures remain directly loadable proof corpus and do not inflate the Starter co
 | `text-anim-showcase-generic`                    | Text-animation proof  | Generic stagger                    | Keep fixture | Renderer-family proof.                                               |
 | `text-anim-showcase-kinetic-center-build`       | Text-animation proof  | Kinetic center build               | Keep fixture | Renderer-family proof.                                               |
 | `text-anim-showcase-kinetic-top-build`          | Text-animation proof  | Kinetic top build                  | Keep fixture | Renderer-family proof.                                               |
+| `text-3d-cylinder`                              | Overlay proof         | Cylindrical 3D text                | Keep fixture | Pipeline proof with a watermark, not a reusable composition job.     |
 | `text-anim-showcase-shared-slide-opacity`       | Text-animation proof  | Shared slide/opacity               | Keep fixture | Renderer-family proof.                                               |
 | `tiled-deformation-demo`                        | Deformation proof     | Tiled deformation                  | Keep fixture | Isolated Effect proof.                                               |
 | `title-sequence-drop`                           | Surface proof         | Title-sequence impact motion       | Keep fixture | Feature proof; canonical listed sequence is `title-sequence-signal`. |
@@ -126,6 +120,7 @@ Fixtures remain directly loadable proof corpus and do not inflate the Starter co
 | `type-hero-vantage-clean-light`                 | Pack calibration      | Clean Light type hero              | Keep fixture | Calibration evidence, never a listing entry.                         |
 | `washi-tape-corner-accent`                      | Overlay proof         | Washi edge and placement           | Keep fixture | Dressing proof, not channel chrome or a creator job.                 |
 | `water-demo`                                    | Effect proof          | Water refraction                   | Keep fixture | Isolated Effect proof.                                               |
+| `watermark-channel-sig`                         | Overlay proof         | Watermark over type hero           | Keep fixture | Feature proof; the library still needs a true corner-bug job.         |
 | `watermark-demo`                                | Overlay proof         | Watermark                          | Keep fixture | Isolated Overlay proof.                                              |
 
 ## Coverage findings
@@ -154,7 +149,7 @@ The 39 structurally honest candidates cover:
 
 ### Smallest ordered runway
 
-1. **Reconcile listing hygiene first — Dex `6o9l7x3p`.** Fold five duplicates into their canonical Starters, demote four feature proofs, and remove “demo” from four counted Starter names/slugs without changing their composition meaning. This produces the honest 39-entry baseline in the picker.
+1. **Listing hygiene reconciled — Dex `6o9l7x3p`.** Five duplicates are folded into their canonical Starters, four feature proofs are fixtures, and four counted Starter slugs no longer say “demo.” The picker now exposes the honest 39-entry baseline.
 2. **Close identifier and ending gaps — Dex `8zy3t3du`.** Author one persistent corner identifier and one full-frame outro/end card. They are new creator jobs and can join the episode suite.
 3. **Close opening and transition gaps — Dex `75u4vxtf`.** Resolve `tqwhuoms`, then author or promote one Pack-neutral show-open bumper and one creator-facing editorial transition. Do not promote the existing demos by changing only `kind`.
 4. **Build the coordinated episode suite — Dex `u0twmy3w`.** Use existing canonical Starters where possible; re-author only where consistent content/choreography requires it. The suite must include title/open, lower third, pullquote/callout, stat, and outro.

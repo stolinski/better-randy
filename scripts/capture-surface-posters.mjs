@@ -18,12 +18,12 @@ const REPS = {
 	paper: 'research-paper-attention',
 	plain: 'counter-milestone',
 	newspaper: 'title-card-newspaper',
-	'pullquote-on-photo': 'pullquote-cinematic',
+	'pullquote-on-photo': 'pullquote-on-photo',
 	'chapter-card': 'chapter-card-descent',
 	'title-sequence': 'title-sequence-drop',
-	'type-hero': 'type-hero-drift',
+	'type-hero': 'type-hero-vantage',
 	'web-document': 'web-document-wikipedia',
-	imessage: 'imessage-the-bug',
+	imessage: 'imessage-friday-deploy',
 	checklist: 'checklist-show-rundown',
 	'website-screenshot': 'website-showcase'
 };

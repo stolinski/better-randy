@@ -45,9 +45,9 @@ const CASES =
 						'surface:web-document:chrome:owner-role'
 					]
 				},
-				{ slug: 'captions-karaoke-demo', frames: [45], expectedReadable: ['caption:cue-1'] },
+				{ slug: 'captions-karaoke', frames: [45], expectedReadable: ['caption:cue-1'] },
 				{
-					slug: 'captions-word-pop-demo',
+					slug: 'captions-word-pop',
 					frames: [45],
 					expectedReadablePrefixes: ['caption:cue-1:word:']
 				},

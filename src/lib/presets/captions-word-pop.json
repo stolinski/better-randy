@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Captions — word pop",
-	"description": "The captions track in word-pop style (creator blocks): only the currently-spoken word shows, popping in big (120ms eased pop resting at exactly 1) — the high-energy cut style. Same four-cue SRT as the karaoke demo, same absolute-ms weld, same pure-clock determinism. Vertical-first, transparent over footage.",
+	"description": "The captions track in word-pop style (creator blocks): only the currently-spoken word shows, popping in big (120ms eased pop resting at exactly 1) — the high-energy cut style. Same four-cue SRT as the karaoke Starter, same absolute-ms weld, same pure-clock determinism. Vertical-first, transparent over footage.",
 	"pack": "syntax",
 	"kind": "deliverable",
 	"state": {

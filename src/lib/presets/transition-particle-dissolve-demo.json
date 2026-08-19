@@ -6,7 +6,7 @@
 	"kind": "fixture",
 	"transition": {
 		"from": "type-hero-vantage",
-		"to": "type-hero-drift",
+		"to": "type-hero-vantage-clean-light",
 		"effect": "particle-dissolve",
 		"durationMs": 1800,
 		"params": {

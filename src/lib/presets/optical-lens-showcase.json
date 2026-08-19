@@ -1,6 +1,6 @@
 {
 	"schema": "supers@1",
-	"kind": "deliverable",
+	"kind": "fixture",
 	"name": "Optical lens study",
 	"description": "A Pack-neutral document study that stages a clear refractive instrument, a deterministic frosted pane with an authored melt window, and a readable focal Magnify event over one native-resolution paper composition.",
 	"pack": "syntax",
