@@ -6,12 +6,12 @@ This audit measures the corpus as a creator-facing Starter-template library. It 
 
 ## Honest baseline
 
-- Corpus: **96 Presets** — **39 listed** and **57 fixtures**.
-- Structurally distinct Starter candidates: **39**.
+- Corpus: **98 Presets** — **41 listed** and **57 fixtures**.
+- Structurally distinct Starter candidates: **41**.
 - Listing inflation is reconciled: **5 duplicates were folded** into canonical Starters and **4 feature proofs are fixtures**.
 - No listed Preset has an orientation or Pack suffix.
 - This is a structural count, not final aesthetic ratification. A Preset counts toward the finished epic only after the current deterministic matrix and exact-evidence human gate pass for its integrated revision.
-- `pnpm verify-presets --all` passes all **156 Preset × Pack axes in both orientations**. It reports **16 non-blocking G12 warnings** on eight direct-on-field Presets under `crt-terminal`: `apollo-lunar-travelers`, `bar-chart-apollo-sample-return`, `column-us-population-1950-2020`, `counter-milestone`, `docu-flowchart`, `docu-timeline-build`, `plastic-msw-destinations`, and `wake-conversation-flow`. Each warning appears once per orientation. The warnings are existing linter output, not failures introduced by this audit.
+- The static Preset matrix covers all **164 Preset × Pack axes in both orientations**. It reports **18 non-blocking G12 warnings** on nine direct-on-field Presets under `crt-terminal`: `apollo-lunar-travelers`, `bar-chart-apollo-sample-return`, `column-us-population-1950-2020`, `counter-milestone`, `docu-flowchart`, `docu-timeline-build`, `outro-watch-next`, `plastic-msw-destinations`, and `wake-conversation-flow`. Each warning appears once per orientation. The current command is otherwise blocked before its Preset axes by the expected stale Pack-catalog calibration bundle after the listed corpus changed; exact human approval must refresh that bundle for the integrated revision.
 
 A **Count** disposition means the Preset expresses a materially different register, composition language, creator job, or content domain. It does not mean a similarly named Pipeline variant automatically earns another listing. **Fold** means one Starter must represent the job. **Demote** means the composition is useful proof corpus but not a creator-facing starting point.
 
@@ -37,6 +37,7 @@ A **Count** disposition means the Preset expresses a materially different regist
 | `imessage-friday-deploy`            | iMessage           | Recreate a short text conversation            | Count                              | Canonical choreographed conversation Starter.                                    |
 | `instagram-follow`                  | Social beats       | Ask viewers to follow on Instagram            | Count                              | Platform-specific creator CTA.                                                   |
 | `lower-third`                       | Lower thirds       | Identify a speaker                            | Count                              | Canonical identifier overlay.                                                    |
+| `outro-watch-next`                  | Type hero          | Close a video and direct viewers onward       | Count                              | Full-frame closing job with a dedicated next-action hold.                        |
 | `plastic-msw-destinations`          | Charts             | Explain a normalized part-to-whole fact       | Count                              | Distinct unit-grid chart language.                                               |
 | `pullquote-on-photo`                | Pullquote on photo | Feature a quote over photography              | Count                              | Canonical photographic pullquote with real depth staging.                        |
 | `quote-lift-out`                    | Paper              | Pull one phrase out of a document             | Count                              | Distinct focal Annotation language.                                              |
@@ -44,6 +45,7 @@ A **Count** disposition means the Preset expresses a materially different regist
 | `quote-tear-out`                    | Paper              | Tear one quote away from its context          | Count                              | Distinct physical-document callout language.                                     |
 | `research-paper-attention`          | Paper              | Explain a research paper passage              | Count                              | Citation-bearing paper explainer with guided marks.                              |
 | `research-paper-critique`           | Paper              | Critique a research method                    | Count                              | Different creator job and annotation sequence from explanation.                  |
+| `source-bug-nasa-archive`           | Plain              | Keep an archival source visible over footage  | Count                              | Persistent compact source identifier, not a speaker card or Pipeline proof.      |
 | `title-card-newspaper`              | Newspaper          | Introduce a story as a newspaper artifact     | Count                              | Distinct faithful-document title register.                                       |
 | `title-sequence-signal`             | Title sequence     | Open a titled segment                         | Count                              | Full-frame title-sequence language.                                              |
 | `type-hero-vantage`                 | Type hero          | Open on a large episode title                 | Count                              | Canonical flat type-hero Starter.                                                |
@@ -129,10 +131,10 @@ Fixtures remain directly loadable proof corpus and do not inflate the Starter co
 
 The homepage exposes implementation-shaped families alongside creator-shaped families. `Charts`, `Captions`, `Flowcharts`, `Lower thirds`, and `Social beats` are useful. `Plain`, `Paper`, and `Type hero` still mix unrelated jobs because grouping falls back to Surface type. The audit does not change that mechanism; the listing-reconciliation task must use the current visible families and plain labels rather than hidden metadata.
 
-The 39 structurally honest candidates cover:
+The 41 structurally honest candidates cover:
 
-- title and chapter work: chapter card, title sequence, type hero, newspaper title;
-- identification and progress: lower third, counter, checklists, achievements;
+- title, chapter, and closing work: chapter card, title sequence, type hero, newspaper title, and a full-frame outro;
+- identification and progress: lower third, persistent archival source bug, counter, checklists, and achievements;
 - quotations and evidence: photographic pullquote, paper callouts, research-paper treatments;
 - factual explanation: four chart languages, map, stat, timeline, and two flowchart registers;
 - faithful artifacts: eight web domains, iMessage, and creator-supplied website capture;
@@ -142,15 +144,13 @@ The 39 structurally honest candidates cover:
 ### Missing creator jobs
 
 1. **Show-open bumper:** `show-open-in-focus` is only a fixture and still has the tracked CRT kicker gap (`tqwhuoms`).
-2. **Outro/end card:** there is no full-frame closing composition with a title, next action, and clean hold for end-screen placement.
-3. **Persistent identifier/bug:** watermark proofs exist, but no listed creator-ready corner bug or source identifier independent of the website-showcase composition.
-4. **Creator-facing transition:** all four transition compositions are demos/fixtures; none is admitted as a reusable editorial transition Starter.
-5. **Coordinated episode suite:** useful members exist, but they are not yet authored and export-verified as one coherent title/lower-third/pullquote/stat/outro set.
+2. **Creator-facing transition:** all four transition compositions are demos/fixtures; none is admitted as a reusable editorial transition Starter.
+3. **Coordinated episode suite:** useful members exist, but they are not yet authored and export-verified as one coherent title/lower-third/pullquote/stat/outro set.
 
 ### Smallest ordered runway
 
 1. **Listing hygiene reconciled — Dex `6o9l7x3p`.** Five duplicates are folded into their canonical Starters, four feature proofs are fixtures, and four counted Starter slugs no longer say “demo.” The picker now exposes the honest 39-entry baseline.
-2. **Close identifier and ending gaps — Dex `8zy3t3du`.** Author one persistent corner identifier and one full-frame outro/end card. They are new creator jobs and can join the episode suite.
+2. **Close identifier and ending gaps — Dex `8zy3t3du`.** `source-bug-nasa-archive` and `outro-watch-next` now supply the two structurally distinct creator jobs and raise the honest baseline to 41. Final admission still requires the integrated deterministic matrix and exact-evidence human gate.
 3. **Close opening and transition gaps — Dex `75u4vxtf`.** Resolve `tqwhuoms`, then author or promote one Pack-neutral show-open bumper and one creator-facing editorial transition. Do not promote the existing demos by changing only `kind`.
 4. **Build the coordinated episode suite — Dex `u0twmy3w`.** Use existing canonical Starters where possible; re-author only where consistent content/choreography requires it. The suite must include title/open, lower third, pullquote/callout, stat, and outro.
 5. **Run final admission — Dex `viga7o0n`.** Execute the deterministic affected matrix and bind exact human aesthetic decisions for every counted Starter. The final count should be reported after any aesthetic rejection; the structural forecast is **43** after four genuinely new jobs, so weak or redundant candidates must be retired rather than preserving a quota.

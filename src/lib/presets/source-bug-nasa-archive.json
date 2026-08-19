@@ -1,0 +1,61 @@
+{
+	"schema": "supers@1",
+	"name": "Source bug — NASA archive",
+	"description": "Persistent transparent corner identifier for archival footage. A compact Pack-resolved source plate lands once, stays readable for the full clip, and uses one shared safe-area placement across horizontal and vertical targets.",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 12,
+			"fps": 30,
+			"format": "webm"
+		},
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			}
+		},
+		"overlays": [
+			{
+				"type": "watermark",
+				"id": "archive-source",
+				"content": {
+					"handle": "NASA ARCHIVE",
+					"label": "APOLLO 11 · JUL 1969"
+				},
+				"position": {
+					"anchor": "top-left",
+					"offset": {
+						"x": 0.0625,
+						"y": 0.0625
+					}
+				},
+				"enter": {
+					"start": 0.02,
+					"duration": 0.03,
+					"ease": "settled",
+					"sound": {
+						"mute": true
+					}
+				},
+				"exit": {
+					"start": 0.96,
+					"duration": 0.02,
+					"ease": "smooth",
+					"sound": {
+						"mute": true
+					}
+				}
+			}
+		],
+		"effects": []
+	}
+}
