@@ -54,12 +54,14 @@ export const checklistIdentity: IdentitySpec = {
 		},
 		{
 			name: 'light-treatment',
-			viaPack: 'checklist.light',
-			definition: 'Any directional light contribution on the card body.',
+			implementation:
+				'src/lib/pipelines/surfaces/checklist/CanvasSource.svelte — the checklist card is flat CSS chrome with no directional-light pass.',
+			definition: 'A flat card surface with no directional-light contribution.',
 			probe: {
 				kind: 'named-observation',
 				region: 'the card surface',
-				expectation: 'light treatment resolves through the checklist.light Role.'
+				expectation:
+					'the card remains flat; border and shadow provide separation without a light pass.'
 			}
 		},
 		{
@@ -96,7 +98,8 @@ export const checklistIdentity: IdentitySpec = {
 				'src/lib/pipelines/surfaces/checklist/CanvasSource.svelte wraps checked item text in a data-annotation-mark="strike" span; the reused `strike` Annotation draws the rule off `animState.markProgresses` (static items pinned to 1, animated items tweened over their authored window in Workspace buildAnimationManifest); the done-dim rides strikeProgressAt (schedule.ts).',
 			probe: {
 				kind: 'named-observation',
-				region: 'a static-checked item at progress 0.02, and the animated item across its strike window',
+				region:
+					'a static-checked item at progress 0.02, and the animated item across its strike window',
 				expectation:
 					'the static item is already struck (and dimmed) in the first frames; the animated item’s rule advances left-to-right across its window — a pen drag, not a fading stamp — then holds; open items never gain a rule.'
 			}

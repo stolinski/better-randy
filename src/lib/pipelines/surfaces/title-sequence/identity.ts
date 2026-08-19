@@ -20,7 +20,8 @@ export const titleSequenceIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'frame behind the title block',
-				expectation: 'no painted fill in the DOM substrate (transparent per the output contract); the deep-black backdrop with the warm upper-left glow is the intrinsic title-sequence-drop shaderPass, not a Pack Role.'
+				expectation:
+					'no painted fill in the DOM substrate (transparent per the output contract); the deep-black backdrop with the warm upper-left glow is the intrinsic title-sequence-drop shaderPass, not a Pack Role.'
 			}
 		},
 		{
@@ -45,12 +46,14 @@ export const titleSequenceIdentity: IdentitySpec = {
 		},
 		{
 			name: 'light-treatment',
-			viaPack: 'title-sequence.light',
-			definition: 'Any directional light contribution on the title strokes.',
+			implementation:
+				'src/lib/pipelines/shader-passes/title-sequence-drop.ts — the intrinsic backdrop glow is packed by the title-sequence shader; title strokes have no separate light pass.',
+			definition: 'Intrinsic backdrop glow behind otherwise flat title strokes.',
 			probe: {
 				kind: 'named-observation',
 				region: 'title strokes under any implied light source',
-				expectation: 'light treatment resolves through the title-sequence.light Role.'
+				expectation:
+					'the backdrop glow may illuminate the field, while title strokes remain flat and unlit.'
 			}
 		},
 		{

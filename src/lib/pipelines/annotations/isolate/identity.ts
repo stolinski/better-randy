@@ -39,12 +39,13 @@ export const isolateIdentity: IdentitySpec = {
 		},
 		{
 			name: 'depth-treatment',
-			viaPack: 'isolate.depth',
-			definition: 'Whether the dimmed background gains any additional treatment (blur, tint, none).',
+			implementation:
+				'src/lib/pipelines/annotations/isolate/index.ts — the focal-slot dim ratio is the complete intrinsic separation treatment; no blur, tint, or Pack depth pass is applied.',
+			definition: 'Intrinsic alpha separation between the focal and dimmed body.',
 			probe: {
 				kind: 'named-observation',
 				region: 'dimmed body during the focal window',
-				expectation: 'dim depth resolves through the isolate.depth Role.'
+				expectation: 'isolation is produced only by the intrinsic focal/non-focal alpha ratio.'
 			}
 		}
 	]

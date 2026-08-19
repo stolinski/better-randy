@@ -9,8 +9,9 @@ import type { OverlayPipelineDefinition } from '$lib/platform/pipelines/definiti
  * plate) and `cinematic` (broadcast scrim-gradient plate). The family's
  * anamorphic-flare shaderPass was removed 2026-07-13 (Scott: "it looks
  * cheap" — flare ≠ cinematic; it was already dead code, gated on an
- * `'anamorphic-flare'` light claim no Pack makes). The `lower-third.light`
- * Role stays declared — a future light treatment must clear that bar.
+ * `'anamorphic-flare'` light claim no Pack makes). The dead
+ * `lower-third.light` Role was removed with that consumer; future light work
+ * must ship a real pixel path before it can enter the closed Pack contract.
  * Adding a third variant is one file in `variants/` + one entry in
  * `variants/index.ts`; the Zod schema picks it up automatically from
  * `VARIANT_IDS`.

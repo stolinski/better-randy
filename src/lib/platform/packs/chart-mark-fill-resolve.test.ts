@@ -127,7 +127,7 @@ describe('resolveChartMarkFillTreatment', () => {
 		);
 
 		const unsupported = cloneManifest(PACK_REGISTRY.syntax);
-		assert.equal(isColorValue('oklch(70% 0.2 40)'), true);
+		assert.equal(isColorValue('oklch(70% 0.2 40)'), false);
 		unsupported.roles['chart.mark'] = { kind: 'style', value: 'oklch(70% 0.2 40)' };
 		assert.ok(
 			validatePackManifest('syntax', unsupported).some(
@@ -243,6 +243,23 @@ describe('chart.mark-fill manifest validation', () => {
 					(issue) => issue.kind === 'invalid-chart-mark-fill'
 				),
 				[]
+			);
+		}
+	});
+
+	it('rejects non-solid recipes without a destination color role', () => {
+		for (const mode of ['gradient', 'ordered-dither'] as const) {
+			const manifest = cloneManifest(PACK_REGISTRY.syntax);
+			const role = manifest.roles['chart.mark-fill'];
+			if (!role || role.kind !== 'style') assert.fail('syntax chart.mark-fill must be a style role');
+			const value = structuredClone(role.value) as Record<string, unknown>;
+			value.default = { mode };
+			manifest.roles['chart.mark-fill'] = { kind: 'style', value };
+			assert.ok(
+				validatePackManifest('syntax', manifest).some(
+					(issue) => issue.kind === 'invalid-chart-mark-fill'
+				),
+				mode
 			);
 		}
 	});

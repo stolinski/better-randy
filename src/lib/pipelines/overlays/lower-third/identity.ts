@@ -29,34 +29,33 @@ export const lowerThirdIdentity: IdentitySpec = {
 		},
 		{
 			name: 'edge-treatment',
-			viaPack: 'lower-third.edge',
-			definition: 'Chip boundary treatment (accent rule, scrim, none).',
+			viaPack: 'lower-third.border',
+			definition: 'The live CSS border that defines the standard chip boundary.',
 			probe: {
 				kind: 'named-observation',
 				region: 'chip boundary',
-				expectation: 'edge treatment resolves through the lower-third.edge Role.'
+				expectation: 'the standard chip boundary resolves through the lower-third.border CSS Role.'
 			}
 		},
 		{
 			name: 'depth-treatment',
-			viaPack: 'lower-third.depth',
-			definition: 'Any implied depth under the chip (shadow, scrim, none).',
+			viaPack: 'lower-third.shadow',
+			definition: 'The live CSS shadow stack under the standard chip.',
 			probe: {
 				kind: 'named-observation',
 				region: 'beneath the chip',
-				expectation: 'depth treatment resolves through the lower-third.depth Role.'
+				expectation: 'chip depth resolves through the lower-third.shadow CSS Role.'
 			}
 		},
 		{
 			name: 'light-treatment',
-			viaPack: 'lower-third.light',
-			definition:
-				"Any directional light contribution on the chip body. 'none' is the only shipped resolution — the anamorphic-flare shaderPass was removed 2026-07-13 (Scott: it reads cheap, not cinematic; it was already dead code, gated on a light claim no Pack makes). The Role stays declared so a future light treatment can resolve here, but it must clear that bar.",
+			implementation:
+				'src/lib/pipelines/overlays/lower-third — both variants are flat chrome; the removed flare pass has no runtime path.',
+			definition: 'No directional-light contribution on either lower-third variant.',
 			probe: {
 				kind: 'named-observation',
 				region: 'chip body under any implied light source',
-				expectation:
-					'light treatment matches the active Pack manifest lower-third.light resolution for the bound variant.'
+				expectation: 'the chip remains flat and carries no flare, sheen, or directional-light pass.'
 			}
 		},
 		{

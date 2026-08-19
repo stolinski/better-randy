@@ -22,7 +22,8 @@ export const chapterCardIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'card body behind the text rows',
-				expectation: 'card body behind the text reads as transparent (no painted substrate); the cinematic backdrop is the only thing visible behind the rows.'
+				expectation:
+					'card body behind the text reads as transparent (no painted substrate); the cinematic backdrop is the only thing visible behind the rows.'
 			}
 		},
 		{
@@ -47,12 +48,14 @@ export const chapterCardIdentity: IdentitySpec = {
 		},
 		{
 			name: 'light-treatment',
-			viaPack: 'chapter-card.light',
-			definition: 'Any directional light contribution on the card body or text.',
+			implementation:
+				'src/lib/pipelines/shader-passes/chapter-card-backdrop.ts — backdrop light colour is an explicit shader backdrop claim; the transparent card body has no separate Pipeline-local light pass.',
+			definition: 'Intrinsic backdrop illumination behind the transparent chapter card.',
 			probe: {
 				kind: 'named-observation',
 				region: 'card surface and text strokes',
-				expectation: 'light treatment resolves through the chapter-card.light Role.'
+				expectation:
+					'only the declared backdrop shader illumination is present; no separate card light treatment runs.'
 			}
 		},
 		{

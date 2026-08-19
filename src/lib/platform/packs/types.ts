@@ -26,9 +26,9 @@ export type PackRoleKind = 'style' | 'pipeline' | 'chrome';
  * `validatePackCoreVocabulary` (engine boot + `scripts/verify-presets.ts`).
  *
  * Value contracts (checked by the validator):
- *   - `fill-treatment` / `ink-treatment` / `accent-treatment` — a colour
- *     string (hex / rgb() / oklch() / … — see `isColorValue` in `resolve.ts`).
- *   - `field-treatment` — a colour string: the Pack's full-frame FIELD (the
+ *   - `fill-treatment` / `ink-treatment` / `accent-treatment` — a `#rgb` or
+ *     `#rrggbb` colour accepted by every CSS, canvas, and GPU consumer.
+ *   - `field-treatment` — the same exact hex contract: the Pack's full-frame FIELD (the
  *     backdrop a full-frame piece sits on), distinct from `fill-treatment`
  *     (the card/plate colour — syntax fills cards with #f0e8d6 cream but its
  *     field is #0e0e0d warm black). `backgroundFill: 'pack'` (ADR-0039 §3)
@@ -42,10 +42,10 @@ export type PackRoleKind = 'style' | 'pipeline' | 'chrome';
  *     (`'clean' | 'soft' | 'irregular' | 'torn' | 'none'`), bare or as the
  *     `{ mode, amplitudePx?, wavelengthPx?, fiber? }` object form
  *     (see `resolveEdgeTreatment`).
- *   - `depth-treatment` — `'none'`, or a hard-offset rig
- *     (`{ hardOffset | offset: { dx, dy, blur?, color? } }`) per
- *     `resolveDepthTreatment`. The recognised-value set is intentionally
- *     extensible (a `'glow'` variant is planned for a CRT pack).
+ *   - `depth-treatment` — `'none'`, a hard-offset rig
+ *     (`{ hardOffset | offset: { dx, dy, blur?, color? } }`), or the shipped
+ *     CRT glow rig (`{ glow: { radius, color?, intensity? } }`) per
+ *     `resolveDepthTreatment`.
  *   - `light-treatment` — `'none'`, or `{ direction, intensity }` per
  *     `resolveLightTreatment`.
  *
@@ -55,9 +55,9 @@ export type PackRoleKind = 'style' | 'pipeline' | 'chrome';
  *     `field-treatment`. Direct-on-field content consumes it; absence falls
  *     to the mandatory `ink-treatment` core for Packs whose document/card ink
  *     already contrasts with their field.
- *   - `material-treatment` — a grain/material claim (how ink sits on the
- *     substrate; e.g. the paragraph Block's `paragraph.material: 'ink-bleed'`
- *     rides this dimension).
+ *   - `material-treatment` — a composition-wide grain/material claim (how ink
+ *     sits on the substrate). Paragraph glyph rasterization stays intrinsic;
+ *     there is intentionally no paragraph-specific material Role.
  *   - `font-treatment` — the Pack's universal type voice: a single CSS
  *     font-family stack STRING (e.g. `'"JetBrains Mono", "SFMono-Regular",
  *     Consolas, monospace'`). When present, `resolveAppearanceVars` emits it

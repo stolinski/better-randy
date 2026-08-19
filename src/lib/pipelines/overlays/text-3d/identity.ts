@@ -13,14 +13,15 @@ import type { IdentitySpec } from '$lib/platform/pipelines/identity';
 
 export const text3dIdentity: IdentitySpec = {
 	kind: 'graphic',
-	claim: 'a text slot rendered on a curved geometry with real perspective and per-fragment lighting',
+	claim:
+		'a text slot rendered on a curved geometry with real perspective and per-fragment lighting',
 	dimensions: [
 		{
 			name: 'depth-treatment',
 			definition:
 				'Glyphs wrap onto a cylindrical surface around an axis; the back-facing portion of the cylinder occludes itself (you cannot see the back of the cylinder through the front) — a property CSS `transform: rotate3d` does not give on a 2D plane.',
 			implementation:
-				'src/lib/pipelines/overlays/text-3d/variants/CylinderAxisYCanvasSource.svelte — 2D projection: each glyph\'s cylinder angle is computed from its slot index plus the global spin (baseRotation = motionShape progress × rotationDegrees). cos(angle) drives horizontal foreshortening (scaleX) and opacity; sin(angle) drives the lateral screen offset (xCh). Back-facing glyphs (cos ≤ 0) are excluded via {#if glyph.front}. No CSS perspective or backface-visibility is used.',
+				"src/lib/pipelines/overlays/text-3d/variants/CylinderAxisYCanvasSource.svelte — 2D projection: each glyph's cylinder angle is computed from its slot index plus the global spin (baseRotation = motionShape progress × rotationDegrees). cos(angle) drives horizontal foreshortening (scaleX) and opacity; sin(angle) drives the lateral screen offset (xCh). Back-facing glyphs (cos ≤ 0) are excluded via {#if glyph.front}. No CSS perspective or backface-visibility is used.",
 			probe: {
 				kind: 'named-observation',
 				region: 'cylinder during rotation',
@@ -31,13 +32,14 @@ export const text3dIdentity: IdentitySpec = {
 		{
 			name: 'light-treatment',
 			definition:
-				'Per-glyph opacity attenuates by the dot product of the glyph normal and the camera direction vector (cos of the glyph\'s cylinder angle). Glyphs at the camera-facing centre have full opacity; glyphs toward the cylinder edges fade toward transparent, producing a brightness-like falloff.',
+				"Per-glyph opacity attenuates by the dot product of the glyph normal and the camera direction vector (cos of the glyph's cylinder angle). Glyphs at the camera-facing centre have full opacity; glyphs toward the cylinder edges fade toward transparent, producing a brightness-like falloff.",
 			implementation:
 				'src/lib/pipelines/overlays/text-3d/variants/CylinderAxisYCanvasSource.svelte — per-glyph `opacity: cos(angle)` (no clamp floor) applied via CSS `style:opacity`. No CSS `filter: brightness()` is used; the falloff is purely opacity-based. Back-facing glyphs (cos ≤ 0) are excluded entirely by {#if glyph.front}.',
 			probe: {
 				kind: 'named-observation',
 				region: 'glyphs at the cylinder front vs side',
-				expectation: 'centre glyph has full opacity; glyphs toward the visible edge have progressively lower opacity; transition is smooth across the arc with no clamp floor at the limb.'
+				expectation:
+					'centre glyph has full opacity; glyphs toward the visible edge have progressively lower opacity; transition is smooth across the arc with no clamp floor at the limb.'
 			}
 		},
 		{
@@ -59,17 +61,20 @@ export const text3dIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'glyph body colour',
-				expectation: 'colour resolves through the text-3d.ink Role (the glyph paints with var(--ink), fallback #fffaf2).'
+				expectation:
+					'colour resolves through the text-3d.ink Role (the glyph paints with var(--ink), fallback #fffaf2).'
 			}
 		},
 		{
 			name: 'edge-treatment',
-			viaPack: 'text-3d.edge',
-			definition: 'Glyph edge behaviour.',
+			implementation:
+				'src/lib/pipelines/overlays/text-3d/variants/CylinderAxisYCanvasSource.svelte — the projected glyph raster supplies the intrinsic edge before cylindrical opacity falloff.',
+			definition: 'Intrinsic projected glyph edge on the cylindrical text surface.',
 			probe: {
 				kind: 'named-observation',
 				region: 'glyph edge at 400% zoom',
-				expectation: 'edge treatment resolves through the text-3d.edge Role.'
+				expectation:
+					'glyph edges follow the projected CanvasSource raster without a Pack edge pass.'
 			}
 		},
 		{
@@ -80,7 +85,8 @@ export const text3dIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'cylinder position within the frame',
-				expectation: 'the cylinder is centred in the frame; positioning is intrinsic to the text-3d layout, not driven by a Pack Role.'
+				expectation:
+					'the cylinder is centred in the frame; positioning is intrinsic to the text-3d layout, not driven by a Pack Role.'
 			}
 		}
 	]

@@ -16,7 +16,8 @@ export const plainIdentity: IdentitySpec = {
 	dimensions: [
 		{
 			name: 'fill-treatment',
-			definition: 'The base substrate fill — intrinsically transparent per the output contract; ink colour resolves override → Pack core (ADR-0038).',
+			definition:
+				'The base substrate fill — intrinsically transparent per the output contract; ink colour resolves override → Pack core (ADR-0038).',
 			implementation:
 				'CanvasSource.svelte paints background-color:transparent (hardcoded); ink is resolveTypographyColors — the optional engineState.typography.inkColor override wins, else the active Pack’s core ink-treatment. No Pack fill var is consumed (the body stays transparent).',
 			probe: {
@@ -33,8 +34,7 @@ export const plainIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'surface boundary against frame transparency',
-				expectation:
-					'edge behaviour matches the active Pack manifest plain.edge resolution.'
+				expectation: 'edge behaviour matches the active Pack manifest plain.edge resolution.'
 			}
 		},
 		{
@@ -50,20 +50,19 @@ export const plainIdentity: IdentitySpec = {
 		},
 		{
 			name: 'light-treatment',
-			definition: 'Any directional sheen, rim, or ambient light contribution on the surface.',
-			viaPack: 'plain.light',
+			definition: 'The transparent scaffold has no surface body on which to receive light.',
+			implementation:
+				'src/lib/pipelines/surfaces/plain/CanvasSource.svelte — the substrate is transparent and runs no Pipeline-local light pass.',
 			probe: {
 				kind: 'named-observation',
 				region: 'surface body under any implied light source',
-				expectation:
-					'light treatment matches the active Pack manifest plain.light resolution.'
+				expectation: 'no sheen, rim, or ambient-light pixels appear on the transparent scaffold.'
 			}
 		},
 		{
 			name: 'motion-form',
 			definition: 'The shape of the surface enter/exit motion.',
-			implementation:
-				'enter motion driven by the surface mount enter/exit Transition timing.',
+			implementation: 'enter motion driven by the surface mount enter/exit Transition timing.',
 			probe: {
 				kind: 'named-observation',
 				region: 'first ~10% of the timeline (enter window)',
@@ -74,8 +73,7 @@ export const plainIdentity: IdentitySpec = {
 		{
 			name: 'frame-relationship',
 			definition: 'How the surface is anchored within the frame.',
-			implementation:
-				'frame relationship intrinsic to the plain layout (centred).',
+			implementation: 'frame relationship intrinsic to the plain layout (centred).',
 			probe: {
 				kind: 'named-observation',
 				region: 'surface position within the frame',

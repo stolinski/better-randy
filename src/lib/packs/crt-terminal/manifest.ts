@@ -326,7 +326,6 @@ export const crtTerminalPack: PackManifest = {
 		},
 		'lower-third.tracking': { kind: 'style', value: '0.34em' },
 		'lower-third.weight': { kind: 'style', value: '600' },
-		'lower-third.edge': { kind: 'style', value: { rule: 'vertical-accent', color: '#45ff6e' } },
 
 		// A small phosphor readout: one-hue excitation hierarchy, square hard
 		// bezel, uniform mono weight, and centered emissive depth only.
@@ -404,11 +403,6 @@ export const crtTerminalPack: PackManifest = {
 		// end (low softness = the fade drops to ghost quickly, like P1 decay).
 		'cursor-trail.pointer': { kind: 'style', value: 'block-cursor' },
 		'cursor-trail.trailMaterial': { kind: 'style', value: { color: '#45ff6e', softness: 0.2 } },
-
-		'instance-stack.edge': { kind: 'style', value: 'clean-vector' },
-		'instance-stack.depth': { kind: 'style', value: 'opacity-recession' },
-		'instance-stack.light': { kind: 'style', value: 'none' },
-		'text-3d.edge': { kind: 'style', value: 'clean-vector' },
 
 		// ---------------------------------------------------------------
 		// FORM dress (ADR-0023 appearance) — the machine-console vocabulary

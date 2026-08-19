@@ -2,7 +2,13 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
 import { PACK_REGISTRY } from './registry.ts';
-import { requireCoreColor, resolveBackgroundFill, resolveFieldInkColor } from './resolve.ts';
+import {
+	requireCoreColor,
+	resolveAppearanceVars,
+	resolveBackgroundFill,
+	resolveFieldInkColor,
+	resolvePackRoleColor
+} from './resolve.ts';
 import type { PackManifest } from './types.ts';
 
 describe('resolveBackgroundFill (ADR-0039 §3)', () => {
@@ -40,6 +46,56 @@ describe('resolveBackgroundFill (ADR-0039 §3)', () => {
 			roles: {}
 		};
 		assert.throws(() => resolveBackgroundFill(corrupted, 'pack'), /field-treatment/);
+	});
+});
+
+describe('resolveAppearanceVars closed role contracts', () => {
+	it('does not emit an unknown role that borrows a familiar CSS suffix', () => {
+		const pack = structuredClone(PACK_REGISTRY.syntax);
+		pack.roles['lower-third.leading'] = { kind: 'style', value: '0.8' };
+		pack.roles['lower-third.font'] = { kind: 'style', value: 'Invented Sans' };
+		const vars = resolveAppearanceVars(pack, 'lower-third');
+		assert.equal(vars['--leading'], undefined);
+		assert.notEqual(vars['--font'], 'Invented Sans');
+	});
+
+	it('emits an exact registered CSS role through its declared variable consumer', () => {
+		assert.equal(
+			resolveAppearanceVars(PACK_REGISTRY.syntax, 'lower-third')['--border'],
+			PACK_REGISTRY.syntax.roles['lower-third.border']?.kind === 'style'
+				? PACK_REGISTRY.syntax.roles['lower-third.border'].value
+				: undefined
+		);
+	});
+
+	it('falls from an absent specific colour role to its mandatory core', () => {
+		const pack = structuredClone(PACK_REGISTRY.syntax);
+		delete pack.roles['lower-third.ink'];
+		assert.equal(
+			resolveAppearanceVars(pack, 'lower-third')['--ink'],
+			requireCoreColor(pack, 'ink-treatment')
+		);
+	});
+
+	it('uses declared fallbacks for a core-only secondary Pack', () => {
+		const pack = structuredClone(PACK_REGISTRY.syntax);
+		const mandatory = new Set([
+			'fill-treatment',
+			'ink-treatment',
+			'accent-treatment',
+			'field-treatment',
+			'edge-treatment',
+			'depth-treatment',
+			'light-treatment'
+		]);
+		for (const role of Object.keys(pack.roles)) {
+			if (!mandatory.has(role)) delete pack.roles[role];
+		}
+		assert.equal(resolveAppearanceVars(pack, 'chapter-card')['--base'], '#1a1612');
+		assert.equal(resolveAppearanceVars(pack, 'lower-third')['--kickerInk'], '#ffd54a');
+		assert.equal(resolveAppearanceVars(pack, 'lower-third')['--plate'], undefined);
+		assert.equal(resolveAppearanceVars(pack, 'washi-tape')['--grain-dark'], undefined);
+		assert.equal(resolvePackRoleColor(pack, 'tear-out.fill', 'accent-treatment'), '#ffd54a');
 	});
 });
 

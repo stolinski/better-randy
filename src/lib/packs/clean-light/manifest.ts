@@ -93,9 +93,8 @@ export const cleanLightPack: PackManifest = {
 		'font-label-treatment': { kind: 'style', value: "'Geist Mono', ui-monospace, monospace" },
 
 		// ---------------- plain Surface ----------------
-		'plain.edge': { kind: 'style', value: 'sharp' },
+		'plain.edge': { kind: 'style', value: 'clean' },
 		'plain.depth': { kind: 'style', value: 'none' },
-		'plain.light': { kind: 'style', value: 'none' },
 
 		// ---------------- chapter-card Surface ----------------
 		'chapter-card.ink': { kind: 'style', value: '#16181d' },
@@ -137,7 +136,6 @@ export const cleanLightPack: PackManifest = {
 		// ---------------- title-sequence Surface ----------------
 		'title-sequence.edge': { kind: 'style', value: 'none' },
 		'title-sequence.depth': { kind: 'style', value: 'none' },
-		'title-sequence.light': { kind: 'style', value: 'none' },
 		'title-sequence.ink': { kind: 'style', value: '#16181d' },
 		'title-sequence.kicker': { kind: 'style', value: '#0075de' },
 		// Baked glyph shadows are dark-field dress — dark ink on a white field
@@ -149,7 +147,7 @@ export const cleanLightPack: PackManifest = {
 		},
 
 		// ---------------- type-hero Surface ----------------
-		'type-hero.edge': { kind: 'style', value: 'clean-vector' },
+		'type-hero.edge': { kind: 'style', value: 'clean' },
 		'type-hero.depth': { kind: 'style', value: 'none' },
 		// Flat ink — the raked-light rim/carve is theatrical dark-field grammar;
 		// on white it rendered as a warm-brown emboss (calibration 2026-07-13).
@@ -220,15 +218,7 @@ export const cleanLightPack: PackManifest = {
 		'box.fill': { kind: 'style', value: '#0075de' },
 
 		// ---------------- Annotation focal chrome ----------------
-		// A lifted focal floats on the quiet shadow — slightly firmer than the
-		// core rig (it sits directly over document ink and must separate).
-		'lift-out.depth': {
-			kind: 'style',
-			value: { hardOffset: { dx: 0, dy: 8, blur: 36, color: 'rgba(9, 13, 20, 0.14)' } }
-		},
-		'lift-out.edge': { kind: 'style', value: 'sharp' },
 		'tear-out.fill': { kind: 'style', value: '#ffffff' },
-		'isolate.depth': { kind: 'style', value: 'flat' },
 
 		// ---------------- Overlays ----------------
 		// The Clean Light card: white plate, thin rule, quiet shadow, blue
@@ -239,9 +229,6 @@ export const cleanLightPack: PackManifest = {
 		'lower-third.plate': { kind: 'style', value: '#ffffff' },
 		// The cinematic scrim base goes frosted-light for the variant that uses it.
 		'lower-third.scrim': { kind: 'style', value: { color: '#eef1f4' } },
-		'lower-third.edge': { kind: 'style', value: { rule: 'vertical-accent', color: '#0075de' } },
-		'lower-third.depth': { kind: 'style', value: 'flat' },
-		'lower-third.light': { kind: 'style', value: { standard: 'none', cinematic: 'none' } },
 		'lower-third.textShadow': { kind: 'style', value: 'none' },
 		// FORM dress (ADR-0023 appearance): the thin rule — 0.18cqmin ≈ 3.9px
 		// @4K ≈ a 1px hairline at 1080 delivery (thinner vanishes on downscale —
@@ -335,11 +322,6 @@ export const cleanLightPack: PackManifest = {
 		// Cool paper-blue persistence, soft falloff — the accent family at
 		// screencast-cursor quietness.
 		'cursor-trail.trailMaterial': { kind: 'style', value: { color: '#bfdcf9', softness: 0.4 } },
-
-		'instance-stack.edge': { kind: 'style', value: 'clean-vector' },
-		'instance-stack.depth': { kind: 'style', value: 'opacity-recession' },
-		'instance-stack.light': { kind: 'style', value: 'none' },
-		'text-3d.edge': { kind: 'style', value: 'clean-vector' },
 
 		// ---------------------------------------------------------------
 		// FORM dress (ADR-0023 appearance) — the register's label grammar

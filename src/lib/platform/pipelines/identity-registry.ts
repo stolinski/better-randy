@@ -24,11 +24,10 @@
 import type { IdentitySpec } from './identity';
 import { collectViaPackRoles } from './identity';
 import {
-	isColorValue,
-	isDepthTreatmentValue,
-	isEdgeTreatmentValue,
-	isLightTreatmentValue
-} from '$lib/platform/packs/resolve';
+	getPackRoleContract,
+	packRoleHasPipelineConsumer,
+	packRolePayload
+} from '$lib/platform/packs/role-contract-registry';
 import {
 	MANDATORY_CORE_ROLES,
 	type MandatoryCoreRole,
@@ -221,7 +220,12 @@ export function filterPackAppearanceVarsForImmunity(
 
 export interface IdentityValidationError {
 	pipeline: string;
-	kind: 'unimplemented-dimension' | 'both-impl-and-via-pack' | 'missing-pack-role';
+	kind:
+		| 'unimplemented-dimension'
+		| 'both-impl-and-via-pack'
+		| 'unknown-pack-role-contract'
+		| 'pack-role-consumer-mismatch'
+		| 'missing-pack-role';
 	dimension?: string;
 	role?: string;
 	message: string;
@@ -269,6 +273,22 @@ export function validateIdentityRegistry(
 		}
 
 		for (const role of collectViaPackRoles(spec)) {
+			const contract = getPackRoleContract(role);
+			if (contract === undefined) {
+				errors.push({
+					pipeline: pipelineKey,
+					kind: 'unknown-pack-role-contract',
+					role,
+					message: `Pipeline ${pipelineKey} references unknown Pack Role contract "${role}".`
+				});
+			} else if (!packRoleHasPipelineConsumer(role, pipelineKey)) {
+				errors.push({
+					pipeline: pipelineKey,
+					kind: 'pack-role-consumer-mismatch',
+					role,
+					message: `Pack Role "${role}" does not declare ${pipelineKey} as a real pixel consumer.`
+				});
+			}
 			if (!(role in manifest.roles)) {
 				errors.push({
 					pipeline: pipelineKey,
@@ -289,48 +309,6 @@ export interface PackCoreVocabularyError {
 	kind: 'missing-core-role' | 'invalid-core-value';
 	message: string;
 }
-
-/**
- * Per-core value contracts (see `MANDATORY_CORE_ROLES` in `packs/types.ts`):
- * the four colour cores must be colour strings; the three structural cores
- * must carry a shape their resolver (`resolveEdgeTreatment` /
- * `resolveDepthTreatment` / `resolveLightTreatment`) recognises — a Pack that
- * "supplies" a core the resolver would silently drop is refused, not
- * tolerated.
- */
-const CORE_VALUE_CHECKS: Record<
-	MandatoryCoreRole,
-	{ describe: string; isValid: (value: unknown) => boolean }
-> = {
-	'fill-treatment': {
-		describe: 'a colour string (hex / rgb() / oklch() / …)',
-		isValid: (value) => typeof value === 'string' && isColorValue(value)
-	},
-	'ink-treatment': {
-		describe: 'a colour string (hex / rgb() / oklch() / …)',
-		isValid: (value) => typeof value === 'string' && isColorValue(value)
-	},
-	'accent-treatment': {
-		describe: 'a colour string (hex / rgb() / oklch() / …)',
-		isValid: (value) => typeof value === 'string' && isColorValue(value)
-	},
-	'field-treatment': {
-		describe: 'a colour string (hex / rgb() / oklch() / …)',
-		isValid: (value) => typeof value === 'string' && isColorValue(value)
-	},
-	'edge-treatment': {
-		describe: "'clean' | 'soft' | 'irregular' | 'torn' | 'none', or { mode, … }",
-		isValid: isEdgeTreatmentValue
-	},
-	'depth-treatment': {
-		describe: "'none', or a { hardOffset | offset: { dx, dy, … } } rig",
-		isValid: isDepthTreatmentValue
-	},
-	'light-treatment': {
-		describe: "'none', or { direction, intensity }",
-		isValid: isLightTreatmentValue
-	}
-};
 
 /**
  * Validate a Pack's mandatory core vocabulary (ADR-0024): every registered
@@ -357,13 +335,18 @@ export function validatePackCoreVocabulary(
 			continue;
 		}
 
-		const check = CORE_VALUE_CHECKS[core];
-		if (role.kind !== 'style' || !check.isValid(role.value)) {
+		const contract = getPackRoleContract(core);
+		if (
+			contract === undefined ||
+			contract.availability !== 'mandatory' ||
+			role.kind !== contract.permittedKind ||
+			!contract.validateValue(packRolePayload(role))
+		) {
 			errors.push({
 				pack: manifest.slug,
 				role: core,
 				kind: 'invalid-core-value',
-				message: `Pack "${manifest.slug}" core Role "${core}" has an unrecognised value (expected ${check.describe}).`
+				message: `Pack "${manifest.slug}" core Role "${core}" has an unrecognised value (expected ${contract?.valueDescription ?? 'a mandatory closed Role contract'}).`
 			});
 		}
 	}

@@ -63,36 +63,16 @@ export const barChartIdentity: IdentitySpec = {
 			}
 		},
 		{
-			name: 'edge-treatment',
-			viaPack: 'edge-treatment',
-			definition: 'Chart chrome edge treatment.',
+			name: 'chrome-separation',
+			implementation:
+				'src/lib/pipelines/blocks/bar-chart/CanvasSource.svelte + src/lib/pipelines/shader-passes/chart-mark-renderer.ts — chart chrome is flat DOM ink and data marks are analytic masks; enclosing Surface/stage treatments own any edge, depth, or light.',
+			definition:
+				'Flat chart-local chrome separated from data marks without chart-local edge, depth, or light passes.',
 			probe: {
 				kind: 'named-observation',
 				region: 'bar-chart chart',
 				expectation:
-					'Appearance resolves through edge-treatment; no Preset literal or Pack-specific sibling decides it.'
-			}
-		},
-		{
-			name: 'depth-treatment',
-			viaPack: 'depth-treatment',
-			definition: 'Non-data chart chrome depth treatment.',
-			probe: {
-				kind: 'named-observation',
-				region: 'bar-chart chart',
-				expectation:
-					'Appearance resolves through depth-treatment; no Preset literal or Pack-specific sibling decides it.'
-			}
-		},
-		{
-			name: 'light-treatment',
-			viaPack: 'light-treatment',
-			definition: 'Non-data chart chrome light treatment.',
-			probe: {
-				kind: 'named-observation',
-				region: 'bar-chart chart',
-				expectation:
-					'Appearance resolves through light-treatment; no Preset literal or Pack-specific sibling decides it.'
+					'chart chrome remains flat; enclosing composition treatments do not become chart-local Pack roles.'
 			}
 		},
 		{

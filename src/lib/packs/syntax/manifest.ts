@@ -91,14 +91,12 @@ export const syntaxPack: PackManifest = {
 		},
 
 		// ---------------- plain Surface ----------------
-		'plain.edge': { kind: 'style', value: 'sharp' },
+		'plain.edge': { kind: 'style', value: 'clean' },
 		'plain.depth': { kind: 'style', value: { offset: { dx: 8, dy: 8, blur: 0 } } },
-		'plain.light': { kind: 'style', value: 'none' },
 
 		// ---------------- chapter-card Surface ----------------
 		'chapter-card.edge': { kind: 'style', value: 'clean' },
 		'chapter-card.depth': { kind: 'style', value: { hardOffset: { dx: 10, dy: 10, blur: 0 } } },
-		'chapter-card.light': { kind: 'style', value: 'none' },
 		// Consumed color Roles (render-is-truth — match what CanvasSource paints).
 		// Warm off-white (not pure #fff): agrees with the upper-right warm key and
 		// keeps Q17 emphasis headroom — matches the preset's declared inkColor.
@@ -137,8 +135,7 @@ export const syntaxPack: PackManifest = {
 		// lower-third precedent), so the structural depth Role stays flat; the
 		// border/radius carry the edge claim.
 		'checklist.edge': { kind: 'style', value: 'clean' },
-		'checklist.depth': { kind: 'style', value: 'flat' },
-		'checklist.light': { kind: 'style', value: 'none' },
+		'checklist.depth': { kind: 'style', value: 'none' },
 
 		// ---------------- pullquote-on-photo Surface ----------------
 		// Consumed color Roles (render-is-truth — match what CanvasSource paints).
@@ -173,7 +170,6 @@ export const syntaxPack: PackManifest = {
 		// ---------------- title-sequence Surface ----------------
 		'title-sequence.edge': { kind: 'style', value: 'none' },
 		'title-sequence.depth': { kind: 'style', value: 'none' },
-		'title-sequence.light': { kind: 'style', value: 'none' },
 		// Consumed color Roles (render-is-truth — match what CanvasSource paints).
 		'title-sequence.ink': { kind: 'style', value: '#f7f6f2' },
 		'title-sequence.kicker': { kind: 'style', value: '#ffd54a' },
@@ -185,7 +181,7 @@ export const syntaxPack: PackManifest = {
 		},
 
 		// ---------------- type-hero Surface ----------------
-		'type-hero.edge': { kind: 'style', value: 'clean-vector' },
+		'type-hero.edge': { kind: 'style', value: 'clean' },
 		'type-hero.depth': { kind: 'style', value: 'none' },
 		// The raked-light dimension at full strength (render-is-truth — the
 		// identity spec's viaPack seam resolves here; intensity 1 packs the
@@ -215,12 +211,6 @@ export const syntaxPack: PackManifest = {
 				particle: '#000000'
 			}
 		},
-
-		// ---------------- paragraph Block ----------------
-		// Glyph material claim (rides the optional `material-treatment` core
-		// dimension — 'ink-bleed' is how the ink sits on the paper, not a
-		// silhouette edge).
-		'paragraph.material': { kind: 'style', value: 'ink-bleed' },
 
 		// ---------------- Diagram Blocks (ADR-0036) ----------------
 		// One pen for the whole diagram, in the composition's ink (the 'ink'
@@ -260,12 +250,7 @@ export const syntaxPack: PackManifest = {
 		'box.fill': { kind: 'style', value: '#1f5aff' },
 
 		// ---------------- Annotation focal chrome ----------------
-		'lift-out.depth': { kind: 'style', value: { hardOffset: { dx: 8, dy: 8 } } },
-		'lift-out.edge': { kind: 'style', value: 'sharp' },
-
 		'tear-out.fill': { kind: 'style', value: '#ffffff' },
-
-		'isolate.depth': { kind: 'style', value: 'flat' },
 
 		// ---------------- Overlays ----------------
 		// The Syntax house card (calibration 2026-07-09, matched to the real
@@ -348,12 +333,6 @@ export const syntaxPack: PackManifest = {
 		'washi-tape.color': { kind: 'style', value: '#fabf47' },
 		'washi-tape.grain-dark': { kind: 'style', value: 'rgba(0, 0, 0, 0.08)' },
 		'washi-tape.grain-light': { kind: 'style', value: 'rgba(255, 255, 255, 0.06)' },
-		'lower-third.edge': { kind: 'style', value: { rule: 'vertical-accent', color: '#ffd54a' } },
-		'lower-third.depth': { kind: 'style', value: 'flat' },
-		// No light pass on either variant (calibration 2026-07-09): the anamorphic
-		// flare read as glossy motion-template chrome — the house style is flat.
-		'lower-third.light': { kind: 'style', value: { standard: 'none', cinematic: 'none' } },
-
 		// ---------------- motion-primitives v1 (Phase 4.2-4.4) ----------------
 		'cursor-trail.pointer': { kind: 'style', value: 'mac-pointer' },
 		// Trail material — the CanvasSource composes this one colour at several
@@ -363,12 +342,6 @@ export const syntaxPack: PackManifest = {
 		'cursor-trail.trailMaterial': {
 			kind: 'style',
 			value: { color: '#ffe9c8', softness: 0.35 }
-		},
-
-		'instance-stack.edge': { kind: 'style', value: 'clean-vector' },
-		'instance-stack.depth': { kind: 'style', value: 'opacity-recession' },
-		'instance-stack.light': { kind: 'style', value: 'none' },
-
-		'text-3d.edge': { kind: 'style', value: 'clean-vector' }
+		}
 	}
 };

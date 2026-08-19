@@ -21,7 +21,8 @@ export const liftOutIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'focal passage vs surrounding body during the focal window',
-				expectation: 'focal passage is visibly translated upward and slightly scaled relative to its inline neighbours.'
+				expectation:
+					'focal passage is visibly translated upward and slightly scaled relative to its inline neighbours.'
 			}
 		},
 		{
@@ -38,22 +39,25 @@ export const liftOutIdentity: IdentitySpec = {
 		},
 		{
 			name: 'depth-treatment',
-			viaPack: 'lift-out.depth',
-			definition: 'Implied depth under the lifted passage (shadow, ambient occlusion).',
+			implementation:
+				'src/lib/pipelines/annotations/lift-out/index.ts — the focal-slot lift and occlusion are packed intrinsically into the annotation focal slot.',
+			definition: 'Intrinsic depth cue produced by the lifted focal-slot transform.',
 			probe: {
 				kind: 'named-observation',
 				region: 'beneath the lifted passage',
-				expectation: 'depth treatment resolves through the lift-out.depth Role.'
+				expectation:
+					'the lift transform supplies the depth cue without a Pack-specific shadow Role.'
 			}
 		},
 		{
 			name: 'edge-treatment',
-			viaPack: 'lift-out.edge',
-			definition: 'Edge behaviour of the lifted slot.',
+			implementation:
+				'src/lib/pipelines/annotations/lift-out/index.ts — focal-slot geometry preserves the captured glyph boundary; no separate lifted plate edge is rendered.',
+			definition: 'The captured glyph boundary remains the lifted slot edge.',
 			probe: {
 				kind: 'named-observation',
 				region: 'boundary of the lifted passage',
-				expectation: 'edge treatment resolves through the lift-out.edge Role.'
+				expectation: 'the lifted passage keeps its intrinsic glyph boundary with no Pack edge pass.'
 			}
 		}
 	]

@@ -100,7 +100,69 @@ expectIssue((pack) => {
 
 expectIssue((pack) => {
 	pack.roles['field-ink-treatment'] = { kind: 'style', value: 'not-a-color' };
-}, 'invalid-core-role');
+}, 'invalid-pack-role-value');
+
+for (const malformed of ['#12345', '#1234567', 'rgb(', 'rgb(bogus)']) {
+	expectIssue((pack) => {
+		pack.roles['field-treatment'] = { kind: 'style', value: malformed };
+	}, 'invalid-pack-role-value');
+}
+
+expectIssue((pack) => {
+	pack.roles['chapter-card.backdrop'] = {
+		kind: 'style',
+		value: { top: 'rgba(0, 0, 0, 0.5)', bottom: '#111', light: '#222' }
+	};
+}, 'invalid-pack-role-value');
+
+expectIssue((pack) => {
+	pack.roles['highlight.fill'] = { kind: 'style', value: 'currentColor' };
+}, 'invalid-pack-role-value');
+
+expectIssue((pack) => {
+	pack.roles['lower-third.kicker'] = {
+		kind: 'style',
+		value: { form: 'chip', plate: 'bogus', ink: 'bogus' }
+	};
+}, 'invalid-pack-role-value');
+
+expectIssue((pack) => {
+	pack.roles['invented.border'] = { kind: 'style', value: '1px solid red' };
+}, 'unknown-pack-role');
+
+expectIssue((pack) => {
+	pack.roles['fill-treatment'] = { kind: 'chrome', effects: [] };
+}, 'wrong-pack-role-kind');
+
+expectIssue((pack) => {
+	pack.roles['plain.edge'] = { kind: 'style', value: 'sharp' };
+}, 'invalid-pack-role-value');
+
+expectIssue((pack) => {
+	pack.roles['plain.depth'] = { kind: 'style', value: 'flat' };
+}, 'invalid-pack-role-value');
+
+expectIssue((pack) => {
+	pack.roles['chapter-card.backdrop'] = {
+		kind: 'style',
+		value: { top: '#000', bottom: '#111', light: 'not-a-color' }
+	};
+}, 'invalid-pack-role-value');
+
+expectIssue((pack) => {
+	pack.roles['cursor-trail.pointer'] = { kind: 'style', value: 'wand' };
+}, 'invalid-pack-role-value');
+
+expectIssue((pack) => {
+	pack.roles['cursor-trail.pointer'] = {
+		kind: 'style',
+		value: { toString: () => 'mac-pointer' }
+	};
+}, 'invalid-pack-role-value');
+
+expectIssue((pack) => {
+	pack.roles['diagram.stroke'] = { kind: 'style', value: { color: 'ink', widthPx: -1 } };
+}, 'invalid-pack-role-value');
 
 expectIssue((pack) => {
 	pack.roles['font-treatment'] = { kind: 'style', value: "'Missing Face', sans-serif" };

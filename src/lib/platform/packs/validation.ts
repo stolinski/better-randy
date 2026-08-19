@@ -1,6 +1,12 @@
 import { getEffectDefinition } from '../pipelines/definition-registry';
 import { validatePackCoreVocabulary } from '../pipelines/identity-registry';
-import { CHART_MARK_FILL_COLOR_ROLES, isChartMarkFillColorValue, isColorValue } from './resolve';
+import { CHART_MARK_FILL_COLOR_ROLES, isChartMarkFillRoleValue } from './chart-mark-fill-contract';
+import { isChartMarkFillColorValue } from './resolve';
+import {
+	getPackRoleContract,
+	packRolePayload,
+	validatePackRoleContractRegistry
+} from './role-contract-registry';
 import type { PackFont, PackManifest } from './types';
 
 export interface PackValidationIssue {
@@ -10,6 +16,10 @@ export interface PackValidationIssue {
 		| 'registry-slug-mismatch'
 		| 'invalid-metadata'
 		| 'invalid-core-role'
+		| 'unknown-pack-role'
+		| 'wrong-pack-role-kind'
+		| 'invalid-pack-role-value'
+		| 'invalid-role-contract-registry'
 		| 'unsupported-pipeline-role'
 		| 'invalid-chrome-role'
 		| 'unknown-chrome-effect'
@@ -153,6 +163,14 @@ function appendChartMarkFillIssues(
 			'Pack role "chart.mark-fill" must be a style role containing a recipe object'
 		);
 		return;
+	}
+	if (!isChartMarkFillRoleValue(role.value)) {
+		appendChartMarkFillIssue(
+			registryKey,
+			issues,
+			[...basePath],
+			'Chart mark fill must satisfy the shared strict recipe contract'
+		);
 	}
 	const recipes = role.value as Record<string, unknown>;
 	for (const key of Object.keys(recipes)) {
@@ -310,15 +328,6 @@ function appendChromeIssues(
 	issues: PackValidationIssue[]
 ): void {
 	for (const [roleKey, role] of Object.entries(manifest.roles)) {
-		if (role.kind === 'pipeline') {
-			issues.push({
-				pack: registryKey,
-				path: ['roles', roleKey],
-				kind: 'unsupported-pipeline-role',
-				message: `Pack role "${roleKey}" selects Pipeline "${role.pipeline}", but Pack-selected Pipelines have no runtime consumer`
-			});
-			continue;
-		}
 		if (role.kind !== 'chrome') continue;
 
 		if (roleKey !== 'chrome') {
@@ -386,6 +395,45 @@ export function validatePackManifest(
 ): readonly PackValidationIssue[] {
 	const issues: PackValidationIssue[] = [];
 
+	for (const [roleKey, role] of Object.entries(manifest.roles)) {
+		if (role.kind === 'pipeline') {
+			issues.push({
+				pack: registryKey,
+				path: ['roles', roleKey],
+				kind: 'unsupported-pipeline-role',
+				message: `Pack role "${roleKey}" selects Pipeline "${role.pipeline}", but Pack-selected Pipelines have no runtime consumer`
+			});
+			continue;
+		}
+		const contract = getPackRoleContract(roleKey);
+		if (contract === undefined) {
+			issues.push({
+				pack: registryKey,
+				path: ['roles', roleKey],
+				kind: 'unknown-pack-role',
+				message: `Pack role "${roleKey}" has no closed role contract`
+			});
+			continue;
+		}
+		if (role.kind !== contract.permittedKind) {
+			issues.push({
+				pack: registryKey,
+				path: ['roles', roleKey, 'kind'],
+				kind: 'wrong-pack-role-kind',
+				message: `Pack role "${roleKey}" must use kind "${contract.permittedKind}"; received "${role.kind}"`
+			});
+			continue;
+		}
+		if (!contract.validateValue(packRolePayload(role))) {
+			issues.push({
+				pack: registryKey,
+				path: ['roles', roleKey],
+				kind: 'invalid-pack-role-value',
+				message: `Pack role "${roleKey}" must contain ${contract.valueDescription}`
+			});
+		}
+	}
+
 	if (manifest.slug !== registryKey) {
 		issues.push({
 			pack: registryKey,
@@ -421,21 +469,6 @@ export function validatePackManifest(
 			message: error.message
 		});
 	}
-	const fieldInkRole = manifest.roles['field-ink-treatment'];
-	if (
-		fieldInkRole !== undefined &&
-		(fieldInkRole.kind !== 'style' ||
-			typeof fieldInkRole.value !== 'string' ||
-			!isColorValue(fieldInkRole.value))
-	) {
-		issues.push({
-			pack: registryKey,
-			path: ['roles', 'field-ink-treatment'],
-			kind: 'invalid-core-role',
-			message: 'Pack role "field-ink-treatment" must be a style role containing a CSS colour'
-		});
-	}
-
 	const declaredFamilies = appendFontDeclarationIssues(registryKey, manifest.fonts, issues);
 	for (const roleKey of FONT_ROLE_KEYS) {
 		const role = manifest.roles[roleKey];
@@ -468,7 +501,12 @@ export function validatePackManifest(
 export function validatePackRegistry(
 	registry: Readonly<Record<string, PackManifest>>
 ): readonly PackValidationIssue[] {
-	const issues: PackValidationIssue[] = [];
+	const issues: PackValidationIssue[] = validatePackRoleContractRegistry().map((issue) => ({
+		pack: '<role-contract-registry>',
+		path: [issue.role],
+		kind: 'invalid-role-contract-registry',
+		message: issue.message
+	}));
 	const seenSlugs = new Set<string>();
 	for (const [key, manifest] of Object.entries(registry)) {
 		if (seenSlugs.has(manifest.slug)) {

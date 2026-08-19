@@ -5,42 +5,34 @@
  * consumes `var(--fill)` / `var(--accent)` etc. and the active Pack drives the
  * pixels. Per ADR-0024 each slot resolves specific → core:
  *
- *   `<pipeline>.<core>` (per-Pipeline override)
- *     → `<core>-treatment` (core vocabulary)
- *       → `<core>` (bare core alias)
- *         → unset (the CanvasSource's `var(--x, <fallback>)` default applies)
+ *   `<pipeline>.<core>` (exact registered per-Pipeline override)
+ *     → `<core>-treatment` (closed core vocabulary)
+ *       → unset (the CanvasSource's intrinsic fallback applies)
  *
  * Only string-valued `style` Roles become CSS vars; structural Roles (edge
  * recipes, depth rigs, chrome) are consumed in code, not here.
  */
 import { cssColorToRgbaFloat, getRgbColorChannels } from '$lib/utils/color';
-import type { ChartFill } from '../engine-schema';
+import {
+	readChartMarkFillRecipe,
+	readChartSeriesColorRole,
+	type ChartMarkFillColorRole,
+	type ChartMarkFillRole,
+	type ChartMarkGradientAxis,
+	type ChartMarkFillMode,
+	type ChartOrderedDitherMatrix
+} from './chart-mark-fill-contract';
+import {
+	isPackColorValue,
+	isPackDepthTreatmentValue,
+	isPackEdgeTreatmentValue,
+	isPackLightTreatmentValue,
+	listPackRoleCssConsumers,
+	resolvePackStyleRoleValue
+} from './role-contract-registry';
 import type { PackManifest } from './types';
 
 const CORE_APPEARANCE = ['fill', 'ink', 'accent', 'edge', 'depth', 'light'] as const;
-
-export type ChartMarkFillMode = 'solid' | 'gradient' | 'ordered-dither';
-export type ChartOrderedDitherMatrix = '2x2' | '4x4' | '8x8';
-export type ChartMarkGradientAxis = 'inline' | 'block';
-
-export const CHART_MARK_FILL_COLOR_ROLES = [
-	'chart.mark',
-	'chart.series-2',
-	'chart.series-3',
-	'chart.series-4',
-	'chart.annotation',
-	'chart.grid',
-	'chart.axis',
-	'chart.label',
-	'accent-treatment',
-	'ink-treatment',
-	'fill-treatment',
-	'field-treatment',
-	'field-ink-treatment'
-] as const;
-
-export type ChartMarkFillColorRole = (typeof CHART_MARK_FILL_COLOR_ROLES)[number];
-export type ChartMarkFillRole = ChartFill['role'];
 
 export interface ResolvedChartMarkFill {
 	mode: ChartMarkFillMode;
@@ -49,70 +41,6 @@ export interface ResolvedChartMarkFill {
 	gradientAxis: ChartMarkGradientAxis;
 	matrix: ChartOrderedDitherMatrix;
 	cellPx: number;
-}
-
-interface ChartMarkFillRecipe {
-	mode: ChartMarkFillMode;
-	toRole?: ChartMarkFillColorRole;
-	axis?: ChartMarkGradientAxis;
-	matrix?: ChartOrderedDitherMatrix;
-	cellPx?: number;
-}
-
-const CHART_MARK_FILL_MODES: readonly ChartMarkFillMode[] = ['solid', 'gradient', 'ordered-dither'];
-const CHART_MARK_GRADIENT_AXES: readonly ChartMarkGradientAxis[] = ['inline', 'block'];
-const CHART_ORDERED_DITHER_MATRICES: readonly ChartOrderedDitherMatrix[] = ['2x2', '4x4', '8x8'];
-
-function isListedString<T extends string>(value: unknown, list: readonly T[]): value is T {
-	return typeof value === 'string' && (list as readonly string[]).includes(value);
-}
-
-function readChartMarkFillRecipe(
-	value: unknown,
-	role: ChartMarkFillRole
-): ChartMarkFillRecipe | null {
-	if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
-	const recipes = value as Record<string, unknown>;
-	if (
-		Object.keys(recipes).some(
-			(key) => !['default', 'series', 'emphasis', 'seriesRoles'].includes(key)
-		)
-	) {
-		return null;
-	}
-	const entry = recipes[role];
-	if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) return null;
-	const recipe = entry as Record<string, unknown>;
-	if (!isListedString(recipe.mode, CHART_MARK_FILL_MODES)) return null;
-	const allowedKeys =
-		recipe.mode === 'solid'
-			? ['mode']
-			: recipe.mode === 'gradient'
-				? ['mode', 'toRole', 'axis']
-				: ['mode', 'toRole', 'matrix', 'cellPx'];
-	if (Object.keys(recipe).some((key) => !allowedKeys.includes(key))) return null;
-	if (recipe.toRole !== undefined && !isListedString(recipe.toRole, CHART_MARK_FILL_COLOR_ROLES))
-		return null;
-	if (recipe.axis !== undefined && !isListedString(recipe.axis, CHART_MARK_GRADIENT_AXES))
-		return null;
-	if (recipe.matrix !== undefined && !isListedString(recipe.matrix, CHART_ORDERED_DITHER_MATRICES))
-		return null;
-	if (
-		recipe.cellPx !== undefined &&
-		(typeof recipe.cellPx !== 'number' ||
-			!Number.isFinite(recipe.cellPx) ||
-			!Number.isInteger(recipe.cellPx) ||
-			recipe.cellPx < 2 ||
-			recipe.cellPx > 32)
-	)
-		return null;
-	return {
-		mode: recipe.mode,
-		toRole: recipe.toRole,
-		axis: recipe.axis,
-		matrix: recipe.matrix,
-		cellPx: recipe.cellPx
-	};
 }
 
 export function isChartMarkFillColorValue(value: unknown): value is string {
@@ -129,10 +57,16 @@ function resolveChartColor(
 	manifest: PackManifest,
 	roleKey: ChartMarkFillColorRole
 ): readonly [number, number, number, number] | null {
-	const role = manifest.roles[roleKey];
-	if (!role || role.kind !== 'style' || !isChartMarkFillColorValue(role.value)) return null;
+	const authored = manifest.roles[roleKey];
+	if (
+		authored !== undefined &&
+		(authored.kind !== 'style' || !isChartMarkFillColorValue(authored.value))
+	)
+		return null;
+	const value = resolvePackStyleRoleValue(manifest, roleKey);
+	if (!isChartMarkFillColorValue(value)) return null;
 	try {
-		return cssColorToRgbaFloat(role.value);
+		return cssColorToRgbaFloat(value);
 	} catch {
 		return null;
 	}
@@ -150,8 +84,14 @@ function resolveChartCssColor(
 	manifest: PackManifest,
 	roleKey: ChartMarkFillColorRole
 ): string | null {
-	const role = manifest.roles[roleKey];
-	return role?.kind === 'style' && isChartMarkFillColorValue(role.value) ? role.value : null;
+	const authored = manifest.roles[roleKey];
+	if (
+		authored !== undefined &&
+		(authored.kind !== 'style' || !isChartMarkFillColorValue(authored.value))
+	)
+		return null;
+	const value = resolvePackStyleRoleValue(manifest, roleKey);
+	return isChartMarkFillColorValue(value) ? value : null;
 }
 
 /** Resolve crisp chart chrome independently from mark-local fill treatments. */
@@ -172,22 +112,9 @@ function resolveChartSeriesColorRole(
 	seriesIndex: number
 ): ChartMarkFillColorRole | null {
 	const structuralRole = manifest.roles['chart.mark-fill'];
-	if (!structuralRole || structuralRole.kind !== 'style') return null;
-	if (
-		structuralRole.value === null ||
-		typeof structuralRole.value !== 'object' ||
-		Array.isArray(structuralRole.value)
-	)
-		return null;
-	const seriesRoles = (structuralRole.value as Record<string, unknown>).seriesRoles;
-	if (
-		!Array.isArray(seriesRoles) ||
-		seriesRoles.length < 1 ||
-		seriesRoles.length > 4 ||
-		seriesRoles.some((candidate) => !isListedString(candidate, CHART_MARK_FILL_COLOR_ROLES))
-	)
-		return null;
-	return seriesRoles[seriesIndex] ?? null;
+	return structuralRole?.kind === 'style'
+		? readChartSeriesColorRole(structuralRole.value, seriesIndex)
+		: null;
 }
 
 /** Resolve the solid stroke voice for a declaration-order chart series. */
@@ -259,18 +186,7 @@ export function resolveChartMarkFillTreatment(
  * `field-treatment`) must pass this.
  */
 export function isColorValue(value: string): boolean {
-	return /^#[0-9a-f]{3,8}$/i.test(value) || /^(rgba?|hsla?|oklch|oklab|color|hwb)\(/i.test(value);
-}
-
-/**
- * A per-Pipeline Role may also claim a slot rides the *inherited* composition
- * colour (`'currentColor'` — e.g. `label.ink`, `node.ink`). Emitting it keeps
- * the specific claim winning over the core fallback, pixel-identical to the
- * CanvasSource's own `var(--x, currentColor)` default. Core Roles never carry
- * it (the validator requires real colours there).
- */
-function isEmittableColorClaim(value: string): boolean {
-	return value === 'currentColor' || isColorValue(value);
+	return isPackColorValue(value);
 }
 
 /**
@@ -285,38 +201,6 @@ function isEmittableColorClaim(value: string): boolean {
  * `var(--border, <intrinsic>)` falls back to its own look for any Pack silent
  * on the slot, so this never disturbs a Pack that only dresses in colour.
  */
-const CSS_FORM_SUFFIXES = new Set([
-	'border',
-	'radius',
-	'pad',
-	'gap',
-	'tracking',
-	'weight',
-	'case',
-	'leading',
-	// The stepped hard-offset stack and the per-Pipeline typeface split
-	// (display face vs label/chrome face) the Syntax house card claims
-	// (calibration 2026-07-09).
-	'shadow',
-	'font',
-	'fontLabel',
-	// font-stretch claim — a variant defaulting to condensed must not
-	// synthetically squeeze a Pack face that has no condensed cut (Space
-	// Grotesk rendered at 75% synthetic width read as off-brand).
-	'stretch',
-	// Status-voice drive levels: the small kicker/subtitle voices' opacity and
-	// the kicker's weight. Pipelines bake tasteful dims as var() defaults; an
-	// emissive Pack whose chrome eats small-text luminance (crt-terminal's
-	// tube) claims full drive to hold the G5 floor (Critic 2026-07-10).
-	'kickerDim',
-	'kickerWeight',
-	'subtitleDim',
-	// Baked glyph legibility shadows are reflective-pack dress: an emissive
-	// Pack claims 'none' (no shadows of any kind — depth is bloom), which
-	// also stops the black rim eating small-text avg-ink under its chrome.
-	'textShadow'
-]);
-
 /**
  * Resolve the Pack's universal type voice — the optional `font-treatment`
  * core: a single CSS font-family stack STRING (the whole Pack speaks one
@@ -333,13 +217,13 @@ const CSS_FORM_SUFFIXES = new Set([
  * appearance-var injection entirely.
  */
 export function resolveFontTreatment(manifest: PackManifest, pipelineType?: string): string | null {
-	const role =
-		(pipelineType !== undefined ? manifest.roles[`${pipelineType}.font`] : undefined) ??
-		manifest.roles['font-treatment'];
-	if (!role || role.kind !== 'style' || typeof role.value !== 'string') {
-		return null;
-	}
-	const stack = role.value.trim();
+	const value = resolvePackStyleRoleValue(
+		manifest,
+		pipelineType === undefined ? 'font-treatment' : `${pipelineType}.font`,
+		'font-treatment'
+	);
+	if (typeof value !== 'string') return null;
+	const stack = value.trim();
 	if (stack.length === 0 || isColorValue(stack)) {
 		return null;
 	}
@@ -351,23 +235,17 @@ export function resolveAppearanceVars(
 	pipelineType: string
 ): Record<string, string> {
 	const vars: Record<string, string> = {};
-	const prefix = `${pipelineType}.`;
 
-	// 1. Every per-Pipeline string `style` Role becomes a CSS var named after its
-	//    suffix — `lower-third.roleInk` → `--roleInk`. A Pipeline can declare any
-	//    color slots it needs beyond the core vocabulary; the CanvasSource just
-	//    references the matching `var(--<suffix>, <fallback>)`.
-	for (const [key, role] of Object.entries(manifest.roles)) {
-		if (!key.startsWith(prefix) || role.kind !== 'style' || typeof role.value !== 'string') {
-			continue;
-		}
-		const suffix = key.slice(prefix.length);
-		// A slot is emitted when it's a colour claim OR a declared CSS-form slot
-		// (border/pad/tracking/…). Other non-colour strings stay code-consumed
-		// keywords (`'flat'`, `'opacity-recession'`) and are NOT emitted as junk.
-		if (isEmittableColorClaim(role.value) || CSS_FORM_SUFFIXES.has(suffix)) {
-			vars[`--${suffix}`] = role.value;
-		}
+	// 1. Exact Role contracts own CSS admission. A familiar suffix is not enough:
+	//    the Role must name this Pipeline and its declared CSS variable consumer.
+	for (const contract of listPackRoleCssConsumers(pipelineType)) {
+		const value = resolvePackStyleRoleValue(manifest, contract.role);
+		if (typeof value !== 'string') continue;
+		const consumer = contract.consumers.find(
+			(candidate) => candidate.kind === 'css-variable' && candidate.pipelineType === pipelineType
+		);
+		if (consumer?.kind !== 'css-variable') continue;
+		vars[consumer.variable] = value;
 	}
 
 	// 2. Core-vocabulary fallback (ADR-0024): fill any core slot a per-Pipeline
@@ -380,7 +258,7 @@ export function resolveAppearanceVars(
 		if (vars[`--${core}`] !== undefined) {
 			continue;
 		}
-		const role = manifest.roles[`${core}-treatment`] ?? manifest.roles[core];
+		const role = manifest.roles[`${core}-treatment`];
 		if (
 			role &&
 			role.kind === 'style' &&
@@ -409,15 +287,9 @@ export function resolveAppearanceVars(
 	//    `font-label-treatment` core, so a pack can pair a display voice with a
 	//    mono chrome voice everywhere without per-family duplication.
 	if (vars['--fontLabel'] === undefined) {
-		const labelRole = manifest.roles['font-label-treatment'];
-		if (
-			labelRole &&
-			labelRole.kind === 'style' &&
-			typeof labelRole.value === 'string' &&
-			labelRole.value.trim().length > 0 &&
-			!isColorValue(labelRole.value)
-		) {
-			vars['--fontLabel'] = labelRole.value;
+		const labelFont = resolvePackStyleRoleValue(manifest, 'font-label-treatment');
+		if (typeof labelFont === 'string' && labelFont.trim().length > 0) {
+			vars['--fontLabel'] = labelFont;
 		}
 	}
 
@@ -499,13 +371,6 @@ function isGlowRig(value: unknown): value is GlowRig {
 }
 
 /**
- * Depth keywords the core `depth-treatment` Role may carry. Today only
- * `'none'`; the set is deliberately a list so future variants extend it here
- * without touching the validator.
- */
-const DEPTH_TREATMENT_KEYWORDS: readonly string[] = ['none'];
-
-/**
  * Shape check for the core `depth-treatment` value, used by
  * `validatePackCoreVocabulary`: a recognised keyword, a hard-offset rig
  * object (`{ hardOffset | offset: { dx, dy, blur?, color? } }`), or a glow rig
@@ -513,17 +378,7 @@ const DEPTH_TREATMENT_KEYWORDS: readonly string[] = ['none'];
  * `resolveDepthTreatment` understands.
  */
 export function isDepthTreatmentValue(value: unknown): boolean {
-	if (typeof value === 'string') {
-		return DEPTH_TREATMENT_KEYWORDS.includes(value);
-	}
-	if (value !== null && typeof value === 'object') {
-		const rigSource = value as { hardOffset?: unknown; offset?: unknown; glow?: unknown };
-		if (rigSource.glow !== undefined) {
-			return isGlowRig(rigSource.glow);
-		}
-		return isHardOffsetRig(rigSource.hardOffset ?? rigSource.offset);
-	}
-	return false;
+	return isPackDepthTreatmentValue(value);
 }
 
 /**
@@ -549,12 +404,10 @@ export function resolveDepthTreatment(
 	pipelineType: string,
 	foreground = 'currentColor'
 ): ResolvedDepthTreatment | null {
-	const role = manifest.roles[`${pipelineType}.depth`] ?? manifest.roles['depth-treatment'];
-	if (!role || role.kind !== 'style') {
-		return null;
-	}
+	const value = resolvePackStyleRoleValue(manifest, `${pipelineType}.depth`, 'depth-treatment');
+	if (value === undefined) return null;
 
-	const rigSource = role.value as { hardOffset?: unknown; offset?: unknown; glow?: unknown };
+	const rigSource = value as { hardOffset?: unknown; offset?: unknown; glow?: unknown };
 
 	if (isGlowRig(rigSource?.glow)) {
 		const glow = rigSource.glow;
@@ -626,14 +479,7 @@ function isEdgeTreatmentMode(value: unknown): value is EdgeTreatmentMode {
  * shapes `resolveEdgeTreatment` understands.
  */
 export function isEdgeTreatmentValue(value: unknown): boolean {
-	if (isEdgeTreatmentMode(value)) {
-		return true;
-	}
-	return (
-		value !== null &&
-		typeof value === 'object' &&
-		isEdgeTreatmentMode((value as { mode?: unknown }).mode)
-	);
+	return isPackEdgeTreatmentValue(value);
 }
 
 const EDGE_MODE_DEFAULTS: Record<EdgeTreatmentMode, Omit<EdgeTreatment, 'mode'>> = {
@@ -668,12 +514,8 @@ export function resolveEdgeTreatment(
 	manifest: PackManifest,
 	pipelineType: string
 ): EdgeTreatment | null {
-	const role = manifest.roles[`${pipelineType}.edge`] ?? manifest.roles['edge-treatment'];
-	if (!role || role.kind !== 'style') {
-		return null;
-	}
-
-	const value = role.value;
+	const value = resolvePackStyleRoleValue(manifest, `${pipelineType}.edge`, 'edge-treatment');
+	if (value === undefined) return null;
 	if (isEdgeTreatmentMode(value)) {
 		return { mode: value, ...EDGE_MODE_DEFAULTS[value] };
 	}
@@ -733,17 +575,7 @@ function isLightDirection(value: unknown): value is LightDirection {
  * exactly the shapes `resolveLightTreatment` understands.
  */
 export function isLightTreatmentValue(value: unknown): boolean {
-	if (value === 'none') {
-		return true;
-	}
-	if (value !== null && typeof value === 'object') {
-		const shaped = value as { direction?: unknown; intensity?: unknown };
-		return (
-			isLightDirection(shaped.direction) &&
-			(shaped.intensity === undefined || readFiniteNumber(shaped.intensity) !== undefined)
-		);
-	}
-	return false;
+	return isPackLightTreatmentValue(value);
 }
 
 /**
@@ -753,10 +585,10 @@ export function isLightTreatmentValue(value: unknown): boolean {
  *
  * Unlike the other structural resolvers this reads ONLY the core
  * `light-treatment` Role: the scene light is a property of the whole staged
- * scene, not of one Pipeline — the per-Pipeline `<type>.light` Roles carry
- * per-element treatments (e.g. the lower-third's anamorphic flare) for their
- * own consumers. A Role that is absent, keyword-valued (`'none'`), or missing
- * a recognised direction resolves to `null` — no scene light.
+ * scene, not of one Pipeline. Pipeline-local light Roles are absent unless a
+ * concrete Pipeline owns a distinct pixel consumer (`type-hero.light` is the
+ * current example). A Role that is absent, keyword-valued (`'none'`), or
+ * missing a recognised direction resolves to `null` — no scene light.
  */
 export function resolveLightTreatment(manifest: PackManifest): LightTreatment | null {
 	const role = manifest.roles['light-treatment'];
@@ -795,9 +627,8 @@ export type ResolvedMaterialTreatment = ScanlineMaterial;
  * `material-treatment` core — ADR-0024 recognises it, never requires it).
  * Structural-resolver house style: Packs opt in with a recognised recipe
  * shape (`{ scanline: { pitchPx?, strength?, shimmer? } }`); an absent Role or
- * an unrecognised value (e.g. the per-Pipeline `paragraph.material:
- * 'ink-bleed'` glyph claim, which rides its own consumer) resolves to `null`
- * — no pass runs.
+ * an unrecognised value resolves to `null` — no pass runs. Paragraph glyph
+ * rasterization is intrinsic; material is intentionally composition-wide.
  *
  * Like the scene light this reads ONLY the core Role: the material is a
  * property of the Pack's substrate physics, applied per element pixel by the
@@ -852,12 +683,11 @@ export function requireCoreColor(
  */
 export function resolveFieldInkColor(manifest: PackManifest, authoredInkColor?: string): string {
 	if (authoredInkColor !== undefined) return authoredInkColor;
-	const role = manifest.roles['field-ink-treatment'];
-	if (role === undefined) return requireCoreColor(manifest, 'ink-treatment');
-	if (role.kind !== 'style' || typeof role.value !== 'string' || !isColorValue(role.value)) {
+	const value = resolvePackStyleRoleValue(manifest, 'field-ink-treatment');
+	if (typeof value !== 'string' || !isColorValue(value)) {
 		throw new Error(`Pack "${manifest.slug}" has an invalid optional core "field-ink-treatment".`);
 	}
-	return role.value;
+	return value;
 }
 
 /**
@@ -890,10 +720,8 @@ export function resolvePackRoleColor(
 	roleName: string,
 	core: 'fill-treatment' | 'ink-treatment' | 'accent-treatment' | 'field-treatment'
 ): string {
-	const role = manifest.roles[roleName];
-	if (role?.kind === 'style' && typeof role.value === 'string' && isColorValue(role.value)) {
-		return role.value;
-	}
+	const value = resolvePackStyleRoleValue(manifest, roleName);
+	if (typeof value === 'string' && isColorValue(value)) return value;
 	return requireCoreColor(manifest, core);
 }
 
@@ -1046,10 +874,9 @@ export function resolveColorChannels(
 	role: string,
 	fallbackHex: string
 ): string {
-	const entry = manifest.roles[role];
+	const value = resolvePackStyleRoleValue(manifest, role);
 	let hex = fallbackHex;
-	if (entry && entry.kind === 'style') {
-		const value = entry.value;
+	if (value !== undefined) {
 		if (typeof value === 'string') {
 			hex = value;
 		} else if (

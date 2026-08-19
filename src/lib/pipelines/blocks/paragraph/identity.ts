@@ -1,10 +1,10 @@
 /**
  * Identity Spec for the `paragraph` Block — per ADR-0015. The body-text
  * Block: paragraphs of inline-marked annotation segments laid into the
- * Surface's content slot. The Block claims a typographic reading texture
+ * Surface's content slot. The Block claims its typographic reading texture
  * (line-height rhythm, paragraph break behaviour, marked-segment integration)
- * intrinsically, and concedes the glyph material to the Pack per ADR-0019
- * (`paragraph.material` → the optional `material-treatment` core).
+ * intrinsically. Pack material remains composition-wide through the optional
+ * `material-treatment` core; there is intentionally no paragraph-specific Role.
  */
 
 import type { IdentitySpec } from '$lib/platform/pipelines/identity';
@@ -53,13 +53,14 @@ export const paragraphIdentity: IdentitySpec = {
 		},
 		{
 			name: 'material-treatment',
-			viaPack: 'paragraph.material',
-			definition:
-				'Glyph material claim — how the ink sits on the substrate (clean vector, ink bleed, dilation).',
+			implementation:
+				'src/lib/pipelines/blocks/paragraph/CanvasSource.svelte — browser text rasterization supplies the intrinsic clean glyph edge; the shared optional Pack material pass is composition-wide, not a paragraph Role.',
+			definition: 'Intrinsic clean glyph rasterization for paragraph text.',
 			probe: {
 				kind: 'named-observation',
 				region: 'body glyph edge at 400% zoom',
-				expectation: 'glyph material behaviour resolves through the paragraph.material Role.'
+				expectation:
+					'glyph edges follow the paragraph CanvasSource text rasterization; no paragraph-specific Pack material is applied.'
 			}
 		},
 		{

@@ -36,37 +36,41 @@ export const instanceStackIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'instance body colour',
-				expectation: 'colour resolves through the instance-stack.ink Role (the CanvasSource paints color: var(--ink, #000000)).'
+				expectation:
+					'colour resolves through the instance-stack.ink Role (the CanvasSource paints color: var(--ink, #000000)).'
 			}
 		},
 		{
 			name: 'edge-treatment',
-			viaPack: 'instance-stack.edge',
-			definition: 'Glyph edge behaviour on each instance.',
+			implementation:
+				'src/lib/pipelines/overlays/instance-stack/variants/*CanvasSource.svelte — browser glyph rasterization supplies the intrinsic clean edge.',
+			definition: 'Intrinsic clean glyph edges on each instance.',
 			probe: {
 				kind: 'named-observation',
 				region: 'glyph edge at 400% zoom',
-				expectation: 'edge treatment resolves through the instance-stack.edge Role.'
+				expectation: 'each instance keeps the CanvasSource glyph edge without a Pack edge pass.'
 			}
 		},
 		{
 			name: 'depth-treatment',
-			viaPack: 'instance-stack.depth',
-			definition: 'Implied depth between instances (opacity recession, z-offset, none).',
+			implementation:
+				'src/lib/pipelines/overlays/instance-stack/variants/instance-stack-motion.ts — spatial offsets and declaration-order opacity produce the intrinsic stack depth.',
+			definition: 'Intrinsic depth from instance offset and opacity recession.',
 			probe: {
 				kind: 'named-observation',
 				region: 'instances 0 through N-1',
-				expectation: 'depth treatment resolves through the instance-stack.depth Role.'
+				expectation: 'depth follows the variant’s deterministic offset and opacity progression.'
 			}
 		},
 		{
 			name: 'light-treatment',
-			viaPack: 'instance-stack.light',
-			definition: 'Any directional light contribution on the instances.',
+			implementation:
+				'src/lib/pipelines/overlays/instance-stack/variants/*CanvasSource.svelte — instances are flat glyphs with no directional-light pass.',
+			definition: 'No directional-light contribution on the flat instances.',
 			probe: {
 				kind: 'named-observation',
 				region: 'instance strokes',
-				expectation: 'light treatment resolves through the instance-stack.light Role.'
+				expectation: 'instance strokes remain flat and unlit.'
 			}
 		},
 		{
@@ -77,7 +81,8 @@ export const instanceStackIdentity: IdentitySpec = {
 			probe: {
 				kind: 'named-observation',
 				region: 'stack position within the frame',
-				expectation: 'anchor + offset behaviour is intrinsic to the instance-stack variant layout (variants/<id>.ts) plus the Overlay placement (position.anchor/offset in index.ts defaults), not a Pack Role.'
+				expectation:
+					'anchor + offset behaviour is intrinsic to the instance-stack variant layout (variants/<id>.ts) plus the Overlay placement (position.anchor/offset in index.ts defaults), not a Pack Role.'
 			}
 		}
 	]
