@@ -44,6 +44,7 @@
 	import { presetBase } from './preset-base.svelte';
 	import { serializeCompositionState } from './preset-pure';
 	import { compositionMeta } from './composition-meta.svelte';
+	import { getAuthoringPackOption } from './packs/catalog';
 	import { getPack } from './packs/registry';
 	import { isPresetOpaque, isTransitionOpaque } from '$lib/utils/output-classification';
 	import { readRuntimeRenderRegistryIdentity } from './deterministic-render-registry-identity';
@@ -1161,7 +1162,7 @@
 		>
 		<span class="topbar__chip">{presetBase.kind}</span>
 		<span class="topbar__chip topbar__chip--pack">
-			<i aria-hidden="true"></i>{getPack(packState.slug).label}
+			<i aria-hidden="true"></i>{getAuthoringPackOption(packState.slug).label}
 		</span>
 		{#if compositionMeta.isUserComposition}
 			<span class="topbar__chip topbar__chip--forked">Forked</span>

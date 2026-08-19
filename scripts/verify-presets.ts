@@ -1,7 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
 import { readFile, readdir } from 'node:fs/promises';
-import { registerHooks } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -14,58 +12,13 @@ import {
 	selectAffectedStaticPresetPackAxes,
 	type StaticPresetPackAxis
 } from './preset-validation-scope.ts';
+import { createPackCalibrationVerificationInputs } from './pack-calibration-verification-inputs.ts';
+import { registerSupersRuntimeModuleHooks } from './supers-runtime-module-hooks.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..');
 
-registerHooks({
-	resolve(specifier, context, nextResolve) {
-		if (specifier.startsWith('$lib/')) {
-			const base = resolve(repoRoot, 'src/lib', specifier.slice('$lib/'.length));
-			for (const candidate of [`${base}.ts`, resolve(base, 'index.ts'), base]) {
-				if (existsSync(candidate))
-					return { url: pathToFileURL(candidate).href, shortCircuit: true };
-			}
-		}
-		try {
-			return nextResolve(specifier, context);
-		} catch (error) {
-			if ((specifier.startsWith('./') || specifier.startsWith('../')) && context.parentURL) {
-				const base = resolve(dirname(fileURLToPath(context.parentURL)), specifier);
-				for (const candidate of [`${base}.ts`, resolve(base, 'index.ts')]) {
-					if (existsSync(candidate)) {
-						return { url: pathToFileURL(candidate).href, shortCircuit: true };
-					}
-				}
-			}
-			throw error;
-		}
-	},
-	load(url, context, nextLoad) {
-		if (url.endsWith('/engine-state.svelte.ts')) {
-			return {
-				format: 'module',
-				source:
-					"export const engineState = {}; export const packState = { slug: 'syntax' }; export const transitionState = {};",
-				shortCircuit: true
-			};
-		}
-		if (url.endsWith('.css')) return { format: 'module', source: '', shortCircuit: true };
-		if (url.endsWith('.svelte')) {
-			return { format: 'module', source: 'export default {};', shortCircuit: true };
-		}
-		if (/\.(png|jpe?g|webp|woff2?|wav)$/.test(url)) {
-			return {
-				format: 'module',
-				source: `export default ${JSON.stringify(url)};`,
-				shortCircuit: true
-			};
-		}
-		return nextLoad(url, context);
-	}
-});
-(globalThis as typeof globalThis & { $state: <T>(value: T) => T }).$state = <T>(value: T): T =>
-	value;
+registerSupersRuntimeModuleHooks(repoRoot);
 
 type Orientation = 'horizontal' | 'vertical';
 
@@ -126,6 +79,13 @@ const packValidationPath = pathToFileURL(
 const identityRegistryPath = pathToFileURL(
 	resolve(repoRoot, 'src/lib/platform/pipelines/identity-registry.ts')
 ).href;
+const packCatalogPath = pathToFileURL(resolve(repoRoot, 'src/lib/platform/packs/catalog.ts')).href;
+const packCatalogValidationPath = pathToFileURL(
+	resolve(repoRoot, 'src/lib/platform/packs/catalog-validation.ts')
+).href;
+const renderRegistryFingerprintPath = pathToFileURL(
+	resolve(repoRoot, 'src/lib/platform/deterministic-render-registry-fingerprint.ts')
+).href;
 
 const [
 	ingressModule,
@@ -134,6 +94,9 @@ const [
 	packRegistryModule,
 	packValidationModule,
 	identityModule,
+	packCatalogModule,
+	packCatalogValidationModule,
+	renderRegistryFingerprintModule,
 	matrixModule,
 	changeImpactModule
 ] = await Promise.all([
@@ -143,6 +106,9 @@ const [
 	import(packRegistryPath),
 	import(packValidationPath),
 	import(identityRegistryPath),
+	import(packCatalogPath),
+	import(packCatalogValidationPath),
+	import(renderRegistryFingerprintPath),
 	import(pathToFileURL(resolve(repoRoot, 'scripts/derive-supers-render-matrix-manifest.ts')).href),
 	import(pathToFileURL(resolve(repoRoot, 'scripts/change-impact-classifier.ts')).href)
 ]);
@@ -162,6 +128,29 @@ const validatePackRegistry = packValidationModule.validatePackRegistry as (
 const validateIdentityRegistry = identityModule.validateIdentityRegistry as (
 	manifest: unknown
 ) => readonly { kind: string; pipeline: string; message: string }[];
+const PACK_CATALOG_REGISTRY = packCatalogModule.PACK_CATALOG_REGISTRY as Readonly<
+	Record<string, { status: 'draft' } | { status: 'ratified'; verificationBundleId: string }>
+>;
+const CALIBRATION_TRIO_FRAME_SPECS = packCatalogModule.CALIBRATION_TRIO_FRAME_SPECS as readonly {
+	presetSlug: string;
+}[];
+const validatePackCatalogRegistry = packCatalogValidationModule.validatePackCatalogRegistry as (
+	packRegistry: Readonly<Record<string, unknown>>,
+	catalogRegistry: Readonly<Record<string, unknown>>
+) => readonly { kind: string; pack: string; path: (string | number)[]; message: string }[];
+const validatePackCatalogBundleFreshness =
+	packCatalogValidationModule.validatePackCatalogBundleFreshness as (
+		catalogRegistry: Readonly<Record<string, unknown>>,
+		runtimeIdentity: unknown,
+		renderSourceFingerprint: string
+	) => Promise<
+		readonly { kind: string; pack: string; path: (string | number)[]; message: string }[]
+	>;
+const createRuntimeRenderRegistryIdentity =
+	renderRegistryFingerprintModule.createRuntimeRenderRegistryIdentity as (
+		deliverablePresets: readonly { id: string; value: unknown }[],
+		packs: readonly { id: string; value: unknown }[]
+	) => Promise<unknown>;
 const collectPresetPipelineReferences = matrixModule.collectPresetPipelineReferences as (
 	preset: StaticPreset
 ) => string[];
@@ -249,6 +238,12 @@ async function main(): Promise<void> {
 			`Pack ${firstPackIssue.pack} ${firstPackIssue.kind} ${issuePath(firstPackIssue.path)} — ${firstPackIssue.message}`
 		);
 	}
+	const catalogIssue = validatePackCatalogRegistry(PACK_REGISTRY, PACK_CATALOG_REGISTRY)[0];
+	if (catalogIssue) {
+		fail(
+			`Pack catalog ${catalogIssue.pack} ${catalogIssue.kind} ${issuePath(catalogIssue.path)} — ${catalogIssue.message}`
+		);
+	}
 	const syntaxPack = PACK_REGISTRY.syntax;
 	const identityIssue = syntaxPack ? validateIdentityRegistry(syntaxPack)[0] : undefined;
 	if (!syntaxPack) fail('Reference Pack syntax is not registered');
@@ -265,6 +260,26 @@ async function main(): Promise<void> {
 			presetDependencies: readPresetDependencies(preset)
 		}))
 		.sort((left, right) => left.slug.localeCompare(right.slug));
+	const { runtimeIdentity, renderSourceFingerprint } =
+		await createPackCalibrationVerificationInputs({
+			repoRoot,
+			calibrationTrio: CALIBRATION_TRIO_FRAME_SPECS,
+			packRegistry: PACK_REGISTRY,
+			parsePreset: (value) => PresetIngressSchema.parse(value),
+			createRuntimeIdentity: createRuntimeRenderRegistryIdentity
+		});
+	const staleCatalogIssue = (
+		await validatePackCatalogBundleFreshness(
+			PACK_CATALOG_REGISTRY,
+			runtimeIdentity,
+			renderSourceFingerprint
+		)
+	)[0];
+	if (staleCatalogIssue) {
+		fail(
+			`Pack catalog ${staleCatalogIssue.pack} ${staleCatalogIssue.kind} ${issuePath(staleCatalogIssue.path)} — ${staleCatalogIssue.message}`
+		);
+	}
 
 	let axes: StaticPresetPackAxis[];
 	let changedPaths = options.changedPaths;

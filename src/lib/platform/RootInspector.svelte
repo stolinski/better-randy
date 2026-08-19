@@ -3,6 +3,7 @@
 
 	import { engineState, packState } from './engine-state.svelte';
 	import { getPack, PACK_REGISTRY } from './packs/registry';
+	import { getAuthoringPackOption, listAuthoringPacks } from './packs/catalog';
 	import { resolveBackgroundFill } from './packs/resolve';
 	import { presetBase } from './preset-base.svelte';
 	import { getPipelineRendererRuntime } from './pipelines/runtime-context.svelte';
@@ -22,7 +23,7 @@
 	import TransitionRecipeSection from './TransitionRecipeSection.svelte';
 	import { AsyncAuthoringOperationGuard } from '$lib/utils/async-authoring-operation';
 
-	const packOptions = Object.entries(PACK_REGISTRY) as [string, (typeof PACK_REGISTRY)[string]][];
+	const packOptions = listAuthoringPacks();
 	const rendererController = getPipelineRendererRuntime();
 	const rendererChangeGuard = new AsyncAuthoringOperationGuard();
 	onDestroy(() => rendererChangeGuard.dispose());
@@ -198,11 +199,11 @@
 		</Field>
 	</InspectorSection>
 
-	<InspectorSection label="Pack" summary={PACK_REGISTRY[packState.slug]?.label ?? packState.slug}>
+	<InspectorSection label="Pack" summary={getAuthoringPackOption(packState.slug).label}>
 		<Field label="Pack">
 			<select value={packState.slug} onchange={handlePackChange}>
-				{#each packOptions as [slug, pack] (slug)}
-					<option value={slug}>{pack.label}</option>
+				{#each packOptions as option (option.slug)}
+					<option value={option.slug}>{option.label}</option>
 				{/each}
 			</select>
 		</Field>

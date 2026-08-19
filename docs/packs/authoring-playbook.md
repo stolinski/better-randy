@@ -42,7 +42,7 @@ Anatomy of a pack (three files + one registration):
    - **Form dress** only through an exact Role in `PACK_ROLE_CONTRACT_REGISTRY`; every Role names its CSS variable, value contract, fallback, and real Pipeline consumer. Current form slots include border, radius, padding, gap, tracking, weight, case, shadow, font, label font, stretch, and the registered status-voice slots. Reference `var(--cqmin)` so widths scale with the frame. If the closed registry lacks the Role, add its real consumer and contract before using it in a manifest.
    - **Comment the why on every non-obvious value** — the existing manifests are the model: each hex traces to a measurement, a Critic finding, or an aesthetic-doc law.
 3. **`docs/packs/<slug>/aesthetic.md`** — the doc the Critic verifies against, grounded in the real pixels from intake: voice, palette job-table, type system, surface treatment (the structural claims and their inversions), motion vocabulary preferences, **anti-aesthetic** (what this pack is _not_ — the most load-bearing section), reference reel. Model: `docs/packs/crt-terminal/aesthetic.md`.
-4. **Register** in `PACK_REGISTRY` (`src/lib/platform/packs/registry.ts`). There is no default pack — every Preset names its own.
+4. **Register for rendering** in `PACK_REGISTRY` (`src/lib/platform/packs/registry.ts`) and add a `draft` entry to `PACK_CATALOG_REGISTRY` (`src/lib/platform/packs/catalog.ts`). Render registration does not imply catalog approval. There is no default pack — every Preset names its own.
 
 ## 4 — Machine gates
 
@@ -50,18 +50,20 @@ Run all three before any human review:
 
 1. **Manifest + Identity validator** — `pnpm verify-presets` validates registry key/slug identity, metadata, the mandatory core vocabulary, font-role-to-manifest declarations and weight integrity, chrome Effect names/params, and the full reference-Pack Identity contract for every registered Pack, alongside Preset schema + semantic checks. An invalid Pack never advances to pixel review.
 2. **Pixel-diff lock** — `npx tsx scripts/probe-pack-diff.ts --packs syntax,<slug>` while iterating, then the no-flag full catalog matrix before ratification — every non-immune pipeline must visibly re-skin **inside its own region mask** under every pack pair, and every Pack-immune pipeline must hold the inverse (its region stays stable). A registered non-immune pipeline with no covering preset is a **failure**, not a warning. The report stores source hashes; `--check` re-validates freshness without Chrome. This evidence is 25%-scale machine proof only — never cite it as Calibration Trio evidence (§ 5).
-3. **Render-verify at zoom, at native resolution.** Capture real frames (`scripts/cdp-capture.mjs` saves native 4K), zoom the regions you claimed, and judge rendered pixels — never trust intent. If a change "doesn't take," prove the path runs with a garish diagnostic color before tuning the real value.
+3. **Deterministic native render verification.** Run the native render matrix and inspect the same deterministic frame inputs at zoom in the app. Machine checks establish reproducible inputs and technical correctness; they do not make the aesthetic decision. If a change "doesn't take," prove the path runs with a garish diagnostic color before tuning the real value.
 
 ## 5 — The Calibration Trio loop (the human gate)
 
-The trio: **`docu-timeline-build`**, the **`lower-third` house card**, and **`type-hero-vantage`** — the three Scott-ratified references (task `7sshp8rj`). Re-dress _the same three compositions_ under the new pack:
+The trio: **`docu-timeline-build`**, the **`lower-third` house card**, and **`type-hero-vantage`** — the three Scott-ratified references (task `7sshp8rj`). Review the exact unsuffixed canonical Presets under the target Pack:
 
-- Copy each reference preset to `<name>-<slug>.json`, set `kind: "fixture"`, and flip the `pack` field. Calibration re-dresses stay directly loadable but never enter the Starter-template listing.
-- **Lift authored `typography.paperColor`/`inkColor` overrides that fight the pack** — ADR-0038 lets authored overrides legitimately win, so a re-dress must remove the ones that restate the old pack.
-- Re-dressing means **rebuilding the composition's language under the pack**, not repainting: check every voice, every piece of chrome, every treatment against the new aesthetic doc. Where a role can't express the brand, that's a role gap to add — not a preset hack.
-- Capture all three at native 4K, **look at the frames at human scale** (not just probe numbers), then iterate **live with Scott until ratified**. The ratified trio doubles as the pack's pack-switch demo.
+- Open each canonical built-in Preset in the app with `?source=builtin`, then select the draft Pack through the authoring Pack control: `/p/docu-timeline-build?source=builtin`, `/p/lower-third?source=builtin`, and `/p/type-hero-vantage?source=builtin`. The built-in source is mandatory because a same-slug User composition is different content. Do not copy or modify a Pack-specific Preset for ratification.
+- If an authored override fights the Pack, correct the canonical Preset in a Pack-neutral way and recheck it under every Pack. Where a Role cannot express the brand, add the real consumer and Role contract rather than a Preset hack.
+- Legacy `<name>-<pack>.json` Calibration re-dresses are non-authoritative engine-gap history. They remain directly loadable fixtures but are never ratification input or catalog precedent.
+- Run `node --experimental-strip-types scripts/print-pack-calibration-bundles.ts` to print the exact source-bound bundle ID and fixed native frame specs. The ID binds the target Pack manifest, all three canonical Preset values, the frame specs, and the documented sorted render-source tree in `scripts/pack-calibration-render-source-fingerprint.ts` (including bundled asset declarations). Catalog approval metadata is the sole exclusion so recording approval does not invalidate itself.
+- Inspect all three canonical Presets at human scale in the app and iterate live with Scott. The app is the review surface; screenshots are not approval evidence and the machine never grants aesthetic approval.
+- After Scott approves that exact bundle, change the Pack's catalog record to `ratified` and commit `humanRatifiedAt`, the printed `verificationBundleId`, and the unchanged Trio frame specs. `npm run verify-presets` uses the same input loader as the print command and rejects stale approvals.
 
-No ratified trio → the pack is not in the catalog, and the next pack does not start.
+No human-ratified current bundle → the Pack remains renderable for authoring but is not in the public catalog, and the next Pack does not start.
 
 ## 6 — Gotchas ledger (each one cost a session)
 

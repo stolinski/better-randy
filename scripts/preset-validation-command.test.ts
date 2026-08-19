@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, resolve } from 'node:path';
 import test from 'node:test';
 
 import {
@@ -7,6 +10,34 @@ import {
 	parsePresetValidationCommand
 } from './preset-validation-command.ts';
 import { selectAffectedStaticPresetPackAxes } from './preset-validation-scope.ts';
+import {
+	PACK_CALIBRATION_RENDER_SOURCE_ROOTS,
+	createPackCalibrationRenderSourceFingerprint
+} from './pack-calibration-render-source-fingerprint.ts';
+import { createPackCalibrationVerificationInputs } from './pack-calibration-verification-inputs.ts';
+
+async function createFingerprintTestRepository(): Promise<string> {
+	const repoRoot = await mkdtemp(resolve(tmpdir(), 'supers-pack-fingerprint-'));
+	for (const path of PACK_CALIBRATION_RENDER_SOURCE_ROOTS) {
+		const absolutePath = resolve(repoRoot, path);
+		if (path === 'package.json' || path === 'pnpm-lock.yaml') {
+			await mkdir(dirname(absolutePath), { recursive: true });
+			await writeFile(absolutePath, `${path}\n`);
+		} else {
+			await mkdir(absolutePath, { recursive: true });
+		}
+	}
+	await writeFile(
+		resolve(repoRoot, 'src/lib/pipelines/renderer.ts'),
+		'export const renderRevision = 1;\n'
+	);
+	await mkdir(resolve(repoRoot, 'src/lib/platform/packs'), { recursive: true });
+	await writeFile(
+		resolve(repoRoot, 'src/lib/platform/packs/catalog.ts'),
+		"export const status = 'draft';\n"
+	);
+	return repoRoot;
+}
 
 const registry = {
 	presets: [
@@ -211,4 +242,68 @@ test('documentation changes select no static Preset work and unsafe inventories 
 			]),
 		/canonical order/
 	);
+});
+
+test('render source fingerprint changes for renderer drift but ignores catalog approval metadata', async () => {
+	const repoRoot = await createFingerprintTestRepository();
+	try {
+		const baseline = await createPackCalibrationRenderSourceFingerprint(repoRoot);
+		await writeFile(
+			resolve(repoRoot, 'src/lib/platform/packs/catalog.ts'),
+			"export const status = 'ratified';\n"
+		);
+		assert.equal(await createPackCalibrationRenderSourceFingerprint(repoRoot), baseline);
+
+		await writeFile(
+			resolve(repoRoot, 'src/lib/pipelines/renderer.ts'),
+			'export const renderRevision = 2;\n'
+		);
+		assert.notEqual(await createPackCalibrationRenderSourceFingerprint(repoRoot), baseline);
+	} finally {
+		await rm(repoRoot, { recursive: true, force: true });
+	}
+});
+
+test('shared producer and verifier input loader binds canonical Trio values and source', async () => {
+	const repoRoot = await createFingerprintTestRepository();
+	try {
+		await mkdir(resolve(repoRoot, 'src/lib/presets'), { recursive: true });
+		for (const presetSlug of ['docu-timeline-build', 'lower-third', 'type-hero-vantage']) {
+			await writeFile(
+				resolve(repoRoot, 'src/lib/presets', `${presetSlug}.json`),
+				JSON.stringify({ slug: presetSlug })
+			);
+		}
+		const observedPresetIds: string[] = [];
+		const inputs = await createPackCalibrationVerificationInputs({
+			repoRoot,
+			calibrationTrio: [
+				{ presetSlug: 'docu-timeline-build' },
+				{ presetSlug: 'lower-third' },
+				{ presetSlug: 'type-hero-vantage' }
+			],
+			packRegistry: { syntax: { label: 'Syntax' } },
+			parsePreset: (value) => value,
+			createRuntimeIdentity: async (presets, packs) => {
+				observedPresetIds.push(...presets.map(({ id }) => id));
+				return { presets, packs };
+			}
+		});
+		assert.deepEqual(observedPresetIds, [
+			'docu-timeline-build',
+			'lower-third',
+			'type-hero-vantage'
+		]);
+		assert.match(inputs.renderSourceFingerprint, /^[a-f0-9]{64}$/);
+		assert.deepEqual(inputs.runtimeIdentity, {
+			presets: [
+				{ id: 'docu-timeline-build', value: { slug: 'docu-timeline-build' } },
+				{ id: 'lower-third', value: { slug: 'lower-third' } },
+				{ id: 'type-hero-vantage', value: { slug: 'type-hero-vantage' } }
+			],
+			packs: [{ id: 'syntax', value: { label: 'Syntax' } }]
+		});
+	} finally {
+		await rm(repoRoot, { recursive: true, force: true });
+	}
 });

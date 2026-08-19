@@ -65,7 +65,10 @@ src/lib/
     preset-rubric.ts             # static linter — video-safety + readability only (ADR-0025)
     export-video.ts              # WebM/ProRes encoding and download primitives
     packs/                       # the appearance system
-      registry.ts                # PACK_REGISTRY (live catalog; syntax = REFERENCE_PACK_SLUG)
+      registry.ts                # PACK_REGISTRY: every renderable Pack; syntax = reference contract Pack
+      catalog.ts                 # separate draft/ratified public-catalog registry + authoring listing
+      calibration-bundle.ts      # source-bound Calibration Trio descriptor + deterministic bundle ID
+      catalog-validation.ts      # catalog coverage/shape + ratified-bundle freshness gate
       resolve.ts                 # resolveAppearanceVars — the live Pack→pixel path
       types.ts                   # Pack/Role manifest types
       role-contract-registry.ts  # closed Role kind/value/fallback/pixel-consumer authority
