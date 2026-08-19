@@ -22,6 +22,7 @@ const NOW = "2026-08-18T21:00:00.000Z";
 const TARGET = "scott-tolinski-projects/supers";
 const RELEASE = "supers@abc123";
 const SOURCE_INTAKE_MODEL_ID = "97e8375f-5908-482d-846e-2a5b037ae9cf";
+const SOURCE_DELIVERY_MODEL_ID = "90fac686-c724-4aee-97c4-e31b9af4c5e2";
 
 type Recommendation =
   | "create-task"
@@ -55,25 +56,28 @@ async function sourceBundle(options: SourceBundleOptions = {}) {
   const requiresReproduction = options.requiresReproduction ?? false;
   const repairCandidate = options.repairCandidate ?? true;
   const recommendation = options.recommendation ?? "create-task";
-  const issues = [{
-    id: "7659756211",
-    shortId: "SUPERS-17",
-    title: "Identifier allowedKeys has already been declared",
-    priority: "high" as const,
-    level: "error" as const,
-    firstSeen: "2026-08-01T00:00:00.000Z",
-    status: "unresolved" as const,
-  }, ...(options.additionalIssue
-    ? [{
-      id: "7659756212",
-      shortId: "SUPERS-18",
-      title: "Second current release failure",
-      priority: "medium" as const,
+  const issues = [
+    {
+      id: "7659756211",
+      shortId: "SUPERS-17",
+      title: "Identifier allowedKeys has already been declared",
+      priority: "high" as const,
       level: "error" as const,
-      firstSeen: "2026-08-02T00:00:00.000Z",
+      firstSeen: "2026-08-01T00:00:00.000Z",
       status: "unresolved" as const,
-    }]
-    : [])];
+    },
+    ...(options.additionalIssue
+      ? [{
+        id: "7659756212",
+        shortId: "SUPERS-18",
+        title: "Second current release failure",
+        priority: "medium" as const,
+        level: "error" as const,
+        firstSeen: "2026-08-02T00:00:00.000Z",
+        status: "unresolved" as const,
+      }]
+      : []),
+  ];
   const snapshotBase = {
     source: "sentry-cli" as const,
     target: TARGET,
@@ -176,7 +180,9 @@ async function sourceBundle(options: SourceBundleOptions = {}) {
     issuePlans: snapshot.issues.map((issue) => ({
       issueId: issue.id,
       scope: [`Repair ${issue.shortId} without changing public APIs.`],
-      acceptanceCriteria: [`The affected flow completes without ${issue.shortId}.`],
+      acceptanceCriteria: [
+        `The affected flow completes without ${issue.shortId}.`,
+      ],
     })),
   };
   return { resources, args, snapshot, reconciliation, triage };
@@ -577,9 +583,10 @@ Deno.test("repair handoff rejects missing and unrelated authored plans", async (
   assert.deepEqual(unknown.handoff.intents, []);
 });
 
-Deno.test("repair Planning handoff model separates read-only queueing from the approval-bound backlink", () => {
+Deno.test("repair model separates read-only queueing from evidence-bound Sentry mutations", () => {
   assert.equal(model.type, "@supers/sentry-repair-planning-handoff");
   assert.deepEqual(Object.keys(model.methods), [
+    "resolve-verified",
     "record-backlink",
     "select-next",
     "prepare",
@@ -589,10 +596,13 @@ Deno.test("repair Planning handoff model separates read-only queueing from the a
     "repair-intent",
     "queue-selection",
     "backlink-receipt",
+    "resolution-attempt",
+    "resolution-receipt",
   ]);
-  assert.equal(
-    model.globalArguments.parse({ sourceIntakeModelId: SOURCE_INTAKE_MODEL_ID })
-      .sourceIntakeModelId,
-    SOURCE_INTAKE_MODEL_ID,
-  );
+  const globalArguments = model.globalArguments.parse({
+    sourceIntakeModelId: SOURCE_INTAKE_MODEL_ID,
+    sourceDeliveryModelId: SOURCE_DELIVERY_MODEL_ID,
+  });
+  assert.equal(globalArguments.sourceIntakeModelId, SOURCE_INTAKE_MODEL_ID);
+  assert.equal(globalArguments.sourceDeliveryModelId, SOURCE_DELIVERY_MODEL_ID);
 });

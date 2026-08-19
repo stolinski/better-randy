@@ -3,6 +3,6 @@ name: supers-human-task-completion
 type: local_encryption
 config:
   auto_generate: true
-  base_dir: /Users/scotttolinski/Sites/projects/better-randy
+  base_dir: /Users/scotttolinski/Sites/properties/better-randy
 createdAt: '2026-08-06T23:57:58.839Z'
 auditReads: true

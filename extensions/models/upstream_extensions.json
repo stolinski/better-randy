@@ -54,5 +54,19 @@
     "checksum": "015d9552c200bba25a7edf5f465b69d67662c3fb8ac9ddd9f11957304d1a5ad6",
     "filesChecksum": "beaf669e67fcb080a26b2407e577a78d3ce0d48a2a778cef94d98de8e01ebbb7",
     "serverUrl": "https://swamp-club.com"
+  },
+  "@club_aqua_back_deck/sentry-telemetry": {
+    "version": "2026.08.18.1",
+    "pulledAt": "2026-08-18T18:56:49.077Z",
+    "files": [
+      ".swamp/bundles/5ff9e7a8/extensions/models/sentry-telemetry.js",
+      ".swamp/pulled-extensions/@club_aqua_back_deck/sentry-telemetry/files/LICENSE",
+      ".swamp/pulled-extensions/@club_aqua_back_deck/sentry-telemetry/files/README.md",
+      ".swamp/pulled-extensions/@club_aqua_back_deck/sentry-telemetry/manifest.yaml",
+      ".swamp/pulled-extensions/@club_aqua_back_deck/sentry-telemetry/models/extensions/models/sentry-telemetry.ts"
+    ],
+    "checksum": "ef1af6e9156e5c239e5327b4b69f35a62ef1409a3197ce53d584aa0623a78d74",
+    "filesChecksum": "207995e15c4e8409daa10a0f479664deb83b88919798d55c4419354d15f63a92",
+    "serverUrl": "https://swamp-club.com"
   }
 }

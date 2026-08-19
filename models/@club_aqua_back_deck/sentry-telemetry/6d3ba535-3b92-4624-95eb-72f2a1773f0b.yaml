@@ -1,0 +1,14 @@
+type: '@club_aqua_back_deck/sentry-telemetry'
+typeVersion: 2026.08.18.1
+id: 6d3ba535-3b92-4624-95eb-72f2a1773f0b
+name: gfx-computer-sentry-telemetry
+version: 1
+tags: {}
+globalArguments:
+  dsn: '${{ vault.get("factory-observability-sentry", "SENTRY_DSN") }}'
+  flushTimeoutMs: 5000
+  defaultAttributes:
+    service: swamp
+    project: gfx-computer
+    environment: development
+methods: {}

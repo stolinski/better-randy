@@ -1,0 +1,63 @@
+id: 0546299f-94a0-4d4c-865e-3b7f9e4ec067
+name: supers-sentry-verified-resolution
+description: Resolve one linked Sentry issue in its verified fix release only after terminal Delivery and a fresh no-regression snapshot.
+tags:
+  purpose: supers-sentry-self-healing-resolution
+  capability: verified-release-sentry-mutation
+inputs:
+  type: object
+  required: [repairIntentName, backlinkReceiptName, dexTaskId]
+  additionalProperties: false
+  properties:
+    repairIntentName:
+      type: string
+      minLength: 1
+      maxLength: 220
+    backlinkReceiptName:
+      type: string
+      minLength: 1
+      maxLength: 220
+    dexTaskId:
+      type: string
+      pattern: '^[A-Za-z0-9_-]{1,128}$'
+jobs:
+  - name: main
+    description: Capture the verified fix release, reject recurrence, then resolve the exact correlated issue.
+    steps:
+      - name: collect-fix-release-sentry-state
+        description: Capture complete unresolved and exact fix-release issue coverage after terminal Delivery.
+        task:
+          type: model_method
+          modelIdOrName: supers-sentry-issue-intake
+          methodName: collect
+          inputs:
+            lookbackDays: 7
+            historyDays: 90
+            limit: 100
+            currentRelease: '${{ "supers@" + data.latest("supers-delivery", "artifact-" + inputs.dexTaskId + "-verification").attributes.payload.integratedRevision }}'
+        dependsOn: []
+        weight: 0
+        allowFailure: false
+      - name: resolve-verified-sentry-issue
+        description: Resolve only when the linked task is terminal, verification passed, and no fix-release recurrence exists.
+        task:
+          type: model_method
+          modelIdOrName: supers-sentry-repair-planning-handoff
+          methodName: resolve-verified
+          inputs:
+            repairIntentName: '${{ inputs.repairIntentName }}'
+            expectedRepairIntentFingerprint: '${{ data.latest("supers-sentry-repair-planning-handoff", inputs.repairIntentName).attributes.fingerprint }}'
+            backlinkReceiptName: '${{ inputs.backlinkReceiptName }}'
+            expectedBacklinkReceiptFingerprint: '${{ data.latest("supers-sentry-repair-planning-handoff", inputs.backlinkReceiptName).attributes.fingerprint }}'
+            dexTaskId: '${{ inputs.dexTaskId }}'
+            currentSnapshotName: '${{ data.query("modelName == \"supers-sentry-issue-intake\" && specName == \"snapshot\" && workflowRunId == \"" + run.id + "\"")[0].name }}'
+            expectedSnapshotFingerprint: '${{ data.query("modelName == \"supers-sentry-issue-intake\" && specName == \"snapshot\" && workflowRunId == \"" + run.id + "\"")[0].attributes.fingerprint }}'
+        dependsOn:
+          - step: collect-fix-release-sentry-state
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+    dependsOn: []
+    weight: 0
+version: 1

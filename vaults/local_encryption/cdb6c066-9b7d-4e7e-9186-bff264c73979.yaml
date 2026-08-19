@@ -3,6 +3,6 @@ name: factory-observability-sentry
 type: local_encryption
 config:
   auto_generate: true
-  base_dir: /Users/scotttolinski/Sites/projects/better-randy
+  base_dir: /Users/scotttolinski/Sites/properties/better-randy
 createdAt: '2026-08-05T23:12:44.463Z'
 auditReads: true

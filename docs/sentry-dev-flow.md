@@ -104,11 +104,23 @@ Factory attempt history on that task. After Planning returns one audited Dex
 task ID, `supers-sentry-repair-backlink` binds the exact repair intent, human
 approval, successful Plan Application mapping, clean audit, and ready handoff.
 It then idempotently adds the Dex task reference to the Sentry issue and stores
-a fingerprinted `linked | already-linked` receipt. It cannot resolve the issue,
-and stale or conflicting Planning evidence fails before Sentry access. Sentry
-resolution still requires runtime evidence from re-driving the affected flow.
-Repair planning, runtime reproduction, backlink mutation, and issue resolution
-remain separate gated stages of epic `ueo65fsy`.
+a fingerprinted `linked | already-linked` receipt. Stale or conflicting
+Planning evidence fails before Sentry access.
+
+After the linked Dex task reaches terminal successful Delivery,
+`supers-sentry-verified-resolution` captures a fresh, complete Sentry snapshot
+for the exact integrated release. Its `resolve-verified` method requires the
+repair intent, backlink receipt, terminal `done` Delivery state, correlated
+passing deterministic verification, and proof that the issue is absent from
+that release. A fresh issue view also rejects any event at or after the recorded
+verification evidence. Only then does it resolve the issue **in the integrated
+release**, so a later occurrence is tracked as a regression. A durable
+pre-mutation attempt makes crashes between Sentry and Swamp recoverable; a
+post-mutation `lastSeen` change reopens the issue instead of hiding the racing
+regression. Successful closure stores one fingerprinted `resolved` receipt.
+Replays return that exact receipt without touching Sentry.
+Repair planning, runtime verification, backlink mutation, and release-bound
+issue resolution remain separate gated stages.
 
 ## Logs and metrics
 
