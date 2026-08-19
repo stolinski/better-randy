@@ -2157,8 +2157,8 @@ globalArguments:
               pattern: '^[0-9a-f]{64}$'
           required:
             - workItem
-            - evidenceName
             - expectedFingerprint
+            - evidenceName
           additionalProperties: false
         resultEvidence: postflight-run
       artifacts:

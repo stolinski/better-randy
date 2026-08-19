@@ -9,12 +9,15 @@
  */
 import { z } from "npm:zod@4.4.3";
 
-export const DEX_SOFTWARE_FACTORY_VERSION = "2026.08.16.14";
+export const DEX_SOFTWARE_FACTORY_VERSION = "2026.08.19.1";
 const SOFTWARE_FACTORY_TARGET_VERSION = "2026.06.24.1";
 
 const FACTORY_NAME_PATTERN = /^[a-z][a-z0-9_-]*$/;
 const GIT_SHA_PATTERN = "^[0-9a-fA-F]{7,40}$";
+const SHA256_PATTERN = "^[0-9a-f]{64}$";
 const CEL_WORK_ITEM = "${{ self.workItem }}";
+const POSTFLIGHT_EXPECTED_FINGERPRINT_BINDING =
+  '${{ data.latest(self.name, "artifact-change-impact").payload.changeFingerprint }}';
 const COMPLETION_RESULT_BINDING =
   '${{ data.latest(self.name, "artifact-reconciliation").payload.completionResult }}';
 const COMPLETION_COMMIT_BINDING =
@@ -272,6 +275,22 @@ export const DexSoftwareFactoryProfileSchema = z
         path: ["adapters", "dexTracker", "completionWorkflow"],
       });
     }
+    if (
+      profile.adapters.postflight.inputs !== undefined &&
+      ("expectedFingerprint" in profile.adapters.postflight.inputs.values ||
+        "expectedFingerprint" in
+          profile.adapters.postflight.inputs.properties ||
+        profile.adapters.postflight.inputs.required?.includes(
+            "expectedFingerprint",
+          ) === true)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "postflight expectedFingerprint is compiler-owned and cannot be configured",
+        path: ["adapters", "postflight", "inputs", "expectedFingerprint"],
+      });
+    }
     const reservedProperties = {
       changeSummary: ["summary"],
       changeImpact: ["requiredLanes", "reviewCandidate", "changeFingerprint"],
@@ -466,20 +485,29 @@ function humanRejectionGate(
   );
 }
 
-function adapterInputs(adapter: ExecutableAdapter): {
+function adapterInputs(
+  adapter: ExecutableAdapter,
+  compilerValues: Record<string, unknown> = { workItem: CEL_WORK_ITEM },
+  compilerProperties: Record<string, FactoryDeclaredSchema> = {
+    workItem: STRING_SCHEMA,
+  },
+): {
   inputs: Record<string, unknown>;
   inputsSchema: FactoryDeclaredSchema;
 } {
   const configured = adapter.inputs;
   return {
-    inputs: { workItem: CEL_WORK_ITEM, ...(configured?.values ?? {}) },
+    inputs: { ...(configured?.values ?? {}), ...compilerValues },
     inputsSchema: {
       type: "object",
       properties: {
-        workItem: STRING_SCHEMA,
         ...(configured?.properties ?? {}),
+        ...compilerProperties,
       },
-      required: ["workItem", ...(configured?.required ?? [])],
+      required: [
+        ...Object.keys(compilerProperties),
+        ...(configured?.required ?? []),
+      ],
       additionalProperties: false,
     },
   };
@@ -488,8 +516,14 @@ function adapterInputs(adapter: ExecutableAdapter): {
 function adapterWork(
   adapter: ExecutableAdapter,
   resultEvidence: string,
+  compilerValues?: Record<string, unknown>,
+  compilerProperties?: Record<string, FactoryDeclaredSchema>,
 ): Record<string, unknown> {
-  const contract = adapterInputs(adapter);
+  const contract = adapterInputs(
+    adapter,
+    compilerValues,
+    compilerProperties,
+  );
   if (adapter.mode === "workflow") {
     return {
       mode: "workflow",
@@ -1644,7 +1678,18 @@ function postflightStage(profile: DexSoftwareFactoryProfile): FactoryStage {
     description:
       "Run the consumer terminal policy adapter before tracker completion.",
     maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
-    work: adapterWork(profile.adapters.postflight, "postflight-run"),
+    work: adapterWork(
+      profile.adapters.postflight,
+      "postflight-run",
+      {
+        workItem: CEL_WORK_ITEM,
+        expectedFingerprint: POSTFLIGHT_EXPECTED_FINGERPRINT_BINDING,
+      },
+      {
+        workItem: STRING_SCHEMA,
+        expectedFingerprint: { type: "string", pattern: SHA256_PATTERN },
+      },
+    ),
     artifacts: [executionFailureArtifact(profile, "postflight")],
     transitions: [
       {

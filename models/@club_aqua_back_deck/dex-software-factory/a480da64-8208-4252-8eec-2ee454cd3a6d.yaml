@@ -1,6 +1,6 @@
 ---
 type: '@club_aqua_back_deck/dex-software-factory'
-typeVersion: 2026.08.16.14
+typeVersion: 2026.08.19.1
 id: a480da64-8208-4252-8eec-2ee454cd3a6d
 name: supers-delivery-profile
 version: 1
@@ -37,20 +37,13 @@ globalArguments:
       inputs:
         values:
           evidenceName: postflight-run
-          expectedFingerprint:
-            ${{ data.latest(self.name, "artifact-change-impact").payload.changeFingerprint
-            }}
         properties:
           evidenceName:
             type: string
             enum:
               - postflight-run
-          expectedFingerprint:
-            type: string
-            pattern: '^[0-9a-f]{64}$'
         required:
           - evidenceName
-          - expectedFingerprint
     terminalObserver:
       workflow: supers-delivery-terminal-observability
     dexTracker:

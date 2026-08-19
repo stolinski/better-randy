@@ -62,7 +62,7 @@ function serializedProfile(profile: DexSoftwareFactoryProfile): string {
 
 Deno.test('model exposes the locked compiler type, version, resource, and method', () => {
 	assert.equal(model.type, '@club_aqua_back_deck/dex-software-factory');
-	assert.equal(model.version, '2026.08.16.14');
+	assert.equal(model.version, '2026.08.19.1');
 	assert.deepEqual(Object.keys(model.resources), [
 		'profile',
 		'dispatch-boundary',
@@ -437,6 +437,24 @@ Deno.test('closed-objective routing rejects Critic and legacy human configuratio
 	assert.throws(() => compileDexSoftwareFactoryProfile(profile), /cannot use review/);
 });
 
+Deno.test('postflight fingerprint binding is compiler-owned and deferred to postflight', () => {
+	const compiled = compileDexSoftwareFactoryProfile(minimalProfile());
+	const postflight = JSON.stringify(stage(compiled, 'postflight'));
+	assert.match(postflight, /expectedFingerprint.*artifact-change-impact.*changeFingerprint/);
+	assert.match(postflight, /expectedFingerprint.*\^\[0-9a-f\]\{64\}\$/);
+
+	const invalid = minimalProfile();
+	invalid.adapters.postflight.inputs = {
+		values: { expectedFingerprint: 'caller-owned' },
+		properties: { expectedFingerprint: { type: 'string' } },
+		required: ['expectedFingerprint']
+	};
+	assert.throws(
+		() => compileDexSoftwareFactoryProfile(invalid),
+		/postflight expectedFingerprint is compiler-owned/
+	);
+});
+
 Deno.test('completion gate requires a repository completion workflow', () => {
 	const profile = minimalProfile();
 	profile.completionGate = { id: 'completion-approval' };
@@ -571,7 +589,7 @@ Deno.test('compile method persists the versioned profile resource', async () => 
 	assert.deepEqual(result, { dataHandles: [{ name: 'compiled-profile' }] });
 	assert.equal(writes[0].specName, 'profile');
 	assert.equal(writes[0].name, 'compiled-profile');
-	assert.equal(writes[0].data.compilerVersion, '2026.08.16.14');
+	assert.equal(writes[0].data.compilerVersion, '2026.08.19.1');
 	assert.deepEqual(logs, [
 		'Compiling Dex software Factory profile',
 		'Compiled Dex software Factory profile {profileName}'
