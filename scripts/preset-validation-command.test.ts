@@ -9,7 +9,10 @@ import {
 	mergePresetValidationChangedPaths,
 	parsePresetValidationCommand
 } from './preset-validation-command.ts';
-import { selectAffectedStaticPresetPackAxes } from './preset-validation-scope.ts';
+import {
+	selectAffectedPackCalibrationSlugs,
+	selectAffectedStaticPresetPackAxes
+} from './preset-validation-scope.ts';
 import {
 	PACK_CALIBRATION_RENDER_SOURCE_ROOTS,
 	createPackCalibrationRenderSourceFingerprint
@@ -31,6 +34,13 @@ async function createFingerprintTestRepository(): Promise<string> {
 		resolve(repoRoot, 'src/lib/pipelines/renderer.ts'),
 		'export const renderRevision = 1;\n'
 	);
+	for (const packSlug of ['syntax', 'clean-light']) {
+		await mkdir(resolve(repoRoot, 'src/lib/packs', packSlug), { recursive: true });
+		await writeFile(
+			resolve(repoRoot, 'src/lib/packs', packSlug, 'manifest.ts'),
+			`export const pack = '${packSlug}';\n`
+		);
+	}
 	await mkdir(resolve(repoRoot, 'src/lib/platform/packs'), { recursive: true });
 	await writeFile(
 		resolve(repoRoot, 'src/lib/platform/packs/catalog.ts'),
@@ -225,6 +235,20 @@ test('concrete transition, caption, text-animation, and stage changes select the
 	}
 });
 
+test('Pack calibration freshness selects only affected Trio Pack axes', () => {
+	assert.deepEqual(
+		selectAffectedPackCalibrationSlugs(
+			[
+				{ presetSlug: 'lower-third', packId: 'syntax' },
+				{ presetSlug: 'chapter-card', packId: 'clean-light' },
+				{ presetSlug: 'type-hero-vantage', packId: 'crt-terminal' }
+			],
+			['lower-third', 'type-hero-vantage']
+		),
+		['crt-terminal', 'syntax']
+	);
+});
+
 test('documentation changes select no static Preset work and unsafe inventories fail closed', () => {
 	assert.deepEqual(
 		selectAffectedStaticPresetPackAxes(registry, ['docs/project-control-plane.md']),
@@ -244,21 +268,44 @@ test('documentation changes select no static Preset work and unsafe inventories 
 	);
 });
 
-test('render source fingerprint changes for renderer drift but ignores catalog approval metadata', async () => {
+test('render source fingerprints isolate Pack dress while retaining shared renderer drift', async () => {
 	const repoRoot = await createFingerprintTestRepository();
 	try {
-		const baseline = await createPackCalibrationRenderSourceFingerprint(repoRoot);
+		const syntaxBaseline = await createPackCalibrationRenderSourceFingerprint(repoRoot, 'syntax');
+		const cleanLightBaseline = await createPackCalibrationRenderSourceFingerprint(
+			repoRoot,
+			'clean-light'
+		);
 		await writeFile(
 			resolve(repoRoot, 'src/lib/platform/packs/catalog.ts'),
 			"export const status = 'ratified';\n"
 		);
-		assert.equal(await createPackCalibrationRenderSourceFingerprint(repoRoot), baseline);
+		assert.equal(
+			await createPackCalibrationRenderSourceFingerprint(repoRoot, 'syntax'),
+			syntaxBaseline
+		);
+
+		await writeFile(
+			resolve(repoRoot, 'src/lib/packs/clean-light/manifest.ts'),
+			"export const pack = 'clean-light-v2';\n"
+		);
+		assert.equal(
+			await createPackCalibrationRenderSourceFingerprint(repoRoot, 'syntax'),
+			syntaxBaseline
+		);
+		assert.notEqual(
+			await createPackCalibrationRenderSourceFingerprint(repoRoot, 'clean-light'),
+			cleanLightBaseline
+		);
 
 		await writeFile(
 			resolve(repoRoot, 'src/lib/pipelines/renderer.ts'),
 			'export const renderRevision = 2;\n'
 		);
-		assert.notEqual(await createPackCalibrationRenderSourceFingerprint(repoRoot), baseline);
+		assert.notEqual(
+			await createPackCalibrationRenderSourceFingerprint(repoRoot, 'syntax'),
+			syntaxBaseline
+		);
 	} finally {
 		await rm(repoRoot, { recursive: true, force: true });
 	}
@@ -294,7 +341,7 @@ test('shared producer and verifier input loader binds canonical Trio values and 
 			'lower-third',
 			'type-hero-vantage'
 		]);
-		assert.match(inputs.renderSourceFingerprint, /^[a-f0-9]{64}$/);
+		assert.match(inputs.renderSourceFingerprints.syntax, /^[a-f0-9]{64}$/);
 		assert.deepEqual(inputs.runtimeIdentity, {
 			presets: [
 				{ id: 'docu-timeline-build', value: { slug: 'docu-timeline-build' } },

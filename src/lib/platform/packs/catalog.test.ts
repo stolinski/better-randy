@@ -152,11 +152,7 @@ describe('Pack Calibration Trio verification bundle', () => {
 			)
 		).not.toBe(baselineId);
 		expect(
-			await createPackCalibrationVerificationBundleId(
-				baseline,
-				'test-pack',
-				'b'.repeat(64)
-			)
+			await createPackCalibrationVerificationBundleId(baseline, 'test-pack', 'b'.repeat(64))
 		).not.toBe(baselineId);
 	});
 
@@ -171,19 +167,15 @@ describe('Pack Calibration Trio verification bundle', () => {
 			'test-pack': ratifiedMetadata(verificationBundleId)
 		};
 		await expect(
-			validatePackCatalogBundleFreshness(
-				catalog,
-				runtimeIdentity,
-				TEST_RENDER_SOURCE_FINGERPRINT
-			)
+			validatePackCatalogBundleFreshness(catalog, runtimeIdentity, {
+				'test-pack': TEST_RENDER_SOURCE_FINGERPRINT
+			})
 		).resolves.toEqual([]);
 
 		const changedIdentity = await createTestRuntimeIdentity({ roles: { ink: '#000' } });
-		const issues = await validatePackCatalogBundleFreshness(
-			catalog,
-			changedIdentity,
-			TEST_RENDER_SOURCE_FINGERPRINT
-		);
+		const issues = await validatePackCatalogBundleFreshness(catalog, changedIdentity, {
+			'test-pack': TEST_RENDER_SOURCE_FINGERPRINT
+		});
 		expect(issues).toHaveLength(1);
 		expect(issues[0]?.kind).toBe('bundle');
 		expect(issues[0]?.message).toContain('Recorded approval is stale');

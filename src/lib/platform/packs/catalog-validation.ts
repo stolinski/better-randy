@@ -191,11 +191,23 @@ function isRatifiedMetadata(
 export async function validatePackCatalogBundleFreshness(
 	catalogRegistry: Readonly<Record<string, PackCatalogMetadata>>,
 	runtimeIdentity: RuntimeRenderRegistryIdentity,
-	renderSourceFingerprint: string
+	renderSourceFingerprints: Readonly<Record<string, string>>,
+	packSlugs: readonly string[] = Object.keys(catalogRegistry)
 ): Promise<readonly PackCatalogValidationIssue[]> {
 	const issues: PackCatalogValidationIssue[] = [];
-	for (const [pack, metadata] of Object.entries(catalogRegistry)) {
-		if (!isRatifiedMetadata(metadata)) continue;
+	for (const pack of packSlugs) {
+		const metadata = catalogRegistry[pack];
+		if (!metadata || !isRatifiedMetadata(metadata)) continue;
+		const renderSourceFingerprint = renderSourceFingerprints[pack];
+		if (!renderSourceFingerprint) {
+			issues.push({
+				kind: 'bundle',
+				pack,
+				path: ['verificationBundleId'],
+				message: 'Missing Pack-scoped render source fingerprint.'
+			});
+			continue;
+		}
 		try {
 			const currentBundleId = await createPackCalibrationVerificationBundleId(
 				runtimeIdentity,

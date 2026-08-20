@@ -48,18 +48,21 @@ const PresetIngressSchema = ingressModule.PresetIngressSchema as {
 	parse: (value: unknown) => unknown;
 };
 
-const { runtimeIdentity, renderSourceFingerprint } =
-	await createPackCalibrationVerificationInputs({
+const { runtimeIdentity, renderSourceFingerprints } = await createPackCalibrationVerificationInputs(
+	{
 		repoRoot,
 		calibrationTrio: CALIBRATION_TRIO_FRAME_SPECS,
 		packRegistry: PACK_REGISTRY,
 		parsePreset: (value) => PresetIngressSchema.parse(value),
 		createRuntimeIdentity: createRuntimeRenderRegistryIdentity
-	});
+	}
+);
 
 for (const packSlug of Object.keys(PACK_REGISTRY).sort((left, right) =>
 	left.localeCompare(right)
 )) {
+	const renderSourceFingerprint = renderSourceFingerprints[packSlug];
+	if (!renderSourceFingerprint) throw new Error(`Missing render fingerprint for ${packSlug}`);
 	const verificationBundleId = await createPackCalibrationVerificationBundleId(
 		runtimeIdentity,
 		packSlug,

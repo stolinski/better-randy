@@ -63,6 +63,19 @@ function addPresetsMatchingReferencePrefix(
 	}
 }
 
+/** Selects Pack approvals touched by affected Calibration Trio axes. */
+export function selectAffectedPackCalibrationSlugs(
+	axes: readonly StaticPresetPackAxis[],
+	calibrationPresetSlugs: readonly string[]
+): string[] {
+	const calibrationSlugs = new Set(calibrationPresetSlugs);
+	return [
+		...new Set(
+			axes.filter(({ presetSlug }) => calibrationSlugs.has(presetSlug)).map(({ packId }) => packId)
+		)
+	].sort((left, right) => left.localeCompare(right));
+}
+
 /** Selects the smallest complete Preset × Pack scope for static validation. */
 export function selectAffectedStaticPresetPackAxes(
 	registry: StaticPresetImpactRegistry,

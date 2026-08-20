@@ -54,9 +54,13 @@ Affected selection is conservative and smallest-complete: direct Preset changes
 select that deliverable across Packs; a concrete Pipeline selects its consumers
 across Packs; a Pack selects all deliverables against that Pack; broad or
 unmapped engine/layout changes select all deliverables across all Packs. Proven
-documentation/control-plane-only changes are not applicable. Full browser/GPU
-render matrices remain a separate downstream regression and human-aesthetic
-evidence lane.
+documentation/control-plane-only changes are not applicable. Pack catalog
+freshness is checked only in affected mode and only when the selected scope
+intersects a Calibration Trio Preset. Its render-source fingerprint includes
+shared rendering code plus the affected Pack's own directory, never sibling Pack
+directories, so one Pack's dress cannot stale another Pack's approval. Full
+browser/GPU render matrices remain a separate downstream regression and
+human-aesthetic evidence lane.
 
 ## Objective render matrices
 

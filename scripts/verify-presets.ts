@@ -9,6 +9,7 @@ import {
 	type PresetValidationCommandOptions
 } from './preset-validation-command.ts';
 import {
+	selectAffectedPackCalibrationSlugs,
 	selectAffectedStaticPresetPackAxes,
 	type StaticPresetPackAxis
 } from './preset-validation-scope.ts';
@@ -142,7 +143,8 @@ const validatePackCatalogBundleFreshness =
 	packCatalogValidationModule.validatePackCatalogBundleFreshness as (
 		catalogRegistry: Readonly<Record<string, unknown>>,
 		runtimeIdentity: unknown,
-		renderSourceFingerprint: string
+		renderSourceFingerprints: Readonly<Record<string, string>>,
+		packSlugs?: readonly string[]
 	) => Promise<
 		readonly { kind: string; pack: string; path: (string | number)[]; message: string }[]
 	>;
@@ -280,11 +282,27 @@ async function main(): Promise<void> {
 			deliverables.map((entry) => entry.slug),
 			packIds
 		);
-		const { runtimeIdentity, renderSourceFingerprint } =
+	}
+
+	if (axes.length === 0) {
+		console.log('No deliverable Presets are affected; static Preset validation is not applicable.');
+		return;
+	}
+
+	const affectedCatalogPackSlugs =
+		options.mode === 'affected'
+			? selectAffectedPackCalibrationSlugs(
+					axes,
+					CALIBRATION_TRIO_FRAME_SPECS.map(({ presetSlug }) => presetSlug)
+				)
+			: [];
+	if (affectedCatalogPackSlugs.length > 0) {
+		const { runtimeIdentity, renderSourceFingerprints } =
 			await createPackCalibrationVerificationInputs({
 				repoRoot,
 				calibrationTrio: CALIBRATION_TRIO_FRAME_SPECS,
 				packRegistry: PACK_REGISTRY,
+				packSlugs: affectedCatalogPackSlugs,
 				parsePreset: (value) => PresetIngressSchema.parse(value),
 				createRuntimeIdentity: createRuntimeRenderRegistryIdentity
 			});
@@ -292,7 +310,8 @@ async function main(): Promise<void> {
 			await validatePackCatalogBundleFreshness(
 				PACK_CATALOG_REGISTRY,
 				runtimeIdentity,
-				renderSourceFingerprint
+				renderSourceFingerprints,
+				affectedCatalogPackSlugs
 			)
 		)[0];
 		if (staleCatalogIssue) {
@@ -300,11 +319,6 @@ async function main(): Promise<void> {
 				`Pack catalog ${staleCatalogIssue.pack} ${staleCatalogIssue.kind} ${issuePath(staleCatalogIssue.path)} — ${staleCatalogIssue.message}`
 			);
 		}
-	}
-
-	if (axes.length === 0) {
-		console.log('No deliverable Presets are affected; static Preset validation is not applicable.');
-		return;
 	}
 
 	let warningCount = 0;

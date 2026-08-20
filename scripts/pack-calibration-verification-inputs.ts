@@ -16,7 +16,7 @@ export interface PackCalibrationRuntimeRegistryIdentityFactory {
 
 export interface PackCalibrationVerificationInputs {
 	runtimeIdentity: unknown;
-	renderSourceFingerprint: string;
+	renderSourceFingerprints: Readonly<Record<string, string>>;
 }
 
 /** Shared producer/verifier input loader for the exact canonical Calibration Trio. */
@@ -24,6 +24,7 @@ export async function createPackCalibrationVerificationInputs(input: {
 	repoRoot: string;
 	calibrationTrio: readonly PackCalibrationFrameInput[];
 	packRegistry: Readonly<Record<string, unknown>>;
+	packSlugs?: readonly string[];
 	parsePreset: (value: unknown) => unknown;
 	createRuntimeIdentity: PackCalibrationRuntimeRegistryIdentityFactory;
 }): Promise<PackCalibrationVerificationInputs> {
@@ -32,21 +33,35 @@ export async function createPackCalibrationVerificationInputs(input: {
 			id: presetSlug,
 			value: input.parsePreset(
 				JSON.parse(
-					await readFile(
-						resolve(input.repoRoot, 'src/lib/presets', `${presetSlug}.json`),
-						'utf8'
-					)
+					await readFile(resolve(input.repoRoot, 'src/lib/presets', `${presetSlug}.json`), 'utf8')
 				) as unknown
 			)
 		}))
 	);
 
-	const [runtimeIdentity, renderSourceFingerprint] = await Promise.all([
+	const packSlugs = input.packSlugs ?? Object.keys(input.packRegistry);
+	for (const packSlug of packSlugs) {
+		if (!Object.hasOwn(input.packRegistry, packSlug)) {
+			throw new TypeError(`Unknown Pack calibration scope: ${packSlug}`);
+		}
+	}
+	const [runtimeIdentity, renderSourceFingerprintEntries] = await Promise.all([
 		input.createRuntimeIdentity(
 			trioPresetValues,
 			Object.entries(input.packRegistry).map(([id, value]) => ({ id, value }))
 		),
-		createPackCalibrationRenderSourceFingerprint(input.repoRoot)
+		Promise.all(
+			packSlugs.map(
+				async (packSlug) =>
+					[
+						packSlug,
+						await createPackCalibrationRenderSourceFingerprint(input.repoRoot, packSlug)
+					] as const
+			)
+		)
 	]);
-	return { runtimeIdentity, renderSourceFingerprint };
+	return {
+		runtimeIdentity,
+		renderSourceFingerprints: Object.fromEntries(renderSourceFingerprintEntries)
+	};
 }

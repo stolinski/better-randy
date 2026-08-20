@@ -3,8 +3,10 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join, relative, resolve, sep } from 'node:path';
 
 /**
- * Conservative render-source tree for Pack ratification freshness.
- * Presets are excluded because the canonical Calibration Trio values are bound separately.
+ * Conservative shared render-source tree for Pack ratification freshness.
+ * Each fingerprint includes only the target Pack directory from `src/lib/packs`;
+ * changing one Pack cannot invalidate an unrelated Pack's approval. Presets are
+ * excluded because the canonical Calibration Trio values are bound separately.
  * Catalog approval metadata is excluded so recording approval cannot invalidate itself.
  */
 export const PACK_CALIBRATION_RENDER_SOURCE_ROOTS = [
@@ -35,8 +37,10 @@ function repositoryRelativePath(repoRoot: string, absolutePath: string): string 
 	return relative(repoRoot, absolutePath).split(sep).join('/');
 }
 
-function isExcludedRenderSource(path: string): boolean {
+function isExcludedRenderSource(path: string, packSlug: string): boolean {
 	if ((PACK_CALIBRATION_RENDER_SOURCE_EXCLUSIONS as readonly string[]).includes(path)) return true;
+	const packSource = /^src\/lib\/packs\/([^/]+)\//.exec(path);
+	if (packSource && packSource[1] !== packSlug) return true;
 	return /(?:^|\/)(?:__snapshots__|fixtures)(?:\/|$)/.test(path) || /\.test\.[^.]+$/.test(path);
 }
 
@@ -50,7 +54,9 @@ async function collectRenderSourceFiles(repoRoot: string, path: string): Promise
 		if (entry.name.startsWith('.')) continue;
 		const childPath = join(absolutePath, entry.name);
 		if (entry.isDirectory()) {
-			files.push(...(await collectRenderSourceFiles(repoRoot, repositoryRelativePath(repoRoot, childPath))));
+			files.push(
+				...(await collectRenderSourceFiles(repoRoot, repositoryRelativePath(repoRoot, childPath)))
+			);
 		} else if (entry.isFile()) {
 			files.push(childPath);
 		}
@@ -59,13 +65,12 @@ async function collectRenderSourceFiles(repoRoot: string, path: string): Promise
 }
 
 export async function readPackCalibrationRenderSourceEntries(
-	repoRoot: string
+	repoRoot: string,
+	packSlug: string
 ): Promise<readonly PackCalibrationRenderSourceEntry[]> {
 	const files = (
 		await Promise.all(
-			PACK_CALIBRATION_RENDER_SOURCE_ROOTS.map((path) =>
-				collectRenderSourceFiles(repoRoot, path)
-			)
+			PACK_CALIBRATION_RENDER_SOURCE_ROOTS.map((path) => collectRenderSourceFiles(repoRoot, path))
 		)
 	)
 		.flat()
@@ -73,22 +78,25 @@ export async function readPackCalibrationRenderSourceEntries(
 			absolutePath,
 			path: repositoryRelativePath(repoRoot, absolutePath)
 		}))
-		.filter(({ path }) => !isExcludedRenderSource(path))
+		.filter(({ path }) => !isExcludedRenderSource(path, packSlug))
 		.sort((left, right) => left.path.localeCompare(right.path));
 
 	return Promise.all(
 		files.map(async ({ absolutePath, path }) => ({
 			path,
-			contentHash: createHash('sha256').update(await readFile(absolutePath)).digest('hex')
+			contentHash: createHash('sha256')
+				.update(await readFile(absolutePath))
+				.digest('hex')
 		}))
 	);
 }
 
 export async function createPackCalibrationRenderSourceFingerprint(
-	repoRoot: string
+	repoRoot: string,
+	packSlug: string
 ): Promise<string> {
-	const entries = await readPackCalibrationRenderSourceEntries(repoRoot);
+	const entries = await readPackCalibrationRenderSourceEntries(repoRoot, packSlug);
 	return createHash('sha256')
-		.update(JSON.stringify({ schemaVersion: 1, entries }))
+		.update(JSON.stringify({ schemaVersion: 2, packSlug, entries }))
 		.digest('hex');
 }
