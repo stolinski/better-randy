@@ -40,6 +40,7 @@ type FactoryDeclaredSchema = {
   maximum?: number;
   minItems?: number;
   maxItems?: number;
+  oneOf?: FactoryDeclaredSchema[];
 };
 
 const FactoryDeclaredSchemaSchema: z.ZodType<FactoryDeclaredSchema> = z.lazy(
@@ -66,6 +67,7 @@ const FactoryDeclaredSchemaSchema: z.ZodType<FactoryDeclaredSchema> = z.lazy(
       maximum: z.number().optional(),
       minItems: z.number().int().nonnegative().optional(),
       maxItems: z.number().int().nonnegative().optional(),
+      oneOf: z.array(FactoryDeclaredSchemaSchema).min(1).optional(),
     }),
 );
 
@@ -519,11 +521,7 @@ function adapterWork(
   compilerValues?: Record<string, unknown>,
   compilerProperties?: Record<string, FactoryDeclaredSchema>,
 ): Record<string, unknown> {
-  const contract = adapterInputs(
-    adapter,
-    compilerValues,
-    compilerProperties,
-  );
+  const contract = adapterInputs(adapter, compilerValues, compilerProperties);
   if (adapter.mode === "workflow") {
     return {
       mode: "workflow",
@@ -792,13 +790,14 @@ function closedObjectiveVerificationArtifact(): Record<string, unknown> {
         "renderMatrixRunDigest",
         "renderEvidenceArchiveDigest",
         "workflowRunId",
+        "requiredHumanReviewKinds",
         "disposition",
         "objectiveFailureCodes",
         "unavailableEvidenceCodes",
         "advisories",
       ],
       properties: {
-        schemaVersion: { type: "integer", enum: [1] },
+        schemaVersion: { type: "integer", enum: [2] },
         workItem: STRING_SCHEMA,
         integratedRevision: { type: "string", pattern: "^[0-9a-f]{40,64}$" },
         integratedTreeFingerprint: {
@@ -849,6 +848,14 @@ function closedObjectiveVerificationArtifact(): Record<string, unknown> {
           pattern: "^$|^[0-9a-f]{64}$",
         },
         workflowRunId: STRING_SCHEMA,
+        requiredHumanReviewKinds: {
+          type: "array",
+          maxItems: 2,
+          items: {
+            type: "string",
+            enum: ["authoring-app-visual", "rendered-composition-aesthetic"],
+          },
+        },
         disposition: {
           type: "string",
           enum: [
@@ -979,6 +986,33 @@ function humanAestheticDecisionArtifact(): Record<string, unknown> {
   };
 }
 
+function completionCommitSchema(
+  commitRequired: boolean,
+): FactoryDeclaredSchema {
+  const commit: FactoryDeclaredSchema = {
+    type: "object",
+    additionalProperties: false,
+    required: ["kind", "sha"],
+    properties: {
+      kind: { type: "string", enum: ["commit"] },
+      sha: { type: "string", pattern: GIT_SHA_PATTERN },
+    },
+  };
+  if (commitRequired) return commit;
+  return {
+    type: "object",
+    oneOf: [
+      commit,
+      {
+        type: "object",
+        additionalProperties: false,
+        required: ["kind"],
+        properties: { kind: { type: "string", enum: ["noCommit"] } },
+      },
+    ],
+  };
+}
+
 function reconciliationArtifact(
   profile: DexSoftwareFactoryProfile,
 ): Record<string, unknown> {
@@ -990,7 +1024,14 @@ function reconciliationArtifact(
     // The review transition already gates freshness and acceptance when present.
     reviews: "verification",
     schema: extendedArtifactSchema(
-      ["status", "nextStep", "summary", "completionResult", "commit"],
+      [
+        "status",
+        "nextStep",
+        "summary",
+        "completionResult",
+        "commit",
+        ...(closedObjective ? ["integratedRevision"] : []),
+      ],
       {
         status: {
           type: "string",
@@ -1002,14 +1043,8 @@ function reconciliationArtifact(
         },
         summary: STRING_SCHEMA,
         completionResult: STRING_SCHEMA,
-        commit: {
-          type: "object",
-          required: ["kind"],
-          properties: {
-            kind: { type: "string", enum: ["commit", "noCommit"] },
-            sha: { type: "string", pattern: GIT_SHA_PATTERN },
-          },
-        },
+        integratedRevision: { type: "string", pattern: GIT_SHA_PATTERN },
+        commit: completionCommitSchema(closedObjective),
       },
       profile.contracts?.reconciliation,
     ),
@@ -1132,21 +1167,33 @@ function failureTransitions(
 }
 
 function recoveryStage(stageId: RecoverableStageId): FactoryStage {
+  const retryTransition: FactoryStage = {
+    name: `retry-${stageId}`,
+    to: stageId,
+    gates: [
+      {
+        type: "human-approval",
+        config: { id: `retry-${stageId}` },
+      },
+    ],
+  };
+  const reworkTransition: FactoryStage = {
+    name: "rework-after-verification-drift",
+    to: "implementation",
+    gates: [
+      {
+        type: "human-approval",
+        config: { id: "rework-after-verification-drift" },
+      },
+    ],
+  };
   return {
     id: `${stageId}-recovery`,
     description:
       `Pause after an operational ${stageId} failure, preserve its evidence, and retry only after repair.`,
     transitions: [
-      {
-        name: `retry-${stageId}`,
-        to: stageId,
-        gates: [
-          {
-            type: "human-approval",
-            config: { id: `retry-${stageId}` },
-          },
-        ],
-      },
+      retryTransition,
+      ...(stageId === "verification" ? [reworkTransition] : []),
     ],
   };
 }
@@ -1621,6 +1668,9 @@ function reviewStage(profile: DexSoftwareFactoryProfile): FactoryStage | null {
 function reconciliationStage(profile: DexSoftwareFactoryProfile): FactoryStage {
   const reviewNames = reviewArtifactNames(profile);
   const closedObjective = isClosedObjectiveRouting(profile);
+  const bindsIntegratedRevision = closedObjective &&
+    profile.contracts?.changeSummary?.properties?.integrationReceipt !==
+      undefined;
   return {
     id: "reconciliation",
     description:
@@ -1635,7 +1685,7 @@ function reconciliationStage(profile: DexSoftwareFactoryProfile): FactoryStage {
           : ["change-summary", "verification", reviewNames.verdict],
       },
       systemPrompt: closedObjective
-        ? "Prepare the exact Dex completion result and commit decision from already verified integration evidence. Do not mutate the repository or tracker, assess aesthetics, or route rework."
+        ? "Prepare the exact Dex completion result, integrated revision, and matching commit from already verified integration evidence. Do not mutate the repository or tracker, assess aesthetics, or route rework."
         : "Reconcile the verified result without mutating the repository or tracker state. Confirm any integration evidence already recorded in change-summary. Record nextStep=rework when anything remains; otherwise record nextStep=complete with the exact Dex result and commit decision.",
     },
     artifacts: [
@@ -1659,13 +1709,19 @@ function reconciliationStage(profile: DexSoftwareFactoryProfile): FactoryStage {
       {
         name: "postflight",
         to: "postflight",
-        gates: [
+        gates: compactGates([
           artifactFresh("reconciliation"),
           celGate(
             'artifacts.reconciliation.status == "ready" && artifacts.reconciliation.nextStep == "complete"',
             "postflight requires status=ready and nextStep=complete",
           ),
-        ],
+          bindsIntegratedRevision
+            ? celGate(
+              'artifacts.reconciliation.commit.kind == "commit" && artifacts.reconciliation.commit.sha == artifacts.reconciliation.integratedRevision && artifacts.reconciliation.integratedRevision == artifacts.change_summary.integrationReceipt.integratedRevision',
+              "postflight requires the exact verified integrated revision",
+            )
+            : null,
+        ]),
       },
       ...failureTransitions(profile, "reconciliation"),
     ],
@@ -1727,6 +1783,7 @@ function terminalCleanupStage(
   profile: DexSoftwareFactoryProfile,
 ): FactoryStage {
   const completionWorkflow = profile.adapters.dexTracker.completionWorkflow;
+  const closedObjective = isClosedObjectiveRouting(profile);
   const work =
     profile.completionGate !== undefined && completionWorkflow !== undefined
       ? {
@@ -1761,14 +1818,7 @@ function terminalCleanupStage(
           properties: {
             taskId: STRING_SCHEMA,
             result: STRING_SCHEMA,
-            commit: {
-              type: "object",
-              required: ["kind"],
-              properties: {
-                kind: { type: "string", enum: ["commit", "noCommit"] },
-                sha: { type: "string", pattern: GIT_SHA_PATTERN },
-              },
-            },
+            commit: completionCommitSchema(closedObjective),
           },
         },
         resultEvidence: "tracker-completion",
@@ -1802,6 +1852,39 @@ function terminalCleanupStage(
   };
 }
 
+function terminalObservabilityArtifact(
+  name: string,
+  preterminalStage: string,
+  targetStage: string,
+  outcome: string,
+): Record<string, unknown> {
+  return {
+    name,
+    description:
+      "Exact work-item and route binding for terminal observability.",
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "schemaVersion",
+        "workItem",
+        "preterminalStage",
+        "targetStage",
+        "outcome",
+        "workflowRunId",
+      ],
+      properties: {
+        schemaVersion: { type: "integer", enum: [1] },
+        workItem: STRING_SCHEMA,
+        preterminalStage: { type: "string", enum: [preterminalStage] },
+        targetStage: { type: "string", enum: [targetStage] },
+        outcome: { type: "string", enum: [outcome] },
+        workflowRunId: STRING_SCHEMA,
+      },
+    },
+  };
+}
+
 function terminalObservabilityStage(
   profile: DexSoftwareFactoryProfile,
   id:
@@ -1812,6 +1895,15 @@ function terminalObservabilityStage(
   workflow: string,
   maxDispatchesPerCycle: number,
 ): FactoryStage {
+  const outcome = terminalStage === "done"
+    ? "done"
+    : terminalStage === "aborted"
+    ? "aborted"
+    : "parked";
+  const artifactName = `${
+    terminalStage.replace("operational-escalation", "escalated")
+  }-terminal-observability`;
+  const artifactCelName = artifactName.replaceAll("-", "_");
   return {
     id,
     description:
@@ -1825,35 +1917,33 @@ function terminalObservabilityStage(
           workItem: CEL_WORK_ITEM,
           preterminalStage: id,
           targetStage: terminalStage,
-          outcome: terminalStage === "done"
-            ? "done"
-            : terminalStage === "aborted"
-            ? "aborted"
-            : "parked",
+          outcome,
+          artifactName,
         },
       },
       inputsSchema: {
         type: "object",
-        required: ["workItem", "preterminalStage", "targetStage", "outcome"],
+        required: [
+          "workItem",
+          "preterminalStage",
+          "targetStage",
+          "outcome",
+          "artifactName",
+        ],
         additionalProperties: false,
         properties: {
           workItem: STRING_SCHEMA,
           preterminalStage: { type: "string", enum: [id] },
           targetStage: { type: "string", enum: [terminalStage] },
-          outcome: {
-            type: "string",
-            enum: [
-              terminalStage === "done"
-                ? "done"
-                : terminalStage === "aborted"
-                ? "aborted"
-                : "parked",
-            ],
-          },
+          outcome: { type: "string", enum: [outcome] },
+          artifactName: { type: "string", enum: [artifactName] },
         },
       },
     },
-    artifacts: [executionFailureArtifact(profile, id)],
+    artifacts: [
+      terminalObservabilityArtifact(artifactName, id, terminalStage, outcome),
+      executionFailureArtifact(profile, id),
+    ],
     transitions: [
       {
         name: "finalize",
@@ -1861,8 +1951,15 @@ function terminalObservabilityStage(
         gates: [
           {
             type: "workflow-succeeded",
-            config: { workflow },
+            config: {
+              workflow,
+              requireStepOutputs: [`artifact-${artifactName}`],
+            },
           },
+          celGate(
+            `artifacts.${artifactCelName}.workItem == workItem && artifacts.${artifactCelName}.preterminalStage == "${id}" && artifacts.${artifactCelName}.targetStage == "${terminalStage}" && artifacts.${artifactCelName}.outcome == "${outcome}"`,
+            "exact terminal observability route evidence is required",
+          ),
         ],
       },
       ...failureTransitions(profile, id),

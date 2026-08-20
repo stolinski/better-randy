@@ -314,12 +314,14 @@ function buildShaderPassDispatchList(
 		});
 	}
 
+	const surfaceShaderPass = surfaceRenderer?.shaderPass as ShaderPass<unknown> | undefined;
 	if (
-		surfaceRenderer?.shaderPass &&
-		!(scope === 'stage' && (surfaceRenderer.shaderPass as ShaderPass<unknown>).environment)
+		surfaceShaderPass &&
+		!(scope === 'stage' && surfaceShaderPass.environment) &&
+		!(request.readableProbeMode === 'readable-mask' && surfaceShaderPass.environment)
 	) {
 		entries.push({
-			pass: surfaceRenderer.shaderPass as ShaderPass<unknown>,
+			pass: surfaceShaderPass,
 			target: state.surface,
 			bounds
 		});
@@ -524,7 +526,10 @@ function renderDofFrame(
 	});
 	effectChain.apply({
 		commandEncoder: host.device.createCommandEncoder(),
-		effects: appendPackChrome(dof.otherEffects, treatments.chromeEffects),
+		effects:
+			request.readableProbeMode === 'readable-mask'
+				? []
+				: appendPackChrome(dof.otherEffects, treatments.chromeEffects),
 		inputTexture: dofInputTexture(compositionPlanes, surfaceOutput),
 		outputView: request.outputView,
 		...timebase,
@@ -583,7 +588,10 @@ function renderStageFrame(
 	const { eyeZ } = stageCameraPose(stage.cameraMove, stage.cameraAmount, timebase.progress);
 	effectChain.apply({
 		commandEncoder: host.device.createCommandEncoder(),
-		effects: appendPackChrome(stage.effects, treatments.chromeEffects),
+		effects:
+			request.readableProbeMode === 'readable-mask'
+				? []
+				: appendPackChrome(stage.effects, treatments.chromeEffects),
 		inputTexture: depthStage.outputTexture(),
 		outputView: request.outputView,
 		...timebase,
@@ -614,7 +622,10 @@ function renderFlatFrame(
 	});
 	effectChain.apply({
 		commandEncoder: host.device.createCommandEncoder(),
-		effects: appendPackChrome(request.state.effects, treatments.chromeEffects),
+		effects:
+			request.readableProbeMode === 'readable-mask'
+				? []
+				: appendPackChrome(request.state.effects, treatments.chromeEffects),
 		inputTexture: postShaderTexture,
 		outputView: request.outputView,
 		...timebase,

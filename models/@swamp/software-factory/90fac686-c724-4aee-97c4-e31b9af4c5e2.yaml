@@ -1,6 +1,6 @@
 type: '@swamp/software-factory'
 typeVersion: 2026.06.24.1
-version: 25
+version: 33
 globalArguments:
   stages:
     - id: preflight
@@ -12,18 +12,18 @@ globalArguments:
         workflow:
           name: factory-policy-sweep
           inputs:
-            workItem: '${{ self.workItem }}'
             evidenceName: preflight-run
+            workItem: '${{ self.workItem }}'
         inputsSchema:
           type: object
           properties:
-            workItem:
-              type: string
-              minLength: 1
             evidenceName:
               type: string
               enum:
                 - preflight-run
+            workItem:
+              type: string
+              minLength: 1
           required:
             - workItem
             - evidenceName
@@ -530,6 +530,8 @@ globalArguments:
               - baselineHead
               - treeFingerprint
               - paths
+              - surfaces
+              - requiredHumanReviews
               - lanes
             properties:
               requiredLanes:
@@ -578,6 +580,47 @@ globalArguments:
                 type: array
                 items:
                   type: string
+              surfaces:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      enum:
+                        - authoring-app
+                        - rendered-composition
+                        - export-pipeline
+                        - control-plane
+                    reasons:
+                      type: array
+                      items:
+                        type: string
+                      minItems: 1
+                  required:
+                    - id
+                    - reasons
+                  additionalProperties: false
+                minItems: 1
+              requiredHumanReviews:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    kind:
+                      type: string
+                      enum:
+                        - authoring-app-visual
+                        - rendered-composition-aesthetic
+                    reasons:
+                      type: array
+                      items:
+                        type: string
+                      minItems: 1
+                  required:
+                    - kind
+                    - reasons
+                  additionalProperties: false
               lanes:
                 type: array
                 items:
@@ -828,6 +871,7 @@ globalArguments:
               - renderMatrixRunDigest
               - renderEvidenceArchiveDigest
               - workflowRunId
+              - requiredHumanReviewKinds
               - disposition
               - objectiveFailureCodes
               - unavailableEvidenceCodes
@@ -836,7 +880,7 @@ globalArguments:
               schemaVersion:
                 type: integer
                 enum:
-                  - 1
+                  - 2
               workItem:
                 type: string
                 minLength: 1
@@ -958,6 +1002,14 @@ globalArguments:
               workflowRunId:
                 type: string
                 minLength: 1
+              requiredHumanReviewKinds:
+                type: array
+                maxItems: 2
+                items:
+                  type: string
+                  enum:
+                    - authoring-app-visual
+                    - rendered-composition-aesthetic
               disposition:
                 type: string
                 enum:
@@ -1303,6 +1355,12 @@ globalArguments:
             - type: human-approval
               config:
                 id: retry-verification
+        - name: rework-after-verification-drift
+          to: implementation
+          gates:
+            - type: human-approval
+              config:
+                id: rework-after-verification-drift
     - id: evidence-unavailable
       description: Pause the serialized Delivery tail until deterministic evidence can be retried.
       transitions:
@@ -1888,9 +1946,9 @@ globalArguments:
             - change-summary
             - verification
         systemPrompt: >-
-          Prepare the exact Dex completion result and commit decision from already verified
-          integration evidence. Do not mutate the repository or tracker, assess aesthetics, or route
-          rework.
+          Prepare the exact Dex completion result, integrated revision, and matching commit from
+          already verified integration evidence. Do not mutate the repository or tracker, assess
+          aesthetics, or route rework.
       artifacts:
         - name: reconciliation
           description: Terminal disposition and typed Dex completion inputs.
@@ -1903,6 +1961,7 @@ globalArguments:
               - summary
               - completionResult
               - commit
+              - integratedRevision
               - dexDisposition
             properties:
               status:
@@ -1919,16 +1978,20 @@ globalArguments:
               completionResult:
                 type: string
                 minLength: 1
+              integratedRevision:
+                type: string
+                pattern: '^[0-9a-fA-F]{7,40}$'
               commit:
                 type: object
+                additionalProperties: false
                 required:
                   - kind
+                  - sha
                 properties:
                   kind:
                     type: string
                     enum:
                       - commit
-                      - noCommit
                   sha:
                     type: string
                     pattern: '^[0-9a-fA-F]{7,40}$'
@@ -1936,7 +1999,6 @@ globalArguments:
                 type: string
                 enum:
                   - ready-for-completion
-                  - reframed
         - name: reconciliation-execution-failure
           description: >-
             Content-addressed operational failure generated from an actual execution receipt for the
@@ -2077,6 +2139,14 @@ globalArguments:
                   artifacts.reconciliation.status == "ready" && artifacts.reconciliation.nextStep ==
                   "complete"
                 message: postflight requires status=ready and nextStep=complete
+            - type: cel
+              config:
+                expr: >-
+                  artifacts.reconciliation.commit.kind == "commit" &&
+                  artifacts.reconciliation.commit.sha == artifacts.reconciliation.integratedRevision
+                  && artifacts.reconciliation.integratedRevision ==
+                  artifacts.change_summary.integrationReceipt.integratedRevision
+                message: postflight requires the exact verified integrated revision
         - name: operational-pause
           to: reconciliation-recovery
           gates:
@@ -2139,19 +2209,19 @@ globalArguments:
         workflow:
           name: factory-postflight-sweep
           inputs:
-            workItem: '${{ self.workItem }}'
             evidenceName: postflight-run
+            workItem: '${{ self.workItem }}'
             expectedFingerprint: '${{ data.latest(self.name, "artifact-change-impact").payload.changeFingerprint }}'
         inputsSchema:
           type: object
           properties:
-            workItem:
-              type: string
-              minLength: 1
             evidenceName:
               type: string
               enum:
                 - postflight-run
+            workItem:
+              type: string
+              minLength: 1
             expectedFingerprint:
               type: string
               pattern: '^[0-9a-f]{64}$'
@@ -2593,6 +2663,7 @@ globalArguments:
             preterminalStage: done-observability
             targetStage: done
             outcome: done
+            artifactName: done-terminal-observability
         inputsSchema:
           type: object
           required:
@@ -2600,6 +2671,7 @@ globalArguments:
             - preterminalStage
             - targetStage
             - outcome
+            - artifactName
           additionalProperties: false
           properties:
             workItem:
@@ -2617,7 +2689,46 @@ globalArguments:
               type: string
               enum:
                 - done
+            artifactName:
+              type: string
+              enum:
+                - done-terminal-observability
       artifacts:
+        - name: done-terminal-observability
+          description: Exact work-item and route binding for terminal observability.
+          schema:
+            type: object
+            additionalProperties: false
+            required:
+              - schemaVersion
+              - workItem
+              - preterminalStage
+              - targetStage
+              - outcome
+              - workflowRunId
+            properties:
+              schemaVersion:
+                type: integer
+                enum:
+                  - 1
+              workItem:
+                type: string
+                minLength: 1
+              preterminalStage:
+                type: string
+                enum:
+                  - done-observability
+              targetStage:
+                type: string
+                enum:
+                  - done
+              outcome:
+                type: string
+                enum:
+                  - done
+              workflowRunId:
+                type: string
+                minLength: 1
         - name: done-observability-execution-failure
           description: >-
             Content-addressed operational failure generated from an actual execution receipt for the
@@ -2751,6 +2862,16 @@ globalArguments:
             - type: workflow-succeeded
               config:
                 workflow: supers-delivery-terminal-observability
+                requireStepOutputs:
+                  - artifact-done-terminal-observability
+            - type: cel
+              config:
+                expr: >-
+                  artifacts.done_terminal_observability.workItem == workItem &&
+                  artifacts.done_terminal_observability.preterminalStage == "done-observability" &&
+                  artifacts.done_terminal_observability.targetStage == "done" &&
+                  artifacts.done_terminal_observability.outcome == "done"
+                message: exact terminal observability route evidence is required
         - name: operational-pause
           to: done-observability-recovery
           gates:
@@ -2811,6 +2932,7 @@ globalArguments:
             preterminalStage: aborted-observability
             targetStage: aborted
             outcome: aborted
+            artifactName: aborted-terminal-observability
         inputsSchema:
           type: object
           required:
@@ -2818,6 +2940,7 @@ globalArguments:
             - preterminalStage
             - targetStage
             - outcome
+            - artifactName
           additionalProperties: false
           properties:
             workItem:
@@ -2835,7 +2958,46 @@ globalArguments:
               type: string
               enum:
                 - aborted
+            artifactName:
+              type: string
+              enum:
+                - aborted-terminal-observability
       artifacts:
+        - name: aborted-terminal-observability
+          description: Exact work-item and route binding for terminal observability.
+          schema:
+            type: object
+            additionalProperties: false
+            required:
+              - schemaVersion
+              - workItem
+              - preterminalStage
+              - targetStage
+              - outcome
+              - workflowRunId
+            properties:
+              schemaVersion:
+                type: integer
+                enum:
+                  - 1
+              workItem:
+                type: string
+                minLength: 1
+              preterminalStage:
+                type: string
+                enum:
+                  - aborted-observability
+              targetStage:
+                type: string
+                enum:
+                  - aborted
+              outcome:
+                type: string
+                enum:
+                  - aborted
+              workflowRunId:
+                type: string
+                minLength: 1
         - name: aborted-observability-execution-failure
           description: >-
             Content-addressed operational failure generated from an actual execution receipt for the
@@ -2969,6 +3131,16 @@ globalArguments:
             - type: workflow-succeeded
               config:
                 workflow: supers-delivery-terminal-observability
+                requireStepOutputs:
+                  - artifact-aborted-terminal-observability
+            - type: cel
+              config:
+                expr: >-
+                  artifacts.aborted_terminal_observability.workItem == workItem &&
+                  artifacts.aborted_terminal_observability.preterminalStage ==
+                  "aborted-observability" && artifacts.aborted_terminal_observability.targetStage ==
+                  "aborted" && artifacts.aborted_terminal_observability.outcome == "aborted"
+                message: exact terminal observability route evidence is required
         - name: operational-pause
           to: aborted-observability-recovery
           gates:
@@ -3034,6 +3206,7 @@ globalArguments:
             preterminalStage: escalated-observability
             targetStage: operational-escalation
             outcome: parked
+            artifactName: escalated-terminal-observability
         inputsSchema:
           type: object
           required:
@@ -3041,6 +3214,7 @@ globalArguments:
             - preterminalStage
             - targetStage
             - outcome
+            - artifactName
           additionalProperties: false
           properties:
             workItem:
@@ -3058,7 +3232,46 @@ globalArguments:
               type: string
               enum:
                 - parked
+            artifactName:
+              type: string
+              enum:
+                - escalated-terminal-observability
       artifacts:
+        - name: escalated-terminal-observability
+          description: Exact work-item and route binding for terminal observability.
+          schema:
+            type: object
+            additionalProperties: false
+            required:
+              - schemaVersion
+              - workItem
+              - preterminalStage
+              - targetStage
+              - outcome
+              - workflowRunId
+            properties:
+              schemaVersion:
+                type: integer
+                enum:
+                  - 1
+              workItem:
+                type: string
+                minLength: 1
+              preterminalStage:
+                type: string
+                enum:
+                  - escalated-observability
+              targetStage:
+                type: string
+                enum:
+                  - operational-escalation
+              outcome:
+                type: string
+                enum:
+                  - parked
+              workflowRunId:
+                type: string
+                minLength: 1
         - name: escalated-observability-execution-failure
           description: >-
             Content-addressed operational failure generated from an actual execution receipt for the
@@ -3192,6 +3405,17 @@ globalArguments:
             - type: workflow-succeeded
               config:
                 workflow: supers-delivery-terminal-observability
+                requireStepOutputs:
+                  - artifact-escalated-terminal-observability
+            - type: cel
+              config:
+                expr: >-
+                  artifacts.escalated_terminal_observability.workItem == workItem &&
+                  artifacts.escalated_terminal_observability.preterminalStage ==
+                  "escalated-observability" &&
+                  artifacts.escalated_terminal_observability.targetStage == "operational-escalation"
+                  && artifacts.escalated_terminal_observability.outcome == "parked"
+                message: exact terminal observability route evidence is required
         - name: operational-pause
           to: escalated-observability-recovery
           gates:

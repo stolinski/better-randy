@@ -1,7 +1,7 @@
 id: cde1605a-a7a1-4c5e-b5f9-e03e0cddf553
 name: supers-bind-human-aesthetic-decision
 description: Bind the trusted current-cycle Factory aesthetic approval to the exact verified render bundle.
-version: 1
+version: 2
 tags:
   purpose: human-aesthetic-decision-binding
 inputs:
@@ -37,14 +37,14 @@ jobs:
             schemaVersion: 1
             workItem: '${{ inputs.workItem }}'
             factoryName: supers-delivery
-            factoryStateResourceName: '${{ data.latest("supers-delivery", "state-" + inputs.workItem).name }}'
+            factoryStateResourceName: '${{ "state-" + inputs.workItem }}'
             factoryState: '${{ data.latest("supers-delivery", "state-" + inputs.workItem).attributes }}'
-            factoryApprovalResourceName: '${{ data.latest("supers-delivery", "approval-" + inputs.workItem + "-aesthetic-acceptance").name }}'
+            factoryApprovalResourceName: '${{ "approval-" + inputs.workItem + "-aesthetic-acceptance" }}'
             factoryApproval: '${{ data.latest("supers-delivery", "approval-" + inputs.workItem + "-aesthetic-acceptance").attributes }}'
-            verificationRouteResourceName: '${{ data.query(''modelName == "supers-delivery-verification-router" && specName == "delivery-verification-route"'').filter(record, record.attributes.workItem == inputs.workItem && record.attributes.workflowRunId == data.latest("supers-delivery", "artifact-verification").payload.workflowRunId)[0].name }}'
-            verificationRoute: '${{ data.query(''modelName == "supers-delivery-verification-router" && specName == "delivery-verification-route"'').filter(record, record.attributes.workItem == inputs.workItem && record.attributes.workflowRunId == data.latest("supers-delivery", "artifact-verification").payload.workflowRunId)[0].attributes }}'
-            matrixBundleResourceName: '${{ data.query(''modelName == "supers-render-verification" && specName == "render-matrix-bundle" && workflowRunId == "'' + data.latest("supers-delivery", "artifact-verification").payload.workflowRunId + ''"'').filter(record, record.name == data.latest("supers-delivery", "artifact-verification").payload.renderMatrixBundleName && record.attributes.bundleDigest == data.latest("supers-delivery", "artifact-verification").payload.renderMatrixBundleDigest)[0].name }}'
-            matrixBundle: '${{ data.query(''modelName == "supers-render-verification" && specName == "render-matrix-bundle" && workflowRunId == "'' + data.latest("supers-delivery", "artifact-verification").payload.workflowRunId + ''"'').filter(record, record.name == data.latest("supers-delivery", "artifact-verification").payload.renderMatrixBundleName && record.attributes.bundleDigest == data.latest("supers-delivery", "artifact-verification").payload.renderMatrixBundleDigest)[0].attributes }}'
+            verificationRouteResourceName: '${{ data.query(''modelName == "supers-delivery-verification-router" && specName == "delivery-verification-route"'').filter(record, record.attributes.workItem == inputs.workItem && record.attributes.workflowRunId == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.workflowRunId)[0].name }}'
+            verificationRoute: '${{ data.query(''modelName == "supers-delivery-verification-router" && specName == "delivery-verification-route"'').filter(record, record.attributes.workItem == inputs.workItem && record.attributes.workflowRunId == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.workflowRunId)[0].attributes }}'
+            matrixBundleResourceName: '${{ data.query(''modelName == "supers-render-verification" && specName == "render-matrix-bundle" && workflowRunId == "'' + data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.workflowRunId + ''"'').filter(record, record.name == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.renderMatrixBundleName && record.attributes.bundleDigest == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.renderMatrixBundleDigest)[0].name }}'
+            matrixBundle: '${{ data.query(''modelName == "supers-render-verification" && specName == "render-matrix-bundle" && workflowRunId == "'' + data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.workflowRunId + ''"'').filter(record, record.name == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.renderMatrixBundleName && record.attributes.bundleDigest == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.renderMatrixBundleDigest)[0].attributes }}'
       - name: record-human-decision
         dependsOn:
           - step: bind-decision

@@ -1,7 +1,7 @@
 id: 41b30cb4-5142-4f41-9fd3-b0a2a718c4a7
 name: supers-delivery-deterministic-verification
 description: Derive the Delivery route only from fresh correlated deterministic verification resources.
-version: 3
+version: 4
 tags:
   purpose: delivery-deterministic-routing
 inputs:
@@ -93,6 +93,8 @@ jobs:
               workItem: '${{ inputs.workItem }}'
               treeFingerprint: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.changeFingerprint }}'
               workflowRunId: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").workflowRunId }}'
+              surfaces: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.surfaces }}'
+              requiredHumanReviews: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.requiredHumanReviews }}'
             requiredLaneIds: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.requiredLanes.map(lane, lane.id) }}'
             deterministicFanoutResourceName: '${{ data.query(''modelName == "repo-audit" && specName == "verification-fanout" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem && record.attributes.expectedFingerprint == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.changeFingerprint)[0].name }}'
             deterministicFanoutWorkflowRunId: '${{ data.query(''modelName == "repo-audit" && specName == "verification-fanout" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem && record.attributes.expectedFingerprint == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.changeFingerprint)[0].workflowRunId }}'

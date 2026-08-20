@@ -7,6 +7,7 @@ const qualityWorkflowPath = new URL('../.github/workflows/quality.yml', import.m
 
 const requiredFactoryModelSuites = [
 	'extensions/models/dex-software-factory.test.ts',
+	'extensions/models/supers-delivery-verification-router.test.ts',
 	'extensions/models/factory-execution-failure-authority.test.ts',
 	'extensions/models/factory-pi-dispatch-outbox.test.ts',
 	'extensions/models/factory-sentry-metrics.test.ts',

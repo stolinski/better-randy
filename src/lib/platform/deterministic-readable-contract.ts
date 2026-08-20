@@ -204,6 +204,60 @@ function appendFixedFoundDocumentChrome(
 	}
 }
 
+function surfaceTextAnimationHasPaint(
+	state: EngineState,
+	animationId: string,
+	progress: number
+): boolean {
+	const animation = state.textAnimations.find((entry) => entry.id === animationId);
+	if (!animation) return true;
+	const resolved = resolveCascadeTimings(state).get(`textAnimation:${animation.id}`);
+	if (!resolved || progress <= resolved.startFraction) return false;
+	if (animation.exit && progress >= animation.exit.start + animation.exit.duration) return false;
+	return true;
+}
+
+function surfaceReadableSlotPrefix(surfaceType: string, slot: string): string {
+	const kebabSlot = slot.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+	return `surface:${surfaceType}:${kebabSlot}`;
+}
+
+function surfaceTextAnimationForReadableIdentity(state: EngineState, identity: string) {
+	return state.textAnimations.find(
+		(candidate) =>
+			candidate.target.kind === 'surface' &&
+			(identity === surfaceReadableSlotPrefix(state.surface.type, candidate.target.slot) ||
+				identity.startsWith(
+					`${surfaceReadableSlotPrefix(state.surface.type, candidate.target.slot)}:`
+				))
+	);
+}
+
+export function isDeterministicReadableIdentityMotionHidden(
+	state: EngineState,
+	timestampMicroseconds: number,
+	identity: string
+): boolean {
+	const animation = surfaceTextAnimationForReadableIdentity(state, identity);
+	if (!animation) return false;
+	const progress = Math.max(
+		0,
+		Math.min(1, timestampMicroseconds / (state.transport.durationSeconds * 1_000_000))
+	);
+	return !surfaceTextAnimationHasPaint(state, animation.id, progress);
+}
+
+function filterSurfaceReadableTextByMotion(
+	state: EngineState,
+	progress: number,
+	entries: readonly DeterministicExpectedReadableText[]
+): DeterministicExpectedReadableText[] {
+	return entries.filter((entry) => {
+		const animation = surfaceTextAnimationForReadableIdentity(state, entry.id);
+		return !animation || surfaceTextAnimationHasPaint(state, animation.id, progress);
+	});
+}
+
 function expectedSurfaceReadableText(
 	state: EngineState,
 	progress: number
@@ -328,7 +382,10 @@ function expectedSurfaceReadableText(
 			);
 		}
 	}
-	return { status: 'available', expected: entries };
+	return {
+		status: 'available',
+		expected: filterSurfaceReadableTextByMotion(state, progress, entries)
+	};
 }
 
 function findOverlayDefinition(type: string): OverlayPipelineDefinition | null {

@@ -204,6 +204,28 @@ const ChangeImpactReportSchema = z.object({
   baselineHead: GitHeadSchema,
   treeFingerprint: TreeFingerprintSchema,
   paths: z.array(z.string()),
+  surfaces: z
+    .array(
+      z.object({
+        id: z.enum([
+          "authoring-app",
+          "rendered-composition",
+          "export-pipeline",
+          "control-plane",
+        ]),
+        reasons: z.array(z.string()).min(1),
+      }),
+    )
+    .min(1),
+  requiredHumanReviews: z.array(
+    z.object({
+      kind: z.enum([
+        "authoring-app-visual",
+        "rendered-composition-aesthetic",
+      ]),
+      reasons: z.array(z.string()).min(1),
+    }),
+  ),
   lanes: z
     .array(
       z.object({
@@ -450,7 +472,7 @@ async function runAuditScript(
 /** Model definition for the Supers repo policy audits. */
 export const model = {
   type: "@supers/repo-audit",
-  version: "2026.08.09.1",
+  version: "2026.08.20.1",
   globalArguments: GlobalArgsSchema,
   resources: {
     timing: {
@@ -875,7 +897,7 @@ export const model = {
     },
     "classify-change": {
       description:
-        "Map baseline-to-HEAD commits plus the current Git working tree to verification lanes",
+        "Map baseline-to-HEAD commits plus the current Git working tree to impact surfaces, human reviews, and verification lanes",
       arguments: z.object({ workItem: z.string().min(1) }),
       execute: async (args: { workItem: string }, context: MethodContext) => {
         const baseline = await readChangeBaseline(context, args.workItem);

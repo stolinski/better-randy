@@ -1308,15 +1308,25 @@ export function projectFactoryTerminalFlowReport(
     metrics: {
       ...report.metrics,
       runStatus: "terminal",
-      stages: [...report.metrics.stages, {
-        stageId: projection.targetStage,
-        entries: 1,
-        totalMs: null,
-        durationAvailability: "unavailable",
-        firstEnteredMs: null,
-        dispatchAttempts: 0,
-        terminal: true,
-      }],
+      // The active preterminal duration grows between workflow steps. A terminal
+      // projection cannot know its final duration, so mark it unavailable and
+      // keep the projected summary content-address stable for emission/verification.
+      stages: [
+        ...report.metrics.stages.map((stage) =>
+          stage.stageId === projection.preterminalStage
+            ? { ...stage, totalMs: null, durationAvailability: "unavailable" as const }
+            : stage
+        ),
+        {
+          stageId: projection.targetStage,
+          entries: 1,
+          totalMs: null,
+          durationAvailability: "unavailable",
+          firstEnteredMs: null,
+          dispatchAttempts: 0,
+          terminal: true,
+        },
+      ],
       timeToTerminalMs: {
         ...report.metrics.timeToTerminalMs,
         sources: [...report.metrics.timeToTerminalMs.sources, source],

@@ -10,6 +10,10 @@ import {
 } from './dex-software-factory-compiler.ts';
 import { model } from './dex-software-factory.ts';
 
+// Keep project Delivery routing in the standard Factory model suite without changing
+// package.json, which is intentionally part of Pack calibration render fingerprints.
+import './supers-delivery-verification-router.test.ts';
+
 function workflow(workflowName: string): DexSoftwareFactoryProfile['adapters']['preflight'] {
 	return { mode: 'workflow', workflow: workflowName };
 }
@@ -195,10 +199,10 @@ Deno.test('terminal observer makes observability part of every terminal route', 
 		'escalated-observability'
 	]) {
 		const observer = JSON.stringify(stage(compiled, stageId));
-		assert.match(
-			observer,
-			/"name":"finalize".*"workflow-succeeded","config":\{"workflow":"consumer-terminal-observability"\}/
-		);
+		assert.match(observer, /artifact-(done|aborted|escalated)-terminal-observability/);
+		assert.match(observer, /terminal-observability/);
+		assert.match(observer, /requireStepOutputs/);
+		assert.match(observer, /exact terminal observability route evidence is required/);
 	}
 	assert.match(
 		JSON.stringify(compiled.factoryArguments.globalTransitions),
@@ -281,15 +285,26 @@ Deno.test('consumer change-summary preserves a strict integration receipt contra
 				integrationReceipt: {
 					type: 'object',
 					additionalProperties: false,
-					required: ['receiptId', 'activeTaskId', 'disposition'],
+					required: ['receiptId', 'activeTaskId', 'disposition', 'integratedRevision'],
 					properties: {
 						receiptId: { type: 'string', pattern: '^[0-9a-f]{64}$' },
 						activeTaskId: { type: 'string', minLength: 1 },
-						disposition: { type: 'string', enum: ['integrated'] }
+						disposition: { type: 'string', enum: ['integrated'] },
+						integratedRevision: { type: 'string', pattern: '^[0-9a-f]{40}$' }
 					}
 				}
 			},
 			required: ['integrationReceipt']
+		}
+	};
+	profile.adapters.verification = workflow('deterministic-delivery-verification');
+	profile.verificationRouting = {
+		mode: 'closed-objective',
+		unavailableStage: 'evidence-unavailable',
+		aestheticGateId: 'aesthetic-acceptance',
+		aestheticDecisionAdapter: {
+			mode: 'workflow',
+			workflow: 'bind-human-aesthetic-decision'
 		}
 	};
 	const compiled = compileDexSoftwareFactoryProfile(profile);
@@ -297,6 +312,10 @@ Deno.test('consumer change-summary preserves a strict integration receipt contra
 	assert.match(implementation, /integrationReceipt/);
 	assert.match(implementation, /additionalProperties.*false/);
 	assert.match(implementation, /receiptId.*activeTaskId.*disposition/);
+	const reconciliation = JSON.stringify(stage(compiled, 'reconciliation'));
+	assert.match(reconciliation, /integratedRevision/);
+	assert.match(reconciliation, /commit.*sha/);
+	assert.match(reconciliation, /exact verified integrated revision/);
 });
 
 Deno.test('human-gated profile places approval on the final acceptance route', () => {
@@ -374,6 +393,12 @@ Deno.test(
 		assert.match(verification, /integratedRevision.*integrationReceipt/);
 		assert.match(verification, /integratedTreeFingerprint.*integrationReceipt/);
 		assert.match(verification, /treeFingerprint.*changeFingerprint/);
+		const verificationRecovery = JSON.stringify(stage(compiled, 'verification-recovery'));
+		assert.match(verificationRecovery, /retry-verification/);
+		assert.match(verificationRecovery, /rework-after-verification-drift/);
+		assert.match(verificationRecovery, /implementation/);
+		const classifyRecovery = JSON.stringify(stage(compiled, 'classify-recovery'));
+		assert.doesNotMatch(classifyRecovery, /rework-after-verification-drift/);
 		assert.doesNotMatch(
 			verification,
 			/visual-verdict|findings-clear|recommendation|reviewRequired/

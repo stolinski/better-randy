@@ -15,18 +15,37 @@ export type VerificationLane = {
 	reasons: string[];
 };
 
+export type ChangeSurfaceId =
+	'authoring-app' | 'rendered-composition' | 'export-pipeline' | 'control-plane';
+
+export type HumanReviewKind = 'authoring-app-visual' | 'rendered-composition-aesthetic';
+
+export type ChangeSurface = {
+	id: ChangeSurfaceId;
+	reasons: string[];
+};
+
+export type HumanReviewRequirement = {
+	kind: HumanReviewKind;
+	reasons: string[];
+};
+
 export type ChangeImpactClassification = {
 	paths: string[];
+	surfaces: ChangeSurface[];
+	requiredHumanReviews: HumanReviewRequirement[];
 	lanes: VerificationLane[];
 };
 
 const PORCELAIN_STATUS_WIDTH = 3;
 
-type LaneRule = {
-	id: Exclude<VerificationLaneId, 'policy-sweep'>;
+type ClassificationRule<Id extends string> = {
+	id: Id;
 	reason: string;
 	matches: (path: string) => boolean;
 };
+
+type LaneRule = ClassificationRule<Exclude<VerificationLaneId, 'policy-sweep'>>;
 
 const CODE_EXTENSIONS = ['.ts', '.svelte', '.js', '.mjs', '.json'];
 const STYLESHEET_EXTENSIONS = ['.css', '.scss', '.sass', '.less'];
@@ -51,7 +70,11 @@ const STRUCTURAL_PATH_PREFIXES = [
 	'extensions/'
 ];
 const RENDER_PATH_PREFIXES = [
+	'src/lib/annotations/',
+	'src/lib/assets/',
 	'src/lib/pipelines/',
+	'src/lib/platform/packs/',
+	'src/lib/platform/pipelines/',
 	'src/lib/presets/',
 	'src/lib/packs/',
 	'src/lib/text-animations/'
@@ -106,6 +129,42 @@ function isRenderPath(path: string): boolean {
 	return (
 		RENDER_PATH_PREFIXES.some((prefix) => path.startsWith(prefix)) ||
 		RENDER_PLATFORM_TERMS.some((term) => path.includes(term))
+	);
+}
+
+function isExportPath(path: string): boolean {
+	return EXPORT_TERMS.some((term) => path.toLowerCase().includes(term.toLowerCase()));
+}
+
+function isAmbiguousVisualPath(path: string): boolean {
+	return path === 'src/app.css' || (path.startsWith('static/') && isVisualAssetPath(path));
+}
+
+function isAuthoringAppPath(path: string): boolean {
+	const isMixedRenderShell = ['Workspace.svelte', 'Composition.svelte'].some((term) =>
+		path.includes(term)
+	);
+	return (
+		(path.startsWith('src/') &&
+			((!isRenderedCompositionPath(path) && !isExportPath(path)) ||
+				isMixedRenderShell ||
+				path === 'src/app.css')) ||
+		(path.startsWith('static/') && isVisualAssetPath(path))
+	);
+}
+
+function isRenderedCompositionPath(path: string): boolean {
+	return isRenderPath(path) || isAmbiguousVisualPath(path);
+}
+
+function isControlPlanePath(path: string): boolean {
+	return !isAuthoringAppPath(path) && !isRenderedCompositionPath(path) && !isExportPath(path);
+}
+
+function isAuthoringAppVisualPath(path: string): boolean {
+	return (
+		isAuthoringAppPath(path) &&
+		(path.endsWith('.svelte') || isStylesheetPath(path) || isVisualAssetPath(path))
 	);
 }
 
@@ -200,7 +259,43 @@ const LANE_RULES: LaneRule[] = [
 	{
 		id: 'export-decode',
 		reason: 'media, frame production, encoding, or export behavior changed',
-		matches: (path) => EXPORT_TERMS.some((term) => path.toLowerCase().includes(term.toLowerCase()))
+		matches: isExportPath
+	}
+];
+
+const SURFACE_RULES: Array<ClassificationRule<ChangeSurfaceId>> = [
+	{
+		id: 'authoring-app',
+		reason: 'authoring application behavior or presentation may change',
+		matches: isAuthoringAppPath
+	},
+	{
+		id: 'rendered-composition',
+		reason: 'composition pixels may change in preview or export',
+		matches: isRenderedCompositionPath
+	},
+	{
+		id: 'export-pipeline',
+		reason: 'media production, decoding, encoding, or export behavior may change',
+		matches: isExportPath
+	},
+	{
+		id: 'control-plane',
+		reason: 'repository policy, automation, documentation, or non-product support changed',
+		matches: isControlPlanePath
+	}
+];
+
+const HUMAN_REVIEW_RULES: Array<ClassificationRule<HumanReviewKind>> = [
+	{
+		id: 'authoring-app-visual',
+		reason: 'authoring application markup, styles, or visual assets changed',
+		matches: isAuthoringAppVisualPath
+	},
+	{
+		id: 'rendered-composition-aesthetic',
+		reason: 'rendered composition pixels may change',
+		matches: isRenderedCompositionPath
 	}
 ];
 
@@ -284,24 +379,44 @@ export function parseGitWorkingTreeStatus(output: string): string[] {
 	return paths;
 }
 
-/** Map changed project paths to the minimum conservative verification lanes. */
+function classifyRules<Id extends string>(
+	paths: string[],
+	rules: Array<ClassificationRule<Id>>
+): Array<{ id: Id; reasons: string[] }> {
+	return rules.flatMap((rule) => {
+		const matchingPaths = paths.filter(rule.matches);
+		return matchingPaths.length === 0
+			? []
+			: [{ id: rule.id, reasons: [`${rule.reason}: ${matchingPaths.join(', ')}`] }];
+	});
+}
+
+/** Map changed project paths to independent impact surfaces, human reviews, and executable lanes. */
 export function classifyChangeImpact(paths: string[]): ChangeImpactClassification {
 	const normalizedPaths = [...new Set(paths.map(normalizeChangedPath))].sort();
+	const surfaces = classifyRules(normalizedPaths, SURFACE_RULES);
+	const classifiedSurfaces =
+		surfaces.length === 0
+			? [
+					{
+						id: 'control-plane' as const,
+						reasons: ['no changed paths; only the mandatory policy sweep applies']
+					}
+				]
+			: surfaces;
+	const requiredHumanReviews = classifyRules(normalizedPaths, HUMAN_REVIEW_RULES).map(
+		({ id, reasons }) => ({ kind: id, reasons })
+	);
 	const lanes: VerificationLane[] = [
 		{ id: 'policy-sweep', reasons: ['every factory transition begins and ends clean'] }
 	];
 
-	for (const rule of LANE_RULES) {
-		const matchingPaths = normalizedPaths.filter(rule.matches);
-		if (matchingPaths.length === 0) continue;
-		lanes.push({
-			id: rule.id,
-			reasons: [`${rule.reason}: ${matchingPaths.join(', ')}`]
-		});
-	}
+	lanes.push(...classifyRules(normalizedPaths, LANE_RULES));
 
 	return {
 		paths: normalizedPaths,
+		surfaces: classifiedSurfaces,
+		requiredHumanReviews,
 		lanes
 	};
 }

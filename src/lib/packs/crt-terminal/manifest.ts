@@ -238,7 +238,7 @@ export const crtTerminalPack: PackManifest = {
 		'type-hero.text-base': { kind: 'style', value: '#45ff6e' },
 		'type-hero.ink': { kind: 'style', value: '#d9ffe0' },
 		'type-hero.accent': { kind: 'style', value: '#d9ffe0' },
-		'type-hero.byline': { kind: 'style', value: '#2fb352' },
+		'type-hero.byline': { kind: 'style', value: '#d9ffe0' },
 		'type-hero.backdrop': {
 			kind: 'style',
 			value: {

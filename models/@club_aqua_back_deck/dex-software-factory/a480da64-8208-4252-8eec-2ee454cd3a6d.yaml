@@ -178,6 +178,47 @@ globalArguments:
           type: array
           items:
             type: string
+        surfaces:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - id
+              - reasons
+            properties:
+              id:
+                type: string
+                enum:
+                  - authoring-app
+                  - rendered-composition
+                  - export-pipeline
+                  - control-plane
+              reasons:
+                type: array
+                minItems: 1
+                items:
+                  type: string
+        requiredHumanReviews:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - kind
+              - reasons
+            properties:
+              kind:
+                type: string
+                enum:
+                  - authoring-app-visual
+                  - rendered-composition-aesthetic
+              reasons:
+                type: array
+                minItems: 1
+                items:
+                  type: string
         lanes:
           type: array
           minItems: 1
@@ -202,6 +243,8 @@ globalArguments:
         - baselineHead
         - treeFingerprint
         - paths
+        - surfaces
+        - requiredHumanReviews
         - lanes
     reconciliation:
       properties:
@@ -209,7 +252,6 @@ globalArguments:
           type: string
           enum:
             - ready-for-completion
-            - reframed
       required:
         - dexDisposition
   verificationRouting:

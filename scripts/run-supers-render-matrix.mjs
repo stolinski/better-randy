@@ -58,6 +58,21 @@ async function sourceIdentity(expectedRevision, expectedFingerprint) {
 	return identity;
 }
 
+async function closePageTarget(targetId, socket) {
+	socket.close();
+	try {
+		const response = await fetch(
+			`http://localhost:${CDP_PORT}/json/close/${encodeURIComponent(targetId)}`
+		);
+		if (!response.ok && response.status !== 404) {
+			throw new Error(`Could not close CDP target (${response.status})`);
+		}
+	} catch (error) {
+		if (error instanceof TypeError) return;
+		throw error;
+	}
+}
+
 async function openPage(slug) {
 	const response = await fetch(
 		`http://localhost:${CDP_PORT}/json/new?${encodeURIComponent('about:blank')}`,
@@ -66,38 +81,74 @@ async function openPage(slug) {
 	if (!response.ok) throw new Error(`Could not create CDP target (${response.status})`);
 	const target = await response.json();
 	const socket = new WebSocket(target.webSocketDebuggerUrl);
-	await new Promise((resolveSocket, reject) => {
-		socket.onopen = resolveSocket;
-		socket.onerror = reject;
-	});
-	let nextId = 1;
-	const pending = new Map();
-	socket.onmessage = (event) => {
-		const message = JSON.parse(event.data);
-		const request = pending.get(message.id);
-		if (!request) return;
-		pending.delete(message.id);
-		if (message.error) request.reject(new Error(message.error.message));
-		else request.resolve(message.result);
-	};
-	const send = (method, params = {}) =>
-		new Promise((resolveRequest, reject) => {
-			const id = nextId++;
-			pending.set(id, { resolve: resolveRequest, reject });
-			socket.send(JSON.stringify({ id, method, params }));
+	try {
+		await new Promise((resolveSocket, reject) => {
+			const timeout = setTimeout(
+				() => reject(new Error(`${slug}: CDP socket did not open`)),
+				WAIT_MS
+			);
+			socket.onopen = () => {
+				clearTimeout(timeout);
+				resolveSocket();
+			};
+			socket.onerror = (error) => {
+				clearTimeout(timeout);
+				reject(error);
+			};
 		});
-	await Promise.all([send('Page.enable'), send('Runtime.enable')]);
-	await send('Page.navigate', { url: `${BASE_URL}/p/${encodeURIComponent(slug)}?source=builtin` });
-	const deadline = Date.now() + WAIT_MS;
-	while (Date.now() < deadline) {
-		const ready = await send('Runtime.evaluate', {
-			expression: `document.readyState === 'complete' && typeof window.__configureSupersDeterministicRenderCell === 'function' && typeof window.__captureSupersDeterministicRenderRegionManifest === 'function'`,
-			returnByValue: true
+		let nextId = 1;
+		const pending = new Map();
+		const rejectPending = (reason) => {
+			for (const request of pending.values()) {
+				clearTimeout(request.timeout);
+				request.reject(reason);
+			}
+			pending.clear();
+		};
+		socket.onmessage = (event) => {
+			const message = JSON.parse(event.data);
+			const request = pending.get(message.id);
+			if (!request) return;
+			pending.delete(message.id);
+			clearTimeout(request.timeout);
+			if (message.error) request.reject(new Error(message.error.message));
+			else request.resolve(message.result);
+		};
+		socket.onclose = () => rejectPending(new Error(`${slug}: CDP socket closed`));
+		socket.onerror = () => rejectPending(new Error(`${slug}: CDP socket failed`));
+		const send = (method, params = {}) =>
+			new Promise((resolveRequest, reject) => {
+				const id = nextId++;
+				const timeout = setTimeout(() => {
+					pending.delete(id);
+					reject(new Error(`${slug}: CDP ${method} timed out`));
+				}, WAIT_MS);
+				pending.set(id, { resolve: resolveRequest, reject, timeout });
+				socket.send(JSON.stringify({ id, method, params }));
+			});
+		await Promise.all([send('Page.enable'), send('Runtime.enable')]);
+		await send('Page.navigate', {
+			url: `${BASE_URL}/p/${encodeURIComponent(slug)}?source=builtin`
 		});
-		if (ready.result?.value === true) return { socket, send };
-		await new Promise((settle) => setTimeout(settle, 200));
+		const deadline = Date.now() + WAIT_MS;
+		while (Date.now() < deadline) {
+			const ready = await send('Runtime.evaluate', {
+				expression: `document.readyState === 'complete' && typeof window.__configureSupersDeterministicRenderCell === 'function' && typeof window.__captureSupersDeterministicRenderRegionManifest === 'function'`,
+				returnByValue: true
+			});
+			if (ready.result?.value === true) {
+				return {
+					send,
+					close: () => closePageTarget(target.id, socket)
+				};
+			}
+			await new Promise((settle) => setTimeout(settle, 200));
+		}
+		throw new Error(`${slug}: deterministic render seams did not become ready`);
+	} catch (error) {
+		await closePageTarget(target.id, socket);
+		throw error;
 	}
-	throw new Error(`${slug}: deterministic render seams did not become ready`);
 }
 
 async function evaluate(send, expression) {
@@ -221,10 +272,12 @@ async function main() {
 	const groups = groupSupersRenderMatrixCoordinates(manifest.coordinates);
 	const results = await runBoundedSupersRenderMatrixFanout({
 		groups,
+		concurrency: 1,
 		executeGroup: async (group) => {
 			const startedAt = new Date().toISOString();
 			await sourceIdentity(manifest.sourceRevision, manifest.engineFingerprint);
-			const { socket, send } = await openPage(group.presetSlug);
+			const page = await openPage(group.presetSlug);
+			const { send } = page;
 			const cells = [];
 			const evidence = [];
 			try {
@@ -527,13 +580,14 @@ async function main() {
 								const treatment = decodeDataUrl(artifacts.treatmentPng);
 								const mask = decodeDataUrl(artifacts.authoritativeMaskPng);
 								const captureBinding = {
-									schemaVersion: 1,
 									...capture.binding,
 									backgroundSha256: capture.backgroundSha256,
 									treatmentSha256: capture.treatmentSha256,
 									authoritativeMaskSha256: capture.authoritativeMaskSha256
 								};
-								const bindingBytes = Buffer.from(JSON.stringify(captureBinding));
+								const bindingBytes = Buffer.from(
+									JSON.stringify({ schemaVersion: 1, ...captureBinding })
+								);
 								const files = {
 									background: resolve(directory, `readable-${readableKey}-background.png`),
 									treatment: resolve(directory, `readable-${readableKey}-treatment.png`),
@@ -742,11 +796,12 @@ async function main() {
 							continue;
 						}
 						try {
-							const probe = runJsonProbe(script, [
-								canonicalPath,
-								'--region',
-								regionArgument(region.rect)
-							]);
+							const probeArguments = [canonicalPath, '--region', regionArgument(region.rect)];
+							let probe = runJsonProbe(script, probeArguments);
+							if (code === 'edge-aliasing' && probe.parsed.transition_sample_count <= 0) {
+								const lumaProbe = runJsonProbe(script, [...probeArguments, '--channel', 'luma']);
+								if (lumaProbe.parsed.transition_sample_count > 0) probe = lumaProbe;
+							}
 							const filename = `probe-${kind}.json`;
 							await writeFile(resolve(directory, filename), probe.bytes);
 							const reference = registerEvidence(
@@ -760,9 +815,11 @@ async function main() {
 							);
 							const probeEvidence = [canonicalEvidence, reference];
 							candidates.push(
-								code === 'edge-aliasing'
-									? mapMeasurement(probe.parsed, probeEvidence)
-									: measurementCandidate(code, mapMeasurement(probe.parsed), probeEvidence)
+								code === 'edge-aliasing' && probe.parsed.transition_sample_count <= 0
+									? notApplicableCandidate('edge-aliasing', 'no-non-axis-edge', probeEvidence)
+									: code === 'edge-aliasing'
+										? mapMeasurement(probe.parsed, probeEvidence)
+										: measurementCandidate(code, mapMeasurement(probe.parsed), probeEvidence)
 							);
 						} catch {
 							candidates.push(unavailableCandidate(code, 'probe-failed', canonicalEvidence));
@@ -899,7 +956,7 @@ async function main() {
 					cells.push(buildSupersRenderMatrixCellVerdict(coordinate, candidates, runtimeEvidence));
 				}
 			} finally {
-				socket.close();
+				await page.close();
 			}
 			await sourceIdentity(manifest.sourceRevision, manifest.engineFingerprint);
 			return {

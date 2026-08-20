@@ -32,6 +32,7 @@ import {
 } from '../utils/deterministic-render-measurements.ts';
 import {
 	deriveDeterministicReadableContract,
+	isDeterministicReadableIdentityMotionHidden,
 	type DeterministicExpectedReadableText
 } from './deterministic-readable-contract';
 import {
@@ -43,6 +44,7 @@ import type {
 	DeterministicReadableCaptureTarget
 } from './deterministic-render-capture-controller';
 import { deriveDeterministicReadingPlan } from './deterministic-reading-plan';
+import { hashDeterministicRenderValue } from './deterministic-render-registry-fingerprint';
 
 const SERIF_CAP_HEIGHT_RATIO = 0.7;
 const SANS_CAP_HEIGHT_RATIO = 0.7;
@@ -809,6 +811,28 @@ export function foundDocumentTextOwners(roots: readonly HTMLElement[]): HTMLElem
 	return [...owners];
 }
 
+function renderedCssColorAlpha(value: string): number {
+	if (value === 'transparent') return 0;
+	const commaAlpha = value.match(/^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)$/i);
+	if (commaAlpha) return Number(commaAlpha[1]);
+	const slashAlpha = value.match(/\/\s*([\d.]+)%?\s*\)$/);
+	if (!slashAlpha) return 1;
+	const alpha = Number(slashAlpha[1]);
+	return value.includes('%') ? alpha / 100 : alpha;
+}
+
+function hasRenderedTextPaint(element: HTMLElement): boolean {
+	const candidates = [element, ...element.querySelectorAll<HTMLElement>('*')];
+	return candidates.some((candidate) => {
+		const carriesText = [...candidate.childNodes].some(
+			(node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim().length > 0
+		);
+		if (!carriesText) return false;
+		const style = getComputedStyle(candidate);
+		return renderedCssColorAlpha(style.webkitTextFillColor || style.color) > 0;
+	});
+}
+
 function hasEffectiveVisibility(element: HTMLElement, roots: readonly HTMLElement[]): boolean {
 	let current: HTMLElement | null = element;
 	let effectiveOpacity = 1;
@@ -840,12 +864,11 @@ function hasPaintedBackground(element: HTMLElement): boolean {
 	);
 }
 
-function pendingDocumentFontCount(): number {
-	let pending = 0;
-	document.fonts.forEach((font) => {
-		if (font.status !== 'loaded') pending += 1;
-	});
-	return pending;
+function pendingReadableFontCount(elements: readonly HTMLElement[]): number {
+	return elements.filter((element) => {
+		const style = getComputedStyle(element);
+		return !document.fonts.check(style.font, element.textContent ?? '');
+	}).length;
 }
 
 function deterministicTextRoleFor(
@@ -1030,12 +1053,6 @@ function expandedRect(rect: DeterministicRenderRect, outset: number): Determinis
 	return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
-async function deterministicRuntimeSha256(value: unknown): Promise<string> {
-	const bytes = new TextEncoder().encode(JSON.stringify(value));
-	const digest = await crypto.subtle.digest('SHA-256', bytes);
-	return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
-}
-
 /**
  * Capture one browser-side manifest at an exact render coordinate. The matrix
  * runner must await this before any pixel or text probe; absent regions remain
@@ -1076,10 +1093,18 @@ export async function captureDeterministicRenderRegionManifest(
 		])
 	].filter((element) => {
 		const rect = element.getBoundingClientRect();
+		const identity = exactReadableIdentity(element);
 		return (
 			!hasTypedNonReadableContract(element) &&
+			(!identity ||
+				!isDeterministicReadableIdentityMotionHidden(
+					state,
+					settled.address.timestampMicroseconds,
+					identity
+				)) &&
 			(element.textContent ?? '').trim().length > 0 &&
 			hasEffectiveVisibility(element, rootElements) &&
+			hasRenderedTextPaint(element) &&
 			rect.width > 0 &&
 			rect.height > 0
 		);
@@ -1199,11 +1224,11 @@ export async function captureDeterministicRenderRegionManifest(
 			if (stableOwner) probeRegions.push({ id: `tonal:${stableOwner}`, kind: 'tonal', rect });
 		}
 		const radius = Number.parseFloat(style.borderTopLeftRadius);
-		if (radius > 0 || element instanceof SVGGeometryElement) {
+		if ((radius > 0 && hasPaintedBackground(element)) || element instanceof SVGGeometryElement) {
 			probeRegions.push({
 				id: `non-axis-edge:${exactReadableIdentity(element) ?? element.tagName.toLowerCase()}`,
 				kind: 'non-axis-edge',
-				rect,
+				rect: expandedRect(rect, 2),
 				lengthPixels: Math.hypot(rect.width, rect.height)
 			});
 		}
@@ -1211,7 +1236,7 @@ export async function captureDeterministicRenderRegionManifest(
 	const readingPlan = deriveDeterministicReadingPlan(state);
 	const readingPlanDigest =
 		readingPlan.status === 'available'
-			? await deterministicRuntimeSha256(readingPlan.windows)
+			? await hashDeterministicRenderValue(readingPlan.windows)
 			: null;
 	const readableIdentityEvidence = readableRegions.map((region, index) => {
 		const capture = compositedMasks.find((mask) => mask.readableId === region.id) ?? null;
@@ -1230,7 +1255,7 @@ export async function captureDeterministicRenderRegionManifest(
 		activeFrameRate: settled.activeFrameRate,
 		orientation: state.transport.orientation,
 		frame,
-		pendingFontCount: pendingDocumentFontCount(),
+		pendingFontCount: pendingReadableFontCount(matched.map(({ element }) => element)),
 		readableRegions,
 		textMeasurements,
 		readableIdentityEvidence,

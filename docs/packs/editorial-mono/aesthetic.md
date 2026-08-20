@@ -6,7 +6,7 @@ collage. Where Syntax is found-media energy (torn paper, hard-offset shadow,
 channel yellow, registration jitter), Editorial Mono is **calm restraint**: a
 press review, a design-annual spread, a documentary lower-third. The engine and
 Pipelines are identical; only the dress changes. This doc is what the Critic
-verifies an `editorial-mono` Preset against — *not* `syntax/aesthetic.md`.
+verifies an `editorial-mono` Preset against — _not_ `syntax/aesthetic.md`.
 
 > The same composition under both Packs must read as two different publications.
 > Editorial Mono earns its place by proving the structure re-skins, not just the
@@ -22,13 +22,13 @@ feature. Motion is settled and minimal; nothing bounces or jitters.
 
 Cool and low-temperature. Resolved through the Pack manifest, never inline.
 
-| Role | Value | Use |
-|---|---|---|
-| substrate / fill | `#e9eef3` | cool off-white paper |
-| ink | `#0f151c` | near-black text, slightly cool |
-| accent | `#22d3ee` | cyan — kicker chips, underlines, single-accent moments |
-| cool slate | `#c4d0dc` / `#aab9c9` | secondary surfaces, tape, rules |
-| muted ink | `#8aa0b4` | bylines, captions, de-emphasised mono labels |
+| Role             | Value                 | Use                                                    |
+| ---------------- | --------------------- | ------------------------------------------------------ |
+| substrate / fill | `#e9eef3`             | cool off-white paper                                   |
+| ink              | `#0f151c`             | near-black text, slightly cool                         |
+| accent           | `#22d3ee`             | cyan — kicker chips, underlines, single-accent moments |
+| cool slate       | `#c4d0dc` / `#aab9c9` | secondary surfaces, tape, rules                        |
+| muted ink        | `#9aafc2`             | bylines, captions, de-emphasised mono labels           |
 
 One accent, used sparingly. Cyan is a punctuation mark, not a fill. **No warm
 hues** — no cream, no channel-yellow, no amber grit. Restrained, near-monochrome
@@ -53,7 +53,7 @@ The defining inversion from Syntax is **structural, not just chromatic**:
 
 - **No hard-offset shadow.** `newspaper.depth: 'none'` — the card sits flat on
   the frame, carried only by the substrate's intrinsic edge-occlusion. This is
-  the literal structural re-skin: the *same* newspaper Surface that throws a
+  the literal structural re-skin: the _same_ newspaper Surface that throws a
   12 px zine shadow under Syntax is shadowless here. A hard-offset collage shadow
   is an Editorial Mono anti-pattern.
 - **Clean printed edges.** No torn fiber, no irregular cut.
@@ -70,7 +70,7 @@ A subset of the shared vocabulary, biased to the calm end: **settled-place**
 underline). Avoid: halo-bloom, brightness-reveal, anything bouncy or seeded-jittery.
 A single restrained focal beat per piece; long, still holds for reading.
 
-## Anti-Aesthetic — what Editorial Mono is *not*
+## Anti-Aesthetic — what Editorial Mono is _not_
 
 - Not warm. No cream substrate, no channel-yellow, no amber grit.
 - No hard-offset collage shadow (the flat card is the point).

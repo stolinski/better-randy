@@ -204,6 +204,29 @@ describe('typed readable identity authority', () => {
 		}
 	});
 
+	it('omits Surface slots until their text-animation paint begins', () => {
+		const state = createDefaultEngineState();
+		state.surface.type = 'type-hero';
+		state.surface.content.body = [];
+		state.surface.content.title = 'Watch next';
+		state.textAnimations = [
+			{
+				id: 'title-reveal',
+				target: { kind: 'surface', slot: 'title' },
+				effect: 'micro-scale-fade',
+				enter: { start: 0.2, duration: 0.1, ease: 'smooth' }
+			}
+		];
+		const hidden = deriveDeterministicReadableContract(state, 0);
+		const visible = deriveDeterministicReadableContract(state, 2_000_000);
+		expect(hidden.status).toBe('available');
+		expect(visible.status).toBe('available');
+		if (hidden.status === 'available' && visible.status === 'available') {
+			expect(hidden.expected.map((entry) => entry.id)).not.toContain('surface:type-hero:title');
+			expect(visible.expected.map((entry) => entry.id)).toContain('surface:type-hero:title');
+		}
+	});
+
 	it('derives complete iMessage window chrome and message identities', () => {
 		const state = createDefaultEngineState();
 		state.surface.type = 'imessage';

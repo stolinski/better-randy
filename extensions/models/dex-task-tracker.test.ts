@@ -147,6 +147,13 @@ class FakeDexCommandAdapter implements DexTaskCommandAdapter {
     }
     this.task.completed = true;
     this.task.result = args[3] ?? null;
+    const commitIndex = args.indexOf("--commit");
+    this.task.metadata = commitIndex >= 0
+      ? {
+        ...(this.task.metadata ?? {}),
+        commit: { sha: args[commitIndex + 1] },
+      }
+      : this.task.metadata;
     this.task.completed_at = FIXED_NOW;
     this.task.updated_at = FIXED_NOW;
     return { code: 0, stdout: "", stderr: "" };
@@ -222,8 +229,9 @@ async function assertTrackerFailure(
 
 Deno.test("model exposes the locked type, version, resources, and method set", () => {
   assert.equal(model.type, "@club_aqua_back_deck/dex-task-tracker");
-  assert.equal(model.version, "2026.08.15.1");
+  assert.equal(model.version, "2026.08.20.1");
   assert.deepEqual(Object.keys(model.resources).sort(), [
+    "completion-intent",
     "ready-leaf-claim",
     "ready-leaf-intent",
     "receipt",
@@ -438,111 +446,127 @@ Deno.test("start rejects duplicate starts before invoking a mutation", async () 
   assert.equal(receipt.task?.startedAt, FIXED_NOW);
 });
 
-Deno.test("complete requires authoritative current-cycle human approval when the repository enables the gate", async () => {
-  const authorizationKey = "fixture-completion-authorization-key";
-  const adapter = new FakeDexCommandAdapter(
-    rawDexTask({ started_at: FIXED_NOW }),
-  );
-  const fixture = fixtureContext();
-  fixture.context.globalArgs = {
-    ownerToken: "owner-token-exact",
-    completionApprovalGateId: "completion-approval",
-    completionFactoryName: "fixture-delivery",
-    completionAuthorizationKey: authorizationKey,
-  };
-  const approved = DexTaskCompleteArgsSchema.parse({
-    taskId: "task-123",
-    result: "Done",
-    commit: { kind: "noCommit" },
-    factoryModelName: "fixture-delivery",
-    factoryState: {
-      workItem: "task-123",
-      stageId: "terminal-cleanup",
-      cycles: { postflight: 2 },
-      dispatches: {},
-      enteredAt: FIXED_NOW,
-      status: "active",
-      definitionVersion: 1,
-      startedAt: FIXED_NOW,
-    },
-    reconciliation: {
-      name: "reconciliation",
-      workItem: "task-123",
-      stageId: "reconciliation",
-      cycle: 1,
-      payload: {
-        completionResult: "Done",
-        commit: { kind: "noCommit" },
-      },
-      recordedAt: FIXED_NOW,
-    },
-    postflightEvidence: {
-      name: "postflight-run",
-      workItem: "task-123",
-      stageId: "postflight",
-      cycle: 2,
-      payload: { status: "succeeded" },
-      recordedAt: FIXED_NOW,
-    },
-    humanApproval: {
-      gateId: "completion-approval",
-      workItem: "task-123",
-      decision: "approved",
-      actor: "human@example.test",
-      stageId: "postflight",
-      cycle: 2,
-      decidedAt: FIXED_NOW,
-    },
-    completionSourceNames: {
-      factoryState: "state-task-123",
-      reconciliation: "artifact-task-123-reconciliation",
-      postflightEvidence: "evidence-task-123-postflight-run",
-      humanApproval: "approval-task-123-completion-approval",
-    },
-    completionAuthorizationCapability: authorizationKey,
-  });
-
-  for (
-    const rejected of [
-      {
-        taskId: "task-123",
-        result: "Done",
-        commit: { kind: "noCommit" as const },
-      },
-      {
-        ...approved,
-        humanApproval: { ...approved.humanApproval!, cycle: 1 },
-      },
-      { ...approved, result: "Changed after approval" },
-      {
-        ...approved,
-        completionAuthorizationCapability: "caller-minted-authorization-value",
-      },
-    ]
-  ) {
-    assert.throws(
-      () =>
-        executeDexTaskComplete(
-          rejected,
-          fixture.context,
-          dependencies(adapter),
-        ),
-      (error: unknown) =>
-        error instanceof DexTaskTrackerError &&
-        error.errorCode === "human-completion-approval-required",
+Deno.test(
+  "complete requires authoritative current-cycle human approval when the repository enables the gate",
+  async () => {
+    const authorizationKey = "fixture-completion-authorization-key";
+    const adapter = new FakeDexCommandAdapter(
+      rawDexTask({ started_at: FIXED_NOW }),
     );
-  }
-  assert.equal(adapter.cliCalls.length, 0);
+    const fixture = fixtureContext();
+    fixture.context.globalArgs = {
+      ownerToken: "owner-token-exact",
+      completionApprovalGateId: "completion-approval",
+      completionFactoryName: "fixture-delivery",
+      completionAuthorizationKey: authorizationKey,
+    };
+    const integratedRevision = "0123456789abcdef0123456789abcdef01234567";
+    const approved = DexTaskCompleteArgsSchema.parse({
+      taskId: "task-123",
+      result: "Done",
+      commit: { kind: "commit", sha: integratedRevision },
+      factoryModelName: "fixture-delivery",
+      factoryState: {
+        workItem: "task-123",
+        stageId: "terminal-cleanup",
+        cycles: { postflight: 2 },
+        dispatches: {},
+        enteredAt: FIXED_NOW,
+        status: "active",
+        definitionVersion: 1,
+        startedAt: FIXED_NOW,
+      },
+      reconciliation: {
+        name: "reconciliation",
+        workItem: "task-123",
+        stageId: "reconciliation",
+        cycle: 1,
+        payload: {
+          completionResult: "Done",
+          integratedRevision,
+          commit: { kind: "commit", sha: integratedRevision },
+        },
+        recordedAt: FIXED_NOW,
+      },
+      postflightEvidence: {
+        name: "postflight-run",
+        workItem: "task-123",
+        stageId: "postflight",
+        cycle: 2,
+        payload: { status: "succeeded" },
+        recordedAt: FIXED_NOW,
+      },
+      humanApproval: {
+        gateId: "completion-approval",
+        workItem: "task-123",
+        decision: "approved",
+        actor: "human@example.test",
+        stageId: "postflight",
+        cycle: 2,
+        decidedAt: FIXED_NOW,
+      },
+      completionSourceNames: {
+        factoryState: "state-task-123",
+        reconciliation: "artifact-task-123-reconciliation",
+        postflightEvidence: "evidence-task-123-postflight-run",
+        humanApproval: "approval-task-123-completion-approval",
+      },
+      completionAuthorizationCapability: authorizationKey,
+    });
 
-  await executeDexTaskComplete(
-    approved,
-    fixture.context,
-    dependencies(adapter),
-  );
-  assert.equal(adapter.task?.completed, true);
-});
+    for (
+      const rejected of [
+        {
+          taskId: "task-123",
+          result: "Done",
+          commit: { kind: "noCommit" as const },
+        },
+        {
+          ...approved,
+          humanApproval: { ...approved.humanApproval!, cycle: 1 },
+        },
+        { ...approved, result: "Changed after approval" },
+        {
+          ...approved,
+          reconciliation: {
+            ...approved.reconciliation!,
+            payload: {
+              ...approved.reconciliation!.payload,
+              integratedRevision: "ffffffffffffffffffffffffffffffffffffffff",
+            },
+          },
+        },
+        {
+          ...approved,
+          completionAuthorizationCapability:
+            "caller-minted-authorization-value",
+        },
+      ]
+    ) {
+      assert.throws(
+        () =>
+          executeDexTaskComplete(
+            rejected,
+            fixture.context,
+            dependencies(adapter),
+          ),
+        (error: unknown) =>
+          error instanceof DexTaskTrackerError &&
+          error.errorCode === "human-completion-approval-required",
+      );
+    }
+    assert.equal(adapter.cliCalls.length, 0);
 
-Deno.test("complete rejects an already completed task", async () => {
+    await executeDexTaskComplete(
+      approved,
+      fixture.context,
+      dependencies(adapter),
+    );
+    assert.equal(adapter.task?.completed, true);
+  },
+);
+
+Deno.test("complete rejects an already completed task without a matching intent", async () => {
   const adapter = new FakeDexCommandAdapter(
     rawDexTask({
       completed: true,
@@ -557,9 +581,95 @@ Deno.test("complete rejects an already completed task", async () => {
       fixture.context,
       dependencies(adapter),
     ),
-    "task-already-completed",
+    "completion-replay-not-authorized",
   );
   assert.equal(adapter.cliCalls.length, 1);
+});
+
+Deno.test("complete replays after Dex mutation without issuing a second mutation", async () => {
+  const adapter = new FakeDexCommandAdapter(
+    rawDexTask({ started_at: FIXED_NOW }),
+  );
+  const fixture = fixtureContext();
+  const args = DexTaskCompleteArgsSchema.parse({
+    taskId: "task-123",
+    result: "Done exactly once",
+    commit: {
+      kind: "commit",
+      sha: "0123456789abcdef0123456789abcdef01234567",
+    },
+    factoryState: {
+      workItem: "task-123",
+      stageId: "terminal-cleanup",
+      cycles: { postflight: 1, "terminal-cleanup": 1 },
+      dispatches: { "terminal-cleanup": { count: 1 } },
+      enteredAt: FIXED_NOW,
+      status: "active",
+      definitionVersion: 1,
+      startedAt: FIXED_NOW,
+    },
+  });
+  let failSnapshotWrite = true;
+  const interruptedContext: DexTaskTrackerMethodContext = {
+    ...fixture.context,
+    writeResource: (specName, name, data) => {
+      if (specName === "task" && failSnapshotWrite) {
+        failSnapshotWrite = false;
+        return Promise.reject(new Error("simulated crash after Dex mutation"));
+      }
+      return fixture.context.writeResource(specName, name, data);
+    },
+  };
+  await assert.rejects(
+    executeDexTaskComplete(args, interruptedContext, dependencies(adapter)),
+    DexTaskTrackerError,
+  );
+  assert.equal(adapter.task?.completed, true);
+  assert.equal(
+    adapter.cliCalls.filter((call) => call.args[0] === "complete").length,
+    1,
+  );
+
+  await assertTrackerFailure(
+    executeDexTaskComplete(
+      { ...args, result: "Wrong replay result" },
+      fixture.context,
+      dependencies(adapter),
+    ),
+    "completion-replay-not-authorized",
+  );
+  await assertTrackerFailure(
+    executeDexTaskComplete(
+      {
+        ...args,
+        commit: {
+          kind: "commit",
+          sha: "ffffffffffffffffffffffffffffffffffffffff",
+        },
+      },
+      fixture.context,
+      dependencies(adapter),
+    ),
+    "completion-replay-not-authorized",
+  );
+  const replayArgs = DexTaskCompleteArgsSchema.parse({
+    ...args,
+    factoryState: {
+      ...args.factoryState,
+      cycles: { postflight: 1, "terminal-cleanup": 2 },
+      dispatches: { "terminal-cleanup": { count: 1 } },
+    },
+  });
+  const replay = await executeDexTaskComplete(
+    replayArgs,
+    fixture.context,
+    dependencies(adapter),
+  );
+  assert.equal(replay.dataHandles.length, 2);
+  assert.equal(
+    adapter.cliCalls.filter((call) => call.args[0] === "complete").length,
+    1,
+  );
 });
 
 Deno.test("complete rejects a task that has not started", async () => {

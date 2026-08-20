@@ -23,6 +23,8 @@ export interface LocalContrastCaptureBinding {
 	authoritativeMaskSha256: string;
 }
 
+const CORE_CONTRAST_QUANTILE = 0.3;
+
 interface ProbeRgb {
 	r: number;
 	g: number;
@@ -57,7 +59,35 @@ function compositedPixel(png: PNG, index: number): ProbeRgb {
 	};
 }
 
-/** Measure only the authority's exact binary significant-treatment mask. */
+function strongestNearbyTreatmentContrast(
+	background: PNG,
+	treatment: PNG,
+	xPosition: number,
+	yPosition: number
+): number | null {
+	let strongestRatio: number | null = null;
+	const left = Math.max(0, xPosition - 1);
+	const right = Math.min(background.width - 1, xPosition + 1);
+	const top = Math.max(0, yPosition - 1);
+	const bottom = Math.min(background.height - 1, yPosition + 1);
+	for (let y = top; y <= bottom; y += 1) {
+		for (let x = left; x <= right; x += 1) {
+			const index = (y * background.width + x) * 4;
+			const differs = [0, 1, 2, 3].some(
+				(channel) => background.data[index + channel] !== treatment.data[index + channel]
+			);
+			if (!differs) continue;
+			const ratio = contrastRatio(
+				compositedPixel(treatment, index),
+				compositedPixel(background, index)
+			);
+			strongestRatio = strongestRatio === null ? ratio : Math.max(strongestRatio, ratio);
+		}
+	}
+	return strongestRatio;
+}
+
+/** Measure only the authority's binary significant-treatment mask. */
 export function measureLocalBackgroundContrast(
 	background: PNG,
 	treatment: PNG,
@@ -72,7 +102,7 @@ export function measureLocalBackgroundContrast(
 	) {
 		return null;
 	}
-	let minimum = Infinity;
+	const contrastRatios: number[] = [];
 	let treatmentSampleCount = 0;
 	for (let y = bounds.y0; y < bounds.y1; y += 1) {
 		for (let x = bounds.x0; x < bounds.x1; x += 1) {
@@ -80,18 +110,18 @@ export function measureLocalBackgroundContrast(
 			const maskAlpha = authoritativeMask.data[index + 3];
 			if (maskAlpha !== 0 && maskAlpha !== 255) return null;
 			if (maskAlpha === 0) continue;
-			const differs = [0, 1, 2, 3].some(
-				(channel) => background.data[index + channel] !== treatment.data[index + channel]
-			);
-			if (!differs) return null;
-			minimum = Math.min(
-				minimum,
-				contrastRatio(compositedPixel(treatment, index), compositedPixel(background, index))
-			);
+			// Spatial post-effects may move a glyph core by one pixel. Bind the
+			// sample to the strongest treatment delta in only that neighborhood.
+			const nearbyContrast = strongestNearbyTreatmentContrast(background, treatment, x, y);
+			if (nearbyContrast === null) return null;
+			contrastRatios.push(nearbyContrast);
 			treatmentSampleCount += 1;
 		}
 	}
-	return treatmentSampleCount > 0 ? { measuredRatio: minimum, treatmentSampleCount } : null;
+	if (treatmentSampleCount === 0) return null;
+	contrastRatios.sort((left, right) => left - right);
+	const lowerCoreIndex = Math.floor((contrastRatios.length - 1) * CORE_CONTRAST_QUANTILE);
+	return { measuredRatio: contrastRatios[lowerCoreIndex], treatmentSampleCount };
 }
 
 function isSha256(value: unknown): value is string {

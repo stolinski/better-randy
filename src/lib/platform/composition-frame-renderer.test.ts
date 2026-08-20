@@ -201,6 +201,7 @@ describe('composition frame renderer ordering', () => {
 				return shaderTexture;
 			}
 		} as unknown as ShaderPassDispatcher;
+		let expectsReadableMask = false;
 		const effectChain = {
 			apply: (options: {
 				commandEncoder: GPUCommandEncoder;
@@ -214,8 +215,11 @@ describe('composition frame renderer ordering', () => {
 				assert.equal(options.inputTexture, shaderTexture);
 				assert.equal(options.progress, 0.25);
 				assert.equal(options.timestamp, 2);
-				assert.equal(options.videoUnderlayTexture, videoUnderlayTexture);
-				assert.equal(options.effects.at(-1)?.type, 'crt-tube');
+				assert.equal(
+					options.videoUnderlayTexture,
+					expectsReadableMask ? null : videoUnderlayTexture
+				);
+				assert.equal(options.effects.at(-1)?.type, expectsReadableMask ? undefined : 'crt-tube');
 				calls.push('effects-present');
 			}
 		} as unknown as EffectChain;
@@ -246,6 +250,23 @@ describe('composition frame renderer ordering', () => {
 		};
 
 		assert.equal(renderCompositionFrameTo(request), 'flat');
+		assert.deepEqual(calls, [
+			'build-inputs',
+			'upload-dom',
+			'render:2',
+			'create-encoder',
+			'shader:0.25',
+			'create-encoder',
+			'effects-present'
+		]);
+
+		calls.length = 0;
+		encoderIndex = 0;
+		expectsReadableMask = true;
+		assert.equal(
+			renderCompositionFrameTo({ ...request, readableProbeMode: 'readable-mask' }),
+			'flat'
+		);
 		assert.deepEqual(calls, [
 			'build-inputs',
 			'upload-dom',

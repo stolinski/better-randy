@@ -27,7 +27,7 @@
 	const HERO_AVG_ADVANCE_EM = 0.6;
 	const VERTICAL_HERO_AVG_ADVANCE_EM = 0.66;
 	const heroLen = $derived(Math.max((content.title ?? '').trim().length, 1));
-	const heroAvailableWidth = $derived(frame.width * HERO_SAFE_WIDTH_RATIO);
+	const heroAvailableWidth = $derived(frame.width * (isVertical ? 0.82 : HERO_SAFE_WIDTH_RATIO));
 	const heroFontSize = $derived(
 		isVertical
 			? frame.height * HERO_DISPLAY_RATIO
@@ -144,14 +144,13 @@
 		   face so a Pack pairs a grotesk hero with a mono stamp. */
 		font-family: var(--fontLabel, var(--font, 'JetBrains Mono', ui-monospace, monospace));
 		font-style: normal;
-		font-weight: 500;
+		font-weight: 700;
 		/* Pack label dress (`type-hero.tracking` / `.case`); silent → today's caps. */
 		letter-spacing: var(--tracking, 0.32em);
 		position: absolute;
-		/* Pack glyph armor (`type-hero.textShadow`); silent → today's dark-field
-		   legibility shadow. A light-field Pack claims 'none' (a dark halo on
-		   white reads as a bug). */
-		text-shadow: var(--textShadow, 0 0.04em 0.1em rgba(0, 0, 0, 0.85));
+		/* Glyph armor is explicit Pack dress. A silent Role stays shadow-free so
+		   the fallback cannot introduce a hard-rimmed shadow into another field. */
+		text-shadow: var(--textShadow, none);
 		text-transform: var(--case, uppercase);
 	}
 </style>

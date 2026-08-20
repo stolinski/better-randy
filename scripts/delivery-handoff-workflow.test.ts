@@ -4,6 +4,10 @@ import { parse } from 'jsr:@std/yaml@1.0.10';
 const WORKFLOW_PATH = 'workflows/workflow-5837b051-a547-4624-a26c-3dffc2e6b1f8.yaml';
 const DETERMINISTIC_VERIFICATION_WORKFLOW_PATH =
 	'workflows/workflow-41b30cb4-5142-4f41-9fd3-b0a2a718c4a7.yaml';
+const AESTHETIC_BINDING_WORKFLOW_PATH =
+	'workflows/workflow-cde1605a-a7a1-4c5e-b5f9-e03e0cddf553.yaml';
+const TERMINAL_OBSERVABILITY_WORKFLOW_PATH =
+	'workflows/workflow-1d982225-a620-4f8a-9c9d-49e2236ad07d.yaml';
 const FLEET_DRIVER_PATH = '.claude/skills/supers-factory-fleet/references/driver-loop.md';
 const CLAIM_STATUSES = ['claimed', 'resumed', 'no-ready-work', 'human-gate'] as const;
 
@@ -42,24 +46,27 @@ function guardSkips(step: WorkflowStep, status: (typeof CLAIM_STATUSES)[number])
 			: outcomes[0];
 }
 
-Deno.test('fleet driver binds durable per-root Pi dispatch instead of a fictional batch', async () => {
-	const markdown = await Deno.readTextFile(FLEET_DRIVER_PATH);
-	assert.match(markdown, /coordinateFactoryPiDispatchWave/);
-	assert.match(markdown, /reserve_pi_dispatch/);
-	assert.match(markdown, /record_dispatch/);
-	assert.match(markdown, /record_pi_submission_attempt/);
-	assert.match(markdown, /claim_pi_execution/);
-	assert.match(markdown, /bind_pi_handoff/);
-	assert.match(markdown, /one top-level Pi request/);
-	assert.doesNotMatch(markdown, /dispatchValidatedFactoryBatch|recordDispatchBatchAtomically/);
-});
+Deno.test(
+	'fleet driver binds durable per-root Pi dispatch instead of a fictional batch',
+	async () => {
+		const markdown = await Deno.readTextFile(FLEET_DRIVER_PATH);
+		assert.match(markdown, /coordinateFactoryPiDispatchWave/);
+		assert.match(markdown, /reserve_pi_dispatch/);
+		assert.match(markdown, /record_dispatch/);
+		assert.match(markdown, /record_pi_submission_attempt/);
+		assert.match(markdown, /claim_pi_execution/);
+		assert.match(markdown, /bind_pi_handoff/);
+		assert.match(markdown, /one top-level Pi request/);
+		assert.doesNotMatch(markdown, /dispatchValidatedFactoryBatch|recordDispatchBatchAtomically/);
+	}
+);
 
 Deno.test(
 	'deterministic verification scopes Factory artifacts to the active work item',
 	async () => {
 		const workflowSource = await Deno.readTextFile(DETERMINISTIC_VERIFICATION_WORKFLOW_PATH);
 		const workflow = parse(workflowSource) as WorkflowDefinition;
-		assert.equal(workflow.version, 3);
+		assert.equal(workflow.version, 4);
 		assert.doesNotMatch(
 			workflowSource,
 			/data\.latest\("supers-delivery", "artifact-(?:change-impact|change-summary)"\)/
@@ -76,6 +83,8 @@ Deno.test(
 			workflowSource,
 			/data\.latest\("supers-delivery", "artifact-" \+ inputs\.workItem \+ "-change-impact"\)/
 		);
+		assert.match(workflowSource, /attributes\.payload\.surfaces/);
+		assert.match(workflowSource, /attributes\.payload\.requiredHumanReviews/);
 		assert.match(
 			workflowSource,
 			/data\.latest\("supers-delivery", "artifact-" \+ inputs\.workItem \+ "-change-summary"\)\.attributes\.payload\.integrationReceipt/
@@ -86,6 +95,41 @@ Deno.test(
 		);
 	}
 );
+
+Deno.test(
+	'aesthetic binding uses namespaced Factory data and literal resource identities',
+	async () => {
+		const workflowSource = await Deno.readTextFile(AESTHETIC_BINDING_WORKFLOW_PATH);
+		const workflow = parse(workflowSource) as WorkflowDefinition;
+		assert.equal(workflow.version, 2);
+		assert.doesNotMatch(workflowSource, /data\.latest\([^\n]+\)\.name/);
+		assert.doesNotMatch(workflowSource, /"artifact-verification"/);
+		assert.match(
+			workflowSource,
+			/data\.latest\("supers-delivery", "artifact-" \+ inputs\.workItem \+ "-verification"\)\.attributes\.payload/
+		);
+		assert.match(
+			workflowSource,
+			/factoryStateResourceName: '\$\{\{ "state-" \+ inputs\.workItem \}\}'/
+		);
+		assert.match(
+			workflowSource,
+			/factoryApprovalResourceName: '\$\{\{ "approval-" \+ inputs\.workItem \+ "-aesthetic-acceptance" \}\}'/
+		);
+	}
+);
+
+Deno.test('terminal observability records exact route-bound Factory output', async () => {
+	const workflowSource = await Deno.readTextFile(TERMINAL_OBSERVABILITY_WORKFLOW_PATH);
+	const workflow = parse(workflowSource) as WorkflowDefinition;
+	assert.equal(workflow.version, 4);
+	assert.match(workflowSource, /name: record-terminal-observability/);
+	assert.match(workflowSource, /name: \$\{\{ inputs\.artifactName \}\}/);
+	assert.match(workflowSource, /done-terminal-observability/);
+	assert.match(workflowSource, /workflowRunId: \$\{\{ run\.id \}\}/);
+	assert.match(workflowSource, /name: persist-terminal-summary[\s\S]*?allowFailure: false/);
+	assert.match(workflowSource, /name: verify-observability-coverage[\s\S]*?allowFailure: false/);
+});
 
 Deno.test('delivery handoff status guards choose exactly one normalization path', async () => {
 	const workflow = parse(await Deno.readTextFile(WORKFLOW_PATH)) as WorkflowDefinition;

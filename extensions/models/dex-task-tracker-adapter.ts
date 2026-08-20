@@ -17,7 +17,7 @@ import {
   DexRepositoryLockTimeoutError,
 } from "./dex-repository-lock.ts";
 
-export const DEX_TASK_TRACKER_ADAPTER_VERSION = "2026.08.05.4";
+export const DEX_TASK_TRACKER_ADAPTER_VERSION = "2026.08.20.1";
 
 const MAX_DEX_CONTENT_LENGTH = 50 * 1024;
 const DEX_COMMAND_TIMEOUT_MS = 30_000;
@@ -38,12 +38,14 @@ const DexTaskRelationSchema = z
 
 export const DexTaskTrackerGlobalArgsSchema = z.strictObject({
   ownerToken: OwnerTokenSchema,
-  deliveryHandoffAuthorizationKey: z.string().min(32).max(256)
-    .meta({ sensitive: true }).optional(),
+  deliveryHandoffAuthorizationKey: z.string().min(32).max(256).meta({
+    sensitive: true,
+  }).optional(),
   completionApprovalGateId: z.string().min(1).max(128).optional(),
   completionFactoryName: z.string().min(1).max(128).optional(),
-  completionAuthorizationKey: z.string().min(32).max(256)
-    .meta({ sensitive: true }).optional(),
+  completionAuthorizationKey: z.string().min(32).max(256).meta({
+    sensitive: true,
+  }).optional(),
 });
 
 export type DexTaskTrackerGlobalArgs = z.infer<
@@ -117,6 +119,8 @@ const DexTaskTrackerErrorCodeSchema = z.enum([
   "repository-lock-acquisition-failed",
   "repository-lock-ownership-lost",
   "human-completion-approval-required",
+  "completion-replay-not-authorized",
+  "completion-postcondition-mismatch",
   "unexpected-failure",
   "resource-write-failed",
 ]);
@@ -177,10 +181,18 @@ const DexCompletionReconciliationSchema = z.object({
   workItem: TaskIdSchema,
   stageId: z.literal("reconciliation"),
   cycle: z.number().int().positive(),
-  payload: z.object({
-    completionResult: z.string().min(1).max(MAX_DEX_CONTENT_LENGTH),
-    commit: DexTaskCompletionCommitSchema,
-  }),
+  payload: z
+    .object({
+      completionResult: z.string().min(1).max(MAX_DEX_CONTENT_LENGTH),
+      integratedRevision: z.string().regex(GIT_SHA_PATTERN),
+      commit: z.strictObject({
+        kind: z.literal("commit"),
+        sha: z.string().regex(GIT_SHA_PATTERN),
+      }),
+    })
+    .refine((payload) => payload.commit.sha === payload.integratedRevision, {
+      message: "Completion commit must match the integrated revision",
+    }),
   recordedAt: IsoTimestampSchema,
 });
 
@@ -200,6 +212,18 @@ const DexCompletionSourceNamesSchema = z.strictObject({
   humanApproval: z.string().min(1),
 });
 
+export const DexTaskCompletionIntentSchema = z.strictObject({
+  schemaVersion: z.literal(1),
+  adapterVersion: z.literal(DEX_TASK_TRACKER_ADAPTER_VERSION),
+  intentDigest: z.string().regex(/^[0-9a-f]{64}$/),
+  ownerToken: OwnerTokenSchema,
+  taskId: TaskIdSchema,
+  result: z.string().min(1).max(MAX_DEX_CONTENT_LENGTH),
+  commit: DexTaskCompletionCommitSchema,
+  preparedAt: IsoTimestampSchema,
+  status: z.literal("prepared"),
+});
+
 export const DexTaskCompleteArgsSchema = z.object({
   taskId: TaskIdSchema,
   result: z.string().min(1).max(MAX_DEX_CONTENT_LENGTH),
@@ -210,8 +234,12 @@ export const DexTaskCompleteArgsSchema = z.object({
   reconciliation: DexCompletionReconciliationSchema.optional(),
   postflightEvidence: DexCompletionPostflightEvidenceSchema.optional(),
   completionSourceNames: DexCompletionSourceNamesSchema.optional(),
-  completionAuthorizationCapability: z.string().min(32).max(256)
-    .meta({ sensitive: true }).optional(),
+  completionAuthorizationCapability: z
+    .string()
+    .min(32)
+    .max(256)
+    .meta({ sensitive: true })
+    .optional(),
 });
 export const DexTaskReopenArgsSchema = z.object({ taskId: TaskIdSchema });
 export const DexTaskAddNoteArgsSchema = z.object({
@@ -250,11 +278,13 @@ export type DexCommandResult = {
   stderr: string;
 };
 
-export type DexMcpUpdateTaskArguments = {
-  id: string;
-  completed: false;
-  started_at: null;
-} | { id: string; description: string };
+export type DexMcpUpdateTaskArguments =
+  | {
+    id: string;
+    completed: false;
+    started_at: null;
+  }
+  | { id: string; description: string };
 
 /** Process boundary injected in tests so fixtures never invoke a real Dex installation. */
 export interface DexTaskCommandAdapter {
@@ -324,9 +354,11 @@ function sameCompletionCommit(
   left: DexTaskCompleteArgs["commit"],
   right: DexTaskCompleteArgs["commit"],
 ): boolean {
-  return left.kind === right.kind &&
+  return (
+    left.kind === right.kind &&
     (left.kind === "noCommit" ||
-      (right.kind === "commit" && left.sha === right.sha));
+      (right.kind === "commit" && left.sha === right.sha))
+  );
 }
 
 function requireHumanCompletionApproval(
@@ -377,6 +409,8 @@ function requireHumanCompletionApproval(
     postflight.workItem !== args.taskId ||
     reconciliation.payload.completionResult !== args.result ||
     !sameCompletionCommit(reconciliation.payload.commit, args.commit) ||
+    args.commit.kind !== "commit" ||
+    args.commit.sha !== reconciliation.payload.integratedRevision ||
     Object.entries(expectedSourceNames).some(
       ([name, value]) =>
         sourceNames[name as keyof typeof sourceNames] !== value,
@@ -397,6 +431,36 @@ async function sha256Hex(value: string): Promise<string> {
   return [...new Uint8Array(digest)].map((byte) =>
     byte.toString(16).padStart(2, "0")
   ).join("");
+}
+
+function completionIntentIdentity(
+  args: DexTaskCompleteArgs,
+  ownerToken: string,
+): Record<string, unknown> {
+  return {
+    adapterVersion: DEX_TASK_TRACKER_ADAPTER_VERSION,
+    ownerToken,
+    taskId: args.taskId,
+    result: args.result,
+    commit: args.commit,
+    factoryModelName: args.factoryModelName ?? null,
+    // Factory cycles and dispatches change when terminal cleanup recovers.
+    // Stable authorization resources below freeze the logical completion intent.
+    reconciliation: args.reconciliation ?? null,
+    postflightEvidence: args.postflightEvidence ?? null,
+    humanApproval: args.humanApproval ?? null,
+    completionSourceNames: args.completionSourceNames ?? null,
+  };
+}
+
+async function createDexTaskCompletionIntentResourceName(
+  args: DexTaskCompleteArgs,
+  ownerToken: string,
+): Promise<{ name: string; digest: string }> {
+  const digest = await sha256Hex(
+    JSON.stringify(completionIntentIdentity(args, ownerToken)),
+  );
+  return { name: `completion-intent-${digest}`, digest };
 }
 
 /** Deterministic resource name for one logical action input. */
@@ -579,6 +643,45 @@ function requireCompletable(task: DexTaskSnapshot): void {
   }
 }
 
+function taskCompletionCommitMatches(
+  task: DexTaskSnapshot,
+  commit: DexTaskCompleteArgs["commit"],
+): boolean {
+  const metadataCommit = task.metadata?.commit;
+  if (commit.kind === "noCommit") return metadataCommit === undefined;
+  if (
+    metadataCommit === null ||
+    typeof metadataCommit !== "object" ||
+    Array.isArray(metadataCommit)
+  ) {
+    return false;
+  }
+  return (metadataCommit as Record<string, unknown>).sha === commit.sha;
+}
+
+function taskHasExactCompletion(
+  task: DexTaskSnapshot,
+  args: DexTaskCompleteArgs,
+): boolean {
+  return (
+    task.completed &&
+    task.completedAt !== null &&
+    task.result === args.result &&
+    taskCompletionCommitMatches(task, args.commit)
+  );
+}
+
+function requireExactCompletionPostcondition(
+  task: DexTaskSnapshot,
+  args: DexTaskCompleteArgs,
+): void {
+  if (taskHasExactCompletion(task, args)) return;
+  throw trackerError(
+    "completion-postcondition-mismatch",
+    `Dex task ${task.id} does not match the requested completion`,
+  );
+}
+
 function appendDexTaskNote(
   description: string,
   note: string,
@@ -638,6 +741,44 @@ async function executeMcpTaskMutation(
   });
 }
 
+async function requireOrPrepareCompletionIntent(
+  args: DexTaskCompleteArgs,
+  current: DexTaskSnapshot,
+  context: DexTaskTrackerMethodContext,
+  occurredAt: string,
+): Promise<void> {
+  const identity = await createDexTaskCompletionIntentResourceName(
+    args,
+    context.globalArgs.ownerToken,
+  );
+  const existing = DexTaskCompletionIntentSchema.safeParse(
+    await context.readResource(identity.name),
+  );
+  if (current.completed) {
+    if (!existing.success || existing.data.intentDigest !== identity.digest) {
+      throw trackerError(
+        "completion-replay-not-authorized",
+        `Dex task ${current.id} was completed without this Factory completion intent`,
+      );
+    }
+    requireExactCompletionPostcondition(current, args);
+    return;
+  }
+  if (existing.success) return;
+  const intent = DexTaskCompletionIntentSchema.parse({
+    schemaVersion: 1,
+    adapterVersion: DEX_TASK_TRACKER_ADAPTER_VERSION,
+    intentDigest: identity.digest,
+    ownerToken: context.globalArgs.ownerToken,
+    taskId: args.taskId,
+    result: args.result,
+    commit: args.commit,
+    preparedAt: occurredAt,
+    status: "prepared",
+  });
+  await context.writeResource("completion-intent", identity.name, intent);
+}
+
 async function executeTaskMutation(
   request: DexTaskMutationRequest,
   current: DexTaskSnapshot,
@@ -651,6 +792,7 @@ async function executeTaskMutation(
     return;
   }
   if (request.action === "complete") {
+    if (current.completed) return;
     requireCompletable(current);
     const commitArgs = request.args.commit.kind === "commit"
       ? (["--commit", request.args.commit.sha] as const)
@@ -688,6 +830,14 @@ async function executeTaskAction(
 
   const current = await readDexTask(taskId, context, commandAdapter);
   observeTask(current);
+  if (request.action === "complete") {
+    await requireOrPrepareCompletionIntent(
+      request.args,
+      current,
+      context,
+      occurredAt,
+    );
+  }
   await executeTaskMutation(
     request,
     current,
@@ -698,6 +848,9 @@ async function executeTaskAction(
 
   const updated = await readDexTask(taskId, context, commandAdapter);
   observeTask(updated);
+  if (request.action === "complete") {
+    requireExactCompletionPostcondition(updated, request.args);
+  }
   return updated;
 }
 
@@ -1086,9 +1239,8 @@ function createDenoDexTaskCommandAdapter(): DexTaskCommandAdapter {
           params: { name: "update_task", arguments: args },
         },
       ] as const;
-      const stdinText = messages.map((message) => JSON.stringify(message)).join(
-        "\n",
-      ) + "\n";
+      const stdinText =
+        messages.map((message) => JSON.stringify(message)).join("\n") + "\n";
       const result = await runBoundedDexProcess(cwd, ["mcp"], stdinText, {
         timeoutMs: DEX_COMMAND_TIMEOUT_MS,
       });

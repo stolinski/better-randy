@@ -260,27 +260,6 @@ async function main(): Promise<void> {
 			presetDependencies: readPresetDependencies(preset)
 		}))
 		.sort((left, right) => left.slug.localeCompare(right.slug));
-	const { runtimeIdentity, renderSourceFingerprint } =
-		await createPackCalibrationVerificationInputs({
-			repoRoot,
-			calibrationTrio: CALIBRATION_TRIO_FRAME_SPECS,
-			packRegistry: PACK_REGISTRY,
-			parsePreset: (value) => PresetIngressSchema.parse(value),
-			createRuntimeIdentity: createRuntimeRenderRegistryIdentity
-		});
-	const staleCatalogIssue = (
-		await validatePackCatalogBundleFreshness(
-			PACK_CATALOG_REGISTRY,
-			runtimeIdentity,
-			renderSourceFingerprint
-		)
-	)[0];
-	if (staleCatalogIssue) {
-		fail(
-			`Pack catalog ${staleCatalogIssue.pack} ${staleCatalogIssue.kind} ${issuePath(staleCatalogIssue.path)} — ${staleCatalogIssue.message}`
-		);
-	}
-
 	let axes: StaticPresetPackAxis[];
 	let changedPaths = options.changedPaths;
 	if (options.mode === 'explicit') {
@@ -301,6 +280,26 @@ async function main(): Promise<void> {
 			deliverables.map((entry) => entry.slug),
 			packIds
 		);
+		const { runtimeIdentity, renderSourceFingerprint } =
+			await createPackCalibrationVerificationInputs({
+				repoRoot,
+				calibrationTrio: CALIBRATION_TRIO_FRAME_SPECS,
+				packRegistry: PACK_REGISTRY,
+				parsePreset: (value) => PresetIngressSchema.parse(value),
+				createRuntimeIdentity: createRuntimeRenderRegistryIdentity
+			});
+		const staleCatalogIssue = (
+			await validatePackCatalogBundleFreshness(
+				PACK_CATALOG_REGISTRY,
+				runtimeIdentity,
+				renderSourceFingerprint
+			)
+		)[0];
+		if (staleCatalogIssue) {
+			fail(
+				`Pack catalog ${staleCatalogIssue.pack} ${staleCatalogIssue.kind} ${issuePath(staleCatalogIssue.path)} — ${staleCatalogIssue.message}`
+			);
+		}
 	}
 
 	if (axes.length === 0) {

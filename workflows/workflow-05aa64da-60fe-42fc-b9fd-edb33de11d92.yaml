@@ -51,6 +51,10 @@ jobs:
                 ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.treeFingerprint }}
               paths: >-
                 ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.paths }}
+              surfaces: >-
+                ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.surfaces }}
+              requiredHumanReviews: >-
+                ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.requiredHumanReviews }}
               lanes: >-
                 ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.lanes }}
               requiredLanes: >-
@@ -82,4 +86,4 @@ jobs:
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 1
+version: 2

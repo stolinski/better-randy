@@ -69,7 +69,7 @@ describe('decoded output classification', () => {
 });
 
 describe('local background contrast', () => {
-	it('samples only same-coordinate glyph, stroke, or shadow treatment pixels', () => {
+	it('samples same-coordinate glyph, stroke, or shadow treatment pixels', () => {
 		const background = png(2, 1, 0);
 		const treatment = png(2, 1, 0);
 		const mask = png(2, 1, 0);
@@ -87,6 +87,48 @@ describe('local background contrast', () => {
 		assert.ok(measurement);
 		assert.equal(measurement.treatmentSampleCount, 1);
 		assert.ok(Math.abs(measurement.measuredRatio - 4.004) < 0.02);
+	});
+
+	it('follows a glyph core displaced by one post-effect pixel', () => {
+		const background = png(3, 1, 0);
+		const treatment = png(3, 1, 0);
+		const mask = png(3, 1, 0);
+		mask.data[3] = 255;
+		treatment.data[4] = 255;
+		treatment.data[5] = 255;
+		treatment.data[6] = 255;
+		treatment.data[7] = 255;
+		const measurement = measureLocalBackgroundContrast(background, treatment, mask, {
+			x0: 0,
+			y0: 0,
+			x1: 3,
+			y1: 1
+		});
+		assert.ok(measurement);
+		assert.equal(measurement.treatmentSampleCount, 1);
+		assert.ok(Math.abs(measurement.measuredRatio - 4.004) < 0.02);
+	});
+
+	it('measures the lower glyph core without letting fringe pixels own the verdict', () => {
+		const background = png(10, 1, 255);
+		const treatment = png(10, 1, 255);
+		const mask = png(10, 1, 255);
+		for (let pixel = 0; pixel < 10; pixel += 1) {
+			const offset = pixel * 4;
+			const value = pixel < 2 ? 96 : 255;
+			treatment.data[offset] = value;
+			treatment.data[offset + 1] = value;
+			treatment.data[offset + 2] = value;
+		}
+		const measurement = measureLocalBackgroundContrast(background, treatment, mask, {
+			x0: 0,
+			y0: 0,
+			x1: 10,
+			y1: 1
+		});
+		assert.ok(measurement);
+		assert.equal(measurement.treatmentSampleCount, 10);
+		assert.ok(measurement.measuredRatio > 10);
 	});
 
 	it('fails closed when captures differ in size or carry no treatment signal', () => {

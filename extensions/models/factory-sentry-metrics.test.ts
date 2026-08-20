@@ -252,8 +252,8 @@ Deno.test("all projected observability outcomes persist exact summaries bound by
           {
             stageId: route.preterminalStage,
             entries: 1,
-            totalMs: null,
-            durationAvailability: "unavailable" as const,
+            totalMs: 2_000,
+            durationAvailability: "available" as const,
             firstEnteredMs: 15_000,
             dispatchAttempts: 1,
             terminal: false,
@@ -290,6 +290,11 @@ Deno.test("all projected observability outcomes persist exact summaries bound by
     );
     assert.equal(summary.report.metrics.runStatus, "terminal");
     assert.equal(summary.report.metrics.outcome.value, route.outcome);
+    const projectedPreterminal = summary.report.metrics.stages.find((stage) =>
+      stage.stageId === route.preterminalStage
+    );
+    assert.equal(projectedPreterminal?.totalMs, null);
+    assert.equal(projectedPreterminal?.durationAvailability, "unavailable");
     assert.equal(
       summary.report.metrics.stages.at(-1)?.stageId,
       route.targetStage,

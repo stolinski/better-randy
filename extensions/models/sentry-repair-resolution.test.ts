@@ -140,7 +140,7 @@ async function fixtureResources() {
     stageId: "verification" as const,
     cycle: 1,
     payload: {
-      schemaVersion: 1 as const,
+      schemaVersion: 2 as const,
       disposition: "reconcile" as const,
       workItem: DEX_TASK_ID,
       integratedRevision: REVISION,
@@ -180,6 +180,7 @@ async function fixtureResources() {
       renderMatrixRunDigest: "d".repeat(64),
       renderEvidenceArchiveDigest: "",
       workflowRunId: "verification-run-17",
+      requiredHumanReviewKinds: [],
       objectiveFailureCodes: [],
       unavailableEvidenceCodes: [],
       advisories: [],

@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Outro — watch next",
-	"description": "Full-frame end card with a decisive closing title, one next-video action, and an uninterrupted end-screen hold. Pack-resolved field, type, accent, and grain keep the same composition useful across every house look and both orientations.",
+	"description": "Full-frame end card with a decisive closing title, one next-video action, and an uninterrupted end-screen hold. Pack-resolved field, type, and accent keep the same composition useful across every house look and both orientations.",
 	"pack": "syntax",
 	"state": {
 		"transport": {
@@ -70,16 +70,7 @@
 			}
 		],
 		"overlays": [],
-		"effects": [
-			{
-				"type": "paper-grain",
-				"id": "field-grain",
-				"params": {
-					"warmth": 0.45,
-					"density": 0.3
-				}
-			}
-		],
+		"effects": [],
 		"audioCues": []
 	}
 }

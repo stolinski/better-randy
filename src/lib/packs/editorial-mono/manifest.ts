@@ -199,7 +199,7 @@ export const editorialMonoPack: PackManifest = {
 		'pullquote-on-photo.byline': { kind: 'style', value: '#8aa0b4' },
 		'type-hero.ink': { kind: 'style', value: '#eef3f8' },
 		'type-hero.accent': { kind: 'style', value: '#22d3ee' },
-		'type-hero.byline': { kind: 'style', value: '#8aa0b4' },
+		'type-hero.byline': { kind: 'style', value: '#9aafc2' },
 		// WGSL backdrop for the hero field: syntax's warm/cool band pair becomes
 		// a two-value SLATE pair (soft slate passing a deeper blue slate — the
 		// parallax drift reads as tone, not temperature) and the drifting motes

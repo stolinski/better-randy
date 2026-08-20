@@ -4,8 +4,10 @@
  * @module
  */
 import {
+  DEX_TASK_TRACKER_ADAPTER_VERSION,
   DexTaskAddNoteArgsSchema,
   DexTaskCompleteArgsSchema,
+  DexTaskCompletionIntentSchema,
   DexTaskGetArgsSchema,
   DexTaskReopenArgsSchema,
   DexTaskSnapshotSchema,
@@ -19,7 +21,6 @@ import {
   executeDexTaskStart,
 } from "./dex-task-tracker-adapter.ts";
 import {
-  DEX_READY_LEAF_HANDOFF_VERSION,
   DexReadyLeafClaimArgsSchema,
   DexReadyLeafClaimSchema,
   DexReadyLeafIntentSchema,
@@ -41,7 +42,7 @@ import type {
 /** Model definition for normalized, receipt-backed Dex task lifecycle operations. */
 export const model = {
   type: "@club_aqua_back_deck/dex-task-tracker",
-  version: DEX_READY_LEAF_HANDOFF_VERSION,
+  version: DEX_TASK_TRACKER_ADAPTER_VERSION,
   globalArguments: DexTaskTrackerGlobalArgsSchema,
   resources: {
     task: {
@@ -55,6 +56,13 @@ export const model = {
       description:
         "Versioned Dex action outcome with deterministic failure codes",
       schema: DexTaskTrackerReceiptSchema,
+      lifetime: "infinite",
+      garbageCollection: 100,
+    },
+    "completion-intent": {
+      description:
+        "Deterministic pre-mutation outbox for replay-safe Factory task completion",
+      schema: DexTaskCompletionIntentSchema,
       lifetime: "infinite",
       garbageCollection: 100,
     },

@@ -17,11 +17,23 @@ const Sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
 const DomainIdSchema = z.string().regex(/^[a-z0-9][a-z0-9._:-]{0,127}$/);
 const ResourceNameSchema = z.string().min(1).max(512);
 
+const ChangeSurfaceSchema = z.strictObject({
+	id: z.enum(['authoring-app', 'rendered-composition', 'export-pipeline', 'control-plane']),
+	reasons: z.array(z.string().min(1)).min(1)
+});
+
+const HumanReviewRequirementSchema = z.strictObject({
+	kind: z.enum(['authoring-app-visual', 'rendered-composition-aesthetic']),
+	reasons: z.array(z.string().min(1)).min(1)
+});
+
 const ChangeImpactSchema = z.strictObject({
 	resourceName: ResourceNameSchema,
 	workItem: DomainIdSchema,
 	treeFingerprint: Sha256Schema,
-	workflowRunId: DomainIdSchema
+	workflowRunId: DomainIdSchema,
+	surfaces: z.array(ChangeSurfaceSchema).min(1).max(4),
+	requiredHumanReviews: z.array(HumanReviewRequirementSchema).max(2)
 });
 
 type DeterministicLaneId = 'browser' | 'check' | 'unit' | 'structural';
@@ -328,8 +340,8 @@ export async function normalizeSupersDeliveryVerificationRoute(
 	const corpusReceipt = args.policySweepExecution.corpusReceipt;
 	const renderMatrixRunDigest = await createSupersDeterministicContractHash(args.renderMatrixRun);
 	const completedRun = args.renderMatrixRun.status === 'completed' ? args.renderMatrixRun : null;
-	const common = {
-		schemaVersion: 1 as const,
+	const routeIdentity = {
+		schemaVersion: 2 as const,
 		workItem: args.workItem,
 		integratedRevision: args.expectedIntegratedRevision,
 		integratedTreeFingerprint: args.expectedIntegratedTreeFingerprint,
@@ -359,6 +371,39 @@ export async function normalizeSupersDeliveryVerificationRoute(
 	const unavailable = new Set<
 		z.infer<typeof SupersDeliveryVerificationRouteSchema>['unavailableEvidenceCodes'][number]
 	>();
+	const requiredHumanReviewKinds = sortedUnique(
+		args.changeImpact.requiredHumanReviews.map((review) => review.kind)
+	);
+	const surfaceIds = sortedUnique(args.changeImpact.surfaces.map((surface) => surface.id));
+	const uniqueRequiredLaneIds = sortedUnique(args.requiredLaneIds);
+	if (
+		requiredHumanReviewKinds.length !== args.changeImpact.requiredHumanReviews.length ||
+		surfaceIds.length !== args.changeImpact.surfaces.length
+	) {
+		throw new TypeError('Change impact surfaces and human reviews must be unique');
+	}
+	if (uniqueRequiredLaneIds.length !== args.requiredLaneIds.length) {
+		throw new TypeError('Required verification lanes must be unique');
+	}
+	const requiresAppVisualReview = requiredHumanReviewKinds.includes('authoring-app-visual');
+	const requiresRenderedCompositionReview = requiredHumanReviewKinds.includes(
+		'rendered-composition-aesthetic'
+	);
+	const hasRenderedCompositionSurface = surfaceIds.includes('rendered-composition');
+	const hasRenderMatrixLane = uniqueRequiredLaneIds.includes('render-matrix');
+	if (requiresAppVisualReview && !surfaceIds.includes('authoring-app')) {
+		throw new TypeError('Human review requirement does not match its change surface');
+	}
+	if (
+		hasRenderedCompositionSurface !== requiresRenderedCompositionReview ||
+		(requiresRenderedCompositionReview && !hasRenderMatrixLane)
+	) {
+		throw new TypeError(
+			'Rendered composition impact requires its aesthetic review and render-matrix lane'
+		);
+	}
+	if (requiresAppVisualReview) unavailable.add('missing-app-visual-evidence');
+	const common = { ...routeIdentity, requiredHumanReviewKinds };
 	const requiredDeterministicLaneIds = sortedUnique(
 		args.requiredLaneIds.filter(
 			(lane): lane is DeterministicLaneId =>
@@ -375,13 +420,7 @@ export async function normalizeSupersDeliveryVerificationRoute(
 	if (requiredDeterministicLaneIds.some((lane) => !resultLaneIds.includes(lane))) {
 		unavailable.add('unexecuted-required-lane');
 	}
-	const uniqueRequiredLaneIds = sortedUnique(args.requiredLaneIds);
-	if (
-		uniqueRequiredLaneIds.length !== args.requiredLaneIds.length ||
-		!uniqueRequiredLaneIds.includes('policy-sweep')
-	) {
-		unavailable.add('unexecuted-required-lane');
-	}
+	if (!uniqueRequiredLaneIds.includes('policy-sweep')) unavailable.add('unexecuted-required-lane');
 	const deterministicFailureCodes = fanoutIsComplete
 		? args.deterministicFanout.results
 				.filter((result) => result.status === 'failed')
@@ -402,13 +441,32 @@ export async function normalizeSupersDeliveryVerificationRoute(
 
 	if (args.renderMatrixRun.status === 'not-applicable') {
 		const uncoveredLanes = uniqueRequiredLaneIds.filter(
-			(lane) =>
-				lane === 'render-matrix' || lane === 'pack-matrix' || lane === 'export-decode'
+			(lane) => lane === 'render-matrix' || lane === 'pack-matrix' || lane === 'export-decode'
 		);
 		if (uncoveredLanes.length > 0) unavailable.add('unexecuted-required-lane');
 		if (args.renderMatrixManifest !== null || args.renderMatrixBundle !== null) {
 			throw new TypeError('Not-applicable rendering cannot include a manifest or bundle');
 		}
+		return SupersDeliveryVerificationRouteSchema.parse({
+			...common,
+			disposition:
+				unavailable.size > 0
+					? 'evidence-unavailable'
+					: closedFailureCodes.length > 0
+						? 'automatic-rework'
+						: 'reconcile',
+			objectiveFailureCodes: closedFailureCodes,
+			unavailableEvidenceCodes: sortedUnique([...unavailable])
+		});
+	}
+
+	if (uniqueRequiredLaneIds.includes('export-decode')) {
+		unavailable.add('unexecuted-required-lane');
+	}
+
+	// The affected selector may conservatively capture a full render matrix for app-only paths.
+	// Extra render evidence cannot create a human review requirement the trusted classifier omitted.
+	if (!requiresRenderedCompositionReview) {
 		return SupersDeliveryVerificationRouteSchema.parse({
 			...common,
 			disposition:
@@ -471,9 +529,6 @@ export async function normalizeSupersDeliveryVerificationRoute(
 		}
 	}
 
-	if (uniqueRequiredLaneIds.includes('export-decode')) {
-		unavailable.add('unexecuted-required-lane');
-	}
 	const checks = verifiedBundle?.cells.flatMap((cell) => cell.checks) ?? [];
 	const objectiveFailureCodes = sortedUnique([
 		...closedFailureCodes,
@@ -623,7 +678,7 @@ async function executeBind(
 
 export const model = {
 	type: '@supers/delivery-verification-router',
-	version: '2026.08.16.2',
+	version: '2026.08.20.1',
 	globalArguments: z.strictObject({}),
 	resources: {
 		'policy-sweep-execution': {

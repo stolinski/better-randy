@@ -28,14 +28,24 @@
 				"type": "watermark",
 				"id": "archive-source",
 				"content": {
-					"handle": "NASA ARCHIVE",
-					"label": "APOLLO 11 · JUL 1969"
+					"handle": "NASA · APOLLO 11"
 				},
 				"position": {
 					"anchor": "top-left",
 					"offset": {
 						"x": 0.0625,
 						"y": 0.0625
+					},
+					"scale": 1.25,
+					"orientationOverrides": {
+						"vertical": {
+							"anchor": "top-left",
+							"offset": {
+								"x": 0.06,
+								"y": 0.08
+							},
+							"scale": 1.6
+						}
 					}
 				},
 				"enter": {

@@ -27,6 +27,7 @@ export interface DeterministicRenderCaptureControllerDependencies {
 	compositionRoots: readonly HTMLElement[];
 	waitForGpu(): Promise<void>;
 	forcePaint(): Promise<void>;
+	setDomCaptureForced(forced: boolean): void;
 	setProbeMode(mode: 'normal' | 'readable-mask'): void;
 }
 
@@ -37,7 +38,9 @@ interface ElementPaintSnapshot {
 	computedTextShadow: string;
 }
 
-const AUTHORITATIVE_MASK_PEAK_FRACTION = 0.5;
+// Measure glyph cores rather than anti-aliased fringe pixels. WCAG contrast
+// applies to the authored foreground/background colors, not partial coverage.
+const AUTHORITATIVE_MASK_PEAK_FRACTION = 0.9;
 const TRANSPARENT_COMPOSITE_GRAY = 127;
 
 async function blobDataUrl(blob: Blob): Promise<string> {
@@ -130,10 +133,17 @@ async function blobImageData(blob: Blob): Promise<ImageData> {
 	}
 }
 
+function readableMaskSignal(mask: ImageData, offset: number): number {
+	const alpha = mask.data[offset + 3] / 255;
+	return Math.round(
+		Math.max(mask.data[offset], mask.data[offset + 1], mask.data[offset + 2]) * alpha
+	);
+}
+
 async function binaryMaskBlob(mask: ImageData, threshold: number): Promise<Blob> {
 	const binary = new ImageData(mask.width, mask.height);
 	for (let offset = 0; offset < mask.data.length; offset += 4) {
-		const painted = mask.data[offset + 3] >= threshold;
+		const painted = readableMaskSignal(mask, offset) >= threshold;
 		binary.data[offset] = 255;
 		binary.data[offset + 1] = 255;
 		binary.data[offset + 2] = 255;
@@ -153,6 +163,32 @@ function srgbChannel(value: number): number {
 
 function luminance(red: number, green: number, blue: number): number {
 	return 0.2126 * srgbChannel(red) + 0.7152 * srgbChannel(green) + 0.0722 * srgbChannel(blue);
+}
+
+function canonicalTreatmentVisibleWithinOnePixel(
+	canonical: ImageData,
+	background: ImageData,
+	xPosition: number,
+	yPosition: number
+): boolean {
+	const left = Math.max(0, xPosition - 1);
+	const right = Math.min(canonical.width - 1, xPosition + 1);
+	const top = Math.max(0, yPosition - 1);
+	const bottom = Math.min(canonical.height - 1, yPosition + 1);
+	for (let y = top; y <= bottom; y += 1) {
+		for (let x = left; x <= right; x += 1) {
+			const offset = (y * canonical.width + x) * 4;
+			if (
+				canonical.data[offset] !== background.data[offset] ||
+				canonical.data[offset + 1] !== background.data[offset + 1] ||
+				canonical.data[offset + 2] !== background.data[offset + 2] ||
+				canonical.data[offset + 3] !== background.data[offset + 3]
+			) {
+				return true;
+			}
+		}
+	}
+	return false;
 }
 
 function compositeOverGray(data: Uint8ClampedArray, offset: number): [number, number, number] {
@@ -190,7 +226,8 @@ export function analyzeDeterministicReadableCapture(input: {
 	const bottom = Math.min(input.mask.height, input.region.y + input.region.height);
 	for (let y = Math.max(0, input.region.y); y < bottom; y += 1) {
 		for (let x = Math.max(0, input.region.x); x < right; x += 1) {
-			peakAlpha = Math.max(peakAlpha, input.mask.data[(y * input.mask.width + x) * 4 + 3]);
+			const offset = (y * input.mask.width + x) * 4;
+			peakAlpha = Math.max(peakAlpha, readableMaskSignal(input.mask, offset));
 		}
 	}
 	const threshold = Math.ceil(peakAlpha * AUTHORITATIVE_MASK_PEAK_FRACTION);
@@ -202,14 +239,12 @@ export function analyzeDeterministicReadableCapture(input: {
 	for (let y = Math.max(0, input.region.y); y < bottom; y += 1) {
 		for (let x = Math.max(0, input.region.x); x < right; x += 1) {
 			const offset = (y * input.mask.width + x) * 4;
-			if (input.mask.data[offset + 3] < threshold) continue;
+			if (readableMaskSignal(input.mask, offset) < threshold) continue;
 			expectedPixels += 1;
-			if (
-				input.canonical.data[offset] !== input.background.data[offset] ||
-				input.canonical.data[offset + 1] !== input.background.data[offset + 1] ||
-				input.canonical.data[offset + 2] !== input.background.data[offset + 2] ||
-				input.canonical.data[offset + 3] !== input.background.data[offset + 3]
-			) {
+			// Post-effects may displace a glyph core by one pixel (for example CRT
+			// curvature). Search that bounded neighborhood so displacement is not
+			// misclassified as occlusion; a genuinely covered area still has no delta.
+			if (canonicalTreatmentVisibleWithinOnePixel(input.canonical, input.background, x, y)) {
 				visiblePixels += 1;
 			}
 			minimumContrastRatio = Math.min(
@@ -285,6 +320,7 @@ export class DeterministicRenderCaptureController {
 			target.element,
 			...target.element.querySelectorAll<HTMLElement | SVGElement>('*')
 		]);
+		dependencies.setDomCaptureForced(true);
 		const { canonical, background, mask } = await (async (): Promise<{
 			canonical: Blob;
 			background: Blob;
@@ -312,10 +348,14 @@ export class DeterministicRenderCaptureController {
 				if (!mask) throw new Error('Authoritative readable mask capture was unavailable.');
 				return { canonical, background, mask };
 			} finally {
-				dependencies.setProbeMode('normal');
-				restorePaint(snapshots);
-				await dependencies.forcePaint();
-				await dependencies.waitForGpu();
+				try {
+					dependencies.setProbeMode('normal');
+					restorePaint(snapshots);
+					await dependencies.forcePaint();
+					await dependencies.waitForGpu();
+				} finally {
+					dependencies.setDomCaptureForced(false);
+				}
 			}
 		})();
 		const restored = await captureCanvasPng(dependencies.canvas);

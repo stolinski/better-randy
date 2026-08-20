@@ -12,7 +12,7 @@ function pixels(values: readonly [number, number, number, number][]): ImageData 
 }
 
 describe('analyzeDeterministicReadableCapture', () => {
-	it('uses half the observed mask peak and exact canonical/background differences', () => {
+	it('accepts a canonical treatment displaced by one post-effect pixel', () => {
 		const result = analyzeDeterministicReadableCapture({
 			canonical: pixels([
 				[255, 255, 255, 128],
@@ -33,11 +33,30 @@ describe('analyzeDeterministicReadableCapture', () => {
 		});
 		expect(result).toMatchObject({
 			peakAlpha: 200,
-			threshold: 100,
-			expectedPixels: 2,
+			threshold: 180,
+			expectedPixels: 1,
 			visiblePixels: 1
 		});
 		expect(result.minimumContrastRatio).toBe(1);
+	});
+
+	it('retains occlusion when no canonical treatment is visible nearby', () => {
+		const background = pixels([
+			[0, 0, 0, 0],
+			[0, 0, 0, 0],
+			[0, 0, 0, 0]
+		]);
+		const result = analyzeDeterministicReadableCapture({
+			canonical: background,
+			background,
+			mask: pixels([
+				[0, 0, 0, 0],
+				[255, 255, 255, 255],
+				[0, 0, 0, 0]
+			]),
+			region: { x: 0, y: 0, width: 3, height: 1 }
+		});
+		expect(result).toMatchObject({ expectedPixels: 1, visiblePixels: 0 });
 	});
 
 	it('fails closed when target-only capture has no alpha signal', () => {

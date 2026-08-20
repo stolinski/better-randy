@@ -49,6 +49,8 @@
 	import { isPresetOpaque, isTransitionOpaque } from '$lib/utils/output-classification';
 	import { readRuntimeRenderRegistryIdentity } from './deterministic-render-registry-identity';
 	import { resolveSurfaceTypographyColors } from './pipelines/definition-registry';
+	import { collectPresetRendererRequirements } from './pipelines/preset-renderer-requirements';
+	import { pipelineRendererController } from './pipelines/runtime-loader';
 
 	import { TransitionSnapshotController } from './transition-snapshot-controller';
 	import type { SyncExportRequest } from './export-video';
@@ -100,6 +102,7 @@
 	const transitionSnapshotController = new TransitionSnapshotController();
 	const deterministicRenderCaptureController = new DeterministicRenderCaptureController();
 	let readableProbeMode: CompositionReadableProbeMode = 'normal';
+	let forceReadableAuditDomCapture = false;
 	let suppressCachedTransitionForAudit = false;
 	let transitionSnapshotPreparation: Promise<void> | null = null;
 	const compositionExportController = new CompositionExportController();
@@ -475,7 +478,7 @@
 			domCapture: {
 				surface: canvasPaintGenerationTracker.generationFor(compositionElement),
 				overlay: canvasPaintGenerationTracker.generationFor(overlayRootElement),
-				force: isExporting
+				force: isExporting || forceReadableAuditDomCapture
 			},
 			resources: currentFrameRenderResources(),
 			cachedTransition: suppressCachedTransitionForAudit
@@ -800,6 +803,9 @@
 						: [localCompositionRoot],
 					waitForGpu: () => localHost.device.queue.onSubmittedWorkDone(),
 					forcePaint: forceAuditPaint,
+					setDomCaptureForced: (forced) => {
+						forceReadableAuditDomCapture = forced;
+					},
 					setProbeMode: (mode) => {
 						readableProbeMode = mode;
 					}
@@ -940,10 +946,19 @@
 			if (!preset || preset.kind === 'fixture') {
 				throw new Error(`Unknown deliverable Preset ${input.presetSlug}.`);
 			}
-			getPack(input.packId);
+			const configuredPack = getPack(input.packId);
 			const configuredPreset = cloneJsonValue(preset);
 			configuredPreset.pack = input.packId;
 			configuredPreset.state.transport.orientation = input.orientation;
+			pipelineRendererController.activate(
+				await pipelineRendererController.resolve(
+					collectPresetRendererRequirements(configuredPreset, {
+						pack: configuredPack,
+						resolvePack: getPack,
+						resolvePreset: getPresetBySlug
+					})
+				)
+			);
 			applyPreset(configuredPreset);
 			if (transitionState.active) {
 				transitionState.active = {

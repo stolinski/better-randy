@@ -7,43 +7,88 @@ function laneIds(paths: string[]): string[] {
 	return classifyChangeImpact(paths).lanes.map((lane) => lane.id);
 }
 
-test('documentation-only changes require only the policy sweep', () => {
-	assert.deepEqual(laneIds(['docs/project-control-plane.md']), ['policy-sweep']);
+function surfaceIds(paths: string[]): string[] {
+	return classifyChangeImpact(paths).surfaces.map((surface) => surface.id);
+}
+
+function humanReviewKinds(paths: string[]): string[] {
+	return classifyChangeImpact(paths).requiredHumanReviews.map((review) => review.kind);
+}
+
+test('documentation-only changes require only control-plane policy verification', () => {
+	const paths = ['docs/project-control-plane.md'];
+	assert.deepEqual(laneIds(paths), ['policy-sweep']);
+	assert.deepEqual(surfaceIds(paths), ['control-plane']);
+	assert.deepEqual(humanReviewKinds(paths), []);
 });
 
-test('Svelte UI changes require typed, unit, structural, and browser lanes', () => {
-	assert.deepEqual(laneIds(['src/lib/platform/RootInspector.svelte']), [
-		'policy-sweep',
-		'check',
-		'unit',
-		'structural',
-		'browser'
-	]);
+test('app TypeScript behavior has no human visual review', () => {
+	const paths = ['src/lib/platform/user-composition-store.ts'];
+	assert.deepEqual(surfaceIds(paths), ['authoring-app']);
+	assert.deepEqual(humanReviewKinds(paths), []);
 });
 
-test('Pack pipeline changes add corpus, render-matrix, and Pack-matrix lanes', () => {
-	const result = classifyChangeImpact([
+test('Svelte UI changes require app visual review and browser lanes', () => {
+	const paths = ['src/lib/platform/RootInspector.svelte'];
+	assert.deepEqual(laneIds(paths), ['policy-sweep', 'check', 'unit', 'structural', 'browser']);
+	assert.deepEqual(surfaceIds(paths), ['authoring-app']);
+	assert.deepEqual(humanReviewKinds(paths), ['authoring-app-visual']);
+});
+
+test('app-owned styles remain app visual work even while executable CSS lanes stay conservative', () => {
+	const paths = ['src/lib/platform/inspector.css'];
+	assert.deepEqual(surfaceIds(paths), ['authoring-app']);
+	assert.deepEqual(humanReviewKinds(paths), ['authoring-app-visual']);
+	assert.ok(laneIds(paths).includes('render-matrix'));
+});
+
+test('Pack pipeline changes add rendered-composition review and render lanes', () => {
+	const paths = [
 		'src/lib/packs/syntax/manifest.ts',
 		'src/lib/pipelines/overlays/lower-third/identity.ts'
-	]);
+	];
+	const result = classifyChangeImpact(paths);
 	assert.deepEqual(
 		result.lanes.map((lane) => lane.id),
 		['policy-sweep', 'check', 'unit', 'structural', 'corpus', 'render-matrix', 'pack-matrix']
 	);
+	assert.deepEqual(surfaceIds(paths), ['rendered-composition']);
+	assert.deepEqual(humanReviewKinds(paths), ['rendered-composition-aesthetic']);
 });
 
-test('export controller changes require browser and export-decode verification', () => {
-	assert.deepEqual(laneIds(['src/lib/platform/composition-export-controller.ts']), [
+test('platform Pipeline and Pack infrastructure is rendered-composition work', () => {
+	for (const path of [
+		'src/lib/platform/pipelines/runtime-loader.ts',
+		'src/lib/platform/packs/resolve.ts'
+	]) {
+		assert.deepEqual(surfaceIds([path]), ['rendered-composition']);
+		assert.deepEqual(humanReviewKinds([path]), ['rendered-composition-aesthetic']);
+		assert.ok(laneIds([path]).includes('render-matrix'));
+	}
+});
+
+test('Preset changes are rendered-composition aesthetic work', () => {
+	const paths = ['src/lib/presets/lower-third.json'];
+	assert.deepEqual(surfaceIds(paths), ['rendered-composition']);
+	assert.deepEqual(humanReviewKinds(paths), ['rendered-composition-aesthetic']);
+});
+
+test('export controller changes are export-only without automatic aesthetic review', () => {
+	const paths = ['src/lib/platform/composition-export-controller.ts'];
+	assert.deepEqual(laneIds(paths), [
 		'policy-sweep',
 		'check',
 		'unit',
 		'structural',
 		'export-decode'
 	]);
+	assert.deepEqual(surfaceIds(paths), ['export-pipeline']);
+	assert.deepEqual(humanReviewKinds(paths), []);
 });
 
-test('stylesheets require check, structural, corpus, browser, and render-matrix lanes', () => {
-	assert.deepEqual(laneIds(['src/app.css']), [
+test('global styles stay mixed and require both visual review kinds', () => {
+	const paths = ['src/app.css'];
+	assert.deepEqual(laneIds(paths), [
 		'policy-sweep',
 		'check',
 		'structural',
@@ -51,23 +96,54 @@ test('stylesheets require check, structural, corpus, browser, and render-matrix 
 		'browser',
 		'render-matrix'
 	]);
+	assert.deepEqual(surfaceIds(paths), ['authoring-app', 'rendered-composition']);
+	assert.deepEqual(humanReviewKinds(paths), [
+		'authoring-app-visual',
+		'rendered-composition-aesthetic'
+	]);
 });
 
-test('static fonts and images require structural rendered-output verification', () => {
-	assert.deepEqual(laneIds(['static/fonts/channel.woff2', 'static/images/plate image.png']), [
+test('ambiguous static visual assets stay mixed and require both visual reviews', () => {
+	const paths = ['static/fonts/channel.woff2', 'static/images/plate image.png'];
+	assert.deepEqual(laneIds(paths), [
 		'policy-sweep',
 		'structural',
 		'corpus',
 		'browser',
 		'render-matrix'
 	]);
+	assert.deepEqual(surfaceIds(paths), ['authoring-app', 'rendered-composition']);
+	assert.deepEqual(humanReviewKinds(paths), [
+		'authoring-app-visual',
+		'rendered-composition-aesthetic'
+	]);
 });
 
-test('Pack fonts and assets also require Pack-matrix verification', () => {
-	assert.deepEqual(
-		laneIds(['src/lib/packs/syntax/fonts/channel.woff2', 'src/lib/packs/syntax/assets/noise.png']),
-		['policy-sweep', 'structural', 'corpus', 'browser', 'render-matrix', 'pack-matrix']
-	);
+test('Pack fonts and assets require only rendered-composition aesthetic review', () => {
+	const paths = [
+		'src/lib/packs/syntax/fonts/channel.woff2',
+		'src/lib/packs/syntax/assets/noise.png'
+	];
+	assert.deepEqual(laneIds(paths), [
+		'policy-sweep',
+		'structural',
+		'corpus',
+		'browser',
+		'render-matrix',
+		'pack-matrix'
+	]);
+	assert.deepEqual(surfaceIds(paths), ['rendered-composition']);
+	assert.deepEqual(humanReviewKinds(paths), ['rendered-composition-aesthetic']);
+});
+
+test('mixed render shells require app and composition visual review', () => {
+	for (const path of ['src/lib/platform/Workspace.svelte', 'src/lib/platform/Composition.svelte']) {
+		assert.deepEqual(surfaceIds([path]), ['authoring-app', 'rendered-composition']);
+		assert.deepEqual(humanReviewKinds([path]), [
+			'authoring-app-visual',
+			'rendered-composition-aesthetic'
+		]);
+	}
 });
 
 test('model, workflow, and extension contract files require check, unit, and structural lanes', () => {
@@ -113,9 +189,11 @@ test('NUL porcelain includes spaces, renames, copies, untracked files, and delet
 	]);
 });
 
-test('empty Git working trees still select the policy-sweep lane', () => {
+test('empty Git working trees still select policy-only control-plane impact', () => {
 	assert.deepEqual(parseGitWorkingTreeStatus(''), []);
 	assert.deepEqual(laneIds(parseGitWorkingTreeStatus('')), ['policy-sweep']);
+	assert.deepEqual(surfaceIds([]), ['control-plane']);
+	assert.deepEqual(humanReviewKinds([]), []);
 });
 
 test('porcelain paths are normalized, deduplicated, and sorted by the classifier', () => {

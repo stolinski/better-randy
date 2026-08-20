@@ -915,7 +915,8 @@ export const SupersDeliveryUnavailableEvidenceCodeSchema = z.enum([
 	'duplicate-render-check',
 	'stale-render-evidence',
 	'incomplete-deterministic-fanout',
-	'unexecuted-required-lane'
+	'unexecuted-required-lane',
+	'missing-app-visual-evidence'
 ]);
 
 /** Exact immutable identity of one canonical verification resource. */
@@ -932,7 +933,7 @@ export type SupersVerificationReceiptIdentity = z.infer<
 >;
 
 const DeliveryVerificationRouteFields = {
-	schemaVersion: z.literal(1),
+	schemaVersion: z.literal(2),
 	workItem: DomainIdSchema,
 	integratedRevision: GitRevisionSchema,
 	integratedTreeFingerprint: Sha256Schema,
@@ -957,6 +958,9 @@ const DeliveryVerificationRouteFields = {
 	renderMatrixRunDigest: Sha256Schema,
 	renderEvidenceArchiveDigest: z.union([Sha256Schema, z.literal('')]),
 	workflowRunId: DomainIdSchema,
+	requiredHumanReviewKinds: z.array(
+		z.enum(['authoring-app-visual', 'rendered-composition-aesthetic'])
+	),
 	objectiveFailureCodes: z.array(SupersDeliveryObjectiveFailureCodeSchema),
 	unavailableEvidenceCodes: z.array(SupersDeliveryUnavailableEvidenceCodeSchema),
 	advisories: z.array(SupersAdvisoryVisualObservationSchema)
@@ -1027,13 +1031,27 @@ export const SupersDeliveryVerificationRouteSchema = z
 				message: 'Deterministic fanout must originate from the routing workflow run'
 			});
 		}
+		const uniqueReviews = new Set(route.requiredHumanReviewKinds);
 		const uniqueFailures = new Set(route.objectiveFailureCodes);
 		const uniqueUnavailable = new Set(route.unavailableEvidenceCodes);
 		if (
+			uniqueReviews.size !== route.requiredHumanReviewKinds.length ||
 			uniqueFailures.size !== route.objectiveFailureCodes.length ||
 			uniqueUnavailable.size !== route.unavailableEvidenceCodes.length
 		) {
-			context.addIssue({ code: 'custom', message: 'Delivery route codes must be unique' });
+			context.addIssue({
+				code: 'custom',
+				message: 'Delivery route reviews and codes must be unique'
+			});
+		}
+		const sortedReviews = [...route.requiredHumanReviewKinds].sort((left, right) =>
+			left.localeCompare(right)
+		);
+		if (route.requiredHumanReviewKinds.some((review, index) => review !== sortedReviews[index])) {
+			context.addIssue({
+				code: 'custom',
+				message: 'Delivery route reviews must use canonical order'
+			});
 		}
 		const sortedFailures = [...route.objectiveFailureCodes].sort((left, right) =>
 			left.localeCompare(right)
@@ -1097,15 +1115,19 @@ export const SupersDeliveryVerificationRouteSchema = z
 				}
 			}
 		}
-		if (
-			route.disposition === 'reconcile' &&
-			(route.renderMatrixManifestDigest !== '' ||
-				route.renderMatrixBundleDigest !== '' ||
-				route.renderEvidenceArchiveDigest !== '')
-		) {
+		const requiresRenderedReview = route.requiredHumanReviewKinds.includes(
+			'rendered-composition-aesthetic'
+		);
+		if (route.disposition === 'await-human-aesthetic' && !requiresRenderedReview) {
 			context.addIssue({
 				code: 'custom',
-				message: 'Not-applicable rendering cannot claim matrix or evidence digests'
+				message: 'Aesthetic routing requires a rendered-composition review'
+			});
+		}
+		if (route.disposition === 'reconcile' && route.requiredHumanReviewKinds.length > 0) {
+			context.addIssue({
+				code: 'custom',
+				message: 'Reconciliation cannot skip a required human review'
 			});
 		}
 	});
