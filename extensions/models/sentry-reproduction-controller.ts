@@ -78,11 +78,13 @@ const SentryReproductionRecipeSchema = z.discriminatedUnion("kind", [
 ]);
 
 export const SentryReproductionRequestSchema = z.strictObject({
-  schemaVersion: z.literal(2),
+  schemaVersion: z.literal(3),
   state: z.literal("pending-transport"),
   workItem: z.string().regex(/^sentry-reproduction-[A-Za-z0-9_-]{1,100}$/),
   repairIntentName: z.string().min(1),
   repairIntentFingerprint: FingerprintSchema,
+  queueSelectionName: z.string().min(1),
+  queueSelectionFingerprint: FingerprintSchema,
   issueId: IssueIdentitySchema,
   shortId: IssueIdentitySchema,
   checkoutRelease: GitReleaseSchema,
@@ -93,7 +95,7 @@ export const SentryReproductionRequestSchema = z.strictObject({
   sourceEventOccurredAt: z.string().datetime(),
   sourceLastSeen: z.string().datetime(),
   recipe: SentryReproductionRecipeSchema,
-  requiredWorkerContract: z.literal("factory-pi-outbox-v1"),
+  requiredWorkerContract: z.literal("sentry-reproduction-transport-v1"),
   frozenSemanticTask: z.string().min(1).max(4_000),
   frozenTaskDigest: FingerprintSchema,
   fingerprint: FingerprintSchema,
@@ -664,22 +666,25 @@ export async function executePrepareSentryReproduction(
   // This frozen semantic payload is the only task content Stage 3 may place in
   // the existing Factory Pi outbox. No Sentry prose becomes executable text.
   const frozenTask = canonicalSentryJson({
-    contract: "sentry-reproduction-v2",
+    contract: "sentry-reproduction-v3",
     checkoutRelease,
     checkoutRevision,
     evidenceFingerprint: evidence.fingerprint,
     issueId: evidence.issueId,
+    queueSelectionFingerprint: args.expectedQueueSelectionFingerprint,
     recipe,
     sourceEventId: evidence.eventId,
     sourceEventOccurredAt: evidence.eventOccurredAt,
     sourceLastSeen: evidence.lastSeen,
   });
   const requestBase = {
-    schemaVersion: 2 as const,
+    schemaVersion: 3 as const,
     state: "pending-transport" as const,
     workItem: `sentry-reproduction-${evidence.issueId}`,
     repairIntentName: args.repairIntentName,
     repairIntentFingerprint: envelope.fingerprint,
+    queueSelectionName: args.queueSelectionName,
+    queueSelectionFingerprint: args.expectedQueueSelectionFingerprint,
     issueId: evidence.issueId,
     shortId: evidence.shortId,
     checkoutRelease,
@@ -690,7 +695,7 @@ export async function executePrepareSentryReproduction(
     sourceEventOccurredAt: evidence.eventOccurredAt,
     sourceLastSeen: evidence.lastSeen,
     recipe,
-    requiredWorkerContract: "factory-pi-outbox-v1" as const,
+    requiredWorkerContract: "sentry-reproduction-transport-v1" as const,
     frozenSemanticTask: frozenTask,
     frozenTaskDigest: await createSentrySha256(frozenTask),
   };
@@ -731,7 +736,7 @@ export async function executePrepareSentryReproduction(
 
 export const model = {
   type: "@supers/sentry-reproduction-controller",
-  version: "2026.08.21.2",
+  version: "2026.08.21.3",
   globalArguments: z.strictObject({
     sourceRepairModelId: z.string().uuid(),
   }),

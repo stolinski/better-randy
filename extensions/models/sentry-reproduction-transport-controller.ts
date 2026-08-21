@@ -1,6 +1,7 @@
 import { z } from "npm:zod@4.4.3";
 
 import { runBoundedDexProcess } from "./dex-bounded-process.ts";
+import { containsExactSentryShortId } from "./sentry-dex-triage.ts";
 import {
   DEFAULT_DEX_REPOSITORY_LOCK,
   type DexRepositoryLock,
@@ -12,6 +13,9 @@ import {
 import {
   SentryRepairIntentEnvelopeSchema,
 } from "./sentry-repair-planning-handoff-adapter.ts";
+import {
+  SentryRepairPlanningQueueSelectionSchema,
+} from "./sentry-repair-planning-queue.ts";
 import {
   SentryReproductionRequestSchema,
 } from "./sentry-reproduction-controller.ts";
@@ -88,9 +92,55 @@ export const SentryReproductionTransportOutboxSchema = z.strictObject({
   piRunId: PiRunIdSchema.nullable(),
   claimNonceDigest: FingerprintSchema.nullable(),
   launchContractDigest: FingerprintSchema.nullable(),
+  launchArtifactFingerprint: FingerprintSchema.nullable(),
+  executionClaimFingerprint: FingerprintSchema.nullable(),
+  workerObservationFingerprint: FingerprintSchema.nullable(),
   workerResultDigest: FingerprintSchema.nullable(),
   reservedAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
+  fingerprint: FingerprintSchema,
+});
+
+export const SentryReproductionLaunchArtifactSchema = z.strictObject({
+  schemaVersion: z.literal(1),
+  contract: z.literal("sentry-reproduction-pi-launch-v1"),
+  dispatchToken: FingerprintSchema,
+  requestFingerprint: FingerprintSchema,
+  checkoutRevision: GitRevisionSchema,
+  piRunId: PiRunIdSchema,
+  launchContractDigest: FingerprintSchema,
+  runtimeRequestDigest: FingerprintSchema,
+  launchedAt: z.string().datetime(),
+  fingerprint: FingerprintSchema,
+});
+
+export const SentryReproductionExecutionClaimSchema = z.strictObject({
+  schemaVersion: z.literal(1),
+  contract: z.literal("sentry-reproduction-pi-claim-v1"),
+  dispatchToken: FingerprintSchema,
+  requestFingerprint: FingerprintSchema,
+  piRunId: PiRunIdSchema,
+  claimNonce: FingerprintSchema,
+  claimNonceDigest: FingerprintSchema,
+  claimedAt: z.string().datetime(),
+  fingerprint: FingerprintSchema,
+});
+
+export const SentryReproductionWorkerObservationSchema = z.strictObject({
+  schemaVersion: z.literal(1),
+  contract: z.literal("sentry-reproduction-worker-observation-v1"),
+  dispatchToken: FingerprintSchema,
+  requestFingerprint: FingerprintSchema,
+  piRunId: PiRunIdSchema,
+  recipeKind: z.enum([
+    "http-route",
+    "browser-route",
+    "export-flow",
+    "allowlisted-test-command",
+  ]),
+  outcome: z.enum(["reproduced", "not-reproduced", "inconclusive"]),
+  commandExitCode: z.number().int().min(0).max(255),
+  observedAt: z.string().datetime(),
   fingerprint: FingerprintSchema,
 });
 
@@ -210,17 +260,27 @@ export const ReserveSentryReproductionTransportArgsSchema = z.object({
   ownerId: DriverIdentitySchema,
   fencingToken: z.number().int().positive(),
   requestName: z.string().min(1).max(220),
-  request: SentryReproductionRequestSchema,
+  expectedRequestFingerprint: FingerprintSchema,
 });
 export const MapReproducedSentryRepairArgsSchema = z.object({
   outcomeName: z.string().min(1).max(220),
   expectedOutcomeFingerprint: FingerprintSchema,
-  request: SentryReproductionRequestSchema,
-  repairIntent: SentryRepairIntentEnvelopeSchema,
 });
 
 export type SentryReproductionTransportContext = {
   repoDir: string;
+  globalArgs: {
+    sourceReproductionModelId: string;
+    sourceRepairModelId: string;
+  };
+  dataRepository: {
+    getContent: (
+      type: unknown,
+      modelId: string,
+      dataName: string,
+      version?: number,
+    ) => Promise<Uint8Array | null>;
+  };
   readResource: (name: string) => Promise<Record<string, unknown> | null>;
   writeResource: (
     specName: string,
@@ -242,6 +302,122 @@ async function contentAddress<T extends Record<string, unknown>>(
     ...base,
     fingerprint: await createSentrySha256(canonicalSentryJson(base)),
   };
+}
+
+async function fingerprintWithoutFingerprint(
+  value: Record<string, unknown> & { fingerprint: string },
+): Promise<string> {
+  const { fingerprint: _fingerprint, ...base } = value;
+  return await createSentrySha256(canonicalSentryJson(base));
+}
+
+async function requireContentFingerprint(
+  value: Record<string, unknown> & { fingerprint: string },
+  label: string,
+): Promise<void> {
+  if (value.fingerprint !== await fingerprintWithoutFingerprint(value)) {
+    throw new Error(`${label} fingerprint verification failed`);
+  }
+}
+
+async function readCrossModelResource(
+  context: SentryReproductionTransportContext,
+  type: string,
+  modelId: string,
+  name: string,
+): Promise<Record<string, unknown>> {
+  const content = await context.dataRepository.getContent(type, modelId, name);
+  if (content === null) {
+    throw new Error(`Missing authoritative resource ${name}`);
+  }
+  const decoded: unknown = JSON.parse(new TextDecoder().decode(content));
+  return z.record(z.string(), z.unknown()).parse(decoded);
+}
+
+async function requireAuthoritativeReproductionSources(
+  context: SentryReproductionTransportContext,
+  requestName: string,
+  expectedRequestFingerprint?: string,
+): Promise<{
+  request: z.infer<typeof SentryReproductionRequestSchema>;
+  repairIntent: z.infer<typeof SentryRepairIntentEnvelopeSchema>;
+  selection: z.infer<typeof SentryRepairPlanningQueueSelectionSchema>;
+}> {
+  const reproductionModelId = z.string().uuid().parse(
+    context.globalArgs.sourceReproductionModelId,
+  );
+  const repairModelId = z.string().uuid().parse(
+    context.globalArgs.sourceRepairModelId,
+  );
+  const requestRaw = await readCrossModelResource(
+    context,
+    "@supers/sentry-reproduction-controller",
+    reproductionModelId,
+    requestName,
+  );
+  const request = SentryReproductionRequestSchema.parse(requestRaw);
+  await requireContentFingerprint(request, "Sentry reproduction request");
+  if (
+    expectedRequestFingerprint !== undefined &&
+    request.fingerprint !== expectedRequestFingerprint
+  ) {
+    throw new Error("Sentry reproduction request fingerprint mismatch");
+  }
+  if (
+    request.frozenTaskDigest !==
+      await createSentrySha256(request.frozenSemanticTask)
+  ) {
+    throw new Error("Sentry reproduction frozen task digest mismatch");
+  }
+  const expectedSemanticTask = canonicalSentryJson({
+    contract: "sentry-reproduction-v3",
+    checkoutRelease: request.checkoutRelease,
+    checkoutRevision: request.checkoutRevision,
+    evidenceFingerprint: request.evidenceFingerprint,
+    issueId: request.issueId,
+    queueSelectionFingerprint: request.queueSelectionFingerprint,
+    recipe: request.recipe,
+    sourceEventId: request.sourceEventId,
+    sourceEventOccurredAt: request.sourceEventOccurredAt,
+    sourceLastSeen: request.sourceLastSeen,
+  });
+  if (request.frozenSemanticTask !== expectedSemanticTask) {
+    throw new Error("Sentry reproduction semantic payload mismatch");
+  }
+  const [intentRaw, selectionRaw] = await Promise.all([
+    readCrossModelResource(
+      context,
+      "@supers/sentry-repair-planning-handoff",
+      repairModelId,
+      request.repairIntentName,
+    ),
+    readCrossModelResource(
+      context,
+      "@supers/sentry-repair-planning-handoff",
+      repairModelId,
+      request.queueSelectionName,
+    ),
+  ]);
+  const repairIntent = SentryRepairIntentEnvelopeSchema.parse(intentRaw);
+  const selection = SentryRepairPlanningQueueSelectionSchema.parse(
+    selectionRaw,
+  );
+  await requireContentFingerprint(repairIntent.intent, "Sentry repair intent");
+  await requireContentFingerprint(repairIntent, "Sentry repair envelope");
+  await requireContentFingerprint(selection, "Sentry repair queue selection");
+  if (
+    request.repairIntentFingerprint !== repairIntent.fingerprint ||
+    request.queueSelectionFingerprint !== selection.fingerprint ||
+    selection.action !== "await-reproduction" ||
+    selection.selectedIntentFingerprint !== repairIntent.fingerprint ||
+    repairIntent.intent.queueIntent !== "reproduction-required" ||
+    !repairIntent.intent.requiresReproduction ||
+    request.issueId !== repairIntent.intent.issueId ||
+    request.shortId !== repairIntent.intent.shortId
+  ) {
+    throw new Error("Sentry reproduction selected source identity mismatch");
+  }
+  return { request, repairIntent, selection };
 }
 
 function isUnexpired(
@@ -372,32 +548,47 @@ export type RepositorySnapshot = {
   clean: boolean;
 };
 
+type GitInspection = (args: readonly string[]) => Promise<Uint8Array>;
+
+export async function createStableSentryReproductionRepositorySnapshot(
+  inspectGit: GitInspection,
+): Promise<RepositorySnapshot> {
+  const before = new TextDecoder().decode(
+    await inspectGit(["rev-parse", "HEAD"]),
+  ).trim();
+  const status = await inspectGit(["status", "--porcelain=v1", "-z"]);
+  const after = new TextDecoder().decode(
+    await inspectGit(["rev-parse", "HEAD"]),
+  ).trim();
+  if (before !== after) {
+    throw new Error("Sentry reproduction checkout changed during inspection");
+  }
+  return {
+    revision: GitRevisionSchema.parse(after),
+    clean: status.length === 0,
+  };
+}
+
 async function productionRepositorySnapshot(
   repoDir: string,
 ): Promise<RepositorySnapshot> {
-  const [revision, status] = await Promise.all([
-    new Deno.Command("git", {
-      args: ["rev-parse", "HEAD"],
-      cwd: repoDir,
-      stdin: "null",
-      stdout: "piped",
-      stderr: "piped",
-    }).output(),
-    new Deno.Command("git", {
-      args: ["status", "--porcelain=v1", "-z"],
-      cwd: repoDir,
-      stdin: "null",
-      stdout: "piped",
-      stderr: "piped",
-    }).output(),
-  ]);
-  if (!revision.success || !status.success) {
-    throw new Error("Unable to inspect the reproduction transport checkout");
-  }
-  return {
-    revision: new TextDecoder().decode(revision.stdout).trim(),
-    clean: status.stdout.length === 0,
-  };
+  return await createStableSentryReproductionRepositorySnapshot(
+    async (args) => {
+      const result = await new Deno.Command("git", {
+        args: [...args],
+        cwd: repoDir,
+        stdin: "null",
+        stdout: "piped",
+        stderr: "piped",
+      }).output();
+      if (!result.success) {
+        throw new Error(
+          "Unable to inspect the reproduction transport checkout",
+        );
+      }
+      return result.stdout;
+    },
+  );
 }
 
 function frozenWorkerTask(
@@ -422,47 +613,49 @@ export async function executeReserveSentryReproductionTransport(
   const args = ReserveSentryReproductionTransportArgsSchema.parse(rawArgs);
   const now = dependencies.now();
   await requireLease(args.ownerId, args.fencingToken, context, now);
+  const { request } = await requireAuthoritativeReproductionSources(
+    context,
+    args.requestName,
+    args.expectedRequestFingerprint,
+  );
   const snapshot = await dependencies.repositorySnapshot(context.repoDir);
   if (!snapshot.clean) {
     throw new Error(
       "Sentry reproduction transport requires a clean central checkout",
     );
   }
-  if (snapshot.revision !== args.request.checkoutRevision) {
+  if (snapshot.revision !== request.checkoutRevision) {
     throw new Error("Sentry reproduction transport checkout revision drift");
   }
-  const exactFrozenTask = frozenWorkerTask(args.request);
+  const exactFrozenTask = frozenWorkerTask(request);
   const exactFrozenTaskDigest = await createSentrySha256(exactFrozenTask);
   const dispatchToken = await createSentrySha256(canonicalSentryJson({
     contract: "sentry-reproduction-transport-v1",
-    requestFingerprint: args.request.fingerprint,
-    checkoutRevision: args.request.checkoutRevision,
+    requestFingerprint: request.fingerprint,
+    checkoutRevision: request.checkoutRevision,
     exactFrozenTaskDigest,
   }));
-  const existing = await context.readResource(
-    `sentry-reproduction-transport-outbox-${dispatchToken}`,
-  );
+  const outboxName = `sentry-reproduction-transport-outbox-${dispatchToken}`;
+  const existing = await context.readResource(outboxName);
   if (existing !== null) {
     const outbox = SentryReproductionTransportOutboxSchema.parse(existing);
+    await requireContentFingerprint(outbox, "Sentry reproduction outbox");
     if (
-      outbox.requestFingerprint !== args.request.fingerprint ||
+      outbox.requestName !== args.requestName ||
+      outbox.requestFingerprint !== request.fingerprint ||
       outbox.exactFrozenTaskDigest !== exactFrozenTaskDigest
     ) {
       throw new Error("Sentry reproduction transport outbox identity conflict");
     }
-    return {
-      dataHandles: [{
-        name: `sentry-reproduction-transport-outbox-${dispatchToken}`,
-      }],
-    };
+    return { dataHandles: [{ name: outboxName }] };
   }
   const base = {
     schemaVersion: 1 as const,
     contract: "sentry-reproduction-transport-v1" as const,
     dispatchToken,
     requestName: args.requestName,
-    requestFingerprint: args.request.fingerprint,
-    checkoutRevision: args.request.checkoutRevision,
+    requestFingerprint: request.fingerprint,
+    checkoutRevision: request.checkoutRevision,
     ownerId: args.ownerId,
     fencingToken: args.fencingToken,
     state: "reserved" as const,
@@ -473,6 +666,9 @@ export async function executeReserveSentryReproductionTransport(
     piRunId: null,
     claimNonceDigest: null,
     launchContractDigest: null,
+    launchArtifactFingerprint: null,
+    executionClaimFingerprint: null,
+    workerObservationFingerprint: null,
     workerResultDigest: null,
     reservedAt: now.toISOString(),
     updatedAt: now.toISOString(),
@@ -480,11 +676,7 @@ export async function executeReserveSentryReproductionTransport(
   const outbox = SentryReproductionTransportOutboxSchema.parse(
     await contentAddress(base),
   );
-  const handle = await context.writeResource(
-    "outbox",
-    `sentry-reproduction-transport-outbox-${dispatchToken}`,
-    outbox,
-  );
+  const handle = await context.writeResource("outbox", outboxName, outbox);
   return { dataHandles: [handle] };
 }
 
@@ -492,28 +684,89 @@ export async function createTrustedSentryReproductionOutcome(input: {
   requestName: string;
   request: z.infer<typeof SentryReproductionRequestSchema>;
   outbox: z.infer<typeof SentryReproductionTransportOutboxSchema>;
+  launchArtifact: z.infer<typeof SentryReproductionLaunchArtifactSchema>;
+  executionClaim: z.infer<typeof SentryReproductionExecutionClaimSchema>;
+  workerObservation: z.infer<typeof SentryReproductionWorkerObservationSchema>;
   workerResult: z.infer<typeof SentryReproductionWorkerResultSchema>;
   freshEventId: string;
   freshLastSeen: string;
-  verifiedLaunchContractDigest: string;
-  verifiedClaimNonceDigest: string;
 }): Promise<z.infer<typeof SentryTrustedReproductionOutcomeSchema>> {
-  const worker = SentryReproductionWorkerResultSchema.parse(input.workerResult);
-  const outbox = SentryReproductionTransportOutboxSchema.parse(input.outbox);
   const request = SentryReproductionRequestSchema.parse(input.request);
+  const outbox = SentryReproductionTransportOutboxSchema.parse(input.outbox);
+  const launch = SentryReproductionLaunchArtifactSchema.parse(
+    input.launchArtifact,
+  );
+  const claim = SentryReproductionExecutionClaimSchema.parse(
+    input.executionClaim,
+  );
+  const observation = SentryReproductionWorkerObservationSchema.parse(
+    input.workerObservation,
+  );
+  const worker = SentryReproductionWorkerResultSchema.parse(input.workerResult);
+  await Promise.all([
+    requireContentFingerprint(request, "Sentry reproduction request"),
+    requireContentFingerprint(outbox, "Sentry reproduction outbox"),
+    requireContentFingerprint(launch, "Sentry reproduction launch artifact"),
+    requireContentFingerprint(claim, "Sentry reproduction execution claim"),
+    requireContentFingerprint(
+      observation,
+      "Sentry reproduction worker observation",
+    ),
+  ]);
   const workerResultDigest = await createSentrySha256(
     canonicalSentryJson(worker),
   );
+  const requestFrozenTaskDigest = await createSentrySha256(
+    request.frozenSemanticTask,
+  );
+  const exactFrozenTask = frozenWorkerTask(request);
+  const exactFrozenTaskDigest = await createSentrySha256(exactFrozenTask);
+  const expectedDispatchToken = await createSentrySha256(canonicalSentryJson({
+    contract: "sentry-reproduction-transport-v1",
+    requestFingerprint: request.fingerprint,
+    checkoutRevision: request.checkoutRevision,
+    exactFrozenTaskDigest,
+  }));
   const claimNonceDigest = await createSentrySha256(worker.claimNonce);
+  const closedExitSemantics =
+    (worker.outcome === "reproduced" && worker.commandExitCode === 1) ||
+    (worker.outcome === "not-reproduced" && worker.commandExitCode === 0) ||
+    (worker.outcome === "inconclusive" && worker.commandExitCode === 2);
   const authorityMatches = outbox.state === "result-ready" &&
+    request.frozenTaskDigest === requestFrozenTaskDigest &&
+    outbox.dispatchToken === expectedDispatchToken &&
+    outbox.exactFrozenTask === exactFrozenTask &&
+    outbox.exactFrozenTaskDigest === exactFrozenTaskDigest &&
+    outbox.requestName === input.requestName &&
     outbox.requestFingerprint === request.fingerprint &&
     outbox.piRunId === worker.piRunId &&
     worker.dispatchToken === outbox.dispatchToken &&
     worker.requestFingerprint === request.fingerprint &&
     worker.checkoutRevision === request.checkoutRevision &&
-    input.verifiedLaunchContractDigest === outbox.launchContractDigest &&
-    input.verifiedClaimNonceDigest === outbox.claimNonceDigest &&
-    claimNonceDigest === input.verifiedClaimNonceDigest &&
+    worker.recipeKind === request.recipe.kind &&
+    closedExitSemantics &&
+    launch.dispatchToken === outbox.dispatchToken &&
+    launch.requestFingerprint === request.fingerprint &&
+    launch.checkoutRevision === request.checkoutRevision &&
+    launch.piRunId === worker.piRunId &&
+    launch.launchContractDigest === outbox.launchContractDigest &&
+    launch.fingerprint === outbox.launchArtifactFingerprint &&
+    claim.dispatchToken === outbox.dispatchToken &&
+    claim.requestFingerprint === request.fingerprint &&
+    claim.piRunId === worker.piRunId &&
+    claim.claimNonce === worker.claimNonce &&
+    claim.claimNonceDigest === claimNonceDigest &&
+    claim.claimNonceDigest === outbox.claimNonceDigest &&
+    claim.fingerprint === outbox.executionClaimFingerprint &&
+    observation.dispatchToken === outbox.dispatchToken &&
+    observation.requestFingerprint === request.fingerprint &&
+    observation.piRunId === worker.piRunId &&
+    observation.recipeKind === request.recipe.kind &&
+    observation.recipeKind === worker.recipeKind &&
+    observation.outcome === worker.outcome &&
+    observation.commandExitCode === worker.commandExitCode &&
+    observation.fingerprint === worker.observationDigest &&
+    observation.fingerprint === outbox.workerObservationFingerprint &&
     workerResultDigest === outbox.workerResultDigest;
   const watermarkMatches = input.freshEventId === request.sourceEventId &&
     Date.parse(input.freshLastSeen) === Date.parse(request.sourceLastSeen);
@@ -544,7 +797,7 @@ export async function createTrustedSentryReproductionOutcome(input: {
     fencingToken: outbox.fencingToken,
     piRunId: worker.piRunId,
     claimNonceDigest,
-    launchContractDigest: input.verifiedLaunchContractDigest,
+    launchContractDigest: launch.launchContractDigest,
     workerResultDigest,
     freshEventId: input.freshEventId,
     freshLastSeen: input.freshLastSeen,
@@ -621,6 +874,10 @@ export async function executeMapReproducedSentryRepair(
     throw new Error("Trusted reproduction outcome is unavailable");
   }
   const outcome = SentryTrustedReproductionOutcomeSchema.parse(rawOutcome);
+  await requireContentFingerprint(
+    outcome,
+    "Trusted Sentry reproduction outcome",
+  );
   if (
     outcome.fingerprint !== args.expectedOutcomeFingerprint ||
     outcome.status !== "reproduced" || outcome.reason !== "worker-reproduced"
@@ -629,11 +886,44 @@ export async function executeMapReproducedSentryRepair(
       "Only an exact trusted reproduced outcome may map repair work",
     );
   }
+  const { request, repairIntent } =
+    await requireAuthoritativeReproductionSources(
+      context,
+      outcome.requestName,
+      outcome.requestFingerprint,
+    );
+  const outboxName =
+    `sentry-reproduction-transport-outbox-${outcome.dispatchToken}`;
+  const rawOutbox = await context.readResource(outboxName);
+  if (rawOutbox === null) {
+    throw new Error("Trusted reproduction outbox is unavailable");
+  }
+  const outbox = SentryReproductionTransportOutboxSchema.parse(rawOutbox);
+  await requireContentFingerprint(outbox, "Sentry reproduction outbox");
+  const exactFrozenTask = frozenWorkerTask(request);
+  const exactFrozenTaskDigest = await createSentrySha256(exactFrozenTask);
+  const expectedDispatchToken = await createSentrySha256(canonicalSentryJson({
+    contract: "sentry-reproduction-transport-v1",
+    requestFingerprint: request.fingerprint,
+    checkoutRevision: request.checkoutRevision,
+    exactFrozenTaskDigest,
+  }));
   if (
-    outcome.requestFingerprint !== args.request.fingerprint ||
-    outcome.repairIntentFingerprint !== args.repairIntent.fingerprint ||
-    outcome.issueId !== args.repairIntent.intent.issueId ||
-    outcome.checkoutRevision !== args.request.checkoutRevision
+    outcome.requestFingerprint !== request.fingerprint ||
+    outcome.repairIntentFingerprint !== repairIntent.fingerprint ||
+    outcome.issueId !== repairIntent.intent.issueId ||
+    outcome.shortId !== repairIntent.intent.shortId ||
+    outcome.checkoutRevision !== request.checkoutRevision ||
+    outbox.state !== "result-ready" ||
+    outbox.dispatchToken !== expectedDispatchToken ||
+    outbox.exactFrozenTask !== exactFrozenTask ||
+    outbox.exactFrozenTaskDigest !== exactFrozenTaskDigest ||
+    outbox.requestName !== outcome.requestName ||
+    outbox.requestFingerprint !== outcome.requestFingerprint ||
+    outbox.piRunId !== outcome.piRunId ||
+    outbox.claimNonceDigest !== outcome.claimNonceDigest ||
+    outbox.launchContractDigest !== outcome.launchContractDigest ||
+    outbox.workerResultDigest !== outcome.workerResultDigest
   ) {
     throw new Error("Sentry repair mapping source identity mismatch");
   }
@@ -655,8 +945,8 @@ export async function executeMapReproducedSentryRepair(
     issueId: outcome.issueId,
     shortId: outcome.shortId,
     reproductionOutcomeFingerprint: outcome.fingerprint,
-    requestFingerprint: args.request.fingerprint,
-    repairIntentFingerprint: args.repairIntent.fingerprint,
+    requestFingerprint: request.fingerprint,
+    repairIntentFingerprint: repairIntent.fingerprint,
     checkoutRevision: outcome.checkoutRevision,
     exactMarker,
     taskName,
@@ -687,18 +977,38 @@ export async function executeMapReproducedSentryRepair(
       let task: DexTask | undefined;
       let status: "created" | "attached" | "recovered-after-create" =
         "attached";
-      const triagedTaskId = args.repairIntent.intent.existingDexTaskId;
+      const triagedTaskId = repairIntent.intent.existingDexTaskId;
       if (triagedTaskId !== null) {
         task = tasks.find((candidate) => candidate.id === triagedTaskId);
         if (
           !task || task.completed ||
-          !(task.name.includes(outcome.shortId) ||
-            task.description.includes(outcome.shortId)) ||
+          !(containsExactSentryShortId(task.name, outcome.shortId) ||
+            containsExactSentryShortId(task.description, outcome.shortId)) ||
           (markerMatches[0] !== undefined && markerMatches[0].id !== task.id)
         ) {
           throw new Error(
             "Sentry repair mapping conflicts with the triaged existing Dex task",
           );
+        }
+        if (!task.description.includes(exactMarker)) {
+          const markedDescription = `${task.description}\n\n${exactMarker}`;
+          await dependencies.runDex(
+            ["edit", task.id, "--description", markedDescription],
+            context.repoDir,
+          );
+          tasks = await listDexTasks(context, dependencies);
+          const markedMatches = tasks.filter((candidate) =>
+            candidate.description.includes(exactMarker)
+          );
+          if (
+            markedMatches.length !== 1 || markedMatches[0].id !== task.id ||
+            markedMatches[0].completed
+          ) {
+            throw new Error(
+              "Dex attachment did not persist one exact Sentry reproduction marker",
+            );
+          }
+          task = markedMatches[0];
         }
       } else {
         task = markerMatches[0];
@@ -751,7 +1061,7 @@ export async function executeMapReproducedSentryRepair(
     issueId: outcome.issueId,
     shortId: outcome.shortId,
     dexTaskId: mapping.taskId,
-    repairIntentFingerprint: args.repairIntent.fingerprint,
+    repairIntentFingerprint: repairIntent.fingerprint,
     reproductionOutcomeFingerprint: outcome.fingerprint,
     taskMappingFingerprint: mapping.fingerprint,
     checkoutRevision: outcome.checkoutRevision,
@@ -778,8 +1088,11 @@ export async function executeMapReproducedSentryRepair(
 
 export const model = {
   type: "@supers/sentry-reproduction-transport-controller",
-  version: "2026.08.21.1",
-  globalArguments: z.strictObject({}),
+  version: "2026.08.21.2",
+  globalArguments: z.strictObject({
+    sourceReproductionModelId: z.string().uuid(),
+    sourceRepairModelId: z.string().uuid(),
+  }),
   resources: {
     lease: {
       description: "Swamp-owned renewable Sentry reproduction transport lease",
@@ -796,6 +1109,32 @@ export const model = {
     outbox: {
       description: "Dedicated immutable reproduction Pi transport reservation",
       schema: SentryReproductionTransportOutboxSchema,
+      lifetime: "infinite",
+      garbageCollection: 500,
+    },
+    "launch-artifact": {
+      description: "Typed Pi launch authority for one reproduction dispatch",
+      schema: SentryReproductionLaunchArtifactSchema,
+      lifetime: "infinite",
+      garbageCollection: 500,
+    },
+    "execution-claim": {
+      description:
+        "Typed claim binding one Pi worker to one reproduction dispatch",
+      schema: SentryReproductionExecutionClaimSchema,
+      lifetime: "infinite",
+      garbageCollection: 500,
+    },
+    "worker-observation": {
+      description:
+        "Closed reproduction observation bound to the claimed recipe",
+      schema: SentryReproductionWorkerObservationSchema,
+      lifetime: "infinite",
+      garbageCollection: 500,
+    },
+    "worker-result": {
+      description: "Claim-bound structured result from the reproduction worker",
+      schema: SentryReproductionWorkerResultSchema,
       lifetime: "infinite",
       garbageCollection: 500,
     },

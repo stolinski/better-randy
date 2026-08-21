@@ -247,6 +247,7 @@ Deno.test("reproduction reserves a closed browser recipe and never executes Sent
     "contract",
     "evidenceFingerprint",
     "issueId",
+    "queueSelectionFingerprint",
     "recipe",
     "sourceEventId",
     "sourceEventOccurredAt",

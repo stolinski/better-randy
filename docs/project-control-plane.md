@@ -233,12 +233,17 @@ Pre-Dex reproduction uses the dedicated
 the Delivery outbox correctly requires an already-started Dex leaf, and repair
 Dex creation correctly requires positive reproduction first. A Swamp-owned
 renewable lease with monotonic fencing admits one local driver. Reservation
-requires a clean exact-revision checkout, is content-addressed and replay-safe,
-and records bounded health/paused dispositions. The controller defines a
-claim-bound worker-result contract, fresh-event watermark outcome, deterministic
-pre-Dex creation intent, shared-lock marker dedupe, lost-ack recovery, exact task
-mapping, and machine Delivery admission that preserves every human aesthetic
-gate. Only `reproduced` can cross that mapping boundary.
+reads the named request, selected intent, and queue selection from their owning
+models, recomputes their fingerprints and frozen semantics, and requires a
+stable clean HEAD/status/HEAD snapshot. It is content-addressed, replay-safe,
+and records bounded health/paused dispositions. The controller defines typed
+launch, execution-claim, worker-observation, and worker-result contracts; exact
+recipe/exit semantics; a fresh-event watermark outcome; deterministic pre-Dex
+creation intent; shared-lock exact-marker dedupe; lost-ack recovery; exact task
+mapping; and machine Delivery admission that preserves every human aesthetic
+gate. Mapping re-reads all authoritative resources and an existing task must
+carry an exact Sentry-ID token plus the persisted reproduction marker. Only
+`reproduced` can cross that mapping boundary.
 
 The current checked-in workflow automatically reserves transport but does not
 launch Pi. Pi SDK direct sessions do not produce `pi-subagents` package-owned

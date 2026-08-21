@@ -131,19 +131,27 @@ driver; clean-checkout and exact-revision checks precede reservation, and stale
 owners cannot heartbeat after a newer fencing token exists.
 
 The reservation workflow automatically places each closed Stage 2 request
-behind that authority. No production launch/finalizer method is exposed yet:
-direct Pi SDK sessions do not create the package-owned normalized async
-artifacts required by the authority verifier. Stage 4 must host the
+behind that authority. The transport method reads the named Stage 2 request,
+selected intent, and queue selection from their owning models and recomputes
+every fingerprint, frozen-task digest, and semantic payload; caller-supplied
+envelopes have no authority. Checkout inspection uses HEAD/status/HEAD and
+rejects a concurrent revision change. No production launch/finalizer method is
+exposed yet: direct Pi SDK sessions do not create the typed launch artifact,
+execution claim, closed worker observation, and structured result required by
+the authority verifier. Stage 4 must host the
 `pi-subagents` in-process RPC inside a trusted local Pi SDK runtime, consume the
 reserved outbox, and validate its launch, claim, structured result, and fresh
 Sentry watermark. Until that host ships, every request remains reserved or
 inconclusive; callers cannot assert `reproduced`.
 
 The controller already defines the downstream fail-closed boundary. Only an
-exact claim-bound `reproduced` outcome can write a deterministic pre-mutation
-creation intent, acquire the shared Dex repository lock, re-read exact
-code-owned Sentry markers, create or attach one repair task, recover a lost
-create acknowledgement, and emit a machine Delivery admission. The admission
+exact claim-bound `reproduced` outcome with matching recipe kind and closed exit
+semantics can write a deterministic pre-mutation creation intent, acquire the
+shared Dex repository lock, re-read exact code-owned Sentry-ID tokens, create
+or attach one repair task, persist the exact reproduction marker, recover a
+lost mutation acknowledgement, and emit a machine Delivery admission. Mapping
+re-reads and verifies the authoritative request, intent, selection, outcome,
+and outbox; callers cannot substitute task identity. The admission
 cannot satisfy or bypass any human aesthetic gate. `not-reproduced`,
 `inconclusive`, quarantined, wrong-revision, wrong-task, wrong-receipt, and
 advanced-watermark outcomes cannot mutate Dex. After Planning returns one

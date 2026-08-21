@@ -1,8 +1,10 @@
 type: '@supers/sentry-reproduction-transport-controller'
-typeVersion: 2026.08.21.1
+typeVersion: 2026.08.21.2
 id: 237aa0b7-0daa-44ae-81b0-70b165e35a4d
 name: supers-sentry-reproduction-transport
-version: 1
+version: 2
 tags: {}
-globalArguments: {}
+globalArguments:
+  sourceReproductionModelId: c7f54688-995b-4d7d-b4fb-21a310e1bfdc
+  sourceRepairModelId: 43609d3c-92b1-4509-9ed0-db25b48ee7c1
 methods: {}

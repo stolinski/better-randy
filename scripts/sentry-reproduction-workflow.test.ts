@@ -48,6 +48,7 @@ test('trusted transport reservation is fenced and cannot launch or mutate Dex', 
 	assert.match(transportWorkflow, /methodName: acquire-lease/);
 	assert.match(transportWorkflow, /methodName: reserve/);
 	assert.match(transportWorkflow, /expectedRequestFingerprint/);
+	assert.doesNotMatch(transportWorkflow, /request:\s*'\$\{\{ data\.latest/);
 	assert.match(transportWorkflow, /clean matching checkout/);
 	assert.doesNotMatch(
 		transportWorkflow,

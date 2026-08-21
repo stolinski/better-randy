@@ -175,7 +175,10 @@ function relationIds(values: Array<string | { id: string }>): string[] {
   return values.map((value) => typeof value === "string" ? value : value.id);
 }
 
-function containsExactSentryId(value: string, shortId: string): boolean {
+export function containsExactSentryShortId(
+  value: string,
+  shortId: string,
+): boolean {
   const escaped = shortId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`(?:^|[^A-Za-z0-9_-])${escaped}(?:$|[^A-Za-z0-9_-])`, "i")
     .test(value);
@@ -233,7 +236,7 @@ export function findSentryDexTaskMatches(
   lexical: SentryDexTask[];
 } {
   const exact = tasks.filter((task) =>
-    containsExactSentryId(sentryDexTaskSearchText(task), shortId)
+    containsExactSentryShortId(sentryDexTaskSearchText(task), shortId)
   );
   return {
     exact,

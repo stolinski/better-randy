@@ -55,7 +55,7 @@ jobs:
             ownerId: swamp-sentry-reproduction-scheduler
             fencingToken: '${{ data.latest("supers-sentry-reproduction-transport", "sentry-reproduction-transport-lease").attributes.fencingToken }}'
             requestName: '${{ inputs.requestName }}'
-            request: '${{ data.latest("supers-sentry-reproduction-controller", inputs.requestName).attributes }}'
+            expectedRequestFingerprint: '${{ inputs.expectedRequestFingerprint }}'
         dependsOn:
           - step: assert-exact-reproduction-request
             condition:
@@ -64,4 +64,4 @@ jobs:
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 1
+version: 2
