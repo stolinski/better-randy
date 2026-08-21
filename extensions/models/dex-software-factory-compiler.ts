@@ -9,7 +9,7 @@
  */
 import { z } from "npm:zod@4.4.3";
 
-export const DEX_SOFTWARE_FACTORY_VERSION = "2026.08.19.1";
+export const DEX_SOFTWARE_FACTORY_VERSION = "2026.08.21.1";
 const SOFTWARE_FACTORY_TARGET_VERSION = "2026.06.24.1";
 
 const FACTORY_NAME_PATTERN = /^[a-z][a-z0-9_-]*$/;
@@ -225,7 +225,13 @@ export const DexSoftwareFactoryProfileSchema = z
         completionWorkflow: FactoryNameSchema.optional(),
       }),
     }),
-    implementation: DispatchWorkSchema.omit({ mode: true }),
+    // Interactive implementation (the driving agent implements directly) is
+    // declared with an explicit `mode: interactive`; the legacy shape without
+    // a mode field remains a Pi-dispatch lane.
+    implementation: z.union([
+      InteractiveWorkSchema,
+      DispatchWorkSchema.omit({ mode: true }),
+    ]),
     review: ReviewAdapterSchema.optional(),
     humanGate: HumanGateSchema.optional(),
     completionGate: HumanGateSchema.optional(),
@@ -1228,7 +1234,9 @@ function implementationStage(profile: DexSoftwareFactoryProfile): FactoryStage {
       "Implement the current Dex work item and record a compact change summary.",
     maxCycles: profile.budgets.implementation,
     maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
-    work: dispatchWork({ mode: "dispatch", ...profile.implementation }),
+    work: "mode" in profile.implementation
+      ? interactiveWork(profile.implementation)
+      : dispatchWork({ mode: "dispatch", ...profile.implementation }),
     artifacts: [
       changeSummaryArtifact(profile),
       executionFailureArtifact(profile, "implementation"),

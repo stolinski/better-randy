@@ -1,6 +1,6 @@
 type: '@swamp/software-factory'
 typeVersion: 2026.06.24.1
-version: 33
+version: 34
 globalArguments:
   stages:
     - id: preflight
@@ -211,16 +211,16 @@ globalArguments:
       maxCycles: 5
       maxDispatchesPerCycle: 1
       work:
-        mode: interactive
+        mode: dispatch
+        skills:
+          - implementation
         systemPrompt: >-
-          Implement only the current Dex work item directly on the central checkout as the driving
-          agent. Follow repository guidance already loaded by the agent. Complete required source,
-          documentation, and tracker-file edits, commit the work, then record change-summary with
-          an integrationReceipt anchored to the real committed revision: disposition
-          interactive-driver, integratedRevision equal to the commit, and
-          integratedTreeFingerprint equal to lowercase SHA-256 of the raw unmodified stdout bytes
-          of git ls-tree -r -z --full-tree over that revision. A Pi fleet lane instead records the
-          digest-verified content-addressed handoff receipt with disposition integrated.
+          Implement only the current Dex work item in the Pi-managed isolated worktree. Follow
+          repository guidance already loaded by the agent. Complete required source, documentation,
+          and tracker-file edits, commit the lane, and return the strict child revision plus durable
+          handoff manifest path. The central parent must verify and integrate that handoff while
+          this work item remains in implementation. Only after serialized integration may the parent
+          record change-summary with the digest-verified, content-addressed integrationReceipt.
       artifacts:
         - name: change-summary
           description: Compact implementation summary used as the classification subject.
@@ -280,7 +280,6 @@ globalArguments:
                     type: string
                     enum:
                       - integrated
-                      - interactive-driver
                   baseCommit:
                     type: string
                     pattern: '^[0-9a-f]{40,64}$'
@@ -303,21 +302,22 @@ globalArguments:
                     type: string
                     enum:
                       - none
-                # Pi-transport provenance fields (receiptId, handoffManifestDigest,
-                # targetBaselineRevision, childRevisionEvidence, baseCommit, patchDigest,
-                # rejectionReason) are required by the integration gate for disposition
-                # 'integrated'; an 'interactive-driver' receipt anchors on the committed
-                # revision alone. Downstream gates read only integratedRevision and
-                # integratedTreeFingerprint.
                 required:
                   - schemaVersion
+                  - receiptId
                   - rootEpicId
                   - activeTaskId
                   - factoryName
+                  - handoffManifestDigest
+                  - targetBaselineRevision
+                  - childRevisionEvidence
                   - disposition
+                  - baseCommit
+                  - patchDigest
                   - changedPaths
                   - integratedRevision
                   - integratedTreeFingerprint
+                  - rejectionReason
                 additionalProperties: false
         - name: implementation-execution-failure
           description: >-
