@@ -1,8 +1,8 @@
 type: '@supers/sentry-reproduction-controller'
-typeVersion: 2026.08.21.1
+typeVersion: 2026.08.21.2
 id: c7f54688-995b-4d7d-b4fb-21a310e1bfdc
 name: supers-sentry-reproduction-controller
-version: 1
+version: 2
 tags:
   purpose: supers-sentry-self-healing-reproduction
 globalArguments:

@@ -5,6 +5,10 @@ const INTAKE_WORKFLOW_PATH =
   "workflows/workflow-20f80b57-6b39-4541-9470-cd414e5286db.yaml";
 const PLANNING_WORKFLOW_PATH =
   "workflows/workflow-supers-sentry-repair-to-planning.yaml";
+const PLANNING_PROFILE_PATH =
+  "fixtures/dex-planning-factory-consumer/supers-profile.json";
+const MATERIALIZED_PLANNING_PATH =
+  "models/@swamp/software-factory/d5f581ad-2c79-41c4-829f-ced1ae9331cc.yaml";
 
 type WorkflowStep = {
   name: string;
@@ -30,34 +34,66 @@ function stepByName(workflow: WorkflowDefinition, name: string): WorkflowStep {
   return step;
 }
 
-Deno.test("scheduled Sentry intake persists typed queue evidence without external mutation", async () => {
-  const source = await Deno.readTextFile(INTAKE_WORKFLOW_PATH);
-  const workflow = parse(source) as WorkflowDefinition;
-  assert.equal(workflow.version, 2);
+Deno.test(
+  "scheduled Sentry intake persists typed queue evidence without external mutation",
+  async () => {
+    const source = await Deno.readTextFile(INTAKE_WORKFLOW_PATH);
+    const workflow = parse(source) as WorkflowDefinition;
+    assert.equal(workflow.version, 2);
+    assert.deepEqual(
+      workflow.jobs.flatMap((job) => job.steps).map((step) => step.name),
+      [
+        "collect-sentry-issues",
+        "triage-against-dex",
+        "persist-actionable-sentry-queue",
+        "assert-correlated-triage",
+        "assert-correlated-queue",
+      ],
+    );
+    const persist = stepByName(workflow, "persist-actionable-sentry-queue");
+    assert.equal(
+      persist.task.modelIdOrName,
+      "supers-sentry-repair-planning-handoff",
+    );
+    assert.equal(persist.task.methodName, "prepare");
+    assert.deepEqual(persist.task.inputs?.issuePlans, []);
+    assert.match(
+      String(persist.task.inputs?.priorIntents),
+      /specName == "repair-intent"/,
+    );
+    assert.doesNotMatch(
+      source,
+      /methodName: (?:start|complete|apply|record-backlink|resolve-verified)/,
+    );
+  },
+);
+
+Deno.test("Planning inventory binds only the selected supersession head", async () => {
+  const [profileSource, materializedSource] = await Promise.all([
+    Deno.readTextFile(PLANNING_PROFILE_PATH),
+    Deno.readTextFile(MATERIALIZED_PLANNING_PATH),
+  ]);
+  const profile = JSON.parse(profileSource) as {
+    adapters: { inventory: { inputs: { values: { repairIntents: string } } } };
+  };
+  const binding = profile.adapters.inventory.inputs.values.repairIntents;
+  for (const source of [binding, materializedSource]) {
+    assert.match(source, /selectedIntentFingerprint/);
+    assert.match(source, /attributes\.fingerprint/);
+    assert.match(source, /sentry-repair-planning-queue-selection/);
+  }
+
+  const ancestor = { fingerprint: "a".repeat(64) };
+  const successor = {
+    fingerprint: "b".repeat(64),
+    supersedesIntentFingerprint: ancestor.fingerprint,
+  };
+  const selectedFingerprint = successor.fingerprint;
   assert.deepEqual(
-    workflow.jobs.flatMap((job) => job.steps).map((step) => step.name),
-    [
-      "collect-sentry-issues",
-      "triage-against-dex",
-      "persist-actionable-sentry-queue",
-      "assert-correlated-triage",
-      "assert-correlated-queue",
-    ],
-  );
-  const persist = stepByName(workflow, "persist-actionable-sentry-queue");
-  assert.equal(
-    persist.task.modelIdOrName,
-    "supers-sentry-repair-planning-handoff",
-  );
-  assert.equal(persist.task.methodName, "prepare");
-  assert.deepEqual(persist.task.inputs?.issuePlans, []);
-  assert.match(
-    String(persist.task.inputs?.priorIntents),
-    /specName == "repair-intent"/,
-  );
-  assert.doesNotMatch(
-    source,
-    /methodName: (?:start|complete|apply|record-backlink|resolve-verified)/,
+    [ancestor, successor].filter((intent) =>
+      intent.fingerprint === selectedFingerprint
+    ),
+    [successor],
   );
 });
 

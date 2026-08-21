@@ -260,6 +260,7 @@ function createSnapshotFingerprint(
   return createSentrySha256(JSON.stringify({
     target: snapshot.target,
     args,
+    capturedAt: snapshot.capturedAt,
     issues: snapshot.issues,
     recentIds: snapshot.recentIssueIds,
     releaseIds: snapshot.currentReleaseIssueIds,
@@ -442,6 +443,7 @@ async function createRepairIntent(
   const replayIntent = priorIntents.find((entry) =>
     entry.intent.idempotencyKey === idempotencyKey
   );
+  if (replayIntent) return replayIntent.intent;
   const intentBase = {
     schemaVersion: 1 as const,
     sourceSnapshot: args.sourceSnapshot,
@@ -481,9 +483,7 @@ async function createRepairIntent(
       shortId: issue.shortId,
     },
     planningWorkItem: `sentry-${issue.id}`,
-    supersedesIntentFingerprint: replayIntent
-      ? replayIntent.intent.supersedesIntentFingerprint
-      : priorHead?.fingerprint ?? null,
+    supersedesIntentFingerprint: priorHead?.fingerprint ?? null,
     idempotencyKey,
   };
   return SentryRepairIntentSchema.parse({

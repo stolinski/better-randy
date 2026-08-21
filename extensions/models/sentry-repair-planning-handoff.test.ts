@@ -49,6 +49,7 @@ type SourceBundleOptions = {
   automationEligible?: boolean;
   queueIntent?: "confirmed-repair" | "reproduction-required" | null;
   additionalIssue?: boolean;
+  capturedAt?: string;
 };
 
 async function sourceBundle(options: SourceBundleOptions = {}) {
@@ -82,10 +83,11 @@ async function sourceBundle(options: SourceBundleOptions = {}) {
       }]
       : []),
   ];
+  const capturedAt = options.capturedAt ?? NOW;
   const snapshotBase = {
     source: "sentry-cli" as const,
     target: TARGET,
-    capturedAt: NOW,
+    capturedAt,
     lookbackDays: 7,
     historyDays: 90,
     limit: 100,
@@ -110,6 +112,7 @@ async function sourceBundle(options: SourceBundleOptions = {}) {
       limit: snapshotBase.limit,
       currentRelease: snapshotBase.currentRelease,
     },
+    capturedAt,
     issues: snapshotBase.issues,
     recentIds: snapshotBase.recentIssueIds,
     releaseIds: snapshotBase.currentReleaseIssueIds,
@@ -122,7 +125,7 @@ async function sourceBundle(options: SourceBundleOptions = {}) {
   const reconciliationBase = {
     sourceSnapshot: `sentry-issue-snapshot-${snapshotFingerprint}`,
     sourceFingerprint: snapshotFingerprint,
-    generatedAt: NOW,
+    generatedAt: capturedAt,
     automationEligible: options.automationEligible ?? true,
     items: snapshot.issues.map((issue) => ({
       ...issue,
@@ -174,7 +177,7 @@ async function sourceBundle(options: SourceBundleOptions = {}) {
   const triageFingerprint = await createSentryDexTriageFingerprint(triageBase);
   const triage = SentryDexTriageSchema.parse({
     ...triageBase,
-    generatedAt: NOW,
+    generatedAt: capturedAt,
     fingerprint: triageFingerprint,
   });
   const resources = new Map<string, Record<string, unknown>>([
@@ -374,6 +377,54 @@ Deno.test("repair handoff replays an intent and chains newer authored evidence",
     newerEnvelope.intent.supersedesIntentFingerprint,
     firstEnvelope.fingerprint,
   );
+});
+
+Deno.test("later identical collections supersede one head for confirmed and reproduction intents", async () => {
+  for (
+    const source of [
+      {
+        disposition: "current-release" as const,
+        queueIntent: "confirmed-repair" as const,
+        recommendation: "create-task" as const,
+      },
+      {
+        disposition: "recent" as const,
+        queueIntent: "reproduction-required" as const,
+        recommendation: "reproduce-first" as const,
+      },
+    ]
+  ) {
+    const firstBundle = await sourceBundle({
+      ...source,
+      capturedAt: "2026-08-18T21:00:00.000Z",
+    });
+    if (source.queueIntent === "reproduction-required") {
+      firstBundle.args.issuePlans = [];
+    }
+    const first = await runHandoff(firstBundle, []);
+    const firstEnvelope = SentryRepairIntentEnvelopeSchema.parse(
+      first.writes[1].data,
+    );
+
+    const laterBundle = await sourceBundle({
+      ...source,
+      capturedAt: "2026-08-18T22:00:00.000Z",
+    });
+    if (source.queueIntent === "reproduction-required") {
+      laterBundle.args.issuePlans = [];
+    }
+    laterBundle.args.priorIntents = [firstEnvelope];
+    const later = await runHandoff(laterBundle, []);
+    const laterEnvelope = SentryRepairIntentEnvelopeSchema.parse(
+      later.writes[1].data,
+    );
+
+    assert.notEqual(laterEnvelope.fingerprint, firstEnvelope.fingerprint);
+    assert.equal(
+      laterEnvelope.intent.supersedesIntentFingerprint,
+      firstEnvelope.fingerprint,
+    );
+  }
 });
 
 Deno.test("repair handoff persists every eligible issue as an ordered queue resource", async () => {

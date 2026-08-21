@@ -59,7 +59,7 @@ jobs:
         weight: 0
         allowFailure: false
       - name: assert-no-untrusted-advance
-        description: Forbid reservation from claiming reproduced before a trusted Pi worker receipt exists.
+        description: Forbid reservation from claiming reproduced because Stage 2 exposes no finalization authority.
         task:
           type: assert
           expr: 'data.query(''modelName == "supers-sentry-reproduction-controller" && specName == "outcome" && workflowRunId == "'' + run.id + ''"'')[0].attributes.status != "reproduced"'
@@ -73,4 +73,4 @@ jobs:
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 1
+version: 2

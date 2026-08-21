@@ -115,13 +115,17 @@ Sentry strings remain untrusted data. The controller derives only a closed
 recipe. Unsupported or malformed evidence is quarantined. A valid recipe writes
 a content-addressed `pending-transport` request for the existing Factory Pi
 outbox contract and an `inconclusive` outcome; it never launches a shell or
-claims reproduction. Only an exact trusted worker receipt may later record
-`reproduced`, `not-reproduced`, or `inconclusive`, and event-watermark drift is
-quarantined. Silence and pending transport never prove a fix.
+claims reproduction. The request directly binds the checkout release and Git
+revision. Latest-event time must match the issue's last-seen watermark, and
+wall-clock collection time is excluded from content identity. Silence and
+pending transport never prove a fix.
 
-Stage 3 must provide the trusted Pi transport receipt, persist the finalized
-outcome, and promote only `reproduced` evidence to exactly one durable Dex repair
-task; retries then remain Factory attempt history on that task. After Planning
+Stage 2 exposes no worker finalizer or caller-supplied authority literal. Stage
+3 must validate the durable Pi outbox, launch, execution claim, and accepted
+handoff, then perform a fresh bounded Sentry read and quarantine any advanced
+event ID or last-seen watermark before it can persist a finalized outcome. Only
+`reproduced` evidence may promote to exactly one durable Dex repair task;
+retries then remain Factory attempt history on that task. After Planning
 returns one audited Dex task ID,
 `supers-sentry-repair-backlink` binds the exact repair intent, human approval,
 successful Plan Application mapping, clean audit, and ready handoff.

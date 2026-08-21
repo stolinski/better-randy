@@ -15,6 +15,8 @@ import {
 } from "./sentry-repair-planning-queue.ts";
 
 const FingerprintSchema = z.string().regex(/^[0-9a-f]{64}$/);
+const GitRevisionSchema = z.string().regex(/^[0-9a-f]{40}$/);
+const GitReleaseSchema = z.string().regex(/^supers@[0-9a-f]{40}$/);
 const IssueIdentitySchema = z.string().regex(/^[A-Za-z0-9_-]{1,100}$/);
 const BoundedTextSchema = z.string().min(1).max(300);
 const RouteSchema = z.string().regex(
@@ -34,19 +36,19 @@ const SentryStackFrameSchema = z.strictObject({
 });
 
 export const SentryReproductionEvidenceSchema = z.strictObject({
-  schemaVersion: z.literal(1),
+  schemaVersion: z.literal(2),
   repairIntentName: z.string().min(1),
   repairIntentFingerprint: FingerprintSchema,
   issueId: IssueIdentitySchema,
   shortId: IssueIdentitySchema,
   eventId: IssueIdentitySchema,
   release: z.string().min(1).max(160).nullable(),
+  eventOccurredAt: z.string().datetime(),
   lastSeen: z.string().datetime(),
   culprit: BoundedTextSchema.nullable(),
   route: RouteSchema.nullable(),
   inAppStackFrames: z.array(SentryStackFrameSchema).max(20),
   breadcrumbCategories: z.array(z.string().min(1).max(80)).max(20),
-  hydratedAt: z.string().datetime(),
   fingerprint: FingerprintSchema,
 });
 
@@ -76,65 +78,59 @@ const SentryReproductionRecipeSchema = z.discriminatedUnion("kind", [
 ]);
 
 export const SentryReproductionRequestSchema = z.strictObject({
-  schemaVersion: z.literal(1),
+  schemaVersion: z.literal(2),
   state: z.literal("pending-transport"),
   workItem: z.string().regex(/^sentry-reproduction-[A-Za-z0-9_-]{1,100}$/),
   repairIntentName: z.string().min(1),
   repairIntentFingerprint: FingerprintSchema,
+  issueId: IssueIdentitySchema,
+  shortId: IssueIdentitySchema,
+  checkoutRelease: GitReleaseSchema,
+  checkoutRevision: GitRevisionSchema,
   evidenceName: z.string().min(1),
   evidenceFingerprint: FingerprintSchema,
   sourceEventId: IssueIdentitySchema,
+  sourceEventOccurredAt: z.string().datetime(),
   sourceLastSeen: z.string().datetime(),
   recipe: SentryReproductionRecipeSchema,
   requiredWorkerContract: z.literal("factory-pi-outbox-v1"),
   frozenSemanticTask: z.string().min(1).max(4_000),
   frozenTaskDigest: FingerprintSchema,
   fingerprint: FingerprintSchema,
+}).superRefine((request, context) => {
+  if (request.checkoutRelease !== `supers@${request.checkoutRevision}`) {
+    context.addIssue({
+      code: "custom",
+      message: "Checkout release and revision must identify the same commit",
+    });
+  }
 });
 
-export const SentryReproductionWorkerReceiptSchema = z.strictObject({
-  schemaVersion: z.literal(1),
-  authority: z.literal("trusted-pi-reproduction-worker"),
-  requestFingerprint: FingerprintSchema,
-  sourceEventId: IssueIdentitySchema,
-  sourceLastSeen: z.string().datetime(),
-  result: z.enum(["reproduced", "not-reproduced", "inconclusive"]),
-  completedAt: z.string().datetime(),
-  observationDigest: FingerprintSchema,
-});
-
+// Stage 2 can reserve transport but cannot accept worker authority. Stage 3
+// must add an outbox/claim-bound authority receipt before this schema can grow
+// a reproduced state.
 export const SentryReproductionOutcomeSchema = z.strictObject({
-  schemaVersion: z.literal(1),
-  status: z.enum([
-    "reproduced",
-    "not-reproduced",
-    "inconclusive",
-    "quarantined",
-  ]),
+  schemaVersion: z.literal(2),
+  status: z.enum(["inconclusive", "quarantined"]),
   reason: z.enum([
-    "worker-reproduced",
-    "worker-not-reproduced",
-    "worker-inconclusive",
     "transport-pending",
     "unsupported-recipe",
     "malformed-sentry-evidence",
     "event-watermark-drift",
-    "invalid-worker-receipt",
   ]),
   repairIntentName: z.string().min(1),
   repairIntentFingerprint: FingerprintSchema,
+  checkoutRelease: GitReleaseSchema,
+  checkoutRevision: GitRevisionSchema,
   evidenceFingerprint: FingerprintSchema.nullable(),
   requestFingerprint: FingerprintSchema.nullable(),
-  workerReceiptFingerprint: FingerprintSchema.nullable(),
-  recordedAt: z.string().datetime(),
+  workerReceiptFingerprint: z.null(),
   fingerprint: FingerprintSchema,
 }).superRefine((outcome, context) => {
-  if (
-    outcome.status === "reproduced" && outcome.reason !== "worker-reproduced"
-  ) {
+  if (outcome.checkoutRelease !== `supers@${outcome.checkoutRevision}`) {
     context.addIssue({
       code: "custom",
-      message: "Only a trusted reproduced worker receipt can advance repair",
+      message: "Outcome release and revision must identify the same commit",
     });
   }
 });
@@ -163,8 +159,24 @@ export type SentryReproductionContext = {
 
 export type SentryReproductionDependencies = {
   commandRunner: SentryCommandRunner;
-  now: () => string;
+  resolveCheckoutRevision: (repoDir: string) => Promise<string>;
 };
+
+async function resolveGitCheckoutRevision(repoDir: string): Promise<string> {
+  const result = await new Deno.Command("git", {
+    args: ["rev-parse", "HEAD"],
+    cwd: repoDir,
+    stdin: "null",
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  if (!result.success) {
+    throw new Error("Unable to resolve reproduction checkout revision");
+  }
+  return GitRevisionSchema.parse(
+    new TextDecoder().decode(result.stdout).trim(),
+  );
+}
 
 export class DenoSentryReproductionCommandRunner
   implements SentryCommandRunner {
@@ -220,6 +232,9 @@ const RawEventSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String).optional(),
   eventID: z.string().optional(),
   eventId: z.string().optional(),
+  dateCreated: z.string().datetime().optional(),
+  date_created: z.string().datetime().optional(),
+  timestamp: z.string().datetime().optional(),
   release: z.union([
     z.string(),
     z.object({ version: z.string() }).passthrough(),
@@ -250,7 +265,6 @@ const RawHydratedIssueSchema = z.object({
 type RepairIntentEnvelope = z.infer<typeof SentryRepairIntentEnvelopeSchema>;
 type ReproductionEvidence = z.infer<typeof SentryReproductionEvidenceSchema>;
 type ReproductionRequest = z.infer<typeof SentryReproductionRequestSchema>;
-type WorkerReceipt = z.infer<typeof SentryReproductionWorkerReceiptSchema>;
 
 function sanitizeUntrustedText(value: string, maximum: number): string {
   const withoutAnsi = value.replace(
@@ -322,11 +336,18 @@ function eventFromIssue(issue: z.infer<typeof RawHydratedIssueSchema>) {
   return issue.latestEvent ?? issue.events?.[0] ?? null;
 }
 
+function eventOccurredAt(event: z.infer<typeof RawEventSchema>): string | null {
+  return event.dateCreated ?? event.date_created ?? event.timestamp ?? null;
+}
+
+function sameInstant(left: string, right: string): boolean {
+  return new Date(left).getTime() === new Date(right).getTime();
+}
+
 async function createEvidence(
   intentName: string,
   envelope: RepairIntentEnvelope,
   raw: unknown,
-  now: string,
 ): Promise<ReproductionEvidence> {
   const issue = RawHydratedIssueSchema.parse(raw);
   if (
@@ -342,6 +363,12 @@ async function createEvidence(
   const eventId = event.eventID ?? event.eventId ?? event.id;
   if (!eventId || !IssueIdentitySchema.safeParse(eventId).success) {
     throw new Error("Sentry reproduction evidence has no valid event id");
+  }
+  const occurredAt = eventOccurredAt(event);
+  if (occurredAt === null || !sameInstant(occurredAt, issue.lastSeen)) {
+    throw new Error(
+      "Sentry reproduction latest event does not match the issue last-seen watermark",
+    );
   }
   const frames = (event.exception?.values ?? []).flatMap((value) =>
     value.stacktrace?.frames ?? []
@@ -366,13 +393,14 @@ async function createEvidence(
   ].slice(0, 20);
   const route = normalizeLocalRoute(event.request?.url ?? event.transaction);
   const base = {
-    schemaVersion: 1 as const,
+    schemaVersion: 2 as const,
     repairIntentName: intentName,
     repairIntentFingerprint: envelope.fingerprint,
     issueId: envelope.intent.issueId,
     shortId: envelope.intent.shortId,
     eventId,
     release: releaseValue(event.release),
+    eventOccurredAt: occurredAt,
     lastSeen: issue.lastSeen,
     culprit: issue.culprit || event.culprit
       ? sanitizeUntrustedText(issue.culprit ?? event.culprit ?? "", 300)
@@ -380,7 +408,6 @@ async function createEvidence(
     route,
     inAppStackFrames: frames,
     breadcrumbCategories,
-    hydratedAt: now,
   };
   return SentryReproductionEvidenceSchema.parse({
     ...base,
@@ -435,66 +462,38 @@ async function createOutcome(
     "schemaVersion" | "fingerprint"
   >,
 ) {
-  const base = { schemaVersion: 1 as const, ...value };
+  const base = { schemaVersion: 2 as const, ...value };
   return SentryReproductionOutcomeSchema.parse({
     ...base,
     fingerprint: await createSentrySha256(canonicalSentryJson(base)),
   });
 }
 
-export async function finalizeSentryReproductionWorkerReceipt(
+export function sentryReproductionWatermarkMatches(
   request: ReproductionRequest,
-  receiptRaw: unknown,
-  recordedAt: string,
-): Promise<z.infer<typeof SentryReproductionOutcomeSchema>> {
-  const parsed = SentryReproductionWorkerReceiptSchema.safeParse(receiptRaw);
-  if (!parsed.success) {
-    return createOutcome({
-      status: "quarantined",
-      reason: "invalid-worker-receipt",
-      repairIntentName: request.repairIntentName,
-      repairIntentFingerprint: request.repairIntentFingerprint,
-      evidenceFingerprint: request.evidenceFingerprint,
-      requestFingerprint: request.fingerprint,
-      workerReceiptFingerprint: null,
-      recordedAt,
-    });
+  rawFreshIssue: unknown,
+): boolean {
+  const parsed = RawHydratedIssueSchema.safeParse(rawFreshIssue);
+  if (!parsed.success) return false;
+  const issue = parsed.data;
+  if (issue.id !== request.issueId || issue.shortId !== request.shortId) {
+    return false;
   }
-  const receipt = parsed.data;
-  const receiptFingerprint = await createSentrySha256(
-    canonicalSentryJson(receipt),
-  );
-  if (
-    receipt.requestFingerprint !== request.fingerprint ||
-    receipt.sourceEventId !== request.sourceEventId ||
-    receipt.sourceLastSeen !== request.sourceLastSeen
-  ) {
-    return createOutcome({
-      status: "quarantined",
-      reason: "event-watermark-drift",
-      repairIntentName: request.repairIntentName,
-      repairIntentFingerprint: request.repairIntentFingerprint,
-      evidenceFingerprint: request.evidenceFingerprint,
-      requestFingerprint: request.fingerprint,
-      workerReceiptFingerprint: receiptFingerprint,
-      recordedAt,
-    });
-  }
-  return createOutcome({
-    status: receipt.result,
-    reason: receipt.result === "reproduced"
-      ? "worker-reproduced"
-      : receipt.result === "not-reproduced"
-      ? "worker-not-reproduced"
-      : "worker-inconclusive",
-    repairIntentName: request.repairIntentName,
-    repairIntentFingerprint: request.repairIntentFingerprint,
-    evidenceFingerprint: request.evidenceFingerprint,
-    requestFingerprint: request.fingerprint,
-    workerReceiptFingerprint: receiptFingerprint,
-    recordedAt,
-  });
+  const event = eventFromIssue(issue);
+  if (!event) return false;
+  const eventId = event.eventID ?? event.eventId ?? event.id;
+  const occurredAt = eventOccurredAt(event);
+  return eventId === request.sourceEventId &&
+    occurredAt !== null &&
+    sameInstant(occurredAt, request.sourceEventOccurredAt) &&
+    sameInstant(issue.lastSeen, request.sourceLastSeen) &&
+    sameInstant(occurredAt, issue.lastSeen);
 }
+
+// Stage 3 must call this check after a fresh bounded Sentry read and validate
+// the Pi outbox, launch receipt, execution claim, and handoff acceptance before
+// it may introduce any terminal reproduction result. Stage 2 deliberately
+// exposes no finalization method or worker-receipt authority.
 
 async function readRepairIntent(
   args: z.infer<typeof SentryReproductionPrepareArgsSchema>,
@@ -582,7 +581,18 @@ export async function executePrepareSentryReproduction(
 ): Promise<{ dataHandles: Array<{ name: string }> }> {
   const args = SentryReproductionPrepareArgsSchema.parse(rawArgs);
   const envelope = await readRepairIntent(args, context);
-  const now = dependencies.now();
+  const checkoutRelease = GitReleaseSchema.parse(
+    envelope.intent.currentRelease,
+  );
+  const checkoutRevision = GitRevisionSchema.parse(
+    checkoutRelease.slice("supers@".length),
+  );
+  const actualCheckoutRevision = GitRevisionSchema.parse(
+    await dependencies.resolveCheckoutRevision(context.repoDir),
+  );
+  if (actualCheckoutRevision !== checkoutRevision) {
+    throw new Error("Sentry reproduction checkout revision drift");
+  }
   const command = await dependencies.commandRunner.run(
     ["issue", "view", envelope.intent.shortId, "--fresh", "--json"],
     context.repoDir,
@@ -598,7 +608,6 @@ export async function executePrepareSentryReproduction(
       args.repairIntentName,
       envelope,
       JSON.parse(command.stdout) as unknown,
-      now,
     );
   } catch {
     const outcome = await createOutcome({
@@ -606,10 +615,11 @@ export async function executePrepareSentryReproduction(
       reason: "malformed-sentry-evidence",
       repairIntentName: args.repairIntentName,
       repairIntentFingerprint: envelope.fingerprint,
+      checkoutRelease,
+      checkoutRevision,
       evidenceFingerprint: null,
       requestFingerprint: null,
       workerReceiptFingerprint: null,
-      recordedAt: now,
     });
     const handle = await context.writeResource(
       "outcome",
@@ -637,10 +647,11 @@ export async function executePrepareSentryReproduction(
       reason: "unsupported-recipe",
       repairIntentName: args.repairIntentName,
       repairIntentFingerprint: envelope.fingerprint,
+      checkoutRelease,
+      checkoutRevision,
       evidenceFingerprint: evidence.fingerprint,
       requestFingerprint: null,
       workerReceiptFingerprint: null,
-      recordedAt: now,
     });
     const outcomeHandle = await context.writeResource(
       "outcome",
@@ -653,22 +664,30 @@ export async function executePrepareSentryReproduction(
   // This frozen semantic payload is the only task content Stage 3 may place in
   // the existing Factory Pi outbox. No Sentry prose becomes executable text.
   const frozenTask = canonicalSentryJson({
-    contract: "sentry-reproduction-v1",
+    contract: "sentry-reproduction-v2",
+    checkoutRelease,
+    checkoutRevision,
     evidenceFingerprint: evidence.fingerprint,
     issueId: evidence.issueId,
     recipe,
     sourceEventId: evidence.eventId,
+    sourceEventOccurredAt: evidence.eventOccurredAt,
     sourceLastSeen: evidence.lastSeen,
   });
   const requestBase = {
-    schemaVersion: 1 as const,
+    schemaVersion: 2 as const,
     state: "pending-transport" as const,
     workItem: `sentry-reproduction-${evidence.issueId}`,
     repairIntentName: args.repairIntentName,
     repairIntentFingerprint: envelope.fingerprint,
+    issueId: evidence.issueId,
+    shortId: evidence.shortId,
+    checkoutRelease,
+    checkoutRevision,
     evidenceName: evidenceHandle.name,
     evidenceFingerprint: evidence.fingerprint,
     sourceEventId: evidence.eventId,
+    sourceEventOccurredAt: evidence.eventOccurredAt,
     sourceLastSeen: evidence.lastSeen,
     recipe,
     requiredWorkerContract: "factory-pi-outbox-v1" as const,
@@ -689,10 +708,11 @@ export async function executePrepareSentryReproduction(
     reason: "transport-pending",
     repairIntentName: args.repairIntentName,
     repairIntentFingerprint: envelope.fingerprint,
+    checkoutRelease,
+    checkoutRevision,
     evidenceFingerprint: evidence.fingerprint,
     requestFingerprint: request.fingerprint,
     workerReceiptFingerprint: null,
-    recordedAt: now,
   });
   const outcomeHandle = await context.writeResource(
     "outcome",
@@ -711,7 +731,7 @@ export async function executePrepareSentryReproduction(
 
 export const model = {
   type: "@supers/sentry-reproduction-controller",
-  version: "2026.08.21.1",
+  version: "2026.08.21.2",
   globalArguments: z.strictObject({
     sourceRepairModelId: z.string().uuid(),
   }),
@@ -732,7 +752,7 @@ export const model = {
     },
     outcome: {
       description:
-        "Exact reproduced, not-reproduced, inconclusive, or quarantined result",
+        "Exact Stage 2 pending-transport or quarantined reservation result",
       schema: SentryReproductionOutcomeSchema,
       lifetime: "infinite",
       garbageCollection: 500,
@@ -749,7 +769,7 @@ export const model = {
       ) =>
         executePrepareSentryReproduction(args, context, {
           commandRunner: new DenoSentryReproductionCommandRunner(),
-          now: () => new Date().toISOString(),
+          resolveCheckoutRevision: resolveGitCheckoutRevision,
         }),
     },
   },

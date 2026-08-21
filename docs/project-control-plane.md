@@ -213,8 +213,10 @@ Sentry repair Planning uses the same boundary through an optional, exact
 `repair-intent` adapter input. `supers-sentry-repair-to-planning` stores every
 eligible intent, serializes one active `sentry-<issueId>` work item, and orders
 the remaining queue by severity, priority, oldest observation, then issue id.
-The intent becomes part of the immutable Planning source snapshot; ordinary
-Planning receives no repair intent and keeps its existing behavior. Before the
+Only the queue-selected supersession head becomes part of the immutable
+Planning source snapshot; retained ancestor envelopes are excluded by exact
+fingerprint. Ordinary Planning receives no repair intent and keeps its existing
+behavior. Before the
 sole Dex Plan Applier runs, the Supers adapter requires exactly one create or
 attach operation matching the intent and exact Sentry short id. Queue selection
 and Planning remain read-only until the existing human approval gate passes.
@@ -222,10 +224,14 @@ A reproduction-required queue head instead enters
 `supers-sentry-reproduction-reservation`, which revalidates the selected intent,
 hydrates bounded event identity, and emits only a closed code-owned recipe. Its
 current terminal state is either quarantined or `inconclusive` with
-`pending-transport`; the next stage must place that exact frozen request through
-the trusted Factory Pi outbox. Sentry prose is never executable input, and only
-a source-event/last-seen-bound trusted worker receipt may promote a result to
-`reproduced`.
+`pending-transport`. The request directly binds the exact checkout release and
+Git revision plus a latest-event timestamp equal to the issue's last-seen
+watermark. It is content-stable across wall-clock retries. The next stage must
+place that exact frozen request through the trusted Factory Pi outbox, then
+re-read Sentry and reject any advanced event watermark. Stage 2 exposes no
+worker finalizer: only Stage 3 may add `reproduced` after validating the durable
+outbox, launch, execution-claim, and handoff authority chain. Sentry prose is
+never executable input.
 After a clean application and audit, `supers-sentry-repair-backlink` is the
 separate Sentry mutation boundary: it correlates the exact intent, approval,
 single Dex mapping, audit, and handoff, then adds or confirms one idempotent

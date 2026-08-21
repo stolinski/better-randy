@@ -450,6 +450,7 @@ export async function executeSentryIssueIntake(
     JSON.stringify({
       target,
       args: resolvedArgs,
+      capturedAt,
       issues,
       recentIds: [...recentIds].sort(),
       releaseIds: [...releaseIds].sort(),

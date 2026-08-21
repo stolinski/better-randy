@@ -1,6 +1,6 @@
 type: '@swamp/software-factory'
 typeVersion: 2026.06.24.1
-version: 2
+version: 3
 globalArguments:
   stages:
     - id: inventory
@@ -15,8 +15,15 @@ globalArguments:
           inputs:
             workItem: '${{ self.workItem }}'
             repairIntents: >-
-              ${{ data.query('modelName == "supers-sentry-repair-planning-handoff" && specName ==
-              "repair-intent" && attributes.planningWorkItem == "' + self.workItem +
+              ${{ size(data.query('modelName == "supers-sentry-repair-planning-handoff" && name ==
+              "sentry-repair-planning-queue-selection"')) == 0 ||
+              data.latest("supers-sentry-repair-planning-handoff",
+              "sentry-repair-planning-queue-selection").attributes.selectedWorkItem != self.workItem ? [] :
+              data.query('modelName == "supers-sentry-repair-planning-handoff" && specName ==
+              "repair-intent" && attributes.planningWorkItem == "' + self.workItem + '" &&
+              attributes.fingerprint == "' +
+              data.latest("supers-sentry-repair-planning-handoff",
+              "sentry-repair-planning-queue-selection").attributes.selectedIntentFingerprint +
               '"').map(resource, resource.attributes) }}
         inputsSchema:
           type: object

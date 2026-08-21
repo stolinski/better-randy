@@ -1,8 +1,8 @@
 type: '@supers/sentry-issue-intake'
-typeVersion: 2026.08.21.1
+typeVersion: 2026.08.21.2
 id: 97e8375f-5908-482d-846e-2a5b037ae9cf
 name: supers-sentry-issue-intake
-version: 2
+version: 3
 tags: {}
 globalArguments:
   target: scott-tolinski-projects/supers

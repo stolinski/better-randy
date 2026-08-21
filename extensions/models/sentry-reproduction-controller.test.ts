@@ -15,11 +15,12 @@ import {
 import {
   deriveClosedSentryReproductionRecipe,
   executePrepareSentryReproduction,
-  finalizeSentryReproductionWorkerReceipt,
+  model,
   type SentryReproductionContext,
   SentryReproductionEvidenceSchema,
   SentryReproductionOutcomeSchema,
   SentryReproductionRequestSchema,
+  sentryReproductionWatermarkMatches,
 } from "./sentry-reproduction-controller.ts";
 
 const REPAIR_MODEL_ID = "43609d3c-92b1-4509-9ed0-db25b48ee7c1";
@@ -90,6 +91,7 @@ function hydratedIssue(
     culprit: "loadPreset",
     latestEvent: {
       eventID: "evt_123",
+      dateCreated: "2026-08-21T16:00:00.000Z",
       release: `supers@${"1".repeat(40)}`,
       transaction: "/p/lower-third?secret=ignored",
       request: { url: "http://localhost:7263/p/lower-third?token=secret" },
@@ -191,6 +193,7 @@ async function fixture(
 
 async function runFixture(
   commandOutput: unknown,
+  checkoutRevision = "d".repeat(40),
 ): Promise<Awaited<ReturnType<typeof fixture>>> {
   const state = await fixture(commandOutput);
   const runner = (state.context as SentryReproductionContext & {
@@ -198,7 +201,7 @@ async function runFixture(
   }).__runner;
   await executePrepareSentryReproduction(state.args, state.context, {
     commandRunner: runner,
-    now: () => NOW,
+    resolveCheckoutRevision: () => Promise.resolve(checkoutRevision),
   });
   return state;
 }
@@ -233,14 +236,20 @@ Deno.test("reproduction reserves a closed browser recipe and never executes Sent
     route: "/p/lower-third",
   });
   assert.equal(request.state, "pending-transport");
+  assert.equal(request.checkoutRelease, `supers@${"d".repeat(40)}`);
+  assert.equal(request.checkoutRevision, "d".repeat(40));
+  assert.equal(request.sourceEventOccurredAt, request.sourceLastSeen);
   assert.equal(request.frozenSemanticTask.includes("rm -rf"), false);
   assert.equal(request.frozenSemanticTask.includes("abc123"), false);
   assert.deepEqual(Object.keys(JSON.parse(request.frozenSemanticTask)).sort(), [
+    "checkoutRelease",
+    "checkoutRevision",
     "contract",
     "evidenceFingerprint",
     "issueId",
     "recipe",
     "sourceEventId",
+    "sourceEventOccurredAt",
     "sourceLastSeen",
   ]);
   const outcome = [...state.resources.values()].map((value) =>
@@ -248,6 +257,8 @@ Deno.test("reproduction reserves a closed browser recipe and never executes Sent
   ).find((value) => value.success)?.data;
   assert.equal(outcome?.status, "inconclusive");
   assert.equal(outcome?.reason, "transport-pending");
+  assert.equal(outcome?.checkoutRelease, request.checkoutRelease);
+  assert.equal(outcome?.checkoutRevision, request.checkoutRevision);
 });
 
 Deno.test("malformed evidence quarantines without a request", async () => {
@@ -269,6 +280,7 @@ Deno.test("unsupported external routes and unrecognized frames quarantine", asyn
   const state = await runFixture(hydratedIssue({
     latestEvent: {
       eventID: "evt_123",
+      dateCreated: "2026-08-21T16:00:00.000Z",
       request: { url: "https://attacker.example/run?cmd=rm" },
       exception: {
         values: [{
@@ -284,24 +296,29 @@ Deno.test("unsupported external routes and unrecognized frames quarantine", asyn
   assert.equal(outcome?.reason, "unsupported-recipe");
 });
 
-Deno.test("replayed preparation is content-address identical", async () => {
+Deno.test("replayed preparation is content-address identical without wall-clock identity", async () => {
   const first = await runFixture(hydratedIssue());
+  await new Promise((resolve) => setTimeout(resolve, 2));
   const second = await runFixture(hydratedIssue());
   assert.deepEqual(
     [...second.resources.keys()].sort(),
     [...first.resources.keys()].sort(),
   );
+  assert.deepEqual([...second.resources.values()], [
+    ...first.resources.values(),
+  ]);
 });
 
 Deno.test("closed recipe derivation permits only registered route and test kinds", () => {
   const base = {
-    schemaVersion: 1 as const,
+    schemaVersion: 2 as const,
     repairIntentName: "intent",
     repairIntentFingerprint: "a".repeat(64),
     issueId: "1",
     shortId: "SUPERS-1",
     eventId: "event_1",
     release: null,
+    eventOccurredAt: NOW,
     lastSeen: NOW,
     culprit: null,
     route: null,
@@ -310,7 +327,6 @@ Deno.test("closed recipe derivation permits only registered route and test kinds
       function: null,
     }],
     breadcrumbCategories: [],
-    hydratedAt: NOW,
     fingerprint: "b".repeat(64),
   };
   const evidence = SentryReproductionEvidenceSchema.parse(base);
@@ -327,42 +343,61 @@ Deno.test("closed recipe derivation permits only registered route and test kinds
   );
 });
 
-Deno.test("trusted worker no-reproduction stays not-reproduced and cannot advance", async () => {
+Deno.test("fresh event watermark must remain exact across transport", async () => {
   const state = await runFixture(hydratedIssue());
   const request = [...state.resources.values()].map((value) =>
     SentryReproductionRequestSchema.safeParse(value)
   ).find((value) => value.success)?.data;
   assert.ok(request);
-  const outcome = await finalizeSentryReproductionWorkerReceipt(request, {
-    schemaVersion: 1,
-    authority: "trusted-pi-reproduction-worker",
-    requestFingerprint: request.fingerprint,
-    sourceEventId: request.sourceEventId,
-    sourceLastSeen: request.sourceLastSeen,
-    result: "not-reproduced",
-    completedAt: NOW,
-    observationDigest: "9".repeat(64),
-  }, NOW);
-  assert.equal(outcome.status, "not-reproduced");
-  assert.equal(outcome.reason, "worker-not-reproduced");
+  assert.equal(
+    sentryReproductionWatermarkMatches(request, hydratedIssue()),
+    true,
+  );
+  assert.equal(
+    sentryReproductionWatermarkMatches(
+      request,
+      hydratedIssue({
+        lastSeen: "2026-08-21T16:05:00.000Z",
+        latestEvent: {
+          eventID: "evt_124",
+          dateCreated: "2026-08-21T16:05:00.000Z",
+        },
+      }),
+    ),
+    false,
+  );
 });
 
-Deno.test("worker receipt event-watermark drift quarantines", async () => {
+Deno.test("Stage 2 rejects revision drift and exposes no forgeable worker finalizer", async () => {
+  await assert.rejects(
+    () => runFixture(hydratedIssue(), "e".repeat(40)),
+    /checkout revision drift/,
+  );
   const state = await runFixture(hydratedIssue());
   const request = [...state.resources.values()].map((value) =>
     SentryReproductionRequestSchema.safeParse(value)
   ).find((value) => value.success)?.data;
   assert.ok(request);
-  const outcome = await finalizeSentryReproductionWorkerReceipt(request, {
-    schemaVersion: 1,
-    authority: "trusted-pi-reproduction-worker",
-    requestFingerprint: request.fingerprint,
-    sourceEventId: "different_event",
-    sourceLastSeen: request.sourceLastSeen,
-    result: "reproduced",
-    completedAt: NOW,
-    observationDigest: "9".repeat(64),
-  }, NOW);
-  assert.equal(outcome.status, "quarantined");
-  assert.equal(outcome.reason, "event-watermark-drift");
+  assert.equal(
+    SentryReproductionRequestSchema.safeParse({
+      ...request,
+      checkoutRevision: "e".repeat(40),
+    }).success,
+    false,
+  );
+  assert.deepEqual(Object.keys(model.methods), ["prepare"]);
+  assert.equal(
+    SentryReproductionOutcomeSchema.safeParse({
+      schemaVersion: 2,
+      status: "reproduced",
+      reason: "worker-reproduced",
+      repairIntentName: request.repairIntentName,
+      repairIntentFingerprint: request.repairIntentFingerprint,
+      evidenceFingerprint: request.evidenceFingerprint,
+      requestFingerprint: request.fingerprint,
+      workerReceiptFingerprint: "9".repeat(64),
+      fingerprint: "8".repeat(64),
+    }).success,
+    false,
+  );
 });
