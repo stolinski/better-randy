@@ -107,10 +107,22 @@ repair is terminal. Supers Planning explicitly rejects reproduction intents,
 binds a confirmed intent into its immutable source snapshot, and permits exactly
 one matching create or attach operation at the pre-Plan-Applier boundary.
 
-Stage 1 stops at durable queueing. It does not reproduce an issue, mutate Dex,
-or launch coding. Stages 2 and 3 must promote a reproduced intent to exactly one
-durable Dex repair task; retries then remain Factory attempt history on that
-task. After Planning returns one audited Dex task ID,
+Stage 2 binds one exact `await-reproduction` queue selection to bounded fresh
+Sentry evidence. It stores only event/release/last-seen identity, culprit, a
+local route, sanitized in-app frame names, and breadcrumb categories. All
+Sentry strings remain untrusted data. The controller derives only a closed
+`http-route`, `browser-route`, `export-flow`, or code-owned allowlisted-test
+recipe. Unsupported or malformed evidence is quarantined. A valid recipe writes
+a content-addressed `pending-transport` request for the existing Factory Pi
+outbox contract and an `inconclusive` outcome; it never launches a shell or
+claims reproduction. Only an exact trusted worker receipt may later record
+`reproduced`, `not-reproduced`, or `inconclusive`, and event-watermark drift is
+quarantined. Silence and pending transport never prove a fix.
+
+Stage 3 must provide the trusted Pi transport receipt, persist the finalized
+outcome, and promote only `reproduced` evidence to exactly one durable Dex repair
+task; retries then remain Factory attempt history on that task. After Planning
+returns one audited Dex task ID,
 `supers-sentry-repair-backlink` binds the exact repair intent, human approval,
 successful Plan Application mapping, clean audit, and ready handoff.
 It then idempotently adds the Dex task reference to the Sentry issue and stores

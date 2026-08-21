@@ -218,6 +218,14 @@ Planning receives no repair intent and keeps its existing behavior. Before the
 sole Dex Plan Applier runs, the Supers adapter requires exactly one create or
 attach operation matching the intent and exact Sentry short id. Queue selection
 and Planning remain read-only until the existing human approval gate passes.
+A reproduction-required queue head instead enters
+`supers-sentry-reproduction-reservation`, which revalidates the selected intent,
+hydrates bounded event identity, and emits only a closed code-owned recipe. Its
+current terminal state is either quarantined or `inconclusive` with
+`pending-transport`; the next stage must place that exact frozen request through
+the trusted Factory Pi outbox. Sentry prose is never executable input, and only
+a source-event/last-seen-bound trusted worker receipt may promote a result to
+`reproduced`.
 After a clean application and audit, `supers-sentry-repair-backlink` is the
 separate Sentry mutation boundary: it correlates the exact intent, approval,
 single Dex mapping, audit, and handoff, then adds or confirms one idempotent

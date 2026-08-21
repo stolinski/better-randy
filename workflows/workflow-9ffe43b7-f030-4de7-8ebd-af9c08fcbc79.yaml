@@ -1,0 +1,76 @@
+id: 9ffe43b7-f030-4de7-8ebd-af9c08fcbc79
+name: supers-sentry-reproduction-reservation
+description: Hydrate one exact selected Sentry reproduction intent and persist a closed recipe for trusted Pi transport without treating silence as success.
+tags:
+  purpose: supers-sentry-self-healing-reproduction
+  capability: bounded-reproduction-reservation
+inputs:
+  type: object
+  required:
+    - repairIntentName
+    - expectedRepairIntentFingerprint
+    - queueSelectionName
+    - expectedQueueSelectionFingerprint
+  additionalProperties: false
+  properties:
+    repairIntentName:
+      type: string
+      minLength: 1
+      maxLength: 220
+    expectedRepairIntentFingerprint:
+      type: string
+      pattern: '^[0-9a-f]{64}$'
+    queueSelectionName:
+      type: string
+      minLength: 1
+      maxLength: 220
+    expectedQueueSelectionFingerprint:
+      type: string
+      pattern: '^[0-9a-f]{64}$'
+jobs:
+  - name: main
+    description: Bind exact selected queue evidence to one closed reproduction reservation.
+    steps:
+      - name: prepare-selected-reproduction
+        description: Hydrate only bounded Sentry fields and reserve an allowlisted recipe without launching arbitrary commands.
+        task:
+          type: model_method
+          modelIdOrName: supers-sentry-reproduction-controller
+          methodName: prepare
+          inputs:
+            repairIntentName: '${{ inputs.repairIntentName }}'
+            expectedRepairIntentFingerprint: '${{ inputs.expectedRepairIntentFingerprint }}'
+            queueSelectionName: '${{ inputs.queueSelectionName }}'
+            expectedQueueSelectionFingerprint: '${{ inputs.expectedQueueSelectionFingerprint }}'
+        dependsOn: []
+        weight: 0
+        allowFailure: false
+      - name: assert-closed-terminal-reservation
+        description: Require an exact pending-transport or quarantined outcome; absence and pending transport never count as reproduced.
+        task:
+          type: assert
+          expr: 'size(data.query(''modelName == "supers-sentry-reproduction-controller" && specName == "outcome" && workflowRunId == "'' + run.id + ''"'')) == 1 && data.query(''modelName == "supers-sentry-reproduction-controller" && specName == "outcome" && workflowRunId == "'' + run.id + ''"'')[0].attributes.status in ["inconclusive", "quarantined"]'
+          message: Sentry reproduction reservation did not end in an exact pending or quarantined state
+          severity: high
+        dependsOn:
+          - step: prepare-selected-reproduction
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+      - name: assert-no-untrusted-advance
+        description: Forbid reservation from claiming reproduced before a trusted Pi worker receipt exists.
+        task:
+          type: assert
+          expr: 'data.query(''modelName == "supers-sentry-reproduction-controller" && specName == "outcome" && workflowRunId == "'' + run.id + ''"'')[0].attributes.status != "reproduced"'
+          message: Sentry reproduction advanced without trusted worker evidence
+          severity: high
+        dependsOn:
+          - step: assert-closed-terminal-reservation
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+    dependsOn: []
+    weight: 0
+version: 1
