@@ -120,13 +120,34 @@ revision. Latest-event time must match the issue's last-seen watermark, and
 wall-clock collection time is excluded from content identity. Silence and
 pending transport never prove a fix.
 
-Stage 2 exposes no worker finalizer or caller-supplied authority literal. Stage
-3 must validate the durable Pi outbox, launch, execution claim, and accepted
-handoff, then perform a fresh bounded Sentry read and quarantine any advanced
-event ID or last-seen watermark before it can persist a finalized outcome. Only
-`reproduced` evidence may promote to exactly one durable Dex repair task;
-retries then remain Factory attempt history on that task. After Planning
-returns one audited Dex task ID,
+Stage 2 exposes no worker finalizer or caller-supplied authority literal. The
+Stage 3 transport controller owns a distinct reproduction outbox because the
+Delivery outbox correctly requires an already-started Dex leaf, while repair
+Dex creation correctly requires positive reproduction first. The dedicated
+outbox reuses immutable reservation, bounded submission-attempt, execution
+claim, lease/fencing, crash-recovery, and ambiguity rules without representing
+itself as Delivery authority. Its Swamp-owned renewable lease admits one local
+driver; clean-checkout and exact-revision checks precede reservation, and stale
+owners cannot heartbeat after a newer fencing token exists.
+
+The reservation workflow automatically places each closed Stage 2 request
+behind that authority. No production launch/finalizer method is exposed yet:
+direct Pi SDK sessions do not create the package-owned normalized async
+artifacts required by the authority verifier. Stage 4 must host the
+`pi-subagents` in-process RPC inside a trusted local Pi SDK runtime, consume the
+reserved outbox, and validate its launch, claim, structured result, and fresh
+Sentry watermark. Until that host ships, every request remains reserved or
+inconclusive; callers cannot assert `reproduced`.
+
+The controller already defines the downstream fail-closed boundary. Only an
+exact claim-bound `reproduced` outcome can write a deterministic pre-mutation
+creation intent, acquire the shared Dex repository lock, re-read exact
+code-owned Sentry markers, create or attach one repair task, recover a lost
+create acknowledgement, and emit a machine Delivery admission. The admission
+cannot satisfy or bypass any human aesthetic gate. `not-reproduced`,
+`inconclusive`, quarantined, wrong-revision, wrong-task, wrong-receipt, and
+advanced-watermark outcomes cannot mutate Dex. After Planning returns one
+audited Dex task ID,
 `supers-sentry-repair-backlink` binds the exact repair intent, human approval,
 successful Plan Application mapping, clean audit, and ready handoff.
 It then idempotently adds the Dex task reference to the Sentry issue and stores

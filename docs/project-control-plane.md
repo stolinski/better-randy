@@ -226,12 +226,27 @@ hydrates bounded event identity, and emits only a closed code-owned recipe. Its
 current terminal state is either quarantined or `inconclusive` with
 `pending-transport`. The request directly binds the exact checkout release and
 Git revision plus a latest-event timestamp equal to the issue's last-seen
-watermark. It is content-stable across wall-clock retries. The next stage must
-place that exact frozen request through the trusted Factory Pi outbox, then
-re-read Sentry and reject any advanced event watermark. Stage 2 exposes no
-worker finalizer: only Stage 3 may add `reproduced` after validating the durable
-outbox, launch, execution-claim, and handoff authority chain. Sentry prose is
-never executable input.
+watermark. It is content-stable across wall-clock retries.
+
+Pre-Dex reproduction uses the dedicated
+`@supers/sentry-reproduction-transport-controller`, not the Delivery outbox:
+the Delivery outbox correctly requires an already-started Dex leaf, and repair
+Dex creation correctly requires positive reproduction first. A Swamp-owned
+renewable lease with monotonic fencing admits one local driver. Reservation
+requires a clean exact-revision checkout, is content-addressed and replay-safe,
+and records bounded health/paused dispositions. The controller defines a
+claim-bound worker-result contract, fresh-event watermark outcome, deterministic
+pre-Dex creation intent, shared-lock marker dedupe, lost-ack recovery, exact task
+mapping, and machine Delivery admission that preserves every human aesthetic
+gate. Only `reproduced` can cross that mapping boundary.
+
+The current checked-in workflow automatically reserves transport but does not
+launch Pi. Pi SDK direct sessions do not produce `pi-subagents` package-owned
+normalized async lifecycle artifacts, and the process-local extension RPC needs
+a trusted local Pi host. Stage 4 must provide that host, consume only the exact
+reserved outbox, validate launch/claim/result artifacts, and perform the fresh
+Sentry read before persisting an outcome. Until then no production method can
+mint `reproduced`, and Sentry prose is never executable input.
 After a clean application and audit, `supers-sentry-repair-backlink` is the
 separate Sentry mutation boundary: it correlates the exact intent, approval,
 single Dex mapping, audit, and handoff, then adds or confirms one idempotent

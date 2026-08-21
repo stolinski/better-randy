@@ -71,6 +71,21 @@ jobs:
               type: succeeded
         weight: 0
         allowFailure: false
+      - name: reserve-trusted-reproduction-transport
+        description: Automatically place an exact pending request behind the fenced dedicated transport authority; quarantined reservations skip this step.
+        task:
+          type: workflow
+          workflowIdOrName: supers-sentry-reproduction-transport-reservation
+          inputs:
+            requestName: '${{ data.query(''modelName == "supers-sentry-reproduction-controller" && specName == "request" && workflowRunId == "'' + run.id + ''"'')[0].name }}'
+            expectedRequestFingerprint: '${{ data.query(''modelName == "supers-sentry-reproduction-controller" && specName == "request" && workflowRunId == "'' + run.id + ''"'')[0].attributes.fingerprint }}'
+        guard: '${{ size(data.query(''modelName == "supers-sentry-reproduction-controller" && specName == "request" && workflowRunId == "'' + run.id + ''"'')) != 1 }}'
+        dependsOn:
+          - step: assert-no-untrusted-advance
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
     dependsOn: []
     weight: 0
 version: 2

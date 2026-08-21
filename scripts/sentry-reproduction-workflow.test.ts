@@ -9,6 +9,10 @@ const workflow = await readFile(
 	resolve(repoRoot, 'workflows/workflow-9ffe43b7-f030-4de7-8ebd-af9c08fcbc79.yaml'),
 	'utf8'
 );
+const transportWorkflow = await readFile(
+	resolve(repoRoot, 'workflows/workflow-supers-sentry-reproduction-transport-reservation.yaml'),
+	'utf8'
+);
 
 function stepIndex(name: string): number {
 	const index = workflow.indexOf(`- name: ${name}`);
@@ -35,4 +39,18 @@ test('pending and quarantine are terminal reservation states but never reproduce
 	);
 	assert.match(workflow, /\["inconclusive", "quarantined"\]/);
 	assert.match(workflow, /status != \\"reproduced\\"|status != "reproduced"/);
+	assert.ok(
+		stepIndex('assert-no-untrusted-advance') < stepIndex('reserve-trusted-reproduction-transport')
+	);
+});
+
+test('trusted transport reservation is fenced and cannot launch or mutate Dex', () => {
+	assert.match(transportWorkflow, /methodName: acquire-lease/);
+	assert.match(transportWorkflow, /methodName: reserve/);
+	assert.match(transportWorkflow, /expectedRequestFingerprint/);
+	assert.match(transportWorkflow, /clean matching checkout/);
+	assert.doesNotMatch(
+		transportWorkflow,
+		/methodName: (map-reproduced|start)|workflowIdOrName: supers-delivery|command\/shell/
+	);
 });
