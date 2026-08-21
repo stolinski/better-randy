@@ -3,6 +3,7 @@ import { describe, it } from 'vitest';
 
 import {
 	buildMarkerCustomData,
+	buildReplacePlanAction,
 	buildSyncedMarkerUpdates,
 	buildSyncExportFilename,
 	deriveMarkerSync,
@@ -478,5 +479,28 @@ describe('sync round-trip artifacts', () => {
 			buildSyncExportFilename('reachy-objective', '01:00:08;00', 300, 2),
 			'reachy-objective__01-00-08-00__300f__v2.mov'
 		);
+	});
+
+	it('builds the replace action pinning the prior version by source-file name', () => {
+		assert.deepEqual(buildReplacePlanAction('reachy-objective', 3), {
+			fileNamePrefix: 'reachy-objective__',
+			fileNameSuffix: '__v2.mov'
+		});
+		// A first sync has nothing to replace.
+		assert.equal(buildReplacePlanAction('reachy-objective', 1), null);
+		assert.throws(() => buildReplacePlanAction('reachy-objective', 0), TypeError);
+		assert.throws(() => buildReplacePlanAction('reachy-objective', 1.5), TypeError);
+	});
+
+	it('replace match halves fit the prior export filename even when TC and length changed', () => {
+		// v2 moved and got longer since v1 — the open middle absorbs both.
+		const priorFilename = buildSyncExportFilename('reachy-objective', '01:00:08;00', 300, 1);
+		const replace = buildReplacePlanAction('reachy-objective', 2);
+		assert.ok(replace !== null);
+		assert.ok(priorFilename.startsWith(replace.fileNamePrefix));
+		assert.ok(priorFilename.endsWith(replace.fileNameSuffix));
+		// A sibling slug sharing the prefix text must NOT match.
+		const sibling = buildSyncExportFilename('reachy-objective-2', '01:00:08;00', 300, 1);
+		assert.ok(!sibling.startsWith(replace.fileNamePrefix));
 	});
 });

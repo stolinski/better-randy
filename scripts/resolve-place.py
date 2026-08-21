@@ -9,14 +9,19 @@ Actions, in order:
   1. Import the exported .mov into the named media-pool bin (created under
      the root if missing), and set its human "Clip Name" when the plan
      carries one.
-  2. Ensure the named video track exists (created ABOVE existing tracks if
+  2. When the plan carries a `replace` action (a re-sync), sweep the prior
+     version's items — video AND stranded audio, on every track — matched by
+     their SOURCE FILE name (`fileNamePrefix`/`fileNameSuffix`, derived by
+     marker-sync.ts's buildReplacePlanAction; display names don't survive a
+     human Clip Name, file paths do), then delete them in one call.
+  3. Ensure the named video track exists (created ABOVE existing tracks if
      missing) and place the clip VIDEO-ONLY at the plan's absolute record
      frame. (A linked video+audio append is refused entirely when the
      audio's landing range is occupied, and deleting a linked video item
      strands its audio — so the streams are always separate actions.)
-  3. When the plan carries an `audio` action, ensure that named AUDIO track
+  4. When the plan carries an `audio` action, ensure that named AUDIO track
      and place the clip's audio there (mediaType 2).
-  4. Rewrite the plan's markers in place: same frame/name/note/duration,
+  5. Rewrite the plan's markers in place: same frame/name/note/duration,
      new color + customData (the Mint "synced" round trip).
 
 Runs on the machine hosting Resolve, over the SSH bridge (the plan travels
@@ -37,6 +42,10 @@ Plan shape:
                                   # negative on Studio 21.0.2.4 but applies
     "moviePath": "/path/on/this/machine.mov",
     "recordFrame": 108240,        # ABSOLUTE timeline frame (includes start frame)
+    "replace": {                  # optional; re-sync: remove version N before placing N+1
+      "fileNamePrefix": "reachy-objective__",
+      "fileNameSuffix": "__v1.mov"
+    },
     "audio": {                    # optional; omitted = video-only placement
       "trackName": "SUPERS",      # audio track, ensured by name
       "recordFrame": 108240       # defaults to the video recordFrame
@@ -47,7 +56,8 @@ Plan shape:
   }
 
 Output: {"placed": {trackIndex, trackName, recordFrame, itemStart, itemEnd,
-itemName}, "markers": [{frameId, ok}]} — or {"error": …} with exit 1.
+itemName}, "replaced": [{trackType, trackIndex, itemName, itemStart,
+itemEnd}], "markers": [{frameId, ok}]} — or {"error": …} with exit 1.
 """
 
 import argparse
@@ -174,6 +184,47 @@ def place_clip(media_pool, timeline, item, track_index, record_frame, media_type
     }
 
 
+def sweep_prior_version(timeline, replace):
+    # Match by the item's SOURCE FILE basename, never its display name — a
+    # human Clip Name renames what the timeline shows, but File Path keeps the
+    # versioned export filename marker-sync.ts derived the match halves from.
+    # Every track of both types is swept: the exact versioned filename IS the
+    # identity, so an editor having moved the item to another track is fine.
+    prefix = replace["fileNamePrefix"]
+    suffix = replace["fileNameSuffix"]
+    matches = []
+    removed = []
+    for track_type in ("video", "audio"):
+        for index in range(1, int(timeline.GetTrackCount(track_type)) + 1):
+            for item in timeline.GetItemListInTrack(track_type, index) or []:
+                pool_item = item.GetMediaPoolItem()
+                if pool_item is None:
+                    continue
+                path = pool_item.GetClipProperty("File Path") or ""
+                base = os.path.basename(path)
+                if base.startswith(prefix) and base.endswith(suffix):
+                    matches.append(item)
+                    removed.append(
+                        {
+                            "trackType": track_type,
+                            "trackIndex": index,
+                            "itemName": item.GetName(),
+                            "itemStart": int(item.GetStart()),
+                            "itemEnd": int(item.GetEnd()),
+                        }
+                    )
+    # One DeleteClips call: a single undo step, and a failure aborts BEFORE the
+    # new version is placed — the old item still occupying the range would make
+    # AppendToTimeline place nothing anyway. Zero matches is not an error (the
+    # editor may have removed the prior version by hand).
+    if matches and not timeline.DeleteClips(matches):
+        fail(
+            f"Could not delete {len(matches)} prior-version item(s) matching "
+            f'"{prefix}*{suffix}" — nothing was placed.'
+        )
+    return removed
+
+
 def rewrite_markers(timeline, updates):
     existing = timeline.GetMarkers() or {}
     results = []
@@ -236,6 +287,15 @@ def main():
         # False-negative return on Studio 21.0.2.4 — the rename applies;
         # the placed timeline item's name is the verification.
         item.SetClipProperty("Clip Name", plan["clipName"])
+
+    replaced = []
+    replace_plan = plan.get("replace")
+    if replace_plan:
+        for key in ("fileNamePrefix", "fileNameSuffix"):
+            if key not in replace_plan:
+                fail(f"Plan replace action is missing \"{key}\".")
+        replaced = sweep_prior_version(timeline, replace_plan)
+
     track_index = ensure_track(timeline, plan["trackName"])
     placement = place_clip(media_pool, timeline, item, track_index, int(plan["recordFrame"]))
 
@@ -261,6 +321,7 @@ def main():
                     "recordFrame": int(plan["recordFrame"]),
                     **placement,
                 },
+                "replaced": replaced,
                 "audio": audio_result,
                 "markers": marker_results,
             }

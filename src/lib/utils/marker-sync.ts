@@ -233,6 +233,36 @@ export function buildSyncExportFilename(
 	return `${slug}__${startTimecode.replace(/[:;]/g, '-')}__${frames}f__v${version}.mov`;
 }
 
+/**
+ * The `replace` half of a re-sync placement plan (`scripts/resolve-place.py`):
+ * the prior version's placed items are matched by their SOURCE FILE name,
+ * which — unlike the timeline item's display name — survives a human
+ * `clipName`. Both halves pin the `buildSyncExportFilename` shape; the middle
+ * (timecode + frame count) is left open because the piece may have moved or
+ * changed length between versions.
+ */
+export interface ReplacePlanAction {
+	/** Source-file prefix `<slug>__` — every version of this piece. */
+	fileNamePrefix: string;
+	/** Source-file suffix `__v<priorVersion>.mov` — pins the exact version to remove. */
+	fileNameSuffix: string;
+}
+
+/**
+ * The plan action removing version `version − 1`'s placed items (video AND
+ * stranded audio) before this sync's export is placed — one plan, not agent
+ * choreography. Null on a first sync: version 1 has nothing to replace.
+ */
+export function buildReplacePlanAction(slug: string, version: number): ReplacePlanAction | null {
+	if (!Number.isInteger(version) || version < 1) {
+		throw new TypeError(`Sync version must be a positive integer, got ${version}.`);
+	}
+	if (version === 1) {
+		return null;
+	}
+	return { fileNamePrefix: `${slug}__`, fileNameSuffix: `__v${version - 1}.mov` };
+}
+
 /** The role a beat's label suffix assigns to its item. */
 export type BeatRole = 'build-in' | 'checked' | 'add-to-list';
 

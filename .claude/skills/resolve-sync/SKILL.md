@@ -75,18 +75,20 @@ Build the placement plan — shape documented in `scripts/resolve-place.py`'s do
   "clipName": "<human-readable name>",
   "moviePath": "/path/on/resolve/machine.mov",
   "recordFrame": 108240,
+  "replace": { "fileNamePrefix": "<slug>__", "fileNameSuffix": "__v1.mov" },
   "audio": { "trackName": "SUPERS", "recordFrame": 108240 },
   "markers": [{ "frameId": 240, "color": "Mint", "customData": "{…supers-sync@1…}" }]
 }
 ```
 
-`clipName` and `audio` are optional (include `audio` only when the piece ships sound). Marker updates come from `buildSyncedMarkerUpdates(freshSnapshot, slug, version, itemCount, group?)` (pass the group for free-label selections) — head = beat 0, beats 1-based, END = beat −1; extra beats beyond the item count keep their input color, visibly unsynced. Bin and track are created if missing (track ABOVE existing tracks); defaults `Supers` / `SUPERS` unless the user names others. Pipe it: `ssh <user>@<host> '<python3> - --plan-b64 <BASE64>' < scripts/resolve-place.py`.
+`clipName`, `replace`, and `audio` are optional (include `audio` only when the piece ships sound). Marker updates come from `buildSyncedMarkerUpdates(freshSnapshot, slug, version, itemCount, group?)` (pass the group for free-label selections) — head = beat 0, beats 1-based, END = beat −1; extra beats beyond the item count keep their input color, visibly unsynced. Bin and track are created if missing (track ABOVE existing tracks); defaults `Supers` / `SUPERS` unless the user names others. Pipe it: `ssh <user>@<host> '<python3> - --plan-b64 <BASE64>' < scripts/resolve-place.py`.
 
-**Re-sync replace:** before placing version N+1, sweep version N — the video item AND any stranded audio item, matched by clip filename across tracks (davinci-resolve MCP timeline tools or a scratch pipe). `resolve-place.py` only appends; it never clears the range.
+**Re-sync replace:** build `replace` with `buildReplacePlanAction(slug, version)` and include it whenever it is non-null (version ≥ 2). The pipe sweeps the prior version's items — video AND stranded audio, every track — by SOURCE FILE name before placing, deletes them in one call, and reports them under `replaced[]`; zero matches is fine (a hand-deleted prior version). One plan, no separate sweep choreography.
 
 ### 9. Verify
 
 - `placed.itemStart == recordFrame` and every `markers[].ok == true` in the pipe's output.
+- On a re-sync, `replaced[]` names the prior-version items swept — an unexpectedly empty list means vN was already gone (fine) or the match halves were wrong (check them against the v(N) filename).
 - The placed item's *name* confirms any `clipName` (`SetClipProperty` returns a false negative on Studio 21.0.2.4 but applies).
 - The done-bar (ADR-0042): each synced item's window start frame equals its beat's record frame exactly.
 
@@ -95,7 +97,7 @@ Build the placement plan — shape documented in `scripts/resolve-place.py`'s do
 | Symptom | Cause / action |
 |---|---|
 | `{"error": "Could not attach…"}` | Resolve not running, or scripting pref off. Launch it on its host, wait ~20 s, retry. |
-| `AppendToTimeline placed nothing` | Landing range occupied — usually a prior version not swept (video or stranded audio). Sweep both streams, retry. |
+| `AppendToTimeline placed nothing` | Landing range occupied — usually a re-sync plan missing its `replace` action (or a foreign item on the track). Re-run with `replace` from `buildReplacePlanAction`, or clear the foreign item, then retry. |
 | Marker rewrite: `no marker at frame` | Markers moved since your read — the staleness guard firing. Re-read (step 7); if beats moved relative to the head, re-derive (step 3). |
 | `AddMarker` refuses | Empty name, duration < 1, or a frame inside another marker's span. The place pipe floors name/duration and restores the original on failure — never bypass that path. |
 | `SetClipProperty` returns false | False negative on Studio 21.0.2.4 — verify via the placed item's name; don't retry the set. |
