@@ -1,0 +1,19 @@
+id: b899cddb-17fa-489d-bcf2-7a3150b795d2
+name: supers-sentry-reproduction-agent-execution
+tags: {}
+jobs:
+  - name: main
+    description: Main job (edit or replace)
+    steps:
+      - name: example
+        description: Example step (edit or replace)
+        task:
+          type: model_method
+          modelIdOrName: example-model
+          methodName: run
+        dependsOn: []
+        weight: 0
+        allowFailure: false
+    dependsOn: []
+    weight: 0
+version: 1
