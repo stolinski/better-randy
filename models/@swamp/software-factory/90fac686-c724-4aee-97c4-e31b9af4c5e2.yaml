@@ -21,7 +21,7 @@ globalArguments:
               type: string
               enum:
                 - preflight-run
-            workItem:
+            workItem: &ref_0
               type: string
               minLength: 1
           required:
@@ -32,8 +32,8 @@ globalArguments:
       artifacts:
         - name: preflight-execution-failure
           description: >-
-            Content-addressed operational failure generated from an actual execution receipt for the
-            current dispatch.
+            Content-addressed operational failure generated from an actual
+            execution receipt for the current dispatch.
           schema:
             type: object
             additionalProperties: false
@@ -67,9 +67,7 @@ globalArguments:
                 type: string
                 enum:
                   - 90fac686-c724-4aee-97c4-e31b9af4c5e2
-              workItem:
-                type: string
-                minLength: 1
+              workItem: *ref_0
               stage:
                 type: string
                 enum:
@@ -107,28 +105,18 @@ globalArguments:
                     enum:
                       - workflow
                       - command
-                  receiptId:
-                    type: string
-                    minLength: 1
+                  receiptId: *ref_0
                   status:
                     type: string
                     enum:
                       - failed
-                  workflowName:
-                    type: string
-                    minLength: 1
-                  workflowRunId:
-                    type: string
-                    minLength: 1
+                  workflowName: *ref_0
+                  workflowRunId: *ref_0
                   inputsDigest:
                     type: string
                     pattern: '^[0-9a-f]{64}$'
-                  operation:
-                    type: string
-                    minLength: 1
-                  command:
-                    type: string
-                    minLength: 1
+                  operation: *ref_0
+                  command: *ref_0
                   exitCode:
                     type: integer
                   stdoutDigest:
@@ -143,9 +131,7 @@ globalArguments:
                 type: string
                 minLength: 1
                 maxLength: 2000
-              occurredAt:
-                type: string
-                minLength: 1
+              occurredAt: *ref_0
               authorityWorkflow:
                 type: string
                 enum:
@@ -178,29 +164,42 @@ globalArguments:
                   "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
                   artifacts.preflight_execution_failure.workItem == workItem &&
                   artifacts.preflight_execution_failure.stage == "preflight" &&
-                  artifacts.preflight_execution_failure.stageCycle == state.cycles["preflight"] &&
+                  artifacts.preflight_execution_failure.stageCycle ==
+                  state.cycles["preflight"] &&
                   artifacts.preflight_execution_failure.dispatchAttempt == 1 &&
-                  artifacts.preflight_execution_failure.failureKind == "operational" &&
+                  artifacts.preflight_execution_failure.failureKind ==
+                  "operational" &&
                   artifacts.preflight_execution_failure.authorityWorkflow ==
                   "factory-execution-failure-authorizer" &&
                   artifacts.preflight_execution_failure.authorityReceiptName ==
-                  "factory-execution-failure-" + artifacts.preflight_execution_failure.receiptDigest
-                  && artifacts.preflight_execution_failure.authorityDigest ==
+                  "factory-execution-failure-" +
                   artifacts.preflight_execution_failure.receiptDigest &&
-                  artifacts.preflight_execution_failure.executionReceipt.status == "failed" &&
-                  ((artifacts.preflight_execution_failure.executionReceipt.kind == "workflow" &&
-                  has(artifacts.preflight_execution_failure.executionReceipt.workflowName) &&
-                  has(artifacts.preflight_execution_failure.executionReceipt.workflowRunId) &&
-                  has(artifacts.preflight_execution_failure.executionReceipt.inputsDigest)) ||
-                  (artifacts.preflight_execution_failure.executionReceipt.kind == "command" &&
-                  has(artifacts.preflight_execution_failure.executionReceipt.operation) &&
-                  has(artifacts.preflight_execution_failure.executionReceipt.command) &&
-                  has(artifacts.preflight_execution_failure.executionReceipt.exitCode) &&
-                  has(artifacts.preflight_execution_failure.executionReceipt.stdoutDigest) &&
+                  artifacts.preflight_execution_failure.authorityDigest ==
+                  artifacts.preflight_execution_failure.receiptDigest &&
+                  artifacts.preflight_execution_failure.executionReceipt.status
+                  == "failed" &&
+                  ((artifacts.preflight_execution_failure.executionReceipt.kind
+                  == "workflow" &&
+                  has(artifacts.preflight_execution_failure.executionReceipt.workflowName)
+                  &&
+                  has(artifacts.preflight_execution_failure.executionReceipt.workflowRunId)
+                  &&
+                  has(artifacts.preflight_execution_failure.executionReceipt.inputsDigest))
+                  ||
+                  (artifacts.preflight_execution_failure.executionReceipt.kind
+                  == "command" &&
+                  has(artifacts.preflight_execution_failure.executionReceipt.operation)
+                  &&
+                  has(artifacts.preflight_execution_failure.executionReceipt.command)
+                  &&
+                  has(artifacts.preflight_execution_failure.executionReceipt.exitCode)
+                  &&
+                  has(artifacts.preflight_execution_failure.executionReceipt.stdoutDigest)
+                  &&
                   has(artifacts.preflight_execution_failure.executionReceipt.stderrDigest)))
                 message: >-
-                  operational recovery requires a trusted content-addressed receipt from the current
-                  preflight cycle and dispatch
+                  operational recovery requires a trusted content-addressed
+                  receipt from the current preflight cycle and dispatch
             - type: workflow-succeeded
               config:
                 workflow: factory-execution-failure-authorizer
@@ -215,12 +214,14 @@ globalArguments:
         skills:
           - implementation
         systemPrompt: >-
-          Implement only the current Dex work item in the Pi-managed isolated worktree. Follow
-          repository guidance already loaded by the agent. Complete required source, documentation,
-          and tracker-file edits, commit the lane, and return the strict child revision plus durable
-          handoff manifest path. The central parent must verify and integrate that handoff while
-          this work item remains in implementation. Only after serialized integration may the parent
-          record change-summary with the digest-verified, content-addressed integrationReceipt.
+          Implement only the current Dex work item in the Pi-managed isolated
+          worktree. Follow repository guidance already loaded by the agent.
+          Complete required source, documentation, and tracker-file edits,
+          commit the lane, and return the strict child revision plus durable
+          handoff manifest path. The central parent must verify and integrate
+          that handoff while this work item remains in implementation. Only
+          after serialized integration may the parent record change-summary with
+          the digest-verified, content-addressed integrationReceipt.
       artifacts:
         - name: change-summary
           description: Compact implementation summary used as the classification subject.
@@ -230,9 +231,7 @@ globalArguments:
               - summary
               - integrationReceipt
             properties:
-              summary:
-                type: string
-                minLength: 1
+              summary: *ref_0
               commit:
                 type: string
                 minLength: 7
@@ -321,8 +320,8 @@ globalArguments:
                 additionalProperties: false
         - name: implementation-execution-failure
           description: >-
-            Content-addressed operational failure generated from an actual execution receipt for the
-            current dispatch.
+            Content-addressed operational failure generated from an actual
+            execution receipt for the current dispatch.
           schema:
             type: object
             additionalProperties: false
@@ -356,9 +355,7 @@ globalArguments:
                 type: string
                 enum:
                   - 90fac686-c724-4aee-97c4-e31b9af4c5e2
-              workItem:
-                type: string
-                minLength: 1
+              workItem: *ref_0
               stage:
                 type: string
                 enum:
@@ -396,28 +393,18 @@ globalArguments:
                     enum:
                       - workflow
                       - command
-                  receiptId:
-                    type: string
-                    minLength: 1
+                  receiptId: *ref_0
                   status:
                     type: string
                     enum:
                       - failed
-                  workflowName:
-                    type: string
-                    minLength: 1
-                  workflowRunId:
-                    type: string
-                    minLength: 1
+                  workflowName: *ref_0
+                  workflowRunId: *ref_0
                   inputsDigest:
                     type: string
                     pattern: '^[0-9a-f]{64}$'
-                  operation:
-                    type: string
-                    minLength: 1
-                  command:
-                    type: string
-                    minLength: 1
+                  operation: *ref_0
+                  command: *ref_0
                   exitCode:
                     type: integer
                   stdoutDigest:
@@ -432,9 +419,7 @@ globalArguments:
                 type: string
                 minLength: 1
                 maxLength: 2000
-              occurredAt:
-                type: string
-                minLength: 1
+              occurredAt: *ref_0
               authorityWorkflow:
                 type: string
                 enum:
@@ -463,40 +448,54 @@ globalArguments:
                 expr: >-
                   artifacts.implementation_execution_failure.sourceFactoryId ==
                   "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
-                  artifacts.implementation_execution_failure.workItem == workItem &&
-                  artifacts.implementation_execution_failure.stage == "implementation" &&
+                  artifacts.implementation_execution_failure.workItem ==
+                  workItem && artifacts.implementation_execution_failure.stage
+                  == "implementation" &&
                   artifacts.implementation_execution_failure.stageCycle ==
                   state.cycles["implementation"] &&
-                  artifacts.implementation_execution_failure.dispatchAttempt == 1 &&
-                  artifacts.implementation_execution_failure.failureKind == "operational" &&
-                  artifacts.implementation_execution_failure.authorityWorkflow ==
-                  "factory-execution-failure-authorizer" &&
-                  artifacts.implementation_execution_failure.authorityReceiptName ==
-                  "factory-execution-failure-" +
+                  artifacts.implementation_execution_failure.dispatchAttempt ==
+                  1 && artifacts.implementation_execution_failure.failureKind ==
+                  "operational" &&
+                  artifacts.implementation_execution_failure.authorityWorkflow
+                  == "factory-execution-failure-authorizer" &&
+                  artifacts.implementation_execution_failure.authorityReceiptName
+                  == "factory-execution-failure-" +
                   artifacts.implementation_execution_failure.receiptDigest &&
                   artifacts.implementation_execution_failure.authorityDigest ==
                   artifacts.implementation_execution_failure.receiptDigest &&
-                  artifacts.implementation_execution_failure.executionReceipt.status == "failed" &&
-                  ((artifacts.implementation_execution_failure.executionReceipt.kind == "workflow"
-                  && has(artifacts.implementation_execution_failure.executionReceipt.workflowName)
-                  && has(artifacts.implementation_execution_failure.executionReceipt.workflowRunId)
-                  && has(artifacts.implementation_execution_failure.executionReceipt.inputsDigest))
-                  || (artifacts.implementation_execution_failure.executionReceipt.kind == "command"
-                  && has(artifacts.implementation_execution_failure.executionReceipt.operation) &&
-                  has(artifacts.implementation_execution_failure.executionReceipt.command) &&
-                  has(artifacts.implementation_execution_failure.executionReceipt.exitCode) &&
-                  has(artifacts.implementation_execution_failure.executionReceipt.stdoutDigest) &&
+                  artifacts.implementation_execution_failure.executionReceipt.status
+                  == "failed" &&
+                  ((artifacts.implementation_execution_failure.executionReceipt.kind
+                  == "workflow" &&
+                  has(artifacts.implementation_execution_failure.executionReceipt.workflowName)
+                  &&
+                  has(artifacts.implementation_execution_failure.executionReceipt.workflowRunId)
+                  &&
+                  has(artifacts.implementation_execution_failure.executionReceipt.inputsDigest))
+                  ||
+                  (artifacts.implementation_execution_failure.executionReceipt.kind
+                  == "command" &&
+                  has(artifacts.implementation_execution_failure.executionReceipt.operation)
+                  &&
+                  has(artifacts.implementation_execution_failure.executionReceipt.command)
+                  &&
+                  has(artifacts.implementation_execution_failure.executionReceipt.exitCode)
+                  &&
+                  has(artifacts.implementation_execution_failure.executionReceipt.stdoutDigest)
+                  &&
                   has(artifacts.implementation_execution_failure.executionReceipt.stderrDigest)))
                 message: >-
-                  operational recovery requires a trusted content-addressed receipt from the current
-                  implementation cycle and dispatch
+                  operational recovery requires a trusted content-addressed
+                  receipt from the current implementation cycle and dispatch
             - type: workflow-succeeded
               config:
                 workflow: factory-execution-failure-authorizer
                 requireStepOutputs:
                   - artifact-implementation-execution-failure
     - id: classify
-      description: 'Derive a trusted, complete verification plan through the consumer adapter.'
+      description: >-
+        Derive a trusted, complete verification plan through the consumer
+        adapter.
       maxDispatchesPerCycle: 1
       work:
         mode: workflow
@@ -507,16 +506,16 @@ globalArguments:
         inputsSchema:
           type: object
           properties:
-            workItem:
-              type: string
-              minLength: 1
+            workItem: *ref_0
           required:
             - workItem
           additionalProperties: false
         resultEvidence: classify-run
       artifacts:
         - name: change-impact
-          description: Trusted classification and complete verification plan for the current change.
+          description: >-
+            Trusted classification and complete verification plan for the
+            current change.
           reviews: change-summary
           schema:
             type: object
@@ -543,20 +542,14 @@ globalArguments:
                     - id
                     - reasons
                   properties:
-                    id:
-                      type: string
-                      minLength: 1
+                    id: *ref_0
                     reasons:
                       type: array
                       minItems: 1
-                      items:
-                        type: string
-                        minLength: 1
+                      items: *ref_0
               reviewCandidate:
                 type: boolean
-              changeFingerprint:
-                type: string
-                minLength: 1
+              changeFingerprint: *ref_0
               audit:
                 type: string
                 enum:
@@ -639,8 +632,8 @@ globalArguments:
                 minItems: 1
         - name: classify-execution-failure
           description: >-
-            Content-addressed operational failure generated from an actual execution receipt for the
-            current dispatch.
+            Content-addressed operational failure generated from an actual
+            execution receipt for the current dispatch.
           schema:
             type: object
             additionalProperties: false
@@ -674,9 +667,7 @@ globalArguments:
                 type: string
                 enum:
                   - 90fac686-c724-4aee-97c4-e31b9af4c5e2
-              workItem:
-                type: string
-                minLength: 1
+              workItem: *ref_0
               stage:
                 type: string
                 enum:
@@ -714,28 +705,18 @@ globalArguments:
                     enum:
                       - workflow
                       - command
-                  receiptId:
-                    type: string
-                    minLength: 1
+                  receiptId: *ref_0
                   status:
                     type: string
                     enum:
                       - failed
-                  workflowName:
-                    type: string
-                    minLength: 1
-                  workflowRunId:
-                    type: string
-                    minLength: 1
+                  workflowName: *ref_0
+                  workflowRunId: *ref_0
                   inputsDigest:
                     type: string
                     pattern: '^[0-9a-f]{64}$'
-                  operation:
-                    type: string
-                    minLength: 1
-                  command:
-                    type: string
-                    minLength: 1
+                  operation: *ref_0
+                  command: *ref_0
                   exitCode:
                     type: integer
                   stdoutDigest:
@@ -750,9 +731,7 @@ globalArguments:
                 type: string
                 minLength: 1
                 maxLength: 2000
-              occurredAt:
-                type: string
-                minLength: 1
+              occurredAt: *ref_0
               authorityWorkflow:
                 type: string
                 enum:
@@ -790,29 +769,41 @@ globalArguments:
                   "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
                   artifacts.classify_execution_failure.workItem == workItem &&
                   artifacts.classify_execution_failure.stage == "classify" &&
-                  artifacts.classify_execution_failure.stageCycle == state.cycles["classify"] &&
+                  artifacts.classify_execution_failure.stageCycle ==
+                  state.cycles["classify"] &&
                   artifacts.classify_execution_failure.dispatchAttempt == 1 &&
-                  artifacts.classify_execution_failure.failureKind == "operational" &&
+                  artifacts.classify_execution_failure.failureKind ==
+                  "operational" &&
                   artifacts.classify_execution_failure.authorityWorkflow ==
                   "factory-execution-failure-authorizer" &&
                   artifacts.classify_execution_failure.authorityReceiptName ==
-                  "factory-execution-failure-" + artifacts.classify_execution_failure.receiptDigest
-                  && artifacts.classify_execution_failure.authorityDigest ==
+                  "factory-execution-failure-" +
                   artifacts.classify_execution_failure.receiptDigest &&
-                  artifacts.classify_execution_failure.executionReceipt.status == "failed" &&
-                  ((artifacts.classify_execution_failure.executionReceipt.kind == "workflow" &&
-                  has(artifacts.classify_execution_failure.executionReceipt.workflowName) &&
-                  has(artifacts.classify_execution_failure.executionReceipt.workflowRunId) &&
-                  has(artifacts.classify_execution_failure.executionReceipt.inputsDigest)) ||
-                  (artifacts.classify_execution_failure.executionReceipt.kind == "command" &&
-                  has(artifacts.classify_execution_failure.executionReceipt.operation) &&
-                  has(artifacts.classify_execution_failure.executionReceipt.command) &&
-                  has(artifacts.classify_execution_failure.executionReceipt.exitCode) &&
-                  has(artifacts.classify_execution_failure.executionReceipt.stdoutDigest) &&
+                  artifacts.classify_execution_failure.authorityDigest ==
+                  artifacts.classify_execution_failure.receiptDigest &&
+                  artifacts.classify_execution_failure.executionReceipt.status
+                  == "failed" &&
+                  ((artifacts.classify_execution_failure.executionReceipt.kind
+                  == "workflow" &&
+                  has(artifacts.classify_execution_failure.executionReceipt.workflowName)
+                  &&
+                  has(artifacts.classify_execution_failure.executionReceipt.workflowRunId)
+                  &&
+                  has(artifacts.classify_execution_failure.executionReceipt.inputsDigest))
+                  || (artifacts.classify_execution_failure.executionReceipt.kind
+                  == "command" &&
+                  has(artifacts.classify_execution_failure.executionReceipt.operation)
+                  &&
+                  has(artifacts.classify_execution_failure.executionReceipt.command)
+                  &&
+                  has(artifacts.classify_execution_failure.executionReceipt.exitCode)
+                  &&
+                  has(artifacts.classify_execution_failure.executionReceipt.stdoutDigest)
+                  &&
                   has(artifacts.classify_execution_failure.executionReceipt.stderrDigest)))
                 message: >-
-                  operational recovery requires a trusted content-addressed receipt from the current
-                  classify cycle and dispatch
+                  operational recovery requires a trusted content-addressed
+                  receipt from the current classify cycle and dispatch
             - type: workflow-succeeded
               config:
                 workflow: factory-execution-failure-authorizer
@@ -831,9 +822,7 @@ globalArguments:
         inputsSchema:
           type: object
           properties:
-            workItem:
-              type: string
-              minLength: 1
+            workItem: *ref_0
           required:
             - workItem
           additionalProperties: false
@@ -881,9 +870,7 @@ globalArguments:
                 type: integer
                 enum:
                   - 2
-              workItem:
-                type: string
-                minLength: 1
+              workItem: *ref_0
               integratedRevision:
                 type: string
                 pattern: '^[0-9a-f]{40,64}$'
@@ -893,21 +880,13 @@ globalArguments:
               treeFingerprint:
                 type: string
                 pattern: '^[0-9a-f]{64}$'
-              changeImpactResourceName:
-                type: string
-                minLength: 1
-              deterministicFanoutResourceName:
-                type: string
-                minLength: 1
+              changeImpactResourceName: *ref_0
+              deterministicFanoutResourceName: *ref_0
               deterministicFanoutContentDigest:
                 type: string
                 pattern: '^[0-9a-f]{64}$'
-              deterministicFanoutWorkflowRunId:
-                type: string
-                minLength: 1
-              policySweepResourceName:
-                type: string
-                minLength: 1
+              deterministicFanoutWorkflowRunId: *ref_0
+              policySweepResourceName: *ref_0
               policySweepWorkflowId:
                 type: string
                 enum:
@@ -920,9 +899,7 @@ globalArguments:
                 type: integer
                 enum:
                   - 2
-              policySweepWorkflowRunId:
-                type: string
-                minLength: 1
+              policySweepWorkflowRunId: *ref_0
               policySweepExecutionDigest:
                 type: string
                 pattern: '^[0-9a-f]{64}$'
@@ -940,18 +917,10 @@ globalArguments:
                     - workflowRunId
                     - contentDigest
                   properties:
-                    modelName:
-                      type: string
-                      minLength: 1
-                    specName:
-                      type: string
-                      minLength: 1
-                    resourceName:
-                      type: string
-                      minLength: 1
-                    workflowRunId:
-                      type: string
-                      minLength: 1
+                    modelName: *ref_0
+                    specName: *ref_0
+                    resourceName: *ref_0
+                    workflowRunId: *ref_0
                     contentDigest:
                       type: string
                       pattern: '^[0-9a-f]{64}$'
@@ -965,24 +934,14 @@ globalArguments:
                   - workflowRunId
                   - contentDigest
                 properties:
-                  modelName:
-                    type: string
-                    minLength: 1
-                  specName:
-                    type: string
-                    minLength: 1
-                  resourceName:
-                    type: string
-                    minLength: 1
-                  workflowRunId:
-                    type: string
-                    minLength: 1
+                  modelName: *ref_0
+                  specName: *ref_0
+                  resourceName: *ref_0
+                  workflowRunId: *ref_0
                   contentDigest:
                     type: string
                     pattern: '^[0-9a-f]{64}$'
-              renderMatrixRunName:
-                type: string
-                minLength: 1
+              renderMatrixRunName: *ref_0
               renderMatrixManifestName:
                 type: string
               renderMatrixBundleName:
@@ -999,9 +958,7 @@ globalArguments:
               renderEvidenceArchiveDigest:
                 type: string
                 pattern: '^$|^[0-9a-f]{64}$'
-              workflowRunId:
-                type: string
-                minLength: 1
+              workflowRunId: *ref_0
               requiredHumanReviewKinds:
                 type: array
                 maxItems: 2
@@ -1019,22 +976,18 @@ globalArguments:
                   - reconcile
               objectiveFailureCodes:
                 type: array
-                items:
-                  type: string
-                  minLength: 1
+                items: *ref_0
               unavailableEvidenceCodes:
                 type: array
-                items:
-                  type: string
-                  minLength: 1
+                items: *ref_0
               advisories:
                 type: array
                 items:
                   type: object
         - name: verification-execution-failure
           description: >-
-            Content-addressed operational failure generated from an actual execution receipt for the
-            current dispatch.
+            Content-addressed operational failure generated from an actual
+            execution receipt for the current dispatch.
           schema:
             type: object
             additionalProperties: false
@@ -1068,9 +1021,7 @@ globalArguments:
                 type: string
                 enum:
                   - 90fac686-c724-4aee-97c4-e31b9af4c5e2
-              workItem:
-                type: string
-                minLength: 1
+              workItem: *ref_0
               stage:
                 type: string
                 enum:
@@ -1108,28 +1059,18 @@ globalArguments:
                     enum:
                       - workflow
                       - command
-                  receiptId:
-                    type: string
-                    minLength: 1
+                  receiptId: *ref_0
                   status:
                     type: string
                     enum:
                       - failed
-                  workflowName:
-                    type: string
-                    minLength: 1
-                  workflowRunId:
-                    type: string
-                    minLength: 1
+                  workflowName: *ref_0
+                  workflowRunId: *ref_0
                   inputsDigest:
                     type: string
                     pattern: '^[0-9a-f]{64}$'
-                  operation:
-                    type: string
-                    minLength: 1
-                  command:
-                    type: string
-                    minLength: 1
+                  operation: *ref_0
+                  command: *ref_0
                   exitCode:
                     type: integer
                   stdoutDigest:
@@ -1144,9 +1085,7 @@ globalArguments:
                 type: string
                 minLength: 1
                 maxLength: 2000
-              occurredAt:
-                type: string
-                minLength: 1
+              occurredAt: *ref_0
               authorityWorkflow:
                 type: string
                 enum:
@@ -1161,13 +1100,15 @@ globalArguments:
         - name: automatic-rework
           to: implementation
           gates:
-            - type: workflow-succeeded
+            - &ref_1
+              type: workflow-succeeded
               config:
                 workflow: supers-delivery-deterministic-verification
                 requireStepOutputs:
                   - artifact-verification
                   - evidence-verification-run
-            - type: artifact-fresh
+            - &ref_2
+              type: artifact-fresh
               config:
                 artifact: verification
                 recordedThisCycle: true
@@ -1176,98 +1117,86 @@ globalArguments:
                 expr: >-
                   artifacts.verification.workItem == workItem &&
                   artifacts.verification.integratedRevision ==
-                  artifacts.change_summary.integrationReceipt.integratedRevision &&
-                  artifacts.verification.integratedTreeFingerprint ==
-                  artifacts.change_summary.integrationReceipt.integratedTreeFingerprint &&
-                  artifacts.verification.treeFingerprint ==
-                  artifacts.change_impact.changeFingerprint && artifacts.verification.disposition ==
-                  "automatic-rework" && size(artifacts.verification.objectiveFailureCodes) > 0 &&
+                  artifacts.change_summary.integrationReceipt.integratedRevision
+                  && artifacts.verification.integratedTreeFingerprint ==
+                  artifacts.change_summary.integrationReceipt.integratedTreeFingerprint
+                  && artifacts.verification.treeFingerprint ==
+                  artifacts.change_impact.changeFingerprint &&
+                  artifacts.verification.disposition == "automatic-rework" &&
+                  size(artifacts.verification.objectiveFailureCodes) > 0 &&
                   size(artifacts.verification.unavailableEvidenceCodes) == 0
-                message: automatic rework requires fresh complete closed objective failure evidence
+                message: >-
+                  automatic rework requires fresh complete closed objective
+                  failure evidence
         - name: evidence-unavailable
           to: evidence-unavailable
           gates:
-            - type: workflow-succeeded
-              config:
-                workflow: supers-delivery-deterministic-verification
-                requireStepOutputs:
-                  - artifact-verification
-                  - evidence-verification-run
-            - type: artifact-fresh
-              config:
-                artifact: verification
-                recordedThisCycle: true
+            - *ref_1
+            - *ref_2
             - type: cel
               config:
                 expr: >-
                   artifacts.verification.workItem == workItem &&
                   artifacts.verification.integratedRevision ==
-                  artifacts.change_summary.integrationReceipt.integratedRevision &&
-                  artifacts.verification.integratedTreeFingerprint ==
-                  artifacts.change_summary.integrationReceipt.integratedTreeFingerprint &&
-                  artifacts.verification.treeFingerprint ==
-                  artifacts.change_impact.changeFingerprint && artifacts.verification.disposition ==
-                  "evidence-unavailable" && size(artifacts.verification.unavailableEvidenceCodes) >
-                  0
-                message: unavailable evidence pauses Delivery without authorizing mutation
+                  artifacts.change_summary.integrationReceipt.integratedRevision
+                  && artifacts.verification.integratedTreeFingerprint ==
+                  artifacts.change_summary.integrationReceipt.integratedTreeFingerprint
+                  && artifacts.verification.treeFingerprint ==
+                  artifacts.change_impact.changeFingerprint &&
+                  artifacts.verification.disposition == "evidence-unavailable"
+                  && size(artifacts.verification.unavailableEvidenceCodes) > 0
+                message: >-
+                  unavailable evidence pauses Delivery without authorizing
+                  mutation
         - name: await-human-aesthetic
           to: aesthetic-approval
           gates:
-            - type: workflow-succeeded
-              config:
-                workflow: supers-delivery-deterministic-verification
-                requireStepOutputs:
-                  - artifact-verification
-                  - evidence-verification-run
-            - type: artifact-fresh
-              config:
-                artifact: verification
-                recordedThisCycle: true
+            - *ref_1
+            - *ref_2
             - type: cel
               config:
                 expr: >-
                   artifacts.verification.workItem == workItem &&
                   artifacts.verification.integratedRevision ==
-                  artifacts.change_summary.integrationReceipt.integratedRevision &&
-                  artifacts.verification.integratedTreeFingerprint ==
-                  artifacts.change_summary.integrationReceipt.integratedTreeFingerprint &&
-                  artifacts.verification.treeFingerprint ==
-                  artifacts.change_impact.changeFingerprint && artifacts.verification.disposition ==
-                  "await-human-aesthetic" && size(artifacts.verification.objectiveFailureCodes) == 0
-                  && size(artifacts.verification.unavailableEvidenceCodes) == 0 &&
-                  artifacts.verification.renderMatrixManifestDigest.matches("^[0-9a-f]{64}$") &&
-                  artifacts.verification.renderMatrixBundleDigest.matches("^[0-9a-f]{64}$") &&
-                  artifacts.verification.renderMatrixRunDigest.matches("^[0-9a-f]{64}$") &&
+                  artifacts.change_summary.integrationReceipt.integratedRevision
+                  && artifacts.verification.integratedTreeFingerprint ==
+                  artifacts.change_summary.integrationReceipt.integratedTreeFingerprint
+                  && artifacts.verification.treeFingerprint ==
+                  artifacts.change_impact.changeFingerprint &&
+                  artifacts.verification.disposition == "await-human-aesthetic"
+                  && size(artifacts.verification.objectiveFailureCodes) == 0 &&
+                  size(artifacts.verification.unavailableEvidenceCodes) == 0 &&
+                  artifacts.verification.renderMatrixManifestDigest.matches("^[0-9a-f]{64}$")
+                  &&
+                  artifacts.verification.renderMatrixBundleDigest.matches("^[0-9a-f]{64}$")
+                  &&
+                  artifacts.verification.renderMatrixRunDigest.matches("^[0-9a-f]{64}$")
+                  &&
                   artifacts.verification.renderEvidenceArchiveDigest.matches("^[0-9a-f]{64}$")
-                message: aesthetic review requires a complete passing exact render bundle
+                message: >-
+                  aesthetic review requires a complete passing exact render
+                  bundle
         - name: reconcile
           to: reconciliation
           gates:
-            - type: workflow-succeeded
-              config:
-                workflow: supers-delivery-deterministic-verification
-                requireStepOutputs:
-                  - artifact-verification
-                  - evidence-verification-run
-            - type: artifact-fresh
-              config:
-                artifact: verification
-                recordedThisCycle: true
+            - *ref_1
+            - *ref_2
             - type: cel
               config:
                 expr: >-
                   artifacts.verification.workItem == workItem &&
                   artifacts.verification.integratedRevision ==
-                  artifacts.change_summary.integrationReceipt.integratedRevision &&
-                  artifacts.verification.integratedTreeFingerprint ==
-                  artifacts.change_summary.integrationReceipt.integratedTreeFingerprint &&
-                  artifacts.verification.treeFingerprint ==
-                  artifacts.change_impact.changeFingerprint && artifacts.verification.disposition ==
-                  "reconcile" && size(artifacts.verification.objectiveFailureCodes) == 0 &&
+                  artifacts.change_summary.integrationReceipt.integratedRevision
+                  && artifacts.verification.integratedTreeFingerprint ==
+                  artifacts.change_summary.integrationReceipt.integratedTreeFingerprint
+                  && artifacts.verification.treeFingerprint ==
+                  artifacts.change_impact.changeFingerprint &&
+                  artifacts.verification.disposition == "reconcile" &&
+                  size(artifacts.verification.objectiveFailureCodes) == 0 &&
                   size(artifacts.verification.unavailableEvidenceCodes) == 0
                 message: >-
-                  reconciliation requires complete passing objective evidence and proven render
-                  non-applicability
+                  reconciliation requires complete passing objective evidence
+                  and proven render non-applicability
         - name: operational-pause
           to: verification-recovery
           gates:
@@ -1279,33 +1208,45 @@ globalArguments:
                 expr: >-
                   artifacts.verification_execution_failure.sourceFactoryId ==
                   "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
-                  artifacts.verification_execution_failure.workItem == workItem &&
-                  artifacts.verification_execution_failure.stage == "verification" &&
+                  artifacts.verification_execution_failure.workItem == workItem
+                  && artifacts.verification_execution_failure.stage ==
+                  "verification" &&
                   artifacts.verification_execution_failure.stageCycle ==
                   state.cycles["verification"] &&
-                  artifacts.verification_execution_failure.dispatchAttempt == 1 &&
-                  artifacts.verification_execution_failure.failureKind == "operational" &&
+                  artifacts.verification_execution_failure.dispatchAttempt == 1
+                  && artifacts.verification_execution_failure.failureKind ==
+                  "operational" &&
                   artifacts.verification_execution_failure.authorityWorkflow ==
                   "factory-execution-failure-authorizer" &&
-                  artifacts.verification_execution_failure.authorityReceiptName ==
-                  "factory-execution-failure-" +
+                  artifacts.verification_execution_failure.authorityReceiptName
+                  == "factory-execution-failure-" +
                   artifacts.verification_execution_failure.receiptDigest &&
                   artifacts.verification_execution_failure.authorityDigest ==
                   artifacts.verification_execution_failure.receiptDigest &&
-                  artifacts.verification_execution_failure.executionReceipt.status == "failed" &&
-                  ((artifacts.verification_execution_failure.executionReceipt.kind == "workflow" &&
-                  has(artifacts.verification_execution_failure.executionReceipt.workflowName) &&
-                  has(artifacts.verification_execution_failure.executionReceipt.workflowRunId) &&
-                  has(artifacts.verification_execution_failure.executionReceipt.inputsDigest)) ||
-                  (artifacts.verification_execution_failure.executionReceipt.kind == "command" &&
-                  has(artifacts.verification_execution_failure.executionReceipt.operation) &&
-                  has(artifacts.verification_execution_failure.executionReceipt.command) &&
-                  has(artifacts.verification_execution_failure.executionReceipt.exitCode) &&
-                  has(artifacts.verification_execution_failure.executionReceipt.stdoutDigest) &&
+                  artifacts.verification_execution_failure.executionReceipt.status
+                  == "failed" &&
+                  ((artifacts.verification_execution_failure.executionReceipt.kind
+                  == "workflow" &&
+                  has(artifacts.verification_execution_failure.executionReceipt.workflowName)
+                  &&
+                  has(artifacts.verification_execution_failure.executionReceipt.workflowRunId)
+                  &&
+                  has(artifacts.verification_execution_failure.executionReceipt.inputsDigest))
+                  ||
+                  (artifacts.verification_execution_failure.executionReceipt.kind
+                  == "command" &&
+                  has(artifacts.verification_execution_failure.executionReceipt.operation)
+                  &&
+                  has(artifacts.verification_execution_failure.executionReceipt.command)
+                  &&
+                  has(artifacts.verification_execution_failure.executionReceipt.exitCode)
+                  &&
+                  has(artifacts.verification_execution_failure.executionReceipt.stdoutDigest)
+                  &&
                   has(artifacts.verification_execution_failure.executionReceipt.stderrDigest)))
                 message: >-
-                  operational recovery requires a trusted content-addressed receipt from the current
-                  verification cycle and dispatch
+                  operational recovery requires a trusted content-addressed
+                  receipt from the current verification cycle and dispatch
             - type: workflow-succeeded
               config:
                 workflow: factory-execution-failure-authorizer
@@ -1313,8 +1254,8 @@ globalArguments:
                   - artifact-verification-execution-failure
     - id: preflight-recovery
       description: >-
-        Pause after an operational preflight failure, preserve its evidence, and retry only after
-        repair.
+        Pause after an operational preflight failure, preserve its evidence, and
+        retry only after repair.
       transitions:
         - name: retry-preflight
           to: preflight
@@ -1324,8 +1265,8 @@ globalArguments:
                 id: retry-preflight
     - id: implementation-recovery
       description: >-
-        Pause after an operational implementation failure, preserve its evidence, and retry only
-        after repair.
+        Pause after an operational implementation failure, preserve its
+        evidence, and retry only after repair.
       transitions:
         - name: retry-implementation
           to: implementation
@@ -1335,8 +1276,8 @@ globalArguments:
                 id: retry-implementation
     - id: classify-recovery
       description: >-
-        Pause after an operational classify failure, preserve its evidence, and retry only after
-        repair.
+        Pause after an operational classify failure, preserve its evidence, and
+        retry only after repair.
       transitions:
         - name: retry-classify
           to: classify
@@ -1346,8 +1287,8 @@ globalArguments:
                 id: retry-classify
     - id: verification-recovery
       description: >-
-        Pause after an operational verification failure, preserve its evidence, and retry only after
-        repair.
+        Pause after an operational verification failure, preserve its evidence,
+        and retry only after repair.
       transitions:
         - name: retry-verification
           to: verification
@@ -1362,7 +1303,9 @@ globalArguments:
               config:
                 id: rework-after-verification-drift
     - id: evidence-unavailable
-      description: Pause the serialized Delivery tail until deterministic evidence can be retried.
+      description: >-
+        Pause the serialized Delivery tail until deterministic evidence can be
+        retried.
       transitions:
         - name: retry-verification
           to: verification
@@ -1371,7 +1314,9 @@ globalArguments:
               config:
                 id: retry-verification
     - id: aesthetic-approval
-      description: Pause the entire serialized integration queue for exact-bundle human aesthetic judgment.
+      description: >-
+        Pause the entire serialized integration queue for exact-bundle human
+        aesthetic judgment.
       transitions:
         - name: bind-approval
           to: aesthetic-decision-binding
@@ -1386,10 +1331,15 @@ globalArguments:
               config:
                 expr: >-
                   has(approvals.aesthetic_acceptance) &&
-                  approvals.aesthetic_acceptance.exists(approval, approval.decision == "rejected")
-                message: human revision requires an explicit aesthetic-acceptance rejection
+                  approvals.aesthetic_acceptance.exists(approval,
+                  approval.decision == "rejected")
+                message: >-
+                  human revision requires an explicit aesthetic-acceptance
+                  rejection
     - id: aesthetic-decision-binding
-      description: Bind the trusted Factory approval record to the exact verified evidence bundle.
+      description: >-
+        Bind the trusted Factory approval record to the exact verified evidence
+        bundle.
       maxDispatchesPerCycle: 1
       work:
         mode: workflow
@@ -1400,9 +1350,7 @@ globalArguments:
         inputsSchema:
           type: object
           properties:
-            workItem:
-              type: string
-              minLength: 1
+            workItem: *ref_0
           required:
             - workItem
           additionalProperties: false
@@ -1460,12 +1408,8 @@ globalArguments:
               decisionId:
                 type: string
                 pattern: '^[0-9a-f]{64}$'
-              workItem:
-                type: string
-                minLength: 1
-              factoryName:
-                type: string
-                minLength: 1
+              workItem: *ref_0
+              factoryName: *ref_0
               gateId:
                 type: string
                 enum:
@@ -1477,18 +1421,10 @@ globalArguments:
               cycle:
                 type: integer
                 minimum: 1
-              verificationRouteResourceName:
-                type: string
-                minLength: 1
-              matrixBundleResourceName:
-                type: string
-                minLength: 1
-              factoryStateResourceName:
-                type: string
-                minLength: 1
-              factoryApprovalResourceName:
-                type: string
-                minLength: 1
+              verificationRouteResourceName: *ref_0
+              matrixBundleResourceName: *ref_0
+              factoryStateResourceName: *ref_0
+              factoryApprovalResourceName: *ref_0
               integratedRevision:
                 type: string
                 pattern: '^[0-9a-f]{40,64}$'
@@ -1498,18 +1434,12 @@ globalArguments:
               treeFingerprint:
                 type: string
                 pattern: '^[0-9a-f]{64}$'
-              deterministicFanoutResourceName:
-                type: string
-                minLength: 1
+              deterministicFanoutResourceName: *ref_0
               deterministicFanoutContentDigest:
                 type: string
                 pattern: '^[0-9a-f]{64}$'
-              deterministicFanoutWorkflowRunId:
-                type: string
-                minLength: 1
-              policySweepResourceName:
-                type: string
-                minLength: 1
+              deterministicFanoutWorkflowRunId: *ref_0
+              policySweepResourceName: *ref_0
               policySweepWorkflowId:
                 type: string
                 enum:
@@ -1522,9 +1452,7 @@ globalArguments:
                 type: integer
                 enum:
                   - 2
-              policySweepWorkflowRunId:
-                type: string
-                minLength: 1
+              policySweepWorkflowRunId: *ref_0
               policySweepExecutionDigest:
                 type: string
                 pattern: '^[0-9a-f]{64}$'
@@ -1542,18 +1470,10 @@ globalArguments:
                     - workflowRunId
                     - contentDigest
                   properties:
-                    modelName:
-                      type: string
-                      minLength: 1
-                    specName:
-                      type: string
-                      minLength: 1
-                    resourceName:
-                      type: string
-                      minLength: 1
-                    workflowRunId:
-                      type: string
-                      minLength: 1
+                    modelName: *ref_0
+                    specName: *ref_0
+                    resourceName: *ref_0
+                    workflowRunId: *ref_0
                     contentDigest:
                       type: string
                       pattern: '^[0-9a-f]{64}$'
@@ -1567,33 +1487,17 @@ globalArguments:
                   - workflowRunId
                   - contentDigest
                 properties:
-                  modelName:
-                    type: string
-                    minLength: 1
-                  specName:
-                    type: string
-                    minLength: 1
-                  resourceName:
-                    type: string
-                    minLength: 1
-                  workflowRunId:
-                    type: string
-                    minLength: 1
+                  modelName: *ref_0
+                  specName: *ref_0
+                  resourceName: *ref_0
+                  workflowRunId: *ref_0
                   contentDigest:
                     type: string
                     pattern: '^[0-9a-f]{64}$'
-              renderMatrixRunName:
-                type: string
-                minLength: 1
-              renderMatrixManifestName:
-                type: string
-                minLength: 1
-              renderMatrixBundleName:
-                type: string
-                minLength: 1
-              verificationWorkflowRunId:
-                type: string
-                minLength: 1
+              renderMatrixRunName: *ref_0
+              renderMatrixManifestName: *ref_0
+              renderMatrixBundleName: *ref_0
+              verificationWorkflowRunId: *ref_0
               renderMatrixManifestDigest:
                 type: string
                 pattern: '^[0-9a-f]{64}$'
@@ -1609,9 +1513,7 @@ globalArguments:
               approvalReceiptId:
                 type: string
                 pattern: '^[0-9a-f]{64}$'
-              approvalIdentity:
-                type: string
-                minLength: 1
+              approvalIdentity: *ref_0
               decision:
                 type: string
                 enum:
@@ -1621,8 +1523,8 @@ globalArguments:
                 type: string
         - name: aesthetic-decision-binding-execution-failure
           description: >-
-            Content-addressed operational failure generated from an actual execution receipt for the
-            current dispatch.
+            Content-addressed operational failure generated from an actual
+            execution receipt for the current dispatch.
           schema:
             type: object
             additionalProperties: false
@@ -1656,9 +1558,7 @@ globalArguments:
                 type: string
                 enum:
                   - 90fac686-c724-4aee-97c4-e31b9af4c5e2
-              workItem:
-                type: string
-                minLength: 1
+              workItem: *ref_0
               stage:
                 type: string
                 enum:
@@ -1696,28 +1596,18 @@ globalArguments:
                     enum:
                       - workflow
                       - command
-                  receiptId:
-                    type: string
-                    minLength: 1
+                  receiptId: *ref_0
                   status:
                     type: string
                     enum:
                       - failed
-                  workflowName:
-                    type: string
-                    minLength: 1
-                  workflowRunId:
-                    type: string
-                    minLength: 1
+                  workflowName: *ref_0
+                  workflowRunId: *ref_0
                   inputsDigest:
                     type: string
                     pattern: '^[0-9a-f]{64}$'
-                  operation:
-                    type: string
-                    minLength: 1
-                  command:
-                    type: string
-                    minLength: 1
+                  operation: *ref_0
+                  command: *ref_0
                   exitCode:
                     type: integer
                   stdoutDigest:
@@ -1732,9 +1622,7 @@ globalArguments:
                 type: string
                 minLength: 1
                 maxLength: 2000
-              occurredAt:
-                type: string
-                minLength: 1
+              occurredAt: *ref_0
               authorityWorkflow:
                 type: string
                 enum:
@@ -1765,28 +1653,28 @@ globalArguments:
                   artifacts.human_aesthetic_decision.decision == "accept" &&
                   artifacts.human_aesthetic_decision.integratedRevision ==
                   artifacts.verification.integratedRevision &&
-                  artifacts.human_aesthetic_decision.integratedTreeFingerprint ==
-                  artifacts.verification.integratedTreeFingerprint &&
+                  artifacts.human_aesthetic_decision.integratedTreeFingerprint
+                  == artifacts.verification.integratedTreeFingerprint &&
                   artifacts.human_aesthetic_decision.treeFingerprint ==
                   artifacts.verification.treeFingerprint &&
-                  artifacts.human_aesthetic_decision.deterministicFanoutResourceName ==
-                  artifacts.verification.deterministicFanoutResourceName &&
-                  artifacts.human_aesthetic_decision.deterministicFanoutContentDigest ==
-                  artifacts.verification.deterministicFanoutContentDigest &&
-                  artifacts.human_aesthetic_decision.deterministicFanoutWorkflowRunId ==
-                  artifacts.verification.deterministicFanoutWorkflowRunId &&
+                  artifacts.human_aesthetic_decision.deterministicFanoutResourceName
+                  == artifacts.verification.deterministicFanoutResourceName &&
+                  artifacts.human_aesthetic_decision.deterministicFanoutContentDigest
+                  == artifacts.verification.deterministicFanoutContentDigest &&
+                  artifacts.human_aesthetic_decision.deterministicFanoutWorkflowRunId
+                  == artifacts.verification.deterministicFanoutWorkflowRunId &&
                   artifacts.human_aesthetic_decision.policySweepResourceName ==
                   artifacts.verification.policySweepResourceName &&
                   artifacts.human_aesthetic_decision.policySweepWorkflowId ==
                   artifacts.verification.policySweepWorkflowId &&
                   artifacts.human_aesthetic_decision.policySweepWorkflowName ==
                   artifacts.verification.policySweepWorkflowName &&
-                  artifacts.human_aesthetic_decision.policySweepWorkflowVersion ==
-                  artifacts.verification.policySweepWorkflowVersion &&
+                  artifacts.human_aesthetic_decision.policySweepWorkflowVersion
+                  == artifacts.verification.policySweepWorkflowVersion &&
                   artifacts.human_aesthetic_decision.policySweepWorkflowRunId ==
                   artifacts.verification.policySweepWorkflowRunId &&
-                  artifacts.human_aesthetic_decision.policySweepExecutionDigest ==
-                  artifacts.verification.policySweepExecutionDigest &&
+                  artifacts.human_aesthetic_decision.policySweepExecutionDigest
+                  == artifacts.verification.policySweepExecutionDigest &&
                   artifacts.human_aesthetic_decision.policyReceipts ==
                   artifacts.verification.policyReceipts &&
                   artifacts.human_aesthetic_decision.corpusReceipt ==
@@ -1797,17 +1685,19 @@ globalArguments:
                   artifacts.verification.renderMatrixManifestName &&
                   artifacts.human_aesthetic_decision.renderMatrixBundleName ==
                   artifacts.verification.renderMatrixBundleName &&
-                  artifacts.human_aesthetic_decision.verificationWorkflowRunId ==
-                  artifacts.verification.workflowRunId &&
-                  artifacts.human_aesthetic_decision.renderMatrixManifestDigest ==
-                  artifacts.verification.renderMatrixManifestDigest &&
+                  artifacts.human_aesthetic_decision.verificationWorkflowRunId
+                  == artifacts.verification.workflowRunId &&
+                  artifacts.human_aesthetic_decision.renderMatrixManifestDigest
+                  == artifacts.verification.renderMatrixManifestDigest &&
                   artifacts.human_aesthetic_decision.renderMatrixBundleDigest ==
                   artifacts.verification.renderMatrixBundleDigest &&
                   artifacts.human_aesthetic_decision.renderMatrixRunDigest ==
                   artifacts.verification.renderMatrixRunDigest &&
-                  artifacts.human_aesthetic_decision.renderEvidenceArchiveDigest ==
-                  artifacts.verification.renderEvidenceArchiveDigest
-                message: acceptance requires the trusted current evidence-bound human decision
+                  artifacts.human_aesthetic_decision.renderEvidenceArchiveDigest
+                  == artifacts.verification.renderEvidenceArchiveDigest
+                message: >-
+                  acceptance requires the trusted current evidence-bound human
+                  decision
         - name: human-revision
           to: implementation
           gates:
@@ -1827,28 +1717,28 @@ globalArguments:
                   artifacts.human_aesthetic_decision.decision == "reject" &&
                   artifacts.human_aesthetic_decision.integratedRevision ==
                   artifacts.verification.integratedRevision &&
-                  artifacts.human_aesthetic_decision.integratedTreeFingerprint ==
-                  artifacts.verification.integratedTreeFingerprint &&
+                  artifacts.human_aesthetic_decision.integratedTreeFingerprint
+                  == artifacts.verification.integratedTreeFingerprint &&
                   artifacts.human_aesthetic_decision.treeFingerprint ==
                   artifacts.verification.treeFingerprint &&
-                  artifacts.human_aesthetic_decision.deterministicFanoutResourceName ==
-                  artifacts.verification.deterministicFanoutResourceName &&
-                  artifacts.human_aesthetic_decision.deterministicFanoutContentDigest ==
-                  artifacts.verification.deterministicFanoutContentDigest &&
-                  artifacts.human_aesthetic_decision.deterministicFanoutWorkflowRunId ==
-                  artifacts.verification.deterministicFanoutWorkflowRunId &&
+                  artifacts.human_aesthetic_decision.deterministicFanoutResourceName
+                  == artifacts.verification.deterministicFanoutResourceName &&
+                  artifacts.human_aesthetic_decision.deterministicFanoutContentDigest
+                  == artifacts.verification.deterministicFanoutContentDigest &&
+                  artifacts.human_aesthetic_decision.deterministicFanoutWorkflowRunId
+                  == artifacts.verification.deterministicFanoutWorkflowRunId &&
                   artifacts.human_aesthetic_decision.policySweepResourceName ==
                   artifacts.verification.policySweepResourceName &&
                   artifacts.human_aesthetic_decision.policySweepWorkflowId ==
                   artifacts.verification.policySweepWorkflowId &&
                   artifacts.human_aesthetic_decision.policySweepWorkflowName ==
                   artifacts.verification.policySweepWorkflowName &&
-                  artifacts.human_aesthetic_decision.policySweepWorkflowVersion ==
-                  artifacts.verification.policySweepWorkflowVersion &&
+                  artifacts.human_aesthetic_decision.policySweepWorkflowVersion
+                  == artifacts.verification.policySweepWorkflowVersion &&
                   artifacts.human_aesthetic_decision.policySweepWorkflowRunId ==
                   artifacts.verification.policySweepWorkflowRunId &&
-                  artifacts.human_aesthetic_decision.policySweepExecutionDigest ==
-                  artifacts.verification.policySweepExecutionDigest &&
+                  artifacts.human_aesthetic_decision.policySweepExecutionDigest
+                  == artifacts.verification.policySweepExecutionDigest &&
                   artifacts.human_aesthetic_decision.policyReceipts ==
                   artifacts.verification.policyReceipts &&
                   artifacts.human_aesthetic_decision.corpusReceipt ==
@@ -1859,17 +1749,19 @@ globalArguments:
                   artifacts.verification.renderMatrixManifestName &&
                   artifacts.human_aesthetic_decision.renderMatrixBundleName ==
                   artifacts.verification.renderMatrixBundleName &&
-                  artifacts.human_aesthetic_decision.verificationWorkflowRunId ==
-                  artifacts.verification.workflowRunId &&
-                  artifacts.human_aesthetic_decision.renderMatrixManifestDigest ==
-                  artifacts.verification.renderMatrixManifestDigest &&
+                  artifacts.human_aesthetic_decision.verificationWorkflowRunId
+                  == artifacts.verification.workflowRunId &&
+                  artifacts.human_aesthetic_decision.renderMatrixManifestDigest
+                  == artifacts.verification.renderMatrixManifestDigest &&
                   artifacts.human_aesthetic_decision.renderMatrixBundleDigest ==
                   artifacts.verification.renderMatrixBundleDigest &&
                   artifacts.human_aesthetic_decision.renderMatrixRunDigest ==
                   artifacts.verification.renderMatrixRunDigest &&
-                  artifacts.human_aesthetic_decision.renderEvidenceArchiveDigest ==
-                  artifacts.verification.renderEvidenceArchiveDigest
-                message: revision requires the trusted current evidence-bound human rejection
+                  artifacts.human_aesthetic_decision.renderEvidenceArchiveDigest
+                  == artifacts.verification.renderEvidenceArchiveDigest
+                message: >-
+                  revision requires the trusted current evidence-bound human
+                  rejection
         - name: operational-pause
           to: aesthetic-decision-binding-recovery
           gates:
@@ -1879,33 +1771,39 @@ globalArguments:
             - type: cel
               config:
                 expr: >-
-                  artifacts.aesthetic_decision_binding_execution_failure.sourceFactoryId ==
-                  "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
-                  artifacts.aesthetic_decision_binding_execution_failure.workItem == workItem &&
-                  artifacts.aesthetic_decision_binding_execution_failure.stage ==
-                  "aesthetic-decision-binding" &&
-                  artifacts.aesthetic_decision_binding_execution_failure.stageCycle ==
-                  state.cycles["aesthetic-decision-binding"] &&
-                  artifacts.aesthetic_decision_binding_execution_failure.dispatchAttempt == 1 &&
-                  artifacts.aesthetic_decision_binding_execution_failure.failureKind ==
-                  "operational" &&
-                  artifacts.aesthetic_decision_binding_execution_failure.authorityWorkflow ==
-                  "factory-execution-failure-authorizer" &&
-                  artifacts.aesthetic_decision_binding_execution_failure.authorityReceiptName ==
-                  "factory-execution-failure-" +
-                  artifacts.aesthetic_decision_binding_execution_failure.receiptDigest &&
-                  artifacts.aesthetic_decision_binding_execution_failure.authorityDigest ==
-                  artifacts.aesthetic_decision_binding_execution_failure.receiptDigest &&
-                  artifacts.aesthetic_decision_binding_execution_failure.executionReceipt.status ==
-                  "failed" &&
-                  ((artifacts.aesthetic_decision_binding_execution_failure.executionReceipt.kind ==
-                  "workflow" &&
+                  artifacts.aesthetic_decision_binding_execution_failure.sourceFactoryId
+                  == "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
+                  artifacts.aesthetic_decision_binding_execution_failure.workItem
+                  == workItem &&
+                  artifacts.aesthetic_decision_binding_execution_failure.stage
+                  == "aesthetic-decision-binding" &&
+                  artifacts.aesthetic_decision_binding_execution_failure.stageCycle
+                  == state.cycles["aesthetic-decision-binding"] &&
+                  artifacts.aesthetic_decision_binding_execution_failure.dispatchAttempt
+                  == 1 &&
+                  artifacts.aesthetic_decision_binding_execution_failure.failureKind
+                  == "operational" &&
+                  artifacts.aesthetic_decision_binding_execution_failure.authorityWorkflow
+                  == "factory-execution-failure-authorizer" &&
+                  artifacts.aesthetic_decision_binding_execution_failure.authorityReceiptName
+                  == "factory-execution-failure-" +
+                  artifacts.aesthetic_decision_binding_execution_failure.receiptDigest
+                  &&
+                  artifacts.aesthetic_decision_binding_execution_failure.authorityDigest
+                  ==
+                  artifacts.aesthetic_decision_binding_execution_failure.receiptDigest
+                  &&
+                  artifacts.aesthetic_decision_binding_execution_failure.executionReceipt.status
+                  == "failed" &&
+                  ((artifacts.aesthetic_decision_binding_execution_failure.executionReceipt.kind
+                  == "workflow" &&
                   has(artifacts.aesthetic_decision_binding_execution_failure.executionReceipt.workflowName)
                   &&
                   has(artifacts.aesthetic_decision_binding_execution_failure.executionReceipt.workflowRunId)
                   &&
                   has(artifacts.aesthetic_decision_binding_execution_failure.executionReceipt.inputsDigest))
-                  || (artifacts.aesthetic_decision_binding_execution_failure.executionReceipt.kind
+                  ||
+                  (artifacts.aesthetic_decision_binding_execution_failure.executionReceipt.kind
                   == "command" &&
                   has(artifacts.aesthetic_decision_binding_execution_failure.executionReceipt.operation)
                   &&
@@ -1917,8 +1815,9 @@ globalArguments:
                   &&
                   has(artifacts.aesthetic_decision_binding_execution_failure.executionReceipt.stderrDigest)))
                 message: >-
-                  operational recovery requires a trusted content-addressed receipt from the current
-                  aesthetic-decision-binding cycle and dispatch
+                  operational recovery requires a trusted content-addressed
+                  receipt from the current aesthetic-decision-binding cycle and
+                  dispatch
             - type: workflow-succeeded
               config:
                 workflow: factory-execution-failure-authorizer
@@ -1926,8 +1825,8 @@ globalArguments:
                   - artifact-aesthetic-decision-binding-execution-failure
     - id: aesthetic-decision-binding-recovery
       description: >-
-        Pause after an operational aesthetic-decision-binding failure, preserve its evidence, and
-        retry only after repair.
+        Pause after an operational aesthetic-decision-binding failure, preserve
+        its evidence, and retry only after repair.
       transitions:
         - name: retry-aesthetic-decision-binding
           to: aesthetic-decision-binding
@@ -1936,7 +1835,9 @@ globalArguments:
               config:
                 id: retry-aesthetic-decision-binding
     - id: reconciliation
-      description: Confirm the terminal disposition and prepare exact Dex completion inputs.
+      description: >-
+        Confirm the terminal disposition and prepare exact Dex completion
+        inputs.
       maxCycles: 5
       maxDispatchesPerCycle: 1
       work:
@@ -1946,9 +1847,9 @@ globalArguments:
             - change-summary
             - verification
         systemPrompt: >-
-          Prepare the exact Dex completion result, integrated revision, and matching commit from
-          already verified integration evidence. Do not mutate the repository or tracker, assess
-          aesthetics, or route rework.
+          Prepare the exact Dex completion result, integrated revision, and
+          matching commit from already verified integration evidence. Do not
+          mutate the repository or tracker, assess aesthetics, or route rework.
       artifacts:
         - name: reconciliation
           description: Terminal disposition and typed Dex completion inputs.
@@ -1972,12 +1873,8 @@ globalArguments:
                 type: string
                 enum:
                   - complete
-              summary:
-                type: string
-                minLength: 1
-              completionResult:
-                type: string
-                minLength: 1
+              summary: *ref_0
+              completionResult: *ref_0
               integratedRevision:
                 type: string
                 pattern: '^[0-9a-fA-F]{7,40}$'
@@ -2001,8 +1898,8 @@ globalArguments:
                   - ready-for-completion
         - name: reconciliation-execution-failure
           description: >-
-            Content-addressed operational failure generated from an actual execution receipt for the
-            current dispatch.
+            Content-addressed operational failure generated from an actual
+            execution receipt for the current dispatch.
           schema:
             type: object
             additionalProperties: false
@@ -2036,9 +1933,7 @@ globalArguments:
                 type: string
                 enum:
                   - 90fac686-c724-4aee-97c4-e31b9af4c5e2
-              workItem:
-                type: string
-                minLength: 1
+              workItem: *ref_0
               stage:
                 type: string
                 enum:
@@ -2076,28 +1971,18 @@ globalArguments:
                     enum:
                       - workflow
                       - command
-                  receiptId:
-                    type: string
-                    minLength: 1
+                  receiptId: *ref_0
                   status:
                     type: string
                     enum:
                       - failed
-                  workflowName:
-                    type: string
-                    minLength: 1
-                  workflowRunId:
-                    type: string
-                    minLength: 1
+                  workflowName: *ref_0
+                  workflowRunId: *ref_0
                   inputsDigest:
                     type: string
                     pattern: '^[0-9a-f]{64}$'
-                  operation:
-                    type: string
-                    minLength: 1
-                  command:
-                    type: string
-                    minLength: 1
+                  operation: *ref_0
+                  command: *ref_0
                   exitCode:
                     type: integer
                   stdoutDigest:
@@ -2112,9 +1997,7 @@ globalArguments:
                 type: string
                 minLength: 1
                 maxLength: 2000
-              occurredAt:
-                type: string
-                minLength: 1
+              occurredAt: *ref_0
               authorityWorkflow:
                 type: string
                 enum:
@@ -2136,15 +2019,16 @@ globalArguments:
             - type: cel
               config:
                 expr: >-
-                  artifacts.reconciliation.status == "ready" && artifacts.reconciliation.nextStep ==
-                  "complete"
+                  artifacts.reconciliation.status == "ready" &&
+                  artifacts.reconciliation.nextStep == "complete"
                 message: postflight requires status=ready and nextStep=complete
             - type: cel
               config:
                 expr: >-
                   artifacts.reconciliation.commit.kind == "commit" &&
-                  artifacts.reconciliation.commit.sha == artifacts.reconciliation.integratedRevision
-                  && artifacts.reconciliation.integratedRevision ==
+                  artifacts.reconciliation.commit.sha ==
+                  artifacts.reconciliation.integratedRevision &&
+                  artifacts.reconciliation.integratedRevision ==
                   artifacts.change_summary.integrationReceipt.integratedRevision
                 message: postflight requires the exact verified integrated revision
         - name: operational-pause
@@ -2158,33 +2042,45 @@ globalArguments:
                 expr: >-
                   artifacts.reconciliation_execution_failure.sourceFactoryId ==
                   "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
-                  artifacts.reconciliation_execution_failure.workItem == workItem &&
-                  artifacts.reconciliation_execution_failure.stage == "reconciliation" &&
+                  artifacts.reconciliation_execution_failure.workItem ==
+                  workItem && artifacts.reconciliation_execution_failure.stage
+                  == "reconciliation" &&
                   artifacts.reconciliation_execution_failure.stageCycle ==
                   state.cycles["reconciliation"] &&
-                  artifacts.reconciliation_execution_failure.dispatchAttempt == 1 &&
-                  artifacts.reconciliation_execution_failure.failureKind == "operational" &&
-                  artifacts.reconciliation_execution_failure.authorityWorkflow ==
-                  "factory-execution-failure-authorizer" &&
-                  artifacts.reconciliation_execution_failure.authorityReceiptName ==
-                  "factory-execution-failure-" +
+                  artifacts.reconciliation_execution_failure.dispatchAttempt ==
+                  1 && artifacts.reconciliation_execution_failure.failureKind ==
+                  "operational" &&
+                  artifacts.reconciliation_execution_failure.authorityWorkflow
+                  == "factory-execution-failure-authorizer" &&
+                  artifacts.reconciliation_execution_failure.authorityReceiptName
+                  == "factory-execution-failure-" +
                   artifacts.reconciliation_execution_failure.receiptDigest &&
                   artifacts.reconciliation_execution_failure.authorityDigest ==
                   artifacts.reconciliation_execution_failure.receiptDigest &&
-                  artifacts.reconciliation_execution_failure.executionReceipt.status == "failed" &&
-                  ((artifacts.reconciliation_execution_failure.executionReceipt.kind == "workflow"
-                  && has(artifacts.reconciliation_execution_failure.executionReceipt.workflowName)
-                  && has(artifacts.reconciliation_execution_failure.executionReceipt.workflowRunId)
-                  && has(artifacts.reconciliation_execution_failure.executionReceipt.inputsDigest))
-                  || (artifacts.reconciliation_execution_failure.executionReceipt.kind == "command"
-                  && has(artifacts.reconciliation_execution_failure.executionReceipt.operation) &&
-                  has(artifacts.reconciliation_execution_failure.executionReceipt.command) &&
-                  has(artifacts.reconciliation_execution_failure.executionReceipt.exitCode) &&
-                  has(artifacts.reconciliation_execution_failure.executionReceipt.stdoutDigest) &&
+                  artifacts.reconciliation_execution_failure.executionReceipt.status
+                  == "failed" &&
+                  ((artifacts.reconciliation_execution_failure.executionReceipt.kind
+                  == "workflow" &&
+                  has(artifacts.reconciliation_execution_failure.executionReceipt.workflowName)
+                  &&
+                  has(artifacts.reconciliation_execution_failure.executionReceipt.workflowRunId)
+                  &&
+                  has(artifacts.reconciliation_execution_failure.executionReceipt.inputsDigest))
+                  ||
+                  (artifacts.reconciliation_execution_failure.executionReceipt.kind
+                  == "command" &&
+                  has(artifacts.reconciliation_execution_failure.executionReceipt.operation)
+                  &&
+                  has(artifacts.reconciliation_execution_failure.executionReceipt.command)
+                  &&
+                  has(artifacts.reconciliation_execution_failure.executionReceipt.exitCode)
+                  &&
+                  has(artifacts.reconciliation_execution_failure.executionReceipt.stdoutDigest)
+                  &&
                   has(artifacts.reconciliation_execution_failure.executionReceipt.stderrDigest)))
                 message: >-
-                  operational recovery requires a trusted content-addressed receipt from the current
-                  reconciliation cycle and dispatch
+                  operational recovery requires a trusted content-addressed
+                  receipt from the current reconciliation cycle and dispatch
             - type: workflow-succeeded
               config:
                 workflow: factory-execution-failure-authorizer
@@ -2192,8 +2088,8 @@ globalArguments:
                   - artifact-reconciliation-execution-failure
     - id: reconciliation-recovery
       description: >-
-        Pause after an operational reconciliation failure, preserve its evidence, and retry only
-        after repair.
+        Pause after an operational reconciliation failure, preserve its
+        evidence, and retry only after repair.
       transitions:
         - name: retry-reconciliation
           to: reconciliation
@@ -2211,7 +2107,9 @@ globalArguments:
           inputs:
             evidenceName: postflight-run
             workItem: '${{ self.workItem }}'
-            expectedFingerprint: '${{ data.latest(self.name, "artifact-change-impact").payload.changeFingerprint }}'
+            expectedFingerprint: >-
+              ${{ data.latest(self.name,
+              "artifact-change-impact").payload.changeFingerprint }}
         inputsSchema:
           type: object
           properties:
@@ -2219,9 +2117,7 @@ globalArguments:
               type: string
               enum:
                 - postflight-run
-            workItem:
-              type: string
-              minLength: 1
+            workItem: *ref_0
             expectedFingerprint:
               type: string
               pattern: '^[0-9a-f]{64}$'
@@ -2234,8 +2130,8 @@ globalArguments:
       artifacts:
         - name: postflight-execution-failure
           description: >-
-            Content-addressed operational failure generated from an actual execution receipt for the
-            current dispatch.
+            Content-addressed operational failure generated from an actual
+            execution receipt for the current dispatch.
           schema:
             type: object
             additionalProperties: false
@@ -2269,9 +2165,7 @@ globalArguments:
                 type: string
                 enum:
                   - 90fac686-c724-4aee-97c4-e31b9af4c5e2
-              workItem:
-                type: string
-                minLength: 1
+              workItem: *ref_0
               stage:
                 type: string
                 enum:
@@ -2309,28 +2203,18 @@ globalArguments:
                     enum:
                       - workflow
                       - command
-                  receiptId:
-                    type: string
-                    minLength: 1
+                  receiptId: *ref_0
                   status:
                     type: string
                     enum:
                       - failed
-                  workflowName:
-                    type: string
-                    minLength: 1
-                  workflowRunId:
-                    type: string
-                    minLength: 1
+                  workflowName: *ref_0
+                  workflowRunId: *ref_0
                   inputsDigest:
                     type: string
                     pattern: '^[0-9a-f]{64}$'
-                  operation:
-                    type: string
-                    minLength: 1
-                  command:
-                    type: string
-                    minLength: 1
+                  operation: *ref_0
+                  command: *ref_0
                   exitCode:
                     type: integer
                   stdoutDigest:
@@ -2345,9 +2229,7 @@ globalArguments:
                 type: string
                 minLength: 1
                 maxLength: 2000
-              occurredAt:
-                type: string
-                minLength: 1
+              occurredAt: *ref_0
               authorityWorkflow:
                 type: string
                 enum:
@@ -2382,8 +2264,11 @@ globalArguments:
               config:
                 expr: >-
                   has(approvals.completion_approval) &&
-                  approvals.completion_approval.exists(approval, approval.decision == "rejected")
-                message: human revision requires an explicit completion-approval rejection
+                  approvals.completion_approval.exists(approval,
+                  approval.decision == "rejected")
+                message: >-
+                  human revision requires an explicit completion-approval
+                  rejection
         - name: operational-pause
           to: postflight-recovery
           gates:
@@ -2396,10 +2281,12 @@ globalArguments:
                   artifacts.postflight_execution_failure.sourceFactoryId ==
                   "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
                   artifacts.postflight_execution_failure.workItem == workItem &&
-                  artifacts.postflight_execution_failure.stage == "postflight" &&
-                  artifacts.postflight_execution_failure.stageCycle == state.cycles["postflight"] &&
+                  artifacts.postflight_execution_failure.stage == "postflight"
+                  && artifacts.postflight_execution_failure.stageCycle ==
+                  state.cycles["postflight"] &&
                   artifacts.postflight_execution_failure.dispatchAttempt == 1 &&
-                  artifacts.postflight_execution_failure.failureKind == "operational" &&
+                  artifacts.postflight_execution_failure.failureKind ==
+                  "operational" &&
                   artifacts.postflight_execution_failure.authorityWorkflow ==
                   "factory-execution-failure-authorizer" &&
                   artifacts.postflight_execution_failure.authorityReceiptName ==
@@ -2407,20 +2294,30 @@ globalArguments:
                   artifacts.postflight_execution_failure.receiptDigest &&
                   artifacts.postflight_execution_failure.authorityDigest ==
                   artifacts.postflight_execution_failure.receiptDigest &&
-                  artifacts.postflight_execution_failure.executionReceipt.status == "failed" &&
-                  ((artifacts.postflight_execution_failure.executionReceipt.kind == "workflow" &&
-                  has(artifacts.postflight_execution_failure.executionReceipt.workflowName) &&
-                  has(artifacts.postflight_execution_failure.executionReceipt.workflowRunId) &&
-                  has(artifacts.postflight_execution_failure.executionReceipt.inputsDigest)) ||
-                  (artifacts.postflight_execution_failure.executionReceipt.kind == "command" &&
-                  has(artifacts.postflight_execution_failure.executionReceipt.operation) &&
-                  has(artifacts.postflight_execution_failure.executionReceipt.command) &&
-                  has(artifacts.postflight_execution_failure.executionReceipt.exitCode) &&
-                  has(artifacts.postflight_execution_failure.executionReceipt.stdoutDigest) &&
+                  artifacts.postflight_execution_failure.executionReceipt.status
+                  == "failed" &&
+                  ((artifacts.postflight_execution_failure.executionReceipt.kind
+                  == "workflow" &&
+                  has(artifacts.postflight_execution_failure.executionReceipt.workflowName)
+                  &&
+                  has(artifacts.postflight_execution_failure.executionReceipt.workflowRunId)
+                  &&
+                  has(artifacts.postflight_execution_failure.executionReceipt.inputsDigest))
+                  ||
+                  (artifacts.postflight_execution_failure.executionReceipt.kind
+                  == "command" &&
+                  has(artifacts.postflight_execution_failure.executionReceipt.operation)
+                  &&
+                  has(artifacts.postflight_execution_failure.executionReceipt.command)
+                  &&
+                  has(artifacts.postflight_execution_failure.executionReceipt.exitCode)
+                  &&
+                  has(artifacts.postflight_execution_failure.executionReceipt.stdoutDigest)
+                  &&
                   has(artifacts.postflight_execution_failure.executionReceipt.stderrDigest)))
                 message: >-
-                  operational recovery requires a trusted content-addressed receipt from the current
-                  postflight cycle and dispatch
+                  operational recovery requires a trusted content-addressed
+                  receipt from the current postflight cycle and dispatch
             - type: workflow-succeeded
               config:
                 workflow: factory-execution-failure-authorizer
@@ -2428,8 +2325,8 @@ globalArguments:
                   - artifact-postflight-execution-failure
     - id: postflight-recovery
       description: >-
-        Pause after an operational postflight failure, preserve its evidence, and retry only after
-        repair.
+        Pause after an operational postflight failure, preserve its evidence,
+        and retry only after repair.
       transitions:
         - name: retry-postflight
           to: postflight
@@ -2439,8 +2336,8 @@ globalArguments:
                 id: retry-postflight
     - id: terminal-cleanup
       description: >-
-        Complete the Dex task only through the repository completion workflow after explicit
-        task-specific human approval.
+        Complete the Dex task only through the repository completion workflow
+        after explicit task-specific human approval.
       maxDispatchesPerCycle: 1
       work:
         mode: workflow
@@ -2454,15 +2351,13 @@ globalArguments:
             - workItem
           additionalProperties: false
           properties:
-            workItem:
-              type: string
-              minLength: 1
+            workItem: *ref_0
         resultEvidence: tracker-completion
       artifacts:
         - name: terminal-cleanup-execution-failure
           description: >-
-            Content-addressed operational failure generated from an actual execution receipt for the
-            current dispatch.
+            Content-addressed operational failure generated from an actual
+            execution receipt for the current dispatch.
           schema:
             type: object
             additionalProperties: false
@@ -2496,9 +2391,7 @@ globalArguments:
                 type: string
                 enum:
                   - 90fac686-c724-4aee-97c4-e31b9af4c5e2
-              workItem:
-                type: string
-                minLength: 1
+              workItem: *ref_0
               stage:
                 type: string
                 enum:
@@ -2536,28 +2429,18 @@ globalArguments:
                     enum:
                       - workflow
                       - command
-                  receiptId:
-                    type: string
-                    minLength: 1
+                  receiptId: *ref_0
                   status:
                     type: string
                     enum:
                       - failed
-                  workflowName:
-                    type: string
-                    minLength: 1
-                  workflowRunId:
-                    type: string
-                    minLength: 1
+                  workflowName: *ref_0
+                  workflowRunId: *ref_0
                   inputsDigest:
                     type: string
                     pattern: '^[0-9a-f]{64}$'
-                  operation:
-                    type: string
-                    minLength: 1
-                  command:
-                    type: string
-                    minLength: 1
+                  operation: *ref_0
+                  command: *ref_0
                   exitCode:
                     type: integer
                   stdoutDigest:
@@ -2572,9 +2455,7 @@ globalArguments:
                 type: string
                 minLength: 1
                 maxLength: 2000
-              occurredAt:
-                type: string
-                minLength: 1
+              occurredAt: *ref_0
               authorityWorkflow:
                 type: string
                 enum:
@@ -2603,38 +2484,49 @@ globalArguments:
             - type: cel
               config:
                 expr: >-
-                  artifacts.terminal_cleanup_execution_failure.sourceFactoryId ==
-                  "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
-                  artifacts.terminal_cleanup_execution_failure.workItem == workItem &&
-                  artifacts.terminal_cleanup_execution_failure.stage == "terminal-cleanup" &&
+                  artifacts.terminal_cleanup_execution_failure.sourceFactoryId
+                  == "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
+                  artifacts.terminal_cleanup_execution_failure.workItem ==
+                  workItem && artifacts.terminal_cleanup_execution_failure.stage
+                  == "terminal-cleanup" &&
                   artifacts.terminal_cleanup_execution_failure.stageCycle ==
                   state.cycles["terminal-cleanup"] &&
-                  artifacts.terminal_cleanup_execution_failure.dispatchAttempt == 1 &&
-                  artifacts.terminal_cleanup_execution_failure.failureKind == "operational" &&
-                  artifacts.terminal_cleanup_execution_failure.authorityWorkflow ==
-                  "factory-execution-failure-authorizer" &&
-                  artifacts.terminal_cleanup_execution_failure.authorityReceiptName ==
-                  "factory-execution-failure-" +
+                  artifacts.terminal_cleanup_execution_failure.dispatchAttempt
+                  == 1 &&
+                  artifacts.terminal_cleanup_execution_failure.failureKind ==
+                  "operational" &&
+                  artifacts.terminal_cleanup_execution_failure.authorityWorkflow
+                  == "factory-execution-failure-authorizer" &&
+                  artifacts.terminal_cleanup_execution_failure.authorityReceiptName
+                  == "factory-execution-failure-" +
                   artifacts.terminal_cleanup_execution_failure.receiptDigest &&
-                  artifacts.terminal_cleanup_execution_failure.authorityDigest ==
-                  artifacts.terminal_cleanup_execution_failure.receiptDigest &&
-                  artifacts.terminal_cleanup_execution_failure.executionReceipt.status == "failed"
-                  && ((artifacts.terminal_cleanup_execution_failure.executionReceipt.kind ==
-                  "workflow" &&
-                  has(artifacts.terminal_cleanup_execution_failure.executionReceipt.workflowName) &&
+                  artifacts.terminal_cleanup_execution_failure.authorityDigest
+                  == artifacts.terminal_cleanup_execution_failure.receiptDigest
+                  &&
+                  artifacts.terminal_cleanup_execution_failure.executionReceipt.status
+                  == "failed" &&
+                  ((artifacts.terminal_cleanup_execution_failure.executionReceipt.kind
+                  == "workflow" &&
+                  has(artifacts.terminal_cleanup_execution_failure.executionReceipt.workflowName)
+                  &&
                   has(artifacts.terminal_cleanup_execution_failure.executionReceipt.workflowRunId)
                   &&
                   has(artifacts.terminal_cleanup_execution_failure.executionReceipt.inputsDigest))
-                  || (artifacts.terminal_cleanup_execution_failure.executionReceipt.kind ==
-                  "command" &&
-                  has(artifacts.terminal_cleanup_execution_failure.executionReceipt.operation) &&
-                  has(artifacts.terminal_cleanup_execution_failure.executionReceipt.command) &&
-                  has(artifacts.terminal_cleanup_execution_failure.executionReceipt.exitCode) &&
-                  has(artifacts.terminal_cleanup_execution_failure.executionReceipt.stdoutDigest) &&
+                  ||
+                  (artifacts.terminal_cleanup_execution_failure.executionReceipt.kind
+                  == "command" &&
+                  has(artifacts.terminal_cleanup_execution_failure.executionReceipt.operation)
+                  &&
+                  has(artifacts.terminal_cleanup_execution_failure.executionReceipt.command)
+                  &&
+                  has(artifacts.terminal_cleanup_execution_failure.executionReceipt.exitCode)
+                  &&
+                  has(artifacts.terminal_cleanup_execution_failure.executionReceipt.stdoutDigest)
+                  &&
                   has(artifacts.terminal_cleanup_execution_failure.executionReceipt.stderrDigest)))
                 message: >-
-                  operational recovery requires a trusted content-addressed receipt from the current
-                  terminal-cleanup cycle and dispatch
+                  operational recovery requires a trusted content-addressed
+                  receipt from the current terminal-cleanup cycle and dispatch
             - type: workflow-succeeded
               config:
                 workflow: factory-execution-failure-authorizer
@@ -2642,8 +2534,8 @@ globalArguments:
                   - artifact-terminal-cleanup-execution-failure
     - id: terminal-cleanup-recovery
       description: >-
-        Pause after an operational terminal-cleanup failure, preserve its evidence, and retry only
-        after repair.
+        Pause after an operational terminal-cleanup failure, preserve its
+        evidence, and retry only after repair.
       transitions:
         - name: retry-terminal-cleanup
           to: terminal-cleanup
@@ -2652,7 +2544,9 @@ globalArguments:
               config:
                 id: retry-terminal-cleanup
     - id: done-observability
-      description: Persist canonical Factory reports and verify observability before finalizing done.
+      description: >-
+        Persist canonical Factory reports and verify observability before
+        finalizing done.
       maxDispatchesPerCycle: 1
       work:
         mode: workflow
@@ -2674,9 +2568,7 @@ globalArguments:
             - artifactName
           additionalProperties: false
           properties:
-            workItem:
-              type: string
-              minLength: 1
+            workItem: *ref_0
             preterminalStage:
               type: string
               enum:
@@ -2711,9 +2603,7 @@ globalArguments:
                 type: integer
                 enum:
                   - 1
-              workItem:
-                type: string
-                minLength: 1
+              workItem: *ref_0
               preterminalStage:
                 type: string
                 enum:
@@ -2726,13 +2616,11 @@ globalArguments:
                 type: string
                 enum:
                   - done
-              workflowRunId:
-                type: string
-                minLength: 1
+              workflowRunId: *ref_0
         - name: done-observability-execution-failure
           description: >-
-            Content-addressed operational failure generated from an actual execution receipt for the
-            current dispatch.
+            Content-addressed operational failure generated from an actual
+            execution receipt for the current dispatch.
           schema:
             type: object
             additionalProperties: false
@@ -2766,9 +2654,7 @@ globalArguments:
                 type: string
                 enum:
                   - 90fac686-c724-4aee-97c4-e31b9af4c5e2
-              workItem:
-                type: string
-                minLength: 1
+              workItem: *ref_0
               stage:
                 type: string
                 enum:
@@ -2806,28 +2692,18 @@ globalArguments:
                     enum:
                       - workflow
                       - command
-                  receiptId:
-                    type: string
-                    minLength: 1
+                  receiptId: *ref_0
                   status:
                     type: string
                     enum:
                       - failed
-                  workflowName:
-                    type: string
-                    minLength: 1
-                  workflowRunId:
-                    type: string
-                    minLength: 1
+                  workflowName: *ref_0
+                  workflowRunId: *ref_0
                   inputsDigest:
                     type: string
                     pattern: '^[0-9a-f]{64}$'
-                  operation:
-                    type: string
-                    minLength: 1
-                  command:
-                    type: string
-                    minLength: 1
+                  operation: *ref_0
+                  command: *ref_0
                   exitCode:
                     type: integer
                   stdoutDigest:
@@ -2842,9 +2718,7 @@ globalArguments:
                 type: string
                 minLength: 1
                 maxLength: 2000
-              occurredAt:
-                type: string
-                minLength: 1
+              occurredAt: *ref_0
               authorityWorkflow:
                 type: string
                 enum:
@@ -2868,7 +2742,8 @@ globalArguments:
               config:
                 expr: >-
                   artifacts.done_terminal_observability.workItem == workItem &&
-                  artifacts.done_terminal_observability.preterminalStage == "done-observability" &&
+                  artifacts.done_terminal_observability.preterminalStage ==
+                  "done-observability" &&
                   artifacts.done_terminal_observability.targetStage == "done" &&
                   artifacts.done_terminal_observability.outcome == "done"
                 message: exact terminal observability route evidence is required
@@ -2881,47 +2756,61 @@ globalArguments:
             - type: cel
               config:
                 expr: >-
-                  artifacts.done_observability_execution_failure.sourceFactoryId ==
-                  "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
-                  artifacts.done_observability_execution_failure.workItem == workItem &&
-                  artifacts.done_observability_execution_failure.stage == "done-observability" &&
+                  artifacts.done_observability_execution_failure.sourceFactoryId
+                  == "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
+                  artifacts.done_observability_execution_failure.workItem ==
+                  workItem &&
+                  artifacts.done_observability_execution_failure.stage ==
+                  "done-observability" &&
                   artifacts.done_observability_execution_failure.stageCycle ==
                   state.cycles["done-observability"] &&
-                  artifacts.done_observability_execution_failure.dispatchAttempt == 1 &&
-                  artifacts.done_observability_execution_failure.failureKind == "operational" &&
-                  artifacts.done_observability_execution_failure.authorityWorkflow ==
-                  "factory-execution-failure-authorizer" &&
-                  artifacts.done_observability_execution_failure.authorityReceiptName ==
-                  "factory-execution-failure-" +
-                  artifacts.done_observability_execution_failure.receiptDigest &&
-                  artifacts.done_observability_execution_failure.authorityDigest ==
-                  artifacts.done_observability_execution_failure.receiptDigest &&
-                  artifacts.done_observability_execution_failure.executionReceipt.status == "failed"
-                  && ((artifacts.done_observability_execution_failure.executionReceipt.kind ==
-                  "workflow" &&
+                  artifacts.done_observability_execution_failure.dispatchAttempt
+                  == 1 &&
+                  artifacts.done_observability_execution_failure.failureKind ==
+                  "operational" &&
+                  artifacts.done_observability_execution_failure.authorityWorkflow
+                  == "factory-execution-failure-authorizer" &&
+                  artifacts.done_observability_execution_failure.authorityReceiptName
+                  == "factory-execution-failure-" +
+                  artifacts.done_observability_execution_failure.receiptDigest
+                  &&
+                  artifacts.done_observability_execution_failure.authorityDigest
+                  ==
+                  artifacts.done_observability_execution_failure.receiptDigest
+                  &&
+                  artifacts.done_observability_execution_failure.executionReceipt.status
+                  == "failed" &&
+                  ((artifacts.done_observability_execution_failure.executionReceipt.kind
+                  == "workflow" &&
                   has(artifacts.done_observability_execution_failure.executionReceipt.workflowName)
                   &&
                   has(artifacts.done_observability_execution_failure.executionReceipt.workflowRunId)
                   &&
                   has(artifacts.done_observability_execution_failure.executionReceipt.inputsDigest))
-                  || (artifacts.done_observability_execution_failure.executionReceipt.kind ==
-                  "command" &&
-                  has(artifacts.done_observability_execution_failure.executionReceipt.operation) &&
-                  has(artifacts.done_observability_execution_failure.executionReceipt.command) &&
-                  has(artifacts.done_observability_execution_failure.executionReceipt.exitCode) &&
+                  ||
+                  (artifacts.done_observability_execution_failure.executionReceipt.kind
+                  == "command" &&
+                  has(artifacts.done_observability_execution_failure.executionReceipt.operation)
+                  &&
+                  has(artifacts.done_observability_execution_failure.executionReceipt.command)
+                  &&
+                  has(artifacts.done_observability_execution_failure.executionReceipt.exitCode)
+                  &&
                   has(artifacts.done_observability_execution_failure.executionReceipt.stdoutDigest)
                   &&
                   has(artifacts.done_observability_execution_failure.executionReceipt.stderrDigest)))
                 message: >-
-                  operational recovery requires a trusted content-addressed receipt from the current
-                  done-observability cycle and dispatch
+                  operational recovery requires a trusted content-addressed
+                  receipt from the current done-observability cycle and dispatch
             - type: workflow-succeeded
               config:
                 workflow: factory-execution-failure-authorizer
                 requireStepOutputs:
                   - artifact-done-observability-execution-failure
     - id: aborted-observability
-      description: Persist canonical Factory reports and verify observability before finalizing aborted.
+      description: >-
+        Persist canonical Factory reports and verify observability before
+        finalizing aborted.
       maxDispatchesPerCycle: 1
       work:
         mode: workflow
@@ -2943,9 +2832,7 @@ globalArguments:
             - artifactName
           additionalProperties: false
           properties:
-            workItem:
-              type: string
-              minLength: 1
+            workItem: *ref_0
             preterminalStage:
               type: string
               enum:
@@ -2980,9 +2867,7 @@ globalArguments:
                 type: integer
                 enum:
                   - 1
-              workItem:
-                type: string
-                minLength: 1
+              workItem: *ref_0
               preterminalStage:
                 type: string
                 enum:
@@ -2995,13 +2880,11 @@ globalArguments:
                 type: string
                 enum:
                   - aborted
-              workflowRunId:
-                type: string
-                minLength: 1
+              workflowRunId: *ref_0
         - name: aborted-observability-execution-failure
           description: >-
-            Content-addressed operational failure generated from an actual execution receipt for the
-            current dispatch.
+            Content-addressed operational failure generated from an actual
+            execution receipt for the current dispatch.
           schema:
             type: object
             additionalProperties: false
@@ -3035,9 +2918,7 @@ globalArguments:
                 type: string
                 enum:
                   - 90fac686-c724-4aee-97c4-e31b9af4c5e2
-              workItem:
-                type: string
-                minLength: 1
+              workItem: *ref_0
               stage:
                 type: string
                 enum:
@@ -3075,28 +2956,18 @@ globalArguments:
                     enum:
                       - workflow
                       - command
-                  receiptId:
-                    type: string
-                    minLength: 1
+                  receiptId: *ref_0
                   status:
                     type: string
                     enum:
                       - failed
-                  workflowName:
-                    type: string
-                    minLength: 1
-                  workflowRunId:
-                    type: string
-                    minLength: 1
+                  workflowName: *ref_0
+                  workflowRunId: *ref_0
                   inputsDigest:
                     type: string
                     pattern: '^[0-9a-f]{64}$'
-                  operation:
-                    type: string
-                    minLength: 1
-                  command:
-                    type: string
-                    minLength: 1
+                  operation: *ref_0
+                  command: *ref_0
                   exitCode:
                     type: integer
                   stdoutDigest:
@@ -3111,9 +2982,7 @@ globalArguments:
                 type: string
                 minLength: 1
                 maxLength: 2000
-              occurredAt:
-                type: string
-                minLength: 1
+              occurredAt: *ref_0
               authorityWorkflow:
                 type: string
                 enum:
@@ -3136,10 +3005,12 @@ globalArguments:
             - type: cel
               config:
                 expr: >-
-                  artifacts.aborted_terminal_observability.workItem == workItem &&
-                  artifacts.aborted_terminal_observability.preterminalStage ==
-                  "aborted-observability" && artifacts.aborted_terminal_observability.targetStage ==
-                  "aborted" && artifacts.aborted_terminal_observability.outcome == "aborted"
+                  artifacts.aborted_terminal_observability.workItem == workItem
+                  && artifacts.aborted_terminal_observability.preterminalStage
+                  == "aborted-observability" &&
+                  artifacts.aborted_terminal_observability.targetStage ==
+                  "aborted" && artifacts.aborted_terminal_observability.outcome
+                  == "aborted"
                 message: exact terminal observability route evidence is required
         - name: operational-pause
           to: aborted-observability-recovery
@@ -3150,34 +3021,43 @@ globalArguments:
             - type: cel
               config:
                 expr: >-
-                  artifacts.aborted_observability_execution_failure.sourceFactoryId ==
-                  "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
-                  artifacts.aborted_observability_execution_failure.workItem == workItem &&
-                  artifacts.aborted_observability_execution_failure.stage == "aborted-observability"
-                  && artifacts.aborted_observability_execution_failure.stageCycle ==
-                  state.cycles["aborted-observability"] &&
-                  artifacts.aborted_observability_execution_failure.dispatchAttempt == 1 &&
-                  artifacts.aborted_observability_execution_failure.failureKind == "operational" &&
-                  artifacts.aborted_observability_execution_failure.authorityWorkflow ==
-                  "factory-execution-failure-authorizer" &&
-                  artifacts.aborted_observability_execution_failure.authorityReceiptName ==
-                  "factory-execution-failure-" +
-                  artifacts.aborted_observability_execution_failure.receiptDigest &&
-                  artifacts.aborted_observability_execution_failure.authorityDigest ==
-                  artifacts.aborted_observability_execution_failure.receiptDigest &&
-                  artifacts.aborted_observability_execution_failure.executionReceipt.status ==
-                  "failed" &&
-                  ((artifacts.aborted_observability_execution_failure.executionReceipt.kind ==
-                  "workflow" &&
+                  artifacts.aborted_observability_execution_failure.sourceFactoryId
+                  == "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
+                  artifacts.aborted_observability_execution_failure.workItem ==
+                  workItem &&
+                  artifacts.aborted_observability_execution_failure.stage ==
+                  "aborted-observability" &&
+                  artifacts.aborted_observability_execution_failure.stageCycle
+                  == state.cycles["aborted-observability"] &&
+                  artifacts.aborted_observability_execution_failure.dispatchAttempt
+                  == 1 &&
+                  artifacts.aborted_observability_execution_failure.failureKind
+                  == "operational" &&
+                  artifacts.aborted_observability_execution_failure.authorityWorkflow
+                  == "factory-execution-failure-authorizer" &&
+                  artifacts.aborted_observability_execution_failure.authorityReceiptName
+                  == "factory-execution-failure-" +
+                  artifacts.aborted_observability_execution_failure.receiptDigest
+                  &&
+                  artifacts.aborted_observability_execution_failure.authorityDigest
+                  ==
+                  artifacts.aborted_observability_execution_failure.receiptDigest
+                  &&
+                  artifacts.aborted_observability_execution_failure.executionReceipt.status
+                  == "failed" &&
+                  ((artifacts.aborted_observability_execution_failure.executionReceipt.kind
+                  == "workflow" &&
                   has(artifacts.aborted_observability_execution_failure.executionReceipt.workflowName)
                   &&
                   has(artifacts.aborted_observability_execution_failure.executionReceipt.workflowRunId)
                   &&
                   has(artifacts.aborted_observability_execution_failure.executionReceipt.inputsDigest))
-                  || (artifacts.aborted_observability_execution_failure.executionReceipt.kind ==
-                  "command" &&
+                  ||
+                  (artifacts.aborted_observability_execution_failure.executionReceipt.kind
+                  == "command" &&
                   has(artifacts.aborted_observability_execution_failure.executionReceipt.operation)
-                  && has(artifacts.aborted_observability_execution_failure.executionReceipt.command)
+                  &&
+                  has(artifacts.aborted_observability_execution_failure.executionReceipt.command)
                   &&
                   has(artifacts.aborted_observability_execution_failure.executionReceipt.exitCode)
                   &&
@@ -3185,8 +3065,9 @@ globalArguments:
                   &&
                   has(artifacts.aborted_observability_execution_failure.executionReceipt.stderrDigest)))
                 message: >-
-                  operational recovery requires a trusted content-addressed receipt from the current
-                  aborted-observability cycle and dispatch
+                  operational recovery requires a trusted content-addressed
+                  receipt from the current aborted-observability cycle and
+                  dispatch
             - type: workflow-succeeded
               config:
                 workflow: factory-execution-failure-authorizer
@@ -3194,8 +3075,8 @@ globalArguments:
                   - artifact-aborted-observability-execution-failure
     - id: escalated-observability
       description: >-
-        Persist canonical Factory reports and verify observability before finalizing
-        operational-escalation.
+        Persist canonical Factory reports and verify observability before
+        finalizing operational-escalation.
       maxDispatchesPerCycle: 1
       work:
         mode: workflow
@@ -3217,9 +3098,7 @@ globalArguments:
             - artifactName
           additionalProperties: false
           properties:
-            workItem:
-              type: string
-              minLength: 1
+            workItem: *ref_0
             preterminalStage:
               type: string
               enum:
@@ -3254,9 +3133,7 @@ globalArguments:
                 type: integer
                 enum:
                   - 1
-              workItem:
-                type: string
-                minLength: 1
+              workItem: *ref_0
               preterminalStage:
                 type: string
                 enum:
@@ -3269,13 +3146,11 @@ globalArguments:
                 type: string
                 enum:
                   - parked
-              workflowRunId:
-                type: string
-                minLength: 1
+              workflowRunId: *ref_0
         - name: escalated-observability-execution-failure
           description: >-
-            Content-addressed operational failure generated from an actual execution receipt for the
-            current dispatch.
+            Content-addressed operational failure generated from an actual
+            execution receipt for the current dispatch.
           schema:
             type: object
             additionalProperties: false
@@ -3309,9 +3184,7 @@ globalArguments:
                 type: string
                 enum:
                   - 90fac686-c724-4aee-97c4-e31b9af4c5e2
-              workItem:
-                type: string
-                minLength: 1
+              workItem: *ref_0
               stage:
                 type: string
                 enum:
@@ -3349,28 +3222,18 @@ globalArguments:
                     enum:
                       - workflow
                       - command
-                  receiptId:
-                    type: string
-                    minLength: 1
+                  receiptId: *ref_0
                   status:
                     type: string
                     enum:
                       - failed
-                  workflowName:
-                    type: string
-                    minLength: 1
-                  workflowRunId:
-                    type: string
-                    minLength: 1
+                  workflowName: *ref_0
+                  workflowRunId: *ref_0
                   inputsDigest:
                     type: string
                     pattern: '^[0-9a-f]{64}$'
-                  operation:
-                    type: string
-                    minLength: 1
-                  command:
-                    type: string
-                    minLength: 1
+                  operation: *ref_0
+                  command: *ref_0
                   exitCode:
                     type: integer
                   stdoutDigest:
@@ -3385,9 +3248,7 @@ globalArguments:
                 type: string
                 minLength: 1
                 maxLength: 2000
-              occurredAt:
-                type: string
-                minLength: 1
+              occurredAt: *ref_0
               authorityWorkflow:
                 type: string
                 enum:
@@ -3410,11 +3271,13 @@ globalArguments:
             - type: cel
               config:
                 expr: >-
-                  artifacts.escalated_terminal_observability.workItem == workItem &&
+                  artifacts.escalated_terminal_observability.workItem ==
+                  workItem &&
                   artifacts.escalated_terminal_observability.preterminalStage ==
                   "escalated-observability" &&
-                  artifacts.escalated_terminal_observability.targetStage == "operational-escalation"
-                  && artifacts.escalated_terminal_observability.outcome == "parked"
+                  artifacts.escalated_terminal_observability.targetStage ==
+                  "operational-escalation" &&
+                  artifacts.escalated_terminal_observability.outcome == "parked"
                 message: exact terminal observability route evidence is required
         - name: operational-pause
           to: escalated-observability-recovery
@@ -3425,33 +3288,40 @@ globalArguments:
             - type: cel
               config:
                 expr: >-
-                  artifacts.escalated_observability_execution_failure.sourceFactoryId ==
-                  "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
-                  artifacts.escalated_observability_execution_failure.workItem == workItem &&
+                  artifacts.escalated_observability_execution_failure.sourceFactoryId
+                  == "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
+                  artifacts.escalated_observability_execution_failure.workItem
+                  == workItem &&
                   artifacts.escalated_observability_execution_failure.stage ==
                   "escalated-observability" &&
-                  artifacts.escalated_observability_execution_failure.stageCycle ==
-                  state.cycles["escalated-observability"] &&
-                  artifacts.escalated_observability_execution_failure.dispatchAttempt == 1 &&
-                  artifacts.escalated_observability_execution_failure.failureKind == "operational"
-                  && artifacts.escalated_observability_execution_failure.authorityWorkflow ==
-                  "factory-execution-failure-authorizer" &&
-                  artifacts.escalated_observability_execution_failure.authorityReceiptName ==
-                  "factory-execution-failure-" +
-                  artifacts.escalated_observability_execution_failure.receiptDigest &&
-                  artifacts.escalated_observability_execution_failure.authorityDigest ==
-                  artifacts.escalated_observability_execution_failure.receiptDigest &&
-                  artifacts.escalated_observability_execution_failure.executionReceipt.status ==
-                  "failed" &&
-                  ((artifacts.escalated_observability_execution_failure.executionReceipt.kind ==
-                  "workflow" &&
+                  artifacts.escalated_observability_execution_failure.stageCycle
+                  == state.cycles["escalated-observability"] &&
+                  artifacts.escalated_observability_execution_failure.dispatchAttempt
+                  == 1 &&
+                  artifacts.escalated_observability_execution_failure.failureKind
+                  == "operational" &&
+                  artifacts.escalated_observability_execution_failure.authorityWorkflow
+                  == "factory-execution-failure-authorizer" &&
+                  artifacts.escalated_observability_execution_failure.authorityReceiptName
+                  == "factory-execution-failure-" +
+                  artifacts.escalated_observability_execution_failure.receiptDigest
+                  &&
+                  artifacts.escalated_observability_execution_failure.authorityDigest
+                  ==
+                  artifacts.escalated_observability_execution_failure.receiptDigest
+                  &&
+                  artifacts.escalated_observability_execution_failure.executionReceipt.status
+                  == "failed" &&
+                  ((artifacts.escalated_observability_execution_failure.executionReceipt.kind
+                  == "workflow" &&
                   has(artifacts.escalated_observability_execution_failure.executionReceipt.workflowName)
                   &&
                   has(artifacts.escalated_observability_execution_failure.executionReceipt.workflowRunId)
                   &&
                   has(artifacts.escalated_observability_execution_failure.executionReceipt.inputsDigest))
-                  || (artifacts.escalated_observability_execution_failure.executionReceipt.kind ==
-                  "command" &&
+                  ||
+                  (artifacts.escalated_observability_execution_failure.executionReceipt.kind
+                  == "command" &&
                   has(artifacts.escalated_observability_execution_failure.executionReceipt.operation)
                   &&
                   has(artifacts.escalated_observability_execution_failure.executionReceipt.command)
@@ -3462,8 +3332,9 @@ globalArguments:
                   &&
                   has(artifacts.escalated_observability_execution_failure.executionReceipt.stderrDigest)))
                 message: >-
-                  operational recovery requires a trusted content-addressed receipt from the current
-                  escalated-observability cycle and dispatch
+                  operational recovery requires a trusted content-addressed
+                  receipt from the current escalated-observability cycle and
+                  dispatch
             - type: workflow-succeeded
               config:
                 workflow: factory-execution-failure-authorizer
@@ -3471,8 +3342,8 @@ globalArguments:
                   - artifact-escalated-observability-execution-failure
     - id: done-observability-recovery
       description: >-
-        Pause after an operational done-observability failure, preserve its evidence, and retry only
-        after repair.
+        Pause after an operational done-observability failure, preserve its
+        evidence, and retry only after repair.
       transitions:
         - name: retry-done-observability
           to: done-observability
@@ -3482,8 +3353,8 @@ globalArguments:
                 id: retry-done-observability
     - id: aborted-observability-recovery
       description: >-
-        Pause after an operational aborted-observability failure, preserve its evidence, and retry
-        only after repair.
+        Pause after an operational aborted-observability failure, preserve its
+        evidence, and retry only after repair.
       transitions:
         - name: retry-aborted-observability
           to: aborted-observability
@@ -3493,8 +3364,8 @@ globalArguments:
                 id: retry-aborted-observability
     - id: escalated-observability-recovery
       description: >-
-        Pause after an operational escalated-observability failure, preserve its evidence, and retry
-        only after repair.
+        Pause after an operational escalated-observability failure, preserve its
+        evidence, and retry only after repair.
       transitions:
         - name: retry-escalated-observability
           to: escalated-observability
@@ -3508,7 +3379,9 @@ globalArguments:
       terminal: true
     - id: operational-escalation
       terminal: true
-      description: Human-escalated terminal state for an unrecoverable operational Factory failure.
+      description: >-
+        Human-escalated terminal state for an unrecoverable operational Factory
+        failure.
   globalTransitions:
     - name: abort
       to: aborted-observability
