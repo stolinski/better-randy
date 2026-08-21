@@ -203,10 +203,9 @@
 		color: var(--roleInk, var(--ink));
 		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
 		/* Sized for a tasteful corner chip (~63px / ~45px cap at 4K), clearly
-		   secondary to the name. NOTE: below the G4 Overlay-secondary 80px floor —
-		   that band is calibrated for full-width broadcast lower-thirds and is too
-		   large for a corner chip; flagged for recalibration (see quality-roadmap
-		   "long tail"). User's eye is the authority here. */
+		   secondary to the name. In band: G4 "Overlay cinematic corner plate
+		   secondary" (36–60 horizontal), added for exactly this register —
+		   span measured on the overlay's laid-out rect, Pack-invariant. */
 		font-size: calc(2.9 * var(--cqmin));
 		font-weight: 500;
 		letter-spacing: var(--tracking, 0.22em);
