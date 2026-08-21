@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 
 import {
+	createSupersAgentRepositoryStateHash,
 	createSupersAgentWorktreeOperations,
+	extension,
 	type PrepareSupersAgentWorktreeArgs,
 	type SupersAgentGitResult,
 	type SupersAgentWorktreeClaim,
@@ -46,6 +48,10 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 	worktreeHead = BASE_REVISION;
 	worktreeDiff = '';
 	untracked = new Map<string, Uint8Array>();
+	untrackedInfo = new Map<
+		string,
+		{ isFile: boolean; isSymlink: boolean; size: number; canonicalPath?: string }
+	>();
 	loseAddAcknowledgement = false;
 	loseRemoveAcknowledgement = false;
 	registeredConflictPath: string | null = null;
@@ -57,7 +63,9 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 	}
 
 	realPath(path: string): Promise<string> {
-		return Promise.resolve(path);
+		const prefix = `${this.worktreePath}/`;
+		const relative = path.startsWith(prefix) ? path.slice(prefix.length) : path;
+		return Promise.resolve(this.untrackedInfo.get(relative)?.canonicalPath ?? path);
 	}
 
 	pathExists(path: string): Promise<boolean> {
@@ -66,6 +74,16 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 			return Promise.resolve(true);
 		}
 		return Promise.resolve(this.conflictPathExists && path.includes('-supers-agent-'));
+	}
+
+	fileInfo(path: string): Promise<{ isFile: boolean; isSymlink: boolean; size: number }> {
+		const prefix = `${this.worktreePath}/`;
+		const relative = path.startsWith(prefix) ? path.slice(prefix.length) : path;
+		const override = this.untrackedInfo.get(relative);
+		if (override !== undefined) return Promise.resolve(override);
+		const value = this.untracked.get(relative);
+		if (value === undefined) throw new Deno.errors.NotFound(path);
+		return Promise.resolve({ isFile: true, isSymlink: false, size: value.length });
 	}
 
 	readFile(path: string): Promise<Uint8Array> {
@@ -137,12 +155,6 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 			return this.loseRemoveAcknowledgement
 				? gitResult(false, '', 'simulated lost acknowledgement', 128)
 				: gitResult(true);
-		}
-		if (command === 'worktree prune') {
-			if (!this.worktreeExists && this.registeredConflictPath === null) {
-				this.worktreeRegistered = false;
-			}
-			return gitResult(true);
 		}
 		return gitResult(false, '', `unexpected central git command: ${command}`, 128);
 	}
@@ -222,6 +234,13 @@ function recordSuccessfulInvocation(
 		tags: claim.expectedInvocationTags
 	});
 }
+
+Deno.test('invocation authority resources retain one immutable infinite-lifetime version', () => {
+	for (const resource of Object.values(extension.resources)) {
+		assert.equal(resource.lifetime, 'infinite');
+		assert.equal(resource.garbageCollection, 1);
+	}
+});
 
 Deno.test('clean exact HEAD prepares, verifies, and removes an isolated worktree', async () => {
 	const { repository, context, resources } = fixture();
@@ -330,6 +349,28 @@ Deno.test(
 	}
 );
 
+Deno.test('an exact registration owned by another model instance is not adopted', async () => {
+	const first = fixture();
+	const operations = createSupersAgentWorktreeOperations(first.repository);
+	await operations.prepareSupersAgentWorktree(PREPARE_ARGS, first.context);
+	const secondResources = new Map<string, Record<string, unknown>>();
+	const secondContext: SupersAgentWorktreeMethodContext = {
+		repoDir: '/repo',
+		readResource: (name) => Promise.resolve(secondResources.get(name) ?? null),
+		writeResource: (_spec, name, data) => {
+			secondResources.set(name, data);
+			return Promise.resolve({ name });
+		}
+	};
+
+	await assert.rejects(
+		() => operations.prepareSupersAgentWorktree(PREPARE_ARGS, secondContext),
+		/already registered without a prior preparation intent/
+	);
+	assert.equal(secondResources.size, 0);
+	assert.equal(first.repository.addCalls, 1);
+});
+
 Deno.test('conflicting deterministic branch or path fails closed', async (test) => {
 	await test.step('branch conflict', async () => {
 		const { repository, context } = fixture();
@@ -415,6 +456,82 @@ Deno.test('verification rejects a modified worktree without trusting parsedRespo
 		() => operations.verifySupersAgentWorktreeUnchanged({ claimId: claim.claimId }, context),
 		/repository state changed/
 	);
+});
+
+Deno.test('repository hashing remains byte-compatible for accepted regular files', async () => {
+	const repository = new FakeWorktreeRepository();
+	repository.worktreePath = '/worktree';
+	repository.worktreeExists = true;
+	repository.untracked.set('note.txt', new Uint8Array([0, 255, 10]));
+
+	assert.equal(
+		await createSupersAgentRepositoryStateHash(repository.worktreePath, repository),
+		'd1d336d2fd1511671f99fc40320079eaf1693b74f3b333deb496101f9feb056d'
+	);
+});
+
+Deno.test('repository hashing rejects unsafe untracked filesystem entries', async (test) => {
+	async function rejectUntracked(
+		configure: (repository: FakeWorktreeRepository) => void,
+		expected: RegExp
+	): Promise<void> {
+		const { repository, context, resources } = fixture();
+		const operations = createSupersAgentWorktreeOperations(repository);
+		const claim = (await operations.prepareSupersAgentWorktree(PREPARE_ARGS, context)).resource;
+		recordSuccessfulInvocation(resources, claim);
+		configure(repository);
+		await assert.rejects(
+			() => operations.verifySupersAgentWorktreeUnchanged({ claimId: claim.claimId }, context),
+			expected
+		);
+	}
+
+	await test.step('symlink', async () => {
+		await rejectUntracked((repository) => {
+			repository.untracked.set('link', new Uint8Array());
+			repository.untrackedInfo.set('link', { isFile: false, isSymlink: true, size: 4 });
+		}, /untracked symlinks/);
+	});
+	await test.step('non-regular file', async () => {
+		await rejectUntracked((repository) => {
+			repository.untracked.set('pipe', new Uint8Array());
+			repository.untrackedInfo.set('pipe', { isFile: false, isSymlink: false, size: 0 });
+		}, /untracked non-regular files/);
+	});
+	await test.step('out-of-root realpath', async () => {
+		await rejectUntracked((repository) => {
+			repository.untracked.set('escaped.txt', new TextEncoder().encode('outside'));
+			repository.untrackedInfo.set('escaped.txt', {
+				isFile: true,
+				isSymlink: false,
+				size: 7,
+				canonicalPath: '/outside/escaped.txt'
+			});
+		}, /resolves outside the repository/);
+	});
+	await test.step('oversized file', async () => {
+		await rejectUntracked((repository) => {
+			repository.untracked.set('large.bin', new Uint8Array());
+			repository.untrackedInfo.set('large.bin', {
+				isFile: true,
+				isSymlink: false,
+				size: 16 * 1024 * 1024 + 1
+			});
+		}, /file exceeds the repository evidence size limit/);
+	});
+	await test.step('oversized aggregate', async () => {
+		await rejectUntracked((repository) => {
+			for (let index = 0; index < 5; index += 1) {
+				const path = `part-${index}.bin`;
+				repository.untracked.set(path, new Uint8Array());
+				repository.untrackedInfo.set(path, {
+					isFile: true,
+					isSymlink: false,
+					size: 16 * 1024 * 1024
+				});
+			}
+		}, /aggregate repository evidence size limit/);
+	});
 });
 
 Deno.test(
@@ -574,7 +691,7 @@ Deno.test('cleanup recovery rejects a branch registered to a conflicting path', 
 
 	await assert.rejects(
 		() => operations.removeSupersAgentWorktree({ claimId: claim.claimId }, context),
-		/conflicting worktree path or branch registration/
+		/worktree path or branch remains registered after removal/
 	);
 });
 
@@ -607,8 +724,10 @@ Deno.test(
 	'real Git prepares, registers, verifies, removes, and rejects a linked authority',
 	async () => {
 		const tempRoot = await Deno.makeTempDir({ prefix: 'supers-agent-worktree-' });
-		const repositoryDir = `${tempRoot}/primary`;
-		const linkedDir = `${tempRoot}/linked`;
+		const canonicalTempRoot = await Deno.realPath(tempRoot);
+		const repositoryDir = `${canonicalTempRoot}/primary`;
+		const linkedDir = `${canonicalTempRoot}/linked`;
+		const unrelatedStaleDir = `${canonicalTempRoot}/unrelated-stale`;
 		await Deno.mkdir(repositoryDir);
 		try {
 			await requireRealGit(repositoryDir, ['init', '-b', 'main']);
@@ -645,6 +764,10 @@ Deno.test(
 						throw error;
 					}
 				},
+				async fileInfo(path) {
+					const info = await Deno.lstat(path);
+					return { isFile: info.isFile, isSymlink: info.isSymlink, size: info.size };
+				},
 				readFile: (path) => Deno.readFile(path),
 				now: () => NOW
 			};
@@ -663,6 +786,40 @@ Deno.test(
 			assert.equal(await Deno.realPath(claim.worktreePath), claim.worktreePath);
 			const registered = await requireRealGit(context.repoDir, ['worktree', 'list', '--porcelain']);
 			assert.equal(registered.includes(`worktree ${claim.worktreePath}`), true);
+
+			const foreignResources = new Map<string, Record<string, unknown>>();
+			const foreignContext: SupersAgentWorktreeMethodContext = {
+				...context,
+				readResource: (name) => Promise.resolve(foreignResources.get(name) ?? null),
+				writeResource: (_spec, name, data) => {
+					foreignResources.set(name, data);
+					return Promise.resolve({ name });
+				}
+			};
+			await assert.rejects(
+				() =>
+					operations.prepareSupersAgentWorktree(
+						{
+							invocationId: claim.invocationId,
+							baseRevision,
+							purpose: claim.purpose,
+							workItem: claim.workItem
+						},
+						foreignContext
+					),
+				/already registered without a prior preparation intent/
+			);
+			assert.equal(foreignResources.size, 0);
+
+			await requireRealGit(context.repoDir, [
+				'worktree',
+				'add',
+				'-b',
+				'unrelated-stale',
+				unrelatedStaleDir
+			]);
+			await Deno.remove(unrelatedStaleDir, { recursive: true });
+
 			recordSuccessfulInvocation(resources, claim);
 			await operations.verifySupersAgentWorktreeUnchanged(
 				{
@@ -679,6 +836,11 @@ Deno.test(
 			]);
 			assert.equal(afterRemoval.includes(claim.worktreePath), false);
 			assert.equal(afterRemoval.includes(`branch refs/heads/${claim.attachedBranch}`), false);
+			assert.equal(
+				afterRemoval.includes(`worktree ${unrelatedStaleDir}`),
+				true,
+				'exact cleanup must not prune an unrelated stale registration'
+			);
 
 			await requireRealGit(context.repoDir, [
 				'worktree',

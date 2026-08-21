@@ -6,6 +6,8 @@ const SAFE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const INVOCATION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
+const MAX_UNTRACKED_FILE_BYTES = 16 * 1024 * 1024;
+const MAX_UNTRACKED_AGGREGATE_BYTES = 64 * 1024 * 1024;
 
 export const SupersAgentWorktreePurposeSchema = z.enum(['sentry-reproduction', 'delivery-coding']);
 export type SupersAgentWorktreePurpose = z.infer<typeof SupersAgentWorktreePurposeSchema>;
@@ -140,10 +142,17 @@ export interface SupersAgentGitResult {
 	stderr: Uint8Array;
 }
 
+export interface SupersAgentFileInfo {
+	isFile: boolean;
+	isSymlink: boolean;
+	size: number;
+}
+
 export interface SupersAgentWorktreeDependencies {
 	runGit(cwd: string, args: readonly string[]): Promise<SupersAgentGitResult>;
 	realPath(path: string): Promise<string>;
 	pathExists(path: string): Promise<boolean>;
+	fileInfo(path: string): Promise<SupersAgentFileInfo>;
 	readFile(path: string): Promise<Uint8Array>;
 	now(): Date;
 }
@@ -217,7 +226,18 @@ async function stableIdentityHash(value: Record<string, unknown>): Promise<strin
 	return await sha256([encoder.encode(JSON.stringify(value))]);
 }
 
-/** Matches @mgreten/cli-agent's tracked-diff-v1 repositoryExpectation hash. */
+interface ValidatedUntrackedFile {
+	relativePath: string;
+	absolutePath: string;
+	canonicalPath: string;
+	size: number;
+}
+
+function isContainedPath(root: string, candidate: string): boolean {
+	return candidate.startsWith(`${root}/`);
+}
+
+/** Matches @mgreten/cli-agent's tracked-diff-v1 hash for accepted regular files. */
 export async function createSupersAgentRepositoryStateHash(
 	cwd: string,
 	deps: SupersAgentWorktreeDependencies
@@ -235,10 +255,60 @@ export async function createSupersAgentRepositoryStateHash(
 		'--exclude-standard',
 		'-z'
 	]);
-	const parts: Uint8Array[] = [encoder.encode('tracked-diff-v1'), encoder.encode(diff)];
+	const canonicalRoot = await deps.realPath(cwd);
+	const validatedFiles: ValidatedUntrackedFile[] = [];
+	let aggregateBytes = 0;
 	for (const relativePath of untracked.split('\0').filter(Boolean).sort()) {
-		parts.push(encoder.encode(relativePath));
-		parts.push(await deps.readFile(`${cwd}/${relativePath}`));
+		if (
+			relativePath.startsWith('/') ||
+			relativePath.split('/').some((segment) => segment === '..' || segment.length === 0)
+		) {
+			throw new Error(`unsafe untracked repository path: ${relativePath}`);
+		}
+		const absolutePath = `${cwd}/${relativePath}`;
+		const info = await deps.fileInfo(absolutePath);
+		if (info.isSymlink) {
+			throw new Error(`untracked symlinks cannot be repository evidence: ${relativePath}`);
+		}
+		if (!info.isFile) {
+			throw new Error(`untracked non-regular files cannot be repository evidence: ${relativePath}`);
+		}
+		if (info.size < 0 || !Number.isSafeInteger(info.size)) {
+			throw new Error(`untracked file has an invalid size: ${relativePath}`);
+		}
+		if (info.size > MAX_UNTRACKED_FILE_BYTES) {
+			throw new Error(`untracked file exceeds the repository evidence size limit: ${relativePath}`);
+		}
+		aggregateBytes += info.size;
+		if (aggregateBytes > MAX_UNTRACKED_AGGREGATE_BYTES) {
+			throw new Error('untracked files exceed the aggregate repository evidence size limit');
+		}
+		const canonicalPath = await deps.realPath(absolutePath);
+		if (!isContainedPath(canonicalRoot, canonicalPath)) {
+			throw new Error(`untracked file resolves outside the repository: ${relativePath}`);
+		}
+		validatedFiles.push({ relativePath, absolutePath, canonicalPath, size: info.size });
+	}
+
+	const parts: Uint8Array[] = [encoder.encode('tracked-diff-v1'), encoder.encode(diff)];
+	for (const file of validatedFiles) {
+		const bytes = await deps.readFile(file.absolutePath);
+		const currentInfo = await deps.fileInfo(file.absolutePath);
+		const currentCanonicalPath = await deps.realPath(file.absolutePath);
+		if (
+			currentInfo.isSymlink ||
+			!currentInfo.isFile ||
+			currentInfo.size !== file.size ||
+			bytes.length !== file.size ||
+			currentCanonicalPath !== file.canonicalPath ||
+			!isContainedPath(canonicalRoot, currentCanonicalPath)
+		) {
+			throw new Error(
+				`untracked file changed while collecting repository evidence: ${file.relativePath}`
+			);
+		}
+		parts.push(encoder.encode(file.relativePath));
+		parts.push(bytes);
 	}
 	return await sha256(parts);
 }
@@ -462,21 +532,26 @@ async function branchExists(
 	throw gitFailure(['show-ref', '--verify', '--quiet', `refs/heads/${attachedBranch}`], result);
 }
 
-async function requireOnlyExactStaleRegistration(
+async function requireNoPreparationCollision(
 	deps: SupersAgentWorktreeDependencies,
-	claim: SupersAgentWorktreeClaim
+	binding: SupersAgentWorktreeBinding
 ): Promise<void> {
-	for (const record of await listWorktrees(deps, claim.repositoryDir)) {
-		if (record.path !== claim.worktreePath && record.attachedBranch !== claim.attachedBranch) {
-			continue;
-		}
-		if (
-			record.path !== claim.worktreePath ||
-			record.attachedBranch !== claim.attachedBranch ||
-			record.headSha !== claim.headSha
-		) {
-			throw new Error('conflicting worktree path or branch registration remains');
-		}
+	const registration = (await listWorktrees(deps, binding.repositoryDir)).find(
+		(record) =>
+			record.path === binding.worktreePath || record.attachedBranch === binding.attachedBranch
+	);
+	if (registration !== undefined) {
+		throw new Error(
+			'deterministic worktree path or branch is already registered without a prior preparation intent'
+		);
+	}
+	if (
+		(await deps.pathExists(binding.worktreePath)) ||
+		(await branchExists(deps, binding.repositoryDir, binding.attachedBranch))
+	) {
+		throw new Error(
+			'deterministic worktree path or branch already exists with no recoverable worktree'
+		);
 	}
 }
 
@@ -595,16 +670,6 @@ export function createSupersAgentWorktreeOperations(
 
 			const createdHandles: Array<{ name: string }> = [];
 			let creationSnapshot: RepositorySnapshot | null = null;
-			if (existingBinding === null) {
-				creationSnapshot = await requireCleanStableCentralRepository(
-					deps,
-					canonicalRepositoryDir,
-					args.baseRevision
-				);
-				createdHandles.push(
-					await context.writeResource('supers-agent-worktree-binding', bindingName, proposedBinding)
-				);
-			}
 			const binding = existingBinding ?? proposedBinding;
 			const intentName = `supers-agent-worktree-intent-${binding.claimId}`;
 			const existingIntent = await readParsedResource(
@@ -623,14 +688,28 @@ export function createSupersAgentWorktreeOperations(
 
 			let intent = existingIntent;
 			if (intent === null) {
-				creationSnapshot ??= await requireCleanStableCentralRepository(
+				creationSnapshot = await requireCleanStableCentralRepository(
 					deps,
 					canonicalRepositoryDir,
 					args.baseRevision
 				);
+				await requireNoPreparationCollision(deps, binding);
+				if (existingBinding === null) {
+					createdHandles.push(
+						await context.writeResource(
+							'supers-agent-worktree-binding',
+							bindingName,
+							proposedBinding
+						)
+					);
+				}
 				intent = createIntent(binding, deps.now().toISOString());
 				createdHandles.push(
 					await context.writeResource('supers-agent-worktree-intent', intentName, intent)
+				);
+			} else if (existingBinding === null) {
+				createdHandles.push(
+					await context.writeResource('supers-agent-worktree-binding', bindingName, proposedBinding)
 				);
 			}
 
@@ -920,12 +999,6 @@ export function createSupersAgentWorktreeOperations(
 					throw gitFailure(removeArgs, removeResult);
 				}
 			}
-			if (!(await deps.pathExists(claim.worktreePath))) {
-				await requireOnlyExactStaleRegistration(deps, claim);
-			}
-			const pruneArgs = ['worktree', 'prune'] as const;
-			const pruneResult = await deps.runGit(claim.repositoryDir, pruneArgs);
-			if (!pruneResult.success) throw gitFailure(pruneArgs, pruneResult);
 			if (await deps.pathExists(claim.worktreePath)) {
 				throw new Error('worktree still exists after exact removal');
 			}
@@ -970,11 +1043,21 @@ const defaultDependencies: SupersAgentWorktreeDependencies = {
 			throw error;
 		}
 	},
+	async fileInfo(path) {
+		const info = await Deno.lstat(path);
+		return { isFile: info.isFile, isSymlink: info.isSymlink, size: info.size };
+	},
 	readFile: (path) => Deno.readFile(path),
 	now: () => new Date()
 };
 
 const operations = createSupersAgentWorktreeOperations(defaultDependencies);
+
+// Swamp applies numeric garbageCollection per named artifact version history. Each
+// invocation-keyed artifact below is immutable and written once, so retaining one
+// infinite-lifetime version preserves every binding beyond CLI-agent's 30d records;
+// old invocation IDs therefore remain permanently unavailable for reuse.
+const IMMUTABLE_INVOCATION_RESOURCE_VERSIONS = 1;
 
 export const extension = {
 	type: '@mgreten/cli-agent',
@@ -984,42 +1067,42 @@ export const extension = {
 				'Invocation-keyed immutable binding that prevents one CLI-agent invocation from preparing multiple worktrees.',
 			schema: SupersAgentWorktreeBindingSchema,
 			lifetime: 'infinite',
-			garbageCollection: 100
+			garbageCollection: IMMUTABLE_INVOCATION_RESOURCE_VERSIONS
 		},
 		'supers-agent-worktree-intent': {
 			description:
 				'Caller-owned, content-addressed intent written before isolated worktree creation.',
 			schema: SupersAgentWorktreeIntentSchema,
 			lifetime: 'infinite',
-			garbageCollection: 100
+			garbageCollection: IMMUTABLE_INVOCATION_RESOURCE_VERSIONS
 		},
 		'supers-agent-worktree-claim': {
 			description:
 				'Exact repositoryExpectation-compatible identity of an isolated Supers agent worktree.',
 			schema: SupersAgentWorktreeClaimSchema,
 			lifetime: 'infinite',
-			garbageCollection: 100
+			garbageCollection: IMMUTABLE_INVOCATION_RESOURCE_VERSIONS
 		},
 		'supers-agent-worktree-unchanged': {
 			description:
 				'Normalized proof that a successful CLI-agent invocation left its claimed worktree unchanged.',
 			schema: SupersAgentWorktreeUnchangedReceiptSchema,
 			lifetime: 'infinite',
-			garbageCollection: 100
+			garbageCollection: IMMUTABLE_INVOCATION_RESOURCE_VERSIONS
 		},
 		'supers-agent-worktree-removal-intent': {
 			description:
 				'Crash-recoverable intent to remove only one exact verified Supers agent worktree.',
 			schema: SupersAgentWorktreeRemovalIntentSchema,
 			lifetime: 'infinite',
-			garbageCollection: 100
+			garbageCollection: IMMUTABLE_INVOCATION_RESOURCE_VERSIONS
 		},
 		'supers-agent-worktree-removal': {
 			description:
 				'Replay-safe receipt proving the exact verified Supers agent worktree was removed.',
 			schema: SupersAgentWorktreeRemovalReceiptSchema,
 			lifetime: 'infinite',
-			garbageCollection: 100
+			garbageCollection: IMMUTABLE_INVOCATION_RESOURCE_VERSIONS
 		}
 	},
 	methods: [
