@@ -80,10 +80,16 @@ export function framesToSeconds(frames: number, rate: FrameRate): number {
 }
 
 const TIMECODE_PATTERN = /^(\d{2}):(\d{2}):(\d{2}):(\d{2})$/;
+const DROP_TIMECODE_PATTERN = /^(\d{2}):(\d{2}):(\d{2});(\d{2})$/;
 
 /** True for a colon-separated non-drop-frame timecode (`HH:MM:SS:FF`). */
 export function isNonDropTimecode(value: string): boolean {
 	return TIMECODE_PATTERN.test(value);
+}
+
+/** True for a drop-frame timecode (`HH:MM:SS;FF` — the SMPTE semicolon frame separator). */
+export function isDropTimecode(value: string): boolean {
+	return DROP_TIMECODE_PATTERN.test(value);
 }
 
 /**
@@ -95,19 +101,71 @@ function nominalTimecodeRate(rate: FrameRate): number {
 	return Math.round(rate.num / rate.den);
 }
 
+/**
+ * Dropped label count per non-tenth minute — 2 at 29.97, 4 at 59.94. SMPTE
+ * defines drop-frame ONLY for those two rates (23.976 has no DF form); any
+ * other rate fails fast.
+ */
+function dropFrameLabelCount(rate: FrameRate): number {
+	const nominal = nominalTimecodeRate(rate);
+	if (rate.den !== 1001 || (nominal !== 30 && nominal !== 60)) {
+		throw new TypeError(
+			`Drop-frame timecode is only defined for 29.97 and 59.94, got transport fps ${rate.fps}.`
+		);
+	}
+	return nominal / 15;
+}
+
+function padTimecodeComponent(value: number): string {
+	return String(value).padStart(2, '0');
+}
+
+/** Render a label-frame count as `HH:MM:SS<sep>FF` — `:` for NDF, `;` for DF. */
+function formatTimecodeLabel(
+	labelFrame: number,
+	nominal: number,
+	frameSeparator: ':' | ';'
+): string {
+	const ff = labelFrame % nominal;
+	const totalSeconds = Math.floor(labelFrame / nominal);
+	const ss = totalSeconds % 60;
+	const mm = Math.floor(totalSeconds / 60) % 60;
+	const hh = Math.floor(totalSeconds / 3600) % 24;
+	return (
+		`${padTimecodeComponent(hh)}:${padTimecodeComponent(mm)}:${padTimecodeComponent(ss)}` +
+		`${frameSeparator}${padTimecodeComponent(ff)}`
+	);
+}
+
 /** Absolute frame index → NDF timecode (`HH:MM:SS:FF`, wrapping at 24 h). */
 export function framesToTimecode(frame: number, rate: FrameRate): string {
 	if (!Number.isInteger(frame) || frame < 0) {
 		throw new TypeError(`Timecode frame must be a non-negative integer, got ${frame}.`);
 	}
+	return formatTimecodeLabel(frame, nominalTimecodeRate(rate), ':');
+}
+
+/**
+ * Absolute frame index → drop-frame timecode (`HH:MM:SS;FF`, wrapping at
+ * 24 h). DF labels skip the first 2 frame labels of each minute except every
+ * 10th (4 at 59.94), keeping the label near wall clock while every frame
+ * stays counted.
+ */
+export function framesToDropTimecode(frame: number, rate: FrameRate): string {
+	if (!Number.isInteger(frame) || frame < 0) {
+		throw new TypeError(`Timecode frame must be a non-negative integer, got ${frame}.`);
+	}
 	const nominal = nominalTimecodeRate(rate);
-	const ff = frame % nominal;
-	const totalSeconds = Math.floor(frame / nominal);
-	const ss = totalSeconds % 60;
-	const mm = Math.floor(totalSeconds / 60) % 60;
-	const hh = Math.floor(totalSeconds / 3600) % 24;
-	const pad = (value: number): string => String(value).padStart(2, '0');
-	return `${pad(hh)}:${pad(mm)}:${pad(ss)}:${pad(ff)}`;
+	const dropped = dropFrameLabelCount(rate);
+	const framesPerMinute = nominal * 60 - dropped;
+	const framesPerTenMinutes = framesPerMinute * 10 + dropped;
+	const tenMinuteBlocks = Math.floor(frame / framesPerTenMinutes);
+	const remainder = frame % framesPerTenMinutes;
+	const labelFrame =
+		frame +
+		dropped * 9 * tenMinuteBlocks +
+		(remainder > dropped ? dropped * Math.floor((remainder - dropped) / framesPerMinute) : 0);
+	return formatTimecodeLabel(labelFrame, nominal, ';');
 }
 
 /**
@@ -136,6 +194,31 @@ export function timecodeToFrames(timecode: string, rate: FrameRate): number {
 		);
 	}
 	return (Number(hh) * 3600 + Number(mm) * 60 + Number(ss)) * nominal + frames;
+}
+
+/** Drop-frame timecode (`HH:MM:SS;FF`) → absolute frame index at `rate`. */
+export function dropTimecodeToFrames(timecode: string, rate: FrameRate): number {
+	const match = DROP_TIMECODE_PATTERN.exec(timecode);
+	if (!match) {
+		throw new TypeError(`Expected a drop-frame HH:MM:SS;FF timecode, got "${timecode}".`);
+	}
+	const nominal = nominalTimecodeRate(rate);
+	const dropped = dropFrameLabelCount(rate);
+	const [, hh, mm, ss, ff] = match;
+	const frames = Number(ff);
+	if (frames >= nominal) {
+		throw new TypeError(
+			`Timecode "${timecode}" carries frame ${frames}, beyond the ${nominal} fps label rate.`
+		);
+	}
+	if (Number(mm) % 10 !== 0 && Number(ss) === 0 && frames < dropped) {
+		throw new TypeError(
+			`Drop-frame timecode "${timecode}" names a dropped label — the first ${dropped} frame labels of this minute do not exist.`
+		);
+	}
+	const totalMinutes = Number(hh) * 60 + Number(mm);
+	const labelFrame = (Number(hh) * 3600 + Number(mm) * 60 + Number(ss)) * nominal + frames;
+	return labelFrame - dropped * (totalMinutes - Math.floor(totalMinutes / 10));
 }
 
 /**

@@ -3,9 +3,12 @@ import { describe, it } from 'vitest';
 
 import type { EngineState } from '$lib/platform/engine-schema';
 import {
+	dropTimecodeToFrames,
 	formatFrameRateRational,
+	framesToDropTimecode,
 	framesToSeconds,
 	framesToTimecode,
+	isDropTimecode,
 	isNonDropTimecode,
 	rescaleCompositionTimings,
 	resolveFrameRate,
@@ -113,5 +116,56 @@ describe('frame-rate rationals (ADR-0042)', () => {
 		assert.ok(!isNonDropTimecode('01:00:08;00'), 'drop-frame separators are rejected');
 		assert.ok(!isNonDropTimecode('1:0:8:0'));
 		assert.throws(() => timecodeToFrames('00:00:00:30', rate), /beyond the 30 fps/);
+	});
+
+	it('labels drop-frame timecode at 29.97 (skip 2 per minute, none every 10th)', () => {
+		const rate = resolveFrameRate(29.97);
+		assert.equal(framesToDropTimecode(0, rate), '00:00:00;00');
+		// Minute 0 drops nothing: the full 1800 labels exist.
+		assert.equal(framesToDropTimecode(1799, rate), '00:00:59;29');
+		// Minute 1 starts at label ;02 — ;00 and ;01 are dropped.
+		assert.equal(framesToDropTimecode(1800, rate), '00:01:00;02');
+		// Every 10th minute drops nothing: 10 real minutes land exactly on ;00.
+		assert.equal(framesToDropTimecode(17982, rate), '00:10:00;00');
+		assert.equal(framesToDropTimecode(17984, rate), '00:10:00;02');
+		// One DF hour is 107892 frames — the ReachyMini timeline's 01:00:00;00 start.
+		assert.equal(framesToDropTimecode(107892, rate), '01:00:00;00');
+		assert.equal(dropTimecodeToFrames('01:00:00;00', rate), 107892);
+		assert.equal(dropTimecodeToFrames('00:01:00;02', rate), 1800);
+		for (const frame of [1, 45, 1799, 1800, 17981, 17982, 107892, 456789]) {
+			assert.equal(dropTimecodeToFrames(framesToDropTimecode(frame, rate), rate), frame);
+		}
+	});
+
+	it('labels drop-frame timecode at 59.94 (skip 4 per minute)', () => {
+		const rate = resolveFrameRate(59.94);
+		assert.equal(framesToDropTimecode(3599, rate), '00:00:59;59');
+		assert.equal(framesToDropTimecode(3600, rate), '00:01:00;04');
+		assert.equal(framesToDropTimecode(35964, rate), '00:10:00;00');
+		assert.equal(framesToDropTimecode(215784, rate), '01:00:00;00');
+		assert.equal(dropTimecodeToFrames('01:00:00;00', rate), 215784);
+	});
+
+	it('recognizes the drop-frame separator', () => {
+		assert.ok(isDropTimecode('01:00:08;00'));
+		assert.ok(!isDropTimecode('01:00:08:00'), 'NDF separators are not drop-frame');
+		assert.ok(!isDropTimecode('01;00;08;00'), 'only the frame separator is a semicolon');
+	});
+
+	it('rejects drop-frame labels that do not exist', () => {
+		const rate = resolveFrameRate(29.97);
+		// The first two labels of every non-tenth minute are dropped.
+		assert.throws(() => dropTimecodeToFrames('00:01:00;00', rate), /dropped label/);
+		assert.throws(() => dropTimecodeToFrames('00:01:00;01', rate), /dropped label/);
+		// Tenth minutes drop nothing.
+		assert.equal(dropTimecodeToFrames('00:10:00;00', rate), 17982);
+		assert.throws(() => dropTimecodeToFrames('00:00:00;30', rate), /beyond the 30 fps/);
+		assert.throws(() => dropTimecodeToFrames('01:00:00:00', rate), /drop-frame HH:MM:SS;FF/);
+	});
+
+	it('rejects drop-frame conversion outside 29.97/59.94', () => {
+		assert.throws(() => framesToDropTimecode(0, resolveFrameRate(30)), /only defined for 29\.97/);
+		assert.throws(() => framesToDropTimecode(0, resolveFrameRate(23.976)), /only defined for 29\.97/);
+		assert.throws(() => dropTimecodeToFrames('00:00:01;00', resolveFrameRate(24)), /only defined for 29\.97/);
 	});
 });

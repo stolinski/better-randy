@@ -319,6 +319,25 @@ describe('deriveMarkerSync', () => {
 		);
 	});
 
+	it('emits drop-frame start timecode when the timeline start TC declares DF', () => {
+		// The ReachyMini shape: a DF timeline starting 01:00:00;00 — one DF hour
+		// is 107892 real frames, so GetStartFrame is 107892, not 108000.
+		const snapshot = rundownSnapshot();
+		snapshot.startFrame = 107892;
+		snapshot.startTimecode = '01:00:00;00';
+		const derivation = deriveMarkerSync(snapshot, rundownOptions());
+		assert.equal(derivation.headRecordFrame, 107892 + 240);
+		assert.equal(derivation.startTimecode, '01:00:08;00');
+	});
+
+	it('keeps NDF labels when the start TC uses colon separators', () => {
+		const snapshot = rundownSnapshot();
+		snapshot.startFrame = 108000;
+		snapshot.startTimecode = '01:00:00:00';
+		const derivation = deriveMarkerSync(snapshot, rundownOptions());
+		assert.equal(derivation.startTimecode, '01:00:08:00');
+	});
+
 	it('falls back to last beat + tail when the head is undragged and unclosed, with a warning', () => {
 		const snapshot = rundownSnapshot();
 		snapshot.markers[1].durationFrames = 1;
@@ -453,6 +472,11 @@ describe('sync round-trip artifacts', () => {
 		assert.equal(
 			buildSyncExportFilename('checklist-show-rundown', '00:00:08:00', 300, 1),
 			'checklist-show-rundown__00-00-08-00__300f__v1.mov'
+		);
+		// A drop-frame TC's semicolon flattens to '-' too — no ';' in filenames.
+		assert.equal(
+			buildSyncExportFilename('reachy-objective', '01:00:08;00', 300, 2),
+			'reachy-objective__01-00-08-00__300f__v2.mov'
 		);
 	});
 });

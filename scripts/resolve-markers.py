@@ -19,6 +19,7 @@ Output shape (stdout, one JSON object; errors emit {"error": …} and exit 1):
     "project": "…", "timeline": "…",
     "fps": "29.97",            # raw GetSetting('timelineFrameRate') string
     "startFrame": 108000,       # GetStartFrame() — marker frameIds are relative
+    "startTimecode": "01:00:00;00",  # GetStartTimecode() — ';' declares drop-frame
     "markers": [
       { "frameId": 240, "color": "Blue", "name": "…", "note": "…",
         "durationFrames": 300, "customData": "…" }
@@ -118,6 +119,7 @@ def main():
                 "timeline": timeline.GetName(),
                 "fps": timeline.GetSetting("timelineFrameRate"),
                 "startFrame": int(timeline.GetStartFrame()),
+                "startTimecode": timeline.GetStartTimecode(),
                 "markers": markers,
             }
         )

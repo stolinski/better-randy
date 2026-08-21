@@ -1,4 +1,5 @@
 import {
+	framesToDropTimecode,
 	framesToSeconds,
 	framesToTimecode,
 	resolveFrameRate,
@@ -58,6 +59,12 @@ export interface ResolveTimelineSnapshot {
 	fps: number;
 	/** `Timeline.GetStartFrame()` — marker frameIds are relative to this. */
 	startFrame: number;
+	/**
+	 * `Timeline.GetStartTimecode()` — its frame separator is the timeline's
+	 * DF/NDF declaration (`01:00:00;00` = drop-frame, `01:00:00:00` = NDF).
+	 * Optional: snapshots taken before the field existed derive NDF.
+	 */
+	startTimecode?: string;
 	markers: ResolveMarker[];
 }
 
@@ -140,7 +147,11 @@ export interface MarkerSyncDerivation {
 	spanSource: MarkerSyncSpanSource;
 	/** Absolute timeline frame the piece places at (startFrame + head offset). */
 	headRecordFrame: number;
-	/** NDF timecode at `headRecordFrame` — the export's embedded `-timecode`. */
+	/**
+	 * Timecode at `headRecordFrame` — the export's embedded `-timecode`.
+	 * Drop-frame (`HH:MM:SS;FF`) when the timeline's start TC declares DF,
+	 * NDF (`HH:MM:SS:FF`) otherwise.
+	 */
 	startTimecode: string;
 	/** This sync's version (1 + the highest already written on the group). */
 	version: number;
@@ -212,14 +223,14 @@ export function buildMarkerCustomData(slug: string, beat: number, version: numbe
 	return JSON.stringify(payload);
 }
 
-/** `<slug>__<startTC with '-' separators>__<frames>f__v<version>.mov` */
+/** `<slug>__<startTC with '-' separators>__<frames>f__v<version>.mov` — a DF `;` becomes `-` too (the embedded tmcd atom keeps the DF/NDF distinction). */
 export function buildSyncExportFilename(
 	slug: string,
 	startTimecode: string,
 	frames: number,
 	version: number
 ): string {
-	return `${slug}__${startTimecode.replaceAll(':', '-')}__${frames}f__v${version}.mov`;
+	return `${slug}__${startTimecode.replace(/[:;]/g, '-')}__${frames}f__v${version}.mov`;
 }
 
 /** The role a beat's label suffix assigns to its item. */
@@ -514,6 +525,9 @@ export function deriveMarkerSync(
 	}
 
 	const headRecordFrame = snapshot.startFrame + group.head.frameId;
+	// Resolve's GetStartFrame already counts real frames in both TC modes —
+	// only the LABEL differs, declared by the start TC's frame separator.
+	const isDropFrameTimeline = snapshot.startTimecode?.includes(';') ?? false;
 
 	return {
 		fps,
@@ -521,7 +535,9 @@ export function deriveMarkerSync(
 		spanFrames,
 		spanSource,
 		headRecordFrame,
-		startTimecode: framesToTimecode(headRecordFrame, rate),
+		startTimecode: isDropFrameTimeline
+			? framesToDropTimecode(headRecordFrame, rate)
+			: framesToTimecode(headRecordFrame, rate),
 		version: nextSyncVersion(group),
 		itemWindows,
 		syncedBeats: group.beats.slice(0, syncedCount).map((beat) => ({

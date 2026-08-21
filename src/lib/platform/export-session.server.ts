@@ -10,7 +10,9 @@ import * as Sentry from '@sentry/sveltekit';
 import { createReadableStream } from '@sveltejs/kit/node';
 
 import {
+	dropTimecodeToFrames,
 	formatFrameRateRational,
+	isDropTimecode,
 	isNonDropTimecode,
 	resolveFrameRate,
 	type FrameRate
@@ -132,8 +134,22 @@ export function parseExportSessionRequest(value: unknown): ExportSessionRequest 
 		if (format !== 'prores') {
 			throw new ExportSessionError(400, 'A start timecode requires the ProRes format.');
 		}
-		if (typeof startTimecode !== 'string' || !isNonDropTimecode(startTimecode)) {
-			throw new ExportSessionError(400, 'Expected a non-drop HH:MM:SS:FF start timecode.');
+		if (typeof startTimecode !== 'string') {
+			throw new ExportSessionError(400, 'Expected an HH:MM:SS:FF or HH:MM:SS;FF start timecode.');
+		}
+		if (isDropTimecode(startTimecode)) {
+			// DF is only defined at 29.97/59.94 and its first minute labels don't
+			// all exist — the conversion validates both before ffmpeg sees the TC.
+			try {
+				dropTimecodeToFrames(startTimecode, resolveFrameRate(fps));
+			} catch (cause) {
+				throw new ExportSessionError(
+					400,
+					cause instanceof Error ? cause.message : 'Invalid drop-frame start timecode.'
+				);
+			}
+		} else if (!isNonDropTimecode(startTimecode)) {
+			throw new ExportSessionError(400, 'Expected an HH:MM:SS:FF or HH:MM:SS;FF start timecode.');
 		}
 	}
 	return { format, fps, frameCount, opaque: record.opaque, audioBytes, startTimecode };

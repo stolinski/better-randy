@@ -32,7 +32,7 @@ Snapshot → identify → derive → write Preset → export → ship → re-rea
 
 ### 1. Snapshot
 
-Run `scripts/resolve-markers.py` (dumb pipe, no logic) → `{product, project, timeline, fps, startFrame, markers[]}`. `--project` / `--timeline` are optional (defaults: current). Marker `frameId`s are RELATIVE to `startFrame` — normalize once; record frames are absolute.
+Run `scripts/resolve-markers.py` (dumb pipe, no logic) → `{product, project, timeline, fps, startFrame, startTimecode, markers[]}`. `--project` / `--timeline` are optional (defaults: current). Marker `frameId`s are RELATIVE to `startFrame` — normalize once; record frames are absolute. `startTimecode`'s frame separator declares the timeline's TC mode (`01:00:00;00` = drop-frame, `:` = NDF) — the derivation emits its `startTimecode` in the matching mode.
 
 ### 2. Identify the group and beat semantics
 

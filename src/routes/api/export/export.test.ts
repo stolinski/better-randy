@@ -149,6 +149,35 @@ describe('export session protocol parsing', () => {
 		assert.equal(hasPngSignature(PNG), true);
 	});
 
+	it('accepts a drop-frame start timecode at 29.97', () => {
+		const request = parseExportSessionRequest({
+			format: 'prores',
+			fps: 29.97,
+			frameCount: 300,
+			opaque: false,
+			audioBytes: 0,
+			startTimecode: '01:00:00;00'
+		});
+		assert.equal(request.startTimecode, '01:00:00;00');
+	});
+
+	it('rejects drop-frame timecode at non-drop rates and nonexistent DF labels', () => {
+		const base = { format: 'prores', frameCount: 300, opaque: false, audioBytes: 0 };
+		assert.throws(
+			() => parseExportSessionRequest({ ...base, fps: 30, startTimecode: '01:00:00;00' }),
+			/only defined for 29\.97/
+		);
+		// 00:01:00;00 is a dropped label — it does not exist at 29.97 DF.
+		assert.throws(
+			() => parseExportSessionRequest({ ...base, fps: 29.97, startTimecode: '00:01:00;00' }),
+			/dropped label/
+		);
+		assert.throws(
+			() => parseExportSessionRequest({ ...base, fps: 29.97, startTimecode: '01;00;00;00' }),
+			/HH:MM:SS:FF or HH:MM:SS;FF/
+		);
+	});
+
 	it('rejects malformed counts, indexes, rates, and WebM timecode', () => {
 		assert.throws(
 			() =>
@@ -323,6 +352,22 @@ describe('export session encoding', () => {
 		} else {
 			assert.ok(args.includes('libvpx-vp9'));
 		}
+		await store.cancel(session.sessionId);
+	});
+
+	it('passes a drop-frame start timecode through to ffmpeg unchanged', async () => {
+		const { store, encoder } = await createStore();
+		const session = await store.create({
+			format: 'prores',
+			fps: 29.97,
+			frameCount: 1,
+			opaque: false,
+			audioBytes: 0,
+			startTimecode: '01:00:08;00'
+		});
+		await store.uploadFrame(session.sessionId, 0, frameRequest());
+		await store.complete(session.sessionId);
+		assert.equal(optionValue(encoder.spawnedArguments[0], '-timecode'), '01:00:08;00');
 		await store.cancel(session.sessionId);
 	});
 
