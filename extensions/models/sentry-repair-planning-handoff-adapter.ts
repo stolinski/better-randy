@@ -36,31 +36,34 @@ export const SentryRepairPlanningHandoffArgsSchema = z.object({
   expectedReconciliationFingerprint: FingerprintSchema,
   sourceTriage: z.string().min(1).max(180),
   expectedTriageFingerprint: FingerprintSchema,
-  issuePlans: z.array(SentryRepairAuthoredPlanSchema).max(100).superRefine(
-    (plans, context) => {
-      const issueIds = plans.map((plan) => plan.issueId);
-      if (new Set(issueIds).size !== issueIds.length) {
-        context.addIssue({
-          code: "custom",
-          message: "Authored repair plans must have unique issue ids",
-        });
-      }
-    },
-  ),
+  issuePlans: z.array(SentryRepairAuthoredPlanSchema).max(100).default([])
+    .superRefine(
+      (plans, context) => {
+        const issueIds = plans.map((plan) => plan.issueId);
+        if (new Set(issueIds).size !== issueIds.length) {
+          context.addIssue({
+            code: "custom",
+            message: "Authored repair plans must have unique issue ids",
+          });
+        }
+      },
+    ),
+  priorIntents: z.array(
+    z.lazy(() => SentryRepairIntentEnvelopeSchema),
+  ).max(5_000).default([]),
 });
 
 const SentryRepairPlanningRouteReasonSchema = z.enum([
   "source-ineligible",
-  "active-wip",
   "multiple-exact-matches",
   "completed-exact-match",
   "lexical-review",
-  "reproduction-required",
   "ambiguous-source",
   "stale-source",
   "dex-drift",
-  "missing-authored-plan",
   "unknown-authored-plan",
+  "invalid-prior-intent",
+  "conflicting-intent-supersession",
 ]);
 
 export const SentryRepairIntentSchema = z.strictObject({
@@ -80,10 +83,12 @@ export const SentryRepairIntentSchema = z.strictObject({
   firstSeen: z.string().datetime(),
   severityRank: z.number().int().min(0).max(5),
   priorityRank: z.number().int().min(0).max(3),
+  observedAt: z.string().datetime(),
   currentRelease: z.string().min(1).max(160),
-  disposition: z.literal("current-release"),
-  requiresReproduction: z.literal(false),
-  recommendation: z.enum(["create-task", "attach-existing"]),
+  disposition: z.enum(["current-release", "recent"]),
+  queueIntent: z.enum(["confirmed-repair", "reproduction-required"]),
+  requiresReproduction: z.boolean(),
+  recommendation: z.enum(["create-task", "attach-existing", "reproduce-first"]),
   existingDexTaskId: z.string().min(1).max(100).nullable(),
   scope: z.array(BoundedPlanningTextSchema).min(1).max(20),
   acceptanceCriteria: z.array(BoundedPlanningTextSchema).min(1).max(20),
@@ -95,18 +100,34 @@ export const SentryRepairIntentSchema = z.strictObject({
     shortId: IssueIdSchema,
   }),
   planningWorkItem: z.string().regex(/^sentry-[A-Za-z0-9_-]{1,100}$/),
+  supersedesIntentFingerprint: FingerprintSchema.nullable().default(null),
   idempotencyKey: FingerprintSchema,
   fingerprint: FingerprintSchema,
 }).superRefine((intent, context) => {
   const hasExistingTask = intent.existingDexTaskId !== null;
   if (
     (intent.recommendation === "attach-existing" && !hasExistingTask) ||
-    (intent.recommendation === "create-task" && hasExistingTask)
+    (intent.recommendation !== "attach-existing" && hasExistingTask)
   ) {
     context.addIssue({
       code: "custom",
       message:
-        "Attach intents require one existing task and create intents require none",
+        "Attach intents require one existing task and non-attach intents require none",
+    });
+  }
+  if (
+    intent.requiresReproduction !==
+      (intent.queueIntent === "reproduction-required") ||
+    intent.disposition !==
+      (intent.queueIntent === "confirmed-repair"
+        ? "current-release"
+        : "recent") ||
+    (intent.queueIntent === "confirmed-repair" &&
+      intent.recommendation === "reproduce-first")
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Repair intent route must match its observation disposition",
     });
   }
 });
@@ -272,7 +293,8 @@ async function sourceChainIsCurrent(
     sourceReconciliationFingerprint: triage.sourceReconciliationFingerprint,
     dexTaskCount: triage.dexTaskCount,
     activeTaskIds: triage.activeTaskIds,
-    automationEligible: triage.automationEligible,
+    queueEligible: triage.queueEligible,
+    executionCapacity: triage.executionCapacity,
     blockingReasons: triage.blockingReasons,
     items: triage.items,
   });
@@ -292,13 +314,15 @@ async function sourceChainIsCurrent(
 function currentDexRecommendationIsValid(
   shortId: string,
   title: string,
-  recommendation: "create-task" | "attach-existing",
+  recommendation: "create-task" | "attach-existing" | "reproduce-first",
   expectedTaskIds: string[],
   tasks: SentryDexTask[],
 ): boolean {
   const { exact, openExact, completedExact, lexical } =
     findSentryDexTaskMatches(shortId, title, tasks);
-  if (recommendation === "create-task") {
+  if (
+    recommendation === "create-task" || recommendation === "reproduce-first"
+  ) {
     return exact.length === 0 && lexical.length === 0 &&
       expectedTaskIds.length === 0;
   }
@@ -326,22 +350,98 @@ function sentryPriorityRank(
   return 0;
 }
 
+type SentryRepairIntentEnvelope = z.infer<
+  typeof SentryRepairIntentEnvelopeSchema
+>;
+
+async function repairIntentEnvelopeFingerprintIsValid(
+  envelope: SentryRepairIntentEnvelope,
+): Promise<boolean> {
+  return envelope.fingerprint === await createSentrySha256(canonicalSentryJson({
+    schemaVersion: envelope.schemaVersion,
+    sourceHandoff: envelope.sourceHandoff,
+    sourceHandoffFingerprint: envelope.sourceHandoffFingerprint,
+    planningWorkItem: envelope.planningWorkItem,
+    intent: envelope.intent,
+  }));
+}
+
+function latestPriorIntent(
+  priorIntents: SentryRepairIntentEnvelope[],
+): { head: SentryRepairIntentEnvelope | null; conflict: boolean } {
+  if (priorIntents.length === 0) return { head: null, conflict: false };
+  const fingerprints = new Set(priorIntents.map((entry) => entry.fingerprint));
+  const referenced = new Set(
+    priorIntents.flatMap((entry) =>
+      entry.intent.supersedesIntentFingerprint === null
+        ? []
+        : [entry.intent.supersedesIntentFingerprint]
+    ),
+  );
+  if ([...referenced].some((fingerprint) => !fingerprints.has(fingerprint))) {
+    return { head: null, conflict: true };
+  }
+  const heads = priorIntents.filter((entry) =>
+    !referenced.has(entry.fingerprint)
+  );
+  return heads.length === 1
+    ? { head: heads[0], conflict: false }
+    : { head: null, conflict: true };
+}
+
+function defaultRepairPlan(
+  queueIntent: "confirmed-repair" | "reproduction-required",
+): z.infer<typeof SentryRepairAuthoredPlanSchema> {
+  return queueIntent === "reproduction-required"
+    ? {
+      issueId: "placeholder",
+      scope: [
+        "Reproduce the bounded Sentry issue against the current checkout before any repair.",
+      ],
+      acceptanceCriteria: [
+        "Store a typed reproduced, not-reproduced, or inconclusive receipt bound to the source evidence.",
+      ],
+    }
+    : {
+      issueId: "placeholder",
+      scope: [
+        "Diagnose and repair the confirmed Sentry failure without widening public behavior.",
+      ],
+      acceptanceCriteria: [
+        "The affected flow passes deterministic verification without the confirmed failure.",
+      ],
+    };
+}
+
 async function createRepairIntent(
   args: SentryRepairPlanningHandoffArgs,
   snapshot: z.infer<typeof SentryIssueSnapshotSchema>,
   issue: z.infer<typeof SentryIssueReconciliationSchema>["items"][number],
   triageItem: z.infer<typeof SentryDexTriageSchema>["items"][number],
-  plan: z.infer<typeof SentryRepairAuthoredPlanSchema>,
+  plan: z.infer<typeof SentryRepairAuthoredPlanSchema> | undefined,
+  priorHead: SentryRepairIntentEnvelope | null,
+  priorIntents: SentryRepairIntentEnvelope[],
 ) {
-  if (snapshot.currentRelease === null) {
-    throw new Error("Current-release repair intent requires a release");
+  if (snapshot.currentRelease === null || issue.queueIntent === null) {
+    throw new Error(
+      "Actionable Sentry queue intent requires a current checkout release",
+    );
   }
+  const resolvedPlan = plan ?? {
+    ...defaultRepairPlan(issue.queueIntent),
+    issueId: issue.id,
+  };
   const idempotencyKey = await createSentrySha256(canonicalSentryJson({
     issueId: issue.id,
     sourceSnapshotFingerprint: args.expectedSnapshotFingerprint,
     sourceReconciliationFingerprint: args.expectedReconciliationFingerprint,
     sourceTriageFingerprint: args.expectedTriageFingerprint,
+    scope: resolvedPlan.scope,
+    acceptanceCriteria: resolvedPlan.acceptanceCriteria,
   }));
+  const replayIntent = priorIntents.find((entry) =>
+    entry.intent.idempotencyKey === idempotencyKey
+  );
   const intentBase = {
     schemaVersion: 1 as const,
     sourceSnapshot: args.sourceSnapshot,
@@ -359,17 +459,20 @@ async function createRepairIntent(
     firstSeen: issue.firstSeen,
     severityRank: sentrySeverityRank(issue.level),
     priorityRank: sentryPriorityRank(issue.priority),
+    observedAt: snapshot.capturedAt,
     currentRelease: snapshot.currentRelease,
-    disposition: "current-release" as const,
-    requiresReproduction: false as const,
+    disposition: issue.disposition as "current-release" | "recent",
+    queueIntent: issue.queueIntent,
+    requiresReproduction: issue.queueIntent === "reproduction-required",
     recommendation: triageItem.recommendation as
       | "create-task"
-      | "attach-existing",
+      | "attach-existing"
+      | "reproduce-first",
     existingDexTaskId: triageItem.recommendation === "attach-existing"
       ? triageItem.exactMatchTaskIds[0] ?? null
       : null,
-    scope: plan.scope,
-    acceptanceCriteria: plan.acceptanceCriteria,
+    scope: resolvedPlan.scope,
+    acceptanceCriteria: resolvedPlan.acceptanceCriteria,
     requestedSentryBacklink: {
       status: "requested" as const,
       mode: "post-planning-comment" as const,
@@ -378,6 +481,9 @@ async function createRepairIntent(
       shortId: issue.shortId,
     },
     planningWorkItem: `sentry-${issue.id}`,
+    supersedesIntentFingerprint: replayIntent
+      ? replayIntent.intent.supersedesIntentFingerprint
+      : priorHead?.fingerprint ?? null,
     idempotencyKey,
   };
   return SentryRepairIntentSchema.parse({
@@ -412,17 +518,34 @@ export async function executeSentryRepairPlanningHandoff(
   if (!await sourceChainIsCurrent(args, snapshot, reconciliation, triage)) {
     blockingReasons.add("stale-source");
   }
-  const triageQueueBlockers = triage.blockingReasons.filter((reason) =>
-    reason !== "active-wip"
-  );
   if (
     !snapshot.complete || !reconciliation.automationEligible ||
-    (!triage.automationEligible && triageQueueBlockers.length === 0 &&
-      !triage.blockingReasons.includes("active-wip"))
+    (!triage.queueEligible && triage.blockingReasons.length === 0 &&
+      triage.items.some((item) => item.queueIntent !== null))
   ) {
     blockingReasons.add("source-ineligible");
   }
-  for (const reason of triageQueueBlockers) blockingReasons.add(reason);
+  for (const reason of triage.blockingReasons) blockingReasons.add(reason);
+
+  const priorIntentsByIssue = new Map<string, SentryRepairIntentEnvelope[]>();
+  for (const envelope of args.priorIntents) {
+    if (!await repairIntentEnvelopeFingerprintIsValid(envelope)) {
+      blockingReasons.add("invalid-prior-intent");
+      continue;
+    }
+    const existing = priorIntentsByIssue.get(envelope.intent.issueId) ?? [];
+    existing.push(envelope);
+    priorIntentsByIssue.set(envelope.intent.issueId, existing);
+  }
+  const priorHeadsByIssue = new Map<
+    string,
+    SentryRepairIntentEnvelope | null
+  >();
+  for (const [issueId, priorIntents] of priorIntentsByIssue) {
+    const { head, conflict } = latestPriorIntent(priorIntents);
+    if (conflict) blockingReasons.add("conflicting-intent-supersession");
+    priorHeadsByIssue.set(issueId, head);
+  }
 
   const command = await dependencies.dexCommandRunner.run(
     ["list", "--all", "--json"],
@@ -447,9 +570,19 @@ export async function executeSentryRepairPlanningHandoff(
     args.issuePlans.map((plan) => [plan.issueId, plan]),
   );
   const candidates = triage.items.filter((item) =>
-    item.recommendation === "create-task" ||
-    item.recommendation === "attach-existing"
+    item.queueIntent !== null && (
+      item.recommendation === "create-task" ||
+      item.recommendation === "attach-existing" ||
+      item.recommendation === "reproduce-first"
+    )
   );
+  if (candidates.length === 0) {
+    for (const item of triage.items) {
+      if (item.quarantineReason !== null) {
+        blockingReasons.add(item.quarantineReason);
+      }
+    }
+  }
   const candidateIds = new Set(candidates.map((item) => item.issueId));
   for (const issueId of plansByIssueId.keys()) {
     if (!candidateIds.has(issueId)) {
@@ -458,24 +591,31 @@ export async function executeSentryRepairPlanningHandoff(
   }
   for (const candidate of candidates) {
     const issue = issueById.get(candidate.issueId);
-    const plan = plansByIssueId.get(candidate.issueId);
-    if (!issue || !plan) blockingReasons.add("missing-authored-plan");
-    if (!issue || issue.shortId !== candidate.shortId) {
+    if (
+      !issue || issue.shortId !== candidate.shortId ||
+      issue.queueIntent !== candidate.queueIntent
+    ) {
       blockingReasons.add("stale-source");
     }
-    if (
-      !issue || issue.disposition !== "current-release" ||
-      issue.requiresReproduction || !issue.repairCandidate ||
-      snapshot.currentRelease === null ||
-      !snapshot.currentReleaseIssueIds.includes(candidate.issueId)
-    ) {
+    const observationIsBound = issue?.queueIntent === "confirmed-repair"
+      ? issue.disposition === "current-release" &&
+        snapshot.currentReleaseIssueIds.includes(candidate.issueId)
+      : issue?.queueIntent === "reproduction-required"
+      ? issue.disposition === "recent" &&
+        snapshot.recentIssueIds.includes(candidate.issueId) &&
+        !snapshot.currentReleaseIssueIds.includes(candidate.issueId)
+      : false;
+    if (!issue || !observationIsBound || snapshot.currentRelease === null) {
       blockingReasons.add("stale-source");
     }
     if (
       issue && !currentDexRecommendationIsValid(
         candidate.shortId,
         issue.title,
-        candidate.recommendation as "create-task" | "attach-existing",
+        candidate.recommendation as
+          | "create-task"
+          | "attach-existing"
+          | "reproduce-first",
         candidate.exactMatchTaskIds,
         tasks,
       )
@@ -499,7 +639,9 @@ export async function executeSentryRepairPlanningHandoff(
           snapshot,
           issueById.get(candidate.issueId)!,
           candidate,
-          plansByIssueId.get(candidate.issueId)!,
+          plansByIssueId.get(candidate.issueId),
+          priorHeadsByIssue.get(candidate.issueId) ?? null,
+          priorIntentsByIssue.get(candidate.issueId) ?? [],
         )
       ),
     )).sort((left, right) =>
@@ -549,11 +691,13 @@ export async function executeSentryRepairPlanningHandoff(
       ...envelopeBase,
       fingerprint: await createSentrySha256(canonicalSentryJson(envelopeBase)),
     });
-    intentHandles.push(await context.writeResource(
-      "repair-intent",
-      `sentry-repair-intent-${intent.issueId}-${envelope.fingerprint}`,
-      envelope,
-    ));
+    intentHandles.push(
+      await context.writeResource(
+        "repair-intent",
+        `sentry-repair-intent-${intent.issueId}-${envelope.fingerprint}`,
+        envelope,
+      ),
+    );
   }
   context.logger.info("Stored Sentry repair Planning handoff", {
     status,

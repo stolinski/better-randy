@@ -27,8 +27,10 @@ function repairIntent() {
     firstSeen: "2026-08-18T00:00:00.000Z",
     severityRank: 4,
     priorityRank: 3,
+    observedAt: NOW,
     currentRelease: "supers@abc123",
     disposition: "current-release" as const,
+    queueIntent: "confirmed-repair" as const,
     requiresReproduction: false as const,
     recommendation: "create-task" as const,
     existingDexTaskId: null,
@@ -42,6 +44,7 @@ function repairIntent() {
       shortId: "SUPERS-17",
     },
     planningWorkItem: "sentry-7659756211",
+    supersedesIntentFingerprint: null,
     idempotencyKey: "d".repeat(64),
     fingerprint: "e".repeat(64),
   };
@@ -107,7 +110,9 @@ function approvedArgs() {
 class FakeRunner implements SentryRepairBacklinkCommandRunner {
   calls: string[][] = [];
   constructor(private readonly existingComments: unknown = []) {}
-  run(args: readonly string[]): Promise<{ code: number; stdout: string; stderr: string }> {
+  run(
+    args: readonly string[],
+  ): Promise<{ code: number; stdout: string; stderr: string }> {
     this.calls.push([...args]);
     return Promise.resolve({
       code: 0,
@@ -153,7 +158,8 @@ Deno.test("approved Planning posts one Dex backlink to the exact Sentry issue", 
 });
 
 Deno.test("backlink replay detects its marker and does not post twice", async () => {
-  const marker = `[supers-repair:${repairIntent().intent.fingerprint}:dex-task-17]`;
+  const marker =
+    `[supers-repair:${repairIntent().intent.fingerprint}:dex-task-17]`;
   const runner = new FakeRunner([{ text: `Already linked ${marker}` }]);
   const receipt = await runBacklink(runner);
   assert.equal(receipt.status, "already-linked");
@@ -164,6 +170,9 @@ Deno.test("backlink rejects uncorrelated Planning evidence before Sentry access"
   const runner = new FakeRunner();
   const args = approvedArgs();
   args.planningAudit.verifiedTaskIds = ["different-task"];
-  await assert.rejects(runBacklink(runner, args), /does not identify one audited/);
+  await assert.rejects(
+    runBacklink(runner, args),
+    /does not identify one audited/,
+  );
   assert.equal(runner.calls.length, 0);
 });

@@ -872,7 +872,17 @@ export async function buildSupersPlanningSourceSnapshot(
     repairIntent !== null &&
     repairIntent.planningWorkItem !== args.workItem
   ) {
-    throw new Error("Sentry repair intent does not match the Planning work item");
+    throw new Error(
+      "Sentry repair intent does not match the Planning work item",
+    );
+  }
+  if (
+    repairIntent !== null &&
+    repairIntent.intent.queueIntent !== "confirmed-repair"
+  ) {
+    throw new Error(
+      "Sentry reproduction intent cannot enter Planning before reproduction",
+    );
   }
   // New-idea intake intentionally starts before an approved Dex graph exists.
   // Sentry repair intake supplies its exact typed objective; ordinary intake
@@ -967,9 +977,13 @@ export async function deriveSupersPlanningInventory(
     : [PlanningContextReferenceSchema.parse({
       kind: "sentry-repair-intent",
       name: sourceSnapshot.repairIntent.intent.shortId,
-      reference: `swamp:data/supers-sentry-repair-planning-handoff/${sourceSnapshot.repairIntent.fingerprint}`,
-      summary: `release=${sourceSnapshot.repairIntent.intent.currentRelease}; recommendation=${sourceSnapshot.repairIntent.intent.recommendation}; scope=${sourceSnapshot.repairIntent.intent.scope.join("; ")}`
-        .slice(0, SUMMARY_MAX_LENGTH),
+      reference:
+        `swamp:data/supers-sentry-repair-planning-handoff/${sourceSnapshot.repairIntent.fingerprint}`,
+      summary:
+        `release=${sourceSnapshot.repairIntent.intent.currentRelease}; recommendation=${sourceSnapshot.repairIntent.intent.recommendation}; scope=${
+          sourceSnapshot.repairIntent.intent.scope.join("; ")
+        }`
+          .slice(0, SUMMARY_MAX_LENGTH),
     })];
   const coreContextRefs = [
     ...repairIntentContext,
@@ -1388,12 +1402,16 @@ export async function validateSupersPlanBoundary(
       (repairIntent.intent.recommendation === "attach-existing" &&
         !attachBoundary)
     ) {
-      throw new Error("Sentry repair Planning must apply exactly one approved task");
+      throw new Error(
+        "Sentry repair Planning must apply exactly one approved task",
+      );
     }
     if (createBoundary) {
       const task = createTasks[0]!;
       if (!exactSentryId(`${task.name}\n${task.description}`)) {
-        throw new Error("Sentry repair task must preserve the exact Sentry short id");
+        throw new Error(
+          "Sentry repair task must preserve the exact Sentry short id",
+        );
       }
     } else {
       const task = attachTasks[0]!;
@@ -1401,10 +1419,14 @@ export async function validateSupersPlanBoundary(
         task.selectorKind !== "id" ||
         task.selectorValue !== repairIntent.intent.existingDexTaskId
       ) {
-        throw new Error("Sentry repair attachment must target the triaged Dex task");
+        throw new Error(
+          "Sentry repair attachment must target the triaged Dex task",
+        );
       }
       if (!exactSentryId(`${task.expectedName}\n${task.expectedDescription}`)) {
-        throw new Error("Sentry repair task must preserve the exact Sentry short id");
+        throw new Error(
+          "Sentry repair task must preserve the exact Sentry short id",
+        );
       }
     }
   }

@@ -40,7 +40,7 @@ import {
 
 export const model = {
   type: "@supers/sentry-repair-planning-handoff",
-  version: "2026.08.19.2",
+  version: "2026.08.21.1",
   globalArguments: z.strictObject({
     sourceIntakeModelId: z.string().uuid(),
     sourceDeliveryModelId: z.string().uuid(),
@@ -55,10 +55,10 @@ export const model = {
     },
     "repair-intent": {
       description:
-        "One content-addressed queued Sentry repair intent bound to its source handoff",
+        "One content-addressed confirmed-repair or reproduction-required intent with replay-safe supersession",
       schema: SentryRepairIntentEnvelopeSchema,
       lifetime: "infinite",
-      garbageCollection: 500,
+      garbageCollection: 5000,
     },
     "queue-selection": {
       description:
@@ -118,7 +118,7 @@ export const model = {
     },
     "select-next": {
       description:
-        "Select or resume one Sentry repair Planning work item while preserving the remaining queue",
+        "Select the latest supersession head while preserving reproduction intents and the remaining queue",
       arguments: SentryRepairPlanningQueueArgsSchema,
       execute: (
         args: z.infer<typeof SentryRepairPlanningQueueArgsSchema>,

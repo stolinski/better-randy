@@ -1,6 +1,6 @@
 id: 20f80b57-6b39-4541-9470-cd414e5286db
 name: supers-sentry-readonly-intake
-description: Collect bounded unresolved Supers issues and derive one exact read-only Dex triage without mutating either system.
+description: Collect and triage bounded unresolved Supers issues, then persist typed actionable queue intents without mutating Sentry or Dex.
 tags:
   purpose: supers-sentry-self-healing-intake
   capability: read-only
@@ -35,7 +35,7 @@ inputs:
       pattern: '^[A-Za-z0-9@._:+-]+$'
 jobs:
   - name: main
-    description: Bind one current collection to one official-Dex triage through workflow-correlated immutable data.
+    description: Bind one current collection to official-Dex triage and durable superseding queue intents through workflow-correlated immutable data.
     steps:
       - name: collect-sentry-issues
         description: Store the bounded issue snapshot and current/recent/historical reconciliation.
@@ -66,6 +66,27 @@ jobs:
               type: succeeded
         weight: 0
         allowFailure: false
+      - name: persist-actionable-sentry-queue
+        description: Persist confirmed-repair and reproduction-required intents while retaining prior evidence for replay-safe supersession.
+        task:
+          type: model_method
+          modelIdOrName: supers-sentry-repair-planning-handoff
+          methodName: prepare
+          inputs:
+            sourceSnapshot: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "snapshot" && workflowRunId == "'' + run.id + ''"'')[0].name }}'
+            expectedSnapshotFingerprint: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "snapshot" && workflowRunId == "'' + run.id + ''"'')[0].attributes.fingerprint }}'
+            sourceReconciliation: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "reconciliation" && workflowRunId == "'' + run.id + ''"'')[0].name }}'
+            expectedReconciliationFingerprint: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "reconciliation" && workflowRunId == "'' + run.id + ''"'')[0].attributes.fingerprint }}'
+            sourceTriage: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "triage" && workflowRunId == "'' + run.id + ''"'')[0].name }}'
+            expectedTriageFingerprint: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "triage" && workflowRunId == "'' + run.id + ''"'')[0].attributes.fingerprint }}'
+            issuePlans: []
+            priorIntents: '${{ data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "repair-intent"'').map(resource, resource.attributes) }}'
+        dependsOn:
+          - step: triage-against-dex
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
       - name: assert-correlated-triage
         description: Require the terminal triage to preserve the exact current-run reconciliation fingerprint.
         task:
@@ -74,11 +95,24 @@ jobs:
           message: Sentry intake triage did not preserve the current workflow reconciliation fingerprint
           severity: high
         dependsOn:
-          - step: triage-against-dex
+          - step: persist-actionable-sentry-queue
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+      - name: assert-correlated-queue
+        description: Require the current queue handoff to bind the exact triage produced by this scheduled run.
+        task:
+          type: assert
+          expr: 'data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "handoff" && workflowRunId == "'' + run.id + ''"'')[0].attributes.sourceTriageFingerprint == data.query(''modelName == "supers-sentry-issue-intake" && specName == "triage" && workflowRunId == "'' + run.id + ''"'')[0].attributes.fingerprint'
+          message: Sentry actionable queue did not preserve the current workflow triage fingerprint
+          severity: high
+        dependsOn:
+          - step: persist-actionable-sentry-queue
             condition:
               type: succeeded
         weight: 0
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 1
+version: 2

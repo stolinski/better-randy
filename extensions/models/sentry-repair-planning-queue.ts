@@ -9,7 +9,9 @@ import {
 } from "./sentry-repair-planning-handoff-adapter.ts";
 
 const FingerprintSchema = z.string().regex(/^[0-9a-f]{64}$/);
-const PlanningWorkItemSchema = z.string().regex(/^sentry-[A-Za-z0-9_-]{1,100}$/);
+const PlanningWorkItemSchema = z.string().regex(
+  /^sentry-[A-Za-z0-9_-]{1,100}$/,
+);
 
 const SentryRepairPlanningStateSchema = z.strictObject({
   workItem: PlanningWorkItemSchema,
@@ -26,7 +28,7 @@ const PriorQueueSelectionSchema = z.strictObject({
 // Swamp supplies persisted global arguments alongside method arguments at
 // execution time; strip them before validating the queue selector payload.
 export const SentryRepairPlanningQueueArgsSchema = z.object({
-  repairIntents: z.array(SentryRepairIntentEnvelopeSchema).max(500),
+  repairIntents: z.array(SentryRepairIntentEnvelopeSchema).max(5_000),
   planningStates: z.array(SentryRepairPlanningStateSchema).max(500),
   priorSelections: z.array(PriorQueueSelectionSchema).max(1),
 });
@@ -34,12 +36,13 @@ export const SentryRepairPlanningQueueArgsSchema = z.object({
 export const SentryRepairPlanningQueueSelectionSchema = z.strictObject({
   schemaVersion: z.literal(1),
   status: z.enum(["selected", "active", "no-candidate", "human-gate"]),
-  action: z.enum(["start", "status", "none"]),
+  action: z.enum(["start", "status", "await-reproduction", "none"]),
   reason: z.enum([
     "next-queued-intent",
+    "next-reproduction-intent",
     "resume-active-intent",
     "queue-empty",
-    "multiple-intent-versions",
+    "conflicting-intent-supersession",
     "multiple-active-repairs",
     "active-intent-missing",
     "invalid-intent-fingerprint",
@@ -80,14 +83,19 @@ async function envelopeFingerprintIsValid(
     envelope.planningWorkItem === envelope.intent.planningWorkItem;
 }
 
-function queueOrder(left: RepairIntentEnvelope, right: RepairIntentEnvelope): number {
+function queueOrder(
+  left: RepairIntentEnvelope,
+  right: RepairIntentEnvelope,
+): number {
   return right.intent.severityRank - left.intent.severityRank ||
     right.intent.priorityRank - left.intent.priorityRank ||
     left.intent.firstSeen.localeCompare(right.intent.firstSeen) ||
     left.intent.issueId.localeCompare(right.intent.issueId);
 }
 
-function latestStateByWorkItem(states: PlanningState[]): Map<string, PlanningState> {
+function latestStateByWorkItem(
+  states: PlanningState[],
+): Map<string, PlanningState> {
   return new Map(states.map((state) => [state.workItem, state]));
 }
 
@@ -105,40 +113,66 @@ export async function selectSentryRepairPlanningQueue(
     byWorkItem.set(envelope.planningWorkItem, existing);
   }
 
-  const ambiguousWorkItems = [...byWorkItem.entries()]
-    .filter(([, envelopes]) => envelopes.length !== 1)
-    .map(([workItem]) => workItem)
-    .sort();
+  const latestByWorkItem = new Map<string, RepairIntentEnvelope>();
+  const conflictingWorkItems: string[] = [];
+  for (const [workItem, envelopes] of byWorkItem) {
+    const fingerprints = new Set(
+      envelopes.map((envelope) => envelope.fingerprint),
+    );
+    const referenced = new Set(
+      envelopes.flatMap((envelope) =>
+        envelope.intent.supersedesIntentFingerprint === null
+          ? []
+          : [envelope.intent.supersedesIntentFingerprint]
+      ),
+    );
+    const hasMissingAncestor = [...referenced].some((fingerprint) =>
+      !fingerprints.has(fingerprint)
+    );
+    const heads = envelopes.filter((envelope) =>
+      !referenced.has(envelope.fingerprint)
+    );
+    if (hasMissingAncestor || heads.length !== 1) {
+      conflictingWorkItems.push(workItem);
+    } else {
+      latestByWorkItem.set(workItem, heads[0]);
+    }
+  }
+  conflictingWorkItems.sort();
   const statesByWorkItem = latestStateByWorkItem(args.planningStates);
   const activeWorkItems = args.planningStates
     .filter((state) => state.status === "active")
     .map((state) => state.workItem)
     .sort();
-  const orderedQueue = [...byWorkItem.values()]
-    .filter((envelopes) => envelopes.length === 1)
-    .map(([envelope]) => envelope)
+  const orderedQueue = [...latestByWorkItem.values()]
     .filter((envelope) => !statesByWorkItem.has(envelope.planningWorkItem))
     .sort(queueOrder);
 
-  let status: z.infer<typeof SentryRepairPlanningQueueSelectionSchema>["status"];
-  let action: z.infer<typeof SentryRepairPlanningQueueSelectionSchema>["action"];
-  let reason: z.infer<typeof SentryRepairPlanningQueueSelectionSchema>["reason"];
+  let status: z.infer<
+    typeof SentryRepairPlanningQueueSelectionSchema
+  >["status"];
+  let action: z.infer<
+    typeof SentryRepairPlanningQueueSelectionSchema
+  >["action"];
+  let reason: z.infer<
+    typeof SentryRepairPlanningQueueSelectionSchema
+  >["reason"];
   let selected: RepairIntentEnvelope | null = null;
   if (invalidFingerprint) {
     status = "human-gate";
     action = "none";
     reason = "invalid-intent-fingerprint";
-  } else if (ambiguousWorkItems.length > 0) {
+  } else if (conflictingWorkItems.length > 0) {
     status = "human-gate";
     action = "none";
-    reason = "multiple-intent-versions";
+    reason = "conflicting-intent-supersession";
   } else if (activeWorkItems.length > 1) {
     status = "human-gate";
     action = "none";
     reason = "multiple-active-repairs";
   } else if (activeWorkItems.length === 1) {
-    const matches = byWorkItem.get(activeWorkItems[0]) ?? [];
-    if (matches.length !== 1) {
+    const match = latestByWorkItem.get(activeWorkItems[0]);
+    if (!match) {
       status = "human-gate";
       action = "none";
       reason = "active-intent-missing";
@@ -146,30 +180,38 @@ export async function selectSentryRepairPlanningQueue(
       status = "active";
       action = "status";
       reason = "resume-active-intent";
-      selected = matches[0];
+      selected = match;
     }
   } else if (
     args.priorSelections[0]?.status === "selected" &&
     args.priorSelections[0].selectedWorkItem !== null &&
     !statesByWorkItem.has(args.priorSelections[0].selectedWorkItem)
   ) {
-    const matches = byWorkItem.get(
+    const match = latestByWorkItem.get(
       args.priorSelections[0].selectedWorkItem,
-    ) ?? [];
-    if (matches.length !== 1) {
+    );
+    if (!match) {
       status = "human-gate";
       action = "none";
       reason = "active-intent-missing";
     } else {
       status = "selected";
-      action = "start";
-      reason = "next-queued-intent";
-      selected = matches[0];
+      action = match.intent.queueIntent === "reproduction-required"
+        ? "await-reproduction"
+        : "start";
+      reason = match.intent.queueIntent === "reproduction-required"
+        ? "next-reproduction-intent"
+        : "next-queued-intent";
+      selected = match;
     }
   } else if (orderedQueue.length > 0) {
     status = "selected";
-    action = "start";
-    reason = "next-queued-intent";
+    action = orderedQueue[0].intent.queueIntent === "reproduction-required"
+      ? "await-reproduction"
+      : "start";
+    reason = orderedQueue[0].intent.queueIntent === "reproduction-required"
+      ? "next-reproduction-intent"
+      : "next-queued-intent";
     selected = orderedQueue[0];
   } else {
     status = "no-candidate";
@@ -189,7 +231,9 @@ export async function selectSentryRepairPlanningQueue(
   };
   const selection = SentryRepairPlanningQueueSelectionSchema.parse({
     ...withoutFingerprint,
-    fingerprint: await createSentrySha256(canonicalSentryJson(withoutFingerprint)),
+    fingerprint: await createSentrySha256(
+      canonicalSentryJson(withoutFingerprint),
+    ),
   });
   const handle = await context.writeResource(
     "queue-selection",

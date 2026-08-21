@@ -21,8 +21,11 @@ async function envelope(overrides: {
   severityRank: number;
   priorityRank: number;
   firstSeen: string;
+  queueIntent?: "confirmed-repair" | "reproduction-required";
+  supersedesIntentFingerprint?: string | null;
 }) {
   const planningWorkItem = `sentry-${overrides.issueId}`;
+  const queueIntent = overrides.queueIntent ?? "confirmed-repair";
   const intentBase = {
     schemaVersion: 1 as const,
     sourceSnapshot: "snapshot",
@@ -40,10 +43,16 @@ async function envelope(overrides: {
     firstSeen: overrides.firstSeen,
     severityRank: overrides.severityRank,
     priorityRank: overrides.priorityRank,
+    observedAt: "2026-08-20T00:00:00.000Z",
     currentRelease: "supers@abc123",
-    disposition: "current-release" as const,
-    requiresReproduction: false as const,
-    recommendation: "create-task" as const,
+    disposition: queueIntent === "confirmed-repair"
+      ? "current-release" as const
+      : "recent" as const,
+    queueIntent,
+    requiresReproduction: queueIntent === "reproduction-required",
+    recommendation: queueIntent === "confirmed-repair"
+      ? "create-task" as const
+      : "reproduce-first" as const,
     existingDexTaskId: null,
     scope: ["Repair the affected flow."],
     acceptanceCriteria: ["The issue no longer reproduces."],
@@ -55,6 +64,7 @@ async function envelope(overrides: {
       shortId: overrides.shortId,
     },
     planningWorkItem,
+    supersedesIntentFingerprint: overrides.supersedesIntentFingerprint ?? null,
     idempotencyKey: "d".repeat(64),
   };
   const intent = SentryRepairIntentSchema.parse({
@@ -98,7 +108,9 @@ async function select(args: {
       logger: { info: () => undefined, warning: () => undefined },
       writeResource: (_specName, _name, data) => {
         writes.push(data);
-        return Promise.resolve({ name: "sentry-repair-planning-queue-selection" });
+        return Promise.resolve({
+          name: "sentry-repair-planning-queue-selection",
+        });
       },
     },
   );
@@ -131,7 +143,11 @@ Deno.test("repair queue orders by severity, priority, firstSeen, then issue id",
   ];
   const result = await select({ repairIntents: intents });
   assert.equal(result.selectedWorkItem, "sentry-2");
-  assert.deepEqual(result.queuedWorkItems, ["sentry-2", "sentry-1", "sentry-3"]);
+  assert.deepEqual(result.queuedWorkItems, [
+    "sentry-2",
+    "sentry-1",
+    "sentry-3",
+  ]);
 });
 
 Deno.test("repair queue resumes one active item and keeps later work queued", async () => {
@@ -151,7 +167,11 @@ Deno.test("repair queue resumes one active item and keeps later work queued", as
   });
   const active = await select({
     repairIntents: [first, second],
-    planningStates: [{ workItem: "sentry-1", status: "active", stageId: "inventory" }],
+    planningStates: [{
+      workItem: "sentry-1",
+      status: "active",
+      stageId: "inventory",
+    }],
   });
   assert.equal(active.status, "active");
   assert.equal(active.action, "status");
@@ -159,7 +179,11 @@ Deno.test("repair queue resumes one active item and keeps later work queued", as
 
   const afterTerminal = await select({
     repairIntents: [first, second],
-    planningStates: [{ workItem: "sentry-1", status: "terminal", stageId: "done" }],
+    planningStates: [{
+      workItem: "sentry-1",
+      status: "terminal",
+      stageId: "done",
+    }],
   });
   assert.equal(afterTerminal.action, "start");
   assert.equal(afterTerminal.selectedWorkItem, "sentry-2");
@@ -186,7 +210,7 @@ Deno.test("repair queue replay keeps the same selected work item before Factory 
   assert.equal(replay.selectedWorkItem, initial.selectedWorkItem);
 });
 
-Deno.test("repair queue fails closed on multiple intent versions or active repairs", async () => {
+Deno.test("repair queue selects a supersession head and rejects conflicting branches", async () => {
   const intent = await envelope({
     issueId: "1",
     shortId: "SUPERS-1",
@@ -194,19 +218,33 @@ Deno.test("repair queue fails closed on multiple intent versions or active repai
     priorityRank: 3,
     firstSeen: "2026-08-01T00:00:00.000Z",
   });
-  const duplicate = structuredClone(intent);
-  duplicate.sourceHandoff = "other-handoff";
-  const duplicateBase = {
-    schemaVersion: duplicate.schemaVersion,
-    sourceHandoff: duplicate.sourceHandoff,
-    sourceHandoffFingerprint: duplicate.sourceHandoffFingerprint,
-    planningWorkItem: duplicate.planningWorkItem,
-    intent: duplicate.intent,
+  const newer = await envelope({
+    issueId: "1",
+    shortId: "SUPERS-1",
+    severityRank: 5,
+    priorityRank: 3,
+    firstSeen: "2026-08-01T00:00:00.000Z",
+    supersedesIntentFingerprint: intent.fingerprint,
+  });
+  const superseded = await select({ repairIntents: [intent, newer] });
+  assert.equal(superseded.status, "selected");
+  assert.equal(superseded.selectedIntentFingerprint, newer.fingerprint);
+
+  const branch = structuredClone(newer);
+  branch.sourceHandoff = "branch-handoff";
+  const branchBase = {
+    schemaVersion: branch.schemaVersion,
+    sourceHandoff: branch.sourceHandoff,
+    sourceHandoffFingerprint: branch.sourceHandoffFingerprint,
+    planningWorkItem: branch.planningWorkItem,
+    intent: branch.intent,
   };
-  duplicate.fingerprint = await createSentrySha256(canonicalSentryJson(duplicateBase));
-  const ambiguous = await select({ repairIntents: [intent, duplicate] });
+  branch.fingerprint = await createSentrySha256(
+    canonicalSentryJson(branchBase),
+  );
+  const ambiguous = await select({ repairIntents: [intent, newer, branch] });
   assert.equal(ambiguous.status, "human-gate");
-  assert.equal(ambiguous.reason, "multiple-intent-versions");
+  assert.equal(ambiguous.reason, "conflicting-intent-supersession");
 
   const multipleActive = await select({
     repairIntents: [intent],
@@ -217,6 +255,21 @@ Deno.test("repair queue fails closed on multiple intent versions or active repai
   });
   assert.equal(multipleActive.status, "human-gate");
   assert.equal(multipleActive.reason, "multiple-active-repairs");
+});
+
+Deno.test("reproduction intent is selected without starting Planning", async () => {
+  const intent = await envelope({
+    issueId: "1",
+    shortId: "SUPERS-1",
+    severityRank: 5,
+    priorityRank: 3,
+    firstSeen: "2026-08-01T00:00:00.000Z",
+    queueIntent: "reproduction-required",
+  });
+  const result = await select({ repairIntents: [intent] });
+  assert.equal(result.status, "selected");
+  assert.equal(result.action, "await-reproduction");
+  assert.equal(result.reason, "next-reproduction-intent");
 });
 
 Deno.test("empty repair queue is a typed no-candidate outcome", async () => {

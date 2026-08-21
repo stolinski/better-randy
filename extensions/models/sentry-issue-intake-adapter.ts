@@ -47,6 +47,11 @@ export const SentryIssueSnapshotSchema = z.object({
   fingerprint: z.string().regex(/^[0-9a-f]{64}$/),
 });
 
+export const SentryIssueQueueIntentSchema = z.enum([
+  "confirmed-repair",
+  "reproduction-required",
+]);
+
 export const SentryIssueReconciliationSchema = z.object({
   sourceSnapshot: z.string().min(1),
   sourceFingerprint: z.string().regex(/^[0-9a-f]{64}$/),
@@ -66,8 +71,7 @@ export const SentryIssueReconciliationSchema = z.object({
       "historical-unresolved",
       "ambiguous",
     ]),
-    repairCandidate: z.boolean(),
-    requiresReproduction: z.boolean(),
+    queueIntent: SentryIssueQueueIntentSchema.nullable(),
   })).max(100),
   fingerprint: z.string().regex(/^[0-9a-f]{64}$/),
 });
@@ -376,7 +380,9 @@ async function resolveGitCurrentRelease(repoDir: string): Promise<string> {
   }).output();
   const revision = new TextDecoder().decode(result.stdout).trim();
   if (result.code !== 0 || !/^[0-9a-f]{40}$/.test(revision)) {
-    throw new Error("Unable to resolve the current Git release for Sentry intake");
+    throw new Error(
+      "Unable to resolve the current Git release for Sentry intake",
+    );
   }
   return `supers@${revision}`;
 }
@@ -483,11 +489,17 @@ export async function executeSentryIssueIntake(
       : recentIds.has(issue.id)
       ? "recent" as const
       : "historical-unresolved" as const;
+    const queueIntent = !complete
+      ? null
+      : disposition === "current-release"
+      ? "confirmed-repair" as const
+      : disposition === "recent"
+      ? "reproduction-required" as const
+      : null;
     return {
       ...issue,
       disposition,
-      repairCandidate: complete && disposition === "current-release",
-      requiresReproduction: complete && disposition === "recent",
+      queueIntent,
     };
   });
   const reconciliationBase = {

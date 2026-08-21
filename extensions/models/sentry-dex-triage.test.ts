@@ -45,8 +45,7 @@ function issue(overrides: Record<string, unknown> = {}) {
     firstSeen: NOW,
     status: "unresolved",
     disposition: "current-release",
-    repairCandidate: true,
-    requiresReproduction: false,
+    queueIntent: "confirmed-repair",
     ...overrides,
   };
 }
@@ -127,14 +126,14 @@ Deno.test("triage reads Dex once and attaches an exact open Sentry task with gra
 
   assert.deepEqual(runner.calls, [["list", "--all", "--json"]]);
   const report = SentryDexTriageSchema.parse(fixture.writes[0].data);
-  assert.equal(report.automationEligible, true);
+  assert.equal(report.queueEligible, true);
   assert.equal(report.items[0].recommendation, "attach-existing");
   assert.deepEqual(report.items[0].exactMatchTaskIds, ["task-1"]);
   assert.deepEqual(report.items[0].ancestorTaskIds, ["epic-1"]);
   assert.deepEqual(report.items[0].descendantTaskIds, ["child-1"]);
 });
 
-Deno.test("triage proposes a new task only for a current-release issue with no Dex match", async () => {
+Deno.test("triage proposes a new task for a confirmed current-release issue with no Dex match", async () => {
   const fixture = fixtureContext(reconciliation([issue()]));
   await executeSentryDexTriage(
     {
@@ -145,7 +144,7 @@ Deno.test("triage proposes a new task only for a current-release issue with no D
     { commandRunner: new FakeDexRunner([]), now: () => NOW },
   );
   const report = SentryDexTriageSchema.parse(fixture.writes[0].data);
-  assert.equal(report.automationEligible, true);
+  assert.equal(report.queueEligible, true);
   assert.equal(report.items[0].recommendation, "create-task");
 });
 
@@ -171,7 +170,7 @@ Deno.test("triage routes lexical duplicates, completed exact matches, and multip
       { commandRunner: new FakeDexRunner(tasks), now: () => NOW },
     );
     const report = SentryDexTriageSchema.parse(fixture.writes[0].data);
-    assert.equal(report.automationEligible, false);
+    assert.equal(report.queueEligible, false);
     assert.equal(report.items[0].recommendation, "human-review");
   }
 });
@@ -200,20 +199,20 @@ Deno.test("completed task result text prevents duplicate repair work", async () 
   );
 
   const report = SentryDexTriageSchema.parse(fixture.writes[0].data);
-  assert.equal(report.automationEligible, false);
+  assert.equal(report.queueEligible, false);
   assert.equal(report.items[0].recommendation, "human-review");
   assert.deepEqual(report.items[0].exactMatchTaskIds, [
     "completed-result-match",
   ]);
-  assert(report.blockingReasons.includes("completed-exact-match"));
+  assert.deepEqual(report.blockingReasons, []);
+  assert.equal(report.items[0].quarantineReason, "completed-exact-match");
 });
 
-Deno.test("recent issues require reproduction and active Dex WIP blocks automation", async () => {
+Deno.test("recent issues remain queueable while unrelated Dex WIP defers execution", async () => {
   const fixture = fixtureContext(reconciliation([
     issue({
       disposition: "recent",
-      repairCandidate: false,
-      requiresReproduction: true,
+      queueIntent: "reproduction-required",
     }),
   ]));
   await executeSentryDexTriage(
@@ -230,12 +229,45 @@ Deno.test("recent issues require reproduction and active Dex WIP blocks automati
     },
   );
   const report = SentryDexTriageSchema.parse(fixture.writes[0].data);
-  assert.equal(report.automationEligible, false);
-  assert.deepEqual(report.blockingReasons, [
-    "active-wip",
-    "reproduction-required",
-  ]);
+  assert.equal(report.queueEligible, true);
+  assert.equal(report.executionCapacity, "deferred-active-wip");
+  assert.deepEqual(report.activeTaskIds, ["active"]);
+  assert.deepEqual(report.blockingReasons, []);
+  assert.equal(report.items[0].queueIntent, "reproduction-required");
   assert.equal(report.items[0].recommendation, "reproduce-first");
+});
+
+Deno.test("one quarantined issue does not block an unrelated reproduction intent", async () => {
+  const fixture = fixtureContext(reconciliation([
+    issue(),
+    issue({
+      id: "7659756212",
+      shortId: "SUPERS-18",
+      title: "Failed to fetch the local preview",
+      disposition: "recent",
+      queueIntent: "reproduction-required",
+    }),
+  ]));
+  await executeSentryDexTriage(
+    {
+      sourceReconciliation: "reconciliation-source",
+      expectedFingerprint: FINGERPRINT,
+    },
+    fixture.context,
+    {
+      commandRunner: new FakeDexRunner([
+        task({ completed: true, completed_at: NOW }),
+      ]),
+      now: () => NOW,
+    },
+  );
+  const report = SentryDexTriageSchema.parse(fixture.writes[0].data);
+  assert.equal(report.queueEligible, true);
+  assert.deepEqual(report.blockingReasons, []);
+  assert.equal(report.items[0].recommendation, "human-review");
+  assert.equal(report.items[0].quarantineReason, "completed-exact-match");
+  assert.equal(report.items[1].recommendation, "reproduce-first");
+  assert.equal(report.items[1].quarantineReason, null);
 });
 
 Deno.test("triage fails closed on fingerprint drift and malformed Dex output", async () => {

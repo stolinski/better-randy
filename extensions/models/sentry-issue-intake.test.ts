@@ -141,12 +141,9 @@ Deno.test("intake stores one bounded snapshot and classifies current, recent, an
     ],
   );
   assert.equal(reconciliation.automationEligible, true);
-  assert.equal(reconciliation.items[0].repairCandidate, true);
-  assert.equal(reconciliation.items[0].requiresReproduction, false);
-  assert.equal(reconciliation.items[1].repairCandidate, false);
-  assert.equal(reconciliation.items[1].requiresReproduction, true);
-  assert.equal(reconciliation.items[2].repairCandidate, false);
-  assert.equal(reconciliation.items[2].requiresReproduction, false);
+  assert.equal(reconciliation.items[0].queueIntent, "confirmed-repair");
+  assert.equal(reconciliation.items[1].queueIntent, "reproduction-required");
+  assert.equal(reconciliation.items[2].queueIntent, null);
 });
 
 Deno.test("scheduled intake resolves the current Git release at run time", async () => {
@@ -238,7 +235,7 @@ Deno.test("incomplete pagination fails closed and makes every item ambiguous", a
   );
   assert.equal(reconciliation.automationEligible, false);
   assert.equal(reconciliation.items[0].disposition, "ambiguous");
-  assert.equal(reconciliation.items[0].repairCandidate, false);
+  assert.equal(reconciliation.items[0].queueIntent, null);
 });
 
 Deno.test("conflicting Sentry identities fail closed before storing resources", async () => {

@@ -31,7 +31,10 @@ const DELIVERY_HANDOFF_TEST_KEY = "fixture-delivery-handoff-key-32-bytes";
 const TEST_HASH = "a".repeat(64);
 
 function sentryRepairIntentEnvelope(
-  recommendation: "create-task" | "attach-existing" = "create-task",
+  recommendation: "create-task" | "attach-existing" | "reproduce-first" =
+    "create-task",
+  queueIntent: "confirmed-repair" | "reproduction-required" =
+    "confirmed-repair",
 ) {
   const existingDexTaskId = recommendation === "attach-existing"
     ? "existing-sentry-task"
@@ -58,9 +61,13 @@ function sentryRepairIntentEnvelope(
       firstSeen: "2026-08-01T00:00:00.000Z",
       severityRank: 4,
       priorityRank: 3,
+      observedAt: "2026-08-19T00:00:00.000Z",
       currentRelease: "supers@abc123",
-      disposition: "current-release",
-      requiresReproduction: false,
+      disposition: queueIntent === "confirmed-repair"
+        ? "current-release"
+        : "recent",
+      queueIntent,
+      requiresReproduction: queueIntent === "reproduction-required",
       recommendation,
       existingDexTaskId,
       scope: ["Repair the affected flow."],
@@ -73,6 +80,7 @@ function sentryRepairIntentEnvelope(
         shortId: "SUPERS-123",
       },
       planningWorkItem: "sentry-123",
+      supersedesIntentFingerprint: null,
       idempotencyKey: TEST_HASH,
       fingerprint: TEST_HASH,
     },
@@ -1393,6 +1401,32 @@ Deno.test("materialized Supers handoff normalizes claimed and terminal outcomes"
   assertEquals(handoffWorkflow.includes("factoryStates: []"), true);
 });
 
+Deno.test("Sentry reproduction intent cannot enter Planning before reproduction", async () => {
+  const root = await fixtureRepository();
+  try {
+    const args = SupersPlanningInventoryArgumentsSchema.parse({
+      workItem: "sentry-123",
+      planningState,
+      repairIntents: [
+        sentryRepairIntentEnvelope("reproduce-first", "reproduction-required"),
+      ],
+      unresolvedDecisions: [],
+    });
+    await assertRejects(
+      async () =>
+        buildSupersPlanningSourceSnapshot(
+          args,
+          await readSupersPlanningMarkdownSources(root),
+          normalizeSupersDexTasks(rawTasks),
+        ),
+      Error,
+      "cannot enter Planning before reproduction",
+    );
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
 Deno.test("Sentry repair inventory and Plan Applier boundary preserve one exact issue task", async () => {
   const root = await fixtureRepository();
   try {
@@ -1410,9 +1444,11 @@ Deno.test("Sentry repair inventory and Plan Applier boundary preserve one exact 
     const inventory = await deriveSupersPlanningInventory(args, snapshot);
     assertEquals(snapshot.repairIntent?.planningWorkItem, "sentry-123");
     assert(snapshot.objective.includes("SUPERS-123"));
-    assert(inventory.contextRefs.some((entry) =>
-      entry.kind === "sentry-repair-intent"
-    ));
+    assert(
+      inventory.contextRefs.some((entry) =>
+        entry.kind === "sentry-repair-intent"
+      ),
+    );
 
     const reviewedCreate = {
       schemaVersion: 1 as const,
@@ -1445,15 +1481,16 @@ Deno.test("Sentry repair inventory and Plan Applier boundary preserve one exact 
       clientRef: "extra-task",
     });
     await assertRejects(
-      () => validateSupersPlanBoundary({
-        workItem: "sentry-123",
-        reviewedPlan: extraTask,
-        plan: DexApprovedPlanSchema.parse(
-          normalizeDexReviewedPlanForApplication(extraTask),
-        ),
-        planningInventory: inventory,
-        sourceSnapshot: snapshot,
-      }),
+      () =>
+        validateSupersPlanBoundary({
+          workItem: "sentry-123",
+          reviewedPlan: extraTask,
+          plan: DexApprovedPlanSchema.parse(
+            normalizeDexReviewedPlanForApplication(extraTask),
+          ),
+          planningInventory: inventory,
+          sourceSnapshot: snapshot,
+        }),
       Error,
       "exactly one",
     );

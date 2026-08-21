@@ -33,7 +33,7 @@ const GlobalArgsSchema = z.object({
 
 export const model = {
   type: "@supers/sentry-issue-intake",
-  version: "2026.08.19.1",
+  version: "2026.08.21.1",
   globalArguments: GlobalArgsSchema,
   resources: {
     snapshot: {
@@ -45,14 +45,14 @@ export const model = {
     },
     reconciliation: {
       description:
-        "Read-only current, recent, historical, or ambiguous repair-candidate classification",
+        "Read-only current, recent, historical, or ambiguous classification with typed queue intent",
       schema: SentryIssueReconciliationSchema,
       lifetime: "infinite",
       garbageCollection: 50,
     },
     triage: {
       description:
-        "Read-only create, attach, reproduce, review, or ignore recommendation from one Sentry reconciliation and one official Dex snapshot",
+        "Read-only create, attach, reproduce, review, or ignore queue recommendation with separate execution capacity",
       schema: SentryDexTriageSchema,
       lifetime: "infinite",
       garbageCollection: 50,

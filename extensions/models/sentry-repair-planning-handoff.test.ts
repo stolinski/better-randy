@@ -13,6 +13,7 @@ import {
 } from "./sentry-issue-intake-adapter.ts";
 import {
   executeSentryRepairPlanningHandoff,
+  SentryRepairIntentEnvelopeSchema,
   type SentryRepairPlanningHandoffArgs,
   SentryRepairPlanningHandoffSchema,
 } from "./sentry-repair-planning-handoff-adapter.ts";
@@ -46,15 +47,18 @@ type SourceBundleOptions = {
   blockingReasons?: TriageBlockingReason[];
   snapshotComplete?: boolean;
   automationEligible?: boolean;
-  requiresReproduction?: boolean;
-  repairCandidate?: boolean;
+  queueIntent?: "confirmed-repair" | "reproduction-required" | null;
   additionalIssue?: boolean;
 };
 
 async function sourceBundle(options: SourceBundleOptions = {}) {
   const disposition = options.disposition ?? "current-release";
-  const requiresReproduction = options.requiresReproduction ?? false;
-  const repairCandidate = options.repairCandidate ?? true;
+  const queueIntent = options.queueIntent ??
+    (disposition === "current-release"
+      ? "confirmed-repair"
+      : disposition === "recent"
+      ? "reproduction-required"
+      : null);
   const recommendation = options.recommendation ?? "create-task";
   const issues = [
     {
@@ -123,8 +127,7 @@ async function sourceBundle(options: SourceBundleOptions = {}) {
     items: snapshot.issues.map((issue) => ({
       ...issue,
       disposition,
-      repairCandidate,
-      requiresReproduction,
+      queueIntent,
     })),
   };
   const reconciliationFingerprint = await createSentrySha256(
@@ -145,12 +148,21 @@ async function sourceBundle(options: SourceBundleOptions = {}) {
     sourceReconciliationFingerprint: reconciliationFingerprint,
     dexTaskCount: 0,
     activeTaskIds: [] as string[],
-    automationEligible: (options.automationEligible ?? true) &&
-      (options.blockingReasons?.length ?? 0) === 0,
+    queueEligible: (options.automationEligible ?? true) &&
+      (options.blockingReasons?.length ?? 0) === 0 && queueIntent !== null,
+    executionCapacity: "available" as const,
     blockingReasons: options.blockingReasons ?? [],
     items: snapshot.issues.map((issue) => ({
       issueId: issue.id,
       shortId: issue.shortId,
+      queueIntent,
+      quarantineReason:
+        options.blockingReasons?.find((reason) =>
+          reason === "multiple-exact-matches" ||
+          reason === "completed-exact-match" ||
+          reason === "lexical-review" ||
+          reason === "ambiguous-source"
+        ) ?? null,
       recommendation,
       exactMatchTaskIds: options.exactMatchTaskIds ?? [],
       lexicalMatchTaskIds: options.lexicalMatchTaskIds ?? [],
@@ -160,11 +172,11 @@ async function sourceBundle(options: SourceBundleOptions = {}) {
     })),
   };
   const triageFingerprint = await createSentryDexTriageFingerprint(triageBase);
-  const triage = {
+  const triage = SentryDexTriageSchema.parse({
     ...triageBase,
     generatedAt: NOW,
     fingerprint: triageFingerprint,
-  };
+  });
   const resources = new Map<string, Record<string, unknown>>([
     [reconciliationBase.sourceSnapshot, structuredClone(snapshot)],
     [triageBase.sourceReconciliation, structuredClone(reconciliation)],
@@ -184,6 +196,7 @@ async function sourceBundle(options: SourceBundleOptions = {}) {
         `The affected flow completes without ${issue.shortId}.`,
       ],
     })),
+    priorIntents: [],
   };
   return { resources, args, snapshot, reconciliation, triage };
 }
@@ -317,10 +330,13 @@ Deno.test("repair handoff emits one strict create intent and has deterministic r
   ]);
   assert.equal(first.writes[1].data.planningWorkItem, "sentry-7659756211");
   const intent = first.handoff.intents[0];
+  assert.equal(intent.queueIntent, "confirmed-repair");
   assert.equal(intent.recommendation, "create-task");
   assert.equal(intent.existingDexTaskId, null);
   assert.equal(intent.issueId, "7659756211");
   assert.equal(intent.currentRelease, RELEASE);
+  assert.equal(intent.observedAt, NOW);
+  assert.equal(intent.supersedesIntentFingerprint, null);
   assert.equal(intent.requestedSentryBacklink.mode, "post-planning-comment");
   assert.equal(intent.planningWorkItem, "sentry-7659756211");
   assert.equal(first.write.name, replay.write.name);
@@ -329,6 +345,34 @@ Deno.test("repair handoff emits one strict create intent and has deterministic r
   assert.equal(
     first.handoff.intents[0].idempotencyKey,
     replay.handoff.intents[0].idempotencyKey,
+  );
+});
+
+Deno.test("repair handoff replays an intent and chains newer authored evidence", async () => {
+  const bundle = await sourceBundle();
+  const first = await runHandoff(bundle, []);
+  const firstEnvelope = SentryRepairIntentEnvelopeSchema.parse(
+    first.writes[1].data,
+  );
+
+  bundle.args.priorIntents = [firstEnvelope];
+  const replay = await runHandoff(bundle, []);
+  const replayEnvelope = SentryRepairIntentEnvelopeSchema.parse(
+    replay.writes[1].data,
+  );
+  assert.equal(replayEnvelope.fingerprint, firstEnvelope.fingerprint);
+
+  bundle.args.issuePlans[0]!.scope = [
+    "Use newer bounded authored repair scope.",
+  ];
+  const newer = await runHandoff(bundle, []);
+  const newerEnvelope = SentryRepairIntentEnvelopeSchema.parse(
+    newer.writes[1].data,
+  );
+  assert.notEqual(newerEnvelope.fingerprint, firstEnvelope.fingerprint);
+  assert.equal(
+    newerEnvelope.intent.supersedesIntentFingerprint,
+    firstEnvelope.fingerprint,
   );
 });
 
@@ -366,7 +410,6 @@ Deno.test("repair handoff returns no-candidate without mutation intent", async (
   const bundle = await sourceBundle({
     disposition: "historical-unresolved",
     recommendation: "ignore",
-    repairCandidate: false,
   });
   bundle.args.issuePlans = [];
   const result = await runHandoff(bundle, []);
@@ -375,6 +418,33 @@ Deno.test("repair handoff returns no-candidate without mutation intent", async (
   assert.deepEqual(result.handoff.blockingReasons, []);
   assert.deepEqual(result.handoff.intents, []);
   assert.deepEqual(result.writes.map((write) => write.specName), ["handoff"]);
+});
+
+Deno.test("repair handoff persists recent unresolved issues without an authored plan", async () => {
+  const bundle = await sourceBundle({
+    disposition: "recent",
+    queueIntent: "reproduction-required",
+    recommendation: "reproduce-first",
+  });
+  bundle.args.issuePlans = [];
+  const result = await runHandoff(bundle, [
+    dexTask({
+      id: "unrelated-active-task",
+      name: "Unrelated active work",
+      description: "Different work item",
+      started_at: NOW,
+    }),
+  ]);
+
+  assert.equal(result.handoff.status, "ready");
+  assert.deepEqual(result.handoff.blockingReasons, []);
+  assert.equal(result.handoff.intents.length, 1);
+  assert.equal(result.handoff.intents[0].queueIntent, "reproduction-required");
+  assert.equal(result.handoff.intents[0].recommendation, "reproduce-first");
+  assert.match(
+    result.handoff.intents[0].scope[0],
+    /Reproduce the bounded Sentry issue/,
+  );
 });
 
 Deno.test("repair handoff preserves every triage fail-closed route as a human gate", async () => {
@@ -408,22 +478,11 @@ Deno.test("repair handoff preserves every triage fail-closed route as a human ga
       },
     },
     {
-      reason: "reproduction-required",
-      options: {
-        disposition: "recent",
-        recommendation: "reproduce-first",
-        blockingReasons: ["reproduction-required"],
-        repairCandidate: false,
-        requiresReproduction: true,
-      },
-    },
-    {
       reason: "ambiguous-source",
       options: {
         disposition: "ambiguous",
         recommendation: "human-review",
         blockingReasons: ["ambiguous-source"],
-        repairCandidate: false,
       },
     },
   ];
@@ -437,9 +496,7 @@ Deno.test("repair handoff preserves every triage fail-closed route as a human ga
     assert.deepEqual(result.handoff.intents, []);
   }
 
-  const activeDexBundle = await sourceBundle({
-    blockingReasons: ["active-wip"],
-  });
+  const activeDexBundle = await sourceBundle();
   const activeDex = await runHandoff(activeDexBundle, [
     dexTask({
       id: "unrelated-active-task",
@@ -456,7 +513,7 @@ Deno.test("repair handoff preserves every triage fail-closed route as a human ga
 Deno.test("repair handoff fails closed on inconsistent triage eligibility", async () => {
   const bundle = await sourceBundle();
   await replaceTriage(bundle, (triage) => {
-    triage.automationEligible = false;
+    triage.queueEligible = false;
     triage.blockingReasons = [];
   });
 
@@ -566,11 +623,12 @@ Deno.test("repair handoff detects completed result-only Dex matches", async () =
   assert.deepEqual(result.handoff.intents, []);
 });
 
-Deno.test("repair handoff rejects missing and unrelated authored plans", async () => {
+Deno.test("repair handoff supplies bounded defaults and rejects unrelated authored plans", async () => {
   const missingBundle = await sourceBundle();
   missingBundle.args.issuePlans = [];
   const missing = await runHandoff(missingBundle, []);
-  assert(missing.handoff.blockingReasons.includes("missing-authored-plan"));
+  assert.equal(missing.handoff.status, "ready");
+  assert.match(missing.handoff.intents[0].scope[0], /Diagnose and repair/);
 
   const unknownBundle = await sourceBundle();
   unknownBundle.args.issuePlans.push({

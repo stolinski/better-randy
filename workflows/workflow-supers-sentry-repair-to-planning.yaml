@@ -79,6 +79,7 @@ jobs:
             sourceTriage: '${{ inputs.sourceTriage }}'
             expectedTriageFingerprint: '${{ inputs.expectedTriageFingerprint }}'
             issuePlans: '${{ inputs.issuePlans }}'
+            priorIntents: '${{ data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "repair-intent"'').map(resource, resource.attributes) }}'
         dependsOn: []
         weight: 0
         allowFailure: false
@@ -99,7 +100,7 @@ jobs:
         weight: 0
         allowFailure: false
       - name: start-selected-planning-work
-        description: Start the stable Planning work item only when the selector proves it has no existing state.
+        description: Start the stable Planning work item only for a confirmed repair; reproduction-required intents remain queued for the bounded reproduction stage.
         task:
           type: model_method
           modelIdOrName: supers-planning
@@ -130,4 +131,4 @@ jobs:
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 1
+version: 2

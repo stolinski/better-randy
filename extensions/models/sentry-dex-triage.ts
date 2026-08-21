@@ -3,6 +3,7 @@ import { z } from "npm:zod@4.4.3";
 import {
   canonicalSentryJson,
   createSentrySha256,
+  SentryIssueQueueIntentSchema,
   SentryIssueReconciliationSchema,
 } from "./sentry-issue-intake-adapter.ts";
 
@@ -44,6 +45,13 @@ export type SentryDexTask = z.infer<typeof SentryDexTaskSchema>;
 const SentryDexTriageItemSchema = z.object({
   issueId: IdSchema,
   shortId: IdSchema,
+  queueIntent: SentryIssueQueueIntentSchema.nullable(),
+  quarantineReason: z.enum([
+    "multiple-exact-matches",
+    "completed-exact-match",
+    "lexical-review",
+    "ambiguous-source",
+  ]).nullable(),
   recommendation: z.enum([
     "attach-existing",
     "create-task",
@@ -65,14 +73,13 @@ export const SentryDexTriageSchema = z.object({
   generatedAt: z.string().datetime(),
   dexTaskCount: z.number().int().nonnegative(),
   activeTaskIds: z.array(IdSchema),
-  automationEligible: z.boolean(),
+  queueEligible: z.boolean(),
+  executionCapacity: z.enum(["available", "deferred-active-wip"]),
   blockingReasons: z.array(z.enum([
     "source-ineligible",
-    "active-wip",
     "multiple-exact-matches",
     "completed-exact-match",
     "lexical-review",
-    "reproduction-required",
     "ambiguous-source",
   ])),
   items: z.array(SentryDexTriageItemSchema).max(100).superRefine(
@@ -329,7 +336,6 @@ export async function executeSentryDexTriage(
     z.infer<typeof SentryDexTriageSchema>["blockingReasons"][number]
   >();
   if (!source.automationEligible) globalReasons.add("source-ineligible");
-  if (activeTaskIds.length > 0) globalReasons.add("active-wip");
 
   const items = source.items.map((issue) => {
     const { exact, openExact, completedExact, lexical } =
@@ -340,44 +346,55 @@ export async function executeSentryDexTriage(
       | "reproduce-first"
       | "human-review"
       | "ignore" = "ignore";
+    let quarantineReason:
+      | "multiple-exact-matches"
+      | "completed-exact-match"
+      | "lexical-review"
+      | "ambiguous-source"
+      | null = null;
     const reasons: string[] = [];
     if (issue.disposition === "ambiguous") {
       recommendation = "human-review";
       reasons.push("Sentry source classification is ambiguous");
-      globalReasons.add("ambiguous-source");
-    } else if (issue.requiresReproduction) {
-      recommendation = "reproduce-first";
-      reasons.push("Recent issue is not attributed to the current release");
-      globalReasons.add("reproduction-required");
-    } else if (issue.repairCandidate) {
+      quarantineReason = "ambiguous-source";
+    } else if (issue.queueIntent !== null) {
       if (openExact.length === 1 && completedExact.length === 0) {
         recommendation = "attach-existing";
         reasons.push("One exact open Dex task references the Sentry short id");
       } else if (exact.length > 1) {
         recommendation = "human-review";
         reasons.push("Multiple Dex tasks reference the Sentry short id");
-        globalReasons.add("multiple-exact-matches");
+        quarantineReason = "multiple-exact-matches";
       } else if (completedExact.length === 1) {
         recommendation = "human-review";
         reasons.push(
-          "A completed Dex task references the current-release issue",
+          "A completed Dex task references the unresolved Sentry issue",
         );
-        globalReasons.add("completed-exact-match");
+        quarantineReason = "completed-exact-match";
       } else if (lexical.length > 0) {
         recommendation = "human-review";
         reasons.push("Possible lexical duplicate requires review");
-        globalReasons.add("lexical-review");
+        quarantineReason = "lexical-review";
+      } else if (issue.queueIntent === "reproduction-required") {
+        recommendation = "reproduce-first";
+        reasons.push(
+          "Recent issue needs bounded reproduction on the current checkout",
+        );
       } else {
         recommendation = "create-task";
         reasons.push("No exact or lexical Dex match found");
       }
-    } else {reasons.push(
+    } else {
+      reasons.push(
         "Historical unresolved issue is not actionable without new evidence",
-      );}
+      );
+    }
     const exactIds = exact.map((task) => task.id).sort();
     return {
       issueId: issue.id,
       shortId: issue.shortId,
+      queueIntent: issue.queueIntent,
+      quarantineReason,
       recommendation,
       exactMatchTaskIds: exactIds,
       lexicalMatchTaskIds: lexical.map((task) => task.id),
@@ -389,6 +406,12 @@ export async function executeSentryDexTriage(
   // Replays retain the source observation time instead of minting a new body
   // under the same fingerprint-derived resource name.
   const generatedAt = source.generatedAt;
+  const queueEligible = source.automationEligible && globalReasons.size === 0 &&
+    items.some((item) =>
+      item.recommendation === "create-task" ||
+      item.recommendation === "attach-existing" ||
+      item.recommendation === "reproduce-first"
+    );
   const reportBase = {
     sourceReconciliation: args.sourceReconciliation,
     sourceFingerprint: source.sourceFingerprint,
@@ -396,7 +419,10 @@ export async function executeSentryDexTriage(
     generatedAt,
     dexTaskCount: tasks.length,
     activeTaskIds,
-    automationEligible: globalReasons.size === 0,
+    queueEligible,
+    executionCapacity: activeTaskIds.length === 0
+      ? "available" as const
+      : "deferred-active-wip" as const,
     blockingReasons: [...globalReasons].sort(),
     items,
   };
@@ -406,7 +432,8 @@ export async function executeSentryDexTriage(
     sourceReconciliationFingerprint: reportBase.sourceReconciliationFingerprint,
     dexTaskCount: reportBase.dexTaskCount,
     activeTaskIds: reportBase.activeTaskIds,
-    automationEligible: reportBase.automationEligible,
+    queueEligible: reportBase.queueEligible,
+    executionCapacity: reportBase.executionCapacity,
     blockingReasons: reportBase.blockingReasons,
     items: reportBase.items,
   });
@@ -418,7 +445,8 @@ export async function executeSentryDexTriage(
   );
   context.logger.info("Stored Sentry-to-Dex triage", {
     issueCount: items.length,
-    automationEligible: report.automationEligible,
+    queueEligible: report.queueEligible,
+    executionCapacity: report.executionCapacity,
   });
   return { dataHandles: [handle] };
 }

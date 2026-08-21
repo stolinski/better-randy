@@ -42,8 +42,10 @@ async function repairIntent() {
     firstSeen: "2026-08-18T00:00:00.000Z",
     severityRank: 4,
     priorityRank: 3,
+    observedAt: "2026-08-18T00:00:00.000Z",
     currentRelease: `supers@${"1".repeat(40)}`,
     disposition: "current-release" as const,
+    queueIntent: "confirmed-repair" as const,
     requiresReproduction: false as const,
     recommendation: "create-task" as const,
     existingDexTaskId: null,
@@ -57,6 +59,7 @@ async function repairIntent() {
       shortId: SHORT_ID,
     },
     planningWorkItem: `sentry-${ISSUE_ID}`,
+    supersedesIntentFingerprint: null,
     idempotencyKey: "e".repeat(64),
   };
   const intent = {

@@ -39,11 +39,13 @@ swamp model method run supers-sentry-issue-intake collect \
 ```
 
 The reconciliation classifies each issue as `current-release`, `recent`,
-`historical-unresolved`, or `ambiguous`. Only an issue observed in the exact
-current release becomes a repair candidate; a merely recent issue requires
-runtime reproduction first. Pagination, malformed output, command timeouts,
-and conflicting issue identities fail closed; incomplete snapshots are never
-automation-eligible.
+`historical-unresolved`, or `ambiguous`. Exact-release observation is evidence
+identity, not proof that silence means fixed. Complete current-release evidence
+produces a typed `confirmed-repair` queue intent; complete recent evidence
+produces `reproduction-required`. Historical-only evidence stays non-actionable,
+and ambiguous evidence stays quarantined. Pagination, malformed output, command
+timeouts, and conflicting issue identities fail closed; incomplete snapshots
+are never queue-eligible.
 
 The `triage` method consumes one exact named reconciliation and reads official
 Dex exactly once:
@@ -54,7 +56,8 @@ swamp model method run supers-sentry-issue-intake triage \
   --input expectedFingerprint=<sha256>
 ```
 
-The durable entrypoint runs both stages and asserts their current-run
+The durable entrypoint runs collection and triage, persists every actionable
+typed queue intent through the repair-handoff model, and asserts current-run
 fingerprint correlation. It is scheduled every six hours with a seven-day
 recent window, 90-day history window, 100-issue bound, and `currentRelease:
 auto`; `auto` resolves the repository's current Git SHA at execution time.
@@ -70,10 +73,11 @@ swamp workflow run supers-sentry-readonly-intake \
 
 It recommends `create-task`, `attach-existing`, `reproduce-first`,
 `human-review`, or `ignore`. Exact Sentry short-id matches outrank bounded
-lexical candidates; multiple/completed exact matches, lexical candidates,
-source drift, malformed Dex output, and existing active WIP fail closed. The
-resource preserves matching task ancestors and descendants but performs no Dex
-mutation.
+lexical candidates before reproduction routing. Multiple/completed exact
+matches, lexical candidates, source drift, and malformed Dex output fail
+closed. Unrelated active Dex WIP is recorded separately as deferred execution
+capacity; it never discards or invalidates queue intents. The resource preserves
+matching task ancestors and descendants but performs no Dex mutation.
 
 Stored titles strip ANSI control sequences, URLs, absolute paths, and common
 inline secrets. `firstSeen` is required for queue ordering; when issue-list
@@ -84,25 +88,31 @@ The separate `@supers/sentry-repair-planning-handoff` model consumes exact
 named snapshot, reconciliation, and triage resources. Its `prepare` method
 recomputes the complete fingerprint chain, reads official Dex once to catch
 recommendation drift, and writes one content-addressed `repair-intent` queue
-resource per eligible issue. Authored scope and acceptance criteria cannot
-override Sentry identity, release, or the create-versus-attach recommendation.
-`human-gate` and `no-candidate` are typed successful outcomes, so incomplete
-evidence, reproduction requirements, duplicate risk, active work, staleness,
-and an empty live intake cannot silently start repair work.
+resource per eligible issue. Each resource is explicitly `confirmed-repair` or
+`reproduction-required`. Newer evidence points to the prior envelope fingerprint;
+replays retain one identity, and the queue accepts only one complete supersession
+head. Authored scope and acceptance criteria cannot override Sentry identity,
+release, or the create-versus-attach recommendation. `human-gate` and
+`no-candidate` remain typed successful outcomes for incomplete evidence,
+duplicate risk, staleness, and an empty live intake.
 
-`supers-sentry-repair-to-planning` preserves every queued intent and activates
-at most one stable `sentry-<issueId>` Planning work item. Selection is severity,
-then priority, oldest `firstSeen`, and stable issue id. Replay refreshes the
-existing Factory status rather than creating duplicate state; later intents
-remain queued until the active repair is terminal. Supers Planning binds the
-exact intent into its immutable source snapshot, and its pre-Plan-Applier
-boundary permits exactly one matching create or attach operation. The existing
-human gate and Dex Plan Applier remain the only task-creation authority.
+`supers-sentry-repair-to-planning` preserves every queued intent and selects at
+most one stable `sentry-<issueId>` work item. Selection is severity, then
+priority, oldest `firstSeen`, and stable issue id. A `reproduction-required`
+head returns `await-reproduction` and cannot start Planning; Stage 2 will own
+that bounded executor. A `confirmed-repair` head may use the existing
+human-gated Planning path. Replay refreshes the latest supersession head rather
+than creating duplicate state; later intents remain queued until the active
+repair is terminal. Supers Planning explicitly rejects reproduction intents,
+binds a confirmed intent into its immutable source snapshot, and permits exactly
+one matching create or attach operation at the pre-Plan-Applier boundary.
 
-Each Sentry issue therefore maps to one durable Dex repair task; retries remain
-Factory attempt history on that task. After Planning returns one audited Dex
-task ID, `supers-sentry-repair-backlink` binds the exact repair intent, human
-approval, successful Plan Application mapping, clean audit, and ready handoff.
+Stage 1 stops at durable queueing. It does not reproduce an issue, mutate Dex,
+or launch coding. Stages 2 and 3 must promote a reproduced intent to exactly one
+durable Dex repair task; retries then remain Factory attempt history on that
+task. After Planning returns one audited Dex task ID,
+`supers-sentry-repair-backlink` binds the exact repair intent, human approval,
+successful Plan Application mapping, clean audit, and ready handoff.
 It then idempotently adds the Dex task reference to the Sentry issue and stores
 a fingerprinted `linked | already-linked` receipt. Stale or conflicting
 Planning evidence fails before Sentry access.
