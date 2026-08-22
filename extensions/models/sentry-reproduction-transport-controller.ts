@@ -1096,15 +1096,20 @@ export async function executeMapReproducedSentryRepair(
   return { dataHandles: [intentHandle, mappingHandle, admissionHandle] };
 }
 
+const SentryTransportGlobalArgsSchema = z.strictObject({
+  sourceReproductionModelId: z.string().uuid(),
+  sourceRepairModelId: z.string().uuid(),
+  sourceIntakeModelId: z.string().uuid(),
+  sourceDeliveryModelId: z.string().uuid(),
+});
+const MapEvidencedMethodArgsSchema = MapEvidencedSentryRepairArgsSchema.extend(
+  SentryTransportGlobalArgsSchema.shape,
+);
+
 export const model = {
   type: "@supers/sentry-reproduction-transport-controller",
   version: "2026.08.21.3",
-  globalArguments: z.strictObject({
-    sourceReproductionModelId: z.string().uuid(),
-    sourceRepairModelId: z.string().uuid(),
-    sourceIntakeModelId: z.string().uuid(),
-    sourceDeliveryModelId: z.string().uuid(),
-  }),
+  globalArguments: SentryTransportGlobalArgsSchema,
   resources: {
     lease: {
       description: "Swamp-owned renewable Sentry reproduction transport lease",
@@ -1233,13 +1238,16 @@ export const model = {
     "map-evidenced": {
       description:
         "Create, start, or attach one Dex repair task from exact Sentry issue/event and advisory Seer evidence",
-      arguments: MapEvidencedSentryRepairArgsSchema,
+      arguments: MapEvidencedMethodArgsSchema,
       execute: (
-        args: z.infer<typeof MapEvidencedSentryRepairArgsSchema>,
+        args: z.infer<typeof MapEvidencedMethodArgsSchema>,
         context: SentryEvidenceMappingContext,
       ) =>
         executeMapEvidencedSentryRepair(
-          args,
+          {
+            evidenceName: args.evidenceName,
+            expectedEvidenceFingerprint: args.expectedEvidenceFingerprint,
+          },
           context,
           DEFAULT_SENTRY_EVIDENCE_MAPPING_DEPENDENCIES,
         ),
