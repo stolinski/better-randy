@@ -39,6 +39,10 @@ const GlobalArgsSchema = z.object({
   sourceRepairModelId: z.string().uuid(),
 });
 
+const CollectRepairEvidenceMethodArgsSchema = SentryIssueRepairEvidenceArgsSchema.extend(
+  GlobalArgsSchema.shape,
+);
+
 async function resolveEvidenceCheckoutRevision(
   repoDir: string,
 ): Promise<string> {
@@ -94,12 +98,17 @@ export const model = {
     "collect-repair-evidence": {
       description:
         "Collect fresh issue/event evidence and advisory Seer analysis for one exact selected repair intent",
-      arguments: SentryIssueRepairEvidenceArgsSchema,
+      arguments: CollectRepairEvidenceMethodArgsSchema,
       execute: (
-        args: z.infer<typeof SentryIssueRepairEvidenceArgsSchema>,
+        args: z.infer<typeof CollectRepairEvidenceMethodArgsSchema>,
         context: SentryIssueRepairEvidenceContext,
       ) =>
-        executeCollectSentryIssueRepairEvidence(args, context, {
+        executeCollectSentryIssueRepairEvidence({
+          repairIntentName: args.repairIntentName,
+          expectedRepairIntentFingerprint: args.expectedRepairIntentFingerprint,
+          queueSelectionName: args.queueSelectionName,
+          expectedQueueSelectionFingerprint: args.expectedQueueSelectionFingerprint,
+        }, context, {
           commandRunner: new DenoSentryCommandRunner(),
           resolveCheckoutRevision: resolveEvidenceCheckoutRevision,
           now: () => new Date().toISOString(),
