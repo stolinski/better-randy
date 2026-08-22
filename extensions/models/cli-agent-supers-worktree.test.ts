@@ -17,6 +17,9 @@ const BASE_REVISION = 'a'.repeat(40);
 const OTHER_REVISION = 'b'.repeat(40);
 const COMMIT_REVISION = 'c'.repeat(40);
 const COMMIT_TREE = 'd'.repeat(40);
+const INTEGRATED_REVISION = 'f'.repeat(40);
+const INTEGRATION_GIT_MODEL_ID = 'supers-integration-git-model';
+const CHERRY_PICK_RESOURCE_NAME = 'cherry-pick-sentry-SUPERS-101';
 const PROMPT_DIGEST = 'e'.repeat(64);
 const INVOCATION_MODEL_ID = 'supers-delivery-coding-agent-model';
 const TEST_PATH = 'extensions/models/sentry-fix.test.ts';
@@ -77,6 +80,11 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 	registeredConflictPath: string | null = null;
 	replacementOriginalPath: string | null = null;
 	replaceOriginalAfterRename = false;
+	integrationMode = false;
+	integrationParent = BASE_REVISION;
+	integrationTree = COMMIT_TREE;
+	integrationNameStatus: string | null = null;
+	integrationDiffBytes: Uint8Array | null = null;
 	removedPaths: string[] = [];
 	addCalls = 0;
 	removeCalls = 0;
@@ -158,6 +166,40 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 		}
 		if (command === 'status --porcelain=v1 --untracked-files=all -z') {
 			return gitResult(true, this.centralDirty ? ' M tracked.ts\0' : '');
+		}
+		if (command === `rev-list --parents -n 1 ${INTEGRATED_REVISION}`) {
+			return gitResult(true, `${INTEGRATED_REVISION} ${this.integrationParent}\n`);
+		}
+		if (command === `rev-parse --verify ${INTEGRATED_REVISION}^{tree}`) {
+			return gitResult(true, `${this.integrationTree}\n`);
+		}
+		if (command === `ls-tree -r -z ${INTEGRATED_REVISION}`) {
+			return gitResult(
+				true,
+				this.treeListingBytes ??
+					new TextEncoder().encode(
+						`${this.changedPathMode} blob ${OTHER_REVISION}\t${this.changedPath}\0`
+					)
+			);
+		}
+		if (
+			command ===
+			`diff --name-status -z ${BASE_REVISION} ${INTEGRATED_REVISION} --`
+		) {
+			return gitResult(
+				true,
+				this.integrationNameStatus ?? `${this.changedPathStatus}\0${this.changedPath}\0`
+			);
+		}
+		if (
+			command ===
+			`diff --binary --full-index ${BASE_REVISION} ${INTEGRATED_REVISION} --`
+		) {
+			return gitResult(
+				true,
+				this.integrationDiffBytes ??
+					new TextEncoder().encode(`diff --git a/${this.changedPath} b/${this.changedPath}\n`)
+			);
 		}
 		if (command === 'worktree list --porcelain') {
 			let output = `worktree /repo\nHEAD ${BASE_REVISION}\nbranch refs/heads/main\n\n`;
@@ -289,17 +331,28 @@ function fixture(): {
 	repository: FakeWorktreeRepository;
 	context: SupersAgentWorktreeMethodContext;
 	resources: Map<string, Record<string, unknown>>;
+	externalResources: Map<string, Record<string, unknown>>;
 	writes: string[];
 } {
 	const repository = new FakeWorktreeRepository();
 	const resources = new Map<string, Record<string, unknown>>();
+	const externalResources = new Map<string, Record<string, unknown>>();
 	const writes: string[] = [];
 	return {
 		repository,
 		resources,
+		externalResources,
 		writes,
 		context: {
 			repoDir: '/repo',
+			dataRepository: {
+				getContent: (type, modelId, name) => {
+					const value = externalResources.get(`${String(type)}:${modelId}:${name}`);
+					return Promise.resolve(
+						value === undefined ? null : new TextEncoder().encode(JSON.stringify(value))
+					);
+				}
+			},
 			readResource: (name) => Promise.resolve(resources.get(name) ?? null),
 			writeResource: (_spec, name, data) => {
 				writes.push(name);
@@ -369,10 +422,57 @@ function commitVerificationArgs(
 		objectiveProofNomination: {
 			runner: 'deno-exact-v1',
 			testPath: TEST_PATH,
-			exactTestName: `Sentry SUPERS-101 ${claim.claimId}`
+			exactTestName: `Sentry ${claim.workItem} ${claim.claimId}`
 		},
 		...overrides
 	};
+}
+
+async function integrationFixture() {
+	const fixtureValue = fixture();
+	const { repository, context, resources, externalResources } = fixtureValue;
+	const operations = createSupersAgentWorktreeOperations(repository);
+	const claim = (
+		await operations.prepareSupersAgentWorktree(
+			{
+				...PREPARE_ARGS,
+				invocationId: 'sentry-integration-supers-101',
+				workItem: 'supers-101'
+			},
+			context
+		)
+	).resource;
+	repository.worktreeHead = COMMIT_REVISION;
+	recordSuccessfulInvocation(resources, claim);
+	const commitReceipt = (
+		await operations.verifySupersAgentWorktreeCommit(commitVerificationArgs(claim), context)
+	).resource;
+	externalResources.set(
+		`@swamp/git:${INTEGRATION_GIT_MODEL_ID}:${CHERRY_PICK_RESOURCE_NAME}`,
+		{
+			commits: [COMMIT_REVISION],
+			conflict: false,
+			raw: 'applied exact child commit'
+		}
+	);
+	repository.centralHeads = [
+		INTEGRATED_REVISION,
+		INTEGRATED_REVISION,
+		INTEGRATED_REVISION,
+		INTEGRATED_REVISION
+	];
+	const args = {
+		commitReceiptName: `supers-agent-worktree-commit-${commitReceipt.receiptId}`,
+		expectedCommitReceiptId: commitReceipt.receiptId,
+		expectedCommitReceiptFingerprint: commitReceipt.fingerprint,
+		integrationGitModelId: INTEGRATION_GIT_MODEL_ID,
+		cherryPickResourceName: CHERRY_PICK_RESOURCE_NAME,
+		rootEpicId: 'supers-101',
+		activeTaskId: 'supers-101',
+		expectedPreRevision: BASE_REVISION,
+		expectedPostRevision: INTEGRATED_REVISION
+	};
+	return { ...fixtureValue, operations, commitReceipt, args };
 }
 
 Deno.test('invocation authority resources retain one immutable infinite-lifetime version', () => {
@@ -649,6 +749,130 @@ Deno.test('committed worktree verification rejects a conflicting durable receipt
 	await assert.rejects(
 		() => operations.verifySupersAgentWorktreeCommit(args, context),
 		/fingerprint mismatch/
+	);
+});
+
+Deno.test('serialized integration verification persists a strict Factory receipt and replays exactly', async () => {
+	const { repository, context, resources, writes, operations, commitReceipt, args } =
+		await integrationFixture();
+	const writeStart = writes.length;
+	const first = (await operations.verifySupersAgentIntegration(args, context)).resource;
+	assert.equal(first.disposition, 'integrated');
+	assert.equal(first.baseCommit, BASE_REVISION);
+	assert.equal(first.integratedRevision, INTEGRATED_REVISION);
+	assert.equal(first.patchDigest, commitReceipt.diffDigest);
+	assert.equal(first.integratedTreeFingerprint, commitReceipt.treeDigest);
+	assert.deepEqual(first.changedPaths, [TEST_PATH]);
+	assert.equal(writes.length - writeStart, 3);
+
+	repository.centralHeads = [
+		INTEGRATED_REVISION,
+		INTEGRATED_REVISION,
+		INTEGRATED_REVISION,
+		INTEGRATED_REVISION
+	];
+	const replay = (await operations.verifySupersAgentIntegration(args, context)).resource;
+	assert.deepEqual(replay, first);
+	assert.equal(writes.length - writeStart, 3);
+
+	const integrationName = `supers-agent-integration-supers-101-${INTEGRATED_REVISION}`;
+	resources.delete(integrationName);
+	repository.centralHeads = [
+		INTEGRATED_REVISION,
+		INTEGRATED_REVISION,
+		INTEGRATED_REVISION,
+		INTEGRATED_REVISION
+	];
+	const recovered = (await operations.verifySupersAgentIntegration(args, context)).resource;
+	assert.deepEqual(recovered, first);
+	assert.equal(writes.filter((name) => name === integrationName).length, 2);
+});
+
+Deno.test('serialized integration verification rejects dirty or drifted central state', async () => {
+	{
+		const { repository, context, operations, args } = await integrationFixture();
+		repository.centralDirty = true;
+		await assert.rejects(
+			() => operations.verifySupersAgentIntegration(args, context),
+			/central repository must be clean/
+		);
+	}
+	{
+		const { repository, context, operations, args } = await integrationFixture();
+		repository.centralHeads = [OTHER_REVISION];
+		await assert.rejects(
+			() => operations.verifySupersAgentIntegration(args, context),
+			/central repository HEAD mismatch/
+		);
+	}
+});
+
+Deno.test('serialized integration verification rejects wrong parent, tree, paths, and diff', async () => {
+	for (const scenario of ['parent', 'tree', 'paths', 'diff'] as const) {
+		const { repository, context, operations, args } = await integrationFixture();
+		if (scenario === 'parent') repository.integrationParent = OTHER_REVISION;
+		if (scenario === 'tree') repository.integrationTree = OTHER_REVISION;
+		if (scenario === 'paths') repository.integrationNameStatus = `A\0other.test.ts\0`;
+		if (scenario === 'diff') repository.integrationDiffBytes = new TextEncoder().encode('wrong');
+		await assert.rejects(() => operations.verifySupersAgentIntegration(args, context));
+	}
+});
+
+Deno.test('serialized integration verification rejects forged commit and cherry-pick evidence', async () => {
+	{
+		const { repository, context, resources, operations, args } = await integrationFixture();
+		const forged = { ...resources.get(args.commitReceiptName)!, treeDigest: '0'.repeat(64) };
+		resources.set(args.commitReceiptName, forged);
+		repository.centralHeads = [
+			INTEGRATED_REVISION,
+			INTEGRATED_REVISION,
+			INTEGRATED_REVISION,
+			INTEGRATED_REVISION
+		];
+		await assert.rejects(
+			() => operations.verifySupersAgentIntegration(args, context),
+			/integration commit receipt authority mismatch/
+		);
+	}
+	for (const cherryPick of [
+		{ commits: [COMMIT_REVISION, OTHER_REVISION], conflict: false, raw: 'extra' },
+		{ commits: [OTHER_REVISION], conflict: false, raw: 'wrong' },
+		{ commits: [COMMIT_REVISION], conflict: true, conflictFiles: [TEST_PATH], raw: 'conflict' },
+		{ commits: [COMMIT_REVISION], conflict: false, aborted: true, raw: 'aborted' }
+	]) {
+		const { repository, context, externalResources, operations, args } =
+			await integrationFixture();
+		externalResources.set(
+			`@swamp/git:${INTEGRATION_GIT_MODEL_ID}:${CHERRY_PICK_RESOURCE_NAME}`,
+			cherryPick
+		);
+		repository.centralHeads = [
+			INTEGRATED_REVISION,
+			INTEGRATED_REVISION,
+			INTEGRATED_REVISION,
+			INTEGRATED_REVISION
+		];
+		await assert.rejects(
+			() => operations.verifySupersAgentIntegration(args, context),
+			/official Git cherry-pick receipt/
+		);
+	}
+});
+
+Deno.test('serialized integration replay rejects a conflicting durable receipt', async () => {
+	const { repository, context, resources, operations, args } = await integrationFixture();
+	await operations.verifySupersAgentIntegration(args, context);
+	const name = `supers-agent-integration-supers-101-${INTEGRATED_REVISION}`;
+	resources.set(name, { ...resources.get(name)!, patchDigest: '0'.repeat(64) });
+	repository.centralHeads = [
+		INTEGRATED_REVISION,
+		INTEGRATED_REVISION,
+		INTEGRATED_REVISION,
+		INTEGRATED_REVISION
+	];
+	await assert.rejects(
+		() => operations.verifySupersAgentIntegration(args, context),
+		/integration receipt conflicts/
 	);
 });
 

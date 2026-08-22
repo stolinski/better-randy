@@ -1,5 +1,10 @@
 import { z } from 'npm:zod@4.4.3';
 
+import {
+	SupersFactoryIntegrationReceiptSchema,
+	type SupersFactoryIntegrationReceipt
+} from './supers-deterministic-factory-contract.ts';
+
 const SHA40_PATTERN = /^[0-9a-f]{40}$/;
 const SHA64_PATTERN = /^[0-9a-f]{64}$/;
 const SAFE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
@@ -198,6 +203,78 @@ export type SupersAgentWorktreeCommitReceipt = z.infer<
 	typeof SupersAgentWorktreeCommitReceiptSchema
 >;
 
+const GitCherryPickResultSchema = z
+	.object({
+		commits: z.array(z.string().regex(SHA40_PATTERN)),
+		conflict: z.boolean(),
+		conflictFiles: z.array(z.string()).optional(),
+		aborted: z.boolean().optional(),
+		raw: z.string()
+	})
+	.strict();
+
+export const VerifySupersAgentIntegrationArgsSchema = z
+	.object({
+		commitReceiptName: z.string().min(1),
+		expectedCommitReceiptId: z.string().regex(SHA64_PATTERN),
+		expectedCommitReceiptFingerprint: z.string().regex(SHA64_PATTERN),
+		integrationGitModelId: z.string().min(1),
+		cherryPickResourceName: z.string().min(1),
+		rootEpicId: z.string().regex(SAFE_ID_PATTERN),
+		activeTaskId: z.string().regex(SAFE_ID_PATTERN),
+		expectedPreRevision: z.string().regex(SHA40_PATTERN),
+		expectedPostRevision: z.string().regex(SHA40_PATTERN)
+	})
+	.strict();
+export type VerifySupersAgentIntegrationArgs = z.infer<
+	typeof VerifySupersAgentIntegrationArgsSchema
+>;
+
+export const SupersAgentIntegrationIntentSchema = z
+	.object({
+		schemaVersion: z.literal(1),
+		workItem: z.string().regex(SAFE_ID_PATTERN),
+		commitReceiptName: z.string().min(1),
+		commitReceiptId: z.string().regex(SHA64_PATTERN),
+		commitReceiptFingerprint: z.string().regex(SHA64_PATTERN),
+		integrationGitModelId: z.string().min(1),
+		cherryPickResourceName: z.string().min(1),
+		cherryPickDigest: z.string().regex(SHA64_PATTERN),
+		rootEpicId: z.string().regex(SAFE_ID_PATTERN),
+		activeTaskId: z.string().regex(SAFE_ID_PATTERN),
+		expectedPreRevision: z.string().regex(SHA40_PATTERN),
+		expectedPostRevision: z.string().regex(SHA40_PATTERN),
+		preparedAt: z.string().datetime(),
+		fingerprint: z.string().regex(SHA64_PATTERN)
+	})
+	.strict();
+export type SupersAgentIntegrationIntent = z.infer<typeof SupersAgentIntegrationIntentSchema>;
+
+export const SupersAgentIntegrationHandoffManifestSchema = z
+	.object({
+		schemaVersion: z.literal(1),
+		authority: z.literal('supers-agent-worktree-integration-v1'),
+		workItem: z.string().regex(SAFE_ID_PATTERN),
+		rootEpicId: z.string().regex(SAFE_ID_PATTERN),
+		activeTaskId: z.string().regex(SAFE_ID_PATTERN),
+		commitReceiptName: z.string().min(1),
+		commitReceiptId: z.string().regex(SHA64_PATTERN),
+		commitReceiptFingerprint: z.string().regex(SHA64_PATTERN),
+		objectiveProofNomination: SupersAgentObjectiveProofNominationSchema,
+		baseRevision: z.string().regex(SHA40_PATTERN),
+		childCommitRevision: z.string().regex(SHA40_PATTERN),
+		integratedRevision: z.string().regex(SHA40_PATTERN),
+		changedPaths: z.array(z.string().min(1)).min(1).max(MAX_CHANGED_PATHS),
+		patchDigest: z.string().regex(SHA64_PATTERN),
+		integratedTreeFingerprint: z.string().regex(SHA64_PATTERN),
+		verifiedAt: z.string().datetime(),
+		fingerprint: z.string().regex(SHA64_PATTERN)
+	})
+	.strict();
+export type SupersAgentIntegrationHandoffManifest = z.infer<
+	typeof SupersAgentIntegrationHandoffManifestSchema
+>;
+
 const SupersAgentWorktreeRemovalAuthorizationSchema = z.discriminatedUnion('kind', [
 	z.object({ kind: z.literal('unchanged') }).strict(),
 	z
@@ -277,6 +354,14 @@ export interface SupersAgentWorktreeDependencies {
 
 export interface SupersAgentWorktreeMethodContext {
 	repoDir: string;
+	dataRepository?: {
+		getContent(
+			type: unknown,
+			modelId: string,
+			dataName: string,
+			version?: number
+		): Promise<Uint8Array | null>;
+	};
 	readResource(instanceName: string): Promise<Record<string, unknown> | null>;
 	writeResource(
 		specName: string,
@@ -1056,6 +1141,29 @@ async function readParsedResource<T>(
 	return raw === null ? null : schema.parse(raw);
 }
 
+async function readExternalParsedResource<T>(
+	context: SupersAgentWorktreeMethodContext,
+	type: string,
+	modelId: string,
+	name: string,
+	schema: z.ZodType<T>
+): Promise<T> {
+	if (context.dataRepository === undefined) {
+		throw new Error('cross-model data repository access is unavailable');
+	}
+	const content = await context.dataRepository.getContent(type, modelId, name);
+	if (content === null) throw new Error(`external integration resource is missing: ${name}`);
+	try {
+		return schema.parse(JSON.parse(strictDecoder.decode(content)));
+	} catch (error) {
+		throw new Error(`external integration resource is malformed: ${name}`, { cause: error });
+	}
+}
+
+function withoutFingerprint(value: Readonly<Record<string, unknown>>): Record<string, unknown> {
+	return Object.fromEntries(Object.entries(value).filter(([key]) => key !== 'fingerprint'));
+}
+
 export interface SupersAgentWorktreeResourceResult<T> {
 	resource: T;
 	dataHandles: Array<{ name: string }>;
@@ -1074,6 +1182,10 @@ export interface SupersAgentWorktreeOperations {
 		args: VerifySupersAgentWorktreeCommitArgs,
 		context: SupersAgentWorktreeMethodContext
 	): Promise<SupersAgentWorktreeResourceResult<SupersAgentWorktreeCommitReceipt>>;
+	verifySupersAgentIntegration(
+		args: VerifySupersAgentIntegrationArgs,
+		context: SupersAgentWorktreeMethodContext
+	): Promise<SupersAgentWorktreeResourceResult<SupersFactoryIntegrationReceipt>>;
 	removeSupersAgentWorktree(
 		args: RemoveSupersAgentWorktreeArgs,
 		context: SupersAgentWorktreeMethodContext
@@ -1492,6 +1604,287 @@ export function createSupersAgentWorktreeOperations(
 				receipt
 			);
 			return { resource: receipt, dataHandles: [handle] };
+		},
+
+		async verifySupersAgentIntegration(argsInput, context) {
+			const args = VerifySupersAgentIntegrationArgsSchema.parse(argsInput);
+			if (
+				args.commitReceiptName !==
+				`supers-agent-worktree-commit-${args.expectedCommitReceiptId}`
+			) {
+				throw new Error('integration commit receipt name mismatch');
+			}
+			const commitReceipt = await readParsedResource(
+				context,
+				args.commitReceiptName,
+				SupersAgentWorktreeCommitReceiptSchema
+			);
+			if (commitReceipt === null) throw new Error('integration commit receipt is missing');
+			const recomputedCommitFingerprint = await stableIdentityHash(
+				withoutFingerprint(commitReceipt as unknown as Record<string, unknown>)
+			);
+			if (
+				commitReceipt.receiptId !== args.expectedCommitReceiptId ||
+				commitReceipt.fingerprint !== args.expectedCommitReceiptFingerprint ||
+				commitReceipt.fingerprint !== recomputedCommitFingerprint ||
+				commitReceipt.workItem !== args.activeTaskId ||
+				commitReceipt.baseRevision !== args.expectedPreRevision
+			) {
+				throw new Error('integration commit receipt authority mismatch');
+			}
+			const cherryPick = await readExternalParsedResource(
+				context,
+				'@swamp/git',
+				args.integrationGitModelId,
+				args.cherryPickResourceName,
+				GitCherryPickResultSchema
+			);
+			if (
+				cherryPick.conflict ||
+				cherryPick.aborted === true ||
+				cherryPick.commits.length !== 1 ||
+				cherryPick.commits[0] !== commitReceipt.commitRevision
+			) {
+				throw new Error('official Git cherry-pick receipt does not bind the exact child commit');
+			}
+			const cherryPickDigest = await stableIdentityHash(cherryPick);
+			const resourceSuffix = `${commitReceipt.workItem}-${args.expectedPostRevision}`;
+			const intentName = `supers-agent-integration-intent-${resourceSuffix}`;
+			const preparedAt = deps.now().toISOString();
+			const proposedIntent: SupersAgentIntegrationIntent = {
+				schemaVersion: 1,
+				workItem: commitReceipt.workItem,
+				commitReceiptName: args.commitReceiptName,
+				commitReceiptId: commitReceipt.receiptId,
+				commitReceiptFingerprint: commitReceipt.fingerprint,
+				integrationGitModelId: args.integrationGitModelId,
+				cherryPickResourceName: args.cherryPickResourceName,
+				cherryPickDigest,
+				rootEpicId: args.rootEpicId,
+				activeTaskId: args.activeTaskId,
+				expectedPreRevision: args.expectedPreRevision,
+				expectedPostRevision: args.expectedPostRevision,
+				preparedAt,
+				fingerprint: ''
+			};
+			proposedIntent.fingerprint = await stableIdentityHash(
+				withoutFingerprint(proposedIntent as unknown as Record<string, unknown>)
+			);
+			const existingIntent = await readParsedResource(
+				context,
+				intentName,
+				SupersAgentIntegrationIntentSchema
+			);
+			const intent = existingIntent ?? proposedIntent;
+			if (existingIntent !== null) {
+				const expectedExisting = {
+					...proposedIntent,
+					preparedAt: existingIntent.preparedAt,
+					fingerprint: existingIntent.fingerprint
+				};
+				expectedExisting.fingerprint = await stableIdentityHash(
+					withoutFingerprint(expectedExisting as unknown as Record<string, unknown>)
+				);
+				requireExactResource(
+					SupersAgentIntegrationIntentSchema,
+					existingIntent,
+					expectedExisting,
+					'integration intent'
+				);
+			} else {
+				await context.writeResource('supers-agent-integration-intent', intentName, intent);
+			}
+
+			await requireCleanStableCentralRepository(
+				deps,
+				context.repoDir,
+				args.expectedPostRevision
+			);
+			const parentLine = (
+				await requiredGitOutput(
+					deps,
+					context.repoDir,
+					['rev-list', '--parents', '-n', '1', args.expectedPostRevision],
+					MAX_GIT_PROTOCOL_BYTES
+				)
+			).trim();
+			if (parentLine !== `${args.expectedPostRevision} ${args.expectedPreRevision}`) {
+				throw new Error('integrated revision is not the exact single-parent serialized result');
+			}
+			const integratedTree = (
+				await requiredGitOutput(
+					deps,
+					context.repoDir,
+					['rev-parse', '--verify', `${args.expectedPostRevision}^{tree}`],
+					MAX_GIT_PROTOCOL_BYTES
+				)
+			).trim();
+			if (integratedTree !== commitReceipt.commitTree) {
+				throw new Error('integrated Git tree differs from the verified child tree');
+			}
+			const treeListing = await requiredGitBytes(
+				deps,
+				context.repoDir,
+				['ls-tree', '-r', '-z', args.expectedPostRevision],
+				MAX_TREE_LISTING_BYTES
+			);
+			const integratedTreeFingerprint = await sha256([treeListing]);
+			if (integratedTreeFingerprint !== commitReceipt.treeDigest) {
+				throw new Error('integrated tree digest differs from the verified child tree digest');
+			}
+			const nameStatus = await requiredGitOutput(
+				deps,
+				context.repoDir,
+				[
+					'diff',
+					'--name-status',
+					'-z',
+					args.expectedPreRevision,
+					args.expectedPostRevision,
+					'--'
+				],
+				MAX_NAME_STATUS_BYTES
+			);
+			const fields = nameStatus.split('\0').filter(Boolean);
+			if (fields.length === 0 || fields.length % 2 !== 0 || fields.length / 2 > MAX_CHANGED_PATHS) {
+				throw new Error('integrated revision has invalid changed-path evidence');
+			}
+			const changedPaths: string[] = [];
+			for (let index = 0; index < fields.length; index += 2) {
+				if (fields[index] !== 'A' && fields[index] !== 'M') {
+					throw new Error(`unsupported integrated path status: ${fields[index]}`);
+				}
+				requireSafeRepositoryPath(fields[index + 1]);
+				changedPaths.push(fields[index + 1]);
+			}
+			changedPaths.sort();
+			if (
+				JSON.stringify(changedPaths) !== JSON.stringify(commitReceipt.changedPaths) ||
+				(await stableIdentityHash({ changedPaths })) !== commitReceipt.changedPathsDigest
+			) {
+				throw new Error('integrated changed paths differ from the verified child receipt');
+			}
+			const integratedDiff = await requiredGitBytes(
+				deps,
+				context.repoDir,
+				[
+					'diff',
+					'--binary',
+					'--full-index',
+					args.expectedPreRevision,
+					args.expectedPostRevision,
+					'--'
+				],
+				MAX_BINARY_DIFF_BYTES
+			);
+			const patchDigest = await sha256([integratedDiff]);
+			if (patchDigest !== commitReceipt.diffDigest) {
+				throw new Error('integrated patch digest differs from the verified child receipt');
+			}
+			await requireCleanStableCentralRepository(
+				deps,
+				context.repoDir,
+				args.expectedPostRevision
+			);
+
+			const manifestName = `supers-agent-integration-handoff-${resourceSuffix}`;
+			const manifest: SupersAgentIntegrationHandoffManifest = {
+				schemaVersion: 1,
+				authority: 'supers-agent-worktree-integration-v1',
+				workItem: commitReceipt.workItem,
+				rootEpicId: args.rootEpicId,
+				activeTaskId: args.activeTaskId,
+				commitReceiptName: args.commitReceiptName,
+				commitReceiptId: commitReceipt.receiptId,
+				commitReceiptFingerprint: commitReceipt.fingerprint,
+				objectiveProofNomination: commitReceipt.objectiveProofNomination,
+				baseRevision: args.expectedPreRevision,
+				childCommitRevision: commitReceipt.commitRevision,
+				integratedRevision: args.expectedPostRevision,
+				changedPaths,
+				patchDigest,
+				integratedTreeFingerprint,
+				verifiedAt: intent.preparedAt,
+				fingerprint: ''
+			};
+			manifest.fingerprint = await stableIdentityHash(
+				withoutFingerprint(manifest as unknown as Record<string, unknown>)
+			);
+			const receiptId = await stableIdentityHash({
+				schemaVersion: 1,
+				rootEpicId: args.rootEpicId,
+				activeTaskId: args.activeTaskId,
+				factoryName: 'supers-delivery',
+				handoffManifestDigest: manifest.fingerprint,
+				targetBaselineRevision: args.expectedPreRevision,
+				childCommittedRevision: commitReceipt.commitRevision,
+				integratedRevision: args.expectedPostRevision
+			});
+			const receipt = SupersFactoryIntegrationReceiptSchema.parse({
+				schemaVersion: 1,
+				receiptId,
+				rootEpicId: args.rootEpicId,
+				activeTaskId: args.activeTaskId,
+				factoryName: 'supers-delivery',
+				handoffManifestDigest: manifest.fingerprint,
+				targetBaselineRevision: args.expectedPreRevision,
+				childRevisionEvidence: {
+					status: 'verified',
+					childCommittedRevision: commitReceipt.commitRevision
+				},
+				disposition: 'integrated',
+				baseCommit: args.expectedPreRevision,
+				patchDigest,
+				changedPaths,
+				integratedRevision: args.expectedPostRevision,
+				integratedTreeFingerprint,
+				rejectionReason: 'none'
+			});
+			const receiptName = `supers-agent-integration-${resourceSuffix}`;
+			const existingManifest = await readParsedResource(
+				context,
+				manifestName,
+				SupersAgentIntegrationHandoffManifestSchema
+			);
+			const existingReceipt = await readParsedResource(
+				context,
+				receiptName,
+				SupersFactoryIntegrationReceiptSchema
+			);
+			if (existingReceipt !== null && existingManifest === null) {
+				throw new Error('integration receipt exists without its handoff manifest');
+			}
+			if (existingManifest !== null) {
+				requireExactResource(
+					SupersAgentIntegrationHandoffManifestSchema,
+					existingManifest,
+					manifest,
+					'integration handoff manifest'
+				);
+			}
+			if (existingReceipt !== null) {
+				requireExactResource(
+					SupersFactoryIntegrationReceiptSchema,
+					existingReceipt,
+					receipt,
+					'integration receipt'
+				);
+				return { resource: existingReceipt, dataHandles: [] };
+			}
+			const createdHandles: Array<{ name: string }> = [];
+			if (existingManifest === null) {
+				createdHandles.push(
+					await context.writeResource(
+						'supers-agent-integration-handoff',
+						manifestName,
+						manifest
+					)
+				);
+			}
+			createdHandles.push(
+				await context.writeResource('supers-agent-integration', receiptName, receipt)
+			);
+			return { resource: receipt, dataHandles: createdHandles };
 		},
 
 		async removeSupersAgentWorktree(argsInput, context) {
@@ -1915,6 +2308,27 @@ export const extension = {
 			lifetime: 'infinite',
 			garbageCollection: IMMUTABLE_INVOCATION_RESOURCE_VERSIONS
 		},
+		'supers-agent-integration-intent': {
+			description:
+				'Crash-recoverable authority binding an exact verified child commit to one official Git cherry-pick receipt.',
+			schema: SupersAgentIntegrationIntentSchema,
+			lifetime: 'infinite',
+			garbageCollection: IMMUTABLE_INVOCATION_RESOURCE_VERSIONS
+		},
+		'supers-agent-integration-handoff': {
+			description:
+				'Deterministic handoff manifest derived from verified Git evidence without agent prose authority.',
+			schema: SupersAgentIntegrationHandoffManifestSchema,
+			lifetime: 'infinite',
+			garbageCollection: IMMUTABLE_INVOCATION_RESOURCE_VERSIONS
+		},
+		'supers-agent-integration': {
+			description:
+				'Strict Factory-compatible receipt proving one serialized integration into the central checkout.',
+			schema: SupersFactoryIntegrationReceiptSchema,
+			lifetime: 'infinite',
+			garbageCollection: IMMUTABLE_INVOCATION_RESOURCE_VERSIONS
+		},
 		'supers-agent-worktree-removal-intent': {
 			description:
 				'Crash-recoverable intent to remove only one exact verified Supers agent worktree.',
@@ -1969,6 +2383,20 @@ export const extension = {
 					context: SupersAgentWorktreeMethodContext
 				) => {
 					const result = await operations.verifySupersAgentWorktreeCommit(args, context);
+					return { dataHandles: result.dataHandles };
+				}
+			}
+		},
+		{
+			verifySupersAgentIntegration: {
+				description:
+					'Verify the exact serialized result of an official Git cherry-pick and persist Factory integration evidence.',
+				arguments: VerifySupersAgentIntegrationArgsSchema,
+				execute: async (
+					args: VerifySupersAgentIntegrationArgs,
+					context: SupersAgentWorktreeMethodContext
+				) => {
+					const result = await operations.verifySupersAgentIntegration(args, context);
 					return { dataHandles: result.dataHandles };
 				}
 			}
