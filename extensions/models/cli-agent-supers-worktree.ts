@@ -5,9 +5,16 @@ const SHA64_PATTERN = /^[0-9a-f]{64}$/;
 const SAFE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const INVOCATION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const decoder = new TextDecoder();
+const strictDecoder = new TextDecoder('utf-8', { fatal: true });
 const encoder = new TextEncoder();
 const MAX_UNTRACKED_FILE_BYTES = 16 * 1024 * 1024;
 const MAX_UNTRACKED_AGGREGATE_BYTES = 64 * 1024 * 1024;
+const MAX_CHANGED_PATHS = 256;
+const MAX_CHANGED_BLOB_BYTES = 8 * 1024 * 1024;
+const MAX_CHANGED_BLOB_AGGREGATE_BYTES = 32 * 1024 * 1024;
+const MAX_NAME_STATUS_BYTES = 1024 * 1024;
+const MAX_TREE_LISTING_BYTES = 8 * 1024 * 1024;
+const MAX_BINARY_DIFF_BYTES = 32 * 1024 * 1024;
 
 export const SupersAgentWorktreePurposeSchema = z.enum(['sentry-reproduction', 'delivery-coding']);
 export type SupersAgentWorktreePurpose = z.infer<typeof SupersAgentWorktreePurposeSchema>;
@@ -85,7 +92,7 @@ export const VerifySupersAgentWorktreeCommitArgsSchema = z
 		expectedPromptDigest: z.string().regex(SHA64_PATTERN),
 		expectedBaseRevision: z.string().regex(SHA40_PATTERN),
 		expectedCommitRevision: z.string().regex(SHA40_PATTERN),
-		objectiveProof: SupersAgentObjectiveProofNominationSchema
+		objectiveProofNomination: SupersAgentObjectiveProofNominationSchema
 	})
 	.strict();
 export type VerifySupersAgentWorktreeCommitArgs = z.infer<
@@ -177,10 +184,10 @@ export const SupersAgentWorktreeCommitReceiptSchema = z
 		commitRevision: z.string().regex(SHA40_PATTERN),
 		commitTree: z.string().regex(SHA40_PATTERN),
 		treeDigest: z.string().regex(SHA64_PATTERN),
-		changedPaths: z.array(z.string().min(1)).min(1),
+		changedPaths: z.array(z.string().min(1)).min(1).max(MAX_CHANGED_PATHS),
 		changedPathsDigest: z.string().regex(SHA64_PATTERN),
 		diffDigest: z.string().regex(SHA64_PATTERN),
-		objectiveProof: SupersAgentObjectiveProofNominationSchema,
+		objectiveProofNomination: SupersAgentObjectiveProofNominationSchema,
 		verifiedAt: z.string().datetime(),
 		fingerprint: z.string().regex(SHA64_PATTERN)
 	})
@@ -189,9 +196,22 @@ export type SupersAgentWorktreeCommitReceipt = z.infer<
 	typeof SupersAgentWorktreeCommitReceiptSchema
 >;
 
+const SupersAgentWorktreeRemovalAuthorizationSchema = z.discriminatedUnion('kind', [
+	z.object({ kind: z.literal('unchanged') }).strict(),
+	z
+		.object({
+			kind: z.literal('committed'),
+			receiptName: z.string().min(1),
+			receiptId: z.string().regex(SHA64_PATTERN),
+			fingerprint: z.string().regex(SHA64_PATTERN)
+		})
+		.strict()
+]);
+
 export const RemoveSupersAgentWorktreeArgsSchema = z
 	.object({
-		claimId: z.string().regex(SHA64_PATTERN)
+		claimId: z.string().regex(SHA64_PATTERN),
+		authorization: SupersAgentWorktreeRemovalAuthorizationSchema.optional()
 	})
 	.strict();
 export type RemoveSupersAgentWorktreeArgs = z.infer<typeof RemoveSupersAgentWorktreeArgsSchema>;
@@ -203,6 +223,8 @@ export const SupersAgentWorktreeRemovalIntentSchema = z
 		receiptId: z.string().regex(SHA64_PATTERN),
 		worktreePath: z.string().min(1),
 		attachedBranch: z.string().min(1),
+		authorizationKind: z.enum(['unchanged', 'committed']).optional(),
+		authorizationReceiptId: z.string().regex(SHA64_PATTERN).optional(),
 		requestedAt: z.string().datetime()
 	})
 	.strict();
@@ -273,16 +295,33 @@ function gitFailure(args: readonly string[], result: SupersAgentGitResult): Erro
 	);
 }
 
-async function requiredGitOutput(
+async function requiredGitBytes(
 	deps: SupersAgentWorktreeDependencies,
 	cwd: string,
-	args: readonly string[]
-): Promise<string> {
+	args: readonly string[],
+	maxBytes?: number
+): Promise<Uint8Array> {
 	const result = await deps.runGit(cwd, args);
 	if (!result.success) {
 		throw gitFailure(args, result);
 	}
-	return decoded(result.stdout);
+	if (maxBytes !== undefined && result.stdout.length > maxBytes) {
+		throw new Error(`git ${args[0]} output exceeds the ${maxBytes}-byte safety limit`);
+	}
+	return result.stdout;
+}
+
+async function requiredGitOutput(
+	deps: SupersAgentWorktreeDependencies,
+	cwd: string,
+	args: readonly string[],
+	maxBytes?: number
+): Promise<string> {
+	try {
+		return strictDecoder.decode(await requiredGitBytes(deps, cwd, args, maxBytes));
+	} catch (error) {
+		throw new Error(`git ${args[0]} returned invalid UTF-8 for a textual protocol`, { cause: error });
+	}
 }
 
 function frameHashParts(parts: readonly Uint8Array[]): Uint8Array {
@@ -704,7 +743,7 @@ function requireSafeRepositoryPath(path: string): void {
 		path.length === 0 ||
 		path.startsWith('/') ||
 		path.includes('\\') ||
-		path.includes('\0') ||
+		/[\u0000-\u001f\u007f]/.test(path) ||
 		path.split('/').some((segment) => segment.length === 0 || segment === '.' || segment === '..')
 	) {
 		throw new Error(`unsafe changed repository path: ${path}`);
@@ -795,19 +834,28 @@ async function collectCommittedWorktreeEvidence(
 			ancestor
 		);
 	}
-	const nameStatus = await requiredGitOutput(deps, claim.worktreePath, [
-		'diff',
-		'--name-status',
-		'-z',
-		args.expectedBaseRevision,
-		args.expectedCommitRevision,
-		'--'
-	]);
+	const nameStatus = await requiredGitOutput(
+		deps,
+		claim.worktreePath,
+		[
+			'diff',
+			'--name-status',
+			'-z',
+			args.expectedBaseRevision,
+			args.expectedCommitRevision,
+			'--'
+		],
+		MAX_NAME_STATUS_BYTES
+	);
 	const fields = nameStatus.split('\0').filter(Boolean);
 	if (fields.length === 0 || fields.length % 2 !== 0) {
 		throw new Error('committed worktree has no valid changed paths');
 	}
+	if (fields.length / 2 > MAX_CHANGED_PATHS) {
+		throw new Error(`committed worktree exceeds the ${MAX_CHANGED_PATHS}-path safety limit`);
+	}
 	const changedPaths: string[] = [];
+	let aggregateBlobBytes = 0;
 	for (let index = 0; index < fields.length; index += 2) {
 		const statusCode = fields[index];
 		const path = fields[index + 1];
@@ -828,11 +876,31 @@ async function collectCommittedWorktreeEvidence(
 		if (match === null || match[2] !== path) {
 			throw new Error(`changed path is not an exact regular Git blob: ${path}`);
 		}
+		const blobSizeText = (
+			await requiredGitOutput(deps, claim.worktreePath, [
+				'cat-file',
+				'-s',
+				`${args.expectedCommitRevision}:${path}`
+			], 64)
+		).trim();
+		const blobSize = Number(blobSizeText);
+		if (!Number.isSafeInteger(blobSize) || blobSize < 0) {
+			throw new Error(`changed path has an invalid Git blob size: ${path}`);
+		}
+		if (blobSize > MAX_CHANGED_BLOB_BYTES) {
+			throw new Error(`changed path exceeds the ${MAX_CHANGED_BLOB_BYTES}-byte safety limit: ${path}`);
+		}
+		aggregateBlobBytes += blobSize;
+		if (aggregateBlobBytes > MAX_CHANGED_BLOB_AGGREGATE_BYTES) {
+			throw new Error(
+				`changed blobs exceed the ${MAX_CHANGED_BLOB_AGGREGATE_BYTES}-byte aggregate safety limit`
+			);
+		}
 		changedPaths.push(path);
 	}
 	changedPaths.sort();
-	if (!changedPaths.includes(args.objectiveProof.testPath)) {
-		throw new Error('objective proof test path is not among the committed changed paths');
+	if (!changedPaths.includes(args.objectiveProofNomination.testPath)) {
+		throw new Error('objective proof nomination test path is not among the committed changed paths');
 	}
 	const commitTree = (
 		await requiredGitOutput(deps, claim.worktreePath, [
@@ -844,26 +912,31 @@ async function collectCommittedWorktreeEvidence(
 	if (!SHA40_PATTERN.test(commitTree)) {
 		throw new Error('committed worktree tree identity is invalid');
 	}
-	const treeListing = await requiredGitOutput(deps, claim.worktreePath, [
-		'ls-tree',
-		'-r',
-		'-z',
-		args.expectedCommitRevision
-	]);
-	const diff = await requiredGitOutput(deps, claim.worktreePath, [
-		'diff',
-		'--binary',
-		'--full-index',
-		args.expectedBaseRevision,
-		args.expectedCommitRevision,
-		'--'
-	]);
+	const treeListing = await requiredGitBytes(
+		deps,
+		claim.worktreePath,
+		['ls-tree', '-r', '-z', args.expectedCommitRevision],
+		MAX_TREE_LISTING_BYTES
+	);
+	const diff = await requiredGitBytes(
+		deps,
+		claim.worktreePath,
+		[
+			'diff',
+			'--binary',
+			'--full-index',
+			args.expectedBaseRevision,
+			args.expectedCommitRevision,
+			'--'
+		],
+		MAX_BINARY_DIFF_BYTES
+	);
 	return {
 		commitTree,
-		treeDigest: await sha256([encoder.encode(treeListing)]),
+		treeDigest: await sha256([treeListing]),
 		changedPaths,
 		changedPathsDigest: await stableIdentityHash({ changedPaths }),
-		diffDigest: await sha256([encoder.encode(diff)])
+		diffDigest: await sha256([diff])
 	};
 }
 
@@ -1177,10 +1250,7 @@ export function createSupersAgentWorktreeOperations(
 			) {
 				throw new Error('commit verification arguments do not match the exact worktree claim');
 			}
-			requireObjectiveTestPath(args.objectiveProof.testPath);
-			if (args.objectiveProof.exactTestName !== `Sentry ${claim.workItem} ${claim.claimId}`) {
-				throw new Error('objective proof exact test identity is not control-plane generated');
-			}
+			requireObjectiveTestPath(args.objectiveProofNomination.testPath);
 			const receiptId = await stableIdentityHash({
 				schemaVersion: 1,
 				...args
@@ -1214,7 +1284,7 @@ export function createSupersAgentWorktreeOperations(
 					attachedBranch: claim.attachedBranch,
 					baseRevision: args.expectedBaseRevision,
 					commitRevision: args.expectedCommitRevision,
-					objectiveProof: args.objectiveProof
+					objectiveProofNomination: args.objectiveProofNomination
 				};
 				requireExactResource(
 					SupersAgentWorktreeCommitReceiptSchema,
@@ -1276,6 +1346,10 @@ export function createSupersAgentWorktreeOperations(
 				claim.repositoryDir,
 				args.expectedBaseRevision
 			);
+			const finalEvidence = await collectCommittedWorktreeEvidence(deps, claim, args);
+			if (JSON.stringify(finalEvidence) !== JSON.stringify(evidence)) {
+				throw new Error('committed worktree evidence changed during verification');
+			}
 			const receipt: SupersAgentWorktreeCommitReceipt = {
 				schemaVersion: 1,
 				receiptId,
@@ -1293,8 +1367,8 @@ export function createSupersAgentWorktreeOperations(
 				attachedBranch: claim.attachedBranch,
 				baseRevision: args.expectedBaseRevision,
 				commitRevision: args.expectedCommitRevision,
-				...evidence,
-				objectiveProof: args.objectiveProof,
+				...finalEvidence,
+				objectiveProofNomination: args.objectiveProofNomination,
 				verifiedAt: deps.now().toISOString(),
 				fingerprint: ''
 			};
@@ -1320,31 +1394,118 @@ export function createSupersAgentWorktreeOperations(
 				throw new Error(`worktree claim is missing: ${args.claimId}`);
 			}
 			await requireValidClaimIdentity(claim);
-			const unchangedReceiptId = await stableIdentityHash({
-				schemaVersion: 1,
-				claimId: claim.claimId,
-				invocationId: claim.invocationId,
-				headSha: claim.headSha,
-				stateHash: claim.stateHash
-			});
-			const unchanged = await readParsedResource(
-				context,
-				`supers-agent-worktree-unchanged-${unchangedReceiptId}`,
-				SupersAgentWorktreeUnchangedReceiptSchema
-			);
-			if (unchanged === null) {
-				throw new Error('an exact unchanged receipt is required before worktree removal');
+			const authorization = args.authorization ?? { kind: 'unchanged' as const };
+			let authorizationReceiptId: string;
+			let committedAuthorization:
+				| { receipt: SupersAgentWorktreeCommitReceipt; verifyArgs: VerifySupersAgentWorktreeCommitArgs }
+				| null = null;
+			if (authorization.kind === 'unchanged') {
+				authorizationReceiptId = await stableIdentityHash({
+					schemaVersion: 1,
+					claimId: claim.claimId,
+					invocationId: claim.invocationId,
+					headSha: claim.headSha,
+					stateHash: claim.stateHash
+				});
+				const unchanged = await readParsedResource(
+					context,
+					`supers-agent-worktree-unchanged-${authorizationReceiptId}`,
+					SupersAgentWorktreeUnchangedReceiptSchema
+				);
+				if (unchanged === null) {
+					throw new Error('an exact unchanged receipt is required before worktree removal');
+				}
+				requireExactResource(
+					SupersAgentWorktreeUnchangedReceiptSchema,
+					unchanged,
+					expectedUnchangedReceipt(claim, authorizationReceiptId, unchanged.verifiedAt),
+					'worktree unchanged receipt'
+				);
+			} else {
+				authorizationReceiptId = authorization.receiptId;
+				if (authorization.receiptName !== `supers-agent-worktree-commit-${authorization.receiptId}`) {
+					throw new Error('committed cleanup authorization resource name mismatch');
+				}
+				const committed = await readParsedResource(
+					context,
+					authorization.receiptName,
+					SupersAgentWorktreeCommitReceiptSchema
+				);
+				if (committed === null) {
+					throw new Error('exact committed worktree receipt is required before removal');
+				}
+				const committedBase: Record<string, unknown> = { ...committed };
+				delete committedBase.fingerprint;
+				if (
+					committed.receiptId !== authorization.receiptId ||
+					committed.fingerprint !== authorization.fingerprint ||
+					committed.fingerprint !== (await stableIdentityHash(committedBase)) ||
+					committed.claimId !== claim.claimId ||
+					committed.invocationId !== claim.invocationId ||
+					committed.worktreePath !== claim.worktreePath ||
+					committed.attachedBranch !== claim.attachedBranch ||
+					committed.baseRevision !== claim.baseRevision
+				) {
+					throw new Error('committed cleanup authorization conflicts with the exact worktree claim');
+				}
+				committedAuthorization = {
+					receipt: committed,
+					verifyArgs: {
+						claimId: claim.claimId,
+						invocationModelId: committed.invocationModelId,
+						invocationResourceName: committed.invocationResourceName,
+						invocationId: committed.invocationId,
+						expectedProvider: committed.provider,
+						expectedModel: committed.model,
+						expectedActor: committed.actor,
+						expectedRepositoryExpectation: {
+							attachedBranch: claim.attachedBranch,
+							headSha: claim.headSha,
+							stateHash: claim.stateHash
+						},
+						expectedPromptDigest: committed.promptDigest,
+						expectedBaseRevision: committed.baseRevision,
+						expectedCommitRevision: committed.commitRevision,
+						objectiveProofNomination: committed.objectiveProofNomination
+					}
+				};
 			}
-			requireExactResource(
-				SupersAgentWorktreeUnchangedReceiptSchema,
-				unchanged,
-				expectedUnchangedReceipt(claim, unchangedReceiptId, unchanged.verifiedAt),
-				'worktree unchanged receipt'
-			);
+			if (authorization.kind === 'unchanged') {
+				const legacyReceiptId = await stableIdentityHash({
+					schemaVersion: 1,
+					claimId: claim.claimId,
+					unchangedReceiptId: authorizationReceiptId,
+					worktreePath: claim.worktreePath
+				});
+				const legacyReceipt = await readParsedResource(
+					context,
+					`supers-agent-worktree-removal-${legacyReceiptId}`,
+					SupersAgentWorktreeRemovalReceiptSchema
+				);
+				if (legacyReceipt !== null) {
+					requireExactResource(
+						SupersAgentWorktreeRemovalReceiptSchema,
+						legacyReceipt,
+						{
+							schemaVersion: 1,
+							claimId: claim.claimId,
+							receiptId: legacyReceiptId,
+							worktreePath: claim.worktreePath,
+							attachedBranch: claim.attachedBranch,
+							requestedAt: legacyReceipt.requestedAt,
+							removed: true,
+							removedAt: legacyReceipt.removedAt
+						},
+						'legacy worktree removal receipt'
+					);
+					return { resource: legacyReceipt, dataHandles: [] };
+				}
+			}
 			const receiptId = await stableIdentityHash({
 				schemaVersion: 1,
 				claimId: claim.claimId,
-				unchangedReceiptId,
+				authorizationKind: authorization.kind,
+				authorizationReceiptId,
 				worktreePath: claim.worktreePath
 			});
 			const receiptName = `supers-agent-worktree-removal-${receiptId}`;
@@ -1360,6 +1521,8 @@ export function createSupersAgentWorktreeOperations(
 					receiptId,
 					worktreePath: claim.worktreePath,
 					attachedBranch: claim.attachedBranch,
+					authorizationKind: authorization.kind,
+					authorizationReceiptId,
 					requestedAt: existingReceipt.requestedAt,
 					removed: true,
 					removedAt: existingReceipt.removedAt
@@ -1379,6 +1542,8 @@ export function createSupersAgentWorktreeOperations(
 				receiptId,
 				worktreePath: claim.worktreePath,
 				attachedBranch: claim.attachedBranch,
+				authorizationKind: authorization.kind,
+				authorizationReceiptId,
 				requestedAt: deps.now().toISOString()
 			};
 			const existingIntent = await readParsedResource(
@@ -1400,7 +1565,25 @@ export function createSupersAgentWorktreeOperations(
 				throw new Error('cannot begin worktree removal because the claimed worktree is absent');
 			}
 			if (initiallyExists) {
-				await requireExactWorktree(deps, claim, claim.stateHash);
+				if (committedAuthorization === null) {
+					await requireExactWorktree(deps, claim, claim.stateHash);
+				} else {
+					const observed = await collectCommittedWorktreeEvidence(
+						deps,
+						claim,
+						committedAuthorization.verifyArgs
+					);
+					const committed = committedAuthorization.receipt;
+					if (
+						observed.commitTree !== committed.commitTree ||
+						observed.treeDigest !== committed.treeDigest ||
+						observed.changedPathsDigest !== committed.changedPathsDigest ||
+						observed.diffDigest !== committed.diffDigest ||
+						JSON.stringify(observed.changedPaths) !== JSON.stringify(committed.changedPaths)
+					) {
+						throw new Error('committed worktree no longer matches its cleanup authorization');
+					}
+				}
 			}
 			const intent = existingIntent ?? proposedIntent;
 			if (existingIntent === null) {
@@ -1408,6 +1591,11 @@ export function createSupersAgentWorktreeOperations(
 			}
 
 			if (initiallyExists) {
+				if (committedAuthorization === null) {
+					await requireExactWorktree(deps, claim, claim.stateHash);
+				} else {
+					await collectCommittedWorktreeEvidence(deps, claim, committedAuthorization.verifyArgs);
+				}
 				const removeArgs = ['worktree', 'remove', '--', claim.worktreePath] as const;
 				const removeResult = await deps.runGit(claim.repositoryDir, removeArgs);
 				if (!removeResult.success && (await deps.pathExists(claim.worktreePath))) {
@@ -1573,7 +1761,7 @@ export const extension = {
 		{
 			removeSupersAgentWorktree: {
 				description:
-					'Remove only an exact unchanged worktree and persist a replay-safe removal receipt.',
+					'Remove only an exactly authorized unchanged or committed worktree and persist a replay-safe removal receipt.',
 				arguments: RemoveSupersAgentWorktreeArgsSchema,
 				execute: async (
 					args: RemoveSupersAgentWorktreeArgs,

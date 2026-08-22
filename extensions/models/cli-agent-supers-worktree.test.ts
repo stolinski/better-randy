@@ -29,15 +29,15 @@ const PREPARE_ARGS: PrepareSupersAgentWorktreeArgs = {
 
 function gitResult(
 	success: boolean,
-	stdout = '',
-	stderr = '',
+	stdout: string | Uint8Array = '',
+	stderr: string | Uint8Array = '',
 	code = success ? 0 : 1
 ): SupersAgentGitResult {
 	return {
 		success,
 		code,
-		stdout: new TextEncoder().encode(stdout),
-		stderr: new TextEncoder().encode(stderr)
+		stdout: typeof stdout === 'string' ? new TextEncoder().encode(stdout) : stdout,
+		stderr: typeof stderr === 'string' ? new TextEncoder().encode(stderr) : stderr
 	};
 }
 
@@ -58,6 +58,12 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 	changedPathStatus = 'A';
 	changedPath = TEST_PATH;
 	changedPathMode = '100644';
+	changedPathCount = 1;
+	changedBlobSize = 128;
+	treeListingBytes: Uint8Array | null = null;
+	binaryDiffBytes: Uint8Array | null = null;
+	mutateTreeOnSecondCollection = false;
+	treeCollectionCount = 0;
 	untracked = new Map<string, Uint8Array>();
 	untrackedInfo = new Map<
 		string,
@@ -198,7 +204,12 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 		if (
 			command === `diff --name-status -z ${BASE_REVISION} ${COMMIT_REVISION} --`
 		) {
-			return gitResult(true, `${this.changedPathStatus}\0${this.changedPath}\0`);
+			return gitResult(
+				true,
+				Array.from({ length: this.changedPathCount }, (_, index) =>
+					`${this.changedPathStatus}\0${index === 0 ? this.changedPath : `src/generated-${index}.ts`}\0`
+				).join('')
+			);
 		}
 		if (
 			command === `ls-tree -z ${COMMIT_REVISION} -- ${this.changedPath}`
@@ -208,19 +219,33 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 				`${this.changedPathMode} ${this.changedPathMode === '160000' ? 'commit' : 'blob'} ${OTHER_REVISION}\t${this.changedPath}\0`
 			);
 		}
+		if (command.startsWith(`cat-file -s ${COMMIT_REVISION}:`)) {
+			return gitResult(true, `${this.changedBlobSize}\n`);
+		}
 		if (command === `rev-parse --verify ${COMMIT_REVISION}^{tree}`) {
 			return gitResult(true, `${COMMIT_TREE}\n`);
 		}
 		if (command === `ls-tree -r -z ${COMMIT_REVISION}`) {
+			this.treeCollectionCount += 1;
+			if (this.mutateTreeOnSecondCollection && this.treeCollectionCount >= 2) {
+				return gitResult(true, `100644 blob ${COMMIT_TREE}\tchanged-after-check.ts\0`);
+			}
 			return gitResult(
 				true,
-				`${this.changedPathMode} blob ${OTHER_REVISION}\t${this.changedPath}\0`
+				this.treeListingBytes ??
+					new TextEncoder().encode(
+						`${this.changedPathMode} blob ${OTHER_REVISION}\t${this.changedPath}\0`
+					)
 			);
 		}
 		if (
 			command === `diff --binary --full-index ${BASE_REVISION} ${COMMIT_REVISION} --`
 		) {
-			return gitResult(true, `diff --git a/${this.changedPath} b/${this.changedPath}\n`);
+			return gitResult(
+				true,
+				this.binaryDiffBytes ??
+					new TextEncoder().encode(`diff --git a/${this.changedPath} b/${this.changedPath}\n`)
+			);
 		}
 		return gitResult(false, '', `unexpected worktree git command: ${command}`, 128);
 	}
@@ -307,7 +332,7 @@ function commitVerificationArgs(
 		expectedPromptDigest: PROMPT_DIGEST,
 		expectedBaseRevision: claim.baseRevision,
 		expectedCommitRevision: COMMIT_REVISION,
-		objectiveProof: {
+		objectiveProofNomination: {
 			runner: 'deno-exact-v1',
 			testPath: TEST_PATH,
 			exactTestName: `Sentry SUPERS-101 ${claim.claimId}`
@@ -363,15 +388,61 @@ Deno.test('committed worktree verification persists objective pre-integration ev
 	assert.equal(first.commitRevision, COMMIT_REVISION);
 	assert.equal(first.commitTree, COMMIT_TREE);
 	assert.deepEqual(first.changedPaths, [TEST_PATH]);
-	assert.equal(first.objectiveProof.testPath, TEST_PATH);
-	assert.equal('command' in first.objectiveProof, false);
-	assert.equal('exitCode' in first.objectiveProof, false);
+	assert.equal(first.objectiveProofNomination.testPath, TEST_PATH);
+	assert.equal('command' in first.objectiveProofNomination, false);
+	assert.equal('exitCode' in first.objectiveProofNomination, false);
 	const writesAfterFirst = writes.length;
 	resources.delete(`invocation-${claim.invocationId}`);
 	resources.delete(`launch-claim-${claim.invocationId}`);
 	const replay = (await operations.verifySupersAgentWorktreeCommit(args, context)).resource;
 	assert.deepEqual(replay, first);
 	assert.equal(writes.length, writesAfterFirst);
+});
+
+Deno.test('committed worktree verification hashes raw bytes and detects verification races', async () => {
+	const digests: string[] = [];
+	for (const byte of [0xff, 0xfe]) {
+		const { repository, context, resources } = fixture();
+		const operations = createSupersAgentWorktreeOperations(repository);
+		const claim = (await operations.prepareSupersAgentWorktree(PREPARE_ARGS, context)).resource;
+		repository.worktreeHead = COMMIT_REVISION;
+		repository.treeListingBytes = new Uint8Array([byte]);
+		recordSuccessfulInvocation(resources, claim);
+		digests.push((await operations.verifySupersAgentWorktreeCommit(commitVerificationArgs(claim), context)).resource.treeDigest);
+	}
+	assert.notEqual(digests[0], digests[1], 'distinct invalid UTF-8 byte sequences must retain distinct digests');
+
+	const { repository, context, resources } = fixture();
+	const operations = createSupersAgentWorktreeOperations(repository);
+	const claim = (await operations.prepareSupersAgentWorktree(PREPARE_ARGS, context)).resource;
+	repository.worktreeHead = COMMIT_REVISION;
+	repository.mutateTreeOnSecondCollection = true;
+	recordSuccessfulInvocation(resources, claim);
+	await assert.rejects(
+		() => operations.verifySupersAgentWorktreeCommit(commitVerificationArgs(claim), context),
+		/evidence changed during verification/
+	);
+});
+
+Deno.test('committed worktree verification enforces changed-content resource bounds', async () => {
+	const cases: Array<{ configure: (repository: FakeWorktreeRepository) => void; expected: RegExp }> = [
+		{ configure: (repository) => { repository.changedPathCount = 257; }, expected: /256-path safety limit/ },
+		{ configure: (repository) => { repository.changedBlobSize = 8 * 1024 * 1024 + 1; }, expected: /changed path exceeds/ },
+		{ configure: (repository) => { repository.treeListingBytes = new Uint8Array(8 * 1024 * 1024 + 1); }, expected: /ls-tree output exceeds/ },
+		{ configure: (repository) => { repository.binaryDiffBytes = new Uint8Array(32 * 1024 * 1024 + 1); }, expected: /diff output exceeds/ }
+	];
+	for (const testCase of cases) {
+		const { repository, context, resources } = fixture();
+		const operations = createSupersAgentWorktreeOperations(repository);
+		const claim = (await operations.prepareSupersAgentWorktree(PREPARE_ARGS, context)).resource;
+		repository.worktreeHead = COMMIT_REVISION;
+		testCase.configure(repository);
+		recordSuccessfulInvocation(resources, claim);
+		await assert.rejects(
+			() => operations.verifySupersAgentWorktreeCommit(commitVerificationArgs(claim), context),
+			testCase.expected
+		);
+	}
 });
 
 Deno.test('committed worktree verification rejects dirty, non-descendant, unsafe, and non-regular changes', async () => {
@@ -418,7 +489,7 @@ Deno.test('committed worktree verification rejects dirty, non-descendant, unsafe
 		recordSuccessfulInvocation(resources, claim);
 		testCase.configure(repository);
 		const args = commitVerificationArgs(claim, {
-			objectiveProof: {
+			objectiveProofNomination: {
 				runner: 'deno-exact-v1',
 				testPath: repository.changedPath,
 				exactTestName: `Sentry SUPERS-101 ${claim.claimId}`
@@ -853,6 +924,49 @@ Deno.test('an exact intent recovers a claim after central HEAD advances', async 
 	assert.equal(repository.addCalls, 1);
 });
 
+Deno.test('committed cleanup requires and binds the exact verified receipt', async () => {
+	const { repository, context, resources } = fixture();
+	const operations = createSupersAgentWorktreeOperations(repository);
+	const claim = (await operations.prepareSupersAgentWorktree(PREPARE_ARGS, context)).resource;
+	repository.worktreeHead = COMMIT_REVISION;
+	recordSuccessfulInvocation(resources, claim);
+	const committed = (
+		await operations.verifySupersAgentWorktreeCommit(commitVerificationArgs(claim), context)
+	).resource;
+	const authorization = {
+		kind: 'committed' as const,
+		receiptName: `supers-agent-worktree-commit-${committed.receiptId}`,
+		receiptId: committed.receiptId,
+		fingerprint: committed.fingerprint
+	};
+	await assert.rejects(
+		() => operations.removeSupersAgentWorktree({ claimId: claim.claimId }, context),
+		/exact unchanged receipt/
+	);
+	await assert.rejects(
+		() =>
+			operations.removeSupersAgentWorktree(
+				{ claimId: claim.claimId, authorization: { ...authorization, fingerprint: 'f'.repeat(64) } },
+				context
+			),
+		/authorization conflicts/
+	);
+	await assert.rejects(
+		() =>
+			operations.removeSupersAgentWorktree(
+				{ claimId: claim.claimId, authorization: { ...authorization, receiptName: 'wrong-receipt' } },
+				context
+			),
+		/resource name mismatch/
+	);
+	const removed = (
+		await operations.removeSupersAgentWorktree({ claimId: claim.claimId, authorization }, context)
+	).resource;
+	assert.equal(removed.authorizationKind, 'committed');
+	assert.equal(removed.authorizationReceiptId, committed.receiptId);
+	assert.equal(repository.removeCalls, 1);
+});
+
 Deno.test('cleanup replay does not issue a second removal or resource write', async () => {
 	const { repository, context, resources, writes } = fixture();
 	const operations = createSupersAgentWorktreeOperations(repository);
@@ -1151,6 +1265,19 @@ Deno.test(
 			).resource;
 			assert.equal(committedReceipt.commitRevision, commitRevision);
 			assert.deepEqual(committedReceipt.changedPaths, [TEST_PATH]);
+			await operations.removeSupersAgentWorktree(
+				{
+					claimId: committedClaim.claimId,
+					authorization: {
+						kind: 'committed',
+						receiptName: `supers-agent-worktree-commit-${committedReceipt.receiptId}`,
+						receiptId: committedReceipt.receiptId,
+						fingerprint: committedReceipt.fingerprint
+					}
+				},
+				context
+			);
+			await assert.rejects(() => Deno.realPath(committedClaim.worktreePath), Deno.errors.NotFound);
 
 			await requireRealGit(context.repoDir, [
 				'worktree',
