@@ -711,7 +711,12 @@ Deno.test("repair model separates read-only queueing from evidence-bound Sentry 
   const globalArguments = model.globalArguments.parse({
     sourceIntakeModelId: SOURCE_INTAKE_MODEL_ID,
     sourceDeliveryModelId: SOURCE_DELIVERY_MODEL_ID,
+    sourceReplayModelId: "8c39d96c-8fdd-4a44-8942-b7faa606f766",
   });
   assert.equal(globalArguments.sourceIntakeModelId, SOURCE_INTAKE_MODEL_ID);
   assert.equal(globalArguments.sourceDeliveryModelId, SOURCE_DELIVERY_MODEL_ID);
+  assert.equal(
+    globalArguments.sourceReplayModelId,
+    "8c39d96c-8fdd-4a44-8942-b7faa606f766",
+  );
 });

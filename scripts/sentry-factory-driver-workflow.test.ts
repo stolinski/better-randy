@@ -68,6 +68,7 @@ Deno.test("Sentry Factory driver stops after exact isolated integration and clas
     "materialize-post-integration-head",
     "verify-serialized-integration",
     "assert-single-integration-receipt",
+    "replay-integrated-sentry-repair",
     "cleanup-committed-worktree",
     "refresh-implementation-status",
     "record-deterministic-change-summary",
@@ -101,6 +102,16 @@ Deno.test("Sentry Factory driver stops after exact isolated integration and clas
   assert.equal(
     stepByName(workflow, "advance-to-implementation").task.inputs?.transition,
     "implement",
+  );
+  assert.equal(
+    stepByName(workflow, "replay-integrated-sentry-repair").task.modelIdOrName,
+    "supers-sentry-integrated-replay",
+  );
+  assert.ok(
+    names.indexOf("verify-serialized-integration") <
+      names.indexOf("replay-integrated-sentry-repair") &&
+      names.indexOf("replay-integrated-sentry-repair") <
+        names.indexOf("cleanup-committed-worktree"),
   );
 
   const prepare = stepByName(workflow, "prepare-isolated-coding-worktree");

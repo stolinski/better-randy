@@ -19,6 +19,7 @@ const DEX_TASK_ID = "dex-task-17";
 const MODEL_ID = "43609d3c-92b1-4509-9ed0-db25b48ee7c1";
 const INTAKE_MODEL_ID = "97e8375f-5908-482d-846e-2a5b037ae9cf";
 const DELIVERY_MODEL_ID = "90fac686-c724-4aee-97c4-e31b9af4c5e2";
+const REPLAY_MODEL_ID = "8c39d96c-8fdd-4a44-8942-b7faa606f766";
 const VERIFICATION_AT = "2026-08-19T01:00:00.000Z";
 const DONE_AT = "2026-08-19T02:00:00.000Z";
 const SNAPSHOT_AT = "2026-08-19T03:00:00.000Z";
@@ -190,6 +191,37 @@ async function fixtureResources() {
     },
     recordedAt: VERIFICATION_AT,
   };
+  const replayBase = {
+    schemaVersion: 1 as const,
+    authority: "supers-sentry-integrated-replay-v1" as const,
+    status: "passed" as const,
+    workItem: DEX_TASK_ID,
+    issueId: ISSUE_ID,
+    shortId: SHORT_ID,
+    repairIdentityFingerprint: "9".repeat(64),
+    evidenceName: "evidence",
+    evidenceFingerprint: "8".repeat(64),
+    handoffName: "handoff",
+    handoffFingerprint: "7".repeat(64),
+    integrationReceiptName: "integration",
+    integrationReceiptId: "6".repeat(64),
+    baseRevision: "a".repeat(40),
+    integratedRevision: REVISION,
+    integratedTreeFingerprint: SHA,
+    runner: "deno-exact-v1" as const,
+    testPath: "extensions/models/repair.test.ts",
+    exactTestName: `Sentry ${SHORT_ID} ${"9".repeat(64)}`,
+    testBlobDigest: "5".repeat(64),
+    baselineExitCodes: [1, 1] as [number, number],
+    integratedExitCodes: [0, 0] as [0, 0],
+    baselineResultDigests: ["4".repeat(64), "3".repeat(64)] as [string, string],
+    integratedResultDigests: ["2".repeat(64), "1".repeat(64)] as [string, string],
+    recordedAt: "2026-08-19T01:30:00.000Z",
+  };
+  const replay = {
+    ...replayBase,
+    fingerprint: await createSentrySha256(canonicalSentryJson(replayBase)),
+  };
   const state = {
     workItem: DEX_TASK_ID,
     stageId: "done" as const,
@@ -200,7 +232,7 @@ async function fixtureResources() {
     definitionVersion: 1,
     startedAt: "2026-08-18T23:30:00.000Z",
   };
-  return { intent, backlink, snapshot, verification, state };
+  return { intent, backlink, snapshot, verification, replay, state };
 }
 
 class FakeRunner implements SentryRepairResolutionCommandRunner {
@@ -245,6 +277,7 @@ async function runResolution(
   const intentName = "repair-intent";
   const backlinkName = "backlink-receipt";
   const snapshotName = "closure-snapshot";
+  const replayName = `sentry-integrated-replay-${DEX_TASK_ID}-${REVISION}`;
   const store = new Map<string, Record<string, unknown>>([
     [
       resourceKey(
@@ -265,6 +298,10 @@ async function runResolution(
     [
       resourceKey("@supers/sentry-issue-intake", INTAKE_MODEL_ID, snapshotName),
       fixture.snapshot,
+    ],
+    [
+      resourceKey("@supers/sentry-integrated-repair-replay", REPLAY_MODEL_ID, replayName),
+      fixture.replay,
     ],
     [
       resourceKey(
@@ -294,6 +331,8 @@ async function runResolution(
     dexTaskId: DEX_TASK_ID,
     currentSnapshotName: snapshotName,
     expectedSnapshotFingerprint: fixture.snapshot.fingerprint,
+    integratedReplayName: replayName,
+    expectedIntegratedReplayFingerprint: fixture.replay.fingerprint,
   };
   const execute = () =>
     executeSentryRepairResolution(
@@ -304,6 +343,7 @@ async function runResolution(
         globalArgs: {
           sourceIntakeModelId: INTAKE_MODEL_ID,
           sourceDeliveryModelId: DELIVERY_MODEL_ID,
+          sourceReplayModelId: REPLAY_MODEL_ID,
         },
         dataRepository: {
           getContent: (type, modelId, name) => {

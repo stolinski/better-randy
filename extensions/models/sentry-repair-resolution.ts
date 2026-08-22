@@ -14,6 +14,7 @@ import {
 import {
   SupersDeliveryVerificationRouteSchema,
 } from "./supers-deterministic-factory-contract.ts";
+import { SentryIntegratedReplayReceiptSchema } from "./sentry-integrated-repair-replay.ts";
 
 const FingerprintSchema = z.string().regex(/^[0-9a-f]{64}$/);
 const GitRevisionSchema = z.string().regex(/^[0-9a-f]{40}$/);
@@ -57,6 +58,8 @@ export const SentryRepairResolutionArgsSchema = z.object({
   dexTaskId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/),
   currentSnapshotName: z.string().min(1).max(220),
   expectedSnapshotFingerprint: FingerprintSchema,
+  integratedReplayName: z.string().min(1).max(220),
+  expectedIntegratedReplayFingerprint: FingerprintSchema,
 });
 
 export const SentryRepairResolutionAttemptSchema = z.strictObject({
@@ -66,6 +69,7 @@ export const SentryRepairResolutionAttemptSchema = z.strictObject({
   dexTaskId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/),
   repairIntentFingerprint: FingerprintSchema,
   backlinkReceiptFingerprint: FingerprintSchema,
+  integratedReplayFingerprint: FingerprintSchema,
   integratedRevision: GitRevisionSchema,
   resolvedInRelease: z.string().regex(/^supers@[0-9a-f]{40}$/),
   verificationRecordedAt: z.string().datetime(),
@@ -84,6 +88,7 @@ export const SentryRepairResolutionReceiptSchema = z.strictObject({
   planningWorkItem: z.string().regex(/^sentry-[A-Za-z0-9_-]{1,100}$/),
   repairIntentFingerprint: FingerprintSchema,
   backlinkReceiptFingerprint: FingerprintSchema,
+  integratedReplayFingerprint: FingerprintSchema,
   resolutionAttemptFingerprint: FingerprintSchema,
   deliveryWorkflowRunId: z.string().min(1),
   integratedRevision: GitRevisionSchema,
@@ -155,6 +160,7 @@ export type SentryRepairResolutionContext = {
   globalArgs: {
     sourceIntakeModelId: string;
     sourceDeliveryModelId: string;
+    sourceReplayModelId: string;
   };
   dataRepository: {
     getContent: (
@@ -348,12 +354,16 @@ export async function executeSentryRepairResolution(
   const sourceDeliveryModelId = z.string().uuid().parse(
     context.globalArgs.sourceDeliveryModelId,
   );
+  const sourceReplayModelId = z.string().uuid().parse(
+    context.globalArgs.sourceReplayModelId,
+  );
   const [
     repairIntent,
     backlinkReceipt,
     deliveryState,
     deliveryVerification,
     snapshot,
+    integratedReplay,
   ] = await Promise.all([
     readRequiredResource(
       "@supers/sentry-repair-planning-handoff",
@@ -388,6 +398,13 @@ export async function executeSentryRepairResolution(
       sourceIntakeModelId,
       args.currentSnapshotName,
       SentryIssueSnapshotSchema,
+      context,
+    ),
+    readRequiredResource(
+      "@supers/sentry-integrated-repair-replay",
+      sourceReplayModelId,
+      args.integratedReplayName,
+      SentryIntegratedReplayReceiptSchema,
       context,
     ),
   ]);
@@ -428,6 +445,20 @@ export async function executeSentryRepairResolution(
   }
   const verification = deliveryVerification.payload;
   if (
+    integratedReplay.fingerprint !== args.expectedIntegratedReplayFingerprint ||
+    integratedReplay.fingerprint !== await createSentrySha256(
+      canonicalSentryJson(omitFingerprint(integratedReplay)),
+    ) ||
+    integratedReplay.status !== "passed" ||
+    integratedReplay.workItem !== args.dexTaskId ||
+    integratedReplay.issueId !== intent.issueId ||
+    integratedReplay.shortId !== intent.shortId ||
+    integratedReplay.integratedRevision !== verification.integratedRevision ||
+    integratedReplay.integratedTreeFingerprint !== verification.integratedTreeFingerprint
+  ) {
+    throw new Error("Integrated Sentry replay does not match terminal Delivery");
+  }
+  if (
     deliveryState.workItem !== args.dexTaskId ||
     deliveryVerification.workItem !== args.dexTaskId ||
     verification.workItem !== args.dexTaskId ||
@@ -445,7 +476,9 @@ export async function executeSentryRepairResolution(
     new Date(snapshot.capturedAt).getTime() <=
       new Date(deliveryState.enteredAt).getTime() ||
     new Date(snapshot.capturedAt).getTime() <=
-      new Date(deliveryVerification.recordedAt).getTime()
+      new Date(deliveryVerification.recordedAt).getTime() ||
+    new Date(snapshot.capturedAt).getTime() <=
+      new Date(integratedReplay.recordedAt).getTime()
   ) {
     throw new Error(
       "Sentry closure snapshot must be captured after terminal Delivery",
@@ -478,6 +511,7 @@ export async function executeSentryRepairResolution(
       existingReceipt.repairIntentFingerprint !== intent.fingerprint ||
       existingReceipt.backlinkReceiptFingerprint !==
         backlinkReceipt.fingerprint ||
+      existingReceipt.integratedReplayFingerprint !== integratedReplay.fingerprint ||
       existingReceipt.integratedRevision !== verification.integratedRevision
     ) {
       throw new Error(
@@ -526,6 +560,7 @@ export async function executeSentryRepairResolution(
       dexTaskId: args.dexTaskId,
       repairIntentFingerprint: intent.fingerprint,
       backlinkReceiptFingerprint: backlinkReceipt.fingerprint,
+      integratedReplayFingerprint: integratedReplay.fingerprint,
       integratedRevision: verification.integratedRevision,
       resolvedInRelease,
       verificationRecordedAt: deliveryVerification.recordedAt,
@@ -555,6 +590,7 @@ export async function executeSentryRepairResolution(
       attempt.dexTaskId !== args.dexTaskId ||
       attempt.repairIntentFingerprint !== intent.fingerprint ||
       attempt.backlinkReceiptFingerprint !== backlinkReceipt.fingerprint ||
+      attempt.integratedReplayFingerprint !== integratedReplay.fingerprint ||
       attempt.integratedRevision !== verification.integratedRevision ||
       attempt.issueLastSeen !== issue.lastSeen
     ) {
@@ -607,6 +643,7 @@ export async function executeSentryRepairResolution(
     planningWorkItem: intent.planningWorkItem,
     repairIntentFingerprint: intent.fingerprint,
     backlinkReceiptFingerprint: backlinkReceipt.fingerprint,
+    integratedReplayFingerprint: integratedReplay.fingerprint,
     resolutionAttemptFingerprint: attempt.fingerprint,
     deliveryWorkflowRunId: verification.workflowRunId,
     integratedRevision: verification.integratedRevision,

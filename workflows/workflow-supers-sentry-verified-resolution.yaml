@@ -52,6 +52,8 @@ jobs:
             dexTaskId: '${{ inputs.dexTaskId }}'
             currentSnapshotName: '${{ data.query("modelName == \"supers-sentry-issue-intake\" && specName == \"snapshot\" && workflowRunId == \"" + run.id + "\"")[0].name }}'
             expectedSnapshotFingerprint: '${{ data.query("modelName == \"supers-sentry-issue-intake\" && specName == \"snapshot\" && workflowRunId == \"" + run.id + "\"")[0].attributes.fingerprint }}'
+            integratedReplayName: '${{ "sentry-integrated-replay-" + inputs.dexTaskId + "-" + data.latest("supers-delivery", "artifact-" + inputs.dexTaskId + "-verification").attributes.payload.integratedRevision }}'
+            expectedIntegratedReplayFingerprint: '${{ data.latest("supers-sentry-integrated-replay", "sentry-integrated-replay-" + inputs.dexTaskId + "-" + data.latest("supers-delivery", "artifact-" + inputs.dexTaskId + "-verification").attributes.payload.integratedRevision).attributes.fingerprint }}'
         dependsOn:
           - step: collect-fix-release-sentry-state
             condition:

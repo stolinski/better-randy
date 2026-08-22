@@ -81,6 +81,7 @@ Deno.test("Sentry evidence precedes Dex mutation and Delivery start", async () =
     "assert-machine-delivery-admission",
     "start-delivery-factory",
     "materialize-delivery-status",
+    "drive-evidence-bound-implementation",
   ]);
   assert.ok(
     names.indexOf("collect-exact-sentry-evidence") <
