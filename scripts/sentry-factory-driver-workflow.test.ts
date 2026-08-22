@@ -128,7 +128,7 @@ Deno.test("Sentry Factory driver stops after exact isolated integration and clas
   assert.equal(invoke.task.inputs?.model, "openai-codex/gpt-5.6-sol");
   assert.equal(invoke.task.inputs?.toolProfile, "actor");
   assert.equal(invoke.task.inputs?.sandboxRequired, true);
-  assert.equal(invoke.task.inputs?.sandboxNetwork, "deny");
+  assert.equal(invoke.task.inputs?.sandboxNetwork, "allow");
   assert.match(String(invoke.task.inputs?.prompt), /untrusted advisory text/);
   assert.match(
     String(invoke.task.inputs?.prompt),

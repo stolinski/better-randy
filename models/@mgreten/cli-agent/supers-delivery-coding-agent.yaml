@@ -22,6 +22,6 @@ globalArguments:
   maxRetries: 0
   sandboxMode: auto
   sandboxRequired: true
-  sandboxNetwork: deny
+  sandboxNetwork: allow
   sandboxCredentialAccess: provider
 methods: {}
