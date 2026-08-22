@@ -12,6 +12,7 @@ import {
 	type SupersAgentWorktreeDependencies,
 	type SupersAgentWorktreeMethodContext
 } from './cli-agent-supers-worktree.ts';
+import { verifySupersFactoryIntegrationReceipt } from './supers-deterministic-factory-contract.ts';
 
 const BASE_REVISION = 'a'.repeat(40);
 const OTHER_REVISION = 'b'.repeat(40);
@@ -30,6 +31,11 @@ const PREPARE_ARGS: PrepareSupersAgentWorktreeArgs = {
 	purpose: 'sentry-reproduction',
 	workItem: 'SUPERS-101'
 };
+
+async function rawSha256(bytes: Uint8Array): Promise<string> {
+	const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes.slice().buffer));
+	return [...digest].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
 
 function gitResult(
 	success: boolean,
@@ -173,7 +179,7 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 		if (command === `rev-parse --verify ${INTEGRATED_REVISION}^{tree}`) {
 			return gitResult(true, `${this.integrationTree}\n`);
 		}
-		if (command === `ls-tree -r -z ${INTEGRATED_REVISION}`) {
+		if (command === `ls-tree --full-tree -r -z ${INTEGRATED_REVISION}`) {
 			return gitResult(
 				true,
 				this.treeListingBytes ??
@@ -294,7 +300,7 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 		if (command === `rev-parse --verify ${COMMIT_REVISION}^{tree}`) {
 			return gitResult(true, `${COMMIT_TREE}\n`);
 		}
-		if (command === `ls-tree -r -z ${COMMIT_REVISION}`) {
+		if (command === `ls-tree --full-tree -r -z ${COMMIT_REVISION}`) {
 			this.treeCollectionCount += 1;
 			if (this.mutateTreeOnSecondCollection && this.treeCollectionCount >= 2) {
 				return gitResult(true, `100644 blob ${COMMIT_TREE}\tchanged-after-check.ts\0`);
@@ -763,6 +769,19 @@ Deno.test('serialized integration verification persists a strict Factory receipt
 	assert.equal(first.patchDigest, commitReceipt.diffDigest);
 	assert.equal(first.integratedTreeFingerprint, commitReceipt.treeDigest);
 	assert.deepEqual(first.changedPaths, [TEST_PATH]);
+	assert.deepEqual(await verifySupersFactoryIntegrationReceipt(first), first);
+	assert.equal(
+		first.patchDigest,
+		await rawSha256(
+			new TextEncoder().encode(`diff --git a/${TEST_PATH} b/${TEST_PATH}\n`)
+		)
+	);
+	assert.equal(
+		first.integratedTreeFingerprint,
+		await rawSha256(
+			new TextEncoder().encode(`100644 blob ${OTHER_REVISION}\t${TEST_PATH}\0`)
+		)
+	);
 	assert.equal(writes.length - writeStart, 3);
 
 	repository.centralHeads = [
@@ -786,6 +805,18 @@ Deno.test('serialized integration verification persists a strict Factory receipt
 	const recovered = (await operations.verifySupersAgentIntegration(args, context)).resource;
 	assert.deepEqual(recovered, first);
 	assert.equal(writes.filter((name) => name === integrationName).length, 2);
+});
+
+Deno.test('serialized integration verification rejects a root outside the committed work item', async () => {
+	const { context, operations, args } = await integrationFixture();
+	await assert.rejects(
+		() =>
+			operations.verifySupersAgentIntegration(
+				{ ...args, rootEpicId: 'unrelated-root' },
+				context
+			),
+		/integration commit receipt authority mismatch/
+	);
 });
 
 Deno.test('serialized integration verification rejects dirty or drifted central state', async () => {

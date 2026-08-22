@@ -1,8 +1,10 @@
 import { z } from 'npm:zod@4.4.3';
 
 import {
+	createSupersDeterministicContractHash,
 	SupersFactoryIntegrationReceiptSchema,
-	type SupersFactoryIntegrationReceipt
+	type SupersFactoryIntegrationReceipt,
+	verifySupersFactoryIntegrationReceipt
 } from './supers-deterministic-factory-contract.ts';
 
 const SHA40_PATTERN = /^[0-9a-f]{40}$/;
@@ -438,11 +440,13 @@ function frameHashParts(parts: readonly Uint8Array[]): Uint8Array {
 	return framed;
 }
 
-async function sha256(parts: readonly Uint8Array[]): Promise<string> {
-	const digest = new Uint8Array(
-		await crypto.subtle.digest('SHA-256', frameHashParts(parts).slice().buffer)
-	);
+async function rawSha256(bytes: Uint8Array): Promise<string> {
+	const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes.slice().buffer));
 	return [...digest].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function sha256(parts: readonly Uint8Array[]): Promise<string> {
+	return await rawSha256(frameHashParts(parts));
 }
 
 async function stableIdentityHash(value: Record<string, unknown>): Promise<string> {
@@ -1107,7 +1111,7 @@ async function collectCommittedWorktreeEvidence(
 	const treeListing = await requiredGitBytes(
 		deps,
 		claim.worktreePath,
-		['ls-tree', '-r', '-z', args.expectedCommitRevision],
+		['ls-tree', '--full-tree', '-r', '-z', args.expectedCommitRevision],
 		MAX_TREE_LISTING_BYTES
 	);
 	const diff = await requiredGitBytes(
@@ -1125,10 +1129,10 @@ async function collectCommittedWorktreeEvidence(
 	);
 	return {
 		commitTree,
-		treeDigest: await sha256([treeListing]),
+		treeDigest: await rawSha256(treeListing),
 		changedPaths,
 		changedPathsDigest: await stableIdentityHash({ changedPaths }),
-		diffDigest: await sha256([diff])
+		diffDigest: await rawSha256(diff)
 	};
 }
 
@@ -1627,6 +1631,7 @@ export function createSupersAgentWorktreeOperations(
 				commitReceipt.receiptId !== args.expectedCommitReceiptId ||
 				commitReceipt.fingerprint !== args.expectedCommitReceiptFingerprint ||
 				commitReceipt.fingerprint !== recomputedCommitFingerprint ||
+				args.rootEpicId !== args.activeTaskId ||
 				commitReceipt.workItem !== args.activeTaskId ||
 				commitReceipt.baseRevision !== args.expectedPreRevision
 			) {
@@ -1725,10 +1730,10 @@ export function createSupersAgentWorktreeOperations(
 			const treeListing = await requiredGitBytes(
 				deps,
 				context.repoDir,
-				['ls-tree', '-r', '-z', args.expectedPostRevision],
+				['ls-tree', '--full-tree', '-r', '-z', args.expectedPostRevision],
 				MAX_TREE_LISTING_BYTES
 			);
-			const integratedTreeFingerprint = await sha256([treeListing]);
+			const integratedTreeFingerprint = await rawSha256(treeListing);
 			if (integratedTreeFingerprint !== commitReceipt.treeDigest) {
 				throw new Error('integrated tree digest differs from the verified child tree digest');
 			}
@@ -1777,7 +1782,7 @@ export function createSupersAgentWorktreeOperations(
 				],
 				MAX_BINARY_DIFF_BYTES
 			);
-			const patchDigest = await sha256([integratedDiff]);
+			const patchDigest = await rawSha256(integratedDiff);
 			if (patchDigest !== commitReceipt.diffDigest) {
 				throw new Error('integrated patch digest differs from the verified child receipt');
 			}
@@ -1810,35 +1815,29 @@ export function createSupersAgentWorktreeOperations(
 			manifest.fingerprint = await stableIdentityHash(
 				withoutFingerprint(manifest as unknown as Record<string, unknown>)
 			);
-			const receiptId = await stableIdentityHash({
-				schemaVersion: 1,
-				rootEpicId: args.rootEpicId,
-				activeTaskId: args.activeTaskId,
-				factoryName: 'supers-delivery',
-				handoffManifestDigest: manifest.fingerprint,
-				targetBaselineRevision: args.expectedPreRevision,
-				childCommittedRevision: commitReceipt.commitRevision,
-				integratedRevision: args.expectedPostRevision
-			});
-			const receipt = SupersFactoryIntegrationReceiptSchema.parse({
-				schemaVersion: 1,
-				receiptId,
+			const receiptBase = {
+				schemaVersion: 1 as const,
 				rootEpicId: args.rootEpicId,
 				activeTaskId: args.activeTaskId,
 				factoryName: 'supers-delivery',
 				handoffManifestDigest: manifest.fingerprint,
 				targetBaselineRevision: args.expectedPreRevision,
 				childRevisionEvidence: {
-					status: 'verified',
+					status: 'verified' as const,
 					childCommittedRevision: commitReceipt.commitRevision
 				},
-				disposition: 'integrated',
+				disposition: 'integrated' as const,
 				baseCommit: args.expectedPreRevision,
 				patchDigest,
 				changedPaths,
 				integratedRevision: args.expectedPostRevision,
 				integratedTreeFingerprint,
-				rejectionReason: 'none'
+				rejectionReason: 'none' as const
+			};
+			const receiptId = await createSupersDeterministicContractHash(receiptBase);
+			const receipt = await verifySupersFactoryIntegrationReceipt({
+				...receiptBase,
+				receiptId
 			});
 			const receiptName = `supers-agent-integration-${resourceSuffix}`;
 			const existingManifest = await readParsedResource(
