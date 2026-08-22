@@ -142,7 +142,7 @@ Deno.test("intake stores one bounded snapshot and classifies current, recent, an
   );
   assert.equal(reconciliation.automationEligible, true);
   assert.equal(reconciliation.items[0].queueIntent, "confirmed-repair");
-  assert.equal(reconciliation.items[1].queueIntent, "reproduction-required");
+  assert.equal(reconciliation.items[1].queueIntent, "confirmed-repair");
   assert.equal(reconciliation.items[2].queueIntent, null);
 });
 
