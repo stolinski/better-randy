@@ -6,6 +6,7 @@ import {
 	extension,
 	type PrepareSupersAgentWorktreeArgs,
 	type SupersAgentGitResult,
+	type VerifySupersAgentWorktreeCommitArgs,
 	type SupersAgentWorktreeClaim,
 	type SupersAgentWorktreeDependencies,
 	type SupersAgentWorktreeMethodContext
@@ -13,6 +14,11 @@ import {
 
 const BASE_REVISION = 'a'.repeat(40);
 const OTHER_REVISION = 'b'.repeat(40);
+const COMMIT_REVISION = 'c'.repeat(40);
+const COMMIT_TREE = 'd'.repeat(40);
+const PROMPT_DIGEST = 'e'.repeat(64);
+const INVOCATION_MODEL_ID = 'supers-delivery-coding-agent-model';
+const TEST_PATH = 'extensions/models/sentry-fix.test.ts';
 const NOW = new Date('2026-08-22T12:00:00.000Z');
 const PREPARE_ARGS: PrepareSupersAgentWorktreeArgs = {
 	invocationId: 'sentry-reproduction-SUPERS-101',
@@ -47,6 +53,11 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 	worktreeBranch = '';
 	worktreeHead = BASE_REVISION;
 	worktreeDiff = '';
+	worktreeDirty = false;
+	baseIsAncestor = true;
+	changedPathStatus = 'A';
+	changedPath = TEST_PATH;
+	changedPathMode = '100644';
 	untracked = new Map<string, Uint8Array>();
 	untrackedInfo = new Map<
 		string,
@@ -178,6 +189,39 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 				[...this.untracked.keys()].join('\0') + (this.untracked.size > 0 ? '\0' : '')
 			);
 		}
+		if (command === 'status --porcelain=v1 --untracked-files=all -z') {
+			return gitResult(true, this.worktreeDirty ? ' M tracked.ts\0' : '');
+		}
+		if (command === `merge-base --is-ancestor ${BASE_REVISION} ${COMMIT_REVISION}`) {
+			return gitResult(this.baseIsAncestor);
+		}
+		if (
+			command === `diff --name-status -z ${BASE_REVISION} ${COMMIT_REVISION} --`
+		) {
+			return gitResult(true, `${this.changedPathStatus}\0${this.changedPath}\0`);
+		}
+		if (
+			command === `ls-tree -z ${COMMIT_REVISION} -- ${this.changedPath}`
+		) {
+			return gitResult(
+				true,
+				`${this.changedPathMode} ${this.changedPathMode === '160000' ? 'commit' : 'blob'} ${OTHER_REVISION}\t${this.changedPath}\0`
+			);
+		}
+		if (command === `rev-parse --verify ${COMMIT_REVISION}^{tree}`) {
+			return gitResult(true, `${COMMIT_TREE}\n`);
+		}
+		if (command === `ls-tree -r -z ${COMMIT_REVISION}`) {
+			return gitResult(
+				true,
+				`${this.changedPathMode} blob ${OTHER_REVISION}\t${this.changedPath}\0`
+			);
+		}
+		if (
+			command === `diff --binary --full-index ${BASE_REVISION} ${COMMIT_REVISION} --`
+		) {
+			return gitResult(true, `diff --git a/${this.changedPath} b/${this.changedPath}\n`);
+		}
 		return gitResult(false, '', `unexpected worktree git command: ${command}`, 128);
 	}
 }
@@ -214,6 +258,9 @@ function recordSuccessfulInvocation(
 ): void {
 	resources.set(`invocation-${claim.invocationId}`, {
 		invocationId: claim.invocationId,
+		provider: 'pi',
+		model: 'openai-codex/gpt-5.6-sol',
+		promptHash: PROMPT_DIGEST,
 		cwd: claim.worktreePath,
 		exitCode: 0,
 		success: true,
@@ -225,6 +272,11 @@ function recordSuccessfulInvocation(
 	resources.set(`launch-claim-${claim.invocationId}`, {
 		operation: 'invokeAndParse',
 		invocationId: claim.invocationId,
+		provider: 'pi',
+		model: 'openai-codex/gpt-5.6-sol',
+		promptHash: PROMPT_DIGEST,
+		definition: { id: INVOCATION_MODEL_ID },
+		toolProfile: 'actor',
 		cwd: claim.worktreePath,
 		repositoryExpectation: {
 			attachedBranch: claim.attachedBranch,
@@ -233,6 +285,35 @@ function recordSuccessfulInvocation(
 		},
 		tags: claim.expectedInvocationTags
 	});
+}
+
+function commitVerificationArgs(
+	claim: SupersAgentWorktreeClaim,
+	overrides: Partial<VerifySupersAgentWorktreeCommitArgs> = {}
+): VerifySupersAgentWorktreeCommitArgs {
+	return {
+		claimId: claim.claimId,
+		invocationModelId: INVOCATION_MODEL_ID,
+		invocationResourceName: `invocation-${claim.invocationId}`,
+		invocationId: claim.invocationId,
+		expectedProvider: 'pi',
+		expectedModel: 'openai-codex/gpt-5.6-sol',
+		expectedActor: 'actor',
+		expectedRepositoryExpectation: {
+			attachedBranch: claim.attachedBranch,
+			headSha: claim.headSha,
+			stateHash: claim.stateHash
+		},
+		expectedPromptDigest: PROMPT_DIGEST,
+		expectedBaseRevision: claim.baseRevision,
+		expectedCommitRevision: COMMIT_REVISION,
+		objectiveProof: {
+			runner: 'deno-exact-v1',
+			testPath: TEST_PATH,
+			exactTestName: `Sentry SUPERS-101 ${claim.claimId}`
+		},
+		...overrides
+	};
 }
 
 Deno.test('invocation authority resources retain one immutable infinite-lifetime version', () => {
@@ -267,6 +348,177 @@ Deno.test('clean exact HEAD prepares, verifies, and removes an isolated worktree
 	assert.equal(removed.removed, true);
 	assert.equal(repository.removeCalls, 1);
 	assert.equal(repository.worktreeExists, false);
+});
+
+Deno.test('committed worktree verification persists objective pre-integration evidence and replays exactly', async () => {
+	const { repository, context, resources, writes } = fixture();
+	const operations = createSupersAgentWorktreeOperations(repository);
+	const claim = (await operations.prepareSupersAgentWorktree(PREPARE_ARGS, context)).resource;
+	repository.worktreeHead = COMMIT_REVISION;
+	recordSuccessfulInvocation(resources, claim);
+	const args = commitVerificationArgs(claim);
+
+	const first = (await operations.verifySupersAgentWorktreeCommit(args, context)).resource;
+	assert.equal(first.baseRevision, BASE_REVISION);
+	assert.equal(first.commitRevision, COMMIT_REVISION);
+	assert.equal(first.commitTree, COMMIT_TREE);
+	assert.deepEqual(first.changedPaths, [TEST_PATH]);
+	assert.equal(first.objectiveProof.testPath, TEST_PATH);
+	assert.equal('command' in first.objectiveProof, false);
+	assert.equal('exitCode' in first.objectiveProof, false);
+	const writesAfterFirst = writes.length;
+	resources.delete(`invocation-${claim.invocationId}`);
+	resources.delete(`launch-claim-${claim.invocationId}`);
+	const replay = (await operations.verifySupersAgentWorktreeCommit(args, context)).resource;
+	assert.deepEqual(replay, first);
+	assert.equal(writes.length, writesAfterFirst);
+});
+
+Deno.test('committed worktree verification rejects dirty, non-descendant, unsafe, and non-regular changes', async () => {
+	const cases: Array<{
+		configure: (repository: FakeWorktreeRepository) => void;
+		expected: RegExp;
+	}> = [
+		{
+			configure: (repository) => {
+				repository.worktreeDirty = true;
+			},
+			expected: /must be clean/
+		},
+		{
+			configure: (repository) => {
+				repository.baseIsAncestor = false;
+			},
+			expected: /base is not an ancestor/
+		},
+		{
+			configure: (repository) => {
+				repository.changedPath = '../escape.test.ts';
+			},
+			expected: /unsafe changed repository path/
+		},
+		{
+			configure: (repository) => {
+				repository.changedPathMode = '120000';
+			},
+			expected: /not an exact regular Git blob/
+		},
+		{
+			configure: (repository) => {
+				repository.changedPathMode = '160000';
+			},
+			expected: /not an exact regular Git blob/
+		}
+	];
+	for (const testCase of cases) {
+		const { repository, context, resources } = fixture();
+		const operations = createSupersAgentWorktreeOperations(repository);
+		const claim = (await operations.prepareSupersAgentWorktree(PREPARE_ARGS, context)).resource;
+		repository.worktreeHead = COMMIT_REVISION;
+		recordSuccessfulInvocation(resources, claim);
+		testCase.configure(repository);
+		const args = commitVerificationArgs(claim, {
+			objectiveProof: {
+				runner: 'deno-exact-v1',
+				testPath: repository.changedPath,
+				exactTestName: `Sentry SUPERS-101 ${claim.claimId}`
+			}
+		});
+		await assert.rejects(
+			() => operations.verifySupersAgentWorktreeCommit(args, context),
+			testCase.expected
+		);
+	}
+});
+
+Deno.test('committed worktree verification binds claim, invocation, prompt, model, and central base', async () => {
+	const cases: Array<{
+		configure?: (
+			repository: FakeWorktreeRepository,
+			resources: Map<string, Record<string, unknown>>,
+			claim: SupersAgentWorktreeClaim
+		) => void;
+		overrides?: (claim: SupersAgentWorktreeClaim) => Partial<VerifySupersAgentWorktreeCommitArgs>;
+		expected: RegExp;
+	}> = [
+		{
+			overrides: () => ({ claimId: 'f'.repeat(64) }),
+			expected: /worktree claim is missing/
+		},
+		{
+			overrides: () => ({ expectedCommitRevision: OTHER_REVISION }),
+			expected: /committed branch or revision/
+		},
+		{
+			overrides: () => ({ expectedBaseRevision: OTHER_REVISION }),
+			expected: /do not match the exact worktree claim/
+		},
+		{
+			overrides: () => ({ expectedPromptDigest: 'f'.repeat(64) }),
+			expected: /invocation does not match/
+		},
+		{
+			overrides: () => ({ expectedModel: 'wrong/model' }),
+			expected: /invocation does not match/
+		},
+		{
+			overrides: () => ({ invocationModelId: 'wrong-model-instance' }),
+			expected: /launch claim does not match/
+		},
+		{
+			configure: (_repository, resources, claim) => {
+				const invocation = resources.get(`invocation-${claim.invocationId}`)!;
+				invocation.invocationId = 'different-invocation';
+			},
+			expected: /invocation does not match/
+		},
+		{
+			configure: (repository) => {
+				repository.centralDirty = true;
+			},
+			expected: /central repository must be clean/
+		},
+		{
+			configure: (repository) => {
+				repository.centralHeads = [OTHER_REVISION];
+			},
+			expected: /central repository HEAD mismatch/
+		}
+	];
+	for (const testCase of cases) {
+		const { repository, context, resources } = fixture();
+		const operations = createSupersAgentWorktreeOperations(repository);
+		const claim = (await operations.prepareSupersAgentWorktree(PREPARE_ARGS, context)).resource;
+		repository.worktreeHead = COMMIT_REVISION;
+		recordSuccessfulInvocation(resources, claim);
+		testCase.configure?.(repository, resources, claim);
+		await assert.rejects(
+			() =>
+				operations.verifySupersAgentWorktreeCommit(
+					commitVerificationArgs(claim, testCase.overrides?.(claim)),
+					context
+				),
+			testCase.expected
+		);
+	}
+});
+
+Deno.test('committed worktree verification rejects a conflicting durable receipt', async () => {
+	const { repository, context, resources } = fixture();
+	const operations = createSupersAgentWorktreeOperations(repository);
+	const claim = (await operations.prepareSupersAgentWorktree(PREPARE_ARGS, context)).resource;
+	repository.worktreeHead = COMMIT_REVISION;
+	recordSuccessfulInvocation(resources, claim);
+	const args = commitVerificationArgs(claim);
+	const receipt = (await operations.verifySupersAgentWorktreeCommit(args, context)).resource;
+	resources.set(`supers-agent-worktree-commit-${receipt.receiptId}`, {
+		...receipt,
+		model: 'forged/model'
+	});
+	await assert.rejects(
+		() => operations.verifySupersAgentWorktreeCommit(args, context),
+		/fingerprint mismatch/
+	);
 });
 
 Deno.test('dirty central checkout is rejected before an intent or git worktree add', async () => {
@@ -841,6 +1093,64 @@ Deno.test(
 				true,
 				'exact cleanup must not prune an unrelated stale registration'
 			);
+
+			const committedClaim = (
+				await operations.prepareSupersAgentWorktree(
+					{
+						invocationId: 'real-git-delivery-coding-SUPERS-101',
+						baseRevision,
+						purpose: 'delivery-coding',
+						workItem: 'SUPERS-101'
+					},
+					context
+				)
+			).resource;
+			await Deno.mkdir(`${committedClaim.worktreePath}/extensions/models`, { recursive: true });
+			await Deno.writeTextFile(
+				`${committedClaim.worktreePath}/${TEST_PATH}`,
+				"Deno.test('proof', () => {});\n"
+			);
+			await requireRealGit(committedClaim.worktreePath, ['add', TEST_PATH]);
+			await requireRealGit(committedClaim.worktreePath, [
+				'-c',
+				'user.name=Supers Test',
+				'-c',
+				'user.email=supers@example.invalid',
+				'commit',
+				'-m',
+				'add objective proof'
+			]);
+			const commitRevision = await requireRealGit(committedClaim.worktreePath, [
+				'rev-parse',
+				'HEAD'
+			]);
+			recordSuccessfulInvocation(resources, committedClaim);
+			const committedArgs = commitVerificationArgs(committedClaim, {
+				expectedBaseRevision: baseRevision,
+				expectedCommitRevision: commitRevision
+			});
+			await Deno.writeTextFile(
+				`${committedClaim.worktreePath}/${TEST_PATH}`,
+				"Deno.test('dirty', () => {});\n"
+			);
+			await assert.rejects(
+				() => operations.verifySupersAgentWorktreeCommit(committedArgs, context),
+				/must be clean/
+			);
+			await requireRealGit(committedClaim.worktreePath, ['checkout', '--', TEST_PATH]);
+
+			await Deno.writeTextFile(`${repositoryDir}/tracked.txt`, 'central dirty\n');
+			await assert.rejects(
+				() => operations.verifySupersAgentWorktreeCommit(committedArgs, context),
+				/central repository must be clean/
+			);
+			await requireRealGit(repositoryDir, ['checkout', '--', 'tracked.txt']);
+
+			const committedReceipt = (
+				await operations.verifySupersAgentWorktreeCommit(committedArgs, context)
+			).resource;
+			assert.equal(committedReceipt.commitRevision, commitRevision);
+			assert.deepEqual(committedReceipt.changedPaths, [TEST_PATH]);
 
 			await requireRealGit(context.repoDir, [
 				'worktree',
