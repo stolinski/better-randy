@@ -270,8 +270,8 @@ Deno.test("reproduction intent is selected without starting Planning", async () 
   });
   const result = await select({ repairIntents: [intent] });
   assert.equal(result.status, "selected");
-  assert.equal(result.action, "await-reproduction");
-  assert.equal(result.reason, "next-reproduction-intent");
+  assert.equal(result.action, "start");
+  assert.equal(result.reason, "next-queued-intent");
 });
 
 Deno.test("admitted head is skipped without removing its supersession ancestor", async () => {

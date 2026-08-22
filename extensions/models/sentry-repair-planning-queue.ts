@@ -201,22 +201,14 @@ export async function selectSentryRepairPlanningQueue(
       reason = "active-intent-missing";
     } else {
       status = "selected";
-      action = match.intent.queueIntent === "reproduction-required"
-        ? "await-reproduction"
-        : "start";
-      reason = match.intent.queueIntent === "reproduction-required"
-        ? "next-reproduction-intent"
-        : "next-queued-intent";
+      action = "start";
+      reason = "next-queued-intent";
       selected = match;
     }
   } else if (orderedQueue.length > 0) {
     status = "selected";
-    action = orderedQueue[0].intent.queueIntent === "reproduction-required"
-      ? "await-reproduction"
-      : "start";
-    reason = orderedQueue[0].intent.queueIntent === "reproduction-required"
-      ? "next-reproduction-intent"
-      : "next-queued-intent";
+    action = "start";
+    reason = "next-queued-intent";
     selected = orderedQueue[0];
   } else {
     status = "no-candidate";
