@@ -15,6 +15,8 @@ const MAX_CHANGED_BLOB_AGGREGATE_BYTES = 32 * 1024 * 1024;
 const MAX_NAME_STATUS_BYTES = 1024 * 1024;
 const MAX_TREE_LISTING_BYTES = 8 * 1024 * 1024;
 const MAX_BINARY_DIFF_BYTES = 32 * 1024 * 1024;
+const MAX_GIT_PROTOCOL_BYTES = 1024 * 1024;
+const MAX_GIT_ERROR_BYTES = 64 * 1024;
 
 export const SupersAgentWorktreePurposeSchema = z.enum(['sentry-reproduction', 'delivery-coding']);
 export type SupersAgentWorktreePurpose = z.infer<typeof SupersAgentWorktreePurposeSchema>;
@@ -254,12 +256,22 @@ export interface SupersAgentFileInfo {
 	size: number;
 }
 
+export interface SupersAgentGitOutputLimits {
+	stdoutBytes: number;
+	stderrBytes: number;
+}
+
 export interface SupersAgentWorktreeDependencies {
-	runGit(cwd: string, args: readonly string[]): Promise<SupersAgentGitResult>;
+	runGit(
+		cwd: string,
+		args: readonly string[],
+		limits: SupersAgentGitOutputLimits
+	): Promise<SupersAgentGitResult>;
 	realPath(path: string): Promise<string>;
 	pathExists(path: string): Promise<boolean>;
 	fileInfo(path: string): Promise<SupersAgentFileInfo>;
 	readFile(path: string): Promise<Uint8Array>;
+	rename(from: string, to: string): Promise<void>;
 	now(): Date;
 }
 
@@ -299,13 +311,16 @@ async function requiredGitBytes(
 	deps: SupersAgentWorktreeDependencies,
 	cwd: string,
 	args: readonly string[],
-	maxBytes?: number
+	maxBytes: number
 ): Promise<Uint8Array> {
-	const result = await deps.runGit(cwd, args);
+	const result = await deps.runGit(cwd, args, {
+		stdoutBytes: maxBytes,
+		stderrBytes: MAX_GIT_ERROR_BYTES
+	});
 	if (!result.success) {
 		throw gitFailure(args, result);
 	}
-	if (maxBytes !== undefined && result.stdout.length > maxBytes) {
+	if (result.stdout.length > maxBytes) {
 		throw new Error(`git ${args[0]} output exceeds the ${maxBytes}-byte safety limit`);
 	}
 	return result.stdout;
@@ -315,7 +330,7 @@ async function requiredGitOutput(
 	deps: SupersAgentWorktreeDependencies,
 	cwd: string,
 	args: readonly string[],
-	maxBytes?: number
+	maxBytes: number
 ): Promise<string> {
 	try {
 		return strictDecoder.decode(await requiredGitBytes(deps, cwd, args, maxBytes));
@@ -357,7 +372,9 @@ interface ValidatedUntrackedFile {
 }
 
 function isContainedPath(root: string, candidate: string): boolean {
-	return candidate.startsWith(`${root}/`);
+	return root === '/'
+		? candidate.startsWith('/') && candidate !== '/'
+		: candidate.startsWith(`${root}/`);
 }
 
 /** Matches @mgreten/cli-agent's tracked-diff-v1 hash for accepted regular files. */
@@ -365,19 +382,18 @@ export async function createSupersAgentRepositoryStateHash(
 	cwd: string,
 	deps: SupersAgentWorktreeDependencies
 ): Promise<string> {
-	const diff = await requiredGitOutput(deps, cwd, [
-		'diff',
-		'--binary',
-		'--full-index',
-		'HEAD',
-		'--'
-	]);
-	const untracked = await requiredGitOutput(deps, cwd, [
-		'ls-files',
-		'--others',
-		'--exclude-standard',
-		'-z'
-	]);
+	const diff = await requiredGitOutput(
+		deps,
+		cwd,
+		['diff', '--binary', '--full-index', 'HEAD', '--'],
+		MAX_BINARY_DIFF_BYTES
+	);
+	const untracked = await requiredGitOutput(
+		deps,
+		cwd,
+		['ls-files', '--others', '--exclude-standard', '-z'],
+		MAX_NAME_STATUS_BYTES
+	);
 	const canonicalRoot = await deps.realPath(cwd);
 	const validatedFiles: ValidatedUntrackedFile[] = [];
 	let aggregateBytes = 0;
@@ -472,7 +488,12 @@ async function listWorktrees(
 	repositoryDir: string
 ): Promise<WorktreeRecord[]> {
 	return parseWorktreeRecords(
-		await requiredGitOutput(deps, repositoryDir, ['worktree', 'list', '--porcelain'])
+		await requiredGitOutput(
+			deps,
+			repositoryDir,
+			['worktree', 'list', '--porcelain'],
+			MAX_GIT_PROTOCOL_BYTES
+		)
 	);
 }
 
@@ -483,45 +504,62 @@ async function requireCleanStableCentralRepository(
 ): Promise<RepositorySnapshot> {
 	const canonicalDir = await deps.realPath(repoDir);
 	const topLevel = (
-		await requiredGitOutput(deps, canonicalDir, ['rev-parse', '--show-toplevel'])
+		await requiredGitOutput(
+			deps,
+			canonicalDir,
+			['rev-parse', '--show-toplevel'],
+			MAX_GIT_PROTOCOL_BYTES
+		)
 	).trim();
 	if (topLevel !== canonicalDir) {
 		throw new Error('central repository path is not its canonical Git top-level');
 	}
 	const gitDir = (
-		await requiredGitOutput(deps, canonicalDir, [
-			'rev-parse',
-			'--path-format=absolute',
-			'--git-dir'
-		])
+		await requiredGitOutput(
+			deps,
+			canonicalDir,
+			['rev-parse', '--path-format=absolute', '--git-dir'],
+			MAX_GIT_PROTOCOL_BYTES
+		)
 	).trim();
 	const commonDir = (
-		await requiredGitOutput(deps, canonicalDir, [
-			'rev-parse',
-			'--path-format=absolute',
-			'--git-common-dir'
-		])
+		await requiredGitOutput(
+			deps,
+			canonicalDir,
+			['rev-parse', '--path-format=absolute', '--git-common-dir'],
+			MAX_GIT_PROTOCOL_BYTES
+		)
 	).trim();
 	if (gitDir !== commonDir) {
 		throw new Error('central repository must be the primary worktree, not a linked worktree');
 	}
 	const firstHead = (
-		await requiredGitOutput(deps, canonicalDir, ['rev-parse', '--verify', 'HEAD^{commit}'])
+		await requiredGitOutput(
+			deps,
+			canonicalDir,
+			['rev-parse', '--verify', 'HEAD^{commit}'],
+			MAX_GIT_PROTOCOL_BYTES
+		)
 	).trim();
 	if (firstHead !== baseRevision) {
 		throw new Error(`central repository HEAD mismatch: expected ${baseRevision}, got ${firstHead}`);
 	}
-	const status = await requiredGitOutput(deps, canonicalDir, [
-		'status',
-		'--porcelain=v1',
-		'--untracked-files=all',
-		'-z'
-	]);
+	const status = await requiredGitOutput(
+		deps,
+		canonicalDir,
+		['status', '--porcelain=v1', '--untracked-files=all', '-z'],
+		MAX_NAME_STATUS_BYTES
+	);
 	if (status.length !== 0) {
 		throw new Error('central repository must be clean before preparing an agent worktree');
 	}
 	const secondHead = (
-		await requiredGitOutput(deps, canonicalDir, ['rev-parse', '--verify', 'HEAD^{commit}'])
+		await requiredGitOutput(
+			deps,
+			canonicalDir,
+			['rev-parse', '--verify', 'HEAD^{commit}'],
+			MAX_GIT_PROTOCOL_BYTES
+		)
 	).trim();
 	if (secondHead !== firstHead) {
 		throw new Error('central repository HEAD changed during worktree preflight');
@@ -644,12 +682,11 @@ async function branchExists(
 	repositoryDir: string,
 	attachedBranch: string
 ): Promise<boolean> {
-	const result = await deps.runGit(repositoryDir, [
-		'show-ref',
-		'--verify',
-		'--quiet',
-		`refs/heads/${attachedBranch}`
-	]);
+	const result = await deps.runGit(
+		repositoryDir,
+		['show-ref', '--verify', '--quiet', `refs/heads/${attachedBranch}`],
+		{ stdoutBytes: MAX_GIT_PROTOCOL_BYTES, stderrBytes: MAX_GIT_ERROR_BYTES }
+	);
 	if (result.success) return true;
 	if (result.code === 1) return false;
 	throw gitFailure(['show-ref', '--verify', '--quiet', `refs/heads/${attachedBranch}`], result);
@@ -712,18 +749,28 @@ async function requireExactWorktree(
 		throw new Error('registered worktree conflicts with the prepared branch or revision');
 	}
 	const topLevel = (
-		await requiredGitOutput(deps, claim.worktreePath, ['rev-parse', '--show-toplevel'])
+		await requiredGitOutput(
+			deps,
+			claim.worktreePath,
+			['rev-parse', '--show-toplevel'],
+			MAX_GIT_PROTOCOL_BYTES
+		)
 	).trim();
 	const branch = (
-		await requiredGitOutput(deps, claim.worktreePath, [
-			'symbolic-ref',
-			'--quiet',
-			'--short',
-			'HEAD'
-		])
+		await requiredGitOutput(
+			deps,
+			claim.worktreePath,
+			['symbolic-ref', '--quiet', '--short', 'HEAD'],
+			MAX_GIT_PROTOCOL_BYTES
+		)
 	).trim();
 	const headSha = (
-		await requiredGitOutput(deps, claim.worktreePath, ['rev-parse', '--verify', 'HEAD^{commit}'])
+		await requiredGitOutput(
+			deps,
+			claim.worktreePath,
+			['rev-parse', '--verify', 'HEAD^{commit}'],
+			MAX_GIT_PROTOCOL_BYTES
+		)
 	).trim();
 	if (topLevel !== claim.worktreePath || branch !== claim.attachedBranch) {
 		throw new Error('worktree checkout identity does not match its claim');
@@ -736,6 +783,57 @@ async function requireExactWorktree(
 		throw new Error('worktree repository state changed after the agent invocation');
 	}
 	return { headSha, stateHash };
+}
+
+async function requireCommittedCheckoutIdentity(
+	deps: SupersAgentWorktreeDependencies,
+	claim: SupersAgentWorktreeClaim,
+	expectedCommitRevision: string
+): Promise<void> {
+	const record = (await listWorktrees(deps, claim.repositoryDir)).find(
+		(candidate) => candidate.path === claim.worktreePath
+	);
+	if (
+		record === undefined ||
+		record.attachedBranch !== claim.attachedBranch ||
+		record.headSha !== expectedCommitRevision
+	) {
+		throw new Error('registered worktree changed after committed evidence collection');
+	}
+	const [topLevel, branch, head, status] = await Promise.all([
+		requiredGitOutput(
+			deps,
+			claim.worktreePath,
+			['rev-parse', '--show-toplevel'],
+			MAX_GIT_PROTOCOL_BYTES
+		),
+		requiredGitOutput(
+			deps,
+			claim.worktreePath,
+			['symbolic-ref', '--quiet', '--short', 'HEAD'],
+			MAX_GIT_PROTOCOL_BYTES
+		),
+		requiredGitOutput(
+			deps,
+			claim.worktreePath,
+			['rev-parse', '--verify', 'HEAD^{commit}'],
+			MAX_GIT_PROTOCOL_BYTES
+		),
+		requiredGitOutput(
+			deps,
+			claim.worktreePath,
+			['status', '--porcelain=v1', '--untracked-files=all', '-z'],
+			MAX_NAME_STATUS_BYTES
+		)
+	]);
+	if (
+		topLevel.trim() !== claim.worktreePath ||
+		branch.trim() !== claim.attachedBranch ||
+		head.trim() !== expectedCommitRevision ||
+		status.length !== 0
+	) {
+		throw new Error('committed worktree changed after evidence collection');
+	}
 }
 
 function requireSafeRepositoryPath(path: string): void {
@@ -789,18 +887,28 @@ async function collectCommittedWorktreeEvidence(
 		throw new Error('registered worktree conflicts with the committed branch or revision');
 	}
 	const topLevel = (
-		await requiredGitOutput(deps, claim.worktreePath, ['rev-parse', '--show-toplevel'])
+		await requiredGitOutput(
+			deps,
+			claim.worktreePath,
+			['rev-parse', '--show-toplevel'],
+			MAX_GIT_PROTOCOL_BYTES
+		)
 	).trim();
 	const branch = (
-		await requiredGitOutput(deps, claim.worktreePath, [
-			'symbolic-ref',
-			'--quiet',
-			'--short',
-			'HEAD'
-		])
+		await requiredGitOutput(
+			deps,
+			claim.worktreePath,
+			['symbolic-ref', '--quiet', '--short', 'HEAD'],
+			MAX_GIT_PROTOCOL_BYTES
+		)
 	).trim();
 	const head = (
-		await requiredGitOutput(deps, claim.worktreePath, ['rev-parse', '--verify', 'HEAD^{commit}'])
+		await requiredGitOutput(
+			deps,
+			claim.worktreePath,
+			['rev-parse', '--verify', 'HEAD^{commit}'],
+			MAX_GIT_PROTOCOL_BYTES
+		)
 	).trim();
 	if (
 		topLevel !== claim.worktreePath ||
@@ -809,24 +917,23 @@ async function collectCommittedWorktreeEvidence(
 	) {
 		throw new Error('committed worktree checkout identity does not match its claim');
 	}
-	const status = await requiredGitOutput(deps, claim.worktreePath, [
-		'status',
-		'--porcelain=v1',
-		'--untracked-files=all',
-		'-z'
-	]);
+	const status = await requiredGitOutput(
+		deps,
+		claim.worktreePath,
+		['status', '--porcelain=v1', '--untracked-files=all', '-z'],
+		MAX_NAME_STATUS_BYTES
+	);
 	if (status.length !== 0) {
 		throw new Error('committed worktree must be clean');
 	}
 	if (args.expectedCommitRevision === args.expectedBaseRevision) {
 		throw new Error('committed worktree must advance beyond its base revision');
 	}
-	const ancestor = await deps.runGit(claim.worktreePath, [
-		'merge-base',
-		'--is-ancestor',
-		args.expectedBaseRevision,
-		args.expectedCommitRevision
-	]);
+	const ancestor = await deps.runGit(
+		claim.worktreePath,
+		['merge-base', '--is-ancestor', args.expectedBaseRevision, args.expectedCommitRevision],
+		{ stdoutBytes: MAX_GIT_PROTOCOL_BYTES, stderrBytes: MAX_GIT_ERROR_BYTES }
+	);
 	if (!ancestor.success) {
 		if (ancestor.code === 1) throw new Error('worktree base is not an ancestor of its commit');
 		throw gitFailure(
@@ -864,13 +971,12 @@ async function collectCommittedWorktreeEvidence(
 		}
 		requireSafeRepositoryPath(path);
 		const treeEntry = (
-			await requiredGitOutput(deps, claim.worktreePath, [
-				'ls-tree',
-				'-z',
-				args.expectedCommitRevision,
-				'--',
-				path
-			])
+			await requiredGitOutput(
+				deps,
+				claim.worktreePath,
+				['ls-tree', '-z', args.expectedCommitRevision, '--', path],
+				MAX_GIT_PROTOCOL_BYTES
+			)
 		).replace(/\0$/, '');
 		const match = /^(100644|100755) blob [0-9a-f]{40}\t(.+)$/.exec(treeEntry);
 		if (match === null || match[2] !== path) {
@@ -903,11 +1009,12 @@ async function collectCommittedWorktreeEvidence(
 		throw new Error('objective proof nomination test path is not among the committed changed paths');
 	}
 	const commitTree = (
-		await requiredGitOutput(deps, claim.worktreePath, [
-			'rev-parse',
-			'--verify',
-			`${args.expectedCommitRevision}^{tree}`
-		])
+		await requiredGitOutput(
+			deps,
+			claim.worktreePath,
+			['rev-parse', '--verify', `${args.expectedCommitRevision}^{tree}`],
+			MAX_GIT_PROTOCOL_BYTES
+		)
 	).trim();
 	if (!SHA40_PATTERN.test(commitTree)) {
 		throw new Error('committed worktree tree identity is invalid');
@@ -1110,7 +1217,10 @@ export function createSupersAgentWorktreeOperations(
 					intent.worktreePath,
 					intent.baseRevision
 				] as const;
-				const addResult = await deps.runGit(intent.repositoryDir, addArgs);
+				const addResult = await deps.runGit(intent.repositoryDir, addArgs, {
+					stdoutBytes: MAX_GIT_PROTOCOL_BYTES,
+					stderrBytes: MAX_GIT_ERROR_BYTES
+				});
 				if (!addResult.success) {
 					const recovered = (await listWorktrees(deps, intent.repositoryDir)).find(
 						(record) => record.path === intent.worktreePath
@@ -1375,6 +1485,7 @@ export function createSupersAgentWorktreeOperations(
 			const receiptBase: Record<string, unknown> = { ...receipt };
 			delete receiptBase.fingerprint;
 			receipt.fingerprint = await stableIdentityHash(receiptBase);
+			await requireCommittedCheckoutIdentity(deps, claim, args.expectedCommitRevision);
 			const handle = await context.writeResource(
 				'supers-agent-worktree-commit',
 				receiptName,
@@ -1560,11 +1671,20 @@ export function createSupersAgentWorktreeOperations(
 				);
 			}
 
-			const initiallyExists = await deps.pathExists(claim.worktreePath);
-			if (existingIntent === null && !initiallyExists) {
+			const ownedRoot = parentDirectory(claim.worktreePath);
+			const quarantinePath = `${ownedRoot === '/' ? '' : ownedRoot}/.supers-agent-quarantine-${receiptId}`;
+			if (!isContainedPath(ownedRoot, quarantinePath)) {
+				throw new Error('worktree quarantine path escapes its owned root');
+			}
+			const originalExists = await deps.pathExists(claim.worktreePath);
+			const quarantineExists = await deps.pathExists(quarantinePath);
+			if (existingIntent === null && !originalExists) {
 				throw new Error('cannot begin worktree removal because the claimed worktree is absent');
 			}
-			if (initiallyExists) {
+			if (existingIntent === null && quarantineExists) {
+				throw new Error('cannot begin worktree removal from an ambiguous quarantine state');
+			}
+			if (originalExists && !quarantineExists) {
 				if (committedAuthorization === null) {
 					await requireExactWorktree(deps, claim, claim.stateHash);
 				} else {
@@ -1590,22 +1710,54 @@ export function createSupersAgentWorktreeOperations(
 				await context.writeResource('supers-agent-worktree-removal-intent', intentName, intent);
 			}
 
-			if (initiallyExists) {
-				if (committedAuthorization === null) {
-					await requireExactWorktree(deps, claim, claim.stateHash);
-				} else {
-					await collectCommittedWorktreeEvidence(deps, claim, committedAuthorization.verifyArgs);
+			const removalAlreadyApplied =
+				existingIntent !== null && !originalExists && !quarantineExists;
+			if (!removalAlreadyApplied) {
+				if (!quarantineExists) {
+					await deps.rename(claim.worktreePath, quarantinePath);
 				}
-				const removeArgs = ['worktree', 'remove', '--', claim.worktreePath] as const;
-				const removeResult = await deps.runGit(claim.repositoryDir, removeArgs);
-				if (!removeResult.success && (await deps.pathExists(claim.worktreePath))) {
+				if (!(await deps.pathExists(quarantinePath))) {
+					throw new Error('exact worktree quarantine is absent after atomic rename');
+				}
+				const repairArgs = ['worktree', 'repair', quarantinePath] as const;
+				const repairResult = await deps.runGit(claim.repositoryDir, repairArgs, {
+					stdoutBytes: MAX_GIT_PROTOCOL_BYTES,
+					stderrBytes: MAX_GIT_ERROR_BYTES
+				});
+				if (!repairResult.success) throw gitFailure(repairArgs, repairResult);
+				const quarantineRecord = (await listWorktrees(deps, claim.repositoryDir)).find(
+					(candidate) => candidate.path === quarantinePath
+				);
+				const expectedHead = committedAuthorization?.receipt.commitRevision ?? claim.headSha;
+				if (
+					quarantineRecord === undefined ||
+					quarantineRecord.attachedBranch !== claim.attachedBranch ||
+					quarantineRecord.headSha !== expectedHead
+				) {
+					throw new Error('Git registration does not match the exact quarantined worktree');
+				}
+				const removeArgs = ['worktree', 'remove', '--', quarantinePath] as const;
+				const removeResult = await deps.runGit(claim.repositoryDir, removeArgs, {
+					stdoutBytes: MAX_GIT_PROTOCOL_BYTES,
+					stderrBytes: MAX_GIT_ERROR_BYTES
+				});
+				if (!removeResult.success && (await deps.pathExists(quarantinePath))) {
 					throw gitFailure(removeArgs, removeResult);
 				}
 			}
-			if (await deps.pathExists(claim.worktreePath)) {
-				throw new Error('worktree still exists after exact removal');
+			if (await deps.pathExists(quarantinePath)) {
+				throw new Error('quarantined worktree still exists after exact removal');
 			}
-			await requireNoClaimedWorktreeRegistration(deps, claim);
+			const remaining = await listWorktrees(deps, claim.repositoryDir);
+			if (
+				remaining.some(
+					(candidate) =>
+						candidate.path === quarantinePath ||
+						candidate.attachedBranch === claim.attachedBranch
+				)
+			) {
+				throw new Error('worktree path or branch remains registered after removal');
+			}
 			const receipt: SupersAgentWorktreeRemovalReceipt = {
 				...intent,
 				removed: true,
@@ -1621,21 +1773,83 @@ export function createSupersAgentWorktreeOperations(
 	};
 }
 
+const GIT_PROCESS_GROUP_WRAPPER =
+	'import os,sys; os.setsid(); os.execvp("git", ["git", *sys.argv[1:]])';
+
+async function readBoundedStream(
+	stream: ReadableStream<Uint8Array>,
+	maxBytes: number,
+	onOverflow: () => void,
+	label: string
+): Promise<Uint8Array> {
+	const reader = stream.getReader();
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+	try {
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			total += value.length;
+			if (total > maxBytes) {
+				onOverflow();
+				throw new Error(`${label} exceeds the ${maxBytes}-byte safety limit`);
+			}
+			chunks.push(value);
+		}
+	} finally {
+		reader.releaseLock();
+	}
+	const output = new Uint8Array(total);
+	let offset = 0;
+	for (const chunk of chunks) {
+		output.set(chunk, offset);
+		offset += chunk.length;
+	}
+	return output;
+}
+
+export async function runBoundedSupersGitCommand(
+	cwd: string,
+	args: readonly string[],
+	limits: SupersAgentGitOutputLimits
+): Promise<SupersAgentGitResult> {
+	const child = new Deno.Command('/usr/bin/python3', {
+		cwd,
+		args: ['-c', GIT_PROCESS_GROUP_WRAPPER, ...args],
+		stdin: 'null',
+		stdout: 'piped',
+		stderr: 'piped'
+	}).spawn();
+	let killed = false;
+	const killGroup = (): void => {
+		if (killed) return;
+		killed = true;
+		try {
+			Deno.kill(-child.pid, 'SIGKILL');
+		} catch {
+			try {
+				child.kill('SIGKILL');
+			} catch {
+				// The bounded command may exit between observation and termination.
+			}
+		}
+	};
+	try {
+		const [stdout, stderr, status] = await Promise.all([
+			readBoundedStream(child.stdout, limits.stdoutBytes, killGroup, 'git stdout'),
+			readBoundedStream(child.stderr, limits.stderrBytes, killGroup, 'git stderr'),
+			child.status
+		]);
+		return { success: status.success, code: status.code, stdout, stderr };
+	} catch (error) {
+		killGroup();
+		await child.status.catch(() => undefined);
+		throw error;
+	}
+}
+
 const defaultDependencies: SupersAgentWorktreeDependencies = {
-	async runGit(cwd, args) {
-		const output = await new Deno.Command('git', {
-			cwd,
-			args: [...args],
-			stdout: 'piped',
-			stderr: 'piped'
-		}).output();
-		return {
-			success: output.success,
-			code: output.code,
-			stdout: output.stdout,
-			stderr: output.stderr
-		};
-	},
+	runGit: runBoundedSupersGitCommand,
 	realPath: (path) => Deno.realPath(path),
 	async pathExists(path) {
 		try {
@@ -1651,6 +1865,7 @@ const defaultDependencies: SupersAgentWorktreeDependencies = {
 		return { isFile: info.isFile, isSymlink: info.isSymlink, size: info.size };
 	},
 	readFile: (path) => Deno.readFile(path),
+	rename: (from, to) => Deno.rename(from, to),
 	now: () => new Date()
 };
 

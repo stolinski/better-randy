@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
 	createSupersAgentRepositoryStateHash,
 	createSupersAgentWorktreeOperations,
+	runBoundedSupersGitCommand,
 	extension,
 	type PrepareSupersAgentWorktreeArgs,
 	type SupersAgentGitResult,
@@ -63,7 +64,9 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 	treeListingBytes: Uint8Array | null = null;
 	binaryDiffBytes: Uint8Array | null = null;
 	mutateTreeOnSecondCollection = false;
+	mutateStatusAfterEvidenceCollection = false;
 	treeCollectionCount = 0;
+	committedDiffCollectionCount = 0;
 	untracked = new Map<string, Uint8Array>();
 	untrackedInfo = new Map<
 		string,
@@ -72,8 +75,12 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 	loseAddAcknowledgement = false;
 	loseRemoveAcknowledgement = false;
 	registeredConflictPath: string | null = null;
+	replacementOriginalPath: string | null = null;
+	replaceOriginalAfterRename = false;
+	removedPaths: string[] = [];
 	addCalls = 0;
 	removeCalls = 0;
+	renameCalls = 0;
 
 	now(): Date {
 		return NOW;
@@ -90,7 +97,18 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 		if (path === this.worktreePath && this.worktreeExists) {
 			return Promise.resolve(true);
 		}
+		if (path === this.replacementOriginalPath) return Promise.resolve(true);
 		return Promise.resolve(this.conflictPathExists && path.includes('-supers-agent-'));
+	}
+
+	rename(from: string, to: string): Promise<void> {
+		if (from !== this.worktreePath || !this.worktreeExists) {
+			return Promise.reject(new Error(`unexpected rename source ${from}`));
+		}
+		this.renameCalls += 1;
+		this.worktreePath = to;
+		if (this.replaceOriginalAfterRename) this.replacementOriginalPath = from;
+		return Promise.resolve();
 	}
 
 	fileInfo(path: string): Promise<{ isFile: boolean; isSymlink: boolean; size: number }> {
@@ -165,8 +183,17 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 				? gitResult(false, '', 'simulated lost acknowledgement', 128)
 				: gitResult(true);
 		}
+		if (args[0] === 'worktree' && args[1] === 'repair') {
+			return args[2] === this.worktreePath
+				? gitResult(true)
+				: gitResult(false, '', 'wrong repair path', 128);
+		}
 		if (args[0] === 'worktree' && args[1] === 'remove') {
+			if (args[3] !== this.worktreePath) {
+				return gitResult(false, '', 'wrong removal path', 128);
+			}
 			this.removeCalls += 1;
+			this.removedPaths.push(args[3]);
 			this.worktreeExists = false;
 			this.worktreeRegistered = false;
 			return this.loseRemoveAcknowledgement
@@ -241,6 +268,13 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 		if (
 			command === `diff --binary --full-index ${BASE_REVISION} ${COMMIT_REVISION} --`
 		) {
+			this.committedDiffCollectionCount += 1;
+			if (
+				this.mutateStatusAfterEvidenceCollection &&
+				this.committedDiffCollectionCount >= 2
+			) {
+				this.worktreeDirty = true;
+			}
 			return gitResult(
 				true,
 				this.binaryDiffBytes ??
@@ -421,6 +455,32 @@ Deno.test('committed worktree verification hashes raw bytes and detects verifica
 	await assert.rejects(
 		() => operations.verifySupersAgentWorktreeCommit(commitVerificationArgs(claim), context),
 		/evidence changed during verification/
+	);
+});
+
+Deno.test('committed worktree verification performs a final clean identity check before persistence', async () => {
+	const { repository, context, resources, writes } = fixture();
+	const operations = createSupersAgentWorktreeOperations(repository);
+	const claim = (await operations.prepareSupersAgentWorktree(PREPARE_ARGS, context)).resource;
+	repository.worktreeHead = COMMIT_REVISION;
+	repository.mutateStatusAfterEvidenceCollection = true;
+	recordSuccessfulInvocation(resources, claim);
+	await assert.rejects(
+		() => operations.verifySupersAgentWorktreeCommit(commitVerificationArgs(claim), context),
+		/changed after evidence collection/
+	);
+	assert.equal(writes.some((name) => name.startsWith('supers-agent-worktree-commit-')), false);
+});
+
+Deno.test('bounded Git runner terminates oversized output before retaining the producer output', async () => {
+	await assert.rejects(
+		async () =>
+			runBoundedSupersGitCommand(
+				await Deno.realPath('.'),
+				['show', 'HEAD:extensions/models/cli-agent-supers-worktree.ts'],
+				{ stdoutBytes: 128, stderrBytes: 1024 }
+			),
+		/git stdout exceeds the 128-byte safety limit/
 	);
 });
 
@@ -967,6 +1027,22 @@ Deno.test('committed cleanup requires and binds the exact verified receipt', asy
 	assert.equal(repository.removeCalls, 1);
 });
 
+Deno.test('cleanup quarantines the validated path and preserves a racing replacement', async () => {
+	const { repository, context, resources } = fixture();
+	const operations = createSupersAgentWorktreeOperations(repository);
+	const claim = (await operations.prepareSupersAgentWorktree(PREPARE_ARGS, context)).resource;
+	const originalPath = claim.worktreePath;
+	recordSuccessfulInvocation(resources, claim);
+	await operations.verifySupersAgentWorktreeUnchanged({ claimId: claim.claimId }, context);
+	repository.replaceOriginalAfterRename = true;
+	await operations.removeSupersAgentWorktree({ claimId: claim.claimId }, context);
+	assert.equal(repository.renameCalls, 1);
+	assert.equal(repository.removedPaths.length, 1);
+	assert.match(repository.removedPaths[0], /^\/\.supers-agent-quarantine-/);
+	assert.notEqual(repository.removedPaths[0], originalPath);
+	assert.equal(await repository.pathExists(originalPath), true);
+});
+
 Deno.test('cleanup replay does not issue a second removal or resource write', async () => {
 	const { repository, context, resources, writes } = fixture();
 	const operations = createSupersAgentWorktreeOperations(repository);
@@ -1135,6 +1211,7 @@ Deno.test(
 					return { isFile: info.isFile, isSymlink: info.isSymlink, size: info.size };
 				},
 				readFile: (path) => Deno.readFile(path),
+				rename: (from, to) => Deno.rename(from, to),
 				now: () => NOW
 			};
 			const operations = createSupersAgentWorktreeOperations(realDependencies);
