@@ -2269,6 +2269,40 @@ const operations = createSupersAgentWorktreeOperations(defaultDependencies);
 // old invocation IDs therefore remain permanently unavailable for reuse.
 const IMMUTABLE_INVOCATION_RESOURCE_VERSIONS = 1;
 
+const CliAgentInjectedGlobalArgsSchema = z.object({
+	defaultProvider: z.unknown(),
+	defaultModel: z.unknown(),
+	defaultToolProfile: z.unknown(),
+	commandsDir: z.unknown(),
+	commandSubdirs: z.unknown(),
+	claudePath: z.unknown(),
+	opencodePath: z.unknown(),
+	ampPath: z.unknown(),
+	geminiPath: z.unknown(),
+	codexPath: z.unknown(),
+	grokPath: z.unknown(),
+	piPath: z.unknown(),
+	idleTimeoutMs: z.unknown(),
+	wallTimeoutMs: z.unknown(),
+	maxRetries: z.unknown(),
+	sandboxMode: z.unknown(),
+	sandboxRequired: z.unknown(),
+	sandboxNetwork: z.unknown(),
+	sandboxCredentialAccess: z.unknown()
+});
+
+type CliAgentInjectedGlobalArgs = z.infer<typeof CliAgentInjectedGlobalArgsSchema>;
+
+function stripCliAgentInjectedGlobals(
+	args: Record<string, unknown> & CliAgentInjectedGlobalArgs
+): Record<string, unknown> {
+	const copy: Record<string, unknown> = { ...args };
+	for (const key of Object.keys(CliAgentInjectedGlobalArgsSchema.shape)) {
+		delete copy[key];
+	}
+	return copy;
+}
+
 export const extension = {
 	type: '@mgreten/cli-agent',
 	resources: {
@@ -2348,12 +2382,15 @@ export const extension = {
 			prepareSupersAgentWorktree: {
 				description:
 					'Prepare or recover one deterministic isolated worktree from a clean, stable exact HEAD.',
-				arguments: PrepareSupersAgentWorktreeArgsSchema,
+				arguments: PrepareSupersAgentWorktreeArgsSchema.extend(CliAgentInjectedGlobalArgsSchema.shape),
 				execute: async (
-					args: PrepareSupersAgentWorktreeArgs,
+					args: PrepareSupersAgentWorktreeArgs & z.infer<typeof CliAgentInjectedGlobalArgsSchema>,
 					context: SupersAgentWorktreeMethodContext
 				) => {
-					const result = await operations.prepareSupersAgentWorktree(args, context);
+					const result = await operations.prepareSupersAgentWorktree(
+						PrepareSupersAgentWorktreeArgsSchema.parse(stripCliAgentInjectedGlobals(args)),
+						context
+					);
 					return { dataHandles: result.dataHandles };
 				}
 			}
@@ -2362,12 +2399,15 @@ export const extension = {
 			verifySupersAgentWorktreeUnchanged: {
 				description:
 					'Bind a successful exact CLI-agent invocation to an unchanged isolated worktree.',
-				arguments: VerifySupersAgentWorktreeUnchangedArgsSchema,
+				arguments: VerifySupersAgentWorktreeUnchangedArgsSchema.extend(CliAgentInjectedGlobalArgsSchema.shape),
 				execute: async (
-					args: VerifySupersAgentWorktreeUnchangedArgs,
+					args: VerifySupersAgentWorktreeUnchangedArgs & z.infer<typeof CliAgentInjectedGlobalArgsSchema>,
 					context: SupersAgentWorktreeMethodContext
 				) => {
-					const result = await operations.verifySupersAgentWorktreeUnchanged(args, context);
+					const result = await operations.verifySupersAgentWorktreeUnchanged(
+						VerifySupersAgentWorktreeUnchangedArgsSchema.parse(stripCliAgentInjectedGlobals(args)),
+						context
+					);
 					return { dataHandles: result.dataHandles };
 				}
 			}
@@ -2376,12 +2416,15 @@ export const extension = {
 			verifySupersAgentWorktreeCommit: {
 				description:
 					'Verify one exact clean committed agent worktree without integrating or executing nominated tests.',
-				arguments: VerifySupersAgentWorktreeCommitArgsSchema,
+				arguments: VerifySupersAgentWorktreeCommitArgsSchema.extend(CliAgentInjectedGlobalArgsSchema.shape),
 				execute: async (
-					args: VerifySupersAgentWorktreeCommitArgs,
+					args: VerifySupersAgentWorktreeCommitArgs & z.infer<typeof CliAgentInjectedGlobalArgsSchema>,
 					context: SupersAgentWorktreeMethodContext
 				) => {
-					const result = await operations.verifySupersAgentWorktreeCommit(args, context);
+					const result = await operations.verifySupersAgentWorktreeCommit(
+						VerifySupersAgentWorktreeCommitArgsSchema.parse(stripCliAgentInjectedGlobals(args)),
+						context
+					);
 					return { dataHandles: result.dataHandles };
 				}
 			}
@@ -2390,12 +2433,15 @@ export const extension = {
 			verifySupersAgentIntegration: {
 				description:
 					'Verify the exact serialized result of an official Git cherry-pick and persist Factory integration evidence.',
-				arguments: VerifySupersAgentIntegrationArgsSchema,
+				arguments: VerifySupersAgentIntegrationArgsSchema.extend(CliAgentInjectedGlobalArgsSchema.shape),
 				execute: async (
-					args: VerifySupersAgentIntegrationArgs,
+					args: VerifySupersAgentIntegrationArgs & z.infer<typeof CliAgentInjectedGlobalArgsSchema>,
 					context: SupersAgentWorktreeMethodContext
 				) => {
-					const result = await operations.verifySupersAgentIntegration(args, context);
+					const result = await operations.verifySupersAgentIntegration(
+						VerifySupersAgentIntegrationArgsSchema.parse(stripCliAgentInjectedGlobals(args)),
+						context
+					);
 					return { dataHandles: result.dataHandles };
 				}
 			}
@@ -2404,12 +2450,15 @@ export const extension = {
 			removeSupersAgentWorktree: {
 				description:
 					'Remove only an exactly authorized unchanged or committed worktree and persist a replay-safe removal receipt.',
-				arguments: RemoveSupersAgentWorktreeArgsSchema,
+				arguments: RemoveSupersAgentWorktreeArgsSchema.extend(CliAgentInjectedGlobalArgsSchema.shape),
 				execute: async (
-					args: RemoveSupersAgentWorktreeArgs,
+					args: RemoveSupersAgentWorktreeArgs & z.infer<typeof CliAgentInjectedGlobalArgsSchema>,
 					context: SupersAgentWorktreeMethodContext
 				) => {
-					const result = await operations.removeSupersAgentWorktree(args, context);
+					const result = await operations.removeSupersAgentWorktree(
+						RemoveSupersAgentWorktreeArgsSchema.parse(stripCliAgentInjectedGlobals(args)),
+						context
+					);
 					return { dataHandles: result.dataHandles };
 				}
 			}
