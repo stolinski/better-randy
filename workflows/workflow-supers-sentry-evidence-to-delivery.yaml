@@ -101,6 +101,25 @@ jobs:
               type: completed
         weight: 0
         allowFailure: false
+      - name: drive-evidence-bound-implementation
+        description: Run the bounded isolated coding and serialized integration workflow for the exact admitted task.
+        task:
+          type: workflow
+          workflowIdOrName: supers-sentry-factory-driver
+          inputs:
+            workItem: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping" && workflowRunId == "'' + run.id + ''"'')[0].attributes.taskId }}'
+            evidenceName: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence" && workflowRunId == "'' + run.id + ''"'')[0].name }}'
+            expectedEvidenceFingerprint: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence" && workflowRunId == "'' + run.id + ''"'')[0].attributes.fingerprint }}'
+            mappingName: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping" && workflowRunId == "'' + run.id + ''"'')[0].name }}'
+            expectedMappingFingerprint: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping" && workflowRunId == "'' + run.id + ''"'')[0].attributes.fingerprint }}'
+            admissionName: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission" && workflowRunId == "'' + run.id + ''"'')[0].name }}'
+            expectedAdmissionFingerprint: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission" && workflowRunId == "'' + run.id + ''"'')[0].attributes.fingerprint }}'
+        dependsOn:
+          - step: materialize-delivery-status
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
     dependsOn: []
     weight: 0
 version: 1
