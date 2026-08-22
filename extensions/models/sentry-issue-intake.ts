@@ -18,22 +18,47 @@ import {
 
 import {
   DEFAULT_SENTRY_ISSUE_INTAKE_DEPENDENCIES,
+  DenoSentryCommandRunner,
   executeSentryIssueIntake,
   SentryIssueIntakeArgsSchema,
   type SentryIssueIntakeContext,
   SentryIssueReconciliationSchema,
   SentryIssueSnapshotSchema,
 } from "./sentry-issue-intake-adapter.ts";
+import {
+  executeCollectSentryIssueRepairEvidence,
+  SentryIssueRepairEvidenceArgsSchema,
+  type SentryIssueRepairEvidenceContext,
+  SentryIssueRepairEvidenceSchema,
+} from "./sentry-issue-repair-evidence.ts";
 
 const GlobalArgsSchema = z.object({
   target: z.string().regex(/^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/).default(
     "scott-tolinski-projects/supers",
   ),
+  sourceRepairModelId: z.string().uuid(),
 });
+
+async function resolveEvidenceCheckoutRevision(
+  repoDir: string,
+): Promise<string> {
+  const result = await new Deno.Command("git", {
+    args: ["rev-parse", "HEAD"],
+    cwd: repoDir,
+    stdin: "null",
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  const revision = new TextDecoder().decode(result.stdout).trim();
+  if (!result.success || !/^[0-9a-f]{40}$/.test(revision)) {
+    throw new Error("Unable to resolve Sentry evidence checkout revision");
+  }
+  return revision;
+}
 
 export const model = {
   type: "@supers/sentry-issue-intake",
-  version: "2026.08.21.2",
+  version: "2026.08.21.3",
   globalArguments: GlobalArgsSchema,
   resources: {
     snapshot: {
@@ -57,8 +82,29 @@ export const model = {
       lifetime: "infinite",
       garbageCollection: 50,
     },
+    "repair-evidence": {
+      description:
+        "Immutable issue event, stack, breadcrumb, and advisory Seer evidence for one selected repair",
+      schema: SentryIssueRepairEvidenceSchema,
+      lifetime: "infinite",
+      garbageCollection: 500,
+    },
   },
   methods: {
+    "collect-repair-evidence": {
+      description:
+        "Collect fresh issue/event evidence and advisory Seer analysis for one exact selected repair intent",
+      arguments: SentryIssueRepairEvidenceArgsSchema,
+      execute: (
+        args: z.infer<typeof SentryIssueRepairEvidenceArgsSchema>,
+        context: SentryIssueRepairEvidenceContext,
+      ) =>
+        executeCollectSentryIssueRepairEvidence(args, context, {
+          commandRunner: new DenoSentryCommandRunner(),
+          resolveCheckoutRevision: resolveEvidenceCheckoutRevision,
+          now: () => new Date().toISOString(),
+        }),
+    },
     triage: {
       description:
         "Read one named Sentry reconciliation and official Dex once to produce fail-closed deduplication recommendations",

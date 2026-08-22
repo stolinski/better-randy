@@ -96,71 +96,34 @@ release, or the create-versus-attach recommendation. `human-gate` and
 `no-candidate` remain typed successful outcomes for incomplete evidence,
 duplicate risk, staleness, and an empty live intake.
 
-`supers-sentry-repair-to-planning` preserves every queued intent and selects at
-most one stable `sentry-<issueId>` work item. Selection is severity, then
-priority, oldest `firstSeen`, and stable issue id. A `reproduction-required`
-head returns `await-reproduction` and cannot start Planning; Stage 2 will own
-that bounded executor. A `confirmed-repair` head may use the existing
-human-gated Planning path. Replay refreshes the latest supersession head rather
-than creating duplicate state; later intents remain queued until the active
-repair is terminal. Supers Planning explicitly rejects reproduction intents,
-binds a confirmed intent into its immutable source snapshot, and permits exactly
-one matching create or attach operation at the pre-Plan-Applier boundary.
+The scheduled intake preserves every queued intent and selects at most one
+stable head by severity, priority, oldest `firstSeen`, and issue id. Existing
+active Delivery work delays admission without deleting the queue. Intents that
+already have an exact machine admission are excluded so replay cannot starve
+later repairs.
 
-Stage 2 binds one exact `await-reproduction` queue selection to bounded fresh
-Sentry evidence. It stores only event/release/last-seen identity, culprit, a
-local route, sanitized in-app frame names, and breadcrumb categories. All
-Sentry strings remain untrusted data. The controller derives only a closed
-`http-route`, `browser-route`, `export-flow`, or code-owned allowlisted-test
-recipe. Unsupported or malformed evidence is quarantined. A valid recipe writes
-a content-addressed `pending-transport` request for the existing Factory Pi
-outbox contract and an `inconclusive` outcome; it never launches a shell or
-claims reproduction. The request directly binds the checkout release and Git
-revision. Latest-event time must match the issue's last-seen watermark, and
-wall-clock collection time is excluded from content identity. Silence and
-pending transport never prove a fix.
+`supers-sentry-evidence-to-delivery` replaces the abandoned reproduction-agent
+path. It re-reads the exact selected intent and queue fingerprints, then runs
+only fixed Sentry CLI operations for that issue id: fresh issue view, Seer root
+cause analysis, and Seer fix plan. A second fresh issue view after Seer completes
+must preserve the exact event id and last-seen watermark. The immutable evidence
+bundle contains release identity, bounded in-app stack frames, breadcrumb
+categories, and redacted Seer analysis. Seer text is advisory diagnostic data;
+it is never command or mutation authority.
 
-Stage 2 exposes no worker finalizer or caller-supplied authority literal. The
-Stage 3 transport controller owns a distinct reproduction outbox because the
-Delivery outbox correctly requires an already-started Dex leaf, while repair
-Dex creation correctly requires positive reproduction first. The dedicated
-outbox reuses immutable reservation, bounded submission-attempt, execution
-claim, lease/fencing, crash-recovery, and ambiguity rules without representing
-itself as Delivery authority. Its Swamp-owned renewable lease admits one local
-driver; clean-checkout and exact-revision checks precede reservation, and stale
-owners cannot heartbeat after a newer fencing token exists.
+The evidence mapper writes a durable pre-Dex intent, acquires the shared Dex
+repository lock, and creates or attaches and starts exactly one repair task.
+Every task carries an exact issue/evidence marker and requires objective
+failing-before and passing-after proof. Lost create, edit, or start
+acknowledgements converge only through exact Dex postconditions. A singleton
+machine Delivery claim prevents concurrent Sentry admissions until the prior
+Delivery state is terminal. The workflow consumes an exact mapping, claim, and
+narrow machine admission before starting Delivery. That admission cannot
+satisfy or bypass any human or aesthetic gate.
 
-The reservation workflow automatically places each closed Stage 2 request
-behind that authority. The transport method reads the named Stage 2 request,
-selected intent, and queue selection from their owning models and recomputes
-every fingerprint, frozen-task digest, and semantic payload; caller-supplied
-envelopes have no authority. Checkout inspection uses HEAD/status/HEAD and
-rejects a concurrent revision change. No production launch/finalizer method is
-exposed yet: direct Pi SDK sessions do not create the typed launch artifact,
-execution claim, closed worker observation, and structured result required by
-the authority verifier. Stage 4 must host the
-`pi-subagents` in-process RPC inside a trusted local Pi SDK runtime, consume the
-reserved outbox, and validate its launch, claim, structured result, and fresh
-Sentry watermark. Until that host ships, every request remains reserved or
-inconclusive; callers cannot assert `reproduced`.
-
-The controller already defines the downstream fail-closed boundary. Only an
-exact claim-bound `reproduced` outcome with matching recipe kind and closed exit
-semantics can write a deterministic pre-mutation creation intent, acquire the
-shared Dex repository lock, re-read exact code-owned Sentry-ID tokens, create
-or attach one repair task, persist the exact reproduction marker, recover a
-lost mutation acknowledgement, and emit a machine Delivery admission. Mapping
-re-reads and verifies the authoritative request, intent, selection, outcome,
-and outbox; callers cannot substitute task identity. The admission
-cannot satisfy or bypass any human aesthetic gate. `not-reproduced`,
-`inconclusive`, quarantined, wrong-revision, wrong-task, wrong-receipt, and
-advanced-watermark outcomes cannot mutate Dex. After Planning returns one
-audited Dex task ID,
-`supers-sentry-repair-backlink` binds the exact repair intent, human approval,
-successful Plan Application mapping, clean audit, and ready handoff.
-It then idempotently adds the Dex task reference to the Sentry issue and stores
-a fingerprinted `linked | already-linked` receipt. Stale or conflicting
-Planning evidence fails before Sentry access.
+The old reproduction reservation and Pi transport resources remain readable for
+historical runs, but no active workflow calls them. There is no separate LLM
+reproduction worker and no agent-authored exit code is accepted as evidence.
 
 After the linked Dex task reaches terminal successful Delivery,
 `supers-sentry-verified-resolution` captures a fresh, complete Sentry snapshot

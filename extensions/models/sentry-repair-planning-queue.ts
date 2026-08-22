@@ -31,6 +31,7 @@ export const SentryRepairPlanningQueueArgsSchema = z.object({
   repairIntents: z.array(SentryRepairIntentEnvelopeSchema).max(5_000),
   planningStates: z.array(SentryRepairPlanningStateSchema).max(500),
   priorSelections: z.array(PriorQueueSelectionSchema).max(1),
+  admittedIntentFingerprints: z.array(FingerprintSchema).max(5_000).optional(),
 });
 
 export const SentryRepairPlanningQueueSelectionSchema = z.strictObject({
@@ -144,8 +145,12 @@ export async function selectSentryRepairPlanningQueue(
     .filter((state) => state.status === "active")
     .map((state) => state.workItem)
     .sort();
+  const admittedIntentFingerprints = new Set(
+    args.admittedIntentFingerprints ?? [],
+  );
   const orderedQueue = [...latestByWorkItem.values()]
     .filter((envelope) => !statesByWorkItem.has(envelope.planningWorkItem))
+    .filter((envelope) => !admittedIntentFingerprints.has(envelope.fingerprint))
     .sort(queueOrder);
 
   let status: z.infer<

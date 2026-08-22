@@ -113,6 +113,53 @@ jobs:
               type: succeeded
         weight: 0
         allowFailure: false
+      - name: refresh-delivery-capacity
+        description: Materialize Delivery fleet state so existing work delays but never discards queued Sentry repairs.
+        task:
+          type: model_method
+          modelIdOrName: supers-delivery
+          methodName: status
+          inputs: {}
+        dependsOn:
+          - step: assert-correlated-queue
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+      - name: select-one-sentry-repair
+        description: Select at most one stable queue head without requiring a separate reproduction worker.
+        task:
+          type: model_method
+          modelIdOrName: supers-sentry-repair-planning-handoff
+          methodName: select-next
+          inputs:
+            repairIntents: '${{ data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "repair-intent"'').map(resource, resource.attributes) }}'
+            planningStates: []
+            priorSelections: []
+            admittedIntentFingerprints: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(admission, size(data.query(''modelName == "supers-delivery" && name == "state-'' + admission.attributes.dexTaskId + ''"'')) > 0).map(admission, admission.attributes.repairIntentFingerprint) }}'
+        dependsOn:
+          - step: refresh-delivery-capacity
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+      - name: admit-selected-sentry-repair
+        description: Collect exact issue and Seer evidence, then start one evidence-bound Dex and Delivery repair only when capacity is available.
+        task:
+          type: workflow
+          workflowIdOrName: supers-sentry-evidence-to-delivery
+          inputs:
+            repairIntentName: '${{ data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "repair-intent"'').filter(resource, resource.attributes.fingerprint == data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "queue-selection" && workflowRunId == "'' + run.id + ''"'')[0].attributes.selectedIntentFingerprint)[0].name }}'
+            expectedRepairIntentFingerprint: '${{ data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "queue-selection" && workflowRunId == "'' + run.id + ''"'')[0].attributes.selectedIntentFingerprint }}'
+            queueSelectionName: '${{ data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "queue-selection" && workflowRunId == "'' + run.id + ''"'')[0].name }}'
+            expectedQueueSelectionFingerprint: '${{ data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "queue-selection" && workflowRunId == "'' + run.id + ''"'')[0].attributes.fingerprint }}'
+        guard: '${{ data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "queue-selection" && workflowRunId == "'' + run.id + ''"'')[0].attributes.status != "selected" || size(data.latest("supers-delivery", "status-_factory").attributes.runs.filter(factoryRun, factoryRun.status == "active")) != 0 }}'
+        dependsOn:
+          - step: select-one-sentry-repair
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
     dependsOn: []
     weight: 0
-version: 2
+version: 3

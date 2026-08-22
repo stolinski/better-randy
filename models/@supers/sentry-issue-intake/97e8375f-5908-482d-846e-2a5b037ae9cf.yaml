@@ -1,9 +1,10 @@
 type: '@supers/sentry-issue-intake'
-typeVersion: 2026.08.21.2
+typeVersion: 2026.08.21.3
 id: 97e8375f-5908-482d-846e-2a5b037ae9cf
 name: supers-sentry-issue-intake
-version: 3
+version: 4
 tags: {}
 globalArguments:
   target: scott-tolinski-projects/supers
+  sourceRepairModelId: 43609d3c-92b1-4509-9ed0-db25b48ee7c1
 methods: {}

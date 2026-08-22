@@ -5,6 +5,8 @@ const INTAKE_WORKFLOW_PATH =
   "workflows/workflow-20f80b57-6b39-4541-9470-cd414e5286db.yaml";
 const PLANNING_WORKFLOW_PATH =
   "workflows/workflow-supers-sentry-repair-to-planning.yaml";
+const EVIDENCE_DELIVERY_WORKFLOW_PATH =
+  "workflows/workflow-supers-sentry-evidence-to-delivery.yaml";
 const PLANNING_PROFILE_PATH =
   "fixtures/dex-planning-factory-consumer/supers-profile.json";
 const MATERIALIZED_PLANNING_PATH =
@@ -35,11 +37,11 @@ function stepByName(workflow: WorkflowDefinition, name: string): WorkflowStep {
 }
 
 Deno.test(
-  "scheduled Sentry intake persists typed queue evidence without external mutation",
+  "scheduled Sentry intake admits at most one evidence-bound repair when Delivery has capacity",
   async () => {
     const source = await Deno.readTextFile(INTAKE_WORKFLOW_PATH);
     const workflow = parse(source) as WorkflowDefinition;
-    assert.equal(workflow.version, 2);
+    assert.equal(workflow.version, 3);
     assert.deepEqual(
       workflow.jobs.flatMap((job) => job.steps).map((step) => step.name),
       [
@@ -48,25 +50,47 @@ Deno.test(
         "persist-actionable-sentry-queue",
         "assert-correlated-triage",
         "assert-correlated-queue",
+        "refresh-delivery-capacity",
+        "select-one-sentry-repair",
+        "admit-selected-sentry-repair",
       ],
     );
     const persist = stepByName(workflow, "persist-actionable-sentry-queue");
-    assert.equal(
-      persist.task.modelIdOrName,
-      "supers-sentry-repair-planning-handoff",
-    );
     assert.equal(persist.task.methodName, "prepare");
     assert.deepEqual(persist.task.inputs?.issuePlans, []);
-    assert.match(
-      String(persist.task.inputs?.priorIntents),
-      /specName == "repair-intent"/,
-    );
+    const admit = stepByName(workflow, "admit-selected-sentry-repair");
+    assert.equal(admit.task.type, "workflow");
+    assert.match(admit.guard ?? "", /status != "selected"/);
+    assert.match(admit.guard ?? "", /factoryRun\.status == "active"/);
     assert.doesNotMatch(
       source,
-      /methodName: (?:start|complete|apply|record-backlink|resolve-verified)/,
+      /supers-sentry-reproduction-transport-reservation/,
     );
   },
 );
+
+Deno.test("Sentry evidence precedes Dex mutation and Delivery start", async () => {
+  const source = await Deno.readTextFile(EVIDENCE_DELIVERY_WORKFLOW_PATH);
+  const workflow = parse(source) as WorkflowDefinition;
+  const names = workflow.jobs.flatMap((job) => job.steps).map((step) =>
+    step.name
+  );
+  assert.deepEqual(names, [
+    "collect-exact-sentry-evidence",
+    "map-and-start-dex-repair",
+    "assert-machine-delivery-admission",
+    "start-delivery-factory",
+    "materialize-delivery-status",
+  ]);
+  assert.ok(
+    names.indexOf("collect-exact-sentry-evidence") <
+      names.indexOf("map-and-start-dex-repair"),
+  );
+  assert.match(source, /preservesHumanAestheticGate/);
+  assert.match(source, /specName == "delivery-claim"/);
+  assert.match(source, /workflowRunId ==/);
+  assert.doesNotMatch(source, /invokeAndParse|reproduction-agent|Pi transport/);
+});
 
 Deno.test("Planning inventory binds only the selected supersession head", async () => {
   const [profileSource, materializedSource] = await Promise.all([

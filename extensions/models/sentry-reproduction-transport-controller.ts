@@ -3,6 +3,16 @@ import { z } from "npm:zod@4.4.3";
 import { runBoundedDexProcess } from "./dex-bounded-process.ts";
 import { containsExactSentryShortId } from "./sentry-dex-triage.ts";
 import {
+  DEFAULT_SENTRY_EVIDENCE_MAPPING_DEPENDENCIES,
+  executeMapEvidencedSentryRepair,
+  MapEvidencedSentryRepairArgsSchema,
+  SentryEvidenceDeliveryAdmissionSchema,
+  type SentryEvidenceMappingContext,
+  SentryEvidenceTaskCreationIntentSchema,
+  SentryEvidenceTaskMappingSchema,
+  SentryMachineDeliveryClaimSchema,
+} from "./sentry-evidence-dex-mapping.ts";
+import {
   DEFAULT_DEX_REPOSITORY_LOCK,
   type DexRepositoryLock,
 } from "./dex-repository-lock.ts";
@@ -1088,10 +1098,12 @@ export async function executeMapReproducedSentryRepair(
 
 export const model = {
   type: "@supers/sentry-reproduction-transport-controller",
-  version: "2026.08.21.2",
+  version: "2026.08.21.3",
   globalArguments: z.strictObject({
     sourceReproductionModelId: z.string().uuid(),
     sourceRepairModelId: z.string().uuid(),
+    sourceIntakeModelId: z.string().uuid(),
+    sourceDeliveryModelId: z.string().uuid(),
   }),
   resources: {
     lease: {
@@ -1145,22 +1157,38 @@ export const model = {
       lifetime: "infinite",
       garbageCollection: 500,
     },
+    "delivery-claim": {
+      description:
+        "Singleton evidence-bound claim preventing concurrent machine Sentry Delivery admission",
+      schema: SentryMachineDeliveryClaimSchema,
+      lifetime: "infinite",
+      garbageCollection: 100,
+    },
     "creation-intent": {
       description: "Durable pre-Dex Sentry repair task creation intent",
-      schema: SentryRepairTaskCreationIntentSchema,
+      schema: z.union([
+        SentryRepairTaskCreationIntentSchema,
+        SentryEvidenceTaskCreationIntentSchema,
+      ]),
       lifetime: "infinite",
       garbageCollection: 500,
     },
     "task-mapping": {
       description: "Replay-safe exact Sentry issue to Dex repair task mapping",
-      schema: SentryRepairTaskMappingSchema,
+      schema: z.union([
+        SentryRepairTaskMappingSchema,
+        SentryEvidenceTaskMappingSchema,
+      ]),
       lifetime: "infinite",
       garbageCollection: 500,
     },
     "delivery-admission": {
       description:
         "Machine repair admission that cannot satisfy human aesthetic gates",
-      schema: SentryRepairDeliveryAdmissionSchema,
+      schema: z.union([
+        SentryRepairDeliveryAdmissionSchema,
+        SentryEvidenceDeliveryAdmissionSchema,
+      ]),
       lifetime: "infinite",
       garbageCollection: 500,
     },
@@ -1202,9 +1230,22 @@ export const model = {
           repositorySnapshot: productionRepositorySnapshot,
         }),
     },
-    "map-reproduced": {
+    "map-evidenced": {
       description:
-        "Create or attach exactly one Dex repair task from trusted reproduced evidence",
+        "Create, start, or attach one Dex repair task from exact Sentry issue/event and advisory Seer evidence",
+      arguments: MapEvidencedSentryRepairArgsSchema,
+      execute: (
+        args: z.infer<typeof MapEvidencedSentryRepairArgsSchema>,
+        context: SentryEvidenceMappingContext,
+      ) =>
+        executeMapEvidencedSentryRepair(
+          args,
+          context,
+          DEFAULT_SENTRY_EVIDENCE_MAPPING_DEPENDENCIES,
+        ),
+    },
+    "map-reproduced": {
+      description: "Deprecated historical path for trusted reproduced evidence",
       arguments: MapReproducedSentryRepairArgsSchema,
       execute: (
         args: z.infer<typeof MapReproducedSentryRepairArgsSchema>,

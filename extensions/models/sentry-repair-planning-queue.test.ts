@@ -96,6 +96,7 @@ async function select(args: {
     selectedWorkItem: string | null;
     selectedIntentFingerprint: string | null;
   }>;
+  admittedIntentFingerprints?: string[];
 }) {
   const writes: Array<Record<string, unknown>> = [];
   await selectSentryRepairPlanningQueue(
@@ -103,6 +104,7 @@ async function select(args: {
       repairIntents: args.repairIntents,
       planningStates: args.planningStates ?? [],
       priorSelections: args.priorSelections ?? [],
+      admittedIntentFingerprints: args.admittedIntentFingerprints ?? [],
     },
     {
       logger: { info: () => undefined, warning: () => undefined },
@@ -270,6 +272,30 @@ Deno.test("reproduction intent is selected without starting Planning", async () 
   assert.equal(result.status, "selected");
   assert.equal(result.action, "await-reproduction");
   assert.equal(result.reason, "next-reproduction-intent");
+});
+
+Deno.test("admitted head is skipped without removing its supersession ancestor", async () => {
+  const ancestor = await envelope({
+    issueId: "1",
+    shortId: "SUPERS-1",
+    severityRank: 5,
+    priorityRank: 3,
+    firstSeen: "2026-08-01T00:00:00.000Z",
+  });
+  const successor = await envelope({
+    issueId: "1",
+    shortId: "SUPERS-1",
+    severityRank: 5,
+    priorityRank: 3,
+    firstSeen: "2026-08-01T00:00:00.000Z",
+    supersedesIntentFingerprint: ancestor.fingerprint,
+  });
+  const result = await select({
+    repairIntents: [ancestor, successor],
+    admittedIntentFingerprints: [successor.fingerprint],
+  });
+  assert.equal(result.status, "no-candidate");
+  assert.notEqual(result.reason, "conflicting-intent-supersession");
 });
 
 Deno.test("empty repair queue is a typed no-candidate outcome", async () => {

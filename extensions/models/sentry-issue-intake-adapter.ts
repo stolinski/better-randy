@@ -131,11 +131,14 @@ const ANSI_CSI_PATTERN = new RegExp(
   "g",
 );
 
-function sanitizeTitle(value: string): string {
+export function sanitizeSentryEvidenceText(
+  value: string,
+  maximum: number,
+): string {
   return value
     .replace(ANSI_CSI_PATTERN, "")
     .replace(/https?:\/\/\S+/gi, "<url>")
-    .replace(/(?:\/[A-Za-z0-9._-]+){2,}/g, "<path>")
+    .replace(/(?<![A-Za-z0-9._-])(?:\/[A-Za-z0-9._-]+){2,}/g, "<path>")
     .replace(/[A-Za-z]:\\(?:[^\s\\]+\\){1,}[^\s\\]+/g, "<path>")
     .replace(
       /\b(token|api[_-]?key|secret|password)\s*[:=]\s*[^\s,;]+/gi,
@@ -143,7 +146,11 @@ function sanitizeTitle(value: string): string {
     )
     .replace(/\s+/g, " ")
     .trim()
-    .slice(0, 300) || "<empty-title>";
+    .slice(0, maximum);
+}
+
+function sanitizeTitle(value: string): string {
+  return sanitizeSentryEvidenceText(value, 300) || "<empty-title>";
 }
 
 function normalizeIssue(
