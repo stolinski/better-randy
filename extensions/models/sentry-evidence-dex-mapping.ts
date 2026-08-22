@@ -328,15 +328,6 @@ export async function executeMapEvidencedSentryRepair(
           "Sentry evidence maps to ambiguous or completed Dex work",
         );
       }
-      const unrelatedStartedTasks = tasks.filter((task) =>
-        !task.completed && task.started_at !== null &&
-        !task.description.includes(exactMarker)
-      );
-      if (unrelatedStartedTasks.length > 0) {
-        throw new Error(
-          "Existing started Dex work defers Sentry machine Delivery admission",
-        );
-      }
       const rawClaim = await context.readResource(
         "sentry-machine-delivery-claim",
       );

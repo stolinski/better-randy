@@ -136,7 +136,9 @@ async function buildFixture() {
       return { code: 0, stdout: "" };
     }
     if (args[0] === "start") {
-      tasks[0].started_at = "2026-08-22T01:01:00.000Z";
+      const task = tasks.find((candidate) => candidate.id === args[1]);
+      if (task === undefined) return { code: 1, stdout: "" };
+      task.started_at = "2026-08-22T01:01:00.000Z";
       return { code: 0, stdout: "" };
     }
     return { code: 1, stdout: "" };
@@ -200,6 +202,32 @@ test("evidence mapping creates, starts, claims, and admits one Dex repair", asyn
   assert.match(
     String(value.tasks[0].description),
     /failing-before and passing-after/,
+  );
+});
+
+test("unrelated Dex status does not impersonate Factory capacity", async () => {
+  const value = await buildFixture();
+  value.tasks.push({
+    id: "unrelated-task",
+    name: "Unrelated work",
+    description: "No Sentry marker",
+    completed: false,
+    started_at: "2026-08-21T01:00:00.000Z",
+  });
+
+  await executeMapEvidencedSentryRepair(
+    {
+      evidenceName: "evidence",
+      expectedEvidenceFingerprint: value.evidence.fingerprint,
+    },
+    value.context,
+    value.dependencies,
+  );
+
+  assert.equal(value.tasks.length, 2);
+  assert.notEqual(
+    value.tasks.find((task) => task.id === "dex-1")?.started_at,
+    null,
   );
 });
 
