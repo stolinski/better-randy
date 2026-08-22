@@ -118,11 +118,11 @@ async function runGit(runner: SentryReplayRunner, repoDir: string, args: readonl
 export function createSentryIntegratedReplayOperations(dependencies: { runner: SentryReplayRunner; now: () => Date; makeTempDir: () => Promise<string>; removeDir: (path: string) => Promise<void>; writeFile: (path: string, data: Uint8Array) => Promise<void>; mkdir: (path: string) => Promise<void> }) {
   return async function execute(argsInput: unknown, context: SentryReplayContext): Promise<{ dataHandles: Array<{ name: string }> }> {
     const args = SentryIntegratedReplayArgsSchema.parse(argsInput);
-    const evidence = await readResource(context, "repair-evidence", args.evidenceModelId, args.evidenceName, SentryIssueRepairEvidenceSchema);
+    const evidence = await readResource(context, "@supers/sentry-issue-intake", args.evidenceModelId, args.evidenceName, SentryIssueRepairEvidenceSchema);
     if (evidence.fingerprint !== args.expectedEvidenceFingerprint || evidence.fingerprint !== await createSentrySha256(canonicalSentryJson(withoutFingerprint(evidence as unknown as Record<string, unknown>)))) throw new Error("Replay evidence fingerprint mismatch");
-    const handoff = await readResource(context, "supers-agent-integration-handoff", args.integrationModelId, args.handoffName, SupersAgentIntegrationHandoffManifestSchema);
+    const handoff = await readResource(context, "@mgreten/cli-agent", args.integrationModelId, args.handoffName, SupersAgentIntegrationHandoffManifestSchema);
     if (handoff.fingerprint !== args.expectedHandoffFingerprint || handoff.fingerprint !== await createSentrySha256(canonicalSentryJson(withoutFingerprint(handoff as unknown as Record<string, unknown>)))) throw new Error("Replay handoff fingerprint mismatch");
-    const integration = await readResource(context, "supers-agent-integration", args.integrationModelId, args.integrationReceiptName, SupersFactoryIntegrationReceiptSchema);
+    const integration = await readResource(context, "@mgreten/cli-agent", args.integrationModelId, args.integrationReceiptName, SupersFactoryIntegrationReceiptSchema);
     await verifySupersFactoryIntegrationReceipt(integration);
     if (integration.receiptId !== args.expectedIntegrationReceiptId || integration.activeTaskId !== args.workItem || integration.rootEpicId !== args.workItem || handoff.workItem !== args.workItem || handoff.integratedRevision !== integration.integratedRevision || handoff.integratedTreeFingerprint !== integration.integratedTreeFingerprint || evidence.repairIdentityFingerprint === "") throw new Error("Replay resources target different repairs");
     if (handoff.objectiveProofNomination.runner !== "deno-exact-v1") throw new Error("Only restricted Deno replay is autonomous");
