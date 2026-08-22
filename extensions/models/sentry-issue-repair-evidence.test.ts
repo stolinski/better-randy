@@ -73,8 +73,8 @@ async function fixture(status = "unresolved", snapshotCharacter = "1") {
   const selectionBase = {
     schemaVersion: 1 as const,
     status: "selected" as const,
-    action: "await-reproduction" as const,
-    reason: "next-reproduction-intent" as const,
+    action: "start" as const,
+    reason: "next-queued-intent" as const,
     selectedWorkItem: "sentry-123",
     selectedIntentFingerprint: envelope.fingerprint,
     queuedWorkItems: ["sentry-123"],

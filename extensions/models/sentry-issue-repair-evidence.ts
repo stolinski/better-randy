@@ -307,9 +307,7 @@ export async function executeCollectSentryIssueRepairEvidence(
     selection.status !== "selected" ||
     selection.selectedWorkItem !== envelope.planningWorkItem ||
     selection.selectedIntentFingerprint !== envelope.fingerprint ||
-    (envelope.intent.queueIntent === "reproduction-required"
-      ? selection.action !== "await-reproduction"
-      : selection.action !== "start")
+    selection.action !== "start"
   ) {
     throw new Error("Sentry evidence source authority mismatch");
   }
