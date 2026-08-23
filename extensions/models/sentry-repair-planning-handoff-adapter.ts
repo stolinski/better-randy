@@ -597,12 +597,10 @@ export async function executeSentryRepairPlanningHandoff(
     ) {
       blockingReasons.add("stale-source");
     }
-    const observationIsBound = issue?.queueIntent === "confirmed-repair"
-      ? issue.disposition === "current-release" &&
-        snapshot.currentReleaseIssueIds.includes(candidate.issueId)
-      : issue?.queueIntent === "reproduction-required"
-      ? issue.disposition === "recent" &&
-        snapshot.recentIssueIds.includes(candidate.issueId) &&
+    const observationIsBound = issue?.disposition === "current-release"
+      ? snapshot.currentReleaseIssueIds.includes(candidate.issueId)
+      : issue?.disposition === "recent"
+      ? snapshot.recentIssueIds.includes(candidate.issueId) &&
         !snapshot.currentReleaseIssueIds.includes(candidate.issueId)
       : false;
     if (!issue || !observationIsBound || snapshot.currentRelease === null) {
