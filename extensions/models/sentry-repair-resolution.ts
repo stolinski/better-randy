@@ -262,6 +262,7 @@ async function fingerprintSnapshot(
   return await createSentrySha256(JSON.stringify({
     target: snapshot.target,
     args,
+    capturedAt: snapshot.capturedAt,
     issues: snapshot.issues,
     recentIds: snapshot.recentIssueIds,
     releaseIds: snapshot.currentReleaseIssueIds,
