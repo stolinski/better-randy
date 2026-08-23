@@ -2,7 +2,7 @@ import { z } from "npm:zod@4.4.3";
 
 import { canonicalSentryJson, createSentrySha256 } from "./sentry-issue-intake-adapter.ts";
 import { SentryIssueRepairEvidenceSchema } from "./sentry-issue-repair-evidence.ts";
-import { SupersAgentIntegrationHandoffManifestSchema } from "./cli-agent-supers-worktree.ts";
+import { createSupersAgentStableIdentityHash, SupersAgentIntegrationHandoffManifestSchema } from "./cli-agent-supers-worktree.ts";
 import { SupersFactoryIntegrationReceiptSchema, verifySupersFactoryIntegrationReceipt } from "./supers-deterministic-factory-contract.ts";
 
 const Sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
@@ -121,7 +121,7 @@ export function createSentryIntegratedReplayOperations(dependencies: { runner: S
     const evidence = await readResource(context, "@supers/sentry-issue-intake", args.evidenceModelId, args.evidenceName, SentryIssueRepairEvidenceSchema);
     if (evidence.fingerprint !== args.expectedEvidenceFingerprint || evidence.fingerprint !== await createSentrySha256(canonicalSentryJson(withoutFingerprint(evidence as unknown as Record<string, unknown>)))) throw new Error("Replay evidence fingerprint mismatch");
     const handoff = await readResource(context, "@mgreten/cli-agent", args.integrationModelId, args.handoffName, SupersAgentIntegrationHandoffManifestSchema);
-    if (handoff.fingerprint !== args.expectedHandoffFingerprint || handoff.fingerprint !== await rawSha256(encoder.encode(JSON.stringify(withoutFingerprint(handoff as unknown as Record<string, unknown>))))) throw new Error("Replay handoff fingerprint mismatch");
+    if (handoff.fingerprint !== args.expectedHandoffFingerprint || handoff.fingerprint !== await createSupersAgentStableIdentityHash(withoutFingerprint(handoff as unknown as Record<string, unknown>))) throw new Error("Replay handoff fingerprint mismatch");
     const integration = await readResource(context, "@mgreten/cli-agent", args.integrationModelId, args.integrationReceiptName, SupersFactoryIntegrationReceiptSchema);
     await verifySupersFactoryIntegrationReceipt(integration);
     if (integration.receiptId !== args.expectedIntegrationReceiptId || integration.activeTaskId !== args.workItem || integration.rootEpicId !== args.workItem || handoff.workItem !== args.workItem || handoff.integratedRevision !== integration.integratedRevision || handoff.integratedTreeFingerprint !== integration.integratedTreeFingerprint || evidence.repairIdentityFingerprint === "") throw new Error("Replay resources target different repairs");

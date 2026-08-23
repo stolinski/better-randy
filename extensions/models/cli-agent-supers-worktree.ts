@@ -449,7 +449,7 @@ async function sha256(parts: readonly Uint8Array[]): Promise<string> {
 	return await rawSha256(frameHashParts(parts));
 }
 
-async function stableIdentityHash(value: Record<string, unknown>): Promise<string> {
+export async function createSupersAgentStableIdentityHash(value: Record<string, unknown>): Promise<string> {
 	return await sha256([encoder.encode(JSON.stringify(value))]);
 }
 
@@ -669,7 +669,7 @@ async function createBinding(
 	args: PrepareSupersAgentWorktreeArgs,
 	repositoryDir: string
 ): Promise<SupersAgentWorktreeBinding> {
-	const claimId = await stableIdentityHash({
+	const claimId = await createSupersAgentStableIdentityHash({
 		schemaVersion: 1,
 		invocationId: args.invocationId,
 		baseRevision: args.baseRevision,
@@ -1131,7 +1131,7 @@ async function collectCommittedWorktreeEvidence(
 		commitTree,
 		treeDigest: await rawSha256(treeListing),
 		changedPaths,
-		changedPathsDigest: await stableIdentityHash({ changedPaths }),
+		changedPathsDigest: await createSupersAgentStableIdentityHash({ changedPaths }),
 		diffDigest: await rawSha256(diff)
 	};
 }
@@ -1370,7 +1370,7 @@ export function createSupersAgentWorktreeOperations(
 				throw new Error(`worktree claim is missing: ${args.claimId}`);
 			}
 			await requireValidClaimIdentity(claim);
-			const receiptId = await stableIdentityHash({
+			const receiptId = await createSupersAgentStableIdentityHash({
 				schemaVersion: 1,
 				claimId: claim.claimId,
 				invocationId: claim.invocationId,
@@ -1477,7 +1477,7 @@ export function createSupersAgentWorktreeOperations(
 				throw new Error('commit verification arguments do not match the exact worktree claim');
 			}
 			requireObjectiveTestPath(args.objectiveProofNomination.testPath);
-			const receiptId = await stableIdentityHash({
+			const receiptId = await createSupersAgentStableIdentityHash({
 				schemaVersion: 1,
 				...args
 			});
@@ -1490,7 +1490,7 @@ export function createSupersAgentWorktreeOperations(
 			if (existingReceipt !== null) {
 				const existingBase: Record<string, unknown> = { ...existingReceipt };
 				delete existingBase.fingerprint;
-				if (existingReceipt.fingerprint !== (await stableIdentityHash(existingBase))) {
+				if (existingReceipt.fingerprint !== (await createSupersAgentStableIdentityHash(existingBase))) {
 					throw new Error('worktree commit receipt fingerprint mismatch');
 				}
 				const expectedExisting = {
@@ -1600,7 +1600,7 @@ export function createSupersAgentWorktreeOperations(
 			};
 			const receiptBase: Record<string, unknown> = { ...receipt };
 			delete receiptBase.fingerprint;
-			receipt.fingerprint = await stableIdentityHash(receiptBase);
+			receipt.fingerprint = await createSupersAgentStableIdentityHash(receiptBase);
 			await requireCommittedCheckoutIdentity(deps, claim, args.expectedCommitRevision);
 			const handle = await context.writeResource(
 				'supers-agent-worktree-commit',
@@ -1624,7 +1624,7 @@ export function createSupersAgentWorktreeOperations(
 				SupersAgentWorktreeCommitReceiptSchema
 			);
 			if (commitReceipt === null) throw new Error('integration commit receipt is missing');
-			const recomputedCommitFingerprint = await stableIdentityHash(
+			const recomputedCommitFingerprint = await createSupersAgentStableIdentityHash(
 				withoutFingerprint(commitReceipt as unknown as Record<string, unknown>)
 			);
 			if (
@@ -1652,7 +1652,7 @@ export function createSupersAgentWorktreeOperations(
 			) {
 				throw new Error('official Git cherry-pick receipt does not bind the exact child commit');
 			}
-			const cherryPickDigest = await stableIdentityHash(cherryPick);
+			const cherryPickDigest = await createSupersAgentStableIdentityHash(cherryPick);
 			const resourceSuffix = `${commitReceipt.workItem}-${args.expectedPostRevision}`;
 			const intentName = `supers-agent-integration-intent-${resourceSuffix}`;
 			const preparedAt = deps.now().toISOString();
@@ -1672,7 +1672,7 @@ export function createSupersAgentWorktreeOperations(
 				preparedAt,
 				fingerprint: ''
 			};
-			proposedIntent.fingerprint = await stableIdentityHash(
+			proposedIntent.fingerprint = await createSupersAgentStableIdentityHash(
 				withoutFingerprint(proposedIntent as unknown as Record<string, unknown>)
 			);
 			const existingIntent = await readParsedResource(
@@ -1687,7 +1687,7 @@ export function createSupersAgentWorktreeOperations(
 					preparedAt: existingIntent.preparedAt,
 					fingerprint: existingIntent.fingerprint
 				};
-				expectedExisting.fingerprint = await stableIdentityHash(
+				expectedExisting.fingerprint = await createSupersAgentStableIdentityHash(
 					withoutFingerprint(expectedExisting as unknown as Record<string, unknown>)
 				);
 				requireExactResource(
@@ -1765,7 +1765,7 @@ export function createSupersAgentWorktreeOperations(
 			changedPaths.sort();
 			if (
 				JSON.stringify(changedPaths) !== JSON.stringify(commitReceipt.changedPaths) ||
-				(await stableIdentityHash({ changedPaths })) !== commitReceipt.changedPathsDigest
+				(await createSupersAgentStableIdentityHash({ changedPaths })) !== commitReceipt.changedPathsDigest
 			) {
 				throw new Error('integrated changed paths differ from the verified child receipt');
 			}
@@ -1812,7 +1812,7 @@ export function createSupersAgentWorktreeOperations(
 				verifiedAt: intent.preparedAt,
 				fingerprint: ''
 			};
-			manifest.fingerprint = await stableIdentityHash(
+			manifest.fingerprint = await createSupersAgentStableIdentityHash(
 				withoutFingerprint(manifest as unknown as Record<string, unknown>)
 			);
 			const receiptBase = {
@@ -1903,7 +1903,7 @@ export function createSupersAgentWorktreeOperations(
 				| { receipt: SupersAgentWorktreeCommitReceipt; verifyArgs: VerifySupersAgentWorktreeCommitArgs }
 				| null = null;
 			if (authorization.kind === 'unchanged') {
-				authorizationReceiptId = await stableIdentityHash({
+				authorizationReceiptId = await createSupersAgentStableIdentityHash({
 					schemaVersion: 1,
 					claimId: claim.claimId,
 					invocationId: claim.invocationId,
@@ -1942,7 +1942,7 @@ export function createSupersAgentWorktreeOperations(
 				if (
 					committed.receiptId !== authorization.receiptId ||
 					committed.fingerprint !== authorization.fingerprint ||
-					committed.fingerprint !== (await stableIdentityHash(committedBase)) ||
+					committed.fingerprint !== (await createSupersAgentStableIdentityHash(committedBase)) ||
 					committed.claimId !== claim.claimId ||
 					committed.invocationId !== claim.invocationId ||
 					committed.worktreePath !== claim.worktreePath ||
@@ -1974,7 +1974,7 @@ export function createSupersAgentWorktreeOperations(
 				};
 			}
 			if (authorization.kind === 'unchanged') {
-				const legacyReceiptId = await stableIdentityHash({
+				const legacyReceiptId = await createSupersAgentStableIdentityHash({
 					schemaVersion: 1,
 					claimId: claim.claimId,
 					unchangedReceiptId: authorizationReceiptId,
@@ -2004,7 +2004,7 @@ export function createSupersAgentWorktreeOperations(
 					return { resource: legacyReceipt, dataHandles: [] };
 				}
 			}
-			const receiptId = await stableIdentityHash({
+			const receiptId = await createSupersAgentStableIdentityHash({
 				schemaVersion: 1,
 				claimId: claim.claimId,
 				authorizationKind: authorization.kind,
