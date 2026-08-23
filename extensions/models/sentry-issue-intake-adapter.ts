@@ -502,7 +502,7 @@ export async function executeSentryIssueIntake(
       : disposition === "current-release"
       ? "confirmed-repair" as const
       : disposition === "recent"
-      ? "confirmed-repair" as const
+      ? "reproduction-required" as const
       : null;
     return {
       ...issue,
