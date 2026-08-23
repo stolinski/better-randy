@@ -336,6 +336,10 @@ export async function executeCompleteMachineSentryRepair(
   const prior = await context.readResource(receiptName);
   if (prior !== null) {
     SentryMachineCompletionReceiptSchema.parse(prior);
+    await dependencies.dexRepositoryLock.runExclusive(
+      context.repoDir,
+      async () => await dependencies.commitDexMutation?.(context.repoDir, args.taskId),
+    );
     return { dataHandles: [{ name: receiptName }] };
   }
   await dependencies.dexRepositoryLock.runExclusive(context.repoDir, async () => {
@@ -350,6 +354,7 @@ export async function executeCompleteMachineSentryRepair(
       task = (await listDexTasks(context, dependencies)).find((candidate) => candidate.id === args.taskId);
     }
     if (!task?.completed) throw new Error("Dex machine completion postcondition was not reached");
+    await dependencies.commitDexMutation?.(context.repoDir, args.taskId);
   });
   const base = {
     schemaVersion: 1 as const,
