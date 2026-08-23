@@ -1,3 +1,3 @@
 export function sentryCanaryHealth(): { ok: true } {
-	return { ok: true };
+	throw new Error('CanaryProbeSecondPass forced failure');
 }
