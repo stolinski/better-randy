@@ -103,7 +103,10 @@ function requireTapResult(result: CommandResult, exactName: string, expectedPass
   const output = decoder.decode(result.stdout);
   const escaped = exactName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const selected = new RegExp(`^(?:ok|not ok) \\d+ - ${escaped}(?: \\(.+\\))?$`, "m").test(output);
-  if (!selected || !/^1\.\.1$/m.test(output)) throw new Error("Replay did not select exactly one named test");
+  if (!selected || !/^1\.\.1$/m.test(output)) {
+    const stderr = decoder.decode(result.stderr);
+    throw new Error(`Replay did not select exactly one named test (exit ${result.code}): ${output.slice(0, 300)} ${stderr.slice(0, 300)}`);
+  }
   if (expectedPass ? result.code !== 0 || !/^ok 1 - /m.test(output) : result.code === 0 || !/^not ok 1 - /m.test(output)) {
     throw new Error(expectedPass ? "Integrated replay did not pass" : "Baseline replay did not fail as an assertion");
   }
@@ -217,7 +220,22 @@ async function readBoundedReplayStream(stream: ReadableStream<Uint8Array>, kill:
 
 class DenoReplayRunner implements SentryReplayRunner {
   async run(command: string, args: readonly string[], cwd: string, timeoutMs: number): Promise<CommandResult> {
-    const child = new Deno.Command(command, { args: [...args], cwd, stdin: "null", stdout: "piped", stderr: "piped", env: { CI: "1", NO_COLOR: "1", TZ: "UTC", LANG: "C" }, clearEnv: true }).spawn();
+    const child = new Deno.Command(command, {
+      args: [...args],
+      cwd,
+      stdin: "null",
+      stdout: "piped",
+      stderr: "piped",
+      env: {
+        CI: "1",
+        NO_COLOR: "1",
+        TZ: "UTC",
+        LANG: "C",
+        PATH: "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
+        HOME: Deno.env.get("HOME") ?? "/tmp",
+      },
+      clearEnv: true,
+    }).spawn();
     const kill = (): void => { try { child.kill("SIGKILL"); } catch { /* exited */ } };
     const timer = setTimeout(kill, timeoutMs);
     try {
