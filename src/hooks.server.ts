@@ -22,6 +22,13 @@ Sentry.init({
 	integrations: [Sentry.consoleLoggingIntegration({ levels: ['warn', 'error'] })]
 });
 
+// The launchd dev server survives commits. Bind every event to the repository
+// revision at capture time rather than the revision from process startup.
+Sentry.addEventProcessor((event) => {
+	const release = resolveGitRelease();
+	return release === undefined ? event : { ...event, release };
+});
+
 // Log every error response server-side. Intentional error(...) HttpErrors from
 // endpoints never reach handleError — without this hook they leave no trace in
 // the dev-server logs at all (only unexpected crashes get logged).
