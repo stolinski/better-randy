@@ -153,6 +153,7 @@ export type SentryEvidenceMappingDependencies = {
     args: readonly string[],
     cwd: string,
   ) => Promise<{ code: number; stdout: string }>;
+  commitDexMutation?: (cwd: string, taskId: string) => Promise<void>;
 };
 
 export const DEFAULT_SENTRY_EVIDENCE_MAPPING_DEPENDENCIES:
@@ -164,6 +165,35 @@ export const DEFAULT_SENTRY_EVIDENCE_MAPPING_DEPENDENCIES:
         code: result.code,
         stdout: new TextDecoder().decode(result.stdout),
       };
+    },
+    commitDexMutation: async (cwd, taskId) => {
+      const runGit = async (args: string[]): Promise<string> => {
+        const result = await new Deno.Command("git", {
+          args,
+          cwd,
+          stdin: "null",
+          stdout: "piped",
+          stderr: "piped",
+        }).output();
+        if (!result.success) {
+          throw new Error(`Sentry Dex Git mutation failed: git ${args[0]}`);
+        }
+        return new TextDecoder().decode(result.stdout);
+      };
+      const status = await runGit(["status", "--short"]);
+      if (status.trim() === "") return;
+      const changedPaths = status.trim().split("\n").map((line) => line.slice(3));
+      if (changedPaths.some((path) => path !== ".dex/tasks.jsonl")) {
+        throw new Error("Sentry Dex admission refuses unrelated repository changes");
+      }
+      await runGit(["add", "--", ".dex/tasks.jsonl"]);
+      await runGit([
+        "commit",
+        "-m",
+        `chore: admit Sentry repair ${taskId}`,
+        "--",
+        ".dex/tasks.jsonl",
+      ]);
     },
   };
 
@@ -515,6 +545,7 @@ export async function executeMapEvidencedSentryRepair(
       }
       if (!task) throw new Error("Sentry evidence mapping has no Dex task");
       task = await requireStartedTask(task.id, context, dependencies);
+      await dependencies.commitDexMutation?.(context.repoDir, task.id);
       return SentryEvidenceTaskMappingSchema.parse(
         await contentAddress({
           schemaVersion: 2 as const,
