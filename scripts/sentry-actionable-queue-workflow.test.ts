@@ -37,11 +37,11 @@ function stepByName(workflow: WorkflowDefinition, name: string): WorkflowStep {
 }
 
 Deno.test(
-  "scheduled Sentry intake admits at most one evidence-bound repair when Delivery has capacity",
+  "scheduled Sentry intake immediately admits one selected evidence-bound repair",
   async () => {
     const source = await Deno.readTextFile(INTAKE_WORKFLOW_PATH);
     const workflow = parse(source) as WorkflowDefinition;
-    assert.equal(workflow.version, 3);
+    assert.equal(workflow.version, 4);
     assert.deepEqual(
       workflow.jobs.flatMap((job) => job.steps).map((step) => step.name),
       [
@@ -50,7 +50,7 @@ Deno.test(
         "persist-actionable-sentry-queue",
         "assert-correlated-triage",
         "assert-correlated-queue",
-        "refresh-delivery-capacity",
+        "refresh-delivery-state",
         "select-one-sentry-repair",
         "admit-selected-sentry-repair",
       ],
@@ -61,7 +61,7 @@ Deno.test(
     const admit = stepByName(workflow, "admit-selected-sentry-repair");
     assert.equal(admit.task.type, "workflow");
     assert.match(admit.guard ?? "", /status != "selected"/);
-    assert.match(admit.guard ?? "", /factoryRun\.status == "active"/);
+    assert.doesNotMatch(admit.guard ?? "", /factoryRun\.status == "active"/);
     assert.doesNotMatch(
       source,
       /supers-sentry-reproduction-transport-reservation/,

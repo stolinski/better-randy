@@ -1,7 +1,7 @@
 id: 41b30cb4-5142-4f41-9fd3-b0a2a718c4a7
 name: supers-delivery-deterministic-verification
 description: Derive the Delivery route only from fresh correlated deterministic verification resources.
-version: 4
+version: 5
 tags:
   purpose: delivery-deterministic-routing
 inputs:
@@ -63,6 +63,7 @@ jobs:
             workItem: '${{ inputs.workItem }}'
             expectedTreeFingerprint: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.changeFingerprint }}'
             changedPaths: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.paths }}'
+            renderRequired: '${{ size(data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.requiredLanes.filter(lane, lane.id in ["render-matrix", "pack-matrix", "export-decode"])) > 0 }}'
       - name: assert-change-state-after
         dependsOn:
           - step: verify-affected-render-matrix

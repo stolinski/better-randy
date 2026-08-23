@@ -16,13 +16,16 @@ jobs:
     description: Keep classification and both Factory writes in one correlated workflow run.
     steps:
       - name: classify-change
-        description: Classify baseline-to-HEAD and working-tree paths for this work item.
+        description: Classify only the exact baseline, integrated revision, and paths from the verified integration receipt.
         task:
           type: model_method
           modelIdOrName: repo-audit
           methodName: classify-change
           inputs:
             workItem: '${{ inputs.workItem }}'
+            expectedBaselineRevision: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-summary").attributes.payload.integrationReceipt.targetBaselineRevision }}'
+            expectedIntegratedRevision: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-summary").attributes.payload.integrationReceipt.integratedRevision }}'
+            expectedChangedPaths: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-summary").attributes.payload.integrationReceipt.changedPaths }}'
         dependsOn: []
         weight: 0
         allowFailure: false
@@ -86,4 +89,4 @@ jobs:
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 2
+version: 3

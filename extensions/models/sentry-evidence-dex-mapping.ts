@@ -328,40 +328,21 @@ export async function executeMapEvidencedSentryRepair(
           "Sentry evidence maps to ambiguous or completed Dex work",
         );
       }
-      const rawClaim = await context.readResource(
-        "sentry-machine-delivery-claim",
-      );
+      const deliveryClaimName =
+        `sentry-machine-delivery-claim-${evidence.repairIdentityFingerprint}`;
+      const rawClaim = await context.readResource(deliveryClaimName);
       if (rawClaim !== null) {
         const priorClaim = SentryMachineDeliveryClaimSchema.parse(rawClaim);
         const { fingerprint: _claimFingerprint, ...claimBase } = priorClaim;
         if (
           priorClaim.fingerprint !==
-            await createSentrySha256(canonicalSentryJson(claimBase))
+            await createSentrySha256(canonicalSentryJson(claimBase)) ||
+          priorClaim.repairIdentityFingerprint !==
+            evidence.repairIdentityFingerprint
         ) {
           throw new Error(
             "Existing Sentry Delivery claim fingerprint mismatch",
           );
-        }
-        if (
-          priorClaim.repairIdentityFingerprint !==
-            evidence.repairIdentityFingerprint
-        ) {
-          const deliveryModelId = z.string().uuid().parse(
-            context.globalArgs.sourceDeliveryModelId,
-          );
-          const rawState = await readModelResource(
-            context,
-            "@swamp/software-factory",
-            deliveryModelId,
-            `state-${priorClaim.taskId}`,
-          );
-          const priorState = z.object({
-            status: z.enum(["active", "terminal"]),
-          })
-            .passthrough().parse(rawState);
-          if (priorState.status !== "terminal") {
-            throw new Error("Another Sentry machine Delivery claim is active");
-          }
         }
       }
       let task: DexTask | undefined = markerMatches[0];
@@ -439,7 +420,7 @@ export async function executeMapEvidencedSentryRepair(
       );
       await context.writeResource(
         "delivery-claim",
-        "sentry-machine-delivery-claim",
+        deliveryClaimName,
         claim,
       );
       return SentryEvidenceTaskMappingSchema.parse(

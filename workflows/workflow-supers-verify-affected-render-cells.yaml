@@ -45,6 +45,7 @@ jobs:
             schemaVersion: 1
             scope: affected
             workItem: '${{ inputs.workItem }}'
+            renderRequired: true
             expectedTreeFingerprint: '${{ inputs.expectedFingerprint }}'
             changedPaths: '${{ data.query(''modelName == "repo-audit" && specName == "change-impact"'').filter(record, record.attributes.workItem == inputs.workItem && record.attributes.treeFingerprint == inputs.expectedFingerprint)[0].attributes.paths }}'
       - name: assert-change-state-after

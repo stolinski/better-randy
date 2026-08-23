@@ -42,6 +42,7 @@ export const SupersRenderMatrixVerificationArgumentsSchema = z
       workItem: DomainIdSchema,
       expectedTreeFingerprint: Sha256Schema,
       changedPaths: UniqueRepositoryPathsSchema.min(1),
+      renderRequired: z.boolean(),
     }),
     z.strictObject({
       schemaVersion: z.literal(1),
@@ -227,6 +228,27 @@ export async function executeSupersRenderMatrixVerification(
   const localBefore = await computeRepositoryTreeFingerprint(context.repoDir);
   if (localBefore.treeFingerprint !== parsedArgs.expectedTreeFingerprint) {
     throw new Error("Local source identity drifted before render inventory");
+  }
+  if (parsedArgs.scope === "affected" && !parsedArgs.renderRequired) {
+    const run = SupersRenderMatrixRunSchema.parse({
+      schemaVersion: 1,
+      status: "not-applicable",
+      scope: "affected",
+      workItem: parsedArgs.workItem,
+      sourceRevision: localBefore.sourceRevision,
+      expectedTreeFingerprint: parsedArgs.expectedTreeFingerprint,
+      changedPathsDigest: await createSupersDeterministicContractHash(
+        parsedArgs.changedPaths,
+      ),
+      reason: "no-deliverable-render-impact",
+      advisories: [],
+    });
+    const handle = await context.writeResource(
+      "render-matrix-run",
+      `render-matrix-run-affected-${parsedArgs.workItem}-${parsedArgs.expectedTreeFingerprint}`,
+      run,
+    );
+    return { dataHandles: [handle] };
   }
   const tempDirectory = await Deno.makeTempDir({
     prefix: "supers-render-matrix-",

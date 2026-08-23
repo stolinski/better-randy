@@ -15,6 +15,7 @@ Deno.test("verification arguments are a strict affected/full discriminated union
       scope: "affected",
       workItem: "imjlwx0s",
       expectedTreeFingerprint: SHA,
+      renderRequired: true,
       changedPaths: ["src/lib/platform/Workspace.svelte"],
     }).scope,
     "affected",
@@ -25,6 +26,7 @@ Deno.test("verification arguments are a strict affected/full discriminated union
       scope: "affected",
       workItem: "imjlwx0s",
       expectedTreeFingerprint: SHA,
+      renderRequired: true,
       changedPaths: ["same", "same"],
     })
   );

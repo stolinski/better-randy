@@ -897,20 +897,38 @@ export const model = {
     },
     "classify-change": {
       description:
-        "Map baseline-to-HEAD commits plus the current Git working tree to impact surfaces, human reviews, and verification lanes",
-      arguments: z.object({ workItem: z.string().min(1) }),
-      execute: async (args: { workItem: string }, context: MethodContext) => {
+        "Classify only the exact verified integration receipt paths while preserving current-tree freshness",
+      arguments: z.strictObject({
+        workItem: z.string().min(1),
+        expectedBaselineRevision: GitHeadSchema,
+        expectedIntegratedRevision: GitHeadSchema,
+        expectedChangedPaths: z.array(z.string().min(1)).min(1).max(200),
+      }),
+      execute: async (args: {
+        workItem: string;
+        expectedBaselineRevision: string;
+        expectedIntegratedRevision: string;
+        expectedChangedPaths: string[];
+      }, context: MethodContext) => {
         const baseline = await readChangeBaseline(context, args.workItem);
+        if (baseline.baselineHead !== args.expectedBaselineRevision) {
+          throw new Error("Change classification baseline differs from the integration receipt");
+        }
         const currentTree = await readCurrentTreeState(context);
+        await runGit(context, ["merge-base", "--is-ancestor", args.expectedIntegratedRevision, "HEAD"]);
         const committedPaths = parseNulPaths(
           await runGit(context, [
             "diff",
             "--name-only",
             "-z",
             "--no-renames",
-            `${baseline.baselineHead}..HEAD`,
+            `${baseline.baselineHead}..${args.expectedIntegratedRevision}`,
           ]),
         );
+        const expectedChangedPaths = [...new Set(args.expectedChangedPaths)].sort();
+        if (JSON.stringify(committedPaths) !== JSON.stringify(expectedChangedPaths)) {
+          throw new Error("Change classification paths differ from the integration receipt");
+        }
         const { report } = await runAuditScript(
           context,
           "scripts/audit-change-impact.ts",

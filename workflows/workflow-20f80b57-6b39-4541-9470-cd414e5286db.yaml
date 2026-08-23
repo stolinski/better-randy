@@ -113,8 +113,8 @@ jobs:
               type: succeeded
         weight: 0
         allowFailure: false
-      - name: refresh-delivery-capacity
-        description: Materialize Delivery fleet state so existing work delays but never discards queued Sentry repairs.
+      - name: refresh-delivery-state
+        description: Materialize Delivery state for observability; active repairs never block admission of another evidence-bound work item.
         task:
           type: model_method
           modelIdOrName: supers-delivery
@@ -138,13 +138,13 @@ jobs:
             priorSelections: []
             admittedIntentFingerprints: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(admission, size(data.query(''modelName == "supers-delivery" && name == "state-'' + admission.attributes.dexTaskId + ''"'')) > 0).map(admission, admission.attributes.repairIntentFingerprint) }}'
         dependsOn:
-          - step: refresh-delivery-capacity
+          - step: refresh-delivery-state
             condition:
               type: succeeded
         weight: 0
         allowFailure: false
       - name: admit-selected-sentry-repair
-        description: Collect exact issue and Seer evidence, then start one evidence-bound Dex and Delivery repair only when capacity is available.
+        description: Collect exact issue and Seer evidence, then immediately start one evidence-bound Dex and Delivery repair.
         task:
           type: workflow
           workflowIdOrName: supers-sentry-evidence-to-delivery
@@ -153,7 +153,7 @@ jobs:
             expectedRepairIntentFingerprint: '${{ data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "queue-selection" && workflowRunId == "'' + run.id + ''"'')[0].attributes.selectedIntentFingerprint }}'
             queueSelectionName: '${{ data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "queue-selection" && workflowRunId == "'' + run.id + ''"'')[0].name }}'
             expectedQueueSelectionFingerprint: '${{ data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "queue-selection" && workflowRunId == "'' + run.id + ''"'')[0].attributes.fingerprint }}'
-        guard: '${{ data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "queue-selection" && workflowRunId == "'' + run.id + ''"'')[0].attributes.status != "selected" || size(data.latest("supers-delivery", "status-_factory").attributes.runs.filter(factoryRun, factoryRun.status == "active")) != 0 }}'
+        guard: '${{ data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "queue-selection" && workflowRunId == "'' + run.id + ''"'')[0].attributes.status != "selected" }}'
         dependsOn:
           - step: select-one-sentry-repair
             condition:
@@ -162,4 +162,4 @@ jobs:
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 3
+version: 4
