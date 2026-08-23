@@ -150,7 +150,7 @@ async function readResource<T>(
 }
 
 function routeFromEvidence(evidence: RepairEvidence): string | null {
-  const candidates = [evidence.culprit, ...evidence.breadcrumbCategories];
+  const candidates = [evidence.localRoute, evidence.culprit, ...evidence.breadcrumbCategories];
   for (const candidate of candidates) {
     if (!candidate) continue;
     const route = candidate.match(/\/(?:api\/|p\/)?[A-Za-z0-9._~!$&'()*+,;=:@%/?-]*/)?.[0];

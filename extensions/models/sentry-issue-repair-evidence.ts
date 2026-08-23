@@ -63,6 +63,7 @@ export const SentryIssueRepairEvidenceSchema = z.strictObject({
   lastSeen: z.string().datetime(),
   eventRelease: z.string().min(1).max(200).nullable(),
   culprit: z.string().trim().min(1).max(400).nullable(),
+  localRoute: z.string().regex(/^\/[A-Za-z0-9._~!$&'()*+,;=:@%/?-]{0,500}$/).nullable().optional(),
   stackFrames: z.array(SentryStackFrameSchema).max(30),
   breadcrumbCategories: z.array(z.string().min(1).max(160)).max(30),
   seerRootCauses: z.array(SentrySeerRootCauseSchema).max(10),
@@ -231,6 +232,23 @@ function stackFrames(event: z.infer<typeof RawEventSchema>) {
     }
   }
   return frames.slice(-30);
+}
+
+function localRequestRoute(event: z.infer<typeof RawEventSchema>): string | null {
+  for (const entry of event.entries) {
+    if (entry.type !== "request") continue;
+    const request = z.object({ url: z.string() }).passthrough().safeParse(entry.data);
+    if (!request.success) continue;
+    try {
+      const url = new URL(request.data.url);
+      if (url.hostname !== "localhost" && url.hostname !== "127.0.0.1") continue;
+      const route = `${url.pathname}${url.search}`;
+      if (/^\/[A-Za-z0-9._~!$&'()*+,;=:@%/?-]{0,500}$/.test(route)) return route;
+    } catch {
+      continue;
+    }
+  }
+  return null;
 }
 
 function breadcrumbCategories(event: z.infer<typeof RawEventSchema>): string[] {
@@ -411,6 +429,7 @@ export async function executeCollectSentryIssueRepairEvidence(
     culprit: issue.culprit || issue.event.culprit
       ? boundedText(issue.culprit ?? issue.event.culprit ?? "", 400)
       : null,
+    localRoute: localRequestRoute(issue.event),
     stackFrames: stackFrames(issue.event),
     breadcrumbCategories: breadcrumbCategories(issue.event),
     seerRootCauses: rootCauses.map((cause) => ({
