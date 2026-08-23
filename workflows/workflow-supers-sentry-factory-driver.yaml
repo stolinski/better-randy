@@ -585,6 +585,16 @@ jobs:
         dependsOn: [{ step: advance-machine-repair-to-reconciliation, condition: { type: completed } }]
         weight: 0
         allowFailure: false
+      - name: record-reconciliation-dispatch
+        task:
+          type: model_method
+          modelIdOrName: supers-delivery
+          methodName: record_dispatch
+          inputs: { workItem: '${{ inputs.workItem }}', stageId: reconciliation, mode: dispatch, runId: '${{ run.id }}', note: Deterministic Sentry reconciliation }
+        guard: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.id != "reconciliation" || data.latest("supers-delivery", "status-" + inputs.workItem).attributes.dispatch.executed }}'
+        dependsOn: [{ step: refresh-reconciliation-status, condition: { type: succeeded } }]
+        weight: 0
+        allowFailure: false
       - name: record-machine-reconciliation
         description: Derive completion inputs only from the exact integration receipt, without an interactive bridge.
         task:
@@ -603,7 +613,7 @@ jobs:
               commit: { kind: commit, sha: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-summary").attributes.payload.integrationReceipt.integratedRevision }}' }
               dexDisposition: ready-for-completion
         guard: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.id != "reconciliation" || size(data.query(''modelName == "supers-delivery" && name == "artifact-'' + inputs.workItem + ''-reconciliation"'')) == 1 }}'
-        dependsOn: [{ step: refresh-reconciliation-status, condition: { type: succeeded } }]
+        dependsOn: [{ step: record-reconciliation-dispatch, condition: { type: completed } }]
         weight: 0
         allowFailure: false
       - name: refresh-reconciled-status
