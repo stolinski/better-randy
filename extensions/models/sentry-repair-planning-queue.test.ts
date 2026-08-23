@@ -97,6 +97,7 @@ async function select(args: {
     selectedIntentFingerprint: string | null;
   }>;
   admittedIntentFingerprints?: string[];
+  excludedIssueIds?: string[];
 }) {
   const writes: Array<Record<string, unknown>> = [];
   await selectSentryRepairPlanningQueue(
@@ -105,6 +106,7 @@ async function select(args: {
       planningStates: args.planningStates ?? [],
       priorSelections: args.priorSelections ?? [],
       admittedIntentFingerprints: args.admittedIntentFingerprints ?? [],
+      excludedIssueIds: args.excludedIssueIds ?? [],
     },
     {
       logger: { info: () => undefined, warning: () => undefined },
@@ -296,6 +298,21 @@ Deno.test("admitted head is skipped without removing its supersession ancestor",
   });
   assert.equal(result.status, "no-candidate");
   assert.notEqual(result.reason, "conflicting-intent-supersession");
+});
+
+Deno.test("excluded issue identity skips every volatile intent version", async () => {
+  const intent = await envelope({
+    issueId: "1",
+    shortId: "SUPERS-1",
+    severityRank: 5,
+    priorityRank: 3,
+    firstSeen: "2026-08-01T00:00:00.000Z",
+  });
+  const result = await select({
+    repairIntents: [intent],
+    excludedIssueIds: ["1"],
+  });
+  assert.equal(result.status, "no-candidate");
 });
 
 Deno.test("empty repair queue is a typed no-candidate outcome", async () => {
