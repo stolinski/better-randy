@@ -40,14 +40,22 @@ import {
   SentryRepairPlanningQueueSelectionSchema,
 } from "./sentry-repair-planning-queue.ts";
 
+const SentryRepairGlobalArgsSchema = z.strictObject({
+  sourceIntakeModelId: z.string().uuid(),
+  sourceDeliveryModelId: z.string().uuid(),
+  sourceReplayModelId: z.string().uuid(),
+});
+const MachineBacklinkMethodArgsSchema = SentryMachineRepairBacklinkArgsSchema.extend(
+  SentryRepairGlobalArgsSchema.shape,
+);
+const ResolutionMethodArgsSchema = SentryRepairResolutionArgsSchema.extend(
+  SentryRepairGlobalArgsSchema.shape,
+);
+
 export const model = {
   type: "@supers/sentry-repair-planning-handoff",
   version: "2026.08.22.1",
-  globalArguments: z.strictObject({
-    sourceIntakeModelId: z.string().uuid(),
-    sourceDeliveryModelId: z.string().uuid(),
-    sourceReplayModelId: z.string().uuid(),
-  }),
+  globalArguments: SentryRepairGlobalArgsSchema,
   resources: {
     handoff: {
       description:
@@ -95,27 +103,50 @@ export const model = {
   methods: {
     "record-machine-backlink": {
       description: "Add one idempotent Sentry comment from exact reproduced evidence and Dex mapping",
-      arguments: SentryMachineRepairBacklinkArgsSchema,
+      arguments: MachineBacklinkMethodArgsSchema,
       execute: (
-        args: z.infer<typeof SentryMachineRepairBacklinkArgsSchema>,
+        args: z.infer<typeof MachineBacklinkMethodArgsSchema>,
         context: SentryRepairBacklinkContext,
-      ) => executeSentryMachineRepairBacklink(args, context, {
+      ) => executeSentryMachineRepairBacklink(
+        SentryMachineRepairBacklinkArgsSchema.parse({
+          repairIntent: args.repairIntent,
+          mapping: args.mapping,
+          admission: args.admission,
+          reproduction: args.reproduction,
+        }),
+        context,
+        {
         commandRunner: new DenoSentryRepairBacklinkCommandRunner(),
-        now: () => new Date().toISOString(),
-      }),
+          now: () => new Date().toISOString(),
+        },
+      ),
     },
     "resolve-verified": {
       description:
         "Resolve one linked Sentry issue in its verified fix release after terminal Delivery",
-      arguments: SentryRepairResolutionArgsSchema,
+      arguments: ResolutionMethodArgsSchema,
       execute: (
-        args: z.infer<typeof SentryRepairResolutionArgsSchema>,
+        args: z.infer<typeof ResolutionMethodArgsSchema>,
         context: SentryRepairResolutionContext,
       ) =>
-        executeSentryRepairResolution(args, context, {
+        executeSentryRepairResolution(
+          SentryRepairResolutionArgsSchema.parse({
+            repairIntentName: args.repairIntentName,
+            expectedRepairIntentFingerprint: args.expectedRepairIntentFingerprint,
+            backlinkReceiptName: args.backlinkReceiptName,
+            expectedBacklinkReceiptFingerprint: args.expectedBacklinkReceiptFingerprint,
+            dexTaskId: args.dexTaskId,
+            currentSnapshotName: args.currentSnapshotName,
+            expectedSnapshotFingerprint: args.expectedSnapshotFingerprint,
+            integratedReplayName: args.integratedReplayName,
+            expectedIntegratedReplayFingerprint: args.expectedIntegratedReplayFingerprint,
+          }),
+          context,
+          {
           commandRunner: new DenoSentryRepairResolutionCommandRunner(),
-          now: () => new Date().toISOString(),
-        }),
+            now: () => new Date().toISOString(),
+          },
+        ),
     },
     "record-backlink": {
       description:
