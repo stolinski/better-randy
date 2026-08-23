@@ -77,18 +77,28 @@ Deno.test("Sentry evidence precedes Dex mutation and Delivery start", async () =
   );
   assert.deepEqual(names, [
     "collect-exact-sentry-evidence",
+    "reproduce-defect-on-head",
     "map-and-start-dex-repair",
+    "record-machine-sentry-backlink",
     "assert-machine-delivery-admission",
     "start-delivery-factory",
     "materialize-delivery-status",
     "drive-evidence-bound-implementation",
+    "verify-fresh-no-recurrence",
+    "resolve-exact-verified-release",
   ]);
   assert.ok(
     names.indexOf("collect-exact-sentry-evidence") <
-      names.indexOf("map-and-start-dex-repair"),
+      names.indexOf("reproduce-defect-on-head") &&
+      names.indexOf("reproduce-defect-on-head") <
+        names.indexOf("map-and-start-dex-repair") &&
+      names.indexOf("drive-evidence-bound-implementation") <
+        names.indexOf("verify-fresh-no-recurrence") &&
+      names.indexOf("verify-fresh-no-recurrence") <
+        names.indexOf("resolve-exact-verified-release"),
   );
   assert.match(source, /preservesHumanAestheticGate/);
-  assert.match(source, /specName == "delivery-claim"/);
+  assert.doesNotMatch(source, /specName == "delivery-claim"/);
   assert.match(source, /workflowRunId ==/);
   assert.doesNotMatch(source, /invokeAndParse|reproduction-agent|Pi transport/);
 });

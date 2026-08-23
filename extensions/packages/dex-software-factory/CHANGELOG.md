@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026.08.22.1
+
+- Add an optional machine-completion lane that is gated by exact non-visual verification and leaves the ordinary human completion gate unchanged.
+- Keep machine and human task completion behind one explicit consumer workflow boundary.
+
 ## 2026.08.16.14
 
 - Bind every Pi reservation, launch claim, runtime receipt, and handoff to the trusted current profile model instance name instead of a project-specific name.

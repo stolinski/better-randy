@@ -240,7 +240,7 @@ async function readRequiredResource<T>(
     return schema.parse(JSON.parse(new TextDecoder().decode(content)));
   } catch (error) {
     if (error instanceof SyntaxError) {
-      throw new Error(`Malformed named Sentry resource ${name}`);
+      throw new Error(`Malformed named Sentry resource ${name}`, { cause: error });
     }
     throw error;
   }

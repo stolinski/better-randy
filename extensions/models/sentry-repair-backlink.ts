@@ -9,6 +9,11 @@ import {
   SentryRepairIntentEnvelopeSchema,
 } from "./sentry-repair-planning-handoff-adapter.ts";
 import {
+  SentryEvidenceDeliveryAdmissionSchema,
+  SentryEvidenceTaskMappingSchema,
+} from "./sentry-evidence-dex-mapping.ts";
+import { SentryDefectReproductionReceiptSchema } from "./sentry-defect-reproduction.ts";
+import {
   SupersPlanApplicationSchema,
   SupersPlanningApplicationAuditSchema,
   SupersPlanningHandoffSchema,
@@ -30,6 +35,13 @@ const SentryRepairHumanApprovalSchema = z.strictObject({
 
 // Swamp includes evaluated global arguments during execution; strip them while
 // keeping every nested approval and evidence object strict.
+export const SentryMachineRepairBacklinkArgsSchema = z.strictObject({
+  repairIntent: SentryRepairIntentEnvelopeSchema,
+  mapping: SentryEvidenceTaskMappingSchema,
+  admission: SentryEvidenceDeliveryAdmissionSchema,
+  reproduction: SentryDefectReproductionReceiptSchema,
+});
+
 export const SentryRepairBacklinkArgsSchema = z.object({
   repairIntent: SentryRepairIntentEnvelopeSchema,
   humanApproval: SentryRepairHumanApprovalSchema,
@@ -182,6 +194,87 @@ function parseComments(stdout: string): Array<z.infer<typeof SentryCommentSchema
   } catch {
     throw new Error("Sentry comments returned malformed or out-of-contract JSON");
   }
+}
+
+async function recordBacklink(
+  intent: z.infer<typeof SentryRepairIntentEnvelopeSchema>["intent"],
+  dexTaskId: string,
+  applicationPlanId: string,
+  context: SentryRepairBacklinkContext,
+  dependencies: SentryRepairBacklinkDependencies,
+  stableMachineReceipt?: { linkedAt: string; status: "linked" },
+): Promise<{ dataHandles: Array<{ name: string }> }> {
+  const [organization] = intent.sentryTarget.split("/");
+  if (!organization) throw new Error("Sentry target is missing its organization");
+  const endpoint = `organizations/${organization}/issues/${intent.issueId}/comments/`;
+  const marker = `[supers-repair:${intent.fingerprint}:${dexTaskId}]`;
+  const listed = await dependencies.commandRunner.run(
+    ["api", endpoint, "--method", "GET", "--json"], context.repoDir, 20_000,
+  );
+  if (listed.code !== 0) throw new Error(`sentry comment lookup failed with exit ${listed.code}`);
+  const alreadyLinked = parseComments(listed.stdout).some((comment) => comment.text.includes(marker));
+  if (!alreadyLinked) {
+    const text = [`Supers repair is tracked in Dex task \`${dexTaskId}\`.`, `Planning work item: \`${intent.planningWorkItem}\``, marker].join("\n\n");
+    const posted = await dependencies.commandRunner.run(
+      ["api", endpoint, "--method", "POST", "--data", JSON.stringify({ text }), "--json"],
+      context.repoDir,
+      20_000,
+    );
+    if (posted.code !== 0) throw new Error(`sentry comment creation failed with exit ${posted.code}`);
+  }
+  const receiptBase = {
+    schemaVersion: 1 as const,
+    status: stableMachineReceipt?.status ?? (alreadyLinked ? "already-linked" as const : "linked" as const),
+    issueId: intent.issueId,
+    shortId: intent.shortId,
+    dexTaskId,
+    planningWorkItem: intent.planningWorkItem,
+    repairIntentFingerprint: intent.fingerprint,
+    applicationPlanId,
+    commentMarker: marker,
+    linkedAt: stableMachineReceipt?.linkedAt ?? dependencies.now(),
+  };
+  const receipt = SentryRepairBacklinkReceiptSchema.parse({
+    ...receiptBase,
+    fingerprint: await createSentrySha256(canonicalSentryJson(receiptBase)),
+  });
+  const handle = await context.writeResource(
+    "backlink-receipt",
+    `sentry-repair-backlink-${intent.issueId}-${receipt.fingerprint}`,
+    receipt,
+  );
+  return { dataHandles: [handle] };
+}
+
+export async function executeSentryMachineRepairBacklink(
+  rawArgs: z.infer<typeof SentryMachineRepairBacklinkArgsSchema>,
+  context: SentryRepairBacklinkContext,
+  dependencies: SentryRepairBacklinkDependencies,
+): Promise<{ dataHandles: Array<{ name: string }> }> {
+  const args = SentryMachineRepairBacklinkArgsSchema.parse(rawArgs);
+  const envelopeBase = Object.fromEntries(Object.entries(args.repairIntent).filter(([key]) => key !== "fingerprint"));
+  const mappingBase = Object.fromEntries(Object.entries(args.mapping).filter(([key]) => key !== "fingerprint"));
+  const admissionBase = Object.fromEntries(Object.entries(args.admission).filter(([key]) => key !== "fingerprint"));
+  const reproductionBase = Object.fromEntries(Object.entries(args.reproduction).filter(([key]) => key !== "fingerprint"));
+  if (
+    args.repairIntent.fingerprint !== await createSentrySha256(canonicalSentryJson(envelopeBase)) ||
+    args.mapping.fingerprint !== await createSentrySha256(canonicalSentryJson(mappingBase)) ||
+    args.admission.fingerprint !== await createSentrySha256(canonicalSentryJson(admissionBase)) ||
+    args.reproduction.fingerprint !== await createSentrySha256(canonicalSentryJson(reproductionBase)) ||
+    args.mapping.taskId !== args.admission.dexTaskId ||
+    args.mapping.issueId !== args.repairIntent.intent.issueId ||
+    args.admission.issueId !== args.repairIntent.intent.issueId ||
+    args.reproduction.issueId !== args.repairIntent.intent.issueId ||
+    args.reproduction.repairIdentityFingerprint !== args.mapping.repairIdentityFingerprint
+  ) throw new Error("Machine Sentry backlink evidence does not form one exact repair");
+  return await recordBacklink(
+    args.repairIntent.intent,
+    args.mapping.taskId,
+    `machine-evidence:${args.reproduction.fingerprint}`,
+    context,
+    dependencies,
+    { linkedAt: args.reproduction.observedAt, status: "linked" },
+  );
 }
 
 export async function executeSentryRepairBacklink(

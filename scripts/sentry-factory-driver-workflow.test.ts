@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { parse } from "jsr:@std/yaml@1.0.10";
 
 const WORKFLOW_PATH = "workflows/workflow-supers-sentry-factory-driver.yaml";
+const FACTORY_PATH = "models/@swamp/software-factory/90fac686-c724-4aee-97c4-e31b9af4c5e2.yaml";
+const AUTHORIZED_COMPLETION_PATH = "workflows/workflow-supers-complete-authorized-task.yaml";
 
 type WorkflowStep = {
   name: string;
@@ -29,7 +31,19 @@ function stepByName(workflow: WorkflowDefinition, name: string): WorkflowStep {
   return step;
 }
 
-Deno.test("Sentry Factory driver stops after exact isolated integration and classification", async () => {
+Deno.test("machine completion is additive and preserves the ordinary human gate", async () => {
+  const [factory, completion] = await Promise.all([
+    Deno.readTextFile(FACTORY_PATH),
+    Deno.readTextFile(AUTHORIZED_COMPLETION_PATH),
+  ]);
+  assert.match(factory, /name: cleanup[\s\S]*?type: human-approval[\s\S]*?id: completion-approval/);
+  assert.match(factory, /name: machine-cleanup[\s\S]*?sentry-machine-authorization/);
+  assert.match(factory, /size\(artifacts\.verification\.requiredHumanReviewKinds\) == 0/);
+  assert.match(completion, /workflowIdOrName: supers-complete-human-approved-task/);
+  assert.match(completion, /methodName: complete-machine-sentry/);
+});
+
+Deno.test("Sentry Factory driver converges machine-authorized repairs through terminal Delivery", async () => {
   const source = await Deno.readTextFile(WORKFLOW_PATH);
   const workflow = parse(source) as WorkflowDefinition;
   const steps = workflow.jobs.flatMap((job) => job.steps);
@@ -45,36 +59,29 @@ Deno.test("Sentry Factory driver stops after exact isolated integration and clas
     "admissionName",
     "expectedAdmissionFingerprint",
   ]);
-  assert.deepEqual(names, [
+  const requiredOrder = [
     "assert-exact-sentry-admission",
-    "materialize-initial-factory-status",
-    "record-preflight-dispatch",
     "run-policy-preflight",
-    "refresh-preflight-status",
-    "advance-to-implementation",
-    "materialize-implementation-status",
-    "assert-implementation-stage",
-    "record-implementation-dispatch",
-    "assert-trusted-baseline",
     "prepare-isolated-coding-worktree",
     "invoke-sandboxed-coding-agent",
-    "verify-committed-worktree",
-    "assert-single-commit-receipt",
-    "assert-central-git-clean-before-integration",
-    "materialize-pre-integration-head",
-    "assert-exact-integration-baseline",
-    "cherry-pick-verified-commit",
-    "materialize-post-integration-git",
-    "materialize-post-integration-head",
     "verify-serialized-integration",
-    "assert-single-integration-receipt",
     "replay-integrated-sentry-repair",
-    "cleanup-committed-worktree",
-    "refresh-implementation-status",
     "record-deterministic-change-summary",
-    "refresh-classification-gate",
-    "advance-to-classification",
-  ]);
+    "run-exact-change-classification",
+    "run-deterministic-verification",
+    "record-machine-reconciliation",
+    "run-postflight-policy",
+    "record-sentry-machine-authorization",
+    "run-authorized-task-completion",
+    "run-done-terminal-observability",
+    "finalize-machine-sentry-delivery",
+  ];
+  let priorIndex = -1;
+  for (const name of requiredOrder) {
+    const index = names.indexOf(name);
+    assert.ok(index > priorIndex, `${name} must follow the prior terminal-chain step`);
+    priorIndex = index;
+  }
 
   const admission = stepByName(workflow, "assert-exact-sentry-admission");
   const admissionExpression = String(admission.task.inputs ?? source);
@@ -132,8 +139,9 @@ Deno.test("Sentry Factory driver stops after exact isolated integration and clas
   assert.match(String(invoke.task.inputs?.prompt), /untrusted advisory text/);
   assert.match(
     String(invoke.task.inputs?.prompt),
-    /self-contained regression test/,
+    /pre-existing byte-unchanged deterministic test/,
   );
+  assert.match(String(invoke.task.inputs?.prompt), /Do not create or modify a test/);
   assert.match(String(invoke.task.inputs?.prompt), /Sentry/);
   assert.match(
     String(invoke.task.inputs?.prompt),

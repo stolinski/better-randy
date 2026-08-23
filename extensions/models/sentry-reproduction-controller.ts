@@ -539,7 +539,9 @@ async function readRepairIntent(
       intent: envelope.intent,
     }),
   );
-  const { fingerprint: _selectionFingerprint, ...selectionBase } = selection;
+  const selectionBase = Object.fromEntries(
+    Object.entries(selection).filter(([key]) => key !== "fingerprint"),
+  );
   const computedSelectionFingerprint = await createSentrySha256(
     canonicalSentryJson(selectionBase),
   );

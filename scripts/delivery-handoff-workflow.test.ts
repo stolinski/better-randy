@@ -66,7 +66,7 @@ Deno.test(
 	async () => {
 		const workflowSource = await Deno.readTextFile(DETERMINISTIC_VERIFICATION_WORKFLOW_PATH);
 		const workflow = parse(workflowSource) as WorkflowDefinition;
-		assert.equal(workflow.version, 4);
+		assert.equal(workflow.version, 5);
 		assert.doesNotMatch(
 			workflowSource,
 			/data\.latest\("supers-delivery", "artifact-(?:change-impact|change-summary)"\)/

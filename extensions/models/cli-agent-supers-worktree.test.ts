@@ -190,7 +190,7 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 		}
 		if (
 			command ===
-			`diff --name-status -z ${BASE_REVISION} ${INTEGRATED_REVISION} --`
+			`diff --name-status -z ${this.integrationParent} ${INTEGRATED_REVISION} --`
 		) {
 			return gitResult(
 				true,
@@ -199,7 +199,7 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 		}
 		if (
 			command ===
-			`diff --binary --full-index ${BASE_REVISION} ${INTEGRATED_REVISION} --`
+			`diff --binary --full-index ${this.integrationParent} ${INTEGRATED_REVISION} --`
 		) {
 			return gitResult(
 				true,
@@ -838,11 +838,17 @@ Deno.test('serialized integration verification rejects dirty or drifted central 
 	}
 });
 
-Deno.test('serialized integration verification rejects wrong parent, tree, paths, and diff', async () => {
-	for (const scenario of ['parent', 'tree', 'paths', 'diff'] as const) {
+Deno.test('serialized integration verification accepts an unrelated target parent but rejects changed paths and patch drift', async () => {
+	{
 		const { repository, context, operations, args } = await integrationFixture();
-		if (scenario === 'parent') repository.integrationParent = OTHER_REVISION;
-		if (scenario === 'tree') repository.integrationTree = OTHER_REVISION;
+		repository.integrationParent = OTHER_REVISION;
+		repository.integrationTree = OTHER_REVISION;
+		const result = (await operations.verifySupersAgentIntegration(args, context)).resource;
+		assert.equal(result.targetBaselineRevision, OTHER_REVISION);
+		assert.equal(result.baseCommit, BASE_REVISION);
+	}
+	for (const scenario of ['paths', 'diff'] as const) {
+		const { repository, context, operations, args } = await integrationFixture();
 		if (scenario === 'paths') repository.integrationNameStatus = `A\0other.test.ts\0`;
 		if (scenario === 'diff') repository.integrationDiffBytes = new TextEncoder().encode('wrong');
 		await assert.rejects(() => operations.verifySupersAgentIntegration(args, context));

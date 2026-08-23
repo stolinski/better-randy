@@ -326,8 +326,9 @@ async function trustedAuthority(
   const workerResultDigest = await createSentrySha256(
     canonicalSentryJson(worker),
   );
-  const { fingerprint: _reservedFingerprint, ...reservedBase } =
-    reserved.outbox;
+  const reservedBase = Object.fromEntries(
+    Object.entries(reserved.outbox).filter(([key]) => key !== "fingerprint"),
+  );
   const authorityOutbox = SentryReproductionTransportOutboxSchema.parse(
     await addressed({
       ...reservedBase,

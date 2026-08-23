@@ -55,7 +55,9 @@ async function fixture(status = "unresolved", snapshotCharacter = "1") {
     idempotencyKey: "4".repeat(64),
     fingerprint: "5".repeat(64),
   };
-  const { fingerprint: _intentFingerprint, ...intentBase } = intent;
+  const intentBase = Object.fromEntries(
+    Object.entries(intent).filter(([key]) => key !== "fingerprint"),
+  );
   intent.fingerprint = await createSentrySha256(
     canonicalSentryJson(intentBase),
   );

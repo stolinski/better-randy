@@ -322,9 +322,14 @@ Deno.test("model exposes bounded read-only intake, evidence, and triage methods"
   assert.deepEqual(Object.keys(model.methods).sort(), [
     "collect",
     "collect-repair-evidence",
+    "reproduce-defect",
     "triage",
+    "verify-no-recurrence",
   ]);
   assert.deepEqual(Object.keys(model.resources).sort(), [
+    "defect-reproduction",
+    "defect-reproduction-attempt",
+    "no-recurrence",
     "reconciliation",
     "repair-evidence",
     "snapshot",

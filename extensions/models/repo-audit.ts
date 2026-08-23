@@ -910,10 +910,7 @@ export const model = {
         expectedIntegratedRevision: string;
         expectedChangedPaths: string[];
       }, context: MethodContext) => {
-        const baseline = await readChangeBaseline(context, args.workItem);
-        if (baseline.baselineHead !== args.expectedBaselineRevision) {
-          throw new Error("Change classification baseline differs from the integration receipt");
-        }
+        await readChangeBaseline(context, args.workItem);
         const currentTree = await readCurrentTreeState(context);
         await runGit(context, ["merge-base", "--is-ancestor", args.expectedIntegratedRevision, "HEAD"]);
         const committedPaths = parseNulPaths(
@@ -922,7 +919,7 @@ export const model = {
             "--name-only",
             "-z",
             "--no-renames",
-            `${baseline.baselineHead}..${args.expectedIntegratedRevision}`,
+            `${args.expectedBaselineRevision}..${args.expectedIntegratedRevision}`,
           ]),
         );
         const expectedChangedPaths = [...new Set(args.expectedChangedPaths)].sort();
@@ -938,7 +935,7 @@ export const model = {
         const canonicalReport = ChangeImpactReportSchema.parse({
           ...report,
           workItem: args.workItem,
-          baselineHead: baseline.baselineHead,
+          baselineHead: args.expectedBaselineRevision,
           treeFingerprint: currentTree.treeFingerprint,
         });
         const resourceName = await changeResourceName(

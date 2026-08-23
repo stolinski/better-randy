@@ -31,6 +31,17 @@ import {
   type SentryIssueRepairEvidenceContext,
   SentryIssueRepairEvidenceSchema,
 } from "./sentry-issue-repair-evidence.ts";
+import {
+  createDefaultSentryDefectReproductionDependencies,
+  executeReproduceSentryDefect,
+  executeVerifySentryNoRecurrence,
+  ReproduceSentryDefectArgsSchema,
+  SentryDefectReproductionAttemptSchema,
+  type SentryDefectReproductionContext,
+  SentryDefectReproductionReceiptSchema,
+  SentryNoRecurrenceReceiptSchema,
+  VerifySentryNoRecurrenceArgsSchema,
+} from "./sentry-defect-reproduction.ts";
 
 const GlobalArgsSchema = z.object({
   target: z.string().regex(/^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/).default(
@@ -93,8 +104,50 @@ export const model = {
       lifetime: "infinite",
       garbageCollection: 500,
     },
+    "defect-reproduction-attempt": {
+      description: "Durable pre-drive identity for one code-owned deterministic reproduction",
+      schema: SentryDefectReproductionAttemptSchema,
+      lifetime: "infinite",
+      garbageCollection: 500,
+    },
+    "defect-reproduction": {
+      description: "Positive fresh-event proof from a code-owned local route before Dex or coding",
+      schema: SentryDefectReproductionReceiptSchema,
+      lifetime: "infinite",
+      garbageCollection: 500,
+    },
+    "no-recurrence": {
+      description: "Fresh replay proof that the same code-owned route produced no post-fix event",
+      schema: SentryNoRecurrenceReceiptSchema,
+      lifetime: "infinite",
+      garbageCollection: 500,
+    },
   },
   methods: {
+    "reproduce-defect": {
+      description: "Drive a code-owned local route and require a new exact-HEAD Sentry event before coding",
+      arguments: ReproduceSentryDefectArgsSchema,
+      execute: (
+        args: z.infer<typeof ReproduceSentryDefectArgsSchema>,
+        context: SentryDefectReproductionContext,
+      ) => executeReproduceSentryDefect(
+        args,
+        context,
+        createDefaultSentryDefectReproductionDependencies(new DenoSentryCommandRunner()),
+      ),
+    },
+    "verify-no-recurrence": {
+      description: "Replay the exact pre-coding route and reject any event at or after verified integration",
+      arguments: VerifySentryNoRecurrenceArgsSchema,
+      execute: (
+        args: z.infer<typeof VerifySentryNoRecurrenceArgsSchema>,
+        context: SentryDefectReproductionContext,
+      ) => executeVerifySentryNoRecurrence(
+        args,
+        context,
+        createDefaultSentryDefectReproductionDependencies(new DenoSentryCommandRunner()),
+      ),
+    },
     "collect-repair-evidence": {
       description:
         "Collect fresh issue/event evidence and advisory Seer analysis for one exact selected repair intent",

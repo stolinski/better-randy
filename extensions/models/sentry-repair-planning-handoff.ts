@@ -10,7 +10,9 @@ import { z } from "npm:zod@4.4.3";
 
 import {
   DenoSentryRepairBacklinkCommandRunner,
+  executeSentryMachineRepairBacklink,
   executeSentryRepairBacklink,
+  SentryMachineRepairBacklinkArgsSchema,
   SentryRepairBacklinkArgsSchema,
   type SentryRepairBacklinkContext,
   SentryRepairBacklinkReceiptSchema,
@@ -91,6 +93,17 @@ export const model = {
     },
   },
   methods: {
+    "record-machine-backlink": {
+      description: "Add one idempotent Sentry comment from exact reproduced evidence and Dex mapping",
+      arguments: SentryMachineRepairBacklinkArgsSchema,
+      execute: (
+        args: z.infer<typeof SentryMachineRepairBacklinkArgsSchema>,
+        context: SentryRepairBacklinkContext,
+      ) => executeSentryMachineRepairBacklink(args, context, {
+        commandRunner: new DenoSentryRepairBacklinkCommandRunner(),
+        now: () => new Date().toISOString(),
+      }),
+    },
     "resolve-verified": {
       description:
         "Resolve one linked Sentry issue in its verified fix release after terminal Delivery",

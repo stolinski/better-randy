@@ -131,9 +131,10 @@ export function createSentryIntegratedReplayOperations(dependencies: { runner: S
     if (handoff.objectiveProofNomination.runner !== "deno-exact-v1") throw new Error("Only restricted Deno replay is autonomous");
     const { testPath, exactTestName } = handoff.objectiveProofNomination;
     requireSafeTestPath(testPath);
-    const expectedName = `Sentry ${evidence.shortId} ${evidence.repairIdentityFingerprint}`;
-    if (exactTestName !== expectedName) throw new Error("Replay test name is not evidence-bound");
-    if (!integration.changedPaths.includes(testPath)) throw new Error("Replay test is not in the integrated patch");
+    if (exactTestName.trim().length === 0) throw new Error("Replay test name is empty");
+    if (integration.changedPaths.includes(testPath)) {
+      throw new Error("Agent-authored or modified proof tests are rejected as self-fulfilling evidence");
+    }
 
     const identity = { schemaVersion: 1 as const, workItem: args.workItem, evidenceFingerprint: evidence.fingerprint, handoffFingerprint: handoff.fingerprint, integrationReceiptId: integration.receiptId, baseRevision: handoff.baseRevision, integratedRevision: handoff.integratedRevision, runner: "deno-exact-v1" as const, testPath, exactTestName };
     const attemptFingerprint = await createSentrySha256(canonicalSentryJson(identity));
@@ -154,8 +155,15 @@ export function createSentryIntegratedReplayOperations(dependencies: { runner: S
       if (attempt.fingerprint !== attemptFingerprint) throw new Error("Conflicting replay attempt");
     }
 
-    const testBlob = (await runGit(dependencies.runner, context.repoDir, ["show", `${handoff.integratedRevision}:${testPath}`])).stdout;
-    if (testBlob.length === 0 || testBlob.length > 1_000_000) throw new Error("Replay test blob size is unsupported");
+    const [testBlob, baseTestBlob] = await Promise.all([
+      runGit(dependencies.runner, context.repoDir, ["show", `${handoff.integratedRevision}:${testPath}`]).then((result) => result.stdout),
+      runGit(dependencies.runner, context.repoDir, ["show", `${handoff.baseRevision}:${testPath}`]).then((result) => result.stdout),
+    ]);
+    if (
+      testBlob.length === 0 || testBlob.length > 1_000_000 ||
+      testBlob.length !== baseTestBlob.length ||
+      testBlob.some((byte, index) => byte !== baseTestBlob[index])
+    ) throw new Error("Replay proof test must predate and remain byte-identical through the repair");
     const testBlobDigest = await rawSha256(testBlob);
     const roots: string[] = [];
     try {

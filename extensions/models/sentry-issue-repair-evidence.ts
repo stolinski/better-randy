@@ -255,7 +255,9 @@ function breadcrumbCategories(event: z.infer<typeof RawEventSchema>): string[] {
 function intentFingerprint(
   envelope: z.infer<typeof SentryRepairIntentEnvelopeSchema>,
 ): Promise<string> {
-  const { fingerprint: _fingerprint, ...base } = envelope.intent;
+  const base = Object.fromEntries(
+    Object.entries(envelope.intent).filter(([key]) => key !== "fingerprint"),
+  );
   return createSentrySha256(canonicalSentryJson(base));
 }
 
@@ -293,7 +295,9 @@ export async function executeCollectSentryIssueRepairEvidence(
       intentFingerprint(envelope),
       envelopeFingerprint(envelope),
     ]);
-  const { fingerprint: _selectionFingerprint, ...selectionBase } = selection;
+  const selectionBase = Object.fromEntries(
+    Object.entries(selection).filter(([key]) => key !== "fingerprint"),
+  );
   const computedSelectionFingerprint = await createSentrySha256(
     canonicalSentryJson(selectionBase),
   );

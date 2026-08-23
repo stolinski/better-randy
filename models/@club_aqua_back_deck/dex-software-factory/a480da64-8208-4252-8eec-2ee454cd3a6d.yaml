@@ -1,6 +1,6 @@
 ---
 type: '@club_aqua_back_deck/dex-software-factory'
-typeVersion: 2026.08.21.1
+typeVersion: 2026.08.22.1
 id: a480da64-8208-4252-8eec-2ee454cd3a6d
 name: supers-delivery-profile
 version: 1
@@ -62,6 +62,9 @@ globalArguments:
       the digest-verified, content-addressed integrationReceipt.
   completionGate:
     id: completion-approval
+  machineCompletion:
+    artifact: sentry-machine-authorization
+    completionWorkflow: supers-complete-authorized-task
   contracts:
     changeSummary:
       properties:

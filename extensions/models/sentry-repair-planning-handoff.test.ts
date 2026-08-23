@@ -231,8 +231,9 @@ async function replaceTriage(
 ): Promise<void> {
   const triage = structuredClone(bundle.triage) as Record<string, unknown>;
   update(triage);
-  const { generatedAt: _generatedAt, fingerprint: _fingerprint, ...base } =
-    triage;
+  const base = Object.fromEntries(
+    Object.entries(triage).filter(([key]) => key !== "generatedAt" && key !== "fingerprint"),
+  );
   const fingerprint = await createSentryDexTriageFingerprint(
     base as Parameters<typeof createSentryDexTriageFingerprint>[0],
   );
@@ -695,6 +696,7 @@ Deno.test("repair handoff supplies bounded defaults and rejects unrelated author
 Deno.test("repair model separates read-only queueing from evidence-bound Sentry mutations", () => {
   assert.equal(model.type, "@supers/sentry-repair-planning-handoff");
   assert.deepEqual(Object.keys(model.methods), [
+    "record-machine-backlink",
     "resolve-verified",
     "record-backlink",
     "select-next",

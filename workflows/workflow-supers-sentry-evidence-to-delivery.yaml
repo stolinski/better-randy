@@ -45,12 +45,12 @@ jobs:
         dependsOn: []
         weight: 0
         allowFailure: false
-      - name: map-and-start-dex-repair
-        description: Create or attach and start exactly one Dex task from the workflow-produced evidence bundle.
+      - name: reproduce-defect-on-head
+        description: Drive the code-owned route and require a new exact-HEAD Sentry event before Dex or coding.
         task:
           type: model_method
-          modelIdOrName: supers-sentry-reproduction-transport
-          methodName: map-evidenced
+          modelIdOrName: supers-sentry-issue-intake
+          methodName: reproduce-defect
           inputs:
             evidenceName: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence" && workflowRunId == "'' + run.id + ''"'')[0].name }}'
             expectedEvidenceFingerprint: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence" && workflowRunId == "'' + run.id + ''"'')[0].attributes.fingerprint }}'
@@ -60,15 +60,49 @@ jobs:
               type: succeeded
         weight: 0
         allowFailure: false
+      - name: map-and-start-dex-repair
+        description: Create or attach and start exactly one Dex task only from positive deterministic reproduction.
+        task:
+          type: model_method
+          modelIdOrName: supers-sentry-reproduction-transport
+          methodName: map-evidenced
+          inputs:
+            evidenceName: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence" && workflowRunId == "'' + run.id + ''"'')[0].name }}'
+            expectedEvidenceFingerprint: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence" && workflowRunId == "'' + run.id + ''"'')[0].attributes.fingerprint }}'
+            reproductionName: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "defect-reproduction" && workflowRunId == "'' + run.id + ''"'')[0].name }}'
+            expectedReproductionFingerprint: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "defect-reproduction" && workflowRunId == "'' + run.id + ''"'')[0].attributes.fingerprint }}'
+        dependsOn:
+          - step: reproduce-defect-on-head
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+      - name: record-machine-sentry-backlink
+        description: Add one replay-safe Sentry comment linking the exact reproduced issue to its mapped Dex task.
+        task:
+          type: model_method
+          modelIdOrName: supers-sentry-repair-planning-handoff
+          methodName: record-machine-backlink
+          inputs:
+            repairIntent: '${{ data.latest("supers-sentry-repair-planning-handoff", inputs.repairIntentName).attributes }}'
+            mapping: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping" && workflowRunId == "'' + run.id + ''"'')[0].attributes }}'
+            admission: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission" && workflowRunId == "'' + run.id + ''"'')[0].attributes }}'
+            reproduction: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "defect-reproduction" && workflowRunId == "'' + run.id + ''"'')[0].attributes }}'
+        dependsOn:
+          - step: map-and-start-dex-repair
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
       - name: assert-machine-delivery-admission
-        description: Require the workflow-produced mapping, admission, and singleton claim to authorize the same task while preserving human gates.
+        description: Require the workflow-produced mapping and admission to authorize the same independent task while preserving human gates.
         task:
           type: assert
-          expr: 'size(data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping" && workflowRunId == "'' + run.id + ''"'')) == 1 && size(data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission" && workflowRunId == "'' + run.id + ''"'')) == 1 && size(data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-claim" && workflowRunId == "'' + run.id + ''"'')) == 1 && data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission" && workflowRunId == "'' + run.id + ''"'')[0].attributes.dexTaskId == data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping" && workflowRunId == "'' + run.id + ''"'')[0].attributes.taskId && data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-claim" && workflowRunId == "'' + run.id + ''"'')[0].attributes.taskId == data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping" && workflowRunId == "'' + run.id + ''"'')[0].attributes.taskId && data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission" && workflowRunId == "'' + run.id + ''"'')[0].attributes.preservesHumanAestheticGate'
+          expr: 'size(data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping" && workflowRunId == "'' + run.id + ''"'')) == 1 && size(data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission" && workflowRunId == "'' + run.id + ''"'')) == 1 && data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission" && workflowRunId == "'' + run.id + ''"'')[0].attributes.dexTaskId == data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping" && workflowRunId == "'' + run.id + ''"'')[0].attributes.taskId && data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission" && workflowRunId == "'' + run.id + ''"'')[0].attributes.preservesHumanAestheticGate'
           message: Sentry machine Delivery admission did not bind the exact claimed Dex task
           severity: high
         dependsOn:
-          - step: map-and-start-dex-repair
+          - step: record-machine-sentry-backlink
             condition:
               type: succeeded
         weight: 0
@@ -102,7 +136,7 @@ jobs:
         weight: 0
         allowFailure: false
       - name: drive-evidence-bound-implementation
-        description: Run the bounded isolated coding and serialized integration workflow for the exact admitted task.
+        description: Run isolated coding, serialized integration, deterministic verification, and machine-authorized Factory convergence.
         task:
           type: workflow
           workflowIdOrName: supers-sentry-factory-driver
@@ -118,6 +152,40 @@ jobs:
           - step: materialize-delivery-status
             condition:
               type: succeeded
+        weight: 0
+        allowFailure: false
+      - name: verify-fresh-no-recurrence
+        description: Replay the exact code-owned pre-coding route after terminal Delivery and require a fresh unchanged Sentry watermark.
+        task:
+          type: model_method
+          modelIdOrName: supers-sentry-issue-intake
+          methodName: verify-no-recurrence
+          inputs:
+            reproductionName: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "defect-reproduction" && workflowRunId == "'' + run.id + ''"'')[0].name }}'
+            expectedReproductionFingerprint: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "defect-reproduction" && workflowRunId == "'' + run.id + ''"'')[0].attributes.fingerprint }}'
+            integratedRevision: '${{ data.latest("supers-delivery", "artifact-" + data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping" && workflowRunId == "'' + run.id + ''"'')[0].attributes.taskId + "-verification").attributes.payload.integratedRevision }}'
+            verificationRecordedAt: '${{ data.latest("supers-delivery", "artifact-" + data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping" && workflowRunId == "'' + run.id + ''"'')[0].attributes.taskId + "-verification").attributes.recordedAt }}'
+        guard: '${{ data.latest("supers-delivery", "state-" + data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping" && workflowRunId == "'' + run.id + ''"'')[0].attributes.taskId).attributes.stageId != "done" }}'
+        dependsOn:
+          - step: drive-evidence-bound-implementation
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+      - name: resolve-exact-verified-release
+        description: Resolve idempotently only after terminal Delivery, integrated replay, and the fresh no-recurrence receipt.
+        task:
+          type: workflow
+          workflowIdOrName: supers-sentry-verified-resolution
+          inputs:
+            repairIntentName: '${{ inputs.repairIntentName }}'
+            backlinkReceiptName: '${{ data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "backlink-receipt" && workflowRunId == "'' + run.id + ''"'')[0].name }}'
+            dexTaskId: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping" && workflowRunId == "'' + run.id + ''"'')[0].attributes.taskId }}'
+        guard: '${{ size(data.query(''modelName == "supers-sentry-issue-intake" && specName == "no-recurrence" && workflowRunId == "'' + run.id + ''"'')) != 1 }}'
+        dependsOn:
+          - step: verify-fresh-no-recurrence
+            condition:
+              type: completed
         weight: 0
         allowFailure: false
     dependsOn: []

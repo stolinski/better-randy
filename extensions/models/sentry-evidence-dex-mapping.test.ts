@@ -116,10 +116,32 @@ async function buildFixture() {
     ...evidenceBase,
     fingerprint: await createSentrySha256(canonicalSentryJson(evidenceBase)),
   };
+  const reproductionBase = {
+    schemaVersion: 1 as const,
+    authority: "supers-sentry-code-owned-reproduction-v1" as const,
+    status: "reproduced" as const,
+    evidenceName: "evidence",
+    evidenceFingerprint: evidence.fingerprint,
+    repairIdentityFingerprint,
+    issueId: "123",
+    shortId: "SUPERS-1",
+    checkoutRevision: REVISION,
+    reproducedInRelease: `supers@${REVISION}`,
+    route: "/p/example",
+    sourceEventId: evidence.eventId,
+    reproducedEventId: "c".repeat(32),
+    sourceLastSeen: evidence.lastSeen,
+    reproducedLastSeen: "2026-08-22T01:00:01.000Z",
+    observedAt: "2026-08-22T01:00:02.000Z",
+  };
+  const reproduction = {
+    ...reproductionBase,
+    fingerprint: await createSentrySha256(canonicalSentryJson(reproductionBase)),
+  };
   const resources = new Map<string, unknown>([["evidence", evidence], [
     "intent",
     envelope,
-  ]]);
+  ], ["reproduction", reproduction]]);
   const local = new Map<string, Record<string, unknown>>();
   const writes: Array<{ specName: string; data: Record<string, unknown> }> = [];
   const tasks: Array<Record<string, unknown>> = [];
@@ -177,15 +199,17 @@ async function buildFixture() {
     },
     runDex: (args: readonly string[]) => runDex(args),
   };
-  return { context, dependencies, evidence, writes, tasks };
+  return { context, dependencies, evidence, reproduction, writes, tasks };
 }
 
-test("evidence mapping creates, starts, claims, and admits one Dex repair", async () => {
+test("evidence mapping creates, starts, and admits one independently reproduced Dex repair", async () => {
   const value = await buildFixture();
   await executeMapEvidencedSentryRepair(
     {
       evidenceName: "evidence",
       expectedEvidenceFingerprint: value.evidence.fingerprint,
+      reproductionName: "reproduction",
+      expectedReproductionFingerprint: value.reproduction.fingerprint,
     },
     value.context,
     value.dependencies,
@@ -194,7 +218,6 @@ test("evidence mapping creates, starts, claims, and admits one Dex repair", asyn
   assert.notEqual(value.tasks[0].started_at, null);
   assert.deepEqual(value.writes.map((write) => write.specName), [
     "creation-intent",
-    "delivery-claim",
     "task-mapping",
     "delivery-admission",
   ]);
@@ -219,6 +242,8 @@ test("unrelated Dex status does not impersonate Factory capacity", async () => {
     {
       evidenceName: "evidence",
       expectedEvidenceFingerprint: value.evidence.fingerprint,
+      reproductionName: "reproduction",
+      expectedReproductionFingerprint: value.reproduction.fingerprint,
     },
     value.context,
     value.dependencies,
@@ -236,6 +261,8 @@ test("evidence mapping replay preserves one mapping identity", async () => {
   const args = {
     evidenceName: "evidence",
     expectedEvidenceFingerprint: value.evidence.fingerprint,
+    reproductionName: "reproduction",
+    expectedReproductionFingerprint: value.reproduction.fingerprint,
   };
   await executeMapEvidencedSentryRepair(
     args,

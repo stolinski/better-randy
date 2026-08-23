@@ -3,13 +3,16 @@ import { z } from "npm:zod@4.4.3";
 import { runBoundedDexProcess } from "./dex-bounded-process.ts";
 import { containsExactSentryShortId } from "./sentry-dex-triage.ts";
 import {
+  CompleteMachineSentryRepairArgsSchema,
   DEFAULT_SENTRY_EVIDENCE_MAPPING_DEPENDENCIES,
+  executeCompleteMachineSentryRepair,
   executeMapEvidencedSentryRepair,
   MapEvidencedSentryRepairArgsSchema,
   SentryEvidenceDeliveryAdmissionSchema,
   type SentryEvidenceMappingContext,
   SentryEvidenceTaskCreationIntentSchema,
   SentryEvidenceTaskMappingSchema,
+  SentryMachineCompletionReceiptSchema,
   SentryMachineDeliveryClaimSchema,
 } from "./sentry-evidence-dex-mapping.ts";
 import {
@@ -317,7 +320,9 @@ async function contentAddress<T extends Record<string, unknown>>(
 async function fingerprintWithoutFingerprint(
   value: Record<string, unknown> & { fingerprint: string },
 ): Promise<string> {
-  const { fingerprint: _fingerprint, ...base } = value;
+  const base = Object.fromEntries(
+    Object.entries(value).filter(([key]) => key !== "fingerprint"),
+  );
   return await createSentrySha256(canonicalSentryJson(base));
 }
 
@@ -525,8 +530,9 @@ export async function executeHeartbeatSentryReproductionLease(
     heartbeatAt: now.toISOString(),
     expiresAt: new Date(now.getTime() + args.ttlSeconds * 1_000).toISOString(),
   };
-  const { fingerprint: _oldFingerprint, ...renewedWithoutFingerprint } =
-    renewedBase;
+  const renewedWithoutFingerprint = Object.fromEntries(
+    Object.entries(renewedBase).filter(([key]) => key !== "fingerprint"),
+  );
   const renewed = SentryReproductionTransportLeaseSchema.parse(
     await contentAddress(renewedWithoutFingerprint),
   );
@@ -1197,8 +1203,26 @@ export const model = {
       lifetime: "infinite",
       garbageCollection: 500,
     },
+    "machine-completion": {
+      description: "Idempotent Dex completion receipt for exact non-visual terminal Sentry Delivery",
+      schema: SentryMachineCompletionReceiptSchema,
+      lifetime: "infinite",
+      garbageCollection: 500,
+    },
   },
   methods: {
+    "complete-machine-sentry": {
+      description: "Complete Dex only from exact terminal non-visual Factory evidence",
+      arguments: CompleteMachineSentryRepairArgsSchema,
+      execute: (
+        args: z.infer<typeof CompleteMachineSentryRepairArgsSchema>,
+        context: SentryEvidenceMappingContext,
+      ) => executeCompleteMachineSentryRepair(
+        args,
+        context,
+        DEFAULT_SENTRY_EVIDENCE_MAPPING_DEPENDENCIES,
+      ),
+    },
     "acquire-lease": {
       description:
         "Acquire or renew the single fenced reproduction transport lease",
@@ -1247,6 +1271,8 @@ export const model = {
           {
             evidenceName: args.evidenceName,
             expectedEvidenceFingerprint: args.expectedEvidenceFingerprint,
+            reproductionName: args.reproductionName,
+            expectedReproductionFingerprint: args.expectedReproductionFingerprint,
           },
           context,
           DEFAULT_SENTRY_EVIDENCE_MAPPING_DEPENDENCIES,

@@ -13,6 +13,7 @@ import {
 import {
   SentryIssueRepairEvidenceSchema,
 } from "./sentry-issue-repair-evidence.ts";
+import { SentryDefectReproductionReceiptSchema } from "./sentry-defect-reproduction.ts";
 import {
   SentryRepairIntentEnvelopeSchema,
 } from "./sentry-repair-planning-handoff-adapter.ts";
@@ -25,6 +26,8 @@ const TaskIdSchema = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 export const MapEvidencedSentryRepairArgsSchema = z.strictObject({
   evidenceName: z.string().min(1).max(220),
   expectedEvidenceFingerprint: FingerprintSchema,
+  reproductionName: z.string().min(1).max(220),
+  expectedReproductionFingerprint: FingerprintSchema,
 });
 
 export const SentryEvidenceTaskCreationIntentSchema = z.strictObject({
@@ -62,6 +65,34 @@ export const SentryMachineDeliveryClaimSchema = z.strictObject({
   taskId: TaskIdSchema,
   repairIdentityFingerprint: FingerprintSchema,
   claimedAt: z.string().datetime(),
+  fingerprint: FingerprintSchema,
+});
+
+export const SentryMachineCompletionAuthorizationSchema = z.strictObject({
+  authority: z.literal("supers-sentry-machine-completion-v1"),
+  issueId: IssueIdSchema,
+  dexTaskId: TaskIdSchema,
+  admissionFingerprint: FingerprintSchema,
+  reproductionFingerprint: FingerprintSchema,
+  integratedRevision: GitRevisionSchema,
+  integrationReceiptId: FingerprintSchema,
+  authorizedAt: z.string().datetime(),
+  fingerprint: FingerprintSchema,
+});
+
+export const CompleteMachineSentryRepairArgsSchema = z.strictObject({
+  taskId: TaskIdSchema,
+  authorization: SentryMachineCompletionAuthorizationSchema,
+});
+
+export const SentryMachineCompletionReceiptSchema = z.strictObject({
+  schemaVersion: z.literal(1),
+  status: z.literal("succeeded"),
+  taskId: TaskIdSchema,
+  issueId: IssueIdSchema,
+  integratedRevision: GitRevisionSchema,
+  authorizationFingerprint: FingerprintSchema,
+  completedAt: z.string().datetime(),
   fingerprint: FingerprintSchema,
 });
 
@@ -135,6 +166,10 @@ export const DEFAULT_SENTRY_EVIDENCE_MAPPING_DEPENDENCIES:
       };
     },
   };
+
+function omitContentFingerprint(value: Readonly<Record<string, unknown>>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(value).filter(([key]) => key !== "fingerprint"));
+}
 
 async function contentAddress<T extends Record<string, unknown>>(
   base: T,
@@ -224,6 +259,75 @@ async function requireStartedTask(
   return task;
 }
 
+export async function executeCompleteMachineSentryRepair(
+  rawArgs: z.infer<typeof CompleteMachineSentryRepairArgsSchema>,
+  context: SentryEvidenceMappingContext,
+  dependencies: SentryEvidenceMappingDependencies = DEFAULT_SENTRY_EVIDENCE_MAPPING_DEPENDENCIES,
+): Promise<{ dataHandles: Array<{ name: string }> }> {
+  const args = CompleteMachineSentryRepairArgsSchema.parse(rawArgs);
+  const authorization = args.authorization;
+  if (authorization.dexTaskId !== args.taskId) {
+    throw new Error("Machine completion task does not match its authorization");
+  }
+  const deliveryModelId = z.string().uuid().parse(context.globalArgs.sourceDeliveryModelId);
+  const [state, verification, changeSummary, postflight] = await Promise.all([
+    readModelResource(context, "@swamp/software-factory", deliveryModelId, `state-${args.taskId}`),
+    readModelResource(context, "@swamp/software-factory", deliveryModelId, `artifact-${args.taskId}-verification`),
+    readModelResource(context, "@swamp/software-factory", deliveryModelId, `artifact-${args.taskId}-change-summary`),
+    readModelResource(context, "@swamp/software-factory", deliveryModelId, `evidence-${args.taskId}-postflight-run`),
+  ]);
+  const stageId = z.object({ stageId: z.literal("terminal-cleanup") }).passthrough().parse(state).stageId;
+  const verificationPayload = z.object({ payload: z.object({
+    disposition: z.literal("reconcile"),
+    integratedRevision: GitRevisionSchema,
+    requiredHumanReviewKinds: z.array(z.string()).length(0),
+    objectiveFailureCodes: z.array(z.string()).length(0),
+    unavailableEvidenceCodes: z.array(z.string()).length(0),
+  }).passthrough() }).passthrough().parse(verification).payload;
+  const integrationReceipt = z.object({ payload: z.object({ integrationReceipt: z.object({
+    receiptId: FingerprintSchema,
+    integratedRevision: GitRevisionSchema,
+  }).passthrough() }).passthrough() }).passthrough().parse(changeSummary).payload.integrationReceipt;
+  z.object({ payload: z.object({ status: z.literal("succeeded") }).passthrough() }).passthrough().parse(postflight);
+  if (
+    stageId !== "terminal-cleanup" ||
+    verificationPayload.integratedRevision !== authorization.integratedRevision ||
+    integrationReceipt.integratedRevision !== authorization.integratedRevision ||
+    integrationReceipt.receiptId !== authorization.integrationReceiptId
+  ) throw new Error("Machine Sentry completion authority does not match terminal Factory evidence");
+
+  const receiptName = `sentry-machine-completion-${args.taskId}-${authorization.integratedRevision}`;
+  const prior = await context.readResource(receiptName);
+  if (prior !== null) {
+    SentryMachineCompletionReceiptSchema.parse(prior);
+    return { dataHandles: [{ name: receiptName }] };
+  }
+  await dependencies.dexRepositoryLock.runExclusive(context.repoDir, async () => {
+    let task = (await listDexTasks(context, dependencies)).find((candidate) => candidate.id === args.taskId);
+    if (!task) throw new Error("Machine completion Dex task is missing");
+    if (!task.completed) {
+      await dependencies.runDex([
+        "complete", args.taskId,
+        "--result", `Verified machine-authorized Sentry repair ${authorization.issueId}`,
+        "--commit", authorization.integratedRevision,
+      ], context.repoDir);
+      task = (await listDexTasks(context, dependencies)).find((candidate) => candidate.id === args.taskId);
+    }
+    if (!task?.completed) throw new Error("Dex machine completion postcondition was not reached");
+  });
+  const base = {
+    schemaVersion: 1 as const,
+    status: "succeeded" as const,
+    taskId: args.taskId,
+    issueId: authorization.issueId,
+    integratedRevision: authorization.integratedRevision,
+    authorizationFingerprint: authorization.fingerprint,
+    completedAt: authorization.authorizedAt,
+  };
+  const receipt = SentryMachineCompletionReceiptSchema.parse(await contentAddress(base));
+  return { dataHandles: [await context.writeResource("machine-completion", receiptName, receipt)] };
+}
+
 export async function executeMapEvidencedSentryRepair(
   rawArgs: z.infer<typeof MapEvidencedSentryRepairArgsSchema>,
   context: SentryEvidenceMappingContext,
@@ -245,7 +349,7 @@ export async function executeMapEvidencedSentryRepair(
       args.evidenceName,
     ),
   );
-  const { fingerprint: _evidenceFingerprint, ...evidenceBase } = evidence;
+  const evidenceBase = omitContentFingerprint(evidence);
   const expectedRepairIdentityFingerprint = await createSentrySha256(
     canonicalSentryJson({
       authority: evidence.authority,
@@ -263,6 +367,26 @@ export async function executeMapEvidencedSentryRepair(
   ) {
     throw new Error("Sentry repair evidence fingerprint mismatch");
   }
+  const reproduction = SentryDefectReproductionReceiptSchema.parse(
+    await readModelResource(
+      context,
+      "@supers/sentry-issue-intake",
+      intakeModelId,
+      args.reproductionName,
+    ),
+  );
+  const reproductionBase = omitContentFingerprint(reproduction);
+  if (
+    reproduction.fingerprint !== args.expectedReproductionFingerprint ||
+    reproduction.fingerprint !== await createSentrySha256(canonicalSentryJson(reproductionBase)) ||
+    reproduction.status !== "reproduced" ||
+    reproduction.evidenceFingerprint !== evidence.fingerprint ||
+    reproduction.repairIdentityFingerprint !== evidence.repairIdentityFingerprint ||
+    reproduction.issueId !== evidence.issueId ||
+    reproduction.checkoutRevision !== evidence.checkoutRevision
+  ) {
+    throw new Error("Dex mapping requires exact pre-coding deterministic reproduction");
+  }
   const envelope = SentryRepairIntentEnvelopeSchema.parse(
     await readModelResource(
       context,
@@ -271,8 +395,8 @@ export async function executeMapEvidencedSentryRepair(
       evidence.repairIntentName,
     ),
   );
-  const { fingerprint: _envelopeFingerprint, ...envelopeBase } = envelope;
-  const { fingerprint: _intentFingerprint, ...intentBase } = envelope.intent;
+  const envelopeBase = omitContentFingerprint(envelope);
+  const intentBase = omitContentFingerprint(envelope.intent);
   if (
     envelope.intent.fingerprint !==
       await createSentrySha256(canonicalSentryJson(intentBase)) ||
@@ -291,8 +415,7 @@ export async function executeMapEvidencedSentryRepair(
     throw new Error("Sentry evidence no longer matches its repair intent");
   }
 
-  const exactMarker =
-    `[supers-sentry-repair issue=${evidence.issueId} identity=${evidence.repairIdentityFingerprint}]`;
+  const exactMarker = `[supers-sentry-repair issue=${evidence.issueId}]`;
   const name = `Repair ${evidence.shortId} from Sentry evidence`;
   const description = taskDescription(evidence, exactMarker);
   const creationIntent = SentryEvidenceTaskCreationIntentSchema.parse(
@@ -327,23 +450,6 @@ export async function executeMapEvidencedSentryRepair(
         throw new Error(
           "Sentry evidence maps to ambiguous or completed Dex work",
         );
-      }
-      const deliveryClaimName =
-        `sentry-machine-delivery-claim-${evidence.repairIdentityFingerprint}`;
-      const rawClaim = await context.readResource(deliveryClaimName);
-      if (rawClaim !== null) {
-        const priorClaim = SentryMachineDeliveryClaimSchema.parse(rawClaim);
-        const { fingerprint: _claimFingerprint, ...claimBase } = priorClaim;
-        if (
-          priorClaim.fingerprint !==
-            await createSentrySha256(canonicalSentryJson(claimBase)) ||
-          priorClaim.repairIdentityFingerprint !==
-            evidence.repairIdentityFingerprint
-        ) {
-          throw new Error(
-            "Existing Sentry Delivery claim fingerprint mismatch",
-          );
-        }
       }
       let task: DexTask | undefined = markerMatches[0];
       const status: "created" | "attached" =
@@ -409,20 +515,6 @@ export async function executeMapEvidencedSentryRepair(
       }
       if (!task) throw new Error("Sentry evidence mapping has no Dex task");
       task = await requireStartedTask(task.id, context, dependencies);
-      const claim = SentryMachineDeliveryClaimSchema.parse(
-        await contentAddress({
-          schemaVersion: 1 as const,
-          status: "claimed" as const,
-          taskId: task.id,
-          repairIdentityFingerprint: evidence.repairIdentityFingerprint,
-          claimedAt: evidence.lastSeen,
-        }),
-      );
-      await context.writeResource(
-        "delivery-claim",
-        deliveryClaimName,
-        claim,
-      );
       return SentryEvidenceTaskMappingSchema.parse(
         await contentAddress({
           schemaVersion: 2 as const,
