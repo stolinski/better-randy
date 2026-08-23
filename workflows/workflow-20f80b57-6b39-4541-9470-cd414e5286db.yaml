@@ -162,9 +162,9 @@ jobs:
             admittedIntentFingerprints: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(admission, size(data.query(''modelName == "supers-delivery" && name == "state-'' + admission.attributes.dexTaskId + ''"'')) > 0).map(admission, admission.attributes.repairIntentFingerprint) }}'
             excludedIssueIds: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "defect-reproduction-rejection"'').filter(rejection, has(rejection.attributes.capabilityVersion) && rejection.attributes.capabilityVersion == 2).map(rejection, rejection.attributes.issueId) }}'
         dependsOn:
-          - step: resume-active-sentry-repair
+          - step: refresh-delivery-state
             condition:
-              type: completed
+              type: succeeded
         weight: 0
         allowFailure: false
       - name: admit-selected-sentry-repair
