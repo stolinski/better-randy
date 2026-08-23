@@ -73,13 +73,12 @@ export const SentryIssueRepairEvidenceSchema = z.strictObject({
   capturedAt: z.string().datetime(),
   fingerprint: FingerprintSchema,
 }).superRefine((evidence, context) => {
-  if (
-    new Date(evidence.eventOccurredAt).getTime() !==
-      new Date(evidence.lastSeen).getTime()
-  ) {
+  const eventOccurredAt = new Date(evidence.eventOccurredAt).getTime();
+  const lastSeen = new Date(evidence.lastSeen).getTime();
+  if (lastSeen < eventOccurredAt || lastSeen - eventOccurredAt > 300_000) {
     context.addIssue({
       code: "custom",
-      message: "Latest event and issue last-seen watermarks must match",
+      message: "Issue last-seen must closely follow the exact latest event",
     });
   }
 });
@@ -370,8 +369,10 @@ export async function executeCollectSentryIssueRepairEvidence(
     issue.id !== envelope.intent.issueId ||
     issue.shortId !== envelope.intent.shortId ||
     issue.status !== "unresolved" ||
-    new Date(issue.event.dateCreated).getTime() !==
-      new Date(issue.lastSeen).getTime()
+    new Date(issue.lastSeen).getTime() <
+      new Date(issue.event.dateCreated).getTime() ||
+    new Date(issue.lastSeen).getTime() -
+        new Date(issue.event.dateCreated).getTime() > 300_000
   ) {
     throw new Error("Fresh Sentry issue identity or event watermark drifted");
   }
