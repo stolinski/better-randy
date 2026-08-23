@@ -180,10 +180,16 @@ export const DEFAULT_SENTRY_EVIDENCE_MAPPING_DEPENDENCIES:
         }
         return new TextDecoder().decode(result.stdout);
       };
-      const status = await runGit(["status", "--short"]);
-      if (status.trim() === "") return;
-      const changedPaths = status.trim().split("\n").map((line) => line.slice(3));
-      if (changedPaths.some((path) => path !== ".dex/tasks.jsonl")) {
+      const [unstaged, staged, untracked] = await Promise.all([
+        runGit(["diff", "--name-only"]),
+        runGit(["diff", "--cached", "--name-only"]),
+        runGit(["ls-files", "--others", "--exclude-standard"]),
+      ]);
+      const changedPaths = new Set(
+        `${unstaged}\n${staged}\n${untracked}`.split("\n").filter(Boolean),
+      );
+      if (changedPaths.size === 0) return;
+      if ([...changedPaths].some((path) => path !== ".dex/tasks.jsonl")) {
         throw new Error("Sentry Dex admission refuses unrelated repository changes");
       }
       await runGit(["add", "--", ".dex/tasks.jsonl"]);
