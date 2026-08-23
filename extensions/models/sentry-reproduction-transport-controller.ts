@@ -1111,6 +1111,9 @@ const SentryTransportGlobalArgsSchema = z.strictObject({
 const MapEvidencedMethodArgsSchema = MapEvidencedSentryRepairArgsSchema.extend(
   SentryTransportGlobalArgsSchema.shape,
 );
+const CompleteMachineSentryMethodArgsSchema = CompleteMachineSentryRepairArgsSchema.extend(
+  SentryTransportGlobalArgsSchema.shape,
+);
 
 export const model = {
   type: "@supers/sentry-reproduction-transport-controller",
@@ -1213,12 +1216,12 @@ export const model = {
   methods: {
     "complete-machine-sentry": {
       description: "Complete Dex only from exact terminal non-visual Factory evidence",
-      arguments: CompleteMachineSentryRepairArgsSchema,
+      arguments: CompleteMachineSentryMethodArgsSchema,
       execute: (
-        args: z.infer<typeof CompleteMachineSentryRepairArgsSchema>,
+        args: z.infer<typeof CompleteMachineSentryMethodArgsSchema>,
         context: SentryEvidenceMappingContext,
       ) => executeCompleteMachineSentryRepair(
-        args,
+        { taskId: args.taskId, authorization: args.authorization },
         context,
         DEFAULT_SENTRY_EVIDENCE_MAPPING_DEPENDENCIES,
       ),
