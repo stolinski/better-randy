@@ -168,7 +168,7 @@ async function freshIssue(
   const result = await dependencies.commandRunner.run(
     ["issue", "view", shortId, "--fresh", "--json"],
     context.repoDir,
-    20_000,
+    60_000,
   );
   if (result.code !== 0) throw new Error(`Fresh Sentry issue read failed with exit ${result.code}`);
   const issue = RawIssueSchema.parse(JSON.parse(result.stdout));

@@ -340,7 +340,7 @@ export async function executeCollectSentryIssueRepairEvidence(
     dependencies.commandRunner,
     ["issue", "view", envelope.intent.shortId, "--fresh", "--json"],
     context.repoDir,
-    20_000,
+    60_000,
   );
   const initialIssue = RawIssueSchema.parse(rawInitialIssue);
   const [rawRootCauses, rawPlan] = await Promise.all([
@@ -361,7 +361,7 @@ export async function executeCollectSentryIssueRepairEvidence(
     dependencies.commandRunner,
     ["issue", "view", envelope.intent.shortId, "--fresh", "--json"],
     context.repoDir,
-    20_000,
+    60_000,
   );
   const issue = RawIssueSchema.parse(rawFinalIssue);
   const rootCauses = z.array(RawSeerRootCauseSchema).max(10).parse(
