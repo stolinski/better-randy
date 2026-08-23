@@ -134,7 +134,7 @@ test("unsupported evidence is durably excluded without creating a repair", async
     )?.data,
   );
   assert.equal(rejection.reason, "no-code-owned-route");
-  assert.equal(rejection.repairIntentFingerprint, unsupported.repairIntentFingerprint);
+  assert.equal(rejection.repairIntentFingerprint, value.evidence.repairIntentFingerprint);
   assert.equal(value.driven(), 0);
 });
 
