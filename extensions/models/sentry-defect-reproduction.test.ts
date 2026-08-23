@@ -109,7 +109,9 @@ test("code-owned reproduction records a new exact-HEAD event before coding and r
 
 test("unsupported evidence is durably excluded without creating a repair", async () => {
   const value = await fixture();
-  const { fingerprint: _fingerprint, ...base } = value.evidence;
+  const base = Object.fromEntries(
+    Object.entries(value.evidence).filter(([key]) => key !== "fingerprint"),
+  );
   const unsupportedBase = { ...base, culprit: null };
   const unsupported = {
     ...unsupportedBase,
