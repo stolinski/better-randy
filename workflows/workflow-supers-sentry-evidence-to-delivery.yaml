@@ -62,6 +62,7 @@ jobs:
         allowFailure: false
       - name: map-and-start-dex-repair
         description: Create or attach and start exactly one Dex task only from positive deterministic reproduction.
+        guard: '${{ size(data.query(''modelName == "supers-sentry-issue-intake" && specName == "defect-reproduction" && workflowRunId == "'' + run.id + ''"'')) == 0 }}'
         task:
           type: model_method
           modelIdOrName: supers-sentry-reproduction-transport

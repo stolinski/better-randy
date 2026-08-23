@@ -136,7 +136,7 @@ jobs:
             repairIntents: '${{ data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "repair-intent"'').map(resource, resource.attributes) }}'
             planningStates: []
             priorSelections: []
-            admittedIntentFingerprints: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(admission, size(data.query(''modelName == "supers-delivery" && name == "state-'' + admission.attributes.dexTaskId + ''"'')) > 0).map(admission, admission.attributes.repairIntentFingerprint) }}'
+            admittedIntentFingerprints: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(admission, size(data.query(''modelName == "supers-delivery" && name == "state-'' + admission.attributes.dexTaskId + ''"'')) > 0).map(admission, admission.attributes.repairIntentFingerprint) + data.query(''modelName == "supers-sentry-issue-intake" && specName == "defect-reproduction-rejection"'').map(rejection, rejection.attributes.repairIntentFingerprint) }}'
         dependsOn:
           - step: refresh-delivery-state
             condition:

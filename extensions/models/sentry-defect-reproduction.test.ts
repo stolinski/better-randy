@@ -6,6 +6,7 @@ import {
   executeReproduceSentryDefect,
   executeVerifySentryNoRecurrence,
   SentryDefectReproductionReceiptSchema,
+  SentryDefectReproductionRejectionSchema,
   SentryNoRecurrenceReceiptSchema,
 } from "./sentry-defect-reproduction.ts";
 
@@ -104,6 +105,35 @@ test("code-owned reproduction records a new exact-HEAD event before coding and r
   assert.equal(value.driven(), 1);
   await executeReproduceSentryDefect(args, value.context, value.dependencies);
   assert.equal(value.driven(), 1);
+});
+
+test("unsupported evidence is durably excluded without creating a repair", async () => {
+  const value = await fixture();
+  const { fingerprint: _fingerprint, ...base } = value.evidence;
+  const unsupportedBase = { ...base, culprit: null };
+  const unsupported = {
+    ...unsupportedBase,
+    fingerprint: await createSentrySha256(canonicalSentryJson(unsupportedBase)),
+  };
+  value.resources.set("unsupported", unsupported);
+
+  await executeReproduceSentryDefect(
+    {
+      evidenceName: "unsupported",
+      expectedEvidenceFingerprint: unsupported.fingerprint,
+    },
+    value.context,
+    value.dependencies,
+  );
+
+  const rejection = SentryDefectReproductionRejectionSchema.parse(
+    value.writes.find((write) =>
+      write.specName === "defect-reproduction-rejection"
+    )?.data,
+  );
+  assert.equal(rejection.reason, "no-code-owned-route");
+  assert.equal(rejection.repairIntentFingerprint, unsupported.repairIntentFingerprint);
+  assert.equal(value.driven(), 0);
 });
 
 test("fresh no-recurrence replay rejects watermark movement and stores one receipt when unchanged", async () => {

@@ -38,6 +38,22 @@ export const SentryDefectReproductionAttemptSchema = z.strictObject({
   fingerprint: FingerprintSchema,
 });
 
+export const SentryDefectReproductionRejectionSchema = z.strictObject({
+  schemaVersion: z.literal(1),
+  authority: z.literal("supers-sentry-code-owned-reproduction-v1"),
+  status: z.literal("unsupported"),
+  reason: z.enum(["no-code-owned-route", "not-reproduced-on-head"]),
+  evidenceName: z.string().min(1),
+  evidenceFingerprint: FingerprintSchema,
+  repairIntentFingerprint: FingerprintSchema,
+  repairIdentityFingerprint: FingerprintSchema,
+  issueId: z.string().min(1),
+  shortId: z.string().min(1),
+  checkoutRevision: GitRevisionSchema,
+  rejectedAt: z.string().datetime(),
+  fingerprint: FingerprintSchema,
+});
+
 export const SentryDefectReproductionReceiptSchema = z.strictObject({
   schemaVersion: z.literal(1),
   authority: z.literal("supers-sentry-code-owned-reproduction-v1"),
@@ -133,14 +149,14 @@ async function readResource<T>(
   return schema.parse(JSON.parse(new TextDecoder().decode(content)));
 }
 
-function routeFromEvidence(evidence: RepairEvidence): string {
+function routeFromEvidence(evidence: RepairEvidence): string | null {
   const candidates = [evidence.culprit, ...evidence.breadcrumbCategories];
   for (const candidate of candidates) {
     if (!candidate) continue;
     const route = candidate.match(/\/(?:api\/|p\/)?[A-Za-z0-9._~!$&'()*+,;=:@%/?-]*/)?.[0];
     if (route && RouteSchema.safeParse(route).success) return route;
   }
-  throw new Error("Sentry defect has no code-owned deterministic local route");
+  return null;
 }
 
 async function freshIssue(
@@ -201,6 +217,32 @@ export async function executeReproduceSentryDefect(
   ) throw new Error("Sentry reproduction evidence fingerprint mismatch");
 
   const route = routeFromEvidence(evidence);
+  if (route === null) {
+    const rejectionBase = {
+      schemaVersion: 1 as const,
+      authority: "supers-sentry-code-owned-reproduction-v1" as const,
+      status: "unsupported" as const,
+      reason: "no-code-owned-route" as const,
+      evidenceName: args.evidenceName,
+      evidenceFingerprint: evidence.fingerprint,
+      repairIntentFingerprint: evidence.repairIntentFingerprint,
+      repairIdentityFingerprint: evidence.repairIdentityFingerprint,
+      issueId: evidence.issueId,
+      shortId: evidence.shortId,
+      checkoutRevision: evidence.checkoutRevision,
+      rejectedAt: evidence.capturedAt,
+    };
+    const rejection = SentryDefectReproductionRejectionSchema.parse(
+      await fingerprinted(rejectionBase),
+    );
+    const name = `sentry-defect-reproduction-rejection-${rejection.fingerprint}`;
+    const handle = await context.writeResource(
+      "defect-reproduction-rejection",
+      name,
+      rejection,
+    );
+    return { dataHandles: [handle] };
+  }
   const attemptBase = {
     schemaVersion: 1 as const,
     authority: "supers-sentry-code-owned-reproduction-v1" as const,
@@ -254,7 +296,29 @@ export async function executeReproduceSentryDefect(
     new Date(observed.lastSeen).getTime() <= new Date(evidence.lastSeen).getTime() ||
     observed.eventRelease !== `supers@${evidence.checkoutRevision}`
   ) {
-    throw new Error("Code-owned route did not deterministically reproduce the defect on HEAD");
+    const rejection = SentryDefectReproductionRejectionSchema.parse(
+      await fingerprinted({
+        schemaVersion: 1 as const,
+        authority: "supers-sentry-code-owned-reproduction-v1" as const,
+        status: "unsupported" as const,
+        reason: "not-reproduced-on-head" as const,
+        evidenceName: args.evidenceName,
+        evidenceFingerprint: evidence.fingerprint,
+        repairIntentFingerprint: evidence.repairIntentFingerprint,
+        repairIdentityFingerprint: evidence.repairIdentityFingerprint,
+        issueId: evidence.issueId,
+        shortId: evidence.shortId,
+        checkoutRevision: evidence.checkoutRevision,
+        rejectedAt: dependencies.now(),
+      }),
+    );
+    const name = `sentry-defect-reproduction-rejection-${rejection.fingerprint}`;
+    const handle = await context.writeResource(
+      "defect-reproduction-rejection",
+      name,
+      rejection,
+    );
+    return { dataHandles: [...handles, handle] };
   }
   const receiptBase = {
     schemaVersion: 1 as const,

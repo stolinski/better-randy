@@ -38,6 +38,7 @@ import {
   ReproduceSentryDefectArgsSchema,
   SentryDefectReproductionAttemptSchema,
   type SentryDefectReproductionContext,
+  SentryDefectReproductionRejectionSchema,
   SentryDefectReproductionReceiptSchema,
   SentryNoRecurrenceReceiptSchema,
   VerifySentryNoRecurrenceArgsSchema,
@@ -113,6 +114,12 @@ export const model = {
     "defect-reproduction-attempt": {
       description: "Durable pre-drive identity for one code-owned deterministic reproduction",
       schema: SentryDefectReproductionAttemptSchema,
+      lifetime: "infinite",
+      garbageCollection: 500,
+    },
+    "defect-reproduction-rejection": {
+      description: "Durable exclusion for an issue that has no supported or reproducible code-owned route",
+      schema: SentryDefectReproductionRejectionSchema,
       lifetime: "infinite",
       garbageCollection: 500,
     },
