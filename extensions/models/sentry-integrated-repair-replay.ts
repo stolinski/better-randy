@@ -167,7 +167,7 @@ export function createSentryIntegratedReplayOperations(dependencies: { runner: S
       await dependencies.writeFile(`${baseRoot}/${testPath}`, testBlob);
       const runs: CommandResult[] = [];
       for (const root of [baseRoot, baseRoot, integratedRoot, integratedRoot]) {
-        runs.push(await dependencies.runner.run(Deno.execPath(), ["test", "--no-config", "--no-prompt", "--cached-only", "--reporter=tap", `--filter=${exactTestName}`, testPath], root, 120_000));
+        runs.push(await dependencies.runner.run("npx", ["--offline", "--yes", "deno", "test", "--no-config", "--no-prompt", "--cached-only", "--reporter=tap", `--filter=${exactTestName}`, testPath], root, 120_000));
       }
       requireTapResult(runs[0], exactTestName, false); requireTapResult(runs[1], exactTestName, false);
       requireTapResult(runs[2], exactTestName, true); requireTapResult(runs[3], exactTestName, true);
