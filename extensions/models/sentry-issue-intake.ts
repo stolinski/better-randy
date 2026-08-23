@@ -53,6 +53,12 @@ const GlobalArgsSchema = z.object({
 const CollectRepairEvidenceMethodArgsSchema = SentryIssueRepairEvidenceArgsSchema.extend(
   GlobalArgsSchema.shape,
 );
+const ReproduceDefectMethodArgsSchema = ReproduceSentryDefectArgsSchema.extend(
+  GlobalArgsSchema.shape,
+);
+const VerifyNoRecurrenceMethodArgsSchema = VerifySentryNoRecurrenceArgsSchema.extend(
+  GlobalArgsSchema.shape,
+);
 
 async function resolveEvidenceCheckoutRevision(
   repoDir: string,
@@ -126,24 +132,32 @@ export const model = {
   methods: {
     "reproduce-defect": {
       description: "Drive a code-owned local route and require a new exact-HEAD Sentry event before coding",
-      arguments: ReproduceSentryDefectArgsSchema,
+      arguments: ReproduceDefectMethodArgsSchema,
       execute: (
-        args: z.infer<typeof ReproduceSentryDefectArgsSchema>,
+        args: z.infer<typeof ReproduceDefectMethodArgsSchema>,
         context: SentryDefectReproductionContext,
       ) => executeReproduceSentryDefect(
-        args,
+        {
+          evidenceName: args.evidenceName,
+          expectedEvidenceFingerprint: args.expectedEvidenceFingerprint,
+        },
         context,
         createDefaultSentryDefectReproductionDependencies(new DenoSentryCommandRunner()),
       ),
     },
     "verify-no-recurrence": {
       description: "Replay the exact pre-coding route and reject any event at or after verified integration",
-      arguments: VerifySentryNoRecurrenceArgsSchema,
+      arguments: VerifyNoRecurrenceMethodArgsSchema,
       execute: (
-        args: z.infer<typeof VerifySentryNoRecurrenceArgsSchema>,
+        args: z.infer<typeof VerifyNoRecurrenceMethodArgsSchema>,
         context: SentryDefectReproductionContext,
       ) => executeVerifySentryNoRecurrence(
-        args,
+        {
+          reproductionName: args.reproductionName,
+          expectedReproductionFingerprint: args.expectedReproductionFingerprint,
+          integratedRevision: args.integratedRevision,
+          verificationRecordedAt: args.verificationRecordedAt,
+        },
         context,
         createDefaultSentryDefectReproductionDependencies(new DenoSentryCommandRunner()),
       ),
