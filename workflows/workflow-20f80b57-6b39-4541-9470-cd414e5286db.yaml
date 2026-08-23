@@ -139,8 +139,8 @@ jobs:
             workItem: '${{ self.admission.attributes.dexTaskId }}'
             evidenceName: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "defect-reproduction"'').filter(reproduction, reproduction.attributes.repairIdentityFingerprint == self.admission.attributes.repairIdentityFingerprint && reproduction.attributes.checkoutRevision == self.admission.attributes.checkoutRevision)[0].attributes.evidenceName }}'
             expectedEvidenceFingerprint: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "defect-reproduction"'').filter(reproduction, reproduction.attributes.repairIdentityFingerprint == self.admission.attributes.repairIdentityFingerprint && reproduction.attributes.checkoutRevision == self.admission.attributes.checkoutRevision)[0].attributes.evidenceFingerprint }}'
-            mappingName: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping"'').filter(mapping, mapping.attributes.taskId == self.admission.attributes.dexTaskId)[0].name }}'
-            expectedMappingFingerprint: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping"'').filter(mapping, mapping.attributes.taskId == self.admission.attributes.dexTaskId)[0].attributes.fingerprint }}'
+            mappingName: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping"'').filter(mapping, mapping.attributes.taskId == self.admission.attributes.dexTaskId && mapping.attributes.repairIdentityFingerprint == self.admission.attributes.repairIdentityFingerprint)[0].name }}'
+            expectedMappingFingerprint: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping"'').filter(mapping, mapping.attributes.taskId == self.admission.attributes.dexTaskId && mapping.attributes.repairIdentityFingerprint == self.admission.attributes.repairIdentityFingerprint)[0].attributes.fingerprint }}'
             admissionName: '${{ self.admission.name }}'
             expectedAdmissionFingerprint: '${{ self.admission.attributes.fingerprint }}'
         dependsOn:
