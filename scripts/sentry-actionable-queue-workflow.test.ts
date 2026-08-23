@@ -51,6 +51,7 @@ Deno.test(
         "assert-correlated-triage",
         "assert-correlated-queue",
         "refresh-delivery-state",
+        "resume-active-sentry-repair",
         "select-one-sentry-repair",
         "admit-selected-sentry-repair",
       ],
