@@ -223,7 +223,7 @@ async function fetchIssues(
     "--fields",
     "id,shortId,title,priority,level,firstSeen,status",
   ];
-  const result = await runner.run(args, context.repoDir, 20_000);
+  const result = await runner.run(args, context.repoDir, 60_000);
   if (result.code !== 0) {
     throw new Error(
       `sentry issue list failed with exit ${result.code}: ${

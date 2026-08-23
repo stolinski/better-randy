@@ -41,6 +41,7 @@ export const SentryDefectReproductionAttemptSchema = z.strictObject({
 export const SentryDefectReproductionRejectionSchema = z.strictObject({
   schemaVersion: z.literal(1),
   authority: z.literal("supers-sentry-code-owned-reproduction-v1"),
+  capabilityVersion: z.literal(2),
   status: z.literal("unsupported"),
   reason: z.enum(["no-code-owned-route", "not-reproduced-on-head"]),
   evidenceName: z.string().min(1),
@@ -221,6 +222,7 @@ export async function executeReproduceSentryDefect(
     const rejectionBase = {
       schemaVersion: 1 as const,
       authority: "supers-sentry-code-owned-reproduction-v1" as const,
+      capabilityVersion: 2 as const,
       status: "unsupported" as const,
       reason: "no-code-owned-route" as const,
       evidenceName: args.evidenceName,
@@ -300,6 +302,7 @@ export async function executeReproduceSentryDefect(
       await fingerprinted({
         schemaVersion: 1 as const,
         authority: "supers-sentry-code-owned-reproduction-v1" as const,
+        capabilityVersion: 2 as const,
         status: "unsupported" as const,
         reason: "not-reproduced-on-head" as const,
         evidenceName: args.evidenceName,
