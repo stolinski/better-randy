@@ -9,7 +9,7 @@
  */
 import { z } from "npm:zod@4.4.3";
 
-export const DEX_SOFTWARE_FACTORY_VERSION = "2026.08.22.1";
+export const DEX_SOFTWARE_FACTORY_VERSION = "2026.08.24.1";
 const SOFTWARE_FACTORY_TARGET_VERSION = "2026.06.24.1";
 
 const FACTORY_NAME_PATTERN = /^[a-z][a-z0-9_-]*$/;
@@ -357,6 +357,7 @@ export const DexSoftwareFactoryPlatformArgsSchema = z.object({
   review: z.unknown().optional(),
   humanGate: z.unknown().optional(),
   completionGate: z.unknown().optional(),
+  machineCompletion: z.unknown().optional(),
   contracts: z.unknown().optional(),
   verificationRouting: z.unknown().optional(),
   budgets: z.unknown().optional(),
@@ -1762,18 +1763,30 @@ function postflightStage(profile: DexSoftwareFactoryProfile): FactoryStage {
       executionFailureArtifact(profile, "postflight"),
       ...(profile.machineCompletion === undefined ? [] : [{
         name: profile.machineCompletion.artifact,
-        description: "Exact machine authorization for one non-visual Sentry repair",
+        description:
+          "Exact machine authorization for one non-visual Sentry repair",
         reviews: "verification",
         schema: {
           type: "object",
           additionalProperties: false,
-          required: ["authority", "issueId", "dexTaskId", "admissionFingerprint", "reproductionFingerprint", "integratedRevision", "integrationReceiptId", "authorizedAt", "fingerprint"],
+          required: [
+            "authority",
+            "issueId",
+            "dexTaskId",
+            "admissionFingerprint",
+            "integratedRevision",
+            "integrationReceiptId",
+            "authorizedAt",
+            "fingerprint",
+          ],
           properties: {
-            authority: { type: "string", enum: ["supers-sentry-machine-completion-v1"] },
+            authority: {
+              type: "string",
+              enum: ["supers-sentry-machine-completion-v1"],
+            },
             issueId: STRING_SCHEMA,
             dexTaskId: STRING_SCHEMA,
             admissionFingerprint: { type: "string", pattern: SHA256_PATTERN },
-            reproductionFingerprint: { type: "string", pattern: SHA256_PATTERN },
             integratedRevision: { type: "string", pattern: "^[0-9a-f]{40}$" },
             integrationReceiptId: { type: "string", pattern: SHA256_PATTERN },
             authorizedAt: STRING_SCHEMA,
@@ -1797,14 +1810,24 @@ function postflightStage(profile: DexSoftwareFactoryProfile): FactoryStage {
         name: "machine-cleanup",
         to: "terminal-cleanup",
         gates: [
-          adapterSucceededGate(profile.adapters.postflight, "postflight-run", ["evidence-postflight-run"]),
+          adapterSucceededGate(profile.adapters.postflight, "postflight-run", [
+            "evidence-postflight-run",
+          ]),
           artifactFresh(profile.machineCompletion.artifact),
           celGate(
-            `artifacts.${profile.machineCompletion.artifact.replaceAll("-", "_")}.authority == "supers-sentry-machine-completion-v1" && artifacts.${profile.machineCompletion.artifact.replaceAll("-", "_")}.dexTaskId == workItem && artifacts.${profile.machineCompletion.artifact.replaceAll("-", "_")}.integratedRevision == artifacts.change_summary.integrationReceipt.integratedRevision && artifacts.${profile.machineCompletion.artifact.replaceAll("-", "_")}.integrationReceiptId == artifacts.change_summary.integrationReceipt.receiptId && artifacts.verification.disposition == "reconcile" && size(artifacts.verification.requiredHumanReviewKinds) == 0 && size(artifacts.verification.objectiveFailureCodes) == 0 && size(artifacts.verification.unavailableEvidenceCodes) == 0`,
+            `artifacts.${
+              profile.machineCompletion.artifact.replaceAll("-", "_")
+            }.authority == "supers-sentry-machine-completion-v1" && artifacts.${
+              profile.machineCompletion.artifact.replaceAll("-", "_")
+            }.dexTaskId == workItem && artifacts.${
+              profile.machineCompletion.artifact.replaceAll("-", "_")
+            }.integratedRevision == artifacts.change_summary.integrationReceipt.integratedRevision && artifacts.${
+              profile.machineCompletion.artifact.replaceAll("-", "_")
+            }.integrationReceiptId == artifacts.change_summary.integrationReceipt.receiptId && artifacts.verification.disposition == "reconcile" && size(artifacts.verification.requiredHumanReviewKinds) == 0 && size(artifacts.verification.objectiveFailureCodes) == 0 && size(artifacts.verification.unavailableEvidenceCodes) == 0`,
             "machine cleanup requires exact non-visual passing Sentry authorization",
           ),
         ],
-      }]) ,
+      }]),
       ...(profile.completionGate === undefined ? [] : [
         {
           name: "human-revision",
@@ -1829,7 +1852,8 @@ function postflightStage(profile: DexSoftwareFactoryProfile): FactoryStage {
 function terminalCleanupStage(
   profile: DexSoftwareFactoryProfile,
 ): FactoryStage {
-  const completionWorkflow = profile.machineCompletion?.completionWorkflow ?? profile.adapters.dexTracker.completionWorkflow;
+  const completionWorkflow = profile.machineCompletion?.completionWorkflow ??
+    profile.adapters.dexTracker.completionWorkflow;
   const closedObjective = isClosedObjectiveRouting(profile);
   const work =
     profile.completionGate !== undefined && completionWorkflow !== undefined

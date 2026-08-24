@@ -8,6 +8,7 @@ const AUTHORIZED_COMPLETION_PATH = "workflows/workflow-supers-complete-authorize
 type WorkflowStep = {
   name: string;
   guard?: string;
+  dependsOn?: Array<{ condition: unknown }>;
   task: {
     type: string;
     modelIdOrName?: string;
@@ -49,7 +50,7 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   const steps = workflow.jobs.flatMap((job) => job.steps);
   const names = steps.map((step) => step.name);
 
-  assert.equal(workflow.version, 2);
+  assert.equal(workflow.version, 3);
   assert.deepEqual(workflow.inputs.required, [
     "workItem",
     "evidenceName",
@@ -65,7 +66,6 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
     "prepare-isolated-coding-worktree",
     "invoke-sandboxed-coding-agent",
     "verify-serialized-integration",
-    "replay-integrated-sentry-repair",
     "record-deterministic-change-summary",
     "run-exact-change-classification",
     "run-deterministic-verification",
@@ -102,6 +102,17 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
     stepByName(workflow, "record-preflight-dispatch").task.methodName,
     "record_dispatch",
   );
+  for (const step of steps.filter((entry) => (entry.dependsOn?.length ?? 0) > 0)) {
+    assert.match(
+      JSON.stringify(step.dependsOn),
+      /"succeeded".*"skipped"/,
+      `${step.name} must resume after intentionally skipped prior stages`,
+    );
+  }
+  assert.match(
+    stepByName(workflow, "record-implementation-dispatch").guard ?? "",
+    /stage\.id != "implementation"/,
+  );
   assert.equal(
     stepByName(workflow, "run-policy-preflight").task.workflowIdOrName,
     "factory-policy-sweep",
@@ -110,15 +121,10 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
     stepByName(workflow, "advance-to-implementation").task.inputs?.transition,
     "implement",
   );
-  assert.equal(
-    stepByName(workflow, "replay-integrated-sentry-repair").task.modelIdOrName,
-    "supers-sentry-integrated-replay",
-  );
+  assert.doesNotMatch(source, /replay-integrated-sentry-repair|supers-sentry-integrated-replay/);
   assert.ok(
     names.indexOf("verify-serialized-integration") <
-      names.indexOf("replay-integrated-sentry-repair") &&
-      names.indexOf("replay-integrated-sentry-repair") <
-        names.indexOf("cleanup-committed-worktree"),
+      names.indexOf("cleanup-committed-worktree"),
   );
 
   const prepare = stepByName(workflow, "prepare-isolated-coding-worktree");
@@ -137,16 +143,10 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   assert.equal(invoke.task.inputs?.sandboxRequired, false);
   assert.equal(invoke.task.inputs?.sandboxNetwork, "allow");
   assert.match(String(invoke.task.inputs?.prompt), /untrusted advisory text/);
-  assert.match(
-    String(invoke.task.inputs?.prompt),
-    /pre-existing byte-unchanged deterministic test/,
-  );
-  assert.match(String(invoke.task.inputs?.prompt), /Do not create or modify a test/);
   assert.match(String(invoke.task.inputs?.prompt), /Sentry/);
-  assert.match(
-    String(invoke.task.inputs?.prompt),
-    /prose, commands, and exit-code claims are not proof/,
-  );
+  assert.match(String(invoke.task.inputs?.prompt), /reproduction is not required/);
+  assert.match(String(invoke.task.inputs?.prompt), /pnpm check and pnpm test/);
+  assert.doesNotMatch(String(invoke.task.inputs?.prompt), /objectiveProofNomination|pre-existing byte-unchanged/);
 
   assert.equal(
     stepByName(workflow, "verify-committed-worktree").task.methodName,
@@ -210,7 +210,12 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   assert.ok(!methodNames.includes("approve"));
   assert.ok(!methodNames.includes("reject"));
   for (
-    const forbidden of ["issue resolve", "reproduction-agent", "map-reproduced"]
+    const forbidden of [
+      "issue resolve",
+      "reproduction-agent",
+      "map-reproduced",
+      "replay-integrated-sentry-repair",
+    ]
   ) {
     assert.doesNotMatch(source, new RegExp(forbidden, "i"));
   }

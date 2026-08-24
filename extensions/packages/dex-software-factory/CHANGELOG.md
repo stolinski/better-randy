@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026.08.24.1
+
+- Accept the optional machine-completion profile argument at the model boundary.
+- Remove reproduction identity from machine completion authorization; observed Sentry evidence plus ordinary passing Delivery checks now authorizes completion.
+
 ## 2026.08.22.1
 
 - Add an optional machine-completion lane that is gated by exact non-visual verification and leaves the ordinary human completion gate unchanged.

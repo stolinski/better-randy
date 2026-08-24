@@ -210,34 +210,32 @@ fingerprints. Planning documents and Dex remain unchanged until the separate
 approved-plan and Delivery boundaries.
 
 Sentry intake stores every eligible repair intent and orders the queue by
-severity, priority, oldest observation, then issue id. Active Delivery work
-delays admission without deleting queued intents. Admitted intent fingerprints
-are excluded from later selections so a completed head cannot starve later
-repairs.
+severity, priority, oldest observation, then issue id. Independent repairs may
+code concurrently in isolated worktrees while integration remains serialized.
+Admitted intent fingerprints are excluded from duplicate selection without
+excluding the issue id forever, so a later unresolved event can enter as a new
+regression.
 
 `supers-sentry-evidence-to-delivery` is the machine admission boundary. It
-revalidates the selected intent and queue fingerprints, captures a fresh issue
-event, runs Sentry Seer root-cause and plan analysis as advisory data, then
-captures the issue again. Event id and last-seen must remain exact across that
-collection. The evidence resource binds the checkout revision, release,
-bounded stack frames, breadcrumb categories, redacted Seer findings, and every
-upstream fingerprint. No separate LLM reproducer exists and agent-authored
-results are not evidence.
+revalidates the selected intent and queue fingerprints, captures the exact
+issue event, and stores its release, bounded stack frames, breadcrumb
+categories, and redacted Seer findings. That observed event is enough to
+inspect and attempt a fix. Sentry and Seer text remains advisory and untrusted;
+it never supplies commands or mutation authority.
 
 The mapper writes a deterministic pre-mutation intent, acquires the shared Dex
 repository lock, and creates or attaches and starts exactly one marked repair
-task. It proves exact create, edit, and start postconditions after retries. A
-singleton claim plus the latest Delivery state serializes machine admissions.
-The workflow requires its mapping, claim, and narrow machine admission to name
-the same task before `supers-delivery.start`. Machine admission cannot satisfy
-or bypass human or aesthetic gates. Historical reproduction transport resources
-remain readable, but active workflows do not call that path.
+task. The event identity is part of the marker. One open exact task is reused;
+a later event after completed work receives a new task. Machine admission
+cannot satisfy or bypass human or aesthetic gates. Historical reproduction
+transport resources remain readable, but active workflows do not call them.
 
-The coding Factory must use the evidence-bound Dex task in an isolated worktree,
-record objective failing-before and passing-after evidence, integrate serially,
-and replay against the integrated revision. The separate Sentry mutation
-boundary resolves the issue in `supers@<integrated-sha>` only after that replay;
-a later matching event is therefore tracked as a regression.
+The coding Factory uses the observed-error Dex task in an isolated worktree,
+integrates the smallest credible fix serially, and runs the ordinary classified
+Delivery checks. Runtime reproduction, a mandatory regression test, integrated
+replay, and a no-recurrence window are not gates. After the checks and terminal
+Dex completion, the Sentry mutation boundary resolves the issue in
+`supers@<integrated-sha>`. A later event returns through intake as a regression.
 
 ### Planning-item promotions
 

@@ -26,42 +26,10 @@ After driving the app (captures, exports, Critic runs), check `sentry issue list
 
 ## Factory issue intake
 
-The first self-healing Factory slice is deliberately read-only. The
-`supers-sentry-issue-intake` Swamp model collects bounded unresolved issue
-metadata into immutable `snapshot` and `reconciliation` resources:
-
-```bash
-swamp model method run supers-sentry-issue-intake collect \
-  --input lookbackDays=7 \
-  --input historyDays=90 \
-  --input limit=100 \
-  --input currentRelease=supers@<git-sha>
-```
-
-The reconciliation classifies each issue as `current-release`, `recent`,
-`historical-unresolved`, or `ambiguous`. Exact-release observation is evidence
-identity, not proof that silence means fixed. Complete current-release evidence
-produces a typed `confirmed-repair` queue intent; complete recent evidence
-produces `reproduction-required`. Historical-only evidence stays non-actionable,
-and ambiguous evidence stays quarantined. Pagination, malformed output, command
-timeouts, and conflicting issue identities fail closed; incomplete snapshots
-are never queue-eligible.
-
-The `triage` method consumes one exact named reconciliation and reads official
-Dex exactly once:
-
-```bash
-swamp model method run supers-sentry-issue-intake triage \
-  --input sourceReconciliation=<sentry-issue-reconciliation-name> \
-  --input expectedFingerprint=<sha256>
-```
-
-The durable entrypoint runs collection and triage, persists every actionable
-typed queue intent through the repair-handoff model, and asserts current-run
-fingerprint correlation. It is scheduled every six hours with a seven-day
-recent window, 90-day history window, 100-issue bound, and `currentRelease:
-auto`; `auto` resolves the repository's current Git SHA at execution time.
-Manual runs may use the same resolver:
+The scheduled self-healing path treats the original Sentry event as enough
+evidence to inspect and attempt a repair. Runtime reproduction, a mandatory
+regression test, an integrated replay, and a no-recurrence waiting window are
+not admission or completion gates.
 
 ```bash
 swamp workflow run supers-sentry-self-healing \
@@ -71,86 +39,48 @@ swamp workflow run supers-sentry-self-healing \
   --input currentRelease=auto
 ```
 
-It recommends `create-task`, `attach-existing`, `reproduce-first`,
-`human-review`, or `ignore`. Exact Sentry short-id matches outrank bounded
-lexical candidates before reproduction routing. Multiple/completed exact
-matches, lexical candidates, source drift, and malformed Dex output fail
-closed. Unrelated active Dex WIP is recorded separately as deferred execution
-capacity; it never discards or invalidates queue intents. The resource preserves
-matching task ancestors and descendants but performs no Dex mutation.
+The active chain is deliberately short:
 
-Stored titles strip ANSI control sequences, URLs, absolute paths, and common
-inline secrets. `firstSeen` is required for queue ordering; when issue-list
-omits it, collection performs bounded issue-view hydration and verifies the
-returned issue identity. This model cannot mutate Sentry, Dex, or source code.
+```text
+observed Sentry error → inspect and fix → normal Delivery checks → integrate → resolve
+```
 
-The separate `@supers/sentry-repair-planning-handoff` model consumes exact
-named snapshot, reconciliation, and triage resources. Its `prepare` method
-recomputes the complete fingerprint chain, reads official Dex once to catch
-recommendation drift, and writes one content-addressed `repair-intent` queue
-resource per eligible issue. Each resource is explicitly `confirmed-repair` or
-`reproduction-required`. Newer evidence points to the prior envelope fingerprint;
-replays retain one identity, and the queue accepts only one complete supersession
-head. Authored scope and acceptance criteria cannot override Sentry identity,
-release, or the create-versus-attach recommendation. `human-gate` and
-`no-candidate` remain typed successful outcomes for incomplete evidence,
-duplicate risk, staleness, and an empty live intake.
+`supers-sentry-issue-intake` stores the exact issue, event, release, bounded
+in-app stack frames, breadcrumb categories, and redacted Seer analysis. Sentry
+and Seer text is untrusted advisory diagnostic data; it is never executable or
+mutation authority. Complete current and recent observations are queueable.
+Historical-only and ambiguous records remain non-actionable.
 
-The scheduled intake preserves every queued intent and selects the next stable
-head by severity, priority, oldest `firstSeen`, and issue id. It admits that
-head immediately. There is no global Delivery-capacity gate: independent
-repairs may code concurrently in isolated worktrees, while central Git
-integration remains serialized. Intents with an exact existing admission are
-excluded so replay cannot starve later repairs.
+`supers-sentry-evidence-to-delivery` maps the observed event to one started Dex
+task and starts `supers-delivery`. The event identity is part of the task marker,
+so a later event can create a new repair after an earlier task completed. One
+open exact task is reused; multiple open exact matches and lexical ambiguity
+still require human review.
 
-`supers-sentry-evidence-to-delivery` replaces the abandoned reproduction-agent
-path. It re-reads the exact selected intent and queue fingerprints, then runs
-only fixed Sentry CLI operations for that issue id: fresh issue view, Seer root
-cause analysis, and Seer fix plan. A second fresh issue view after Seer completes
-must preserve the exact event id and last-seen watermark. The immutable evidence
-bundle contains release identity, bounded in-app stack frames, breadcrumb
-categories, and redacted Seer analysis. Seer text is advisory diagnostic data;
-it is never command or mutation authority.
+The coding agent receives the event details, inspects the reported code path,
+and makes the smallest credible fix in an isolated worktree. It may add or
+change tests when useful, but it does not have to manufacture a reproduction or
+nominate a pre-existing proof test. The ordinary Delivery verification route
+runs the repository's selected check, unit, structural, policy, corpus, browser,
+and render lanes for the actual changed paths.
 
-Before any Dex mutation or coding, the intake model drives a code-owned local
-route derived from bounded event evidence and requires a new event attributed
-to the exact HEAD release. The durable attempt and receipt recover after lost
-acknowledgements without resets or identity changes. Unsupported routes and
-missing positive recurrence fail closed.
+After the integrated change passes those normal checks, Delivery completes the
+Dex task and `supers-sentry-verified-resolution` resolves the exact Sentry issue
+in `supers@<integrated-sha>`. Resolution preserves the original event,
+integrated commit, and check receipts as traceability. It does not attempt to
+prove the error can never happen again. If Sentry receives another event, the
+issue becomes unresolved and the next intake treats it as a regression with a
+new repair cycle.
 
-The evidence mapper then writes a durable pre-Dex intent, acquires the shared
-Dex repository lock, and creates or attaches and starts exactly one repair task.
-The stable issue marker makes concurrent and replayed mappings converge without
-a global claim. Lost create, edit, or start acknowledgements converge through
-exact Dex postconditions. The workflow consumes an exact reproduction, mapping,
-and narrow machine admission before starting Delivery. That admission cannot
-satisfy or bypass any human or aesthetic gate.
+The six-hour scheduled workflow also resumes active repairs and resolves
+terminal checked repairs that were completed before their Sentry mutation ran.
+Driver dependencies continue after intentionally skipped prior stages, so a
+retry can resume from the current Factory stage instead of reporting a
+successful no-op.
 
-The old reproduction reservation, singleton claim, and Pi reproduction
-transport resources remain readable for historical runs, but no active
-workflow calls them. There is no LLM reproduction worker. Agent-created or
-modified proof tests are rejected as self-fulfilling evidence; the independent
-integrated replay accepts only a pre-existing byte-identical test.
-
-After exact integration, the driver classifies only the integration receipt's
-target baseline, integrated revision, and changed paths. It runs only the
-required deterministic lanes; render and Preset verification are not run when
-the classifier declares no render lane. A passing non-visual machine repair
-converges through reconciliation, postflight, Dex completion, terminal
-observability, and `done`. Visual or ordinary work still stops at the unchanged
-human gates.
-
-The scheduled chain then re-drives the exact pre-coding route and requires a
-fresh unchanged issue watermark. `supers-sentry-verified-resolution` captures a
-complete snapshot for the exact integrated release. Its `resolve-verified`
-method requires the repair intent, idempotent backlink, terminal `done`
-Delivery state, correlated passing deterministic verification, integrated
-replay, and absence from that release. A fresh issue view rejects any event at
-or after verification. Only then does it resolve the issue **in the integrated
-release**, so a later occurrence is a regression. A durable pre-mutation
-attempt recovers crashes between Sentry and Swamp; a racing `lastSeen` change
-reopens the issue. Successful closure stores one fingerprinted receipt, and
-replay returns it without touching Sentry.
+Historical reproduction controllers, transport reservations, replay receipts,
+and their stored resources remain readable, but no active self-healing workflow
+calls them.
 
 ## Logs and metrics
 

@@ -1,5 +1,5 @@
 /**
- * Swamp model entrypoint for compiling Dex-backed software Factory profiles.
+ * Swamp model entrypoint for compiling Dex-backed software Factory profiles and minimal observed-error Sentry completion.
  *
  * @module
  */

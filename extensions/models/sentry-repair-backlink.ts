@@ -12,7 +12,6 @@ import {
   SentryEvidenceDeliveryAdmissionSchema,
   SentryEvidenceTaskMappingSchema,
 } from "./sentry-evidence-dex-mapping.ts";
-import { SentryDefectReproductionReceiptSchema } from "./sentry-defect-reproduction.ts";
 import {
   SupersPlanApplicationSchema,
   SupersPlanningApplicationAuditSchema,
@@ -39,7 +38,6 @@ export const SentryMachineRepairBacklinkArgsSchema = z.strictObject({
   repairIntent: SentryRepairIntentEnvelopeSchema,
   mapping: SentryEvidenceTaskMappingSchema,
   admission: SentryEvidenceDeliveryAdmissionSchema,
-  reproduction: SentryDefectReproductionReceiptSchema,
 });
 
 export const SentryRepairBacklinkArgsSchema = z.object({
@@ -255,25 +253,22 @@ export async function executeSentryMachineRepairBacklink(
   const envelopeBase = Object.fromEntries(Object.entries(args.repairIntent).filter(([key]) => key !== "fingerprint"));
   const mappingBase = Object.fromEntries(Object.entries(args.mapping).filter(([key]) => key !== "fingerprint"));
   const admissionBase = Object.fromEntries(Object.entries(args.admission).filter(([key]) => key !== "fingerprint"));
-  const reproductionBase = Object.fromEntries(Object.entries(args.reproduction).filter(([key]) => key !== "fingerprint"));
   if (
     args.repairIntent.fingerprint !== await createSentrySha256(canonicalSentryJson(envelopeBase)) ||
     args.mapping.fingerprint !== await createSentrySha256(canonicalSentryJson(mappingBase)) ||
     args.admission.fingerprint !== await createSentrySha256(canonicalSentryJson(admissionBase)) ||
-    args.reproduction.fingerprint !== await createSentrySha256(canonicalSentryJson(reproductionBase)) ||
     args.mapping.taskId !== args.admission.dexTaskId ||
     args.mapping.issueId !== args.repairIntent.intent.issueId ||
     args.admission.issueId !== args.repairIntent.intent.issueId ||
-    args.reproduction.issueId !== args.repairIntent.intent.issueId ||
-    args.reproduction.repairIdentityFingerprint !== args.mapping.repairIdentityFingerprint
+    args.mapping.repairIdentityFingerprint !== args.admission.repairIdentityFingerprint
   ) throw new Error("Machine Sentry backlink evidence does not form one exact repair");
   return await recordBacklink(
     args.repairIntent.intent,
     args.mapping.taskId,
-    `machine-evidence:${args.reproduction.fingerprint}`,
+    `machine-evidence:${args.admission.fingerprint}`,
     context,
     dependencies,
-    { linkedAt: args.reproduction.observedAt, status: "linked" },
+    { linkedAt: args.admission.admittedAt, status: "linked" },
   );
 }
 

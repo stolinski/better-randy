@@ -697,7 +697,7 @@ Deno.test("repair model separates read-only queueing from evidence-bound Sentry 
   assert.equal(model.type, "@supers/sentry-repair-planning-handoff");
   assert.deepEqual(Object.keys(model.methods), [
     "record-machine-backlink",
-    "resolve-verified",
+    "resolve-fixed",
     "record-backlink",
     "select-next",
     "prepare",

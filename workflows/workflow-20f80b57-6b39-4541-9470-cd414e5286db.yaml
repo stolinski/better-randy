@@ -1,6 +1,6 @@
 id: 20f80b57-6b39-4541-9470-cd414e5286db
 name: supers-sentry-self-healing
-description: Every six hours, admit the next eligible issue and drive the complete evidence-bound repair, verification, and exact-release resolution chain.
+description: Every six hours, admit observed Sentry errors, drive checked fixes, resolve completed issues, and allow later events to enter as regressions.
 tags:
   purpose: supers-sentry-self-healing
   capability: scheduled-terminal-repair
@@ -67,7 +67,7 @@ jobs:
         weight: 0
         allowFailure: false
       - name: persist-actionable-sentry-queue
-        description: Persist confirmed-repair and reproduction-required intents while retaining prior evidence for replay-safe supersession.
+        description: Persist observed-error repair intents while retaining prior evidence for replay-safe supersession.
         task:
           type: model_method
           modelIdOrName: supers-sentry-repair-planning-handoff
@@ -130,15 +130,15 @@ jobs:
         description: Converge every previously admitted active Sentry Factory run before selecting more work.
         forEach:
           item: admission
-          in: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(admission, size(data.query(''modelName == "supers-delivery" && name == "state-'' + admission.attributes.dexTaskId + ''"'')) > 0).filter(admission, data.latest("supers-delivery", "state-" + admission.attributes.dexTaskId).attributes.status == "active").filter(admission, size(data.query(''modelName == "supers-sentry-issue-intake" && specName == "defect-reproduction"'').filter(reproduction, reproduction.attributes.repairIdentityFingerprint == admission.attributes.repairIdentityFingerprint && reproduction.attributes.checkoutRevision == admission.attributes.checkoutRevision)) > 0).filter(admission, size(data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(other, other.attributes.dexTaskId == admission.attributes.dexTaskId && other.attributes.admittedAt > admission.attributes.admittedAt)) == 0) }}'
+          in: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(admission, size(data.query(''modelName == "supers-delivery" && name == "state-'' + admission.attributes.dexTaskId + ''"'')) > 0).filter(admission, data.latest("supers-delivery", "state-" + admission.attributes.dexTaskId).attributes.status == "active").filter(admission, size(data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence"'').filter(evidence, evidence.attributes.repairIdentityFingerprint == admission.attributes.repairIdentityFingerprint && evidence.attributes.checkoutRevision == admission.attributes.checkoutRevision)) > 0).filter(admission, size(data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(other, other.attributes.dexTaskId == admission.attributes.dexTaskId && other.attributes.admittedAt > admission.attributes.admittedAt)) == 0) }}'
         concurrency: 4
         task:
           type: workflow
           workflowIdOrName: supers-sentry-factory-driver
           inputs:
             workItem: '${{ self.admission.attributes.dexTaskId }}'
-            evidenceName: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "defect-reproduction"'').filter(reproduction, reproduction.attributes.repairIdentityFingerprint == self.admission.attributes.repairIdentityFingerprint && reproduction.attributes.checkoutRevision == self.admission.attributes.checkoutRevision)[0].attributes.evidenceName }}'
-            expectedEvidenceFingerprint: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "defect-reproduction"'').filter(reproduction, reproduction.attributes.repairIdentityFingerprint == self.admission.attributes.repairIdentityFingerprint && reproduction.attributes.checkoutRevision == self.admission.attributes.checkoutRevision)[0].attributes.evidenceFingerprint }}'
+            evidenceName: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence"'').filter(evidence, evidence.attributes.repairIdentityFingerprint == self.admission.attributes.repairIdentityFingerprint && evidence.attributes.checkoutRevision == self.admission.attributes.checkoutRevision)[0].name }}'
+            expectedEvidenceFingerprint: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence"'').filter(evidence, evidence.attributes.repairIdentityFingerprint == self.admission.attributes.repairIdentityFingerprint && evidence.attributes.checkoutRevision == self.admission.attributes.checkoutRevision)[0].attributes.fingerprint }}'
             mappingName: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping"'').filter(mapping, mapping.attributes.taskId == self.admission.attributes.dexTaskId && mapping.attributes.repairIdentityFingerprint == self.admission.attributes.repairIdentityFingerprint)[0].name }}'
             expectedMappingFingerprint: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping"'').filter(mapping, mapping.attributes.taskId == self.admission.attributes.dexTaskId && mapping.attributes.repairIdentityFingerprint == self.admission.attributes.repairIdentityFingerprint)[0].attributes.fingerprint }}'
             admissionName: '${{ self.admission.name }}'
@@ -149,8 +149,29 @@ jobs:
               type: succeeded
         weight: 0
         allowFailure: false
+      - name: resolve-completed-sentry-repair
+        description: Resolve every terminal checked repair that still lacks a correlated Sentry resolution receipt.
+        forEach:
+          item: admission
+          in: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(admission, size(data.query(''modelName == "supers-delivery" && name == "state-'' + admission.attributes.dexTaskId + ''"'')) > 0).filter(admission, data.latest("supers-delivery", "state-" + admission.attributes.dexTaskId).attributes.status == "terminal" && data.latest("supers-delivery", "state-" + admission.attributes.dexTaskId).attributes.stageId == "done").filter(admission, size(data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence"'').filter(evidence, evidence.attributes.repairIdentityFingerprint == admission.attributes.repairIdentityFingerprint)) > 0).filter(admission, size(data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "backlink-receipt"'').filter(receipt, receipt.attributes.issueId == admission.attributes.issueId && receipt.attributes.dexTaskId == admission.attributes.dexTaskId)) > 0).filter(admission, size(data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "resolution-receipt"'').filter(receipt, receipt.attributes.issueId == admission.attributes.issueId && receipt.attributes.dexTaskId == admission.attributes.dexTaskId)) == 0) }}'
+        concurrency: 4
+        task:
+          type: workflow
+          workflowIdOrName: supers-sentry-verified-resolution
+          inputs:
+            repairIntentName: '${{ data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "repair-intent"'').filter(intent, intent.attributes.fingerprint == self.admission.attributes.repairIntentFingerprint)[0].name }}'
+            backlinkReceiptName: '${{ data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "backlink-receipt"'').filter(receipt, receipt.attributes.issueId == self.admission.attributes.issueId && receipt.attributes.dexTaskId == self.admission.attributes.dexTaskId)[0].name }}'
+            evidenceName: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence"'').filter(evidence, evidence.attributes.repairIdentityFingerprint == self.admission.attributes.repairIdentityFingerprint)[0].name }}'
+            expectedEvidenceFingerprint: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence"'').filter(evidence, evidence.attributes.repairIdentityFingerprint == self.admission.attributes.repairIdentityFingerprint)[0].attributes.fingerprint }}'
+            dexTaskId: '${{ self.admission.attributes.dexTaskId }}'
+        dependsOn:
+          - step: refresh-delivery-state
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
       - name: select-one-sentry-repair
-        description: Select at most one stable queue head without requiring a separate reproduction worker.
+        description: Select at most one stable queue head directly from observed Sentry errors.
         task:
           type: model_method
           modelIdOrName: supers-sentry-repair-planning-handoff
@@ -160,7 +181,7 @@ jobs:
             planningStates: []
             priorSelections: []
             admittedIntentFingerprints: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(admission, size(data.query(''modelName == "supers-delivery" && name == "state-'' + admission.attributes.dexTaskId + ''"'')) > 0).map(admission, admission.attributes.repairIntentFingerprint) }}'
-            excludedIssueIds: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "defect-reproduction-rejection"'').filter(rejection, has(rejection.attributes.capabilityVersion) && rejection.attributes.capabilityVersion == 2).map(rejection, rejection.attributes.issueId) + data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(admission, size(data.query(''modelName == "supers-delivery" && name == "state-'' + admission.attributes.dexTaskId + ''"'')) > 0).map(admission, admission.attributes.issueId) }}'
+            excludedIssueIds: []
         dependsOn:
           - step: refresh-delivery-state
             condition:
@@ -186,4 +207,4 @@ jobs:
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 4
+version: 5

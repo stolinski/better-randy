@@ -1117,7 +1117,7 @@ const CompleteMachineSentryMethodArgsSchema = CompleteMachineSentryRepairArgsSch
 
 export const model = {
   type: "@supers/sentry-reproduction-transport-controller",
-  version: "2026.08.21.3",
+  version: "2026.08.24.1",
   globalArguments: SentryTransportGlobalArgsSchema,
   resources: {
     lease: {
@@ -1274,8 +1274,6 @@ export const model = {
           {
             evidenceName: args.evidenceName,
             expectedEvidenceFingerprint: args.expectedEvidenceFingerprint,
-            reproductionName: args.reproductionName,
-            expectedReproductionFingerprint: args.expectedReproductionFingerprint,
           },
           context,
           DEFAULT_SENTRY_EVIDENCE_MAPPING_DEPENDENCIES,

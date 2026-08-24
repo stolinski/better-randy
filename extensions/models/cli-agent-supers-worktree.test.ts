@@ -528,6 +528,7 @@ Deno.test('committed worktree verification persists objective pre-integration ev
 	assert.equal(first.commitRevision, COMMIT_REVISION);
 	assert.equal(first.commitTree, COMMIT_TREE);
 	assert.deepEqual(first.changedPaths, [TEST_PATH]);
+	assert.ok(first.objectiveProofNomination);
 	assert.equal(first.objectiveProofNomination.testPath, TEST_PATH);
 	assert.equal('command' in first.objectiveProofNomination, false);
 	assert.equal('exitCode' in first.objectiveProofNomination, false);
@@ -537,6 +538,20 @@ Deno.test('committed worktree verification persists objective pre-integration ev
 	const replay = (await operations.verifySupersAgentWorktreeCommit(args, context)).resource;
 	assert.deepEqual(replay, first);
 	assert.equal(writes.length, writesAfterFirst);
+});
+
+Deno.test('committed Sentry fixes do not require an objective proof nomination', async () => {
+	const { repository, context, resources } = fixture();
+	const operations = createSupersAgentWorktreeOperations(repository);
+	const claim = (await operations.prepareSupersAgentWorktree(PREPARE_ARGS, context)).resource;
+	repository.worktreeHead = COMMIT_REVISION;
+	recordSuccessfulInvocation(resources, claim);
+	const args = commitVerificationArgs(claim);
+	delete args.objectiveProofNomination;
+
+	const receipt = (await operations.verifySupersAgentWorktreeCommit(args, context)).resource;
+	assert.equal(receipt.commitRevision, COMMIT_REVISION);
+	assert.equal(receipt.objectiveProofNomination, undefined);
 });
 
 Deno.test('committed worktree verification hashes raw bytes and detects verification races', async () => {

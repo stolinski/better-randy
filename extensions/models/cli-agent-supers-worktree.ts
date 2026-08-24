@@ -101,7 +101,7 @@ export const VerifySupersAgentWorktreeCommitArgsSchema = z
 		expectedPromptDigest: z.string().regex(SHA64_PATTERN),
 		expectedBaseRevision: z.string().regex(SHA40_PATTERN),
 		expectedCommitRevision: z.string().regex(SHA40_PATTERN),
-		objectiveProofNomination: SupersAgentObjectiveProofNominationSchema
+		objectiveProofNomination: SupersAgentObjectiveProofNominationSchema.optional()
 	})
 	.strict();
 export type VerifySupersAgentWorktreeCommitArgs = z.infer<
@@ -196,7 +196,7 @@ export const SupersAgentWorktreeCommitReceiptSchema = z
 		changedPaths: z.array(z.string().min(1)).min(1).max(MAX_CHANGED_PATHS),
 		changedPathsDigest: z.string().regex(SHA64_PATTERN),
 		diffDigest: z.string().regex(SHA64_PATTERN),
-		objectiveProofNomination: SupersAgentObjectiveProofNominationSchema,
+		objectiveProofNomination: SupersAgentObjectiveProofNominationSchema.optional(),
 		verifiedAt: z.string().datetime(),
 		fingerprint: z.string().regex(SHA64_PATTERN)
 	})
@@ -262,7 +262,7 @@ export const SupersAgentIntegrationHandoffManifestSchema = z
 		commitReceiptName: z.string().min(1),
 		commitReceiptId: z.string().regex(SHA64_PATTERN),
 		commitReceiptFingerprint: z.string().regex(SHA64_PATTERN),
-		objectiveProofNomination: SupersAgentObjectiveProofNominationSchema,
+		objectiveProofNomination: SupersAgentObjectiveProofNominationSchema.optional(),
 		baseRevision: z.string().regex(SHA40_PATTERN),
 		childCommitRevision: z.string().regex(SHA40_PATTERN),
 		integratedRevision: z.string().regex(SHA40_PATTERN),
@@ -1468,7 +1468,9 @@ export function createSupersAgentWorktreeOperations(
 			) {
 				throw new Error('commit verification arguments do not match the exact worktree claim');
 			}
-			requireObjectiveTestPath(args.objectiveProofNomination.testPath);
+			if (args.objectiveProofNomination !== undefined) {
+				requireObjectiveTestPath(args.objectiveProofNomination.testPath);
+			}
 			const receiptId = await createSupersAgentStableIdentityHash({
 				schemaVersion: 1,
 				...args
@@ -1502,7 +1504,9 @@ export function createSupersAgentWorktreeOperations(
 					attachedBranch: claim.attachedBranch,
 					baseRevision: args.expectedBaseRevision,
 					commitRevision: args.expectedCommitRevision,
-					objectiveProofNomination: args.objectiveProofNomination
+					...(args.objectiveProofNomination === undefined
+						? {}
+						: { objectiveProofNomination: args.objectiveProofNomination })
 				};
 				requireExactResource(
 					SupersAgentWorktreeCommitReceiptSchema,
@@ -1586,7 +1590,9 @@ export function createSupersAgentWorktreeOperations(
 				baseRevision: args.expectedBaseRevision,
 				commitRevision: args.expectedCommitRevision,
 				...finalEvidence,
-				objectiveProofNomination: args.objectiveProofNomination,
+				...(args.objectiveProofNomination === undefined
+					? {}
+					: { objectiveProofNomination: args.objectiveProofNomination }),
 				verifiedAt: deps.now().toISOString(),
 				fingerprint: ''
 			};
@@ -1781,7 +1787,9 @@ export function createSupersAgentWorktreeOperations(
 				commitReceiptName: args.commitReceiptName,
 				commitReceiptId: commitReceipt.receiptId,
 				commitReceiptFingerprint: commitReceipt.fingerprint,
-				objectiveProofNomination: commitReceipt.objectiveProofNomination,
+				...(commitReceipt.objectiveProofNomination === undefined
+					? {}
+					: { objectiveProofNomination: commitReceipt.objectiveProofNomination }),
 				baseRevision: args.expectedPreRevision,
 				childCommitRevision: commitReceipt.commitRevision,
 				integratedRevision: args.expectedPostRevision,
@@ -1948,7 +1956,9 @@ export function createSupersAgentWorktreeOperations(
 						expectedPromptDigest: committed.promptDigest,
 						expectedBaseRevision: committed.baseRevision,
 						expectedCommitRevision: committed.commitRevision,
-						objectiveProofNomination: committed.objectiveProofNomination
+						...(committed.objectiveProofNomination === undefined
+							? {}
+							: { objectiveProofNomination: committed.objectiveProofNomination })
 					}
 				};
 			}

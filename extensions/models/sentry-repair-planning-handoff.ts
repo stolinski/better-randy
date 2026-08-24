@@ -54,7 +54,7 @@ const ResolutionMethodArgsSchema = SentryRepairResolutionArgsSchema.extend(
 
 export const model = {
   type: "@supers/sentry-repair-planning-handoff",
-  version: "2026.08.22.1",
+  version: "2026.08.24.1",
   globalArguments: SentryRepairGlobalArgsSchema,
   resources: {
     handoff: {
@@ -66,7 +66,7 @@ export const model = {
     },
     "repair-intent": {
       description:
-        "One content-addressed confirmed-repair or reproduction-required intent with replay-safe supersession",
+        "One content-addressed observed Sentry repair intent with replay-safe supersession",
       schema: SentryRepairIntentEnvelopeSchema,
       lifetime: "infinite",
       garbageCollection: 5000,
@@ -94,7 +94,7 @@ export const model = {
     },
     "resolution-receipt": {
       description:
-        "Release-bound receipt resolving one Sentry issue after terminal verified Delivery",
+        "Release-bound receipt resolving one observed Sentry issue after its fix passes normal Delivery checks",
       schema: SentryRepairResolutionReceiptSchema,
       lifetime: "infinite",
       garbageCollection: 500,
@@ -102,7 +102,7 @@ export const model = {
   },
   methods: {
     "record-machine-backlink": {
-      description: "Add one idempotent Sentry comment from exact reproduced evidence and Dex mapping",
+      description: "Add one idempotent Sentry comment from exact observed evidence and Dex mapping",
       arguments: MachineBacklinkMethodArgsSchema,
       execute: (
         args: z.infer<typeof MachineBacklinkMethodArgsSchema>,
@@ -112,7 +112,6 @@ export const model = {
           repairIntent: args.repairIntent,
           mapping: args.mapping,
           admission: args.admission,
-          reproduction: args.reproduction,
         }),
         context,
         {
@@ -121,9 +120,9 @@ export const model = {
         },
       ),
     },
-    "resolve-verified": {
+    "resolve-fixed": {
       description:
-        "Resolve one linked Sentry issue in its verified fix release after terminal Delivery",
+        "Resolve one linked Sentry issue after its integrated fix passes normal Delivery checks",
       arguments: ResolutionMethodArgsSchema,
       execute: (
         args: z.infer<typeof ResolutionMethodArgsSchema>,
@@ -135,11 +134,9 @@ export const model = {
             expectedRepairIntentFingerprint: args.expectedRepairIntentFingerprint,
             backlinkReceiptName: args.backlinkReceiptName,
             expectedBacklinkReceiptFingerprint: args.expectedBacklinkReceiptFingerprint,
+            evidenceName: args.evidenceName,
+            expectedEvidenceFingerprint: args.expectedEvidenceFingerprint,
             dexTaskId: args.dexTaskId,
-            currentSnapshotName: args.currentSnapshotName,
-            expectedSnapshotFingerprint: args.expectedSnapshotFingerprint,
-            integratedReplayName: args.integratedReplayName,
-            expectedIntegratedReplayFingerprint: args.expectedIntegratedReplayFingerprint,
           }),
           context,
           {

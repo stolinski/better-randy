@@ -148,7 +148,7 @@ Deno.test("triage proposes a new task for a confirmed current-release issue with
   assert.equal(report.items[0].recommendation, "create-task");
 });
 
-Deno.test("triage routes lexical duplicates, completed exact matches, and multiple exact matches to human review", async () => {
+Deno.test("triage routes lexical duplicates and multiple open exact matches to human review", async () => {
   for (
     const tasks of [
       [task({
@@ -156,7 +156,6 @@ Deno.test("triage routes lexical duplicates, completed exact matches, and multip
         name: "Fix allowedKeys declaration regression",
         description: "Identifier collision",
       })],
-      [task({ id: "completed", completed: true, completed_at: NOW })],
       [task({ id: "open-1" }), task({ id: "open-2" })],
     ]
   ) {
@@ -175,7 +174,7 @@ Deno.test("triage routes lexical duplicates, completed exact matches, and multip
   }
 });
 
-Deno.test("completed task result text prevents duplicate repair work", async () => {
+Deno.test("an unresolved issue after completed repair work creates a regression task", async () => {
   const fixture = fixtureContext(reconciliation([issue()]));
   await executeSentryDexTriage(
     {
@@ -199,13 +198,13 @@ Deno.test("completed task result text prevents duplicate repair work", async () 
   );
 
   const report = SentryDexTriageSchema.parse(fixture.writes[0].data);
-  assert.equal(report.queueEligible, false);
-  assert.equal(report.items[0].recommendation, "human-review");
+  assert.equal(report.queueEligible, true);
+  assert.equal(report.items[0].recommendation, "create-task");
   assert.deepEqual(report.items[0].exactMatchTaskIds, [
     "completed-result-match",
   ]);
   assert.deepEqual(report.blockingReasons, []);
-  assert.equal(report.items[0].quarantineReason, "completed-exact-match");
+  assert.equal(report.items[0].quarantineReason, null);
 });
 
 Deno.test("recent issues remain queueable while unrelated Dex WIP defers execution", async () => {
@@ -234,10 +233,10 @@ Deno.test("recent issues remain queueable while unrelated Dex WIP defers executi
   assert.deepEqual(report.activeTaskIds, ["active"]);
   assert.deepEqual(report.blockingReasons, []);
   assert.equal(report.items[0].queueIntent, "reproduction-required");
-  assert.equal(report.items[0].recommendation, "reproduce-first");
+  assert.equal(report.items[0].recommendation, "create-task");
 });
 
-Deno.test("one quarantined issue does not block an unrelated reproduction intent", async () => {
+Deno.test("completed repairs and unrelated recent errors both remain actionable", async () => {
   const fixture = fixtureContext(reconciliation([
     issue(),
     issue({
@@ -264,9 +263,9 @@ Deno.test("one quarantined issue does not block an unrelated reproduction intent
   const report = SentryDexTriageSchema.parse(fixture.writes[0].data);
   assert.equal(report.queueEligible, true);
   assert.deepEqual(report.blockingReasons, []);
-  assert.equal(report.items[0].recommendation, "human-review");
-  assert.equal(report.items[0].quarantineReason, "completed-exact-match");
-  assert.equal(report.items[1].recommendation, "reproduce-first");
+  assert.equal(report.items[0].recommendation, "create-task");
+  assert.equal(report.items[0].quarantineReason, null);
+  assert.equal(report.items[1].recommendation, "create-task");
   assert.equal(report.items[1].quarantineReason, null);
 });
 

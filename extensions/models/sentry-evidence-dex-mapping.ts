@@ -13,7 +13,6 @@ import {
 import {
   SentryIssueRepairEvidenceSchema,
 } from "./sentry-issue-repair-evidence.ts";
-import { SentryDefectReproductionReceiptSchema } from "./sentry-defect-reproduction.ts";
 import {
   SentryRepairIntentEnvelopeSchema,
 } from "./sentry-repair-planning-handoff-adapter.ts";
@@ -26,8 +25,6 @@ const TaskIdSchema = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 export const MapEvidencedSentryRepairArgsSchema = z.strictObject({
   evidenceName: z.string().min(1).max(220),
   expectedEvidenceFingerprint: FingerprintSchema,
-  reproductionName: z.string().min(1).max(220),
-  expectedReproductionFingerprint: FingerprintSchema,
 });
 
 export const SentryEvidenceTaskCreationIntentSchema = z.strictObject({
@@ -73,7 +70,6 @@ export const SentryMachineCompletionAuthorizationSchema = z.strictObject({
   issueId: IssueIdSchema,
   dexTaskId: TaskIdSchema,
   admissionFingerprint: FingerprintSchema,
-  reproductionFingerprint: FingerprintSchema,
   integratedRevision: GitRevisionSchema,
   integrationReceiptId: FingerprintSchema,
   authorizedAt: z.string().datetime(),
@@ -265,7 +261,7 @@ function taskDescription(
     ...(evidence.breadcrumbCategories.length === 0
       ? ["- none supplied"]
       : evidence.breadcrumbCategories.map((category) => `- ${category}`)),
-    "The implementation must establish objective failing-before and passing-after evidence, make the smallest correct fix in an isolated worktree, preserve all Factory gates, and replay the affected behavior after integration.",
+    "Inspect the reported error, make the smallest credible fix in an isolated worktree, and run the repository checks relevant to the change.",
     exactMarker,
   ].filter((line) => line.length > 0).join("\n\n");
 }
@@ -408,26 +404,6 @@ export async function executeMapEvidencedSentryRepair(
   ) {
     throw new Error("Sentry repair evidence fingerprint mismatch");
   }
-  const reproduction = SentryDefectReproductionReceiptSchema.parse(
-    await readModelResource(
-      context,
-      "@supers/sentry-issue-intake",
-      intakeModelId,
-      args.reproductionName,
-    ),
-  );
-  const reproductionBase = omitContentFingerprint(reproduction);
-  if (
-    reproduction.fingerprint !== args.expectedReproductionFingerprint ||
-    reproduction.fingerprint !== await createSentrySha256(canonicalSentryJson(reproductionBase)) ||
-    reproduction.status !== "reproduced" ||
-    reproduction.evidenceFingerprint !== evidence.fingerprint ||
-    reproduction.repairIdentityFingerprint !== evidence.repairIdentityFingerprint ||
-    reproduction.issueId !== evidence.issueId ||
-    reproduction.checkoutRevision !== evidence.checkoutRevision
-  ) {
-    throw new Error("Dex mapping requires exact pre-coding deterministic reproduction");
-  }
   const envelope = SentryRepairIntentEnvelopeSchema.parse(
     await readModelResource(
       context,
@@ -456,7 +432,7 @@ export async function executeMapEvidencedSentryRepair(
     throw new Error("Sentry evidence no longer matches its repair intent");
   }
 
-  const exactMarker = `[supers-sentry-repair issue=${evidence.issueId}]`;
+  const exactMarker = `[supers-sentry-repair issue=${evidence.issueId} identity=${evidence.repairIdentityFingerprint}]`;
   const name = `Repair ${evidence.shortId} from Sentry evidence`;
   const description = taskDescription(evidence, exactMarker);
   const creationIntent = SentryEvidenceTaskCreationIntentSchema.parse(

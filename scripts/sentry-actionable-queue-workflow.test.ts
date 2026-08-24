@@ -41,7 +41,7 @@ Deno.test(
   async () => {
     const source = await Deno.readTextFile(INTAKE_WORKFLOW_PATH);
     const workflow = parse(source) as WorkflowDefinition;
-    assert.equal(workflow.version, 4);
+    assert.equal(workflow.version, 5);
     assert.deepEqual(
       workflow.jobs.flatMap((job) => job.steps).map((step) => step.name),
       [
@@ -52,6 +52,7 @@ Deno.test(
         "assert-correlated-queue",
         "refresh-delivery-state",
         "resume-active-sentry-repair",
+        "resolve-completed-sentry-repair",
         "select-one-sentry-repair",
         "admit-selected-sentry-repair",
       ],
@@ -78,30 +79,27 @@ Deno.test("Sentry evidence precedes Dex mutation and Delivery start", async () =
   );
   assert.deepEqual(names, [
     "collect-exact-sentry-evidence",
-    "reproduce-defect-on-head",
     "map-and-start-dex-repair",
     "record-machine-sentry-backlink",
     "assert-machine-delivery-admission",
     "start-delivery-factory",
     "materialize-delivery-status",
-    "drive-evidence-bound-implementation",
-    "verify-fresh-no-recurrence",
-    "resolve-exact-verified-release",
+    "drive-observed-error-fix",
+    "resolve-fixed-sentry-issue",
   ]);
   assert.ok(
     names.indexOf("collect-exact-sentry-evidence") <
-      names.indexOf("reproduce-defect-on-head") &&
-      names.indexOf("reproduce-defect-on-head") <
-        names.indexOf("map-and-start-dex-repair") &&
-      names.indexOf("drive-evidence-bound-implementation") <
-        names.indexOf("verify-fresh-no-recurrence") &&
-      names.indexOf("verify-fresh-no-recurrence") <
-        names.indexOf("resolve-exact-verified-release"),
+      names.indexOf("map-and-start-dex-repair") &&
+      names.indexOf("drive-observed-error-fix") <
+        names.indexOf("resolve-fixed-sentry-issue"),
   );
+  assert.doesNotMatch(source, /reproduce-defect|verify-no-recurrence|integratedReplay/);
   assert.match(source, /preservesHumanAestheticGate/);
   assert.doesNotMatch(source, /specName == "delivery-claim"/);
   assert.match(source, /workflowRunId ==/);
   assert.doesNotMatch(source, /invokeAndParse|reproduction-agent|Pi transport/);
+  assert.match(source, /methodName: map-evidenced/);
+  assert.match(source, /workflowIdOrName: supers-sentry-verified-resolution/);
 });
 
 Deno.test("Planning inventory binds only the selected supersession head", async () => {

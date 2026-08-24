@@ -361,31 +361,25 @@ export async function executeSentryDexTriage(
       reasons.push("Sentry source classification is ambiguous");
       quarantineReason = "ambiguous-source";
     } else if (issue.queueIntent !== null) {
-      if (openExact.length === 1 && completedExact.length === 0) {
+      if (openExact.length === 1) {
         recommendation = "attach-existing";
         reasons.push("One exact open Dex task references the Sentry short id");
-      } else if (exact.length > 1) {
+      } else if (openExact.length > 1) {
         recommendation = "human-review";
-        reasons.push("Multiple Dex tasks reference the Sentry short id");
+        reasons.push("Multiple open Dex tasks reference the Sentry short id");
         quarantineReason = "multiple-exact-matches";
-      } else if (completedExact.length === 1) {
-        recommendation = "human-review";
+      } else if (completedExact.length > 0) {
+        recommendation = "create-task";
         reasons.push(
-          "A completed Dex task references the unresolved Sentry issue",
+          "The unresolved Sentry issue recurred after earlier repair tasks completed",
         );
-        quarantineReason = "completed-exact-match";
       } else if (lexical.length > 0) {
         recommendation = "human-review";
         reasons.push("Possible lexical duplicate requires review");
         quarantineReason = "lexical-review";
-      } else if (issue.queueIntent === "reproduction-required") {
-        recommendation = "reproduce-first";
-        reasons.push(
-          "Recent issue needs bounded reproduction on the current checkout",
-        );
       } else {
         recommendation = "create-task";
-        reasons.push("No exact or lexical Dex match found");
+        reasons.push("The observed Sentry error has no open repair task");
       }
     } else {
       reasons.push(
@@ -412,8 +406,7 @@ export async function executeSentryDexTriage(
   const queueEligible = source.automationEligible && globalReasons.size === 0 &&
     items.some((item) =>
       item.recommendation === "create-task" ||
-      item.recommendation === "attach-existing" ||
-      item.recommendation === "reproduce-first"
+      item.recommendation === "attach-existing"
     );
   const reportBase = {
     sourceReconciliation: args.sourceReconciliation,
