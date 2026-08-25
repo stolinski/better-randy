@@ -1,8 +1,17 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vitest/config';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
 	plugins: [sveltekit()],
+	...(mode === 'test'
+		? {}
+		: {
+				ssr: {
+					optimizeDeps: {
+						exclude: ['svelte']
+					}
+				}
+			}),
 	test: {
 		include: ['src/**/*.test.ts']
 	},
@@ -10,4 +19,4 @@ export default defineConfig({
 		port: 7263,
 		allowedHosts: ['.robo.online']
 	}
-});
+}));
