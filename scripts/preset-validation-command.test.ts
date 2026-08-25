@@ -62,7 +62,7 @@ const registry = {
 			presetDependencies: []
 		}
 	],
-	knownPresetSlugs: ['chapter-card', 'lower-third', 'show-open-in-focus'],
+	knownPresetSlugs: ['chapter-card', 'lower-third', 'sound-escape-hatches'],
 	packs: [{ id: 'syntax' }, { id: 'clean-light' }]
 };
 
@@ -185,7 +185,7 @@ test('known unlisted Preset changes do not expand to every deliverable', () => {
 	assert.deepEqual(
 		selectAffectedStaticPresetPackAxes(registry, [
 			'.dex/tasks.jsonl',
-			'src/lib/presets/show-open-in-focus.json'
+			'src/lib/presets/sound-escape-hatches.json'
 		]),
 		[]
 	);

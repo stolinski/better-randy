@@ -1,0 +1,84 @@
+{
+	"schema": "supers@1",
+	"name": "Title card — Brand mark",
+	"description": "Brand-led full-frame title card. The centered mark enters cleanly, holds as the only focal point, then clears without an authored signal filter.",
+	"pack": "syntax",
+	"kind": "deliverable",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 5,
+			"fps": 30,
+			"format": "prores"
+		},
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "brand-mark",
+			"content": {
+				"body": ""
+			},
+			"variant": "syntax-fm",
+			"enter": {
+				"start": 0.05,
+				"duration": 0.08,
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
+			},
+			"exit": {
+				"start": 0.9,
+				"duration": 0.05,
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
+			},
+			"animation": {
+				"channels": {
+					"opacity": [
+						{
+							"atMs": 0,
+							"value": 0
+						},
+						{
+							"atMs": 250,
+							"value": 0
+						},
+						{
+							"atMs": 650,
+							"value": 1,
+							"ease": "smooth"
+						},
+						{
+							"atMs": 4500,
+							"value": 1
+						},
+						{
+							"atMs": 4750,
+							"value": 0,
+							"ease": "smooth"
+						}
+					]
+				}
+			}
+		},
+		"textAnimations": [],
+		"overlays": [],
+		"effects": [],
+		"audioCues": [],
+		"media": {
+			"assets": [],
+			"videoTrack": {
+				"clips": []
+			}
+		},
+		"backgroundFill": "pack"
+	}
+}

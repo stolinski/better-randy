@@ -123,10 +123,9 @@ export const crtTerminalPack: PackManifest = {
 		// is 0: the aesthetic doc's flat-glass law binds the dial even though
 		// the general effect supports it. The dial is G5-bounded — mask
 		// strength / beam focus / vignette are set so small dim-phosphor text
-		// keeps its measured contrast floor (Critic re-review 2026-07-10);
-		// retune against show-open-in-focus flipped to this Pack (its dim
-		// kicker/subtitle voices — ADR-0039 folded the -crt fixture) before
-		// darkening any of them.
+		// keeps its measured contrast floor (Critic re-review 2026-07-10).
+		// Re-run the affected native matrix against current small text before
+		// darkening any of these values.
 		// ---------------------------------------------------------------
 		chrome: {
 			kind: 'chrome',
@@ -138,14 +137,9 @@ export const crtTerminalPack: PackManifest = {
 						maskPitchPx: 7,
 						// 0.12 (with focus 0.88 below): maximum G5 headroom the dial can
 						// give — re-confirmed inert (±0.02 ratio) after the 2026-07-13
-						// scale-compensation fix. The round-5 push decay (~9% across the
-						// hold on show-open's SEASON TWO) is RESOLVED engine-side: the
-						// tube's raster + mask lattices now evaluate in staged-content
-						// space (crt-tube contentScale, fed by the stage camera), so
-						// stroke-to-lattice phase holds through a push. What that fix
-						// exposed: the early-hold 4.7 was favourable-phase luck — the
-						// stage-path REST value is ~4.3 (static pieces measure 4.5+),
-						// a rest-state ground/ink gap, not a raster-phase term.
+						// scale-compensation fix. The tube's raster + mask lattices
+						// evaluate in staged-content space (`contentScale` follows the
+						// stage camera), so stroke-to-lattice phase holds through a push.
 						maskStrength: 0.12,
 						// 2160 / 360 = 6px line pitch @4K — the same pitch as the
 						// per-element material scanline (pitchPx 6), so the element

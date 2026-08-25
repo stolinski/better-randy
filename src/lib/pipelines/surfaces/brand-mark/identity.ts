@@ -27,13 +27,15 @@ export const brandMarkIdentity: IdentitySpec = {
 		},
 		{
 			name: 'frame-relationship',
-			definition: 'The mark is large, centered, aspect-preserving, and safe in both transports.',
+			definition:
+				'The mark is large, centered, and aspect-preserving while its sponsor lockup remains safe in both transports.',
 			implementation:
-				'src/lib/pipelines/surfaces/brand-mark/CanvasSource.svelte sizes the SVG from the smaller frame axis and centers it in the native target.',
+				'src/lib/pipelines/surfaces/brand-mark/CanvasSource.svelte sizes the SVG from the smaller frame axis, centers it, and raises the sponsor lockup above the vertical platform UI band.',
 			probe: {
 				kind: 'named-observation',
 				region: 'full horizontal and vertical frames',
-				expectation: 'the mark remains centered, large, and inside platform-safe bounds.'
+				expectation:
+					'the mark remains centered and large, and the sponsor lockup stays inside platform-safe bounds.'
 			}
 		},
 		{

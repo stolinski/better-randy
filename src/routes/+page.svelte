@@ -51,7 +51,8 @@
 		{ label: 'Flowcharts', prefixes: ['docu-flowchart', 'wake-conversation-flow'] },
 		{ label: 'Docu', prefixes: ['docu-'] },
 		{ label: 'Lower thirds', prefixes: ['lower-third'] },
-		{ label: 'Social beats', prefixes: ['youtube-', 'instagram-'] }
+		{ label: 'Social beats', prefixes: ['youtube-', 'instagram-'] },
+		{ label: 'Title cards', prefixes: ['title-card-'] }
 	];
 
 	function templateGroupLabel(entry: HomepagePresetCard): string {

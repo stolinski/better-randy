@@ -1,0 +1,125 @@
+{
+	"schema": "supers@1",
+	"name": "Title card — Chapter heading",
+	"description": "Text-led full-frame title card with a centered chapter label and primary title. It enters as one quiet typographic unit, holds for the section break, then clears.",
+	"pack": "syntax",
+	"kind": "deliverable",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 5,
+			"fps": 30,
+			"format": "prores"
+		},
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			},
+			"enter": {
+				"start": 0.05,
+				"duration": 0.08,
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
+			},
+			"exit": {
+				"start": 0.9,
+				"duration": 0.05,
+				"ease": "smooth",
+				"sound": {
+					"mute": true
+				}
+			},
+			"animation": {
+				"channels": {
+					"opacity": [
+						{
+							"atMs": 0,
+							"value": 0
+						},
+						{
+							"atMs": 250,
+							"value": 0
+						},
+						{
+							"atMs": 650,
+							"value": 1,
+							"ease": "smooth"
+						},
+						{
+							"atMs": 4500,
+							"value": 1
+						},
+						{
+							"atMs": 4750,
+							"value": 0,
+							"ease": "smooth"
+						}
+					]
+				}
+			},
+			"diagram": [
+				{
+					"id": "chapter-label",
+					"type": "label",
+					"position": {
+						"x": 0.5,
+						"y": 0.3719
+					},
+					"text": "CHAPTER 1",
+					"role": "caption",
+					"scale": 2.8,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.4
+							},
+							"scale": 0.85
+						}
+					}
+				},
+				{
+					"id": "chapter-title",
+					"type": "label",
+					"position": {
+						"x": 0.4987,
+						"y": 0.5645
+					},
+					"text": "Crash & Burnout",
+					"role": "headline",
+					"scale": 1.5,
+					"orientationOverrides": {
+						"vertical": {
+							"position": {
+								"x": 0.5,
+								"y": 0.5
+							},
+							"scale": 1
+						}
+					}
+				}
+			]
+		},
+		"textAnimations": [],
+		"overlays": [],
+		"effects": [],
+		"audioCues": [],
+		"media": {
+			"assets": [],
+			"videoTrack": {
+				"clips": []
+			}
+		},
+		"backgroundFill": "pack"
+	}
+}
