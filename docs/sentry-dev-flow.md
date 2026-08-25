@@ -39,7 +39,7 @@ swamp workflow run supers-sentry-self-healing \
   --input currentRelease=auto
 
 # Latest managed-worktree inventory, sizes, and cleanup dispositions
-swamp data get supers-delivery-coding-agent \
+swamp data get supers-sentry-coding-agent \
   supers-agent-worktree-reconciliation-latest --json
 ```
 
