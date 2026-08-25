@@ -47,7 +47,7 @@ jobs:
             claimIds: '${{ data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-claim"'').filter(claim, size(data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-removal"'').filter(removal, removal.attributes.claimId == claim.attributes.claimId)) == 0).map(claim, claim.attributes.claimId) }}'
         dependsOn: []
         weight: 0
-        allowFailure: false
+        allowFailure: true
       - name: collect-sentry-issues
         description: Store the bounded issue snapshot and current/recent/historical reconciliation.
         task:
@@ -62,7 +62,7 @@ jobs:
         dependsOn:
           - step: reconcile-agent-worktrees
             condition:
-              type: succeeded
+              type: completed
         weight: 0
         allowFailure: false
       - name: triage-against-dex
@@ -221,4 +221,4 @@ jobs:
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 6
+version: 7

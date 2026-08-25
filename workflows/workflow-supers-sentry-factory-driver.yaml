@@ -227,6 +227,7 @@ jobs:
           methodName: reconcileSupersAgentWorktrees
           inputs:
             claimIds: '${{ data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-claim"'').filter(claim, claim.attributes.workItem == inputs.workItem).filter(claim, size(data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-removal"'').filter(removal, removal.attributes.claimId == claim.attributes.claimId)) == 0).map(claim, claim.attributes.claimId) }}'
+        guard: '${{ size(data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-integration"'').filter(item, item.attributes.activeTaskId == inputs.workItem)) == 1 }}'
         dependsOn:
           - step: assert-trusted-baseline
             condition:
@@ -846,4 +847,4 @@ jobs:
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 4
+version: 5

@@ -15,6 +15,8 @@ const MATERIALIZED_PLANNING_PATH =
 type WorkflowStep = {
   name: string;
   guard?: string;
+  allowFailure?: boolean;
+  dependsOn?: Array<{ condition?: { type?: string } }>;
   task: {
     type: string;
     modelIdOrName?: string;
@@ -41,7 +43,7 @@ Deno.test(
   async () => {
     const source = await Deno.readTextFile(INTAKE_WORKFLOW_PATH);
     const workflow = parse(source) as WorkflowDefinition;
-    assert.equal(workflow.version, 6);
+    assert.equal(workflow.version, 7);
     assert.deepEqual(
       workflow.jobs.flatMap((job) => job.steps).map((step) => step.name),
       [
@@ -59,9 +61,24 @@ Deno.test(
       ],
     );
     const reconciliation = stepByName(workflow, "reconcile-agent-worktrees");
-    assert.equal(reconciliation.task.methodName, "reconcileSupersAgentWorktrees");
-    assert.match(String(reconciliation.task.inputs?.claimIds), /supers-agent-worktree-claim/);
-    assert.match(String(reconciliation.task.inputs?.claimIds), /supers-agent-worktree-removal/);
+    assert.equal(
+      reconciliation.task.methodName,
+      "reconcileSupersAgentWorktrees",
+    );
+    assert.match(
+      String(reconciliation.task.inputs?.claimIds),
+      /supers-agent-worktree-claim/,
+    );
+    assert.match(
+      String(reconciliation.task.inputs?.claimIds),
+      /supers-agent-worktree-removal/,
+    );
+    assert.equal(reconciliation.allowFailure, true);
+    assert.equal(
+      stepByName(workflow, "collect-sentry-issues").dependsOn?.[0]?.condition
+        ?.type,
+      "completed",
+    );
     const persist = stepByName(workflow, "persist-actionable-sentry-queue");
     assert.equal(persist.task.methodName, "prepare");
     assert.deepEqual(persist.task.inputs?.issuePlans, []);
@@ -94,11 +111,14 @@ Deno.test("Sentry evidence precedes Dex mutation and Delivery start", async () =
   ]);
   assert.ok(
     names.indexOf("collect-exact-sentry-evidence") <
-      names.indexOf("map-and-start-dex-repair") &&
+        names.indexOf("map-and-start-dex-repair") &&
       names.indexOf("drive-observed-error-fix") <
         names.indexOf("resolve-fixed-sentry-issue"),
   );
-  assert.doesNotMatch(source, /reproduce-defect|verify-no-recurrence|integratedReplay/);
+  assert.doesNotMatch(
+    source,
+    /reproduce-defect|verify-no-recurrence|integratedReplay/,
+  );
   assert.match(source, /preservesHumanAestheticGate/);
   assert.doesNotMatch(source, /specName == "delivery-claim"/);
   assert.match(source, /workflowRunId ==/);
