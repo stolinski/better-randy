@@ -117,10 +117,16 @@ async function fixtureResources() {
     culprit: "GET /api/example",
     stackFrames: [],
     breadcrumbCategories: ["console"],
-    seerRootCauses: [{ description: "Inspect the reported route", relevantRepos: [] }],
+    seerRootCauses: [{
+      description: "Inspect the reported route",
+      relevantRepos: [],
+    }],
     seerPlanRunId: 1,
     seerPlanSummary: "Apply the smallest credible fix",
-    seerPlanSteps: [{ title: "Inspect", description: "Check the reported code path" }],
+    seerPlanSteps: [{
+      title: "Inspect",
+      description: "Check the reported code path",
+    }],
     checkoutRevision: "1".repeat(40),
     capturedAt: "2026-08-18T22:01:00.000Z",
   });
@@ -146,7 +152,9 @@ async function fixtureResources() {
       policySweepWorkflowVersion: 2 as const,
       policySweepWorkflowRunId: "policy-run-17",
       policySweepExecutionDigest: SHA,
-      policyReceipts: ["parity", "planning", "timing", "tracking"].map((specName) => ({
+      policyReceipts: ["parity", "planning", "timing", "tracking"].map((
+        specName,
+      ) => ({
         modelName: "repo-audit",
         specName,
         resourceName: `${specName}-latest`,
@@ -200,13 +208,22 @@ async function fixtureResources() {
     },
     recordedAt: "2026-08-19T00:30:00.000Z",
   };
-  return { intent: envelope, backlink, evidence, verification, state, changeSummary };
+  return {
+    intent: envelope,
+    backlink,
+    evidence,
+    verification,
+    state,
+    changeSummary,
+  };
 }
 
 class FakeRunner implements SentryRepairResolutionCommandRunner {
   calls: string[][] = [];
   private resolved = false;
-  run(args: readonly string[]): Promise<{ code: number; stdout: string; stderr: string }> {
+  run(
+    args: readonly string[],
+  ): Promise<{ code: number; stdout: string; stderr: string }> {
     this.calls.push([...args]);
     if (args.includes("resolve")) {
       this.resolved = true;
@@ -236,14 +253,58 @@ async function runResolution(
   const fixture = await fixtureResources();
   mutate?.(fixture);
   const store = new Map<string, Record<string, unknown>>([
-    [resourceKey("@supers/sentry-repair-planning-handoff", MODEL_ID, "repair-intent"), fixture.intent],
-    [resourceKey("@supers/sentry-repair-planning-handoff", MODEL_ID, "backlink-receipt"), fixture.backlink],
-    [resourceKey("@supers/sentry-issue-intake", INTAKE_MODEL_ID, "repair-evidence"), fixture.evidence],
-    [resourceKey("@swamp/software-factory", DELIVERY_MODEL_ID, `state-${DEX_TASK_ID}`), fixture.state],
-    [resourceKey("@swamp/software-factory", DELIVERY_MODEL_ID, `artifact-${DEX_TASK_ID}-verification`), fixture.verification],
-    [resourceKey("@swamp/software-factory", DELIVERY_MODEL_ID, `artifact-${DEX_TASK_ID}-change-summary`), fixture.changeSummary],
+    [
+      resourceKey(
+        "@supers/sentry-repair-planning-handoff",
+        MODEL_ID,
+        "repair-intent",
+      ),
+      fixture.intent,
+    ],
+    [
+      resourceKey(
+        "@supers/sentry-repair-planning-handoff",
+        MODEL_ID,
+        "backlink-receipt",
+      ),
+      fixture.backlink,
+    ],
+    [
+      resourceKey(
+        "@supers/sentry-issue-intake",
+        INTAKE_MODEL_ID,
+        "repair-evidence",
+      ),
+      fixture.evidence,
+    ],
+    [
+      resourceKey(
+        "@swamp/software-factory",
+        DELIVERY_MODEL_ID,
+        `state-${DEX_TASK_ID}`,
+      ),
+      fixture.state,
+    ],
+    [
+      resourceKey(
+        "@swamp/software-factory",
+        DELIVERY_MODEL_ID,
+        `artifact-${DEX_TASK_ID}-verification`,
+      ),
+      fixture.verification,
+    ],
+    [
+      resourceKey(
+        "@swamp/software-factory",
+        DELIVERY_MODEL_ID,
+        `artifact-${DEX_TASK_ID}-change-summary`,
+      ),
+      fixture.changeSummary,
+    ],
   ]);
-  const writes: Array<{ specName: string; name: string; data: Record<string, unknown> }> = [];
+  const writes: Array<
+    { specName: string; name: string; data: Record<string, unknown> }
+  > = [];
   const args = {
     repairIntentName: "repair-intent",
     expectedRepairIntentFingerprint: fixture.intent.fingerprint,
@@ -253,30 +314,42 @@ async function runResolution(
     expectedEvidenceFingerprint: fixture.evidence.fingerprint,
     dexTaskId: DEX_TASK_ID,
   };
-  const execute = () => executeSentryRepairResolution(
-    args,
-    {
-      modelId: MODEL_ID,
-      repoDir: "/fixture/supers",
-      globalArgs: {
-        sourceIntakeModelId: INTAKE_MODEL_ID,
-        sourceDeliveryModelId: DELIVERY_MODEL_ID,
-      },
-      dataRepository: {
-        getContent: (type, modelId, name) => {
-          const data = store.get(resourceKey(String(type), modelId, name));
-          return Promise.resolve(data === undefined ? null : new TextEncoder().encode(JSON.stringify(data)));
+  const execute = () =>
+    executeSentryRepairResolution(
+      args,
+      {
+        modelId: MODEL_ID,
+        repoDir: "/fixture/supers",
+        globalArgs: {
+          sourceIntakeModelId: INTAKE_MODEL_ID,
+          sourceDeliveryModelId: DELIVERY_MODEL_ID,
+        },
+        dataRepository: {
+          getContent: (type, modelId, name) => {
+            const data = store.get(resourceKey(String(type), modelId, name));
+            return Promise.resolve(
+              data === undefined
+                ? null
+                : new TextEncoder().encode(JSON.stringify(data)),
+            );
+          },
+        },
+        logger: { info: () => undefined },
+        writeResource: (specName, name, data) => {
+          writes.push({ specName, name, data });
+          store.set(
+            resourceKey(
+              "@supers/sentry-repair-planning-handoff",
+              MODEL_ID,
+              name,
+            ),
+            data,
+          );
+          return Promise.resolve({ name });
         },
       },
-      logger: { info: () => undefined },
-      writeResource: (specName, name, data) => {
-        writes.push({ specName, name, data });
-        store.set(resourceKey("@supers/sentry-repair-planning-handoff", MODEL_ID, name), data);
-        return Promise.resolve({ name });
-      },
-    },
-    { commandRunner: runner, now: () => NOW },
-  );
+      { commandRunner: runner, now: () => NOW },
+    );
   await execute();
   return { execute, writes };
 }
@@ -311,7 +384,8 @@ Deno.test("resolution does not require reproduction, replay, or a no-recurrence 
 Deno.test("resolution replay returns the exact receipt without another Sentry mutation", async () => {
   const runner = new FakeRunner();
   const { execute, writes } = await runResolution(runner);
-  await execute();
+  const replay = await execute();
+  assert.deepEqual(replay.dataHandles, []);
   assert.equal(writes.length, 2);
   assert.equal(runner.calls.length, 3);
 });
@@ -319,9 +393,12 @@ Deno.test("resolution replay returns the exact receipt without another Sentry mu
 Deno.test("ordinary check failures block resolution", async () => {
   const runner = new FakeRunner();
   await assert.rejects(
-    () => runResolution(runner, (fixture) => {
-      (fixture.verification.payload.objectiveFailureCodes as string[]).push("unit-failed");
-    }),
+    () =>
+      runResolution(runner, (fixture) => {
+        (fixture.verification.payload.objectiveFailureCodes as string[]).push(
+          "unit-failed",
+        );
+      }),
     /Passing routes cannot contain failure|ordinary passing Delivery checks/,
   );
   assert.equal(runner.calls.length, 0);

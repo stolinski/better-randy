@@ -288,67 +288,73 @@ export async function executeSentryRepairResolution(
   const sourceDeliveryModelId = z.string().uuid().parse(
     context.globalArgs.sourceDeliveryModelId,
   );
-  const [repairIntent, backlinkReceipt, evidence, deliveryState, verification, changeSummary] =
-    await Promise.all([
-      readRequiredResource(
-        "@supers/sentry-repair-planning-handoff",
-        context.modelId,
-        args.repairIntentName,
-        SentryRepairIntentEnvelopeSchema,
-        context,
-      ),
-      readRequiredResource(
-        "@supers/sentry-repair-planning-handoff",
-        context.modelId,
-        args.backlinkReceiptName,
-        SentryRepairBacklinkReceiptSchema,
-        context,
-      ),
-      readRequiredResource(
-        "@supers/sentry-issue-intake",
-        sourceIntakeModelId,
-        args.evidenceName,
-        SentryIssueRepairEvidenceSchema,
-        context,
-      ),
-      readRequiredResource(
-        "@swamp/software-factory",
-        sourceDeliveryModelId,
-        `state-${args.dexTaskId}`,
-        SentryRepairDeliveryStateSchema,
-        context,
-      ),
-      readRequiredResource(
-        "@swamp/software-factory",
-        sourceDeliveryModelId,
-        `artifact-${args.dexTaskId}-verification`,
-        SentryRepairDeliveryVerificationSchema,
-        context,
-      ),
-      readRequiredResource(
-        "@swamp/software-factory",
-        sourceDeliveryModelId,
-        `artifact-${args.dexTaskId}-change-summary`,
-        SentryRepairChangeSummarySchema,
-        context,
-      ),
-    ]);
+  const [
+    repairIntent,
+    backlinkReceipt,
+    evidence,
+    deliveryState,
+    verification,
+    changeSummary,
+  ] = await Promise.all([
+    readRequiredResource(
+      "@supers/sentry-repair-planning-handoff",
+      context.modelId,
+      args.repairIntentName,
+      SentryRepairIntentEnvelopeSchema,
+      context,
+    ),
+    readRequiredResource(
+      "@supers/sentry-repair-planning-handoff",
+      context.modelId,
+      args.backlinkReceiptName,
+      SentryRepairBacklinkReceiptSchema,
+      context,
+    ),
+    readRequiredResource(
+      "@supers/sentry-issue-intake",
+      sourceIntakeModelId,
+      args.evidenceName,
+      SentryIssueRepairEvidenceSchema,
+      context,
+    ),
+    readRequiredResource(
+      "@swamp/software-factory",
+      sourceDeliveryModelId,
+      `state-${args.dexTaskId}`,
+      SentryRepairDeliveryStateSchema,
+      context,
+    ),
+    readRequiredResource(
+      "@swamp/software-factory",
+      sourceDeliveryModelId,
+      `artifact-${args.dexTaskId}-verification`,
+      SentryRepairDeliveryVerificationSchema,
+      context,
+    ),
+    readRequiredResource(
+      "@swamp/software-factory",
+      sourceDeliveryModelId,
+      `artifact-${args.dexTaskId}-change-summary`,
+      SentryRepairChangeSummarySchema,
+      context,
+    ),
+  ]);
 
   const intent = repairIntent.intent;
   if (
     repairIntent.fingerprint !== args.expectedRepairIntentFingerprint ||
     repairIntent.fingerprint !== await createSentrySha256(
-      canonicalSentryJson(omitFingerprint(repairIntent)),
-    ) ||
+        canonicalSentryJson(omitFingerprint(repairIntent)),
+      ) ||
     intent.fingerprint !== await fingerprintRepairIntent(intent) ||
     backlinkReceipt.fingerprint !== args.expectedBacklinkReceiptFingerprint ||
     backlinkReceipt.fingerprint !== await createSentrySha256(
-      canonicalSentryJson(omitFingerprint(backlinkReceipt)),
-    ) ||
+        canonicalSentryJson(omitFingerprint(backlinkReceipt)),
+      ) ||
     evidence.fingerprint !== args.expectedEvidenceFingerprint ||
     evidence.fingerprint !== await createSentrySha256(
-      canonicalSentryJson(omitFingerprint(evidence)),
-    )
+        canonicalSentryJson(omitFingerprint(evidence)),
+      )
   ) {
     throw new Error("Sentry repair resolution fingerprint mismatch");
   }
@@ -370,7 +376,8 @@ export async function executeSentryRepairResolution(
   }
 
   const route = verification.payload;
-  const integratedRevision = changeSummary.payload.integrationReceipt.integratedRevision;
+  const integratedRevision =
+    changeSummary.payload.integrationReceipt.integratedRevision;
   if (
     route.disposition !== "reconcile" ||
     route.requiredHumanReviewKinds.length !== 0 ||
@@ -379,11 +386,14 @@ export async function executeSentryRepairResolution(
     route.integratedRevision !== integratedRevision ||
     changeSummary.payload.commit !== integratedRevision
   ) {
-    throw new Error("Sentry repair does not have ordinary passing Delivery checks");
+    throw new Error(
+      "Sentry repair does not have ordinary passing Delivery checks",
+    );
   }
 
   const resolvedInRelease = `supers@${integratedRevision}`;
-  const receiptName = `sentry-repair-resolution-${intent.issueId}-${evidence.repairIdentityFingerprint}`;
+  const receiptName =
+    `sentry-repair-resolution-${intent.issueId}-${evidence.repairIdentityFingerprint}`;
   const attemptName = `${receiptName}-attempt`;
   const existingReceipt = await readOptionalResource(
     receiptName,
@@ -393,15 +403,17 @@ export async function executeSentryRepairResolution(
   if (existingReceipt !== null) {
     if (
       existingReceipt.fingerprint !== await createSentrySha256(
-        canonicalSentryJson(omitFingerprint(existingReceipt)),
-      ) ||
+          canonicalSentryJson(omitFingerprint(existingReceipt)),
+        ) ||
       existingReceipt.dexTaskId !== args.dexTaskId ||
       existingReceipt.evidenceFingerprint !== evidence.fingerprint ||
       existingReceipt.integratedRevision !== integratedRevision
     ) {
-      throw new Error("Existing Sentry resolution receipt conflicts with this repair");
+      throw new Error(
+        "Existing Sentry resolution receipt conflicts with this repair",
+      );
     }
-    return { dataHandles: [{ name: receiptName }] };
+    return { dataHandles: [] };
   }
 
   let attempt = await readOptionalResource(
@@ -433,13 +445,15 @@ export async function executeSentryRepairResolution(
     );
   } else if (
     attempt.fingerprint !== await createSentrySha256(
-      canonicalSentryJson(omitFingerprint(attempt)),
-    ) ||
+        canonicalSentryJson(omitFingerprint(attempt)),
+      ) ||
     attempt.dexTaskId !== args.dexTaskId ||
     attempt.evidenceFingerprint !== evidence.fingerprint ||
     attempt.integratedRevision !== integratedRevision
   ) {
-    throw new Error("Existing Sentry resolution attempt conflicts with this repair");
+    throw new Error(
+      "Existing Sentry resolution attempt conflicts with this repair",
+    );
   }
 
   const issue = await viewIssue(intent.shortId, context, dependencies);
@@ -453,10 +467,14 @@ export async function executeSentryRepairResolution(
       20_000,
     );
     if (resolution.code !== 0) {
-      throw new Error(`sentry issue resolve failed with exit ${resolution.code}`);
+      throw new Error(
+        `sentry issue resolve failed with exit ${resolution.code}`,
+      );
     }
   } else if (issue.status !== "resolved") {
-    throw new Error(`Sentry issue has unsupported closure status ${issue.status}`);
+    throw new Error(
+      `Sentry issue has unsupported closure status ${issue.status}`,
+    );
   }
 
   const confirmed = await viewIssue(intent.shortId, context, dependencies);
@@ -492,10 +510,13 @@ export async function executeSentryRepairResolution(
   dataHandles.push(
     await context.writeResource("resolution-receipt", receiptName, receipt),
   );
-  context.logger.info("Resolved Sentry issue after the repair passed normal checks", {
-    issueId: intent.issueId,
-    dexTaskId: args.dexTaskId,
-    integratedRevision,
-  });
+  context.logger.info(
+    "Resolved Sentry issue after the repair passed normal checks",
+    {
+      issueId: intent.issueId,
+      dexTaskId: args.dexTaskId,
+      integratedRevision,
+    },
+  );
   return { dataHandles };
 }
