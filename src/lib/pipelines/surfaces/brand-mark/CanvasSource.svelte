@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { Attachment } from 'svelte/attachments';
 
-	import { engineState } from '$lib/platform/engine-state.svelte';
+	import { engineState, packState } from '$lib/platform/engine-state.svelte';
+	import { getPack } from '$lib/platform/packs/registry';
+	import { resolveFieldInkColor, resolveTypographyColors } from '$lib/platform/packs/resolve';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 
 	interface Props {
@@ -11,6 +13,12 @@
 	let { element = $bindable<HTMLElement | null>(null) }: Props = $props();
 
 	const frame = $derived(getVideoFrameSize(engineState.transport.orientation));
+	const sponsorLockupInkColor = $derived.by(() => {
+		const pack = getPack(packState.slug);
+		return engineState.backgroundFill !== undefined
+			? resolveFieldInkColor(pack, engineState.typography.inkColor)
+			: resolveTypographyColors(pack, engineState.typography).inkColor;
+	});
 	const attachSurface: Attachment<HTMLElement> = (node) => {
 		element = node;
 		return () => {
@@ -33,13 +41,13 @@
 			/>
 			<path d="M1366.31 1031.2L1370.78 1159.08L1227.52 1164.08L1223.06 1036.21L1366.31 1031.2Z" />
 		</svg>
-		<img
-			alt="Brought to you by Sentry"
+		<span
+			aria-label="Brought to you by Sentry"
 			class="brand-mark-source__sponsor"
-			data-export-resource="required"
-			src="/brought-to-you-sentry.png"
+			role="img"
+			style:background-color={sponsorLockupInkColor}
 			style:bottom={engineState.transport.orientation === 'vertical' ? '18%' : '7%'}
-		/>
+		></span>
 	{/if}
 </article>
 
@@ -59,11 +67,13 @@
 	}
 
 	.brand-mark-source__sponsor {
-		block-size: auto;
+		aspect-ratio: 4711 / 700;
 		display: block;
 		inline-size: min(54%, calc(88 * var(--cqmin)));
 		left: 50%;
+		mask: url('/brought-to-you-sentry.png') center / contain no-repeat;
 		position: absolute;
 		transform: translateX(-50%);
+		-webkit-mask: url('/brought-to-you-sentry.png') center / contain no-repeat;
 	}
 </style>

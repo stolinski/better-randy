@@ -394,7 +394,10 @@ addContract({
 	permittedKind: 'style',
 	availability: 'optional',
 	fallback: { kind: 'role', role: 'ink-treatment' },
-	consumers: [resolverConsumer('resolveFieldInkColor')],
+	consumers: [
+		resolverConsumer('resolveFieldInkColor'),
+		resolverConsumer('resolveFieldInkColor', undefined, 'surface:brand-mark')
+	],
 	valueDescription: 'a #rgb or #rrggbb colour',
 	validateValue: isPackHexColorValue
 });

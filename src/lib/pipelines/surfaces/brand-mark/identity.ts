@@ -26,6 +26,17 @@ export const brandMarkIdentity: IdentitySpec = {
 			}
 		},
 		{
+			name: 'sponsor-ink-treatment',
+			viaPack: 'field-ink-treatment',
+			definition: 'The sponsor lockup uses the active Pack ink paired with its full-frame field.',
+			probe: {
+				kind: 'named-observation',
+				region: 'sponsor lockup',
+				expectation:
+					'the sponsor text and mark remain readable against the active Pack field without a fixed white raster.'
+			}
+		},
+		{
 			name: 'frame-relationship',
 			definition:
 				'The mark is large, centered, and aspect-preserving while its sponsor lockup remains safe in both transports.',
