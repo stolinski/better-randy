@@ -164,7 +164,9 @@ async function runCommand(
     const stdout = new TextDecoder().decode(result.stdout);
     const stderr = new TextDecoder().decode(result.stderr);
     if (timedOut) {
-      throw new Error(`${command} ${args[0] ?? ""} timed out after ${timeoutMs}ms`);
+      throw new Error(
+        `${command} ${args[0] ?? ""} timed out after ${timeoutMs}ms`,
+      );
     }
     if (result.code !== 0) {
       throw new Error(
@@ -241,6 +243,23 @@ async function verifyRetainedRenderEvidence(
   }
 }
 
+async function readRenderSourceRevision(repoDir: string): Promise<string> {
+  const result = await new Deno.Command("git", {
+    args: ["rev-parse", "--verify", "HEAD"],
+    cwd: repoDir,
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  if (result.code !== 0) {
+    throw new Error("Unable to read the render source revision");
+  }
+  const revision = new TextDecoder().decode(result.stdout).trim();
+  if (!/^[0-9a-f]{40,64}$/.test(revision)) {
+    throw new Error("Render source revision is invalid");
+  }
+  return revision;
+}
+
 /** Execute one immutable registry inventory plus one bounded internal CDP fan-out. */
 export async function executeSupersRenderMatrixVerification(
   args: VerificationArguments,
@@ -248,17 +267,13 @@ export async function executeSupersRenderMatrixVerification(
 ): Promise<{ dataHandles: DataHandle[] }> {
   const parsedArgs = SupersRenderMatrixVerificationArgumentsSchema.parse(args);
   const startedAt = new Date().toISOString();
-  const localBefore = await computeRepositoryTreeFingerprint(context.repoDir);
-  if (localBefore.treeFingerprint !== parsedArgs.expectedTreeFingerprint) {
-    throw new Error("Local source identity drifted before render inventory");
-  }
   if (parsedArgs.scope === "affected" && !parsedArgs.renderRequired) {
     const run = SupersRenderMatrixRunSchema.parse({
       schemaVersion: 1,
       status: "not-applicable",
       scope: "affected",
       workItem: parsedArgs.workItem,
-      sourceRevision: localBefore.sourceRevision,
+      sourceRevision: await readRenderSourceRevision(context.repoDir),
       expectedTreeFingerprint: parsedArgs.expectedTreeFingerprint,
       changedPathsDigest: await createSupersDeterministicContractHash(
         parsedArgs.changedPaths,
@@ -273,20 +288,30 @@ export async function executeSupersRenderMatrixVerification(
     );
     return { dataHandles: [handle] };
   }
+
+  const localBefore = await computeRepositoryTreeFingerprint(context.repoDir);
+  if (localBefore.treeFingerprint !== parsedArgs.expectedTreeFingerprint) {
+    throw new Error("Local source identity drifted before render inventory");
+  }
   const tempDirectory = await Deno.makeTempDir({
     prefix: "supers-render-matrix-",
   });
   try {
-    const collector = await runCommand("node", [
-      "--experimental-strip-types",
-      "scripts/derive-supers-render-matrix-manifest.ts",
-      parsedArgs.scope,
-      localBefore.sourceRevision,
-      parsedArgs.expectedTreeFingerprint,
-      JSON.stringify(
-        parsedArgs.scope === "affected" ? parsedArgs.changedPaths : [],
-      ),
-    ], context.repoDir, RENDER_INVENTORY_TIMEOUT_MS);
+    const collector = await runCommand(
+      "node",
+      [
+        "--experimental-strip-types",
+        "scripts/derive-supers-render-matrix-manifest.ts",
+        parsedArgs.scope,
+        localBefore.sourceRevision,
+        parsedArgs.expectedTreeFingerprint,
+        JSON.stringify(
+          parsedArgs.scope === "affected" ? parsedArgs.changedPaths : [],
+        ),
+      ],
+      context.repoDir,
+      RENDER_INVENTORY_TIMEOUT_MS,
+    );
     const collected = z.strictObject({
       snapshot: SupersRenderRegistrySnapshotSchema,
       manifest: SupersRenderMatrixManifestSchema.nullable(),
@@ -348,13 +373,18 @@ export async function executeSupersRenderMatrixVerification(
       Deno.writeTextFile(manifestPath, JSON.stringify(collected.manifest)),
       Deno.writeTextFile(snapshotPath, JSON.stringify(collected.snapshot)),
     ]);
-    const runner = await runCommand("node", [
-      "--experimental-strip-types",
-      "scripts/run-supers-render-matrix.mjs",
-      manifestPath,
-      snapshotPath,
-      runnerPath,
-    ], context.repoDir, supersRenderMatrixRunnerTimeoutMs(parsedArgs.scope));
+    const runner = await runCommand(
+      "node",
+      [
+        "--experimental-strip-types",
+        "scripts/run-supers-render-matrix.mjs",
+        manifestPath,
+        snapshotPath,
+        runnerPath,
+      ],
+      context.repoDir,
+      supersRenderMatrixRunnerTimeoutMs(parsedArgs.scope),
+    );
     const runnerResult = z.strictObject({
       bundle: SupersRenderMatrixBundleSchema,
       evidenceIndex: z.array(
@@ -405,13 +435,18 @@ export async function executeSupersRenderMatrixVerification(
       ) throw new Error("Served source identity drifted during render fan-out");
     }
     const archivePath = `${tempDirectory}/render-matrix-evidence.tar.gz`;
-    await runCommand("tar", [
-      "-czf",
-      archivePath,
-      "-C",
-      tempDirectory,
-      "render-matrix-evidence",
-    ], context.repoDir, RENDER_ARCHIVE_TIMEOUT_MS);
+    await runCommand(
+      "tar",
+      [
+        "-czf",
+        archivePath,
+        "-C",
+        tempDirectory,
+        "render-matrix-evidence",
+      ],
+      context.repoDir,
+      RENDER_ARCHIVE_TIMEOUT_MS,
+    );
     const archiveBytes = await Deno.readFile(archivePath);
     const archiveDigest = await sha256Bytes(archiveBytes);
     const manifestHandle = await context.writeResource(

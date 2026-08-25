@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import {
+  executeSupersRenderMatrixVerification,
   SupersRenderMatrixRunSchema,
   SupersRenderMatrixVerificationArgumentsSchema,
 } from "./supers-render-matrix-verification.ts";
@@ -63,6 +64,37 @@ Deno.test("not-applicable is affected-only and cannot carry routing advisories",
       advisories: [{ blocking: true }],
     })
   );
+});
+
+Deno.test("not-applicable execution does not require a full-repository fingerprint", async () => {
+  const recorded: Array<Record<string, unknown>> = [];
+  const result = await executeSupersRenderMatrixVerification(
+    {
+      schemaVersion: 1,
+      scope: "affected",
+      workItem: "wnwicydv",
+      expectedTreeFingerprint: SHA,
+      changedPaths: ["vite.config.ts"],
+      renderRequired: false,
+    },
+    {
+      repoDir: await Deno.realPath("."),
+      logger: { info: () => undefined },
+      writeResource: (_specName, name, data) => {
+        recorded.push(data);
+        return Promise.resolve({ name });
+      },
+      createFileWriter: () => {
+        throw new Error(
+          "not-applicable verification cannot create evidence files",
+        );
+      },
+    },
+  );
+
+  assert.equal(result.dataHandles.length, 1);
+  assert.equal(recorded[0]?.status, "not-applicable");
+  assert.equal(recorded[0]?.expectedTreeFingerprint, SHA);
 });
 
 Deno.test("completed run proves bounded internal fanout and exact freshness receipts", () => {
