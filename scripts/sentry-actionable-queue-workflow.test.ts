@@ -41,10 +41,11 @@ Deno.test(
   async () => {
     const source = await Deno.readTextFile(INTAKE_WORKFLOW_PATH);
     const workflow = parse(source) as WorkflowDefinition;
-    assert.equal(workflow.version, 5);
+    assert.equal(workflow.version, 6);
     assert.deepEqual(
       workflow.jobs.flatMap((job) => job.steps).map((step) => step.name),
       [
+        "reconcile-agent-worktrees",
         "collect-sentry-issues",
         "triage-against-dex",
         "persist-actionable-sentry-queue",
@@ -57,6 +58,10 @@ Deno.test(
         "admit-selected-sentry-repair",
       ],
     );
+    const reconciliation = stepByName(workflow, "reconcile-agent-worktrees");
+    assert.equal(reconciliation.task.methodName, "reconcileSupersAgentWorktrees");
+    assert.match(String(reconciliation.task.inputs?.claimIds), /supers-agent-worktree-claim/);
+    assert.match(String(reconciliation.task.inputs?.claimIds), /supers-agent-worktree-removal/);
     const persist = stepByName(workflow, "persist-actionable-sentry-queue");
     assert.equal(persist.task.methodName, "prepare");
     assert.deepEqual(persist.task.inputs?.issuePlans, []);

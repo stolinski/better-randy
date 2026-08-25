@@ -50,7 +50,7 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   const steps = workflow.jobs.flatMap((job) => job.steps);
   const names = steps.map((step) => step.name);
 
-  assert.equal(workflow.version, 3);
+  assert.equal(workflow.version, 4);
   assert.deepEqual(workflow.inputs.required, [
     "workItem",
     "evidenceName",
@@ -63,6 +63,7 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   const requiredOrder = [
     "assert-exact-sentry-admission",
     "run-policy-preflight",
+    "reconcile-prior-coding-worktrees",
     "prepare-isolated-coding-worktree",
     "invoke-sandboxed-coding-agent",
     "verify-serialized-integration",
@@ -127,6 +128,11 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
       names.indexOf("cleanup-committed-worktree"),
   );
 
+  const reconciliation = stepByName(workflow, "reconcile-prior-coding-worktrees");
+  assert.equal(reconciliation.task.methodName, "reconcileSupersAgentWorktrees");
+  assert.match(String(reconciliation.task.inputs?.claimIds), /attributes\.workItem == inputs\.workItem/);
+  assert.match(String(reconciliation.task.inputs?.claimIds), /supers-agent-worktree-removal/);
+
   const prepare = stepByName(workflow, "prepare-isolated-coding-worktree");
   const invocationIdentity = String(prepare.task.inputs?.invocationId);
   assert.match(invocationIdentity, /workItem/);
@@ -160,6 +166,18 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
     stepByName(workflow, "cherry-pick-verified-commit").task.methodName,
     "cherry_pick",
   );
+  const beforeIntegration = stepByName(workflow, "inspect-integration-paths-before");
+  const afterIntegration = stepByName(workflow, "materialize-post-integration-git");
+  assert.equal(beforeIntegration.task.modelIdOrName, "supers-integration-git");
+  assert.equal(beforeIntegration.task.methodName, "status");
+  assert.match(String(beforeIntegration.task.inputs?.paths), /changedPaths/);
+  assert.equal(afterIntegration.task.methodName, "status");
+  assert.equal(afterIntegration.task.inputs?.paths, beforeIntegration.task.inputs?.paths);
+  assert.equal(
+    stepByName(workflow, "assert-integrated-paths-clean").task.type,
+    "assert",
+  );
+  assert.doesNotMatch(source, /Central Git is not clean|assert-central-git-clean/);
   assert.equal(
     stepByName(workflow, "verify-serialized-integration").task.methodName,
     "verifySupersAgentIntegration",

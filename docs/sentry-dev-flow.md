@@ -37,6 +37,10 @@ swamp workflow run supers-sentry-self-healing \
   --input historyDays=90 \
   --input limit=100 \
   --input currentRelease=auto
+
+# Latest managed-worktree inventory, sizes, and cleanup dispositions
+swamp data get supers-delivery-coding-agent \
+  supers-agent-worktree-reconciliation-latest --json
 ```
 
 The active chain is deliberately short:
@@ -52,16 +56,35 @@ mutation authority. Complete current and recent observations are queueable.
 Historical-only and ambiguous records remain non-actionable.
 
 `supers-sentry-evidence-to-delivery` maps the observed event to one started Dex
-task and starts `supers-delivery`. The event identity is part of the task marker,
-so a later event can create a new repair after an earlier task completed. One
-open exact task is reused; multiple open exact matches and lexical ambiguity
-still require human review.
+task and starts `supers-delivery`. Dex owns task persistence; admission does not
+inspect or commit Git state. The event identity is part of the task marker, so a
+later event can create a new repair after an earlier task completed. One open
+exact task is reused; multiple open exact matches and lexical ambiguity still
+require human review.
 
 The coding agent receives the event details, inspects the reported code path,
-and makes the smallest credible fix in an isolated worktree. It may add or
-change tests when useful, but it does not have to manufacture a reproduction or
-nominate a pre-existing proof test. The ordinary Delivery verification route
-runs the repository's selected check, unit, structural, policy, corpus, browser,
+and makes the smallest credible fix in an isolated worktree created from a
+stable exact HEAD. Unrelated central modifications are neither copied into nor
+used to reject that worktree. The official `@swamp/git` integration model checks
+only the verified repair paths before and after cherry-pick; unrelated dirty
+files remain outside the repair's classification and evidence. Disposable coding
+worktrees live under a repository-scoped managed container at
+`$TMPDIR/supers-agent-worktrees/<repository>-<path-hash>` (falling back to
+`/tmp`), never beside the repository in the project directory. Successful
+integration still writes the exact cleanup receipt and removes its checkout.
+Before every coding retry and every six-hour self-healing run, one fan-out
+reconciliation inventories all requested claims and removes only final clean
+worktrees whose commits are unchanged, ancestors of the central revision, or
+patch-equivalent to it. Missing invocation evidence is treated as active for
+two hours—twice the coding wall timeout—then only an unchanged or integrated
+checkout may be reaped. Dirty files, unique commits, and merge or ancestry
+ambiguity are always preserved. Stale exact Git registrations are removed
+without pruning unrelated worktrees, logical checkout
+bytes are recorded, and legacy sibling-path claims remain replayable only for
+recovery. The agent may add or change tests when useful, but it does not have to manufacture a
+reproduction or nominate a pre-existing proof test. The ordinary Delivery
+verification route runs the repository's selected check, unit, structural,
+policy, corpus, browser,
 and render lanes for the actual changed paths.
 
 After the integrated change passes those normal checks, Delivery completes the

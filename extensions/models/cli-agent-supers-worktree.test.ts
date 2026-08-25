@@ -55,6 +55,10 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 	centralDirty = false;
 	centralIsLinkedWorktree = false;
 	centralHeads: string[] = [];
+	centralHead = BASE_REVISION;
+	managedWorktreeRoot = '/tmp/supers-agent-worktrees';
+	worktreeLogicalBytes = 1024;
+	worktreeSizeComplete = true;
 	branchExists = false;
 	conflictPathExists = false;
 	worktreeExists = false;
@@ -65,6 +69,10 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 	worktreeDiff = '';
 	worktreeDirty = false;
 	baseIsAncestor = true;
+	baseIsAncestorOfCentral = true;
+	worktreeHeadIsAncestorOfCentral = false;
+	supersededMergeCommits = '';
+	supersededCherry = '';
 	changedPathStatus = 'A';
 	changedPath = TEST_PATH;
 	changedPathMode = '100644';
@@ -92,18 +100,30 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 	integrationNameStatus: string | null = null;
 	integrationDiffBytes: Uint8Array | null = null;
 	removedPaths: string[] = [];
+	currentTime = NOW;
 	addCalls = 0;
 	removeCalls = 0;
 	renameCalls = 0;
 
 	now(): Date {
-		return NOW;
+		return this.currentTime;
 	}
 
 	realPath(path: string): Promise<string> {
 		const prefix = `${this.worktreePath}/`;
 		const relative = path.startsWith(prefix) ? path.slice(prefix.length) : path;
 		return Promise.resolve(this.untrackedInfo.get(relative)?.canonicalPath ?? path);
+	}
+
+	resolveWorktreeRoot(): Promise<string> {
+		return Promise.resolve(this.managedWorktreeRoot);
+	}
+
+	measureDirectory(): Promise<{ logicalBytes: number; complete: boolean }> {
+		return Promise.resolve({
+			logicalBytes: this.worktreeLogicalBytes,
+			complete: this.worktreeSizeComplete
+		});
 	}
 
 	pathExists(path: string): Promise<boolean> {
@@ -168,7 +188,30 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 			return gitResult(true, this.centralIsLinkedWorktree ? '/primary/.git\n' : '/repo/.git\n');
 		}
 		if (command === 'rev-parse --verify HEAD^{commit}') {
-			return gitResult(true, `${this.centralHeads.shift() ?? BASE_REVISION}\n`);
+			this.centralHead = this.centralHeads.shift() ?? this.centralHead;
+			return gitResult(true, `${this.centralHead}\n`);
+		}
+		if (args[0] === 'merge-base' && args[1] === '--is-ancestor') {
+			const ancestor = args[2];
+			const descendant = args[3];
+			if (ancestor === this.worktreeHead && descendant === this.centralHead) {
+				return gitResult(this.worktreeHeadIsAncestorOfCentral);
+			}
+			if (ancestor === BASE_REVISION && descendant === this.worktreeHead) {
+				return gitResult(this.baseIsAncestor);
+			}
+			if (ancestor === BASE_REVISION && descendant === this.centralHead) {
+				return gitResult(this.baseIsAncestorOfCentral);
+			}
+			return gitResult(false);
+		}
+		if (
+			command === `rev-list --min-parents=2 ${BASE_REVISION}..${this.worktreeHead}`
+		) {
+			return gitResult(true, this.supersededMergeCommits);
+		}
+		if (command === `cherry ${this.centralHead} ${this.worktreeHead}`) {
+			return gitResult(true, this.supersededCherry);
 		}
 		if (command === 'status --porcelain=v1 --untracked-files=all -z') {
 			return gitResult(true, this.centralDirty ? ' M tracked.ts\0' : '');
@@ -237,11 +280,12 @@ class FakeWorktreeRepository implements SupersAgentWorktreeDependencies {
 				: gitResult(false, '', 'wrong repair path', 128);
 		}
 		if (args[0] === 'worktree' && args[1] === 'remove') {
-			if (args[3] !== this.worktreePath) {
+			const removalPath = args.includes('--force') ? args[4] : args[3];
+			if (removalPath !== this.worktreePath) {
 				return gitResult(false, '', 'wrong removal path', 128);
 			}
 			this.removeCalls += 1;
-			this.removedPaths.push(args[3]);
+			this.removedPaths.push(removalPath);
 			this.worktreeExists = false;
 			this.worktreeRegistered = false;
 			return this.loseRemoveAcknowledgement
@@ -481,10 +525,10 @@ async function integrationFixture() {
 	return { ...fixtureValue, operations, commitReceipt, args };
 }
 
-Deno.test('invocation authority resources retain one immutable infinite-lifetime version', () => {
-	for (const resource of Object.values(extension.resources)) {
+Deno.test('worktree authority resources retain bounded infinite-lifetime histories', () => {
+	for (const [name, resource] of Object.entries(extension.resources)) {
 		assert.equal(resource.lifetime, 'infinite');
-		assert.equal(resource.garbageCollection, 1);
+		assert.equal(resource.garbageCollection, name === 'supers-agent-worktree-reconciliation' ? 32 : 1);
 	}
 });
 
@@ -494,7 +538,10 @@ Deno.test('clean exact HEAD prepares, verifies, and removes an isolated worktree
 	const claim = (await operations.prepareSupersAgentWorktree(PREPARE_ARGS, context)).resource;
 
 	assert.equal(claim.headSha, BASE_REVISION);
-	assert.equal(claim.worktreePath.startsWith('/repo-supers-agent-'), true);
+	assert.equal(
+		claim.worktreePath.startsWith('/tmp/supers-agent-worktrees/repo-supers-agent-'),
+		true
+	);
 	assert.equal(claim.attachedBranch.startsWith('supers-agent/sentry-reproduction/'), true);
 	assert.equal(repository.addCalls, 1);
 	recordSuccessfulInvocation(resources, claim);
@@ -513,6 +560,131 @@ Deno.test('clean exact HEAD prepares, verifies, and removes an isolated worktree
 	assert.equal(removed.removed, true);
 	assert.equal(repository.removeCalls, 1);
 	assert.equal(repository.worktreeExists, false);
+});
+
+Deno.test('legacy sibling worktree claims remain replayable after managed-root migration', async () => {
+	const { repository, context, resources } = fixture();
+	const operations = createSupersAgentWorktreeOperations(repository);
+	repository.managedWorktreeRoot = '/';
+	const legacyClaim = (await operations.prepareSupersAgentWorktree(PREPARE_ARGS, context))
+		.resource;
+	assert.equal(legacyClaim.worktreePath.startsWith('/repo-supers-agent-'), true);
+
+	repository.managedWorktreeRoot = '/tmp/supers-agent-worktrees';
+	const replayedClaim = (await operations.prepareSupersAgentWorktree(PREPARE_ARGS, context))
+		.resource;
+	assert.deepEqual(replayedClaim, legacyClaim);
+	assert.equal(repository.addCalls, 1);
+
+	recordSuccessfulInvocation(resources, legacyClaim);
+	await operations.verifySupersAgentWorktreeUnchanged({ claimId: legacyClaim.claimId }, context);
+	await operations.removeSupersAgentWorktree({ claimId: legacyClaim.claimId }, context);
+	assert.equal(repository.removeCalls, 1);
+});
+
+Deno.test('reconciliation removes a final unchanged failed worktree and records its size', async () => {
+	const { repository, context, resources } = fixture();
+	const operations = createSupersAgentWorktreeOperations(repository);
+	const claim = (await operations.prepareSupersAgentWorktree(PREPARE_ARGS, context)).resource;
+	recordSuccessfulInvocation(resources, claim, { success: false, exitCode: 1 });
+
+	const receipt = (
+		await operations.reconcileSupersAgentWorktrees({ claimIds: [claim.claimId] }, context)
+	).resource;
+	assert.equal(receipt.removedCount, 1);
+	assert.equal(receipt.preservedCount, 0);
+	assert.equal(receipt.logicalBytesBefore, repository.worktreeLogicalBytes);
+	assert.equal(receipt.items[0].invocationState, 'failed');
+	assert.equal(receipt.items[0].disposition, 'removed-unchanged');
+	assert.equal(repository.removeCalls, 1);
+	assert.ok(resources.has('supers-agent-worktree-reconciliation-latest'));
+});
+
+Deno.test('reconciliation removes an old unchanged worktree whose invocation never started', async () => {
+	const { repository, context } = fixture();
+	const operations = createSupersAgentWorktreeOperations(repository);
+	const claim = (await operations.prepareSupersAgentWorktree(PREPARE_ARGS, context)).resource;
+	repository.currentTime = new Date(NOW.getTime() + 2 * 60 * 60 * 1000 + 1);
+
+	const receipt = (
+		await operations.reconcileSupersAgentWorktrees({ claimIds: [claim.claimId] }, context)
+	).resource;
+	assert.equal(receipt.items[0].invocationState, 'missing');
+	assert.equal(receipt.items[0].disposition, 'removed-unchanged');
+	assert.equal(repository.removeCalls, 1);
+});
+
+Deno.test('reconciliation preserves active, dirty, unique, and unsafe worktrees', async () => {
+	const cases: Array<{
+		expected: string;
+		configure: (
+			repository: FakeWorktreeRepository,
+			resources: Map<string, Record<string, unknown>>,
+			claim: SupersAgentWorktreeClaim
+		) => void;
+	}> = [
+		{
+			expected: 'preserved-active',
+			configure: () => undefined
+		},
+		{
+			expected: 'preserved-dirty',
+			configure: (repository, resources, claim) => {
+				repository.worktreeDirty = true;
+				recordSuccessfulInvocation(resources, claim, { success: false, exitCode: 1 });
+			}
+		},
+		{
+			expected: 'preserved-unique-commits',
+			configure: (repository, resources, claim) => {
+				repository.worktreeHead = COMMIT_REVISION;
+				repository.supersededCherry = `+ ${COMMIT_REVISION}\n`;
+				recordSuccessfulInvocation(resources, claim);
+			}
+		},
+		{
+			expected: 'preserved-unsafe-history',
+			configure: (repository, resources, claim) => {
+				repository.worktreeHead = COMMIT_REVISION;
+				repository.supersededMergeCommits = `${COMMIT_REVISION}\n`;
+				recordSuccessfulInvocation(resources, claim);
+			}
+		}
+	];
+	for (const testCase of cases) {
+		const { repository, context, resources } = fixture();
+		const operations = createSupersAgentWorktreeOperations(repository);
+		const claim = (await operations.prepareSupersAgentWorktree(PREPARE_ARGS, context)).resource;
+		testCase.configure(repository, resources, claim);
+		const receipt = (
+			await operations.reconcileSupersAgentWorktrees({ claimIds: [claim.claimId] }, context)
+		).resource;
+		assert.equal(receipt.items[0].disposition, testCase.expected);
+		assert.equal(receipt.preservedCount, 1);
+		assert.equal(repository.removeCalls, 0);
+	}
+});
+
+Deno.test('reconciliation removes patch-equivalent commits and stale registrations', async () => {
+	for (const staleRegistration of [false, true]) {
+		const { repository, context, resources } = fixture();
+		const operations = createSupersAgentWorktreeOperations(repository);
+		const claim = (await operations.prepareSupersAgentWorktree(PREPARE_ARGS, context)).resource;
+		repository.worktreeHead = staleRegistration ? BASE_REVISION : COMMIT_REVISION;
+		repository.supersededCherry = staleRegistration ? '' : `- ${COMMIT_REVISION}\n`;
+		repository.worktreeExists = !staleRegistration;
+		recordSuccessfulInvocation(resources, claim);
+
+		const receipt = (
+			await operations.reconcileSupersAgentWorktrees({ claimIds: [claim.claimId] }, context)
+		).resource;
+		assert.equal(
+			receipt.items[0].disposition,
+			staleRegistration ? 'removed-stale-registration' : 'removed-integrated'
+		);
+		assert.equal(repository.removeCalls, 1);
+		assert.equal(repository.worktreeRegistered, false);
+	}
 });
 
 Deno.test('committed worktree verification persists objective pre-integration evidence and replays exactly', async () => {
@@ -726,12 +898,6 @@ Deno.test('committed worktree verification binds claim, invocation, prompt, mode
 		},
 		{
 			configure: (repository) => {
-				repository.centralDirty = true;
-			},
-			expected: /central repository must be clean/
-		},
-		{
-			configure: (repository) => {
 				repository.centralHeads = [OTHER_REVISION];
 			},
 			expected: /central repository HEAD mismatch/
@@ -834,14 +1000,12 @@ Deno.test('serialized integration verification rejects a root outside the commit
 	);
 });
 
-Deno.test('serialized integration verification rejects dirty or drifted central state', async () => {
+Deno.test('serialized integration verification ignores unrelated dirt but rejects revision drift', async () => {
 	{
 		const { repository, context, operations, args } = await integrationFixture();
 		repository.centralDirty = true;
-		await assert.rejects(
-			() => operations.verifySupersAgentIntegration(args, context),
-			/central repository must be clean/
-		);
+		const receipt = (await operations.verifySupersAgentIntegration(args, context)).resource;
+		assert.equal(receipt.integratedRevision, INTEGRATED_REVISION);
 	}
 	{
 		const { repository, context, operations, args } = await integrationFixture();
@@ -928,17 +1092,19 @@ Deno.test('serialized integration replay rejects a conflicting durable receipt',
 	);
 });
 
-Deno.test('dirty central checkout is rejected before an intent or git worktree add', async () => {
+Deno.test('unrelated central dirt does not block worktree preparation or commit verification', async () => {
 	const { repository, context, resources } = fixture();
 	repository.centralDirty = true;
 	const operations = createSupersAgentWorktreeOperations(repository);
 
-	await assert.rejects(
-		() => operations.prepareSupersAgentWorktree(PREPARE_ARGS, context),
-		/central repository must be clean/
-	);
-	assert.equal(resources.size, 0);
-	assert.equal(repository.addCalls, 0);
+	const claim = (await operations.prepareSupersAgentWorktree(PREPARE_ARGS, context)).resource;
+	assert.equal(repository.addCalls, 1);
+	assert.equal(claim.baseRevision, BASE_REVISION);
+
+	repository.worktreeHead = COMMIT_REVISION;
+	recordSuccessfulInvocation(resources, claim);
+	const receipt = (await operations.verifySupersAgentWorktreeCommit(commitVerificationArgs(claim), context)).resource;
+	assert.equal(receipt.commitRevision, COMMIT_REVISION);
 });
 
 Deno.test('a linked worktree cannot act as the primary repository authority', async () => {
@@ -1314,7 +1480,7 @@ Deno.test('cleanup quarantines the validated path and preserves a racing replace
 	await operations.removeSupersAgentWorktree({ claimId: claim.claimId }, context);
 	assert.equal(repository.renameCalls, 1);
 	assert.equal(repository.removedPaths.length, 1);
-	assert.match(repository.removedPaths[0], /^\/\.supers-agent-quarantine-/);
+	assert.match(repository.removedPaths[0], /\/\.supers-agent-quarantine-/);
 	assert.notEqual(repository.removedPaths[0], originalPath);
 	assert.equal(await repository.pathExists(originalPath), true);
 });
@@ -1444,9 +1610,11 @@ Deno.test(
 		const tempRoot = await Deno.makeTempDir({ prefix: 'supers-agent-worktree-' });
 		const canonicalTempRoot = await Deno.realPath(tempRoot);
 		const repositoryDir = `${canonicalTempRoot}/primary`;
+		const managedWorktreeRoot = `${canonicalTempRoot}/managed-worktrees`;
 		const linkedDir = `${canonicalTempRoot}/linked`;
 		const unrelatedStaleDir = `${canonicalTempRoot}/unrelated-stale`;
 		await Deno.mkdir(repositoryDir);
+		await Deno.mkdir(managedWorktreeRoot);
 		try {
 			await requireRealGit(repositoryDir, ['init', '-b', 'main']);
 			await Deno.writeTextFile(`${repositoryDir}/tracked.txt`, 'initial\n');
@@ -1473,6 +1641,8 @@ Deno.test(
 			const realDependencies: SupersAgentWorktreeDependencies = {
 				runGit: runRealGit,
 				realPath: (path) => Deno.realPath(path),
+				resolveWorktreeRoot: () => Promise.resolve(managedWorktreeRoot),
+				measureDirectory: () => Promise.resolve({ logicalBytes: 0, complete: true }),
 				async pathExists(path) {
 					try {
 						await Deno.lstat(path);
@@ -1503,6 +1673,10 @@ Deno.test(
 				)
 			).resource;
 			assert.equal(await Deno.realPath(claim.worktreePath), claim.worktreePath);
+			assert.equal(
+				claim.worktreePath.startsWith(`${managedWorktreeRoot}/primary-supers-agent-`),
+				true
+			);
 			const registered = await requireRealGit(context.repoDir, ['worktree', 'list', '--porcelain']);
 			assert.equal(registered.includes(`worktree ${claim.worktreePath}`), true);
 
@@ -1607,15 +1781,11 @@ Deno.test(
 			await requireRealGit(committedClaim.worktreePath, ['checkout', '--', TEST_PATH]);
 
 			await Deno.writeTextFile(`${repositoryDir}/tracked.txt`, 'central dirty\n');
-			await assert.rejects(
-				() => operations.verifySupersAgentWorktreeCommit(committedArgs, context),
-				/central repository must be clean/
-			);
-			await requireRealGit(repositoryDir, ['checkout', '--', 'tracked.txt']);
-
 			const committedReceipt = (
 				await operations.verifySupersAgentWorktreeCommit(committedArgs, context)
 			).resource;
+			assert.equal(await Deno.readTextFile(`${repositoryDir}/tracked.txt`), 'central dirty\n');
+			await requireRealGit(repositoryDir, ['checkout', '--', 'tracked.txt']);
 			assert.equal(committedReceipt.commitRevision, commitRevision);
 			assert.deepEqual(committedReceipt.changedPaths, [TEST_PATH]);
 			await operations.removeSupersAgentWorktree(

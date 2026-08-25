@@ -219,6 +219,23 @@ jobs:
                 - type: skipped
         weight: 0
         allowFailure: false
+      - name: reconcile-prior-coding-worktrees
+        description: Remove only final safe leftovers for this work item before preparing or recovering its current lane.
+        task:
+          type: model_method
+          modelIdOrName: supers-delivery-coding-agent
+          methodName: reconcileSupersAgentWorktrees
+          inputs:
+            claimIds: '${{ data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-claim"'').filter(claim, claim.attributes.workItem == inputs.workItem).filter(claim, size(data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-removal"'').filter(removal, removal.attributes.claimId == claim.attributes.claimId)) == 0).map(claim, claim.attributes.claimId) }}'
+        dependsOn:
+          - step: assert-trusted-baseline
+            condition:
+              type: or
+              conditions:
+                - type: succeeded
+                - type: skipped
+        weight: 0
+        allowFailure: false
       - name: prepare-isolated-coding-worktree
         description: Prepare or recover the stable worktree keyed by task, Factory cycle, and repair identity.
         task:
@@ -232,7 +249,7 @@ jobs:
             workItem: '${{ inputs.workItem }}'
         guard: '${{ size(data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-integration"'').filter(item, item.attributes.activeTaskId == inputs.workItem)) == 1 }}'
         dependsOn:
-          - step: assert-trusted-baseline
+          - step: reconcile-prior-coding-worktrees
             condition:
               type: or
               conditions:
@@ -322,12 +339,14 @@ jobs:
                 - type: skipped
         weight: 0
         allowFailure: false
-      - name: assert-central-git-clean-before-integration
-        description: Read central Git state before the only serialized mutation.
+      - name: inspect-integration-paths-before
+        description: Check only the verified repair paths before the serialized mutation; unrelated working files are outside this task.
         task:
           type: model_method
           modelIdOrName: supers-integration-git
           methodName: status
+          inputs:
+            paths: '${{ data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-commit"'').filter(item, item.attributes.workItem == inputs.workItem && item.attributes.invocationId == "sentry-" + inputs.workItem + "-implementation-" + string(data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.cycle) + "-" + data.latest("supers-sentry-issue-intake", inputs.evidenceName).attributes.repairIdentityFingerprint.substring(0, 16) + "-" + data.query(''modelName == "repo-audit" && specName == "change-baseline"'').filter(item, item.attributes.workItem == inputs.workItem)[0].attributes.baselineHead.substring(0, 16))[0].attributes.changedPaths }}'
         guard: '${{ size(data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-integration"'').filter(item, item.attributes.activeTaskId == inputs.workItem)) == 1 }}'
         dependsOn:
           - step: assert-single-commit-receipt
@@ -348,7 +367,7 @@ jobs:
             maxCount: 1
         guard: '${{ size(data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-integration"'').filter(item, item.attributes.activeTaskId == inputs.workItem)) == 1 }}'
         dependsOn:
-          - step: assert-central-git-clean-before-integration
+          - step: inspect-integration-paths-before
             condition:
               type: or
               conditions:
@@ -357,11 +376,11 @@ jobs:
         weight: 0
         allowFailure: false
       - name: assert-exact-integration-baseline
-        description: Require a clean serialized target; independent repairs may integrate after unrelated commits.
+        description: Require only the verified repair paths to be clean; unrelated work never blocks integration.
         task:
           type: assert
           expr: 'data.latest("supers-integration-git", "status").attributes.clean && data.latest("supers-integration-git", "log").attributes.commits[0].sha.matches("^[0-9a-f]{40}$")'
-          message: Central Git is not clean for serialized integration
+          message: Task-owned integration paths are dirty or the target revision is unavailable
           severity: high
         guard: '${{ size(data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-integration"'').filter(item, item.attributes.activeTaskId == inputs.workItem)) == 1 }}'
         dependsOn:
@@ -380,7 +399,7 @@ jobs:
           modelIdOrName: supers-integration-git
           methodName: cherry_pick
           inputs:
-            commits: '${{ [data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-commit"'').filter(item, item.attributes.workItem == inputs.workItem)[0].attributes.commitRevision] }}'
+            commits: '${{ [data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-commit"'').filter(item, item.attributes.workItem == inputs.workItem && item.attributes.invocationId == "sentry-" + inputs.workItem + "-implementation-" + string(data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.cycle) + "-" + data.latest("supers-sentry-issue-intake", inputs.evidenceName).attributes.repairIdentityFingerprint.substring(0, 16) + "-" + data.query(''modelName == "repo-audit" && specName == "change-baseline"'').filter(item, item.attributes.workItem == inputs.workItem)[0].attributes.baselineHead.substring(0, 16))[0].attributes.commitRevision] }}'
         guard: '${{ size(data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-integration"'').filter(item, item.attributes.activeTaskId == inputs.workItem)) == 1 }}'
         dependsOn:
           - step: assert-exact-integration-baseline
@@ -392,14 +411,33 @@ jobs:
         weight: 0
         allowFailure: false
       - name: materialize-post-integration-git
-        description: Capture clean central state and exact integrated revision after cherry-pick.
+        description: Confirm the integrated repair paths are clean without inspecting unrelated working files.
         task:
           type: model_method
           modelIdOrName: supers-integration-git
           methodName: status
+          inputs:
+            paths: '${{ data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-commit"'').filter(item, item.attributes.workItem == inputs.workItem && item.attributes.invocationId == "sentry-" + inputs.workItem + "-implementation-" + string(data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.cycle) + "-" + data.latest("supers-sentry-issue-intake", inputs.evidenceName).attributes.repairIdentityFingerprint.substring(0, 16) + "-" + data.query(''modelName == "repo-audit" && specName == "change-baseline"'').filter(item, item.attributes.workItem == inputs.workItem)[0].attributes.baselineHead.substring(0, 16))[0].attributes.changedPaths }}'
         guard: '${{ size(data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-integration"'').filter(item, item.attributes.activeTaskId == inputs.workItem)) == 1 }}'
         dependsOn:
           - step: cherry-pick-verified-commit
+            condition:
+              type: or
+              conditions:
+                - type: succeeded
+                - type: skipped
+        weight: 0
+        allowFailure: false
+      - name: assert-integrated-paths-clean
+        description: Require the verified repair paths to be clean after the official cherry-pick.
+        task:
+          type: assert
+          expr: 'data.latest("supers-integration-git", "status").attributes.clean'
+          message: Task-owned integration paths are dirty after cherry-pick
+          severity: high
+        guard: '${{ size(data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-integration"'').filter(item, item.attributes.activeTaskId == inputs.workItem)) == 1 }}'
+        dependsOn:
+          - step: materialize-post-integration-git
             condition:
               type: or
               conditions:
@@ -417,7 +455,7 @@ jobs:
             maxCount: 1
         guard: '${{ size(data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-integration"'').filter(item, item.attributes.activeTaskId == inputs.workItem)) == 1 }}'
         dependsOn:
-          - step: materialize-post-integration-git
+          - step: assert-integrated-paths-clean
             condition:
               type: or
               conditions:
@@ -432,9 +470,9 @@ jobs:
           modelIdOrName: supers-delivery-coding-agent
           methodName: verifySupersAgentIntegration
           inputs:
-            commitReceiptName: '${{ data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-commit"'').filter(item, item.attributes.workItem == inputs.workItem)[0].name }}'
-            expectedCommitReceiptId: '${{ data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-commit"'').filter(item, item.attributes.workItem == inputs.workItem)[0].attributes.receiptId }}'
-            expectedCommitReceiptFingerprint: '${{ data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-commit"'').filter(item, item.attributes.workItem == inputs.workItem)[0].attributes.fingerprint }}'
+            commitReceiptName: '${{ data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-commit"'').filter(item, item.attributes.workItem == inputs.workItem && item.attributes.invocationId == "sentry-" + inputs.workItem + "-implementation-" + string(data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.cycle) + "-" + data.latest("supers-sentry-issue-intake", inputs.evidenceName).attributes.repairIdentityFingerprint.substring(0, 16) + "-" + data.query(''modelName == "repo-audit" && specName == "change-baseline"'').filter(item, item.attributes.workItem == inputs.workItem)[0].attributes.baselineHead.substring(0, 16))[0].name }}'
+            expectedCommitReceiptId: '${{ data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-commit"'').filter(item, item.attributes.workItem == inputs.workItem && item.attributes.invocationId == "sentry-" + inputs.workItem + "-implementation-" + string(data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.cycle) + "-" + data.latest("supers-sentry-issue-intake", inputs.evidenceName).attributes.repairIdentityFingerprint.substring(0, 16) + "-" + data.query(''modelName == "repo-audit" && specName == "change-baseline"'').filter(item, item.attributes.workItem == inputs.workItem)[0].attributes.baselineHead.substring(0, 16))[0].attributes.receiptId }}'
+            expectedCommitReceiptFingerprint: '${{ data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-commit"'').filter(item, item.attributes.workItem == inputs.workItem && item.attributes.invocationId == "sentry-" + inputs.workItem + "-implementation-" + string(data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.cycle) + "-" + data.latest("supers-sentry-issue-intake", inputs.evidenceName).attributes.repairIdentityFingerprint.substring(0, 16) + "-" + data.query(''modelName == "repo-audit" && specName == "change-baseline"'').filter(item, item.attributes.workItem == inputs.workItem)[0].attributes.baselineHead.substring(0, 16))[0].attributes.fingerprint }}'
             integrationGitModelId: b772e8c9-f8e5-4e8f-9cd4-345b5f515bff
             cherryPickResourceName: cherry-pick
             rootEpicId: '${{ inputs.workItem }}'
@@ -474,12 +512,12 @@ jobs:
           modelIdOrName: supers-delivery-coding-agent
           methodName: removeSupersAgentWorktree
           inputs:
-            claimId: '${{ data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-commit"'').filter(item, item.attributes.workItem == inputs.workItem)[0].attributes.claimId }}'
+            claimId: '${{ data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-commit"'').filter(item, item.attributes.workItem == inputs.workItem && item.attributes.invocationId == "sentry-" + inputs.workItem + "-implementation-" + string(data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.cycle) + "-" + data.latest("supers-sentry-issue-intake", inputs.evidenceName).attributes.repairIdentityFingerprint.substring(0, 16) + "-" + data.query(''modelName == "repo-audit" && specName == "change-baseline"'').filter(item, item.attributes.workItem == inputs.workItem)[0].attributes.baselineHead.substring(0, 16))[0].attributes.claimId }}'
             authorization:
               kind: committed
-              receiptName: '${{ data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-commit"'').filter(item, item.attributes.workItem == inputs.workItem)[0].name }}'
-              receiptId: '${{ data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-commit"'').filter(item, item.attributes.workItem == inputs.workItem)[0].attributes.receiptId }}'
-              fingerprint: '${{ data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-commit"'').filter(item, item.attributes.workItem == inputs.workItem)[0].attributes.fingerprint }}'
+              receiptName: '${{ data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-commit"'').filter(item, item.attributes.workItem == inputs.workItem && item.attributes.invocationId == "sentry-" + inputs.workItem + "-implementation-" + string(data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.cycle) + "-" + data.latest("supers-sentry-issue-intake", inputs.evidenceName).attributes.repairIdentityFingerprint.substring(0, 16) + "-" + data.query(''modelName == "repo-audit" && specName == "change-baseline"'').filter(item, item.attributes.workItem == inputs.workItem)[0].attributes.baselineHead.substring(0, 16))[0].name }}'
+              receiptId: '${{ data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-commit"'').filter(item, item.attributes.workItem == inputs.workItem && item.attributes.invocationId == "sentry-" + inputs.workItem + "-implementation-" + string(data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.cycle) + "-" + data.latest("supers-sentry-issue-intake", inputs.evidenceName).attributes.repairIdentityFingerprint.substring(0, 16) + "-" + data.query(''modelName == "repo-audit" && specName == "change-baseline"'').filter(item, item.attributes.workItem == inputs.workItem)[0].attributes.baselineHead.substring(0, 16))[0].attributes.receiptId }}'
+              fingerprint: '${{ data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-commit"'').filter(item, item.attributes.workItem == inputs.workItem && item.attributes.invocationId == "sentry-" + inputs.workItem + "-implementation-" + string(data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.cycle) + "-" + data.latest("supers-sentry-issue-intake", inputs.evidenceName).attributes.repairIdentityFingerprint.substring(0, 16) + "-" + data.query(''modelName == "repo-audit" && specName == "change-baseline"'').filter(item, item.attributes.workItem == inputs.workItem)[0].attributes.baselineHead.substring(0, 16))[0].attributes.fingerprint }}'
         guard: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.id != "implementation" }}'
         dependsOn:
           - step: assert-single-integration-receipt
@@ -807,4 +845,4 @@ jobs:
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 3
+version: 4

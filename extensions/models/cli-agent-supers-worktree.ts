@@ -24,6 +24,9 @@ const MAX_TREE_LISTING_BYTES = 8 * 1024 * 1024;
 const MAX_BINARY_DIFF_BYTES = 32 * 1024 * 1024;
 const MAX_GIT_PROTOCOL_BYTES = 1024 * 1024;
 const MAX_GIT_ERROR_BYTES = 64 * 1024;
+const MAX_RECONCILIATION_CLAIMS = 256;
+const MAX_DIRECTORY_MEASUREMENT_ENTRIES = 500_000;
+const ABANDONED_WORKTREE_MIN_AGE_MS = 2 * 60 * 60 * 1000;
 
 export const SupersAgentWorktreePurposeSchema = z.enum(['sentry-reproduction', 'delivery-coding']);
 export type SupersAgentWorktreePurpose = z.infer<typeof SupersAgentWorktreePurposeSchema>;
@@ -286,6 +289,12 @@ const SupersAgentWorktreeRemovalAuthorizationSchema = z.discriminatedUnion('kind
 			receiptId: z.string().regex(SHA64_PATTERN),
 			fingerprint: z.string().regex(SHA64_PATTERN)
 		})
+		.strict(),
+	z
+		.object({
+			kind: z.literal('superseded'),
+			centralRevision: z.string().regex(SHA40_PATTERN)
+		})
 		.strict()
 ]);
 
@@ -297,6 +306,24 @@ export const RemoveSupersAgentWorktreeArgsSchema = z
 	.strict();
 export type RemoveSupersAgentWorktreeArgs = z.infer<typeof RemoveSupersAgentWorktreeArgsSchema>;
 
+export const SupersAgentSupersededWorktreeReceiptSchema = z
+	.object({
+		schemaVersion: z.literal(1),
+		claimId: z.string().regex(SHA64_PATTERN),
+		invocationId: z.string().regex(INVOCATION_ID_PATTERN),
+		invocationState: z.enum(['missing', 'succeeded', 'failed']),
+		centralRevision: z.string().regex(SHA40_PATTERN),
+		worktreeHead: z.string().regex(SHA40_PATTERN),
+		worktreePresence: z.enum(['present', 'missing']),
+		cleanupBasis: z.enum(['unchanged', 'integrated']),
+		verifiedAt: z.string().datetime(),
+		fingerprint: z.string().regex(SHA64_PATTERN)
+	})
+	.strict();
+export type SupersAgentSupersededWorktreeReceipt = z.infer<
+	typeof SupersAgentSupersededWorktreeReceiptSchema
+>;
+
 export const SupersAgentWorktreeRemovalIntentSchema = z
 	.object({
 		schemaVersion: z.literal(1),
@@ -304,7 +331,7 @@ export const SupersAgentWorktreeRemovalIntentSchema = z
 		receiptId: z.string().regex(SHA64_PATTERN),
 		worktreePath: z.string().min(1),
 		attachedBranch: z.string().min(1),
-		authorizationKind: z.enum(['unchanged', 'committed']).optional(),
+		authorizationKind: z.enum(['unchanged', 'committed', 'superseded']).optional(),
 		authorizationReceiptId: z.string().regex(SHA64_PATTERN).optional(),
 		requestedAt: z.string().datetime()
 	})
@@ -320,6 +347,68 @@ export const SupersAgentWorktreeRemovalReceiptSchema =
 	}).strict();
 export type SupersAgentWorktreeRemovalReceipt = z.infer<
 	typeof SupersAgentWorktreeRemovalReceiptSchema
+>;
+
+export const ReconcileSupersAgentWorktreesArgsSchema = z
+	.object({
+		claimIds: z
+			.array(z.string().regex(SHA64_PATTERN))
+			.max(MAX_RECONCILIATION_CLAIMS)
+			.refine((claimIds) => new Set(claimIds).size === claimIds.length, {
+				message: 'claimIds must be unique'
+			})
+	})
+	.strict();
+export type ReconcileSupersAgentWorktreesArgs = z.infer<
+	typeof ReconcileSupersAgentWorktreesArgsSchema
+>;
+
+const SupersAgentWorktreeReconciliationItemSchema = z
+	.object({
+		claimId: z.string().regex(SHA64_PATTERN),
+		workItem: z.string().regex(SAFE_ID_PATTERN),
+		invocationId: z.string().regex(INVOCATION_ID_PATTERN),
+		worktreePath: z.string().min(1),
+		attachedBranch: z.string().min(1),
+		preparedAt: z.string().datetime(),
+		ageMs: z.number().int().nonnegative(),
+		invocationState: z.enum(['missing', 'succeeded', 'failed']),
+		observedHead: z.string().regex(SHA40_PATTERN).optional(),
+		logicalBytes: z.number().int().nonnegative(),
+		sizeComplete: z.boolean(),
+		disposition: z.enum([
+			'preserved-active',
+			'preserved-dirty',
+			'preserved-unique-commits',
+			'preserved-unsafe-history',
+			'removed-unchanged',
+			'removed-integrated',
+			'removed-stale-registration',
+			'absent'
+		])
+	})
+	.strict();
+export type SupersAgentWorktreeReconciliationItem = z.infer<
+	typeof SupersAgentWorktreeReconciliationItemSchema
+>;
+
+export const SupersAgentWorktreeReconciliationReceiptSchema = z
+	.object({
+		schemaVersion: z.literal(1),
+		reconciliationId: z.string().regex(SHA64_PATTERN),
+		repositoryDir: z.string().min(1),
+		centralRevision: z.string().regex(SHA40_PATTERN),
+		items: z.array(SupersAgentWorktreeReconciliationItemSchema).max(MAX_RECONCILIATION_CLAIMS),
+		removedCount: z.number().int().nonnegative(),
+		preservedCount: z.number().int().nonnegative(),
+		absentCount: z.number().int().nonnegative(),
+		logicalBytesBefore: z.number().int().nonnegative(),
+		reconciledAt: z.string().datetime(),
+		fingerprint: z.string().regex(SHA64_PATTERN)
+	})
+	.strict();
+export type SupersAgentWorktreeReconciliationReceipt = z.infer<
+	typeof SupersAgentWorktreeReconciliationReceiptSchema
 >;
 
 export interface SupersAgentGitResult {
@@ -347,6 +436,9 @@ export interface SupersAgentWorktreeDependencies {
 		limits: SupersAgentGitOutputLimits
 	): Promise<SupersAgentGitResult>;
 	realPath(path: string): Promise<string>;
+	/** Resolve the canonical repository-scoped OS-managed root for disposable checkouts. */
+	resolveWorktreeRoot(repositoryDir: string): Promise<string>;
+	measureDirectory(path: string): Promise<{ logicalBytes: number; complete: boolean }>;
 	pathExists(path: string): Promise<boolean>;
 	fileInfo(path: string): Promise<SupersAgentFileInfo>;
 	readFile(path: string): Promise<Uint8Array>;
@@ -586,10 +678,10 @@ async function listWorktrees(
 	);
 }
 
-async function requireCleanStableCentralRepository(
+async function requireStableCentralRepository(
 	deps: SupersAgentWorktreeDependencies,
 	repoDir: string,
-	baseRevision: string
+	expectedRevision: string
 ): Promise<RepositorySnapshot> {
 	const canonicalDir = await deps.realPath(repoDir);
 	const topLevel = (
@@ -630,17 +722,10 @@ async function requireCleanStableCentralRepository(
 			MAX_GIT_PROTOCOL_BYTES
 		)
 	).trim();
-	if (firstHead !== baseRevision) {
-		throw new Error(`central repository HEAD mismatch: expected ${baseRevision}, got ${firstHead}`);
-	}
-	const status = await requiredGitOutput(
-		deps,
-		canonicalDir,
-		['status', '--porcelain=v1', '--untracked-files=all', '-z'],
-		MAX_NAME_STATUS_BYTES
-	);
-	if (status.length !== 0) {
-		throw new Error('central repository must be clean before preparing an agent worktree');
+	if (firstHead !== expectedRevision) {
+		throw new Error(
+			`central repository HEAD mismatch: expected ${expectedRevision}, got ${firstHead}`
+		);
 	}
 	const secondHead = (
 		await requiredGitOutput(
@@ -656,6 +741,14 @@ async function requireCleanStableCentralRepository(
 	return { canonicalDir, headSha: firstHead };
 }
 
+async function requireStableCentralRevision(
+	deps: SupersAgentWorktreeDependencies,
+	repoDir: string,
+	baseRevision: string
+): Promise<RepositorySnapshot> {
+	return await requireStableCentralRepository(deps, repoDir, baseRevision);
+}
+
 function parentDirectory(path: string): string {
 	const slash = path.lastIndexOf('/');
 	return slash <= 0 ? '/' : path.slice(0, slash);
@@ -665,10 +758,23 @@ function baseName(path: string): string {
 	return path.slice(path.lastIndexOf('/') + 1) || 'repository';
 }
 
+function worktreePathAtRoot(
+	repositoryDir: string,
+	worktreeRoot: string,
+	suffix: string
+): string {
+	const worktreeName = `${baseName(repositoryDir)}-supers-agent-${suffix}`;
+	return worktreeRoot === '/' ? `/${worktreeName}` : `${worktreeRoot}/${worktreeName}`;
+}
+
 async function createBinding(
 	args: PrepareSupersAgentWorktreeArgs,
-	repositoryDir: string
+	repositoryDir: string,
+	worktreeRoot: string
 ): Promise<SupersAgentWorktreeBinding> {
+	if (worktreeRoot === repositoryDir || isContainedPath(repositoryDir, worktreeRoot)) {
+		throw new Error('agent worktree root must be outside the central repository');
+	}
 	const claimId = await createSupersAgentStableIdentityHash({
 		schemaVersion: 1,
 		invocationId: args.invocationId,
@@ -678,9 +784,7 @@ async function createBinding(
 		repositoryDir
 	});
 	const suffix = claimId.slice(0, 20);
-	const parent = parentDirectory(repositoryDir);
-	const siblingName = `${baseName(repositoryDir)}-supers-agent-${suffix}`;
-	const worktreePath = parent === '/' ? `/${siblingName}` : `${parent}/${siblingName}`;
+	const worktreePath = worktreePathAtRoot(repositoryDir, worktreeRoot, suffix);
 	const attachedBranch = `supers-agent/${args.purpose}/${suffix}`;
 	return {
 		schemaVersion: 1,
@@ -700,6 +804,25 @@ async function createBinding(
 	};
 }
 
+async function createSupportedBindings(
+	args: PrepareSupersAgentWorktreeArgs,
+	repositoryDir: string,
+	deps: SupersAgentWorktreeDependencies
+): Promise<readonly SupersAgentWorktreeBinding[]> {
+	const managedRoot = await deps.resolveWorktreeRoot(repositoryDir);
+	const managedBinding = await createBinding(args, repositoryDir, managedRoot);
+	const legacyRoot = parentDirectory(repositoryDir);
+	if (managedRoot === legacyRoot) return [managedBinding];
+	return [managedBinding, await createBinding(args, repositoryDir, legacyRoot)];
+}
+
+function bindingMatches(
+	binding: SupersAgentWorktreeBinding,
+	expectedBindings: readonly SupersAgentWorktreeBinding[]
+): boolean {
+	return expectedBindings.some((expected) => JSON.stringify(binding) === JSON.stringify(expected));
+}
+
 function createIntent(
 	binding: SupersAgentWorktreeBinding,
 	preparedAt: string
@@ -707,28 +830,311 @@ function createIntent(
 	return { ...binding, preparedAt };
 }
 
-async function requireValidClaimIdentity(claim: SupersAgentWorktreeClaim): Promise<void> {
-	const expectedIntent = createIntent(
-		await createBinding(
-			{
-				invocationId: claim.invocationId,
-				baseRevision: claim.baseRevision,
-				purpose: claim.purpose,
-				workItem: claim.workItem
-			},
-			claim.repositoryDir
-		),
-		claim.preparedAt
+async function requireValidClaimIdentity(
+	claim: SupersAgentWorktreeClaim,
+	deps: SupersAgentWorktreeDependencies
+): Promise<void> {
+	const expectedBindings = await createSupportedBindings(
+		{
+			invocationId: claim.invocationId,
+			baseRevision: claim.baseRevision,
+			purpose: claim.purpose,
+			workItem: claim.workItem
+		},
+		claim.repositoryDir,
+		deps
 	);
 	const claimIntent: Record<string, unknown> = { ...claim };
 	delete claimIntent.headSha;
 	delete claimIntent.stateHash;
-	if (JSON.stringify(claimIntent) !== JSON.stringify(expectedIntent)) {
+	const intentMatches = expectedBindings.some(
+		(binding) =>
+			JSON.stringify(claimIntent) === JSON.stringify(createIntent(binding, claim.preparedAt))
+	);
+	if (!intentMatches) {
 		throw new Error('worktree claim content does not match its content-addressed identity');
 	}
 	if (claim.headSha !== claim.baseRevision) {
 		throw new Error('worktree claim HEAD is not its exact base revision');
 	}
+}
+
+type SupersAgentInvocationResult = z.infer<typeof InvocationResultSchema>;
+type SupersAgentInvocationState = SupersAgentWorktreeReconciliationItem['invocationState'];
+type SupersAgentReconciliationDisposition =
+	SupersAgentWorktreeReconciliationItem['disposition'];
+
+function getSupersAgentInvocationState(
+	invocation: SupersAgentInvocationResult | null
+): SupersAgentInvocationState {
+	if (invocation === null) return 'missing';
+	if (invocation.success && invocation.exitCode === 0 && !invocation.timedOut) {
+		return 'succeeded';
+	}
+	return 'failed';
+}
+
+function getRemovedWorktreeDisposition(
+	observed: SupersAgentObservedWorktree,
+	history: SupersAgentCleanupHistoryDisposition
+): SupersAgentReconciliationDisposition {
+	if (observed.presence === 'missing') return 'removed-stale-registration';
+	if (history === 'unchanged') return 'removed-unchanged';
+	return 'removed-integrated';
+}
+
+function sumWorktreeLogicalBytes(items: readonly SupersAgentWorktreeReconciliationItem[]): number {
+	let total = 0;
+	for (const item of items) {
+		total += item.logicalBytes;
+		if (!Number.isSafeInteger(total)) {
+			throw new Error('reconciled worktree sizes exceed the safe integer range');
+		}
+	}
+	return total;
+}
+
+async function readBoundFinalInvocation(
+	context: SupersAgentWorktreeMethodContext,
+	claim: SupersAgentWorktreeClaim
+): Promise<SupersAgentInvocationResult | null> {
+	const invocationResource = `invocation-${claim.invocationId}`;
+	const invocationRaw = await context.readResource(invocationResource);
+	if (invocationRaw === null) return null;
+	const invocation = InvocationResultSchema.parse(invocationRaw);
+	if (invocation.invocationId !== claim.invocationId) {
+		throw new Error('CLI-agent invocation identity does not match the worktree claim');
+	}
+	if (invocation.cwd !== claim.worktreePath) {
+		throw new Error('CLI-agent invocation ran outside the claimed worktree');
+	}
+	const tags = invocation.tags ?? {};
+	for (const [key, value] of Object.entries(claim.expectedInvocationTags)) {
+		if (tags[key] !== value) {
+			throw new Error(`CLI-agent invocation tag mismatch for ${key}`);
+		}
+	}
+	const launchResource = `launch-claim-${claim.invocationId}`;
+	const launchRaw = await context.readResource(launchResource);
+	if (launchRaw === null) {
+		throw new Error(`CLI-agent launch claim is missing: ${launchResource}`);
+	}
+	const launch = InvocationLaunchBindingSchema.parse(launchRaw);
+	if (
+		launch.invocationId !== claim.invocationId ||
+		launch.cwd !== claim.worktreePath ||
+		launch.repositoryExpectation.attachedBranch !== claim.attachedBranch ||
+		launch.repositoryExpectation.headSha !== claim.headSha ||
+		launch.repositoryExpectation.stateHash !== claim.stateHash
+	) {
+		throw new Error('CLI-agent launch claim does not match the exact worktree expectation');
+	}
+	for (const [key, value] of Object.entries(claim.expectedInvocationTags)) {
+		if (launch.tags[key] !== value) {
+			throw new Error(`CLI-agent launch claim tag mismatch for ${key}`);
+		}
+	}
+	return invocation;
+}
+
+interface SupersAgentObservedWorktree {
+	presence: 'present' | 'missing';
+	headSha: string;
+	dirty: boolean;
+}
+
+async function observeClaimedWorktree(
+	deps: SupersAgentWorktreeDependencies,
+	claim: SupersAgentWorktreeClaim
+): Promise<SupersAgentObservedWorktree | null> {
+	const matchingRecords = (await listWorktrees(deps, claim.repositoryDir)).filter(
+		(candidate) =>
+			candidate.path === claim.worktreePath || candidate.attachedBranch === claim.attachedBranch
+	);
+	if (matchingRecords.length === 0) {
+		if (await deps.pathExists(claim.worktreePath)) {
+			throw new Error('claimed worktree path exists without its exact Git registration');
+		}
+		return null;
+	}
+	if (matchingRecords.length !== 1) {
+		throw new Error('claimed worktree path and branch resolve to conflicting Git registrations');
+	}
+	const record = matchingRecords[0];
+	if (record.path !== claim.worktreePath || record.attachedBranch !== claim.attachedBranch) {
+		throw new Error('claimed worktree Git registration conflicts with its exact identity');
+	}
+	if (!(await deps.pathExists(claim.worktreePath))) {
+		return { presence: 'missing', headSha: record.headSha, dirty: false };
+	}
+	const canonicalPath = await deps.realPath(claim.worktreePath);
+	if (canonicalPath !== claim.worktreePath) {
+		throw new Error('worktree path is not canonical');
+	}
+	const [topLevel, branch, headSha, status] = await Promise.all([
+		requiredGitOutput(
+			deps,
+			claim.worktreePath,
+			['rev-parse', '--show-toplevel'],
+			MAX_GIT_PROTOCOL_BYTES
+		),
+		requiredGitOutput(
+			deps,
+			claim.worktreePath,
+			['symbolic-ref', '--quiet', '--short', 'HEAD'],
+			MAX_GIT_PROTOCOL_BYTES
+		),
+		requiredGitOutput(
+			deps,
+			claim.worktreePath,
+			['rev-parse', '--verify', 'HEAD^{commit}'],
+			MAX_GIT_PROTOCOL_BYTES
+		),
+		requiredGitOutput(
+			deps,
+			claim.worktreePath,
+			['status', '--porcelain=v1', '--untracked-files=all', '-z'],
+			MAX_NAME_STATUS_BYTES
+		)
+	]);
+	const observedHead = headSha.trim();
+	if (
+		topLevel.trim() !== claim.worktreePath ||
+		branch.trim() !== claim.attachedBranch ||
+		observedHead !== record.headSha
+	) {
+		throw new Error('worktree checkout identity changed during reconciliation');
+	}
+	return { presence: 'present', headSha: observedHead, dirty: status.length !== 0 };
+}
+
+async function gitRevisionIsAncestor(
+	deps: SupersAgentWorktreeDependencies,
+	repositoryDir: string,
+	ancestor: string,
+	descendant: string
+): Promise<boolean> {
+	const args = ['merge-base', '--is-ancestor', ancestor, descendant] as const;
+	const result = await deps.runGit(repositoryDir, args, {
+		stdoutBytes: MAX_GIT_PROTOCOL_BYTES,
+		stderrBytes: MAX_GIT_ERROR_BYTES
+	});
+	if (result.success) return true;
+	if (result.code === 1) return false;
+	throw gitFailure(args, result);
+}
+
+type SupersAgentCleanupHistoryDisposition =
+	| 'unchanged'
+	| 'integrated'
+	| 'unique-commits'
+	| 'unsafe-history';
+
+async function classifySupersAgentCleanupHistory(
+	deps: SupersAgentWorktreeDependencies,
+	claim: SupersAgentWorktreeClaim,
+	worktreeHead: string,
+	centralRevision: string
+): Promise<SupersAgentCleanupHistoryDisposition> {
+	if (worktreeHead === claim.baseRevision) return 'unchanged';
+	if (await gitRevisionIsAncestor(deps, claim.repositoryDir, worktreeHead, centralRevision)) {
+		return 'integrated';
+	}
+	const [basePrecedesWorktree, basePrecedesCentral] = await Promise.all([
+		gitRevisionIsAncestor(deps, claim.repositoryDir, claim.baseRevision, worktreeHead),
+		gitRevisionIsAncestor(deps, claim.repositoryDir, claim.baseRevision, centralRevision)
+	]);
+	if (!basePrecedesWorktree || !basePrecedesCentral) return 'unsafe-history';
+	const mergeCommits = await requiredGitOutput(
+		deps,
+		claim.repositoryDir,
+		['rev-list', '--min-parents=2', `${claim.baseRevision}..${worktreeHead}`],
+		MAX_GIT_PROTOCOL_BYTES
+	);
+	if (mergeCommits.trim().length > 0) return 'unsafe-history';
+	const cherry = await requiredGitOutput(
+		deps,
+		claim.repositoryDir,
+		['cherry', centralRevision, worktreeHead],
+		MAX_GIT_PROTOCOL_BYTES
+	);
+	const entries = cherry.trim().length === 0 ? [] : cherry.trim().split('\n');
+	for (const entry of entries) {
+		if (!/^[+-] [0-9a-f]{40}$/.test(entry)) {
+			throw new Error('git cherry returned malformed reconciliation evidence');
+		}
+	}
+	return entries.some((entry) => entry.startsWith('+ ')) ? 'unique-commits' : 'integrated';
+}
+
+async function verifySupersededWorktreeCleanup(
+	deps: SupersAgentWorktreeDependencies,
+	context: SupersAgentWorktreeMethodContext,
+	claim: SupersAgentWorktreeClaim,
+	centralRevision: string
+): Promise<SupersAgentSupersededWorktreeReceipt> {
+	await requireStableCentralRepository(deps, claim.repositoryDir, centralRevision);
+	const receiptName = `supers-agent-worktree-superseded-${claim.claimId}-${centralRevision}`;
+	const existing = await readParsedResource(
+		context,
+		receiptName,
+		SupersAgentSupersededWorktreeReceiptSchema
+	);
+	if (existing !== null) {
+		const existingBase: Record<string, unknown> = { ...existing };
+		delete existingBase.fingerprint;
+		if (
+			existing.claimId !== claim.claimId ||
+			existing.invocationId !== claim.invocationId ||
+			existing.centralRevision !== centralRevision ||
+			existing.fingerprint !== (await createSupersAgentStableIdentityHash(existingBase))
+		) {
+			throw new Error('superseded cleanup receipt conflicts with the exact worktree claim');
+		}
+		return existing;
+	}
+	const invocation = await readBoundFinalInvocation(context, claim);
+	const claimAgeMs = Math.max(0, deps.now().getTime() - Date.parse(claim.preparedAt));
+	if (invocation === null && claimAgeMs < ABANDONED_WORKTREE_MIN_AGE_MS) {
+		throw new Error('superseded cleanup preserves a recent worktree without final invocation');
+	}
+	const observed = await observeClaimedWorktree(deps, claim);
+	if (observed === null) {
+		throw new Error('superseded cleanup found no worktree or stale registration');
+	}
+	if (observed.dirty) {
+		throw new Error('superseded cleanup preserves a dirty worktree');
+	}
+	const cleanupBasis = await classifySupersAgentCleanupHistory(
+		deps,
+		claim,
+		observed.headSha,
+		centralRevision
+	);
+	if (cleanupBasis === 'unique-commits') {
+		throw new Error('superseded cleanup preserves unique commits');
+	}
+	if (cleanupBasis === 'unsafe-history') {
+		throw new Error('superseded cleanup preserves unsafe history');
+	}
+	await requireStableCentralRepository(deps, claim.repositoryDir, centralRevision);
+	const receiptBase = {
+		schemaVersion: 1 as const,
+		claimId: claim.claimId,
+		invocationId: claim.invocationId,
+		invocationState: getSupersAgentInvocationState(invocation),
+		centralRevision,
+		worktreeHead: observed.headSha,
+		worktreePresence: observed.presence,
+		cleanupBasis,
+		verifiedAt: deps.now().toISOString()
+	};
+	const receipt: SupersAgentSupersededWorktreeReceipt = {
+		...receiptBase,
+		fingerprint: await createSupersAgentStableIdentityHash(receiptBase)
+	};
+	await context.writeResource('supers-agent-worktree-superseded', receiptName, receipt);
+	return receipt;
 }
 
 function expectedUnchangedReceipt(
@@ -1186,29 +1592,35 @@ export interface SupersAgentWorktreeOperations {
 		args: RemoveSupersAgentWorktreeArgs,
 		context: SupersAgentWorktreeMethodContext
 	): Promise<SupersAgentWorktreeResourceResult<SupersAgentWorktreeRemovalReceipt>>;
+	reconcileSupersAgentWorktrees(
+		args: ReconcileSupersAgentWorktreesArgs,
+		context: SupersAgentWorktreeMethodContext
+	): Promise<SupersAgentWorktreeResourceResult<SupersAgentWorktreeReconciliationReceipt>>;
 }
 
 /** Dependency-injected implementation used by the extension and adversarial tests. */
 export function createSupersAgentWorktreeOperations(
 	deps: SupersAgentWorktreeDependencies
 ): SupersAgentWorktreeOperations {
-	return {
+	const operations: SupersAgentWorktreeOperations = {
 		async prepareSupersAgentWorktree(argsInput, context) {
 			const args = PrepareSupersAgentWorktreeArgsSchema.parse(argsInput);
 			const canonicalRepositoryDir = await deps.realPath(context.repoDir);
-			const proposedBinding = await createBinding(args, canonicalRepositoryDir);
+			const supportedBindings = await createSupportedBindings(
+				args,
+				canonicalRepositoryDir,
+				deps
+			);
+			const proposedBinding = supportedBindings[0];
 			const bindingName = `supers-agent-worktree-binding-${args.invocationId}`;
 			const existingBinding = await readParsedResource(
 				context,
 				bindingName,
 				SupersAgentWorktreeBindingSchema
 			);
-			if (existingBinding !== null) {
-				requireExactResource(
-					SupersAgentWorktreeBindingSchema,
-					existingBinding,
-					proposedBinding,
-					'worktree invocation binding'
+			if (existingBinding !== null && !bindingMatches(existingBinding, supportedBindings)) {
+				throw new Error(
+					'worktree invocation binding conflicts with the caller-owned identity'
 				);
 			}
 
@@ -1232,7 +1644,7 @@ export function createSupersAgentWorktreeOperations(
 
 			let intent = existingIntent;
 			if (intent === null) {
-				creationSnapshot = await requireCleanStableCentralRepository(
+				creationSnapshot = await requireStableCentralRevision(
 					deps,
 					canonicalRepositoryDir,
 					args.baseRevision
@@ -1264,7 +1676,7 @@ export function createSupersAgentWorktreeOperations(
 				SupersAgentWorktreeClaimSchema
 			);
 			if (existingClaim !== null) {
-				await requireValidClaimIdentity(existingClaim);
+				await requireValidClaimIdentity(existingClaim, deps);
 				requireExactResource(
 					SupersAgentWorktreeClaimSchema,
 					existingClaim,
@@ -1292,12 +1704,12 @@ export function createSupersAgentWorktreeOperations(
 				return { resource: recoveredClaim, dataHandles: createdHandles };
 			}
 
-			creationSnapshot ??= await requireCleanStableCentralRepository(
+			creationSnapshot ??= await requireStableCentralRevision(
 				deps,
 				canonicalRepositoryDir,
 				args.baseRevision
 			);
-			await requireCleanStableCentralRepository(
+			await requireStableCentralRevision(
 				deps,
 				creationSnapshot.canonicalDir,
 				creationSnapshot.headSha
@@ -1337,7 +1749,7 @@ export function createSupersAgentWorktreeOperations(
 				}
 			}
 
-			await requireCleanStableCentralRepository(
+			await requireStableCentralRevision(
 				deps,
 				creationSnapshot.canonicalDir,
 				creationSnapshot.headSha
@@ -1361,7 +1773,7 @@ export function createSupersAgentWorktreeOperations(
 			if (claim === null) {
 				throw new Error(`worktree claim is missing: ${args.claimId}`);
 			}
-			await requireValidClaimIdentity(claim);
+			await requireValidClaimIdentity(claim, deps);
 			const receiptId = await createSupersAgentStableIdentityHash({
 				schemaVersion: 1,
 				claimId: claim.claimId,
@@ -1385,51 +1797,12 @@ export function createSupersAgentWorktreeOperations(
 				return { resource: existingReceipt, dataHandles: [] };
 			}
 
-			const invocationResource = `invocation-${claim.invocationId}`;
-			const invocationRaw = await context.readResource(invocationResource);
-			if (invocationRaw === null) {
-				throw new Error(`CLI-agent invocation resource is missing: ${invocationResource}`);
-			}
-			const invocation = InvocationResultSchema.parse(invocationRaw);
-			if (invocation.invocationId !== claim.invocationId) {
-				throw new Error('CLI-agent invocation identity does not match the worktree claim');
+			const invocation = await readBoundFinalInvocation(context, claim);
+			if (invocation === null) {
+				throw new Error(`CLI-agent invocation resource is missing: invocation-${claim.invocationId}`);
 			}
 			if (!invocation.success || invocation.exitCode !== 0 || invocation.timedOut) {
 				throw new Error('CLI-agent invocation did not finish successfully');
-			}
-			if (invocation.cwd !== claim.worktreePath) {
-				throw new Error('CLI-agent invocation ran outside the claimed worktree');
-			}
-			const tags = invocation.tags ?? {};
-			for (const [key, value] of Object.entries(claim.expectedInvocationTags)) {
-				if (tags[key] !== value) {
-					throw new Error(`CLI-agent invocation tag mismatch for ${key}`);
-				}
-			}
-			const launchResource = `launch-claim-${claim.invocationId}`;
-			const launchRaw = await context.readResource(launchResource);
-			if (launchRaw === null) {
-				throw new Error(`CLI-agent launch claim is missing: ${launchResource}`);
-			}
-			const launch = InvocationLaunchBindingSchema.parse(launchRaw);
-			const expectedRepository = {
-				attachedBranch: claim.attachedBranch,
-				headSha: claim.headSha,
-				stateHash: claim.stateHash
-			};
-			if (
-				launch.invocationId !== claim.invocationId ||
-				launch.cwd !== claim.worktreePath ||
-				launch.repositoryExpectation.attachedBranch !== expectedRepository.attachedBranch ||
-				launch.repositoryExpectation.headSha !== expectedRepository.headSha ||
-				launch.repositoryExpectation.stateHash !== expectedRepository.stateHash
-			) {
-				throw new Error('CLI-agent launch claim does not match the exact worktree expectation');
-			}
-			for (const [key, value] of Object.entries(claim.expectedInvocationTags)) {
-				if (launch.tags[key] !== value) {
-					throw new Error(`CLI-agent launch claim tag mismatch for ${key}`);
-				}
 			}
 			await requireExactWorktree(deps, claim, claim.stateHash);
 			const receipt = expectedUnchangedReceipt(claim, receiptId, deps.now().toISOString());
@@ -1454,7 +1827,7 @@ export function createSupersAgentWorktreeOperations(
 			if (claim === null) {
 				throw new Error(`worktree claim is missing: ${args.claimId}`);
 			}
-			await requireValidClaimIdentity(claim);
+			await requireValidClaimIdentity(claim, deps);
 			if (
 				claim.claimId !== args.claimId ||
 				claim.invocationId !== args.invocationId ||
@@ -1563,7 +1936,7 @@ export function createSupersAgentWorktreeOperations(
 				}
 			}
 			const evidence = await collectCommittedWorktreeEvidence(deps, claim, args);
-			await requireCleanStableCentralRepository(
+			await requireStableCentralRevision(
 				deps,
 				claim.repositoryDir,
 				args.expectedBaseRevision
@@ -1698,7 +2071,7 @@ export function createSupersAgentWorktreeOperations(
 				await context.writeResource('supers-agent-integration-intent', intentName, intent);
 			}
 
-			await requireCleanStableCentralRepository(
+			await requireStableCentralRevision(
 				deps,
 				context.repoDir,
 				args.expectedPostRevision
@@ -1771,7 +2144,7 @@ export function createSupersAgentWorktreeOperations(
 			if (patchDigest !== commitReceipt.diffDigest) {
 				throw new Error('integrated patch digest differs from the verified child receipt');
 			}
-			await requireCleanStableCentralRepository(
+			await requireStableCentralRevision(
 				deps,
 				context.repoDir,
 				args.expectedPostRevision
@@ -1883,12 +2256,13 @@ export function createSupersAgentWorktreeOperations(
 			if (claim === null) {
 				throw new Error(`worktree claim is missing: ${args.claimId}`);
 			}
-			await requireValidClaimIdentity(claim);
+			await requireValidClaimIdentity(claim, deps);
 			const authorization = args.authorization ?? { kind: 'unchanged' as const };
 			let authorizationReceiptId: string;
 			let committedAuthorization:
 				| { receipt: SupersAgentWorktreeCommitReceipt; verifyArgs: VerifySupersAgentWorktreeCommitArgs }
 				| null = null;
+			let supersededAuthorization: SupersAgentSupersededWorktreeReceipt | null = null;
 			if (authorization.kind === 'unchanged') {
 				authorizationReceiptId = await createSupersAgentStableIdentityHash({
 					schemaVersion: 1,
@@ -1911,7 +2285,7 @@ export function createSupersAgentWorktreeOperations(
 					expectedUnchangedReceipt(claim, authorizationReceiptId, unchanged.verifiedAt),
 					'worktree unchanged receipt'
 				);
-			} else {
+			} else if (authorization.kind === 'committed') {
 				authorizationReceiptId = authorization.receiptId;
 				if (authorization.receiptName !== `supers-agent-worktree-commit-${authorization.receiptId}`) {
 					throw new Error('committed cleanup authorization resource name mismatch');
@@ -1961,6 +2335,14 @@ export function createSupersAgentWorktreeOperations(
 							: { objectiveProofNomination: committed.objectiveProofNomination })
 					}
 				};
+			} else {
+				supersededAuthorization = await verifySupersededWorktreeCleanup(
+					deps,
+					context,
+					claim,
+					authorization.centralRevision
+				);
+				authorizationReceiptId = supersededAuthorization.fingerprint;
 			}
 			if (authorization.kind === 'unchanged') {
 				const legacyReceiptId = await createSupersAgentStableIdentityHash({
@@ -2059,16 +2441,38 @@ export function createSupersAgentWorktreeOperations(
 			}
 			const originalExists = await deps.pathExists(claim.worktreePath);
 			const quarantineExists = await deps.pathExists(quarantinePath);
-			if (existingIntent === null && !originalExists) {
+			const matchingRegistration = (await listWorktrees(deps, claim.repositoryDir)).find(
+				(candidate) =>
+					candidate.path === claim.worktreePath ||
+					candidate.attachedBranch === claim.attachedBranch
+			);
+			if (existingIntent === null && !originalExists && supersededAuthorization === null) {
 				throw new Error('cannot begin worktree removal because the claimed worktree is absent');
 			}
 			if (existingIntent === null && quarantineExists) {
 				throw new Error('cannot begin worktree removal from an ambiguous quarantine state');
 			}
+			if (
+				!originalExists &&
+				matchingRegistration !== undefined &&
+				supersededAuthorization !== null
+			) {
+				const expectedSupersededHead = supersededAuthorization.worktreeHead;
+				const registrationMatchesOriginal =
+					matchingRegistration.path === claim.worktreePath &&
+					matchingRegistration.attachedBranch === claim.attachedBranch &&
+					matchingRegistration.headSha === expectedSupersededHead;
+				const registrationMatchesQuarantine =
+					quarantineExists &&
+					matchingRegistration.path === quarantinePath &&
+					matchingRegistration.attachedBranch === claim.attachedBranch &&
+					matchingRegistration.headSha === expectedSupersededHead;
+				if (!registrationMatchesOriginal && !registrationMatchesQuarantine) {
+					throw new Error('stale worktree registration conflicts with superseded cleanup evidence');
+				}
+			}
 			if (originalExists && !quarantineExists) {
-				if (committedAuthorization === null) {
-					await requireExactWorktree(deps, claim, claim.stateHash);
-				} else {
+				if (committedAuthorization !== null) {
 					const observed = await collectCommittedWorktreeEvidence(
 						deps,
 						claim,
@@ -2084,6 +2488,23 @@ export function createSupersAgentWorktreeOperations(
 					) {
 						throw new Error('committed worktree no longer matches its cleanup authorization');
 					}
+				} else if (supersededAuthorization !== null) {
+					const observed = await observeClaimedWorktree(deps, claim);
+					if (
+						observed === null ||
+						observed.presence !== 'present' ||
+						observed.dirty ||
+						observed.headSha !== supersededAuthorization.worktreeHead
+					) {
+						throw new Error('worktree changed after superseded cleanup verification');
+					}
+					await requireStableCentralRepository(
+						deps,
+						claim.repositoryDir,
+						supersededAuthorization.centralRevision
+					);
+				} else {
+					await requireExactWorktree(deps, claim, claim.stateHash);
 				}
 			}
 			const intent = existingIntent ?? proposedIntent;
@@ -2092,38 +2513,65 @@ export function createSupersAgentWorktreeOperations(
 			}
 
 			const removalAlreadyApplied =
-				existingIntent !== null && !originalExists && !quarantineExists;
+				existingIntent !== null &&
+				!originalExists &&
+				!quarantineExists &&
+				(supersededAuthorization === null || matchingRegistration === undefined);
 			if (!removalAlreadyApplied) {
-				if (!quarantineExists) {
-					await deps.rename(claim.worktreePath, quarantinePath);
-				}
-				if (!(await deps.pathExists(quarantinePath))) {
-					throw new Error('exact worktree quarantine is absent after atomic rename');
-				}
-				const repairArgs = ['worktree', 'repair', quarantinePath] as const;
-				const repairResult = await deps.runGit(claim.repositoryDir, repairArgs, {
-					stdoutBytes: MAX_GIT_PROTOCOL_BYTES,
-					stderrBytes: MAX_GIT_ERROR_BYTES
-				});
-				if (!repairResult.success) throw gitFailure(repairArgs, repairResult);
-				const quarantineRecord = (await listWorktrees(deps, claim.repositoryDir)).find(
-					(candidate) => candidate.path === quarantinePath
-				);
-				const expectedHead = committedAuthorization?.receipt.commitRevision ?? claim.headSha;
-				if (
-					quarantineRecord === undefined ||
-					quarantineRecord.attachedBranch !== claim.attachedBranch ||
-					quarantineRecord.headSha !== expectedHead
-				) {
-					throw new Error('Git registration does not match the exact quarantined worktree');
-				}
-				const removeArgs = ['worktree', 'remove', '--', quarantinePath] as const;
-				const removeResult = await deps.runGit(claim.repositoryDir, removeArgs, {
-					stdoutBytes: MAX_GIT_PROTOCOL_BYTES,
-					stderrBytes: MAX_GIT_ERROR_BYTES
-				});
-				if (!removeResult.success && (await deps.pathExists(quarantinePath))) {
-					throw gitFailure(removeArgs, removeResult);
+				if (!originalExists && !quarantineExists) {
+					const removeMissingArgs = [
+						'worktree',
+						'remove',
+						'--force',
+						'--',
+						claim.worktreePath
+					] as const;
+					const removeMissingResult = await deps.runGit(
+						claim.repositoryDir,
+						removeMissingArgs,
+						{
+							stdoutBytes: MAX_GIT_PROTOCOL_BYTES,
+							stderrBytes: MAX_GIT_ERROR_BYTES
+						}
+					);
+					if (!removeMissingResult.success) {
+						throw gitFailure(removeMissingArgs, removeMissingResult);
+					}
+				} else {
+					if (!quarantineExists) {
+						await deps.rename(claim.worktreePath, quarantinePath);
+					}
+					if (!(await deps.pathExists(quarantinePath))) {
+						throw new Error('exact worktree quarantine is absent after atomic rename');
+					}
+					const repairArgs = ['worktree', 'repair', quarantinePath] as const;
+					const repairResult = await deps.runGit(claim.repositoryDir, repairArgs, {
+						stdoutBytes: MAX_GIT_PROTOCOL_BYTES,
+						stderrBytes: MAX_GIT_ERROR_BYTES
+					});
+					if (!repairResult.success) throw gitFailure(repairArgs, repairResult);
+					const quarantineRecord = (await listWorktrees(deps, claim.repositoryDir)).find(
+						(candidate) => candidate.path === quarantinePath
+					);
+					const expectedHead =
+						committedAuthorization?.receipt.commitRevision ??
+						supersededAuthorization?.worktreeHead ??
+						claim.headSha;
+					if (
+						quarantineRecord === undefined ||
+						quarantineRecord.attachedBranch !== claim.attachedBranch ||
+						quarantineRecord.headSha !== expectedHead
+					) {
+						throw new Error('Git registration does not match the exact quarantined worktree');
+					}
+					const removeArgs = ['worktree', 'remove', '--', quarantinePath] as const;
+					const removeResult = await deps.runGit(claim.repositoryDir, removeArgs, {
+						stdoutBytes: MAX_GIT_PROTOCOL_BYTES,
+						stderrBytes: MAX_GIT_ERROR_BYTES
+					});
+					if (!removeResult.success && (await deps.pathExists(quarantinePath))) {
+						throw gitFailure(removeArgs, removeResult);
+					}
 				}
 			}
 			if (await deps.pathExists(quarantinePath)) {
@@ -2150,8 +2598,120 @@ export function createSupersAgentWorktreeOperations(
 				receipt
 			);
 			return { resource: receipt, dataHandles: [handle] };
+		},
+
+		async reconcileSupersAgentWorktrees(argsInput, context) {
+			const args = ReconcileSupersAgentWorktreesArgsSchema.parse(argsInput);
+			const repositoryDir = await deps.realPath(context.repoDir);
+			const centralRevision = (
+				await requiredGitOutput(
+					deps,
+					repositoryDir,
+					['rev-parse', '--verify', 'HEAD^{commit}'],
+					MAX_GIT_PROTOCOL_BYTES
+				)
+			).trim();
+			await requireStableCentralRepository(deps, repositoryDir, centralRevision);
+			const reconciledAt = deps.now().toISOString();
+			const reconciledAtMs = Date.parse(reconciledAt);
+			const items: SupersAgentWorktreeReconciliationItem[] = [];
+
+			for (const claimId of [...args.claimIds].sort()) {
+				const claim = await readParsedResource(
+					context,
+					`supers-agent-worktree-claim-${claimId}`,
+					SupersAgentWorktreeClaimSchema
+				);
+				if (claim === null) throw new Error(`worktree claim is missing: ${claimId}`);
+				await requireValidClaimIdentity(claim, deps);
+				const observed = await observeClaimedWorktree(deps, claim);
+				const measurement =
+					observed?.presence === 'present'
+						? await deps.measureDirectory(claim.worktreePath)
+						: { logicalBytes: 0, complete: true };
+				const invocation =
+					observed === null ? null : await readBoundFinalInvocation(context, claim);
+				const invocationState = getSupersAgentInvocationState(invocation);
+				const ageMs = Math.max(0, reconciledAtMs - Date.parse(claim.preparedAt));
+				const itemBase = {
+					claimId: claim.claimId,
+					workItem: claim.workItem,
+					invocationId: claim.invocationId,
+					worktreePath: claim.worktreePath,
+					attachedBranch: claim.attachedBranch,
+					preparedAt: claim.preparedAt,
+					ageMs,
+					invocationState,
+					...(observed === null ? {} : { observedHead: observed.headSha }),
+					logicalBytes: measurement.logicalBytes,
+					sizeComplete: measurement.complete
+				};
+				if (observed === null) {
+					items.push({ ...itemBase, disposition: 'absent' });
+					continue;
+				}
+				if (invocation === null && ageMs < ABANDONED_WORKTREE_MIN_AGE_MS) {
+					items.push({ ...itemBase, disposition: 'preserved-active' });
+					continue;
+				}
+				if (observed.dirty) {
+					items.push({ ...itemBase, disposition: 'preserved-dirty' });
+					continue;
+				}
+				const history = await classifySupersAgentCleanupHistory(
+					deps,
+					claim,
+					observed.headSha,
+					centralRevision
+				);
+				if (history === 'unique-commits') {
+					items.push({ ...itemBase, disposition: 'preserved-unique-commits' });
+					continue;
+				}
+				if (history === 'unsafe-history') {
+					items.push({ ...itemBase, disposition: 'preserved-unsafe-history' });
+					continue;
+				}
+				await operations.removeSupersAgentWorktree(
+					{
+						claimId: claim.claimId,
+						authorization: { kind: 'superseded', centralRevision }
+					},
+					context
+				);
+				items.push({
+					...itemBase,
+					disposition: getRemovedWorktreeDisposition(observed, history)
+				});
+			}
+
+			await requireStableCentralRepository(deps, repositoryDir, centralRevision);
+			const receiptCore = {
+				schemaVersion: 1 as const,
+				repositoryDir,
+				centralRevision,
+				items,
+				removedCount: items.filter((item) => item.disposition.startsWith('removed-')).length,
+				preservedCount: items.filter((item) => item.disposition.startsWith('preserved-')).length,
+				absentCount: items.filter((item) => item.disposition === 'absent').length,
+				logicalBytesBefore: sumWorktreeLogicalBytes(items),
+				reconciledAt
+			};
+			const reconciliationId = await createSupersAgentStableIdentityHash(receiptCore);
+			const receiptBase = { ...receiptCore, reconciliationId };
+			const receipt: SupersAgentWorktreeReconciliationReceipt = {
+				...receiptBase,
+				fingerprint: await createSupersAgentStableIdentityHash(receiptBase)
+			};
+			const handle = await context.writeResource(
+				'supers-agent-worktree-reconciliation',
+				'supers-agent-worktree-reconciliation-latest',
+				receipt
+			);
+			return { resource: receipt, dataHandles: [handle] };
 		}
 	};
+	return operations;
 }
 
 const GIT_PROCESS_GROUP_WRAPPER =
@@ -2229,9 +2789,64 @@ export async function runBoundedSupersGitCommand(
 	}
 }
 
+async function resolveSupersAgentWorktreeRoot(repositoryDir: string): Promise<string> {
+	const temporaryRoot = await Deno.realPath(Deno.env.get('TMPDIR') ?? '/tmp');
+	const repositoryPathHash = (await rawSha256(encoder.encode(repositoryDir))).slice(0, 12);
+	const managedRoot = `${temporaryRoot}/supers-agent-worktrees/${baseName(repositoryDir)}-${repositoryPathHash}`;
+	await Deno.mkdir(managedRoot, { recursive: true, mode: 0o700 });
+	return await Deno.realPath(managedRoot);
+}
+
+async function measureSupersAgentDirectory(
+	root: string
+): Promise<{ logicalBytes: number; complete: boolean }> {
+	const pending = [root];
+	let logicalBytes = 0;
+	let entryCount = 0;
+	while (pending.length > 0) {
+		const directory = pending.pop();
+		if (directory === undefined) break;
+		let entries: Deno.DirEntry[];
+		try {
+			entries = [];
+			for await (const entry of Deno.readDir(directory)) entries.push(entry);
+		} catch (error) {
+			if (error instanceof Deno.errors.NotFound) return { logicalBytes, complete: false };
+			throw error;
+		}
+		for (const entry of entries) {
+			entryCount += 1;
+			if (entryCount > MAX_DIRECTORY_MEASUREMENT_ENTRIES) {
+				return { logicalBytes, complete: false };
+			}
+			const path = `${directory}/${entry.name}`;
+			let info: Deno.FileInfo;
+			try {
+				info = await Deno.lstat(path);
+			} catch (error) {
+				if (error instanceof Deno.errors.NotFound) return { logicalBytes, complete: false };
+				throw error;
+			}
+			if (info.isSymlink) continue;
+			if (info.isDirectory) {
+				pending.push(path);
+				continue;
+			}
+			if (!info.isFile) continue;
+			logicalBytes += info.size;
+			if (!Number.isSafeInteger(logicalBytes)) {
+				throw new Error('agent worktree logical size exceeds the safe integer range');
+			}
+		}
+	}
+	return { logicalBytes, complete: true };
+}
+
 const defaultDependencies: SupersAgentWorktreeDependencies = {
 	runGit: runBoundedSupersGitCommand,
 	realPath: (path) => Deno.realPath(path),
+	resolveWorktreeRoot: resolveSupersAgentWorktreeRoot,
+	measureDirectory: measureSupersAgentDirectory,
 	async pathExists(path) {
 		try {
 			await Deno.lstat(path);
@@ -2257,6 +2872,7 @@ const operations = createSupersAgentWorktreeOperations(defaultDependencies);
 // infinite-lifetime version preserves every binding beyond CLI-agent's 30d records;
 // old invocation IDs therefore remain permanently unavailable for reuse.
 const IMMUTABLE_INVOCATION_RESOURCE_VERSIONS = 1;
+const WORKTREE_RECONCILIATION_RESOURCE_VERSIONS = 32;
 
 const CliAgentInjectedGlobalArgsSchema = z.object({
 	defaultProvider: z.unknown(),
@@ -2351,6 +2967,13 @@ export const extension = {
 			lifetime: 'infinite',
 			garbageCollection: IMMUTABLE_INVOCATION_RESOURCE_VERSIONS
 		},
+		'supers-agent-worktree-superseded': {
+			description:
+				'Immutable proof that a final agent worktree is unchanged or fully represented by the central revision.',
+			schema: SupersAgentSupersededWorktreeReceiptSchema,
+			lifetime: 'infinite',
+			garbageCollection: IMMUTABLE_INVOCATION_RESOURCE_VERSIONS
+		},
 		'supers-agent-worktree-removal-intent': {
 			description:
 				'Crash-recoverable intent to remove only one exact verified Supers agent worktree.',
@@ -2364,13 +2987,20 @@ export const extension = {
 			schema: SupersAgentWorktreeRemovalReceiptSchema,
 			lifetime: 'infinite',
 			garbageCollection: IMMUTABLE_INVOCATION_RESOURCE_VERSIONS
+		},
+		'supers-agent-worktree-reconciliation': {
+			description:
+				'Bounded inventory and cleanup result for all requested Supers agent worktree claims.',
+			schema: SupersAgentWorktreeReconciliationReceiptSchema,
+			lifetime: 'infinite',
+			garbageCollection: WORKTREE_RECONCILIATION_RESOURCE_VERSIONS
 		}
 	},
 	methods: [
 		{
 			prepareSupersAgentWorktree: {
 				description:
-					'Prepare or recover one deterministic isolated worktree from a clean, stable exact HEAD.',
+					'Prepare or recover one deterministic isolated worktree from a stable exact HEAD without reading unrelated working files.',
 				arguments: PrepareSupersAgentWorktreeArgsSchema.extend(CliAgentInjectedGlobalArgsSchema.shape),
 				execute: async (
 					args: PrepareSupersAgentWorktreeArgs & z.infer<typeof CliAgentInjectedGlobalArgsSchema>,
@@ -2438,7 +3068,7 @@ export const extension = {
 		{
 			removeSupersAgentWorktree: {
 				description:
-					'Remove only an exactly authorized unchanged or committed worktree and persist a replay-safe removal receipt.',
+					'Remove only an exactly authorized unchanged, committed, or superseded worktree and persist a replay-safe removal receipt.',
 				arguments: RemoveSupersAgentWorktreeArgsSchema.extend(CliAgentInjectedGlobalArgsSchema.shape),
 				execute: async (
 					args: RemoveSupersAgentWorktreeArgs & z.infer<typeof CliAgentInjectedGlobalArgsSchema>,
@@ -2446,6 +3076,28 @@ export const extension = {
 				) => {
 					const result = await operations.removeSupersAgentWorktree(
 						RemoveSupersAgentWorktreeArgsSchema.parse(stripCliAgentInjectedGlobals(args)),
+						context
+					);
+					return { dataHandles: result.dataHandles };
+				}
+			}
+		},
+		{
+			reconcileSupersAgentWorktrees: {
+				description:
+					'Inventory requested worktree claims, remove only final safe leftovers, and preserve active, dirty, unique, or unsafe work.',
+				arguments: ReconcileSupersAgentWorktreesArgsSchema.extend(
+					CliAgentInjectedGlobalArgsSchema.shape
+				),
+				execute: async (
+					args: ReconcileSupersAgentWorktreesArgs &
+						z.infer<typeof CliAgentInjectedGlobalArgsSchema>,
+					context: SupersAgentWorktreeMethodContext
+				) => {
+					const result = await operations.reconcileSupersAgentWorktrees(
+						ReconcileSupersAgentWorktreesArgsSchema.parse(
+							stripCliAgentInjectedGlobals(args)
+						),
 						context
 					);
 					return { dataHandles: result.dataHandles };

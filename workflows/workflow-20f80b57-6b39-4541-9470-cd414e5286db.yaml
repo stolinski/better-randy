@@ -37,6 +37,17 @@ jobs:
   - name: main
     description: Bind one current collection to official-Dex triage and durable superseding queue intents through workflow-correlated immutable data.
     steps:
+      - name: reconcile-agent-worktrees
+        description: Inventory all Sentry coding lanes and remove only final clean work already represented by the central revision.
+        task:
+          type: model_method
+          modelIdOrName: supers-delivery-coding-agent
+          methodName: reconcileSupersAgentWorktrees
+          inputs:
+            claimIds: '${{ data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-claim"'').filter(claim, size(data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-removal"'').filter(removal, removal.attributes.claimId == claim.attributes.claimId)) == 0).map(claim, claim.attributes.claimId) }}'
+        dependsOn: []
+        weight: 0
+        allowFailure: false
       - name: collect-sentry-issues
         description: Store the bounded issue snapshot and current/recent/historical reconciliation.
         task:
@@ -48,7 +59,10 @@ jobs:
             historyDays: '${{ inputs.historyDays }}'
             limit: '${{ inputs.limit }}'
             currentRelease: '${{ inputs.currentRelease }}'
-        dependsOn: []
+        dependsOn:
+          - step: reconcile-agent-worktrees
+            condition:
+              type: succeeded
         weight: 0
         allowFailure: false
       - name: triage-against-dex
@@ -207,4 +221,4 @@ jobs:
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 5
+version: 6

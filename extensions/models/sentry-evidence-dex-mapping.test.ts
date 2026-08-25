@@ -6,6 +6,7 @@ import {
   createSentrySha256,
 } from "./sentry-issue-intake-adapter.ts";
 import {
+  DEFAULT_SENTRY_EVIDENCE_MAPPING_DEPENDENCIES,
   executeMapEvidencedSentryRepair,
   SentryEvidenceTaskMappingSchema,
 } from "./sentry-evidence-dex-mapping.ts";
@@ -179,6 +180,10 @@ async function buildFixture() {
   };
   return { context, dependencies, evidence, writes, tasks };
 }
+
+test("production Sentry admission delegates persistence to Dex without touching Git", () => {
+  assert.equal(DEFAULT_SENTRY_EVIDENCE_MAPPING_DEPENDENCIES.commitDexMutation, undefined);
+});
 
 test("observed-event mapping creates, starts, and admits one Dex repair without reproduction", async () => {
   const value = await buildFixture();

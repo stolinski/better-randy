@@ -152,6 +152,7 @@ export type SentryEvidenceMappingDependencies = {
   commitDexMutation?: (cwd: string, taskId: string) => Promise<void>;
 };
 
+/** Dex owns task persistence; Sentry admission never mutates Git or inspects unrelated files. */
 export const DEFAULT_SENTRY_EVIDENCE_MAPPING_DEPENDENCIES:
   SentryEvidenceMappingDependencies = {
     dexRepositoryLock: DEFAULT_DEX_REPOSITORY_LOCK,
@@ -161,41 +162,6 @@ export const DEFAULT_SENTRY_EVIDENCE_MAPPING_DEPENDENCIES:
         code: result.code,
         stdout: new TextDecoder().decode(result.stdout),
       };
-    },
-    commitDexMutation: async (cwd, taskId) => {
-      const runGit = async (args: string[]): Promise<string> => {
-        const result = await new Deno.Command("git", {
-          args,
-          cwd,
-          stdin: "null",
-          stdout: "piped",
-          stderr: "piped",
-        }).output();
-        if (!result.success) {
-          throw new Error(`Sentry Dex Git mutation failed: git ${args[0]}`);
-        }
-        return new TextDecoder().decode(result.stdout);
-      };
-      const [unstaged, staged, untracked] = await Promise.all([
-        runGit(["diff", "--name-only"]),
-        runGit(["diff", "--cached", "--name-only"]),
-        runGit(["ls-files", "--others", "--exclude-standard"]),
-      ]);
-      const changedPaths = new Set(
-        `${unstaged}\n${staged}\n${untracked}`.split("\n").filter(Boolean),
-      );
-      if (changedPaths.size === 0) return;
-      if ([...changedPaths].some((path) => path !== ".dex/tasks.jsonl")) {
-        throw new Error("Sentry Dex admission refuses unrelated repository changes");
-      }
-      await runGit(["add", "--", ".dex/tasks.jsonl"]);
-      await runGit([
-        "commit",
-        "-m",
-        `chore: admit Sentry repair ${taskId}`,
-        "--",
-        ".dex/tasks.jsonl",
-      ]);
     },
   };
 
