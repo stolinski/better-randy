@@ -1,0 +1,19 @@
+diff --git a/src/core/sync/write_types/index.js b/src/core/sync/write_types/index.js
+index ccc849f50f3515bac756b123aee5334d57aac837..9d73e146970a105ff7719d470ae92abc011d6e6b 100644
+--- a/src/core/sync/write_types/index.js
++++ b/src/core/sync/write_types/index.js
+@@ -532,4 +532,13 @@ function ensureProxies(node, proxies) {
+  * @returns {Proxy}
+  */
+ function createProxy(file_path, is_server) {
+-	const proxy = tweak_types(fs.readFileSync(file_path, 'utf8'), is_server);
++	let source;
++	try {
++		source = fs.readFileSync(file_path, 'utf8');
++	} catch (error) {
++		// A route can disappear between the watcher update and this read.
++		if (/** @type {NodeJS.ErrnoException} */ (error).code === 'ENOENT') return null;
++		throw error;
++	}
++
++	const proxy = tweak_types(source, is_server);

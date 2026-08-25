@@ -13,3 +13,5 @@ onlyBuiltDependencies:
   - workerd
   - sharp
   - esbuild
+patchedDependencies:
+  '@sveltejs/kit@2.69.2': patches/@sveltejs__kit@2.69.2.patch
