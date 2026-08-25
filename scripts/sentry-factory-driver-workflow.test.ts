@@ -169,6 +169,7 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   assert.match(invocationIdentity, /workItem/);
   assert.match(invocationIdentity, /stage\.cycle/);
   assert.match(invocationIdentity, /repairIdentityFingerprint/);
+  assert.match(invocationIdentity, /item\.isLatest/);
   assert.doesNotMatch(invocationIdentity, /run\.id/);
   assert.equal(prepare.task.inputs?.purpose, "delivery-coding");
 
