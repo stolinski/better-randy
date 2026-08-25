@@ -67,6 +67,9 @@ async function readUserCompositionWirePreset(slug: string): Promise<unknown> {
 		error(500, `Failed to read user composition "${slug}"`);
 	}
 
+	// Legacy writes could leave an empty file; do not use JSON.parse as the guard.
+	if (raw.trim().length === 0) return null;
+
 	let storedUserComposition: unknown;
 	try {
 		storedUserComposition = JSON.parse(raw);
