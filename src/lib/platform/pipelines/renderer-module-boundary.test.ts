@@ -119,9 +119,11 @@ function rendererImplementationModules(graph: ReadonlySet<string>): string[] {
 		if (markerIndex < 0) return false;
 		const relativePath = file.slice(markerIndex + pipelineFamilyMarker.length);
 		if (!/^(surfaces|blocks|annotations|overlays|effects)\//.test(relativePath)) return false;
-		return !relativePath.endsWith('/definition.ts') &&
+		return (
+			!relativePath.endsWith('/definition.ts') &&
 			!relativePath.endsWith('/identity.ts') &&
-			!RENDERER_FREE_PIPELINE_SUPPORT_MODULES.has(relativePath);
+			!RENDERER_FREE_PIPELINE_SUPPORT_MODULES.has(relativePath)
+		);
 	});
 }
 
@@ -147,6 +149,14 @@ function assertRendererFreeGraph(graph: ReadonlySet<string>): void {
 }
 
 describe('renderer module boundary', () => {
+	it('keeps SurfaceMount isolated from concrete renderer hot updates', () => {
+		const surfaceMount = fileURLToPath(new URL('../SurfaceMount.svelte', import.meta.url));
+		const graph = collectRuntimeImportGraph([surfaceMount]);
+
+		assert.ok([...graph].some((file) => file.endsWith('/pipelines/runtime-context.svelte.ts')));
+		assert.deepEqual(rendererImplementationModules(graph), []);
+	});
+
 	it('classifies every non-allowlisted Pipeline-family implementation module as runtime code', () => {
 		const root = '/repo/src/lib/pipelines/';
 		assert.deepEqual(
