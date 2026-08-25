@@ -1,0 +1,27 @@
+type: '@mgreten/cli-agent'
+typeVersion: 2026.08.21.3
+id: a780925d-81a3-4e13-b590-be02eb381b4e
+name: supers-sentry-coding-agent
+version: 1
+tags: {}
+globalArguments:
+  defaultProvider: pi
+  defaultModel: openai-codex/gpt-5.6-sol
+  defaultToolProfile: actor
+  commandsDir: .claude/commands
+  commandSubdirs: []
+  claudePath: claude
+  opencodePath: opencode
+  ampPath: amp
+  geminiPath: gemini
+  codexPath: codex
+  grokPath: grok
+  piPath: pi
+  idleTimeoutMs: 300000
+  wallTimeoutMs: 1800000
+  maxRetries: 0
+  sandboxMode: 'off'
+  sandboxRequired: false
+  sandboxNetwork: allow
+  sandboxCredentialAccess: provider
+methods: {}

@@ -41,10 +41,10 @@ jobs:
         description: Inventory all Sentry coding lanes and remove only final clean work already represented by the central revision.
         task:
           type: model_method
-          modelIdOrName: supers-delivery-coding-agent
+          modelIdOrName: supers-sentry-coding-agent
           methodName: reconcileSupersAgentWorktrees
           inputs:
-            claimIds: '${{ data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-claim"'').filter(claim, size(data.query(''modelName == "supers-delivery-coding-agent" && specName == "supers-agent-worktree-removal"'').filter(removal, removal.attributes.claimId == claim.attributes.claimId)) == 0).map(claim, claim.attributes.claimId) }}'
+            claimIds: '${{ data.query(''modelName == "supers-sentry-coding-agent" && specName == "supers-agent-worktree-claim"'').filter(claim, size(data.query(''modelName == "supers-sentry-coding-agent" && specName == "supers-agent-worktree-removal"'').filter(removal, removal.attributes.claimId == claim.attributes.claimId)) == 0).map(claim, claim.attributes.claimId) }}'
         dependsOn: []
         weight: 0
         allowFailure: true
@@ -221,4 +221,4 @@ jobs:
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 7
+version: 8

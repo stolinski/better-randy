@@ -43,7 +43,7 @@ Deno.test(
   async () => {
     const source = await Deno.readTextFile(INTAKE_WORKFLOW_PATH);
     const workflow = parse(source) as WorkflowDefinition;
-    assert.equal(workflow.version, 7);
+    assert.equal(workflow.version, 8);
     assert.deepEqual(
       workflow.jobs.flatMap((job) => job.steps).map((step) => step.name),
       [
@@ -61,6 +61,10 @@ Deno.test(
       ],
     );
     const reconciliation = stepByName(workflow, "reconcile-agent-worktrees");
+    assert.equal(
+      reconciliation.task.modelIdOrName,
+      "supers-sentry-coding-agent",
+    );
     assert.equal(
       reconciliation.task.methodName,
       "reconcileSupersAgentWorktrees",

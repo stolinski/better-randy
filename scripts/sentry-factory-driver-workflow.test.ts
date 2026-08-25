@@ -64,7 +64,7 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   const steps = workflow.jobs.flatMap((job) => job.steps);
   const names = steps.map((step) => step.name);
 
-  assert.equal(workflow.version, 5);
+  assert.equal(workflow.version, 6);
   assert.deepEqual(workflow.inputs.required, [
     "workItem",
     "evidenceName",
@@ -165,6 +165,7 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   );
 
   const prepare = stepByName(workflow, "prepare-isolated-coding-worktree");
+  assert.equal(prepare.task.modelIdOrName, "supers-sentry-coding-agent");
   const invocationIdentity = String(prepare.task.inputs?.invocationId);
   assert.match(invocationIdentity, /workItem/);
   assert.match(invocationIdentity, /stage\.cycle/);
@@ -174,6 +175,7 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   assert.equal(prepare.task.inputs?.purpose, "delivery-coding");
 
   const invoke = stepByName(workflow, "invoke-sandboxed-coding-agent");
+  assert.equal(invoke.task.modelIdOrName, "supers-sentry-coding-agent");
   assert.equal(invoke.task.methodName, "invokeAndParse");
   assert.equal(invoke.task.inputs?.provider, "pi");
   assert.equal(invoke.task.inputs?.model, "openai-codex/gpt-5.6-sol");
@@ -201,9 +203,11 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
     /objectiveProofNomination|pre-existing byte-unchanged/,
   );
 
+  const verifyCommit = stepByName(workflow, "verify-committed-worktree");
+  assert.equal(verifyCommit.task.methodName, "verifySupersAgentWorktreeCommit");
   assert.equal(
-    stepByName(workflow, "verify-committed-worktree").task.methodName,
-    "verifySupersAgentWorktreeCommit",
+    verifyCommit.task.inputs?.invocationModelId,
+    "a780925d-81a3-4e13-b590-be02eb381b4e",
   );
   assert.equal(
     stepByName(workflow, "cherry-pick-verified-commit").task.modelIdOrName,
