@@ -63,6 +63,7 @@ jobs:
             scope: affected
             workItem: '${{ inputs.workItem }}'
             expectedTreeFingerprint: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.changeFingerprint }}'
+            expectedSourceRevision: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-summary").attributes.payload.integrationReceipt.integratedRevision }}'
             changedPaths: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.paths }}'
             renderRequired: '${{ size(data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.requiredLanes.filter(lane, lane.id in ["render-matrix", "pack-matrix", "export-decode"])) > 0 }}'
       - name: assert-change-state-after

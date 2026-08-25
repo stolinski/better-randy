@@ -74,6 +74,7 @@ Deno.test("not-applicable execution does not require a full-repository fingerpri
       scope: "affected",
       workItem: "wnwicydv",
       expectedTreeFingerprint: SHA,
+      expectedSourceRevision: REVISION,
       changedPaths: ["vite.config.ts"],
       renderRequired: false,
     },
@@ -94,6 +95,7 @@ Deno.test("not-applicable execution does not require a full-repository fingerpri
 
   assert.equal(result.dataHandles.length, 1);
   assert.equal(recorded[0]?.status, "not-applicable");
+  assert.equal(recorded[0]?.sourceRevision, REVISION);
   assert.equal(recorded[0]?.expectedTreeFingerprint, SHA);
 });
 

@@ -45,6 +45,7 @@ export const SupersRenderMatrixVerificationArgumentsSchema = z
       scope: z.literal("affected"),
       workItem: DomainIdSchema,
       expectedTreeFingerprint: Sha256Schema,
+      expectedSourceRevision: GitRevisionSchema.optional(),
       changedPaths: UniqueRepositoryPathsSchema.min(1),
       renderRequired: z.boolean(),
     }),
@@ -273,7 +274,8 @@ export async function executeSupersRenderMatrixVerification(
       status: "not-applicable",
       scope: "affected",
       workItem: parsedArgs.workItem,
-      sourceRevision: await readRenderSourceRevision(context.repoDir),
+      sourceRevision: parsedArgs.expectedSourceRevision ??
+        await readRenderSourceRevision(context.repoDir),
       expectedTreeFingerprint: parsedArgs.expectedTreeFingerprint,
       changedPathsDigest: await createSupersDeterministicContractHash(
         parsedArgs.changedPaths,
