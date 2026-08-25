@@ -87,7 +87,6 @@ With the north star met, **capability expansion** was chosen over production dog
 **Integration demos (corpus v2)** — the corpus proved families in isolation; these prove them together. Each gates on its epic:
 
 - **Title-card pair**: one text-led chapter/title card and one brand-led mark card, both usable as opening or section graphics. The aesthetically rejected `show-open-in-focus` fixture was removed; transitions remain editorial decisions in DaVinci Resolve.
-- **Episode graphics suite**: one topic as a coordinated set (title card + lower third + pullquote + counter + outro), one pack, consistent choreography.
 - **Depth-stage showcase set**: ✅ shipped 2026-07-02 — `chapter-card-descent`, `title-sequence-signal`, `type-hero-vantage`, each Critic-ACCEPTed on the completed stage.
 - **CRT-pack corpus rerender**: the corpus under the CRT pack — the "same recipe, two publications" money shot and the acceptance test for the finished pack contract.
 - **Docu-diagram demos**: high-end YouTube-documentary diagram pieces (animated map, flowchart, timeline, stat build) on the Diagram primitives.
