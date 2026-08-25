@@ -687,11 +687,12 @@ Deno.test('reconciliation removes patch-equivalent commits and stale registratio
 	}
 });
 
-Deno.test('committed worktree verification persists objective pre-integration evidence and replays exactly', async () => {
+Deno.test('committed worktree verification persists objective evidence after the central branch advances', async () => {
 	const { repository, context, resources, writes } = fixture();
 	const operations = createSupersAgentWorktreeOperations(repository);
 	const claim = (await operations.prepareSupersAgentWorktree(PREPARE_ARGS, context)).resource;
 	repository.worktreeHead = COMMIT_REVISION;
+	repository.centralHeads = [OTHER_REVISION];
 	recordSuccessfulInvocation(resources, claim);
 	const args = commitVerificationArgs(claim);
 
@@ -899,8 +900,9 @@ Deno.test('committed worktree verification binds claim, invocation, prompt, mode
 		{
 			configure: (repository) => {
 				repository.centralHeads = [OTHER_REVISION];
+				repository.baseIsAncestorOfCentral = false;
 			},
-			expected: /central repository HEAD mismatch/
+			expected: /does not contain worktree base revision/
 		}
 	];
 	for (const testCase of cases) {

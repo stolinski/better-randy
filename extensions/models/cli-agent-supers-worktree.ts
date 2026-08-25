@@ -749,6 +749,65 @@ async function requireStableCentralRevision(
 	return await requireStableCentralRepository(deps, repoDir, baseRevision);
 }
 
+// Commit verification is isolated from central integration. The central branch may
+// advance concurrently, but it must still contain the exact worktree base.
+async function requireCentralContainsRevision(
+	deps: SupersAgentWorktreeDependencies,
+	repoDir: string,
+	baseRevision: string
+): Promise<RepositorySnapshot> {
+	const canonicalDir = await deps.realPath(repoDir);
+	const topLevel = (
+		await requiredGitOutput(
+			deps,
+			canonicalDir,
+			['rev-parse', '--show-toplevel'],
+			MAX_GIT_PROTOCOL_BYTES
+		)
+	).trim();
+	if (topLevel !== canonicalDir) {
+		throw new Error('central repository path is not its canonical Git top-level');
+	}
+	const gitDir = (
+		await requiredGitOutput(
+			deps,
+			canonicalDir,
+			['rev-parse', '--path-format=absolute', '--git-dir'],
+			MAX_GIT_PROTOCOL_BYTES
+		)
+	).trim();
+	const commonDir = (
+		await requiredGitOutput(
+			deps,
+			canonicalDir,
+			['rev-parse', '--path-format=absolute', '--git-common-dir'],
+			MAX_GIT_PROTOCOL_BYTES
+		)
+	).trim();
+	if (gitDir !== commonDir) {
+		throw new Error('central repository must be the primary worktree, not a linked worktree');
+	}
+	const centralHead = (
+		await requiredGitOutput(
+			deps,
+			canonicalDir,
+			['rev-parse', '--verify', 'HEAD^{commit}'],
+			MAX_GIT_PROTOCOL_BYTES
+		)
+	).trim();
+	const ancestorCheck = await deps.runGit(
+		canonicalDir,
+		['merge-base', '--is-ancestor', baseRevision, centralHead],
+		{ stdoutBytes: MAX_GIT_PROTOCOL_BYTES, stderrBytes: MAX_GIT_ERROR_BYTES }
+	);
+	if (!ancestorCheck.success) {
+		throw new Error(
+			`central repository does not contain worktree base revision ${baseRevision}`
+		);
+	}
+	return { canonicalDir, headSha: centralHead };
+}
+
 function parentDirectory(path: string): string {
 	const slash = path.lastIndexOf('/');
 	return slash <= 0 ? '/' : path.slice(0, slash);
@@ -1936,7 +1995,7 @@ export function createSupersAgentWorktreeOperations(
 				}
 			}
 			const evidence = await collectCommittedWorktreeEvidence(deps, claim, args);
-			await requireStableCentralRevision(
+			await requireCentralContainsRevision(
 				deps,
 				claim.repositoryDir,
 				args.expectedBaseRevision
