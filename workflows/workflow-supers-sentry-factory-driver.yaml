@@ -497,6 +497,7 @@ jobs:
           expr: 'size(data.query(''modelName == "supers-sentry-coding-agent" && specName == "supers-agent-integration"'').filter(item, item.attributes.activeTaskId == inputs.workItem && item.attributes.disposition == "integrated")) == 1'
           message: Sentry coding did not produce one canonical integrated receipt
           severity: high
+        guard: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.id != "implementation" }}'
         dependsOn:
           - step: verify-serialized-integration
             condition:
@@ -847,4 +848,4 @@ jobs:
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 7
+version: 8
