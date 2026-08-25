@@ -16,6 +16,7 @@ type WorkflowStep = {
   name: string;
   guard?: string;
   allowFailure?: boolean;
+  concurrency?: number;
   dependsOn?: Array<{ condition?: { type?: string } }>;
   task: {
     type: string;
@@ -43,7 +44,7 @@ Deno.test(
   async () => {
     const source = await Deno.readTextFile(INTAKE_WORKFLOW_PATH);
     const workflow = parse(source) as WorkflowDefinition;
-    assert.equal(workflow.version, 9);
+    assert.equal(workflow.version, 10);
     assert.deepEqual(
       workflow.jobs.flatMap((job) => job.steps).map((step) => step.name),
       [
@@ -84,6 +85,10 @@ Deno.test(
       "completed",
     );
     assert.match(source, /item: activeAdmission/);
+    assert.equal(
+      stepByName(workflow, "resume-active-sentry-repair").concurrency,
+      1,
+    );
     assert.match(source, /item: completedAdmission/);
     assert.doesNotMatch(source, /self\.admission/);
     const persist = stepByName(workflow, "persist-actionable-sentry-queue");
