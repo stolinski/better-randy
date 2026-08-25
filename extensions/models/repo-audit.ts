@@ -385,13 +385,86 @@ async function readCurrentTreeState(
   );
   const untracked = [] as Array<{ path: string; content: Uint8Array }>;
   for (const path of parseNulPaths(untrackedOutput).sort()) {
-    untracked.push({ path, content: await Deno.readFile(`${context.repoDir}/${path}`) });
+    untracked.push({
+      path,
+      content: await Deno.readFile(`${context.repoDir}/${path}`),
+    });
   }
   return {
     head,
     status,
     treeFingerprint: await createRepositoryTreeFingerprint({
       head,
+      unstagedDiff,
+      stagedDiff,
+      status,
+      untracked,
+    }),
+  };
+}
+
+async function readScopedTreeState(
+  context: MethodContext,
+  expectedPaths: string[],
+): Promise<CurrentTreeState> {
+  const paths = [...new Set(expectedPaths)].sort();
+  if (
+    paths.length === 0 ||
+    paths.some((path) =>
+      !path || path.startsWith("/") || path.split("/").includes("..")
+    )
+  ) {
+    throw new TypeError(
+      "Scoped change-state paths must be safe project-relative paths",
+    );
+  }
+  const pathspec = ["--", ...paths];
+  const [committedTree, unstagedDiff, stagedDiff, status, untrackedOutput] =
+    await Promise.all([
+      runGit(context, ["ls-tree", "-r", "-z", "HEAD", ...pathspec]),
+      runGit(context, [
+        "diff",
+        "--binary",
+        "--no-ext-diff",
+        "--no-textconv",
+        ...pathspec,
+      ]),
+      runGit(context, [
+        "diff",
+        "--cached",
+        "--binary",
+        "--no-ext-diff",
+        "--no-textconv",
+        ...pathspec,
+      ]),
+      runGit(context, [
+        "status",
+        "--porcelain=v1",
+        "-z",
+        "--untracked-files=all",
+        ...pathspec,
+      ]),
+      runGit(context, [
+        "ls-files",
+        "--others",
+        "--exclude-standard",
+        "-z",
+        ...pathspec,
+      ]),
+    ]);
+  const untracked = [] as Array<{ path: string; content: Uint8Array }>;
+  for (const path of parseNulPaths(untrackedOutput).sort()) {
+    untracked.push({
+      path,
+      content: await Deno.readFile(`${context.repoDir}/${path}`),
+    });
+  }
+  const scopedHead = `scoped-paths-v1\0${textDecoder.decode(committedTree)}`;
+  return {
+    head: scopedHead,
+    status,
+    treeFingerprint: await createRepositoryTreeFingerprint({
+      head: scopedHead,
       unstagedDiff,
       stagedDiff,
       status,
@@ -911,8 +984,12 @@ export const model = {
         expectedChangedPaths: string[];
       }, context: MethodContext) => {
         await readChangeBaseline(context, args.workItem);
-        const currentTree = await readCurrentTreeState(context);
-        await runGit(context, ["merge-base", "--is-ancestor", args.expectedIntegratedRevision, "HEAD"]);
+        await runGit(context, [
+          "merge-base",
+          "--is-ancestor",
+          args.expectedIntegratedRevision,
+          "HEAD",
+        ]);
         const committedPaths = parseNulPaths(
           await runGit(context, [
             "diff",
@@ -922,10 +999,17 @@ export const model = {
             `${args.expectedBaselineRevision}..${args.expectedIntegratedRevision}`,
           ]),
         );
-        const expectedChangedPaths = [...new Set(args.expectedChangedPaths)].sort();
-        if (JSON.stringify(committedPaths) !== JSON.stringify(expectedChangedPaths)) {
-          throw new Error("Change classification paths differ from the integration receipt");
+        const expectedChangedPaths = [...new Set(args.expectedChangedPaths)]
+          .sort();
+        if (
+          JSON.stringify(committedPaths) !==
+            JSON.stringify(expectedChangedPaths)
+        ) {
+          throw new Error(
+            "Change classification paths differ from the integration receipt",
+          );
         }
+        const currentTree = await readScopedTreeState(context, committedPaths);
         const { report } = await runAuditScript(
           context,
           "scripts/audit-change-impact.ts",
@@ -973,13 +1057,18 @@ export const model = {
     },
     "assert-change-state": {
       description:
-        "Fail when the current content-sensitive Git tree fingerprint has drifted",
-      arguments: z.object({ expectedFingerprint: TreeFingerprintSchema }),
+        "Fail when the task-owned content-sensitive Git fingerprint has drifted",
+      arguments: z.strictObject({
+        expectedFingerprint: TreeFingerprintSchema,
+        expectedPaths: z.array(z.string().min(1)).min(1).max(200).optional(),
+      }),
       execute: async (
-        args: { expectedFingerprint: string },
+        args: { expectedFingerprint: string; expectedPaths?: string[] },
         context: MethodContext,
       ) => {
-        const currentTree = await readCurrentTreeState(context);
+        const currentTree = args.expectedPaths
+          ? await readScopedTreeState(context, args.expectedPaths)
+          : await readCurrentTreeState(context);
         if (currentTree.treeFingerprint !== args.expectedFingerprint) {
           throw new Error(
             `Change state drifted: expected ${args.expectedFingerprint}, received ${currentTree.treeFingerprint}`,

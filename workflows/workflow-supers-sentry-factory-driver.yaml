@@ -740,6 +740,7 @@ jobs:
             workItem: '${{ inputs.workItem }}'
             evidenceName: postflight-run
             expectedFingerprint: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.changeFingerprint }}'
+            expectedPaths: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.paths }}'
         guard: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.id != "postflight" || size(data.query(''modelName == "supers-delivery" && name == "evidence-'' + inputs.workItem + ''-postflight-run"'')) == 1 }}'
         dependsOn: [{ step: record-postflight-dispatch, condition: { type: or, conditions: [{ type: succeeded }, { type: skipped }] } }]
         weight: 0

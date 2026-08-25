@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { parse } from "jsr:@std/yaml@1.0.10";
 
 const WORKFLOW_PATH = "workflows/workflow-supers-sentry-factory-driver.yaml";
-const FACTORY_PATH = "models/@swamp/software-factory/90fac686-c724-4aee-97c4-e31b9af4c5e2.yaml";
-const AUTHORIZED_COMPLETION_PATH = "workflows/workflow-supers-complete-authorized-task.yaml";
+const FACTORY_PATH =
+  "models/@swamp/software-factory/90fac686-c724-4aee-97c4-e31b9af4c5e2.yaml";
+const AUTHORIZED_COMPLETION_PATH =
+  "workflows/workflow-supers-complete-authorized-task.yaml";
 
 type WorkflowStep = {
   name: string;
@@ -37,10 +39,22 @@ Deno.test("machine completion is additive and preserves the ordinary human gate"
     Deno.readTextFile(FACTORY_PATH),
     Deno.readTextFile(AUTHORIZED_COMPLETION_PATH),
   ]);
-  assert.match(factory, /name: cleanup[\s\S]*?type: human-approval[\s\S]*?id: completion-approval/);
-  assert.match(factory, /name: machine-cleanup[\s\S]*?sentry-machine-authorization/);
-  assert.match(factory, /size\(artifacts\.verification\.requiredHumanReviewKinds\) == 0/);
-  assert.match(completion, /workflowIdOrName: supers-complete-human-approved-task/);
+  assert.match(
+    factory,
+    /name: cleanup[\s\S]*?type: human-approval[\s\S]*?id: completion-approval/,
+  );
+  assert.match(
+    factory,
+    /name: machine-cleanup[\s\S]*?sentry-machine-authorization/,
+  );
+  assert.match(
+    factory,
+    /size\(artifacts\.verification\.requiredHumanReviewKinds\) == 0/,
+  );
+  assert.match(
+    completion,
+    /workflowIdOrName: supers-complete-human-approved-task/,
+  );
   assert.match(completion, /methodName: complete-machine-sentry/);
 });
 
@@ -80,7 +94,10 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   let priorIndex = -1;
   for (const name of requiredOrder) {
     const index = names.indexOf(name);
-    assert.ok(index > priorIndex, `${name} must follow the prior terminal-chain step`);
+    assert.ok(
+      index > priorIndex,
+      `${name} must follow the prior terminal-chain step`,
+    );
     priorIndex = index;
   }
 
@@ -103,7 +120,9 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
     stepByName(workflow, "record-preflight-dispatch").task.methodName,
     "record_dispatch",
   );
-  for (const step of steps.filter((entry) => (entry.dependsOn?.length ?? 0) > 0)) {
+  for (
+    const step of steps.filter((entry) => (entry.dependsOn?.length ?? 0) > 0)
+  ) {
     assert.match(
       JSON.stringify(step.dependsOn),
       /"succeeded".*"skipped"/,
@@ -122,16 +141,28 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
     stepByName(workflow, "advance-to-implementation").task.inputs?.transition,
     "implement",
   );
-  assert.doesNotMatch(source, /replay-integrated-sentry-repair|supers-sentry-integrated-replay/);
+  assert.doesNotMatch(
+    source,
+    /replay-integrated-sentry-repair|supers-sentry-integrated-replay/,
+  );
   assert.ok(
     names.indexOf("verify-serialized-integration") <
       names.indexOf("cleanup-committed-worktree"),
   );
 
-  const reconciliation = stepByName(workflow, "reconcile-prior-coding-worktrees");
+  const reconciliation = stepByName(
+    workflow,
+    "reconcile-prior-coding-worktrees",
+  );
   assert.equal(reconciliation.task.methodName, "reconcileSupersAgentWorktrees");
-  assert.match(String(reconciliation.task.inputs?.claimIds), /attributes\.workItem == inputs\.workItem/);
-  assert.match(String(reconciliation.task.inputs?.claimIds), /supers-agent-worktree-removal/);
+  assert.match(
+    String(reconciliation.task.inputs?.claimIds),
+    /attributes\.workItem == inputs\.workItem/,
+  );
+  assert.match(
+    String(reconciliation.task.inputs?.claimIds),
+    /supers-agent-worktree-removal/,
+  );
 
   const prepare = stepByName(workflow, "prepare-isolated-coding-worktree");
   const invocationIdentity = String(prepare.task.inputs?.invocationId);
@@ -150,12 +181,24 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   assert.equal(invoke.task.inputs?.sandboxNetwork, "allow");
   assert.match(String(invoke.task.inputs?.prompt), /untrusted advisory text/);
   assert.match(String(invoke.task.inputs?.prompt), /Sentry/);
-  assert.match(String(invoke.task.inputs?.prompt), /reproduction is not required/);
-  assert.match(String(invoke.task.inputs?.prompt), /only bounded checks relevant to the changed paths/);
-  assert.doesNotMatch(String(invoke.task.inputs?.prompt), /Run pnpm check and pnpm test/);
+  assert.match(
+    String(invoke.task.inputs?.prompt),
+    /reproduction is not required/,
+  );
+  assert.match(
+    String(invoke.task.inputs?.prompt),
+    /only bounded checks relevant to the changed paths/,
+  );
+  assert.doesNotMatch(
+    String(invoke.task.inputs?.prompt),
+    /Run pnpm check and pnpm test/,
+  );
   assert.equal(invoke.task.inputs?.idleTimeoutMs, 300_000);
   assert.equal(invoke.task.inputs?.wallTimeoutMs, 1_800_000);
-  assert.doesNotMatch(String(invoke.task.inputs?.prompt), /objectiveProofNomination|pre-existing byte-unchanged/);
+  assert.doesNotMatch(
+    String(invoke.task.inputs?.prompt),
+    /objectiveProofNomination|pre-existing byte-unchanged/,
+  );
 
   assert.equal(
     stepByName(workflow, "verify-committed-worktree").task.methodName,
@@ -169,18 +212,30 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
     stepByName(workflow, "cherry-pick-verified-commit").task.methodName,
     "cherry_pick",
   );
-  const beforeIntegration = stepByName(workflow, "inspect-integration-paths-before");
-  const afterIntegration = stepByName(workflow, "materialize-post-integration-git");
+  const beforeIntegration = stepByName(
+    workflow,
+    "inspect-integration-paths-before",
+  );
+  const afterIntegration = stepByName(
+    workflow,
+    "materialize-post-integration-git",
+  );
   assert.equal(beforeIntegration.task.modelIdOrName, "supers-integration-git");
   assert.equal(beforeIntegration.task.methodName, "status");
   assert.match(String(beforeIntegration.task.inputs?.paths), /changedPaths/);
   assert.equal(afterIntegration.task.methodName, "status");
-  assert.equal(afterIntegration.task.inputs?.paths, beforeIntegration.task.inputs?.paths);
+  assert.equal(
+    afterIntegration.task.inputs?.paths,
+    beforeIntegration.task.inputs?.paths,
+  );
   assert.equal(
     stepByName(workflow, "assert-integrated-paths-clean").task.type,
     "assert",
   );
-  assert.doesNotMatch(source, /Central Git is not clean|assert-central-git-clean/);
+  assert.doesNotMatch(
+    source,
+    /Central Git is not clean|assert-central-git-clean/,
+  );
   assert.equal(
     stepByName(workflow, "verify-serialized-integration").task.methodName,
     "verifySupersAgentIntegration",
@@ -225,6 +280,12 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   assert.equal(
     stepByName(workflow, "advance-to-classification").task.inputs?.transition,
     "classify",
+  );
+  assert.match(
+    String(
+      stepByName(workflow, "run-postflight-policy").task.inputs?.expectedPaths,
+    ),
+    /change-impact.*paths/,
   );
 
   const methodNames = steps.map((step) => step.task.methodName).filter(Boolean);
