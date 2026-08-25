@@ -43,7 +43,7 @@ Deno.test(
   async () => {
     const source = await Deno.readTextFile(INTAKE_WORKFLOW_PATH);
     const workflow = parse(source) as WorkflowDefinition;
-    assert.equal(workflow.version, 8);
+    assert.equal(workflow.version, 9);
     assert.deepEqual(
       workflow.jobs.flatMap((job) => job.steps).map((step) => step.name),
       [
@@ -83,6 +83,9 @@ Deno.test(
         ?.type,
       "completed",
     );
+    assert.match(source, /item: activeAdmission/);
+    assert.match(source, /item: completedAdmission/);
+    assert.doesNotMatch(source, /self\.admission/);
     const persist = stepByName(workflow, "persist-actionable-sentry-queue");
     assert.equal(persist.task.methodName, "prepare");
     assert.deepEqual(persist.task.inputs?.issuePlans, []);

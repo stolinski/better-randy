@@ -143,20 +143,20 @@ jobs:
       - name: resume-active-sentry-repair
         description: Converge every previously admitted active Sentry Factory run before selecting more work.
         forEach:
-          item: admission
+          item: activeAdmission
           in: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(admission, size(data.query(''modelName == "supers-delivery" && name == "state-'' + admission.attributes.dexTaskId + ''"'')) > 0).filter(admission, data.latest("supers-delivery", "state-" + admission.attributes.dexTaskId).attributes.status == "active").filter(admission, size(data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence"'').filter(evidence, evidence.attributes.repairIdentityFingerprint == admission.attributes.repairIdentityFingerprint && evidence.attributes.checkoutRevision == admission.attributes.checkoutRevision)) > 0).filter(admission, size(data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(other, other.attributes.dexTaskId == admission.attributes.dexTaskId && other.attributes.admittedAt > admission.attributes.admittedAt)) == 0) }}'
         concurrency: 4
         task:
           type: workflow
           workflowIdOrName: supers-sentry-factory-driver
           inputs:
-            workItem: '${{ self.admission.attributes.dexTaskId }}'
-            evidenceName: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence"'').filter(evidence, evidence.attributes.repairIdentityFingerprint == self.admission.attributes.repairIdentityFingerprint && evidence.attributes.checkoutRevision == self.admission.attributes.checkoutRevision)[0].name }}'
-            expectedEvidenceFingerprint: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence"'').filter(evidence, evidence.attributes.repairIdentityFingerprint == self.admission.attributes.repairIdentityFingerprint && evidence.attributes.checkoutRevision == self.admission.attributes.checkoutRevision)[0].attributes.fingerprint }}'
-            mappingName: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping"'').filter(mapping, mapping.attributes.taskId == self.admission.attributes.dexTaskId && mapping.attributes.repairIdentityFingerprint == self.admission.attributes.repairIdentityFingerprint)[0].name }}'
-            expectedMappingFingerprint: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping"'').filter(mapping, mapping.attributes.taskId == self.admission.attributes.dexTaskId && mapping.attributes.repairIdentityFingerprint == self.admission.attributes.repairIdentityFingerprint)[0].attributes.fingerprint }}'
-            admissionName: '${{ self.admission.name }}'
-            expectedAdmissionFingerprint: '${{ self.admission.attributes.fingerprint }}'
+            workItem: '${{ self.activeAdmission.attributes.dexTaskId }}'
+            evidenceName: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence"'').filter(evidence, evidence.attributes.repairIdentityFingerprint == self.activeAdmission.attributes.repairIdentityFingerprint && evidence.attributes.checkoutRevision == self.activeAdmission.attributes.checkoutRevision)[0].name }}'
+            expectedEvidenceFingerprint: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence"'').filter(evidence, evidence.attributes.repairIdentityFingerprint == self.activeAdmission.attributes.repairIdentityFingerprint && evidence.attributes.checkoutRevision == self.activeAdmission.attributes.checkoutRevision)[0].attributes.fingerprint }}'
+            mappingName: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping"'').filter(mapping, mapping.attributes.taskId == self.activeAdmission.attributes.dexTaskId && mapping.attributes.repairIdentityFingerprint == self.activeAdmission.attributes.repairIdentityFingerprint)[0].name }}'
+            expectedMappingFingerprint: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping"'').filter(mapping, mapping.attributes.taskId == self.activeAdmission.attributes.dexTaskId && mapping.attributes.repairIdentityFingerprint == self.activeAdmission.attributes.repairIdentityFingerprint)[0].attributes.fingerprint }}'
+            admissionName: '${{ self.activeAdmission.name }}'
+            expectedAdmissionFingerprint: '${{ self.activeAdmission.attributes.fingerprint }}'
         dependsOn:
           - step: refresh-delivery-state
             condition:
@@ -166,18 +166,18 @@ jobs:
       - name: resolve-completed-sentry-repair
         description: Resolve every terminal checked repair that still lacks a correlated Sentry resolution receipt.
         forEach:
-          item: admission
+          item: completedAdmission
           in: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(admission, size(data.query(''modelName == "supers-delivery" && name == "state-'' + admission.attributes.dexTaskId + ''"'')) > 0).filter(admission, data.latest("supers-delivery", "state-" + admission.attributes.dexTaskId).attributes.status == "terminal" && data.latest("supers-delivery", "state-" + admission.attributes.dexTaskId).attributes.stageId == "done").filter(admission, size(data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence"'').filter(evidence, evidence.attributes.repairIdentityFingerprint == admission.attributes.repairIdentityFingerprint)) > 0).filter(admission, size(data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "backlink-receipt"'').filter(receipt, receipt.attributes.issueId == admission.attributes.issueId && receipt.attributes.dexTaskId == admission.attributes.dexTaskId)) > 0).filter(admission, size(data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "resolution-receipt"'').filter(receipt, receipt.attributes.issueId == admission.attributes.issueId && receipt.attributes.dexTaskId == admission.attributes.dexTaskId)) == 0) }}'
         concurrency: 4
         task:
           type: workflow
           workflowIdOrName: supers-sentry-verified-resolution
           inputs:
-            repairIntentName: '${{ data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "repair-intent"'').filter(intent, intent.attributes.fingerprint == self.admission.attributes.repairIntentFingerprint)[0].name }}'
-            backlinkReceiptName: '${{ data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "backlink-receipt"'').filter(receipt, receipt.attributes.issueId == self.admission.attributes.issueId && receipt.attributes.dexTaskId == self.admission.attributes.dexTaskId)[0].name }}'
-            evidenceName: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence"'').filter(evidence, evidence.attributes.repairIdentityFingerprint == self.admission.attributes.repairIdentityFingerprint)[0].name }}'
-            expectedEvidenceFingerprint: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence"'').filter(evidence, evidence.attributes.repairIdentityFingerprint == self.admission.attributes.repairIdentityFingerprint)[0].attributes.fingerprint }}'
-            dexTaskId: '${{ self.admission.attributes.dexTaskId }}'
+            repairIntentName: '${{ data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "repair-intent"'').filter(intent, intent.attributes.fingerprint == self.completedAdmission.attributes.repairIntentFingerprint)[0].name }}'
+            backlinkReceiptName: '${{ data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "backlink-receipt"'').filter(receipt, receipt.attributes.issueId == self.completedAdmission.attributes.issueId && receipt.attributes.dexTaskId == self.completedAdmission.attributes.dexTaskId)[0].name }}'
+            evidenceName: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence"'').filter(evidence, evidence.attributes.repairIdentityFingerprint == self.completedAdmission.attributes.repairIdentityFingerprint)[0].name }}'
+            expectedEvidenceFingerprint: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence"'').filter(evidence, evidence.attributes.repairIdentityFingerprint == self.completedAdmission.attributes.repairIdentityFingerprint)[0].attributes.fingerprint }}'
+            dexTaskId: '${{ self.completedAdmission.attributes.dexTaskId }}'
         dependsOn:
           - step: refresh-delivery-state
             condition:
@@ -221,4 +221,4 @@ jobs:
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 8
+version: 9
