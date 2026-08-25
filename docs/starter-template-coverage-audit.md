@@ -1,6 +1,6 @@
 # Starter template coverage audit
 
-Baseline: 2026-08-19 · Dex `fer3iq38` · policy: [ADR-0039](adr/0039-pack-neutral-compositions-and-listing-hygiene.md)
+Baseline: 2026-08-19 · admission reconciled: 2026-08-25 · Dex `fer3iq38` · policy: [ADR-0039](adr/0039-pack-neutral-compositions-and-listing-hygiene.md)
 
 This audit measures the corpus as a creator-facing Starter-template library. It does not add category metadata to the Preset schema or create a second catalog. “Picker family” records the grouping already visible on the homepage. “Creator job” is the plain-language reason a creator would start from the Preset.
 
@@ -10,8 +10,9 @@ This audit measures the corpus as a creator-facing Starter-template library. It 
 - Structurally distinct Starter candidates: **43**.
 - Listing inflation is reconciled: **5 duplicates were folded** into canonical Starters and **4 feature proofs are fixtures**.
 - No listed Preset has an orientation or Pack suffix.
-- This is a structural count, not final aesthetic ratification. A Preset counts toward the finished epic only after the current deterministic matrix and exact-evidence human gate pass for its integrated revision.
-- The static Preset matrix covers all **172 Preset × Pack axes in both orientations**. It reports **22 non-blocking G12 warnings** on 11 direct-on-field Presets under `crt-terminal`: `apollo-lunar-travelers`, `bar-chart-apollo-sample-return`, `column-us-population-1950-2020`, `counter-milestone`, `docu-flowchart`, `docu-timeline-build`, `outro-watch-next`, `plastic-msw-destinations`, `title-card-brand-mark`, `title-card-chapter-heading`, and `wake-conversation-flow`. Each warning appears once per orientation. The current command is otherwise blocked before its Preset axes by the expected stale Pack-catalog calibration bundle after the listed corpus changed; exact human approval must refresh that bundle for the integrated revision.
+- The **43 listed Starters are admitted cumulatively**, without another redundant corpus-wide capture: the retained corpus was ratified through the completed quality arc and honest-listing pass; `source-bug-nasa-archive` and `outro-watch-next` passed an exact 80/80 affected browser matrix and human-approved bundle under Dex `8zy3t3du`; the two title cards passed their affected all-Pack/orientation checks and exact human review under Dex `75u4vxtf`.
+- Current static validation covers all **172 Preset × Pack axes in both orientations**. It reports **22 non-blocking G12 warnings** on 11 direct-on-field Presets under `crt-terminal`: `apollo-lunar-travelers`, `bar-chart-apollo-sample-return`, `column-us-population-1950-2020`, `counter-milestone`, `docu-flowchart`, `docu-timeline-build`, `outro-watch-next`, `plastic-msw-destinations`, `title-card-brand-mark`, `title-card-chapter-heading`, and `wake-conversation-flow`. Each warning appears once per orientation.
+- Dex `viga7o0n` was retired because it asked for another full pass over evidence already established by the baseline, affected matrices, and exact human decisions; no new creator capability or unresolved acceptance gap remained.
 
 A **Count** disposition means the Preset expresses a materially different register, composition language, creator job, or content domain. It does not mean a similarly named Pipeline variant automatically earns another listing. **Fold** means one Starter must represent the job. **Demote** means the composition is useful proof corpus but not a creator-facing starting point.
 
@@ -148,12 +149,12 @@ No additional creator job is required. The title, identification, quotation, fac
 
 Transitions are editing decisions handled in DaVinci Resolve, not missing Starter templates. The rejected `show-open-in-focus` fixture was removed rather than promoted; title cards already cover the opening-graphic production job.
 
-### Smallest ordered runway
+### Completed admission record
 
 1. **Listing hygiene reconciled — Dex `6o9l7x3p`.** Five duplicates are folded into their canonical Starters, four feature proofs are fixtures, and four counted Starter slugs no longer say “demo.” The picker now exposes the honest 39-entry baseline.
 2. **Close identifier and ending gaps — Dex `8zy3t3du`.** `source-bug-nasa-archive` and `outro-watch-next` now supply the two structurally distinct creator jobs and raise the honest baseline to 41. Final admission still requires the integrated deterministic matrix and exact-evidence human gate.
-3. **Replace the rejected opening candidate — Dex `75u4vxtf`.** Remove `show-open-in-focus`; admit one text-led title card based on `chapter-card-1-burnout` and one brand-led title card based on `chapter-card-syntax-logo`, without their authored CRT filters. Transitions remain in the DaVinci Resolve edit.
-4. **Run final admission — Dex `viga7o0n`.** Execute the deterministic affected matrix and bind exact human aesthetic decisions for every counted Starter. The final count should be reported after any aesthetic rejection; the structural forecast is **43** after the source identifier, outro, text-led title card, and brand-led title card, so weak or redundant candidates must be retired rather than preserving a quota.
+3. **Replace the rejected opening candidate — Dex `75u4vxtf`.** `show-open-in-focus` was removed; one text-led title card based on `chapter-card-1-burnout` and one brand-led title card based on `chapter-card-syntax-logo` were admitted without their authored CRT filters. Transitions remain in the DaVinci Resolve edit.
+4. **Close cumulative admission — Dex `qfxr9r0n`.** The final honest count is **43**. Existing baseline ratification plus exact affected evidence for the four added Starters closes the library without rerunning unchanged Presets solely to restate their acceptance.
 
 ## Mechanical check
 
