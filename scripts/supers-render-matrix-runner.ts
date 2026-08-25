@@ -2,6 +2,49 @@ import { createHash } from 'node:crypto';
 
 export const SUPERS_RENDER_MATRIX_GROUP_CONCURRENCY = 2;
 
+type SupersRenderMatrixScope = 'affected' | 'full';
+
+const SUPERS_RENDER_MATRIX_RUNNER_TIMEOUT_MS: Record<SupersRenderMatrixScope, number> = {
+	affected: 30 * 60 * 1000,
+	full: 4 * 60 * 60 * 1000
+};
+
+const SUPERS_RENDER_MATRIX_EVIDENCE_LIMIT_BYTES: Record<SupersRenderMatrixScope, number> = {
+	affected: 4 * 1024 * 1024 * 1024,
+	full: 32 * 1024 * 1024 * 1024
+};
+
+/** Return the closed wall-time budget for one internally selected matrix scope. */
+export function supersRenderMatrixRunnerTimeoutMs(scope: SupersRenderMatrixScope): number {
+	return SUPERS_RENDER_MATRIX_RUNNER_TIMEOUT_MS[scope];
+}
+
+/** Return the closed retained-evidence budget for one internally selected matrix scope. */
+export function supersRenderMatrixEvidenceLimitBytes(scope: SupersRenderMatrixScope): number {
+	return SUPERS_RENDER_MATRIX_EVIDENCE_LIMIT_BYTES[scope];
+}
+
+/** Account for retained evidence and fail before a matrix can exhaust local storage. */
+export function accumulateSupersRenderEvidenceBytes(
+	scope: SupersRenderMatrixScope,
+	currentBytes: number,
+	additionalBytes: number
+): number {
+	if (
+		!Number.isSafeInteger(currentBytes) ||
+		currentBytes < 0 ||
+		!Number.isSafeInteger(additionalBytes) ||
+		additionalBytes < 0
+	) {
+		throw new TypeError('Render evidence byte counts must be non-negative safe integers');
+	}
+	const nextBytes = currentBytes + additionalBytes;
+	if (!Number.isSafeInteger(nextBytes) || nextBytes > supersRenderMatrixEvidenceLimitBytes(scope)) {
+		throw new Error(`${scope} render evidence exceeded its closed byte budget`);
+	}
+	return nextBytes;
+}
+
 export const SUPERS_RENDER_MATRIX_REQUIRED_CHECK_CODES = [
 	'target-resolution-mismatch',
 	'font-not-ready',

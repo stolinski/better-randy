@@ -382,6 +382,7 @@ async function productionImpactArguments(path: string): Promise<Record<string, u
 	const axes = selectAffectedStaticPresetPackAxes(
 		{
 			presets: [{ slug: 'lower-third', pipelineReferences: [], presetDependencies: [] }],
+			knownPresetSlugs: ['lower-third'],
 			packs: [{ id: 'syntax' }]
 		},
 		impact.paths

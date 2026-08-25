@@ -6,6 +6,7 @@ import { PNG } from 'pngjs';
 
 import { classifyProbeOutputClass } from './_probe-output-class.ts';
 import {
+	accumulateSupersRenderEvidenceBytes,
 	buildSupersRenderMatrixCellVerdict,
 	captureSupersAuxiliaryFrameSequence,
 	createSupersEdgeAliasingProbeCandidate,
@@ -270,11 +271,16 @@ async function main() {
 	);
 	await mkdir(evidenceRoot, { recursive: true });
 	const groups = groupSupersRenderMatrixCoordinates(manifest.coordinates);
+	let retainedEvidenceBytes = 0;
+	let evidenceBudgetExceeded = false;
 	const results = await runBoundedSupersRenderMatrixFanout({
 		groups,
 		concurrency: 1,
 		executeGroup: async (group) => {
 			const startedAt = new Date().toISOString();
+			if (evidenceBudgetExceeded) {
+				throw new Error(`${manifest.scope} render evidence exceeded its closed byte budget`);
+			}
 			await sourceIdentity(manifest.sourceRevision, manifest.engineFingerprint);
 			const page = await openPage(group.presetSlug);
 			const { send } = page;
@@ -315,6 +321,16 @@ async function main() {
 					await mkdir(directory, { recursive: true });
 					const logicalBase = `render-matrix-evidence/${manifest.manifestDigest}/${coordinate.cellId}`;
 					const registerEvidence = (reference, bytes) => {
+						try {
+							retainedEvidenceBytes = accumulateSupersRenderEvidenceBytes(
+								manifest.scope,
+								retainedEvidenceBytes,
+								bytes.length
+							);
+						} catch (error) {
+							evidenceBudgetExceeded = true;
+							throw error;
+						}
 						evidence.push({ path: reference.path, sha256: reference.sha256, bytes: bytes.length });
 						return reference;
 					};

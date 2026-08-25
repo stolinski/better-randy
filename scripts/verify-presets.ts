@@ -273,7 +273,11 @@ async function main(): Promise<void> {
 				: [];
 		changedPaths = mergePresetValidationChangedPaths(changedPaths, discoveredPaths);
 		axes = selectAffectedStaticPresetPackAxes(
-			{ presets: deliverables, packs: packIds.map((id) => ({ id })) },
+			{
+				presets: deliverables,
+				knownPresetSlugs: [...presets.keys()].sort((left, right) => left.localeCompare(right)),
+				packs: packIds.map((id) => ({ id }))
+			},
 			changedPaths
 		);
 	} else {

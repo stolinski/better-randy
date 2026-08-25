@@ -1,5 +1,6 @@
 import { z } from "npm:zod@4.4.3";
 
+import { supersRenderMatrixRunnerTimeoutMs } from "../../scripts/supers-render-matrix-runner.ts";
 import { computeRepositoryTreeFingerprint } from "../../src/lib/utils/repository-tree-fingerprint.server.ts";
 import {
   createSupersDeterministicContractHash,
@@ -17,6 +18,9 @@ const DomainIdSchema = z.string().regex(/^[a-z0-9][a-z0-9._:-]{0,127}$/);
 const RepositoryPathSchema = z.string().min(1).max(1_000).regex(
   /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$)).+$/,
 );
+const RENDER_INVENTORY_TIMEOUT_MS = 2 * 60 * 1000;
+const RENDER_ARCHIVE_TIMEOUT_MS = 10 * 60 * 1000;
+
 const UniqueRepositoryPathsSchema = z.array(RepositoryPathSchema).max(2_000)
   .superRefine((paths, context) => {
     if (new Set(paths).size !== paths.length) {
@@ -137,23 +141,42 @@ async function runCommand(
   command: string,
   args: string[],
   cwd: string,
+  timeoutMs: number,
 ): Promise<{ stdout: string; stderr: string }> {
-  const result = await new Deno.Command(command, {
+  const child = new Deno.Command(command, {
     args,
     cwd,
+    stdin: "null",
     stdout: "piped",
     stderr: "piped",
-  }).output();
-  const stdout = new TextDecoder().decode(result.stdout);
-  const stderr = new TextDecoder().decode(result.stderr);
-  if (result.code !== 0) {
-    throw new Error(
-      `${command} ${args[0] ?? ""} exited ${result.code}: ${
-        (stderr || stdout).slice(0, 2_000)
-      }`,
-    );
+  }).spawn();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    try {
+      child.kill("SIGTERM");
+    } catch {
+      // The process may finish between the timeout and signal.
+    }
+  }, timeoutMs);
+  try {
+    const result = await child.output();
+    const stdout = new TextDecoder().decode(result.stdout);
+    const stderr = new TextDecoder().decode(result.stderr);
+    if (timedOut) {
+      throw new Error(`${command} ${args[0] ?? ""} timed out after ${timeoutMs}ms`);
+    }
+    if (result.code !== 0) {
+      throw new Error(
+        `${command} ${args[0] ?? ""} exited ${result.code}: ${
+          (stderr || stdout).slice(0, 2_000)
+        }`,
+      );
+    }
+    return { stdout, stderr };
+  } finally {
+    clearTimeout(timer);
   }
-  return { stdout, stderr };
 }
 
 async function sha256Bytes(bytes: Uint8Array): Promise<string> {
@@ -263,7 +286,7 @@ export async function executeSupersRenderMatrixVerification(
       JSON.stringify(
         parsedArgs.scope === "affected" ? parsedArgs.changedPaths : [],
       ),
-    ], context.repoDir);
+    ], context.repoDir, RENDER_INVENTORY_TIMEOUT_MS);
     const collected = z.strictObject({
       snapshot: SupersRenderRegistrySnapshotSchema,
       manifest: SupersRenderMatrixManifestSchema.nullable(),
@@ -331,7 +354,7 @@ export async function executeSupersRenderMatrixVerification(
       manifestPath,
       snapshotPath,
       runnerPath,
-    ], context.repoDir);
+    ], context.repoDir, supersRenderMatrixRunnerTimeoutMs(parsedArgs.scope));
     const runnerResult = z.strictObject({
       bundle: SupersRenderMatrixBundleSchema,
       evidenceIndex: z.array(
@@ -388,7 +411,7 @@ export async function executeSupersRenderMatrixVerification(
       "-C",
       tempDirectory,
       "render-matrix-evidence",
-    ], context.repoDir);
+    ], context.repoDir, RENDER_ARCHIVE_TIMEOUT_MS);
     const archiveBytes = await Deno.readFile(archivePath);
     const archiveDigest = await sha256Bytes(archiveBytes);
     const manifestHandle = await context.writeResource(

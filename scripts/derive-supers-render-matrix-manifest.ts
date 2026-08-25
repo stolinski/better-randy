@@ -238,6 +238,7 @@ async function loadRuntimeModules(repoRoot: string): Promise<{
 /** Independently collect the same schema/semantic deliverable set exposed by listPresets(). */
 export async function collectSupersRenderRegistry(repoRoot = defaultRepoRoot): Promise<{
 	presets: SupersCollectedPreset[];
+	knownPresetSlugs: string[];
 	packs: Array<{ id: string; packFingerprint: string }>;
 }> {
 	const runtime = await loadRuntimeModules(repoRoot);
@@ -287,10 +288,11 @@ export async function collectSupersRenderRegistry(repoRoot = defaultRepoRoot): P
 		});
 	}
 	presets.sort((left, right) => left.slug.localeCompare(right.slug));
+	const knownPresetSlugs = [...parsed.keys()].sort((left, right) => left.localeCompare(right));
 	const packs = Object.entries(runtime.packs)
 		.map(([id, pack]) => ({ id, packFingerprint: createSupersRenderMatrixHash(pack) }))
 		.sort((left, right) => left.id.localeCompare(right.id));
-	return { presets, packs };
+	return { presets, knownPresetSlugs, packs };
 }
 
 export async function deriveSupersRenderMatrixManifest(input: {

@@ -62,6 +62,7 @@ const registry = {
 			presetDependencies: []
 		}
 	],
+	knownPresetSlugs: ['chapter-card', 'lower-third', 'show-open-in-focus'],
 	packs: [{ id: 'syntax' }, { id: 'clean-light' }]
 };
 
@@ -180,6 +181,16 @@ test('affected scope is narrow for Presets, Pipelines, and Packs and broad for e
 	);
 });
 
+test('known unlisted Preset changes do not expand to every deliverable', () => {
+	assert.deepEqual(
+		selectAffectedStaticPresetPackAxes(registry, [
+			'.dex/tasks.jsonl',
+			'src/lib/presets/show-open-in-focus.json'
+		]),
+		[]
+	);
+});
+
 test('Preset changes include transitive transition dependents', () => {
 	const transitionRegistry = {
 		presets: [
@@ -195,6 +206,7 @@ test('Preset changes include transitive transition dependents', () => {
 				presetDependencies: ['wipe', 'other-endpoint']
 			}
 		],
+		knownPresetSlugs: ['endpoint', 'nested-wipe', 'wipe'],
 		packs: [{ id: 'syntax' }]
 	};
 	assert.deepEqual(
@@ -221,6 +233,7 @@ test('concrete transition, caption, text-animation, and stage changes select the
 				presetDependencies: []
 			}
 		],
+		knownPresetSlugs: ['typed'],
 		packs: [{ id: 'syntax' }]
 	};
 	for (const path of [

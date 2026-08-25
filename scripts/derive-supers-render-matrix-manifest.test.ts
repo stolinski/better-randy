@@ -145,9 +145,14 @@ test('affected selection maps annotation styles across body, messages, and check
 		};
 	});
 	for (const fixture of fixtures) {
-		const axes = selectAffectedPresetPackAxes({ presets, packs: [{ id: 'syntax' }] }, [
-			`src/lib/pipelines/annotations/${fixture.style}/renderer.ts`
-		]);
+		const axes = selectAffectedPresetPackAxes(
+			{
+				presets,
+				knownPresetSlugs: presets.map((preset) => preset.slug),
+				packs: [{ id: 'syntax' }]
+			},
+			[`src/lib/pipelines/annotations/${fixture.style}/renderer.ts`]
+		);
 		assert.deepEqual(axes, [{ presetSlug: fixture.slug, packId: 'syntax' }]);
 	}
 });
@@ -172,13 +177,21 @@ test('affected selection maps concrete Block Pipeline impacts through typed refe
 	assert.equal(axes.length, expectedPresets.length * registry.packs.length);
 });
 
-test('affected selection fails conservative-full and rejects unsafe path inventories', async () => {
+test('affected selection distinguishes known unlisted Presets from unknown paths', async () => {
 	const registry = await collectSupersRenderRegistry();
-	assert.deepEqual(selectAffectedPresetPackAxes(registry, ['docs/project-control-plane.md']), []);
+	const knownUnlistedSlug = registry.knownPresetSlugs.find(
+		(slug) => !registry.presets.some((preset) => preset.slug === slug)
+	);
+	assert.ok(knownUnlistedSlug);
+	assert.deepEqual(
+		selectAffectedPresetPackAxes(registry, [`src/lib/presets/${knownUnlistedSlug}.json`]),
+		[]
+	);
 	assert.equal(
 		selectAffectedPresetPackAxes(registry, ['src/lib/presets/deleted.json']).length,
 		registry.presets.length * registry.packs.length
 	);
+	assert.deepEqual(selectAffectedPresetPackAxes(registry, ['docs/project-control-plane.md']), []);
 	assert.throws(() =>
 		selectAffectedPresetPackAxes(registry, ['src/lib/presets/a.json', 'src/lib/presets/a.json'])
 	);

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+	accumulateSupersRenderEvidenceBytes,
 	buildSupersRenderMatrixCellVerdict,
 	captureSupersAuxiliaryFrameSequence,
 	createSupersEdgeAliasingProbeCandidate,
@@ -10,6 +11,8 @@ import {
 	groupSupersRenderMatrixCoordinates,
 	runBoundedSupersRenderMatrixFanout,
 	SUPERS_RENDER_MATRIX_REQUIRED_CHECK_CODES,
+	supersRenderMatrixEvidenceLimitBytes,
+	supersRenderMatrixRunnerTimeoutMs,
 	type SupersRenderMatrixCheckCandidate,
 	type SupersRenderMatrixEvidenceReference,
 	verifySupersRenderEvidenceIndex
@@ -18,6 +21,17 @@ import {
 function coordinate(cellId: string, presetSlug: string, packId = 'syntax') {
 	return { cellId, presetSlug, packId, orientation: 'horizontal' as const };
 }
+
+test('render execution has closed duration and evidence-size bounds', () => {
+	assert.equal(supersRenderMatrixRunnerTimeoutMs('affected'), 30 * 60 * 1000);
+	assert.equal(supersRenderMatrixRunnerTimeoutMs('full'), 4 * 60 * 60 * 1000);
+	const affectedLimit = supersRenderMatrixEvidenceLimitBytes('affected');
+	assert.equal(accumulateSupersRenderEvidenceBytes('affected', affectedLimit - 1, 1), affectedLimit);
+	assert.throws(
+		() => accumulateSupersRenderEvidenceBytes('affected', affectedLimit, 1),
+		/affected render evidence exceeded/
+	);
+});
 
 test('runner groups samples by Preset, Pack, and orientation', () => {
 	const groups = groupSupersRenderMatrixCoordinates([

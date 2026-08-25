@@ -6,6 +6,7 @@ export interface StaticPresetImpactEntry {
 
 export interface StaticPresetImpactRegistry {
 	presets: readonly StaticPresetImpactEntry[];
+	knownPresetSlugs: readonly string[];
 	packs: readonly { id: string }[];
 }
 
@@ -31,6 +32,7 @@ function normalizeChangedPaths(changedPaths: readonly string[]): string[] {
 
 function isNoPresetValidationImpactPath(path: string): boolean {
 	return (
+		path.startsWith('.dex/') ||
 		path.startsWith('docs/') ||
 		path.startsWith('workflows/') ||
 		path.startsWith('models/') ||
@@ -76,12 +78,26 @@ export function selectAffectedPackCalibrationSlugs(
 	].sort((left, right) => left.localeCompare(right));
 }
 
+function collectKnownPresetSlugs(registry: StaticPresetImpactRegistry): Set<string> {
+	const knownPresetSlugs = new Set(registry.knownPresetSlugs);
+	if (knownPresetSlugs.size !== registry.knownPresetSlugs.length) {
+		throw new TypeError('Known Preset slugs must be unique');
+	}
+	for (const preset of registry.presets) {
+		if (!knownPresetSlugs.has(preset.slug)) {
+			throw new TypeError(`Deliverable Preset is missing from the known inventory: ${preset.slug}`);
+		}
+	}
+	return knownPresetSlugs;
+}
+
 /** Selects the smallest complete Preset × Pack scope for static validation. */
 export function selectAffectedStaticPresetPackAxes(
 	registry: StaticPresetImpactRegistry,
 	changedPaths: readonly string[]
 ): StaticPresetPackAxis[] {
 	const pairs = new Set<string>();
+	const knownPresetSlugs = collectKnownPresetSlugs(registry);
 	const addAll = (): void => {
 		for (const preset of registry.presets) {
 			for (const pack of registry.packs) pairs.add(`${preset.slug}\0${pack.id}`);
@@ -109,7 +125,7 @@ export function selectAffectedStaticPresetPackAxes(
 					}
 				}
 			}
-			if (selectedPresetSlugs.size === 0) addAll();
+			if (selectedPresetSlugs.size === 0 && !knownPresetSlugs.has(presetMatch[1])) addAll();
 			else {
 				for (const slug of selectedPresetSlugs) {
 					for (const pack of registry.packs) pairs.add(`${slug}\0${pack.id}`);
