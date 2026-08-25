@@ -106,7 +106,7 @@ Deno.test(
 				args: ['model', 'validate', '11111111-1111-1111-1111-111111111111', '--json']
 			},
 			{
-				command: Deno.execPath(),
+				command: 'deno',
 				args: [
 					'check',
 					'--no-config',
@@ -116,7 +116,7 @@ Deno.test(
 				]
 			},
 			{
-				command: Deno.execPath(),
+				command: 'deno',
 				args: [
 					'test',
 					'--no-config',
@@ -216,7 +216,7 @@ Deno.test('workflow-only routing validates the workflow without product tests', 
 			args: ['--test', 'scripts/supers-delivery-routing-workflows.test.mjs']
 		}
 	]);
-	assert.ok(!calls.some(({ command }) => command === 'pnpm' || command === Deno.execPath()));
+	assert.ok(!calls.some(({ command }) => command === 'pnpm' || command === 'deno'));
 });
 
 Deno.test('typed coverage lanes execute their exact bounded audit commands', async () => {

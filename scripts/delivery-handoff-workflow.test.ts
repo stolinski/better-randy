@@ -62,11 +62,13 @@ Deno.test(
 );
 
 Deno.test(
-	'deterministic verification scopes Factory artifacts to the active work item',
+	'deterministic verification binds current-run change impact and scoped Factory summary',
 	async () => {
 		const workflowSource = await Deno.readTextFile(DETERMINISTIC_VERIFICATION_WORKFLOW_PATH);
 		const workflow = parse(workflowSource) as WorkflowDefinition;
-		assert.equal(workflow.version, 5);
+		const currentRunChangeImpactLookup =
+			`data.query(''modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem)[0]`;
+		assert.equal(workflow.version, 7);
 		assert.doesNotMatch(
 			workflowSource,
 			/data\.latest\("supers-delivery", "artifact-(?:change-impact|change-summary)"\)/
@@ -75,16 +77,16 @@ Deno.test(
 			workflowSource,
 			/data\.latest\("supers-delivery", "artifact-" \+ inputs\.workItem \+ "-(?:change-impact|change-summary)"\)\.payload/
 		);
-		assert.match(
-			workflowSource,
-			/data\.latest\("supers-delivery", "artifact-" \+ inputs\.workItem \+ "-change-impact"\)\.attributes\.payload/
-		);
-		assert.match(
+		assert.doesNotMatch(
 			workflowSource,
 			/data\.latest\("supers-delivery", "artifact-" \+ inputs\.workItem \+ "-change-impact"\)/
 		);
-		assert.match(workflowSource, /attributes\.payload\.surfaces/);
-		assert.match(workflowSource, /attributes\.payload\.requiredHumanReviews/);
+		assert.ok(workflowSource.includes(`${currentRunChangeImpactLookup}.name`));
+		assert.ok(workflowSource.includes(`${currentRunChangeImpactLookup}.workflowRunId`));
+		assert.ok(workflowSource.includes(`${currentRunChangeImpactLookup}.attributes.surfaces`));
+		assert.ok(
+			workflowSource.includes(`${currentRunChangeImpactLookup}.attributes.requiredHumanReviews`)
+		);
 		assert.match(
 			workflowSource,
 			/data\.latest\("supers-delivery", "artifact-" \+ inputs\.workItem \+ "-change-summary"\)\.attributes\.payload\.integrationReceipt/
@@ -101,7 +103,7 @@ Deno.test(
 	async () => {
 		const workflowSource = await Deno.readTextFile(AESTHETIC_BINDING_WORKFLOW_PATH);
 		const workflow = parse(workflowSource) as WorkflowDefinition;
-		assert.equal(workflow.version, 2);
+		assert.equal(workflow.version, 3);
 		assert.doesNotMatch(workflowSource, /data\.latest\([^\n]+\)\.name/);
 		assert.doesNotMatch(workflowSource, /"artifact-verification"/);
 		assert.match(

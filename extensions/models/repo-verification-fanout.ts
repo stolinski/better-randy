@@ -216,7 +216,7 @@ async function swampControlPlaneCommands(
 	);
 	if (extensionSources.length > 0) {
 		commands.push({
-			command: Deno.execPath(),
+			command: 'deno',
 			args: [
 				'check',
 				'--no-config',
@@ -229,7 +229,7 @@ async function swampControlPlaneCommands(
 	const extensionTests = await focusedExtensionTestPaths(paths, repoDir);
 	if (extensionTests.length > 0) {
 		commands.push({
-			command: Deno.execPath(),
+			command: 'deno',
 			args: [
 				'test',
 				'--no-config',
