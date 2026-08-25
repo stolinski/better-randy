@@ -282,6 +282,13 @@ function validateTransitionSemantics(
 			path: ['transition', 'effect'],
 			message: `Unknown transition Effect "${preset.transition.effect}"`
 		});
+	} else if (!definition.paramsSchema) {
+		// HMR can expose a definition before all of its exports have reinitialized.
+		// Reject that transient definition instead of crashing catalog module evaluation.
+		issues.push({
+			path: ['transition', 'effect'],
+			message: `Transition Effect "${definition.type}" definition is missing its parameter schema`
+		});
 	} else {
 		const result = definition.paramsSchema.safeParse(preset.transition.params);
 		if (!result.success) {

@@ -4,6 +4,7 @@ import { describe, it } from 'vitest';
 
 import { createDefaultEngineState, type Preset } from './engine-schema';
 import { validatePresetSemantics } from './preset-validation';
+import { TRANSITION_EFFECT_DEFINITION_REGISTRY } from './pipelines/transition-definition-registry';
 
 function videoPreset(name: string): Preset {
 	const state = createDefaultEngineState();
@@ -31,6 +32,43 @@ function videoPreset(name: string): Preset {
 	};
 	return { schema: 'supers@1', name, pack: 'syntax', kind: 'fixture', state };
 }
+
+describe('Transition Effect semantic validation', () => {
+	it('reports an incomplete transition definition instead of throwing', () => {
+		const definition = TRANSITION_EFFECT_DEFINITION_REGISTRY.maskWipe;
+		const paramsSchema = definition.paramsSchema;
+		assert.equal(Reflect.deleteProperty(definition, 'paramsSchema'), true);
+
+		try {
+			const preset: Preset = {
+				schema: 'supers@1',
+				name: 'Transition with incomplete definition',
+				pack: 'syntax',
+				kind: 'fixture',
+				state: createDefaultEngineState(),
+				transition: {
+					from: 'from',
+					to: 'to',
+					effect: 'mask-wipe',
+					durationMs: 600,
+					params: {}
+				}
+			};
+
+			const issues = validatePresetSemantics(preset);
+
+			assert.ok(
+				issues.some(
+					(issue) =>
+						issue.path.join('.') === 'transition.effect' &&
+						issue.message.includes('missing its parameter schema')
+				)
+			);
+		} finally {
+			definition.paramsSchema = paramsSchema;
+		}
+	});
+});
 
 describe('Video media semantic validation', () => {
 	it('rejects active Video clips on a transition Preset', () => {
