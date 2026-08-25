@@ -117,6 +117,10 @@ function isVisualAssetPath(path: string): boolean {
 	return hasExtension(path, VISUAL_ASSET_EXTENSIONS);
 }
 
+function isTestPath(path: string): boolean {
+	return /(?:^|\/)(?:__tests__\/|[^/]+\.(?:test|spec)\.[^/]+$)/.test(path);
+}
+
 function isAutomationContractPath(path: string): boolean {
 	const isContractFile = hasExtension(path, ['.json', '.yaml', '.yml']);
 	return (
@@ -126,6 +130,7 @@ function isAutomationContractPath(path: string): boolean {
 }
 
 function isRenderPath(path: string): boolean {
+	if (isTestPath(path)) return false;
 	return (
 		RENDER_PATH_PREFIXES.some((prefix) => path.startsWith(prefix)) ||
 		RENDER_PLATFORM_TERMS.some((term) => path.includes(term))
@@ -133,7 +138,10 @@ function isRenderPath(path: string): boolean {
 }
 
 function isExportPath(path: string): boolean {
-	return EXPORT_TERMS.some((term) => path.toLowerCase().includes(term.toLowerCase()));
+	return (
+		!isTestPath(path) &&
+		EXPORT_TERMS.some((term) => path.toLowerCase().includes(term.toLowerCase()))
+	);
 }
 
 function isAmbiguousVisualPath(path: string): boolean {
@@ -141,6 +149,7 @@ function isAmbiguousVisualPath(path: string): boolean {
 }
 
 function isAuthoringAppPath(path: string): boolean {
+	if (isTestPath(path)) return false;
 	const isMixedRenderShell = ['Workspace.svelte', 'Composition.svelte'].some((term) =>
 		path.includes(term)
 	);

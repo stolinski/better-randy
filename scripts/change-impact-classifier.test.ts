@@ -67,6 +67,13 @@ test('platform Pipeline and Pack infrastructure is rendered-composition work', (
 	}
 });
 
+test('test-only Pipeline changes stay objective and do not request render evidence', () => {
+	const path = 'src/lib/platform/pipelines/runtime-context.svelte.test.ts';
+	assert.deepEqual(laneIds([path]), ['policy-sweep', 'check', 'unit', 'structural']);
+	assert.deepEqual(surfaceIds([path]), ['control-plane']);
+	assert.deepEqual(humanReviewKinds([path]), []);
+});
+
 test('Preset changes are rendered-composition aesthetic work', () => {
 	const paths = ['src/lib/presets/lower-third.json'];
 	assert.deepEqual(surfaceIds(paths), ['rendered-composition']);
