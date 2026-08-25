@@ -198,6 +198,26 @@ export async function createSentrySha256(value: string): Promise<string> {
   ).join("");
 }
 
+const SENTRY_READ_TIMEOUT_MS = 60_000;
+
+async function runSentryReadCommand(
+  runner: SentryCommandRunner,
+  context: SentryIssueIntakeContext,
+  args: readonly string[],
+): Promise<SentryCommandResult> {
+  try {
+    return await runner.run(args, context.repoDir, SENTRY_READ_TIMEOUT_MS);
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes("timed out")) {
+      throw error;
+    }
+    context.logger.warning("Retrying one timed-out read-only Sentry command", {
+      operation: args.slice(0, 2).join(" "),
+    });
+    return await runner.run(args, context.repoDir, SENTRY_READ_TIMEOUT_MS);
+  }
+}
+
 async function fetchIssues(
   runner: SentryCommandRunner,
   context: SentryIssueIntakeContext,
@@ -223,7 +243,7 @@ async function fetchIssues(
     "--fields",
     "id,shortId,title,priority,level,firstSeen,status",
   ];
-  const result = await runner.run(args, context.repoDir, 60_000);
+  const result = await runSentryReadCommand(runner, context, args);
   if (result.code !== 0) {
     throw new Error(
       `sentry issue list failed with exit ${result.code}: ${
@@ -266,7 +286,9 @@ async function fetchIssueFirstSeen(
   for (let offset = 0; offset < missing.length; offset += 5) {
     const batch = missing.slice(offset, offset + 5);
     const details = await Promise.all(batch.map(async (issue) => {
-      const result = await runner.run(
+      const result = await runSentryReadCommand(
+        runner,
+        context,
         [
           "issue",
           "view",
@@ -276,8 +298,6 @@ async function fetchIssueFirstSeen(
           "--fields",
           "id,shortId,firstSeen",
         ],
-        context.repoDir,
-        20_000,
       );
       if (result.code !== 0) {
         throw new Error(

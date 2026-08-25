@@ -284,6 +284,26 @@ Deno.test("malformed output and command timeouts fail without partial snapshots"
   }
 });
 
+Deno.test("one timed-out read-only Sentry command is retried without partial state", async () => {
+  const fixture = fixtureContext();
+  await executeSentryIssueIntake(
+    { lookbackDays: 7, historyDays: 90, limit: 100 },
+    fixture.context,
+    {
+      commandRunner: new SequenceRunner([
+        new Error("sentry command timed out after 60000ms"),
+        cliResult([]),
+        cliResult([]),
+      ]),
+      now: () => FIXED_NOW,
+    },
+  );
+  assert.deepEqual(
+    fixture.writes.map((write) => write.specName),
+    ["snapshot", "reconciliation"],
+  );
+});
+
 Deno.test("stored titles redact URLs, repository paths, and inline secrets", async () => {
   const issue = {
     id: "1",
