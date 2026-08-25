@@ -151,7 +151,10 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   assert.match(String(invoke.task.inputs?.prompt), /untrusted advisory text/);
   assert.match(String(invoke.task.inputs?.prompt), /Sentry/);
   assert.match(String(invoke.task.inputs?.prompt), /reproduction is not required/);
-  assert.match(String(invoke.task.inputs?.prompt), /pnpm check and pnpm test/);
+  assert.match(String(invoke.task.inputs?.prompt), /only bounded checks relevant to the changed paths/);
+  assert.doesNotMatch(String(invoke.task.inputs?.prompt), /Run pnpm check and pnpm test/);
+  assert.equal(invoke.task.inputs?.idleTimeoutMs, 300_000);
+  assert.equal(invoke.task.inputs?.wallTimeoutMs, 1_800_000);
   assert.doesNotMatch(String(invoke.task.inputs?.prompt), /objectiveProofNomination|pre-existing byte-unchanged/);
 
   assert.equal(
