@@ -421,7 +421,6 @@ export async function executeSentryRepairResolution(
     SentryRepairResolutionAttemptSchema,
     context,
   );
-  const dataHandles: Array<{ name: string }> = [];
   if (attempt === null) {
     const attemptBase = {
       schemaVersion: 2 as const,
@@ -440,9 +439,7 @@ export async function executeSentryRepairResolution(
       ...attemptBase,
       fingerprint: await createSentrySha256(canonicalSentryJson(attemptBase)),
     });
-    dataHandles.push(
-      await context.writeResource("resolution-attempt", attemptName, attempt),
-    );
+    await context.writeResource("resolution-attempt", attemptName, attempt);
   } else if (
     attempt.fingerprint !== await createSentrySha256(
         canonicalSentryJson(omitFingerprint(attempt)),
@@ -507,9 +504,7 @@ export async function executeSentryRepairResolution(
     ...receiptBase,
     fingerprint: await createSentrySha256(canonicalSentryJson(receiptBase)),
   });
-  dataHandles.push(
-    await context.writeResource("resolution-receipt", receiptName, receipt),
-  );
+  await context.writeResource("resolution-receipt", receiptName, receipt);
   context.logger.info(
     "Resolved Sentry issue after the repair passed normal checks",
     {
@@ -518,5 +513,5 @@ export async function executeSentryRepairResolution(
       integratedRevision,
     },
   );
-  return { dataHandles };
+  return { dataHandles: [] };
 }
