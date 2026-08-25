@@ -25,6 +25,7 @@ jobs:
           methodName: assert-change-state
           inputs:
             expectedFingerprint: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.changeFingerprint }}'
+            expectedPaths: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.paths }}'
       - name: policy-sweep
         description: Run the canonical policy and static corpus gates before code and render verification.
         dependsOn:
@@ -74,6 +75,7 @@ jobs:
           methodName: assert-change-state
           inputs:
             expectedFingerprint: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.changeFingerprint }}'
+            expectedPaths: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.paths }}'
       - name: normalize-route
         dependsOn:
           - step: assert-change-state-after
