@@ -64,7 +64,7 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   const steps = workflow.jobs.flatMap((job) => job.steps);
   const names = steps.map((step) => step.name);
 
-  assert.equal(workflow.version, 6);
+  assert.equal(workflow.version, 7);
   assert.deepEqual(workflow.inputs.required, [
     "workItem",
     "evidenceName",
@@ -277,6 +277,10 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   assert.match(
     stepByName(workflow, "reconcile-prior-coding-worktrees").guard ?? "",
     /supers-agent-integration/,
+  );
+  assert.match(
+    stepByName(workflow, "prepare-isolated-coding-worktree").guard ?? "",
+    /stage\.id != "implementation"/,
   );
 
   const summary = stepByName(workflow, "record-deterministic-change-summary");
