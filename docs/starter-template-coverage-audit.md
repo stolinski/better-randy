@@ -142,9 +142,9 @@ The 43 structurally honest candidates cover:
 - platform beats: Instagram follow and YouTube subscribe;
 - caption registers: karaoke and word-pop.
 
-### Remaining creator job
+### Remaining creator jobs
 
-1. **Coordinated episode suite:** useful members exist, but they are not yet authored and export-verified as one coherent title/lower-third/pullquote/stat/outro set.
+No additional creator job is required. The title, identification, quotation, factual, source, and closing Starters remain independent compositions that creators combine in the edit; a preassembled episode suite would duplicate those existing jobs without adding a reusable capability.
 
 Transitions are editing decisions handled in DaVinci Resolve, not missing Starter templates. The rejected `show-open-in-focus` fixture was removed rather than promoted; title cards already cover the opening-graphic production job.
 
@@ -153,8 +153,7 @@ Transitions are editing decisions handled in DaVinci Resolve, not missing Starte
 1. **Listing hygiene reconciled — Dex `6o9l7x3p`.** Five duplicates are folded into their canonical Starters, four feature proofs are fixtures, and four counted Starter slugs no longer say “demo.” The picker now exposes the honest 39-entry baseline.
 2. **Close identifier and ending gaps — Dex `8zy3t3du`.** `source-bug-nasa-archive` and `outro-watch-next` now supply the two structurally distinct creator jobs and raise the honest baseline to 41. Final admission still requires the integrated deterministic matrix and exact-evidence human gate.
 3. **Replace the rejected opening candidate — Dex `75u4vxtf`.** Remove `show-open-in-focus`; admit one text-led title card based on `chapter-card-1-burnout` and one brand-led title card based on `chapter-card-syntax-logo`, without their authored CRT filters. Transitions remain in the DaVinci Resolve edit.
-4. **Build the coordinated episode suite — Dex `u0twmy3w`.** Use existing canonical Starters where possible; re-author only where consistent content/choreography requires it. The suite must include title/open, lower third, pullquote/callout, stat, and outro.
-5. **Run final admission — Dex `viga7o0n`.** Execute the deterministic affected matrix and bind exact human aesthetic decisions for every counted Starter. The final count should be reported after any aesthetic rejection; the structural forecast is **43** after the source identifier, outro, text-led title card, and brand-led title card, so weak or redundant candidates must be retired rather than preserving a quota.
+4. **Run final admission — Dex `viga7o0n`.** Execute the deterministic affected matrix and bind exact human aesthetic decisions for every counted Starter. The final count should be reported after any aesthetic rejection; the structural forecast is **43** after the source identifier, outro, text-led title card, and brand-led title card, so weak or redundant candidates must be retired rather than preserving a quota.
 
 ## Mechanical check
 
