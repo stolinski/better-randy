@@ -361,6 +361,13 @@ Deno.test('Pi integration receipts bind exact handoff and target identities', as
 	);
 });
 
+Deno.test('contract hashes use locale-independent lexical key ordering', async () => {
+	assert.equal(
+		await createSupersDeterministicContractHash({ ä: 2, z: 1 }),
+		'7832a5d6150a56da1a4f0c8fa00c26a7350389b0fc8696707cd2abbbd32be0c1'
+	);
+});
+
 Deno.test('integrated tree fingerprint hashes exact NUL-delimited listing bytes', async () => {
 	const listing = new TextEncoder().encode(
 		'100644 blob 0123456789012345678901234567890123456789\ta.ts\0'
@@ -872,7 +879,7 @@ Deno.test('human decisions require a trusted approval receipt bound to evidence'
 		decidedAt: '2026-08-16T12:00:00.000Z'
 	};
 	const decisionContent = {
-		schemaVersion: 1 as const,
+		schemaVersion: 2 as const,
 		workItem: 'task-1',
 		factoryName: 'supers-delivery',
 		gateId: 'aesthetic-acceptance' as const,
@@ -891,22 +898,13 @@ Deno.test('human decisions require a trusted approval receipt bound to evidence'
 		policySweepResourceName: 'policy-sweep-execution-task-1-policy-run-1',
 		policySweepWorkflowId: '5eb573fe-76e7-4b59-8ff6-bfccc0ec3b7a',
 		policySweepWorkflowName: 'policy-sweep',
-		policySweepWorkflowVersion: 2,
+		policySweepWorkflowVersion: 4,
 		policySweepWorkflowRunId: 'policy-run-1',
 		policySweepExecutionDigest: SHA,
-		policyReceipts: ['parity', 'planning', 'timing', 'tracking'].map((specName) => ({
-			modelName: 'repo-audit',
-			specName,
-			resourceName: `${specName}-latest`,
-			workflowRunId: 'policy-run-1',
-			contentDigest: SHA
-		})),
-		corpusReceipt: {
-			modelName: 'corpus-verify',
-			specName: 'sweep',
-			resourceName: 'sweep-latest',
-			workflowRunId: 'policy-run-1',
-			contentDigest: SHA
+		policySweepLifecycleIntegrity: {
+			policyWorkflowIdentityBound: true,
+			policyWorkflowRunBound: true,
+			routingWorkflowRunBound: true
 		},
 		renderMatrixRunName: 'render-matrix-run-task-1',
 		renderMatrixManifestName: 'render-matrix-manifest-task-1',

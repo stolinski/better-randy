@@ -9,7 +9,7 @@
  */
 import { z } from "npm:zod@4.4.3";
 
-export const DEX_SOFTWARE_FACTORY_VERSION = "2026.08.24.1";
+export const DEX_SOFTWARE_FACTORY_VERSION = "2026.08.25.2";
 const SOFTWARE_FACTORY_TARGET_VERSION = "2026.06.24.1";
 
 const FACTORY_NAME_PATTERN = /^[a-z][a-z0-9_-]*$/;
@@ -746,23 +746,19 @@ function verificationArtifact(
   };
 }
 
-function verificationReceiptIdentityJsonSchema(): Record<string, unknown> {
+function policyLifecycleIntegrityJsonSchema(): Record<string, unknown> {
   return {
     type: "object",
     additionalProperties: false,
     required: [
-      "modelName",
-      "specName",
-      "resourceName",
-      "workflowRunId",
-      "contentDigest",
+      "policyWorkflowIdentityBound",
+      "policyWorkflowRunBound",
+      "routingWorkflowRunBound",
     ],
     properties: {
-      modelName: STRING_SCHEMA,
-      specName: STRING_SCHEMA,
-      resourceName: STRING_SCHEMA,
-      workflowRunId: STRING_SCHEMA,
-      contentDigest: { type: "string", pattern: "^[0-9a-f]{64}$" },
+      policyWorkflowIdentityBound: { type: "boolean" },
+      policyWorkflowRunBound: { type: "boolean" },
+      routingWorkflowRunBound: { type: "boolean" },
     },
   };
 }
@@ -782,6 +778,7 @@ function closedObjectiveVerificationArtifact(): Record<string, unknown> {
         "integratedTreeFingerprint",
         "treeFingerprint",
         "changeImpactResourceName",
+        "changedPaths",
         "deterministicFanoutResourceName",
         "deterministicFanoutContentDigest",
         "deterministicFanoutWorkflowRunId",
@@ -791,8 +788,7 @@ function closedObjectiveVerificationArtifact(): Record<string, unknown> {
         "policySweepWorkflowVersion",
         "policySweepWorkflowRunId",
         "policySweepExecutionDigest",
-        "policyReceipts",
-        "corpusReceipt",
+        "policySweepLifecycleIntegrity",
         "renderMatrixRunName",
         "renderMatrixManifestName",
         "renderMatrixBundleName",
@@ -808,7 +804,7 @@ function closedObjectiveVerificationArtifact(): Record<string, unknown> {
         "advisories",
       ],
       properties: {
-        schemaVersion: { type: "integer", enum: [2] },
+        schemaVersion: { type: "integer", enum: [3] },
         workItem: STRING_SCHEMA,
         integratedRevision: { type: "string", pattern: "^[0-9a-f]{40,64}$" },
         integratedTreeFingerprint: {
@@ -817,6 +813,12 @@ function closedObjectiveVerificationArtifact(): Record<string, unknown> {
         },
         treeFingerprint: { type: "string", pattern: "^[0-9a-f]{64}$" },
         changeImpactResourceName: STRING_SCHEMA,
+        changedPaths: {
+          type: "array",
+          minItems: 1,
+          maxItems: 200,
+          items: STRING_SCHEMA,
+        },
         deterministicFanoutResourceName: STRING_SCHEMA,
         deterministicFanoutContentDigest: {
           type: "string",
@@ -829,19 +831,13 @@ function closedObjectiveVerificationArtifact(): Record<string, unknown> {
           enum: ["5eb573fe-76e7-4b59-8ff6-bfccc0ec3b7a"],
         },
         policySweepWorkflowName: { type: "string", enum: ["policy-sweep"] },
-        policySweepWorkflowVersion: { type: "integer", enum: [2] },
+        policySweepWorkflowVersion: { type: "integer", enum: [4] },
         policySweepWorkflowRunId: STRING_SCHEMA,
         policySweepExecutionDigest: {
           type: "string",
           pattern: "^[0-9a-f]{64}$",
         },
-        policyReceipts: {
-          type: "array",
-          minItems: 4,
-          maxItems: 4,
-          items: verificationReceiptIdentityJsonSchema(),
-        },
-        corpusReceipt: verificationReceiptIdentityJsonSchema(),
+        policySweepLifecycleIntegrity: policyLifecycleIntegrityJsonSchema(),
         renderMatrixRunName: STRING_SCHEMA,
         renderMatrixManifestName: { type: "string" },
         renderMatrixBundleName: { type: "string" },
@@ -916,8 +912,7 @@ function humanAestheticDecisionArtifact(): Record<string, unknown> {
         "policySweepWorkflowVersion",
         "policySweepWorkflowRunId",
         "policySweepExecutionDigest",
-        "policyReceipts",
-        "corpusReceipt",
+        "policySweepLifecycleIntegrity",
         "renderMatrixRunName",
         "renderMatrixManifestName",
         "renderMatrixBundleName",
@@ -932,7 +927,7 @@ function humanAestheticDecisionArtifact(): Record<string, unknown> {
         "note",
       ],
       properties: {
-        schemaVersion: { type: "integer", enum: [1] },
+        schemaVersion: { type: "integer", enum: [2] },
         decisionId: { type: "string", pattern: "^[0-9a-f]{64}$" },
         workItem: STRING_SCHEMA,
         factoryName: STRING_SCHEMA,
@@ -961,19 +956,13 @@ function humanAestheticDecisionArtifact(): Record<string, unknown> {
           enum: ["5eb573fe-76e7-4b59-8ff6-bfccc0ec3b7a"],
         },
         policySweepWorkflowName: { type: "string", enum: ["policy-sweep"] },
-        policySweepWorkflowVersion: { type: "integer", enum: [2] },
+        policySweepWorkflowVersion: { type: "integer", enum: [4] },
         policySweepWorkflowRunId: STRING_SCHEMA,
         policySweepExecutionDigest: {
           type: "string",
           pattern: "^[0-9a-f]{64}$",
         },
-        policyReceipts: {
-          type: "array",
-          minItems: 4,
-          maxItems: 4,
-          items: verificationReceiptIdentityJsonSchema(),
-        },
-        corpusReceipt: verificationReceiptIdentityJsonSchema(),
+        policySweepLifecycleIntegrity: policyLifecycleIntegrityJsonSchema(),
         renderMatrixRunName: STRING_SCHEMA,
         renderMatrixManifestName: STRING_SCHEMA,
         renderMatrixBundleName: STRING_SCHEMA,
@@ -1423,8 +1412,7 @@ function aestheticDecisionBindingStage(
     "artifacts.human_aesthetic_decision.policySweepWorkflowVersion == artifacts.verification.policySweepWorkflowVersion",
     "artifacts.human_aesthetic_decision.policySweepWorkflowRunId == artifacts.verification.policySweepWorkflowRunId",
     "artifacts.human_aesthetic_decision.policySweepExecutionDigest == artifacts.verification.policySweepExecutionDigest",
-    "artifacts.human_aesthetic_decision.policyReceipts == artifacts.verification.policyReceipts",
-    "artifacts.human_aesthetic_decision.corpusReceipt == artifacts.verification.corpusReceipt",
+    "artifacts.human_aesthetic_decision.policySweepLifecycleIntegrity == artifacts.verification.policySweepLifecycleIntegrity",
     "artifacts.human_aesthetic_decision.renderMatrixRunName == artifacts.verification.renderMatrixRunName",
     "artifacts.human_aesthetic_decision.renderMatrixManifestName == artifacts.verification.renderMatrixManifestName",
     "artifacts.human_aesthetic_decision.renderMatrixBundleName == artifacts.verification.renderMatrixBundleName",

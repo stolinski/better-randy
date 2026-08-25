@@ -6,12 +6,12 @@ import {
 	SupersHumanAestheticDecisionSchema,
 	SupersRenderMatrixBundleSchema,
 	SupersRenderMatrixManifestSchema,
-	SupersVerificationReceiptIdentitySchema,
 	verifySupersHumanAestheticDecision,
 	verifySupersRenderMatrixBundle
 } from './supers-deterministic-factory-contract.ts';
 import { VerificationFanoutReportSchema } from './repo-verification-fanout.ts';
 import { SupersRenderMatrixRunSchema } from './supers-render-matrix-verification.ts';
+import { compareCanonicalText } from '../../src/lib/utils/canonical-text-order.ts';
 
 const Sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
 const DomainIdSchema = z.string().regex(/^[a-z0-9][a-z0-9._:-]{0,127}$/);
@@ -32,98 +32,76 @@ const ChangeImpactSchema = z.strictObject({
 	workItem: DomainIdSchema,
 	treeFingerprint: Sha256Schema,
 	workflowRunId: DomainIdSchema,
+	paths: z.array(z.string().min(1)).min(1).max(200),
+	classification: z.enum(['known', 'mixed', 'unknown']),
+	unknownPaths: z.array(z.string().min(1)).max(200),
+	intentRouteDigest: Sha256Schema,
 	surfaces: z.array(ChangeSurfaceSchema).min(1).max(4),
 	requiredHumanReviews: z.array(HumanReviewRequirementSchema).max(2)
 });
 
-type DeterministicLaneId = 'browser' | 'check' | 'unit' | 'structural';
+const AutomatedLaneIdSchema = z.enum([
+	'browser',
+	'check',
+	'unit',
+	'preset-static',
+	'export-decode',
+	'performance',
+	'repository-infrastructure',
+	'swamp-control-plane',
+	'timing-coverage',
+	'authoring-dependency-tracking',
+	'inspector-editor-parity',
+	'planning-discoverability'
+]);
+type DeterministicLaneId = z.infer<typeof AutomatedLaneIdSchema>;
 const RequiredLaneIdSchema = z.enum([
 	'policy-sweep',
 	'check',
 	'unit',
-	'structural',
-	'corpus',
 	'browser',
+	'preset-static',
 	'render-matrix',
 	'pack-matrix',
-	'export-decode'
+	'export-decode',
+	'performance',
+	'repository-infrastructure',
+	'swamp-control-plane',
+	'timing-coverage',
+	'authoring-dependency-tracking',
+	'inspector-editor-parity',
+	'planning-discoverability',
+	'unknown'
 ]);
-
-const CanonicalSourceReceiptSchema = z.strictObject({
-	modelName: DomainIdSchema,
-	specName: DomainIdSchema,
-	resourceName: ResourceNameSchema,
-	workflowRunId: DomainIdSchema,
-	content: z.unknown()
-});
 
 const POLICY_SWEEP_WORKFLOW_ID = '5eb573fe-76e7-4b59-8ff6-bfccc0ec3b7a' as const;
 const POLICY_SWEEP_WORKFLOW_NAME = 'policy-sweep' as const;
-const POLICY_SWEEP_WORKFLOW_VERSION = 2 as const;
-const PolicyFailureCodeSchema = z.enum([
-	'timing-policy-failed',
-	'tracking-policy-failed',
-	'parity-policy-failed',
-	'planning-policy-failed',
-	'corpus-failed'
-]);
-const CANONICAL_POLICY_RECEIPTS = [
-	{
-		modelName: 'repo-audit',
-		specName: 'parity',
-		resourceName: 'parity-latest',
-		failureCode: 'parity-policy-failed'
-	},
-	{
-		modelName: 'repo-audit',
-		specName: 'planning',
-		resourceName: 'planning-latest',
-		failureCode: 'planning-policy-failed'
-	},
-	{
-		modelName: 'repo-audit',
-		specName: 'timing',
-		resourceName: 'timing-latest',
-		failureCode: 'timing-policy-failed'
-	},
-	{
-		modelName: 'repo-audit',
-		specName: 'tracking',
-		resourceName: 'tracking-latest',
-		failureCode: 'tracking-policy-failed'
-	}
-] as const;
-const CANONICAL_CORPUS_RECEIPT = {
-	modelName: 'corpus-verify',
-	specName: 'sweep',
-	resourceName: 'sweep-latest',
-	failureCode: 'corpus-failed'
-} as const;
-
+const POLICY_SWEEP_WORKFLOW_VERSION = 4 as const;
+const SupersPolicyLifecycleIntegritySchema = z.strictObject({
+	policyWorkflowIdentityBound: z.literal(true),
+	policyWorkflowRunBound: z.literal(true),
+	routingWorkflowRunBound: z.literal(true)
+});
 export const SupersPolicySweepExecutionSchema = z.strictObject({
-	schemaVersion: z.literal(1),
+	schemaVersion: z.literal(2),
 	workItem: DomainIdSchema,
 	routingWorkflowRunId: DomainIdSchema,
 	policyWorkflowId: z.literal(POLICY_SWEEP_WORKFLOW_ID),
 	policyWorkflowName: z.literal(POLICY_SWEEP_WORKFLOW_NAME),
 	policyWorkflowVersion: z.literal(POLICY_SWEEP_WORKFLOW_VERSION),
 	policyWorkflowRunId: DomainIdSchema,
-	policyReceipts: z.array(SupersVerificationReceiptIdentitySchema).length(4),
-	corpusReceipt: SupersVerificationReceiptIdentitySchema,
-	objectiveFailureCodes: z.array(PolicyFailureCodeSchema),
+	lifecycleIntegrity: SupersPolicyLifecycleIntegritySchema,
 	executionDigest: Sha256Schema
 });
 
 export const RecordSupersPolicySweepExecutionArgumentsSchema = z.strictObject({
-	schemaVersion: z.literal(1),
+	schemaVersion: z.literal(2),
 	workItem: DomainIdSchema,
 	routingWorkflowRunId: DomainIdSchema,
 	policyWorkflowId: z.literal(POLICY_SWEEP_WORKFLOW_ID),
 	policyWorkflowName: z.literal(POLICY_SWEEP_WORKFLOW_NAME),
 	policyWorkflowVersion: z.literal(POLICY_SWEEP_WORKFLOW_VERSION),
-	policyWorkflowRunId: DomainIdSchema,
-	policyReceipts: z.array(CanonicalSourceReceiptSchema).length(4),
-	corpusReceipt: CanonicalSourceReceiptSchema
+	policyWorkflowRunId: DomainIdSchema
 });
 
 export const NormalizeSupersDeliveryVerificationRouteArgumentsSchema = z.strictObject({
@@ -134,7 +112,7 @@ export const NormalizeSupersDeliveryVerificationRouteArgumentsSchema = z.strictO
 	expectedIntegratedTreeFingerprint: Sha256Schema,
 	expectedTreeFingerprint: Sha256Schema,
 	changeImpact: ChangeImpactSchema,
-	requiredLaneIds: z.array(RequiredLaneIdSchema).min(1).max(9),
+	requiredLaneIds: z.array(RequiredLaneIdSchema).min(1).max(13),
 	deterministicFanoutResourceName: ResourceNameSchema,
 	deterministicFanoutWorkflowRunId: DomainIdSchema,
 	deterministicFanout: VerificationFanoutReportSchema,
@@ -208,42 +186,7 @@ function unavailableCodeForBundleError(
 }
 
 function sortedUnique<T extends string>(values: readonly T[]): T[] {
-	return [...new Set(values)].sort((left, right) => left.localeCompare(right));
-}
-
-type CanonicalReceiptExpectation = {
-	modelName: string;
-	specName: string;
-	resourceName: string;
-};
-
-async function canonicalReceiptIdentity(
-	receipt: z.infer<typeof CanonicalSourceReceiptSchema>,
-	expected: CanonicalReceiptExpectation,
-	expectedWorkflowRunId: string
-): Promise<{
-	identity: z.infer<typeof SupersVerificationReceiptIdentitySchema>;
-	clean: boolean;
-}> {
-	const content = z.object({ clean: z.boolean() }).passthrough().parse(receipt.content);
-	if (
-		receipt.modelName !== expected.modelName ||
-		receipt.specName !== expected.specName ||
-		receipt.resourceName !== expected.resourceName ||
-		receipt.workflowRunId !== expectedWorkflowRunId
-	) {
-		throw new TypeError('Policy sweep receipt name or workflow run was substituted');
-	}
-	return {
-		identity: SupersVerificationReceiptIdentitySchema.parse({
-			modelName: receipt.modelName,
-			specName: receipt.specName,
-			resourceName: receipt.resourceName,
-			workflowRunId: receipt.workflowRunId,
-			contentDigest: await createSupersDeterministicContractHash(receipt.content)
-		}),
-		clean: content.clean
-	};
+	return [...new Set(values)].sort(compareCanonicalText);
 }
 
 function withoutExecutionDigest(
@@ -254,50 +197,24 @@ function withoutExecutionDigest(
 	) as Omit<z.infer<typeof SupersPolicySweepExecutionSchema>, 'executionDigest'>;
 }
 
-/** Bind canonical policy/corpus collection to one exact policy workflow execution. */
+/** Bind one exact lifecycle policy workflow identity and its current execution. */
 export async function recordSupersPolicySweepExecution(
 	rawArgs: unknown
 ): Promise<z.infer<typeof SupersPolicySweepExecutionSchema>> {
 	const args = RecordSupersPolicySweepExecutionArgumentsSchema.parse(rawArgs);
-	const suppliedPolicyReceipts = new Map(
-		args.policyReceipts.map((receipt) => [`${receipt.modelName}:${receipt.specName}`, receipt])
-	);
-	if (suppliedPolicyReceipts.size !== CANONICAL_POLICY_RECEIPTS.length) {
-		throw new TypeError('Policy sweep receipts must be the unique canonical set');
-	}
-	const resolvedPolicyReceipts = await Promise.all(
-		CANONICAL_POLICY_RECEIPTS.map(async (expected) => {
-			const receipt = suppliedPolicyReceipts.get(`${expected.modelName}:${expected.specName}`);
-			if (receipt === undefined) {
-				throw new TypeError('Policy sweep receipt name or workflow run was substituted');
-			}
-			return {
-				...(await canonicalReceiptIdentity(receipt, expected, args.policyWorkflowRunId)),
-				failureCode: expected.failureCode
-			};
-		})
-	);
-	const corpus = await canonicalReceiptIdentity(
-		args.corpusReceipt,
-		CANONICAL_CORPUS_RECEIPT,
-		args.policyWorkflowRunId
-	);
 	const content = {
-		schemaVersion: 1 as const,
+		schemaVersion: 2 as const,
 		workItem: args.workItem,
 		routingWorkflowRunId: args.routingWorkflowRunId,
 		policyWorkflowId: args.policyWorkflowId,
 		policyWorkflowName: args.policyWorkflowName,
 		policyWorkflowVersion: args.policyWorkflowVersion,
 		policyWorkflowRunId: args.policyWorkflowRunId,
-		policyReceipts: resolvedPolicyReceipts.map((receipt) => receipt.identity),
-		corpusReceipt: corpus.identity,
-		objectiveFailureCodes: sortedUnique([
-			...resolvedPolicyReceipts
-				.filter((receipt) => !receipt.clean)
-				.map((receipt) => receipt.failureCode),
-			...(corpus.clean ? [] : [CANONICAL_CORPUS_RECEIPT.failureCode])
-		])
+		lifecycleIntegrity: {
+			policyWorkflowIdentityBound: true as const,
+			policyWorkflowRunBound: true as const,
+			routingWorkflowRunBound: true as const
+		}
 	};
 	return SupersPolicySweepExecutionSchema.parse({
 		...content,
@@ -329,6 +246,10 @@ export async function normalizeSupersDeliveryVerificationRoute(
 			`policy-sweep-execution-${args.workItem}-${args.policySweepExecution.policyWorkflowRunId}` ||
 		args.changeImpact.treeFingerprint !== args.expectedTreeFingerprint ||
 		args.deterministicFanout.expectedFingerprint !== args.expectedTreeFingerprint ||
+		args.deterministicFanout.changeImpactResourceName !== args.changeImpact.resourceName ||
+		args.deterministicFanout.intentRouteDigest !== args.changeImpact.intentRouteDigest ||
+		JSON.stringify(args.deterministicFanout.changedPaths) !==
+			JSON.stringify(args.changeImpact.paths) ||
 		args.renderMatrixRun.expectedTreeFingerprint !== args.expectedTreeFingerprint ||
 		verifiedFanoutDigest !== claimedFanoutDigest ||
 		verifiedPolicyExecutionDigest !== args.policySweepExecution.executionDigest
@@ -336,17 +257,16 @@ export async function normalizeSupersDeliveryVerificationRoute(
 		throw new TypeError('Delivery verification resources are stale or not workflow-correlated');
 	}
 
-	const policyReceipts = args.policySweepExecution.policyReceipts;
-	const corpusReceipt = args.policySweepExecution.corpusReceipt;
 	const renderMatrixRunDigest = await createSupersDeterministicContractHash(args.renderMatrixRun);
 	const completedRun = args.renderMatrixRun.status === 'completed' ? args.renderMatrixRun : null;
 	const routeIdentity = {
-		schemaVersion: 2 as const,
+		schemaVersion: 3 as const,
 		workItem: args.workItem,
 		integratedRevision: args.expectedIntegratedRevision,
 		integratedTreeFingerprint: args.expectedIntegratedTreeFingerprint,
 		treeFingerprint: args.expectedTreeFingerprint,
 		changeImpactResourceName: args.changeImpact.resourceName,
+		changedPaths: args.changeImpact.paths,
 		deterministicFanoutResourceName: args.deterministicFanoutResourceName,
 		deterministicFanoutContentDigest: claimedFanoutDigest,
 		deterministicFanoutWorkflowRunId: args.deterministicFanoutWorkflowRunId,
@@ -356,8 +276,7 @@ export async function normalizeSupersDeliveryVerificationRoute(
 		policySweepWorkflowVersion: args.policySweepExecution.policyWorkflowVersion,
 		policySweepWorkflowRunId: args.policySweepExecution.policyWorkflowRunId,
 		policySweepExecutionDigest: args.policySweepExecution.executionDigest,
-		policyReceipts,
-		corpusReceipt,
+		policySweepLifecycleIntegrity: args.policySweepExecution.lifecycleIntegrity,
 		renderMatrixRunName: args.renderMatrixRunName,
 		renderMatrixManifestName: args.renderMatrixManifestName,
 		renderMatrixBundleName: args.renderMatrixBundleName,
@@ -403,11 +322,13 @@ export async function normalizeSupersDeliveryVerificationRoute(
 		);
 	}
 	if (requiresAppVisualReview) unavailable.add('missing-app-visual-evidence');
+	if (args.changeImpact.classification === 'unknown' || uniqueRequiredLaneIds.includes('unknown')) {
+		unavailable.add('unknown-change-domain');
+	}
 	const common = { ...routeIdentity, requiredHumanReviewKinds };
 	const requiredDeterministicLaneIds = sortedUnique(
 		args.requiredLaneIds.filter(
-			(lane): lane is DeterministicLaneId =>
-				lane === 'browser' || lane === 'check' || lane === 'unit' || lane === 'structural'
+			(lane): lane is DeterministicLaneId => AutomatedLaneIdSchema.safeParse(lane).success
 		)
 	);
 	const resultLaneIds = sortedUnique(args.deterministicFanout.results.map((result) => result.id));
@@ -424,24 +345,36 @@ export async function normalizeSupersDeliveryVerificationRoute(
 	const deterministicFailureCodes = fanoutIsComplete
 		? args.deterministicFanout.results
 				.filter((result) => result.status === 'failed')
-				.map((result) =>
-					result.id === 'browser'
-						? ('browser-failed' as const)
-						: result.id === 'check'
-							? ('check-failed' as const)
-							: result.id === 'unit'
-								? ('unit-failed' as const)
-								: ('structural-failed' as const)
-				)
+				.map((result) => {
+					const failureCodes = {
+						browser: 'browser-failed',
+						check: 'check-failed',
+						unit: 'unit-failed',
+						'preset-static': 'preset-static-failed',
+						'export-decode': 'export-decode-failed',
+						performance: 'performance-failed',
+						'repository-infrastructure': 'repository-infrastructure-failed',
+						'swamp-control-plane': 'swamp-control-plane-failed',
+						'timing-coverage': 'timing-coverage-failed',
+						'authoring-dependency-tracking': 'authoring-dependency-tracking-failed',
+						'inspector-editor-parity': 'inspector-editor-parity-failed',
+						'planning-discoverability': 'planning-discoverability-failed'
+					} as const;
+					return failureCodes[result.id];
+				})
 		: [];
-	const closedFailureCodes = sortedUnique([
-		...args.policySweepExecution.objectiveFailureCodes,
-		...deterministicFailureCodes
-	]);
+	if (fanoutIsComplete) {
+		for (const result of args.deterministicFanout.results) {
+			if (result.status === 'unavailable' && result.unavailableReason !== null) {
+				unavailable.add(result.unavailableReason);
+			}
+		}
+	}
+	const closedFailureCodes = sortedUnique(deterministicFailureCodes);
 
 	if (args.renderMatrixRun.status === 'not-applicable') {
 		const uncoveredLanes = uniqueRequiredLaneIds.filter(
-			(lane) => lane === 'render-matrix' || lane === 'pack-matrix' || lane === 'export-decode'
+			(lane) => lane === 'render-matrix' || lane === 'pack-matrix'
 		);
 		if (uncoveredLanes.length > 0) unavailable.add('unexecuted-required-lane');
 		if (args.renderMatrixManifest !== null || args.renderMatrixBundle !== null) {
@@ -458,10 +391,6 @@ export async function normalizeSupersDeliveryVerificationRoute(
 			objectiveFailureCodes: closedFailureCodes,
 			unavailableEvidenceCodes: sortedUnique([...unavailable])
 		});
-	}
-
-	if (uniqueRequiredLaneIds.includes('export-decode')) {
-		unavailable.add('unexecuted-required-lane');
 	}
 
 	// The affected selector may conservatively capture a full render matrix for app-only paths.
@@ -584,7 +513,7 @@ export async function bindSupersHumanAestheticDecision(
 	}
 	const approvalReceiptId = await createSupersDeterministicContractHash(args.factoryApproval);
 	const decisionWithoutId = {
-		schemaVersion: 1 as const,
+		schemaVersion: 2 as const,
 		workItem: args.workItem,
 		factoryName: args.factoryName,
 		gateId: 'aesthetic-acceptance' as const,
@@ -606,8 +535,7 @@ export async function bindSupersHumanAestheticDecision(
 		policySweepWorkflowVersion: args.verificationRoute.policySweepWorkflowVersion,
 		policySweepWorkflowRunId: args.verificationRoute.policySweepWorkflowRunId,
 		policySweepExecutionDigest: args.verificationRoute.policySweepExecutionDigest,
-		policyReceipts: args.verificationRoute.policyReceipts,
-		corpusReceipt: args.verificationRoute.corpusReceipt,
+		policySweepLifecycleIntegrity: args.verificationRoute.policySweepLifecycleIntegrity,
 		renderMatrixRunName: args.verificationRoute.renderMatrixRunName,
 		renderMatrixManifestName: args.verificationRoute.renderMatrixManifestName,
 		renderMatrixBundleName: args.verificationRoute.renderMatrixBundleName,
@@ -678,11 +606,11 @@ async function executeBind(
 
 export const model = {
 	type: '@supers/delivery-verification-router',
-	version: '2026.08.20.1',
+	version: '2026.08.25.2',
 	globalArguments: z.strictObject({}),
 	resources: {
 		'policy-sweep-execution': {
-			description: 'Canonical policy/corpus receipts bound to one exact workflow execution',
+			description: 'Canonical lifecycle workflow identity bound to one exact current execution',
 			schema: SupersPolicySweepExecutionSchema,
 			lifetime: 'infinite',
 			garbageCollection: 40
@@ -702,7 +630,7 @@ export const model = {
 	},
 	methods: {
 		'record-policy-sweep-execution': {
-			description: 'Bind canonical policy and corpus receipts before clean assertions run',
+			description: 'Bind the canonical lifecycle workflow and current run identities',
 			arguments: RecordSupersPolicySweepExecutionArgumentsSchema,
 			execute: executeRecordPolicySweep
 		},

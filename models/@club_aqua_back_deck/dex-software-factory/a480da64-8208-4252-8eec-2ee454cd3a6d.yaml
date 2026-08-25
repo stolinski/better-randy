@@ -1,6 +1,6 @@
 ---
 type: '@club_aqua_back_deck/dex-software-factory'
-typeVersion: 2026.08.24.1
+typeVersion: 2026.08.25.2
 id: a480da64-8208-4252-8eec-2ee454cd3a6d
 name: supers-delivery-profile
 version: 1
@@ -52,12 +52,15 @@ globalArguments:
       completionWorkflow: supers-complete-human-approved-task
   implementation:
     skills:
-      - implementation
+      - supers-domain-aware-implementation
+    constraints: .claude/skills/supers-domain-aware-implementation/SKILL.md
     systemPrompt: Implement only the current Dex work item in the Pi-managed isolated
       worktree. Follow repository guidance already loaded by the agent. Complete required
       source, documentation, and tracker-file edits, commit the lane, and return the
-      strict child revision plus durable handoff manifest path. The central parent
-      must verify and integrate that handoff while this work item remains in implementation.
+      strict child revision plus durable handoff manifest path. Load the exact union
+      of skills and constraints from the schema-validated preflight work-domain route;
+      never infer routing from agent prose. The central parent must verify and integrate
+      that handoff while this work item remains in implementation.
       Only after serialized integration may the parent record change-summary with
       the digest-verified, content-addressed integrationReceipt.
   completionGate:
@@ -181,6 +184,47 @@ globalArguments:
           type: array
           items:
             type: string
+        classification:
+          type: string
+          enum:
+            - known
+            - mixed
+            - unknown
+        domains:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - id
+              - reasons
+            properties:
+              id:
+                type: string
+                enum:
+                  - preset
+                  - pack
+                  - authoring-app
+                  - rendering
+                  - export
+                  - performance
+                  - repository-infrastructure
+                  - swamp-control-plane
+                  - documentation-planning
+                  - unknown
+              reasons:
+                type: array
+                minItems: 1
+                items:
+                  type: string
+        unknownPaths:
+          type: array
+          items:
+            type: string
+        intentRouteDigest:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
         surfaces:
           type: array
           minItems: 1
@@ -246,6 +290,10 @@ globalArguments:
         - baselineHead
         - treeFingerprint
         - paths
+        - classification
+        - domains
+        - unknownPaths
+        - intentRouteDigest
         - surfaces
         - requiredHumanReviews
         - lanes

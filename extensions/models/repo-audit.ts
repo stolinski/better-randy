@@ -55,9 +55,17 @@ import {
 import {
   runVerificationFanout,
   type VerificationFanoutArguments,
-  VerificationFanoutArgumentsSchema,
   VerificationFanoutReportSchema,
+  type VerificationFanoutRequestArguments,
+  VerificationFanoutRequestArgumentsSchema,
 } from "./repo-verification-fanout.ts";
+import { DexTaskSnapshotSchema } from "./dex-task-tracker-adapter.ts";
+import { createSupersDeterministicContractHash } from "./supers-deterministic-factory-contract.ts";
+import {
+  classifySupersTaskIntent,
+  type SupersWorkDomainIntent,
+} from "../../scripts/change-impact-classifier.ts";
+import { compareCanonicalText } from "../../src/lib/utils/canonical-text-order.ts";
 import { createRepositoryTreeFingerprint } from "../../src/lib/utils/repository-tree-fingerprint.server.ts";
 
 const GlobalArgsSchema = z.object({
@@ -196,17 +204,71 @@ const ChangeBaselineSchema = z.object({
   resourceName: z.string().min(1),
 });
 
-const ChangeImpactReportSchema = z.object({
+const WorkDomainIdSchema = z.enum([
+  "preset",
+  "pack",
+  "authoring-app",
+  "rendering",
+  "export",
+  "performance",
+  "repository-infrastructure",
+  "swamp-control-plane",
+  "documentation-planning",
+  "unknown",
+]);
+const DeclaredWorkDomainIdSchema = WorkDomainIdSchema.exclude(["unknown"]);
+const WorkDomainStatusSchema = z.enum(["known", "mixed", "unknown"]);
+const SupersWorkDomainIntentSchema = z.strictObject({
+  status: WorkDomainStatusSchema,
+  declaredDomains: z.array(DeclaredWorkDomainIdSchema).max(9),
+  benchmarkScripts: z.array(z.string().regex(/^benchmark:/)).max(20),
+  exportDecodeScripts: z.array(z.string().regex(/^verify:export-decode:/))
+    .max(20),
+  selectedSkills: z.array(z.string().min(1)).min(1).max(20),
+  constraintPaths: z.array(z.string().min(1)).min(1).max(20),
+  reasons: z.array(z.string().min(1)).min(1),
+});
+const SupersWorkDomainRouteContentSchema = z.strictObject({
+  schemaVersion: z.literal(2),
+  workItem: z.string().min(1).max(128),
+  sourceModelName: z.literal("supers-dex-task-tracker"),
+  sourceResourceName: z.string().min(1),
+  sourceWorkflowRunId: z.string().min(1),
+  taskSnapshotDigest: TreeFingerprintSchema,
+  taskUpdatedAt: z.string().datetime(),
+  routingAuthority: z.literal("human-task-intent-additive"),
+  intent: SupersWorkDomainIntentSchema,
+});
+const SupersWorkDomainRouteSchema = SupersWorkDomainRouteContentSchema.extend({
+  routeDigest: TreeFingerprintSchema,
+});
+const ClassifyWorkDomainIntentArgumentsSchema = z.strictObject({
+  workItem: z.string().min(1).max(128),
+  sourceModelName: z.literal("supers-dex-task-tracker"),
+  sourceResourceName: z.string().min(1),
+  sourceWorkflowRunId: z.string().min(1),
+  task: DexTaskSnapshotSchema,
+});
+
+const ChangeImpactReportSchema = z.strictObject({
   audit: z.literal("change-impact"),
   generatedAt: z.string(),
   source: z.literal("git-baseline-and-working-tree"),
   workItem: z.string().min(1),
   baselineHead: GitHeadSchema,
   treeFingerprint: TreeFingerprintSchema,
-  paths: z.array(z.string()),
+  paths: z.array(z.string()).min(1).max(200),
+  classification: WorkDomainStatusSchema,
+  domains: z.array(z.strictObject({
+    id: WorkDomainIdSchema,
+    reasons: z.array(z.string()).min(1),
+  })).min(1).max(10),
+  unknownPaths: z.array(z.string()).max(200),
+  intent: SupersWorkDomainIntentSchema,
+  intentRouteDigest: TreeFingerprintSchema,
   surfaces: z
     .array(
-      z.object({
+      z.strictObject({
         id: z.enum([
           "authoring-app",
           "rendered-composition",
@@ -218,7 +280,7 @@ const ChangeImpactReportSchema = z.object({
     )
     .min(1),
   requiredHumanReviews: z.array(
-    z.object({
+    z.strictObject({
       kind: z.enum([
         "authoring-app-visual",
         "rendered-composition-aesthetic",
@@ -228,17 +290,24 @@ const ChangeImpactReportSchema = z.object({
   ),
   lanes: z
     .array(
-      z.object({
+      z.strictObject({
         id: z.enum([
           "policy-sweep",
           "check",
           "unit",
-          "structural",
-          "corpus",
           "browser",
+          "preset-static",
           "render-matrix",
           "pack-matrix",
           "export-decode",
+          "performance",
+          "repository-infrastructure",
+          "swamp-control-plane",
+          "timing-coverage",
+          "authoring-dependency-tracking",
+          "inspector-editor-parity",
+          "planning-discoverability",
+          "unknown",
         ]),
         reasons: z.array(z.string()).min(1),
       }),
@@ -393,7 +462,7 @@ async function readCurrentTreeState(
     ],
   );
   const untracked = [] as Array<{ path: string; content: Uint8Array }>;
-  for (const path of parseNulPaths(untrackedOutput).sort()) {
+  for (const path of parseNulPaths(untrackedOutput).sort(compareCanonicalText)) {
     untracked.push({
       path,
       content: await Deno.readFile(`${context.repoDir}/${path}`),
@@ -416,7 +485,7 @@ async function readScopedTreeState(
   context: MethodContext,
   expectedPaths: string[],
 ): Promise<CurrentTreeState> {
-  const paths = [...new Set(expectedPaths)].sort();
+  const paths = [...new Set(expectedPaths)].sort(compareCanonicalText);
   if (
     paths.length === 0 ||
     paths.some((path) =>
@@ -462,7 +531,7 @@ async function readScopedTreeState(
       ]),
     ]);
   const untracked = [] as Array<{ path: string; content: Uint8Array }>;
-  for (const path of parseNulPaths(untrackedOutput).sort()) {
+  for (const path of parseNulPaths(untrackedOutput).sort(compareCanonicalText)) {
     untracked.push({
       path,
       content: await Deno.readFile(`${context.repoDir}/${path}`),
@@ -496,6 +565,54 @@ async function readChangeBaseline(
     throw new Error(`Change baseline key collision for work item ${workItem}`);
   }
   return baseline;
+}
+
+async function readWorkDomainRoute(
+  context: MethodContext,
+  workItem: string,
+): Promise<z.infer<typeof SupersWorkDomainRouteSchema>> {
+  const resourceName = await changeResourceName("work-domain-route", workItem);
+  const resource = await context.readResource(resourceName);
+  if (!resource) {
+    throw new Error(
+      `No pre-implementation work-domain route recorded for ${workItem}`,
+    );
+  }
+  const route = SupersWorkDomainRouteSchema.parse(resource);
+  if (route.workItem !== workItem) {
+    throw new Error(
+      `Work-domain route key collision for work item ${workItem}`,
+    );
+  }
+  const { routeDigest, ...content } = route;
+  if ((await createSupersDeterministicContractHash(content)) !== routeDigest) {
+    throw new Error(
+      `Work-domain route digest mismatch for work item ${workItem}`,
+    );
+  }
+  return route;
+}
+
+async function readChangeImpact(
+  context: MethodContext,
+  workItem: string,
+  expectedFingerprint: string,
+): Promise<{ name: string; report: z.infer<typeof ChangeImpactReportSchema> }> {
+  const name = await changeResourceName("change-impact", workItem);
+  const resource = await context.readResource(name);
+  if (!resource) {
+    throw new Error(`No change impact recorded for work item ${workItem}`);
+  }
+  const report = ChangeImpactReportSchema.parse(resource);
+  if (
+    report.workItem !== workItem ||
+    report.treeFingerprint !== expectedFingerprint
+  ) {
+    throw new Error(
+      "Verification fan-out change impact is stale or belongs to another work item",
+    );
+  }
+  return { name, report };
 }
 
 async function executeAuditCommand(
@@ -554,7 +671,7 @@ async function runAuditScript(
 /** Model definition for the Supers repo policy audits. */
 export const model = {
   type: "@supers/repo-audit",
-  version: "2026.08.20.1",
+  version: "2026.08.25.2",
   globalArguments: GlobalArgsSchema,
   resources: {
     timing: {
@@ -654,6 +771,13 @@ export const model = {
       schema: DeepAuditReportSchema,
       lifetime: "infinite",
       garbageCollection: 20,
+    },
+    "work-domain-route": {
+      description:
+        "Typed additive pre-implementation guidance derived from the canonical human-authored Dex task snapshot",
+      schema: SupersWorkDomainRouteSchema,
+      lifetime: "infinite",
+      garbageCollection: 50,
     },
     "change-baseline": {
       description:
@@ -952,6 +1076,59 @@ export const model = {
         return { dataHandles: [handle] };
       },
     },
+    "classify-work-domain-intent": {
+      description:
+        "Derive typed additive implementation guidance from the canonical human-authored Dex task snapshot",
+      arguments: ClassifyWorkDomainIntentArgumentsSchema,
+      execute: async (
+        args: z.infer<typeof ClassifyWorkDomainIntentArgumentsSchema>,
+        context: MethodContext,
+      ) => {
+        if (
+          args.task.id !== args.workItem ||
+          args.task.ownerToken !== "supers-delivery"
+        ) {
+          throw new TypeError(
+            "Work-domain routing requires the exact Supers Delivery task snapshot",
+          );
+        }
+        const intent: SupersWorkDomainIntent = SupersWorkDomainIntentSchema
+          .parse(
+            classifySupersTaskIntent({
+              name: args.task.name,
+              description: args.task.description,
+              metadata: args.task.metadata,
+            }),
+          );
+        const content = SupersWorkDomainRouteContentSchema.parse({
+          schemaVersion: 2,
+          workItem: args.workItem,
+          sourceModelName: args.sourceModelName,
+          sourceResourceName: args.sourceResourceName,
+          sourceWorkflowRunId: args.sourceWorkflowRunId,
+          taskSnapshotDigest: await createSupersDeterministicContractHash(
+            args.task,
+          ),
+          taskUpdatedAt: args.task.updatedAt,
+          routingAuthority: "human-task-intent-additive",
+          intent,
+        });
+        const route = SupersWorkDomainRouteSchema.parse({
+          ...content,
+          routeDigest: await createSupersDeterministicContractHash(content),
+        });
+        const resourceName = await changeResourceName(
+          "work-domain-route",
+          args.workItem,
+        );
+        const handle = await context.writeResource(
+          "work-domain-route",
+          resourceName,
+          route,
+        );
+        return { dataHandles: [handle] };
+      },
+    },
     "capture-change-baseline": {
       description:
         "Capture the current Git HEAD as the trusted baseline for a work item",
@@ -1025,6 +1202,10 @@ export const model = {
         expectedChangedPaths: string[];
       }, context: MethodContext) => {
         await readChangeBaseline(context, args.workItem);
+        const workDomainRoute = await readWorkDomainRoute(
+          context,
+          args.workItem,
+        );
         await runGit(context, [
           "merge-base",
           "--is-ancestor",
@@ -1039,9 +1220,9 @@ export const model = {
             "--no-renames",
             `${args.expectedBaselineRevision}..${args.expectedIntegratedRevision}`,
           ]),
-        );
+        ).sort(compareCanonicalText);
         const expectedChangedPaths = [...new Set(args.expectedChangedPaths)]
-          .sort();
+          .sort(compareCanonicalText);
         if (
           JSON.stringify(committedPaths) !==
             JSON.stringify(expectedChangedPaths)
@@ -1054,7 +1235,12 @@ export const model = {
         const { report } = await runAuditScript(
           context,
           "scripts/audit-change-impact.ts",
-          ["--committed-paths-json", JSON.stringify(committedPaths)],
+          [
+            "--committed-paths-json",
+            JSON.stringify(committedPaths),
+            "--work-domain-intent-json",
+            JSON.stringify(workDomainRoute.intent),
+          ],
           currentTree.status,
         );
         const canonicalReport = ChangeImpactReportSchema.parse({
@@ -1062,6 +1248,7 @@ export const model = {
           workItem: args.workItem,
           baselineHead: args.expectedBaselineRevision,
           treeFingerprint: currentTree.treeFingerprint,
+          intentRouteDigest: workDomainRoute.routeDigest,
         });
         const resourceName = await changeResourceName(
           "change-impact",
@@ -1077,13 +1264,50 @@ export const model = {
     },
     "run-verification-fanout": {
       description:
-        "Run selected deterministic verification lanes concurrently and store every outcome",
-      arguments: VerificationFanoutArgumentsSchema,
+        "Run the automated lanes from the trusted change-impact resource and store every outcome",
+      arguments: VerificationFanoutRequestArgumentsSchema,
       execute: async (
-        args: VerificationFanoutArguments,
+        args: VerificationFanoutRequestArguments,
         context: MethodContext,
       ) => {
-        const report = await runVerificationFanout(context.repoDir, args);
+        const { name: changeImpactResourceName, report: changeImpact } =
+          await readChangeImpact(
+            context,
+            args.workItem,
+            args.expectedFingerprint,
+          );
+        const automatedLaneIds = new Set([
+          "browser",
+          "check",
+          "unit",
+          "preset-static",
+          "export-decode",
+          "performance",
+          "repository-infrastructure",
+          "swamp-control-plane",
+          "timing-coverage",
+          "authoring-dependency-tracking",
+          "inspector-editor-parity",
+          "planning-discoverability",
+        ]);
+        const fanoutArguments: VerificationFanoutArguments = {
+          workItem: args.workItem,
+          expectedFingerprint: args.expectedFingerprint,
+          changeImpactResourceName,
+          changedPaths: changeImpact.paths,
+          intentRouteDigest: changeImpact.intentRouteDigest,
+          lanes: changeImpact.lanes
+            .map((lane) => lane.id)
+            .filter((lane) =>
+              automatedLaneIds.has(lane)
+            ) as VerificationFanoutArguments["lanes"],
+          benchmarkScripts: changeImpact.intent.benchmarkScripts,
+          exportDecodeScripts: changeImpact.intent.exportDecodeScripts,
+        };
+        const report = await runVerificationFanout(
+          context.repoDir,
+          fanoutArguments,
+        );
         const resourceName = await changeResourceName(
           "verification-fanout",
           `${args.workItem}:${args.expectedFingerprint}`,

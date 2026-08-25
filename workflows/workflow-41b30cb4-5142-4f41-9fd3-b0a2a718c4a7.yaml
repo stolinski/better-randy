@@ -1,7 +1,7 @@
 id: 41b30cb4-5142-4f41-9fd3-b0a2a718c4a7
 name: supers-delivery-deterministic-verification
 description: Derive the Delivery route only from fresh correlated deterministic verification resources.
-version: 5
+version: 7
 tags:
   purpose: delivery-deterministic-routing
 inputs:
@@ -41,7 +41,7 @@ jobs:
             expectedFingerprint: '${{ data.query(''modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.treeFingerprint }}'
             expectedPaths: '${{ data.query(''modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.paths }}'
       - name: policy-sweep
-        description: Run the canonical policy and static corpus gates before code and render verification.
+        description: Run universal lifecycle-integrity policy before domain-specific verification.
         dependsOn:
           - step: assert-change-state
             condition: { type: succeeded }
@@ -63,7 +63,6 @@ jobs:
           inputs:
             workItem: '${{ inputs.workItem }}'
             expectedFingerprint: '${{ data.query(''modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.treeFingerprint }}'
-            lanes: '${{ data.query(''modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.lanes.filter(lane, lane.id in ["browser", "check", "unit", "structural"]).map(lane, lane.id) }}'
       - name: verify-affected-render-matrix
         dependsOn:
           - step: deterministic-lanes
@@ -79,7 +78,7 @@ jobs:
             expectedTreeFingerprint: '${{ data.query(''modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.treeFingerprint }}'
             expectedSourceRevision: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-summary").attributes.payload.integrationReceipt.integratedRevision }}'
             changedPaths: '${{ data.query(''modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.paths }}'
-            renderRequired: '${{ size(data.query(''modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.lanes.filter(lane, lane.id in ["render-matrix", "pack-matrix", "export-decode"])) > 0 }}'
+            renderRequired: '${{ size(data.query(''modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.lanes.filter(lane, lane.id in ["render-matrix", "pack-matrix"])) > 0 }}'
       - name: assert-change-state-after
         dependsOn:
           - step: verify-affected-render-matrix
@@ -111,6 +110,10 @@ jobs:
               workItem: '${{ inputs.workItem }}'
               treeFingerprint: '${{ data.query(''modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.treeFingerprint }}'
               workflowRunId: '${{ data.query(''modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem)[0].workflowRunId }}'
+              paths: '${{ data.query(''modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.paths }}'
+              classification: '${{ data.query(''modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.classification }}'
+              unknownPaths: '${{ data.query(''modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.unknownPaths }}'
+              intentRouteDigest: '${{ data.query(''modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.intentRouteDigest }}'
               surfaces: '${{ data.query(''modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.surfaces }}'
               requiredHumanReviews: '${{ data.query(''modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.requiredHumanReviews }}'
             requiredLaneIds: '${{ data.query(''modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.lanes.map(lane, lane.id) }}'

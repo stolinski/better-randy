@@ -1,5 +1,7 @@
 import { z } from 'npm:zod@4.4.3';
 
+import { compareCanonicalText } from '../../src/lib/utils/canonical-text-order.ts';
+
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const GIT_REVISION_PATTERN = /^[0-9a-f]{40,64}$/;
 const DOMAIN_ID_PATTERN = /^[a-z0-9][a-z0-9._:-]{0,127}$/;
@@ -94,7 +96,7 @@ const UniqueChangedPathsSchema = z
 				message: 'Changed paths must be unique'
 			});
 		}
-		const sorted = [...paths].sort((left, right) => left.localeCompare(right));
+		const sorted = [...paths].sort(compareCanonicalText);
 		if (paths.some((path, index) => path !== sorted[index])) {
 			context.addIssue({
 				code: 'custom',
@@ -206,9 +208,7 @@ export const SupersRenderSampleSchema = z
 				message: 'Auxiliary frame indices must include the primary frame'
 			});
 		}
-		const sortedCandidateIds = [...sample.stableGeometryCandidateIds].sort((left, right) =>
-			left.localeCompare(right)
-		);
+		const sortedCandidateIds = [...sample.stableGeometryCandidateIds].sort(compareCanonicalText);
 		if (
 			new Set(sample.stableGeometryCandidateIds).size !==
 				sample.stableGeometryCandidateIds.length ||
@@ -312,11 +312,15 @@ export const SupersDeliveryObjectiveFailureCodeSchema = z.union([
 		'check-failed',
 		'unit-failed',
 		'structural-failed',
-		'timing-policy-failed',
-		'tracking-policy-failed',
-		'parity-policy-failed',
-		'planning-policy-failed',
-		'corpus-failed'
+		'preset-static-failed',
+		'export-decode-failed',
+		'performance-failed',
+		'repository-infrastructure-failed',
+		'swamp-control-plane-failed',
+		'timing-coverage-failed',
+		'authoring-dependency-tracking-failed',
+		'inspector-editor-parity-failed',
+		'planning-discoverability-failed'
 	])
 ]);
 
@@ -761,8 +765,8 @@ export const SupersDeterministicRenderCheckSchema = z
 	.superRefine((check, context) => {
 		if (check.outcome === 'pass' || check.outcome === 'fail') {
 			if (check.code === 'readable-content-coverage') {
-				const expected = [...check.measurement.expectedReadableIdentities].sort();
-				const discovered = [...check.measurement.discoveredReadableIdentities].sort();
+				const expected = [...check.measurement.expectedReadableIdentities].sort(compareCanonicalText);
+				const discovered = [...check.measurement.discoveredReadableIdentities].sort(compareCanonicalText);
 				if (
 					new Set(expected).size !== expected.length ||
 					new Set(discovered).size !== discovered.length ||
@@ -791,8 +795,8 @@ export const SupersDeterministicRenderCheckSchema = z
 				}
 			}
 			if (check.code === 'shadow-banding') {
-				const expected = [...check.measurement.expectedShadowIds].sort();
-				const measured = check.measurement.shadows.map((shadow) => shadow.shadowId).sort();
+				const expected = [...check.measurement.expectedShadowIds].sort(compareCanonicalText);
+				const measured = check.measurement.shadows.map((shadow) => shadow.shadowId).sort(compareCanonicalText);
 				if (
 					new Set(expected).size !== expected.length ||
 					new Set(measured).size !== measured.length ||
@@ -916,40 +920,36 @@ export const SupersDeliveryUnavailableEvidenceCodeSchema = z.enum([
 	'stale-render-evidence',
 	'incomplete-deterministic-fanout',
 	'unexecuted-required-lane',
-	'missing-app-visual-evidence'
+	'missing-app-visual-evidence',
+	'unknown-change-domain',
+	'benchmark-evidence-not-declared',
+	'export-decode-evidence-not-declared'
 ]);
 
-/** Exact immutable identity of one canonical verification resource. */
-export const SupersVerificationReceiptIdentitySchema = z.strictObject({
-	modelName: DomainIdSchema,
-	specName: DomainIdSchema,
-	resourceName: z.string().min(1),
-	workflowRunId: DomainIdSchema,
-	contentDigest: Sha256Schema
+const SupersPolicyLifecycleIntegritySchema = z.strictObject({
+	policyWorkflowIdentityBound: z.literal(true),
+	policyWorkflowRunBound: z.literal(true),
+	routingWorkflowRunBound: z.literal(true)
 });
 
-export type SupersVerificationReceiptIdentity = z.infer<
-	typeof SupersVerificationReceiptIdentitySchema
->;
-
 const DeliveryVerificationRouteFields = {
-	schemaVersion: z.literal(2),
+	schemaVersion: z.literal(3),
 	workItem: DomainIdSchema,
 	integratedRevision: GitRevisionSchema,
 	integratedTreeFingerprint: Sha256Schema,
 	treeFingerprint: Sha256Schema,
 	changeImpactResourceName: z.string().min(1),
+	changedPaths: z.array(RepositoryPathSchema).min(1).max(200),
 	deterministicFanoutResourceName: z.string().min(1),
 	deterministicFanoutContentDigest: Sha256Schema,
 	deterministicFanoutWorkflowRunId: DomainIdSchema,
 	policySweepResourceName: z.string().min(1),
 	policySweepWorkflowId: z.literal('5eb573fe-76e7-4b59-8ff6-bfccc0ec3b7a'),
 	policySweepWorkflowName: z.literal('policy-sweep'),
-	policySweepWorkflowVersion: z.literal(2),
+	policySweepWorkflowVersion: z.literal(4),
 	policySweepWorkflowRunId: DomainIdSchema,
 	policySweepExecutionDigest: Sha256Schema,
-	policyReceipts: z.array(SupersVerificationReceiptIdentitySchema).length(4),
-	corpusReceipt: SupersVerificationReceiptIdentitySchema,
+	policySweepLifecycleIntegrity: SupersPolicyLifecycleIntegritySchema,
 	renderMatrixRunName: z.string().min(1),
 	renderMatrixManifestName: z.string(),
 	renderMatrixBundleName: z.string(),
@@ -987,44 +987,6 @@ export const SupersDeliveryVerificationRouteSchema = z
 		})
 	])
 	.superRefine((route, context) => {
-		const expectedPolicyReceipts = [
-			'repo-audit:parity:parity-latest',
-			'repo-audit:planning:planning-latest',
-			'repo-audit:timing:timing-latest',
-			'repo-audit:tracking:tracking-latest'
-		];
-		const policyReceiptKeys = route.policyReceipts.map(
-			(receipt) => `${receipt.modelName}:${receipt.specName}:${receipt.resourceName}`
-		);
-		if (JSON.stringify(policyReceiptKeys) !== JSON.stringify(expectedPolicyReceipts)) {
-			context.addIssue({
-				code: 'custom',
-				message: 'Policy receipts must be the canonical ordered Supers policy set'
-			});
-		}
-		if (
-			route.corpusReceipt.modelName !== 'corpus-verify' ||
-			route.corpusReceipt.specName !== 'sweep' ||
-			route.corpusReceipt.resourceName !== 'sweep-latest'
-		) {
-			context.addIssue({
-				code: 'custom',
-				message: 'Corpus receipt must identify the canonical corpus sweep'
-			});
-		}
-		const policyWorkflowRunIds = new Set([
-			...route.policyReceipts.map((receipt) => receipt.workflowRunId),
-			route.corpusReceipt.workflowRunId
-		]);
-		if (
-			policyWorkflowRunIds.size !== 1 ||
-			!policyWorkflowRunIds.has(route.policySweepWorkflowRunId)
-		) {
-			context.addIssue({
-				code: 'custom',
-				message: 'Policy and corpus receipts must originate from the bound policy workflow run'
-			});
-		}
 		if (route.deterministicFanoutWorkflowRunId !== route.workflowRunId) {
 			context.addIssue({
 				code: 'custom',
@@ -1044,21 +1006,15 @@ export const SupersDeliveryVerificationRouteSchema = z
 				message: 'Delivery route reviews and codes must be unique'
 			});
 		}
-		const sortedReviews = [...route.requiredHumanReviewKinds].sort((left, right) =>
-			left.localeCompare(right)
-		);
+		const sortedReviews = [...route.requiredHumanReviewKinds].sort(compareCanonicalText);
 		if (route.requiredHumanReviewKinds.some((review, index) => review !== sortedReviews[index])) {
 			context.addIssue({
 				code: 'custom',
 				message: 'Delivery route reviews must use canonical order'
 			});
 		}
-		const sortedFailures = [...route.objectiveFailureCodes].sort((left, right) =>
-			left.localeCompare(right)
-		);
-		const sortedUnavailable = [...route.unavailableEvidenceCodes].sort((left, right) =>
-			left.localeCompare(right)
-		);
+		const sortedFailures = [...route.objectiveFailureCodes].sort(compareCanonicalText);
+		const sortedUnavailable = [...route.unavailableEvidenceCodes].sort(compareCanonicalText);
 		if (
 			route.objectiveFailureCodes.some((code, index) => code !== sortedFailures[index]) ||
 			route.unavailableEvidenceCodes.some((code, index) => code !== sortedUnavailable[index])
@@ -1135,7 +1091,7 @@ export const SupersDeliveryVerificationRouteSchema = z
 export type SupersDeliveryVerificationRoute = z.infer<typeof SupersDeliveryVerificationRouteSchema>;
 
 const HumanAestheticDecisionContentFields = {
-	schemaVersion: z.literal(1),
+	schemaVersion: z.literal(2),
 	workItem: DomainIdSchema,
 	factoryName: DomainIdSchema,
 	gateId: z.literal('aesthetic-acceptance'),
@@ -1154,11 +1110,10 @@ const HumanAestheticDecisionContentFields = {
 	policySweepResourceName: z.string().min(1),
 	policySweepWorkflowId: z.literal('5eb573fe-76e7-4b59-8ff6-bfccc0ec3b7a'),
 	policySweepWorkflowName: z.literal('policy-sweep'),
-	policySweepWorkflowVersion: z.literal(2),
+	policySweepWorkflowVersion: z.literal(4),
 	policySweepWorkflowRunId: DomainIdSchema,
 	policySweepExecutionDigest: Sha256Schema,
-	policyReceipts: z.array(SupersVerificationReceiptIdentitySchema).length(4),
-	corpusReceipt: SupersVerificationReceiptIdentitySchema,
+	policySweepLifecycleIntegrity: SupersPolicyLifecycleIntegritySchema,
 	renderMatrixRunName: z.string().min(1),
 	renderMatrixManifestName: z.string().min(1),
 	renderMatrixBundleName: z.string().min(1),
@@ -1252,7 +1207,7 @@ export const SupersRenderRegistrySnapshotSchema = z
 					message: 'Registry identities must be unique'
 				});
 			}
-			const sorted = [...values].sort((left, right) => left.localeCompare(right));
+			const sorted = [...values].sort(compareCanonicalText);
 			if (values.some((value, index) => value !== sorted[index])) {
 				context.addIssue({
 					code: 'custom',
@@ -1338,7 +1293,7 @@ function canonicalize(value: unknown): CanonicalJson {
 	if (typeof value === 'object') {
 		return Object.fromEntries(
 			Object.entries(value as Record<string, unknown>)
-				.sort(([left], [right]) => left.localeCompare(right))
+				.sort(([left], [right]) => compareCanonicalText(left, right))
 				.map(([key, entry]) => [key, canonicalize(entry)])
 		);
 	}
@@ -1413,7 +1368,7 @@ function expectedFullCoordinates(manifest: SupersRenderMatrixManifest): string[]
 			}
 		}
 	}
-	return ids.sort();
+	return ids.sort(compareCanonicalText);
 }
 
 function actualCoordinateAxes(coordinates: readonly SupersRenderMatrixCoordinate[]): string[] {
@@ -1426,7 +1381,7 @@ function actualCoordinateAxes(coordinates: readonly SupersRenderMatrixCoordinate
 				coordinate.sample
 			)
 		)
-		.sort();
+		.sort(compareCanonicalText);
 }
 
 type EvaluatedRenderCheck = z.infer<typeof EvaluatedRenderCheckSchema>;
@@ -1459,13 +1414,13 @@ export async function verifySupersRenderMatrixBundle(
 	if (bundle.sourceRevision !== manifest.sourceRevision) {
 		throw new TypeError('Render matrix source revision mismatch');
 	}
-	const registeredCodes = [...DETERMINISTIC_RENDER_FAILURE_CODES].sort();
-	const requiredCodes = [...new Set(manifest.requiredCheckCodes)].sort();
+	const registeredCodes = [...DETERMINISTIC_RENDER_FAILURE_CODES].sort(compareCanonicalText);
+	const requiredCodes = [...new Set(manifest.requiredCheckCodes)].sort(compareCanonicalText);
 	if (requiredCodes.join('\n') !== registeredCodes.join('\n')) {
 		throw new TypeError('Manifest must require every registered deterministic check');
 	}
 	if (manifest.scope === 'full') {
-		const orientations = [...new Set(manifest.orientations)].sort();
+		const orientations = [...new Set(manifest.orientations)].sort(compareCanonicalText);
 		if (orientations.join('\n') !== 'horizontal\nvertical') {
 			throw new TypeError('Full matrix must include horizontal and vertical');
 		}
@@ -1493,8 +1448,8 @@ export async function verifySupersRenderMatrixBundle(
 			throw new TypeError('Matrix coordinate Preset or Pack fingerprint mismatch');
 		}
 	}
-	const expectedCellIds = manifest.coordinates.map((coordinate) => coordinate.cellId).sort();
-	const actualCellIds = bundle.cells.map((cell) => cell.coordinate.cellId).sort();
+	const expectedCellIds = manifest.coordinates.map((coordinate) => coordinate.cellId).sort(compareCanonicalText);
+	const actualCellIds = bundle.cells.map((cell) => cell.coordinate.cellId).sort(compareCanonicalText);
 	if (
 		new Set(expectedCellIds).size !== expectedCellIds.length ||
 		new Set(actualCellIds).size !== actualCellIds.length ||
@@ -1504,7 +1459,7 @@ export async function verifySupersRenderMatrixBundle(
 	}
 	for (const cell of bundle.cells) {
 		await verifyCoordinateIdentity(cell.coordinate);
-		const cellCodes = cell.checks.map((check) => check.code).sort();
+		const cellCodes = cell.checks.map((check) => check.code).sort(compareCanonicalText);
 		if (
 			new Set(cellCodes).size !== cellCodes.length ||
 			cellCodes.join('\n') !== requiredCodes.join('\n')
@@ -1534,11 +1489,11 @@ export async function verifySupersRenderMatrixBundle(
 				readingCheck.outcome === 'not-applicable'
 					? readingCheck.readingIds
 					: readingCheck.measurement.windows.map((window) => window.readingId);
-			const expectedReadingIds = [...preset.readingPlanIds].sort();
+			const expectedReadingIds = [...preset.readingPlanIds].sort(compareCanonicalText);
 			if (
 				new Set(expectedReadingIds).size !== expectedReadingIds.length ||
 				new Set(measuredReadingIds).size !== measuredReadingIds.length ||
-				[...measuredReadingIds].sort().join('\n') !== expectedReadingIds.join('\n')
+				[...measuredReadingIds].sort(compareCanonicalText).join('\n') !== expectedReadingIds.join('\n')
 			) {
 				throw new TypeError(
 					'Reading evidence must cover exactly the Preset-derived plan identities'
@@ -1561,7 +1516,7 @@ export async function verifySupersRenderMatrixBundle(
 			);
 		}
 		if (coverageCheck?.code === 'readable-content-coverage' && coverageCheck.outcome === 'pass') {
-			const expectedReadableIds = [...coverageCheck.measurement.expectedReadableIdentities].sort();
+			const expectedReadableIds = [...coverageCheck.measurement.expectedReadableIdentities].sort(compareCanonicalText);
 			for (const code of [
 				'readable-content-clipped',
 				'readable-content-occluded',
@@ -1589,7 +1544,7 @@ export async function verifySupersRenderMatrixBundle(
 					!evaluatedEvidence ||
 					evaluatedEvidence.measurement.measurements
 						.map((entry) => entry.readableId)
-						.sort()
+						.sort(compareCanonicalText)
 						.join('\n') !== expectedReadableIds.join('\n')
 				) {
 					throw new TypeError(

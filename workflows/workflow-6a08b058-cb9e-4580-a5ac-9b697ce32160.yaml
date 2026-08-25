@@ -1,6 +1,6 @@
 id: 6a08b058-cb9e-4580-a5ac-9b697ce32160
 name: factory-policy-sweep
-description: Run policy, capture the work-item baseline, and record correlated preflight evidence.
+description: Run lifecycle policy, route typed implementation guidance, capture the baseline, and record correlated preflight evidence.
 tags:
   purpose: factory-policy
 inputs:
@@ -16,14 +16,46 @@ inputs:
       minLength: 1
 jobs:
   - name: main
-    description: Preserve the standalone sweep, capture HEAD, then write evidence from this wrapper run.
+    description: Bind canonical task intent, preserve the lifecycle sweep, capture HEAD, then write evidence from this wrapper run.
     steps:
       - name: policy-sweep
-        description: Run the existing repository policy workflow unchanged.
+        description: Run universal repository lifecycle-integrity checks.
         task:
           type: workflow
           workflowIdOrName: policy-sweep
         dependsOn: []
+        weight: 0
+        allowFailure: false
+      - name: read-work-item-intent
+        description: Store the canonical human-authored Dex task snapshot without mutating it.
+        task:
+          type: model_method
+          modelIdOrName: supers-dex-task-tracker
+          methodName: get
+          inputs:
+            taskId: '${{ inputs.workItem }}'
+        dependsOn:
+          - step: policy-sweep
+            condition:
+              type: succeeded
+        weight: 0
+        allowFailure: false
+      - name: classify-work-domain-intent
+        description: Select typed additive skills and constraints from canonical human task wording, file hints, and optional directives.
+        task:
+          type: model_method
+          modelIdOrName: repo-audit
+          methodName: classify-work-domain-intent
+          inputs:
+            workItem: '${{ inputs.workItem }}'
+            sourceModelName: supers-dex-task-tracker
+            sourceResourceName: '${{ data.query(''modelName == "supers-dex-task-tracker" && specName == "task" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.id == inputs.workItem)[0].name }}'
+            sourceWorkflowRunId: '${{ run.id }}'
+            task: '${{ data.query(''modelName == "supers-dex-task-tracker" && specName == "task" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.id == inputs.workItem)[0].attributes }}'
+        dependsOn:
+          - step: read-work-item-intent
+            condition:
+              type: succeeded
         weight: 0
         allowFailure: false
       - name: capture-change-baseline
@@ -35,13 +67,13 @@ jobs:
           inputs:
             workItem: '${{ inputs.workItem }}'
         dependsOn:
-          - step: policy-sweep
+          - step: classify-work-domain-intent
             condition:
               type: succeeded
         weight: 0
         allowFailure: false
       - name: record-factory-evidence
-        description: Record evidence only after policy and baseline capture succeed.
+        description: Record evidence only after policy, routing, and baseline capture succeed.
         task:
           type: model_method
           modelIdOrName: supers-delivery
@@ -61,4 +93,4 @@ jobs:
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 1
+version: 3

@@ -1,6 +1,6 @@
 type: '@swamp/software-factory'
 typeVersion: 2026.06.24.1
-version: 36
+version: 38
 globalArguments:
   stages:
     - id: preflight
@@ -213,14 +213,17 @@ globalArguments:
       work:
         mode: dispatch
         skills:
-          - implementation
+          - supers-domain-aware-implementation
         systemPrompt: >-
           Implement only the current Dex work item in the Pi-managed isolated worktree. Follow
           repository guidance already loaded by the agent. Complete required source, documentation,
           and tracker-file edits, commit the lane, and return the strict child revision plus durable
-          handoff manifest path. The central parent must verify and integrate that handoff while
-          this work item remains in implementation. Only after serialized integration may the parent
-          record change-summary with the digest-verified, content-addressed integrationReceipt.
+          handoff manifest path. Load the exact union of skills and constraints from the
+          schema-validated preflight work-domain route; never infer routing from agent prose. The
+          central parent must verify and integrate that handoff while this work item remains in
+          implementation. Only after serialized integration may the parent record change-summary
+          with the digest-verified, content-addressed integrationReceipt.
+        constraints: .claude/skills/supers-domain-aware-implementation/SKILL.md
       artifacts:
         - name: change-summary
           description: Compact implementation summary used as the classification subject.
@@ -530,6 +533,10 @@ globalArguments:
               - baselineHead
               - treeFingerprint
               - paths
+              - classification
+              - domains
+              - unknownPaths
+              - intentRouteDigest
               - surfaces
               - requiredHumanReviews
               - lanes
@@ -580,6 +587,47 @@ globalArguments:
                 type: array
                 items:
                   type: string
+              classification:
+                type: string
+                enum:
+                  - known
+                  - mixed
+                  - unknown
+              domains:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      enum:
+                        - preset
+                        - pack
+                        - authoring-app
+                        - rendering
+                        - export
+                        - performance
+                        - repository-infrastructure
+                        - swamp-control-plane
+                        - documentation-planning
+                        - unknown
+                    reasons:
+                      type: array
+                      items:
+                        type: string
+                      minItems: 1
+                  required:
+                    - id
+                    - reasons
+                  additionalProperties: false
+                minItems: 1
+              unknownPaths:
+                type: array
+                items:
+                  type: string
+              intentRouteDigest:
+                type: string
+                pattern: '^[0-9a-f]{64}$'
               surfaces:
                 type: array
                 items:
@@ -852,6 +900,7 @@ globalArguments:
               - integratedTreeFingerprint
               - treeFingerprint
               - changeImpactResourceName
+              - changedPaths
               - deterministicFanoutResourceName
               - deterministicFanoutContentDigest
               - deterministicFanoutWorkflowRunId
@@ -861,8 +910,7 @@ globalArguments:
               - policySweepWorkflowVersion
               - policySweepWorkflowRunId
               - policySweepExecutionDigest
-              - policyReceipts
-              - corpusReceipt
+              - policySweepLifecycleIntegrity
               - renderMatrixRunName
               - renderMatrixManifestName
               - renderMatrixBundleName
@@ -880,7 +928,7 @@ globalArguments:
               schemaVersion:
                 type: integer
                 enum:
-                  - 2
+                  - 3
               workItem:
                 type: string
                 minLength: 1
@@ -896,6 +944,13 @@ globalArguments:
               changeImpactResourceName:
                 type: string
                 minLength: 1
+              changedPaths:
+                type: array
+                minItems: 1
+                maxItems: 200
+                items:
+                  type: string
+                  minLength: 1
               deterministicFanoutResourceName:
                 type: string
                 minLength: 1
@@ -919,67 +974,27 @@ globalArguments:
               policySweepWorkflowVersion:
                 type: integer
                 enum:
-                  - 2
+                  - 4
               policySweepWorkflowRunId:
                 type: string
                 minLength: 1
               policySweepExecutionDigest:
                 type: string
                 pattern: '^[0-9a-f]{64}$'
-              policyReceipts:
-                type: array
-                minItems: 4
-                maxItems: 4
-                items:
-                  type: object
-                  additionalProperties: false
-                  required:
-                    - modelName
-                    - specName
-                    - resourceName
-                    - workflowRunId
-                    - contentDigest
-                  properties:
-                    modelName:
-                      type: string
-                      minLength: 1
-                    specName:
-                      type: string
-                      minLength: 1
-                    resourceName:
-                      type: string
-                      minLength: 1
-                    workflowRunId:
-                      type: string
-                      minLength: 1
-                    contentDigest:
-                      type: string
-                      pattern: '^[0-9a-f]{64}$'
-              corpusReceipt:
+              policySweepLifecycleIntegrity:
                 type: object
                 additionalProperties: false
                 required:
-                  - modelName
-                  - specName
-                  - resourceName
-                  - workflowRunId
-                  - contentDigest
+                  - policyWorkflowIdentityBound
+                  - policyWorkflowRunBound
+                  - routingWorkflowRunBound
                 properties:
-                  modelName:
-                    type: string
-                    minLength: 1
-                  specName:
-                    type: string
-                    minLength: 1
-                  resourceName:
-                    type: string
-                    minLength: 1
-                  workflowRunId:
-                    type: string
-                    minLength: 1
-                  contentDigest:
-                    type: string
-                    pattern: '^[0-9a-f]{64}$'
+                  policyWorkflowIdentityBound:
+                    type: boolean
+                  policyWorkflowRunBound:
+                    type: boolean
+                  routingWorkflowRunBound:
+                    type: boolean
               renderMatrixRunName:
                 type: string
                 minLength: 1
@@ -1438,8 +1453,7 @@ globalArguments:
               - policySweepWorkflowVersion
               - policySweepWorkflowRunId
               - policySweepExecutionDigest
-              - policyReceipts
-              - corpusReceipt
+              - policySweepLifecycleIntegrity
               - renderMatrixRunName
               - renderMatrixManifestName
               - renderMatrixBundleName
@@ -1456,7 +1470,7 @@ globalArguments:
               schemaVersion:
                 type: integer
                 enum:
-                  - 1
+                  - 2
               decisionId:
                 type: string
                 pattern: '^[0-9a-f]{64}$'
@@ -1521,67 +1535,27 @@ globalArguments:
               policySweepWorkflowVersion:
                 type: integer
                 enum:
-                  - 2
+                  - 4
               policySweepWorkflowRunId:
                 type: string
                 minLength: 1
               policySweepExecutionDigest:
                 type: string
                 pattern: '^[0-9a-f]{64}$'
-              policyReceipts:
-                type: array
-                minItems: 4
-                maxItems: 4
-                items:
-                  type: object
-                  additionalProperties: false
-                  required:
-                    - modelName
-                    - specName
-                    - resourceName
-                    - workflowRunId
-                    - contentDigest
-                  properties:
-                    modelName:
-                      type: string
-                      minLength: 1
-                    specName:
-                      type: string
-                      minLength: 1
-                    resourceName:
-                      type: string
-                      minLength: 1
-                    workflowRunId:
-                      type: string
-                      minLength: 1
-                    contentDigest:
-                      type: string
-                      pattern: '^[0-9a-f]{64}$'
-              corpusReceipt:
+              policySweepLifecycleIntegrity:
                 type: object
                 additionalProperties: false
                 required:
-                  - modelName
-                  - specName
-                  - resourceName
-                  - workflowRunId
-                  - contentDigest
+                  - policyWorkflowIdentityBound
+                  - policyWorkflowRunBound
+                  - routingWorkflowRunBound
                 properties:
-                  modelName:
-                    type: string
-                    minLength: 1
-                  specName:
-                    type: string
-                    minLength: 1
-                  resourceName:
-                    type: string
-                    minLength: 1
-                  workflowRunId:
-                    type: string
-                    minLength: 1
-                  contentDigest:
-                    type: string
-                    pattern: '^[0-9a-f]{64}$'
+                  policyWorkflowIdentityBound:
+                    type: boolean
+                  policyWorkflowRunBound:
+                    type: boolean
+                  routingWorkflowRunBound:
+                    type: boolean
               renderMatrixRunName:
                 type: string
                 minLength: 1
@@ -1787,10 +1761,8 @@ globalArguments:
                   artifacts.verification.policySweepWorkflowRunId &&
                   artifacts.human_aesthetic_decision.policySweepExecutionDigest ==
                   artifacts.verification.policySweepExecutionDigest &&
-                  artifacts.human_aesthetic_decision.policyReceipts ==
-                  artifacts.verification.policyReceipts &&
-                  artifacts.human_aesthetic_decision.corpusReceipt ==
-                  artifacts.verification.corpusReceipt &&
+                  artifacts.human_aesthetic_decision.policySweepLifecycleIntegrity ==
+                  artifacts.verification.policySweepLifecycleIntegrity &&
                   artifacts.human_aesthetic_decision.renderMatrixRunName ==
                   artifacts.verification.renderMatrixRunName &&
                   artifacts.human_aesthetic_decision.renderMatrixManifestName ==
@@ -1849,10 +1821,8 @@ globalArguments:
                   artifacts.verification.policySweepWorkflowRunId &&
                   artifacts.human_aesthetic_decision.policySweepExecutionDigest ==
                   artifacts.verification.policySweepExecutionDigest &&
-                  artifacts.human_aesthetic_decision.policyReceipts ==
-                  artifacts.verification.policyReceipts &&
-                  artifacts.human_aesthetic_decision.corpusReceipt ==
-                  artifacts.verification.corpusReceipt &&
+                  artifacts.human_aesthetic_decision.policySweepLifecycleIntegrity ==
+                  artifacts.verification.policySweepLifecycleIntegrity &&
                   artifacts.human_aesthetic_decision.renderMatrixRunName ==
                   artifacts.verification.renderMatrixRunName &&
                   artifacts.human_aesthetic_decision.renderMatrixManifestName ==

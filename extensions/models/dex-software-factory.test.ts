@@ -66,7 +66,7 @@ function serializedProfile(profile: DexSoftwareFactoryProfile): string {
 
 Deno.test('model exposes the locked compiler type, version, resource, and method', () => {
 	assert.equal(model.type, '@club_aqua_back_deck/dex-software-factory');
-	assert.equal(model.version, '2026.08.24.1');
+	assert.equal(model.version, '2026.08.25.2');
 	assert.deepEqual(Object.keys(model.resources), [
 		'profile',
 		'dispatch-boundary',
@@ -416,8 +416,9 @@ Deno.test(
 		assert.match(binding, /policySweepResourceName/);
 		assert.match(binding, /policySweepWorkflowRunId/);
 		assert.match(binding, /policySweepExecutionDigest/);
-		assert.match(binding, /policyReceipts/);
-		assert.match(binding, /corpusReceipt/);
+		assert.match(binding, /policySweepLifecycleIntegrity/);
+		assert.doesNotMatch(binding, /policyReceipts/);
+		assert.doesNotMatch(binding, /corpusReceipt/);
 		assert.match(binding, /renderMatrixRunName/);
 		assert.match(binding, /renderMatrixManifestName/);
 		assert.match(binding, /renderMatrixBundleName/);
@@ -614,7 +615,7 @@ Deno.test('compile method persists the versioned profile resource', async () => 
 	assert.deepEqual(result, { dataHandles: [{ name: 'compiled-profile' }] });
 	assert.equal(writes[0].specName, 'profile');
 	assert.equal(writes[0].name, 'compiled-profile');
-	assert.equal(writes[0].data.compilerVersion, '2026.08.24.1');
+	assert.equal(writes[0].data.compilerVersion, '2026.08.25.2');
 	assert.deepEqual(logs, [
 		'Compiling Dex software Factory profile',
 		'Compiled Dex software Factory profile {profileName}'

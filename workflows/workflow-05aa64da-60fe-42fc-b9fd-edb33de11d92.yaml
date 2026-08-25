@@ -54,6 +54,14 @@ jobs:
                 ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.treeFingerprint }}
               paths: >-
                 ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.paths }}
+              classification: >-
+                ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.classification }}
+              domains: >-
+                ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.domains }}
+              unknownPaths: >-
+                ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.unknownPaths }}
+              intentRouteDigest: >-
+                ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.intentRouteDigest }}
               surfaces: >-
                 ${{ data.query('modelName == "repo-audit" && specName == "change-impact" && workflowRunId == "' + run.id + '"').filter(record, record.attributes.workItem == inputs.workItem)[0].attributes.surfaces }}
               requiredHumanReviews: >-
@@ -89,4 +97,4 @@ jobs:
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 3
+version: 5

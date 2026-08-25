@@ -20,60 +20,42 @@ const SECOND_SHA = 'b'.repeat(64);
 const REVISION = 'c'.repeat(40);
 const RUN = 'workflow-run-1';
 
-function policySweepArguments(
-	cleanOverrides: Record<string, boolean> = {}
-): Record<string, unknown> {
-	const policyReceipt = (specName: string): Record<string, unknown> => ({
-		modelName: 'repo-audit',
-		specName,
-		resourceName: `${specName}-latest`,
-		workflowRunId: 'policy-run-1',
-		content: { clean: cleanOverrides[specName] ?? true, audit: specName }
-	});
+function policySweepArguments(): Record<string, unknown> {
 	return {
-		schemaVersion: 1,
+		schemaVersion: 2,
 		workItem: 'task-1',
 		routingWorkflowRunId: RUN,
 		policyWorkflowId: '5eb573fe-76e7-4b59-8ff6-bfccc0ec3b7a',
 		policyWorkflowName: 'policy-sweep',
-		policyWorkflowVersion: 2,
-		policyWorkflowRunId: 'policy-run-1',
-		policyReceipts: ['timing', 'tracking', 'parity', 'planning'].map(policyReceipt),
-		corpusReceipt: {
-			modelName: 'corpus-verify',
-			specName: 'sweep',
-			resourceName: 'sweep-latest',
-			workflowRunId: 'policy-run-1',
-			content: { clean: cleanOverrides.corpus ?? true, presets: 12 }
-		}
+		policyWorkflowVersion: 4,
+		policyWorkflowRunId: 'policy-run-1'
 	};
 }
 
-async function notApplicableArguments(
-	fanoutPassed = true,
-	policyCleanOverrides: Record<string, boolean> = {}
-): Promise<Record<string, unknown>> {
+async function notApplicableArguments(fanoutPassed = true): Promise<Record<string, unknown>> {
 	const result = {
 		id: 'check' as const,
 		status: fanoutPassed ? ('passed' as const) : ('failed' as const),
 		command: 'pnpm run check',
 		durationMs: 1,
 		exitCode: fanoutPassed ? 0 : 1,
-		outputTail: 'typed check'
+		outputTail: 'typed check',
+		unavailableReason: null
 	};
 	const fanoutContent = {
-		schemaVersion: 1 as const,
+		schemaVersion: 2 as const,
 		workItem: 'task-1',
 		expectedFingerprint: SHA,
+		changeImpactResourceName: 'artifact-task-1-change-impact',
+		changedPaths: ['src/lib/platform/user-composition-store.ts'],
+		intentRouteDigest: SECOND_SHA,
 		startedAt: '2026-08-16T12:00:00.000Z',
 		completedAt: '2026-08-16T12:00:01.000Z',
 		executionMode: 'parallel' as const,
 		results: [result],
 		passed: fanoutPassed
 	};
-	const policySweepExecution = await recordSupersPolicySweepExecution(
-		policySweepArguments(policyCleanOverrides)
-	);
+	const policySweepExecution = await recordSupersPolicySweepExecution(policySweepArguments());
 	return {
 		schemaVersion: 1,
 		workItem: 'task-1',
@@ -86,6 +68,10 @@ async function notApplicableArguments(
 			workItem: 'task-1',
 			treeFingerprint: SHA,
 			workflowRunId: 'classification-run-1',
+			paths: ['src/lib/platform/user-composition-store.ts'],
+			classification: 'known',
+			unknownPaths: [],
+			intentRouteDigest: SECOND_SHA,
 			surfaces: [{ id: 'authoring-app', reasons: ['authoring application behavior changed'] }],
 			requiredHumanReviews: []
 		},
@@ -375,7 +361,20 @@ async function withCompletedPassingRender(
 	return args;
 }
 
-const DETERMINISTIC_LANE_IDS = new Set(['browser', 'check', 'unit', 'structural']);
+const DETERMINISTIC_LANE_IDS = new Set([
+	'browser',
+	'check',
+	'unit',
+	'preset-static',
+	'export-decode',
+	'performance',
+	'repository-infrastructure',
+	'swamp-control-plane',
+	'timing-coverage',
+	'authoring-dependency-tracking',
+	'inspector-editor-parity',
+	'planning-discoverability'
+]);
 
 async function productionImpactArguments(path: string): Promise<Record<string, unknown>> {
 	const impact = classifyChangeImpact([path]);
@@ -395,6 +394,10 @@ async function productionImpactArguments(path: string): Promise<Record<string, u
 		workItem: 'task-1',
 		treeFingerprint: SHA,
 		workflowRunId: 'classification-run-1',
+		paths: impact.paths,
+		classification: impact.classification,
+		unknownPaths: impact.unknownPaths,
+		intentRouteDigest: SECOND_SHA,
 		surfaces: impact.surfaces,
 		requiredHumanReviews: impact.requiredHumanReviews
 	};
@@ -403,9 +406,12 @@ async function productionImpactArguments(path: string): Promise<Record<string, u
 		.map((lane) => lane.id)
 		.filter((lane) => DETERMINISTIC_LANE_IDS.has(lane));
 	const fanoutContent = {
-		schemaVersion: 1 as const,
+		schemaVersion: 2 as const,
 		workItem: 'task-1',
 		expectedFingerprint: SHA,
+		changeImpactResourceName: 'artifact-task-1-change-impact',
+		changedPaths: impact.paths,
+		intentRouteDigest: SECOND_SHA,
 		startedAt: '2026-08-16T12:00:00.000Z',
 		completedAt: '2026-08-16T12:00:01.000Z',
 		executionMode: 'parallel' as const,
@@ -415,7 +421,8 @@ async function productionImpactArguments(path: string): Promise<Record<string, u
 			command: `pnpm ${id}`,
 			durationMs: 1,
 			exitCode: 0,
-			outputTail: `${id} passed`
+			outputTail: `${id} passed`,
+			unavailableReason: null
 		})),
 		passed: true
 	};
@@ -452,7 +459,10 @@ Deno.test('not-applicable rendering preserves verified deterministic outcomes', 
 	uncoveredArguments.requiredLaneIds = ['policy-sweep', 'check', 'export-decode'];
 	const uncovered = await normalizeSupersDeliveryVerificationRoute(uncoveredArguments);
 	assert.equal(uncovered.disposition, 'evidence-unavailable');
-	assert.deepEqual(uncovered.unavailableEvidenceCodes, ['unexecuted-required-lane']);
+	assert.deepEqual(uncovered.unavailableEvidenceCodes, [
+		'incomplete-deterministic-fanout',
+		'unexecuted-required-lane'
+	]);
 });
 
 Deno.test(
@@ -481,8 +491,8 @@ Deno.test(
 			},
 			{
 				path: 'src/lib/platform/composition-export-controller.ts',
-				disposition: 'evidence-unavailable',
-				unavailable: ['unexecuted-required-lane']
+				disposition: 'reconcile',
+				unavailable: []
 			},
 			{
 				path: 'src/lib/platform/Workspace.svelte',
@@ -500,6 +510,39 @@ Deno.test(
 		}
 	}
 );
+
+Deno.test('unknown path classification pauses without running unrelated lanes', async () => {
+	const args = await notApplicableArguments();
+	args.changeImpact = {
+		resourceName: 'artifact-task-1-change-impact',
+		workItem: 'task-1',
+		treeFingerprint: SHA,
+		workflowRunId: 'classification-run-1',
+		paths: ['fixtures/unmapped.payload'],
+		classification: 'unknown',
+		unknownPaths: ['fixtures/unmapped.payload'],
+		intentRouteDigest: SECOND_SHA,
+		surfaces: [{ id: 'control-plane', reasons: ['unmapped path'] }],
+		requiredHumanReviews: []
+	};
+	args.requiredLaneIds = ['policy-sweep', 'unknown'];
+	const fanout = args.deterministicFanout as Record<string, unknown>;
+	const fanoutContent = Object.fromEntries(
+		Object.entries({
+			...fanout,
+			changedPaths: ['fixtures/unmapped.payload'],
+			results: [],
+			passed: true
+		}).filter(([key]) => key !== 'contentDigest')
+	);
+	args.deterministicFanout = {
+		...fanoutContent,
+		contentDigest: await createSupersDeterministicContractHash(fanoutContent)
+	};
+	const route = await normalizeSupersDeliveryVerificationRoute(args);
+	assert.equal(route.disposition, 'evidence-unavailable');
+	assert.deepEqual(route.unavailableEvidenceCodes, ['unknown-change-domain']);
+});
 
 Deno.test('app visual review fails closed until trusted app evidence exists', async () => {
 	const args = await notApplicableArguments();
@@ -589,21 +632,41 @@ Deno.test('rendered composition impact requires its review and render lane', asy
 	);
 });
 
-Deno.test('failed policy and corpus receipts produce bound automatic rework routes', async () => {
-	const failedPolicy = await normalizeSupersDeliveryVerificationRoute(
-		await notApplicableArguments(true, { timing: false })
-	);
-	assert.equal(failedPolicy.disposition, 'automatic-rework');
-	assert.deepEqual(failedPolicy.objectiveFailureCodes, ['timing-policy-failed']);
-	assert.equal(failedPolicy.policySweepWorkflowRunId, 'policy-run-1');
-	assert.match(failedPolicy.policySweepExecutionDigest, /^[0-9a-f]{64}$/);
-
-	const failedCorpus = await normalizeSupersDeliveryVerificationRoute(
-		await notApplicableArguments(true, { corpus: false })
-	);
-	assert.equal(failedCorpus.disposition, 'automatic-rework');
-	assert.deepEqual(failedCorpus.objectiveFailureCodes, ['corpus-failed']);
-	assert.equal(failedCorpus.corpusReceipt.resourceName, 'sweep-latest');
+Deno.test('failed typed timing coverage produces a bound automatic rework route', async () => {
+	const args = await notApplicableArguments();
+	args.requiredLaneIds = ['policy-sweep', 'check', 'timing-coverage'];
+	const previousFanout = args.deterministicFanout as Record<string, unknown>;
+	const fanoutContent = {
+		...Object.fromEntries(
+			Object.entries(previousFanout).filter(([key]) => key !== 'contentDigest')
+		),
+		results: [
+			...((previousFanout.results as unknown[]) ?? []),
+			{
+				id: 'timing-coverage',
+				status: 'failed',
+				command: 'pnpm run audit:timing',
+				durationMs: 1,
+				exitCode: 1,
+				outputTail: 'timing coverage failed',
+				unavailableReason: null
+			}
+		],
+		passed: false
+	};
+	args.deterministicFanout = {
+		...fanoutContent,
+		contentDigest: await createSupersDeterministicContractHash(fanoutContent)
+	};
+	const route = await normalizeSupersDeliveryVerificationRoute(args);
+	assert.equal(route.disposition, 'automatic-rework');
+	assert.deepEqual(route.objectiveFailureCodes, ['timing-coverage-failed']);
+	assert.equal(route.policySweepWorkflowRunId, 'policy-run-1');
+	assert.deepEqual(route.policySweepLifecycleIntegrity, {
+		policyWorkflowIdentityBound: true,
+		policyWorkflowRunBound: true,
+		routingWorkflowRunBound: true
+	});
 });
 
 Deno.test('a completed render matrix cannot cover a missing required browser receipt', async () => {
@@ -688,23 +751,17 @@ Deno.test('stale or directly substituted evidence cannot acquire routing authori
 		() => normalizeSupersDeliveryVerificationRoute(stalePolicySet),
 		/stale or not workflow-correlated/
 	);
-	const substitutedPolicyName = policySweepArguments();
-	(
-		(substitutedPolicyName.policyReceipts as Array<Record<string, unknown>>)[0] as Record<
-			string,
-			unknown
-		>
-	).resourceName = 'timing-clean-copy';
-	await assert.rejects(
-		() => recordSupersPolicySweepExecution(substitutedPolicyName),
-		/name or workflow run was substituted/
+	await assert.rejects(() =>
+		recordSupersPolicySweepExecution({
+			...policySweepArguments(),
+			policyWorkflowVersion: 3
+		})
 	);
-	const substitutedCorpusName = policySweepArguments();
-	(substitutedCorpusName.corpusReceipt as Record<string, unknown>).resourceName =
-		'sweep-clean-copy';
-	await assert.rejects(
-		() => recordSupersPolicySweepExecution(substitutedCorpusName),
-		/name or workflow run was substituted/
+	await assert.rejects(() =>
+		recordSupersPolicySweepExecution({
+			...policySweepArguments(),
+			policyReceipts: []
+		})
 	);
 	const reconcileRoute = await normalizeSupersDeliveryVerificationRoute(
 		await notApplicableArguments()
@@ -798,35 +855,27 @@ Deno.test(
 	async () => {
 		const bundle = await minimalBundle();
 		const route = SupersDeliveryVerificationRouteSchema.parse({
-			schemaVersion: 2,
+			schemaVersion: 3,
 			disposition: 'await-human-aesthetic',
 			workItem: 'task-1',
 			integratedRevision: REVISION,
 			integratedTreeFingerprint: SECOND_SHA,
 			treeFingerprint: SHA,
 			changeImpactResourceName: 'artifact-task-1-change-impact',
+			changedPaths: ['src/lib/presets/lower-third.json'],
 			deterministicFanoutResourceName: 'verification-fanout-canonical-hash',
 			deterministicFanoutContentDigest: SHA,
 			deterministicFanoutWorkflowRunId: RUN,
 			policySweepResourceName: 'policy-sweep-execution-task-1-policy-run-1',
 			policySweepWorkflowId: '5eb573fe-76e7-4b59-8ff6-bfccc0ec3b7a',
 			policySweepWorkflowName: 'policy-sweep',
-			policySweepWorkflowVersion: 2,
+			policySweepWorkflowVersion: 4,
 			policySweepWorkflowRunId: 'policy-run-1',
 			policySweepExecutionDigest: SHA,
-			policyReceipts: ['parity', 'planning', 'timing', 'tracking'].map((specName) => ({
-				modelName: 'repo-audit',
-				specName,
-				resourceName: `${specName}-latest`,
-				workflowRunId: 'policy-run-1',
-				contentDigest: SHA
-			})),
-			corpusReceipt: {
-				modelName: 'corpus-verify',
-				specName: 'sweep',
-				resourceName: 'sweep-latest',
-				workflowRunId: 'policy-run-1',
-				contentDigest: SHA
+			policySweepLifecycleIntegrity: {
+				policyWorkflowIdentityBound: true,
+				policyWorkflowRunBound: true,
+				routingWorkflowRunBound: true
 			},
 			renderMatrixRunName: 'render-matrix-run-task-1',
 			renderMatrixManifestName: 'manifest-task-1',
@@ -872,7 +921,6 @@ Deno.test(
 		assert.equal(decision.deterministicFanoutResourceName, 'verification-fanout-canonical-hash');
 		assert.equal(decision.policySweepWorkflowRunId, 'policy-run-1');
 		assert.equal(decision.policySweepExecutionDigest, SHA);
-		assert.equal(decision.corpusReceipt.resourceName, 'sweep-latest');
 		assert.equal(decision.renderMatrixRunName, 'render-matrix-run-task-1');
 		assert.equal(decision.verificationWorkflowRunId, RUN);
 		assert.equal(decision.integratedRevision, REVISION);

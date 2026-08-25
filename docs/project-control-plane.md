@@ -11,7 +11,8 @@ executed by the Swamp workspace (dex epic `t040a0vs`).
 All four repo audits are methods on the `@supers/repo-audit` Swamp model
 (`extensions/models/repo-audit.ts`); each stores a schema'd, versioned,
 CEL-queryable resource. A method **succeeds whenever the audit ran** — findings
-are data; the workflow assert steps are what turn findings into a red run.
+are data. Delivery's trusted-path lanes call the exact package scripts below, so
+a script's nonzero finding result becomes that lane's typed failure.
 
 | Method           | Script                               | Resource          | Checks                                                                                |
 | ---------------- | ------------------------------------ | ----------------- | ------------------------------------------------------------------------------------- |
@@ -21,20 +22,56 @@ are data; the workflow assert steps are what turn findings into a red run.
 | `audit-planning` | `scripts/audit-planning-state.ts`    | `planning-latest` | Planning-state drift (below)                                                          |
 
 The same model captures a work-item-keyed `change-baseline` HEAD before
-implementation. `classify-change(workItem)` then unions committed paths in
-`baselineHead...HEAD` with NUL-delimited tracked, staged, deleted,
-renamed/copied, and untracked working-tree paths. Its work-item-keyed report
-carries `baselineHead`, a content-sensitive `treeFingerprint`, conservative
-verification lanes, multi-valued change surfaces (`authoring-app`,
+implementation. Preflight first reads the canonical Dex task through
+`supers-dex-task-tracker.get` and stores a schema-validated `work-domain-route`.
+Closed lexical rules classify Supers domain terms only from the canonical
+human-authored task name. Descriptions may contribute explicit project-relative
+file hints and typed `Supers-Delivery-*` directives;
+`metadata.supersDelivery` remains an additive precision control. Description
+examples and exclusions never create free-text domains. Agent summaries,
+implementation prose, and changed paths have no authority at this pre-route
+boundary. Task intent can never remove an obligation derived from trusted paths.
+
+After integration, `classify-change(workItem)` proves the integration receipt's
+baseline, integrated revision, and sorted paths against Git, then includes any
+tracked working-tree state for those exact paths in the content-sensitive
+`treeFingerprint`. Its work-item-keyed report carries the sealed paths,
+`known | mixed | unknown` classification, work domains, additive intent-route
+digest, executable lanes, multi-valued change surfaces (`authoring-app`,
 `rendered-composition`, `export-pipeline`, `control-plane`), and human-review
-requirements kept separate from executable lanes. An empty change set selects
-`control-plane` plus `policy-sweep`. No agent supplies paths or re-records the
-report.
+requirements. Unknown paths select only lifecycle policy plus `unknown` and
+pause as evidence-unavailable; they never trigger a guess or a broad spray of
+unrelated suites. No agent or workflow caller supplies path authority or
+re-records the report. Contract hashes and canonical route arrays use
+locale-independent UTF-16 lexical ordering.
 
-## Static Preset preflight
+The post-integration lane union is exact:
 
-`pnpm verify-presets` is the fast deterministic Preset gate used by normal
-preflight. It validates every selected deliverable against every relevant Pack
+| Trusted impact            | Selected deterministic work                                                                                                                             |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Preset                    | affected static Presets and affected render cells; no Pack matrix                                                                                       |
+| Pack                      | affected static Presets, affected render cells, and Pack matrix                                                                                         |
+| Authoring app             | project check, unit tests, and browser checks; app-visual evidence remains separately typed                                                             |
+| Rendering                 | affected static Presets, affected/full render scope from the selector, and aesthetic review; no export/decode                                           |
+| Export                    | declared export/decode package-script evidence plus touched product checks                                                                              |
+| Performance               | declared `benchmark:*` package-script evidence plus every lane selected by touched paths                                                                |
+| Repository infrastructure | structural repository checks only                                                                                                                       |
+| Swamp control plane       | touched model/workflow validation, changed extension type-checking, focused changed/colocated extension behavior tests, and routing-contract tests only |
+| Timing contract           | `pnpm run audit:timing` only for trusted schema/rescaling paths                                                                                         |
+| Authoring dependency      | `pnpm run audit:tracking` only for trusted schema/tracker/document-slot paths                                                                           |
+| Inspector/Editor contract | `pnpm run audit:parity` only for trusted schema, Inspector, Editor, and chart-authoring paths                                                           |
+| Documentation/planning    | `pnpm run audit:planning` plus `pnpm run test:discoverability` only for docs, `.dex`, and planning paths                                                |
+| Mixed                     | the exact union of the rows above                                                                                                                       |
+| Unknown                   | no guessed domain suite; `evidence-unavailable` pause                                                                                                   |
+
+A declared benchmark script must start with `benchmark:`. A declared
+export/decode script must start with `verify:export-decode:`. Missing declared
+evidence is an explicit unavailable result, never a pass.
+
+## Static Preset verification
+
+`pnpm verify-presets` is the fast deterministic Preset gate selected only for
+trusted Preset, Pack, or rendering impact after integration. It validates every selected deliverable against every relevant Pack
 in both horizontal and vertical through schema, semantics, Pipeline-aware
 layout, timing, safe-area, clipping, overlap, contrast, and readability checks.
 It stops at the first exact error and does not launch Chrome, capture pixels,
@@ -52,9 +89,11 @@ pnpm verify-presets --all
 
 Affected selection is conservative and smallest-complete: direct Preset changes
 select that deliverable across Packs; a concrete Pipeline selects its consumers
-across Packs; a Pack selects all deliverables against that Pack; broad or
-unmapped engine/layout changes select all deliverables across all Packs. Proven
-documentation/control-plane-only changes are not applicable. Pack catalog
+across Packs; a Pack selects all deliverables against that Pack; broad mapped
+engine/layout changes select all deliverables across all Packs. Proven
+application, documentation, infrastructure, and Swamp-control-plane changes do
+not enter this lane. Unmapped paths pause before selection instead of being
+silently treated as broad render work. Pack catalog
 freshness is checked only in affected mode and only when the selected scope
 intersects a Calibration Trio Preset. Its render-source fingerprint includes
 shared rendering code plus the affected Pack's own directory, never sibling Pack
@@ -155,7 +194,7 @@ red. An open task whose blocker completed is dex-normal and not flagged at all.
 npm run audit:planning                                        # direct; exit 1 on findings
 swamp model method run repo-audit audit-planning              # store the versioned resource
 swamp report get @supers/planning-state --model repo-audit    # findings + advisories with repo paths / dex ids
-swamp workflow run policy-sweep                               # all five checks + assert steps as one DAG
+swamp workflow run policy-sweep                               # bind current lifecycle/workflow identity only
 swamp workflow run factory-policy-sweep --input workItem=<id> --input evidenceName=preflight-run
 ```
 
@@ -299,7 +338,12 @@ must derive `artifact-<workItem>-<artifactName>`; unscoped artifact names are
 invalid because concurrent roots could read another work item's artifact.
 
 Its path is
-`preflight baseline capture → isolated implementation → serialized parent integration → change-summary → workflow-owned classification → deterministic verification route → exact-bundle human aesthetic gate when rendering is affected → reconciliation → postflight → terminal Dex cleanup`.
+`universal preflight + typed task-intent route + baseline capture → domain-guided isolated implementation → serialized parent integration → change-summary → trusted-path classification → smallest-complete deterministic lane union → exact-bundle human aesthetic gate when rendering is affected → reconciliation → postflight → terminal Dex cleanup`.
+The implementation request always loads
+`.claude/skills/supers-domain-aware-implementation/SKILL.md`; that skill reads
+the preflight route and loads its exact selected skill/constraint union. Unknown
+preflight intent still enters implementation under universal repository rules;
+the trusted post-integration paths decide whether verification can proceed.
 Every work-bearing nonterminal stage has a typed operational-recovery exit, including aesthetic decision binding, reconciliation, postflight, terminal cleanup, and all terminal-observability dispositions. Verification recovery supports both an exact retry and a human-approved return to implementation when the classified tree changed during repair; tree drift never requires aborting the work item. The driver reads authoritative Factory status, validates the complete invocation, and receives an opaque content-addressed plan only after Git, parsed Dex JSON, dependencies, and the selected execution tool pass. Pi plans are first persisted as per-root outbox reservations; this consumes no Factory attempt. For each root in deterministic order, the driver refreshes every fact, calls `record_dispatch` with the exact frozen request digest, performs no unrelated operation, and launches one top-level asynchronous worktree run. Accepted runs execute concurrently up to Pi capacity. Pi normalizes each public top-level worktree request into a one-worker `workflow` lifecycle. Its immediate acknowledgement carries the outer workflow run id and async directory, not a launch-contract digest. Immediately before every actual launch, the driver records one distinct submission attempt; only an explicit newly-consumed ordinal authorizes launch, replay of the same attempt identity reconciles without relaunching, and read-only reconciliation never changes that count. Recording failure returns a typed per-root error without reconciliation and does not stop unrelated roots. Reconciliation requires the exact current durable attempt receipt and an active submit-pending, submitted, execution-claimed, or handoff-ready source state; it cannot revive retryable, uncertain, parked, completed, or execution-failed delivery. Retry reads the canonical frozen request only through `swamp model method run supers-delivery-profile get_pi_dispatch_request --input '{"dispatchToken":"<token>"}' --json`, recomputes its request digest, task digest, and content-addressed token, and never accepts request bytes or digests from the retry caller. Explicit human no-live-run authorization is required to move an unbound uncertain or parked submission to retryable while budget remains. The profile binds the real outer workflow from package-owned status and the exact child session task only from submit-pending, permits the exact current-attempt run to claim execution only from submit-pending or submitted, and accepts a handoff only from execution-claimed for that same run and claim. At completion it proves the persisted semantic request against the exact structured-output schema, inner worktree handoff, resolved extensions, and child launch-contract digest. A crash, rejection, malformed lifecycle, or lost acknowledgement is reconciled from outbox plus Factory journal plus those real artifacts under the same Factory attempt; absent, unavailable, malformed, and ambiguous evidence have distinct fail-closed states. Once a run is submitted, execution-claimed, handoff-ready, or completed, a later missing scan cannot regress it or authorize another launch. Only the claimed nonce and run id can create the profile-owned content-addressed handoff-acceptance resource, and the integration gate reads the trusted current outbox, current Factory status, and exact acceptance before admitting the manifest. Old-cycle acceptances are rejected, so duplicate delivery grants one writer and one accepted handoff. Workflow/method execution remains owned by the profile's trusted work boundary. Fixed probes use their separate trusted operation boundary. Exact failed, stopped, or rejected lifecycle after an execution claim creates launch- and claim-bound current-dispatch evidence and enters operational recovery in a fresh Factory cycle; the same states before a claim are retryable transport failures under a new submission identity. Paused or unavailable lifecycle remains uncertain. A lost-ack scan fails closed for every newly created malformed package-owned candidate that its durable attempt time, run metadata, mission/repository identity, and session marker cannot rule out, while old unrelated malformed artifacts do not block retry. Each fresh Factory cycle receives a fresh attempt while prior outbox and recovery history remain durable. Generic failure artifacts are operational-only; objective failures remain in their correlated domain route. Terminal observability projects, emits, and verifies the exact outcome while recoverable, then finalizes it. Reset is only for explicit abandonment or corrupted state.
 The project fleet driver is [`.claude/skills/supers-factory-fleet/SKILL.md`](../.claude/skills/supers-factory-fleet/SKILL.md).
 It launches one Pi-managed worktree writer per approved root, with no fixed
@@ -309,7 +353,7 @@ parent records the canonical integration receipt in `change-summary` before
 classification. Reconciliation never integrates or otherwise mutates the
 repository.
 
-Classification accepts only the sorted paths from the verified integration receipt, proves that they equal `baseline..integratedRevision`, and separately seals the current content-sensitive tree fingerprint for drift detection. It records impact surfaces and required human reviews independently from executable verification lanes, so nonvisual authoring-app behavior can reconcile after objective checks while rendered-composition work retains its exact render review. Mixed shell files (`Workspace.svelte`, `Composition.svelte`), global CSS, and consumer-ambiguous static visual assets remain conservatively both authoring-app and rendered-composition. Until the app-visual scenario collector supplies a trusted correlated bundle, `authoring-app-visual` requirements pause with `missing-app-visual-evidence`; they never borrow a render bundle or accept a bare human gate. The deterministic Delivery workflow correlates the exact hash-named fanout resource, its content digest and workflow run, and canonical affected render matrix/report evidence to that fingerprint. The canonical `policy-sweep` first binds exact policy/corpus resource names, clean states, content digests, workflow identity, workflow run id, and an execution digest before its assertion steps can make that child run red. Delivery continues after the closed assertion result and accepts only the bound policy execution whose routing run is the current verification run; internally consistent stale sets and renamed copies are rejected. A completed render matrix never substitutes for a selected browser lane. The trusted router derives one closed disposition: verified policy, corpus, command, or render failures may route automatic rework; unavailable, stale, mismatched, incomplete, duplicate, extra, zero-signal, unexecuted required-lane, or missing app-visual evidence pauses in `evidence-unavailable`; a passing affected matrix pauses the whole serialized queue for exact-bundle human aesthetic approval; proven render non-applicability reconciles directly. Mixed failure plus unavailable evidence remains unavailable. Critic observations are advisory only and appear in no gate CEL. Reconciliation is completion-only and cannot route subjective or prose-controlled rework. Postflight first asserts the classified tree fingerprint, then runs
+Classification accepts only the sorted paths from the verified integration receipt, proves that they equal `baseline..integratedRevision`, and separately seals the current content-sensitive tree fingerprint for drift detection. It records impact surfaces and required human reviews independently from executable verification lanes, so nonvisual authoring-app behavior can reconcile after objective checks while rendered-composition work retains its exact render review. Mixed shell files (`Workspace.svelte`, `Composition.svelte`), global CSS, and consumer-ambiguous static visual assets remain conservatively both authoring-app and rendered-composition. Until the app-visual scenario collector supplies a trusted correlated bundle, `authoring-app-visual` requirements pause with `missing-app-visual-evidence`; they never borrow a render bundle or accept a bare human gate. The deterministic Delivery workflow correlates the exact hash-named fanout resource, its sealed changed paths, additive intent-route digest, content digest, workflow run, and canonical affected render matrix/report evidence to that fingerprint. The canonical `policy-sweep` binds only the lifecycle workflow identity, current policy run, current routing run, fixed integrity flags, and execution digest. Timing, authoring-dependency tracking, Inspector/Editor parity, and planning/discoverability are separate typed fanout lanes selected only from relevant trusted paths. Static Preset verification is a separate affected-scope fanout lane. Delivery continues after the bound integrity result and accepts only the bound policy execution whose routing run is the current verification run; internally consistent stale sets and renamed copies are rejected. A completed render matrix never substitutes for a selected browser lane. The trusted router derives one closed disposition: verified policy, affected-Preset, app, repository, Swamp, documentation, performance, export, or render failures may route automatic rework; unknown domains and unavailable, stale, mismatched, incomplete, duplicate, extra, zero-signal, unexecuted required-lane, or missing app-visual evidence pause in `evidence-unavailable`; a passing affected matrix pauses the whole serialized queue for exact-bundle human aesthetic approval; proven render non-applicability reconciles directly. Mixed failure plus unavailable evidence remains unavailable. Critic observations are advisory only and appear in no gate CEL. Reconciliation is completion-only and cannot route subjective or prose-controlled rework. Postflight first asserts the classified tree fingerprint, then runs
 policy. Only the generated `terminal-cleanup` stage calls the typed tracker
 `complete` method with CEL-bound reconciliation data; no Factory stage embeds a
 Dex shell command. Completion writes a deterministic intent before mutating Dex,
@@ -475,15 +519,17 @@ it is not an authoring or normal operations path.
 
 ## Gates
 
-- **`policy-sweep` workflow** (`workflows/workflow-5eb573fe….yaml`) — five
-  collection methods fan out, then the canonical Delivery receipt is bound for
-  the exact current run before one assert per resource turns findings into a red
-  child run. Delivery can therefore retain closed failures as route evidence.
-- **`factory-policy-sweep`** — runs policy, captures the work-item baseline,
-  then records correlated preflight evidence with `run.id`.
+- **`policy-sweep` workflow** (`workflows/workflow-5eb573fe….yaml`) — binds
+  only the canonical lifecycle workflow identity and exact current policy and
+  routing runs into a content-addressed integrity execution. It invokes no
+  app, schema, planning, Preset, browser, or render audit.
+- **`factory-policy-sweep`** — runs lifecycle policy, reads the canonical Dex
+  task without mutating it, records the typed additive work-domain route,
+  captures the baseline, then records correlated preflight evidence with
+  `run.id`.
 - **`factory-classify-change`** — classifies trusted Git state, then records the
   exact current-run report and evidence inside one workflow.
-- **`supers-delivery-deterministic-verification`** — rejects tree-fingerprint drift, runs canonical policy and static corpus gates, executes the selected check/unit/structural commands through one fan-out method, verifies the affected render matrix, and records only the router-derived disposition.
+- **`supers-delivery-deterministic-verification`** — rejects tree-fingerprint drift, runs universal policy, asks `repo-audit` to execute automated lanes from its own trusted `change-impact` resource, verifies render scope only when selected, and records only the correlated router-derived disposition. A caller supplies a work item, never paths or lane authority.
 - **`supers-bind-human-aesthetic-decision`** — binds the current-cycle human approval identity to the exact work item, integrated revision and tree, matrix run/manifest/bundle/evidence digests, and Factory resources before recording acceptance or rejection.
 - **`factory-postflight-sweep`** — rejects tree-fingerprint drift before policy
   and correlated postflight evidence.

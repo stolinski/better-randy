@@ -1,7 +1,7 @@
 id: cde1605a-a7a1-4c5e-b5f9-e03e0cddf553
 name: supers-bind-human-aesthetic-decision
 description: Bind the trusted current-cycle Factory aesthetic approval to the exact verified render bundle.
-version: 2
+version: 3
 tags:
   purpose: human-aesthetic-decision-binding
 inputs:
