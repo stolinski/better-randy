@@ -317,6 +317,15 @@ async function changeResourceName(
   return `${prefix}-${(await sha256Hex(workItem)).slice(0, 32)}`;
 }
 
+function currentChangeBaselineName(workItem: string): string {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(workItem)) {
+    throw new TypeError(
+      "Change baseline work item cannot form a safe resource name",
+    );
+  }
+  return `change-baseline-current-${workItem}`;
+}
+
 async function runGit(
   context: MethodContext,
   args: string[],
@@ -964,6 +973,38 @@ export const model = {
           "change-baseline",
           resourceName,
           baseline,
+        );
+        const currentName = currentChangeBaselineName(args.workItem);
+        const currentHandle = await context.writeResource(
+          "change-baseline",
+          currentName,
+          { ...baseline, resourceName: currentName },
+        );
+        return { dataHandles: [handle, currentHandle] };
+      },
+    },
+    "bind-change-baseline": {
+      description:
+        "Bind the latest canonical baseline to a stable task-owned lookup name",
+      arguments: z.strictObject({
+        workItem: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/),
+        expectedBaselineRevision: GitHeadSchema,
+      }),
+      execute: async (
+        args: { workItem: string; expectedBaselineRevision: string },
+        context: MethodContext,
+      ) => {
+        const baseline = await readChangeBaseline(context, args.workItem);
+        if (baseline.baselineHead !== args.expectedBaselineRevision) {
+          throw new Error(
+            "Latest canonical baseline does not match the requested revision",
+          );
+        }
+        const currentName = currentChangeBaselineName(args.workItem);
+        const handle = await context.writeResource(
+          "change-baseline",
+          currentName,
+          { ...baseline, resourceName: currentName },
         );
         return { dataHandles: [handle] };
       },
