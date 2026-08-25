@@ -67,7 +67,14 @@ async function readUserCompositionWirePreset(slug: string): Promise<unknown> {
 		error(500, `Failed to read user composition "${slug}"`);
 	}
 
-	const storedUserComposition: unknown = JSON.parse(raw);
+	let storedUserComposition: unknown;
+	try {
+		storedUserComposition = JSON.parse(raw);
+	} catch {
+		// A partial file left by an interrupted legacy write must not shadow a
+		// built-in Preset. Current writes publish atomically, so treat it as absent.
+		return null;
+	}
 	if (!isStoredUserComposition(storedUserComposition)) {
 		error(500, 'Corrupt user composition file');
 	}

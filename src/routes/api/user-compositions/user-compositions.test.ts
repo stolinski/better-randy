@@ -273,6 +273,17 @@ describe('user composition handlers', () => {
 		assert.equal(await response.json(), null);
 	});
 
+	it('returns null from a slug GET when a legacy file contains malformed JSON', async () => {
+		fsMocks.readFile.mockResolvedValue('');
+
+		const response = await slugHandlers.GET({
+			params: { slug: 'incomplete-write' }
+		} as Parameters<(typeof slugHandlers)['GET']>[0]);
+
+		assert.equal(response.status, 200);
+		assert.equal(await response.json(), null);
+	});
+
 	it('coalesces concurrent reads of the same User composition', async () => {
 		let resolveRead: ((value: string) => void) | undefined;
 		fsMocks.readFile.mockImplementationOnce(
