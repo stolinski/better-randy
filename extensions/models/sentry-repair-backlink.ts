@@ -131,7 +131,15 @@ export type SentryRepairBacklinkDependencies = {
   now: () => string;
 };
 
-const SentryCommentSchema = z.object({ text: z.string() }).passthrough();
+const DirectSentryCommentSchema = z.object({ text: z.string() }).passthrough()
+  .transform((comment) => ({ text: comment.text }));
+const NestedSentryCommentSchema = z.object({
+  data: z.object({ text: z.string() }).passthrough(),
+}).passthrough().transform((comment) => ({ text: comment.data.text }));
+const SentryCommentSchema = z.union([
+  DirectSentryCommentSchema,
+  NestedSentryCommentSchema,
+]);
 const SentryCommentListSchema = z.union([
   z.array(SentryCommentSchema),
   z.object({ data: z.array(SentryCommentSchema) }),

@@ -166,6 +166,17 @@ Deno.test("backlink replay detects its marker and does not post twice", async ()
   assert.equal(runner.calls.length, 1);
 });
 
+Deno.test("backlink replay reads nested Sentry API comment text", async () => {
+  const marker =
+    `[supers-repair:${repairIntent().intent.fingerprint}:dex-task-17]`;
+  const runner = new FakeRunner([{
+    data: { text: `Already linked ${marker}` },
+  }]);
+  const receipt = await runBacklink(runner);
+  assert.equal(receipt.status, "already-linked");
+  assert.equal(runner.calls.length, 1);
+});
+
 Deno.test("backlink rejects uncorrelated Planning evidence before Sentry access", async () => {
   const runner = new FakeRunner();
   const args = approvedArgs();
