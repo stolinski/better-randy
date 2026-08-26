@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
 import {
+	runStandaloneLayoutContractVerification,
 	runVerificationFanout,
 	type VerificationCommandOutput,
 	type VerificationCommandRunner,
@@ -188,6 +189,30 @@ Deno.test('Layout Contract lane runs the capture-free numeric matrix', async () 
 				'--scoped-paths-json',
 				'["src/lib/platform/composition-frame-renderer.ts"]'
 			]
+		}
+	]);
+});
+
+Deno.test('standalone Layout Contract verification returns a typed full-checkout receipt', async () => {
+	const calls: Array<{ command: string; args: string[]; cwd: string }> = [];
+	const receipt = await runStandaloneLayoutContractVerification(
+		'/repo',
+		async (command, args, cwd) => {
+			calls.push({ command, args, cwd });
+			return layoutContractOutput();
+		}
+	);
+	assert.equal(receipt.passed, true);
+	assert.equal(receipt.contentDigest, 'd'.repeat(64));
+	assert.deepEqual(calls, [
+		{
+			command: 'node',
+			args: [
+				'--experimental-strip-types',
+				'scripts/run-supers-layout-contract-matrix.mjs',
+				'--summary'
+			],
+			cwd: '/repo'
 		}
 	]);
 });

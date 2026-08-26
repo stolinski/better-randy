@@ -154,6 +154,30 @@ function parseLayoutContractReceipt(
 	}
 }
 
+/** Run and validate one authoritative full-checkout Layout Contract receipt outside Factory fan-out. */
+export async function runStandaloneLayoutContractVerification(
+	repoDir: string,
+	runCommand: VerificationCommandRunner = runDenoCommand
+): Promise<LayoutContractLaneReceipt> {
+	const output = await runCommand(
+		'node',
+		[
+			'--experimental-strip-types',
+			'scripts/run-supers-layout-contract-matrix.mjs',
+			'--summary'
+		],
+		repoDir
+	);
+	const receipt = parseLayoutContractReceipt(output);
+	if (!receipt) {
+		throw new TypeError('Layout Contract output did not contain a typed full-corpus receipt');
+	}
+	if (!receipt.passed || output.code !== 0) {
+		throw new TypeError('Standalone Layout Contract verification did not pass');
+	}
+	return receipt;
+}
+
 function boundedOutputTail(output: VerificationCommandOutput): string {
 	const combined = [
 		textDecoder.decode(output.stdout).trim(),

@@ -53,6 +53,8 @@ import {
   validateSupersPlanBoundary,
 } from "./supers-planning-adapters.ts";
 import {
+  LayoutContractLaneReceiptSchema,
+  runStandaloneLayoutContractVerification,
   runVerificationFanout,
   type VerificationFanoutArguments,
   VerificationFanoutReportSchema,
@@ -934,6 +936,13 @@ export const model = {
       lifetime: "infinite",
       garbageCollection: 50,
     },
+    "layout-contract-receipt": {
+      description:
+        "Typed authoritative full-corpus Layout Contract verification receipt",
+      schema: LayoutContractLaneReceiptSchema,
+      lifetime: "infinite",
+      garbageCollection: 50,
+    },
   },
   methods: {
     "audit-timing": {
@@ -1648,6 +1657,43 @@ export const model = {
           "change-freshness-recovery",
           resourceName,
           recovery,
+        );
+        return { dataHandles: [handle] };
+      },
+    },
+    "run-layout-contract-verification": {
+      description:
+        "Run and persist one authoritative full-checkout Layout Contract receipt",
+      arguments: z.strictObject({
+        workItem: z.string().min(1).max(128),
+      }),
+      execute: async (
+        args: { workItem: string },
+        context: MethodContext,
+      ) => {
+        const receipt = await runStandaloneLayoutContractVerification(
+          context.repoDir,
+        );
+        const [currentHead, currentTree] = await Promise.all([
+          readGitHead(context),
+          readCurrentTreeState(context),
+        ]);
+        if (
+          receipt.sourceRevision !== currentHead ||
+          receipt.treeFingerprint !== currentTree.treeFingerprint
+        ) {
+          throw new Error(
+            "Layout Contract receipt does not match the current full checkout",
+          );
+        }
+        const resourceName = await changeResourceName(
+          "layout-contract-receipt",
+          `${args.workItem}:${receipt.contentDigest}`,
+        );
+        const handle = await context.writeResource(
+          "layout-contract-receipt",
+          resourceName,
+          receipt,
         );
         return { dataHandles: [handle] };
       },
