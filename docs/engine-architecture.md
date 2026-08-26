@@ -51,6 +51,7 @@ src/lib/
     Inspector.svelte             # active selection-driven inspector
     TimelineOutline.svelte       # active timeline + Layer outline
     CanvasEditingOverlay.svelte  # direct manipulation and selection overlay
+    canvas-interaction-geometry.ts # editor-only bounds, coordinates, hit targets, order, and handles
     CanvasControlsBar.svelte     # playback/view/orientation controls
     timeline.svelte.ts           # Timeline (the only clock)
     gpu-host.ts                  # TypeGPU init; INTERMEDIATE_FORMAT = 'rgba16float'
@@ -100,6 +101,12 @@ There is no `src/lib/tools/` — per-tool modules were collapsed into the engine
 The homepage's **New composition** action is the shipped create-from-blank entry point: it forks the built-in `blank` Preset into the user store as an untitled User composition, then opens that standalone Preset in the same Workspace used by Starter-template forks.
 
 Media authoring preserves the three-zone Workspace. The existing right rail switches between Inspector and Media modes; Media mode owns composition library membership, upload, volatile probe/readiness display, and drag affordances. The fixed primary Video track is part of the Timeline beneath the five Layer rows and exclusively owns clip creation, move, trim, slip, and snapping. Selected-clip Inspector controls are limited to audio enabled/gain and removal. There is no Project artifact, left Media panel, fourth workspace zone, sixth Layer, or Video entry in Add layer ([ADR-0045](adr/0045-composition-media-library-and-video-track.md)).
+
+### Canvas interaction geometry
+
+`canvas-interaction-geometry.ts` is the searchable, editor-only geometry contract used by `CanvasEditingOverlay.svelte`. It keeps three spaces explicit: normalized and native composition coordinates for authored persistence; client CSS pixels for pointer input; and editing-overlay-local CSS pixels for editor chrome. `CanvasRenderedBounds` records observed composition bounds separately from their optional depth-stage projection and displayed bounds. `CanvasHitRegionGeometry` keeps visible pixel bounds separate from padded pointer bounds. `CanvasSelectionOrder` supplies a stable Layer, paint-order, and identity sort for overlap handling. `CanvasHandleGeometry` fixes handle visuals and pointer targets in screen pixels, independent of canvas zoom.
+
+The editing overlay reads current DOM and canvas rectangles, then delegates horizontal, vertical, zoomed, panned, and depth-stage conversion to that contract. It writes only normalized Preset geometry. The contract is not a render input: composition rendering and export must not import it or capture its chrome. Render-side shader bounds remain in `utils/overlay-bounds.ts` because they describe native pixel work, not interaction affordances.
 
 Poster lifecycle has two layers. Every registered Surface has a committed `static/surface-posters/<type>.webp` fallback for immediate catalog paint. Composition-specific posters are captured on view, keyed by Preset content hash, stored in the local `.posters/` cache, and self-invalidated when content changes; `scripts/warm-posters.mjs` is an optional local prewarm, not a build or deployment step.
 

@@ -2,6 +2,15 @@
 	import { onDestroy } from 'svelte';
 
 	import { animState } from './anim-state.svelte';
+	import {
+		CANVAS_ROTATION_HANDLE_DESCRIPTOR,
+		canvasOverlayScaleHandleDescriptors,
+		canvasSelectionStackIndex,
+		createCanvasHandleGeometry,
+		createCanvasInteractionGeometryContract,
+		type CanvasInteractionGeometryContract,
+		type CanvasInteractionRect
+	} from './canvas-interaction-geometry';
 	import { engineState } from './engine-state.svelte';
 	import { createStageProjector, type StagePlane } from './pipelines/depth-stage-camera';
 	import {
@@ -91,71 +100,53 @@
 		});
 	});
 
-	// The composition DOM is full 4K CSS size (3840×2160). The WebGPU canvas is
-	// displayed at a much smaller size. To position hit regions in the editing
-	// overlay (which spans the canvas section), we must project from the 4K DOM
-	// coordinate space into the canvas display coordinate space.
-	//
-	// Steps:
-	//   1. Get the element's rect in 4K DOM space (viewport-relative).
-	//   2. Convert to composition fractions (capture UV space) off the
-	//      composition element's box.
-	//   3. Flat path: the canvas maps 1:1 to the composition, so the fractions
-	//      are the display fractions. Staged: project the four corners through
-	//      the stage camera and take their bounding box (the plane keystones
-	//      slightly under a drift; an axis-aligned box over the projected quad
-	//      is the right hit affordance).
-	//   4. Scale into the canvas display box within the editing overlay root.
+	function canvasInteractionRect(rect: DOMRect): CanvasInteractionRect {
+		return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+	}
+
+	// Read current browser measurements at the gesture/paint boundary. CSS zoom
+	// and pan are already reflected by the canvas rect; the shared contract keeps
+	// those screen pixels separate from normalized/native persistence geometry.
+	function currentCanvasInteractionGeometry(): CanvasInteractionGeometryContract | null {
+		const editorRect = rootEl?.getBoundingClientRect();
+		const canvasRect = canvas?.getBoundingClientRect();
+		const compositionRect = compositionElement?.getBoundingClientRect();
+		if (!editorRect || !canvasRect || !compositionRect) return null;
+		return createCanvasInteractionGeometryContract({
+			editorBounds: canvasInteractionRect(editorRect),
+			canvasBounds: canvasInteractionRect(canvasRect),
+			compositionDomBounds: canvasInteractionRect(compositionRect),
+			compositionSize,
+			projector: stageProjector
+		});
+	}
+
 	function projectRect(
 		el: HTMLElement,
 		plane: StagePlane = 'surface'
-	): { left: number; top: number; width: number; height: number } | null {
-		const rootRect = rootEl?.getBoundingClientRect();
-		const canvasRect = canvas?.getBoundingClientRect();
-		const compRect = compositionElement?.getBoundingClientRect();
-		if (!rootRect || !canvasRect || !compRect || canvasRect.width === 0 || compRect.width === 0)
-			return null;
-		const r = el.getBoundingClientRect();
-		let x0 = (r.left - compRect.left) / compRect.width;
-		let y0 = (r.top - compRect.top) / compRect.height;
-		let x1 = (r.right - compRect.left) / compRect.width;
-		let y1 = (r.bottom - compRect.top) / compRect.height;
-		if (stageProjector) {
-			const corners = [
-				stageProjector.projectPoint(plane, x0, y0),
-				stageProjector.projectPoint(plane, x1, y0),
-				stageProjector.projectPoint(plane, x0, y1),
-				stageProjector.projectPoint(plane, x1, y1)
-			];
-			x0 = Math.min(corners[0].x, corners[1].x, corners[2].x, corners[3].x);
-			x1 = Math.max(corners[0].x, corners[1].x, corners[2].x, corners[3].x);
-			y0 = Math.min(corners[0].y, corners[1].y, corners[2].y, corners[3].y);
-			y1 = Math.max(corners[0].y, corners[1].y, corners[2].y, corners[3].y);
-		}
-		return {
-			left: canvasRect.left - rootRect.left + x0 * canvasRect.width,
-			top: canvasRect.top - rootRect.top + y0 * canvasRect.height,
-			width: (x1 - x0) * canvasRect.width,
-			height: (y1 - y0) * canvasRect.height
-		};
+	): CanvasInteractionRect | null {
+		return (
+			currentCanvasInteractionGeometry()?.renderedBoundsFor(
+				canvasInteractionRect(el.getBoundingClientRect()),
+				plane
+			)?.editorBounds ?? null
+		);
 	}
 
-	// Pointer → composition fraction on an element's plane. Flat path: the
-	// canvas display maps 1:1 to the composition, so the fraction is linear.
-	// Staged: ray-cast the pointer through the camera onto the plane, so drag
-	// deltas land where the reprojected pixels are (a linear delta under a
-	// pulled-back camera over- or under-shoots the plane).
+	// Pointer → normalized composition coordinate on an element's plane. The
+	// contract also derives native coordinates for consumers that need them;
+	// authored overlay/diagram placement persists normalized values.
 	function pointerToComp(
 		clientX: number,
 		clientY: number,
 		plane: StagePlane
 	): { x: number; y: number } | null {
-		const canvasRect = canvas?.getBoundingClientRect();
-		if (!canvasRect || canvasRect.width === 0 || canvasRect.height === 0) return null;
-		const fx = (clientX - canvasRect.left) / canvasRect.width;
-		const fy = (clientY - canvasRect.top) / canvasRect.height;
-		if (!stageProjector) return { x: fx, y: fy };
-		return stageProjector.raycastPoint(plane, fx, fy);
+		return (
+			currentCanvasInteractionGeometry()?.screenPointToComposition(
+				{ x: clientX, y: clientY },
+				plane
+			)?.normalized ?? null
+		);
 	}
 
 	function overlayRelRect(
@@ -184,13 +175,12 @@
 	// doesn't jump) — `center` ignores `offset`, so it can't be nudged in place.
 	function measureTopLeftFrac(overlay: Overlay): { x: number; y: number } | null {
 		const el = getOverlayEl(overlay);
-		const compRect = compositionElement?.getBoundingClientRect();
-		if (!el || !compRect || compRect.width === 0 || compRect.height === 0) return null;
-		const r = el.getBoundingClientRect();
-		return {
-			x: (r.left - compRect.left) / compRect.width,
-			y: (r.top - compRect.top) / compRect.height
-		};
+		if (!el) return null;
+		const bounds = currentCanvasInteractionGeometry()?.renderedBoundsFor(
+			canvasInteractionRect(el.getBoundingClientRect()),
+			'overlay'
+		)?.compositionBounds.normalized;
+		return bounds ? { x: bounds.left, y: bounds.top } : null;
 	}
 
 	// ─── Drag state ──────────────────────────────────────────────────────────────
@@ -438,19 +428,6 @@
 			window.removeEventListener('pointermove', onRotateMove);
 			window.removeEventListener('pointerup', onRotateEnd);
 		}
-	}
-
-	// A corner handle is shown only when it isn't pinned by the anchor — the anchor
-	// corner can't scale (it's the fixed point), so we hide that one and keep every
-	// visible handle functional. Center / edge / normalized-rect pin no corner.
-	function showHandle(corner: 'nw' | 'ne' | 'sw' | 'se', anchor: string): boolean {
-		const pinned: Record<string, string> = {
-			'top-left': 'nw',
-			'top-right': 'ne',
-			'bottom-left': 'sw',
-			'bottom-right': 'se'
-		};
-		return pinned[anchor] !== corner;
 	}
 
 	// ─── Diagram primitive Blocks (ADR-0036): click-select + drag placement ─────
@@ -826,6 +803,11 @@
 				style:top="{rect.top}px"
 				style:width="{rect.width}px"
 				style:height="{rect.height}px"
+				style:z-index={canvasSelectionStackIndex({
+					layer: 'surface-content',
+					paintIndex: index,
+					stableId: `message:${index}`
+				})}
 			></div>
 		{/if}
 	{/each}
@@ -846,10 +828,15 @@
 				style:top="{rect.top}px"
 				style:width="{rect.width}px"
 				style:height="{rect.height}px"
+				style:z-index={canvasSelectionStackIndex({
+					layer: 'surface-content',
+					paintIndex: index,
+					stableId: `item:${index}`
+				})}
 			></div>
 		{/if}
 	{/each}
-	{#each SURFACE_TEXT_SLOTS as slot (slot)}
+	{#each SURFACE_TEXT_SLOTS as slot, slotIndex (slot)}
 		{@const rect = slotRelRect(slot)}
 		{#if rect && rect.width > 0}
 			<div
@@ -865,10 +852,15 @@
 				style:top="{rect.top}px"
 				style:width="{rect.width}px"
 				style:height="{rect.height}px"
+				style:z-index={canvasSelectionStackIndex({
+					layer: 'surface-text',
+					paintIndex: slotIndex,
+					stableId: `slot:${slot}`
+				})}
 			></div>
 		{/if}
 	{/each}
-	{#each diagramPrimitiveDraggables as primitive (primitive.id)}
+	{#each diagramPrimitiveDraggables as primitive, primitiveIndex (primitive.id)}
 		{@const rect = blockRelRect(primitive)}
 		{#if rect && rect.width > 0}
 			{@const isSelected = isTrackSelected({ kind: 'block', blockId: primitive.id })}
@@ -886,10 +878,15 @@
 				style:top="{rect.top}px"
 				style:width="{rect.width}px"
 				style:height="{rect.height}px"
+				style:z-index={canvasSelectionStackIndex({
+					layer: 'block',
+					paintIndex: primitiveIndex,
+					stableId: primitive.id
+				})}
 			></div>
 		{/if}
 	{/each}
-	{#each engineState.overlays as overlay (overlay.id)}
+	{#each engineState.overlays as overlay, overlayIndex (overlay.id)}
 		{@const rect = overlayRelRect(overlay)}
 		{@const placement = resolveOverlayPlacement(
 			overlay.position,
@@ -911,46 +908,50 @@
 				style:top="{rect.top}px"
 				style:width="{rect.width}px"
 				style:height="{rect.height}px"
+				style:z-index={canvasSelectionStackIndex({
+					layer: 'overlay',
+					paintIndex: overlayIndex,
+					stableId: overlay.id
+				})}
 			>
 				{#if isSelected}
+					{@const localVisibleBounds = {
+						left: 0,
+						top: 0,
+						width: rect.width,
+						height: rect.height
+					}}
+					{@const rotationHandle = createCanvasHandleGeometry(
+						localVisibleBounds,
+						CANVAS_ROTATION_HANDLE_DESCRIPTOR
+					)}
+					{@const scaleHandles = canvasOverlayScaleHandleDescriptors(placement.anchor).map(
+						(descriptor) => createCanvasHandleGeometry(localVisibleBounds, descriptor)
+					)}
 					<button
 						class="overlay-hit__rotate"
 						type="button"
 						aria-label="Rotate {overlay.type}"
 						onpointerdown={(e) => onRotateStart(e, overlay)}
+						style:left="{rotationHandle.pointerBounds.left}px"
+						style:top="{rotationHandle.pointerBounds.top}px"
+						style:width="{rotationHandle.pointerBounds.width}px"
+						style:height="{rotationHandle.pointerBounds.height}px"
 					></button>
-					{#if showHandle('nw', placement.anchor)}
+					{#each scaleHandles as handle (handle.position)}
 						<button
-							class="overlay-hit__handle overlay-hit__handle--nw"
+							class="overlay-hit__handle"
 							type="button"
+							data-handle-position={handle.position}
 							aria-label="Scale {overlay.type}"
 							onpointerdown={(e) => onScaleStart(e, overlay)}
+							style:left="{handle.pointerBounds.left}px"
+							style:top="{handle.pointerBounds.top}px"
+							style:width="{handle.pointerBounds.width}px"
+							style:height="{handle.pointerBounds.height}px"
+							style:cursor={handle.cursor}
 						></button>
-					{/if}
-					{#if showHandle('ne', placement.anchor)}
-						<button
-							class="overlay-hit__handle overlay-hit__handle--ne"
-							type="button"
-							aria-label="Scale {overlay.type}"
-							onpointerdown={(e) => onScaleStart(e, overlay)}
-						></button>
-					{/if}
-					{#if showHandle('sw', placement.anchor)}
-						<button
-							class="overlay-hit__handle overlay-hit__handle--sw"
-							type="button"
-							aria-label="Scale {overlay.type}"
-							onpointerdown={(e) => onScaleStart(e, overlay)}
-						></button>
-					{/if}
-					{#if showHandle('se', placement.anchor)}
-						<button
-							class="overlay-hit__handle overlay-hit__handle--se"
-							type="button"
-							aria-label="Scale {overlay.type}"
-							onpointerdown={(e) => onScaleStart(e, overlay)}
-						></button>
-					{/if}
+					{/each}
 				{/if}
 			</div>
 		{/if}
@@ -1028,60 +1029,49 @@
 		outline: 2px solid #ffd608;
 	}
 
-	/* Corner scale handles — drag to scale the overlay uniformly about its anchor. */
-	.overlay-hit__handle {
+	/* Handle buttons use the contract's 24px screen-space pointer bounds. The
+	   visible chrome stays fixed at 10px and therefore never bloats with zoom. */
+	.overlay-hit__handle,
+	.overlay-hit__rotate {
+		background: transparent;
+		border: 0;
+		box-sizing: border-box;
+		padding: 0;
+		pointer-events: all;
+		position: absolute;
+		touch-action: none;
+	}
+
+	.overlay-hit__handle::before {
 		background: #ffd608;
 		block-size: 10px;
 		border: 1px solid rgba(0, 0, 0, 0.5);
 		border-radius: 1px;
 		box-sizing: border-box;
+		content: '';
 		inline-size: 10px;
-		padding: 0;
-		pointer-events: all;
+		inset-block-start: calc(50% - 5px);
+		inset-inline-start: calc(50% - 5px);
 		position: absolute;
-		touch-action: none;
 	}
 
-	.overlay-hit__handle--nw {
-		cursor: nwse-resize;
-		inset-block-start: -5px;
-		inset-inline-start: -5px;
-	}
-
-	.overlay-hit__handle--ne {
-		cursor: nesw-resize;
-		inset-block-start: -5px;
-		inset-inline-end: -5px;
-	}
-
-	.overlay-hit__handle--sw {
-		cursor: nesw-resize;
-		inset-block-end: -5px;
-		inset-inline-start: -5px;
-	}
-
-	.overlay-hit__handle--se {
-		cursor: nwse-resize;
-		inset-block-end: -5px;
-		inset-inline-end: -5px;
-	}
-
-	/* Rotate lollipop — floats above the box's top-center; drag orbits the
-	   overlay about its anchor origin. */
+	/* Rotate lollipop — its circle and stem are visual chrome inside the larger
+	   pointer target supplied by the same handle contract. */
 	.overlay-hit__rotate {
+		cursor: grab;
+	}
+
+	.overlay-hit__rotate::before {
 		background: #ffd608;
 		block-size: 9px;
 		border: 1px solid rgba(0, 0, 0, 0.5);
 		border-radius: 50%;
 		box-sizing: border-box;
-		cursor: grab;
+		content: '';
 		inline-size: 9px;
-		inset-block-start: -18px;
+		inset-block-start: calc(50% - 4.5px);
 		inset-inline-start: calc(50% - 4.5px);
-		padding: 0;
-		pointer-events: all;
 		position: absolute;
-		touch-action: none;
 	}
 
 	.overlay-hit__rotate::after {
@@ -1089,7 +1079,7 @@
 		block-size: 10px;
 		content: '';
 		inline-size: 1.5px;
-		inset-block-start: 8px;
+		inset-block-start: calc(50% + 4.5px);
 		inset-inline-start: calc(50% - 0.75px);
 		position: absolute;
 	}
