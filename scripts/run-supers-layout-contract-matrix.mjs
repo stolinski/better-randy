@@ -102,6 +102,20 @@ async function launchHeadlessLayoutChrome() {
 	};
 }
 
+async function waitForLayoutRuntime(send, presetSlug) {
+	const deadline = Date.now() + WAIT_MS;
+	while (Date.now() < deadline) {
+		const ready = await send('Runtime.evaluate', {
+			expression:
+				"document.readyState === 'complete' && typeof window.__configureSupersDeterministicRenderCell === 'function' && typeof window.__captureSupersLayoutContractFrame === 'function' && typeof window.__captureSupersDeterministicFrameGeometry === 'function'",
+			returnByValue: true
+		});
+		if (ready.result?.value === true) return;
+		await new Promise((resolve) => setTimeout(resolve, 100));
+	}
+	throw new Error(`${presetSlug}: Layout Contract runtime did not become ready`);
+}
+
 async function openPage(port, presetSlug) {
 	const response = await fetch(
 		`http://localhost:${port}/json/new?${encodeURIComponent('about:blank')}`,
@@ -150,18 +164,13 @@ async function openPage(port, presetSlug) {
 	await send('Page.navigate', {
 		url: `${BASE_URL}/p/${encodeURIComponent(presetSlug)}?source=builtin`
 	});
-	const deadline = Date.now() + WAIT_MS;
-	while (Date.now() < deadline) {
-		const ready = await send('Runtime.evaluate', {
-			expression:
-				"document.readyState === 'complete' && typeof window.__configureSupersDeterministicRenderCell === 'function' && typeof window.__captureSupersLayoutContractFrame === 'function' && typeof window.__captureSupersDeterministicFrameGeometry === 'function'",
-			returnByValue: true
-		});
-		if (ready.result?.value === true) return { targetId: target.id, socket, send };
-		await new Promise((resolve) => setTimeout(resolve, 100));
+	try {
+		await waitForLayoutRuntime(send, presetSlug);
+		return { targetId: target.id, socket, send };
+	} catch (error) {
+		socket.close();
+		throw error;
 	}
-	socket.close();
-	throw new Error(`${presetSlug}: Layout Contract runtime did not become ready`);
 }
 
 async function evaluate(send, expression) {
@@ -326,6 +335,7 @@ async function run() {
 					) {
 						throw new Error(`${coordinate.cellId}: configured native target mismatch`);
 					}
+					await waitForLayoutRuntime(page.send, coordinate.presetSlug);
 					const primary = await captureFrame(page.send, coordinate, coordinate.sample.frameIndex);
 					const replay = await captureFrame(page.send, coordinate, coordinate.sample.frameIndex);
 					const auxiliary = [];
