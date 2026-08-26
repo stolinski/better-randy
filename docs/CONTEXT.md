@@ -222,7 +222,7 @@ The agent that grills the user through a Brief and writes `docs/briefs/<slug>.md
 An optional sub-agent spawned with fresh context to supply adversarial observations about a Producer's output. It sees only the Preset + renders + rubrics; never the Brief, brainstorm conversation, or Producer session. Its prose is advisory and has no Delivery authority. See the superseded build-harness history in [ADR-0001](adr/0001-critic-sub-agent-verification.md) and the current advisory protocol in `docs/critic.md`.
 
 **Probe**:
-A script under `scripts/probe-*.ts` that reads a captured screenshot and returns numeric measurements (banding, dimensions, hue count). Deterministic verification and optional Critic observations may use Probes; only closed-code evidence can route objective failure.
+A script under `scripts/probe-*.ts` that reads an explicitly requested Pixel diagnostic and returns numeric measurements (banding, dimensions, hue count). Probes do not participate in routine Layout Contract verification or scheduled Sentry. Only closed-code evidence can route objective failure.
 
 ### Rubric tiers
 

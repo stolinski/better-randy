@@ -49,10 +49,10 @@ The post-integration lane union is exact:
 
 | Trusted impact            | Selected deterministic work                                                                                                                             |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Preset                    | affected static Presets and affected render cells; no Pack matrix                                                                                       |
-| Pack                      | affected static Presets, affected render cells, and Pack matrix                                                                                         |
-| Authoring app             | task-path-scoped project diagnostics, unit tests, and browser checks; app-visual evidence remains separately typed                                      |
-| Rendering                 | affected static Presets, affected/full render scope from the selector, and aesthetic review; no export/decode                                           |
+| Preset                    | affected static Presets plus the exhaustive numeric Layout Contract Matrix; authored aesthetics remain a separate unavailable/human decision             |
+| Pack                      | affected static Presets plus the exhaustive numeric Layout Contract Matrix; no automatic pixel capture                                                  |
+| Authoring app             | task-path-scoped project diagnostics, unit tests, and browser checks; mixed render shells also run Layout Contracts                                     |
+| Rendering                 | affected static Presets plus the exhaustive numeric Layout Contract Matrix; no automatic screenshot or export/decode lane                              |
 | Export                    | declared export/decode package-script evidence plus touched product checks                                                                              |
 | Performance               | declared `benchmark:*` package-script evidence plus every lane selected by touched paths                                                                |
 | Repository infrastructure | structural repository checks only                                                                                                                       |
@@ -103,13 +103,19 @@ silently treated as broad render work. Pack catalog
 freshness is checked only in affected mode and only when the selected scope
 intersects a Calibration Trio Preset. Its render-source fingerprint includes
 shared rendering code plus the affected Pack's own directory, never sibling Pack
-directories, so one Pack's dress cannot stale another Pack's approval. Full
-browser/GPU render matrices remain a separate downstream regression and
-human-aesthetic evidence lane.
+directories, so one Pack's dress cannot stale another Pack's approval. Full pixel-capture matrices remain explicit diagnostic/release operations and have no routine Delivery or scheduled Sentry authority.
 
-## Objective render matrices
+## Layout Contract matrices
 
-`@supers/render-matrix-verification` owns browser/GPU verification separately
+Routine rendered-safety verification runs `pnpm verify:layout-contract`. One isolated headless Chrome process reuses Preset pages and emits strict numeric **Layout Contract Frames** across every deliverable Preset, Pack, orientation, and critical frame. It records native target size, font readiness, semantic readable-identity coverage, title/platform-safe intersections, clipping, cap-height floors, reading windows, canonical/replay geometry digests, and stable-layout deltas. A successful run writes JSON only: no PNG, data URL, screenshot path, visible browser window, or evidence archive. Missing identities and unavailable timing fail closed. The full matrix has a ten-minute wall-time bound.
+
+The `layout-contract` Factory lane owns this receipt for rendered source. Engine and Pipeline changes do not acquire a subjective aesthetic claim; directly authored Preset/Pack appearance still pauses for separate aesthetic evidence. Pixel-only questions such as antialiasing, blur, banding, codec artifacts, and composited local contrast use an explicitly requested bounded **Pixel diagnostic**, never an automatic corpus capture.
+
+See [ADR-0050](adr/0050-layout-contract-verification.md).
+
+## Manual pixel diagnostics and release matrices
+
+`@supers/render-matrix-verification` owns explicit browser/GPU diagnostics separately
 from the static corpus model. Its single `verify-render-matrix` method derives
 an immutable live deliverable-Preset and Pack snapshot, binds every coordinate
 to the content-sensitive tree fingerprint, and executes Preset × Pack × orientation
@@ -122,17 +128,17 @@ aesthetic observations remain advisory with no routing authority. The method che
 local and served checkout before and after capture and rejects stale registry,
 source, cell, or evidence identities before storing the bundle.
 
-Two generated workflows define the operational boundary:
+These workflows remain manual release/diagnostic entry points:
 
 - `supers-verify-affected-render-cells` consumes the canonical `change-impact`
   paths for the exact work item and fingerprint. It unions narrow Preset, Pack,
   and typed Pipeline impacts, expands unknown pixel-affecting paths to the full
   matrix, and records `not-applicable` only for proven non-render changes.
 - `supers-verify-full-render-matrix` enumerates the exact live deliverable
-  Preset × Pack × horizontal/vertical × deterministic-sample cross-product. It
-  is the root-epic completion gate, not a replacement for human visual review.
+  Preset × Pack × horizontal/vertical × deterministic-sample cross-product for
+  an explicitly requested pixel-quality release audit.
 
-Both workflows assert change state before and after the one model call and gate
+Both workflows assert change state before and after the one model call and validate
 only the `render-matrix-run` resource tagged with their own workflow run id.
 Read retained evidence without changing its verdict:
 
