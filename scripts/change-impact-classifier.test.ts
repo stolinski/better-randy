@@ -93,7 +93,7 @@ test('Inspector editor changes select bounded app and parity obligations', () =>
 
 test('direct Preset changes select render scope without Pack obligations', () => {
 	const path = 'src/lib/presets/lower-third.json';
-	assertOnlyLanes([path], ['preset-static', 'render-matrix']);
+	assertOnlyLanes([path], ['preset-static', 'layout-contract']);
 	assert.deepEqual(domainIds([path]), ['preset']);
 	assert.deepEqual(humanReviewKinds([path]), ['rendered-composition-aesthetic']);
 	assert.ok(!laneIds([path]).includes('pack-matrix'));
@@ -101,7 +101,7 @@ test('direct Preset changes select render scope without Pack obligations', () =>
 
 test('Pack changes add Pack obligations', () => {
 	const path = 'src/lib/packs/syntax/manifest.ts';
-	assertOnlyLanes([path], ['check', 'unit', 'preset-static', 'render-matrix', 'pack-matrix']);
+	assertOnlyLanes([path], ['check', 'unit', 'preset-static', 'layout-contract']);
 	assert.deepEqual(domainIds([path]), ['pack']);
 	assert.deepEqual(humanReviewKinds([path]), ['rendered-composition-aesthetic']);
 });
@@ -119,8 +119,9 @@ test('rendering-only changes do not add export decode', () => {
 		'src/lib/platform/pipelines/runtime-loader.ts',
 		'src/lib/platform/composition-frame-renderer.ts'
 	]) {
-		assertOnlyLanes([path], ['check', 'unit', 'preset-static', 'render-matrix']);
+		assertOnlyLanes([path], ['check', 'unit', 'preset-static', 'layout-contract']);
 		assert.deepEqual(domainIds([path]), ['rendering']);
+		assert.deepEqual(humanReviewKinds([path]), []);
 		assert.ok(!laneIds([path]).includes('export-decode'));
 	}
 });
@@ -152,7 +153,7 @@ test('trusted schema and contract paths select exact coverage audits', () => {
 			'check',
 			'unit',
 			'preset-static',
-			'render-matrix',
+			'layout-contract',
 			'timing-coverage',
 			'authoring-dependency-tracking',
 			'inspector-editor-parity'
@@ -266,7 +267,7 @@ test('natural Preset, Pack, rendering, and export intent keeps smallest-complete
 	});
 	assertOnlyLanes(
 		['src/lib/presets/lower-third.json'],
-		['preset-static', 'render-matrix'],
+		['preset-static', 'layout-contract'],
 		presetIntent
 	);
 	assert.ok(!laneIds(['src/lib/presets/lower-third.json'], presetIntent).includes('pack-matrix'));
@@ -276,7 +277,8 @@ test('natural Preset, Pack, rendering, and export intent keeps smallest-complete
 		description: '',
 		metadata: null
 	});
-	assert.ok(laneIds(['src/lib/packs/syntax/manifest.ts'], packIntent).includes('pack-matrix'));
+	assert.ok(laneIds(['src/lib/packs/syntax/manifest.ts'], packIntent).includes('layout-contract'));
+	assert.ok(!laneIds(['src/lib/packs/syntax/manifest.ts'], packIntent).includes('pack-matrix'));
 
 	const renderingIntent = classifySupersTaskIntent({
 		name: 'fix WebGPU rendering',
@@ -324,7 +326,7 @@ test('performance intent adds declared benchmark evidence to touched rendering c
 	assert.deepEqual(intent.benchmarkScripts, ['benchmark:render-frame']);
 	assertOnlyLanes(
 		['src/lib/platform/composition-frame-renderer.ts'],
-		['check', 'unit', 'preset-static', 'render-matrix', 'performance'],
+		['check', 'unit', 'preset-static', 'layout-contract', 'performance'],
 		intent
 	);
 	assert.ok(
@@ -392,7 +394,7 @@ test('path obligations remain authoritative over narrower human intent', () => {
 	});
 	assertOnlyLanes(
 		['src/lib/presets/lower-third.json'],
-		['preset-static', 'render-matrix'],
+		['preset-static', 'layout-contract'],
 		docsIntent
 	);
 });
@@ -422,12 +424,10 @@ test('unknown paths pause without guessing or spraying domain suites', () => {
 	assert.deepEqual(domainIds(['fixtures/unmapped.payload']), ['unknown']);
 });
 
-test('global styles and mixed render shells retain both visual review obligations', () => {
+test('global styles and mixed render shells use Layout Contracts plus app review', () => {
 	for (const path of ['src/app.css', 'src/lib/platform/Workspace.svelte']) {
-		assert.deepEqual(humanReviewKinds([path]), [
-			'authoring-app-visual',
-			'rendered-composition-aesthetic'
-		]);
+		assert.deepEqual(humanReviewKinds([path]), ['authoring-app-visual']);
+		assert.ok(laneIds([path]).includes('layout-contract'));
 	}
 });
 

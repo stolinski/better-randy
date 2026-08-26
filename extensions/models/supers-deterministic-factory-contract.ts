@@ -313,6 +313,7 @@ export const SupersDeliveryObjectiveFailureCodeSchema = z.union([
 		'unit-failed',
 		'structural-failed',
 		'preset-static-failed',
+		'layout-contract-failed',
 		'export-decode-failed',
 		'performance-failed',
 		'repository-infrastructure-failed',
@@ -765,8 +766,12 @@ export const SupersDeterministicRenderCheckSchema = z
 	.superRefine((check, context) => {
 		if (check.outcome === 'pass' || check.outcome === 'fail') {
 			if (check.code === 'readable-content-coverage') {
-				const expected = [...check.measurement.expectedReadableIdentities].sort(compareCanonicalText);
-				const discovered = [...check.measurement.discoveredReadableIdentities].sort(compareCanonicalText);
+				const expected = [...check.measurement.expectedReadableIdentities].sort(
+					compareCanonicalText
+				);
+				const discovered = [...check.measurement.discoveredReadableIdentities].sort(
+					compareCanonicalText
+				);
 				if (
 					new Set(expected).size !== expected.length ||
 					new Set(discovered).size !== discovered.length ||
@@ -796,7 +801,9 @@ export const SupersDeterministicRenderCheckSchema = z
 			}
 			if (check.code === 'shadow-banding') {
 				const expected = [...check.measurement.expectedShadowIds].sort(compareCanonicalText);
-				const measured = check.measurement.shadows.map((shadow) => shadow.shadowId).sort(compareCanonicalText);
+				const measured = check.measurement.shadows
+					.map((shadow) => shadow.shadowId)
+					.sort(compareCanonicalText);
 				if (
 					new Set(expected).size !== expected.length ||
 					new Set(measured).size !== measured.length ||
@@ -921,6 +928,7 @@ export const SupersDeliveryUnavailableEvidenceCodeSchema = z.enum([
 	'incomplete-deterministic-fanout',
 	'unexecuted-required-lane',
 	'missing-app-visual-evidence',
+	'missing-rendered-aesthetic-evidence',
 	'unknown-change-domain',
 	'benchmark-evidence-not-declared',
 	'export-decode-evidence-not-declared'
@@ -1448,8 +1456,12 @@ export async function verifySupersRenderMatrixBundle(
 			throw new TypeError('Matrix coordinate Preset or Pack fingerprint mismatch');
 		}
 	}
-	const expectedCellIds = manifest.coordinates.map((coordinate) => coordinate.cellId).sort(compareCanonicalText);
-	const actualCellIds = bundle.cells.map((cell) => cell.coordinate.cellId).sort(compareCanonicalText);
+	const expectedCellIds = manifest.coordinates
+		.map((coordinate) => coordinate.cellId)
+		.sort(compareCanonicalText);
+	const actualCellIds = bundle.cells
+		.map((cell) => cell.coordinate.cellId)
+		.sort(compareCanonicalText);
 	if (
 		new Set(expectedCellIds).size !== expectedCellIds.length ||
 		new Set(actualCellIds).size !== actualCellIds.length ||
@@ -1493,7 +1505,8 @@ export async function verifySupersRenderMatrixBundle(
 			if (
 				new Set(expectedReadingIds).size !== expectedReadingIds.length ||
 				new Set(measuredReadingIds).size !== measuredReadingIds.length ||
-				[...measuredReadingIds].sort(compareCanonicalText).join('\n') !== expectedReadingIds.join('\n')
+				[...measuredReadingIds].sort(compareCanonicalText).join('\n') !==
+					expectedReadingIds.join('\n')
 			) {
 				throw new TypeError(
 					'Reading evidence must cover exactly the Preset-derived plan identities'
@@ -1516,7 +1529,9 @@ export async function verifySupersRenderMatrixBundle(
 			);
 		}
 		if (coverageCheck?.code === 'readable-content-coverage' && coverageCheck.outcome === 'pass') {
-			const expectedReadableIds = [...coverageCheck.measurement.expectedReadableIdentities].sort(compareCanonicalText);
+			const expectedReadableIds = [...coverageCheck.measurement.expectedReadableIdentities].sort(
+				compareCanonicalText
+			);
 			for (const code of [
 				'readable-content-clipped',
 				'readable-content-occluded',

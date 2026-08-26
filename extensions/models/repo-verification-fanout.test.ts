@@ -165,6 +165,26 @@ Deno.test('affected Preset verification receives only trusted changed paths', as
 	assert.ok(!calls[0].args.includes('--all'));
 });
 
+Deno.test('Layout Contract lane runs the capture-free numeric matrix', async () => {
+	const calls: Array<{ command: string; args: string[] }> = [];
+	const report = await runVerificationFanout(
+		'/repo',
+		argumentsFor(['layout-contract'], ['src/lib/platform/composition-frame-renderer.ts']),
+		async (command, args) => {
+			calls.push({ command, args });
+			return successfulOutput('{"passed":true,"coordinateCount":1744}');
+		}
+	);
+
+	assert.equal(report.passed, true);
+	assert.deepEqual(calls, [
+		{
+			command: 'node',
+			args: ['--experimental-strip-types', 'scripts/run-supers-layout-contract-matrix.mjs']
+		}
+	]);
+});
+
 Deno.test(
 	'Swamp-only fan-out validates touched definitions and excludes product suites',
 	async () => {
@@ -317,9 +337,7 @@ Deno.test('workflow-only routing validates the workflow without product tests', 
 		}
 	]);
 	assert.ok(
-		!calls.some(
-			({ command }) => command === 'pnpm' || command === 'deno' || command === 'npx'
-		)
+		!calls.some(({ command }) => command === 'pnpm' || command === 'deno' || command === 'npx')
 	);
 });
 

@@ -10,6 +10,7 @@ export const AutomatedVerificationLaneIdSchema = z.enum([
 	'check',
 	'unit',
 	'preset-static',
+	'layout-contract',
 	'export-decode',
 	'performance',
 	'repository-infrastructure',
@@ -383,6 +384,13 @@ async function verificationCommands(
 						'--changed-paths-json',
 						JSON.stringify(args.changedPaths)
 					]
+				}
+			];
+		case 'layout-contract':
+			return [
+				{
+					command: 'node',
+					args: ['--experimental-strip-types', 'scripts/run-supers-layout-contract-matrix.mjs']
 				}
 			];
 		case 'export-decode':

@@ -60,6 +60,7 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 | [0047](0047-reject-general-asset-to-geometry-import.md)          | Canon (broad scope rejected)                              | Reject general SVG/image/GLB-to-geometry import; revisit only for a bounded consumer       |
 | [0048](0048-agent-authored-chart-domain.md)                      | Canon (built)                                             | Strict Block-domain charts with Pack-owned appearance and intrinsic deterministic motion   |
 | [0049](0049-lazy-pipeline-renderer-loading.md)                   | Canon (built)                                             | Synchronous Pipeline definitions with Preset-scoped lazy renderer loading                   |
+| [0050](0050-layout-contract-verification.md)                     | Designed, implementation in progress                     | Geometry-first exhaustive Layout Contract verification; pixel capture is diagnostic only   |
 
 ## Supersession And Refinement
 

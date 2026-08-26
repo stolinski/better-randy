@@ -540,6 +540,9 @@ declare global {
 		__captureSupersDeterministicRenderRegionManifest?: (
 			request: DeterministicFrameRequest
 		) => Promise<DeterministicRenderRegionManifest>;
+		__captureSupersLayoutContractFrame?: (
+			request: DeterministicFrameRequest
+		) => Promise<DeterministicRenderRegionManifest>;
 		__captureSupersDeterministicReadablePngArtifacts?: (
 			readableId: string
 		) => Promise<DeterministicReadableCaptureDataUrls | null>;
@@ -578,12 +581,15 @@ export interface DeterministicRenderCaptureAuthority {
 	): Promise<readonly DeterministicReadableCompositedMask[]>;
 }
 
-/** Install the runtime-authoritative seam as soon as composition roots and Timeline exist. */
+/** Install the runtime-authoritative seams as soon as composition roots and Timeline exist. */
 export function exposeDeterministicRenderAudit(
 	state: EngineState,
 	authority: DeterministicRenderCaptureAuthority
 ): void {
-	window.__captureSupersDeterministicRenderRegionManifest = async (request) => {
+	const captureManifest = async (
+		request: DeterministicFrameRequest,
+		includePixelMasks: boolean
+	): Promise<DeterministicRenderRegionManifest> => {
 		const settled = await authority.seekExactFrame(request);
 		if (
 			settled.address.frameIndex !== request.address.frameIndex ||
@@ -593,12 +599,23 @@ export function exposeDeterministicRenderAudit(
 		) {
 			throw new RangeError('Timeline did not settle at the requested frame and active frame rate.');
 		}
-		const transitionEndpoints = authority.captureTransitionEndpointManifests
-			? await authority.captureTransitionEndpointManifests(settled)
-			: [];
-		const manifest = await captureDeterministicRenderRegionManifest(state, settled, authority);
+		const transitionEndpoints =
+			includePixelMasks && authority.captureTransitionEndpointManifests
+				? await authority.captureTransitionEndpointManifests(settled)
+				: [];
+		const manifest = await captureDeterministicRenderRegionManifest(state, settled, {
+			compositionRoot: authority.compositionRoot,
+			overlayRoot: authority.overlayRoot,
+			captureReadableCompositedMasks: includePixelMasks
+				? authority.captureReadableCompositedMasks
+				: undefined
+		});
 		return { ...manifest, transitionEndpoints };
 	};
+
+	window.__captureSupersDeterministicRenderRegionManifest = (request) =>
+		captureManifest(request, true);
+	window.__captureSupersLayoutContractFrame = (request) => captureManifest(request, false);
 }
 
 export interface DeterministicRuntimeTextMeasurement {

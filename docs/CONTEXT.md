@@ -232,6 +232,18 @@ There are two distinct layers, often confused. The **rubric tiers** (R/Q/G) cont
 The static code gate at `src/lib/platform/preset-rubric.ts` (run by `scripts/verify-presets.ts` as `lintPreset`). It checks only objective video-safety/readability facts computable from Preset JSON plus target frame size: authored read windows, safe-area placement, contrast, frame fit, and related structural timing floors. Render-measured cap height, line measure, and density live in `lintPresetVisual` and the visual audit harness, not `verify-presets`. Neither lane carries motion or aesthetic taste; exact-evidence-bound human review owns that judgment. See [ADR-0025](adr/0025-static-linter-checks-safety-and-readability-only.md).
 _Avoid_: rubric (the linter is not the R/Q/G rubric tiers), validator (that is schema parsing).
 
+**Layout Contract Frame**:
+A strict numeric safety/readability receipt for one exact Preset, Pack, orientation, and frame address. It records native geometry, readable identity coverage, safe-area intersections, clipping, cap heights, font readiness, reading windows, and deterministic layout replay. It contains no image evidence and makes no aesthetic claim.
+_Avoid_: screenshot, render sample, visual approval.
+
+**Layout Contract Matrix**:
+The exhaustive set of **Layout Contract Frames** required by one verification scope. Routine Delivery and scheduled Sentry use it to prove objective rendered safety across the corpus without retaining screenshots. Missing coordinates or incomplete identity authority are unavailable evidence, never inferred passes.
+_Avoid_: screenshot matrix, gallery, contact sheet.
+
+**Pixel diagnostic**:
+An explicitly requested bounded capture or probe for a genuinely pixel-only question such as antialiasing, blur, banding, codec artifacts, or local composited contrast. It is diagnostic evidence, not the routine safety matrix and not subjective approval.
+_Avoid_: Layout Contract (numeric geometry authority), Critic observation, automatic corpus screenshot gate.
+
 **R-rule**:
 A render-quality rule from `docs/quality-rubric.md` (R1–R8). Non-negotiable; a closed-code measured failure means a pipeline bug to fix, not a Preset to tune. Rules without closed measurement remain human criteria, never Critic routing authority.
 

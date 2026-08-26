@@ -7,6 +7,7 @@ export type VerificationLaneId =
 	| 'unit'
 	| 'browser'
 	| 'preset-static'
+	| 'layout-contract'
 	| 'render-matrix'
 	| 'pack-matrix'
 	| 'export-decode'
@@ -108,6 +109,7 @@ const LANE_ORDER: VerificationLaneId[] = [
 	'unit',
 	'browser',
 	'preset-static',
+	'layout-contract',
 	'render-matrix',
 	'pack-matrix',
 	'export-decode',
@@ -223,11 +225,7 @@ function isPackContractMetadataPath(path: string): boolean {
 }
 
 function isRenderPath(path: string): boolean {
-	if (
-		isTestPath(path) ||
-		path.endsWith('/Editor.svelte') ||
-		isPackContractMetadataPath(path)
-	) {
+	if (isTestPath(path) || path.endsWith('/Editor.svelte') || isPackContractMetadataPath(path)) {
 		return false;
 	}
 	return (
@@ -680,11 +678,8 @@ function addPathLaneReasons(paths: string[], map: Map<string, string[]>): void {
 		if (isPresetPath(path) || pixelAffectingPackPath || isRenderPath(path)) {
 			addReason(map, 'preset-static', `affected Preset validity may change: ${path}`);
 		}
-		if (isPresetPath(path) || pixelAffectingPackPath || isRenderPath(path)) {
-			addReason(map, 'render-matrix', `rendered composition pixels may change: ${path}`);
-		}
-		if (pixelAffectingPackPath) {
-			addReason(map, 'pack-matrix', `Pack appearance may change: ${path}`);
+		if (isPresetPath(path) || pixelAffectingPackPath || isRenderedCompositionPath(path)) {
+			addReason(map, 'layout-contract', `rendered composition layout may change: ${path}`);
 		}
 		if (isExportPath(path)) addReason(map, 'export-decode', `encoded output may change: ${path}`);
 		if (isPerformancePath(path))
@@ -724,10 +719,10 @@ function addPathLaneReasons(paths: string[], map: Map<string, string[]>): void {
 
 function addIntentLaneReasons(intent: SupersWorkDomainIntent, map: Map<string, string[]>): void {
 	const lanesByDomain: Record<Exclude<WorkDomainId, 'unknown'>, VerificationLaneId[]> = {
-		preset: ['preset-static', 'render-matrix'],
-		pack: ['preset-static', 'render-matrix', 'pack-matrix'],
+		preset: ['preset-static', 'layout-contract'],
+		pack: ['preset-static', 'layout-contract'],
 		'authoring-app': ['check', 'unit', 'browser'],
-		rendering: ['preset-static', 'render-matrix'],
+		rendering: ['preset-static', 'layout-contract'],
 		export: ['export-decode'],
 		performance: ['performance'],
 		'repository-infrastructure': ['repository-infrastructure'],
@@ -803,13 +798,21 @@ function classifySurfaces(
 			reasons: [`authoring application visual source changed: ${appVisual.join(', ')}`]
 		});
 	}
-	const rendered = paths.filter(isRenderedCompositionPath);
-	if (rendered.length > 0 || intentRequiresRendered) {
+	const aestheticAuthoredPaths = paths.filter(
+		(path) =>
+			isPresetPath(path) ||
+			path.startsWith('src/lib/packs/') ||
+			(path.startsWith('static/') && isVisualAssetPath(path))
+	);
+	const intentRequiresAestheticReview = intent.declaredDomains.some((domain) =>
+		['preset', 'pack'].includes(domain)
+	);
+	if (aestheticAuthoredPaths.length > 0 || intentRequiresAestheticReview) {
 		requiredHumanReviews.push({
 			kind: 'rendered-composition-aesthetic',
 			reasons:
-				rendered.length > 0
-					? [`rendered composition pixels may change: ${rendered.join(', ')}`]
+				aestheticAuthoredPaths.length > 0
+					? [`authored composition appearance may change: ${aestheticAuthoredPaths.join(', ')}`]
 					: ['human task intent added rendered-composition aesthetic review']
 		});
 	}

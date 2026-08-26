@@ -366,6 +366,7 @@ const DETERMINISTIC_LANE_IDS = new Set([
 	'check',
 	'unit',
 	'preset-static',
+	'layout-contract',
 	'export-decode',
 	'performance',
 	'repository-infrastructure',
@@ -486,8 +487,8 @@ Deno.test(
 			},
 			{
 				path: 'src/lib/presets/lower-third.json',
-				disposition: 'await-human-aesthetic',
-				unavailable: []
+				disposition: 'evidence-unavailable',
+				unavailable: ['missing-rendered-aesthetic-evidence']
 			},
 			{
 				path: 'src/lib/platform/composition-export-controller.ts',
@@ -599,14 +600,14 @@ Deno.test('human review requirements must match unique classified surfaces and l
 	);
 });
 
-Deno.test('rendered composition impact requires its review and render lane', async () => {
+Deno.test('rendered composition impact requires Layout Contracts and review matches its surface', async () => {
 	const missingReview = await notApplicableArguments();
 	(missingReview.changeImpact as Record<string, unknown>).surfaces = [
 		{ id: 'rendered-composition', reasons: ['composition pixels changed'] }
 	];
 	await assert.rejects(
 		() => normalizeSupersDeliveryVerificationRoute(missingReview),
-		/Rendered composition impact requires/
+		/requires the Layout Contract lane/
 	);
 
 	const missingLane = await notApplicableArguments();
@@ -618,17 +619,22 @@ Deno.test('rendered composition impact requires its review and render lane', asy
 	];
 	await assert.rejects(
 		() => normalizeSupersDeliveryVerificationRoute(missingLane),
-		/Rendered composition impact requires/
+		/requires the Layout Contract lane/
 	);
 
 	const reviewWithoutSurface = await notApplicableArguments();
 	(reviewWithoutSurface.changeImpact as Record<string, unknown>).requiredHumanReviews = [
 		{ kind: 'rendered-composition-aesthetic', reasons: ['composition pixels changed'] }
 	];
-	reviewWithoutSurface.requiredLaneIds = ['policy-sweep', 'check', 'render-matrix'];
+	reviewWithoutSurface.requiredLaneIds = [
+		'policy-sweep',
+		'check',
+		'layout-contract',
+		'render-matrix'
+	];
 	await assert.rejects(
 		() => normalizeSupersDeliveryVerificationRoute(reviewWithoutSurface),
-		/Rendered composition impact requires/
+		/Rendered aesthetic review requires rendered-composition impact/
 	);
 });
 
@@ -677,7 +683,13 @@ Deno.test('a completed render matrix cannot cover a missing required browser rec
 	(args.changeImpact as Record<string, unknown>).requiredHumanReviews = [
 		{ kind: 'rendered-composition-aesthetic', reasons: ['composition pixels changed'] }
 	];
-	args.requiredLaneIds = ['policy-sweep', 'check', 'browser', 'render-matrix'];
+	args.requiredLaneIds = [
+		'policy-sweep',
+		'check',
+		'browser',
+		'layout-contract',
+		'render-matrix'
+	];
 	args.renderMatrixRun = {
 		schemaVersion: 1,
 		status: 'completed',

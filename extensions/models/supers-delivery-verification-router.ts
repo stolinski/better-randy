@@ -45,6 +45,7 @@ const AutomatedLaneIdSchema = z.enum([
 	'check',
 	'unit',
 	'preset-static',
+	'layout-contract',
 	'export-decode',
 	'performance',
 	'repository-infrastructure',
@@ -61,6 +62,7 @@ const RequiredLaneIdSchema = z.enum([
 	'unit',
 	'browser',
 	'preset-static',
+	'layout-contract',
 	'render-matrix',
 	'pack-matrix',
 	'export-decode',
@@ -309,19 +311,20 @@ export async function normalizeSupersDeliveryVerificationRoute(
 		'rendered-composition-aesthetic'
 	);
 	const hasRenderedCompositionSurface = surfaceIds.includes('rendered-composition');
-	const hasRenderMatrixLane = uniqueRequiredLaneIds.includes('render-matrix');
+	const hasLayoutContractLane = uniqueRequiredLaneIds.includes('layout-contract');
 	if (requiresAppVisualReview && !surfaceIds.includes('authoring-app')) {
 		throw new TypeError('Human review requirement does not match its change surface');
 	}
-	if (
-		hasRenderedCompositionSurface !== requiresRenderedCompositionReview ||
-		(requiresRenderedCompositionReview && !hasRenderMatrixLane)
-	) {
-		throw new TypeError(
-			'Rendered composition impact requires its aesthetic review and render-matrix lane'
-		);
+	if (requiresRenderedCompositionReview && !hasRenderedCompositionSurface) {
+		throw new TypeError('Rendered aesthetic review requires rendered-composition impact');
+	}
+	if (hasRenderedCompositionSurface && !hasLayoutContractLane) {
+		throw new TypeError('Rendered composition impact requires the Layout Contract lane');
 	}
 	if (requiresAppVisualReview) unavailable.add('missing-app-visual-evidence');
+	if (requiresRenderedCompositionReview) {
+		unavailable.add('missing-rendered-aesthetic-evidence');
+	}
 	if (args.changeImpact.classification === 'unknown' || uniqueRequiredLaneIds.includes('unknown')) {
 		unavailable.add('unknown-change-domain');
 	}
@@ -351,6 +354,7 @@ export async function normalizeSupersDeliveryVerificationRoute(
 						check: 'check-failed',
 						unit: 'unit-failed',
 						'preset-static': 'preset-static-failed',
+						'layout-contract': 'layout-contract-failed',
 						'export-decode': 'export-decode-failed',
 						performance: 'performance-failed',
 						'repository-infrastructure': 'repository-infrastructure-failed',
