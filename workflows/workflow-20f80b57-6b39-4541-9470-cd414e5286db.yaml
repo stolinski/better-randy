@@ -153,8 +153,8 @@ jobs:
             workItem: '${{ self.activeAdmission.attributes.dexTaskId }}'
             evidenceName: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence"'').filter(evidence, evidence.attributes.repairIdentityFingerprint == self.activeAdmission.attributes.repairIdentityFingerprint && evidence.attributes.checkoutRevision == self.activeAdmission.attributes.checkoutRevision)[0].name }}'
             expectedEvidenceFingerprint: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence"'').filter(evidence, evidence.attributes.repairIdentityFingerprint == self.activeAdmission.attributes.repairIdentityFingerprint && evidence.attributes.checkoutRevision == self.activeAdmission.attributes.checkoutRevision)[0].attributes.fingerprint }}'
-            mappingName: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping"'').filter(mapping, mapping.attributes.taskId == self.activeAdmission.attributes.dexTaskId && mapping.attributes.repairIdentityFingerprint == self.activeAdmission.attributes.repairIdentityFingerprint)[0].name }}'
-            expectedMappingFingerprint: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping"'').filter(mapping, mapping.attributes.taskId == self.activeAdmission.attributes.dexTaskId && mapping.attributes.repairIdentityFingerprint == self.activeAdmission.attributes.repairIdentityFingerprint)[0].attributes.fingerprint }}'
+            mappingName: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping"'').filter(mapping, mapping.attributes.taskId == self.activeAdmission.attributes.dexTaskId && mapping.attributes.repairIdentityFingerprint == self.activeAdmission.attributes.repairIdentityFingerprint && mapping.attributes.fingerprint == self.activeAdmission.attributes.taskMappingFingerprint)[0].name }}'
+            expectedMappingFingerprint: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "task-mapping"'').filter(mapping, mapping.attributes.taskId == self.activeAdmission.attributes.dexTaskId && mapping.attributes.repairIdentityFingerprint == self.activeAdmission.attributes.repairIdentityFingerprint && mapping.attributes.fingerprint == self.activeAdmission.attributes.taskMappingFingerprint)[0].attributes.fingerprint }}'
             admissionName: '${{ self.activeAdmission.name }}'
             expectedAdmissionFingerprint: '${{ self.activeAdmission.attributes.fingerprint }}'
         dependsOn:
@@ -223,4 +223,4 @@ jobs:
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 12
+version: 13

@@ -44,7 +44,7 @@ Deno.test(
   async () => {
     const source = await Deno.readTextFile(INTAKE_WORKFLOW_PATH);
     const workflow = parse(source) as WorkflowDefinition;
-    assert.equal(workflow.version, 12);
+    assert.equal(workflow.version, 13);
     assert.deepEqual(
       workflow.jobs.flatMap((job) => job.steps).map((step) => step.name),
       [
@@ -89,6 +89,14 @@ Deno.test(
     const resolve = stepByName(workflow, "resolve-completed-sentry-repair");
     const select = stepByName(workflow, "select-one-sentry-repair");
     assert.equal(resume.concurrency, 1);
+    assert.match(
+      String(resume.task.inputs?.mappingName),
+      /mapping\.attributes\.fingerprint == self\.activeAdmission\.attributes\.taskMappingFingerprint/,
+    );
+    assert.match(
+      String(resume.task.inputs?.expectedMappingFingerprint),
+      /mapping\.attributes\.fingerprint == self\.activeAdmission\.attributes\.taskMappingFingerprint/,
+    );
     assert.equal(resolve.concurrency, 1);
     assert.equal(resolve.dependsOn?.[0]?.step, "refresh-delivery-state");
     assert.equal(resolve.dependsOn?.[0]?.condition?.type, "succeeded");
