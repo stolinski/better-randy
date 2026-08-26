@@ -5,6 +5,7 @@ import {
 	createSentrySha256
 } from './sentry-issue-intake-adapter.ts';
 import { createSupersDeterministicContractHash } from './supers-deterministic-factory-contract.ts';
+import { createRepositoryTreeFingerprint } from '../../src/lib/utils/repository-tree-fingerprint.server.ts';
 import { model } from './repo-audit.ts';
 
 const task = {
@@ -39,6 +40,9 @@ type WorkDomainMethod = {
 const method = model.methods['classify-work-domain-intent'] as unknown as WorkDomainMethod;
 const migrationMethod = model.methods[
 	'migrate-legacy-sentry-work-domain-intent'
+] as unknown as WorkDomainMethod;
+const recoveryMethod = model.methods[
+	'recover-later-integrated-change-state'
 ] as unknown as WorkDomainMethod;
 
 async function withSentryFingerprint<T extends Record<string, unknown>>(
@@ -385,4 +389,194 @@ Deno.test('repo audit legacy Sentry route migration fails closed on conflicting 
 			}),
 		/refuses to overwrite/
 	);
+});
+
+Deno.test('repo audit attributes scoped drift to one later terminal integration and rejects dirty tampering', async () => {
+	const repoDir = await Deno.makeTempDir({ prefix: 'supers-freshness-recovery-' });
+	const changedPath = 'src/routes/api/user-compositions/user-compositions.test.ts';
+	const laterPath = 'src/routes/api/user-compositions/[slug]/+server.ts';
+	const git = async (...args: string[]): Promise<string> => {
+		const output = await new Deno.Command('git', {
+			args,
+			cwd: repoDir,
+			stdin: 'null',
+			stdout: 'piped',
+			stderr: 'piped'
+		}).output();
+		if (output.code !== 0) {
+			throw new Error(new TextDecoder().decode(output.stderr));
+		}
+		return new TextDecoder().decode(output.stdout).trim();
+	};
+	const commit = async (message: string): Promise<string> => {
+		await git('add', '.');
+		await git(
+			'-c',
+			'user.name=Supers Test',
+			'-c',
+			'user.email=supers-test@example.com',
+			'commit',
+			'-m',
+			message
+		);
+		return await git('rev-parse', 'HEAD');
+	};
+	const write = async (path: string, content: string): Promise<void> => {
+		await Deno.mkdir(`${repoDir}/${path.slice(0, path.lastIndexOf('/'))}`, {
+			recursive: true
+		});
+		await Deno.writeTextFile(`${repoDir}/${path}`, content);
+	};
+	const receipt = async (
+		workItem: string,
+		targetBaselineRevision: string,
+		integratedRevision: string,
+		changedPaths: string[]
+	): Promise<Record<string, unknown>> => {
+		const content = {
+			schemaVersion: 1 as const,
+			rootEpicId: workItem,
+			activeTaskId: workItem,
+			factoryName: 'supers-delivery' as const,
+			handoffManifestDigest: '1'.repeat(64),
+			targetBaselineRevision,
+			disposition: 'integrated' as const,
+			childRevisionEvidence: {
+				status: 'verified' as const,
+				childCommittedRevision: '2'.repeat(40)
+			},
+			baseCommit: targetBaselineRevision,
+			patchDigest: '3'.repeat(64),
+			changedPaths,
+			integratedRevision,
+			integratedTreeFingerprint: '4'.repeat(64),
+			rejectionReason: 'none' as const
+		};
+		return {
+			...content,
+			receiptId: await createSupersDeterministicContractHash(content)
+		};
+	};
+
+	try {
+		await git('init', '-q');
+		await write(changedPath, 'baseline\n');
+		const baseline = await commit('baseline');
+		await write(changedPath, 'original repair\n');
+		const originalIntegrated = await commit('original repair');
+		await write('docs/unrelated.md', 'later admission\n');
+		const laterBaseline = await commit('later admission');
+		await write(changedPath, 'later repair\n');
+		await write(laterPath, 'later handler\n');
+		const laterIntegrated = await commit('later repair');
+		await write('docs/after.md', 'unrelated control-plane work\n');
+		await commit('later unrelated work');
+
+		const committedTree = await new Deno.Command('git', {
+			args: ['ls-tree', '-r', '-z', 'HEAD', '--', changedPath],
+			cwd: repoDir,
+			stdout: 'piped',
+			stderr: 'piped'
+		}).output();
+		assert.equal(committedTree.code, 0);
+		const currentFingerprint = await createRepositoryTreeFingerprint({
+			head: `scoped-paths-v1\0${new TextDecoder().decode(committedTree.stdout)}`,
+			unstagedDiff: new Uint8Array(),
+			stagedDiff: new Uint8Array(),
+			status: new Uint8Array(),
+			untracked: []
+		});
+		const originalIntegrationReceipt = await receipt(
+			'original-task',
+			baseline,
+			originalIntegrated,
+			[changedPath]
+		);
+		const laterIntegrationReceipt = await receipt(
+			'later-task',
+			laterBaseline,
+			laterIntegrated,
+			[laterPath, changedPath].sort()
+		);
+		const args = {
+			workItem: 'original-task',
+			originalChangeImpact: {
+				workItem: 'original-task',
+				baselineHead: baseline,
+				treeFingerprint: '5'.repeat(64),
+				paths: [changedPath]
+			},
+			originalIntegrationReceipt,
+			currentVerification: {
+				workItem: 'original-task',
+				integratedRevision: originalIntegrated,
+				treeFingerprint: currentFingerprint,
+				changedPaths: [changedPath],
+				workflowRunId: 'original-verification-run',
+				disposition: 'reconcile'
+			},
+			laterCandidates: [
+				{
+					workItem: 'later-task',
+					integrationReceipt: laterIntegrationReceipt,
+					verification: {
+						workItem: 'later-task',
+						integratedRevision: laterIntegrated,
+						treeFingerprint: '6'.repeat(64),
+						changedPaths: [laterPath, changedPath].sort(),
+						workflowRunId: 'later-verification-run',
+						disposition: 'reconcile'
+					},
+					factoryState: {
+						workItem: 'later-task',
+						stageId: 'done',
+						status: 'terminal',
+						definitionVersion: 38
+					},
+					trackerCompletion: {
+						status: 'succeeded',
+						runId: 'later-completion-run',
+						model: 'supers-sentry-reproduction-transport',
+						method: 'complete-machine-sentry',
+						outputId: 'later-completion-output',
+						taskId: 'later-task',
+						commitKind: 'commit'
+					}
+				}
+			]
+		};
+		const writes: Array<{ specName: string; data: Record<string, unknown> }> = [];
+		await recoveryMethod.execute(args, {
+			repoDir,
+			globalArgs: {},
+			logger: { info: () => undefined },
+			readResource: () => Promise.resolve(null),
+			writeResource: (
+				specName: string,
+				name: string,
+				data: Record<string, unknown>
+			) => {
+				writes.push({ specName, data });
+				return Promise.resolve({ name });
+			}
+		});
+		assert.equal(writes[0].specName, 'change-freshness-recovery');
+		assert.equal(writes[0].data.laterWorkItem, 'later-task');
+		assert.deepEqual(writes[0].data.driftPaths, [changedPath]);
+
+		await write(changedPath, 'uncommitted tampering\n');
+		await assert.rejects(
+			() =>
+				recoveryMethod.execute(args, {
+					repoDir,
+					globalArgs: {},
+					logger: { info: () => undefined },
+					readResource: () => Promise.resolve(null),
+					writeResource: () => Promise.resolve({ name: 'unreachable' })
+				}),
+			/exactly one terminal later integration; found 0/
+		);
+	} finally {
+		await Deno.remove(repoDir, { recursive: true });
+	}
 });

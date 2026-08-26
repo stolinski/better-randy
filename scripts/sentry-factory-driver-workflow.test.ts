@@ -64,7 +64,7 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   const steps = workflow.jobs.flatMap((job) => job.steps);
   const names = steps.map((step) => step.name);
 
-  assert.equal(workflow.version, 10);
+  assert.equal(workflow.version, 11);
   assert.deepEqual(workflow.inputs.required, [
     "workItem",
     "evidenceName",
@@ -86,6 +86,8 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
     "record-deterministic-change-summary",
     "run-exact-change-classification",
     "run-deterministic-verification",
+    "recover-later-integration-freshness",
+    "assert-verification-freshness-authority",
     "record-machine-reconciliation",
     "run-postflight-policy",
     "record-sentry-machine-authorization",
@@ -327,16 +329,44 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
     "run-deterministic-verification",
   );
   assert.match(verificationRetry.guard ?? "", /schemaVersion >= 3/);
+  assert.match(verificationRetry.guard ?? "", /transition\.name == "reconcile"/);
+  assert.match(verificationRetry.guard ?? "", /transition\.satisfied/);
   assert.match(verificationRetry.guard ?? "", /result\.command == "pnpm run check"/);
   assert.match(
     verificationRetry.guard ?? "",
     /result\.status == "failed"/,
   );
+  const freshnessRecovery = stepByName(
+    workflow,
+    "recover-later-integration-freshness",
+  );
+  assert.equal(
+    freshnessRecovery.task.methodName,
+    "recover-later-integrated-change-state",
+  );
+  const freshnessInputs = JSON.stringify(freshnessRecovery.task.inputs);
+  assert.match(freshnessInputs, /change-summary/);
+  assert.match(freshnessInputs, /change-impact/);
+  assert.match(freshnessInputs, /tracker-completion/);
+  assert.match(
+    String(
+      stepByName(workflow, "assert-verification-freshness-authority").task
+        .inputs ?? source,
+    ),
+    /change-freshness-recovery/,
+  );
   assert.match(
     String(
       stepByName(workflow, "run-postflight-policy").task.inputs?.expectedPaths,
     ),
-    /change-impact.*paths/,
+    /verification.*changedPaths/,
+  );
+  assert.match(
+    String(
+      stepByName(workflow, "run-postflight-policy").task.inputs
+        ?.expectedFingerprint,
+    ),
+    /verification.*treeFingerprint/,
   );
 
   const methodNames = steps.map((step) => step.task.methodName).filter(Boolean);

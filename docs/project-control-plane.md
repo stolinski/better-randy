@@ -297,7 +297,14 @@ records logical size, and preserves dirty, unique, or ambiguous work. Runtime
 reproduction, a mandatory regression test, integrated
 replay, and a no-recurrence window are not gates. After the checks and terminal
 Dex completion, the Sentry mutation boundary resolves the issue in
-`supers@<integrated-sha>`. A later event returns through intake as a regression.
+`supers@<integrated-sha>`. When a later terminal Factory integration legitimately
+changes one of an older repair's sealed paths, Sentry completion requires a
+content-addressed `change-freshness-recovery` receipt. The receipt proves the
+original path was unchanged before that integration, the later receipt and
+verification reached terminal Dex completion, the later integration explains
+every scoped change, and no dirty or subsequent change touched the path. The
+original fingerprint remains immutable. A later event returns through intake as
+a regression.
 
 ### Planning-item promotions
 

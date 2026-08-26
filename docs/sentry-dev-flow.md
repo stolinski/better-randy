@@ -93,9 +93,13 @@ in `supers@<integrated-sha>`. Resolution reads only the stable passing-route
 authority fields from the already validated Factory artifact, so additions to
 the full Delivery route contract cannot stale this mutation boundary.
 Resolution preserves the original event, integrated commit, and check receipts
-as traceability. It does not attempt to prove the error can never happen again.
-If Sentry receives another event, the issue becomes unresolved and the next
-intake treats it as a regression with a new repair cycle.
+as traceability. If a later terminal repair changed one of this repair's sealed
+paths, completion also requires a content-addressed freshness-recovery receipt
+that attributes every scoped change to that exact later integration and rejects
+dirty, intermediate, subsequent, or ambiguous path changes. The original
+fingerprint is never rewritten. Resolution does not attempt to prove the error
+can never happen again. If Sentry receives another event, the issue becomes
+unresolved and the next intake treats it as a regression with a new repair cycle.
 
 The six-hour scheduled workflow also resumes active repairs one at a time and
 resolves terminal checked repairs one at a time before admitting another issue.

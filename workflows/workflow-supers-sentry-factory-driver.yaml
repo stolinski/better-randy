@@ -724,9 +724,9 @@ jobs:
         weight: 0
         allowFailure: false
       - name: run-deterministic-verification
-        description: Run only classifier-required lanes, and replace one legacy broad-check route with current path-scoped evidence.
+        description: Run only classifier-required lanes, replace one legacy broad-check route, and refresh when another work item became the latest same-workflow run.
         task: { type: workflow, workflowIdOrName: supers-delivery-deterministic-verification, inputs: { workItem: '${{ inputs.workItem }}' } }
-        guard: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.id != "verification" || (size(data.query(''modelName == "supers-delivery" && name == "artifact-'' + inputs.workItem + ''-verification"'')) == 1 && data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.schemaVersion >= 3 && !data.latest("repo-audit", data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.deterministicFanoutResourceName).attributes.results.exists(result, result.id == "check" && result.status == "failed" && result.command == "pnpm run check")) }}'
+        guard: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.id != "verification" || (data.latest("supers-delivery", "status-" + inputs.workItem).attributes.transitions.exists(transition, transition.name == "reconcile" && transition.satisfied) && size(data.query(''modelName == "supers-delivery" && name == "artifact-'' + inputs.workItem + ''-verification"'')) == 1 && data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.schemaVersion >= 3 && !data.latest("repo-audit", data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.deterministicFanoutResourceName).attributes.results.exists(result, result.id == "check" && result.status == "failed" && result.command == "pnpm run check")) }}'
         dependsOn: [{ step: record-verification-dispatch, condition: { type: or, conditions: [{ type: succeeded }, { type: skipped }] } }]
         weight: 0
         allowFailure: false
@@ -735,11 +735,47 @@ jobs:
         dependsOn: [{ step: run-deterministic-verification, condition: { type: or, conditions: [{ type: succeeded }, { type: skipped }] } }]
         weight: 0
         allowFailure: false
+      - name: recover-later-integration-freshness
+        description: Reseal a changed scoped fingerprint only when one later terminal Factory integration explains every changed task path.
+        task:
+          type: model_method
+          modelIdOrName: repo-audit
+          methodName: recover-later-integrated-change-state
+          inputs:
+            workItem: '${{ inputs.workItem }}'
+            originalChangeImpact:
+              workItem: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.workItem }}'
+              baselineHead: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.baselineHead }}'
+              treeFingerprint: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.treeFingerprint }}'
+              paths: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.paths }}'
+            originalIntegrationReceipt: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-summary").attributes.payload.integrationReceipt }}'
+            currentVerification:
+              workItem: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.workItem }}'
+              integratedRevision: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.integratedRevision }}'
+              treeFingerprint: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.treeFingerprint }}'
+              changedPaths: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.changedPaths }}'
+              workflowRunId: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.workflowRunId }}'
+              disposition: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.disposition }}'
+            laterCandidates: '${{ data.query(''modelName == "supers-delivery" && specName == "state"'').filter(state, state.attributes.stageId == "done" && state.attributes.workItem != inputs.workItem).filter(state, data.latest("supers-delivery", "artifact-" + state.attributes.workItem + "-change-summary").attributes.payload.integrationReceipt.changedPaths.exists(path, data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.changedPaths.exists(currentPath, currentPath == path))).map(state, {"workItem": state.attributes.workItem, "integrationReceipt": data.latest("supers-delivery", "artifact-" + state.attributes.workItem + "-change-summary").attributes.payload.integrationReceipt, "verification": {"workItem": data.latest("supers-delivery", "artifact-" + state.attributes.workItem + "-verification").attributes.payload.workItem, "integratedRevision": data.latest("supers-delivery", "artifact-" + state.attributes.workItem + "-verification").attributes.payload.integratedRevision, "treeFingerprint": data.latest("supers-delivery", "artifact-" + state.attributes.workItem + "-verification").attributes.payload.treeFingerprint, "changedPaths": data.latest("supers-delivery", "artifact-" + state.attributes.workItem + "-verification").attributes.payload.changedPaths, "workflowRunId": data.latest("supers-delivery", "artifact-" + state.attributes.workItem + "-verification").attributes.payload.workflowRunId, "disposition": data.latest("supers-delivery", "artifact-" + state.attributes.workItem + "-verification").attributes.payload.disposition}, "factoryState": {"workItem": state.attributes.workItem, "stageId": state.attributes.stageId, "status": state.attributes.status, "definitionVersion": state.attributes.definitionVersion}, "trackerCompletion": data.latest("supers-delivery", "evidence-" + state.attributes.workItem + "-tracker-completion").attributes.payload}) }}'
+        guard: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.id != "verification" || data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.treeFingerprint == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.treeFingerprint }}'
+        dependsOn: [{ step: refresh-verified-status, condition: { type: or, conditions: [{ type: succeeded }, { type: skipped }] } }]
+        weight: 0
+        allowFailure: false
+      - name: assert-verification-freshness-authority
+        description: Refuse reconciliation unless the original scoped fingerprint is unchanged or a content-addressed later-integration receipt binds the fresh verification.
+        task:
+          type: assert
+          expr: 'data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.treeFingerprint == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.treeFingerprint || size(data.query(''modelName == "repo-audit" && specName == "change-freshness-recovery"'').filter(recovery, recovery.attributes.workItem == inputs.workItem && recovery.attributes.originalIntegrationReceiptId == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-summary").attributes.payload.integrationReceipt.receiptId && recovery.attributes.previousFingerprint == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.treeFingerprint && recovery.attributes.currentFingerprint == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.treeFingerprint && recovery.attributes.currentVerificationWorkflowRunId == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.workflowRunId && recovery.attributes.paths == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.changedPaths && recovery.attributes.receiptId.matches("^[0-9a-f]{64}$"))) == 1'
+          message: Changed task paths require one exact terminal later-integration freshness receipt
+          severity: high
+        dependsOn: [{ step: recover-later-integration-freshness, condition: { type: or, conditions: [{ type: succeeded }, { type: skipped }] } }]
+        weight: 0
+        allowFailure: false
       - name: advance-machine-repair-to-reconciliation
         description: Machine repairs advance only when deterministic routing says reconcile; visual work remains at its existing human gate.
         task: { type: model_method, modelIdOrName: supers-delivery, methodName: advance, inputs: { workItem: '${{ inputs.workItem }}', transition: reconcile } }
         guard: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.id != "verification" || data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.disposition != "reconcile" }}'
-        dependsOn: [{ step: refresh-verified-status, condition: { type: or, conditions: [{ type: succeeded }, { type: skipped }] } }]
+        dependsOn: [{ step: assert-verification-freshness-authority, condition: { type: or, conditions: [{ type: succeeded }, { type: skipped }] } }]
         weight: 0
         allowFailure: false
       - name: refresh-reconciliation-status
@@ -811,8 +847,8 @@ jobs:
           inputs:
             workItem: '${{ inputs.workItem }}'
             evidenceName: postflight-run
-            expectedFingerprint: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.changeFingerprint }}'
-            expectedPaths: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.paths }}'
+            expectedFingerprint: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.treeFingerprint }}'
+            expectedPaths: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.changedPaths }}'
         guard: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.id != "postflight" || size(data.query(''modelName == "supers-delivery" && name == "evidence-'' + inputs.workItem + ''-postflight-run"'')) == 1 }}'
         dependsOn: [{ step: record-postflight-dispatch, condition: { type: or, conditions: [{ type: succeeded }, { type: skipped }] } }]
         weight: 0
@@ -918,4 +954,4 @@ jobs:
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 10
+version: 11

@@ -59,6 +59,12 @@ import {
   type VerificationFanoutRequestArguments,
   VerificationFanoutRequestArgumentsSchema,
 } from "./repo-verification-fanout.ts";
+import {
+  createLaterIntegrationFreshnessRecovery,
+  type LaterIntegrationFreshnessRecoveryArguments,
+  LaterIntegrationFreshnessRecoveryArgumentsSchema,
+  LaterIntegrationFreshnessRecoverySchema,
+} from "./later-integration-freshness-recovery.ts";
 import { DexTaskSnapshotSchema } from "./dex-task-tracker-adapter.ts";
 import {
   SentryEvidenceDeliveryAdmissionSchema,
@@ -510,6 +516,25 @@ async function readGitHead(context: MethodContext): Promise<string> {
   );
 }
 
+async function isGitAncestor(
+  context: MethodContext,
+  ancestor: string,
+  descendant: string,
+): Promise<boolean> {
+  const result = await new Deno.Command("git", {
+    args: ["merge-base", "--is-ancestor", ancestor, descendant],
+    cwd: context.repoDir,
+    stdin: "null",
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  if (result.code === 0) return true;
+  if (result.code === 1) return false;
+  throw new Error(
+    `git merge-base --is-ancestor exited ${result.code}: ${textDecoder.decode(result.stderr).slice(0, 800)}`,
+  );
+}
+
 function parseNulPaths(output: Uint8Array): string[] {
   const decoded = textDecoder.decode(output);
   if (decoded.length === 0) return [];
@@ -772,7 +797,7 @@ async function runAuditScript(
 /** Model definition for the Supers repo policy audits. */
 export const model = {
   type: "@supers/repo-audit",
-  version: "2026.08.26.2",
+  version: "2026.08.26.3",
   globalArguments: GlobalArgsSchema,
   resources: {
     timing: {
@@ -891,6 +916,13 @@ export const model = {
       description:
         "Deterministic changed-path routing to the minimum conservative Supers verification lanes",
       schema: ChangeImpactReportSchema,
+      lifetime: "infinite",
+      garbageCollection: 50,
+    },
+    "change-freshness-recovery": {
+      description:
+        "Content-addressed proof that one later terminal Factory integration, not uncommitted or subsequent tampering, explains scoped path drift",
+      schema: LaterIntegrationFreshnessRecoverySchema,
       lifetime: "infinite",
       garbageCollection: 50,
     },
@@ -1497,6 +1529,124 @@ export const model = {
           "change-impact",
           resourceName,
           canonicalReport,
+        );
+        return { dataHandles: [handle] };
+      },
+    },
+    "recover-later-integrated-change-state": {
+      description:
+        "Reseal scoped freshness only when one later terminal Factory integration explains every changed task path",
+      arguments: LaterIntegrationFreshnessRecoveryArgumentsSchema,
+      execute: async (
+        args: LaterIntegrationFreshnessRecoveryArguments,
+        context: MethodContext,
+      ) => {
+        const recovery = await createLaterIntegrationFreshnessRecovery(
+          args,
+          async (originalIntegratedRevision, originalPaths, candidate) => {
+            const laterReceipt = candidate.integrationReceipt;
+            if (laterReceipt.integratedRevision === null) {
+              throw new TypeError(
+                "Later integration freshness recovery requires an integrated revision",
+              );
+            }
+            const laterIntegratedRevision = laterReceipt.integratedRevision;
+            const pathspec = ["--", ...originalPaths];
+            const [
+              currentTree,
+              originalIntegratedIsAncestorOfLaterBaseline,
+              laterBaselineIsAncestorOfLaterIntegrated,
+              laterIntegratedIsAncestorOfHead,
+              originalToLaterBaselineScopedPaths,
+              laterReceiptChangedPaths,
+              laterScopedPaths,
+              originalToHeadScopedPaths,
+              laterIntegratedToHeadScopedPaths,
+            ] = await Promise.all([
+              readScopedTreeState(context, [...originalPaths]),
+              isGitAncestor(
+                context,
+                originalIntegratedRevision,
+                laterReceipt.targetBaselineRevision,
+              ),
+              isGitAncestor(
+                context,
+                laterReceipt.targetBaselineRevision,
+                laterIntegratedRevision,
+              ),
+              isGitAncestor(context, laterIntegratedRevision, "HEAD"),
+              runGit(context, [
+                "diff",
+                "--name-only",
+                "-z",
+                "--no-renames",
+                `${originalIntegratedRevision}..${laterReceipt.targetBaselineRevision}`,
+                ...pathspec,
+              ]).then((output) =>
+                parseNulPaths(output).sort(compareCanonicalText)
+              ),
+              runGit(context, [
+                "diff",
+                "--name-only",
+                "-z",
+                "--no-renames",
+                `${laterReceipt.targetBaselineRevision}..${laterIntegratedRevision}`,
+              ]).then((output) =>
+                parseNulPaths(output).sort(compareCanonicalText)
+              ),
+              runGit(context, [
+                "diff",
+                "--name-only",
+                "-z",
+                "--no-renames",
+                `${laterReceipt.targetBaselineRevision}..${laterIntegratedRevision}`,
+                ...pathspec,
+              ]).then((output) =>
+                parseNulPaths(output).sort(compareCanonicalText)
+              ),
+              runGit(context, [
+                "diff",
+                "--name-only",
+                "-z",
+                "--no-renames",
+                `${originalIntegratedRevision}..HEAD`,
+                ...pathspec,
+              ]).then((output) =>
+                parseNulPaths(output).sort(compareCanonicalText)
+              ),
+              runGit(context, [
+                "diff",
+                "--name-only",
+                "-z",
+                "--no-renames",
+                `${laterIntegratedRevision}..HEAD`,
+                ...pathspec,
+              ]).then((output) =>
+                parseNulPaths(output).sort(compareCanonicalText)
+              ),
+            ]);
+            return {
+              currentTreeFingerprint: currentTree.treeFingerprint,
+              currentPathsClean: currentTree.status.byteLength === 0,
+              originalIntegratedIsAncestorOfLaterBaseline,
+              laterBaselineIsAncestorOfLaterIntegrated,
+              laterIntegratedIsAncestorOfHead,
+              originalToLaterBaselineScopedPaths,
+              laterReceiptChangedPaths,
+              laterScopedPaths,
+              originalToHeadScopedPaths,
+              laterIntegratedToHeadScopedPaths,
+            };
+          },
+        );
+        const resourceName = await changeResourceName(
+          "change-freshness-recovery",
+          args.workItem,
+        );
+        const handle = await context.writeResource(
+          "change-freshness-recovery",
+          resourceName,
+          recovery,
         );
         return { dataHandles: [handle] };
       },
