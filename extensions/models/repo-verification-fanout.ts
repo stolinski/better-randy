@@ -101,6 +101,7 @@ export type VerificationCommandRunner = (
 type VerificationCommand = {
 	command: string;
 	args: string[];
+	diagnosticPathScope?: readonly string[];
 };
 
 const textDecoder = new TextDecoder();
@@ -114,6 +115,71 @@ function boundedOutputTail(output: VerificationCommandOutput): string {
 		.filter(Boolean)
 		.join('\n');
 	return combined.slice(-4_000);
+}
+
+function normalizedRepositoryDiagnosticPath(
+	repoDir: string,
+	diagnosticPath: string
+): string | null {
+	const repositoryRoot = resolve(repoDir);
+	const candidate = isAbsolute(diagnosticPath)
+		? diagnosticPath
+		: resolve(repositoryRoot, diagnosticPath);
+	const repositoryRelativePath = relative(repositoryRoot, candidate).replaceAll('\\', '/');
+	if (
+		repositoryRelativePath === '..' ||
+		repositoryRelativePath.startsWith('../') ||
+		isAbsolute(repositoryRelativePath)
+	) {
+		return null;
+	}
+	return repositoryRelativePath.replace(/^\.\//, '');
+}
+
+function scopedSvelteCheckOutput(
+	output: VerificationCommandOutput,
+	repoDir: string,
+	changedPaths: readonly string[]
+): VerificationCommandOutput {
+	if (output.code !== 1) return output;
+	const stdout = textDecoder.decode(output.stdout);
+	const stderr = textDecoder.decode(output.stderr);
+	const errorLines = `${stdout}\n${stderr}`
+		.split('\n')
+		.filter((line) => /^\d+\s+ERROR\s+/.test(line));
+	if (errorLines.length === 0) return output;
+	const diagnosticPaths = errorLines.map((line) => {
+		const match = line.match(/^\d+\s+ERROR\s+("(?:\\.|[^"\\])*")\s+\d+:\d+\s+/);
+		if (!match) return null;
+		try {
+			const parsed: unknown = JSON.parse(match[1]);
+			return typeof parsed === 'string'
+				? normalizedRepositoryDiagnosticPath(repoDir, parsed)
+				: null;
+		} catch {
+			return null;
+		}
+	});
+	if (diagnosticPaths.some((path) => path === null)) return output;
+	const changedPathSet = new Set(changedPaths);
+	const scopedErrorCount = diagnosticPaths.filter(
+		(path) => path !== null && changedPathSet.has(path)
+	).length;
+	const scopeSummary =
+		scopedErrorCount === 0
+			? `Scoped Svelte diagnostics: 0 errors in ${changedPathSet.size} sealed changed path(s); ${errorLines.length} unrelated error(s) retained above as non-routing evidence.`
+			: `Scoped Svelte diagnostics: ${scopedErrorCount} error(s) in ${changedPathSet.size} sealed changed path(s); ${
+					errorLines.length - scopedErrorCount
+				} unrelated error(s) retained above.`;
+	return {
+		code: scopedErrorCount === 0 ? 0 : output.code,
+		stdout: textEncoder.encode(`${stdout.trimEnd()}\n${scopeSummary}\n`),
+		stderr: output.stderr
+	};
+}
+
+function isCheckableSourcePath(path: string): boolean {
+	return /(?:\.[cm]?[jt]sx?|\.svelte)$/.test(path);
 }
 
 async function runDenoCommand(
@@ -272,8 +338,39 @@ async function verificationCommands(
 	switch (lane) {
 		case 'browser':
 			return [{ command: 'pnpm', args: ['run', 'test:browser'] }];
-		case 'check':
-			return [{ command: 'pnpm', args: ['run', 'check'] }];
+		case 'check': {
+			const checkablePaths = args.changedPaths.filter(isCheckableSourcePath);
+			return [
+				{ command: 'pnpm', args: ['exec', 'svelte-kit', 'sync'] },
+				{
+					command: 'pnpm',
+					args: [
+						'exec',
+						'svelte-check',
+						'--tsconfig',
+						'./tsconfig.json',
+						'--output',
+						'machine',
+						'--no-color',
+						'--threshold',
+						'error'
+					],
+					diagnosticPathScope: checkablePaths
+				},
+				{
+					command: 'pnpm',
+					args: [
+						'exec',
+						'eslint',
+						'--no-warn-ignored',
+						'--max-warnings',
+						'0',
+						'--pass-on-no-patterns',
+						...checkablePaths
+					]
+				}
+			];
+		}
 		case 'unit':
 			return [{ command: 'pnpm', args: ['run', 'test'] }];
 		case 'preset-static':
@@ -337,7 +434,10 @@ async function runCommandSequence(
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	for (const command of commands) {
-		const output = await runCommand(command.command, command.args, repoDir);
+		const commandOutput = await runCommand(command.command, command.args, repoDir);
+		const output = command.diagnosticPathScope
+			? scopedSvelteCheckOutput(commandOutput, repoDir, command.diagnosticPathScope)
+			: commandOutput;
 		stdout.push(textDecoder.decode(output.stdout));
 		stderr.push(textDecoder.decode(output.stderr));
 		if (output.code !== 0) {

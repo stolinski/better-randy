@@ -64,7 +64,7 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   const steps = workflow.jobs.flatMap((job) => job.steps);
   const names = steps.map((step) => step.name);
 
-  assert.equal(workflow.version, 8);
+  assert.equal(workflow.version, 9);
   assert.deepEqual(workflow.inputs.required, [
     "workItem",
     "evidenceName",
@@ -297,6 +297,16 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   assert.equal(
     stepByName(workflow, "advance-to-classification").task.inputs?.transition,
     "classify",
+  );
+  const verificationRetry = stepByName(
+    workflow,
+    "run-deterministic-verification",
+  );
+  assert.match(verificationRetry.guard ?? "", /schemaVersion >= 3/);
+  assert.match(verificationRetry.guard ?? "", /result\.command == "pnpm run check"/);
+  assert.match(
+    verificationRetry.guard ?? "",
+    /result\.status == "failed"/,
   );
   assert.match(
     String(

@@ -362,6 +362,25 @@ Deno.test("terminal repair with normal passing checks resolves the observed Sent
   ]);
 });
 
+Deno.test("resolution stays compatible with later full-route contract fields", async () => {
+  const runner = new FakeRunner();
+  const { writes } = await runResolution(runner, (fixture) => {
+    const payload = fixture.verification.payload as Record<string, unknown>;
+    payload.schemaVersion = 4;
+    payload.policySweepWorkflowVersion = 5;
+    payload.futureLifecycleReceipt = {
+      schemaVersion: 1,
+      lifecycleIntegrity: true,
+    };
+  });
+  assert.equal(
+    SentryRepairResolutionReceiptSchema.parse(
+      writes.find((write) => write.specName === "resolution-receipt")?.data,
+    ).status,
+    "resolved",
+  );
+});
+
 Deno.test("resolution does not require reproduction, replay, or a no-recurrence snapshot", async () => {
   const runner = new FakeRunner();
   const { writes } = await runResolution(runner);

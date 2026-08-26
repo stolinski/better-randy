@@ -89,17 +89,22 @@ and render lanes for the actual changed paths.
 
 After the integrated change passes those normal checks, Delivery completes the
 Dex task and `supers-sentry-verified-resolution` resolves the exact Sentry issue
-in `supers@<integrated-sha>`. Resolution preserves the original event,
-integrated commit, and check receipts as traceability. It does not attempt to
-prove the error can never happen again. If Sentry receives another event, the
-issue becomes unresolved and the next intake treats it as a regression with a
-new repair cycle.
+in `supers@<integrated-sha>`. Resolution reads only the stable passing-route
+authority fields from the already validated Factory artifact, so additions to
+the full Delivery route contract cannot stale this mutation boundary.
+Resolution preserves the original event, integrated commit, and check receipts
+as traceability. It does not attempt to prove the error can never happen again.
+If Sentry receives another event, the issue becomes unresolved and the next
+intake treats it as a regression with a new repair cycle.
 
-The six-hour scheduled workflow also resumes active repairs and resolves
-terminal checked repairs that were completed before their Sentry mutation ran.
-Driver dependencies continue after intentionally skipped prior stages, so a
-retry can resume from the current Factory stage instead of reporting a
-successful no-op.
+The six-hour scheduled workflow also resumes active repairs one at a time and
+resolves terminal checked repairs one at a time before admitting another issue.
+A legacy verification route produced by the retired repository-wide check is
+replaced once with current task-path-scoped evidence; current failures are not
+silently retried. Driver dependencies continue after intentionally skipped
+prior stages, so a retry can resume from the current Factory stage instead of
+reporting a successful no-op. If any admitted repair remains active after that
+pass, the queue stays intact and no new repair is admitted.
 
 Historical reproduction controllers, transport reservations, replay receipts,
 and their stored resources remain readable, but no active self-healing workflow

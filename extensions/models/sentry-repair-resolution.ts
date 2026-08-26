@@ -11,7 +11,6 @@ import {
   SentryRepairIntentEnvelopeSchema,
   SentryRepairIntentSchema,
 } from "./sentry-repair-planning-handoff-adapter.ts";
-import { SupersDeliveryVerificationRouteSchema } from "./supers-deterministic-factory-contract.ts";
 
 const FingerprintSchema = z.string().regex(/^[0-9a-f]{64}$/);
 const GitRevisionSchema = z.string().regex(/^[0-9a-f]{40}$/);
@@ -29,12 +28,32 @@ const SentryRepairDeliveryStateSchema = z.strictObject({
   startedAt: z.string().datetime(),
 });
 
+// Resolution consumes only the stable passing-route authority fields. The
+// Factory already validates the complete route when recording it, so keeping
+// volatile policy and fanout fields out of this read projection prevents a
+// transitive route-schema upgrade from stranding a terminal repair.
+const SentryRepairPassingDeliveryRouteProjectionSchema = z.object({
+  schemaVersion: z.number().int().positive(),
+  disposition: z.enum([
+    "automatic-rework",
+    "evidence-unavailable",
+    "await-human-aesthetic",
+    "reconcile",
+  ]),
+  workItem: TaskIdSchema,
+  integratedRevision: GitRevisionSchema,
+  workflowRunId: z.string().min(1),
+  requiredHumanReviewKinds: z.array(z.string()).max(20),
+  objectiveFailureCodes: z.array(z.string()).max(100),
+  unavailableEvidenceCodes: z.array(z.string()).max(100),
+}).passthrough();
+
 const SentryRepairDeliveryVerificationSchema = z.strictObject({
   name: z.literal("verification"),
   workItem: TaskIdSchema,
   stageId: z.literal("verification"),
   cycle: z.number().int().positive(),
-  payload: SupersDeliveryVerificationRouteSchema,
+  payload: SentryRepairPassingDeliveryRouteProjectionSchema,
   subjectVersion: z.number().int().positive().optional(),
   recordedAt: z.string().datetime(),
   resolvedAt: z.string().datetime().optional(),

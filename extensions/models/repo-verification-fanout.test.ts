@@ -28,22 +28,33 @@ function argumentsFor(
 	};
 }
 
-Deno.test('app fan-out starts only check, unit, and browser lanes', async () => {
+Deno.test('app fan-out starts check, unit, and browser lanes concurrently', async () => {
 	const started: string[] = [];
 	const releases = new Map<string, () => void>();
-	const runCommand: VerificationCommandRunner = async (_command, args) => {
-		const laneCommand = args.at(-1) ?? '';
-		started.push(laneCommand);
-		await new Promise<void>((resolve) => releases.set(laneCommand, resolve));
-		return successfulOutput(laneCommand);
+	const initialCommands = new Set([
+		'pnpm exec svelte-kit sync',
+		'pnpm run test',
+		'pnpm run test:browser'
+	]);
+	const runCommand: VerificationCommandRunner = async (command, args) => {
+		const invocation = `${command} ${args.join(' ')}`;
+		started.push(invocation);
+		if (initialCommands.has(invocation)) {
+			await new Promise<void>((resolve) => releases.set(invocation, resolve));
+		}
+		return successfulOutput(invocation);
 	};
 	const reportPromise = runVerificationFanout(
 		'/repo',
 		argumentsFor(['check', 'unit', 'browser'], ['src/lib/platform/RootInspector.svelte']),
 		runCommand
 	);
-	await waitFor(() => started.length === 3);
-	assert.deepEqual(started, ['check', 'test', 'test:browser']);
+	await waitFor(() => releases.size === 3);
+	assert.deepEqual(started, [
+		'pnpm exec svelte-kit sync',
+		'pnpm run test',
+		'pnpm run test:browser'
+	]);
 	for (const release of releases.values()) release();
 	const report = await reportPromise;
 	assert.equal(report.passed, true);
@@ -51,6 +62,83 @@ Deno.test('app fan-out starts only check, unit, and browser lanes', async () => 
 		report.results.map((result) => result.id),
 		['check', 'unit', 'browser']
 	);
+});
+
+Deno.test('check routing keeps unrelated central diagnostics visible but non-routing', async () => {
+	const calls: Array<{ command: string; args: string[] }> = [];
+	const changedPath = 'src/routes/api/user-compositions/user-compositions.test.ts';
+	const report = await runVerificationFanout(
+		'/repo',
+		argumentsFor(['check'], [changedPath]),
+		async (command, args) => {
+			calls.push({ command, args });
+			if (args.includes('svelte-check')) {
+				return {
+					code: 1,
+					stdout: new TextEncoder().encode(
+						'1 START "/repo"\n2 ERROR "scripts/unrelated.ts" 10:2 "unrelated"\n3 COMPLETED 1 ERRORS'
+					),
+					stderr: new Uint8Array()
+				};
+			}
+			return successfulOutput('scoped check');
+		}
+	);
+	assert.equal(report.passed, true);
+	assert.deepEqual(calls, [
+		{ command: 'pnpm', args: ['exec', 'svelte-kit', 'sync'] },
+		{
+			command: 'pnpm',
+			args: [
+				'exec',
+				'svelte-check',
+				'--tsconfig',
+				'./tsconfig.json',
+				'--output',
+				'machine',
+				'--no-color',
+				'--threshold',
+				'error'
+			]
+		},
+		{
+			command: 'pnpm',
+			args: [
+				'exec',
+				'eslint',
+				'--no-warn-ignored',
+				'--max-warnings',
+				'0',
+				'--pass-on-no-patterns',
+				changedPath
+			]
+		}
+	]);
+	assert.match(report.results[0].outputTail, /unrelated error\(s\).*non-routing evidence/);
+});
+
+Deno.test('check routing fails for a diagnostic on a sealed changed path', async () => {
+	const changedPath = 'src/routes/api/user-compositions/user-compositions.test.ts';
+	const calls: string[] = [];
+	const report = await runVerificationFanout(
+		'/repo',
+		argumentsFor(['check'], [changedPath]),
+		async (command, args) => {
+			calls.push(`${command} ${args.join(' ')}`);
+			if (args.includes('svelte-check')) {
+				return {
+					code: 1,
+					stdout: new TextEncoder().encode(`1 ERROR "${changedPath}" 4:8 "changed failure"`),
+					stderr: new Uint8Array()
+				};
+			}
+			return successfulOutput('scoped check');
+		}
+	);
+	assert.equal(report.passed, false);
+	assert.equal(report.results[0].status, 'failed');
+	assert.equal(calls.length, 2, 'ESLint must not run after an in-scope type failure');
+	assert.match(report.results[0].outputTail, /1 error\(s\) in 1 sealed changed path/);
 });
 
 Deno.test('affected Preset verification receives only trusted changed paths', async () => {

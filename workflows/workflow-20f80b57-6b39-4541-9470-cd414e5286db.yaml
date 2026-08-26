@@ -128,7 +128,7 @@ jobs:
         weight: 0
         allowFailure: false
       - name: refresh-delivery-state
-        description: Materialize Delivery state for observability; active repairs never block admission of another evidence-bound work item.
+        description: Materialize Delivery state before serialized active-repair convergence and any later admission.
         task:
           type: model_method
           modelIdOrName: supers-delivery
@@ -168,7 +168,7 @@ jobs:
         forEach:
           item: completedAdmission
           in: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(admission, size(data.query(''modelName == "supers-delivery" && name == "state-'' + admission.attributes.dexTaskId + ''"'')) > 0).filter(admission, data.latest("supers-delivery", "state-" + admission.attributes.dexTaskId).attributes.status == "terminal" && data.latest("supers-delivery", "state-" + admission.attributes.dexTaskId).attributes.stageId == "done").filter(admission, size(data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence"'').filter(evidence, evidence.attributes.repairIdentityFingerprint == admission.attributes.repairIdentityFingerprint)) > 0).filter(admission, size(data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "backlink-receipt"'').filter(receipt, receipt.attributes.issueId == admission.attributes.issueId && receipt.attributes.dexTaskId == admission.attributes.dexTaskId)) > 0).filter(admission, size(data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "resolution-receipt"'').filter(receipt, receipt.attributes.issueId == admission.attributes.issueId && receipt.attributes.dexTaskId == admission.attributes.dexTaskId)) == 0) }}'
-        concurrency: 4
+        concurrency: 1
         task:
           type: workflow
           workflowIdOrName: supers-sentry-verified-resolution
@@ -179,13 +179,13 @@ jobs:
             expectedEvidenceFingerprint: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence"'').filter(evidence, evidence.attributes.repairIdentityFingerprint == self.completedAdmission.attributes.repairIdentityFingerprint)[0].attributes.fingerprint }}'
             dexTaskId: '${{ self.completedAdmission.attributes.dexTaskId }}'
         dependsOn:
-          - step: refresh-delivery-state
+          - step: resume-active-sentry-repair
             condition:
-              type: succeeded
+              type: completed
         weight: 0
         allowFailure: false
       - name: select-one-sentry-repair
-        description: Select at most one stable queue head directly from observed Sentry errors.
+        description: Select at most one stable queue head only after active and terminal repair reconciliation finishes.
         task:
           type: model_method
           modelIdOrName: supers-sentry-repair-planning-handoff
@@ -196,10 +196,11 @@ jobs:
             priorSelections: []
             admittedIntentFingerprints: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(admission, size(data.query(''modelName == "supers-delivery" && name == "state-'' + admission.attributes.dexTaskId + ''"'')) > 0).map(admission, admission.attributes.repairIntentFingerprint) }}'
             excludedIssueIds: []
+        guard: '${{ size(data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(admission, size(data.query(''modelName == "supers-delivery" && name == "state-'' + admission.attributes.dexTaskId + ''"'')) > 0).filter(admission, data.latest("supers-delivery", "state-" + admission.attributes.dexTaskId).attributes.status == "active").filter(admission, size(data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(other, other.attributes.dexTaskId == admission.attributes.dexTaskId && other.attributes.admittedAt > admission.attributes.admittedAt)) == 0)) > 0 }}'
         dependsOn:
-          - step: refresh-delivery-state
+          - step: resolve-completed-sentry-repair
             condition:
-              type: succeeded
+              type: completed
         weight: 0
         allowFailure: false
       - name: admit-selected-sentry-repair
@@ -221,4 +222,4 @@ jobs:
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 10
+version: 11

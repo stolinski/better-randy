@@ -654,9 +654,9 @@ jobs:
         weight: 0
         allowFailure: false
       - name: run-deterministic-verification
-        description: Run only classifier-required lanes; render and preset verification remain not-applicable when no render lane exists.
+        description: Run only classifier-required lanes, and replace one legacy broad-check route with current path-scoped evidence.
         task: { type: workflow, workflowIdOrName: supers-delivery-deterministic-verification, inputs: { workItem: '${{ inputs.workItem }}' } }
-        guard: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.id != "verification" || size(data.query(''modelName == "supers-delivery" && name == "artifact-'' + inputs.workItem + ''-verification"'')) == 1 }}'
+        guard: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.id != "verification" || (size(data.query(''modelName == "supers-delivery" && name == "artifact-'' + inputs.workItem + ''-verification"'')) == 1 && data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.schemaVersion >= 3 && !data.latest("repo-audit", data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.deterministicFanoutResourceName).attributes.results.exists(result, result.id == "check" && result.status == "failed" && result.command == "pnpm run check")) }}'
         dependsOn: [{ step: record-verification-dispatch, condition: { type: or, conditions: [{ type: succeeded }, { type: skipped }] } }]
         weight: 0
         allowFailure: false
@@ -848,4 +848,4 @@ jobs:
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 8
+version: 9

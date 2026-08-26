@@ -51,7 +51,7 @@ The post-integration lane union is exact:
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Preset                    | affected static Presets and affected render cells; no Pack matrix                                                                                       |
 | Pack                      | affected static Presets, affected render cells, and Pack matrix                                                                                         |
-| Authoring app             | project check, unit tests, and browser checks; app-visual evidence remains separately typed                                                             |
+| Authoring app             | task-path-scoped project diagnostics, unit tests, and browser checks; app-visual evidence remains separately typed                                        |
 | Rendering                 | affected static Presets, affected/full render scope from the selector, and aesthetic review; no export/decode                                           |
 | Export                    | declared export/decode package-script evidence plus touched product checks                                                                              |
 | Performance               | declared `benchmark:*` package-script evidence plus every lane selected by touched paths                                                                |
@@ -67,6 +67,12 @@ The post-integration lane union is exact:
 A declared benchmark script must start with `benchmark:`. A declared
 export/decode script must start with `verify:export-decode:`. Missing declared
 evidence is an explicit unavailable result, never a pass.
+
+The `check` lane runs SvelteKit sync, keeps the full Svelte diagnostic output,
+and routes only errors whose file is one of the sealed changed paths. ESLint
+receives only those changed source paths. Unrelated central-check diagnostics
+remain visible as non-routing evidence instead of becoming a task failure.
+Universal lifecycle integrity remains a separate mandatory policy-sweep result.
 
 ## Static Preset verification
 
