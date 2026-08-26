@@ -881,10 +881,19 @@ function hasPaintedBackground(element: HTMLElement): boolean {
 	);
 }
 
+export function deterministicFontCheckDescriptor(
+	style: Pick<CSSStyleDeclaration, 'fontSize' | 'fontFamily'>
+): string | null {
+	const fontSize = style.fontSize.trim();
+	const fontFamily = style.fontFamily.trim();
+	return fontSize.length > 0 && fontFamily.length > 0 ? `${fontSize} ${fontFamily}` : null;
+}
+
 function pendingReadableFontCount(elements: readonly HTMLElement[]): number {
 	return elements.filter((element) => {
 		const style = getComputedStyle(element);
-		return !document.fonts.check(style.font, element.textContent ?? '');
+		const descriptor = deterministicFontCheckDescriptor(style);
+		return descriptor === null || !document.fonts.check(descriptor, element.textContent ?? '');
 	}).length;
 }
 

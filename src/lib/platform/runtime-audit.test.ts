@@ -7,6 +7,7 @@ import {
 } from './deterministic-readable-contract';
 import {
 	composedElementScale,
+	deterministicFontCheckDescriptor,
 	matchesDeterministicRenderedText,
 	nativeRectForElement,
 	parseDeterministicCssShadows,
@@ -14,6 +15,15 @@ import {
 } from './runtime-audit';
 
 afterEach(() => vi.unstubAllGlobals());
+
+describe('deterministic runtime font readiness', () => {
+	it('builds a valid FontFaceSet descriptor without relying on an empty font shorthand', () => {
+		expect(
+			deterministicFontCheckDescriptor({ fontSize: '48px', fontFamily: '"Archivo", sans-serif' })
+		).toBe('48px "Archivo", sans-serif');
+		expect(deterministicFontCheckDescriptor({ fontSize: '', fontFamily: 'Archivo' })).toBeNull();
+	});
+});
 
 describe('deterministic runtime native geometry', () => {
 	it('converts DOM rectangles with independent root-to-backing-store axes', () => {

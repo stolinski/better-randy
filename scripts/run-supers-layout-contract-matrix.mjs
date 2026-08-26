@@ -52,6 +52,15 @@ async function waitForFile(path, deadline) {
 	throw new Error(`Timed out waiting for ${path}`);
 }
 
+async function assertServedSourceIdentity(sourceRevision, treeFingerprint) {
+	const response = await fetch(`${BASE_URL}/api/verification/source-identity`);
+	if (!response.ok) throw new Error(`Served source identity unavailable (${response.status})`);
+	const identity = await response.json();
+	if (identity.sourceRevision !== sourceRevision || identity.treeFingerprint !== treeFingerprint) {
+		throw new Error('Served source identity does not match the clean committed checkout');
+	}
+}
+
 async function launchHeadlessLayoutChrome() {
 	const profile = await mkdtemp(join(tmpdir(), 'supers-layout-contract-chrome-'));
 	const child = spawn(
@@ -267,6 +276,7 @@ async function run() {
 	});
 	if (!collected.manifest)
 		throw new Error('Full Layout Contract selection produced no coordinates');
+	await assertServedSourceIdentity(sourceRevision, tree.treeFingerprint);
 	const chrome = await launchHeadlessLayoutChrome();
 	const frameResults = [];
 	try {
