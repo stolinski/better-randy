@@ -5,6 +5,10 @@ import { beforeAll, beforeEach, describe, it, vi } from 'vitest';
 
 import validPreset from '$lib/presets/blank.json';
 import { PresetSchema, type Preset } from '$lib/platform/engine-schema';
+import {
+	addUserCompositionFileToIndex,
+	userCompositionFileExists
+} from '$lib/platform/user-composition-file-index.server';
 import { posterKeyForPreset } from '$lib/platform/posters';
 import { presetToWireFormat } from '$lib/platform/preset-pure';
 
@@ -273,8 +277,9 @@ describe('user composition handlers', () => {
 		assert.equal(await response.json(), null);
 	});
 
-	it('returns null from a slug GET when a legacy file is blank', async () => {
+	it('returns null and stops indexing a blank legacy file as a User composition', async () => {
 		fsMocks.readFile.mockResolvedValue('\n \t');
+		await addUserCompositionFileToIndex('empty-write');
 
 		const response = await slugHandlers.GET({
 			params: { slug: 'empty-write' }
@@ -282,6 +287,7 @@ describe('user composition handlers', () => {
 
 		assert.equal(response.status, 200);
 		assert.equal(await response.json(), null);
+		assert.equal(await userCompositionFileExists('empty-write'), false);
 	});
 
 	it('returns null from a slug GET when a legacy file contains malformed JSON', async () => {

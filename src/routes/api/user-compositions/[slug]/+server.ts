@@ -68,7 +68,10 @@ async function readUserCompositionWirePreset(slug: string): Promise<unknown> {
 	}
 
 	// Legacy writes could leave an empty file; do not use JSON.parse as the guard.
-	if (raw.trim().length === 0) return null;
+	if (raw.trim().length === 0) {
+		await removeUserCompositionFileFromIndex(slug);
+		return null;
+	}
 
 	let storedUserComposition: unknown;
 	try {
@@ -76,6 +79,7 @@ async function readUserCompositionWirePreset(slug: string): Promise<unknown> {
 	} catch {
 		// A partial file left by an interrupted legacy write must not shadow a
 		// built-in Preset. Current writes publish atomically, so treat it as absent.
+		await removeUserCompositionFileFromIndex(slug);
 		return null;
 	}
 	if (!isStoredUserComposition(storedUserComposition)) {
