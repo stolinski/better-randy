@@ -64,7 +64,7 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   const steps = workflow.jobs.flatMap((job) => job.steps);
   const names = steps.map((step) => step.name);
 
-  assert.equal(workflow.version, 12);
+  assert.equal(workflow.version, 13);
   assert.deepEqual(workflow.inputs.required, [
     "workItem",
     "evidenceName",
@@ -87,6 +87,7 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
     "run-exact-change-classification",
     "run-deterministic-verification",
     "recover-later-integration-freshness",
+    "record-verification-freshness-recovery",
     "assert-verification-freshness-authority",
     "record-machine-reconciliation",
     "run-postflight-policy",
@@ -350,6 +351,16 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   assert.match(freshnessInputs, /tracker-completion/);
   assert.match(freshnessInputs, /has\(summary\.attributes\.payload\.integrationReceipt\)/);
   assert.match(freshnessInputs, /stageId == \\"done\\"/);
+  const recordFreshness = stepByName(
+    workflow,
+    "record-verification-freshness-recovery",
+  );
+  assert.equal(recordFreshness.task.methodName, "record_artifact");
+  assert.equal(
+    recordFreshness.task.inputs?.name,
+    "verification-freshness-recovery",
+  );
+  assert.match(String(recordFreshness.task.inputs?.payload), /change-freshness-recovery/);
   assert.match(
     String(
       stepByName(workflow, "assert-verification-freshness-authority").task

@@ -761,6 +761,20 @@ jobs:
         dependsOn: [{ step: refresh-verified-status, condition: { type: or, conditions: [{ type: succeeded }, { type: skipped }] } }]
         weight: 0
         allowFailure: false
+      - name: record-verification-freshness-recovery
+        description: Bind the model-generated later-integration receipt into the current Factory verification cycle.
+        task:
+          type: model_method
+          modelIdOrName: supers-delivery
+          methodName: record_artifact
+          inputs:
+            workItem: '${{ inputs.workItem }}'
+            name: verification-freshness-recovery
+            payload: '${{ data.query(''modelName == "repo-audit" && specName == "change-freshness-recovery"'').filter(recovery, recovery.attributes.workItem == inputs.workItem)[0].attributes }}'
+        guard: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.id != "verification" || data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.treeFingerprint == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.treeFingerprint || size(data.query(''modelName == "supers-delivery" && name == "artifact-'' + inputs.workItem + ''-verification-freshness-recovery"'')) == 1 }}'
+        dependsOn: [{ step: recover-later-integration-freshness, condition: { type: or, conditions: [{ type: succeeded }, { type: skipped }] } }]
+        weight: 0
+        allowFailure: false
       - name: assert-verification-freshness-authority
         description: Refuse reconciliation unless the original scoped fingerprint is unchanged or a content-addressed later-integration receipt binds the fresh verification.
         task:
@@ -768,7 +782,7 @@ jobs:
           expr: 'data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.treeFingerprint == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.treeFingerprint || size(data.query(''modelName == "repo-audit" && specName == "change-freshness-recovery"'').filter(recovery, recovery.attributes.workItem == inputs.workItem && recovery.attributes.originalIntegrationReceiptId == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-summary").attributes.payload.integrationReceipt.receiptId && recovery.attributes.previousFingerprint == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-impact").attributes.payload.treeFingerprint && recovery.attributes.currentFingerprint == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.treeFingerprint && recovery.attributes.currentVerificationWorkflowRunId == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.workflowRunId && recovery.attributes.paths == data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.changedPaths && recovery.attributes.receiptId.matches("^[0-9a-f]{64}$"))) == 1'
           message: Changed task paths require one exact terminal later-integration freshness receipt
           severity: high
-        dependsOn: [{ step: recover-later-integration-freshness, condition: { type: or, conditions: [{ type: succeeded }, { type: skipped }] } }]
+        dependsOn: [{ step: record-verification-freshness-recovery, condition: { type: or, conditions: [{ type: succeeded }, { type: skipped }] } }]
         weight: 0
         allowFailure: false
       - name: advance-machine-repair-to-reconciliation
@@ -954,4 +968,4 @@ jobs:
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 12
+version: 13

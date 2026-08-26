@@ -1,6 +1,6 @@
 type: '@swamp/software-factory'
 typeVersion: 2026.06.24.1
-version: 38
+version: 39
 globalArguments:
   stages:
     - id: preflight
@@ -1046,6 +1046,94 @@ globalArguments:
                 type: array
                 items:
                   type: object
+        - name: verification-freshness-recovery
+          description: >-
+            Content-addressed proof that one later terminal integration explains scoped verification
+            drift.
+          reviews: verification
+          schema:
+            type: object
+            additionalProperties: false
+            required:
+              - schemaVersion
+              - authority
+              - workItem
+              - originalIntegrationReceiptId
+              - originalIntegratedRevision
+              - previousFingerprint
+              - currentFingerprint
+              - paths
+              - currentVerificationWorkflowRunId
+              - laterWorkItem
+              - laterIntegrationReceiptId
+              - laterTargetBaselineRevision
+              - laterIntegratedRevision
+              - laterVerificationWorkflowRunId
+              - laterTrackerCompletionRunId
+              - driftPaths
+              - receiptId
+            properties:
+              schemaVersion:
+                type: integer
+                enum:
+                  - 1
+              authority:
+                type: string
+                enum:
+                  - terminal-later-integration
+              workItem:
+                type: string
+                minLength: 1
+              originalIntegrationReceiptId:
+                type: string
+                pattern: '^[0-9a-f]{64}$'
+              originalIntegratedRevision:
+                type: string
+                pattern: '^[0-9a-f]{40}$'
+              previousFingerprint:
+                type: string
+                pattern: '^[0-9a-f]{64}$'
+              currentFingerprint:
+                type: string
+                pattern: '^[0-9a-f]{64}$'
+              paths:
+                type: array
+                minItems: 1
+                maxItems: 200
+                items:
+                  type: string
+                  minLength: 1
+              currentVerificationWorkflowRunId:
+                type: string
+                minLength: 1
+              laterWorkItem:
+                type: string
+                minLength: 1
+              laterIntegrationReceiptId:
+                type: string
+                pattern: '^[0-9a-f]{64}$'
+              laterTargetBaselineRevision:
+                type: string
+                pattern: '^[0-9a-f]{40}$'
+              laterIntegratedRevision:
+                type: string
+                pattern: '^[0-9a-f]{40}$'
+              laterVerificationWorkflowRunId:
+                type: string
+                minLength: 1
+              laterTrackerCompletionRunId:
+                type: string
+                minLength: 1
+              driftPaths:
+                type: array
+                minItems: 1
+                maxItems: 200
+                items:
+                  type: string
+                  minLength: 1
+              receiptId:
+                type: string
+                pattern: '^[0-9a-f]{64}$'
         - name: verification-execution-failure
           description: >-
             Content-addressed operational failure generated from an actual execution receipt for the
@@ -1194,9 +1282,28 @@ globalArguments:
                   artifacts.change_summary.integrationReceipt.integratedRevision &&
                   artifacts.verification.integratedTreeFingerprint ==
                   artifacts.change_summary.integrationReceipt.integratedTreeFingerprint &&
-                  artifacts.verification.treeFingerprint ==
-                  artifacts.change_impact.changeFingerprint && artifacts.verification.disposition ==
-                  "automatic-rework" && size(artifacts.verification.objectiveFailureCodes) > 0 &&
+                  (artifacts.verification.treeFingerprint ==
+                  artifacts.change_impact.changeFingerprint ||
+                  (has(artifacts.verification_freshness_recovery) &&
+                  artifacts.verification_freshness_recovery.authority ==
+                  "terminal-later-integration" && artifacts.verification_freshness_recovery.workItem
+                  == workItem &&
+                  artifacts.verification_freshness_recovery.originalIntegrationReceiptId ==
+                  artifacts.change_summary.integrationReceipt.receiptId &&
+                  artifacts.verification_freshness_recovery.originalIntegratedRevision ==
+                  artifacts.change_summary.integrationReceipt.integratedRevision &&
+                  artifacts.verification_freshness_recovery.previousFingerprint ==
+                  artifacts.change_impact.changeFingerprint &&
+                  artifacts.verification_freshness_recovery.currentFingerprint ==
+                  artifacts.verification.treeFingerprint &&
+                  artifacts.verification_freshness_recovery.paths == artifacts.change_impact.paths
+                  && artifacts.verification_freshness_recovery.paths ==
+                  artifacts.verification.changedPaths &&
+                  artifacts.verification_freshness_recovery.currentVerificationWorkflowRunId ==
+                  artifacts.verification.workflowRunId &&
+                  artifacts.verification_freshness_recovery.receiptId.matches("^[0-9a-f]{64}$"))) &&
+                  artifacts.verification.disposition == "automatic-rework" &&
+                  size(artifacts.verification.objectiveFailureCodes) > 0 &&
                   size(artifacts.verification.unavailableEvidenceCodes) == 0
                 message: automatic rework requires fresh complete closed objective failure evidence
         - name: evidence-unavailable
@@ -1220,10 +1327,28 @@ globalArguments:
                   artifacts.change_summary.integrationReceipt.integratedRevision &&
                   artifacts.verification.integratedTreeFingerprint ==
                   artifacts.change_summary.integrationReceipt.integratedTreeFingerprint &&
-                  artifacts.verification.treeFingerprint ==
-                  artifacts.change_impact.changeFingerprint && artifacts.verification.disposition ==
-                  "evidence-unavailable" && size(artifacts.verification.unavailableEvidenceCodes) >
-                  0
+                  (artifacts.verification.treeFingerprint ==
+                  artifacts.change_impact.changeFingerprint ||
+                  (has(artifacts.verification_freshness_recovery) &&
+                  artifacts.verification_freshness_recovery.authority ==
+                  "terminal-later-integration" && artifacts.verification_freshness_recovery.workItem
+                  == workItem &&
+                  artifacts.verification_freshness_recovery.originalIntegrationReceiptId ==
+                  artifacts.change_summary.integrationReceipt.receiptId &&
+                  artifacts.verification_freshness_recovery.originalIntegratedRevision ==
+                  artifacts.change_summary.integrationReceipt.integratedRevision &&
+                  artifacts.verification_freshness_recovery.previousFingerprint ==
+                  artifacts.change_impact.changeFingerprint &&
+                  artifacts.verification_freshness_recovery.currentFingerprint ==
+                  artifacts.verification.treeFingerprint &&
+                  artifacts.verification_freshness_recovery.paths == artifacts.change_impact.paths
+                  && artifacts.verification_freshness_recovery.paths ==
+                  artifacts.verification.changedPaths &&
+                  artifacts.verification_freshness_recovery.currentVerificationWorkflowRunId ==
+                  artifacts.verification.workflowRunId &&
+                  artifacts.verification_freshness_recovery.receiptId.matches("^[0-9a-f]{64}$"))) &&
+                  artifacts.verification.disposition == "evidence-unavailable" &&
+                  size(artifacts.verification.unavailableEvidenceCodes) > 0
                 message: unavailable evidence pauses Delivery without authorizing mutation
         - name: await-human-aesthetic
           to: aesthetic-approval
@@ -1246,10 +1371,29 @@ globalArguments:
                   artifacts.change_summary.integrationReceipt.integratedRevision &&
                   artifacts.verification.integratedTreeFingerprint ==
                   artifacts.change_summary.integrationReceipt.integratedTreeFingerprint &&
-                  artifacts.verification.treeFingerprint ==
-                  artifacts.change_impact.changeFingerprint && artifacts.verification.disposition ==
-                  "await-human-aesthetic" && size(artifacts.verification.objectiveFailureCodes) == 0
-                  && size(artifacts.verification.unavailableEvidenceCodes) == 0 &&
+                  (artifacts.verification.treeFingerprint ==
+                  artifacts.change_impact.changeFingerprint ||
+                  (has(artifacts.verification_freshness_recovery) &&
+                  artifacts.verification_freshness_recovery.authority ==
+                  "terminal-later-integration" && artifacts.verification_freshness_recovery.workItem
+                  == workItem &&
+                  artifacts.verification_freshness_recovery.originalIntegrationReceiptId ==
+                  artifacts.change_summary.integrationReceipt.receiptId &&
+                  artifacts.verification_freshness_recovery.originalIntegratedRevision ==
+                  artifacts.change_summary.integrationReceipt.integratedRevision &&
+                  artifacts.verification_freshness_recovery.previousFingerprint ==
+                  artifacts.change_impact.changeFingerprint &&
+                  artifacts.verification_freshness_recovery.currentFingerprint ==
+                  artifacts.verification.treeFingerprint &&
+                  artifacts.verification_freshness_recovery.paths == artifacts.change_impact.paths
+                  && artifacts.verification_freshness_recovery.paths ==
+                  artifacts.verification.changedPaths &&
+                  artifacts.verification_freshness_recovery.currentVerificationWorkflowRunId ==
+                  artifacts.verification.workflowRunId &&
+                  artifacts.verification_freshness_recovery.receiptId.matches("^[0-9a-f]{64}$"))) &&
+                  artifacts.verification.disposition == "await-human-aesthetic" &&
+                  size(artifacts.verification.objectiveFailureCodes) == 0 &&
+                  size(artifacts.verification.unavailableEvidenceCodes) == 0 &&
                   artifacts.verification.renderMatrixManifestDigest.matches("^[0-9a-f]{64}$") &&
                   artifacts.verification.renderMatrixBundleDigest.matches("^[0-9a-f]{64}$") &&
                   artifacts.verification.renderMatrixRunDigest.matches("^[0-9a-f]{64}$") &&
@@ -1276,9 +1420,28 @@ globalArguments:
                   artifacts.change_summary.integrationReceipt.integratedRevision &&
                   artifacts.verification.integratedTreeFingerprint ==
                   artifacts.change_summary.integrationReceipt.integratedTreeFingerprint &&
-                  artifacts.verification.treeFingerprint ==
-                  artifacts.change_impact.changeFingerprint && artifacts.verification.disposition ==
-                  "reconcile" && size(artifacts.verification.objectiveFailureCodes) == 0 &&
+                  (artifacts.verification.treeFingerprint ==
+                  artifacts.change_impact.changeFingerprint ||
+                  (has(artifacts.verification_freshness_recovery) &&
+                  artifacts.verification_freshness_recovery.authority ==
+                  "terminal-later-integration" && artifacts.verification_freshness_recovery.workItem
+                  == workItem &&
+                  artifacts.verification_freshness_recovery.originalIntegrationReceiptId ==
+                  artifacts.change_summary.integrationReceipt.receiptId &&
+                  artifacts.verification_freshness_recovery.originalIntegratedRevision ==
+                  artifacts.change_summary.integrationReceipt.integratedRevision &&
+                  artifacts.verification_freshness_recovery.previousFingerprint ==
+                  artifacts.change_impact.changeFingerprint &&
+                  artifacts.verification_freshness_recovery.currentFingerprint ==
+                  artifacts.verification.treeFingerprint &&
+                  artifacts.verification_freshness_recovery.paths == artifacts.change_impact.paths
+                  && artifacts.verification_freshness_recovery.paths ==
+                  artifacts.verification.changedPaths &&
+                  artifacts.verification_freshness_recovery.currentVerificationWorkflowRunId ==
+                  artifacts.verification.workflowRunId &&
+                  artifacts.verification_freshness_recovery.receiptId.matches("^[0-9a-f]{64}$"))) &&
+                  artifacts.verification.disposition == "reconcile" &&
+                  size(artifacts.verification.objectiveFailureCodes) == 0 &&
                   size(artifacts.verification.unavailableEvidenceCodes) == 0
                 message: >-
                   reconciliation requires complete passing objective evidence and proven render

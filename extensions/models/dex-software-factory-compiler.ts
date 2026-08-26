@@ -9,7 +9,7 @@
  */
 import { z } from "npm:zod@4.4.3";
 
-export const DEX_SOFTWARE_FACTORY_VERSION = "2026.08.25.2";
+export const DEX_SOFTWARE_FACTORY_VERSION = "2026.08.26.1";
 const SOFTWARE_FACTORY_TARGET_VERSION = "2026.06.24.1";
 
 const FACTORY_NAME_PATTERN = /^[a-z][a-z0-9_-]*$/;
@@ -880,6 +880,82 @@ function closedObjectiveVerificationArtifact(): Record<string, unknown> {
   };
 }
 
+function verificationFreshnessRecoveryArtifact(): Record<string, unknown> {
+  return {
+    name: "verification-freshness-recovery",
+    description:
+      "Content-addressed proof that one later terminal integration explains scoped verification drift.",
+    reviews: "verification",
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "schemaVersion",
+        "authority",
+        "workItem",
+        "originalIntegrationReceiptId",
+        "originalIntegratedRevision",
+        "previousFingerprint",
+        "currentFingerprint",
+        "paths",
+        "currentVerificationWorkflowRunId",
+        "laterWorkItem",
+        "laterIntegrationReceiptId",
+        "laterTargetBaselineRevision",
+        "laterIntegratedRevision",
+        "laterVerificationWorkflowRunId",
+        "laterTrackerCompletionRunId",
+        "driftPaths",
+        "receiptId",
+      ],
+      properties: {
+        schemaVersion: { type: "integer", enum: [1] },
+        authority: { type: "string", enum: ["terminal-later-integration"] },
+        workItem: STRING_SCHEMA,
+        originalIntegrationReceiptId: {
+          type: "string",
+          pattern: "^[0-9a-f]{64}$",
+        },
+        originalIntegratedRevision: {
+          type: "string",
+          pattern: "^[0-9a-f]{40}$",
+        },
+        previousFingerprint: { type: "string", pattern: "^[0-9a-f]{64}$" },
+        currentFingerprint: { type: "string", pattern: "^[0-9a-f]{64}$" },
+        paths: {
+          type: "array",
+          minItems: 1,
+          maxItems: 200,
+          items: STRING_SCHEMA,
+        },
+        currentVerificationWorkflowRunId: STRING_SCHEMA,
+        laterWorkItem: STRING_SCHEMA,
+        laterIntegrationReceiptId: {
+          type: "string",
+          pattern: "^[0-9a-f]{64}$",
+        },
+        laterTargetBaselineRevision: {
+          type: "string",
+          pattern: "^[0-9a-f]{40}$",
+        },
+        laterIntegratedRevision: {
+          type: "string",
+          pattern: "^[0-9a-f]{40}$",
+        },
+        laterVerificationWorkflowRunId: STRING_SCHEMA,
+        laterTrackerCompletionRunId: STRING_SCHEMA,
+        driftPaths: {
+          type: "array",
+          minItems: 1,
+          maxItems: 200,
+          items: STRING_SCHEMA,
+        },
+        receiptId: { type: "string", pattern: "^[0-9a-f]{64}$" },
+      },
+    },
+  };
+}
+
 function humanAestheticDecisionArtifact(): Record<string, unknown> {
   return {
     name: "human-aesthetic-decision",
@@ -1274,11 +1350,25 @@ function classifyStage(profile: DexSoftwareFactoryProfile): FactoryStage {
   };
 }
 
+const LATER_INTEGRATION_FRESHNESS_RECOVERY_EXPR = [
+  "has(artifacts.verification_freshness_recovery)",
+  'artifacts.verification_freshness_recovery.authority == "terminal-later-integration"',
+  "artifacts.verification_freshness_recovery.workItem == workItem",
+  "artifacts.verification_freshness_recovery.originalIntegrationReceiptId == artifacts.change_summary.integrationReceipt.receiptId",
+  "artifacts.verification_freshness_recovery.originalIntegratedRevision == artifacts.change_summary.integrationReceipt.integratedRevision",
+  "artifacts.verification_freshness_recovery.previousFingerprint == artifacts.change_impact.changeFingerprint",
+  "artifacts.verification_freshness_recovery.currentFingerprint == artifacts.verification.treeFingerprint",
+  "artifacts.verification_freshness_recovery.paths == artifacts.change_impact.paths",
+  "artifacts.verification_freshness_recovery.paths == artifacts.verification.changedPaths",
+  "artifacts.verification_freshness_recovery.currentVerificationWorkflowRunId == artifacts.verification.workflowRunId",
+  'artifacts.verification_freshness_recovery.receiptId.matches("^[0-9a-f]{64}$")',
+].join(" && ");
+
 const CLOSED_ROUTE_FRESHNESS_EXPR = [
   "artifacts.verification.workItem == workItem",
   "artifacts.verification.integratedRevision == artifacts.change_summary.integrationReceipt.integratedRevision",
   "artifacts.verification.integratedTreeFingerprint == artifacts.change_summary.integrationReceipt.integratedTreeFingerprint",
-  "artifacts.verification.treeFingerprint == artifacts.change_impact.changeFingerprint",
+  `(artifacts.verification.treeFingerprint == artifacts.change_impact.changeFingerprint || (${LATER_INTEGRATION_FRESHNESS_RECOVERY_EXPR}))`,
 ].join(" && ");
 
 function closedObjectiveVerificationTransitions(
@@ -1562,6 +1652,7 @@ function verificationStage(profile: DexSoftwareFactoryProfile): FactoryStage {
       closedObjective
         ? closedObjectiveVerificationArtifact()
         : verificationArtifact(profile),
+      ...(closedObjective ? [verificationFreshnessRecoveryArtifact()] : []),
       executionFailureArtifact(profile, "verification"),
     ],
     transitions: [
