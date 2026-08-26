@@ -26,3 +26,10 @@ test('matrix covers the full deliverable registry and stays bounded', () => {
 	assert.match(runnerSource, /coordinateCount/);
 	assert.match(runnerSource, /contentDigest/);
 });
+
+test('Factory receipts seal only the classified change paths', () => {
+	assert.match(runnerSource, /--scoped-paths-json/);
+	assert.match(runnerSource, /computeRepositoryScopedTreeFingerprint/);
+	assert.match(runnerSource, /engineFingerprint: servedTree\.treeFingerprint/);
+	assert.match(runnerSource, /treeFingerprint: receiptTree\.treeFingerprint/);
+});

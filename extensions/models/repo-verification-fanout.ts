@@ -439,7 +439,9 @@ async function verificationCommands(
 					args: [
 						'--experimental-strip-types',
 						'scripts/run-supers-layout-contract-matrix.mjs',
-						'--summary'
+						'--summary',
+						'--scoped-paths-json',
+						JSON.stringify(args.changedPaths)
 					]
 				}
 			];

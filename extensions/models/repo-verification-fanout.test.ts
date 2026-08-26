@@ -184,7 +184,9 @@ Deno.test('Layout Contract lane runs the capture-free numeric matrix', async () 
 			args: [
 				'--experimental-strip-types',
 				'scripts/run-supers-layout-contract-matrix.mjs',
-				'--summary'
+				'--summary',
+				'--scoped-paths-json',
+				'["src/lib/platform/composition-frame-renderer.ts"]'
 			]
 		}
 	]);

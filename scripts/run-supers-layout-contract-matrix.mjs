@@ -5,7 +5,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { evaluateLayoutContractFrame } from '../src/lib/platform/layout-contract.ts';
-import { computeRepositoryTreeFingerprint } from '../src/lib/utils/repository-tree-fingerprint.server.ts';
+import {
+	computeRepositoryScopedTreeFingerprint,
+	computeRepositoryTreeFingerprint
+} from '../src/lib/utils/repository-tree-fingerprint.server.ts';
 import { deriveSupersRenderMatrixManifest } from './derive-supers-render-matrix-manifest.ts';
 import { groupSupersRenderMatrixCoordinates } from './supers-render-matrix-runner.ts';
 
@@ -16,7 +19,32 @@ const CHROME =
 const WAIT_MS = Number(process.env.SUPERS_LAYOUT_CONTRACT_WAIT_MS ?? 60_000);
 const MATRIX_TIMEOUT_MS = Number(process.env.SUPERS_LAYOUT_CONTRACT_TIMEOUT_MS ?? 10 * 60_000);
 const DIAGNOSTIC_PRESET_SLUG = process.env.SUPERS_LAYOUT_CONTRACT_PRESET?.trim() || null;
-const SUMMARY_ONLY = process.argv.slice(2).includes('--summary');
+const COMMAND_ARGUMENTS = process.argv.slice(2);
+const SUMMARY_ONLY = COMMAND_ARGUMENTS.includes('--summary');
+
+function parseScopedPaths() {
+	const flagIndex = COMMAND_ARGUMENTS.indexOf('--scoped-paths-json');
+	if (flagIndex < 0) return null;
+	const serializedPaths = COMMAND_ARGUMENTS[flagIndex + 1];
+	if (!serializedPaths) throw new TypeError('--scoped-paths-json requires a JSON array');
+	const paths = JSON.parse(serializedPaths);
+	if (
+		!Array.isArray(paths) ||
+		paths.length === 0 ||
+		paths.some(
+			(path) =>
+				typeof path !== 'string' ||
+				path.length === 0 ||
+				path.startsWith('/') ||
+				path.split('/').includes('..')
+		)
+	) {
+		throw new TypeError('--scoped-paths-json must contain safe project-relative paths');
+	}
+	return [...new Set(paths)].sort();
+}
+
+const SCOPED_PATHS = parseScopedPaths();
 
 function canonicalize(value) {
 	if (Array.isArray(value)) return value.map(canonicalize);
@@ -279,15 +307,18 @@ async function run() {
 	const startedAt = new Date().toISOString();
 	const deadline = Date.now() + MATRIX_TIMEOUT_MS;
 	const sourceRevision = gitHead();
-	const tree = await computeRepositoryTreeFingerprint(process.cwd());
+	const servedTree = await computeRepositoryTreeFingerprint(process.cwd());
+	const receiptTree = SCOPED_PATHS
+		? await computeRepositoryScopedTreeFingerprint(process.cwd(), SCOPED_PATHS)
+		: servedTree;
 	const collected = await deriveSupersRenderMatrixManifest({
 		sourceRevision,
-		engineFingerprint: tree.treeFingerprint,
+		engineFingerprint: servedTree.treeFingerprint,
 		scope: 'full'
 	});
 	if (!collected.manifest)
 		throw new Error('Full Layout Contract selection produced no coordinates');
-	await assertServedSourceIdentity(sourceRevision, tree.treeFingerprint);
+	await assertServedSourceIdentity(sourceRevision, servedTree.treeFingerprint);
 	const coordinates = DIAGNOSTIC_PRESET_SLUG
 		? collected.manifest.coordinates.filter(
 				(coordinate) => coordinate.presetSlug === DIAGNOSTIC_PRESET_SLUG
@@ -374,7 +405,7 @@ async function run() {
 	const summary = {
 		schemaVersion: 1,
 		sourceRevision,
-		treeFingerprint: tree.treeFingerprint,
+		treeFingerprint: receiptTree.treeFingerprint,
 		manifestDigest: collected.manifest.manifestDigest,
 		authoritativeFullCorpus: DIAGNOSTIC_PRESET_SLUG === null,
 		diagnosticPresetSlug: DIAGNOSTIC_PRESET_SLUG,

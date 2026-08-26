@@ -2,7 +2,7 @@
 
 ## Status
 
-**Designed, implementation in progress.**
+**Accepted.**
 
 Date: 2026-08-26  
 Builds on: [ADR-0025](0025-static-linter-checks-safety-and-readability-only.md) (objective safety/readability boundary), [ADR-0039](0039-pack-neutral-compositions-and-listing-hygiene.md) (Pack- and orientation-neutral deliverables), and [ADR-0049](0049-lazy-pipeline-renderer-loading.md) (Preset-scoped runtime readiness)
@@ -41,6 +41,8 @@ Missing semantic identities, unavailable timing, non-finite geometry, and incomp
 The matrix may cover every deliverable Preset, Pack, orientation, and critical frame because each cell stores only bounded JSON. One persistent isolated browser session may perform standards-compliant HTML layout and WebGPU frame settling, but it runs hidden, reuses pages by Preset, opens no user-facing windows, and captures no images on success.
 
 The matrix preserves exact frame determinism: explicit frame index and rational frame rate, repeated geometry capture at the same address, and critical/transition sample plans derived from composition timing. Wall-clock animation and arbitrary screenshot timing remain forbidden.
+
+A standalone matrix receipt fingerprints the complete checkout. Factory supplies its exact classified changed paths, so the persisted receipt instead uses the same scoped content-sensitive fingerprint as change classification. Served-source identity remains bound to the complete live checkout. This keeps unrelated dirty authoring work visible to runtime identity checks without allowing it to invalidate or impersonate the sealed task-owned receipt.
 
 ### 3. Pixel diagnostics are explicit and separate
 
