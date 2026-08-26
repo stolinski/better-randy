@@ -106,9 +106,9 @@ test('Pack changes add Pack obligations', () => {
 	assert.deepEqual(humanReviewKinds([path]), ['rendered-composition-aesthetic']);
 });
 
-test('Pack contract inventory metadata never starts screenshot verification', () => {
+test('Pack contract inventory metadata uses typed tests without catalog or screenshot verification', () => {
 	const path = 'src/lib/platform/packs/role-contract-registry.ts';
-	assertOnlyLanes([path], ['check', 'unit', 'preset-static']);
+	assertOnlyLanes([path], ['check', 'unit']);
 	assert.deepEqual(domainIds([path]), ['pack']);
 	assert.deepEqual(humanReviewKinds([path]), []);
 	assert.ok(!laneIds([path]).some((lane) => ['render-matrix', 'pack-matrix'].includes(lane)));

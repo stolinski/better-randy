@@ -677,7 +677,7 @@ function addPathLaneReasons(paths: string[], map: Map<string, string[]>): void {
 		}
 		const packPath = isPackPath(path);
 		const pixelAffectingPackPath = packPath && !isPackContractMetadataPath(path);
-		if (isPresetPath(path) || packPath || isRenderPath(path)) {
+		if (isPresetPath(path) || pixelAffectingPackPath || isRenderPath(path)) {
 			addReason(map, 'preset-static', `affected Preset validity may change: ${path}`);
 		}
 		if (isPresetPath(path) || pixelAffectingPackPath || isRenderPath(path)) {
