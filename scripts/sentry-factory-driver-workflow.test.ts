@@ -64,7 +64,7 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   const steps = workflow.jobs.flatMap((job) => job.steps);
   const names = steps.map((step) => step.name);
 
-  assert.equal(workflow.version, 13);
+  assert.equal(workflow.version, 14);
   assert.deepEqual(workflow.inputs.required, [
     "workItem",
     "evidenceName",
@@ -351,6 +351,7 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   assert.match(freshnessInputs, /tracker-completion/);
   assert.match(freshnessInputs, /has\(summary\.attributes\.payload\.integrationReceipt\)/);
   assert.match(freshnessInputs, /stageId == \\"done\\"/);
+  assert.match(freshnessInputs, /has\(data\.latest.*-verification.*changedPaths/);
   const recordFreshness = stepByName(
     workflow,
     "record-verification-freshness-recovery",
