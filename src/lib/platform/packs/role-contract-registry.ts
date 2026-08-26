@@ -396,7 +396,11 @@ addContract({
 	fallback: { kind: 'role', role: 'ink-treatment' },
 	consumers: [
 		resolverConsumer('resolveFieldInkColor'),
-		resolverConsumer('resolveFieldInkColor', undefined, 'surface:brand-mark')
+		resolverConsumer(
+			'resolveFieldInkColor',
+			'src/lib/pipelines/surfaces/brand-mark/CanvasSource.svelte',
+			'surface:brand-mark'
+		)
 	],
 	valueDescription: 'a #rgb or #rrggbb colour',
 	validateValue: isPackHexColorValue
