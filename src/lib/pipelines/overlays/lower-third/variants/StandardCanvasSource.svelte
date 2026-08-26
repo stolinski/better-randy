@@ -20,7 +20,7 @@
 				class="lower-third__kicker"
 				data-text-anim-slot="kicker"
 				data-supers-readable-id="kicker"
-				data-supers-text-role="overlay-secondary">{content.kicker}</span
+				data-supers-text-role="overlay-corner-secondary">{content.kicker}</span
 			>
 		{/key}
 	{/if}
@@ -29,7 +29,7 @@
 			class="lower-third__title"
 			data-text-anim-slot="title"
 			data-supers-readable-id="title"
-			data-supers-text-role="overlay-primary">{content.title}</strong
+			data-supers-text-role="overlay-corner-primary">{content.title}</strong
 		>
 	{/key}
 	{#if content.subtitle}
@@ -38,7 +38,7 @@
 				class="lower-third__subtitle"
 				data-text-anim-slot="subtitle"
 				data-supers-readable-id="subtitle"
-				data-supers-text-role="overlay-secondary">{content.subtitle}</span
+				data-supers-text-role="overlay-corner-secondary">{content.subtitle}</span
 			>
 		{/key}
 	{/if}

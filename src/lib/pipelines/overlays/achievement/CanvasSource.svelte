@@ -74,7 +74,7 @@
 	<span class="achievement__copy">
 		<span
 			data-supers-readable-id="kicker"
-			data-supers-text-role="overlay-secondary"
+			data-supers-text-role="overlay-corner-secondary"
 			class={['achievement__kicker', { 'achievement__kicker--chip': variantId === 'unlocked' }]}
 			style:opacity={variantId === 'unlocked' ? motion.chipOpacity : 1}
 			style:scale={variantId === 'unlocked' ? motion.chipScale : 1}
@@ -84,7 +84,7 @@
 		<strong
 			class="achievement__title"
 			data-supers-readable-id="title"
-			data-supers-text-role="overlay-primary"
+			data-supers-text-role="overlay-corner-primary"
 			style:color={`color-mix(in srgb, var(--ink) ${100 - titleCompletion * 28}%, var(--mutedInk, var(--ink)) ${titleCompletion * 28}%)`}
 		>
 			{content.title}
@@ -168,7 +168,7 @@
 		align-self: flex-start;
 		color: var(--accent);
 		font-family: var(--fontLabel, var(--font, monospace));
-		font-size: 0.025em;
+		font-size: 0.05em;
 		font-weight: var(--kickerWeight, var(--weight, 700));
 		letter-spacing: var(--tracking, 0.08em);
 		line-height: 1.15;
@@ -184,7 +184,7 @@
 
 	.achievement__title {
 		color: var(--ink);
-		font-size: 0.06em;
+		font-size: 0.084em;
 		font-weight: var(--weight, 700);
 		letter-spacing: -0.02em;
 		line-height: 1.05;
@@ -200,10 +200,10 @@
 	}
 
 	.achievement--unlocked .achievement__kicker {
-		font-size: 0.021em;
+		font-size: 0.05em;
 	}
 
 	.achievement--unlocked .achievement__title {
-		font-size: 0.066em;
+		font-size: 0.084em;
 	}
 </style>

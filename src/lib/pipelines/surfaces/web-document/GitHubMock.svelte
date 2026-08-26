@@ -59,7 +59,7 @@
 				<span
 					data-supers-readable-id="surface:web-document:title"
 					data-supers-readable-text={title}
-					data-supers-text-role="surface-title">{title}</span
+					data-supers-text-role="found-document-title">{title}</span
 				>{#if issueNumber}<span
 						class="gh-number"
 						data-supers-readable-id="surface:web-document:chrome:issue-number"

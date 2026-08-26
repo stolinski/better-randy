@@ -245,8 +245,12 @@
 						{#if (primitive.type === 'node' || primitive.type === 'label' || primitive.type === 'stat-callout') && PrimitiveSource}
 							<PrimitiveSource block={primitive} />
 						{:else if primitive.type === 'timeline-segment'}
-							<span class="diagram-mount__segment-label" data-diagram-text-role="caption"
-								>{primitive.label}</span
+							<span
+								class="diagram-mount__segment-label"
+								data-diagram-text-role="caption"
+								data-supers-readable-id={`block:${primitive.id}:label`}
+								data-supers-readable-text={primitive.label}
+								data-supers-text-role="diagram-caption">{primitive.label}</span
 							>
 						{/if}
 					</div>

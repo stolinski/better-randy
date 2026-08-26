@@ -9,6 +9,7 @@
 	let { element = $bindable<HTMLElement | null>(null) }: Props = $props();
 
 	const frame = $derived(getVideoFrameSize(engineState.transport.orientation));
+	const isVertical = $derived(engineState.transport.orientation === 'vertical');
 
 	const content = $derived(engineState.surface.content);
 	const hasQuote = $derived((content.title ?? '').trim().length > 0);
@@ -36,7 +37,7 @@
 				data-text-anim-slot="title"
 				data-supers-readable-id="surface:pullquote-on-photo:title"
 				data-supers-text-role="surface-title"
-				style:font-size={`${frame.width * 0.034}px`}
+				style:font-size={`${frame.width * (isVertical ? 0.0505 : 0.034)}px`}
 			>
 				{content.title}
 			</blockquote>
@@ -50,7 +51,9 @@
 				data-text-anim-slot="author"
 				data-supers-readable-id="surface:pullquote-on-photo:author"
 				data-supers-text-role="surface-label"
-				style:font-size={`${frame.width * 0.0125}px`}
+				style:font-size={`${frame.width * (isVertical ? 0.0213 : 0.0125)}px`}
+				style:inset-block-end={`${isVertical ? 18 : 12}%`}
+				style:inset-inline-end={`${isVertical ? 10 : 7}%`}
 			>
 				{content.author}
 			</cite>
@@ -121,8 +124,6 @@
 		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
 		font-style: normal;
 		font-weight: 500;
-		inset-block-end: 12%;
-		inset-inline-end: 7%;
 		/* Pack label dress (`pullquote-on-photo.tracking` / `.case`); silent → today's caps. */
 		letter-spacing: var(--tracking, 0.24em);
 		position: absolute;

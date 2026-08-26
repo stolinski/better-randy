@@ -46,7 +46,9 @@
 	style:visibility={progress <= 0.001 ? 'hidden' : 'visible'}
 >
 	<span aria-hidden="true"></span>
-	<code data-supers-readable-id="url" data-supers-text-role="overlay-secondary">{content.url}</code>
+	<code data-supers-readable-id="url" data-supers-text-role="overlay-source-citation"
+		>{content.url}</code
+	>
 </aside>
 
 <style>

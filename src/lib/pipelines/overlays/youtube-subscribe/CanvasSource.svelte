@@ -98,13 +98,13 @@
 		<span
 			class="yt-sub__channel"
 			data-supers-readable-id="channel"
-			data-supers-text-role="overlay-primary">{content.channel}</span
+			data-supers-text-role="overlay-corner-primary">{content.channel}</span
 		>
 		{#if content.handle || content.subscribers}
 			<span
 				class="yt-sub__meta"
 				data-supers-readable-id="meta"
-				data-supers-text-role="overlay-secondary"
+				data-supers-text-role="overlay-corner-secondary"
 			>
 				{[content.handle, content.subscribers].filter(Boolean).join(' · ')}
 			</span>
@@ -128,8 +128,9 @@
 				class="yt-sub__pill"
 				style:scale={pressScale !== 1 && !subscribed ? String(pressScale) : undefined}
 			>
-				<span data-supers-readable-id="subscribe-action" data-supers-text-role="overlay-secondary"
-					>Subscribe</span
+				<span
+					data-supers-readable-id="subscribe-action"
+					data-supers-text-role="overlay-corner-secondary">Subscribe</span
 				>
 			</span>
 		</span>
@@ -153,8 +154,9 @@
 						stroke-dashoffset={checkT < 1 ? String(1 - checkT) : undefined}
 					/>
 				</svg>
-				<span data-supers-readable-id="subscribed-action" data-supers-text-role="overlay-secondary"
-					>Subscribed</span
+				<span
+					data-supers-readable-id="subscribed-action"
+					data-supers-text-role="overlay-corner-secondary">Subscribed</span
 				>
 			</span>
 			<span
@@ -225,14 +227,14 @@
 	}
 
 	.yt-sub__channel {
-		font-size: calc(3.7 * var(--cqmin));
+		font-size: calc(4.8 * var(--cqmin));
 		font-weight: 600;
 		line-height: 1.2;
 	}
 
 	.yt-sub__meta {
 		color: #606060;
-		font-size: calc(2.5 * var(--cqmin));
+		font-size: calc(3 * var(--cqmin));
 		line-height: 1.2;
 	}
 

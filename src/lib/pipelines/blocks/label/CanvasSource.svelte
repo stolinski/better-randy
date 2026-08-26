@@ -11,7 +11,11 @@
 <span
 	class="diagram-label"
 	class:diagram-label--explicit-wrap={block.wrap === 'explicit'}
-	data-diagram-text-role={block.role ?? 'caption'}>{block.text}</span
+	data-diagram-text-role={block.role ?? 'caption'}
+	data-supers-readable-id={`block:${block.id}:text`}
+	data-supers-readable-text={block.text}
+	data-supers-text-role={block.role === 'headline' ? 'diagram-headline' : 'diagram-caption'}
+	>{block.text}</span
 >
 
 <style>
@@ -21,7 +25,7 @@
 		color: var(--ink, currentColor);
 		display: inline-block;
 		font-family: var(--font, 'JetBrains Mono', ui-monospace, monospace);
-		font-size: calc(2.6 * var(--cqmin));
+		font-size: calc(2.75 * var(--cqmin));
 		font-weight: 600;
 		letter-spacing: 0.05em;
 		line-height: 1.25;

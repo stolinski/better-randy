@@ -19,7 +19,7 @@
 	const commenter = $derived((content.author ?? '').trim());
 	const age = $derived((content.dateLabel ?? '').trim());
 
-	const videoFontPx = $derived(width * 0.032);
+	const videoFontPx = $derived(width * 0.033);
 	const metaFontPx = $derived(width * 0.026);
 	const bodyFontPx = $derived(width * 0.032);
 	const actionFontPx = $derived(width * 0.024);
@@ -34,7 +34,7 @@
 			class="yt-video"
 			data-supers-readable-id="surface:web-document:title"
 			data-supers-readable-text={videoTitle}
-			data-supers-text-role="surface-title"
+			data-supers-text-role="found-document-title"
 			style:font-size={`${videoFontPx}px`}
 		>
 			{videoTitle}

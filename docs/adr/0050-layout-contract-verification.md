@@ -54,6 +54,8 @@ Pipeline definitions declare readable identities and semantic text roles. The ru
 
 The contract does not infer readable importance from arbitrary tags alone. Missing renderer-owned identity coverage is unavailable evidence so new Pipelines cannot escape safety checks by omitting metadata.
 
+Placement, clipping, and cap-height checks apply when the renderer-owned readable carrier has reached its legible hold (`opacity` and enter progress ≥ 0.99). Entering or exiting text is instead covered by exact-address replay and declared stable-geometry checks. This prevents a deliberately scaled or displaced transition pose from being misclassified as a held readability violation while still failing any nondeterministic or discontinuous motion.
+
 ### 5. Aesthetic authority remains separate
 
 Mathematics can prove safety, readability floors, determinism, and structural integrity. It cannot prove taste. Layout Contract success therefore does not manufacture an aesthetic approval. Human review remains available for explicitly aesthetic product work, but routine safety verification no longer requires a human to inspect dozens of screenshots.

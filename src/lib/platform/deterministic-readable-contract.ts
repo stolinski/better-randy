@@ -1,11 +1,5 @@
-import type {
-	EngineState,
-	Keyframe,
-	Overlay,
-	Preset,
-	SurfaceContent
-} from '$lib/platform/engine-schema';
-import { resolveCascadeTimings } from '$lib/platform/cascade-timing';
+import type { EngineState, Overlay, Preset, SurfaceContent } from '$lib/platform/engine-schema';
+import { opacityEnvelope, resolveCascadeTimings } from '$lib/platform/cascade-timing';
 import {
 	getOverlayDefinition,
 	getSurfaceDefinition
@@ -204,7 +198,7 @@ function appendFixedFoundDocumentChrome(
 	}
 }
 
-function surfaceTextAnimationHasPaint(
+function surfaceTextAnimationHasLegibleHold(
 	state: EngineState,
 	animationId: string,
 	progress: number
@@ -212,8 +206,8 @@ function surfaceTextAnimationHasPaint(
 	const animation = state.textAnimations.find((entry) => entry.id === animationId);
 	if (!animation) return true;
 	const resolved = resolveCascadeTimings(state).get(`textAnimation:${animation.id}`);
-	if (!resolved || progress <= resolved.startFraction) return false;
-	if (animation.exit && progress >= animation.exit.start + animation.exit.duration) return false;
+	if (!resolved || progress < resolved.startFraction + resolved.durationFraction) return false;
+	if (animation.exit && progress >= animation.exit.start) return false;
 	return true;
 }
 
@@ -233,18 +227,69 @@ function surfaceTextAnimationForReadableIdentity(state: EngineState, identity: s
 	);
 }
 
+function compositionProgress(state: EngineState, timestampMicroseconds: number): number {
+	return Math.max(
+		0,
+		Math.min(1, timestampMicroseconds / (state.transport.durationSeconds * 1_000_000))
+	);
+}
+
+function surfaceHasLegibleHold(state: EngineState, progress: number): boolean {
+	if (state.surface.enter && progress < state.surface.enter.start + state.surface.enter.duration) {
+		return false;
+	}
+	return !state.surface.exit || progress < state.surface.exit.start;
+}
+
+function blockHasLegibleHold(state: EngineState, blockId: string, progress: number): boolean {
+	const primitive = state.surface.diagram?.find((entry) => entry.id === blockId);
+	if (!primitive) return false;
+	const resolved = resolveCascadeTimings(state).get(`block:${blockId}`);
+	if (!resolved || progress < resolved.startFraction + resolved.durationFraction) return false;
+	return !primitive.exit || progress < primitive.exit.start;
+}
+
+function imessageIdentityHasLegibleHold(
+	state: EngineState,
+	identity: string,
+	progress: number
+): boolean {
+	const match = identity.match(/^surface:imessage:message:(\d+):(\d+|status|tapback)$/);
+	if (!match) return true;
+	const messageIndex = Number(match[1]);
+	const message = state.surface.content.messages?.[messageIndex];
+	if (!message) return false;
+	const enter = messageEnter(message, messageIndex);
+	if (match[2] === 'status') {
+		return renderedMessageStatus(message, messageIndex, progress) !== undefined;
+	}
+	if (match[2] === 'tapback') {
+		return Boolean(message.tapback) && progress >= enter.start + TAPBACK_DELAY + 0.05;
+	}
+	return progress >= enter.start + enter.duration;
+}
+
 export function isDeterministicReadableIdentityMotionHidden(
 	state: EngineState,
 	timestampMicroseconds: number,
 	identity: string
 ): boolean {
+	const progress = compositionProgress(state, timestampMicroseconds);
+	if (identity.startsWith('surface:') || identity.startsWith('block:')) {
+		if (!surfaceHasLegibleHold(state, progress)) return true;
+	}
+	const blockId = identity.match(/^block:([^:]+):/)?.[1];
+	if (blockId) return !blockHasLegibleHold(state, blockId, progress);
+	const overlayId = identity.match(/^overlay:([^:]+):/)?.[1];
+	if (overlayId) {
+		const overlay = state.overlays.find((entry) => entry.id === overlayId);
+		return !overlay || !overlayHasReadableHold(overlay, progress, state);
+	}
+	if (identity.startsWith('surface:imessage:')) {
+		return !imessageIdentityHasLegibleHold(state, identity, progress);
+	}
 	const animation = surfaceTextAnimationForReadableIdentity(state, identity);
-	if (!animation) return false;
-	const progress = Math.max(
-		0,
-		Math.min(1, timestampMicroseconds / (state.transport.durationSeconds * 1_000_000))
-	);
-	return !surfaceTextAnimationHasPaint(state, animation.id, progress);
+	return animation ? !surfaceTextAnimationHasLegibleHold(state, animation.id, progress) : false;
 }
 
 function filterSurfaceReadableTextByMotion(
@@ -254,7 +299,7 @@ function filterSurfaceReadableTextByMotion(
 ): DeterministicExpectedReadableText[] {
 	return entries.filter((entry) => {
 		const animation = surfaceTextAnimationForReadableIdentity(state, entry.id);
-		return !animation || surfaceTextAnimationHasPaint(state, animation.id, progress);
+		return !animation || surfaceTextAnimationHasLegibleHold(state, animation.id, progress);
 	});
 }
 
@@ -276,7 +321,11 @@ function expectedSurfaceReadableText(
 			entries,
 			`${prefix}:title`,
 			content.title,
-			state.surface.type === 'type-hero' ? 'surface-display' : 'surface-title'
+			state.surface.type === 'type-hero'
+				? 'surface-display'
+				: state.surface.type === 'web-document'
+					? 'found-document-title'
+					: 'surface-title'
 		);
 	}
 	if (definition.controls.kicker)
@@ -392,31 +441,19 @@ function findOverlayDefinition(type: string): OverlayPipelineDefinition | null {
 	return getOverlayDefinition(type);
 }
 
-function keyframeTrackHasPaint(track: readonly Keyframe[], localMilliseconds: number): boolean {
-	if (track.length === 0) return true;
-	if (localMilliseconds <= track[0].atMs) return track[0].value > 0;
-	for (let index = 1; index < track.length; index += 1) {
-		const previous = track[index - 1];
-		const next = track[index];
-		if (localMilliseconds <= next.atMs) return previous.value > 0 || next.value > 0;
-	}
-	return track[track.length - 1].value > 0;
-}
-
-function overlayHasReadablePaint(overlay: Overlay, progress: number, state: EngineState): boolean {
+function overlayHasReadableHold(overlay: Overlay, progress: number, state: EngineState): boolean {
 	const durationMilliseconds = state.transport.durationSeconds * 1000;
 	const resolved = resolveCascadeTimings(state).get(`overlay:${overlay.id}`);
 	if (!resolved) return false;
 	const opacity = overlay.animation?.channels?.opacity;
-	if (opacity) {
-		return keyframeTrackHasPaint(
-			opacity,
-			progress * durationMilliseconds - resolved.startFraction * durationMilliseconds
-		);
-	}
-	if (progress <= resolved.startFraction) return false;
-	if (overlay.exit && progress >= overlay.exit.start + overlay.exit.duration) return false;
-	return true;
+	const envelope = opacity ? opacityEnvelope(opacity) : null;
+	const holdStart = envelope
+		? resolved.startFraction + envelope.settleMs / durationMilliseconds
+		: resolved.startFraction + resolved.durationFraction;
+	const holdEnd = envelope
+		? resolved.startFraction + envelope.departMs / durationMilliseconds
+		: (overlay.exit?.start ?? 1);
+	return progress >= holdStart && progress < holdEnd;
 }
 
 /** Derive endpoint authority at the same settled midpoint used by transition snapshots. */
@@ -449,7 +486,7 @@ export function deriveDeterministicReadableContract(
 	if (surface.status === 'unavailable') return surface;
 	const expected = [...surface.expected];
 	for (const overlay of state.overlays) {
-		if (!overlayHasReadablePaint(overlay, progress, state)) continue;
+		if (!overlayHasReadableHold(overlay, progress, state)) continue;
 		const definition = findOverlayDefinition(overlay.type);
 		if (!definition)
 			return { status: 'unavailable', reason: `overlay-definition-unavailable:${overlay.type}` };

@@ -20,7 +20,7 @@ export const sourceUrlOverlayDefinition = {
 	label: 'Source URL',
 	schema: SourceUrlContentSchema,
 	defaults,
-	readableText: (content) => [{ id: 'url', text: content.url, role: 'overlay-secondary' }],
+	readableText: (content) => [{ id: 'url', text: content.url, role: 'overlay-source-citation' }],
 	disableEntryOffset: true,
 	disableOpacityTransition: true
 } satisfies OverlayPipelineDefinition<SourceUrlContent>;

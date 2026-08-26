@@ -16,6 +16,7 @@ const CHROME =
 const WAIT_MS = Number(process.env.SUPERS_LAYOUT_CONTRACT_WAIT_MS ?? 60_000);
 const MATRIX_TIMEOUT_MS = Number(process.env.SUPERS_LAYOUT_CONTRACT_TIMEOUT_MS ?? 10 * 60_000);
 const DIAGNOSTIC_PRESET_SLUG = process.env.SUPERS_LAYOUT_CONTRACT_PRESET?.trim() || null;
+const SUMMARY_ONLY = process.argv.slice(2).includes('--summary');
 
 function canonicalize(value) {
 	if (Array.isArray(value)) return value.map(canonicalize);
@@ -354,6 +355,22 @@ async function run() {
 	} finally {
 		await chrome.close();
 	}
+	const failureCountMap = new Map();
+	for (const result of frameResults) {
+		for (const check of result.checks) {
+			if (check.outcome === 'pass' || check.outcome === 'not-applicable') continue;
+			const key = `${check.code}:${check.outcome}`;
+			failureCountMap.set(key, (failureCountMap.get(key) ?? 0) + 1);
+		}
+	}
+	const failureCounts = [...failureCountMap]
+		.map(([key, count]) => {
+			const separator = key.lastIndexOf(':');
+			return { code: key.slice(0, separator), outcome: key.slice(separator + 1), count };
+		})
+		.sort((left, right) =>
+			`${left.code}:${left.outcome}`.localeCompare(`${right.code}:${right.outcome}`)
+		);
 	const summary = {
 		schemaVersion: 1,
 		sourceRevision,
@@ -366,11 +383,30 @@ async function run() {
 		coordinateCount: frameResults.length,
 		passedCount: frameResults.filter((result) => result.passed).length,
 		failedCount: frameResults.filter((result) => !result.passed).length,
+		failureCounts,
 		passed: frameResults.every((result) => result.passed),
 		frameResults
 	};
 	const report = { ...summary, contentDigest: hash(summary) };
-	process.stdout.write(`${JSON.stringify(report)}\n`);
+	const output = SUMMARY_ONLY
+		? {
+				schemaVersion: report.schemaVersion,
+				sourceRevision: report.sourceRevision,
+				treeFingerprint: report.treeFingerprint,
+				manifestDigest: report.manifestDigest,
+				authoritativeFullCorpus: report.authoritativeFullCorpus,
+				diagnosticPresetSlug: report.diagnosticPresetSlug,
+				startedAt: report.startedAt,
+				completedAt: report.completedAt,
+				coordinateCount: report.coordinateCount,
+				passedCount: report.passedCount,
+				failedCount: report.failedCount,
+				failureCounts: report.failureCounts,
+				passed: report.passed,
+				contentDigest: report.contentDigest
+			}
+		: report;
+	process.stdout.write(`${JSON.stringify(output)}\n`);
 	if (!report.passed) process.exitCode = 1;
 }
 

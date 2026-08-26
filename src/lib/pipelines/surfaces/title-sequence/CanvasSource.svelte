@@ -9,6 +9,7 @@
 	let { element = $bindable<HTMLElement | null>(null) }: Props = $props();
 
 	const frame = $derived(getVideoFrameSize(engineState.transport.orientation));
+	const isVertical = $derived(engineState.transport.orientation === 'vertical');
 
 	const content = $derived(engineState.surface.content);
 	const hasTitle = $derived((content.title ?? '').trim().length > 0);
@@ -34,7 +35,7 @@
 				data-text-anim-slot="kicker"
 				data-supers-readable-id="surface:title-sequence:kicker"
 				data-supers-text-role="surface-label"
-				style:font-size={`${frame.width * 0.012}px`}
+				style:font-size={`${frame.width * (isVertical ? 0.021 : 0.012)}px`}
 			>
 				{content.kicker}
 			</span>

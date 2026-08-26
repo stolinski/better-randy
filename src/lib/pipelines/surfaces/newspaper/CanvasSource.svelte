@@ -23,6 +23,9 @@
 	const ROTATION_MAX_DEG = 3;
 
 	const frame = $derived(getVideoFrameSize(engineState.transport.orientation));
+	const metadataSizeRatio = $derived(
+		engineState.transport.orientation === 'vertical' ? 0.024 : 0.02
+	);
 
 	// Seed the per-instance rotation from the title so two newspaper cards
 	// in one session don't share angle (Q6 / G9, deterministic at render
@@ -197,7 +200,7 @@
 						data-text-anim-slot="author"
 						data-supers-readable-id="surface:newspaper:author"
 						data-supers-text-role="surface-label"
-						style:font-size={`${layout.width * 0.02}px`}
+						style:font-size={`${layout.width * metadataSizeRatio}px`}
 					>
 						{content.author}
 					</span>
@@ -210,7 +213,7 @@
 						data-text-anim-slot="dateLabel"
 						data-supers-readable-id="surface:newspaper:date-label"
 						data-supers-text-role="surface-label"
-						style:font-size={`${layout.width * 0.02}px`}
+						style:font-size={`${layout.width * metadataSizeRatio}px`}
 					>
 						{content.dateLabel}
 					</span>
@@ -223,7 +226,7 @@
 						data-text-anim-slot="source"
 						data-supers-readable-id={`surface:newspaper:${content.sourceUrl?.trim() ? 'source-url' : 'source'}`}
 						data-supers-text-role="surface-label"
-						style:font-size={`${layout.width * 0.02}px`}>{sourceLabel}</span
+						style:font-size={`${layout.width * metadataSizeRatio}px`}>{sourceLabel}</span
 					>
 				{/key}
 			{/if}

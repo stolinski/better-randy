@@ -57,6 +57,39 @@ const VerificationUnavailableReasonSchema = z.enum([
 	'export-decode-evidence-not-declared'
 ]);
 
+export const LayoutContractLaneReceiptSchema = z
+	.strictObject({
+		schemaVersion: z.literal(1),
+		sourceRevision: z.string().regex(/^[0-9a-f]{40}$/),
+		treeFingerprint: z.string().regex(/^[0-9a-f]{64}$/),
+		manifestDigest: z.string().regex(/^[0-9a-f]{64}$/),
+		authoritativeFullCorpus: z.literal(true),
+		diagnosticPresetSlug: z.null(),
+		startedAt: z.string().datetime(),
+		completedAt: z.string().datetime(),
+		coordinateCount: z.number().int().positive(),
+		passedCount: z.number().int().nonnegative(),
+		failedCount: z.number().int().nonnegative(),
+		failureCounts: z.array(
+			z.strictObject({
+				code: z.string().min(1),
+				outcome: z.enum(['fail', 'unavailable']),
+				count: z.number().int().positive()
+			})
+		),
+		passed: z.boolean(),
+		contentDigest: z.string().regex(/^[0-9a-f]{64}$/)
+	})
+	.superRefine((receipt, context) => {
+		if (receipt.passedCount + receipt.failedCount !== receipt.coordinateCount) {
+			context.addIssue({ code: 'custom', message: 'Layout Contract coordinate counts diverged' });
+		}
+		if (receipt.passed !== (receipt.failedCount === 0 && receipt.failureCounts.length === 0)) {
+			context.addIssue({ code: 'custom', message: 'Layout Contract verdict counts diverged' });
+		}
+	});
+export type LayoutContractLaneReceipt = z.infer<typeof LayoutContractLaneReceiptSchema>;
+
 export const VerificationLaneResultSchema = z.strictObject({
 	id: AutomatedVerificationLaneIdSchema,
 	status: z.enum(['passed', 'failed', 'unavailable']),
@@ -64,7 +97,8 @@ export const VerificationLaneResultSchema = z.strictObject({
 	durationMs: z.number().int().nonnegative(),
 	exitCode: z.number().int().nullable(),
 	outputTail: z.string().max(4_000),
-	unavailableReason: VerificationUnavailableReasonSchema.nullable()
+	unavailableReason: VerificationUnavailableReasonSchema.nullable(),
+	layoutContractReceipt: LayoutContractLaneReceiptSchema.optional()
 });
 
 const VerificationFanoutReportContentSchema = z.strictObject({
@@ -107,6 +141,18 @@ type VerificationCommand = {
 
 const textDecoder = new TextDecoder();
 const textEncoder = new TextEncoder();
+
+function parseLayoutContractReceipt(
+	output: VerificationCommandOutput
+): LayoutContractLaneReceipt | undefined {
+	try {
+		const parsed: unknown = JSON.parse(textDecoder.decode(output.stdout).trim());
+		const receipt = LayoutContractLaneReceiptSchema.safeParse(parsed);
+		return receipt.success ? receipt.data : undefined;
+	} catch {
+		return undefined;
+	}
+}
 
 function boundedOutputTail(output: VerificationCommandOutput): string {
 	const combined = [
@@ -390,7 +436,11 @@ async function verificationCommands(
 			return [
 				{
 					command: 'node',
-					args: ['--experimental-strip-types', 'scripts/run-supers-layout-contract-matrix.mjs']
+					args: [
+						'--experimental-strip-types',
+						'scripts/run-supers-layout-contract-matrix.mjs',
+						'--summary'
+					]
 				}
 			];
 		case 'export-decode':
@@ -475,6 +525,19 @@ async function runVerificationLane(
 	}
 	const startedAt = performance.now();
 	const output = await runCommandSequence(commands, repoDir, runCommand);
+	const layoutContractReceipt =
+		lane === 'layout-contract' ? parseLayoutContractReceipt(output) : undefined;
+	if (lane === 'layout-contract') {
+		if (!layoutContractReceipt) {
+			throw new TypeError('Layout Contract output did not contain a typed full-corpus receipt');
+		}
+		if (layoutContractReceipt.treeFingerprint !== args.expectedFingerprint) {
+			throw new TypeError('Layout Contract receipt does not match the sealed change fingerprint');
+		}
+		if (layoutContractReceipt.passed !== (output.code === 0)) {
+			throw new TypeError('Layout Contract process exit and typed verdict diverged');
+		}
+	}
 	return {
 		id: lane,
 		status: output.code === 0 ? 'passed' : 'failed',
@@ -484,7 +547,8 @@ async function runVerificationLane(
 		durationMs: Math.round(performance.now() - startedAt),
 		exitCode: output.code,
 		outputTail: boundedOutputTail(output),
-		unavailableReason: null
+		unavailableReason: null,
+		...(layoutContractReceipt ? { layoutContractReceipt } : {})
 	};
 }
 

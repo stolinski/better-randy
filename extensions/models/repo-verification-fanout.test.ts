@@ -172,17 +172,41 @@ Deno.test('Layout Contract lane runs the capture-free numeric matrix', async () 
 		argumentsFor(['layout-contract'], ['src/lib/platform/composition-frame-renderer.ts']),
 		async (command, args) => {
 			calls.push({ command, args });
-			return successfulOutput('{"passed":true,"coordinateCount":1744}');
+			return layoutContractOutput();
 		}
 	);
 
 	assert.equal(report.passed, true);
+	assert.equal(report.results[0].layoutContractReceipt?.contentDigest, 'd'.repeat(64));
 	assert.deepEqual(calls, [
 		{
 			command: 'node',
-			args: ['--experimental-strip-types', 'scripts/run-supers-layout-contract-matrix.mjs']
+			args: [
+				'--experimental-strip-types',
+				'scripts/run-supers-layout-contract-matrix.mjs',
+				'--summary'
+			]
 		}
 	]);
+});
+
+Deno.test('Layout Contract lane rejects a receipt outside the sealed tree', async () => {
+	await assert.rejects(
+		() =>
+			runVerificationFanout(
+				'/repo',
+				argumentsFor(['layout-contract'], ['src/lib/platform/runtime-audit.ts']),
+				async () => ({
+					...layoutContractOutput(),
+					stdout: new TextEncoder().encode(
+						new TextDecoder()
+							.decode(layoutContractOutput().stdout)
+							.replace(fingerprint, 'f'.repeat(64))
+					)
+				})
+			),
+		/does not match the sealed change fingerprint/
+	);
 });
 
 Deno.test(
@@ -496,6 +520,31 @@ Deno.test('fan-out schema accepts an empty automated lane set for render-only wo
 	);
 	assert.deepEqual(parsed.lanes, []);
 });
+
+function layoutContractOutput(): VerificationCommandOutput {
+	return {
+		code: 0,
+		stdout: new TextEncoder().encode(
+			JSON.stringify({
+				schemaVersion: 1,
+				sourceRevision: 'c'.repeat(40),
+				treeFingerprint: fingerprint,
+				manifestDigest: 'e'.repeat(64),
+				authoritativeFullCorpus: true,
+				diagnosticPresetSlug: null,
+				startedAt: '2026-08-26T20:00:00.000Z',
+				completedAt: '2026-08-26T20:08:00.000Z',
+				coordinateCount: 1744,
+				passedCount: 1744,
+				failedCount: 0,
+				failureCounts: [],
+				passed: true,
+				contentDigest: 'd'.repeat(64)
+			})
+		),
+		stderr: new Uint8Array()
+	};
+}
 
 function successfulOutput(label: string): VerificationCommandOutput {
 	return {

@@ -66,12 +66,16 @@ export const LayoutContractTextRoleSchema = z.enum([
 	'overlay-secondary',
 	'overlay-corner-primary',
 	'overlay-corner-secondary',
+	'overlay-cinematic-primary',
+	'overlay-cinematic-secondary',
+	'overlay-source-citation',
 	'surface-display',
 	'surface-title',
 	'surface-body',
 	'surface-body-focal',
 	'surface-label',
 	'found-document-body',
+	'found-document-title',
 	'found-document-metadata',
 	'diagram-headline',
 	'diagram-caption',
@@ -160,12 +164,16 @@ const CAP_HEIGHT_FLOORS: Record<LayoutContractTextRole, { horizontal: number; ve
 		'overlay-secondary': { horizontal: 80, vertical: 96 },
 		'overlay-corner-primary': { horizontal: 56, vertical: 72 },
 		'overlay-corner-secondary': { horizontal: 32, vertical: 44 },
+		'overlay-cinematic-primary': { horizontal: 64, vertical: 84 },
+		'overlay-cinematic-secondary': { horizontal: 36, vertical: 48 },
+		'overlay-source-citation': { horizontal: 48, vertical: 56 },
 		'surface-display': { horizontal: 320, vertical: 400 },
 		'surface-title': { horizontal: 60, vertical: 76 },
 		'surface-body': { horizontal: 32, vertical: 44 },
 		'surface-body-focal': { horizontal: 32, vertical: 44 },
 		'surface-label': { horizontal: 24, vertical: 32 },
 		'found-document-body': { horizontal: 30, vertical: 40 },
+		'found-document-title': { horizontal: 40, vertical: 44 },
 		'found-document-metadata': { horizontal: 18, vertical: 24 },
 		'diagram-headline': { horizontal: 60, vertical: 76 },
 		'diagram-caption': { horizontal: 24, vertical: 32 },
@@ -181,13 +189,45 @@ function check(
 	return LayoutContractCheckResultSchema.parse({ code, outcome, details });
 }
 
+function readingWindowPasses(window: LayoutContractReadingWindow): boolean {
+	const available = window.endMilliseconds - window.startMilliseconds;
+	return window.kind === 'speech-caption'
+		? available >= 1_000 && available <= 7_000
+		: available >= window.requiredMilliseconds;
+}
+
 function readingWindowsPass(windows: readonly LayoutContractReadingWindow[]): boolean {
-	return windows.every((window) => {
-		const available = window.endMilliseconds - window.startMilliseconds;
-		return window.kind === 'speech-caption'
-			? available >= 1_000 && available <= 7_000
-			: available >= window.requiredMilliseconds;
-	});
+	return windows.every(readingWindowPasses);
+}
+
+function rectOutside(
+	readable: LayoutContractReadableEvidence,
+	bounds: LayoutContractRect
+): boolean {
+	return (
+		readable.rect.x < bounds.x ||
+		readable.rect.y < bounds.y ||
+		readable.rect.x + readable.rect.width > bounds.x + bounds.width ||
+		readable.rect.y + readable.rect.height > bounds.y + bounds.height
+	);
+}
+
+function readableRectLabel(entry: LayoutContractReadableEvidence): string {
+	return `${entry.id}@${entry.rect.x},${entry.rect.y},${entry.rect.width},${entry.rect.height}`;
+}
+
+function titleSafeViolationIds(evidence: LayoutContractFrameEvidence): string[] {
+	const { width, height } = evidence.coordinate;
+	const bounds = { x: width * 0.05, y: height * 0.05, width: width * 0.9, height: height * 0.9 };
+	return evidence.readables.filter((entry) => rectOutside(entry, bounds)).map(readableRectLabel);
+}
+
+function verticalPlatformViolationIds(evidence: LayoutContractFrameEvidence): string[] {
+	const { width, height } = evidence.coordinate;
+	const top = Math.floor(height * 0.06);
+	const bottom = Math.ceil(height * 0.84);
+	const bounds = { x: 0, y: top, width: Math.ceil(width * 0.91), height: bottom - top };
+	return evidence.readables.filter((entry) => rectOutside(entry, bounds)).map(readableRectLabel);
 }
 
 /** Derive the complete closed objective verdict without inspecting captured pixels. */
@@ -229,7 +269,7 @@ export function evaluateLayoutContractFrame(input: unknown): LayoutContractFrame
 					? 'pass'
 					: 'fail'
 				: 'unavailable',
-			`${evidence.measurements.titleSafeAreaAffectedPixels} affected native pixel(s)`
+			`${evidence.measurements.titleSafeAreaAffectedPixels} affected native pixel(s); ids=${JSON.stringify(titleSafeViolationIds(evidence))}`
 		),
 		check(
 			'vertical-platform-safe-area',
@@ -242,7 +282,7 @@ export function evaluateLayoutContractFrame(input: unknown): LayoutContractFrame
 					: 'unavailable',
 			coordinate.orientation === 'horizontal'
 				? 'horizontal target has no vertical platform rail'
-				: `${evidence.measurements.verticalPlatformSafeAreaAffectedPixels} affected native pixel(s)`
+				: `${evidence.measurements.verticalPlatformSafeAreaAffectedPixels} affected native pixel(s); ids=${JSON.stringify(verticalPlatformViolationIds(evidence))}`
 		),
 		check(
 			'readable-clipping',
@@ -251,7 +291,7 @@ export function evaluateLayoutContractFrame(input: unknown): LayoutContractFrame
 					? 'pass'
 					: 'fail'
 				: 'unavailable',
-			`${evidence.readables.filter((entry) => entry.clippedPixelCount > 0).length} clipped readable region(s)`
+			`${evidence.readables.filter((entry) => entry.clippedPixelCount > 0).length} clipped readable region(s); ids=${JSON.stringify(evidence.readables.filter((entry) => entry.clippedPixelCount > 0).map((entry) => `${entry.id}:${entry.clippedPixelCount}@${entry.rect.x},${entry.rect.y},${entry.rect.width},${entry.rect.height}|clip=${entry.clipRect.x},${entry.clipRect.y},${entry.clipRect.width},${entry.clipRect.height}`))}`
 		),
 		check(
 			'cap-height-floor',
@@ -264,7 +304,7 @@ export function evaluateLayoutContractFrame(input: unknown): LayoutContractFrame
 					? 'pass'
 					: 'fail'
 				: 'unavailable',
-			`${evidence.readables.filter((entry) => entry.measuredCapHeightPixels < CAP_HEIGHT_FLOORS[entry.textRole][coordinate.orientation]).length} undersized readable region(s)`
+			`${evidence.readables.filter((entry) => entry.measuredCapHeightPixels < CAP_HEIGHT_FLOORS[entry.textRole][coordinate.orientation]).length} undersized readable region(s); ids=${JSON.stringify(evidence.readables.filter((entry) => entry.measuredCapHeightPixels < CAP_HEIGHT_FLOORS[entry.textRole][coordinate.orientation]).map((entry) => `${entry.id}:${entry.measuredCapHeightPixels.toFixed(2)}<${CAP_HEIGHT_FLOORS[entry.textRole][coordinate.orientation]}`))}`
 		),
 		check(
 			'reading-window',
@@ -275,7 +315,7 @@ export function evaluateLayoutContractFrame(input: unknown): LayoutContractFrame
 					: 'fail',
 			evidence.readingPlan.status === 'unavailable'
 				? evidence.readingPlan.reason
-				: `${evidence.readingPlan.windows.length} reading window(s)`
+				: `${evidence.readingPlan.windows.length} reading window(s); failures=${JSON.stringify(evidence.readingPlan.windows.filter((window) => !readingWindowPasses(window)).map((window) => `${window.readingId}:${(window.endMilliseconds - window.startMilliseconds).toFixed(0)}<${window.requiredMilliseconds.toFixed(0)}`))}`
 		),
 		check(
 			'deterministic-geometry',

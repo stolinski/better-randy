@@ -56,31 +56,37 @@ The right size for a piece of text depends on **what job it does**, not on its t
 
 - **Rule** — At 4K, every rendered text element must hit its cap-height **band** for its role × surface combination. A band has both a minimum and a maximum — text far above the floor is also wrong (oversized body reads as signage, not paper).
 
-  | Role × surface                                                                                  | Horizontal band (cap-height px) | Vertical band (cap-height px) |
-  | ----------------------------------------------------------------------------------------------- | ------------------------------- | ----------------------------- |
-  | **Overlay display** (full-frame bumper centrepiece, typographic hero)                           | 140–320                         | 180–400                       |
-  | **Overlay primary** (lower-third title, caption)                                                | 96–144                          | 120–180                       |
-  | **Overlay secondary** (lower-third subtitle, caption-2)                                         | 80–112                          | 96–136                        |
-  | **Overlay corner-chip** (lower-third spanning ≤25% frame width, corner-anchored; primary/title) | 56–84                           | 72–108                        |
-  | **Overlay corner-chip secondary** (role/subtitle on a corner chip)                              | 32–52                           | 44–68                         |
-  | **Overlay cinematic corner plate** (lower-third spanning >25–≤35% frame width, corner-anchored; name/title) | 64–96               | 84–124                        |
-  | **Overlay cinematic corner plate secondary** (role/subtitle on a cinematic corner plate)        | 36–60                           | 48–76                         |
-  | **Surface display** (full-frame typographic hero — the word IS the composition)                 | 320–560                         | 400–720                       |
-  | **Surface title** (paper / plain card title slot)                                               | **60–110**                      | 76–138                        |
-  | **Surface body** (paper / plain card body, marked or unmarked)                                  | **32–56**                       | 44–72                         |
-  | **Surface label** (source / kicker / byline / date label, footer)                               | **24–48**                       | 32–60                         |
-  | **Found-document body** (baked post/article body inside faithful platform chrome)               | **30–54**                       | 40–70                         |
-  | **Found-document metadata** (handle, date, action labels inside faithful platform chrome)       | **18–34**                       | 24–44                         |
-  | **Diagram headline** (`surface.diagram[]` title / section label)                                | 60–110                          | 76–138                        |
-  | **Diagram node / caption label** (node `text`, `label` primitive, stat-callout caption)         | 24–48                           | 32–60                         |
-  | **Diagram stat value** (stat-callout built number — the diagram's focal figure)                 | 60–110                          | 76–138                        |
-  | **Caption track — social styles** (`state.captions` karaoke line / word-pop statement word)     | 72–140                          | 80–160                        |
+  | Role × surface                                                                                              | Horizontal band (cap-height px) | Vertical band (cap-height px) |
+  | ----------------------------------------------------------------------------------------------------------- | ------------------------------- | ----------------------------- |
+  | **Overlay display** (full-frame bumper centrepiece, typographic hero)                                       | 140–320                         | 180–400                       |
+  | **Overlay primary** (lower-third title, caption)                                                            | 96–144                          | 120–180                       |
+  | **Overlay secondary** (lower-third subtitle, caption-2)                                                     | 80–112                          | 96–136                        |
+  | **Overlay corner-chip** (lower-third spanning ≤25% frame width, corner-anchored; primary/title)             | 56–84                           | 72–108                        |
+  | **Overlay corner-chip secondary** (role/subtitle on a corner chip)                                          | 32–52                           | 44–68                         |
+  | **Overlay cinematic corner plate** (lower-third spanning >25–≤35% frame width, corner-anchored; name/title) | 64–96                           | 84–124                        |
+  | **Overlay cinematic corner plate secondary** (role/subtitle on a cinematic corner plate)                    | 36–60                           | 48–76                         |
+  | **Overlay source citation** (short URL plate identifying a showcased site)                                  | 48–72                           | 56–84                         |
+  | **Surface display** (full-frame typographic hero — the word IS the composition)                             | 320–560                         | 400–720                       |
+  | **Surface title** (paper / plain card title slot)                                                           | **60–110**                      | 76–138                        |
+  | **Surface body** (paper / plain card body, marked or unmarked)                                              | **32–56**                       | 44–72                         |
+  | **Surface label** (source / kicker / byline / date label, footer)                                           | **24–48**                       | 32–60                         |
+  | **Found-document body** (baked post/article body inside faithful platform chrome)                           | **30–54**                       | 40–70                         |
+  | **Found-document title** (post/article heading inside faithful platform chrome)                             | **40–76**                       | 44–84                         |
+  | **Found-document metadata** (handle, date, action labels inside faithful platform chrome)                   | **18–34**                       | 24–44                         |
+  | **Diagram headline** (`surface.diagram[]` title / section label)                                            | 60–110                          | 76–138                        |
+  | **Diagram node / caption label** (node `text`, `label` primitive, stat-callout caption)                     | 24–48                           | 32–60                         |
+  | **Diagram stat value** (stat-callout built number — the diagram's focal figure)                             | 60–110                          | 76–138                        |
+  | **Caption track — social styles** (`state.captions` karaoke line / word-pop statement word)                 | 72–140                          | 80–160                        |
 
 Note on band sources: the **binding source** for surface titles and bodies is empirical — real research-paper / document footage on YouTube renders body at roughly **40–55 px cap-height at 4K** and title at roughly **80–110 px**. The published bands (32–56 body, 60–110 title) bracket those observations with a small headroom margin so presets aren't forced to hit the exact center. A second-pass sanity-check derivation from print typography (title ~14–17 pt, body ~9–11 pt × ~4 for 4K × ~0.7 viewing-distance scale) lands at ~25–31 px body / ~40–48 px title — close enough to confirm the empirical floor isn't arbitrary, but slightly _below_ the empirical observation. When the two sources disagree the empirical observation wins because it matches the visual target the rule actually exists to enforce: cards that read as photographic documents, not as signage. Overlay text uses broadcast lower-third standards which are larger because the overlay IS the message. The earlier rubric mistake was applying broadcast-overlay floors to surface body — that produced cards that looked like signage, not paper.
 
 Note on the display band: a full-frame typographic hero — a type-hero bumper where a single word IS the composition — renders far above the overlay-display ceiling (~444 px cap-height is normal). That is **Surface display**, a band distinct from Overlay display: an overlay composites over other content and is sized to coexist with it, whereas a surface-display hero owns the whole frame and pushes to 320–560 px (400–720 vertical). Below this band the hero word reads as a title card, not a hero; above it, it clips the safe area.
 
 Note on marked focal text: a highlighted/underlined/circled phrase inside surface body uses the _same_ cap-height as surrounding body. Visual emphasis comes from the mark stroke, not larger type — a research paper does not enlarge the highlighted phrase, it draws a highlight stroke over it.
+
+Note on found-document titles: a title inside faithful Reddit, GitHub, Wikipedia, Hacker News, news, or YouTube chrome follows that site's denser UI scale. It is larger and heavier than the adjacent found-document body but does not use the paper/plain-card title floor; doing so turns a recognizable site artifact into a generic title card.
+
+Note on source citations: the short URL plate in a website showcase identifies the demonstrated artifact; it is neither primary broadcast copy nor tiny in-document browser chrome. Its dedicated band keeps a full URL readable without forcing the plate wider than the showcased browser's safe geometry.
 
 Note on the caption-track row: this row is for the `state.captions` social styles and is empirically anchored to the creator tools the register imitates (CapCut / TikTok / Submagic karaoke defaults run ~5.5–7% of frame width as font-size on vertical → ~86–110 px caps at 4K). It is distinct from the "caption" in **Overlay primary**, which is broadcast lower-third copy. Social karaoke is a statement the viewer reads instead of the footage — sub-band captions (the 40 px "legal disclaimer" size) are a G4 failure, not a taste call. Word-pop's single statement word sits in the upper half of the band; the `pack` caption style is editorial by declaration and may sit below this row's floor, judged against the pack's own type voice instead.
 

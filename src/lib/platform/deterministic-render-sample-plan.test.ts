@@ -15,8 +15,8 @@ describe('deriveDeterministicRenderSamplePlan', () => {
 	it('derives the fixed five checkpoints at exact frame addresses', () => {
 		const plan = deriveDeterministicRenderSamplePlan(parsePresetIngress(lowerThirdPreset));
 		expect(plan.frameRate).toEqual({ num: 30, den: 1 });
-		expect(plan.frameCount).toBe(150);
-		expect(checkpointFrames(plan)).toEqual([0, 37, 75, 112, 149]);
+		expect(plan.frameCount).toBe(201);
+		expect(checkpointFrames(plan)).toEqual([0, 50, 100, 150, 200]);
 		for (const sample of plan.samples) {
 			expect(sample.timestampMicroseconds).toBe(
 				Math.round((sample.frameIndex * plan.frameRate.den * 1_000_000) / plan.frameRate.num)

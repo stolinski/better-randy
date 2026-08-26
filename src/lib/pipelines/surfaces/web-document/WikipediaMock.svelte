@@ -36,7 +36,7 @@
 			class="wiki-title"
 			data-supers-readable-id="surface:web-document:title"
 			data-supers-readable-text={title}
-			data-supers-text-role="surface-title"
+			data-supers-text-role="found-document-title"
 			style:font-size={`${titleFontPx}px`}
 		>
 			{title}

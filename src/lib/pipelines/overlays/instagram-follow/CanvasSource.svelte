@@ -88,7 +88,7 @@
 	<span
 		class="ig-follow__username"
 		data-supers-readable-id="username"
-		data-supers-text-role="overlay-primary"
+		data-supers-text-role="overlay-corner-primary"
 	>
 		{content.username}{#if content.verified ?? false}<svg
 				class="ig-follow__verified"
@@ -113,7 +113,7 @@
 		<span
 			class="ig-follow__meta"
 			data-supers-readable-id="meta"
-			data-supers-text-role="overlay-secondary"
+			data-supers-text-role="overlay-corner-secondary"
 		>
 			{[content.name, content.meta].filter(Boolean).join(' · ')}
 		</span>
@@ -126,7 +126,7 @@
 			<span
 				class="ig-follow__button"
 				data-supers-readable-id="follow-action"
-				data-supers-text-role="overlay-secondary"
+				data-supers-text-role="overlay-corner-secondary"
 				style:scale={pressScale !== 1 && !following ? String(pressScale) : undefined}
 			>
 				Follow
@@ -136,7 +136,7 @@
 			<span
 				class="ig-follow__button ig-follow__button--following"
 				data-supers-readable-id="following-action"
-				data-supers-text-role="overlay-secondary"
+				data-supers-text-role="overlay-corner-secondary"
 				style:scale={pressScale !== 1 && following ? String(pressScale) : undefined}
 				style:background={morphBg}
 				style:color={morphInk}
@@ -212,7 +212,7 @@
 	.ig-follow__username {
 		align-items: center;
 		display: inline-flex;
-		font-size: calc(3.6 * var(--cqmin));
+		font-size: calc(4.8 * var(--cqmin));
 		font-weight: 700;
 		gap: calc(0.7 * var(--cqmin));
 		letter-spacing: 0.01em;
@@ -228,7 +228,7 @@
 
 	.ig-follow__meta {
 		color: #8e8e8e;
-		font-size: calc(2.5 * var(--cqmin));
+		font-size: calc(3 * var(--cqmin));
 		line-height: 1.2;
 		white-space: nowrap;
 	}

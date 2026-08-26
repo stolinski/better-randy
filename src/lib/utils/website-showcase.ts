@@ -74,8 +74,8 @@ export function calculateWebsiteShowcaseLayout(
 	const safeWidth = frameWidth * (1 - safe.left - safe.right);
 	const safeHeight = frameHeight * (1 - safe.top - safe.bottom);
 	const shortEdge = Math.min(frameWidth, frameHeight);
-	const fontSize = Math.round(shortEdge * (orientation === 'vertical' ? 0.034 : 0.03));
-	const plateHeight = Math.round(fontSize * 1.9);
+	const fontSize = Math.round(shortEdge * (orientation === 'vertical' ? 0.036 : 0.031));
+	const plateHeight = Math.ceil((fontSize * 1.9) / 2) * 2;
 	const overlapHeight = plateHeight / 2;
 	const chromeRatio = orientation === 'vertical' ? 0.045 : 0.038;
 	const maxWidthByHeight =

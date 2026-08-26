@@ -66,7 +66,7 @@
 					style:--kicker-ink={kicker.form === 'chip' ? kicker.ink : undefined}
 					data-text-anim-slot="kicker"
 					data-supers-readable-id="kicker"
-					data-supers-text-role="overlay-secondary"
+					data-supers-text-role="overlay-cinematic-secondary"
 				>
 					{content.kicker}
 				</span>
@@ -77,7 +77,7 @@
 				class="lower-third--cinematic__name"
 				data-text-anim-slot="title"
 				data-supers-readable-id="title"
-				data-supers-text-role="overlay-primary"
+				data-supers-text-role="overlay-cinematic-primary"
 			>
 				{content.title}
 			</strong>
@@ -88,7 +88,7 @@
 					class="lower-third--cinematic__role"
 					data-text-anim-slot="subtitle"
 					data-supers-readable-id="subtitle"
-					data-supers-text-role="overlay-secondary"
+					data-supers-text-role="overlay-cinematic-secondary"
 				>
 					{content.subtitle}
 				</span>

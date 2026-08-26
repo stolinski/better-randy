@@ -11,7 +11,13 @@
 {#if block.form === 'box'}
 	<span class="node node--box">
 		<span class="node__box-depth" aria-hidden="true"></span>
-		<span class="node__box-face" data-diagram-text-role="caption">{block.text ?? ''}</span>
+		<span
+			class="node__box-face"
+			data-diagram-text-role="caption"
+			data-supers-readable-id={`block:${block.id}:text`}
+			data-supers-readable-text={block.text ?? ''}
+			data-supers-text-role="diagram-caption">{block.text ?? ''}</span
+		>
 	</span>
 {:else if block.form === 'pin'}
 	<span class="node node--pin">
@@ -29,14 +35,26 @@
 			<circle class="node__pin-core" cx="24" cy="23" r="8.5" />
 		</svg>
 		{#if block.text}
-			<span class="node__pin-text" data-diagram-text-role="caption">{block.text}</span>
+			<span
+				class="node__pin-text"
+				data-diagram-text-role="caption"
+				data-supers-readable-id={`block:${block.id}:text`}
+				data-supers-readable-text={block.text}
+				data-supers-text-role="diagram-caption">{block.text}</span
+			>
 		{/if}
 	</span>
 {:else}
 	<span class="node node--dot">
 		<span class="node__dot-mark"></span>
 		{#if block.text}
-			<span class="node__dot-text" data-diagram-text-role="caption">{block.text}</span>
+			<span
+				class="node__dot-text"
+				data-diagram-text-role="caption"
+				data-supers-readable-id={`block:${block.id}:text`}
+				data-supers-readable-text={block.text}
+				data-supers-text-role="diagram-caption">{block.text}</span
+			>
 		{/if}
 	</span>
 {/if}

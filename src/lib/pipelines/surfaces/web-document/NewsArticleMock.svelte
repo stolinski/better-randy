@@ -47,7 +47,7 @@
 			class="news-headline"
 			data-supers-readable-id="surface:web-document:title"
 			data-supers-readable-text={headline}
-			data-supers-text-role="surface-title"
+			data-supers-text-role="found-document-title"
 			style:font-size={`${headlineFontPx}px`}
 		>
 			{headline}

@@ -32,7 +32,7 @@
 	// (horizontal lifts the card's title + chrome above the rubric size floors;
 	// vertical nearly spans the safe width). Shared across all sites.
 	const CARD_WIDTH_RATIO_H = 0.62;
-	const CARD_WIDTH_RATIO_V = 0.92;
+	const CARD_WIDTH_RATIO_V = 0.898;
 	const ENTER_TRAVEL_RATIO = 0.055;
 
 	const frame = $derived(getVideoFrameSize(engineState.transport.orientation));

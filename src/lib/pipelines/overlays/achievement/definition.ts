@@ -31,9 +31,16 @@ export const achievementOverlayDefinition = {
 	label: 'Achievement',
 	schema: AchievementContentSchema,
 	defaults,
-	readableText: (content) => [
-		{ id: 'kicker', text: content.kicker, role: 'overlay-secondary' },
-		{ id: 'title', text: content.title, role: 'overlay-primary' }
-	],
+	readableText: (content, context) => {
+		const chipHeld =
+			content.variant !== 'unlocked' ||
+			(context.progress - (content.beat ?? 0.3375)) * context.durationMilliseconds >= 450;
+		return [
+			...(chipHeld
+				? [{ id: 'kicker', text: content.kicker, role: 'overlay-corner-secondary' as const }]
+				: []),
+			{ id: 'title', text: content.title, role: 'overlay-corner-primary' }
+		];
+	},
 	edgeTransition: 'right'
 } satisfies OverlayPipelineDefinition<AchievementContent>;

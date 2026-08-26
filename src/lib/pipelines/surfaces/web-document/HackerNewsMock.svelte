@@ -67,7 +67,7 @@
 				class="hn-story"
 				data-supers-readable-id="surface:web-document:title"
 				data-supers-readable-text={storyTitle}
-				data-supers-text-role="surface-title"
+				data-supers-text-role="found-document-title"
 				style:font-size={`${storyFontPx}px`}
 			>
 				{storyTitle}

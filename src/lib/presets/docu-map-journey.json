@@ -47,7 +47,7 @@
 					"type": "label",
 					"id": "l-headline",
 					"position": {
-						"x": 0.26,
+						"x": 0.273,
 						"y": 0.13
 					},
 					"text": "WHERE YOUR DEPLOY GOES",

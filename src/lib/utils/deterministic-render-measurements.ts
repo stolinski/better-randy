@@ -160,17 +160,25 @@ export function measureVerticalPlatformSafeAreaPixels(
 	readableRegions: readonly DeterministicReadableRegion[],
 	frame: DeterministicRenderRect
 ): number {
+	// Native DOM bounds are covering integer rectangles. Snap fractional safe
+	// boundaries outward so a glyph ending on the nearest native pixel is not
+	// misclassified as a subpixel platform-rail intersection.
+	const topBoundary = Math.floor(frame.y + frame.height * VERTICAL_FORBIDDEN_BANDS.top);
+	const bottomBoundary = Math.ceil(
+		rectBottom(frame) - frame.height * VERTICAL_FORBIDDEN_BANDS.bottom
+	);
+	const rightBoundary = Math.ceil(rectRight(frame) - frame.width * VERTICAL_FORBIDDEN_BANDS.right);
 	const forbidden = [
-		{ ...frame, height: frame.height * VERTICAL_FORBIDDEN_BANDS.top },
+		{ ...frame, height: topBoundary - frame.y },
 		{
 			...frame,
-			y: rectBottom(frame) - frame.height * VERTICAL_FORBIDDEN_BANDS.bottom,
-			height: frame.height * VERTICAL_FORBIDDEN_BANDS.bottom
+			y: bottomBoundary,
+			height: rectBottom(frame) - bottomBoundary
 		},
 		{
 			...frame,
-			x: rectRight(frame) - frame.width * VERTICAL_FORBIDDEN_BANDS.right,
-			width: frame.width * VERTICAL_FORBIDDEN_BANDS.right
+			x: rightBoundary,
+			width: rectRight(frame) - rightBoundary
 		}
 	];
 	return Math.ceil(

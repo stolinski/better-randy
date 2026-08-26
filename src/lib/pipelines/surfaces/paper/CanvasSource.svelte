@@ -359,6 +359,7 @@
 	section {
 		display: grid;
 		gap: 0.7em;
+		padding-block-start: 1px;
 		align-content: start;
 		flex: 1 1 auto;
 		min-block-size: 0;

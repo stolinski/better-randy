@@ -75,7 +75,13 @@
 </script>
 
 <span class="stat-callout" data-diagram-stat={block.id}>
-	<span class="stat-callout__value" data-diagram-text-role="stat-value">
+	<span
+		class="stat-callout__value"
+		data-diagram-text-role="stat-value"
+		data-supers-readable-id={`block:${block.id}:value`}
+		data-supers-readable-text={String(block.to)}
+		data-supers-text-role="diagram-stat-value"
+	>
 		{#each digitTokens as token, i (i)}
 			{#if token.isDigit}
 				<!-- Roll offset rides `top`, not transform: a transformed descendant
@@ -90,7 +96,13 @@
 		{/each}
 	</span>
 	{#if block.label}
-		<span class="stat-callout__label" data-diagram-text-role="caption">{block.label}</span>
+		<span
+			class="stat-callout__label"
+			data-diagram-text-role="caption"
+			data-supers-readable-id={`block:${block.id}:label`}
+			data-supers-readable-text={block.label}
+			data-supers-text-role="diagram-caption">{block.label}</span
+		>
 	{/if}
 </span>
 

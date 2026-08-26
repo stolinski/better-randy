@@ -9,6 +9,7 @@
 	let { element = $bindable<HTMLElement | null>(null) }: Props = $props();
 
 	const frame = $derived(getVideoFrameSize(engineState.transport.orientation));
+	const isVertical = $derived(engineState.transport.orientation === 'vertical');
 
 	const content = $derived(engineState.surface.content);
 	const hasKicker = $derived((content.kicker ?? '').trim().length > 0);
@@ -34,7 +35,7 @@
 				data-text-anim-slot="kicker"
 				data-supers-readable-id="surface:chapter-card:kicker"
 				data-supers-text-role="surface-label"
-				style:font-size={`${frame.width * 0.011}px`}
+				style:font-size={`${frame.width * (isVertical ? 0.021 : 0.011)}px`}
 			>
 				{content.kicker}
 			</span>
@@ -48,7 +49,7 @@
 				data-text-anim-slot="title"
 				data-supers-readable-id="surface:chapter-card:title"
 				data-supers-text-role="surface-title"
-				style:font-size={`${frame.width * 0.033}px`}
+				style:font-size={`${frame.width * (isVertical ? 0.051 : 0.033)}px`}
 			>
 				{content.title}
 			</h2>

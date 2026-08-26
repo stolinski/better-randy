@@ -45,13 +45,19 @@ export const lowerThirdOverlayDefinition = {
 	label: 'Lower-third',
 	schema: LowerThirdContentSchema,
 	defaults,
-	readableText: (content) => [
-		...(content.kicker
-			? [{ id: 'kicker', text: content.kicker, role: 'overlay-secondary' as const }]
-			: []),
-		{ id: 'title', text: content.title, role: 'overlay-primary' },
-		...(content.subtitle
-			? [{ id: 'subtitle', text: content.subtitle, role: 'overlay-secondary' as const }]
-			: [])
-	]
+	readableText: (content) => {
+		const primaryRole =
+			content.variant === 'cinematic'
+				? ('overlay-cinematic-primary' as const)
+				: ('overlay-corner-primary' as const);
+		const secondaryRole =
+			content.variant === 'cinematic'
+				? ('overlay-cinematic-secondary' as const)
+				: ('overlay-corner-secondary' as const);
+		return [
+			...(content.kicker ? [{ id: 'kicker', text: content.kicker, role: secondaryRole }] : []),
+			{ id: 'title', text: content.title, role: primaryRole },
+			...(content.subtitle ? [{ id: 'subtitle', text: content.subtitle, role: secondaryRole }] : [])
+		];
+	}
 } satisfies OverlayPipelineDefinition<LowerThirdContent>;

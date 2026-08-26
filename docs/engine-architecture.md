@@ -1,6 +1,6 @@
 # Supers Engine Architecture
 
-Delivery routes from a fresh deterministic affected render matrix. Missing or incomplete evidence pauses without claiming failure; Critic observations have no transition authority; subjective acceptance is a human decision bound to the exact integrated tree and evidence bundle.
+Delivery routes objective rendered safety from a fresh exhaustive **Layout Contract Matrix**: numeric native geometry, readable identity, safe-area, size, clipping, timing, and deterministic-layout evidence with no screenshots. Missing or incomplete evidence pauses without claiming failure. Pixel diagnostics are explicit release/debug operations; Critic observations have no transition authority; subjective acceptance remains separate.
 
 The data model, rendering layers, pipeline registry, appearance (Pack) system, and render path that drive every Supers **Preset**. Companion to [`preset-format.md`](preset-format.md) (the preset JSON format reference).
 
@@ -119,6 +119,7 @@ The shell out of which any engine change is verified.
 | `npm run check`                                                 | Svelte/TypeScript, ESLint, and deterministic discoverability checks                      | exits 0                            |
 | `npm run check:discoverability`                                 | Focused source-searchability audit                                                       | exits 0                            |
 | `npm run verify-presets`                                        | Schema + semantic + Pack/Identity gates; static safety/readability lint for deliverables | All `✓`, exits 0                   |
+| `npm run verify:layout-contract`                                | Full numeric Preset × Pack × orientation × critical-frame safety matrix; no screenshots  | JSON `passed: true`, exits 0       |
 | `npm run gen:schema`                                            | Regenerate `docs/preset-format.schema.json` from the Zod schema                          | `Wrote …preset-format.schema.json` |
 | `npm run build`                                                 | Smoke-test the production build                                                          | `✓ built in <N>s`                  |
 | `npm run supers -- render --preset <slug-or-path> --out <file>` | Deterministic automated render through the Workspace export seam                         | output path, exits 0               |

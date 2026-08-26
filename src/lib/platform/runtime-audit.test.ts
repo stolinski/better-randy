@@ -7,6 +7,7 @@ import {
 } from './deterministic-readable-contract';
 import {
 	composedElementScale,
+	coveringDeterministicViewportRect,
 	deterministicFontCheckDescriptor,
 	hasDeterministicReadableCharacters,
 	matchesDeterministicRenderedText,
@@ -16,6 +17,18 @@ import {
 } from './runtime-audit';
 
 afterEach(() => vi.unstubAllGlobals());
+
+describe('deterministic readable fragment geometry', () => {
+	it('covers painted line fragments without inheriting a stretched block box', () => {
+		expect(
+			coveringDeterministicViewportRect([
+				{ left: 10, top: 20, right: 90, bottom: 40, width: 80, height: 20 },
+				{ left: 10, top: 45, right: 60, bottom: 65, width: 50, height: 20 },
+				{ left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 }
+			])
+		).toEqual({ left: 10, top: 20, right: 90, bottom: 65 });
+	});
+});
 
 describe('deterministic readable character discovery', () => {
 	it('ignores punctuation-only separators while retaining semantic text', () => {

@@ -42,6 +42,7 @@
 	const CARD_WIDTH_RATIO_V = 0.86;
 	const CARD_HEIGHT_RATIO = 0.9;
 	const ENTER_TRAVEL_RATIO = 0.05;
+	const VERTICAL_CENTER_OFFSET_RATIO = -0.035;
 	// Substrate-darken vignette budget (chromeless only): the visible darkening
 	// (the gradient is fully transparent by its 72% stop) stays ≤ 30% of the FRAME
 	// in both orientations — the width clamp is what holds the vertical reflow
@@ -78,7 +79,8 @@
 		const x = Math.round((frame.width - width) / 2);
 		const visibility = Math.max(0, Math.min(1, animState.paperVisibility));
 		const enterOffsetPx = Math.round((1 - visibility) * frame.height * ENTER_TRAVEL_RATIO);
-		return { x, width, height, enterOffsetPx, visibility };
+		const centerOffsetPx = Math.round(isVertical ? frame.height * VERTICAL_CENTER_OFFSET_RATIO : 0);
+		return { x, width, height, enterOffsetPx, centerOffsetPx, visibility };
 	});
 
 	// The vignette ellipse is sized in FRAME pixels (not card fractions) so the
@@ -161,7 +163,7 @@
 	style:inline-size={`${layout.width}px`}
 	style:block-size={`${layout.height}px`}
 	style:left={`${layout.x}px`}
-	style:transform={`translateY(calc(-50% + ${layout.enterOffsetPx}px))`}
+	style:transform={`translateY(calc(-50% + ${layout.enterOffsetPx + layout.centerOffsetPx}px))`}
 	style:opacity={layout.visibility}
 >
 	{#if isChromeless}

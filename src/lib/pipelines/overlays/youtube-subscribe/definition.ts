@@ -61,20 +61,20 @@ export const youtubeSubscribeOverlayDefinition = {
 		const subscribed =
 			(context.progress - (content.beat ?? 0.42)) * context.durationMilliseconds >= 110;
 		return [
-			{ id: 'channel', text: content.channel, role: 'overlay-primary' },
+			{ id: 'channel', text: content.channel, role: 'overlay-corner-primary' },
 			...([content.handle, content.subscribers].filter(Boolean).length > 0
 				? [
 						{
 							id: 'meta',
 							text: [content.handle, content.subscribers].filter(Boolean).join(' · '),
-							role: 'overlay-secondary' as const
+							role: 'overlay-corner-secondary' as const
 						}
 					]
 				: []),
 			{
 				id: subscribed ? 'subscribed-action' : 'subscribe-action',
 				text: subscribed ? 'Subscribed' : 'Subscribe',
-				role: 'overlay-secondary'
+				role: 'overlay-corner-secondary'
 			}
 		];
 	}

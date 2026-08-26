@@ -744,18 +744,53 @@ function relevantNativeRoot(
 	return root;
 }
 
-/** Convert viewport CSS geometry to covering native backing-store pixel bounds. */
-export function nativeRectForElement(
-	element: Element,
-	roots: readonly DeterministicNativeRootGeometry[]
+function nativeRectForViewportRect(
+	rect: Pick<DOMRect, 'left' | 'top' | 'right' | 'bottom'>,
+	root: DeterministicNativeRootGeometry
 ): DeterministicRenderRect {
-	const rect = element.getBoundingClientRect();
-	const root = relevantNativeRoot(element, roots);
 	const left = Math.floor((rect.left - root.viewportRect.left) * root.scaleX);
 	const top = Math.floor((rect.top - root.viewportRect.top) * root.scaleY);
 	const right = Math.ceil((rect.right - root.viewportRect.left) * root.scaleX);
 	const bottom = Math.ceil((rect.bottom - root.viewportRect.top) * root.scaleY);
 	return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+/** Convert viewport CSS geometry to covering native backing-store pixel bounds. */
+export function nativeRectForElement(
+	element: Element,
+	roots: readonly DeterministicNativeRootGeometry[]
+): DeterministicRenderRect {
+	return nativeRectForViewportRect(
+		element.getBoundingClientRect(),
+		relevantNativeRoot(element, roots)
+	);
+}
+
+export function coveringDeterministicViewportRect(
+	fragments: readonly Pick<DOMRect, 'left' | 'top' | 'right' | 'bottom' | 'width' | 'height'>[]
+): Pick<DOMRect, 'left' | 'top' | 'right' | 'bottom'> | null {
+	const painted = fragments.filter((rect) => rect.width > 0 && rect.height > 0);
+	if (painted.length === 0) return null;
+	return {
+		left: Math.min(...painted.map((rect) => rect.left)),
+		top: Math.min(...painted.map((rect) => rect.top)),
+		right: Math.max(...painted.map((rect) => rect.right)),
+		bottom: Math.max(...painted.map((rect) => rect.bottom))
+	};
+}
+
+/** Measure painted text fragments rather than a block element's stretched layout box. */
+export function nativeReadableTextRect(
+	element: HTMLElement,
+	roots: readonly DeterministicNativeRootGeometry[]
+): DeterministicRenderRect {
+	const range = document.createRange();
+	range.selectNodeContents(element);
+	const viewportRect = coveringDeterministicViewportRect([...range.getClientRects()]);
+	range.detach();
+	return viewportRect
+		? nativeRectForViewportRect(viewportRect, relevantNativeRoot(element, roots))
+		: nativeRectForElement(element, roots);
 }
 
 function clippingRectForElement(
@@ -916,7 +951,7 @@ function deterministicTextRoleFor(
 	if (element.closest('.type-hero-source') && element.matches('.type-hero-source__hero')) {
 		return 'surface-display';
 	}
-	if (element.closest('.web-document') && element.matches('h1, h2')) return 'surface-title';
+	if (element.closest('.web-document') && element.matches('h1, h2')) return 'found-document-title';
 	if (element.closest('.imessage, .web-document')) {
 		return element.matches('.im-bubble, p, [class*="comment-body"], [class*="comment-text"]')
 			? 'found-document-body'
@@ -1136,7 +1171,7 @@ export async function captureDeterministicRenderRegionManifest(
 					settled.address.timestampMicroseconds,
 					identity
 				)) &&
-			hasDeterministicReadableCharacters(element.textContent ?? '') &&
+			(identity !== null || hasDeterministicReadableCharacters(element.textContent ?? '')) &&
 			hasEffectiveVisibility(element, rootElements) &&
 			hasRenderedTextPaint(element) &&
 			rect.width > 0 &&
@@ -1161,7 +1196,7 @@ export async function captureDeterministicRenderRegionManifest(
 	const matched = matchReadableContractElements(expected, candidates, frame.width);
 	const readableRegions = matched.map(({ contract, element }) => ({
 		id: contract.id,
-		rect: nativeRectForElement(element, nativeRoots),
+		rect: nativeReadableTextRect(element, nativeRoots),
 		clipRect: clippingRectForElement(element, frame, nativeRoots),
 		intentionalOverlapIds: declaredIntentionalOverlaps(element)
 	}));

@@ -29,6 +29,11 @@ describe('deterministic render geometry measurements', () => {
 		expect(measureVerticalPlatformSafeAreaPixels([region], frame)).toBe(48_000);
 	});
 
+	it('snaps fractional platform boundaries to covering native pixels', () => {
+		const region = readable('boundary-label', { x: 1900, y: 230, width: 66, height: 2996 });
+		expect(measureVerticalPlatformSafeAreaPixels([region], frame)).toBe(0);
+	});
+
 	it('counts frame and clipping-ancestor loss and fails closed on absent geometry', () => {
 		const region = readable(
 			'clipped-body',

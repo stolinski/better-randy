@@ -66,20 +66,20 @@ export const instagramFollowOverlayDefinition = {
 		const following =
 			(context.progress - (content.beat ?? 0.42)) * context.durationMilliseconds >= 110;
 		return [
-			{ id: 'username', text: content.username, role: 'overlay-primary' },
+			{ id: 'username', text: content.username, role: 'overlay-corner-primary' },
 			...(content.name || content.meta
 				? [
 						{
 							id: 'meta',
 							text: [content.name, content.meta].filter(Boolean).join(' · '),
-							role: 'overlay-secondary' as const
+							role: 'overlay-corner-secondary' as const
 						}
 					]
 				: []),
 			{
 				id: following ? 'following-action' : 'follow-action',
 				text: following ? 'Following' : 'Follow',
-				role: 'overlay-secondary'
+				role: 'overlay-corner-secondary'
 			}
 		];
 	}
