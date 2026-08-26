@@ -44,7 +44,7 @@ Deno.test(
   async () => {
     const source = await Deno.readTextFile(INTAKE_WORKFLOW_PATH);
     const workflow = parse(source) as WorkflowDefinition;
-    assert.equal(workflow.version, 11);
+    assert.equal(workflow.version, 12);
     assert.deepEqual(
       workflow.jobs.flatMap((job) => job.steps).map((step) => step.name),
       [
@@ -90,11 +90,17 @@ Deno.test(
     const select = stepByName(workflow, "select-one-sentry-repair");
     assert.equal(resume.concurrency, 1);
     assert.equal(resolve.concurrency, 1);
-    assert.equal(resolve.dependsOn?.[0]?.step, resume.name);
-    assert.equal(resolve.dependsOn?.[0]?.condition?.type, "completed");
-    assert.equal(select.dependsOn?.[0]?.step, resolve.name);
-    assert.equal(select.dependsOn?.[0]?.condition?.type, "completed");
+    assert.equal(resolve.dependsOn?.[0]?.step, "refresh-delivery-state");
+    assert.equal(resolve.dependsOn?.[0]?.condition?.type, "succeeded");
+    assert.match(resolve.guard ?? "", /attributes\.status == "active"/);
+    assert.equal(select.dependsOn?.[0]?.step, "refresh-delivery-state");
+    assert.equal(select.dependsOn?.[0]?.condition?.type, "succeeded");
     assert.match(select.guard ?? "", /attributes\.status == "active"/);
+    assert.match(select.guard ?? "", /resolution-receipt/);
+    assert.doesNotMatch(
+      JSON.stringify(select.dependsOn),
+      /resume-active-sentry-repair|resolve-completed-sentry-repair/,
+    );
     assert.match(source, /item: completedAdmission/);
     assert.doesNotMatch(source, /self\.admission/);
     const persist = stepByName(workflow, "persist-actionable-sentry-queue");

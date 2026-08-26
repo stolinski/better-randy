@@ -169,6 +169,7 @@ jobs:
           item: completedAdmission
           in: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(admission, size(data.query(''modelName == "supers-delivery" && name == "state-'' + admission.attributes.dexTaskId + ''"'')) > 0).filter(admission, data.latest("supers-delivery", "state-" + admission.attributes.dexTaskId).attributes.status == "terminal" && data.latest("supers-delivery", "state-" + admission.attributes.dexTaskId).attributes.stageId == "done").filter(admission, size(data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence"'').filter(evidence, evidence.attributes.repairIdentityFingerprint == admission.attributes.repairIdentityFingerprint)) > 0).filter(admission, size(data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "backlink-receipt"'').filter(receipt, receipt.attributes.issueId == admission.attributes.issueId && receipt.attributes.dexTaskId == admission.attributes.dexTaskId)) > 0).filter(admission, size(data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "resolution-receipt"'').filter(receipt, receipt.attributes.issueId == admission.attributes.issueId && receipt.attributes.dexTaskId == admission.attributes.dexTaskId)) == 0) }}'
         concurrency: 1
+        guard: '${{ size(data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(admission, size(data.query(''modelName == "supers-delivery" && name == "state-'' + admission.attributes.dexTaskId + ''"'')) > 0).filter(admission, data.latest("supers-delivery", "state-" + admission.attributes.dexTaskId).attributes.status == "active").filter(admission, size(data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(other, other.attributes.dexTaskId == admission.attributes.dexTaskId && other.attributes.admittedAt > admission.attributes.admittedAt)) == 0)) > 0 }}'
         task:
           type: workflow
           workflowIdOrName: supers-sentry-verified-resolution
@@ -179,9 +180,9 @@ jobs:
             expectedEvidenceFingerprint: '${{ data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence"'').filter(evidence, evidence.attributes.repairIdentityFingerprint == self.completedAdmission.attributes.repairIdentityFingerprint)[0].attributes.fingerprint }}'
             dexTaskId: '${{ self.completedAdmission.attributes.dexTaskId }}'
         dependsOn:
-          - step: resume-active-sentry-repair
+          - step: refresh-delivery-state
             condition:
-              type: completed
+              type: succeeded
         weight: 0
         allowFailure: false
       - name: select-one-sentry-repair
@@ -196,11 +197,11 @@ jobs:
             priorSelections: []
             admittedIntentFingerprints: '${{ data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(admission, size(data.query(''modelName == "supers-delivery" && name == "state-'' + admission.attributes.dexTaskId + ''"'')) > 0).map(admission, admission.attributes.repairIntentFingerprint) }}'
             excludedIssueIds: []
-        guard: '${{ size(data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(admission, size(data.query(''modelName == "supers-delivery" && name == "state-'' + admission.attributes.dexTaskId + ''"'')) > 0).filter(admission, data.latest("supers-delivery", "state-" + admission.attributes.dexTaskId).attributes.status == "active").filter(admission, size(data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(other, other.attributes.dexTaskId == admission.attributes.dexTaskId && other.attributes.admittedAt > admission.attributes.admittedAt)) == 0)) > 0 }}'
+        guard: '${{ size(data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(admission, size(data.query(''modelName == "supers-delivery" && name == "state-'' + admission.attributes.dexTaskId + ''"'')) > 0).filter(admission, data.latest("supers-delivery", "state-" + admission.attributes.dexTaskId).attributes.status == "active").filter(admission, size(data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(other, other.attributes.dexTaskId == admission.attributes.dexTaskId && other.attributes.admittedAt > admission.attributes.admittedAt)) == 0)) > 0 || size(data.query(''modelName == "supers-sentry-reproduction-transport" && specName == "delivery-admission"'').filter(admission, size(data.query(''modelName == "supers-delivery" && name == "state-'' + admission.attributes.dexTaskId + ''"'')) > 0).filter(admission, data.latest("supers-delivery", "state-" + admission.attributes.dexTaskId).attributes.status == "terminal" && data.latest("supers-delivery", "state-" + admission.attributes.dexTaskId).attributes.stageId == "done").filter(admission, size(data.query(''modelName == "supers-sentry-issue-intake" && specName == "repair-evidence"'').filter(evidence, evidence.attributes.repairIdentityFingerprint == admission.attributes.repairIdentityFingerprint)) > 0).filter(admission, size(data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "backlink-receipt"'').filter(receipt, receipt.attributes.issueId == admission.attributes.issueId && receipt.attributes.dexTaskId == admission.attributes.dexTaskId)) > 0).filter(admission, size(data.query(''modelName == "supers-sentry-repair-planning-handoff" && specName == "resolution-receipt"'').filter(receipt, receipt.attributes.issueId == admission.attributes.issueId && receipt.attributes.dexTaskId == admission.attributes.dexTaskId)) == 0)) > 0 }}'
         dependsOn:
-          - step: resolve-completed-sentry-repair
+          - step: refresh-delivery-state
             condition:
-              type: completed
+              type: succeeded
         weight: 0
         allowFailure: false
       - name: admit-selected-sentry-repair
@@ -222,4 +223,4 @@ jobs:
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 11
+version: 12
