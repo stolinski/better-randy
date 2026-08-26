@@ -106,6 +106,14 @@ test('Pack changes add Pack obligations', () => {
 	assert.deepEqual(humanReviewKinds([path]), ['rendered-composition-aesthetic']);
 });
 
+test('Pack contract inventory metadata never starts screenshot verification', () => {
+	const path = 'src/lib/platform/packs/role-contract-registry.ts';
+	assertOnlyLanes([path], ['check', 'unit', 'preset-static']);
+	assert.deepEqual(domainIds([path]), ['pack']);
+	assert.deepEqual(humanReviewKinds([path]), []);
+	assert.ok(!laneIds([path]).some((lane) => ['render-matrix', 'pack-matrix'].includes(lane)));
+});
+
 test('rendering-only changes do not add export decode', () => {
 	for (const path of [
 		'src/lib/platform/pipelines/runtime-loader.ts',

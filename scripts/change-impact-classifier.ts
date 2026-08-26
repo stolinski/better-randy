@@ -217,8 +217,19 @@ function isPackPath(path: string): boolean {
 	);
 }
 
+/** Pack contract inventories validate source ownership but cannot change rendered pixels. */
+function isPackContractMetadataPath(path: string): boolean {
+	return path === 'src/lib/platform/packs/role-contract-registry.ts';
+}
+
 function isRenderPath(path: string): boolean {
-	if (isTestPath(path) || path.endsWith('/Editor.svelte')) return false;
+	if (
+		isTestPath(path) ||
+		path.endsWith('/Editor.svelte') ||
+		isPackContractMetadataPath(path)
+	) {
+		return false;
+	}
 	return (
 		RENDER_PATH_PREFIXES.some((prefix) => path.startsWith(prefix)) ||
 		RENDER_PLATFORM_TERMS.some((term) => path.includes(term))
@@ -241,7 +252,7 @@ function isRenderedCompositionPath(path: string): boolean {
 }
 
 function isAuthoringAppPath(path: string): boolean {
-	if (isTestPath(path) || isSwampControlPlanePath(path)) return false;
+	if (isTestPath(path) || isPackPath(path) || isSwampControlPlanePath(path)) return false;
 	const mixedRenderShell = ['Workspace.svelte', 'Composition.svelte'].some((term) =>
 		path.includes(term)
 	);
@@ -493,7 +504,7 @@ const NATURAL_TASK_DOMAIN_RULES: Array<{
 
 function explicitProjectRelativePathHints(text: string): string[] {
 	const pattern =
-		/(?:^|[\s`'"(])((?:(?:src|scripts|extensions|models|workflows|docs|\.dex|\.claude)\/[A-Za-z0-9@._+\/-]+|(?:AGENTS|README)\.md|package\.json))(?=$|[\s`'"),:;])/g;
+		/(?:^|[\s`'"(])((?:(?:src|scripts|extensions|models|workflows|docs|\.dex|\.claude)\/[A-Za-z0-9@._+/-]+|(?:AGENTS|README)\.md|package\.json))(?=$|[\s`'"),:;])/g;
 	return sortedUnique([...text.matchAll(pattern)].map((match) => normalizeChangedPath(match[1])));
 }
 
@@ -664,11 +675,17 @@ function addPathLaneReasons(paths: string[], map: Map<string, string[]>): void {
 		if (isAuthoringAppVisualPath(path)) {
 			addReason(map, 'browser', `authoring app interaction or presentation changed: ${path}`);
 		}
-		if (isPresetPath(path) || isPackPath(path) || isRenderPath(path)) {
+		const packPath = isPackPath(path);
+		const pixelAffectingPackPath = packPath && !isPackContractMetadataPath(path);
+		if (isPresetPath(path) || packPath || isRenderPath(path)) {
 			addReason(map, 'preset-static', `affected Preset validity may change: ${path}`);
+		}
+		if (isPresetPath(path) || pixelAffectingPackPath || isRenderPath(path)) {
 			addReason(map, 'render-matrix', `rendered composition pixels may change: ${path}`);
 		}
-		if (isPackPath(path)) addReason(map, 'pack-matrix', `Pack appearance may change: ${path}`);
+		if (pixelAffectingPackPath) {
+			addReason(map, 'pack-matrix', `Pack appearance may change: ${path}`);
+		}
 		if (isExportPath(path)) addReason(map, 'export-decode', `encoded output may change: ${path}`);
 		if (isPerformancePath(path))
 			addReason(map, 'performance', `performance evidence changed: ${path}`);
