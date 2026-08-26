@@ -106,6 +106,7 @@ export type SentryIssueIntakeContext = {
 export type SentryIssueIntakeDependencies = {
   commandRunner: SentryCommandRunner;
   now: () => string;
+  nowMilliseconds?: () => number;
   resolveCurrentRelease?: (repoDir: string) => Promise<string>;
 };
 
@@ -199,14 +200,37 @@ export async function createSentrySha256(value: string): Promise<string> {
 }
 
 const SENTRY_READ_TIMEOUT_MS = 60_000;
+export const SENTRY_INTAKE_TIMEOUT_MS = 2 * SENTRY_READ_TIMEOUT_MS;
+
+export function remainingSentryIntakeTimeoutMs(
+  deadlineMilliseconds: number,
+  nowMilliseconds: number,
+): number {
+  const remaining = deadlineMilliseconds - nowMilliseconds;
+  if (remaining <= 0) {
+    throw new Error(
+      `Sentry intake exceeded its ${SENTRY_INTAKE_TIMEOUT_MS}ms wall-time budget`,
+    );
+  }
+  return Math.min(SENTRY_READ_TIMEOUT_MS, remaining);
+}
 
 async function runSentryReadCommand(
   runner: SentryCommandRunner,
   context: SentryIssueIntakeContext,
   args: readonly string[],
+  deadlineMilliseconds: number,
+  nowMilliseconds: () => number,
 ): Promise<SentryCommandResult> {
   try {
-    return await runner.run(args, context.repoDir, SENTRY_READ_TIMEOUT_MS);
+    return await runner.run(
+      args,
+      context.repoDir,
+      remainingSentryIntakeTimeoutMs(
+        deadlineMilliseconds,
+        nowMilliseconds(),
+      ),
+    );
   } catch (error) {
     if (!(error instanceof Error) || !error.message.includes("timed out")) {
       throw error;
@@ -214,13 +238,22 @@ async function runSentryReadCommand(
     context.logger.warning("Retrying one timed-out read-only Sentry command", {
       operation: args.slice(0, 2).join(" "),
     });
-    return await runner.run(args, context.repoDir, SENTRY_READ_TIMEOUT_MS);
+    return await runner.run(
+      args,
+      context.repoDir,
+      remainingSentryIntakeTimeoutMs(
+        deadlineMilliseconds,
+        nowMilliseconds(),
+      ),
+    );
   }
 }
 
 async function fetchIssues(
   runner: SentryCommandRunner,
   context: SentryIssueIntakeContext,
+  deadlineMilliseconds: number,
+  nowMilliseconds: () => number,
   target: string,
   query: string,
   periodDays: number,
@@ -243,7 +276,13 @@ async function fetchIssues(
     "--fields",
     "id,shortId,title,priority,level,firstSeen,status",
   ];
-  const result = await runSentryReadCommand(runner, context, args);
+  const result = await runSentryReadCommand(
+    runner,
+    context,
+    args,
+    deadlineMilliseconds,
+    nowMilliseconds,
+  );
   if (result.code !== 0) {
     throw new Error(
       `sentry issue list failed with exit ${result.code}: ${
@@ -269,6 +308,8 @@ const CliIssueFirstSeenSchema = z.object({
 async function fetchIssueFirstSeen(
   runner: SentryCommandRunner,
   context: SentryIssueIntakeContext,
+  deadlineMilliseconds: number,
+  nowMilliseconds: () => number,
   lists: CliList[],
 ): Promise<Map<string, string>> {
   const rawById = new Map<string, z.infer<typeof CliIssueSchema>>();
@@ -298,6 +339,8 @@ async function fetchIssueFirstSeen(
           "--fields",
           "id,shortId,firstSeen",
         ],
+        deadlineMilliseconds,
+        nowMilliseconds,
       );
       if (result.code !== 0) {
         throw new Error(
@@ -373,10 +416,18 @@ export class DenoSentryCommandRunner implements SentryCommandRunner {
       env: { CI: "1", NO_COLOR: "1", FORCE_COLOR: "0" },
     }).spawn();
     let timedOut = false;
+    let forceKillTimer: ReturnType<typeof setTimeout> | undefined;
     const timer = setTimeout(() => {
       timedOut = true;
       try {
         child.kill("SIGTERM");
+        forceKillTimer = setTimeout(() => {
+          try {
+            child.kill("SIGKILL");
+          } catch {
+            // The process may have completed after graceful termination.
+          }
+        }, 1_000);
       } catch {
         // The process may have completed between the timer and kill.
       }
@@ -393,6 +444,7 @@ export class DenoSentryCommandRunner implements SentryCommandRunner {
       };
     } finally {
       clearTimeout(timer);
+      if (forceKillTimer !== undefined) clearTimeout(forceKillTimer);
     }
   }
 }
@@ -427,6 +479,8 @@ export async function executeSentryIssueIntake(
   dependencies: SentryIssueIntakeDependencies,
 ): Promise<{ dataHandles: Array<{ name: string }> }> {
   const args = SentryIssueIntakeArgsSchema.parse(rawArgs);
+  const nowMilliseconds = dependencies.nowMilliseconds ?? Date.now;
+  const deadlineMilliseconds = nowMilliseconds() + SENTRY_INTAKE_TIMEOUT_MS;
   const currentRelease = args.currentRelease === "auto"
     ? await (dependencies.resolveCurrentRelease ?? resolveGitCurrentRelease)(
       context.repoDir,
@@ -440,6 +494,8 @@ export async function executeSentryIssueIntake(
   const history = await fetchIssues(
     dependencies.commandRunner,
     context,
+    deadlineMilliseconds,
+    nowMilliseconds,
     target,
     "is:unresolved",
     args.historyDays,
@@ -448,6 +504,8 @@ export async function executeSentryIssueIntake(
   const recent = await fetchIssues(
     dependencies.commandRunner,
     context,
+    deadlineMilliseconds,
+    nowMilliseconds,
     target,
     `is:unresolved lastSeen:-${args.lookbackDays}d`,
     args.lookbackDays,
@@ -457,6 +515,8 @@ export async function executeSentryIssueIntake(
     ? await fetchIssues(
       dependencies.commandRunner,
       context,
+      deadlineMilliseconds,
+      nowMilliseconds,
       target,
       `is:unresolved release:${currentRelease}`,
       args.historyDays,
@@ -466,6 +526,8 @@ export async function executeSentryIssueIntake(
   const firstSeenByIssueId = await fetchIssueFirstSeen(
     dependencies.commandRunner,
     context,
+    deadlineMilliseconds,
+    nowMilliseconds,
     [history, recent, release],
   );
   const issues = uniqueIssues([history, recent, release], firstSeenByIssueId);

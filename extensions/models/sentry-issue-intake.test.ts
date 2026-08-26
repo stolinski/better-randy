@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 
 import {
   executeSentryIssueIntake,
+  remainingSentryIntakeTimeoutMs,
+  SENTRY_INTAKE_TIMEOUT_MS,
   type SentryCommandRunner,
   SentryIssueReconciliationSchema,
   SentryIssueSnapshotSchema,
@@ -282,6 +284,25 @@ Deno.test("malformed output and command timeouts fail without partial snapshots"
     );
     assert.equal(fixture.writes.length, 0);
   }
+});
+
+Deno.test("intake retries remain inside one total wall-time deadline", () => {
+  assert.equal(
+    remainingSentryIntakeTimeoutMs(SENTRY_INTAKE_TIMEOUT_MS, 0),
+    60_000,
+  );
+  assert.equal(
+    remainingSentryIntakeTimeoutMs(SENTRY_INTAKE_TIMEOUT_MS, 119_500),
+    500,
+  );
+  assert.throws(
+    () =>
+      remainingSentryIntakeTimeoutMs(
+        SENTRY_INTAKE_TIMEOUT_MS,
+        SENTRY_INTAKE_TIMEOUT_MS,
+      ),
+    /wall-time budget/,
+  );
 });
 
 Deno.test("one timed-out read-only Sentry command is retried without partial state", async () => {

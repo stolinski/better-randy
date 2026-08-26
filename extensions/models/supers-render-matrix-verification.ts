@@ -24,6 +24,18 @@ const RepositoryPathSchema = z.string().min(1).max(1_000).regex(
 const RENDER_INVENTORY_TIMEOUT_MS = 2 * 60 * 1000;
 const RENDER_ARCHIVE_TIMEOUT_MS = 10 * 60 * 1000;
 
+export function remainingSupersRenderMatrixTimeoutMs(
+  deadlineMilliseconds: number,
+  phaseMaximumMilliseconds: number,
+  nowMilliseconds: number,
+): number {
+  const remaining = deadlineMilliseconds - nowMilliseconds;
+  if (remaining <= 0) {
+    throw new Error("Render matrix exceeded its bounded wall-time budget");
+  }
+  return Math.min(phaseMaximumMilliseconds, remaining);
+}
+
 const UniqueRepositoryPathsSchema = z.array(RepositoryPathSchema).max(2_000)
   .superRefine((paths, context) => {
     if (new Set(paths).size !== paths.length) {
@@ -155,10 +167,18 @@ async function runCommand(
     stderr: "piped",
   }).spawn();
   let timedOut = false;
+  let forceKillTimer: ReturnType<typeof setTimeout> | undefined;
   const timer = setTimeout(() => {
     timedOut = true;
     try {
       child.kill("SIGTERM");
+      forceKillTimer = setTimeout(() => {
+        try {
+          child.kill("SIGKILL");
+        } catch {
+          // The process may finish after graceful termination.
+        }
+      }, 1_000);
     } catch {
       // The process may finish between the timeout and signal.
     }
@@ -182,6 +202,7 @@ async function runCommand(
     return { stdout, stderr };
   } finally {
     clearTimeout(timer);
+    if (forceKillTimer !== undefined) clearTimeout(forceKillTimer);
   }
 }
 
@@ -294,6 +315,11 @@ export async function executeSupersRenderMatrixVerification(
     return { dataHandles: [handle] };
   }
 
+  const executionTimeoutMilliseconds = supersRenderMatrixRunnerTimeoutMs(
+    parsedArgs.scope,
+  );
+  const executionDeadlineMilliseconds = Date.now() +
+    executionTimeoutMilliseconds;
   const localBefore = parsedArgs.scope === "affected"
     ? await computeRepositoryScopedTreeFingerprint(
       context.repoDir,
@@ -320,7 +346,11 @@ export async function executeSupersRenderMatrixVerification(
         ),
       ],
       context.repoDir,
-      RENDER_INVENTORY_TIMEOUT_MS,
+      remainingSupersRenderMatrixTimeoutMs(
+        executionDeadlineMilliseconds,
+        RENDER_INVENTORY_TIMEOUT_MS,
+        Date.now(),
+      ),
     );
     const collected = z.strictObject({
       snapshot: SupersRenderRegistrySnapshotSchema,
@@ -396,7 +426,16 @@ export async function executeSupersRenderMatrixVerification(
         ),
       ],
       context.repoDir,
-      supersRenderMatrixRunnerTimeoutMs(parsedArgs.scope),
+      remainingSupersRenderMatrixTimeoutMs(
+        executionDeadlineMilliseconds,
+        executionTimeoutMilliseconds,
+        Date.now(),
+      ),
+    );
+    remainingSupersRenderMatrixTimeoutMs(
+      executionDeadlineMilliseconds,
+      executionTimeoutMilliseconds,
+      Date.now(),
     );
     const runnerResult = z.strictObject({
       bundle: SupersRenderMatrixBundleSchema,
@@ -435,6 +474,11 @@ export async function executeSupersRenderMatrixVerification(
       runnerResult.bundle,
       runnerResult.evidenceIndex,
     );
+    remainingSupersRenderMatrixTimeoutMs(
+      executionDeadlineMilliseconds,
+      executionTimeoutMilliseconds,
+      Date.now(),
+    );
     const localAfter = parsedArgs.scope === "affected"
       ? await computeRepositoryScopedTreeFingerprint(
         context.repoDir,
@@ -463,7 +507,11 @@ export async function executeSupersRenderMatrixVerification(
         "render-matrix-evidence",
       ],
       context.repoDir,
-      RENDER_ARCHIVE_TIMEOUT_MS,
+      remainingSupersRenderMatrixTimeoutMs(
+        executionDeadlineMilliseconds,
+        RENDER_ARCHIVE_TIMEOUT_MS,
+        Date.now(),
+      ),
     );
     const archiveBytes = await Deno.readFile(archivePath);
     const archiveDigest = await sha256Bytes(archiveBytes);

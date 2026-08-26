@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import {
   executeSupersRenderMatrixVerification,
+  remainingSupersRenderMatrixTimeoutMs,
   SupersRenderMatrixRunSchema,
   SupersRenderMatrixVerificationArgumentsSchema,
 } from "./supers-render-matrix-verification.ts";
@@ -97,6 +98,15 @@ Deno.test("not-applicable execution does not require a full-repository fingerpri
   assert.equal(recorded[0]?.status, "not-applicable");
   assert.equal(recorded[0]?.sourceRevision, REVISION);
   assert.equal(recorded[0]?.expectedTreeFingerprint, SHA);
+});
+
+Deno.test("render phases share one closed wall-time deadline", () => {
+  assert.equal(remainingSupersRenderMatrixTimeoutMs(1_000, 600, 0), 600);
+  assert.equal(remainingSupersRenderMatrixTimeoutMs(1_000, 600, 750), 250);
+  assert.throws(
+    () => remainingSupersRenderMatrixTimeoutMs(1_000, 600, 1_000),
+    /bounded wall-time budget/,
+  );
 });
 
 Deno.test("completed run proves bounded internal fanout and exact freshness receipts", () => {
