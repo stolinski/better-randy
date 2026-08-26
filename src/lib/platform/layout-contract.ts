@@ -109,6 +109,10 @@ export const LayoutContractFrameEvidenceSchema = z.strictObject({
 		expectedReadableIdentities: z.array(DomainIdSchema),
 		discoveredReadableIdentities: z.array(DomainIdSchema),
 		missingReadableIdentities: z.array(DomainIdSchema),
+		extraReadableIdentities: z.array(DomainIdSchema),
+		duplicateReadableIdentityCount: NonNegativeIntegerSchema,
+		unclaimedVisibleTextCount: NonNegativeIntegerSchema,
+		unclaimedVisibleTextOwners: z.array(z.string().min(1)),
 		complete: z.boolean(),
 		unavailableReason: z.string().min(1).nullable()
 	}),
@@ -214,7 +218,7 @@ export function evaluateLayoutContractFrame(input: unknown): LayoutContractFrame
 			coverageAvailable ? 'pass' : 'unavailable',
 			coverageAvailable
 				? `${evidence.readableCoverage.discoveredReadableIdentities.length} readable identities matched`
-				: (evidence.readableCoverage.unavailableReason ?? 'readable identity coverage unavailable')
+				: `${evidence.readableCoverage.unavailableReason ?? 'readable identity coverage unavailable'}; expected=${JSON.stringify(evidence.readableCoverage.expectedReadableIdentities)}; discovered=${JSON.stringify(evidence.readableCoverage.discoveredReadableIdentities)}; missing=${JSON.stringify(evidence.readableCoverage.missingReadableIdentities)}; extra=${JSON.stringify(evidence.readableCoverage.extraReadableIdentities)}; duplicates=${evidence.readableCoverage.duplicateReadableIdentityCount}; unclaimed=${evidence.readableCoverage.unclaimedVisibleTextCount}; owners=${JSON.stringify(evidence.readableCoverage.unclaimedVisibleTextOwners)}`
 		)
 	];
 	checks.push(

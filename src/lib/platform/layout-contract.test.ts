@@ -28,6 +28,10 @@ function passingEvidence(
 			expectedReadableIdentities: ['overlay:lower-third:title'],
 			discoveredReadableIdentities: ['overlay:lower-third:title'],
 			missingReadableIdentities: [],
+			extraReadableIdentities: [],
+			duplicateReadableIdentityCount: 0,
+			unclaimedVisibleTextCount: 0,
+			unclaimedVisibleTextOwners: [],
 			complete: true,
 			unavailableReason: null
 		},
@@ -130,6 +134,10 @@ describe('Layout Contract frame evidence', () => {
 					expectedReadableIdentities: ['overlay:lower-third:title'],
 					discoveredReadableIdentities: [],
 					missingReadableIdentities: ['overlay:lower-third:title'],
+					extraReadableIdentities: [],
+					duplicateReadableIdentityCount: 0,
+					unclaimedVisibleTextCount: 0,
+					unclaimedVisibleTextOwners: [],
 					complete: false,
 					unavailableReason: 'visible-readable-identity-set-mismatch'
 				}

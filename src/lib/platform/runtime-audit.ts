@@ -653,6 +653,10 @@ export interface DeterministicRenderRegionManifest {
 		expectedReadableIdentities: readonly string[];
 		discoveredReadableIdentities: readonly string[];
 		missingReadableIdentities: readonly string[];
+		extraReadableIdentities: readonly string[];
+		duplicateReadableIdentityCount: number;
+		unclaimedVisibleTextCount: number;
+		unclaimedVisibleTextOwners: readonly string[];
 		complete: boolean;
 		unavailableReason: string | null;
 	};
@@ -812,7 +816,7 @@ export function foundDocumentTextOwners(roots: readonly HTMLElement[]): HTMLElem
 			const walker = document.createTreeWalker(foundRoot, NodeFilter.SHOW_TEXT);
 			let node = walker.nextNode();
 			while (node) {
-				if (normalizeDeterministicRenderedText(node.textContent ?? '').length > 0) {
+				if (hasDeterministicReadableCharacters(node.textContent ?? '')) {
 					const parent = node.parentElement;
 					const owner = parent?.closest<HTMLElement>(
 						'[data-supers-readable-id], [data-supers-non-readable-reason]'
@@ -994,6 +998,10 @@ export function normalizeDeterministicRenderedText(text: string): string {
 	return text.replace(/\s+/g, ' ').trim();
 }
 
+export function hasDeterministicReadableCharacters(text: string): boolean {
+	return /[\p{L}\p{N}]/u.test(normalizeDeterministicRenderedText(text));
+}
+
 export function matchesDeterministicRenderedText(
 	element: Pick<HTMLElement, 'textContent' | 'dataset'>,
 	expectedText: string
@@ -1128,7 +1136,7 @@ export async function captureDeterministicRenderRegionManifest(
 					settled.address.timestampMicroseconds,
 					identity
 				)) &&
-			(element.textContent ?? '').trim().length > 0 &&
+			hasDeterministicReadableCharacters(element.textContent ?? '') &&
 			hasEffectiveVisibility(element, rootElements) &&
 			hasRenderedTextPaint(element) &&
 			rect.width > 0 &&
@@ -1139,7 +1147,17 @@ export async function captureDeterministicRenderRegionManifest(
 		state,
 		settled.address.timestampMicroseconds
 	);
-	const expected = readableContract.status === 'available' ? readableContract.expected : [];
+	const expected =
+		readableContract.status === 'available'
+			? readableContract.expected.filter(
+					(entry) =>
+						!isDeterministicReadableIdentityMotionHidden(
+							state,
+							settled.address.timestampMicroseconds,
+							entry.id
+						)
+				)
+			: [];
 	const matched = matchReadableContractElements(expected, candidates, frame.width);
 	const readableRegions = matched.map(({ contract, element }) => ({
 		id: contract.id,
@@ -1160,9 +1178,20 @@ export async function captureDeterministicRenderRegionManifest(
 		const identity = exactReadableIdentity(candidate);
 		return identity ? [identity] : [];
 	});
-	const unclaimedVisibleTextCount = candidates.filter(
-		(candidate) => exactReadableIdentity(candidate) === null
-	).length;
+	const unclaimedVisibleTextOwners = candidates
+		.filter(
+			(candidate) =>
+				exactReadableIdentity(candidate) === null &&
+				candidate.closest('[data-supers-readable-id]') === null &&
+				candidate.querySelector('[data-supers-readable-id]') === null
+		)
+		.map((candidate) => {
+			const classes = [...candidate.classList].sort().join('.');
+			const text = normalizeDeterministicRenderedText(candidate.textContent ?? '').slice(0, 40);
+			return `${candidate.tagName.toLowerCase()}${classes.length > 0 ? `.${classes}` : ''}:${text}`;
+		})
+		.sort();
+	const unclaimedVisibleTextCount = unclaimedVisibleTextOwners.length;
 	const duplicateClaimCount =
 		claimedCandidateIdentities.length - new Set(claimedCandidateIdentities).size;
 	const discoveredReadableIdentities = [...new Set(claimedCandidateIdentities)].sort();
@@ -1171,9 +1200,8 @@ export async function captureDeterministicRenderRegionManifest(
 	const missingReadableIdentities = expectedReadableIdentities.filter(
 		(id) => !discoveredSet.has(id)
 	);
-	const extraReadableIdentityCount = discoveredReadableIdentities.filter(
-		(id) => !expectedSet.has(id)
-	).length;
+	const extraReadableIdentities = discoveredReadableIdentities.filter((id) => !expectedSet.has(id));
+	const extraReadableIdentityCount = extraReadableIdentities.length;
 	const coverageComplete =
 		readableContract.status === 'available' &&
 		missingReadableIdentities.length === 0 &&
@@ -1292,6 +1320,10 @@ export async function captureDeterministicRenderRegionManifest(
 			expectedReadableIdentities,
 			discoveredReadableIdentities,
 			missingReadableIdentities,
+			extraReadableIdentities,
+			duplicateReadableIdentityCount: duplicateClaimCount,
+			unclaimedVisibleTextCount,
+			unclaimedVisibleTextOwners,
 			complete: coverageComplete,
 			unavailableReason:
 				readableContract.status === 'unavailable'

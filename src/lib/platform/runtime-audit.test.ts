@@ -8,6 +8,7 @@ import {
 import {
 	composedElementScale,
 	deterministicFontCheckDescriptor,
+	hasDeterministicReadableCharacters,
 	matchesDeterministicRenderedText,
 	nativeRectForElement,
 	parseDeterministicCssShadows,
@@ -15,6 +16,14 @@ import {
 } from './runtime-audit';
 
 afterEach(() => vi.unstubAllGlobals());
+
+describe('deterministic readable character discovery', () => {
+	it('ignores punctuation-only separators while retaining semantic text', () => {
+		expect(hasDeterministicReadableCharacters(' · ')).toBe(false);
+		expect(hasDeterministicReadableCharacters('—')).toBe(false);
+		expect(hasDeterministicReadableCharacters('Section 2')).toBe(true);
+	});
+});
 
 describe('deterministic runtime font readiness', () => {
 	it('builds a valid FontFaceSet descriptor without relying on an empty font shorthand', () => {

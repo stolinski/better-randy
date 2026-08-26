@@ -15,6 +15,7 @@ const CHROME =
 	'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const WAIT_MS = Number(process.env.SUPERS_LAYOUT_CONTRACT_WAIT_MS ?? 60_000);
 const MATRIX_TIMEOUT_MS = Number(process.env.SUPERS_LAYOUT_CONTRACT_TIMEOUT_MS ?? 10 * 60_000);
+const DIAGNOSTIC_PRESET_SLUG = process.env.SUPERS_LAYOUT_CONTRACT_PRESET?.trim() || null;
 
 function canonicalize(value) {
 	if (Array.isArray(value)) return value.map(canonicalize);
@@ -277,10 +278,18 @@ async function run() {
 	if (!collected.manifest)
 		throw new Error('Full Layout Contract selection produced no coordinates');
 	await assertServedSourceIdentity(sourceRevision, tree.treeFingerprint);
+	const coordinates = DIAGNOSTIC_PRESET_SLUG
+		? collected.manifest.coordinates.filter(
+				(coordinate) => coordinate.presetSlug === DIAGNOSTIC_PRESET_SLUG
+			)
+		: collected.manifest.coordinates;
+	if (coordinates.length === 0) {
+		throw new Error(`Unknown diagnostic Preset ${DIAGNOSTIC_PRESET_SLUG}`);
+	}
 	const chrome = await launchHeadlessLayoutChrome();
 	const frameResults = [];
 	try {
-		for (const group of groupSupersRenderMatrixCoordinates(collected.manifest.coordinates)) {
+		for (const group of groupSupersRenderMatrixCoordinates(coordinates)) {
 			if (Date.now() >= deadline) throw new Error('Layout Contract matrix exceeded 10 minutes');
 			const page = await openPage(chrome.port, group.presetSlug);
 			try {
@@ -340,6 +349,8 @@ async function run() {
 		sourceRevision,
 		treeFingerprint: tree.treeFingerprint,
 		manifestDigest: collected.manifest.manifestDigest,
+		authoritativeFullCorpus: DIAGNOSTIC_PRESET_SLUG === null,
+		diagnosticPresetSlug: DIAGNOSTIC_PRESET_SLUG,
 		startedAt,
 		completedAt: new Date().toISOString(),
 		coordinateCount: frameResults.length,
