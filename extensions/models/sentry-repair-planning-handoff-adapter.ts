@@ -319,13 +319,22 @@ function currentDexRecommendationIsValid(
   expectedTaskIds: string[],
   tasks: SentryDexTask[],
 ): boolean {
-  const { exact, openExact, completedExact, lexical } =
-    findSentryDexTaskMatches(shortId, title, tasks);
+  const { openExact, completedExact, lexical } = findSentryDexTaskMatches(
+    shortId,
+    title,
+    tasks,
+  );
   if (
     recommendation === "create-task" || recommendation === "reproduce-first"
   ) {
-    return exact.length === 0 && lexical.length === 0 &&
-      expectedTaskIds.length === 0;
+    const expectedCompletedTaskIds = [...expectedTaskIds].sort();
+    const currentCompletedTaskIds = completedExact.map((task) => task.id)
+      .sort();
+    return openExact.length === 0 && lexical.length === 0 &&
+      expectedCompletedTaskIds.length === currentCompletedTaskIds.length &&
+      expectedCompletedTaskIds.every((taskId, index) =>
+        taskId === currentCompletedTaskIds[index]
+      );
   }
   return openExact.length === 1 && completedExact.length === 0 &&
     expectedTaskIds.length === 1 && openExact[0]?.id === expectedTaskIds[0];

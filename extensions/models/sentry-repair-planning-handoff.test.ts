@@ -657,6 +657,24 @@ Deno.test("repair handoff detects Dex recommendation drift after triage", async 
   assert(attachDrift.handoff.blockingReasons.includes("dex-drift"));
 });
 
+Deno.test("repair handoff accepts a stable completed exact match for a recurrence", async () => {
+  const bundle = await sourceBundle({
+    recommendation: "create-task",
+    exactMatchTaskIds: ["completed-repair"],
+  });
+  const result = await runHandoff(bundle, [
+    dexTask({
+      id: "completed-repair",
+      completed: true,
+      completed_at: NOW,
+    }),
+  ]);
+
+  assert.equal(result.handoff.status, "ready");
+  assert.deepEqual(result.handoff.blockingReasons, []);
+  assert.equal(result.handoff.intents.length, 1);
+});
+
 Deno.test("repair handoff detects completed result-only Dex matches", async () => {
   const bundle = await sourceBundle();
   const result = await runHandoff(bundle, [
