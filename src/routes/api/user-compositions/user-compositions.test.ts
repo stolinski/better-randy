@@ -273,8 +273,19 @@ describe('user composition handlers', () => {
 		assert.equal(await response.json(), null);
 	});
 
+	it('returns null from a slug GET when a legacy file is blank', async () => {
+		fsMocks.readFile.mockResolvedValue('\n \t');
+
+		const response = await slugHandlers.GET({
+			params: { slug: 'empty-write' }
+		} as Parameters<(typeof slugHandlers)['GET']>[0]);
+
+		assert.equal(response.status, 200);
+		assert.equal(await response.json(), null);
+	});
+
 	it('returns null from a slug GET when a legacy file contains malformed JSON', async () => {
-		fsMocks.readFile.mockResolvedValue('');
+		fsMocks.readFile.mockResolvedValue('{not-json');
 
 		const response = await slugHandlers.GET({
 			params: { slug: 'incomplete-write' }
