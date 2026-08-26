@@ -71,6 +71,76 @@ jobs:
                 - type: skipped
         weight: 0
         allowFailure: false
+      - name: read-legacy-sentry-route-task
+        description: Read official Dex only when an admitted legacy run reached verification without a route resource.
+        task:
+          type: model_method
+          modelIdOrName: supers-dex-task-tracker
+          methodName: get
+          inputs:
+            taskId: '${{ inputs.workItem }}'
+        guard: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.id == "preflight" || size(data.query(''modelName == "repo-audit" && specName == "work-domain-route"'').filter(route, route.attributes.workItem == inputs.workItem)) > 0 }}'
+        dependsOn:
+          - step: materialize-initial-factory-status
+            condition:
+              type: or
+              conditions:
+                - type: succeeded
+                - type: skipped
+        weight: 0
+        allowFailure: false
+      - name: migrate-legacy-sentry-work-domain-route
+        description: Record explicit migration provenance instead of fabricating a pre-implementation route for an admitted legacy verification run.
+        task:
+          type: model_method
+          modelIdOrName: repo-audit
+          methodName: migrate-legacy-sentry-work-domain-intent
+          inputs:
+            workItem: '${{ inputs.workItem }}'
+            sourceModelName: supers-dex-task-tracker
+            sourceResourceName: '${{ data.query(''modelName == "supers-dex-task-tracker" && specName == "task" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.id == inputs.workItem)[0].name }}'
+            sourceWorkflowRunId: '${{ run.id }}'
+            task: '${{ data.query(''modelName == "supers-dex-task-tracker" && specName == "task" && workflowRunId == "'' + run.id + ''"'').filter(record, record.attributes.id == inputs.workItem)[0].attributes }}'
+            evidenceName: '${{ inputs.evidenceName }}'
+            evidence: '${{ data.latest("supers-sentry-issue-intake", inputs.evidenceName).attributes }}'
+            mappingName: '${{ inputs.mappingName }}'
+            mapping: '${{ data.latest("supers-sentry-reproduction-transport", inputs.mappingName).attributes }}'
+            admissionName: '${{ inputs.admissionName }}'
+            admission: '${{ data.latest("supers-sentry-reproduction-transport", inputs.admissionName).attributes }}'
+            factoryState:
+              started: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.started }}'
+              workItem: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.workItem }}'
+              definitionVersion: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.definitionVersion }}'
+              status: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.status }}'
+              stage:
+                id: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.id }}'
+                cycle: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.cycle }}'
+                terminal: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.terminal }}'
+              dispatch:
+                cycle: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.dispatch.cycle }}'
+                attempts: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.dispatch.attempts }}'
+                limit: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.dispatch.limit }}'
+                required: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.dispatch.required }}'
+                executed: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.dispatch.executed }}'
+            legacyVerification:
+              schemaVersion: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.schemaVersion }}'
+              workItem: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.workItem }}'
+              integratedRevision: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.integratedRevision }}'
+              workflowRunId: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.workflowRunId }}'
+              disposition: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.disposition }}'
+              objectiveFailureCodes: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.payload.objectiveFailureCodes }}'
+              stageCycle: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-verification").attributes.cycle }}'
+            integrationReceipt: '${{ data.latest("supers-delivery", "artifact-" + inputs.workItem + "-change-summary").attributes.payload.integrationReceipt }}'
+        guard: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.id == "preflight" || size(data.query(''modelName == "repo-audit" && specName == "work-domain-route"'').filter(route, route.attributes.workItem == inputs.workItem)) > 0 }}'
+        dependsOn:
+          - step: read-legacy-sentry-route-task
+            condition:
+              type: or
+              conditions:
+                - type: succeeded
+                - type: skipped
+        weight: 0
+        allowFailure: false
       - name: record-preflight-dispatch
         description: Consume the preflight dispatch attempt only when this exact stage entry has not run.
         task:
@@ -85,7 +155,7 @@ jobs:
             note: Sentry evidence-bound policy preflight
         guard: '${{ data.latest("supers-delivery", "status-" + inputs.workItem).attributes.stage.id != "preflight" || data.latest("supers-delivery", "status-" + inputs.workItem).attributes.dispatch.executed }}'
         dependsOn:
-          - step: materialize-initial-factory-status
+          - step: migrate-legacy-sentry-work-domain-route
             condition:
               type: or
               conditions:
@@ -848,4 +918,4 @@ jobs:
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 9
+version: 10

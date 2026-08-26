@@ -64,7 +64,7 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   const steps = workflow.jobs.flatMap((job) => job.steps);
   const names = steps.map((step) => step.name);
 
-  assert.equal(workflow.version, 9);
+  assert.equal(workflow.version, 10);
   assert.deepEqual(workflow.inputs.required, [
     "workItem",
     "evidenceName",
@@ -76,6 +76,8 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   ]);
   const requiredOrder = [
     "assert-exact-sentry-admission",
+    "read-legacy-sentry-route-task",
+    "migrate-legacy-sentry-work-domain-route",
     "run-policy-preflight",
     "reconcile-prior-coding-worktrees",
     "prepare-isolated-coding-worktree",
@@ -116,6 +118,27 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   }
   assert.ok(admissionExpression.length > 0);
 
+  const legacyRouteTask = stepByName(
+    workflow,
+    "read-legacy-sentry-route-task",
+  );
+  assert.equal(legacyRouteTask.task.modelIdOrName, "supers-dex-task-tracker");
+  assert.equal(legacyRouteTask.task.methodName, "get");
+  assert.match(legacyRouteTask.guard ?? "", /work-domain-route/);
+  const legacyRouteMigration = stepByName(
+    workflow,
+    "migrate-legacy-sentry-work-domain-route",
+  );
+  assert.equal(legacyRouteMigration.task.modelIdOrName, "repo-audit");
+  assert.equal(
+    legacyRouteMigration.task.methodName,
+    "migrate-legacy-sentry-work-domain-intent",
+  );
+  assert.match(legacyRouteMigration.guard ?? "", /work-domain-route/);
+  assert.match(
+    JSON.stringify(legacyRouteMigration.task.inputs),
+    /artifact-.*-verification.*integrationReceipt/,
+  );
   assert.equal(
     stepByName(workflow, "record-preflight-dispatch").task.methodName,
     "record_dispatch",
@@ -256,6 +279,7 @@ Deno.test("Sentry Factory driver converges machine-authorized repairs through te
   );
 
   const mutationSteps = [
+    "migrate-legacy-sentry-work-domain-route",
     "record-preflight-dispatch",
     "run-policy-preflight",
     "advance-to-implementation",

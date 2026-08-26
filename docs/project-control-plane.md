@@ -51,7 +51,7 @@ The post-integration lane union is exact:
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Preset                    | affected static Presets and affected render cells; no Pack matrix                                                                                       |
 | Pack                      | affected static Presets, affected render cells, and Pack matrix                                                                                         |
-| Authoring app             | task-path-scoped project diagnostics, unit tests, and browser checks; app-visual evidence remains separately typed                                        |
+| Authoring app             | task-path-scoped project diagnostics, unit tests, and browser checks; app-visual evidence remains separately typed                                      |
 | Rendering                 | affected static Presets, affected/full render scope from the selector, and aesthetic review; no export/decode                                           |
 | Export                    | declared export/decode package-script evidence plus touched product checks                                                                              |
 | Performance               | declared `benchmark:*` package-script evidence plus every lane selected by touched paths                                                                |
@@ -274,6 +274,12 @@ task. The event identity is part of the marker. One open exact task is reused;
 a later event after completed work receives a new task. Machine admission
 cannot satisfy or bypass human or aesthetic gates. Historical reproduction
 transport resources remain readable, but active workflows do not call them.
+An admitted legacy Sentry run that predates the work-domain route can recover
+only through the explicit schema-v3 `legacy-sentry-admission-migration` route.
+That typed path binds fresh official Dex data to the immutable evidence, mapping,
+admission, integration receipt, legacy verification result, and current
+verification-stage Factory state; it refuses route overwrite and never claims
+that the recovered route existed before implementation.
 
 The coding Factory uses the observed-error Dex task in an isolated worktree,
 integrates the smallest credible fix serially through the official `@swamp/git`

@@ -101,7 +101,13 @@ The six-hour scheduled workflow also resumes active repairs one at a time and
 resolves terminal checked repairs one at a time before admitting another issue.
 A legacy verification route produced by the retired repository-wide check is
 replaced once with current task-path-scoped evidence; current failures are not
-silently retried. Driver dependencies continue after intentionally skipped
+silently retried. If an admitted legacy run predates `work-domain-route`, the
+driver may create only the schema-v3 legacy migration route: it binds a fresh
+official Dex snapshot to the original immutable Sentry evidence, task mapping,
+admission, integration receipt, legacy verification artifact, and current
+verification-stage Factory state. It records `legacy-sentry-admission-migration`
+as its authority and refuses to overwrite a route, so it never invents
+pre-implementation provenance. Driver dependencies continue after intentionally skipped
 prior stages, so a retry can resume from the current Factory stage instead of
 reporting a successful no-op. If any admitted repair remains active after that
 pass, the queue stays intact and no new repair is admitted.

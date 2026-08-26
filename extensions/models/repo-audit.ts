@@ -60,7 +60,20 @@ import {
   VerificationFanoutRequestArgumentsSchema,
 } from "./repo-verification-fanout.ts";
 import { DexTaskSnapshotSchema } from "./dex-task-tracker-adapter.ts";
-import { createSupersDeterministicContractHash } from "./supers-deterministic-factory-contract.ts";
+import {
+  SentryEvidenceDeliveryAdmissionSchema,
+  SentryEvidenceTaskMappingSchema,
+} from "./sentry-evidence-dex-mapping.ts";
+import {
+  canonicalSentryJson,
+  createSentrySha256,
+} from "./sentry-issue-intake-adapter.ts";
+import { SentryIssueRepairEvidenceSchema } from "./sentry-issue-repair-evidence.ts";
+import {
+  createSupersDeterministicContractHash,
+  SupersFactoryIntegrationReceiptSchema,
+  verifySupersFactoryIntegrationReceipt,
+} from "./supers-deterministic-factory-contract.ts";
 import {
   classifySupersTaskIntent,
   type SupersWorkDomainIntent,
@@ -239,15 +252,90 @@ const SupersWorkDomainRouteContentSchema = z.strictObject({
   routingAuthority: z.literal("human-task-intent-additive"),
   intent: SupersWorkDomainIntentSchema,
 });
-const SupersWorkDomainRouteSchema = SupersWorkDomainRouteContentSchema.extend({
-  routeDigest: TreeFingerprintSchema,
+const LegacySentryWorkDomainRouteMigrationSchema = z.strictObject({
+  evidenceName: z.string().min(1).max(220),
+  evidenceFingerprint: TreeFingerprintSchema,
+  mappingName: z.string().min(1).max(220),
+  mappingFingerprint: TreeFingerprintSchema,
+  admissionName: z.string().min(1).max(220),
+  admissionFingerprint: TreeFingerprintSchema,
+  integrationReceiptId: TreeFingerprintSchema,
+  legacyVerificationWorkflowRunId: z.string().min(1),
+  legacyVerificationDisposition: z.literal("automatic-rework"),
+  factoryDefinitionVersion: z.number().int().positive(),
+  factoryStage: z.literal("verification"),
+  factoryStageCycle: z.number().int().positive(),
+  migratedAt: z.string().datetime(),
 });
+const LegacySentryWorkDomainRouteContentSchema = z.strictObject({
+  schemaVersion: z.literal(3),
+  workItem: z.string().min(1).max(128),
+  sourceModelName: z.literal("supers-dex-task-tracker"),
+  sourceResourceName: z.string().min(1),
+  sourceWorkflowRunId: z.string().min(1),
+  taskSnapshotDigest: TreeFingerprintSchema,
+  taskUpdatedAt: z.string().datetime(),
+  routingAuthority: z.literal("legacy-sentry-admission-migration"),
+  intent: SupersWorkDomainIntentSchema,
+  migration: LegacySentryWorkDomainRouteMigrationSchema,
+});
+const SupersWorkDomainRouteSchema = z.union([
+  SupersWorkDomainRouteContentSchema.extend({
+    routeDigest: TreeFingerprintSchema,
+  }),
+  LegacySentryWorkDomainRouteContentSchema.extend({
+    routeDigest: TreeFingerprintSchema,
+  }),
+]);
 const ClassifyWorkDomainIntentArgumentsSchema = z.strictObject({
   workItem: z.string().min(1).max(128),
   sourceModelName: z.literal("supers-dex-task-tracker"),
   sourceResourceName: z.string().min(1),
   sourceWorkflowRunId: z.string().min(1),
   task: DexTaskSnapshotSchema,
+});
+const LegacySentryFactoryVerificationStateSchema = z.strictObject({
+  started: z.literal(true),
+  workItem: z.string().min(1).max(128),
+  definitionVersion: z.number().int().positive(),
+  status: z.literal("active"),
+  stage: z.strictObject({
+    id: z.literal("verification"),
+    cycle: z.number().int().positive(),
+    terminal: z.literal(false),
+  }),
+  dispatch: z.strictObject({
+    cycle: z.number().int().positive(),
+    attempts: z.number().int().positive(),
+    limit: z.number().int().positive(),
+    required: z.literal(true),
+    executed: z.literal(true),
+  }),
+});
+const LegacySentryVerificationRouteSchema = z.strictObject({
+  schemaVersion: z.literal(2),
+  workItem: z.string().min(1).max(128),
+  integratedRevision: GitHeadSchema,
+  workflowRunId: z.string().min(1),
+  disposition: z.literal("automatic-rework"),
+  objectiveFailureCodes: z.array(z.string().min(1)).min(1),
+  stageCycle: z.number().int().positive(),
+});
+const MigrateLegacySentryWorkDomainIntentArgumentsSchema = z.strictObject({
+  workItem: z.string().min(1).max(128),
+  sourceModelName: z.literal("supers-dex-task-tracker"),
+  sourceResourceName: z.string().min(1),
+  sourceWorkflowRunId: z.string().min(1),
+  task: DexTaskSnapshotSchema,
+  evidenceName: z.string().min(1).max(220),
+  evidence: SentryIssueRepairEvidenceSchema,
+  mappingName: z.string().min(1).max(220),
+  mapping: SentryEvidenceTaskMappingSchema,
+  admissionName: z.string().min(1).max(220),
+  admission: SentryEvidenceDeliveryAdmissionSchema,
+  factoryState: LegacySentryFactoryVerificationStateSchema,
+  legacyVerification: LegacySentryVerificationRouteSchema,
+  integrationReceipt: SupersFactoryIntegrationReceiptSchema,
 });
 
 const ChangeImpactReportSchema = z.strictObject({
@@ -567,6 +655,19 @@ async function readChangeBaseline(
   return baseline;
 }
 
+async function verifySentryContentAddress(
+  value: { fingerprint: string },
+  label: string,
+): Promise<void> {
+  const content = Object.fromEntries(
+    Object.entries(value).filter(([key]) => key !== "fingerprint"),
+  );
+  const expected = await createSentrySha256(canonicalSentryJson(content));
+  if (value.fingerprint !== expected) {
+    throw new Error(`${label} fingerprint verification failed`);
+  }
+}
+
 async function readWorkDomainRoute(
   context: MethodContext,
   workItem: string,
@@ -671,7 +772,7 @@ async function runAuditScript(
 /** Model definition for the Supers repo policy audits. */
 export const model = {
   type: "@supers/repo-audit",
-  version: "2026.08.26.1",
+  version: "2026.08.26.2",
   globalArguments: GlobalArgsSchema,
   resources: {
     timing: {
@@ -774,7 +875,7 @@ export const model = {
     },
     "work-domain-route": {
       description:
-        "Typed additive pre-implementation guidance derived from the canonical human-authored Dex task snapshot",
+        "Typed additive guidance from the canonical Dex task, including explicit fail-closed provenance for admitted legacy Sentry verification migrations",
       schema: SupersWorkDomainRouteSchema,
       lifetime: "infinite",
       garbageCollection: 50,
@@ -1121,6 +1222,144 @@ export const model = {
           "work-domain-route",
           args.workItem,
         );
+        const handle = await context.writeResource(
+          "work-domain-route",
+          resourceName,
+          route,
+        );
+        return { dataHandles: [handle] };
+      },
+    },
+    "migrate-legacy-sentry-work-domain-intent": {
+      description:
+        "Recover missing route data only for an exact evidence-admitted legacy Sentry run already at verification",
+      arguments: MigrateLegacySentryWorkDomainIntentArgumentsSchema,
+      execute: async (
+        args: z.infer<
+          typeof MigrateLegacySentryWorkDomainIntentArgumentsSchema
+        >,
+        context: MethodContext,
+      ) => {
+        const resourceName = await changeResourceName(
+          "work-domain-route",
+          args.workItem,
+        );
+        if (await context.readResource(resourceName)) {
+          throw new Error(
+            `Legacy Sentry route migration refuses to overwrite ${args.workItem}`,
+          );
+        }
+        if (
+          args.task.id !== args.workItem ||
+          args.task.ownerToken !== "supers-delivery" ||
+          args.task.completed ||
+          args.task.startedAt === null ||
+          !args.task.description.includes(args.mapping.exactMarker)
+        ) {
+          throw new TypeError(
+            "Legacy Sentry route migration requires the exact open started Supers Delivery task",
+          );
+        }
+        await Promise.all([
+          verifySentryContentAddress(args.evidence, "Sentry repair evidence"),
+          verifySentryContentAddress(args.mapping, "Sentry task mapping"),
+          verifySentryContentAddress(args.admission, "Sentry admission"),
+        ]);
+        if (
+          args.evidenceName !==
+            `sentry-issue-repair-evidence-${args.evidence.repairIdentityFingerprint}` ||
+          args.mappingName !==
+            `sentry-repair-task-mapping-${args.mapping.fingerprint}` ||
+          args.admissionName !==
+            `sentry-repair-delivery-admission-${args.admission.fingerprint}`
+        ) {
+          throw new Error(
+            "Legacy Sentry route migration resource names do not match their immutable identities",
+          );
+        }
+        if (
+          args.mapping.taskId !== args.workItem ||
+          args.admission.dexTaskId !== args.workItem ||
+          args.factoryState.workItem !== args.workItem ||
+          args.legacyVerification.workItem !== args.workItem ||
+          args.evidence.issueId !== args.mapping.issueId ||
+          args.evidence.issueId !== args.admission.issueId ||
+          args.evidence.shortId !== args.mapping.shortId ||
+          args.evidence.shortId !== args.admission.shortId ||
+          args.evidence.repairIdentityFingerprint !==
+            args.mapping.repairIdentityFingerprint ||
+          args.mapping.repairIdentityFingerprint !==
+            args.admission.repairIdentityFingerprint ||
+          args.evidence.repairIntentFingerprint !==
+            args.admission.repairIntentFingerprint ||
+          args.mapping.fingerprint !== args.admission.taskMappingFingerprint ||
+          args.evidence.checkoutRevision !== args.admission.checkoutRevision
+        ) {
+          throw new Error(
+            "Legacy Sentry route migration provenance does not bind one exact admitted repair",
+          );
+        }
+        const integrationReceipt =
+          await verifySupersFactoryIntegrationReceipt(args.integrationReceipt);
+        if (
+          integrationReceipt.disposition !== "integrated" ||
+          integrationReceipt.factoryName !== "supers-delivery" ||
+          integrationReceipt.rootEpicId !== args.workItem ||
+          integrationReceipt.activeTaskId !== args.workItem ||
+          integrationReceipt.targetBaselineRevision !==
+            args.admission.checkoutRevision ||
+          integrationReceipt.integratedRevision !==
+            args.legacyVerification.integratedRevision ||
+          args.factoryState.stage.cycle !== args.factoryState.dispatch.cycle ||
+          args.factoryState.stage.cycle !==
+            args.legacyVerification.stageCycle
+        ) {
+          throw new Error(
+            "Legacy Sentry route migration verification and integration evidence do not agree",
+          );
+        }
+        const intent: SupersWorkDomainIntent = SupersWorkDomainIntentSchema
+          .parse(
+            classifySupersTaskIntent({
+              name: args.task.name,
+              description: args.task.description,
+              metadata: args.task.metadata,
+            }),
+          );
+        const content = LegacySentryWorkDomainRouteContentSchema.parse({
+          schemaVersion: 3,
+          workItem: args.workItem,
+          sourceModelName: args.sourceModelName,
+          sourceResourceName: args.sourceResourceName,
+          sourceWorkflowRunId: args.sourceWorkflowRunId,
+          taskSnapshotDigest: await createSupersDeterministicContractHash(
+            args.task,
+          ),
+          taskUpdatedAt: args.task.updatedAt,
+          routingAuthority: "legacy-sentry-admission-migration",
+          intent,
+          migration: {
+            evidenceName: args.evidenceName,
+            evidenceFingerprint: args.evidence.fingerprint,
+            mappingName: args.mappingName,
+            mappingFingerprint: args.mapping.fingerprint,
+            admissionName: args.admissionName,
+            admissionFingerprint: args.admission.fingerprint,
+            integrationReceiptId: integrationReceipt.receiptId,
+            legacyVerificationWorkflowRunId:
+              args.legacyVerification.workflowRunId,
+            legacyVerificationDisposition:
+              args.legacyVerification.disposition,
+            factoryDefinitionVersion: args.factoryState.definitionVersion,
+            factoryStage: args.factoryState.stage.id,
+            factoryStageCycle: args.factoryState.stage.cycle,
+            migratedAt: new Date().toISOString(),
+          },
+        });
+        const route = SupersWorkDomainRouteSchema.parse({
+          ...content,
+          routeDigest: await createSupersDeterministicContractHash(content),
+        });
         const handle = await context.writeResource(
           "work-domain-route",
           resourceName,
