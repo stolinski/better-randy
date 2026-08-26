@@ -106,8 +106,10 @@ Deno.test(
 				args: ['model', 'validate', '11111111-1111-1111-1111-111111111111', '--json']
 			},
 			{
-				command: 'deno',
+				command: 'npx',
 				args: [
+					'--yes',
+					'deno',
 					'check',
 					'--no-config',
 					'--import-map=scripts/factory-model-test-import-map.json',
@@ -116,8 +118,10 @@ Deno.test(
 				]
 			},
 			{
-				command: 'deno',
+				command: 'npx',
 				args: [
+					'--yes',
+					'deno',
 					'test',
 					'--no-config',
 					'--import-map=scripts/factory-model-test-import-map.json',
@@ -162,9 +166,13 @@ Deno.test(
 				return successfulOutput('focused models');
 			}
 		);
-		const testCall = calls.find(({ args }) => args[0] === 'test');
+		const testCall = calls.find(
+			({ command, args }) =>
+				command === 'npx' && args[0] === '--yes' && args[1] === 'deno' && args[2] === 'test'
+		);
 		assert.ok(testCall);
 		assert.equal(testCall.cwd, repoDir);
+		assert.deepEqual(testCall.args.slice(0, 3), ['--yes', 'deno', 'test']);
 		assert.deepEqual(testCall.args.slice(-3), [
 			'extensions/models/repo-audit.test.ts',
 			'extensions/models/repo-verification-fanout.test.ts',
@@ -175,17 +183,21 @@ Deno.test(
 );
 
 Deno.test('a changed extension test runs itself once', async () => {
-	const calls: Array<{ args: string[] }> = [];
+	const calls: Array<{ command: string; args: string[] }> = [];
 	await runVerificationFanout(
 		Deno.cwd(),
 		argumentsFor(['swamp-control-plane'], ['extensions/models/repo-verification-fanout.test.ts']),
-		async (_command, args) => {
-			calls.push({ args });
+		async (command, args) => {
+			calls.push({ command, args });
 			return successfulOutput('changed test');
 		}
 	);
-	const testCall = calls.find(({ args }) => args[0] === 'test');
+	const testCall = calls.find(
+		({ command, args }) =>
+			command === 'npx' && args[0] === '--yes' && args[1] === 'deno' && args[2] === 'test'
+	);
 	assert.ok(testCall);
+	assert.deepEqual(testCall.args.slice(0, 3), ['--yes', 'deno', 'test']);
 	assert.deepEqual(testCall.args.slice(-1), ['extensions/models/repo-verification-fanout.test.ts']);
 });
 
@@ -216,7 +228,11 @@ Deno.test('workflow-only routing validates the workflow without product tests', 
 			args: ['--test', 'scripts/supers-delivery-routing-workflows.test.mjs']
 		}
 	]);
-	assert.ok(!calls.some(({ command }) => command === 'pnpm' || command === 'deno'));
+	assert.ok(
+		!calls.some(
+			({ command }) => command === 'pnpm' || command === 'deno' || command === 'npx'
+		)
+	);
 });
 
 Deno.test('typed coverage lanes execute their exact bounded audit commands', async () => {

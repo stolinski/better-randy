@@ -216,8 +216,10 @@ async function swampControlPlaneCommands(
 	);
 	if (extensionSources.length > 0) {
 		commands.push({
-			command: 'deno',
+			command: 'npx',
 			args: [
+				'--yes',
+				'deno',
 				'check',
 				'--no-config',
 				'--import-map=scripts/factory-model-test-import-map.json',
@@ -229,8 +231,10 @@ async function swampControlPlaneCommands(
 	const extensionTests = await focusedExtensionTestPaths(paths, repoDir);
 	if (extensionTests.length > 0) {
 		commands.push({
-			command: 'deno',
+			command: 'npx',
 			args: [
+				'--yes',
+				'deno',
 				'test',
 				'--no-config',
 				'--import-map=scripts/factory-model-test-import-map.json',
