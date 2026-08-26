@@ -4,7 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { computeRepositoryTreeFingerprint } from './repository-tree-fingerprint.server';
+import {
+	computeRepositoryScopedTreeFingerprint,
+	computeRepositoryTreeFingerprint
+} from './repository-tree-fingerprint.server';
 
 const directories: string[] = [];
 
@@ -45,5 +48,32 @@ describe('computeRepositoryTreeFingerprint', () => {
 		fingerprints.push((await computeRepositoryTreeFingerprint(directory)).treeFingerprint);
 		expect(new Set(fingerprints).size).toBe(fingerprints.length);
 		expect(fingerprints.every((value) => /^[0-9a-f]{64}$/.test(value))).toBe(true);
+	});
+
+	it('keeps unrelated dirty files outside a sealed scoped identity', async () => {
+		const directory = await fixture();
+		const before = await computeRepositoryScopedTreeFingerprint(directory, ['tracked.txt']);
+		await writeFile(join(directory, 'unrelated.txt'), 'unrelated\n');
+		const afterUnrelatedChange = await computeRepositoryScopedTreeFingerprint(directory, [
+			'tracked.txt'
+		]);
+		await writeFile(join(directory, 'tracked.txt'), 'two\n');
+		const afterScopedChange = await computeRepositoryScopedTreeFingerprint(directory, [
+			'tracked.txt'
+		]);
+
+		expect(afterUnrelatedChange).toEqual(before);
+		expect(afterScopedChange.sourceRevision).toBe(before.sourceRevision);
+		expect(afterScopedChange.treeFingerprint).not.toBe(before.treeFingerprint);
+	});
+
+	it('rejects unsafe scoped paths', async () => {
+		const directory = await fixture();
+		await expect(computeRepositoryScopedTreeFingerprint(directory, [])).rejects.toThrow(
+			'Scoped repository paths'
+		);
+		await expect(
+			computeRepositoryScopedTreeFingerprint(directory, ['../outside.txt'])
+		).rejects.toThrow('Scoped repository paths');
 	});
 });

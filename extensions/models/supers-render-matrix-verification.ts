@@ -1,7 +1,10 @@
 import { z } from "npm:zod@4.4.3";
 
 import { supersRenderMatrixRunnerTimeoutMs } from "../../scripts/supers-render-matrix-runner.ts";
-import { computeRepositoryTreeFingerprint } from "../../src/lib/utils/repository-tree-fingerprint.server.ts";
+import {
+  computeRepositoryScopedTreeFingerprint,
+  computeRepositoryTreeFingerprint,
+} from "../../src/lib/utils/repository-tree-fingerprint.server.ts";
 import {
   createSupersDeterministicContractHash,
   SupersAdvisoryVisualObservationSchema,
@@ -291,7 +294,12 @@ export async function executeSupersRenderMatrixVerification(
     return { dataHandles: [handle] };
   }
 
-  const localBefore = await computeRepositoryTreeFingerprint(context.repoDir);
+  const localBefore = parsedArgs.scope === "affected"
+    ? await computeRepositoryScopedTreeFingerprint(
+      context.repoDir,
+      parsedArgs.changedPaths,
+    )
+    : await computeRepositoryTreeFingerprint(context.repoDir);
   if (localBefore.treeFingerprint !== parsedArgs.expectedTreeFingerprint) {
     throw new Error("Local source identity drifted before render inventory");
   }
@@ -383,6 +391,9 @@ export async function executeSupersRenderMatrixVerification(
         manifestPath,
         snapshotPath,
         runnerPath,
+        JSON.stringify(
+          parsedArgs.scope === "affected" ? parsedArgs.changedPaths : [],
+        ),
       ],
       context.repoDir,
       supersRenderMatrixRunnerTimeoutMs(parsedArgs.scope),
@@ -424,7 +435,12 @@ export async function executeSupersRenderMatrixVerification(
       runnerResult.bundle,
       runnerResult.evidenceIndex,
     );
-    const localAfter = await computeRepositoryTreeFingerprint(context.repoDir);
+    const localAfter = parsedArgs.scope === "affected"
+      ? await computeRepositoryScopedTreeFingerprint(
+        context.repoDir,
+        parsedArgs.changedPaths,
+      )
+      : await computeRepositoryTreeFingerprint(context.repoDir);
     if (localAfter.treeFingerprint !== parsedArgs.expectedTreeFingerprint) {
       throw new Error("Local source identity drifted after render fan-out");
     }

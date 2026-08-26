@@ -68,6 +68,31 @@ async function runGit(repoDir: string, args: string[]): Promise<Uint8Array> {
 	return new Uint8Array(stdout);
 }
 
+function normalizeRepositoryScopePaths(scopedPaths: readonly string[]): string[] {
+	const paths = [...new Set(scopedPaths)].sort();
+	if (
+		paths.length === 0 ||
+		paths.some((path) => !path || path.startsWith('/') || path.split('/').includes('..'))
+	) {
+		throw new TypeError('Scoped repository paths must be safe project-relative paths');
+	}
+	return paths;
+}
+
+async function readRepositoryUntrackedContent(
+	repoDir: string,
+	untrackedOutput: Uint8Array
+): Promise<RepositoryUntrackedContent[]> {
+	return Promise.all(
+		parseNulPaths(untrackedOutput)
+			.sort()
+			.map(async (path) => ({
+				path,
+				content: new Uint8Array(await readFile(`${repoDir}/${path}`))
+			}))
+	);
+}
+
 /** Content-sensitive HEAD + staged/unstaged/status/untracked identity for local verification. */
 export async function computeRepositoryTreeFingerprint(
 	repoDir: string
@@ -81,18 +106,50 @@ export async function computeRepositoryTreeFingerprint(
 	]);
 	const sourceRevision = textDecoder.decode(headOutput).trim();
 	if (!/^[0-9a-f]{40,64}$/.test(sourceRevision)) throw new TypeError('Invalid Git source revision');
-	const untracked = await Promise.all(
-		parseNulPaths(untrackedOutput)
-			.sort((left, right) => left.localeCompare(right))
-			.map(async (path) => ({
-				path,
-				content: new Uint8Array(await readFile(`${repoDir}/${path}`))
-			}))
-	);
+	const untracked = await readRepositoryUntrackedContent(repoDir, untrackedOutput);
 	return {
 		sourceRevision,
 		treeFingerprint: await createRepositoryTreeFingerprint({
 			head: sourceRevision,
+			unstagedDiff,
+			stagedDiff,
+			status,
+			untracked
+		})
+	};
+}
+
+/** Content-sensitive identity limited to the sealed paths owned by one change. */
+export async function computeRepositoryScopedTreeFingerprint(
+	repoDir: string,
+	scopedPaths: readonly string[]
+): Promise<RepositoryTreeIdentity> {
+	const paths = normalizeRepositoryScopePaths(scopedPaths);
+	const pathspec = ['--', ...paths];
+	const [headOutput, committedTree, unstagedDiff, stagedDiff, status, untrackedOutput] =
+		await Promise.all([
+			runGit(repoDir, ['rev-parse', '--verify', 'HEAD']),
+			runGit(repoDir, ['ls-tree', '-r', '-z', 'HEAD', ...pathspec]),
+			runGit(repoDir, ['diff', '--binary', '--no-ext-diff', '--no-textconv', ...pathspec]),
+			runGit(repoDir, [
+				'diff',
+				'--cached',
+				'--binary',
+				'--no-ext-diff',
+				'--no-textconv',
+				...pathspec
+			]),
+			runGit(repoDir, ['status', '--porcelain=v1', '-z', '--untracked-files=all', ...pathspec]),
+			runGit(repoDir, ['ls-files', '--others', '--exclude-standard', '-z', ...pathspec])
+		]);
+	const sourceRevision = textDecoder.decode(headOutput).trim();
+	if (!/^[0-9a-f]{40,64}$/.test(sourceRevision)) throw new TypeError('Invalid Git source revision');
+	const scopedHead = `scoped-paths-v1\0${textDecoder.decode(committedTree)}`;
+	const untracked = await readRepositoryUntrackedContent(repoDir, untrackedOutput);
+	return {
+		sourceRevision,
+		treeFingerprint: await createRepositoryTreeFingerprint({
+			head: scopedHead,
 			unstagedDiff,
 			stagedDiff,
 			status,

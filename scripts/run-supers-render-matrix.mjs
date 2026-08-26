@@ -46,8 +46,10 @@ function decodeDataUrl(value) {
 	return Buffer.from(value.slice(separator + 1), 'base64');
 }
 
-async function sourceIdentity(expectedRevision, expectedFingerprint) {
-	const response = await fetch(`${BASE_URL}/api/verification/source-identity`);
+async function sourceIdentity(expectedRevision, expectedFingerprint, scopedPaths) {
+	const endpoint = new URL('/api/verification/source-identity', BASE_URL);
+	if (scopedPaths.length > 0) endpoint.searchParams.set('paths', JSON.stringify(scopedPaths));
+	const response = await fetch(endpoint);
 	if (!response.ok) throw new Error(`Served source identity unavailable (${response.status})`);
 	const identity = await response.json();
 	if (
@@ -253,17 +255,26 @@ function notApplicableCandidate(code, reason, evidence, extra = {}) {
 }
 
 async function main() {
-	const [manifestPath, snapshotPath, outputPath] = process.argv.slice(2);
+	const [manifestPath, snapshotPath, outputPath, changedPathsJson = '[]'] = process.argv.slice(2);
 	if (!manifestPath || !snapshotPath || !outputPath)
 		throw new Error(
-			'usage: run-supers-render-matrix.mjs <manifest.json> <snapshot.json> <output.json>'
+			'usage: run-supers-render-matrix.mjs <manifest.json> <snapshot.json> <output.json> [changed-paths-json]'
 		);
 	const manifest = JSON.parse(await readFile(resolve(manifestPath), 'utf8'));
 	const snapshot = JSON.parse(await readFile(resolve(snapshotPath), 'utf8'));
+	const changedPaths = JSON.parse(changedPathsJson);
+	if (!Array.isArray(changedPaths) || !changedPaths.every((path) => typeof path === 'string')) {
+		throw new TypeError('changed paths must be a string array');
+	}
+	const sourceIdentityPaths = manifest.scope === 'affected' ? changedPaths : [];
 	const launch = spawnSync('bash', ['scripts/launch-cdp-chrome.sh'], { encoding: 'utf8' });
 	if (launch.status !== 0)
 		throw new Error(`Sanctioned CDP Chrome unavailable: ${launch.stderr || launch.stdout}`);
-	const servedBefore = await sourceIdentity(manifest.sourceRevision, manifest.engineFingerprint);
+	const servedBefore = await sourceIdentity(
+		manifest.sourceRevision,
+		manifest.engineFingerprint,
+		sourceIdentityPaths
+	);
 	const evidenceRoot = resolve(
 		dirname(outputPath),
 		'render-matrix-evidence',
@@ -281,7 +292,11 @@ async function main() {
 			if (evidenceBudgetExceeded) {
 				throw new Error(`${manifest.scope} render evidence exceeded its closed byte budget`);
 			}
-			await sourceIdentity(manifest.sourceRevision, manifest.engineFingerprint);
+			await sourceIdentity(
+				manifest.sourceRevision,
+				manifest.engineFingerprint,
+				sourceIdentityPaths
+			);
 			const page = await openPage(group.presetSlug);
 			const { send } = page;
 			const cells = [];
@@ -974,7 +989,11 @@ async function main() {
 			} finally {
 				await page.close();
 			}
-			await sourceIdentity(manifest.sourceRevision, manifest.engineFingerprint);
+			await sourceIdentity(
+				manifest.sourceRevision,
+				manifest.engineFingerprint,
+				sourceIdentityPaths
+			);
 			return {
 				groupId: group.groupId,
 				cells,
@@ -1006,7 +1025,11 @@ async function main() {
 			};
 		}
 	});
-	const servedAfter = await sourceIdentity(manifest.sourceRevision, manifest.engineFingerprint);
+	const servedAfter = await sourceIdentity(
+		manifest.sourceRevision,
+		manifest.engineFingerprint,
+		sourceIdentityPaths
+	);
 	const cells = results
 		.flatMap((entry) => entry.cells)
 		.sort((left, right) => left.coordinate.cellId.localeCompare(right.coordinate.cellId));
