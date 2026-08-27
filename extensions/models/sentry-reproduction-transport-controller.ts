@@ -1117,7 +1117,7 @@ const CompleteMachineSentryMethodArgsSchema = CompleteMachineSentryRepairArgsSch
 
 export const model = {
   type: "@supers/sentry-reproduction-transport-controller",
-  version: "2026.08.27.1",
+  version: "2026.08.27.2",
   globalArguments: SentryTransportGlobalArgsSchema,
   resources: {
     lease: {

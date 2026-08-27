@@ -90,7 +90,9 @@ policy, corpus, browser,
 and render lanes for the actual changed paths.
 
 After the integrated change passes those normal checks, Delivery completes the
-Dex task and `supers-sentry-verified-resolution` resolves the exact Sentry issue
+Dex task through an exact `dex show <task>` read and postcondition check; it does
+not serialize the growing full Dex corpus through the bounded completion
+boundary. `supers-sentry-verified-resolution` then resolves the exact Sentry issue
 in `supers@<integrated-sha>`. Resolution reads only the stable passing-route
 authority fields from the already validated Factory artifact, so additions to
 the full Delivery route contract cannot stale this mutation boundary.

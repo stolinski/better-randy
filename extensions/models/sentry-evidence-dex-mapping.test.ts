@@ -7,6 +7,7 @@ import {
 } from "./sentry-issue-intake-adapter.ts";
 import {
   DEFAULT_SENTRY_EVIDENCE_MAPPING_DEPENDENCIES,
+  executeCompleteMachineSentryRepair,
   executeMapEvidencedSentryRepair,
   SentryEvidenceTaskMappingSchema,
 } from "./sentry-evidence-dex-mapping.ts";
@@ -183,6 +184,92 @@ async function buildFixture() {
 
 test("production Sentry admission delegates persistence to Dex without touching Git", () => {
   assert.equal(DEFAULT_SENTRY_EVIDENCE_MAPPING_DEPENDENCIES.commitDexMutation, undefined);
+});
+
+test("machine completion reads only the exact Dex task instead of the growing full corpus", async () => {
+  const task = {
+    id: "dex-1",
+    name: "Repair SUPERS-1",
+    description: "Exact repair",
+    completed: false,
+    started_at: "2026-08-22T01:01:00.000Z",
+  };
+  const receiptId = "7".repeat(64);
+  const authorization = {
+    authority: "supers-sentry-machine-completion-v1" as const,
+    issueId: "123",
+    dexTaskId: task.id,
+    admissionFingerprint: "8".repeat(64),
+    integratedRevision: REVISION,
+    integrationReceiptId: receiptId,
+    authorizedAt: "2026-08-22T02:00:00.000Z",
+    fingerprint: "9".repeat(64),
+  };
+  const resources = new Map<string, unknown>([
+    [`state-${task.id}`, { stageId: "terminal-cleanup" }],
+    [`artifact-${task.id}-verification`, {
+      payload: {
+        disposition: "reconcile",
+        integratedRevision: REVISION,
+        requiredHumanReviewKinds: [],
+        objectiveFailureCodes: [],
+        unavailableEvidenceCodes: [],
+      },
+    }],
+    [`artifact-${task.id}-change-summary`, {
+      payload: { integrationReceipt: { receiptId, integratedRevision: REVISION } },
+    }],
+    [`evidence-${task.id}-postflight-run`, { payload: { status: "succeeded" } }],
+  ]);
+  const dexCommands: string[][] = [];
+  const writes: Array<{ specName: string; name: string }> = [];
+  await executeCompleteMachineSentryRepair(
+    { taskId: task.id, authorization },
+    {
+      repoDir: "/repo",
+      globalArgs: {
+        sourceIntakeModelId: INTAKE_ID,
+        sourceRepairModelId: REPAIR_ID,
+        sourceDeliveryModelId: DELIVERY_ID,
+      },
+      dataRepository: {
+        getContent: async (_type, _modelId, name) => {
+          const value = resources.get(name);
+          return value === undefined
+            ? null
+            : new TextEncoder().encode(JSON.stringify(value));
+        },
+      },
+      readResource: async () => null,
+      writeResource: async (specName, name) => {
+        writes.push({ specName, name });
+        return { name };
+      },
+      logger: { info: () => {}, warning: () => {} },
+    },
+    {
+      dexRepositoryLock: {
+        runExclusive: async <T>(_repo: string, operation: () => Promise<T>) =>
+          await operation(),
+      },
+      runDex: async (args) => {
+        dexCommands.push([...args]);
+        if (args[0] === "show") return { code: 0, stdout: JSON.stringify(task) };
+        if (args[0] === "complete") {
+          task.completed = true;
+          return { code: 0, stdout: "" };
+        }
+        return { code: 1, stdout: "" };
+      },
+    },
+  );
+  assert.deepEqual(dexCommands.map((command) => command[0]), [
+    "show",
+    "complete",
+    "show",
+  ]);
+  assert.equal(dexCommands.some((command) => command[0] === "list"), false);
+  assert.deepEqual(writes.map((write) => write.specName), ["machine-completion"]);
 });
 
 test("observed-event mapping creates, starts, and admits one Dex repair without reproduction", async () => {

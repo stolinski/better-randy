@@ -205,6 +205,19 @@ async function listDexTasks(
   return z.array(DexTaskSchema).max(5_000).parse(JSON.parse(result.stdout));
 }
 
+async function readDexTaskById(
+  taskId: string,
+  context: SentryEvidenceMappingContext,
+  dependencies: SentryEvidenceMappingDependencies,
+): Promise<DexTask | null> {
+  const result = await dependencies.runDex(
+    ["show", taskId, "--json"],
+    context.repoDir,
+  );
+  if (result.code !== 0) return null;
+  return DexTaskSchema.parse(JSON.parse(result.stdout));
+}
+
 function taskDescription(
   evidence: z.infer<typeof SentryIssueRepairEvidenceSchema>,
   exactMarker: string,
@@ -305,7 +318,7 @@ export async function executeCompleteMachineSentryRepair(
     return { dataHandles: [{ name: receiptName }] };
   }
   await dependencies.dexRepositoryLock.runExclusive(context.repoDir, async () => {
-    let task = (await listDexTasks(context, dependencies)).find((candidate) => candidate.id === args.taskId);
+    let task = await readDexTaskById(args.taskId, context, dependencies);
     if (!task) throw new Error("Machine completion Dex task is missing");
     if (!task.completed) {
       await dependencies.runDex([
@@ -313,7 +326,7 @@ export async function executeCompleteMachineSentryRepair(
         "--result", `Verified machine-authorized Sentry repair ${authorization.issueId}`,
         "--commit", authorization.integratedRevision,
       ], context.repoDir);
-      task = (await listDexTasks(context, dependencies)).find((candidate) => candidate.id === args.taskId);
+      task = await readDexTaskById(args.taskId, context, dependencies);
     }
     if (!task?.completed) throw new Error("Dex machine completion postcondition was not reached");
     await dependencies.commitDexMutation?.(context.repoDir, args.taskId);
