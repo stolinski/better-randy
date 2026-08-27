@@ -178,6 +178,13 @@ test('repository infrastructure has its own bounded lane', () => {
 	}
 });
 
+test('colocated product tests use product checks without the repository structural lane', () => {
+	assertOnlyLanes(
+		['src/routes/api/user-compositions/user-compositions.test.ts'],
+		['check', 'unit']
+	);
+});
+
 test('ordinary human task wording selects deterministic pre-implementation domains', () => {
 	const fixtures = [
 		{

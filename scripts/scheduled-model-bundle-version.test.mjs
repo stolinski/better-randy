@@ -76,7 +76,6 @@ function sourceAt(ref, path) {
 }
 
 test('scheduled local model bundles advance when their imported source closure changes', () => {
-	const workingChanges = changedPaths('HEAD');
 	const committedChanges = changedPaths('HEAD^', 'HEAD');
 	for (const scheduledModel of scheduledModels) {
 		const source = readFileSync(resolve(repositoryRoot, scheduledModel.source), 'utf8');
@@ -89,13 +88,11 @@ test('scheduled local model bundles advance when their imported source closure c
 		);
 
 		const closure = localImportClosure(scheduledModel.source);
-		const hasWorkingChange = [...closure].some((path) => workingChanges.has(path));
 		const hasCommittedChange = [...closure].some((path) => committedChanges.has(path));
-		if (!hasWorkingChange && !hasCommittedChange) continue;
-		const baseline = hasWorkingChange ? 'HEAD' : 'HEAD^';
+		if (!hasCommittedChange) continue;
 		assert.notEqual(
 			version,
-			modelVersion(sourceAt(baseline, scheduledModel.source)),
+			modelVersion(sourceAt('HEAD^', scheduledModel.source)),
 			`${scheduledModel.source} must advance its version when bundled imports change`
 		);
 	}

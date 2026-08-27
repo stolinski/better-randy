@@ -250,7 +250,8 @@ function isRenderedCompositionPath(path: string): boolean {
 }
 
 function isAuthoringAppPath(path: string): boolean {
-	if (isTestPath(path) || isPackPath(path) || isSwampControlPlanePath(path)) return false;
+	if (isPackPath(path) || isSwampControlPlanePath(path)) return false;
+	if (path.startsWith('src/') && isTestPath(path)) return true;
 	const mixedRenderShell = ['Workspace.svelte', 'Composition.svelte'].some((term) =>
 		path.includes(term)
 	);
@@ -348,8 +349,7 @@ function isRepositoryInfrastructurePath(path: string): boolean {
 		path === 'package.json' ||
 		path === 'pnpm-lock.yaml' ||
 		path === 'tsconfig.json' ||
-		path.endsWith('.config.ts') ||
-		isTestPath(path)
+		path.endsWith('.config.ts')
 	);
 }
 

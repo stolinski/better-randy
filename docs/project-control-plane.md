@@ -55,7 +55,7 @@ The post-integration lane union is exact:
 | Rendering                 | affected static Presets plus the exhaustive numeric Layout Contract Matrix; no automatic screenshot or export/decode lane                              |
 | Export                    | declared export/decode package-script evidence plus touched product checks                                                                              |
 | Performance               | declared `benchmark:*` package-script evidence plus every lane selected by touched paths                                                                |
-| Repository infrastructure | structural repository checks only                                                                                                                       |
+| Repository infrastructure | structural repository checks only for root CI/config/scripts/tests infrastructure; colocated product tests stay in product lanes                              |
 | Swamp control plane       | touched model/workflow validation, changed extension type-checking, focused changed/colocated extension behavior tests, and routing-contract tests only |
 | Timing contract           | `pnpm run audit:timing` only for trusted schema/rescaling paths                                                                                         |
 | Authoring dependency      | `pnpm run audit:tracking` only for trusted schema/tracker/document-slot paths                                                                           |
@@ -67,6 +67,8 @@ The post-integration lane union is exact:
 A declared benchmark script must start with `benchmark:`. A declared
 export/decode script must start with `verify:export-decode:`. Missing declared
 evidence is an explicit unavailable result, never a pass.
+
+A colocated `src/**/*.test.*` file is product verification, not repository infrastructure; changing it selects scoped check/unit work without the global structural suite.
 
 The `check` lane runs SvelteKit sync, keeps the full Svelte diagnostic output,
 and routes only errors whose file is one of the sealed changed paths. ESLint
