@@ -883,6 +883,11 @@ export function createFactoryPiTransportTask(
   ].join("\n\n");
 }
 
+const DELEGATED_SUBAGENT_TASK_PREFIX =
+  "Task: You are a delegated subagent running from a fork of the parent session. Treat the inherited conversation as reference-only context, not a live thread to continue. Do not continue or answer prior messages as if they are waiting for a reply. Your sole job is to execute the task below and return a focused result for that task using your tools.\n\nTask:\n";
+const DELEGATED_SUBAGENT_TASK_PROGRESS_PREFIX =
+  "\n\n---\nUpdate progress at: ";
+
 async function sessionContainsExactTask(
   sessionFile: string,
   expectedTransportTask: string,
@@ -921,7 +926,10 @@ async function sessionContainsExactTask(
               return (
                 text === expectedTransportTask ||
                 text === `Task: ${expectedTransportTask}` ||
-                text.startsWith(`Task: ${expectedTransportTask}\n\n---\n`)
+                text.startsWith(`Task: ${expectedTransportTask}\n\n---\n`) ||
+                text.startsWith(
+                  `${DELEGATED_SUBAGENT_TASK_PREFIX}${expectedTransportTask}${DELEGATED_SUBAGENT_TASK_PROGRESS_PREFIX}`,
+                )
               );
             })(),
         );
