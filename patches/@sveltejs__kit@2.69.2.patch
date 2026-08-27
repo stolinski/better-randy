@@ -17,3 +17,26 @@ index ccc849f50f3515bac756b123aee5334d57aac837..9d73e146970a105ff7719d470ae92abc
 +	}
 +
 +	const proxy = tweak_types(source, is_server);
+diff --git a/src/core/config/index.js b/src/core/config/index.js
+--- a/src/core/config/index.js
++++ b/src/core/config/index.js
+@@ -113 +113 @@ export function load_error_page(config) {
+-	let { errorTemplate } = config.kit.files;
++	const { errorTemplate } = config.kit.files;
+@@ -117,5 +117,11 @@ export function load_error_page(config) {
+-	if (!fs.existsSync(config.kit.files.errorTemplate)) {
+-		errorTemplate = url.fileURLToPath(new URL('./default-error.html', import.meta.url));
++	try {
++		return fs.readFileSync(errorTemplate, 'utf-8');
++	} catch (error) {
++		// Editors can briefly remove the file during an atomic save.
++		if (/** @type {NodeJS.ErrnoException} */ (error).code !== 'ENOENT') throw error;
+-	}
+-
+-	return fs.readFileSync(errorTemplate, 'utf-8');
++	}
++
++	return fs.readFileSync(
++		url.fileURLToPath(new URL('./default-error.html', import.meta.url)),
++		'utf-8'
++	);
