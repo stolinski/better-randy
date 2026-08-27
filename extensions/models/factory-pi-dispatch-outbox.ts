@@ -2427,7 +2427,7 @@ export async function claimPiExecution(
   if ((await inspectDispatch(outbox, context)) !== "recorded") {
     throw new Error("Execution claim has no current Factory dispatch.");
   }
-  const inspected = await inspectPiRuntimeReceipts(
+  const inspected = await inspectPiLaunchWhenReady(
     outbox,
     context,
     args.piRunId,

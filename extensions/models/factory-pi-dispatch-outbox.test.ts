@@ -515,6 +515,32 @@ Deno.test('launch binding waits for the exact Prompt Audit task before accepting
 		assertEquals(waits, 1);
 	})
 );
+Deno.test('execution claim waits for Pi to publish the child run identity', () =>
+	withFixture(async (f) => {
+		const { dispatchToken } = await f.reserve();
+		f.setDispatched();
+		const runId = await f.addRun(dispatchToken, await digest(f.request.task));
+		const statusPath = join((f.context.piAsyncRoots ?? [])[0]!, runId, 'status.json');
+		const status = JSON.parse(await Deno.readTextFile(statusPath)) as {
+			steps: Array<{ runId?: string }>;
+		};
+		delete status.steps[0]!.runId;
+		await Deno.writeTextFile(statusPath, JSON.stringify(status));
+		let waits = 0;
+		f.context.piLaunchBindingMaximumInspections = 2;
+		f.context.waitForPiRuntimeArtifact = async () => {
+			waits += 1;
+			await f.setRunChildId(runId, `${runId}-child`);
+		};
+		const result = await claimPiExecution(
+			{ dispatchToken, piRunId: `${runId}-child` },
+			f.context
+		);
+		assertEquals(result.granted, true);
+		assertEquals(result.ownerPiRunId, runId);
+		assertEquals(waits, 1);
+	})
+);
 Deno.test('6 unavailable runtime pauses rather than inventing failure', () =>
 	withFixture(async (f) => {
 		const { dispatchToken } = await f.reserve();
