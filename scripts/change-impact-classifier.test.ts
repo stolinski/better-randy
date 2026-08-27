@@ -172,6 +172,7 @@ test('repository infrastructure has its own bounded lane', () => {
 	for (const path of [
 		'package.json',
 		'.github/workflows/quality.yml',
+		'patches/@sveltejs__kit@2.69.2.patch',
 		'scripts/test-structural.mjs'
 	]) {
 		assertOnlyLanes([path], ['repository-infrastructure']);

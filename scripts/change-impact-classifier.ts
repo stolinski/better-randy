@@ -344,6 +344,7 @@ function isRepositoryInfrastructurePath(path: string): boolean {
 	if (isSwampControlPlanePath(path) || isDocumentationPlanningPath(path)) return false;
 	return (
 		path.startsWith('.github/') ||
+		path.startsWith('patches/') ||
 		path.startsWith('scripts/') ||
 		path.startsWith('tests/') ||
 		path === 'package.json' ||
