@@ -153,11 +153,15 @@ export type SentryEvidenceMappingDependencies = {
 };
 
 /** Dex owns task persistence; Sentry admission never mutates Git or inspects unrelated files. */
+export const SENTRY_DEX_CORPUS_MAX_OUTPUT_BYTES = 8 * 1024 * 1024;
+
 export const DEFAULT_SENTRY_EVIDENCE_MAPPING_DEPENDENCIES:
   SentryEvidenceMappingDependencies = {
     dexRepositoryLock: DEFAULT_DEX_REPOSITORY_LOCK,
     runDex: async (args, cwd) => {
-      const result = await runBoundedDexProcess(cwd, args, null);
+      const result = await runBoundedDexProcess(cwd, args, null, {
+        maxOutputBytes: SENTRY_DEX_CORPUS_MAX_OUTPUT_BYTES,
+      });
       return {
         code: result.code,
         stdout: new TextDecoder().decode(result.stdout),

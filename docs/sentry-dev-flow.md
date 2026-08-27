@@ -62,7 +62,9 @@ task and starts `supers-delivery`. Dex owns task persistence; admission does not
 inspect or commit Git state. The event identity is part of the task marker, so a
 later event can create a new repair after an earlier task completed. One open
 exact task is reused; multiple open exact matches and lexical ambiguity still
-require human review.
+require human review. Admission may inspect the complete bounded Dex corpus to
+prove marker uniqueness; its output boundary is sized for the declared
+5,000-task schema rather than a one-megabyte historical snapshot.
 
 The coding agent receives the event details, inspects the reported code path,
 and makes the smallest credible fix in an isolated worktree created from a

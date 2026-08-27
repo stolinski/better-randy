@@ -9,6 +9,7 @@ import {
   DEFAULT_SENTRY_EVIDENCE_MAPPING_DEPENDENCIES,
   executeCompleteMachineSentryRepair,
   executeMapEvidencedSentryRepair,
+  SENTRY_DEX_CORPUS_MAX_OUTPUT_BYTES,
   SentryEvidenceTaskMappingSchema,
 } from "./sentry-evidence-dex-mapping.ts";
 
@@ -184,6 +185,7 @@ async function buildFixture() {
 
 test("production Sentry admission delegates persistence to Dex without touching Git", () => {
   assert.equal(DEFAULT_SENTRY_EVIDENCE_MAPPING_DEPENDENCIES.commitDexMutation, undefined);
+  assert.equal(SENTRY_DEX_CORPUS_MAX_OUTPUT_BYTES, 8 * 1024 * 1024);
 });
 
 test("machine completion reads only the exact Dex task instead of the growing full corpus", async () => {
