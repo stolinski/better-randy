@@ -25,6 +25,13 @@
       "mode": "workflow",
       "workflow": "supers-planning-audit",
       "readOnly": true
+    },
+    "applicationBundle": {
+      "validator": {
+        "mode": "workflow",
+        "workflow": "supers-planning-validate-promotion-bundle",
+        "readOnly": true
+      }
     }
   },
   "methodContracts": {
@@ -222,21 +229,33 @@
         "sourceSnapshot": "${{ data.latest(\"repo-audit\", data.latest(self.name, \"artifact-planning-inventory\").payload.sourceSnapshotName).attributes }}"
       }
     },
-    "normalizePlanApplication": {
+    "validatePromotionBundle": {
       "modelIdOrName": "repo-audit",
-      "methodName": "normalize-plan-application",
-      "sourceResources": [
-        "checkpoint",
-        "receipt",
-        "result"
+      "methodName": "validate-promotion-bundle",
+      "sourceArtifacts": [
+        "planning-inventory",
+        "tracker-inventory",
+        "documentation-effects",
+        "dex-graph-proposal",
+        "application-bundle"
       ],
-      "outputSpec": "plan-application-normalized"
+      "outputSpec": "application-bundle-validation"
     },
-    "auditPlanningApplication": {
+    "normalizePromotionApplication": {
       "modelIdOrName": "repo-audit",
-      "methodName": "audit-planning-application",
+      "methodName": "normalize-promotion-application",
+      "sourceResources": [
+        "promotion-result",
+        "promotion-receipt"
+      ],
+      "outputSpec": "promotion-application-normalized"
+    },
+    "auditPlanningPromotion": {
+      "modelIdOrName": "repo-audit",
+      "methodName": "audit-planning-promotion",
       "inputs": {
-        "approvedPlan": "${{ data.latest(self.name, \"artifact-approved-plan\").payload.plan }}",
+        "applicationBundle": "${{ data.latest(self.name, \"artifact-application-bundle\").payload }}",
+        "applicationBundleValidation": "${{ data.latest(self.name, \"artifact-application-bundle-validation\").payload }}",
         "application": "${{ data.latest(self.name, \"artifact-plan-application\").payload }}",
         "documentationEffects": "${{ data.latest(self.name, \"artifact-documentation-effects\").payload }}"
       },

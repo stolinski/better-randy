@@ -1,13 +1,13 @@
 type: '@club_aqua_back_deck/dex-planning-factory'
-typeVersion: 2026.08.07.1
+typeVersion: 2026.08.27.1
 id: 4d0b8da6-f857-4856-ada3-8631767b7a24
 name: supers-dex-planning-factory
-version: 2
+version: 3
 tags: {}
 globalArguments:
   profileName: supers-planning
   adapters: >-
-    {"inventory":{"mode":"workflow","workflow":"supers-planning-inventory","readOnly":true,"inputs":{"values":{"repairIntents":"${{ size(data.query('modelName == \"supers-sentry-repair-planning-handoff\" && name == \"sentry-repair-planning-queue-selection\"')) == 0 || data.latest(\"supers-sentry-repair-planning-handoff\", \"sentry-repair-planning-queue-selection\").attributes.selectedWorkItem != self.workItem ? [] : data.query('modelName == \"supers-sentry-repair-planning-handoff\" && specName == \"repair-intent\" && attributes.planningWorkItem == \"' + self.workItem + '\" && attributes.fingerprint == \"' + data.latest(\"supers-sentry-repair-planning-handoff\", \"sentry-repair-planning-queue-selection\").attributes.selectedIntentFingerprint + '\"').map(resource, resource.attributes) }}"},"properties":{"repairIntents":{"type":"array","maxItems":1,"items":{"type":"object","additionalProperties":true}}},"required":["repairIntents"]}},"tracker":{"mode":"workflow","workflow":"supers-planning-tracker-inventory","readOnly":true},"documentationPolicy":{"mode":"workflow","workflow":"supers-planning-documentation-effects","readOnly":true},"planApplier":{"mode":"workflow","workflow":"supers-planning-apply-approved-plan","inputs":{"values":{"planningInventory":"${{ data.latest(self.name, \"artifact-planning-inventory\").payload }}"},"properties":{"planningInventory":{"type":"object","additionalProperties":true}},"required":["planningInventory"]}},"audit":{"mode":"workflow","workflow":"supers-planning-audit","readOnly":true},"terminalObserver":{"workflow":"supers-planning-terminal-observability"}}
+    {"inventory":{"mode":"workflow","workflow":"supers-planning-inventory","readOnly":true,"inputs":{"values":{"repairIntents":"${{ size(data.query('modelName == \"supers-sentry-repair-planning-handoff\" && name == \"sentry-repair-planning-queue-selection\"')) == 0 || data.latest(\"supers-sentry-repair-planning-handoff\", \"sentry-repair-planning-queue-selection\").attributes.selectedWorkItem != self.workItem ? [] : data.query('modelName == \"supers-sentry-repair-planning-handoff\" && specName == \"repair-intent\" && attributes.planningWorkItem == \"' + self.workItem + '\" && attributes.fingerprint == \"' + data.latest(\"supers-sentry-repair-planning-handoff\", \"sentry-repair-planning-queue-selection\").attributes.selectedIntentFingerprint + '\"').map(resource, resource.attributes) }}"},"properties":{"repairIntents":{"type":"array","maxItems":1,"items":{"type":"object","additionalProperties":true}}},"required":["repairIntents"]}},"tracker":{"mode":"workflow","workflow":"supers-planning-tracker-inventory","readOnly":true},"documentationPolicy":{"mode":"workflow","workflow":"supers-planning-documentation-effects","readOnly":true},"planApplier":{"mode":"workflow","workflow":"supers-planning-apply-approved-plan"},"audit":{"mode":"workflow","workflow":"supers-planning-audit","readOnly":true},"applicationBundle":{"validator":{"mode":"workflow","workflow":"supers-planning-validate-promotion-bundle","readOnly":true}},"terminalObserver":{"workflow":"supers-planning-terminal-observability"}}
   clarification: >-
     {"skills":["grilling"],"systemPrompt":"Use only unresolvedDecisions from
     injected inventory. Ask for judgment only when clarificationRequired;
@@ -18,19 +18,14 @@ globalArguments:
     decisions, including at least one explicit documentationDirectives create,
     update, retire, or no-change proposal. Never mutate Dex or documentation."}
   proposal: >-
-    {"systemPrompt":"Propose a complete plan-applier-compatible Dex graph and
-    trace it to approved intent. Never mutate Dex or documentation."}
+    {"systemPrompt":"Produce both declared artifacts as one preview. The dex-graph-proposal uses the stable work item as planId; capture-idea, idea-to-roadmap, and roadmap-to-planning require empty createTasks and attachExistingTasks, while planning-to-dex requires a complete Plan-Applier-compatible graph. The application-bundle payload is the exact schema-v2 promotion preview: capture creates an indexed docs/ideas document; idea-to-roadmap deletes that Idea, rewrites docs/roadmap.md, and updates the Ideas index; roadmap-to-planning rewrites docs/roadmap.md as source cleanup, creates an indexed docs/briefs document, and updates the Briefs index; planning-to-dex deletes that Brief, updates the Briefs index, and carries the normalized Dex graph. Include complete destination, shared-source cleanup, and index postimage content with current expected revisions and declared content revisions. kind must equal payload.operation; approvalRequired is false only for capture; expectsDexMappings is true only for planning-to-dex. Bind payloadHash to the canonical promotion approval payload, planHash to the reviewed flattened plan, sourceSnapshotFingerprint to inventory, and documentationEffectsFingerprint to the validated documentation proposal. Never mutate Dex or documentation."}
   review: >-
-    {"skills":["code-review"],"systemPrompt":"Independently review the
-    documentation-effects and Dex graph proposals for completeness, duplication,
-    ordering, and safe
-    application.","blockingSeverities":["critical","high","medium"]}
+    {"skills":["code-review"],"systemPrompt":"Independently review the complete validated application-bundle, documentation effects, source/destination/index preimages and postimages, cleanup order, approval requirement, and route-correct Dex graph. Reject or park without mutating the current tier.","blockingSeverities":["critical","high","medium"]}
   approval: >-
     {"systemPrompt":"After human approval, persist the exact reviewed plan and
     matching plan hash. Do not revise or apply it here."}
   handoff: >-
-    {"systemPrompt":"Record the typed planning outcome for later Delivery
-    intake. Do not start Delivery or mutate Dex."}
+    {"systemPrompt":"Record ready only for an audited planning-to-dex bundle with verified mappings. Record no-ready-work for audited capture, idea-to-roadmap, or roadmap-to-planning bundles. Do not start Delivery or mutate Dex."}
   humanGate: '{"id":"planning-approval","minApprovals":1}'
   budgets: >-
     {"inventory":2,"clarification":3,"intent":3,"documentation":3,"proposal":3,"review":3,"approval":1,"application":2,"audit":2,"handoff":1,"maxDispatchesPerCycle":2}

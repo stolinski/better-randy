@@ -15,14 +15,19 @@ import {
 } from "./dex-bounded-process.ts";
 
 import {
+  assertDexRepositoryLockLease,
   DEFAULT_DEX_REPOSITORY_LOCK,
   type DexRepositoryLock,
+  type DexRepositoryLockLease,
   DexRepositoryLockOwnershipError,
   DexRepositoryLockTimeoutError,
 } from "./dex-repository-lock.ts";
 
 export const DEX_PLAN_APPLIER_VERSION = "2026.08.06.1";
 
+// The complete repository-local Dex inventory can exceed the default subprocess
+// envelope while task create/update responses remain small.
+const DEX_TASK_INVENTORY_MAX_OUTPUT_BYTES = 4 * 1024 * 1024;
 const MAX_DEX_CONTENT_LENGTH = 50 * 1024;
 const MAX_PLAN_NODES = 250;
 const CLIENT_REF_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
@@ -278,7 +283,7 @@ export const DexPlanApplyResultSchema = z.strictObject({
   mappings: z.array(DexPlanMappingEntrySchema),
 });
 
-type DexPlanApplyResult = z.infer<typeof DexPlanApplyResultSchema>;
+export type DexPlanApplyResult = z.infer<typeof DexPlanApplyResultSchema>;
 
 export type DexMcpCreateTaskArguments = {
   name: string;
@@ -1888,6 +1893,9 @@ async function callDexMcpTool(
       cwd,
       ["mcp"],
       `${messages.map((message) => JSON.stringify(message)).join("\n")}\n`,
+      toolName === "list_tasks"
+        ? { maxOutputBytes: DEX_TASK_INVENTORY_MAX_OUTPUT_BYTES }
+        : {},
     );
   } catch (error) {
     throw planError(
@@ -2481,6 +2489,52 @@ async function executeDexPlanApplyLocked(
     }
     throw terminalFailure;
   }
+}
+
+/**
+ * Apply one approved plan while the caller already owns the shared repository
+ * lock. This is the composition seam for a larger recoverable saga; it retains
+ * the Plan Applier's own checkpoints, receipts, verification, and in-process
+ * serialization without attempting to acquire the cross-process lock twice.
+ */
+export async function executeDexPlanApplyWithRepositoryLockHeld(
+  args: DexPlanApplyArgs,
+  context: DexPlanApplierMethodContext,
+  lease: DexRepositoryLockLease | undefined,
+  dependencies: DexPlanApplierDependencies = DEFAULT_DEPENDENCIES,
+): Promise<DexPlanApplierExecutionResult> {
+  const plan = DexApprovedPlanSchema.parse(args.plan);
+  await assertDexRepositoryLockLease(lease, context.repoDir);
+  const identity = await createPlanIdentity(
+    plan,
+    context.globalArgs.ownerToken,
+  );
+  try {
+    await dependencies.verifyRepository(context.repoDir);
+  } catch (error) {
+    const failure = normalizePlanError(error);
+    try {
+      await persistRepositoryLockPlanFailure(
+        plan,
+        identity,
+        context,
+        dependencies,
+        failure,
+      );
+    } catch (writeError) {
+      throw normalizePlanError(writeError);
+    }
+    throw failure;
+  }
+  // The authoritative live lease already serializes every compatible writer.
+  // Taking the in-process mutex here would invert the normal mutex→OS-lock
+  // order and deadlock against a direct Plan Applier invocation.
+  return await executeDexPlanApplyLocked(
+    plan,
+    identity,
+    context,
+    dependencies,
+  );
 }
 
 /** Apply one approved plan under in-process and cross-process repository locks. */

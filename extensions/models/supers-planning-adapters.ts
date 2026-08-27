@@ -26,6 +26,16 @@ import {
 import {
   SentryRepairIntentEnvelopeSchema,
 } from "./sentry-repair-planning-handoff-adapter.ts";
+import {
+  createSupersPlanningApprovalDigest,
+  createSupersPlanningHash,
+  SupersPlanningPromotionAuditReceiptSchema,
+  SupersPlanningPromotionPreviewSchema,
+  SupersPlanningPromotionResultSchema,
+} from "./supers-planning-promotion-applier.ts";
+import {
+  SupersPlanningPromotionReceiptResourceSchema,
+} from "./supers-planning-promotion.ts";
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const CLIENT_REF_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
@@ -273,6 +283,53 @@ export const SupersReviewedPlanSchema = z.strictObject({
   createTasks: z.array(SupersReviewedCreateTaskSchema).max(250),
   attachExistingTasks: z.array(SupersReviewedAttachmentSchema).max(250),
 });
+export const SupersPlanningApplicationBundleSchema = z.strictObject({
+  schemaVersion: z.literal(1),
+  kind: z.enum([
+    "capture-idea",
+    "idea-to-roadmap",
+    "roadmap-to-planning",
+    "planning-to-dex",
+  ]),
+  approvalRequired: z.boolean(),
+  expectsDexMappings: z.boolean(),
+  payload: SupersPlanningPromotionPreviewSchema,
+  payloadHash: z.string().regex(SHA256_PATTERN),
+  sourceSnapshotFingerprint: z.string().regex(SHA256_PATTERN),
+  documentationEffectsFingerprint: z.string().regex(SHA256_PATTERN),
+  planHash: z.string().regex(SHA256_PATTERN),
+  summary: z.string().min(1).max(SUMMARY_MAX_LENGTH),
+});
+
+export const SupersPlanningApplicationBundleValidationArgumentsSchema = z
+  .strictObject({
+    workItem: z.string().regex(TASK_ID_PATTERN).max(128),
+    inventory: SupersPlanningInventorySchema,
+    trackerInventory: SupersTrackerInventorySchema,
+    documentationEffects: SupersDocumentationEffectsSchema,
+    reviewedPlan: SupersReviewedPlanSchema,
+    applicationBundle: SupersPlanningApplicationBundleSchema,
+    sourceSnapshot: SupersPlanningSourceSnapshotSchema,
+  });
+
+export const SupersPlanningApplicationBundleValidationSchema = z.strictObject({
+  schemaVersion: z.literal(1),
+  status: z.literal("validated"),
+  kind: z.enum([
+    "capture-idea",
+    "idea-to-roadmap",
+    "roadmap-to-planning",
+    "planning-to-dex",
+  ]),
+  approvalRequired: z.boolean(),
+  expectsDexMappings: z.boolean(),
+  payloadHash: z.string().regex(SHA256_PATTERN),
+  sourceSnapshotFingerprint: z.string().regex(SHA256_PATTERN),
+  documentationEffectsFingerprint: z.string().regex(SHA256_PATTERN),
+  planHash: z.string().regex(SHA256_PATTERN),
+  summary: z.string().min(1).max(SUMMARY_MAX_LENGTH),
+});
+
 export const SupersPlanBoundaryArgumentsSchema = z.strictObject({
   workItem: z.string().regex(TASK_ID_PATTERN).max(128),
   reviewedPlan: SupersReviewedPlanSchema,
@@ -324,6 +381,30 @@ export const SupersPlanApplicationNormalizationArgumentsSchema = z
     result: DexPlanApplyResultSchema.nullable(),
     resultDataName: z.string(),
   });
+
+export const SupersPromotionApplicationNormalizationArgumentsSchema = z
+  .strictObject({
+    workItem: z.string().regex(TASK_ID_PATTERN).max(128),
+    reviewedPlan: SupersReviewedPlanSchema,
+    applicationBundle: SupersPlanningApplicationBundleSchema,
+    applicationBundleValidation:
+      SupersPlanningApplicationBundleValidationSchema,
+    promotionResult: SupersPlanningPromotionResultSchema.nullable(),
+    promotionResultDataName: z.string(),
+    promotionReceipt: SupersPlanningPromotionReceiptResourceSchema,
+    promotionReceiptDataName: z.string().min(1),
+  });
+
+export const SupersPromotionApplicationAuditArgumentsSchema = z.strictObject({
+  workItem: z.string().regex(TASK_ID_PATTERN).max(128),
+  reviewedPlan: SupersReviewedPlanSchema,
+  applicationBundle: SupersPlanningApplicationBundleSchema,
+  applicationBundleValidation: SupersPlanningApplicationBundleValidationSchema,
+  application: SupersPlanApplicationSchema,
+  documentationEffects: SupersDocumentationEffectsSchema,
+  promotionResult: SupersPlanningPromotionResultSchema,
+  promotionReceipt: SupersPlanningPromotionAuditReceiptSchema,
+});
 
 export const SupersPlanningApplicationAuditArgumentsSchema = z.strictObject({
   workItem: z.string().regex(TASK_ID_PATTERN).max(128),
@@ -424,6 +505,18 @@ export const SupersDeliveryHandoffOutcomeSchema = z.strictObject({
   fingerprint: z.string().regex(SHA256_PATTERN),
 });
 
+export type SupersPlanningApplicationBundleValidationArguments = z.infer<
+  typeof SupersPlanningApplicationBundleValidationArgumentsSchema
+>;
+export type SupersPlanningApplicationBundleValidation = z.infer<
+  typeof SupersPlanningApplicationBundleValidationSchema
+>;
+export type SupersPromotionApplicationNormalizationArguments = z.infer<
+  typeof SupersPromotionApplicationNormalizationArgumentsSchema
+>;
+export type SupersPromotionApplicationAuditArguments = z.infer<
+  typeof SupersPromotionApplicationAuditArgumentsSchema
+>;
 export type SupersPlanApplicationNormalizationArguments = z.infer<
   typeof SupersPlanApplicationNormalizationArgumentsSchema
 >;
@@ -593,7 +686,7 @@ async function sourceDocumentFromMarkdown(
 ): Promise<z.infer<typeof SourceDocumentSchema>> {
   return SourceDocumentSchema.parse({
     path,
-    revision: await sha256Hex(markdown),
+    revision: await createSupersPlanningHash(markdown),
     title: markdownTitle(markdown, path),
     summary: (summaryOverride ?? boundedSummary(markdown)).slice(
       0,
@@ -1352,6 +1445,359 @@ export async function deriveSupersDocumentationEffects(
   });
 }
 
+function planningSnapshotDocumentRevisions(
+  snapshot: SupersPlanningSourceSnapshot,
+): Map<string, string> {
+  return new Map(
+    [
+      snapshot.roadmap,
+      snapshot.adrIndex,
+      ...snapshot.adrs,
+      snapshot.briefsIndex,
+      ...snapshot.briefs,
+      snapshot.ideasIndex,
+      ...snapshot.ideas,
+      snapshot.historyIndex,
+      ...snapshot.history,
+      ...snapshot.currentStateDocuments,
+    ].map((document) => [document.path, document.revision]),
+  );
+}
+
+async function assertPromotionWriteRevision(
+  write: { path: string; content: string; revision: string },
+): Promise<void> {
+  if (await createSupersPlanningHash(write.content) !== write.revision) {
+    throw new Error(`Promotion write revision is invalid for ${write.path}`);
+  }
+}
+
+function assertPromotionPathRevision(
+  revisions: Map<string, string>,
+  path: string,
+  expectedRevision: string | null,
+): void {
+  if ((revisions.get(path) ?? null) !== expectedRevision) {
+    throw new Error(
+      `Promotion preimage does not match the source snapshot: ${path}`,
+    );
+  }
+}
+
+function assertSinglePromotionIndex(
+  payload: z.infer<typeof SupersPlanningPromotionPreviewSchema>,
+  expectedPath: string,
+): void {
+  if (
+    payload.indexMutations.length !== 1 ||
+    payload.indexMutations[0]?.action !== "write" ||
+    payload.indexMutations[0].path !== expectedPath
+  ) {
+    throw new Error(
+      `${payload.operation} requires one exact ${expectedPath} index write`,
+    );
+  }
+}
+
+function assertPromotionRoutePolicy(
+  payload: z.infer<typeof SupersPlanningPromotionPreviewSchema>,
+  reviewedPlan: z.infer<typeof SupersReviewedPlanSchema>,
+): void {
+  const taskCount = reviewedPlan.createTasks.length +
+    reviewedPlan.attachExistingTasks.length;
+  const ideaPath = /^docs\/ideas\/[a-z0-9]+(?:-[a-z0-9]+)*\.md$/;
+  const planningPath = /^docs\/briefs\/[a-z0-9]+(?:-[a-z0-9]+)*\.md$/;
+  switch (payload.operation) {
+    case "capture-idea":
+      if (
+        payload.source !== null || payload.destination === null ||
+        !ideaPath.test(payload.destination.path) || payload.graph !== null ||
+        taskCount !== 0
+      ) {
+        throw new Error(
+          "Idea capture must create one Idea document without source or Dex work",
+        );
+      }
+      assertSinglePromotionIndex(payload, "docs/ideas/README.md");
+      return;
+    case "idea-to-roadmap":
+      if (
+        "content" in payload.source || !ideaPath.test(payload.source.path) ||
+        payload.destination.path !== "docs/roadmap.md" ||
+        payload.graph !== null || taskCount !== 0
+      ) {
+        throw new Error(
+          "Idea-to-Roadmap must delete one Idea, rewrite Roadmap, and create no Dex work",
+        );
+      }
+      assertSinglePromotionIndex(payload, "docs/ideas/README.md");
+      return;
+    case "roadmap-to-planning":
+      if (
+        !("content" in payload.source) ||
+        payload.source.path !== "docs/roadmap.md" ||
+        !planningPath.test(payload.destination.path) ||
+        payload.graph !== null || taskCount !== 0
+      ) {
+        throw new Error(
+          "Roadmap-to-Planning must rewrite Roadmap, create one Brief, and create no Dex work",
+        );
+      }
+      assertSinglePromotionIndex(payload, "docs/briefs/README.md");
+      return;
+    case "planning-to-dex":
+      if (
+        "content" in payload.source ||
+        !planningPath.test(payload.source.path) ||
+        payload.destination !== null || taskCount === 0
+      ) {
+        throw new Error(
+          "Planning-to-Dex must delete one Brief and carry a complete Dex graph",
+        );
+      }
+      assertSinglePromotionIndex(payload, "docs/briefs/README.md");
+      return;
+  }
+}
+
+function assertPromotionBundleValidationMatches(
+  bundle: z.infer<typeof SupersPlanningApplicationBundleSchema>,
+  validation: SupersPlanningApplicationBundleValidation,
+): void {
+  if (
+    validation.status !== "validated" ||
+    validation.kind !== bundle.kind ||
+    validation.approvalRequired !== bundle.approvalRequired ||
+    validation.expectsDexMappings !== bundle.expectsDexMappings ||
+    validation.payloadHash !== bundle.payloadHash ||
+    validation.sourceSnapshotFingerprint !==
+      bundle.sourceSnapshotFingerprint ||
+    validation.documentationEffectsFingerprint !==
+      bundle.documentationEffectsFingerprint ||
+    validation.planHash !== bundle.planHash
+  ) {
+    throw new Error("Application bundle validation does not match its preview");
+  }
+}
+
+/** Validate one complete Supers promotion preview without mutating any tier. */
+export async function validateSupersPlanningApplicationBundle(
+  rawArgs: SupersPlanningApplicationBundleValidationArguments,
+): Promise<SupersPlanningApplicationBundleValidation> {
+  const args = SupersPlanningApplicationBundleValidationArgumentsSchema.parse(
+    rawArgs,
+  );
+  await assertContentFingerprint({ ...args.sourceSnapshot }, "Source snapshot");
+  await assertContentFingerprint({ ...args.inventory }, "Planning inventory");
+  await assertContentFingerprint(
+    { ...args.trackerInventory },
+    "Tracker inventory",
+  );
+  await assertContentFingerprint(
+    { ...args.documentationEffects },
+    "Documentation effects",
+  );
+  const bundle = args.applicationBundle;
+  const payload = bundle.payload;
+  if (
+    args.inventory.sourceSnapshotName !==
+      supersPlanningSnapshotResourceName(
+        args.workItem,
+        args.sourceSnapshot.fingerprint,
+      ) ||
+    args.inventory.sourceSnapshotFingerprint !==
+      args.sourceSnapshot.fingerprint ||
+    args.trackerInventory.sourceSnapshotFingerprint !==
+      args.sourceSnapshot.fingerprint ||
+    args.documentationEffects.sourceSnapshotFingerprint !==
+      args.sourceSnapshot.fingerprint ||
+    bundle.sourceSnapshotFingerprint !== args.sourceSnapshot.fingerprint ||
+    bundle.documentationEffectsFingerprint !==
+      args.documentationEffects.fingerprint
+  ) {
+    throw new Error(
+      "Promotion preview does not bind the immutable source chain",
+    );
+  }
+  if (
+    payload.planningItemId !== args.workItem ||
+    payload.operation !== bundle.kind ||
+    args.reviewedPlan.planId !== args.workItem
+  ) {
+    throw new Error(
+      "Promotion preview does not retain its stable planning item",
+    );
+  }
+  const approvalRequired = payload.operation !== "capture-idea";
+  const expectsDexMappings = payload.operation === "planning-to-dex";
+  if (
+    bundle.approvalRequired !== approvalRequired ||
+    bundle.expectsDexMappings !== expectsDexMappings ||
+    bundle.payloadHash !==
+      await createSupersPlanningApprovalDigest(payload) ||
+    bundle.planHash !==
+      await sha256Hex(canonicalJson(args.reviewedPlan))
+  ) {
+    throw new Error("Promotion preview envelope is not content-address exact");
+  }
+  assertPromotionRoutePolicy(payload, args.reviewedPlan);
+  if (payload.operation === "planning-to-dex") {
+    const normalizedPlan = DexApprovedPlanSchema.parse(
+      normalizeDexReviewedPlanForApplication(args.reviewedPlan),
+    );
+    if (canonicalJson(normalizedPlan) !== canonicalJson(payload.graph)) {
+      throw new Error("Promotion Dex graph differs from the reviewed plan");
+    }
+  }
+
+  const revisions = planningSnapshotDocumentRevisions(args.sourceSnapshot);
+  const paths = new Set<string>();
+  const registerPath = (path: string): void => {
+    if (paths.has(path)) {
+      throw new Error(`Promotion path has multiple authority roles: ${path}`);
+    }
+    paths.add(path);
+  };
+  if (payload.source !== null) {
+    registerPath(payload.source.path);
+    assertPromotionPathRevision(
+      revisions,
+      payload.source.path,
+      payload.source.expectedRevision,
+    );
+    if ("content" in payload.source) {
+      await assertPromotionWriteRevision(payload.source);
+    }
+  }
+  if (payload.destination !== null) {
+    registerPath(payload.destination.path);
+    assertPromotionPathRevision(
+      revisions,
+      payload.destination.path,
+      payload.destination.expectedRevision,
+    );
+    await assertPromotionWriteRevision(payload.destination);
+  }
+  for (const mutation of payload.indexMutations) {
+    registerPath(mutation.path);
+    assertPromotionPathRevision(
+      revisions,
+      mutation.path,
+      mutation.expectedRevision,
+    );
+    if (mutation.action === "write") {
+      await assertPromotionWriteRevision(mutation);
+    }
+  }
+  const proposedTargets = new Set(
+    args.documentationEffects.effects
+      .filter((effect) => effect.operation !== "no-change")
+      .map((effect) => effect.target),
+  );
+  for (const path of paths) {
+    if (!proposedTargets.has(path)) {
+      throw new Error(
+        `Promotion path lacks a reviewed documentation effect: ${path}`,
+      );
+    }
+  }
+
+  return SupersPlanningApplicationBundleValidationSchema.parse({
+    schemaVersion: 1,
+    status: "validated",
+    kind: bundle.kind,
+    approvalRequired,
+    expectsDexMappings,
+    payloadHash: bundle.payloadHash,
+    sourceSnapshotFingerprint: bundle.sourceSnapshotFingerprint,
+    documentationEffectsFingerprint: bundle.documentationEffectsFingerprint,
+    planHash: bundle.planHash,
+    summary:
+      `${bundle.kind} preview is exact, route-valid, and bound to the immutable source chain.`,
+  });
+}
+
+/** Normalize one promotion result into the portable Planning application artifact. */
+export function normalizeSupersPromotionApplication(
+  rawArgs: SupersPromotionApplicationNormalizationArguments,
+): SupersPlanApplication {
+  const args = SupersPromotionApplicationNormalizationArgumentsSchema.parse(
+    rawArgs,
+  );
+  assertPromotionBundleValidationMatches(
+    args.applicationBundle,
+    args.applicationBundleValidation,
+  );
+  const receipt = args.promotionReceipt;
+  const expectedReceiptName = `planning-promotion-receipt-${receipt.receiptId}`;
+  if (
+    args.workItem !== args.applicationBundle.payload.planningItemId ||
+    args.promotionReceiptDataName !== expectedReceiptName
+  ) {
+    throw new Error("Promotion receipt does not match the application bundle");
+  }
+  if (receipt.status === "failed") {
+    if (
+      args.promotionResult !== null || args.promotionResultDataName !== "" ||
+      receipt.idempotencyKey === null
+    ) {
+      throw new Error("Failed promotion cannot carry a successful result");
+    }
+    return SupersPlanApplicationSchema.parse({
+      schemaVersion: 1,
+      status: "failed",
+      planId: args.workItem,
+      planHash: args.applicationBundle.payloadHash,
+      idempotencyKey: receipt.idempotencyKey,
+      attempt: 1,
+      checkpointDataName: expectedReceiptName,
+      receiptDataName: args.promotionReceiptDataName,
+      resultDataName: "",
+      mappings: [],
+      retryDisposition: receipt.repairGuidance === "retry-same-payload"
+        ? "retry"
+        : "manual-review",
+      errorCode: receipt.errorCode,
+      summary:
+        `${args.applicationBundle.kind} failed with ${receipt.errorCode}; ${receipt.repairGuidance}.`,
+    });
+  }
+  const result = args.promotionResult;
+  if (result === null || result.status !== "audited") {
+    throw new Error("Successful promotion requires one audited result");
+  }
+  const expectedResultName =
+    `planning-promotion-result-${result.auditReceipt.receiptId}`;
+  if (
+    args.promotionResultDataName !== expectedResultName ||
+    canonicalJson(result.auditReceipt) !== canonicalJson(receipt) ||
+    result.planningItemId !== args.workItem ||
+    result.operation !== args.applicationBundle.kind ||
+    result.hashes?.promotionDigest !== args.applicationBundle.payloadHash ||
+    result.idempotencyKey === null
+  ) {
+    throw new Error("Promotion result does not match its reviewed bundle");
+  }
+  return SupersPlanApplicationSchema.parse({
+    schemaVersion: 1,
+    status: "succeeded",
+    planId: args.workItem,
+    planHash: result.dexResult?.planHash ?? args.applicationBundle.payloadHash,
+    idempotencyKey: result.idempotencyKey,
+    attempt: 1,
+    checkpointDataName: result.dexResult === null
+      ? args.promotionReceiptDataName
+      : `apply-plan-checkpoint-${result.dexResult.idempotencyKey}`,
+    receiptDataName: args.promotionReceiptDataName,
+    resultDataName: args.promotionResultDataName,
+    mappings: result.dexResult?.mappings ?? [],
+    retryDisposition: "none",
+    errorCode: "",
+    summary:
+      `${result.operation} reached ${result.authorityState} authority with ${result.cleanupDisposition} source cleanup.`,
+  });
+}
+
 /** Validate the exact compiler-emitted reviewed-plan to Plan Applier boundary. */
 export async function validateSupersPlanBoundary(
   rawArgs: z.infer<typeof SupersPlanBoundaryArgumentsSchema>,
@@ -1800,6 +2246,87 @@ export async function normalizeSupersDeliveryHandoffOutcome(
 
 function sortedStrings(values: string[]): string[] {
   return [...values].sort((left, right) => left.localeCompare(right));
+}
+
+/** Audit the promotion receipt and any Planning-to-Dex graph as one boundary. */
+export async function auditSupersPromotionApplication(
+  rawArgs: SupersPromotionApplicationAuditArguments,
+  dexTasks: SupersPlanningSourceSnapshot["dexTasks"],
+): Promise<SupersPlanningApplicationAudit> {
+  const args = SupersPromotionApplicationAuditArgumentsSchema.parse(rawArgs);
+  assertPromotionBundleValidationMatches(
+    args.applicationBundle,
+    args.applicationBundleValidation,
+  );
+  await assertContentFingerprint(
+    { ...args.documentationEffects },
+    "Documentation effects",
+  );
+  const result = args.promotionResult;
+  const receipt = args.promotionReceipt;
+  if (
+    args.workItem !== args.applicationBundle.payload.planningItemId ||
+    args.application.status !== "succeeded" ||
+    args.application.planId !== args.workItem ||
+    args.application.planHash !==
+      (result.dexResult?.planHash ?? args.applicationBundle.payloadHash) ||
+    result.status !== "audited" ||
+    result.planningItemId !== args.workItem ||
+    result.operation !== args.applicationBundle.kind ||
+    result.hashes?.promotionDigest !== args.applicationBundle.payloadHash ||
+    canonicalJson(result.auditReceipt) !== canonicalJson(receipt) ||
+    receipt.status !== "audited" ||
+    receipt.repairGuidance !== "none"
+  ) {
+    return SupersPlanningApplicationAuditSchema.parse({
+      schemaVersion: 1,
+      status: "failed",
+      planId: args.workItem,
+      verifiedTaskIds: [],
+      unresolvedIssues: [
+        "Promotion result, receipt, and reviewed application bundle do not match",
+      ],
+      summary: "Promotion application audit found a boundary mismatch.",
+    });
+  }
+  if (args.applicationBundle.kind !== "planning-to-dex") {
+    const issues = [
+      ...(args.application.mappings.length === 0 ? [] : [
+        "Documentation-only promotion unexpectedly emitted Dex mappings",
+      ]),
+      ...(result.dexResult === null ? [] : [
+        "Documentation-only promotion unexpectedly carried a Dex result",
+      ]),
+    ];
+    return SupersPlanningApplicationAuditSchema.parse({
+      schemaVersion: 1,
+      status: issues.length === 0 ? "passed" : "failed",
+      planId: args.workItem,
+      verifiedTaskIds: [],
+      unresolvedIssues: issues,
+      summary: issues.length === 0
+        ? `${args.applicationBundle.kind} authority and cleanup receipt are verified; no Dex work was created.`
+        : "Documentation-only promotion emitted unexpected Dex evidence.",
+    });
+  }
+  const graph = DexApprovedPlanSchema.parse(
+    args.applicationBundle.payload.graph,
+  );
+  const graphAudit = await auditSupersPlanningApplication(
+    {
+      workItem: args.workItem,
+      approvedPlan: graph,
+      application: args.application,
+      documentationEffects: args.documentationEffects,
+    },
+    dexTasks,
+  );
+  return SupersPlanningApplicationAuditSchema.parse({
+    ...graphAudit,
+    summary: graphAudit.status === "passed"
+      ? `${graphAudit.verifiedTaskIds.length} mapped Dex task(s), promotion authority, and Planning source cleanup are verified.`
+      : graphAudit.summary,
+  });
 }
 
 /** Verify successful application mappings against one fresh official Dex snapshot. */

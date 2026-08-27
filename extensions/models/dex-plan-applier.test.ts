@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import {
+  createDexRepositoryLock,
   DexRepositoryLockOwnershipError,
   DexRepositoryLockTimeoutError,
   PASSTHROUGH_DEX_REPOSITORY_LOCK,
@@ -24,6 +25,7 @@ import {
   DexPlanApplyResultSchema,
   type DexPlanCommandAdapter,
   executeDexPlanApply,
+  executeDexPlanApplyWithRepositoryLockHeld,
   type RawDexTask,
   verifyRepositoryLocalDexStore,
 } from "./dex-plan-applier-adapter.ts";
@@ -339,6 +341,123 @@ Deno.test("plan application runs inside the shared repository lock", async () =>
     planDependencies,
   );
   assert.equal(lockCalls, 1);
+});
+
+Deno.test("held-lock composition seam requires an authoritative live lease and does not reacquire", async () => {
+  const repoDir = await Deno.makeTempDir();
+  try {
+    await Deno.mkdir(`${repoDir}/.dex`);
+    const adapter = new FakeDexPlanCommandAdapter();
+    const planDependencies = dependencies(adapter);
+    let lockCalls = 0;
+    planDependencies.repositoryLock = {
+      runExclusive: (_repoDir, operation) => {
+        lockCalls += 1;
+        return operation();
+      },
+    };
+    const fixture = fixtureContext();
+    fixture.context.repoDir = repoDir;
+    const args = {
+      plan: oneTaskPlan({ planId: "held-lock-composition" }),
+    };
+
+    await assert.rejects(() =>
+      executeDexPlanApplyWithRepositoryLockHeld(
+        args,
+        fixture.context,
+        undefined,
+        planDependencies,
+      )
+    );
+    await assert.rejects(() =>
+      PASSTHROUGH_DEX_REPOSITORY_LOCK.runExclusive(
+        repoDir,
+        (lease) =>
+          executeDexPlanApplyWithRepositoryLockHeld(
+            args,
+            fixture.context,
+            lease,
+            planDependencies,
+          ),
+      )
+    );
+    await createDexRepositoryLock().runExclusive(
+      repoDir,
+      (lease) =>
+        executeDexPlanApplyWithRepositoryLockHeld(
+          args,
+          fixture.context,
+          lease,
+          planDependencies,
+        ),
+    );
+
+    assert.equal(lockCalls, 0);
+    assert.equal(adapter.createCalls.length, 1);
+    assert.deepEqual(
+      fixture.writes.slice(-3).map((write) => write.specName),
+      ["result", "receipt", "checkpoint"],
+    );
+  } finally {
+    await Deno.remove(repoDir, { recursive: true });
+  }
+});
+
+Deno.test("held-lock composition does not invert the direct apply lock order", async () => {
+  const repoDir = await Deno.makeTempDir();
+  try {
+    await Deno.mkdir(`${repoDir}/.dex`);
+    const adapter = new FakeDexPlanCommandAdapter();
+    const resources = new Map<string, Record<string, unknown>>();
+    const heldFixture = fixtureContext("shared-owner", resources);
+    const directFixture = fixtureContext("shared-owner", resources);
+    heldFixture.context.repoDir = repoDir;
+    directFixture.context.repoDir = repoDir;
+    const plan = oneTaskPlan({ planId: "lock-order-composition" });
+    const heldDependencies = dependencies(adapter);
+    const directDependencies = dependencies(adapter);
+    const outerLock = createDexRepositoryLock({
+      maxWaitMs: 1_000,
+      pollIntervalMs: 1,
+    });
+    directDependencies.repositoryLock = createDexRepositoryLock({
+      maxWaitMs: 1_000,
+      pollIntervalMs: 1,
+    });
+    let markDirectPreflight = (): void => undefined;
+    const directPreflight = new Promise<void>((resolve) => {
+      markDirectPreflight = resolve;
+    });
+    directDependencies.verifyRepository = () => {
+      markDirectPreflight();
+      return Promise.resolve();
+    };
+    let directApply: ReturnType<typeof executeDexPlanApply> | undefined;
+
+    await outerLock.runExclusive(repoDir, async (lease) => {
+      directApply = executeDexPlanApply(
+        { plan },
+        directFixture.context,
+        directDependencies,
+      );
+      await directPreflight;
+      await executeDexPlanApplyWithRepositoryLockHeld(
+        { plan },
+        heldFixture.context,
+        lease,
+        heldDependencies,
+      );
+    });
+    const completedDirectApply = directApply;
+    assert.ok(completedDirectApply);
+    await completedDirectApply;
+
+    assert.equal(adapter.createCalls.length, 1);
+    assert.equal(adapter.tasks.size, 1);
+  } finally {
+    await Deno.remove(repoDir, { recursive: true });
+  }
 });
 
 Deno.test("pre-operation repository lock failure persists a retryable plan receipt", async () => {

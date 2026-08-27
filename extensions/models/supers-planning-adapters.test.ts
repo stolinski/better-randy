@@ -7,6 +7,7 @@ import {
 
 import {
   auditSupersPlanningApplication,
+  auditSupersPromotionApplication,
   buildSupersPlanningSourceSnapshot,
   deriveSupersDocumentationEffects,
   deriveSupersPlanningInventory,
@@ -14,10 +15,12 @@ import {
   normalizeSupersDeliveryHandoffOutcome,
   normalizeSupersDexTasks,
   normalizeSupersPlanApplication,
+  normalizeSupersPromotionApplication,
   prepareSupersDeliveryHandoff,
   readSupersPlanningMarkdownSources,
   SupersPlanningInventoryArgumentsSchema,
   validateSupersPlanBoundary,
+  validateSupersPlanningApplicationBundle,
 } from "./supers-planning-adapters.ts";
 import {
   normalizeDexReviewedPlanForApplication,
@@ -26,6 +29,11 @@ import { DexApprovedPlanSchema } from "./dex-plan-applier-adapter.ts";
 import {
   SentryRepairIntentEnvelopeSchema,
 } from "./sentry-repair-planning-handoff-adapter.ts";
+import {
+  createSupersPlanningApprovalDigest,
+  createSupersPlanningHash,
+  executeSupersPlanningPromotion,
+} from "./supers-planning-promotion-applier.ts";
 
 const DELIVERY_HANDOFF_TEST_KEY = "fixture-delivery-handoff-key-32-bytes";
 const TEST_HASH = "a".repeat(64);
@@ -317,6 +325,617 @@ Deno.test("planning collector inventories all policy tiers once with stable fing
   } finally {
     await Deno.remove(root, { recursive: true });
   }
+});
+
+Deno.test("capture bundle validates, applies without Dex, normalizes, and audits as one Factory boundary", async () => {
+  const root = await fixtureRepository();
+  try {
+    await Deno.mkdir(`${root}/.dex`);
+    const workItem = "captured-item";
+    const inventoryArgs = SupersPlanningInventoryArgumentsSchema.parse({
+      workItem,
+      planningState,
+      unresolvedDecisions: [],
+    });
+    const sourceSnapshot = await buildSupersPlanningSourceSnapshot(
+      inventoryArgs,
+      await readSupersPlanningMarkdownSources(root),
+      normalizeSupersDexTasks(rawTasks),
+    );
+    const inventory = await deriveSupersPlanningInventory(
+      inventoryArgs,
+      sourceSnapshot,
+    );
+    const trackerInventory = await deriveSupersTrackerInventory({
+      workItem,
+      inventory,
+      sourceSnapshot,
+    });
+    const documentationEffects = await deriveSupersDocumentationEffects({
+      workItem,
+      inventory,
+      trackerInventory,
+      sourceSnapshot,
+      intent: {
+        schemaVersion: 1,
+        status: "ready",
+        objective: inventory.objective,
+        outcome: "Capture the item without graduation or Dex work.",
+        inScope: ["Idea capture"],
+        outOfScope: ["Graduation"],
+        constraints: ["Keep Idea authority"],
+        acceptanceCriteria: ["The indexed Idea is durable."],
+        tasteDecisions: [],
+        documentationDirectives: [
+          {
+            operation: "create",
+            documentKind: "idea",
+            target: "docs/ideas/captured-item.md",
+            rationale: "Capture the stable planning item.",
+          },
+          {
+            operation: "update",
+            documentKind: "idea",
+            target: "docs/ideas/README.md",
+            rationale: "Index the captured planning item.",
+          },
+        ],
+        revision: 1,
+        summary: "Capture one Idea.",
+      },
+    });
+    const destinationContent = "# Captured Item\n\nA durable idea.\n";
+    const indexContent =
+      "# Ideas\n\n- [`captured-item.md`](captured-item.md) — durable captured item.\n- [`future-planner.md`](future-planner.md) — speculative planning helper.\n";
+    const payload = {
+      schemaVersion: 2 as const,
+      planningItemId: workItem,
+      operation: "capture-idea" as const,
+      source: null,
+      destination: {
+        path: "docs/ideas/captured-item.md",
+        expectedRevision: null,
+        content: destinationContent,
+        revision: await createSupersPlanningHash(destinationContent),
+      },
+      indexMutations: [{
+        action: "write" as const,
+        path: "docs/ideas/README.md",
+        expectedRevision: sourceSnapshot.ideasIndex.revision,
+        content: indexContent,
+        revision: await createSupersPlanningHash(indexContent),
+      }],
+      graph: null,
+    };
+    const reviewedPlan = {
+      schemaVersion: 1 as const,
+      planId: workItem,
+      createTasks: [],
+      attachExistingTasks: [],
+    };
+    const applicationBundle = {
+      schemaVersion: 1 as const,
+      kind: "capture-idea" as const,
+      approvalRequired: false,
+      expectsDexMappings: false,
+      payload,
+      payloadHash: await createSupersPlanningApprovalDigest(payload),
+      sourceSnapshotFingerprint: sourceSnapshot.fingerprint,
+      documentationEffectsFingerprint: documentationEffects.fingerprint,
+      planHash: await createSupersPlanningHash(reviewedPlan),
+      summary: "Preview one exact Idea capture.",
+    };
+    const validation = await validateSupersPlanningApplicationBundle({
+      workItem,
+      inventory,
+      trackerInventory,
+      documentationEffects,
+      reviewedPlan,
+      applicationBundle,
+      sourceSnapshot,
+    });
+    assertEquals(validation.approvalRequired, false);
+    assertEquals(validation.expectsDexMappings, false);
+    await assertRejects(
+      () =>
+        validateSupersPlanningApplicationBundle({
+          workItem,
+          inventory,
+          trackerInventory,
+          documentationEffects,
+          reviewedPlan,
+          applicationBundle: {
+            ...applicationBundle,
+            payload: {
+              ...payload,
+              destination: {
+                ...payload.destination,
+                content: "drifted after preview",
+              },
+            },
+          },
+          sourceSnapshot,
+        }),
+      Error,
+      "content-address exact",
+    );
+
+    const promotionResult = await executeSupersPlanningPromotion(
+      { ...payload, decision: "apply", approval: null },
+      root,
+    );
+    const promotionReceipt = promotionResult.auditReceipt;
+    const promotionResultDataName =
+      `planning-promotion-result-${promotionReceipt.receiptId}`;
+    const promotionReceiptDataName =
+      `planning-promotion-receipt-${promotionReceipt.receiptId}`;
+    const application = normalizeSupersPromotionApplication({
+      workItem,
+      reviewedPlan,
+      applicationBundle,
+      applicationBundleValidation: validation,
+      promotionResult,
+      promotionResultDataName,
+      promotionReceipt,
+      promotionReceiptDataName,
+    });
+    assertEquals(application.status, "succeeded");
+    assertEquals(application.mappings, []);
+    const audit = await auditSupersPromotionApplication(
+      {
+        workItem,
+        reviewedPlan,
+        applicationBundle,
+        applicationBundleValidation: validation,
+        application,
+        documentationEffects,
+        promotionResult,
+        promotionReceipt,
+      },
+      sourceSnapshot.dexTasks,
+    );
+    assertEquals(audit.status, "passed");
+    assertEquals(audit.verifiedTaskIds, []);
+    assertEquals(
+      await Deno.readTextFile(`${root}/docs/ideas/captured-item.md`),
+      destinationContent,
+    );
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+Deno.test("Planning-to-Dex normalization preserves Dex plan and checkpoint provenance", () => {
+  const payloadHash = "1".repeat(64);
+  const dexPlanHash = "2".repeat(64);
+  const promotionIdempotencyKey = "3".repeat(64);
+  const dexIdempotencyKey = "4".repeat(64);
+  const receiptId = "5".repeat(64);
+  const graph = {
+    schemaVersion: 1 as const,
+    planId: "planned-item",
+    tasks: [{
+      kind: "create" as const,
+      clientRef: "implementation",
+      name: "Implement planned item",
+      description: "Execute exact approved scope.",
+      priority: 1,
+      parent: { kind: "root" as const },
+      blockedBy: [],
+    }],
+  };
+  const applicationBundle = {
+    schemaVersion: 1 as const,
+    kind: "planning-to-dex" as const,
+    approvalRequired: true,
+    expectsDexMappings: true,
+    payload: {
+      schemaVersion: 2 as const,
+      planningItemId: "planned-item",
+      operation: "planning-to-dex" as const,
+      source: {
+        path: "docs/briefs/planned-item.md",
+        expectedRevision: "6".repeat(64),
+      },
+      destination: null,
+      indexMutations: [],
+      graph,
+    },
+    payloadHash,
+    sourceSnapshotFingerprint: "7".repeat(64),
+    documentationEffectsFingerprint: "8".repeat(64),
+    planHash: "9".repeat(64),
+    summary: "Preview Planning-to-Dex.",
+  };
+  const validation = {
+    schemaVersion: 1 as const,
+    status: "validated" as const,
+    kind: applicationBundle.kind,
+    approvalRequired: true,
+    expectsDexMappings: true,
+    payloadHash,
+    sourceSnapshotFingerprint: applicationBundle.sourceSnapshotFingerprint,
+    documentationEffectsFingerprint:
+      applicationBundle.documentationEffectsFingerprint,
+    planHash: applicationBundle.planHash,
+    summary: "Validated Planning-to-Dex.",
+  };
+  const dexResult = {
+    schemaVersion: 1 as const,
+    adapterVersion: "2026.08.06.1" as const,
+    planId: "planned-item",
+    planHash: dexPlanHash,
+    idempotencyKey: dexIdempotencyKey,
+    ownerToken: "supers-planning-promotion",
+    status: "succeeded" as const,
+    appliedAt: "2026-08-27T00:00:00.000Z",
+    taskIdsByClientRef: { implementation: "dex-planned" },
+    mappings: [{
+      clientRef: "implementation",
+      dexTaskId: "dex-planned",
+      disposition: "created" as const,
+    }],
+  };
+  const hashes = {
+    promotionDigest: payloadHash,
+    sourceRevision: "6".repeat(64),
+    destinationRevision: null,
+    indexMutationsDigest: "a".repeat(64),
+    dexPlanDigest: "b".repeat(64),
+  };
+  const promotionReceipt = {
+    schemaVersion: 1 as const,
+    receiptId,
+    planningItemId: "planned-item",
+    operation: "planning-to-dex" as const,
+    status: "audited" as const,
+    transactionId: "c".repeat(64),
+    idempotencyKey: promotionIdempotencyKey,
+    approvalDigest: payloadHash,
+    journalDigest: "d".repeat(64),
+    decisionDigest: null,
+    authorityState: "dex-authoritative" as const,
+    cleanupDisposition: "completed" as const,
+    repairGuidance: "none" as const,
+    hashes,
+    dexResult,
+  };
+  const promotionResult = {
+    schemaVersion: 2 as const,
+    planningItemId: "planned-item",
+    operation: "planning-to-dex" as const,
+    status: "audited" as const,
+    transactionId: "c".repeat(64),
+    idempotencyKey: promotionIdempotencyKey,
+    approvalDigest: payloadHash,
+    authorityState: "dex-authoritative" as const,
+    cleanupDisposition: "completed" as const,
+    repairGuidance: "none" as const,
+    hashes,
+    dexResult,
+    auditReceipt: promotionReceipt,
+  };
+
+  const application = normalizeSupersPromotionApplication({
+    workItem: "planned-item",
+    reviewedPlan: {
+      schemaVersion: 1,
+      planId: "planned-item",
+      createTasks: [{
+        clientRef: "implementation",
+        name: "Implement planned item",
+        description: "Execute exact approved scope.",
+        priority: 1,
+        parentKind: "root",
+        parentClientRef: "",
+        blockedBy: [],
+      }],
+      attachExistingTasks: [],
+    },
+    applicationBundle,
+    applicationBundleValidation: validation,
+    promotionResult,
+    promotionResultDataName: `planning-promotion-result-${receiptId}`,
+    promotionReceipt,
+    promotionReceiptDataName: `planning-promotion-receipt-${receiptId}`,
+  });
+
+  assertEquals(application.planHash, dexPlanHash);
+  assertEquals(
+    application.checkpointDataName,
+    `apply-plan-checkpoint-${dexIdempotencyKey}`,
+  );
+  assertEquals(
+    application.receiptDataName,
+    `planning-promotion-receipt-${receiptId}`,
+  );
+});
+
+Deno.test("all three graduation bundles enforce Supers tier paths, approval, and route-correct Dex graphs", async () => {
+  const validateRoute = async (
+    workItem: string,
+    directives: Array<{
+      operation: "create" | "update" | "retire" | "no-change";
+      documentKind: "roadmap" | "brief" | "idea";
+      target: string;
+      rationale: string;
+    }>,
+    createPayload: (
+      snapshot: Awaited<ReturnType<typeof buildSupersPlanningSourceSnapshot>>,
+      reviewedPlan: {
+        schemaVersion: 1;
+        planId: string;
+        createTasks: Array<{
+          clientRef: string;
+          name: string;
+          description: string;
+          priority: number;
+          parentKind: "root";
+          parentClientRef: string;
+          blockedBy: string[];
+        }>;
+        attachExistingTasks: [];
+      },
+    ) => Promise<{
+      payload: Record<string, unknown>;
+      kind: "idea-to-roadmap" | "roadmap-to-planning" | "planning-to-dex";
+    }>,
+  ) => {
+    const root = await fixtureRepository();
+    try {
+      const inventoryArgs = SupersPlanningInventoryArgumentsSchema.parse({
+        workItem,
+        planningState,
+        unresolvedDecisions: [],
+      });
+      const sourceSnapshot = await buildSupersPlanningSourceSnapshot(
+        inventoryArgs,
+        await readSupersPlanningMarkdownSources(root),
+        normalizeSupersDexTasks(rawTasks),
+      );
+      const inventory = await deriveSupersPlanningInventory(
+        inventoryArgs,
+        sourceSnapshot,
+      );
+      const trackerInventory = await deriveSupersTrackerInventory({
+        workItem,
+        inventory,
+        sourceSnapshot,
+      });
+      const documentationEffects = await deriveSupersDocumentationEffects({
+        workItem,
+        inventory,
+        trackerInventory,
+        sourceSnapshot,
+        intent: {
+          schemaVersion: 1,
+          status: "ready",
+          objective: inventory.objective,
+          outcome: "Graduate one stable planning item.",
+          inScope: ["One authority cutover"],
+          outOfScope: [],
+          constraints: ["No duplicate tier authority"],
+          acceptanceCriteria: ["The destination is authoritative."],
+          tasteDecisions: [],
+          documentationDirectives: directives,
+          revision: 1,
+          summary: "Graduate one planning item.",
+        },
+      });
+      const reviewedPlan = {
+        schemaVersion: 1 as const,
+        planId: workItem,
+        createTasks: [] as Array<{
+          clientRef: string;
+          name: string;
+          description: string;
+          priority: number;
+          parentKind: "root";
+          parentClientRef: string;
+          blockedBy: string[];
+        }>,
+        attachExistingTasks: [] as [],
+      };
+      const created = await createPayload(sourceSnapshot, reviewedPlan);
+      const payload = created.payload as Parameters<
+        typeof createSupersPlanningApprovalDigest
+      >[0];
+      const applicationBundle = {
+        schemaVersion: 1 as const,
+        kind: created.kind,
+        approvalRequired: true,
+        expectsDexMappings: created.kind === "planning-to-dex",
+        payload,
+        payloadHash: await createSupersPlanningApprovalDigest(payload),
+        sourceSnapshotFingerprint: sourceSnapshot.fingerprint,
+        documentationEffectsFingerprint: documentationEffects.fingerprint,
+        planHash: await createSupersPlanningHash(reviewedPlan),
+        summary: `Preview ${created.kind}.`,
+      };
+      const validation = await validateSupersPlanningApplicationBundle({
+        workItem,
+        inventory,
+        trackerInventory,
+        documentationEffects,
+        reviewedPlan,
+        applicationBundle,
+        sourceSnapshot,
+      });
+      assertEquals(validation.kind, created.kind);
+      assertEquals(validation.approvalRequired, true);
+      assertEquals(
+        validation.expectsDexMappings,
+        created.kind === "planning-to-dex",
+      );
+    } finally {
+      await Deno.remove(root, { recursive: true });
+    }
+  };
+  const write = async (
+    path: string,
+    content: string,
+    expectedRevision: string | null,
+  ) => ({
+    path,
+    expectedRevision,
+    content,
+    revision: await createSupersPlanningHash(content),
+  });
+
+  await validateRoute(
+    "future-planner",
+    [
+      {
+        operation: "retire",
+        documentKind: "idea",
+        target: "docs/ideas/future-planner.md",
+        rationale: "Leave Idea authority.",
+      },
+      {
+        operation: "update",
+        documentKind: "idea",
+        target: "docs/ideas/README.md",
+        rationale: "Remove the Idea index entry.",
+      },
+      {
+        operation: "update",
+        documentKind: "roadmap",
+        target: "docs/roadmap.md",
+        rationale: "Add the Roadmap item.",
+      },
+    ],
+    async (snapshot) => ({
+      kind: "idea-to-roadmap",
+      payload: {
+        schemaVersion: 2,
+        planningItemId: "future-planner",
+        operation: "idea-to-roadmap",
+        source: {
+          path: "docs/ideas/future-planner.md",
+          expectedRevision: snapshot.ideas[0]!.revision,
+        },
+        destination: await write(
+          "docs/roadmap.md",
+          "# Roadmap\n\n- Future planner\n",
+          snapshot.roadmap.revision,
+        ),
+        indexMutations: [{
+          action: "write",
+          ...await write(
+            "docs/ideas/README.md",
+            "# Ideas\n",
+            snapshot.ideasIndex.revision,
+          ),
+        }],
+        graph: null,
+      },
+    }),
+  );
+
+  await validateRoute(
+    "roadmap-item",
+    [
+      {
+        operation: "update",
+        documentKind: "roadmap",
+        target: "docs/roadmap.md",
+        rationale: "Remove the promoted Roadmap item.",
+      },
+      {
+        operation: "create",
+        documentKind: "brief",
+        target: "docs/briefs/roadmap-item.md",
+        rationale: "Create the Planning Brief.",
+      },
+      {
+        operation: "update",
+        documentKind: "brief",
+        target: "docs/briefs/README.md",
+        rationale: "Index the Planning Brief.",
+      },
+    ],
+    async (snapshot) => ({
+      kind: "roadmap-to-planning",
+      payload: {
+        schemaVersion: 2,
+        planningItemId: "roadmap-item",
+        operation: "roadmap-to-planning",
+        source: await write(
+          "docs/roadmap.md",
+          "# Roadmap\n\nStrategic delivery runway.\n",
+          snapshot.roadmap.revision,
+        ),
+        destination: await write(
+          "docs/briefs/roadmap-item.md",
+          "# Roadmap Item\n\nApproved Planning Brief.\n",
+          null,
+        ),
+        indexMutations: [{
+          action: "write",
+          ...await write(
+            "docs/briefs/README.md",
+            "# Briefs\n\n- roadmap-item.md\n",
+            snapshot.briefsIndex.revision,
+          ),
+        }],
+        graph: null,
+      },
+    }),
+  );
+
+  await validateRoute(
+    "active-piece",
+    [
+      {
+        operation: "retire",
+        documentKind: "brief",
+        target: "docs/briefs/active-piece.md",
+        rationale: "Cut Planning authority over to Dex.",
+      },
+      {
+        operation: "update",
+        documentKind: "brief",
+        target: "docs/briefs/README.md",
+        rationale: "Remove the Planning Brief index entry.",
+      },
+    ],
+    async (snapshot, reviewedPlan) => {
+      reviewedPlan.createTasks.push({
+        clientRef: "implementation",
+        name: "Implement active piece",
+        description: "Execute the approved Planning scope.",
+        priority: 1,
+        parentKind: "root",
+        parentClientRef: "",
+        blockedBy: [],
+      });
+      return {
+        kind: "planning-to-dex",
+        payload: {
+          schemaVersion: 2,
+          planningItemId: "active-piece",
+          operation: "planning-to-dex",
+          source: {
+            path: "docs/briefs/active-piece.md",
+            expectedRevision:
+              snapshot.briefs.find((entry) =>
+                entry.path === "docs/briefs/active-piece.md"
+              )!.revision,
+          },
+          destination: null,
+          indexMutations: [{
+            action: "write",
+            ...await write(
+              "docs/briefs/README.md",
+              "# Briefs\n",
+              snapshot.briefsIndex.revision,
+            ),
+          }],
+          graph: normalizeDexReviewedPlanForApplication(reviewedPlan),
+        },
+      };
+    },
+  );
 });
 
 Deno.test("planning source boundary rejects hostile indexes, symlinks, and oversized files", async () => {
@@ -1376,6 +1995,70 @@ Deno.test("delivery handoff binds the audited mapping to current human approval 
   });
   assertEquals(gated.status, "human-gate");
   assertEquals(gated.candidateTaskId, null);
+});
+
+Deno.test("Planning workflows validate the whole bundle and dispatch only the promotion orchestrator", async () => {
+  const workflowRoot = new URL("../../workflows/", import.meta.url);
+  const [validationWorkflow, applicationWorkflow, auditWorkflow] = await Promise
+    .all([
+      Deno.readTextFile(
+        new URL(
+          "workflow-supers-planning-validate-promotion-bundle.yaml",
+          workflowRoot,
+        ),
+      ),
+      Deno.readTextFile(
+        new URL(
+          "workflow-dcf79830-61e6-4982-a938-d7dea1bdc180.yaml",
+          workflowRoot,
+        ),
+      ),
+      Deno.readTextFile(
+        new URL(
+          "workflow-38593822-8e59-4a31-8ef4-8a308fcfbadf.yaml",
+          workflowRoot,
+        ),
+      ),
+    ]);
+
+  assert(
+    validationWorkflow.indexOf("methodName: validate-promotion-bundle") <
+      validationWorkflow.indexOf("name: application-bundle-validation"),
+  );
+  assert(
+    applicationWorkflow.indexOf("name: revalidate-promotion-bundle") <
+      applicationWorkflow.indexOf("name: apply-promotion"),
+  );
+  assert(
+    applicationWorkflow.indexOf("name: record-approved-plan") <
+      applicationWorkflow.indexOf("name: apply-promotion"),
+  );
+  assertEquals(
+    applicationWorkflow.includes("modelIdOrName: supers-dex-plan-applier"),
+    false,
+  );
+  assert(applicationWorkflow.includes(
+    "modelIdOrName: supers-planning-promotion",
+  ));
+  assert(applicationWorkflow.includes("methodName: apply-promotion"));
+  assert(applicationWorkflow.includes(
+    "validation: ${{ inputs.applicationBundleValidation }}",
+  ));
+  assert(applicationWorkflow.includes(
+    'approval-" + inputs.workItem + "-planning-approval',
+  ));
+  assert(applicationWorkflow.includes(
+    "inputs.applicationBundle.approvalRequired ? data.latest",
+  ));
+  assert(
+    applicationWorkflow.includes("condition:\n              type: completed"),
+  );
+  assert(
+    applicationWorkflow.includes("methodName: normalize-promotion-application"),
+  );
+  assert(auditWorkflow.includes("methodName: audit-planning-promotion"));
+  assert(auditWorkflow.includes("inputs.application.resultDataName"));
+  assert(auditWorkflow.includes("inputs.application.receiptDataName"));
 });
 
 Deno.test("materialized Supers handoff normalizes claimed and terminal outcomes", async () => {

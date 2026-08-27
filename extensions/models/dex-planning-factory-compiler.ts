@@ -9,7 +9,7 @@
  */
 import { z } from "npm:zod@4.4.3";
 
-export const DEX_PLANNING_FACTORY_VERSION = "2026.08.07.1";
+export const DEX_PLANNING_FACTORY_VERSION = "2026.08.27.1";
 const SOFTWARE_FACTORY_TARGET_VERSION = "2026.06.24.1";
 const FACTORY_NAME_PATTERN = /^[a-z][a-z0-9_-]*$/;
 const SHA256_PATTERN = "^[0-9a-f]{64}$";
@@ -98,6 +98,12 @@ const CLARIFIED_INTENT_BINDING =
   '${{ data.latest(self.name, "artifact-clarified-intent").payload }}';
 const DOCUMENTATION_EFFECTS_BINDING =
   '${{ data.latest(self.name, "artifact-documentation-effects").payload }}';
+const GRAPH_PROPOSAL_BINDING =
+  '${{ data.latest(self.name, "artifact-dex-graph-proposal").payload.plan }}';
+const APPLICATION_BUNDLE_BINDING =
+  '${{ data.latest(self.name, "artifact-application-bundle").payload }}';
+const APPLICATION_BUNDLE_VALIDATION_BINDING =
+  '${{ data.latest(self.name, "artifact-application-bundle-validation").payload }}';
 const PLAN_APPLICATION_BINDING =
   '${{ data.latest(self.name, "artifact-plan-application").payload }}';
 
@@ -197,6 +203,13 @@ const ReadOnlyAdapterSchema = z.discriminatedUnion("mode", [
   MethodAdapterSchema.extend({ readOnly: z.literal(true) }),
 ]);
 
+// Optional consumer-owned application bundles let one generic Planning Factory
+// preview and validate non-Dex effects without teaching the compiler tier names,
+// repository paths, or mutation policy.
+const ApplicationBundleHookSchema = z.strictObject({
+  validator: ReadOnlyAdapterSchema,
+});
+
 const InteractiveWorkSchema = z.strictObject({
   skills: z.array(z.string().min(1)).optional(),
   systemPrompt: z.string().min(1),
@@ -239,6 +252,7 @@ export const DexPlanningFactoryProfileSchema = z
       documentationPolicy: ReadOnlyAdapterSchema,
       planApplier: PlanApplicationAdapterSchema,
       audit: ReadOnlyAdapterSchema,
+      applicationBundle: ApplicationBundleHookSchema.optional(),
       terminalObserver: z.strictObject({
         workflow: FactoryNameSchema,
       }).optional(),
@@ -284,6 +298,76 @@ export const DexPlanningFactoryProfileSchema = z
             code: "custom",
             message: `${inputName} is compiler-owned and cannot be overridden`,
             path: ["adapters", adapterName, "inputs"],
+          });
+        }
+      }
+    }
+    const applicationBundleHook = profile.adapters.applicationBundle;
+    const bundleValidatorInputs = applicationBundleHook?.validator.inputs;
+    for (
+      const inputName of [
+        "workItem",
+        "inventory",
+        "trackerInventory",
+        "documentationEffects",
+        "reviewedPlan",
+        "applicationBundle",
+      ]
+    ) {
+      if (
+        bundleValidatorInputs !== undefined &&
+        (inputName in bundleValidatorInputs.values ||
+          inputName in bundleValidatorInputs.properties)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: `${inputName} is compiler-owned and cannot be overridden`,
+          path: ["adapters", "applicationBundle", "validator", "inputs"],
+        });
+      }
+    }
+    if (applicationBundleHook !== undefined) {
+      const planApplierInputs = profile.adapters.planApplier.inputs;
+      for (
+        const inputName of [
+          "planningInventory",
+          "trackerInventory",
+          "documentationEffects",
+          "reviewedPlan",
+          "applicationBundle",
+          "applicationBundleValidation",
+          "approvalGateId",
+        ]
+      ) {
+        if (
+          planApplierInputs !== undefined &&
+          (inputName in planApplierInputs.values ||
+            inputName in planApplierInputs.properties)
+        ) {
+          context.addIssue({
+            code: "custom",
+            message: `${inputName} is compiler-owned and cannot be overridden`,
+            path: ["adapters", "planApplier", "inputs"],
+          });
+        }
+      }
+      const auditInputs = profile.adapters.audit.inputs;
+      for (
+        const inputName of [
+          "reviewedPlan",
+          "applicationBundle",
+          "applicationBundleValidation",
+        ]
+      ) {
+        if (
+          auditInputs !== undefined &&
+          (inputName in auditInputs.values ||
+            inputName in auditInputs.properties)
+        ) {
+          context.addIssue({
+            code: "custom",
+            message: `${inputName} is compiler-owned and cannot be overridden`,
+            path: ["adapters", "audit", "inputs"],
           });
         }
       }
@@ -875,6 +959,76 @@ function graphProposalArtifact(): Record<string, unknown> {
   };
 }
 
+function applicationBundleArtifact(): Record<string, unknown> {
+  return {
+    name: "application-bundle",
+    description:
+      "Consumer-owned complete mutation preview; the generic compiler owns only its typed envelope.",
+    reviews: "documentation-effects",
+    schema: strictObjectSchema(
+      {
+        schemaVersion: { type: "integer", enum: [1] },
+        kind: NON_EMPTY_STRING_SCHEMA,
+        approvalRequired: { type: "boolean" },
+        expectsDexMappings: { type: "boolean" },
+        payload: { type: "object", additionalProperties: true },
+        payloadHash: SHA256_SCHEMA,
+        sourceSnapshotFingerprint: SHA256_SCHEMA,
+        documentationEffectsFingerprint: SHA256_SCHEMA,
+        planHash: SHA256_SCHEMA,
+        summary: NON_EMPTY_STRING_SCHEMA,
+      },
+      [
+        "schemaVersion",
+        "kind",
+        "approvalRequired",
+        "expectsDexMappings",
+        "payload",
+        "payloadHash",
+        "sourceSnapshotFingerprint",
+        "documentationEffectsFingerprint",
+        "planHash",
+        "summary",
+      ],
+    ),
+  };
+}
+
+function applicationBundleValidationArtifact(): Record<string, unknown> {
+  return {
+    name: "application-bundle-validation",
+    description:
+      "Read-only consumer validation binding the complete application preview to current planning evidence.",
+    reviews: "application-bundle",
+    schema: strictObjectSchema(
+      {
+        schemaVersion: { type: "integer", enum: [1] },
+        status: { type: "string", enum: ["validated"] },
+        kind: NON_EMPTY_STRING_SCHEMA,
+        approvalRequired: { type: "boolean" },
+        expectsDexMappings: { type: "boolean" },
+        payloadHash: SHA256_SCHEMA,
+        sourceSnapshotFingerprint: SHA256_SCHEMA,
+        documentationEffectsFingerprint: SHA256_SCHEMA,
+        planHash: SHA256_SCHEMA,
+        summary: NON_EMPTY_STRING_SCHEMA,
+      },
+      [
+        "schemaVersion",
+        "status",
+        "kind",
+        "approvalRequired",
+        "expectsDexMappings",
+        "payloadHash",
+        "sourceSnapshotFingerprint",
+        "documentationEffectsFingerprint",
+        "planHash",
+        "summary",
+      ],
+    ),
+  };
+}
+
 function reviewVerdictArtifact(): Record<string, unknown> {
   return {
     name: "plan-review-verdict",
@@ -1286,9 +1440,16 @@ function documentationEffectsStage(
 }
 
 function graphProposalStage(profile: DexPlanningFactoryProfile): FactoryStage {
+  const usesApplicationBundle =
+    profile.adapters.applicationBundle !== undefined;
+  const taskCountExpression = usesApplicationBundle
+    ? "size(artifacts.dex_graph_proposal.plan.createTasks) + size(artifacts.dex_graph_proposal.plan.attachExistingTasks) <= 250"
+    : "size(artifacts.dex_graph_proposal.plan.createTasks) + size(artifacts.dex_graph_proposal.plan.attachExistingTasks) > 0 && size(artifacts.dex_graph_proposal.plan.createTasks) + size(artifacts.dex_graph_proposal.plan.attachExistingTasks) <= 250";
   return {
     id: "graph-proposal",
-    description: "Propose a complete Dex graph without mutating tracker state.",
+    description: usesApplicationBundle
+      ? "Propose the complete consumer application bundle and any Dex graph without mutating repository state."
+      : "Propose a complete Dex graph without mutating tracker state.",
     maxCycles: profile.budgets.proposal,
     maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
     work: interactiveWork(profile.proposal, [
@@ -1299,16 +1460,86 @@ function graphProposalStage(profile: DexPlanningFactoryProfile): FactoryStage {
       "plan-review-findings",
       "plan-review-verdict",
     ]),
-    artifacts: [graphProposalArtifact()],
+    artifacts: [
+      graphProposalArtifact(),
+      ...(usesApplicationBundle ? [applicationBundleArtifact()] : []),
+    ],
+    transitions: [
+      {
+        name: usesApplicationBundle
+          ? "validate-application-bundle"
+          : "review-plan",
+        to: usesApplicationBundle
+          ? "application-bundle-validation"
+          : "plan-review",
+        gates: [
+          artifactFresh("dex-graph-proposal"),
+          ...(usesApplicationBundle
+            ? [artifactFresh("application-bundle")]
+            : []),
+          celGate(
+            `${taskCountExpression} && artifacts.dex_graph_proposal.plan.createTasks.all(task, (task.parentKind == 'root' && task.parentClientRef == '') || (task.parentKind == 'reference' && task.parentClientRef.matches('${CLIENT_REF_PATTERN}'))) && artifacts.dex_graph_proposal.plan.attachExistingTasks.all(task, (((task.parentKind in ['preserve', 'root']) && task.parentClientRef == '') || (task.parentKind == 'reference' && task.parentClientRef.matches('${CLIENT_REF_PATTERN}'))) && ((task.selectorKind == 'id' && size(task.selectorValue) <= 128 && task.selectorValue.matches('${TASK_ID_PATTERN}')) || (task.selectorKind == 'exactName' && size(task.selectorValue) <= 51200)))`,
+            usesApplicationBundle
+              ? "bundle proposal permits zero to 250 normalized tasks; consumer validation owns route-specific graph requirements"
+              : "proposal requires one to 250 normalized tasks with Plan-Applier-compatible parent and selector values",
+          ),
+        ],
+      },
+    ],
+  };
+}
+
+function applicationBundleValidationStage(
+  profile: DexPlanningFactoryProfile,
+): FactoryStage {
+  const hook = profile.adapters.applicationBundle;
+  if (hook === undefined) {
+    throw new Error("Application bundle validation requires a configured hook");
+  }
+  return {
+    id: "application-bundle-validation",
+    description:
+      "Validate the complete consumer-owned mutation preview before review or approval.",
+    maxCycles: profile.budgets.proposal,
+    maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
+    work: adapterWork(
+      hook.validator,
+      "application-bundle-validation-run",
+      {
+        workItem: CEL_WORK_ITEM,
+        inventory: PLANNING_INVENTORY_BINDING,
+        trackerInventory: TRACKER_INVENTORY_BINDING,
+        documentationEffects: DOCUMENTATION_EFFECTS_BINDING,
+        reviewedPlan: GRAPH_PROPOSAL_BINDING,
+        applicationBundle: APPLICATION_BUNDLE_BINDING,
+      },
+      {
+        workItem: NON_EMPTY_STRING_SCHEMA,
+        inventory: inventoryArtifact().schema as FactoryDeclaredSchema,
+        trackerInventory: trackerInventoryArtifact()
+          .schema as FactoryDeclaredSchema,
+        documentationEffects: documentationEffectsArtifact()
+          .schema as FactoryDeclaredSchema,
+        reviewedPlan: DEX_PLAN_SCHEMA,
+        applicationBundle: applicationBundleArtifact()
+          .schema as FactoryDeclaredSchema,
+      },
+    ),
+    artifacts: [applicationBundleValidationArtifact()],
     transitions: [
       {
         name: "review-plan",
         to: "plan-review",
         gates: [
-          artifactFresh("dex-graph-proposal"),
+          adapterSucceededGate(
+            hook.validator,
+            "application-bundle-validation-run",
+            ["application-bundle-validation"],
+          ),
+          artifactFresh("application-bundle-validation"),
           celGate(
-            `size(artifacts.dex_graph_proposal.plan.createTasks) + size(artifacts.dex_graph_proposal.plan.attachExistingTasks) > 0 && size(artifacts.dex_graph_proposal.plan.createTasks) + size(artifacts.dex_graph_proposal.plan.attachExistingTasks) <= 250 && artifacts.dex_graph_proposal.plan.createTasks.all(task, (task.parentKind == 'root' && task.parentClientRef == '') || (task.parentKind == 'reference' && task.parentClientRef.matches('${CLIENT_REF_PATTERN}'))) && artifacts.dex_graph_proposal.plan.attachExistingTasks.all(task, (((task.parentKind in ['preserve', 'root']) && task.parentClientRef == '') || (task.parentKind == 'reference' && task.parentClientRef.matches('${CLIENT_REF_PATTERN}'))) && ((task.selectorKind == 'id' && size(task.selectorValue) <= 128 && task.selectorValue.matches('${TASK_ID_PATTERN}')) || (task.selectorKind == 'exactName' && size(task.selectorValue) <= 51200)))`,
-            "proposal requires one to 250 normalized tasks with Plan-Applier-compatible parent and selector values",
+            "artifacts.application_bundle_validation.status == 'validated' && artifacts.application_bundle_validation.kind == artifacts.application_bundle.kind && artifacts.application_bundle_validation.approvalRequired == artifacts.application_bundle.approvalRequired && artifacts.application_bundle_validation.expectsDexMappings == artifacts.application_bundle.expectsDexMappings && artifacts.application_bundle_validation.payloadHash == artifacts.application_bundle.payloadHash && artifacts.application_bundle_validation.sourceSnapshotFingerprint == artifacts.application_bundle.sourceSnapshotFingerprint && artifacts.application_bundle_validation.sourceSnapshotFingerprint == artifacts.planning_inventory.sourceSnapshotFingerprint && artifacts.application_bundle_validation.documentationEffectsFingerprint == artifacts.application_bundle.documentationEffectsFingerprint && artifacts.application_bundle_validation.documentationEffectsFingerprint == artifacts.documentation_effects.fingerprint && artifacts.application_bundle_validation.planHash == artifacts.application_bundle.planHash && artifacts.application_bundle_validation.planHash == artifacts.dex_graph_proposal.planHash",
+            "application bundle validation must bind the complete preview envelope",
           ),
         ],
       },
@@ -1317,6 +1548,8 @@ function graphProposalStage(profile: DexPlanningFactoryProfile): FactoryStage {
 }
 
 function reviewStage(profile: DexPlanningFactoryProfile): FactoryStage {
+  const usesApplicationBundle =
+    profile.adapters.applicationBundle !== undefined;
   const acceptedProposalGates = [
     artifactFresh("plan-review-findings"),
     artifactFresh("plan-review-verdict"),
@@ -1329,13 +1562,17 @@ function reviewStage(profile: DexPlanningFactoryProfile): FactoryStage {
     },
     celGate(
       'artifacts.plan_review_verdict.status == "accept"',
-      "approval requires an explicit accept verdict",
+      "application requires an explicit accept verdict",
     ),
   ];
+  const reviewedArtifact = usesApplicationBundle
+    ? "application-bundle"
+    : "dex-graph-proposal";
   return {
     id: "plan-review",
-    description:
-      "Independently review the documentation and Dex graph proposals.",
+    description: usesApplicationBundle
+      ? "Independently review the complete validated application bundle."
+      : "Independently review the documentation and Dex graph proposals.",
     maxCycles: profile.budgets.review,
     maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
     work: {
@@ -1349,6 +1586,9 @@ function reviewStage(profile: DexPlanningFactoryProfile): FactoryStage {
           "clarified-intent",
           "documentation-effects",
           "dex-graph-proposal",
+          ...(usesApplicationBundle
+            ? ["application-bundle", "application-bundle-validation"]
+            : []),
         ],
       },
     },
@@ -1356,9 +1596,9 @@ function reviewStage(profile: DexPlanningFactoryProfile): FactoryStage {
       {
         name: "plan-review-findings",
         kind: "findings",
-        reviews: "dex-graph-proposal",
+        reviews: reviewedArtifact,
       },
-      reviewVerdictArtifact(),
+      { ...reviewVerdictArtifact(), reviews: reviewedArtifact },
     ],
     transitions: [
       {
@@ -1385,16 +1625,53 @@ function reviewStage(profile: DexPlanningFactoryProfile): FactoryStage {
           ),
         ],
       },
-      {
-        name: "approve",
-        to: "approval",
-        gates: [...acceptedProposalGates, humanApprovalGate(profile.humanGate)],
-      },
+      ...(usesApplicationBundle
+        ? [
+          {
+            name: "apply-without-graduation-approval",
+            to: "plan-application",
+            gates: [
+              ...acceptedProposalGates,
+              celGate(
+                "artifacts.application_bundle.approvalRequired == false",
+                "approval-free application requires a validated no-approval bundle",
+              ),
+            ],
+          },
+          {
+            name: "approve-and-apply",
+            to: "plan-application",
+            gates: [
+              ...acceptedProposalGates,
+              celGate(
+                "artifacts.application_bundle.approvalRequired == true",
+                "graduation application requires an approval-bound bundle",
+              ),
+              humanApprovalGate(profile.humanGate),
+            ],
+          },
+        ]
+        : [
+          {
+            name: "approve",
+            to: "approval",
+            gates: [
+              ...acceptedProposalGates,
+              humanApprovalGate(profile.humanGate),
+            ],
+          },
+        ]),
       {
         name: "human-reject",
         to: observedTerminalTarget(profile, "rejected"),
         gates: [
           ...acceptedProposalGates,
+          ...(usesApplicationBundle
+            ? [celGate(
+              "artifacts.application_bundle.approvalRequired == true",
+              "human rejection applies only to approval-bound bundles",
+            )]
+            : []),
           humanRejectionGate(profile.humanGate),
         ],
       },
@@ -1460,13 +1737,41 @@ function approvalStage(profile: DexPlanningFactoryProfile): FactoryStage {
 function planApplicationStage(
   profile: DexPlanningFactoryProfile,
 ): FactoryStage {
-  return {
-    id: "plan-application",
-    description:
-      "Apply the approved graph through one consumer fan-out adapter.",
-    maxCycles: profile.budgets.application,
-    maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
-    work: adapterWork(
+  const usesApplicationBundle =
+    profile.adapters.applicationBundle !== undefined;
+  const work = usesApplicationBundle
+    ? adapterWork(
+      profile.adapters.planApplier,
+      "plan-apply-run",
+      {
+        workItem: CEL_WORK_ITEM,
+        planningInventory: PLANNING_INVENTORY_BINDING,
+        trackerInventory: TRACKER_INVENTORY_BINDING,
+        documentationEffects: DOCUMENTATION_EFFECTS_BINDING,
+        reviewedPlan: GRAPH_PROPOSAL_BINDING,
+        applicationBundle: APPLICATION_BUNDLE_BINDING,
+        applicationBundleValidation: APPLICATION_BUNDLE_VALIDATION_BINDING,
+        approvalGateId:
+          '${{ data.latest(self.name, "artifact-application-bundle").payload.approvalRequired ? "' +
+          profile.humanGate.id +
+          '" : "not-required" }}',
+      },
+      {
+        workItem: NON_EMPTY_STRING_SCHEMA,
+        planningInventory: inventoryArtifact().schema as FactoryDeclaredSchema,
+        trackerInventory: trackerInventoryArtifact()
+          .schema as FactoryDeclaredSchema,
+        documentationEffects: documentationEffectsArtifact()
+          .schema as FactoryDeclaredSchema,
+        reviewedPlan: DEX_PLAN_SCHEMA,
+        applicationBundle: applicationBundleArtifact()
+          .schema as FactoryDeclaredSchema,
+        applicationBundleValidation: applicationBundleValidationArtifact()
+          .schema as FactoryDeclaredSchema,
+        approvalGateId: NON_EMPTY_STRING_SCHEMA,
+      },
+    )
+    : adapterWork(
       profile.adapters.planApplier,
       "plan-apply-run",
       {
@@ -1479,8 +1784,22 @@ function planApplicationStage(
         reviewedPlan: DEX_PLAN_SCHEMA,
         plan: DEX_APPLIER_INPUT_SCHEMA,
       },
-    ),
-    artifacts: [planApplicationArtifact()],
+    );
+  const requiredArtifacts = usesApplicationBundle
+    ? ["approved-plan", "plan-application"]
+    : ["plan-application"];
+  return {
+    id: "plan-application",
+    description: usesApplicationBundle
+      ? "Persist the exact reviewed boundary and apply its validated consumer bundle immediately after any required approval."
+      : "Apply the approved graph through one consumer fan-out adapter.",
+    maxCycles: profile.budgets.application,
+    maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
+    work,
+    artifacts: [
+      ...(usesApplicationBundle ? [approvedPlanArtifact()] : []),
+      planApplicationArtifact(),
+    ],
     transitions: [
       {
         name: "audit",
@@ -1489,12 +1808,27 @@ function planApplicationStage(
           adapterSucceededGate(
             profile.adapters.planApplier,
             "plan-apply-run",
-            ["plan-application"],
+            requiredArtifacts,
           ),
+          ...(usesApplicationBundle
+            ? [
+              artifactFresh("approved-plan"),
+              celGate(
+                'artifacts.approved_plan.plan == artifacts.dex_graph_proposal.plan && artifacts.approved_plan.planHash == artifacts.dex_graph_proposal.planHash && artifacts.approved_plan.proposalPlanHash == artifacts.dex_graph_proposal.planHash && artifacts.approved_plan.approvalGateId == (artifacts.application_bundle.approvalRequired ? "' +
+                  profile.humanGate.id +
+                  '" : "not-required")',
+                "recorded application boundary must retain the reviewed plan and exact approval disposition",
+              ),
+            ]
+            : []),
           artifactFresh("plan-application"),
           celGate(
-            'artifacts.plan_application.status == "succeeded" && artifacts.plan_application.retryDisposition == "none" && artifacts.plan_application.errorCode == "" && artifacts.plan_application.resultDataName != "" && size(artifacts.plan_application.mappings) > 0',
-            "audit requires a complete successful Plan Applier result",
+            usesApplicationBundle
+              ? 'artifacts.plan_application.status == "succeeded" && artifacts.plan_application.retryDisposition == "none" && artifacts.plan_application.errorCode == "" && artifacts.plan_application.resultDataName != "" && ((artifacts.application_bundle.expectsDexMappings && size(artifacts.plan_application.mappings) > 0) || (!artifacts.application_bundle.expectsDexMappings && size(artifacts.plan_application.mappings) == 0))'
+              : 'artifacts.plan_application.status == "succeeded" && artifacts.plan_application.retryDisposition == "none" && artifacts.plan_application.errorCode == "" && artifacts.plan_application.resultDataName != "" && size(artifacts.plan_application.mappings) > 0',
+            usesApplicationBundle
+              ? "audit requires a complete successful bundle result with route-correct Dex mappings"
+              : "audit requires a complete successful Plan Applier result",
           ),
         ],
       },
@@ -1505,8 +1839,9 @@ function planApplicationStage(
           adapterSucceededGate(
             profile.adapters.planApplier,
             "plan-apply-run",
-            ["plan-application"],
+            requiredArtifacts,
           ),
+          ...(usesApplicationBundle ? [artifactFresh("approved-plan")] : []),
           artifactFresh("plan-application"),
           celGate(
             'artifacts.plan_application.status == "failed" && artifacts.plan_application.retryDisposition != "none" && artifacts.plan_application.errorCode != "" && artifacts.plan_application.resultDataName == ""',
@@ -1519,28 +1854,54 @@ function planApplicationStage(
 }
 
 function planningAuditStage(profile: DexPlanningFactoryProfile): FactoryStage {
+  const usesApplicationBundle =
+    profile.adapters.applicationBundle !== undefined;
   return {
     id: "planning-audit",
-    description:
-      "Verify the applied graph and repository planning policy before handoff.",
+    description: usesApplicationBundle
+      ? "Verify the applied consumer bundle and repository planning policy before handoff."
+      : "Verify the applied graph and repository planning policy before handoff.",
     maxCycles: profile.budgets.audit,
     maxDispatchesPerCycle: profile.budgets.maxDispatchesPerCycle,
     work: adapterWork(
       profile.adapters.audit,
       "planning-audit-run",
-      {
-        workItem: CEL_WORK_ITEM,
-        approvedPlan: APPROVED_PLAN_BINDING,
-        application: PLAN_APPLICATION_BINDING,
-        documentationEffects: DOCUMENTATION_EFFECTS_BINDING,
-      },
-      {
-        workItem: NON_EMPTY_STRING_SCHEMA,
-        approvedPlan: DEX_APPLIER_INPUT_SCHEMA,
-        application: planApplicationArtifact().schema as FactoryDeclaredSchema,
-        documentationEffects: documentationEffectsArtifact()
-          .schema as FactoryDeclaredSchema,
-      },
+      usesApplicationBundle
+        ? {
+          workItem: CEL_WORK_ITEM,
+          reviewedPlan: GRAPH_PROPOSAL_BINDING,
+          applicationBundle: APPLICATION_BUNDLE_BINDING,
+          applicationBundleValidation: APPLICATION_BUNDLE_VALIDATION_BINDING,
+          application: PLAN_APPLICATION_BINDING,
+          documentationEffects: DOCUMENTATION_EFFECTS_BINDING,
+        }
+        : {
+          workItem: CEL_WORK_ITEM,
+          approvedPlan: APPROVED_PLAN_BINDING,
+          application: PLAN_APPLICATION_BINDING,
+          documentationEffects: DOCUMENTATION_EFFECTS_BINDING,
+        },
+      usesApplicationBundle
+        ? {
+          workItem: NON_EMPTY_STRING_SCHEMA,
+          reviewedPlan: DEX_PLAN_SCHEMA,
+          applicationBundle: applicationBundleArtifact()
+            .schema as FactoryDeclaredSchema,
+          applicationBundleValidation: applicationBundleValidationArtifact()
+            .schema as FactoryDeclaredSchema,
+          application: planApplicationArtifact()
+            .schema as FactoryDeclaredSchema,
+          documentationEffects: documentationEffectsArtifact()
+            .schema as FactoryDeclaredSchema,
+        }
+        : {
+          workItem: NON_EMPTY_STRING_SCHEMA,
+          approvedPlan: DEX_APPLIER_INPUT_SCHEMA,
+          application: planApplicationArtifact()
+            .schema as FactoryDeclaredSchema,
+          documentationEffects: documentationEffectsArtifact()
+            .schema as FactoryDeclaredSchema,
+        },
     ),
     artifacts: [planningAuditArtifact()],
     transitions: [
@@ -1591,6 +1952,9 @@ function handoffStage(profile: DexPlanningFactoryProfile): FactoryStage {
       "approved-plan",
       "plan-application",
       "planning-audit",
+      ...(profile.adapters.applicationBundle === undefined
+        ? []
+        : ["application-bundle", "application-bundle-validation"]),
     ]),
     artifacts: [handoffArtifact()],
     transitions: [
@@ -1615,8 +1979,13 @@ export function compileDexPlanningFactoryProfile(
     clarifiedIntentStage(profile),
     documentationEffectsStage(profile),
     graphProposalStage(profile),
+    ...(profile.adapters.applicationBundle === undefined
+      ? []
+      : [applicationBundleValidationStage(profile)]),
     reviewStage(profile),
-    approvalStage(profile),
+    ...(profile.adapters.applicationBundle === undefined
+      ? [approvalStage(profile)]
+      : []),
     planApplicationStage(profile),
     planningAuditStage(profile),
     handoffStage(profile),

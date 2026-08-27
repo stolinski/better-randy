@@ -54,7 +54,7 @@ const ResolutionMethodArgsSchema = SentryRepairResolutionArgsSchema.extend(
 
 export const model = {
   type: "@supers/sentry-repair-planning-handoff",
-  version: "2026.08.26.1",
+  version: "2026.08.27.1",
   globalArguments: SentryRepairGlobalArgsSchema,
   resources: {
     handoff: {

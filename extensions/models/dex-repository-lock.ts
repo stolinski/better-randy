@@ -41,8 +41,55 @@ const LockRecordSchema = z.discriminatedUnion("state", [
 type LockRecord = z.infer<typeof LockRecordSchema>;
 type OwnedLockRecord = z.infer<typeof OwnedLockRecordSchema>;
 
+export type DexRepositoryLockLease = Readonly<{
+  repositoryIdentity: string;
+  authoritative: boolean;
+}>;
+
+const activeRepositoryLockLeases = new WeakSet<DexRepositoryLockLease>();
+
+async function repositoryLockIdentity(repoDir: string): Promise<string> {
+  try {
+    return await Deno.realPath(repoDir);
+  } catch {
+    return repoDir.replace(/\/+$/, "");
+  }
+}
+
+function createRepositoryLockLease(
+  repositoryIdentity: string,
+  authoritative: boolean,
+): DexRepositoryLockLease {
+  const lease = Object.freeze({ repositoryIdentity, authoritative });
+  activeRepositoryLockLeases.add(lease);
+  return lease;
+}
+
+function releaseRepositoryLockLease(lease: DexRepositoryLockLease): void {
+  activeRepositoryLockLeases.delete(lease);
+}
+
+/** Reject held-lock composition calls outside the owning lock callback. */
+export async function assertDexRepositoryLockLease(
+  lease: DexRepositoryLockLease | undefined,
+  repoDir: string,
+): Promise<void> {
+  if (
+    lease === undefined || !activeRepositoryLockLeases.has(lease) ||
+    !lease.authoritative ||
+    lease.repositoryIdentity !== await repositoryLockIdentity(repoDir)
+  ) {
+    throw new DexRepositoryLockOwnershipError(
+      dexRepositoryLockPath(repoDir),
+    );
+  }
+}
+
 export interface DexRepositoryLock {
-  runExclusive<T>(repoDir: string, operation: () => Promise<T>): Promise<T>;
+  runExclusive<T>(
+    repoDir: string,
+    operation: (lease?: DexRepositoryLockLease) => Promise<T>,
+  ): Promise<T>;
 }
 
 export type DexRepositoryLockOptions = {
@@ -258,12 +305,13 @@ export function createDexRepositoryLock(
   return {
     runExclusive: async <T>(
       repoDir: string,
-      operation: () => Promise<T>,
+      operation: (lease?: DexRepositoryLockLease) => Promise<T>,
     ): Promise<T> => {
       const { file, lockPath } = await openVerifiedLockFile(repoDir);
       let isLocked = false;
       let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
       let heartbeatTail = Promise.resolve();
+      let lease: DexRepositoryLockLease | undefined;
       const token = ownerToken();
       try {
         await acquireFileLock(
@@ -297,12 +345,19 @@ export function createDexRepositoryLock(
           );
         }, heartbeatIntervalMs);
 
+        lease = createRepositoryLockLease(
+          await repositoryLockIdentity(repoDir),
+          true,
+        );
         let result: T | undefined;
         let operationError: unknown;
         try {
-          result = await operation();
+          result = await operation(lease);
         } catch (error) {
           operationError = error;
+        } finally {
+          releaseRepositoryLockLease(lease);
+          lease = undefined;
         }
         clearInterval(heartbeatTimer);
         heartbeatTimer = undefined;
@@ -317,6 +372,7 @@ export function createDexRepositoryLock(
         if (cleanupError !== undefined) throw cleanupError;
         return result as T;
       } finally {
+        if (lease !== undefined) releaseRepositoryLockLease(lease);
         if (heartbeatTimer !== undefined) clearInterval(heartbeatTimer);
         if (isLocked) await file.unlock();
         file.close();
@@ -327,10 +383,20 @@ export function createDexRepositoryLock(
 
 /** Test-only lock that preserves dependency shape without touching disk. */
 export const PASSTHROUGH_DEX_REPOSITORY_LOCK: DexRepositoryLock = {
-  runExclusive: <T>(
-    _repoDir: string,
-    operation: () => Promise<T>,
-  ): Promise<T> => operation(),
+  runExclusive: async <T>(
+    repoDir: string,
+    operation: (lease?: DexRepositoryLockLease) => Promise<T>,
+  ): Promise<T> => {
+    const lease = createRepositoryLockLease(
+      await repositoryLockIdentity(repoDir),
+      false,
+    );
+    try {
+      return await operation(lease);
+    } finally {
+      releaseRepositoryLockLease(lease);
+    }
+  },
 };
 
 export const DEFAULT_DEX_REPOSITORY_LOCK = createDexRepositoryLock();

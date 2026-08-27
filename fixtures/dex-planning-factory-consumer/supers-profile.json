@@ -34,24 +34,19 @@
     },
     "planApplier": {
       "mode": "workflow",
-      "workflow": "supers-planning-apply-approved-plan",
-      "inputs": {
-        "values": {
-          "planningInventory": "${{ data.latest(self.name, \"artifact-planning-inventory\").payload }}"
-        },
-        "properties": {
-          "planningInventory": {
-            "type": "object",
-            "additionalProperties": true
-          }
-        },
-        "required": ["planningInventory"]
-      }
+      "workflow": "supers-planning-apply-approved-plan"
     },
     "audit": {
       "mode": "workflow",
       "workflow": "supers-planning-audit",
       "readOnly": true
+    },
+    "applicationBundle": {
+      "validator": {
+        "mode": "workflow",
+        "workflow": "supers-planning-validate-promotion-bundle",
+        "readOnly": true
+      }
     },
     "terminalObserver": {
       "workflow": "supers-planning-terminal-observability"
@@ -68,13 +63,13 @@
     "systemPrompt": "Produce strict clarified intent from injected facts and decisions, including at least one explicit documentationDirectives create, update, retire, or no-change proposal. Never mutate Dex or documentation."
   },
   "proposal": {
-    "systemPrompt": "Propose a complete plan-applier-compatible Dex graph and trace it to approved intent. Never mutate Dex or documentation."
+    "systemPrompt": "Produce both declared artifacts as one preview. The dex-graph-proposal uses the stable work item as planId; capture-idea, idea-to-roadmap, and roadmap-to-planning require empty createTasks and attachExistingTasks, while planning-to-dex requires a complete Plan-Applier-compatible graph. The application-bundle payload is the exact schema-v2 promotion preview: capture creates an indexed docs/ideas document; idea-to-roadmap deletes that Idea, rewrites docs/roadmap.md, and updates the Ideas index; roadmap-to-planning rewrites docs/roadmap.md as source cleanup, creates an indexed docs/briefs document, and updates the Briefs index; planning-to-dex deletes that Brief, updates the Briefs index, and carries the normalized Dex graph. Include complete destination, shared-source cleanup, and index postimage content with current expected revisions and declared content revisions. kind must equal payload.operation; approvalRequired is false only for capture; expectsDexMappings is true only for planning-to-dex. Bind payloadHash to the canonical promotion approval payload, planHash to the reviewed flattened plan, sourceSnapshotFingerprint to inventory, and documentationEffectsFingerprint to the validated documentation proposal. Never mutate Dex or documentation."
   },
   "review": {
     "skills": [
       "code-review"
     ],
-    "systemPrompt": "Independently review the documentation-effects and Dex graph proposals for completeness, duplication, ordering, and safe application.",
+    "systemPrompt": "Independently review the complete validated application-bundle, documentation effects, source/destination/index preimages and postimages, cleanup order, approval requirement, and route-correct Dex graph. Reject or park without mutating the current tier.",
     "blockingSeverities": [
       "critical",
       "high",
@@ -85,7 +80,7 @@
     "systemPrompt": "After human approval, persist the exact reviewed plan and matching plan hash. Do not revise or apply it here."
   },
   "handoff": {
-    "systemPrompt": "Record the typed planning outcome for later Delivery intake. Do not start Delivery or mutate Dex."
+    "systemPrompt": "Record ready only for an audited planning-to-dex bundle with verified mappings. Record no-ready-work for audited capture, idea-to-roadmap, or roadmap-to-planning bundles. Do not start Delivery or mutate Dex."
   },
   "humanGate": {
     "id": "planning-approval",

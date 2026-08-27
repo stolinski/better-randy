@@ -1,6 +1,6 @@
 id: 38593822-8e59-4a31-8ef4-8a308fcfbadf
 name: supers-planning-audit
-description: Audit approved-plan mappings against one fresh official Dex snapshot.
+description: Audit promotion authority, cleanup, and optional Dex mappings against the exact reviewed bundle.
 tags:
   purpose: supers-planning-factory
 inputs:
@@ -9,201 +9,48 @@ inputs:
     workItem:
       type: string
       minLength: 1
-    approvedPlan:
+    reviewedPlan:
       type: object
-      properties:
-        schemaVersion:
-          type: integer
-          enum:
-            - 1
-        planId:
-          type: string
-          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$
-        tasks:
-          type: array
-          minItems: 1
-          maxItems: 250
-          items:
-            type: object
-            properties:
-              kind:
-                type: string
-                enum:
-                  - create
-                  - attachExisting
-            required:
-              - kind
-            additionalProperties: true
-      required:
-        - schemaVersion
-        - planId
-        - tasks
-      additionalProperties: false
+      additionalProperties: true
+    applicationBundle:
+      type: object
+      additionalProperties: true
+    applicationBundleValidation:
+      type: object
+      additionalProperties: true
     application:
       type: object
-      properties:
-        schemaVersion:
-          type: integer
-          enum:
-            - 1
-        status:
-          type: string
-          enum:
-            - succeeded
-            - failed
-        planId:
-          type: string
-          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$
-        planHash:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-        idempotencyKey:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-        attempt:
-          type: integer
-          minimum: 1
-        checkpointDataName:
-          type: string
-          minLength: 1
-        receiptDataName:
-          type: string
-          minLength: 1
-        resultDataName:
-          type: string
-        mappings:
-          type: array
-          items:
-            type: object
-            properties:
-              clientRef:
-                type: string
-                pattern: ^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$
-                maxLength: 64
-              dexTaskId:
-                type: string
-                pattern: ^[A-Za-z0-9_-]{1,128}$
-                maxLength: 128
-              disposition:
-                type: string
-                enum:
-                  - created
-                  - attachedExisting
-            required:
-              - clientRef
-              - dexTaskId
-              - disposition
-            additionalProperties: false
-        retryDisposition:
-          type: string
-          enum:
-            - none
-            - retry
-            - do-not-retry
-            - manual-review
-        errorCode:
-          type: string
-        summary:
-          type: string
-          minLength: 1
-      required:
-        - schemaVersion
-        - status
-        - planId
-        - planHash
-        - idempotencyKey
-        - attempt
-        - checkpointDataName
-        - receiptDataName
-        - resultDataName
-        - mappings
-        - retryDisposition
-        - errorCode
-        - summary
-      additionalProperties: false
+      additionalProperties: true
     documentationEffects:
       type: object
-      properties:
-        schemaVersion:
-          type: integer
-          enum:
-            - 1
-        effects:
-          type: array
-          items:
-            type: object
-            properties:
-              operation:
-                type: string
-                enum:
-                  - create
-                  - update
-                  - retire
-                  - no-change
-              documentKind:
-                type: string
-                minLength: 1
-              target:
-                type: string
-                minLength: 1
-              rationale:
-                type: string
-                minLength: 1
-            required:
-              - operation
-              - documentKind
-              - target
-              - rationale
-            additionalProperties: false
-        summary:
-          type: string
-          minLength: 1
-        sourceSnapshotFingerprint:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-        planningInventoryFingerprint:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-        trackerInventoryFingerprint:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-        intentFingerprint:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-        fingerprint:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-      required:
-        - schemaVersion
-        - effects
-        - summary
-        - sourceSnapshotFingerprint
-        - planningInventoryFingerprint
-        - trackerInventoryFingerprint
-        - intentFingerprint
-        - fingerprint
-      additionalProperties: false
+      additionalProperties: true
   required:
     - workItem
-    - approvedPlan
+    - reviewedPlan
+    - applicationBundle
+    - applicationBundleValidation
     - application
     - documentationEffects
   additionalProperties: false
 jobs:
   - name: main
-    description: Audit approved-plan mappings against one fresh official Dex snapshot.
+    description: Verify the promotion receipt and any mapped Dex graph before Planning handoff.
     steps:
-      - name: audit-planning-application
-        description: Verify actual mapped Dex tasks and documentation proposal integrity.
+      - name: audit-planning-promotion
+        description: Verify exact authority, cleanup, content hashes, and route-correct Dex evidence.
         task:
           type: model_method
           modelIdOrName: repo-audit
-          methodName: audit-planning-application
+          methodName: audit-planning-promotion
           inputs:
             workItem: ${{ inputs.workItem }}
-            approvedPlan: ${{ inputs.approvedPlan }}
+            reviewedPlan: ${{ inputs.reviewedPlan }}
+            applicationBundle: ${{ inputs.applicationBundle }}
+            applicationBundleValidation: ${{ inputs.applicationBundleValidation }}
             application: ${{ inputs.application }}
             documentationEffects: ${{ inputs.documentationEffects }}
+            promotionResult: ${{ data.latest("supers-planning-promotion", inputs.application.resultDataName).attributes }}
+            promotionReceipt: ${{ data.latest("supers-planning-promotion", inputs.application.receiptDataName).attributes }}
         dependsOn: []
         weight: 0
         allowFailure: false
@@ -218,7 +65,7 @@ jobs:
             name: planning-audit
             payload: ${{ data.query('modelName == "repo-audit" && specName == "planning-application-audit" && workflowRunId == "' + run.id + '"')[0].attributes }}
         dependsOn:
-          - step: audit-planning-application
+          - step: audit-planning-promotion
             condition:
               type: succeeded
         weight: 0
@@ -244,4 +91,4 @@ jobs:
         allowFailure: false
     dependsOn: []
     weight: 0
-version: 1
+version: 2

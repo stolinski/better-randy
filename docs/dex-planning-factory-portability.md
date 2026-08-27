@@ -23,6 +23,15 @@ The profile ends with a typed planning handoff. It does not start Delivery;
 repository-specific ready-leaf ownership and dispatch belong to a later handoff
 workflow.
 
+A profile may add the generic `applicationBundle.validator` phase hook. The
+compiler then declares an opaque consumer payload inside a strict bundle
+envelope, requires a read-only validator before review, and routes accepted
+bundles directly from review to application. The envelope says only whether
+approval and Dex mappings are required. Consumer adapters own operation names,
+paths, mutation policy, payload validation, and audit. Approval-free bundles
+bypass the graduation gate; approval-bound bundles cross the native human gate
+on the transition immediately before application.
+
 ## Lifecycle
 
 1. `inventory` records deterministic repository facts.
@@ -32,17 +41,20 @@ workflow.
    and taste decisions.
 5. `documentation-effects` proposes create, update, retire, or no-change effects
    without applying them.
-6. `graph-proposal` records a complete normalized Dex graph.
-7. `plan-review` stores independent findings and an accept, revise, reject, or
-   park verdict.
-8. A current-cycle native human approval admits the proposal to `approval`;
-   stale decisions cannot approve or reject a revised cycle.
-9. `approval` records an exact-equality copy as `approved-plan`.
-10. `plan-application` passes that approved graph through CEL to a typed
-    workflow. The workflow calls the fan-out Plan Applier with only `plan` and
-    normalizes its checkpoint, receipt, and result resources into the strict
-    Factory artifact.
-11. `planning-audit` verifies the applied graph before `handoff` records the
+6. `graph-proposal` records a normalized Dex graph. A bundle-enabled consumer
+   also records the complete application preview; non-Dex routes may use an
+   empty graph.
+7. Bundle-enabled profiles run their read-only validator before review.
+8. `plan-review` stores independent findings and an accept, revise, reject, or
+   park verdict over the full preview.
+9. Legacy profiles cross the current-cycle native human gate into `approval`,
+   which records an exact `approved-plan`. Bundle-enabled profiles route
+   approval-free work directly to application or require that gate immediately
+   before application.
+10. `plan-application` invokes the consumer workflow. In bundle mode the
+    workflow records the exact reviewed plan before applying the validated
+    payload; in legacy mode it calls the fan-out Plan Applier with only `plan`.
+11. `planning-audit` verifies the applied effects before `handoff` records the
     terminal planning outcome.
 
 Every work stage has explicit cycle and dispatch limits. Rejected, parked,
@@ -102,29 +114,27 @@ Supers materializes that contract as two repository-local models:
 
 - `supers-dex-planning-factory` compiles
   `fixtures/dex-planning-factory-consumer/supers-profile.json` with
-  `@club_aqua_back_deck/dex-planning-factory@2026.08.06.1`;
-- `supers-planning` is the compiled 17-stage
+  `@club_aqua_back_deck/dex-planning-factory@2026.08.27.1`;
+- `supers-planning` is the compiled
   `@swamp/software-factory@2026.06.24.1` target.
 
-Five declarative workflows implement the repository seams without shelling
+Six declarative workflows implement the repository seams without shelling
 around a typed model: `supers-planning-inventory`,
 `supers-planning-tracker-inventory`, `supers-planning-documentation-effects`,
-`supers-planning-apply-approved-plan`, and `supers-planning-audit`. Each
-workflow records both the exact Factory artifact and its correlated result
-evidence. The application workflow passes only its compiler-owned `plan` input
-to `supers-dex-plan-applier.apply-plan`; it then normalizes checkpoint, receipt,
-result, mapping, retry, and coded failure fields through
-`repo-audit.normalize-plan-application`. The audit workflow calls
-`repo-audit.audit-planning-application`, which reads official Dex once and
-verifies every client reference, task id, disposition, content field, parent,
-and blocker before handoff.
+`supers-planning-validate-promotion-bundle`,
+`supers-planning-apply-approved-plan`, and `supers-planning-audit`. The validator
+binds one complete capture, Idea-to-Roadmap, Roadmap-to-Planning, or
+Planning-to-Dex preview to the immutable source chain. Capture requires neither
+graduation approval nor Dex tasks. The other routes require native current-cycle
+human approval immediately before application; only Planning-to-Dex permits a
+non-empty graph.
 
-A live materialization probe reached `plan-review` through all three read-only
-wrappers. With clear findings and an accept verdict, `approve` still failed
-solely on `planning-approval (0/1)`; the probe was then parked. No approval or
-Dex mutation occurred. Application success/failure normalization and fresh
-mapping audits are covered with typed fixtures, including recoverable failure
-receipts and graph drift.
+The application workflow revalidates the preview, records the exact reviewed
+plan, and calls `supers-planning-promotion.apply-promotion`. That orchestrator
+dispatches to one of four strict recoverable handlers. `repo-audit` normalizes
+authority, cleanup, failure guidance, and optional Dex mappings into the
+portable application artifact. The audit workflow verifies the content-addressed
+promotion receipt and reads official Dex only for Planning-to-Dex.
 
 ## Repository Delivery handoff
 

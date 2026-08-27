@@ -14,17 +14,19 @@ inventory → tracker inventory → clarification → clarified intent
 
 Rejected, parked, failed-apply, failed-audit, aborted, and successful outcomes are explicit terminal stages. The compiler owns the stage graph, typed artifacts, transition gates, cycle limits, and bindings between stages.
 
-The package is a profile compiler, not a repository adapter and not another Factory engine. It contains no project paths, credentials, task data, or documentation policy.
+The package is a profile compiler, not a repository adapter and not another Factory engine. It contains no project paths, credentials, task data, tier names, or documentation policy. Profiles may add a generic `applicationBundle.validator` hook between graph proposal and review. The compiler then previews an opaque consumer payload in a typed envelope and leaves route names, payload validation, and mutation rules to the consumer.
 
 ## Safety boundary
 
-You supply five repository-owned adapters:
+You supply five repository-owned adapters, plus an optional bundle validator:
 
-- Inventory, tracker inventory, documentation policy, and planning audit adapters must attest that they are read-only.
-- The plan application adapter is the sole configured write slot. It receives the compiler-owned work item, exact reviewed plan, and deterministic Plan Applier normalization only after the current review cycle passes the native human approval gate. Consumers should validate both plan forms before mutation.
+- Inventory, tracker inventory, documentation policy, planning audit, and optional application-bundle validation adapters must attest that they are read-only.
+- The plan application adapter is the sole configured write slot.
+- Legacy profiles receive the exact reviewed plan and deterministic Plan Applier normalization after the native human approval gate.
+- Bundle-enabled profiles receive the complete validated preview. An approval-free bundle enters application directly; an approval-bound bundle crosses the current-cycle native human gate on the transition immediately before application.
 - Planning ends with a typed handoff. It does not start Delivery.
 
-The reviewed graph is normalized into the strict `create | attachExisting` contract accepted by the Dex Plan Applier. An approval from an earlier review cycle cannot unlock application.
+The optional bundle envelope declares whether Dex mappings and human approval are required. The consumer validator must prove those claims against its strict payload. An approval from an earlier review cycle cannot unlock application.
 
 ## Versions
 
@@ -62,7 +64,7 @@ The `compiled-profile` resource contains the exact `globalArguments` for an `@sw
 - Keep pre-approval adapters read-only and keep all repository writes behind the application adapter.
 - Use `@club_aqua_back_deck/dex-plan-applier@2026.08.06.1` or an adapter with the same approved-plan boundary and recovery guarantees.
 - Materialize the compiled arguments into a Factory definition created through `swamp model create`.
-- Require a real human to approve the exact current-cycle reviewed graph before live application.
+- Require a real human to approve every current-cycle bundle whose validated envelope declares approval; use approval-free routing only for consumer policy that explicitly permits it.
 - Keep Delivery orchestration separate from the Planning profile.
 - Configure `adapters.terminalObserver.workflow` when terminal observability is required. Done, rejected, parked, failed-apply, failed-audit, and aborted then pass through outcome-specific observability stages before becoming terminal.
 - In repository-owned Delivery handoff workflows, normalize claimed/resumed and terminal `no-ready-work` or `human-gate` outcomes on separate guarded branches. Terminal branches must pass an empty Factory-state list rather than interpolate a null task ID.

@@ -16,12 +16,14 @@ import { z } from "npm:zod@4.4.3";
 
 import {
   auditSupersPlanningApplication,
+  auditSupersPromotionApplication,
   buildSupersPlanningSourceSnapshot,
   deriveSupersDocumentationEffects,
   deriveSupersPlanningInventory,
   deriveSupersTrackerInventory,
   normalizeSupersDeliveryHandoffOutcome,
   normalizeSupersPlanApplication,
+  normalizeSupersPromotionApplication,
   prepareSupersDeliveryHandoff,
   readSupersDexTaskSnapshot,
   readSupersPlanningMarkdownSources,
@@ -37,6 +39,13 @@ import {
   type SupersPlanApplicationNormalizationArguments,
   SupersPlanApplicationNormalizationArgumentsSchema,
   SupersPlanApplicationSchema,
+  type SupersPlanningApplicationBundleValidationArguments,
+  SupersPlanningApplicationBundleValidationArgumentsSchema,
+  SupersPlanningApplicationBundleValidationSchema,
+  type SupersPromotionApplicationAuditArguments,
+  SupersPromotionApplicationAuditArgumentsSchema,
+  type SupersPromotionApplicationNormalizationArguments,
+  SupersPromotionApplicationNormalizationArgumentsSchema,
   SupersPlanBoundaryArgumentsSchema,
   SupersPlanBoundarySchema,
   type SupersPlanningApplicationAuditArguments,
@@ -51,6 +60,7 @@ import {
   SupersTrackerInventoryArgumentsSchema,
   SupersTrackerInventorySchema,
   validateSupersPlanBoundary,
+  validateSupersPlanningApplicationBundle,
 } from "./supers-planning-adapters.ts";
 import {
   LayoutContractLaneReceiptSchema,
@@ -800,7 +810,7 @@ async function runAuditScript(
 /** Model definition for the Supers repo policy audits. */
 export const model = {
   type: "@supers/repo-audit",
-  version: "2026.08.27.6",
+  version: "2026.08.27.7",
   globalArguments: GlobalArgsSchema,
   resources: {
     timing: {
@@ -859,6 +869,13 @@ export const model = {
       lifetime: "infinite",
       garbageCollection: 20,
     },
+    "application-bundle-validation": {
+      description:
+        "Read-only Supers route, preimage, content-hash, and graph validation for one complete promotion preview",
+      schema: SupersPlanningApplicationBundleValidationSchema,
+      lifetime: "infinite",
+      garbageCollection: 50,
+    },
     "plan-boundary": {
       description:
         "Validated compiler-emitted mapping from reviewed plan to Plan Applier input",
@@ -873,9 +890,16 @@ export const model = {
       lifetime: "infinite",
       garbageCollection: 50,
     },
+    "promotion-application-normalized": {
+      description:
+        "Normalized promotion authority, cleanup, receipt, and optional Dex mapping outcome for the Planning Factory",
+      schema: SupersPlanApplicationSchema,
+      lifetime: "infinite",
+      garbageCollection: 50,
+    },
     "planning-application-audit": {
       description:
-        "Fresh official-Dex verification of approved-plan mappings and documentation proposal integrity",
+        "Fresh promotion authority and optional official-Dex verification of the complete reviewed bundle",
       schema: SupersPlanningApplicationAuditSchema,
       lifetime: "infinite",
       garbageCollection: 50,
@@ -1088,6 +1112,23 @@ export const model = {
         return { dataHandles: [handle] };
       },
     },
+    "validate-promotion-bundle": {
+      description:
+        "Validate one complete Supers promotion preview against immutable source, documentation, and graph evidence",
+      arguments: SupersPlanningApplicationBundleValidationArgumentsSchema,
+      execute: async (
+        args: SupersPlanningApplicationBundleValidationArguments,
+        context: MethodContext,
+      ) => {
+        const validation = await validateSupersPlanningApplicationBundle(args);
+        const handle = await context.writeResource(
+          "application-bundle-validation",
+          `supers-application-bundle-validation-${args.workItem}-${validation.payloadHash}`,
+          { ...validation },
+        );
+        return { dataHandles: [handle] };
+      },
+    },
     "validate-plan-boundary": {
       description:
         "Validate the compiler-emitted flattened-to-Plan-Applier mapping before mutation",
@@ -1118,6 +1159,45 @@ export const model = {
           "plan-application-normalized",
           `supers-plan-application-${args.workItem}-${application.idempotencyKey}-${application.attempt}`,
           { ...application },
+        );
+        return { dataHandles: [handle] };
+      },
+    },
+    "normalize-promotion-application": {
+      description:
+        "Normalize one promotion result or typed failure into the portable Planning application contract",
+      arguments: SupersPromotionApplicationNormalizationArgumentsSchema,
+      execute: async (
+        args: SupersPromotionApplicationNormalizationArguments,
+        context: MethodContext,
+      ) => {
+        const application = normalizeSupersPromotionApplication(args);
+        const handle = await context.writeResource(
+          "promotion-application-normalized",
+          `supers-promotion-application-${args.workItem}-${application.idempotencyKey}-${application.attempt}`,
+          { ...application },
+        );
+        return { dataHandles: [handle] };
+      },
+    },
+    "audit-planning-promotion": {
+      description:
+        "Verify promotion authority, cleanup, and any Planning-to-Dex mappings against fresh official Dex state",
+      arguments: SupersPromotionApplicationAuditArgumentsSchema,
+      execute: async (
+        args: SupersPromotionApplicationAuditArguments,
+        context: MethodContext,
+      ) => {
+        const dexTasks = args.applicationBundle.expectsDexMappings
+          ? await readSupersDexTaskSnapshot(context.repoDir)
+          : [];
+        const audit = await auditSupersPromotionApplication(args, dexTasks);
+        const handle = await context.writeResource(
+          "planning-application-audit",
+          `supers-planning-promotion-audit-${args.workItem}-${await sha256Hex(
+            JSON.stringify(audit),
+          )}`,
+          { ...audit },
         );
         return { dataHandles: [handle] };
       },

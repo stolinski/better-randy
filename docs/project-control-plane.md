@@ -334,22 +334,35 @@ The applier shares the repository lock with Dex writes and records a durable
 roll-forward journal: `prepared → destination-written → destination-verified →
 committed → source-cleaned → audited`. The source remains authoritative until
 commit. Recovery accepts only the approved preimage or already-applied
-postimage, so it never overwrites later work. Source, destination, and index
-paths must be distinct. Planning-to-Dex remains composed with the existing Dex
-Plan Applier rather than being exposed as a second direct mutation path.
+postimage, so it never overwrites later work. Source cleanup deletes a tier file
+or rewrites the shared Roadmap after cutover; source, destination, and index
+paths must remain distinct. Planning-to-Dex stays composed with the existing Dex
+Plan Applier rather than exposing a second direct Dex mutation path.
+
+The portable compiler knows only an optional typed `application-bundle` phase
+hook. Supers owns the four operation names, tier paths, index obligations,
+approval policy, validation, mutation, and audit. Graph proposal emits the
+complete discriminated preview. A read-only workflow validates its source chain,
+preimages, postimage hashes, index effects, and route-correct graph before
+review. Accepted capture enters application without graduation approval;
+accepted graduation bundles require the current `planning-approval` decision on
+the immediately preceding transition. The application workflow revalidates the
+same bundle, records its reviewed boundary, and calls
+`supers-planning-promotion.apply-promotion`. Live revision checks then occur
+under the shared repository lock. Rejected and parked paths terminate without
+calling a mutation method, so current-tier authority is unchanged.
 
 This is routine Swamp control-plane behavior, defined by typed contracts,
 schemas, tests, and this current-state document. It does not require an ADR.
 
 The concrete control plane is the `supers-dex-planning-factory` compiler model
-plus the materialized `supers-planning` Factory. Its five wrappers are
+plus the materialized `supers-planning` Factory. Its six repository wrappers are
 `supers-planning-inventory`, `supers-planning-tracker-inventory`,
-`supers-planning-documentation-effects`, `supers-planning-apply-approved-plan`,
-and `supers-planning-audit`. The application wrapper invokes
-`supers-dex-plan-applier.apply-plan` with only the compiler-owned `plan`; all
-Factory context and normalization stay outside that strict mutation method.
+`supers-planning-documentation-effects`,
+`supers-planning-validate-promotion-bundle`,
+`supers-planning-apply-approved-plan`, and `supers-planning-audit`.
 `fixtures/dex-planning-factory-consumer/supers-profile.json` is the checked-in
-consumer profile used to materialize the 17-stage lifecycle.
+consumer profile used to materialize the current lifecycle.
 
 ## Delivery factory
 

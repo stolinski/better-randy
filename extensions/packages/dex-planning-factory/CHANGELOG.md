@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026.08.27.1
+
+- Add an optional generic typed application-bundle validation phase.
+- Permit consumer policy to route approval-free capture and approval-bound application directly into one post-review mutation workflow.
+
 ## 2026.08.07.1
 
 - Add an optional terminal-observer workflow adapter.

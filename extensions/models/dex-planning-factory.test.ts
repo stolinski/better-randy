@@ -57,7 +57,7 @@ function transition(
 
 Deno.test("model exposes the locked Planning Factory compiler", () => {
   assert.equal(model.type, "@club_aqua_back_deck/dex-planning-factory");
-  assert.equal(model.version, "2026.08.07.1");
+  assert.equal(model.version, "2026.08.27.1");
   assert.deepEqual(Object.keys(model.resources), ["profile"]);
   assert.deepEqual(Object.keys(model.methods), ["compile"]);
 });
@@ -103,6 +103,75 @@ Deno.test("profile compiles the bounded human-gated lifecycle", async () => {
     assert.equal(stage(compiled, terminal).terminal, true);
   }
   assert.doesNotMatch(JSON.stringify(compiled), /supers|graffiti/i);
+});
+
+Deno.test("generic application-bundle hook previews, validates, and applies immediately after route-correct approval", async () => {
+  const base = await fixtureProfile();
+  const profile = DexPlanningFactoryProfileSchema.parse({
+    ...base,
+    adapters: {
+      ...base.adapters,
+      applicationBundle: {
+        validator: {
+          mode: "method",
+          modelIdOrName: "consumer-policy",
+          methodName: "validate-application-bundle",
+          readOnly: true,
+        },
+      },
+    },
+  });
+  const compiled = compileDexPlanningFactoryProfile(profile);
+
+  assert.ok(
+    compiled.factoryArguments.stages.some((candidate) =>
+      candidate.id === "application-bundle-validation"
+    ),
+  );
+  assert.equal(
+    compiled.factoryArguments.stages.some((candidate) =>
+      candidate.id === "approval"
+    ),
+    false,
+  );
+  assert.deepEqual(
+    (stage(compiled, "graph-proposal").artifacts as Array<{ name: string }>)
+      .map((artifact) => artifact.name),
+    ["dex-graph-proposal", "application-bundle"],
+  );
+  assert.equal(
+    transition(compiled, "graph-proposal", "validate-application-bundle").to,
+    "application-bundle-validation",
+  );
+  const bundleValidation = JSON.stringify(
+    stage(compiled, "application-bundle-validation"),
+  );
+  assert.match(
+    bundleValidation,
+    /consumer-policy.*validate-application-bundle.*application-bundle-validation/,
+  );
+  assert.match(bundleValidation, /dex_graph_proposal\.planHash/);
+  assert.match(bundleValidation, /documentation_effects\.fingerprint/);
+
+  const approvalFree = transition(
+    compiled,
+    "plan-review",
+    "apply-without-graduation-approval",
+  );
+  assert.equal(approvalFree.to, "plan-application");
+  assert.doesNotMatch(JSON.stringify(approvalFree), /human-approval/);
+  const approved = transition(compiled, "plan-review", "approve-and-apply");
+  assert.equal(approved.to, "plan-application");
+  assert.match(JSON.stringify(approved), /human-approval/);
+
+  const application = JSON.stringify(stage(compiled, "plan-application"));
+  assert.match(application, /artifact-application-bundle/);
+  assert.match(application, /artifact-application-bundle-validation/);
+  assert.match(application, /approved-plan/);
+  assert.match(application, /expectsDexMappings/);
+  const audit = JSON.stringify(stage(compiled, "planning-audit"));
+  assert.match(audit, /artifact-application-bundle/);
+  assert.match(audit, /artifact-application-bundle-validation/);
 });
 
 Deno.test("profile reserves the only configured write slot for post-approval application", async () => {
@@ -389,8 +458,9 @@ Deno.test("Supers adapter bindings preserve prior facts through CEL model data",
   assert.match(methodContracts, /artifact-planning-inventory/);
   assert.match(methodContracts, /artifact-tracker-inventory/);
   assert.match(methodContracts, /artifact-clarified-intent/);
-  assert.match(methodContracts, /normalize-plan-application/);
-  assert.match(methodContracts, /audit-planning-application/);
+  assert.match(methodContracts, /validate-promotion-bundle/);
+  assert.match(methodContracts, /normalize-promotion-application/);
+  assert.match(methodContracts, /audit-planning-promotion/);
 });
 
 Deno.test("Supers profile compiles the complete materialized workflow set", async () => {
@@ -404,6 +474,7 @@ Deno.test("Supers profile compiles the complete materialized workflow set", asyn
     "supers-planning-inventory",
     "supers-planning-tracker-inventory",
     "supers-planning-documentation-effects",
+    "supers-planning-validate-promotion-bundle",
     "supers-planning-apply-approved-plan",
     "supers-planning-audit",
     "supers-planning-terminal-observability",
@@ -441,14 +512,28 @@ Deno.test("Supers profile compiles the complete materialized workflow set", asyn
     workflow: { inputs: Record<string, unknown> };
   };
   assert.deepEqual(Object.keys(application.workflow.inputs).sort(), [
-    "plan",
+    "applicationBundle",
+    "applicationBundleValidation",
+    "approvalGateId",
+    "documentationEffects",
     "planningInventory",
     "reviewedPlan",
+    "trackerInventory",
     "workItem",
   ]);
   assert.doesNotMatch(JSON.stringify(application), /ownerToken|approvedPlan/);
+  assert.doesNotMatch(
+    JSON.stringify(
+      transition(
+        compiled,
+        "plan-review",
+        "apply-without-graduation-approval",
+      ),
+    ),
+    /human-approval/,
+  );
   assert.match(
-    JSON.stringify(transition(compiled, "plan-review", "approve")),
+    JSON.stringify(transition(compiled, "plan-review", "approve-and-apply")),
     /human-approval.*planning-approval/,
   );
 });
@@ -485,7 +570,7 @@ Deno.test("compilation is deterministic and persists one versioned profile", asy
   assert.equal(writes.length, 1);
   assert.equal(writes[0]?.specName, "profile");
   assert.equal(writes[0]?.name, "compiled-profile");
-  assert.equal(writes[0]?.data.compilerVersion, "2026.08.07.1");
+  assert.equal(writes[0]?.data.compilerVersion, "2026.08.27.1");
   assert.equal(logs.length, 2);
 });
 

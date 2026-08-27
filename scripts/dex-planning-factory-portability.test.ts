@@ -74,7 +74,7 @@ async function createPackagedExtensionSource(repository: string): Promise<string
 	assert.ok(manifest !== null && typeof manifest === 'object' && !Array.isArray(manifest));
 	const packageManifest = manifest as JsonObject;
 	assert.equal(packageManifest.name, '@club_aqua_back_deck/dex-planning-factory');
-	assert.equal(packageManifest.version, '2026.08.07.1');
+	assert.equal(packageManifest.version, '2026.08.27.1');
 	assert.deepEqual(packageManifest.models, ['dex-planning-factory.ts']);
 	assert.deepEqual(packageManifest.dependencies, [
 		'@swamp/software-factory',
@@ -154,7 +154,7 @@ Deno.test({
 			);
 			const compiled = parseObject(compiledResult.stdout);
 			const attributes = compiled.content as JsonObject;
-			assert.equal(attributes.compilerVersion, '2026.08.07.1');
+			assert.equal(attributes.compilerVersion, '2026.08.27.1');
 			assert.deepEqual(attributes.target, {
 				type: '@swamp/software-factory',
 				version: '2026.06.24.1'
