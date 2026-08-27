@@ -9,6 +9,7 @@ import {
 	type PresetValidationCommandOptions
 } from './preset-validation-command.ts';
 import {
+	changedPathsRequirePackCatalogFreshness,
 	selectAffectedPackCalibrationSlugs,
 	selectAffectedStaticPresetPackAxes,
 	type StaticPresetPackAxis
@@ -293,12 +294,13 @@ async function main(): Promise<void> {
 		return;
 	}
 
+	const calibrationPresetSlugs = CALIBRATION_TRIO_FRAME_SPECS.map(
+		({ presetSlug }) => presetSlug
+	);
 	const affectedCatalogPackSlugs =
-		options.mode === 'affected'
-			? selectAffectedPackCalibrationSlugs(
-					axes,
-					CALIBRATION_TRIO_FRAME_SPECS.map(({ presetSlug }) => presetSlug)
-				)
+		options.mode === 'affected' &&
+		changedPathsRequirePackCatalogFreshness(changedPaths, calibrationPresetSlugs)
+			? selectAffectedPackCalibrationSlugs(axes, calibrationPresetSlugs)
 			: [];
 	if (affectedCatalogPackSlugs.length > 0) {
 		const { runtimeIdentity, renderSourceFingerprints } =

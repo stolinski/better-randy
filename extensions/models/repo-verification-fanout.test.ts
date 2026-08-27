@@ -34,7 +34,7 @@ Deno.test('app fan-out starts check, unit, and browser lanes concurrently', asyn
 	const releases = new Map<string, () => void>();
 	const initialCommands = new Set([
 		'pnpm exec svelte-kit sync',
-		'pnpm run test',
+		'pnpm exec vitest related --run src/lib/platform/RootInspector.svelte',
 		'pnpm run test:browser'
 	]);
 	const runCommand: VerificationCommandRunner = async (command, args) => {
@@ -53,7 +53,7 @@ Deno.test('app fan-out starts check, unit, and browser lanes concurrently', asyn
 	await waitFor(() => releases.size === 3);
 	assert.deepEqual(started, [
 		'pnpm exec svelte-kit sync',
-		'pnpm run test',
+		'pnpm exec vitest related --run src/lib/platform/RootInspector.svelte',
 		'pnpm run test:browser'
 	]);
 	for (const release of releases.values()) release();
@@ -77,7 +77,10 @@ Deno.test('Layout Contract runs only after concurrent CPU-heavy lanes settle', a
 		async (command, args) => {
 			const invocation = `${command} ${args.join(' ')}`;
 			calls.push(invocation);
-			if (invocation === 'pnpm run test') {
+			if (
+				invocation ===
+				'pnpm exec vitest related --run src/lib/platform/composition-frame-renderer.ts'
+			) {
 				unitActive = true;
 				await new Promise((resolve) => setTimeout(resolve, 5));
 				unitActive = false;
@@ -89,7 +92,10 @@ Deno.test('Layout Contract runs only after concurrent CPU-heavy lanes settle', a
 	);
 	assert.equal(report.executionMode, 'layout-isolated');
 	assert.deepEqual(report.results.map((result) => result.id), ['unit', 'layout-contract']);
-	assert.equal(calls[0], 'pnpm run test');
+	assert.equal(
+		calls[0],
+		'pnpm exec vitest related --run src/lib/platform/composition-frame-renderer.ts'
+	);
 	assert.match(calls[1], /run-supers-layout-contract-matrix/);
 });
 
@@ -576,7 +582,7 @@ Deno.test(
 			'/repo',
 			argumentsFor(['check', 'unit'], ['src/a.ts']),
 			async (_command, args) => ({
-				code: args.at(-1) === 'test' ? 1 : 0,
+				code: args.includes('related') ? 1 : 0,
 				stdout: new TextEncoder().encode('stdout'),
 				stderr: new TextEncoder().encode('failure')
 			})

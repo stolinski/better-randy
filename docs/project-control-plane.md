@@ -70,9 +70,11 @@ evidence is an explicit unavailable result, never a pass.
 
 The `check` lane runs SvelteKit sync, keeps the full Svelte diagnostic output,
 and routes only errors whose file is one of the sealed changed paths. ESLint
-receives only those changed source paths. Unrelated central-check diagnostics
-remain visible as non-routing evidence instead of becoming a task failure.
-Universal lifecycle integrity remains a separate mandatory policy-sweep result.
+receives only those changed source paths. The `unit` lane uses Vitest's related
+source graph from those same sealed product paths rather than rerunning and
+routing every unrelated repository test. Unrelated central diagnostics remain
+visible as non-routing evidence instead of becoming a task failure. Universal
+lifecycle integrity remains a separate mandatory policy-sweep result.
 
 ## Static Preset verification
 
@@ -99,9 +101,10 @@ across Packs; a Pack selects all deliverables against that Pack; broad mapped
 engine/layout changes select all deliverables across all Packs. Proven
 application, documentation, infrastructure, and Swamp-control-plane changes do
 not enter this lane. Unmapped paths pause before selection instead of being
-silently treated as broad render work. Pack catalog
-freshness is checked only in affected mode and only when the selected scope
-intersects a Calibration Trio Preset. Its render-source fingerprint includes
+silently treated as broad render work. Pack catalog freshness is checked only in affected mode for direct Pack,
+Pack-catalog, or Calibration Trio Preset authoring. Broad engine impact can
+still validate every affected Preset axis, but it cannot stale an unrelated
+aesthetic approval. Its render-source fingerprint includes
 shared rendering code plus the affected Pack's own directory, never sibling Pack
 directories, so one Pack's dress cannot stale another Pack's approval. Full pixel-capture matrices remain explicit diagnostic/release operations and have no routine Delivery or scheduled Sentry authority.
 

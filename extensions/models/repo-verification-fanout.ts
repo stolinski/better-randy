@@ -442,8 +442,20 @@ async function verificationCommands(
 				}
 			];
 		}
-		case 'unit':
-			return [{ command: 'pnpm', args: ['run', 'test'] }];
+		case 'unit': {
+			const unitSourcePaths = args.changedPaths.filter(
+				(path) => path.startsWith('src/') && isCheckableSourcePath(path)
+			);
+			if (unitSourcePaths.length === 0) {
+				throw new TypeError('Unit verification requires at least one sealed product source path');
+			}
+			return [
+				{
+					command: 'pnpm',
+					args: ['exec', 'vitest', 'related', '--run', ...unitSourcePaths]
+				}
+			];
+		}
 		case 'preset-static':
 			return [
 				{

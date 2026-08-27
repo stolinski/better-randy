@@ -10,6 +10,7 @@ import {
 	parsePresetValidationCommand
 } from './preset-validation-command.ts';
 import {
+	changedPathsRequirePackCatalogFreshness,
 	selectAffectedPackCalibrationSlugs,
 	selectAffectedStaticPresetPackAxes
 } from './preset-validation-scope.ts';
@@ -259,6 +260,31 @@ test('Pack calibration freshness selects only affected Trio Pack axes', () => {
 			['lower-third', 'type-hero-vantage']
 		),
 		['crt-terminal', 'syntax']
+	);
+});
+
+test('Pack catalog freshness ignores broad engine impact but follows direct authored calibration changes', () => {
+	const calibrationSlugs = ['lower-third', 'type-hero-vantage'];
+	assert.equal(
+		changedPathsRequirePackCatalogFreshness(
+			['src/lib/platform/pipelines/identity.ts'],
+			calibrationSlugs
+		),
+		false
+	);
+	assert.equal(
+		changedPathsRequirePackCatalogFreshness(
+			['src/lib/packs/syntax/manifest.ts'],
+			calibrationSlugs
+		),
+		true
+	);
+	assert.equal(
+		changedPathsRequirePackCatalogFreshness(
+			['src/lib/presets/lower-third.json'],
+			calibrationSlugs
+		),
+		true
 	);
 });
 

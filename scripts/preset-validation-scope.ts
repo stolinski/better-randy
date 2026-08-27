@@ -65,6 +65,20 @@ function addPresetsMatchingReferencePrefix(
 	}
 }
 
+/** Pack catalog approval freshness is owned only by direct Pack/catalog/Calibration Trio authoring. */
+export function changedPathsRequirePackCatalogFreshness(
+	changedPaths: readonly string[],
+	calibrationPresetSlugs: readonly string[]
+): boolean {
+	const calibrationSlugs = new Set(calibrationPresetSlugs);
+	return normalizeChangedPaths(changedPaths).some((path) => {
+		if (path.startsWith('src/lib/packs/')) return true;
+		if (/^src\/lib\/platform\/packs\/catalog(?:-validation)?\.(?:ts|json)$/.test(path)) return true;
+		const presetMatch = /^src\/lib\/presets\/([^/]+)\.json$/.exec(path);
+		return presetMatch !== null && calibrationSlugs.has(presetMatch[1]);
+	});
+}
+
 /** Selects Pack approvals touched by affected Calibration Trio axes. */
 export function selectAffectedPackCalibrationSlugs(
 	axes: readonly StaticPresetPackAxis[],
