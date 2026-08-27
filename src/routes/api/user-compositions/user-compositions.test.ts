@@ -290,8 +290,9 @@ describe('user composition handlers', () => {
 		assert.equal(await userCompositionFileExists('empty-write'), false);
 	});
 
-	it('returns null from a slug GET when a legacy file contains malformed JSON', async () => {
+	it('returns null and stops indexing a malformed legacy file as a User composition', async () => {
 		fsMocks.readFile.mockResolvedValue('{not-json');
+		await addUserCompositionFileToIndex('incomplete-write');
 
 		const response = await slugHandlers.GET({
 			params: { slug: 'incomplete-write' }
@@ -299,6 +300,7 @@ describe('user composition handlers', () => {
 
 		assert.equal(response.status, 200);
 		assert.equal(await response.json(), null);
+		assert.equal(await userCompositionFileExists('incomplete-write'), false);
 	});
 
 	it('coalesces concurrent reads of the same User composition', async () => {
