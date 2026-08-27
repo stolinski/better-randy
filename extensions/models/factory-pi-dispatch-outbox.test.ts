@@ -79,6 +79,9 @@ async function fixture(): Promise<{
 		runId: string,
 		state: 'failed' | 'stopped' | 'rejected' | 'paused'
 	) => Promise<void>;
+	setRunChildId: (runId: string, childRunId: string) => Promise<void>;
+	setRunCwd: (runId: string, cwd: string) => Promise<void>;
+	setFactoryStartedAt: (startedAt: string) => void;
 	removeRun: (runId: string) => Promise<void>;
 	cleanup: () => Promise<void>;
 	request: Record<string, unknown>;
@@ -90,6 +93,7 @@ async function fixture(): Promise<{
 	await ensureDir(sessionRoot);
 	const resources = new Map<string, Record<string, unknown>>();
 	let dispatchCount = 0;
+	let factoryStartedAt = '2026-08-20T00:00:00.000Z';
 	const work = {
 		mode: 'dispatch',
 		skills: ['implementation'],
@@ -129,6 +133,7 @@ async function fixture(): Promise<{
 						encode({
 							workItem: 'task-1',
 							stageId: 'implementation',
+							startedAt: factoryStartedAt,
 							cycles: { implementation: 1 },
 							dispatches: {
 								implementation: { cycle: 1, count: dispatchCount }
@@ -163,6 +168,7 @@ async function fixture(): Promise<{
 			listVersions: (_type, _model, name) =>
 				Promise.resolve(name === 'journal-task-1' && dispatchCount === 1 ? [1] : [])
 		},
+		resolveGitCommonDirectory: (repoDir) => Promise.resolve(repoDir),
 		lookupCurrentProfileModel: (profileModelName) =>
 			Promise.resolve({
 				id: PROFILE_ID,
@@ -325,6 +331,22 @@ async function fixture(): Promise<{
 			const statusPath = join(asyncRoot, runId, 'status.json');
 			const status = JSON.parse(await Deno.readTextFile(statusPath)) as Record<string, unknown>;
 			await Deno.writeTextFile(statusPath, JSON.stringify({ ...status, state }));
+		},
+		setRunChildId: async (runId, childRunId) => {
+			const statusPath = join(asyncRoot, runId, 'status.json');
+			const status = JSON.parse(await Deno.readTextFile(statusPath)) as {
+				steps: Array<Record<string, unknown>>;
+			};
+			status.steps[0] = { ...status.steps[0], runId: childRunId };
+			await Deno.writeTextFile(statusPath, JSON.stringify(status));
+		},
+		setRunCwd: async (runId, cwd) => {
+			const statusPath = join(asyncRoot, runId, 'status.json');
+			const status = JSON.parse(await Deno.readTextFile(statusPath)) as Record<string, unknown>;
+			await Deno.writeTextFile(statusPath, JSON.stringify({ ...status, cwd }));
+		},
+		setFactoryStartedAt: (startedAt) => {
+			factoryStartedAt = startedAt;
 		},
 		removeRun: (runId) => Deno.remove(join(asyncRoot, runId), { recursive: true }),
 		cleanup: () => Deno.remove(root, { recursive: true })
@@ -1313,3 +1335,106 @@ Deno.test('27 full lost-ack scan fails closed when a new candidate session is un
 		);
 	})
 );
+
+Deno.test(
+	'claim normalizes the sole child PI_SUBAGENT_RUN_ID to the top-level workflow owner',
+	() =>
+		withFixture(async (f) => {
+			const { dispatchToken } = await f.reserve();
+			f.setDispatched();
+			const outerRunId = await f.addRun(dispatchToken, await digest(f.request.task));
+			const result = await claimPiExecution(
+				{ dispatchToken, piRunId: `${outerRunId}-child` },
+				f.context
+			);
+			assertEquals(result.ownerPiRunId, outerRunId);
+			assertEquals(f.resources.get(`pi-execution-claim-${dispatchToken}`)?.piRunId, outerRunId);
+		})
+);
+
+Deno.test('bind launch rejects a child run id while ambiguous child matches grant no claim', () =>
+	withFixture(async (f) => {
+		const { dispatchToken } = await f.reserve();
+		f.setDispatched();
+		const first = await f.addRun(dispatchToken, await digest(f.request.task));
+		await assertRejects(
+			() => bindPiLaunch({ dispatchToken, piRunId: `${first}-child` }, f.context),
+			Error,
+			'child-scoped'
+		);
+		const second = await f.addRun(
+			dispatchToken,
+			await digest(f.request.task),
+			'run-00000002',
+			false
+		);
+		await f.setRunChildId(first, 'duplicate-child');
+		await f.setRunChildId(second, 'duplicate-child');
+		await assertRejects(
+			() => claimPiExecution({ dispatchToken, piRunId: 'duplicate-child' }, f.context),
+			Error,
+			'one verified'
+		);
+	})
+);
+
+Deno.test(
+	'linked worktree repository identity passes while different or unknown Git identity fails closed',
+	() =>
+		withFixture(async (f) => {
+			const { dispatchToken } = await f.reserve();
+			f.setDispatched();
+			const runId = await f.addRun(dispatchToken, await digest(f.request.task));
+			await f.setRunCwd(runId, '/linked/worktree');
+			f.context.resolveGitCommonDirectory = (repoDir) =>
+				Promise.resolve(repoDir === '/different/repo' ? '/different/.git' : '/shared/.git');
+			await bindPiLaunch({ dispatchToken, piRunId: runId }, f.context);
+		})
+);
+
+Deno.test('post-reset reservation versions only an exhausted unbound parked outbox', () =>
+	withFixture(async (f) => {
+		const first = await f.reserve();
+		const name = `pi-dispatch-outbox-${first.dispatchToken}`;
+		f.resources.set(name, {
+			...f.resources.get(name)!,
+			state: 'submission-parked',
+			parkedReason: 'transport-retries-exhausted',
+			updatedAt: '2026-08-21T00:00:00.000Z'
+		});
+		f.setFactoryStartedAt('2026-08-22T00:00:00.000Z');
+		const reset = await f.reserve();
+		assertEquals(reset.state, 'reserved');
+		assertEquals(f.resources.get(name)?.factoryStartedAt, '2026-08-22T00:00:00.000Z');
+		assertEquals(f.resources.get(name)?.transportAttempts, 0);
+
+		f.resources.set(name, {
+			...f.resources.get(name)!,
+			factoryStartedAt: '2026-08-22T00:00:00.000Z',
+			state: 'submission-uncertain',
+			updatedAt: '2026-08-22T00:00:01.000Z'
+		});
+		f.setFactoryStartedAt('2026-08-23T00:00:00.000Z');
+		await assertRejects(() => f.reserve(), Error, 'not a safely recyclable');
+	})
+);
+
+Deno.test('different or unresolvable Git repository identity fails closed', async () => {
+	for (const resolution of ['different', 'unknown'] as const) {
+		await withFixture(async (f) => {
+			const { dispatchToken } = await f.reserve();
+			f.setDispatched();
+			const runId = await f.addRun(dispatchToken, await digest(f.request.task));
+			await f.setRunCwd(runId, '/other/worktree');
+			f.context.resolveGitCommonDirectory = (repoDir) =>
+				resolution === 'unknown'
+					? Promise.resolve(null)
+					: Promise.resolve(repoDir === '/other/worktree' ? '/other/.git' : '/shared/.git');
+			await assertRejects(
+				() => bindPiLaunch({ dispatchToken, piRunId: runId }, f.context),
+				Error,
+				'malformed'
+			);
+		});
+	}
+});

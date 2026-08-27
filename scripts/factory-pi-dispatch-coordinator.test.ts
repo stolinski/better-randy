@@ -203,9 +203,18 @@ describe('Factory Pi dispatch coordinator', () => {
 					/swamp model method run project-delivery-profile claim_pi_execution/
 				);
 				assert.doesNotMatch(request.task, /supers-delivery-profile/);
+				assert.match(
+					request.task,
+					/SWAMP_REPO_DIR="\$\(dirname "\$\(git rev-parse --path-format=absolute --git-common-dir\)"\)"/
+				);
+				assert.match(request.task, /ownerPiRunId as piRunId/);
 				const item = request.task.includes('task-1') ? 'task-1' : 'task-2';
 				events.push(`launch:${item}`);
-				return { piRunId: `run-${item}-0000`, asyncDir: `/tmp/${item}`, mode: 'workflow' as const };
+				return {
+					piRunId: `run-${item}-0000`,
+					asyncDir: `/tmp/run-${item}-0000`,
+					mode: 'workflow' as const
+				};
 			},
 			bindPiLaunch: async ({ piRunId }) => {
 				events.push(`bind:${piRunId.includes('task-1') ? 'task-1' : 'task-2'}`);
@@ -247,7 +256,11 @@ describe('Factory Pi dispatch coordinator', () => {
 				const item = request.task.includes('task-1') ? 'task-1' : 'task-2';
 				launched.push(item);
 				if (item === 'task-1') throw new Error('transport rejected');
-				return { piRunId: 'run-task-2-0000', asyncDir: '/tmp/task-2', mode: 'workflow' as const };
+				return {
+					piRunId: 'run-task-2-0000',
+					asyncDir: '/tmp/run-task-2-0000',
+					mode: 'workflow' as const
+				};
 			},
 			bindPiLaunch: async () => undefined,
 			reconcilePiDispatch: async ({ dispatchToken }) => {
@@ -279,7 +292,11 @@ describe('Factory Pi dispatch coordinator', () => {
 			launchPi: async (request) => {
 				const item = request.task.includes('task-1') ? 'task-1' : 'task-2';
 				launched.push(item);
-				return { piRunId: `run-${item}-0000`, asyncDir: `/tmp/${item}`, mode: 'workflow' as const };
+				return {
+					piRunId: `run-${item}-0000`,
+					asyncDir: `/tmp/run-${item}-0000`,
+					mode: 'workflow' as const
+				};
 			},
 			bindPiLaunch: async () => undefined,
 			reconcilePiDispatch: async ({ dispatchToken }) => {
@@ -312,7 +329,11 @@ describe('Factory Pi dispatch coordinator', () => {
 			recordPiSubmissionAttempt: async () => SUBMISSION_RECEIPT,
 			launchPi: async (request) => {
 				const item = request.task.includes('task-1') ? 'task-1' : 'task-2';
-				return { piRunId: `run-${item}-0000`, asyncDir: `/tmp/${item}`, mode: 'workflow' as const };
+				return {
+					piRunId: `run-${item}-0000`,
+					asyncDir: `/tmp/run-${item}-0000`,
+					mode: 'workflow' as const
+				};
 			},
 			bindPiLaunch: async ({ piRunId }) => {
 				bound.push(piRunId);
@@ -444,7 +465,11 @@ describe('Factory Pi dispatch coordinator', () => {
 				const item = request.task.includes('task-1') ? 'task-1' : 'task-2';
 				launched.push(item);
 				if (item === 'task-1') throw new Error('uncertain first root');
-				return { piRunId: 'run-task-2-0000', asyncDir: '/tmp/task-2', mode: 'workflow' as const };
+				return {
+					piRunId: 'run-task-2-0000',
+					asyncDir: '/tmp/run-task-2-0000',
+					mode: 'workflow' as const
+				};
 			},
 			bindPiLaunch: async () => undefined,
 			reconcilePiDispatch: async () => {
@@ -478,7 +503,7 @@ describe('Factory Pi dispatch coordinator', () => {
 				launched.push(request.task);
 				return {
 					piRunId: 'run-task-2-0000',
-					asyncDir: '/tmp/task-2',
+					asyncDir: '/tmp/run-task-2-0000',
 					mode: 'workflow' as const
 				};
 			},

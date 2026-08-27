@@ -62,8 +62,7 @@ export const AuthorizeFactoryFailureArgsSchema = z.object({
   dispatchRunId: z.string().regex(/^[0-9a-f]{64}$/),
 });
 
-const FactoryDispatchBoundaryClaimBaseSchema = z.strictObject({
-  schemaVersion: z.literal(1),
+const FactoryDispatchBoundaryClaimFields = {
   claimDigest: z.string().regex(/^[0-9a-f]{64}$/),
   executionDigest: z.string().regex(/^[0-9a-f]{64}$/),
   sourceFactoryId: z.string().uuid(),
@@ -73,29 +72,55 @@ const FactoryDispatchBoundaryClaimBaseSchema = z.strictObject({
   dispatchAttempt: z.number().int().positive(),
   dispatchRunId: z.string().regex(/^[0-9a-f]{64}$/),
   startedAt: z.string().datetime(),
+};
+const LegacyFactoryDispatchBoundaryClaimBaseSchema = z.strictObject({
+  schemaVersion: z.literal(1),
+  ...FactoryDispatchBoundaryClaimFields,
 });
-
-export const FactoryDispatchBoundaryClaimSchema = z.discriminatedUnion(
+const CurrentFactoryDispatchBoundaryClaimBaseSchema = z.strictObject({
+  schemaVersion: z.literal(2),
+  factoryStartedAt: z.string().datetime(),
+  ...FactoryDispatchBoundaryClaimFields,
+});
+const LegacyFactoryDispatchBoundaryClaimSchema = z.discriminatedUnion("state", [
+  LegacyFactoryDispatchBoundaryClaimBaseSchema.extend({
+    state: z.literal("started"),
+  }),
+  LegacyFactoryDispatchBoundaryClaimBaseSchema.extend({
+    state: z.literal("succeeded"),
+    completedAt: z.string().datetime(),
+    resultDigest: z.string().regex(/^[0-9a-f]{64}$/),
+  }),
+  LegacyFactoryDispatchBoundaryClaimBaseSchema.extend({
+    state: z.literal("failed"),
+    completedAt: z.string().datetime(),
+    resultDigest: z.string().regex(/^[0-9a-f]{64}$/),
+  }),
+]);
+const CurrentFactoryDispatchBoundaryClaimSchema = z.discriminatedUnion(
   "state",
   [
-    FactoryDispatchBoundaryClaimBaseSchema.extend({
+    CurrentFactoryDispatchBoundaryClaimBaseSchema.extend({
       state: z.literal("started"),
     }),
-    FactoryDispatchBoundaryClaimBaseSchema.extend({
+    CurrentFactoryDispatchBoundaryClaimBaseSchema.extend({
       state: z.literal("succeeded"),
       completedAt: z.string().datetime(),
       resultDigest: z.string().regex(/^[0-9a-f]{64}$/),
     }),
-    FactoryDispatchBoundaryClaimBaseSchema.extend({
+    CurrentFactoryDispatchBoundaryClaimBaseSchema.extend({
       state: z.literal("failed"),
       completedAt: z.string().datetime(),
       resultDigest: z.string().regex(/^[0-9a-f]{64}$/),
     }),
   ],
 );
+export const FactoryDispatchBoundaryClaimSchema = z.union([
+  CurrentFactoryDispatchBoundaryClaimSchema,
+  LegacyFactoryDispatchBoundaryClaimSchema,
+]);
 
-export const FactoryAuthorityReceiptSchema = z.strictObject({
-  schemaVersion: z.literal(5),
+const FactoryAuthorityReceiptFields = {
   receiptDigest: z.string().regex(/^[0-9a-f]{64}$/),
   sourceFactoryId: z.string().uuid(),
   workItem: z.string().min(1),
@@ -133,7 +158,20 @@ export const FactoryAuthorityReceiptSchema = z.strictObject({
       inputsDigest: z.string().regex(/^[0-9a-f]{64}$/),
     }),
   ]),
+};
+const LegacyFactoryAuthorityReceiptSchema = z.strictObject({
+  schemaVersion: z.literal(5),
+  ...FactoryAuthorityReceiptFields,
 });
+const CurrentFactoryAuthorityReceiptSchema = z.strictObject({
+  schemaVersion: z.literal(6),
+  factoryStartedAt: z.string().datetime(),
+  ...FactoryAuthorityReceiptFields,
+});
+export const FactoryAuthorityReceiptSchema = z.union([
+  CurrentFactoryAuthorityReceiptSchema,
+  LegacyFactoryAuthorityReceiptSchema,
+]);
 
 export type FactoryFailureCommandResult = {
   success: boolean;
@@ -289,7 +327,7 @@ function factoryWorkItemSlug(workItem: string): string {
 async function requireCurrentDispatch(
   identity: Identity,
   context: FactoryFailureAuthorityContext,
-): Promise<void> {
+): Promise<string> {
   const state = z
     .object({
       workItem: z.string(),
@@ -299,6 +337,7 @@ async function requireCurrentDispatch(
         z.string(),
         z.object({ cycle: z.number().int(), count: z.number().int() }),
       ),
+      startedAt: z.string().datetime(),
     })
     .parse(
       await readJsonResource(identity, context, `state-${identity.workItem}`),
@@ -356,6 +395,7 @@ async function requireCurrentDispatch(
       "Failure authority does not match the exact current Factory dispatch run.",
     );
   }
+  return state.startedAt;
 }
 
 async function requireCurrentWork(
@@ -461,15 +501,20 @@ function runOwnedCommand(
 
 async function writeOwnedFailure(
   content: Omit<
-    z.infer<typeof FactoryAuthorityReceiptSchema>,
-    "receiptDigest" | "authorityReceiptName" | "authorityDigest"
+    z.infer<typeof CurrentFactoryAuthorityReceiptSchema>,
+    | "receiptDigest"
+    | "authorityReceiptName"
+    | "authorityDigest"
+    | "factoryStartedAt"
   >,
   context: FactoryFailureAuthorityContext,
 ): Promise<{ dataHandles: Array<{ name: string }> }> {
-  const receiptDigest = await sha256(canonicalJson(content));
+  const factoryStartedAt = await requireCurrentDispatch(content, context);
+  const currentContent = { ...content, factoryStartedAt };
+  const receiptDigest = await sha256(canonicalJson(currentContent));
   const authorityReceiptName = `factory-execution-failure-${receiptDigest}`;
   const receipt = FactoryAuthorityReceiptSchema.parse({
-    ...content,
+    ...currentContent,
     receiptDigest,
     authorityReceiptName,
     authorityDigest: receiptDigest,
@@ -533,7 +578,7 @@ export async function executeFactoryFailureBoundary(
   }
   return writeOwnedFailure(
     {
-      schemaVersion: 5,
+      schemaVersion: 6,
       sourceFactoryId: args.sourceFactoryId,
       workItem: args.workItem,
       stage: args.stage,
@@ -649,6 +694,7 @@ async function claimFactoryDispatchBoundary(
   started: z.infer<typeof FactoryDispatchBoundaryClaimSchema>;
 }> {
   const exactIdentity = dispatchBoundaryIdentity(identity);
+  const factoryStartedAt = await requireCurrentDispatch(identity, context);
   const claimDigest = await sha256(canonicalJson(exactIdentity));
   const name = `dispatch-boundary-${claimDigest}`;
   const rawExisting = await context.readResource(name);
@@ -659,13 +705,24 @@ async function claimFactoryDispatchBoundary(
         "Factory dispatch boundary has an invalid durable claim; use explicit human operational escalation.",
       );
     }
-    const disposition = existing.data.state === "started"
-      ? "is already started and stale; use explicit human operational escalation"
-      : `already ${existing.data.state}`;
-    throw new Error(`Factory dispatch boundary ${disposition}.`);
+    const existingEpoch = existing.data.schemaVersion === 2
+      ? existing.data.factoryStartedAt
+      : existing.data.state === "started"
+      ? existing.data.startedAt
+      : existing.data.completedAt;
+    if (
+      existing.data.state === "started" ||
+      Date.parse(existingEpoch) >= Date.parse(factoryStartedAt)
+    ) {
+      const disposition = existing.data.state === "started"
+        ? "is already started and stale; use explicit human operational escalation"
+        : `already ${existing.data.state}`;
+      throw new Error(`Factory dispatch boundary ${disposition}.`);
+    }
   }
   const started = FactoryDispatchBoundaryClaimSchema.parse({
-    schemaVersion: 1,
+    schemaVersion: 2,
+    factoryStartedAt,
     claimDigest,
     executionDigest: await sha256(
       canonicalJson({ identity: exactIdentity, work }),
@@ -815,7 +872,7 @@ export function executeFactoryWorkBoundary(
         const { stdout, stderr } = outputText(output);
         return writeOwnedFailure(
           {
-            schemaVersion: 5,
+            schemaVersion: 6,
             sourceFactoryId: args.sourceFactoryId,
             workItem: args.workItem,
             stage: args.stage,
@@ -882,7 +939,7 @@ export function executeFactoryWorkBoundary(
       const { stderr } = outputText(output);
       return writeOwnedFailure(
         {
-          schemaVersion: 5,
+          schemaVersion: 6,
           sourceFactoryId: args.sourceFactoryId,
           workItem: args.workItem,
           stage: args.stage,
@@ -928,7 +985,7 @@ export async function authorizeFactoryFailure(
   context: FactoryFailureAuthorityContext,
 ): Promise<{ dataHandles: Array<{ name: string }> }> {
   const args = AuthorizeFactoryFailureArgsSchema.parse(rawArgs);
-  await requireCurrentDispatch(args, context);
+  const factoryStartedAt = await requireCurrentDispatch(args, context);
   const receipt = FactoryAuthorityReceiptSchema.parse(
     await context.readResource(args.receiptName),
   );
@@ -946,7 +1003,9 @@ export async function authorizeFactoryFailure(
     receipt.stage !== args.stage ||
     receipt.stageCycle !== args.stageCycle ||
     receipt.dispatchAttempt !== args.dispatchAttempt ||
-    receipt.dispatchRunId !== args.dispatchRunId
+    receipt.dispatchRunId !== args.dispatchRunId ||
+    receipt.schemaVersion !== 6 ||
+    receipt.factoryStartedAt !== factoryStartedAt
   ) {
     throw new Error(
       "Stored execution failure receipt is stale or substituted.",

@@ -96,8 +96,7 @@ const OutboxStateSchema = z.enum([
   "submission-parked",
   "execution-failed",
 ]);
-export const PiDispatchOutboxSchema = IdentitySchema.extend({
-  schemaVersion: z.literal(1),
+const PiDispatchOutboxFields = {
   profileModelName: ProfileModelNameSchema,
   failureAuthorizerWorkflow: FailureAuthorizerWorkflowSchema,
   dispatchToken: Sha256Schema,
@@ -131,7 +130,20 @@ export const PiDispatchOutboxSchema = IdentitySchema.extend({
   handoffDigest: Sha256Schema.optional(),
   parkedReason: z.string().optional(),
   piRequest: PiAsyncRequestSchema,
+};
+const LegacyPiDispatchOutboxSchema = IdentitySchema.extend({
+  schemaVersion: z.literal(1),
+  ...PiDispatchOutboxFields,
 });
+const CurrentPiDispatchOutboxSchema = IdentitySchema.extend({
+  schemaVersion: z.literal(2),
+  factoryStartedAt: z.string().datetime(),
+  ...PiDispatchOutboxFields,
+});
+export const PiDispatchOutboxSchema = z.union([
+  CurrentPiDispatchOutboxSchema,
+  LegacyPiDispatchOutboxSchema,
+]);
 const LaunchResolvedExtensionsSchema = z.strictObject({
   version: z.literal(1),
   source: z.literal("launch-resolved"),
@@ -227,6 +239,7 @@ export const PiHandoffAcceptanceSchema = z.strictObject({
 });
 
 export type PiDispatchOutbox = z.infer<typeof PiDispatchOutboxSchema>;
+type CurrentPiDispatchOutbox = z.infer<typeof CurrentPiDispatchOutboxSchema>;
 export type PiLaunchReceipt = z.infer<typeof PiLaunchReceiptSchema>;
 type Identity = z.infer<typeof IdentitySchema>;
 
@@ -265,6 +278,8 @@ export type PiDispatchOutboxContext = {
   queryDexTasks?: () => Promise<unknown>;
   /** Test seam for the fixed production `swamp model get <profileModelName> --json` lookup. */
   lookupCurrentProfileModel?: (profileModelName: string) => Promise<unknown>;
+  /** Test seam for resolving linked checkouts to one Git repository identity. */
+  resolveGitCommonDirectory?: (repoDir: string) => Promise<string | null>;
 };
 
 function canonicalize(value: unknown): unknown {
@@ -355,7 +370,9 @@ function requirePiDispatchSourceState(
   if (!allowedStates.includes(outbox.state)) {
     throw new Error(
       `${operation} is not allowed from Pi dispatch state ${outbox.state}; expected ${
-        allowedStates.join(" or ")
+        allowedStates.join(
+          " or ",
+        )
       }.`,
     );
   }
@@ -389,6 +406,9 @@ async function requireDurableSubmissionAttempt(
         submissionAttemptId: receipt.submissionAttemptId,
         ordinal,
         exactFrozenRequestDigest: outbox.exactFrozenRequestDigest,
+        ...(outbox.schemaVersion === 2
+          ? { factoryStartedAt: outbox.factoryStartedAt }
+          : {}),
       }),
     );
     if (receipt.receiptDigest !== expectedDigest) {
@@ -701,6 +721,26 @@ async function requireRequestMatchesFactoryWork(
   await requireCurrentDexLane(args, context);
 }
 
+async function currentFactoryStartedAt(
+  identity: Identity,
+  context: PiDispatchOutboxContext,
+): Promise<string> {
+  const state = z
+    .object({
+      workItem: z.literal(identity.workItem),
+      stageId: z.literal(identity.stage),
+      cycles: z.record(z.string(), z.number().int()),
+      startedAt: z.string().datetime(),
+    })
+    .parse(await factoryJson(context, `state-${identity.workItem}`));
+  if (state.cycles[identity.stage] !== identity.stageCycle) {
+    throw new Error(
+      "Pi dispatch epoch is stale for the current Factory stage.",
+    );
+  }
+  return state.startedAt;
+}
+
 async function inspectDispatch(
   identity: Identity,
   context: PiDispatchOutboxContext,
@@ -715,6 +755,7 @@ async function inspectDispatch(
         z.string(),
         z.object({ cycle: z.number().int(), count: z.number().int() }),
       ),
+      startedAt: z.string().datetime(),
     })
     .parse(await factoryJson(context, `state-${identity.workItem}`));
   const dispatch = state.dispatches[identity.stage];
@@ -769,7 +810,7 @@ async function inspectDispatch(
 async function readOutbox(
   token: string,
   context: PiDispatchOutboxContext,
-): Promise<PiDispatchOutbox> {
+): Promise<CurrentPiDispatchOutbox> {
   const value = await context.readResource(outboxName(token));
   if (value === null) {
     throw new Error("Pi dispatch outbox entry is unavailable.");
@@ -777,6 +818,12 @@ async function readOutbox(
   const outbox = PiDispatchOutboxSchema.parse(value);
   if (outbox.dispatchToken !== token) {
     throw new Error("Pi dispatch token/resource mismatch.");
+  }
+  const factoryStartedAt = await currentFactoryStartedAt(outbox, context);
+  if (
+    outbox.schemaVersion !== 2 || outbox.factoryStartedAt !== factoryStartedAt
+  ) {
+    throw new Error("Pi dispatch outbox belongs to a stale Factory epoch.");
   }
   return outbox;
 }
@@ -826,8 +873,8 @@ export function createFactoryPiTransportTask(
     `SUPERS_FACTORY_SUBMISSION_ATTEMPT_ORDINAL=${submissionAttempt.ordinal}`,
     `SUPERS_FACTORY_SUBMISSION_ATTEMPT_RECEIPT=${submissionAttempt.receiptDigest}`,
     "Before reading or editing repository files, claim this execution with:",
-    `swamp model method run ${currentProfileModelName} claim_pi_execution --input '{"dispatchToken":"${dispatchToken}","piRunId":"'"$PI_SUBAGENT_RUN_ID"'"}' --json`,
-    "If the claim is not granted, stop without editing. Preserve the returned claim nonce in the structured handoff.",
+    `SWAMP_REPO_DIR="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")" swamp model method run ${currentProfileModelName} claim_pi_execution --input '{"dispatchToken":"${dispatchToken}","piRunId":"'"$PI_SUBAGENT_RUN_ID"'"}' --json`,
+    "If the claim is not granted, stop without editing. Preserve the returned claim nonce and use returned ownerPiRunId as piRunId in the structured handoff.",
     piTask,
   ].join("\n\n");
 }
@@ -966,6 +1013,7 @@ type PiRuntimeLifecycleObservation = {
 type PiRuntimeInspection = {
   available: boolean;
   receipts: PiLaunchReceipt[];
+  requestedMatchKinds: Array<"outer" | "child">;
   lifecycleObservations: PiRuntimeLifecycleObservation[];
   relevantArtifactInvalid: boolean;
 };
@@ -987,6 +1035,47 @@ async function readableFileContains(
   } catch {
     return null;
   }
+}
+
+async function resolveGitCommonDirectory(
+  repoDir: string,
+  context: PiDispatchOutboxContext,
+): Promise<string | null> {
+  if (context.resolveGitCommonDirectory) {
+    return context.resolveGitCommonDirectory(repoDir);
+  }
+  try {
+    const output = await new Deno.Command("git", {
+      args: [
+        "-C",
+        repoDir,
+        "rev-parse",
+        "--path-format=absolute",
+        "--git-common-dir",
+      ],
+      stdout: "piped",
+      stderr: "null",
+    }).output();
+    if (!output.success) return null;
+    const path = new TextDecoder().decode(output.stdout).trim();
+    return path.length > 0 ? await realpath(path) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function repositoryRelation(
+  left: string,
+  right: string,
+  context: PiDispatchOutboxContext,
+): Promise<"same" | "different" | "unknown"> {
+  if (resolve(left) === resolve(right)) return "same";
+  const [leftCommon, rightCommon] = await Promise.all([
+    resolveGitCommonDirectory(left, context),
+    resolveGitCommonDirectory(right, context),
+  ]);
+  if (leftCommon === null || rightCommon === null) return "unknown";
+  return leftCommon === rightCommon ? "same" : "different";
 }
 
 async function unresolvedCandidateCouldBeSubmission(
@@ -1054,7 +1143,12 @@ async function malformedCandidateCouldBeSubmission(input: {
       );
     if (
       mission.success &&
-      resolve(mission.data.projectRoot) !== resolve(input.context.repoDir)
+      (await repositoryRelation(
+          mission.data.projectRoot,
+          input.context.repoDir,
+          input.context,
+        )) ===
+        "different"
     ) {
       return false;
     }
@@ -1065,7 +1159,11 @@ async function malformedCandidateCouldBeSubmission(input: {
     const partial = input.rawStatus as { cwd?: unknown; steps?: unknown };
     if (
       typeof partial.cwd === "string" &&
-      resolve(partial.cwd) !== resolve(input.context.repoDir)
+      (await repositoryRelation(
+          partial.cwd,
+          input.context.repoDir,
+          input.context,
+        )) === "different"
     ) {
       return false;
     }
@@ -1118,6 +1216,7 @@ export async function inspectPiRuntimeReceipts(
 ): Promise<PiRuntimeInspection> {
   const submissionAttempt = await requireDurableSubmissionAttempt(outbox);
   const receipts: PiLaunchReceipt[] = [];
+  const requestedMatchKinds: Array<"outer" | "child"> = [];
   const lifecycleObservations: PiRuntimeLifecycleObservation[] = [];
   let relevantArtifactInvalid = false;
   const configuredSessionRoots = context.piSessionRoots ?? [
@@ -1161,11 +1260,8 @@ export async function inspectPiRuntimeReceipts(
       continue;
     }
     for (const entry of entries) {
-      if (
-        !entry.isDirectory() ||
-        (requestedPiRunId && entry.name !== requestedPiRunId)
-      ) continue;
-      const isRequested = requestedPiRunId === entry.name;
+      if (!entry.isDirectory()) continue;
+      let isRequested = requestedPiRunId === entry.name;
       let runRoot: string;
       try {
         runRoot = await realpath(join(root, entry.name));
@@ -1219,11 +1315,27 @@ export async function inspectPiRuntimeReceipts(
         }
         continue;
       }
+      if (
+        requestedPiRunId &&
+        rawStatus !== null &&
+        typeof rawStatus === "object" &&
+        Array.isArray((rawStatus as { steps?: unknown }).steps)
+      ) {
+        isRequested = isRequested ||
+          (rawStatus as { steps: Array<{ runId?: unknown }> }).steps.some(
+            (step) => step?.runId === requestedPiRunId,
+          );
+      }
       const parsed = PiWorkflowStatusSchema.safeParse(rawStatus);
       if (
         !parsed.success ||
         parsed.data.runId !== entry.name ||
-        resolve(parsed.data.cwd) !== resolve(context.repoDir)
+        (parsed.success &&
+          (await repositoryRelation(
+              parsed.data.cwd,
+              context.repoDir,
+              context,
+            )) !== "same")
       ) {
         if (
           isRequested ||
@@ -1242,6 +1354,14 @@ export async function inspectPiRuntimeReceipts(
         continue;
       }
       const step = parsed.data.steps[0]!;
+      const requestedMatchKind = requestedPiRunId === undefined
+        ? undefined
+        : parsed.data.runId === requestedPiRunId
+        ? ("outer" as const)
+        : step.runId === requestedPiRunId
+        ? ("child" as const)
+        : undefined;
+      if (requestedPiRunId && requestedMatchKind === undefined) continue;
       if (!step.sessionFile) {
         if (
           isRequested ||
@@ -1385,7 +1505,12 @@ export async function inspectPiRuntimeReceipts(
               }),
             ) ||
             !handoff.success ||
-            resolve(handoff.data.cwd) !== resolve(context.repoDir)
+            (handoff.success &&
+              (await repositoryRelation(
+                  handoff.data.cwd,
+                  context.repoDir,
+                  context,
+                )) !== "same")
           ) {
             relevantArtifactInvalid = true;
             continue;
@@ -1432,11 +1557,13 @@ export async function inspectPiRuntimeReceipts(
           receiptDigest: await sha256(canonicalJson(base)),
         }),
       );
+      if (requestedMatchKind) requestedMatchKinds.push(requestedMatchKind);
     }
   }
   return {
     available: readableRoot,
     receipts,
+    requestedMatchKinds,
     lifecycleObservations,
     relevantArtifactInvalid,
   };
@@ -1544,6 +1671,7 @@ export async function reservePiDispatch(
     );
   }
   await requireRequestMatchesFactoryWork(args, context);
+  const factoryStartedAt = await currentFactoryStartedAt(args, context);
   if ((await inspectDispatch(args, context)) !== "before") {
     throw new Error("Reservation must precede Factory dispatch accounting.");
   }
@@ -1562,17 +1690,42 @@ export async function reservePiDispatch(
         "Existing Pi dispatch reservation has different immutable inputs.",
       );
     }
-    return {
-      dataHandles: [{ name: outboxName(dispatchToken) }],
-      dispatchToken,
-      profileModelName: outbox.profileModelName,
-      state: outbox.state,
-    };
+    if (
+      outbox.schemaVersion === 2 && outbox.factoryStartedAt === factoryStartedAt
+    ) {
+      return {
+        dataHandles: [{ name: outboxName(dispatchToken) }],
+        dispatchToken,
+        profileModelName: outbox.profileModelName,
+        state: outbox.state,
+      };
+    }
+    const priorEpoch = outbox.schemaVersion === 2
+      ? outbox.factoryStartedAt
+      : outbox.updatedAt;
+    const hasOwnershipEvidence = outbox.piRunId !== undefined ||
+      outbox.claimNonceDigest !== undefined ||
+      (await context.readResource(launchName(dispatchToken))) !== null ||
+      (await context.readResource(claimName(dispatchToken))) !== null ||
+      (await context.readResource(piHandoffAcceptanceName(dispatchToken))) !==
+        null ||
+      outbox.piExecutionFailureReceiptDigest !== undefined;
+    if (
+      Date.parse(priorEpoch) >= Date.parse(factoryStartedAt) ||
+      outbox.state !== "submission-parked" ||
+      outbox.parkedReason !== "transport-retries-exhausted" ||
+      hasOwnershipEvidence
+    ) {
+      throw new Error(
+        "Existing Pi dispatch reservation is not a safely recyclable pre-reset outbox.",
+      );
+    }
   }
   const at = currentTime(context);
-  const outbox = PiDispatchOutboxSchema.parse({
+  const outbox = CurrentPiDispatchOutboxSchema.parse({
     ...args,
-    schemaVersion: 1,
+    schemaVersion: 2,
+    factoryStartedAt,
     profileModelName,
     failureAuthorizerWorkflow,
     dispatchToken,
@@ -1625,7 +1778,7 @@ export async function recordPiSubmissionAttempt(
     };
   }
   if (outbox.state === "reserved") {
-    outbox = PiDispatchOutboxSchema.parse({
+    outbox = CurrentPiDispatchOutboxSchema.parse({
       ...outbox,
       state: "dispatch-recorded",
       updatedAt: currentTime(context),
@@ -1660,9 +1813,10 @@ export async function recordPiSubmissionAttempt(
       submissionAttemptId,
       ordinal,
       exactFrozenRequestDigest: outbox.exactFrozenRequestDigest,
+      factoryStartedAt: outbox.factoryStartedAt,
     }),
   );
-  const updated = PiDispatchOutboxSchema.parse({
+  const updated = CurrentPiDispatchOutboxSchema.parse({
     ...outbox,
     state: "submit-pending",
     transportAttempts: ordinal,
@@ -1690,7 +1844,7 @@ export async function recordPiSubmissionAttempt(
 }
 
 async function recordClaimedPiExecutionFailure(
-  outbox: PiDispatchOutbox,
+  outbox: CurrentPiDispatchOutbox,
   observation: PiRuntimeLifecycleObservation,
   context: PiDispatchOutboxContext,
 ): Promise<{
@@ -1744,7 +1898,8 @@ async function recordClaimedPiExecutionFailure(
     failureReceipt,
   );
   const authorityContent = {
-    schemaVersion: 5 as const,
+    schemaVersion: 6 as const,
+    factoryStartedAt: outbox.factoryStartedAt,
     sourceFactoryId: outbox.sourceFactoryId,
     workItem: outbox.workItem,
     stage: outbox.stage,
@@ -1780,7 +1935,7 @@ async function recordClaimedPiExecutionFailure(
     authorityReceiptName,
     authorityReceipt,
   );
-  const updated = PiDispatchOutboxSchema.parse({
+  const updated = CurrentPiDispatchOutboxSchema.parse({
     ...outbox,
     state: "execution-failed",
     piExecutionFailureReceiptDigest: failureReceipt.receiptDigest,
@@ -1853,7 +2008,7 @@ export async function reconcilePiDispatch(
     };
   }
   if (claim && ownerObservation?.state === "paused") {
-    outbox = PiDispatchOutboxSchema.parse({
+    outbox = CurrentPiDispatchOutboxSchema.parse({
       ...outbox,
       state: "submission-uncertain",
       parkedReason: "claimed-execution-paused",
@@ -1878,7 +2033,7 @@ export async function reconcilePiDispatch(
         outbox.transportAttempts >= outbox.maximumTransportAttempts
           ? "submission-parked"
           : "submission-retryable";
-      outbox = PiDispatchOutboxSchema.parse({
+      outbox = CurrentPiDispatchOutboxSchema.parse({
         ...outbox,
         state: nextState,
         piRunId: undefined,
@@ -1895,7 +2050,7 @@ export async function reconcilePiDispatch(
       return { dataHandles: [handle], state: outbox.state };
     }
     if (boundObservation?.state === "paused") {
-      outbox = PiDispatchOutboxSchema.parse({
+      outbox = CurrentPiDispatchOutboxSchema.parse({
         ...outbox,
         state: "submission-uncertain",
         parkedReason: "runtime-paused",
@@ -1918,7 +2073,7 @@ export async function reconcilePiDispatch(
   }
   if (!claim) {
     if (inspected.relevantArtifactInvalid) {
-      outbox = PiDispatchOutboxSchema.parse({
+      outbox = CurrentPiDispatchOutboxSchema.parse({
         ...outbox,
         state: "submission-uncertain",
         parkedReason: "invalid-runtime-artifact",
@@ -1938,7 +2093,7 @@ export async function reconcilePiDispatch(
       exactTerminal.length > 1 ||
       (exactTerminal.length === 1 && inspected.lifecycleObservations.length > 1)
     ) {
-      outbox = PiDispatchOutboxSchema.parse({
+      outbox = CurrentPiDispatchOutboxSchema.parse({
         ...outbox,
         state: "submission-uncertain",
         parkedReason: exactPaused.length > 0
@@ -1954,7 +2109,7 @@ export async function reconcilePiDispatch(
         outbox.transportAttempts >= outbox.maximumTransportAttempts
           ? "submission-parked"
           : "submission-retryable";
-      outbox = PiDispatchOutboxSchema.parse({
+      outbox = CurrentPiDispatchOutboxSchema.parse({
         ...outbox,
         state: nextState,
         piRunId: undefined,
@@ -1995,7 +2150,7 @@ export async function reconcilePiDispatch(
         state: outbox.state,
       };
     }
-    outbox = PiDispatchOutboxSchema.parse({
+    outbox = CurrentPiDispatchOutboxSchema.parse({
       ...outbox,
       state: "submission-uncertain",
       parkedReason: "runtime-unavailable",
@@ -2018,7 +2173,7 @@ export async function reconcilePiDispatch(
         state: outbox.state,
       };
     }
-    outbox = PiDispatchOutboxSchema.parse({
+    outbox = CurrentPiDispatchOutboxSchema.parse({
       ...outbox,
       state: "submission-uncertain",
       parkedReason: "invalid-runtime-artifact",
@@ -2045,7 +2200,7 @@ export async function reconcilePiDispatch(
         state: outbox.state,
       };
     }
-    outbox = PiDispatchOutboxSchema.parse({
+    outbox = CurrentPiDispatchOutboxSchema.parse({
       ...outbox,
       state: nextState,
       parkedReason: nextReason,
@@ -2062,7 +2217,7 @@ export async function reconcilePiDispatch(
       );
       if (receipt) return bindVerifiedLaunch(outbox, receipt, context);
     }
-    outbox = PiDispatchOutboxSchema.parse({
+    outbox = CurrentPiDispatchOutboxSchema.parse({
       ...outbox,
       state: "submission-uncertain",
       parkedReason: "ambiguous-runtime",
@@ -2101,7 +2256,7 @@ async function bindVerifiedLaunch(
       : outbox.claimNonceDigest
       ? "execution-claimed"
       : "submitted";
-  const updated = PiDispatchOutboxSchema.parse({
+  const updated = CurrentPiDispatchOutboxSchema.parse({
     ...outbox,
     state: preservedState,
     piRunId: receipt.piRunId,
@@ -2148,7 +2303,7 @@ export async function bindPiLaunch(
     args.piRunId,
   );
   if (!inspected.available || inspected.relevantArtifactInvalid) {
-    const updated = PiDispatchOutboxSchema.parse({
+    const updated = CurrentPiDispatchOutboxSchema.parse({
       ...outbox,
       state: "submission-uncertain",
       parkedReason: !inspected.available
@@ -2163,8 +2318,13 @@ export async function bindPiLaunch(
         : "Pi runtime lifecycle artifact is malformed or schema-invalid.",
     );
   }
-  if (inspected.receipts.length !== 1) {
-    throw new Error("Pi launch receipt is missing or ambiguous.");
+  if (
+    inspected.receipts.length !== 1 ||
+    inspected.requestedMatchKinds[0] !== "outer"
+  ) {
+    throw new Error(
+      "Pi launch receipt is missing, child-scoped, or ambiguous.",
+    );
   }
   return bindVerifiedLaunch(outbox, inspected.receipts[0]!, context);
 }
@@ -2194,17 +2354,17 @@ export async function claimPiExecution(
     context,
     args.piRunId,
   );
-  if (!inspected.available || inspected.receipts.length !== 1) {
+  if (
+    !inspected.available ||
+    inspected.receipts.length !== 1 ||
+    inspected.requestedMatchKinds.length !== 1
+  ) {
     throw new Error("Execution claim lacks one verified Pi runtime receipt.");
   }
   const currentReceipt = inspected.receipts[0]!;
+  const ownerPiRunId = currentReceipt.piRunId;
   await requireReceiptMatchesSubmissionAttempt(outbox, currentReceipt);
-  if (currentReceipt.piRunId !== args.piRunId) {
-    throw new Error(
-      "Execution claim receipt does not match the requested Pi run.",
-    );
-  }
-  if (outbox.state === "submitted" && outbox.piRunId !== args.piRunId) {
+  if (outbox.state === "submitted" && outbox.piRunId !== ownerPiRunId) {
     throw new Error("Execution claim does not match the submitted Pi run.");
   }
   if (outbox.state === "submit-pending") {
@@ -2217,12 +2377,12 @@ export async function claimPiExecution(
     );
   }
   const claimNonce = await sha256(
-    `${args.dispatchToken}:${args.piRunId}:claim-v1`,
+    `${args.dispatchToken}:${ownerPiRunId}:claim-v1`,
   );
   const claim = PiExecutionClaimSchema.parse({
     schemaVersion: 1,
     dispatchToken: args.dispatchToken,
-    piRunId: args.piRunId,
+    piRunId: ownerPiRunId,
     claimNonce,
     claimNonceDigest: await sha256(claimNonce),
     claimedAt: currentTime(context),
@@ -2232,7 +2392,7 @@ export async function claimPiExecution(
     claimName(args.dispatchToken),
     claim,
   );
-  const updated = PiDispatchOutboxSchema.parse({
+  const updated = CurrentPiDispatchOutboxSchema.parse({
     ...outbox,
     state: "execution-claimed",
     claimNonceDigest: claim.claimNonceDigest,
@@ -2243,7 +2403,7 @@ export async function claimPiExecution(
     dataHandles: [claimHandle, outboxHandle],
     granted: true,
     claimNonce,
-    ownerPiRunId: args.piRunId,
+    ownerPiRunId,
   };
 }
 
@@ -2282,7 +2442,8 @@ export async function bindPiHandoff(
     context,
     args.piRunId,
   );
-  const finalReceipt = inspected.receipts.length === 1
+  const finalReceipt = inspected.receipts.length === 1 &&
+      inspected.requestedMatchKinds[0] === "outer"
     ? inspected.receipts[0]
     : undefined;
   if (
@@ -2331,7 +2492,7 @@ export async function bindPiHandoff(
     resourceName,
     acceptance,
   );
-  const updated = PiDispatchOutboxSchema.parse({
+  const updated = CurrentPiDispatchOutboxSchema.parse({
     ...outbox,
     state: "handoff-ready",
     handoffDigest: args.handoffDigest,
@@ -2381,7 +2542,7 @@ export async function authorizePiSubmissionRetry(
       "Pi submission retry requires a fresh Factory cycle after budget exhaustion.",
     );
   }
-  const updated = PiDispatchOutboxSchema.parse({
+  const updated = CurrentPiDispatchOutboxSchema.parse({
     ...outbox,
     state: "submission-retryable",
     parkedReason: undefined,
@@ -2417,7 +2578,7 @@ export async function parkPiSubmission(
   ) {
     throw new Error("Transport retry budget is not exhausted.");
   }
-  const updated = PiDispatchOutboxSchema.parse({
+  const updated = CurrentPiDispatchOutboxSchema.parse({
     ...outbox,
     state: "submission-parked",
     parkedReason: args.reason,

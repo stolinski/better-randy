@@ -41,17 +41,20 @@ function contextFor(
 		readWorkflowRun?: FactoryFailureAuthorityContext['readWorkflowRun'];
 		now?: FactoryFailureAuthorityContext['now'];
 		journalVersions?: Record<number, Record<string, unknown>>;
+		factoryStartedAt?: string;
+		resources?: Map<string, Record<string, unknown>>;
 	} = {}
 ): {
 	context: FactoryFailureAuthorityContext;
 	resources: Map<string, Record<string, unknown>>;
 } {
 	const dispatchAttempt = input.dispatchAttempt ?? 2;
-	const resources = new Map<string, Record<string, unknown>>();
+	const resources = input.resources ?? new Map<string, Record<string, unknown>>();
 	const state = encoder.encode(
 		JSON.stringify({
 			workItem: 'task-1',
 			stageId: 'preflight',
+			startedAt: input.factoryStartedAt ?? '2026-08-20T00:00:00.000Z',
 			cycles: { preflight: 3 },
 			dispatches: { preflight: { cycle: 3, count: dispatchAttempt } }
 		})
@@ -604,5 +607,99 @@ Deno.test(
 		const claim = [...failed.resources.values()].find((value) => value.state === 'failed');
 		assertEquals(typeof claim?.executionDigest, 'string');
 		assertEquals(typeof claim?.resultDigest, 'string');
+	}
+);
+
+Deno.test(
+	'post-reset terminal dispatch boundary is versioned while an old started boundary remains fail closed',
+	async () => {
+		const resources = new Map<string, Record<string, unknown>>();
+		let sideEffects = 0;
+		const work = {
+			mode: 'method',
+			method: { modelIdOrName: 'repo-audit', methodName: 'audit', inputs: { workItem: 'task-1' } }
+		};
+		const oldRun = contextFor({
+			resources,
+			factoryStartedAt: '2026-08-20T00:00:00.000Z',
+			work,
+			runCommand: () => {
+				sideEffects += 1;
+				return succeededResult();
+			}
+		});
+		await executeFactoryWorkBoundary(identity, oldRun.context);
+		const resetRun = contextFor({
+			resources,
+			factoryStartedAt: '2026-08-21T00:00:00.000Z',
+			work,
+			runCommand: () => {
+				sideEffects += 1;
+				return succeededResult();
+			}
+		});
+		await executeFactoryWorkBoundary(identity, resetRun.context);
+		assertEquals(sideEffects, 2);
+		const boundary = [...resources.values()].find((value) => value.state === 'succeeded');
+		assertEquals(boundary?.factoryStartedAt, '2026-08-21T00:00:00.000Z');
+
+		if (!boundary) throw new Error('missing boundary');
+		const { completedAt: _completedAt, resultDigest: _resultDigest, ...boundaryBase } = boundary;
+		const staleStarted = { ...boundaryBase, state: 'started' };
+		const boundaryName = [...resources.entries()].find(([, value]) => value === boundary)?.[0];
+		if (!boundaryName) throw new Error('missing boundary name');
+		resources.set(boundaryName, staleStarted);
+		const laterRun = contextFor({
+			resources,
+			factoryStartedAt: '2026-08-22T00:00:00.000Z',
+			work,
+			runCommand: () => succeededResult()
+		});
+		await assertRejects(
+			() => executeFactoryWorkBoundary(identity, laterRun.context),
+			Error,
+			'started and stale'
+		);
+	}
+);
+
+Deno.test(
+	'pre-reset operational failure receipt cannot authorize a new Factory epoch',
+	async () => {
+		const resources = new Map<string, Record<string, unknown>>();
+		const oldRun = contextFor({
+			resources,
+			factoryStartedAt: '2026-08-20T00:00:00.000Z',
+			runCommand: () => failedResult('git unavailable')
+		});
+		await executeFactoryFailureBoundary(
+			{ ...identity, category: 'prerequisite', operation: 'git-clean' },
+			oldRun.context
+		);
+		const receiptName = [...resources.keys()].find((name) =>
+			name.startsWith('factory-execution-failure-')
+		);
+		if (!receiptName) throw new Error('missing receipt');
+		const resetRun = contextFor({
+			resources,
+			factoryStartedAt: '2026-08-21T00:00:00.000Z'
+		});
+		await assertRejects(
+			() =>
+				authorizeFactoryFailure(
+					{
+						receiptName,
+						sourceFactoryId: identity.sourceFactoryId,
+						workItem: identity.workItem,
+						stage: identity.stage,
+						stageCycle: identity.stageCycle,
+						dispatchAttempt: identity.dispatchAttempt,
+						dispatchRunId: identity.dispatchRunId
+					},
+					resetRun.context
+				),
+			Error,
+			'stale or substituted'
+		);
 	}
 );

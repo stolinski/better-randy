@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { basename } from 'node:path';
 
 import {
 	consumePreparedFactoryPiDispatch,
@@ -137,6 +138,19 @@ function parseCanonicalFactoryPiRequest(canonicalRequest: string): FactoryPiAsyn
 	return request as unknown as FactoryPiAsyncRunRequest;
 }
 
+function requireTopLevelPiAcknowledgement(acknowledgement: FactoryPiLaunchAcknowledgement): string {
+	if (
+		!acknowledgement.piRunId ||
+		!acknowledgement.asyncDir ||
+		acknowledgement.mode !== 'workflow' ||
+		basename(acknowledgement.asyncDir) !== acknowledgement.piRunId
+	)
+		throw new Error(
+			'Pi normalized workflow launch acknowledgement is missing or mismatches durable top-level run identity.'
+		);
+	return acknowledgement.piRunId;
+}
+
 function errorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
@@ -178,8 +192,8 @@ export function createFactoryPiTransportRequest(
 			`SUPERS_FACTORY_SUBMISSION_ATTEMPT_ORDINAL=${submissionAttempt.ordinal}`,
 			`SUPERS_FACTORY_SUBMISSION_ATTEMPT_RECEIPT=${submissionAttempt.receiptDigest}`,
 			'Before reading or editing repository files, claim this execution with:',
-			`swamp model method run ${profileModelName} claim_pi_execution --input '{"dispatchToken":"${dispatchToken}","piRunId":"'"$PI_SUBAGENT_RUN_ID"'"}' --json`,
-			'If the claim is not granted, stop without editing. Preserve the returned claim nonce in the structured handoff.',
+			`SWAMP_REPO_DIR="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")" swamp model method run ${profileModelName} claim_pi_execution --input '{"dispatchToken":"${dispatchToken}","piRunId":"'"$PI_SUBAGENT_RUN_ID"'"}' --json`,
+			'If the claim is not granted, stop without editing. Preserve the returned claim nonce and use returned ownerPiRunId as piRunId in the structured handoff.',
 			request.task
 		].join('\n\n')
 	});
@@ -306,20 +320,13 @@ export async function coordinateFactoryPiDispatchWave(input: {
 					}
 				)
 			);
-			if (
-				!acknowledgement.piRunId ||
-				!acknowledgement.asyncDir ||
-				acknowledgement.mode !== 'workflow'
-			)
-				throw new Error(
-					'Pi normalized workflow launch acknowledgement is missing durable run identity.'
-				);
-			await input.bindPiLaunch({ dispatchToken, piRunId: acknowledgement.piRunId });
+			const topLevelPiRunId = requireTopLevelPiAcknowledgement(acknowledgement);
+			await input.bindPiLaunch({ dispatchToken, piRunId: topLevelPiRunId });
 			outcomes.push({
 				state: 'submitted',
 				dispatchToken,
 				workItem: record.request.workItem,
-				piRunId: acknowledgement.piRunId
+				piRunId: topLevelPiRunId
 			});
 		} catch (error) {
 			const reconciledError = await reconcileAfterSubmissionError(
@@ -410,23 +417,16 @@ export async function retryFactoryPiSubmission(input: {
 				}
 			)
 		);
-		if (
-			!acknowledgement.piRunId ||
-			!acknowledgement.asyncDir ||
-			acknowledgement.mode !== 'workflow'
-		)
-			throw new Error(
-				'Pi normalized workflow launch acknowledgement is missing durable run identity.'
-			);
+		const topLevelPiRunId = requireTopLevelPiAcknowledgement(acknowledgement);
 		await input.bindPiLaunch({
 			dispatchToken: input.dispatchToken,
-			piRunId: acknowledgement.piRunId
+			piRunId: topLevelPiRunId
 		});
 		return {
 			state: 'submitted',
 			dispatchToken: input.dispatchToken,
 			workItem: stored.workItem,
-			piRunId: acknowledgement.piRunId
+			piRunId: topLevelPiRunId
 		};
 	} catch (error) {
 		const reconciledError = await reconcileAfterSubmissionError(
