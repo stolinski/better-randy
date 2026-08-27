@@ -7,6 +7,10 @@ import { test } from 'node:test';
 const repositoryRoot = process.cwd();
 const scheduledModels = [
 	{
+		source: 'extensions/models/repo-audit.ts',
+		definition: 'models/@supers/repo-audit/fc4cfdfe-b221-4289-aecb-effe693e009a.yaml'
+	},
+	{
 		source: 'extensions/models/sentry-issue-intake.ts',
 		definition:
 			'models/@supers/sentry-issue-intake/97e8375f-5908-482d-846e-2a5b037ae9cf.yaml'

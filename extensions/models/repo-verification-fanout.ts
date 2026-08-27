@@ -556,7 +556,10 @@ async function runVerificationLane(
 	if (
 		lane === 'layout-contract' &&
 		!layoutContractReceipt &&
-		boundedOutputTail(output).includes('Layout Contract matrix exceeded 10 minutes')
+		[
+			'Layout Contract matrix exceeded 10 minutes',
+			'Layout Contract runtime did not become ready'
+		].some((diagnostic) => boundedOutputTail(output).includes(diagnostic))
 	) {
 		output = await runCommandSequence(commands, repoDir, runCommand);
 		layoutContractReceipt = parseLayoutContractReceipt(output);

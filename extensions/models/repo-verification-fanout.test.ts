@@ -118,6 +118,32 @@ Deno.test('Layout Contract retries one bounded operational timeout', async () =>
 	assert.equal(report.executionMode, 'layout-isolated');
 });
 
+Deno.test('Layout Contract retries one transient runtime-readiness failure', async () => {
+	let attempts = 0;
+	const report = await runVerificationFanout(
+		'/repo',
+		argumentsFor(
+			['layout-contract'],
+			['src/lib/platform/composition-frame-renderer.ts']
+		),
+		async () => {
+			attempts += 1;
+			if (attempts === 1) {
+				return {
+					code: 1,
+					stdout: new Uint8Array(),
+					stderr: new TextEncoder().encode(
+						'web-document-reddit: Layout Contract runtime did not become ready'
+					)
+				};
+			}
+			return layoutContractOutput();
+		}
+	);
+	assert.equal(attempts, 2);
+	assert.equal(report.passed, true);
+});
+
 Deno.test('check routing keeps unrelated central diagnostics visible but non-routing', async () => {
 	const calls: Array<{ command: string; args: string[] }> = [];
 	const changedPath = 'src/routes/api/user-compositions/user-compositions.test.ts';
