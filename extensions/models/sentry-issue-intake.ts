@@ -80,7 +80,7 @@ async function resolveEvidenceCheckoutRevision(
 
 export const model = {
   type: "@supers/sentry-issue-intake",
-  version: "2026.08.21.3",
+  version: "2026.08.27.1",
   globalArguments: GlobalArgsSchema,
   resources: {
     snapshot: {

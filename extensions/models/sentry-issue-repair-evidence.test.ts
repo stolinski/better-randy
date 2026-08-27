@@ -16,7 +16,11 @@ const REVISION = "a".repeat(40);
 const EVENT_ID = "b".repeat(32);
 const NOW = "2026-08-22T01:00:00.000Z";
 
-async function fixture(status = "unresolved", snapshotCharacter = "1") {
+async function fixture(
+  status = "unresolved",
+  snapshotCharacter = "1",
+  seerSolutionAvailable = true,
+) {
   const intent = {
     schemaVersion: 1 as const,
     sourceSnapshot: "snapshot",
@@ -128,13 +132,15 @@ async function fixture(status = "unresolved", snapshotCharacter = "1") {
     {
       run_id: 99,
       status: "COMPLETED",
-      solution: {
-        one_line_summary: "Fix the broken branch",
-        steps: [{
-          title: "Add regression test",
-          description: "Cover the failing case",
-        }],
-      },
+      solution: seerSolutionAvailable
+        ? {
+          one_line_summary: "Fix the broken branch",
+          steps: [{
+            title: "Add regression test",
+            description: "Cover the failing case",
+          }],
+        }
+        : null,
     },
   ];
   responses.push(structuredClone(responses[0]));
@@ -203,6 +209,29 @@ test("collects exact issue/event evidence and advisory Seer context", async () =
   assert.equal(evidence.advisorySeer, true);
   assert.equal(evidence.stackFrames[0].filename, "src/lib/example.ts");
   assert.equal(evidence.seerPlanSteps[0].title, "Add regression test");
+});
+
+test("collects exact event evidence when advisory Seer has no solution", async () => {
+  const value = await fixture("unresolved", "1", false);
+  await executeCollectSentryIssueRepairEvidence(
+    {
+      repairIntentName: "intent",
+      expectedRepairIntentFingerprint: value.envelope.fingerprint,
+      queueSelectionName: "selection",
+      expectedQueueSelectionFingerprint: value.selection.fingerprint,
+    },
+    value.context,
+    {
+      commandRunner: value.runner,
+      resolveCheckoutRevision: async () => REVISION,
+      now: () => NOW,
+    },
+  );
+  const evidence = SentryIssueRepairEvidenceSchema.parse(value.writes[0].data);
+  assert.equal(evidence.eventId, EVENT_ID);
+  assert.equal(evidence.seerPlanSummary, null);
+  assert.deepEqual(evidence.seerPlanSteps, []);
+  assert.equal(evidence.seerPlanUnavailableReason, "solution-unavailable");
 });
 
 test("recollection preserves stable repair identity across wall-clock time", async () => {

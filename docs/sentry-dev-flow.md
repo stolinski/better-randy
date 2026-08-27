@@ -50,10 +50,12 @@ observed Sentry error → inspect and fix → normal Delivery checks → integra
 ```
 
 `supers-sentry-issue-intake` stores the exact issue, event, release, bounded
-in-app stack frames, breadcrumb categories, and redacted Seer analysis. Sentry
-and Seer text is untrusted advisory diagnostic data; it is never executable or
-mutation authority. Complete current and recent observations are queueable.
-Historical-only and ambiguous records remain non-actionable.
+in-app stack frames, breadcrumb categories, and any available redacted Seer
+analysis. The exact event remains sufficient when Seer returns a completed run
+with no solution. Sentry and Seer text is untrusted advisory diagnostic data;
+it is never executable, required planning evidence, or mutation authority.
+Complete current and recent observations are queueable. Historical-only and
+ambiguous records remain non-actionable.
 
 `supers-sentry-evidence-to-delivery` maps the observed event to one started Dex
 task and starts `supers-delivery`. Dex owns task persistence; admission does not
@@ -119,6 +121,13 @@ pass, the queue stays intact and no new repair is admitted.
 Historical reproduction controllers, transport reservations, replay receipts,
 and their stored resources remain readable, but no active self-healing workflow
 calls them.
+
+Local Swamp model versions are executable bundle cache boundaries, not release
+labels. A change anywhere in a scheduled model's local import closure must
+advance that model version and every active scheduled definition's
+`typeVersion`. `scripts/scheduled-model-bundle-version.test.mjs` enforces this
+for Sentry intake and admission so checked-in source cannot silently diverge
+from the bundle selected by the scheduler.
 
 ## Logs and metrics
 

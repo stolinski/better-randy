@@ -68,8 +68,9 @@ export const SentryIssueRepairEvidenceSchema = z.strictObject({
   breadcrumbCategories: z.array(z.string().min(1).max(160)).max(30),
   seerRootCauses: z.array(SentrySeerRootCauseSchema).max(10),
   seerPlanRunId: z.number().int().nonnegative(),
-  seerPlanSummary: BoundedEvidenceTextSchema,
-  seerPlanSteps: z.array(SentrySeerPlanStepSchema).min(1).max(20),
+  seerPlanSummary: BoundedEvidenceTextSchema.nullable(),
+  seerPlanSteps: z.array(SentrySeerPlanStepSchema).max(20),
+  seerPlanUnavailableReason: z.literal("solution-unavailable").optional(),
   checkoutRevision: GitRevisionSchema,
   capturedAt: z.string().datetime(),
   fingerprint: FingerprintSchema,
@@ -80,6 +81,17 @@ export const SentryIssueRepairEvidenceSchema = z.strictObject({
     context.addIssue({
       code: "custom",
       message: "Issue last-seen must closely follow the exact latest event",
+    });
+  }
+  const planUnavailable = evidence.seerPlanUnavailableReason ===
+    "solution-unavailable";
+  if (
+    planUnavailable !== (evidence.seerPlanSummary === null) ||
+    planUnavailable !== (evidence.seerPlanSteps.length === 0)
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Seer plan availability fields must agree",
     });
   }
 });
@@ -128,7 +140,7 @@ const RawSeerPlanSchema = z.object({
         description: z.string(),
       }).passthrough(),
     ).min(1).max(40),
-  }).passthrough(),
+  }).passthrough().nullable(),
 }).passthrough();
 
 export type SentryIssueRepairEvidenceContext = {
@@ -437,11 +449,16 @@ export async function executeCollectSentryIssueRepairEvidence(
       relevantRepos: cause.relevant_repos.map((repo) => boundedText(repo, 200)),
     })),
     seerPlanRunId: plan.run_id,
-    seerPlanSummary: boundedText(plan.solution.one_line_summary),
-    seerPlanSteps: plan.solution.steps.map((step) => ({
+    seerPlanSummary: plan.solution === null
+      ? null
+      : boundedText(plan.solution.one_line_summary),
+    seerPlanSteps: (plan.solution?.steps ?? []).map((step) => ({
       title: boundedText(step.title, 300),
       description: boundedText(step.description),
     })),
+    ...(plan.solution === null
+      ? { seerPlanUnavailableReason: "solution-unavailable" as const }
+      : {}),
     checkoutRevision: checkoutAfter,
     capturedAt: dependencies.now(),
   };

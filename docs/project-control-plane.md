@@ -289,8 +289,12 @@ that the recovered route existed before implementation.
 
 The coding Factory uses the observed-error Dex task in an isolated worktree,
 integrates the smallest credible fix serially through the official `@swamp/git`
-model, and runs the ordinary classified Delivery checks. Admission delegates
-persistence to Dex and never inspects, stages, or commits repository files.
+model, and runs the ordinary classified Delivery checks. The same worktree-first
+rule applies to feature and planning implementation: each lane starts from exact
+committed `HEAD`, while the primary checkout remains the serialized integration
+owner. Admission delegates persistence to Dex and never inspects, stages, or
+commits repository files. Unrelated primary-checkout dirt is never an admission
+or planning failure.
 Worktree preparation binds only a stable exact HEAD. Integration checks only
 the verified child paths before and after cherry-pick, so unrelated dirty files
 cannot block a repair or enter its integration receipt. Sentry coding worktrees

@@ -14,9 +14,9 @@ Run this gate for exactly one queued Pi handoff. The central parent is the only 
    - the diff from `baseCommit` to `childCommittedRevision` is byte-equivalent to the captured patch after the same normalization used by Pi;
    - changed paths derived from the patch equal the sorted, unique structured paths.
 3. Require `baseCommit` to be an ancestor of the current target. A handoff from unrelated or rewritten history is stale.
-4. Capture the current target HEAD as `targetBaselineRevision`. Require a clean target index and worktree.
+4. Capture the current target HEAD as `targetBaselineRevision`, the exact validated-path status, and the unrelated-path status. Require only the validated handoff paths to be clean; unrelated target dirt is preserved evidence, not an integration failure.
 5. Run a non-mutating three-way applicability check against an alternate temporary index: set `GIT_INDEX_FILE`, load the captured target with `git read-tree`, then run `git apply --cached --3way <patch>`. Remove the temporary index afterward. Do not rely on `git apply --check --3way`; it can report success even when the real three-way apply would conflict. A non-zero alternate-index apply rejects the handoff.
-6. Immediately re-read target HEAD and status. They must still equal the captured baseline and clean state.
+6. Immediately re-read target HEAD and both status scopes. HEAD and the validated-path status must still match the captured baseline; unrelated-path changes remain outside this handoff and must be preserved.
 
 Do not trust a child summary, branch name, patch filename, or claimed commit without these checks.
 
@@ -36,7 +36,7 @@ Do not trust a child summary, branch name, patch filename, or claimed commit wit
 6. Require `childRevisionEvidence.status: "verified"` and the exact verified child committed revision. Compute `receiptId` from the canonical receipt without `receiptId`, then validate its content address with `verifySupersFactoryIntegrationReceipt`.
 7. Record the integrated receipt in Factory `change-summary`. Classification now measures the integrated shared checkout.
 
-If the apply fails despite the precheck, stop. Confirm the target is unchanged and clean. If it is not, preserve the state for manual recovery; do not continue or integrate another handoff.
+If the apply fails despite the precheck, stop. Confirm HEAD and the validated handoff paths are unchanged. Preserve all unrelated target state for manual recovery; do not continue or integrate another handoff.
 
 ## Rejected receipt
 
