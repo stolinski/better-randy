@@ -21,16 +21,18 @@ export type IdentityProbe =
  * Pack (`viaPack` names a Role the Pack manifest must enumerate). Exactly one
  * of the two fields must be present; the runtime registration validator
  * (`validateIdentityRegistry`) refuses dimensions that carry both or
- * neither. We keep the type structural rather than a discriminated union so
- * downstream code can inspect either field without narrowing gymnastics.
+ * neither. Each union branch retains the other optional key as `never`, so
+ * downstream code can inspect either field while authored specs cannot set
+ * both.
  */
-export interface IdentityDimension {
+interface IdentityDimensionDefinition {
 	name: string;
 	definition: string;
 	probe: IdentityProbe;
-	implementation?: string;
-	viaPack?: string;
 }
+
+export type IdentityDimension = IdentityDimensionDefinition &
+	({ implementation: string; viaPack?: never } | { implementation?: never; viaPack: string });
 
 /**
  * Declared Pack-immunity per ADR-0038, extended by ADR-0039 §2 with the
