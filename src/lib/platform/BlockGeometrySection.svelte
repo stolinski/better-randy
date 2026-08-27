@@ -1,9 +1,12 @@
 <script lang="ts">
-	import type {
-		DiagramEdgeGeometry,
-		DiagramEndpoint,
-		DiagramPositionGeometry,
-		DiagramPrimitive
+	import {
+		DIAGRAM_LABEL_TEXT_BOX_MAX_WIDTH,
+		DIAGRAM_LABEL_TEXT_BOX_MIN_WIDTH,
+		type DiagramEdgeGeometry,
+		type DiagramEndpoint,
+		type DiagramLabelGeometry,
+		type DiagramPositionGeometry,
+		type DiagramPrimitive
 	} from './engine-schema';
 	import { engineState } from './engine-state.svelte';
 	import {
@@ -43,6 +46,19 @@
 		geometry.scale = Math.max(0.25, Math.min(4, n));
 	}
 
+	function setTextBoxWidth(geometry: DiagramLabelGeometry, value: string): void {
+		if (value.trim() === '') {
+			geometry.maxWidth = undefined;
+			return;
+		}
+		const n = Number(value);
+		if (!Number.isFinite(n)) return;
+		geometry.maxWidth = Math.max(
+			DIAGRAM_LABEL_TEXT_BOX_MIN_WIDTH,
+			Math.min(DIAGRAM_LABEL_TEXT_BOX_MAX_WIDTH, n)
+		);
+	}
+
 	// Endpoint editing: a node ref or an explicit point. Switching to `point`
 	// materialises the endpoint's current node centre-ish default; switching to
 	// `node` takes the first node.
@@ -50,11 +66,7 @@
 		return 'node' in endpoint ? 'node' : 'point';
 	}
 
-	function setEndpointMode(
-		geometry: DiagramEdgeGeometry,
-		end: 'from' | 'to',
-		mode: string
-	): void {
+	function setEndpointMode(geometry: DiagramEdgeGeometry, end: 'from' | 'to', mode: string): void {
 		const current = geometry[end];
 		if (mode === 'node') {
 			const first = nodeOptions[0];
@@ -80,8 +92,15 @@
 			// geometry resolver's overloads only resolve on a narrowed primitive.
 			switch (el.type) {
 				case 'node':
-				case 'label':
 				case 'stat-callout': {
+					const geometry = cloneDiagramPrimitiveGeometry(
+						resolveDiagramPrimitiveGeometry(el, orientation)
+					);
+					if (!el.orientationOverrides) el.orientationOverrides = {};
+					el.orientationOverrides[orientation] = geometry;
+					return;
+				}
+				case 'label': {
 					const geometry = cloneDiagramPrimitiveGeometry(
 						resolveDiagramPrimitiveGeometry(el, orientation)
 					);
@@ -244,7 +263,8 @@
 				max="1"
 				step="any"
 				value={geometry.position.x}
-				oninput={(e) => setPoint(geometry.position, 'x', (e.currentTarget as HTMLInputElement).value)}
+				oninput={(e) =>
+					setPoint(geometry.position, 'x', (e.currentTarget as HTMLInputElement).value)}
 			/>
 		</Field>
 		<Field label="Y">
@@ -254,7 +274,8 @@
 				max="1"
 				step="any"
 				value={geometry.position.y}
-				oninput={(e) => setPoint(geometry.position, 'y', (e.currentTarget as HTMLInputElement).value)}
+				oninput={(e) =>
+					setPoint(geometry.position, 'y', (e.currentTarget as HTMLInputElement).value)}
 			/>
 		</Field>
 		<Field label="Scale">
@@ -267,5 +288,23 @@
 				oninput={(e) => setScale(geometry, (e.currentTarget as HTMLInputElement).value)}
 			/>
 		</Field>
+		{#if el.type === 'label'}
+			{@const labelGeometry = resolveDiagramPrimitiveGeometry(
+				el,
+				engineState.transport.orientation
+			)}
+			<Field label="Width">
+				<input
+					type="number"
+					min={DIAGRAM_LABEL_TEXT_BOX_MIN_WIDTH}
+					max={DIAGRAM_LABEL_TEXT_BOX_MAX_WIDTH}
+					step="any"
+					value={labelGeometry.maxWidth ?? ''}
+					placeholder="auto"
+					oninput={(e) =>
+						setTextBoxWidth(labelGeometry, (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</Field>
+		{/if}
 	{/if}
 </InspectorSection>

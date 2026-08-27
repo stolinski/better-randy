@@ -181,7 +181,9 @@ Every primitive also takes an optional `"ink": "ink" | "accent"` — a Role **se
 
   { "type": "label", "id": "l1", "position": { "x": 0..1, "y": 0..1 },
     "text": "required", "role": "headline" | "caption",   // optional; absent → caption at the consumer
+    "wrap": "auto" | "explicit",                           // optional; explicit preserves authored line breaks
     "scale": 0.25..4,
+    "maxWidth": 0.03..1,                                    // optional final composition-width fraction; height follows text
     "animation": { ... } },                                 // full channel set
 
   { "type": "stat-callout", "id": "s1", "position": { "x": 0..1, "y": 0..1 },
@@ -200,7 +202,9 @@ Every primitive also takes an optional `"ink": "ink" | "accent"` — a Role **se
 
 Parse-time rules: primitive ids are unique within the surface; every edge endpoint `{ node }` ref must resolve to a `node` primitive in the same diagram. Stroke-drawn primitives (`edge-arrow`, `timeline-segment`) reveal by stroke-draw over their enter window and expose only the `opacity` channel; DOM primitives (`node`, `label`, `stat-callout`) take the full ADR-0035 channel set. Reveal choreography is Cascade chains (node → edge draws to → next node) — see Animation below.
 
-Every primitive may carry `orientationOverrides.horizontal` and/or `.vertical` as a **complete geometry snapshot**. Node, label, and stat-callout snapshots are `{ "position": { "x", "y" }, "scale"? }`; edge-arrow snapshots are `{ "from", "to", "route", "control"? }`; timeline-segment snapshots are `{ "from", "to" }`. A snapshot replaces the shared geometry as one unit rather than inheriting individual fields. Content, timing, animation, ink, form, direction, labels, and values remain shared. The GUI edits shared geometry until **Customize horizontal** or **Customize vertical** is enabled; safe-area lint validates resolved points without mutating them.
+Every primitive may carry `orientationOverrides.horizontal` and/or `.vertical` as a **complete geometry snapshot**. Node and stat-callout snapshots are `{ "position": { "x", "y" }, "scale"? }`; label snapshots also carry optional `"maxWidth"`; edge-arrow snapshots are `{ "from", "to", "route", "control"? }`; timeline-segment snapshots are `{ "from", "to" }`. A snapshot replaces the shared geometry as one unit rather than inheriting individual fields. Content, timing, animation, ink, form, direction, labels, and values remain shared. The GUI edits shared geometry until **Customize horizontal** or **Customize vertical** is enabled; safe-area lint validates resolved points without mutating them.
+
+A Diagram label is the bounded text-container domain. `maxWidth` is the label's final width as a fraction of the native composition width, independent of `scale`; changing it reflows lines without changing font size, and the box height follows its content. The Inspector edits the same field agents author. On-canvas west/east handles keep the opposite edge fixed, convert screen movement through the active canvas projection, and write the active orientation's shared or override geometry.
 
 ### `surface.chart` — authored statistical graphics ([ADR-0048](adr/0048-agent-authored-chart-domain.md))
 

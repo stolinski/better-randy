@@ -2,7 +2,7 @@
 
 ## Status
 
-**Accepted.**
+**Build-harness (built).**
 
 Date: 2026-08-26  
 Builds on: [ADR-0025](0025-static-linter-checks-safety-and-readability-only.md) (objective safety/readability boundary), [ADR-0039](0039-pack-neutral-compositions-and-listing-hygiene.md) (Pack- and orientation-neutral deliverables), and [ADR-0049](0049-lazy-pipeline-renderer-loading.md) (Preset-scoped runtime readiness)

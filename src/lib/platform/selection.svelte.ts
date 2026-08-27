@@ -4,6 +4,7 @@
  * null = composition root → inspector shows transport / Pack / Effects.
  * Runtime selection IDs are created and parsed by timeline-entity-identity.ts.
  */
+import type { CanvasElementSelectionKey } from './canvas-element-selection';
 import {
 	createKeyframeSelectionId,
 	createSoundRailReferenceId,
@@ -15,6 +16,33 @@ import {
 } from './timeline-entity-identity.ts';
 
 export const layerSelection = $state<{ id: TimelineEntitySelectionId | null }>({ id: null });
+
+/**
+ * Spatial canvas multi-selection. `layerSelection` remains the primary entity
+ * used by the timeline and Inspector; this ordered set adds compatible peers
+ * for group alignment and distribution without changing persisted Preset data.
+ */
+export const canvasElementSelection = $state<{
+	keys: CanvasElementSelectionKey[];
+	primaryKey: CanvasElementSelectionKey | null;
+}>({ keys: [], primaryKey: null });
+
+export function setCanvasElementSelection(
+	keys: readonly CanvasElementSelectionKey[],
+	primaryKey: CanvasElementSelectionKey
+): void {
+	const uniqueKeys = keys.filter((key, index) => keys.indexOf(key) === index);
+	if (!uniqueKeys.includes(primaryKey)) {
+		throw new Error('Canvas multi-selection primary key must be selected.');
+	}
+	canvasElementSelection.keys = uniqueKeys;
+	canvasElementSelection.primaryKey = primaryKey;
+}
+
+export function clearCanvasElementSelection(): void {
+	canvasElementSelection.keys = [];
+	canvasElementSelection.primaryKey = null;
+}
 
 /**
  * The selected keyframe diamond (ADR-0035 §7). Set by clicking/dragging a
@@ -41,6 +69,7 @@ export function requestInspectorFocus(target: string): void {
 }
 
 export function selectKeyframe(trackId: TimelineTrackId, channel: string, index: number): void {
+	clearCanvasElementSelection();
 	keyframeSelection.id = createKeyframeSelectionId(trackId, channel, index);
 }
 
@@ -49,24 +78,28 @@ export function clearKeyframeSelection(): void {
 }
 
 export function selectLayer(id: TimelineTrackId): void {
+	clearCanvasElementSelection();
 	layerSelection.id = id;
 	keyframeSelection.id = null;
 	inspectorFocus.target = null;
 }
 
 export function selectSoundRailReference(reference: SoundRailReference): void {
+	clearCanvasElementSelection();
 	layerSelection.id = createSoundRailReferenceId(reference);
 	keyframeSelection.id = null;
 	inspectorFocus.target = null;
 }
 
 export function selectVideoClip(clipId: string): void {
+	clearCanvasElementSelection();
 	layerSelection.id = createVideoClipSelectionId(clipId);
 	keyframeSelection.id = null;
 	inspectorFocus.target = null;
 }
 
 export function deselectLayer(): void {
+	clearCanvasElementSelection();
 	layerSelection.id = null;
 	keyframeSelection.id = null;
 	inspectorFocus.target = null;

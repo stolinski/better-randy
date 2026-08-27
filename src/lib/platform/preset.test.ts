@@ -4,13 +4,31 @@ import { describe, it } from 'vitest';
 
 import blankPresetJson from '$lib/presets/blank.json';
 
+import { compositionEditHistory } from './composition-edit-history';
 import { engineState } from './engine-state.svelte';
-import { PresetSchema } from './engine-schema';
+import {
+	DIAGRAM_LABEL_TEXT_BOX_MAX_WIDTH,
+	DIAGRAM_LABEL_TEXT_BOX_MIN_WIDTH,
+	PresetSchema
+} from './engine-schema';
 import { parsePreset } from './preset-parser';
 import { applyPreset } from './preset';
 import { presetToWireFormat, serializeCompositionState } from './preset-pure';
 
 describe('applyPreset', () => {
+	it('clears composition-scoped edit history when a new Preset loads', () => {
+		compositionEditHistory.recordApplied({
+			label: 'Previous composition edit',
+			undo: () => undefined,
+			redo: () => undefined
+		});
+
+		applyPreset(PresetSchema.parse(blankPresetJson));
+
+		assert.equal(compositionEditHistory.canUndo, false);
+		assert.equal(compositionEditHistory.canRedo, false);
+	});
+
 	it('deep-clones complete orientation placement overrides into engine state', () => {
 		const preset = PresetSchema.parse({
 			...blankPresetJson,
@@ -96,6 +114,73 @@ describe('applyPreset', () => {
 				? sourceEdge.orientationOverrides?.vertical?.control?.x
 				: undefined,
 			0.7
+		);
+	});
+
+	it('round-trips bounded Diagram label text-box widths for both orientations', () => {
+		const input = {
+			...blankPresetJson,
+			state: {
+				...blankPresetJson.state,
+				surface: {
+					...blankPresetJson.state.surface,
+					diagram: [
+						{
+							type: 'label',
+							id: 'resizable-label',
+							position: { x: 0.5, y: 0.3 },
+							text: 'Resize me',
+							maxWidth: 0.42,
+							orientationOverrides: {
+								vertical: {
+									position: { x: 0.5, y: 0.2 },
+									maxWidth: 0.7
+								}
+							}
+						}
+					]
+				}
+			}
+		};
+		const preset = PresetSchema.parse(input);
+		const wire = presetToWireFormat(preset) as {
+			state: { surface: { diagram?: unknown } };
+		};
+
+		assert.deepEqual(wire.state.surface.diagram, input.state.surface.diagram);
+		assert.throws(() =>
+			PresetSchema.parse({
+				...input,
+				state: {
+					...input.state,
+					surface: {
+						...input.state.surface,
+						diagram: [
+							{
+								...input.state.surface.diagram[0],
+								maxWidth: DIAGRAM_LABEL_TEXT_BOX_MIN_WIDTH - 0.001
+							}
+						]
+					}
+				}
+			})
+		);
+		assert.throws(() =>
+			PresetSchema.parse({
+				...input,
+				state: {
+					...input.state,
+					surface: {
+						...input.state.surface,
+						diagram: [
+							{
+								...input.state.surface.diagram[0],
+								maxWidth: DIAGRAM_LABEL_TEXT_BOX_MAX_WIDTH + 0.001
+							}
+						]
+					}
+				}
+			})
 		);
 	});
 

@@ -168,6 +168,7 @@
 			class="overlay-mount__item"
 			data-overlay-id={overlay.id}
 			data-overlay-type={overlay.type}
+			data-overlay-anchor={placement.anchor}
 			style="{positionStyle(placement, channels)};{channels
 				? channelVisibilityStyle(channels)
 				: visibilityStyle(animState.overlayProgresses[index] ?? 1, renderer)};{appearanceStyle(

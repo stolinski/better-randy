@@ -8,6 +8,7 @@ import {
 	createCanvasHitRegionGeometry,
 	createCanvasInteractionGeometryContract,
 	orderCanvasSelectionCandidates,
+	resolveCanvasSelectionCandidateAtPoint,
 	type CanvasInteractionGeometryViewport,
 	type CanvasInteractionRect
 } from './canvas-interaction-geometry';
@@ -67,6 +68,22 @@ describe('canvas interaction coordinate contract', () => {
 			normalized: { x: 0.6, y: 0.6 },
 			native: { x: 2304, y: 1296 }
 		});
+	});
+
+	it('converts the same composition-width resize independently of display zoom', () => {
+		const fitGeometry = createCanvasInteractionGeometryContract(
+			horizontalViewport({ left: 100, top: 80, width: 960, height: 540 })
+		);
+		const zoomGeometry = createCanvasInteractionGeometryContract(
+			horizontalViewport({ left: -380, top: -190, width: 1920, height: 1080 })
+		);
+
+		expect(
+			fitGeometry?.screenDeltaToComposition({ x: 100, y: 200 }, { x: 196, y: 200 }, 'surface')
+		).toEqual({ normalized: { x: 0.1, y: 0 }, native: { x: 384, y: 0 } });
+		expect(
+			zoomGeometry?.screenDeltaToComposition({ x: -380, y: 200 }, { x: -188, y: 200 }, 'surface')
+		).toEqual({ normalized: { x: 0.1, y: 0 }, native: { x: 384, y: 0 } });
 	});
 
 	it('uses independent axes for vertical composition conversion', () => {
@@ -168,5 +185,82 @@ describe('canvas interaction target geometry', () => {
 			'block b',
 			'surface'
 		]);
+	});
+
+	it('resolves drag initiation from padded bounds outside thin visible geometry', () => {
+		const region = createCanvasHitRegionGeometry(
+			{ left: 100, top: 50, width: 1, height: 40 },
+			{ paddingPx: 4, minimumPointerSizePx: 24 }
+		);
+		const thinCandidate = {
+			selectionKey: 'overlay:thin-rule',
+			selectionOrder: { layer: 'overlay' as const, paintIndex: 0, stableId: 'thin-rule' },
+			pointerBounds: region.pointerBounds
+		};
+
+		expect(resolveCanvasSelectionCandidateAtPoint([thinCandidate], { x: 90, y: 70 })).toBe(
+			thinCandidate
+		);
+		expect(resolveCanvasSelectionCandidateAtPoint([thinCandidate], { x: 80, y: 70 })).toBeNull();
+	});
+
+	it('hit tests transparent content from layout bounds instead of painted opacity', () => {
+		const transparentCandidate = {
+			selectionKey: 'overlay:transparent-panel',
+			selectionOrder: {
+				layer: 'overlay' as const,
+				paintIndex: 0,
+				stableId: 'transparent-panel'
+			},
+			pointerBounds: { left: 20, top: 20, width: 80, height: 30 },
+			paintedOpacity: 0
+		};
+
+		expect(resolveCanvasSelectionCandidateAtPoint([transparentCandidate], { x: 40, y: 30 })).toBe(
+			transparentCandidate
+		);
+	});
+
+	it('resolves overlaps topmost-first and cycles from the previous canvas choice', () => {
+		const pointerBounds = { left: 10, top: 10, width: 40, height: 40 };
+		const candidates = [
+			{
+				selectionKey: 'block:caption',
+				selectionOrder: { layer: 'block' as const, paintIndex: 2, stableId: 'caption' },
+				pointerBounds
+			},
+			{
+				selectionKey: 'overlay:badge',
+				selectionOrder: { layer: 'overlay' as const, paintIndex: 0, stableId: 'badge' },
+				pointerBounds
+			},
+			{
+				selectionKey: 'overlay:title',
+				selectionOrder: { layer: 'overlay' as const, paintIndex: 1, stableId: 'title' },
+				pointerBounds
+			}
+		];
+		const point = { x: 25, y: 25 };
+
+		expect(resolveCanvasSelectionCandidateAtPoint(candidates, point)?.selectionKey).toBe(
+			'overlay:title'
+		);
+		expect(
+			resolveCanvasSelectionCandidateAtPoint(candidates, point, {
+				currentSelectionKey: 'overlay:title',
+				cycle: true
+			})?.selectionKey
+		).toBe('overlay:badge');
+		expect(
+			resolveCanvasSelectionCandidateAtPoint(candidates, point, {
+				currentSelectionKey: 'overlay:badge'
+			})?.selectionKey
+		).toBe('overlay:badge');
+		expect(
+			resolveCanvasSelectionCandidateAtPoint(candidates, point, {
+				currentSelectionKey: 'block:caption',
+				cycle: true
+			})?.selectionKey
+		).toBe('overlay:title');
 	});
 });

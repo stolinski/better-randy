@@ -491,8 +491,20 @@ const diagramPrimitiveBase = {
 
 const DiagramPositionGeometrySchema = z.strictObject({
 	position: DiagramPointSchema,
-	scale: z.number().min(0.25).max(4).optional(),
-	maxWidth: FractionSchema.optional()
+	scale: z.number().min(0.25).max(4).optional()
+});
+
+// A Diagram label's text box is measured in final composition-width fractions,
+// independent of its typographic scale. The canvas and Inspector share these
+// bounds with agent-authored Presets, so no GUI-only resize state exists.
+export const DIAGRAM_LABEL_TEXT_BOX_MIN_WIDTH = 0.03;
+export const DIAGRAM_LABEL_TEXT_BOX_MAX_WIDTH = 1;
+const DiagramLabelGeometrySchema = DiagramPositionGeometrySchema.extend({
+	maxWidth: z
+		.number()
+		.min(DIAGRAM_LABEL_TEXT_BOX_MIN_WIDTH)
+		.max(DIAGRAM_LABEL_TEXT_BOX_MAX_WIDTH)
+		.optional()
 });
 
 const DiagramEdgeGeometrySchema = z.strictObject({
@@ -560,8 +572,8 @@ const DiagramLabelSchema = z.strictObject({
 	role: z.enum(['headline', 'caption']).optional(),
 	wrap: z.enum(['auto', 'explicit']).optional(),
 	scale: z.number().min(0.25).max(4).optional(),
-	maxWidth: FractionSchema.optional(),
-	orientationOverrides: diagramOrientationOverridesSchema(DiagramPositionGeometrySchema),
+	maxWidth: DiagramLabelGeometrySchema.shape.maxWidth,
+	orientationOverrides: diagramOrientationOverridesSchema(DiagramLabelGeometrySchema),
 	animation: DiagramAnimationSchema.optional()
 });
 
@@ -652,6 +664,7 @@ const DiagramSchema = z.array(DiagramPrimitiveSchema).superRefine((primitives, c
 export type DiagramPoint = z.infer<typeof DiagramPointSchema>;
 export type DiagramEndpoint = z.infer<typeof DiagramEndpointSchema>;
 export type DiagramPositionGeometry = z.infer<typeof DiagramPositionGeometrySchema>;
+export type DiagramLabelGeometry = z.infer<typeof DiagramLabelGeometrySchema>;
 export type DiagramEdgeGeometry = z.infer<typeof DiagramEdgeGeometrySchema>;
 export type DiagramTimelineGeometry = z.infer<typeof DiagramTimelineGeometrySchema>;
 export type DiagramChannelKeyframes = z.infer<typeof DiagramChannelKeyframesSchema>;

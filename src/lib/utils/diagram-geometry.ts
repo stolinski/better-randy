@@ -3,6 +3,7 @@ import type {
 	DiagramEdgeGeometry,
 	DiagramEndpoint,
 	DiagramLabel,
+	DiagramLabelGeometry,
 	DiagramNode,
 	DiagramPositionGeometry,
 	DiagramPrimitive,
@@ -16,12 +17,20 @@ import type { VideoOrientation } from './video-frame';
 type DiagramPositionedPrimitive = DiagramNode | DiagramLabel | DiagramStatCallout;
 
 export type DiagramPrimitiveGeometry =
-	DiagramPositionGeometry | DiagramEdgeGeometry | DiagramTimelineGeometry;
+	DiagramPositionGeometry | DiagramLabelGeometry | DiagramEdgeGeometry | DiagramTimelineGeometry;
 
+export function resolveDiagramPrimitiveGeometry(
+	primitive: DiagramNode | DiagramStatCallout,
+	orientation: VideoOrientation
+): DiagramPositionGeometry;
+export function resolveDiagramPrimitiveGeometry(
+	primitive: DiagramLabel,
+	orientation: VideoOrientation
+): DiagramLabelGeometry;
 export function resolveDiagramPrimitiveGeometry(
 	primitive: DiagramPositionedPrimitive,
 	orientation: VideoOrientation
-): DiagramPositionGeometry;
+): DiagramPositionGeometry | DiagramLabelGeometry;
 export function resolveDiagramPrimitiveGeometry(
 	primitive: DiagramEdgeArrow,
 	orientation: VideoOrientation
@@ -41,9 +50,13 @@ function cloneDiagramEndpoint(endpoint: DiagramEndpoint): DiagramEndpoint {
 	return 'node' in endpoint ? { node: endpoint.node } : { ...endpoint };
 }
 
+export function cloneDiagramPrimitiveGeometry(geometry: DiagramLabelGeometry): DiagramLabelGeometry;
 export function cloneDiagramPrimitiveGeometry(
 	geometry: DiagramPositionGeometry
 ): DiagramPositionGeometry;
+export function cloneDiagramPrimitiveGeometry(
+	geometry: DiagramPositionGeometry | DiagramLabelGeometry
+): DiagramPositionGeometry | DiagramLabelGeometry;
 export function cloneDiagramPrimitiveGeometry(geometry: DiagramEdgeGeometry): DiagramEdgeGeometry;
 export function cloneDiagramPrimitiveGeometry(
 	geometry: DiagramTimelineGeometry
@@ -52,11 +65,13 @@ export function cloneDiagramPrimitiveGeometry(
 	geometry: DiagramPrimitiveGeometry
 ): DiagramPrimitiveGeometry {
 	if ('position' in geometry) {
-		return {
+		const positionGeometry: DiagramPositionGeometry = {
 			position: { ...geometry.position },
-			scale: geometry.scale,
-			maxWidth: geometry.maxWidth
+			scale: geometry.scale
 		};
+		return 'maxWidth' in geometry
+			? { ...positionGeometry, maxWidth: geometry.maxWidth }
+			: positionGeometry;
 	}
 	if ('route' in geometry) {
 		return {

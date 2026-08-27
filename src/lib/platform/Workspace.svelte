@@ -12,6 +12,7 @@
 		type CompositionExportUiState
 	} from './composition-export-controller';
 	import { buildCompositionTimelineTracks } from './composition-timeline-tracks';
+	import { compositionEditHistory } from './composition-edit-history';
 	import Composition from './Composition.svelte';
 	import {
 		renderCompositionFrameTo,
@@ -209,6 +210,10 @@
 	let separateWav = $state(false);
 	let progress = $state(0);
 	let status = $state('');
+	// Layout Contract verification owns composition geometry, not authoring
+	// chrome. Once its trusted browser seam is used, unmount the editor overlay
+	// so exhaustive cells do not pay for reactive hit-region measurement.
+	let deterministicRenderAuditMode = $state(false);
 	const videoUnderlayRuntimeController = new VideoUnderlayRuntimeController({
 		readHost: () => host,
 		readIsExporting: () => isExporting,
@@ -296,24 +301,31 @@
 		window.removeEventListener('pointerup', onTimelineResizeEnd);
 	}
 
-	// Transport keys — Space toggles play/pause, ←/→ step a frame (Shift ×10) —
-	// unless the focus is in a field, a button, or editable content (where those
-	// keys have their own meaning).
+	// Composition history and transport keys. Native field/button editing keeps
+	// its own keyboard behavior; canvas commands use the shared authoring history.
 	function handleKeydown(event: KeyboardEvent): void {
-		const isSpace = event.code === 'Space' && !event.repeat;
-		const isStep = event.key === 'ArrowLeft' || event.key === 'ArrowRight';
-		if (!isSpace && !isStep) return;
 		const target = event.target as HTMLElement | null;
 		const tag = target?.tagName;
-		if (
+		const ownsNativeEditHistory =
 			tag === 'INPUT' ||
 			tag === 'TEXTAREA' ||
 			tag === 'SELECT' ||
-			tag === 'BUTTON' ||
-			target?.isContentEditable
-		) {
+			target?.isContentEditable === true;
+		const isHistoryCommand =
+			(event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === 'z';
+		if (isHistoryCommand) {
+			if (ownsNativeEditHistory) return;
+			const applied = event.shiftKey
+				? compositionEditHistory.redo()
+				: compositionEditHistory.undo();
+			if (applied) event.preventDefault();
 			return;
 		}
+
+		if (ownsNativeEditHistory || tag === 'BUTTON') return;
+		const isSpace = event.code === 'Space' && !event.repeat;
+		const isStep = event.key === 'ArrowLeft' || event.key === 'ArrowRight';
+		if (!isSpace && !isStep) return;
 		event.preventDefault();
 		if (isSpace) {
 			timeline?.toggle();
@@ -942,6 +954,10 @@
 			if (new URLSearchParams(window.location.search).get('source') !== 'builtin') {
 				throw new Error('Deterministic render cells require the built-in Preset route.');
 			}
+			if (!deterministicRenderAuditMode) {
+				deterministicRenderAuditMode = true;
+				await tick();
+			}
 			const preset = getPresetBySlug(input.presetSlug);
 			if (!preset || preset.kind === 'fixture') {
 				throw new Error(`Unknown deliverable Preset ${input.presetSlug}.`);
@@ -1269,25 +1285,27 @@
 				bind:overlayRootElement
 			/>
 		</VideoFrame>
-		<CanvasEditingOverlay
-			{compositionElement}
-			{overlayRootElement}
-			{canvas}
-			compositionSize={{ width: canvas?.width ?? 3840, height: canvas?.height ?? 2160 }}
-			{zoom}
-			{panX}
-			{panY}
-			onPan={(x, y) => {
-				panX = x;
-				panY = y;
-			}}
-			onPanStart={() => {
-				isPanning = true;
-			}}
-			onPanEnd={() => {
-				isPanning = false;
-			}}
-		/>
+		{#if !deterministicRenderAuditMode}
+			<CanvasEditingOverlay
+				{compositionElement}
+				{overlayRootElement}
+				{canvas}
+				compositionSize={{ width: canvas?.width ?? 3840, height: canvas?.height ?? 2160 }}
+				{zoom}
+				{panX}
+				{panY}
+				onPan={(x, y) => {
+					panX = x;
+					panY = y;
+				}}
+				onPanStart={() => {
+					isPanning = true;
+				}}
+				onPanEnd={() => {
+					isPanning = false;
+				}}
+			/>
+		{/if}
 	</section>
 
 	<div class="workspace__controls">

@@ -60,7 +60,7 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 | [0047](0047-reject-general-asset-to-geometry-import.md)          | Canon (broad scope rejected)                              | Reject general SVG/image/GLB-to-geometry import; revisit only for a bounded consumer       |
 | [0048](0048-agent-authored-chart-domain.md)                      | Canon (built)                                             | Strict Block-domain charts with Pack-owned appearance and intrinsic deterministic motion   |
 | [0049](0049-lazy-pipeline-renderer-loading.md)                   | Canon (built)                                             | Synchronous Pipeline definitions with Preset-scoped lazy renderer loading                   |
-| [0050](0050-layout-contract-verification.md)                     | Designed, implementation in progress                     | Geometry-first exhaustive Layout Contract verification; pixel capture is diagnostic only   |
+| [0050](0050-layout-contract-verification.md)                     | Build-harness (built)                                     | Geometry-first exhaustive Layout Contract verification; pixel capture is diagnostic only   |
 
 ## Supersession And Refinement
 
@@ -68,7 +68,6 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 - `0005` + `0008` -> invocation by `0010` -> deterministic context by `0013`.
 - `0014` + `0015` -> `0019` -> appearance-only/core fallback in `0023` + `0024` -> Preset-side completion in `0038`.
 - `0004` -> superseded recipe cookbook -> shipped Starter-template fork model in `0032`.
-- `0021` -> flat multiplane mechanism in `0027` -> continuous dimensional mechanism in `0028`.
 - `0022` -> shipped snapshot-and-wipe implementation in `0026`; live dual-tree remains deferred.
 - `0033`'s original Sound-kit section -> superseded by its 2026-07-02 amendment; engine defaults + per-motion overrides are current.
 - `0034`'s three-zone/no-left-panel UI -> retained by `0045`; the existing right rail switches between Inspector and Media modes.

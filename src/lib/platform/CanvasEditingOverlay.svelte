@@ -1,23 +1,69 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
+	import type { Attachment } from 'svelte/attachments';
 
 	import { animState } from './anim-state.svelte';
+	import CanvasAlignmentToolbar from './CanvasAlignmentToolbar.svelte';
+	import {
+		resolveCanvasAlignmentTranslations,
+		resolveCanvasDistributionTranslations,
+		type CanvasAlignableElement,
+		type CanvasAlignmentCommand,
+		type CanvasAlignmentReference,
+		type CanvasDistributionCommand,
+		type CanvasElementTranslation
+	} from './canvas-alignment';
+	import {
+		applyCanvasAlignmentTranslations,
+		restoreCanvasAlignmentGeometry,
+		type CanvasAlignmentGeometryChange,
+		type CanvasAlignmentGeometrySnapshot
+	} from './canvas-alignment-authoring';
+	import {
+		isCanvasSnapBypassGesture,
+		resolveCanvasDragSnapping,
+		type CanvasSnapGuide
+	} from './canvas-drag-snapping';
 	import {
 		CANVAS_ROTATION_HANDLE_DESCRIPTOR,
+		CANVAS_TEXT_INLINE_RESIZE_HANDLE_DESCRIPTORS,
 		canvasOverlayScaleHandleDescriptors,
 		canvasSelectionStackIndex,
 		createCanvasHandleGeometry,
+		createCanvasHitRegionGeometry,
 		createCanvasInteractionGeometryContract,
+		resolveCanvasSelectionCandidateAtPoint,
+		type CanvasHitRegionGeometry,
+		type CanvasRenderedBounds,
 		type CanvasInteractionGeometryContract,
-		type CanvasInteractionRect
+		type CanvasInteractionPoint,
+		type CanvasInteractionRect,
+		type CanvasSelectionCandidate,
+		type CanvasSelectionLayer
 	} from './canvas-interaction-geometry';
+	import {
+		isCanvasElementSelectionKey,
+		parseCanvasElementSelectionKey,
+		type CanvasElementSelectionKey
+	} from './canvas-element-selection';
+	import { compositionEditHistory } from './composition-edit-history';
+	import {
+		captureDiagramLabelTextBoxSnapshot,
+		diagramLabelTextBoxSnapshotsEqual,
+		resolveDiagramLabelTextBoxResize,
+		restoreDiagramLabelTextBoxSnapshot,
+		type CanvasTextBoxResizeSide,
+		type DiagramLabelTextBoxSnapshot
+	} from './canvas-text-box-resize';
 	import { engineState } from './engine-state.svelte';
 	import { createStageProjector, type StagePlane } from './pipelines/depth-stage-camera';
 	import {
+		canvasElementSelection,
 		layerSelection,
 		selectLayer,
 		deselectLayer,
-		requestInspectorFocus
+		requestInspectorFocus,
+		setCanvasElementSelection
 	} from './selection.svelte';
 	import { createTimelineTrackId, type TimelineTrackIdentity } from './timeline-entity-identity';
 	import { resolveDiagramPrimitiveGeometry } from '$lib/utils/diagram-geometry';
@@ -26,6 +72,7 @@
 	import type {
 		ChatMessage,
 		ChecklistItem,
+		DiagramLabel,
 		DiagramPrimitive,
 		Overlay,
 		OverlayPlacement
@@ -62,9 +109,78 @@
 	}: Props = $props();
 
 	let rootEl = $state<HTMLDivElement | null>(null);
+	let lastCanvasSelectionKey = $state<string | null>(null);
 
 	function isTrackSelected(identity: TimelineTrackIdentity): boolean {
 		return layerSelection.id === createTimelineTrackId(identity);
+	}
+
+	function canvasElementTrackIdentity(
+		selectionKey: CanvasElementSelectionKey
+	): TimelineTrackIdentity {
+		const identity = parseCanvasElementSelectionKey(selectionKey);
+		if (!identity) throw new Error(`Invalid spatial canvas selection key: ${selectionKey}`);
+		return identity.kind === 'overlay'
+			? { kind: 'overlay', overlayId: identity.id }
+			: { kind: 'block', blockId: identity.id };
+	}
+
+	function isCanvasElementSelected(
+		selectionKey: CanvasElementSelectionKey,
+		identity: TimelineTrackIdentity
+	): boolean {
+		return (
+			canvasElementSelection.keys.includes(selectionKey) ||
+			(canvasElementSelection.keys.length === 0 && isTrackSelected(identity))
+		);
+	}
+
+	function isPrimaryCanvasElement(
+		selectionKey: CanvasElementSelectionKey,
+		identity: TimelineTrackIdentity
+	): boolean {
+		return (
+			canvasElementSelection.primaryKey === selectionKey ||
+			(canvasElementSelection.primaryKey === null && isTrackSelected(identity))
+		);
+	}
+
+	function selectSpatialCanvasElement(
+		selectionKey: CanvasElementSelectionKey,
+		mode: 'replace' | 'preserve' | 'toggle'
+	): void {
+		const currentKeys = [...canvasElementSelection.keys];
+		const alreadySelected = currentKeys.includes(selectionKey);
+		let nextKeys: CanvasElementSelectionKey[];
+		let primaryKey: CanvasElementSelectionKey | null;
+
+		if (mode === 'toggle') {
+			nextKeys = alreadySelected
+				? currentKeys.filter((key) => key !== selectionKey)
+				: [...currentKeys, selectionKey];
+			primaryKey = alreadySelected
+				? canvasElementSelection.primaryKey === selectionKey
+					? (nextKeys.at(-1) ?? null)
+					: canvasElementSelection.primaryKey
+				: selectionKey;
+		} else {
+			nextKeys = mode === 'preserve' && alreadySelected ? currentKeys : [selectionKey];
+			primaryKey = selectionKey;
+		}
+
+		if (!primaryKey || nextKeys.length === 0) {
+			deselectLayer();
+			return;
+		}
+		selectLayer(createTimelineTrackId(canvasElementTrackIdentity(primaryKey)));
+		setCanvasElementSelection(nextKeys, primaryKey);
+	}
+
+	function isCanvasCandidateSelected(
+		selectionKey: string,
+		identity: TimelineTrackIdentity
+	): boolean {
+		return lastCanvasSelectionKey === selectionKey && isTrackSelected(identity);
 	}
 
 	// ─── Coordinate helpers ──────────────────────────────────────────────────────
@@ -125,12 +241,141 @@
 		el: HTMLElement,
 		plane: StagePlane = 'surface'
 	): CanvasInteractionRect | null {
+		void measureEpoch;
 		return (
 			currentCanvasInteractionGeometry()?.renderedBoundsFor(
 				canvasInteractionRect(el.getBoundingClientRect()),
 				plane
 			)?.editorBounds ?? null
 		);
+	}
+
+	const CANVAS_SELECTION_PADDING_PX = 4;
+	const CANVAS_SELECTION_MINIMUM_SIZE_PX = 24;
+	const CANVAS_OVERLAP_CYCLE_HINT = 'Alt/Option-click to cycle overlapping elements';
+	const CANVAS_SELECTION_MODIFIER_HINT =
+		'Shift-click or Shift-Enter to add or remove selection · Arrow keys to nudge · Alt/Option-click to cycle overlaps · Cmd/Ctrl-drag to bypass snapping';
+
+	function currentVisibleCanvasEditorBounds(): CanvasInteractionRect | null {
+		const editorRect = rootEl?.getBoundingClientRect();
+		const canvasRect = canvas?.getBoundingClientRect();
+		if (!editorRect || !canvasRect) return null;
+		const left = Math.max(0, canvasRect.left - editorRect.left);
+		const top = Math.max(0, canvasRect.top - editorRect.top);
+		const right = Math.min(editorRect.width, canvasRect.right - editorRect.left);
+		const bottom = Math.min(editorRect.height, canvasRect.bottom - editorRect.top);
+		if (right <= left || bottom <= top) return null;
+		return { left, top, width: right - left, height: bottom - top };
+	}
+
+	function canvasHitRegion(rect: CanvasInteractionRect): CanvasHitRegionGeometry | null {
+		if (rect.width <= 0 && rect.height <= 0) return null;
+		const clipBounds = currentVisibleCanvasEditorBounds();
+		if (!clipBounds) return null;
+		const region = createCanvasHitRegionGeometry(rect, {
+			paddingPx: CANVAS_SELECTION_PADDING_PX,
+			minimumPointerSizePx: CANVAS_SELECTION_MINIMUM_SIZE_PX,
+			clipBounds
+		});
+		return region.pointerBounds.width > 0 && region.pointerBounds.height > 0 ? region : null;
+	}
+
+	interface CanvasDragSnapGesture {
+		movingElement: CanvasAlignableElement;
+		compatibleElements: CanvasAlignableElement[];
+		orientation: 'horizontal' | 'vertical';
+		plane: StagePlane;
+	}
+
+	interface ActiveCanvasSnapGuide {
+		guide: CanvasSnapGuide;
+		plane: StagePlane;
+	}
+
+	interface CanvasSnapGuideLine {
+		start: CanvasInteractionPoint;
+		end: CanvasInteractionPoint;
+	}
+
+	let activeCanvasSnapGuides = $state.raw<ActiveCanvasSnapGuide[]>([]);
+
+	function createCanvasDragSnapGesture(
+		selectionKey: CanvasElementSelectionKey,
+		plane: StagePlane
+	): CanvasDragSnapGesture | null {
+		const movingElement = canvasAlignableElement(selectionKey);
+		if (!movingElement) return null;
+		return {
+			movingElement,
+			compatibleElements: allCanvasAlignableElements(),
+			orientation: engineState.transport.orientation,
+			plane
+		};
+	}
+
+	function canvasSnapScreenScale(plane: StagePlane): CanvasInteractionPoint | null {
+		const geometry = currentCanvasInteractionGeometry();
+		const horizontalStart = geometry?.compositionPointToScreen({ x: 0, y: 0.5 }, plane);
+		const horizontalEnd = geometry?.compositionPointToScreen({ x: 1, y: 0.5 }, plane);
+		const verticalStart = geometry?.compositionPointToScreen({ x: 0.5, y: 0 }, plane);
+		const verticalEnd = geometry?.compositionPointToScreen({ x: 0.5, y: 1 }, plane);
+		if (!horizontalStart || !horizontalEnd || !verticalStart || !verticalEnd) return null;
+		return {
+			x: Math.hypot(horizontalEnd.x - horizontalStart.x, horizontalEnd.y - horizontalStart.y),
+			y: Math.hypot(verticalEnd.x - verticalStart.x, verticalEnd.y - verticalStart.y)
+		};
+	}
+
+	function resolveCanvasGestureDelta(
+		event: PointerEvent,
+		gesture: CanvasDragSnapGesture | null,
+		proposedDelta: CanvasInteractionPoint
+	): CanvasInteractionPoint {
+		if (
+			!gesture ||
+			gesture.orientation !== engineState.transport.orientation ||
+			isCanvasSnapBypassGesture(event)
+		) {
+			activeCanvasSnapGuides = [];
+			return proposedDelta;
+		}
+		const screenScale = canvasSnapScreenScale(gesture.plane);
+		if (!screenScale) {
+			activeCanvasSnapGuides = [];
+			return proposedDelta;
+		}
+		const result = resolveCanvasDragSnapping({
+			movingElement: gesture.movingElement,
+			proposedDelta,
+			compatibleElements: gesture.compatibleElements,
+			orientation: gesture.orientation,
+			screenScale
+		});
+		activeCanvasSnapGuides = result.guides.map((guide) => ({ guide, plane: gesture.plane }));
+		return result.delta;
+	}
+
+	function canvasSnapGuideLine(activeGuide: ActiveCanvasSnapGuide): CanvasSnapGuideLine | null {
+		void measureEpoch;
+		const geometry = currentCanvasInteractionGeometry();
+		const editorBounds = rootEl?.getBoundingClientRect();
+		if (!geometry || !editorBounds) return null;
+		const { guide, plane } = activeGuide;
+		const normalizedStart =
+			guide.axis === 'x'
+				? { x: guide.position, y: guide.start }
+				: { x: guide.start, y: guide.position };
+		const normalizedEnd =
+			guide.axis === 'x'
+				? { x: guide.position, y: guide.end }
+				: { x: guide.end, y: guide.position };
+		const screenStart = geometry.compositionPointToScreen(normalizedStart, plane);
+		const screenEnd = geometry.compositionPointToScreen(normalizedEnd, plane);
+		if (!screenStart || !screenEnd) return null;
+		return {
+			start: { x: screenStart.x - editorBounds.left, y: screenStart.y - editorBounds.top },
+			end: { x: screenEnd.x - editorBounds.left, y: screenEnd.y - editorBounds.top }
+		};
 	}
 
 	// Pointer → normalized composition coordinate on an element's plane. The
@@ -185,6 +430,15 @@
 
 	// ─── Drag state ──────────────────────────────────────────────────────────────
 
+	const CANVAS_DRAG_AUTHORING_PRECISION = 1_000_000;
+
+	function canvasDragAuthoringValue(value: number): number {
+		const rounded =
+			Math.round(clampNumber(value, 0, 1) * CANVAS_DRAG_AUTHORING_PRECISION) /
+			CANVAS_DRAG_AUTHORING_PRECISION;
+		return Object.is(rounded, -0) ? 0 : rounded;
+	}
+
 	interface DragState {
 		overlayId: string;
 		/** Drag origin in composition fractions (ray-cast onto the overlay plane). */
@@ -200,6 +454,7 @@
 		 *  first real move; this seeds the post-conversion origin. */
 		convertCenter: boolean;
 		moved: boolean;
+		snap: CanvasDragSnapGesture | null;
 	}
 
 	let dragState: DragState | null = null;
@@ -208,7 +463,6 @@
 		if (event.button !== 0) return;
 		event.preventDefault();
 		event.stopPropagation();
-		selectLayer(createTimelineTrackId({ kind: 'overlay', overlayId: overlay.id }));
 		const pos = resolveOverlayPlacement(overlay.position, engineState.transport.orientation);
 		const isRect = pos.anchor === 'normalized-rect';
 		const measured = measureTopLeftFrac(overlay);
@@ -231,11 +485,13 @@
 			originX: isRect ? (pos.rect?.x ?? 0) : convertCenter ? measured!.x : (pos.offset?.x ?? 0),
 			originY: isRect ? (pos.rect?.y ?? 0) : convertCenter ? measured!.y : (pos.offset?.y ?? 0),
 			convertCenter,
-			moved: false
+			moved: false,
+			snap: createCanvasDragSnapGesture(`overlay:${overlay.id}`, 'overlay')
 		};
 		if (typeof window !== 'undefined') {
 			window.addEventListener('pointermove', onPointerMove);
 			window.addEventListener('pointerup', onPointerUp);
+			window.addEventListener('pointercancel', onPointerUp);
 		}
 	}
 
@@ -248,24 +504,27 @@
 		// so the drag tracks the reprojected pixels when the stage is on.
 		const comp = pointerToComp(event.clientX, event.clientY, 'overlay');
 		if (!comp) return;
-		const dx = comp.x - dragState.startCompX;
-		const dy = comp.y - dragState.startCompY;
+		const proposedDelta = {
+			x: comp.x - dragState.startCompX,
+			y: comp.y - dragState.startCompY
+		};
 		const pos = resolveOverlayPlacement(overlay.position, engineState.transport.orientation);
 
 		// Ignore sub-pixel jitter so a plain click doesn't count as a drag (and so a
 		// center overlay isn't reanchored just by selecting it).
 		if (!dragState.moved) {
-			if (Math.abs(dx) < 0.0005 && Math.abs(dy) < 0.0005) return;
+			if (Math.abs(proposedDelta.x) < 0.0005 && Math.abs(proposedDelta.y) < 0.0005) return;
 			dragState.moved = true;
 			if (dragState.convertCenter) {
 				pos.anchor = 'top-left';
 			}
 		}
+		const delta = resolveCanvasGestureDelta(event, dragState.snap, proposedDelta);
 
 		if (dragState.mode === 'rect') {
 			if (!pos.rect) return;
-			pos.rect.x = clampNumber(dragState.originX + dx, 0, 1);
-			pos.rect.y = clampNumber(dragState.originY + dy, 0, 1);
+			pos.rect.x = canvasDragAuthoringValue(dragState.originX + delta.x);
+			pos.rect.y = canvasDragAuthoringValue(dragState.originY + delta.y);
 			return;
 		}
 
@@ -275,15 +534,17 @@
 		if (!pos.offset) pos.offset = { x: 0, y: 0 };
 		const horizSign = pos.anchor.endsWith('right') ? -1 : 1;
 		const vertSign = pos.anchor.startsWith('bottom') ? -1 : 1;
-		pos.offset.x = clampNumber(dragState.originX + horizSign * dx, 0, 1);
-		pos.offset.y = clampNumber(dragState.originY + vertSign * dy, 0, 1);
+		pos.offset.x = canvasDragAuthoringValue(dragState.originX + horizSign * delta.x);
+		pos.offset.y = canvasDragAuthoringValue(dragState.originY + vertSign * delta.y);
 	}
 
 	function onPointerUp(): void {
 		dragState = null;
+		activeCanvasSnapGuides = [];
 		if (typeof window !== 'undefined') {
 			window.removeEventListener('pointermove', onPointerMove);
 			window.removeEventListener('pointerup', onPointerUp);
+			window.removeEventListener('pointercancel', onPointerUp);
 		}
 	}
 
@@ -292,8 +553,37 @@
 	// stays fixed in screen space as the overlay scales, so a corner handle's
 	// distance from that point is a direct measure of scale: drag it out → bigger.
 
+	type OverlayPlacementScalar = 'scale' | 'rotation';
+
+	function recordOverlayPlacementScalarChange(
+		label: string,
+		placement: OverlayPlacement,
+		key: OverlayPlacementScalar,
+		before: number | undefined,
+		after: number | undefined
+	): void {
+		if (Object.is(before, after)) return;
+		compositionEditHistory.recordApplied({
+			label,
+			undo: () => {
+				placement[key] = before;
+				measureEpoch += 1;
+			},
+			redo: () => {
+				placement[key] = after;
+				measureEpoch += 1;
+			}
+		});
+	}
+
+	function roundedCanvasScalar(value: number, minimum: number, maximum: number): number {
+		return Math.round(clampNumber(value, minimum, maximum) * 1_000_000) / 1_000_000;
+	}
+
 	interface ScaleState {
-		overlayId: string;
+		orientation: 'horizontal' | 'vertical';
+		placement: OverlayPlacement;
+		scaleBefore: number | undefined;
 		/** The fixed anchor point in client px (the overlay's transform-origin corner). */
 		anchorX: number;
 		anchorY: number;
@@ -331,16 +621,22 @@
 		event.stopPropagation();
 		selectLayer(createTimelineTrackId({ kind: 'overlay', overlayId: overlay.id }));
 		// Anchor point must be in the SAME space as the pointer (client/display px).
-		// The hit box is already projected into display space; the overlay DOM element
-		// is in the composition's native-4K space, so measure the hit box, not the el.
+		// Pointer padding lives on the outer hit region, so measure the nested
+		// visible outline rather than either the padded region or native-4K DOM.
 		const hitEl = (event.currentTarget as HTMLElement).closest<HTMLElement>('.overlay-hit');
-		if (!hitEl) return;
+		const outlineEl = hitEl?.querySelector<HTMLElement>('.canvas-selection-outline');
+		if (!outlineEl) return;
 		const placement = resolveOverlayPlacement(overlay.position, engineState.transport.orientation);
-		const { x: anchorX, y: anchorY } = anchorPoint(placement.anchor, hitEl.getBoundingClientRect());
+		const { x: anchorX, y: anchorY } = anchorPoint(
+			placement.anchor,
+			outlineEl.getBoundingClientRect()
+		);
 		const d0 = Math.hypot(event.clientX - anchorX, event.clientY - anchorY);
 		if (d0 < 4) return; // grabbed essentially at the anchor — no scale axis
 		scaleState = {
-			overlayId: overlay.id,
+			orientation: engineState.transport.orientation,
+			placement,
+			scaleBefore: placement.scale,
 			anchorX,
 			anchorY,
 			d0,
@@ -349,24 +645,75 @@
 		if (typeof window !== 'undefined') {
 			window.addEventListener('pointermove', onScaleMove);
 			window.addEventListener('pointerup', onScaleEnd);
+			window.addEventListener('pointercancel', onScaleCancel);
 		}
 	}
 
 	function onScaleMove(event: PointerEvent): void {
-		if (!scaleState) return;
-		const overlay = engineState.overlays.find((o) => o.id === scaleState!.overlayId);
-		if (!overlay) return;
-		const d1 = Math.hypot(event.clientX - scaleState.anchorX, event.clientY - scaleState.anchorY);
-		resolveOverlayPlacement(overlay.position, engineState.transport.orientation).scale =
-			clampNumber((scaleState.scaleOrigin * d1) / scaleState.d0, 0.1, 8);
+		const state = scaleState;
+		if (!state) return;
+		if (engineState.transport.orientation !== state.orientation) {
+			onScaleCancel();
+			return;
+		}
+		const d1 = Math.hypot(event.clientX - state.anchorX, event.clientY - state.anchorY);
+		state.placement.scale = roundedCanvasScalar((state.scaleOrigin * d1) / state.d0, 0.1, 8);
+	}
+
+	function removeScaleListeners(): void {
+		if (typeof window === 'undefined') return;
+		window.removeEventListener('pointermove', onScaleMove);
+		window.removeEventListener('pointerup', onScaleEnd);
+		window.removeEventListener('pointercancel', onScaleCancel);
 	}
 
 	function onScaleEnd(): void {
+		const state = scaleState;
 		scaleState = null;
-		if (typeof window !== 'undefined') {
-			window.removeEventListener('pointermove', onScaleMove);
-			window.removeEventListener('pointerup', onScaleEnd);
-		}
+		removeScaleListeners();
+		if (!state) return;
+		recordOverlayPlacementScalarChange(
+			'Scale canvas overlay',
+			state.placement,
+			'scale',
+			state.scaleBefore,
+			state.placement.scale
+		);
+	}
+
+	function onScaleCancel(): void {
+		const state = scaleState;
+		scaleState = null;
+		removeScaleListeners();
+		if (!state) return;
+		state.placement.scale = state.scaleBefore;
+		measureEpoch += 1;
+	}
+
+	function onScaleKeyDown(event: KeyboardEvent, overlay: Overlay): void {
+		const direction =
+			event.key === 'ArrowUp' || event.key === 'ArrowRight'
+				? 1
+				: event.key === 'ArrowDown' || event.key === 'ArrowLeft'
+					? -1
+					: 0;
+		if (direction === 0 || event.metaKey || event.ctrlKey || event.altKey) return;
+		event.preventDefault();
+		event.stopPropagation();
+		const placement = resolveOverlayPlacement(overlay.position, engineState.transport.orientation);
+		const before = placement.scale;
+		placement.scale = roundedCanvasScalar(
+			(before ?? 1) + direction * (event.shiftKey ? 0.25 : 0.05),
+			0.1,
+			8
+		);
+		recordOverlayPlacementScalarChange(
+			'Scale canvas overlay',
+			placement,
+			'scale',
+			before,
+			placement.scale
+		);
 	}
 
 	// ─── Rotate state (ADR-0035; absorbs 5vcak6og) ───────────────────────────────
@@ -374,7 +721,9 @@
 	// handle's angle around the transform-origin is a direct read of rotation.
 
 	interface RotateState {
-		overlayId: string;
+		orientation: 'horizontal' | 'vertical';
+		placement: OverlayPlacement;
+		rotationBefore: number | undefined;
 		anchorX: number;
 		anchorY: number;
 		/** Pointer angle (deg) around the anchor at drag start. */
@@ -394,11 +743,17 @@
 		event.stopPropagation();
 		selectLayer(createTimelineTrackId({ kind: 'overlay', overlayId: overlay.id }));
 		const hitEl = (event.currentTarget as HTMLElement).closest<HTMLElement>('.overlay-hit');
-		if (!hitEl) return;
+		const outlineEl = hitEl?.querySelector<HTMLElement>('.canvas-selection-outline');
+		if (!outlineEl) return;
 		const placement = resolveOverlayPlacement(overlay.position, engineState.transport.orientation);
-		const { x: anchorX, y: anchorY } = anchorPoint(placement.anchor, hitEl.getBoundingClientRect());
+		const { x: anchorX, y: anchorY } = anchorPoint(
+			placement.anchor,
+			outlineEl.getBoundingClientRect()
+		);
 		rotateState = {
-			overlayId: overlay.id,
+			orientation: engineState.transport.orientation,
+			placement,
+			rotationBefore: placement.rotation,
 			anchorX,
 			anchorY,
 			angle0: pointerAngle(event, anchorX, anchorY),
@@ -407,27 +762,78 @@
 		if (typeof window !== 'undefined') {
 			window.addEventListener('pointermove', onRotateMove);
 			window.addEventListener('pointerup', onRotateEnd);
+			window.addEventListener('pointercancel', onRotateCancel);
 		}
 	}
 
 	function onRotateMove(event: PointerEvent): void {
-		if (!rotateState) return;
-		const overlay = engineState.overlays.find((o) => o.id === rotateState!.overlayId);
-		if (!overlay) return;
-		let delta = pointerAngle(event, rotateState.anchorX, rotateState.anchorY) - rotateState.angle0;
+		const state = rotateState;
+		if (!state) return;
+		if (engineState.transport.orientation !== state.orientation) {
+			onRotateCancel();
+			return;
+		}
+		let delta = pointerAngle(event, state.anchorX, state.anchorY) - state.angle0;
 		// Take the short way around so crossing the ±180° seam doesn't jump.
 		if (delta > 180) delta -= 360;
 		if (delta < -180) delta += 360;
-		resolveOverlayPlacement(overlay.position, engineState.transport.orientation).rotation =
-			clampNumber(rotateState.rotationOrigin + delta, -360, 360);
+		state.placement.rotation = roundedCanvasScalar(state.rotationOrigin + delta, -360, 360);
+	}
+
+	function removeRotateListeners(): void {
+		if (typeof window === 'undefined') return;
+		window.removeEventListener('pointermove', onRotateMove);
+		window.removeEventListener('pointerup', onRotateEnd);
+		window.removeEventListener('pointercancel', onRotateCancel);
 	}
 
 	function onRotateEnd(): void {
+		const state = rotateState;
 		rotateState = null;
-		if (typeof window !== 'undefined') {
-			window.removeEventListener('pointermove', onRotateMove);
-			window.removeEventListener('pointerup', onRotateEnd);
-		}
+		removeRotateListeners();
+		if (!state) return;
+		recordOverlayPlacementScalarChange(
+			'Rotate canvas overlay',
+			state.placement,
+			'rotation',
+			state.rotationBefore,
+			state.placement.rotation
+		);
+	}
+
+	function onRotateCancel(): void {
+		const state = rotateState;
+		rotateState = null;
+		removeRotateListeners();
+		if (!state) return;
+		state.placement.rotation = state.rotationBefore;
+		measureEpoch += 1;
+	}
+
+	function onRotateKeyDown(event: KeyboardEvent, overlay: Overlay): void {
+		const direction =
+			event.key === 'ArrowUp' || event.key === 'ArrowRight'
+				? 1
+				: event.key === 'ArrowDown' || event.key === 'ArrowLeft'
+					? -1
+					: 0;
+		if (direction === 0 || event.metaKey || event.ctrlKey || event.altKey) return;
+		event.preventDefault();
+		event.stopPropagation();
+		const placement = resolveOverlayPlacement(overlay.position, engineState.transport.orientation);
+		const before = placement.rotation;
+		placement.rotation = roundedCanvasScalar(
+			(before ?? 0) + direction * (event.shiftKey ? 15 : 1),
+			-360,
+			360
+		);
+		recordOverlayPlacementScalarChange(
+			'Rotate canvas overlay',
+			placement,
+			'rotation',
+			before,
+			placement.rotation
+		);
 	}
 
 	// ─── Diagram primitive Blocks (ADR-0036): click-select + drag placement ─────
@@ -440,14 +846,30 @@
 		(engineState.surface.diagram ?? []).filter((primitive) => primitive.type !== 'edge-arrow')
 	);
 
+	function blockRenderedBounds(primitive: DiagramPrimitive): CanvasRenderedBounds | null {
+		// DOM bounds are not reactive. Zoom, pan, orientation, and ResizeObserver
+		// updates advance this editor-only epoch so Block hit regions and handles
+		// reproject with the canvas instead of keeping stale screen geometry.
+		void measureEpoch;
+		const element = compositionElement?.querySelector<HTMLElement>(
+			`[data-diagram-primitive="${CSS.escape(primitive.id)}"]`
+		);
+		if (!element) return null;
+		return (
+			currentCanvasInteractionGeometry()?.renderedBoundsFor(
+				canvasInteractionRect(element.getBoundingClientRect()),
+				'surface'
+			) ?? null
+		);
+	}
+
 	function blockRelRect(
 		primitive: DiagramPrimitive
 	): { left: number; top: number; width: number; height: number } | null {
 		// Subscribe to the authored geometry so the hit box re-measures after a
-		// drag or inspector edit (getBoundingClientRect isn't reactive).
+		// drag, width reflow, or inspector edit (getBoundingClientRect isn't reactive).
 		switch (primitive.type) {
 			case 'node':
-			case 'label':
 			case 'stat-callout': {
 				const geometry = resolveDiagramPrimitiveGeometry(
 					primitive,
@@ -456,6 +878,17 @@
 				void geometry.position.x;
 				void geometry.position.y;
 				void geometry.scale;
+				break;
+			}
+			case 'label': {
+				const geometry = resolveDiagramPrimitiveGeometry(
+					primitive,
+					engineState.transport.orientation
+				);
+				void geometry.position.x;
+				void geometry.position.y;
+				void geometry.scale;
+				void geometry.maxWidth;
 				break;
 			}
 			case 'timeline-segment': {
@@ -470,11 +903,7 @@
 			case 'edge-arrow':
 				break;
 		}
-		const el = compositionElement?.querySelector<HTMLElement>(
-			`[data-diagram-primitive="${primitive.id}"]`
-		);
-		if (!el) return null;
-		return projectRect(el);
+		return blockRenderedBounds(primitive)?.editorBounds ?? null;
 	}
 
 	interface BlockDragState {
@@ -484,6 +913,7 @@
 		startCompY: number;
 		/** Every authored point the drag translates (position, or from+to). */
 		points: { point: { x: number; y: number }; originX: number; originY: number }[];
+		snap: CanvasDragSnapGesture | null;
 	}
 
 	let blockDrag: BlockDragState | null = null;
@@ -492,7 +922,6 @@
 		if (event.button !== 0) return;
 		event.preventDefault();
 		event.stopPropagation();
-		selectLayer(createTimelineTrackId({ kind: 'block', blockId: primitive.id }));
 		const points: BlockDragState['points'] = [];
 		switch (primitive.type) {
 			case 'node':
@@ -536,11 +965,13 @@
 			blockId: primitive.id,
 			startCompX: startComp.x,
 			startCompY: startComp.y,
-			points
+			points,
+			snap: createCanvasDragSnapGesture(`block:${primitive.id}`, 'surface')
 		};
 		if (typeof window !== 'undefined') {
 			window.addEventListener('pointermove', onBlockPointerMove);
 			window.addEventListener('pointerup', onBlockPointerUp);
+			window.addEventListener('pointercancel', onBlockPointerUp);
 		}
 	}
 
@@ -548,23 +979,167 @@
 		if (!blockDrag) return;
 		const comp = pointerToComp(event.clientX, event.clientY, 'surface');
 		if (!comp) return;
-		const dx = comp.x - blockDrag.startCompX;
-		const dy = comp.y - blockDrag.startCompY;
-		if (Math.abs(dx) < 0.0005 && Math.abs(dy) < 0.0005) return;
+		const proposedDelta = {
+			x: comp.x - blockDrag.startCompX,
+			y: comp.y - blockDrag.startCompY
+		};
+		if (Math.abs(proposedDelta.x) < 0.0005 && Math.abs(proposedDelta.y) < 0.0005) return;
+		const delta = resolveCanvasGestureDelta(event, blockDrag.snap, proposedDelta);
 		for (const entry of blockDrag.points) {
 			// Rounded to 4 dp — sub-pixel-at-4K precision that keeps the inspector
 			// and the serialized preset readable.
-			entry.point.x = Math.round(clampNumber(entry.originX + dx, 0, 1) * 10000) / 10000;
-			entry.point.y = Math.round(clampNumber(entry.originY + dy, 0, 1) * 10000) / 10000;
+			entry.point.x = Math.round(clampNumber(entry.originX + delta.x, 0, 1) * 10000) / 10000;
+			entry.point.y = Math.round(clampNumber(entry.originY + delta.y, 0, 1) * 10000) / 10000;
 		}
 	}
 
 	function onBlockPointerUp(): void {
 		blockDrag = null;
+		activeCanvasSnapGuides = [];
 		if (typeof window !== 'undefined') {
 			window.removeEventListener('pointermove', onBlockPointerMove);
 			window.removeEventListener('pointerup', onBlockPointerUp);
+			window.removeEventListener('pointercancel', onBlockPointerUp);
 		}
+	}
+
+	// ─── Diagram label text-box resize ───────────────────────────────────────────
+	// Labels are the existing bounded text-container domain. Side handles write
+	// maxWidth in normalized composition space; the label mount reflows height
+	// intrinsically and leaves scale/font size unchanged.
+
+	interface TextBoxResizeState {
+		origin: DiagramLabelTextBoxSnapshot;
+		side: CanvasTextBoxResizeSide;
+		startCompX: number;
+		intrinsicWidth: number;
+	}
+
+	let textBoxResizeState: TextBoxResizeState | null = null;
+
+	function removeTextBoxResizeListeners(): void {
+		if (typeof window === 'undefined') return;
+		window.removeEventListener('pointermove', onTextBoxResizeMove);
+		window.removeEventListener('pointerup', commitTextBoxResize);
+		window.removeEventListener('pointercancel', cancelTextBoxResize);
+	}
+
+	function onTextBoxResizeStart(
+		event: PointerEvent,
+		label: DiagramLabel,
+		side: CanvasTextBoxResizeSide
+	): void {
+		if (event.button !== 0) return;
+		event.preventDefault();
+		event.stopPropagation();
+		const start = pointerToComp(event.clientX, event.clientY, 'surface');
+		const renderedBounds = blockRenderedBounds(label);
+		const origin = captureDiagramLabelTextBoxSnapshot(engineState, label.id);
+		if (!start || !renderedBounds || !origin) return;
+		const intrinsicWidth = renderedBounds.compositionBounds.normalized.width;
+		if (!Number.isFinite(intrinsicWidth) || intrinsicWidth <= 0) return;
+		const selectionKey = `block:${label.id}` as CanvasElementSelectionKey;
+		selectSpatialCanvasElement(selectionKey, 'replace');
+		textBoxResizeState = { origin, side, startCompX: start.x, intrinsicWidth };
+		if (typeof window !== 'undefined') {
+			window.addEventListener('pointermove', onTextBoxResizeMove);
+			window.addEventListener('pointerup', commitTextBoxResize);
+			window.addEventListener('pointercancel', cancelTextBoxResize);
+		}
+	}
+
+	function onTextBoxResizeMove(event: PointerEvent): void {
+		const state = textBoxResizeState;
+		if (!state) return;
+		if (engineState.transport.orientation !== state.origin.orientation) {
+			cancelTextBoxResize();
+			return;
+		}
+		const current = pointerToComp(event.clientX, event.clientY, 'surface');
+		if (!current) return;
+		const resolved = resolveDiagramLabelTextBoxResize(state.origin, {
+			side: state.side,
+			deltaX: current.x - state.startCompX,
+			intrinsicWidth: state.intrinsicWidth
+		});
+		if (!resolved) return;
+		restoreDiagramLabelTextBoxSnapshot(engineState, resolved);
+	}
+
+	function commitTextBoxResize(): void {
+		const state = textBoxResizeState;
+		textBoxResizeState = null;
+		removeTextBoxResizeListeners();
+		if (!state) return;
+		const finalSnapshot = captureDiagramLabelTextBoxSnapshot(engineState, state.origin.labelId);
+		if (!finalSnapshot || finalSnapshot.orientation !== state.origin.orientation) {
+			restoreDiagramLabelTextBoxSnapshot(engineState, state.origin);
+			measureEpoch += 1;
+			return;
+		}
+		if (diagramLabelTextBoxSnapshotsEqual(state.origin, finalSnapshot)) return;
+		compositionEditHistory.recordApplied({
+			label: 'Resize diagram label text box',
+			undo: () => {
+				restoreDiagramLabelTextBoxSnapshot(engineState, state.origin);
+				measureEpoch += 1;
+			},
+			redo: () => {
+				restoreDiagramLabelTextBoxSnapshot(engineState, finalSnapshot);
+				measureEpoch += 1;
+			}
+		});
+	}
+
+	function cancelTextBoxResize(): void {
+		const state = textBoxResizeState;
+		textBoxResizeState = null;
+		removeTextBoxResizeListeners();
+		if (!state) return;
+		restoreDiagramLabelTextBoxSnapshot(engineState, state.origin);
+		measureEpoch += 1;
+	}
+
+	function onTextBoxResizeKeyDown(
+		event: KeyboardEvent,
+		label: DiagramLabel,
+		side: CanvasTextBoxResizeSide
+	): void {
+		if (
+			(event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') ||
+			event.metaKey ||
+			event.ctrlKey ||
+			event.altKey
+		) {
+			return;
+		}
+		event.preventDefault();
+		event.stopPropagation();
+		const renderedBounds = blockRenderedBounds(label);
+		const origin = captureDiagramLabelTextBoxSnapshot(engineState, label.id);
+		if (!renderedBounds || !origin) return;
+		const intrinsicWidth = renderedBounds.compositionBounds.normalized.width;
+		const direction = event.key === 'ArrowRight' ? 1 : -1;
+		const deltaX = (direction * (event.shiftKey ? 10 : 1)) / Math.max(1, compositionSize.width);
+		const resolved = resolveDiagramLabelTextBoxResize(origin, {
+			side,
+			deltaX,
+			intrinsicWidth
+		});
+		if (!resolved || diagramLabelTextBoxSnapshotsEqual(origin, resolved)) return;
+		restoreDiagramLabelTextBoxSnapshot(engineState, resolved);
+		measureEpoch += 1;
+		compositionEditHistory.recordApplied({
+			label: 'Resize diagram label text box',
+			undo: () => {
+				restoreDiagramLabelTextBoxSnapshot(engineState, origin);
+				measureEpoch += 1;
+			},
+			redo: () => {
+				restoreDiagramLabelTextBoxSnapshot(engineState, resolved);
+				measureEpoch += 1;
+			}
+		});
 	}
 
 	// ─── Surface-interior direct selection (epic 0pkzts2c) ──────────────────────
@@ -586,6 +1161,39 @@
 	// stale. Bumping this on backdrop pointerenter re-measures every interior box
 	// before the cursor can reach one (regions are islands inside the backdrop).
 	let measureEpoch = $state(0);
+
+	const CANVAS_TRANSFORM_SETTLE_MS = 180;
+
+	// CSS transforms do not notify ResizeObserver. Re-measure through the short
+	// zoom transition, while ResizeObserver covers orientation and workspace
+	// reflow. This attachment is editor-only and never enters frame rendering.
+	const trackCanvasGeometryChanges: Attachment<HTMLDivElement> = (element) => {
+		void zoom;
+		void panX;
+		void panY;
+		void canvas;
+		void compositionSize.width;
+		void compositionSize.height;
+		void engineState.transport.orientation;
+
+		const startedAt = performance.now();
+		let animationFrame = requestAnimationFrame(function refreshGeometry(now) {
+			measureEpoch += 1;
+			if (now - startedAt < CANVAS_TRANSFORM_SETTLE_MS) {
+				animationFrame = requestAnimationFrame(refreshGeometry);
+			}
+		});
+		const resizeObserver = new ResizeObserver(() => {
+			measureEpoch += 1;
+		});
+		resizeObserver.observe(element);
+		if (canvas) resizeObserver.observe(canvas);
+
+		return () => {
+			cancelAnimationFrame(animationFrame);
+			resizeObserver.disconnect();
+		};
+	};
 
 	// Every slot value stamped as `data-text-anim-slot` by surface CanvasSources.
 	const SURFACE_TEXT_SLOTS = [
@@ -695,6 +1303,380 @@
 		requestInspectorFocus(`slot:${slot}`);
 	}
 
+	// ─── Shared pointer hit resolution ────────────────────────────────────────────
+	// Every visible outline owns an independently padded pointer region. DOM stack
+	// order only determines which region receives the browser event; the shared
+	// geometry contract resolves all regions at that screen point so overlap order
+	// and Option/Alt cycling stay deterministic.
+
+	interface CanvasDomSelectionCandidate extends CanvasSelectionCandidate {
+		selectionId: string;
+	}
+
+	function isCanvasSelectionLayer(value: string | undefined): value is CanvasSelectionLayer {
+		return (
+			value === 'surface-text' ||
+			value === 'surface-content' ||
+			value === 'block' ||
+			value === 'overlay'
+		);
+	}
+
+	function canvasDomSelectionCandidates(): CanvasDomSelectionCandidate[] {
+		if (!rootEl) return [];
+		const candidates: CanvasDomSelectionCandidate[] = [];
+		for (const element of rootEl.querySelectorAll<HTMLElement>('[data-canvas-selection-key]')) {
+			const selectionKey = element.dataset.canvasSelectionKey;
+			const selectionId = element.dataset.canvasSelectionId;
+			const layer = element.dataset.canvasSelectionLayer;
+			const paintIndex = Number(element.dataset.canvasPaintIndex);
+			const stableId = element.dataset.canvasStableId;
+			if (
+				!selectionKey ||
+				!selectionId ||
+				!isCanvasSelectionLayer(layer) ||
+				!Number.isInteger(paintIndex) ||
+				!stableId
+			) {
+				continue;
+			}
+			candidates.push({
+				selectionKey,
+				selectionId,
+				selectionOrder: { layer, paintIndex, stableId },
+				pointerBounds: canvasInteractionRect(element.getBoundingClientRect())
+			});
+		}
+		return candidates;
+	}
+
+	function currentCanvasSelectionKey(
+		candidates: readonly CanvasDomSelectionCandidate[]
+	): string | null {
+		if (!layerSelection.id) return null;
+		const selectedCandidates = candidates.filter(
+			(candidate) => candidate.selectionId === layerSelection.id
+		);
+		if (
+			lastCanvasSelectionKey &&
+			selectedCandidates.some((candidate) => candidate.selectionKey === lastCanvasSelectionKey)
+		) {
+			return lastCanvasSelectionKey;
+		}
+		return selectedCandidates.length === 1 ? selectedCandidates[0].selectionKey : null;
+	}
+
+	function canvasSelectionIndex(selectionKey: string, prefix: string): number | null {
+		if (!selectionKey.startsWith(prefix)) return null;
+		const index = Number(selectionKey.slice(prefix.length));
+		return Number.isInteger(index) && index >= 0 ? index : null;
+	}
+
+	function isSurfaceTextSlot(slot: string): slot is (typeof SURFACE_TEXT_SLOTS)[number] {
+		return SURFACE_TEXT_SLOTS.some((candidate) => candidate === slot);
+	}
+
+	function selectCanvasCandidate(selectionKey: string): void {
+		if (selectionKey.startsWith('overlay:')) {
+			const overlayId = selectionKey.slice('overlay:'.length);
+			if (engineState.overlays.some((overlay) => overlay.id === overlayId)) {
+				selectLayer(createTimelineTrackId({ kind: 'overlay', overlayId }));
+			}
+			return;
+		}
+		if (selectionKey.startsWith('block:')) {
+			const blockId = selectionKey.slice('block:'.length);
+			if (diagramPrimitiveDraggables.some((primitive) => primitive.id === blockId)) {
+				selectLayer(createTimelineTrackId({ kind: 'block', blockId }));
+			}
+			return;
+		}
+		const messageIndex = canvasSelectionIndex(selectionKey, 'message:');
+		if (messageIndex !== null && messageIndex < surfaceMessages.length) {
+			selectMessage(messageIndex);
+			return;
+		}
+		const itemIndex = canvasSelectionIndex(selectionKey, 'item:');
+		if (itemIndex !== null && itemIndex < surfaceItems.length) {
+			selectItem(itemIndex);
+			return;
+		}
+		if (selectionKey.startsWith('slot:')) {
+			const slot = selectionKey.slice('slot:'.length);
+			if (isSurfaceTextSlot(slot)) selectSlot(slot);
+		}
+	}
+
+	function startCanvasCandidateGesture(event: PointerEvent, selectionKey: string): void {
+		if (selectionKey.startsWith('overlay:')) {
+			const overlayId = selectionKey.slice('overlay:'.length);
+			const overlay = engineState.overlays.find((candidate) => candidate.id === overlayId);
+			if (overlay) onPointerDown(event, overlay);
+			return;
+		}
+		if (selectionKey.startsWith('block:')) {
+			const blockId = selectionKey.slice('block:'.length);
+			const primitive = diagramPrimitiveDraggables.find((candidate) => candidate.id === blockId);
+			if (primitive) onBlockPointerDown(event, primitive);
+			return;
+		}
+		const messageIndex = canvasSelectionIndex(selectionKey, 'message:');
+		if (messageIndex !== null && messageIndex < surfaceMessages.length) {
+			onMessageDown(event, messageIndex);
+			return;
+		}
+		const itemIndex = canvasSelectionIndex(selectionKey, 'item:');
+		if (itemIndex !== null && itemIndex < surfaceItems.length) {
+			onItemDown(event, itemIndex);
+			return;
+		}
+		if (selectionKey.startsWith('slot:')) {
+			const slot = selectionKey.slice('slot:'.length);
+			if (isSurfaceTextSlot(slot)) onSlotDown(event, slot);
+		}
+	}
+
+	function onCanvasCandidatePointerDown(event: PointerEvent, fallbackSelectionKey: string): void {
+		if (event.button !== 0) return;
+		const candidates = canvasDomSelectionCandidates();
+		const resolved = resolveCanvasSelectionCandidateAtPoint(
+			candidates,
+			{ x: event.clientX, y: event.clientY },
+			{
+				currentSelectionKey: currentCanvasSelectionKey(candidates),
+				cycle: event.altKey
+			}
+		);
+		const selectionKey = resolved?.selectionKey ?? fallbackSelectionKey;
+		lastCanvasSelectionKey = selectionKey;
+		if (isCanvasElementSelectionKey(selectionKey)) {
+			if (event.shiftKey) {
+				event.preventDefault();
+				event.stopPropagation();
+				selectSpatialCanvasElement(selectionKey, 'toggle');
+				return;
+			}
+			selectSpatialCanvasElement(selectionKey, 'preserve');
+		}
+		startCanvasCandidateGesture(event, selectionKey);
+	}
+
+	function nudgeSpatialCanvasSelection(
+		event: KeyboardEvent,
+		selectionKey: CanvasElementSelectionKey
+	): boolean {
+		if (
+			!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key) ||
+			event.metaKey ||
+			event.ctrlKey ||
+			event.altKey
+		) {
+			return false;
+		}
+		event.preventDefault();
+		event.stopPropagation();
+		if (!canvasElementSelection.keys.includes(selectionKey)) {
+			selectSpatialCanvasElement(selectionKey, 'replace');
+		}
+		const selectionKeys = [...canvasElementSelection.keys];
+		const elements = selectedCanvasAlignableElements(selectionKeys);
+		if (elements.length !== selectionKeys.length) return true;
+		const nativePixels = event.shiftKey ? 10 : 1;
+		const delta = {
+			x:
+				event.key === 'ArrowLeft'
+					? -nativePixels / Math.max(1, compositionSize.width)
+					: event.key === 'ArrowRight'
+						? nativePixels / Math.max(1, compositionSize.width)
+						: 0,
+			y:
+				event.key === 'ArrowUp'
+					? -nativePixels / Math.max(1, compositionSize.height)
+					: event.key === 'ArrowDown'
+						? nativePixels / Math.max(1, compositionSize.height)
+						: 0
+		};
+		const change = applyCanvasAlignmentTranslations(
+			engineState,
+			elements,
+			selectionKeys.map((key) => ({ selectionKey: key, delta }))
+		);
+		if (change) recordCanvasAlignmentChange('Nudge canvas elements', change);
+		return true;
+	}
+
+	function onCanvasCandidateKeyDown(event: KeyboardEvent, selectionKey: string): void {
+		if (
+			isCanvasElementSelectionKey(selectionKey) &&
+			nudgeSpatialCanvasSelection(event, selectionKey)
+		) {
+			return;
+		}
+		if (event.key !== 'Enter' && event.key !== ' ') return;
+		event.preventDefault();
+		event.stopPropagation();
+		lastCanvasSelectionKey = selectionKey;
+		if (isCanvasElementSelectionKey(selectionKey)) {
+			selectSpatialCanvasElement(selectionKey, event.shiftKey ? 'toggle' : 'replace');
+			return;
+		}
+		selectCanvasCandidate(selectionKey);
+	}
+
+	// ─── Multi-selection alignment and distribution ───────────────────────────────
+
+	const selectedCanvasElementCount = $derived(canvasElementSelection.keys.length);
+	const canDistributeCanvasElements = $derived(selectedCanvasElementCount >= 3);
+
+	function canvasAlignableElement(
+		selectionKey: CanvasElementSelectionKey
+	): CanvasAlignableElement | null {
+		void measureEpoch;
+		const identity = parseCanvasElementSelectionKey(selectionKey);
+		const geometry = currentCanvasInteractionGeometry();
+		if (!identity || !geometry) return null;
+		let sourceElement: HTMLElement | null;
+		if (identity.kind === 'overlay') {
+			const overlay = engineState.overlays.find(({ id }) => id === identity.id);
+			sourceElement = overlay ? getOverlayEl(overlay) : null;
+		} else {
+			sourceElement =
+				compositionElement?.querySelector<HTMLElement>(
+					`[data-diagram-primitive="${CSS.escape(identity.id)}"]`
+				) ?? null;
+		}
+		if (!sourceElement) return null;
+		const rendered = geometry.renderedBoundsFor(
+			canvasInteractionRect(sourceElement.getBoundingClientRect()),
+			identity.kind === 'overlay' ? 'overlay' : 'surface'
+		);
+		return rendered ? { selectionKey, bounds: rendered.compositionBounds.normalized } : null;
+	}
+
+	function allCanvasAlignableElements(): CanvasAlignableElement[] {
+		const selectionKeys: CanvasElementSelectionKey[] = [
+			...engineState.overlays.map(({ id }) => `overlay:${id}` as CanvasElementSelectionKey),
+			...diagramPrimitiveDraggables.map(({ id }) => `block:${id}` as CanvasElementSelectionKey)
+		];
+		return selectionKeys
+			.map((selectionKey) => canvasAlignableElement(selectionKey))
+			.filter((element): element is CanvasAlignableElement => element !== null);
+	}
+
+	function selectedCanvasAlignableElements(
+		selectionKeys: readonly CanvasElementSelectionKey[]
+	): CanvasAlignableElement[] {
+		const elements: CanvasAlignableElement[] = [];
+		for (const selectionKey of selectionKeys) {
+			const element = canvasAlignableElement(selectionKey);
+			if (!element) return [];
+			elements.push(element);
+		}
+		return elements;
+	}
+
+	function canvasAlignmentSnapshotKey(
+		snapshot: CanvasAlignmentGeometrySnapshot
+	): CanvasElementSelectionKey {
+		return `${snapshot.kind}:${snapshot.id}`;
+	}
+
+	function recordCanvasAlignmentChange(label: string, change: CanvasAlignmentGeometryChange): void {
+		compositionEditHistory.recordApplied({
+			label,
+			undo: () => {
+				restoreCanvasAlignmentGeometry(engineState, change.before);
+				measureEpoch += 1;
+			},
+			redo: () => {
+				restoreCanvasAlignmentGeometry(engineState, change.after);
+				measureEpoch += 1;
+			}
+		});
+	}
+
+	function settleCanvasAlignmentLayout(): Promise<void> {
+		return tick().then(
+			() =>
+				new Promise<void>((resolve) => {
+					requestAnimationFrame(() => resolve());
+				})
+		);
+	}
+
+	const CANVAS_ALIGNMENT_LAYOUT_PASSES = 6;
+	let canvasAlignmentCommandRunning = $state(false);
+
+	async function executeCanvasAlignmentCommand(
+		label: string,
+		reference: CanvasAlignmentReference,
+		resolveTranslations: (
+			elements: readonly CanvasAlignableElement[],
+			reference: CanvasAlignmentReference
+		) => CanvasElementTranslation[]
+	): Promise<void> {
+		if (canvasAlignmentCommandRunning) return;
+		canvasAlignmentCommandRunning = true;
+		const selectionKeys = [...canvasElementSelection.keys];
+		const orientation = engineState.transport.orientation;
+		const before: CanvasAlignmentGeometrySnapshot[] = [];
+		const after: CanvasAlignmentGeometrySnapshot[] = [];
+
+		try {
+			for (let pass = 0; pass < CANVAS_ALIGNMENT_LAYOUT_PASSES; pass += 1) {
+				if (engineState.transport.orientation !== orientation) break;
+				const elements = selectedCanvasAlignableElements(selectionKeys);
+				const translations = resolveTranslations(elements, reference);
+				const change = applyCanvasAlignmentTranslations(engineState, elements, translations);
+				if (!change) break;
+				for (const snapshot of change.before) {
+					const selectionKey = canvasAlignmentSnapshotKey(snapshot);
+					if (!before.some((entry) => canvasAlignmentSnapshotKey(entry) === selectionKey)) {
+						before.push(snapshot);
+					}
+				}
+				for (const snapshot of change.after) {
+					const selectionKey = canvasAlignmentSnapshotKey(snapshot);
+					const previousIndex = after.findIndex(
+						(entry) => canvasAlignmentSnapshotKey(entry) === selectionKey
+					);
+					if (previousIndex >= 0) after[previousIndex] = snapshot;
+					else after.push(snapshot);
+				}
+				await settleCanvasAlignmentLayout();
+			}
+			if (before.length > 0) {
+				recordCanvasAlignmentChange(label, { before, after });
+			}
+		} finally {
+			canvasAlignmentCommandRunning = false;
+		}
+	}
+
+	function runCanvasAlignmentCommand(
+		command: CanvasAlignmentCommand,
+		reference: CanvasAlignmentReference
+	): Promise<void> {
+		return executeCanvasAlignmentCommand(
+			`Align canvas elements ${command}`,
+			reference,
+			(elements, activeReference) =>
+				resolveCanvasAlignmentTranslations(elements, command, activeReference)
+		);
+	}
+
+	function runCanvasDistributionCommand(
+		command: CanvasDistributionCommand,
+		reference: CanvasAlignmentReference
+	): Promise<void> {
+		return executeCanvasAlignmentCommand(
+			`Distribute canvas elements ${command}`,
+			reference,
+			(elements, activeReference) =>
+				resolveCanvasDistributionTranslations(elements, command, activeReference)
+		);
+	}
+
 	// ─── Backdrop: pan (when zoomed in) or deselect (on a plain click) ──────────────
 	// A press on the empty canvas starts a gesture: drag while zoomed in pans the
 	// view; release without a real drag deselects (→ root inspector).
@@ -762,19 +1744,25 @@
 		if (typeof window === 'undefined') return;
 		window.removeEventListener('pointermove', onPointerMove);
 		window.removeEventListener('pointerup', onPointerUp);
+		window.removeEventListener('pointercancel', onPointerUp);
 		window.removeEventListener('pointermove', onBlockPointerMove);
 		window.removeEventListener('pointerup', onBlockPointerUp);
-		window.removeEventListener('pointermove', onScaleMove);
-		window.removeEventListener('pointerup', onScaleEnd);
-		window.removeEventListener('pointermove', onRotateMove);
-		window.removeEventListener('pointerup', onRotateEnd);
+		window.removeEventListener('pointercancel', onBlockPointerUp);
+		removeTextBoxResizeListeners();
+		removeScaleListeners();
+		removeRotateListeners();
 		window.removeEventListener('pointermove', onBackdropMove);
 		window.removeEventListener('pointerup', onBackdropUp);
 	});
 </script>
 
 <!-- Positioned over the canvas by Workspace; pointer-events only where overlays are -->
-<div bind:this={rootEl} class="canvas-editing-overlay" role="presentation">
+<div
+	bind:this={rootEl}
+	class="canvas-editing-overlay"
+	role="presentation"
+	{@attach trackCanvasGeometryChanges}
+>
 	<!-- Full-area backdrop: drag to pan when zoomed in, plain click to deselect -->
 	<div
 		class="canvas-editing-overlay__backdrop"
@@ -786,140 +1774,306 @@
 		role="presentation"
 		aria-hidden="true"
 	></div>
+	{#if activeCanvasSnapGuides.length > 0}
+		<svg class="canvas-snap-guide-layer" aria-hidden="true">
+			{#each activeCanvasSnapGuides as activeGuide (activeGuide.guide.axis)}
+				{@const line = canvasSnapGuideLine(activeGuide)}
+				{#if line}
+					<line
+						class="canvas-snap-guide"
+						x1={line.start.x}
+						y1={line.start.y}
+						x2={line.end.x}
+						y2={line.end.y}
+					></line>
+				{/if}
+			{/each}
+		</svg>
+	{/if}
+	{#if selectedCanvasElementCount >= 2}
+		<CanvasAlignmentToolbar
+			selectedCount={selectedCanvasElementCount}
+			canDistribute={canDistributeCanvasElements}
+			busy={canvasAlignmentCommandRunning}
+			onAlign={runCanvasAlignmentCommand}
+			onDistribute={runCanvasDistributionCommand}
+		/>
+	{/if}
 	{#each surfaceMessages as message, index (index)}
 		{@const rect = messageRelRect(message, index)}
-		{#if rect && rect.width > 0}
+		{@const region = rect ? canvasHitRegion(rect) : null}
+		{@const selectionKey = `message:${index}`}
+		{@const selectionIdentity = { kind: 'surface-message', index } as const}
+		{@const selectionId = createTimelineTrackId(selectionIdentity)}
+		{#if region}
 			<div
-				class="interior-hit"
-				class:interior-hit--selected={isTrackSelected({ kind: 'surface-message', index })}
-				onpointerdown={(e) => onMessageDown(e, index)}
+				class={[
+					'canvas-selection-target',
+					'interior-hit',
+					isTrackSelected(selectionIdentity) && 'canvas-selection-target--selected'
+				]}
+				data-canvas-selection-key={selectionKey}
+				data-canvas-selection-id={selectionId}
+				data-canvas-selection-layer="surface-content"
+				data-canvas-paint-index={index}
+				data-canvas-stable-id={selectionKey}
+				onpointerdown={(event) => onCanvasCandidatePointerDown(event, selectionKey)}
 				role="button"
 				tabindex="0"
 				aria-label={`Edit message ${index + 1}`}
-				onkeydown={(e) => {
-					if (e.key === 'Enter' || e.key === ' ') selectMessage(index);
-				}}
-				style:left="{rect.left}px"
-				style:top="{rect.top}px"
-				style:width="{rect.width}px"
-				style:height="{rect.height}px"
+				title={CANVAS_OVERLAP_CYCLE_HINT}
+				onkeydown={(event) => onCanvasCandidateKeyDown(event, selectionKey)}
+				style:left="{region.pointerBounds.left}px"
+				style:top="{region.pointerBounds.top}px"
+				style:width="{region.pointerBounds.width}px"
+				style:height="{region.pointerBounds.height}px"
 				style:z-index={canvasSelectionStackIndex({
 					layer: 'surface-content',
 					paintIndex: index,
-					stableId: `message:${index}`
+					stableId: selectionKey
 				})}
-			></div>
+			>
+				<span
+					class="canvas-selection-outline"
+					aria-hidden="true"
+					style:left="{region.visibleBounds.left - region.pointerBounds.left}px"
+					style:top="{region.visibleBounds.top - region.pointerBounds.top}px"
+					style:width="{region.visibleBounds.width}px"
+					style:height="{region.visibleBounds.height}px"
+				></span>
+			</div>
 		{/if}
 	{/each}
 	{#each surfaceItems as item, index (index)}
 		{@const rect = itemRelRect(item, index)}
-		{#if rect && rect.width > 0}
+		{@const region = rect ? canvasHitRegion(rect) : null}
+		{@const selectionKey = `item:${index}`}
+		{@const selectionIdentity = { kind: 'checklist-item', index } as const}
+		{@const selectionId = createTimelineTrackId(selectionIdentity)}
+		{#if region}
 			<div
-				class="interior-hit"
-				class:interior-hit--selected={isTrackSelected({ kind: 'checklist-item', index })}
-				onpointerdown={(e) => onItemDown(e, index)}
+				class={[
+					'canvas-selection-target',
+					'interior-hit',
+					isTrackSelected(selectionIdentity) && 'canvas-selection-target--selected'
+				]}
+				data-canvas-selection-key={selectionKey}
+				data-canvas-selection-id={selectionId}
+				data-canvas-selection-layer="surface-content"
+				data-canvas-paint-index={index}
+				data-canvas-stable-id={selectionKey}
+				onpointerdown={(event) => onCanvasCandidatePointerDown(event, selectionKey)}
 				role="button"
 				tabindex="0"
 				aria-label={`Edit item ${index + 1}`}
-				onkeydown={(e) => {
-					if (e.key === 'Enter' || e.key === ' ') selectItem(index);
-				}}
-				style:left="{rect.left}px"
-				style:top="{rect.top}px"
-				style:width="{rect.width}px"
-				style:height="{rect.height}px"
+				title={CANVAS_OVERLAP_CYCLE_HINT}
+				onkeydown={(event) => onCanvasCandidateKeyDown(event, selectionKey)}
+				style:left="{region.pointerBounds.left}px"
+				style:top="{region.pointerBounds.top}px"
+				style:width="{region.pointerBounds.width}px"
+				style:height="{region.pointerBounds.height}px"
 				style:z-index={canvasSelectionStackIndex({
 					layer: 'surface-content',
 					paintIndex: index,
-					stableId: `item:${index}`
+					stableId: selectionKey
 				})}
-			></div>
+			>
+				<span
+					class="canvas-selection-outline"
+					aria-hidden="true"
+					style:left="{region.visibleBounds.left - region.pointerBounds.left}px"
+					style:top="{region.visibleBounds.top - region.pointerBounds.top}px"
+					style:width="{region.visibleBounds.width}px"
+					style:height="{region.visibleBounds.height}px"
+				></span>
+			</div>
 		{/if}
 	{/each}
 	{#each SURFACE_TEXT_SLOTS as slot, slotIndex (slot)}
 		{@const rect = slotRelRect(slot)}
-		{#if rect && rect.width > 0}
+		{@const region = rect ? canvasHitRegion(rect) : null}
+		{@const selectionKey = `slot:${slot}`}
+		{@const selectionIdentity = { kind: 'surface' } as const}
+		{@const selectionId = createTimelineTrackId(selectionIdentity)}
+		{#if region}
 			<div
-				class="interior-hit"
-				onpointerdown={(e) => onSlotDown(e, slot)}
+				class={[
+					'canvas-selection-target',
+					'interior-hit',
+					isCanvasCandidateSelected(selectionKey, selectionIdentity) &&
+						'canvas-selection-target--selected'
+				]}
+				data-canvas-selection-key={selectionKey}
+				data-canvas-selection-id={selectionId}
+				data-canvas-selection-layer="surface-text"
+				data-canvas-paint-index={slotIndex}
+				data-canvas-stable-id={selectionKey}
+				onpointerdown={(event) => onCanvasCandidatePointerDown(event, selectionKey)}
 				role="button"
 				tabindex="0"
 				aria-label={`Edit ${slot}`}
-				onkeydown={(e) => {
-					if (e.key === 'Enter' || e.key === ' ') selectSlot(slot);
-				}}
-				style:left="{rect.left}px"
-				style:top="{rect.top}px"
-				style:width="{rect.width}px"
-				style:height="{rect.height}px"
+				title={CANVAS_OVERLAP_CYCLE_HINT}
+				onkeydown={(event) => onCanvasCandidateKeyDown(event, selectionKey)}
+				style:left="{region.pointerBounds.left}px"
+				style:top="{region.pointerBounds.top}px"
+				style:width="{region.pointerBounds.width}px"
+				style:height="{region.pointerBounds.height}px"
 				style:z-index={canvasSelectionStackIndex({
 					layer: 'surface-text',
 					paintIndex: slotIndex,
-					stableId: `slot:${slot}`
+					stableId: selectionKey
 				})}
-			></div>
+			>
+				<span
+					class="canvas-selection-outline"
+					aria-hidden="true"
+					style:left="{region.visibleBounds.left - region.pointerBounds.left}px"
+					style:top="{region.visibleBounds.top - region.pointerBounds.top}px"
+					style:width="{region.visibleBounds.width}px"
+					style:height="{region.visibleBounds.height}px"
+				></span>
+			</div>
 		{/if}
 	{/each}
 	{#each diagramPrimitiveDraggables as primitive, primitiveIndex (primitive.id)}
 		{@const rect = blockRelRect(primitive)}
-		{#if rect && rect.width > 0}
-			{@const isSelected = isTrackSelected({ kind: 'block', blockId: primitive.id })}
+		{@const region = rect ? canvasHitRegion(rect) : null}
+		{@const selectionKey = `block:${primitive.id}` as CanvasElementSelectionKey}
+		{@const selectionIdentity = { kind: 'block', blockId: primitive.id } as const}
+		{@const selectionId = createTimelineTrackId(selectionIdentity)}
+		{#if region}
+			{@const isSelected = isCanvasElementSelected(selectionKey, selectionIdentity)}
+			{@const isPrimarySelected = isPrimaryCanvasElement(selectionKey, selectionIdentity)}
 			<div
-				class="overlay-hit block-hit"
-				class:overlay-hit--selected={isSelected}
-				onpointerdown={(e) => onBlockPointerDown(e, primitive)}
+				class={[
+					'canvas-selection-target',
+					'overlay-hit',
+					'block-hit',
+					isSelected && 'canvas-selection-target--selected',
+					isPrimarySelected && 'canvas-selection-target--primary'
+				]}
+				data-canvas-selection-key={selectionKey}
+				data-canvas-selection-id={selectionId}
+				data-canvas-selection-layer="block"
+				data-canvas-paint-index={primitiveIndex}
+				data-canvas-stable-id={primitive.id}
+				onpointerdown={(event) => onCanvasCandidatePointerDown(event, selectionKey)}
 				role="button"
 				tabindex="0"
-				onkeydown={(e) => {
-					if (e.key === 'Enter' || e.key === ' ')
-						selectLayer(createTimelineTrackId({ kind: 'block', blockId: primitive.id }));
-				}}
-				style:left="{rect.left}px"
-				style:top="{rect.top}px"
-				style:width="{rect.width}px"
-				style:height="{rect.height}px"
+				aria-label={`Move ${primitive.type}`}
+				aria-pressed={isSelected}
+				aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
+				title={CANVAS_SELECTION_MODIFIER_HINT}
+				onkeydown={(event) => onCanvasCandidateKeyDown(event, selectionKey)}
+				style:left="{region.pointerBounds.left}px"
+				style:top="{region.pointerBounds.top}px"
+				style:width="{region.pointerBounds.width}px"
+				style:height="{region.pointerBounds.height}px"
 				style:z-index={canvasSelectionStackIndex({
 					layer: 'block',
 					paintIndex: primitiveIndex,
 					stableId: primitive.id
 				})}
-			></div>
+			>
+				<span
+					class="canvas-selection-outline"
+					aria-hidden="true"
+					style:left="{region.visibleBounds.left - region.pointerBounds.left}px"
+					style:top="{region.visibleBounds.top - region.pointerBounds.top}px"
+					style:width="{region.visibleBounds.width}px"
+					style:height="{region.visibleBounds.height}px"
+				></span>
+				{#if isPrimarySelected && primitive.type === 'label'}
+					{@const localVisibleBounds = {
+						left: region.visibleBounds.left - region.pointerBounds.left,
+						top: region.visibleBounds.top - region.pointerBounds.top,
+						width: region.visibleBounds.width,
+						height: region.visibleBounds.height
+					}}
+					{@const textBoxResizeHandles = CANVAS_TEXT_INLINE_RESIZE_HANDLE_DESCRIPTORS.map(
+						(descriptor) => ({
+							side: descriptor.position,
+							geometry: createCanvasHandleGeometry(localVisibleBounds, descriptor)
+						})
+					)}
+					{#each textBoxResizeHandles as handle (handle.side)}
+						<button
+							class="overlay-hit__handle"
+							type="button"
+							data-handle-position={handle.side}
+							data-handle-purpose="inline-resize"
+							aria-label="Resize label from the {handle.side} side"
+							aria-keyshortcuts="ArrowLeft ArrowRight"
+							onkeydown={(event) => onTextBoxResizeKeyDown(event, primitive, handle.side)}
+							onpointerdown={(event) => onTextBoxResizeStart(event, primitive, handle.side)}
+							style:left="{handle.geometry.pointerBounds.left}px"
+							style:top="{handle.geometry.pointerBounds.top}px"
+							style:width="{handle.geometry.pointerBounds.width}px"
+							style:height="{handle.geometry.pointerBounds.height}px"
+							style:cursor={handle.geometry.cursor}
+						></button>
+					{/each}
+				{/if}
+			</div>
 		{/if}
 	{/each}
 	{#each engineState.overlays as overlay, overlayIndex (overlay.id)}
 		{@const rect = overlayRelRect(overlay)}
+		{@const region = rect ? canvasHitRegion(rect) : null}
 		{@const placement = resolveOverlayPlacement(
 			overlay.position,
 			engineState.transport.orientation
 		)}
-		{#if rect && rect.width > 0}
-			{@const isSelected = isTrackSelected({ kind: 'overlay', overlayId: overlay.id })}
+		{@const selectionKey = `overlay:${overlay.id}` as CanvasElementSelectionKey}
+		{@const selectionIdentity = { kind: 'overlay', overlayId: overlay.id } as const}
+		{@const selectionId = createTimelineTrackId(selectionIdentity)}
+		{#if region}
+			{@const isSelected = isCanvasElementSelected(selectionKey, selectionIdentity)}
+			{@const isPrimarySelected = isPrimaryCanvasElement(selectionKey, selectionIdentity)}
 			<div
-				class="overlay-hit"
-				class:overlay-hit--selected={isSelected}
-				onpointerdown={(e) => onPointerDown(e, overlay)}
+				class={[
+					'canvas-selection-target',
+					'overlay-hit',
+					isSelected && 'canvas-selection-target--selected',
+					isPrimarySelected && 'canvas-selection-target--primary'
+				]}
+				data-canvas-selection-key={selectionKey}
+				data-canvas-selection-id={selectionId}
+				data-canvas-selection-layer="overlay"
+				data-canvas-paint-index={overlayIndex}
+				data-canvas-stable-id={overlay.id}
+				onpointerdown={(event) => onCanvasCandidatePointerDown(event, selectionKey)}
 				role="button"
 				tabindex="0"
-				onkeydown={(e) => {
-					if (e.key === 'Enter' || e.key === ' ')
-						selectLayer(createTimelineTrackId({ kind: 'overlay', overlayId: overlay.id }));
-				}}
-				style:left="{rect.left}px"
-				style:top="{rect.top}px"
-				style:width="{rect.width}px"
-				style:height="{rect.height}px"
+				aria-label={`Move ${overlay.type}`}
+				aria-pressed={isSelected}
+				aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
+				title={CANVAS_SELECTION_MODIFIER_HINT}
+				onkeydown={(event) => onCanvasCandidateKeyDown(event, selectionKey)}
+				style:left="{region.pointerBounds.left}px"
+				style:top="{region.pointerBounds.top}px"
+				style:width="{region.pointerBounds.width}px"
+				style:height="{region.pointerBounds.height}px"
 				style:z-index={canvasSelectionStackIndex({
 					layer: 'overlay',
 					paintIndex: overlayIndex,
 					stableId: overlay.id
 				})}
 			>
-				{#if isSelected}
+				<span
+					class="canvas-selection-outline"
+					aria-hidden="true"
+					style:left="{region.visibleBounds.left - region.pointerBounds.left}px"
+					style:top="{region.visibleBounds.top - region.pointerBounds.top}px"
+					style:width="{region.visibleBounds.width}px"
+					style:height="{region.visibleBounds.height}px"
+				></span>
+				{#if isPrimarySelected}
 					{@const localVisibleBounds = {
-						left: 0,
-						top: 0,
-						width: rect.width,
-						height: rect.height
+						left: region.visibleBounds.left - region.pointerBounds.left,
+						top: region.visibleBounds.top - region.pointerBounds.top,
+						width: region.visibleBounds.width,
+						height: region.visibleBounds.height
 					}}
 					{@const rotationHandle = createCanvasHandleGeometry(
 						localVisibleBounds,
@@ -931,8 +2085,11 @@
 					<button
 						class="overlay-hit__rotate"
 						type="button"
+						data-handle-purpose="rotation"
 						aria-label="Rotate {overlay.type}"
-						onpointerdown={(e) => onRotateStart(e, overlay)}
+						aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
+						onkeydown={(event) => onRotateKeyDown(event, overlay)}
+						onpointerdown={(event) => onRotateStart(event, overlay)}
 						style:left="{rotationHandle.pointerBounds.left}px"
 						style:top="{rotationHandle.pointerBounds.top}px"
 						style:width="{rotationHandle.pointerBounds.width}px"
@@ -943,8 +2100,11 @@
 							class="overlay-hit__handle"
 							type="button"
 							data-handle-position={handle.position}
+							data-handle-purpose="uniform-scale"
 							aria-label="Scale {overlay.type}"
-							onpointerdown={(e) => onScaleStart(e, overlay)}
+							aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
+							onkeydown={(event) => onScaleKeyDown(event, overlay)}
+							onpointerdown={(event) => onScaleStart(event, overlay)}
 							style:left="{handle.pointerBounds.left}px"
 							style:top="{handle.pointerBounds.top}px"
 							style:width="{handle.pointerBounds.width}px"
@@ -980,18 +2140,43 @@
 		cursor: grabbing;
 	}
 
-	/* Draggable affordance: overlays are liftable objects, so they show a `grab`
-	   cursor and reveal a hover ring on mouse-over. The surface (no hit region)
-	   shows neither — the absence of an affordance signals "base layer, not
-	   spatially draggable; edit it in the inspector". Reveal-on-hover keeps the
-	   canvas clean (no permanent chrome) while making manipulable layers obvious. */
-	.overlay-hit {
-		box-sizing: border-box;
-		cursor: grab;
+	.canvas-snap-guide-layer {
+		block-size: 100%;
+		inline-size: 100%;
+		inset: 0;
+		overflow: hidden;
+		pointer-events: none;
+		position: absolute;
+		z-index: 850000;
+	}
+
+	.canvas-snap-guide {
+		shape-rendering: crispEdges;
+		stroke: color-mix(in srgb, var(--chrome-text, #e8e8ea) 72%, transparent);
+		stroke-width: 1;
+		vector-effect: non-scaling-stroke;
+	}
+
+	/* Pointer regions may be larger than the pixels they represent. Their nested
+	   outlines stay on the observed visual bounds, so forgiving selection never
+	   changes editor chrome geometry or authored composition pixels. */
+	.canvas-selection-target {
 		outline: none;
-		outline-offset: -1px;
 		pointer-events: all;
 		position: absolute;
+	}
+
+	.canvas-selection-outline {
+		box-sizing: border-box;
+		outline: none;
+		outline-offset: -1px;
+		pointer-events: none;
+		position: absolute;
+	}
+
+	/* Draggable overlays and Blocks use a solid, restrained ring. */
+	.overlay-hit {
+		cursor: grab;
 		touch-action: none;
 	}
 
@@ -999,33 +2184,27 @@
 		cursor: grabbing;
 	}
 
-	.overlay-hit:hover {
+	.overlay-hit:hover > .canvas-selection-outline {
 		outline: 1.5px solid rgba(255, 214, 8, 0.7);
 	}
 
-	.overlay-hit--selected,
-	.overlay-hit--selected:hover {
-		outline: 2px solid #ffd608;
-	}
-
-	/* Surface-interior content (bubbles, text slots): clickable to edit, not
-	   draggable — pointer cursor + dashed hover ring distinguish "content that
-	   opens its editor" from the solid ring of liftable overlay objects. */
+	/* Surface-interior content is selectable but not spatially draggable. */
 	.interior-hit {
-		box-sizing: border-box;
 		cursor: pointer;
-		outline: none;
-		outline-offset: -1px;
-		pointer-events: all;
-		position: absolute;
 	}
 
-	.interior-hit:hover {
+	.interior-hit:hover > .canvas-selection-outline {
 		outline: 1.5px dashed rgba(255, 214, 8, 0.7);
 	}
 
-	.interior-hit--selected,
-	.interior-hit--selected:hover {
+	.canvas-selection-target--selected > .canvas-selection-outline,
+	.canvas-selection-target--selected:hover > .canvas-selection-outline {
+		outline: 1px solid #ffd608;
+	}
+
+	.canvas-selection-target--primary > .canvas-selection-outline,
+	.canvas-selection-target--primary:hover > .canvas-selection-outline,
+	.canvas-selection-target:focus-visible > .canvas-selection-outline {
 		outline: 2px solid #ffd608;
 	}
 
@@ -1082,6 +2261,12 @@
 		inset-block-start: calc(50% + 4.5px);
 		inset-inline-start: calc(50% - 0.75px);
 		position: absolute;
+	}
+
+	.overlay-hit__handle:focus-visible,
+	.overlay-hit__rotate:focus-visible {
+		outline: 1px solid #ffd608;
+		outline-offset: -1px;
 	}
 
 	.overlay-hit__rotate:active {

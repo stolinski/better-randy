@@ -158,6 +158,8 @@ A **web-document Surface** — pixel-faithful mocks of real sites used as transp
 
 The active `Workspace` is the shipped three-zone interface from ADR-0034: canvas center with direct position/scale manipulation and view controls, `TimelineOutline` across the bottom, and the right rail. It autosaves through ADR-0032's fork model. The active ADR-0045 rollout adds Inspector/Media modes to that same right rail and one primary Video track to the Timeline without adding a left or fourth panel. Sound is edited per cue/motion in the inspector and Sound rail; the proposed per-Layer Sound-kit picker was removed.
 
+✅ **Canvas interaction upgrade shipped (2026-08-27, epic `ql72br4b`).** The editor now has zoom-stable forgiving selection and overlap cycling, compatible spatial multi-selection, contextual alignment and equal-gap distribution, drag-time snapping with orientation-safe guides and modifier bypass, bounded Diagram label text-box reflow handles, and atomic undo/redo for the new authoring commands. All chrome remains editor-only and Preset geometry stays normalized, orientation-aware, and Pack-neutral.
+
 ## Sound design (✅ shipped, [ADR-0033](adr/0033-sound-design-motion-emitted-cues.md))
 
 Grilled into a spec (2026-06). Overturns the old `ideas/` "audio stays out — Resolve's job" lean for deterministic render audio; an interactive mixer UI remains out.

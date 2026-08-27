@@ -2049,10 +2049,22 @@
                           "caption"
                         ]
                       },
+                      "wrap": {
+                        "type": "string",
+                        "enum": [
+                          "auto",
+                          "explicit"
+                        ]
+                      },
                       "scale": {
                         "type": "number",
                         "minimum": 0.25,
                         "maximum": 4
+                      },
+                      "maxWidth": {
+                        "type": "number",
+                        "minimum": 0.03,
+                        "maximum": 1
                       },
                       "orientationOverrides": {
                         "type": "object",
@@ -2084,6 +2096,11 @@
                                 "type": "number",
                                 "minimum": 0.25,
                                 "maximum": 4
+                              },
+                              "maxWidth": {
+                                "type": "number",
+                                "minimum": 0.03,
+                                "maximum": 1
                               }
                             },
                             "required": [
@@ -2118,6 +2135,11 @@
                                 "type": "number",
                                 "minimum": 0.25,
                                 "maximum": 4
+                              },
+                              "maxWidth": {
+                                "type": "number",
+                                "minimum": 0.03,
+                                "maximum": 1
                               }
                             },
                             "required": [

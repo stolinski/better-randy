@@ -15,6 +15,7 @@ import {
 } from './engine-schema';
 import { cloneOverlayPlacement } from '../utils/overlay-placement';
 import { cloneJsonValue } from '../utils/json-clone';
+import { compositionEditHistory } from './composition-edit-history';
 import { getPresetBySlug } from './preset-catalog';
 import {
 	engineState,
@@ -295,6 +296,7 @@ export function resolveTransition(
  * rejects such Presets, so this is defence in depth).
  */
 export function applyPreset(preset: Preset): void {
+	compositionEditHistory.clear();
 	applyCompositionState(preset);
 	applyPresetBase(preset);
 	transitionState.active = resolveTransition(preset.transition);

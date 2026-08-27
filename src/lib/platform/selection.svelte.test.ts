@@ -7,13 +7,16 @@ import {
 	type VideoClipSelectionId
 } from './timeline-entity-identity.ts';
 import {
+	canvasElementSelection,
 	deselectLayer,
 	inspectorFocus,
 	keyframeSelection,
 	layerSelection,
 	requestInspectorFocus,
 	selectKeyframe,
-	selectVideoClip
+	selectLayer,
+	selectVideoClip,
+	setCanvasElementSelection
 } from './selection.svelte.ts';
 
 describe('timeline selection', () => {
@@ -32,6 +35,20 @@ describe('timeline selection', () => {
 		assert.equal(layerSelection.id, expectedSelectionId);
 		assert.equal(keyframeSelection.id, null);
 		assert.equal(inspectorFocus.target, null);
+	});
+
+	it('tracks compatible canvas peers while keeping one primary timeline selection', () => {
+		const primaryTrack = createTimelineTrackId({ kind: 'overlay', overlayId: 'title' });
+		selectLayer(primaryTrack);
+		setCanvasElementSelection(['block:caption', 'overlay:title'], 'overlay:title');
+
+		assert.deepEqual(canvasElementSelection.keys, ['block:caption', 'overlay:title']);
+		assert.equal(canvasElementSelection.primaryKey, 'overlay:title');
+		assert.equal(layerSelection.id, primaryTrack);
+
+		selectLayer(createTimelineTrackId({ kind: 'block', blockId: 'caption' }));
+		assert.deepEqual(canvasElementSelection.keys, []);
+		assert.equal(canvasElementSelection.primaryKey, null);
 	});
 
 	it('deselects a selected video clip and clears related selection state', () => {

@@ -351,10 +351,10 @@ export const CANVAS_ROTATION_HANDLE_DESCRIPTOR: CanvasHandleDescriptor = {
 };
 
 /** Side handles for text-container width changes without scaling typography. */
-export const CANVAS_TEXT_INLINE_RESIZE_HANDLE_DESCRIPTORS: readonly CanvasHandleDescriptor[] = [
+export const CANVAS_TEXT_INLINE_RESIZE_HANDLE_DESCRIPTORS = [
 	{ position: 'west', purpose: 'inline-resize' },
 	{ position: 'east', purpose: 'inline-resize' }
-];
+] as const satisfies readonly CanvasHandleDescriptor[];
 
 function pinnedOverlayCorner(anchor: OverlayPlacement['anchor']): CanvasHandlePosition | undefined {
 	const pinned: Partial<Record<OverlayPlacement['anchor'], CanvasHandlePosition>> = {
@@ -474,6 +474,60 @@ export function orderCanvasSelectionCandidates<
 	return [...candidates].sort((first, second) =>
 		compareCanvasSelectionOrder(first.selectionOrder, second.selectionOrder)
 	);
+}
+
+export interface CanvasSelectionCandidate {
+	selectionKey: string;
+	selectionOrder: CanvasSelectionOrder;
+	pointerBounds: CanvasInteractionRect;
+}
+
+function canvasRectContainsPoint(
+	rect: CanvasInteractionRect,
+	point: CanvasInteractionPoint
+): boolean {
+	return (
+		point.x >= rect.left &&
+		point.x < rect.left + rect.width &&
+		point.y >= rect.top &&
+		point.y < rect.top + rect.height
+	);
+}
+
+/** Topmost-first candidates whose editor-only pointer bounds contain the screen point. */
+export function canvasSelectionCandidatesAtPoint<Candidate extends CanvasSelectionCandidate>(
+	candidates: readonly Candidate[],
+	point: CanvasInteractionPoint
+): Candidate[] {
+	if (!isFinitePoint(point)) return [];
+	return orderCanvasSelectionCandidates(
+		candidates.filter(
+			(candidate) =>
+				isFiniteRect(candidate.pointerBounds) &&
+				canvasRectContainsPoint(candidate.pointerBounds, point)
+		)
+	);
+}
+
+/**
+ * Resolve a pointer press deterministically. A normal press keeps the current
+ * canvas choice when it remains under the pointer, so a cycled lower candidate
+ * can start a later drag. Otherwise it chooses the topmost candidate. An
+ * Option/Alt press advances from the current choice without changing paint
+ * order or persisted selection identity.
+ */
+export function resolveCanvasSelectionCandidateAtPoint<Candidate extends CanvasSelectionCandidate>(
+	candidates: readonly Candidate[],
+	point: CanvasInteractionPoint,
+	options: { currentSelectionKey?: string | null; cycle?: boolean } = {}
+): Candidate | null {
+	const hits = canvasSelectionCandidatesAtPoint(candidates, point);
+	if (hits.length === 0) return null;
+	const selectedIndex = hits.findIndex(
+		(candidate) => candidate.selectionKey === options.currentSelectionKey
+	);
+	if (selectedIndex < 0) return hits[0];
+	return options.cycle ? hits[(selectedIndex + 1) % hits.length] : hits[selectedIndex];
 }
 
 /** CSS stack index matching the same layer and paint order used by hit resolution. */
