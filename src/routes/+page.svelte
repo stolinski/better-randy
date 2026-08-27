@@ -1062,7 +1062,7 @@
 	.home__grid {
 		container-type: inline-size;
 		display: grid;
-		gap: 0.875rem;
+		gap: 5px;
 		grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
 		list-style: none;
 		margin: 0;

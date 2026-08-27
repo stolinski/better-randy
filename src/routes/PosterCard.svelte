@@ -152,7 +152,7 @@
 	.poster-card {
 		background: var(--panel, #131315);
 		font-size: 1rem;
-		border: 1px solid var(--line, #26262a);
+		border-top: 1px solid var(--line, #26262a);
 		border-radius: 7px;
 		color: var(--text, #e8e8ea);
 		display: grid;
@@ -166,7 +166,7 @@
 
 	.poster-card:hover {
 		background: var(--raised, #1a1a1d);
-		border-color: color-mix(in srgb, var(--selection, #ffd608) 55%, var(--line, #26262a));
+		border-color: #aaa;
 	}
 
 	.poster-card:focus-visible {
