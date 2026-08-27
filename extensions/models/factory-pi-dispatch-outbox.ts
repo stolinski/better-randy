@@ -1427,7 +1427,6 @@ export async function inspectPiRuntimeReceipts(
         );
         if (
           requestedMatchKind &&
-          marker !== true &&
           ["queued", "running"].includes(parsed.data.state)
         ) {
           requestedLifecyclePending = true;

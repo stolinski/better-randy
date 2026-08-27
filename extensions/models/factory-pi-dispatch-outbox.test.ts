@@ -487,7 +487,16 @@ Deno.test('launch binding waits for the exact Prompt Audit task before accepting
 		) as { steps: Array<{ sessionFile: string }> };
 		const sessionFile = status.steps[0]!.sessionFile;
 		const exactSession = await Deno.readTextFile(sessionFile);
-		await Deno.writeTextFile(sessionFile, '');
+		await Deno.writeTextFile(
+			sessionFile,
+			JSON.stringify({
+				type: 'message',
+				message: {
+					role: 'toolResult',
+					content: [{ type: 'text', text: exactSession }]
+				}
+			})
+		);
 		let waits = 0;
 		f.context.piLaunchBindingMaximumInspections = 2;
 		f.context.waitForPiRuntimeArtifact = async () => {
