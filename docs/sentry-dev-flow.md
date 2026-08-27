@@ -107,6 +107,8 @@ unresolved and the next intake treats it as a regression with a new repair cycle
 
 The six-hour scheduled workflow also resumes active repairs one at a time and
 resolves terminal checked repairs one at a time before admitting another issue.
+Resolution receipts exclude that issue from the same run's stale pre-resolution
+queue snapshot, so a successful mutation cannot immediately re-admit itself.
 A legacy verification route produced by the retired repository-wide check is
 replaced once with current task-path-scoped evidence; current failures are not
 silently retried. If an admitted legacy run predates `work-domain-route`, the

@@ -44,7 +44,7 @@ Deno.test(
   async () => {
     const source = await Deno.readTextFile(INTAKE_WORKFLOW_PATH);
     const workflow = parse(source) as WorkflowDefinition;
-    assert.equal(workflow.version, 13);
+    assert.equal(workflow.version, 14);
     assert.deepEqual(
       workflow.jobs.flatMap((job) => job.steps).map((step) => step.name),
       [
@@ -105,6 +105,10 @@ Deno.test(
     assert.equal(select.dependsOn?.[0]?.condition?.type, "succeeded");
     assert.match(select.guard ?? "", /attributes\.status == "active"/);
     assert.match(select.guard ?? "", /resolution-receipt/);
+    assert.match(
+      String(select.task.inputs?.excludedIssueIds),
+      /specName == "resolution-receipt"/,
+    );
     assert.doesNotMatch(
       JSON.stringify(select.dependsOn),
       /resume-active-sentry-repair|resolve-completed-sentry-repair/,
