@@ -200,6 +200,7 @@ async function fixture(): Promise<{
 			resources.set(name, structuredClone(data));
 			return Promise.resolve({ name });
 		},
+		piLaunchBindingMaximumInspections: 1,
 		now: () => new Date()
 	};
 	return {
@@ -476,6 +477,29 @@ for (const sessionCase of [
 		})
 	);
 }
+Deno.test('launch binding waits for the exact Prompt Audit task before accepting the run', () =>
+	withFixture(async (f) => {
+		const { dispatchToken } = await f.reserve();
+		f.setDispatched();
+		const runId = await f.addRun(dispatchToken, await digest(f.request.task));
+		const status = JSON.parse(
+			await Deno.readTextFile(join((f.context.piAsyncRoots ?? [])[0]!, runId, 'status.json'))
+		) as { steps: Array<{ sessionFile: string }> };
+		const sessionFile = status.steps[0]!.sessionFile;
+		const exactSession = await Deno.readTextFile(sessionFile);
+		await Deno.writeTextFile(sessionFile, '');
+		let waits = 0;
+		f.context.piLaunchBindingMaximumInspections = 2;
+		f.context.waitForPiRuntimeArtifact = async () => {
+			waits += 1;
+			await Deno.writeTextFile(sessionFile, exactSession);
+		};
+		const result = await bindPiLaunch({ dispatchToken, piRunId: runId }, f.context);
+		assertEquals(result.state, 'submitted');
+		assertEquals(result.piRunId, runId);
+		assertEquals(waits, 1);
+	})
+);
 Deno.test('6 unavailable runtime pauses rather than inventing failure', () =>
 	withFixture(async (f) => {
 		const { dispatchToken } = await f.reserve();

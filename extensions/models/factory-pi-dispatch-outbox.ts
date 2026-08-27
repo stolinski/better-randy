@@ -280,6 +280,10 @@ export type PiDispatchOutboxContext = {
   lookupCurrentProfileModel?: (profileModelName: string) => Promise<unknown>;
   /** Test seam for resolving linked checkouts to one Git repository identity. */
   resolveGitCommonDirectory?: (repoDir: string) => Promise<string | null>;
+  /** Test seam for bounded launch-binding readiness waits. */
+  waitForPiRuntimeArtifact?: () => Promise<void>;
+  /** Test-only bound; production waits up to ninety seconds for Prompt Audit delivery. */
+  piLaunchBindingMaximumInspections?: number;
 };
 
 function canonicalize(value: unknown): unknown {
@@ -1016,6 +1020,7 @@ type PiRuntimeInspection = {
   requestedMatchKinds: Array<"outer" | "child">;
   lifecycleObservations: PiRuntimeLifecycleObservation[];
   relevantArtifactInvalid: boolean;
+  requestedLifecyclePending: boolean;
 };
 
 async function readableFileContains(
@@ -1219,6 +1224,7 @@ export async function inspectPiRuntimeReceipts(
   const requestedMatchKinds: Array<"outer" | "child"> = [];
   const lifecycleObservations: PiRuntimeLifecycleObservation[] = [];
   let relevantArtifactInvalid = false;
+  let requestedLifecyclePending = false;
   const configuredSessionRoots = context.piSessionRoots ?? [
     resolve(homedir(), ".pi", "agent", "sessions"),
   ];
@@ -1364,6 +1370,11 @@ export async function inspectPiRuntimeReceipts(
       if (requestedPiRunId && requestedMatchKind === undefined) continue;
       if (!step.sessionFile) {
         if (
+          requestedMatchKind &&
+          ["queued", "running"].includes(parsed.data.state)
+        ) {
+          requestedLifecyclePending = true;
+        } else if (
           isRequested ||
           (await malformedCandidateCouldBeSubmission({
             outbox,
@@ -1388,6 +1399,11 @@ export async function inspectPiRuntimeReceipts(
         );
       } catch {
         if (
+          requestedMatchKind &&
+          ["queued", "running"].includes(parsed.data.state)
+        ) {
+          requestedLifecyclePending = true;
+        } else if (
           isRequested ||
           (await malformedCandidateCouldBeSubmission({
             outbox,
@@ -1410,6 +1426,12 @@ export async function inspectPiRuntimeReceipts(
           sessionRoots,
         );
         if (
+          requestedMatchKind &&
+          marker !== true &&
+          ["queued", "running"].includes(parsed.data.state)
+        ) {
+          requestedLifecyclePending = true;
+        } else if (
           isRequested ||
           marker === true ||
           (marker === null &&
@@ -1566,6 +1588,7 @@ export async function inspectPiRuntimeReceipts(
     requestedMatchKinds,
     lifecycleObservations,
     relevantArtifactInvalid,
+    requestedLifecyclePending,
   };
 }
 
@@ -2278,6 +2301,48 @@ async function bindVerifiedLaunch(
   };
 }
 
+const DEFAULT_PI_LAUNCH_BINDING_INSPECTIONS = 181;
+const PI_LAUNCH_BINDING_WAIT_MILLISECONDS = 500;
+
+async function waitForPiRuntimeArtifact(
+  context: PiDispatchOutboxContext,
+): Promise<void> {
+  if (context.waitForPiRuntimeArtifact) {
+    await context.waitForPiRuntimeArtifact();
+    return;
+  }
+  await new Promise<void>((resolveWait) =>
+    setTimeout(resolveWait, PI_LAUNCH_BINDING_WAIT_MILLISECONDS)
+  );
+}
+
+async function inspectPiLaunchWhenReady(
+  outbox: CurrentPiDispatchOutbox,
+  context: PiDispatchOutboxContext,
+  piRunId: string,
+): Promise<PiRuntimeInspection> {
+  const maximumInspections = context.piLaunchBindingMaximumInspections ??
+    DEFAULT_PI_LAUNCH_BINDING_INSPECTIONS;
+  if (!Number.isInteger(maximumInspections) || maximumInspections < 1) {
+    throw new Error("Pi launch binding inspection bound is invalid.");
+  }
+  let inspected: PiRuntimeInspection | undefined;
+  for (let inspection = 0; inspection < maximumInspections; inspection += 1) {
+    inspected = await inspectPiRuntimeReceipts(outbox, context, piRunId);
+    if (
+      !inspected.available ||
+      inspected.relevantArtifactInvalid ||
+      inspected.receipts.length > 0
+    ) {
+      return inspected;
+    }
+    if (inspection + 1 < maximumInspections) {
+      await waitForPiRuntimeArtifact(context);
+    }
+  }
+  return inspected!;
+}
+
 export async function bindPiLaunch(
   raw: unknown,
   context: PiDispatchOutboxContext,
@@ -2297,12 +2362,17 @@ export async function bindPiLaunch(
   if ((await inspectDispatch(outbox, context)) !== "recorded") {
     throw new Error("Pi launch has no exact Factory dispatch journal entry.");
   }
-  const inspected = await inspectPiRuntimeReceipts(
+  const inspected = await inspectPiLaunchWhenReady(
     outbox,
     context,
     args.piRunId,
   );
-  if (!inspected.available || inspected.relevantArtifactInvalid) {
+  const bindingTimedOutWithoutReceipt = inspected.receipts.length === 0;
+  if (
+    !inspected.available ||
+    inspected.relevantArtifactInvalid ||
+    bindingTimedOutWithoutReceipt
+  ) {
     const updated = CurrentPiDispatchOutboxSchema.parse({
       ...outbox,
       state: "submission-uncertain",
