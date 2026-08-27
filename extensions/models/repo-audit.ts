@@ -800,7 +800,7 @@ async function runAuditScript(
 /** Model definition for the Supers repo policy audits. */
 export const model = {
   type: "@supers/repo-audit",
-  version: "2026.08.26.3",
+  version: "2026.08.27.1",
   globalArguments: GlobalArgsSchema,
   resources: {
     timing: {

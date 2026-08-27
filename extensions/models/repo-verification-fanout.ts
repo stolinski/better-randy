@@ -110,7 +110,7 @@ const VerificationFanoutReportContentSchema = z.strictObject({
 	intentRouteDigest: z.string().regex(/^[0-9a-f]{64}$/),
 	startedAt: z.string(),
 	completedAt: z.string(),
-	executionMode: z.literal('parallel'),
+	executionMode: z.enum(['parallel', 'layout-isolated']),
 	results: z.array(VerificationLaneResultSchema).max(13),
 	passed: z.boolean()
 });
@@ -550,12 +550,22 @@ async function runVerificationLane(
 		return unavailableLaneResult(lane);
 	}
 	const startedAt = performance.now();
-	const output = await runCommandSequence(commands, repoDir, runCommand);
-	const layoutContractReceipt =
+	let output = await runCommandSequence(commands, repoDir, runCommand);
+	let layoutContractReceipt =
 		lane === 'layout-contract' ? parseLayoutContractReceipt(output) : undefined;
+	if (
+		lane === 'layout-contract' &&
+		!layoutContractReceipt &&
+		boundedOutputTail(output).includes('Layout Contract matrix exceeded 10 minutes')
+	) {
+		output = await runCommandSequence(commands, repoDir, runCommand);
+		layoutContractReceipt = parseLayoutContractReceipt(output);
+	}
 	if (lane === 'layout-contract') {
 		if (!layoutContractReceipt) {
-			throw new TypeError('Layout Contract output did not contain a typed full-corpus receipt');
+			throw new TypeError(
+				`Layout Contract output did not contain a typed full-corpus receipt: ${boundedOutputTail(output)}`
+			);
 		}
 		if (layoutContractReceipt.treeFingerprint !== args.expectedFingerprint) {
 			throw new TypeError('Layout Contract receipt does not match the sealed change fingerprint');
@@ -578,7 +588,7 @@ async function runVerificationLane(
 	};
 }
 
-/** Run the exact independent deterministic verification lane union concurrently. */
+/** Run ordinary lanes concurrently, then isolate the bounded GPU/Layout Contract lane. */
 export async function runVerificationFanout(
 	repoDir: string,
 	rawArguments: VerificationFanoutArguments,
@@ -597,9 +607,24 @@ export async function runVerificationFanout(
 	}
 
 	const startedAt = new Date().toISOString();
-	const results = await Promise.all(
-		lanes.map((lane) => runVerificationLane(lane, args, repoDir, runCommand))
+	const ordinaryLanes = lanes.filter((lane) => lane !== 'layout-contract');
+	const ordinaryResults = await Promise.all(
+		ordinaryLanes.map((lane) => runVerificationLane(lane, args, repoDir, runCommand))
 	);
+	const layoutResult = lanes.includes('layout-contract')
+		? await runVerificationLane('layout-contract', args, repoDir, runCommand)
+		: null;
+	const resultByLane = new Map(
+		[...ordinaryResults, ...(layoutResult ? [layoutResult] : [])].map((result) => [
+			result.id,
+			result
+		])
+	);
+	const results = lanes.map((lane) => {
+		const result = resultByLane.get(lane);
+		if (!result) throw new TypeError(`Missing verification result for ${lane}`);
+		return result;
+	});
 	const content = VerificationFanoutReportContentSchema.parse({
 		schemaVersion: 2,
 		workItem: args.workItem,
@@ -609,7 +634,7 @@ export async function runVerificationFanout(
 		intentRouteDigest: args.intentRouteDigest,
 		startedAt,
 		completedAt: new Date().toISOString(),
-		executionMode: 'parallel',
+		executionMode: layoutResult ? 'layout-isolated' : 'parallel',
 		results,
 		passed: results.every((result) => result.status === 'passed')
 	});

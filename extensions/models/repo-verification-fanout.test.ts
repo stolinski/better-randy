@@ -65,6 +65,59 @@ Deno.test('app fan-out starts check, unit, and browser lanes concurrently', asyn
 	);
 });
 
+Deno.test('Layout Contract runs only after concurrent CPU-heavy lanes settle', async () => {
+	let unitActive = false;
+	const calls: string[] = [];
+	const report = await runVerificationFanout(
+		'/repo',
+		argumentsFor(
+			['unit', 'layout-contract'],
+			['src/lib/platform/composition-frame-renderer.ts']
+		),
+		async (command, args) => {
+			const invocation = `${command} ${args.join(' ')}`;
+			calls.push(invocation);
+			if (invocation === 'pnpm run test') {
+				unitActive = true;
+				await new Promise((resolve) => setTimeout(resolve, 5));
+				unitActive = false;
+				return successfulOutput(invocation);
+			}
+			assert.equal(unitActive, false);
+			return layoutContractOutput();
+		}
+	);
+	assert.equal(report.executionMode, 'layout-isolated');
+	assert.deepEqual(report.results.map((result) => result.id), ['unit', 'layout-contract']);
+	assert.equal(calls[0], 'pnpm run test');
+	assert.match(calls[1], /run-supers-layout-contract-matrix/);
+});
+
+Deno.test('Layout Contract retries one bounded operational timeout', async () => {
+	let attempts = 0;
+	const report = await runVerificationFanout(
+		'/repo',
+		argumentsFor(
+			['layout-contract'],
+			['src/lib/platform/composition-frame-renderer.ts']
+		),
+		async () => {
+			attempts += 1;
+			if (attempts === 1) {
+				return {
+					code: 1,
+					stdout: new Uint8Array(),
+					stderr: new TextEncoder().encode('Layout Contract matrix exceeded 10 minutes')
+				};
+			}
+			return layoutContractOutput();
+		}
+	);
+	assert.equal(attempts, 2);
+	assert.equal(report.passed, true);
+	assert.equal(report.executionMode, 'layout-isolated');
+});
+
 Deno.test('check routing keeps unrelated central diagnostics visible but non-routing', async () => {
 	const calls: Array<{ command: string; args: string[] }> = [];
 	const changedPath = 'src/routes/api/user-compositions/user-compositions.test.ts';
