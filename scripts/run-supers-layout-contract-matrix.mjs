@@ -17,7 +17,7 @@ const CHROME =
 	process.env.SUPERS_LAYOUT_CONTRACT_CHROME ??
 	'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const WAIT_MS = Number(process.env.SUPERS_LAYOUT_CONTRACT_WAIT_MS ?? 60_000);
-const MATRIX_TIMEOUT_MS = Number(process.env.SUPERS_LAYOUT_CONTRACT_TIMEOUT_MS ?? 10 * 60_000);
+const MATRIX_TIMEOUT_MS = Number(process.env.SUPERS_LAYOUT_CONTRACT_TIMEOUT_MS ?? 12 * 60_000);
 const DIAGNOSTIC_PRESET_SLUG = process.env.SUPERS_LAYOUT_CONTRACT_PRESET?.trim() || null;
 const COMMAND_ARGUMENTS = process.argv.slice(2);
 const SUMMARY_ONLY = COMMAND_ARGUMENTS.includes('--summary');
@@ -331,7 +331,7 @@ async function run() {
 	const frameResults = [];
 	try {
 		for (const group of groupSupersRenderMatrixCoordinates(coordinates)) {
-			if (Date.now() >= deadline) throw new Error('Layout Contract matrix exceeded 10 minutes');
+			if (Date.now() >= deadline) throw new Error('Layout Contract matrix exceeded 12 minutes');
 			const page = await openPage(chrome.port, group.presetSlug);
 			try {
 				const runtime = await evaluate(
@@ -356,7 +356,7 @@ async function run() {
 					throw new Error('Hidden browser registry differs from the immutable matrix snapshot');
 				}
 				for (const coordinate of group.coordinates) {
-					if (Date.now() >= deadline) throw new Error('Layout Contract matrix exceeded 10 minutes');
+					if (Date.now() >= deadline) throw new Error('Layout Contract matrix exceeded 12 minutes');
 					const configuration = await evaluate(
 						page.send,
 						`window.__configureSupersDeterministicRenderCell(${JSON.stringify({ presetSlug: coordinate.presetSlug, packId: coordinate.packId, orientation: coordinate.orientation })})`

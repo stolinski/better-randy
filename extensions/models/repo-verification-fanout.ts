@@ -557,7 +557,7 @@ async function runVerificationLane(
 		lane === 'layout-contract' &&
 		!layoutContractReceipt &&
 		[
-			'Layout Contract matrix exceeded 10 minutes',
+			'Layout Contract matrix exceeded 12 minutes',
 			'Layout Contract runtime did not become ready'
 		].some((diagnostic) => boundedOutputTail(output).includes(diagnostic))
 	) {

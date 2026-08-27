@@ -22,7 +22,7 @@ test('runtime Layout Contract seam omits composited pixel masks', () => {
 test('matrix covers the full deliverable registry and stays bounded', () => {
 	assert.match(runnerSource, /scope: 'full'/);
 	assert.match(runnerSource, /MATRIX_TIMEOUT_MS/);
-	assert.match(runnerSource, /10 \* 60_000/);
+	assert.match(runnerSource, /12 \* 60_000/);
 	assert.match(runnerSource, /coordinateCount/);
 	assert.match(runnerSource, /contentDigest/);
 });

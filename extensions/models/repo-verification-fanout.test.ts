@@ -107,7 +107,7 @@ Deno.test('Layout Contract retries one bounded operational timeout', async () =>
 				return {
 					code: 1,
 					stdout: new Uint8Array(),
-					stderr: new TextEncoder().encode('Layout Contract matrix exceeded 10 minutes')
+					stderr: new TextEncoder().encode('Layout Contract matrix exceeded 12 minutes')
 				};
 			}
 			return layoutContractOutput();
