@@ -1000,7 +1000,8 @@ const PiWorkflowStatusSchema = z
             artifactPaths: z.array(z.string()),
             results: z.array(PiWorkflowResultSchema).length(1),
           })
-          .passthrough(),
+          .passthrough()
+          .optional(),
       })
       .passthrough()
       .optional(),
@@ -1266,7 +1267,7 @@ export async function inspectPiRuntimeReceipts(
       continue;
     }
     for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
+      if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
       let isRequested = requestedPiRunId === entry.name;
       let runRoot: string;
       try {

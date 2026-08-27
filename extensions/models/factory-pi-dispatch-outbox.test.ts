@@ -482,9 +482,15 @@ Deno.test('launch binding waits for the exact Prompt Audit task before accepting
 		const { dispatchToken } = await f.reserve();
 		f.setDispatched();
 		const runId = await f.addRun(dispatchToken, await digest(f.request.task));
-		const status = JSON.parse(
-			await Deno.readTextFile(join((f.context.piAsyncRoots ?? [])[0]!, runId, 'status.json'))
-		) as { steps: Array<{ sessionFile: string }> };
+		const asyncRoot = (f.context.piAsyncRoots ?? [])[0]!;
+		const statusPath = join(asyncRoot, runId, 'status.json');
+		const status = JSON.parse(await Deno.readTextFile(statusPath)) as {
+			steps: Array<{ sessionFile: string }>;
+			workflow?: Record<string, unknown>;
+		};
+		status.workflow = { trace: [], emits: [], console: [] };
+		await Deno.writeTextFile(statusPath, JSON.stringify(status));
+		await ensureDir(join(asyncRoot, '.active-runs'));
 		const sessionFile = status.steps[0]!.sessionFile;
 		const exactSession = await Deno.readTextFile(sessionFile);
 		await Deno.writeTextFile(
