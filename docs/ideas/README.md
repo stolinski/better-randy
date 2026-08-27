@@ -7,4 +7,3 @@ Pure speculation that is not designed or scheduled. An idea becomes executable o
 - [`managed-chromium-render-worker.md`](managed-chromium-render-worker.md) — unattended Preset export through a worker-owned, flag-enabled Chromium process.
 - [`shared-asset-service.md`](shared-asset-service.md) — team asset libraries and a possible public registry.
 - [`transcript-driven-auto-animation.md`](transcript-driven-auto-animation.md) — transcript-to-Preset proposal flow.
-- [`webmcp-agent-access.md`](webmcp-agent-access.md) — proposal-stage in-session browser-agent transport.

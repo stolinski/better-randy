@@ -2,7 +2,7 @@
 
 ## Status
 
-**Canon (broad scope rejected; bounded demand may be reconsidered).**
+**Canon (broad import scope rejected; TypeGPU-native Pipeline geometry expansion designed in [ADR-0051](0051-pipeline-defined-dimensional-stage-geometry.md)).**
 
 Date: 2026-07-29
 Builds on: [ADR-0002](0002-per-tool-routes-to-preset-engine.md) (one constrained engine), [ADR-0023](0023-pack-is-appearance-only.md) (Pack-neutral composition), [ADR-0046](0046-seekable-simulation-and-deformation-families.md) (procedural deformation families)
@@ -18,6 +18,8 @@ A general importer would need to define SVG contour and hole semantics, triangul
 Supers does not ship a general SVG/image-contour extrusion or arbitrary GLB ingestion lane.
 
 Planned deformation families use procedural geometry and live composition textures on the shared WebGPU host. No Three.js dependency, second graphics context, broad image Media type, mesh loader, or generic material system is added.
+
+[ADR-0051](0051-pipeline-defined-dimensional-stage-geometry.md) now selects the broader 3D direction without reversing this import ruling: evolve the existing Dimensional Stage in place through bounded, Pipeline-defined TypeGPU geometry contributions. It adds no generic scene tree or format requirement, and Three.js remains demand-gated behind a concrete Pipeline whose Identity claim cannot be met through the native contract.
 
 A bounded geometry compiler may be reconsidered only when a concrete registered Pipeline cannot meet its Identity claim without one. Valid revisit examples are a single flat SVG silhouette extrusion with Pack-owned material, or image-alpha particle emission where direct texture sampling is insufficient. That work requires its own Brief and ADR scoped to one asset class.
 

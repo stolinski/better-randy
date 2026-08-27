@@ -430,6 +430,7 @@ text-animations/
 
 Current mechanisms that remain deliberately narrower than their possible future form; track execution in [`roadmap.md`](roadmap.md).
 
+- **Pipeline-defined Dimensional Stage geometry** — the shipped `depth` Stage currently renders a fixed backdrop plane, captured Surface plane, and captured Overlay plane through painter's order. [ADR-0051](adr/0051-pipeline-defined-dimensional-stage-geometry.md) designs an in-place TypeGPU-native expansion where existing-Layer Pipelines contribute bounded geometry to a real depth-tested scene; that geometry contract, procedural 3D Pipeline family, and expanded camera/material/light execution are not built.
 - **Per-pixel depth sidecar on the flat path** — ADR-0021's focal-distance semantics are active through multiplane DOF and the dimensional stage, but the flat compositor has no arbitrary per-pixel z-map target.
 - **Live dual-tree transitions** — multi-state transitions ship as cached snapshot-and-wipe ([ADR-0026](adr/0026-transitions-v1-snapshot-and-wipe.md)); endpoint Presets do not continue animating inside the wipe.
 - **Additional Block vocabulary** — `paragraph`, the five diagram Blocks, and the five chart Blocks ship. `code` and `image` are not registered; mermaid-style auto-layout remains explicitly rejected.

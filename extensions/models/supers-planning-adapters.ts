@@ -43,6 +43,7 @@ const PLAN_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const TASK_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 const MAX_SOURCE_DOCUMENTS = 250;
 const MAX_DEX_TASKS = 500;
+const DEX_TASK_INVENTORY_MAX_OUTPUT_BYTES = 4 * 1024 * 1024;
 const MAX_CONTEXT_REFS = 75;
 const MAX_RELATED_TASKS = 25;
 const SUMMARY_MAX_LENGTH = 800;
@@ -940,7 +941,7 @@ export async function readSupersDexTaskSnapshot(
     null,
     {
       timeoutMs: 30_000,
-      maxOutputBytes: 1024 * 1024,
+      maxOutputBytes: DEX_TASK_INVENTORY_MAX_OUTPUT_BYTES,
     },
   );
   if (output.code !== 0) throw new Error("Dex planning inventory failed");

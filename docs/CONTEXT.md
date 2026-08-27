@@ -82,6 +82,14 @@ _Avoid_: vertical diagram, responsive primitive copy, partial geometry patch (th
 A composition-wide authored operation with one of three registry-owned execution lanes. Ordinary entries in `effects[]` are post-process passes run after the selected render branch — grit overlay, chromatic aberration, color grade, film grain. Composition-owned entries in `effects[]` alter branch dispatch before the remaining post-process chain; `depth-of-field` is the current example. Transition Effects are named by top-level `transition.effect` and composite the two cached endpoint snapshots through the distinct transition registry. Per-target shader work (substrate physics, per-overlay edge treatment) is not an Effect — it is a `shaderPass` on the SurfaceRenderer or OverlayRenderer per ADR-0005 / ADR-0008. See [ADR-0018](adr/0018-collapse-effects-to-frame-only.md) and [ADR-0026](adr/0026-transitions-v1-snapshot-and-wipe.md).
 _Avoid_: filter, shader (a shader is the WebGPU implementation; an Effect is the authored registry entry), per-layer effect (the engine no longer supports per-layer chains — see ADR-0018), assuming every Effect is a post-process pass or an `effects[]` entry.
 
+**Dimensional Stage**:
+The optional composition-wide spatial compositor that places captured Layer output and bounded Pipeline-owned geometry inside one camera, depth, focus, and lighting space. It changes how the five Layers compose and is not content or a sixth Layer; the shipped `depth` Stage is its current registered form, with Pipeline-defined geometry expansion designed in [ADR-0051](adr/0051-pipeline-defined-dimensional-stage-geometry.md).
+_Avoid_: 3D canvas (the Canvas is the output target), 3D Layer, scene Layer, generic scene editor.
+
+**Stage geometry contribution**:
+A bounded 3D render contribution owned by a registered Surface, Block, or Overlay Pipeline and consumed by the **Dimensional Stage**. It retains the Pipeline's Layer identity; it is not a free-standing scene object or entry in a generic object tree.
+_Avoid_: 3D object Layer, scene node, model document, `stage.objects`.
+
 **Cascade**:
 A declarative timing relationship between elements: an element's enter anchors to another element's enter plus an offset (kicker → title +120 ms → subtitle), so reading-order choreography re-times as one unit instead of drifting apart across hand-set absolute starts. The timing peer of an automatic **audio cue** — welded, never hand-synced. Shipped with generalized keyframes ([ADR-0035](adr/0035-generalized-keyframes-and-cascade.md)).
 _Avoid_: stagger (the narrower per-glyph text-animation mechanism), sequence, chain, follow-through (the animation-craft effect a Cascade is used to achieve, not the mechanism).
