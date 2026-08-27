@@ -56,7 +56,7 @@ test('post-integration routing takes paths only from the verified integration re
 	);
 	assert.match(verification, /methodName: run-verification-fanout/);
 	const fanoutBlock = verification.match(
-		/methodName: run-verification-fanout[\s\S]*?(?=\n      - name: verify-affected-render-matrix)/
+		/methodName: run-verification-fanout[\s\S]*?(?=\n {6}- name: verify-affected-render-matrix)/
 	)?.[0];
 	assert.ok(fanoutBlock);
 	assert.doesNotMatch(fanoutBlock, /\n\s+lanes:|changedPaths:/);

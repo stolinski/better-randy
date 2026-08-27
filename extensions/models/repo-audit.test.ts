@@ -355,7 +355,8 @@ Deno.test('repo audit records explicit provenance for an admitted legacy Sentry 
 Deno.test('repo audit legacy Sentry route migration fails closed on conflicting or existing provenance', async () => {
 	const args = await legacySentryMigrationFixture();
 	const admission = args.admission as Record<string, unknown>;
-	const { fingerprint: _fingerprint, ...admissionContent } = admission;
+	const admissionContent = { ...admission };
+	delete admissionContent.fingerprint;
 	const conflictingAdmission = await withSentryFingerprint({
 		...admissionContent,
 		dexTaskId: 'other-task'
