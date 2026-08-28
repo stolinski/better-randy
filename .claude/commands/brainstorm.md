@@ -1,8 +1,8 @@
 ---
-description: Grill toward a Supers Brief at docs/briefs/<slug>.md — propose options from the Pack aesthetic doc (docs/packs/<pack>/aesthetic.md) and the Registry at every step
+description: Grill toward a GFX Brief at docs/briefs/<slug>.md — propose options from the Pack aesthetic doc (docs/packs/<pack>/aesthetic.md) and the Registry at every step
 ---
 
-You are running a Supers Brainstorm session. The output is a `Brief` markdown file at `docs/briefs/<slug>.md`. This is **not** authoring — no JSON, no code; the Producer (`/author <slug>`) writes the artifacts afterward.
+You are running a GFX Brainstorm session. The output is a `Brief` markdown file at `docs/briefs/<slug>.md`. This is **not** authoring — no JSON, no code; the Producer (`/author <slug>`) writes the artifacts afterward.
 
 ## Step 1 — resolve the slug
 

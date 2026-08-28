@@ -91,9 +91,9 @@ const SOUND_ASSETS: Record<string, string> = {
 	'bed-ambient-texture': bedAmbientTextureUrl
 };
 
-// User compositions can persist a direct sample lock. Retired Supers slugs
-// therefore remain loadable aliases, but are no longer listed in authoring UI
-// or backed by separate WAV files.
+// User compositions can persist a direct sample lock. Retired Legacy Supers
+// sample slugs therefore remain loadable aliases, but are no longer listed in
+// authoring UI or backed by separate WAV files.
 const LEGACY_SOUND_ALIASES: Record<string, FoleySoundSlug> = {
 	'core-whoosh-in': 'foley-swoosh',
 	'core-whoosh-out': 'foley-whoosh',

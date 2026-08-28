@@ -1,7 +1,7 @@
 // Focused fixtures for scripts/planning-state-checks.ts — one deliberately
-// dirty fixture per planning-drift class plus a clean baseline, so the
-// @supers/repo-audit audit-planning method is proven to go red with actionable
-// paths and green on a reconciled repository.
+// dirty fixture per planning-drift class plus a clean baseline, so
+// `pnpm audit:planning` is proven to go red with actionable paths and green on
+// a reconciled repository.
 //
 // Run: node --experimental-strip-types --test scripts/planning-state-checks.test.ts
 import assert from 'node:assert/strict';

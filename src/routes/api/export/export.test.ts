@@ -88,7 +88,7 @@ async function createStore(
 	options: FakeEncoderOptions = {},
 	storeOptions: { ttlMs?: number; now?: () => number } = {}
 ): Promise<{ store: ExportSessionStore; directory: string; encoder: FakeEncoderHarness }> {
-	const directory = await mkdtemp(join(tmpdir(), 'supers-export-test-'));
+	const directory = await mkdtemp(join(tmpdir(), 'gfx-export-test-'));
 	temporaryDirectories.push(directory);
 	const encoder = createFakeEncoder(options);
 	return {
@@ -447,7 +447,7 @@ describe('export session encoding', () => {
 		assert.equal(await store.cleanupStale(), 1);
 		assert.deepEqual(await readdir(directory), []);
 
-		const orphan = join(directory, 'supers-export-orphan');
+		const orphan = join(directory, 'gfx-export-orphan');
 		await import('node:fs/promises').then(({ mkdir }) => mkdir(orphan));
 		assert.equal(await cleanupOrphanedExportDirectories(directory, 0, Date.now() + 1_000), 1);
 		assert.deepEqual(await readdir(directory), []);

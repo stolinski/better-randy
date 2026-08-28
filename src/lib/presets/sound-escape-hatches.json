@@ -39,7 +39,7 @@
 			"type": "paper",
 			"content": {
 				"title": "Every sound escape hatch",
-				"sourceUrl": "https://supers.dev/fixtures/sound",
+				"sourceUrl": "https://gfx.computer/fixtures/sound",
 				"body": "The motion emits its own cues automatically.\n\nOne mark [highlight]swaps its event to a pop[/highlight] while the exit below is muted entirely."
 			},
 			"enter": {

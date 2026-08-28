@@ -19,7 +19,7 @@ describe('audio asset registry', () => {
 		assert.doesNotThrow(assertSoundRegistryValid);
 	});
 
-	it('keeps persisted Supers sample locks loadable through Foley aliases', () => {
+	it('keeps persisted Legacy Supers sample locks loadable through Foley aliases', () => {
 		assert.equal(isSoundAsset('fwip-in'), true);
 		assert.equal(isSoundAsset('thud-deep'), true);
 		assert.equal(isSoundAsset('tick-snap'), true);

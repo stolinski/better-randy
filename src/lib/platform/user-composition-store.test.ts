@@ -273,7 +273,7 @@ describe('userCompositionStore', () => {
 	it('rejects malformed list, load, and JSON responses with parsing context', async () => {
 		fetchMock
 			.mockResolvedValueOnce(jsonResponse([{ slug: 'missing-fields' }]))
-			.mockResolvedValueOnce(jsonResponse({ schema: 'not-supers', state: {} }))
+			.mockResolvedValueOnce(jsonResponse({ schema: 'not-gfx', state: {} }))
 			.mockResolvedValueOnce(new Response('{broken json'));
 
 		await assert.rejects(

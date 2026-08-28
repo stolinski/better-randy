@@ -52,7 +52,7 @@
 				"z": 0.7,
 				"content": {
 					"variant": "cinematic",
-					"kicker": "SUPERS",
+					"kicker": "GFX",
 					"title": "Depth of Field",
 					"subtitle": "Multiplane bokeh — ADR-0027"
 				},

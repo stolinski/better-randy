@@ -1,9 +1,9 @@
 ---
 name: author
-description: Spawn a fresh Producer sub-agent that reads a Supers Brief and writes the Preset (plus any Pipeline or ADR the Brief declares). Use when the user has a completed Brief, says "author it" or "write the preset," or types `/author SLUG`. Do not use to brainstorm a Brief or verify a result.
+description: Spawn a fresh Producer sub-agent that reads a GFX Brief and writes the Preset (plus any Pipeline or ADR the Brief declares). Use when the user has a completed Brief, says "author it" or "write the preset," or types `/author SLUG`. Do not use to brainstorm a Brief or verify a result.
 ---
 
-# Supers Author
+# GFX Author
 
 The operational form of [ADR-0007](../../../docs/adr/0007-brainstorm-brief-system.md)'s Producer hand-off. Spawns a sub-agent with **fresh context** that reads `docs/briefs/<slug>.md` and authors the artifacts the Brief declares. The Brief stays after authoring; retirement is a classified Delivery change, never an effect of Critic output.
 
@@ -41,7 +41,7 @@ Use the **Agent tool** with `subagent_type: "general-purpose"`. **Do not** pass 
 Substitute `<slug>`, `<kind>`, `<pack>`, and (when applicable) `<verification-slug>` from the Brief metadata:
 
 ```
-You are the Supers Producer for the Brief at `docs/briefs/<slug>.md`.
+You are the GFX Producer for the Brief at `docs/briefs/<slug>.md`.
 
 Read these docs in order before writing anything:
 
@@ -51,7 +51,7 @@ Read these docs in order before writing anything:
    field so future human and advisory review retains that intent.
 2. docs/briefs/README.md — the lifecycle and invariant you sit inside.
 3. docs/CONTEXT.md — terminology. Use these terms precisely.
-4. docs/preset-format.md — the `supers@1` schema you must satisfy.
+4. docs/preset-format.md — the `gfx@1` schema you must satisfy.
 5. docs/engine-architecture.md — pipeline registry shape, only if Brief's
    `Kind:` is `pipeline` or `domain`.
 6. docs/packs/<pack>/aesthetic.md — channel chrome, palette, type, motion

@@ -99,5 +99,6 @@ lanes sit in different stages.
 - The sentry lane is separate: the `sentry-autofix` workflow (cron, every 6h)
   repairs one unresolved Sentry issue per run end to end. Failed attempts stay
   visible as open `Repair SUPERS-<n> from Sentry evidence` Dex tasks. (Issue
-  ids keep the `SUPERS-` prefix — that is the live Sentry project slug until
-  the gfx.computer rename epic moves it.)
+  ids keep the `SUPERS-` prefix — the Sentry project slug is `frozen` under
+  ADR-0053: it holds every historical event and every short id an issue has
+  ever been cited by.)

@@ -141,7 +141,7 @@ The one primary **Video track** lives beneath all five Layers in the Timeline. D
 
 ## Automated rendering
 
-`supers render` and `supers batch` drive the Workspace's existing `CompositionExportController`, so command-line rendering uses the same frame request seam, exact rational frame stepping, native target size, audio mix, and encoder as GUI export.
+`gfx render` and `gfx batch` drive the Workspace's existing `CompositionExportController`, so command-line rendering uses the same frame request seam, exact rational frame stepping, native target size, audio mix, and encoder as GUI export.
 
 The command never starts a server or browser. Before running it, the existing dev server must answer at port `7263`, and the sanctioned CanvasDrawElement browser must answer at CDP port `9223` (`scripts/launch-cdp-chrome.sh` starts or confirms that browser).
 

@@ -14,7 +14,8 @@ never an admission or verification concern):
 
 | Command                 | Covers                                                              |
 | ----------------------- | ------------------------------------------------------------------- |
-| `pnpm check`            | svelte-check + eslint + discoverability naming rules                |
+| `pnpm check`            | svelte-check + eslint + discoverability and name-disposition rules  |
+| `pnpm check:names`      | ADR-0053 name dispositions (below)                                  |
 | `pnpm test`             | vitest unit suites                                                  |
 | `pnpm test:structural`  | structural/discoverability node suites + planning + preset contract |
 | `pnpm verify-presets`   | Preset schema/semantic/lint — `--affected` scoped to changed paths  |
@@ -35,6 +36,20 @@ blocker contradictions, and co-equal strategic ready leaves. Gating findings
 exit 1; advisories never gate. The `gfx-planning` skill runs it at the end
 of every planning pass.
 
+## Name-disposition check
+
+`pnpm check:names` (`scripts/check-legacy-name-dispositions.mjs`,
+fixture-tested) enforces the classification in
+[ADR-0053](adr/0053-gfx-namespace-and-legacy-supers-compatibility.md): every
+current file may spell a Legacy Supers name only where a declared surface
+records its disposition. It reports three things and no more — an occurrence no
+declared surface covers, a `rename-now` value that came back, and current
+documentation that spells a legacy name without saying under which disposition.
+The declared-surface table in that module is the executable mirror of the ADR
+matrix, so a new legacy surface owes a matrix row and a table row together.
+Records the ADR never rewrites — `docs/adr/`, `docs/history/`, `.dex/`, and the
+fixtures of the control plane removed on 2026-08-28 — are not scanned at all.
+
 ## Delivery factory
 
 `gfx-factory` — a `@swamp/software-factory` instance whose definition
@@ -54,7 +69,10 @@ The `sentry-autofix` workflow (`workflows/workflow-sentry-autofix.yaml`,
 cron every 6h) makes at most one end-to-end repair attempt per run from
 Sentry event evidence alone — see [`docs/sentry-dev-flow.md`](sentry-dev-flow.md).
 Failed attempts persist as open `Repair SUPERS-<n> from Sentry evidence` Dex
-tasks, which is both the human escalation surface and the de-dupe.
+tasks, which is both the human escalation surface and the de-dupe. The
+`SUPERS-<n>` short id is `frozen` under
+[ADR-0053](adr/0053-gfx-namespace-and-legacy-supers-compatibility.md) — it is
+how Sentry itself cites the issue, so the task name quotes it verbatim.
 
 ## History
 

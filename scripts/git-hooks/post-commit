@@ -7,9 +7,9 @@
 # runs detached and silent.
 #
 # ADR-0053: the release name is `accept-old / write-new`, so new releases take
-# the GFX spelling while `supers@<sha>` releases stay queryable. `--project
-# supers` is `frozen` — it names the Sentry project that already holds every
-# historical event, and renaming it is a change inside Sentry, not here.
+# the GFX spelling while `supers@<sha>` releases stay queryable.
+# `--project supers` is `frozen` — it names the Sentry project that already
+# holds every historical event, and renaming it is a change inside Sentry.
 command -v sentry >/dev/null 2>&1 || exit 0
 sha=$(git rev-parse HEAD)
 (

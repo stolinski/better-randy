@@ -1,0 +1,7 @@
+{
+	"schema": "supers@1",
+	"name": "Legacy corpus piece",
+	"pack": "syntax",
+	"kind": "fixture",
+	"state": {}
+}

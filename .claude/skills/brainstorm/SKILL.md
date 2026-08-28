@@ -1,9 +1,9 @@
 ---
 name: brainstorm
-description: Grill the user toward a Supers Brief and propose options from the active Pack's aesthetic doc and the existing Registry at each decision point. Use when the user says "brainstorm a preset," "design a new pipeline," or `/brainstorm SLUG`. Do not use to author or verify a Preset.
+description: Grill the user toward a GFX Brief and propose options from the active Pack's aesthetic doc and the existing Registry at each decision point. Use when the user says "brainstorm a preset," "design a new pipeline," or `/brainstorm SLUG`. Do not use to author or verify a Preset.
 ---
 
-# Supers Brainstorm
+# GFX Brainstorm
 
 The operational form of [ADR-0007](../../../docs/adr/0007-brainstorm-brief-system.md). Drives the conversation that produces a [`Brief`](../../../docs/briefs/README.md). The agent's stance is **active proposer** — surfaces 2–3 concrete options from the selected Pack's `docs/packs/<pack>/aesthetic.md`, the existing Registry, and `docs/inspo/` at every decision point, rather than passively recording user input.
 
@@ -25,7 +25,7 @@ Read in order, even if you "already know" them — the proposals you make at eac
 1. `docs/briefs/README.md` — the template you're filling and the lifecycle invariant.
 2. `docs/CONTEXT.md` — Brief, Producer, Critic, Brainstorm definitions.
 3. `src/lib/platform/packs/registry.ts` — registered Pack slugs; there is no implicit default.
-4. `docs/preset-format.md` — the `supers@1` schema you'll eventually have to satisfy.
+4. `docs/preset-format.md` — the `gfx@1` schema you'll eventually have to satisfy.
 5. `ls src/lib/presets/` — existing slugs (collision check) and family naming.
 6. `docs/adr/` — quick scan for relevant decisions (e.g. ADR-0006 if it's a lower-third-shaped idea).
 
@@ -36,7 +36,7 @@ Do not load `docs/quality-rubric.md` or `docs/animation-rubric.md` during brains
 ## Non-negotiables — never put these to the user
 
 - **One Preset, both orientations, every Pack.** Every new deliverable Preset reflows across horizontal (3840×2160) and vertical (2160×3840) and renders under every Pack ([ADR-0039](../../../docs/adr/0039-pack-neutral-compositions-and-listing-hygiene.md)). Never ask "separate vertical and horizontal presets?" and never create an orientation or Pack sibling. Existing fixture-only recompositions are engine-gap evidence, not authoring precedent. What *is* worth grilling: **how** the composition reflows — stacking, safe-areas, focal-slot placement — where the vertical frame changes the geometry.
-- **No hosting constraints.** Supers is local-only; never let deployment concerns (Cloudflare or otherwise) shape a Brief.
+- **No hosting constraints.** GFX is local-only; never let deployment concerns (Cloudflare or otherwise) shape a Brief.
 
 ## Protocol
 

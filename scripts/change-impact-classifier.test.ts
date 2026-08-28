@@ -369,7 +369,7 @@ test('explicit directives remain additive and precise', () => {
 // ADR-0053 `deprecated alias`: a task written before the rename already carries
 // the Supers spelling of the directive and the metadata route, so both keep
 // routing identically to the GFX spelling they were renamed to.
-test('legacy Supers Delivery directives and metadata route identically', () => {
+test('Legacy Supers Delivery directives and metadata route identically', () => {
 	const current = classifyGfxTaskIntent({
 		name: 'Update control plane',
 		description: 'GFX-Delivery-Domains: documentation-planning',

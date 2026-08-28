@@ -9,8 +9,8 @@ Let agents edit standalone `gfx@1` Presets and export them through one command w
 The intended agent experience is ordinary domain-level automation:
 
 ```sh
-supers preset validate ./composition.json
-supers render ./composition.json --out ./composition.mov
+gfx preset validate ./composition.json
+gfx render ./composition.json --out ./composition.mov
 ```
 
 Chromium remains the rendering runtime, but its page, feature flags, profile, CDP connection, and lifecycle become private exporter infrastructure.
@@ -21,7 +21,7 @@ GFX already has the hard contracts:
 
 - agents and the GUI author the same standalone Preset;
 - the User composition API provides a validated GET/edit/PUT loop;
-- `supers render` and `supers batch` drive the same deterministic Workspace export seam as the GUI;
+- `gfx render` and `gfx batch` drive the same deterministic Workspace export seam as the GUI;
 - the browser streams indexed frames and final audio through the bounded local ffmpeg session.
 
 The remaining friction is operational. The shipped CLI requires both the local server and sanctioned flag-enabled Chrome to be running before it starts. An agent should not need Chrome DevTools MCP, browser navigation, a visible window, or manual CDP setup merely to export a Preset.

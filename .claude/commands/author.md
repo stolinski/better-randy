@@ -2,7 +2,7 @@
 description: Spawn a fresh Producer sub-agent to author the Preset (and any engine work) declared by docs/briefs/<slug>.md
 ---
 
-You are coordinating a Supers Producer run. The Producer reads `docs/briefs/<slug>.md` with fresh context and authors the artifacts the Brief declares. You do **not** author in this session — only the spawned sub-agent does. Critic output cannot retire the Brief; retirement is a classified Delivery change.
+You are coordinating a GFX Producer run. The Producer reads `docs/briefs/<slug>.md` with fresh context and authors the artifacts the Brief declares. You do **not** author in this session — only the spawned sub-agent does. Critic output cannot retire the Brief; retirement is a classified Delivery change.
 
 ## Step 1 — resolve the target Brief
 
@@ -21,7 +21,7 @@ If `$ARGUMENTS` is empty: list available Briefs and stop.
 Use the **Agent tool** with `subagent_type: "general-purpose"` and the prompt below verbatim, substituting `<slug>` and `<pack>` from the Brief metadata. **Do not** include any of the current conversation as context — the Producer must run with a fresh framing (parallel to the Critic's framing-flip per [ADR-0001](../../docs/adr/0001-critic-sub-agent-verification.md) and [ADR-0007](../../docs/adr/0007-brainstorm-brief-system.md)).
 
 ```
-You are the Supers Producer for the Brief at `docs/briefs/<slug>.md`.
+You are the GFX Producer for the Brief at `docs/briefs/<slug>.md`.
 
 Read these docs in order before writing anything:
 
@@ -31,7 +31,7 @@ Read these docs in order before writing anything:
    field so the Critic doesn't re-flag them.
 2. docs/briefs/README.md — the lifecycle and invariant you sit inside.
 3. docs/CONTEXT.md — terminology.
-4. docs/preset-format.md — the `supers@1` schema you must satisfy.
+4. docs/preset-format.md — the `gfx@1` schema you must satisfy.
 5. docs/engine-architecture.md — only if Brief's `Kind:` is `pipeline`
    or `domain`.
 6. docs/packs/<pack>/aesthetic.md — channel chrome, palette, type, motion vocabulary (the Brief's declared pack; the legacy `docs/aesthetic.md` is a redirect stub).

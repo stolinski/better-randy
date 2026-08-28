@@ -1,9 +1,9 @@
 ---
 name: critic
-description: Verify a Supers Preset against the R/Q/G rubrics + channel aesthetic by spawning an isolated Critic sub-agent. Use when the user asks to verify, review, critique, audit, or check a Preset is "done" — e.g. "is this preset ready?", "critic the lower-third", "verify quote-magnify against the rubric". Also reachable as the `/critic SLUG` slash command. Do NOT use for authoring or fixing Presets.
+description: Verify a GFX Preset against the R/Q/G rubrics + channel aesthetic by spawning an isolated Critic sub-agent. Use when the user asks to verify, review, critique, audit, or check a Preset is "done" — e.g. "is this preset ready?", "critic the lower-third", "verify quote-magnify against the rubric". Also reachable as the `/critic SLUG` slash command. Do NOT use for authoring or fixing Presets.
 ---
 
-# Supers Critic
+# GFX Critic
 
 The operational form of [ADR-0001](../../../docs/adr/0001-critic-sub-agent-verification.md), retained as an optional adversarial observation tool. It captures frames and returns advisory observations. It must not block, approve, reject, mutate, or route Delivery, and must not emit a Delivery recommendation.
 
@@ -29,7 +29,7 @@ Do **not** invoke this skill for authoring, revising, or fixing Presets. The Cri
 Substitute `<slug>`. If the Preset is an **engine-capability demo** (its job is to exercise an engine feature, not to ship channel content), say so in the prompt — it scopes the aesthetic checks to advisory. Pass verbatim:
 
 ```
-You are the Supers Critic for the Preset at `src/lib/presets/<slug>.json`.
+You are the GFX Critic for the Preset at `src/lib/presets/<slug>.json`.
 Route URL: http://localhost:7263/p/<slug>.
 
 Bind to these docs and read them in order before doing anything else:
@@ -40,7 +40,7 @@ Bind to these docs and read them in order before doing anything else:
 4. docs/packs/<preset.pack>/aesthetic.md — channel-fit NOTES (resolved from the Preset's required top-level `pack` field. A Preset without `pack` fails schema validation; never substitute `syntax`. The legacy `docs/aesthetic.md` is a redirect stub — do not bind to it).
 5. docs/CONTEXT.md — terminology.
 
-CAPTURE SETUP (this repo): Supers renders via WICG HTML-in-Canvas, which needs
+CAPTURE SETUP (this repo): GFX renders via WICG HTML-in-Canvas, which needs
 Chrome with --enable-blink-features=CanvasDrawElement. A flag-enabled Chrome
 runs on CDP port 9223 — start or confirm it with `scripts/launch-cdp-chrome.sh`
 (idempotent; never hand-launch Chrome with improvised flags). A normal/unflagged
@@ -67,7 +67,7 @@ Then execute the protocol from docs/critic.md:
   pipeline-bug, default-too-permissive, preset-choice,
   aesthetic-miss, rubric-gap.
 
-PACK AESTHETICS NEVER GATE: Supers is a general engine — a Pack supplies the look,
+PACK AESTHETICS NEVER GATE: GFX is a general engine — a Pack supplies the look,
 not what the engine may do. A Pack style / channel-fit mismatch is `aesthetic-miss`
 ONLY — never `pipeline-bug` or `default-too-permissive`. All Critic output is advisory. A suspected defect is a wrong pixel measurable against the R/Q/G rules, independent of any Pack, but only the deterministic matrix has Delivery routing authority.
 
