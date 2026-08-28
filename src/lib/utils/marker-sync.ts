@@ -34,29 +34,36 @@ import {
 // edit).
 
 /** The marker color a synced group is recolored to — "synced" at a glance. The only color in the grammar: input color is meaningless. */
-export const SUPERS_SYNCED_MARKER_COLOR = 'Mint';
+export const GFX_SYNCED_MARKER_COLOR = 'Mint';
 
 /**
  * The customData schema tag written on every synced marker. Reads accept every
  * tag in `ACCEPTED_MARKER_SYNC_SCHEMAS` and `parseMarkerCustomData` folds them
  * onto this one, so a group synced under either namespace stays findable and a
  * re-sync rewrites its receipt in place (ADR-0053, `accept-old / write-new`).
+ *
+ * The tag still spells the Legacy Supers namespace: this receipt is written
+ * outward into the editor's Resolve project, so flipping it is the writer half
+ * of the matrix row and lands with the other marker/customData writers. The
+ * `satisfies` keeps the value inside what readers already accept, so that flip
+ * stays a one-value edit.
  */
-export const SUPERS_SYNC_SCHEMA = 'supers-sync@1' satisfies AcceptedMarkerSyncSchema;
+export const GFX_SYNC_SCHEMA = 'supers-sync@1' satisfies AcceptedMarkerSyncSchema;
 
 /**
  * The head-marker note prefix this sync documents; the rest of the note is the
  * Preset slug. Every prefix in `ACCEPTED_HEAD_NOTE_PREFIXES` is read, forever —
  * the note was typed by a human into the editor's project and is never
- * rewritten.
+ * rewritten. Nothing writes this value outward; it is the current form the
+ * guidance messages below tell an editor to type (ADR-0053).
  */
-export const SUPERS_HEAD_NOTE_PREFIX = 'supers ';
+export const GFX_HEAD_NOTE_PREFIX = 'gfx ';
 
 /** A marker whose name's last whitespace-separated token is exactly this closes its group's span. */
-export const SUPERS_END_NAME_TOKEN = 'END';
+export const GFX_END_NAME_TOKEN = 'END';
 
 /** The customData beat index written on a group's END marker (head = 0, beats 1-based). */
-export const SUPERS_END_BEAT = -1;
+export const GFX_END_BEAT = -1;
 
 /** One timeline marker as Resolve reports it (frameId relative to timeline start). */
 export interface ResolveMarker {
@@ -85,8 +92,8 @@ export interface ResolveTimelineSnapshot {
 }
 
 /** The customData payload written on each synced marker. Head = beat 0, END = beat -1; beats are 1-based. */
-export interface SupersSyncMarkerData {
-	schema: typeof SUPERS_SYNC_SCHEMA;
+export interface GfxSyncMarkerData {
+	schema: typeof GFX_SYNC_SCHEMA;
 	slug: string;
 	beat: number;
 	version: number;
@@ -130,7 +137,7 @@ export interface DeriveMarkerSyncOptions {
 	fallbackTailSeconds?: number;
 	/**
 	 * Conversational selection: a group the caller assembled from free-form
-	 * labels (no `supers <slug>` note yet). Skips the head-note lookup; the
+	 * labels (no `gfx <slug>` note yet). Skips the head-note lookup; the
 	 * sync's customData receipt makes the group formally findable afterward.
 	 */
 	group?: MarkerGroup;
@@ -205,10 +212,10 @@ export function normalizeTimelineFps(raw: number | string): number {
 /**
  * Parse a marker's customData into the sync payload, or null when it is not
  * ours. A receipt written under either namespace is ours; the parsed payload
- * always reports `SUPERS_SYNC_SCHEMA`, so no caller branches on which tag the
+ * always reports `GFX_SYNC_SCHEMA`, so no caller branches on which tag the
  * editor's project happened to carry.
  */
-export function parseMarkerCustomData(raw: string): SupersSyncMarkerData | null {
+export function parseMarkerCustomData(raw: string): GfxSyncMarkerData | null {
 	if (!raw) {
 		return null;
 	}
@@ -231,7 +238,7 @@ export function parseMarkerCustomData(raw: string): SupersSyncMarkerData | null 
 		return null;
 	}
 	return {
-		schema: SUPERS_SYNC_SCHEMA,
+		schema: GFX_SYNC_SCHEMA,
 		slug: candidate.slug,
 		beat: candidate.beat,
 		version: candidate.version
@@ -240,7 +247,7 @@ export function parseMarkerCustomData(raw: string): SupersSyncMarkerData | null 
 
 /** The customData string written on a synced marker (head = beat 0, END = beat -1). */
 export function buildMarkerCustomData(slug: string, beat: number, version: number): string {
-	const payload: SupersSyncMarkerData = { schema: SUPERS_SYNC_SCHEMA, slug, beat, version };
+	const payload: GfxSyncMarkerData = { schema: GFX_SYNC_SCHEMA, slug, beat, version };
 	return JSON.stringify(payload);
 }
 
@@ -340,11 +347,11 @@ function headSlugOf(marker: ResolveMarker): string | null {
 }
 
 function isEndMarker(marker: ResolveMarker): boolean {
-	if (marker.name.trim().split(/\s+/).at(-1) === SUPERS_END_NAME_TOKEN) {
+	if (marker.name.trim().split(/\s+/).at(-1) === GFX_END_NAME_TOKEN) {
 		return true;
 	}
 	const synced = parseMarkerCustomData(marker.customData);
-	return synced !== null && synced.beat === SUPERS_END_BEAT;
+	return synced !== null && synced.beat === GFX_END_BEAT;
 }
 
 /**
@@ -354,11 +361,11 @@ function isEndMarker(marker: ResolveMarker): boolean {
  * marker inside the span is a beat regardless of color or name — the
  * delimited span is the claim. An unclosed, undragged head degenerately
  * claims everything until the next head (linted at derivation). Markers that
- * are provably ours (supers-sync customData) but sit outside every group are
+ * are provably ours (an accepted sync customData tag) but sit outside every group are
  * orphans (warned, ignored); everything else outside a span is simply not
  * ours and stays silent.
  */
-export function groupSupersMarkers(markers: readonly ResolveMarker[]): {
+export function groupGfxMarkers(markers: readonly ResolveMarker[]): {
 	groups: MarkerGroup[];
 	warnings: MarkerSyncWarning[];
 } {
@@ -403,7 +410,7 @@ export function groupSupersMarkers(markers: readonly ResolveMarker[]): {
 	if (orphanCount > 0) {
 		warnings.push({
 			code: 'orphan-beats',
-			message: `${orphanCount} previously synced marker(s) sit outside every group (their head moved, lost its "${SUPERS_HEAD_NOTE_PREFIX}<slug>" note, or was deleted) and were ignored.`
+			message: `${orphanCount} previously synced marker(s) sit outside every group (their head moved, lost its "${GFX_HEAD_NOTE_PREFIX}<slug>" note, or was deleted) and were ignored.`
 		});
 	}
 
@@ -428,7 +435,7 @@ function lintBeatOrder(beats: readonly ResolveMarker[], warnings: MarkerSyncWarn
 	// beat order disagree — item N would suddenly ride a different moment.
 	const recorded = beats
 		.map((beat) => parseMarkerCustomData(beat.customData))
-		.filter((data): data is SupersSyncMarkerData => data !== null && data.beat > 0);
+		.filter((data): data is GfxSyncMarkerData => data !== null && data.beat > 0);
 	for (let i = 1; i < recorded.length; i += 1) {
 		if (recorded[i].beat < recorded[i - 1].beat) {
 			warnings.push({
@@ -509,7 +516,7 @@ export function deriveMarkerSync(
 		group = options.group;
 		warnings = [];
 	} else {
-		const grouped = groupSupersMarkers(snapshot.markers);
+		const grouped = groupGfxMarkers(snapshot.markers);
 		warnings = grouped.warnings;
 		const found = grouped.groups.find((candidate) => candidate.slug === options.slug);
 		if (!found) {
@@ -518,7 +525,7 @@ export function deriveMarkerSync(
 				`No marker group for "${options.slug}" on the timeline. ` +
 					(known.length > 0
 						? `Found: ${known.join(', ')}.`
-						: `Drop a marker (any color) with the note "${SUPERS_HEAD_NOTE_PREFIX}${options.slug}" at the piece's start, closed by an END-named marker or a dragged head duration.`)
+						: `Drop a marker (any color) with the note "${GFX_HEAD_NOTE_PREFIX}${options.slug}" at the piece's start, closed by an END-named marker or a dragged head duration.`)
 			);
 		}
 		group = found;
@@ -627,7 +634,7 @@ export function buildSyncedMarkerUpdates(
 ): MarkerUpdate[] {
 	let resolved = group;
 	if (!resolved) {
-		const { groups } = groupSupersMarkers(snapshot.markers);
+		const { groups } = groupGfxMarkers(snapshot.markers);
 		resolved = groups.find((candidate) => candidate.slug === slug);
 	}
 	if (!resolved) {
@@ -636,22 +643,22 @@ export function buildSyncedMarkerUpdates(
 	const updates: MarkerUpdate[] = [
 		{
 			frameId: resolved.head.frameId,
-			color: SUPERS_SYNCED_MARKER_COLOR,
+			color: GFX_SYNCED_MARKER_COLOR,
 			customData: buildMarkerCustomData(slug, 0, version)
 		}
 	];
 	for (const [index, beat] of resolved.beats.slice(0, itemCount).entries()) {
 		updates.push({
 			frameId: beat.frameId,
-			color: SUPERS_SYNCED_MARKER_COLOR,
+			color: GFX_SYNCED_MARKER_COLOR,
 			customData: buildMarkerCustomData(slug, index + 1, version)
 		});
 	}
 	if (resolved.end) {
 		updates.push({
 			frameId: resolved.end.frameId,
-			color: SUPERS_SYNCED_MARKER_COLOR,
-			customData: buildMarkerCustomData(slug, SUPERS_END_BEAT, version)
+			color: GFX_SYNCED_MARKER_COLOR,
+			customData: buildMarkerCustomData(slug, GFX_END_BEAT, version)
 		});
 	}
 	return updates;

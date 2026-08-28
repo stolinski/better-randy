@@ -76,9 +76,9 @@
 		{#if addressLabel}
 			<span
 				class="web-document__address"
-				data-supers-readable-id="surface:web-document:source-url"
-				data-supers-readable-text={addressLabel}
-				data-supers-text-role="found-document-metadata">{addressLabel}</span
+				data-gfx-readable-id="surface:web-document:source-url"
+				data-gfx-readable-text={addressLabel}
+				data-gfx-text-role="found-document-metadata">{addressLabel}</span
 			>
 		{/if}
 	</div>

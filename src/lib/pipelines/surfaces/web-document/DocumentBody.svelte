@@ -35,9 +35,9 @@
 			{#each body as block, blockIndex (blockIndex)}
 				{#if block.type === 'paragraph'}
 					<p
-						data-supers-readable-id={`${readablePrefix}:${blockIndex}`}
-						data-supers-readable-text={block.segments.map((segment) => segment.text).join('')}
-						data-supers-text-role="found-document-body"
+						data-gfx-readable-id={`${readablePrefix}:${blockIndex}`}
+						data-gfx-readable-text={block.segments.map((segment) => segment.text).join('')}
+						data-gfx-text-role="found-document-body"
 					>
 						{#each block.segments as segment, segmentIndex (`${blockIndex}:${segmentIndex}:${segment.text}`)}
 							{#if segment.markStyles.length > 0}

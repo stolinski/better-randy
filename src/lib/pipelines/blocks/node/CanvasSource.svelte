@@ -14,9 +14,9 @@
 		<span
 			class="node__box-face"
 			data-diagram-text-role="caption"
-			data-supers-readable-id={`block:${block.id}:text`}
-			data-supers-readable-text={block.text ?? ''}
-			data-supers-text-role="diagram-caption">{block.text ?? ''}</span
+			data-gfx-readable-id={`block:${block.id}:text`}
+			data-gfx-readable-text={block.text ?? ''}
+			data-gfx-text-role="diagram-caption">{block.text ?? ''}</span
 		>
 	</span>
 {:else if block.form === 'pin'}
@@ -38,9 +38,9 @@
 			<span
 				class="node__pin-text"
 				data-diagram-text-role="caption"
-				data-supers-readable-id={`block:${block.id}:text`}
-				data-supers-readable-text={block.text}
-				data-supers-text-role="diagram-caption">{block.text}</span
+				data-gfx-readable-id={`block:${block.id}:text`}
+				data-gfx-readable-text={block.text}
+				data-gfx-text-role="diagram-caption">{block.text}</span
 			>
 		{/if}
 	</span>
@@ -51,9 +51,9 @@
 			<span
 				class="node__dot-text"
 				data-diagram-text-role="caption"
-				data-supers-readable-id={`block:${block.id}:text`}
-				data-supers-readable-text={block.text}
-				data-supers-text-role="diagram-caption">{block.text}</span
+				data-gfx-readable-id={`block:${block.id}:text`}
+				data-gfx-readable-text={block.text}
+				data-gfx-text-role="diagram-caption">{block.text}</span
 			>
 		{/if}
 	</span>

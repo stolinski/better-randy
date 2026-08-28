@@ -97,14 +97,14 @@
 	<span class="yt-sub__identity">
 		<span
 			class="yt-sub__channel"
-			data-supers-readable-id="channel"
-			data-supers-text-role="overlay-corner-primary">{content.channel}</span
+			data-gfx-readable-id="channel"
+			data-gfx-text-role="overlay-corner-primary">{content.channel}</span
 		>
 		{#if content.handle || content.subscribers}
 			<span
 				class="yt-sub__meta"
-				data-supers-readable-id="meta"
-				data-supers-text-role="overlay-corner-secondary"
+				data-gfx-readable-id="meta"
+				data-gfx-text-role="overlay-corner-secondary"
 			>
 				{[content.handle, content.subscribers].filter(Boolean).join(' · ')}
 			</span>
@@ -128,9 +128,8 @@
 				class="yt-sub__pill"
 				style:scale={pressScale !== 1 && !subscribed ? String(pressScale) : undefined}
 			>
-				<span
-					data-supers-readable-id="subscribe-action"
-					data-supers-text-role="overlay-corner-secondary">Subscribe</span
+				<span data-gfx-readable-id="subscribe-action" data-gfx-text-role="overlay-corner-secondary"
+					>Subscribe</span
 				>
 			</span>
 		</span>
@@ -154,9 +153,8 @@
 						stroke-dashoffset={checkT < 1 ? String(1 - checkT) : undefined}
 					/>
 				</svg>
-				<span
-					data-supers-readable-id="subscribed-action"
-					data-supers-text-role="overlay-corner-secondary">Subscribed</span
+				<span data-gfx-readable-id="subscribed-action" data-gfx-text-role="overlay-corner-secondary"
+					>Subscribed</span
 				>
 			</span>
 			<span

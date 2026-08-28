@@ -37,8 +37,8 @@
 			<h2
 				class="type-hero-source__hero"
 				data-text-anim-slot="title"
-				data-supers-readable-id="surface:type-hero:title"
-				data-supers-text-role="surface-display"
+				data-gfx-readable-id="surface:type-hero:title"
+				data-gfx-text-role="surface-display"
 				style:font-size={`${primaryFontSize}px`}
 			>
 				{content.title}
@@ -51,8 +51,8 @@
 			<span
 				class="type-hero-source__counterpoint"
 				data-text-anim-slot="counterpoint"
-				data-supers-readable-id="surface:type-hero:counterpoint"
-				data-supers-text-role="surface-title"
+				data-gfx-readable-id="surface:type-hero:counterpoint"
+				data-gfx-text-role="surface-title"
 				style:font-size={`${counterpointFontSize}px`}
 			>
 				{content.counterpoint}
@@ -67,8 +67,8 @@
 			<cite
 				class="type-hero-source__subtitle"
 				data-text-anim-slot="author"
-				data-supers-readable-id="surface:type-hero:author"
-				data-supers-text-role="surface-label"
+				data-gfx-readable-id="surface:type-hero:author"
+				data-gfx-text-role="surface-label"
 				style:font-size={`${subtitleFontSize}px`}
 			>
 				{content.author}

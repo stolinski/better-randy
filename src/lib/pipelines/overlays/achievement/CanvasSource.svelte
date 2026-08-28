@@ -29,7 +29,7 @@
 	class="achievement achievement--{variantId}"
 	data-overlay="achievement"
 	data-variant={variantId}
-	data-supers-shadow-owner="plate"
+	data-gfx-shadow-owner="plate"
 	style:inline-size={`${layout.width}px`}
 	style:font-size={`${layout.width}px`}
 >
@@ -73,8 +73,8 @@
 
 	<span class="achievement__copy">
 		<span
-			data-supers-readable-id="kicker"
-			data-supers-text-role="overlay-corner-secondary"
+			data-gfx-readable-id="kicker"
+			data-gfx-text-role="overlay-corner-secondary"
 			class={['achievement__kicker', { 'achievement__kicker--chip': variantId === 'unlocked' }]}
 			style:opacity={variantId === 'unlocked' ? motion.chipOpacity : 1}
 			style:scale={variantId === 'unlocked' ? motion.chipScale : 1}
@@ -83,8 +83,8 @@
 		</span>
 		<strong
 			class="achievement__title"
-			data-supers-readable-id="title"
-			data-supers-text-role="overlay-corner-primary"
+			data-gfx-readable-id="title"
+			data-gfx-text-role="overlay-corner-primary"
 			style:color={`color-mix(in srgb, var(--ink) ${100 - titleCompletion * 28}%, var(--mutedInk, var(--ink)) ${titleCompletion * 28}%)`}
 		>
 			{content.title}

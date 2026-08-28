@@ -174,8 +174,8 @@
 					<p
 						class="paper-source__kicker"
 						data-text-anim-slot="sourceUrl"
-						data-supers-readable-id="surface:paper:source-url"
-						data-supers-text-role="surface-label"
+						data-gfx-readable-id="surface:paper:source-url"
+						data-gfx-text-role="surface-label"
 					>
 						{sourceLabel}
 					</p>
@@ -185,8 +185,8 @@
 				{#key engineState.surface.content.title}
 					<h2
 						data-text-anim-slot="title"
-						data-supers-readable-id="surface:paper:title"
-						data-supers-text-role="surface-title"
+						data-gfx-readable-id="surface:paper:title"
+						data-gfx-text-role="surface-title"
 						style:font-size={`${layout.width * 0.06}px`}
 					>
 						{engineState.surface.content.title}
@@ -200,14 +200,12 @@
 						data-text-anim-slot="author"
 						style:font-size={`${layout.width * 0.026}px`}
 					>
-						<span
-							data-supers-readable-id="surface:paper:author"
-							data-supers-text-role="surface-label">{engineState.surface.content.author}</span
+						<span data-gfx-readable-id="surface:paper:author" data-gfx-text-role="surface-label"
+							>{engineState.surface.content.author}</span
 						>{#if engineState.surface.content.affiliation}<span aria-hidden="true"> · </span><span
 								class="paper-source__affiliation"
-								data-supers-readable-id="surface:paper:affiliation"
-								data-supers-text-role="surface-label"
-								>{engineState.surface.content.affiliation}</span
+								data-gfx-readable-id="surface:paper:affiliation"
+								data-gfx-text-role="surface-label">{engineState.surface.content.affiliation}</span
 							>{/if}
 					</p>
 				{/key}
@@ -218,8 +216,8 @@
 	{#if engineState.surface.content.bodyLabel}
 		<p
 			class="paper-source__body-label"
-			data-supers-readable-id="surface:paper:body-label"
-			data-supers-text-role="surface-label"
+			data-gfx-readable-id="surface:paper:body-label"
+			data-gfx-text-role="surface-label"
 			style:font-size={`${layout.width * 0.024}px`}
 		>
 			{engineState.surface.content.bodyLabel}
@@ -231,8 +229,8 @@
 			{#each engineState.surface.content.body as block, blockIndex (blockIndex)}
 				{#if block.type === 'paragraph'}
 					<p
-						data-supers-readable-id={`surface:paper:body:${blockIndex}`}
-						data-supers-text-role="surface-body"
+						data-gfx-readable-id={`surface:paper:body:${blockIndex}`}
+						data-gfx-text-role="surface-body"
 					>
 						{#each block.segments as segment, segmentIndex (`${blockIndex}:${segmentIndex}:${segment.text}`)}
 							{#if segment.markStyles.length > 0}
@@ -264,8 +262,8 @@
 				{#key engineState.surface.content.source}
 					<cite
 						data-text-anim-slot="source"
-						data-supers-readable-id="surface:paper:source"
-						data-supers-text-role="surface-label">{engineState.surface.content.source}</cite
+						data-gfx-readable-id="surface:paper:source"
+						data-gfx-text-role="surface-label">{engineState.surface.content.source}</cite
 					>
 				{/key}
 			{/if}
@@ -273,8 +271,8 @@
 				{#key engineState.surface.content.dateLabel}
 					<span
 						data-text-anim-slot="dateLabel"
-						data-supers-readable-id="surface:paper:date-label"
-						data-supers-text-role="surface-label">{engineState.surface.content.dateLabel}</span
+						data-gfx-readable-id="surface:paper:date-label"
+						data-gfx-text-role="surface-label">{engineState.surface.content.dateLabel}</span
 					>
 				{/key}
 			{/if}

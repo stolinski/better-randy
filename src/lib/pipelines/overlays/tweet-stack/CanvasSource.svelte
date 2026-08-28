@@ -75,8 +75,8 @@
 				</span>
 				<span class="tweet-card__identity">
 					<strong
-						data-supers-readable-id={`${post.id}-display-name`}
-						data-supers-text-role="found-document-metadata">{post.displayName}</strong
+						data-gfx-readable-id={`${post.id}-display-name`}
+						data-gfx-text-role="found-document-metadata">{post.displayName}</strong
 					>
 					{#if post.verified}
 						<svg class="tweet-card__verified" viewBox="0 0 24 24" aria-label="Verified">
@@ -86,8 +86,8 @@
 						</svg>
 					{/if}
 					<span
-						data-supers-readable-id={`${post.id}-handle`}
-						data-supers-text-role="found-document-metadata">{post.handle}</span
+						data-gfx-readable-id={`${post.id}-handle`}
+						data-gfx-text-role="found-document-metadata">{post.handle}</span
 					>
 				</span>
 				<svg class="tweet-card__x" viewBox="0 0 24 24" aria-hidden="true">
@@ -99,16 +99,15 @@
 
 			<p
 				class="tweet-card__body"
-				data-supers-readable-id={`${post.id}-body`}
-				data-supers-text-role="found-document-body"
+				data-gfx-readable-id={`${post.id}-body`}
+				data-gfx-text-role="found-document-body"
 			>
 				{post.body}
 			</p>
 
 			<footer class="tweet-card__footer" style:font-size={`${metaFontSize}px`}>
-				<time
-					data-supers-readable-id={`${post.id}-date`}
-					data-supers-text-role="found-document-metadata">{post.dateLabel}</time
+				<time data-gfx-readable-id={`${post.id}-date`} data-gfx-text-role="found-document-metadata"
+					>{post.dateLabel}</time
 				>
 				<span class="tweet-card__actions" aria-hidden="true">
 					<svg viewBox="0 0 24 24"

@@ -115,7 +115,7 @@ async function openCdpPage(slug) {
 	const deadline = Date.now() + WAIT_MS;
 	while (Date.now() < deadline) {
 		const ready = await send('Runtime.evaluate', {
-			expression: `document.readyState === 'complete' && typeof window.__captureSupersDeterministicRenderRegionManifest === 'function'`,
+			expression: `document.readyState === 'complete' && typeof window.__captureGfxDeterministicRenderRegionManifest === 'function'`,
 			returnByValue: true
 		});
 		if (ready.result?.value === true) return { socket, send };
@@ -139,7 +139,7 @@ async function evaluate(send, expression) {
 async function captureFrame(send, frameIndex) {
 	return evaluate(
 		send,
-		`window.__captureSupersDeterministicRenderRegionManifest({ address: { frameIndex: ${frameIndex}, timestampMicroseconds: Math.round(${frameIndex} * 1000000 / 30) }, frameRate: { num: 30, den: 1 } })`
+		`window.__captureGfxDeterministicRenderRegionManifest({ address: { frameIndex: ${frameIndex}, timestampMicroseconds: Math.round(${frameIndex} * 1000000 / 30) }, frameRate: { num: 30, den: 1 } })`
 	);
 }
 
@@ -172,7 +172,7 @@ function saveCanvasPng(slug, suffix, dataUrl) {
 async function saveReadableArtifacts(send, slug, manifest, readableId, suffix) {
 	const artifacts = await evaluate(
 		send,
-		`window.__captureSupersDeterministicReadablePngArtifacts(${JSON.stringify(readableId)})`
+		`window.__captureGfxDeterministicReadablePngArtifacts(${JSON.stringify(readableId)})`
 	);
 	if (!artifacts) throw new Error(`${slug}:${readableId}: PNG artifacts unavailable`);
 	const directory = join(OUTPUT_ROOT, slug);
@@ -208,7 +208,7 @@ async function runCase(testCase) {
 		const rejected = await evaluate(
 			send,
 			`(async () => {
-				const capture = window.__captureSupersDeterministicRenderRegionManifest;
+				const capture = window.__captureGfxDeterministicRenderRegionManifest;
 				let wrongRate = false;
 				let wrongTimestamp = false;
 				try { await capture({ address: { frameIndex: 0, timestampMicroseconds: 0 }, frameRate: { num: 60, den: 1 } }); } catch { wrongRate = true; }

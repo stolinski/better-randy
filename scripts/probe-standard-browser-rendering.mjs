@@ -107,12 +107,12 @@ async function navigateToComposition(page, slug, { requireTimeline }) {
 		const ready = await page.evaluate(`(() => ({
 			complete: document.readyState === 'complete',
 			canvas: [...document.querySelectorAll('canvas')].some((canvas) => canvas.children.length > 0),
-			timeline: Boolean(window.__supersTimeline)
+			timeline: Boolean(window.__gfxTimeline)
 		}))()`);
 		if (ready.complete && ready.canvas && (!requireTimeline || ready.timeline)) {
 			let soughtProgress = null;
 			if (ready.timeline) {
-				await page.evaluate(`window.__supersTimeline.seekProgress(0.5)`);
+				await page.evaluate(`window.__gfxTimeline.seekProgress(0.5)`);
 				soughtProgress = 0.5;
 			}
 			await sleep(500);

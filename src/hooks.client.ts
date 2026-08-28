@@ -11,7 +11,7 @@ import * as Sentry from '@sentry/sveltekit';
 // this page (app-shell meta, injected by hooks.server.ts) — correct for the
 // lifetime of the page, since a freshly loaded page runs current code.
 const releaseMeta = document
-	.querySelector('meta[name="supers-release"]')
+	.querySelector('meta[name="gfx-release"]')
 	?.getAttribute('content');
 
 Sentry.init({

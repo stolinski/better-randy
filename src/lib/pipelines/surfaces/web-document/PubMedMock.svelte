@@ -35,20 +35,20 @@
 		<div class="pubmed-utility" style:font-size={`${utilityFontPx}px`}>
 			<span
 				class="pubmed-ncbi"
-				data-supers-readable-id="surface:web-document:chrome:ncbi"
-				data-supers-readable-text="NCBI"
-				data-supers-text-role="found-document-metadata">NCBI</span
+				data-gfx-readable-id="surface:web-document:chrome:ncbi"
+				data-gfx-readable-text="NCBI"
+				data-gfx-text-role="found-document-metadata">NCBI</span
 			>
 			<span
-				data-supers-readable-id="surface:web-document:chrome:library-name"
-				data-supers-readable-text="National Library of Medicine"
-				data-supers-text-role="found-document-metadata">National Library of Medicine</span
+				data-gfx-readable-id="surface:web-document:chrome:library-name"
+				data-gfx-readable-text="National Library of Medicine"
+				data-gfx-text-role="found-document-metadata">National Library of Medicine</span
 			>
 			<span
 				class="pubmed-login"
-				data-supers-readable-id="surface:web-document:chrome:login"
-				data-supers-readable-text="Log in"
-				data-supers-text-role="found-document-metadata">Log in</span
+				data-gfx-readable-id="surface:web-document:chrome:login"
+				data-gfx-readable-text="Log in"
+				data-gfx-text-role="found-document-metadata">Log in</span
 			>
 		</div>
 		<div class="pubmed-search-row" style:gap={`${width * 0.02}px`}>
@@ -56,19 +56,19 @@
 				class="pubmed-logo"
 				src="/web-document-pubmed/pubmed-logo.png"
 				alt="PubMed"
-				data-supers-non-readable-reason={rasterizedArtifactTextReason}
+				data-gfx-non-readable-reason={rasterizedArtifactTextReason}
 				style:inline-size={`${width * 0.15}px`}
 			/>
 			<div class="pubmed-search" style:font-size={`${searchFontPx}px`}>
 				<span
-					data-supers-readable-id="surface:web-document:chrome:search-placeholder"
-					data-supers-readable-text="Search PubMed"
-					data-supers-text-role="found-document-metadata">Search PubMed</span
+					data-gfx-readable-id="surface:web-document:chrome:search-placeholder"
+					data-gfx-readable-text="Search PubMed"
+					data-gfx-text-role="found-document-metadata">Search PubMed</span
 				>
 				<span
 					class="pubmed-search-button"
 					aria-hidden="true"
-					data-supers-non-readable-reason={decorativeSymbolReason}>⌕</span
+					data-gfx-non-readable-reason={decorativeSymbolReason}>⌕</span
 				>
 			</div>
 		</div>
@@ -82,9 +82,9 @@
 		{#if citation}
 			<div
 				class="pubmed-citation"
-				data-supers-readable-id="surface:web-document:source"
-				data-supers-readable-text={citation}
-				data-supers-text-role="found-document-metadata"
+				data-gfx-readable-id="surface:web-document:source"
+				data-gfx-readable-text={citation}
+				data-gfx-text-role="found-document-metadata"
 				style:font-size={`${citationFontPx}px`}
 			>
 				{citation}
@@ -102,9 +102,9 @@
 		{#if author}
 			<div
 				class="pubmed-author"
-				data-supers-readable-id="surface:web-document:author"
-				data-supers-readable-text={author}
-				data-supers-text-role="found-document-metadata"
+				data-gfx-readable-id="surface:web-document:author"
+				data-gfx-readable-text={author}
+				data-gfx-text-role="found-document-metadata"
 				style:font-size={`${metaFontPx}px`}
 			>
 				{author}
@@ -113,9 +113,9 @@
 		{#if identifiers}
 			<div
 				class="pubmed-identifiers"
-				data-supers-readable-id="surface:web-document:date-label"
-				data-supers-readable-text={identifiers}
-				data-supers-text-role="found-document-metadata"
+				data-gfx-readable-id="surface:web-document:date-label"
+				data-gfx-readable-text={identifiers}
+				data-gfx-text-role="found-document-metadata"
 				style:font-size={`${metaFontPx}px`}
 			>
 				{identifiers}
@@ -124,21 +124,21 @@
 
 		<div class="pubmed-actions" style:font-size={`${utilityFontPx}px`} aria-hidden="true">
 			<span
-				data-supers-readable-id="surface:web-document:chrome:save"
-				data-supers-readable-text="Save"
-				data-supers-text-role="found-document-metadata">Save</span
+				data-gfx-readable-id="surface:web-document:chrome:save"
+				data-gfx-readable-text="Save"
+				data-gfx-text-role="found-document-metadata">Save</span
 			><span
-				data-supers-readable-id="surface:web-document:chrome:email"
-				data-supers-readable-text="Email"
-				data-supers-text-role="found-document-metadata">Email</span
+				data-gfx-readable-id="surface:web-document:chrome:email"
+				data-gfx-readable-text="Email"
+				data-gfx-text-role="found-document-metadata">Email</span
 			><span
-				data-supers-readable-id="surface:web-document:chrome:send-to"
-				data-supers-readable-text="Send to"
-				data-supers-text-role="found-document-metadata">Send to</span
+				data-gfx-readable-id="surface:web-document:chrome:send-to"
+				data-gfx-readable-text="Send to"
+				data-gfx-text-role="found-document-metadata">Send to</span
 			><span
-				data-supers-readable-id="surface:web-document:chrome:display-options"
-				data-supers-readable-text="Display options"
-				data-supers-text-role="found-document-metadata">Display options</span
+				data-gfx-readable-id="surface:web-document:chrome:display-options"
+				data-gfx-readable-text="Display options"
+				data-gfx-text-role="found-document-metadata">Display options</span
 			>
 		</div>
 	</div>

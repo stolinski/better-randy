@@ -12,14 +12,14 @@
 	<span class="watermark__accent" aria-hidden="true"></span>
 	<span
 		class="watermark__handle"
-		data-supers-readable-id="handle"
-		data-supers-text-role="overlay-corner-primary">{content.handle}</span
+		data-gfx-readable-id="handle"
+		data-gfx-text-role="overlay-corner-primary">{content.handle}</span
 	>
 	{#if content.label}
 		<span
 			class="watermark__label"
-			data-supers-readable-id="label"
-			data-supers-text-role="overlay-corner-secondary">{content.label}</span
+			data-gfx-readable-id="label"
+			data-gfx-text-role="overlay-corner-secondary">{content.label}</span
 		>
 	{/if}
 </aside>

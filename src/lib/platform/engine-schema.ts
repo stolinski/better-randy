@@ -1093,7 +1093,7 @@ const CompositionTransitionSchema = z.object({
 });
 
 // ---- Text animations (ADR-0011) ----
-// Slot enums match the surface / overlay content slots Supers ships today plus
+// Slot enums match the surface / overlay content slots GFX ships today plus
 // the chrome-only kicker slot the newspaper surface added in ADR-0008. The
 // `target` discriminated union is parsed at load time; the rules below
 // (per-character → title-scale; layout-aware renderer → title-scale) are

@@ -28,8 +28,8 @@
 			<span
 				class="instance-stack-overlay__instance"
 				data-text-anim-slot={i === 0 ? 'title' : undefined}
-				data-supers-readable-id={`instance-${i}`}
-				data-supers-text-role="overlay-display"
+				data-gfx-readable-id={`instance-${i}`}
+				data-gfx-text-role="overlay-display"
 				style:transform={`translate(${state.xOffset}em, ${state.yOffset}em) scale(${state.scale})`}
 				style:opacity={state.opacity}
 			>

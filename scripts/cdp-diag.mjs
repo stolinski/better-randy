@@ -42,14 +42,14 @@ await send('Runtime.enable');
 await sleep(500);
 logs.length = 0; // only collect logs from here on
 
-await evaluate(`window.__supersTimeline && window.__supersTimeline.seekProgress(${SEEK})`);
+await evaluate(`window.__gfxTimeline && window.__gfxTimeline.seekProgress(${SEEK})`);
 await sleep(700);
 
 const dump = await evaluate(`(() => {
 	const out = {};
 	const c = document.querySelector('canvas');
 	out.canvas = c ? { w: c.width, h: c.height, dispW: Math.round(c.getBoundingClientRect().width), dispH: Math.round(c.getBoundingClientRect().height) } : null;
-	const tl = window.__supersTimeline;
+	const tl = window.__gfxTimeline;
 	out.timeline = tl ? { time: +tl.time.toFixed(3), dur: tl.durationSeconds, playing: tl.isPlaying } : null;
 	// animState is module-scoped; reach it via the overlay DOM + computed styles instead.
 	const lt = document.querySelector('[data-overlay="lower-third"]');

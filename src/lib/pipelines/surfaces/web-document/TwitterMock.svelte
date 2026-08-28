@@ -53,9 +53,9 @@
 				{#if displayName}
 					<span
 						class="x-name"
-						data-supers-readable-id="surface:web-document:author"
-						data-supers-readable-text={displayName}
-						data-supers-text-role="found-document-metadata"
+						data-gfx-readable-id="surface:web-document:author"
+						data-gfx-readable-text={displayName}
+						data-gfx-text-role="found-document-metadata"
 						style:font-size={`${nameFontPx}px`}>{displayName}</span
 					>
 				{/if}
@@ -74,9 +74,9 @@
 			{#if handle}
 				<span
 					class="x-handle"
-					data-supers-readable-id="surface:web-document:source"
-					data-supers-readable-text={handle}
-					data-supers-text-role="found-document-metadata"
+					data-gfx-readable-id="surface:web-document:source"
+					data-gfx-readable-text={handle}
+					data-gfx-text-role="found-document-metadata"
 					style:font-size={`${metaFontPx}px`}>{handle}</span
 				>
 			{/if}
@@ -85,7 +85,7 @@
 			class="x-more"
 			style:font-size={`${nameFontPx}px`}
 			aria-hidden="true"
-			data-supers-non-readable-reason={decorativeSymbolReason}>···</span
+			data-gfx-non-readable-reason={decorativeSymbolReason}>···</span
 		>
 	</header>
 
@@ -98,9 +98,9 @@
 	{#if timestamp}
 		<div
 			class="x-meta"
-			data-supers-readable-id="surface:web-document:date-label"
-			data-supers-readable-text={timestamp}
-			data-supers-text-role="found-document-metadata"
+			data-gfx-readable-id="surface:web-document:date-label"
+			data-gfx-readable-text={timestamp}
+			data-gfx-text-role="found-document-metadata"
 			style:font-size={`${metaFontPx}px`}
 		>
 			{timestamp}

@@ -78,9 +78,9 @@
 	<span
 		class="stat-callout__value"
 		data-diagram-text-role="stat-value"
-		data-supers-readable-id={`block:${block.id}:value`}
-		data-supers-readable-text={String(block.to)}
-		data-supers-text-role="diagram-stat-value"
+		data-gfx-readable-id={`block:${block.id}:value`}
+		data-gfx-readable-text={String(block.to)}
+		data-gfx-text-role="diagram-stat-value"
 	>
 		{#each digitTokens as token, i (i)}
 			{#if token.isDigit}
@@ -99,9 +99,9 @@
 		<span
 			class="stat-callout__label"
 			data-diagram-text-role="caption"
-			data-supers-readable-id={`block:${block.id}:label`}
-			data-supers-readable-text={block.label}
-			data-supers-text-role="diagram-caption">{block.label}</span
+			data-gfx-readable-id={`block:${block.id}:label`}
+			data-gfx-readable-text={block.label}
+			data-gfx-text-role="diagram-caption">{block.label}</span
 		>
 	{/if}
 </span>

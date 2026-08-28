@@ -135,8 +135,8 @@
 				<span
 					class="newspaper-source__kicker"
 					data-text-anim-slot="kicker"
-					data-supers-readable-id="surface:newspaper:kicker"
-					data-supers-text-role="surface-label"
+					data-gfx-readable-id="surface:newspaper:kicker"
+					data-gfx-text-role="surface-label"
 					style:font-size={`${layout.width * 0.022}px`}
 				>
 					{content.kicker}
@@ -147,8 +147,8 @@
 			{#key content.title}
 				<h2
 					data-text-anim-slot="title"
-					data-supers-readable-id="surface:newspaper:title"
-					data-supers-text-role="surface-title"
+					data-gfx-readable-id="surface:newspaper:title"
+					data-gfx-text-role="surface-title"
 					style:font-size={`${layout.width * titleSizeRatio}px`}
 				>
 					{content.title}
@@ -163,8 +163,8 @@
 				{#each content.body as block, blockIndex (blockIndex)}
 					{#if block.type === 'paragraph'}
 						<p
-							data-supers-readable-id={`surface:newspaper:body:${blockIndex}`}
-							data-supers-text-role="surface-body"
+							data-gfx-readable-id={`surface:newspaper:body:${blockIndex}`}
+							data-gfx-text-role="surface-body"
 						>
 							{#each block.segments as segment, segmentIndex (`${blockIndex}:${segmentIndex}:${segment.text}`)}
 								{#if segment.markStyles.length > 0}
@@ -198,8 +198,8 @@
 					<span
 						class="newspaper-source__byline"
 						data-text-anim-slot="author"
-						data-supers-readable-id="surface:newspaper:author"
-						data-supers-text-role="surface-label"
+						data-gfx-readable-id="surface:newspaper:author"
+						data-gfx-text-role="surface-label"
 						style:font-size={`${layout.width * metadataSizeRatio}px`}
 					>
 						{content.author}
@@ -211,8 +211,8 @@
 					<span
 						class="newspaper-source__date"
 						data-text-anim-slot="dateLabel"
-						data-supers-readable-id="surface:newspaper:date-label"
-						data-supers-text-role="surface-label"
+						data-gfx-readable-id="surface:newspaper:date-label"
+						data-gfx-text-role="surface-label"
 						style:font-size={`${layout.width * metadataSizeRatio}px`}
 					>
 						{content.dateLabel}
@@ -224,8 +224,8 @@
 					<span
 						class="newspaper-source__date"
 						data-text-anim-slot="source"
-						data-supers-readable-id={`surface:newspaper:${content.sourceUrl?.trim() ? 'source-url' : 'source'}`}
-						data-supers-text-role="surface-label"
+						data-gfx-readable-id={`surface:newspaper:${content.sourceUrl?.trim() ? 'source-url' : 'source'}`}
+						data-gfx-text-role="surface-label"
 						style:font-size={`${layout.width * metadataSizeRatio}px`}>{sourceLabel}</span
 					>
 				{/key}

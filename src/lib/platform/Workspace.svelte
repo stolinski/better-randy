@@ -154,7 +154,7 @@
 			posterCaptureController.update(null);
 			return;
 		}
-		if (typeof window !== 'undefined') window.__supersPosterKey = key;
+		if (typeof window !== 'undefined') window.__gfxPosterKey = key;
 		posterCaptureController.update({
 			key,
 			canvas: localCanvas,
@@ -361,7 +361,7 @@
 				readPack: () => getPack(packState.slug),
 				readMarkColor,
 				readTextAnimationAlpha: () =>
-					typeof window === 'undefined' ? null : (window.__supersTextAnimationManager ?? null)
+					typeof window === 'undefined' ? null : (window.__gfxTextAnimationManager ?? null)
 			},
 			timestamp
 		);
@@ -720,11 +720,11 @@
 					}
 				});
 				if (typeof window !== 'undefined') {
-					window.__supersTimeline = timeline;
-					window.__supersTextAnimationManager = textAnimationManager;
+					window.__gfxTimeline = timeline;
+					window.__gfxTextAnimationManager = textAnimationManager;
 					// Agent-facing export seam (ADR-0042) — the sync loop drives the
 					// real export path with a start timecode + sync filename.
-					window.__supersExport = performExport;
+					window.__gfxExport = performExport;
 				}
 				// The inspector's keyframe rows navigate the playhead through this
 				// handle (prev/next jumps + add-at-playhead).
@@ -915,10 +915,10 @@
 			}
 		};
 
-		window.__captureSupersDeterministicReadablePngArtifacts = (readableId) =>
+		window.__captureGfxDeterministicReadablePngArtifacts = (readableId) =>
 			deterministicRenderCaptureController.artifactDataUrls(readableId);
-		window.__readSupersRuntimeRenderRegistryIdentity = readRuntimeRenderRegistryIdentity;
-		window.__captureSupersDeterministicFrameGeometry = (candidateIds) => {
+		window.__readGfxRuntimeRenderRegistryIdentity = readRuntimeRenderRegistryIdentity;
+		window.__captureGfxDeterministicFrameGeometry = (candidateIds) => {
 			const width = engineState.transport.orientation === 'horizontal' ? 3840 : 2160;
 			const height = engineState.transport.orientation === 'horizontal' ? 2160 : 3840;
 			const rootRect = localCompositionRoot.getBoundingClientRect();
@@ -950,7 +950,7 @@
 			}
 			return { elements };
 		};
-		window.__configureSupersDeterministicRenderCell = async (input) => {
+		window.__configureGfxDeterministicRenderCell = async (input) => {
 			if (new URLSearchParams(window.location.search).get('source') !== 'builtin') {
 				throw new Error('Deterministic render cells require the built-in Preset route.');
 			}
@@ -1079,13 +1079,13 @@
 		animationManager.dispose();
 		textAnimationManager.dispose();
 		if (typeof window !== 'undefined') {
-			window.__supersTextAnimationManager = undefined;
-			window.__supersExport = undefined;
-			window.__captureSupersDeterministicReadablePngArtifacts = undefined;
-			window.__captureSupersDeterministicRenderRegionManifest = undefined;
-			window.__readSupersRuntimeRenderRegistryIdentity = undefined;
-			window.__captureSupersDeterministicFrameGeometry = undefined;
-			window.__configureSupersDeterministicRenderCell = undefined;
+			window.__gfxTextAnimationManager = undefined;
+			window.__gfxExport = undefined;
+			window.__captureGfxDeterministicReadablePngArtifacts = undefined;
+			window.__captureGfxDeterministicRenderRegionManifest = undefined;
+			window.__readGfxRuntimeRenderRegistryIdentity = undefined;
+			window.__captureGfxDeterministicFrameGeometry = undefined;
+			window.__configureGfxDeterministicRenderCell = undefined;
 			window.removeEventListener('pointermove', onTimelineResizeMove);
 			window.removeEventListener('pointerup', onTimelineResizeEnd);
 		}
@@ -1095,8 +1095,8 @@
 		audioPreview.dispose();
 		transitionSnapshotController.dispose();
 		compositionExportController.dispose();
-		if (typeof window !== 'undefined' && window.__supersTimeline) {
-			window.__supersTimeline = undefined;
+		if (typeof window !== 'undefined' && window.__gfxTimeline) {
+			window.__gfxTimeline = undefined;
 		}
 		compositionRenderResourceController.dispose();
 		renderResourceSet = null;

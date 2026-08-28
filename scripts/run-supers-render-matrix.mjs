@@ -137,7 +137,7 @@ async function openPage(slug) {
 		const deadline = Date.now() + WAIT_MS;
 		while (Date.now() < deadline) {
 			const ready = await send('Runtime.evaluate', {
-				expression: `document.readyState === 'complete' && typeof window.__configureSupersDeterministicRenderCell === 'function' && typeof window.__captureSupersDeterministicRenderRegionManifest === 'function'`,
+				expression: `document.readyState === 'complete' && typeof window.__configureGfxDeterministicRenderCell === 'function' && typeof window.__captureGfxDeterministicRenderRegionManifest === 'function'`,
 				returnByValue: true
 			});
 			if (ready.result?.value === true) {
@@ -303,7 +303,7 @@ async function main() {
 			const cells = [];
 			const evidence = [];
 			try {
-				const runtime = await evaluate(send, 'window.__readSupersRuntimeRenderRegistryIdentity()');
+				const runtime = await evaluate(send, 'window.__readGfxRuntimeRenderRegistryIdentity()');
 				const expectedRuntime = {
 					deliverablePresets: snapshot.deliverablePresets.map((entry) => ({
 						id: entry.slug,
@@ -324,7 +324,7 @@ async function main() {
 				for (const coordinate of group.coordinates) {
 					const configuration = await evaluate(
 						send,
-						`window.__configureSupersDeterministicRenderCell(${JSON.stringify({ presetSlug: coordinate.presetSlug, packId: coordinate.packId, orientation: coordinate.orientation })})`
+						`window.__configureGfxDeterministicRenderCell(${JSON.stringify({ presetSlug: coordinate.presetSlug, packId: coordinate.packId, orientation: coordinate.orientation })})`
 					);
 					if (
 						configuration.width !== coordinate.width ||
@@ -360,12 +360,12 @@ async function main() {
 						const request = { address, frameRate: coordinate.frameRate };
 						const frameManifest = await evaluate(
 							send,
-							`window.__captureSupersDeterministicRenderRegionManifest(${JSON.stringify(request)})`
+							`window.__captureGfxDeterministicRenderRegionManifest(${JSON.stringify(request)})`
 						);
 						const png = await canvasPng(send);
 						const geometry = await evaluate(
 							send,
-							`window.__captureSupersDeterministicFrameGeometry(${JSON.stringify(coordinate.sample.stableGeometryCandidateIds)})`
+							`window.__captureGfxDeterministicFrameGeometry(${JSON.stringify(coordinate.sample.stableGeometryCandidateIds)})`
 						);
 						return { address, manifest: frameManifest, png, geometry };
 					};
@@ -375,7 +375,7 @@ async function main() {
 					for (const readable of primary.manifest.readableIdentityEvidence) {
 						const dataUrls = await evaluate(
 							send,
-							`window.__captureSupersDeterministicReadablePngArtifacts(${JSON.stringify(readable.id)})`
+							`window.__captureGfxDeterministicReadablePngArtifacts(${JSON.stringify(readable.id)})`
 						);
 						if (dataUrls) readableArtifacts.set(readable.id, dataUrls);
 					}

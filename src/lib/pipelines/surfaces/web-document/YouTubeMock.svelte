@@ -32,9 +32,9 @@
 	{#if videoTitle}
 		<h2
 			class="yt-video"
-			data-supers-readable-id="surface:web-document:title"
-			data-supers-readable-text={videoTitle}
-			data-supers-text-role="found-document-title"
+			data-gfx-readable-id="surface:web-document:title"
+			data-gfx-readable-text={videoTitle}
+			data-gfx-text-role="found-document-title"
 			style:font-size={`${videoFontPx}px`}
 		>
 			{videoTitle}
@@ -57,15 +57,15 @@
 			<div class="yt-meta" style:font-size={`${metaFontPx}px`} style:gap={`${width * 0.01}px`}>
 				{#if commenter}<span
 						class="yt-user"
-						data-supers-readable-id="surface:web-document:author"
-						data-supers-readable-text={commenter}
-						data-supers-text-role="found-document-metadata">{commenter}</span
+						data-gfx-readable-id="surface:web-document:author"
+						data-gfx-readable-text={commenter}
+						data-gfx-text-role="found-document-metadata">{commenter}</span
 					>{/if}
 				{#if age}<span
 						class="yt-age"
-						data-supers-readable-id="surface:web-document:date-label"
-						data-supers-readable-text={age}
-						data-supers-text-role="found-document-metadata">{age}</span
+						data-gfx-readable-id="surface:web-document:date-label"
+						data-gfx-readable-text={age}
+						data-gfx-text-role="found-document-metadata">{age}</span
 					>{/if}
 			</div>
 
@@ -91,9 +91,9 @@
 							d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"
 						/></svg
 					><span
-						data-supers-readable-id="surface:web-document:chrome:likes"
-						data-supers-readable-text="1.2K"
-						data-supers-text-role="found-document-metadata">1.2K</span
+						data-gfx-readable-id="surface:web-document:chrome:likes"
+						data-gfx-readable-text="1.2K"
+						data-gfx-text-role="found-document-metadata">1.2K</span
 					></span
 				>
 				<svg
@@ -108,9 +108,9 @@
 				>
 				<span
 					class="yt-reply"
-					data-supers-readable-id="surface:web-document:chrome:reply"
-					data-supers-readable-text="Reply"
-					data-supers-text-role="found-document-metadata">Reply</span
+					data-gfx-readable-id="surface:web-document:chrome:reply"
+					data-gfx-readable-text="Reply"
+					data-gfx-text-role="found-document-metadata">Reply</span
 				>
 			</div>
 		</div>

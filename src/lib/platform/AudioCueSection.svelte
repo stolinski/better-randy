@@ -22,7 +22,7 @@
 		}
 		// A free-standing sound drops at the playhead (the DaVinci gesture); the
 		// timeline seam is the same one verification drives.
-		const timeline = typeof window !== 'undefined' ? window.__supersTimeline : undefined;
+		const timeline = typeof window !== 'undefined' ? window.__gfxTimeline : undefined;
 		const playhead =
 			timeline && timeline.durationSeconds > 0
 				? Math.min(0.98, timeline.time / timeline.durationSeconds)

@@ -7,7 +7,7 @@ import {
 	buildSyncedMarkerUpdates,
 	buildSyncExportFilename,
 	deriveMarkerSync,
-	groupSupersMarkers,
+	groupGfxMarkers,
 	normalizeTimelineFps,
 	parseBeatLabel,
 	parseMarkerCustomData,
@@ -119,9 +119,9 @@ describe('parseBeatLabel', () => {
 	});
 });
 
-describe('groupSupersMarkers', () => {
+describe('groupGfxMarkers', () => {
 	it('groups by head note in any input color; unrelated markers stay untouched', () => {
-		const { groups, warnings } = groupSupersMarkers(rundownSnapshot().markers);
+		const { groups, warnings } = groupGfxMarkers(rundownSnapshot().markers);
 		assert.equal(groups.length, 1);
 		assert.equal(groups[0].slug, 'checklist-show-rundown');
 		assert.equal(groups[0].head.frameId, 240);
@@ -134,7 +134,7 @@ describe('groupSupersMarkers', () => {
 	});
 
 	it('splits groups at each head; strays without customData are not ours and stay silent', () => {
-		const { groups, warnings } = groupSupersMarkers([
+		const { groups, warnings } = groupGfxMarkers([
 			marker({ frameId: 10, name: 'Chapter — cold open', color: 'Blue' }),
 			marker({ frameId: 100, note: 'supers piece-a', durationFrames: 60 }),
 			marker({ frameId: 120 }),
@@ -155,7 +155,7 @@ describe('groupSupersMarkers', () => {
 	});
 
 	it('warns when previously synced markers sit outside every group', () => {
-		const { groups, warnings } = groupSupersMarkers([
+		const { groups, warnings } = groupGfxMarkers([
 			marker({
 				frameId: 10,
 				customData: buildMarkerCustomData('piece-gone', 2, 1)
@@ -175,7 +175,7 @@ describe('groupSupersMarkers', () => {
 			name: 'Chapter — outro',
 			color: 'Blue'
 		});
-		const { groups, warnings } = groupSupersMarkers(snapshot.markers);
+		const { groups, warnings } = groupGfxMarkers(snapshot.markers);
 		assert.equal(groups.length, 1);
 		assert.equal(groups[0].end?.frameId, 540);
 		assert.deepEqual(
@@ -191,12 +191,12 @@ describe('groupSupersMarkers', () => {
 		assert.ok(end);
 		end.name = 'wrap here';
 		end.customData = buildMarkerCustomData('checklist-show-rundown', -1, 1);
-		const { groups } = groupSupersMarkers(snapshot.markers);
+		const { groups } = groupGfxMarkers(snapshot.markers);
 		assert.equal(groups[0].end?.frameId, 540);
 	});
 
 	it('finds previously synced (Mint) groups through customData, without re-parsing notes', () => {
-		const { groups } = groupSupersMarkers([
+		const { groups } = groupGfxMarkers([
 			marker({
 				frameId: 240,
 				color: 'Mint',
@@ -447,7 +447,7 @@ describe('sync round-trip artifacts', () => {
 			note: '',
 			customData: '{"schema":"gfx-sync@1","slug":"checklist-show-rundown","beat":0,"version":2}'
 		};
-		const { groups } = groupSupersMarkers(snapshot.markers);
+		const { groups } = groupGfxMarkers(snapshot.markers);
 		assert.deepEqual(
 			groups.map((group) => group.slug),
 			['checklist-show-rundown']
@@ -459,7 +459,7 @@ describe('sync round-trip artifacts', () => {
 	it('opens a group from either head-note prefix a human may have typed', () => {
 		const snapshot = rundownSnapshot();
 		snapshot.markers[1] = { ...snapshot.markers[1], note: 'gfx checklist-show-rundown' };
-		const { groups } = groupSupersMarkers(snapshot.markers);
+		const { groups } = groupGfxMarkers(snapshot.markers);
 		assert.deepEqual(
 			groups.map((group) => group.slug),
 			['checklist-show-rundown']

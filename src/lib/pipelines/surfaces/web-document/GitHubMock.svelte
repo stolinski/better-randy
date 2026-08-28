@@ -44,9 +44,9 @@
 		{#if repo}
 			<div
 				class="gh-repo"
-				data-supers-readable-id="surface:web-document:source"
-				data-supers-readable-text={repo}
-				data-supers-text-role="found-document-metadata"
+				data-gfx-readable-id="surface:web-document:source"
+				data-gfx-readable-text={repo}
+				data-gfx-text-role="found-document-metadata"
 				style:font-size={`${repoFontPx}px`}
 			>
 				<span class="gh-repo-owner">{repoOwner}</span>{#if repoName}<span class="gh-repo-sep"
@@ -57,23 +57,23 @@
 		{#if title}
 			<h2 class="gh-title" style:font-size={`${titleFontPx}px`}>
 				<span
-					data-supers-readable-id="surface:web-document:title"
-					data-supers-readable-text={title}
-					data-supers-text-role="found-document-title">{title}</span
+					data-gfx-readable-id="surface:web-document:title"
+					data-gfx-readable-text={title}
+					data-gfx-text-role="found-document-title">{title}</span
 				>{#if issueNumber}<span
 						class="gh-number"
-						data-supers-readable-id="surface:web-document:chrome:issue-number"
-						data-supers-readable-text={`#${issueNumber}`}
-						data-supers-text-role="found-document-metadata">#{issueNumber}</span
+						data-gfx-readable-id="surface:web-document:chrome:issue-number"
+						data-gfx-readable-text={`#${issueNumber}`}
+						data-gfx-text-role="found-document-metadata">#{issueNumber}</span
 					>{/if}
 			</h2>
 		{/if}
 		<div class="gh-meta" style:font-size={`${metaFontPx}px`} style:gap={`${width * 0.012}px`}>
 			<span
 				class="gh-badge"
-				data-supers-readable-id="surface:web-document:chrome:open-status"
-				data-supers-readable-text="Open"
-				data-supers-text-role="found-document-metadata"
+				data-gfx-readable-id="surface:web-document:chrome:open-status"
+				data-gfx-readable-text="Open"
+				data-gfx-text-role="found-document-metadata"
 				style:font-size={`${badgeFontPx}px`}
 				style:gap={`${width * 0.007}px`}
 			>
@@ -91,14 +91,14 @@
 			{#if username}<span class="gh-meta-text"
 					><span
 						class="gh-user"
-						data-supers-readable-id="surface:web-document:author"
-						data-supers-readable-text={username}
-						data-supers-text-role="found-document-metadata">{username}</span
+						data-gfx-readable-id="surface:web-document:author"
+						data-gfx-readable-text={username}
+						data-gfx-text-role="found-document-metadata">{username}</span
 					>
 					<span
-						data-supers-readable-id="surface:web-document:chrome:opened-issue"
-						data-supers-readable-text="opened this issue"
-						data-supers-text-role="found-document-metadata">opened this issue</span
+						data-gfx-readable-id="surface:web-document:chrome:opened-issue"
+						data-gfx-readable-text="opened this issue"
+						data-gfx-text-role="found-document-metadata">opened this issue</span
 					></span
 				>{/if}
 		</div>
@@ -124,23 +124,23 @@
 			>
 				{#if username}<span
 						class="gh-user"
-						data-supers-readable-id="surface:web-document:chrome:comment-author"
-						data-supers-readable-text={username}
-						data-supers-text-role="found-document-metadata">{username}</span
+						data-gfx-readable-id="surface:web-document:chrome:comment-author"
+						data-gfx-readable-text={username}
+						data-gfx-text-role="found-document-metadata">{username}</span
 					>{/if}
 				<span
 					class="gh-when"
-					data-supers-readable-id={when
+					data-gfx-readable-id={when
 						? 'surface:web-document:date-label'
 						: 'surface:web-document:chrome:commented'}
-					data-supers-readable-text={when || 'commented'}
-					data-supers-text-role="found-document-metadata">{when || 'commented'}</span
+					data-gfx-readable-text={when || 'commented'}
+					data-gfx-text-role="found-document-metadata">{when || 'commented'}</span
 				>
 				<span
 					class="gh-role"
-					data-supers-readable-id="surface:web-document:chrome:owner-role"
-					data-supers-readable-text="Owner"
-					data-supers-text-role="found-document-metadata"
+					data-gfx-readable-id="surface:web-document:chrome:owner-role"
+					data-gfx-readable-text="Owner"
+					data-gfx-text-role="found-document-metadata"
 					style:font-size={`${metaFontPx}px`}>Owner</span
 				>
 			</div>

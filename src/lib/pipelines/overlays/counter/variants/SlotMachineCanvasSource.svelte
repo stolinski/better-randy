@@ -64,8 +64,8 @@
 	class="counter-overlay"
 	data-overlay="counter"
 	data-variant="slot-machine-roll"
-	data-supers-readable-id="value"
-	data-supers-text-role="overlay-display"
+	data-gfx-readable-id="value"
+	data-gfx-text-role="overlay-display"
 >
 	{#each digitTokens as token, i (i)}
 		{#if token.isDigit}

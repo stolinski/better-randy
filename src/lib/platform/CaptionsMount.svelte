@@ -75,9 +75,9 @@
 			<p
 				class="captions__line captions__line--karaoke"
 				style:--caption-accent={accent}
-				data-supers-readable-id={readable?.id}
-				data-supers-readable-text={readable?.text}
-				data-supers-text-role="caption-social"
+				data-gfx-readable-id={readable?.id}
+				data-gfx-readable-text={readable?.text}
+				data-gfx-text-role="caption-social"
 			>
 				{#each words as word, index (index)}<span
 						class="captions__word"
@@ -90,9 +90,9 @@
 					class="captions__line captions__line--word-pop"
 					style:--caption-accent={accent}
 					style:scale={popScale !== 1 ? String(popScale) : undefined}
-					data-supers-readable-id={readable?.id}
-					data-supers-readable-text={readable?.text}
-					data-supers-text-role="caption-social"
+					data-gfx-readable-id={readable?.id}
+					data-gfx-readable-text={readable?.text}
+					data-gfx-text-role="caption-social"
 				>
 					{words[activeWordIndex].text}
 				</p>
@@ -101,9 +101,9 @@
 			<p
 				class="captions__line captions__line--pack"
 				style="{packVars};color:{packInk};--caption-pack-font:{packFontFallback}"
-				data-supers-readable-id={readable?.id}
-				data-supers-readable-text={readable?.text}
-				data-supers-text-role="caption-social"
+				data-gfx-readable-id={readable?.id}
+				data-gfx-readable-text={readable?.text}
+				data-gfx-text-role="caption-social"
 			>
 				{activeCue.text}
 			</p>

@@ -12,15 +12,15 @@
 	class="lower-third lower-third--standard"
 	data-overlay="lower-third"
 	data-variant="standard"
-	data-supers-shadow-owner="plate"
+	data-gfx-shadow-owner="plate"
 >
 	{#if content.kicker}
 		{#key content.kicker}
 			<span
 				class="lower-third__kicker"
 				data-text-anim-slot="kicker"
-				data-supers-readable-id="kicker"
-				data-supers-text-role="overlay-corner-secondary">{content.kicker}</span
+				data-gfx-readable-id="kicker"
+				data-gfx-text-role="overlay-corner-secondary">{content.kicker}</span
 			>
 		{/key}
 	{/if}
@@ -28,8 +28,8 @@
 		<strong
 			class="lower-third__title"
 			data-text-anim-slot="title"
-			data-supers-readable-id="title"
-			data-supers-text-role="overlay-corner-primary">{content.title}</strong
+			data-gfx-readable-id="title"
+			data-gfx-text-role="overlay-corner-primary">{content.title}</strong
 		>
 	{/key}
 	{#if content.subtitle}
@@ -37,8 +37,8 @@
 			<span
 				class="lower-third__subtitle"
 				data-text-anim-slot="subtitle"
-				data-supers-readable-id="subtitle"
-				data-supers-text-role="overlay-corner-secondary">{content.subtitle}</span
+				data-gfx-readable-id="subtitle"
+				data-gfx-text-role="overlay-corner-secondary">{content.subtitle}</span
 			>
 		{/key}
 	{/if}

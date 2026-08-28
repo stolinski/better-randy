@@ -43,20 +43,20 @@
 			style:inline-size={`${logoFontPx}px`}
 			style:block-size={`${logoFontPx}px`}
 			aria-hidden="true"
-			data-supers-non-readable-reason={decorativeSymbolReason}>Y</span
+			data-gfx-non-readable-reason={decorativeSymbolReason}>Y</span
 		>
 		<span
 			class="hn-title"
-			data-supers-readable-id="surface:web-document:chrome:site-name"
-			data-supers-readable-text="Hacker News"
-			data-supers-text-role="found-document-metadata"
+			data-gfx-readable-id="surface:web-document:chrome:site-name"
+			data-gfx-readable-text="Hacker News"
+			data-gfx-text-role="found-document-metadata"
 			style:font-size={`${logoFontPx}px`}>Hacker News</span
 		>
 		<span
 			class="hn-nav"
-			data-supers-readable-id="surface:web-document:chrome:navigation"
-			data-supers-readable-text="new | past | comments | ask | show | jobs"
-			data-supers-text-role="found-document-metadata"
+			data-gfx-readable-id="surface:web-document:chrome:navigation"
+			data-gfx-readable-text="new | past | comments | ask | show | jobs"
+			data-gfx-text-role="found-document-metadata"
 			style:font-size={`${navFontPx}px`}>new | past | comments | ask | show | jobs</span
 		>
 	</div>
@@ -65,9 +65,9 @@
 		{#if storyTitle}
 			<h2
 				class="hn-story"
-				data-supers-readable-id="surface:web-document:title"
-				data-supers-readable-text={storyTitle}
-				data-supers-text-role="found-document-title"
+				data-gfx-readable-id="surface:web-document:title"
+				data-gfx-readable-text={storyTitle}
+				data-gfx-text-role="found-document-title"
 				style:font-size={`${storyFontPx}px`}
 			>
 				{storyTitle}
@@ -85,14 +85,14 @@
 				>
 				{#if username}<span
 						class="hn-user"
-						data-supers-readable-id="surface:web-document:source"
-						data-supers-readable-text={username}
-						data-supers-text-role="found-document-metadata">{username}</span
+						data-gfx-readable-id="surface:web-document:source"
+						data-gfx-readable-text={username}
+						data-gfx-text-role="found-document-metadata">{username}</span
 					>{/if}
 				{#if age}<span
-						data-supers-readable-id="surface:web-document:date-label"
-						data-supers-readable-text={age}
-						data-supers-text-role="found-document-metadata">{age}</span
+						data-gfx-readable-id="surface:web-document:date-label"
+						data-gfx-readable-text={age}
+						data-gfx-text-role="found-document-metadata">{age}</span
 					>{/if}
 			</div>
 
@@ -104,9 +104,9 @@
 
 			<div
 				class="hn-reply"
-				data-supers-readable-id="surface:web-document:chrome:reply"
-				data-supers-readable-text="reply"
-				data-supers-text-role="found-document-metadata"
+				data-gfx-readable-id="surface:web-document:chrome:reply"
+				data-gfx-readable-text="reply"
+				data-gfx-text-role="found-document-metadata"
 				style:font-size={`${metaFontPx}px`}
 			>
 				reply

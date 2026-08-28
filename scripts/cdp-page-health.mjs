@@ -81,8 +81,8 @@ const evaluateHealth = () =>
 			url: location.href,
 			readyState: document.readyState,
 			canvas: canvas ? { width: canvas.width, height: canvas.height } : null,
-			timeline: Boolean(window.__supersTimeline),
-			exportSeam: typeof window.__supersExport === 'function',
+			timeline: Boolean(window.__gfxTimeline),
+			exportSeam: typeof window.__gfxExport === 'function',
 			canvasDrawElement: typeof GPUQueue !== 'undefined' && 'copyElementImageToTexture' in GPUQueue.prototype,
 			mediaStatuses: Array.from(document.querySelectorAll('.media-status'), (node) => node.textContent?.trim()),
 			mediaErrors: Array.from(document.querySelectorAll('.media-error'), (node) => node.textContent?.trim())

@@ -5,7 +5,7 @@ import { describe, it } from 'vitest';
 
 import { TEXT_EFFECT_CATALOG, TEXT_EFFECT_IDS } from './catalog.ts';
 import { resolveTextEffectSpec } from './compile.ts';
-import { SUPERS_TEXT_EFFECT_MODULES } from './supers-effects/index.ts';
+import { GFX_TEXT_EFFECT_MODULES } from './gfx-effects/index.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -66,10 +66,10 @@ const UNIT_COUNT = 4; // 4 representative units for the snapshot
 
 describe('text animation compile shapes', () => {
 	it('exposes qualified text-effect vocabulary without changing catalog ids', () => {
-		const supersIds = Object.keys(SUPERS_TEXT_EFFECT_MODULES);
-		assert.deepEqual(supersIds, ['kerning-pop', 'bracket-pop']);
+		const gfxEffectIds = Object.keys(GFX_TEXT_EFFECT_MODULES);
+		assert.deepEqual(gfxEffectIds, ['kerning-pop', 'bracket-pop']);
 		assert.equal(TEXT_EFFECT_IDS.length, 26);
-		assert.deepEqual(TEXT_EFFECT_IDS.slice(-2), supersIds);
+		assert.deepEqual(TEXT_EFFECT_IDS.slice(-2), gfxEffectIds);
 		assert.deepEqual(TEXT_EFFECT_IDS, [...TEXT_EFFECT_CATALOG.keys()]);
 
 		const spec = resolveTextEffectSpec({

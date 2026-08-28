@@ -1,7 +1,7 @@
 // DOF multiplane capture probe (ADR-0027, epic task 2). Drives the flag-enabled
 // Chrome on the CDP debug port, seeks the DOF fixture to a settled frame, and
 // screenshots the back-to-front composite plus each depth plane in isolation
-// (via window.__supersDofPreviewPlane). Also re-captures an existing overlay
+// (via window.__gfxDofPreviewPlane). Also re-captures an existing overlay
 // preset to confirm the Composition layer-wrapper split didn't regress the
 // default merged render. Node 22+ (built-in fetch/WebSocket).
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -70,7 +70,7 @@ async function load(slug) {
 		try {
 			const s = await evaluate(`(() => ({
 				canvas: !!document.querySelector('canvas'),
-				timeline: !!(window.__supersTimeline),
+				timeline: !!(window.__gfxTimeline),
 				flag: (typeof GPUQueue !== 'undefined') && ('copyElementImageToTexture' in GPUQueue.prototype)
 			}))()`);
 			flag = s.flag;
@@ -101,10 +101,10 @@ async function load(slug) {
 
 async function seek(p) {
 	for (let i = 0; i < 20; i++) {
-		await evaluate(`window.__supersTimeline.seekProgress(${p})`);
+		await evaluate(`window.__gfxTimeline.seekProgress(${p})`);
 		await sleep(120);
-		const t = await evaluate(`window.__supersTimeline.time`);
-		const expected = p * (await evaluate(`window.__supersTimeline.durationSeconds`));
+		const t = await evaluate(`window.__gfxTimeline.time`);
+		const expected = p * (await evaluate(`window.__gfxTimeline.durationSeconds`));
 		if (Math.abs(t - expected) < 0.05) break;
 	}
 	await sleep(350);
@@ -126,12 +126,12 @@ console.log(`canvas backing=${rect.bw}x${rect.bh}`);
 await seek(0.5);
 for (const plane of ['composite', 'surface', 'overlay']) {
 	await evaluate(
-		`window.__supersDofPreviewPlane = '${plane}'; document.querySelector('canvas').requestPaint?.();`
+		`window.__gfxDofPreviewPlane = '${plane}'; document.querySelector('canvas').requestPaint?.();`
 	);
 	await sleep(450);
 	await shot(rect, `${OUTDIR}/${plane}.png`);
 }
-await evaluate(`window.__supersDofPreviewPlane = undefined;`);
+await evaluate(`window.__gfxDofPreviewPlane = undefined;`);
 
 // --- Regression: existing overlay preset under the layer-wrapper split ---
 rect = await load('lower-third');

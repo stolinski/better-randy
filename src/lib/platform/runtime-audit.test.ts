@@ -172,7 +172,7 @@ describe('typed readable identity authority', () => {
 			matchesDeterministicRenderedText(
 				{
 					textContent: 'CSSspaces',
-					dataset: { supersReadableText: 'CSS spaces' }
+					dataset: { gfxReadableText: 'CSS spaces' }
 				} as Pick<HTMLElement, 'textContent' | 'dataset'>,
 				'CSS spaces'
 			)

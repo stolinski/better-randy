@@ -60,11 +60,11 @@ await send('Emulation.setDeviceMetricsOverride', {
 await send('Page.navigate', { url: `${BASE}/p/${SLUG}` });
 await sleep(2200);
 for (let i = 0; i < 40; i++) {
-	const ok = await ev(`!!(window.__supersTimeline && document.querySelector('canvas'))`);
+	const ok = await ev(`!!(window.__gfxTimeline && document.querySelector('canvas'))`);
 	if (ok) break;
 	await sleep(300);
 }
-await ev(`window.__supersDofPreviewPlane = undefined; window.__supersTimeline.seekProgress(0.5);`);
+await ev(`window.__gfxDofPreviewPlane = undefined; window.__gfxTimeline.seekProgress(0.5);`);
 await sleep(800);
 await ev(`document.querySelector('canvas').requestPaint?.();`);
 await sleep(600);

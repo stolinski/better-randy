@@ -7,14 +7,14 @@ const runtimeSource = await readFile('src/lib/platform/runtime-audit.ts', 'utf8'
 
 test('Layout Contract matrix is hidden and capture-free by construction', () => {
 	assert.match(runnerSource, /--headless=new/);
-	assert.match(runnerSource, /__captureSupersLayoutContractFrame/);
+	assert.match(runnerSource, /__captureGfxLayoutContractFrame/);
 	assert.doesNotMatch(runnerSource, /captureScreenshot|canvasPng|\.png['"`]/i);
-	assert.doesNotMatch(runnerSource, /__captureSupersDeterministicReadablePngArtifacts/);
+	assert.doesNotMatch(runnerSource, /__captureGfxDeterministicReadablePngArtifacts/);
 	assert.doesNotMatch(runnerSource, /writeFile/);
 });
 
 test('runtime Layout Contract seam omits composited pixel masks', () => {
-	assert.match(runtimeSource, /__captureSupersLayoutContractFrame/);
+	assert.match(runtimeSource, /__captureGfxLayoutContractFrame/);
 	assert.match(runtimeSource, /captureManifest\(request, false\)/);
 	assert.match(runtimeSource, /includePixelMasks/);
 });

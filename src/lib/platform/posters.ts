@@ -16,7 +16,7 @@ declare global {
 	interface Window {
 		// The content key of the currently-loaded composition's poster, exposed so
 		// the surface-poster build script can locate the generated file.
-		__supersPosterKey?: string;
+		__gfxPosterKey?: string;
 	}
 }
 

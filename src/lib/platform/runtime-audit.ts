@@ -532,18 +532,18 @@ export function runVisualAudit(state: EngineState, name = '(current)'): RubricIs
 
 declare global {
 	interface Window {
-		__supersVisualAudit?: {
+		__gfxVisualAudit?: {
 			issues: RubricIssue[];
 			measurement: VisualMeasurement;
 			timestamp: number;
 		};
-		__captureSupersDeterministicRenderRegionManifest?: (
+		__captureGfxDeterministicRenderRegionManifest?: (
 			request: DeterministicFrameRequest
 		) => Promise<DeterministicRenderRegionManifest>;
-		__captureSupersLayoutContractFrame?: (
+		__captureGfxLayoutContractFrame?: (
 			request: DeterministicFrameRequest
 		) => Promise<DeterministicRenderRegionManifest>;
-		__captureSupersDeterministicReadablePngArtifacts?: (
+		__captureGfxDeterministicReadablePngArtifacts?: (
 			readableId: string
 		) => Promise<DeterministicReadableCaptureDataUrls | null>;
 	}
@@ -555,7 +555,7 @@ export function exposeVisualAudit(state: EngineState, name = '(current)'): void 
 		? lintPresetVisual(measurement)
 		: [surfaceUnavailableIssue(state)];
 
-	window.__supersVisualAudit = {
+	window.__gfxVisualAudit = {
 		issues,
 		measurement,
 		timestamp: Date.now()
@@ -613,9 +613,9 @@ export function exposeDeterministicRenderAudit(
 		return { ...manifest, transitionEndpoints };
 	};
 
-	window.__captureSupersDeterministicRenderRegionManifest = (request) =>
+	window.__captureGfxDeterministicRenderRegionManifest = (request) =>
 		captureManifest(request, true);
-	window.__captureSupersLayoutContractFrame = (request) => captureManifest(request, false);
+	window.__captureGfxLayoutContractFrame = (request) => captureManifest(request, false);
 }
 
 export interface DeterministicRuntimeTextMeasurement {
@@ -676,8 +676,8 @@ export interface DeterministicRenderRegionManifest {
 }
 
 const READABLE_AUDIT_SELECTOR = [
-	'[data-supers-readable-id]',
-	'[data-supers-text-role]',
+	'[data-gfx-readable-id]',
+	'[data-gfx-text-role]',
 	'[data-diagram-text-role]',
 	'[data-chart-text-role]',
 	'[data-text-anim-slot]',
@@ -836,7 +836,7 @@ function compositionElements(
 const NON_READABLE_REASON_SET = new Set<string>(DETERMINISTIC_NON_READABLE_TEXT_REASONS);
 
 function hasTypedNonReadableContract(element: HTMLElement): boolean {
-	const reason = element.dataset.supersNonReadableReason;
+	const reason = element.dataset.gfxNonReadableReason;
 	return reason !== undefined && NON_READABLE_REASON_SET.has(reason);
 }
 
@@ -854,7 +854,7 @@ export function foundDocumentTextOwners(roots: readonly HTMLElement[]): HTMLElem
 				if (hasDeterministicReadableCharacters(node.textContent ?? '')) {
 					const parent = node.parentElement;
 					const owner = parent?.closest<HTMLElement>(
-						'[data-supers-readable-id], [data-supers-non-readable-reason]'
+						'[data-gfx-readable-id], [data-gfx-non-readable-reason]'
 					);
 					if (parent && foundRoot.contains(parent)) {
 						owners.add(owner && foundRoot.contains(owner) ? owner : parent);
@@ -903,7 +903,7 @@ function hasEffectiveVisibility(element: HTMLElement, roots: readonly HTMLElemen
 }
 
 function declaredIntentionalOverlaps(element: Element): readonly string[] {
-	return (element.getAttribute('data-supers-intentional-overlap') ?? '')
+	return (element.getAttribute('data-gfx-intentional-overlap') ?? '')
 		.split(',')
 		.map((id) => id.trim())
 		.filter((id) => id.length > 0);
@@ -912,7 +912,7 @@ function declaredIntentionalOverlaps(element: Element): readonly string[] {
 function hasPaintedBackground(element: HTMLElement): boolean {
 	const style = getComputedStyle(element);
 	return (
-		element.hasAttribute('data-supers-opaque-region') ||
+		element.hasAttribute('data-gfx-opaque-region') ||
 		style.backgroundColor !== 'rgba(0, 0, 0, 0)' ||
 		style.backgroundImage !== 'none' ||
 		element instanceof HTMLCanvasElement ||
@@ -940,7 +940,7 @@ function deterministicTextRoleFor(
 	element: HTMLElement,
 	frameWidth: number
 ): DeterministicReadableTextRole {
-	const explicitRole = element.dataset.supersTextRole as DeterministicReadableTextRole | undefined;
+	const explicitRole = element.dataset.gfxTextRole as DeterministicReadableTextRole | undefined;
 	if (explicitRole) return explicitRole;
 	if (element.closest('.captions')) return 'caption-social';
 	const diagramRole = element.dataset.diagramTextRole ?? element.dataset.chartTextRole;
@@ -1024,7 +1024,7 @@ function exactOwnedIdentity(element: HTMLElement, localIdentity: string): string
 }
 
 function exactReadableIdentity(element: HTMLElement): string | null {
-	const localIdentity = element.getAttribute('data-supers-readable-id');
+	const localIdentity = element.getAttribute('data-gfx-readable-id');
 	if (!localIdentity) return null;
 	return exactOwnedIdentity(element, localIdentity);
 }
@@ -1041,7 +1041,7 @@ export function matchesDeterministicRenderedText(
 	element: Pick<HTMLElement, 'textContent' | 'dataset'>,
 	expectedText: string
 ): boolean {
-	const rendererCanonicalText = element.dataset.supersReadableText;
+	const rendererCanonicalText = element.dataset.gfxReadableText;
 	const observed = rendererCanonicalText ?? element.textContent ?? '';
 	return normalizeDeterministicRenderedText(observed) === expectedText;
 }
@@ -1217,8 +1217,8 @@ export async function captureDeterministicRenderRegionManifest(
 		.filter(
 			(candidate) =>
 				exactReadableIdentity(candidate) === null &&
-				candidate.closest('[data-supers-readable-id]') === null &&
-				candidate.querySelector('[data-supers-readable-id]') === null
+				candidate.closest('[data-gfx-readable-id]') === null &&
+				candidate.querySelector('[data-gfx-readable-id]') === null
 		)
 		.map((candidate) => {
 			const classes = [...candidate.classList].sort().join('.');
@@ -1277,7 +1277,7 @@ export async function captureDeterministicRenderRegionManifest(
 		const rect = nativeRectForElement(element, nativeRoots);
 		if (rect.width <= 0 || rect.height <= 0) continue;
 		const inheritsTextShadow =
-			!element.hasAttribute('data-supers-readable-id') &&
+			!element.hasAttribute('data-gfx-readable-id') &&
 			element.parentElement !== null &&
 			getComputedStyle(element.parentElement).textShadow === style.textShadow;
 		const shadows = [
@@ -1288,8 +1288,8 @@ export async function captureDeterministicRenderRegionManifest(
 			const outset = shadowOutset(shadow);
 			if (outset <= 0) continue;
 			const localOwner =
-				element.getAttribute('data-supers-shadow-owner') ??
-				element.getAttribute('data-supers-readable-id');
+				element.getAttribute('data-gfx-shadow-owner') ??
+				element.getAttribute('data-gfx-readable-id');
 			const owner = localOwner ? exactOwnedIdentity(element, localOwner) : null;
 			if (!owner) {
 				unownedShadowCount += 1;
@@ -1307,8 +1307,8 @@ export async function captureDeterministicRenderRegionManifest(
 		}
 		if (hasPaintedBackground(element) && (element.textContent ?? '').trim().length === 0) {
 			const tonalOwner =
-				element.getAttribute('data-supers-shadow-owner') ??
-				element.getAttribute('data-supers-readable-id');
+				element.getAttribute('data-gfx-shadow-owner') ??
+				element.getAttribute('data-gfx-readable-id');
 			const stableOwner = tonalOwner ? exactOwnedIdentity(element, tonalOwner) : null;
 			if (stableOwner) probeRegions.push({ id: `tonal:${stableOwner}`, kind: 'tonal', rect });
 		}

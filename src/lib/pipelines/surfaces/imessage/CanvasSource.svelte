@@ -187,14 +187,14 @@
 					style:block-size={`${avatarPx}px`}
 					style:font-size={`${avatarPx * 0.5}px`}
 					aria-hidden="true"
-					data-supers-non-readable-reason={decorativeSymbolReason}>{contactInitial}</span
+					data-gfx-non-readable-reason={decorativeSymbolReason}>{contactInitial}</span
 				>
 				<span class="im-name" style:font-size={`${nameFontPx}px`}
 					><span
-						data-supers-readable-id="surface:imessage:author"
-						data-supers-readable-text={contact}
-						data-supers-text-role="found-document-metadata">{contact}</span
-					><span aria-hidden="true" data-supers-non-readable-reason={decorativeSymbolReason}>
+						data-gfx-readable-id="surface:imessage:author"
+						data-gfx-readable-text={contact}
+						data-gfx-text-role="found-document-metadata">{contact}</span
+					><span aria-hidden="true" data-gfx-non-readable-reason={decorativeSymbolReason}>
 						›</span
 					></span
 				>
@@ -218,9 +218,9 @@
 		{#if !isChromeless}
 			<div
 				class="im-timestamp"
-				data-supers-readable-id="surface:imessage:chrome:timestamp"
-				data-supers-readable-text="Today 2:14 PM"
-				data-supers-text-role="found-document-metadata"
+				data-gfx-readable-id="surface:imessage:chrome:timestamp"
+				data-gfx-readable-text="Today 2:14 PM"
+				data-gfx-text-role="found-document-metadata"
 				style:font-size={`${metaFontPx}px`}
 			>
 				<span>Today</span> 2:14 PM
@@ -269,7 +269,7 @@
 						style:font-size={`${avatarPx * 0.5}px`}
 						style:opacity={typing ? 1 : style.opacity}
 						aria-hidden="true"
-						data-supers-non-readable-reason={decorativeSymbolReason}
+						data-gfx-non-readable-reason={decorativeSymbolReason}
 					>
 						{contactInitial}
 						{#if avatarUrl && failedAvatarUrl !== avatarUrl}
@@ -305,9 +305,9 @@
 						<span
 							class="im-tapback"
 							data-from={message.from}
-							data-supers-readable-id={`surface:imessage:message:${i}:tapback`}
-							data-supers-readable-text={TAPBACK_GLYPH[message.tapback]}
-							data-supers-text-role="found-document-metadata"
+							data-gfx-readable-id={`surface:imessage:message:${i}:tapback`}
+							data-gfx-readable-text={TAPBACK_GLYPH[message.tapback]}
+							data-gfx-text-role="found-document-metadata"
 							style:inline-size={`${bodyFontPx * 1.6}px`}
 							style:block-size={`${bodyFontPx * 1.6}px`}
 							style:font-size={`${bodyFontPx * 0.78}px`}
@@ -320,9 +320,9 @@
 					     reserves its line and the window height stays stable. -->
 					<div class="im-receipt" style:font-size={`${metaFontPx}px`}>
 						{#if renderedStatus}<span
-								data-supers-readable-id={`surface:imessage:message:${i}:status`}
-								data-supers-readable-text={renderedStatus}
-								data-supers-text-role="found-document-metadata">{renderedStatus}</span
+								data-gfx-readable-id={`surface:imessage:message:${i}:status`}
+								data-gfx-readable-text={renderedStatus}
+								data-gfx-text-role="found-document-metadata">{renderedStatus}</span
 							>{:else}<span aria-hidden="true">&nbsp;</span>{/if}
 					</div>
 				{/if}
@@ -343,13 +343,13 @@
 				style:block-size={`${iconPx}px`}
 				style:font-size={`${iconPx * 0.8}px`}
 				aria-hidden="true"
-				data-supers-non-readable-reason={decorativeSymbolReason}>+</span
+				data-gfx-non-readable-reason={decorativeSymbolReason}>+</span
 			>
 			<span
 				class="im-field"
-				data-supers-readable-id="surface:imessage:chrome:composer"
-				data-supers-readable-text="iMessage"
-				data-supers-text-role="found-document-metadata"
+				data-gfx-readable-id="surface:imessage:chrome:composer"
+				data-gfx-readable-text="iMessage"
+				data-gfx-text-role="found-document-metadata"
 				style:font-size={`${inputFontPx}px`}
 				style:padding={`${inputFontPx * 0.5}px ${inputFontPx * 0.8}px`}>iMessage</span
 			>

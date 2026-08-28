@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "DOF multiplane capture check",
-	"description": "Verification fixture for ADR-0027 depth-of-field plane capture (epic task 2). Paper Surface (focal plane, z 0.0) behind a lower-third Overlay (z 0.7), with a depth-of-field Effect present so the engine takes the multiplane path: capture each layer as a separate plane and composite back-to-front. Task 2 composites with no blur (the zero-defocus base case) — the bokeh disc kernel lands in task 3. Use window.__supersDofPreviewPlane = 'surface' | 'overlay' | 'composite' to screenshot each plane in isolation.",
+	"description": "Verification fixture for ADR-0027 depth-of-field plane capture (epic task 2). Paper Surface (focal plane, z 0.0) behind a lower-third Overlay (z 0.7), with a depth-of-field Effect present so the engine takes the multiplane path: capture each layer as a separate plane and composite back-to-front. Task 2 composites with no blur (the zero-defocus base case) — the bokeh disc kernel lands in task 3. Use window.__gfxDofPreviewPlane = 'surface' | 'overlay' | 'composite' to screenshot each plane in isolation.",
 	"kind": "fixture",
 	"pack": "syntax",
 	"state": {

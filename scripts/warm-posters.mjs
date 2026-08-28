@@ -70,7 +70,7 @@ for (const slug of slugs) {
 		let key = null;
 		for (let i = 0; i < 50; i++) {
 			await sleep(400);
-			key = await evaluate('window.__supersPosterKey ?? null');
+			key = await evaluate('window.__gfxPosterKey ?? null');
 			if (key) break;
 		}
 		if (!key) {

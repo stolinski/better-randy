@@ -22,13 +22,13 @@ export interface DeterministicRenderFrameGeometry {
 /** Browser-side identity of the exact live registries used by the catalog and Pack resolver. */
 declare global {
 	interface Window {
-		__readSupersRuntimeRenderRegistryIdentity?: () => Promise<RuntimeRenderRegistryIdentity>;
-		__configureSupersDeterministicRenderCell?: (input: {
+		__readGfxRuntimeRenderRegistryIdentity?: () => Promise<RuntimeRenderRegistryIdentity>;
+		__configureGfxDeterministicRenderCell?: (input: {
 			presetSlug: string;
 			packId: string;
 			orientation: 'horizontal' | 'vertical';
 		}) => Promise<DeterministicRenderCellConfiguration>;
-		__captureSupersDeterministicFrameGeometry?: (
+		__captureGfxDeterministicFrameGeometry?: (
 			candidateIds: readonly string[]
 		) => DeterministicRenderFrameGeometry;
 	}

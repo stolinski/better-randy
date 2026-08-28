@@ -87,8 +87,8 @@
 
 	<span
 		class="ig-follow__username"
-		data-supers-readable-id="username"
-		data-supers-text-role="overlay-corner-primary"
+		data-gfx-readable-id="username"
+		data-gfx-text-role="overlay-corner-primary"
 	>
 		{content.username}{#if content.verified ?? false}<svg
 				class="ig-follow__verified"
@@ -112,8 +112,8 @@
 	{#if content.name || content.meta}
 		<span
 			class="ig-follow__meta"
-			data-supers-readable-id="meta"
-			data-supers-text-role="overlay-corner-secondary"
+			data-gfx-readable-id="meta"
+			data-gfx-text-role="overlay-corner-secondary"
 		>
 			{[content.name, content.meta].filter(Boolean).join(' · ')}
 		</span>
@@ -125,8 +125,8 @@
 		<span class="ig-follow__state" style:visibility={following ? 'hidden' : undefined}>
 			<span
 				class="ig-follow__button"
-				data-supers-readable-id="follow-action"
-				data-supers-text-role="overlay-corner-secondary"
+				data-gfx-readable-id="follow-action"
+				data-gfx-text-role="overlay-corner-secondary"
 				style:scale={pressScale !== 1 && !following ? String(pressScale) : undefined}
 			>
 				Follow
@@ -135,8 +135,8 @@
 		<span class="ig-follow__state" style:visibility={following ? undefined : 'hidden'}>
 			<span
 				class="ig-follow__button ig-follow__button--following"
-				data-supers-readable-id="following-action"
-				data-supers-text-role="overlay-corner-secondary"
+				data-gfx-readable-id="following-action"
+				data-gfx-text-role="overlay-corner-secondary"
 				style:scale={pressScale !== 1 && following ? String(pressScale) : undefined}
 				style:background={morphBg}
 				style:color={morphInk}

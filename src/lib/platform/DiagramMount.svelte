@@ -248,9 +248,9 @@
 							<span
 								class="diagram-mount__segment-label"
 								data-diagram-text-role="caption"
-								data-supers-readable-id={`block:${primitive.id}:label`}
-								data-supers-readable-text={primitive.label}
-								data-supers-text-role="diagram-caption">{primitive.label}</span
+								data-gfx-readable-id={`block:${primitive.id}:label`}
+								data-gfx-readable-text={primitive.label}
+								data-gfx-text-role="diagram-caption">{primitive.label}</span
 							>
 						{/if}
 					</div>

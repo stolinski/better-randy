@@ -44,9 +44,9 @@
 		>
 		<span
 			class="reddit-score"
-			data-supers-readable-id="surface:web-document:chrome:score"
-			data-supers-readable-text="4.2k"
-			data-supers-text-role="found-document-metadata"
+			data-gfx-readable-id="surface:web-document:chrome:score"
+			data-gfx-readable-text="4.2k"
+			data-gfx-text-role="found-document-metadata"
 			style:font-size={`${scoreFontPx}px`}>4.2k</span
 		>
 		<svg
@@ -64,34 +64,34 @@
 			{#if subreddit}
 				<span
 					class="reddit-sub"
-					data-supers-readable-id="surface:web-document:source"
-					data-supers-readable-text={subreddit}
-					data-supers-text-role="found-document-metadata">{subreddit}</span
+					data-gfx-readable-id="surface:web-document:source"
+					data-gfx-readable-text={subreddit}
+					data-gfx-text-role="found-document-metadata">{subreddit}</span
 				>
 			{/if}
 			<span class="reddit-meta-rest">
 				{#if poster}<span
 						class="reddit-sep"
 						aria-hidden="true"
-						data-supers-non-readable-reason={decorativeSymbolReason}>·</span
+						data-gfx-non-readable-reason={decorativeSymbolReason}>·</span
 					><span
-						data-supers-readable-id="surface:web-document:chrome:posted-by"
-						data-supers-readable-text="Posted by"
-						data-supers-text-role="found-document-metadata">Posted by</span
+						data-gfx-readable-id="surface:web-document:chrome:posted-by"
+						data-gfx-readable-text="Posted by"
+						data-gfx-text-role="found-document-metadata">Posted by</span
 					>
 					<span
-						data-supers-readable-id="surface:web-document:author"
-						data-supers-readable-text={poster}
-						data-supers-text-role="found-document-metadata">{poster}</span
+						data-gfx-readable-id="surface:web-document:author"
+						data-gfx-readable-text={poster}
+						data-gfx-text-role="found-document-metadata">{poster}</span
 					>{/if}
 				{#if age}<span
 						class="reddit-sep"
 						aria-hidden="true"
-						data-supers-non-readable-reason={decorativeSymbolReason}>·</span
+						data-gfx-non-readable-reason={decorativeSymbolReason}>·</span
 					><span
-						data-supers-readable-id="surface:web-document:date-label"
-						data-supers-readable-text={age}
-						data-supers-text-role="found-document-metadata">{age}</span
+						data-gfx-readable-id="surface:web-document:date-label"
+						data-gfx-readable-text={age}
+						data-gfx-text-role="found-document-metadata">{age}</span
 					>{/if}
 			</span>
 		</div>
@@ -99,9 +99,9 @@
 		{#if title}
 			<h2
 				class="reddit-title"
-				data-supers-readable-id="surface:web-document:title"
-				data-supers-readable-text={title}
-				data-supers-text-role="found-document-title"
+				data-gfx-readable-id="surface:web-document:title"
+				data-gfx-readable-text={title}
+				data-gfx-text-role="found-document-title"
 				style:font-size={`${titleFontPx}px`}
 			>
 				{title}
@@ -125,9 +125,9 @@
 						d="M10 2c4.42 0 8 2.96 8 6.6 0 3.64-3.58 6.6-8 6.6-.86 0-1.69-.11-2.46-.32L4 17v-3.1C2.16 12.7 1 10.78 1 8.6 1 4.96 4.58 2 10 2z"
 					/></svg
 				><span
-					data-supers-readable-id="surface:web-document:chrome:comments"
-					data-supers-readable-text="142 Comments"
-					data-supers-text-role="found-document-metadata">142 Comments</span
+					data-gfx-readable-id="surface:web-document:chrome:comments"
+					data-gfx-readable-text="142 Comments"
+					data-gfx-text-role="found-document-metadata">142 Comments</span
 				></span
 			>
 			<span class="reddit-action">
@@ -140,9 +140,9 @@
 						d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"
 					/></svg
 				><span
-					data-supers-readable-id="surface:web-document:chrome:share"
-					data-supers-readable-text="Share"
-					data-supers-text-role="found-document-metadata">Share</span
+					data-gfx-readable-id="surface:web-document:chrome:share"
+					data-gfx-readable-text="Share"
+					data-gfx-text-role="found-document-metadata">Share</span
 				></span
 			>
 			<span class="reddit-action">
@@ -155,9 +155,9 @@
 						d="M6 3h12c.55 0 1 .45 1 1v17l-7-4-7 4V4c0-.55.45-1 1-1z"
 					/></svg
 				><span
-					data-supers-readable-id="surface:web-document:chrome:save"
-					data-supers-readable-text="Save"
-					data-supers-text-role="found-document-metadata">Save</span
+					data-gfx-readable-id="surface:web-document:chrome:save"
+					data-gfx-readable-text="Save"
+					data-gfx-text-role="found-document-metadata">Save</span
 				></span
 			>
 		</footer>

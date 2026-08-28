@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { RAW_TEXT_EFFECT_CATALOG } from './raw-catalog-bundle.ts';
-import { SUPERS_TEXT_EFFECT_MODULES } from './supers-effects/index.ts';
+import { GFX_TEXT_EFFECT_MODULES } from './gfx-effects/index.ts';
 
 // Vendored upstream JSON, eager-bundled by `raw-catalog-bundle.ts` so the
 // catalog is available both inside Vite (the production build via the
@@ -10,27 +10,27 @@ import { SUPERS_TEXT_EFFECT_MODULES } from './supers-effects/index.ts';
 // `raw-catalog-bundle.ts` for the loader rationale; see
 // `raw-catalog/CATALOG_SOURCE.md` for upstream provenance.
 //
-// Supers-original effects (motion-primitives plan Phase 4.1: `kerning-pop`,
+// GFX-original effects (motion-primitives plan Phase 4.1: `kerning-pop`,
 // `bracket-pop`) merge in alongside the vendored set so the catalog lane
 // stays a single registry from the consumer\'s perspective.
 const { specModules } = RAW_TEXT_EFFECT_CATALOG;
 const textEffectModules: Record<string, unknown> = {
 	...RAW_TEXT_EFFECT_CATALOG.effectModules,
-	...SUPERS_TEXT_EFFECT_MODULES
+	...GFX_TEXT_EFFECT_MODULES
 };
 
 /**
  * The four split modes the catalog defines. Each effect names exactly one as
- * its `portable_spec.target`. Supers mirrors this term in `docs/CONTEXT.md` as
+ * its `portable_spec.target`. GFX mirrors this term in `docs/CONTEXT.md` as
  * **Split mode**.
  */
 export const TEXT_EFFECT_SPLIT_MODES = ['whole', 'per-character', 'per-word', 'per-line'] as const;
 export type TextEffectSplitMode = (typeof TEXT_EFFECT_SPLIT_MODES)[number];
 
 /**
- * The four renderer families Supers ships. The 20 `visibility: visible` upstream
+ * The four renderer families GFX ships. The 20 `visibility: visible` upstream
  * effects choose one explicitly via `showcase.renderer.id`; the four hidden
- * effects (no showcase block) fall through to `generic-stagger`. Supers mirrors
+ * effects (no showcase block) fall through to `generic-stagger`. GFX mirrors
  * this term in `docs/CONTEXT.md` as **Renderer family**.
  */
 export const TEXT_EFFECT_RENDERER_FAMILIES = [

@@ -1,6 +1,6 @@
 // Real-canvas capture over CDP — drives a flag-enabled Chrome (launched with
 // --enable-blink-features=CanvasDrawElement) on a debug port, seeks the Supers
-// timeline via window.__supersTimeline.seekProgress, and saves clipped canvas
+// timeline via window.__gfxTimeline.seekProgress, and saves clipped canvas
 // screenshots. This is the documented workaround for the chrome-devtools MCP
 // browser lacking the html-in-canvas flag. Node 22+ (built-in fetch/WebSocket).
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -104,7 +104,7 @@ for (let i = 0; i < 60; i++) {
 	try {
 		const s = await evaluate(`(() => ({
 			canvas: !!(${COMPOSITION_CANVAS}),
-			timeline: !!(window.__supersTimeline),
+			timeline: !!(window.__gfxTimeline),
 			body: !!document.body,
 			complete: document.readyState === 'complete',
 			pathname: location.pathname,
@@ -193,7 +193,7 @@ for (let i = 0; i < 60; i++) {
 	try {
 		capturePrepared = await evaluate(`(() => {
 			const c = (${COMPOSITION_CANVAS});
-			if (!document.body || !c || !window.__supersTimeline) return false;
+			if (!document.body || !c || !window.__gfxTimeline) return false;
 			const captureScale = 4;
 			const inheritedStyle = getComputedStyle(c);
 			for (const property of ['--frame-w', '--frame-h']) {
@@ -251,10 +251,10 @@ for (const p of SAMPLES) {
 	// seekProgress sometimes races the first render after navigate.
 	let landedTime = -1;
 	for (let i = 0; i < 20; i++) {
-		await evaluate(`window.__supersTimeline.seekProgress(${p})`);
+		await evaluate(`window.__gfxTimeline.seekProgress(${p})`);
 		await sleep(120);
-		landedTime = await evaluate(`window.__supersTimeline.time`);
-		const expected = p * (await evaluate(`window.__supersTimeline.durationSeconds`));
+		landedTime = await evaluate(`window.__gfxTimeline.time`);
+		const expected = p * (await evaluate(`window.__gfxTimeline.durationSeconds`));
 		if (Math.abs(landedTime - expected) < 0.05) break;
 	}
 	// Settle one more paint at the landed frame.

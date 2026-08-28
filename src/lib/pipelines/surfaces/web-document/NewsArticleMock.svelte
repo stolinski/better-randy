@@ -34,9 +34,9 @@
 	{#if kicker}
 		<div
 			class="news-kicker"
-			data-supers-readable-id="surface:web-document:source"
-			data-supers-readable-text={kicker}
-			data-supers-text-role="found-document-metadata"
+			data-gfx-readable-id="surface:web-document:source"
+			data-gfx-readable-text={kicker}
+			data-gfx-text-role="found-document-metadata"
 			style:font-size={`${kickerFontPx}px`}
 		>
 			{kicker}
@@ -45,9 +45,9 @@
 	{#if headline}
 		<h1
 			class="news-headline"
-			data-supers-readable-id="surface:web-document:title"
-			data-supers-readable-text={headline}
-			data-supers-text-role="found-document-title"
+			data-gfx-readable-id="surface:web-document:title"
+			data-gfx-readable-text={headline}
+			data-gfx-text-role="found-document-title"
 			style:font-size={`${headlineFontPx}px`}
 		>
 			{headline}
@@ -57,24 +57,24 @@
 		<div class="news-byline" style:font-size={`${bylineFontPx}px`}>
 			{#if author}<span class="news-author"
 					><span
-						data-supers-readable-id="surface:web-document:chrome:by"
-						data-supers-readable-text="By"
-						data-supers-text-role="found-document-metadata">By</span
+						data-gfx-readable-id="surface:web-document:chrome:by"
+						data-gfx-readable-text="By"
+						data-gfx-text-role="found-document-metadata">By</span
 					>
 					<span
-						data-supers-readable-id="surface:web-document:author"
-						data-supers-readable-text={author}
-						data-supers-text-role="found-document-metadata">{author}</span
+						data-gfx-readable-id="surface:web-document:author"
+						data-gfx-readable-text={author}
+						data-gfx-text-role="found-document-metadata">{author}</span
 					></span
 				>{/if}{#if author && date}<span
 					class="news-dot"
 					aria-hidden="true"
-					data-supers-non-readable-reason={decorativeSymbolReason}>·</span
+					data-gfx-non-readable-reason={decorativeSymbolReason}>·</span
 				>{/if}{#if date}<span
 					class="news-date"
-					data-supers-readable-id="surface:web-document:date-label"
-					data-supers-readable-text={date}
-					data-supers-text-role="found-document-metadata">{date}</span
+					data-gfx-readable-id="surface:web-document:date-label"
+					data-gfx-readable-text={date}
+					data-gfx-text-role="found-document-metadata">{date}</span
 				>{/if}
 		</div>
 	{/if}

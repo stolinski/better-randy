@@ -12,9 +12,9 @@
 	class="diagram-label"
 	class:diagram-label--explicit-wrap={block.wrap === 'explicit'}
 	data-diagram-text-role={block.role ?? 'caption'}
-	data-supers-readable-id={`block:${block.id}:text`}
-	data-supers-readable-text={block.text}
-	data-supers-text-role={block.role === 'headline' ? 'diagram-headline' : 'diagram-caption'}
+	data-gfx-readable-id={`block:${block.id}:text`}
+	data-gfx-readable-text={block.text}
+	data-gfx-text-role={block.role === 'headline' ? 'diagram-headline' : 'diagram-caption'}
 	>{block.text}</span
 >
 

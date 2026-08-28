@@ -48,7 +48,7 @@ browser (including the default chrome-devtools MCP browser unless it carries the
 flag) captures a BLANK canvas — do not use one. Capture frames with the repo
 harness: `CDP_SAMPLES=0,0.25,0.5,0.75,1 node scripts/cdp-capture.mjs <slug>`
 (saves .tmp-baselines/<slug>/pX.XX.png at the native 4K render, clipped to the
-canvas; it drives window.__supersTimeline.seekProgress). The Preset renders at
+canvas; it drives window.__gfxTimeline.seekProgress). The Preset renders at
 its native target resolution (3840×2160 horizontal or 2160×3840 vertical). Also
 capture the peak-amplitude frame of every focal mark and effect.
 

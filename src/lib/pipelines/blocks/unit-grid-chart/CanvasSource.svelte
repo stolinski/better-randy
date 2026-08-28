@@ -82,7 +82,7 @@
 	<g class="chart-normalized__labels" opacity={motion.chromeAlpha} fill={chrome.label}>
 			<text
 				data-chart-text-role="title"
-				data-supers-readable-id={`block:${block.id}:title`}
+				data-gfx-readable-id={`block:${block.id}:title`}
 				x={layout.chrome.title.origin.x}
 				y={layout.chrome.title.origin.y}
 				textLength={layout.chrome.title.measurement.width}
@@ -103,7 +103,7 @@
 				<text
 					data-chart-text-role="legend"
 					data-chart-exact-key={entry.itemId}
-					data-supers-readable-id={`block:${block.id}:legend:${entry.itemId}`}
+					data-gfx-readable-id={`block:${block.id}:legend:${entry.itemId}`}
 					x={entry.labelLayout.origin.x}
 					y={entry.labelLayout.origin.y}
 					textLength={entry.labelLayout.measurement.width}
@@ -115,7 +115,7 @@
 			{#if layout.chrome.sourceNote}
 				<text
 					data-chart-text-role="source"
-					data-supers-readable-id={`block:${block.id}:source`}
+					data-gfx-readable-id={`block:${block.id}:source`}
 					x={layout.chrome.sourceNote.origin.x}
 					y={layout.chrome.sourceNote.origin.y}
 					textLength={layout.chrome.sourceNote.measurement.width}
@@ -173,7 +173,7 @@
 				<text
 					data-chart-text-role="callout"
 					data-chart-callout={annotation.id}
-					data-supers-readable-id={`block:${block.id}:callout:${annotation.id}`}
+					data-gfx-readable-id={`block:${block.id}:callout:${annotation.id}`}
 					x={annotation.box.x + 28}
 					y={annotation.box.y + 20}
 					fill={chrome.annotation}

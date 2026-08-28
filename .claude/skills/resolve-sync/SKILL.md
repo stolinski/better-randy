@@ -36,13 +36,13 @@ Run `scripts/resolve-markers.py` (dumb pipe, no logic) → `{product, project, t
 
 ### 2. Identify the group and beat semantics
 
-Group markers by text, in timeline order — color never participates (`groupSupersMarkers` is color-blind):
+Group markers by text, in timeline order — color never participates (`groupGfxMarkers` is color-blind):
 
-- **Head:** the marker whose note is `supers <slug>`. Previously synced groups are found by their `supers-sync@1` customData instead — never re-parsed.
+- **Head:** the marker whose note is `gfx <slug>` (a legacy `supers <slug>` note opens a group just the same — ADR-0053). Previously synced groups are found by their sync customData instead — never re-parsed.
 - **Span:** closed by the first **END** marker after the head (a name whose last word is `END`; a synced END carries customData beat −1), else by the head's dragged duration (an END marker beats a disagreeing drag, with a warning), else — degenerate, linted — the last beat + 2.5 s handle.
 - **Beats:** every marker inside the span, whatever its color or name — the delimited span is the claim. Beat labels carry the item text: `parseBeatLabel` maps `<item> - Checked` → on the list from arrival, strike at the beat; `<item> - Add to list` → enter at the beat; bare label → build-in enter.
 
-**Free-label groups** (no `supers` note anywhere — e.g. `<Title> Checklist Start` heads, or `Achievement — Task complete - <title>` single markers): assemble the `MarkerGroup` yourself from the labels and pass it as `options.group` to the derivation; the sync's customData receipt then makes the group formally findable on re-sync. Never ask the editor to recolor or rename anything.
+**Free-label groups** (no head note anywhere — e.g. `<Title> Checklist Start` heads, or `Achievement — Task complete - <title>` single markers): assemble the `MarkerGroup` yourself from the labels and pass it as `options.group` to the derivation; the sync's customData receipt then makes the group formally findable on re-sync. Never ask the editor to recolor or rename anything.
 
 ### 3. Derive (pure, tested)
 
@@ -54,7 +54,7 @@ Write the derived `fps` literal, duration, and item windows (fractions, frame-sn
 
 ### 5. Export
 
-Drive the flagged Chrome to `/p/<slug>`. While `Workspace.svelte` is mounted, it exposes `window.__supersExport(request?: { startTimecode?, filename? })`; that callback delegates the full media operation to `CompositionExportController`, the export orchestration seam. `export-video.ts` supplies the encoding, endpoint-upload, and download primitives used by the controller. Pass the derivation's `startTimecode` and `buildSyncExportFilename(slug, startTimecode, spanFrames, version)` → `<slug>__<TC-with-dashes>__<frames>f__v<version>.mov`. Chrome silently blocks a second automatic download (a reload resets any grant): wrap `window.fetch` to tee the `/api/export/` response blob to a local HTTP receiver (the port-7299 pattern) instead of relying on the download. The current ProRes route emits 4444 for both transparent and opaque compositions; ProRes 422 and H.264 export lanes are unbuilt.
+Drive the flagged Chrome to `/p/<slug>`. While `Workspace.svelte` is mounted, it exposes `window.__gfxExport(request?: { startTimecode?, filename? })`; that callback delegates the full media operation to `CompositionExportController`, the export orchestration seam. `export-video.ts` supplies the encoding, endpoint-upload, and download primitives used by the controller. Pass the derivation's `startTimecode` and `buildSyncExportFilename(slug, startTimecode, spanFrames, version)` → `<slug>__<TC-with-dashes>__<frames>f__v<version>.mov`. Chrome silently blocks a second automatic download (a reload resets any grant): wrap `window.fetch` to tee the `/api/export/` response blob to a local HTTP receiver (the port-7299 pattern) instead of relying on the download. The current ProRes route emits 4444 for both transparent and opaque compositions; ProRes 422 and H.264 export lanes are unbuilt.
 
 ### 6. Ship
 

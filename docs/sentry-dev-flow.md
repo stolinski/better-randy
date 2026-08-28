@@ -75,7 +75,7 @@ Every event and span carries a release: **`supers@<git sha>`**.
   launchd dev server attributes events to the commit the working tree is ON —
   not the commit it booted with. The SDK-level release is fixed at process
   start; the always-current value rides the `git.release` tag.
-- **Client:** the app shell carries `<meta name="supers-release">` (injected by
+- **Client:** the app shell carries `<meta name="gfx-release">` (injected by
   the server per request); `hooks.client.ts` inits from it. A loaded page runs
   the code it was served, so its release stays correct for the page's lifetime.
 - **Release registration:** `scripts/git-hooks/post-commit` registers each

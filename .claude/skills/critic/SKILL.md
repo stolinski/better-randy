@@ -47,7 +47,7 @@ runs on CDP port 9223 — start or confirm it with `scripts/launch-cdp-chrome.sh
 browser captures a BLANK canvas — do not use one. Capture with the repo harness:
 `CDP_SAMPLES=0,0.25,0.5,0.75,1 node scripts/cdp-capture.mjs <slug>` → saves
 .tmp-baselines/<slug>/pX.XX.png at the native 4K render (3840×2160 horizontal /
-2160×3840 vertical), clipped to the canvas, driving window.__supersTimeline.
+2160×3840 vertical), clipped to the canvas, driving window.__gfxTimeline.
 For sub-canvas-resolution detail, scripts/cdp-dof-detail.mjs captures at high DPR.
 
 Then execute the protocol from docs/critic.md:

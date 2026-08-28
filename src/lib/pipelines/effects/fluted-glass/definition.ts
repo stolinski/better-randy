@@ -7,7 +7,7 @@ import type { EffectPipelineDefinition } from '$lib/platform/pipelines/definitio
 //   - The image-fit/sizing system collapses to identity (the effect-chain input
 //     is the already-composited frame).
 //   - The source's grainMixer / grainOverlay features are omitted — grain is a
-//     separate composable link in the Supers effect chain (`paper-grain`).
+//     separate composable link in the GFX effect chain (`paper-grain`).
 //   - The source's `u_colorBack` fill is dropped — background fills are the
 //     composition's `backgroundFill`, never an effect param — and the final
 //     output is masked by the frame's own silhouette (rubric E4).

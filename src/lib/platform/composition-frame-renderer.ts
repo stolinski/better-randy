@@ -488,10 +488,10 @@ function stageSurfaceFadeAlpha(state: EngineState, paperVisibility: number): num
 
 function dofInputTexture(planes: CompositionPlanes, surfacePlane: GPUTexture): GPUTexture {
 	if (typeof window !== 'undefined') {
-		if (window.__supersDofPreviewPlane === 'surface') {
+		if (window.__gfxDofPreviewPlane === 'surface') {
 			return surfacePlane;
 		}
-		if (window.__supersDofPreviewPlane === 'overlay') {
+		if (window.__gfxDofPreviewPlane === 'overlay') {
 			return planes.overlayPlaneTexture();
 		}
 	}

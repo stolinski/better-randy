@@ -60,8 +60,8 @@
 				{#each engineState.surface.content.body as block, blockIndex (blockIndex)}
 					{#if block.type === 'paragraph'}
 						<p
-							data-supers-readable-id={`surface:plain:body:${blockIndex}`}
-							data-supers-text-role="surface-body"
+							data-gfx-readable-id={`surface:plain:body:${blockIndex}`}
+							data-gfx-text-role="surface-body"
 						>
 							{#each block.segments as segment, segmentIndex (`${blockIndex}:${segmentIndex}:${segment.text}`)}
 								{#if segment.markStyles.length > 0}

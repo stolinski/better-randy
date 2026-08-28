@@ -52,7 +52,7 @@ export function textAnimationGsapEaseFromCss(css: string): string {
 	if (bezierMatch) {
 		ensureRegistered();
 		const [, a, b, c, d] = bezierMatch;
-		const name = `supers-ease-${a}-${b}-${c}-${d}`;
+		const name = `gfx-ease-${a}-${b}-${c}-${d}`;
 		if (!CustomEase.get(name)) {
 			CustomEase.create(name, `M0,0 C${a},${b} ${c},${d} 1,1`);
 		}

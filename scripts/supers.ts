@@ -194,7 +194,7 @@ export async function renderJob(page: Page, job: RenderJob): Promise<void> {
 		});
 		await page.waitForFunction(
 			(slug) =>
-				typeof (window as Window & { __supersExport?: unknown }).__supersExport === 'function' &&
+				typeof (window as Window & { __gfxExport?: unknown }).__gfxExport === 'function' &&
 				document.querySelector('.topbar__name')?.textContent?.trim() === slug,
 			prepared.slug,
 			{ timeout: READY_TIMEOUT_MS }
@@ -205,9 +205,9 @@ export async function renderJob(page: Page, job: RenderJob): Promise<void> {
 		const exportPromise = page.evaluate(async (filename) => {
 			const exportComposition = (
 				window as Window & {
-					__supersExport?: (request: { filename: string }) => Promise<void>;
+					__gfxExport?: (request: { filename: string }) => Promise<void>;
 				}
-			).__supersExport;
+			).__gfxExport;
 			if (!exportComposition) throw new Error('Workspace export seam is unavailable.');
 			await exportComposition({ filename });
 		}, basename(outputPath));

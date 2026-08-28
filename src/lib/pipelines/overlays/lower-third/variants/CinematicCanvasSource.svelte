@@ -55,7 +55,7 @@
 	style:--accent-rgb={accentRgb}
 >
 	<div class="lower-third--cinematic__scrim"></div>
-	<div class="lower-third--cinematic__accent" data-supers-shadow-owner="accent"></div>
+	<div class="lower-third--cinematic__accent" data-gfx-shadow-owner="accent"></div>
 	<div class="lower-third--cinematic__content">
 		{#if content.kicker}
 			{#key content.kicker}
@@ -65,8 +65,8 @@
 					style:--kicker-plate={kickerPlate}
 					style:--kicker-ink={kicker.form === 'chip' ? kicker.ink : undefined}
 					data-text-anim-slot="kicker"
-					data-supers-readable-id="kicker"
-					data-supers-text-role="overlay-cinematic-secondary"
+					data-gfx-readable-id="kicker"
+					data-gfx-text-role="overlay-cinematic-secondary"
 				>
 					{content.kicker}
 				</span>
@@ -76,8 +76,8 @@
 			<strong
 				class="lower-third--cinematic__name"
 				data-text-anim-slot="title"
-				data-supers-readable-id="title"
-				data-supers-text-role="overlay-cinematic-primary"
+				data-gfx-readable-id="title"
+				data-gfx-text-role="overlay-cinematic-primary"
 			>
 				{content.title}
 			</strong>
@@ -87,8 +87,8 @@
 				<span
 					class="lower-third--cinematic__role"
 					data-text-anim-slot="subtitle"
-					data-supers-readable-id="subtitle"
-					data-supers-text-role="overlay-cinematic-secondary"
+					data-gfx-readable-id="subtitle"
+					data-gfx-text-role="overlay-cinematic-secondary"
 				>
 					{content.subtitle}
 				</span>

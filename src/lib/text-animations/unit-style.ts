@@ -40,11 +40,11 @@ export function applyTextAnimationUnitFade(element: HTMLElement, opacity: number
 		return;
 	}
 
-	let base = element.dataset.supersBaseColor;
+	let base = element.dataset.gfxBaseColor;
 	if (!base) {
 		element.style.color = '';
 		base = getComputedStyle(element).color;
-		element.dataset.supersBaseColor = base;
+		element.dataset.gfxBaseColor = base;
 	}
 	const channels = base.match(/-?\d+(?:\.\d+)?/g);
 	if (!channels || channels.length < 3) {

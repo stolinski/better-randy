@@ -35,8 +35,8 @@
 			<blockquote
 				class="pullquote-source__quote"
 				data-text-anim-slot="title"
-				data-supers-readable-id="surface:pullquote-on-photo:title"
-				data-supers-text-role="surface-title"
+				data-gfx-readable-id="surface:pullquote-on-photo:title"
+				data-gfx-text-role="surface-title"
 				style:font-size={`${frame.width * (isVertical ? 0.0505 : 0.034)}px`}
 			>
 				{content.title}
@@ -49,8 +49,8 @@
 			<cite
 				class="pullquote-source__attribution"
 				data-text-anim-slot="author"
-				data-supers-readable-id="surface:pullquote-on-photo:author"
-				data-supers-text-role="surface-label"
+				data-gfx-readable-id="surface:pullquote-on-photo:author"
+				data-gfx-text-role="surface-label"
 				style:font-size={`${frame.width * (isVertical ? 0.0213 : 0.0125)}px`}
 				style:inset-block-end={`${isVertical ? 18 : 12}%`}
 				style:inset-inline-end={`${isVertical ? 10 : 7}%`}

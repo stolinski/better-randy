@@ -1,4 +1,4 @@
-export const MEDIA_LIBRARY_ASSET_MIME = 'application/vnd.supers.media-library-asset+json';
+export const MEDIA_LIBRARY_ASSET_MIME = 'application/vnd.gfx.media-library-asset+json';
 
 export interface MediaLibraryAssetDragPayload {
 	version: 1;

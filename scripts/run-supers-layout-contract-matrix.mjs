@@ -142,7 +142,7 @@ async function waitForLayoutRuntime(send, presetSlug) {
 	while (Date.now() < deadline) {
 		const ready = await send('Runtime.evaluate', {
 			expression:
-				"document.readyState === 'complete' && typeof window.__configureSupersDeterministicRenderCell === 'function' && typeof window.__captureSupersLayoutContractFrame === 'function' && typeof window.__captureSupersDeterministicFrameGeometry === 'function'",
+				"document.readyState === 'complete' && typeof window.__configureGfxDeterministicRenderCell === 'function' && typeof window.__captureGfxLayoutContractFrame === 'function' && typeof window.__captureGfxDeterministicFrameGeometry === 'function'",
 			returnByValue: true
 		});
 		if (ready.result?.value === true) return;
@@ -300,11 +300,11 @@ async function captureFrame(send, coordinate, frameIndex) {
 	};
 	const manifest = await evaluate(
 		send,
-		`window.__captureSupersLayoutContractFrame(${JSON.stringify(request)})`
+		`window.__captureGfxLayoutContractFrame(${JSON.stringify(request)})`
 	);
 	const geometry = await evaluate(
 		send,
-		`window.__captureSupersDeterministicFrameGeometry(${JSON.stringify(coordinate.sample.stableGeometryCandidateIds)})`
+		`window.__captureGfxDeterministicFrameGeometry(${JSON.stringify(coordinate.sample.stableGeometryCandidateIds)})`
 	);
 	return { manifest, geometry };
 }
@@ -342,7 +342,7 @@ async function run() {
 			try {
 				const runtime = await evaluate(
 					page.send,
-					'window.__readSupersRuntimeRenderRegistryIdentity()'
+					'window.__readGfxRuntimeRenderRegistryIdentity()'
 				);
 				const expectedRuntime = {
 					deliverablePresets: collected.snapshot.deliverablePresets.map((entry) => ({
@@ -365,7 +365,7 @@ async function run() {
 					if (Date.now() >= deadline) throw new Error('Layout Contract matrix exceeded 12 minutes');
 					const configuration = await evaluate(
 						page.send,
-						`window.__configureSupersDeterministicRenderCell(${JSON.stringify({ presetSlug: coordinate.presetSlug, packId: coordinate.packId, orientation: coordinate.orientation })})`
+						`window.__configureGfxDeterministicRenderCell(${JSON.stringify({ presetSlug: coordinate.presetSlug, packId: coordinate.packId, orientation: coordinate.orientation })})`
 					);
 					if (
 						configuration.width !== coordinate.width ||

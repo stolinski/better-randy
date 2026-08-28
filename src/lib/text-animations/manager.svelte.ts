@@ -234,6 +234,6 @@ export class TextAnimationManager {
 
 declare global {
 	interface Window {
-		__supersTextAnimationManager?: TextAnimationManager;
+		__gfxTextAnimationManager?: TextAnimationManager;
 	}
 }

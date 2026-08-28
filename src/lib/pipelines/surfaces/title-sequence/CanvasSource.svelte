@@ -33,8 +33,8 @@
 			<span
 				class="title-sequence-source__kicker"
 				data-text-anim-slot="kicker"
-				data-supers-readable-id="surface:title-sequence:kicker"
-				data-supers-text-role="surface-label"
+				data-gfx-readable-id="surface:title-sequence:kicker"
+				data-gfx-text-role="surface-label"
 				style:font-size={`${frame.width * (isVertical ? 0.021 : 0.012)}px`}
 			>
 				{content.kicker}
@@ -47,8 +47,8 @@
 			<h2
 				class="title-sequence-source__title"
 				data-text-anim-slot="title"
-				data-supers-readable-id="surface:title-sequence:title"
-				data-supers-text-role="surface-title"
+				data-gfx-readable-id="surface:title-sequence:title"
+				data-gfx-text-role="surface-title"
 				style:font-size={`${frame.width * 0.088}px`}
 			>
 				{content.title}

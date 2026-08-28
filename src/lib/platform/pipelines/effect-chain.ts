@@ -415,7 +415,7 @@ export interface ApplyChainOptions {
 	stageContentScale?: number;
 	/** Premultiplied RGBA fill composited under the surface output. Absent = transparent default. */
 	background?: [number, number, number, number];
-	/** Decoded creator footage composited beneath the processed Supers result in the final pass. */
+	/** Decoded creator footage composited beneath the processed GFX result in the final pass. */
 	videoUnderlayTexture?: PreparedVideoUnderlayTexture | null;
 }
 

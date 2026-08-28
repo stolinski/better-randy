@@ -12,7 +12,7 @@
  *      cues for captions:track, and body paragraphs for block:paragraph),
  *   2. drives the flag-enabled Chrome on CDP port 9223 (same harness approach
  *      as scripts/cdp-capture.mjs): loads /p/<slug>, pauses the Timeline,
- *      pins a deterministic mid-piece frame via window.__supersTimeline, then
+ *      pins a deterministic mid-piece frame via window.__gfxTimeline, then
  *      FOR EVERY CATALOG PACK swaps packState.slug in-page (through the
  *      app's versioned engine-state module URL, with
  *      transitionState.capturing=true bracketing the swap so the autosave
@@ -899,7 +899,7 @@ async function waitReady(session: CdpSession, slug: string): Promise<void> {
 				`(() => ({
 					onRoute: location.pathname === ${JSON.stringify(`/p/${slug}`)},
 					canvas: !!document.querySelector('canvas'),
-					timeline: !!window.__supersTimeline
+					timeline: !!window.__gfxTimeline
 				}))()`
 			);
 			if (state.onRoute && state.canvas && state.timeline) {
@@ -911,7 +911,7 @@ async function waitReady(session: CdpSession, slug: string): Promise<void> {
 		await sleep(500);
 	}
 	throw new Error(
-		`App did not become ready on /p/${slug} (route + canvas + window.__supersTimeline)`
+		`App did not become ready on /p/${slug} (route + canvas + window.__gfxTimeline)`
 	);
 }
 
@@ -921,7 +921,7 @@ async function pinFrame(session: CdpSession, progress: number): Promise<number> 
 	for (let attempt = 0; attempt < 20; attempt++) {
 		landed = await session.evaluate<number>(
 			`(() => {
-				const t = window.__supersTimeline;
+				const t = window.__gfxTimeline;
 				t.pause();
 				t.seekProgress(${progress});
 				return t.time;
@@ -930,7 +930,7 @@ async function pinFrame(session: CdpSession, progress: number): Promise<number> 
 		await sleep(120);
 		const { time, expected } = await session.evaluate<{ time: number; expected: number }>(
 			`(() => {
-				const t = window.__supersTimeline;
+				const t = window.__gfxTimeline;
 				return { time: t.time, expected: ${progress} * t.durationSeconds };
 			})()`
 		);

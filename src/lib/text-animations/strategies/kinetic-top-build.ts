@@ -13,7 +13,7 @@ import {
  * centrally; each new word drops from above the stack and pushes prior
  * words to their new centered y positions. Used by `short-slide-down`.
  *
- * Supers v1 ships single-pass (one phrase, no loop). The renderer mirrors
+ * GFX v1 ships single-pass (one phrase, no loop). The renderer mirrors
  * the upstream `kinetic-top-build` algorithm: each incoming word fires a
  * reflow tween for every word already placed plus an entry tween for
  * itself, all sharing the same per-push window.

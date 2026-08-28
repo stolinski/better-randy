@@ -42,7 +42,7 @@ const logErrorResponses: Handle = async ({ event, resolve }) => {
 		Sentry.getIsolationScope().setTag('git.release', release);
 	}
 	const response = await resolve(event, {
-		transformPageChunk: ({ html }) => html.replace('%supers.release%', release ?? '')
+		transformPageChunk: ({ html }) => html.replace('%gfx.release%', release ?? '')
 	});
 	if (response.status >= 400) {
 		const line = `[${new Date().toISOString()}] ${response.status} ${event.request.method} ${event.url.pathname}${event.url.search}`;

@@ -93,7 +93,7 @@ export const DISCOVERABILITY_CONFIG = Object.freeze({
 		{
 			rule: 'export-orchestration-owner',
 			pattern:
-				/\bexport-video\.ts\b.*(?:real export path|\borchestration seam\b|__supersExport.*\bseam\b)/i,
+				/\bexport-video\.ts\b.*(?:real export path|\borchestration seam\b|__gfxExport.*\bseam\b)/i,
 			message: 'Active guidance attributes export orchestration to export-video.ts.',
 			remediation:
 				'Use CompositionExportController as the orchestration seam, Workspace as the mounted callback owner, and export-video.ts for encoding primitives.'

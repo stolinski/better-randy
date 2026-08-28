@@ -34,9 +34,9 @@
 	{#if title}
 		<h1
 			class="wiki-title"
-			data-supers-readable-id="surface:web-document:title"
-			data-supers-readable-text={title}
-			data-supers-text-role="found-document-title"
+			data-gfx-readable-id="surface:web-document:title"
+			data-gfx-readable-text={title}
+			data-gfx-text-role="found-document-title"
 			style:font-size={`${titleFontPx}px`}
 		>
 			{title}
@@ -44,11 +44,11 @@
 	{/if}
 	<p
 		class="wiki-subtitle"
-		data-supers-readable-id={content.source
+		data-gfx-readable-id={content.source
 			? 'surface:web-document:source'
 			: 'surface:web-document:chrome:wikipedia-subtitle'}
-		data-supers-readable-text={subtitle}
-		data-supers-text-role="found-document-metadata"
+		data-gfx-readable-text={subtitle}
+		data-gfx-text-role="found-document-metadata"
 		style:font-size={`${subtitleFontPx}px`}
 	>
 		{subtitle}
@@ -57,9 +57,9 @@
 	{#if sectionHeading}
 		<h2
 			class="wiki-heading"
-			data-supers-readable-id="surface:web-document:kicker"
-			data-supers-readable-text={sectionHeading}
-			data-supers-text-role="found-document-metadata"
+			data-gfx-readable-id="surface:web-document:kicker"
+			data-gfx-readable-text={sectionHeading}
+			data-gfx-text-role="found-document-metadata"
 			style:font-size={`${headingFontPx}px`}
 		>
 			{sectionHeading}

@@ -61,7 +61,7 @@ let ready = false;
 for (let i = 0; i < 60; i++) {
 	try {
 		const s = await evaluate(
-			`(() => ({ canvas: !!document.querySelector('canvas'), timeline: !!window.__supersTimeline }))()`
+			`(() => ({ canvas: !!document.querySelector('canvas'), timeline: !!window.__gfxTimeline }))()`
 		);
 		if (s.canvas && s.timeline) {
 			ready = true;
@@ -80,7 +80,7 @@ const backing = await evaluate(
 	`(() => { const c = document.querySelector('canvas'); return c.width + 'x' + c.height; })()`
 );
 const fps = await evaluate(`(async () => {
-	const t = window.__supersTimeline;
+	const t = window.__gfxTimeline;
 	t.seek(0);
 	t.play();
 	await new Promise((r) => setTimeout(r, 400)); // skip the spin-up frames
