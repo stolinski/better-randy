@@ -1,6 +1,6 @@
 # Sentry dev flow
 
-Supers reports captured errors, logs, and traces to Sentry (`scott-tolinski-projects/supers`) during local dev when the relevant DSN is configured. Agents use the `sentry` CLI as the primary way to inspect reported failures with stack, breadcrumbs, and trace context, alongside the dev-server console and browser log for uncaptured or disabled-SDK cases.
+GFX reports captured errors, logs, and traces to Sentry (`scott-tolinski-projects/supers`) during local dev when the relevant DSN is configured. Agents use the `sentry` CLI as the primary way to inspect reported failures with stack, breadcrumbs, and trace context, alongside the dev-server console and browser log for uncaptured or disabled-SDK cases.
 
 ## What is instrumented
 

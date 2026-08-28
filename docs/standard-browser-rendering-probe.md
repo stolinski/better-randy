@@ -1,6 +1,6 @@
 # Standard-browser rendering and WebMCP probe
 
-This probe answers the first runtime question for the public WebMCP demo: what works in a WebMCP-enabled Chrome when Supers cannot use the experimental `CanvasDrawElement` API?
+This probe answers the first runtime question for the public WebMCP demo: what works in a WebMCP-enabled Chrome when GFX cannot use the experimental `CanvasDrawElement` API?
 
 The exact machine-readable result is [`browser-probes/standard-browser-rendering.json`](browser-probes/standard-browser-rendering.json). Reproduce it with:
 
@@ -39,7 +39,7 @@ Chrome 152 still exposes WebMCP behind the `WebMCP` Blink feature. The probe pro
 
 ## Rendering result
 
-The unmodified Supers composition canvas is a uniform blank native frame in standard WebMCP mode for both test cases. This reproduces the known failure without inferring it from console errors.
+The unmodified GFX composition canvas is a uniform blank native frame in standard WebMCP mode for both test cases. This reproduces the known failure without inferring it from console errors.
 
 The probe then clones the direct layout-subtree DOM child and rasterizes it with `html2canvas` 1.4.1 into a native 3840×2160 2D canvas. It tests:
 

@@ -10,7 +10,7 @@
 </script>
 
 <svelte:head>
-	<title>{doc.meta.title} · Supers docs</title>
+	<title>{doc.meta.title} · GFX docs</title>
 </svelte:head>
 
 <main>

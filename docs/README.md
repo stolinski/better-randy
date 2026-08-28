@@ -1,4 +1,4 @@
-# Supers docs index
+# GFX docs index
 
 Entry point is [`../AGENTS.md`](../AGENTS.md) (auto-loaded; `CLAUDE.md` symlinks to it) — north star, binding rules, dispatcher. Each doc below has one purpose; don't load docs that don't apply to the task.
 

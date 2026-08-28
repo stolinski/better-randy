@@ -1,4 +1,6 @@
 <script lang="ts">
+	import gfxLogotype from '$identity/gfx-logotype.svg';
+
 	const layers = [
 		{ name: 'Surface', blurb: 'The scene a piece lives on — paper, web document, iMessage.' },
 		{ name: 'Block', blurb: 'Content primitives — quotes, stats, timelines, diagrams.' },
@@ -27,10 +29,10 @@
 </script>
 
 <svelte:head>
-	<title>Supers — a motion-graphics engine on a web stack</title>
+	<title>GFX — a motion-graphics engine on a web stack</title>
 	<meta
 		name="description"
-		content="Supers is an opinionated motion-graphics engine — TypeGPU, HTML-in-Canvas, GSAP — rendering broadcast-quality overlays and full-frame pieces at 4K."
+		content="GFX is an opinionated motion-graphics engine — TypeGPU, HTML-in-Canvas, GSAP — rendering broadcast-quality overlays and full-frame pieces at 4K."
 	/>
 </svelte:head>
 
@@ -43,7 +45,7 @@
 			<div class="playhead"></div>
 			<h1>Broadcast&#8209;grade motion graphics, on&nbsp;a&nbsp;web&nbsp;stack.</h1>
 			<p class="sub">
-				Supers is an opinionated motion-graphics engine — TypeGPU, HTML&#8209;in&#8209;Canvas, GSAP —
+				GFX is an opinionated motion-graphics engine — TypeGPU, HTML&#8209;in&#8209;Canvas, GSAP —
 				that renders transparent overlays and full-frame pieces at native 4K, authored with full
 				parity by a GUI and by agents over one composition model.
 			</p>
@@ -83,7 +85,7 @@
 	</section>
 
 	<footer>
-		<span class="supers-mark">Supers</span>
+		<img class="footer-logotype" src={gfxLogotype} alt="GFX" width="38" height="15" />
 		<a href="https://github.com/stolinski/better-randy" target="_blank" rel="noopener">GitHub</a>
 	</footer>
 </main>
@@ -330,11 +332,16 @@
 
 	footer {
 		display: flex;
+		align-items: center;
 		justify-content: space-between;
 		padding: 1.5rem 0 2rem;
 		border-top: 1px solid var(--line-soft);
 		font-size: 0.8125rem;
 		color: var(--faint);
+	}
+
+	.footer-logotype {
+		display: block;
 	}
 
 	footer a {

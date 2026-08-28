@@ -4,7 +4,7 @@
 
 ## Pitch
 
-Drop a video into Supers. The app transcribes it, an AI pass reads the transcript to decide what kinds of overlay animations would land at each moment, and Supers emits a batch of transparent overlay clips keyed to the original timecodes. The editor drops them onto their timeline and the talking-head footage suddenly has receipts, callouts, quotes, and citations.
+Drop a video into GFX. The app transcribes it, an AI pass reads the transcript to decide what kinds of overlay animations would land at each moment, and GFX emits a batch of transparent overlay clips keyed to the original timecodes. The editor drops them onto their timeline and the talking-head footage suddenly has receipts, callouts, quotes, and citations.
 
 ## Flow
 
@@ -13,9 +13,9 @@ The following flow is proposed, not implemented:
 1. User ingests a video Media asset, adds a composition-scoped Media library entry, and places Video clips on the primary Video track.
 2. Transcribe with word-level timestamps.
 3. AI segmentation pass labels intent per span: research citation, statistic, quote, definition, named entity, concept, tangent, joke, etc.
-4. AI selection pass picks a Supers **Preset** per labeled span based on intent + emphasis. The Preset encodes the Surface, content shape, marks, overlays, effects, and transport (see [`preset-format.md`](../preset-format.md)) — there is no separate "tool" coordinate (retired by [ADR-0002](../adr/0002-per-tool-routes-to-preset-engine.md)).
+4. AI selection pass picks a GFX **Preset** per labeled span based on intent + emphasis. The Preset encodes the Surface, content shape, marks, overlays, effects, and transport (see [`preset-format.md`](../preset-format.md)) — there is no separate "tool" coordinate (retired by [ADR-0002](../adr/0002-per-tool-routes-to-preset-engine.md)).
 5. For spans that need external content (research papers, tweets, articles, definitions), an enrichment pass fetches the source and extracts what we need (title, authors, abstract, key figure, quoted line, URL, screenshot).
-6. Supers queues a render job per span: Preset slug (or freshly-authored Preset JSON) + extracted content + in/out timecodes.
+6. GFX queues a render job per span: Preset slug (or freshly-authored Preset JSON) + extracted content + in/out timecodes.
 7. Batch export produces a folder of transparent overlays, named by timecode, ready to drop into Resolve/Premiere.
 
 ## What the AI is choosing
@@ -49,9 +49,9 @@ The following flow is proposed, not implemented:
 - Re-runs: if the user changes Video clips or Source time, how do we re-key transcript timecodes without redoing the whole pipeline?
 - Does the AI **pick from the catalog** or **author fresh Presets** for content that doesn't fit any built-in? Agents can author schema-valid Preset JSON today, but no transcript automation or runtime AI-authoring contract is implemented. Start with catalog selection plus explicit Preset edits; treat automatic fresh authoring as future work.
 
-## Why this fits Supers
+## Why this fits GFX
 
-Supers already has the Preset catalog, composition Media library, one frame-addressable Video track, `CompositionExportController`, and transparent export primitives. Transcript ingestion, segmentation, enrichment, proposal review, automatic cut generation, batch orchestration, and NLE manifest generation are all unbuilt product work.
+GFX already has the Preset catalog, composition Media library, one frame-addressable Video track, `CompositionExportController`, and transparent export primitives. Transcript ingestion, segmentation, enrichment, proposal review, automatic cut generation, batch orchestration, and NLE manifest generation are all unbuilt product work.
 
 ## Adjacency
 

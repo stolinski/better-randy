@@ -34,7 +34,7 @@ export const POST: RequestHandler = async ({ request, fetch }) => {
 
 	try {
 		const response = await fetch(endpoint, {
-			headers: { Accept: 'application/json', 'User-Agent': 'Supers X post importer/1.0' },
+			headers: { Accept: 'application/json', 'User-Agent': 'GFX X post importer/1.0' },
 			signal: AbortSignal.timeout(10_000)
 		});
 		if (!response.ok) error(response.status === 404 ? 404 : 502, 'X post could not be imported');

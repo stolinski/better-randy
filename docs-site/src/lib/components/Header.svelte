@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import gfxLogotype from '$identity/gfx-logotype.svg';
+	import gfxMark from '$identity/gfx-mark.svg';
 	import { ui } from '$lib/ui.svelte';
 
 	const isDoc = $derived(page.url.pathname !== '/');
@@ -21,8 +23,12 @@
 			</svg>
 		</button>
 	{/if}
+	<!-- The masthead lockup matches the app's: mark, then logotype, on one
+	     baseline. The logotype carries the accessible name, so the mark is
+	     decorative (docs/identity/README.md). -->
 	<a class="wordmark" href="/">
-		<span class="supers-mark">Supers</span>
+		<img class="mark" src={gfxMark} alt="" width="18" height="18" />
+		<img class="logotype" src={gfxLogotype} alt="GFX" width="38" height="15" />
 		<span class="tag">docs</span>
 	</a>
 	<nav>
@@ -64,10 +70,15 @@
 	.wordmark {
 		display: flex;
 		align-items: center;
-		gap: 0.625rem;
+		gap: 0.5rem;
 		text-decoration: none;
 		font-size: 1rem;
 		color: var(--text);
+	}
+
+	.mark,
+	.logotype {
+		display: block;
 	}
 
 	.tag {

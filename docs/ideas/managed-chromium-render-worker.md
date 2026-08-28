@@ -4,7 +4,7 @@
 
 ## Pitch
 
-Let agents edit standalone `supers@1` Presets and export them through one command without opening, navigating, or controlling a visible browser. Supers still renders through its canonical WICG HTML-in-Canvas + WebGPU path; a local or private remote Render Worker owns the compatible Chromium process and launches it with `--enable-blink-features=CanvasDrawElement`.
+Let agents edit standalone `supers@1` Presets and export them through one command without opening, navigating, or controlling a visible browser. GFX still renders through its canonical WICG HTML-in-Canvas + WebGPU path; a local or private remote Render Worker owns the compatible Chromium process and launches it with `--enable-blink-features=CanvasDrawElement`.
 
 The intended agent experience is ordinary domain-level automation:
 
@@ -17,7 +17,7 @@ Chromium remains the rendering runtime, but its page, feature flags, profile, CD
 
 ## Why
 
-Supers already has the hard contracts:
+GFX already has the hard contracts:
 
 - agents and the GUI author the same standalone Preset;
 - the User composition API provides a validated GET/edit/PUT loop;
@@ -30,7 +30,7 @@ The remaining friction is operational. The shipped CLI requires both the local s
 
 The Render Worker would own:
 
-1. a local production Supers server rather than a separately managed development server;
+1. a local production GFX server rather than a separately managed development server;
 2. a dedicated compatible Chromium process launched with the required HTML-in-Canvas and WebGPU flags;
 3. an isolated browser profile and private CDP connection or debugging pipe;
 4. feature, GPU, font, ffmpeg, and nonblank HTML-in-Canvas health probes;
@@ -55,16 +55,16 @@ A standard MCP server may later expose the same domain operations for remote age
 
 The smallest useful version is local and private: the CLI starts or connects to a loopback worker, submits the Preset, waits for the output path, and never exposes Chromium to the agent.
 
-A later private remote worker could run the same stack on a GPU-equipped machine. Agents would submit standalone Presets and separately upload content-addressed Media asset bytes, then retrieve artifacts. This does not require publishing the Supers editor or turning rendering into a public service.
+A later private remote worker could run the same stack on a GPU-equipped machine. Agents would submit standalone Presets and separately upload content-addressed Media asset bytes, then retrieve artifacts. This does not require publishing the GFX editor or turning rendering into a public service.
 
 Electron is optional packaging, not an architectural requirement. It could bundle and configure Chromium for a one-click creator installation, but it would call the same worker and render seam.
 
 ## Research questions
 
 - Does current Chromium produce correct native-4K HTML-in-Canvas and WebGPU output under `--headless=new`, or must the worker run a headed but hidden/minimized process?
-- Should Supers pin or bundle Chromium, or verify a compatible system Chrome at startup?
+- Should GFX pin or bundle Chromium, or verify a compatible system Chrome at startup?
 - Can the worker use a private debugging pipe instead of a listening CDP port?
-- What is the reliable ownership model when another sanctioned Chrome or Supers process is already running?
+- What is the reliable ownership model when another sanctioned Chrome or GFX process is already running?
 - How long should a warm worker live, and which GPU/browser failures require a clean process restart?
 - Can exact-frame and contact-sheet capture reuse `renderCompositionFrameTo` without weakening the current export ordering and paint acknowledgments?
 - What authentication and artifact-retention boundary is sufficient for a private remote worker?
@@ -72,11 +72,11 @@ Electron is optional packaging, not an architectural requirement. It could bundl
 
 ## Non-goals
 
-- Removing, replacing, or reducing Supers' use of HTML-in-Canvas.
+- Removing, replacing, or reducing GFX's use of HTML-in-Canvas.
 - Letting a webpage enable browser feature flags; the worker owns process launch.
 - Creating a second Preset format, Project artifact, or renderer.
 - Exposing generic browser automation as the agent API.
-- Requiring a hosted or publicly deployed Supers application.
+- Requiring a hosted or publicly deployed GFX application.
 - Choosing Electron before the worker boundary is proven independently.
 
 ## Graduation evidence

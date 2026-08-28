@@ -27,32 +27,9 @@ html {
 	scroll-padding-top: calc(var(--header-h) + 1.5rem);
 }
 
-/* The Supers logotype: Archivo 900 italic caps with the checkered-flag
-   chip skewed to the same rake. Black/white by construction — it rides
-   currentColor wherever it lands. */
-.supers-mark {
-	font-family: var(--display);
-	font-style: italic;
-	font-weight: 900;
-	letter-spacing: -0.015em;
-	text-transform: uppercase;
-}
-
-.supers-mark::after {
-	background: conic-gradient(
-		transparent 0 25%,
-		currentColor 0 50%,
-		transparent 0 75%,
-		currentColor 0
-	);
-	background-size: 0.44em 0.44em;
-	block-size: 0.44em;
-	content: '';
-	display: inline-block;
-	inline-size: 0.66em;
-	margin-inline-start: 0.32em;
-	transform: skewX(-10deg);
-}
+/* The logotype is drawn geometry shipped as an asset, never re-typeset in a
+   font (docs/identity/README.md), so there is deliberately no wordmark rule
+   here — the surfaces that name the product import the SVG. */
 
 body {
 	margin: 0;

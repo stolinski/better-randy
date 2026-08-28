@@ -4,6 +4,12 @@ import adapter from '@sveltejs/adapter-cloudflare';
 const config = {
 	kit: {
 		adapter: adapter(),
+		alias: {
+			// The docs site sets the same ratified identity the app ships, read
+			// straight from the generated assets rather than re-typeset here —
+			// see docs/identity/README.md.
+			$identity: '../src/lib/assets/identity'
+		},
 		prerender: {
 			handleHttpError: ({ status, path, referrer, message }) => {
 				if (status === 404) {

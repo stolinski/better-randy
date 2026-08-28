@@ -42,7 +42,7 @@ and approval, cycle-limit parking and override, abort, cleanup failure from a
 missing Dex task, stale workflow evidence, exact `nextStep` routing, and a
 second no-op materialization.
 
-The fixture is not visual evidence and never claims to be. Supers remains the
+The fixture is not visual evidence and never claims to be. GFX remains the
 representative policy-rich graph; a dirty shared worktree can validate that
 generated graph but cannot honestly provide terminal render evidence for an
 unrelated work item.

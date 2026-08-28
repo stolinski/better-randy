@@ -1,8 +1,8 @@
-# Supers Engine Architecture
+# GFX Engine Architecture
 
 Delivery routes objective rendered safety from a fresh exhaustive **Layout Contract Matrix**: numeric native geometry, readable identity, safe-area, size, clipping, timing, and deterministic-layout evidence with no screenshots. Missing or incomplete evidence pauses without claiming failure. Pixel diagnostics are explicit release/debug operations; Critic observations have no transition authority; subjective acceptance remains separate.
 
-The data model, rendering layers, pipeline registry, appearance (Pack) system, and render path that drive every Supers **Preset**. Companion to [`preset-format.md`](preset-format.md) (the preset JSON format reference).
+The data model, rendering layers, pipeline registry, appearance (Pack) system, and render path that drive every GFX **Preset**. Companion to [`preset-format.md`](preset-format.md) (the preset JSON format reference).
 
 **This doc states current truth.** Where it describes a mechanism, the code does that today. Deliberately narrower mechanisms are collected under [§ Known gaps](#known-gaps) and tracked in [`../docs/roadmap.md`](roadmap.md), not described here as if they are absent wholesale. The _why_ behind each decision lives in [`adr/`](adr/); this is the _what_.
 
@@ -360,7 +360,7 @@ The frame renderer owns all ordering after the request arrives:
 3) Branch-local render    pipeline.render(inputs), then branch compositing/shader passes
 4) Effect chain + present effectChain.apply(effects, input, outputView)
                            → dithered present pass; the active Video clip is
-                             centered-cover composited beneath processed Supers pixels
+                             centered-cover composited beneath processed GFX pixels
                              (the only 16f→8bit canvas write)
 ```
 
@@ -368,7 +368,7 @@ The **stage** branch runs Surface/Pack shader passes, captures an optional Overl
 
 **Contract specifics (all current):** off-screen intermediates are `rgba16float` (`INTERMEDIATE_FORMAT`); the **present pass** applies interleaved-gradient-noise dither (±0.5/255 on RGB, alpha exact) on the single 16f→8bit write — this is the banding fix, and it runs whether or not effects exist; canvas context is `alphaMode: 'premultiplied'`; every color attachment uses `loadOp: 'clear'`, `clearValue: [0,0,0,0]`. Time-driven shaders read `ctx = { progress, timestamp, canvasWidth, canvasHeight }`, plumbed identically through both the effect chain ([ADR-0012](adr/0012-effect-pack-context-progress-timestamp.md), amended to carry the canvas dimensions for resolution-dependent shaders) and shaderPasses ([ADR-0013](adr/0013-shaderpass-pack-context.md)) so preview and export agree. Local and scaled pass targets never redefine `canvasWidth` / `canvasHeight`; those remain the native composition dimensions.
 
-**Video-track final-present path.** At explicit output frame `F`, clip resolution searches the ordered half-open intervals `[timelineStartFrame, timelineStartFrame + durationFrames)`. An active clip maps `localFrame = F - timelineStartFrame` and `sourceTime = sourceStartSeconds + framesToSeconds(localFrame, transport rate)`. The decoder adds the asset track's first PTS, selects the last presentation sample at or before that requested timestamp, uploads it to the one resident `rgba8unorm` underlay texture, and passes that prepared texture through the same `CompositionFrameRenderRequest` used by preview and export. Decoder ownership/cache keys use immutable asset identity/URL, so repeated clips can reuse a decoder without making source offsets asset state. The present pass applies display rotation and centered cover sampling at the native target, then composites the already-processed premultiplied Supers result over the footage. Authored Effects and Pack chrome therefore never grade creator footage. A gap supplies no texture and stays transparent; it never paints black or reuses the preceding frame. V1 rejects active Video clips with `backgroundFill`, a dimensional `stage`, or transition Presets before rendering.
+**Video-track final-present path.** At explicit output frame `F`, clip resolution searches the ordered half-open intervals `[timelineStartFrame, timelineStartFrame + durationFrames)`. An active clip maps `localFrame = F - timelineStartFrame` and `sourceTime = sourceStartSeconds + framesToSeconds(localFrame, transport rate)`. The decoder adds the asset track's first PTS, selects the last presentation sample at or before that requested timestamp, uploads it to the one resident `rgba8unorm` underlay texture, and passes that prepared texture through the same `CompositionFrameRenderRequest` used by preview and export. Decoder ownership/cache keys use immutable asset identity/URL, so repeated clips can reuse a decoder without making source offsets asset state. The present pass applies display rotation and centered cover sampling at the native target, then composites the already-processed premultiplied GFX result over the footage. Authored Effects and Pack chrome therefore never grade creator footage. A gap supplies no texture and stays transparent; it never paints black or reuses the preceding frame. V1 rejects active Video clips with `backgroundFill`, a dimensional `stage`, or transition Presets before rendering.
 
 **Composition-wide dispatch.** `renderCompositionFrameTo` selects per frame: prepared transition snapshots → cached wipe (no irrelevant live-DOM upload); else `state.stage` present → the **dimensional depth stage** ([ADR-0028](adr/0028-dimensional-depth-stage.md), `DepthStage`); else `depth-of-field` Effect or composition-owned Surface opacity → 2.5D multiplane composition (ADR-0027); else flat composite. Every live branch receives the same complete `SurfaceRenderInputs` (including diagram stroke inputs) and the same queue-ordered upload-before-render. `TransitionSnapshotController` owns endpoint cache allocation, state swapping/restoration, invalidation, and settled endpoint capture; the frame renderer only consumes its cached textures. All branches share the frame seam and final Effect/present path, so preview == export holds for each.
 
@@ -448,7 +448,7 @@ Current mechanisms that remain deliberately narrower than their possible future 
 
 ## Non-goals
 
-- A general node/keyframe compositor. Supers is an opinionated, constrained vocabulary with smart defaults — After Effects is the _quality ceiling_, not the architecture.
+- A general node/keyframe compositor. GFX is an opinionated, constrained vocabulary with smart defaults — After Effects is the _quality ceiling_, not the architecture.
 - Cross-pipeline morphing at runtime (switching surface/overlay type is a content edit, not an animated transition — transitions between _Presets_ are the ADR-0022 path).
 - Coordinate-anchored text marks (inline bracket marks are the only text-addressing model).
 - Cloud sync, accounts, multi-user editing.

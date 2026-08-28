@@ -1,6 +1,6 @@
 # Project control plane
 
-How Supers keeps code, planning state, and automation honest. The control
+How GFX keeps code, planning state, and automation honest. The control
 plane is deliberately small: deterministic repo checks, one planning-drift
 audit, one Delivery factory, and one scheduled Sentry repair lane. Behavior
 lives in stage definitions, prompts, and plain scripts — not in bespoke

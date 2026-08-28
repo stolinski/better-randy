@@ -1,8 +1,8 @@
-# Supers Animation Rubric
+# GFX Animation Rubric
 
 This rubric supplies deterministic rules and human review criteria. Critic prose is advisory; only closed-code measured failures route automatic rework, and only an exact-evidence-bound human approval supplies subjective acceptance.
 
-This document is the rubric agents use when designing or reviewing a supers preset. Every preset shipped from `src/lib/presets/` must satisfy the **General Rules** unless the rule explicitly carves out an exception. Each **Overlay Rule** applies to the specific overlay type named in its heading.
+This document is the rubric agents use when designing or reviewing a GFX preset. Every preset shipped from `src/lib/presets/` must satisfy the **General Rules** unless the rule explicitly carves out an exception. Each **Overlay Rule** applies to the specific overlay type named in its heading.
 
 Every rule has three parts:
 
@@ -121,7 +121,7 @@ Cap-height is one dimension of legibility. The other two are **measure** (how ma
 ### G5. Maintain 4.5:1 contrast against every frame the text covers
 
 - **Rule** — The contrast ratio between text color and the local background (paper, surface, or transparent-over-footage) must be ≥ 4.5:1 for body text and ≥ 3:1 for large text (≥ 96 px / ≥ 60 px bold). For overlays sitting on transparent output (delivered as a key over footage), assume a worst-case mid-gray (#7f7f7f) background and verify against that.
-- **Why** — WCAG 2.2 AA contrast thresholds (4.5:1 / 3:1) are the floor for legibility under normal viewing. Supers exports are transparent and will be composited over unknown footage, so we cannot rely on the surface color the agent picks. Verifying against a mid-gray neutral is the standard "worst case" check.
+- **Why** — WCAG 2.2 AA contrast thresholds (4.5:1 / 3:1) are the floor for legibility under normal viewing. GFX exports are transparent and will be composited over unknown footage, so we cannot rely on the surface color the agent picks. Verifying against a mid-gray neutral is the standard "worst case" check.
 - **How to apply** — When choosing `typography.inkColor` against `typography.paperColor`, hit 4.5:1. For overlay text drawn directly on transparent (e.g. a future overlay variant with no chrome), require an additional legibility treatment (semi-transparent plate, drop shadow ≥ 4 px blur at 60% opacity, or a stroke ≥ 2 px) — single-color text on transparent is rejected.
 - **Residual contrast under fading plates.** A semi-transparent plate satisfies G5 only where it actually backs the text. Where a plate or scrim fades **below ~50% alpha under text** — a cascade-reveal tail, a plate that ramps out beneath a trailing subtitle — the text, **including its own shadow/stroke**, must _independently_ satisfy 4.5:1 (body) / 3:1 (large) against worst-case mid-gray (#7f7f7f). A plate that drops to ≈3.2:1 under its trailing subtitle fails: strengthen the tail's shadow/stroke, hold the plate above 50% alpha under all text, or shorten the text so it stays on the solid plate. The plate's _presence_ is not the guarantee — the achieved ratio at the fade is. Measured at the plate's sub-50%-alpha regions by the visual audit / Critic.
 - **Diagram DOM ink.** `surface.diagram[]` ink resolves to the surface body ink. On a **transparent** piece (no `backgroundFill`, no stage) the engine paints a two-zone legibility halo by default (`bd7e5e7`) so the worst-case-footage floor holds; on a **full-frame opaque** piece the halo is skipped and the diagram ink must clear 4.5:1 against `backgroundFill` — statically gated by `checkDiagramContrast` in `preset-rubric.ts`. A stage-backed diagram has no single static field, so its contrast is Critic/visual-audit territory.
@@ -153,7 +153,7 @@ Cap-height is one dimension of legibility. The other two are **measure** (how ma
 
 ### G7. Ease semantics — pick the curve for the job
 
-- **Rule** — Use the supers `Ease` vocabulary deliberately. The mapping is fixed in `engine-schema.ts`:
+- **Rule** — Use the GFX `Ease` vocabulary deliberately. The mapping is fixed in `engine-schema.ts`:
 
   | Ease      | GSAP curve            | Use for                                                                                                                  |
   | --------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------ |
@@ -181,15 +181,15 @@ The 12 Disney principles all apply, but five carry the weight for motion graphic
 ### G9. Frame-addressable and deterministic
 
 - **Rule** — Every animated value must be derivable from the timeline `progress` (`0..1`) alone. No `Math.random()` at render time, no `Date.now()`, no `performance.now()` reads inside `pipeline.render({...})`. Randomness for paper grain, jitter, hand-drawn wobble, etc. is allowed only if seeded from `progress` (or a stable per-mark index).
-- **Why** — Supers preview and export call the same request-object `renderCompositionFrameTo` seam. If a preset's appearance depends on wall-clock state, the exported video drifts from preview and exports re-run on the same input produce different files. The whole timeline architecture in `src/lib/platform/timeline.svelte.ts` exists to guarantee this.
+- **Why** — GFX preview and export call the same request-object `renderCompositionFrameTo` seam. If a preset's appearance depends on wall-clock state, the exported video drifts from preview and exports re-run on the same input produce different files. The whole timeline architecture in `src/lib/platform/timeline.svelte.ts` exists to guarantee this.
 - **How to apply** — Pipelines must read all randomness from a seeded source. Presets must not contain fields that imply non-deterministic motion. If a preset asks for "natural variation," it gets it via per-mark seed + frame index, not real randomness.
 
 ### G10. Respect reduced motion when delivered to the browser; honor motion safety at all times
 
-- **Rule** — Even though supers output is a baked video and the viewer's browser cannot apply `prefers-reduced-motion` to it, two motion-safety constraints still apply at authoring time:
+- **Rule** — Even though GFX output is a baked video and the viewer's browser cannot apply `prefers-reduced-motion` to it, two motion-safety constraints still apply at authoring time:
   - **No full-frame zoom/pan exceeding 25%** in less than 600 ms. Large fast translations of the whole composition are the dominant vestibular trigger.
   - **No flashing.** Avoid alternating fills/strokes faster than 3 Hz on regions ≥ 25% of the frame. WCAG 2.3.1 (three-flash threshold) is the broadcast floor.
-- **Why** — Over a third of adults have experienced vestibular symptoms. The same gestures (whip pans, fast zooms, strobing color shifts) that trigger discomfort on the web trigger it on video as well. A preset shipped from supers will end up on a 50" TV or a phone in someone's hand — design for both.
+- **Why** — Over a third of adults have experienced vestibular symptoms. The same gestures (whip pans, fast zooms, strobing color shifts) that trigger discomfort on the web trigger it on video as well. A preset shipped from GFX will end up on a 50" TV or a phone in someone's hand — design for both.
 - **How to apply** — Whole-frame camera motion exists only on the dimensional depth stage: inspect `stage.camera.move` (`static` / `push` / `drift`) and `stage.camera.amount` together with the clip duration. Keep the resulting move inside the 25% / 600 ms safety bound, and do not combine a strong camera move with a simultaneous large luminance or visibility change.
 
 ### G11. One Preset, genuinely reflowed across vertical and horizontal
@@ -206,7 +206,7 @@ The 12 Disney principles all apply, but five carry the weight for motion graphic
 ### G12. Transparency is the default; opacity must be declared
 
 - **Rule** — A Preset with neither `state.backgroundFill` nor `state.stage` must preserve transparent frame edges. A Preset may intentionally declare either to become a full-frame segment/bumper. Post-process `effects[]` must not accidentally make a transparent piece opaque to its edges.
-- **Why** — Supers produces both keyable overlays and self-contained full-frame pieces. The export path must infer the right delivery from explicit composition state rather than an accidental painted background.
+- **Why** — GFX produces both keyable overlays and self-contained full-frame pieces. The export path must infer the right delivery from explicit composition state rather than an accidental painted background.
 - **How to apply** — WebGPU render passes use `clearValue: [0, 0, 0, 0]` and the canvas context uses `alphaMode: 'premultiplied'`. `isEngineStateOpaque` classifies `backgroundFill` or a depth `stage` as opaque; a transition is opaque only when both endpoints are opaque. Verify transparent pieces retain zero-alpha edges and full-frame pieces paint to every edge.
 
 ---
@@ -247,7 +247,7 @@ A lower third is a name/source/identity tag pinned to the lower portion of the f
 
 ### Title Cards & Chapter Markers
 
-A full-frame or near-full-frame card introducing the video, a section, or a chapter. Supers currently models this via `surface.type: 'paper'` with a `title` slot; future overlay variants may add a dedicated `title-card` type.
+A full-frame or near-full-frame card introducing the video, a section, or a chapter. GFX currently models this via `surface.type: 'paper'` with a `title` slot; future overlay variants may add a dedicated `title-card` type.
 
 - **T1. Card visual mass — presence first, area second, with bleed allowed.**
 
@@ -315,7 +315,7 @@ These are the mark layer: highlight, underline, strike, circle, box, side-note (
 
 ### Pop-ups & B-roll Overlays
 
-Image-with-caption pop-ins, source citations, stat reveals, side-of-frame info cards. Supers does not yet have a dedicated `pop-up` overlay type — these rules govern future variants and any current preset that approximates them with `lower-third` + `surface`.
+Image-with-caption pop-ins, source citations, stat reveals, side-of-frame info cards. GFX does not yet have a dedicated `pop-up` overlay type — these rules govern future variants and any current preset that approximates them with `lower-third` + `surface`.
 
 - **P1. Anchor to an edge or corner, never centered.**
   - **Why** — A centered pop-up blocks the underlying footage. Edge-anchored leaves a usable 60%+ of the frame for the host's footage.

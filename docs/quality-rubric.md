@@ -1,4 +1,4 @@
-# Supers Quality Rubric
+# GFX Quality Rubric
 
 This rubric supplies deterministic rules and human review criteria. Critic prose is advisory; only closed-code measured failures route automatic rework, and only an exact-evidence-bound human approval supplies subjective acceptance.
 
@@ -65,7 +65,7 @@ If a preset fails any R-rule, **do not adjust preset values to hide the defect.*
 ### R7. Export has no compression or codec artifacts visible to the eye
 
 - **Rule** — The exported video (or frame) has no visible 8×8 block patterns, no color bleed around high-contrast edges, no smear on motion, no chroma subsampling artifacts on saturated regions. Verified at **400% zoom** near high-contrast edges and saturated regions.
-- **Why** — Supers output is composited over other footage in an NLE. Lossy artifacts compound through the editor's render pipeline. A WebM/VP9 export with `alpha: 'keep'` and a high enough bitrate / quality setting is the floor; if the export shows visible compression, the encoder settings or codec choice is wrong.
+- **Why** — GFX output is composited over other footage in an NLE. Lossy artifacts compound through the editor's render pipeline. A WebM/VP9 export with `alpha: 'keep'` and a high enough bitrate / quality setting is the floor; if the export shows visible compression, the encoder settings or codec choice is wrong.
 - **How to verify (evidence required)** — Zoom to 400% near any high-contrast edge in the exported frame. Then zoom to 400% on a saturated-color region. Report: *"At 400% zoom near `<edge>`, the edge shows [clean transition / 8×8 block boundaries / mosquito noise]. At 400% on `<saturated region>`, the color shows [clean fill / chroma bleed beyond the geometry / chroma blocks]."* Any blocking / bleed / mosquito noise **FAILS**. Fix: raise encoder quality, switch codec, or render the test as a sequence of PNG/EXR frames to isolate whether the defect is pre- or post-encode.
 
 ### R8. R-rule failures are pipeline bugs — do not hide them in the preset

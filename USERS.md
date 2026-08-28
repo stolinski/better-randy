@@ -1,5 +1,5 @@
 ---
-name: Supers
+name: GFX
 description: Author broadcast-quality, frame-deterministic motion pieces (transparent overlays + full-frame segments/bumpers) as JSON Presets dressed by swappable Packs, reflowing across horizontal and vertical targets.
 users:
   - id: repo-agent
@@ -63,13 +63,13 @@ users:
     success: "a User composition that reads as intentional and ships to their channel, authored entirely in the GUI"
     resonance_cue: "dense, precise, DaVinci-inspired-but-more-intentional tool chrome; no marketing gloss; the tool respects that they have taste and gets out of the way"
 anti_users:
-  - "node-compositor power users — anyone wanting a general node graph / After Effects replacement (Supers is a constrained, opinionated vocabulary; After Effects is the quality ceiling, not the architecture)"
+  - "node-compositor power users — anyone wanting a general node graph / After Effects replacement (GFX is a constrained, opinionated vocabulary; After Effects is the quality ceiling, not the architecture)"
   - "generic-good-enough acceptors — anyone happy with 'animated div' output (the Identity Spec refuses div-shaped approximations; the Critic rejects default-too-permissive)"
 ---
 
 ## Overview
 
-Supers is an opinionated, Netflix-grade **motion-graphics engine**. It produces
+GFX is an opinionated, Netflix-grade **motion-graphics engine**. It produces
 broadcast-quality motion pieces — transparent overlays composited over footage,
 and full-frame segments/bumpers — authored as JSON **Presets**, dressed by a
 swappable **Pack**, reflowing across horizontal (YouTube) and vertical
@@ -140,7 +140,7 @@ that the agent can't reach past them into capabilities they can't.
 
 ## Who This Is Not For
 
-**Node-compositor power users.** Supers is deliberately a tasteful, constrained
+**Node-compositor power users.** GFX is deliberately a tasteful, constrained
 vocabulary with smart defaults — not a general node graph. *After Effects is the
 quality ceiling, not the architecture.* Anyone reaching for a blank-canvas
 compositor is reaching for the wrong tool, and serving them would dissolve the
@@ -149,7 +149,7 @@ opinionation that makes the output good.
 **Generic-good-enough acceptors.** The product actively fights "good enough." The
 Identity Spec refuses div-shaped approximations at registration time and the Critic
 rejects `default-too-permissive` findings. A user content with "animated div"
-output is not underserved by Supers — they are working against its entire premise.
+output is not underserved by GFX — they are working against its entire premise.
 
 Notably *not* excluded: non-technical creators and users who want fast, low-effort
 results. They aren't the audience today, but they are who the tool is being built

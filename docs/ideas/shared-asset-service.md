@@ -4,13 +4,13 @@
 
 ## Pitch
 
-Local Supers installs talk to one centralized asset service. Sound effects and other composition assets can be shared, rated, tagged, and attributed to the user who uploaded them. Logged-in users get their **team's** private library — the brand's asset vault — synced into the local app. Later, the same plumbing carries a public commons, and eventually shared compositions and packs.
+Local GFX installs talk to one centralized asset service. Sound effects and other composition assets can be shared, rated, tagged, and attributed to the user who uploaded them. Logged-in users get their **team's** private library — the brand's asset vault — synced into the local app. Later, the same plumbing carries a public commons, and eventually shared compositions and packs.
 
 The app itself stays local. The service is a distribution layer, not a runtime dependency.
 
 ## Why
 
-- **It matches the product definition.** Supers is shipped to creators; Packs = customer brands ([roadmap § pack catalog](../roadmap.md)). A brand is almost never one person — it's a creator plus an editor plus whoever. "Team" and "brand" are nearly the same object, and a team library is just the brand's asset vault: its sound alternates, logos, b-roll, substrate photos.
+- **It matches the product definition.** GFX is shipped to creators; Packs = customer brands ([roadmap § pack catalog](../roadmap.md)). A brand is almost never one person — it's a creator plus an editor plus whoever. "Team" and "brand" are nearly the same object, and a team library is just the brand's asset vault: its sound alternates, logos, b-roll, substrate photos.
 - **The Foley catalog proved curation is the value.** The current 28-cue checked-in Foley library gives semantic events useful defaults while preserving per-motion sample choice ([ADR-0033](../adr/0033-sound-design-motion-emitted-cues.md)). Community and team sounds would slot in as additional `sound.sample` alternates routed through that existing grammar; ratings and tags become the discovery layer for the picker.
 - **The network-effect endgame is presets and packs, not sounds.** [ADR-0039](../adr/0039-pack-neutral-compositions-and-listing-hygiene.md) pack-neutrality is exactly what makes a shared composition valuable: anyone's preset re-dresses under your brand automatically. That is the Figma-Community-shaped prize. Sounds are the wedge that proves the sync/ownership/curation machinery first.
 
@@ -61,7 +61,7 @@ The hosted service exposes a **standard remote MCP server** — the registry/sto
 ## Remaining opens
 
 - **Identity provider and account model** — and whether a team is its own entity or just a shared namespace.
-- **Where the service lives.** Supers is local-only by doctrine; the service is a separate deployable. First-party hosted only, or also self-hostable (the "self-hosted app + central DB" variant that seeded this idea)?
+- **Where the service lives.** GFX is local-only by doctrine; the service is a separate deployable. First-party hosted only, or also self-hostable (the "self-hosted app + central DB" variant that seeded this idea)?
 - **Sync vs the local store's lifecycle** — how synced team bytes interact with the media store's cleanup/GC and bounded export sessions.
 - **Ratings scope** — global, per-team, or both; and what signal actually feeds tier promotion.
 - **Versioning for shared compositions** — fork-on-open dodges conflicts but not "the original improved since I forked."

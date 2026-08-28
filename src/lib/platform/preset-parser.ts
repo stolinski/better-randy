@@ -9,11 +9,11 @@ export function parsePreset(json: unknown): Preset {
 		const issues = result.error.issues
 			.map((issue) => `${issue.path.join('.') || '<root>'}: ${issue.message}`)
 			.join('\n');
-		throw new Error(`Invalid Supers preset:\n${issues}`);
+		throw new Error(`Invalid GFX preset:\n${issues}`);
 	}
 	const semanticIssues = validatePresetSemantics(result.data, { resolvePreset: getPresetBySlug });
 	if (semanticIssues.length > 0) {
-		throw new Error(`Invalid Supers preset:\n${formatPresetSemanticIssues(semanticIssues)}`);
+		throw new Error(`Invalid GFX preset:\n${formatPresetSemanticIssues(semanticIssues)}`);
 	}
 	return result.data;
 }

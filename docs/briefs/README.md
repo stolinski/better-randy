@@ -1,4 +1,4 @@
-# Supers Briefs
+# GFX Briefs
 
 A **Brief** is the markdown directive for one not-yet-shipped **Preset**, **Pipeline**, or content domain. One file per in-flight idea. Authored by the **Brainstorm** agent (`/brainstorm <slug>`) and read by the **Producer** sub-agent (`/author <slug>`). Critic observations never authorize Brief deletion.
 

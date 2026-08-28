@@ -15,7 +15,7 @@ Add a datamoshing Effect inspired by [Supermosh](https://supermosh.github.io). T
 
 ## Pick-up questions
 
-- Which datamosh behaviors belong in Supers' constrained vocabulary rather than a general glitch tool?
+- Which datamosh behaviors belong in GFX's constrained vocabulary rather than a general glitch tool?
 - Can the effect work over transparent compositions without inventing opaque pixels or corrupting premultiplied alpha?
 - What temporal state must the renderer retain so arbitrary frame seeks and export produce identical pixels?
 - Which controls expose useful art direction without becoming a codec simulator?

@@ -1,6 +1,6 @@
-# Supers Critic — Adversarial Observations
+# GFX Critic — Adversarial Observations
 
-> **Authority boundary:** The Critic is an optional adversarial observation tool. Its prose, categories, and summaries cannot block, approve, reject, mutate, or route Supers Delivery. Objective routing comes only from fresh deterministic closed-code evidence; subjective acceptance comes only from trusted human approval bound to the exact integrated tree and render bundle.
+> **Authority boundary:** The Critic is an optional adversarial observation tool. Its prose, categories, and summaries cannot block, approve, reject, mutate, or route GFX Delivery. Objective routing comes only from fresh deterministic closed-code evidence; subjective acceptance comes only from trusted human approval bound to the exact integrated tree and render bundle.
 
 The protocol for collecting independent observations about a **Preset**. The companion to [`docs/quality-rubric.md`](quality-rubric.md), [`docs/animation-rubric.md`](animation-rubric.md), and the **active Pack's aesthetic** (`docs/packs/<preset.pack>/aesthetic.md` per [ADR-0014](adr/0014-pack-preset-split.md); the legacy single `docs/aesthetic.md` is now a redirect). Background: [ADR-0001](adr/0001-critic-sub-agent-verification.md).
 
@@ -14,7 +14,7 @@ Run the Critic when a human wants an independent adversarial reading of a Preset
 
 ### Pack aesthetics stay advisory
 
-Supers is a **general motion-graphics engine** — "the engine is general, the look is not" (CLAUDE.md). A Pack supplies the channel's appearance; it does not define what the engine is allowed to do. Therefore:
+GFX is a **general motion-graphics engine** — "the engine is general, the look is not" (CLAUDE.md). A Pack supplies the channel's appearance; it does not define what the engine is allowed to do. Therefore:
 
 - A Pack aesthetic or channel-fit observation is always classified `aesthetic-miss`.
 - Never escalate a Pack style mismatch into a `pipeline-bug` or `default-too-permissive`. A suspected defect is a wrong pixel measurable against the R/Q/G rules, independent of any Pack.
@@ -36,10 +36,10 @@ The sub-agent does **not** see the conversation that produced the Preset. The fr
 ### Spawn prompt template
 
 ```text
-You are the Critic for the Supers preset at <preset-path>.
+You are the Critic for the GFX preset at <preset-path>.
 
 CAPTURE SETUP (this repo): the dev server is at http://localhost:7263 — corpus
-route http://localhost:7263/p/<slug>?source=builtin. Supers renders via WICG
+route http://localhost:7263/p/<slug>?source=builtin. GFX renders via WICG
 HTML-in-Canvas, which
 needs Chrome launched with --enable-blink-features=CanvasDrawElement; a
 flag-enabled Chrome runs on CDP port 9223 — start or confirm it with

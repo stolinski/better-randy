@@ -1,6 +1,6 @@
-# Supers Context
+# GFX Context
 
-The shared language for Supers's preset engine, channel aesthetic, and agent workflow. Every doc and agent in this repo should use these terms with these meanings.
+The shared language for GFX's preset engine, channel aesthetic, and agent workflow. Every doc and agent in this repo should use these terms with these meanings.
 
 ## Language
 
@@ -329,7 +329,7 @@ The named-observation format for advisory R-rule observations — pixel coordina
 
 ## Flagged ambiguities
 
-- **"Supers"** was simultaneously the product name, the technical prefix, and the composition schema id. Resolved: **GFX** is the current namespace, and every remaining `supers` spelling is a **Legacy Supers artifact** carrying one **name disposition** ([ADR-0053](adr/0053-gfx-namespace-and-legacy-supers-compatibility.md)). This glossary's own title and prose are classified `rename-now` and are renamed by their own Delivery change — not opportunistically while editing neighbouring entries.
+- **"Supers"** was simultaneously the product name, the technical prefix, and the composition schema id. Resolved: **GFX** is the current namespace, and every remaining `supers` spelling is a **Legacy Supers artifact** carrying one **name disposition** ([ADR-0053](adr/0053-gfx-namespace-and-legacy-supers-compatibility.md)). This glossary, the product copy, and the current guidance docs have been renamed; the `supers` spellings that remain in them are quoted protocol values, not prose.
 - **"session"** meant both the visitor's browsing context and a server-side encode. Resolved: a **Public demo session** is browser-scoped and holds composition state; an **Export session** is server-side, holds rendered frames only, and destroys itself. They never share storage or lifetime.
 - **"annotation"** was historically used both for the broad layer category and for the hand-claiming subset. Resolved: **Annotation** is the Layer; **Mark** is the narrower hand-claiming subset.
 - **"tool"** historically meant a per-route generator (`research-paper`, `quote-focus`). After [ADR-0002](adr/0002-per-tool-routes-to-preset-engine.md), that sense is retired; the unit of authoring is a **Preset**. The word now has exactly one live meaning: a **WebMCP tool**, the registered `document.modelContext` entry that exposes one **Operation** ([ADR-0054](adr/0054-webmcp-operation-transaction-and-security-contract.md)). A tool is the transport; the **Operation** is the decision.

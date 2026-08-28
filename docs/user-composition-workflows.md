@@ -2,7 +2,7 @@
 
 GUI authors and agents read and write the same standalone `supers@1` Preset through the local user store. The store API is the supported interchange boundary; files under `user-compositions/` are internal metadata wrappers and are not standalone Presets.
 
-The local server is always `http://localhost:7263`. All examples below operate on the same User compositions listed on the Supers home screen.
+The local server is always `http://localhost:7263`. All examples below operate on the same User compositions listed on the GFX home screen.
 
 ## Agent store access
 
@@ -127,7 +127,7 @@ npm run supers -- render --preset episode-title --out ./out/episode-title.mov
 
 `GET`, `PUT`, GUI JSON import/export, fork-on-edit, and CLI file-Preset import all preserve `state.media`. IDs, names, URLs, clip placement, Source time, and clip audio are stable Preset data. Readiness and probe details are computed from bytes when listing/opening and are not written into `state.media`. GET remains available when previously stored referenced bytes go missing so the composition can be repaired; writes and export reject a referenced missing or undecodable Media asset. An unused Media library entry may remain in the composition, including while unavailable, because it does not participate in rendering.
 
-Standalone Preset JSON does not embed or copy video bytes. It is standalone composition data, not a media bundle or Project artifact. Moving a composition to another local Supers workspace therefore requires ingesting each Media asset there and updating the corresponding library entry's `assetUrl` to the content address returned by that workspace. Multiple compositions or entries may reference one deduplicated URL; removing membership never deletes those shared bytes.
+Standalone Preset JSON does not embed or copy video bytes. It is standalone composition data, not a media bundle or Project artifact. Moving a composition to another local GFX workspace therefore requires ingesting each Media asset there and updating the corresponding library entry's `assetUrl` to the content address returned by that workspace. Multiple compositions or entries may reference one deduplicated URL; removing membership never deletes those shared bytes.
 
 ## GUI interchange
 
