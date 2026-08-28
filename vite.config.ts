@@ -6,6 +6,8 @@ export default defineConfig(({ mode }) => ({
 	...(mode === 'test'
 		? {}
 		: {
+				// Package-root exclusions also cover deep imports such as svelte/reactivity.
+				// Keep Svelte out of changing SSR prebundles while the dev server is running.
 				ssr: {
 					optimizeDeps: {
 						exclude: ['svelte']
@@ -13,7 +15,7 @@ export default defineConfig(({ mode }) => ({
 				}
 			}),
 	test: {
-		include: ['src/**/*.test.ts']
+		include: ['src/**/*.test.ts', 'vite.config.test.ts']
 	},
 	server: {
 		port: 7263,
