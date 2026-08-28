@@ -3,8 +3,11 @@
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 
+	import { GFX_PRODUCT_NAME } from '$lib/identity/gfx-brand';
 	import type { Preset, SurfaceType } from '$lib/platform/engine-schema';
 	import type { PresetVerificationIssue } from '$lib/platform/preset-verification';
+	import gfxLogotype from '$lib/assets/identity/gfx-logotype.svg';
+	import gfxMark from '$lib/assets/identity/gfx-mark.svg';
 	import PosterCard from './PosterCard.svelte';
 	import { SURFACE_LABELS } from './surface-labels';
 
@@ -433,14 +436,19 @@
 {/snippet}
 
 <svelte:head>
-	<title>Supers</title>
+	<title>{GFX_PRODUCT_NAME}</title>
 </svelte:head>
 
 <main class="home">
 	<header class="topbar">
+		<!-- The masthead lockup: mark, then logotype, on one baseline
+		     (docs/identity/README.md). The logotype carries the accessible name, so
+		     the mark beside it is decorative. -->
 		<div class="topbar__brand">
-			<h1 class="topbar__wordmark">Supers</h1>
-			<p class="topbar__stamp">4K / WebGPU / alpha</p>
+			<img class="topbar__mark" src={gfxMark} alt="" width="22" height="22" />
+			<h1 class="topbar__logotype">
+				<img src={gfxLogotype} alt={GFX_PRODUCT_NAME} width="38" height="15" />
+			</h1>
 		</div>
 		<div class="topbar__search">
 			<svg
@@ -639,6 +647,9 @@
 		--muted: #8a8a90;
 		--selection: #ffd608;
 		--danger-text: #f0453d;
+		/* Same 52px the editor's topbar stands at — see `.topbar` below. The rail
+		   sticks under it, so the height is written once here. */
+		--chrome-bar-h: 52px;
 		background: var(--ink);
 		color: var(--text);
 		display: flex;
@@ -660,6 +671,12 @@
 	}
 
 	/* ── Top bar ─────────────────────────────────────────────────────────── */
+	/* Height and inline inset match `.workspace__topbar` (Workspace.svelte) on
+	   purpose: the mark is the same 22px artwork on both routes, so it has to
+	   land on the same pixel when you open a composition. The editor's 52px bar
+	   sets the mark 15px in — 12px of bar padding plus the 3px its 28px home-link
+	   slot adds — and the brand here centres to the same point. Change one bar's
+	   height or inset and the mark visibly jumps on navigation. */
 	.topbar {
 		align-items: center;
 		background: var(--panel);
@@ -667,59 +684,33 @@
 		display: flex;
 		gap: 1.25rem;
 		inset-block-start: 0;
-		min-block-size: 3.5rem;
-		padding-inline: 1.25rem 1rem;
+		min-block-size: var(--chrome-bar-h);
+		padding-inline: 15px 1rem;
 		position: sticky;
 		z-index: 20;
 	}
 
 	.topbar__brand {
-		align-items: baseline;
+		align-items: center;
 		display: flex;
 		flex-shrink: 0;
-		gap: 0.6rem;
+		gap: 0.625rem;
 	}
 
-	.topbar__wordmark {
-		font-family: Archivo, sans-serif;
-		font-size: 1.3125rem;
-		font-style: italic;
-		font-weight: 900;
-		letter-spacing: -0.045em;
-		line-height: 1;
+	/* Drawn geometry at its proven sizes: the mark holds down to 16px, the
+	   logotype down to a 15px cap. Neither is ever re-typeset or re-spaced. */
+	.topbar__mark {
+		block-size: 1.375rem;
+		inline-size: 1.375rem;
+	}
+
+	.topbar__logotype {
+		display: flex;
 		margin: 0;
-		/* The one sanctioned display accent (DESIGN.md Typography): a single
-		   hard-offset signal-hue shadow on the brand shout. */
-		text-shadow: 0.055em 0.045em 0 rgb(230 50 42 / 0.7);
-		text-transform: uppercase;
 	}
 
-	.topbar__wordmark::after {
-		--checker-cell: 0.16em;
-		--checker-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 3 2' shape-rendering='crispEdges'%3E%3Cpath fill='white' d='M0 0h1v1H0zM2 0h1v1H2zM1 1h1v1H1z'/%3E%3C/svg%3E");
-		background: currentColor;
-		block-size: calc(var(--checker-cell) * 2);
-		content: '';
-		display: inline-block;
-		inline-size: calc(var(--checker-cell) * 3);
-		margin-inline-start: 0.24em;
-		-webkit-mask: var(--checker-mask) 0 0 / 100% 100% no-repeat;
-		mask: var(--checker-mask) 0 0 / 100% 100% no-repeat;
-		transform: skewX(-10deg);
-		transform-origin: 0 100%;
-	}
-
-	.topbar__stamp {
-		/* Sanctioned spec-plate exception (DESIGN.md Typography): a data readout,
-		   so it keeps the instrument mono voice. */
-		color: var(--muted);
-		font-family: 'Paper Mono', monospace;
-		font-size: 0.5625rem;
-		font-weight: 400;
-		letter-spacing: 0.22em;
-		line-height: 1.2;
-		margin: 0;
-		text-transform: uppercase;
+	.topbar__logotype img {
+		block-size: 0.9375rem;
 	}
 
 	.topbar__search {
@@ -885,8 +876,8 @@
 
 	.rail__body {
 		display: grid;
-		inset-block-start: 3.5rem;
-		max-block-size: calc(100svh - 3.5rem);
+		inset-block-start: var(--chrome-bar-h);
+		max-block-size: calc(100svh - var(--chrome-bar-h));
 		overflow-y: auto;
 		padding-block: 0.875rem 1.125rem;
 		position: sticky;

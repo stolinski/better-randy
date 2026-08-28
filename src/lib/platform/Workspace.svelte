@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { onDestroy, tick, untrack } from 'svelte';
 
+	import GfxMarkHomeLink from '$lib/identity/GfxMarkHomeLink.svelte';
 	import { AnimationManager } from './animation-manager';
 	import { TextAnimationManager } from '$lib/text-animations/manager.svelte';
 	import { animState } from './anim-state.svelte';
@@ -1170,24 +1170,7 @@
 
 <main class="workspace" style:--timeline-h="{effectiveTimelineHeight}px">
 	<header class="workspace__topbar">
-		<a class="topbar__back" href={resolve('/')} aria-label="Back to presets">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				width="14"
-				height="14"
-				viewBox="0 0 16 16"
-				aria-hidden="true"
-			>
-				<path
-					d="M10 3L5 8l5 5"
-					stroke="currentColor"
-					stroke-width="1.5"
-					fill="none"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-				/>
-			</svg>
-		</a>
+		<GfxMarkHomeLink />
 		<span class="topbar__name"
 			>{presetBase.name || (compositionMeta.userCompositionSlug ?? 'Untitled')}</span
 		>
@@ -1407,26 +1390,6 @@
 		grid-area: topbar;
 		min-block-size: 52px;
 		padding-inline: 12px 14px;
-	}
-
-	.topbar__back {
-		align-items: center;
-		block-size: 28px;
-		border-radius: 6px;
-		color: var(--chrome-muted);
-		display: inline-flex;
-		flex-shrink: 0;
-		inline-size: 28px;
-		justify-content: center;
-		text-decoration: none;
-		transition:
-			background 100ms ease,
-			color 100ms ease;
-	}
-
-	.topbar__back:hover {
-		background: var(--chrome-raised);
-		color: var(--chrome-text);
 	}
 
 	.topbar__name {

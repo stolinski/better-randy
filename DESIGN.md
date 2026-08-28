@@ -1,5 +1,5 @@
 ---
-name: Supers
+name: GFX
 description: A dead-neutral instrument deck — achromatic chrome where the only color on screen is a state light or a clip on the track, so the canvas is the only picture.
 colors:
   primary: "#E8E8EA" # instrument text — labels, values, icons
@@ -15,11 +15,6 @@ colors:
   success: "#3DBF6E" # green light — completion only (export done, valid state)
   clip: "#1F5AFF" # clip blue — timeline clip bars only: media on the track, never a message
 typography:
-  display:
-    fontFamily: Archivo
-    fontSize: 6rem
-    fontWeight: 900
-    lineHeight: 0.95
   section-label:
     fontFamily: Archivo
     fontSize: 0.72rem
@@ -101,7 +96,7 @@ components:
 
 ## Overview
 
-Supers chrome is a **dead-neutral instrument deck**. The tool is a
+GFX chrome is a **dead-neutral instrument deck**. The tool is a
 color-critical motion-graphics editor, so the chrome is strictly achromatic —
 zero hue in any panel, border, or text — and recessive: the canvas is the only
 picture, and the instrument lights are the only color on screen. The tonal
@@ -111,7 +106,7 @@ designed — never a clone of its bevels and gray-on-gray button soup.
 The distinctive angle: **color is never decoration; every hue on screen is a
 state with exactly one meaning.** Yellow is selection. Cyan is time. Red is
 danger. Green is completion. Blue is a clip on the track — media, not a
-message. A screenshot of Supers is identifiable by its four lights and blue
+message. A screenshot of GFX is identifiable by its four lights and blue
 clip bars on an otherwise silent monochrome deck — like channel lights on
 broadcast hardware.
 
@@ -168,20 +163,45 @@ value is on the LCD in mono.**
 - **JetBrains Mono 600** is the instrument voice, reserved strictly for values:
   timecodes, frame numbers, coordinates, numeric field inputs. If it isn't
   data, it isn't mono.
-- **Archivo Black Italic (900)** is the display shout — the brand voice on the
-  home screen and equivalent rare moments. It never appears inside the editor
-  chrome at UI scale. The display voice carries one sanctioned color latitude:
-  a brand moment may set a single hard-offset shadow in a signal hue (the
-  wordmark's red offset). That is a compositional accent, not a state — the
-  latitude never extends to editor chrome, to text at UI scale, or beyond the
-  one shadow.
-- **The spec plate** (the home screen's `4K / WEBGPU / ALPHA` stamp) is a
-  sanctioned mono exception: it reads as a hardware data readout, not a label.
-  It is set in muted, never in a signal hue.
+- **There is no display typeface.** The brand voice is the drawn logotype in
+  Identity below, not a heavy cut of Archivo — so the chrome registers 400–700
+  and nothing more, and no type on screen shouts.
+- **The spec plate** (the `4K / WEBGPU / ALPHA` stamp) is a sanctioned mono
+  exception: it reads as a hardware data readout, not a label. It is set in
+  muted, never in a signal hue. It belongs to the masthead and the share card —
+  the app's own chrome carries no such stamp.
 
 The scale is compact and utilitarian: tight steps around a 13px working size,
 no editorial jumps inside the tool. Hierarchy comes from weight, caps, and the
 sans/mono voice split — not from size inflation.
+
+## Identity
+
+The mark and the `GFX` logotype are **drawn geometry, never typeset text** —
+explicit SVG paths emitted from `src/lib/identity/gfx-identity-geometry.ts`, so
+a favicon or a share card rasterizes identically with no font available. The
+shipped assets live in `src/lib/assets/identity/` and are generated: hand-edit
+one and the next `pnpm gen:identity` overwrites it.
+
+Transparency is the engine's binding rule, so a transparency checkerboard is
+the mark — one quartered square, two cells of ink, leaning 14°. The letters are
+built from the same cells on a 5-by-7 module.
+
+The family is **achromatic**: ink `#E8E8EA`, second checker neutral `#8A8A90`,
+plate `#0C0C0E`, and nothing else. No accent, no gradient, no signal hue, and
+never a Pack colour — the identity has no colour latitude of any kind. Surfaces
+that cannot carry the plate use the one-ink cut (`#E8E8EA` on the deck,
+`#0C0C0E` on paper), which drops the second neutral rather than flattening the
+checker into a solid block.
+
+Lockups run mark, then logotype, on one baseline. The mark alone is the favicon,
+the app icon, and the editor's home link; it is proven down to 16px, and the
+logotype down to a 15px cap. Every chrome bar stands the mark on the same
+pixel — 15px in, in a 52px bar — so it never shifts as you move between the
+listing and a composition. Keep clear space equal to a quarter of the mark's
+height. Never re-typeset, rotate, stretch, re-space, or shadow either form. Full
+use rules and the generated legibility proof:
+[`docs/identity/README.md`](docs/identity/README.md).
 
 ## Layout
 

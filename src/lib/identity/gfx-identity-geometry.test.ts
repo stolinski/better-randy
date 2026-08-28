@@ -1,17 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-	GFX_ALPHA_CELL_VARIANTS,
+	GFX_IDENTITY,
 	GFX_IDENTITY_PALETTES,
 	GFX_IDENTITY_TILE_UNITS,
-	findGfxAlphaCellVariant,
 	measureGfxIdentityFeaturePixels,
 	renderGfxIdentityLogotypeSvg,
-	renderGfxIdentityMarkSvg,
-	type GfxAlphaCellVariantId
+	renderGfxIdentityMarkSvg
 } from './gfx-identity-geometry.ts';
-
-const VARIANT_IDS = GFX_ALPHA_CELL_VARIANTS.map((variant) => variant.id);
 
 /** Smallest feature that still resolves on a standard-density display. */
 const MINIMUM_FEATURE_PIXELS = 1.5;
@@ -23,111 +19,76 @@ function extractFills(svg: string): string[] {
 	return [...svg.matchAll(/fill="([^"]+)"/g)].map((match) => match[1]);
 }
 
-/**
- * Side of the first cell a logotype emits, in module units. Cells are square and
- * inset by half the gutter, so this is the variant's type weight made numeric.
- */
-function firstLogotypeCellSide(svg: string): number {
-	const rectangle = /M([\d.]+) ([\d.]+)H([\d.]+)/.exec(svg);
-	if (!rectangle) throw new Error('logotype emitted no cell rectangles');
-	return Number(rectangle[3]) - Number(rectangle[1]);
-}
-
-function logotypeWidthUnits(svg: string): number {
-	const viewBox = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(svg);
-	if (!viewBox) throw new Error('logotype emitted no viewBox');
-	return Number(viewBox[1]);
-}
-
-describe('alpha-cell variants', () => {
-	it('explores four variants of the one ratified direction', () => {
-		expect(VARIANT_IDS).toEqual(['alpha-cell-a', 'alpha-cell-b', 'alpha-cell-c', 'alpha-cell-d']);
+describe('the ratified identity', () => {
+	it('stays traceable to the candidate Scott approved', () => {
+		expect(GFX_IDENTITY.ratifiedCandidateId).toBe('alpha-cell-b');
 	});
 
-	it('rejects an unknown variant by name', () => {
-		expect(() => findGfxAlphaCellVariant('deck-plate' as GfxAlphaCellVariantId)).toThrow(TypeError);
-	});
-
-	it('keeps every bleed field upright, because a sheared one slivers its edge cells', () => {
-		for (const variant of GFX_ALPHA_CELL_VARIANTS) {
-			if (variant.mark.kind === 'bleed-checker') expect(variant.shearDegrees).toBe(0);
-		}
+	it('leans the logotype with its own mark', () => {
+		const svg = renderGfxIdentityLogotypeSvg(GFX_IDENTITY_PALETTES.monoDark);
+		expect(svg).toContain(`skewX(${GFX_IDENTITY.shearDegrees})`);
 	});
 });
 
 describe('small-size legibility', () => {
-	it.each(VARIANT_IDS)('keeps %s above the resolvable cell width at 16px', (id) => {
-		expect(measureGfxIdentityFeaturePixels(id, FAVICON_PIXELS)).toBeGreaterThanOrEqual(
+	it('keeps the tightest cell above the resolvable width at 16px', () => {
+		expect(measureGfxIdentityFeaturePixels(FAVICON_PIXELS)).toBeGreaterThanOrEqual(
 			MINIMUM_FEATURE_PIXELS
 		);
 	});
 
 	it('scales the cell width linearly with the rendered size', () => {
-		const small = measureGfxIdentityFeaturePixels('alpha-cell-a', 32);
-		const large = measureGfxIdentityFeaturePixels('alpha-cell-a', 64);
-		expect(large).toBeCloseTo(small * 2, 6);
+		expect(measureGfxIdentityFeaturePixels(64)).toBeCloseTo(
+			measureGfxIdentityFeaturePixels(32) * 2,
+			6
+		);
 	});
 
 	it('refuses a non-positive rendered size', () => {
-		expect(() => measureGfxIdentityFeaturePixels('alpha-cell-a', 0)).toThrow(TypeError);
+		expect(() => measureGfxIdentityFeaturePixels(0)).toThrow(TypeError);
 	});
 });
 
 describe('mark emission', () => {
-	it.each(VARIANT_IDS)('draws %s inside the shared 64-unit tile', (id) => {
-		const svg = renderGfxIdentityMarkSvg(id, GFX_IDENTITY_PALETTES.deck);
+	it('draws inside the 64-unit tile', () => {
+		const svg = renderGfxIdentityMarkSvg(GFX_IDENTITY_PALETTES.deck);
 		expect(svg).toContain(`viewBox="0 0 ${GFX_IDENTITY_TILE_UNITS} ${GFX_IDENTITY_TILE_UNITS}"`);
 		expect(svg).toContain('<path d="M');
 	});
 
-	it.each(VARIANT_IDS)('emits %s with no typeset text', (id) => {
-		const svg = renderGfxIdentityMarkSvg(id, GFX_IDENTITY_PALETTES.deck);
-		expect(svg).not.toContain('<text');
-		expect(svg).not.toContain('font-family');
+	it('emits no typeset text, so a favicon rasterizes with no font available', () => {
+		for (const svg of [
+			renderGfxIdentityMarkSvg(GFX_IDENTITY_PALETTES.deck),
+			renderGfxIdentityLogotypeSvg(GFX_IDENTITY_PALETTES.deck)
+		]) {
+			expect(svg).not.toContain('<text');
+			expect(svg).not.toContain('font-family');
+		}
 	});
 
-	it.each(VARIANT_IDS)('sets %s in two neutrals on the deck and never a third', (id) => {
+	it('sets the mark in two neutrals on the deck and never a third', () => {
 		const { deck } = GFX_IDENTITY_PALETTES;
-		const fills = new Set(extractFills(renderGfxIdentityMarkSvg(id, deck)));
-		expect(fills).toContain(deck.ink);
-		expect(fills).toContain(deck.inkAlternate);
+		const fills = new Set(extractFills(renderGfxIdentityMarkSvg(deck)));
 		expect(fills).toEqual(new Set([deck.ink, deck.inkAlternate, deck.tile]));
 	});
 
-	it.each(VARIANT_IDS)('drops the plate and the second neutral from the %s one-ink cut', (id) => {
-		const fills = extractFills(renderGfxIdentityMarkSvg(id, GFX_IDENTITY_PALETTES.monoDark));
-		expect(new Set(fills)).toEqual(new Set([GFX_IDENTITY_PALETTES.monoDark.ink]));
-	});
-
-	it('clips a bleed field to the rounded tile, and a floating checker not at all', () => {
-		expect(renderGfxIdentityMarkSvg('alpha-cell-c', GFX_IDENTITY_PALETTES.deck)).toContain(
-			'clip-path'
-		);
-		expect(renderGfxIdentityMarkSvg('alpha-cell-a', GFX_IDENTITY_PALETTES.deck)).not.toContain(
-			'clip-path'
+	it('drops the plate and the second neutral from the one-ink cut', () => {
+		const { monoDark } = GFX_IDENTITY_PALETTES;
+		expect(new Set(extractFills(renderGfxIdentityMarkSvg(monoDark)))).toEqual(
+			new Set([monoDark.ink])
 		);
 	});
 
-	it('leaves the resolved letter alone when the one-ink cut removes its field', () => {
-		const svg = renderGfxIdentityMarkSvg('alpha-cell-d', GFX_IDENTITY_PALETTES.monoDark);
-		expect([...svg.matchAll(/<path /g)]).toHaveLength(1);
-	});
-
-	it('seats the resolved letter on whole cells of its own field', () => {
-		const variant = findGfxAlphaCellVariant('alpha-cell-d');
-		if (variant.mark.kind !== 'bleed-checker') throw new Error('alpha-cell-d must bleed');
-		const cell = variant.mark.cellUnits;
-		const letter = renderGfxIdentityMarkSvg('alpha-cell-d', GFX_IDENTITY_PALETTES.monoDark);
-		for (const [, x, y] of letter.matchAll(/M([\d.]+) ([\d.]+)H/g)) {
-			expect(Number(x) % cell).toBeCloseTo(0, 6);
-			expect(Number(y) % cell).toBeCloseTo(0, 6);
-		}
+	it('carries GFX as its accessible name, so the mark alone still names the product', () => {
+		expect(renderGfxIdentityMarkSvg(GFX_IDENTITY_PALETTES.deck)).toContain(
+			'aria-label="GFX mark"'
+		);
 	});
 });
 
 describe('logotype emission', () => {
-	it.each(VARIANT_IDS)('sets G, F and X for %s', (id) => {
-		const svg = renderGfxIdentityLogotypeSvg(id, GFX_IDENTITY_PALETTES.monoDark);
+	it('sets G, F and X on one baseline', () => {
+		const svg = renderGfxIdentityLogotypeSvg(GFX_IDENTITY_PALETTES.monoDark);
 		// G(20) + F(14) + X(13) lit cells, each emitted as its own subpath.
 		expect([...svg.matchAll(/M[\d.]+ [\d.]+H/g)]).toHaveLength(47);
 		// Three glyphs advance across the line, so the tight box is always wider
@@ -136,24 +97,14 @@ describe('logotype emission', () => {
 		expect(Number(viewBox?.[1])).toBeGreaterThan(Number(viewBox?.[2]));
 	});
 
-	it.each(GFX_ALPHA_CELL_VARIANTS)('leans $id with its own mark', (variant) => {
-		const svg = renderGfxIdentityLogotypeSvg(variant.id, GFX_IDENTITY_PALETTES.monoDark);
-		if (variant.shearDegrees === 0) {
-			expect(svg).not.toContain('skewX');
-		} else {
-			expect(svg).toContain(`skewX(${variant.shearDegrees})`);
-		}
-	});
-
-	it('turns a smaller gutter into heavier cells', () => {
-		const heavy = renderGfxIdentityLogotypeSvg('alpha-cell-b', GFX_IDENTITY_PALETTES.monoDark);
-		const light = renderGfxIdentityLogotypeSvg('alpha-cell-c', GFX_IDENTITY_PALETTES.monoDark);
-		expect(firstLogotypeCellSide(heavy)).toBeGreaterThan(firstLogotypeCellSide(light));
-	});
-
-	it('turns wider tracking into a wider line at the same cap height', () => {
-		const open = renderGfxIdentityLogotypeSvg('alpha-cell-c', GFX_IDENTITY_PALETTES.monoDark);
-		const tight = renderGfxIdentityLogotypeSvg('alpha-cell-d', GFX_IDENTITY_PALETTES.monoDark);
-		expect(logotypeWidthUnits(open)).toBeGreaterThan(logotypeWidthUnits(tight));
+	it('leaves room for the lean inside its own viewBox, so nothing clips', () => {
+		const svg = renderGfxIdentityLogotypeSvg(GFX_IDENTITY_PALETTES.monoDark);
+		const viewBoxWidth = Number(/viewBox="0 0 ([\d.]+) /.exec(svg)?.[1]);
+		const rightmostEdge = Math.max(
+			...[...svg.matchAll(/H([\d.]+)V/g)].map((match) => Number(match[1]))
+		);
+		const translateX = Number(/translate\(([\d.]+) /.exec(svg)?.[1]);
+		const scale = Number(/scale\(([\d.]+)\)/.exec(svg)?.[1]);
+		expect(rightmostEdge * scale + translateX).toBeLessThanOrEqual(viewBoxWidth);
 	});
 });

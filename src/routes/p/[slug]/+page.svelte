@@ -3,6 +3,8 @@
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 
+	import { GFX_PRODUCT_NAME } from '$lib/identity/gfx-brand';
+	import GfxMarkHomeLink from '$lib/identity/GfxMarkHomeLink.svelte';
 	import { compositionAutosaveInvalidation } from '../../../lib/platform/composition-autosave-invalidation.svelte.ts';
 	import { compositionMeta } from '$lib/platform/composition-meta.svelte';
 	import { engineState, packState, transitionState } from '$lib/platform/engine-state.svelte';
@@ -41,6 +43,14 @@
 	let rendererLoading = $state(true);
 	let routeLoadGeneration = 0;
 	let revertGeneration = 0;
+
+	// The tab follows the composition the moment its name is edited, so a stack of
+	// open pieces stays tellable apart.
+	const documentTitle = $derived(
+		appliedRouteKey === routeKey && presetBase.name
+			? `${presetBase.name} · ${GFX_PRODUCT_NAME}`
+			: GFX_PRODUCT_NAME
+	);
 
 	setPipelineRendererRuntime(pipelineRendererRuntime);
 
@@ -246,6 +256,10 @@
 	});
 </script>
 
+<svelte:head>
+	<title>{documentTitle}</title>
+</svelte:head>
+
 {#if rendererLoadError}
 	<main class="missing stack">
 		<h1>Couldn't load renderer</h1>
@@ -265,7 +279,14 @@
 		<a href={resolve('/')}>All presets</a>
 	</main>
 {:else if data.status === 'ready' && rendererLoading}
+	<!-- Renderer bundles resolve asynchronously, so this stands in for the editor
+	     for a few frames after a card is clicked. It carries the chrome bar the
+	     Workspace is about to draw, holding the mark on its pixel instead of
+	     blanking it out and snapping it back when the editor arrives. -->
 	<main class="loading" aria-busy="true">
+		<header class="loading__topbar">
+			<GfxMarkHomeLink />
+		</header>
 		<p role="status">Loading…</p>
 	</main>
 {:else if appliedRouteKey === routeKey}
@@ -276,11 +297,23 @@
 
 <style>
 	.loading {
-		padding: var(--pad-l);
+		padding: 0;
+	}
+
+	/* Same 52px bar and 12px inset as `.workspace__topbar`, so the mark does not
+	   move when the Workspace replaces this. */
+	.loading__topbar {
+		align-items: center;
+		background: #131315;
+		border-block-end: 1px solid #26262a;
+		display: flex;
+		min-block-size: 52px;
+		padding-inline: 12px 14px;
 	}
 
 	.loading p {
 		margin: 0;
+		padding: var(--pad-l);
 	}
 
 	.missing {
