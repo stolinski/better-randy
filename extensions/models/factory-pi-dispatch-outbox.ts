@@ -1474,10 +1474,9 @@ export async function inspectPiRuntimeReceipts(
         }
         continue;
       }
-      if (
-        requestedPiRunId && requestedMatchKind === undefined &&
-        session.childRunIds.includes(requestedPiRunId)
-      ) {
+      const requestedSessionChildMatch = requestedPiRunId !== undefined &&
+        session.childRunIds.includes(requestedPiRunId);
+      if (requestedMatchKind === undefined && requestedSessionChildMatch) {
         requestedMatchKind = "child";
       }
       if (requestedPiRunId && requestedMatchKind === undefined) {
@@ -1492,7 +1491,13 @@ export async function inspectPiRuntimeReceipts(
         statusDigest: await sha256(bytes),
         sessionDigest: session.digest,
       });
-      if (!["queued", "running", "complete"].includes(parsed.data.state)) {
+      const isLiveSupervisorPausedChild =
+        parsed.data.state === "paused" && step.status === "running" &&
+        requestedMatchKind === "child" && requestedSessionChildMatch;
+      if (
+        !["queued", "running", "complete"].includes(parsed.data.state) &&
+        !isLiveSupervisorPausedChild
+      ) {
         continue;
       }
 

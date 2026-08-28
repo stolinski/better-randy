@@ -553,8 +553,10 @@ Deno.test('execution claim resolves the live child identity from the runtime ses
 		const runId = await f.addRun(dispatchToken, await digest(f.request.task));
 		const statusPath = join((f.context.piAsyncRoots ?? [])[0]!, runId, 'status.json');
 		const status = JSON.parse(await Deno.readTextFile(statusPath)) as {
+			state: string;
 			steps: Array<{ runId?: string; sessionFile: string }>;
 		};
+		status.state = 'paused';
 		delete status.steps[0]!.runId;
 		await Deno.writeTextFile(statusPath, JSON.stringify(status));
 		const childRunId = 'child-session-0001';
@@ -573,6 +575,53 @@ Deno.test('execution claim resolves the live child identity from the runtime ses
 		);
 		assertEquals(result.granted, true);
 		assertEquals(result.ownerPiRunId, runId);
+	})
+);
+Deno.test('execution claim rejects a paused child whose step is no longer running', () =>
+	withFixture(async (f) => {
+		const { dispatchToken } = await f.reserve();
+		f.setDispatched();
+		const runId = await f.addRun(dispatchToken, await digest(f.request.task));
+		const statusPath = join((f.context.piAsyncRoots ?? [])[0]!, runId, 'status.json');
+		const status = JSON.parse(await Deno.readTextFile(statusPath)) as {
+			state: string;
+			steps: Array<{ status: string; runId?: string; sessionFile: string }>;
+		};
+		status.state = 'paused';
+		status.steps[0]!.status = 'failed';
+		delete status.steps[0]!.runId;
+		await Deno.writeTextFile(statusPath, JSON.stringify(status));
+		const childRunId = 'child-session-0001';
+		const sessionFile = status.steps[0]!.sessionFile;
+		await Deno.writeTextFile(
+			sessionFile,
+			`${await Deno.readTextFile(sessionFile)}\n${JSON.stringify({
+				type: 'session_info',
+				name: `subagent-worker-${childRunId}-1`
+			})}`
+		);
+		await assertRejects(
+			() => claimPiExecution({ dispatchToken, piRunId: childRunId }, f.context),
+			Error,
+			'one verified'
+		);
+	})
+);
+Deno.test('execution claim rejects a paused step child without runtime session identity', () =>
+	withFixture(async (f) => {
+		const { dispatchToken } = await f.reserve();
+		f.setDispatched();
+		const runId = await f.addRun(dispatchToken, await digest(f.request.task));
+		await f.setRunState(runId, 'paused');
+		await assertRejects(
+			() =>
+				claimPiExecution(
+					{ dispatchToken, piRunId: `${runId}-child` },
+					f.context
+				),
+			Error,
+			'one verified'
+		);
 	})
 );
 Deno.test('execution claim rejects conflicting runtime session child identities', () =>
