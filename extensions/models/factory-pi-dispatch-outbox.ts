@@ -1753,10 +1753,14 @@ export async function reservePiDispatch(
       outbox.submissionAttemptReceipts.every((receipt, index) =>
         receipt.ordinal === index + 1
       );
+    const hasExhaustedUnclaimedTransportState =
+      (outbox.state === "submission-parked" &&
+        outbox.parkedReason === "transport-retries-exhausted") ||
+      outbox.state === "submitted" ||
+      outbox.state === "submission-uncertain";
     if (
       Date.parse(priorEpoch) >= Date.parse(factoryStartedAt) ||
-      outbox.state !== "submission-parked" ||
-      outbox.parkedReason !== "transport-retries-exhausted" ||
+      !hasExhaustedUnclaimedTransportState ||
       !hasCompleteExhaustionEvidence ||
       hasExecutionOwnershipEvidence
     ) {
@@ -1764,6 +1768,7 @@ export async function reservePiDispatch(
         "Existing Pi dispatch reservation is not a safely recyclable pre-reset outbox.",
       );
     }
+    await requireDurableSubmissionAttempt(outbox);
   }
   const at = currentTime(context);
   const outbox = CurrentPiDispatchOutboxSchema.parse({

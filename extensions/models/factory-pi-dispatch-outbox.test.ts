@@ -65,6 +65,7 @@ async function fixture(): Promise<{
 	context: PiDispatchOutboxContext & FactoryFailureAuthorityContext;
 	resources: Map<string, Record<string, unknown>>;
 	setDispatched: () => void;
+	resetDispatchAccounting: () => void;
 	reserve: (
 		overrides?: Record<string, unknown>
 	) => Promise<{ dispatchToken: string; state: string }>;
@@ -209,6 +210,9 @@ async function fixture(): Promise<{
 		request,
 		setDispatched: () => {
 			dispatchCount = 1;
+		},
+		resetDispatchAccounting: () => {
+			dispatchCount = 0;
 		},
 		reserve: async (overrides = {}) =>
 			reservePiDispatch(
@@ -361,6 +365,33 @@ async function withFixture(run: (value: Fixture) => Promise<void>): Promise<void
 	} finally {
 		await value.cleanup();
 	}
+}
+
+async function prepareExhaustedBoundRun(
+	f: Fixture,
+	runId = 'run-exhausted-bound-0001'
+): Promise<{ dispatchToken: string; runId: string }> {
+	const { dispatchToken } = await f.reserve();
+	f.setDispatched();
+	const outboxName = `pi-dispatch-outbox-${dispatchToken}`;
+	for (let index = 0; index < 3; index += 1) {
+		if (index > 0) {
+			f.resources.set(outboxName, {
+				...f.resources.get(outboxName)!,
+				state: 'submission-retryable'
+			});
+		}
+		await recordPiSubmissionAttempt(
+			{
+				dispatchToken,
+				submissionAttemptId: await digest(`submission:exhausted:${index + 1}`)
+			},
+			f.context
+		);
+	}
+	await f.addRun(dispatchToken, await digest(f.request.task), runId, false);
+	await bindPiLaunch({ dispatchToken, piRunId: runId }, f.context);
+	return { dispatchToken, runId };
 }
 
 Deno.test('1 failed reservation validation consumes no Factory attempt', () =>
@@ -1457,55 +1488,56 @@ Deno.test(
 		})
 );
 
-Deno.test('post-reset reservation versions an exhausted parked outbox only before execution claim', () =>
+Deno.test('post-reset reservation rejects incomplete transport exhaustion', () =>
 	withFixture(async (f) => {
 		const first = await f.reserve();
 		const name = `pi-dispatch-outbox-${first.dispatchToken}`;
 		f.resources.set(name, {
 			...f.resources.get(name)!,
-			state: 'submission-parked',
-			parkedReason: 'transport-retries-exhausted',
+			state: 'submitted',
 			piRunId: 'bound-run-0001',
 			updatedAt: '2026-08-21T00:00:00.000Z'
 		});
-		f.resources.set(`pi-launch-receipt-${first.dispatchToken}`, {
-			dispatchToken: first.dispatchToken,
-			piRunId: 'bound-run-0001'
-		});
 		f.setFactoryStartedAt('2026-08-22T00:00:00.000Z');
 		await assertRejects(() => f.reserve(), Error, 'not a safely recyclable');
+	})
+);
 
-		const exhaustedAttemptReceipts = Array.from({ length: 3 }, (_, index) => ({
-			ordinal: index + 1,
-			submissionAttemptId: String(index + 1).repeat(64),
-			receiptDigest: String(index + 4).repeat(64),
-			recordedAt: `2026-08-21T00:00:0${index}.000Z`
-		}));
-		f.resources.set(name, {
-			...f.resources.get(name)!,
-			transportAttempts: 3,
-			submissionAttemptReceipts: exhaustedAttemptReceipts
-		});
+Deno.test('post-reset reservation versions a durably exhausted bound but unclaimed launch', () =>
+	withFixture(async (f) => {
+		const { dispatchToken, runId } = await prepareExhaustedBoundRun(f);
+		const name = `pi-dispatch-outbox-${dispatchToken}`;
+		assertEquals(f.resources.get(name)?.state, 'submitted');
+		assertEquals(f.resources.get(name)?.piRunId, runId);
+		assertEquals(f.resources.get(name)?.transportAttempts, 3);
+		f.resetDispatchAccounting();
+		f.setFactoryStartedAt('2026-08-22T00:00:00.000Z');
 		const reset = await f.reserve();
 		assertEquals(reset.state, 'reserved');
 		assertEquals(f.resources.get(name)?.factoryStartedAt, '2026-08-22T00:00:00.000Z');
 		assertEquals(f.resources.get(name)?.transportAttempts, 0);
 		assertEquals(f.resources.get(name)?.piRunId, undefined);
+	})
+);
 
+Deno.test('post-reset reservation rejects a durably exhausted launch with an execution claim', () =>
+	withFixture(async (f) => {
+		const { dispatchToken, runId } = await prepareExhaustedBoundRun(
+			f,
+			'run-exhausted-claimed-0001'
+		);
+		const claim = await claimPiExecution(
+			{ dispatchToken, piRunId: `${runId}-child` },
+			f.context
+		);
+		assertEquals(claim.granted, true);
+		const name = `pi-dispatch-outbox-${dispatchToken}`;
 		f.resources.set(name, {
 			...f.resources.get(name)!,
-			factoryStartedAt: '2026-08-22T00:00:00.000Z',
-			state: 'submission-parked',
-			parkedReason: 'transport-retries-exhausted',
-			transportAttempts: 3,
-			submissionAttemptReceipts: exhaustedAttemptReceipts,
-			updatedAt: '2026-08-22T00:00:01.000Z'
+			state: 'submitted'
 		});
-		f.resources.set(`pi-execution-claim-${first.dispatchToken}`, {
-			dispatchToken: first.dispatchToken,
-			piRunId: 'claimed-run-0001'
-		});
-		f.setFactoryStartedAt('2026-08-23T00:00:00.000Z');
+		f.resetDispatchAccounting();
+		f.setFactoryStartedAt('2026-08-22T00:00:00.000Z');
 		await assertRejects(() => f.reserve(), Error, 'not a safely recyclable');
 	})
 );
