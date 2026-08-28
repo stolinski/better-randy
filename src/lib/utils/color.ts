@@ -1,4 +1,4 @@
-import { clampNumber } from './math';
+import { clampNumber } from './math.ts';
 
 interface RgbColorChannels {
 	blue: number;
@@ -73,6 +73,30 @@ export function cssColorToRgbaFloat(color: string): [number, number, number, num
 export function relativeLuminance(hex: string): number {
 	const [red, green, blue] = hexToRgbaFloat(hex);
 	return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+/**
+ * WCAG 2.2 relative luminance: sRGB channels linearized *before* they are
+ * weighted. Deliberately separate from `relativeLuminance`, which weights the
+ * gamma-encoded channels for rendering decisions and would overstate every
+ * contrast ratio computed from it.
+ */
+export function wcagRelativeLuminance(hex: string): number {
+	const { red, green, blue } = getRgbColorChannels(hex);
+	const linearize = (channel: number): number => {
+		const value = channel / 255;
+		return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+	};
+	return 0.2126 * linearize(red) + 0.7152 * linearize(green) + 0.0722 * linearize(blue);
+}
+
+/** WCAG 2.2 contrast ratio between two hex colours, 1 (identical) … 21 (black on white). */
+export function wcagContrastRatio(foreground: string, background: string): number {
+	const first = wcagRelativeLuminance(foreground);
+	const second = wcagRelativeLuminance(background);
+	const lighter = Math.max(first, second);
+	const darker = Math.min(first, second);
+	return (lighter + 0.05) / (darker + 0.05);
 }
 
 /**

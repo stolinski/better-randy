@@ -20,6 +20,7 @@
 		"test:discoverability": "node --test scripts/check-discoverability.test.mjs",
 		"test:watch": "vitest",
 		"prepare": "svelte-kit sync || echo ''",
+		"gen:identity": "node --experimental-strip-types scripts/generate-gfx-identity-assets.ts",
 		"gen:sounds": "node scripts/gen-foley-sounds.mjs",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && npm run lint && npm run check:discoverability",
 		"check:discoverability": "node scripts/check-discoverability.mjs",
@@ -28,6 +29,7 @@
 		"format": "prettier --write .",
 		"gen:schema": "node --experimental-strip-types scripts/export-preset-schema.ts",
 		"supers": "node --experimental-strip-types scripts/supers.ts",
+		"verify:identity": "node --experimental-strip-types scripts/verify-gfx-identity-legibility.ts",
 		"verify-presets": "node --experimental-strip-types scripts/verify-presets.ts",
 		"verify:layout-contract": "node --experimental-strip-types scripts/run-supers-layout-contract-matrix.mjs"
 	},
