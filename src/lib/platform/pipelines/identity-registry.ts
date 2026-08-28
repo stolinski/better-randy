@@ -249,6 +249,9 @@ export function validateIdentityRegistry(
 
 	for (const [pipelineKey, spec] of Object.entries(IDENTITY_REGISTRY)) {
 		for (const dim of spec.dimensions) {
+			// Preserve the shared field before the exclusive union narrows malformed
+			// runtime-only branches to `never`.
+			const dimensionName = dim.name;
 			const hasImpl = dim.implementation !== undefined;
 			const hasViaPack = dim.viaPack !== undefined;
 
@@ -256,8 +259,8 @@ export function validateIdentityRegistry(
 				errors.push({
 					pipeline: pipelineKey,
 					kind: 'unimplemented-dimension',
-					dimension: dim.name,
-					message: `Pipeline ${pipelineKey} dimension "${dim.name}" declares neither implementation nor viaPack.`
+					dimension: dimensionName,
+					message: `Pipeline ${pipelineKey} dimension "${dimensionName}" declares neither implementation nor viaPack.`
 				});
 				continue;
 			}
@@ -266,8 +269,8 @@ export function validateIdentityRegistry(
 				errors.push({
 					pipeline: pipelineKey,
 					kind: 'both-impl-and-via-pack',
-					dimension: dim.name,
-					message: `Pipeline ${pipelineKey} dimension "${dim.name}" declares both implementation and viaPack; exactly one is allowed.`
+					dimension: dimensionName,
+					message: `Pipeline ${pipelineKey} dimension "${dimensionName}" declares both implementation and viaPack; exactly one is allowed.`
 				});
 			}
 		}

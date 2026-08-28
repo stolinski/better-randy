@@ -644,7 +644,11 @@ Deno.test(
 		assertEquals(boundary?.factoryStartedAt, '2026-08-21T00:00:00.000Z');
 
 		if (!boundary) throw new Error('missing boundary');
-		const { completedAt: _completedAt, resultDigest: _resultDigest, ...boundaryBase } = boundary;
+		const boundaryBase = Object.fromEntries(
+			Object.entries(boundary).filter(
+				([key]) => key !== 'completedAt' && key !== 'resultDigest'
+			)
+		);
 		const staleStarted = { ...boundaryBase, state: 'started' };
 		const boundaryName = [...resources.entries()].find(([, value]) => value === boundary)?.[0];
 		if (!boundaryName) throw new Error('missing boundary name');
