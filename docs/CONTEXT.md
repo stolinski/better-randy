@@ -4,6 +4,28 @@ The shared language for Supers's preset engine, channel aesthetic, and agent wor
 
 ## Language
 
+### Product and namespace
+
+**GFX**:
+The current product and technical namespace, published at **gfx.computer**. Identifiers and protocol values spell it `gfx`; environment variables use the `GFX_` prefix. GFX names the product and the public origin — not a Layer, a Pack, or an engine concept, so nothing inside the composition model is renamed by it.
+_Avoid_: Supers (the legacy name — see below), GFX Computer as a product noun, gfx.computer as an identifier prefix.
+
+**Legacy Supers artifact**:
+Any value, file, or record that still spells the old product name — the `supers@1` composition schema id, a `supers-sync@1` marker receipt on an editor's Resolve timeline, a `supers@<sha>` Sentry release, a `SUPERS_*` environment variable. It is not a defect by itself; it is a value that owes exactly one **name disposition**. An occurrence inside a historical record is never a naming violation.
+_Avoid_: legacy code (broader), stale name (implies every occurrence is a mistake), old branding (the artifacts are protocol values, not branding).
+
+**Name disposition**:
+The single recorded classification every current or legacy name carries, fixed in [ADR-0053](adr/0053-gfx-namespace-and-legacy-supers-compatibility.md): `current`, `rename-now`, `accept-old / write-new`, `deprecated alias`, `frozen`, or `historical`. The disposition follows one question — does a reader outside the working tree depend on the string? Legacy readers ship before GFX writers, and no surface is migrated by a tree-wide find-and-replace.
+_Avoid_: migration status, deprecation level, rename phase (a disposition is a standing classification, not a stage a name moves through).
+
+**Public demo session**:
+The browser-scoped, no-account working context a visitor has on gfx.computer. Its composition state lives only in that browser: never sent to the origin, never written to origin disk, never tied to an identity. There are no accounts, no server-side composition store, and no durable visitor content. Reloading continues the same session; clearing browser storage ends it and leaves nothing behind on our side.
+_Avoid_: account, workspace (the **Workspace** is the engine shell), project, cloud document, saved session.
+
+**Export session**:
+The bounded server-side unit of work in [ADR-0052](adr/0052-public-runtime-and-retention-architecture.md) — one private temp directory, one ffmpeg process, one single-shot download. It carries rendered frames, never composition JSON, and is destroyed on completion, failure, cancellation, idle expiry, and once the download drains. Where one render happens, not where a composition lives.
+_Avoid_: **Public demo session** (opposite lifetime and opposite storage), render job, export queue (there is no queue).
+
 ### Composition model
 
 **Preset**:
@@ -285,6 +307,8 @@ The named-observation format for advisory R-rule observations — pixel coordina
 
 ## Flagged ambiguities
 
+- **"Supers"** was simultaneously the product name, the technical prefix, and the composition schema id. Resolved: **GFX** is the current namespace, and every remaining `supers` spelling is a **Legacy Supers artifact** carrying one **name disposition** ([ADR-0053](adr/0053-gfx-namespace-and-legacy-supers-compatibility.md)). This glossary's own title and prose are classified `rename-now` and are renamed by their own Delivery change — not opportunistically while editing neighbouring entries.
+- **"session"** meant both the visitor's browsing context and a server-side encode. Resolved: a **Public demo session** is browser-scoped and holds composition state; an **Export session** is server-side, holds rendered frames only, and destroys itself. They never share storage or lifetime.
 - **"annotation"** was historically used both for the broad layer category and for the hand-claiming subset. Resolved: **Annotation** is the Layer; **Mark** is the narrower hand-claiming subset.
 - **"tool"** historically meant a per-route generator (`research-paper`, `quote-focus`). After [ADR-0002](adr/0002-per-tool-routes-to-preset-engine.md), the term is retired; the unit of authoring is a **Preset**.
 - **"layer"** was used loosely for any z-stacked element. Resolved: **Layer** refers specifically to one of the five composition layers, each with its own Pipeline type and Registry section.

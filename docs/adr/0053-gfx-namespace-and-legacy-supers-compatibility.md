@@ -1,0 +1,134 @@
+# ADR-0053 — Lock the GFX namespace and the Legacy Supers compatibility matrix
+
+## Status
+
+**Canon (naming, compatibility, and public-session language ratified; the renames it governs are separate changes).**
+
+Date: 2026-08-28
+
+Builds on: [ADR-0032](0032-gui-agent-parity-authoring.md) (User compositions and the user store), [ADR-0042](0042-resolve-marker-sync.md) (the Resolve marker grammar and its `customData` receipt), and [ADR-0052](0052-public-runtime-and-retention-architecture.md) (the public Node/ffmpeg origin and its zero-retention rule)
+
+## Context
+
+The product goes public as **gfx.computer**, and the current product and technical namespace is **GFX** / `gfx`. The engine, the composition model, and the Pack model do not change — only the name does.
+
+The tempting move is to replace every `supers` with `gfx` and ship. That breaks working artifacts, because "Supers" is not only prose. It is the `schema` string inside every saved composition, a note an editor typed onto a DaVinci Resolve timeline months ago, the `customData` receipt a previous sync wrote onto that editor's markers, the bin and track their pieces were placed on, the release string every historical Sentry event carries, and the temp-directory prefix a running host sweeps at startup. Several of those artifacts live outside this repository and cannot be migrated by us.
+
+Keeping both spellings alive everywhere fails differently. Two spellings per concept is exactly what [`../CONTEXT.md`](../CONTEXT.md) and the discoverability check exist to prevent, and an unclassified `supers` occurrence is indistinguishable from one that was simply missed.
+
+So the decision here is not _whether_ to rename. It is that every occurrence of the old name carries exactly one recorded disposition, and that the disposition follows one question: **does a reader outside this working tree depend on the string?**
+
+## Decision
+
+### One current namespace
+
+- Product and origin: **GFX**, at **gfx.computer**.
+- Technical spelling: `gfx` in identifiers and protocol values, `GFX_` in environment variables — already the form ADR-0052 ratified for the public runtime.
+- A **Legacy Supers artifact** is any value, file, or record that still spells the old name. It is not a defect by itself; it is a value that owes a disposition.
+- Public URL paths stay namespace-free. The origin carries the brand: never introduce a `/supers/…` or `/gfx/…` path segment.
+
+### Six dispositions — every name carries exactly one
+
+1. **`current`** — already GFX, or deliberately namespace-free. Nothing to do, and nothing to "improve".
+2. **`rename-now`** — renamed outright, every consumer in the same change, no alias. Chosen when the only readers live in this working tree and the value is not persisted.
+3. **`accept-old / write-new`** — readers accept the Supers form permanently; writers emit only the GFX form. Chosen when the value is persisted or supplied by something we do not control.
+4. **`deprecated alias`** — the GFX name is canonical; the Supers name keeps working, is marked `@deprecated`, and names its one supported replacement. Chosen when a person or an external caller still types the name.
+5. **`frozen`** — kept verbatim, documented as legacy, never "fixed". Chosen when renaming would strand a third party's data or make a historical record unqueryable.
+6. **`historical`** — a record that is never rewritten at all.
+
+Two rules bind every change made under this contract:
+
+**Readers ship before writers.** No writer may emit a GFX form until the matching legacy reader exists and a fixture proves an old artifact still loads, round-trips, and renders. This is why legacy-reader work is sequenced ahead of the renames rather than bundled into them.
+
+**No global string replacement.** Each surface below is migrated by name, against its own consumers. A tree-wide find-and-replace cannot tell a `rename-now` identifier from a `frozen` protocol value, and it silently rewrites history.
+
+### The matrix
+
+#### Composition and interchange
+
+| Value                                                  | Where it lives                                                             | Disposition            | Contract                                                                                                                                                            |
+| ------------------------------------------------------ | -------------------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `supers@1` (`PRESET_SCHEMA_ID`)                        | the `schema` field of every corpus Preset and every saved User composition | accept-old / write-new | Ingress normalizes `supers@1` to `gfx@1`. The two ids name the same document shape, so nothing downstream branches on which one arrived; writers emit `gfx@1` only. |
+| `application/vnd.supers.media-library-asset+json`      | the drag-and-drop `DataTransfer` type in `media-library-drag-transfer.ts`  | rename-now             | Same-page only, never persisted.                                                                                                                                    |
+| `blank`, `kind`, `pack`, Layer and Pipeline vocabulary | the Preset body                                                            | current                | Namespace-free and unchanged. A namespace rename is not a schema revision.                                                                                          |
+
+#### Resolve marker sync and placement (ADR-0042)
+
+This surface holds the most state we do not own: the editor's Resolve project.
+
+| Value                                                                          | Where it lives                                                              | Disposition            | Contract                                                                                                                                                                                                                         |
+| ------------------------------------------------------------------------------ | --------------------------------------------------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `supers-sync@1` (`SUPERS_SYNC_SCHEMA`)                                         | `customData` on every marker a past sync wrote                              | accept-old / write-new | The parser accepts both tags; a re-sync rewrites that group's receipt to `gfx-sync@1` in place. A group nobody re-syncs stays findable forever.                                                                                  |
+| `supers <slug>` head note (`SUPERS_HEAD_NOTE_PREFIX`)                          | a note a human typed on the editor's timeline                               | accept-old / write-new | `gfx <slug>` is the documented current form and `supers <slug>` is accepted permanently. The sync never rewrites a human's note — the `customData` receipt is what it writes.                                                    |
+| `Supers` bin and `SUPERS` track (the placement plan's `binName` / `trackName`) | objects inside the editor's Resolve project                                 | accept-old / write-new | Placement prefers an existing `Supers` bin or `SUPERS` track when the project already has one, and creates the `GFX` forms only in a project that has neither. A rename must never split one edit across two bins or two tracks. |
+| Mint recolor, the `END` name token, beat indices (head 0, END −1)              | the marker grammar                                                          | current                | Namespace-free.                                                                                                                                                                                                                  |
+| `<slug>__<TC>__<frames>f__v<version>.mov` (`buildSyncExportFilename`)          | placed clip names, and the prefix/suffix a re-sync sweeps prior versions by | current                | Namespace-free, and load-bearing: the sweep matches on it. Do not restyle it while renaming neighbouring filenames.                                                                                                              |
+
+#### Runtime, routes, and browser surface
+
+| Value                                                                                                                                        | Where it lives                                        | Disposition | Contract                                                                                                                                                                                                                                                                             |
+| -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `__supersTimeline`, `__supersExport`, `__supersTextAnimationManager`, `__supersPosterKey`, `__supersVisualAudit`, `__supersDofPreviewPlane`  | `window` handles for in-tree automation and diagnosis | rename-now  | Per-page and never persisted. Every consumer renames in the same change: the `cdp-*` scripts, the probe and audit scripts, the skills that document them, and the one Preset description that names `__supersDofPreviewPlane`. WebMCP, not `window`, is the supported agent surface. |
+| `data-supers-readable-id`, `-readable-text`, `-text-role`, `-non-readable-reason`, `-intentional-overlap`, `-opaque-region`, `-shadow-owner` | the HTML-in-Canvas tree, read by `runtime-audit.ts`   | rename-now  | Emitted and read inside one process; no persisted consumer.                                                                                                                                                                                                                          |
+| `supers-ease-<a>-<b>-<c>-<d>`                                                                                                                | GSAP ease registry names in `gsap-ease.ts`            | rename-now  | Registered and resolved within one process.                                                                                                                                                                                                                                          |
+| `/`, `/p/[slug]`, `/api/…`                                                                                                                   | SvelteKit route paths                                 | current     | Already namespace-free, and they stay that way.                                                                                                                                                                                                                                      |
+
+#### Files the host and the visitor see
+
+| Value                                                                                 | Where it lives                                          | Disposition            | Contract                                                                                                                                                                                                                          |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `supers-overlay` / `supers-bumper` export basenames                                   | the visitor's download, chosen by output classification | rename-now             | Visible product identity: becomes `gfx-overlay` / `gfx-bumper`. Classification logic is unchanged; only the basename moves.                                                                                                       |
+| `supers-export-` temp-directory prefix                                                | private per-session temp disk on the public origin      | accept-old / write-new | Writers create `gfx-export-…`, and the startup sweep must remove **both** prefixes. Otherwise a deploy or rollback across the rename orphans the previous release's directories, which is exactly the retention ADR-0052 forbids. |
+| `supers-export-test-`, `supers-video-store-`, and the other test and CI temp prefixes | fixtures and `.github/workflows/quality.yml`            | rename-now             | In-tree only.                                                                                                                                                                                                                     |
+
+#### Telemetry
+
+| Value                                                   | Where it lives                                                 | Disposition            | Contract                                                                                                                                                               |
+| ------------------------------------------------------- | -------------------------------------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `supers@<sha>` release string (`resolveGitRelease`)     | every historical Sentry event, and the registered release list | accept-old / write-new | New releases register as `gfx@<sha>`; `supers@<sha>` events stay queryable and the dev-flow doc names both forms. `GFX_RELEASE` still overrides it on the public host. |
+| `<meta name="supers-release">` and `%supers.release%`   | `app.html`, `hooks.server.ts`, `hooks.client.ts`               | rename-now             | Written and read within one page load.                                                                                                                                 |
+| The `git.release` tag and the `export.*` attribute keys | Sentry scope and `PUBLIC_EXPORT_TELEMETRY_ATTRIBUTE_KEYS`      | current                | Namespace-free. ADR-0052 fixes the export set; nothing about this rename widens it.                                                                                    |
+
+#### Packages, models, CLI, and automation
+
+| Value                                                                                                                                                                                                                                                                                                                                          | Where it lives                            | Disposition      | Contract                                                                                                                        |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `"name": "supers"`                                                                                                                                                                                                                                                                                                                             | `package.json`                            | rename-now       | Private and unpublished, so no registry consumer exists.                                                                        |
+| `@gfx/verify`, `gfx-factory`, `gfx-integration-git`                                                                                                                                                                                                                                                                                            | the swamp control plane                   | current          | Already GFX.                                                                                                                    |
+| `@swamp/*`, `@mgreten/*`                                                                                                                                                                                                                                                                                                                       | third-party model namespaces              | frozen           | Not ours to rename.                                                                                                             |
+| `pnpm supers`, `scripts/supers.ts`, and its `supers render` / `supers batch` usage                                                                                                                                                                                                                                                             | the local render CLI                      | rename-now       | Becomes `pnpm gfx` and `scripts/gfx.ts`; the usage string moves with it.                                                        |
+| `SUPERS_URL`, `SUPERS_CDP_URL`, `SUPERS_RENDER_TIMEOUT_MS`, `SUPERS_READY_TIMEOUT_MS`, `SUPERS_BASE_URL`, `SUPERS_DEV_URL`, `SUPERS_AUDIT_SEEK`, `SUPERS_LAYOUT_CONTRACT_*`                                                                                                                                                                    | environment a person exports in a shell   | deprecated alias | Read the `GFX_`-prefixed name first and fall back to the `SUPERS_` name, so an existing shell or launchd profile keeps working. |
+| `scripts/supers-render-matrix-runner.ts`, `scripts/derive-supers-render-matrix-manifest.ts`, `scripts/run-supers-render-matrix.mjs`, `scripts/run-supers-layout-contract-matrix.mjs`, `scripts/supers-runtime-module-hooks.ts`, `src/lib/utils/supers-cli.test.ts`, `src/lib/text-animations/supers-effects/` and `SUPERS_TEXT_EFFECT_MODULES` | in-tree automation and source             | rename-now       | Each paired test renames with its source, so implementation and verification stay findable together.                            |
+| The `supers-domain-aware-implementation` skill                                                                                                                                                                                                                                                                                                 | `.claude/skills/`                         | rename-now       | Renames together with the factory stage definition that names it.                                                               |
+| Current product copy, metadata, README, `AGENTS.md`, `docs/CONTEXT.md`, and the static assets that spell the old name                                                                                                                                                                                                                          | user-facing and current guidance surfaces | rename-now       | Executed as its own Delivery change alongside the ratified logo, not opportunistically while touching neighbouring prose.       |
+
+#### Records that are never rewritten
+
+| Record                                                                      | Disposition |
+| --------------------------------------------------------------------------- | ----------- |
+| ADRs 0001–0052, including decision-time prose that names Supers             | historical  |
+| `docs/history/**` and superseded sections of active docs                    | historical  |
+| `.dex/*.jsonl`                                                              | historical  |
+| Git history, commit messages, and existing branch names                     | historical  |
+| Tombstoned vocabulary already retired in `docs/CONTEXT.md` (e.g. Sound kit) | historical  |
+
+An occurrence in a historical record is never a naming violation, and never evidence that the rename is incomplete.
+
+### Public-session language
+
+The public demo needs its own unambiguous words, because "session" otherwise spans two things with opposite lifetimes and opposite storage.
+
+A **Public demo session** is the browser-scoped, no-account working context a visitor has on gfx.computer. Its composition state lives only in that browser. It is never sent to the origin, never written to origin disk, and never associated with an identity — there are no accounts, no server-side composition store, and no durable visitor content of any kind. Reloading the page continues the same session; clearing the browser's storage ends it, and nothing survives on our side.
+
+An **Export session** is the bounded server-side unit of work ADR-0052 ratified: one private temp directory, one ffmpeg process, one single-shot download. It carries rendered frames, never composition JSON, and it is destroyed on completion, failure, cancellation, idle expiry, and once the download drains. It is not where a composition lives; it is where one render happens.
+
+The runtime boundary follows from that split. A route that reads or writes durable content on a visitor's behalf is **development-only** and is excluded from the public artifact — this is why the local disk-backed User composition, asset, and poster surfaces do not ship publicly. A route that serves the app, or performs a bounded operation that destroys its own output, is public. Developing against the local dev server, where those disk-backed surfaces do exist, is never permission to persist a visitor's work on the public origin.
+
+## Consequences
+
+- Downstream renaming work has one contract to cite instead of re-deciding per file. A change that renames a value not listed here must add its row rather than infer a disposition.
+- The Resolve lane keeps reading old timelines indefinitely. A piece synced before the rename re-syncs afterwards without the editor touching a marker, a bin, or a track.
+- Two spellings coexist on purpose at four surfaces — the composition `schema` id, the marker receipt and head note, the export temp-directory prefix, and the Sentry release. Each is a reader-side acceptance, never a writer-side choice, so no new artifact is ever produced with the old name.
+- The startup temp sweep is prefix-sensitive across the rename. A deploy that changes the write prefix without widening the sweep leaves orphaned directories behind, which the `pnpm probe:public-runtime` retention gate is expected to catch.
+- Environment aliases are the one place a Supers name still works when typed. They are `@deprecated` and named, so their eventual removal is a decision with a visible cost rather than a silent break.
+- Because every remaining occurrence is classified, a structural check can hold the line: an occurrence that is neither an implemented legacy reader nor a historical record is a defect. Building that check is a separate change; this ADR is the classification it enforces.

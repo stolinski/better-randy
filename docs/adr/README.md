@@ -63,6 +63,7 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 | [0050](0050-layout-contract-verification.md)                     | Build-harness (built)                                     | Geometry-first exhaustive Layout Contract verification; pixel capture is diagnostic only   |
 | [0051](0051-pipeline-defined-dimensional-stage-geometry.md)      | Designed, not built                                       | TypeGPU-native Pipeline geometry evolves the existing Dimensional Stage in place             |
 | [0052](0052-public-runtime-and-retention-architecture.md)        | Canon (ratified; deployment pending)                      | Node/ffmpeg public origin, Cloudflare as DNS/proxy only, bounded export, zero content retention |
+| [0053](0053-gfx-namespace-and-legacy-supers-compatibility.md)    | Canon (contract ratified; renames are separate changes)   | GFX namespace, one disposition per Legacy Supers name, and the public-session boundary          |
 
 ## Supersession And Refinement
 
