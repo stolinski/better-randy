@@ -1,6 +1,6 @@
 type: '@swamp/software-factory'
 typeVersion: 2026.06.24.1
-version: 42
+version: 43
 globalArguments:
   stages:
     - id: preflight
@@ -593,8 +593,11 @@ globalArguments:
                 pattern: '^[0-9a-f]{64}$'
               paths:
                 type: array
+                minItems: 1
+                maxItems: 200
                 items:
                   type: string
+                  minLength: 1
               classification:
                 type: string
                 enum:
@@ -2369,6 +2372,7 @@ globalArguments:
             evidenceName: postflight-run
             workItem: '${{ self.workItem }}'
             expectedFingerprint: '${{ data.latest(self.name, "artifact-change-impact").payload.changeFingerprint }}'
+            expectedPaths: '${{ data.latest(self.name, "artifact-change-impact").payload.paths }}'
         inputsSchema:
           type: object
           properties:
@@ -2382,9 +2386,17 @@ globalArguments:
             expectedFingerprint:
               type: string
               pattern: '^[0-9a-f]{64}$'
+            expectedPaths:
+              type: array
+              minItems: 1
+              maxItems: 200
+              items:
+                type: string
+                minLength: 1
           required:
             - workItem
             - expectedFingerprint
+            - expectedPaths
             - evidenceName
           additionalProperties: false
         resultEvidence: postflight-run

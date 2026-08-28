@@ -3,7 +3,7 @@ type: '@club_aqua_back_deck/dex-software-factory'
 typeVersion: 2026.08.26.1
 id: a480da64-8208-4252-8eec-2ee454cd3a6d
 name: supers-delivery-profile
-version: 1
+version: 2
 tags: {}
 globalArguments:
   profileName: supers-dex-delivery
@@ -182,8 +182,11 @@ globalArguments:
           pattern: '^[0-9a-f]{64}$'
         paths:
           type: array
+          minItems: 1
+          maxItems: 200
           items:
             type: string
+            minLength: 1
         classification:
           type: string
           enum:

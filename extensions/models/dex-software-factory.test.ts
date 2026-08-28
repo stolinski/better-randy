@@ -470,21 +470,54 @@ Deno.test('closed-objective routing rejects Critic and legacy human configuratio
 	assert.throws(() => compileDexSoftwareFactoryProfile(profile), /cannot use review/);
 });
 
-Deno.test('postflight fingerprint binding is compiler-owned and deferred to postflight', () => {
-	const compiled = compileDexSoftwareFactoryProfile(minimalProfile());
-	const postflight = JSON.stringify(stage(compiled, 'postflight'));
-	assert.match(postflight, /expectedFingerprint.*artifact-change-impact.*changeFingerprint/);
-	assert.match(postflight, /expectedFingerprint.*\^\[0-9a-f\]\{64\}\$/);
+Deno.test('postflight change-state bindings are compiler-owned and deferred to postflight', () => {
+	const portablePostflight = JSON.stringify(
+		stage(compileDexSoftwareFactoryProfile(minimalProfile()), 'postflight')
+	);
+	assert.match(portablePostflight, /expectedFingerprint.*artifact-change-impact.*changeFingerprint/);
+	assert.doesNotMatch(portablePostflight, /expectedPaths/);
 
-	const invalid = minimalProfile();
-	invalid.adapters.postflight.inputs = {
+	const pathBoundProfile = minimalProfile();
+	pathBoundProfile.contracts = {
+		changeImpact: {
+			properties: {
+				paths: {
+					type: 'array',
+					minItems: 1,
+					maxItems: 200,
+					items: { type: 'string', minLength: 1 }
+				}
+			},
+			required: ['paths']
+		}
+	};
+	const postflight = JSON.stringify(
+		stage(compileDexSoftwareFactoryProfile(pathBoundProfile), 'postflight')
+	);
+	assert.match(postflight, /expectedFingerprint.*\^\[0-9a-f\]\{64\}\$/);
+	assert.match(postflight, /expectedPaths.*artifact-change-impact.*paths/);
+	assert.match(postflight, /expectedPaths.*minItems.*1.*maxItems.*200/);
+
+	const invalidFingerprint = minimalProfile();
+	invalidFingerprint.adapters.postflight.inputs = {
 		values: { expectedFingerprint: 'caller-owned' },
 		properties: { expectedFingerprint: { type: 'string' } },
 		required: ['expectedFingerprint']
 	};
 	assert.throws(
-		() => compileDexSoftwareFactoryProfile(invalid),
+		() => compileDexSoftwareFactoryProfile(invalidFingerprint),
 		/postflight expectedFingerprint is compiler-owned/
+	);
+
+	const invalidPaths = minimalProfile();
+	invalidPaths.adapters.postflight.inputs = {
+		values: { expectedPaths: ['caller-owned'] },
+		properties: { expectedPaths: { type: 'array' } },
+		required: ['expectedPaths']
+	};
+	assert.throws(
+		() => compileDexSoftwareFactoryProfile(invalidPaths),
+		/postflight expectedPaths is compiler-owned/
 	);
 });
 

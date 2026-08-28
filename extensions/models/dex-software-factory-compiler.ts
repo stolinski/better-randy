@@ -18,6 +18,8 @@ const SHA256_PATTERN = "^[0-9a-f]{64}$";
 const CEL_WORK_ITEM = "${{ self.workItem }}";
 const POSTFLIGHT_EXPECTED_FINGERPRINT_BINDING =
   '${{ data.latest(self.name, "artifact-change-impact").payload.changeFingerprint }}';
+const POSTFLIGHT_EXPECTED_PATHS_BINDING =
+  '${{ data.latest(self.name, "artifact-change-impact").payload.paths }}';
 const COMPLETION_RESULT_BINDING =
   '${{ data.latest(self.name, "artifact-reconciliation").payload.completionResult }}';
 const COMPLETION_COMMIT_BINDING =
@@ -287,21 +289,25 @@ export const DexSoftwareFactoryProfileSchema = z
         path: ["adapters", "dexTracker", "completionWorkflow"],
       });
     }
-    if (
-      profile.adapters.postflight.inputs !== undefined &&
-      ("expectedFingerprint" in profile.adapters.postflight.inputs.values ||
-        "expectedFingerprint" in
-          profile.adapters.postflight.inputs.properties ||
-        profile.adapters.postflight.inputs.required?.includes(
-            "expectedFingerprint",
+    for (const compilerOwnedInput of [
+      "expectedFingerprint",
+      "expectedPaths",
+    ] as const) {
+      if (
+        profile.adapters.postflight.inputs !== undefined &&
+        (compilerOwnedInput in profile.adapters.postflight.inputs.values ||
+          compilerOwnedInput in profile.adapters.postflight.inputs.properties ||
+          profile.adapters.postflight.inputs.required?.includes(
+            compilerOwnedInput,
           ) === true)
-    ) {
-      context.addIssue({
-        code: "custom",
-        message:
-          "postflight expectedFingerprint is compiler-owned and cannot be configured",
-        path: ["adapters", "postflight", "inputs", "expectedFingerprint"],
-      });
+      ) {
+        context.addIssue({
+          code: "custom",
+          message:
+            `postflight ${compilerOwnedInput} is compiler-owned and cannot be configured`,
+          path: ["adapters", "postflight", "inputs", compilerOwnedInput],
+        });
+      }
     }
     const reservedProperties = {
       changeSummary: ["summary"],
@@ -1826,7 +1832,22 @@ function reconciliationStage(profile: DexSoftwareFactoryProfile): FactoryStage {
   };
 }
 
+function postflightBindsExpectedPaths(
+  profile: DexSoftwareFactoryProfile,
+): boolean {
+  const extension = profile.contracts?.changeImpact;
+  const paths = extension?.properties.paths;
+  return extension?.required?.includes("paths") === true &&
+    paths?.type === "array" &&
+    (paths.minItems ?? 0) >= 1 &&
+    paths.maxItems !== undefined &&
+    paths.maxItems <= 200 &&
+    paths.items?.type === "string" &&
+    (paths.items.minLength ?? 0) >= 1;
+}
+
 function postflightStage(profile: DexSoftwareFactoryProfile): FactoryStage {
+  const bindsExpectedPaths = postflightBindsExpectedPaths(profile);
   return {
     id: "postflight",
     description:
@@ -1838,10 +1859,23 @@ function postflightStage(profile: DexSoftwareFactoryProfile): FactoryStage {
       {
         workItem: CEL_WORK_ITEM,
         expectedFingerprint: POSTFLIGHT_EXPECTED_FINGERPRINT_BINDING,
+        ...(bindsExpectedPaths
+          ? { expectedPaths: POSTFLIGHT_EXPECTED_PATHS_BINDING }
+          : {}),
       },
       {
         workItem: STRING_SCHEMA,
         expectedFingerprint: { type: "string", pattern: SHA256_PATTERN },
+        ...(bindsExpectedPaths
+          ? {
+            expectedPaths: {
+              type: "array" as const,
+              minItems: 1,
+              maxItems: 200,
+              items: STRING_SCHEMA,
+            },
+          }
+          : {}),
       },
     ),
     artifacts: [
