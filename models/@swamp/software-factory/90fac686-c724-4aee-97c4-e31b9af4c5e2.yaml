@@ -1,6 +1,6 @@
 type: '@swamp/software-factory'
 typeVersion: 2026.06.24.1
-version: 39
+version: 41
 globalArguments:
   stages:
     - id: preflight
@@ -39,6 +39,7 @@ globalArguments:
             additionalProperties: false
             required:
               - schemaVersion
+              - factoryStartedAt
               - receiptDigest
               - sourceFactoryId
               - workItem
@@ -59,7 +60,10 @@ globalArguments:
               schemaVersion:
                 type: integer
                 enum:
-                  - 5
+                  - 6
+              factoryStartedAt:
+                type: string
+                pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$'
               receiptDigest:
                 type: string
                 pattern: '^[0-9a-f]{64}$'
@@ -174,6 +178,7 @@ globalArguments:
             - type: cel
               config:
                 expr: >-
+                  artifacts.preflight_execution_failure.factoryStartedAt == state.startedAt &&
                   artifacts.preflight_execution_failure.sourceFactoryId ==
                   "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
                   artifacts.preflight_execution_failure.workItem == workItem &&
@@ -331,6 +336,7 @@ globalArguments:
             additionalProperties: false
             required:
               - schemaVersion
+              - factoryStartedAt
               - receiptDigest
               - sourceFactoryId
               - workItem
@@ -351,7 +357,10 @@ globalArguments:
               schemaVersion:
                 type: integer
                 enum:
-                  - 5
+                  - 6
+              factoryStartedAt:
+                type: string
+                pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$'
               receiptDigest:
                 type: string
                 pattern: '^[0-9a-f]{64}$'
@@ -464,6 +473,7 @@ globalArguments:
             - type: cel
               config:
                 expr: >-
+                  artifacts.implementation_execution_failure.factoryStartedAt == state.startedAt &&
                   artifacts.implementation_execution_failure.sourceFactoryId ==
                   "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
                   artifacts.implementation_execution_failure.workItem == workItem &&
@@ -694,6 +704,7 @@ globalArguments:
             additionalProperties: false
             required:
               - schemaVersion
+              - factoryStartedAt
               - receiptDigest
               - sourceFactoryId
               - workItem
@@ -714,7 +725,10 @@ globalArguments:
               schemaVersion:
                 type: integer
                 enum:
-                  - 5
+                  - 6
+              factoryStartedAt:
+                type: string
+                pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$'
               receiptDigest:
                 type: string
                 pattern: '^[0-9a-f]{64}$'
@@ -834,6 +848,7 @@ globalArguments:
             - type: cel
               config:
                 expr: >-
+                  artifacts.classify_execution_failure.factoryStartedAt == state.startedAt &&
                   artifacts.classify_execution_failure.sourceFactoryId ==
                   "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
                   artifacts.classify_execution_failure.workItem == workItem &&
@@ -1143,6 +1158,7 @@ globalArguments:
             additionalProperties: false
             required:
               - schemaVersion
+              - factoryStartedAt
               - receiptDigest
               - sourceFactoryId
               - workItem
@@ -1163,7 +1179,10 @@ globalArguments:
               schemaVersion:
                 type: integer
                 enum:
-                  - 5
+                  - 6
+              factoryStartedAt:
+                type: string
+                pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$'
               receiptDigest:
                 type: string
                 pattern: '^[0-9a-f]{64}$'
@@ -1455,6 +1474,7 @@ globalArguments:
             - type: cel
               config:
                 expr: >-
+                  artifacts.verification_execution_failure.factoryStartedAt == state.startedAt &&
                   artifacts.verification_execution_failure.sourceFactoryId ==
                   "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
                   artifacts.verification_execution_failure.workItem == workItem &&
@@ -1765,6 +1785,7 @@ globalArguments:
             additionalProperties: false
             required:
               - schemaVersion
+              - factoryStartedAt
               - receiptDigest
               - sourceFactoryId
               - workItem
@@ -1785,7 +1806,10 @@ globalArguments:
               schemaVersion:
                 type: integer
                 enum:
-                  - 5
+                  - 6
+              factoryStartedAt:
+                type: string
+                pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$'
               receiptDigest:
                 type: string
                 pattern: '^[0-9a-f]{64}$'
@@ -2012,6 +2036,8 @@ globalArguments:
             - type: cel
               config:
                 expr: >-
+                  artifacts.aesthetic_decision_binding_execution_failure.factoryStartedAt ==
+                  state.startedAt &&
                   artifacts.aesthetic_decision_binding_execution_failure.sourceFactoryId ==
                   "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
                   artifacts.aesthetic_decision_binding_execution_failure.workItem == workItem &&
@@ -2141,6 +2167,7 @@ globalArguments:
             additionalProperties: false
             required:
               - schemaVersion
+              - factoryStartedAt
               - receiptDigest
               - sourceFactoryId
               - workItem
@@ -2161,7 +2188,10 @@ globalArguments:
               schemaVersion:
                 type: integer
                 enum:
-                  - 5
+                  - 6
+              factoryStartedAt:
+                type: string
+                pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$'
               receiptDigest:
                 type: string
                 pattern: '^[0-9a-f]{64}$'
@@ -2289,6 +2319,7 @@ globalArguments:
             - type: cel
               config:
                 expr: >-
+                  artifacts.reconciliation_execution_failure.factoryStartedAt == state.startedAt &&
                   artifacts.reconciliation_execution_failure.sourceFactoryId ==
                   "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
                   artifacts.reconciliation_execution_failure.workItem == workItem &&
@@ -2374,6 +2405,7 @@ globalArguments:
             additionalProperties: false
             required:
               - schemaVersion
+              - factoryStartedAt
               - receiptDigest
               - sourceFactoryId
               - workItem
@@ -2394,7 +2426,10 @@ globalArguments:
               schemaVersion:
                 type: integer
                 enum:
-                  - 5
+                  - 6
+              factoryStartedAt:
+                type: string
+                pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$'
               receiptDigest:
                 type: string
                 pattern: '^[0-9a-f]{64}$'
@@ -2594,6 +2629,7 @@ globalArguments:
             - type: cel
               config:
                 expr: >-
+                  artifacts.postflight_execution_failure.factoryStartedAt == state.startedAt &&
                   artifacts.postflight_execution_failure.sourceFactoryId ==
                   "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
                   artifacts.postflight_execution_failure.workItem == workItem &&
@@ -2669,6 +2705,7 @@ globalArguments:
             additionalProperties: false
             required:
               - schemaVersion
+              - factoryStartedAt
               - receiptDigest
               - sourceFactoryId
               - workItem
@@ -2689,7 +2726,10 @@ globalArguments:
               schemaVersion:
                 type: integer
                 enum:
-                  - 5
+                  - 6
+              factoryStartedAt:
+                type: string
+                pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$'
               receiptDigest:
                 type: string
                 pattern: '^[0-9a-f]{64}$'
@@ -2804,7 +2844,8 @@ globalArguments:
             - type: cel
               config:
                 expr: >-
-                  artifacts.terminal_cleanup_execution_failure.sourceFactoryId ==
+                  artifacts.terminal_cleanup_execution_failure.factoryStartedAt == state.startedAt
+                  && artifacts.terminal_cleanup_execution_failure.sourceFactoryId ==
                   "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
                   artifacts.terminal_cleanup_execution_failure.workItem == workItem &&
                   artifacts.terminal_cleanup_execution_failure.stage == "terminal-cleanup" &&
@@ -2939,6 +2980,7 @@ globalArguments:
             additionalProperties: false
             required:
               - schemaVersion
+              - factoryStartedAt
               - receiptDigest
               - sourceFactoryId
               - workItem
@@ -2959,7 +3001,10 @@ globalArguments:
               schemaVersion:
                 type: integer
                 enum:
-                  - 5
+                  - 6
+              factoryStartedAt:
+                type: string
+                pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$'
               receiptDigest:
                 type: string
                 pattern: '^[0-9a-f]{64}$'
@@ -3082,7 +3127,8 @@ globalArguments:
             - type: cel
               config:
                 expr: >-
-                  artifacts.done_observability_execution_failure.sourceFactoryId ==
+                  artifacts.done_observability_execution_failure.factoryStartedAt == state.startedAt
+                  && artifacts.done_observability_execution_failure.sourceFactoryId ==
                   "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
                   artifacts.done_observability_execution_failure.workItem == workItem &&
                   artifacts.done_observability_execution_failure.stage == "done-observability" &&
@@ -3208,6 +3254,7 @@ globalArguments:
             additionalProperties: false
             required:
               - schemaVersion
+              - factoryStartedAt
               - receiptDigest
               - sourceFactoryId
               - workItem
@@ -3228,7 +3275,10 @@ globalArguments:
               schemaVersion:
                 type: integer
                 enum:
-                  - 5
+                  - 6
+              factoryStartedAt:
+                type: string
+                pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$'
               receiptDigest:
                 type: string
                 pattern: '^[0-9a-f]{64}$'
@@ -3351,6 +3401,8 @@ globalArguments:
             - type: cel
               config:
                 expr: >-
+                  artifacts.aborted_observability_execution_failure.factoryStartedAt ==
+                  state.startedAt &&
                   artifacts.aborted_observability_execution_failure.sourceFactoryId ==
                   "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
                   artifacts.aborted_observability_execution_failure.workItem == workItem &&
@@ -3482,6 +3534,7 @@ globalArguments:
             additionalProperties: false
             required:
               - schemaVersion
+              - factoryStartedAt
               - receiptDigest
               - sourceFactoryId
               - workItem
@@ -3502,7 +3555,10 @@ globalArguments:
               schemaVersion:
                 type: integer
                 enum:
-                  - 5
+                  - 6
+              factoryStartedAt:
+                type: string
+                pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$'
               receiptDigest:
                 type: string
                 pattern: '^[0-9a-f]{64}$'
@@ -3626,6 +3682,8 @@ globalArguments:
             - type: cel
               config:
                 expr: >-
+                  artifacts.escalated_observability_execution_failure.factoryStartedAt ==
+                  state.startedAt &&
                   artifacts.escalated_observability_execution_failure.sourceFactoryId ==
                   "90fac686-c724-4aee-97c4-e31b9af4c5e2" &&
                   artifacts.escalated_observability_execution_failure.workItem == workItem &&

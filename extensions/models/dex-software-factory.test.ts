@@ -153,6 +153,9 @@ Deno.test('every generated work stage has trusted operational recovery and a fre
 		const recovery = JSON.stringify(stage(compiled, `${stageId}-recovery`));
 		assert.match(source, new RegExp(`${stageId}-execution-failure`));
 		assert.match(source, /receiptDigest/);
+		assert.match(source, /schemaVersion.*enum.*6/);
+		assert.match(source, /factoryStartedAt/);
+		assert.match(source, /state\.startedAt/);
 		assert.match(source, /dispatchAttempt/);
 		assert.match(source, /dispatchAttempt == 1/);
 		assert.equal(stage(compiled, stageId).maxDispatchesPerCycle, 1);

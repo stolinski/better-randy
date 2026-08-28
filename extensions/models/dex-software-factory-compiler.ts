@@ -1161,6 +1161,7 @@ function executionFailureArtifact(
       additionalProperties: false,
       required: [
         "schemaVersion",
+        "factoryStartedAt",
         "receiptDigest",
         "sourceFactoryId",
         "workItem",
@@ -1179,7 +1180,12 @@ function executionFailureArtifact(
         "authorityDigest",
       ],
       properties: {
-        schemaVersion: { type: "integer", enum: [5] },
+        schemaVersion: { type: "integer", enum: [6] },
+        factoryStartedAt: {
+          type: "string",
+          pattern:
+            "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+        },
         receiptDigest: { type: "string", pattern: "^[0-9a-f]{64}$" },
         sourceFactoryId: { type: "string", enum: [profile.sourceFactoryId] },
         workItem: STRING_SCHEMA,
@@ -1214,7 +1220,7 @@ function currentExecutionFailureGate(
   const celName = `${stageId}-execution-failure`.replaceAll("-", "_");
   const receipt = `artifacts.${celName}.executionReceipt`;
   return celGate(
-    `artifacts.${celName}.sourceFactoryId == "${profile.sourceFactoryId}" && artifacts.${celName}.workItem == workItem && artifacts.${celName}.stage == "${stageId}" && artifacts.${celName}.stageCycle == state.cycles["${stageId}"] && artifacts.${celName}.dispatchAttempt == 1 && artifacts.${celName}.failureKind == "operational" && artifacts.${celName}.authorityWorkflow == "${profile.adapters.failureAuthorizer.workflow}" && artifacts.${celName}.authorityReceiptName == "factory-execution-failure-" + artifacts.${celName}.receiptDigest && artifacts.${celName}.authorityDigest == artifacts.${celName}.receiptDigest && ${receipt}.status == "failed" && ((${receipt}.kind == "workflow" && has(${receipt}.workflowName) && has(${receipt}.workflowRunId) && has(${receipt}.inputsDigest)) || (${receipt}.kind == "command" && has(${receipt}.operation) && has(${receipt}.command) && has(${receipt}.exitCode) && has(${receipt}.stdoutDigest) && has(${receipt}.stderrDigest)))`,
+    `artifacts.${celName}.factoryStartedAt == state.startedAt && artifacts.${celName}.sourceFactoryId == "${profile.sourceFactoryId}" && artifacts.${celName}.workItem == workItem && artifacts.${celName}.stage == "${stageId}" && artifacts.${celName}.stageCycle == state.cycles["${stageId}"] && artifacts.${celName}.dispatchAttempt == 1 && artifacts.${celName}.failureKind == "operational" && artifacts.${celName}.authorityWorkflow == "${profile.adapters.failureAuthorizer.workflow}" && artifacts.${celName}.authorityReceiptName == "factory-execution-failure-" + artifacts.${celName}.receiptDigest && artifacts.${celName}.authorityDigest == artifacts.${celName}.receiptDigest && ${receipt}.status == "failed" && ((${receipt}.kind == "workflow" && has(${receipt}.workflowName) && has(${receipt}.workflowRunId) && has(${receipt}.inputsDigest)) || (${receipt}.kind == "command" && has(${receipt}.operation) && has(${receipt}.command) && has(${receipt}.exitCode) && has(${receipt}.stdoutDigest) && has(${receipt}.stderrDigest)))`,
     `operational recovery requires a trusted content-addressed receipt from the current ${stageId} cycle and dispatch`,
   );
 }
