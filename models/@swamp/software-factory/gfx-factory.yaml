@@ -1,0 +1,171 @@
+type: '@swamp/software-factory'
+typeVersion: 2026.06.24.1
+id: d10778ff-4b1e-48db-82c6-ff7e1002dea1
+name: gfx-factory
+version: 1
+tags: {}
+# Lean GFX Delivery factory. Work items are Dex task ids. Implementation
+# happens in an isolated linked worktree created from main by the coding
+# agent, so the primary checkout's local state is never an admission or
+# verification concern. Human approval gates only visual/preset work;
+# non-visual work ships on green deterministic checks.
+reports:
+  require:
+    - { name: '@swamp/software-factory/work-item-summary', methods: [summary] }
+globalArguments:
+  stages:
+    - id: implement
+      initial: true
+      description: Implement one Dex work item in an isolated worktree from main.
+      work:
+        mode: method
+        method:
+          modelIdOrName: gfx-agent
+          methodName: invokeAndParse
+          inputs:
+            cwd: /Users/scotttolinski/Sites/properties/gfx-computer
+            tags: { lane: factory, workItem: '${{ self.workItem }}' }
+            prompt: |
+              You are the GFX Delivery implementation agent for one Dex work item.
+
+              Work item: ${{ self.workItem }}
+
+              1. Read the task: `dex show ${{ self.workItem }} --json` (add --expand for
+                 ancestor context). Run `dex start ${{ self.workItem }}` unless it is
+                 already in progress.
+              2. Work in the isolated worktree
+                 /Users/scotttolinski/Sites/properties/gfx-computer-factory-${{ self.workItem }}
+                 on branch factory/${{ self.workItem }}. If it does not exist yet:
+                 `git worktree add -b factory/${{ self.workItem }} ../gfx-computer-factory-${{ self.workItem }} main`.
+                 If it exists from a previous cycle, reuse it and rebase onto main first.
+                 Then in the worktree run: `SHARP_IGNORE_GLOBAL_LIBVIPS=1 CI=true pnpm install`.
+              3. Implement the task following the worktree's CLAUDE.md. Never touch the
+                 primary checkout. Keep the change minimal: no speculative test
+                 files or scaffolding — add tests only where the task calls for
+                 them or a behavior contract changed; config/yaml-only changes
+                 need no new tests.
+              4. Run `pnpm check` and `pnpm test` in the worktree until green.
+                 If you touched preset, pack, or pipeline files, also run
+                 `node --experimental-strip-types scripts/verify-presets.ts --affected --changed-paths-json '<json array of your changed paths>'`
+                 — never `--all`.
+              5. Commit everything as ONE commit on the factory branch (squash any WIP).
+              6. Print exactly one JSON object (no fence commentary) with keys:
+                 summary (string), branch (string), worktreePath (string, absolute),
+                 headSha (string, full 40-char), visualChange (boolean),
+                 filesChanged (array of repo-relative paths).
+                 visualChange is true when the change affects rendered Preset/Pack
+                 output or visible UI; false for pure logic, tooling, or docs.
+
+              If the previous attempt was rejected, fix exactly what it reports:
+              Schema rejection (null when none): ${{ data.latest(self.name, "validation-change-summary") }}
+              Failed verification (null when none): ${{ data.latest("gfx-verify", "verification-" + self.workItem) }}
+              Integration outcome (null when none; a failed status means the
+              cherry-pick onto main conflicted — rebase the worktree onto latest
+              main, resolve, recommit, and report the new headSha):
+              ${{ data.latest(self.name, "evidence-integrate-run") }}
+        resultEvidence: implement-run
+      artifacts:
+        - name: change-summary
+          schema:
+            type: object
+            required: [summary, branch, worktreePath, headSha, visualChange, filesChanged]
+            properties:
+              summary: { type: string, minLength: 1 }
+              branch: { type: string, minLength: 1 }
+              worktreePath: { type: string, minLength: 1 }
+              headSha: { type: string, minLength: 40 }
+              visualChange: { type: boolean }
+              filesChanged: { type: array, items: { type: string } }
+      transitions:
+        - name: submit
+          to: verify
+          gates:
+            - { type: evidence-recorded, config: { name: implement-run, requireField: { status: succeeded } } }
+            - { type: artifact-exists, config: { artifact: change-summary } }
+
+    - id: verify
+      description: Deterministic repo checks in the work item's worktree. No LLM.
+      work:
+        mode: method
+        method:
+          modelIdOrName: gfx-verify
+          methodName: run_checks
+          inputs:
+            worktreePath: '${{ data.latest(self.name, "artifact-change-summary").payload.worktreePath }}'
+            label: '${{ self.workItem }}'
+            filesChanged: '${{ data.latest(self.name, "artifact-change-summary").payload.filesChanged }}'
+        inputsSchema:
+          type: object
+          required: [worktreePath, label, filesChanged]
+          properties:
+            worktreePath: { type: string, minLength: 1 }
+            label: { type: string, minLength: 1 }
+            filesChanged: { type: array, items: { type: string } }
+        resultEvidence: verify-run
+      transitions:
+        - name: ship
+          to: integrate
+          gates:
+            - { type: evidence-recorded, config: { name: verify-run, requireField: { status: succeeded } } }
+            - { type: cel, config: { expr: 'artifacts.change_summary.visualChange == false', message: 'Visual change — route through aesthetic review instead' } }
+        - name: review
+          to: aesthetic-review
+          gates:
+            - { type: evidence-recorded, config: { name: verify-run, requireField: { status: succeeded } } }
+            - { type: cel, config: { expr: 'artifacts.change_summary.visualChange == true', message: 'Non-visual change — ship without human review' } }
+        - name: fail
+          to: implement
+          gates:
+            - { type: evidence-recorded, config: { name: verify-run, requireField: { status: failed } } }
+
+    - id: aesthetic-review
+      description: Human aesthetic approval for visual/preset work.
+      work:
+        mode: interactive
+        systemPrompt: |
+          Present the work item's visual result to the human: render the affected
+          Presets from the worktree (dev server or the CDP harness on 9223 with
+          the CanvasDrawElement flag) in both orientations and at least two Packs,
+          show the captures, and ask for approval. Record their verbatim reason on
+          rejection.
+      transitions:
+        - name: approve
+          to: integrate
+          gates:
+            - { type: human-approval, config: { id: aesthetic-approval } }
+        - name: rework
+          to: implement
+
+    - id: integrate
+      description: Serialize the work item's commit onto main in the primary checkout.
+      work:
+        mode: method
+        method:
+          modelIdOrName: gfx-integration-git
+          methodName: cherry_pick
+          inputs:
+            commits:
+              - '${{ data.latest(self.name, "artifact-change-summary").payload.headSha }}'
+        resultEvidence: integrate-run
+      transitions:
+        - name: finish
+          to: done
+          gates:
+            - { type: evidence-recorded, config: { name: integrate-run, requireField: { status: succeeded } } }
+        - name: conflict
+          to: implement
+          gates:
+            - { type: evidence-recorded, config: { name: integrate-run, requireField: { status: failed } } }
+
+    - id: done
+      terminal: true
+
+    - id: aborted
+      terminal: true
+
+  globalTransitions:
+    - name: abort
+      to: aborted
+      gates:
+        - { type: human-approval, config: { id: abort-confirmation } }
+methods: {}

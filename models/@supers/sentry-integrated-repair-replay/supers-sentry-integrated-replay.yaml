@@ -1,8 +1,0 @@
-type: '@supers/sentry-integrated-repair-replay'
-typeVersion: 2026.08.22.1
-id: 8c39d96c-8fdd-4a44-8942-b7faa606f766
-name: supers-sentry-integrated-replay
-version: 1
-tags: {}
-globalArguments: {}
-methods: {}

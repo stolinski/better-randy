@@ -25,50 +25,6 @@
     "filesChecksum": "b67885110295b63236743cdc42522703b2c5b18fae873892420b72e662c6c9d7",
     "serverUrl": "https://swamp-club.com"
   },
-  "@mgreten/software-factory-flow-metrics": {
-    "version": "2026.08.02.1",
-    "pulledAt": "2026-08-05T15:31:46.899Z",
-    "files": [
-      ".swamp/pulled-extensions/@mgreten/software-factory-flow-metrics/reports/flow_metrics_report.ts",
-      ".swamp/report-bundles/82c3cf12/flow_metrics_report.js",
-      ".swamp/pulled-extensions/@mgreten/software-factory-flow-metrics/files/README.md",
-      ".swamp/pulled-extensions/@mgreten/software-factory-flow-metrics/files/LICENSE.txt",
-      ".swamp/pulled-extensions/@mgreten/software-factory-flow-metrics/manifest.yaml"
-    ],
-    "checksum": "360154629df9c9544820271b2716fb7a7cd3958301be6b3d0ae83d7f8cbf524b",
-    "filesChecksum": "0a97d08aa64607aa9d83de29666ae41f14cfc822bc97913589f57a55dbf13f58",
-    "serverUrl": "https://swamp-club.com"
-  },
-  "@sntxrr/swamp-triage": {
-    "version": "2026.08.04.4",
-    "pulledAt": "2026-08-14T19:33:35.448Z",
-    "files": [
-      ".swamp/pulled-extensions/@sntxrr/swamp-triage/models/swamp_triage.ts",
-      ".swamp/pulled-extensions/@sntxrr/swamp-triage/workflows/workflow-cd960c91-5a03-47f0-8823-b272a37cbbad.yaml",
-      ".swamp/pulled-extensions/@sntxrr/swamp-triage/workflows/workflow-1d18f54e-b7f1-433d-a5e1-0d37c79de3fd.yaml",
-      ".swamp/bundles/f98069d0/swamp_triage.js",
-      ".swamp/pulled-extensions/@sntxrr/swamp-triage/files/LICENSE.md",
-      ".swamp/pulled-extensions/@sntxrr/swamp-triage/files/README.md",
-      ".swamp/pulled-extensions/@sntxrr/swamp-triage/manifest.yaml"
-    ],
-    "checksum": "015d9552c200bba25a7edf5f465b69d67662c3fb8ac9ddd9f11957304d1a5ad6",
-    "filesChecksum": "beaf669e67fcb080a26b2407e577a78d3ce0d48a2a778cef94d98de8e01ebbb7",
-    "serverUrl": "https://swamp-club.com"
-  },
-  "@club_aqua_back_deck/sentry-telemetry": {
-    "version": "2026.08.18.1",
-    "pulledAt": "2026-08-18T18:56:49.077Z",
-    "files": [
-      ".swamp/bundles/5ff9e7a8/extensions/models/sentry-telemetry.js",
-      ".swamp/pulled-extensions/@club_aqua_back_deck/sentry-telemetry/files/LICENSE",
-      ".swamp/pulled-extensions/@club_aqua_back_deck/sentry-telemetry/files/README.md",
-      ".swamp/pulled-extensions/@club_aqua_back_deck/sentry-telemetry/manifest.yaml",
-      ".swamp/pulled-extensions/@club_aqua_back_deck/sentry-telemetry/models/extensions/models/sentry-telemetry.ts"
-    ],
-    "checksum": "ef1af6e9156e5c239e5327b4b69f35a62ef1409a3197ce53d584aa0623a78d74",
-    "filesChecksum": "207995e15c4e8409daa10a0f479664deb83b88919798d55c4419354d15f63a92",
-    "serverUrl": "https://swamp-club.com"
-  },
   "@mgreten/cli-agent": {
     "version": "2026.08.21.3",
     "pulledAt": "2026-08-21T21:38:02.211Z",

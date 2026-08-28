@@ -47,6 +47,7 @@
         "npm:eslint@^10.7.0",
         "npm:globals@^17.7.0",
         "npm:gsap@^3.15.0",
+        "npm:html2canvas@1.4.1",
         "npm:mediabunny@^1.50.8",
         "npm:playwright@^1.61.1",
         "npm:pngjs@7",

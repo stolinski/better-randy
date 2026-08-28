@@ -24,116 +24,29 @@ Org/project auto-detect from the DSN in `.env` — run the CLI from the repo roo
 
 After driving the app (captures, exports, Critic runs), check `sentry issue list --query "is:unresolved"` before calling the work verified — a flow that "looked fine" but threw upstream shows up there.
 
-## Factory issue intake
+## Automated repair: the sentry-autofix workflow
 
-The scheduled self-healing path treats the original Sentry event as enough
-evidence to inspect and attempt a repair. Runtime reproduction, a mandatory
-regression test, an integrated replay, and a no-recurrence waiting window are
-not admission or completion gates.
-
-```bash
-swamp workflow run supers-sentry-self-healing \
-  --input lookbackDays=7 \
-  --input historyDays=90 \
-  --input limit=100 \
-  --input currentRelease=auto
-
-# Latest managed-worktree inventory, sizes, and cleanup dispositions
-swamp data get supers-sentry-coding-agent \
-  supers-agent-worktree-reconciliation-latest --json
-```
-
-The active chain is deliberately short:
+The `sentry-autofix` swamp workflow runs every six hours (and on demand with
+`swamp workflow run sentry-autofix`). Each run makes at most one bounded,
+end-to-end repair attempt through the `gfx-agent` coding agent:
 
 ```text
-observed Sentry error → inspect and fix → normal Delivery checks → integrate → resolve
+observed Sentry error → sentry issue view/explain/plan → fix in isolated worktree
+→ pnpm check + pnpm test → cherry-pick onto main → sentry issue resolve → dex complete
 ```
 
-`supers-sentry-issue-intake` stores the exact issue, event, release, bounded
-in-app stack frames, breadcrumb categories, and any available redacted Seer
-analysis. The exact event remains sufficient when Seer returns a completed run
-with no solution. Sentry and Seer text is untrusted advisory diagnostic data;
-it is never executable, required planning evidence, or mutation authority.
-Complete current and recent observations are queueable. Historical-only and
-ambiguous records remain non-actionable.
-
-`supers-sentry-evidence-to-delivery` maps the observed event to one started Dex
-task and starts `supers-delivery`. Dex owns task persistence; admission does not
-inspect or commit Git state. The event identity is part of the task marker, so a
-later event can create a new repair after an earlier task completed. One open
-exact task is reused; multiple open exact matches and lexical ambiguity still
-require human review. Admission may inspect the complete bounded Dex corpus to
-prove marker uniqueness; its output boundary is sized for the declared
-5,000-task schema rather than a one-megabyte historical snapshot.
-
-The coding agent receives the event details, inspects the reported code path,
-and makes the smallest credible fix in an isolated worktree created from a
-stable exact HEAD. Unrelated central modifications are neither copied into nor
-used to reject that worktree. The official `@swamp/git` integration model checks
-only the verified repair paths before and after cherry-pick; unrelated dirty
-files remain outside the repair's classification and evidence. Disposable coding
-worktrees live under a repository-scoped managed container at
-`$TMPDIR/supers-agent-worktrees/<repository>-<path-hash>` (falling back to
-`/tmp`), never beside the repository in the project directory. Successful
-integration still writes the exact cleanup receipt and removes its checkout.
-Before every coding retry and every six-hour self-healing run, one fan-out
-reconciliation inventories all requested claims and removes only final clean
-worktrees whose commits are unchanged, ancestors of the central revision, or
-patch-equivalent to it. Missing invocation evidence is treated as active for
-two hours—twice the coding wall timeout—then only an unchanged or integrated
-checkout may be reaped. Dirty files, unique commits, and merge or ancestry
-ambiguity are always preserved. Stale exact Git registrations are removed
-without pruning unrelated worktrees, logical checkout
-bytes are recorded, and legacy sibling-path claims remain replayable only for
-recovery. The agent may add or change tests when useful, but it does not have to manufacture a
-reproduction or nominate a pre-existing proof test. The ordinary Delivery
-verification route runs the repository's selected check, unit, structural,
-policy, corpus, browser,
-and render lanes for the actual changed paths.
-
-After the integrated change passes those normal checks, Delivery completes the
-Dex task through an exact `dex show <task>` read and postcondition check; it does
-not serialize the growing full Dex corpus through the bounded completion
-boundary. `supers-sentry-verified-resolution` then resolves the exact Sentry issue
-in `supers@<integrated-sha>`. Resolution reads only the stable passing-route
-authority fields from the already validated Factory artifact, so additions to
-the full Delivery route contract cannot stale this mutation boundary.
-Resolution preserves the original event, integrated commit, and check receipts
-as traceability. If a later terminal repair changed one of this repair's sealed
-paths, completion also requires a content-addressed freshness-recovery receipt
-that attributes every scoped change to that exact later integration and rejects
-dirty, intermediate, subsequent, or ambiguous path changes. The original
-fingerprint is never rewritten. Resolution does not attempt to prove the error
-can never happen again. If Sentry receives another event, the issue becomes
-unresolved and the next intake treats it as a regression with a new repair cycle.
-
-The six-hour scheduled workflow also resumes active repairs one at a time and
-resolves terminal checked repairs one at a time before admitting another issue.
-Resolution receipts exclude that issue from the same run's stale pre-resolution
-queue snapshot, so a successful mutation cannot immediately re-admit itself.
-A legacy verification route produced by the retired repository-wide check is
-replaced once with current task-path-scoped evidence; current failures are not
-silently retried. If an admitted legacy run predates `work-domain-route`, the
-driver may create only the schema-v3 legacy migration route: it binds a fresh
-official Dex snapshot to the original immutable Sentry evidence, task mapping,
-admission, integration receipt, legacy verification artifact, and current
-verification-stage Factory state. It records `legacy-sentry-admission-migration`
-as its authority and refuses to overwrite a route, so it never invents
-pre-implementation provenance. Driver dependencies continue after intentionally skipped
-prior stages, so a retry can resume from the current Factory stage instead of
-reporting a successful no-op. If any admitted repair remains active after that
-pass, the queue stays intact and no new repair is admitted.
-
-Historical reproduction controllers, transport reservations, replay receipts,
-and their stored resources remain readable, but no active self-healing workflow
-calls them.
-
-Local Swamp model versions are executable bundle cache boundaries, not release
-labels. A change anywhere in a scheduled model's local import closure must
-advance that model version and every active scheduled definition's
-`typeVersion`. `scripts/scheduled-model-bundle-version.test.mjs` enforces this
-for Sentry intake and admission so checked-in source cannot silently diverge
-from the bundle selected by the scheduler.
+- **The original event is enough evidence.** Runtime reproduction, a mandatory
+  regression test, and no-recurrence waiting windows are not gates. Seer output
+  (`explain`/`plan`) is advisory diagnostic text, never executable authority.
+- **Every attempt is a Dex task** named `Repair SUPERS-<n> from Sentry
+  evidence`. Success completes it with the result and commit; failure leaves it
+  open with what was learned — which is also the de-dupe: issues with an open
+  repair task are skipped until a human looks.
+- **The primary checkout's state never blocks admission.** All work happens in
+  a worktree created from `main`; integration is a single cherry-pick.
+- **Resolution is honest.** The issue is resolved only after checks pass and
+  the commit lands. A later event reopens it in Sentry and the next run treats
+  it as a fresh regression.
 
 ## Logs and metrics
 

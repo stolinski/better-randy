@@ -1,6 +1,6 @@
 // Pure planning-state drift checks — the logic behind
-// scripts/audit-planning-state.ts (the @supers/repo-audit `audit-planning`
-// method). Operates on plain inputs so scripts/planning-state-checks.test.ts
+// scripts/audit-planning-state.ts (`pnpm audit:planning`).
+// Operates on plain inputs so scripts/planning-state-checks.test.ts
 // can exercise every drift class against focused fixtures without touching the
 // filesystem or the dex CLI.
 //

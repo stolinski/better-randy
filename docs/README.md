@@ -13,7 +13,7 @@ Entry point is [`../AGENTS.md`](../AGENTS.md) (auto-loaded; `CLAUDE.md` symlinks
 | [`html-in-canvas-typegpu.md`](html-in-canvas-typegpu.md) | The WebGPU + WICG HTML-in-Canvas pattern, TypeGPU shape, WGSL pitfalls. | Building or fixing a Pipeline that mixes HTML-in-Canvas with shaders. |
 | [`adr/`](adr/) | Architecture Decision Records — the *why*. Start at the [**ADR index**](adr/README.md) (status + supersession chains). | Wondering why something is the way it is. |
 | [`roadmap.md`](roadmap.md) | **The single backlog** — designed/wanted/building, one entry per item with status. Absorbed the old `todos/` + `quality-roadmap`. | Looking for what's planned, or what's designed-but-unbuilt. |
-| [`project-control-plane.md`](project-control-plane.md) | The generated control plane — the four repo audits, planning-drift checks, `policy-sweep` gate, CI wiring. | Auditing repo policy or planning-state drift. |
+| [`project-control-plane.md`](project-control-plane.md) | The lean control plane — deterministic checks, the planning-drift audit, the `gfx-factory`, and the `sentry-autofix` lane. | Understanding how repo checks, planning audits, and automation fit together. |
 | [`user-composition-workflows.md`](user-composition-workflows.md) | User-composition interchange, validation, verification, and the CLI render/batch lane. | Importing/exporting compositions or automating renders. |
 | [`sentry-dev-flow.md`](sentry-dev-flow.md) | Sentry capture boundaries and the fix-broken-code loop. | Investigating runtime errors, traces, or export performance. |
 | [`ideas/`](ideas/) | Pre-design speculation — a thing that *might* be built someday. | Considering a new feature area not yet designed. |

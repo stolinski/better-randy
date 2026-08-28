@@ -1,8 +1,0 @@
-type: '@supers/corpus-verify'
-typeVersion: 2026.08.03.1
-id: 92a96c0f-0e90-4201-98c4-c76ca5b70c65
-name: corpus-verify
-version: 1
-tags: {}
-globalArguments: {}
-methods: {}

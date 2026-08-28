@@ -1,5 +1,0 @@
-{
-	"imports": {
-		"../.swamp/pulled-extensions/@mgreten/software-factory-flow-metrics/reports/flow_metrics_report.ts": "https://raw.githubusercontent.com/meagerfindings/swamp-software-factory-flow-metrics/089e9ae09752d2e116df8809ecda852578786572/extensions/reports/flow_metrics_report.ts"
-	}
-}

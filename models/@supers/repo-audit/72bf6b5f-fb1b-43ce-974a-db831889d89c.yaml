@@ -1,9 +1,0 @@
-type: '@supers/repo-audit'
-typeVersion: 2026.08.06.2
-id: 72bf6b5f-fb1b-43ce-974a-db831889d89c
-name: supers-delivery-handoff-authorizer
-version: 1
-tags: {}
-globalArguments:
-  deliveryHandoffAuthorizationKey: '${{ vault.get(supers-planning-delivery-handoff, AUTHORIZATION_KEY) }}'
-methods: {}
