@@ -2,39 +2,39 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-	accumulateSupersRenderEvidenceBytes,
-	buildSupersRenderMatrixCellVerdict,
-	captureSupersAuxiliaryFrameSequence,
-	createSupersEdgeAliasingProbeCandidate,
-	createSupersShadowBandingProbeCandidate,
-	createSupersTextEdgeProbeCandidate,
-	groupSupersRenderMatrixCoordinates,
-	runBoundedSupersRenderMatrixFanout,
-	SUPERS_RENDER_MATRIX_REQUIRED_CHECK_CODES,
-	supersRenderMatrixEvidenceLimitBytes,
-	supersRenderMatrixRunnerTimeoutMs,
-	type SupersRenderMatrixCheckCandidate,
-	type SupersRenderMatrixEvidenceReference,
-	verifySupersRenderEvidenceIndex
-} from './supers-render-matrix-runner.ts';
+	accumulateGfxRenderEvidenceBytes,
+	buildGfxRenderMatrixCellVerdict,
+	captureGfxAuxiliaryFrameSequence,
+	createGfxEdgeAliasingProbeCandidate,
+	createGfxShadowBandingProbeCandidate,
+	createGfxTextEdgeProbeCandidate,
+	groupGfxRenderMatrixCoordinates,
+	runBoundedGfxRenderMatrixFanout,
+	GFX_RENDER_MATRIX_REQUIRED_CHECK_CODES,
+	gfxRenderMatrixEvidenceLimitBytes,
+	gfxRenderMatrixRunnerTimeoutMs,
+	type GfxRenderMatrixCheckCandidate,
+	type GfxRenderMatrixEvidenceReference,
+	verifyGfxRenderEvidenceIndex
+} from './gfx-render-matrix-runner.ts';
 
 function coordinate(cellId: string, presetSlug: string, packId = 'syntax') {
 	return { cellId, presetSlug, packId, orientation: 'horizontal' as const };
 }
 
 test('render execution has closed duration and evidence-size bounds', () => {
-	assert.equal(supersRenderMatrixRunnerTimeoutMs('affected'), 30 * 60 * 1000);
-	assert.equal(supersRenderMatrixRunnerTimeoutMs('full'), 4 * 60 * 60 * 1000);
-	const affectedLimit = supersRenderMatrixEvidenceLimitBytes('affected');
-	assert.equal(accumulateSupersRenderEvidenceBytes('affected', affectedLimit - 1, 1), affectedLimit);
+	assert.equal(gfxRenderMatrixRunnerTimeoutMs('affected'), 30 * 60 * 1000);
+	assert.equal(gfxRenderMatrixRunnerTimeoutMs('full'), 4 * 60 * 60 * 1000);
+	const affectedLimit = gfxRenderMatrixEvidenceLimitBytes('affected');
+	assert.equal(accumulateGfxRenderEvidenceBytes('affected', affectedLimit - 1, 1), affectedLimit);
 	assert.throws(
-		() => accumulateSupersRenderEvidenceBytes('affected', affectedLimit, 1),
+		() => accumulateGfxRenderEvidenceBytes('affected', affectedLimit, 1),
 		/affected render evidence exceeded/
 	);
 });
 
 test('runner groups samples by Preset, Pack, and orientation', () => {
-	const groups = groupSupersRenderMatrixCoordinates([
+	const groups = groupGfxRenderMatrixCoordinates([
 		coordinate('b', 'alpha'),
 		coordinate('a', 'alpha'),
 		coordinate('c', 'beta')
@@ -49,7 +49,7 @@ test('runner groups samples by Preset, Pack, and orientation', () => {
 test('auxiliary sequence reuses the primary capture without changing sample identities', async () => {
 	const primaryFrame = { captureId: 'primary' };
 	const capturedFrameIndices: number[] = [];
-	const captures = await captureSupersAuxiliaryFrameSequence({
+	const captures = await captureGfxAuxiliaryFrameSequence({
 		primaryFrameIndex: 30,
 		primaryFrame,
 		auxiliaryFrameIndices: [29, 30, 31],
@@ -72,14 +72,14 @@ test('auxiliary sequence reuses the primary capture without changing sample iden
 });
 
 test('bounded fanout starts groups concurrently and retains failures as values', async () => {
-	const groups = groupSupersRenderMatrixCoordinates([
+	const groups = groupGfxRenderMatrixCoordinates([
 		coordinate('a', 'alpha'),
 		coordinate('b', 'beta'),
 		coordinate('c', 'gamma')
 	]);
 	let active = 0;
 	let maximumActive = 0;
-	const results = await runBoundedSupersRenderMatrixFanout({
+	const results = await runBoundedGfxRenderMatrixFanout({
 		groups,
 		concurrency: 2,
 		executeGroup: async (group) => {
@@ -109,26 +109,26 @@ test('bounded fanout starts groups concurrently and retains failures as values',
 	assert.ok(results.flatMap((entry) => entry.cells).includes('unavailable:beta'));
 });
 
-const cellEvidence: SupersRenderMatrixEvidenceReference = {
+const cellEvidence: GfxRenderMatrixEvidenceReference = {
 	kind: 'dom',
 	path: 'render-matrix-evidence/cell/runtime.json',
 	sha256: 'a'.repeat(64),
 	region: null
 };
-const probeEvidence: SupersRenderMatrixEvidenceReference = {
+const probeEvidence: GfxRenderMatrixEvidenceReference = {
 	kind: 'probe',
 	path: 'render-matrix-evidence/cell/probe.json',
 	sha256: 'b'.repeat(64),
 	region: { x: 1, y: 2, width: 3, height: 4 }
 };
 
-function validCellCandidates(): SupersRenderMatrixCheckCandidate[] {
+function validCellCandidates(): GfxRenderMatrixCheckCandidate[] {
 	const measured = (
-		code: SupersRenderMatrixCheckCandidate['code'],
+		code: GfxRenderMatrixCheckCandidate['code'],
 		measurement: unknown
-	): SupersRenderMatrixCheckCandidate => ({ code, measurement, evidence: [cellEvidence] });
+	): GfxRenderMatrixCheckCandidate => ({ code, measurement, evidence: [cellEvidence] });
 	const notApplicable = (
-		code: SupersRenderMatrixCheckCandidate['code'],
+		code: GfxRenderMatrixCheckCandidate['code'],
 		reason:
 			| 'no-text'
 			| 'no-shadow'
@@ -137,14 +137,14 @@ function validCellCandidates(): SupersRenderMatrixCheckCandidate[] {
 			| 'no-transition-window'
 			| 'no-reading-content',
 		extra: Record<string, unknown> = {}
-	): SupersRenderMatrixCheckCandidate =>
+	): GfxRenderMatrixCheckCandidate =>
 		({
 			code,
 			outcome: 'not-applicable',
 			reason,
 			evidence: [cellEvidence],
 			...extra
-		}) as SupersRenderMatrixCheckCandidate;
+		}) as GfxRenderMatrixCheckCandidate;
 	return [
 		measured('target-resolution-mismatch', {
 			actualWidth: 3840,
@@ -181,13 +181,13 @@ function validCellCandidates(): SupersRenderMatrixCheckCandidate[] {
 }
 
 test('end-to-end valid cell assembly can pass every closed check', () => {
-	const cell = buildSupersRenderMatrixCellVerdict(
+	const cell = buildGfxRenderMatrixCellVerdict(
 		coordinate('cell', 'alpha'),
 		validCellCandidates(),
 		cellEvidence
 	) as { outcome: string; checks: Array<{ outcome: string }> };
 	assert.equal(cell.outcome, 'pass');
-	assert.equal(cell.checks.length, SUPERS_RENDER_MATRIX_REQUIRED_CHECK_CODES.length);
+	assert.equal(cell.checks.length, GFX_RENDER_MATRIX_REQUIRED_CHECK_CODES.length);
 	assert.equal(
 		cell.checks.some((check) => check.outcome === 'unavailable'),
 		false
@@ -195,13 +195,13 @@ test('end-to-end valid cell assembly can pass every closed check', () => {
 });
 
 function assertZeroSignalCheckPersists(
-	candidate: SupersRenderMatrixCheckCandidate,
-	code: SupersRenderMatrixCheckCandidate['code']
+	candidate: GfxRenderMatrixCheckCandidate,
+	code: GfxRenderMatrixCheckCandidate['code']
 ): void {
 	const candidates = validCellCandidates().map((entry) =>
 		entry.code === code ? candidate : entry
 	);
-	const cell = buildSupersRenderMatrixCellVerdict(
+	const cell = buildGfxRenderMatrixCellVerdict(
 		coordinate('cell', 'alpha'),
 		candidates,
 		cellEvidence
@@ -211,11 +211,11 @@ function assertZeroSignalCheckPersists(
 			code: string;
 			outcome: string;
 			unavailableReason?: string;
-			evidence: SupersRenderMatrixEvidenceReference[];
+			evidence: GfxRenderMatrixEvidenceReference[];
 		}>;
 	};
 	assert.equal(cell.outcome, 'unavailable');
-	assert.equal(cell.checks.length, SUPERS_RENDER_MATRIX_REQUIRED_CHECK_CODES.length);
+	assert.equal(cell.checks.length, GFX_RENDER_MATRIX_REQUIRED_CHECK_CODES.length);
 	assert.deepEqual(
 		cell.checks.filter((check) => check.outcome === 'unavailable'),
 		[
@@ -232,7 +232,7 @@ function assertZeroSignalCheckPersists(
 
 test('text-edge zero transitions retain the probe and make only that check unavailable', () => {
 	assertZeroSignalCheckPersists(
-		createSupersTextEdgeProbeCandidate({ max_step_normalized: 0, transition_count: 0 }, [
+		createGfxTextEdgeProbeCandidate({ max_step_normalized: 0, transition_count: 0 }, [
 			cellEvidence,
 			probeEvidence
 		]),
@@ -242,7 +242,7 @@ test('text-edge zero transitions retain the probe and make only that check unava
 
 test('shadow-banding null transition span retains the probe and makes only that check unavailable', () => {
 	assertZeroSignalCheckPersists(
-		createSupersShadowBandingProbeCandidate(
+		createGfxShadowBandingProbeCandidate(
 			['shadow:card:box-shadow:0'],
 			[
 				{
@@ -261,7 +261,7 @@ test('shadow-banding null transition span retains the probe and makes only that 
 
 test('edge-AA zero transitions retain the probe and make only that check unavailable', () => {
 	assertZeroSignalCheckPersists(
-		createSupersEdgeAliasingProbeCandidate({ hard_stairsteps: 0, transition_sample_count: 0 }, [
+		createGfxEdgeAliasingProbeCandidate({ hard_stairsteps: 0, transition_sample_count: 0 }, [
 			cellEvidence,
 			probeEvidence
 		]),
@@ -273,7 +273,7 @@ test('end-to-end incomplete cell assembly fails closed instead of manufacturing 
 	const candidates = validCellCandidates().filter(
 		(candidate) => candidate.code !== 'layout-instability'
 	);
-	const cell = buildSupersRenderMatrixCellVerdict(
+	const cell = buildGfxRenderMatrixCellVerdict(
 		coordinate('cell', 'alpha'),
 		candidates,
 		cellEvidence
@@ -296,13 +296,13 @@ test('evidence index rejects missing, duplicate, extra, and mismatched files', (
 		{ path: 'render-matrix-evidence/a/canonical.png', sha256: 'a'.repeat(64) }
 	];
 	const valid = [{ ...referencedEvidence[0], bytes: 10 }];
-	assert.doesNotThrow(() => verifySupersRenderEvidenceIndex({ referencedEvidence, index: valid }));
-	assert.throws(() => verifySupersRenderEvidenceIndex({ referencedEvidence, index: [] }));
+	assert.doesNotThrow(() => verifyGfxRenderEvidenceIndex({ referencedEvidence, index: valid }));
+	assert.throws(() => verifyGfxRenderEvidenceIndex({ referencedEvidence, index: [] }));
 	assert.throws(() =>
-		verifySupersRenderEvidenceIndex({ referencedEvidence, index: [...valid, ...valid] })
+		verifyGfxRenderEvidenceIndex({ referencedEvidence, index: [...valid, ...valid] })
 	);
 	assert.throws(() =>
-		verifySupersRenderEvidenceIndex({
+		verifyGfxRenderEvidenceIndex({
 			referencedEvidence,
 			index: [{ ...valid[0], sha256: 'b'.repeat(64) }]
 		})

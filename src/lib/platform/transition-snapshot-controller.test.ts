@@ -21,7 +21,7 @@ function makePreset(name: string, pack: string, durationSeconds: number): Preset
 	state.transport.durationSeconds = durationSeconds;
 	state.surface.content.title = `${name} title`;
 	return {
-		schema: 'supers@1',
+		schema: 'gfx@1',
 		name,
 		pack,
 		kind: 'fixture',

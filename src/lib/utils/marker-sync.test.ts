@@ -416,8 +416,9 @@ describe('deriveMarkerSync', () => {
 describe('sync round-trip artifacts', () => {
 	it('round-trips marker customData', () => {
 		const raw = buildMarkerCustomData('checklist-show-rundown', 2, 1);
+		assert.match(raw, /"schema":"gfx-sync@1"/);
 		assert.deepEqual(parseMarkerCustomData(raw), {
-			schema: 'supers-sync@1',
+			schema: 'gfx-sync@1',
 			slug: 'checklist-show-rundown',
 			beat: 2,
 			version: 1

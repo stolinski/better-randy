@@ -45,7 +45,7 @@ export interface CompositionExportPlan {
 	fps: number;
 	frameRate: FrameRate;
 	frameCount: number;
-	basename: 'supers-overlay' | 'supers-bumper';
+	basename: 'gfx-overlay' | 'gfx-bumper';
 	videoFilename: string;
 	wavFilename: string;
 	startTimecode?: string;
@@ -142,7 +142,7 @@ export function buildCompositionExportPlan(options: {
 	const frameCount = Math.max(1, secondsToFrames(durationSeconds, frameRate));
 	const isOpaque = transition ? isTransitionOpaque(transition) : isEngineStateOpaque(state);
 	const output: CompositionOutputClassification = isOpaque ? 'opaque' : 'transparent';
-	const basename = isOpaque ? 'supers-bumper' : 'supers-overlay';
+	const basename = isOpaque ? 'gfx-bumper' : 'gfx-overlay';
 	const extension = format === 'prores' ? 'mov' : 'webm';
 	const codec: CompositionExportCodec =
 		format === 'prores' ? 'prores-4444' : isOpaque ? 'vp9-opaque' : 'vp9-alpha';

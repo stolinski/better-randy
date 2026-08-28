@@ -129,7 +129,7 @@ async function main(): Promise<void> {
 	const total = await countFrames(ffprobe, inputPath);
 	const plan = planDecode(total, all, requested);
 
-	const workDir = await mkdtemp(join(tmpdir(), 'supers-decode-'));
+	const workDir = await mkdtemp(join(tmpdir(), 'gfx-decode-'));
 	try {
 		const pattern = join(workDir, 'frame_%04d.png');
 		const selectArgs =

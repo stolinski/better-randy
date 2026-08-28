@@ -2,11 +2,11 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { createPackCalibrationVerificationInputs } from './pack-calibration-verification-inputs.ts';
-import { registerSupersRuntimeModuleHooks } from './supers-runtime-module-hooks.ts';
+import { registerGfxRuntimeModuleHooks } from './gfx-runtime-module-hooks.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..');
-registerSupersRuntimeModuleHooks(repoRoot);
+registerGfxRuntimeModuleHooks(repoRoot);
 
 const catalogModule = await import(
 	pathToFileURL(resolve(repoRoot, 'src/lib/platform/packs/catalog.ts')).href

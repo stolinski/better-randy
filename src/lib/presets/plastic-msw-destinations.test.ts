@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
 import presetJson from './plastic-msw-destinations.json';
-import { PresetSchema } from '../platform/engine-schema';
+import { parsePresetIngress } from '../platform/preset-ingress';
 import { listFixtures, listPresets } from '../platform/preset-catalog';
 import { parsePreset } from '../platform/preset-parser';
 import { presetToWireFormat } from '../platform/preset-pure';
@@ -13,7 +13,7 @@ import { createChartRenderTextMeasurer } from '../utils/chart-text-measurement';
 import { formatChartValueLabel } from '../utils/chart-editorial-annotation';
 import { allocateChartNormalizedUnits } from '../utils/chart-normalized-allocation';
 
-const preset = PresetSchema.parse(presetJson);
+const preset = parsePresetIngress(presetJson);
 const chart = preset.state.surface.chart;
 if (!chart || chart.items.length !== 1)
 	throw new Error('Plastic MSW Preset must declare one chart.');

@@ -2,6 +2,8 @@
 
 GFX reports captured errors, logs, and traces to Sentry (`scott-tolinski-projects/supers`) during local dev when the relevant DSN is configured. Agents use the `sentry` CLI as the primary way to inspect reported failures with stack, breadcrumbs, and trace context, alongside the dev-server console and browser log for uncaptured or disabled-SDK cases.
 
+The project slug — and the `SUPERS-<n>` issue short IDs derived from it — is `frozen` under [ADR-0053](adr/0053-gfx-namespace-and-legacy-supers-compatibility.md): it holds every historical event and every short ID an issue has ever been cited by, and it lives in Sentry rather than in this repository. The release string is what carries the GFX namespace forward.
+
 ## What is instrumented
 
 - **`src/hooks.server.ts`** — Sentry init + request tracing on every route (`sentryHandle`). Unexpected SSR failures flow through `handleErrorWithSentry`; every resolved 5xx response is also promoted by `logErrorResponses` with a bounded response body, including intentional `error(5xx)` HttpErrors that never reach `handleError`. **4xx responses are logs, not issues** — an absent poster or fork is a signal, and turning it into an issue would recreate the console-noise problem in Sentry.
@@ -68,7 +70,10 @@ Video-track exports add only bounded aggregate operational context: whether Vide
 
 ### Versions
 
-Every event and span carries a release: **`supers@<git sha>`**.
+Every event and span carries a release: **`gfx@<git sha>`**. Events captured
+before the namespace rename carry **`supers@<git sha>`** and stay queryable
+forever — the release string is `accept-old / write-new`, so only new releases
+take the GFX spelling ([ADR-0053](adr/0053-gfx-namespace-and-legacy-supers-compatibility.md)).
 
 - **Server:** `src/lib/platform/git-version.server.ts` resolves HEAD per request
   (mtime-cached reads of `.git/HEAD` + the branch ref), so the long-running
@@ -84,8 +89,9 @@ Every event and span carries a release: **`supers@<git sha>`**.
   `git config core.hooksPath scripts/git-hooks` (machine-local config — re-run
   that once on a fresh clone).
 
-Slice anything by version: `sentry issue list --query "release:supers@<sha>"`,
-`firstRelease:` / `lastRelease:` queries, and the dashboard's by-release tables.
+Slice anything by version: `sentry issue list --query "release:gfx@<sha>"`
+(pre-rename commits answer to `release:supers@<sha>`), `firstRelease:` /
+`lastRelease:` queries, and the dashboard's by-release tables.
 
 ### Dashboard
 

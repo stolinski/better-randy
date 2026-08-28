@@ -4,7 +4,8 @@ import { describe, it, vi } from 'vitest';
 
 import blankPresetJson from '$lib/presets/blank.json';
 
-import { PresetSchema, type Preset } from './engine-schema';
+import type { Preset } from './engine-schema';
+import { parsePresetIngress } from './preset-ingress';
 import {
 	assertUserCompositionMediaReady,
 	inspectUserCompositionMedia
@@ -13,7 +14,7 @@ import {
 const SHARED_ASSET_URL = `/api/user-assets/${'a'.repeat(64)}.mp4`;
 
 function mediaPreset(): Preset {
-	return PresetSchema.parse({
+	return parsePresetIngress({
 		...blankPresetJson,
 		state: {
 			...blankPresetJson.state,

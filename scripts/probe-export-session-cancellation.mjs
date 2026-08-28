@@ -46,7 +46,7 @@ async function serverProcess() {
 	]);
 	const pid = Number(stdout.trim().split('\n')[0]);
 	const row = (await processRows()).find((candidate) => candidate.pid === pid);
-	if (!row) throw new Error(`Could not inspect Supers server process ${pid}.`);
+	if (!row) throw new Error(`Could not inspect GFX server process ${pid}.`);
 	return row;
 }
 

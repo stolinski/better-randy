@@ -4,7 +4,7 @@
 
 ## Pitch
 
-Let agents edit standalone `supers@1` Presets and export them through one command without opening, navigating, or controlling a visible browser. GFX still renders through its canonical WICG HTML-in-Canvas + WebGPU path; a local or private remote Render Worker owns the compatible Chromium process and launches it with `--enable-blink-features=CanvasDrawElement`.
+Let agents edit standalone `gfx@1` Presets and export them through one command without opening, navigating, or controlling a visible browser. GFX still renders through its canonical WICG HTML-in-Canvas + WebGPU path; a local or private remote Render Worker owns the compatible Chromium process and launches it with `--enable-blink-features=CanvasDrawElement`.
 
 The intended agent experience is ordinary domain-level automation:
 

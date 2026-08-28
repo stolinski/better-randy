@@ -1,11 +1,11 @@
 {
-  "$id": "supers@1",
+  "$id": "gfx@1",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
     "schema": {
       "type": "string",
-      "const": "supers@1"
+      "const": "gfx@1"
     },
     "name": {
       "type": "string",

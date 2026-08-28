@@ -24,11 +24,11 @@ import { promisify } from 'node:util';
 
 import { format, resolveConfig } from 'prettier';
 
-import { registerSupersRuntimeModuleHooks } from './supers-runtime-module-hooks.ts';
+import { registerGfxRuntimeModuleHooks } from './gfx-runtime-module-hooks.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..');
-registerSupersRuntimeModuleHooks(repoRoot);
+registerGfxRuntimeModuleHooks(repoRoot);
 
 const {
 	RATIFIED_NATIVE_OUTPUT_BYTES_PER_FRAME,

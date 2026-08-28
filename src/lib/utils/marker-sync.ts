@@ -42,13 +42,12 @@ export const GFX_SYNCED_MARKER_COLOR = 'Mint';
  * onto this one, so a group synced under either namespace stays findable and a
  * re-sync rewrites its receipt in place (ADR-0053, `accept-old / write-new`).
  *
- * The tag still spells the Legacy Supers namespace: this receipt is written
- * outward into the editor's Resolve project, so flipping it is the writer half
- * of the matrix row and lands with the other marker/customData writers. The
- * `satisfies` keeps the value inside what readers already accept, so that flip
- * stays a one-value edit.
+ * A group last synced under `supers-sync@1` therefore needs nothing from the
+ * editor: the reader still recognizes its receipt, and the next re-sync writes
+ * this tag over it. The `satisfies` keeps the written value inside what readers
+ * accept.
  */
-export const GFX_SYNC_SCHEMA = 'supers-sync@1' satisfies AcceptedMarkerSyncSchema;
+export const GFX_SYNC_SCHEMA = 'gfx-sync@1' satisfies AcceptedMarkerSyncSchema;
 
 /**
  * The head-marker note prefix this sync documents; the rest of the note is the

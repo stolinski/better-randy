@@ -70,18 +70,18 @@ Build the placement plan — shape documented in `scripts/resolve-place.py`'s do
 
 ```json
 {
-  "binName": "Supers",
-  "trackName": "SUPERS",
+  "binName": "GFX",
+  "trackName": "GFX",
   "clipName": "<human-readable name>",
   "moviePath": "/path/on/resolve/machine.mov",
   "recordFrame": 108240,
   "replace": { "fileNamePrefix": "<slug>__", "fileNameSuffix": "__v1.mov" },
-  "audio": { "trackName": "SUPERS", "recordFrame": 108240 },
-  "markers": [{ "frameId": 240, "color": "Mint", "customData": "{…supers-sync@1…}" }]
+  "audio": { "trackName": "GFX", "recordFrame": 108240 },
+  "markers": [{ "frameId": 240, "color": "Mint", "customData": "{…gfx-sync@1…}" }]
 }
 ```
 
-`clipName`, `replace`, and `audio` are optional (include `audio` only when the piece ships sound). Marker updates come from `buildSyncedMarkerUpdates(freshSnapshot, slug, version, itemCount, group?)` (pass the group for free-label selections) — head = beat 0, beats 1-based, END = beat −1; extra beats beyond the item count keep their input color, visibly unsynced. Bin and track are created if missing (track ABOVE existing tracks); defaults `Supers` / `SUPERS` unless the user names others. Pipe it: `ssh <user>@<host> '<python3> - --plan-b64 <BASE64>' < scripts/resolve-place.py`.
+`clipName`, `replace`, and `audio` are optional (include `audio` only when the piece ships sound). Marker updates come from `buildSyncedMarkerUpdates(freshSnapshot, slug, version, itemCount, group?)` (pass the group for free-label selections) — head = beat 0, beats 1-based, END = beat −1; extra beats beyond the item count keep their input color, visibly unsynced. Bin and track are created if missing (track ABOVE existing tracks); defaults `GFX` / `GFX` unless the user names others; a project that already holds a `Supers` bin or `SUPERS` track keeps using it (ADR-0053), so the rename never splits one edit across two bins or two tracks. Pipe it: `ssh <user>@<host> '<python3> - --plan-b64 <BASE64>' < scripts/resolve-place.py`.
 
 **Re-sync replace:** build `replace` with `buildReplacePlanAction(slug, version)` and include it whenever it is non-null (version ≥ 2). The pipe sweeps the prior version's items — video AND stranded audio, every track — by SOURCE FILE name before placing, deletes them in one call, and reports them under `replaced[]`; zero matches is fine (a hand-deleted prior version). One plan, no separate sweep choreography.
 
@@ -107,7 +107,7 @@ Build the placement plan — shape documented in `scripts/resolve-place.py`'s do
 
 ## Safety boundaries
 
-- Sanctioned timeline mutations only: append to the named Supers track, rewrite THIS group's markers (Mint + customData), sweep prior versions of THIS piece by filename. Never touch the editor's clips, other markers, or project settings on a real timeline.
+- Sanctioned timeline mutations only: append to the named GFX track, rewrite THIS group's markers (Mint + customData), sweep prior versions of THIS piece by filename. Never touch the editor's clips, other markers, or project settings on a real timeline.
 - Marker rewrites keep the restore-on-failure path (built into the pipe) — a failed rewrite must never eat the editor's marker.
 - Test fixtures: build scratch projects programmatically and delete them after; never test against a real timeline.
 - Don't place onto a real timeline the user didn't name in this session.

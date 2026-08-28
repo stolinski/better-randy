@@ -1,6 +1,6 @@
 import { compareCanonicalText } from '../src/lib/utils/canonical-text-order.ts';
 
-/** Deterministic work-domain and changed-path routing for Supers Delivery. */
+/** Deterministic work-domain and changed-path routing for GFX Delivery. */
 export type VerificationLaneId =
 	| 'policy-sweep'
 	| 'check'
@@ -64,13 +64,13 @@ export type HumanReviewRequirement = {
 	reasons: string[];
 };
 
-export type SupersTaskIntentSource = {
+export type GfxTaskIntentSource = {
 	name: string;
 	description: string;
 	metadata: Record<string, unknown> | null;
 };
 
-export type SupersWorkDomainIntent = {
+export type GfxWorkDomainIntent = {
 	status: WorkDomainStatus;
 	declaredDomains: Exclude<WorkDomainId, 'unknown'>[];
 	benchmarkScripts: string[];
@@ -85,7 +85,7 @@ export type ChangeImpactClassification = {
 	classification: WorkDomainStatus;
 	domains: WorkDomain[];
 	unknownPaths: string[];
-	intent: SupersWorkDomainIntent;
+	intent: GfxWorkDomainIntent;
 	surfaces: ChangeSurface[];
 	requiredHumanReviews: HumanReviewRequirement[];
 	lanes: VerificationLane[];
@@ -272,8 +272,8 @@ function isSwampControlPlanePath(path: string): boolean {
 		path.startsWith('models/') ||
 		path.startsWith('workflows/') ||
 		path.startsWith('.claude/skills/software-factory/') ||
-		path.startsWith('.claude/skills/supers-factory-fleet/') ||
-		path.startsWith('.claude/skills/supers-domain-aware-implementation/') ||
+		path.startsWith('.claude/skills/gfx-factory/') ||
+		path.startsWith('.claude/skills/gfx-domain-aware-implementation/') ||
 		SWAMP_SCRIPT_PREFIXES.some((prefix) => path.startsWith(prefix))
 	);
 }
@@ -409,20 +409,47 @@ function readDescriptionDirective(description: string, name: string): string[] {
 		.filter(Boolean);
 }
 
-function taskIntentMetadata(metadata: Record<string, unknown> | null): Record<string, unknown> {
-	if (metadata === null || metadata.supersDelivery === undefined) return {};
-	const route = metadata.supersDelivery;
-	if (typeof route !== 'object' || route === null || Array.isArray(route)) {
-		throw new TypeError('metadata.supersDelivery must be an object');
+/**
+ * A typed Delivery directive a person writes into a Dex task description.
+ * `GFX-Delivery-<suffix>` is the current spelling; the Legacy Supers spelling
+ * keeps working because it is already typed into open tasks (ADR-0053,
+ * `deprecated alias`). Both names are read; entries from either are unioned.
+ *
+ * @param suffix the directive tail, e.g. `Domains`.
+ */
+function readDeliveryDirective(description: string, suffix: string): string[] {
+	return [
+		...readDescriptionDirective(description, `GFX-Delivery-${suffix}`),
+		...readDescriptionDirective(description, `Supers-Delivery-${suffix}`)
+	];
+}
+
+/**
+ * The typed Delivery route on a Dex task's metadata. `metadata.gfxDelivery` is
+ * the current key; `metadata.supersDelivery` is its `deprecated alias` and is
+ * read whenever the current key is absent.
+ *
+ * @deprecated for `metadata.supersDelivery` callers — write `metadata.gfxDelivery`.
+ */
+function taskIntentMetadata(metadata: Record<string, unknown> | null): {
+	key: string;
+	route: Record<string, unknown>;
+} {
+	const key =
+		metadata !== null && metadata.gfxDelivery !== undefined ? 'gfxDelivery' : 'supersDelivery';
+	const declared = metadata === null ? undefined : metadata[key];
+	if (declared === undefined) return { key: `metadata.gfxDelivery`, route: {} };
+	if (typeof declared !== 'object' || declared === null || Array.isArray(declared)) {
+		throw new TypeError(`metadata.${key} must be an object`);
 	}
-	const record = route as Record<string, unknown>;
-	const unexpected = Object.keys(record).filter(
-		(key) => !['workDomains', 'benchmarkScripts', 'exportDecodeScripts'].includes(key)
+	const route = declared as Record<string, unknown>;
+	const unexpected = Object.keys(route).filter(
+		(field) => !['workDomains', 'benchmarkScripts', 'exportDecodeScripts'].includes(field)
 	);
 	if (unexpected.length > 0) {
-		throw new TypeError(`metadata.supersDelivery has unknown fields: ${unexpected.join(', ')}`);
+		throw new TypeError(`metadata.${key} has unknown fields: ${unexpected.join(', ')}`);
 	}
-	return record;
+	return { key: `metadata.${key}`, route };
 }
 
 function skillsForDomains(domains: readonly Exclude<WorkDomainId, 'unknown'>[]): string[] {
@@ -507,7 +534,7 @@ function explicitProjectRelativePathHints(text: string): string[] {
 	return sortedUnique([...text.matchAll(pattern)].map((match) => normalizeChangedPath(match[1])));
 }
 
-function naturalTaskDomains(source: SupersTaskIntentSource): {
+function naturalTaskDomains(source: GfxTaskIntentSource): {
 	domains: Array<Exclude<WorkDomainId, 'unknown'>>;
 	pathHints: string[];
 } {
@@ -528,19 +555,18 @@ function naturalTaskDomains(source: SupersTaskIntentSource): {
 
 /**
  * Route domain terms from the canonical human task name. The description may add only
- * typed Supers Delivery directives and explicit project-relative path hints.
+ * typed GFX Delivery directives and explicit project-relative path hints.
  */
-export function classifySupersTaskIntent(source: SupersTaskIntentSource): SupersWorkDomainIntent {
-	const metadata = taskIntentMetadata(source.metadata);
+export function classifyGfxTaskIntent(source: GfxTaskIntentSource): GfxWorkDomainIntent {
+	const { key: metadataKey, route: metadata } = taskIntentMetadata(source.metadata);
 	const explicitDomains = [
-		...readStringArray(metadata.workDomains, 'metadata.supersDelivery.workDomains'),
-		...readDescriptionDirective(source.description, 'Supers-Delivery-Domains')
+		...readStringArray(metadata.workDomains, `${metadataKey}.workDomains`),
+		...readDeliveryDirective(source.description, 'Domains')
 	];
 	const invalidDomain = explicitDomains.find(
 		(domain) => !DECLARED_DOMAIN_ORDER.includes(domain as Exclude<WorkDomainId, 'unknown'>)
 	);
-	if (invalidDomain)
-		throw new TypeError(`Unsupported Supers Delivery work domain: ${invalidDomain}`);
+	if (invalidDomain) throw new TypeError(`Unsupported GFX Delivery work domain: ${invalidDomain}`);
 	const natural = naturalTaskDomains(source);
 	const declaredDomains = sortedUnique(
 		[...(explicitDomains as Array<Exclude<WorkDomainId, 'unknown'>>), ...natural.domains],
@@ -549,24 +575,24 @@ export function classifySupersTaskIntent(source: SupersTaskIntentSource): Supers
 	const benchmarkScripts = sortedUnique([
 		...readStringArray(
 			metadata.benchmarkScripts,
-			'metadata.supersDelivery.benchmarkScripts',
+			`${metadataKey}.benchmarkScripts`,
 			BENCHMARK_SCRIPT_PATTERN
 		),
-		...readDescriptionDirective(source.description, 'Supers-Delivery-Benchmarks')
+		...readDeliveryDirective(source.description, 'Benchmarks')
 	]);
 	if (benchmarkScripts.some((script) => !BENCHMARK_SCRIPT_PATTERN.test(script))) {
-		throw new TypeError('Supers-Delivery-Benchmarks contains an unsupported package script');
+		throw new TypeError('GFX-Delivery-Benchmarks contains an unsupported package script');
 	}
 	const exportDecodeScripts = sortedUnique([
 		...readStringArray(
 			metadata.exportDecodeScripts,
-			'metadata.supersDelivery.exportDecodeScripts',
+			`${metadataKey}.exportDecodeScripts`,
 			EXPORT_DECODE_SCRIPT_PATTERN
 		),
-		...readDescriptionDirective(source.description, 'Supers-Delivery-Export-Decode')
+		...readDeliveryDirective(source.description, 'Export-Decode')
 	]);
 	if (exportDecodeScripts.some((script) => !EXPORT_DECODE_SCRIPT_PATTERN.test(script))) {
-		throw new TypeError('Supers-Delivery-Export-Decode contains an unsupported package script');
+		throw new TypeError('GFX-Delivery-Export-Decode contains an unsupported package script');
 	}
 	if (benchmarkScripts.length > 0 && !declaredDomains.includes('performance')) {
 		declaredDomains.push('performance');
@@ -596,7 +622,7 @@ export function classifySupersTaskIntent(source: SupersTaskIntentSource): Supers
 		constraintPaths: constraintsForDomains(declaredDomains),
 		reasons:
 			reasons.length === 0
-				? ['canonical human task text has no unambiguous Supers domain term or path hint']
+				? ['canonical human task text has no unambiguous GFX domain term or path hint']
 				: reasons
 	};
 }
@@ -718,7 +744,7 @@ function addPathLaneReasons(paths: string[], map: Map<string, string[]>): void {
 	}
 }
 
-function addIntentLaneReasons(intent: SupersWorkDomainIntent, map: Map<string, string[]>): void {
+function addIntentLaneReasons(intent: GfxWorkDomainIntent, map: Map<string, string[]>): void {
 	const lanesByDomain: Record<Exclude<WorkDomainId, 'unknown'>, VerificationLaneId[]> = {
 		preset: ['preset-static', 'layout-contract'],
 		pack: ['preset-static', 'layout-contract'],
@@ -739,7 +765,7 @@ function addIntentLaneReasons(intent: SupersWorkDomainIntent, map: Map<string, s
 
 function classifySurfaces(
 	paths: string[],
-	intent: SupersWorkDomainIntent
+	intent: GfxWorkDomainIntent
 ): { surfaces: ChangeSurface[]; requiredHumanReviews: HumanReviewRequirement[] } {
 	const surfaceRules: Array<Rule<ChangeSurfaceId>> = [
 		{
@@ -820,7 +846,7 @@ function classifySurfaces(
 	return { surfaces, requiredHumanReviews };
 }
 
-const EMPTY_INTENT: SupersWorkDomainIntent = {
+const EMPTY_INTENT: GfxWorkDomainIntent = {
 	status: 'unknown',
 	declaredDomains: [],
 	benchmarkScripts: [],
@@ -833,7 +859,7 @@ const EMPTY_INTENT: SupersWorkDomainIntent = {
 /** Map trusted changed paths plus additive task intent to the smallest complete lane union. */
 export function classifyChangeImpact(
 	paths: string[],
-	intent: SupersWorkDomainIntent = EMPTY_INTENT
+	intent: GfxWorkDomainIntent = EMPTY_INTENT
 ): ChangeImpactClassification {
 	const normalizedPaths = sortedUnique(paths.map(normalizeChangedPath));
 	const pathDomains = pathReasons(normalizedPaths, DOMAIN_RULES);

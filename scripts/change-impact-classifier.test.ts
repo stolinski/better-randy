@@ -3,27 +3,27 @@ import { test } from 'node:test';
 
 import {
 	classifyChangeImpact,
-	classifySupersTaskIntent,
+	classifyGfxTaskIntent,
 	parseGitWorkingTreeStatus,
-	type SupersWorkDomainIntent
+	type GfxWorkDomainIntent
 } from './change-impact-classifier.ts';
 
-function laneIds(paths: string[], intent?: SupersWorkDomainIntent): string[] {
+function laneIds(paths: string[], intent?: GfxWorkDomainIntent): string[] {
 	return classifyChangeImpact(paths, intent).lanes.map((lane) => lane.id);
 }
 
-function domainIds(paths: string[], intent?: SupersWorkDomainIntent): string[] {
+function domainIds(paths: string[], intent?: GfxWorkDomainIntent): string[] {
 	return classifyChangeImpact(paths, intent).domains.map((domain) => domain.id);
 }
 
-function humanReviewKinds(paths: string[], intent?: SupersWorkDomainIntent): string[] {
+function humanReviewKinds(paths: string[], intent?: GfxWorkDomainIntent): string[] {
 	return classifyChangeImpact(paths, intent).requiredHumanReviews.map((review) => review.kind);
 }
 
 function assertOnlyLanes(
 	paths: string[],
 	expected: string[],
-	intent?: SupersWorkDomainIntent
+	intent?: GfxWorkDomainIntent
 ): void {
 	assert.deepEqual(laneIds(paths, intent), ['policy-sweep', ...expected]);
 }
@@ -38,7 +38,7 @@ const DOMAIN_AUDIT_LANES = [
 test('Swamp-only changes select control-plane verification and explicitly exclude app audits', () => {
 	for (const path of [
 		'extensions/models/repo-audit.ts',
-		'models/@supers/repo-audit/model.yaml',
+		'models/@gfx/verify/gfx-verify.yaml',
 		'workflows/workflow-example.yaml'
 	]) {
 		assertOnlyLanes([path], ['swamp-control-plane']);
@@ -226,7 +226,7 @@ test('ordinary human task wording selects deterministic pre-implementation domai
 	] as const;
 
 	for (const fixture of fixtures) {
-		const intent = classifySupersTaskIntent({
+		const intent = classifyGfxTaskIntent({
 			name: fixture.name,
 			description: fixture.description,
 			metadata: null
@@ -240,10 +240,10 @@ test('ordinary human task wording selects deterministic pre-implementation domai
 });
 
 test('free-text description examples cannot add work domains', () => {
-	const taskName = 'Route Supers Factory verification by change domain';
+	const taskName = 'Route GFX Factory verification by change domain';
 	const exclusionDescription =
 		'Swamp-only: no lower-third Preset, Pack, browser, canvas inspector selection, render, export, or benchmark performance checks.';
-	const intent = classifySupersTaskIntent({
+	const intent = classifyGfxTaskIntent({
 		name: taskName,
 		description: exclusionDescription,
 		metadata: null
@@ -251,7 +251,7 @@ test('free-text description examples cannot add work domains', () => {
 	assert.equal(intent.status, 'known');
 	assert.deepEqual(intent.declaredDomains, ['swamp-control-plane']);
 
-	const pathHintIntent = classifySupersTaskIntent({
+	const pathHintIntent = classifyGfxTaskIntent({
 		name: taskName,
 		description: `${exclusionDescription} Update \`docs/project-control-plane.md\`.`,
 		metadata: null
@@ -268,7 +268,7 @@ test('free-text description examples cannot add work domains', () => {
 });
 
 test('natural Preset, Pack, rendering, and export intent keeps smallest-complete obligations', () => {
-	const presetIntent = classifySupersTaskIntent({
+	const presetIntent = classifyGfxTaskIntent({
 		name: 'author lower-third Preset',
 		description: '',
 		metadata: null
@@ -280,7 +280,7 @@ test('natural Preset, Pack, rendering, and export intent keeps smallest-complete
 	);
 	assert.ok(!laneIds(['src/lib/presets/lower-third.json'], presetIntent).includes('pack-matrix'));
 
-	const packIntent = classifySupersTaskIntent({
+	const packIntent = classifyGfxTaskIntent({
 		name: 'adjust the Syntax Pack',
 		description: '',
 		metadata: null
@@ -288,7 +288,7 @@ test('natural Preset, Pack, rendering, and export intent keeps smallest-complete
 	assert.ok(laneIds(['src/lib/packs/syntax/manifest.ts'], packIntent).includes('layout-contract'));
 	assert.ok(!laneIds(['src/lib/packs/syntax/manifest.ts'], packIntent).includes('pack-matrix'));
 
-	const renderingIntent = classifySupersTaskIntent({
+	const renderingIntent = classifyGfxTaskIntent({
 		name: 'fix WebGPU rendering',
 		description: '',
 		metadata: null
@@ -299,7 +299,7 @@ test('natural Preset, Pack, rendering, and export intent keeps smallest-complete
 		)
 	);
 
-	const exportIntent = classifySupersTaskIntent({
+	const exportIntent = classifyGfxTaskIntent({
 		name: 'fix WebM export',
 		description: '',
 		metadata: null
@@ -312,7 +312,7 @@ test('natural Preset, Pack, rendering, and export intent keeps smallest-complete
 });
 
 test('explicit project-relative file hints route without magic directives', () => {
-	const intent = classifySupersTaskIntent({
+	const intent = classifyGfxTaskIntent({
 		name: 'Update the requested source',
 		description: 'The contract is in `src/lib/packs/syntax/manifest.ts`.',
 		metadata: null
@@ -323,10 +323,10 @@ test('explicit project-relative file hints route without magic directives', () =
 });
 
 test('performance intent adds declared benchmark evidence to touched rendering checks', () => {
-	const intent = classifySupersTaskIntent({
+	const intent = classifyGfxTaskIntent({
 		name: 'Improve frame renderer performance',
 		description:
-			'Supers-Delivery-Domains: performance, rendering\nSupers-Delivery-Benchmarks: benchmark:render-frame',
+			'GFX-Delivery-Domains: performance, rendering\nGFX-Delivery-Benchmarks: benchmark:render-frame',
 		metadata: null
 	});
 	assert.equal(intent.status, 'mixed');
@@ -343,11 +343,11 @@ test('performance intent adds declared benchmark evidence to touched rendering c
 });
 
 test('explicit directives remain additive and precise', () => {
-	const intent = classifySupersTaskIntent({
+	const intent = classifyGfxTaskIntent({
 		name: 'Update control plane',
-		description: 'Supers-Delivery-Domains: swamp-control-plane, documentation-planning',
+		description: 'GFX-Delivery-Domains: swamp-control-plane, documentation-planning',
 		metadata: {
-			supersDelivery: {
+			gfxDelivery: {
 				workDomains: ['performance'],
 				benchmarkScripts: ['benchmark:factory-route']
 			}
@@ -366,8 +366,48 @@ test('explicit directives remain additive and precise', () => {
 	);
 });
 
+// ADR-0053 `deprecated alias`: a task written before the rename already carries
+// the Supers spelling of the directive and the metadata route, so both keep
+// routing identically to the GFX spelling they were renamed to.
+test('legacy Supers Delivery directives and metadata route identically', () => {
+	const current = classifyGfxTaskIntent({
+		name: 'Update control plane',
+		description: 'GFX-Delivery-Domains: documentation-planning',
+		metadata: { gfxDelivery: { workDomains: ['performance'] } }
+	});
+	const legacy = classifyGfxTaskIntent({
+		name: 'Update control plane',
+		description: 'Supers-Delivery-Domains: documentation-planning',
+		metadata: { supersDelivery: { workDomains: ['performance'] } }
+	});
+	assert.deepEqual(legacy, current);
+	assert.deepEqual(legacy.declaredDomains, [
+		'performance',
+		'swamp-control-plane',
+		'documentation-planning'
+	]);
+
+	assert.deepEqual(
+		classifyGfxTaskIntent({
+			name: 'Improve frame renderer performance',
+			description: 'Supers-Delivery-Benchmarks: benchmark:render-frame',
+			metadata: null
+		}).benchmarkScripts,
+		['benchmark:render-frame']
+	);
+	assert.throws(
+		() =>
+			classifyGfxTaskIntent({
+				name: 'Bad legacy route',
+				description: '',
+				metadata: { supersDelivery: { unknownField: [] } }
+			}),
+		/metadata\.supersDelivery has unknown fields: unknownField/
+	);
+});
+
 test('ambiguous task text stays unknown and malformed directives fail closed', () => {
-	const ambiguous = classifySupersTaskIntent({
+	const ambiguous = classifyGfxTaskIntent({
 		name: 'Improve the current behavior',
 		description: 'Make the result better without changing unrelated things.',
 		metadata: null
@@ -376,18 +416,18 @@ test('ambiguous task text stays unknown and malformed directives fail closed', (
 	assert.deepEqual(ambiguous.declaredDomains, []);
 	assert.throws(
 		() =>
-			classifySupersTaskIntent({
+			classifyGfxTaskIntent({
 				name: 'Bad route',
-				description: 'Supers-Delivery-Domains: everything',
+				description: 'GFX-Delivery-Domains: everything',
 				metadata: null
 			}),
-		/Unsupported Supers Delivery work domain/
+		/Unsupported GFX Delivery work domain/
 	);
 	assert.throws(
 		() =>
-			classifySupersTaskIntent({
+			classifyGfxTaskIntent({
 				name: 'Bad benchmark',
-				description: 'Supers-Delivery-Benchmarks: test',
+				description: 'GFX-Delivery-Benchmarks: test',
 				metadata: null
 			}),
 		/unsupported package script/
@@ -395,9 +435,9 @@ test('ambiguous task text stays unknown and malformed directives fail closed', (
 });
 
 test('path obligations remain authoritative over narrower human intent', () => {
-	const docsIntent = classifySupersTaskIntent({
+	const docsIntent = classifyGfxTaskIntent({
 		name: 'Documentation',
-		description: 'Supers-Delivery-Domains: documentation-planning',
+		description: 'GFX-Delivery-Domains: documentation-planning',
 		metadata: null
 	});
 	assertOnlyLanes(

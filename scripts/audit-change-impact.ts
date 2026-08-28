@@ -2,7 +2,7 @@
 import {
 	classifyChangeImpact,
 	parseGitWorkingTreeStatus,
-	type SupersWorkDomainIntent
+	type GfxWorkDomainIntent
 } from './change-impact-classifier.ts';
 
 const chunks: Buffer[] = [];
@@ -23,7 +23,7 @@ if (intentMarkerIndex === -1 || !process.argv[intentMarkerIndex + 1]) {
 		'Expected --work-domain-intent-json with the trusted pre-implementation route'
 	);
 }
-const intent = JSON.parse(process.argv[intentMarkerIndex + 1]) as SupersWorkDomainIntent;
+const intent = JSON.parse(process.argv[intentMarkerIndex + 1]) as GfxWorkDomainIntent;
 const paths = [
 	...committedPaths,
 	...parseGitWorkingTreeStatus(Buffer.concat(chunks).toString('utf8'))

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 
-const runnerSource = await readFile('scripts/run-supers-layout-contract-matrix.mjs', 'utf8');
+const runnerSource = await readFile('scripts/run-gfx-layout-contract-matrix.mjs', 'utf8');
 const runtimeSource = await readFile('src/lib/platform/runtime-audit.ts', 'utf8');
 
 test('Layout Contract matrix is hidden and capture-free by construction', () => {

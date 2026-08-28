@@ -7,7 +7,7 @@ import {
 	type TextBandKey,
 	type VisualMeasurement
 } from './preset-rubric.ts';
-import type { EngineState, Preset } from './engine-schema.ts';
+import { PRESET_SCHEMA_ID, type EngineState, type Preset } from './engine-schema.ts';
 import { resolveFrameRate } from '../utils/composition-timing.ts';
 import {
 	calculateEffectiveCapHeight,
@@ -476,7 +476,7 @@ function getFrameInSourceCoords(orientation: 'horizontal' | 'vertical'): {
 }
 
 function wrapStateAsPreset(state: EngineState, name: string): Preset {
-	return { schema: 'supers@1', name, pack: 'syntax', kind: 'deliverable', state };
+	return { schema: PRESET_SCHEMA_ID, name, pack: 'syntax', kind: 'deliverable', state };
 }
 
 export function captureMeasurement(state: EngineState, name = '(current)'): VisualMeasurement {

@@ -57,7 +57,7 @@ function runFfmpeg(args: readonly string[]): Promise<void> {
 
 describe('user video asset store', () => {
 	it('streams, probes, hashes, and deduplicates immutable media', async () => {
-		const directory = await mkdtemp(join(tmpdir(), 'supers-video-store-'));
+		const directory = await mkdtemp(join(tmpdir(), 'gfx-video-store-'));
 		directories.push(directory);
 		let probes = 0;
 		const probe = async (): Promise<UserVideoAssetMetadata> => {
@@ -84,7 +84,7 @@ describe('user video asset store', () => {
 	});
 
 	it('rejects mismatched signatures and removes partial uploads', async () => {
-		const directory = await mkdtemp(join(tmpdir(), 'supers-video-store-'));
+		const directory = await mkdtemp(join(tmpdir(), 'gfx-video-store-'));
 		directories.push(directory);
 
 		await assert.rejects(
@@ -98,7 +98,7 @@ describe('user video asset store', () => {
 	});
 
 	it('probes real video and audio stream metadata with ffprobe', async () => {
-		const directory = await mkdtemp(join(tmpdir(), 'supers-video-probe-'));
+		const directory = await mkdtemp(join(tmpdir(), 'gfx-video-probe-'));
 		directories.push(directory);
 		const filePath = join(directory, 'fixture.mp4');
 		await runFfmpeg([

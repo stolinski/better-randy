@@ -3,7 +3,7 @@
  * url-to-preset — authoring-time scaffold for the `web-document` Surface.
  *
  * Takes a real URL, detects the site (twitter / reddit / wikipedia), scrapes the
- * page's content into the per-site content slots, and emits a valid `supers@1`
+ * page's content into the per-site content slots, and emits a valid `gfx@1`
  * Preset JSON under src/lib/presets/. The engine never fetches at runtime
  * (frame-determinism) — this baking step runs once at authoring time and writes
  * static content the Preset carries.
@@ -34,7 +34,7 @@ const PRESETS_DIR = join(REPOSITORY_ROOT, 'src', 'lib', 'presets');
 const PACK_SLUGS = new Set(readPackRegistrySlugsFromSource(REPOSITORY_ROOT));
 
 // A descriptive UA (some sites gate on it); Accept json where the API offers it.
-const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) supers-url-to-preset/1.0';
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) gfx-url-to-preset/1.0';
 
 const SITE_LABEL = {
 	twitter: 'Twitter',
@@ -417,7 +417,7 @@ function pruneContent(content) {
 
 function buildPreset({ site, pack, titleForName, content }) {
 	return {
-		schema: 'supers@1',
+		schema: 'gfx@1',
 		name: `Web document — ${SITE_LABEL[site]}: ${titleForName}`,
 		description: `Authored from a URL by scripts/url-to-preset.mjs. Faithful ${SITE_LABEL[site]} look on a transparent overlay; the hero [highlight] span is hand-marked. Emissive screen optics come from the web-document shaderPass, not Pack chrome. ~6s: card settles in, the highlighter draws over the hero line, then a static hold a creator can freeze/extend.`,
 		pack,

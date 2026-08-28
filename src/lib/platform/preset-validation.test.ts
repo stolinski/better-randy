@@ -30,7 +30,7 @@ function videoPreset(name: string): Preset {
 			]
 		}
 	};
-	return { schema: 'supers@1', name, pack: 'syntax', kind: 'fixture', state };
+	return { schema: 'gfx@1', name, pack: 'syntax', kind: 'fixture', state };
 }
 
 describe('Transition Effect semantic validation', () => {
@@ -41,7 +41,7 @@ describe('Transition Effect semantic validation', () => {
 
 		try {
 			const preset: Preset = {
-				schema: 'supers@1',
+				schema: 'gfx@1',
 				name: 'Transition with incomplete definition',
 				pack: 'syntax',
 				kind: 'fixture',
@@ -95,7 +95,7 @@ describe('Video media semantic validation', () => {
 	it('rejects active Video clip transition endpoints when references resolve', () => {
 		const state = createDefaultEngineState();
 		const transition: Preset = {
-			schema: 'supers@1',
+			schema: 'gfx@1',
 			name: 'Transition',
 			pack: 'syntax',
 			kind: 'fixture',
@@ -110,7 +110,7 @@ describe('Video media semantic validation', () => {
 		};
 		const video = videoPreset('Video');
 		const plain: Preset = {
-			schema: 'supers@1',
+			schema: 'gfx@1',
 			name: 'Plain',
 			pack: 'syntax',
 			kind: 'fixture',
@@ -185,7 +185,7 @@ describe('Video media semantic validation', () => {
 
 function chartPresetForSemanticValidation(): Preset {
 	const preset: Preset = {
-		schema: 'supers@1',
+		schema: 'gfx@1',
 		name: 'Chart semantic validation',
 		pack: 'syntax',
 		kind: 'fixture',

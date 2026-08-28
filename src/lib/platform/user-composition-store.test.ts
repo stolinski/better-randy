@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 
 import blankPresetJson from '$lib/presets/blank.json';
 
-import { PresetSchema, type Preset } from './engine-schema';
+import type { Preset } from './engine-schema';
+import { parsePresetIngress } from './preset-ingress';
 import {
 	LEGACY_SOURCE_VIDEO_ASSET_ID,
 	LEGACY_SOURCE_VIDEO_CLIP_ID
@@ -12,11 +13,11 @@ import {
 import { presetToWireFormat } from './preset-pure';
 import { userCompositionStore } from './user-composition-store';
 
-const blankPreset: Preset = PresetSchema.parse(blankPresetJson);
+const blankPreset: Preset = parsePresetIngress(blankPresetJson);
 const fetchMock = vi.fn<typeof fetch>();
 
 function mediaPreset(): Preset {
-	return PresetSchema.parse({
+	return parsePresetIngress({
 		...blankPresetJson,
 		state: {
 			...blankPresetJson.state,
@@ -47,7 +48,7 @@ function mediaPreset(): Preset {
 }
 
 function chartPreset(): Preset {
-	return PresetSchema.parse({
+	return parsePresetIngress({
 		...blankPresetJson,
 		state: {
 			...blankPresetJson.state,

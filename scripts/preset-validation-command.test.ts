@@ -21,7 +21,7 @@ import {
 import { createPackCalibrationVerificationInputs } from './pack-calibration-verification-inputs.ts';
 
 async function createFingerprintTestRepository(): Promise<string> {
-	const repoRoot = await mkdtemp(resolve(tmpdir(), 'supers-pack-fingerprint-'));
+	const repoRoot = await mkdtemp(resolve(tmpdir(), 'gfx-pack-fingerprint-'));
 	for (const path of PACK_CALIBRATION_RENDER_SOURCE_ROOTS) {
 		const absolutePath = resolve(repoRoot, path);
 		if (path === 'package.json' || path === 'pnpm-lock.yaml') {

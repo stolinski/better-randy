@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 
 import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 
-import { PresetSchema, type Preset } from '$lib/platform/engine-schema';
+import type { Preset } from '$lib/platform/engine-schema';
+import { parsePresetIngress } from '$lib/platform/preset-ingress';
 import { getPresetBySlug } from '$lib/platform/preset-catalog';
 import * as userCompositionFileIndex from '$lib/platform/user-composition-file-index.server';
 import { userCompositionStore } from '$lib/platform/user-composition-store';
@@ -10,8 +11,8 @@ import blankPresetJson from '$lib/presets/blank.json';
 
 import { load } from './+page.server';
 
-const blankPreset = PresetSchema.parse(blankPresetJson);
-const userPreset: Preset = PresetSchema.parse({ ...blankPresetJson, name: 'User blank' });
+const blankPreset = parsePresetIngress(blankPresetJson);
+const userPreset: Preset = parsePresetIngress({ ...blankPresetJson, name: 'User blank' });
 
 function createLoadEvent(
 	slug: string,

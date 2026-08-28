@@ -16,7 +16,7 @@ function git(directory: string, ...args: string[]): void {
 }
 
 async function fixture(): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), 'supers-tree-fingerprint-'));
+	const directory = await mkdtemp(join(tmpdir(), 'gfx-tree-fingerprint-'));
 	directories.push(directory);
 	git(directory, 'init');
 	git(directory, 'config', 'user.email', 'test@example.com');

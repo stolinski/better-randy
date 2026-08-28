@@ -8,9 +8,9 @@ import { compositionEditHistory } from './composition-edit-history';
 import { engineState } from './engine-state.svelte';
 import {
 	DIAGRAM_LABEL_TEXT_BOX_MAX_WIDTH,
-	DIAGRAM_LABEL_TEXT_BOX_MIN_WIDTH,
-	PresetSchema
+	DIAGRAM_LABEL_TEXT_BOX_MIN_WIDTH
 } from './engine-schema';
+import { parsePresetIngress } from './preset-ingress';
 import { parsePreset } from './preset-parser';
 import { applyPreset } from './preset';
 import { presetToWireFormat, serializeCompositionState } from './preset-pure';
@@ -23,14 +23,14 @@ describe('applyPreset', () => {
 			redo: () => undefined
 		});
 
-		applyPreset(PresetSchema.parse(blankPresetJson));
+		applyPreset(parsePresetIngress(blankPresetJson));
 
 		assert.equal(compositionEditHistory.canUndo, false);
 		assert.equal(compositionEditHistory.canRedo, false);
 	});
 
 	it('deep-clones complete orientation placement overrides into engine state', () => {
-		const preset = PresetSchema.parse({
+		const preset = parsePresetIngress({
 			...blankPresetJson,
 			state: {
 				...blankPresetJson.state,
@@ -96,7 +96,7 @@ describe('applyPreset', () => {
 				}
 			}
 		};
-		const preset = PresetSchema.parse(input);
+		const preset = parsePresetIngress(input);
 		const wire = presetToWireFormat(preset) as {
 			state: { surface: { diagram?: unknown } };
 		};
@@ -142,14 +142,14 @@ describe('applyPreset', () => {
 				}
 			}
 		};
-		const preset = PresetSchema.parse(input);
+		const preset = parsePresetIngress(input);
 		const wire = presetToWireFormat(preset) as {
 			state: { surface: { diagram?: unknown } };
 		};
 
 		assert.deepEqual(wire.state.surface.diagram, input.state.surface.diagram);
 		assert.throws(() =>
-			PresetSchema.parse({
+			parsePresetIngress({
 				...input,
 				state: {
 					...input.state,
@@ -166,7 +166,7 @@ describe('applyPreset', () => {
 			})
 		);
 		assert.throws(() =>
-			PresetSchema.parse({
+			parsePresetIngress({
 				...input,
 				state: {
 					...input.state,

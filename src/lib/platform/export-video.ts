@@ -37,7 +37,7 @@ export interface TransparentVideoExportOptions {
  * Agent-facing export request (ADR-0042 marker-sync loop): supply the
  * embedded start timecode and the sync export filename
  * (`<slug>__<TC>__<frames>f__v<version>.mov`). The GUI export button passes
- * neither — its downloads keep the `supers-overlay` / `supers-bumper` names.
+ * neither — its downloads keep the `gfx-overlay` / `gfx-bumper` names.
  */
 export interface SyncExportRequest {
 	startTimecode?: string;

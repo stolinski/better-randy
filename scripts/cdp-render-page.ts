@@ -287,7 +287,7 @@ export async function connectCdpRenderBrowser(cdpUrl: string): Promise<CdpRender
 	const pageSession = await CdpSession.connect(target.webSocketDebuggerUrl!);
 	const temporaryRoot = readGfxEnvironmentValue(process.env, 'GFX_CLI_TEMP_DIR') ?? tmpdir();
 	await mkdir(temporaryRoot, { recursive: true });
-	const downloadDirectory = await mkdtemp(join(temporaryRoot, 'supers-cli-download-'));
+	const downloadDirectory = await mkdtemp(join(temporaryRoot, 'gfx-cli-download-'));
 	const page = new CdpRenderPage({
 		browserSession,
 		pageSession,

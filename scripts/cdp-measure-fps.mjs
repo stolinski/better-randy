@@ -1,5 +1,5 @@
 // Preview frame-rate probe over CDP — drives the flag-enabled Chrome (see
-// cdp-capture.mjs), plays the Supers timeline from 0 and counts rAF-driven
+// cdp-capture.mjs), plays the GFX timeline from 0 and counts rAF-driven
 // render ticks for a fixed window, reporting effective preview fps. Built for
 // the ADR-0028 depth-stage perf work (half-res DOF): run before/after at
 // 3840×2160 and 2160×3840. Node 22+ (built-in fetch/WebSocket).

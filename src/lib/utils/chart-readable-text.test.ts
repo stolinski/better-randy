@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import chartFixtureJson from '$lib/presets/chart-domain-survey-fixture.json';
-import { PresetSchema } from '$lib/platform/engine-schema';
+import { parsePresetIngress } from '$lib/platform/preset-ingress';
 import { resolveChartReadableText } from './chart-readable-text';
 
-const fixture = PresetSchema.parse(chartFixtureJson);
+const fixture = parsePresetIngress(chartFixtureJson);
 
 describe('resolveChartReadableText', () => {
 	it('uses chart layout and formatting authority for every active family', () => {

@@ -6,7 +6,7 @@ import { applyCompositionState } from './preset';
 
 function resetEngineState(): void {
 	applyCompositionState({
-		schema: 'supers@1',
+		schema: 'gfx@1',
 		name: 'Reset',
 		kind: 'fixture',
 		pack: 'syntax',

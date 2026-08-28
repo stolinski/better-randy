@@ -1,6 +1,6 @@
 # User composition workflows
 
-GUI authors and agents read and write the same standalone `supers@1` Preset through the local user store. The store API is the supported interchange boundary; files under `user-compositions/` are internal metadata wrappers and are not standalone Presets.
+GUI authors and agents read and write the same standalone `gfx@1` Preset through the local user store. The store API is the supported interchange boundary; files under `user-compositions/` are internal metadata wrappers and are not standalone Presets.
 
 The local server is always `http://localhost:7263`. All examples below operate on the same User compositions listed on the GFX home screen.
 
@@ -75,7 +75,7 @@ Write that returned `url` into a Media library entry and reference it from a Vid
 
 ```jsonc
 {
-	"schema": "supers@1",
+	"schema": "gfx@1",
 	"name": "Episode title",
 	"pack": "syntax",
 	"kind": "deliverable",
@@ -122,7 +122,7 @@ curl -fsS \
   --data-binary @episode-title.json \
   http://localhost:7263/api/user-compositions/episode-title
 
-npm run supers -- render --preset episode-title --out ./out/episode-title.mov
+npm run gfx -- render --preset episode-title --out ./out/episode-title.mov
 ```
 
 `GET`, `PUT`, GUI JSON import/export, fork-on-edit, and CLI file-Preset import all preserve `state.media`. IDs, names, URLs, clip placement, Source time, and clip audio are stable Preset data. Readiness and probe details are computed from bytes when listing/opening and are not written into `state.media`. GET remains available when previously stored referenced bytes go missing so the composition can be repaired; writes and export reject a referenced missing or undecodable Media asset. An unused Media library entry may remain in the composition, including while unavailable, because it does not participate in rendering.
@@ -148,13 +148,13 @@ The command never starts a server or browser. Before running it, the existing de
 Render a corpus or User composition slug:
 
 ```sh
-npm run supers -- render --preset lower-third --out ./out/lower-third.webm
+npm run gfx -- render --preset lower-third --out ./out/lower-third.webm
 ```
 
 Render a standalone Preset file. The command imports it under a temporary User composition slug, renders it, then removes the temporary store entry:
 
 ```sh
-npm run supers -- render --preset ./inputs/title.json --out ./out/title.mov
+npm run gfx -- render --preset ./inputs/title.json --out ./out/title.mov
 ```
 
 The Preset owns format, duration, rate, and orientation. `--out` only selects the destination path.
@@ -171,7 +171,7 @@ Batch jobs run serially through one reused browser page. Relative paths resolve 
 ```
 
 ```sh
-npm run supers -- batch ./render-manifest.json
+npm run gfx -- batch ./render-manifest.json
 ```
 
 The batch continues after a failed job and exits non-zero with every failed input listed. WebM output can vary at the encoder byte level; deterministic verification belongs at rendered frame timestamps or in the ProRes lane.

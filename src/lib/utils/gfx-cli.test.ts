@@ -13,7 +13,7 @@ import {
 	renderJob,
 	runRenderJobs,
 	withPreparedPreset
-} from '../../../scripts/supers';
+} from '../../../scripts/gfx';
 
 const fetchMock = vi.fn<typeof fetch>();
 let temporaryDirectory = '';
@@ -50,7 +50,7 @@ async function writePresetFile(preset: unknown, filename = 'video-track.json'): 
 }
 
 beforeEach(async () => {
-	temporaryDirectory = await mkdtemp(join(tmpdir(), 'supers-cli-'));
+	temporaryDirectory = await mkdtemp(join(tmpdir(), 'gfx-cli-'));
 	fetchMock.mockReset();
 	vi.stubGlobal('fetch', fetchMock);
 });
@@ -60,7 +60,7 @@ afterEach(async () => {
 	await rm(temporaryDirectory, { recursive: true, force: true });
 });
 
-describe('supers Video track automation', () => {
+describe('gfx CLI Video track automation', () => {
 	it('validates output extension against the Preset transport format', () => {
 		assert.doesNotThrow(() => assertOutputExtension('webm', './out/video.WEBM'));
 		assert.doesNotThrow(() => assertOutputExtension('prores', './out/video.mov'));

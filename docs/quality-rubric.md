@@ -6,7 +6,7 @@ The companion to [`docs/animation-rubric.md`](animation-rubric.md). Where the an
 
 **This rubric is aesthetic-neutral.** It is the craft floor every preset clears regardless of which visual style it executes. The channel's specific aesthetic — the collage system, palette, material vocabulary, brand references — lives in the active Pack's aesthetic doc ([`docs/packs/<pack>/aesthetic.md`](packs/syntax/aesthetic.md)). Rules here describe *whether a preset is well-made*; they do not describe *whether it fits a particular look*. If a guideline only makes sense for one aesthetic, it belongs in that aesthetic's doc, not in this rubric.
 
-Both rubrics must pass independently. Each rule below has a **Rule** (the measurable bar), a **Why** (the production reason), and a **How to apply** (the relevant `supers@1` preset fields from [`docs/preset-format.md`](preset-format.md) or the pipeline behavior to verify).
+Both rubrics must pass independently. Each rule below has a **Rule** (the measurable bar), a **Why** (the production reason), and a **How to apply** (the relevant `gfx@1` preset fields from [`docs/preset-format.md`](preset-format.md) or the pipeline behavior to verify).
 
 > **Read this before you start.** The rules below are evaluated in a strict order. **Render Quality (R-rules) comes first and is non-negotiable** — no amount of good composition, hierarchy, or palette discipline saves a render that is blurry, banded, pixelated, or aliased. If any R-rule fails, the preset is **rejected outright** and the root cause is fixed *in the pipeline / shader code*, not by tweaking preset values. Only after R-rules pass do the craft rules (Q-rules) apply.
 >

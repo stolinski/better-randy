@@ -1,32 +1,32 @@
 import { createHash } from 'node:crypto';
 
-export const SUPERS_RENDER_MATRIX_GROUP_CONCURRENCY = 2;
+export const GFX_RENDER_MATRIX_GROUP_CONCURRENCY = 2;
 
-type SupersRenderMatrixScope = 'affected' | 'full';
+type GfxRenderMatrixScope = 'affected' | 'full';
 
-const SUPERS_RENDER_MATRIX_RUNNER_TIMEOUT_MS: Record<SupersRenderMatrixScope, number> = {
+const GFX_RENDER_MATRIX_RUNNER_TIMEOUT_MS: Record<GfxRenderMatrixScope, number> = {
 	affected: 30 * 60 * 1000,
 	full: 4 * 60 * 60 * 1000
 };
 
-const SUPERS_RENDER_MATRIX_EVIDENCE_LIMIT_BYTES: Record<SupersRenderMatrixScope, number> = {
+const GFX_RENDER_MATRIX_EVIDENCE_LIMIT_BYTES: Record<GfxRenderMatrixScope, number> = {
 	affected: 4 * 1024 * 1024 * 1024,
 	full: 32 * 1024 * 1024 * 1024
 };
 
 /** Return the closed wall-time budget for one internally selected matrix scope. */
-export function supersRenderMatrixRunnerTimeoutMs(scope: SupersRenderMatrixScope): number {
-	return SUPERS_RENDER_MATRIX_RUNNER_TIMEOUT_MS[scope];
+export function gfxRenderMatrixRunnerTimeoutMs(scope: GfxRenderMatrixScope): number {
+	return GFX_RENDER_MATRIX_RUNNER_TIMEOUT_MS[scope];
 }
 
 /** Return the closed retained-evidence budget for one internally selected matrix scope. */
-export function supersRenderMatrixEvidenceLimitBytes(scope: SupersRenderMatrixScope): number {
-	return SUPERS_RENDER_MATRIX_EVIDENCE_LIMIT_BYTES[scope];
+export function gfxRenderMatrixEvidenceLimitBytes(scope: GfxRenderMatrixScope): number {
+	return GFX_RENDER_MATRIX_EVIDENCE_LIMIT_BYTES[scope];
 }
 
 /** Account for retained evidence and fail before a matrix can exhaust local storage. */
-export function accumulateSupersRenderEvidenceBytes(
-	scope: SupersRenderMatrixScope,
+export function accumulateGfxRenderEvidenceBytes(
+	scope: GfxRenderMatrixScope,
 	currentBytes: number,
 	additionalBytes: number
 ): number {
@@ -39,13 +39,13 @@ export function accumulateSupersRenderEvidenceBytes(
 		throw new TypeError('Render evidence byte counts must be non-negative safe integers');
 	}
 	const nextBytes = currentBytes + additionalBytes;
-	if (!Number.isSafeInteger(nextBytes) || nextBytes > supersRenderMatrixEvidenceLimitBytes(scope)) {
+	if (!Number.isSafeInteger(nextBytes) || nextBytes > gfxRenderMatrixEvidenceLimitBytes(scope)) {
 		throw new Error(`${scope} render evidence exceeded its closed byte budget`);
 	}
 	return nextBytes;
 }
 
-export const SUPERS_RENDER_MATRIX_REQUIRED_CHECK_CODES = [
+export const GFX_RENDER_MATRIX_REQUIRED_CHECK_CODES = [
 	'target-resolution-mismatch',
 	'font-not-ready',
 	'title-safe-violation',
@@ -66,24 +66,24 @@ export const SUPERS_RENDER_MATRIX_REQUIRED_CHECK_CODES = [
 	'nondeterministic-replay'
 ] as const;
 
-export type SupersRenderMatrixCheckCode =
-	(typeof SUPERS_RENDER_MATRIX_REQUIRED_CHECK_CODES)[number];
+export type GfxRenderMatrixCheckCode =
+	(typeof GFX_RENDER_MATRIX_REQUIRED_CHECK_CODES)[number];
 
-export interface SupersRenderMatrixEvidenceReference {
+export interface GfxRenderMatrixEvidenceReference {
 	kind: 'static' | 'dom' | 'capture' | 'probe' | 'export';
 	path: string;
 	sha256: string;
 	region: { x: number; y: number; width: number; height: number } | null;
 }
 
-export type SupersRenderMatrixCheckCandidate =
+export type GfxRenderMatrixCheckCandidate =
 	| {
-			code: SupersRenderMatrixCheckCode;
+			code: GfxRenderMatrixCheckCode;
 			measurement: unknown;
-			evidence: readonly SupersRenderMatrixEvidenceReference[];
+			evidence: readonly GfxRenderMatrixEvidenceReference[];
 	  }
 	| {
-			code: SupersRenderMatrixCheckCode;
+			code: GfxRenderMatrixCheckCode;
 			outcome: 'unavailable';
 			unavailableReason:
 				| 'capture-failed'
@@ -95,10 +95,10 @@ export type SupersRenderMatrixCheckCandidate =
 				| 'composited-mask-unavailable'
 				| 'contrast-mask-unavailable'
 				| 'reading-intent-unrepresented';
-			evidence: readonly SupersRenderMatrixEvidenceReference[];
+			evidence: readonly GfxRenderMatrixEvidenceReference[];
 	  }
 	| {
-			code: SupersRenderMatrixCheckCode;
+			code: GfxRenderMatrixCheckCode;
 			outcome: 'not-applicable';
 			reason:
 				| 'no-text'
@@ -109,7 +109,7 @@ export type SupersRenderMatrixCheckCandidate =
 				| 'no-reading-content';
 			readingPlanDigest?: string;
 			readingIds?: readonly [];
-			evidence: readonly SupersRenderMatrixEvidenceReference[];
+			evidence: readonly GfxRenderMatrixEvidenceReference[];
 	  };
 
 const CAP_HEIGHT_FLOORS = {
@@ -151,8 +151,8 @@ function measurementArray(value: unknown, name: string): readonly unknown[] {
 }
 
 /** Derive every closed verdict from objective measurements using the canonical thresholds. */
-export function deriveSupersRenderMatrixCheckOutcome(
-	code: SupersRenderMatrixCheckCode,
+export function deriveGfxRenderMatrixCheckOutcome(
+	code: GfxRenderMatrixCheckCode,
 	measurement: unknown
 ): 'pass' | 'fail' {
 	const value = measurementRecord(measurement);
@@ -271,18 +271,18 @@ export function deriveSupersRenderMatrixCheckOutcome(
 }
 
 /** Normalize a complete cell; a missing check fails closed as unavailable. */
-export function buildSupersRenderMatrixCellVerdict(
+export function buildGfxRenderMatrixCellVerdict(
 	coordinate: Record<string, unknown>,
-	candidates: readonly SupersRenderMatrixCheckCandidate[],
-	fallbackEvidence: SupersRenderMatrixEvidenceReference
+	candidates: readonly GfxRenderMatrixCheckCandidate[],
+	fallbackEvidence: GfxRenderMatrixEvidenceReference
 ): Record<string, unknown> {
-	const byCode = new Map<SupersRenderMatrixCheckCode, SupersRenderMatrixCheckCandidate>();
+	const byCode = new Map<GfxRenderMatrixCheckCode, GfxRenderMatrixCheckCandidate>();
 	for (const candidate of candidates) {
 		if (byCode.has(candidate.code))
 			throw new TypeError(`Duplicate check candidate: ${candidate.code}`);
 		byCode.set(candidate.code, candidate);
 	}
-	const checks = SUPERS_RENDER_MATRIX_REQUIRED_CHECK_CODES.map((code) => {
+	const checks = GFX_RENDER_MATRIX_REQUIRED_CHECK_CODES.map((code) => {
 		const candidate = byCode.get(code);
 		if (!candidate) {
 			return {
@@ -297,7 +297,7 @@ export function buildSupersRenderMatrixCellVerdict(
 			return {
 				checkId: code,
 				code,
-				outcome: deriveSupersRenderMatrixCheckOutcome(code, candidate.measurement),
+				outcome: deriveGfxRenderMatrixCheckOutcome(code, candidate.measurement),
 				measurement: candidate.measurement,
 				evidence: [...candidate.evidence]
 			};
@@ -320,12 +320,12 @@ export function buildSupersRenderMatrixCellVerdict(
 	};
 }
 
-interface SupersTextEdgeProbeOutput {
+interface GfxTextEdgeProbeOutput {
 	max_step_normalized: number;
 	transition_count: number;
 }
 
-interface SupersShadowBandingProbeOutput {
+interface GfxShadowBandingProbeOutput {
 	shadowId: string;
 	band_count: number;
 	max_relative_step: number;
@@ -333,16 +333,16 @@ interface SupersShadowBandingProbeOutput {
 	transition_sample_count: number;
 }
 
-interface SupersEdgeAliasingProbeOutput {
+interface GfxEdgeAliasingProbeOutput {
 	hard_stairsteps: number;
 	transition_sample_count: number;
 }
 
 /** Convert a valid text-edge probe with no measurable transition into retained unavailable evidence. */
-export function createSupersTextEdgeProbeCandidate(
-	probe: SupersTextEdgeProbeOutput,
-	evidence: readonly SupersRenderMatrixEvidenceReference[]
-): SupersRenderMatrixCheckCandidate {
+export function createGfxTextEdgeProbeCandidate(
+	probe: GfxTextEdgeProbeOutput,
+	evidence: readonly GfxRenderMatrixEvidenceReference[]
+): GfxRenderMatrixCheckCandidate {
 	return probe.transition_count <= 0
 		? {
 				code: 'text-edge-softness',
@@ -361,11 +361,11 @@ export function createSupersTextEdgeProbeCandidate(
 }
 
 /** Convert valid shadow probes with no measurable falloff into retained unavailable evidence. */
-export function createSupersShadowBandingProbeCandidate(
+export function createGfxShadowBandingProbeCandidate(
 	expectedShadowIds: readonly string[],
-	probes: readonly SupersShadowBandingProbeOutput[],
-	evidence: readonly SupersRenderMatrixEvidenceReference[]
-): SupersRenderMatrixCheckCandidate {
+	probes: readonly GfxShadowBandingProbeOutput[],
+	evidence: readonly GfxRenderMatrixEvidenceReference[]
+): GfxRenderMatrixCheckCandidate {
 	return probes.some(
 		(probe) =>
 			probe.transition_sample_count <= 0 ||
@@ -395,10 +395,10 @@ export function createSupersShadowBandingProbeCandidate(
 }
 
 /** Convert a valid edge-AA probe with no measurable edge into retained unavailable evidence. */
-export function createSupersEdgeAliasingProbeCandidate(
-	probe: SupersEdgeAliasingProbeOutput,
-	evidence: readonly SupersRenderMatrixEvidenceReference[]
-): SupersRenderMatrixCheckCandidate {
+export function createGfxEdgeAliasingProbeCandidate(
+	probe: GfxEdgeAliasingProbeOutput,
+	evidence: readonly GfxRenderMatrixEvidenceReference[]
+): GfxRenderMatrixCheckCandidate {
 	return probe.transition_sample_count <= 0
 		? {
 				code: 'edge-aliasing',
@@ -416,20 +416,20 @@ export function createSupersEdgeAliasingProbeCandidate(
 			};
 }
 
-export interface SupersAuxiliaryFrameCapture<Frame> {
+export interface GfxAuxiliaryFrameCapture<Frame> {
 	frameIndex: number;
 	frame: Frame;
 	reusedPrimary: boolean;
 }
 
 /** Preserve auxiliary sample order while avoiding a duplicate capture of the primary frame. */
-export async function captureSupersAuxiliaryFrameSequence<Frame>(input: {
+export async function captureGfxAuxiliaryFrameSequence<Frame>(input: {
 	primaryFrameIndex: number;
 	primaryFrame: Frame;
 	auxiliaryFrameIndices: readonly number[];
 	captureFrame: (frameIndex: number) => Promise<Frame>;
-}): Promise<SupersAuxiliaryFrameCapture<Frame>[]> {
-	const captures: SupersAuxiliaryFrameCapture<Frame>[] = [];
+}): Promise<GfxAuxiliaryFrameCapture<Frame>[]> {
+	const captures: GfxAuxiliaryFrameCapture<Frame>[] = [];
 	for (const frameIndex of input.auxiliaryFrameIndices) {
 		const reusedPrimary = frameIndex === input.primaryFrameIndex;
 		captures.push({
@@ -441,7 +441,7 @@ export async function captureSupersAuxiliaryFrameSequence<Frame>(input: {
 	return captures;
 }
 
-export interface SupersRenderMatrixCoordinateLike {
+export interface GfxRenderMatrixCoordinateLike {
 	cellId: string;
 	presetSlug: string;
 	packId: string;
@@ -449,36 +449,36 @@ export interface SupersRenderMatrixCoordinateLike {
 	[key: string]: unknown;
 }
 
-export interface SupersRenderMatrixGroup {
+export interface GfxRenderMatrixGroup {
 	groupId: string;
 	presetSlug: string;
 	packId: string;
 	orientation: 'horizontal' | 'vertical';
-	coordinates: SupersRenderMatrixCoordinateLike[];
+	coordinates: GfxRenderMatrixCoordinateLike[];
 }
 
-export interface SupersRenderEvidenceIndexEntry {
+export interface GfxRenderEvidenceIndexEntry {
 	path: string;
 	sha256: string;
 	bytes: number;
 }
 
-export interface SupersRenderMatrixGroupResult<Cell> {
+export interface GfxRenderMatrixGroupResult<Cell> {
 	groupId: string;
 	cells: Cell[];
-	evidence: SupersRenderEvidenceIndexEntry[];
+	evidence: GfxRenderEvidenceIndexEntry[];
 	startedAt: string;
 	completedAt: string;
 }
 
-function groupIdentity(coordinate: SupersRenderMatrixCoordinateLike): string {
+function groupIdentity(coordinate: GfxRenderMatrixCoordinateLike): string {
 	return `${coordinate.presetSlug}\0${coordinate.packId}\0${coordinate.orientation}`;
 }
 
-export function groupSupersRenderMatrixCoordinates(
-	coordinates: readonly SupersRenderMatrixCoordinateLike[]
-): SupersRenderMatrixGroup[] {
-	const groups = new Map<string, SupersRenderMatrixGroup>();
+export function groupGfxRenderMatrixCoordinates(
+	coordinates: readonly GfxRenderMatrixCoordinateLike[]
+): GfxRenderMatrixGroup[] {
+	const groups = new Map<string, GfxRenderMatrixGroup>();
 	for (const coordinate of coordinates) {
 		const identity = groupIdentity(coordinate);
 		const group = groups.get(identity) ?? {
@@ -502,21 +502,21 @@ export function groupSupersRenderMatrixCoordinates(
 }
 
 /** One method-owned bounded worker pool; failures are values so every group is retained. */
-export async function runBoundedSupersRenderMatrixFanout<Cell>(input: {
-	groups: readonly SupersRenderMatrixGroup[];
-	executeGroup: (group: SupersRenderMatrixGroup) => Promise<SupersRenderMatrixGroupResult<Cell>>;
+export async function runBoundedGfxRenderMatrixFanout<Cell>(input: {
+	groups: readonly GfxRenderMatrixGroup[];
+	executeGroup: (group: GfxRenderMatrixGroup) => Promise<GfxRenderMatrixGroupResult<Cell>>;
 	onGroupFailure: (
-		group: SupersRenderMatrixGroup,
+		group: GfxRenderMatrixGroup,
 		error: unknown,
 		startedAt: string,
 		completedAt: string
-	) => SupersRenderMatrixGroupResult<Cell> | Promise<SupersRenderMatrixGroupResult<Cell>>;
+	) => GfxRenderMatrixGroupResult<Cell> | Promise<GfxRenderMatrixGroupResult<Cell>>;
 	concurrency?: number;
-}): Promise<SupersRenderMatrixGroupResult<Cell>[]> {
-	const concurrency = input.concurrency ?? SUPERS_RENDER_MATRIX_GROUP_CONCURRENCY;
+}): Promise<GfxRenderMatrixGroupResult<Cell>[]> {
+	const concurrency = input.concurrency ?? GFX_RENDER_MATRIX_GROUP_CONCURRENCY;
 	if (!Number.isInteger(concurrency) || concurrency < 1)
 		throw new TypeError('Fan-out concurrency must be positive');
-	const results = new Array<SupersRenderMatrixGroupResult<Cell>>(input.groups.length);
+	const results = new Array<GfxRenderMatrixGroupResult<Cell>>(input.groups.length);
 	let cursor = 0;
 	async function worker(): Promise<void> {
 		while (cursor < input.groups.length) {
@@ -543,11 +543,11 @@ export async function runBoundedSupersRenderMatrixFanout<Cell>(input: {
 }
 
 /** Reject missing, duplicate, extra, or hash-mismatched archive evidence. */
-export function verifySupersRenderEvidenceIndex(input: {
+export function verifyGfxRenderEvidenceIndex(input: {
 	referencedEvidence: readonly { path: string; sha256: string }[];
-	index: readonly SupersRenderEvidenceIndexEntry[];
+	index: readonly GfxRenderEvidenceIndexEntry[];
 }): void {
-	const indexed = new Map<string, SupersRenderEvidenceIndexEntry>();
+	const indexed = new Map<string, GfxRenderEvidenceIndexEntry>();
 	for (const entry of input.index) {
 		if (indexed.has(entry.path))
 			throw new TypeError(`Duplicate evidence index path: ${entry.path}`);

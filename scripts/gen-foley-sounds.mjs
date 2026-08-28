@@ -95,6 +95,9 @@ try {
 
 	await mkdir(OUTPUT_DIRECTORY, { recursive: true });
 	for (const cue of FOLEY_CUES) {
+		// ADR-0053 `frozen`: `supers-foley-<cue>` is the PRNG seed the committed
+		// cue WAVs were generated from. Renaming it silently regenerates
+		// different audio, so it keeps the Legacy Supers spelling forever.
 		const base64 = await evaluate(`(async () => {
 			const { set, toWav } = await import('/@id/@foleyjs/core');
 			set({ theme: 'default', transpose: 0, space: 0.22 });

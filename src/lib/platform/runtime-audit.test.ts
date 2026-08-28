@@ -194,14 +194,14 @@ describe('typed readable identity authority', () => {
 		];
 		const contracts = deriveDeterministicTransitionReadableContracts({
 			from: {
-				schema: 'supers@1',
+				schema: 'gfx@1',
 				name: 'From',
 				pack: 'syntax',
 				kind: 'fixture',
 				state: from
 			},
 			to: {
-				schema: 'supers@1',
+				schema: 'gfx@1',
 				name: 'To',
 				pack: 'syntax',
 				kind: 'fixture',

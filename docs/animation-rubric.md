@@ -10,7 +10,7 @@ Every rule has three parts:
 - **Why** — the production reason for the rule (legibility, broadcast safety, platform constraint, perceptual cue).
 - **How to apply** — the preset-engine field(s) to set, or the pipeline behavior to verify.
 
-Field paths refer to the `supers@1` preset schema in [`docs/preset-format.md`](preset-format.md). When a rule says "the engine clamps this," it means schema validation already enforces it and the agent does not need additional logic.
+Field paths refer to the `gfx@1` preset schema in [`docs/preset-format.md`](preset-format.md). When a rule says "the engine clamps this," it means schema validation already enforces it and the agent does not need additional logic.
 
 ### Who enforces what (per [ADR-0025](adr/0025-static-linter-checks-safety-and-readability-only.md))
 

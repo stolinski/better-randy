@@ -34,7 +34,7 @@ function makePreset(partial: {
 	timings?: unknown[];
 }): Preset {
 	return {
-		schema: 'supers@1',
+		schema: 'gfx@1',
 		name: 'rubric fixture',
 		pack: 'syntax',
 		kind: 'fixture',

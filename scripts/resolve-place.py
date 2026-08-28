@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dumb I/O pipe: execute a Supers placement plan against DaVinci Resolve and
+"""Dumb I/O pipe: execute a GFX placement plan against DaVinci Resolve and
 emit what happened as JSON (ADR-0042). Every value in the plan — record
 frame, marker colors, customData payloads — was derived upstream by
 src/lib/utils/marker-sync.ts; this script only performs the actions and
@@ -36,8 +36,8 @@ Plan shape:
   {
     "project": "…",              # optional; default current project
     "timeline": "…",             # optional; default current timeline
-    "binName": "Supers",         # an existing Legacy Supers bin wins over this
-    "trackName": "SUPERS",       # an existing Legacy Supers track wins over this
+    "binName": "GFX",            # an existing Legacy Supers bin wins over this
+    "trackName": "GFX",          # an existing Legacy Supers track wins over this
     "clipName": "Checklist — …",  # optional; SetClipProperty returns a false
                                   # negative on Studio 21.0.2.4 but applies
     "moviePath": "/path/on/this/machine.mov",
@@ -47,7 +47,7 @@ Plan shape:
       "fileNameSuffix": "__v1.mov"
     },
     "audio": {                    # optional; omitted = video-only placement
-      "trackName": "SUPERS",      # audio track, ensured by name
+      "trackName": "GFX",         # audio track, ensured by name
       "recordFrame": 108240       # defaults to the video recordFrame
     },
     "markers": [                  # frameId relative to timeline start
@@ -150,14 +150,14 @@ def ensure_bin(media_pool, bin_name):
     return folder
 
 
-def import_movie(media_pool, supers_bin, movie_path):
+def import_movie(media_pool, gfx_bin, movie_path):
     if not os.path.exists(movie_path):
         fail(f"Movie not found at {movie_path}.")
     imported = media_pool.ImportMedia([movie_path]) or []
     if imported:
         return imported[0]
     # Resolve dedupes re-imports of a path it already holds — find it by file path.
-    for clip in supers_bin.GetClipList() or []:
+    for clip in gfx_bin.GetClipList() or []:
         if clip.GetClipProperty("File Path") == movie_path:
             return clip
     fail(f"Import of {movie_path} produced no media-pool item.")
@@ -277,7 +277,7 @@ def rewrite_markers(timeline, updates):
 
 
 def read_plan():
-    parser = argparse.ArgumentParser(description="Execute a Supers placement plan in Resolve.")
+    parser = argparse.ArgumentParser(description="Execute a GFX placement plan in Resolve.")
     parser.add_argument("--plan-b64", help="Base64-encoded JSON plan (SSH-friendly)")
     parser.add_argument("--plan", help="Path to a JSON plan file (local runs)")
     args = parser.parse_args()
@@ -300,8 +300,8 @@ def main():
     timeline = open_timeline(project, plan.get("timeline"))
     media_pool = project.GetMediaPool()
 
-    supers_bin = ensure_bin(media_pool, plan["binName"])
-    item = import_movie(media_pool, supers_bin, plan["moviePath"])
+    gfx_bin = ensure_bin(media_pool, plan["binName"])
+    item = import_movie(media_pool, gfx_bin, plan["moviePath"])
     if plan.get("clipName"):
         # False-negative return on Studio 21.0.2.4 — the rename applies;
         # the placed timeline item's name is the verification.

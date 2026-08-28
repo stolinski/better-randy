@@ -10,7 +10,7 @@ Glossary: [`CONTEXT.md`](CONTEXT.md). Why one engine instead of per-tool routes:
 
 ## The model in one read
 
-A **Preset** is one JSON document (`supers@1`) that composes five **Layers** (Surface / Block / Annotation / Overlay / Effect) from a **Pipeline registry**, dressed by a swappable **Pack** (appearance only), optionally declares composition-scoped **Media library entries** and one primary **Video track** beneath that complete Layer stack, renders frame-deterministically through a TypeGPU compositor to a 3840×2160 (or 2160×3840) canvas, and exports transparent or opaque through a bounded local PNG-to-ffmpeg session. Two anchors hold everything else up:
+A **Preset** is one JSON document (`gfx@1`) that composes five **Layers** (Surface / Block / Annotation / Overlay / Effect) from a **Pipeline registry**, dressed by a swappable **Pack** (appearance only), optionally declares composition-scoped **Media library entries** and one primary **Video track** beneath that complete Layer stack, renders frame-deterministically through a TypeGPU compositor to a 3840×2160 (or 2160×3840) canvas, and exports transparent or opaque through a bounded local PNG-to-ffmpeg session. Two anchors hold everything else up:
 
 1. **The data model is the contract.** Everything renderable is described in `engineState`. Pipelines own no state.
 2. **One uniform render path.** Surface, blocks, annotations, overlays, and post-process effects share the same WebGPU/TypeGPU compositor. Preview, transition snapshots, and export target the same request-object `renderCompositionFrameTo(request)` seam — identical dispatch and inputs.
@@ -132,7 +132,7 @@ The shell out of which any engine change is verified.
 | `npm run verify:layout-contract`                                | Full numeric Preset × Pack × orientation × critical-frame safety matrix; no screenshots  | JSON `passed: true`, exits 0       |
 | `npm run gen:schema`                                            | Regenerate `docs/preset-format.schema.json` from the Zod schema                          | `Wrote …preset-format.schema.json` |
 | `npm run build`                                                 | Smoke-test the production build                                                          | `✓ built in <N>s`                  |
-| `npm run supers -- render --preset <slug-or-path> --out <file>` | Deterministic automated render through the Workspace export seam                         | output path, exits 0               |
+| `npm run gfx -- render --preset <slug-or-path> --out <file>` | Deterministic automated render through the Workspace export seam                         | output path, exits 0               |
 
 ### Browser checks
 
@@ -171,7 +171,7 @@ A frame composes bottom-to-top:
 ```ts
 // PresetSchema (engine-schema.ts) — the on-disk envelope.
 interface Preset {
-	schema: 'supers@1';
+	schema: 'gfx@1';
 	name: string;
 	description?: string;
 	pack: string; // REQUIRED, no default — names the appearance Pack (ADR-0023)
@@ -405,7 +405,7 @@ A **Pack** is a swappable _appearance dress_ resolved at render time ([ADR-0014]
 
 ## Output & orientation
 
-**Transparency is the default, not a law.** Overlays render transparent (`loadOp: 'clear'`, premultiplied alpha). Output classification is centralized: `backgroundFill` or a dimensional `stage` is opaque; Video clips are opaque only when their ordered half-open intervals cover every output frame. Unused Media library entries do not affect classification, and any Video-track gap keeps the composition alpha-bearing. A transition is opaque only when **both** resolved `from` and `to` Presets are opaque. Export uses that result for codec handling and the `supers-bumper` / `supers-overlay` basename. Fully covered Video-track WebM uses opaque `yuv444p`; a gapped track retains VP9 alpha; ProRes remains 4444 for both. There is no `overlay | segment | bumper` enum — those are loose descriptive words, not engine categories.
+**Transparency is the default, not a law.** Overlays render transparent (`loadOp: 'clear'`, premultiplied alpha). Output classification is centralized: `backgroundFill` or a dimensional `stage` is opaque; Video clips are opaque only when their ordered half-open intervals cover every output frame. Unused Media library entries do not affect classification, and any Video-track gap keeps the composition alpha-bearing. A transition is opaque only when **both** resolved `from` and `to` Presets are opaque. Export uses that result for codec handling and the `gfx-bumper` / `gfx-overlay` basename. Fully covered Video-track WebM uses opaque `yuv444p`; a gapped track retains VP9 alpha; ProRes remains 4444 for both. There is no `overlay | segment | bumper` enum — those are loose descriptive words, not engine categories.
 
 **Orientation** is `horizontal` (3840×2160) or `vertical` (2160×3840). One deliverable Preset serves both targets: the GUI switches `transport.orientation`, renderer layouts consume frame dimensions and shared safe-area inputs, and explicit Overlay/Diagram snapshots resolve authored re-staging. The static linter validates the active geometry without clamping it. Active authoring forbids orientation-suffix deliverables.
 
@@ -438,7 +438,7 @@ Current mechanisms that remain deliberately narrower than their possible future 
 
 ## Constraints
 
-- **`supers@1` schema id.** Shape changes happen in place; built-in presets are hand-migrated. Stale external presets fail validation cleanly.
+- **`gfx@1` schema id.** Shape changes happen in place; built-in presets are hand-migrated. Stale external presets fail validation cleanly.
 - **Annotation stack order:** decorative under focal, then document order; codified in the composition shader. Two focal marks on one body are permitted but soft-warned.
 - **Overlay positioning is anchor + fractional offset** (0..1 of composition dims); `normalized-rect` for precise/offscreen placement.
 - **`marks.timings` length mismatch is intentional** — fewer than marked spans → fall back to `defaults[style]`; more → extras ignored. Don't "fix" by inventing timings.

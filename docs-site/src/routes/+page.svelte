@@ -18,7 +18,7 @@
 		{
 			href: '/preset-format',
 			title: 'Authoring',
-			blurb: 'The supers@1 Preset JSON format — compositions authored by GUI and agents alike.'
+			blurb: 'The gfx@1 Preset JSON format — compositions authored by GUI and agents alike.'
 		},
 		{
 			href: '/quality-rubric',
@@ -56,7 +56,7 @@
 			<div class="strip">
 				<span>00:00:04:12</span>
 				<span>3840×2160 · α</span>
-				<span>supers@1</span>
+				<span>gfx@1</span>
 			</div>
 		</div>
 	</section>

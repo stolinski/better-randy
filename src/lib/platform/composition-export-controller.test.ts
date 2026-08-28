@@ -16,7 +16,7 @@ import {
 function makePreset(name: string, opaque: boolean): Preset {
 	const state = createDefaultEngineState();
 	if (opaque) state.backgroundFill = '#000000';
-	return { schema: 'supers@1', name, pack: 'syntax', kind: 'fixture', state };
+	return { schema: 'gfx@1', name, pack: 'syntax', kind: 'fixture', state };
 }
 
 function makeState(options?: {
@@ -71,8 +71,8 @@ describe('composition export plan', () => {
 		assert.deepEqual(plan.size, { width: 3840, height: 2160 });
 		assert.deepEqual(plan.frameRate, { fps: 29.97, num: 30000, den: 1001 });
 		assert.equal(plan.frameCount, 300);
-		assert.equal(plan.videoFilename, 'supers-overlay.webm');
-		assert.equal(plan.wavFilename, 'supers-overlay.wav');
+		assert.equal(plan.videoFilename, 'gfx-overlay.webm');
+		assert.equal(plan.wavFilename, 'gfx-overlay.wav');
 	});
 
 	it('keeps opaque ProRes on the existing 4444 lane at native vertical dimensions', () => {
@@ -85,9 +85,9 @@ describe('composition export plan', () => {
 		assert.equal(plan.output, 'opaque');
 		assert.equal(plan.codec, 'prores-4444');
 		assert.deepEqual(plan.size, { width: 2160, height: 3840 });
-		assert.equal(plan.basename, 'supers-bumper');
+		assert.equal(plan.basename, 'gfx-bumper');
 		assert.equal(plan.videoFilename, 'synced-piece.mov');
-		assert.equal(plan.wavFilename, 'supers-bumper.wav');
+		assert.equal(plan.wavFilename, 'gfx-bumper.wav');
 	});
 
 	it('classifies only fully covered Video-track WebM as native opaque output', () => {
@@ -98,7 +98,7 @@ describe('composition export plan', () => {
 
 		assert.equal(plan.output, 'opaque');
 		assert.equal(plan.codec, 'vp9-opaque');
-		assert.equal(plan.basename, 'supers-bumper');
+		assert.equal(plan.basename, 'gfx-bumper');
 		assert.deepEqual(plan.frameRate, { fps: 60, num: 60, den: 1 });
 	});
 
@@ -110,7 +110,7 @@ describe('composition export plan', () => {
 			});
 			assert.equal(plan.output, 'transparent');
 			assert.equal(plan.codec, 'vp9-alpha');
-			assert.equal(plan.basename, 'supers-overlay');
+			assert.equal(plan.basename, 'gfx-overlay');
 		}
 	});
 
@@ -121,7 +121,7 @@ describe('composition export plan', () => {
 		});
 		assert.equal(plan.output, 'transparent');
 		assert.equal(plan.codec, 'prores-4444');
-		assert.equal(plan.videoFilename, 'supers-overlay.mov');
+		assert.equal(plan.videoFilename, 'gfx-overlay.mov');
 	});
 
 	it('classifies a transition as opaque only when both endpoint Presets are opaque', () => {
@@ -293,7 +293,7 @@ describe('composition export controller lifecycle', () => {
 		]);
 		assert.deepEqual(harness.renderedTimestamps, [0, 0.5, 1, 1.5]);
 		assert.deepEqual(harness.animationProgresses, [0, 0.25, 0.5, 0.75]);
-		assert.deepEqual(harness.downloads, ['supers-overlay.webm', 'supers-overlay.wav']);
+		assert.deepEqual(harness.downloads, ['gfx-overlay.webm', 'gfx-overlay.wav']);
 		assert.equal(harness.audioRequests.length, 1);
 		assert.equal(harness.audioRequests[0].frameCount, 4);
 		assert.deepEqual(harness.audioRequests[0].frameRate, { fps: 2, num: 2, den: 1 });
@@ -321,7 +321,7 @@ describe('composition export controller lifecycle', () => {
 
 		assert.equal(harness.muxedAudio[0], audio);
 		assert.equal(harness.wavAudio[0], audio);
-		assert.deepEqual(harness.downloads, ['supers-overlay.mov', 'supers-overlay.wav']);
+		assert.deepEqual(harness.downloads, ['gfx-overlay.mov', 'gfx-overlay.wav']);
 	});
 
 	it('publishes an encoder failure and releases the animation manager', async () => {

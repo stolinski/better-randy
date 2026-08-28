@@ -198,7 +198,7 @@ export function videoTrackMatrixFixturePreset(
 	const clips = matrixClipPlan(entry, frameCount);
 	return {
 		preset: {
-			schema: 'supers@1',
+			schema: 'gfx@1',
 			name: `Video track export fixture ${entry.id}`,
 			description:
 				'Machine-only Video track fixture with exact cuts, Source offsets, clip audio, and one animated Overlay.',

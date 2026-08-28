@@ -84,7 +84,7 @@ export const SUPER_RENDER_REQUIRED_CHECK_CODES = [
 	'nondeterministic-replay'
 ] as const;
 
-export interface SupersCollectedPreset {
+export interface GfxCollectedPreset {
 	slug: string;
 	presetFingerprint: string;
 	readingPlanDigest: string;
@@ -106,7 +106,7 @@ export interface RenderContractSample {
 	stableGeometryCandidateIds: readonly string[];
 }
 
-export interface SupersRenderRegistrySnapshotInput {
+export interface GfxRenderRegistrySnapshotInput {
 	schemaVersion: 1;
 	sourceRevision: string;
 	engineFingerprint: string;
@@ -122,7 +122,7 @@ export interface SupersRenderRegistrySnapshotInput {
 	snapshotDigest: string;
 }
 
-export interface SupersRenderMatrixManifestInput {
+export interface GfxRenderMatrixManifestInput {
 	schemaVersion: 1;
 	sourceRevision: string;
 	engineFingerprint: string;
@@ -154,7 +154,7 @@ function canonicalize(value: unknown): unknown {
 	return value;
 }
 
-export function createSupersRenderMatrixHash(value: unknown): string {
+export function createGfxRenderMatrixHash(value: unknown): string {
 	return createHash('sha256')
 		.update(JSON.stringify(canonicalize(value)))
 		.digest('hex');
@@ -236,8 +236,8 @@ async function loadRuntimeModules(repoRoot: string): Promise<{
 }
 
 /** Independently collect the same schema/semantic deliverable set exposed by listPresets(). */
-export async function collectSupersRenderRegistry(repoRoot = defaultRepoRoot): Promise<{
-	presets: SupersCollectedPreset[];
+export async function collectGfxRenderRegistry(repoRoot = defaultRepoRoot): Promise<{
+	presets: GfxCollectedPreset[];
 	knownPresetSlugs: string[];
 	packs: Array<{ id: string; packFingerprint: string }>;
 }> {
@@ -262,7 +262,7 @@ export async function collectSupersRenderRegistry(repoRoot = defaultRepoRoot): P
 	}
 	const packIssues = runtime.validatePacks(runtime.packs as Readonly<Record<string, never>>);
 	if (packIssues.length > 0) throw new TypeError('Live Pack registry failed validation');
-	const presets: SupersCollectedPreset[] = [];
+	const presets: GfxCollectedPreset[] = [];
 	for (const [slug, preset] of parsed) {
 		if (preset.kind === 'fixture') continue;
 		const samplePlan = runtime.deriveSamples(preset);
@@ -273,8 +273,8 @@ export async function collectSupersRenderRegistry(repoRoot = defaultRepoRoot): P
 		const readingPlanIds = readingPlan.windows.map((entry) => entry.readingId).sort();
 		presets.push({
 			slug,
-			presetFingerprint: createSupersRenderMatrixHash(preset),
-			readingPlanDigest: createSupersRenderMatrixHash(readingPlan.windows),
+			presetFingerprint: createGfxRenderMatrixHash(preset),
+			readingPlanDigest: createGfxRenderMatrixHash(readingPlan.windows),
 			readingPlanIds,
 			samples: samplePlan.samples.map(contractSample),
 			frameRate: samplePlan.frameRate,
@@ -290,22 +290,22 @@ export async function collectSupersRenderRegistry(repoRoot = defaultRepoRoot): P
 	presets.sort((left, right) => left.slug.localeCompare(right.slug));
 	const knownPresetSlugs = [...parsed.keys()].sort((left, right) => left.localeCompare(right));
 	const packs = Object.entries(runtime.packs)
-		.map(([id, pack]) => ({ id, packFingerprint: createSupersRenderMatrixHash(pack) }))
+		.map(([id, pack]) => ({ id, packFingerprint: createGfxRenderMatrixHash(pack) }))
 		.sort((left, right) => left.id.localeCompare(right.id));
 	return { presets, knownPresetSlugs, packs };
 }
 
-export async function deriveSupersRenderMatrixManifest(input: {
+export async function deriveGfxRenderMatrixManifest(input: {
 	repoRoot?: string;
 	sourceRevision: string;
 	engineFingerprint: string;
 	scope: 'affected' | 'full';
 	changedPaths?: readonly string[];
 }): Promise<{
-	snapshot: SupersRenderRegistrySnapshotInput;
-	manifest: SupersRenderMatrixManifestInput | null;
+	snapshot: GfxRenderRegistrySnapshotInput;
+	manifest: GfxRenderMatrixManifestInput | null;
 }> {
-	const registry = await collectSupersRenderRegistry(input.repoRoot);
+	const registry = await collectGfxRenderRegistry(input.repoRoot);
 	const snapshotContent = {
 		schemaVersion: 1 as const,
 		sourceRevision: input.sourceRevision,
@@ -322,7 +322,7 @@ export async function deriveSupersRenderMatrixManifest(input: {
 	};
 	const snapshot = {
 		...snapshotContent,
-		snapshotDigest: createSupersRenderMatrixHash(snapshotContent)
+		snapshotDigest: createGfxRenderMatrixHash(snapshotContent)
 	};
 	const selectedAxes =
 		input.scope === 'full'
@@ -352,7 +352,7 @@ export async function deriveSupersRenderMatrixManifest(input: {
 					height: orientation === 'horizontal' ? 2160 : 3840,
 					sample
 				};
-				coordinates.push({ ...content, cellId: createSupersRenderMatrixHash(content) });
+				coordinates.push({ ...content, cellId: createGfxRenderMatrixHash(content) });
 			}
 		}
 	}
@@ -382,13 +382,13 @@ export async function deriveSupersRenderMatrixManifest(input: {
 	};
 	return {
 		snapshot,
-		manifest: { ...manifestContent, manifestDigest: createSupersRenderMatrixHash(manifestContent) }
+		manifest: { ...manifestContent, manifestDigest: createGfxRenderMatrixHash(manifestContent) }
 	};
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
 	const [scope, sourceRevision, engineFingerprint, changedPathsJson = '[]'] = process.argv.slice(2);
-	deriveSupersRenderMatrixManifest({
+	deriveGfxRenderMatrixManifest({
 		scope: scope === 'affected' ? 'affected' : 'full',
 		sourceRevision,
 		engineFingerprint,

@@ -4,8 +4,13 @@ import { join } from 'node:path';
 
 /**
  * The working tree's current commit, as a Sentry release string
- * (`supers@<sha>`, matching each post-commit-registered release — see
+ * (`gfx@<sha>`, matching each post-commit-registered release — see
  * docs/sentry-dev-flow.md § Versions).
+ *
+ * ADR-0053 `accept-old / write-new`: releases registered before the namespace
+ * rename carry `supers@<sha>` and stay queryable forever; only new releases
+ * take the GFX spelling. The Sentry project the events land in is a separate,
+ * frozen value — see the ADR's telemetry rows.
  *
  * Resolved from `.git` on every call but cached against the HEAD and branch
  * ref mtimes, so a long-running dev server attributes events to the commit
@@ -68,7 +73,7 @@ export function resolveGitRelease(): string | undefined {
 			// per commit/checkout is still effectively free.
 			sha = execSync('git rev-parse HEAD', { cwd: process.cwd(), encoding: 'utf8' }).trim();
 		}
-		cachedRelease = `supers@${sha}`;
+		cachedRelease = `gfx@${sha}`;
 		cachedStateKey = stateKey;
 		return cachedRelease;
 	} catch {

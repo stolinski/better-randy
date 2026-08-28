@@ -96,7 +96,7 @@ the agent (primary) wins if it can only serve one.
 
 The agent is who must succeed, because right now it does essentially all the
 authoring. It works the dex loop (`dex list --ready`), reads the binding docs, and
-either authors a Preset (declarative JSON against `supers@1`) or lands engine work
+either authors a Preset (declarative JSON against `gfx@1`) or lands engine work
 (a pipeline, an ADR). It is a **technical expert and an aesthetic novice** — and
 the whole architecture is designed around that split. The opinionated engine, the
 appearance **Packs**, the per-Pipeline **Identity Spec** (which refuses to register

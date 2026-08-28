@@ -10,8 +10,8 @@ import {
 	computeRepositoryTreeFingerprint
 } from '../src/lib/utils/repository-tree-fingerprint.server.ts';
 import { readGfxEnvironmentValue } from '../src/lib/utils/legacy-supers-compatibility.ts';
-import { deriveSupersRenderMatrixManifest } from './derive-supers-render-matrix-manifest.ts';
-import { groupSupersRenderMatrixCoordinates } from './supers-render-matrix-runner.ts';
+import { deriveGfxRenderMatrixManifest } from './derive-gfx-render-matrix-manifest.ts';
+import { groupGfxRenderMatrixCoordinates } from './gfx-render-matrix-runner.ts';
 
 const BASE_URL = readGfxEnvironmentValue(process.env, 'GFX_BASE_URL') ?? 'http://localhost:7263';
 const CHROME =
@@ -98,7 +98,7 @@ async function assertServedSourceIdentity(sourceRevision, treeFingerprint) {
 }
 
 async function launchHeadlessLayoutChrome() {
-	const profile = await mkdtemp(join(tmpdir(), 'supers-layout-contract-chrome-'));
+	const profile = await mkdtemp(join(tmpdir(), 'gfx-layout-contract-chrome-'));
 	const child = spawn(
 		CHROME,
 		[
@@ -317,7 +317,7 @@ async function run() {
 	const receiptTree = SCOPED_PATHS
 		? await computeRepositoryScopedTreeFingerprint(process.cwd(), SCOPED_PATHS)
 		: servedTree;
-	const collected = await deriveSupersRenderMatrixManifest({
+	const collected = await deriveGfxRenderMatrixManifest({
 		sourceRevision,
 		engineFingerprint: servedTree.treeFingerprint,
 		scope: 'full'
@@ -336,7 +336,7 @@ async function run() {
 	const chrome = await launchHeadlessLayoutChrome();
 	const frameResults = [];
 	try {
-		for (const group of groupSupersRenderMatrixCoordinates(coordinates)) {
+		for (const group of groupGfxRenderMatrixCoordinates(coordinates)) {
 			if (Date.now() >= deadline) throw new Error('Layout Contract matrix exceeded 12 minutes');
 			const page = await openPage(chrome.port, group.presetSlug);
 			try {

@@ -4,16 +4,16 @@ import test from 'node:test';
 
 import {
 	collectPresetPipelineReferences,
-	collectSupersRenderRegistry,
-	deriveSupersRenderMatrixManifest
-} from './derive-supers-render-matrix-manifest.ts';
+	collectGfxRenderRegistry,
+	deriveGfxRenderMatrixManifest
+} from './derive-gfx-render-matrix-manifest.ts';
 import { selectAffectedStaticPresetPackAxes as selectAffectedPresetPackAxes } from './preset-validation-scope.ts';
 
 const REVISION = 'a'.repeat(40);
 const FINGERPRINT = 'b'.repeat(64);
 
 test('collector matches the source-derived deliverable registry without hardcoded counts', async () => {
-	const registry = await collectSupersRenderRegistry();
+	const registry = await collectGfxRenderRegistry();
 	const filenames = (await readdir('src/lib/presets')).filter((name) => name.endsWith('.json'));
 	const sourceDeliverables: string[] = [];
 	for (const filename of filenames) {
@@ -32,7 +32,7 @@ test('collector matches the source-derived deliverable registry without hardcode
 });
 
 test('full manifest derives the complete snapshot cross-product', async () => {
-	const { snapshot, manifest } = await deriveSupersRenderMatrixManifest({
+	const { snapshot, manifest } = await deriveGfxRenderMatrixManifest({
 		scope: 'full',
 		sourceRevision: REVISION,
 		engineFingerprint: FINGERPRINT
@@ -62,7 +62,7 @@ test('full manifest derives the complete snapshot cross-product', async () => {
 });
 
 test('affected selection unions direct Preset and Pack impacts', async () => {
-	const registry = await collectSupersRenderRegistry();
+	const registry = await collectGfxRenderRegistry();
 	const preset = registry.presets[0];
 	const pack = registry.packs[0];
 	const axes = selectAffectedPresetPackAxes(
@@ -80,7 +80,7 @@ test('affected selection unions direct Preset and Pack impacts', async () => {
 });
 
 test('affected selection maps annotation styles across body, messages, and checklist content', async () => {
-	const live = await collectSupersRenderRegistry();
+	const live = await collectGfxRenderRegistry();
 	const base = live.presets[0].preset;
 	const fixtures = [
 		{
@@ -158,7 +158,7 @@ test('affected selection maps annotation styles across body, messages, and check
 });
 
 test('affected selection maps concrete Block Pipeline impacts through typed references', async () => {
-	const registry = await collectSupersRenderRegistry();
+	const registry = await collectGfxRenderRegistry();
 	const reference = 'blocks:bar-chart';
 	const expectedPresets = registry.presets
 		.filter((preset) => preset.pipelineReferences.includes(reference))
@@ -178,7 +178,7 @@ test('affected selection maps concrete Block Pipeline impacts through typed refe
 });
 
 test('affected selection distinguishes known unlisted Presets from unknown paths', async () => {
-	const registry = await collectSupersRenderRegistry();
+	const registry = await collectGfxRenderRegistry();
 	const knownUnlistedSlug = registry.knownPresetSlugs.find(
 		(slug) => !registry.presets.some((preset) => preset.slug === slug)
 	);

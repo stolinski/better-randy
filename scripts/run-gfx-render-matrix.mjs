@@ -7,22 +7,22 @@ import { PNG } from 'pngjs';
 import { readGfxEnvironmentValue } from '../src/lib/utils/legacy-supers-compatibility.ts';
 import { classifyProbeOutputClass } from './_probe-output-class.ts';
 import {
-	accumulateSupersRenderEvidenceBytes,
-	buildSupersRenderMatrixCellVerdict,
-	captureSupersAuxiliaryFrameSequence,
-	createSupersEdgeAliasingProbeCandidate,
-	createSupersShadowBandingProbeCandidate,
-	createSupersTextEdgeProbeCandidate,
-	groupSupersRenderMatrixCoordinates,
-	runBoundedSupersRenderMatrixFanout,
-	SUPERS_RENDER_MATRIX_REQUIRED_CHECK_CODES,
-	verifySupersRenderEvidenceIndex
-} from './supers-render-matrix-runner.ts';
+	accumulateGfxRenderEvidenceBytes,
+	buildGfxRenderMatrixCellVerdict,
+	captureGfxAuxiliaryFrameSequence,
+	createGfxEdgeAliasingProbeCandidate,
+	createGfxShadowBandingProbeCandidate,
+	createGfxTextEdgeProbeCandidate,
+	groupGfxRenderMatrixCoordinates,
+	runBoundedGfxRenderMatrixFanout,
+	GFX_RENDER_MATRIX_REQUIRED_CHECK_CODES,
+	verifyGfxRenderEvidenceIndex
+} from './gfx-render-matrix-runner.ts';
 
 const CDP_PORT = Number(process.env.CDP_PORT ?? 9223);
 const BASE_URL = readGfxEnvironmentValue(process.env, 'GFX_BASE_URL') ?? 'http://localhost:7263';
 const WAIT_MS = Number(readGfxEnvironmentValue(process.env, 'GFX_RENDER_MATRIX_WAIT_MS') ?? 60_000);
-const REQUIRED_CODES = SUPERS_RENDER_MATRIX_REQUIRED_CHECK_CODES;
+const REQUIRED_CODES = GFX_RENDER_MATRIX_REQUIRED_CHECK_CODES;
 
 function hash(value) {
 	const canonical = (entry) =>
@@ -259,7 +259,7 @@ async function main() {
 	const [manifestPath, snapshotPath, outputPath, changedPathsJson = '[]'] = process.argv.slice(2);
 	if (!manifestPath || !snapshotPath || !outputPath)
 		throw new Error(
-			'usage: run-supers-render-matrix.mjs <manifest.json> <snapshot.json> <output.json> [changed-paths-json]'
+			'usage: run-gfx-render-matrix.mjs <manifest.json> <snapshot.json> <output.json> [changed-paths-json]'
 		);
 	const manifest = JSON.parse(await readFile(resolve(manifestPath), 'utf8'));
 	const snapshot = JSON.parse(await readFile(resolve(snapshotPath), 'utf8'));
@@ -282,10 +282,10 @@ async function main() {
 		manifest.manifestDigest
 	);
 	await mkdir(evidenceRoot, { recursive: true });
-	const groups = groupSupersRenderMatrixCoordinates(manifest.coordinates);
+	const groups = groupGfxRenderMatrixCoordinates(manifest.coordinates);
 	let retainedEvidenceBytes = 0;
 	let evidenceBudgetExceeded = false;
-	const results = await runBoundedSupersRenderMatrixFanout({
+	const results = await runBoundedGfxRenderMatrixFanout({
 		groups,
 		concurrency: 1,
 		executeGroup: async (group) => {
@@ -338,7 +338,7 @@ async function main() {
 					const logicalBase = `render-matrix-evidence/${manifest.manifestDigest}/${coordinate.cellId}`;
 					const registerEvidence = (reference, bytes) => {
 						try {
-							retainedEvidenceBytes = accumulateSupersRenderEvidenceBytes(
+							retainedEvidenceBytes = accumulateGfxRenderEvidenceBytes(
 								manifest.scope,
 								retainedEvidenceBytes,
 								bytes.length
@@ -380,7 +380,7 @@ async function main() {
 						if (dataUrls) readableArtifacts.set(readable.id, dataUrls);
 					}
 					const replay = await captureFrame(coordinate.sample.frameIndex);
-					const auxiliaryCaptures = await captureSupersAuxiliaryFrameSequence({
+					const auxiliaryCaptures = await captureGfxAuxiliaryFrameSequence({
 						primaryFrameIndex: coordinate.sample.frameIndex,
 						primaryFrame: primary,
 						auxiliaryFrameIndices: coordinate.sample.auxiliaryFrameIndices,
@@ -746,7 +746,7 @@ async function main() {
 										probe.bytes
 									);
 									candidates.push(
-										createSupersTextEdgeProbeCandidate(probe.parsed, [canonicalEvidence, reference])
+										createGfxTextEdgeProbeCandidate(probe.parsed, [canonicalEvidence, reference])
 									);
 								} catch {
 									candidates.push(
@@ -798,7 +798,7 @@ async function main() {
 						candidates.push(
 							failed
 								? unavailableCandidate('shadow-banding', 'probe-failed', references)
-								: createSupersShadowBandingProbeCandidate(
+								: createGfxShadowBandingProbeCandidate(
 										primary.manifest.shadowCoverage.ownedShadowIds,
 										shadowProbes,
 										references
@@ -818,7 +818,7 @@ async function main() {
 							'edge-aliasing',
 							'non-axis-edge',
 							'scripts/probe-edge-aa.ts',
-							createSupersEdgeAliasingProbeCandidate,
+							createGfxEdgeAliasingProbeCandidate,
 							'no-non-axis-edge'
 						]
 					]) {
@@ -985,7 +985,7 @@ async function main() {
 									layoutEvidence
 								)
 					);
-					cells.push(buildSupersRenderMatrixCellVerdict(coordinate, candidates, runtimeEvidence));
+					cells.push(buildGfxRenderMatrixCellVerdict(coordinate, candidates, runtimeEvidence));
 				}
 			} finally {
 				await page.close();
@@ -1044,7 +1044,7 @@ async function main() {
 				.map((entry) => [entry.path, entry])
 		).values()
 	];
-	verifySupersRenderEvidenceIndex({ referencedEvidence: references, index: evidenceIndex });
+	verifyGfxRenderEvidenceIndex({ referencedEvidence: references, index: evidenceIndex });
 	const bundleContent = {
 		schemaVersion: 1,
 		manifestDigest: manifest.manifestDigest,

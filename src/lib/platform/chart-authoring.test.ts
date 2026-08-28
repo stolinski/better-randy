@@ -27,7 +27,7 @@ import {
 
 function assertStateValid(state: ReturnType<typeof createDefaultEngineState>): void {
 	const preset: Preset = {
-		schema: 'supers@1',
+		schema: 'gfx@1',
 		name: 'Authoring proof',
 		kind: 'fixture',
 		pack: 'syntax',
@@ -62,7 +62,7 @@ describe('chart authoring', () => {
 			assert.equal(state.surface.chart?.items[0].progressBar, true);
 			assertStateValid(state);
 			const preset: Preset = {
-				schema: 'supers@1',
+				schema: 'gfx@1',
 				name: 'GUI and agent parity',
 				kind: 'fixture',
 				pack: 'syntax',

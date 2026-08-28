@@ -4,7 +4,8 @@ import { isHttpError } from '@sveltejs/kit';
 import { beforeAll, beforeEach, describe, it, vi } from 'vitest';
 
 import validPreset from '$lib/presets/blank.json';
-import { PresetSchema, type Preset } from '$lib/platform/engine-schema';
+import type { Preset } from '$lib/platform/engine-schema';
+import { parsePresetIngress } from '$lib/platform/preset-ingress';
 import {
 	addUserCompositionFileToIndex,
 	userCompositionFileExists
@@ -104,7 +105,7 @@ function mediaPreset(): unknown {
 }
 
 function chartPreset(): Preset {
-	return PresetSchema.parse({
+	return parsePresetIngress({
 		...validPreset,
 		name: 'Agent chart',
 		state: {
@@ -255,9 +256,9 @@ describe('user composition handlers', () => {
 				name: 'Blank',
 				forkedFrom: null,
 				savedAt: '2026-07-14T12:00:00.000Z',
-				posterKey: posterKeyForPreset(PresetSchema.parse(validPreset)),
-				durationSeconds: PresetSchema.parse(validPreset).state.transport.durationSeconds,
-				surfaceType: PresetSchema.parse(validPreset).state.surface.type,
+				posterKey: posterKeyForPreset(parsePresetIngress(validPreset)),
+				durationSeconds: parsePresetIngress(validPreset).state.transport.durationSeconds,
+				surfaceType: parsePresetIngress(validPreset).state.surface.type,
 				media: { assets: [], videoTrack: { clips: [] } },
 				mediaStatus: 'ready'
 			}
@@ -323,8 +324,8 @@ describe('user composition handlers', () => {
 		);
 
 		const [first, second] = await Promise.all([firstResponse, secondResponse]);
-		assert.deepEqual(await first.json(), presetToWireFormat(PresetSchema.parse(validPreset)));
-		assert.deepEqual(await second.json(), presetToWireFormat(PresetSchema.parse(validPreset)));
+		assert.deepEqual(await first.json(), presetToWireFormat(parsePresetIngress(validPreset)));
+		assert.deepEqual(await second.json(), presetToWireFormat(parsePresetIngress(validPreset)));
 		assert.equal(fsMocks.readFile.mock.calls.length, 1);
 	});
 
@@ -371,7 +372,7 @@ describe('user composition handlers', () => {
 			params: { slug: 'round-trip' }
 		} as Parameters<(typeof slugHandlers)['GET']>[0]);
 		const standalonePreset: unknown = await getResponse.json();
-		const parsed = PresetSchema.parse(standalonePreset);
+		const parsed = parsePresetIngress(standalonePreset);
 
 		assert.deepEqual(standalonePreset, presetToWireFormat(parsed));
 		const putResponse = await slugHandlers.PUT({
@@ -464,7 +465,7 @@ describe('user composition handlers', () => {
 	});
 
 	it('preserves agent-only fields through an agent to GUI to agent workflow', async () => {
-		const agentPreset = PresetSchema.parse(validPreset);
+		const agentPreset = parsePresetIngress(validPreset);
 		agentPreset.name = 'Agent-authored composition';
 		agentPreset.state.transport.durationSeconds = 7.5;
 		agentPreset.state.stage = {
@@ -483,7 +484,7 @@ describe('user composition handlers', () => {
 			params: { slug: 'agent-composition' }
 		} as Parameters<(typeof slugHandlers)['GET']>[0]);
 		const guiLoadedPreset: unknown = await getResponse.json();
-		const parsed = PresetSchema.parse(guiLoadedPreset);
+		const parsed = parsePresetIngress(guiLoadedPreset);
 		parsed.name = 'Edited in GUI';
 
 		await slugHandlers.PUT({
@@ -498,7 +499,7 @@ describe('user composition handlers', () => {
 		const written = JSON.parse(fsMocks.writeFile.mock.calls[0]?.[1] ?? 'null') as {
 			preset: unknown;
 		};
-		const agentReloadedPreset = PresetSchema.parse(written.preset);
+		const agentReloadedPreset = parsePresetIngress(written.preset);
 		assert.equal(agentReloadedPreset.name, 'Edited in GUI');
 		assert.equal(agentReloadedPreset.state.transport.durationSeconds, 7.5);
 		assert.deepEqual(agentReloadedPreset.state.stage, agentPreset.state.stage);
@@ -506,7 +507,7 @@ describe('user composition handlers', () => {
 
 	it('preserves composition media through GUI-agent GET/PUT and list metadata round trips', async () => {
 		const preset = mediaPreset();
-		const media = PresetSchema.parse(preset).state.media;
+		const media = parsePresetIngress(preset).state.media;
 		fsMocks.readFile.mockResolvedValue(
 			JSON.stringify({
 				meta: { forkedFrom: null, savedAt: '2026-07-27T12:00:00.000Z' },
@@ -546,9 +547,9 @@ describe('user composition handlers', () => {
 				name: 'Media composition',
 				forkedFrom: null,
 				savedAt: '2026-07-27T12:00:00.000Z',
-				posterKey: posterKeyForPreset(PresetSchema.parse(preset)),
-				durationSeconds: PresetSchema.parse(preset).state.transport.durationSeconds,
-				surfaceType: PresetSchema.parse(preset).state.surface.type,
+				posterKey: posterKeyForPreset(parsePresetIngress(preset)),
+				durationSeconds: parsePresetIngress(preset).state.transport.durationSeconds,
+				surfaceType: parsePresetIngress(preset).state.surface.type,
 				media,
 				mediaStatus: 'ready'
 			}
@@ -594,7 +595,7 @@ describe('user composition handlers', () => {
 
 	it('keeps missing referenced media repairable and visible while rejecting new writes', async () => {
 		const preset = mediaPreset();
-		const media = PresetSchema.parse(preset).state.media;
+		const media = parsePresetIngress(preset).state.media;
 		const message = `Referenced media asset "interview-asset" at ${media.assets[0].assetUrl} is missing.`;
 		mediaMocks.inspectUserCompositionMedia.mockResolvedValue({
 			status: 'missing',
@@ -618,7 +619,7 @@ describe('user composition handlers', () => {
 		const loaded = await slugHandlers.GET({
 			params: { slug: 'missing-media' }
 		} as Parameters<(typeof slugHandlers)['GET']>[0]);
-		assert.deepEqual(await loaded.json(), presetToWireFormat(PresetSchema.parse(preset)));
+		assert.deepEqual(await loaded.json(), presetToWireFormat(parsePresetIngress(preset)));
 
 		const response = await collectionHandlers.GET(
 			{} as Parameters<(typeof collectionHandlers)['GET']>[0]

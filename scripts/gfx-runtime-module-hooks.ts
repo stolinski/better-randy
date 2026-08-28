@@ -3,7 +3,7 @@ import { registerHooks } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-export function registerSupersRuntimeModuleHooks(repoRoot: string): void {
+export function registerGfxRuntimeModuleHooks(repoRoot: string): void {
 	registerHooks({
 		resolve(specifier, context, nextResolve) {
 			if (specifier.startsWith('$lib/')) {

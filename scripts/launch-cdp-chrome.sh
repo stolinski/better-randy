@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Start (or confirm) the sanctioned Chrome used by canvas/browser probes.
-# Default mode enables WICG CanvasDrawElement for canonical Supers rendering.
+# Default mode enables WICG CanvasDrawElement for canonical GFX rendering.
 # `CDP_BROWSER_MODE=standard-webmcp` enables WebMCP without CanvasDrawElement so
 # standard-browser fallback probes cannot accidentally use the flagged capture path.
 # `CDP_BROWSER_MODE=standard` enables neither experimental feature.
@@ -37,7 +37,7 @@ case "${MODE}" in
 esac
 
 PORT="${CDP_PORT:-${DEFAULT_PORT}}"
-PROFILE="/tmp/supers-chrome-${PORT}"
+PROFILE="/tmp/gfx-chrome-${PORT}"
 
 if curl -fsS --max-time 2 "http://localhost:${PORT}/json/version" >/dev/null 2>&1; then
 	echo "Chrome already running on CDP port ${PORT} — using the existing process (${MODE_LABEL} mode requested; callers must verify capabilities)."

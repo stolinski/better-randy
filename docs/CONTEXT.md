@@ -51,7 +51,7 @@ _Avoid_: response, diff, patch, changelog.
 ### Composition model
 
 **Preset**:
-A JSON document declaring a **composition recipe** — motion, content, Pipeline choices, and appearance-role references — against the `supers@1` schema. A Preset is _Pack-neutral_: it names the Surface, Blocks, Annotations, Overlays, timings, text, optional composition-wide Effects, and one default **Pack**. `typography.paperColor` / `inkColor` may be explicit hex overrides, but absent colors resolve from the active Pack; edge, depth, light, material, font, and Pack chrome remain Pack-owned. The unit of authoring.
+A JSON document declaring a **composition recipe** — motion, content, Pipeline choices, and appearance-role references — against the `gfx@1` schema (a Legacy Supers `supers@1` document is accepted and folded at ingress). A Preset is _Pack-neutral_: it names the Surface, Blocks, Annotations, Overlays, timings, text, optional composition-wide Effects, and one default **Pack**. `typography.paperColor` / `inkColor` may be explicit hex overrides, but absent colors resolve from the active Pack; edge, depth, light, material, font, and Pack chrome remain Pack-owned. The unit of authoring.
 _Avoid_: tool, scene, template (when referring to a finished composition).
 
 **Starter template** (formerly _Recipe_):

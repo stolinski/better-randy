@@ -1,5 +1,5 @@
 // Real-canvas capture over CDP — drives a flag-enabled Chrome (launched with
-// --enable-blink-features=CanvasDrawElement) on a debug port, seeks the Supers
+// --enable-blink-features=CanvasDrawElement) on a debug port, seeks the GFX
 // timeline via window.__gfxTimeline.seekProgress, and saves clipped canvas
 // screenshots. This is the documented workaround for the chrome-devtools MCP
 // browser lacking the html-in-canvas flag. Node 22+ (built-in fetch/WebSocket).

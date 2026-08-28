@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
 import presetJson from './column-us-population-1950-2020.json';
-import { PresetSchema } from '../platform/engine-schema';
+import { parsePresetIngress } from '../platform/preset-ingress';
 import { listFixtures, listPresets } from '../platform/preset-catalog';
 import { parsePreset } from '../platform/preset-parser';
 import { presetToWireFormat } from '../platform/preset-pure';
@@ -11,7 +11,7 @@ import { resolveChartDataTarget } from '../utils/chart-data-target';
 import { resolveChartFrameLayout } from '../utils/chart-layout';
 import { createChartRenderTextMeasurer } from '../utils/chart-text-measurement';
 
-const preset = PresetSchema.parse(presetJson);
+const preset = parsePresetIngress(presetJson);
 const chart = preset.state.surface.chart;
 if (!chart || chart.items.length !== 1) throw new Error('Census Preset must declare one chart.');
 const block = chart.items[0];

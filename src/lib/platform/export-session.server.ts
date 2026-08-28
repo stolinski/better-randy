@@ -90,7 +90,7 @@ const PNG_SIGNATURE = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
  * not just this one, so a deploy or rollback across the ADR-0053 namespace
  * rename cannot orphan the previous release's directories.
  */
-const EXPORT_DIRECTORY_PREFIX = 'supers-export-' satisfies SweptExportDirectoryPrefix;
+const EXPORT_DIRECTORY_PREFIX = 'gfx-export-' satisfies SweptExportDirectoryPrefix;
 const MAX_FRAME_BYTES = 128 * 1024 * 1024;
 const MAX_FRAME_COUNT = 10_000_000;
 

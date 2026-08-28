@@ -54,7 +54,7 @@ if (presetFlag >= 0) {
 	try {
 		preset = parsePresetIngress(JSON.parse(await readFile(presetPath, 'utf-8')));
 	} catch (error) {
-		console.error(`${presetPath} is not a valid Supers preset.`, error);
+		console.error(`${presetPath} is not a valid GFX preset.`, error);
 		process.exit(1);
 	}
 	preset.state.captions = captions;

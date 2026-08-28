@@ -1868,11 +1868,14 @@ export function listMarkInstances(content: SurfaceContent): MarkInstance[] {
  * `ACCEPTED_COMPOSITION_SCHEMA_IDS` and `PresetIngressSchema` folds them onto
  * this one, so `PresetSchema` keeps a single literal and nothing downstream
  * branches on which namespace's spelling arrived (ADR-0053,
- * `accept-old / write-new`). The `satisfies` tie is what makes the eventual
- * flip to the GFX spelling a one-value edit that cannot drift from the
- * accepted set.
+ * `accept-old / write-new`). The `satisfies` ties the written id to that
+ * accepted set, so the two can never drift apart.
+ *
+ * A corpus Preset or saved composition still declaring `supers@1` needs no
+ * migration and is not stale: a namespace rename is not a schema revision, so
+ * ingress folds it onto this id and the document renders to the same pixels.
  */
-export const PRESET_SCHEMA_ID = 'supers@1' as const satisfies AcceptedCompositionSchemaId;
+export const PRESET_SCHEMA_ID = 'gfx@1' as const satisfies AcceptedCompositionSchemaId;
 
 /**
  * Pack the Preset is bound to (ADR-0014). The active Pack manifest resolves

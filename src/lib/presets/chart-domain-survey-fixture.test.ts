@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
 import fixtureJson from './chart-domain-survey-fixture.json';
-import { PresetSchema, type ChartBlock } from '../platform/engine-schema';
+import type { ChartBlock } from '../platform/engine-schema';
+import { parsePresetIngress } from '../platform/preset-ingress';
 import { listFixtures, listPresets } from '../platform/preset-catalog';
 import { parsePreset } from '../platform/preset-parser';
 import { presetToWireFormat } from '../platform/preset-pure';
@@ -20,7 +21,7 @@ import {
 	type ChartNormalizedGeometry
 } from '../utils/chart-normalized-geometry';
 
-const fixture = PresetSchema.parse(fixtureJson);
+const fixture = parsePresetIngress(fixtureJson);
 const chart = fixture.state.surface.chart;
 
 if (!chart) throw new Error('Chart-domain fixture must declare a chart group.');

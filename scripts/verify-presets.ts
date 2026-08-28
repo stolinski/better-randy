@@ -15,12 +15,12 @@ import {
 	type StaticPresetPackAxis
 } from './preset-validation-scope.ts';
 import { createPackCalibrationVerificationInputs } from './pack-calibration-verification-inputs.ts';
-import { registerSupersRuntimeModuleHooks } from './supers-runtime-module-hooks.ts';
+import { registerGfxRuntimeModuleHooks } from './gfx-runtime-module-hooks.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..');
 
-registerSupersRuntimeModuleHooks(repoRoot);
+registerGfxRuntimeModuleHooks(repoRoot);
 
 type Orientation = 'horizontal' | 'vertical';
 
@@ -111,7 +111,7 @@ const [
 	import(packCatalogPath),
 	import(packCatalogValidationPath),
 	import(renderRegistryFingerprintPath),
-	import(pathToFileURL(resolve(repoRoot, 'scripts/derive-supers-render-matrix-manifest.ts')).href),
+	import(pathToFileURL(resolve(repoRoot, 'scripts/derive-gfx-render-matrix-manifest.ts')).href),
 	import(pathToFileURL(resolve(repoRoot, 'scripts/change-impact-classifier.ts')).href)
 ]);
 

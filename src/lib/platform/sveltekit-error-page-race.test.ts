@@ -34,7 +34,7 @@ describe('SvelteKit error-page patch', () => {
 			throw new TypeError('SvelteKit config module does not expose load_error_page');
 		}
 
-		const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'supers-error-page-'));
+		const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'gfx-error-page-'));
 		const errorTemplate = path.join(temporaryDirectory, 'error.html');
 		fs.writeFileSync(errorTemplate, 'custom error page');
 

@@ -15,11 +15,11 @@ describe('downloadBlob', () => {
 		const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
 		vi.stubGlobal('document', { createElement: () => link });
 
-		downloadBlob(new Blob(['media']), 'supers-overlay.webm');
+		downloadBlob(new Blob(['media']), 'gfx-overlay.webm');
 
 		assert.equal(createObjectURL.mock.calls.length, 1);
 		assert.equal(link.href, 'blob:export');
-		assert.equal(link.download, 'supers-overlay.webm');
+		assert.equal(link.download, 'gfx-overlay.webm');
 		assert.equal(link.click.mock.calls.length, 1);
 		assert.deepEqual(revokeObjectURL.mock.calls, [['blob:export']]);
 	});
@@ -49,11 +49,11 @@ describe('downloadVideoExport', () => {
 
 		downloadVideoExport(
 			{ downloadUrl: '/api/export/sessions/session-id/output' },
-			'supers-bumper.mov'
+			'gfx-bumper.mov'
 		);
 
 		assert.equal(link.href, '/api/export/sessions/session-id/output');
-		assert.equal(link.download, 'supers-bumper.mov');
+		assert.equal(link.download, 'gfx-bumper.mov');
 		assert.equal(link.click.mock.calls.length, 1);
 	});
 });

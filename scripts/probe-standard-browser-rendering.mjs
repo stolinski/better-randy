@@ -1,5 +1,5 @@
 // Probe Chrome's standard WebMCP runtime and the smallest native-resolution
-// Supers fallback without letting the fallback use CanvasDrawElement.
+// GFX fallback without letting the fallback use CanvasDrawElement.
 //
 // The dev server must already be running at http://localhost:7263. This script
 // uses only the sanctioned CDP launch helper and writes exact JSON + PNG evidence.

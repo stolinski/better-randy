@@ -34,7 +34,7 @@ const READY_TIMEOUT_MS = Number(
 
 function usage(): never {
 	throw new Error(
-		'Usage: supers render --preset <slug-or-path> --out <file> | supers batch <manifest.json>'
+		'Usage: gfx render --preset <slug-or-path> --out <file> | gfx batch <manifest.json>'
 	);
 }
 
@@ -98,7 +98,7 @@ async function assertRuntimeAvailable(): Promise<void> {
 		fetch(`${CDP_URL}/json/version`)
 	]);
 	if (!appResponse.ok) {
-		throw new Error(`Supers dev server is unavailable at ${APP_URL}.`);
+		throw new Error(`GFX dev server is unavailable at ${APP_URL}.`);
 	}
 	if (!cdpResponse.ok) {
 		throw new Error(`CanvasDrawElement browser is unavailable at ${CDP_URL}.`);

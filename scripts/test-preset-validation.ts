@@ -65,7 +65,7 @@ const { validatePresetSemantics } = await import(
 
 function basePreset(): Record<string, unknown> {
 	return {
-		schema: 'supers@1',
+		schema: 'gfx@1',
 		pack: 'syntax',
 		name: 'Semantic validation test',
 		state: {
