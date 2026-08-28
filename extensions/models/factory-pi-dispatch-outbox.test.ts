@@ -1457,7 +1457,7 @@ Deno.test(
 		})
 );
 
-Deno.test('post-reset reservation versions only an exhausted unbound parked outbox', () =>
+Deno.test('post-reset reservation versions an exhausted parked outbox only before execution claim', () =>
 	withFixture(async (f) => {
 		const first = await f.reserve();
 		const name = `pi-dispatch-outbox-${first.dispatchToken}`;
@@ -1465,19 +1465,45 @@ Deno.test('post-reset reservation versions only an exhausted unbound parked outb
 			...f.resources.get(name)!,
 			state: 'submission-parked',
 			parkedReason: 'transport-retries-exhausted',
+			piRunId: 'bound-run-0001',
 			updatedAt: '2026-08-21T00:00:00.000Z'
 		});
+		f.resources.set(`pi-launch-receipt-${first.dispatchToken}`, {
+			dispatchToken: first.dispatchToken,
+			piRunId: 'bound-run-0001'
+		});
 		f.setFactoryStartedAt('2026-08-22T00:00:00.000Z');
+		await assertRejects(() => f.reserve(), Error, 'not a safely recyclable');
+
+		const exhaustedAttemptReceipts = Array.from({ length: 3 }, (_, index) => ({
+			ordinal: index + 1,
+			submissionAttemptId: String(index + 1).repeat(64),
+			receiptDigest: String(index + 4).repeat(64),
+			recordedAt: `2026-08-21T00:00:0${index}.000Z`
+		}));
+		f.resources.set(name, {
+			...f.resources.get(name)!,
+			transportAttempts: 3,
+			submissionAttemptReceipts: exhaustedAttemptReceipts
+		});
 		const reset = await f.reserve();
 		assertEquals(reset.state, 'reserved');
 		assertEquals(f.resources.get(name)?.factoryStartedAt, '2026-08-22T00:00:00.000Z');
 		assertEquals(f.resources.get(name)?.transportAttempts, 0);
+		assertEquals(f.resources.get(name)?.piRunId, undefined);
 
 		f.resources.set(name, {
 			...f.resources.get(name)!,
 			factoryStartedAt: '2026-08-22T00:00:00.000Z',
-			state: 'submission-uncertain',
+			state: 'submission-parked',
+			parkedReason: 'transport-retries-exhausted',
+			transportAttempts: 3,
+			submissionAttemptReceipts: exhaustedAttemptReceipts,
 			updatedAt: '2026-08-22T00:00:01.000Z'
+		});
+		f.resources.set(`pi-execution-claim-${first.dispatchToken}`, {
+			dispatchToken: first.dispatchToken,
+			piRunId: 'claimed-run-0001'
 		});
 		f.setFactoryStartedAt('2026-08-23T00:00:00.000Z');
 		await assertRejects(() => f.reserve(), Error, 'not a safely recyclable');

@@ -1734,18 +1734,31 @@ export async function reservePiDispatch(
     const priorEpoch = outbox.schemaVersion === 2
       ? outbox.factoryStartedAt
       : outbox.updatedAt;
-    const hasOwnershipEvidence = outbox.piRunId !== undefined ||
+    const hasExecutionOwnershipEvidence =
       outbox.claimNonceDigest !== undefined ||
-      (await context.readResource(launchName(dispatchToken))) !== null ||
       (await context.readResource(claimName(dispatchToken))) !== null ||
       (await context.readResource(piHandoffAcceptanceName(dispatchToken))) !==
         null ||
       outbox.piExecutionFailureReceiptDigest !== undefined;
+    const recordedAttemptIds = new Set(
+      outbox.submissionAttemptReceipts.map((receipt) =>
+        receipt.submissionAttemptId
+      ),
+    );
+    const hasCompleteExhaustionEvidence =
+      outbox.transportAttempts === outbox.maximumTransportAttempts &&
+      outbox.submissionAttemptReceipts.length ===
+        outbox.maximumTransportAttempts &&
+      recordedAttemptIds.size === outbox.maximumTransportAttempts &&
+      outbox.submissionAttemptReceipts.every((receipt, index) =>
+        receipt.ordinal === index + 1
+      );
     if (
       Date.parse(priorEpoch) >= Date.parse(factoryStartedAt) ||
       outbox.state !== "submission-parked" ||
       outbox.parkedReason !== "transport-retries-exhausted" ||
-      hasOwnershipEvidence
+      !hasCompleteExhaustionEvidence ||
+      hasExecutionOwnershipEvidence
     ) {
       throw new Error(
         "Existing Pi dispatch reservation is not a safely recyclable pre-reset outbox.",
