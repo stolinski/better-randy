@@ -1,0 +1,490 @@
+{
+	"schemaVersion": 1,
+	"generatedAt": "2026-08-28T01:39:19.507Z",
+	"probe": "standard-browser-rendering-and-webmcp",
+	"fallbackRenderer": {
+		"name": "html2canvas",
+		"version": "1.4.1"
+	},
+	"capabilityMatrixValidated": true,
+	"capabilities": {
+		"canvasDrawElementMode": {
+			"browser": "Chrome/152.0.7977.64",
+			"protocolVersion": "1.3",
+			"userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+			"userAgentData": {
+				"brands": [
+					{
+						"brand": "Chromium",
+						"version": "152"
+					},
+					{
+						"brand": "Not?A_Brand",
+						"version": "24"
+					},
+					{
+						"brand": "Google Chrome",
+						"version": "152"
+					}
+				],
+				"platform": "macOS",
+				"mobile": false
+			},
+			"secureContext": true,
+			"crossOriginIsolated": false,
+			"sharedArrayBuffer": false,
+			"webmcp": {
+				"exposed": false,
+				"registered": false
+			},
+			"webgpu": {
+				"exposed": true,
+				"adapter": true
+			},
+			"canvasDrawElement": {
+				"copyElementImageToTexture": true,
+				"requestPaint": true
+			},
+			"fonts": {
+				"status": "loaded",
+				"inter": true,
+				"spaceGrotesk": true
+			},
+			"audio": {
+				"available": true,
+				"frames": 128,
+				"sampleRate": 8000
+			},
+			"downloads": {
+				"anchorDownload": true,
+				"blobUrl": true,
+				"fileSystemAccess": true
+			},
+			"permissionsPolicy": {
+				"allowedFeatures": [
+					"accelerometer",
+					"aria-notify",
+					"autoplay",
+					"bluetooth",
+					"browsing-topics",
+					"camera",
+					"captured-surface-control",
+					"ch-device-memory",
+					"ch-downlink",
+					"ch-dpr",
+					"ch-ect",
+					"ch-prefers-color-scheme",
+					"ch-prefers-reduced-motion",
+					"ch-prefers-reduced-transparency",
+					"ch-rtt",
+					"ch-save-data",
+					"ch-ua",
+					"ch-ua-arch",
+					"ch-ua-bitness",
+					"ch-ua-form-factors",
+					"ch-ua-full-version",
+					"ch-ua-full-version-list",
+					"ch-ua-high-entropy-values",
+					"ch-ua-mobile",
+					"ch-ua-model",
+					"ch-ua-platform",
+					"ch-ua-platform-version",
+					"ch-ua-wow64",
+					"ch-viewport-height",
+					"ch-viewport-width",
+					"ch-width",
+					"clipboard-read",
+					"clipboard-write",
+					"compute-pressure",
+					"cross-origin-isolated",
+					"deferred-fetch",
+					"deferred-fetch-minimal",
+					"digital-credentials-get",
+					"display-capture",
+					"encrypted-media",
+					"fullscreen",
+					"gamepad",
+					"geolocation",
+					"gyroscope",
+					"hid",
+					"identity-credentials-get",
+					"idle-detection",
+					"interest-cohort",
+					"join-ad-interest-group",
+					"keyboard-map",
+					"language-detector",
+					"language-model",
+					"local-fonts",
+					"local-network",
+					"local-network-access",
+					"loopback-network",
+					"magnetometer",
+					"microphone",
+					"midi",
+					"on-device-speech-recognition",
+					"otp-credentials",
+					"payment",
+					"picture-in-picture",
+					"private-aggregation",
+					"private-state-token-issuance",
+					"private-state-token-redemption",
+					"publickey-credentials-create",
+					"publickey-credentials-get",
+					"run-ad-auction",
+					"screen-wake-lock",
+					"serial",
+					"shared-storage",
+					"shared-storage-select-url",
+					"storage-access",
+					"summarizer",
+					"sync-xhr",
+					"translator",
+					"usb",
+					"window-management",
+					"xr-spatial-tracking"
+				],
+				"webShare": false,
+				"fullscreen": true
+			},
+			"responseHeaders": {
+				"crossOriginOpenerPolicy": null,
+				"crossOriginEmbedderPolicy": null,
+				"permissionsPolicy": null
+			}
+		},
+		"standardWebmcpMode": {
+			"browser": "Chrome/152.0.7977.64",
+			"protocolVersion": "1.3",
+			"userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+			"userAgentData": {
+				"brands": [
+					{
+						"brand": "Chromium",
+						"version": "152"
+					},
+					{
+						"brand": "Not?A_Brand",
+						"version": "24"
+					},
+					{
+						"brand": "Google Chrome",
+						"version": "152"
+					}
+				],
+				"platform": "macOS",
+				"mobile": false
+			},
+			"secureContext": true,
+			"crossOriginIsolated": false,
+			"sharedArrayBuffer": false,
+			"webmcp": {
+				"exposed": true,
+				"registered": true,
+				"prototype": ["ontoolchange", "executeTool", "getTools", "registerTool", "constructor"]
+			},
+			"webgpu": {
+				"exposed": true,
+				"adapter": true
+			},
+			"canvasDrawElement": {
+				"copyElementImageToTexture": false,
+				"requestPaint": false
+			},
+			"fonts": {
+				"status": "loaded",
+				"inter": true,
+				"spaceGrotesk": true
+			},
+			"audio": {
+				"available": true,
+				"frames": 128,
+				"sampleRate": 8000
+			},
+			"downloads": {
+				"anchorDownload": true,
+				"blobUrl": true,
+				"fileSystemAccess": true
+			},
+			"permissionsPolicy": {
+				"allowedFeatures": [
+					"accelerometer",
+					"aria-notify",
+					"autoplay",
+					"bluetooth",
+					"browsing-topics",
+					"camera",
+					"captured-surface-control",
+					"ch-device-memory",
+					"ch-downlink",
+					"ch-dpr",
+					"ch-ect",
+					"ch-prefers-color-scheme",
+					"ch-prefers-reduced-motion",
+					"ch-prefers-reduced-transparency",
+					"ch-rtt",
+					"ch-save-data",
+					"ch-ua",
+					"ch-ua-arch",
+					"ch-ua-bitness",
+					"ch-ua-form-factors",
+					"ch-ua-full-version",
+					"ch-ua-full-version-list",
+					"ch-ua-high-entropy-values",
+					"ch-ua-mobile",
+					"ch-ua-model",
+					"ch-ua-platform",
+					"ch-ua-platform-version",
+					"ch-ua-wow64",
+					"ch-viewport-height",
+					"ch-viewport-width",
+					"ch-width",
+					"clipboard-read",
+					"clipboard-write",
+					"compute-pressure",
+					"cross-origin-isolated",
+					"deferred-fetch",
+					"deferred-fetch-minimal",
+					"digital-credentials-get",
+					"display-capture",
+					"encrypted-media",
+					"fullscreen",
+					"gamepad",
+					"geolocation",
+					"gyroscope",
+					"hid",
+					"identity-credentials-get",
+					"idle-detection",
+					"interest-cohort",
+					"join-ad-interest-group",
+					"keyboard-map",
+					"language-detector",
+					"language-model",
+					"local-fonts",
+					"local-network",
+					"local-network-access",
+					"loopback-network",
+					"magnetometer",
+					"microphone",
+					"midi",
+					"on-device-speech-recognition",
+					"otp-credentials",
+					"payment",
+					"picture-in-picture",
+					"private-aggregation",
+					"private-state-token-issuance",
+					"private-state-token-redemption",
+					"publickey-credentials-create",
+					"publickey-credentials-get",
+					"run-ad-auction",
+					"screen-wake-lock",
+					"serial",
+					"shared-storage",
+					"shared-storage-select-url",
+					"storage-access",
+					"summarizer",
+					"sync-xhr",
+					"tools",
+					"translator",
+					"unload",
+					"usb",
+					"window-management",
+					"xr-spatial-tracking"
+				],
+				"webShare": false,
+				"fullscreen": true
+			},
+			"responseHeaders": {
+				"crossOriginOpenerPolicy": null,
+				"crossOriginEmbedderPolicy": null,
+				"permissionsPolicy": null
+			}
+		}
+	},
+	"cases": [
+		{
+			"slug": "lower-third",
+			"outputClass": "transparent-overlay",
+			"canonical": {
+				"path": "canonical/lower-third/p0.50.png",
+				"progress": 0.5,
+				"wallMs": 3769.6940839999997,
+				"sha256": "6b412aaea4daecb79e437fe396d88d720081e982d9b94617412cceceb29a738e",
+				"width": 3840,
+				"height": 2160,
+				"blankUniformFrame": false,
+				"nonUniformPixels": 531618,
+				"nonUniformPixelRatio": 0.06409360532407407,
+				"uniqueRgbColors": 843,
+				"lumaRange": {
+					"min": 8,
+					"max": 245
+				}
+			},
+			"standardCanvas": {
+				"path": "lower-third-standard-canvas.png",
+				"navigation": {
+					"timelineAvailable": false,
+					"soughtProgress": null
+				},
+				"sha256": "7b0cec71039212bdd4a6088a7f0cc3a57397a8fec17599b4385c1665da40d92d",
+				"width": 3840,
+				"height": 2160,
+				"blankUniformFrame": true,
+				"nonUniformPixels": 0,
+				"nonUniformPixelRatio": 0,
+				"uniqueRgbColors": 1,
+				"lumaRange": {
+					"min": 116,
+					"max": 116
+				}
+			},
+			"domReference": {
+				"path": "lower-third-dom-reference.png",
+				"navigation": {
+					"timelineAvailable": false,
+					"soughtProgress": null
+				},
+				"sha256": "310ff6a9a0009aa6affe0919cd0fbde4c11edf6108e259ccb2291e80e9fdbe80",
+				"width": 3840,
+				"height": 2160,
+				"blankUniformFrame": false,
+				"nonUniformPixels": 531618,
+				"nonUniformPixelRatio": 0.06409360532407407,
+				"uniqueRgbColors": 617,
+				"lumaRange": {
+					"min": 9,
+					"max": 245
+				}
+			},
+			"fallback": {
+				"path": "lower-third-fallback.png",
+				"navigation": {
+					"timelineAvailable": false,
+					"soughtProgress": null
+				},
+				"width": 3840,
+				"height": 2160,
+				"rasterMs": 191,
+				"alphaSample": {
+					"width": 480,
+					"height": 270,
+					"alphaPixels": 8373,
+					"partialAlphaPixels": 77
+				},
+				"sha256": "45583ea0edd70c2f76fcb26a82d21025e13e8b1f167231d7afba64b3b499e081",
+				"blankUniformFrame": false,
+				"nonUniformPixels": 532170,
+				"nonUniformPixelRatio": 0.06416015625,
+				"uniqueRgbColors": 564,
+				"lumaRange": {
+					"min": 9,
+					"max": 245
+				}
+			},
+			"fidelity": {
+				"reference": "native browser rendering of the same unsynchronized DOM clone",
+				"meanAbsoluteChannelError": 1.7331822273662552,
+				"rootMeanSquareChannelError": 18.090076136734325,
+				"exactPixelRatio": 0.9814532696759259,
+				"withinEightPixelRatio": 0.9817549189814815,
+				"overTwentyFourPixelRatio": 0.008843195408950618
+			}
+		},
+		{
+			"slug": "outro-watch-next",
+			"outputClass": "full-frame",
+			"canonical": {
+				"path": "canonical/outro-watch-next/p0.50.png",
+				"progress": 0.5,
+				"wallMs": 5273.11325,
+				"sha256": "7100197d513a57a81ad046370d77d32e4605d689f816ca29bf4b3985614297f5",
+				"width": 3840,
+				"height": 2160,
+				"blankUniformFrame": false,
+				"nonUniformPixels": 7598656,
+				"nonUniformPixelRatio": 0.9161188271604939,
+				"uniqueRgbColors": 2055,
+				"lumaRange": {
+					"min": 13,
+					"max": 252
+				}
+			},
+			"standardCanvas": {
+				"path": "outro-watch-next-standard-canvas.png",
+				"navigation": {
+					"timelineAvailable": false,
+					"soughtProgress": null
+				},
+				"sha256": "7b0cec71039212bdd4a6088a7f0cc3a57397a8fec17599b4385c1665da40d92d",
+				"width": 3840,
+				"height": 2160,
+				"blankUniformFrame": true,
+				"nonUniformPixels": 0,
+				"nonUniformPixelRatio": 0,
+				"uniqueRgbColors": 1,
+				"lumaRange": {
+					"min": 116,
+					"max": 116
+				}
+			},
+			"domReference": {
+				"path": "outro-watch-next-dom-reference.png",
+				"navigation": {
+					"timelineAvailable": false,
+					"soughtProgress": null
+				},
+				"sha256": "1214b0589c79727844ea21bb50aa41b1f2c199ccf3bb493a402d392fb2d46728",
+				"width": 3840,
+				"height": 2160,
+				"blankUniformFrame": false,
+				"nonUniformPixels": 512791,
+				"nonUniformPixelRatio": 0.0618237606095679,
+				"uniqueRgbColors": 185,
+				"lumaRange": {
+					"min": 18,
+					"max": 245
+				}
+			},
+			"fallback": {
+				"path": "outro-watch-next-fallback.png",
+				"navigation": {
+					"timelineAvailable": false,
+					"soughtProgress": null
+				},
+				"width": 3840,
+				"height": 2160,
+				"rasterMs": 208.20000004768372,
+				"alphaSample": {
+					"width": 480,
+					"height": 270,
+					"alphaPixels": 129600,
+					"partialAlphaPixels": 0
+				},
+				"sha256": "426056038dc4f4fe999edeb338011d3558c275106a6f6e32d9f15b873e615286",
+				"blankUniformFrame": false,
+				"nonUniformPixels": 507122,
+				"nonUniformPixelRatio": 0.06114028742283951,
+				"uniqueRgbColors": 199,
+				"lumaRange": {
+					"min": 18,
+					"max": 245
+				}
+			},
+			"fidelity": {
+				"reference": "native browser rendering of the same unsynchronized DOM clone",
+				"meanAbsoluteChannelError": 18.983448873135288,
+				"rootMeanSquareChannelError": 65.13977750735137,
+				"exactPixelRatio": 0.9138962432484568,
+				"withinEightPixelRatio": 0.9140301890432099,
+				"overTwentyFourPixelRatio": 0.08580379533179013
+			}
+		}
+	],
+	"decision": {
+		"selectedFallback": "native-resolution DOM clone rasterization with html2canvas",
+		"previewImplication": "use the DOM-rendered clone for the supported flat composition vocabulary when CanvasDrawElement is absent",
+		"exportImplication": "production must initialize and seek an independent deterministic timeline before rasterizing each native frame",
+		"unsupported": "this probe does not initialize the standard-lane timeline; WebGPU effects, depth planes, video underlays, and exact canonical parity remain outside the smallest fallback",
+		"performanceBasis": "fallback.rasterMs is measured in-browser for one native frame"
+	}
+}
