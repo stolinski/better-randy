@@ -1400,6 +1400,29 @@ Deno.test('23 pre-claim and claimed paused lifecycles remain submission-uncertai
 		);
 	});
 });
+Deno.test('claimed supervisor-paused outer normalizes its failed child lifecycle', () =>
+	withFixture(async (f) => {
+		const { dispatchToken } = await f.reserve();
+		f.setDispatched();
+		const runId = await f.addRun(dispatchToken, await digest(f.request.task));
+		await claimPiExecution({ dispatchToken, piRunId: runId }, f.context);
+		const statusPath = join((f.context.piAsyncRoots ?? [])[0]!, runId, 'status.json');
+		const status = JSON.parse(await Deno.readTextFile(statusPath)) as {
+			state: string;
+			steps: Array<{ status: string }>;
+		};
+		status.state = 'paused';
+		status.steps[0]!.status = 'failed';
+		await Deno.writeTextFile(statusPath, JSON.stringify(status));
+		const result = await reconcilePiDispatch({ dispatchToken }, f.context);
+		assertEquals(result.state, 'execution-failed');
+		const outbox = f.resources.get(`pi-dispatch-outbox-${dispatchToken}`)!;
+		const piFailure = [...f.resources.values()].find(
+			(value) => value.receiptDigest === outbox.piExecutionFailureReceiptDigest
+		)!;
+		assertEquals(piFailure.runtimeState, 'failed');
+	})
+);
 Deno.test(
 	'24 claimed failed, stopped, and rejected lifecycles enter trusted recovery',
 	async () => {

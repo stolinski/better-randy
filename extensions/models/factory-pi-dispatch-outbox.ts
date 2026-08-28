@@ -1485,9 +1485,14 @@ export async function inspectPiRuntimeReceipts(
         }
         continue;
       }
+      const lifecycleState =
+        parsed.data.state === "paused" &&
+          ["failed", "stopped", "rejected"].includes(step.status)
+          ? step.status as "failed" | "stopped" | "rejected"
+          : parsed.data.state;
       lifecycleObservations.push({
         piRunId: parsed.data.runId,
-        state: parsed.data.state,
+        state: lifecycleState,
         statusDigest: await sha256(bytes),
         sessionDigest: session.digest,
       });
