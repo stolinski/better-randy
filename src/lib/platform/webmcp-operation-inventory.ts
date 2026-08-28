@@ -1,0 +1,1578 @@
+/**
+ * The machine-readable GFX authoring operation inventory ratified by
+ * [ADR-0054](../../../docs/adr/0054-webmcp-operation-transaction-and-security-contract.md).
+ *
+ * One row per authoring decision a person or an agent can make. Each row names
+ * the family that owns it, the WebMCP tool that exposes it, the composition
+ * pointers it may write, the state in which its tool is registered, and the GUI
+ * surface that owns the same decision. The bidirectional parity gate reads this
+ * file: a decision reachable from only one transport is a defect, and a tool
+ * that is not a row here has no contract.
+ *
+ * This module is the contract, not the implementation. It deliberately carries
+ * no runtime behavior — the operation layer, the WebMCP controller, and the
+ * parity gate each read it and are each verified against it.
+ */
+
+/** The non-overlapping domains an authoring decision can belong to. */
+export type WebmcpOperationFamilyName =
+	| 'capability'
+	| 'composition'
+	| 'session'
+	| 'transport'
+	| 'layer'
+	| 'content'
+	| 'placement'
+	| 'appearance'
+	| 'motion'
+	| 'sound'
+	| 'media'
+	| 'playhead'
+	| 'validation'
+	| 'verification'
+	| 'delivery';
+
+/**
+ * What an operation changes. The kind fixes the transaction obligations the
+ * inventory test enforces, so a row cannot quietly opt out of a revision check
+ * or an undo entry.
+ *
+ * - `read` — returns state; changes nothing.
+ * - `view` — moves ephemeral view state (the playhead); no document write.
+ * - `write` — edits the open composition through the transaction core.
+ * - `history` — replays a recorded edit (undo / redo).
+ * - `lifecycle` — changes which composition is open, or the session store.
+ * - `deliver` — produces a rendered artifact the visitor receives.
+ */
+export type WebmcpOperationEffectKind =
+	'read' | 'view' | 'write' | 'history' | 'lifecycle' | 'deliver';
+
+/**
+ * The condition under which a tool is registered on `document.modelContext`.
+ * A tool that cannot succeed in the current state is unregistered, not
+ * exposed-and-rejecting, so an agent never chooses an impossible verb.
+ */
+export type WebmcpOperationPrecondition =
+	| 'always'
+	| 'composition-open'
+	| 'composition-editable'
+	| 'forked-from-starter'
+	| 'session-composition-present'
+	| 'undo-available'
+	| 'redo-available'
+	| 'overlay-present'
+	| 'effect-present'
+	| 'mark-present'
+	| 'text-animation-present'
+	| 'diagram-present'
+	| 'chart-present'
+	| 'captions-present'
+	| 'chat-surface-active'
+	| 'checklist-surface-active'
+	| 'orientation-override-present'
+	| 'keyframe-channel-present'
+	| 'cascade-anchor-present'
+	| 'transition-present'
+	| 'audio-cue-present'
+	| 'media-permitted'
+	| 'media-entry-present'
+	| 'video-clip-present';
+
+/**
+ * The Workspace selection an operation must leave focused, so a person watching
+ * the screen sees what an agent just did. `null` only for rows that change
+ * nothing a person could look at.
+ */
+export type WebmcpOperationFocusTarget =
+	| 'composition-root'
+	| 'surface'
+	| 'overlay'
+	| 'block'
+	| 'mark'
+	| 'text-animation'
+	| 'effect'
+	| 'sound-cue'
+	| 'captions'
+	| 'media-library'
+	| 'video-clip'
+	| 'timeline-playhead'
+	| 'session-catalog';
+
+/**
+ * A composition pointer a family may write. Ownership resolves by longest
+ * pointer: a deeper pointer owned by another family wins inside its own
+ * subtree. `membership` narrows the owner's authority to adding, removing,
+ * reordering, and setting the identifying `type` / `id` of entries — never to
+ * rewriting fields a deeper owner holds.
+ */
+export interface WebmcpOwnedCompositionPath {
+	pointer: string;
+	scope: 'membership' | 'value';
+}
+
+/** One domain of authoring decisions, and the composition subtrees it alone writes. */
+export interface WebmcpOperationFamily {
+	name: WebmcpOperationFamilyName;
+	/** What an author decides here — the sentence that keeps families from overlapping. */
+	domain: string;
+	toolNamePrefix: string;
+	ownedPaths: readonly WebmcpOwnedCompositionPath[];
+}
+
+/** One authoring decision, exposed as exactly one WebMCP tool and one GUI path. */
+export interface WebmcpOperationRow {
+	id: string;
+	family: WebmcpOperationFamilyName;
+	toolName: string;
+	/** The tool description an agent selects on. Bounded by WEBMCP_TOOL_DESCRIPTION_MAX_LENGTH. */
+	summary: string;
+	effect: WebmcpOperationEffectKind;
+	/** Composition pointers this operation may write; empty for every non-`write` kind. */
+	writes: readonly string[];
+	precondition: WebmcpOperationPrecondition;
+	/** Whether the caller must supply the composition revision it read. */
+	requiresExpectedRevision: boolean;
+	undoable: boolean;
+	/** Whether the operation accepts the caller's AbortSignal and can end as `cancelled`. */
+	cancellable: boolean;
+	focus: WebmcpOperationFocusTarget | null;
+	/** Repo-relative GUI owner of the same decision — the parity gate's other side. */
+	guiSurface: string;
+}
+
+/** WebMCP tool names: lower snake case under the GFX namespace (ADR-0053). */
+export const WEBMCP_TOOL_NAME_PATTERN = /^gfx_[a-z][a-z0-9_]*$/;
+
+export const WEBMCP_TOOL_NAME_MAX_LENGTH = 48;
+
+/** Tool descriptions stay short enough that a full tool list fits an agent's budget. */
+export const WEBMCP_TOOL_DESCRIPTION_MAX_LENGTH = 320;
+
+/** Default ceiling on a tool result's serialized characters. */
+export const WEBMCP_RESULT_CHARACTER_BUDGET = 4000;
+
+/**
+ * The one documented exception to the result budget: a whole-document read.
+ * Nothing else may return an unbounded composition body.
+ */
+export const WEBMCP_WHOLE_DOCUMENT_CHARACTER_BUDGET = 262144;
+
+/**
+ * How many tools may be registered before a composition is open. A cold page
+ * must offer an agent a short, obvious menu rather than the whole inventory.
+ */
+export const WEBMCP_ALWAYS_REGISTERED_CEILING = 8;
+
+/**
+ * Corrective failure codes. Every failure names one of these, the exact target
+ * it rejected, and the valid alternatives — never a bare "invalid input".
+ */
+export const WEBMCP_OPERATION_ERROR_CODES = [
+	'stale_revision',
+	'no_composition_open',
+	'composition_read_only',
+	'precondition_unmet',
+	'invalid_argument',
+	'unknown_target',
+	'unsupported_variant',
+	'schema_invalid',
+	'semantic_invalid',
+	'consent_required',
+	'storage_unavailable',
+	'quota_exceeded',
+	'limit_exceeded',
+	'cancelled',
+	'render_failed',
+	'export_failed'
+] as const;
+
+export type WebmcpOperationErrorCode = (typeof WEBMCP_OPERATION_ERROR_CODES)[number];
+
+/**
+ * Name fragments that mean a tool actuates the interface or patches raw JSON
+ * instead of naming an authoring decision. Forbidden in every tool name.
+ */
+export const WEBMCP_FORBIDDEN_TOOL_NAME_FRAGMENTS = [
+	'click',
+	'tap',
+	'press',
+	'scroll',
+	'hover',
+	'drag',
+	'keypress',
+	'screenshot',
+	'panel',
+	'button',
+	'menu',
+	'tab',
+	'dialog',
+	'patch',
+	'set_path',
+	'set_field',
+	'set_property',
+	'apply_json',
+	'eval',
+	'execute_script'
+] as const;
+
+export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
+	{
+		name: 'capability',
+		domain: 'What this engine can express, and the limits the public demo enforces.',
+		toolNamePrefix: 'gfx_capability_',
+		ownedPaths: []
+	},
+	{
+		name: 'composition',
+		domain: 'Which composition exists and is open, and how the document identifies itself.',
+		toolNamePrefix: 'gfx_composition_',
+		ownedPaths: [
+			{ pointer: '/name', scope: 'value' },
+			{ pointer: '/description', scope: 'value' },
+			{ pointer: '/kind', scope: 'value' }
+		]
+	},
+	{
+		name: 'session',
+		domain: 'The browser-scoped Public demo session: what it holds and how it is emptied.',
+		toolNamePrefix: 'gfx_session_',
+		ownedPaths: []
+	},
+	{
+		name: 'transport',
+		domain:
+			'How the piece is framed and classified on output: orientation, time, rate, format, background.',
+		toolNamePrefix: 'gfx_transport_',
+		ownedPaths: [
+			{ pointer: '/state/transport', scope: 'value' },
+			{ pointer: '/state/backgroundFill', scope: 'value' }
+		]
+	},
+	{
+		name: 'layer',
+		domain: 'Which Layer entities exist, in what order, and which registered variant each one is.',
+		toolNamePrefix: 'gfx_layer_',
+		ownedPaths: [
+			{ pointer: '/state/surface/type', scope: 'value' },
+			{ pointer: '/state/surface/variant', scope: 'value' },
+			{ pointer: '/state/surface/site', scope: 'value' },
+			{ pointer: '/state/surface/chrome', scope: 'value' },
+			{ pointer: '/state/overlays', scope: 'membership' },
+			{ pointer: '/state/effects', scope: 'membership' },
+			{ pointer: '/state/textAnimations', scope: 'membership' },
+			{ pointer: '/state/marks/timings', scope: 'membership' },
+			{ pointer: '/state/surface/diagram', scope: 'membership' },
+			{ pointer: '/state/surface/chart', scope: 'membership' }
+		]
+	},
+	{
+		name: 'content',
+		domain: 'The words, values, and data an author writes into the piece.',
+		toolNamePrefix: 'gfx_content_',
+		ownedPaths: [
+			{ pointer: '/state/surface/content', scope: 'value' },
+			{ pointer: '/state/surface/content/messages', scope: 'membership' },
+			{ pointer: '/state/surface/content/items', scope: 'membership' },
+			{ pointer: '/state/overlays/*/content', scope: 'value' },
+			{ pointer: '/state/surface/diagram/*', scope: 'value' },
+			{ pointer: '/state/surface/chart/items/*', scope: 'value' },
+			{ pointer: '/state/captions', scope: 'value' }
+		]
+	},
+	{
+		name: 'placement',
+		domain: 'Where an element sits in the frame, at each orientation.',
+		toolNamePrefix: 'gfx_placement_',
+		ownedPaths: [
+			{ pointer: '/state/overlays/*/position', scope: 'value' },
+			{ pointer: '/state/overlays/*/z', scope: 'value' },
+			{ pointer: '/state/surface/diagram/*/position', scope: 'value' },
+			{ pointer: '/state/surface/diagram/*/from', scope: 'value' },
+			{ pointer: '/state/surface/diagram/*/to', scope: 'value' },
+			{ pointer: '/state/surface/diagram/*/control', scope: 'value' },
+			{ pointer: '/state/surface/diagram/*/scale', scope: 'value' },
+			{ pointer: '/state/surface/diagram/*/maxWidth', scope: 'value' },
+			{ pointer: '/state/surface/diagram/*/orientationOverrides', scope: 'value' }
+		]
+	},
+	{
+		name: 'appearance',
+		domain:
+			'How the piece looks under its Pack: brand, type, mark styling, effect and stage treatment.',
+		toolNamePrefix: 'gfx_appearance_',
+		ownedPaths: [
+			{ pointer: '/pack', scope: 'value' },
+			{ pointer: '/state/typography', scope: 'value' },
+			{ pointer: '/state/marks/defaults', scope: 'value' },
+			{ pointer: '/state/effects/*/params', scope: 'value' },
+			{ pointer: '/state/stage', scope: 'value' },
+			{ pointer: '/state/surface/backgroundVisibility', scope: 'value' }
+		]
+	},
+	{
+		name: 'motion',
+		domain:
+			'When and how things move: enter/exit windows, keyframe channels, Cascade welds, transitions.',
+		toolNamePrefix: 'gfx_motion_',
+		ownedPaths: [
+			{ pointer: '/state/surface/enter', scope: 'value' },
+			{ pointer: '/state/surface/exit', scope: 'value' },
+			{ pointer: '/state/surface/animation', scope: 'value' },
+			{ pointer: '/state/overlays/*/enter', scope: 'value' },
+			{ pointer: '/state/overlays/*/exit', scope: 'value' },
+			{ pointer: '/state/overlays/*/animation', scope: 'value' },
+			{ pointer: '/state/marks/timings/*', scope: 'value' },
+			{ pointer: '/state/textAnimations/*', scope: 'value' },
+			{ pointer: '/state/surface/diagram/*/animation', scope: 'value' },
+			{ pointer: '/state/surface/chart/items/*/motion', scope: 'value' },
+			{ pointer: '/transition', scope: 'value' }
+		]
+	},
+	{
+		name: 'sound',
+		domain: 'What the piece plays: manual cues, the single bed, and per-motion cue overrides.',
+		toolNamePrefix: 'gfx_sound_',
+		ownedPaths: [
+			{ pointer: '/state/audioCues', scope: 'membership' },
+			{ pointer: '/state/audioCues/*', scope: 'value' },
+			{ pointer: '/state/surface/enter/sound', scope: 'value' },
+			{ pointer: '/state/surface/exit/sound', scope: 'value' },
+			{ pointer: '/state/overlays/*/enter/sound', scope: 'value' },
+			{ pointer: '/state/overlays/*/exit/sound', scope: 'value' },
+			{ pointer: '/state/marks/timings/*/sound', scope: 'value' }
+		]
+	},
+	{
+		name: 'media',
+		domain: 'The composition Media library and the primary Video track cut from it.',
+		toolNamePrefix: 'gfx_media_',
+		ownedPaths: [{ pointer: '/state/media', scope: 'value' }]
+	},
+	{
+		name: 'playhead',
+		domain: 'Where the visible playhead sits, in exact frames.',
+		toolNamePrefix: 'gfx_playhead_',
+		ownedPaths: []
+	},
+	{
+		name: 'validation',
+		domain: 'What is wrong with the composition without rendering it.',
+		toolNamePrefix: 'gfx_validation_',
+		ownedPaths: []
+	},
+	{
+		name: 'verification',
+		domain: 'What the composition actually renders, measured on real pixels.',
+		toolNamePrefix: 'gfx_verification_',
+		ownedPaths: []
+	},
+	{
+		name: 'delivery',
+		domain: 'Turning the composition into a file the visitor receives.',
+		toolNamePrefix: 'gfx_delivery_',
+		ownedPaths: []
+	}
+];
+
+export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
+	// ---- capability: always registered, so a cold page still answers "what can you do?" ----
+	{
+		id: 'capability.inspect-vocabulary',
+		family: 'capability',
+		toolName: 'gfx_capability_inspect_vocabulary',
+		summary:
+			'List the registered Surface, Block, Annotation, Overlay, Effect, transition, text-animation, Pack, Starter, and sound vocabulary, one section per call.',
+		effect: 'read',
+		writes: [],
+		precondition: 'always',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: null,
+		guiSurface: 'src/lib/platform/AddMenu.svelte'
+	},
+	{
+		id: 'capability.inspect-limits',
+		family: 'capability',
+		toolName: 'gfx_capability_inspect_limits',
+		summary:
+			'Report the public demo limits that reject work before it starts: duration, rate, frame count, export size, session storage, and result character budgets.',
+		effect: 'read',
+		writes: [],
+		precondition: 'always',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: null,
+		guiSurface: 'src/lib/platform/Workspace.svelte'
+	},
+
+	// ---- composition: the document's existence and identity ----
+	{
+		id: 'composition.create-blank',
+		family: 'composition',
+		toolName: 'gfx_composition_create_blank',
+		summary:
+			'Create a new composition from the blank Preset in this browser session and open it for editing.',
+		effect: 'lifecycle',
+		writes: [],
+		precondition: 'always',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/routes/+page.svelte'
+	},
+	{
+		id: 'composition.create-from-starter',
+		family: 'composition',
+		toolName: 'gfx_composition_create_from_starter',
+		summary:
+			'Fork a named Starter template into a new session composition and open it for editing. The Starter itself is never modified.',
+		effect: 'lifecycle',
+		writes: [],
+		precondition: 'always',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/routes/+page.svelte'
+	},
+	{
+		id: 'composition.open',
+		family: 'composition',
+		toolName: 'gfx_composition_open',
+		summary:
+			'Open an existing session composition, or a Starter template read-only. The first edit to a Starter forks it automatically.',
+		effect: 'lifecycle',
+		writes: [],
+		precondition: 'always',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/routes/+page.svelte'
+	},
+	{
+		id: 'composition.import-json',
+		family: 'composition',
+		toolName: 'gfx_composition_import_json',
+		summary:
+			'Import a standalone composition JSON document, including a Legacy Supers one, as a new session composition. Invalid documents return findings instead of importing.',
+		effect: 'lifecycle',
+		writes: [],
+		precondition: 'always',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/routes/+page.svelte'
+	},
+	{
+		id: 'composition.inspect',
+		family: 'composition',
+		toolName: 'gfx_composition_inspect',
+		summary:
+			'Return the open composition revision, identity, transport, Pack, and its Layer tree as ids, kinds, and order — bounded, never the whole document body.',
+		effect: 'read',
+		writes: [],
+		precondition: 'composition-open',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: null,
+		guiSurface: 'src/lib/platform/TimelineOutline.svelte'
+	},
+	{
+		id: 'composition.export-json',
+		family: 'composition',
+		toolName: 'gfx_composition_export_json',
+		summary:
+			'Return the open composition as one standalone JSON document. The only operation allowed past the default result budget.',
+		effect: 'read',
+		writes: [],
+		precondition: 'composition-open',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: null,
+		guiSurface: 'src/lib/platform/InterchangeSection.svelte'
+	},
+	{
+		id: 'composition.set-identity',
+		family: 'composition',
+		toolName: 'gfx_composition_set_identity',
+		summary: 'Set the composition name, description, and catalog kind.',
+		effect: 'write',
+		writes: ['/name', '/description', '/kind'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/lib/platform/RootInspector.svelte'
+	},
+	{
+		id: 'composition.revert-to-starter',
+		family: 'composition',
+		toolName: 'gfx_composition_revert_to_starter',
+		summary:
+			'Discard this fork and return to the pristine Starter template it came from. Every edit since the fork is lost.',
+		effect: 'lifecycle',
+		writes: [],
+		precondition: 'forked-from-starter',
+		requiresExpectedRevision: true,
+		undoable: false,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/routes/+page.svelte'
+	},
+	{
+		id: 'composition.undo',
+		family: 'composition',
+		toolName: 'gfx_composition_undo',
+		summary:
+			'Undo the most recent edit, whoever made it. GUI and agent edits share one history in one order.',
+		effect: 'history',
+		writes: [],
+		precondition: 'undo-available',
+		requiresExpectedRevision: true,
+		undoable: false,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/lib/platform/Workspace.svelte'
+	},
+	{
+		id: 'composition.redo',
+		family: 'composition',
+		toolName: 'gfx_composition_redo',
+		summary: 'Redo the most recently undone edit from the shared history.',
+		effect: 'history',
+		writes: [],
+		precondition: 'redo-available',
+		requiresExpectedRevision: true,
+		undoable: false,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/lib/platform/Workspace.svelte'
+	},
+
+	// ---- session: the browser-scoped store, never an origin-side one ----
+	{
+		id: 'session.inspect',
+		family: 'session',
+		toolName: 'gfx_session_inspect',
+		summary:
+			'List the compositions held in this browser session with their revisions, plus storage availability and remaining quota.',
+		effect: 'read',
+		writes: [],
+		precondition: 'always',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: null,
+		guiSurface: 'src/routes/+page.svelte'
+	},
+	{
+		id: 'session.delete-composition',
+		family: 'session',
+		toolName: 'gfx_session_delete_composition',
+		summary:
+			'Delete one composition from this browser session. It cannot be recovered, and nothing was ever stored on the origin.',
+		effect: 'lifecycle',
+		writes: [],
+		precondition: 'session-composition-present',
+		requiresExpectedRevision: true,
+		undoable: false,
+		cancellable: false,
+		focus: 'session-catalog',
+		guiSurface: 'src/routes/+page.svelte'
+	},
+	{
+		id: 'session.clear',
+		family: 'session',
+		toolName: 'gfx_session_clear',
+		summary:
+			'Delete every composition in this browser session. Requires explicit confirmation and cannot be undone.',
+		effect: 'lifecycle',
+		writes: [],
+		precondition: 'session-composition-present',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: 'session-catalog',
+		guiSurface: 'src/routes/+page.svelte'
+	},
+
+	// ---- transport: framing and output classification ----
+	{
+		id: 'transport.set-orientation',
+		family: 'transport',
+		toolName: 'gfx_transport_set_orientation',
+		summary:
+			'Set the delivery orientation to horizontal or vertical. Authored geometry reflows; it is never clamped.',
+		effect: 'write',
+		writes: ['/state/transport'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/lib/platform/Workspace.svelte'
+	},
+	{
+		id: 'transport.set-timing',
+		family: 'transport',
+		toolName: 'gfx_transport_set_timing',
+		summary:
+			'Set the composition duration in seconds and the frame rate from the standard broadcast and web rates.',
+		effect: 'write',
+		writes: ['/state/transport'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/lib/platform/RootInspector.svelte'
+	},
+	{
+		id: 'transport.set-format',
+		family: 'transport',
+		toolName: 'gfx_transport_set_format',
+		summary: 'Set the composition delivery format to WebM or ProRes.',
+		effect: 'write',
+		writes: ['/state/transport'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/lib/platform/Workspace.svelte'
+	},
+	{
+		id: 'transport.set-background',
+		family: 'transport',
+		toolName: 'gfx_transport_set_background',
+		summary:
+			'Declare or remove the background fill. Declaring one makes the piece a full-frame segment; removing it returns a transparent overlay.',
+		effect: 'write',
+		writes: ['/state/backgroundFill'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/lib/platform/RootInspector.svelte'
+	},
+
+	// ---- layer: membership, order, and registered variant ----
+	{
+		id: 'layer.set-surface',
+		family: 'layer',
+		toolName: 'gfx_layer_set_surface',
+		summary:
+			'Replace the Surface with a registered Surface type, and set its variant, site, or chrome mode where that Surface declares one.',
+		effect: 'write',
+		writes: [
+			'/state/surface/type',
+			'/state/surface/variant',
+			'/state/surface/site',
+			'/state/surface/chrome'
+		],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'surface',
+		guiSurface: 'src/lib/platform/SurfaceInspector.svelte'
+	},
+	{
+		id: 'layer.add-overlay',
+		family: 'layer',
+		toolName: 'gfx_layer_add_overlay',
+		summary: 'Add an Overlay of a registered Overlay type and return its new stable id.',
+		effect: 'write',
+		writes: ['/state/overlays'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'overlay',
+		guiSurface: 'src/lib/platform/AddMenu.svelte'
+	},
+	{
+		id: 'layer.remove-overlay',
+		family: 'layer',
+		toolName: 'gfx_layer_remove_overlay',
+		summary:
+			'Remove an Overlay by id. References to it from Cascade anchors are reported before the edit applies.',
+		effect: 'write',
+		writes: ['/state/overlays'],
+		precondition: 'overlay-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/lib/platform/TimelineOutline.svelte'
+	},
+	{
+		id: 'layer.reorder-overlay',
+		family: 'layer',
+		toolName: 'gfx_layer_reorder_overlay',
+		summary: 'Move an Overlay to a new index in the Overlay stack, changing paint order.',
+		effect: 'write',
+		writes: ['/state/overlays'],
+		precondition: 'overlay-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'overlay',
+		guiSurface: 'src/lib/platform/TimelineOutline.svelte'
+	},
+	{
+		id: 'layer.add-annotation-mark',
+		family: 'layer',
+		toolName: 'gfx_layer_add_annotation_mark',
+		summary: 'Add an Annotation Mark of a registered mark style over the Surface content.',
+		effect: 'write',
+		writes: ['/state/marks/timings'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'mark',
+		guiSurface: 'src/lib/platform/AddMenu.svelte'
+	},
+	{
+		id: 'layer.remove-annotation-mark',
+		family: 'layer',
+		toolName: 'gfx_layer_remove_annotation_mark',
+		summary: 'Remove an Annotation Mark by index.',
+		effect: 'write',
+		writes: ['/state/marks/timings'],
+		precondition: 'mark-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/lib/platform/MarkInspector.svelte'
+	},
+	{
+		id: 'layer.add-effect',
+		family: 'layer',
+		toolName: 'gfx_layer_add_effect',
+		summary:
+			'Append an Effect of a registered Effect type to the post-process chain and return its new id.',
+		effect: 'write',
+		writes: ['/state/effects'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'effect',
+		guiSurface: 'src/lib/platform/EffectsChainSection.svelte'
+	},
+	{
+		id: 'layer.remove-effect',
+		family: 'layer',
+		toolName: 'gfx_layer_remove_effect',
+		summary: 'Remove an Effect from the chain by id.',
+		effect: 'write',
+		writes: ['/state/effects'],
+		precondition: 'effect-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/lib/platform/EffectChainRow.svelte'
+	},
+	{
+		id: 'layer.reorder-effect',
+		family: 'layer',
+		toolName: 'gfx_layer_reorder_effect',
+		summary: 'Move an Effect to a new index, changing the order the chain runs in.',
+		effect: 'write',
+		writes: ['/state/effects'],
+		precondition: 'effect-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'effect',
+		guiSurface: 'src/lib/platform/EffectsChainSection.svelte'
+	},
+	{
+		id: 'layer.add-text-animation',
+		family: 'layer',
+		toolName: 'gfx_layer_add_text_animation',
+		summary:
+			'Add a text animation binding a registered text effect to one content slot. One binding per target.',
+		effect: 'write',
+		writes: ['/state/textAnimations'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'text-animation',
+		guiSurface: 'src/lib/platform/AddMenu.svelte'
+	},
+	{
+		id: 'layer.remove-text-animation',
+		family: 'layer',
+		toolName: 'gfx_layer_remove_text_animation',
+		summary: 'Remove a text animation by id.',
+		effect: 'write',
+		writes: ['/state/textAnimations'],
+		precondition: 'text-animation-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/lib/platform/TextAnimInspector.svelte'
+	},
+	{
+		id: 'layer.add-diagram-primitive',
+		family: 'layer',
+		toolName: 'gfx_layer_add_diagram_primitive',
+		summary:
+			'Add a diagram primitive — node, edge arrow, label, stat callout, or timeline segment — to the Surface diagram group.',
+		effect: 'write',
+		writes: ['/state/surface/diagram'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'block',
+		guiSurface: 'src/lib/platform/AddMenu.svelte'
+	},
+	{
+		id: 'layer.remove-diagram-primitive',
+		family: 'layer',
+		toolName: 'gfx_layer_remove_diagram_primitive',
+		summary:
+			'Remove a diagram primitive by id. Edges anchored to a removed node are reported before the edit applies.',
+		effect: 'write',
+		writes: ['/state/surface/diagram'],
+		precondition: 'diagram-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/lib/platform/BlockInspector.svelte'
+	},
+	{
+		id: 'layer.add-chart-block',
+		family: 'layer',
+		toolName: 'gfx_layer_add_chart_block',
+		summary:
+			'Add a chart Block of a registered chart type to the Surface chart group and set whether the group shows one chart or a sequence.',
+		effect: 'write',
+		writes: ['/state/surface/chart'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'block',
+		guiSurface: 'src/lib/platform/AddMenu.svelte'
+	},
+	{
+		id: 'layer.remove-chart-block',
+		family: 'layer',
+		toolName: 'gfx_layer_remove_chart_block',
+		summary: 'Remove a chart Block from the Surface chart group by id.',
+		effect: 'write',
+		writes: ['/state/surface/chart'],
+		precondition: 'chart-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/lib/platform/ChartInspector.svelte'
+	},
+
+	// ---- content: the authored words, values, and data ----
+	{
+		id: 'content.set-surface-content',
+		family: 'content',
+		toolName: 'gfx_content_set_surface_content',
+		summary:
+			'Write the Surface content slots the active Surface declares: title, body, kicker, counterpoint, source, author, and the rest.',
+		effect: 'write',
+		writes: ['/state/surface/content'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'surface',
+		guiSurface: 'src/lib/platform/SurfaceDocumentSection.svelte'
+	},
+	{
+		id: 'content.set-chat-transcript',
+		family: 'content',
+		toolName: 'gfx_content_set_chat_transcript',
+		summary: 'Replace the ordered chat transcript the message Surface renders.',
+		effect: 'write',
+		writes: ['/state/surface/content/messages'],
+		precondition: 'chat-surface-active',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'surface',
+		guiSurface: 'src/lib/platform/SurfaceMessagesSection.svelte'
+	},
+	{
+		id: 'content.set-checklist-entries',
+		family: 'content',
+		toolName: 'gfx_content_set_checklist_entries',
+		summary: 'Replace the ordered checklist entries and their checked state.',
+		effect: 'write',
+		writes: ['/state/surface/content/items'],
+		precondition: 'checklist-surface-active',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'surface',
+		guiSurface: 'src/lib/platform/SurfaceChecklistSection.svelte'
+	},
+	{
+		id: 'content.set-overlay-content',
+		family: 'content',
+		toolName: 'gfx_content_set_overlay_content',
+		summary:
+			"Write one Overlay's content against the schema its registered Overlay Pipeline declares.",
+		effect: 'write',
+		writes: ['/state/overlays/*/content'],
+		precondition: 'overlay-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'overlay',
+		guiSurface: 'src/lib/platform/OverlayInspector.svelte'
+	},
+	{
+		id: 'content.set-diagram-primitive',
+		family: 'content',
+		toolName: 'gfx_content_set_diagram_primitive',
+		summary:
+			"Write one diagram primitive's authored body: its text, form, route, arrow direction, and label role.",
+		effect: 'write',
+		writes: ['/state/surface/diagram/*'],
+		precondition: 'diagram-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'block',
+		guiSurface: 'src/lib/platform/BlockTypeSection.svelte'
+	},
+	{
+		id: 'content.set-chart-block',
+		family: 'content',
+		toolName: 'gfx_content_set_chart_block',
+		summary:
+			"Write one chart Block's data, domain, labels, layout, normalization, highlights, callouts, and source note as one strict unit.",
+		effect: 'write',
+		writes: ['/state/surface/chart/items/*'],
+		precondition: 'chart-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'block',
+		guiSurface: 'src/lib/platform/ChartDataSection.svelte'
+	},
+	{
+		id: 'content.set-captions',
+		family: 'content',
+		toolName: 'gfx_content_set_captions',
+		summary:
+			'Write the caption track: its style, accent, band position, scale, and the timed cues themselves.',
+		effect: 'write',
+		writes: ['/state/captions'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'captions',
+		guiSurface: 'src/lib/platform/CaptionsInspector.svelte'
+	},
+	{
+		id: 'content.clear-captions',
+		family: 'content',
+		toolName: 'gfx_content_clear_captions',
+		summary: 'Remove the caption track entirely.',
+		effect: 'write',
+		writes: ['/state/captions'],
+		precondition: 'captions-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/lib/platform/CaptionsInspector.svelte'
+	},
+
+	// ---- placement: where things sit, per orientation ----
+	{
+		id: 'placement.set-overlay-placement',
+		family: 'placement',
+		toolName: 'gfx_placement_set_overlay_placement',
+		summary:
+			"Set one Overlay's anchor, offset, rect, scale, and static rotation — either the shared placement or one complete orientation snapshot.",
+		effect: 'write',
+		writes: ['/state/overlays/*/position'],
+		precondition: 'overlay-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'overlay',
+		guiSurface: 'src/lib/platform/OverlayPositionSection.svelte'
+	},
+	{
+		id: 'placement.clear-orientation-override',
+		family: 'placement',
+		toolName: 'gfx_placement_clear_orientation_override',
+		summary:
+			"Drop one Overlay's horizontal or vertical placement snapshot so that orientation falls back to the shared placement.",
+		effect: 'write',
+		writes: ['/state/overlays/*/position'],
+		precondition: 'orientation-override-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'overlay',
+		guiSurface: 'src/lib/platform/OverlayPositionSection.svelte'
+	},
+	{
+		id: 'placement.set-overlay-depth',
+		family: 'placement',
+		toolName: 'gfx_placement_set_overlay_depth',
+		summary:
+			"Set one Overlay's focal distance, from sharp at the focal plane to fully defocused. Inert without a depth-of-field Effect.",
+		effect: 'write',
+		writes: ['/state/overlays/*/z'],
+		precondition: 'overlay-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'overlay',
+		guiSurface: 'src/lib/platform/OverlayPositionSection.svelte'
+	},
+	{
+		id: 'placement.set-diagram-geometry',
+		family: 'placement',
+		toolName: 'gfx_placement_set_diagram_geometry',
+		summary:
+			"Set one diagram primitive's composition-space position, endpoints, control point, scale, and label width, per orientation.",
+		effect: 'write',
+		writes: [
+			'/state/surface/diagram/*/position',
+			'/state/surface/diagram/*/from',
+			'/state/surface/diagram/*/to',
+			'/state/surface/diagram/*/control',
+			'/state/surface/diagram/*/scale',
+			'/state/surface/diagram/*/maxWidth',
+			'/state/surface/diagram/*/orientationOverrides'
+		],
+		precondition: 'diagram-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'block',
+		guiSurface: 'src/lib/platform/BlockGeometrySection.svelte'
+	},
+
+	// ---- appearance: Pack and look ----
+	{
+		id: 'appearance.set-pack',
+		family: 'appearance',
+		toolName: 'gfx_appearance_set_pack',
+		summary:
+			'Bind the composition to a registered Pack. Every Pack-resolved Role re-dresses; no composition content changes.',
+		effect: 'write',
+		writes: ['/pack'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/lib/platform/RootInspector.svelte'
+	},
+	{
+		id: 'appearance.set-typography',
+		family: 'appearance',
+		toolName: 'gfx_appearance_set_typography',
+		summary:
+			"Set the type family, and optionally override the Pack's paper and ink colours with explicit hexes.",
+		effect: 'write',
+		writes: ['/state/typography'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'surface',
+		guiSurface: 'src/lib/platform/SurfaceAppearanceSection.svelte'
+	},
+	{
+		id: 'appearance.set-mark-defaults',
+		family: 'appearance',
+		toolName: 'gfx_appearance_set_mark_defaults',
+		summary: 'Set the default colour and intensity for each Annotation mark style.',
+		effect: 'write',
+		writes: ['/state/marks/defaults'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/lib/platform/MarkDefaultsSection.svelte'
+	},
+	{
+		id: 'appearance.set-effect-params',
+		family: 'appearance',
+		toolName: 'gfx_appearance_set_effect_params',
+		summary:
+			"Set one Effect's parameters against the schema its registered Effect Pipeline declares.",
+		effect: 'write',
+		writes: ['/state/effects/*/params'],
+		precondition: 'effect-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'effect',
+		guiSurface: 'src/lib/platform/EffectChainRow.svelte'
+	},
+	{
+		id: 'appearance.set-stage',
+		family: 'appearance',
+		toolName: 'gfx_appearance_set_stage',
+		summary:
+			'Set or remove the dimensional stage: its type, camera move, focus plane and aperture, and backdrop treatment.',
+		effect: 'write',
+		writes: ['/state/stage'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/lib/platform/DepthStageSection.svelte'
+	},
+	{
+		id: 'appearance.set-backdrop-visibility',
+		family: 'appearance',
+		toolName: 'gfx_appearance_set_backdrop_visibility',
+		summary: "Set how much of the Surface's own backdrop shows through, from hidden to full.",
+		effect: 'write',
+		writes: ['/state/surface/backgroundVisibility'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'surface',
+		guiSurface: 'src/lib/platform/SurfaceAppearanceSection.svelte'
+	},
+
+	// ---- motion: when and how things move ----
+	{
+		id: 'motion.set-surface-timing',
+		family: 'motion',
+		toolName: 'gfx_motion_set_surface_timing',
+		summary: "Set the Surface's enter and exit windows: start, duration, and ease.",
+		effect: 'write',
+		writes: ['/state/surface/enter', '/state/surface/exit'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'surface',
+		guiSurface: 'src/lib/platform/SurfaceTextMotionSection.svelte'
+	},
+	{
+		id: 'motion.set-overlay-timing',
+		family: 'motion',
+		toolName: 'gfx_motion_set_overlay_timing',
+		summary: "Set one Overlay's enter and exit windows: start, duration, and ease.",
+		effect: 'write',
+		writes: ['/state/overlays/*/enter', '/state/overlays/*/exit'],
+		precondition: 'overlay-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'overlay',
+		guiSurface: 'src/lib/platform/TimelineClipBar.svelte'
+	},
+	{
+		id: 'motion.set-mark-timing',
+		family: 'motion',
+		toolName: 'gfx_motion_set_mark_timing',
+		summary:
+			"Set one Annotation Mark's start, duration, ease, and its colour and intensity departure from the mark defaults.",
+		effect: 'write',
+		writes: ['/state/marks/timings/*'],
+		precondition: 'mark-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'mark',
+		guiSurface: 'src/lib/platform/MarkInspector.svelte'
+	},
+	{
+		id: 'motion.set-text-animation',
+		family: 'motion',
+		toolName: 'gfx_motion_set_text_animation',
+		summary:
+			"Set one text animation's effect parameters and its timing window against the effect's declared schema.",
+		effect: 'write',
+		writes: ['/state/textAnimations/*'],
+		precondition: 'text-animation-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'text-animation',
+		guiSurface: 'src/lib/platform/TextAnimInspector.svelte'
+	},
+	{
+		id: 'motion.set-keyframe-channel',
+		family: 'motion',
+		toolName: 'gfx_motion_set_keyframe_channel',
+		summary:
+			'Author one property channel on the Surface, an Overlay, or a diagram primitive as ordered keyframes with per-segment eases.',
+		effect: 'write',
+		writes: [
+			'/state/surface/animation',
+			'/state/overlays/*/animation',
+			'/state/surface/diagram/*/animation'
+		],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'overlay',
+		guiSurface: 'src/lib/platform/KeyframesSection.svelte'
+	},
+	{
+		id: 'motion.clear-keyframe-channel',
+		family: 'motion',
+		toolName: 'gfx_motion_clear_keyframe_channel',
+		summary:
+			"Remove one authored property channel so the element's intrinsic motion form runs again.",
+		effect: 'write',
+		writes: [
+			'/state/surface/animation',
+			'/state/overlays/*/animation',
+			'/state/surface/diagram/*/animation'
+		],
+		precondition: 'keyframe-channel-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'overlay',
+		guiSurface: 'src/lib/platform/KeyframesSection.svelte'
+	},
+	{
+		id: 'motion.set-cascade-anchor',
+		family: 'motion',
+		toolName: 'gfx_motion_set_cascade_anchor',
+		summary:
+			"Weld one element's entrance to another element's, with an offset. Cycles and missing anchors are rejected before the edit applies.",
+		effect: 'write',
+		writes: ['/state/overlays/*/animation', '/state/marks/timings/*'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'overlay',
+		guiSurface: 'src/lib/platform/CascadeSection.svelte'
+	},
+	{
+		id: 'motion.clear-cascade-anchor',
+		family: 'motion',
+		toolName: 'gfx_motion_clear_cascade_anchor',
+		summary: "Unweld one element's entrance so it times from the composition start again.",
+		effect: 'write',
+		writes: ['/state/overlays/*/animation', '/state/marks/timings/*'],
+		precondition: 'cascade-anchor-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'overlay',
+		guiSurface: 'src/lib/platform/CascadeSection.svelte'
+	},
+	{
+		id: 'motion.set-chart-motion',
+		family: 'motion',
+		toolName: 'gfx_motion_set_chart_motion',
+		summary: "Set one chart Block's motion phases and their windows.",
+		effect: 'write',
+		writes: ['/state/surface/chart/items/*/motion'],
+		precondition: 'chart-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'block',
+		guiSurface: 'src/lib/platform/ChartMotionSection.svelte'
+	},
+	{
+		id: 'motion.set-composition-transition',
+		family: 'motion',
+		toolName: 'gfx_motion_set_composition_transition',
+		summary:
+			'Declare the two-state transition recipe: the two composition slugs, the registered transition Effect, its duration, and its parameters.',
+		effect: 'write',
+		writes: ['/transition'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/lib/platform/TransitionRecipeSection.svelte'
+	},
+	{
+		id: 'motion.clear-composition-transition',
+		family: 'motion',
+		toolName: 'gfx_motion_clear_composition_transition',
+		summary: 'Remove the transition recipe and return to an ordinary single-state composition.',
+		effect: 'write',
+		writes: ['/transition'],
+		precondition: 'transition-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/lib/platform/TransitionWindowSection.svelte'
+	},
+
+	// ---- sound: cues and per-motion overrides ----
+	{
+		id: 'sound.set-cue',
+		family: 'sound',
+		toolName: 'gfx_sound_set_cue',
+		summary:
+			'Add or update a free-standing sound cue, or the single music bed, naming a bundled audio asset and its window.',
+		effect: 'write',
+		writes: ['/state/audioCues', '/state/audioCues/*'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'sound-cue',
+		guiSurface: 'src/lib/platform/AudioCueSection.svelte'
+	},
+	{
+		id: 'sound.remove-cue',
+		family: 'sound',
+		toolName: 'gfx_sound_remove_cue',
+		summary: 'Remove a free-standing sound cue or the bed by id.',
+		effect: 'write',
+		writes: ['/state/audioCues'],
+		precondition: 'audio-cue-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/lib/platform/SoundCueInspector.svelte'
+	},
+	{
+		id: 'sound.set-motion-override',
+		family: 'sound',
+		toolName: 'gfx_sound_set_motion_override',
+		summary:
+			'Override the cue one motion emits — a different event, an explicit sample, or silence. The cue stays welded to that motion through any retiming.',
+		effect: 'write',
+		writes: [
+			'/state/surface/enter/sound',
+			'/state/surface/exit/sound',
+			'/state/overlays/*/enter/sound',
+			'/state/overlays/*/exit/sound',
+			'/state/marks/timings/*/sound'
+		],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'sound-cue',
+		guiSurface: 'src/lib/platform/SoundSection.svelte'
+	},
+
+	// ---- media: library entries and the Video track ----
+	{
+		id: 'media.inspect-library',
+		family: 'media',
+		toolName: 'gfx_media_inspect_library',
+		summary:
+			'List the composition Media library entries and Video clips with their durations and availability, including entries whose bytes this browser cannot reach.',
+		effect: 'read',
+		writes: [],
+		precondition: 'composition-open',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: null,
+		guiSurface: 'src/lib/platform/MediaInspector.svelte'
+	},
+	{
+		id: 'media.add-library-entry',
+		family: 'media',
+		toolName: 'gfx_media_add_library_entry',
+		summary:
+			'Add a bundled demo media asset, or a file the visitor has already granted this page, to the composition Media library. Never opens a file picker on its own.',
+		effect: 'write',
+		writes: ['/state/media'],
+		precondition: 'media-permitted',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: true,
+		focus: 'media-library',
+		guiSurface: 'src/lib/platform/MediaInspector.svelte'
+	},
+	{
+		id: 'media.remove-library-entry',
+		family: 'media',
+		toolName: 'gfx_media_remove_library_entry',
+		summary:
+			'Remove a Media library entry. Clips referencing it are reported before the edit applies.',
+		effect: 'write',
+		writes: ['/state/media'],
+		precondition: 'media-entry-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'media-library',
+		guiSurface: 'src/lib/platform/MediaInspector.svelte'
+	},
+	{
+		id: 'media.add-video-clip',
+		family: 'media',
+		toolName: 'gfx_media_add_video_clip',
+		summary:
+			'Cut a Media library entry into the primary Video track at an exact frame, as a non-overlapping clip.',
+		effect: 'write',
+		writes: ['/state/media'],
+		precondition: 'media-entry-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'video-clip',
+		guiSurface: 'src/lib/platform/VideoTimelineTrack.svelte'
+	},
+	{
+		id: 'media.update-video-clip',
+		family: 'media',
+		toolName: 'gfx_media_update_video_clip',
+		summary: 'Move, trim, or slip one Video clip on exact frame boundaries.',
+		effect: 'write',
+		writes: ['/state/media'],
+		precondition: 'video-clip-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'video-clip',
+		guiSurface: 'src/lib/platform/VideoClipInspector.svelte'
+	},
+	{
+		id: 'media.remove-video-clip',
+		family: 'media',
+		toolName: 'gfx_media_remove_video_clip',
+		summary: 'Remove one Video clip, leaving a transparent gap in the track.',
+		effect: 'write',
+		writes: ['/state/media'],
+		precondition: 'video-clip-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: 'composition-root',
+		guiSurface: 'src/lib/platform/VideoTimelineTrack.svelte'
+	},
+
+	// ---- playhead: exact frames, no document write ----
+	{
+		id: 'playhead.inspect',
+		family: 'playhead',
+		toolName: 'gfx_playhead_inspect',
+		summary:
+			'Report where the visible playhead sits, and the exact frame count, rate, and duration it moves within.',
+		effect: 'read',
+		writes: [],
+		precondition: 'composition-open',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: null,
+		guiSurface: 'src/lib/platform/CanvasControlsBar.svelte'
+	},
+	{
+		id: 'playhead.seek-frame',
+		family: 'playhead',
+		toolName: 'gfx_playhead_seek_frame',
+		summary:
+			'Move the visible playhead to an exact frame. The Workspace shows that frame; nothing about the composition changes.',
+		effect: 'view',
+		writes: [],
+		precondition: 'composition-open',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: 'timeline-playhead',
+		guiSurface: 'src/lib/platform/CanvasControlsBar.svelte'
+	},
+
+	// ---- validation and verification: read-only evidence ----
+	{
+		id: 'validation.inspect-findings',
+		family: 'validation',
+		toolName: 'gfx_validation_inspect_findings',
+		summary:
+			'Return the schema, semantic, and static-linter findings for the open composition, each naming the exact field and the correction.',
+		effect: 'read',
+		writes: [],
+		precondition: 'composition-open',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: null,
+		guiSurface: 'src/lib/platform/InterchangeSection.svelte'
+	},
+	{
+		id: 'verification.render-frame',
+		family: 'verification',
+		toolName: 'gfx_verification_render_frame',
+		summary:
+			'Render one exact frame and report its measured size, output class, alpha coverage, and whether it is blank. Long renders honour cancellation.',
+		effect: 'read',
+		writes: [],
+		precondition: 'composition-open',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: true,
+		focus: null,
+		guiSurface: 'src/lib/platform/InterchangeSection.svelte'
+	},
+	{
+		id: 'verification.inspect-readable-text',
+		family: 'verification',
+		toolName: 'gfx_verification_inspect_readable_text',
+		summary:
+			'Report what the rendered frame actually reads: readable text, unreadable regions, and unintentional overlaps. Output is untrusted composition content.',
+		effect: 'read',
+		writes: [],
+		precondition: 'composition-open',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: true,
+		focus: null,
+		guiSurface: 'src/lib/platform/InterchangeSection.svelte'
+	},
+
+	// ---- delivery: one call, one receipt, one real download ----
+	{
+		id: 'delivery.export-video',
+		family: 'delivery',
+		toolName: 'gfx_delivery_export_video',
+		summary:
+			'Export the open composition in a supported format and return a receipt only after the browser download really finishes. Cancellation stops render, encode, and download.',
+		effect: 'deliver',
+		writes: [],
+		precondition: 'composition-open',
+		requiresExpectedRevision: true,
+		undoable: false,
+		cancellable: true,
+		focus: null,
+		guiSurface: 'src/lib/platform/Workspace.svelte'
+	}
+];

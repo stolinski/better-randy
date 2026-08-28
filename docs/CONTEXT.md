@@ -26,6 +26,28 @@ _Avoid_: account, workspace (the **Workspace** is the engine shell), project, cl
 The bounded server-side unit of work in [ADR-0052](adr/0052-public-runtime-and-retention-architecture.md) — one private temp directory, one ffmpeg process, one single-shot download. It carries rendered frames, never composition JSON, and is destroyed on completion, failure, cancellation, idle expiry, and once the download drains. Where one render happens, not where a composition lives.
 _Avoid_: **Public demo session** (opposite lifetime and opposite storage), render job, export queue (there is no queue).
 
+### Agent authoring transport
+
+**Operation**:
+One authoring decision a person or an agent can make — set the orientation, add an Overlay, weld this entrance to that one. Every operation exists exactly once in the **operation inventory**, is owned by exactly one **operation family**, and is reachable from both the GUI and WebMCP. Fixed in [ADR-0054](adr/0054-webmcp-operation-transaction-and-security-contract.md).
+_Avoid_: action, command, mutation, edit (too broad — an edit is what an operation applies), tool call (that is the WebMCP transport, not the decision).
+
+**Operation family**:
+One of the fifteen non-overlapping domains an **Operation** belongs to, defined by what an author decides rather than by which panel the control lives in. Each family declares the composition pointers it alone writes; where pointers nest, the longest pointer wins, and a `membership` claim covers only adding, removing, reordering, and identifying entries.
+_Avoid_: namespace, tool group, category, module.
+
+**Operation inventory**:
+The machine-readable contract in `src/lib/platform/webmcp-operation-inventory.ts` — one row per **Operation**, naming its family, WebMCP tool, written pointers, registration precondition, revision and undo obligations, Workspace focus, and GUI surface. The bidirectional parity gate reads it: a row reachable from only one transport is a defect.
+_Avoid_: tool manifest, tool registry (the **Registry** is the Pipeline registry), API surface, schema.
+
+**Composition revision**:
+The monotonic counter the open composition carries. Every mutating **Operation** supplies the revision its caller observed; a mismatch fails as `stale_revision` and applies nothing, so an agent cannot overwrite an edit it never saw. GUI and agent edits advance the same counter and record into the same undo history.
+_Avoid_: version (a Pack Calibration bundle and a placed Resolve clip both use `version`), sequence number, generation.
+
+**Operation receipt**:
+What a successful mutating **Operation** returns: the new **Composition revision**, a bounded description of what changed, the validation findings that appeared or cleared, the undo label recorded, and the focus moved. Bounded by character budget on purpose — an agent continues from the receipt rather than re-reading the document.
+_Avoid_: response, diff, patch, changelog.
+
 ### Composition model
 
 **Preset**:
@@ -310,7 +332,7 @@ The named-observation format for advisory R-rule observations — pixel coordina
 - **"Supers"** was simultaneously the product name, the technical prefix, and the composition schema id. Resolved: **GFX** is the current namespace, and every remaining `supers` spelling is a **Legacy Supers artifact** carrying one **name disposition** ([ADR-0053](adr/0053-gfx-namespace-and-legacy-supers-compatibility.md)). This glossary's own title and prose are classified `rename-now` and are renamed by their own Delivery change — not opportunistically while editing neighbouring entries.
 - **"session"** meant both the visitor's browsing context and a server-side encode. Resolved: a **Public demo session** is browser-scoped and holds composition state; an **Export session** is server-side, holds rendered frames only, and destroys itself. They never share storage or lifetime.
 - **"annotation"** was historically used both for the broad layer category and for the hand-claiming subset. Resolved: **Annotation** is the Layer; **Mark** is the narrower hand-claiming subset.
-- **"tool"** historically meant a per-route generator (`research-paper`, `quote-focus`). After [ADR-0002](adr/0002-per-tool-routes-to-preset-engine.md), the term is retired; the unit of authoring is a **Preset**.
+- **"tool"** historically meant a per-route generator (`research-paper`, `quote-focus`). After [ADR-0002](adr/0002-per-tool-routes-to-preset-engine.md), that sense is retired; the unit of authoring is a **Preset**. The word now has exactly one live meaning: a **WebMCP tool**, the registered `document.modelContext` entry that exposes one **Operation** ([ADR-0054](adr/0054-webmcp-operation-transaction-and-security-contract.md)). A tool is the transport; the **Operation** is the decision.
 - **"layer"** was used loosely for any z-stacked element. Resolved: **Layer** refers specifically to one of the five composition layers, each with its own Pipeline type and Registry section.
 - **"surface"** vs **"substrate"** were used interchangeably. Resolved: **Surface** is the renderer; **Substrate** is the material it claims.
 - **"chrome"** was used both for the channel's signature elements and for any layered Overlay. Resolved: **Channel chrome** is the specific channel-identity subset; **Overlay** is the general Layer.
