@@ -4,7 +4,8 @@ import { spawnSync } from 'node:child_process';
 const scripts = [
 	'scripts/test-pack-validation.ts',
 	'scripts/test-preset-validation.ts',
-	'scripts/test-workspace-render-seam.ts'
+	'scripts/test-workspace-render-seam.ts',
+	'scripts/test-dom-capture-lane-seam.ts'
 ];
 
 for (const script of scripts) {

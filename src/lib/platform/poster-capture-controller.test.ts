@@ -29,7 +29,7 @@ describe('PosterCaptureController', () => {
 			waitForFonts: async () => undefined,
 			delay: () => (delayIndex++ === 0 ? firstDelay.promise : Promise.resolve()),
 			nextFrame: async () => undefined,
-			requestPaint: () => undefined,
+			settlePaint: async () => undefined,
 			exists: async () => false,
 			capture: async (canvas) => {
 				captures.push(canvas);
@@ -51,6 +51,42 @@ describe('PosterCaptureController', () => {
 		assert.deepEqual(captures, [secondCanvas]);
 	});
 
+	it('captures only after a composition paint settles, never merely after a frame', async () => {
+		const steps: string[] = [];
+		const settled = deferred<void>();
+		const services: PosterCaptureServices = {
+			waitForFonts: async () => undefined,
+			delay: async () => undefined,
+			nextFrame: async () => {
+				steps.push('next-frame');
+			},
+			settlePaint: () => {
+				steps.push('settle-paint');
+				return settled.promise;
+			},
+			exists: async () => false,
+			capture: async () => {
+				steps.push('capture');
+				return new Blob(['poster']);
+			},
+			store: async () => {
+				steps.push('store');
+			},
+			reportError: () => undefined
+		};
+		const controller = new PosterCaptureController(services);
+
+		controller.update({ key: 'settle-key', canvas: {} as HTMLCanvasElement, compositionIdentity: {} });
+		await flushPromises();
+
+		assert.deepEqual(steps, ['settle-paint']);
+
+		settled.resolve();
+		await flushPromises();
+
+		assert.deepEqual(steps, ['settle-paint', 'next-frame', 'next-frame', 'capture', 'store']);
+	});
+
 	it('marks a key complete only after storage succeeds and permits a failed retry', async () => {
 		let storeAttempts = 0;
 		let captures = 0;
@@ -59,7 +95,7 @@ describe('PosterCaptureController', () => {
 			waitForFonts: async () => undefined,
 			delay: async () => undefined,
 			nextFrame: async () => undefined,
-			requestPaint: () => undefined,
+			settlePaint: async () => undefined,
 			exists: async () => false,
 			capture: async () => {
 				captures += 1;

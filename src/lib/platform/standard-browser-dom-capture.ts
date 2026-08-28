@@ -101,6 +101,12 @@ export class StandardBrowserDomCaptureScheduler {
 	readonly #runningPaints = new WeakMap<HTMLCanvasElement, Promise<void>>();
 	readonly #pendingPaints = new WeakMap<HTMLCanvasElement, Promise<void>>();
 	readonly #elementRasters = new WeakMap<Element, HTMLCanvasElement>();
+	// The exact child set the last committed pass published, so a child that
+	// leaves the canvas — the Overlay plane when the DOF/stage split turns off,
+	// every child when the Workspace unmounts — drops its native-resolution
+	// raster instead of keeping a 4K canvas alive and answering a later capture
+	// with a frame that is no longer in the composition.
+	readonly #committedChildren = new WeakMap<HTMLCanvasElement, readonly Element[]>();
 
 	constructor({
 		rasterize = rasterizeCompositionDomElement
@@ -114,6 +120,8 @@ export class StandardBrowserDomCaptureScheduler {
 
 	clearPaintHandler(canvas: HTMLCanvasElement): void {
 		this.#paintHandlers.delete(canvas);
+		this.#releaseRasters(this.#committedChildren.get(canvas) ?? []);
+		this.#committedChildren.delete(canvas);
 	}
 
 	/** The most recent committed raster for a direct canvas child, or null when no
@@ -181,11 +189,24 @@ export class StandardBrowserDomCaptureScheduler {
 		if (signal?.aborted) throw signal.reason;
 
 		// Commit as one set: a half-updated capture would composite one plane from
-		// this frame against another from the last one.
+		// this frame against another from the last one. Children the composition
+		// dropped since the previous pass lose their rasters in the same commit, so
+		// the plane split can never be captured from a frame it no longer has.
+		const retained = new Set<Element>(children);
+		this.#releaseRasters(
+			(this.#committedChildren.get(canvas) ?? []).filter((element) => !retained.has(element))
+		);
 		for (const { element, raster } of captured) {
 			this.#elementRasters.set(element, raster);
 		}
+		this.#committedChildren.set(canvas, children);
 		handler(createSyntheticPaintEvent(children));
+	}
+
+	#releaseRasters(elements: readonly Element[]): void {
+		for (const element of elements) {
+			this.#elementRasters.delete(element);
+		}
 	}
 }
 

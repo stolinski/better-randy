@@ -243,6 +243,27 @@ The clone is required, not incidental: the source element inside the canvas has 
 
 Cost and reach measured by the probe: 191–208 ms per native frame, 91–98% pixel agreement with native rendering of the same DOM. That suits correctness-first export and low-rate preview, not 30/60 fps playback.
 
+### How each composition branch reaches the lane
+
+Only two modules may name the flag-only API: `html-in-canvas.ts` (which chooses the lane) and `standard-browser-dom-capture.ts` (which is the standard lane's paint tick). `scripts/test-dom-capture-lane-seam.ts` enforces that in `pnpm test:structural`, so a new branch cannot quietly reintroduce a second capture path that only works in flagged Chrome.
+
+| Branch                                              | How it reaches the standard lane                                                                                                                                                                        |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Every Surface — plain, paper, web-document, iMessage | All twelve registered Surfaces build their runtime from `createPlainPipeline` or `createPaperPipeline`, and both upload through `getDomFrameCaptureQueue`.                                                |
+| Blocks, Annotations, diagrams, chart chrome         | DOM inside `.composition`, so the composition-root raster carries them. The analytic chart marks and annotation marks are separate 2D/GPU uploads that never touched the DOM capture in either lane.     |
+| Multiple Layers and the plane split                 | The paint tick rasterizes every **direct** canvas child, so the hoisted Overlay root is captured as its own plane and committed in the same atomic set as the Surface plane.                             |
+| Depth of field, depth stage, Effects                | `CompositionPlanes.captureOverlay` goes through the same queue; premultiply, bokeh composite, depth stage, and the effect chain are pure GPU passes downstream of it.                                    |
+| Image substrate and Video underlay                  | Uploaded from an `ImageBitmap` and a decoded `VideoFrame` with `copyExternalImageToTexture`, so they are lane-independent by construction.                                                               |
+| Text animations                                     | The rasterizer reads whatever the timeline already wrote — `CompositionDomRasterRequest` carries no timestamp, so the lane can never become a second clock.                                              |
+| Transitions                                         | Each endpoint's snapshot waits for an acknowledged composition paint after its state swap. A layout flush is not a paint: without this the from/to snapshots capture the previous endpoint's DOM.        |
+| Transparent and opaque output                       | The raster is taken with `backgroundColor: null` and the clone never gets a background, so a declared `backgroundFill` still arrives from the effect chain and nothing else paints one.                  |
+| Both orientations                                   | The clone is sized to the canvas's native bitmap — 3840×2160 or 2160×3840 — which is also what makes `.composition`'s `container-type: size` resolve `cq` units at frame scale.                          |
+| Every Pack                                          | The clone is reparented to `<body>`, so it carries the source's resolved custom properties **and** its resolved inherited typography; otherwise Pack type would silently fall back to the editor chrome. |
+| Audio-relevant timing                               | Export renders audio once before the frame loop and drives frames by index, so the standard lane's slower raster changes export wall-clock but never audio/video alignment.                              |
+| Poster capture                                      | Awaits a settled composition paint. Requesting a paint and waiting a frame is a WICG-only equivalence — the rasterization lane takes far longer than a frame.                                            |
+
+Resource cleanup the lane owns: the clone is removed in a `finally`, so a failed or aborted raster leaves nothing mounted; and each commit releases the rasters of children the composition dropped, so toggling the plane split or unmounting the Workspace cannot retain 4K canvases or answer a later capture with a frame that is no longer in the composition.
+
 ## Test discipline
 
 - Chrome's html-in-canvas behavior is undocumented in edge cases (size limits, bitmap vs compositor, snapshot semantics). When something behaves unexpectedly, **probe in DevTools console with `getImageData` and prototype enumeration before refactoring code**. One probe answers a question; refactoring on a hunch wastes hours.

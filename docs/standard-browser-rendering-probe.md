@@ -66,3 +66,7 @@ This is a measured starting point, not canonical-engine parity:
 - The current standard session does not finish canonical GPU or timeline initialization, so the production fallback must own timeline setup independently of the canonical `CanvasDrawElement` host. The probe measures static DOM raster fidelity and records the unsynchronized canonical control separately rather than presenting them as the same frame.
 
 The downstream runtime-architecture task can now ratify a bounded flat-composition lane and keep advanced branches on the managed canonical renderer until separate probes close those gaps.
+
+## Downstream
+
+The bounded lane this probe selected shipped as `standard-browser-dom-capture.ts` and `composition-dom-rasterizer.ts`, and was then extended past the flat-composition boundary above. The per-branch routing — multiple Layers and the plane split, depth/effects, image and Video substrate, text animations, transitions, both orientations, every Pack, and the poster and export paths — is documented in [`html-in-canvas-typegpu.md`](html-in-canvas-typegpu.md#how-each-composition-branch-reaches-the-lane) and enforced by `scripts/test-dom-capture-lane-seam.ts`. The measurements above are the record of what this probe observed and are not restated by that work.

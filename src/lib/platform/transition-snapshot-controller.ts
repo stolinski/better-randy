@@ -32,6 +32,12 @@ export interface TransitionSnapshotControllerDependencies {
 	flushDom(): Promise<void>;
 	waitForFonts(): Promise<void>;
 	waitForLayout(): Promise<void>;
+	/** Acknowledge one composition paint of the swapped-in endpoint before its
+	 *  frame is rendered. A layout flush is not a paint: in the standard-browser
+	 *  rasterization lane nothing has captured the endpoint's DOM yet, and in
+	 *  either lane the frame renderer's paint-generation gate would otherwise
+	 *  keep the previous endpoint's resident DOM texture. */
+	settlePaint(): Promise<void>;
 	settleAnimation(progress: number): void;
 	renderFrame(outputView: GPUTextureView, timestamp: number): CompositionFrameRenderResult;
 	isActiveTransition(transition: ResolvedTransition): boolean;
@@ -343,6 +349,8 @@ export class TransitionSnapshotController {
 		dependencies.settleAnimation(TRANSITION_SNAPSHOT_PROGRESS);
 		await dependencies.flushDom();
 		await dependencies.waitForLayout();
+		this.#assertCurrent(revision);
+		await dependencies.settlePaint();
 		this.#assertCurrent(revision);
 		const result = dependencies.renderFrame(
 			target,

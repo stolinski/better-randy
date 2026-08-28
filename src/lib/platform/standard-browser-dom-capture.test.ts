@@ -19,8 +19,27 @@ function capabilities(
 	};
 }
 
-function canvasWithChildren(children: readonly Element[]): HTMLCanvasElement {
-	return { children, width: 3840, height: 2160 } as unknown as HTMLCanvasElement;
+function canvasWithChildren(
+	children: readonly Element[],
+	{ width = 3840, height = 2160 }: { width?: number; height?: number } = {}
+): HTMLCanvasElement {
+	return { children, width, height } as unknown as HTMLCanvasElement;
+}
+
+/** A canvas whose direct children the composition can swap between paints — the
+ *  DOF/stage plane split hoisting and dropping the Overlay root. */
+function mutableCanvas(
+	children: Element[],
+	size?: { width?: number; height?: number }
+): { canvas: HTMLCanvasElement; setChildren(next: readonly Element[]): void } {
+	const canvas = canvasWithChildren(children, size);
+	return {
+		canvas,
+		setChildren: (next) => {
+			children.length = 0;
+			children.push(...next);
+		}
+	};
 }
 
 function compositionElement(): Element {
@@ -171,6 +190,54 @@ describe('StandardBrowserDomCaptureScheduler', () => {
 
 		await assert.rejects(scheduler.requestPaint(canvas, controller.signal), /export cancelled/);
 		assert.equal(painted, false);
+	});
+
+	it('rasterizes at the vertical native frame when the composition reflows', async () => {
+		const canvas = canvasWithChildren([compositionElement()], { width: 2160, height: 3840 });
+		const requestedSizes: Array<{ width: number; height: number }> = [];
+		const scheduler = new StandardBrowserDomCaptureScheduler({
+			rasterize: async ({ width, height }) => {
+				requestedSizes.push({ width, height });
+				return raster();
+			}
+		});
+		scheduler.setPaintHandler(canvas, () => {});
+
+		await scheduler.requestPaint(canvas);
+
+		assert.deepEqual(requestedSizes, [{ width: 2160, height: 3840 }]);
+	});
+
+	it('drops the raster of a child the composition removed in the same commit', async () => {
+		const composition = compositionElement();
+		const overlayRoot = compositionElement();
+		const { canvas, setChildren } = mutableCanvas([composition, overlayRoot]);
+		const scheduler = new StandardBrowserDomCaptureScheduler({ rasterize: async () => raster() });
+		scheduler.setPaintHandler(canvas, () => {});
+
+		await scheduler.requestPaint(canvas);
+		assert.ok(scheduler.readElementRaster(overlayRoot));
+
+		// The plane split turns off: the Overlay root stops being a direct child.
+		setChildren([composition]);
+		await scheduler.requestPaint(canvas);
+
+		assert.ok(scheduler.readElementRaster(composition));
+		assert.equal(scheduler.readElementRaster(overlayRoot), null);
+	});
+
+	it('releases every committed raster when the composition unmounts its handler', async () => {
+		const composition = compositionElement();
+		const overlayRoot = compositionElement();
+		const canvas = canvasWithChildren([composition, overlayRoot]);
+		const scheduler = new StandardBrowserDomCaptureScheduler({ rasterize: async () => raster() });
+		scheduler.setPaintHandler(canvas, () => {});
+		await scheduler.requestPaint(canvas);
+
+		scheduler.clearPaintHandler(canvas);
+
+		assert.equal(scheduler.readElementRaster(composition), null);
+		assert.equal(scheduler.readElementRaster(overlayRoot), null);
 	});
 
 	it('skips rasterization entirely when no paint handler is mounted', async () => {

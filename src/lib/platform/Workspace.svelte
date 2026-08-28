@@ -123,7 +123,7 @@
 		waitForFonts: fontsReady,
 		delay: (signal) => abortableTimeout(900, signal),
 		nextFrame: abortableAnimationFrame,
-		requestPaint: requestCanvasPaint,
+		settlePaint: settleCompositionPaint,
 		exists: posterExists,
 		// A capture that lands before the video underlay's first decoded frame is
 		// a blank webp (~1 KB). Retry with fresh settle windows until pixels
@@ -132,7 +132,7 @@
 			let blob = await captureCanvasWebp(canvas);
 			for (let attempt = 0; attempt < 4 && (blob === null || blob.size <= 1200); attempt++) {
 				await new Promise((resolveDelay) => window.setTimeout(resolveDelay, 700));
-				requestCanvasPaint(canvas);
+				await settleCompositionPaint(new AbortController().signal);
 				await new Promise(requestAnimationFrame);
 				blob = await captureCanvasWebp(canvas);
 			}
@@ -595,6 +595,7 @@
 					await nextFrame();
 					await nextFrame();
 				},
+				settlePaint: () => settleCompositionPaint(new AbortController().signal),
 				settleAnimation: rebuildAnimationAtProgress,
 				renderFrame: (outputView, timestamp) =>
 					renderCompositionFrameTo(buildCompositionFrameRenderRequest(outputView, timestamp)),
@@ -784,11 +785,11 @@
 		if (!localTimeline || !localCompositionRoot) return;
 
 		async function forceAuditPaint(): Promise<void> {
-			const localCanvas = canvas;
-			if (!localCanvas) throw new Error('Readable capture requires the active canvas.');
-			const settledPaint = settleCompositionPaint(new AbortController().signal);
-			requestCanvasPaint(localCanvas);
-			await settledPaint;
+			if (!canvas) throw new Error('Readable capture requires the active canvas.');
+			// The settle already requests the paint in both lanes. A second request
+			// here would collapse onto a follow-up rasterization that lands after the
+			// audit has read the frame — a doubled 4K raster and a moving target.
+			await settleCompositionPaint(new AbortController().signal);
 			await tick();
 		}
 

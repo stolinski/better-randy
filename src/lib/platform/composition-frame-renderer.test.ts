@@ -278,6 +278,79 @@ describe('composition frame renderer ordering', () => {
 		]);
 	});
 
+	it('captures both planes through the shared seam on the multiplane DOF branch', () => {
+		const calls: string[] = [];
+		const state = createDefaultEngineState();
+		state.effects.push(dofEffect());
+		const overlayRootElement = {} as HTMLElement;
+		const surfaceTexture = texture('surface');
+		const pipeline = {
+			uploadDom: () => calls.push('upload-surface'),
+			render: () => calls.push('render-surface'),
+			getOutputTexture: () => surfaceTexture
+		} as unknown as SurfaceRenderInstance;
+		const compositionPlanes = {
+			captureOverlay: (element: HTMLElement) => {
+				assert.equal(element, overlayRootElement);
+				calls.push('capture-overlay');
+			},
+			composite: () => calls.push('composite'),
+			compositeTexture: () => texture('composite'),
+			overlayPlaneTexture: () => texture('overlay-plane')
+		} as unknown as CompositionPlanes;
+		const host = {
+			canvas: { width: 3840, height: 2160 },
+			device: { createCommandEncoder: () => ({}) }
+		} as unknown as GpuHost;
+		const request: CompositionFrameRenderRequest = {
+			outputView: {} as GPUTextureView,
+			timestamp: 0,
+			state,
+			pack: getPack('syntax'),
+			paperVisibility: 1,
+			compositionElement: null,
+			overlayRootElement,
+			substrateTexture: null,
+			videoUnderlayTexture: null,
+			domCapture: { surface: 1, overlay: 1, force: false },
+			resources: {
+				host,
+				pipeline,
+				effectChain: { apply: () => calls.push('effects') } as unknown as EffectChain,
+				shaderPassDispatcher: {
+					apply: ({ inputTexture }: { inputTexture: GPUTexture }) => inputTexture
+				} as unknown as ShaderPassDispatcher,
+				compositionPlanes,
+				depthStage: null
+			},
+			cachedTransition: null,
+			buildSurfaceInputs: () => SURFACE_INPUTS
+		};
+
+		assert.equal(renderCompositionFrameTo(request), 'dof');
+		assert.deepEqual(calls, [
+			'upload-surface',
+			'render-surface',
+			'capture-overlay',
+			'composite',
+			'effects'
+		]);
+
+		// A shader-only frame keeps both resident captures; a new Overlay paint
+		// re-captures only the Overlay plane.
+		calls.length = 0;
+		renderCompositionFrameTo({ ...request, timestamp: 1 });
+		assert.deepEqual(calls, ['render-surface', 'composite', 'effects']);
+
+		calls.length = 0;
+		renderCompositionFrameTo({
+			...request,
+			timestamp: 2,
+			domCapture: { surface: 1, overlay: 2, force: false }
+		});
+		assert.deepEqual(calls, ['render-surface', 'capture-overlay', 'composite', 'effects']);
+	});
+
 	it('reuses a resident DOM capture until its browser paint generation changes', () => {
 		const calls: string[] = [];
 		const state = createDefaultEngineState();

@@ -9,7 +9,12 @@ export interface PosterCaptureServices {
 	delay(signal: AbortSignal): Promise<void>;
 	exists(key: string): Promise<boolean>;
 	nextFrame(signal: AbortSignal): Promise<void>;
-	requestPaint(canvas: HTMLCanvasElement): void;
+	/** Resolves once one composition paint has been acknowledged. Requesting a
+	 *  paint and waiting a frame is only equivalent in the WICG lane, where the
+	 *  browser paints on its own tick; the standard-browser rasterization lane
+	 *  takes far longer than a frame, so an unawaited request stores a poster of
+	 *  the pre-paint canvas. */
+	settlePaint(signal: AbortSignal): Promise<void>;
 	store(key: string, blob: Blob): Promise<void>;
 	waitForFonts(): Promise<void>;
 	reportError(error: unknown): void;
@@ -60,7 +65,9 @@ export class PosterCaptureController {
 			throwIfAborted(signal);
 			await this.#services.delay(signal);
 			throwIfAborted(signal);
-			this.#services.requestPaint(request.canvas);
+			await this.#services.settlePaint(signal);
+			// The paint drives the composite asynchronously; the frames after it are
+			// for that GPU present to land in the canvas, not for the paint itself.
 			await this.#services.nextFrame(signal);
 			await this.#services.nextFrame(signal);
 			this.#assertCurrent(revision, signal);

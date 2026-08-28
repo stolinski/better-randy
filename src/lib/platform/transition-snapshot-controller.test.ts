@@ -52,6 +52,9 @@ interface TransitionControllerHarness {
 	disposedCaches: string[];
 	renders: string[];
 	renderedOrientations: Array<Preset['state']['transport']['orientation']>;
+	/** Every capture step in order, so a snapshot rendered without an acknowledged
+	 *  paint of the swapped-in endpoint is a test failure, not a stale frame. */
+	captureSteps: string[];
 	settledProgresses: number[];
 	seekTimes: number[];
 	capturingWrites: boolean[];
@@ -66,6 +69,7 @@ function createHarness(source: Preset, initialCapturing = false): TransitionCont
 	const disposedCaches: string[] = [];
 	const renders: string[] = [];
 	const renderedOrientations: Array<Preset['state']['transport']['orientation']> = [];
+	const captureSteps: string[] = [];
 	const settledProgresses: number[] = [];
 	const seekTimes: number[] = [];
 	const capturingWrites: boolean[] = [];
@@ -101,6 +105,7 @@ function createHarness(source: Preset, initialCapturing = false): TransitionCont
 		captureCompositionState: () => clonePreset(currentPreset),
 		applyCompositionState: (preset) => {
 			currentPreset = clonePreset(preset);
+			captureSteps.push(`apply:${preset.name}`);
 		},
 		readCapturing: () => isCapturing,
 		writeCapturing: (value) => {
@@ -110,6 +115,9 @@ function createHarness(source: Preset, initialCapturing = false): TransitionCont
 		flushDom: async () => undefined,
 		waitForFonts: async () => undefined,
 		waitForLayout: async () => undefined,
+		settlePaint: async () => {
+			captureSteps.push(`settle-paint:${currentPreset.name}`);
+		},
 		settleAnimation: (progress) => settledProgresses.push(progress),
 		renderFrame: (outputView, timestamp) => {
 			if (currentPreset.name === renderFailure) {
@@ -118,6 +126,7 @@ function createHarness(source: Preset, initialCapturing = false): TransitionCont
 			const label = (outputView as unknown as { label: string }).label;
 			renderedOrientations.push(currentPreset.state.transport.orientation);
 			renders.push(`${currentPreset.name}:${label}:${timestamp}`);
+			captureSteps.push(`render:${currentPreset.name}`);
 			return 'flat';
 		},
 		isActiveTransition: (transition) => currentTransition === transition,
@@ -131,6 +140,7 @@ function createHarness(source: Preset, initialCapturing = false): TransitionCont
 		disposedCaches,
 		renders,
 		renderedOrientations,
+		captureSteps,
 		settledProgresses,
 		seekTimes,
 		capturingWrites,
@@ -163,6 +173,50 @@ describe('transition snapshot controller', () => {
 		assert.deepEqual(harness.capturingWrites, [true, false]);
 		assert.deepEqual(harness.seekTimes, [0]);
 		assert.ok(harness.controller.cachedFrame());
+	});
+
+	it('acknowledges a paint of each swapped-in endpoint before rendering its snapshot', async () => {
+		const source = makePreset('Transition source', 'syntax', 1);
+		const from = makePreset('From', 'syntax', 4);
+		const to = makePreset('To', 'editorial-mono', 6);
+		const transition = makeTransition(from, to);
+		const harness = createHarness(source);
+		harness.setCurrentTransition(transition);
+
+		await harness.controller.update(transition, harness.dependencies);
+
+		assert.deepEqual(harness.captureSteps, [
+			'apply:From',
+			'settle-paint:From',
+			'render:From',
+			'apply:To',
+			'settle-paint:To',
+			'render:To',
+			'apply:Transition source'
+		]);
+	});
+
+	it('restores the source composition when an endpoint paint never settles', async () => {
+		const source = makePreset('Transition source', 'syntax', 1);
+		const transition = makeTransition(
+			makePreset('From', 'syntax', 4),
+			makePreset('To', 'syntax', 4)
+		);
+		const harness = createHarness(source);
+		harness.dependencies.settlePaint = async () => {
+			throw new Error('composition paint failed');
+		};
+		harness.setCurrentTransition(transition);
+
+		await assert.rejects(
+			harness.controller.update(transition, harness.dependencies),
+			/composition paint failed/
+		);
+
+		assert.deepEqual(harness.renders, []);
+		assert.deepEqual(harness.getCurrentPreset(), source);
+		assert.deepEqual(harness.disposedCaches, ['cache-0']);
+		assert.equal(harness.controller.cachedFrame(), null);
 	});
 
 	it('restores prior state and releases partial textures when the second capture fails', async () => {
