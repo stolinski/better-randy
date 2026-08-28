@@ -452,4 +452,17 @@ describe('export session encoding', () => {
 		assert.equal(await cleanupOrphanedExportDirectories(directory, 0, Date.now() + 1_000), 1);
 		assert.deepEqual(await readdir(directory), []);
 	});
+
+	// ADR-0053: a deploy or rollback across the namespace rename must not orphan
+	// the directories the release it replaced wrote under the other prefix.
+	it('sweeps orphaned directories under either namespace and leaves neighbours alone', async () => {
+		const { directory } = await createStore();
+		const { mkdir } = await import('node:fs/promises');
+		await mkdir(join(directory, 'supers-export-orphan'));
+		await mkdir(join(directory, 'gfx-export-orphan'));
+		await mkdir(join(directory, 'unrelated-tenant-cache'));
+
+		assert.equal(await cleanupOrphanedExportDirectories(directory, 0, Date.now() + 1_000), 2);
+		assert.deepEqual(await readdir(directory), ['unrelated-tenant-cache']);
+	});
 });

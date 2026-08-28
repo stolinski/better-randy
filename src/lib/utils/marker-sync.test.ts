@@ -426,6 +426,47 @@ describe('sync round-trip artifacts', () => {
 		assert.equal(parseMarkerCustomData('{"schema":"other@1"}'), null);
 	});
 
+	it('reads a receipt written under either namespace as the same payload', () => {
+		const legacy = parseMarkerCustomData(
+			'{"schema":"supers-sync@1","slug":"checklist-show-rundown","beat":2,"version":1}'
+		);
+		const current = parseMarkerCustomData(
+			'{"schema":"gfx-sync@1","slug":"checklist-show-rundown","beat":2,"version":1}'
+		);
+		assert.deepEqual(current, legacy);
+		assert.deepEqual(
+			legacy,
+			parseMarkerCustomData(buildMarkerCustomData('checklist-show-rundown', 2, 1))
+		);
+	});
+
+	it('finds a group whose head was synced under the other namespace', () => {
+		const snapshot = rundownSnapshot();
+		snapshot.markers[1] = {
+			...snapshot.markers[1],
+			note: '',
+			customData: '{"schema":"gfx-sync@1","slug":"checklist-show-rundown","beat":0,"version":2}'
+		};
+		const { groups } = groupSupersMarkers(snapshot.markers);
+		assert.deepEqual(
+			groups.map((group) => group.slug),
+			['checklist-show-rundown']
+		);
+		// A re-sync must continue that group's version series, not restart it.
+		assert.equal(deriveMarkerSync(snapshot, rundownOptions()).version, 3);
+	});
+
+	it('opens a group from either head-note prefix a human may have typed', () => {
+		const snapshot = rundownSnapshot();
+		snapshot.markers[1] = { ...snapshot.markers[1], note: 'gfx checklist-show-rundown' };
+		const { groups } = groupSupersMarkers(snapshot.markers);
+		assert.deepEqual(
+			groups.map((group) => group.slug),
+			['checklist-show-rundown']
+		);
+		assert.equal(groups[0].beats.length, 5);
+	});
+
 	it('builds the Mint updates for the head plus synced beats only', () => {
 		const snapshot = rundownSnapshot();
 		snapshot.markers.push(marker({ frameId: 540 })); // extra beat — keeps its input color

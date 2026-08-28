@@ -1,8 +1,10 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
+import { readGfxEnvironmentValue } from '../src/lib/utils/legacy-supers-compatibility.ts';
+
 const CDP_PORT = Number(process.env.CDP_PORT ?? 9223);
-const DEV_SERVER_URL = process.env.SUPERS_URL ?? 'http://localhost:7263';
+const DEV_SERVER_URL = readGfxEnvironmentValue(process.env, 'GFX_URL') ?? 'http://localhost:7263';
 const OUTPUT_DIRECTORY = resolve('src/lib/assets/sounds/foley');
 
 const FOLEY_CUES = [

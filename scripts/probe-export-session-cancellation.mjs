@@ -4,16 +4,22 @@ import { tmpdir } from 'node:os';
 import { basename, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
+import {
+	isSweptExportDirectoryName,
+	readGfxEnvironmentValue,
+	SWEPT_EXPORT_DIRECTORY_PREFIXES
+} from '../src/lib/utils/legacy-supers-compatibility.ts';
+
 const execFileAsync = promisify(execFile);
-const APP_URL = process.env.SUPERS_URL ?? 'http://localhost:7263';
+const APP_URL = readGfxEnvironmentValue(process.env, 'GFX_URL') ?? 'http://localhost:7263';
 const FRAME_PATH = resolve(process.argv[2] ?? '');
-const CYCLES = Number(process.env.SUPERS_CANCELLATION_CYCLES ?? 3);
+const CYCLES = Number(readGfxEnvironmentValue(process.env, 'GFX_CANCELLATION_CYCLES') ?? 3);
 
 if (!process.argv[2]) {
 	throw new Error('Usage: node scripts/probe-export-session-cancellation.mjs <frame.png>');
 }
 if (!Number.isInteger(CYCLES) || CYCLES < 1) {
-	throw new Error('SUPERS_CANCELLATION_CYCLES must be a positive integer.');
+	throw new Error('GFX_CANCELLATION_CYCLES must be a positive integer.');
 }
 if (!(await stat(FRAME_PATH)).isFile()) throw new Error(`Frame does not exist: ${FRAME_PATH}`);
 
@@ -50,8 +56,14 @@ async function ffmpegChildren(parentPid) {
 	);
 }
 
+// Both namespaces' prefixes (ADR-0053): a directory the running build no longer
+// writes is still one the probe must see it clean up.
 async function exportDirectories() {
-	return (await readdir(tmpdir())).filter((entry) => entry.startsWith('supers-export-')).sort();
+	return (await readdir(tmpdir())).filter(isSweptExportDirectoryName).sort();
+}
+
+function sessionDirectoryNames(sessionId) {
+	return SWEPT_EXPORT_DIRECTORY_PREFIXES.map((prefix) => `${prefix}${sessionId}`);
 }
 
 async function waitForCleanup(sessionId, parentPid) {
@@ -63,7 +75,7 @@ async function waitForCleanup(sessionId, parentPid) {
 		]);
 		if (
 			children.every((child) => !activeEncoderPids.has(child.pid)) &&
-			!directories.includes(`supers-export-${sessionId}`)
+			sessionDirectoryNames(sessionId).every((name) => !directories.includes(name))
 		) {
 			return;
 		}

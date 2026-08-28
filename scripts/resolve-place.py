@@ -36,8 +36,8 @@ Plan shape:
   {
     "project": "…",              # optional; default current project
     "timeline": "…",             # optional; default current timeline
-    "binName": "Supers",
-    "trackName": "SUPERS",
+    "binName": "Supers",         # an existing Legacy Supers bin wins over this
+    "trackName": "SUPERS",       # an existing Legacy Supers track wins over this
     "clipName": "Checklist — …",  # optional; SetClipProperty returns a false
                                   # negative on Studio 21.0.2.4 but applies
     "moviePath": "/path/on/this/machine.mov",
@@ -121,10 +121,26 @@ def open_timeline(project, name):
     fail(f'Timeline "{name}" not found.')
 
 
+# ADR-0053 accept-old / write-new: these objects live in the editor's project,
+# which we do not own. A project that already holds the Legacy Supers bin or
+# track keeps using it, so the namespace rename never splits one edit across two
+# bins or two tracks; the plan's own name is only created in a project that has
+# neither.
+LEGACY_SUPERS_BIN_NAMES = ("Supers",)
+LEGACY_SUPERS_TRACK_NAMES = ("SUPERS",)
+
+
+def accepted_names(plan_name, legacy_names):
+    """The plan's name first, then every Legacy Supers spelling of it."""
+    return (plan_name,) + tuple(name for name in legacy_names if name != plan_name)
+
+
 def ensure_bin(media_pool, bin_name):
     root = media_pool.GetRootFolder()
-    for folder in root.GetSubFolderList() or []:
-        if folder.GetName() == bin_name:
+    existing = {folder.GetName(): folder for folder in root.GetSubFolderList() or []}
+    for name in accepted_names(bin_name, LEGACY_SUPERS_BIN_NAMES):
+        folder = existing.get(name)
+        if folder is not None:
             media_pool.SetCurrentFolder(folder)
             return folder
     folder = media_pool.AddSubFolder(root, bin_name)
@@ -149,9 +165,12 @@ def import_movie(media_pool, supers_bin, movie_path):
 
 def ensure_track(timeline, track_name, track_type="video"):
     count = int(timeline.GetTrackCount(track_type))
-    for index in range(1, count + 1):
-        if timeline.GetTrackName(track_type, index) == track_name:
-            return index
+    existing = {
+        timeline.GetTrackName(track_type, index): index for index in range(1, count + 1)
+    }
+    for name in accepted_names(track_name, LEGACY_SUPERS_TRACK_NAMES):
+        if name in existing:
+            return existing[name]
     if not timeline.AddTrack(track_type):
         fail(f'Could not add a {track_type} track for "{track_name}".')
     index = int(timeline.GetTrackCount(track_type))

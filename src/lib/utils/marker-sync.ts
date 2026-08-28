@@ -7,6 +7,11 @@ import {
 	NTSC_FRACTIONAL_FPS,
 	type FrameRate
 } from './composition-timing.ts';
+import {
+	ACCEPTED_HEAD_NOTE_PREFIXES,
+	isAcceptedMarkerSyncSchema,
+	type AcceptedMarkerSyncSchema
+} from './legacy-supers-compatibility.ts';
 
 // ---- Resolve marker sync (ADR-0042, grammar v2) ----
 // Pure derivation from a DaVinci Resolve timeline's marker snapshot to
@@ -15,25 +20,36 @@ import {
 //
 // The grammar (the editor's language, in Resolve) is COLOR-BLIND on read —
 // recoloring markers by hand is editor-hostile, so input color carries no
-// meaning. A group's HEAD is a marker whose note is `supers <slug>`; the span
+// meaning. A group's HEAD is a marker whose note is `<namespace> <slug>` —
+// every prefix in ACCEPTED_HEAD_NOTE_PREFIXES opens a group; the span
 // is closed by an explicit END marker (name's last word `END`), or by the
 // head's dragged duration, or — degenerate, linted — by the last beat plus a
 // handle. Every marker inside the delimited span is a BEAT, whatever its
 // color or name: the span is the claim. Beat names carry the item text
 // (`parseBeatLabel`). Color is OUTPUT-only: after a sync the group is
 // recolored Mint and each synced marker carries `customData`
-// (`supers-sync@1`, head = beat 0, END = beat -1), which is how re-syncs find
-// their own groups without re-parsing notes. The binding lives Resolve-side
+// (an ACCEPTED_MARKER_SYNC_SCHEMAS tag, head = beat 0, END = beat -1), which is
+// how re-syncs find their own groups without re-parsing notes. The binding lives Resolve-side
 // only — the Preset carries no edit anchor (WHAT in the preset, WHERE in the
 // edit).
 
 /** The marker color a synced group is recolored to — "synced" at a glance. The only color in the grammar: input color is meaningless. */
 export const SUPERS_SYNCED_MARKER_COLOR = 'Mint';
 
-/** The customData schema tag written on every synced marker. */
-export const SUPERS_SYNC_SCHEMA = 'supers-sync@1';
+/**
+ * The customData schema tag written on every synced marker. Reads accept every
+ * tag in `ACCEPTED_MARKER_SYNC_SCHEMAS` and `parseMarkerCustomData` folds them
+ * onto this one, so a group synced under either namespace stays findable and a
+ * re-sync rewrites its receipt in place (ADR-0053, `accept-old / write-new`).
+ */
+export const SUPERS_SYNC_SCHEMA = 'supers-sync@1' satisfies AcceptedMarkerSyncSchema;
 
-/** Head-marker note prefix; the rest of the note is the Preset slug. */
+/**
+ * The head-marker note prefix this sync documents; the rest of the note is the
+ * Preset slug. Every prefix in `ACCEPTED_HEAD_NOTE_PREFIXES` is read, forever —
+ * the note was typed by a human into the editor's project and is never
+ * rewritten.
+ */
 export const SUPERS_HEAD_NOTE_PREFIX = 'supers ';
 
 /** A marker whose name's last whitespace-separated token is exactly this closes its group's span. */
@@ -186,7 +202,12 @@ export function normalizeTimelineFps(raw: number | string): number {
 	);
 }
 
-/** Parse a marker's customData into the supers-sync payload, or null when it is not ours. */
+/**
+ * Parse a marker's customData into the sync payload, or null when it is not
+ * ours. A receipt written under either namespace is ours; the parsed payload
+ * always reports `SUPERS_SYNC_SCHEMA`, so no caller branches on which tag the
+ * editor's project happened to carry.
+ */
 export function parseMarkerCustomData(raw: string): SupersSyncMarkerData | null {
 	if (!raw) {
 		return null;
@@ -202,7 +223,7 @@ export function parseMarkerCustomData(raw: string): SupersSyncMarkerData | null 
 	}
 	const candidate = parsed as Record<string, unknown>;
 	if (
-		candidate.schema !== SUPERS_SYNC_SCHEMA ||
+		!isAcceptedMarkerSyncSchema(candidate.schema) ||
 		typeof candidate.slug !== 'string' ||
 		typeof candidate.beat !== 'number' ||
 		typeof candidate.version !== 'number'
@@ -302,8 +323,12 @@ export function parseBeatLabel(name: string): ParsedBeatLabel {
 
 function headSlugOf(marker: ResolveMarker): string | null {
 	const note = marker.note.trim();
-	if (note.toLowerCase().startsWith(SUPERS_HEAD_NOTE_PREFIX)) {
-		const slug = note.slice(SUPERS_HEAD_NOTE_PREFIX.length).trim();
+	const lowercased = note.toLowerCase();
+	for (const prefix of ACCEPTED_HEAD_NOTE_PREFIXES) {
+		if (!lowercased.startsWith(prefix)) {
+			continue;
+		}
+		const slug = note.slice(prefix.length).trim();
 		if (slug.length > 0) {
 			return slug;
 		}
@@ -323,8 +348,8 @@ function isEndMarker(marker: ResolveMarker): boolean {
 }
 
 /**
- * Group the timeline's Supers markers, color-blind: each head (note
- * `supers <slug>`, or previously synced customData) starts a group; the first
+ * Group the timeline's markers, color-blind: each head (an accepted
+ * `<namespace> <slug>` note, or previously synced customData) starts a group; the first
  * END marker after it (or the head's dragged duration) closes the span; every
  * marker inside the span is a beat regardless of color or name — the
  * delimited span is the claim. An unclosed, undragged head degenerately

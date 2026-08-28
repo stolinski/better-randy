@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
 import blankPresetJson from '$lib/presets/blank.json';
+import lowerThirdPresetJson from '$lib/presets/lower-third.json';
 
+import { PRESET_SCHEMA_ID } from './engine-schema';
+import { presetToWireFormat } from './preset-pure';
 import {
 	LEGACY_SOURCE_VIDEO_ASSET_ID,
 	LEGACY_SOURCE_VIDEO_CLIP_ID,
@@ -31,6 +34,47 @@ function legacyPreset(): unknown {
 		}
 	};
 }
+
+// A shipped corpus composition, re-declared under each namespace. ADR-0053:
+// `gfx@1` and `supers@1` name the same document shape, so these two inputs must
+// be indistinguishable everywhere downstream of ingress.
+function compositionDeclaring(schema: string): unknown {
+	return { ...lowerThirdPresetJson, schema };
+}
+
+describe('Legacy Supers composition schema id', () => {
+	it('folds every accepted id onto the id writers emit', () => {
+		assert.equal(
+			PresetIngressSchema.parse(compositionDeclaring('supers@1')).schema,
+			PRESET_SCHEMA_ID
+		);
+		assert.equal(PresetIngressSchema.parse(compositionDeclaring('gfx@1')).schema, PRESET_SCHEMA_ID);
+	});
+
+	it('renders identically under either id — the parsed composition is deep-equal', () => {
+		const legacy = PresetIngressSchema.parse(compositionDeclaring('supers@1'));
+		const current = PresetIngressSchema.parse(compositionDeclaring('gfx@1'));
+
+		// The parsed Preset is the renderer's only input, so equality here is
+		// pixel equivalence: no downstream reader can tell the two ids apart.
+		assert.deepEqual(current, legacy);
+		assert.deepEqual(presetToWireFormat(current), presetToWireFormat(legacy));
+	});
+
+	it('round-trips a legacy composition back through ingress unchanged', () => {
+		const legacy = PresetIngressSchema.parse(compositionDeclaring('supers@1'));
+		const reparsed = PresetIngressSchema.parse(presetToWireFormat(legacy));
+		assert.deepEqual(reparsed, legacy);
+	});
+
+	it('rejects an id that belongs to neither namespace instead of folding it', () => {
+		const result = PresetIngressSchema.safeParse(compositionDeclaring('supers@2'));
+
+		assert.equal(result.success, false);
+		if (result.success) return;
+		assert.equal(result.error.issues[0]?.path.join('.'), 'schema');
+	});
+});
 
 describe('Preset ingress migration', () => {
 	it('normalizes legacy Source video into one deterministic full-span Video clip', () => {

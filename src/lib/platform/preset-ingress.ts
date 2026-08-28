@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import {
+	PRESET_SCHEMA_ID,
 	PresetSchema,
 	SourceVideoSchema,
 	type Media,
@@ -12,6 +13,7 @@ import {
 	resolveFrameRate,
 	secondsToFrames
 } from '../utils/composition-timing.ts';
+import { isAcceptedCompositionSchemaId } from '../utils/legacy-supers-compatibility.ts';
 
 export const LEGACY_SOURCE_VIDEO_ASSET_ID = 'legacy-source-video-asset';
 export const LEGACY_SOURCE_VIDEO_CLIP_ID = 'legacy-source-video-clip';
@@ -86,8 +88,28 @@ const LegacyTransportSchema = z.object({
 	])
 });
 
-function migrateLegacyPresetInput(value: unknown, ctx: z.RefinementCtx): unknown {
-	if (!isRecord(value) || !isRecord(value['state'])) {
+/**
+ * Fold a Legacy Supers composition schema id onto the id writers emit
+ * (ADR-0053, `accept-old / write-new`). `gfx@1` and `supers@1` name the same
+ * document shape, so this is a spelling normalization and never a migration:
+ * the folded document is identical apart from the id, and renders to the same
+ * pixels. An unrecognized id passes through untouched so `PresetSchema` reports
+ * it as the validation failure it is.
+ */
+function normalizeCompositionSchemaId(value: Record<string, unknown>): Record<string, unknown> {
+	const declared = value['schema'];
+	if (declared === PRESET_SCHEMA_ID || !isAcceptedCompositionSchemaId(declared)) {
+		return value;
+	}
+	return { ...value, schema: PRESET_SCHEMA_ID };
+}
+
+function migrateLegacyPresetInput(input: unknown, ctx: z.RefinementCtx): unknown {
+	if (!isRecord(input)) {
+		return input;
+	}
+	const value = normalizeCompositionSchemaId(input);
+	if (!isRecord(value['state'])) {
 		return value;
 	}
 
@@ -129,8 +151,9 @@ function migrateLegacyPresetInput(value: unknown, ctx: z.RefinementCtx): unknown
 /**
  * The one structural boundary for Preset artifacts entering the engine.
  * PresetSchema remains canonical for JSON Schema generation; this boundary
- * temporarily accepts supers@1 `state.sourceVideo`, migrates it, then delegates
- * every canonical constraint and transform to PresetSchema.
+ * accepts either namespace's composition schema id (ADR-0053) and temporarily
+ * accepts legacy `state.sourceVideo`, normalizes both, then delegates every
+ * canonical constraint and transform to PresetSchema.
  */
 export const PresetIngressSchema = z
 	.unknown()

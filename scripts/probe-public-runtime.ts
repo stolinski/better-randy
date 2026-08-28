@@ -38,13 +38,14 @@ const {
 } = await import('../src/lib/platform/public-runtime-contract.ts');
 const { inspectPublicRuntimeReadiness } =
 	await import('../src/lib/platform/public-runtime-readiness.server.ts');
+const { isSweptExportDirectoryName } =
+	await import('../src/lib/utils/legacy-supers-compatibility.ts');
 
 const execFileAsync = promisify(execFile);
 const PROBE_ORIGIN = process.env.GFX_PROBE_ORIGIN ?? 'http://localhost:7263';
 const EVIDENCE_PATH = resolve(
 	process.env.GFX_PROBE_EVIDENCE ?? join(repoRoot, 'docs/runtime-probes/public-runtime.json')
 );
-const EXPORT_DIRECTORY_PREFIX = 'supers-export-';
 const NATIVE_WIDTH = 3840;
 const NATIVE_HEIGHT = 2160;
 const LANE_FRAME_COUNT = 8;
@@ -88,9 +89,10 @@ function nowMs(): number {
 
 async function exportDirectoryCount(): Promise<number> {
 	const entries = await readdir(exportTemporaryDirectory, { withFileTypes: true });
-	return entries.filter(
-		(entry) => entry.isDirectory() && entry.name.startsWith(EXPORT_DIRECTORY_PREFIX)
-	).length;
+	// Counts both namespaces' prefixes (ADR-0053): a retention leak under the
+	// spelling this build no longer writes is still a retention leak.
+	return entries.filter((entry) => entry.isDirectory() && isSweptExportDirectoryName(entry.name))
+		.length;
 }
 
 async function ffmpegChildProcessCount(): Promise<number> {

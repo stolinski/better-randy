@@ -21,6 +21,10 @@ import {
 	resolveFrameRate,
 	type FrameRate
 } from '$lib/utils/composition-timing';
+import {
+	isSweptExportDirectoryName,
+	type SweptExportDirectoryPrefix
+} from '$lib/utils/legacy-supers-compatibility';
 
 export type ExportSessionFormat = 'webm' | 'prores';
 
@@ -80,7 +84,13 @@ interface ExportSessionStoreOptions {
 }
 
 const PNG_SIGNATURE = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
-const EXPORT_DIRECTORY_PREFIX = 'supers-export-';
+/**
+ * The prefix this build's private export work directories are created under.
+ * The sweep below matches every prefix in `SWEPT_EXPORT_DIRECTORY_PREFIXES`,
+ * not just this one, so a deploy or rollback across the ADR-0053 namespace
+ * rename cannot orphan the previous release's directories.
+ */
+const EXPORT_DIRECTORY_PREFIX = 'supers-export-' satisfies SweptExportDirectoryPrefix;
 const MAX_FRAME_BYTES = 128 * 1024 * 1024;
 const MAX_FRAME_COUNT = 10_000_000;
 
@@ -719,7 +729,11 @@ export class ExportSessionStore {
 	}
 }
 
-/** Remove abandoned directories left by a terminated server process. */
+/**
+ * Remove abandoned directories left by a terminated server process — under
+ * every namespace's export prefix, so the release being replaced leaves nothing
+ * behind whichever spelling it wrote (ADR-0052 retention, ADR-0053 matrix).
+ */
 export async function cleanupOrphanedExportDirectories(
 	temporaryDirectory = tmpdir(),
 	olderThanMs = PUBLIC_EXPORT_RUNTIME_LIMITS.sessionIdleTimeoutMs,
@@ -733,7 +747,7 @@ export async function cleanupOrphanedExportDirectories(
 	}
 	const stalePaths: string[] = [];
 	for (const entry of entries) {
-		if (!entry.isDirectory() || !entry.name.startsWith(EXPORT_DIRECTORY_PREFIX)) continue;
+		if (!entry.isDirectory() || !isSweptExportDirectoryName(entry.name)) continue;
 		const path = join(temporaryDirectory, basename(entry.name));
 		try {
 			if (now - (await stat(path)).mtimeMs >= olderThanMs) stalePaths.push(path);

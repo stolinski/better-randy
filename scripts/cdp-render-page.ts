@@ -2,6 +2,8 @@ import { copyFile, mkdir, mkdtemp, rename, rm, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+import { readGfxEnvironmentValue } from '../src/lib/utils/legacy-supers-compatibility.ts';
+
 import type { Download, Page } from 'playwright';
 
 interface CdpTarget {
@@ -283,7 +285,7 @@ export async function connectCdpRenderBrowser(cdpUrl: string): Promise<CdpRender
 	});
 	const target = await pageTarget(cdpHttpUrl, created.targetId);
 	const pageSession = await CdpSession.connect(target.webSocketDebuggerUrl!);
-	const temporaryRoot = process.env.SUPERS_CLI_TEMP_DIR ?? tmpdir();
+	const temporaryRoot = readGfxEnvironmentValue(process.env, 'GFX_CLI_TEMP_DIR') ?? tmpdir();
 	await mkdir(temporaryRoot, { recursive: true });
 	const downloadDirectory = await mkdtemp(join(temporaryRoot, 'supers-cli-download-'));
 	const page = new CdpRenderPage({

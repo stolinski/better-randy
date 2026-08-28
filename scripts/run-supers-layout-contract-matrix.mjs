@@ -9,16 +9,22 @@ import {
 	computeRepositoryScopedTreeFingerprint,
 	computeRepositoryTreeFingerprint
 } from '../src/lib/utils/repository-tree-fingerprint.server.ts';
+import { readGfxEnvironmentValue } from '../src/lib/utils/legacy-supers-compatibility.ts';
 import { deriveSupersRenderMatrixManifest } from './derive-supers-render-matrix-manifest.ts';
 import { groupSupersRenderMatrixCoordinates } from './supers-render-matrix-runner.ts';
 
-const BASE_URL = process.env.SUPERS_BASE_URL ?? 'http://localhost:7263';
+const BASE_URL = readGfxEnvironmentValue(process.env, 'GFX_BASE_URL') ?? 'http://localhost:7263';
 const CHROME =
-	process.env.SUPERS_LAYOUT_CONTRACT_CHROME ??
+	readGfxEnvironmentValue(process.env, 'GFX_LAYOUT_CONTRACT_CHROME') ??
 	'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const WAIT_MS = Number(process.env.SUPERS_LAYOUT_CONTRACT_WAIT_MS ?? 60_000);
-const MATRIX_TIMEOUT_MS = Number(process.env.SUPERS_LAYOUT_CONTRACT_TIMEOUT_MS ?? 12 * 60_000);
-const DIAGNOSTIC_PRESET_SLUG = process.env.SUPERS_LAYOUT_CONTRACT_PRESET?.trim() || null;
+const WAIT_MS = Number(
+	readGfxEnvironmentValue(process.env, 'GFX_LAYOUT_CONTRACT_WAIT_MS') ?? 60_000
+);
+const MATRIX_TIMEOUT_MS = Number(
+	readGfxEnvironmentValue(process.env, 'GFX_LAYOUT_CONTRACT_TIMEOUT_MS') ?? 12 * 60_000
+);
+const DIAGNOSTIC_PRESET_SLUG =
+	readGfxEnvironmentValue(process.env, 'GFX_LAYOUT_CONTRACT_PRESET')?.trim() || null;
 const COMMAND_ARGUMENTS = process.argv.slice(2);
 const SUMMARY_ONLY = COMMAND_ARGUMENTS.includes('--summary');
 

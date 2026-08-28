@@ -2,6 +2,8 @@ import { readdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { readGfxEnvironmentValue } from '../src/lib/utils/legacy-supers-compatibility.ts';
+
 /**
  * Visual rubric audit driver.
  *
@@ -39,8 +41,8 @@ const repoRoot = resolve(here, '..');
 const presetDir = resolve(repoRoot, 'src/lib/presets');
 const files = (await readdir(presetDir)).filter((file) => file.endsWith('.json'));
 
-const baseUrl = process.env.SUPERS_DEV_URL ?? 'http://localhost:7263';
-const seekFraction = process.env.SUPERS_AUDIT_SEEK ?? '0.5';
+const baseUrl = readGfxEnvironmentValue(process.env, 'GFX_DEV_URL') ?? 'http://localhost:7263';
+const seekFraction = readGfxEnvironmentValue(process.env, 'GFX_AUDIT_SEEK') ?? '0.5';
 
 const snippet = `(async () => {
   const fraction = ${seekFraction};

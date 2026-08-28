@@ -2,6 +2,8 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { readGfxEnvironmentValue } from '../src/lib/utils/legacy-supers-compatibility.ts';
+
 interface FixtureManifestEntry {
 	name: string;
 	file: string;
@@ -44,7 +46,7 @@ interface MatrixClip {
 	audio: { enabled: boolean; gain: number };
 }
 
-const APP_URL = process.env.SUPERS_URL ?? 'http://localhost:7263';
+const APP_URL = readGfxEnvironmentValue(process.env, 'GFX_URL') ?? 'http://localhost:7263';
 const DURATION_SECONDS = 0.2;
 const CASES: readonly VideoTrackMatrixCase[] = [
 	{

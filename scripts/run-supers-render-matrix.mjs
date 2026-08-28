@@ -4,6 +4,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { PNG } from 'pngjs';
 
+import { readGfxEnvironmentValue } from '../src/lib/utils/legacy-supers-compatibility.ts';
 import { classifyProbeOutputClass } from './_probe-output-class.ts';
 import {
 	accumulateSupersRenderEvidenceBytes,
@@ -19,8 +20,8 @@ import {
 } from './supers-render-matrix-runner.ts';
 
 const CDP_PORT = Number(process.env.CDP_PORT ?? 9223);
-const BASE_URL = process.env.SUPERS_BASE_URL ?? 'http://localhost:7263';
-const WAIT_MS = Number(process.env.SUPERS_RENDER_MATRIX_WAIT_MS ?? 60_000);
+const BASE_URL = readGfxEnvironmentValue(process.env, 'GFX_BASE_URL') ?? 'http://localhost:7263';
+const WAIT_MS = Number(readGfxEnvironmentValue(process.env, 'GFX_RENDER_MATRIX_WAIT_MS') ?? 60_000);
 const REQUIRED_CODES = SUPERS_RENDER_MATRIX_REQUIRED_CHECK_CODES;
 
 function hash(value) {

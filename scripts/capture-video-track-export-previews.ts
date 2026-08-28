@@ -2,6 +2,8 @@ import { spawn } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
+import { readGfxEnvironmentValue } from '../src/lib/utils/legacy-supers-compatibility.ts';
+
 interface MatrixEntry {
 	id: string;
 	format: 'webm' | 'prores';
@@ -15,7 +17,7 @@ interface MatrixManifest {
 	matrix: MatrixEntry[];
 }
 
-const APP_URL = process.env.SUPERS_URL ?? 'http://localhost:7263';
+const APP_URL = readGfxEnvironmentValue(process.env, 'GFX_URL') ?? 'http://localhost:7263';
 
 function runCapture(slug: string, outDirectory: string, samples: readonly number[]): Promise<void> {
 	return new Promise((resolvePromise, reject) => {

@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 
 import type { Page } from 'playwright';
 
+import { readGfxEnvironmentValue } from '../src/lib/utils/legacy-supers-compatibility.ts';
 import { connectCdpRenderBrowser } from './cdp-render-page.ts';
 
 export interface RenderJob {
@@ -20,10 +21,16 @@ export interface PreparedPreset {
 	cleanup: () => Promise<void>;
 }
 
-const APP_URL = process.env.SUPERS_URL ?? 'http://localhost:7263';
-const CDP_URL = process.env.SUPERS_CDP_URL ?? `http://localhost:${process.env.CDP_PORT ?? '9223'}`;
-const RENDER_TIMEOUT_MS = Number(process.env.SUPERS_RENDER_TIMEOUT_MS ?? 10 * 60_000);
-const READY_TIMEOUT_MS = Number(process.env.SUPERS_READY_TIMEOUT_MS ?? 30_000);
+const APP_URL = readGfxEnvironmentValue(process.env, 'GFX_URL') ?? 'http://localhost:7263';
+const CDP_URL =
+	readGfxEnvironmentValue(process.env, 'GFX_CDP_URL') ??
+	`http://localhost:${process.env.CDP_PORT ?? '9223'}`;
+const RENDER_TIMEOUT_MS = Number(
+	readGfxEnvironmentValue(process.env, 'GFX_RENDER_TIMEOUT_MS') ?? 10 * 60_000
+);
+const READY_TIMEOUT_MS = Number(
+	readGfxEnvironmentValue(process.env, 'GFX_READY_TIMEOUT_MS') ?? 30_000
+);
 
 function usage(): never {
 	throw new Error(

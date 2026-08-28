@@ -3,10 +3,11 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PNG } from 'pngjs';
 
+import { readGfxEnvironmentValue } from '../src/lib/utils/legacy-supers-compatibility.ts';
 import { classifyProbeOutputClass } from './_probe-output-class.ts';
 
 const CDP_PORT = Number(process.env.CDP_PORT ?? 9223);
-const BASE_URL = process.env.SUPERS_BASE_URL ?? 'http://localhost:7263';
+const BASE_URL = readGfxEnvironmentValue(process.env, 'GFX_BASE_URL') ?? 'http://localhost:7263';
 const WAIT_MS = Number(process.env.CDP_DETERMINISTIC_WAIT_MS ?? 30000);
 const OUTPUT_ROOT = process.env.CDP_DETERMINISTIC_OUTPUT ?? '.tmp-deterministic-audit';
 const requestedSlugs = process.argv.slice(2);

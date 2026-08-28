@@ -8,6 +8,7 @@ import {
 	TEXT_ANIMATION_TITLE_SCALE_SLOTS,
 	TEXT_EFFECT_CATALOG
 } from '../text-animations/catalog.ts';
+import type { AcceptedCompositionSchemaId } from '../utils/legacy-supers-compatibility.ts';
 import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
 import type { AnnotationBody } from '$lib/annotations/annotation-marks';
 
@@ -1862,7 +1863,16 @@ export function listMarkInstances(content: SurfaceContent): MarkInstance[] {
 	return result;
 }
 
-export const PRESET_SCHEMA_ID = 'supers@1' as const;
+/**
+ * The composition schema id writers emit. Readers accept every id in
+ * `ACCEPTED_COMPOSITION_SCHEMA_IDS` and `PresetIngressSchema` folds them onto
+ * this one, so `PresetSchema` keeps a single literal and nothing downstream
+ * branches on which namespace's spelling arrived (ADR-0053,
+ * `accept-old / write-new`). The `satisfies` tie is what makes the eventual
+ * flip to the GFX spelling a one-value edit that cannot drift from the
+ * accepted set.
+ */
+export const PRESET_SCHEMA_ID = 'supers@1' as const satisfies AcceptedCompositionSchemaId;
 
 /**
  * Pack the Preset is bound to (ADR-0014). The active Pack manifest resolves
