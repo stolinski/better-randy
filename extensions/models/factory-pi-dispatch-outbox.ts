@@ -767,13 +767,15 @@ async function inspectDispatch(
     state.workItem !== identity.workItem ||
     state.stageId !== identity.stage ||
     state.cycles[identity.stage] !== identity.stageCycle ||
-    (dispatch !== undefined && dispatch.cycle !== identity.stageCycle)
+    (dispatch !== undefined && dispatch.cycle > identity.stageCycle)
   ) {
     throw new Error(
       "Pi dispatch identity is stale for the current Factory stage.",
     );
   }
-  const dispatchCount = dispatch?.count ?? 0;
+  const dispatchCount = dispatch?.cycle === identity.stageCycle
+    ? dispatch.count
+    : 0;
   if (dispatchCount === identity.dispatchAttempt - 1) return "before";
   if (dispatchCount !== identity.dispatchAttempt) {
     throw new Error("Pi dispatch attempt is not current or next.");

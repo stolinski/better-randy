@@ -1,4 +1,9 @@
-import { assert, assertEquals, assertRejects } from 'jsr:@std/assert@1.0.19';
+import {
+	assert,
+	assertEquals,
+	assertNotEquals,
+	assertRejects
+} from 'jsr:@std/assert@1.0.19';
 import { ensureDir } from 'jsr:@std/fs@1.0.21';
 import { join } from 'jsr:@std/path@1.1.4';
 
@@ -83,6 +88,7 @@ async function fixture(): Promise<{
 	setRunChildId: (runId: string, childRunId: string) => Promise<void>;
 	setRunCwd: (runId: string, cwd: string) => Promise<void>;
 	setFactoryStartedAt: (startedAt: string) => void;
+	setFactoryStageCycle: (stageCycle: number) => void;
 	removeRun: (runId: string) => Promise<void>;
 	cleanup: () => Promise<void>;
 	request: Record<string, unknown>;
@@ -94,6 +100,7 @@ async function fixture(): Promise<{
 	await ensureDir(sessionRoot);
 	const resources = new Map<string, Record<string, unknown>>();
 	let dispatchCount = 0;
+	let factoryStageCycle = 1;
 	let factoryStartedAt = '2026-08-20T00:00:00.000Z';
 	const work = {
 		mode: 'dispatch',
@@ -135,7 +142,7 @@ async function fixture(): Promise<{
 							workItem: 'task-1',
 							stageId: 'implementation',
 							startedAt: factoryStartedAt,
-							cycles: { implementation: 1 },
+							cycles: { implementation: factoryStageCycle },
 							dispatches: {
 								implementation: { cycle: 1, count: dispatchCount }
 							}
@@ -145,8 +152,10 @@ async function fixture(): Promise<{
 					return Promise.resolve(
 						encode({
 							workItem: 'task-1',
-							stage: { id: 'implementation', cycle: 1 },
-							dispatch: { attempts: dispatchCount },
+							stage: { id: 'implementation', cycle: factoryStageCycle },
+							dispatch: {
+								attempts: factoryStageCycle === 1 ? dispatchCount : 0
+							},
 							work
 						})
 					);
@@ -353,6 +362,9 @@ async function fixture(): Promise<{
 		setFactoryStartedAt: (startedAt) => {
 			factoryStartedAt = startedAt;
 		},
+		setFactoryStageCycle: (stageCycle) => {
+			factoryStageCycle = stageCycle;
+		},
 		removeRun: (runId) => Deno.remove(join(asyncRoot, runId), { recursive: true }),
 		cleanup: () => Deno.remove(root, { recursive: true })
 	};
@@ -398,6 +410,16 @@ Deno.test('1 failed reservation validation consumes no Factory attempt', () =>
 	withFixture(async (f) => {
 		await assertRejects(() => f.reserve({ piTaskDigest: '0'.repeat(64) }), Error, 'digests');
 		assertEquals(f.resources.size, 0);
+	})
+);
+Deno.test('new Factory cycle ignores prior-cycle dispatch accounting', () =>
+	withFixture(async (f) => {
+		const first = await f.reserve();
+		f.setDispatched();
+		f.setFactoryStageCycle(2);
+		const second = await f.reserve({ stageCycle: 2 });
+		assertEquals(second.state, 'reserved');
+		assertNotEquals(second.dispatchToken, first.dispatchToken);
 	})
 );
 Deno.test('configured profile name must match the trusted current model identity', () =>
