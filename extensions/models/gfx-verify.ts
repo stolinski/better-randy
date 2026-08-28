@@ -111,7 +111,14 @@ function buildSuiteCommand(
 					JSON.stringify(appPaths),
 				];
 		case "extensions":
-			return [swampDenoPath(), "test", "--allow-read", "extensions/models/"];
+			// --allow-env=HOME: the suite under test resolves ~/.swamp/deno/deno.
+			return [
+				swampDenoPath(),
+				"test",
+				"--allow-read",
+				"--allow-env=HOME",
+				"extensions/models/",
+			];
 	}
 }
 
