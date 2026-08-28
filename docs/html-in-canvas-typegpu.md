@@ -220,6 +220,29 @@ This is the cleanest way to keep existing 2D-canvas drawing code working while m
 - `opacity: 0` — keeps paint records but `drawElementImage` produces zero-alpha pixels.
 - The right answer for the canonical WebGPU pattern is **don't hide it** — it IS the visible canvas. If a multi-canvas setup is ever required, use offscreen positioning (`transform: translate(200%)`) — that preserves paint records and the bitmap.
 
+## Standard browsers without HTML-in-Canvas
+
+The public gfx.computer demo ([ADR-0052](adr/0052-public-runtime-and-retention-architecture.md)) runs on stock Chrome, where `copyElementImageToTexture` and `requestPaint` are both absent and the `layoutsubtree` children are never laid out or painted — the canvas comes out uniformly blank. The live probe that measured this and selected the fallback is [`standard-browser-rendering-probe.md`](standard-browser-rendering-probe.md).
+
+Two capture lanes therefore exist, chosen by explicit capability detection in `selectDomFrameCaptureMode` (`src/lib/platform/standard-browser-dom-capture.ts`) and resolved once per session:
+
+- `canvas-draw-element` — the WICG lane described above. Requires **both** `GPUQueue.copyElementImageToTexture` and `HTMLCanvasElement.requestPaint`; half-support takes the other lane.
+- `dom-rasterization` — native-resolution DOM clone rasterization with `html2canvas` (`rasterizeCompositionDomElement` in `src/lib/platform/composition-dom-rasterizer.ts`).
+
+A browser with neither lane throws instead of rendering blank. The resolved lane is published on `window.__gfxDomFrameCaptureMode` for browser verification.
+
+What the rasterization lane keeps identical to the WICG lane:
+
+- **Timestamp ownership.** The rasterizer reads whatever the timeline already wrote to the DOM; it never advances animation. Preview and export still seek first, then request a paint.
+- **The paint contract.** `StandardBrowserDomCaptureScheduler.requestPaint` rasterizes every direct canvas child at the canvas's native bitmap size, commits those rasters as one atomic set, and then dispatches the same paint event, so `CanvasPaintGenerationTracker` and `settleCompositionPaint` work unchanged. A burst of requests during one raster collapses onto a single follow-up pass; a failed or aborted pass publishes nothing and rejects rather than settling on a stale frame.
+- **GPU upload ordering.** The upload still happens inside the frame's own render pass through `getDomFrameCaptureQueue().captureElementToTexture(...)` — `copyExternalImageToTexture` with `premultipliedAlpha: false`, so the straight-alpha rgba8 the premultiply and compose passes expect is unchanged.
+- **Transparency.** The raster is taken with `backgroundColor: null`. A declared `backgroundFill` still arrives from the effect chain, so the lane never paints a background the composition did not ask for.
+- **Font readiness.** The rasterizer awaits `fontsReady()` before every capture, so a standard-browser frame cannot contain OS-fallback glyphs.
+
+The clone is required, not incidental: the source element inside the canvas has no layout in a standard browser, so the clone is mounted `position: fixed` at native size (fixed positioning keeps a 3840×2160 element out of the document's scrollable overflow) with the source's resolved custom properties copied onto it, then removed. It must stay visible — an opacity or visibility trick rasterizes to an empty frame, the same failure mode as the canonical lane.
+
+Cost and reach measured by the probe: 191–208 ms per native frame, 91–98% pixel agreement with native rendering of the same DOM. That suits correctness-first export and low-rate preview, not 30/60 fps playback.
+
 ## Test discipline
 
 - Chrome's html-in-canvas behavior is undocumented in edge cases (size limits, bitmap vs compositor, snapshot semantics). When something behaves unexpectedly, **probe in DevTools console with `getImageData` and prototype enumeration before refactoring code**. One probe answers a question; refactoring on a hunch wastes hours.

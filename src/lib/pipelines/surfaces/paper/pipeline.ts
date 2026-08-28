@@ -9,7 +9,7 @@ import {
 import { drawDiagramStrokes, getDiagramNodeLayouts } from '$lib/annotations/diagram-strokes';
 import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
 import { createChartMarkRenderer } from '$lib/pipelines/shader-passes/chart-mark-renderer';
-import { getHtmlInCanvasQueue } from '$lib/platform/html-in-canvas';
+import { getDomFrameCaptureQueue } from '$lib/platform/html-in-canvas';
 import { requireLoadedAnnotationRenderer } from '$lib/platform/pipelines/runtime-loader';
 import type { SurfaceRenderInputs, SurfaceRenderInstance } from '$lib/platform/pipelines/types';
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
@@ -822,10 +822,10 @@ export function createPaperPipeline({
 		.withFragment(composeFragmentFn, { format: INTERMEDIATE_FORMAT })
 		.createPipeline();
 
-	const htmlQueue = getHtmlInCanvasQueue(device.queue);
+	const domFrameCaptureQueue = getDomFrameCaptureQueue(device.queue);
 
 	function uploadDom(): void {
-		htmlQueue.copyElementImageToTexture(sourceElement, canvasWidth, canvasHeight, {
+		domFrameCaptureQueue.captureElementToTexture(sourceElement, canvasWidth, canvasHeight, {
 			texture: domTexture
 		});
 	}

@@ -1,6 +1,6 @@
 import tgpu, { d } from 'typegpu';
 
-import { getHtmlInCanvasQueue } from '$lib/platform/html-in-canvas';
+import { getDomFrameCaptureQueue } from '$lib/platform/html-in-canvas';
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
 
 // Depth-of-field multiplane capture (ADR-0027). The composition is captured as
@@ -8,7 +8,7 @@ import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
 // `.composition` is surface-only while the Composition plane-split is on) and the
 // Overlay plane (the Overlay-root sibling DOM rasterized on its own) — so a bokeh
 // DOF stage can blur each by its circle of confusion and composite back-to-front.
-// `copyElementImageToTexture` only rasterizes the canvas's *direct* layoutsubtree
+// Both capture lanes only rasterize the canvas's *direct* layoutsubtree
 // children, so each plane source is a direct child, never a nested wrapper. v1 is
 // Surface + one Overlay plane; per-overlay-instance planes by z are the extension.
 //
@@ -69,8 +69,8 @@ const fullScreenVertexFn = tgpu['~unstable'].vertexFn({
 	);
 }`;
 
-// Premultiply pass: the DOM rasterization (`copyElementImageToTexture`) is
-// straight-alpha rgba8; the planes composite premultiplied, so convert here.
+// Premultiply pass: the DOM rasterization is straight-alpha rgba8 in both
+// capture lanes; the planes composite premultiplied, so convert here.
 const premultiplyLayout = tgpu.bindGroupLayout({
 	domTexture: { texture: d.texture2d(d.f32) },
 	samp: { sampler: 'filtering' }
@@ -371,7 +371,7 @@ export class CompositionPlanes {
 	#overlayDomTexture: GPUTexture;
 	#overlayPlaneTexture: GPUTexture;
 	#compositeTexture: GPUTexture;
-	#htmlQueue: ReturnType<typeof getHtmlInCanvasQueue>;
+	#domFrameCaptureQueue: ReturnType<typeof getDomFrameCaptureQueue>;
 	// Built in the constructor as closures over the compiled pipelines — same
 	// pattern as `compileEffect` in effect-chain.ts, so TypeGPU's generic
 	// pipeline/buffer types stay inferred rather than named on class fields.
@@ -474,7 +474,7 @@ export class CompositionPlanes {
 				.draw(3);
 		};
 
-		this.#htmlQueue = getHtmlInCanvasQueue(device.queue);
+		this.#domFrameCaptureQueue = getDomFrameCaptureQueue(device.queue);
 	}
 
 	/** Rasterize the Overlay-root element into the overlay DOM texture. It is a
@@ -482,7 +482,7 @@ export class CompositionPlanes {
 	 *  in composition space (aligned with the surface plane). Queue-ordered ahead of
 	 *  the composite, mirroring the surface pipeline's uploadDom→render order. */
 	captureOverlay(element: HTMLElement): void {
-		this.#htmlQueue.copyElementImageToTexture(element, this.#width, this.#height, {
+		this.#domFrameCaptureQueue.captureElementToTexture(element, this.#width, this.#height, {
 			texture: this.#overlayDomTexture
 		});
 	}

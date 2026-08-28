@@ -1,3 +1,12 @@
+// The DOM-to-GPU capture seam, in both browser lanes.
+//
+// `getHtmlInCanvasQueue` and the `requestPaint` helpers below are the WICG
+// HTML-in-Canvas lane. `getDomFrameCaptureQueue` and the paint helpers are the
+// lane-neutral seam every render path uses: on a supported standard browser they
+// route to the DOM-rasterization lane in `./standard-browser-dom-capture`
+// instead. Which lane runs is explicit capability detection, never a silent
+// downgrade.
+//
 // The WICG HTML-in-Canvas capture API (`GPUQueue.copyElementImageToTexture`)
 // is experimental and its signature has DRIFTED across Chrome builds:
 //   - legacy form:      copyElementImageToTexture(element, width, height, { texture })
@@ -12,6 +21,13 @@
 // The adapter below detects which form the running browser speaks on first
 // call and caches it, so every render path works in both without per-frame
 // overhead.
+
+import {
+	resolveDomFrameCaptureMode,
+	standardBrowserDomCapture,
+	type DomFrameCaptureMode,
+	type StandardBrowserDomCaptureScheduler
+} from './standard-browser-dom-capture';
 
 export interface HtmlInCanvasQueue {
 	copyElementImageToTexture(
@@ -81,8 +97,74 @@ export function getHtmlInCanvasQueue(queue: GPUQueue): HtmlInCanvasQueue {
 	};
 }
 
+export interface DomFrameCaptureQueue {
+	readonly mode: DomFrameCaptureMode;
+	/** Upload the element's current native-resolution frame into `destination`.
+	 *  Queue-ordered ahead of the frame's own draw calls, in both lanes. */
+	captureElementToTexture(
+		element: Element,
+		width: number,
+		height: number,
+		destination: { texture: GPUTexture }
+	): void;
+}
+
+export interface DomFrameCaptureQueueOptions {
+	mode?: DomFrameCaptureMode;
+	capture?: StandardBrowserDomCaptureScheduler;
+}
+
+/**
+ * The capture queue every Surface Pipeline and plane capture uses. In the WICG
+ * lane the browser rasterizes the live element; in the standard lane the frame
+ * was already rasterized by the paint tick, so this uploads that exact raster.
+ *
+ * Both lanes deliver straight-alpha rgba8 into a texture the caller owns, so the
+ * premultiply and compose passes downstream are identical.
+ */
+export function getDomFrameCaptureQueue(
+	queue: GPUQueue,
+	{
+		mode = resolveDomFrameCaptureMode(),
+		capture = standardBrowserDomCapture
+	}: DomFrameCaptureQueueOptions = {}
+): DomFrameCaptureQueue {
+	if (mode === 'canvas-draw-element') {
+		const htmlQueue = getHtmlInCanvasQueue(queue);
+		return {
+			mode,
+			captureElementToTexture(element, width, height, destination): void {
+				htmlQueue.copyElementImageToTexture(element, width, height, destination);
+			}
+		};
+	}
+
+	return {
+		mode,
+		captureElementToTexture(element, width, height, destination): void {
+			const raster = capture.readElementRaster(element);
+			if (!raster) {
+				throw new Error(
+					'No standard-browser composition raster is prepared for this element. Request a composition paint before rendering the frame.'
+				);
+			}
+			queue.copyExternalImageToTexture(
+				{ source: raster, flipY: false },
+				{ texture: destination.texture, premultipliedAlpha: false },
+				[width, height]
+			);
+		}
+	};
+}
+
 export function requestCanvasPaint(canvas: HTMLCanvasElement): void {
-	canvas.requestPaint?.();
+	if (resolveDomFrameCaptureMode() === 'canvas-draw-element') {
+		canvas.requestPaint?.();
+		return;
+	}
+	void standardBrowserDomCapture.requestPaint(canvas).catch((error: unknown) => {
+		console.error('Standard-browser composition paint failed.', error);
+	});
 }
 
 export interface HtmlInCanvasPaintEvent extends Event {
@@ -139,12 +221,15 @@ export class CanvasPaintGenerationTracker {
 		if (signal?.aborted) {
 			return Promise.reject(signal.reason);
 		}
+		const mode = resolveDomFrameCaptureMode();
 		const requestPaint = canvas.requestPaint;
-		if (typeof requestPaint !== 'function') {
-			return Promise.reject(new Error('HTML-in-Canvas requestPaint is unavailable in this browser.'));
+		if (mode === 'canvas-draw-element' && typeof requestPaint !== 'function') {
+			return Promise.reject(
+				new Error('HTML-in-Canvas requestPaint is unavailable in this browser.')
+			);
 		}
 
-		return new Promise<void>((resolve, reject) => {
+		const settled = new Promise<void>((resolve, reject) => {
 			const settle = (): void => {
 				signal?.removeEventListener('abort', abort);
 				resolve();
@@ -155,8 +240,18 @@ export class CanvasPaintGenerationTracker {
 			};
 			this.#waiters.add(settle);
 			signal?.addEventListener('abort', abort, { once: true });
-			requestPaint.call(canvas);
 		});
+
+		if (mode === 'canvas-draw-element') {
+			requestPaint?.call(canvas);
+			return settled;
+		}
+		// A rasterization that fails must reject the waiter rather than leave an
+		// export stalled on a paint that will never settle.
+		return Promise.race([
+			settled,
+			standardBrowserDomCapture.requestPaint(canvas, signal).then(() => settled)
+		]);
 	}
 }
 
@@ -164,9 +259,17 @@ export function setCanvasPaintHandler(
 	canvas: HTMLCanvasElement,
 	handler: CanvasPaintHandler
 ): void {
-	(canvas as HTMLCanvasElement & { onpaint: CanvasPaintHandler }).onpaint = handler;
+	if (resolveDomFrameCaptureMode() === 'canvas-draw-element') {
+		(canvas as HTMLCanvasElement & { onpaint: CanvasPaintHandler }).onpaint = handler;
+		return;
+	}
+	standardBrowserDomCapture.setPaintHandler(canvas, handler);
 }
 
 export function clearCanvasPaintHandler(canvas: HTMLCanvasElement): void {
-	(canvas as HTMLCanvasElement & { onpaint: (() => void) | null }).onpaint = null;
+	if (resolveDomFrameCaptureMode() === 'canvas-draw-element') {
+		(canvas as HTMLCanvasElement & { onpaint: (() => void) | null }).onpaint = null;
+		return;
+	}
+	standardBrowserDomCapture.clearPaintHandler(canvas);
 }
