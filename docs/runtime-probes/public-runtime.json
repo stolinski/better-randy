@@ -1,0 +1,230 @@
+{
+	"schemaVersion": 1,
+	"generatedAt": "2026-08-28T16:02:46.608Z",
+	"probe": "public-runtime-and-retention",
+	"origin": "http://localhost:7299",
+	"host": {
+		"node": "v25.2.1",
+		"platform": "darwin",
+		"arch": "arm64",
+		"cpuCount": 8,
+		"totalMemoryBytes": 8589934592
+	},
+	"readiness": {
+		"ready": true,
+		"release": null,
+		"ffmpeg": {
+			"ok": true,
+			"path": "ffmpeg",
+			"version": "ffmpeg version 8.0.1 Copyright (c) 2000-2025 the FFmpeg developers",
+			"missingEncoders": [],
+			"failure": null
+		},
+		"temporaryDisk": {
+			"ok": true,
+			"path": "/var/folders/x1/klnfs1qn5g93zj76632x66r00000gn/T",
+			"writable": true,
+			"freeBytes": 53680410624,
+			"requiredBytes": 8589934592,
+			"failure": null
+		}
+	},
+	"health": {
+		"status": 200,
+		"body": {
+			"status": "ready",
+			"release": "gfx@probe",
+			"checks": {
+				"ffmpeg": "ok",
+				"temporaryDisk": "ok"
+			}
+		}
+	},
+	"deploymentInputs": {
+		"inventory": [
+			{
+				"name": "FFMPEG_PATH",
+				"owner": "gfx",
+				"required": false
+			},
+			{
+				"name": "GFX_EXPORT_TEMPORARY_DIRECTORY",
+				"owner": "gfx",
+				"required": false
+			},
+			{
+				"name": "GFX_EXPORT_SESSION_IDLE_TIMEOUT_MS",
+				"owner": "gfx",
+				"required": false
+			},
+			{
+				"name": "GFX_EXPORT_MAX_CONCURRENT_SESSIONS",
+				"owner": "gfx",
+				"required": false
+			},
+			{
+				"name": "GFX_RELEASE",
+				"owner": "gfx",
+				"required": false
+			},
+			{
+				"name": "SENTRY_DSN",
+				"owner": "gfx",
+				"required": false
+			},
+			{
+				"name": "ORIGIN",
+				"owner": "adapter",
+				"required": true
+			},
+			{
+				"name": "PORT",
+				"owner": "adapter",
+				"required": false
+			},
+			{
+				"name": "HOST",
+				"owner": "adapter",
+				"required": false
+			},
+			{
+				"name": "BODY_SIZE_LIMIT",
+				"owner": "adapter",
+				"required": true
+			},
+			{
+				"name": "SHUTDOWN_TIMEOUT",
+				"owner": "adapter",
+				"required": false
+			}
+		],
+		"verifiedOnHost": {
+			"bodySizeLimitAcceptsNativeFrame": true,
+			"releaseReportedByHealth": true
+		}
+	},
+	"serverNodeBuiltins": [
+		"node:child_process",
+		"node:crypto",
+		"node:fs",
+		"node:fs/promises",
+		"node:os",
+		"node:path",
+		"node:stream",
+		"node:util"
+	],
+	"exportLanes": [
+		{
+			"format": "prores",
+			"opaque": true,
+			"frameCount": 8,
+			"width": 3840,
+			"height": 2160,
+			"hasAudio": true,
+			"uploadMs": 151,
+			"completeMs": 883,
+			"outputBytes": 13358746,
+			"outputBytesPerFrame": 1669843,
+			"ratifiedBytesPerFrame": 1750000,
+			"withinRatifiedBytesPerFrame": true,
+			"download": {
+				"status": 200,
+				"contentType": "video/quicktime",
+				"cacheControl": "no-store",
+				"contentLength": 13358746,
+				"acceptRanges": null,
+				"bytesReceived": 13358746,
+				"rangeRequestHonoured": false
+			},
+			"decoded": {
+				"videoCodec": "prores",
+				"pixelFormat": "yuva444p12le",
+				"width": 3840,
+				"height": 2160,
+				"audioCodec": "pcm_s16le",
+				"durationSeconds": 0.266667
+			},
+			"retention": {
+				"exportDirectoriesAfter": 0,
+				"outputReadableAfterDownload": false
+			}
+		},
+		{
+			"format": "webm",
+			"opaque": false,
+			"frameCount": 8,
+			"width": 3840,
+			"height": 2160,
+			"hasAudio": false,
+			"uploadMs": 135,
+			"completeMs": 2712,
+			"outputBytes": 3555492,
+			"outputBytesPerFrame": 444437,
+			"ratifiedBytesPerFrame": 470000,
+			"withinRatifiedBytesPerFrame": true,
+			"download": {
+				"status": 200,
+				"contentType": "video/webm",
+				"cacheControl": "no-store",
+				"contentLength": 3555492,
+				"acceptRanges": null,
+				"bytesReceived": 3555492,
+				"rangeRequestHonoured": false
+			},
+			"decoded": {
+				"videoCodec": "vp9",
+				"pixelFormat": "yuv420p",
+				"width": 3840,
+				"height": 2160,
+				"audioCodec": null,
+				"durationSeconds": 0.266
+			},
+			"retention": {
+				"exportDirectoriesAfter": 0,
+				"outputReadableAfterDownload": false
+			}
+		}
+	],
+	"cancellation": {
+		"cancelledAfterFrames": 2,
+		"cancelStatus": 204,
+		"ffmpegChildrenAfterCancel": 0,
+		"exportDirectoriesAfter": 0,
+		"sessionGone": true,
+		"elapsedMs": 6
+	},
+	"concurrency": {
+		"sessions": 2,
+		"wallClockMs": 3090,
+		"allCompleted": true,
+		"exportDirectoriesAfter": 0
+	},
+	"limits": {
+		"ratified": {
+			"maxDurationSeconds": 15,
+			"maxFrameRate": 60,
+			"maxFrameCount": 900,
+			"maxFrameBytes": 67108864,
+			"maxAudioBytes": 8388608,
+			"maxOutputBytes": 2147483648,
+			"maxConcurrentSessions": 2,
+			"sessionIdleTimeoutMs": 900000,
+			"sessionMaxLifetimeMs": 1800000,
+			"requiredTemporaryDiskBytes": 8589934592
+		},
+		"ratifiedOutputBytesPerFrame": {
+			"webm": 470000,
+			"prores": 1750000
+		},
+		"worstCaseSessionOutputBytes": {
+			"webm": 423000000,
+			"prores": 1575000000
+		},
+		"temporaryDiskFreeBytes": 53680410624,
+		"requiredTemporaryDiskBytes": 8589934592
+	},
+	"retention": {
+		"exportDirectoriesAtEnd": 0,
+		"ffmpegChildrenAtEnd": 0
+	}
+}

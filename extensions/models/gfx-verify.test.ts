@@ -8,13 +8,9 @@ function silentContext() {
 	return {
 		repoDir: "/tmp",
 		logger: { info: () => {} },
-		writeResource: (
-			_spec: string,
-			name: string,
-			_data: Record<string, unknown>,
-		) => Promise.resolve({ name }),
+		writeResource: (_spec: string, name: string) => Promise.resolve({ name }),
 		createFileWriter: (_spec: string, name: string) => ({
-			writeText: (_text: string) => Promise.resolve({ name }),
+			writeText: () => Promise.resolve({ name }),
 		}),
 	};
 }

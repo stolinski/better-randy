@@ -13,7 +13,7 @@ const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 export default defineConfig(
 	includeIgnoreFile(gitignorePath),
 	{
-		ignores: ['docs-site/**', 'worker-configuration.d.ts']
+		ignores: ['docs-site/**']
 	},
 	js.configs.recommended,
 	ts.configs.recommended,

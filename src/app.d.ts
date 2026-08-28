@@ -27,13 +27,9 @@ declare global {
 	}
 
 	namespace App {
-		interface Platform {
-			env: Env;
-			ctx: ExecutionContext;
-			caches: CacheStorage;
-			cf?: IncomingRequestCfProperties;
-		}
-
+		// No `Platform`: the public runtime is a plain Node server (ADR-0052),
+		// so request handlers get Node APIs directly rather than an edge binding
+		// object.
 		// interface Error {}
 		// interface Locals {}
 		// interface PageData {}

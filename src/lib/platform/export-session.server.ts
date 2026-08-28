@@ -10,6 +10,10 @@ import * as Sentry from '@sentry/sveltekit';
 import { createReadableStream } from '@sveltejs/kit/node';
 
 import {
+	parsePublicRuntimeConfig,
+	PUBLIC_EXPORT_RUNTIME_LIMITS
+} from '$lib/platform/public-runtime-contract';
+import {
 	dropTimecodeToFrames,
 	formatFrameRateRational,
 	isDropTimecode,
@@ -77,7 +81,6 @@ interface ExportSessionStoreOptions {
 
 const PNG_SIGNATURE = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 const EXPORT_DIRECTORY_PREFIX = 'supers-export-';
-const DEFAULT_SESSION_TTL_MS = 15 * 60 * 1000;
 const MAX_FRAME_BYTES = 128 * 1024 * 1024;
 const MAX_FRAME_COUNT = 10_000_000;
 
@@ -298,6 +301,32 @@ function outputDetails(format: ExportSessionFormat): {
 		: { filename: 'output.mov', contentType: 'video/quicktime' };
 }
 
+/**
+ * Shape and cost of a requested export — never content, filenames, paths, or
+ * session identities. Every key must stay inside
+ * `PUBLIC_EXPORT_TELEMETRY_ATTRIBUTE_KEYS` (ADR-0052).
+ */
+export function exportSessionRequestTelemetry(
+	request: ExportSessionRequest
+): Record<string, string | number | boolean> {
+	return {
+		'export.format': request.format,
+		'export.fps': formatFrameRateRational(resolveFrameRate(request.fps)),
+		'export.frames': request.frameCount,
+		'export.audio_bytes': request.audioBytes,
+		'export.opaque': request.opaque,
+		'export.has_timecode': request.startTimecode !== undefined
+	};
+}
+
+/** Encode cost of a finished export, under the same redaction rule. */
+export function exportSessionEncodeTelemetry(
+	encodeMs: number,
+	outputBytes: number
+): Record<string, number> {
+	return { 'export.ffmpeg_ms': encodeMs, 'export.output_bytes': outputBytes };
+}
+
 export class ExportSessionStore {
 	readonly #sessions = new Map<string, ExportSession>();
 	readonly #temporaryDirectory: string;
@@ -307,23 +336,18 @@ export class ExportSessionStore {
 	readonly #spawnEncoder: typeof spawn;
 
 	constructor(options: ExportSessionStoreOptions = {}) {
-		this.#temporaryDirectory = options.temporaryDirectory ?? tmpdir();
-		this.#ffmpegPath = options.ffmpegPath ?? process.env.FFMPEG_PATH ?? 'ffmpeg';
-		this.#ttlMs = options.ttlMs ?? DEFAULT_SESSION_TTL_MS;
+		const runtime = parsePublicRuntimeConfig(process.env);
+		this.#temporaryDirectory =
+			options.temporaryDirectory ?? runtime.exportTemporaryDirectory ?? tmpdir();
+		this.#ffmpegPath = options.ffmpegPath ?? runtime.ffmpegPath;
+		this.#ttlMs = options.ttlMs ?? runtime.exportSessionIdleTimeoutMs;
 		this.#now = options.now ?? Date.now;
 		this.#spawnEncoder = options.spawnEncoder ?? spawn;
 	}
 
 	async create(value: unknown): Promise<CreatedExportSession> {
 		const request = parseExportSessionRequest(value);
-		Sentry.getActiveSpan()?.setAttributes({
-			'export.format': request.format,
-			'export.fps': formatFrameRateRational(resolveFrameRate(request.fps)),
-			'export.frames': request.frameCount,
-			'export.audio_bytes': request.audioBytes,
-			'export.opaque': request.opaque,
-			'export.has_timecode': request.startTimecode !== undefined
-		});
+		Sentry.getActiveSpan()?.setAttributes(exportSessionRequestTelemetry(request));
 		const id = randomUUID();
 		const workDir = join(this.#temporaryDirectory, `${EXPORT_DIRECTORY_PREFIX}${id}`);
 		await mkdir(workDir, { recursive: false });
@@ -489,10 +513,12 @@ export class ExportSessionStore {
 			if (!output.isFile() || output.size === 0) {
 				throw new ExportSessionError(500, 'ffmpeg did not produce an export output.');
 			}
-			Sentry.getActiveSpan()?.setAttributes({
-				'export.ffmpeg_ms': session.encodeStartedAt ? Date.now() - session.encodeStartedAt : 0,
-				'export.output_bytes': output.size
-			});
+			Sentry.getActiveSpan()?.setAttributes(
+				exportSessionEncodeTelemetry(
+					session.encodeStartedAt ? Date.now() - session.encodeStartedAt : 0,
+					output.size
+				)
+			);
 			session.status = 'ready';
 			return { downloadUrl: `/api/export/sessions/${id}/output` };
 		} catch (cause) {
@@ -693,10 +719,10 @@ export class ExportSessionStore {
 	}
 }
 
-/** Remove abandoned directories left by a terminated local dev-server process. */
+/** Remove abandoned directories left by a terminated server process. */
 export async function cleanupOrphanedExportDirectories(
 	temporaryDirectory = tmpdir(),
-	olderThanMs = DEFAULT_SESSION_TTL_MS,
+	olderThanMs = PUBLIC_EXPORT_RUNTIME_LIMITS.sessionIdleTimeoutMs,
 	now = Date.now()
 ): Promise<number> {
 	let entries;
@@ -720,6 +746,12 @@ export async function cleanupOrphanedExportDirectories(
 }
 
 export const exportSessionStore = new ExportSessionStore();
-void cleanupOrphanedExportDirectories().catch((error) =>
-	console.error('Orphaned export directory cleanup failed.', error)
-);
+{
+	// Startup sweep in the configured temp location, so a restarted host inherits
+	// no output from the process it replaced (ADR-0052).
+	const runtime = parsePublicRuntimeConfig(process.env);
+	void cleanupOrphanedExportDirectories(
+		runtime.exportTemporaryDirectory ?? tmpdir(),
+		runtime.exportSessionIdleTimeoutMs
+	).catch((error) => console.error('Orphaned export directory cleanup failed.', error));
+}

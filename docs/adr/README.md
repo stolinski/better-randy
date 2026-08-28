@@ -62,6 +62,7 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 | [0049](0049-lazy-pipeline-renderer-loading.md)                   | Canon (built)                                             | Synchronous Pipeline definitions with Preset-scoped lazy renderer loading                   |
 | [0050](0050-layout-contract-verification.md)                     | Build-harness (built)                                     | Geometry-first exhaustive Layout Contract verification; pixel capture is diagnostic only   |
 | [0051](0051-pipeline-defined-dimensional-stage-geometry.md)      | Designed, not built                                       | TypeGPU-native Pipeline geometry evolves the existing Dimensional Stage in place             |
+| [0052](0052-public-runtime-and-retention-architecture.md)        | Canon (ratified; deployment pending)                      | Node/ffmpeg public origin, Cloudflare as DNS/proxy only, bounded export, zero content retention |
 
 ## Supersession And Refinement
 
