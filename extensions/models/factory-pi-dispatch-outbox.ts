@@ -892,30 +892,36 @@ async function sessionContainsExactTask(
   sessionFile: string,
   expectedTransportTask: string,
   sessionRoots: readonly string[],
-): Promise<{ digest: string } | null> {
+): Promise<{ digest: string; childRunIds: string[] } | null> {
   const actual = await realpath(sessionFile);
   if (!sessionRoots.some((root) => isWithin(actual, root))) {
     throw new Error("Pi session file is outside the durable session root.");
   }
   const bytes = new Uint8Array(await readFile(actual));
-  const decoder = new TextDecoder();
-  const matchingMessages = decoder
-    .decode(bytes)
-    .split("\n")
-    .filter((line) => {
-      try {
-        const entry = JSON.parse(line) as {
-          type?: unknown;
-          message?: { role?: unknown; content?: unknown };
-        };
-        if (
-          entry.type !== "message" ||
-          entry.message?.role !== "user" ||
-          !Array.isArray(entry.message.content)
-        ) {
-          return false;
-        }
-        return entry.message.content.some(
+  let matchingMessages = 0;
+  const childRunIds = new Set<string>();
+  for (const line of new TextDecoder().decode(bytes).split("\n")) {
+    try {
+      const entry = JSON.parse(line) as {
+        type?: unknown;
+        name?: unknown;
+        message?: { role?: unknown; content?: unknown };
+      };
+      if (entry.type === "session_info" && typeof entry.name === "string") {
+        const match = /^subagent-worker-([A-Za-z0-9-]{8,128})-[1-9]\d*$/.exec(
+          entry.name,
+        );
+        if (match?.[1]) childRunIds.add(match[1]);
+      }
+      if (
+        entry.type !== "message" ||
+        entry.message?.role !== "user" ||
+        !Array.isArray(entry.message.content)
+      ) {
+        continue;
+      }
+      if (
+        entry.message.content.some(
           (part) =>
             typeof part === "object" &&
             part !== null &&
@@ -932,12 +938,17 @@ async function sessionContainsExactTask(
                 )
               );
             })(),
-        );
-      } catch {
-        return false;
+        )
+      ) {
+        matchingMessages += 1;
       }
-    });
-  return matchingMessages.length === 1 ? { digest: await sha256(bytes) } : null;
+    } catch {
+      // Ignore incomplete or non-JSON lines while the live session is appended.
+    }
+  }
+  return matchingMessages === 1 && childRunIds.size <= 1
+    ? { digest: await sha256(bytes), childRunIds: [...childRunIds] }
+    : null;
 }
 
 async function readContainedJson(
@@ -1369,14 +1380,20 @@ export async function inspectPiRuntimeReceipts(
         continue;
       }
       const step = parsed.data.steps[0]!;
-      const requestedMatchKind = requestedPiRunId === undefined
-        ? undefined
-        : parsed.data.runId === requestedPiRunId
-        ? ("outer" as const)
-        : step.runId === requestedPiRunId
-        ? ("child" as const)
-        : undefined;
-      if (requestedPiRunId && requestedMatchKind === undefined) continue;
+      let requestedMatchKind: "outer" | "child" | undefined =
+        requestedPiRunId === undefined
+          ? undefined
+          : parsed.data.runId === requestedPiRunId
+          ? "outer"
+          : step.runId === requestedPiRunId
+          ? "child"
+          : undefined;
+      if (
+        requestedPiRunId && requestedMatchKind === undefined &&
+        !step.sessionFile
+      ) {
+        continue;
+      }
       if (!step.sessionFile) {
         if (
           requestedMatchKind &&
@@ -1399,7 +1416,7 @@ export async function inspectPiRuntimeReceipts(
         }
         continue;
       }
-      let session: { digest: string } | null;
+      let session: { digest: string; childRunIds: string[] } | null;
       try {
         session = await sessionContainsExactTask(
           step.sessionFile,
@@ -1454,6 +1471,18 @@ export async function inspectPiRuntimeReceipts(
             })))
         ) {
           relevantArtifactInvalid = true;
+        }
+        continue;
+      }
+      if (
+        requestedPiRunId && requestedMatchKind === undefined &&
+        session.childRunIds.includes(requestedPiRunId)
+      ) {
+        requestedMatchKind = "child";
+      }
+      if (requestedPiRunId && requestedMatchKind === undefined) {
+        if (["queued", "running"].includes(parsed.data.state)) {
+          requestedLifecyclePending = true;
         }
         continue;
       }
@@ -2452,6 +2481,7 @@ export async function claimPiExecution(
   );
   if (
     !inspected.available ||
+    inspected.relevantArtifactInvalid ||
     inspected.receipts.length !== 1 ||
     inspected.requestedMatchKinds.length !== 1
   ) {
