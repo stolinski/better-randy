@@ -19,12 +19,19 @@ import {
 } from '$lib/platform/export-session.server';
 import { EXPORT_CONTROL_DOCUMENT_MAX_BYTES } from '$lib/platform/public-export-limits';
 import {
+	EXPORT_SESSION_IDENTITY_LENGTH,
+	isExportSessionIdentity
+} from '$lib/platform/public-export-security';
+import {
 	PUBLIC_EXPORT_RUNTIME_LIMITS,
 	RATIFIED_NATIVE_OUTPUT_BYTES_PER_FRAME,
 	type PublicExportRuntimeLimits
 } from '$lib/platform/public-runtime-contract';
 
+import * as sessionsCollectionRoute from './sessions/+server';
+
 const PNG = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3, 4]);
+const TEST_ORIGIN = 'http://localhost';
 const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
@@ -53,12 +60,10 @@ class FakeEncoderProcess extends EventEmitter {
 	readonly stderr = new PassThrough();
 	killed = false;
 
-	constructor(
-		outputPath: string,
-		options: FakeEncoderOptions
-	) {
+	constructor(outputPath: string, options: FakeEncoderOptions) {
 		super();
-		this.stdin = options.createInput?.() ?? new Writable({ write: (_chunk, _encoding, done) => done() });
+		this.stdin =
+			options.createInput?.() ?? new Writable({ write: (_chunk, _encoding, done) => done() });
 		this.stdin.once('finish', () => {
 			void (async () => {
 				if ((options.exitCode ?? 0) === 0) {
@@ -121,19 +126,86 @@ async function createStore(
 	};
 }
 
+/** An admitted session plus the private credential its create response issued. */
+interface OpenedTestSession extends CreatedExportSession {
+	/** The `name=value` pair a browser would send back on every later request. */
+	cookie: string;
+}
+
+function createSessionRequest(
+	metadata: Record<string, unknown>,
+	headers: Record<string, string> = {}
+): Request {
+	return new Request(`${TEST_ORIGIN}/api/export/sessions`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json', Origin: TEST_ORIGIN, ...headers },
+		body: JSON.stringify(metadata)
+	});
+}
+
 /** POST one session control document through the real admission path. */
-function openSession(
+async function openSession(
 	store: ExportSessionStore,
 	metadata: Record<string, unknown>,
 	headers: Record<string, string> = {}
-): Promise<CreatedExportSession> {
-	return store.create(
-		new Request('http://localhost/api/export/sessions', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json', ...headers },
-			body: JSON.stringify(metadata)
-		})
-	);
+): Promise<OpenedTestSession> {
+	const opened = await store.create(createSessionRequest(metadata, headers));
+	return { ...opened.document, cookie: opened.credentialCookie.split(';', 1)[0] };
+}
+
+/** The control request a browser makes: same origin, carrying this session's credential. */
+function controlRequest(
+	session: Pick<OpenedTestSession, 'sessionId' | 'cookie'>,
+	method: 'POST' | 'DELETE' = 'POST'
+): Request {
+	return new Request(`${TEST_ORIGIN}/api/export/sessions/${session.sessionId}`, {
+		method,
+		headers: { Origin: TEST_ORIGIN, Cookie: session.cookie }
+	});
+}
+
+/** The download request a browser makes: a same-origin navigation, no Origin header. */
+function downloadRequest(
+	session: Pick<OpenedTestSession, 'sessionId' | 'cookie'>,
+	headers: Record<string, string> = {}
+): Request {
+	return new Request(`${TEST_ORIGIN}/api/export/sessions/${session.sessionId}/output`, {
+		headers: { Cookie: session.cookie, 'Sec-Fetch-Site': 'same-origin', ...headers }
+	});
+}
+
+function frameRequest(
+	session: Pick<OpenedTestSession, 'sessionId' | 'cookie'>,
+	options: { signal?: AbortSignal; type?: string; headers?: Record<string, string> } = {}
+): Request {
+	const type = options.type ?? 'image/png';
+	return new Request(`${TEST_ORIGIN}/api/export/sessions/${session.sessionId}/frames/0`, {
+		method: 'PUT',
+		headers: {
+			'Content-Type': type,
+			Origin: TEST_ORIGIN,
+			Cookie: session.cookie,
+			...options.headers
+		},
+		body: new Blob([PNG], { type }),
+		signal: options.signal
+	});
+}
+
+function audioRequest(
+	session: Pick<OpenedTestSession, 'sessionId' | 'cookie'>,
+	bytes: Uint8Array
+): Request {
+	return new Request(`${TEST_ORIGIN}/api/export/sessions/${session.sessionId}/audio`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'audio/wav', Origin: TEST_ORIGIN, Cookie: session.cookie },
+		body: new Blob([bytes.buffer as ArrayBuffer], { type: 'audio/wav' })
+	});
+}
+
+function optionValue(args: string[], option: string): string | undefined {
+	const index = args.indexOf(option);
+	return index >= 0 ? args[index + 1] : undefined;
 }
 
 const WEBM_SINGLE_FRAME = {
@@ -144,26 +216,9 @@ const WEBM_SINGLE_FRAME = {
 	audioBytes: 0
 } as const;
 
-function frameRequest(signal?: AbortSignal, type = 'image/png'): Request {
-	return new Request('http://localhost/frame', {
-		method: 'PUT',
-		headers: { 'Content-Type': type },
-		body: new Blob([PNG], { type }),
-		signal
-	});
-}
-
-function audioRequest(bytes: Uint8Array): Request {
-	return new Request('http://localhost/audio', {
-		method: 'PUT',
-		headers: { 'Content-Type': 'audio/wav' },
-		body: new Blob([bytes.buffer as ArrayBuffer], { type: 'audio/wav' })
-	});
-}
-
-function optionValue(args: string[], option: string): string | undefined {
-	const index = args.indexOf(option);
-	return index >= 0 ? args[index + 1] : undefined;
+function isLimitStatus(status: number, pattern: RegExp): (error: unknown) => boolean {
+	return (error: unknown) =>
+		error instanceof ExportSessionError && error.status === status && pattern.test(error.message);
 }
 
 describe('export session protocol parsing', () => {
@@ -257,14 +312,23 @@ describe('export session encoding', () => {
 			opaque: false,
 			audioBytes: 0
 		});
-		await assert.rejects(() => store.uploadFrame(session.sessionId, 1, frameRequest()), /Expected export frame 0/);
-		await store.uploadFrame(session.sessionId, 0, frameRequest());
-		await assert.rejects(() => store.complete(session.sessionId), /received 1 of 2/);
-		await assert.rejects(() => store.outputResponse(session.sessionId), /not ready/);
-		await store.uploadFrame(session.sessionId, 1, frameRequest());
-		const completed = await store.complete(session.sessionId);
+		await assert.rejects(
+			() => store.uploadFrame(session.sessionId, 1, frameRequest(session)),
+			/Expected export frame 0/
+		);
+		await store.uploadFrame(session.sessionId, 0, frameRequest(session));
+		await assert.rejects(
+			() => store.complete(session.sessionId, controlRequest(session)),
+			/received 1 of 2/
+		);
+		await assert.rejects(
+			() => store.outputResponse(session.sessionId, downloadRequest(session)),
+			/not ready/
+		);
+		await store.uploadFrame(session.sessionId, 1, frameRequest(session));
+		const completed = await store.complete(session.sessionId, controlRequest(session));
 		assert.match(completed.downloadUrl, new RegExp(session.sessionId));
-		const response = await store.outputResponse(session.sessionId);
+		const response = await store.outputResponse(session.sessionId, downloadRequest(session));
 		assert.equal(response.headers.get('content-type'), 'video/webm');
 		assert.equal(response.headers.get('content-length'), String('encoded-video'.length));
 		assert.equal(await response.text(), 'encoded-video');
@@ -281,7 +345,7 @@ describe('export session encoding', () => {
 			audioBytes: 0
 		});
 		await assert.rejects(
-			() => store.uploadFrame(session.sessionId, 0, frameRequest(undefined, 'image/jpeg')),
+			() => store.uploadFrame(session.sessionId, 0, frameRequest(session, { type: 'image/jpeg' })),
 			/Expected an image\/png/
 		);
 		assert.deepEqual(await readdir(directory), []);
@@ -293,9 +357,9 @@ describe('export session encoding', () => {
 			opaque: false,
 			audioBytes: 0
 		});
-		const malformedRequest = new Request('http://localhost/frame', {
+		const malformedRequest = new Request(`${TEST_ORIGIN}/frame`, {
 			method: 'PUT',
-			headers: { 'Content-Type': 'image/png' },
+			headers: { 'Content-Type': 'image/png', Origin: TEST_ORIGIN, Cookie: malformed.cookie },
 			body: new Blob(['not a png'], { type: 'image/png' })
 		});
 		await assert.rejects(
@@ -336,7 +400,7 @@ describe('export session encoding', () => {
 			audioBytes: 0
 		});
 		let didResolve = false;
-		const upload = store.uploadFrame(session.sessionId, 0, frameRequest()).then(() => {
+		const upload = store.uploadFrame(session.sessionId, 0, frameRequest(session)).then(() => {
 			didResolve = true;
 		});
 		await writeStarted;
@@ -344,7 +408,7 @@ describe('export session encoding', () => {
 		releaseWrite();
 		await upload;
 		assert.equal(didResolve, true);
-		await store.cancel(session.sessionId);
+		await store.cancel(session.sessionId, controlRequest(session, 'DELETE'));
 	});
 
 	it('streams audio once before frames and maps it to the encoder', async () => {
@@ -357,44 +421,53 @@ describe('export session encoding', () => {
 			opaque: true,
 			audioBytes: wav.byteLength
 		});
-		await assert.rejects(() => store.uploadFrame(session.sessionId, 0, frameRequest()), /Upload export audio/);
-		await store.uploadAudio(session.sessionId, audioRequest(wav));
-		await assert.rejects(() => store.uploadAudio(session.sessionId, audioRequest(wav)), /already uploaded/);
-		await store.uploadFrame(session.sessionId, 0, frameRequest());
-		await store.complete(session.sessionId);
+		await assert.rejects(
+			() => store.uploadFrame(session.sessionId, 0, frameRequest(session)),
+			/Upload export audio/
+		);
+		await store.uploadAudio(session.sessionId, audioRequest(session, wav));
+		await assert.rejects(
+			() => store.uploadAudio(session.sessionId, audioRequest(session, wav)),
+			/already uploaded/
+		);
+		await store.uploadFrame(session.sessionId, 0, frameRequest(session));
+		await store.complete(session.sessionId, controlRequest(session));
 		assert.ok(encoder.spawnedArguments[0].includes('pcm_s16le'));
 		assert.ok(encoder.spawnedArguments[0].some((value) => value.endsWith('/mix.wav')));
-		await store.cancel(session.sessionId);
+		await store.cancel(session.sessionId, controlRequest(session, 'DELETE'));
 	});
 
 	it.each([
 		{ format: 'webm' as const, opaque: false, pixelFormat: 'yuva420p' },
 		{ format: 'webm' as const, opaque: true, pixelFormat: 'yuv444p' },
 		{ format: 'prores' as const, opaque: true, pixelFormat: 'yuva444p10le' }
-	])('preserves $format codec output with $pixelFormat', async ({ format, opaque, pixelFormat }) => {
-		const { store, encoder } = await createStore();
-		const session = await openSession(store, {
-			format,
-			fps: 29.97,
-			frameCount: 1,
-			opaque,
-			audioBytes: 0,
-			...(format === 'prores' ? { startTimecode: '01:00:08:00' } : {})
-		});
-		await store.uploadFrame(session.sessionId, 0, frameRequest());
-		await store.complete(session.sessionId);
-		const args = encoder.spawnedArguments[0];
-		assert.equal(optionValue(args, '-framerate'), '30000/1001');
-		assert.equal(optionValue(args, '-pix_fmt'), pixelFormat);
-		if (format === 'prores') {
-			assert.ok(args.includes('prores_ks'));
-			assert.equal(optionValue(args, '-profile:v'), '4444');
-			assert.equal(optionValue(args, '-timecode'), '01:00:08:00');
-		} else {
-			assert.ok(args.includes('libvpx-vp9'));
+	])(
+		'preserves $format codec output with $pixelFormat',
+		async ({ format, opaque, pixelFormat }) => {
+			const { store, encoder } = await createStore();
+			const session = await openSession(store, {
+				format,
+				fps: 29.97,
+				frameCount: 1,
+				opaque,
+				audioBytes: 0,
+				...(format === 'prores' ? { startTimecode: '01:00:08:00' } : {})
+			});
+			await store.uploadFrame(session.sessionId, 0, frameRequest(session));
+			await store.complete(session.sessionId, controlRequest(session));
+			const args = encoder.spawnedArguments[0];
+			assert.equal(optionValue(args, '-framerate'), '30000/1001');
+			assert.equal(optionValue(args, '-pix_fmt'), pixelFormat);
+			if (format === 'prores') {
+				assert.ok(args.includes('prores_ks'));
+				assert.equal(optionValue(args, '-profile:v'), '4444');
+				assert.equal(optionValue(args, '-timecode'), '01:00:08:00');
+			} else {
+				assert.ok(args.includes('libvpx-vp9'));
+			}
+			await store.cancel(session.sessionId, controlRequest(session, 'DELETE'));
 		}
-		await store.cancel(session.sessionId);
-	});
+	);
 
 	it('passes a drop-frame start timecode through to ffmpeg unchanged', async () => {
 		const { store, encoder } = await createStore();
@@ -406,10 +479,10 @@ describe('export session encoding', () => {
 			audioBytes: 0,
 			startTimecode: '01:00:08;00'
 		});
-		await store.uploadFrame(session.sessionId, 0, frameRequest());
-		await store.complete(session.sessionId);
+		await store.uploadFrame(session.sessionId, 0, frameRequest(session));
+		await store.complete(session.sessionId, controlRequest(session));
 		assert.equal(optionValue(encoder.spawnedArguments[0], '-timecode'), '01:00:08;00');
-		await store.cancel(session.sessionId);
+		await store.cancel(session.sessionId, controlRequest(session, 'DELETE'));
 	});
 
 	it('removes the session and partial output on encoder failure', async () => {
@@ -421,8 +494,11 @@ describe('export session encoding', () => {
 			opaque: false,
 			audioBytes: 0
 		});
-		await store.uploadFrame(session.sessionId, 0, frameRequest());
-		await assert.rejects(() => store.complete(session.sessionId), /encoder exploded/);
+		await store.uploadFrame(session.sessionId, 0, frameRequest(session));
+		await assert.rejects(
+			() => store.complete(session.sessionId, controlRequest(session)),
+			isLimitStatus(500, /^Export encoding failed\.$/)
+		);
 		assert.deepEqual(await readdir(directory), []);
 	});
 
@@ -435,9 +511,9 @@ describe('export session encoding', () => {
 			opaque: false,
 			audioBytes: 0
 		});
-		await store.uploadFrame(session.sessionId, 0, frameRequest());
-		await store.complete(session.sessionId);
-		const response = await store.outputResponse(session.sessionId);
+		await store.uploadFrame(session.sessionId, 0, frameRequest(session));
+		await store.complete(session.sessionId, controlRequest(session));
+		const response = await store.outputResponse(session.sessionId, downloadRequest(session));
 		assert.ok(response.body);
 		await response.body.cancel('download cancelled');
 		assert.deepEqual(await readdir(directory), []);
@@ -465,7 +541,7 @@ describe('export session encoding', () => {
 		const upload = store.uploadFrame(
 			session.sessionId,
 			0,
-			frameRequest(abortController.signal)
+			frameRequest(session, { signal: abortController.signal })
 		);
 		await writeStarted;
 		abortController.abort();
@@ -510,11 +586,6 @@ describe('export session encoding', () => {
 
 /** ADR-0052: the ratified envelope, refused before ffmpeg or a work directory. */
 describe('bounded public export limit enforcement', () => {
-	function isLimitStatus(status: number, pattern: RegExp): (error: unknown) => boolean {
-		return (error: unknown) =>
-			error instanceof ExportSessionError && error.status === status && pattern.test(error.message);
-	}
-
 	it('refuses an over-envelope session without spawning ffmpeg or allocating a directory', async () => {
 		const { store, directory, encoder } = await createStore();
 		await assert.rejects(
@@ -524,7 +595,10 @@ describe('bounded public export limit enforcement', () => {
 					fps: 60,
 					frameCount: PUBLIC_EXPORT_RUNTIME_LIMITS.maxFrameCount + 1
 				}),
-			isLimitStatus(400, new RegExp(`public limit is ${PUBLIC_EXPORT_RUNTIME_LIMITS.maxFrameCount}`))
+			isLimitStatus(
+				400,
+				new RegExp(`public limit is ${PUBLIC_EXPORT_RUNTIME_LIMITS.maxFrameCount}`)
+			)
 		);
 		await assert.rejects(
 			() => openSession(store, { ...WEBM_SINGLE_FRAME, fps: 120 }),
@@ -550,7 +624,7 @@ describe('bounded public export limit enforcement', () => {
 			frameCount: PUBLIC_EXPORT_RUNTIME_LIMITS.maxFrameCount
 		});
 		assert.ok(session.sessionId);
-		await store.cancel(session.sessionId);
+		await store.cancel(session.sessionId, controlRequest(session, 'DELETE'));
 	});
 
 	it('refuses a control document, content type, or body it cannot admit', async () => {
@@ -565,9 +639,9 @@ describe('bounded public export limit enforcement', () => {
 		await assert.rejects(
 			() =>
 				store.create(
-					new Request('http://localhost/api/export/sessions', {
+					new Request(`${TEST_ORIGIN}/api/export/sessions`, {
 						method: 'POST',
-						headers: { 'Content-Type': 'text/plain' },
+						headers: { 'Content-Type': 'text/plain', Origin: TEST_ORIGIN },
 						body: '{}'
 					})
 				),
@@ -576,9 +650,9 @@ describe('bounded public export limit enforcement', () => {
 		await assert.rejects(
 			() =>
 				store.create(
-					new Request('http://localhost/api/export/sessions', {
+					new Request(`${TEST_ORIGIN}/api/export/sessions`, {
 						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
+						headers: { 'Content-Type': 'application/json', Origin: TEST_ORIGIN },
 						body: 'not json'
 					})
 				),
@@ -596,19 +670,22 @@ describe('bounded public export limit enforcement', () => {
 			isLimitStatus(429, /2 of 2 concurrent sessions/)
 		);
 
-		await store.cancel(first.sessionId);
+		await store.cancel(first.sessionId, controlRequest(first, 'DELETE'));
 		const third = await openSession(store, WEBM_SINGLE_FRAME);
 
-		await store.uploadFrame(second.sessionId, 0, frameRequest());
-		await store.complete(second.sessionId);
-		await (await store.outputResponse(second.sessionId)).text();
+		await store.uploadFrame(second.sessionId, 0, frameRequest(second));
+		await store.complete(second.sessionId, controlRequest(second));
+		await (await store.outputResponse(second.sessionId, downloadRequest(second))).text();
 		const fourth = await openSession(store, WEBM_SINGLE_FRAME);
 		await assert.rejects(
 			() => openSession(store, WEBM_SINGLE_FRAME),
 			isLimitStatus(429, /2 of 2 concurrent sessions/)
 		);
 
-		await Promise.all([store.cancel(third.sessionId), store.cancel(fourth.sessionId)]);
+		await Promise.all([
+			store.cancel(third.sessionId, controlRequest(third, 'DELETE')),
+			store.cancel(fourth.sessionId, controlRequest(fourth, 'DELETE'))
+		]);
 		assert.deepEqual(await readdir(directory), []);
 	});
 
@@ -619,7 +696,7 @@ describe('bounded public export limit enforcement', () => {
 			openSession(store, WEBM_SINGLE_FRAME)
 		]);
 		const admitted = outcomes.filter(
-			(outcome): outcome is PromiseFulfilledResult<CreatedExportSession> =>
+			(outcome): outcome is PromiseFulfilledResult<OpenedTestSession> =>
 				outcome.status === 'fulfilled'
 		);
 		const refused = outcomes.filter(
@@ -628,10 +705,8 @@ describe('bounded public export limit enforcement', () => {
 		assert.equal(admitted.length, 1);
 		assert.equal(refused.length, 1);
 		assert.ok(isLimitStatus(429, /1 of 1 concurrent sessions/)(refused[0].reason));
-		assert.deepEqual(await readdir(directory), [
-			`gfx-export-${admitted[0].value.sessionId}`
-		]);
-		await store.cancel(admitted[0].value.sessionId);
+		assert.deepEqual(await readdir(directory), [`gfx-export-${admitted[0].value.sessionId}`]);
+		await store.cancel(admitted[0].value.sessionId, controlRequest(admitted[0].value, 'DELETE'));
 	});
 
 	it('removes a session that passed its hard lifetime while still being used', async () => {
@@ -642,10 +717,10 @@ describe('bounded public export limit enforcement', () => {
 		);
 		const session = await openSession(store, { ...WEBM_SINGLE_FRAME, frameCount: 2 });
 		now = 1_400;
-		await store.uploadFrame(session.sessionId, 0, frameRequest());
+		await store.uploadFrame(session.sessionId, 0, frameRequest(session));
 		now = 1_500;
 		await assert.rejects(
-			() => store.uploadFrame(session.sessionId, 1, frameRequest()),
+			() => store.uploadFrame(session.sessionId, 1, frameRequest(session)),
 			isLimitStatus(410, /passed its 500 ms lifetime/)
 		);
 		assert.deepEqual(await readdir(directory), []);
@@ -660,7 +735,7 @@ describe('bounded public export limit enforcement', () => {
 		const session = await openSession(store, WEBM_SINGLE_FRAME);
 		now = 1_100;
 		await assert.rejects(
-			() => store.uploadFrame(session.sessionId, 0, frameRequest()),
+			() => store.uploadFrame(session.sessionId, 0, frameRequest(session)),
 			isLimitStatus(410, /idle longer than 100 ms/)
 		);
 		assert.deepEqual(await readdir(directory), []);
@@ -672,33 +747,60 @@ describe('bounded public export limit enforcement', () => {
 			{ limits: { ...PUBLIC_EXPORT_RUNTIME_LIMITS, maxFrameBytes: PNG.byteLength - 1 } }
 		);
 		const session = await openSession(store, WEBM_SINGLE_FRAME);
-		const declared = new Request('http://localhost/frame', {
-			method: 'PUT',
-			headers: { 'Content-Type': 'image/png', 'Content-Length': String(PNG.byteLength) },
-			body: new Blob([PNG], { type: 'image/png' })
-		});
 		await assert.rejects(
-			() => store.uploadFrame(session.sessionId, 0, declared),
+			() =>
+				store.uploadFrame(
+					session.sessionId,
+					0,
+					frameRequest(session, { headers: { 'Content-Length': String(PNG.byteLength) } })
+				),
 			isLimitStatus(413, new RegExp(`limit is ${PNG.byteLength - 1} per frame`))
 		);
 		assert.deepEqual(encoder.spawnedArguments, []);
 		assert.deepEqual(await readdir(directory), []);
 	});
 
-	it('cuts off a frame that understates its declared length', async () => {
+	// A declared length is now held to exactly in both directions, so a caller
+	// cannot understate its frame to slip past the ceiling, and a body that stops
+	// short of what it promised is refused rather than encoded as a torn frame.
+	it('holds a frame body to the length it declared, in both directions', async () => {
+		const { store, directory } = await createStore();
+		const session = await openSession(store, { ...WEBM_SINGLE_FRAME, frameCount: 2 });
+		await assert.rejects(
+			() =>
+				store.uploadFrame(
+					session.sessionId,
+					0,
+					frameRequest(session, { headers: { 'Content-Length': '8' } })
+				),
+			isLimitStatus(413, /exceeded its declared byte length/)
+		);
+		assert.deepEqual(await readdir(directory), []);
+
+		const short = await openSession(store, WEBM_SINGLE_FRAME);
+		await assert.rejects(
+			() =>
+				store.uploadFrame(
+					short.sessionId,
+					0,
+					frameRequest(short, { headers: { 'Content-Length': String(PNG.byteLength + 4) } })
+				),
+			isLimitStatus(400, new RegExp(`expected ${PNG.byteLength + 4}`))
+		);
+		assert.deepEqual(await readdir(directory), []);
+	});
+
+	// Without a declared length there is nothing to check the body against up
+	// front, so the ceiling has to bind on the bytes as they arrive.
+	it('cuts off an undeclared frame body at the per-frame ceiling', async () => {
 		const { store, directory } = await createStore(
 			{},
 			{ limits: { ...PUBLIC_EXPORT_RUNTIME_LIMITS, maxFrameBytes: PNG.byteLength - 1 } }
 		);
 		const session = await openSession(store, WEBM_SINGLE_FRAME);
-		const understated = new Request('http://localhost/frame', {
-			method: 'PUT',
-			headers: { 'Content-Type': 'image/png', 'Content-Length': '8' },
-			body: new Blob([PNG], { type: 'image/png' })
-		});
 		await assert.rejects(
-			() => store.uploadFrame(session.sessionId, 0, understated),
-			isLimitStatus(413, /per frame/)
+			() => store.uploadFrame(session.sessionId, 0, frameRequest(session)),
+			isLimitStatus(413, new RegExp(`limit is ${PNG.byteLength - 1} per frame`))
 		);
 		assert.deepEqual(await readdir(directory), []);
 	});
@@ -710,11 +812,258 @@ describe('bounded public export limit enforcement', () => {
 			{ limits: { ...PUBLIC_EXPORT_RUNTIME_LIMITS, maxOutputBytes } }
 		);
 		const session = await openSession(store, WEBM_SINGLE_FRAME);
-		await store.uploadFrame(session.sessionId, 0, frameRequest());
+		await store.uploadFrame(session.sessionId, 0, frameRequest(session));
 		await assert.rejects(
-			() => store.complete(session.sessionId),
+			() => store.complete(session.sessionId, controlRequest(session)),
 			isLimitStatus(413, new RegExp(`Export output is ${maxOutputBytes + 1} bytes`))
 		);
+		assert.deepEqual(await readdir(directory), []);
+	});
+});
+
+/**
+ * ADR-0052: the public export transport belongs to the browser that opened each
+ * session. These fixtures come at it the way an attacker would — from another
+ * origin, with another session's credential, with a crafted identity, twice, and
+ * after it is over — and check that each attempt is refused without giving up
+ * content, a private path, or an encoder's own words.
+ */
+describe('public export request security', () => {
+	async function completedSession(store: ExportSessionStore): Promise<OpenedTestSession> {
+		const session = await openSession(store, WEBM_SINGLE_FRAME);
+		await store.uploadFrame(session.sessionId, 0, frameRequest(session));
+		await store.complete(session.sessionId, controlRequest(session));
+		return session;
+	}
+
+	it('issues unpredictable identities and keeps the credential out of the response body', async () => {
+		const { store } = await createStore();
+		const first = await openSession(store, WEBM_SINGLE_FRAME);
+		const second = await openSession(store, WEBM_SINGLE_FRAME);
+
+		for (const session of [first, second]) {
+			assert.ok(isExportSessionIdentity(session.sessionId));
+			assert.equal(session.sessionId.length, EXPORT_SESSION_IDENTITY_LENGTH);
+			const credential = session.cookie.split('=')[1];
+			assert.ok(isExportSessionIdentity(credential));
+			assert.notEqual(credential, session.sessionId);
+			// The identity is what URLs — and therefore logs — carry. The
+			// credential appears in none of them.
+			for (const url of [
+				session.audioUrl,
+				session.frameUrlTemplate,
+				session.completeUrl,
+				session.cancelUrl
+			]) {
+				assert.ok(!url.includes(credential));
+			}
+		}
+		assert.notEqual(first.sessionId, second.sessionId);
+
+		await Promise.all([
+			store.cancel(first.sessionId, controlRequest(first, 'DELETE')),
+			store.cancel(second.sessionId, controlRequest(second, 'DELETE'))
+		]);
+	});
+
+	it('scopes the credential cookie to its own session and to this origin', async () => {
+		const { store } = await createStore({}, { maxLifetimeMs: 90_000 });
+		const opened = await store.create(createSessionRequest(WEBM_SINGLE_FRAME));
+		const cookie = opened.credentialCookie;
+		assert.ok(cookie.startsWith(`gfx_export_${opened.document.sessionId}=`));
+		assert.ok(cookie.includes(`Path=/api/export/sessions/${opened.document.sessionId}`));
+		assert.ok(cookie.includes('HttpOnly'));
+		assert.ok(cookie.includes('SameSite=Strict'));
+		// The credential expires with the session's hard lifetime, never after it.
+		assert.ok(cookie.includes('Max-Age=90'));
+		// A plain http development origin would refuse to store a Secure cookie.
+		assert.ok(!cookie.includes('Secure'));
+
+		const secure = await store.create(
+			new Request('https://gfx.computer/api/export/sessions', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', Origin: 'https://gfx.computer' },
+				body: JSON.stringify(WEBM_SINGLE_FRAME)
+			})
+		);
+		assert.ok(secure.credentialCookie.includes('Secure'));
+	});
+
+	it('refuses a session opened or driven from another origin', async () => {
+		const { store, directory, encoder } = await createStore();
+		await assert.rejects(
+			() =>
+				store.create(
+					new Request(`${TEST_ORIGIN}/api/export/sessions`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json', Origin: 'https://evil.example' },
+						body: JSON.stringify(WEBM_SINGLE_FRAME)
+					})
+				),
+			isLimitStatus(403, /must come from this origin/)
+		);
+		// A mutating request with no Origin at all is not from a browser we serve.
+		await assert.rejects(
+			() =>
+				store.create(
+					new Request(`${TEST_ORIGIN}/api/export/sessions`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(WEBM_SINGLE_FRAME)
+					})
+				),
+			isLimitStatus(403, /must come from this origin/)
+		);
+		assert.deepEqual(await readdir(directory), []);
+		assert.deepEqual(encoder.spawnedArguments, []);
+
+		const session = await openSession(store, WEBM_SINGLE_FRAME);
+		await assert.rejects(
+			() =>
+				store.uploadFrame(
+					session.sessionId,
+					0,
+					frameRequest(session, { headers: { Origin: 'https://evil.example' } })
+				),
+			isLimitStatus(403, /must come from this origin/)
+		);
+		// The refusal belongs to the caller, not to the session it was aimed at.
+		await store.uploadFrame(session.sessionId, 0, frameRequest(session));
+		await store.cancel(session.sessionId, controlRequest(session, 'DELETE'));
+	});
+
+	it('refuses a download a cross-site page navigated to', async () => {
+		const { store, directory } = await createStore();
+		const session = await completedSession(store);
+		await assert.rejects(
+			() =>
+				store.outputResponse(
+					session.sessionId,
+					downloadRequest(session, { 'Sec-Fetch-Site': 'cross-site' })
+				),
+			isLimitStatus(403, /must come from this origin/)
+		);
+		// The output is still there for its owner, who then drains it.
+		const response = await store.outputResponse(session.sessionId, downloadRequest(session));
+		assert.equal(await response.text(), 'encoded-video');
+		assert.deepEqual(await readdir(directory), []);
+	});
+
+	it('refuses a request carrying no credential or another session credential', async () => {
+		const { store, directory } = await createStore();
+		const mine = await completedSession(store);
+		const theirs = await openSession(store, WEBM_SINGLE_FRAME);
+
+		const anonymous = new Request(`${TEST_ORIGIN}/api/export/sessions/${mine.sessionId}/output`, {
+			headers: { 'Sec-Fetch-Site': 'same-origin' }
+		});
+		await assert.rejects(
+			() => store.outputResponse(mine.sessionId, anonymous),
+			isLimitStatus(403, /credential is missing/)
+		);
+		// The other browser's own cookie is named for its own session, so it is
+		// not even presented here.
+		await assert.rejects(
+			() =>
+				store.outputResponse(
+					mine.sessionId,
+					downloadRequest({ sessionId: mine.sessionId, cookie: theirs.cookie })
+				),
+			isLimitStatus(403, /credential is missing/)
+		);
+		// Renaming that cookie to this session does not make its value fit.
+		const forged = `gfx_export_${mine.sessionId}=${theirs.cookie.split('=')[1]}`;
+		await assert.rejects(
+			() =>
+				store.outputResponse(
+					mine.sessionId,
+					downloadRequest({ sessionId: mine.sessionId, cookie: forged })
+				),
+			isLimitStatus(403, /another browser session/)
+		);
+
+		// None of it disturbed the session, which its owner then drains.
+		const response = await store.outputResponse(mine.sessionId, downloadRequest(mine));
+		assert.equal(await response.text(), 'encoded-video');
+		await store.cancel(theirs.sessionId, controlRequest(theirs, 'DELETE'));
+		assert.deepEqual(await readdir(directory), []);
+	});
+
+	it('refuses a replayed download once the first one drained', async () => {
+		const { store, directory } = await createStore();
+		const session = await completedSession(store);
+		assert.equal(
+			await (await store.outputResponse(session.sessionId, downloadRequest(session))).text(),
+			'encoded-video'
+		);
+		await assert.rejects(
+			() => store.outputResponse(session.sessionId, downloadRequest(session)),
+			isLimitStatus(404, /not found/)
+		);
+		// Replaying the completion does not resurrect the output either.
+		await assert.rejects(
+			() => store.complete(session.sessionId, controlRequest(session)),
+			isLimitStatus(404, /not found/)
+		);
+		assert.deepEqual(await readdir(directory), []);
+	});
+
+	it('refuses an identity this origin never issued, without touching the filesystem', async () => {
+		const { store, directory } = await createStore();
+		const session = await openSession(store, WEBM_SINGLE_FRAME);
+		const crafted = ['../../etc/passwd', '..', '', `${session.sessionId}/../..`, 'gfx-export-1'];
+		for (const identity of crafted) {
+			await assert.rejects(
+				() =>
+					store.uploadFrame(
+						identity,
+						0,
+						frameRequest({ sessionId: identity, cookie: session.cookie })
+					),
+				isLimitStatus(404, /not found/)
+			);
+		}
+		assert.throws(() => parseExportFrameIndex('../0'), ExportSessionError);
+		assert.throws(() => parseExportFrameIndex('-1'), ExportSessionError);
+		// Only the one real session's directory exists; nothing was created or read.
+		assert.deepEqual(await readdir(directory), [`gfx-export-${session.sessionId}`]);
+		await store.cancel(session.sessionId, controlRequest(session, 'DELETE'));
+	});
+
+	// Open sessions are private to the browsers holding them, so the collection
+	// answers to nothing that would enumerate them.
+	it('exposes no way to list open sessions', () => {
+		assert.deepEqual(Object.keys(sessionsCollectionRoute), ['POST']);
+	});
+
+	it('answers a download with no-store, nosniff, and no resumable range', async () => {
+		const { store } = await createStore();
+		const session = await completedSession(store);
+		const response = await store.outputResponse(session.sessionId, downloadRequest(session));
+		assert.equal(response.headers.get('cache-control'), 'no-store');
+		assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+		assert.equal(response.headers.get('accept-ranges'), 'none');
+		assert.equal(response.headers.get('vary'), 'Cookie');
+		await response.text();
+	});
+
+	it('tells a caller an encode failed without repeating the encoder or its paths', async () => {
+		const { store, directory } = await createStore({
+			exitCode: 1,
+			stderr: '/private/var/gfx-export-abc/output.webm: encoder exploded'
+		});
+		const session = await openSession(store, WEBM_SINGLE_FRAME);
+		await store.uploadFrame(session.sessionId, 0, frameRequest(session));
+		const failure = await store
+			.complete(session.sessionId, controlRequest(session))
+			.then(() => null)
+			.catch((cause: unknown) => cause);
+		assert.ok(failure instanceof ExportSessionError);
+		assert.equal(failure.status, 500);
+		assert.equal(failure.message, 'Export encoding failed.');
+		assert.ok(!failure.message.includes('encoder exploded'));
+		assert.ok(!failure.message.includes(directory));
+		assert.ok(!failure.message.includes(session.sessionId));
 		assert.deepEqual(await readdir(directory), []);
 	});
 });

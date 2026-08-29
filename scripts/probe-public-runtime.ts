@@ -152,18 +152,38 @@ interface CreatedSession {
 	frameUrlTemplate: string;
 	completeUrl: string;
 	cancelUrl: string;
+	/** `name=value` of the session credential cookie; Node's fetch keeps no jar. */
+	credentialCookie: string;
+}
+
+/**
+ * The headers a browser would attach on its own: the origin it is running on,
+ * and the private credential the create response set for this session.
+ */
+function sessionHeaders(
+	session: CreatedSession,
+	extra: Record<string, string> = {}
+): Record<string, string> {
+	return { origin: PROBE_ORIGIN, cookie: session.credentialCookie, ...extra };
 }
 
 async function createSession(body: Record<string, unknown>): Promise<CreatedSession> {
 	const response = await fetch(`${PROBE_ORIGIN}/api/export/sessions`, {
 		method: 'POST',
-		headers: { 'content-type': 'application/json' },
+		headers: { 'content-type': 'application/json', origin: PROBE_ORIGIN },
 		body: JSON.stringify(body)
 	});
 	if (response.status !== 201) {
 		throw new Error(`Export session create failed (${response.status}): ${await response.text()}`);
 	}
-	return (await response.json()) as CreatedSession;
+	const credentialCookie = response.headers.get('set-cookie')?.split(';', 1)[0];
+	if (!credentialCookie) {
+		throw new Error('Export session create did not issue a session credential.');
+	}
+	return {
+		...((await response.json()) as Omit<CreatedSession, 'credentialCookie'>),
+		credentialCookie
+	};
 }
 
 async function uploadFrame(
@@ -173,7 +193,11 @@ async function uploadFrame(
 ): Promise<void> {
 	const response = await fetch(
 		`${PROBE_ORIGIN}${session.frameUrlTemplate.replace('{frame}', String(frame))}`,
-		{ method: 'PUT', headers: { 'content-type': 'image/png' }, body: bytes }
+		{
+			method: 'PUT',
+			headers: sessionHeaders(session, { 'content-type': 'image/png' }),
+			body: bytes
+		}
 	);
 	if (response.status === 413) {
 		throw new Error(
@@ -242,7 +266,7 @@ async function measureExportLane(options: {
 	if (options.audio) {
 		const response = await fetch(`${PROBE_ORIGIN}${session.audioUrl}`, {
 			method: 'PUT',
-			headers: { 'content-type': 'audio/wav' },
+			headers: sessionHeaders(session, { 'content-type': 'audio/wav' }),
 			body: options.audio.bytes
 		});
 		if (!response.ok) {
@@ -257,7 +281,10 @@ async function measureExportLane(options: {
 	const uploadMs = nowMs() - uploadStarted;
 
 	const completeStarted = nowMs();
-	const completeResponse = await fetch(`${PROBE_ORIGIN}${session.completeUrl}`, { method: 'POST' });
+	const completeResponse = await fetch(`${PROBE_ORIGIN}${session.completeUrl}`, {
+		method: 'POST',
+		headers: sessionHeaders(session)
+	});
 	if (!completeResponse.ok) {
 		throw new Error(
 			`Complete failed (${completeResponse.status}): ${await completeResponse.text()}`
@@ -266,8 +293,14 @@ async function measureExportLane(options: {
 	const completeMs = nowMs() - completeStarted;
 	const { downloadUrl } = (await completeResponse.json()) as { downloadUrl: string };
 
+	// A download is a same-origin navigation, so it carries the credential cookie
+	// and Sec-Fetch-Site rather than an Origin header.
 	const download = await fetch(`${PROBE_ORIGIN}${downloadUrl}`, {
-		headers: options.requestRange ? { range: 'bytes=0-1023' } : {}
+		headers: {
+			cookie: session.credentialCookie,
+			'sec-fetch-site': 'same-origin',
+			...(options.requestRange ? { range: 'bytes=0-1023' } : {})
+		}
 	});
 	const outputBytes = new Uint8Array(await download.arrayBuffer());
 	const declaredLength = download.headers.get('content-length');
@@ -277,7 +310,9 @@ async function measureExportLane(options: {
 	);
 	await writeFile(outputPath, outputBytes);
 
-	const secondDownload = await fetch(`${PROBE_ORIGIN}${downloadUrl}`);
+	const secondDownload = await fetch(`${PROBE_ORIGIN}${downloadUrl}`, {
+		headers: { cookie: session.credentialCookie, 'sec-fetch-site': 'same-origin' }
+	});
 	await secondDownload.arrayBuffer();
 
 	const ratifiedBytesPerFrame = RATIFIED_NATIVE_OUTPUT_BYTES_PER_FRAME[options.format];
@@ -330,9 +365,15 @@ async function measureCancellation(frames: readonly Uint8Array[]): Promise<{
 	await uploadFrame(session, 0, frames[0]);
 	await uploadFrame(session, 1, frames[1]);
 	const started = nowMs();
-	const cancel = await fetch(`${PROBE_ORIGIN}${session.cancelUrl}`, { method: 'DELETE' });
+	const cancel = await fetch(`${PROBE_ORIGIN}${session.cancelUrl}`, {
+		method: 'DELETE',
+		headers: sessionHeaders(session)
+	});
 	const elapsedMs = nowMs() - started;
-	const followUp = await fetch(`${PROBE_ORIGIN}${session.completeUrl}`, { method: 'POST' });
+	const followUp = await fetch(`${PROBE_ORIGIN}${session.completeUrl}`, {
+		method: 'POST',
+		headers: sessionHeaders(session)
+	});
 	return {
 		cancelledAfterFrames: 2,
 		cancelStatus: cancel.status,

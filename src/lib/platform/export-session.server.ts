@@ -1,5 +1,4 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
 import { mkdir, readdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -19,6 +18,20 @@ import {
 	findExportSessionExpiryRejection,
 	type PublicExportLimitRejection
 } from '$lib/platform/public-export-limits';
+import {
+	createExportSessionIdentity,
+	EXPORT_ENCODER_FAILURE_MESSAGE,
+	findExportRequestOriginRefusal,
+	FOREIGN_EXPORT_SESSION_CREDENTIAL_REFUSAL,
+	formatExportSessionCredentialCookie,
+	isExportSessionIdentity,
+	isMatchingExportCredential,
+	MISSING_EXPORT_SESSION_CREDENTIAL_REFUSAL,
+	PUBLIC_EXPORT_DOWNLOAD_HEADERS,
+	readExportSessionCredentialCookie,
+	redactExportDiagnostic,
+	type PublicExportSecurityRefusal
+} from '$lib/platform/public-export-security';
 import {
 	parsePublicRuntimeConfig,
 	PUBLIC_EXPORT_RUNTIME_LIMITS,
@@ -56,6 +69,16 @@ export interface CreatedExportSession {
 	cancelUrl: string;
 }
 
+export interface OpenedExportSession {
+	document: CreatedExportSession;
+	/**
+	 * `Set-Cookie` value the create response must send. It carries the private
+	 * credential every later request for this session has to present, and it is
+	 * the only place that credential ever appears.
+	 */
+	credentialCookie: string;
+}
+
 export interface CompletedExportSession {
 	downloadUrl: string;
 }
@@ -69,6 +92,8 @@ interface ExportEncoder {
 
 interface ExportSession {
 	id: string;
+	/** Private per-session secret; only the browser that opened the session holds it. */
+	credential: string;
 	request: ExportSessionRequest;
 	rate: FrameRate;
 	workDir: string;
@@ -127,6 +152,11 @@ function limitError(rejection: PublicExportLimitRejection): ExportSessionError {
 	return new ExportSessionError(rejection.status, rejection.message);
 }
 
+/** Carry a refused request out over the same transport, with the same redaction. */
+function securityError(refusal: PublicExportSecurityRefusal): ExportSessionError {
+	return new ExportSessionError(refusal.status, refusal.message);
+}
+
 function readFiniteNumber(record: Record<string, unknown>, key: string): number {
 	const value = record[key];
 	if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -149,10 +179,7 @@ export function parseExportSessionRequest(value: unknown): ExportSessionRequest 
 	try {
 		resolveFrameRate(fps);
 	} catch (cause) {
-		throw new ExportSessionError(
-			400,
-			cause instanceof Error ? cause.message : 'Unsupported fps.'
-		);
+		throw new ExportSessionError(400, cause instanceof Error ? cause.message : 'Unsupported fps.');
 	}
 	// Shape only — every ceiling belongs to the public envelope, which
 	// `ExportSessionStore.create` applies to the parsed request.
@@ -206,6 +233,26 @@ export function parseExportFrameIndex(value: string): number {
 
 export function hasPngSignature(bytes: Uint8Array): boolean {
 	return PNG_SIGNATURE.every((byte, index) => bytes[index] === byte);
+}
+
+/**
+ * What the origin check reads off one request. `request.url` is the URL the
+ * SvelteKit Node adapter resolved from `ORIGIN`, so the expected origin comes
+ * from the deployment's own configuration — never from a `Host` or
+ * `X-Forwarded-*` header a caller or an intermediary can set.
+ */
+function exportRequestOrigins(request: Request): {
+	method: string;
+	origin: string | null;
+	secFetchSite: string | null;
+	expectedOrigin: string;
+} {
+	return {
+		method: request.method,
+		origin: request.headers.get('origin'),
+		secFetchSite: request.headers.get('sec-fetch-site'),
+		expectedOrigin: new URL(request.url).origin
+	};
 }
 
 function contentLength(request: Request): number | null {
@@ -391,13 +438,15 @@ export class ExportSessionStore {
 	}
 
 	/**
-	 * Admit one export session, or refuse it. Every bound is decided here —
-	 * transport shape, the public envelope, then a free concurrency slot — so
-	 * nothing that will be refused ever reaches ffmpeg or the filesystem. The
-	 * slot is claimed in the same tick it is checked, so two callers racing for
-	 * the last one cannot both win it.
+	 * Admit one export session, or refuse it. Every bound is decided here — the
+	 * caller's origin, transport shape, the public envelope, then a free
+	 * concurrency slot — so nothing that will be refused ever reaches ffmpeg or
+	 * the filesystem. The slot is claimed in the same tick it is checked, so two
+	 * callers racing for the last one cannot both win it.
 	 */
-	async create(request: Request): Promise<CreatedExportSession> {
+	async create(request: Request): Promise<OpenedExportSession> {
+		const refusal = findExportRequestOriginRefusal(exportRequestOrigins(request));
+		if (refusal) throw securityError(refusal);
 		if (request.headers.get('content-type')?.split(';', 1)[0] !== 'application/json') {
 			throw new ExportSessionError(415, 'Expected application/json export session metadata.');
 		}
@@ -423,12 +472,16 @@ export class ExportSessionStore {
 		if (saturated) throw limitError(saturated);
 
 		Sentry.getActiveSpan()?.setAttributes(exportSessionRequestTelemetry(parsed));
-		const id = randomUUID();
+		// Both identities are unpredictable, and only this one is ever spoken
+		// aloud: it names the session in URLs and therefore in logs, while the
+		// credential stays in the cookie that authorizes every later request.
+		const id = createExportSessionIdentity();
 		const workDir = join(this.#temporaryDirectory, `${EXPORT_DIRECTORY_PREFIX}${id}`);
 		const details = outputDetails(parsed.format);
 		const now = this.#now();
 		const session: ExportSession = {
 			id,
+			credential: createExportSessionIdentity(),
 			request: parsed,
 			rate: resolveFrameRate(parsed.fps),
 			workDir,
@@ -454,22 +507,33 @@ export class ExportSessionStore {
 			await mkdir(workDir, { recursive: false });
 		} catch (cause) {
 			this.#sessions.delete(id);
-			throw cause;
+			// The failure names the private work directory, so the caller is told
+			// only that the session could not be opened.
+			console.error('Export work directory could not be created.', this.#redact(session, cause));
+			throw new ExportSessionError(500, 'Export session could not be opened.');
 		}
 		this.#touch(session);
 		session.lifetimeTimer = this.#scheduleSweep(this.#maxLifetimeMs);
 		const root = `/api/export/sessions/${id}`;
 		return {
-			sessionId: id,
-			audioUrl: `${root}/audio`,
-			frameUrlTemplate: `${root}/frames/{frame}`,
-			completeUrl: `${root}/complete`,
-			cancelUrl: root
+			document: {
+				sessionId: id,
+				audioUrl: `${root}/audio`,
+				frameUrlTemplate: `${root}/frames/{frame}`,
+				completeUrl: `${root}/complete`,
+				cancelUrl: root
+			},
+			credentialCookie: formatExportSessionCredentialCookie({
+				sessionId: id,
+				credential: session.credential,
+				maxAgeMs: this.#maxLifetimeMs,
+				isSecureOrigin: new URL(request.url).protocol === 'https:'
+			})
 		};
 	}
 
 	async uploadAudio(id: string, request: Request): Promise<void> {
-		const session = await this.#get(id);
+		const session = await this.#authorize(id, request);
 		if (session.request.audioBytes === 0) {
 			throw new ExportSessionError(409, 'This export session has no audio upload.');
 		}
@@ -513,7 +577,7 @@ export class ExportSessionStore {
 	}
 
 	async uploadFrame(id: string, frame: number, request: Request): Promise<void> {
-		const session = await this.#get(id);
+		const session = await this.#authorize(id, request);
 		if (session.status === 'ready' || session.status === 'downloading') {
 			throw new ExportSessionError(409, 'Export encoding is already complete.');
 		}
@@ -543,7 +607,10 @@ export class ExportSessionStore {
 		const declaredLength = contentLength(request);
 		if (declaredLength !== null && declaredLength < PNG_SIGNATURE.byteLength) {
 			await this.#fail(session);
-			throw new ExportSessionError(400, 'Export frame Content-Length is shorter than a PNG header.');
+			throw new ExportSessionError(
+				400,
+				'Export frame Content-Length is shorter than a PNG header.'
+			);
 		}
 		// Refuse an over-limit frame from its declared length, before the encoder
 		// is spawned and before a byte of the body is read.
@@ -565,6 +632,9 @@ export class ExportSessionStore {
 				body: request.body,
 				writable: encoder.child.stdin,
 				signal,
+				// A declared length is held to exactly, so a body that stops short of
+				// what it promised is refused instead of encoded as a torn frame.
+				expectedBytes: declaredLength ?? undefined,
 				findOverflow: (receivedBytes) =>
 					findExportFrameBytesRejection(receivedBytes, session, this.#limits),
 				requirePngSignature: true
@@ -579,8 +649,8 @@ export class ExportSessionStore {
 		}
 	}
 
-	async complete(id: string): Promise<CompletedExportSession> {
-		const session = await this.#get(id);
+	async complete(id: string, request: Request): Promise<CompletedExportSession> {
+		const session = await this.#authorize(id, request);
 		if (session.isBusy) {
 			throw new ExportSessionError(409, 'An export upload is still being encoded.');
 		}
@@ -600,10 +670,13 @@ export class ExportSessionStore {
 			await finishWritable(encoder.child.stdin, session.abortController.signal);
 			const code = await encoder.exit;
 			if (code !== 0) {
-				throw new ExportSessionError(
-					500,
-					encoder.stderrTail.trim() || `ffmpeg exited with code ${code}.`
+				// ffmpeg names the file it was writing, so its output is logged
+				// redacted at the origin and never forwarded to the caller.
+				console.error(
+					`Export encoder exited with code ${code}.`,
+					this.#redact(session, encoder.stderrTail.trim())
 				);
+				throw new ExportSessionError(500, EXPORT_ENCODER_FAILURE_MESSAGE);
 			}
 			const output = await stat(session.outputPath);
 			if (!output.isFile() || output.size === 0) {
@@ -627,8 +700,14 @@ export class ExportSessionStore {
 		}
 	}
 
-	async outputResponse(id: string, requestSignal?: AbortSignal): Promise<Response> {
-		const session = await this.#get(id);
+	/**
+	 * Stream one session's output exactly once to the browser that owns it. The
+	 * session is disposed as the body finishes, so a replayed download — the same
+	 * URL and the same credential a second time — finds nothing to read.
+	 */
+	async outputResponse(id: string, request: Request): Promise<Response> {
+		const session = await this.#authorize(id, request);
+		const requestSignal = request.signal;
 		if (session.status !== 'ready') {
 			throw new ExportSessionError(409, 'Export output is not ready.');
 		}
@@ -642,16 +721,13 @@ export class ExportSessionStore {
 		const cleanup = async (): Promise<void> => {
 			if (isCleaned) return;
 			isCleaned = true;
-			requestSignal?.removeEventListener('abort', handleAbort);
-			await this.cancel(id);
+			requestSignal.removeEventListener('abort', handleAbort);
+			await this.#dispose(session);
 		};
 		const handleAbort = (): void => {
-			void Promise.all([
-				reader.cancel(requestSignal?.reason).catch(() => undefined),
-				cleanup()
-			]);
+			void Promise.all([reader.cancel(requestSignal.reason).catch(() => undefined), cleanup()]);
 		};
-		requestSignal?.addEventListener('abort', handleAbort, { once: true });
+		requestSignal.addEventListener('abort', handleAbort, { once: true });
 		const body = new ReadableStream<Uint8Array>({
 			pull: async (controller) => {
 				try {
@@ -673,16 +749,28 @@ export class ExportSessionStore {
 		});
 		return new Response(body, {
 			headers: {
-				'Cache-Control': 'no-store',
+				...PUBLIC_EXPORT_DOWNLOAD_HEADERS,
 				'Content-Length': String(output.size),
 				'Content-Type': outputDetails(session.request.format).contentType
 			}
 		});
 	}
 
-	async cancel(id: string): Promise<void> {
-		const session = this.#sessions.get(id);
-		if (!session) return;
+	/**
+	 * Give up one session on its owner's word. A session that is already gone is
+	 * the outcome the caller asked for, so it is not an error — but a caller who
+	 * cannot prove the session is theirs is still refused.
+	 */
+	async cancel(id: string, request: Request): Promise<void> {
+		let session: ExportSession;
+		try {
+			session = await this.#authorize(id, request);
+		} catch (cause) {
+			if (cause instanceof ExportSessionError && (cause.status === 404 || cause.status === 410)) {
+				return;
+			}
+			throw cause;
+		}
 		await this.#dispose(session);
 	}
 
@@ -781,6 +869,37 @@ export class ExportSessionStore {
 			...codecArguments,
 			session.outputPath
 		];
+	}
+
+	/**
+	 * Resolve the session this request is allowed to act on.
+	 *
+	 * The order is what keeps the transport from answering questions it was not
+	 * asked: a cross-origin caller is refused before anything is looked up, a
+	 * malformed identity is refused before it can name a file, and a caller with
+	 * no credential never learns whether the session exists. Only a caller
+	 * holding a credential reaches the session itself, where a credential
+	 * belonging to a different session is refused rather than honoured.
+	 */
+	async #authorize(id: string, request: Request): Promise<ExportSession> {
+		const refusal = findExportRequestOriginRefusal(exportRequestOrigins(request));
+		if (refusal) throw securityError(refusal);
+		if (!isExportSessionIdentity(id)) {
+			throw new ExportSessionError(404, 'Export session not found.');
+		}
+		const presented = readExportSessionCredentialCookie(request.headers.get('cookie'), id);
+		if (presented === null) throw securityError(MISSING_EXPORT_SESSION_CREDENTIAL_REFUSAL);
+		const session = await this.#get(id);
+		if (!isMatchingExportCredential(presented, session.credential)) {
+			throw securityError(FOREIGN_EXPORT_SESSION_CREDENTIAL_REFUSAL);
+		}
+		return session;
+	}
+
+	/** Everything private this session owns, removed from a diagnostic before it is logged. */
+	#redact(session: ExportSession, diagnostic: unknown): string {
+		const text = diagnostic instanceof Error ? diagnostic.message : String(diagnostic);
+		return redactExportDiagnostic(text, [session.workDir, session.id, session.credential]);
 	}
 
 	/**
