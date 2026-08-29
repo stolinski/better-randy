@@ -197,9 +197,9 @@ export interface PublicExportRuntimeLimits {
  * `public-runtime-contract.test.ts` for the invariants that keep the numbers
  * consistent, and ADR-0052 for why each bound exists.
  *
- * Request-time enforcement of the per-request bounds is a separate, later
- * change; today the export session store reads only the deployment inputs and
- * the idle timeout from this contract.
+ * These are the ratified numbers only. `public-export-limits.ts` decides whether
+ * a given request, upload, or open session fits inside them, and the export
+ * session store applies that decision before it spawns ffmpeg or writes a file.
  */
 export const PUBLIC_EXPORT_RUNTIME_LIMITS: PublicExportRuntimeLimits = {
 	maxDurationSeconds: 15,

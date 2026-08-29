@@ -10,8 +10,19 @@ import * as Sentry from '@sentry/sveltekit';
 import { createReadableStream } from '@sveltejs/kit/node';
 
 import {
+	exportSessionUploadCeilingBytes,
+	findExportConcurrencyRejection,
+	findExportControlDocumentRejection,
+	findExportEnvelopeRejection,
+	findExportFrameBytesRejection,
+	findExportOutputRejection,
+	findExportSessionExpiryRejection,
+	type PublicExportLimitRejection
+} from '$lib/platform/public-export-limits';
+import {
 	parsePublicRuntimeConfig,
-	PUBLIC_EXPORT_RUNTIME_LIMITS
+	PUBLIC_EXPORT_RUNTIME_LIMITS,
+	type PublicExportRuntimeLimits
 } from '$lib/platform/public-runtime-contract';
 import {
 	dropTimecodeToFrames,
@@ -69,8 +80,13 @@ interface ExportSession {
 	status: 'created' | 'encoding' | 'ready' | 'downloading';
 	encoder: ExportEncoder | null;
 	abortController: AbortController;
-	expiresAt: number;
-	expiryTimer: ReturnType<typeof setTimeout> | null;
+	createdAt: number;
+	lastActiveAt: number;
+	/** Audio plus frame bytes this session has ingested, against its ceiling. */
+	uploadedBytes: number;
+	uploadCeilingBytes: number;
+	idleTimer: ReturnType<typeof setTimeout> | null;
+	lifetimeTimer: ReturnType<typeof setTimeout> | null;
 	cleanupPromise: Promise<void> | null;
 	encodeStartedAt: number | null;
 }
@@ -79,6 +95,10 @@ interface ExportSessionStoreOptions {
 	temporaryDirectory?: string;
 	ffmpegPath?: string;
 	ttlMs?: number;
+	maxLifetimeMs?: number;
+	maxConcurrentSessions?: number;
+	/** Envelope to admit against. Shrink it to exercise a bound in a fixture. */
+	limits?: PublicExportRuntimeLimits;
 	now?: () => number;
 	spawnEncoder?: typeof spawn;
 }
@@ -91,8 +111,6 @@ const PNG_SIGNATURE = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
  * rename cannot orphan the previous release's directories.
  */
 const EXPORT_DIRECTORY_PREFIX = 'gfx-export-' satisfies SweptExportDirectoryPrefix;
-const MAX_FRAME_BYTES = 128 * 1024 * 1024;
-const MAX_FRAME_COUNT = 10_000_000;
 
 export class ExportSessionError extends Error {
 	constructor(
@@ -102,6 +120,11 @@ export class ExportSessionError extends Error {
 		super(message);
 		this.name = 'ExportSessionError';
 	}
+}
+
+/** Carry a refused public bound out over the export transport unchanged. */
+function limitError(rejection: PublicExportLimitRejection): ExportSessionError {
+	return new ExportSessionError(rejection.status, rejection.message);
 }
 
 function readFiniteNumber(record: Record<string, unknown>, key: string): number {
@@ -131,9 +154,11 @@ export function parseExportSessionRequest(value: unknown): ExportSessionRequest 
 			cause instanceof Error ? cause.message : 'Unsupported fps.'
 		);
 	}
+	// Shape only — every ceiling belongs to the public envelope, which
+	// `ExportSessionStore.create` applies to the parsed request.
 	const frameCount = readFiniteNumber(record, 'frameCount');
-	if (!Number.isInteger(frameCount) || frameCount < 1 || frameCount > MAX_FRAME_COUNT) {
-		throw new ExportSessionError(400, `Expected frameCount in 1..${MAX_FRAME_COUNT}.`);
+	if (!Number.isInteger(frameCount) || frameCount < 1) {
+		throw new ExportSessionError(400, 'Expected frameCount to be a positive integer.');
 	}
 	const audioBytes = readFiniteNumber(record, 'audioBytes');
 	if (!Number.isSafeInteger(audioBytes) || audioBytes < 0) {
@@ -243,10 +268,11 @@ async function streamRequestBody(options: {
 	writable: Writable;
 	signal: AbortSignal;
 	expectedBytes?: number;
-	maxBytes: number;
+	/** Applied to the running byte count, so a lying Content-Length is cut off here. */
+	findOverflow?: (receivedBytes: number) => PublicExportLimitRejection | null;
 	requirePngSignature?: boolean;
 }): Promise<number> {
-	const { body, writable, signal, expectedBytes, maxBytes, requirePngSignature } = options;
+	const { body, writable, signal, expectedBytes, findOverflow, requirePngSignature } = options;
 	const reader = body.getReader();
 	let received = 0;
 	let signature = new Uint8Array(0);
@@ -261,9 +287,11 @@ async function streamRequestBody(options: {
 			const { done, value } = await reader.read();
 			if (done) break;
 			received += value.byteLength;
-			if (received > maxBytes || (expectedBytes !== undefined && received > expectedBytes)) {
+			if (expectedBytes !== undefined && received > expectedBytes) {
 				throw new ExportSessionError(413, 'Export upload exceeded its declared byte length.');
 			}
+			const overflow = findOverflow?.(received);
+			if (overflow) throw limitError(overflow);
 			if (requirePngSignature && signature.byteLength < PNG_SIGNATURE.byteLength) {
 				const required = PNG_SIGNATURE.byteLength - signature.byteLength;
 				const consumed = Math.min(required, value.byteLength);
@@ -342,6 +370,9 @@ export class ExportSessionStore {
 	readonly #temporaryDirectory: string;
 	readonly #ffmpegPath: string;
 	readonly #ttlMs: number;
+	readonly #maxLifetimeMs: number;
+	readonly #maxConcurrentSessions: number;
+	readonly #limits: PublicExportRuntimeLimits;
 	readonly #now: () => number;
 	readonly #spawnEncoder: typeof spawn;
 
@@ -350,22 +381,56 @@ export class ExportSessionStore {
 		this.#temporaryDirectory =
 			options.temporaryDirectory ?? runtime.exportTemporaryDirectory ?? tmpdir();
 		this.#ffmpegPath = options.ffmpegPath ?? runtime.ffmpegPath;
+		this.#limits = options.limits ?? PUBLIC_EXPORT_RUNTIME_LIMITS;
 		this.#ttlMs = options.ttlMs ?? runtime.exportSessionIdleTimeoutMs;
+		this.#maxLifetimeMs = options.maxLifetimeMs ?? this.#limits.sessionMaxLifetimeMs;
+		this.#maxConcurrentSessions =
+			options.maxConcurrentSessions ?? runtime.maxConcurrentExportSessions;
 		this.#now = options.now ?? Date.now;
 		this.#spawnEncoder = options.spawnEncoder ?? spawn;
 	}
 
-	async create(value: unknown): Promise<CreatedExportSession> {
-		const request = parseExportSessionRequest(value);
-		Sentry.getActiveSpan()?.setAttributes(exportSessionRequestTelemetry(request));
+	/**
+	 * Admit one export session, or refuse it. Every bound is decided here —
+	 * transport shape, the public envelope, then a free concurrency slot — so
+	 * nothing that will be refused ever reaches ffmpeg or the filesystem. The
+	 * slot is claimed in the same tick it is checked, so two callers racing for
+	 * the last one cannot both win it.
+	 */
+	async create(request: Request): Promise<CreatedExportSession> {
+		if (request.headers.get('content-type')?.split(';', 1)[0] !== 'application/json') {
+			throw new ExportSessionError(415, 'Expected application/json export session metadata.');
+		}
+		const declaredLength = contentLength(request);
+		const oversizedDocument = findExportControlDocumentRejection(declaredLength);
+		if (oversizedDocument) throw limitError(oversizedDocument);
+
+		let document: unknown;
+		try {
+			document = await request.json();
+		} catch {
+			throw new ExportSessionError(400, 'Export session metadata is not valid JSON.');
+		}
+		const parsed = parseExportSessionRequest(document);
+		const overEnvelope = findExportEnvelopeRejection(parsed, this.#limits);
+		if (overEnvelope) throw limitError(overEnvelope);
+
+		await this.cleanupStale();
+		const saturated = findExportConcurrencyRejection(
+			this.#sessions.size,
+			this.#maxConcurrentSessions
+		);
+		if (saturated) throw limitError(saturated);
+
+		Sentry.getActiveSpan()?.setAttributes(exportSessionRequestTelemetry(parsed));
 		const id = randomUUID();
 		const workDir = join(this.#temporaryDirectory, `${EXPORT_DIRECTORY_PREFIX}${id}`);
-		await mkdir(workDir, { recursive: false });
-		const details = outputDetails(request.format);
+		const details = outputDetails(parsed.format);
+		const now = this.#now();
 		const session: ExportSession = {
 			id,
-			request,
-			rate: resolveFrameRate(request.fps),
+			request: parsed,
+			rate: resolveFrameRate(parsed.fps),
 			workDir,
 			audioPath: join(workDir, 'mix.wav'),
 			outputPath: join(workDir, details.filename),
@@ -375,13 +440,24 @@ export class ExportSessionStore {
 			status: 'created',
 			encoder: null,
 			abortController: new AbortController(),
-			expiresAt: this.#now() + this.#ttlMs,
-			expiryTimer: null,
+			createdAt: now,
+			lastActiveAt: now,
+			uploadedBytes: 0,
+			uploadCeilingBytes: exportSessionUploadCeilingBytes(parsed, this.#limits),
+			idleTimer: null,
+			lifetimeTimer: null,
 			cleanupPromise: null,
 			encodeStartedAt: null
 		};
 		this.#sessions.set(id, session);
+		try {
+			await mkdir(workDir, { recursive: false });
+		} catch (cause) {
+			this.#sessions.delete(id);
+			throw cause;
+		}
 		this.#touch(session);
+		session.lifetimeTimer = this.#scheduleSweep(this.#maxLifetimeMs);
 		const root = `/api/export/sessions/${id}`;
 		return {
 			sessionId: id,
@@ -393,7 +469,7 @@ export class ExportSessionStore {
 	}
 
 	async uploadAudio(id: string, request: Request): Promise<void> {
-		const session = this.#get(id);
+		const session = await this.#get(id);
 		if (session.request.audioBytes === 0) {
 			throw new ExportSessionError(409, 'This export session has no audio upload.');
 		}
@@ -419,12 +495,11 @@ export class ExportSessionStore {
 		const file = createWriteStream(session.audioPath, { flags: 'wx' });
 		const signal = AbortSignal.any([session.abortController.signal, request.signal]);
 		try {
-			await streamRequestBody({
+			session.uploadedBytes += await streamRequestBody({
 				body: request.body,
 				writable: file,
 				signal,
-				expectedBytes: session.request.audioBytes,
-				maxBytes: session.request.audioBytes
+				expectedBytes: session.request.audioBytes
 			});
 			await finishWritable(file, signal);
 			session.hasAudio = true;
@@ -438,7 +513,7 @@ export class ExportSessionStore {
 	}
 
 	async uploadFrame(id: string, frame: number, request: Request): Promise<void> {
-		const session = this.#get(id);
+		const session = await this.#get(id);
 		if (session.status === 'ready' || session.status === 'downloading') {
 			throw new ExportSessionError(409, 'Export encoding is already complete.');
 		}
@@ -466,9 +541,19 @@ export class ExportSessionStore {
 			throw new ExportSessionError(400, 'Missing export frame body.');
 		}
 		const declaredLength = contentLength(request);
-		if (declaredLength !== null && (declaredLength < PNG_SIGNATURE.byteLength || declaredLength > MAX_FRAME_BYTES)) {
+		if (declaredLength !== null && declaredLength < PNG_SIGNATURE.byteLength) {
 			await this.#fail(session);
-			throw new ExportSessionError(413, 'Export frame Content-Length is outside the allowed range.');
+			throw new ExportSessionError(400, 'Export frame Content-Length is shorter than a PNG header.');
+		}
+		// Refuse an over-limit frame from its declared length, before the encoder
+		// is spawned and before a byte of the body is read.
+		const declaredOverflow =
+			declaredLength === null
+				? null
+				: findExportFrameBytesRejection(declaredLength, session, this.#limits);
+		if (declaredOverflow) {
+			await this.#fail(session);
+			throw limitError(declaredOverflow);
 		}
 
 		session.isBusy = true;
@@ -476,11 +561,12 @@ export class ExportSessionStore {
 		try {
 			const encoder = session.encoder ?? this.#startEncoder(session);
 			const signal = AbortSignal.any([session.abortController.signal, request.signal]);
-			await streamRequestBody({
+			session.uploadedBytes += await streamRequestBody({
 				body: request.body,
 				writable: encoder.child.stdin,
 				signal,
-				maxBytes: MAX_FRAME_BYTES,
+				findOverflow: (receivedBytes) =>
+					findExportFrameBytesRejection(receivedBytes, session, this.#limits),
 				requirePngSignature: true
 			});
 			session.nextFrame += 1;
@@ -494,7 +580,7 @@ export class ExportSessionStore {
 	}
 
 	async complete(id: string): Promise<CompletedExportSession> {
-		const session = this.#get(id);
+		const session = await this.#get(id);
 		if (session.isBusy) {
 			throw new ExportSessionError(409, 'An export upload is still being encoded.');
 		}
@@ -523,6 +609,8 @@ export class ExportSessionStore {
 			if (!output.isFile() || output.size === 0) {
 				throw new ExportSessionError(500, 'ffmpeg did not produce an export output.');
 			}
+			const oversizedOutput = findExportOutputRejection(output.size, this.#limits);
+			if (oversizedOutput) throw limitError(oversizedOutput);
 			Sentry.getActiveSpan()?.setAttributes(
 				exportSessionEncodeTelemetry(
 					session.encodeStartedAt ? Date.now() - session.encodeStartedAt : 0,
@@ -540,13 +628,13 @@ export class ExportSessionStore {
 	}
 
 	async outputResponse(id: string, requestSignal?: AbortSignal): Promise<Response> {
-		const session = this.#get(id);
+		const session = await this.#get(id);
 		if (session.status !== 'ready') {
 			throw new ExportSessionError(409, 'Export output is not ready.');
 		}
 		session.status = 'downloading';
-		if (session.expiryTimer) clearTimeout(session.expiryTimer);
-		session.expiryTimer = null;
+		if (session.idleTimer) clearTimeout(session.idleTimer);
+		session.idleTimer = null;
 		const output = await stat(session.outputPath);
 		const source = createReadableStream(session.outputPath);
 		const reader = source.getReader();
@@ -598,9 +686,16 @@ export class ExportSessionStore {
 		await this.#dispose(session);
 	}
 
+	/**
+	 * Remove every session that outlived a clock. A draining download is exempt
+	 * from the idle timeout — it is active by definition — but not from the hard
+	 * lifetime, which exists precisely to end a transfer that never finishes.
+	 */
 	async cleanupStale(now = this.#now()): Promise<number> {
-		const stale = [...this.#sessions.values()].filter(
-			(session) => session.status !== 'downloading' && session.expiresAt <= now
+		const stale = [...this.#sessions.values()].filter((session) =>
+			session.status === 'downloading'
+				? now - session.createdAt >= this.#maxLifetimeMs
+				: this.#findExpiry(session, now) !== null
 		);
 		await Promise.all(stale.map((session) => this.#dispose(session)));
 		return stale.length;
@@ -688,19 +783,45 @@ export class ExportSessionStore {
 		];
 	}
 
-	#get(id: string): ExportSession {
+	/**
+	 * Resolve a live session, removing it first if either clock has run out — so
+	 * an expired session answers 410 with its reason rather than a bare 404 from
+	 * a sweep that has not fired yet.
+	 */
+	async #get(id: string): Promise<ExportSession> {
 		const session = this.#sessions.get(id);
 		if (!session) throw new ExportSessionError(404, 'Export session not found.');
+		const expired = this.#findExpiry(session, this.#now());
+		if (expired) {
+			await this.#dispose(session);
+			throw limitError(expired);
+		}
 		return session;
 	}
 
+	#findExpiry(session: ExportSession, now: number): PublicExportLimitRejection | null {
+		return findExportSessionExpiryRejection({
+			idleMs: now - session.lastActiveAt,
+			ageMs: now - session.createdAt,
+			idleTimeoutMs: this.#ttlMs,
+			maxLifetimeMs: this.#maxLifetimeMs
+		});
+	}
+
+	#scheduleSweep(delayMs: number): ReturnType<typeof setTimeout> {
+		const timer = setTimeout(() => {
+			void this.cleanupStale().catch((error) =>
+				console.error('Export session cleanup failed.', error)
+			);
+		}, delayMs);
+		timer.unref();
+		return timer;
+	}
+
 	#touch(session: ExportSession): void {
-		session.expiresAt = this.#now() + this.#ttlMs;
-		if (session.expiryTimer) clearTimeout(session.expiryTimer);
-		session.expiryTimer = setTimeout(() => {
-			void this.cleanupStale().catch((error) => console.error('Export session cleanup failed.', error));
-		}, this.#ttlMs);
-		session.expiryTimer.unref();
+		session.lastActiveAt = this.#now();
+		if (session.idleTimer) clearTimeout(session.idleTimer);
+		session.idleTimer = this.#scheduleSweep(this.#ttlMs);
 	}
 
 	async #fail(session: ExportSession): Promise<void> {
@@ -711,7 +832,8 @@ export class ExportSessionStore {
 		if (session.cleanupPromise) return session.cleanupPromise;
 		session.cleanupPromise = (async () => {
 			this.#sessions.delete(session.id);
-			if (session.expiryTimer) clearTimeout(session.expiryTimer);
+			if (session.idleTimer) clearTimeout(session.idleTimer);
+			if (session.lifetimeTimer) clearTimeout(session.lifetimeTimer);
 			session.abortController.abort(new DOMException('Export session cancelled.', 'AbortError'));
 			const encoder = session.encoder;
 			if (encoder && !encoder.hasExited) {

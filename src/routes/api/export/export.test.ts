@@ -10,12 +10,19 @@ import { afterEach, describe, it } from 'vitest';
 
 import {
 	cleanupOrphanedExportDirectories,
+	type CreatedExportSession,
 	ExportSessionError,
 	ExportSessionStore,
 	hasPngSignature,
 	parseExportFrameIndex,
 	parseExportSessionRequest
 } from '$lib/platform/export-session.server';
+import { EXPORT_CONTROL_DOCUMENT_MAX_BYTES } from '$lib/platform/public-export-limits';
+import {
+	PUBLIC_EXPORT_RUNTIME_LIMITS,
+	RATIFIED_NATIVE_OUTPUT_BYTES_PER_FRAME,
+	type PublicExportRuntimeLimits
+} from '$lib/platform/public-runtime-contract';
 
 const PNG = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3, 4]);
 const temporaryDirectories: string[] = [];
@@ -30,6 +37,8 @@ interface FakeEncoderOptions {
 	exitCode?: number;
 	stderr?: string;
 	createInput?: () => Writable;
+	/** Payload the fake encoder writes, so an output-ceiling fixture can oversize it. */
+	outputContent?: string;
 }
 
 interface FakeEncoderHarness {
@@ -52,7 +61,9 @@ class FakeEncoderProcess extends EventEmitter {
 		this.stdin = options.createInput?.() ?? new Writable({ write: (_chunk, _encoding, done) => done() });
 		this.stdin.once('finish', () => {
 			void (async () => {
-				if ((options.exitCode ?? 0) === 0) await writeFile(outputPath, 'encoded-video');
+				if ((options.exitCode ?? 0) === 0) {
+					await writeFile(outputPath, options.outputContent ?? 'encoded-video');
+				}
 				if (options.stderr) this.stderr.write(options.stderr);
 				this.stderr.end();
 				this.emit('close', options.exitCode ?? 0, null);
@@ -84,9 +95,17 @@ function createFakeEncoder(options: FakeEncoderOptions = {}): FakeEncoderHarness
 	return { spawnEncoder, spawnedArguments, children };
 }
 
+interface TestStoreOptions {
+	ttlMs?: number;
+	maxLifetimeMs?: number;
+	maxConcurrentSessions?: number;
+	limits?: PublicExportRuntimeLimits;
+	now?: () => number;
+}
+
 async function createStore(
 	options: FakeEncoderOptions = {},
-	storeOptions: { ttlMs?: number; now?: () => number } = {}
+	storeOptions: TestStoreOptions = {}
 ): Promise<{ store: ExportSessionStore; directory: string; encoder: FakeEncoderHarness }> {
 	const directory = await mkdtemp(join(tmpdir(), 'gfx-export-test-'));
 	temporaryDirectories.push(directory);
@@ -97,11 +116,33 @@ async function createStore(
 		store: new ExportSessionStore({
 			temporaryDirectory: directory,
 			spawnEncoder: encoder.spawnEncoder,
-			ttlMs: storeOptions.ttlMs,
-			now: storeOptions.now
+			...storeOptions
 		})
 	};
 }
+
+/** POST one session control document through the real admission path. */
+function openSession(
+	store: ExportSessionStore,
+	metadata: Record<string, unknown>,
+	headers: Record<string, string> = {}
+): Promise<CreatedExportSession> {
+	return store.create(
+		new Request('http://localhost/api/export/sessions', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...headers },
+			body: JSON.stringify(metadata)
+		})
+	);
+}
+
+const WEBM_SINGLE_FRAME = {
+	format: 'webm',
+	fps: 30,
+	frameCount: 1,
+	opaque: false,
+	audioBytes: 0
+} as const;
 
 function frameRequest(signal?: AbortSignal, type = 'image/png'): Request {
 	return new Request('http://localhost/frame', {
@@ -209,7 +250,7 @@ describe('export session protocol parsing', () => {
 describe('export session encoding', () => {
 	it('enforces ordered frame acknowledgements and rejects completion with missing frames', async () => {
 		const { store, directory } = await createStore();
-		const session = await store.create({
+		const session = await openSession(store, {
 			format: 'webm',
 			fps: 30,
 			frameCount: 2,
@@ -232,7 +273,7 @@ describe('export session encoding', () => {
 
 	it('rejects invalid frame content and removes the unusable session', async () => {
 		const { store, directory } = await createStore();
-		const session = await store.create({
+		const session = await openSession(store, {
 			format: 'webm',
 			fps: 30,
 			frameCount: 1,
@@ -245,7 +286,7 @@ describe('export session encoding', () => {
 		);
 		assert.deepEqual(await readdir(directory), []);
 
-		const malformed = await store.create({
+		const malformed = await openSession(store, {
 			format: 'webm',
 			fps: 30,
 			frameCount: 1,
@@ -287,7 +328,7 @@ describe('export session encoding', () => {
 					}
 				})
 		});
-		const session = await store.create({
+		const session = await openSession(store, {
 			format: 'webm',
 			fps: 30,
 			frameCount: 1,
@@ -309,7 +350,7 @@ describe('export session encoding', () => {
 	it('streams audio once before frames and maps it to the encoder', async () => {
 		const { store, encoder } = await createStore();
 		const wav = new Uint8Array([82, 73, 70, 70]);
-		const session = await store.create({
+		const session = await openSession(store, {
 			format: 'prores',
 			fps: 24,
 			frameCount: 1,
@@ -332,7 +373,7 @@ describe('export session encoding', () => {
 		{ format: 'prores' as const, opaque: true, pixelFormat: 'yuva444p10le' }
 	])('preserves $format codec output with $pixelFormat', async ({ format, opaque, pixelFormat }) => {
 		const { store, encoder } = await createStore();
-		const session = await store.create({
+		const session = await openSession(store, {
 			format,
 			fps: 29.97,
 			frameCount: 1,
@@ -357,7 +398,7 @@ describe('export session encoding', () => {
 
 	it('passes a drop-frame start timecode through to ffmpeg unchanged', async () => {
 		const { store, encoder } = await createStore();
-		const session = await store.create({
+		const session = await openSession(store, {
 			format: 'prores',
 			fps: 29.97,
 			frameCount: 1,
@@ -373,7 +414,7 @@ describe('export session encoding', () => {
 
 	it('removes the session and partial output on encoder failure', async () => {
 		const { store, directory } = await createStore({ exitCode: 1, stderr: 'encoder exploded' });
-		const session = await store.create({
+		const session = await openSession(store, {
 			format: 'webm',
 			fps: 30,
 			frameCount: 1,
@@ -387,7 +428,7 @@ describe('export session encoding', () => {
 
 	it('cancels output streaming and removes the finished session file', async () => {
 		const { store, directory } = await createStore();
-		const session = await store.create({
+		const session = await openSession(store, {
 			format: 'webm',
 			fps: 30,
 			frameCount: 1,
@@ -413,7 +454,7 @@ describe('export session encoding', () => {
 					write: () => markWriteStarted()
 				})
 		});
-		const session = await store.create({
+		const session = await openSession(store, {
 			format: 'webm',
 			fps: 30,
 			frameCount: 1,
@@ -436,7 +477,7 @@ describe('export session encoding', () => {
 	it('expires abandoned sessions and cleans orphaned directories', async () => {
 		let now = 1_000;
 		const { store, directory } = await createStore({}, { ttlMs: 100, now: () => now });
-		await store.create({
+		await openSession(store, {
 			format: 'webm',
 			fps: 30,
 			frameCount: 1,
@@ -464,5 +505,216 @@ describe('export session encoding', () => {
 
 		assert.equal(await cleanupOrphanedExportDirectories(directory, 0, Date.now() + 1_000), 2);
 		assert.deepEqual(await readdir(directory), ['unrelated-tenant-cache']);
+	});
+});
+
+/** ADR-0052: the ratified envelope, refused before ffmpeg or a work directory. */
+describe('bounded public export limit enforcement', () => {
+	function isLimitStatus(status: number, pattern: RegExp): (error: unknown) => boolean {
+		return (error: unknown) =>
+			error instanceof ExportSessionError && error.status === status && pattern.test(error.message);
+	}
+
+	it('refuses an over-envelope session without spawning ffmpeg or allocating a directory', async () => {
+		const { store, directory, encoder } = await createStore();
+		await assert.rejects(
+			() =>
+				openSession(store, {
+					...WEBM_SINGLE_FRAME,
+					fps: 60,
+					frameCount: PUBLIC_EXPORT_RUNTIME_LIMITS.maxFrameCount + 1
+				}),
+			isLimitStatus(400, new RegExp(`public limit is ${PUBLIC_EXPORT_RUNTIME_LIMITS.maxFrameCount}`))
+		);
+		await assert.rejects(
+			() => openSession(store, { ...WEBM_SINGLE_FRAME, fps: 120 }),
+			isLimitStatus(400, /public limit is 60 fps/)
+		);
+		await assert.rejects(
+			() =>
+				openSession(store, {
+					...WEBM_SINGLE_FRAME,
+					audioBytes: PUBLIC_EXPORT_RUNTIME_LIMITS.maxAudioBytes + 1
+				}),
+			isLimitStatus(413, /bytes of audio/)
+		);
+		assert.deepEqual(await readdir(directory), []);
+		assert.deepEqual(encoder.spawnedArguments, []);
+	});
+
+	it('admits the longest export the envelope allows', async () => {
+		const { store } = await createStore();
+		const session = await openSession(store, {
+			...WEBM_SINGLE_FRAME,
+			fps: PUBLIC_EXPORT_RUNTIME_LIMITS.maxFrameRate,
+			frameCount: PUBLIC_EXPORT_RUNTIME_LIMITS.maxFrameCount
+		});
+		assert.ok(session.sessionId);
+		await store.cancel(session.sessionId);
+	});
+
+	it('refuses a control document, content type, or body it cannot admit', async () => {
+		const { store, directory } = await createStore();
+		await assert.rejects(
+			() =>
+				openSession(store, WEBM_SINGLE_FRAME, {
+					'Content-Length': String(EXPORT_CONTROL_DOCUMENT_MAX_BYTES + 1)
+				}),
+			isLimitStatus(413, /session metadata declares/)
+		);
+		await assert.rejects(
+			() =>
+				store.create(
+					new Request('http://localhost/api/export/sessions', {
+						method: 'POST',
+						headers: { 'Content-Type': 'text/plain' },
+						body: '{}'
+					})
+				),
+			isLimitStatus(415, /application\/json/)
+		);
+		await assert.rejects(
+			() =>
+				store.create(
+					new Request('http://localhost/api/export/sessions', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: 'not json'
+					})
+				),
+			isLimitStatus(400, /not valid JSON/)
+		);
+		assert.deepEqual(await readdir(directory), []);
+	});
+
+	it('turns the next caller away at the concurrency ceiling and frees the slot on every exit', async () => {
+		const { store, directory } = await createStore({}, { maxConcurrentSessions: 2 });
+		const first = await openSession(store, WEBM_SINGLE_FRAME);
+		const second = await openSession(store, WEBM_SINGLE_FRAME);
+		await assert.rejects(
+			() => openSession(store, WEBM_SINGLE_FRAME),
+			isLimitStatus(429, /2 of 2 concurrent sessions/)
+		);
+
+		await store.cancel(first.sessionId);
+		const third = await openSession(store, WEBM_SINGLE_FRAME);
+
+		await store.uploadFrame(second.sessionId, 0, frameRequest());
+		await store.complete(second.sessionId);
+		await (await store.outputResponse(second.sessionId)).text();
+		const fourth = await openSession(store, WEBM_SINGLE_FRAME);
+		await assert.rejects(
+			() => openSession(store, WEBM_SINGLE_FRAME),
+			isLimitStatus(429, /2 of 2 concurrent sessions/)
+		);
+
+		await Promise.all([store.cancel(third.sessionId), store.cancel(fourth.sessionId)]);
+		assert.deepEqual(await readdir(directory), []);
+	});
+
+	it('gives the last concurrency slot to exactly one of two racing callers', async () => {
+		const { store, directory } = await createStore({}, { maxConcurrentSessions: 1 });
+		const outcomes = await Promise.allSettled([
+			openSession(store, WEBM_SINGLE_FRAME),
+			openSession(store, WEBM_SINGLE_FRAME)
+		]);
+		const admitted = outcomes.filter(
+			(outcome): outcome is PromiseFulfilledResult<CreatedExportSession> =>
+				outcome.status === 'fulfilled'
+		);
+		const refused = outcomes.filter(
+			(outcome): outcome is PromiseRejectedResult => outcome.status === 'rejected'
+		);
+		assert.equal(admitted.length, 1);
+		assert.equal(refused.length, 1);
+		assert.ok(isLimitStatus(429, /1 of 1 concurrent sessions/)(refused[0].reason));
+		assert.deepEqual(await readdir(directory), [
+			`gfx-export-${admitted[0].value.sessionId}`
+		]);
+		await store.cancel(admitted[0].value.sessionId);
+	});
+
+	it('removes a session that passed its hard lifetime while still being used', async () => {
+		let now = 1_000;
+		const { store, directory } = await createStore(
+			{},
+			{ ttlMs: 10_000, maxLifetimeMs: 500, now: () => now }
+		);
+		const session = await openSession(store, { ...WEBM_SINGLE_FRAME, frameCount: 2 });
+		now = 1_400;
+		await store.uploadFrame(session.sessionId, 0, frameRequest());
+		now = 1_500;
+		await assert.rejects(
+			() => store.uploadFrame(session.sessionId, 1, frameRequest()),
+			isLimitStatus(410, /passed its 500 ms lifetime/)
+		);
+		assert.deepEqual(await readdir(directory), []);
+	});
+
+	it('answers an idle-expired session with its reason before the sweep reaches it', async () => {
+		let now = 1_000;
+		const { store, directory } = await createStore(
+			{},
+			{ ttlMs: 100, maxLifetimeMs: 10_000, now: () => now }
+		);
+		const session = await openSession(store, WEBM_SINGLE_FRAME);
+		now = 1_100;
+		await assert.rejects(
+			() => store.uploadFrame(session.sessionId, 0, frameRequest()),
+			isLimitStatus(410, /idle longer than 100 ms/)
+		);
+		assert.deepEqual(await readdir(directory), []);
+	});
+
+	it('refuses an oversized frame from its declared length, before the encoder starts', async () => {
+		const { store, directory, encoder } = await createStore(
+			{},
+			{ limits: { ...PUBLIC_EXPORT_RUNTIME_LIMITS, maxFrameBytes: PNG.byteLength - 1 } }
+		);
+		const session = await openSession(store, WEBM_SINGLE_FRAME);
+		const declared = new Request('http://localhost/frame', {
+			method: 'PUT',
+			headers: { 'Content-Type': 'image/png', 'Content-Length': String(PNG.byteLength) },
+			body: new Blob([PNG], { type: 'image/png' })
+		});
+		await assert.rejects(
+			() => store.uploadFrame(session.sessionId, 0, declared),
+			isLimitStatus(413, new RegExp(`limit is ${PNG.byteLength - 1} per frame`))
+		);
+		assert.deepEqual(encoder.spawnedArguments, []);
+		assert.deepEqual(await readdir(directory), []);
+	});
+
+	it('cuts off a frame that understates its declared length', async () => {
+		const { store, directory } = await createStore(
+			{},
+			{ limits: { ...PUBLIC_EXPORT_RUNTIME_LIMITS, maxFrameBytes: PNG.byteLength - 1 } }
+		);
+		const session = await openSession(store, WEBM_SINGLE_FRAME);
+		const understated = new Request('http://localhost/frame', {
+			method: 'PUT',
+			headers: { 'Content-Type': 'image/png', 'Content-Length': '8' },
+			body: new Blob([PNG], { type: 'image/png' })
+		});
+		await assert.rejects(
+			() => store.uploadFrame(session.sessionId, 0, understated),
+			isLimitStatus(413, /per frame/)
+		);
+		assert.deepEqual(await readdir(directory), []);
+	});
+
+	it('refuses an encoded output above the output ceiling and keeps nothing', async () => {
+		const maxOutputBytes = RATIFIED_NATIVE_OUTPUT_BYTES_PER_FRAME.webm;
+		const { store, directory } = await createStore(
+			{ outputContent: 'e'.repeat(maxOutputBytes + 1) },
+			{ limits: { ...PUBLIC_EXPORT_RUNTIME_LIMITS, maxOutputBytes } }
+		);
+		const session = await openSession(store, WEBM_SINGLE_FRAME);
+		await store.uploadFrame(session.sessionId, 0, frameRequest());
+		await assert.rejects(
+			() => store.complete(session.sessionId),
+			isLimitStatus(413, new RegExp(`Export output is ${maxOutputBytes + 1} bytes`))
+		);
+		assert.deepEqual(await readdir(directory), []);
 	});
 });
