@@ -38,6 +38,7 @@ import {
 	WEB_DOCUMENT_SITES,
 	type Effect,
 	type Overlay,
+	type SurfaceChromeMode,
 	type SurfaceState,
 	type TextAnimation,
 	type TextAnimationTarget
@@ -76,10 +77,6 @@ import { ANNOTATION_MARK_STYLES } from '../annotations/annotation-mark-styles';
 
 import type { AnnotationMarkStyle } from '../annotations/annotation-mark-styles';
 import type { WebmcpOperationRow } from './webmcp-operation-inventory';
-
-/** The chrome modes a Surface that declares one renders in. */
-export const SURFACE_CHROME_MODES = ['window', 'none'] as const;
-export type SurfaceChromeMode = (typeof SURFACE_CHROME_MODES)[number];
 
 export interface SetCompositionSurfaceRequest {
 	expectedRevision: number;

@@ -19,8 +19,12 @@
  * prevent. `verification` never arrives — it is internal-only, and the
  * controller refuses a definition that names it.
  */
+import { listWebmcpAppearanceToolDefinitions } from './webmcp-appearance-tools';
 import { listWebmcpCapabilityToolDefinitions } from './webmcp-capability-tools';
 import { listWebmcpCompositionToolDefinitions } from './webmcp-composition-tools';
+import { listWebmcpContentToolDefinitions } from './webmcp-content-tools';
+import { listWebmcpLayerToolDefinitions } from './webmcp-layer-tools';
+import { listWebmcpPlacementToolDefinitions } from './webmcp-placement-tools';
 import { listWebmcpSessionToolDefinitions } from './webmcp-session-tools';
 import { listWebmcpTransportToolDefinitions } from './webmcp-transport-tools';
 
@@ -31,6 +35,10 @@ export function listWebmcpToolDefinitions(): readonly WebmcpToolDefinition[] {
 		...listWebmcpCapabilityToolDefinitions(),
 		...listWebmcpCompositionToolDefinitions(),
 		...listWebmcpSessionToolDefinitions(),
-		...listWebmcpTransportToolDefinitions()
+		...listWebmcpTransportToolDefinitions(),
+		...listWebmcpLayerToolDefinitions(),
+		...listWebmcpContentToolDefinitions(),
+		...listWebmcpPlacementToolDefinitions(),
+		...listWebmcpAppearanceToolDefinitions()
 	];
 }

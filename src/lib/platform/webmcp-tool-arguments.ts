@@ -105,6 +105,35 @@ export function readWebmcpOptionalStringArgument(args: unknown, name: string): s
 	return value;
 }
 
+/**
+ * Text a caller may also clear. `null` is kept apart from an absent argument:
+ * absent leaves the value alone, `null` removes it, and collapsing the two would
+ * make one of those unreachable.
+ */
+export function readWebmcpClearableStringArgument(
+	args: unknown,
+	name: string
+): string | null | undefined {
+	const value = readArgumentRecord(args)[name];
+	if (value === undefined || value === null) return value;
+	if (typeof value !== 'string') {
+		throw new WebmcpArgumentError('invalid_argument', `"${name}" must be a string or null.`, {
+			rejected: describeRejectedArgument(value)
+		});
+	}
+	return value;
+}
+
+export function readWebmcpNumberArgument(args: unknown, name: string): number {
+	const value = readArgumentRecord(args)[name];
+	if (typeof value !== 'number' || !Number.isFinite(value)) {
+		throw new WebmcpArgumentError('invalid_argument', `"${name}" must be a finite number.`, {
+			rejected: describeRejectedArgument(value)
+		});
+	}
+	return value;
+}
+
 export function readWebmcpOptionalNumberArgument(args: unknown, name: string): number | undefined {
 	const value = readArgumentRecord(args)[name];
 	if (value === undefined) return undefined;
@@ -114,6 +143,81 @@ export function readWebmcpOptionalNumberArgument(args: unknown, name: string): n
 		});
 	}
 	return value;
+}
+
+/** A number a caller may also clear, so a field returns to what the engine resolves. */
+export function readWebmcpClearableNumberArgument(
+	args: unknown,
+	name: string
+): number | null | undefined {
+	const value = readArgumentRecord(args)[name];
+	if (value === undefined || value === null) return value;
+	return readWebmcpNumberArgument(args, name);
+}
+
+export function readWebmcpOptionalBooleanArgument(
+	args: unknown,
+	name: string
+): boolean | undefined {
+	const value = readArgumentRecord(args)[name];
+	if (value === undefined) return undefined;
+	return readWebmcpBooleanArgument(args, name);
+}
+
+/**
+ * A nested argument object — one Overlay placement, one stage, one content slot
+ * map. Returned as a record so the fields inside it pass through readers of
+ * their own; nothing here trusts what those fields hold.
+ */
+export function readWebmcpRecordArgument(args: unknown, name: string): Record<string, unknown> {
+	const value = readArgumentRecord(args)[name];
+	if (!isRecord(value)) {
+		throw new WebmcpArgumentError('invalid_argument', `"${name}" must be a JSON object.`, {
+			rejected: describeRejectedArgument(value)
+		});
+	}
+	return value;
+}
+
+export function readWebmcpOptionalRecordArgument(
+	args: unknown,
+	name: string
+): Record<string, unknown> | undefined {
+	if (readArgumentRecord(args)[name] === undefined) return undefined;
+	return readWebmcpRecordArgument(args, name);
+}
+
+/** A nested object a caller may also clear, such as a rack-focus pull. */
+export function readWebmcpClearableRecordArgument(
+	args: unknown,
+	name: string
+): Record<string, unknown> | null | undefined {
+	const value = readArgumentRecord(args)[name];
+	if (value === undefined || value === null) return value;
+	return readWebmcpRecordArgument(args, name);
+}
+
+/** An ordered list of nested argument objects — a transcript, a checklist, a cue track. */
+export function readWebmcpRecordArrayArgument(
+	args: unknown,
+	name: string
+): readonly Record<string, unknown>[] {
+	const value = readArgumentRecord(args)[name];
+	if (!Array.isArray(value)) {
+		throw new WebmcpArgumentError('invalid_argument', `"${name}" must be an array.`, {
+			rejected: describeRejectedArgument(value)
+		});
+	}
+	return value.map((entry, index) => {
+		if (!isRecord(entry)) {
+			throw new WebmcpArgumentError(
+				'invalid_argument',
+				`"${name}[${index}]" must be a JSON object.`,
+				{ rejected: describeRejectedArgument(entry) }
+			);
+		}
+		return entry;
+	});
 }
 
 export function readWebmcpBooleanArgument(args: unknown, name: string): boolean {
@@ -195,6 +299,25 @@ export function readWebmcpJsonArgument(args: unknown, name: string): unknown {
 			{ rejected: describeRejectedArgument(text) }
 		);
 	}
+}
+
+/**
+ * A JSON document sent as text whose body is an object — a chart Block's
+ * authored fields, one Overlay's content. The shape inside it belongs to the
+ * schema that owns it, which answers a wrong body with findings naming the exact
+ * field; this reader only proves it is an object at all.
+ */
+export function readWebmcpJsonRecordArgument(
+	args: unknown,
+	name: string
+): Record<string, unknown> {
+	const value = readWebmcpJsonArgument(args, name);
+	if (!isRecord(value)) {
+		throw new WebmcpArgumentError('invalid_argument', `"${name}" must be a JSON object.`, {
+			rejected: describeRejectedArgument(value)
+		});
+	}
+	return value;
 }
 
 /**

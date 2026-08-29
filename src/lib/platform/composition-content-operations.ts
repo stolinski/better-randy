@@ -123,7 +123,7 @@ export interface SetCompositionDiagramPrimitiveRequest {
  * One chart Block's authored body: everything but the identity the Block keeps
  * and the motion the `motion` family owns. Distributed over the chart union so
  * a bar chart's `layout`, a line chart's `domain`, and a unit grid's
- * `normalization` each stay writable and typed.
+ * `normalization` each name a real field a caller can look up.
  */
 type ChartBlockBody<T> = T extends ChartBlock ? Omit<T, 'id' | 'type' | 'motion'> : never;
 export type ChartBlockContent = ChartBlockBody<ChartBlock>;
@@ -131,8 +131,14 @@ export type ChartBlockContent = ChartBlockBody<ChartBlock>;
 export interface SetCompositionChartBlockRequest {
 	expectedRevision: number;
 	blockId: string;
-	/** The Block's whole authored body, validated as one strict unit. */
-	content: ChartBlockContent;
+	/**
+	 * The Block's whole authored body — a `ChartBlockContent` for the Block's own
+	 * chart type — as a plain JSON object. It arrives untyped because the strict
+	 * unit that decides it is the chart schema the transaction parses the whole
+	 * document against, which answers a wrong body with findings naming the exact
+	 * field rather than a compile error the caller never sees.
+	 */
+	content: Record<string, unknown>;
 }
 
 export interface SetCompositionCaptionsRequest {
@@ -162,8 +168,8 @@ const DIAGRAM_CONTENT_FIELDS: Record<
 
 /**
  * Fields a caller reaches for here that another family owns. Named so the
- * refusal points at the operation that can write them instead of reading as a
- * flat rejection.
+ * refusal points at the tool that can write them instead of reading as a flat
+ * rejection.
  */
 const DIAGRAM_FIELDS_OWNED_ELSEWHERE: Record<string, string> = {
 	position: 'gfx_placement_set_diagram_geometry',
@@ -175,6 +181,16 @@ const DIAGRAM_FIELDS_OWNED_ELSEWHERE: Record<string, string> = {
 	orientationOverrides: 'gfx_placement_set_diagram_geometry',
 	animation: 'gfx_motion_set_keyframe_channel'
 };
+
+/**
+ * The refusal a diagram field another family owns earns, or `null` when the
+ * field is authored content. Stated once so the operation and the WebMCP
+ * argument reader that catches the same mistake earlier give the same answer.
+ */
+export function describeDiagramContentFieldOwner(field: string): string | null {
+	const owner = DIAGRAM_FIELDS_OWNED_ELSEWHERE[field];
+	return owner ? `"${field}" is not authored content; ${owner} writes it.` : null;
+}
 
 function refuseUnknownTarget(
 	row: WebmcpOperationRow,
@@ -409,15 +425,12 @@ export async function runSetCompositionDiagramPrimitiveOperation(
 	}
 
 	for (const field of Object.keys(request.content)) {
-		const owner = DIAGRAM_FIELDS_OWNED_ELSEWHERE[field];
-		if (owner) {
-			return refuseCompositionOperation(
-				row,
-				revision,
-				'invalid_argument',
-				`"${field}" is not authored content; ${owner} writes it.`,
-				{ rejected: field, alternatives: accepted }
-			);
+		const ownedElsewhere = describeDiagramContentFieldOwner(field);
+		if (ownedElsewhere) {
+			return refuseCompositionOperation(row, revision, 'invalid_argument', ownedElsewhere, {
+				rejected: field,
+				alternatives: accepted
+			});
 		}
 		if (!accepted.includes(field)) {
 			return refuseCompositionOperation(

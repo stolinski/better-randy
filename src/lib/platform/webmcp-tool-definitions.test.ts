@@ -46,7 +46,11 @@ const EXPOSED_FAMILIES: readonly WebmcpOperationFamilyName[] = [
 	'capability',
 	'composition',
 	'session',
-	'transport'
+	'transport',
+	'layer',
+	'content',
+	'placement',
+	'appearance'
 ];
 
 /**
@@ -54,8 +58,12 @@ const EXPOSED_FAMILIES: readonly WebmcpOperationFamilyName[] = [
  * may reach past the operation layer into engine state.
  */
 const WEBMCP_FAMILY_TOOL_MODULES = [
+	'src/lib/platform/webmcp-appearance-tools.ts',
 	'src/lib/platform/webmcp-capability-tools.ts',
 	'src/lib/platform/webmcp-composition-tools.ts',
+	'src/lib/platform/webmcp-content-tools.ts',
+	'src/lib/platform/webmcp-layer-tools.ts',
+	'src/lib/platform/webmcp-placement-tools.ts',
 	'src/lib/platform/webmcp-session-tools.ts',
 	'src/lib/platform/webmcp-transport-tools.ts'
 ];
@@ -143,7 +151,7 @@ beforeEach(() => {
 });
 
 describe('WebMCP tool definitions', () => {
-	it('exposes the composition, session, transport, and capability families', () => {
+	it('exposes every family this build ships, and no other', () => {
 		const families = new Set(exposedRows().map((row) => row.family));
 		expect([...families].sort()).toEqual([...EXPOSED_FAMILIES].sort());
 	});
@@ -289,6 +297,77 @@ describe('WebMCP tool calls', () => {
 		});
 		expect(engineState.transport.orientation).toBe('vertical');
 	});
+
+	it('builds, writes, and places an Overlay without touching the interface', async () => {
+		compositionMeta.userCompositionSlug = 'untitled';
+		compositionMeta.isUserComposition = true;
+		const host = new FakeModelContext();
+		const controller = startController(host);
+		const route = '/p/untitled';
+		await controller.synchronize(readWebmcpCompositionPreconditions(), route);
+
+		const added = readPayload(
+			await host.call(rowFor('layer.add-overlay').toolName, {
+				expectedRevision: compositionEditHistory.revision,
+				overlayType: 'lower-third'
+			})
+		);
+		expect(added).toMatchObject({ status: 'applied', focus: { target: 'overlay' } });
+
+		// The Overlay's own tools only exist once an Overlay does, so the caller's
+		// next verbs arrive with the state that makes them possible.
+		const withOverlay = await controller.synchronize(readWebmcpCompositionPreconditions(), route);
+		expect(withOverlay.added).toContain(rowFor('content.set-overlay-content').toolName);
+		expect(withOverlay.added).toContain(rowFor('placement.set-overlay-placement').toolName);
+
+		const overlayId = engineState.overlays[0].id;
+		const written = readPayload(
+			await host.call(rowFor('content.set-overlay-content').toolName, {
+				expectedRevision: compositionEditHistory.revision,
+				overlayId,
+				content: JSON.stringify({ title: 'Syntax', subtitle: 'Web development podcast' })
+			})
+		);
+		expect(written).toMatchObject({ status: 'applied' });
+
+		const placed = readPayload(
+			await host.call(rowFor('placement.set-overlay-placement').toolName, {
+				expectedRevision: compositionEditHistory.revision,
+				overlayId,
+				target: 'vertical',
+				placement: { anchor: 'bottom-center', offset: { x: 0.06, y: 0.12 }, scale: 1.2 }
+			})
+		);
+
+		expect(placed).toMatchObject({ status: 'applied', focus: { target: 'overlay', overlayId } });
+		expect(engineState.overlays[0].position.orientationOverrides?.vertical).toEqual({
+			anchor: 'bottom-center',
+			offset: { x: 0.06, y: 0.12 },
+			scale: 1.2
+		});
+	});
+
+	it('art-directs the piece through the appearance family', async () => {
+		compositionMeta.userCompositionSlug = 'untitled';
+		compositionMeta.isUserComposition = true;
+		const host = new FakeModelContext();
+		const controller = startController(host);
+		await controller.synchronize(readWebmcpCompositionPreconditions(), '/p/untitled');
+
+		const result = await host.call(rowFor('appearance.set-typography').toolName, {
+			expectedRevision: compositionEditHistory.revision,
+			fontFamily: 'serif',
+			paperColor: null
+		});
+
+		expect(readPayload(result)).toMatchObject({
+			status: 'applied',
+			operationId: 'appearance.set-typography',
+			focus: { target: 'surface' }
+		});
+		expect(engineState.typography.fontFamily).toBe('serif');
+		expect(engineState.typography.paperColor).toBeUndefined();
+	});
 });
 
 describe('WebMCP tool arguments', () => {
@@ -324,6 +403,72 @@ describe('WebMCP tool arguments', () => {
 
 		expect(result.isError).toBe(true);
 		expect(readPayload(result).code).toBe('invalid_argument');
+	});
+
+	it('names the ids the composition holds when a target is not one of them', async () => {
+		const host = new FakeModelContext();
+		const controller = startController(host);
+		const route = '/p/untitled';
+		await controller.synchronize(readWebmcpCompositionPreconditions(), route);
+		await host.call(rowFor('layer.add-overlay').toolName, {
+			expectedRevision: compositionEditHistory.revision,
+			overlayType: 'lower-third'
+		});
+		await controller.synchronize(readWebmcpCompositionPreconditions(), route);
+
+		const result = await host.call(rowFor('layer.remove-overlay').toolName, {
+			expectedRevision: compositionEditHistory.revision,
+			overlayId: 'lower-third-9'
+		});
+
+		expect(result.isError).toBe(true);
+		expect(readPayload(result)).toMatchObject({
+			code: 'unknown_target',
+			rejected: 'lower-third-9',
+			alternatives: [engineState.overlays[0].id]
+		});
+	});
+
+	it('sends a caller writing geometry as content to the tool that owns it', async () => {
+		const host = new FakeModelContext();
+		const controller = startController(host);
+		const route = '/p/untitled';
+		await controller.synchronize(readWebmcpCompositionPreconditions(), route);
+		await host.call(rowFor('layer.add-diagram-primitive').toolName, {
+			expectedRevision: compositionEditHistory.revision,
+			primitiveType: 'node'
+		});
+		await controller.synchronize(readWebmcpCompositionPreconditions(), route);
+
+		const result = await host.call(rowFor('content.set-diagram-primitive').toolName, {
+			expectedRevision: compositionEditHistory.revision,
+			blockId: engineState.surface.diagram?.[0].id,
+			content: { position: { x: 0.2, y: 0.2 } }
+		});
+
+		expect(result.isError).toBe(true);
+		expect(readPayload(result)).toMatchObject({
+			code: 'invalid_argument',
+			rejected: 'position',
+			message: expect.stringContaining(rowFor('placement.set-diagram-geometry').toolName)
+		});
+	});
+
+	it('names the Surface content slots when an undeclared one is written', async () => {
+		const host = new FakeModelContext();
+		const controller = startController(host);
+		await controller.synchronize(readWebmcpCompositionPreconditions(), '/p/untitled');
+
+		const result = await host.call(rowFor('content.set-surface-content').toolName, {
+			expectedRevision: compositionEditHistory.revision,
+			slots: { headline: 'Not a slot' }
+		});
+
+		expect(result.isError).toBe(true);
+		expect(readPayload(result)).toMatchObject({
+			code: 'invalid_argument',
+			rejected: 'headline'
+		});
 	});
 
 	it('refuses a JSON import body that is not JSON, without importing anything', async () => {

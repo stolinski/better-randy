@@ -45,6 +45,15 @@ import type { WebmcpOperationRow } from './webmcp-operation-inventory';
 /** Which placement a write lands on: the shared one, or one orientation's snapshot. */
 export type CompositionPlacementTarget = 'shared' | Transport['orientation'];
 
+/**
+ * The placements a write can land on, built from the delivery orientations so a
+ * reflow target this engine gains is a target this family accepts.
+ */
+export const COMPOSITION_PLACEMENT_TARGETS: readonly CompositionPlacementTarget[] = [
+	'shared',
+	...COMPOSITION_ORIENTATIONS
+];
+
 export interface SetCompositionOverlayPlacementRequest {
 	expectedRevision: number;
 	overlayId: string;
@@ -143,15 +152,12 @@ function refuseUnknownPlacementTarget(
 		compositionEditHistory.revision,
 		'invalid_argument',
 		`"${target}" is not a placement target; write the shared placement or one orientation.`,
-		{ rejected: target, alternatives: ['shared', ...COMPOSITION_ORIENTATIONS] }
+		{ rejected: target, alternatives: COMPOSITION_PLACEMENT_TARGETS }
 	);
 }
 
 function isPlacementTarget(value: string): value is CompositionPlacementTarget {
-	return (
-		value === 'shared' ||
-		COMPOSITION_ORIENTATIONS.includes(value as Transport['orientation'])
-	);
+	return COMPOSITION_PLACEMENT_TARGETS.some((target) => target === value);
 }
 
 // ---- Overlay placement ----

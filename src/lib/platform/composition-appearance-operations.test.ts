@@ -5,8 +5,16 @@ import blankPresetJson from '$lib/presets/blank.json';
 import { compositionMeta } from './composition-meta.svelte';
 import { engineState, packState, transitionState } from './engine-state.svelte';
 import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
+import { runAddCompositionEffectOperation, runSetCompositionSurfaceOperation } from './composition-layer-operations';
 import { runSetCompositionBackgroundOperation } from './composition-transport-operations';
-import { runSetCompositionPackOperation } from './composition-appearance-operations';
+import {
+	runSetCompositionBackdropVisibilityOperation,
+	runSetCompositionEffectParamsOperation,
+	runSetCompositionMarkDefaultsOperation,
+	runSetCompositionPackOperation,
+	runSetCompositionStageOperation,
+	runSetCompositionTypographyOperation
+} from './composition-appearance-operations';
 import { applyPreset } from './preset';
 import { getPack } from './packs/registry';
 import { parsePresetIngress } from './preset-ingress';
@@ -93,5 +101,226 @@ describe('composition Pack', () => {
 
 		expect(failure.code).toBe('stale_revision');
 		expect(packState.slug).toBe('clean-light');
+	});
+});
+
+describe('composition typography', () => {
+	it('sets the type voice and hands a colour back to the Pack', async () => {
+		const changed = expectApplied(
+			await runSetCompositionTypographyOperation({
+				expectedRevision: 0,
+				fontFamily: 'serif',
+				paperColor: null
+			})
+		);
+
+		expect(changed).toContain('/state/typography/fontFamily');
+		expect(engineState.typography.fontFamily).toBe('serif');
+		expect(engineState.typography.paperColor).toBeUndefined();
+		expect(engineState.typography.inkColor).toBe('#f5f5f5');
+	});
+
+	it('refuses a type voice the engine does not ship and names the ones it does', async () => {
+		const failure = expectFailed(
+			await runSetCompositionTypographyOperation({ expectedRevision: 0, fontFamily: 'comic' })
+		);
+
+		expect(failure.code).toBe('unsupported_variant');
+		expect(failure.alternatives).toContain('serif');
+		expect(engineState.typography.fontFamily).toBe('sans');
+	});
+
+	it('refuses a colour that is not a hex, leaving the composition alone', async () => {
+		const failure = expectFailed(
+			await runSetCompositionTypographyOperation({ expectedRevision: 0, inkColor: 'charcoal' })
+		);
+
+		expect(failure.code).toBe('invalid_argument');
+		expect(failure.rejected).toBe('charcoal');
+		expect(engineState.typography.inkColor).toBe('#f5f5f5');
+	});
+
+	it('refuses an edit that names nothing to set', async () => {
+		const failure = expectFailed(
+			await runSetCompositionTypographyOperation({ expectedRevision: 0 })
+		);
+
+		expect(failure.code).toBe('invalid_argument');
+		expect(failure.alternatives).toContain('fontFamily');
+	});
+});
+
+describe('composition mark defaults', () => {
+	it('dresses one style and keeps the resolved colour when only the strength moves', async () => {
+		expectApplied(
+			await runSetCompositionMarkDefaultsOperation({
+				expectedRevision: 0,
+				defaults: { highlight: { color: '#ff0055', intensity: 0.4 } }
+			})
+		);
+		expectApplied(
+			await runSetCompositionMarkDefaultsOperation({
+				expectedRevision: 1,
+				defaults: { highlight: { intensity: 0.9 } }
+			})
+		);
+
+		expect(engineState.marks.defaults.highlight).toEqual({ color: '#ff0055', intensity: 0.9 });
+	});
+
+	it('drops a style back to the Pack when it is cleared', async () => {
+		expectApplied(
+			await runSetCompositionMarkDefaultsOperation({
+				expectedRevision: 0,
+				defaults: { underline: { color: '#00ccaa', intensity: 0.5 } }
+			})
+		);
+
+		expectApplied(
+			await runSetCompositionMarkDefaultsOperation({
+				expectedRevision: 1,
+				defaults: { underline: null }
+			})
+		);
+
+		expect(engineState.marks.defaults.underline).toBeUndefined();
+	});
+
+	it('refuses an intensity outside the engine scale', async () => {
+		const failure = expectFailed(
+			await runSetCompositionMarkDefaultsOperation({
+				expectedRevision: 0,
+				defaults: { circle: { intensity: 4 } }
+			})
+		);
+
+		expect(failure.code).toBe('invalid_argument');
+		expect(failure.rejected).toBe('4');
+		expect(engineState.marks.defaults.circle).toBeUndefined();
+	});
+});
+
+describe('composition Effect parameters', () => {
+	it('writes the parameters the Effect Pipeline accepts', async () => {
+		expectApplied(
+			await runAddCompositionEffectOperation({ expectedRevision: 0, effectType: 'paper-grain' })
+		);
+
+		const changed = expectApplied(
+			await runSetCompositionEffectParamsOperation({
+				expectedRevision: 1,
+				effectId: 'paper-grain-1',
+				params: { warmth: 0.2, density: 0.8, lift: 0.1 }
+			})
+		);
+
+		expect(changed.some((pointer) => pointer.startsWith('/state/effects/0/params'))).toBe(true);
+		expect(engineState.effects[0].params).toEqual({ warmth: 0.2, density: 0.8, lift: 0.1 });
+	});
+
+	it('answers parameters the Pipeline rejects with findings naming the field', async () => {
+		expectApplied(
+			await runAddCompositionEffectOperation({ expectedRevision: 0, effectType: 'paper-grain' })
+		);
+
+		const failure = expectFailed(
+			await runSetCompositionEffectParamsOperation({
+				expectedRevision: 1,
+				effectId: 'paper-grain-1',
+				params: { warmth: 9 }
+			})
+		);
+
+		expect(failure.code).toBe('schema_invalid');
+		expect(failure.findings.findings[0].path).toContain('warmth');
+		expect(engineState.effects[0].params).toEqual({ warmth: 0.5, density: 0.3, lift: 0 });
+	});
+
+	it('names the Effects in the chain when the id is not one of them', async () => {
+		expectApplied(
+			await runAddCompositionEffectOperation({ expectedRevision: 0, effectType: 'paper-grain' })
+		);
+
+		const failure = expectFailed(
+			await runSetCompositionEffectParamsOperation({
+				expectedRevision: 1,
+				effectId: 'halftone-1',
+				params: {}
+			})
+		);
+
+		expect(failure.code).toBe('unknown_target');
+		expect(failure.alternatives).toEqual(['paper-grain-1']);
+	});
+});
+
+describe('composition depth stage', () => {
+	it('writes the stage whole, filling every field the caller left out', async () => {
+		const changed = expectApplied(
+			await runSetCompositionStageOperation({
+				expectedRevision: 0,
+				stage: { type: 'depth', camera: { move: 'push' } }
+			})
+		);
+
+		expect(changed).toContain('/state/stage');
+		expect(engineState.stage).toEqual({
+			type: 'depth',
+			camera: { move: 'push', amount: 0.5, ease: 'smooth' },
+			focus: { focusZ: 0, aperture: 0.6, band: 0 }
+		});
+	});
+
+	it('removes the stage when the caller sends none', async () => {
+		expectApplied(
+			await runSetCompositionStageOperation({ expectedRevision: 0, stage: { type: 'depth' } })
+		);
+
+		expectApplied(await runSetCompositionStageOperation({ expectedRevision: 1, stage: null }));
+
+		expect(engineState.stage).toBeUndefined();
+	});
+
+	it('refuses a stage this engine does not register and names the ones it does', async () => {
+		const failure = expectFailed(
+			await runSetCompositionStageOperation({ expectedRevision: 0, stage: { type: 'holodeck' } })
+		);
+
+		expect(failure.code).toBe('unsupported_variant');
+		expect(failure.alternatives).toContain('depth');
+		expect(engineState.stage).toBeUndefined();
+	});
+
+	it('refuses to remove a stage the composition does not carry', async () => {
+		const failure = expectFailed(
+			await runSetCompositionStageOperation({ expectedRevision: 0, stage: null })
+		);
+
+		expect(failure.code).toBe('precondition_unmet');
+	});
+});
+
+describe('composition backdrop visibility', () => {
+	it('shows the Surface backdrop through on a Surface that composites one', async () => {
+		expectApplied(
+			await runSetCompositionSurfaceOperation({ expectedRevision: 0, surfaceType: 'paper' })
+		);
+
+		const changed = expectApplied(
+			await runSetCompositionBackdropVisibilityOperation({ expectedRevision: 1, visibility: 0.35 })
+		);
+
+		expect(changed).toContain('/state/surface/backgroundVisibility');
+		expect(engineState.surface.backgroundVisibility).toBe(0.35);
+	});
+
+	it('refuses a Surface that composites no backdrop and names the ones that do', async () => {
+		const failure = expectFailed(
+			await runSetCompositionBackdropVisibilityOperation({ expectedRevision: 0, visibility: 0.5 })
+		);
+
+		expect(failure.code).toBe('precondition_unmet');
+		expect(failure.rejected).toBe('plain');
+		expect(failure.alternatives).toContain('paper');
 	});
 });

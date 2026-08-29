@@ -20,14 +20,34 @@ import { NTSC_FRACTIONAL_FPS } from '../utils/composition-timing';
 import { TEXT_EFFECT_IDS } from '../text-animations/catalog';
 import {
 	CAPTION_STYLES,
+	CHAT_MESSAGE_RECEIPTS,
+	CHAT_MESSAGE_SIDES,
+	CHAT_MESSAGE_TAPBACKS,
+	ChartTypeSchema,
+	DIAGRAM_ARROW_DIRECTIONS,
+	DIAGRAM_EDGE_ROUTES,
+	DIAGRAM_INK_ROLES,
+	DIAGRAM_LABEL_ROLES,
+	DIAGRAM_LABEL_WRAP_MODES,
+	DIAGRAM_NODE_FORMS,
 	DIAGRAM_PRIMITIVE_TYPES,
+	DIAGRAM_STAT_FORMATS,
+	ENGINE_EASES,
 	ENGINE_FONT_FAMILIES,
 	OVERLAY_KEYFRAME_CHANNELS,
+	OVERLAY_PLACEMENT_ANCHORS,
 	PresetSchema,
 	SOUND_EVENTS,
-	SURFACE_KEYFRAME_CHANNELS
+	STAGE_CAMERA_MOVES,
+	SURFACE_CHROME_MODES,
+	SURFACE_KEYFRAME_CHANNELS,
+	TEXT_ANIMATION_OVERLAY_SLOTS,
+	TEXT_ANIMATION_SURFACE_SLOTS,
+	TEXT_ANIMATION_TARGET_KINDS,
+	WEB_DOCUMENT_SITES
 } from './engine-schema';
 import { listPresets } from './preset-catalog';
+import { listSubstrateAssets } from './substrate-textures';
 import { PACK_REGISTRY_SLUGS } from './packs/registry';
 import {
 	PIPELINE_DEFINITION_REGISTRY,
@@ -36,6 +56,7 @@ import {
 	REGISTERED_OVERLAY_TYPES,
 	REGISTERED_SURFACE_TYPES
 } from './pipelines/definition-registry';
+import { STAGE_REGISTRY } from './pipelines/stage-registry';
 import { transitionEffectTypes } from './pipelines/transition-definition-registry';
 import {
 	WEBMCP_ALWAYS_REGISTERED_CEILING,
@@ -54,18 +75,39 @@ import {
  */
 export type WebmcpDerivedEnumName =
 	| 'surface-type'
+	| 'web-document-site'
+	| 'surface-chrome-mode'
 	| 'block-type'
+	| 'chart-block-type'
 	| 'annotation-style'
 	| 'overlay-type'
+	| 'overlay-anchor'
 	| 'effect-type'
 	| 'transition-effect'
 	| 'text-effect'
+	| 'text-animation-target-kind'
+	| 'text-animation-surface-slot'
+	| 'text-animation-overlay-slot'
 	| 'diagram-primitive-type'
+	| 'diagram-node-form'
+	| 'diagram-edge-route'
+	| 'diagram-arrow-direction'
+	| 'diagram-label-role'
+	| 'diagram-label-wrap'
+	| 'diagram-stat-format'
+	| 'diagram-ink-role'
+	| 'chat-message-side'
+	| 'chat-message-tapback'
+	| 'chat-message-receipt'
+	| 'stage-type'
+	| 'stage-camera-move'
+	| 'stage-backdrop-asset'
 	| 'pack-slug'
 	| 'starter-slug'
 	| 'sound-event'
 	| 'caption-style'
 	| 'font-family'
+	| 'motion-ease'
 	| 'delivery-orientation'
 	| 'export-format'
 	| 'composition-kind'
@@ -84,6 +126,8 @@ export type WebmcpSchemaProperty =
 	  }
 	| { type: 'integer' | 'number'; description: string; minimum?: number; maximum?: number }
 	| { type: 'boolean'; description: string }
+	/** The absence of a value, so a clearable field can say so rather than guess at an empty one. */
+	| { type: 'null'; description: string }
 	| { type: 'array'; description: string; items: WebmcpSchemaProperty; maxItems?: number }
 	| {
 			type: 'object';
@@ -125,20 +169,41 @@ export function readWebmcpDerivedEnums(): Readonly<
 > {
 	return {
 		'surface-type': REGISTERED_SURFACE_TYPES,
+		'web-document-site': WEB_DOCUMENT_SITES,
+		'surface-chrome-mode': SURFACE_CHROME_MODES,
 		'block-type': REGISTERED_BLOCK_TYPES,
+		'chart-block-type': ChartTypeSchema.options,
 		'annotation-style': Object.values(PIPELINE_DEFINITION_REGISTRY.annotations).map(
 			(definition) => definition.style
 		),
 		'overlay-type': REGISTERED_OVERLAY_TYPES,
+		'overlay-anchor': OVERLAY_PLACEMENT_ANCHORS,
 		'effect-type': REGISTERED_EFFECT_TYPES,
 		'transition-effect': transitionEffectTypes(),
 		'text-effect': TEXT_EFFECT_IDS,
+		'text-animation-target-kind': TEXT_ANIMATION_TARGET_KINDS,
+		'text-animation-surface-slot': TEXT_ANIMATION_SURFACE_SLOTS,
+		'text-animation-overlay-slot': TEXT_ANIMATION_OVERLAY_SLOTS,
 		'diagram-primitive-type': DIAGRAM_PRIMITIVE_TYPES,
+		'diagram-node-form': DIAGRAM_NODE_FORMS,
+		'diagram-edge-route': DIAGRAM_EDGE_ROUTES,
+		'diagram-arrow-direction': DIAGRAM_ARROW_DIRECTIONS,
+		'diagram-label-role': DIAGRAM_LABEL_ROLES,
+		'diagram-label-wrap': DIAGRAM_LABEL_WRAP_MODES,
+		'diagram-stat-format': DIAGRAM_STAT_FORMATS,
+		'diagram-ink-role': DIAGRAM_INK_ROLES,
+		'chat-message-side': CHAT_MESSAGE_SIDES,
+		'chat-message-tapback': CHAT_MESSAGE_TAPBACKS,
+		'chat-message-receipt': CHAT_MESSAGE_RECEIPTS,
+		'stage-type': Object.keys(STAGE_REGISTRY),
+		'stage-camera-move': STAGE_CAMERA_MOVES,
+		'stage-backdrop-asset': listSubstrateAssets(),
 		'pack-slug': PACK_REGISTRY_SLUGS,
 		'starter-slug': listPresets().map((entry) => entry.slug),
 		'sound-event': SOUND_EVENTS,
 		'caption-style': CAPTION_STYLES,
 		'font-family': Object.keys(ENGINE_FONT_FAMILIES),
+		'motion-ease': Object.keys(ENGINE_EASES),
 		'delivery-orientation': PresetSchema.shape.state.shape.transport.shape.orientation.options,
 		'export-format': PresetSchema.shape.state.shape.transport.shape.format.options,
 		'composition-kind': readCompositionKinds(),
@@ -172,6 +237,40 @@ export function webmcpDerivedEnumProperty(
 		throw new TypeError(`The WebMCP vocabulary "${name}" resolved to no members.`);
 	}
 	return { type: 'string', description, enum: members };
+}
+
+/**
+ * The stable id of an entity already in the composition — an Overlay, an Effect,
+ * a Block, a text animation.
+ *
+ * Deliberately a free string rather than an enum. Ids are made as entities are
+ * added, and a tool's schema is built once when the controller starts, so a list
+ * of ids would be a snapshot of a composition the caller has since edited. The
+ * operation answers an unknown id by naming the ids the composition holds right
+ * now, which is the correction a frozen list could not give.
+ */
+export function webmcpEntityIdProperty(description: string): WebmcpSchemaProperty {
+	return { type: 'string', description, minLength: 1 };
+}
+
+/** A value on the engine's 0-through-1 scale: a clip fraction, an intensity, a depth. */
+export function webmcpFractionProperty(description: string): WebmcpSchemaProperty {
+	return { type: 'number', description, minimum: 0, maximum: 1 };
+}
+
+/**
+ * Text a caller can also remove. `null` is spelled out rather than implied by an
+ * empty string, because a slot holding `""` and a slot the document does not
+ * carry are different compositions.
+ */
+export function webmcpClearableTextProperty(description: string): WebmcpSchemaProperty {
+	return {
+		description,
+		oneOf: [
+			{ type: 'string', description: 'The text to write.' },
+			{ type: 'null', description: 'Remove this value from the composition.' }
+		]
+	};
 }
 
 /**

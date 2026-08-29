@@ -341,6 +341,13 @@ const ChatMessageSchema = z.object({
 });
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 
+/** Which side of the transcript a bubble sits on, read off the schema's own union. */
+export const CHAT_MESSAGE_SIDES = ChatMessageSchema.shape.from.options;
+/** The reactions a bubble can carry. */
+export const CHAT_MESSAGE_TAPBACKS = ChatMessageSchema.shape.tapback.unwrap().options;
+/** The delivery receipts a sent bubble can show. */
+export const CHAT_MESSAGE_RECEIPTS = ChatMessageSchema.shape.status.unwrap().options;
+
 // One task for the `checklist` Surface (ADR-0040). `checked` is the completion
 // state; `strike` is the red marker draw-on window (fractions of the clip) for
 // a checked item. A checked item with NO window is STATICALLY struck — the
@@ -635,6 +642,20 @@ const DiagramPrimitiveSchema = z.discriminatedUnion('type', [
  */
 export const DIAGRAM_PRIMITIVE_TYPES: readonly DiagramPrimitive['type'][] =
 	DiagramPrimitiveSchema.options.map((option) => option.shape.type.value);
+
+/**
+ * The authored vocabularies a diagram primitive's body draws from, each read off
+ * the primitive schema that declares it. Appearance is never among them — stroke,
+ * fill, and glyph resolve through Pack Roles (ADR-0036 §4) — so `ink` here is the
+ * Role selection, not a colour.
+ */
+export const DIAGRAM_NODE_FORMS = DiagramNodeSchema.shape.form.options;
+export const DIAGRAM_EDGE_ROUTES = DiagramEdgeArrowSchema.shape.route.options;
+export const DIAGRAM_ARROW_DIRECTIONS = DiagramEdgeArrowSchema.shape.direction.unwrap().options;
+export const DIAGRAM_LABEL_ROLES = DiagramLabelSchema.shape.role.unwrap().options;
+export const DIAGRAM_LABEL_WRAP_MODES = DiagramLabelSchema.shape.wrap.unwrap().options;
+export const DIAGRAM_STAT_FORMATS = DiagramStatCalloutSchema.shape.format.unwrap().options;
+export const DIAGRAM_INK_ROLES = DiagramNodeSchema.shape.ink.unwrap().options;
 
 // The diagram group: ids must be unique (they are timeline-row / cascade
 // identities), and every edge endpoint node ref must resolve to a `node`
@@ -1028,6 +1049,14 @@ const SurfaceSchema = z.object({
 	chart: ChartGroupSchema.optional()
 });
 
+/**
+ * The chrome modes a Surface that declares one renders in, read off the Surface
+ * schema's own union. Absent on a composition means `window`; renderers read
+ * `chrome ?? 'window'` rather than relying on a Zod default.
+ */
+export const SURFACE_CHROME_MODES = SurfaceSchema.shape.chrome.unwrap().options;
+export type SurfaceChromeMode = (typeof SURFACE_CHROME_MODES)[number];
+
 const OverlayPlacementSchema = z.object({
 	anchor: z.enum([
 		'top-left',
@@ -1056,6 +1085,9 @@ const OverlayPlacementSchema = z.object({
 	// authored spins beyond a full turn live in the channel, not here.
 	rotation: z.number().min(-360).max(360).optional()
 });
+
+/** Where a placement pins an Overlay, read off the placement schema's own union. */
+export const OVERLAY_PLACEMENT_ANCHORS = OverlayPlacementSchema.shape.anchor.options;
 
 const OverlayPositionSchema = OverlayPlacementSchema.extend({
 	// Complete target-specific placement snapshots. Shared placement above is
@@ -1170,6 +1202,13 @@ const TextAnimationSchema = z.object({
 });
 
 export type TextAnimationTarget = z.infer<typeof TextAnimationTargetSchema>;
+
+/** The content slots a text animation can bind to, read off the target union itself. */
+export const TEXT_ANIMATION_TARGET_KINDS = TextAnimationTargetSchema.options.map(
+	(option) => option.shape.kind.value
+);
+export const TEXT_ANIMATION_SURFACE_SLOTS = SurfaceSlotSchema.options;
+export const TEXT_ANIMATION_OVERLAY_SLOTS = OverlaySlotSchema.options;
 export type TextAnimationParams = NonNullable<z.infer<typeof TextAnimationParamsSchema>>;
 export type TextAnimation = z.infer<typeof TextAnimationSchema>;
 
@@ -1296,7 +1335,10 @@ const StageBackdropSchema = z.object({
 	// scrim — which can't ride the depth stage's near plane. 0 = no darken.
 	contrast: z.number().min(0).max(1).default(0)
 });
-const StageSchema = z.object({
+/** How the stage camera travels, read off the camera schema's own union. */
+export const STAGE_CAMERA_MOVES = StageCameraSchema.shape.move.def.innerType.options;
+
+export const StageSchema = z.object({
 	type: z.string().min(1),
 	// prefault (not default): zod v4 `.default()` short-circuits without parsing,
 	// so an absent camera/focus would land as a bare `{}` with none of the inner
