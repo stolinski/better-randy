@@ -7,14 +7,21 @@ import { Timeline } from './timeline.svelte';
 
 describe('deterministic runtime capture authority', () => {
 	it('seeks the real Timeline to the exact rational frame before settling capture', async () => {
-		const ticks: number[] = [];
+		// The order is the contract: a paint requested before the seek rasterizes the
+		// previous frame in the `dom-rasterization` lane, which reads the DOM as soon
+		// as the request lands rather than on the browser's paint tick.
+		const order: string[] = [];
 		const timeline = new Timeline({
 			durationSeconds: 10.01,
 			fps: 29.97,
-			tick: (time) => ticks.push(time)
+			tick: (time) => order.push(`seek:${time}`)
 		});
-		const settleNextPaint = vi.fn(async () => undefined);
-		const flushDom = vi.fn(async () => undefined);
+		const settleNextPaint = vi.fn(async () => {
+			order.push('settle');
+		});
+		const flushDom = vi.fn(async () => {
+			order.push('flush');
+		});
 		const frameRate = { num: 30_000, den: 1_001 };
 		const address = deterministicFrameAddressFor(299, frameRate);
 
@@ -30,9 +37,8 @@ describe('deterministic runtime capture authority', () => {
 
 		expect(actual).toEqual({ address, activeFrameRate: frameRate });
 		expect(timeline.time).toBe((299 * 1_001) / 30_000);
-		expect(ticks).toEqual([(299 * 1_001) / 30_000]);
+		expect(order).toEqual([`seek:${(299 * 1_001) / 30_000}`, 'flush', 'settle', 'flush']);
 		expect(settleNextPaint).toHaveBeenCalledOnce();
-		expect(flushDom).toHaveBeenCalledOnce();
 	});
 
 	it('rejects a caller timestamp that is not derived from the active rate', async () => {

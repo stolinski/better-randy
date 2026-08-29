@@ -36,6 +36,7 @@
 		requestCanvasPaint,
 		setCanvasPaintHandler
 	} from './html-in-canvas';
+	import { measureCompositionDomRoot } from './composition-dom-rasterizer';
 	import { waitForCompositionResourceReadiness } from './composition-resource-readiness';
 	import { Timeline } from './timeline.svelte';
 	import { timelineHandle } from './timeline-handle.svelte';
@@ -70,7 +71,10 @@
 	import { DeterministicRenderCaptureController } from './deterministic-render-capture-controller';
 	import { captureCanvasWebp } from '$lib/utils/canvas-capture';
 	import { cloneJsonValue } from '$lib/utils/json-clone';
-	import { deterministicFrameAddressFor } from '$lib/utils/deterministic-render-measurements';
+	import {
+		deterministicFrameAddressFor,
+		type DeterministicSettledFrame
+	} from '$lib/utils/deterministic-render-measurements';
 	import { posterExists, putPoster } from './posters';
 	import { PosterCaptureController } from './poster-capture-controller';
 	import {
@@ -205,6 +209,12 @@
 	// immediately instead of an empty t=0 canvas (overlays haven't entered yet).
 	// Preview-only — export still renders from frame 0.
 	const SETTLED_PREVIEW_FRACTION = 0.5;
+
+	// How many times a deterministic settle re-drives a frame that produced no
+	// composite before it reports the frame unreachable. Small on purpose: a
+	// dropped composite is a transient the next paint clears, so a frame that
+	// misses this many settles is a real fault, not a slow machine.
+	const DETERMINISTIC_SETTLE_ATTEMPTS = 4;
 
 	let isExporting = $state(false);
 	let separateWav = $state(false);
@@ -451,6 +461,11 @@
 			throw new Error('Composition canvas is unavailable while settling export paint.');
 		}
 		await canvasPaintGenerationTracker.waitForNextPaint(localCanvas, signal);
+		// The paint handler records the paint and then QUEUES the composite, so the
+		// paint record alone is not a composited frame: the queued render is what
+		// uploads the DOM raster and submits this frame's GPU work. Without this
+		// wait the heaviest compositions settle on the previous frame's pixels.
+		await videoUnderlayRuntimeController.settleQueuedPreview();
 		if (canvas !== localCanvas) {
 			throw new Error('Composition canvas changed while settling export paint.');
 		}
@@ -500,15 +515,17 @@
 		};
 	}
 
-	function renderPreparedPreviewFrame(localHost: GpuHost, timestamp: number): void {
+	function renderPreparedPreviewFrame(localHost: GpuHost, timestamp: number): boolean {
 		if (host !== localHost || isExporting || isWorkspaceDestroyed) {
-			return;
+			return false;
 		}
-		renderCompositionFrameTo(
-			buildCompositionFrameRenderRequest(
-				localHost.context.getCurrentTexture().createView(),
-				timestamp
-			)
+		return (
+			renderCompositionFrameTo(
+				buildCompositionFrameRenderRequest(
+					localHost.context.getCurrentTexture().createView(),
+					timestamp
+				)
+			) !== 'unavailable'
 		);
 	}
 
@@ -919,36 +936,82 @@
 		window.__captureGfxDeterministicReadablePngArtifacts = (readableId) =>
 			deterministicRenderCaptureController.artifactDataUrls(readableId);
 		window.__readGfxRuntimeRenderRegistryIdentity = readRuntimeRenderRegistryIdentity;
+		window.__settleGfxDeterministicCompositionFrame = async (request) => {
+			const startedAt = performance.now();
+			// Every await in a settle can resolve without a composite reaching the
+			// canvas: a queued preview is dropped when its host reads back null, when
+			// a newer request supersedes it, or when the frame renderer reports
+			// `unavailable`. The canvas then still holds the PREVIOUS frame, and a
+			// reader cannot tell that apart from a correct settle — under a full
+			// matrix run this surfaced as a frame-determinism failure whose "replay"
+			// bytes were exactly the away frame's. So the settle is retried until a
+			// composite actually lands, and gives up loudly rather than handing back
+			// pixels that belong to another address.
+			let settled: DeterministicSettledFrame | null = null;
+			for (let attempt = 0; attempt < DETERMINISTIC_SETTLE_ATTEMPTS; attempt += 1) {
+				const composited = videoUnderlayRuntimeController.readRenderedPreviewGeneration();
+				settled = await baseAuthority.seekExactFrame(request);
+				if (videoUnderlayRuntimeController.readRenderedPreviewGeneration() > composited) break;
+				settled = null;
+			}
+			if (!settled) {
+				throw new Error(
+					`Composition never composited frame ${request.address.frameIndex} in ${DETERMINISTIC_SETTLE_ATTEMPTS} settles.`
+				);
+			}
+			// A composited frame is not yet a READABLE one. `settleCompositionPaint`
+			// gets the composite submitted; this waits for it to finish and then to be
+			// presented, because `toBlob`/`toDataURL` read the canvas's presented
+			// image. Two frame boundaries is what presentation actually costs: the
+			// first rAF runs BEFORE the paint that presents this frame, the second
+			// after it. One was enough whenever the machine was idle and returned the
+			// previous frame's pixels whenever it was not — invisible in the WICG
+			// lane, where the settle already rides the browser's own paint tick, and
+			// reproducible in the rasterization lane under a full matrix run.
+			await host?.device.queue.onSubmittedWorkDone();
+			await nextFrame();
+			await nextFrame();
+			return { ...settled, settleMilliseconds: performance.now() - startedAt };
+		};
 		window.__captureGfxDeterministicFrameGeometry = (candidateIds) => {
 			const width = engineState.transport.orientation === 'horizontal' ? 3840 : 2160;
 			const height = engineState.transport.orientation === 'horizontal' ? 2160 : 3840;
-			const rootRect = localCompositionRoot.getBoundingClientRect();
-			if (rootRect.width <= 0 || rootRect.height <= 0) {
-				throw new Error('Composition geometry root is unavailable.');
-			}
 			const elements: Record<string, { x: number; y: number; width: number; height: number }> = {};
-			for (const candidateId of candidateIds) {
-				if (candidateId === 'composition-root') {
-					elements[candidateId] = { x: 0, y: 0, width, height };
-					continue;
-				}
-				const element =
-					candidateId === 'overlay-root'
-						? (localOverlayRoot ?? localCompositionRoot)
-						: candidateId.startsWith('overlay:')
-							? (localOverlayRoot ?? localCompositionRoot).querySelector<HTMLElement>(
+			// Each candidate is measured inside the direct canvas child that owns it,
+			// because the Overlay plane is hoisted to its own child while the DOF/stage
+			// split is on. Both children are frame-sized, so normalizing against the
+			// measured root keeps one native coordinate space either way.
+			const measureWithin = (source: HTMLElement, ids: readonly string[]): void => {
+				if (ids.length === 0) return;
+				measureCompositionDomRoot({ element: source, width, height, view: window }, (root) => {
+					const rootRect = root.getBoundingClientRect();
+					if (rootRect.width <= 0 || rootRect.height <= 0) {
+						throw new Error('Composition geometry root is unavailable.');
+					}
+					for (const candidateId of ids) {
+						const element = candidateId.startsWith('overlay:')
+							? root.querySelector<HTMLElement>(
 									`[data-overlay-id="${CSS.escape(candidateId.slice('overlay:'.length))}"]`
 								)
-							: null;
-				if (!element) continue;
-				const rect = element.getBoundingClientRect();
-				elements[candidateId] = {
-					x: ((rect.x - rootRect.x) * width) / rootRect.width,
-					y: ((rect.y - rootRect.y) * height) / rootRect.height,
-					width: (rect.width * width) / rootRect.width,
-					height: (rect.height * height) / rootRect.height
-				};
+							: root;
+						if (!element) continue;
+						const rect = element.getBoundingClientRect();
+						elements[candidateId] = {
+							x: ((rect.x - rootRect.x) * width) / rootRect.width,
+							y: ((rect.y - rootRect.y) * height) / rootRect.height,
+							width: (rect.width * width) / rootRect.width,
+							height: (rect.height * height) / rootRect.height
+						};
+					}
+				});
+			};
+			const overlayIds = candidateIds.filter(
+				(candidateId) => candidateId === 'overlay-root' || candidateId.startsWith('overlay:')
+			);
+			for (const candidateId of candidateIds) {
+				if (candidateId === 'composition-root') elements[candidateId] = { x: 0, y: 0, width, height };
 			}
+			measureWithin(localOverlayRoot ?? localCompositionRoot, overlayIds);
 			return { elements };
 		};
 		window.__configureGfxDeterministicRenderCell = async (input) => {
@@ -1086,6 +1149,7 @@
 			window.__captureGfxDeterministicRenderRegionManifest = undefined;
 			window.__readGfxRuntimeRenderRegistryIdentity = undefined;
 			window.__captureGfxDeterministicFrameGeometry = undefined;
+			window.__settleGfxDeterministicCompositionFrame = undefined;
 			window.__configureGfxDeterministicRenderCell = undefined;
 			window.removeEventListener('pointermove', onTimelineResizeMove);
 			window.removeEventListener('pointerup', onTimelineResizeEnd);

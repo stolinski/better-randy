@@ -68,6 +68,9 @@ interface VideoHarness {
 	reconciled: Array<readonly Pick<VideoAsset, 'id' | 'assetUrl'>[]>;
 	firstFrame: Deferred<DecodedVideoAssetFrame>;
 	setExporting(value: boolean): void;
+	/** Make the next composites decline, the way a lost host or an `unavailable`
+	 *  frame render does, without changing anything else about the queue. */
+	setDecliningPreviewComposite(value: boolean): void;
 }
 
 function createHarness(): VideoHarness {
@@ -83,6 +86,7 @@ function createHarness(): VideoHarness {
 	const firstFrame = deferred<DecodedVideoAssetFrame>();
 	const hostRead: GpuHost | null = host;
 	let isExporting = false;
+	let declinePreviewComposite = false;
 	let cacheIndex = 0;
 	let textureIndex = 0;
 	let frameIndex = 0;
@@ -123,7 +127,10 @@ function createHarness(): VideoHarness {
 		readHost: () => hostRead,
 		readIsExporting: () => isExporting,
 		readState: () => state,
-		renderPreparedPreview: (_host, timestamp) => renders.push(timestamp),
+		renderPreparedPreview: (_host, timestamp) => {
+			renders.push(timestamp);
+			return declinePreviewComposite === false;
+		},
 		reportError: (error) => {
 			throw error;
 		}
@@ -144,6 +151,9 @@ function createHarness(): VideoHarness {
 		firstFrame,
 		setExporting: (value) => {
 			isExporting = value;
+		},
+		setDecliningPreviewComposite: (value) => {
+			declinePreviewComposite = value;
 		}
 	};
 }
@@ -178,7 +188,7 @@ describe('VideoUnderlayRuntimeController', () => {
 				readHost: () => currentHost,
 				readIsExporting: () => false,
 				readState: () => state,
-				renderPreparedPreview: () => undefined,
+				renderPreparedPreview: () => true,
 				reportError: (error) => errors.push(error)
 			},
 			{
@@ -234,6 +244,47 @@ describe('VideoUnderlayRuntimeController', () => {
 		assert.equal(harness.frameRequests.length, 2);
 		assert.deepEqual(harness.renders, [2]);
 		assert.deepEqual(harness.closed, [0, 1]);
+	});
+
+	it('settles only once the queued composite has actually rendered', async () => {
+		const harness = createHarness();
+		harness.controller.queuePreview(0, 0);
+		let settled = false;
+		const settle = harness.controller.settleQueuedPreview().then(() => (settled = true));
+
+		await flushPromises();
+		// The composite is still waiting on its decode, so a caller that treated the
+		// queue call as the frame would read the previous frame's pixels here.
+		assert.deepEqual(harness.renders, []);
+		assert.equal(settled, false);
+
+		harness.firstFrame.resolve(decodedFrame(0, harness.closed));
+		await settle;
+		assert.deepEqual(harness.renders, [0]);
+	});
+
+	it('counts only the composites that actually reached the canvas', async () => {
+		const harness = createHarness();
+		assert.equal(harness.controller.readRenderedPreviewGeneration(), 0);
+
+		harness.controller.queuePreview(0, 0);
+		harness.firstFrame.resolve(decodedFrame(0, harness.closed));
+		await harness.controller.settleQueuedPreview();
+		assert.deepEqual(harness.renders, [0]);
+		assert.equal(harness.controller.readRenderedPreviewGeneration(), 1);
+
+		// A declined composite leaves the previous frame on the canvas, so a settle
+		// that only awaited its own promises would hand back the wrong pixels.
+		harness.setDecliningPreviewComposite(true);
+		harness.controller.queuePreview(1, 1 / 30);
+		await harness.controller.settleQueuedPreview();
+		assert.deepEqual(harness.renders, [0, 1 / 30]);
+		assert.equal(harness.controller.readRenderedPreviewGeneration(), 1);
+
+		harness.setDecliningPreviewComposite(false);
+		harness.controller.queuePreview(2, 2 / 30);
+		await harness.controller.settleQueuedPreview();
+		assert.equal(harness.controller.readRenderedPreviewGeneration(), 2);
 	});
 
 	it('uses sequential decoding only while Timeline playback is active', async () => {

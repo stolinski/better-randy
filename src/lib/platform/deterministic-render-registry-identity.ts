@@ -4,6 +4,10 @@ import {
 	createRuntimeRenderRegistryIdentity,
 	type RuntimeRenderRegistryIdentity
 } from './deterministic-render-registry-fingerprint';
+import type {
+	DeterministicFrameRequest,
+	DeterministicSettledFrame
+} from '$lib/utils/deterministic-render-measurements';
 
 export interface DeterministicRenderCellConfiguration {
 	presetSlug: string;
@@ -31,6 +35,14 @@ declare global {
 		__captureGfxDeterministicFrameGeometry?: (
 			candidateIds: readonly string[]
 		) => DeterministicRenderFrameGeometry;
+		/** Land the composition on one exact frame the way preview and export both
+		 *  do — seek, settle a real composition paint, flush — and report what that
+		 *  cost. The only settle seam that works in the `dom-rasterization` lane,
+		 *  where the readable-audit surface cannot measure unlaid-out canvas
+		 *  children. Read by browser render verification. */
+		__settleGfxDeterministicCompositionFrame?: (
+			request: DeterministicFrameRequest
+		) => Promise<DeterministicSettledFrame & { settleMilliseconds: number }>;
 	}
 }
 

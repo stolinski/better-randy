@@ -262,7 +262,25 @@ Only two modules may name the flag-only API: `html-in-canvas.ts` (which chooses 
 | Audio-relevant timing                               | Export renders audio once before the frame loop and drives frames by index, so the standard lane's slower raster changes export wall-clock but never audio/video alignment.                              |
 | Poster capture                                      | Awaits a settled composition paint. Requesting a paint and waiting a frame is a WICG-only equivalence — the rasterization lane takes far longer than a frame.                                            |
 
-Resource cleanup the lane owns: the clone is removed in a `finally`, so a failed or aborted raster leaves nothing mounted; and each commit releases the rasters of children the composition dropped, so toggling the plane split or unmounting the Workspace cannot retain 4K canvases or answer a later capture with a frame that is no longer in the composition.
+Resource cleanup the lane owns: the clone is removed in a `finally`, so a failed or aborted raster leaves nothing mounted; and each commit releases the rasters of children the composition dropped, so toggling the plane split or unmounting the Workspace cannot retain 4K canvases or answer a later capture with a frame that is no longer in the composition. `standardBrowserDomCapture.readRetainedRasterAccounting()` — published as `window.__readGfxRetainedCompositionRasters` — reports what the lane is holding right now, so that release is verified rather than assumed.
+
+### Measuring a composition a standard browser never lays out
+
+Canvas fallback content is not rendered in a browser without HTML-in-Canvas, so **every rect inside the canvas is 0×0 there** — not merely unpainted. Anything that measures the composition through `getBoundingClientRect` therefore reads zeros on the public path and fails rather than returning wrong numbers.
+
+`measureCompositionDomRoot` (`composition-dom-rasterizer.ts`) is the lane-neutral answer: it measures the in-canvas root directly when that root is laid out, and otherwise mounts the same native-size clone the raster is taken from, measures synchronously inside it, and removes it. Geometry then describes exactly the DOM the frame was rasterized from, in either lane. `window.__captureGfxDeterministicFrameGeometry` goes through it.
+
+The wider readable/layout audit surface in `runtime-audit.ts` still measures live document rects and remains a **flagged-lane authority**: `pnpm verify:layout-contract` and the deliverable render matrix run on CDP port 9223. What the public path renders is verified instead by the two-lane gate below.
+
+### Verifying both lanes against each other
+
+`pnpm verify:browser-render` (`scripts/verify-browser-render-matrix.mjs`) renders one bounded coordinate per composition branch in **both** browsers — the flagged lane on CDP port 9223 and a standard WebMCP Chrome on 9225 — and compares lane identity, native resolution, blankness, output class, font readiness, frame determinism, geometry, alpha coverage, retained rasters, and per-frame cost. The branch list, the coordinates, the tolerances, and the performance budget live in `scripts/browser-render-verification.ts`; the recorded run is [`browser-probes/browser-render-verification.json`](browser-probes/browser-render-verification.json) and the reading is in [`standard-browser-rendering-probe.md`](standard-browser-rendering-probe.md#two-lane-render-verification). A branch with no coordinate, or a coordinate whose evidence is missing, fails the gate rather than going unmeasured.
+
+The property it decides is lane parity. A defect the established lane already has is reported by name and left to `output-class-mismatch` in the deliverable render matrix, so this gate never charges a pre-existing composition or Pack defect to the public path.
+
+### What a settled frame has to mean here
+
+Both lanes share one settle seam, and the rasterization lane made three of its assumptions false. `seekDeterministicTimelineFrame` seeks and flushes the DOM **before** requesting the settling paint, because this lane reads the DOM when the request lands rather than on the browser's paint tick. `settleCompositionPaint` awaits the requested pass and then `videoUnderlayRuntimeController.settleQueuedPreview()`, because the paint handler only *queues* the composite that uploads the raster and submits the frame's GPU work. A reader that needs pixels — `window.__settleGfxDeterministicCompositionFrame` — additionally awaits submitted GPU work and two frame boundaries, since `toBlob` reads the canvas's presented image and the first `requestAnimationFrame` still runs before the paint that presents it.
 
 ## Test discipline
 

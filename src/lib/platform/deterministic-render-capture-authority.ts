@@ -36,10 +36,18 @@ export async function seekDeterministicTimelineFrame(
 	if (request.address.timestampMicroseconds !== expectedAddress.timestampMicroseconds) {
 		throw new RangeError('Requested timestamp does not match the active composition frame rate.');
 	}
-	const settledPaint = dependencies.settleNextPaint();
 	dependencies.timeline.pause();
 	dependencies.timeline.seek(framesToSeconds(request.address.frameIndex, resolvedFrameRate));
-	await settledPaint;
+	// Flush the DOM the seek produced, THEN ask for the settling paint. Requesting
+	// it first — as this did — is only safe in the WICG lane, where the paint runs
+	// on the browser's own tick and therefore still reads the post-seek DOM. The
+	// rasterization lane starts reading the DOM the moment the request lands, so a
+	// paint requested ahead of the seek rasterizes the PREVIOUS frame and the
+	// settle returns with that frame resident. Ordering it after the seek is
+	// correct in both lanes. The trailing flush keeps the caller's post-condition:
+	// a settled frame whose DOM is applied.
+	await dependencies.flushDom();
+	await dependencies.settleNextPaint();
 	await dependencies.flushDom();
 	return {
 		address: deterministicFrameAddressFor(

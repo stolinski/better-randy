@@ -68,6 +68,13 @@ export function resolveDomFrameCaptureMode(): DomFrameCaptureMode {
 		sessionCaptureMode = selectDomFrameCaptureMode(readDomFrameCaptureCapabilities());
 		if (typeof window !== 'undefined') {
 			window.__gfxDomFrameCaptureMode = sessionCaptureMode;
+			// The WICG lane keeps no rasters of its own — the browser owns the paint
+			// records — so it truthfully reports zero, and the reading carries the lane
+			// it came from rather than leaving zero ambiguous.
+			window.__readGfxRetainedCompositionRasters = () => ({
+				mode: resolveDomFrameCaptureMode(),
+				...standardBrowserDomCapture.readRetainedRasterAccounting()
+			});
 		}
 	}
 	return sessionCaptureMode;
@@ -79,6 +86,17 @@ type CompositionDomRasterizer = (
 
 export interface StandardBrowserDomCaptureOptions {
 	rasterize?: CompositionDomRasterizer;
+}
+
+export interface RetainedCompositionRasterAccounting {
+	/** Direct canvas children whose native-resolution raster the lane still holds. */
+	retainedRasterCount: number;
+	/** Bytes those rasters occupy as rgba8 at native size. */
+	retainedRasterBytes: number;
+}
+
+function rasterByteLength(raster: HTMLCanvasElement): number {
+	return raster.width * raster.height * 4;
 }
 
 function createSyntheticPaintEvent(changedElements: readonly Element[]): HtmlInCanvasPaintEvent {
@@ -107,11 +125,25 @@ export class StandardBrowserDomCaptureScheduler {
 	// raster instead of keeping a 4K canvas alive and answering a later capture
 	// with a frame that is no longer in the composition.
 	readonly #committedChildren = new WeakMap<HTMLCanvasElement, readonly Element[]>();
+	// Enumerable accounting for the WeakMap above: a 4K rgba8 raster is ~33 MB, so
+	// a child that leaves the composition without dropping its raster is a leak
+	// nothing else would notice. Browser render verification reads this to prove
+	// the retained set never outgrows the composition's own direct children.
+	#retainedRasterCount = 0;
+	#retainedRasterBytes = 0;
 
 	constructor({
 		rasterize = rasterizeCompositionDomElement
 	}: StandardBrowserDomCaptureOptions = {}) {
 		this.#rasterize = rasterize;
+	}
+
+	/** What the lane is holding right now, for leak verification. */
+	readRetainedRasterAccounting(): RetainedCompositionRasterAccounting {
+		return {
+			retainedRasterCount: this.#retainedRasterCount,
+			retainedRasterBytes: this.#retainedRasterBytes
+		};
 	}
 
 	setPaintHandler(canvas: HTMLCanvasElement, handler: CanvasPaintHandler): void {
@@ -197,15 +229,30 @@ export class StandardBrowserDomCaptureScheduler {
 			(this.#committedChildren.get(canvas) ?? []).filter((element) => !retained.has(element))
 		);
 		for (const { element, raster } of captured) {
-			this.#elementRasters.set(element, raster);
+			this.#retainRaster(element, raster);
 		}
 		this.#committedChildren.set(canvas, children);
 		handler(createSyntheticPaintEvent(children));
 	}
 
+	#retainRaster(element: Element, raster: HTMLCanvasElement): void {
+		const replaced = this.#elementRasters.get(element);
+		if (replaced) {
+			this.#retainedRasterBytes -= rasterByteLength(replaced);
+		} else {
+			this.#retainedRasterCount += 1;
+		}
+		this.#elementRasters.set(element, raster);
+		this.#retainedRasterBytes += rasterByteLength(raster);
+	}
+
 	#releaseRasters(elements: readonly Element[]): void {
 		for (const element of elements) {
+			const released = this.#elementRasters.get(element);
+			if (!released) continue;
 			this.#elementRasters.delete(element);
+			this.#retainedRasterCount -= 1;
+			this.#retainedRasterBytes -= rasterByteLength(released);
 		}
 	}
 }
@@ -217,5 +264,11 @@ declare global {
 		/** Which DOM-capture lane this session resolved (ADR-0052 public demo runs
 		 *  the `dom-rasterization` lane). Read by browser render verification. */
 		__gfxDomFrameCaptureMode?: DomFrameCaptureMode;
+		/** Native-resolution rasters the standard lane is holding, with the lane that
+		 *  produced the reading. Read by browser render verification to prove the
+		 *  retained set never outgrows the composition's own direct children. */
+		__readGfxRetainedCompositionRasters?: () => RetainedCompositionRasterAccounting & {
+			mode: DomFrameCaptureMode;
+		};
 	}
 }

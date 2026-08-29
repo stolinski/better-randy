@@ -46,9 +46,13 @@ function compositionElement(): Element {
 	return {} as unknown as Element;
 }
 
-function raster(): HTMLCanvasElement {
-	return {} as unknown as HTMLCanvasElement;
+/** Rasters are native-sized, so the lane's byte accounting is measured against
+ *  the ~33 MB an actual 4K rgba8 frame costs. */
+function raster({ width = 3840, height = 2160 } = {}): HTMLCanvasElement {
+	return { width, height } as unknown as HTMLCanvasElement;
 }
+
+const NATIVE_RASTER_BYTES = 3840 * 2160 * 4;
 
 describe('selectDomFrameCaptureMode', () => {
 	it('takes the HTML-in-Canvas lane only when both of its APIs are present', () => {
@@ -238,6 +242,46 @@ describe('StandardBrowserDomCaptureScheduler', () => {
 
 		assert.equal(scheduler.readElementRaster(composition), null);
 		assert.equal(scheduler.readElementRaster(overlayRoot), null);
+	});
+
+	it('accounts for exactly the rasters it is holding, across a plane split and unmount', async () => {
+		const composition = compositionElement();
+		const overlayRoot = compositionElement();
+		const split = mutableCanvas([composition, overlayRoot]);
+		const scheduler = new StandardBrowserDomCaptureScheduler({ rasterize: async () => raster() });
+		scheduler.setPaintHandler(split.canvas, () => {});
+
+		assert.deepEqual(scheduler.readRetainedRasterAccounting(), {
+			retainedRasterCount: 0,
+			retainedRasterBytes: 0
+		});
+
+		await scheduler.requestPaint(split.canvas);
+		assert.deepEqual(scheduler.readRetainedRasterAccounting(), {
+			retainedRasterCount: 2,
+			retainedRasterBytes: NATIVE_RASTER_BYTES * 2
+		});
+
+		// Re-painting the same children replaces rasters rather than stacking them.
+		await scheduler.requestPaint(split.canvas);
+		assert.deepEqual(scheduler.readRetainedRasterAccounting(), {
+			retainedRasterCount: 2,
+			retainedRasterBytes: NATIVE_RASTER_BYTES * 2
+		});
+
+		// Turning the split off drops the Overlay plane's 4K raster with it.
+		split.setChildren([composition]);
+		await scheduler.requestPaint(split.canvas);
+		assert.deepEqual(scheduler.readRetainedRasterAccounting(), {
+			retainedRasterCount: 1,
+			retainedRasterBytes: NATIVE_RASTER_BYTES
+		});
+
+		scheduler.clearPaintHandler(split.canvas);
+		assert.deepEqual(scheduler.readRetainedRasterAccounting(), {
+			retainedRasterCount: 0,
+			retainedRasterBytes: 0
+		});
 	});
 
 	it('skips rasterization entirely when no paint handler is mounted', async () => {

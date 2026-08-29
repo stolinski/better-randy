@@ -40,7 +40,11 @@ export interface VideoUnderlayRuntimeCallbacks {
 	readHost(): GpuHost | null;
 	readIsExporting(): boolean;
 	readState(): EngineState;
-	renderPreparedPreview(host: GpuHost, timestamp: number): void;
+	/** True when this call actually composited a frame. False means the composite
+	 *  was declined — a superseded host, an export in flight, or a render the
+	 *  frame renderer reported `unavailable` — and the canvas still holds whatever
+	 *  it held before. */
+	renderPreparedPreview(host: GpuHost, timestamp: number): boolean;
 	reportError(error: unknown): void;
 }
 
@@ -60,6 +64,12 @@ export class VideoUnderlayRuntimeController {
 	#pendingPreview: { frame: number; timestamp: number } | null = null;
 	#previewSequence = 0;
 	#previewPromise: Promise<void> | null = null;
+	// Composites that actually reached the canvas. A queued preview can be
+	// superseded, decline on a lost host, or be reported `unavailable` by the
+	// frame renderer, and every one of those paths leaves the PREVIOUS frame on
+	// screen. Counting only the composites that landed is what lets a caller tell
+	// "settled on the frame I asked for" apart from "read the frame before it".
+	#renderedPreviewGeneration = 0;
 	#isPlaying = false;
 	#isDisposed = false;
 
@@ -117,6 +127,31 @@ export class VideoUnderlayRuntimeController {
 		this.#pendingPreview = null;
 		this.#previewSequence += 1;
 		this.#decoderCache?.resetPlayback();
+	}
+
+	/**
+	 * Resolve once no queued preview composite is still in flight.
+	 *
+	 * `queuePreview` returns as soon as the request is recorded — the decode,
+	 * upload, and `renderPreparedPreview` happen inside the drain below. A caller
+	 * that only waits for the paint record therefore observes the PREVIOUS
+	 * composite whenever the drain has not finished, which is what the heaviest
+	 * compositions do. The loop re-reads the field because the drain restarts
+	 * itself whenever a newer preview arrived while it was running.
+	 */
+	async settleQueuedPreview(): Promise<void> {
+		while (this.#previewPromise) await this.#previewPromise;
+	}
+
+	/**
+	 * How many preview composites have actually reached the canvas.
+	 *
+	 * A caller that settles a frame and then reads pixels compares this across the
+	 * settle: unchanged means nothing was composited and the pixels still belong
+	 * to the previous frame, however successfully every await resolved.
+	 */
+	readRenderedPreviewGeneration(): number {
+		return this.#renderedPreviewGeneration;
 	}
 
 	async prepareExportFrame(frame: number): Promise<void> {
@@ -253,7 +288,9 @@ export class VideoUnderlayRuntimeController {
 			try {
 				await this.#prepareFrame(request.frame);
 				if (sequence !== this.#previewSequence || host !== this.#callbacks.readHost()) continue;
-				this.#callbacks.renderPreparedPreview(host, request.timestamp);
+				if (this.#callbacks.renderPreparedPreview(host, request.timestamp)) {
+					this.#renderedPreviewGeneration += 1;
+				}
 			} catch (error) {
 				if (
 					error instanceof VideoAssetDecoderSeekSupersededError ||

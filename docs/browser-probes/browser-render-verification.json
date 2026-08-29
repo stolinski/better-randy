@@ -1,0 +1,1216 @@
+{
+	"schemaVersion": 1,
+	"generatedAt": "2026-08-29T00:32:52.218Z",
+	"verification": "browser-render-fidelity-coverage-and-performance",
+	"baseUrl": "http://localhost:7264",
+	"sourceRevision": "46151ea6621f7137f8678890c96775ba7752a03a",
+	"sourceScopePaths": ["src", "scripts", "package.json"],
+	"sourceScopeFingerprint": "4b93f84def4f0ed9a76bdd3e5dc9f3e15ac2d2479d94668594831ae1674ceb77",
+	"establishedLane": "canvas-draw-element",
+	"selectedPublicLane": "dom-rasterization",
+	"performanceBudget": { "standardLaneFrameMilliseconds": 4000 },
+	"laneCapabilities": {
+		"canvas-draw-element": { "copyElementImageToTexture": true, "requestPaint": true },
+		"dom-rasterization": { "copyElementImageToTexture": false, "requestPaint": false }
+	},
+	"branches": [
+		{
+			"branchId": "html-text",
+			"description": "HTML text inside the composition root raster",
+			"authority": "live-lane-matrix"
+		},
+		{
+			"branchId": "web-document",
+			"description": "The web-document Surface and its chat/document chrome",
+			"authority": "live-lane-matrix"
+		},
+		{
+			"branchId": "overlay-layer",
+			"description": "Overlay Pipelines composited over the Surface",
+			"authority": "live-lane-matrix"
+		},
+		{
+			"branchId": "annotation-marks",
+			"description": "Annotation marks drawn beside the captured Surface DOM",
+			"authority": "live-lane-matrix"
+		},
+		{
+			"branchId": "diagram-blocks",
+			"description": "Diagram Blocks — nodes, edges, and labels",
+			"authority": "live-lane-matrix"
+		},
+		{
+			"branchId": "chart-blocks",
+			"description": "Analytic chart Blocks and their chrome",
+			"authority": "live-lane-matrix"
+		},
+		{
+			"branchId": "image-substrate",
+			"description": "Image substrate uploaded beneath the captured DOM",
+			"authority": "live-lane-matrix"
+		},
+		{
+			"branchId": "video-underlay",
+			"description": "Video underlay uploaded from a decoded VideoFrame, never from the DOM, so it is lane-independent by construction",
+			"authority": "structural-seam",
+			"structuralAuthorityPath": "scripts/test-dom-capture-lane-seam.ts"
+		},
+		{
+			"branchId": "depth-effects",
+			"description": "Depth stage and the GPU effect chain downstream of the capture",
+			"authority": "live-lane-matrix"
+		},
+		{
+			"branchId": "text-animations",
+			"description": "Text animations, which the lane must read rather than re-clock",
+			"authority": "live-lane-matrix"
+		},
+		{
+			"branchId": "transparent-output",
+			"description": "Transparent overlay output with no background the composition did not ask for",
+			"authority": "live-lane-matrix"
+		},
+		{
+			"branchId": "opaque-output",
+			"description": "Full-frame opaque output whose backgroundFill arrives from the effect chain",
+			"authority": "live-lane-matrix"
+		}
+	],
+	"coordinates": [
+		{
+			"coordinate": {
+				"coordinateId": "html-text-transparent-overlay",
+				"presetSlug": "lower-third",
+				"packId": "syntax",
+				"orientation": "horizontal",
+				"branchIds": ["html-text", "overlay-layer", "transparent-output"]
+			},
+			"lanes": {
+				"canvas-draw-element": {
+					"lane": "canvas-draw-element",
+					"reportedCaptureMode": "canvas-draw-element",
+					"expectedOutputClass": "transparent",
+					"configuredWidth": 3840,
+					"configuredHeight": 2160,
+					"fontsStatus": "loaded",
+					"frame": {
+						"sha256": "1907b9059980188d33674343e8b5af6cbcf5ca7ab3c7fb9f1b8c2cfc4ce841c8",
+						"width": 3840,
+						"height": 2160,
+						"nonUniformPixelCount": 8373,
+						"alphaCoverage": 0.06460648148148149,
+						"outputClass": "transparent"
+					},
+					"replayFrameSha256": "1907b9059980188d33674343e8b5af6cbcf5ca7ab3c7fb9f1b8c2cfc4ce841c8",
+					"replayChangedPixelRatio": 0,
+					"geometry": {
+						"composition-root": { "x": 0, "y": 0, "width": 3840, "height": 2160 },
+						"overlay-root": { "x": 0, "y": 0, "width": 3840, "height": 2160 }
+					},
+					"retainedRasterCount": 0,
+					"retainedRasterBytes": 0,
+					"directCanvasChildCount": 1,
+					"frameMilliseconds": 51,
+					"sampleFrameIndex": 100,
+					"awayFrameIndex": 0,
+					"frameRate": { "num": 30, "den": 1 }
+				},
+				"dom-rasterization": {
+					"lane": "dom-rasterization",
+					"reportedCaptureMode": "dom-rasterization",
+					"expectedOutputClass": "transparent",
+					"configuredWidth": 3840,
+					"configuredHeight": 2160,
+					"fontsStatus": "loaded",
+					"frame": {
+						"sha256": "81c04f9cc18ca763c659702ed1996ae90a7ab3c26020f0dfe1b4d37fd1b1b7e2",
+						"width": 3840,
+						"height": 2160,
+						"nonUniformPixelCount": 5833,
+						"alphaCoverage": 0.045007716049382716,
+						"outputClass": "transparent"
+					},
+					"replayFrameSha256": "81c04f9cc18ca763c659702ed1996ae90a7ab3c26020f0dfe1b4d37fd1b1b7e2",
+					"replayChangedPixelRatio": 0,
+					"geometry": {
+						"composition-root": { "x": 0, "y": 0, "width": 3840, "height": 2160 },
+						"overlay-root": { "x": 0, "y": 0, "width": 3840, "height": 2160 }
+					},
+					"retainedRasterCount": 1,
+					"retainedRasterBytes": 33177600,
+					"directCanvasChildCount": 1,
+					"frameMilliseconds": 382.39999997615814,
+					"sampleFrameIndex": 100,
+					"awayFrameIndex": 0,
+					"frameRate": { "num": 30, "den": 1 }
+				}
+			},
+			"verdict": {
+				"coordinateId": "html-text-transparent-overlay",
+				"outcome": "pass",
+				"checks": [
+					{
+						"checkId": "lane-identity",
+						"outcome": "pass",
+						"detail": "established=canvas-draw-element selected=dom-rasterization"
+					},
+					{
+						"checkId": "native-target-resolution",
+						"outcome": "pass",
+						"detail": "expected 3840×2160; established=3840×2160 selected=3840×2160"
+					},
+					{
+						"checkId": "nonblank-frame",
+						"outcome": "pass",
+						"detail": "non-uniform pixels established=8373 selected=5833"
+					},
+					{
+						"checkId": "output-class-parity",
+						"outcome": "pass",
+						"detail": "declared=transparent/transparent measured established=transparent selected=transparent"
+					},
+					{
+						"checkId": "font-readiness",
+						"outcome": "pass",
+						"detail": "established=loaded selected=loaded"
+					},
+					{
+						"checkId": "frame-determinism",
+						"outcome": "pass",
+						"detail": "replay changed pixels established=0.00e+0 selected=0.00e+0"
+					},
+					{
+						"checkId": "geometry-parity",
+						"outcome": "pass",
+						"detail": "maximum delta 0.000px of 2px"
+					},
+					{
+						"checkId": "alpha-coverage-parity",
+						"outcome": "pass",
+						"detail": "established=0.0646 selected=0.0450 tolerance 0.05"
+					},
+					{
+						"checkId": "raster-cleanup",
+						"outcome": "pass",
+						"detail": "established retains 0; selected retains 1 for 1 direct canvas children"
+					},
+					{
+						"checkId": "frame-capture-performance",
+						"outcome": "pass",
+						"detail": "selected lane 382.4ms of 4000ms (established 51.0ms)"
+					}
+				]
+			}
+		},
+		{
+			"coordinate": {
+				"coordinateId": "text-animated-opaque-full-frame",
+				"presetSlug": "outro-watch-next",
+				"packId": "editorial-mono",
+				"orientation": "horizontal",
+				"branchIds": ["text-animations", "opaque-output"]
+			},
+			"lanes": {
+				"canvas-draw-element": {
+					"lane": "canvas-draw-element",
+					"reportedCaptureMode": "canvas-draw-element",
+					"expectedOutputClass": "opaque",
+					"configuredWidth": 3840,
+					"configuredHeight": 2160,
+					"fontsStatus": "loaded",
+					"frame": {
+						"sha256": "79b057e6ad3fbbc9813a2c8f857ac340caf12218b7bfb36dff7476e1dad93a89",
+						"width": 3840,
+						"height": 2160,
+						"nonUniformPixelCount": 129532,
+						"alphaCoverage": 1,
+						"outputClass": "opaque"
+					},
+					"replayFrameSha256": "79b057e6ad3fbbc9813a2c8f857ac340caf12218b7bfb36dff7476e1dad93a89",
+					"replayChangedPixelRatio": 0,
+					"geometry": {
+						"composition-root": { "x": 0, "y": 0, "width": 3840, "height": 2160 },
+						"overlay-root": { "x": 0, "y": 0, "width": 3840, "height": 2160 }
+					},
+					"retainedRasterCount": 0,
+					"retainedRasterBytes": 0,
+					"directCanvasChildCount": 1,
+					"frameMilliseconds": 65.89999997615814,
+					"sampleFrameIndex": 120,
+					"awayFrameIndex": 0,
+					"frameRate": { "num": 30, "den": 1 }
+				},
+				"dom-rasterization": {
+					"lane": "dom-rasterization",
+					"reportedCaptureMode": "dom-rasterization",
+					"expectedOutputClass": "opaque",
+					"configuredWidth": 3840,
+					"configuredHeight": 2160,
+					"fontsStatus": "loaded",
+					"frame": {
+						"sha256": "f2fb323611948af705d8fee051f9d5a853ec2f3a02430cf92ae072a5680e9c98",
+						"width": 3840,
+						"height": 2160,
+						"nonUniformPixelCount": 129532,
+						"alphaCoverage": 1,
+						"outputClass": "opaque"
+					},
+					"replayFrameSha256": "f2fb323611948af705d8fee051f9d5a853ec2f3a02430cf92ae072a5680e9c98",
+					"replayChangedPixelRatio": 0,
+					"geometry": {
+						"composition-root": { "x": 0, "y": 0, "width": 3840, "height": 2160 },
+						"overlay-root": { "x": 0, "y": 0, "width": 3840, "height": 2160 }
+					},
+					"retainedRasterCount": 1,
+					"retainedRasterBytes": 33177600,
+					"directCanvasChildCount": 1,
+					"frameMilliseconds": 499,
+					"sampleFrameIndex": 120,
+					"awayFrameIndex": 0,
+					"frameRate": { "num": 30, "den": 1 }
+				}
+			},
+			"verdict": {
+				"coordinateId": "text-animated-opaque-full-frame",
+				"outcome": "pass",
+				"checks": [
+					{
+						"checkId": "lane-identity",
+						"outcome": "pass",
+						"detail": "established=canvas-draw-element selected=dom-rasterization"
+					},
+					{
+						"checkId": "native-target-resolution",
+						"outcome": "pass",
+						"detail": "expected 3840×2160; established=3840×2160 selected=3840×2160"
+					},
+					{
+						"checkId": "nonblank-frame",
+						"outcome": "pass",
+						"detail": "non-uniform pixels established=129532 selected=129532"
+					},
+					{
+						"checkId": "output-class-parity",
+						"outcome": "pass",
+						"detail": "declared=opaque/opaque measured established=opaque selected=opaque"
+					},
+					{
+						"checkId": "font-readiness",
+						"outcome": "pass",
+						"detail": "established=loaded selected=loaded"
+					},
+					{
+						"checkId": "frame-determinism",
+						"outcome": "pass",
+						"detail": "replay changed pixels established=0.00e+0 selected=0.00e+0"
+					},
+					{
+						"checkId": "geometry-parity",
+						"outcome": "pass",
+						"detail": "maximum delta 0.000px of 2px"
+					},
+					{
+						"checkId": "alpha-coverage-parity",
+						"outcome": "pass",
+						"detail": "established=1.0000 selected=1.0000 tolerance 0.05"
+					},
+					{
+						"checkId": "raster-cleanup",
+						"outcome": "pass",
+						"detail": "established retains 0; selected retains 1 for 1 direct canvas children"
+					},
+					{
+						"checkId": "frame-capture-performance",
+						"outcome": "pass",
+						"detail": "selected lane 499.0ms of 4000ms (established 65.9ms)"
+					}
+				]
+			}
+		},
+		{
+			"coordinate": {
+				"coordinateId": "web-document-surface",
+				"presetSlug": "web-document-wikipedia",
+				"packId": "crt-terminal",
+				"orientation": "horizontal",
+				"branchIds": ["web-document", "annotation-marks"]
+			},
+			"lanes": {
+				"canvas-draw-element": {
+					"lane": "canvas-draw-element",
+					"reportedCaptureMode": "canvas-draw-element",
+					"expectedOutputClass": "transparent",
+					"configuredWidth": 3840,
+					"configuredHeight": 2160,
+					"fontsStatus": "loaded",
+					"frame": {
+						"sha256": "6d414037deb5dc94c8cc278ed6fa6460e721b3fa788e3a44f7285c2afe340348",
+						"width": 3840,
+						"height": 2160,
+						"nonUniformPixelCount": 79765,
+						"alphaCoverage": 0.6154706790123456,
+						"outputClass": "transparent"
+					},
+					"replayFrameSha256": "6d414037deb5dc94c8cc278ed6fa6460e721b3fa788e3a44f7285c2afe340348",
+					"replayChangedPixelRatio": 0,
+					"geometry": {
+						"composition-root": { "x": 0, "y": 0, "width": 3840, "height": 2160 },
+						"overlay-root": { "x": 0, "y": 0, "width": 3840, "height": 2160 }
+					},
+					"retainedRasterCount": 0,
+					"retainedRasterBytes": 0,
+					"directCanvasChildCount": 1,
+					"frameMilliseconds": 67.89999997615814,
+					"sampleFrameIndex": 147,
+					"awayFrameIndex": 0,
+					"frameRate": { "num": 30, "den": 1 }
+				},
+				"dom-rasterization": {
+					"lane": "dom-rasterization",
+					"reportedCaptureMode": "dom-rasterization",
+					"expectedOutputClass": "transparent",
+					"configuredWidth": 3840,
+					"configuredHeight": 2160,
+					"fontsStatus": "loaded",
+					"frame": {
+						"sha256": "4cf63f694f1d14b15ccad77ee557481e10cd86dccc3ccd2e1fae530fced4f065",
+						"width": 3840,
+						"height": 2160,
+						"nonUniformPixelCount": 78210,
+						"alphaCoverage": 0.6034722222222222,
+						"outputClass": "transparent"
+					},
+					"replayFrameSha256": "4cf63f694f1d14b15ccad77ee557481e10cd86dccc3ccd2e1fae530fced4f065",
+					"replayChangedPixelRatio": 0,
+					"geometry": {
+						"composition-root": { "x": 0, "y": 0, "width": 3840, "height": 2160 },
+						"overlay-root": { "x": 0, "y": 0, "width": 3840, "height": 2160 }
+					},
+					"retainedRasterCount": 1,
+					"retainedRasterBytes": 33177600,
+					"directCanvasChildCount": 1,
+					"frameMilliseconds": 570.2000000476837,
+					"sampleFrameIndex": 147,
+					"awayFrameIndex": 0,
+					"frameRate": { "num": 30, "den": 1 }
+				}
+			},
+			"verdict": {
+				"coordinateId": "web-document-surface",
+				"outcome": "pass",
+				"checks": [
+					{
+						"checkId": "lane-identity",
+						"outcome": "pass",
+						"detail": "established=canvas-draw-element selected=dom-rasterization"
+					},
+					{
+						"checkId": "native-target-resolution",
+						"outcome": "pass",
+						"detail": "expected 3840×2160; established=3840×2160 selected=3840×2160"
+					},
+					{
+						"checkId": "nonblank-frame",
+						"outcome": "pass",
+						"detail": "non-uniform pixels established=79765 selected=78210"
+					},
+					{
+						"checkId": "output-class-parity",
+						"outcome": "pass",
+						"detail": "declared=transparent/transparent measured established=transparent selected=transparent"
+					},
+					{
+						"checkId": "font-readiness",
+						"outcome": "pass",
+						"detail": "established=loaded selected=loaded"
+					},
+					{
+						"checkId": "frame-determinism",
+						"outcome": "pass",
+						"detail": "replay changed pixels established=0.00e+0 selected=0.00e+0"
+					},
+					{
+						"checkId": "geometry-parity",
+						"outcome": "pass",
+						"detail": "maximum delta 0.000px of 2px"
+					},
+					{
+						"checkId": "alpha-coverage-parity",
+						"outcome": "pass",
+						"detail": "established=0.6155 selected=0.6035 tolerance 0.05"
+					},
+					{
+						"checkId": "raster-cleanup",
+						"outcome": "pass",
+						"detail": "established retains 0; selected retains 1 for 1 direct canvas children"
+					},
+					{
+						"checkId": "frame-capture-performance",
+						"outcome": "pass",
+						"detail": "selected lane 570.2ms of 4000ms (established 67.9ms)"
+					}
+				]
+			}
+		},
+		{
+			"coordinate": {
+				"coordinateId": "annotated-paper-surface",
+				"presetSlug": "research-paper-critique",
+				"packId": "clean-light",
+				"orientation": "horizontal",
+				"branchIds": ["annotation-marks"]
+			},
+			"lanes": {
+				"canvas-draw-element": {
+					"lane": "canvas-draw-element",
+					"reportedCaptureMode": "canvas-draw-element",
+					"expectedOutputClass": "transparent",
+					"configuredWidth": 3840,
+					"configuredHeight": 2160,
+					"fontsStatus": "loaded",
+					"frame": {
+						"sha256": "c70e9a19f9c9f9101c935ab9eda155af9cb6f64473a8e10d1988d1494dab7122",
+						"width": 3840,
+						"height": 2160,
+						"nonUniformPixelCount": 61019,
+						"alphaCoverage": 0.4708256172839506,
+						"outputClass": "transparent"
+					},
+					"replayFrameSha256": "c70e9a19f9c9f9101c935ab9eda155af9cb6f64473a8e10d1988d1494dab7122",
+					"replayChangedPixelRatio": 0,
+					"geometry": {
+						"composition-root": { "x": 0, "y": 0, "width": 3840, "height": 2160 },
+						"overlay-root": { "x": 0, "y": 0, "width": 3840, "height": 2160 }
+					},
+					"retainedRasterCount": 0,
+					"retainedRasterBytes": 0,
+					"directCanvasChildCount": 1,
+					"frameMilliseconds": 66,
+					"sampleFrameIndex": 150,
+					"awayFrameIndex": 0,
+					"frameRate": { "num": 30, "den": 1 }
+				},
+				"dom-rasterization": {
+					"lane": "dom-rasterization",
+					"reportedCaptureMode": "dom-rasterization",
+					"expectedOutputClass": "transparent",
+					"configuredWidth": 3840,
+					"configuredHeight": 2160,
+					"fontsStatus": "loaded",
+					"frame": {
+						"sha256": "def0a0e8b59de4f4c0498a2a812f75a44ace012f11350118c945d32156254a98",
+						"width": 3840,
+						"height": 2160,
+						"nonUniformPixelCount": 55347,
+						"alphaCoverage": 0.4270601851851852,
+						"outputClass": "transparent"
+					},
+					"replayFrameSha256": "def0a0e8b59de4f4c0498a2a812f75a44ace012f11350118c945d32156254a98",
+					"replayChangedPixelRatio": 0,
+					"geometry": {
+						"composition-root": { "x": 0, "y": 0, "width": 3840, "height": 2160 },
+						"overlay-root": { "x": 0, "y": 0, "width": 3840, "height": 2160 }
+					},
+					"retainedRasterCount": 1,
+					"retainedRasterBytes": 33177600,
+					"directCanvasChildCount": 1,
+					"frameMilliseconds": 432.89999997615814,
+					"sampleFrameIndex": 150,
+					"awayFrameIndex": 0,
+					"frameRate": { "num": 30, "den": 1 }
+				}
+			},
+			"verdict": {
+				"coordinateId": "annotated-paper-surface",
+				"outcome": "pass",
+				"checks": [
+					{
+						"checkId": "lane-identity",
+						"outcome": "pass",
+						"detail": "established=canvas-draw-element selected=dom-rasterization"
+					},
+					{
+						"checkId": "native-target-resolution",
+						"outcome": "pass",
+						"detail": "expected 3840×2160; established=3840×2160 selected=3840×2160"
+					},
+					{
+						"checkId": "nonblank-frame",
+						"outcome": "pass",
+						"detail": "non-uniform pixels established=61019 selected=55347"
+					},
+					{
+						"checkId": "output-class-parity",
+						"outcome": "pass",
+						"detail": "declared=transparent/transparent measured established=transparent selected=transparent"
+					},
+					{
+						"checkId": "font-readiness",
+						"outcome": "pass",
+						"detail": "established=loaded selected=loaded"
+					},
+					{
+						"checkId": "frame-determinism",
+						"outcome": "pass",
+						"detail": "replay changed pixels established=0.00e+0 selected=0.00e+0"
+					},
+					{
+						"checkId": "geometry-parity",
+						"outcome": "pass",
+						"detail": "maximum delta 0.000px of 2px"
+					},
+					{
+						"checkId": "alpha-coverage-parity",
+						"outcome": "pass",
+						"detail": "established=0.4708 selected=0.4271 tolerance 0.05"
+					},
+					{
+						"checkId": "raster-cleanup",
+						"outcome": "pass",
+						"detail": "established retains 0; selected retains 1 for 1 direct canvas children"
+					},
+					{
+						"checkId": "frame-capture-performance",
+						"outcome": "pass",
+						"detail": "selected lane 432.9ms of 4000ms (established 66.0ms)"
+					}
+				]
+			}
+		},
+		{
+			"coordinate": {
+				"coordinateId": "diagram-blocks-vertical",
+				"presetSlug": "docu-flowchart",
+				"packId": "syntax",
+				"orientation": "vertical",
+				"branchIds": ["diagram-blocks"]
+			},
+			"lanes": {
+				"canvas-draw-element": {
+					"lane": "canvas-draw-element",
+					"reportedCaptureMode": "canvas-draw-element",
+					"expectedOutputClass": "opaque",
+					"configuredWidth": 2160,
+					"configuredHeight": 3840,
+					"fontsStatus": "loaded",
+					"frame": {
+						"sha256": "5e53d3591cf303a814a311283d6956aaf4c361fb79ddcf389b7a747854b64d5f",
+						"width": 2160,
+						"height": 3840,
+						"nonUniformPixelCount": 4460,
+						"alphaCoverage": 1,
+						"outputClass": "opaque"
+					},
+					"replayFrameSha256": "5e53d3591cf303a814a311283d6956aaf4c361fb79ddcf389b7a747854b64d5f",
+					"replayChangedPixelRatio": 0,
+					"geometry": {
+						"composition-root": { "x": 0, "y": 0, "width": 2160, "height": 3840 },
+						"overlay-root": { "x": 0, "y": 0, "width": 2160, "height": 3840 }
+					},
+					"retainedRasterCount": 0,
+					"retainedRasterBytes": 0,
+					"directCanvasChildCount": 1,
+					"frameMilliseconds": 51.199999928474426,
+					"sampleFrameIndex": 90,
+					"awayFrameIndex": 0,
+					"frameRate": { "num": 30, "den": 1 }
+				},
+				"dom-rasterization": {
+					"lane": "dom-rasterization",
+					"reportedCaptureMode": "dom-rasterization",
+					"expectedOutputClass": "opaque",
+					"configuredWidth": 2160,
+					"configuredHeight": 3840,
+					"fontsStatus": "loaded",
+					"frame": {
+						"sha256": "0297620567530ccf4c3871e8237571b80e920dba0262efd36c6ec296cdeff649",
+						"width": 2160,
+						"height": 3840,
+						"nonUniformPixelCount": 3737,
+						"alphaCoverage": 1,
+						"outputClass": "opaque"
+					},
+					"replayFrameSha256": "0297620567530ccf4c3871e8237571b80e920dba0262efd36c6ec296cdeff649",
+					"replayChangedPixelRatio": 0,
+					"geometry": {
+						"composition-root": { "x": 0, "y": 0, "width": 2160, "height": 3840 },
+						"overlay-root": { "x": 0, "y": 0, "width": 2160, "height": 3840 }
+					},
+					"retainedRasterCount": 1,
+					"retainedRasterBytes": 33177600,
+					"directCanvasChildCount": 1,
+					"frameMilliseconds": 566.3000000715256,
+					"sampleFrameIndex": 90,
+					"awayFrameIndex": 0,
+					"frameRate": { "num": 30, "den": 1 }
+				}
+			},
+			"verdict": {
+				"coordinateId": "diagram-blocks-vertical",
+				"outcome": "pass",
+				"checks": [
+					{
+						"checkId": "lane-identity",
+						"outcome": "pass",
+						"detail": "established=canvas-draw-element selected=dom-rasterization"
+					},
+					{
+						"checkId": "native-target-resolution",
+						"outcome": "pass",
+						"detail": "expected 2160×3840; established=2160×3840 selected=2160×3840"
+					},
+					{
+						"checkId": "nonblank-frame",
+						"outcome": "pass",
+						"detail": "non-uniform pixels established=4460 selected=3737"
+					},
+					{
+						"checkId": "output-class-parity",
+						"outcome": "pass",
+						"detail": "declared=opaque/opaque measured established=opaque selected=opaque"
+					},
+					{
+						"checkId": "font-readiness",
+						"outcome": "pass",
+						"detail": "established=loaded selected=loaded"
+					},
+					{
+						"checkId": "frame-determinism",
+						"outcome": "pass",
+						"detail": "replay changed pixels established=0.00e+0 selected=0.00e+0"
+					},
+					{
+						"checkId": "geometry-parity",
+						"outcome": "pass",
+						"detail": "maximum delta 0.000px of 2px"
+					},
+					{
+						"checkId": "alpha-coverage-parity",
+						"outcome": "pass",
+						"detail": "established=1.0000 selected=1.0000 tolerance 0.05"
+					},
+					{
+						"checkId": "raster-cleanup",
+						"outcome": "pass",
+						"detail": "established retains 0; selected retains 1 for 1 direct canvas children"
+					},
+					{
+						"checkId": "frame-capture-performance",
+						"outcome": "pass",
+						"detail": "selected lane 566.3ms of 4000ms (established 51.2ms)"
+					}
+				]
+			}
+		},
+		{
+			"coordinate": {
+				"coordinateId": "chart-blocks-vertical",
+				"presetSlug": "column-us-population-1950-2020",
+				"packId": "editorial-mono",
+				"orientation": "vertical",
+				"branchIds": ["chart-blocks"]
+			},
+			"lanes": {
+				"canvas-draw-element": {
+					"lane": "canvas-draw-element",
+					"reportedCaptureMode": "canvas-draw-element",
+					"expectedOutputClass": "opaque",
+					"configuredWidth": 2160,
+					"configuredHeight": 3840,
+					"fontsStatus": "loaded",
+					"frame": {
+						"sha256": "5e94621575260e4723c6436e4c44ddf8abfc10c75f1900bf7d91906933b6098a",
+						"width": 2160,
+						"height": 3840,
+						"nonUniformPixelCount": 148464,
+						"alphaCoverage": 1,
+						"outputClass": "opaque"
+					},
+					"replayFrameSha256": "5e94621575260e4723c6436e4c44ddf8abfc10c75f1900bf7d91906933b6098a",
+					"replayChangedPixelRatio": 0,
+					"geometry": {
+						"composition-root": { "x": 0, "y": 0, "width": 2160, "height": 3840 },
+						"overlay-root": { "x": 0, "y": 0, "width": 2160, "height": 3840 }
+					},
+					"retainedRasterCount": 0,
+					"retainedRasterBytes": 0,
+					"directCanvasChildCount": 1,
+					"frameMilliseconds": 49.39999997615814,
+					"sampleFrameIndex": 150,
+					"awayFrameIndex": 0,
+					"frameRate": { "num": 30, "den": 1 }
+				},
+				"dom-rasterization": {
+					"lane": "dom-rasterization",
+					"reportedCaptureMode": "dom-rasterization",
+					"expectedOutputClass": "opaque",
+					"configuredWidth": 2160,
+					"configuredHeight": 3840,
+					"fontsStatus": "loaded",
+					"frame": {
+						"sha256": "2bd69cc6c3e187082edb766c50ea5d0a4965b271f8d7594b914e3e6d71c4055e",
+						"width": 2160,
+						"height": 3840,
+						"nonUniformPixelCount": 148457,
+						"alphaCoverage": 1,
+						"outputClass": "opaque"
+					},
+					"replayFrameSha256": "2bd69cc6c3e187082edb766c50ea5d0a4965b271f8d7594b914e3e6d71c4055e",
+					"replayChangedPixelRatio": 0,
+					"geometry": {
+						"composition-root": { "x": 0, "y": 0, "width": 2160, "height": 3840 },
+						"overlay-root": { "x": 0, "y": 0, "width": 2160, "height": 3840 }
+					},
+					"retainedRasterCount": 1,
+					"retainedRasterBytes": 33177600,
+					"directCanvasChildCount": 1,
+					"frameMilliseconds": 948.6999999284744,
+					"sampleFrameIndex": 150,
+					"awayFrameIndex": 0,
+					"frameRate": { "num": 30, "den": 1 }
+				}
+			},
+			"verdict": {
+				"coordinateId": "chart-blocks-vertical",
+				"outcome": "pass",
+				"checks": [
+					{
+						"checkId": "lane-identity",
+						"outcome": "pass",
+						"detail": "established=canvas-draw-element selected=dom-rasterization"
+					},
+					{
+						"checkId": "native-target-resolution",
+						"outcome": "pass",
+						"detail": "expected 2160×3840; established=2160×3840 selected=2160×3840"
+					},
+					{
+						"checkId": "nonblank-frame",
+						"outcome": "pass",
+						"detail": "non-uniform pixels established=148464 selected=148457"
+					},
+					{
+						"checkId": "output-class-parity",
+						"outcome": "pass",
+						"detail": "declared=opaque/opaque measured established=opaque selected=opaque"
+					},
+					{
+						"checkId": "font-readiness",
+						"outcome": "pass",
+						"detail": "established=loaded selected=loaded"
+					},
+					{
+						"checkId": "frame-determinism",
+						"outcome": "pass",
+						"detail": "replay changed pixels established=0.00e+0 selected=0.00e+0"
+					},
+					{
+						"checkId": "geometry-parity",
+						"outcome": "pass",
+						"detail": "maximum delta 0.000px of 2px"
+					},
+					{
+						"checkId": "alpha-coverage-parity",
+						"outcome": "pass",
+						"detail": "established=1.0000 selected=1.0000 tolerance 0.05"
+					},
+					{
+						"checkId": "raster-cleanup",
+						"outcome": "pass",
+						"detail": "established retains 0; selected retains 1 for 1 direct canvas children"
+					},
+					{
+						"checkId": "frame-capture-performance",
+						"outcome": "pass",
+						"detail": "selected lane 948.7ms of 4000ms (established 49.4ms)"
+					}
+				]
+			}
+		},
+		{
+			"coordinate": {
+				"coordinateId": "image-substrate-depth-stage",
+				"presetSlug": "pullquote-on-photo",
+				"packId": "syntax",
+				"orientation": "horizontal",
+				"branchIds": ["image-substrate", "depth-effects"]
+			},
+			"lanes": {
+				"canvas-draw-element": {
+					"lane": "canvas-draw-element",
+					"reportedCaptureMode": "canvas-draw-element",
+					"expectedOutputClass": "opaque",
+					"configuredWidth": 3840,
+					"configuredHeight": 2160,
+					"fontsStatus": "loaded",
+					"frame": {
+						"sha256": "656bdb40cbd125eae09d2ace8046912684a0c22a5b11c98bc6763dfe4e4b832b",
+						"width": 3840,
+						"height": 2160,
+						"nonUniformPixelCount": 129599,
+						"alphaCoverage": 1,
+						"outputClass": "opaque"
+					},
+					"replayFrameSha256": "656bdb40cbd125eae09d2ace8046912684a0c22a5b11c98bc6763dfe4e4b832b",
+					"replayChangedPixelRatio": 0,
+					"geometry": {
+						"composition-root": { "x": 0, "y": 0, "width": 3840, "height": 2160 },
+						"overlay-root": { "x": 0, "y": 0, "width": 3840, "height": 2160 }
+					},
+					"retainedRasterCount": 0,
+					"retainedRasterBytes": 0,
+					"directCanvasChildCount": 1,
+					"frameMilliseconds": 82.5,
+					"sampleFrameIndex": 105,
+					"awayFrameIndex": 0,
+					"frameRate": { "num": 30, "den": 1 }
+				},
+				"dom-rasterization": {
+					"lane": "dom-rasterization",
+					"reportedCaptureMode": "dom-rasterization",
+					"expectedOutputClass": "opaque",
+					"configuredWidth": 3840,
+					"configuredHeight": 2160,
+					"fontsStatus": "loaded",
+					"frame": {
+						"sha256": "9469da1d51019accad5e180e930bdb7706662520438a7d3876a3d3ad353ed939",
+						"width": 3840,
+						"height": 2160,
+						"nonUniformPixelCount": 129599,
+						"alphaCoverage": 1,
+						"outputClass": "opaque"
+					},
+					"replayFrameSha256": "9469da1d51019accad5e180e930bdb7706662520438a7d3876a3d3ad353ed939",
+					"replayChangedPixelRatio": 0,
+					"geometry": {
+						"composition-root": { "x": 0, "y": 0, "width": 3840, "height": 2160 },
+						"overlay-root": { "x": 0, "y": 0, "width": 3840, "height": 2160 }
+					},
+					"retainedRasterCount": 1,
+					"retainedRasterBytes": 33177600,
+					"directCanvasChildCount": 1,
+					"frameMilliseconds": 515.7000000476837,
+					"sampleFrameIndex": 105,
+					"awayFrameIndex": 0,
+					"frameRate": { "num": 30, "den": 1 }
+				}
+			},
+			"verdict": {
+				"coordinateId": "image-substrate-depth-stage",
+				"outcome": "pass",
+				"checks": [
+					{
+						"checkId": "lane-identity",
+						"outcome": "pass",
+						"detail": "established=canvas-draw-element selected=dom-rasterization"
+					},
+					{
+						"checkId": "native-target-resolution",
+						"outcome": "pass",
+						"detail": "expected 3840×2160; established=3840×2160 selected=3840×2160"
+					},
+					{
+						"checkId": "nonblank-frame",
+						"outcome": "pass",
+						"detail": "non-uniform pixels established=129599 selected=129599"
+					},
+					{
+						"checkId": "output-class-parity",
+						"outcome": "pass",
+						"detail": "declared=opaque/opaque measured established=opaque selected=opaque"
+					},
+					{
+						"checkId": "font-readiness",
+						"outcome": "pass",
+						"detail": "established=loaded selected=loaded"
+					},
+					{
+						"checkId": "frame-determinism",
+						"outcome": "pass",
+						"detail": "replay changed pixels established=0.00e+0 selected=0.00e+0"
+					},
+					{
+						"checkId": "geometry-parity",
+						"outcome": "pass",
+						"detail": "maximum delta 0.000px of 2px"
+					},
+					{
+						"checkId": "alpha-coverage-parity",
+						"outcome": "pass",
+						"detail": "established=1.0000 selected=1.0000 tolerance 0.05"
+					},
+					{
+						"checkId": "raster-cleanup",
+						"outcome": "pass",
+						"detail": "established retains 0; selected retains 1 for 1 direct canvas children"
+					},
+					{
+						"checkId": "frame-capture-performance",
+						"outcome": "pass",
+						"detail": "selected lane 515.7ms of 4000ms (established 82.5ms)"
+					}
+				]
+			}
+		},
+		{
+			"coordinate": {
+				"coordinateId": "depth-stage-vertical",
+				"presetSlug": "docu-map-journey",
+				"packId": "crt-terminal",
+				"orientation": "vertical",
+				"branchIds": ["depth-effects"]
+			},
+			"lanes": {
+				"canvas-draw-element": {
+					"lane": "canvas-draw-element",
+					"reportedCaptureMode": "canvas-draw-element",
+					"expectedOutputClass": "opaque",
+					"configuredWidth": 2160,
+					"configuredHeight": 3840,
+					"fontsStatus": "loaded",
+					"frame": {
+						"sha256": "8fe43e61d1df414c4c83998ed281f8106063f1d3d198b4e06e3b6c4c41423356",
+						"width": 2160,
+						"height": 3840,
+						"nonUniformPixelCount": 146956,
+						"alphaCoverage": 0.9896026936026936,
+						"outputClass": "transparent"
+					},
+					"replayFrameSha256": "8fe43e61d1df414c4c83998ed281f8106063f1d3d198b4e06e3b6c4c41423356",
+					"replayChangedPixelRatio": 0,
+					"geometry": {
+						"composition-root": { "x": 0, "y": 0, "width": 2160, "height": 3840 },
+						"overlay-root": { "x": 0, "y": 0, "width": 2160, "height": 3840 }
+					},
+					"retainedRasterCount": 0,
+					"retainedRasterBytes": 0,
+					"directCanvasChildCount": 1,
+					"frameMilliseconds": 82.39999997615814,
+					"sampleFrameIndex": 90,
+					"awayFrameIndex": 0,
+					"frameRate": { "num": 30, "den": 1 }
+				},
+				"dom-rasterization": {
+					"lane": "dom-rasterization",
+					"reportedCaptureMode": "dom-rasterization",
+					"expectedOutputClass": "opaque",
+					"configuredWidth": 2160,
+					"configuredHeight": 3840,
+					"fontsStatus": "loaded",
+					"frame": {
+						"sha256": "89d64c357f8f662cc79edb5196cfc6b670139338bd83bf5b84035637ee131469",
+						"width": 2160,
+						"height": 3840,
+						"nonUniformPixelCount": 146956,
+						"alphaCoverage": 0.9896026936026936,
+						"outputClass": "transparent"
+					},
+					"replayFrameSha256": "89d64c357f8f662cc79edb5196cfc6b670139338bd83bf5b84035637ee131469",
+					"replayChangedPixelRatio": 0,
+					"geometry": {
+						"composition-root": { "x": 0, "y": 0, "width": 2160, "height": 3840 },
+						"overlay-root": { "x": 0, "y": 0, "width": 2160, "height": 3840 }
+					},
+					"retainedRasterCount": 1,
+					"retainedRasterBytes": 33177600,
+					"directCanvasChildCount": 1,
+					"frameMilliseconds": 915.8999999761581,
+					"sampleFrameIndex": 90,
+					"awayFrameIndex": 0,
+					"frameRate": { "num": 30, "den": 1 }
+				}
+			},
+			"verdict": {
+				"coordinateId": "depth-stage-vertical",
+				"outcome": "pass",
+				"checks": [
+					{
+						"checkId": "lane-identity",
+						"outcome": "pass",
+						"detail": "established=canvas-draw-element selected=dom-rasterization"
+					},
+					{
+						"checkId": "native-target-resolution",
+						"outcome": "pass",
+						"detail": "expected 2160×3840; established=2160×3840 selected=2160×3840"
+					},
+					{
+						"checkId": "nonblank-frame",
+						"outcome": "pass",
+						"detail": "non-uniform pixels established=146956 selected=146956"
+					},
+					{
+						"checkId": "output-class-parity",
+						"outcome": "pass",
+						"detail": "declared=opaque/opaque measured established=transparent selected=transparent"
+					},
+					{
+						"checkId": "font-readiness",
+						"outcome": "pass",
+						"detail": "established=loaded selected=loaded"
+					},
+					{
+						"checkId": "frame-determinism",
+						"outcome": "pass",
+						"detail": "replay changed pixels established=0.00e+0 selected=0.00e+0"
+					},
+					{
+						"checkId": "geometry-parity",
+						"outcome": "pass",
+						"detail": "maximum delta 0.000px of 2px"
+					},
+					{
+						"checkId": "alpha-coverage-parity",
+						"outcome": "pass",
+						"detail": "established=0.9896 selected=0.9896 tolerance 0.05"
+					},
+					{
+						"checkId": "raster-cleanup",
+						"outcome": "pass",
+						"detail": "established retains 0; selected retains 1 for 1 direct canvas children"
+					},
+					{
+						"checkId": "frame-capture-performance",
+						"outcome": "pass",
+						"detail": "selected lane 915.9ms of 4000ms (established 82.4ms)"
+					}
+				],
+				"establishedLaneDeclarationMismatch": "docu-map-journey × crt-terminal × vertical declares opaque output but the established lane renders transparent"
+			}
+		},
+		{
+			"coordinate": {
+				"coordinateId": "effect-chain-overlay",
+				"presetSlug": "title-card-newspaper",
+				"packId": "clean-light",
+				"orientation": "horizontal",
+				"branchIds": ["depth-effects", "overlay-layer"]
+			},
+			"lanes": {
+				"canvas-draw-element": {
+					"lane": "canvas-draw-element",
+					"reportedCaptureMode": "canvas-draw-element",
+					"expectedOutputClass": "transparent",
+					"configuredWidth": 3840,
+					"configuredHeight": 2160,
+					"fontsStatus": "loaded",
+					"frame": {
+						"sha256": "71ee98ff30570f1de2f25c91450f9377abf2169225f44787ab5595da316b649d",
+						"width": 3840,
+						"height": 2160,
+						"nonUniformPixelCount": 73534,
+						"alphaCoverage": 0.5673919753086419,
+						"outputClass": "transparent"
+					},
+					"replayFrameSha256": "71ee98ff30570f1de2f25c91450f9377abf2169225f44787ab5595da316b649d",
+					"replayChangedPixelRatio": 0,
+					"geometry": {
+						"composition-root": { "x": 0, "y": 0, "width": 3840, "height": 2160 },
+						"overlay-root": { "x": 0, "y": 0, "width": 3840, "height": 2160 }
+					},
+					"retainedRasterCount": 0,
+					"retainedRasterBytes": 0,
+					"directCanvasChildCount": 1,
+					"frameMilliseconds": 81.89999997615814,
+					"sampleFrameIndex": 42,
+					"awayFrameIndex": 0,
+					"frameRate": { "num": 30, "den": 1 }
+				},
+				"dom-rasterization": {
+					"lane": "dom-rasterization",
+					"reportedCaptureMode": "dom-rasterization",
+					"expectedOutputClass": "transparent",
+					"configuredWidth": 3840,
+					"configuredHeight": 2160,
+					"fontsStatus": "loaded",
+					"frame": {
+						"sha256": "35eb5615d00a788d60002ae84ef9be966bac211c0a788803603df63340156215",
+						"width": 3840,
+						"height": 2160,
+						"nonUniformPixelCount": 73549,
+						"alphaCoverage": 0.5675077160493828,
+						"outputClass": "transparent"
+					},
+					"replayFrameSha256": "35eb5615d00a788d60002ae84ef9be966bac211c0a788803603df63340156215",
+					"replayChangedPixelRatio": 0,
+					"geometry": {
+						"composition-root": { "x": 0, "y": 0, "width": 3840, "height": 2160 },
+						"overlay-root": { "x": 0, "y": 0, "width": 3840, "height": 2160 }
+					},
+					"retainedRasterCount": 1,
+					"retainedRasterBytes": 33177600,
+					"directCanvasChildCount": 1,
+					"frameMilliseconds": 433.2999999523163,
+					"sampleFrameIndex": 42,
+					"awayFrameIndex": 0,
+					"frameRate": { "num": 30, "den": 1 }
+				}
+			},
+			"verdict": {
+				"coordinateId": "effect-chain-overlay",
+				"outcome": "pass",
+				"checks": [
+					{
+						"checkId": "lane-identity",
+						"outcome": "pass",
+						"detail": "established=canvas-draw-element selected=dom-rasterization"
+					},
+					{
+						"checkId": "native-target-resolution",
+						"outcome": "pass",
+						"detail": "expected 3840×2160; established=3840×2160 selected=3840×2160"
+					},
+					{
+						"checkId": "nonblank-frame",
+						"outcome": "pass",
+						"detail": "non-uniform pixels established=73534 selected=73549"
+					},
+					{
+						"checkId": "output-class-parity",
+						"outcome": "pass",
+						"detail": "declared=transparent/transparent measured established=transparent selected=transparent"
+					},
+					{
+						"checkId": "font-readiness",
+						"outcome": "pass",
+						"detail": "established=loaded selected=loaded"
+					},
+					{
+						"checkId": "frame-determinism",
+						"outcome": "pass",
+						"detail": "replay changed pixels established=0.00e+0 selected=0.00e+0"
+					},
+					{
+						"checkId": "geometry-parity",
+						"outcome": "pass",
+						"detail": "maximum delta 0.000px of 2px"
+					},
+					{
+						"checkId": "alpha-coverage-parity",
+						"outcome": "pass",
+						"detail": "established=0.5674 selected=0.5675 tolerance 0.05"
+					},
+					{
+						"checkId": "raster-cleanup",
+						"outcome": "pass",
+						"detail": "established retains 0; selected retains 1 for 1 direct canvas children"
+					},
+					{
+						"checkId": "frame-capture-performance",
+						"outcome": "pass",
+						"detail": "selected lane 433.3ms of 4000ms (established 81.9ms)"
+					}
+				]
+			}
+		}
+	],
+	"summary": {
+		"outcome": "pass",
+		"coverageGaps": [],
+		"failedCoordinateIds": [],
+		"unavailableCoordinateIds": [],
+		"establishedLaneDefects": [
+			"docu-map-journey × crt-terminal × vertical declares opaque output but the established lane renders transparent"
+		]
+	}
+}

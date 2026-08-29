@@ -246,12 +246,16 @@ export class CanvasPaintGenerationTracker {
 			requestPaint?.call(canvas);
 			return settled;
 		}
-		// A rasterization that fails must reject the waiter rather than leave an
-		// export stalled on a paint that will never settle.
-		return Promise.race([
-			settled,
-			standardBrowserDomCapture.requestPaint(canvas, signal).then(() => settled)
-		]);
+		// The rasterization lane must settle on a raster taken at or after THIS
+		// call. `requestPaint` guarantees that — a pass already running gets a
+		// follow-up that reads the DOM once it ends — so awaiting it is the
+		// contract. Racing a bare `settled` instead resolves on whichever paint
+		// lands first, and the caller has just seeked: the pass in flight is still
+		// rasterizing the PREVIOUS frame, so the settle returned in ~60 ms (far less
+		// than a 4K raster costs) with the pre-seek frame resident, and every export
+		// frame was the one before it. A failed or aborted pass rejects here rather
+		// than leaving the waiter stalled on a paint that will never come.
+		return standardBrowserDomCapture.requestPaint(canvas, signal).then(() => settled);
 	}
 }
 
