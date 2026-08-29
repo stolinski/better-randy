@@ -1,6 +1,17 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
+import type { WebmcpModelContextHost } from '$lib/platform/webmcp-tool-controller';
+
 declare global {
+	interface Document {
+		/**
+		 * The WebMCP tool surface, absent outside a browser that ships it and
+		 * outside the Permissions Policy that grants `tools` (ADR-0054 §7). Only
+		 * `WebmcpToolController` touches it.
+		 */
+		modelContext?: WebmcpModelContextHost;
+	}
+
 	interface CanvasRenderingContext2D {
 		drawElementImage?: (
 			element: Element,

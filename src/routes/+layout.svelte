@@ -10,6 +10,8 @@
 	import '@drop-in/graffiti';
 	import archivo400Url from '@fontsource/archivo/files/archivo-latin-400-normal.woff2?url';
 	import archivo600Url from '@fontsource/archivo/files/archivo-latin-600-normal.woff2?url';
+	import { browser } from '$app/environment';
+	import { onDestroy } from 'svelte';
 	import { page } from '$app/state';
 
 	import {
@@ -19,8 +21,39 @@
 		GFX_SOCIAL_CARD_PATH
 	} from '$lib/identity/gfx-brand';
 	import gfxMark from '$lib/assets/identity/gfx-mark.svg';
+	import { readWebmcpCompositionPreconditions } from '$lib/platform/webmcp-tool-preconditions';
+	import { startWebmcpToolController } from '$lib/platform/webmcp-tool-controller';
+	import { WEBMCP_TOOL_DEFINITIONS } from '$lib/platform/webmcp-tool-definitions';
 
 	let { children } = $props();
+
+	// WebMCP is progressive enhancement in one direction only (ADR-0054 §4):
+	// without `document.modelContext`, or inside a frame, an insecure context, or
+	// an opaque origin, this resolves to null and the app behaves exactly as it
+	// does with no agent attached. Nothing below the layout may depend on it.
+	const webmcpLifetime = new AbortController();
+	const webmcpToolController = browser
+		? startWebmcpToolController({
+				view: window,
+				definitions: WEBMCP_TOOL_DEFINITIONS,
+				lifetime: webmcpLifetime.signal
+			})
+		: null;
+
+	onDestroy(() => webmcpLifetime.abort());
+
+	// Registration follows the route and the composition: the preconditions are
+	// read inside the effect so any edit that makes a tool possible — or
+	// impossible — reaches `document.modelContext` on the same tick the Workspace
+	// sees it.
+	$effect(() => {
+		if (!webmcpToolController) return;
+		const composition = readWebmcpCompositionPreconditions();
+		const routeId = page.route.id;
+		void webmcpToolController.synchronize(composition, routeId).catch((error: unknown) => {
+			console.error('WebMCP tool registration failed', error);
+		});
+	});
 
 	// Share scrapers need absolute URLs, and the only origin any of them ever
 	// fetches is the ratified public one (ADR-0052) — a local or preview origin
