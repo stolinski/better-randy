@@ -22,7 +22,8 @@
  * a surface here without adding its matrix row is the guess the ADR forbids.
  */
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { extname, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -336,11 +337,45 @@ function isScannedFile(relativeFile, config) {
 	return config.scannedExtensions.includes(extension);
 }
 
+// The file universe git governs: tracked files plus untracked files that are
+// not gitignored (so a fresh, not-yet-committed file is still audited). Local
+// ignored state — .swamp/ caches, .claude/settings.local.json — is exactly
+// what ADR-0053 never rewrites and must not fail the check in a primary
+// checkout. Returns null when the root is not inside a git work tree.
+function listGitGovernedFiles(absoluteRoot) {
+	try {
+		const output = execFileSync(
+			'git',
+			['ls-files', '-z', '--cached', '--others', '--exclude-standard'],
+			{ cwd: absoluteRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024 }
+		);
+		return output.split('\0').filter(Boolean);
+	} catch {
+		return null;
+	}
+}
+
 function collectScannedFiles(absoluteRoot, config) {
 	const skippedRoots = [
 		...config.unscannedRoots.map((entry) => entry.path),
 		...config.historicalRoots.map((entry) => entry.path)
 	];
+
+	const gitGoverned = listGitGovernedFiles(absoluteRoot);
+	if (gitGoverned !== null) {
+		return gitGoverned
+			.map((file) => normalizePath(file))
+			.filter((relativeFile) => {
+				if (skippedRoots.some((root) => isUnderPath(relativeFile, root))) return false;
+				if (!isScannedFile(relativeFile, config)) return false;
+				const absoluteFile = join(absoluteRoot, relativeFile);
+				// lstat, not stat: tracked symlinks (CLAUDE.md → AGENTS.md) must
+				// not be audited twice; index entries deleted from disk are skipped.
+				return existsSync(absoluteFile) && !lstatSync(absoluteFile).isSymbolicLink();
+			})
+			.toSorted((a, b) => a.localeCompare(b));
+	}
+
 	const files = [];
 
 	function visit(directory) {
