@@ -4,14 +4,37 @@ export interface CompositionEditHistoryEntry {
 	redo: () => void;
 }
 
+/** One advance of the Composition revision, labelled with the edit that caused it. */
+export interface CompositionRevisionEntry {
+	revision: number;
+	label: string;
+}
+
 /**
- * In-memory authoring transaction history. Callers record an edit only after it
- * has been applied; undo/redo callbacks must restore the same bounded domain
- * mutation without re-recording it.
+ * How many recent revision advances stay available to describe a conflict. A
+ * caller holding a stale revision needs to know what moved, not the whole life
+ * of the document.
+ */
+const COMPOSITION_REVISION_LOG_LIMIT = 32;
+
+/**
+ * In-memory authoring transaction history, shared by the GUI and by agent
+ * operations ([ADR-0054](../../../docs/adr/0054-webmcp-operation-transaction-and-security-contract.md) §4).
+ * Callers record an edit only after it has been applied; undo/redo callbacks
+ * must restore the same bounded domain mutation without re-recording it.
+ *
+ * This is also where the **Composition revision** lives. One monotonic counter
+ * advances on every recorded edit, undo, and redo, whichever transport caused
+ * it, so a caller's observed revision is stale exactly when someone else has
+ * edited since. Loading a different composition clears the history and restarts
+ * the counter: a revision names a point in one open document's life, never a
+ * global clock.
  */
 export class CompositionEditHistory {
 	#past: CompositionEditHistoryEntry[] = [];
 	#future: CompositionEditHistoryEntry[] = [];
+	#revision = 0;
+	#revisionLog: CompositionRevisionEntry[] = [];
 
 	get canUndo(): boolean {
 		return this.#past.length > 0;
@@ -29,9 +52,23 @@ export class CompositionEditHistory {
 		return this.#future.at(-1)?.label ?? null;
 	}
 
+	/** The Composition revision every mutating operation supplies and is checked against. */
+	get revision(): number {
+		return this.#revision;
+	}
+
+	/**
+	 * The edits recorded after `revision`, oldest first — the bounded summary a
+	 * conflicting caller reads to learn what moved while it was thinking.
+	 */
+	editsSince(revision: number): readonly CompositionRevisionEntry[] {
+		return this.#revisionLog.filter((entry) => entry.revision > revision);
+	}
+
 	recordApplied(entry: CompositionEditHistoryEntry): void {
 		this.#past.push(entry);
 		this.#future.length = 0;
+		this.#advanceRevision(entry.label);
 	}
 
 	undo(): boolean {
@@ -40,6 +77,7 @@ export class CompositionEditHistory {
 		entry.undo();
 		this.#past.pop();
 		this.#future.push(entry);
+		this.#advanceRevision(`Undo ${entry.label}`);
 		return true;
 	}
 
@@ -49,12 +87,23 @@ export class CompositionEditHistory {
 		entry.redo();
 		this.#future.pop();
 		this.#past.push(entry);
+		this.#advanceRevision(`Redo ${entry.label}`);
 		return true;
 	}
 
 	clear(): void {
 		this.#past.length = 0;
 		this.#future.length = 0;
+		this.#revision = 0;
+		this.#revisionLog.length = 0;
+	}
+
+	#advanceRevision(label: string): void {
+		this.#revision += 1;
+		this.#revisionLog.push({ revision: this.#revision, label });
+		if (this.#revisionLog.length > COMPOSITION_REVISION_LOG_LIMIT) {
+			this.#revisionLog.shift();
+		}
 	}
 }
 

@@ -67,3 +67,57 @@ describe('composition edit history', () => {
 		expect(history.canRedo).toBe(false);
 	});
 });
+
+describe('composition revision', () => {
+	function record(history: CompositionEditHistory, label: string): void {
+		history.recordApplied({ label, undo: () => undefined, redo: () => undefined });
+	}
+
+	it('starts a freshly loaded composition at revision zero', () => {
+		expect(new CompositionEditHistory().revision).toBe(0);
+	});
+
+	it('advances on every recorded edit, undo, and redo', () => {
+		const history = new CompositionEditHistory();
+		record(history, 'Add Overlay');
+		expect(history.revision).toBe(1);
+
+		record(history, 'Set orientation');
+		expect(history.revision).toBe(2);
+
+		history.undo();
+		expect(history.revision).toBe(3);
+
+		history.redo();
+		expect(history.revision).toBe(4);
+	});
+
+	it('leaves the revision alone when there is nothing to undo or redo', () => {
+		const history = new CompositionEditHistory();
+		expect(history.undo()).toBe(false);
+		expect(history.redo()).toBe(false);
+		expect(history.revision).toBe(0);
+	});
+
+	it('names the edits recorded since an observed revision', () => {
+		const history = new CompositionEditHistory();
+		record(history, 'Add Overlay');
+		record(history, 'Set orientation');
+		history.undo();
+
+		expect(history.editsSince(1).map((entry) => entry.label)).toEqual([
+			'Set orientation',
+			'Undo Set orientation'
+		]);
+		expect(history.editsSince(3)).toEqual([]);
+	});
+
+	it('restarts the counter when a different composition loads', () => {
+		const history = new CompositionEditHistory();
+		record(history, 'Add Overlay');
+		history.clear();
+
+		expect(history.revision).toBe(0);
+		expect(history.editsSince(0)).toEqual([]);
+	});
+});
