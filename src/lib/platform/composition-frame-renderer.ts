@@ -8,6 +8,7 @@ import { clampNumber } from '$lib/utils/math';
 import { measureOverlayBoundsPx } from '$lib/utils/overlay-bounds';
 import type { Effect, EngineState } from './engine-schema';
 import type { GpuHost } from './gpu-host';
+import { hasCapturedPaintRecord } from './html-in-canvas';
 import type { PackManifest } from './packs/types';
 import {
 	resolveBackgroundFill,
@@ -132,13 +133,26 @@ export interface CompositionFrameRenderRequest {
 const uploadedSurfaceGenerations = new WeakMap<SurfaceRenderInstance, number>();
 const uploadedOverlayGenerations = new WeakMap<CompositionPlanes, number>();
 
+// `force` overrides the generation-equality short-circuit — it does not override
+// the paint-record precondition. An element the browser has never painted has
+// nothing to copy in either lane, so the frame keeps whatever texture is
+// already resident and the paint that will report that element re-enters here
+// with a real generation. Without this check a fresh mount, or a hot-module
+// replacement that swapped the composition node, uploaded a generation-0
+// element and threw `InvalidStateError: No cached paint record for element`
+// out of the paint handler (Sentry issue 7631939454).
 function captureSurfaceDom(request: CompositionFrameRenderRequest): void {
 	const pipeline = request.resources.pipeline;
 	if (!pipeline) return;
 	const capture = request.domCapture;
-	if (!capture || capture.force || uploadedSurfaceGenerations.get(pipeline) !== capture.surface) {
+	if (!capture) {
 		pipeline.uploadDom();
-		if (capture) uploadedSurfaceGenerations.set(pipeline, capture.surface);
+		return;
+	}
+	if (!hasCapturedPaintRecord(capture.surface)) return;
+	if (capture.force || uploadedSurfaceGenerations.get(pipeline) !== capture.surface) {
+		pipeline.uploadDom();
+		uploadedSurfaceGenerations.set(pipeline, capture.surface);
 	}
 }
 
@@ -148,9 +162,14 @@ function captureOverlayDom(
 	element: HTMLElement
 ): void {
 	const capture = request.domCapture;
-	if (!capture || capture.force || uploadedOverlayGenerations.get(planes) !== capture.overlay) {
+	if (!capture) {
 		planes.captureOverlay(element);
-		if (capture) uploadedOverlayGenerations.set(planes, capture.overlay);
+		return;
+	}
+	if (!hasCapturedPaintRecord(capture.overlay)) return;
+	if (capture.force || uploadedOverlayGenerations.get(planes) !== capture.overlay) {
+		planes.captureOverlay(element);
+		uploadedOverlayGenerations.set(planes, capture.overlay);
 	}
 }
 

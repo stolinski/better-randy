@@ -410,4 +410,80 @@ describe('composition frame renderer ordering', () => {
 		assert.equal(calls.filter((call) => call === 'upload-dom').length, 3);
 		assert.equal(calls.filter((call) => call === 'render').length, 4);
 	});
+
+	it('skips the DOM capture until the browser has a paint record for the element', () => {
+		const calls: string[] = [];
+		const state = createDefaultEngineState();
+		state.effects.push(dofEffect());
+		const overlayRootElement = {} as HTMLElement;
+		const surfaceTexture = texture('surface');
+		const pipeline = {
+			uploadDom: () => calls.push('upload-surface'),
+			render: () => calls.push('render-surface'),
+			getOutputTexture: () => surfaceTexture
+		} as unknown as SurfaceRenderInstance;
+		const compositionPlanes = {
+			captureOverlay: () => calls.push('capture-overlay'),
+			composite: () => calls.push('composite'),
+			compositeTexture: () => texture('composite'),
+			overlayPlaneTexture: () => texture('overlay-plane')
+		} as unknown as CompositionPlanes;
+		const host = {
+			canvas: { width: 3840, height: 2160 },
+			device: { createCommandEncoder: () => ({}) }
+		} as unknown as GpuHost;
+		const request: CompositionFrameRenderRequest = {
+			outputView: {} as GPUTextureView,
+			timestamp: 0,
+			state,
+			pack: getPack('syntax'),
+			paperVisibility: 1,
+			compositionElement: null,
+			overlayRootElement,
+			substrateTexture: null,
+			videoUnderlayTexture: null,
+			domCapture: { surface: 0, overlay: 0, force: false },
+			resources: {
+				host,
+				pipeline,
+				effectChain: { apply: () => calls.push('effects') } as unknown as EffectChain,
+				shaderPassDispatcher: {
+					apply: ({ inputTexture }: { inputTexture: GPUTexture }) => inputTexture
+				} as unknown as ShaderPassDispatcher,
+				compositionPlanes,
+				depthStage: null
+			},
+			cachedTransition: null,
+			buildSurfaceInputs: () => SURFACE_INPUTS
+		};
+
+		// Generation 0 means no paint has ever reported these elements, so the
+		// capture seam has nothing to read. The frame still composites.
+		assert.equal(renderCompositionFrameTo(request), 'dof');
+		assert.deepEqual(calls, ['render-surface', 'composite', 'effects']);
+
+		// Forcing re-upload does not manufacture a paint record either.
+		calls.length = 0;
+		renderCompositionFrameTo({
+			...request,
+			timestamp: 1,
+			domCapture: { surface: 0, overlay: 0, force: true }
+		});
+		assert.deepEqual(calls, ['render-surface', 'composite', 'effects']);
+
+		// The first paint that reports the elements uploads both planes.
+		calls.length = 0;
+		renderCompositionFrameTo({
+			...request,
+			timestamp: 2,
+			domCapture: { surface: 1, overlay: 1, force: false }
+		});
+		assert.deepEqual(calls, [
+			'upload-surface',
+			'render-surface',
+			'capture-overlay',
+			'composite',
+			'effects'
+		]);
+	});
 });

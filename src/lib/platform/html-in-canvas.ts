@@ -213,6 +213,7 @@ export class CanvasPaintGenerationTracker {
 		this.#waiters.clear();
 	}
 
+	/** 0 is the "never painted" sentinel — see `hasCapturedPaintRecord`. */
 	generationFor(element: Element | null): number {
 		return element ? (this.#elementGenerations.get(element) ?? 0) : 0;
 	}
@@ -257,6 +258,22 @@ export class CanvasPaintGenerationTracker {
 		// than leaving the waiter stalled on a paint that will never come.
 		return standardBrowserDomCapture.requestPaint(canvas, signal).then(() => settled);
 	}
+}
+
+/**
+ * Whether a `CanvasPaintGenerationTracker` generation means the browser holds a
+ * paint record this element can actually be captured from.
+ *
+ * Generation 0 is the tracker's "no paint has ever reported this element"
+ * sentinel: a first mount before its first paint, or a hot-module replacement
+ * that swapped the node out from under a resident texture. Capturing then has
+ * nothing to read — the WICG lane throws
+ * `InvalidStateError: No cached paint record for element` and the
+ * rasterization lane throws its own missing-raster error — so callers must
+ * check this before asking the capture seam for a frame.
+ */
+export function hasCapturedPaintRecord(generation: number): boolean {
+	return generation > 0;
 }
 
 export function setCanvasPaintHandler(
