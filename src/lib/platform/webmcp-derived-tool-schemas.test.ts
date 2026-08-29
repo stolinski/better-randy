@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { globSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -37,27 +37,21 @@ function starters(...slugs: readonly string[]): CataloguedPreset[] {
 	return slugs.map((slug) => ({ slug, preset: blankPreset }));
 }
 
-/** Every module that builds a WebMCP tool argument, and so must never restate a registry. */
-const WEBMCP_TOOL_LAYER_MODULES = [
-	'src/lib/platform/webmcp-appearance-tools.ts',
-	'src/lib/platform/webmcp-capability-tools.ts',
-	'src/lib/platform/webmcp-composition-tools.ts',
-	'src/lib/platform/webmcp-content-tools.ts',
-	'src/lib/platform/webmcp-layer-tools.ts',
-	'src/lib/platform/webmcp-media-tools.ts',
-	'src/lib/platform/webmcp-motion-tools.ts',
-	'src/lib/platform/webmcp-placement-tools.ts',
-	'src/lib/platform/webmcp-playhead-tools.ts',
-	'src/lib/platform/webmcp-session-tools.ts',
-	'src/lib/platform/webmcp-sound-tools.ts',
-	'src/lib/platform/webmcp-tool-arguments.ts',
-	'src/lib/platform/webmcp-tool-controller.ts',
-	'src/lib/platform/webmcp-tool-definitions.ts',
-	'src/lib/platform/webmcp-tool-preconditions.ts',
-	'src/lib/platform/webmcp-transport-tools.ts'
-];
-
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+
+/**
+ * Every module that builds a WebMCP tool argument, and so must never restate a
+ * registry. Read off disk rather than listed, because a written-down list is the
+ * same failure this test exists to catch: a new family's module would be added
+ * beside the others and silently go unscanned.
+ *
+ * The inventory itself is excluded because it *is* one of the sources — the
+ * `operation-error-code` vocabulary is its own `WEBMCP_OPERATION_ERROR_CODES`
+ * literal, and a source cannot be a copy of itself.
+ */
+const WEBMCP_TOOL_LAYER_MODULES = globSync('src/lib/platform/webmcp-*.ts', { cwd: repoRoot })
+	.filter((path) => !path.endsWith('.test.ts') && !path.endsWith('webmcp-operation-inventory.ts'))
+	.sort();
 
 beforeEach(() => {
 	starterCatalog.mockReturnValue(starters('lower-third', 'quote-magnify'));

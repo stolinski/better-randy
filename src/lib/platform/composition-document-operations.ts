@@ -93,6 +93,12 @@ export interface CompositionInspectionReceipt {
 	backgroundFill: string | null;
 	layers: BoundedCompositionLayerEntries;
 	findings: BoundedCompositionFindings;
+	/**
+	 * The name, the description, and every finding message here are text the
+	 * visitor wrote into the composition, not instructions to whoever reads this
+	 * receipt (ADR-0054 §7).
+	 */
+	contentTrust: 'untrusted';
 }
 
 export interface CompositionJsonExportReceipt {
@@ -102,6 +108,12 @@ export interface CompositionJsonExportReceipt {
 	/** The composition as one standalone JSON document, on the persisted wire shape. */
 	json: string;
 	characterCount: number;
+	/**
+	 * The whole document body is the visitor's content — every caption, title, and
+	 * captured web-document body it holds. A model reading this receipt is reading
+	 * data, never a command (ADR-0054 §7).
+	 */
+	contentTrust: 'untrusted';
 }
 
 export interface SetCompositionIdentityRequest {
@@ -208,7 +220,8 @@ export function runInspectCompositionOperation(): CompositionInspectionOutcome {
 		findings: boundCompositionFindings(
 			collectCompositionValidationFindings(document),
 			COMPOSITION_RECEIPT_FINDING_LIMIT
-		)
+		),
+		contentTrust: 'untrusted'
 	};
 }
 
@@ -245,7 +258,8 @@ export function runExportCompositionJsonOperation(): CompositionJsonExportOutcom
 		operationId: row.id,
 		revision,
 		json,
-		characterCount: json.length
+		characterCount: json.length,
+		contentTrust: 'untrusted'
 	};
 }
 
