@@ -8,6 +8,7 @@
 	import type { PresetVerificationIssue } from '$lib/platform/preset-verification';
 	import gfxLogotype from '$lib/assets/identity/gfx-logotype.svg';
 	import gfxMark from '$lib/assets/identity/gfx-mark.svg';
+	import { COMPOSITION_SESSION_SLUG_PATTERN } from '$lib/utils/composition-session-slug';
 	import PosterCard from './PosterCard.svelte';
 	import { SURFACE_LABELS } from './surface-labels';
 
@@ -99,9 +100,12 @@
 	function parseUserCompositionCards(value: unknown): UserCompositionCardMeta[] {
 		if (!Array.isArray(value)) throw new TypeError('User composition list must be an array.');
 		return value.flatMap((entry) => {
+			// Each card links to `/p/<slug>`, so a slug outside the store's alphabet
+			// is not a card — it is an unresolvable route parameter.
 			if (
 				!isRecord(entry) ||
 				typeof entry.slug !== 'string' ||
+				!COMPOSITION_SESSION_SLUG_PATTERN.test(entry.slug) ||
 				typeof entry.name !== 'string' ||
 				!(entry.forkedFrom === null || typeof entry.forkedFrom === 'string') ||
 				typeof entry.savedAt !== 'string' ||

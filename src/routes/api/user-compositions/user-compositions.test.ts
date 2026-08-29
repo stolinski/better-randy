@@ -265,6 +265,26 @@ describe('user composition handlers', () => {
 		]);
 	});
 
+	it('skips store files whose stem is not an addressable slug', async () => {
+		fsMocks.readdir.mockResolvedValue(['.json', 'Not A Slug.json', 'valid.json']);
+		fsMocks.readFile.mockResolvedValue(
+			JSON.stringify({
+				meta: { forkedFrom: null, savedAt: '2026-08-29T12:00:00.000Z' },
+				preset: validPreset
+			})
+		);
+
+		const response = await collectionHandlers.GET(
+			{} as Parameters<(typeof collectionHandlers)['GET']>[0]
+		);
+
+		const metadata = (await response.json()) as Array<Record<string, unknown>>;
+		assert.deepEqual(
+			metadata.map((entry) => entry.slug),
+			['valid']
+		);
+	});
+
 	it('returns null from a slug GET when no composition exists', async () => {
 		fsMocks.readFile.mockRejectedValue(
 			Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' })

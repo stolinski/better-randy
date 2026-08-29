@@ -17,6 +17,7 @@ import {
 	inspectUserCompositionMedia
 } from '$lib/platform/user-composition-media.server';
 import type { UserCompositionMeta } from '$lib/platform/user-composition-store';
+import { COMPOSITION_SESSION_SLUG_PATTERN } from '$lib/utils/composition-session-slug';
 
 const USER_COMPOSITION_STORE_DIR = join(process.cwd(), 'user-compositions');
 
@@ -73,6 +74,12 @@ export const GET: RequestHandler = async (event) => {
 	for (const entry of entries) {
 		if (!entry.endsWith('.json')) continue;
 		const userCompositionSlug = entry.slice(0, -5);
+		// A stem outside the alphabet POST accepts is not addressable as
+		// `/p/<slug>`. The empty stem of a bare `.json` file is the sharp edge: the
+		// listing resolves every card's route from this slug, and an empty route
+		// parameter throws there instead of rendering, taking the whole listing
+		// down rather than dropping one unreachable entry.
+		if (!COMPOSITION_SESSION_SLUG_PATTERN.test(userCompositionSlug)) continue;
 		try {
 			const raw = await readFile(join(USER_COMPOSITION_STORE_DIR, entry), 'utf-8');
 			const storedUserComposition: unknown = JSON.parse(raw);
@@ -129,7 +136,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		forkedFrom?: unknown;
 	};
 
-	if (typeof slug !== 'string' || !/^[a-z0-9_-]+$/.test(slug)) {
+	if (typeof slug !== 'string' || !COMPOSITION_SESSION_SLUG_PATTERN.test(slug)) {
 		error(400, 'slug must be lowercase alphanumeric/hyphen/underscore');
 	}
 
