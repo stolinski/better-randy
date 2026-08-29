@@ -22,6 +22,9 @@
  * this file's environment has no `document`, so a tool that needed the GUI to be
  * mounted would fail here rather than in a visitor's browser.
  */
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import blankPresetJson from '$lib/presets/blank.json';
@@ -103,6 +106,22 @@ function rowFor(operationId: string): WebmcpOperationRow {
 
 function readPayload(result: WebmcpToolCallResult): Record<string, unknown> {
 	return JSON.parse(result.content[0].text) as Record<string, unknown>;
+}
+
+/**
+ * Every shipped module and component under `directory`, for evals that read the
+ * tree itself. Tests are excluded because a test that looks for a forbidden call
+ * has to name it.
+ */
+function readSourceFiles(directory: string): { path: string; contents: string }[] {
+	return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+		const path = join(directory, entry.name);
+		if (entry.isDirectory()) return readSourceFiles(path);
+		if (!/\.(ts|svelte)$/.test(entry.name) || /\.(test|spec)\.(ts|svelte\.ts)$/.test(entry.name)) {
+			return [];
+		}
+		return [{ path, contents: readFileSync(path, 'utf8') }];
+	});
 }
 
 function startController(
@@ -418,6 +437,34 @@ describe('WebMCP exposure boundary', () => {
 				`${definition.operationId} offers an https address`
 			).toBe(false);
 		}
+	});
+
+	it('leaves every file the visitor supplies to the browser’s own permission', () => {
+		// The File System Access API hands a page a live handle to a path — the one
+		// way a browser lets code reach a file outside the visitor's per-file
+		// gesture, and the one thing that could put a picker behind a tool call.
+		// The Workspace acquires files through `<input type="file">` and drop
+		// targets only, so no source module has any business naming these at all.
+		const permissionBypassingApis = [
+			'showOpenFilePicker',
+			'showSaveFilePicker',
+			'showDirectoryPicker',
+			'getAsFileSystemHandle'
+		];
+		const offenders = readSourceFiles('src').filter((file) =>
+			permissionBypassingApis.some((api) => file.contents.includes(api))
+		);
+
+		expect(offenders.map((file) => file.path)).toEqual([]);
+
+		// The import operation takes the document itself, not somewhere to read one.
+		const importSchema = JSON.stringify(
+			listWebmcpToolDefinitions().find(
+				(definition) => definition.operationId === 'composition.import-json'
+			)?.inputSchema
+		);
+		expect(importSchema).toContain('"document"');
+		expect(importSchema).not.toContain('path');
 	});
 });
 

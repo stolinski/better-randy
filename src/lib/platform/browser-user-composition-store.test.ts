@@ -193,6 +193,60 @@ describe('browser-scoped composition session store', () => {
 		assert.equal(await store.loadUserComposition('not-a-composition'), null);
 	});
 
+	it('rewrites a record an older release left in a legacy shape, once', async () => {
+		const store = createStore();
+		const key = `${STORAGE_IDENTITY}:legacy`;
+		const legacyAssetUrl = `/api/user-assets/${'a'.repeat(64)}.mp4`;
+		storage.entries.set(
+			key,
+			JSON.stringify({
+				forkedFrom: 'blank',
+				savedAt: '2026-08-29T12:00:00.000Z',
+				preset: {
+					...blankPresetJson,
+					state: {
+						...blankPresetJson.state,
+						sourceVideo: { assetUrl: legacyAssetUrl, sourceOffsetSeconds: 0 }
+					}
+				}
+			})
+		);
+
+		const loaded = await store.loadUserComposition('legacy');
+
+		assert.equal(loaded?.state.media.assets[0]?.assetUrl, legacyAssetUrl);
+		const migrated: unknown = JSON.parse(storage.entries.get(key) ?? '');
+		assert.deepEqual(migrated, {
+			// Provenance and save time survive: a migration is not an edit.
+			forkedFrom: 'blank',
+			savedAt: '2026-08-29T12:00:00.000Z',
+			preset: presetToWireFormat(loaded as Preset)
+		});
+
+		// The rewritten record needs no further upgrade, so reading it again leaves
+		// the bytes exactly as the migration left them.
+		const settled = storage.entries.get(key);
+		assert.deepEqual(await store.loadUserComposition('legacy'), loaded);
+		assert.equal(storage.entries.get(key), settled);
+	});
+
+	it('still reads a legacy record whose migration the browser refused to store', async () => {
+		const store = createStore();
+		const key = `${STORAGE_IDENTITY}:legacy`;
+		const legacyBody = JSON.stringify({
+			forkedFrom: null,
+			savedAt: '2026-08-29T12:00:00.000Z',
+			preset: blankPresetJson
+		});
+		storage.entries.set(key, legacyBody);
+		storage.refuseWrites = true;
+
+		const loaded = await store.loadUserComposition('legacy');
+
+		assert.equal(loaded?.name, 'Blank');
+		assert.equal(storage.entries.get(key), legacyBody);
+	});
+
 	it('refuses a slug that would not be addressable as /p/<slug>', async () => {
 		await assert.rejects(
 			createStore().forkUserComposition('Not A Slug', blankPreset, null),

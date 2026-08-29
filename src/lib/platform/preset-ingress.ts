@@ -149,6 +149,40 @@ function migrateLegacyPresetInput(input: unknown, ctx: z.RefinementCtx): unknown
 }
 
 /**
+ * A Legacy Supers shape a document had to be upgraded from before the engine
+ * could load it (ADR-0053).
+ */
+export type CompositionLegacyUpgrade = 'legacy-schema-id' | 'legacy-source-video';
+
+/**
+ * Which Legacy Supers upgrades `value` needs, read from the raw document before
+ * ingress rewrites it — afterwards an upgraded document is indistinguishable
+ * from one that was always current, so this is the only point where the question
+ * can still be answered.
+ *
+ * Two callers need the answer for different reasons. An import receipt reports
+ * it, so a caller handing over an old artifact learns it arrived as a legacy
+ * one. The browser-scoped session store acts on it, rewriting the stored record
+ * in its current form so the same upgrade is not re-derived on every read.
+ */
+export function readCompositionLegacyUpgrades(
+	value: unknown
+): readonly CompositionLegacyUpgrade[] {
+	if (!isRecord(value)) return [];
+
+	const upgrades: CompositionLegacyUpgrade[] = [];
+	const declared = value['schema'];
+	if (declared !== PRESET_SCHEMA_ID && isAcceptedCompositionSchemaId(declared)) {
+		upgrades.push('legacy-schema-id');
+	}
+	const state = value['state'];
+	if (isRecord(state) && hasOwn(state, 'sourceVideo')) {
+		upgrades.push('legacy-source-video');
+	}
+	return upgrades;
+}
+
+/**
  * The one structural boundary for Preset artifacts entering the engine.
  * PresetSchema remains canonical for JSON Schema generation; this boundary
  * accepts either namespace's composition schema id (ADR-0053) and temporarily

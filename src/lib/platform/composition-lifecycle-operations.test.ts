@@ -223,6 +223,112 @@ describe('importing a composition document', () => {
 		expect(receipt.slug).toBe('imported-piece');
 		expect(presetBase.name).toBe('Imported piece');
 		expect(packState.slug).toBe('syntax');
+		expect(receipt.legacyUpgrades).toEqual(['legacy-schema-id']);
+	});
+
+	it('round-trips a current document without reporting an upgrade it did not need', async () => {
+		const receipt = expectApplied(
+			await runImportCompositionJsonOperation({
+				document: { ...blankPresetJson, schema: PRESET_SCHEMA_ID, name: 'Current piece' }
+			})
+		);
+
+		expect(receipt.legacyUpgrades).toEqual([]);
+		const [, stored] = sessionStore.forkUserComposition.mock.calls[0];
+		expect(stored.schema).toBe(PRESET_SCHEMA_ID);
+		expect(stored.name).toBe('Current piece');
+	});
+
+	it('upgrades a legacy Source video into the Media library it imports as', async () => {
+		const legacyAssetUrl = `/api/user-assets/${'a'.repeat(64)}.mp4`;
+		const receipt = expectApplied(
+			await runImportCompositionJsonOperation({
+				document: {
+					...blankPresetJson,
+					name: 'Legacy source video',
+					state: {
+						...blankPresetJson.state,
+						sourceVideo: { assetUrl: legacyAssetUrl, sourceOffsetSeconds: 0 }
+					}
+				}
+			})
+		);
+
+		// The corpus Preset this document is cut from still carries the previous
+		// namespace's schema id, so both upgrades are reported — they are separate
+		// legacy shapes, and a receipt that folded them together would hide one.
+		expect(receipt.legacyUpgrades).toContain('legacy-source-video');
+		const [, stored] = sessionStore.forkUserComposition.mock.calls[0];
+		expect(stored.state.media.assets.map((asset) => asset.assetUrl)).toEqual([legacyAssetUrl]);
+		expect(stored.state.media.videoTrack.clips).toHaveLength(1);
+	});
+
+	it('imports media whose bytes are out of reach, leaving it there to repair', async () => {
+		// A composition exported from another session names assets by content
+		// address. Whether this browser can read those bytes is a reachability
+		// question the Media family answers at inspection time; the document
+		// itself is sound, so refusing it here would strand work nothing is wrong
+		// with.
+		const unreachableAssetUrl = `/api/user-assets/${'b'.repeat(64)}.mov`;
+		const receipt = expectApplied(
+			await runImportCompositionJsonOperation({
+				document: {
+					...blankPresetJson,
+					name: 'Unreachable media',
+					state: {
+						...blankPresetJson.state,
+						media: {
+							assets: [
+								{
+									id: 'video-a',
+									kind: 'video',
+									name: 'Interview.mov',
+									assetUrl: unreachableAssetUrl
+								}
+							],
+							videoTrack: { clips: [] }
+						}
+					}
+				}
+			})
+		);
+
+		expect(receipt.findings.total).toBe(0);
+		const [, stored] = sessionStore.forkUserComposition.mock.calls[0];
+		expect(stored.state.media.assets[0].assetUrl).toBe(unreachableAssetUrl);
+	});
+
+	it('names the Media reference to correct when that is all that blocked the import', async () => {
+		const failure = expectFailed(
+			await runImportCompositionJsonOperation({
+				document: {
+					...blankPresetJson,
+					state: {
+						...blankPresetJson.state,
+						media: {
+							assets: [],
+							videoTrack: {
+								clips: [
+									{
+										id: 'clip-a',
+										assetId: 'video-a',
+										timelineStartFrame: 0,
+										durationFrames: 12,
+										sourceStartSeconds: 0,
+										audio: { enabled: true, gain: 1 }
+									}
+								]
+							}
+						}
+					}
+				}
+			})
+		);
+
+		expect(failure.code).toBe('semantic_invalid');
+		expect(failure.message).toContain('Media');
+		expect(failure.findings.findings[0].path).toBe('/state/media/videoTrack/clips/0/assetId');
+		expect(sessionStore.forkUserComposition).not.toHaveBeenCalled();
 	});
 
 	it('refuses a document the schema rejects and imports nothing', async () => {

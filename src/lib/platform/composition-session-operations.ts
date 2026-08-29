@@ -181,6 +181,8 @@ export async function runDeleteSessionCompositionOperation(
 		forkedFrom: null,
 		revision: compositionEditHistory.revision,
 		findings: boundCompositionFindings([], COMPOSITION_RECEIPT_FINDING_LIMIT),
+		// A removal opens no document, so nothing arrived to be upgraded.
+		legacyUpgrades: [],
 		focus: 'session-catalog'
 	};
 }
@@ -233,6 +235,7 @@ export async function runClearCompositionSessionOperation(
 		forkedFrom: null,
 		revision: compositionEditHistory.revision,
 		findings: boundCompositionFindings([], COMPOSITION_RECEIPT_FINDING_LIMIT),
+		legacyUpgrades: [],
 		focus: 'session-catalog'
 	};
 }

@@ -43,10 +43,14 @@ import { createCompositionSessionSlug } from '../utils/composition-session-slug'
 import { ensureCompositionRenderersLoaded } from './composition-renderer-readiness';
 import { getPresetBySlug, listFixtures, listPresets } from './preset-catalog';
 import { moveCompositionWorkspaceFocus } from './composition-workspace-focus';
-import { PresetIngressSchema } from './preset-ingress';
+import { PresetIngressSchema, readCompositionLegacyUpgrades } from './preset-ingress';
 import { userCompositionStore } from './user-composition-store';
 
-import type { BoundedCompositionFindings } from './composition-validation-findings';
+import type {
+	BoundedCompositionFindings,
+	CompositionValidationFinding
+} from './composition-validation-findings';
+import type { CompositionLegacyUpgrade } from './preset-ingress';
 import type { Preset } from './engine-schema';
 import type { WebmcpOperationFocusTarget, WebmcpOperationRow } from './webmcp-operation-inventory';
 
@@ -71,6 +75,13 @@ export interface CompositionLifecycleReceipt {
 	/** The Composition revision of the document now open; opening one restarts it at 0. */
 	revision: number;
 	findings: BoundedCompositionFindings;
+	/**
+	 * The Legacy Supers shapes this document had to be upgraded from on the way
+	 * in (ADR-0053), empty for one that was already current. A composition read
+	 * back out of the session is always current, so this reports what arrived
+	 * rather than what is now stored.
+	 */
+	legacyUpgrades: readonly CompositionLegacyUpgrade[];
 	focus: WebmcpOperationFocusTarget;
 }
 
@@ -153,7 +164,8 @@ function openCompositionDocument(
 	slug: string,
 	preset: Preset,
 	forkedFrom: string | null,
-	isSessionComposition: boolean
+	isSessionComposition: boolean,
+	legacyUpgrades: readonly CompositionLegacyUpgrade[] = []
 ): CompositionLifecycleReceipt {
 	applyPreset(preset);
 	compositionMeta.isUserComposition = isSessionComposition;
@@ -173,6 +185,7 @@ function openCompositionDocument(
 			collectCompositionValidationFindings(preset),
 			COMPOSITION_RECEIPT_FINDING_LIMIT
 		),
+		legacyUpgrades,
 		focus: 'composition-root'
 	};
 }
@@ -181,7 +194,8 @@ function openCompositionDocument(
 async function forkCompositionIntoSession(
 	row: WebmcpOperationRow,
 	preset: Preset,
-	forkedFrom: string | null
+	forkedFrom: string | null,
+	legacyUpgrades: readonly CompositionLegacyUpgrade[] = []
 ): Promise<CompositionLifecycleOutcome> {
 	const rendererRefusal = await refuseUnloadableCompositionRenderers(row, preset);
 	if (rendererRefusal) return rendererRefusal;
@@ -201,7 +215,7 @@ async function forkCompositionIntoSession(
 		return refuseCompositionSessionStoreFailure(row, cause);
 	}
 
-	return openCompositionDocument(row, slug, preset, forkedFrom, true);
+	return openCompositionDocument(row, slug, preset, forkedFrom, true, legacyUpgrades);
 }
 
 /** Create a composition from the blank Preset and open it for editing. */
@@ -290,10 +304,46 @@ export async function runOpenCompositionOperation(
 	return openCompositionDocument(row, request.slug, starter, null, false);
 }
 
+/** The composition pointer prefix every Media finding lands under. */
+const MEDIA_FINDING_PATH_PREFIX = '/state/media';
+
+/**
+ * Why a schema-valid document still could not be loaded. Media is named
+ * separately because it is the part an author repairs in place rather than
+ * re-authors: a clip pointing at an asset the library does not carry is one
+ * edited reference away from importing, and a refusal that says so is the
+ * difference between a repairable document and a rejected one.
+ *
+ * A Media reference the engine cannot resolve is refused rather than admitted
+ * and quietly dropped. The Video track resolves a clip to its asset while
+ * rendering, so a dangling one is not a composition that draws with a gap — and
+ * every edit that would repair it is itself preflighted against the same rule,
+ * so admitting the document would leave it open, unrenderable, and frozen.
+ * Media whose *bytes* are merely out of this browser's reach is a different
+ * thing entirely: that document is structurally sound, imports, and reports its
+ * entries as `unreachable` for the Media family to repair.
+ */
+function describeUnloadableCompositionCause(
+	findings: readonly CompositionValidationFinding[]
+): string {
+	const mediaFindings = findings.filter((finding) =>
+		finding.path.startsWith(MEDIA_FINDING_PATH_PREFIX)
+	);
+	if (mediaFindings.length === 0) {
+		return 'That document is a composition the engine cannot load, so nothing was imported.';
+	}
+	if (mediaFindings.length < findings.length) {
+		return 'That document is a composition the engine cannot load, so nothing was imported; its Media library is one of the parts to correct.';
+	}
+	return 'That document names Media the engine cannot resolve, so nothing was imported; correct the Media reference each finding points at and import it again.';
+}
+
 /**
  * Import a standalone composition JSON document as a new session composition.
  * A Legacy Supers document imports as itself (ADR-0053) — the ingress boundary
- * folds its schema id, which is a spelling normalization, not a migration.
+ * folds its schema id, which is a spelling normalization, not a migration, and
+ * upgrades a legacy Source video into the canonical Media library. The receipt
+ * reports which of those upgrades the document needed.
  */
 export async function runImportCompositionJsonOperation(
 	request: ImportCompositionJsonRequest
@@ -303,6 +353,7 @@ export async function runImportCompositionJsonOperation(
 	if (captureRefusal) return captureRefusal;
 
 	const revision = compositionEditHistory.revision;
+	const legacyUpgrades = readCompositionLegacyUpgrades(request.document);
 	const parsed = PresetIngressSchema.safeParse(request.document);
 	if (!parsed.success) {
 		return refuseCompositionOperation(
@@ -320,12 +371,12 @@ export async function runImportCompositionJsonOperation(
 			row,
 			revision,
 			'semantic_invalid',
-			'That document is a composition the engine cannot load, so nothing was imported.',
+			describeUnloadableCompositionCause(semanticFindings),
 			{ findings: semanticFindings }
 		);
 	}
 
-	return forkCompositionIntoSession(row, parsed.data, null);
+	return forkCompositionIntoSession(row, parsed.data, null, legacyUpgrades);
 }
 
 /**

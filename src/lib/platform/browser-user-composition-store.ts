@@ -20,9 +20,14 @@
  * older release, or a person with devtools open can leave a record behind. Reads
  * therefore parse through the same ingress every other document crosses and drop
  * what does not survive it, rather than trusting the shape they find.
+ *
+ * That same ingress is what makes an older release's record recoverable rather
+ * than lost. A record left behind in a Legacy Supers shape (ADR-0053) still
+ * opens, and reading it rewrites it in its current form once, so the session
+ * stops carrying an upgrade it has already performed.
  */
 import { posterKeyForPreset } from './posters';
-import { parsePresetIngress } from './preset-ingress';
+import { parsePresetIngress, readCompositionLegacyUpgrades } from './preset-ingress';
 import { presetToWireFormat } from './preset-pure';
 import { validatePresetSemantics } from './preset-validation';
 import { COMPOSITION_SESSION_SLUG_PATTERN } from '../utils/composition-session-slug';
@@ -167,7 +172,35 @@ export function createBrowserUserCompositionStore(
 		}
 		if (validatePresetSemantics(preset).length > 0) return null;
 
+		if (readCompositionLegacyUpgrades(stored.preset).length > 0) {
+			migrateStoredRecord(storage, key, stored, preset);
+		}
+
 		return { slug, forkedFrom: stored.forkedFrom, savedAt: stored.savedAt, preset };
+	}
+
+	/**
+	 * Rewrite a record an older release left in a Legacy Supers shape as the
+	 * document this release writes, keeping its provenance and its save time so a
+	 * migration never looks like an edit.
+	 *
+	 * Best effort on purpose. The upgraded body can be larger than the one it
+	 * replaces, and a browser already at its own ceiling may refuse the write; the
+	 * record then stays legacy, still opens through ingress, and is offered the
+	 * same migration on the next read. A refused rewrite must never turn reading a
+	 * composition into a failure.
+	 */
+	function migrateStoredRecord(
+		storage: Storage,
+		key: string,
+		stored: StoredBrowserUserComposition,
+		preset: Preset
+	): void {
+		try {
+			storage.setItem(key, JSON.stringify({ ...stored, preset: presetToWireFormat(preset) }));
+		} catch {
+			// The legacy record is intact and still readable; leaving it is the safe answer.
+		}
 	}
 
 	function readAllRecords(storage: Storage): BrowserSessionRecord[] {

@@ -10,7 +10,8 @@ import { presetToWireFormat } from './preset-pure';
 import {
 	LEGACY_SOURCE_VIDEO_ASSET_ID,
 	LEGACY_SOURCE_VIDEO_CLIP_ID,
-	PresetIngressSchema
+	PresetIngressSchema,
+	readCompositionLegacyUpgrades
 } from './preset-ingress';
 
 const LEGACY_ASSET_URL = `/api/user-assets/${'a'.repeat(64)}.mp4`;
@@ -147,5 +148,26 @@ describe('Preset ingress migration', () => {
 		if (result.success) return;
 		assert.equal(result.error.issues[0]?.path.join('.'), 'state.sourceVideo.assetUrl');
 		assert.match(result.error.issues[0]?.message ?? '', /content-addressed/);
+	});
+});
+
+describe('reading which legacy upgrades a document needs', () => {
+	it('names both legacy shapes a document carries', () => {
+		assert.deepEqual(readCompositionLegacyUpgrades(legacyPreset()), [
+			'legacy-schema-id',
+			'legacy-source-video'
+		]);
+	});
+
+	it('reports nothing for a document already on the current shape', () => {
+		const current = { ...blankPresetJson, schema: PRESET_SCHEMA_ID };
+
+		assert.deepEqual(readCompositionLegacyUpgrades(current), []);
+	});
+
+	it('reports nothing for a value that is not a document at all', () => {
+		assert.deepEqual(readCompositionLegacyUpgrades(null), []);
+		assert.deepEqual(readCompositionLegacyUpgrades([blankPresetJson]), []);
+		assert.deepEqual(readCompositionLegacyUpgrades({ schema: 'not-a-known-id' }), []);
 	});
 });

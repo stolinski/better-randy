@@ -4,8 +4,7 @@
 	import { onMount } from 'svelte';
 
 	import { GFX_PRODUCT_NAME } from '$lib/identity/gfx-brand';
-	import type { Preset } from '$lib/platform/engine-schema';
-	import type { PresetVerificationIssue } from '$lib/platform/preset-verification';
+	import type { CompositionValidationFinding } from '$lib/platform/composition-validation-findings';
 	import type { UserCompositionMeta } from '$lib/platform/user-composition-store';
 	import gfxLogotype from '$lib/assets/identity/gfx-logotype.svg';
 	import gfxMark from '$lib/assets/identity/gfx-mark.svg';
@@ -79,8 +78,13 @@
 	// press commits; pointer-down elsewhere or Escape disarms.
 	let confirmingSlug = $state<string | null>(null);
 	let isImporting = $state(false);
-	type ImportIssueSource = PresetVerificationIssue['source'] | 'json' | 'store';
-	interface ImportIssue extends Omit<PresetVerificationIssue, 'source'> {
+	/**
+	 * What an import refused over. `document` covers the two answers the operation
+	 * never sees — a file that is not JSON at all, and a session store that would
+	 * not hold the composition — so one list explains every way an import stops.
+	 */
+	type ImportIssueSource = CompositionValidationFinding['source'] | 'document';
+	interface ImportIssue extends Omit<CompositionValidationFinding, 'source'> {
 		source: ImportIssueSource;
 	}
 	let importIssues = $state.raw<ImportIssue[]>([]);
@@ -178,31 +182,31 @@
 		}
 	}
 
+	function documentImportIssue(message: string): ImportIssue {
+		return { source: 'document', rule: null, severity: 'error', path: '', message };
+	}
+
 	async function createBlankUserComposition(): Promise<void> {
-		const [{ getPresetBySlug }, { userCompositionStore }] = await Promise.all([
-			import('$lib/platform/preset-catalog'),
-			import('$lib/platform/user-composition-store')
-		]);
-		const blank = getPresetBySlug('blank');
-		if (!blank) return;
-		const slug = `comp-${Date.now()}`;
-		const named: Preset = { ...blank, name: 'Untitled' };
-		await userCompositionStore.forkUserComposition(slug, named, null);
-		await goto(resolve('/p/[slug]', { slug }));
+		importIssues = [];
+		const { runCreateBlankCompositionOperation } = await import(
+			'$lib/platform/composition-lifecycle-operations'
+		);
+		const outcome = await runCreateBlankCompositionOperation();
+		if (outcome.status === 'failed') {
+			importIssues = [documentImportIssue(outcome.message), ...outcome.findings.findings];
+			return;
+		}
+		if (outcome.slug) await goto(resolve('/p/[slug]', { slug: outcome.slug }));
 	}
 
-	function userCompositionSlugFromFilename(filename: string): string {
-		const stem = filename.replace(/\.[^.]*$/, '');
-		const slug = stem
-			.normalize('NFKD')
-			.replace(/[\u0300-\u036f]/g, '')
-			.toLowerCase()
-			.replace(/[^a-z0-9_-]+/g, '-')
-			.replace(/-+/g, '-')
-			.replace(/^[-_]+|[-_]+$/g, '');
-		return slug || 'composition';
-	}
-
+	/**
+	 * Import a standalone composition the visitor picked themselves. The file
+	 * input is the whole consent story \u2014 the browser's own picker, opened by their
+	 * gesture \u2014 and everything after it is `composition.import-json`, the same
+	 * operation an attached agent calls. That shared path is what lets a document
+	 * written under the previous namespace's schema id import here too (ADR-0053),
+	 * and what keeps the session slug clear of a composition this session holds.
+	 */
 	async function importPresetJson(event: Event): Promise<void> {
 		const input = event.currentTarget as HTMLInputElement;
 		const file = input.files?.[0];
@@ -216,40 +220,25 @@
 				value = JSON.parse(await file.text()) as unknown;
 			} catch (cause) {
 				importIssues = [
-					{
-						source: 'json',
-						severity: 'error',
-						path: '<root>',
-						message: cause instanceof Error ? cause.message : 'Invalid JSON.'
-					}
+					documentImportIssue(
+						`"${file.name}" is not JSON: ${cause instanceof Error ? cause.message : 'it could not be parsed'}.`
+					)
 				];
 				return;
 			}
 
-			const [{ verifyPresetArtifact }, { userCompositionStore }] = await Promise.all([
-				import('$lib/platform/preset-verification'),
-				import('$lib/platform/user-composition-store')
-			]);
-			const verification = verifyPresetArtifact(value);
-			importIssues = verification.issues;
-			const hasBlockingIssue = verification.issues.some(
-				(issue) =>
-					issue.severity === 'error' && (issue.source === 'schema' || issue.source === 'semantic')
+			const { runImportCompositionJsonOperation } = await import(
+				'$lib/platform/composition-lifecycle-operations'
 			);
-			if (!verification.preset || hasBlockingIssue) return;
-
-			const slug = userCompositionSlugFromFilename(file.name);
-			await userCompositionStore.saveUserComposition(slug, verification.preset);
-			await goto(resolve('/p/[slug]', { slug }));
+			const outcome = await runImportCompositionJsonOperation({ document: value });
+			if (outcome.status === 'failed') {
+				importIssues = [documentImportIssue(outcome.message), ...outcome.findings.findings];
+				return;
+			}
+			if (outcome.slug) await goto(resolve('/p/[slug]', { slug: outcome.slug }));
 		} catch (cause) {
 			importIssues = [
-				...importIssues,
-				{
-					source: 'store',
-					severity: 'error',
-					path: '<root>',
-					message: cause instanceof Error ? cause.message : 'Import failed.'
-				}
+				documentImportIssue(cause instanceof Error ? cause.message : 'Import failed.')
 			];
 		} finally {
 			isImporting = false;
@@ -493,7 +482,7 @@
 			{#each importIssues as issue (importIssueKey(issue))}
 				<li class:warning={issue.severity === 'warn'}>
 					<span>{issue.source}{issue.rule ? ` / ${issue.rule}` : ''}</span>
-					<code>{issue.path}</code>
+					{#if issue.path}<code>{issue.path}</code>{/if}
 					{issue.message}
 				</li>
 			{/each}
