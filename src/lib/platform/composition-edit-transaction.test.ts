@@ -9,10 +9,10 @@ import {
 	runCompositionEditTransaction,
 	runCompositionHistoryTransaction,
 	type CompositionEditTransactionRequest,
-	type CompositionOperationFailure,
 	type CompositionOperationOutcome,
 	type CompositionOperationReceipt
 } from './composition-edit-transaction';
+import type { CompositionOperationFailure } from './composition-operation-preflight';
 import { ACCEPTED_COMPOSITION_SCHEMA_IDS } from '../utils/legacy-supers-compatibility';
 import { engineState, packState, transitionState } from './engine-state.svelte';
 import { hashStringToUnitInterval } from '../utils/seeded';

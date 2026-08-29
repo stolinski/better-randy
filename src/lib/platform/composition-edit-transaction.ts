@@ -31,9 +31,16 @@ import {
 	diffCompositionValidationFindings,
 	formatCompositionValidationFindings,
 	type BoundedCompositionFindings,
-	type CompositionValidationFinding,
 	type CompositionValidationFindingDelta
 } from './composition-validation-findings';
+import {
+	COMPOSITION_RECEIPT_FINDING_LIMIT,
+	refuseCompositionOperation,
+	refuseDuringCompositionTransitionCapture,
+	refuseStaleCompositionRevision,
+	requireCompositionOperationRow,
+	type CompositionOperationFailure
+} from './composition-operation-preflight';
 import {
 	formatCompositionWriteRejection,
 	rejectUnauthorizedCompositionWrites
@@ -48,20 +55,10 @@ import { engineState, packState, transitionState } from './engine-state.svelte';
 import { PresetIngressSchema } from './preset-ingress';
 import { presetToWireFormat, serializeCompositionState } from './preset-pure';
 import { cloneJsonValue } from '../utils/json-clone';
-import {
-	WEBMCP_OPERATION_INVENTORY,
-	type WebmcpOperationErrorCode,
-	type WebmcpOperationRow
-} from './webmcp-operation-inventory';
+import type { WebmcpOperationErrorCode, WebmcpOperationRow } from './webmcp-operation-inventory';
 
 /** How many changed pointers a receipt names before it reports only the total. */
 export const COMPOSITION_RECEIPT_POINTER_LIMIT = 12;
-
-/** How many appeared or cleared findings a receipt names. */
-export const COMPOSITION_RECEIPT_FINDING_LIMIT = 4;
-
-/** How many prior edits a stale-revision failure names. */
-export const COMPOSITION_STALE_REVISION_EDIT_LIMIT = 8;
 
 /** What a successful mutating operation returns; the caller continues from this, not a re-read. */
 export interface CompositionOperationReceipt {
@@ -75,24 +72,6 @@ export interface CompositionOperationReceipt {
 	/** The entry recorded in the shared history, or `null` when nothing changed. */
 	undoLabel: string | null;
 	focus: CompositionWorkspaceFocus;
-}
-
-/** A refusal that names one corrective code, the exact target, and the way forward. */
-export interface CompositionOperationFailure {
-	status: 'failed';
-	operationId: string;
-	code: WebmcpOperationErrorCode;
-	message: string;
-	/** The exact value the operation rejected — a pointer, an id, or an argument. */
-	rejected: string | null;
-	/** The valid alternatives, so the caller corrects instead of guessing. */
-	alternatives: readonly string[];
-	/** The findings that blocked the edit, for `schema_invalid` and `semantic_invalid`. */
-	findings: BoundedCompositionFindings;
-	/** The labelled edits recorded since the caller's revision, for `stale_revision`. */
-	movedSince: readonly string[];
-	/** The Composition revision at the moment of the refusal. */
-	revision: number;
 }
 
 export type CompositionOperationOutcome = CompositionOperationReceipt | CompositionOperationFailure;
@@ -157,52 +136,13 @@ export interface CompositionEditTransactionRequest {
 
 export type CompositionHistoryDirection = 'undo' | 'redo';
 
-const OPERATION_ROWS_BY_ID = new Map<string, WebmcpOperationRow>(
-	WEBMCP_OPERATION_INVENTORY.map((row) => [row.id, row])
-);
-
 const HISTORY_OPERATION_IDS: Record<CompositionHistoryDirection, string> = {
 	undo: 'composition.undo',
 	redo: 'composition.redo'
 };
 
-function requireOperationRow(operationId: string): WebmcpOperationRow {
-	const row = OPERATION_ROWS_BY_ID.get(operationId);
-	if (!row) {
-		throw new TypeError(
-			`Composition edit transaction names an operation the inventory does not declare: ${operationId}`
-		);
-	}
-	return row;
-}
-
 function isAborted(signal: AbortSignal | undefined): boolean {
 	return signal?.aborted === true;
-}
-
-function refuse(
-	row: WebmcpOperationRow,
-	revision: number,
-	code: WebmcpOperationErrorCode,
-	message: string,
-	details: {
-		rejected?: string | null;
-		alternatives?: readonly string[];
-		findings?: readonly CompositionValidationFinding[];
-		movedSince?: readonly string[];
-	} = {}
-): CompositionOperationFailure {
-	return {
-		status: 'failed',
-		operationId: row.id,
-		code,
-		message,
-		rejected: details.rejected ?? null,
-		alternatives: details.alternatives ?? [],
-		findings: boundCompositionFindings(details.findings ?? [], COMPOSITION_RECEIPT_FINDING_LIMIT),
-		movedSince: details.movedSince ?? [],
-		revision
-	};
 }
 
 /**
@@ -240,61 +180,6 @@ function applyCompositionDocument(document: Preset): void {
 }
 
 /**
- * The revision guard shared by every mutating and history operation: reject a
- * malformed revision as caller input, and a mismatched one as the conflict it
- * is, naming what moved in between.
- */
-function refuseStaleRevision(
-	row: WebmcpOperationRow,
-	expectedRevision: number
-): CompositionOperationFailure | null {
-	const revision = compositionEditHistory.revision;
-
-	if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0) {
-		return refuse(
-			row,
-			revision,
-			'invalid_argument',
-			'The observed Composition revision must be a non-negative integer.',
-			{ rejected: String(expectedRevision), alternatives: [String(revision)] }
-		);
-	}
-
-	if (expectedRevision !== revision) {
-		const movedSince = compositionEditHistory
-			.editsSince(expectedRevision)
-			.slice(-COMPOSITION_STALE_REVISION_EDIT_LIMIT)
-			.map((entry) => entry.label);
-		return refuse(
-			row,
-			revision,
-			'stale_revision',
-			`The composition has moved to revision ${revision} since revision ${expectedRevision}; re-read it before editing.`,
-			{ rejected: String(expectedRevision), alternatives: [String(revision)], movedSince }
-		);
-	}
-
-	return null;
-}
-
-/**
- * The one window in which no transaction may run: the transition snapshot path
- * swaps a scratch composition into engine state, so an edit landing there would
- * be applied to a document the author never opened.
- */
-function refuseDuringTransitionCapture(
-	row: WebmcpOperationRow
-): CompositionOperationFailure | null {
-	if (!transitionState.capturing) return null;
-	return refuse(
-		row,
-		compositionEditHistory.revision,
-		'precondition_unmet',
-		'The composition is mid transition capture; retry once the snapshot finishes.'
-	);
-}
-
-/**
  * Run one mutating operation as a revisioned atomic transaction.
  *
  * Throws `TypeError` when the request contradicts the operation's inventory
@@ -306,7 +191,7 @@ function refuseDuringTransitionCapture(
 export async function runCompositionEditTransaction(
 	request: CompositionEditTransactionRequest
 ): Promise<CompositionOperationOutcome> {
-	const row = requireOperationRow(request.operationId);
+	const row = requireCompositionOperationRow(request.operationId);
 	if (row.effect !== 'write') {
 		throw new TypeError(
 			`Composition edit transaction requires a write operation, but ${row.id} is a ${row.effect} operation.`
@@ -329,7 +214,7 @@ export async function runCompositionEditTransaction(
 	}
 
 	if (isAborted(request.signal)) {
-		return refuse(
+		return refuseCompositionOperation(
 			row,
 			compositionEditHistory.revision,
 			'cancelled',
@@ -337,10 +222,10 @@ export async function runCompositionEditTransaction(
 		);
 	}
 
-	const captureRefusal = refuseDuringTransitionCapture(row);
+	const captureRefusal = refuseDuringCompositionTransitionCapture(row);
 	if (captureRefusal) return captureRefusal;
 
-	const staleRefusal = refuseStaleRevision(row, request.expectedRevision);
+	const staleRefusal = refuseStaleCompositionRevision(row, request.expectedRevision);
 	if (staleRefusal) return staleRefusal;
 
 	const revision = compositionEditHistory.revision;
@@ -352,12 +237,17 @@ export async function runCompositionEditTransaction(
 		await request.mutate(draft, { signal: request.signal ?? null });
 
 		if (isAborted(request.signal)) {
-			return refuse(row, revision, 'cancelled', 'The operation was cancelled before it applied.');
+			return refuseCompositionOperation(
+				row,
+				revision,
+				'cancelled',
+				'The operation was cancelled before it applied.'
+			);
 		}
 
 		const parsed = PresetIngressSchema.safeParse(presetToWireFormat(draft));
 		if (!parsed.success) {
-			return refuse(
+			return refuseCompositionOperation(
 				row,
 				revision,
 				'schema_invalid',
@@ -369,7 +259,7 @@ export async function runCompositionEditTransaction(
 
 		const semanticFindings = collectCompositionSemanticFindings(next);
 		if (semanticFindings.length > 0) {
-			return refuse(
+			return refuseCompositionOperation(
 				row,
 				revision,
 				'semantic_invalid',
@@ -399,7 +289,12 @@ export async function runCompositionEditTransaction(
 		}
 
 		if (isAborted(request.signal)) {
-			return refuse(row, revision, 'cancelled', 'The operation was cancelled before it applied.');
+			return refuseCompositionOperation(
+				row,
+				revision,
+				'cancelled',
+				'The operation was cancelled before it applied.'
+			);
 		}
 
 		applyCompositionDocument(next);
@@ -421,7 +316,7 @@ export async function runCompositionEditTransaction(
 		);
 	} catch (cause) {
 		if (cause instanceof CompositionOperationError) {
-			return refuse(row, revision, cause.code, cause.message, {
+			return refuseCompositionOperation(row, revision, cause.code, cause.message, {
 				rejected: cause.rejected,
 				alternatives: cause.alternatives
 			});
@@ -440,20 +335,20 @@ export function runCompositionHistoryTransaction(
 	direction: CompositionHistoryDirection,
 	expectedRevision: number
 ): CompositionOperationOutcome {
-	const row = requireOperationRow(HISTORY_OPERATION_IDS[direction]);
+	const row = requireCompositionOperationRow(HISTORY_OPERATION_IDS[direction]);
 	const focus: CompositionWorkspaceFocus = { target: 'composition-root' };
 
-	const captureRefusal = refuseDuringTransitionCapture(row);
+	const captureRefusal = refuseDuringCompositionTransitionCapture(row);
 	if (captureRefusal) return captureRefusal;
 
-	const staleRefusal = refuseStaleRevision(row, expectedRevision);
+	const staleRefusal = refuseStaleCompositionRevision(row, expectedRevision);
 	if (staleRefusal) return staleRefusal;
 
 	const revision = compositionEditHistory.revision;
 	const available =
 		direction === 'undo' ? compositionEditHistory.canUndo : compositionEditHistory.canRedo;
 	if (!available) {
-		return refuse(
+		return refuseCompositionOperation(
 			row,
 			revision,
 			'precondition_unmet',
@@ -485,10 +380,13 @@ export function runCompositionHistoryTransaction(
 		);
 	} catch (cause) {
 		if (cause instanceof CompositionOperationError) {
-			return refuse(row, compositionEditHistory.revision, cause.code, cause.message, {
-				rejected: cause.rejected,
-				alternatives: cause.alternatives
-			});
+			return refuseCompositionOperation(
+				row,
+				compositionEditHistory.revision,
+				cause.code,
+				cause.message,
+				{ rejected: cause.rejected, alternatives: cause.alternatives }
+			);
 		}
 		throw cause;
 	}
