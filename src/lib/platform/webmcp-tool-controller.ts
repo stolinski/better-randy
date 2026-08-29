@@ -22,6 +22,10 @@
  * - **Results are bounded.** An operation that overruns its budget fails with
  *   `limit_exceeded` naming the overrun, because silently truncating a receipt
  *   would hand an agent a document it cannot trust.
+ * - **The inventory decides exposure.** A row marked `internal-only` has no tool
+ *   here at all, and a definition naming one is refused at construction rather
+ *   than skipped — an operation the page keeps to itself is a disposition the
+ *   contract records, not a registration this module gets to choose.
  *
  * Tool handlers themselves live with their families. This module never edits
  * engine state, never resolves an operation's targets, and never invents a
@@ -44,16 +48,7 @@ import type {
 	WebmcpCompositionPreconditions,
 	WebmcpRegistrationState
 } from './webmcp-tool-preconditions';
-import type { WebmcpOperationFamilyName, WebmcpOperationRow } from './webmcp-operation-inventory';
-
-/**
- * Families the page runs for itself and never hands to an agent. `verification`
- * measures real pixels for the project's own render gates; exposing it would
- * give a caller a way to drive rendering work that no authoring decision needs.
- * Its operations stay reachable in-process — this is a narrower public surface
- * than ADR-0054 §2's family table, not a missing one.
- */
-export const WEBMCP_INTERNAL_ONLY_FAMILIES: readonly WebmcpOperationFamilyName[] = ['verification'];
+import type { WebmcpOperationRow } from './webmcp-operation-inventory';
 
 /** The one operation ADR-0054 §6 lets past the default result budget. */
 const WHOLE_DOCUMENT_OPERATION_ID = 'composition.export-json';
@@ -230,9 +225,9 @@ export class WebmcpToolController {
 					`A WebMCP tool definition names an operation the inventory does not declare: ${definition.operationId}`
 				);
 			}
-			if (WEBMCP_INTERNAL_ONLY_FAMILIES.includes(row.family)) {
+			if (row.exposure === 'internal-only') {
 				throw new TypeError(
-					`The ${row.family} family is internal-only and has no WebMCP tool: ${definition.operationId}`
+					`The inventory marks this operation internal-only, so it has no WebMCP tool: ${definition.operationId}`
 				);
 			}
 		}

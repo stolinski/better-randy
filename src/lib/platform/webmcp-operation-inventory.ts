@@ -4,10 +4,11 @@
  *
  * One row per authoring decision a person or an agent can make. Each row names
  * the family that owns it, the WebMCP tool that exposes it, the composition
- * pointers it may write, the state in which its tool is registered, and the GUI
- * surface that owns the same decision. The bidirectional parity gate reads this
- * file: a decision reachable from only one transport is a defect, and a tool
- * that is not a row here has no contract.
+ * pointers it may write, the state in which its tool is registered, the
+ * transports that reach it, and the GUI surface that owns the same decision. The
+ * bidirectional parity gate reads this file: a decision reachable from only one
+ * transport is a defect unless its row declares itself `internal-only`, and a
+ * tool that is not a row here has no contract.
  *
  * This module is the contract, not the implementation. It deliberately carries
  * no runtime behavior — the operation layer, the WebMCP controller, and the
@@ -79,6 +80,27 @@ export type WebmcpOperationPrecondition =
 	| 'video-clip-present';
 
 /**
+ * Which transports reach an authoring decision, and the one deliberate
+ * exception.
+ *
+ * - `agent-tool` — the decision is reachable from the GUI *and* from a WebMCP
+ *   tool. This is what the bidirectional parity gate holds every row to, and it
+ *   is what all but two rows declare.
+ * - `internal-only` — the page runs this operation for itself and never hands it
+ *   to an agent. The gate reads it as an intended absence rather than a
+ *   one-transport defect, and the WebMCP controller refuses a tool definition
+ *   that names such a row.
+ *
+ * Only rendered verification is `internal-only`: measuring real pixels serves
+ * this project's own render gates, and no authoring decision needs it, so
+ * exposing it would hand a caller a way to drive rendering work with nothing to
+ * author at the end of it. The disposition is recorded here rather than inferred
+ * from a missing tool, because "unexposed on purpose" and "not built yet" have
+ * to be distinguishable by a machine.
+ */
+export type WebmcpOperationExposure = 'agent-tool' | 'internal-only';
+
+/**
  * A Workspace selection an operation can leave focused, so a person watching the
  * screen sees what an agent just did.
  */
@@ -144,6 +166,8 @@ export interface WebmcpOperationRow {
 	 * look at.
 	 */
 	focus: readonly WebmcpOperationFocusTarget[];
+	/** Whether an agent reaches this decision at all, or the page keeps it to itself. */
+	exposure: WebmcpOperationExposure;
 	/** Repo-relative GUI owner of the same decision — the parity gate's other side. */
 	guiSurface: string;
 }
@@ -403,6 +427,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: false,
 		cancellable: false,
 		focus: [],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/AddMenu.svelte'
 	},
 	{
@@ -418,6 +443,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: false,
 		cancellable: false,
 		focus: [],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/Workspace.svelte'
 	},
 
@@ -435,6 +461,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: false,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/routes/+page.svelte'
 	},
 	{
@@ -450,6 +477,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: false,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/routes/+page.svelte'
 	},
 	{
@@ -465,6 +493,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: false,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/routes/+page.svelte'
 	},
 	{
@@ -480,6 +509,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: false,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/routes/+page.svelte'
 	},
 	{
@@ -495,6 +525,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: false,
 		cancellable: false,
 		focus: [],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/TimelineOutline.svelte'
 	},
 	{
@@ -510,6 +541,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: false,
 		cancellable: false,
 		focus: [],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/InterchangeSection.svelte'
 	},
 	{
@@ -524,6 +556,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/RootInspector.svelte'
 	},
 	{
@@ -539,6 +572,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: false,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/routes/+page.svelte'
 	},
 	{
@@ -554,6 +588,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: false,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/Workspace.svelte'
 	},
 	{
@@ -568,6 +603,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: false,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/Workspace.svelte'
 	},
 
@@ -585,6 +621,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: false,
 		cancellable: false,
 		focus: [],
+		exposure: 'agent-tool',
 		guiSurface: 'src/routes/+page.svelte'
 	},
 	{
@@ -600,6 +637,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: false,
 		cancellable: false,
 		focus: ['session-catalog'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/routes/+page.svelte'
 	},
 	{
@@ -615,6 +653,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: false,
 		cancellable: false,
 		focus: ['session-catalog'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/routes/+page.svelte'
 	},
 
@@ -632,6 +671,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/Workspace.svelte'
 	},
 	{
@@ -647,6 +687,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/RootInspector.svelte'
 	},
 	{
@@ -661,6 +702,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/Workspace.svelte'
 	},
 	{
@@ -676,6 +718,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/RootInspector.svelte'
 	},
 
@@ -698,6 +741,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['surface'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/SurfaceInspector.svelte'
 	},
 	{
@@ -712,6 +756,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['overlay'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/AddMenu.svelte'
 	},
 	{
@@ -727,6 +772,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/TimelineOutline.svelte'
 	},
 	{
@@ -741,6 +787,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['overlay'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/TimelineOutline.svelte'
 	},
 	{
@@ -755,6 +802,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['mark'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/AddMenu.svelte'
 	},
 	{
@@ -769,6 +817,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/MarkInspector.svelte'
 	},
 	{
@@ -784,6 +833,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['effect'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/EffectsChainSection.svelte'
 	},
 	{
@@ -798,6 +848,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/EffectChainRow.svelte'
 	},
 	{
@@ -812,6 +863,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['effect'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/EffectsChainSection.svelte'
 	},
 	{
@@ -827,6 +879,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['text-animation'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/AddMenu.svelte'
 	},
 	{
@@ -841,6 +894,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/TextAnimInspector.svelte'
 	},
 	{
@@ -856,6 +910,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['block'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/AddMenu.svelte'
 	},
 	{
@@ -871,6 +926,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/BlockInspector.svelte'
 	},
 	{
@@ -886,6 +942,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['block'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/AddMenu.svelte'
 	},
 	{
@@ -900,6 +957,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/ChartInspector.svelte'
 	},
 
@@ -917,6 +975,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['surface'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/SurfaceDocumentSection.svelte'
 	},
 	{
@@ -931,6 +990,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['surface'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/SurfaceMessagesSection.svelte'
 	},
 	{
@@ -945,6 +1005,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['surface'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/SurfaceChecklistSection.svelte'
 	},
 	{
@@ -960,6 +1021,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['overlay'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/OverlayInspector.svelte'
 	},
 	{
@@ -975,6 +1037,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['block'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/BlockTypeSection.svelte'
 	},
 	{
@@ -990,6 +1053,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['block'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/ChartDataSection.svelte'
 	},
 	{
@@ -1005,6 +1069,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['captions'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/CaptionsInspector.svelte'
 	},
 	{
@@ -1019,6 +1084,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/CaptionsInspector.svelte'
 	},
 
@@ -1036,6 +1102,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['overlay'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/OverlayPositionSection.svelte'
 	},
 	{
@@ -1051,6 +1118,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['overlay'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/OverlayPositionSection.svelte'
 	},
 	{
@@ -1066,6 +1134,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['overlay'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/OverlayPositionSection.svelte'
 	},
 	{
@@ -1089,6 +1158,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['block'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/BlockGeometrySection.svelte'
 	},
 
@@ -1106,6 +1176,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/RootInspector.svelte'
 	},
 	{
@@ -1121,6 +1192,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['surface'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/SurfaceAppearanceSection.svelte'
 	},
 	{
@@ -1135,6 +1207,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/MarkDefaultsSection.svelte'
 	},
 	{
@@ -1150,6 +1223,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['effect'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/EffectChainRow.svelte'
 	},
 	{
@@ -1165,6 +1239,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/DepthStageSection.svelte'
 	},
 	{
@@ -1179,6 +1254,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['surface'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/SurfaceAppearanceSection.svelte'
 	},
 
@@ -1195,6 +1271,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['surface'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/SurfaceTextMotionSection.svelte'
 	},
 	{
@@ -1209,6 +1286,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['overlay'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/TimelineClipBar.svelte'
 	},
 	{
@@ -1224,6 +1302,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['mark'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/MarkInspector.svelte'
 	},
 	{
@@ -1239,6 +1318,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['text-animation'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/TextAnimInspector.svelte'
 	},
 	{
@@ -1258,6 +1338,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['surface', 'overlay', 'block'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/KeyframesSection.svelte'
 	},
 	{
@@ -1277,6 +1358,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['surface', 'overlay', 'block'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/KeyframesSection.svelte'
 	},
 	{
@@ -1297,6 +1379,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['overlay', 'mark', 'text-animation', 'block'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/CascadeSection.svelte'
 	},
 	{
@@ -1316,6 +1399,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['overlay', 'mark', 'text-animation', 'block'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/CascadeSection.svelte'
 	},
 	{
@@ -1330,6 +1414,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['block'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/ChartMotionSection.svelte'
 	},
 	{
@@ -1345,6 +1430,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/TransitionRecipeSection.svelte'
 	},
 	{
@@ -1359,6 +1445,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/TransitionWindowSection.svelte'
 	},
 
@@ -1376,6 +1463,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['sound-cue'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/AudioCueSection.svelte'
 	},
 	{
@@ -1390,6 +1478,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/SoundCueInspector.svelte'
 	},
 	{
@@ -1411,6 +1500,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['sound-cue'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/SoundSection.svelte'
 	},
 
@@ -1428,6 +1518,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: false,
 		cancellable: false,
 		focus: [],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/MediaInspector.svelte'
 	},
 	{
@@ -1446,6 +1537,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: true,
 		focus: ['media-library'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/MediaInspector.svelte'
 	},
 	{
@@ -1461,6 +1553,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['media-library'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/MediaInspector.svelte'
 	},
 	{
@@ -1476,6 +1569,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['video-clip'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/VideoTimelineTrack.svelte'
 	},
 	{
@@ -1490,6 +1584,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['video-clip'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/VideoClipInspector.svelte'
 	},
 	{
@@ -1504,6 +1599,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: true,
 		cancellable: false,
 		focus: ['composition-root'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/VideoTimelineTrack.svelte'
 	},
 
@@ -1521,6 +1617,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: false,
 		cancellable: false,
 		focus: [],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/CanvasControlsBar.svelte'
 	},
 	{
@@ -1536,16 +1633,23 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: false,
 		cancellable: false,
 		focus: ['timeline-playhead'],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/CanvasControlsBar.svelte'
 	},
 
 	// ---- validation and verification: read-only evidence ----
+	//
+	// The split is the whole point of two families. Validation reads the document
+	// and an agent repairs what it names, so it is a tool. Verification measures
+	// real pixels for this project's own render gates, which is work no authoring
+	// decision needs, so both of its rows are `internal-only` and neither is
+	// registered.
 	{
 		id: 'validation.inspect-findings',
 		family: 'validation',
 		toolName: 'gfx_validation_inspect_findings',
 		summary:
-			'Return the schema, semantic, and static-linter findings for the open composition, each naming the exact field and the correction.',
+			'Return the schema, semantic, and static-linter findings for the open composition, each naming the exact field and the correction. Messages quote untrusted composition content.',
 		effect: 'read',
 		writes: [],
 		precondition: 'composition-open',
@@ -1553,6 +1657,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: false,
 		cancellable: false,
 		focus: [],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/InterchangeSection.svelte'
 	},
 	{
@@ -1568,6 +1673,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: false,
 		cancellable: true,
 		focus: [],
+		exposure: 'internal-only',
 		guiSurface: 'src/lib/platform/InterchangeSection.svelte'
 	},
 	{
@@ -1583,6 +1689,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: false,
 		cancellable: true,
 		focus: [],
+		exposure: 'internal-only',
 		guiSurface: 'src/lib/platform/InterchangeSection.svelte'
 	},
 
@@ -1600,6 +1707,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		undoable: false,
 		cancellable: true,
 		focus: [],
+		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/Workspace.svelte'
 	}
 ];

@@ -51,6 +51,12 @@ export interface CompositionValidationReceipt {
 	lint: BoundedCompositionFindings;
 	/** True when nothing blocks this composition from loading and exporting. */
 	loadable: boolean;
+	/**
+	 * Finding messages quote what the document actually holds — the value a schema
+	 * check rejected, the variant a semantic check could not resolve. That is the
+	 * visitor's content, not instructions, and it says so (ADR-0054 §7).
+	 */
+	contentTrust: 'untrusted';
 }
 
 export type CompositionValidationOutcome =
@@ -77,6 +83,7 @@ export function runInspectCompositionValidationOperation(): CompositionValidatio
 			collectCompositionLintFindings(document),
 			COMPOSITION_VALIDATION_FINDING_LIMIT
 		),
-		loadable: schemaFindings.length === 0 && semanticFindings.length === 0
+		loadable: schemaFindings.length === 0 && semanticFindings.length === 0,
+		contentTrust: 'untrusted'
 	};
 }

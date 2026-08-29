@@ -222,6 +222,19 @@ describe('WebMCP operation inventory', () => {
 		}
 	});
 
+	it('keeps the internal-only disposition to rendered verification', () => {
+		const internal = WEBMCP_OPERATION_INVENTORY.filter((row) => row.exposure === 'internal-only');
+		expect(internal.map((row) => row.id)).toEqual([
+			'verification.render-frame',
+			'verification.inspect-readable-text'
+		]);
+		// An unexposed row is still a decision a person can make, so it still names
+		// its GUI surface — the disposition narrows the transport, not the parity.
+		for (const row of internal) {
+			expect(row.guiSurface.length, `${row.id} names no GUI surface`).toBeGreaterThan(0);
+		}
+	});
+
 	it('anchors every row to a GUI surface that exists', () => {
 		for (const row of WEBMCP_OPERATION_INVENTORY) {
 			expect(

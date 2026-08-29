@@ -7,8 +7,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import blankPresetJson from '$lib/presets/blank.json';
 
 import { applyPreset } from './preset';
+import { buildCompositionExportPlan } from './composition-export-controller';
 import { COMPOSITION_ORIENTATIONS } from './composition-transport-operations';
 import { compositionEditHistory } from './composition-edit-history';
+import { compositionExportHandle } from './composition-export-handle.svelte';
 import { compositionMediaGrants } from './composition-media-grants.svelte';
 import { compositionMeta } from './composition-meta.svelte';
 import { engineState, transitionState } from './engine-state.svelte';
@@ -22,7 +24,7 @@ import {
 	WEBMCP_ALWAYS_REGISTERED_CEILING,
 	WEBMCP_OPERATION_INVENTORY
 } from './webmcp-operation-inventory';
-import { WEBMCP_INTERNAL_ONLY_FAMILIES, WebmcpToolController } from './webmcp-tool-controller';
+import { WebmcpToolController } from './webmcp-tool-controller';
 
 import type { UserCompositionMeta } from './user-composition-store';
 import type { UserVideoAssetDescriptor } from './user-video-asset';
@@ -31,7 +33,7 @@ import type {
 	WebmcpToolCallResult,
 	WebmcpToolDescriptor
 } from './webmcp-tool-controller';
-import type { WebmcpOperationFamilyName, WebmcpOperationRow } from './webmcp-operation-inventory';
+import type { WebmcpOperationRow } from './webmcp-operation-inventory';
 
 vi.mock('./user-composition-store', () => ({
 	userCompositionStore: {
@@ -45,22 +47,6 @@ vi.mock('./user-composition-store', () => ({
 
 const sessionStore = vi.mocked(userCompositionStore);
 
-/** The families this exposure leaf ships. Later leaves add their own. */
-const EXPOSED_FAMILIES: readonly WebmcpOperationFamilyName[] = [
-	'capability',
-	'composition',
-	'session',
-	'transport',
-	'layer',
-	'content',
-	'placement',
-	'appearance',
-	'motion',
-	'sound',
-	'media',
-	'playhead'
-];
-
 /**
  * Every module that turns an agent's call into an operation call. None of them
  * may reach past the operation layer into engine state.
@@ -70,6 +56,7 @@ const WEBMCP_FAMILY_TOOL_MODULES = [
 	'src/lib/platform/webmcp-capability-tools.ts',
 	'src/lib/platform/webmcp-composition-tools.ts',
 	'src/lib/platform/webmcp-content-tools.ts',
+	'src/lib/platform/webmcp-delivery-tools.ts',
 	'src/lib/platform/webmcp-layer-tools.ts',
 	'src/lib/platform/webmcp-media-tools.ts',
 	'src/lib/platform/webmcp-motion-tools.ts',
@@ -77,7 +64,8 @@ const WEBMCP_FAMILY_TOOL_MODULES = [
 	'src/lib/platform/webmcp-playhead-tools.ts',
 	'src/lib/platform/webmcp-session-tools.ts',
 	'src/lib/platform/webmcp-sound-tools.ts',
-	'src/lib/platform/webmcp-transport-tools.ts'
+	'src/lib/platform/webmcp-transport-tools.ts',
+	'src/lib/platform/webmcp-validation-tools.ts'
 ];
 
 /** What a tool module reaching past the operation layer would have to name. */
@@ -186,31 +174,26 @@ beforeEach(() => {
 afterEach(() => {
 	timelineHandle.current?.dispose();
 	timelineHandle.current = null;
+	compositionExportHandle.current = null;
 });
 
 describe('WebMCP tool definitions', () => {
-	it('exposes every family this build ships, and no other', () => {
-		const families = new Set(exposedRows().map((row) => row.family));
-		expect([...families].sort()).toEqual([...EXPOSED_FAMILIES].sort());
-	});
-
-	it('exposes every row of a family it exposes at all, exactly once', () => {
-		const definitions = listWebmcpToolDefinitions();
-		const exposedIds = definitions.map((definition) => definition.operationId);
+	// The bidirectional parity gate, in its mechanical form: the tools this build
+	// registers and the rows the inventory marks `agent-tool` are the same set. A
+	// row added without a tool fails here, and so does a tool without a row.
+	it('exposes every agent-tool row exactly once, and nothing else', () => {
+		const exposedIds = listWebmcpToolDefinitions().map((definition) => definition.operationId);
 		expect(new Set(exposedIds).size, 'a row is exposed twice').toBe(exposedIds.length);
 
-		const declared = WEBMCP_OPERATION_INVENTORY.filter((row) =>
-			EXPOSED_FAMILIES.includes(row.family)
-		).map((row) => row.id);
+		const declared = WEBMCP_OPERATION_INVENTORY.filter((row) => row.exposure === 'agent-tool').map(
+			(row) => row.id
+		);
 		expect(exposedIds.slice().sort()).toEqual(declared.slice().sort());
 	});
 
-	it('exposes no internal-only family', () => {
+	it('registers no operation the inventory keeps internal', () => {
 		for (const row of exposedRows()) {
-			expect(
-				WEBMCP_INTERNAL_ONLY_FAMILIES.includes(row.family),
-				`${row.id} exposes an internal-only family`
-			).toBe(false);
+			expect(row.exposure, `${row.id} is registered but marked internal-only`).toBe('agent-tool');
 		}
 	});
 
@@ -493,6 +476,75 @@ describe('WebMCP tool calls', () => {
 		});
 		expect(engineState.typography.fontFamily).toBe('serif');
 		expect(engineState.typography.paperColor).toBeUndefined();
+	});
+});
+
+describe('WebMCP validation and delivery', () => {
+	beforeEach(openEditableComposition);
+
+	it('reports what to repair, and says the messages are the visitor’s own words', async () => {
+		const host = new FakeModelContext();
+		const controller = startController(host);
+		await controller.synchronize(readWebmcpCompositionPreconditions(), '/p/untitled');
+
+		const result = await host.call(rowFor('validation.inspect-findings').toolName, {});
+
+		expect(result.isError).toBe(false);
+		expect(readPayload(result)).toMatchObject({
+			status: 'inspected',
+			schema: { findings: [], total: 0, truncated: false },
+			semantic: { findings: [], total: 0, truncated: false },
+			loadable: true,
+			contentTrust: 'untrusted'
+		});
+	});
+
+	it('hands back the delivered file without any interface action', async () => {
+		compositionExportHandle.current = () =>
+			Promise.resolve({
+				status: 'delivered',
+				plan: buildCompositionExportPlan({ state: engineState, transition: null }),
+				wavFilename: null
+			});
+		const host = new FakeModelContext();
+		const controller = startController(host);
+		await controller.synchronize(readWebmcpCompositionPreconditions(), '/p/untitled');
+
+		const result = await host.call(rowFor('delivery.export-video').toolName, {
+			expectedRevision: compositionEditHistory.revision
+		});
+
+		expect(result.isError).toBe(false);
+		expect(readPayload(result)).toMatchObject({
+			status: 'delivered',
+			output: 'transparent',
+			videoFilename: 'gfx-overlay.webm',
+			width: 3840,
+			height: 2160
+		});
+	});
+
+	it('passes the caller’s cancellation to the export and reports no file', async () => {
+		let exportSignal: AbortSignal | undefined;
+		compositionExportHandle.current = ({ signal }) => {
+			exportSignal = signal;
+			return Promise.resolve({ status: 'cancelled' });
+		};
+		const host = new FakeModelContext();
+		const controller = startController(host);
+		await controller.synchronize(readWebmcpCompositionPreconditions(), '/p/untitled');
+
+		const result = await host.call(rowFor('delivery.export-video').toolName, {
+			expectedRevision: compositionEditHistory.revision
+		});
+
+		expect(exportSignal).toBeInstanceOf(AbortSignal);
+		expect(result.isError).toBe(true);
+		expect(readPayload(result)).toMatchObject({
+			status: 'failed',
+			code: 'cancelled',
+			operationId: 'delivery.export-video'
+		});
 	});
 });
 

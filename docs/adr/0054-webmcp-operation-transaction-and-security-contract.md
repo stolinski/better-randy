@@ -30,9 +30,9 @@ One more constraint shapes all of it. This runs in the visitor's browser, on the
 
 ### 1. Operations are the unit, and the inventory is the contract
 
-An **operation** is one authoring decision — "set the orientation", "add an Overlay", "weld this entrance to that one". Every operation exists once, in [`../../src/lib/platform/webmcp-operation-inventory.ts`](../../src/lib/platform/webmcp-operation-inventory.ts), which records for each row: the family that owns it, the WebMCP tool that exposes it, the composition pointers it may write, the state in which its tool is registered, whether it needs the caller's observed revision, whether it is undoable, whether it is cancellable, the Workspace focus it must move, and the GUI surface that owns the same decision.
+An **operation** is one authoring decision — "set the orientation", "add an Overlay", "weld this entrance to that one". Every operation exists once, in [`../../src/lib/platform/webmcp-operation-inventory.ts`](../../src/lib/platform/webmcp-operation-inventory.ts), which records for each row: the family that owns it, the WebMCP tool that exposes it, the composition pointers it may write, the state in which its tool is registered, whether it needs the caller's observed revision, whether it is undoable, whether it is cancellable, the Workspace focus it must move, the **exposure** that says which transports reach it, and the GUI surface that owns the same decision.
 
-That file is machine-readable on purpose. The bidirectional parity gate reads it and rejects a row reachable from only one transport; the WebMCP controller registers exactly its tools; the operation layer implements exactly its rows. A tool with no row has no contract, and a row with no tool is a gap, not a nuance.
+That file is machine-readable on purpose. The bidirectional parity gate reads it and rejects a row reachable from only one transport; the WebMCP controller registers exactly its tools; the operation layer implements exactly its rows. A tool with no row has no contract, and a row with no tool is a gap, not a nuance — unless the row itself declares the absence, which is what `exposure` is for (§2).
 
 Both transports run the same operation. There is no WebMCP-only edit path, no WebMCP-only encoder, and no agent-only branch inside an operation.
 
@@ -64,6 +64,10 @@ Two boundary calls are worth recording, because both were genuinely ambiguous:
 
 - **Pack belongs to `appearance`, not `transport`.** A Pack is appearance only ([ADR-0023](0023-pack-is-appearance-only.md)); `transport` is framing and output classification, which is why `backgroundFill` sits there — declaring one is what makes a piece a full-frame segment rather than a transparent overlay.
 - **The dimensional stage belongs to `appearance`, not `placement`.** The stage is a whole-composition look decision — grade, key light, defocus. `placement` is per-element geometry. Splitting the stage across two families would have produced exactly the ambiguity the family model exists to prevent.
+
+**`verification` is internal-only, by design.** Every family above is reachable over WebMCP except this one. Measuring real pixels — rendering an exact frame, auditing what it reads — serves this project's own render gates, and no authoring decision needs it: an agent repairs a piece from `validation`, which reads the document and costs nothing, and looks at a frame through `playhead`. Registering the rendered-verification operations would instead hand any attached agent a way to drive repeated full-frame render work with no authoring result at the end of it, on a public origin whose export limits are decided elsewhere ([ADR-0052](0052-public-runtime-and-retention-architecture.md)).
+
+The operations still exist, still run in-process, and still name their GUI surface. The narrowing is on the transport only, and it is **recorded rather than inferred**: both rows carry `exposure: 'internal-only'`, so the parity gate reads them as an intended absence and every other row as a promise that a tool exists. "Unexposed on purpose" and "not built yet" have to be distinguishable by a machine, or the gate degrades into an argument. Adding a family or a row to this disposition means editing that field and this paragraph together.
 
 ### 3. Every edit is a revisioned, atomic transaction
 
@@ -107,7 +111,7 @@ Tools are registered against `document.modelContext` by a controller that owns t
 - **No tool fetches a URL the caller supplies.** There is no agent-reachable request to an arbitrary address. The site-capture surface stays development-only, as [ADR-0053](0053-gfx-namespace-and-legacy-supers-compatibility.md) classifies it.
 - **No tool opens a file picker, and no tool reads the disk.** `gfx_media_add_library_entry` accepts a bundled demo asset or a handle the visitor has already granted this page through their own gesture. An agent may ask the person to grant one; it may not grant it for them. A missing grant returns `consent_required`.
 - **Export waits for the real outcome.** `gfx_delivery_export_video` returns a receipt only after the browser download actually completes. A cancelled or failed export returns `cancelled` or `export_failed` — never a success receipt for a file that does not exist.
-- **Composition content is untrusted.** Text, captured document bodies, media filenames, and rendered readable-text audits are the visitor's content, not instructions. Results that carry it annotate it as untrusted so a model reading a receipt does not treat a caption as a command.
+- **Composition content is untrusted.** Text, captured document bodies, media filenames, validation finding messages, and rendered readable-text audits are the visitor's content, not instructions. Results that carry it annotate it as untrusted so a model reading a receipt does not treat a caption as a command.
 - **Nothing leaves the browser.** Composition JSON is never sent to the origin, never logged, and never attached to telemetry. The Export session receives rendered frames only, and destroys itself ([ADR-0052](0052-public-runtime-and-retention-architecture.md)).
 - **Failures are corrective.** Every failure names one code from `WEBMCP_OPERATION_ERROR_CODES`, the exact target it rejected, and the valid alternatives. `unsupported_variant` says which variants exist. `stale_revision` says which revision is current. "Invalid input" on its own is a defect.
 
@@ -130,7 +134,7 @@ Tools are registered against `document.modelContext` by a controller that owns t
 ## Consequences
 
 - Implementation stops re-deciding. The operation layer, the WebMCP controller, the tool registrations, the agent evals, and the parity gate all read one inventory; a change to the authoring surface is a change to that file plus its two implementations.
-- The parity gate becomes mechanical. Every row names both transports, so "GUI-only" and "agent-only" are detectable rather than argued.
+- The parity gate becomes mechanical. Every row names its transports, so "GUI-only" and "agent-only" are detectable rather than argued, and the one deliberate exception is a declared value rather than a missing tool.
 - Adding a capability now costs a row. That is deliberate: an operation without an owning family, a precondition, and a GUI path is not finished.
 - Non-overlap is testable. Family pointer ownership is checked in [`../../src/lib/platform/webmcp-operation-inventory.test.ts`](../../src/lib/platform/webmcp-operation-inventory.test.ts), so a new operation cannot quietly reach into another family's subtree.
 - The registered tool set changes as the composition changes. `ontoolchange` fires more often than a static registration would, and an agent that caches a tool list will occasionally call a tool that has just been unregistered — which is why in-flight calls resolve as `cancelled` instead of applying.

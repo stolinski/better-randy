@@ -358,9 +358,10 @@ export function webmcpObservedRevisionProperty(): WebmcpSchemaProperty {
 }
 
 /**
- * The whole input schema of an operation whose only argument is the revision it
- * is about to discard or replay — revert, undo, redo. Built once so the three
- * cannot drift apart on the one argument they share.
+ * The whole input schema of an operation whose only argument is the version of
+ * the composition it acts on — the one revert and undo and redo discard or
+ * replay, and the one an export ships. Built once so the four cannot drift apart
+ * on the one argument they share.
  */
 export function webmcpObservedRevisionOnlySchema(): WebmcpToolInputSchema {
 	return {
@@ -385,6 +386,7 @@ export function readWebmcpSchemaDigest(): string {
 			toolName: row.toolName,
 			effect: row.effect,
 			precondition: row.precondition,
+			exposure: row.exposure,
 			requiresExpectedRevision: row.requiresExpectedRevision,
 			cancellable: row.cancellable,
 			focus: row.focus,

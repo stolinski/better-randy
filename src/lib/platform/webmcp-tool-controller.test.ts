@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	readWebmcpToolExposure,
 	startWebmcpToolController,
-	WEBMCP_INTERNAL_ONLY_FAMILIES,
 	WebmcpToolController
 } from './webmcp-tool-controller.ts';
 import { userCompositionStore } from './user-composition-store';
@@ -275,9 +274,9 @@ describe('WebMCP tool registration', () => {
 		expect(controller.registeredToolNames).toEqual([]);
 	});
 
-	it('refuses a definition for an internal-only family outright', () => {
-		const internalRows = WEBMCP_OPERATION_INVENTORY.filter((row) =>
-			WEBMCP_INTERNAL_ONLY_FAMILIES.includes(row.family)
+	it('refuses a definition for an internal-only row outright', () => {
+		const internalRows = WEBMCP_OPERATION_INVENTORY.filter(
+			(row) => row.exposure === 'internal-only'
 		);
 		expect(internalRows.length).toBeGreaterThan(0);
 
@@ -309,9 +308,9 @@ describe('WebMCP tool registration', () => {
 		const host = new FakeModelContext();
 		const controller = new WebmcpToolController({
 			host,
-			definitions: WEBMCP_OPERATION_INVENTORY.filter(
-				(row) => !WEBMCP_INTERNAL_ONLY_FAMILIES.includes(row.family)
-			).map((row) => definition(row.id)),
+			definitions: WEBMCP_OPERATION_INVENTORY.filter((row) => row.exposure === 'agent-tool').map(
+				(row) => definition(row.id)
+			),
 			lifetime: new AbortController().signal
 		});
 
