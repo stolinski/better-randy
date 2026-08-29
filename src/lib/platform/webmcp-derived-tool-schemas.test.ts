@@ -39,9 +39,14 @@ function starters(...slugs: readonly string[]): CataloguedPreset[] {
 
 /** Every module that builds a WebMCP tool argument, and so must never restate a registry. */
 const WEBMCP_TOOL_LAYER_MODULES = [
+	'src/lib/platform/webmcp-capability-tools.ts',
+	'src/lib/platform/webmcp-composition-tools.ts',
+	'src/lib/platform/webmcp-session-tools.ts',
+	'src/lib/platform/webmcp-tool-arguments.ts',
 	'src/lib/platform/webmcp-tool-controller.ts',
 	'src/lib/platform/webmcp-tool-definitions.ts',
-	'src/lib/platform/webmcp-tool-preconditions.ts'
+	'src/lib/platform/webmcp-tool-preconditions.ts',
+	'src/lib/platform/webmcp-transport-tools.ts'
 ];
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');

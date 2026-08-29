@@ -23,7 +23,7 @@
 	import gfxMark from '$lib/assets/identity/gfx-mark.svg';
 	import { readWebmcpCompositionPreconditions } from '$lib/platform/webmcp-tool-preconditions';
 	import { startWebmcpToolController } from '$lib/platform/webmcp-tool-controller';
-	import { WEBMCP_TOOL_DEFINITIONS } from '$lib/platform/webmcp-tool-definitions';
+	import { listWebmcpToolDefinitions } from '$lib/platform/webmcp-tool-definitions';
 
 	let { children } = $props();
 
@@ -35,7 +35,7 @@
 	const webmcpToolController = browser
 		? startWebmcpToolController({
 				view: window,
-				definitions: WEBMCP_TOOL_DEFINITIONS,
+				definitions: listWebmcpToolDefinitions(),
 				lifetime: webmcpLifetime.signal
 			})
 		: null;

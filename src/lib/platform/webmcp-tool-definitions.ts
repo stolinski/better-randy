@@ -8,10 +8,29 @@
  * registered, what it may write — is the row's, so this list can never disagree
  * with the contract.
  *
- * The list is empty until an exposure leaf fills it. A build that ships no
- * definitions registers no tools: a supporting browser sees an empty GFX tool
- * set rather than verbs that resolve to nothing.
+ * The list is built on call rather than at import. Every argument enum is read
+ * from a live registry, and reading those while the module graph is still
+ * loading would freeze a vocabulary — or fail the whole bundle over an empty
+ * one — before the page exists. The controller asks once, when it starts.
+ *
+ * Families arrive one exposure leaf at a time, and a family arrives whole: the
+ * definitions test rejects a family with some rows exposed and others missing,
+ * because a half-exposed family is the ambiguity the family model exists to
+ * prevent. `verification` never arrives — it is internal-only, and the
+ * controller refuses a definition that names it.
  */
+import { listWebmcpCapabilityToolDefinitions } from './webmcp-capability-tools';
+import { listWebmcpCompositionToolDefinitions } from './webmcp-composition-tools';
+import { listWebmcpSessionToolDefinitions } from './webmcp-session-tools';
+import { listWebmcpTransportToolDefinitions } from './webmcp-transport-tools';
+
 import type { WebmcpToolDefinition } from './webmcp-tool-controller';
 
-export const WEBMCP_TOOL_DEFINITIONS: readonly WebmcpToolDefinition[] = [];
+export function listWebmcpToolDefinitions(): readonly WebmcpToolDefinition[] {
+	return [
+		...listWebmcpCapabilityToolDefinitions(),
+		...listWebmcpCompositionToolDefinitions(),
+		...listWebmcpSessionToolDefinitions(),
+		...listWebmcpTransportToolDefinitions()
+	];
+}

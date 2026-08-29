@@ -102,6 +102,14 @@ export interface WebmcpToolInputSchema {
 	additionalProperties: false;
 }
 
+/** The input schema of a tool that decides everything from the state it reads. */
+export const WEBMCP_NO_ARGUMENTS_SCHEMA: WebmcpToolInputSchema = {
+	type: 'object',
+	properties: {},
+	required: [],
+	additionalProperties: false
+};
+
 /** The Zod `kind` enum, unwrapped past the default the composition schema gives it. */
 function readCompositionKinds(): readonly string[] {
 	return PresetSchema.shape.kind.def.innerType.options;
@@ -138,6 +146,20 @@ export function readWebmcpDerivedEnums(): Readonly<
 		'overlay-keyframe-channel': OVERLAY_KEYFRAME_CHANNELS,
 		'operation-error-code': WEBMCP_OPERATION_ERROR_CODES
 	};
+}
+
+/**
+ * Whether a caller's string names a vocabulary. The `capability` family lets an
+ * agent ask for a section by name, so this is the boundary where that name stops
+ * being arbitrary text.
+ */
+export function isWebmcpDerivedEnumName(value: string): value is WebmcpDerivedEnumName {
+	return Object.hasOwn(readWebmcpDerivedEnums(), value);
+}
+
+/** Every vocabulary a caller can ask for, read from the record rather than listed. */
+export function readWebmcpVocabularySections(): readonly WebmcpDerivedEnumName[] {
+	return Object.keys(readWebmcpDerivedEnums()).filter(isWebmcpDerivedEnumName);
 }
 
 /** One tool argument drawn from a live vocabulary rather than a restated list. */
@@ -182,6 +204,20 @@ export function webmcpObservedRevisionProperty(): WebmcpSchemaProperty {
 		description:
 			'The Composition revision you last observed. A mismatch fails with stale_revision and applies nothing.',
 		minimum: 0
+	};
+}
+
+/**
+ * The whole input schema of an operation whose only argument is the revision it
+ * is about to discard or replay — revert, undo, redo. Built once so the three
+ * cannot drift apart on the one argument they share.
+ */
+export function webmcpObservedRevisionOnlySchema(): WebmcpToolInputSchema {
+	return {
+		type: 'object',
+		properties: { expectedRevision: webmcpObservedRevisionProperty() },
+		required: ['expectedRevision'],
+		additionalProperties: false
 	};
 }
 

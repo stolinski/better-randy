@@ -168,8 +168,14 @@ export const WEBMCP_WHOLE_DOCUMENT_CHARACTER_BUDGET = 262144;
 /**
  * How many tools may be registered before a composition is open. A cold page
  * must offer an agent a short, obvious menu rather than the whole inventory.
+ *
+ * The number counts everything a closed page can offer, not only the `always`
+ * rows: the two `session-composition-present` rows are also reachable with
+ * nothing open, because a returning visitor's session still holds work to list
+ * and delete. That whole set is discovery, the four ways to start a composition,
+ * and the session catalog — every other precondition needs an open document.
  */
-export const WEBMCP_ALWAYS_REGISTERED_CEILING = 8;
+export const WEBMCP_ALWAYS_REGISTERED_CEILING = 9;
 
 /**
  * Corrective failure codes. Every failure names one of these, the exact target
