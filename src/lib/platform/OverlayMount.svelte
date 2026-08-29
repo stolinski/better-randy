@@ -7,17 +7,15 @@
 		resolveAppearanceVars,
 		resolveFieldInkColor
 	} from './packs/resolve';
-	import { getPipelineRendererRuntime } from './pipelines/runtime-context.svelte';
+	import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 	import { filterPackAppearanceVarsForImmunity } from './pipelines/identity-registry';
 	import type { Overlay, OverlayPlacement } from './engine-schema';
 	import type { OverlayRenderer } from './pipelines/types';
 	import { resolveOverlayPlacement } from '$lib/utils/overlay-placement';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 
-	const rendererController = getPipelineRendererRuntime();
-
 	function findRenderer(type: string): OverlayRenderer | null {
-		return rendererController.current().overlays.get(type) ?? null;
+		return pipelineRendererRuntime.current().overlays.get(type) ?? null;
 	}
 
 	// transform-origin matching an anchor's pinned point, so a scale grows from the

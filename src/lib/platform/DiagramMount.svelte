@@ -14,7 +14,7 @@
 		resolveTypographyColors
 	} from './packs/resolve';
 	import { ENGINE_FONT_FAMILIES, type DiagramPrimitive } from './engine-schema';
-	import { getPipelineRendererRuntime } from './pipelines/runtime-context.svelte';
+	import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 	import { requireLoadedBlockRenderer } from './pipelines/runtime-loader';
 	import { isDarkSurfaceColor } from '$lib/utils/color';
 	import { resolveDiagramPrimitiveForRender } from '$lib/utils/diagram-geometry';
@@ -28,13 +28,11 @@
 	// Stroke primitives (edge-arrow, the segment's rule) render in the pipelines'
 	// marks canvas, not here.
 
-	const rendererController = getPipelineRendererRuntime();
-
 	function getDiagramCanvasSource(
 		primitive: DiagramPrimitive
 	): Component<{ block: DiagramPrimitive }> | null {
 		// Every authored primitive requires its renderer, including GPU-only strokes.
-		rendererController.current();
+		pipelineRendererRuntime.current();
 		const CanvasSource = requireLoadedBlockRenderer(primitive.type).CanvasSource;
 		if (
 			!CanvasSource &&

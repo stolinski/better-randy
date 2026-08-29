@@ -11,7 +11,7 @@
 		addTextAnimation
 	} from './engine-state.svelte';
 	import { PIPELINE_DEFINITION_REGISTRY } from './pipelines/definition-registry';
-	import { getPipelineRendererRuntime } from './pipelines/runtime-context.svelte';
+	import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 	import { selectLayer } from './selection.svelte';
 	import { createTimelineTrackId } from './timeline-entity-identity';
 	import { AsyncAuthoringOperationGuard } from '$lib/utils/async-authoring-operation';
@@ -20,7 +20,6 @@
 	// addable layer types — the real add affordance, not a stray <select>. The
 	// popover escapes the panel's overflow:hidden and opens upward.
 	const overlayDefinitions = Object.values(PIPELINE_DEFINITION_REGISTRY.overlays);
-	const rendererController = getPipelineRendererRuntime();
 	const addOperationGuard = new AsyncAuthoringOperationGuard();
 	onDestroy(() => addOperationGuard.dispose());
 
@@ -86,7 +85,7 @@
 		const generation = addOperationGuard.begin();
 		const overlayIdentity = engineState.overlays.map((overlay) => overlay.id).join('\u0000');
 		try {
-			await rendererController.ensureOverlay(type);
+			await pipelineRendererRuntime.ensureOverlay(type);
 			if (
 				!addOperationGuard.isCurrent(generation) ||
 				engineState.overlays.map((overlay) => overlay.id).join('\u0000') !== overlayIdentity
@@ -113,7 +112,7 @@
 		const surface = engineState.surface;
 		const chartIdentity = surface.chart?.items.map((item) => item.id).join('\u0000') ?? '';
 		try {
-			const bundle = await rendererController.resolve({
+			const bundle = await pipelineRendererRuntime.resolve({
 				surfaces: new Set(),
 				blocks: new Set([type]),
 				annotations: new Set(),
@@ -129,7 +128,7 @@
 			) {
 				return;
 			}
-			rendererController.activate(bundle);
+			pipelineRendererRuntime.activate(bundle);
 			const id = addChartBlock(type);
 			if (!id) return;
 			selectLayer(createTimelineTrackId({ kind: 'block', blockId: id }));
@@ -156,7 +155,7 @@
 		const surface = engineState.surface;
 		const diagramIdentity = surface.diagram?.map((item) => item.id).join('\u0000') ?? '';
 		try {
-			const bundle = await rendererController.resolve({
+			const bundle = await pipelineRendererRuntime.resolve({
 				surfaces: new Set(),
 				blocks: new Set([type]),
 				annotations: new Set(),
@@ -171,7 +170,7 @@
 			) {
 				return;
 			}
-			rendererController.activate(bundle);
+			pipelineRendererRuntime.activate(bundle);
 			const id = addDiagramPrimitive(type);
 			selectLayer(createTimelineTrackId({ kind: 'block', blockId: id }));
 			addMenuEl?.hidePopover();

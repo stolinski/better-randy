@@ -2,7 +2,7 @@
 	import AnnotationTextEditor from '$lib/annotations/AnnotationTextEditor.svelte';
 	import { engineState, EDITOR_MARK_COLORS } from './engine-state.svelte';
 	import { getSurfaceDefinition } from './pipelines/definition-registry';
-	import { getPipelineRendererRuntime } from './pipelines/runtime-context.svelte';
+	import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 	import { requestInspectorFocus } from './selection.svelte';
 	import { uploadUserImage } from '$lib/platform/user-image-upload-transport';
 	import {
@@ -18,7 +18,6 @@
 	// The Surface's document text slots (kicker / title / … / body label), the
 	// rich-text body, and the "+ Slot" menu for declared-but-absent slots.
 	// Which rows exist derives from the active renderer's controls.
-	const rendererController = getPipelineRendererRuntime();
 	const definition = $derived(getSurfaceDefinition(engineState.surface.type));
 	const controls = $derived(definition?.controls ?? {});
 	const activeVariant = $derived(engineState.surface.variant ?? definition?.variantIds?.[0]);
@@ -203,7 +202,7 @@
 				bind:body={engineState.surface.content.body}
 				colors={EDITOR_MARK_COLORS}
 				label="Body"
-				prepareMarkStyle={(style) => rendererController.ensureAnnotation(style)}
+				prepareMarkStyle={(style) => pipelineRendererRuntime.ensureAnnotation(style)}
 				rows={10}
 			/>
 		</div>

@@ -6,7 +6,7 @@
 	import { getAuthoringPackOption, listAuthoringPacks } from './packs/catalog';
 	import { resolveBackgroundFill } from './packs/resolve';
 	import { presetBase } from './preset-base.svelte';
-	import { getPipelineRendererRuntime } from './pipelines/runtime-context.svelte';
+	import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 	import { compositionMeta } from './composition-meta.svelte';
 	import {
 		rescaleCompositionTimings,
@@ -24,7 +24,6 @@
 	import { AsyncAuthoringOperationGuard } from '$lib/utils/async-authoring-operation';
 
 	const packOptions = listAuthoringPacks();
-	const rendererController = getPipelineRendererRuntime();
 	const rendererChangeGuard = new AsyncAuthoringOperationGuard();
 	onDestroy(() => rendererChangeGuard.dispose());
 
@@ -35,7 +34,7 @@
 		const chromeRole = pack.roles.chrome;
 		if (chromeRole?.kind !== 'chrome') return true;
 		for (const effect of chromeRole.effects) {
-			await rendererController.ensureEffect(effect.type);
+			await pipelineRendererRuntime.ensureEffect(effect.type);
 			if (!rendererChangeGuard.isCurrent(generation)) return false;
 		}
 		return true;

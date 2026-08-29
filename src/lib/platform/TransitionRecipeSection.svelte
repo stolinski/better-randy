@@ -8,7 +8,7 @@
 	import { presetBase } from './preset-base.svelte';
 	import { collectPresetRendererRequirements } from './pipelines/preset-renderer-requirements';
 	import { transitionEffectDefinitions } from './pipelines/transition-definition-registry';
-	import { getPipelineRendererRuntime } from './pipelines/runtime-context.svelte';
+	import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 	import type { ResolvedPipelineRendererBundle } from './pipelines/runtime-loader';
 	import InspectorSection from './InspectorSection.svelte';
 	import InspectorToggle from './InspectorToggle.svelte';
@@ -21,7 +21,6 @@
 	// transition endpoints (transition-wipe-demo proves it).
 	const transitionTargets = [...listPresets(), ...listFixtures()];
 	const transitionEffects = transitionEffectDefinitions();
-	const rendererController = getPipelineRendererRuntime();
 	const transitionEditGuard = new AsyncAuthoringOperationGuard();
 	onDestroy(() => transitionEditGuard.dispose());
 
@@ -33,7 +32,7 @@
 	}
 
 	function findTransitionEffectRenderer(type: string) {
-		return rendererController.current().transitions.get(type) ?? null;
+		return pipelineRendererRuntime.current().transitions.get(type) ?? null;
 	}
 
 	async function resolveTransitionEndpointRenderers(
@@ -41,7 +40,7 @@
 	): Promise<ResolvedPipelineRendererBundle | null> {
 		const preset = transitionTargets.find((entry) => entry.slug === slug)?.preset;
 		if (!preset) return null;
-		return rendererController.resolve(
+		return pipelineRendererRuntime.resolve(
 			collectPresetRendererRequirements(preset, {
 				pack: getPack(preset.pack),
 				resolvePack: getPack,
@@ -66,7 +65,7 @@
 		const generation = transitionEditGuard.begin();
 		const videoIdentity = engineState.media.videoTrack.clips.map((clip) => clip.id).join('\u0000');
 		try {
-			await rendererController.ensureTransition(definition.type);
+			await pipelineRendererRuntime.ensureTransition(definition.type);
 			if (!transitionEditGuard.isCurrent(generation) || presetBase.transition) return;
 			const fromBundle = await resolveTransitionEndpointRenderers(from);
 			if (!transitionEditGuard.isCurrent(generation) || presetBase.transition) return;
@@ -78,8 +77,8 @@
 			) {
 				return;
 			}
-			if (fromBundle) rendererController.activate(fromBundle);
-			if (toBundle) rendererController.activate(toBundle);
+			if (fromBundle) pipelineRendererRuntime.activate(fromBundle);
+			if (toBundle) pipelineRendererRuntime.activate(toBundle);
 			presetBase.transition = {
 				from,
 				to,
@@ -107,7 +106,7 @@
 				select.value = presetBase.transition?.[key] ?? '';
 				return;
 			}
-			if (bundle) rendererController.activate(bundle);
+			if (bundle) pipelineRendererRuntime.activate(bundle);
 			transition[key] = slug;
 			syncTransition();
 		} catch (cause) {
@@ -131,7 +130,7 @@
 		}
 		const generation = transitionEditGuard.begin();
 		try {
-			await rendererController.ensureTransition(type);
+			await pipelineRendererRuntime.ensureTransition(type);
 			if (!transitionEditGuard.isCurrent(generation)) return;
 			if (presetBase.transition !== transition || transition.effect !== previousType) {
 				select.value = presetBase.transition?.effect ?? '';

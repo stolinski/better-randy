@@ -3,7 +3,7 @@
 	import type { Effect } from './engine-schema';
 	import { PACK_REGISTRY } from './packs/registry';
 	import { getEffectDefinition } from './pipelines/definition-registry';
-	import { getPipelineRendererRuntime } from './pipelines/runtime-context.svelte';
+	import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 
 	// One authored effect: its label row (with a pack-inert tag when the active
 	// Pack disables it) plus the effect's own Editor.
@@ -13,9 +13,8 @@
 
 	let { effect }: Props = $props();
 
-	const rendererController = getPipelineRendererRuntime();
 	const definition = $derived(getEffectDefinition(effect.type));
-	const renderer = $derived(rendererController.current().effects.get(effect.type) ?? null);
+	const renderer = $derived(pipelineRendererRuntime.current().effects.get(effect.type) ?? null);
 	const packInert = $derived(definition?.isPackInert?.(PACK_REGISTRY[packState.slug]) ?? false);
 </script>
 

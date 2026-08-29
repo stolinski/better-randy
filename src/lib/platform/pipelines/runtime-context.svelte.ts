@@ -1,5 +1,3 @@
-import { createContext } from 'svelte';
-
 import {
 	pipelineRendererController,
 	type PipelineRendererController,
@@ -57,7 +55,12 @@ export class PipelineRendererRuntime {
 	}
 }
 
+// The one reactive view every mount and inspector reads. It is imported
+// directly rather than handed down through Svelte context: the value is a
+// process-wide singleton with a single producer, so a context only added a
+// failure mode — any consumer instantiated outside the providing component's
+// context chain (a hot-module replacement re-render, for example) threw
+// `missing_context` instead of reaching the runtime that was already there.
+// Reading the module singleton where it is used cannot fail that way, and the
+// `$state` revision inside it keeps every reader reactive exactly as before.
 export const pipelineRendererRuntime = new PipelineRendererRuntime(pipelineRendererController);
-
-export const [getPipelineRendererRuntime, setPipelineRendererRuntime] =
-	createContext<PipelineRendererRuntime>();

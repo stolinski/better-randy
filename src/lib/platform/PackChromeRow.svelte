@@ -3,7 +3,7 @@
 	import type { Effect } from './engine-schema';
 	import { PACK_REGISTRY } from './packs/registry';
 	import { getEffectDefinition } from './pipelines/definition-registry';
-	import { getPipelineRendererRuntime } from './pipelines/runtime-context.svelte';
+	import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 
 	// One Pack-chrome entry: present in the render, owned by the Pack — tagged,
 	// not removable (swap the Pack and it goes with it). The Pack supplies
@@ -16,9 +16,8 @@
 
 	let { entry }: Props = $props();
 
-	const rendererController = getPipelineRendererRuntime();
 	const definition = $derived(getEffectDefinition(entry.type));
-	const renderer = $derived(rendererController.current().effects.get(entry.type) ?? null);
+	const renderer = $derived(pipelineRendererRuntime.current().effects.get(entry.type) ?? null);
 	const override = $derived(engineState.effects.find((effect) => effect.type === entry.type));
 
 	// Materialize-on-first-write model for an un-overridden chrome entry: the

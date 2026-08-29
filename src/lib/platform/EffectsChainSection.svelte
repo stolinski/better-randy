@@ -4,7 +4,7 @@
 	import { engineState, packState, addEffect } from './engine-state.svelte';
 	import { PACK_REGISTRY } from './packs/registry';
 	import { PIPELINE_DEFINITION_REGISTRY } from './pipelines/definition-registry';
-	import { getPipelineRendererRuntime } from './pipelines/runtime-context.svelte';
+	import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 	import AddMenu from './AddMenu.svelte';
 	import EffectChainRow from './EffectChainRow.svelte';
 	import InspectorSection from './InspectorSection.svelte';
@@ -15,7 +15,6 @@
 	// chrome recipe (surfaced so the list matches the pixels — the Workspace
 	// appends these AFTER the authored chain on opaque pieces).
 	const effectDefinitions = Object.values(PIPELINE_DEFINITION_REGISTRY.effects);
-	const rendererController = getPipelineRendererRuntime();
 	const effectAddGuard = new AsyncAuthoringOperationGuard();
 	onDestroy(() => effectAddGuard.dispose());
 	const EFFECT_CHAIN_LIMIT = 3;
@@ -40,7 +39,7 @@
 		const generation = effectAddGuard.begin();
 		const chainIdentity = engineState.effects.map((effect) => effect.id).join('\u0000');
 		try {
-			await rendererController.ensureEffect(type);
+			await pipelineRendererRuntime.ensureEffect(type);
 			if (
 				!effectAddGuard.isCurrent(generation) ||
 				engineState.effects.map((effect) => effect.id).join('\u0000') !== chainIdentity ||

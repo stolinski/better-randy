@@ -2,7 +2,7 @@
 	import { engineState, addTextAnimation } from './engine-state.svelte';
 	import { type Cascade, type Overlay, type Transition } from './engine-schema';
 	import { getOverlayDefinition } from './pipelines/definition-registry';
-	import { getPipelineRendererRuntime } from './pipelines/runtime-context.svelte';
+	import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 	import {
 		TEXT_EFFECT_CATALOG,
 		TEXT_EFFECT_IDS,
@@ -25,11 +25,10 @@
 
 	let { overlayId }: Props = $props();
 
-	const rendererController = getPipelineRendererRuntime();
 	const overlay = $derived(engineState.overlays.find((o) => o.id === overlayId) ?? null);
 	const overlayDefinition = $derived(overlay ? getOverlayDefinition(overlay.type) : null);
 	const overlayRenderer = $derived(
-		overlay ? (rendererController.current().overlays.get(overlay.type) ?? null) : null
+		overlay ? (pipelineRendererRuntime.current().overlays.get(overlay.type) ?? null) : null
 	);
 
 	const overlayTextAnimations = $derived(

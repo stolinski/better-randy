@@ -10,10 +10,7 @@
 	import { engineState, packState, transitionState } from '$lib/platform/engine-state.svelte';
 	import { getPack } from '$lib/platform/packs/registry';
 	import { collectPresetRendererRequirements } from '$lib/platform/pipelines/preset-renderer-requirements';
-	import {
-		pipelineRendererRuntime,
-		setPipelineRendererRuntime
-	} from '$lib/platform/pipelines/runtime-context.svelte';
+	import { pipelineRendererRuntime } from '$lib/platform/pipelines/runtime-context.svelte';
 	import { posterKeyForPreset } from '$lib/platform/posters';
 	import { getPresetBySlug } from '$lib/platform/preset-catalog';
 	import { applyPreset } from '$lib/platform/preset';
@@ -51,8 +48,6 @@
 			? `${presetBase.name} · ${GFX_PRODUCT_NAME}`
 			: GFX_PRODUCT_NAME
 	);
-
-	setPipelineRendererRuntime(pipelineRendererRuntime);
 
 	// Track whether the currently-viewed Preset was found in the User composition store.
 	// This determines fork vs autosave on edit.

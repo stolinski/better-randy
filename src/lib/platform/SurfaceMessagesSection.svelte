@@ -4,7 +4,7 @@
 	import { DECORATIVE_ANNOTATION_STYLES } from '$lib/annotations/annotation-mark-styles';
 	import { engineState, EDITOR_MARK_COLORS } from './engine-state.svelte';
 	import type { ChatMessage } from './engine-schema';
-	import { getPipelineRendererRuntime } from './pipelines/runtime-context.svelte';
+	import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 	import { layerSelection } from './selection.svelte';
 	import { parseTimelineTrackId } from './timeline-entity-identity';
 	import InspectorSection from './InspectorSection.svelte';
@@ -23,7 +23,6 @@
 		{ value: 'question', label: 'Question' }
 	];
 
-	const rendererController = getPipelineRendererRuntime();
 	const messages = $derived(engineState.surface.content.messages ?? []);
 
 	// A selected Surface-message timeline row (canvas bubble click or timeline
@@ -88,7 +87,7 @@
 				bind:body={message.text}
 				colors={EDITOR_MARK_COLORS}
 				label={`Message ${index + 1}`}
-				prepareMarkStyle={(style) => rendererController.ensureAnnotation(style)}
+				prepareMarkStyle={(style) => pipelineRendererRuntime.ensureAnnotation(style)}
 				rows={1}
 				styles={DECORATIVE_ANNOTATION_STYLES}
 			/>

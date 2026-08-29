@@ -13,7 +13,7 @@
 		getSurfaceDefinition,
 		PIPELINE_DEFINITION_REGISTRY
 	} from './pipelines/definition-registry';
-	import { getPipelineRendererRuntime } from './pipelines/runtime-context.svelte';
+	import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 	import { inspectorFocus, layerSelection } from './selection.svelte';
 	import { parseTimelineTrackId } from './timeline-entity-identity';
 	import { defaultMessageEnter } from '$lib/pipelines/surfaces/imessage/schedule';
@@ -32,7 +32,6 @@
 	import WebsiteCaptureFields from './WebsiteCaptureFields.svelte';
 
 	const surfaceDefinitions = Object.values(PIPELINE_DEFINITION_REGISTRY.surfaces);
-	const rendererController = getPipelineRendererRuntime();
 	const surfaceChangeGuard = new AsyncAuthoringOperationGuard();
 	onDestroy(() => surfaceChangeGuard.dispose());
 
@@ -77,7 +76,7 @@
 		}
 		const generation = surfaceChangeGuard.begin();
 		try {
-			await rendererController.ensureSurface(nextType);
+			await pipelineRendererRuntime.ensureSurface(nextType);
 			if (!surfaceChangeGuard.isCurrent(generation)) return;
 			if (engineState.surface.type !== previousType) {
 				select.value = engineState.surface.type;

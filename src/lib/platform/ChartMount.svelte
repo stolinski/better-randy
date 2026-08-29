@@ -2,20 +2,19 @@
 	import type { Component } from 'svelte';
 
 	import type { ChartBlock } from './engine-schema';
-	import { getPipelineRendererRuntime } from './pipelines/runtime-context.svelte';
+	import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 	import { requireLoadedBlockRenderer } from './pipelines/runtime-loader';
 	import { resolveVisibleChartBlock } from '$lib/utils/chart-visibility';
 	import ChartProgressBar from './ChartProgressBar.svelte';
 	import { animState } from './anim-state.svelte';
 	import { engineState } from './engine-state.svelte';
 
-	const rendererController = getPipelineRendererRuntime();
 	const visibleBlock = $derived(
 		resolveVisibleChartBlock(engineState.surface.chart, animState.globalProgress)
 	);
 	function requireChartCanvasSource(block: ChartBlock): Component<{ block: ChartBlock }> {
 		// Read the reactive bundle revision before enforcing the synchronous invariant.
-		rendererController.current();
+		pipelineRendererRuntime.current();
 		const CanvasSource = requireLoadedBlockRenderer(block.type).CanvasSource;
 		if (!CanvasSource) {
 			throw new Error(`Required chart Block renderer "${block.type}" has no CanvasSource.`);
