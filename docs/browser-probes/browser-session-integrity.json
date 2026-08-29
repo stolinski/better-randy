@@ -1,0 +1,64 @@
+{
+	"schemaVersion": 1,
+	"generatedAt": "2026-08-29T23:10:16.396Z",
+	"probe": "browser-session-integrity",
+	"origin": "http://localhost:7311",
+	"storageIdentity": "gfx-session-probe",
+	"limits": { "maxStorageBytes": 4194304, "maxCompositionBytes": 1048576 },
+	"measurements": {
+		"originCompositionRouteStatus": 404,
+		"recordsAfterEdits": ["gfx-session-probe:untitled"],
+		"sessionAfterReload": {
+			"status": "inspected",
+			"operationId": "session.inspect",
+			"entries": [
+				{
+					"slug": "untitled",
+					"name": "Untitled",
+					"revision": 0,
+					"forkedFrom": null,
+					"savedAt": "2026-08-29T23:09:56.186Z",
+					"durationSeconds": 6,
+					"surfaceType": "plain"
+				}
+			],
+			"total": 1,
+			"truncated": false,
+			"storage": { "available": true, "usedBytes": 1810, "quotaBytes": 4194304 }
+		},
+		"twoTabs": {
+			"conflictMessage": "Persistence / save / composition \"untitled\" was saved by another tab of this browser after this one opened it; open it again to continue from that version."
+		},
+		"quota": {
+			"paddingLength": 2096993,
+			"quotaMessage": "Persistence / save / composition This browser session holds 4194048 of 4194304 bytes and \"untitled\" needs 1852 more; delete a composition it no longer needs first."
+		},
+		"invalidRecords": { "catalogSlugs": ["untitled", "probe-legacy"] },
+		"unresolvableMedia": {
+			"code": "semantic_invalid",
+			"message": "That document names Media the engine cannot resolve, so nothing was imported; correct the Media reference each finding points at and import it again."
+		},
+		"consent": { "code": "consent_required" },
+		"storageDenied": {
+			"code": "storage_unavailable",
+			"message": "This browser exposes no local storage, so a composition has nowhere to live. Leave private browsing or allow site data, then reload."
+		},
+		"noLeak": {
+			"requests": 3081,
+			"consoleMessages": 13,
+			"telemetryEnvelopes": 12,
+			"originVisibleSessionPaths": [
+				"/",
+				"/api/posters/7e6fe563b523da9a",
+				"/api/user-compositions",
+				"/fonts/PaperMono-Variable.woff2",
+				"/p/untitled",
+				"/p/untitled/__data.json",
+				"/surface-posters/chapter-card.webp",
+				"/surface-posters/checklist.webp",
+				"/surface-posters/plain.webp"
+			]
+		}
+	},
+	"failures": []
+}

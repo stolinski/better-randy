@@ -353,3 +353,124 @@ describe('browser-scoped composition session store', () => {
 		);
 	});
 });
+
+/**
+ * Two tabs of one browser share the storage area and neither knows the other is
+ * there. Each store instance is one tab, so a second `createStore()` over the
+ * same `storage` is a second tab — which is the only concurrency a
+ * browser-scoped session has.
+ */
+describe('browser-scoped composition session across two tabs', () => {
+	it('refuses a save over the version another tab wrote, keeping both compositions', async () => {
+		const firstTab = createStore();
+		await firstTab.forkUserComposition('untitled', namedPreset('Opened'), 'blank');
+		const secondTab = createStore();
+		await secondTab.loadUserComposition('untitled');
+		await secondTab.saveUserComposition('untitled', namedPreset('Second tab edit'));
+
+		const cause = await firstTab
+			.saveUserComposition('untitled', namedPreset('First tab edit'))
+			.catch((e) => e);
+
+		assert.equal(storageFailureCode(cause), 'stale_revision');
+		assert.ok(cause instanceof Error && cause.message.includes('another tab'));
+		// The stored composition is still the second tab's, and the first tab's
+		// document is still whatever it holds in memory — nothing was destroyed.
+		assert.equal((await secondTab.loadUserComposition('untitled'))?.name, 'Second tab edit');
+	});
+
+	it('lets a tab save again once it has opened the version it would replace', async () => {
+		const firstTab = createStore();
+		await firstTab.forkUserComposition('untitled', namedPreset('Opened'), null);
+		const secondTab = createStore();
+		await secondTab.loadUserComposition('untitled');
+		await secondTab.saveUserComposition('untitled', namedPreset('Second tab edit'));
+		await firstTab.saveUserComposition('untitled', namedPreset('Refused')).catch(() => undefined);
+
+		await firstTab.loadUserComposition('untitled');
+		await firstTab.saveUserComposition('untitled', namedPreset('Accepted'));
+
+		assert.equal((await secondTab.loadUserComposition('untitled'))?.name, 'Accepted');
+	});
+
+	it('refuses a second tab forking onto a slug the first tab already forked', async () => {
+		const firstTab = createStore();
+		await firstTab.forkUserComposition('lower-third', namedPreset('First fork'), 'lower-third');
+
+		const cause = await createStore()
+			.forkUserComposition('lower-third', namedPreset('Second fork'), 'lower-third')
+			.catch((e) => e);
+
+		assert.equal(storageFailureCode(cause), 'stale_revision');
+		assert.equal((await firstTab.loadUserComposition('lower-third'))?.name, 'First fork');
+	});
+
+	it('replaces a record left unstamped by an older release, which no tab holds open', async () => {
+		storage.entries.set(
+			`${STORAGE_IDENTITY}:untitled`,
+			JSON.stringify({
+				forkedFrom: 'blank',
+				savedAt: '2026-08-29T12:00:00.000Z',
+				preset: presetToWireFormat(namedPreset('From an older release'))
+			})
+		);
+
+		await createStore().saveUserComposition('untitled', namedPreset('Current release'));
+
+		const [entry] = await createStore().listUserCompositions();
+		assert.equal(entry?.name, 'Current release');
+		// A save keeps the record's provenance even when it could not parse it.
+		assert.equal(entry?.forkedFrom, 'blank');
+	});
+
+	it('replaces a record too corrupt for any tab to have it open', async () => {
+		storage.entries.set(`${STORAGE_IDENTITY}:untitled`, '{"forkedFrom":null,"saved');
+
+		await createStore().forkUserComposition('untitled', namedPreset('Repaired'), null);
+
+		assert.equal((await createStore().loadUserComposition('untitled'))?.name, 'Repaired');
+	});
+
+	it('forks again into a slug it just deleted, which is what reverting does', async () => {
+		const store = createStore();
+		await store.forkUserComposition('lower-third', namedPreset('Fork'), 'lower-third');
+
+		await store.deleteUserComposition('lower-third');
+		await store.forkUserComposition('lower-third', namedPreset('Refork'), 'lower-third');
+
+		assert.equal((await store.loadUserComposition('lower-third'))?.name, 'Refork');
+	});
+
+	it('still lets the tab that migrated a record save it, because a migration is not a version', async () => {
+		const key = `${STORAGE_IDENTITY}:legacy`;
+		storage.entries.set(
+			key,
+			JSON.stringify({
+				forkedFrom: null,
+				savedAt: '2026-08-29T12:00:00.000Z',
+				writeToken: 'another-page-load.1',
+				preset: {
+					...blankPresetJson,
+					state: {
+						...blankPresetJson.state,
+						sourceVideo: {
+							assetUrl: `/api/user-assets/${'a'.repeat(64)}.mp4`,
+							sourceOffsetSeconds: 0
+						}
+					}
+				}
+			})
+		);
+		const tab = createStore();
+
+		// Opening rewrites the record in its current shape; the version it carries
+		// is the one this tab just opened, so the save that follows is not drift.
+		await tab.loadUserComposition('legacy');
+		await tab.saveUserComposition('legacy', namedPreset('Edited after migration'));
+
+		assert.equal(
+			(await createStore().loadUserComposition('legacy'))?.name,
+			'Edited after migration'
+		);
+	});
+});

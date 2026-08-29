@@ -117,8 +117,8 @@ function findStarterTemplate(slug: string): Preset | null {
 }
 
 /**
- * Slugs a new composition must not take. Session slugs are excluded because the
- * store overwrites by slug; corpus slugs are excluded because a session
+ * Slugs a new composition must not take. Session slugs are excluded because a
+ * slug addresses one composition; corpus slugs are excluded because a session
  * composition at a corpus slug shadows that Starter on its own route.
  */
 function reservedCompositionSlugs(sessionSlugs: readonly string[]): string[] {

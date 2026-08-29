@@ -25,6 +25,11 @@
  * than lost. A record left behind in a Legacy Supers shape (ADR-0053) still
  * opens, and reading it rewrites it in its current form once, so the session
  * stops carrying an upgrade it has already performed.
+ *
+ * Two tabs are the one concurrency this store has. They share the storage area
+ * and neither knows the other exists, so every write is stamped and a save that
+ * would land on a stamp this store never opened is refused rather than applied —
+ * see `writeToken` below.
  */
 import { posterKeyForPreset } from './posters';
 import { parsePresetIngress, readCompositionLegacyUpgrades } from './preset-ingress';
@@ -42,9 +47,7 @@ import type {
 
 /** Why a browser-scoped store refused, in the operation contract's own codes. */
 export type CompositionSessionStorageFailureCode =
-	| 'storage_unavailable'
-	| 'quota_exceeded'
-	| 'limit_exceeded';
+	'storage_unavailable' | 'quota_exceeded' | 'limit_exceeded' | 'stale_revision';
 
 /**
  * A refusal the session store raises about its own storage, carrying the
@@ -75,6 +78,13 @@ export function isCompositionSessionStorageError(
 interface StoredBrowserUserComposition {
 	forkedFrom: string | null;
 	savedAt: string;
+	/**
+	 * The write that produced this record, unique to it. A store instance
+	 * remembers the token of every record it opened or wrote, so a save can tell
+	 * "this is the version I opened" from "another tab has written here since".
+	 * Absent in a record a release that stamped nothing left behind.
+	 */
+	writeToken?: string;
 	preset: unknown;
 }
 
@@ -87,8 +97,21 @@ function isStoredBrowserUserComposition(value: unknown): value is StoredBrowserU
 	return (
 		(value.forkedFrom === null || typeof value.forkedFrom === 'string') &&
 		typeof value.savedAt === 'string' &&
+		(value.writeToken === undefined || typeof value.writeToken === 'string') &&
 		isRecord(value.preset)
 	);
+}
+
+/**
+ * The writer half of a write token: one value per store instance, which is one
+ * per page load, which is one per tab. It only has to tell two open tabs of the
+ * same browser apart, so it is cheap rather than cryptographic — and it is
+ * generated without `crypto.randomUUID`, which an insecure context does not
+ * expose and which a session store must not depend on being able to write at
+ * all.
+ */
+function createCompositionSessionWriterId(): string {
+	return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 export interface BrowserUserCompositionStoreOptions {
@@ -107,6 +130,7 @@ interface BrowserSessionRecord {
 	slug: string;
 	forkedFrom: string | null;
 	savedAt: string;
+	writeToken: string | undefined;
 	preset: Preset;
 }
 
@@ -123,6 +147,18 @@ export function createBrowserUserCompositionStore(
 	options: BrowserUserCompositionStoreOptions
 ): UserCompositionStore {
 	const keyPrefix = `${options.storageIdentity}:`;
+	const writerId = createCompositionSessionWriterId();
+	let writeCount = 0;
+
+	/**
+	 * The write each slug carried when this store last opened or wrote it.
+	 *
+	 * Opening a composition counts and listing the session does not: a catalog
+	 * read tells this tab that a newer version exists, it does not give this tab
+	 * that version, so treating a listing as having seen it would license exactly
+	 * the overwrite the token exists to refuse.
+	 */
+	const observedWriteTokens = new Map<string, string>();
 
 	function requireStorage(): Storage {
 		const storage = options.resolveStorage();
@@ -148,11 +184,12 @@ export function createBrowserUserCompositionStore(
 		return slug;
 	}
 
-	function readRecordAt(storage: Storage, key: string): BrowserSessionRecord | null {
-		if (!key.startsWith(keyPrefix)) return null;
-		const slug = key.slice(keyPrefix.length);
-		if (!COMPOSITION_SESSION_SLUG_PATTERN.test(slug)) return null;
-
+	/**
+	 * The envelope at one key, without parsing the composition inside it. This is
+	 * what the concurrency check and a save's provenance read, so a record too
+	 * corrupt to open still answers who wrote it and what it was forked from.
+	 */
+	function readStoredEnvelope(storage: Storage, key: string): StoredBrowserUserComposition | null {
 		const raw = storage.getItem(key);
 		if (raw === null || raw.trim().length === 0) return null;
 
@@ -162,7 +199,16 @@ export function createBrowserUserCompositionStore(
 		} catch {
 			return null;
 		}
-		if (!isStoredBrowserUserComposition(stored)) return null;
+		return isStoredBrowserUserComposition(stored) ? stored : null;
+	}
+
+	function readRecordAt(storage: Storage, key: string): BrowserSessionRecord | null {
+		if (!key.startsWith(keyPrefix)) return null;
+		const slug = key.slice(keyPrefix.length);
+		if (!COMPOSITION_SESSION_SLUG_PATTERN.test(slug)) return null;
+
+		const stored = readStoredEnvelope(storage, key);
+		if (!stored) return null;
 
 		let preset: Preset;
 		try {
@@ -176,7 +222,13 @@ export function createBrowserUserCompositionStore(
 			migrateStoredRecord(storage, key, stored, preset);
 		}
 
-		return { slug, forkedFrom: stored.forkedFrom, savedAt: stored.savedAt, preset };
+		return {
+			slug,
+			forkedFrom: stored.forkedFrom,
+			savedAt: stored.savedAt,
+			writeToken: stored.writeToken,
+			preset
+		};
 	}
 
 	/**
@@ -189,6 +241,9 @@ export function createBrowserUserCompositionStore(
 	 * record then stays legacy, still opens through ingress, and is offered the
 	 * same migration on the next read. A refused rewrite must never turn reading a
 	 * composition into a failure.
+	 *
+	 * The rewrite carries the record's own write token forward. A migration is not
+	 * a new version of the composition, so it must not read to another tab as one.
 	 */
 	function migrateStoredRecord(
 		storage: Storage,
@@ -236,18 +291,47 @@ export function createBrowserUserCompositionStore(
 	}
 
 	/**
-	 * Write one record, having first proved the session can hold it. The
-	 * composition ceiling is per document and the session ceiling is the whole
-	 * store minus whatever this slug already occupies, because a save replaces its
-	 * own record rather than adding to it.
+	 * Refuse a write that would land on a version of this slug the store never
+	 * opened — which, in a browser-scoped session, means a second tab wrote it.
+	 *
+	 * The refusal is the drift refusal, because that is what this is: the caller
+	 * edited a document that has since moved, exactly as a stale Composition
+	 * revision means (ADR-0054 §3). Refusing leaves both compositions intact —
+	 * the stored one and the one still on this tab's screen — where overwriting
+	 * would silently destroy work the visitor can still see in the other tab.
+	 *
+	 * Only a token this store can read blocks a write. A record written before
+	 * this release stamped anything, and a record too corrupt to open, carry
+	 * none; neither is another tab's live work, so neither stands in the way of
+	 * replacing it.
+	 */
+	function refuseWriteOverAnotherTab(storage: Storage, slug: string, key: string): void {
+		const storedToken = readStoredEnvelope(storage, key)?.writeToken;
+		if (storedToken === undefined || observedWriteTokens.get(slug) === storedToken) return;
+		throw new CompositionSessionStorageError(
+			'stale_revision',
+			`"${slug}" was saved by another tab of this browser after this one opened it; open it again to continue from that version.`
+		);
+	}
+
+	/**
+	 * Write one record, having first proved no other tab owns the version it
+	 * replaces and that the session can hold it. The composition ceiling is per
+	 * document and the session ceiling is the whole store minus whatever this slug
+	 * already occupies, because a save replaces its own record rather than adding
+	 * to it.
 	 */
 	function writeRecord(
 		storage: Storage,
 		slug: string,
-		record: StoredBrowserUserComposition
+		record: Omit<StoredBrowserUserComposition, 'writeToken'>
 	): void {
 		const key = storageKeyForSlug(slug);
-		const serialized = JSON.stringify(record);
+		refuseWriteOverAnotherTab(storage, slug, key);
+
+		writeCount += 1;
+		const writeToken = `${writerId}.${writeCount}`;
+		const serialized = JSON.stringify({ ...record, writeToken });
 		const bytes = storedRecordBytes(key, serialized);
 
 		if (bytes > options.limits.maxCompositionBytes) {
@@ -276,6 +360,7 @@ export function createBrowserUserCompositionStore(
 				`This browser refused to store "${slug}": ${cause instanceof Error ? cause.message : 'its own storage limit was reached'}.`
 			);
 		}
+		observedWriteTokens.set(slug, writeToken);
 	}
 
 	function metaForRecord(record: BrowserSessionRecord): UserCompositionMeta {
@@ -303,7 +388,12 @@ export function createBrowserUserCompositionStore(
 
 		async loadUserComposition(slug: string): Promise<Preset | null> {
 			const storage = requireStorage();
-			return readRecordAt(storage, storageKeyForSlug(slug))?.preset ?? null;
+			const record = readRecordAt(storage, storageKeyForSlug(slug));
+			if (!record) return null;
+			// Opening the composition is what earns this tab the right to save over
+			// it: from here on, it holds the version the record carries.
+			if (record.writeToken !== undefined) observedWriteTokens.set(slug, record.writeToken);
+			return record.preset;
 		},
 
 		async forkUserComposition(
@@ -321,7 +411,7 @@ export function createBrowserUserCompositionStore(
 
 		async saveUserComposition(slug: string, preset: Preset): Promise<void> {
 			const storage = requireStorage();
-			const existing = readRecordAt(storage, storageKeyForSlug(slug));
+			const existing = readStoredEnvelope(storage, storageKeyForSlug(slug));
 			writeRecord(storage, requireStorableSlug(slug), {
 				// A save keeps the Starter this composition was cut from; only a fork
 				// decides that, and it decided it once.
@@ -338,6 +428,9 @@ export function createBrowserUserCompositionStore(
 				throw new Error(`Failed to delete User composition "${slug}": this session holds none.`);
 			}
 			storage.removeItem(key);
+			// Nothing is left to have been written by anyone, so the next write at
+			// this slug starts a new record rather than replacing a version.
+			observedWriteTokens.delete(slug);
 		},
 
 		async inspectStorage(): Promise<CompositionSessionStorage> {

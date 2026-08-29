@@ -12,6 +12,7 @@
 		"probe:standard-browser": "node scripts/probe-standard-browser-rendering.mjs",
 		"eval:webmcp": "node --experimental-strip-types scripts/webmcp-agent-browser-eval.ts",
 		"probe:public-runtime": "node --experimental-strip-types scripts/probe-public-runtime.ts",
+		"probe:browser-session": "node --experimental-strip-types scripts/probe-browser-session-integrity.ts",
 		"audit:timing": "node --experimental-strip-types scripts/audit-timing-coverage.ts",
 		"audit:starter-templates": "node --experimental-strip-types scripts/audit-starter-template-coverage.ts",
 		"audit:tracking": "node --experimental-strip-types scripts/audit-tracking-coverage.ts",
